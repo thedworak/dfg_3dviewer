@@ -1,0 +1,85 @@
+<?php
+
+use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Template\Attribute;
+use Drupal\Core\Url;
+use Drupal\image\Entity\ImageStyle;
+use Drupal\Core\Archiver\Zip;
+use Drupal\Core\Archiver\ArchiverException;
+
+/**
+ * Implements hook_help().
+ */
+function dfg_3dviewer_help($route_name, RouteMatchInterface $route_match) {
+  switch ($route_name) {
+    case 'help.page.wisski_iip_image':
+      return '<p>' . t('This is the WissKI module for the integration ' .
+        'of IIP (https://iipimage.sourceforge.io/).') . '</p>';
+  }
+}
+
+/**
+* Implements hook_file_validate().
+ */
+function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity) {
+	//\Drupal::messenger()->addMessage(serialize($entity));
+	$file = $entity->fbda64e9ba217e59e5fc5f99244f4821;
+	//$compression = $entity->field_3d_compression_level;
+	//\Drupal::messenger()->addMessage(serialize($entity), 'status');
+	if ($entity->bundle() == "file") {
+		$file = $entity->toArray();
+		#\Drupal::messenger()->addError(\Drupal::service('file_system')->realpath($file['uri'][0]['value']));
+		$realpath = \Drupal::service('file_system')->realpath($file['uri'][0]['value']);
+		$parts = pathinfo($realpath);
+		$extension = $parts['extension'].toUpperCase();
+		#\Drupal::messenger()->addMessage(serialize($realpath), 'status');
+		#\Drupal::messenger()->addMessage('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/convert.sh -b true -i ' . $realpath . ' -f true', 'status');
+		if ($extension != 'ZIP' && $extension != 'RAR' && $extension != 'TAR' && $extension != 'GZ') {
+			$output = shell_exec ('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/convert.sh -c true -l 3 -b true -i "' . $realpath . '" -f true');
+		}
+		else {
+			try {
+				$extractPath = $parts['dirname'] . "/" . $parts['filename'] . "_" . $extension . "/";
+				if ($extension == 'ZIP') {
+					$zip = new Zip($realpath);
+					$zip->extract($extractPath);
+					$zip->remove($realpath);
+					$archiveFiles = scandir ($extractPath);
+				}
+				elseif ($extension == 'RAR') {
+					
+				}
+				elseif ($extension == 'TAR') {
+					//$phar = new PharData($realpath);
+					//$phar->extractTo($extractPath);
+				}
+				
+				foreach ($archiveFiles as $zipFile) {
+					$partsZip = pathinfo($zipFile);					
+					switch (strtolower($partsZip["extension"])) {
+						case "obj":
+						case "fbx":
+						case "ply":
+						case "dae":
+						case "abc":
+						case "blend":
+						case "stl":
+						case "wrl":
+						case "x3d":
+						case "glb":
+						case "gltf":
+							#\Drupal::messenger()->addMessage(serialize($extractPath . $zipFile . $parts['filename']), 'status');
+							$output = shell_exec ('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/convert.sh -c true -l 3 -b true -i "' . $extractPath . $zipFile . '" -o "' . $extractPath . '" -f true');
+						break;
+					}
+				}
+				//\Drupal::messenger()->addMessage("Decompressed files: " . serialize($zip->listContents()), 'status');
+			}
+			catch (ArchiverException $exception) {
+				\Drupal::messenger()->addMessage(serialize($exception), 'status');
+			}			
+		}
+		\Drupal::messenger()->addMessage($output, 'status');
+	}
+}
