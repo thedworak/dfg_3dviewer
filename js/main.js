@@ -1,6 +1,4 @@
-//var jQuery29 = jQuery;
-//jQuery.noConflict(true);
-//Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON
+//Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, glTF
 
 const container = document.getElementById("DFG_3DViewer");
 
