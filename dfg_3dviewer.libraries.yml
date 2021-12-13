@@ -1,0 +1,13 @@
+dfg_3dviewer:
+  js:
+    js/main.js: { attributes: { type: module } }
+    js/spinner/main.js: { }
+  css:
+    theme:
+      css/main.css: {}
+      css/spinner.css: {}
+  dependencies:
+    - core/jquery
+    - core/jquery.once
+    - core/drupal
+    - core/drupalSettings
