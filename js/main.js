@@ -2,28 +2,31 @@
 
 const container = document.getElementById("DFG_3DViewer");
 
-import * as THREE from '../build/three.module.js';
-import { TWEEN } from '../js/jsm/libs/tween.module.min.js';
+const path = '/modules/dfg_3dviewer';
+//const path = '..'; //local
 
-import Stats from '../js/jsm/libs/stats.module.js';
+import * as THREE from '/modules/dfg_3dviewer/build/three.module.js';
+import { TWEEN } from '/modules/dfg_3dviewer/js/jsm/libs/tween.module.min.js';
 
-import { OrbitControls } from '../js/jsm/controls/OrbitControls.js';
-import { TransformControls } from '../js/jsm/controls/TransformControls.js';
-import { GUI } from '../js/jsm/libs/dat.gui.module.js'
-import { FBXLoader } from '../js/jsm/loaders/FBXLoader.js';
-import { DDSLoader } from '../js/jsm/loaders/DDSLoader.js';
-import { MTLLoader } from '../js/jsm/loaders/MTLLoader.js';
-import { OBJLoader } from '../js/jsm/loaders/OBJLoader.js';
-import { GLTFLoader } from '../js/jsm/loaders/GLTFLoader.js';
-import { DRACOLoader } from '../js/jsm/loaders/DRACOLoader.js'
-import { KTX2Loader } from '../js/jsm/loaders/KTX2Loader.js';
-import { MeshoptDecoder } from '../js/jsm/libs/meshopt_decoder.module.js';
-import { IFCLoader } from '../js/jsm/loaders/IFCLoader.js';
-import { PLYLoader } from '../js/jsm/loaders/PLYLoader.js';
-import { ColladaLoader } from '../js/jsm/loaders/ColladaLoader.js';
-import { STLLoader } from '../js/jsm/loaders/STLLoader.js';
-import { XYZLoader } from '../js/jsm/loaders/XYZLoader.js';
-import { TDSLoader } from '../js/jsm/loaders/TDSLoader.js';
+import Stats from '/modules/dfg_3dviewer/js/jsm/libs/stats.module.js';
+
+import { OrbitControls } from '/modules/dfg_3dviewer/js/jsm/controls/OrbitControls.js';
+import { TransformControls } from '/modules/dfg_3dviewer/js/jsm/controls/TransformControls.js';
+import { GUI } from '/modules/dfg_3dviewer/js/jsm/libs/dat.gui.module.js'
+import { FBXLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/FBXLoader.js';
+import { DDSLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/DDSLoader.js';
+import { MTLLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/MTLLoader.js';
+import { OBJLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/OBJLoader.js';
+import { GLTFLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/DRACOLoader.js'
+import { KTX2Loader } from '/modules/dfg_3dviewer/js/jsm/loaders/KTX2Loader.js';
+import { MeshoptDecoder } from '/modules/dfg_3dviewer/js/jsm/libs/meshopt_decoder.module.js';
+import { IFCLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/IFCLoader.js';
+import { PLYLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/PLYLoader.js';
+import { ColladaLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/ColladaLoader.js';
+import { STLLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/STLLoader.js';
+import { XYZLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/XYZLoader.js';
+import { TDSLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/TDSLoader.js';
 
 let camera, scene, renderer, stats, controls, loader;
 let imported;
@@ -258,7 +261,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 			case 'ifc':
 			case 'IFC':
 				const ifcLoader = new IFCLoader();
-				ifcLoader.setWasmPath( '../js/jsm/loaders/ifc/' );
+				ifcLoader.setWasmPath( '/modules/dfg_3dviewer/js/jsm/loaders/ifc/' );
 				ifcLoader.load( path + filename, function ( object ) {
 					//object.position.set (0, 300, 0);
 					scene.add( object );
@@ -336,7 +339,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 			case 'gltf':
 			case 'GLTF':
 				const dracoLoader = new DRACOLoader();
-				dracoLoader.setDecoderPath( '../js/libs/draco/' );
+				dracoLoader.setDecoderPath( '/modules/dfg_3dviewer/js/libs/draco/' );
 				dracoLoader.preload();
 				const gltf = new GLTFLoader();
 				gltf.setDRACOLoader(dracoLoader);
