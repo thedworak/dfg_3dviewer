@@ -2,28 +2,28 @@
 
 const container = document.getElementById("DFG_3DViewer");
 
-import * as THREE from '/modules/dfg_3dviewer/build/three.module.js';
-import { TWEEN } from '/modules/dfg_3dviewer/js/jsm/libs/tween.module.min.js';
+import * as THREE from '../build/three.module.js';
+import { TWEEN } from '../js/jsm/libs/tween.module.min.js';
 
-import Stats from '/modules/dfg_3dviewer/js/jsm/libs/stats.module.js';
+import Stats from '../js/jsm/libs/stats.module.js';
 
-import { OrbitControls } from '/modules/dfg_3dviewer/js/jsm/controls/OrbitControls.js';
-import { TransformControls } from '/modules/dfg_3dviewer/js/jsm/controls/TransformControls.js';
-import { GUI } from '/modules/dfg_3dviewer/js/jsm/libs/dat.gui.module.js'
-import { FBXLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/FBXLoader.js';
-import { DDSLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/DDSLoader.js';
-import { MTLLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/MTLLoader.js';
-import { OBJLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/OBJLoader.js';
-import { GLTFLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/GLTFLoader.js';
-import { DRACOLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/DRACOLoader.js'
-import { KTX2Loader } from '/modules/dfg_3dviewer/js/jsm/loaders/KTX2Loader.js';
-import { MeshoptDecoder } from '/modules/dfg_3dviewer/js/jsm/libs/meshopt_decoder.module.js';
-import { IFCLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/IFCLoader.js';
-import { PLYLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/PLYLoader.js';
-import { ColladaLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/ColladaLoader.js';
-import { STLLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/STLLoader.js';
-import { XYZLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/XYZLoader.js';
-import { TDSLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/TDSLoader.js';
+import { OrbitControls } from '../js/jsm/controls/OrbitControls.js';
+import { TransformControls } from '../js/jsm/controls/TransformControls.js';
+import { GUI } from '../js/jsm/libs/dat.gui.module.js'
+import { FBXLoader } from '../js/jsm/loaders/FBXLoader.js';
+import { DDSLoader } from '../js/jsm/loaders/DDSLoader.js';
+import { MTLLoader } from '../js/jsm/loaders/MTLLoader.js';
+import { OBJLoader } from '../js/jsm/loaders/OBJLoader.js';
+import { GLTFLoader } from '../js/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from '../js/jsm/loaders/DRACOLoader.js'
+import { KTX2Loader } from '../js/jsm/loaders/KTX2Loader.js';
+import { MeshoptDecoder } from '../js/jsm/libs/meshopt_decoder.module.js';
+import { IFCLoader } from '../js/jsm/loaders/IFCLoader.js';
+import { PLYLoader } from '../js/jsm/loaders/PLYLoader.js';
+import { ColladaLoader } from '../js/jsm/loaders/ColladaLoader.js';
+import { STLLoader } from '../js/jsm/loaders/STLLoader.js';
+import { XYZLoader } from '../js/jsm/loaders/XYZLoader.js';
+import { TDSLoader } from '../js/jsm/loaders/TDSLoader.js';
 
 let camera, scene, renderer, stats, controls, loader;
 let imported;
@@ -86,10 +86,10 @@ var transformText =
 }
 
 const gui = new GUI()
-const metadataFolder = gui.addFolder('Metadata')
-const chierarchyFolder = gui.addFolder('Chierarchy')
-const editorFolder = gui.addFolder('Editor')
-editorFolder.add(transformText, 'Transform', { None: '', Move: 'translate', Rotate: 'rotate', Scale: 'scale' } ).onChange(function (value) { if (value == '') transformControl.detach(); transformType = value; } );
+const metadataFolder = gui.addFolder('Metadata');
+//const mainHierarchyFolder = gui.addFolder('Hierarchy');
+var hierarchyFolder;
+
 guiContainer.appendChild(gui.domElement);
 
 init();
@@ -258,7 +258,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 			case 'ifc':
 			case 'IFC':
 				const ifcLoader = new IFCLoader();
-				ifcLoader.setWasmPath( '/modules/dfg_3dviewer/js/jsm/loaders/ifc/' );
+				ifcLoader.setWasmPath( '../js/jsm/loaders/ifc/' );
 				ifcLoader.load( path + filename, function ( object ) {
 					//object.position.set (0, 300, 0);
 					scene.add( object );
@@ -336,7 +336,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 			case 'gltf':
 			case 'GLTF':
 				const dracoLoader = new DRACOLoader();
-				dracoLoader.setDecoderPath( '/modules/dfg_3dviewer/js/libs/draco/' );
+				dracoLoader.setDecoderPath( '../js/libs/draco/' );
 				dracoLoader.preload();
 				const gltf = new GLTFLoader();
 				gltf.setDRACOLoader(dracoLoader);
@@ -383,11 +383,13 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 		//circle.set(100, 100);
 		circle.hide();
 	}
+	const editorFolder = gui.addFolder('Editor');
+	editorFolder.add(transformText, 'Transform', { None: '', Move: 'translate', Rotate: 'rotate', Scale: 'scale' } ).onChange(function (value) { if (value == '') transformControl.detach(); transformType = value; } );
 }
 
 function fetchSettings ( path, basename, filename, object, camera, controls, org_extension, extension ) {
 	var metadata = {'vertices': 0, 'faces': 0};
-	var chierarchy = [];
+	var hierarchy = [];
 	fetch(path + "metadata/" + filename + "_viewer")
 	.then(response => {
 		if (response['status'] != "404") {
@@ -400,18 +402,31 @@ function fetchSettings ( path, basename, filename, object, camera, controls, org
 	})
 	.then(data => {
 		var tempArray = [];
-		if (object.name == "Scene") {
+		if (object.name == "Scene" || object.children.length > 0 ) {
+			setupObject(object, camera, data, controls);
 			object.traverse( function ( child ) {
-				if ( child.isMesh ) {
-					setupObject(child, camera, data, controls);
+				if ( child.isMesh ) {					
 					metadata['vertices'] += fetchMetadata (child, 'vertices');
 					metadata['faces'] += fetchMetadata (child, 'faces');
 					if (child.name == '')
 						tempArray = {'name': "Mesh", 'id': child.uuid};
 					else
 						tempArray = { [child.name]: function(){}, 'id': child.uuid};
-					if (child.children.isMesh) console.log(child.children);
-					chierarchyFolder.add(tempArray, child.name);
+					if (child.children.length == 0 ) {
+						hierarchyFolder = gui.addFolder(child.name);
+						hierarchyFolder.add(tempArray, child.name);
+					}
+					else
+						hierarchyFolder = gui.addFolder(child.name);
+					child.traverse( function ( children ) {
+						if ( children.isMesh &&  children.name != child.name) {
+							if (children.name == '')
+								tempArray = {'name': "Mesh", 'id': children.uuid};
+							else
+								tempArray = { [children.name]: function(){}, 'id': children.uuid};
+							hierarchyFolder.add(tempArray, children.name);
+						}
+					});
 				}
 			});			
 			setupCamera (object, camera, data, controls);				
@@ -426,8 +441,8 @@ function fetchSettings ( path, basename, filename, object, camera, controls, org
 			else
 				tempArray = {'name': object.name, 'id': object.uuid};
 			if (object.children.isMesh) console.log(object.children);
-			//chierarchy.push(tempArray);
-			chierarchyFolder.add(tempArray, 'name' ).name(object.name);
+			//hierarchy.push(tempArray);
+			hierarchyFolder.add(tempArray, 'name' ).name(object.name);
 			metadata['vertices'] += fetchMetadata (object, 'vertices');
 			metadata['faces'] += fetchMetadata (object, 'faces');
 		}
@@ -443,7 +458,7 @@ function fetchSettings ( path, basename, filename, object, camera, controls, org
 		metadataFolder.add(metadataText, 'Loaded file' );
 		metadataFolder.add(metadataText, 'Vertices' );
 		metadataFolder.add(metadataText, 'Faces' );
-		//chierarchyFolder.add(chierarchyText, 'Faces' );
+		//hierarchyFolder.add(hierarchyText, 'Faces' );
 	});
 	helperObjects.push (object);
 }
@@ -451,14 +466,14 @@ function fetchSettings ( path, basename, filename, object, camera, controls, org
 function fetchMetadata (_object, _type) {
 	switch (_type) {
 		case 'vertices':
-			if (typeof (_object.geometry.index) != "undefined")
+			if (typeof (_object.geometry.index) != "undefined" && _object.geometry.index != null)
 				return _object.geometry.index.count;
-			else
+			else if (typeof (_object.attributes) != "undefined" && _object.attributes != null)
 				return _object.attributes.position.count;
 		case 'faces':
-			if (typeof (_object.geometry.index) != "undefined")
+			if (typeof (_object.geometry.index) != "undefined" && _object.geometry.index != null)
 				return _object.geometry.index.count/3;
-			else
+			else if (typeof (_object.attributes) != "undefined" && _object.attributes != null)
 				return _object.attributes.position.count/3;
 		break;
 	}
@@ -477,16 +492,20 @@ function setupObject (_object, _camera, _data, _controls) {
 				boundingBox.setFromObject( _object[i] );
 				_object[i].position.set (0, 0, 0);
 				_object[i].needsUpdate = true;
-				_object[i].geometry.computeBoundingBox();
-				_object[i].geometry.computeBoundingSphere();				
+				if (typeof (_object[i].geometry) != "undefined") {
+					_object[i].geometry.computeBoundingBox();
+					_object[i].geometry.computeBoundingSphere();	
+				}			
 			}
 		}
 		else {
 			boundingBox.setFromObject( _object );
 			_object.position.set (0, 0, 0);
 			_object.needsUpdate = true;
-			_object.geometry.computeBoundingBox();
-			_object.geometry.computeBoundingSphere();
+			if (typeof (_object.geometry) != "undefined") {
+				_object.geometry.computeBoundingBox();
+				_object.geometry.computeBoundingSphere();
+			}
 		}
 	}
 
