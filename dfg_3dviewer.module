@@ -23,17 +23,16 @@ function dfg_3dviewer_help($route_name, RouteMatchInterface $route_match) {
 * Implements hook_file_validate().
  */
 function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity) {
-	//\Drupal::messenger()->addMessage(serialize($entity));
-	$file = $entity->fbda64e9ba217e59e5fc5f99244f4821;
+	#\Drupal::messenger()->addMessage(serialize($entity));
+	#$file = $entity->fbda64e9ba217e59e5fc5f99244f4821;
 	//$compression = $entity->field_3d_compression_level;
 	//\Drupal::messenger()->addMessage(serialize($entity), 'status');
 	if ($entity->bundle() == "file") {
 		$file = $entity->toArray();
-		#\Drupal::messenger()->addError(\Drupal::service('file_system')->realpath($file['uri'][0]['value']));
 		$realpath = \Drupal::service('file_system')->realpath($file['uri'][0]['value']);
 		$parts = pathinfo($realpath);
-		$extension = $parts['extension'].toUpperCase();
-		#\Drupal::messenger()->addMessage(serialize($realpath), 'status');
+		$extension = strtoupper($parts['extension']);
+		#\Drupal::messenger()->addMessage(serialize($parts), 'status');
 		#\Drupal::messenger()->addMessage('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/convert.sh -b true -i ' . $realpath . ' -f true', 'status');
 		if ($extension != 'ZIP' && $extension != 'RAR' && $extension != 'TAR' && $extension != 'GZ') {
 			$output = shell_exec ('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/convert.sh -c true -l 3 -b true -i "' . $realpath . '" -f true');

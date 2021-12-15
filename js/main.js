@@ -78,6 +78,9 @@ let transformControl;
 
 const helperObjects = [];
 
+var selectedObject = false;
+var originalMaterial;
+
 var windowHalfX;
 var windowHalfY;
 
@@ -179,6 +182,9 @@ function init() {
 	
 	windowHalfX = window.innerWidth / 2;
 	windowHalfY = window.innerHeight / 2;
+	
+	const editorFolder = gui.addFolder('Editor');
+	editorFolder.add(transformText, 'Transform', { None: '', Move: 'translate', Rotate: 'rotate', Scale: 'scale' } ).onChange(function (value) { if (value == '') transformControl.detach(); transformType = value; } );
 
 }
 
@@ -386,8 +392,6 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 		//circle.set(100, 100);
 		circle.hide();
 	}
-	const editorFolder = gui.addFolder('Editor');
-	editorFolder.add(transformText, 'Transform', { None: '', Move: 'translate', Rotate: 'rotate', Scale: 'scale' } ).onChange(function (value) { if (value == '') transformControl.detach(); transformType = value; } );
 }
 
 function fetchSettings ( path, basename, filename, object, camera, controls, org_extension, extension ) {
@@ -412,9 +416,9 @@ function fetchSettings ( path, basename, filename, object, camera, controls, org
 					metadata['vertices'] += fetchMetadata (child, 'vertices');
 					metadata['faces'] += fetchMetadata (child, 'faces');
 					if (child.name == '')
-						tempArray = {'name': "Mesh", 'id': child.uuid};
+						tempArray = {["Mesh"]: function(){selectObjectHierarchy(child.id)}, 'id': child.id};
 					else
-						tempArray = { [child.name]: function(){}, 'id': child.uuid};
+						tempArray = { [child.name]: function(){selectObjectHierarchy(child.id)}, 'id': child.id};
 					if (child.children.length == 0 ) {
 						hierarchyFolder = gui.addFolder(child.name);
 						hierarchyFolder.add(tempArray, child.name);
@@ -424,9 +428,9 @@ function fetchSettings ( path, basename, filename, object, camera, controls, org
 					child.traverse( function ( children ) {
 						if ( children.isMesh &&  children.name != child.name) {
 							if (children.name == '')
-								tempArray = {'name': "Mesh", 'id': children.uuid};
+								tempArray = {["Mesh"]: function(){selectObjectHierarchy(children.id)}, 'id': children.id};
 							else
-								tempArray = { [children.name]: function(){}, 'id': children.uuid};
+								tempArray = { [children.name]: function(){selectObjectHierarchy(children.id)}, 'id': children.id};
 							hierarchyFolder.add(tempArray, children.name);
 						}
 					});
@@ -440,9 +444,9 @@ function fetchSettings ( path, basename, filename, object, camera, controls, org
 			metadata['vertices'] += fetchMetadata (object, 'vertices');
 			metadata['faces'] += fetchMetadata (object, 'faces');
 			if (object.name == '')
-				tempArray = {'name': "Mesh", 'id': object.uuid};
+				tempArray = {["Mesh"]: function(){selectObjectHierarchy(object.id)}, 'id': object.id};
 			else
-				tempArray = {'name': object.name, 'id': object.uuid};
+				tempArray = {[object.name]: function(){selectObjectHierarchy(object.id)}, 'id': object.id};
 			if (object.children.isMesh) console.log(object.children);
 			//hierarchy.push(tempArray);
 			hierarchyFolder.add(tempArray, 'name' ).name(object.name);
@@ -464,6 +468,22 @@ function fetchSettings ( path, basename, filename, object, camera, controls, org
 		//hierarchyFolder.add(hierarchyText, 'Faces' );
 	});
 	helperObjects.push (object);
+}
+
+function selectObjectHierarchy (_id) {
+	if (selectedObject == false) {
+		originalMaterial = scene.getObjectById(_id).material.clone();
+		const tempMaterial = scene.getObjectById(_id).material.clone();
+		tempMaterial.color.setHex("0xFF0000");
+		scene.getObjectById(_id).material = tempMaterial;
+		scene.getObjectById(_id).material.needsUpdate = true;
+		selectedObject = true;
+	}
+	else {
+		scene.getObjectById(_id).material = originalMaterial;
+		scene.getObjectById(_id).material.needsUpdate = true;
+		selectedObject = false;
+	}
 }
 
 function fetchMetadata (_object, _type) {
@@ -685,10 +705,17 @@ function onPointerUp() {
 		transformControl.detach();
 
 		if (typeof(helperObjects[0]) !== "undefined" && transformType != '') {
-			if (helperObjects[0].name == "Scene") {
+			if (helperObjects[0].name == "Scene" ) {
 				helperObjects[0].children.needsUpdate = true;
 				helperObjects[0].children.geometry.computeBoundingBox();
 				helperObjects[0].children.geometry.computeBoundingSphere();
+			}
+			else if (helperObjects[0].children.length > 0) {
+				helperObjects[0].children.forEach(function (child) {
+					child.needsUpdate = true;
+					child.geometry.computeBoundingBox();
+					child.geometry.computeBoundingSphere();
+				}); 
 			}
 			else {
 				helperObjects[0].needsUpdate = true;
@@ -706,7 +733,7 @@ function onPointerMove( event ) {
 	pointer.y = ( event.clientY - windowHalfY ) / window.innerHeight;
 	raycaster.setFromCamera( pointer, camera );
 	if (typeof(helperObjects[0]) !== "undefined") {
-		if (helperObjects[0].name == "Scene")
+		if (helperObjects[0].name == "Scene" || helperObjects[0].children.length > 0)
 			var intersects = raycaster.intersectObjects( helperObjects[0].children, false );
 		else
 			var intersects = raycaster.intersectObjects( helperObjects[0], false );
