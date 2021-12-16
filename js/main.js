@@ -12,7 +12,8 @@ import Stats from '/modules/dfg_3dviewer/js/jsm/libs/stats.module.js';
 
 import { OrbitControls } from '/modules/dfg_3dviewer/js/jsm/controls/OrbitControls.js';
 import { TransformControls } from '/modules/dfg_3dviewer/js/jsm/controls/TransformControls.js';
-import { GUI } from '/modules/dfg_3dviewer/js/jsm/libs/dat.gui.module.js'
+import { GUI } from '/modules/dfg_3dviewer/node_modules/lil-gui/dist/lil-gui.esm.min.js';
+//import { GUI } from '/modules/dfg_3dviewer/js/jsm/libs/dat.gui.module.js'
 import { FBXLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/FBXLoader.js';
 import { DDSLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/DDSLoader.js';
 import { MTLLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/MTLLoader.js';
@@ -79,7 +80,7 @@ let transformControl;
 const helperObjects = [];
 
 var selectedObject = false;
-var originalMaterial;
+var selectedObjects = [];
 
 var windowHalfX;
 var windowHalfY;
@@ -91,12 +92,12 @@ var transformText =
     Transform: 'Transform'
 }
 
-const gui = new GUI()
+const gui = new GUI({ container: guiContainer });
 const metadataFolder = gui.addFolder('Metadata');
 //const mainHierarchyFolder = gui.addFolder('Hierarchy');
 var hierarchyFolder;
 
-guiContainer.appendChild(gui.domElement);
+//guiContainer.appendChild(gui.domElement);
 
 init();
 animate();
@@ -183,7 +184,7 @@ function init() {
 	windowHalfX = window.innerWidth / 2;
 	windowHalfY = window.innerHeight / 2;
 	
-	const editorFolder = gui.addFolder('Editor');
+	const editorFolder = gui.addFolder('Editor').close();
 	editorFolder.add(transformText, 'Transform', { None: '', Move: 'translate', Rotate: 'rotate', Scale: 'scale' } ).onChange(function (value) { if (value == '') transformControl.detach(); transformType = value; } );
 
 }
@@ -409,6 +410,7 @@ function fetchSettings ( path, basename, filename, object, camera, controls, org
 	})
 	.then(data => {
 		var tempArray = [];
+		const hierarchyMain = gui.addFolder( 'Hierarchy' ).close();
 		if (object.name == "Scene" || object.children.length > 0 ) {
 			setupObject(object, camera, data, controls);
 			object.traverse( function ( child ) {
@@ -420,11 +422,11 @@ function fetchSettings ( path, basename, filename, object, camera, controls, org
 					else
 						tempArray = { [child.name]: function(){selectObjectHierarchy(child.id)}, 'id': child.id};
 					if (child.children.length == 0 ) {
-						hierarchyFolder = gui.addFolder(child.name);
+						hierarchyFolder = hierarchyMain.addFolder(child.name).close();
 						hierarchyFolder.add(tempArray, child.name);
 					}
 					else
-						hierarchyFolder = gui.addFolder(child.name);
+						hierarchyFolder = hierarchyMain.addFolder(child.name).close();
 					child.traverse( function ( children ) {
 						if ( children.isMesh &&  children.name != child.name) {
 							if (children.name == '')
@@ -447,8 +449,8 @@ function fetchSettings ( path, basename, filename, object, camera, controls, org
 				tempArray = {["Mesh"]: function(){selectObjectHierarchy(object.id)}, 'id': object.id};
 			else
 				tempArray = {[object.name]: function(){selectObjectHierarchy(object.id)}, 'id': object.id};
-			if (object.children.isMesh) console.log(object.children);
 			//hierarchy.push(tempArray);
+			hierarchyFolder = hierarchyMain.addFolder(object.name).close();
 			hierarchyFolder.add(tempArray, 'name' ).name(object.name);
 			metadata['vertices'] += fetchMetadata (object, 'vertices');
 			metadata['faces'] += fetchMetadata (object, 'faces');
@@ -471,19 +473,25 @@ function fetchSettings ( path, basename, filename, object, camera, controls, org
 }
 
 function selectObjectHierarchy (_id) {
-	if (selectedObject == false) {
-		originalMaterial = scene.getObjectById(_id).material.clone();
-		const tempMaterial = scene.getObjectById(_id).material.clone();
-		tempMaterial.color.setHex("0xFF0000");
-		scene.getObjectById(_id).material = tempMaterial;
-		scene.getObjectById(_id).material.needsUpdate = true;
-		selectedObject = true;
-	}
-	else {
-		scene.getObjectById(_id).material = originalMaterial;
-		scene.getObjectById(_id).material.needsUpdate = true;
-		selectedObject = false;
-	}
+	if (selectedObjects.length == 0)
+		selectedObjects.push({selected: false, originalMaterial: scene.getObjectById(_id).material.clone()});
+	console.log(selectedObjects);
+	selectedObjects.forEach(function (item) {
+		if (item.selected == false) {
+			item.originalMaterial = scene.getObjectById(_id).material.clone();
+			const tempMaterial = scene.getObjectById(_id).material.clone();
+			tempMaterial.color.setHex("0xFF0000");
+			scene.getObjectById(_id).material = tempMaterial;
+			scene.getObjectById(_id).material.needsUpdate = true;
+			item.selected = true;
+		}
+		else {
+			scene.getObjectById(_id).material = item.originalMaterial;
+			scene.getObjectById(_id).material.needsUpdate = true;
+			item.selected = false;
+			selectedObjects.filter((x, i) => i !== item);
+		}		
+	});
 }
 
 function fetchMetadata (_object, _type) {
