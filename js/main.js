@@ -33,6 +33,7 @@ let camera, scene, renderer, stats, controls, loader;
 let imported;
 
 const clock = new THREE.Clock();
+const editor = true;
 
 let mixer;
 
@@ -96,6 +97,7 @@ const gui = new GUI({ container: guiContainer });
 const metadataFolder = gui.addFolder('Metadata');
 //const mainHierarchyFolder = gui.addFolder('Hierarchy');
 var hierarchyFolder;
+const GUILength = 35;
 
 //guiContainer.appendChild(gui.domElement);
 
@@ -155,6 +157,8 @@ function init() {
 	const basename = filename.substring(0, filename.lastIndexOf('.'));
 	const extension = filename.substring(filename.lastIndexOf('.') + 1);	
 	const path = container.getAttribute("3d").substring(0, container.getAttribute("3d").lastIndexOf(filename));
+	const domain = "https://3d-repository.hs-mainz.de";
+	const uri = path.replace(domain+"/", "");
 
 	/*try {
 
@@ -186,7 +190,30 @@ function init() {
 	
 	const editorFolder = gui.addFolder('Editor').close();
 	editorFolder.add(transformText, 'Transform', { None: '', Move: 'translate', Rotate: 'rotate', Scale: 'scale' } ).onChange(function (value) { if (value == '') transformControl.detach(); transformType = value; } );
+	if (editor)
+		editorFolder.add({["Save"]: function(){
+			var xhr = new XMLHttpRequest(),
+				jsonArr,
+				method = "POST",
+				jsonRequestURL = "https://3d-repository.hs-mainz.de/editor.php";
 
+			xhr.open(method, jsonRequestURL, true);
+			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+			console.log(camera.position);
+			var rotateMetadata = new THREE.Vector3(THREE.Math.radToDeg(helperObjects[0].rotation.x),THREE.Math.radToDeg(helperObjects[0].rotation.y),THREE.Math.radToDeg(helperObjects[0].rotation.z));
+			var newMetadata = ({"objPosition": [ helperObjects[0].position.x, helperObjects[0].position.y, helperObjects[0].position.z ], "objScale": [ helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z ], "objRotation": [ rotateMetadata.x, rotateMetadata.y, rotateMetadata.z ], "camPosition": [ camera.position.x, camera.position.y, camera.position.z ], "camLookAt": [ 0, 0, 0 ]});
+			var params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+"&filename="+filename;
+			xhr.onreadystatechange = function()
+			{
+				if(xhr.readyState === XMLHttpRequest.DONE) {
+					var status = xhr.status;
+					if (status === 0 || (status >= 200 && status < 400)) {
+						//console.log(xhr.responseText);
+					}
+				}
+			};
+			xhr.send(params);
+		}}, 'Save');
 }
 
 function loadModel ( path, basename, filename, extension, org_extension ) {
@@ -417,23 +444,26 @@ function fetchSettings ( path, basename, filename, object, camera, controls, org
 				if ( child.isMesh ) {					
 					metadata['vertices'] += fetchMetadata (child, 'vertices');
 					metadata['faces'] += fetchMetadata (child, 'faces');
+					var shortChildName = truncateString(child.name, GUILength);
 					if (child.name == '')
 						tempArray = {["Mesh"]: function(){selectObjectHierarchy(child.id)}, 'id': child.id};
 					else
-						tempArray = { [child.name]: function(){selectObjectHierarchy(child.id)}, 'id': child.id};
-					if (child.children.length == 0 ) {
+						tempArray = { [shortChildName]: function(){selectObjectHierarchy(child.id)}, 'id': child.id};
+					/*if (child.children.length == 0 ) {
 						hierarchyFolder = hierarchyMain.addFolder(child.name).close();
 						hierarchyFolder.add(tempArray, child.name);
 					}
-					else
-						hierarchyFolder = hierarchyMain.addFolder(child.name).close();
+					else*/
+					hierarchyFolder = hierarchyMain.addFolder(shortChildName).close();
+					hierarchyFolder.add(tempArray, shortChildName);
 					child.traverse( function ( children ) {
 						if ( children.isMesh &&  children.name != child.name) {
+							var shortChildrenName = truncateString(children.name, GUILength);
 							if (children.name == '')
 								tempArray = {["Mesh"]: function(){selectObjectHierarchy(children.id)}, 'id': children.id};
 							else
-								tempArray = { [children.name]: function(){selectObjectHierarchy(children.id)}, 'id': children.id};
-							hierarchyFolder.add(tempArray, children.name);
+								tempArray = { [shortChildrenName]: function(){selectObjectHierarchy(children.id)}, 'id': children.id};
+							hierarchyFolder.add(tempArray, shortChildrenName);
 						}
 					});
 				}
@@ -473,25 +503,26 @@ function fetchSettings ( path, basename, filename, object, camera, controls, org
 }
 
 function selectObjectHierarchy (_id) {
-	if (selectedObjects.length == 0)
-		selectedObjects.push({selected: false, originalMaterial: scene.getObjectById(_id).material.clone()});
-	console.log(selectedObjects);
-	selectedObjects.forEach(function (item) {
-		if (item.selected == false) {
-			item.originalMaterial = scene.getObjectById(_id).material.clone();
-			const tempMaterial = scene.getObjectById(_id).material.clone();
-			tempMaterial.color.setHex("0xFF0000");
-			scene.getObjectById(_id).material = tempMaterial;
-			scene.getObjectById(_id).material.needsUpdate = true;
-			item.selected = true;
+	let search = true;
+	for (let i = 0; i < selectedObjects.length && search == true; i++ ) {
+		if (selectedObjects[i].id == _id) {
+			search = false;
+			if (selectedObjects[i].selected == true) {
+				scene.getObjectById(_id).material = selectedObjects[i].originalMaterial;
+				scene.getObjectById(_id).material.needsUpdate = true;
+				selectedObjects[i].selected = false;
+				selectedObjects.splice(selectedObjects.indexOf(selectedObjects[i]), 1);		
+			}
 		}
-		else {
-			scene.getObjectById(_id).material = item.originalMaterial;
-			scene.getObjectById(_id).material.needsUpdate = true;
-			item.selected = false;
-			selectedObjects.filter((x, i) => i !== item);
-		}		
-	});
+	}
+	if (search) {
+		selectedObjects.push({id: _id, selected: true, originalMaterial: scene.getObjectById(_id).material.clone()});
+		const tempMaterial = scene.getObjectById(_id).material.clone();
+		tempMaterial.color.setHex("0x00FF00");
+		scene.getObjectById(_id).material = tempMaterial;
+		scene.getObjectById(_id).material.needsUpdate = true;
+
+	}
 }
 
 function fetchMetadata (_object, _type) {
@@ -772,3 +803,12 @@ const onProgress = function ( xhr ) {
 		console.log("Model has been loaded.");
 	}
 };
+
+function truncateString(str, n) {
+	if (str.length == 0) return str;
+	else if (str.length > n) {
+		return str.substring(0, n) + "...";
+	} else {
+		return str;
+	}
+}
