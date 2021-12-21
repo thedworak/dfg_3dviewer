@@ -1,7 +1,5 @@
 //Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, glTF
 
-const container = document.getElementById("DFG_3DViewer");
-
 const path = '/modules/dfg_3dviewer';
 //const path = '..'; //local
 
@@ -31,6 +29,7 @@ import { TDSLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/TDSLoader.js';
 
 let camera, scene, renderer, stats, controls, loader;
 let imported;
+var mainObject = [];
 
 const clock = new THREE.Clock();
 const editor = true;
@@ -39,6 +38,7 @@ let mixer;
 
 const supportedFormats = [ 'OBJ', 'DAE', 'FBX', 'PLY', 'IFC', 'STL', 'XYZ', 'JSON' ];
 
+const container = document.getElementById("DFG_3DViewer");
 var spinnerContainer = document.createElement("div");
 spinnerContainer.id = 'spinnerContainer';
 spinnerContainer.className = 'spinnerContainer';
@@ -82,6 +82,8 @@ const helperObjects = [];
 
 var selectedObject = false;
 var selectedObjects = [];
+var selectedFaces = [];
+let pickingTexture;
 
 var windowHalfX;
 var windowHalfY;
@@ -93,11 +95,15 @@ var transformText =
     Transform: 'Transform'
 }
 
+var EDITOR = false;
+
 const gui = new GUI({ container: guiContainer });
 const metadataFolder = gui.addFolder('Metadata');
 //const mainHierarchyFolder = gui.addFolder('Hierarchy');
 var hierarchyFolder;
 const GUILength = 35;
+
+var canvasDimensions;
 
 //guiContainer.appendChild(gui.domElement);
 
@@ -105,8 +111,13 @@ init();
 animate();
 
 function init() {
+	
+	canvasDimensions = {x: container.getBoundingClientRect().width, y: container.getBoundingClientRect().bottom};
+	container.setAttribute("width", canvasDimensions.x);
+	container.setAttribute("height", canvasDimensions.y);
+	console.log(canvasDimensions);
 
-	camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 200000 );
+	camera = new THREE.PerspectiveCamera( 45, canvasDimensions.x / canvasDimensions.y, 1, 200000 );
 	camera.position.set( 0, 0, 0 );
 
 	scene = new THREE.Scene();
@@ -133,7 +144,7 @@ function init() {
 
 	renderer = new THREE.WebGLRenderer( { antialias: true } );
 	renderer.setPixelRatio( window.devicePixelRatio );
-	renderer.setSize( window.innerWidth, window.innerHeight );
+	renderer.setSize( canvasDimensions.x, canvasDimensions.y );
 	renderer.shadowMap.enabled = true;
 	container.appendChild( renderer.domElement );
 
@@ -176,20 +187,23 @@ function init() {
 		loadModel (path+"gltf/", basename, filename, "glb", extension);
 	}
 
-	document.addEventListener( 'pointerdown', onPointerDown );
-	document.addEventListener( 'pointerup', onPointerUp );
-	document.addEventListener( 'pointermove', onPointerMove );
+	container.addEventListener( 'pointerdown', onPointerDown );
+	container.addEventListener( 'pointerup', onPointerUp );
+	container.addEventListener( 'pointermove', onPointerMove );
 	window.addEventListener( 'resize', onWindowResize );
 
 	// stats
 	stats = new Stats();
 	container.appendChild( stats.dom );
 	
-	windowHalfX = window.innerWidth / 2;
-	windowHalfY = window.innerHeight / 2;
+	windowHalfX = canvasDimensions.x / 2;
+	windowHalfY = canvasDimensions.y / 2;
 	
 	const editorFolder = gui.addFolder('Editor').close();
-	editorFolder.add(transformText, 'Transform', { None: '', Move: 'translate', Rotate: 'rotate', Scale: 'scale' } ).onChange(function (value) { if (value == '') transformControl.detach(); transformType = value; } );
+	editorFolder.add(transformText, 'Transform', { None: '', Move: 'translate', Rotate: 'rotate', Scale: 'scale' } ).onChange(function (value)
+	{ 
+		if (value == '') transformControl.detach(); else { transformControl.mode = value; transformControl.attach( helperObjects[0] ); }
+	});
 	if (editor)
 		editorFolder.add({["Save"]: function(){
 			var xhr = new XMLHttpRequest(),
@@ -199,7 +213,7 @@ function init() {
 
 			xhr.open(method, jsonRequestURL, true);
 			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-			console.log(camera.position);
+			//console.log(camera.position);
 			var rotateMetadata = new THREE.Vector3(THREE.Math.radToDeg(helperObjects[0].rotation.x),THREE.Math.radToDeg(helperObjects[0].rotation.y),THREE.Math.radToDeg(helperObjects[0].rotation.z));
 			var newMetadata = ({"objPosition": [ helperObjects[0].position.x, helperObjects[0].position.y, helperObjects[0].position.z ], "objScale": [ helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z ], "objRotation": [ rotateMetadata.x, rotateMetadata.y, rotateMetadata.z ], "camPosition": [ camera.position.x, camera.position.y, camera.position.z ], "camLookAt": [ 0, 0, 0 ]});
 			var params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+"&filename="+filename;
@@ -214,6 +228,9 @@ function init() {
 			};
 			xhr.send(params);
 		}}, 'Save');
+		editorFolder.add({["Picking"]: function(){
+			EDITOR=!EDITOR;
+		}}, 'Picking');
 }
 
 function loadModel ( path, basename, filename, extension, org_extension ) {
@@ -239,6 +256,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 								scene.add( object );
 								fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, controls, org_extension, extension );
 								fitCameraToCenteredObject ( camera, object, 1.7, controls );
+								mainObject.push(object);
 							}, onProgress, onError );
 					} );
 			break;
@@ -255,9 +273,9 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 					} );
 					object.position.set (0, 0, 0);
 					scene.add( object );
-					console.log(object);
 					fetchSettings (path.replace("gltf/", ""), basename, filename, object.children, camera, controls, org_extension, extension );
 					fitCameraToCenteredObject ( camera, object.children, 1.7, controls );
+					mainObject.push(object);
 				}, onProgress, onError );
 			break;
 			
@@ -274,6 +292,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 					scene.add( object );
 					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, controls, org_extension, extension );
 					fitCameraToCenteredObject ( camera, object, 1.7, controls );
+					mainObject.push(object);
 				}, onProgress, onError );
 			break;
 			
@@ -289,6 +308,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 					scene.add( object );
 					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, controls, org_extension, extension );
 					fitCameraToCenteredObject ( camera, object, 1.7, controls );
+					mainObject.push(object);
 				}, onProgress, onError );
 			break;
 			
@@ -301,6 +321,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 					scene.add( object );
 					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, controls, org_extension, extension );
 					fitCameraToCenteredObject ( camera, object, 1.7, controls );
+					mainObject.push(object);
 				}, onProgress, onError );
 			break;
 			
@@ -319,6 +340,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 					scene.add( object );
 					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, controls, org_extension, extension );
 					fitCameraToCenteredObject ( camera, object, 1.7, controls );
+					mainObject.push(object);
 				}, onProgress, onError );
 			break;
 
@@ -334,6 +356,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 					scene.add( object );
 					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, controls, org_extension, extension );
 					fitCameraToCenteredObject ( camera, object, 1.7, controls );
+					mainObject.push(object);
 				}, onProgress, onError );
 			break;
 
@@ -345,6 +368,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 						object.position.set (0, 0, 0);
 						scene.add( object );
 						fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, controls, org_extension, extension );
+						mainObject.push(object);
 					}, onProgress, onError );
 			break;
 
@@ -360,6 +384,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 						}
 					} );
 					scene.add( object );
+					mainObject.push(object);
 				} );
 			break;
 
@@ -391,6 +416,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 					});
 					fetchSettings (path.replace("gltf/", ""), basename, filename, gltf.scene, camera, controls, org_extension, extension );					
 					scene.add( gltf.scene );
+					mainObject.push(gltf.scene);
 					
 				},
 					function ( xhr ) {
@@ -420,6 +446,8 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 		//circle.set(100, 100);
 		circle.hide();
 	}
+	
+	scene.updateMatrixWorld();
 }
 
 function fetchSettings ( path, basename, filename, object, camera, controls, org_extension, extension ) {
@@ -449,11 +477,7 @@ function fetchSettings ( path, basename, filename, object, camera, controls, org
 						tempArray = {["Mesh"]: function(){selectObjectHierarchy(child.id)}, 'id': child.id};
 					else
 						tempArray = { [shortChildName]: function(){selectObjectHierarchy(child.id)}, 'id': child.id};
-					/*if (child.children.length == 0 ) {
-						hierarchyFolder = hierarchyMain.addFolder(child.name).close();
-						hierarchyFolder.add(tempArray, child.name);
-					}
-					else*/
+
 					hierarchyFolder = hierarchyMain.addFolder(shortChildName).close();
 					hierarchyFolder.add(tempArray, shortChildName);
 					child.traverse( function ( children ) {
@@ -546,6 +570,11 @@ function setupObject (_object, _camera, _data, _controls) {
 		_object.position.set (_data["objPosition"][0], _data["objPosition"][1], _data["objPosition"][2]);
 		_object.scale.set (_data["objScale"][0], _data["objScale"][1], _data["objScale"][2]);
 		_object.rotation.set (THREE.Math.degToRad(_data["objRotation"][0]), THREE.Math.degToRad(_data["objRotation"][1]), THREE.Math.degToRad(_data["objRotation"][2]));
+		_object.needsUpdate = true;
+		if (typeof (_object.geometry) != "undefined") {
+			_object.geometry.computeBoundingBox();
+			_object.geometry.computeBoundingSphere();	
+		}
 	}
 	else {
 		var boundingBox = new THREE.Box3();
@@ -597,10 +626,31 @@ function setupCamera (_object, _camera, _data, _controls) {
 	}
 }
 
+function pickFaces(_id) {
+	var sphere = new THREE.Mesh(new THREE.SphereGeometry(0.1, 7, 7), new THREE.MeshNormalMaterial({
+				transparent : true,
+				opacity : 0.8
+			}));
+	sphere.position.set(_id[0].point.x, _id[0].point.y, _id[0].point.z);
+	scene.add(sphere);
+	//console.log(_id[0]);
+	/*if (mainObject.name == "Scene" || mainObject.children.length > 0)
+		mainObject.traverse( function ( child ) {
+			if (child.isMesh) {
+				console.log(child);
+				child.traverse( function ( children ) {
+					console.log(children.geometry);
+				});
+			}
+		});
+	else
+		var intersects = raycaster.intersectObjects( mainObject, false );*/
+}
+
 function onWindowResize() {
-	camera.aspect = window.innerWidth / window.innerHeight;
+	camera.aspect = canvasDimensions.x / canvasDimensions.y;
 	camera.updateProjectionMatrix();
-	renderer.setSize( window.innerWidth, window.innerHeight );
+	renderer.setSize( canvasDimensions.x, canvasDimensions.y );
 	render();
 }
 
@@ -725,6 +775,7 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls ) {
 }
 
 function render() {
+	controls.update();
 	renderer.render( scene, camera );
 }
 
@@ -732,44 +783,43 @@ function updateObject () {
 	//console.log(helperObjects[0].position);
 }
 
-function onPointerDown( event ) {
-	onDownPosition.x = event.clientX;
-	onDownPosition.y = event.clientY;
+function onPointerDown( e ) {
+	//onDownPosition.x = event.clientX;
+	//onDownPosition.y = event.clientY;
+	onDownPosition.x = ( e.clientX / canvasDimensions.x ) * 2 - 1;
+	onDownPosition.y = - ( e.clientY / canvasDimensions.y ) * 2 + 1;
 }
 
-function onPointerUp() {
-	onUpPosition.x = event.clientX;
-	onUpPosition.y = event.clientY;
-	if ( onDownPosition.distanceTo( onUpPosition ) === 0 ) { 
-		transformControl.detach();
-
-		if (typeof(helperObjects[0]) !== "undefined" && transformType != '') {
-			if (helperObjects[0].name == "Scene" ) {
-				helperObjects[0].children.needsUpdate = true;
-				helperObjects[0].children.geometry.computeBoundingBox();
-				helperObjects[0].children.geometry.computeBoundingSphere();
-			}
-			else if (helperObjects[0].children.length > 0) {
-				helperObjects[0].children.forEach(function (child) {
-					child.needsUpdate = true;
-					child.geometry.computeBoundingBox();
-					child.geometry.computeBoundingSphere();
-				}); 
-			}
-			else {
-				helperObjects[0].needsUpdate = true;
-				helperObjects[0].geometry.computeBoundingBox();
-				helperObjects[0].geometry.computeBoundingSphere();
-			}
-		}
+function onPointerUp( e ) {
+    onUpPosition.x = ( e.clientX / canvasDimensions.x ) * 2 - 1;
+    onUpPosition.y = -( e.clientY / canvasDimensions.y ) * 2 + 1;
+	//console.log(onUpPosition);
+	var mouseVector = new THREE.Vector2();
+	//onUpPosition.x = ((e.clientX - container.offsetLeft) / canvasDimensions.x) * 2 - 1;
+	//onUpPosition.y =  - ((e.clientY - (container.offsetTop - document.body.scrollTop + 11)) / (canvasDimensions.y)) * 2 + 1;
+	raycaster.setFromCamera( pointer, camera );
+	var intersects;
+	if (EDITOR) {
+		if (mainObject.name == "Scene" || mainObject[0].children.length > 0)
+			intersects = raycaster.intersectObjects( mainObject[0].children, false );
+		else
+			intersects = raycaster.intersectObjects( mainObject[0], false );
+		//console.log(pointer);
+		console.log(intersects);
+		if (intersects.length > 0)
+			pickFaces(intersects);
 	}
 }
 
 function onPointerMove( event ) {
-	//pointer.x = ( event.clientX / window.innerWidth ) * 2 - 1;
-	//pointer.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
-	pointer.x = ( event.clientX - windowHalfX ) / window.innerWidth;
-	pointer.y = ( event.clientY - windowHalfY ) / window.innerHeight;
+	//pointer.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
+	//pointer.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
+	//console.log(container.getBoundingClientRect());
+	pointer.x = ( ( event.clientX - container.getBoundingClientRect().left ) / (canvasDimensions.x - 200 )) * 2 - 1;
+	pointer.y = - ((event.clientY - (container.getBoundingClientRect().top - document.body.scrollTop - 50)) / (canvasDimensions.y)) * 2 + 1;
+	/*pointer.x = ( event.clientX - windowHalfX ) / canvasDimensions.x;
+	pointer.y = ( event.clientY - windowHalfY ) / canvasDimensions.y;
+	console.log(pointer);
 	raycaster.setFromCamera( pointer, camera );
 	if (typeof(helperObjects[0]) !== "undefined") {
 		if (helperObjects[0].name == "Scene" || helperObjects[0].children.length > 0)
@@ -786,7 +836,7 @@ function onPointerMove( event ) {
 				}
 			}
 		}
-	}
+	}*/
 }
 
 const onError = function () {
