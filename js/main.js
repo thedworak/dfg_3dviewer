@@ -107,6 +107,17 @@ var canvasDimensions;
 
 //guiContainer.appendChild(gui.domElement);
 
+var options = {
+    duration: 6500,
+	gravity: "bottom",
+	close: true,
+    callback: function(){
+        this.remove();
+        Toastify.reposition();
+    }
+};
+var myToast = Toastify(options);
+
 init();
 animate();
 
@@ -115,7 +126,6 @@ function init() {
 	canvasDimensions = {x: container.getBoundingClientRect().width, y: container.getBoundingClientRect().bottom};
 	container.setAttribute("width", canvasDimensions.x);
 	container.setAttribute("height", canvasDimensions.y);
-	console.log(canvasDimensions);
 
 	camera = new THREE.PerspectiveCamera( 45, canvasDimensions.x / canvasDimensions.y, 1, 200000 );
 	camera.position.set( 0, 0, 0 );
@@ -222,7 +232,7 @@ function init() {
 				if(xhr.readyState === XMLHttpRequest.DONE) {
 					var status = xhr.status;
 					if (status === 0 || (status >= 200 && status < 400)) {
-						//console.log(xhr.responseText);
+						showToast ("Settings have been saved.");
 					}
 				}
 			};
@@ -230,6 +240,9 @@ function init() {
 		}}, 'Save');
 		editorFolder.add({["Picking"]: function(){
 			EDITOR=!EDITOR;
+			var _str;
+			EDITOR ? _str = "enabled" : _str = "disabled";
+			showToast ("Face picking is " + _str);
 		}}, 'Picking');
 }
 
@@ -241,7 +254,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 			case 'obj':
 			case 'OBJ':
 				const manager = new THREE.LoadingManager();
-				manager.onLoad = function ( ) { console.log("Model has been loaded."); }
+				manager.onLoad = function ( ) { showToast ("OBJ model has been loaded"); }
 				manager.addHandler( /\.dds$/i, new DDSLoader() );
 				// manager.addHandler( /\.tga$/i, new TGALoader() );
 				new MTLLoader( manager )
@@ -402,7 +415,8 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 				dracoLoader.preload();
 				const gltf = new GLTFLoader();
 				gltf.setDRACOLoader(dracoLoader);
-				console.log("[i] Loading model from " + extension + " representation.");
+				//console.log("[i] Loading model from " + extension + " representation.");
+				showToast("Loading model from " + extension + " representation.");
 
 				const glbPath = path + basename + "." + extension;
 				gltf.load(glbPath, function(gltf) {
@@ -412,12 +426,11 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 							child.receiveShadow = true;
 							child.geometry.computeVertexNormals();
 							if(child.material.map) child.material.map.anisotropy = 16;
+							mainObject.push(child);	
 						}
 					});
 					fetchSettings (path.replace("gltf/", ""), basename, filename, gltf.scene, camera, controls, org_extension, extension );					
 					scene.add( gltf.scene );
-					mainObject.push(gltf.scene);
-					
 				},
 					function ( xhr ) {
 						var percentComplete = xhr.loaded / xhr.total * 100;
@@ -426,23 +439,27 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 							circle.set(percentComplete, 100);
 							if (percentComplete >= 100) {
 								circle.hide();
-								console.log("[i] Model " + filename + " has been loaded.");
+								//console.log("[i] Model " + filename + " has been loaded.");
+								showToast("Model " + filename + " has been loaded.");
 							}
 						}
 					},
 					function ( ) {						
-							console.log("[i] GLTF representation not found, trying original file " + path.replace("gltf/", "") + filename + " [" + org_extension + "]");
+							//console.log("[i] GLTF representation not found, trying original file " + path.replace("gltf/", "") + filename + " [" + org_extension + "]");
+							showToast("GLTF representation not found, trying original file " + path.replace("gltf/", "") + filename + " [" + org_extension + "]");
 							loadModel(path.replace("gltf/", ""), basename, filename, org_extension, org_extension);
 							imported = true;
 					}
 				);
 			break;
 			default:
-				console.log("[i] Extension not supported yet");
+				//console.log("[i] Extension not supported yet");
+				showToast("Extension not supported yet");
 		}
 	}
 	else {
-		console.log("File " + path + basename + " not found.");
+		//console.log("File " + path + basename + " not found.");
+		showToast("File " + path + basename + " not found.");
 		//circle.set(100, 100);
 		circle.hide();
 	}
@@ -453,14 +470,16 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 function fetchSettings ( path, basename, filename, object, camera, controls, org_extension, extension ) {
 	var metadata = {'vertices': 0, 'faces': 0};
 	var hierarchy = [];
-	fetch(path + "metadata/" + filename + "_viewer")
+	fetch(path + "metadata/" + filename + "_viewer", {cache: "no-cache"})
 	.then(response => {
 		if (response['status'] != "404") {
-			console.log("Metadata " + path + "metadata/" + filename + "_viewer found");
+			//console.log("Metadata " + path + "metadata/" + filename + "_viewer found");
+			showToast("Settings " + filename + "_viewer found");
 			return response.json();
 		}
 		else if (response['status'] == "404") {
-			console.log("No metadata " + path + "metadata/" + filename + "_viewer found");
+			//console.log("No metadata " + path + "metadata/" + filename + "_viewer found");
+			showToast("No settings " + filename + "_viewer found");
 		}
 	})
 	.then(data => {
@@ -800,7 +819,10 @@ function onPointerUp( e ) {
 	raycaster.setFromCamera( pointer, camera );
 	var intersects;
 	if (EDITOR) {
-		if (mainObject.name == "Scene" || mainObject[0].children.length > 0)
+		if (mainObject.name == "Scene" || mainObject.length > 1)
+			/*for (let ii = 0; ii < mainObject.length; ii++) {	
+				intersects = raycaster.intersectObjects( mainObject[ii].children, false );
+			}*/
 			intersects = raycaster.intersectObjects( mainObject[0].children, false );
 		else
 			intersects = raycaster.intersectObjects( mainObject[0], false );
@@ -850,7 +872,7 @@ const onProgress = function ( xhr ) {
 	circle.set(percentComplete, 100);
 	if (percentComplete >= 100) {
 		circle.hide();
-		console.log("Model has been loaded.");
+		showToast("Model has been loaded.");
 	}
 };
 
@@ -861,4 +883,10 @@ function truncateString(str, n) {
 	} else {
 		return str;
 	}
+}
+
+function showToast (_str) {
+	var myToast = Toastify(options);
+	myToast.options.text = _str;
+	myToast.showToast();
 }
