@@ -50,8 +50,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 					
 				}
 				elseif ($extension == 'TAR') {
-					//$phar = new PharData($realpath);
-					//$phar->extractTo($extractPath);
+					$output = shell_exec('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/tar.sh -i "' . $realpath . '" -o "' . $extractPath . '"');
 				}
 				
 				foreach ($archiveFiles as $zipFile) {
