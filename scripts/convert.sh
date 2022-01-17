@@ -1,6 +1,11 @@
 #!/bin/bash
 
+#apt install blender python3-pip
+#pip install numpy
 #usage: ./convert.sh -c COMPRESS -cl COMPRESSION_LEVEL -i INPUT -o OUTPUT -b BINARY -f FORCE_OVERRIDE
+
+BLENDER_PATH=''
+#BLENDER_PATH='/var/lib/snapd/snap/blender/current/'
 
 #Defaults:
 COMPRESSION=false
@@ -29,10 +34,24 @@ handle_file () {
 	OUTPUTPATH=$6
 
 	if [[ "$isOutput" = false ]]; then
-		/var/lib/snapd/snap/blender/current/blender -b -P /var/www/html/3drepository/modules/dfg_3dviewer/scripts/2gltf2/2gltf2.py -- "$INPATH/$FILENAME" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" > /dev/null 2>&1
+		${BLENDER_PATH}blender -b -P /var/www/html/3drepository/modules/dfg_3dviewer/scripts/2gltf2/2gltf2.py -- "$INPATH/$FILENAME" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" > /dev/null 2>&1
 	else
-		/var/lib/snapd/snap/blender/current/blender -b -P /var/www/html/3drepository/modules/dfg_3dviewer/scripts/2gltf2/2gltf2.py -- "$INPATH/$FILENAME" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" "$OUTPUT$OUTPUTPATH" #> /dev/null 2>&1
+		${BLENDER_PATH}blender -b -P /var/www/html/3drepository/modules/dfg_3dviewer/scripts/2gltf2/2gltf2.py -- "$INPATH/$FILENAME" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" "$OUTPUT$OUTPUTPATH" #> /dev/null 2>&1
 	fi
+}
+
+handle_ifc_file () {
+	INPATH=$1
+	FILENAME=$2
+	NAME=$3
+	EXT=$4
+	OUTPUT=$5
+	OUTPUTPATH=$6
+
+	if [[ ! -d $INPATH/gltf/ ]]; then
+		mkdir $INPATH/gltf/
+	fi
+	/var/www/html/3drepository/modules/dfg_3dviewer/scripts/IfcConvert "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
 }
 
 if [[ ! -z "$INPUT" && -f $INPUT ]]; then
@@ -65,6 +84,11 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 			case $EXT in
 				abc|blend|dae|fbx|obj|ply|stl|wrl|x3d)
 					handle_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
+					end=`date +%s`
+					echo "File $OUTPUT/$FILENAME compressed successfully. Runtime: $((end-start))s."
+				;;
+			  ifc)
+					handle_ifc_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
 					end=`date +%s`
 					echo "File $OUTPUT/$FILENAME compressed successfully. Runtime: $((end-start))s."
 				;;

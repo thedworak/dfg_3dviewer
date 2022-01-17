@@ -47,10 +47,10 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 					$archiveFiles = scandir ($extractPath);
 				}
 				elseif ($extension == 'RAR') {
-					
+					$output = shell_exec('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/uncompress.sh -t rar -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
 				}
 				elseif ($extension == 'TAR') {
-					$output = shell_exec('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/tar.sh -i "' . $realpath . '" -o "' . $extractPath . '"');
+					$output = shell_exec('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/uncompress.sh -t tar -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
 				}
 				
 				foreach ($archiveFiles as $zipFile) {
