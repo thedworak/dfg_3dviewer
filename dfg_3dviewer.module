@@ -34,7 +34,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		$extension = strtoupper($parts['extension']);
 		#\Drupal::messenger()->addMessage(serialize($parts), 'status');
 		#\Drupal::messenger()->addMessage('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/convert.sh -b true -i ' . $realpath . ' -f true', 'status');
-		if ($extension != 'ZIP' && $extension != 'RAR' && $extension != 'TAR' && $extension != 'GZ') {
+		if ($extension != 'ZIP' && $extension != 'RAR' && $extension != 'TAR' && $extension != 'GZ' && $extension != 'XZ') {
 			$output = shell_exec ('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/convert.sh -c true -l 3 -b true -i "' . $realpath . '" -f true');
 		}
 		else {
@@ -49,7 +49,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 				elseif ($extension == 'RAR') {
 					$output = shell_exec('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/uncompress.sh -t rar -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
 				}
-				elseif ($extension == 'TAR') {
+				elseif ($extension == 'TAR' || $extension == 'GZ' || $extension == 'XZ') {
 					$output = shell_exec('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/uncompress.sh -t tar -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
 				}
 				
@@ -65,6 +65,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 						case "stl":
 						case "wrl":
 						case "x3d":
+						case "ifc":
 						case "glb":
 						case "gltf":
 							#\Drupal::messenger()->addMessage(serialize($extractPath . $zipFile . $parts['filename']), 'status');

@@ -193,6 +193,9 @@ function init() {
 	else if  (extension == "zip" || extension == "ZIP" ) {
 		loadModel (path+basename+"_ZIP/"+"gltf/", basename, filename, "glb", extension);
 	}
+	else if  (extension == "rar" || extension == "RAR" ) {
+		loadModel (path+basename+"_RAR/"+"gltf/", basename, filename, "glb", extension);
+	}
 	else {
 		loadModel (path+"gltf/", basename, filename, "glb", extension);
 	}
@@ -403,6 +406,8 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 
 			case 'zip':
 			case 'ZIP':
+			case 'rar':
+			case 'RAR':
 				console.log("TEST");
 			break;
 			

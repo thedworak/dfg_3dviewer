@@ -11,7 +11,7 @@ while getopts ":t:o:i:f:n:" flag; do
 done
 
 if [[ ! -d $OUTPUT ]]; then
-	mkdir $OUTPUT
+	mkdir -p ${OUTPUT}/gltf
 fi
 
 case "${TYPE}" in
@@ -23,3 +23,18 @@ esac
 
 echo "Uncompressed file $INPUT"
 
+for filename in ${OUTPUT}*; do
+	fname=${filename##*/}
+	name="${fname%.*}"
+	ext=${filename//*.}
+	ext=`echo ${ext,,}`
+
+	case $ext in
+		abc|blend|dae|fbx|obj|ply|stl|wrl|x3d|ifc)
+			bash /var/www/html/3drepository/modules/dfg_3dviewer/scripts/convert.sh -c 'true' -l '3' -b 'true' -i "${OUTPUT}${name}.${ext}" -o "${OUTPUT}" -f 'true'
+		;;
+	  #*)
+		#echo "Flie extension $ext is not supported for conversion yet."
+		#;;
+	esac
+done

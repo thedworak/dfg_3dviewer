@@ -70,6 +70,8 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 		OUTFILENAME=${OUTPUT%/*}     # trim everything past the last /
 		OUTFILENAME=${OUTFILENAME##*/}
 		OUTFILENAME=${OUTFILENAME/"_ZIP"/""}
+		OUTFILENAME=${OUTFILENAME/"_RAR"/""}
+		OUTFILENAME=${OUTFILENAME/"_TAR"/""}
 		OUTPUTPATH=`echo $OUTFILENAME.$GLTF`
 		OUTPUT=`echo ${OUTPUT}gltf/`
 		isOutput=true
