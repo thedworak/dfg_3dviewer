@@ -45,33 +45,34 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 					$zip->extract($extractPath);
 					$zip->remove($realpath);
 					$archiveFiles = scandir ($extractPath);
+					foreach ($archiveFiles as $zipFile) {
+						$partsZip = pathinfo($zipFile);					
+						switch (strtolower($partsZip["extension"])) {
+							case "obj":
+							case "fbx":
+							case "ply":
+							case "dae":
+							case "abc":
+							case "blend":
+							case "stl":
+							case "wrl":
+							case "x3d":
+							case "ifc":
+							case "glb":
+							case "gltf":
+								#\Drupal::messenger()->addMessage(serialize($extractPath . $zipFile . $parts['filename']), 'status');
+								$output = shell_exec ('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/convert.sh -c true -l 3 -b true -i "' . $extractPath . $zipFile . '" -o "' . $extractPath . '" -f true');
+							break;
+						}
+					}
 				}
 				elseif ($extension == 'RAR') {
+					$extractPath = $parts['dirname'] . "/" . $parts['filename'] . "/";
 					$output = shell_exec('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/uncompress.sh -t rar -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
 				}
 				elseif ($extension == 'TAR' || $extension == 'GZ' || $extension == 'XZ') {
+					$extractPath = $parts['dirname'] . "/" . $parts['filename'] . "/";
 					$output = shell_exec('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/uncompress.sh -t tar -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
-				}
-				
-				foreach ($archiveFiles as $zipFile) {
-					$partsZip = pathinfo($zipFile);					
-					switch (strtolower($partsZip["extension"])) {
-						case "obj":
-						case "fbx":
-						case "ply":
-						case "dae":
-						case "abc":
-						case "blend":
-						case "stl":
-						case "wrl":
-						case "x3d":
-						case "ifc":
-						case "glb":
-						case "gltf":
-							#\Drupal::messenger()->addMessage(serialize($extractPath . $zipFile . $parts['filename']), 'status');
-							$output = shell_exec ('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/convert.sh -c true -l 3 -b true -i "' . $extractPath . $zipFile . '" -o "' . $extractPath . '" -f true');
-						break;
-					}
 				}
 				//\Drupal::messenger()->addMessage("Decompressed files: " . serialize($zip->listContents()), 'status');
 			}

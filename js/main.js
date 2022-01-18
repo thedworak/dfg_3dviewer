@@ -196,6 +196,15 @@ function init() {
 	else if  (extension == "rar" || extension == "RAR" ) {
 		loadModel (path+basename+"_RAR/"+"gltf/", basename, filename, "glb", extension);
 	}
+	else if  (extension == "tar" ) {
+		loadModel (path+basename+"_TAR/"+"gltf/", basename, filename, "glb", extension);
+	}
+	else if  (extension == "xz" ) {
+		loadModel (path+basename+"_XZ/"+"gltf/", basename, filename, "glb", extension);
+	}
+	else if  (extension == "gz" ) {
+		loadModel (path+basename+"_GZ/"+"gltf/", basename, filename, "glb", extension);
+	}
 	else {
 		loadModel (path+"gltf/", basename, filename, "glb", extension);
 	}
@@ -408,7 +417,13 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 			case 'ZIP':
 			case 'rar':
 			case 'RAR':
-				console.log("TEST");
+			case 'tar':
+			case 'TAR':
+			case 'gz':
+			case 'GZ':
+			case 'xz':
+			case 'XZ':
+				console.log("Uncompressed files are loaded");
 			break;
 			
 			case 'glb':
@@ -421,7 +436,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 				const gltf = new GLTFLoader();
 				gltf.setDRACOLoader(dracoLoader);
 				//console.log("[i] Loading model from " + extension + " representation.");
-				showToast("Loading model from " + extension + " representation.");
+				showToast("Trying to load model from " + extension + " representation.");
 
 				const glbPath = path + basename + "." + extension;
 				gltf.load(glbPath, function(gltf) {

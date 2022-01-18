@@ -14,10 +14,12 @@ if [[ ! -d $OUTPUT ]]; then
 	mkdir -p ${OUTPUT}/gltf
 fi
 
-case "${TYPE}" in
+case $TYPE in
 	rar) strOutput=`unrar e $INPUT $OUTPUT/`
 		;;
-	tar) strOutput=`tar xvzf $INPUT -C $OUTPUT/`
+	xz) strOutput=`tar xf $INPUT -C $OUTPUT/`
+		;;
+	tar|gz) strOutput=`tar xvzf $INPUT -C $OUTPUT/`
 		;;
 esac
 
