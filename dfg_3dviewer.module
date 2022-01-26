@@ -67,12 +67,13 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 					}
 				}
 				elseif ($extension == 'RAR') {
-					$extractPath = $parts['dirname'] . "/" . $parts['filename'] . "/";
 					$output = shell_exec('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/uncompress.sh -t rar -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
 				}
-				elseif ($extension == 'TAR' || $extension == 'GZ' || $extension == 'XZ') {
-					$extractPath = $parts['dirname'] . "/" . $parts['filename'] . "/";
+				elseif ($extension == 'TAR' || $extension == 'GZ' ) {
 					$output = shell_exec('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/uncompress.sh -t tar -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
+				}
+				elseif ($extension == 'XZ') {
+					$output = shell_exec('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/uncompress.sh -t xz -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
 				}
 				//\Drupal::messenger()->addMessage("Decompressed files: " . serialize($zip->listContents()), 'status');
 			}
