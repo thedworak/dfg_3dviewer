@@ -53,6 +53,13 @@ spinnerElement.setAttribute("data-percentage", "true");
 spinnerContainer.appendChild(spinnerElement);
 container.appendChild(spinnerContainer);
 
+var statsContainer = document.createElement("div");
+statsContainer.id = 'statsContainer';
+statsContainer.className = 'statsContainer';
+statsContainer.style.position = 'relative';
+statsContainer.style.right = '93%';
+container.appendChild(statsContainer);
+
 var guiContainer = document.createElement("div");
 guiContainer.id = 'guiContainer';
 guiContainer.className = 'guiContainer';
@@ -216,6 +223,7 @@ function init() {
 
 	// stats
 	stats = new Stats();
+	stats.domElement.style.cssText = 'position:relative;top:0px;left:0px;max-height:120px;max-width:90px;';
 	container.appendChild( stats.dom );
 	
 	windowHalfX = canvasDimensions.x / 2;
@@ -556,9 +564,8 @@ function fetchSettings ( path, basename, filename, object, camera, controls, org
 			Vertices: metadata['vertices'],
 			Faces: metadata['faces']
 		}
-		//hierarchyMain.classList.add("mystyle");
 		hierarchyMain.domElement.classList.add("hierarchy");
-		console.log(hierarchyMain.domElement);
+
 		metadataFolder.add(metadataText, 'Original extension' );
 		metadataFolder.add(metadataText, 'Loaded file' );
 		metadataFolder.add(metadataText, 'Vertices' );
