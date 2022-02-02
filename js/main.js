@@ -556,6 +556,9 @@ function fetchSettings ( path, basename, filename, object, camera, controls, org
 			Vertices: metadata['vertices'],
 			Faces: metadata['faces']
 		}
+		//hierarchyMain.classList.add("mystyle");
+		hierarchyMain.domElement.classList.add("hierarchy");
+		console.log(hierarchyMain.domElement);
 		metadataFolder.add(metadataText, 'Original extension' );
 		metadataFolder.add(metadataText, 'Loaded file' );
 		metadataFolder.add(metadataText, 'Vertices' );
