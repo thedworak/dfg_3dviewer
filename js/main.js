@@ -11,7 +11,6 @@ import Stats from '/modules/dfg_3dviewer/js/jsm/libs/stats.module.js';
 import { OrbitControls } from '/modules/dfg_3dviewer/js/jsm/controls/OrbitControls.js';
 import { TransformControls } from '/modules/dfg_3dviewer/js/jsm/controls/TransformControls.js';
 import { GUI } from '/modules/dfg_3dviewer/node_modules/lil-gui/dist/lil-gui.esm.min.js';
-//import { GUI } from '/modules/dfg_3dviewer/js/jsm/libs/dat.gui.module.js'
 import { FBXLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/FBXLoader.js';
 import { DDSLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/DDSLoader.js';
 import { MTLLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/MTLLoader.js';
@@ -83,9 +82,10 @@ const onUpPosition = new THREE.Vector2();
 const onDownPosition = new THREE.Vector2();
 
 const geometry = new THREE.BoxGeometry( 20, 20, 20 );
-let transformControl;
+let transformControl, transformControlLight;
 
 const helperObjects = [];
+const lightObjects = [];
 
 var selectedObject = false;
 var selectedObjects = [];
@@ -99,8 +99,15 @@ var transformType = "";
 
 var transformText =
 {
-    Transform: 'Transform'
+    'Transform 3D Object': 'select type',
+    'Transform Light': 'select type'
 }
+
+const colors = {
+	Light1: '0xFFFFFF'
+}
+
+const intensity = { startIntensity: 1 }
 
 var EDITOR = false;
 
@@ -111,7 +118,7 @@ var hierarchyFolder;
 const GUILength = 35;
 
 var canvasDimensions;
-
+var compressedFile = '';
 //guiContainer.appendChild(gui.domElement);
 
 var options = {
@@ -156,6 +163,7 @@ function init() {
 	dirLight.shadow.mapSize.width = 1024*4;
 	dirLight.shadow.mapSize.height = 1024*4;
 	scene.add( dirLight );
+	lightObjects.push( dirLight );
 
 	// scene.add( new THREE.CameraHelper( dirLight.shadow.camera ) );
 
@@ -175,10 +183,13 @@ function init() {
 		controls.enabled = ! event.value;
 	} );
 	scene.add( transformControl );
-
-	transformControl.addEventListener( 'objectChange', function () {
-		updateObject();
+	
+	transformControlLight = new TransformControls( camera, renderer.domElement );
+	transformControlLight.addEventListener( 'change', render );
+	transformControlLight.addEventListener( 'dragging-changed', function ( event ) {
+		controls.enabled = ! event.value;
 	} );
+	scene.add( transformControlLight );
 
 	// model
 	const filename = container.getAttribute("3d").split("/").pop();
@@ -195,22 +206,28 @@ function init() {
 		console.log("No glTF file, loading original file.");
 		loadModel(path, basename, filename, extension);
 	}*/
-	if (extension == "glb" || extension == "GLB" || extension == "gltf" || extension == "GLTF")
+	if (extension == "glb" || extension == "GLB" || extension == "gltf" || extension == "GLTF") {
 		loadModel (path, basename, filename, extension, extension);
+	}
 	else if  (extension == "zip" || extension == "ZIP" ) {
-		loadModel (path+basename+"_ZIP/"+"gltf/", basename, filename, "glb", extension);
+		compressedFile = "_ZIP/";
+		loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
 	}
 	else if  (extension == "rar" || extension == "RAR" ) {
-		loadModel (path+basename+"_RAR/"+"gltf/", basename, filename, "glb", extension);
+		compressedFile = "_RAR/";
+		loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
 	}
 	else if  (extension == "tar" ) {
-		loadModel (path+basename+"_TAR/"+"gltf/", basename, filename, "glb", extension);
+		compressedFile = "_TAR/";
+		loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
 	}
 	else if  (extension == "xz" ) {
-		loadModel (path+basename+"_XZ/"+"gltf/", basename, filename, "glb", extension);
+		compressedFile = "_XZ/";
+		loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
 	}
 	else if  (extension == "gz" ) {
-		loadModel (path+basename+"_GZ/"+"gltf/", basename, filename, "glb", extension);
+		compressedFile = "_GZ/";
+		loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
 	}
 	else {
 		loadModel (path+"gltf/", basename, filename, "glb", extension);
@@ -230,9 +247,21 @@ function init() {
 	windowHalfY = canvasDimensions.y / 2;
 	
 	const editorFolder = gui.addFolder('Editor').close();
-	editorFolder.add(transformText, 'Transform', { None: '', Move: 'translate', Rotate: 'rotate', Scale: 'scale' } ).onChange(function (value)
+	editorFolder.add(transformText, 'Transform 3D Object', { None: '', Move: 'translate', Rotate: 'rotate', Scale: 'scale' } ).onChange(function (value)
 	{ 
 		if (value == '') transformControl.detach(); else { transformControl.mode = value; transformControl.attach( helperObjects[0] ); }
+	});
+	const lightFolder = editorFolder.addFolder('Lights');
+	lightFolder.add(transformText, 'Transform Light', { None: '', Move: 'translate', Rotate: 'rotate', Scale: 'scale' } ).onChange(function (value)
+	{ 
+		if (value == '') transformControlLight.detach(); else { transformControlLight.mode = value; transformControlLight.attach( lightObjects[0] ); }
+	});
+	lightFolder.addColor ( colors, 'Light1' ).onChange(function (value) {
+		const tempColor = new THREE.Color( value );
+		lightObjects[0].color = tempColor ;
+	});
+	lightFolder.add( intensity, 'startIntensity', 0, 10 ).onChange(function (value) {
+		lightObjects[0].intensity = value;
 	});
 	if (editor)
 		editorFolder.add({["Save"]: function(){
@@ -245,8 +274,12 @@ function init() {
 			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
 			//console.log(camera.position);
 			var rotateMetadata = new THREE.Vector3(THREE.Math.radToDeg(helperObjects[0].rotation.x),THREE.Math.radToDeg(helperObjects[0].rotation.y),THREE.Math.radToDeg(helperObjects[0].rotation.z));
-			var newMetadata = ({"objPosition": [ helperObjects[0].position.x, helperObjects[0].position.y, helperObjects[0].position.z ], "objScale": [ helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z ], "objRotation": [ rotateMetadata.x, rotateMetadata.y, rotateMetadata.z ], "camPosition": [ camera.position.x, camera.position.y, camera.position.z ], "camLookAt": [ 0, 0, 0 ]});
-			var params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+"&filename="+filename;
+			var newMetadata = ({"objPosition": [ helperObjects[0].position.x, helperObjects[0].position.y, helperObjects[0].position.z ], "objScale": [ helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z ], "objRotation": [ rotateMetadata.x, rotateMetadata.y, rotateMetadata.z ], "camPosition": [ camera.position.x, camera.position.y, camera.position.z ], "camLookAt": [ 0, 0, 0 ], "lightPosition": [ dirLight.position.x, dirLight.position.y, dirLight.position.z ], "lightColor": [ "#" + (dirLight.color.getHexString()).toUpperCase() ], "lightIntensity": [ dirLight.intensity ] });
+			console.log(uri+basename+"/");
+			if (compressedFile != '')
+				var params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+basename+compressedFile+"&filename="+filename;
+			else
+				var params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+"&filename="+filename;
 			xhr.onreadystatechange = function()
 			{
 				if(xhr.readyState === XMLHttpRequest.DONE) {
@@ -287,7 +320,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 							.load( filename, function ( object ) {
 								object.position.set (0, 0, 0);
 								scene.add( object );
-								fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, controls, org_extension, extension );
+								fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, org_extension, extension );
 								fitCameraToCenteredObject ( camera, object, 1.7, controls );
 								mainObject.push(object);
 							}, onProgress, onError );
@@ -323,7 +356,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 					object.castShadow = true;
 					object.receiveShadow = true;
 					scene.add( object );
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, controls, org_extension, extension );
+					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, org_extension, extension );
 					fitCameraToCenteredObject ( camera, object, 1.7, controls );
 					mainObject.push(object);
 				}, onProgress, onError );
@@ -339,7 +372,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 					object = object.scene;
 					object.position.set (0, 0, 0);
 					scene.add( object );
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, controls, org_extension, extension );
+					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, org_extension, extension );
 					fitCameraToCenteredObject ( camera, object, 1.7, controls );
 					mainObject.push(object);
 				}, onProgress, onError );
@@ -352,7 +385,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 				ifcLoader.load( path + filename, function ( object ) {
 					//object.position.set (0, 300, 0);
 					scene.add( object );
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, controls, org_extension, extension );
+					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, org_extension, extension );
 					fitCameraToCenteredObject ( camera, object, 1.7, controls );
 					mainObject.push(object);
 				}, onProgress, onError );
@@ -371,7 +404,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 					object.castShadow = true;
 					object.receiveShadow = true;
 					scene.add( object );
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, controls, org_extension, extension );
+					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, org_extension, extension );
 					fitCameraToCenteredObject ( camera, object, 1.7, controls );
 					mainObject.push(object);
 				}, onProgress, onError );
@@ -387,7 +420,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 					object = new THREE.Points( geometry, material );
 					object.position.set (0, 0, 0);
 					scene.add( object );
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, controls, org_extension, extension );
+					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, org_extension, extension );
 					fitCameraToCenteredObject ( camera, object, 1.7, controls );
 					mainObject.push(object);
 				}, onProgress, onError );
@@ -400,7 +433,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 					path + filename, function ( object ) {
 						object.position.set (0, 0, 0);
 						scene.add( object );
-						fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, controls, org_extension, extension );
+						fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, org_extension, extension );
 						mainObject.push(object);
 					}, onProgress, onError );
 			break;
@@ -457,7 +490,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 							mainObject.push(child);	
 						}
 					});
-					fetchSettings (path.replace("gltf/", ""), basename, filename, gltf.scene, camera, controls, org_extension, extension );					
+					fetchSettings (path.replace("gltf/", ""), basename, filename, gltf.scene, camera, lightObjects[0], controls, org_extension, extension );					
 					scene.add( gltf.scene );
 				},
 					function ( xhr ) {
@@ -495,9 +528,10 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 	scene.updateMatrixWorld();
 }
 
-function fetchSettings ( path, basename, filename, object, camera, controls, org_extension, extension ) {
+function fetchSettings ( path, basename, filename, object, camera, light, controls, org_extension, extension ) {
 	var metadata = {'vertices': 0, 'faces': 0};
 	var hierarchy = [];
+	console.log(path + "@" + basename + "@" +  filename);
 	fetch(path + "metadata/" + filename + "_viewer", {cache: "no-cache"})
 	.then(response => {
 		if (response['status'] != "404") {
@@ -514,7 +548,7 @@ function fetchSettings ( path, basename, filename, object, camera, controls, org
 		var tempArray = [];
 		const hierarchyMain = gui.addFolder( 'Hierarchy' ).close();
 		if (object.name == "Scene" || object.children.length > 0 ) {
-			setupObject(object, camera, data, controls);
+			setupObject(object, camera, light, data, controls);
 			object.traverse( function ( child ) {
 				if ( child.isMesh ) {					
 					metadata['vertices'] += fetchMetadata (child, 'vertices');
@@ -539,11 +573,11 @@ function fetchSettings ( path, basename, filename, object, camera, controls, org
 					});
 				}
 			});			
-			setupCamera (object, camera, data, controls);				
+			setupCamera (object, camera, light, data, controls);				
 		}
 		else {
-			setupObject(object, camera, data, controls);
-			setupCamera (object, camera, data, controls);
+			setupObject(object, camera, light, data, controls);
+			setupCamera (object, camera, light, data, controls);
 			metadata['vertices'] += fetchMetadata (object, 'vertices');
 			metadata['faces'] += fetchMetadata (object, 'faces');
 			if (object.name == '')
@@ -573,6 +607,7 @@ function fetchSettings ( path, basename, filename, object, camera, controls, org
 		//hierarchyFolder.add(hierarchyText, 'Faces' );
 	});
 	helperObjects.push (object);
+	//lightObjects.push (object);
 }
 
 function selectObjectHierarchy (_id) {
@@ -614,7 +649,7 @@ function fetchMetadata (_object, _type) {
 	}
 }
 
-function setupObject (_object, _camera, _data, _controls) {
+function setupObject (_object, _camera, _light, _data, _controls) {
 	if (typeof (_data) != "undefined") {
 		_object.position.set (_data["objPosition"][0], _data["objPosition"][1], _data["objPosition"][2]);
 		_object.scale.set (_data["objScale"][0], _data["objScale"][1], _data["objScale"][2]);
@@ -651,9 +686,12 @@ function setupObject (_object, _camera, _data, _controls) {
 
 }
 
-function setupCamera (_object, _camera, _data, _controls) {
+function setupCamera (_object, _camera, _light, _data, _controls) {
 	if (typeof (_data) != "undefined") {
 		_camera.position.set( _data["camPosition"][0], _data["camPosition"][1], _data["camPosition"][2] );
+		_light.position.set( _data["lightPosition"][0], _data["lightPosition"][1], _data["lightPosition"][2] );
+		_light.color = new THREE.Color( _data["lightColor"][0] );
+		_light.intensity = _data["lightIntensity"][0];
 		_camera.updateProjectionMatrix();
 		_controls.update();
 		fitCameraToCenteredObject ( _camera, _object, 1.7, _controls );
