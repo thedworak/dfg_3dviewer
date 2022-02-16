@@ -132,8 +132,116 @@ var options = {
 };
 var myToast = Toastify(options);
 
+const planeParams = {
+	planeX: {
+		constant: 0,
+		negated: false,
+		displayHelperX: false
+	},
+	planeY: {
+		constant: 0,
+		negated: false,
+		displayHelperY: false
+	},
+	planeZ: {
+		constant: 0,
+		negated: false,
+		displayHelperZ: false
+	}
+};
+
+var clippingPlanes = [
+		new THREE.Plane( new THREE.Vector3( - 1, 0, 0 ), 0 ),
+		new THREE.Plane( new THREE.Vector3( 0, - 1, 0 ), 0 ),
+		new THREE.Plane( new THREE.Vector3( 0, 0, - 1 ), 0 )
+	];
+var planeHelpers, clippingFolder;
+var planeObjects = [];
+
+var clippingGeometry = [];
+let clippingObject = new THREE.Group();
+const planeGeom = new THREE.PlaneGeometry( 4, 4 );
+
 init();
 animate();
+
+function createPlaneStencilGroup( geometry, plane, renderOrder ) {
+
+	const group = new THREE.Group();
+	const baseMat = new THREE.MeshBasicMaterial();
+	baseMat.depthWrite = false;
+	baseMat.depthTest = false;
+	baseMat.colorWrite = false;
+	baseMat.stencilWrite = true;
+	baseMat.stencilFunc = THREE.AlwaysStencilFunc;
+
+	// back faces
+	const mat0 = baseMat.clone();
+	mat0.side = THREE.BackSide;
+	mat0.clippingPlanes = [ plane ];
+	mat0.stencilFail = THREE.IncrementWrapStencilOp;
+	mat0.stencilZFail = THREE.IncrementWrapStencilOp;
+	mat0.stencilZPass = THREE.IncrementWrapStencilOp;
+
+	const mesh0 = new THREE.Mesh( geometry, mat0 );
+	mesh0.renderOrder = renderOrder;
+	group.add( mesh0 );
+
+	// front faces
+	const mat1 = baseMat.clone();
+	mat1.side = THREE.FrontSide;
+	mat1.clippingPlanes = [ plane ];
+	mat1.stencilFail = THREE.DecrementWrapStencilOp;
+	mat1.stencilZFail = THREE.DecrementWrapStencilOp;
+	mat1.stencilZPass = THREE.DecrementWrapStencilOp;
+
+	const mesh1 = new THREE.Mesh( geometry, mat1 );
+	mesh1.renderOrder = renderOrder;
+
+	group.add( mesh1 );
+
+	return group;
+
+}
+
+function createClippingPlaneGroup( geometry, plane, renderOrder ) {
+
+	const group = new THREE.Group();
+	const baseMat = new THREE.MeshBasicMaterial();
+	baseMat.depthWrite = false;
+	baseMat.depthTest = false;
+	baseMat.colorWrite = false;
+	baseMat.stencilWrite = true;
+	baseMat.stencilFunc = THREE.AlwaysStencilFunc;
+
+	// back faces
+	const mat0 = baseMat.clone();
+	mat0.side = THREE.BackSide;
+	mat0.clippingPlanes = [ plane ];
+	mat0.stencilFail = THREE.IncrementWrapStencilOp;
+	mat0.stencilZFail = THREE.IncrementWrapStencilOp;
+	mat0.stencilZPass = THREE.IncrementWrapStencilOp;
+
+	const mesh0 = new THREE.Mesh( geometry, mat0 );
+	mesh0.renderOrder = renderOrder;
+	group.add( mesh0 );
+
+	// front faces
+	const mat1 = baseMat.clone();
+	mat1.side = THREE.FrontSide;
+	mat1.clippingPlanes = [ plane ];
+	mat1.stencilFail = THREE.DecrementWrapStencilOp;
+	mat1.stencilZFail = THREE.DecrementWrapStencilOp;
+	mat1.stencilZPass = THREE.DecrementWrapStencilOp;
+
+	const mesh1 = new THREE.Mesh( geometry, mat1 );
+	mesh1.renderOrder = renderOrder;
+
+	group.add( mesh1 );
+
+	return group;
+
+}
 
 function init() {
 	
@@ -171,6 +279,8 @@ function init() {
 	renderer.setPixelRatio( window.devicePixelRatio );
 	renderer.setSize( canvasDimensions.x, canvasDimensions.y );
 	renderer.shadowMap.enabled = true;
+	renderer.localClippingEnabled = true;
+	renderer.setClearColor( 0x263238 );
 	container.appendChild( renderer.domElement );
 
 	controls = new OrbitControls( camera, renderer.domElement );
@@ -263,6 +373,8 @@ function init() {
 	lightFolder.add( intensity, 'startIntensity', 0, 10 ).onChange(function (value) {
 		lightObjects[0].intensity = value;
 	});
+	clippingFolder = editorFolder.addFolder('Clipping Planes');
+
 	if (editor)
 		editorFolder.add({["Save"]: function(){
 			var xhr = new XMLHttpRequest(),
@@ -321,7 +433,6 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 								object.position.set (0, 0, 0);
 								scene.add( object );
 								fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, org_extension, extension );
-								fitCameraToCenteredObject ( camera, object, 1.7, controls );
 								mainObject.push(object);
 							}, onProgress, onError );
 					} );
@@ -340,7 +451,6 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 					object.position.set (0, 0, 0);
 					scene.add( object );
 					fetchSettings (path.replace("gltf/", ""), basename, filename, object.children, camera, controls, org_extension, extension );
-					fitCameraToCenteredObject ( camera, object.children, 1.7, controls );
 					mainObject.push(object);
 				}, onProgress, onError );
 			break;
@@ -357,7 +467,6 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 					object.receiveShadow = true;
 					scene.add( object );
 					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, org_extension, extension );
-					fitCameraToCenteredObject ( camera, object, 1.7, controls );
 					mainObject.push(object);
 				}, onProgress, onError );
 			break;
@@ -373,7 +482,6 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 					object.position.set (0, 0, 0);
 					scene.add( object );
 					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, org_extension, extension );
-					fitCameraToCenteredObject ( camera, object, 1.7, controls );
 					mainObject.push(object);
 				}, onProgress, onError );
 			break;
@@ -386,7 +494,6 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 					//object.position.set (0, 300, 0);
 					scene.add( object );
 					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, org_extension, extension );
-					fitCameraToCenteredObject ( camera, object, 1.7, controls );
 					mainObject.push(object);
 				}, onProgress, onError );
 			break;
@@ -405,7 +512,6 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 					object.receiveShadow = true;
 					scene.add( object );
 					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, org_extension, extension );
-					fitCameraToCenteredObject ( camera, object, 1.7, controls );
 					mainObject.push(object);
 				}, onProgress, onError );
 			break;
@@ -421,7 +527,6 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 					object.position.set (0, 0, 0);
 					scene.add( object );
 					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, org_extension, extension );
-					fitCameraToCenteredObject ( camera, object, 1.7, controls );
 					mainObject.push(object);
 				}, onProgress, onError );
 			break;
@@ -487,10 +592,51 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 							child.receiveShadow = true;
 							child.geometry.computeVertexNormals();
 							if(child.material.map) child.material.map.anisotropy = 16;
+							child.material.side = THREE.DoubleSide;
+							for ( let i = 0; i < 3; i ++ ) {
+
+								const poGroup = new THREE.Group();
+								const plane = clippingPlanes[ i ];
+								const stencilGroup = createPlaneStencilGroup( child.geometry, plane, i + 1 );
+
+								// plane is clipped by the other clipping planes
+								const planeMat =
+									new THREE.MeshStandardMaterial( {
+
+										color: 0xE91E63,
+										metalness: 0.1,
+										roughness: 0.75,
+										clippingPlanes: clippingPlanes.filter( p => p !== plane ),
+
+										stencilWrite: true,
+										stencilRef: 0,
+										stencilFunc: THREE.NotEqualStencilFunc,
+										stencilFail: THREE.ReplaceStencilOp,
+										stencilZFail: THREE.ReplaceStencilOp,
+										stencilZPass: THREE.ReplaceStencilOp,
+
+									} );
+								const po = new THREE.Mesh( planeGeom, planeMat );
+								po.onAfterRender = function ( renderer ) {
+
+									renderer.clearStencil();
+
+								};
+
+								po.renderOrder = i + 3;
+
+								clippingObject.add( stencilGroup );
+								poGroup.add( po );
+								planeObjects.push( po );
+								scene.add( poGroup );
+
+							}
+							child.material.clippingPlanes = clippingPlanes;
+							child.material.clipIntersection = true;
 							mainObject.push(child);	
 						}
 					});
-					fetchSettings (path.replace("gltf/", ""), basename, filename, gltf.scene, camera, lightObjects[0], controls, org_extension, extension );					
+					fetchSettings (path.replace("gltf/", ""), basename, filename, gltf.scene, camera, lightObjects[0], controls, org_extension, extension );
 					scene.add( gltf.scene );
 				},
 					function ( xhr ) {
@@ -531,7 +677,8 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 function fetchSettings ( path, basename, filename, object, camera, light, controls, org_extension, extension ) {
 	var metadata = {'vertices': 0, 'faces': 0};
 	var hierarchy = [];
-	console.log(path + "@" + basename + "@" +  filename);
+	var geometry;
+	//console.log(path + "@" + basename + "@" +  filename);
 	fetch(path + "metadata/" + filename + "_viewer", {cache: "no-cache"})
 	.then(response => {
 		if (response['status'] != "404") {
@@ -543,14 +690,14 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 			//console.log("No metadata " + path + "metadata/" + filename + "_viewer found");
 			showToast("No settings " + filename + "_viewer found");
 		}
-	})
+		})
 	.then(data => {
 		var tempArray = [];
 		const hierarchyMain = gui.addFolder( 'Hierarchy' ).close();
 		if (object.name == "Scene" || object.children.length > 0 ) {
 			setupObject(object, camera, light, data, controls);
 			object.traverse( function ( child ) {
-				if ( child.isMesh ) {					
+				if ( child.isMesh ) {
 					metadata['vertices'] += fetchMetadata (child, 'vertices');
 					metadata['faces'] += fetchMetadata (child, 'faces');
 					var shortChildName = truncateString(child.name, GUILength);
@@ -558,21 +705,22 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 						tempArray = {["Mesh"]: function(){selectObjectHierarchy(child.id)}, 'id': child.id};
 					else
 						tempArray = { [shortChildName]: function(){selectObjectHierarchy(child.id)}, 'id': child.id};
-
 					hierarchyFolder = hierarchyMain.addFolder(shortChildName).close();
 					hierarchyFolder.add(tempArray, shortChildName);
+					clippingGeometry.push(child.geometry);
 					child.traverse( function ( children ) {
 						if ( children.isMesh &&  children.name != child.name) {
 							var shortChildrenName = truncateString(children.name, GUILength);
 							if (children.name == '')
 								tempArray = {["Mesh"]: function(){selectObjectHierarchy(children.id)}, 'id': children.id};
 							else
-								tempArray = { [shortChildrenName]: function(){selectObjectHierarchy(children.id)}, 'id': children.id};
+								tempArray = { [shortChildrenName]: function(){selectObjectHierarchy(children.id)}, 'id': children.id}; 
+							clippingGeometry.push(children.geometry);
 							hierarchyFolder.add(tempArray, shortChildrenName);
 						}
 					});
 				}
-			});			
+			});
 			setupCamera (object, camera, light, data, controls);				
 		}
 		else {
@@ -585,6 +733,7 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 			else
 				tempArray = {[object.name]: function(){selectObjectHierarchy(object.id)}, 'id': object.id};
 			//hierarchy.push(tempArray);
+			clippingGeometry.push(object.geometry);
 			hierarchyFolder = hierarchyMain.addFolder(object.name).close();
 			hierarchyFolder.add(tempArray, 'name' ).name(object.name);
 			metadata['vertices'] += fetchMetadata (object, 'vertices');
@@ -607,6 +756,7 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 		//hierarchyFolder.add(hierarchyText, 'Faces' );
 	});
 	helperObjects.push (object);
+
 	//lightObjects.push (object);
 }
 
@@ -748,6 +898,18 @@ function animate() {
 	const delta = clock.getDelta();
 	if ( mixer ) mixer.update( delta );
 	TWEEN.update();
+	for ( let i = 0; i < clippingPlanes.length; i ++ ) {
+
+		const plane = clippingPlanes[ i ];
+		const po = planeObjects[ i ];
+		plane.coplanarPoint( po.position );
+		po.lookAt(
+			po.position.x - plane.normal.x,
+			po.position.y - plane.normal.y,
+			po.position.z - plane.normal.z,
+		);
+
+	}
 	renderer.render( scene, camera );
 	stats.update();
 }
@@ -859,6 +1021,53 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls ) {
         orbitControls.maxDistance = cameraToFarEdge * 2;
     }
 	controls.update();
+	
+	setupClippingPlanes(object.geometry, gridSize, distance);
+}
+
+function setupClippingPlanes (_geometry, _size, _distance) {
+	planeHelpers = clippingPlanes.map( p => new THREE.PlaneHelper( p, _size, 0xffffff ) );
+	planeHelpers.forEach( ph => {
+		ph.visible = false;
+		ph.name = "PlaneHelper";
+		scene.add( ph );
+	} );
+
+	clippingPlanes[ 0 ].constant = _distance.x/2;
+	clippingPlanes[ 1 ].constant = _distance.y/2;
+	clippingPlanes[ 2 ].constant = _distance.z/2;
+
+	clippingFolder.add( planeParams.planeX, 'displayHelperX' ).onChange( v => planeHelpers[ 0 ].visible = v );
+	clippingFolder.add( planeParams.planeX, 'constant' ).min( - _distance.x ).max( _distance.x ).onChange(function (value) {
+		clippingPlanes[ 0 ].constant = value;
+		render();
+	});
+	
+	clippingFolder.add( planeParams.planeX, 'negated' ).onChange( () => {
+		clippingPlanes[ 0 ].negate();
+	} );
+
+
+	clippingFolder.add( planeParams.planeY, 'displayHelperY' ).onChange( v => planeHelpers[ 1 ].visible = v );
+	clippingFolder.add( planeParams.planeY, 'constant' ).min( - _distance.y ).max( _distance.y ).onChange(function (value) {
+		clippingPlanes[ 1 ].constant = value;
+		render();
+	});
+	clippingFolder.add( planeParams.planeY, 'negated' ).onChange( () => {
+		clippingPlanes[ 1 ].negate();
+		planeParams.planeY.constant = clippingPlanes[ 1 ].constant;
+	} );
+
+
+	clippingFolder.add( planeParams.planeZ, 'displayHelperZ' ).onChange( v => planeHelpers[ 2 ].visible = v );
+	clippingFolder.add( planeParams.planeZ, 'constant' ).min( - _distance.z ).max( _distance.z ).onChange(function (value) {
+		clippingPlanes[ 2 ].constant = value;
+		render();
+	});
+	clippingFolder.add( planeParams.planeZ, 'negated' ).onChange( () => {
+		clippingPlanes[ 2 ].negate();
+		planeParams.planeZ.constant = clippingPlanes[ 2 ].constant;
+	} );
 }
 
 function render() {
