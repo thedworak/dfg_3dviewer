@@ -165,45 +165,6 @@ const planeGeom = new THREE.PlaneGeometry( 4, 4 );
 init();
 animate();
 
-function createPlaneStencilGroup( geometry, plane, renderOrder ) {
-
-	const group = new THREE.Group();
-	const baseMat = new THREE.MeshBasicMaterial();
-	baseMat.depthWrite = false;
-	baseMat.depthTest = false;
-	baseMat.colorWrite = false;
-	baseMat.stencilWrite = true;
-	baseMat.stencilFunc = THREE.AlwaysStencilFunc;
-
-	// back faces
-	const mat0 = baseMat.clone();
-	mat0.side = THREE.BackSide;
-	mat0.clippingPlanes = [ plane ];
-	mat0.stencilFail = THREE.IncrementWrapStencilOp;
-	mat0.stencilZFail = THREE.IncrementWrapStencilOp;
-	mat0.stencilZPass = THREE.IncrementWrapStencilOp;
-
-	const mesh0 = new THREE.Mesh( geometry, mat0 );
-	mesh0.renderOrder = renderOrder;
-	group.add( mesh0 );
-
-	// front faces
-	const mat1 = baseMat.clone();
-	mat1.side = THREE.FrontSide;
-	mat1.clippingPlanes = [ plane ];
-	mat1.stencilFail = THREE.DecrementWrapStencilOp;
-	mat1.stencilZFail = THREE.DecrementWrapStencilOp;
-	mat1.stencilZPass = THREE.DecrementWrapStencilOp;
-
-	const mesh1 = new THREE.Mesh( geometry, mat1 );
-	mesh1.renderOrder = renderOrder;
-
-	group.add( mesh1 );
-
-	return group;
-
-}
-
 function createClippingPlaneGroup( geometry, plane, renderOrder ) {
 
 	const group = new THREE.Group();
@@ -597,7 +558,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 
 								const poGroup = new THREE.Group();
 								const plane = clippingPlanes[ i ];
-								const stencilGroup = createPlaneStencilGroup( child.geometry, plane, i + 1 );
+								const stencilGroup = createClippingPlaneGroup( child.geometry, plane, i + 1 );
 
 								// plane is clipped by the other clipping planes
 								const planeMat =
@@ -623,7 +584,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 
 								};
 
-								po.renderOrder = i + 3;
+								po.renderOrder = i + 1.1;
 
 								clippingObject.add( stencilGroup );
 								poGroup.add( po );
@@ -632,7 +593,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 
 							}
 							child.material.clippingPlanes = clippingPlanes;
-							child.material.clipIntersection = true;
+							child.material.clipIntersection = false;
 							mainObject.push(child);	
 						}
 					});
@@ -902,12 +863,14 @@ function animate() {
 
 		const plane = clippingPlanes[ i ];
 		const po = planeObjects[ i ];
-		plane.coplanarPoint( po.position );
-		po.lookAt(
-			po.position.x - plane.normal.x,
-			po.position.y - plane.normal.y,
-			po.position.z - plane.normal.z,
-		);
+		if (po !== undefined ) {
+			plane.coplanarPoint( po.position );
+			po.lookAt(
+				po.position.x - plane.normal.x,
+				po.position.y - plane.normal.y,
+				po.position.z - plane.normal.z,
+			);
+		}
 
 	}
 	renderer.render( scene, camera );
@@ -1025,49 +988,37 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls ) {
 	setupClippingPlanes(object.geometry, gridSize, distance);
 }
 
-function setupClippingPlanes (_geometry, _size, _distance) {
-	planeHelpers = clippingPlanes.map( p => new THREE.PlaneHelper( p, _size, 0xffffff ) );
+function setupClippingPlanes (_geometry, _size, _distance) {	
+	clippingPlanes[ 0 ].constant = _distance.x;
+	clippingPlanes[ 1 ].constant = _distance.y;
+	clippingPlanes[ 2 ].constant = _distance.z;
+
+	planeHelpers = clippingPlanes.map( p => new THREE.PlaneHelper( p, _size*2, 0xffffff ) );
 	planeHelpers.forEach( ph => {
 		ph.visible = false;
 		ph.name = "PlaneHelper";
 		scene.add( ph );
 	} );
 
-	clippingPlanes[ 0 ].constant = _distance.x/2;
-	clippingPlanes[ 1 ].constant = _distance.y/2;
-	clippingPlanes[ 2 ].constant = _distance.z/2;
-
 	clippingFolder.add( planeParams.planeX, 'displayHelperX' ).onChange( v => planeHelpers[ 0 ].visible = v );
-	clippingFolder.add( planeParams.planeX, 'constant' ).min( - _distance.x ).max( _distance.x ).onChange(function (value) {
+	clippingFolder.add( planeParams.planeX, 'constant' ).min( - _distance.x ).max( _distance.x ).setValue(_distance.x).step(_size/100).onChange(function (value) {
 		clippingPlanes[ 0 ].constant = value;
 		render();
 	});
-	
-	clippingFolder.add( planeParams.planeX, 'negated' ).onChange( () => {
-		clippingPlanes[ 0 ].negate();
-	} );
 
 
 	clippingFolder.add( planeParams.planeY, 'displayHelperY' ).onChange( v => planeHelpers[ 1 ].visible = v );
-	clippingFolder.add( planeParams.planeY, 'constant' ).min( - _distance.y ).max( _distance.y ).onChange(function (value) {
+	clippingFolder.add( planeParams.planeY, 'constant' ).min( - _distance.y ).max( _distance.y ).setValue(_distance.y).step(_size/100).onChange(function (value) {
 		clippingPlanes[ 1 ].constant = value;
 		render();
 	});
-	clippingFolder.add( planeParams.planeY, 'negated' ).onChange( () => {
-		clippingPlanes[ 1 ].negate();
-		planeParams.planeY.constant = clippingPlanes[ 1 ].constant;
-	} );
 
 
 	clippingFolder.add( planeParams.planeZ, 'displayHelperZ' ).onChange( v => planeHelpers[ 2 ].visible = v );
-	clippingFolder.add( planeParams.planeZ, 'constant' ).min( - _distance.z ).max( _distance.z ).onChange(function (value) {
+	clippingFolder.add( planeParams.planeZ, 'constant' ).min( - _distance.z ).max( _distance.z ).setValue(_distance.z).step(_size/100).onChange(function (value) {
 		clippingPlanes[ 2 ].constant = value;
 		render();
 	});
-	clippingFolder.add( planeParams.planeZ, 'negated' ).onChange( () => {
-		clippingPlanes[ 2 ].negate();
-		planeParams.planeZ.constant = clippingPlanes[ 2 ].constant;
-	} );
 }
 
 function render() {
