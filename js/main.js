@@ -1,6 +1,6 @@
 //Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, glTF
 
-const path = '/modules/dfg_3dviewer';
+//const path = '/modules/dfg_3dviewer';
 //const path = '..'; //local
 
 import * as THREE from '/modules/dfg_3dviewer/build/three.module.js';
@@ -26,6 +26,10 @@ import { STLLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/STLLoader.js';
 import { XYZLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/XYZLoader.js';
 import { TDSLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/TDSLoader.js';
 
+/*if (supportedFormats.indexOf(extension.toUpperCase()) < 0) {
+	return
+}*/
+
 let camera, scene, renderer, stats, controls, loader;
 let imported;
 var mainObject = [];
@@ -35,9 +39,15 @@ const editor = true;
 
 let mixer;
 
-const supportedFormats = [ 'OBJ', 'DAE', 'FBX', 'PLY', 'IFC', 'STL', 'XYZ', 'JSON' ];
-
 const container = document.getElementById("DFG_3DViewer");
+const supportedFormats = [ 'OBJ', 'DAE', 'FBX', 'PLY', 'IFC', 'STL', 'XYZ', 'JSON', '3DS', 'GLFT' ];
+const filename = container.getAttribute("3d").split("/").pop();
+const basename = filename.substring(0, filename.lastIndexOf('.'));
+const extension = filename.substring(filename.lastIndexOf('.') + 1);	
+const path = container.getAttribute("3d").substring(0, container.getAttribute("3d").lastIndexOf(filename));
+const domain = "https://3d-repository.hs-mainz.de";
+const uri = path.replace(domain+"/", "");
+
 var spinnerContainer = document.createElement("div");
 spinnerContainer.id = 'spinnerContainer';
 spinnerContainer.className = 'spinnerContainer';
@@ -210,7 +220,7 @@ function createClippingPlaneGroup( geometry, plane, renderOrder ) {
 }
 
 function init() {
-	
+	// model
 	canvasDimensions = {x: container.getBoundingClientRect().width, y: container.getBoundingClientRect().bottom};
 	container.setAttribute("width", canvasDimensions.x);
 	container.setAttribute("height", canvasDimensions.y);
@@ -266,14 +276,6 @@ function init() {
 		controls.enabled = ! event.value;
 	} );
 	scene.add( transformControlLight );
-
-	// model
-	const filename = container.getAttribute("3d").split("/").pop();
-	const basename = filename.substring(0, filename.lastIndexOf('.'));
-	const extension = filename.substring(filename.lastIndexOf('.') + 1);	
-	const path = container.getAttribute("3d").substring(0, container.getAttribute("3d").lastIndexOf(filename));
-	const domain = "https://3d-repository.hs-mainz.de";
-	const uri = path.replace(domain+"/", "");
 
 	/*try {
 
