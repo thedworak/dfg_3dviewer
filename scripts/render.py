@@ -118,7 +118,7 @@ for current_argument in sys.argv:
 	root, current_extension = os.path.splitext(current_argument)
 	current_basename = os.path.basename(root)
 
-	if current_extension != ".abc" and current_extension != ".blend" and current_extension != ".dae" and current_extension != ".fbx" and current_extension != ".gltf" and current_extension != ".obj" and current_extension != ".ply" and current_extension != ".stl" and current_extension != ".wrl" and current_extension != ".x3d":
+	if current_extension != ".abc" and current_extension != ".blend" and current_extension != ".dae" and current_extension != ".fbx" and current_extension != ".gltf" and current_extension != ".glb" and current_extension != ".obj" and current_extension != ".ply" and current_extension != ".stl" and current_extension != ".wrl" and current_extension != ".x3d":
 		continue
 
 	bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -172,14 +172,14 @@ for current_argument in sys.argv:
 	(dist_x, dist_y, dist_z) = tuple([abs(c) for c in bb_sides])
 	originated_dist_y = .5 * dist_y
 	radius = 0.5 * max(dist_x, dist_z)
-	print(radius)
-	print(bb_sides)
 
 	scene = bpy.context.scene
 	context = bpy.context
 	render = bpy.context.scene.render
 
 	render.engine = 'BLENDER_EEVEE'
+	#render.engine = 'CYCLES'
+	#render.engine = 'BLENDER_WORKBENCH'
 	render.image_settings.color_mode = 'RGBA'
 	render.image_settings.color_depth = '16' 
 	render.image_settings.file_format = 'PNG'
@@ -187,17 +187,23 @@ for current_argument in sys.argv:
 	render.resolution_y = 512
 	render.resolution_percentage = 100
 	render.film_transparent = True
-
+	#scene.render.engine = 'CYCLES'
+	scene.render.use_freestyle = False
 	scene.use_nodes = True
 	scene.view_layers["View Layer"].use_pass_normal = True
 	scene.view_layers["View Layer"].use_pass_diffuse_color = True
 	scene.view_layers["View Layer"].use_pass_object_index = True
 
 	light_data = bpy.data.lights.new('light', type='SUN')
-	light = bpy.data.objects.new('light', light_data)
-	light.data.energy=20.0
-	light.location = (3, 4, -5)
-	bpy.context.collection.objects.link(light)
+	sun = bpy.data.objects.new('light', light_data)
+	sun.data.energy=20.0
+	sun.location = (3, 4, -5)
+	bpy.context.collection.objects.link(sun)
+	sun_bottom = bpy.data.objects.new('light_bottom', light_data)
+	sun_bottom.data.energy=20.0
+	sun_bottom.location = (0, 0, -dist_z/8)
+	sun_bottom.rotation_euler = (2, 0.3, 0.3)
+	bpy.context.collection.objects.link(sun_bottom)
 	
 	scene.render.image_settings.file_format='PNG'
 	scene.render.filepath=export_file+current_basename+'.png'
@@ -225,13 +231,28 @@ for current_argument in sys.argv:
 	print(cam.location)
 	cam.location=Vector((dist_x/10, dist_y/10, dist_z/10))
 	scene.render.filepath=export_file+current_basename+'_org.png'
-	bpy.ops.render.render(write_still=True)
-	cam.location = rotate(cam.location, 45, axis=(0, 0, 1))	
+	#bpy.ops.render.render(write_still=True)
+	cam.location = rotate(cam.location, 45, axis=(0, 0, 1))
+	
+	#side
+	cam.location=Vector((0, dist_y/8, 0))
+	scene.render.filepath=export_file+current_basename+'_top.png'
+	#bpy.ops.render.render(write_still=True)
 	
 	for angle in range(0, 360, 90):
 		print(cam.location)
-		scene.render.filepath=export_file+current_basename+'_'+str(angle)+'.png'
-		#bpy.ops.render.render(write_still=True)
-		cam.location = rotate(cam.location, 90, axis=(0, 0, 1))		
+		scene.render.filepath=export_file+current_basename+'_side'+str(angle)+'.png'
+		bpy.ops.render.render(write_still=True)
+		cam.location = rotate(cam.location, 90, axis=(0, 0, 1))
+	
+	#top
+	cam.location=Vector((0, 0, dist_z/8))
+	scene.render.filepath=export_file+current_basename+'_top.png'
+	bpy.ops.render.render(write_still=True)
+	
+	#bottom
+	cam.location=Vector((0, 0, -dist_z/8))
+	scene.render.filepath=export_file+current_basename+'_bottom.png'
+	bpy.ops.render.render(write_still=True)
 	print("Rendering done")
 
