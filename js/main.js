@@ -120,7 +120,8 @@ const colors = {
 const intensity = { startIntensity: 1 }
 
 const saveProperties = {
-	Camera: true
+	Camera: true,
+	Light: true
 }
 
 var EDITOR = false;
@@ -225,7 +226,7 @@ function init() {
 	container.setAttribute("width", canvasDimensions.x);
 	container.setAttribute("height", canvasDimensions.y);
 
-	camera = new THREE.PerspectiveCamera( 45, canvasDimensions.x / canvasDimensions.y, 1, 200000 );
+	camera = new THREE.PerspectiveCamera( 45, canvasDimensions.x / canvasDimensions.y, 0.1, 200000 );
 	camera.position.set( 0, 0, 0 );
 
 	scene = new THREE.Scene();
@@ -344,6 +345,7 @@ function init() {
 	clippingFolder = editorFolder.addFolder('Clipping Planes').close();
 	propertiesFolder = editorFolder.addFolder('Save properties').close();
 	propertiesFolder.add( saveProperties, 'Camera' ); 
+	propertiesFolder.add( saveProperties, 'Light' ); 
 
 	if (editor)
 		editorFolder.add({["Save"]: function(){
@@ -356,10 +358,12 @@ function init() {
 			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
 			//console.log(camera.position);
 			var rotateMetadata = new THREE.Vector3(THREE.Math.radToDeg(helperObjects[0].rotation.x),THREE.Math.radToDeg(helperObjects[0].rotation.y),THREE.Math.radToDeg(helperObjects[0].rotation.z));
-			var newMetadata = ({"objPosition": [ helperObjects[0].position.x, helperObjects[0].position.y, helperObjects[0].position.z ], "objScale": [ helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z ], "objRotation": [ rotateMetadata.x, rotateMetadata.y, rotateMetadata.z ], "camPosition": [ camera.position.x, camera.position.y, camera.position.z ], "camLookAt": [ 0, 0, 0 ], "lightPosition": [ dirLight.position.x, dirLight.position.y, dirLight.position.z ], "lightColor": [ "#" + (dirLight.color.getHexString()).toUpperCase() ], "lightIntensity": [ dirLight.intensity ] });
-			console.log(newMetadata);
+			var newMetadata = ({"objPosition": [ helperObjects[0].position.x, helperObjects[0].position.y, helperObjects[0].position.z ], "objScale": [ helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z ], "objRotation": [ rotateMetadata.x, rotateMetadata.y, rotateMetadata.z ] });
+			//console.log(newMetadata);
 			if (saveProperties.Camera)
-				newMetadata = Object.assign(newMetadata, {"cameraPosition": [ camera.position.x, camera.position.y, camera.position.z ], "cameraTarget": [ controls.target.x, controls.target.y, controls.target.z ]});
+				newMetadata = Object.assign(newMetadata, {"cameraPosition": [ camera.position.x, camera.position.y, camera.position.z ], "controlsTarget": [ controls.target.x, controls.target.y, controls.target.z ]});
+			if (saveProperties.Light)
+				newMetadata = Object.assign(newMetadata, {"lightPosition": [ dirLight.position.x, dirLight.position.y, dirLight.position.z ], "lightColor": [ "#" + (dirLight.color.getHexString()).toUpperCase() ], "lightIntensity": [ dirLight.intensity ] });
 			//console.log(uri+basename+"/");
 			if (compressedFile != '')
 				var params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+basename+compressedFile+"&filename="+filename;
@@ -811,7 +815,7 @@ function setupCamera (_object, _camera, _light, _data, _controls) {
 	if (typeof (_data) != "undefined") {
 		if (typeof (_data["cameraPosition"]) != "undefined") {
 			_camera.position.set (_data["cameraPosition"][0], _data["cameraPosition"][1], _data["cameraPosition"][2]);
-			_controls.target.set (_data["cameraTarget"][0], _data["cameraTarget"][1], _data["cameraTarget"][2]);
+			_controls.target.set (_data["controlsTarget"][0], _data["controlsTarget"][1], _data["controlsTarget"][2]);
 		}
 		if (typeof (_data["lightPosition"]) != "undefined") {
 			_light.position.set( _data["lightPosition"][0], _data["lightPosition"][1], _data["lightPosition"][2] );
