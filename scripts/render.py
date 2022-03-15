@@ -32,6 +32,7 @@ import sys
 import numpy as np
 import math
 from mathutils import Vector
+import itertools
 
 bpy.context.scene.render.resolution_percentage = 50
 bpy.context.scene.render.resolution_x = 1280
@@ -153,29 +154,55 @@ for current_argument in sys.argv:
 	if current_extension == ".gltf" or current_extension == ".glb":
 		bpy.ops.import_scene.gltf(filepath=current_argument)
 
-	#
-	#print("ROOT" + root)
-	if sys.argv[7:]:
-		export_file = str(sys.argv[7])
-	else:
-		root = root[::-1].replace(current_basename[::-1], "", 1)[::-1]
-		export_file = root + "_" + extension
-
-	levels=3
-	density=5
-	r_offset=0.2
-	z_offset=0.2
-	target_obj = bpy.context.selected_objects[0]
-	target_origin = target_obj.location
-	# get bounding box side lengths
-	bb_sides = get_min(target_obj.bound_box) - get_max(target_obj.bound_box)
-	(dist_x, dist_y, dist_z) = tuple([abs(c) for c in bb_sides])
-	originated_dist_y = .5 * dist_y
-	radius = 0.5 * max(dist_x, dist_z)
-
 	scene = bpy.context.scene
 	context = bpy.context
 	render = bpy.context.scene.render
+
+	item='MESH'
+	bpy.ops.object.select_all(action='DESELECT')
+	bpy.ops.object.select_by_type(type=item)
+
+	# multiply 3d coord list by matrix
+	def np_matmul_coords(coords, matrix, space=None):
+		M = (space @ matrix @ space.inverted()
+			 if space else matrix).transposed()
+		ones = np.ones((coords.shape[0], 1))
+		coords4d = np.hstack((coords, ones))
+		
+		return np.dot(coords4d, M)[:,:-1]
+		return coords4d[:,:-1]
+
+	# get the global coordinates of all object bounding box corners    
+	coords = np.vstack(
+		tuple(np_matmul_coords(np.array(o.bound_box), o.matrix_world.copy())
+			 for o in  
+				bpy.context.scene.objects
+				if o.type == 'MESH'
+				)
+			)
+	print("#" * 72)
+	# bottom front left (all the mins)
+	bfl = coords.min(axis=0)
+	# top back right
+	tbr = coords.max(axis=0)
+	G  = np.array((bfl, tbr)).T
+	# bound box coords ie the 8 combinations of bfl tbr.
+	bbc = [i for i in itertools.product(*G)]
+	print(np.array(bbc))
+	bb_sides = get_min(bbc) - get_max(bbc)
+	bb_sides = (abs(bb_sides[0]), abs(bb_sides[1]), abs(bb_sides[2]))
+	print("#" * 72)
+	print('BBOX')
+	print(bb_sides)
+	
+	group = bpy.data.collections.new("MainGroup")
+	bpy.context.scene.collection.children.link(group)
+	#for ob in context.selected_objects: # or whichever list of objects desired
+	#	group.objects.link(ob)
+	#print("Moving objects into origin (0, 0, 0)")
+	#group.location = (0, 0, 0)
+	#for obj in context.selected_objects:
+	#	obj.location = (0, 0, 0)
 
 	render.engine = 'BLENDER_EEVEE'
 	#render.engine = 'CYCLES'
@@ -193,6 +220,29 @@ for current_argument in sys.argv:
 	scene.view_layers["View Layer"].use_pass_normal = True
 	scene.view_layers["View Layer"].use_pass_diffuse_color = True
 	scene.view_layers["View Layer"].use_pass_object_index = True
+
+	#
+	#print("ROOT" + root)
+	if sys.argv[7:]:
+		export_file = str(sys.argv[7])
+	else:
+		root = root[::-1].replace(current_basename[::-1], "", 1)[::-1]
+		export_file = root + "_" + extension
+		
+	multiplier=10
+
+	levels=3
+	density=5
+	r_offset=0.2
+	z_offset=0.2
+
+	#target_obj = bpy.context.selected_objects[0]
+	#target_origin = target_obj.location
+	# get bounding box side lengths
+	#bb_sides = get_min(target_obj.bound_box) - get_max(target_obj.bound_box)
+	(dist_x, dist_y, dist_z) = tuple([abs(c) for c in bb_sides])
+	originated_dist_y = .5 * dist_y
+	radius = 0.5 * max(dist_x, dist_z)
 
 	light_data = bpy.data.lights.new('light', type='SUN')
 	sun = bpy.data.objects.new('light', light_data)
@@ -216,6 +266,7 @@ for current_argument in sys.argv:
 	cam_constraint.track_axis = 'TRACK_NEGATIVE_Z'
 	cam_constraint.up_axis = 'UP_Y'
 	cam_empty = bpy.data.objects.new("Empty", None)
+	#cam_empty.location = (0, 0, 0)
 	cam_empty.location = (0, 0, 0)
 	cam.parent = cam_empty
 
@@ -226,19 +277,47 @@ for current_argument in sys.argv:
 	print(dist_x, dist_y, dist_z)
 	#cam.location=Vector((dist_x, dist_y, dist_z))
 	bpy.context.collection.objects.link(cam)
-	bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY')
+
+	# get the current object
+	for _obj in scene.objects:
+		if (_obj.type == 'MESH'):
+			current_obj = _obj
+
+			# set geometry to origin
+			bpy.ops.object.origin_set(type="GEOMETRY_ORIGIN")
+
+			zverts = []
+
+			# get all z coordinates of the vertices
+			for face in current_obj.data.polygons:
+				verts_in_face = face.vertices[:]
+				for vert in verts_in_face:
+					local_point = current_obj.data.vertices[vert].co
+					world_point = current_obj.matrix_world @ local_point
+					zverts.append(world_point[2])
+
+			# set the minimum z coordinate as z for cursor location
+			scene.cursor.location = (0, 0, min(zverts))
+
+			# set the origin to the cursor
+			bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
+
+			# set the object to (0,0,0)
+			current_obj.location = (0,0,0)
+
+			# reset the cursor
+			scene.cursor.location = (0,0,0)
+
+	#bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY')
+	bpy.ops.export_scene.fbx(filepath=export_file+current_basename+'.fbx')
 	scene.camera=cam
 	print(cam.location)
-	cam.location=Vector((dist_x/10, dist_y/10, dist_z/10))
+	cam.location = (0, dist_y*1.8, dist_z/2)
+	#cam.location=Vector((dist_x/multiplier, dist_y/multiplier, dist_z/multiplier))
 	scene.render.filepath=export_file+current_basename+'_org.png'
-	#bpy.ops.render.render(write_still=True)
-	cam.location = rotate(cam.location, 45, axis=(0, 0, 1))
-	
-	#side
-	cam.location=Vector((0, dist_y/8, 0))
-	scene.render.filepath=export_file+current_basename+'_top.png'
-	#bpy.ops.render.render(write_still=True)
-	
+	bpy.ops.render.render(write_still=True)
+	#cam.location = rotate(cam.location, 45, axis=(0, 0, 1))
+		
 	for angle in range(0, 360, 90):
 		print(cam.location)
 		scene.render.filepath=export_file+current_basename+'_side'+str(angle)+'.png'
@@ -246,12 +325,12 @@ for current_argument in sys.argv:
 		cam.location = rotate(cam.location, 90, axis=(0, 0, 1))
 	
 	#top
-	cam.location=Vector((0, 0, dist_z/8))
+	cam.location=Vector((0, 0, dist_z*5))
 	scene.render.filepath=export_file+current_basename+'_top.png'
 	bpy.ops.render.render(write_still=True)
 	
 	#bottom
-	cam.location=Vector((0, 0, -dist_z/8))
+	cam.location=Vector((0, 0, -dist_z*5))
 	scene.render.filepath=export_file+current_basename+'_bottom.png'
 	bpy.ops.render.render(write_still=True)
 	print("Rendering done")
