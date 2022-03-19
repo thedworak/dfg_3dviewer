@@ -466,7 +466,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 			case 'ifc':
 			case 'IFC':
 				const ifcLoader = new IFCLoader();
-				ifcLoader.setWasmPath( '/modules/dfg_3dviewer/js/jsm/loaders/ifc/' );
+				ifcLoader.ifcManager.setWasmPath( '/modules/dfg_3dviewer/js/jsm/loaders/ifc/' );
 				ifcLoader.load( path + filename, function ( object ) {
 					//object.position.set (0, 300, 0);
 					scene.add( object );
@@ -709,6 +709,7 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 				tempArray = {[object.name]: function(){selectObjectHierarchy(object.id)}, 'id': object.id};
 			//hierarchy.push(tempArray);
 			clippingGeometry.push(object.geometry);
+			console.log(object);
 			hierarchyFolder = hierarchyMain.addFolder(object.name).close();
 			hierarchyFolder.add(tempArray, 'name' ).name(object.name);
 			metadata['vertices'] += fetchMetadata (object, 'vertices');

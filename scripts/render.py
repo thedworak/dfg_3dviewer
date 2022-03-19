@@ -278,16 +278,14 @@ for current_argument in sys.argv:
 	#cam.location=Vector((dist_x, dist_y, dist_z))
 	bpy.context.collection.objects.link(cam)
 
+	"""
 	# get the current object
 	for _obj in scene.objects:
 		if (_obj.type == 'MESH'):
 			current_obj = _obj
-
 			# set geometry to origin
 			bpy.ops.object.origin_set(type="GEOMETRY_ORIGIN")
-
 			zverts = []
-
 			# get all z coordinates of the vertices
 			for face in current_obj.data.polygons:
 				verts_in_face = face.vertices[:]
@@ -296,42 +294,49 @@ for current_argument in sys.argv:
 					world_point = current_obj.matrix_world @ local_point
 					zverts.append(world_point[2])
 
-			# set the minimum z coordinate as z for cursor location
 			scene.cursor.location = (0, 0, min(zverts))
-
-			# set the origin to the cursor
 			bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
-
 			# set the object to (0,0,0)
 			current_obj.location = (0,0,0)
-
 			# reset the cursor
 			scene.cursor.location = (0,0,0)
-
+	"""
 	#bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY')
-	bpy.ops.export_scene.fbx(filepath=export_file+current_basename+'.fbx')
+	
+	#bpy.ops.export_scene.fbx(filepath=export_file+current_basename+'.fbx')
+	
 	scene.camera=cam
 	print(cam.location)
 	cam.location = (0, dist_y*1.8, dist_z/2)
+	sun.location = cam.location
 	#cam.location=Vector((dist_x/multiplier, dist_y/multiplier, dist_z/multiplier))
 	scene.render.filepath=export_file+current_basename+'_org.png'
 	bpy.ops.render.render(write_still=True)
 	#cam.location = rotate(cam.location, 45, axis=(0, 0, 1))
-		
+
 	for angle in range(0, 360, 90):
-		print(cam.location)
 		scene.render.filepath=export_file+current_basename+'_side'+str(angle)+'.png'
 		bpy.ops.render.render(write_still=True)
 		cam.location = rotate(cam.location, 90, axis=(0, 0, 1))
+		sun.location = cam.location
+
+	cam.location = (0, dist_y*1.8, dist_z*3)
+	cam.location = rotate(cam.location, 45, axis=(0, 0, 1))
+	for angle in range(45, 360, 90):
+		scene.render.filepath=export_file+current_basename+'_side'+str(angle)+'.png'
+		bpy.ops.render.render(write_still=True)
+		cam.location = rotate(cam.location, 90, axis=(0, 0, 1))
+		sun.location = cam.location
 	
 	#top
 	cam.location=Vector((0, 0, dist_z*5))
+	sun.location = cam.location
 	scene.render.filepath=export_file+current_basename+'_top.png'
 	bpy.ops.render.render(write_still=True)
 	
 	#bottom
 	cam.location=Vector((0, 0, -dist_z*5))
+	sun.location = cam.location
 	scene.render.filepath=export_file+current_basename+'_bottom.png'
 	bpy.ops.render.render(write_still=True)
 	print("Rendering done")
-
