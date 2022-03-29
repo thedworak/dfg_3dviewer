@@ -35,7 +35,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		#\Drupal::messenger()->addMessage(serialize($parts), 'status');
 		#\Drupal::messenger()->addMessage('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/convert.sh -b true -i ' . $realpath . ' -f true', 'status');
 		if ($extension != 'ZIP' && $extension != 'RAR' && $extension != 'TAR' && $extension != 'GZ' && $extension != 'XZ') {
-			$output = shell_exec ('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/convert.sh -c true -l 3 -b true -i "' . $realpath . '" -f true');
+			$output = shell_exec ('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/convert.sh -c true -l 3 -b true -i "' . "$realpath" . '" -f true');
 		}
 		else {
 			try {

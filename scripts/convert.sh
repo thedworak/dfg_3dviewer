@@ -48,8 +48,8 @@ handle_ifc_file () {
 	OUTPUT=$5
 	OUTPUTPATH=$6
 
-	if [[ ! -d $INPATH/gltf/ ]]; then
-		mkdir $INPATH/gltf/
+	if [[ ! -d "$INPATH"/gltf/ ]]; then
+		mkdir "$INPATH"/gltf/
 	fi
 	/var/www/html/3drepository/modules/dfg_3dviewer/scripts/IfcConvert "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
 }
@@ -80,8 +80,8 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 	fi
 	if [[ "$EXT" != "$filename" ]]; then
 		EXT="${EXT,,}"
-		if [[ ! -d $OUTPUT ]]; then
-			mkdir $OUTPUT
+		if [[ ! -d "$OUTPUT" ]]; then
+			mkdir "$OUTPUT"
 		fi
 		if [[ ! -f $OUTPUT/$NAME.$GLTF || $FORCE ]]; then
 			start=`date +%s`

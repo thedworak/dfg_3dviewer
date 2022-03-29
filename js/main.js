@@ -16,7 +16,7 @@ import { DDSLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/DDSLoader.js';
 import { MTLLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/MTLLoader.js';
 import { OBJLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/OBJLoader.js';
 import { GLTFLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/GLTFLoader.js';
-import { DRACOLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/DRACOLoader.js'
+import { DRACOLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/DRACOLoader.js';
 import { KTX2Loader } from '/modules/dfg_3dviewer/js/jsm/loaders/KTX2Loader.js';
 import { MeshoptDecoder } from '/modules/dfg_3dviewer/js/jsm/libs/meshopt_decoder.module.js';
 import { IFCLoader } from '/modules/dfg_3dviewer/js/jsm/loaders/IFCLoader.js';
@@ -111,18 +111,18 @@ var transformText =
 {
     'Transform 3D Object': 'select type',
     'Transform Light': 'select type'
-}
+};
 
 const colors = {
 	Light1: '0xFFFFFF'
-}
+};
 
-const intensity = { startIntensity: 1 }
+const intensity = { startIntensity: 1 };
 
 const saveProperties = {
 	Camera: true,
 	Light: true
-}
+};
 
 var EDITOR = false;
 
@@ -178,9 +178,6 @@ var clippingGeometry = [];
 let clippingObject = new THREE.Group();
 const planeGeom = new THREE.PlaneGeometry( 4, 4 );
 
-init();
-animate();
-
 function createClippingPlaneGroup( geometry, plane, renderOrder ) {
 
 	const group = new THREE.Group();
@@ -220,174 +217,6 @@ function createClippingPlaneGroup( geometry, plane, renderOrder ) {
 
 }
 
-function init() {
-	// model
-	canvasDimensions = {x: container.getBoundingClientRect().width, y: container.getBoundingClientRect().bottom};
-	container.setAttribute("width", canvasDimensions.x);
-	container.setAttribute("height", canvasDimensions.y);
-
-	camera = new THREE.PerspectiveCamera( 45, canvasDimensions.x / canvasDimensions.y, 0.1, 200000 );
-	camera.position.set( 0, 0, 0 );
-
-	scene = new THREE.Scene();
-	scene.background = new THREE.Color( 0xa0a0a0 );
-	scene.fog = new THREE.Fog( 0xa0a0a0, 90000, 1000000 );
-
-	const hemiLight = new THREE.HemisphereLight( 0xffffff, 0x444444 );
-	hemiLight.position.set( 0, 200, 0 );
-	scene.add( hemiLight );
-
-	const dirLight = new THREE.DirectionalLight( 0xffffff );
-	dirLight.position.set( 0, 100, 50 );
-	dirLight.castShadow = true;
-	dirLight.shadow.camera.top = 180;
-	dirLight.shadow.camera.bottom = - 100;
-	dirLight.shadow.camera.left = - 120;
-	dirLight.shadow.camera.right = 120;
-	dirLight.shadow.bias = -0.0001;
-	dirLight.shadow.mapSize.width = 1024*4;
-	dirLight.shadow.mapSize.height = 1024*4;
-	scene.add( dirLight );
-	lightObjects.push( dirLight );
-
-	// scene.add( new THREE.CameraHelper( dirLight.shadow.camera ) );
-
-	renderer = new THREE.WebGLRenderer( { antialias: true } );
-	renderer.setPixelRatio( window.devicePixelRatio );
-	renderer.setSize( canvasDimensions.x, canvasDimensions.y );
-	renderer.shadowMap.enabled = true;
-	renderer.localClippingEnabled = true;
-	renderer.setClearColor( 0x263238 );
-	container.appendChild( renderer.domElement );
-
-	controls = new OrbitControls( camera, renderer.domElement );
-	controls.target.set( 0, 100, 0 );
-	controls.update();
-	
-	transformControl = new TransformControls( camera, renderer.domElement );
-	transformControl.addEventListener( 'change', render );
-	transformControl.addEventListener( 'dragging-changed', function ( event ) {
-		controls.enabled = ! event.value;
-	} );
-	scene.add( transformControl );
-	
-	transformControlLight = new TransformControls( camera, renderer.domElement );
-	transformControlLight.addEventListener( 'change', render );
-	transformControlLight.addEventListener( 'dragging-changed', function ( event ) {
-		controls.enabled = ! event.value;
-	} );
-	scene.add( transformControlLight );
-
-	/*try {
-
-	} catch (e) {
-		// statements to handle any exceptions
-		console.log("No glTF file, loading original file.");
-		loadModel(path, basename, filename, extension);
-	}*/
-	if (extension == "glb" || extension == "GLB" || extension == "gltf" || extension == "GLTF") {
-		loadModel (path, basename, filename, extension, extension);
-	}
-	else if  (extension == "zip" || extension == "ZIP" ) {
-		compressedFile = "_ZIP/";
-		loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
-	}
-	else if  (extension == "rar" || extension == "RAR" ) {
-		compressedFile = "_RAR/";
-		loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
-	}
-	else if  (extension == "tar" ) {
-		compressedFile = "_TAR/";
-		loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
-	}
-	else if  (extension == "xz" ) {
-		compressedFile = "_XZ/";
-		loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
-	}
-	else if  (extension == "gz" ) {
-		compressedFile = "_GZ/";
-		loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
-	}
-	else {
-		loadModel (path+"gltf/", basename, filename, "glb", extension);
-	}
-
-	container.addEventListener( 'pointerdown', onPointerDown );
-	container.addEventListener( 'pointerup', onPointerUp );
-	container.addEventListener( 'pointermove', onPointerMove );
-	window.addEventListener( 'resize', onWindowResize );
-
-	// stats
-	stats = new Stats();
-	stats.domElement.style.cssText = 'position:relative;top:0px;left:0px;max-height:120px;max-width:90px;';
-	container.appendChild( stats.dom );
-	
-	windowHalfX = canvasDimensions.x / 2;
-	windowHalfY = canvasDimensions.y / 2;
-	
-	const editorFolder = gui.addFolder('Editor').close();
-	editorFolder.add(transformText, 'Transform 3D Object', { None: '', Move: 'translate', Rotate: 'rotate', Scale: 'scale' } ).onChange(function (value)
-	{ 
-		if (value == '') transformControl.detach(); else { transformControl.mode = value; transformControl.attach( helperObjects[0] ); }
-	});
-	const lightFolder = editorFolder.addFolder('Lights').close();
-	lightFolder.add(transformText, 'Transform Light', { None: '', Move: 'translate', Rotate: 'rotate', Scale: 'scale' } ).onChange(function (value)
-	{ 
-		if (value == '') transformControlLight.detach(); else { transformControlLight.mode = value; transformControlLight.attach( lightObjects[0] ); }
-	});
-	lightFolder.addColor ( colors, 'Light1' ).onChange(function (value) {
-		const tempColor = new THREE.Color( value );
-		lightObjects[0].color = tempColor ;
-	});
-	lightFolder.add( intensity, 'startIntensity', 0, 10 ).onChange(function (value) {
-		lightObjects[0].intensity = value;
-	});
-	clippingFolder = editorFolder.addFolder('Clipping Planes').close();
-	propertiesFolder = editorFolder.addFolder('Save properties').close();
-	propertiesFolder.add( saveProperties, 'Camera' ); 
-	propertiesFolder.add( saveProperties, 'Light' ); 
-
-	if (editor)
-		editorFolder.add({["Save"]: function(){
-			var xhr = new XMLHttpRequest(),
-				jsonArr,
-				method = "POST",
-				jsonRequestURL = "https://3d-repository.hs-mainz.de/editor.php";
-
-			xhr.open(method, jsonRequestURL, true);
-			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-			//console.log(camera.position);
-			var rotateMetadata = new THREE.Vector3(THREE.Math.radToDeg(helperObjects[0].rotation.x),THREE.Math.radToDeg(helperObjects[0].rotation.y),THREE.Math.radToDeg(helperObjects[0].rotation.z));
-			var newMetadata = ({"objPosition": [ helperObjects[0].position.x, helperObjects[0].position.y, helperObjects[0].position.z ], "objScale": [ helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z ], "objRotation": [ rotateMetadata.x, rotateMetadata.y, rotateMetadata.z ] });
-			//console.log(newMetadata);
-			if (saveProperties.Camera)
-				newMetadata = Object.assign(newMetadata, {"cameraPosition": [ camera.position.x, camera.position.y, camera.position.z ], "controlsTarget": [ controls.target.x, controls.target.y, controls.target.z ]});
-			if (saveProperties.Light)
-				newMetadata = Object.assign(newMetadata, {"lightPosition": [ dirLight.position.x, dirLight.position.y, dirLight.position.z ], "lightColor": [ "#" + (dirLight.color.getHexString()).toUpperCase() ], "lightIntensity": [ dirLight.intensity ] });
-			//console.log(uri+basename+"/");
-			if (compressedFile != '')
-				var params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+basename+compressedFile+"&filename="+filename;
-			else
-				var params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+"&filename="+filename;
-			xhr.onreadystatechange = function()
-			{
-				if(xhr.readyState === XMLHttpRequest.DONE) {
-					var status = xhr.status;
-					if (status === 0 || (status >= 200 && status < 400)) {
-						showToast ("Settings have been saved.");
-					}
-				}
-			};
-			xhr.send(params);
-		}}, 'Save');
-		editorFolder.add({["Picking"]: function(){
-			EDITOR=!EDITOR;
-			var _str;
-			EDITOR ? _str = "enabled" : _str = "disabled";
-			showToast ("Face picking is " + _str);
-		}}, 'Picking');
-}
-
 function loadModel ( path, basename, filename, extension, org_extension ) {
 	if (!imported) {
 		circle.show();
@@ -396,7 +225,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 			case 'obj':
 			case 'OBJ':
 				const manager = new THREE.LoadingManager();
-				manager.onLoad = function ( ) { showToast ("OBJ model has been loaded"); }
+				manager.onLoad = function ( ) { showToast ("OBJ model has been loaded"); };
 				manager.addHandler( /\.dds$/i, new DDSLoader() );
 				// manager.addHandler( /\.tga$/i, new TGALoader() );
 				new MTLLoader( manager )
@@ -616,7 +445,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 				},
 					function ( xhr ) {
 						var percentComplete = xhr.loaded / xhr.total * 100;
-						if (percentComplete != Infinity) {
+						if (percentComplete !== Infinity) {
 							//console.log( ( percentComplete ) + '% loaded' );
 							circle.set(percentComplete, 100);
 							if (percentComplete >= 100) {
@@ -669,14 +498,14 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 	.then(data => {
 		var tempArray = [];
 		const hierarchyMain = gui.addFolder( 'Hierarchy' ).close();
-		if (object.name == "Scene" || object.children.length > 0 ) {
+		if (object.name === "Scene" || object.children.length > 0 ) {
 			setupObject(object, camera, light, data, controls);
 			object.traverse( function ( child ) {
 				if ( child.isMesh ) {
 					metadata['vertices'] += fetchMetadata (child, 'vertices');
 					metadata['faces'] += fetchMetadata (child, 'faces');
 					var shortChildName = truncateString(child.name, GUILength);
-					if (child.name == '')
+					if (child.name === '')
 						tempArray = {["Mesh"]: function(){selectObjectHierarchy(child.id)}, 'id': child.id};
 					else
 						tempArray = { [shortChildName]: function(){selectObjectHierarchy(child.id)}, 'id': child.id};
@@ -684,9 +513,9 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 					hierarchyFolder.add(tempArray, shortChildName);
 					clippingGeometry.push(child.geometry);
 					child.traverse( function ( children ) {
-						if ( children.isMesh &&  children.name != child.name) {
+						if ( children.isMesh &&  children.name !== child.name) {
 							var shortChildrenName = truncateString(children.name, GUILength);
-							if (children.name == '')
+							if (children.name === '')
 								tempArray = {["Mesh"]: function(){selectObjectHierarchy(children.id)}, 'id': children.id};
 							else
 								tempArray = { [shortChildrenName]: function(){selectObjectHierarchy(children.id)}, 'id': children.id}; 
@@ -703,7 +532,7 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 			setupCamera (object, camera, light, data, controls);
 			metadata['vertices'] += fetchMetadata (object, 'vertices');
 			metadata['faces'] += fetchMetadata (object, 'faces');
-			if (object.name == '')
+			if (object.name === '')
 				tempArray = {["Mesh"]: function(){selectObjectHierarchy(object.id)}, 'id': object.id};
 			else
 				tempArray = {[object.name]: function(){selectObjectHierarchy(object.id)}, 'id': object.id};
@@ -738,10 +567,10 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 
 function selectObjectHierarchy (_id) {
 	let search = true;
-	for (let i = 0; i < selectedObjects.length && search == true; i++ ) {
-		if (selectedObjects[i].id == _id) {
+	for (let i = 0; i < selectedObjects.length && search === true; i++ ) {
+		if (selectedObjects[i].id === _id) {
 			search = false;
-			if (selectedObjects[i].selected == true) {
+			if (selectedObjects[i].selected === true) {
 				scene.getObjectById(_id).material = selectedObjects[i].originalMaterial;
 				scene.getObjectById(_id).material.needsUpdate = true;
 				selectedObjects[i].selected = false;
@@ -762,26 +591,26 @@ function selectObjectHierarchy (_id) {
 function fetchMetadata (_object, _type) {
 	switch (_type) {
 		case 'vertices':
-			if (typeof (_object.geometry.index) != "undefined" && _object.geometry.index != null)
+			if (typeof (_object.geometry.index) !== "undefined" && _object.geometry.index !== null)
 				return _object.geometry.index.count;
-			else if (typeof (_object.attributes) != "undefined" && _object.attributes != null)
+			else if (typeof (_object.attributes) !== "undefined" && _object.attributes !== null)
 				return _object.attributes.position.count;
 		case 'faces':
-			if (typeof (_object.geometry.index) != "undefined" && _object.geometry.index != null)
+			if (typeof (_object.geometry.index) !== "undefined" && _object.geometry.index !== null)
 				return _object.geometry.index.count/3;
-			else if (typeof (_object.attributes) != "undefined" && _object.attributes != null)
+			else if (typeof (_object.attributes) !== "undefined" && _object.attributes !== null)
 				return _object.attributes.position.count/3;
 		break;
 	}
 }
 
 function setupObject (_object, _camera, _light, _data, _controls) {
-	if (typeof (_data) != "undefined") {
+	if (typeof (_data) !== "undefined") {
 		_object.position.set (_data["objPosition"][0], _data["objPosition"][1], _data["objPosition"][2]);
 		_object.scale.set (_data["objScale"][0], _data["objScale"][1], _data["objScale"][2]);
 		_object.rotation.set (THREE.Math.degToRad(_data["objRotation"][0]), THREE.Math.degToRad(_data["objRotation"][1]), THREE.Math.degToRad(_data["objRotation"][2]));
 		_object.needsUpdate = true;
-		if (typeof (_object.geometry) != "undefined") {
+		if (typeof (_object.geometry) !== "undefined") {
 			_object.geometry.computeBoundingBox();
 			_object.geometry.computeBoundingSphere();	
 		}
@@ -793,7 +622,7 @@ function setupObject (_object, _camera, _light, _data, _controls) {
 				boundingBox.setFromObject( _object[i] );
 				_object[i].position.set (0, 0, 0);
 				_object[i].needsUpdate = true;
-				if (typeof (_object[i].geometry) != "undefined") {
+				if (typeof (_object[i].geometry) !== "undefined") {
 					_object[i].geometry.computeBoundingBox();
 					_object[i].geometry.computeBoundingSphere();	
 				}			
@@ -803,7 +632,7 @@ function setupObject (_object, _camera, _light, _data, _controls) {
 			boundingBox.setFromObject( _object );
 			_object.position.set (0, 0, 0);
 			_object.needsUpdate = true;
-			if (typeof (_object.geometry) != "undefined") {
+			if (typeof (_object.geometry) !== "undefined") {
 				_object.geometry.computeBoundingBox();
 				_object.geometry.computeBoundingSphere();
 			}
@@ -813,12 +642,12 @@ function setupObject (_object, _camera, _light, _data, _controls) {
 }
 
 function setupCamera (_object, _camera, _light, _data, _controls) {
-	if (typeof (_data) != "undefined") {
-		if (typeof (_data["cameraPosition"]) != "undefined") {
+	if (typeof (_data) !== "undefined") {
+		if (typeof (_data["cameraPosition"]) !== "undefined") {
 			_camera.position.set (_data["cameraPosition"][0], _data["cameraPosition"][1], _data["cameraPosition"][2]);
 			_controls.target.set (_data["controlsTarget"][0], _data["controlsTarget"][1], _data["controlsTarget"][2]);
 		}
-		if (typeof (_data["lightPosition"]) != "undefined") {
+		if (typeof (_data["lightPosition"]) !== "undefined") {
 			_light.position.set( _data["lightPosition"][0], _data["lightPosition"][1], _data["lightPosition"][2] );
 			_light.color = new THREE.Color( _data["lightColor"][0] );
 			_light.intensity = _data["lightIntensity"][0];
@@ -1014,28 +843,28 @@ function setupClippingPlanes (_geometry, _size, _distance) {
 	clippingPlanes[ 1 ].constant = _distance.y;
 	clippingPlanes[ 2 ].constant = _distance.z;
 
-	planeHelpers = clippingPlanes.map( p => new THREE.PlaneHelper( p, _size*2, 0xffffff ) );
-	planeHelpers.forEach( ph => {
+	planeHelpers = clippingPlanes.map( (p) => new THREE.PlaneHelper( p, _size*2, 0xffffff ) );
+	planeHelpers.forEach( (ph) => {
 		ph.visible = false;
 		ph.name = "PlaneHelper";
 		scene.add( ph );
 	} );
 
-	clippingFolder.add( planeParams.planeX, 'displayHelperX' ).onChange( v => planeHelpers[ 0 ].visible = v );
+	clippingFolder.add( planeParams.planeX, 'displayHelperX' ).onChange( (v) => planeHelpers[ 0 ].visible = v );
 	clippingFolder.add( planeParams.planeX, 'constant' ).min( - _distance.x ).max( _distance.x ).setValue(_distance.x).step(_size/100).onChange(function (value) {
 		clippingPlanes[ 0 ].constant = value;
 		render();
 	});
 
 
-	clippingFolder.add( planeParams.planeY, 'displayHelperY' ).onChange( v => planeHelpers[ 1 ].visible = v );
+	clippingFolder.add( planeParams.planeY, 'displayHelperY' ).onChange( (v) => planeHelpers[ 1 ].visible = v );
 	clippingFolder.add( planeParams.planeY, 'constant' ).min( - _distance.y ).max( _distance.y ).setValue(_distance.y).step(_size/100).onChange(function (value) {
 		clippingPlanes[ 1 ].constant = value;
 		render();
 	});
 
 
-	clippingFolder.add( planeParams.planeZ, 'displayHelperZ' ).onChange( v => planeHelpers[ 2 ].visible = v );
+	clippingFolder.add( planeParams.planeZ, 'displayHelperZ' ).onChange( (v) => planeHelpers[ 2 ].visible = v );
 	clippingFolder.add( planeParams.planeZ, 'constant' ).min( - _distance.z ).max( _distance.z ).setValue(_distance.z).step(_size/100).onChange(function (value) {
 		clippingPlanes[ 2 ].constant = value;
 		render();
@@ -1068,13 +897,15 @@ function onPointerUp( e ) {
 	raycaster.setFromCamera( pointer, camera );
 	var intersects;
 	if (EDITOR) {
-		if (mainObject.name == "Scene" || mainObject.length > 1)
+		if (mainObject.name === "Scene" || mainObject.length > 1) {
 			/*for (let ii = 0; ii < mainObject.length; ii++) {	
 				intersects = raycaster.intersectObjects( mainObject[ii].children, false );
 			}*/
 			intersects = raycaster.intersectObjects( mainObject[0].children, false );
-		else
+		}
+		else {
 			intersects = raycaster.intersectObjects( mainObject[0], false );
+		}
 		//console.log(pointer);
 		console.log(intersects);
 		if (intersects.length > 0)
@@ -1126,7 +957,7 @@ const onProgress = function ( xhr ) {
 };
 
 function truncateString(str, n) {
-	if (str.length == 0) return str;
+	if (str.length === 0) {return str;}
 	else if (str.length > n) {
 		return str.substring(0, n) + "...";
 	} else {
@@ -1139,3 +970,175 @@ function showToast (_str) {
 	myToast.options.text = _str;
 	myToast.showToast();
 }
+
+function init() {
+	// model
+	canvasDimensions = {x: container.getBoundingClientRect().width, y: container.getBoundingClientRect().bottom};
+	container.setAttribute("width", canvasDimensions.x);
+	container.setAttribute("height", canvasDimensions.y);
+
+	camera = new THREE.PerspectiveCamera( 45, canvasDimensions.x / canvasDimensions.y, 0.1, 200000 );
+	camera.position.set( 0, 0, 0 );
+
+	scene = new THREE.Scene();
+	scene.background = new THREE.Color( 0xa0a0a0 );
+	scene.fog = new THREE.Fog( 0xa0a0a0, 90000, 1000000 );
+
+	const hemiLight = new THREE.HemisphereLight( 0xffffff, 0x444444 );
+	hemiLight.position.set( 0, 200, 0 );
+	scene.add( hemiLight );
+
+	const dirLight = new THREE.DirectionalLight( 0xffffff );
+	dirLight.position.set( 0, 100, 50 );
+	dirLight.castShadow = true;
+	dirLight.shadow.camera.top = 180;
+	dirLight.shadow.camera.bottom = - 100;
+	dirLight.shadow.camera.left = - 120;
+	dirLight.shadow.camera.right = 120;
+	dirLight.shadow.bias = -0.0001;
+	dirLight.shadow.mapSize.width = 1024*4;
+	dirLight.shadow.mapSize.height = 1024*4;
+	scene.add( dirLight );
+	lightObjects.push( dirLight );
+
+	// scene.add( new THREE.CameraHelper( dirLight.shadow.camera ) );
+
+	renderer = new THREE.WebGLRenderer( { antialias: true } );
+	renderer.setPixelRatio( window.devicePixelRatio );
+	renderer.setSize( canvasDimensions.x, canvasDimensions.y );
+	renderer.shadowMap.enabled = true;
+	renderer.localClippingEnabled = true;
+	renderer.setClearColor( 0x263238 );
+	container.appendChild( renderer.domElement );
+
+	controls = new OrbitControls( camera, renderer.domElement );
+	controls.target.set( 0, 100, 0 );
+	controls.update();
+	
+	transformControl = new TransformControls( camera, renderer.domElement );
+	transformControl.addEventListener( 'change', render );
+	transformControl.addEventListener( 'dragging-changed', function ( event ) {
+		controls.enabled = ! event.value;
+	} );
+	scene.add( transformControl );
+	
+	transformControlLight = new TransformControls( camera, renderer.domElement );
+	transformControlLight.addEventListener( 'change', render );
+	transformControlLight.addEventListener( 'dragging-changed', function ( event ) {
+		controls.enabled = ! event.value;
+	} );
+	scene.add( transformControlLight );
+
+	/*try {
+
+	} catch (e) {
+		// statements to handle any exceptions
+		console.log("No glTF file, loading original file.");
+		loadModel(path, basename, filename, extension);
+	}*/
+	if (extension === "glb" || extension === "GLB" || extension === "gltf" || extension === "GLTF") {
+		loadModel (path, basename, filename, extension, extension);
+	}
+	else if  (extension === "zip" || extension === "ZIP" ) {
+		compressedFile = "_ZIP/";
+		loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
+	}
+	else if  (extension === "rar" || extension === "RAR" ) {
+		compressedFile = "_RAR/";
+		loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
+	}
+	else if  (extension === "tar" ) {
+		compressedFile = "_TAR/";
+		loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
+	}
+	else if  (extension === "xz" ) {
+		compressedFile = "_XZ/";
+		loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
+	}
+	else if  (extension === "gz" ) {
+		compressedFile = "_GZ/";
+		loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
+	}
+	else {
+		loadModel (path+"gltf/", basename, filename, "glb", extension);
+	}
+
+	container.addEventListener( 'pointerdown', onPointerDown );
+	container.addEventListener( 'pointerup', onPointerUp );
+	container.addEventListener( 'pointermove', onPointerMove );
+	window.addEventListener( 'resize', onWindowResize );
+
+	// stats
+	stats = new Stats();
+	stats.domElement.style.cssText = 'position:relative;top:0px;left:0px;max-height:120px;max-width:90px;';
+	container.appendChild( stats.dom );
+	
+	windowHalfX = canvasDimensions.x / 2;
+	windowHalfY = canvasDimensions.y / 2;
+	
+	const editorFolder = gui.addFolder('Editor').close();
+	editorFolder.add(transformText, 'Transform 3D Object', { None: '', Move: 'translate', Rotate: 'rotate', Scale: 'scale' } ).onChange(function (value)
+	{ 
+		if (value === '') transformControl.detach(); else { transformControl.mode = value; transformControl.attach( helperObjects[0] ); }
+	});
+	const lightFolder = editorFolder.addFolder('Lights').close();
+	lightFolder.add(transformText, 'Transform Light', { None: '', Move: 'translate', Rotate: 'rotate', Scale: 'scale' } ).onChange(function (value)
+	{ 
+		if (value === '') transformControlLight.detach(); else { transformControlLight.mode = value; transformControlLight.attach( lightObjects[0] ); }
+	});
+	lightFolder.addColor ( colors, 'Light1' ).onChange(function (value) {
+		const tempColor = new THREE.Color( value );
+		lightObjects[0].color = tempColor ;
+	});
+	lightFolder.add( intensity, 'startIntensity', 0, 10 ).onChange(function (value) {
+		lightObjects[0].intensity = value;
+	});
+	clippingFolder = editorFolder.addFolder('Clipping Planes').close();
+	propertiesFolder = editorFolder.addFolder('Save properties').close();
+	propertiesFolder.add( saveProperties, 'Camera' ); 
+	propertiesFolder.add( saveProperties, 'Light' ); 
+
+	if (editor)
+		editorFolder.add({["Save"]: function(){
+			var xhr = new XMLHttpRequest(),
+				jsonArr,
+				method = "POST",
+				jsonRequestURL = "https://3d-repository.hs-mainz.de/editor.php";
+
+			xhr.open(method, jsonRequestURL, true);
+			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+			//console.log(camera.position);
+			var rotateMetadata = new THREE.Vector3(THREE.Math.radToDeg(helperObjects[0].rotation.x),THREE.Math.radToDeg(helperObjects[0].rotation.y),THREE.Math.radToDeg(helperObjects[0].rotation.z));
+			var newMetadata = ({"objPosition": [ helperObjects[0].position.x, helperObjects[0].position.y, helperObjects[0].position.z ], "objScale": [ helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z ], "objRotation": [ rotateMetadata.x, rotateMetadata.y, rotateMetadata.z ] });
+			//console.log(newMetadata);
+			if (saveProperties.Camera)
+				newMetadata = Object.assign(newMetadata, {"cameraPosition": [ camera.position.x, camera.position.y, camera.position.z ], "controlsTarget": [ controls.target.x, controls.target.y, controls.target.z ]});
+			if (saveProperties.Light)
+				newMetadata = Object.assign(newMetadata, {"lightPosition": [ dirLight.position.x, dirLight.position.y, dirLight.position.z ], "lightColor": [ "#" + (dirLight.color.getHexString()).toUpperCase() ], "lightIntensity": [ dirLight.intensity ] });
+			//console.log(uri+basename+"/");
+			if (compressedFile !== '')
+				var params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+basename+compressedFile+"&filename="+filename;
+			else
+				var params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+"&filename="+filename;
+			xhr.onreadystatechange = function()
+			{
+				if(xhr.readyState === XMLHttpRequest.DONE) {
+					var status = xhr.status;
+					if (status === 0 || (status >= 200 && status < 400)) {
+						showToast ("Settings have been saved.");
+					}
+				}
+			};
+			xhr.send(params);
+		}}, 'Save');
+		editorFolder.add({["Picking"]: function(){
+			EDITOR=!EDITOR;
+			var _str;
+			EDITOR ? _str = "enabled" : _str = "disabled";
+			showToast ("Face picking is " + _str);
+		}}, 'Picking');
+}
+
+init();
+animate();
+
