@@ -3,7 +3,7 @@
 //const path = '/modules/dfg_3dviewer';
 //const path = '..'; //local
 
-import * as THREE from '/modules/dfg_3dviewer/build/three.module.js';
+import * as THREE from '/modules/dfg_3dviewer/js/build/three.module.js';
 import { TWEEN } from '/modules/dfg_3dviewer/js/jsm/libs/tween.module.min.js';
 
 import Stats from '/modules/dfg_3dviewer/js/jsm/libs/stats.module.js';
@@ -387,7 +387,6 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 				dracoLoader.preload();
 				const gltf = new GLTFLoader();
 				gltf.setDRACOLoader(dracoLoader);
-				//console.log("[i] Loading model from " + extension + " representation.");
 				showToast("Trying to load model from " + extension + " representation.");
 
 				const glbPath = path + basename + "." + extension;
@@ -446,17 +445,14 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 					function ( xhr ) {
 						var percentComplete = xhr.loaded / xhr.total * 100;
 						if (percentComplete !== Infinity) {
-							//console.log( ( percentComplete ) + '% loaded' );
 							circle.set(percentComplete, 100);
 							if (percentComplete >= 100) {
 								circle.hide();
-								//console.log("[i] Model " + filename + " has been loaded.");
 								showToast("Model " + filename + " has been loaded.");
 							}
 						}
 					},
 					function ( ) {						
-							//console.log("[i] GLTF representation not found, trying original file " + path.replace("gltf/", "") + filename + " [" + org_extension + "]");
 							showToast("GLTF representation not found, trying original file " + path.replace("gltf/", "") + filename + " [" + org_extension + "]");
 							loadModel(path.replace("gltf/", ""), basename, filename, org_extension, org_extension);
 							imported = true;
@@ -464,12 +460,10 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 				);
 			break;
 			default:
-				//console.log("[i] Extension not supported yet");
 				showToast("Extension not supported yet");
 		}
 	}
 	else {
-		//console.log("File " + path + basename + " not found.");
 		showToast("File " + path + basename + " not found.");
 		//circle.set(100, 100);
 		circle.hide();
@@ -482,16 +476,13 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 	var metadata = {'vertices': 0, 'faces': 0};
 	var hierarchy = [];
 	var geometry;
-	//console.log(path + "@" + basename + "@" +  filename);
 	fetch(path + "metadata/" + filename + "_viewer", {cache: "no-cache"})
 	.then(response => {
 		if (response['status'] != "404") {
-			//console.log("Metadata " + path + "metadata/" + filename + "_viewer found");
 			showToast("Settings " + filename + "_viewer found");
 			return response.json();
 		}
 		else if (response['status'] == "404") {
-			//console.log("No metadata " + path + "metadata/" + filename + "_viewer found");
 			showToast("No settings " + filename + "_viewer found");
 		}
 		})
@@ -538,7 +529,6 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 				tempArray = {[object.name]: function(){selectObjectHierarchy(object.id)}, 'id': object.id};
 			//hierarchy.push(tempArray);
 			clippingGeometry.push(object.geometry);
-			console.log(object);
 			hierarchyFolder = hierarchyMain.addFolder(object.name).close();
 			hierarchyFolder.add(tempArray, 'name' ).name(object.name);
 			metadata['vertices'] += fetchMetadata (object, 'vertices');
@@ -680,7 +670,6 @@ function pickFaces(_id) {
 			}));
 	sphere.position.set(_id[0].point.x, _id[0].point.y, _id[0].point.z);
 	scene.add(sphere);
-	//console.log(_id[0]);
 	/*if (mainObject.name == "Scene" || mainObject.children.length > 0)
 		mainObject.traverse( function ( child ) {
 			if (child.isMesh) {
