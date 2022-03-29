@@ -375,7 +375,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 			case 'GZ':
 			case 'xz':
 			case 'XZ':
-				console.log("Uncompressed files are loaded");
+				showToast("Model is being loaded from compressed archive.");
 			break;
 			
 			case 'glb':
@@ -673,9 +673,7 @@ function pickFaces(_id) {
 	/*if (mainObject.name == "Scene" || mainObject.children.length > 0)
 		mainObject.traverse( function ( child ) {
 			if (child.isMesh) {
-				console.log(child);
 				child.traverse( function ( children ) {
-					console.log(children.geometry);
 				});
 			}
 		});
@@ -729,7 +727,6 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit 
     var middle = new THREE.Vector3();
     var size = new THREE.Vector3();
     boundingBox.getSize(size);
-	console.log("Centering camera");
 	// ground
 	var distance = new THREE.Vector3(Math.abs(boundingBox.max.x - boundingBox.min.x), Math.abs(boundingBox.max.y - boundingBox.min.y), Math.abs(boundingBox.max.z - boundingBox.min.z));
 	var gridSize = Math.max(distance.x, distance.y, distance.z);
@@ -866,7 +863,6 @@ function render() {
 }
 
 function updateObject () {
-	//console.log(helperObjects[0].position);
 }
 
 function onPointerDown( e ) {
@@ -879,7 +875,6 @@ function onPointerDown( e ) {
 function onPointerUp( e ) {
     onUpPosition.x = ( e.clientX / canvasDimensions.x ) * 2 - 1;
     onUpPosition.y = -( e.clientY / canvasDimensions.y ) * 2 + 1;
-	//console.log(onUpPosition);
 	var mouseVector = new THREE.Vector2();
 	//onUpPosition.x = ((e.clientX - container.offsetLeft) / canvasDimensions.x) * 2 - 1;
 	//onUpPosition.y =  - ((e.clientY - (container.offsetTop - document.body.scrollTop + 11)) / (canvasDimensions.y)) * 2 + 1;
@@ -895,8 +890,6 @@ function onPointerUp( e ) {
 		else {
 			intersects = raycaster.intersectObjects( mainObject[0], false );
 		}
-		//console.log(pointer);
-		console.log(intersects);
 		if (intersects.length > 0)
 			pickFaces(intersects);
 	}
@@ -905,12 +898,10 @@ function onPointerUp( e ) {
 function onPointerMove( event ) {
 	//pointer.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
 	//pointer.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
-	//console.log(container.getBoundingClientRect());
 	pointer.x = ( ( event.clientX - container.getBoundingClientRect().left ) / (canvasDimensions.x - 200 )) * 2 - 1;
 	pointer.y = - ((event.clientY - (container.getBoundingClientRect().top - document.body.scrollTop - 50)) / (canvasDimensions.y)) * 2 + 1;
 	/*pointer.x = ( event.clientX - windowHalfX ) / canvasDimensions.x;
 	pointer.y = ( event.clientY - windowHalfY ) / canvasDimensions.y;
-	console.log(pointer);
 	raycaster.setFromCamera( pointer, camera );
 	if (typeof(helperObjects[0]) !== "undefined") {
 		if (helperObjects[0].name == "Scene" || helperObjects[0].children.length > 0)
@@ -937,7 +928,6 @@ const onError = function () {
 
 const onProgress = function ( xhr ) {
 	var percentComplete = xhr.loaded / xhr.total * 100;
-	//console.log( ( percentComplete ) + '% loaded' );					
 	circle.set(percentComplete, 100);
 	if (percentComplete >= 100) {
 		circle.hide();
@@ -1022,7 +1012,6 @@ function init() {
 
 	} catch (e) {
 		// statements to handle any exceptions
-		console.log("No glTF file, loading original file.");
 		loadModel(path, basename, filename, extension);
 	}*/
 	if (extension === "glb" || extension === "GLB" || extension === "gltf" || extension === "GLTF") {
@@ -1096,15 +1085,12 @@ function init() {
 
 			xhr.open(method, jsonRequestURL, true);
 			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-			//console.log(camera.position);
 			var rotateMetadata = new THREE.Vector3(THREE.Math.radToDeg(helperObjects[0].rotation.x),THREE.Math.radToDeg(helperObjects[0].rotation.y),THREE.Math.radToDeg(helperObjects[0].rotation.z));
 			var newMetadata = ({"objPosition": [ helperObjects[0].position.x, helperObjects[0].position.y, helperObjects[0].position.z ], "objScale": [ helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z ], "objRotation": [ rotateMetadata.x, rotateMetadata.y, rotateMetadata.z ] });
-			//console.log(newMetadata);
 			if (saveProperties.Camera)
 				newMetadata = Object.assign(newMetadata, {"cameraPosition": [ camera.position.x, camera.position.y, camera.position.z ], "controlsTarget": [ controls.target.x, controls.target.y, controls.target.z ]});
 			if (saveProperties.Light)
 				newMetadata = Object.assign(newMetadata, {"lightPosition": [ dirLight.position.x, dirLight.position.y, dirLight.position.z ], "lightColor": [ "#" + (dirLight.color.getHexString()).toUpperCase() ], "lightIntensity": [ dirLight.intensity ] });
-			//console.log(uri+basename+"/");
 			if (compressedFile !== '')
 				var params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+basename+compressedFile+"&filename="+filename;
 			else
