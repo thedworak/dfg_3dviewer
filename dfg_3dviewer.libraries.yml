@@ -1,8 +1,8 @@
 dfg_3dviewer:
   js:
-    js/main.js: { attributes: { type: module } }
-    js/toastify.js: { }
-    js/spinner/main.js: { }
+    main/main.js: { attributes: { type: module } }
+    main/toastify.js: { }
+    main/spinner/main.js: { }
   css:
     theme:
       css/main.css: {}

@@ -3,28 +3,28 @@
 //const path = '/modules/dfg_3dviewer';
 //const path = '..'; //local
 
-import * as THREE from '/modules/dfg_3dviewer/js/build/three.module.js';
-import { TWEEN } from '/modules/dfg_3dviewer/js/js/jsm/libs/tween.module.min.js';
+import * as THREE from '/modules/dfg_3dviewer/main/build/three.module.js';
+import { TWEEN } from '/modules/dfg_3dviewer/main/js/jsm/libs/tween.module.min.js';
 
-import Stats from '/modules/dfg_3dviewer/js/js/jsm/libs/stats.module.js';
+import Stats from '/modules/dfg_3dviewer/main/js/jsm/libs/stats.module.js';
 
-import { OrbitControls } from '/modules/dfg_3dviewer/js/js/jsm/controls/OrbitControls.js';
-import { TransformControls } from '/modules/dfg_3dviewer/js/js/jsm/controls/TransformControls.js';
-import { GUI } from '/modules/dfg_3dviewer/js/node_modules/lil-gui/dist/lil-gui.esm.min.js';
-import { FBXLoader } from '/modules/dfg_3dviewer/js/js/jsm/loaders/FBXLoader.js';
-import { DDSLoader } from '/modules/dfg_3dviewer/js/js/jsm/loaders/DDSLoader.js';
-import { MTLLoader } from '/modules/dfg_3dviewer/js/js/jsm/loaders/MTLLoader.js';
-import { OBJLoader } from '/modules/dfg_3dviewer/js/js/jsm/loaders/OBJLoader.js';
-import { GLTFLoader } from '/modules/dfg_3dviewer/js/js/jsm/loaders/GLTFLoader.js';
-import { DRACOLoader } from '/modules/dfg_3dviewer/js/js/jsm/loaders/DRACOLoader.js';
-import { KTX2Loader } from '/modules/dfg_3dviewer/js/js/jsm/loaders/KTX2Loader.js';
-import { MeshoptDecoder } from '/modules/dfg_3dviewer/js/js/jsm/libs/meshopt_decoder.module.js';
-import { IFCLoader } from '/modules/dfg_3dviewer/js/js/jsm/loaders/IFCLoader.js';
-import { PLYLoader } from '/modules/dfg_3dviewer/js/js/jsm/loaders/PLYLoader.js';
-import { ColladaLoader } from '/modules/dfg_3dviewer/js/js/jsm/loaders/ColladaLoader.js';
-import { STLLoader } from '/modules/dfg_3dviewer/js/js/jsm/loaders/STLLoader.js';
-import { XYZLoader } from '/modules/dfg_3dviewer/js/js/jsm/loaders/XYZLoader.js';
-import { TDSLoader } from '/modules/dfg_3dviewer/js/js/jsm/loaders/TDSLoader.js';
+import { OrbitControls } from '/modules/dfg_3dviewer/main/js/jsm/controls/OrbitControls.js';
+import { TransformControls } from '/modules/dfg_3dviewer/main/js/jsm/controls/TransformControls.js';
+import { GUI } from '/modules/dfg_3dviewer/main/node_modules/lil-gui/dist/lil-gui.esm.min.js';
+import { FBXLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/FBXLoader.js';
+import { DDSLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/DDSLoader.js';
+import { MTLLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/MTLLoader.js';
+import { OBJLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/OBJLoader.js';
+import { GLTFLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/DRACOLoader.js';
+import { KTX2Loader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/KTX2Loader.js';
+import { MeshoptDecoder } from '/modules/dfg_3dviewer/main/js/jsm/libs/meshopt_decoder.module.js';
+import { IFCLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/IFCLoader.js';
+import { PLYLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/PLYLoader.js';
+import { ColladaLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/ColladaLoader.js';
+import { STLLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/STLLoader.js';
+import { XYZLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/XYZLoader.js';
+import { TDSLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/TDSLoader.js';
 
 /*if (supportedFormats.indexOf(extension.toUpperCase()) < 0) {
 	return
@@ -295,7 +295,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 			case 'ifc':
 			case 'IFC':
 				const ifcLoader = new IFCLoader();
-				ifcLoader.ifcManager.setWasmPath( '/modules/dfg_3dviewer/js/jsm/loaders/ifc/' );
+				ifcLoader.ifcManager.setWasmPath( '/modules/dfg_3dviewer/main/js/jsm/loaders/ifc/' );
 				ifcLoader.load( path + filename, function ( object ) {
 					//object.position.set (0, 300, 0);
 					scene.add( object );
@@ -383,7 +383,7 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 			case 'gltf':
 			case 'GLTF':
 				const dracoLoader = new DRACOLoader();
-				dracoLoader.setDecoderPath( '/modules/dfg_3dviewer/js/libs/draco/' );
+				dracoLoader.setDecoderPath( '/modules/dfg_3dviewer/main/js/libs/draco/' );
 				dracoLoader.preload();
 				const gltf = new GLTFLoader();
 				gltf.setDRACOLoader(dracoLoader);
@@ -1116,4 +1116,3 @@ function init() {
 
 init();
 animate();
-
