@@ -25,6 +25,7 @@ import { ColladaLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/Collada
 import { STLLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/STLLoader.js';
 import { XYZLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/XYZLoader.js';
 import { TDSLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/TDSLoader.js';
+import { PCDLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/PCDLoader.js';
 
 /*if (supportedFormats.indexOf(extension.toUpperCase()) < 0) {
 	return
@@ -337,6 +338,16 @@ function loadModel ( path, basename, filename, extension, org_extension ) {
 				}, onProgress, onError );
 			break;
 
+			case 'pcd':
+			case 'PCD':
+				loader = new PCDLoader();
+				loader.load( path + filename, function ( mesh ) {
+					scene.add( mesh );
+					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, org_extension, extension );
+					mainObject.push(object);
+				}, onProgress, onError );
+			break;
+
 			case 'json':
 			case 'JSON':
 				loader = new THREE.ObjectLoader();
@@ -632,12 +643,12 @@ function setupObject (_object, _camera, _light, _data, _controls) {
 }
 
 function setupCamera (_object, _camera, _light, _data, _controls) {
-	if (typeof (_data) !== "undefined") {
-		if (typeof (_data["cameraPosition"]) !== "undefined") {
+	if (typeof (_data) != "undefined") {
+		if (typeof (_data["cameraPosition"]) != "undefined") {
 			_camera.position.set (_data["cameraPosition"][0], _data["cameraPosition"][1], _data["cameraPosition"][2]);
 			_controls.target.set (_data["controlsTarget"][0], _data["controlsTarget"][1], _data["controlsTarget"][2]);
 		}
-		if (typeof (_data["lightPosition"]) !== "undefined") {
+		if (typeof (_data["lightPosition"]) != "undefined") {
 			_light.position.set( _data["lightPosition"][0], _data["lightPosition"][1], _data["lightPosition"][2] );
 			_light.color = new THREE.Color( _data["lightColor"][0] );
 			_light.intensity = _data["lightIntensity"][0];
@@ -982,7 +993,7 @@ function init() {
 
 	// scene.add( new THREE.CameraHelper( dirLight.shadow.camera ) );
 
-	renderer = new THREE.WebGLRenderer( { antialias: true } );
+	renderer = new THREE.WebGLRenderer( { antialias: true, logarithmicDepthBuffer: true, colorManagement: true, sortObjects: true, preserveDrawingBuffer: true, powerPreference: "high-performance" } );
 	renderer.setPixelRatio( window.devicePixelRatio );
 	renderer.setSize( canvasDimensions.x, canvasDimensions.y );
 	renderer.shadowMap.enabled = true;

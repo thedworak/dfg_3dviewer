@@ -73,7 +73,6 @@ for current_argument in sys.argv:
         continue
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    #print("Converting: '" + current_argument + "'")
 
     #
 
@@ -102,15 +101,12 @@ for current_argument in sys.argv:
         bpy.ops.import_scene.x3d(filepath=current_argument)
 
     #
-    #print("ROOT" + root)
     if sys.argv[9:]:
         export_file = str(sys.argv[9])
         #export_file = root + current_basename + "." + extension
-        #print("Output" + export_file)
     else:
         root = root[::-1].replace(current_basename[::-1], "", 1)[::-1]
         export_file = root + "gltf/" + current_basename + "." + extension
-    #print("Root: '" + root + "'")
     print("Writing: '" + export_file + "'")
     if compression == 'true':
         bpy.ops.export_scene.gltf(filepath=export_file,export_format=format,export_draco_mesh_compression_enable=True,export_draco_mesh_compression_level=compression_level)
