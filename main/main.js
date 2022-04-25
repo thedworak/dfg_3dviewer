@@ -1,4 +1,4 @@
-//Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, glTF
+//Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF
 
 //const path = '/modules/dfg_3dviewer';
 //const path = '..'; //local
@@ -41,7 +41,9 @@ const editor = true;
 let mixer;
 
 const container = document.getElementById("DFG_3DViewer");
-const supportedFormats = [ 'OBJ', 'DAE', 'FBX', 'PLY', 'IFC', 'STL', 'XYZ', 'JSON', '3DS', 'GLFT' ];
+container.setAttribute("width", window.self.innerWidth);
+container.setAttribute("height", window.self.innerHeight);
+const supportedFormats = [ 'OBJ', 'DAE', 'FBX', 'PLY', 'IFC', 'STL', 'XYZ', 'PCD', 'JSON', '3DS', 'GLFT' ];
 const filename = container.getAttribute("3d").split("/").pop();
 const basename = filename.substring(0, filename.lastIndexOf('.'));
 const extension = filename.substring(filename.lastIndexOf('.') + 1);	
@@ -53,7 +55,7 @@ var spinnerContainer = document.createElement("div");
 spinnerContainer.id = 'spinnerContainer';
 spinnerContainer.className = 'spinnerContainer';
 spinnerContainer.style.position = 'absolute';
-spinnerContainer.style.left = '35%';
+spinnerContainer.style.left = '45%';
 spinnerContainer.style.marginTop = '10px';
 var spinnerElement = document.createElement("div");
 spinnerElement.id = 'spinner';
@@ -74,7 +76,7 @@ var guiContainer = document.createElement("div");
 guiContainer.id = 'guiContainer';
 guiContainer.className = 'guiContainer';
 guiContainer.style.position = 'absolute';
-guiContainer.style.right = '10%';
+guiContainer.style.right = '2%';
 guiContainer.style.marginTop = '0px';
 var guiElement = document.createElement("div");
 guiElement.id = 'guiContainer';
@@ -974,7 +976,9 @@ function onPointerMove( event ) {
 
 function init() {
 	// model
-	canvasDimensions = {x: container.getBoundingClientRect().width, y: container.getBoundingClientRect().bottom};
+	//canvasDimensions = {x: container.getBoundingClientRect().width, y: container.getBoundingClientRect().bottom};
+	canvasDimensions = {x: window.self.innerWidth*0.8, y: window.self.innerHeight*0.55};
+	console.log(canvasDimensions);
 	container.setAttribute("width", canvasDimensions.x);
 	container.setAttribute("height", canvasDimensions.y);
 

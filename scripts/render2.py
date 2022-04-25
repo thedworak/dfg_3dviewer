@@ -309,19 +309,19 @@ for current_argument in sys.argv:
 
 	light_data = bpy.data.lights.new('light', type='AREA')
 	sun = bpy.data.objects.new('light', light_data)
-	sun.data.energy=max_size*10000.0
+	sun.data.energy=max_size*5000.0
 	sun.data.size = max_size*2
 	#sun.location = (3, 4, -5)
 	#sun.location = (dist_x*1.4, dist_y*1.4, dist_z*1.4)
 	sun.location = (0,0,0)
 	bpy.context.collection.objects.link(sun)
-	#sun_bottom = bpy.data.objects.new('light_bottom', light_data)
-	#sun_bottom.data.energy=max_size*5000.0
-	#sun_bottom.data.size = max_size*2
-	#sun_bottom.location = (-dist_x*1.4, dist_y*1.4, dist_z*1.4)
+	sun_bottom = bpy.data.objects.new('light_bottom', light_data)
+	sun_bottom.data.energy=max_size*5000.0
+	sun_bottom.data.size = max_size*2
+	sun_bottom.location = (-dist_x*1.4, dist_y*1.4, dist_z*1.4)
 	#sun_bottom.location = (0, 0, dist_z/8)
-	#sun_bottom.rotation_euler = (2, 0.3, 0.3)
-	#bpy.context.collection.objects.link(sun_bottom)
+	sun_bottom.rotation_euler = (2, 0.3, 0.3)
+	bpy.context.collection.objects.link(sun_bottom)
 	
 	scene.render.image_settings.file_format='PNG'
 	scene.render.filepath=export_file+current_basename+'.png'
@@ -376,7 +376,7 @@ for current_argument in sys.argv:
 	scene.camera=cam
 	cam.location = (0, dist_y*2.5, dist_z*0.9)
 	sun.location = cam.location
-	#sun_bottom.location = cam.location
+	sun_bottom.location = cam.location
 	#cam.location=Vector((dist_x/multiplier, dist_y/multiplier, dist_z/multiplier))
 
 	#scene.render.filepath=export_file+current_basename+'_org.png'
@@ -386,7 +386,7 @@ for current_argument in sys.argv:
 
 	for angle in range(0, 360, 90):
 		sun.location = rotate(sun.location, 80, axis=(0, 0, 1))
-		#sun_bottom.location = rotate(sun_bottom.location, 80, axis=(0, 0, 1))
+		sun_bottom.location = rotate(sun_bottom.location, 80, axis=(0, 0, 1))
 		scene.render.filepath=export_file+current_basename+'_side'+str(angle)+'.png'
 		bpy.ops.render.render(write_still=True)
 		cam.location = rotate(cam.location, 90, axis=(0, 0, 1))
@@ -395,7 +395,7 @@ for current_argument in sys.argv:
 	cam.location = rotate(cam.location, 45, axis=(0, 0, 1))
 	for angle in range(45, 360, 90):
 		sun.location = rotate(sun.location, 80, axis=(0, 0, 1))
-		#sun_bottom.location = rotate(sun_bottom.location, 80, axis=(0, 0, 1))
+		sun_bottom.location = rotate(sun_bottom.location, 80, axis=(0, 0, 1))
 		scene.render.filepath=export_file+current_basename+'_side'+str(angle)+'.png'
 		bpy.ops.render.render(write_still=True)
 		cam.location = rotate(cam.location, 90, axis=(0, 0, 1))
