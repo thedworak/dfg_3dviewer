@@ -34,13 +34,12 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		$file_url = \Drupal::service('file_url_generator')->generate($file->getFileUri());
 		$path = str_replace($fileName, "views/" . $fileName, $file_url->toString());
 		$base = \Drupal::request()->getSchemeAndHttpHost();
-		$entity->set('f7061d026b2c53e34096e35831b841cd', array($base . $path . "_side90.png", $base . $path . "_side0.png"));
+		if (file_exists($base . $path . "_side45.png"))
+			$entity->set('f7061d026b2c53e34096e35831b841cd', array($base . $path . "_side45.png", $base . $path . "_side0.png", $base . $path . "_side90.png", $base . $path . "_side135.png", $base . $path . "_side180.png", $base . $path . "_side225.png", $base . $path . "_side270.png", $base . $path . "_side315.png", $base . $path . "_top.png"));
 		
-		\Drupal::messenger()->addMessage($file_url->toString());
+		/*\Drupal::messenger()->addMessage($file_url->toString());
 		\Drupal::messenger()->addMessage($fileName);
-		\Drupal::messenger()->addMessage($path);
-		#\Drupal::messenger()->addMessage(serialize($fileName)); 
-		#\Drupal::messenger()->addMessage(serialize($entity->fa554b216188fd7c52502e8e17509f9d)); 
+		\Drupal::messenger()->addMessage($path);*/
 	}
 	#$file = $entity->fbda64e9ba217e59e5fc5f99244f4821;
 	//$compression = $entity->field_3d_compression_level;

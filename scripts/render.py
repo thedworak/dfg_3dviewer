@@ -148,6 +148,11 @@ if extension == "gltf":
 else:
    format = "GLB"
 
+if sys.argv[7:]:
+    original_extension = sys.argv[7]
+
+print("Converting: '" + original_extension + "'")
+
 force_continue = True
 for current_argument in sys.argv:
 
@@ -285,8 +290,8 @@ for current_argument in sys.argv:
 
 	#
 	#print("ROOT" + root)
-	if sys.argv[7:]:
-		export_file = str(sys.argv[7])
+	if sys.argv[8:]:
+		export_file = str(sys.argv[8])
 	else:
 		root = root[::-1].replace(current_basename[::-1], "", 1)[::-1]
 		export_file = root + "_" + extension
@@ -310,7 +315,7 @@ for current_argument in sys.argv:
 	light_data = bpy.data.lights.new('light', type='AREA')
 	sun = bpy.data.objects.new('light', light_data)
 	sun.data.energy=max_size*10000.0
-	sun.data.size = max_size*2
+	sun.data.size = max_size*5
 	#sun.location = (3, 4, -5)
 	#sun.location = (dist_x*1.4, dist_y*1.4, dist_z*1.4)
 	sun.location = (0,0,0)
@@ -324,7 +329,7 @@ for current_argument in sys.argv:
 	#bpy.context.collection.objects.link(sun_bottom)
 	
 	scene.render.image_settings.file_format='PNG'
-	scene.render.filepath=export_file+current_basename+'.png'
+	scene.render.filepath=export_file+current_basename+"."+original_extension+'.png'
 	print("Rendering: " + scene.render.filepath)
 	cam_data = bpy.data.cameras.new('camera')
 	cam = bpy.data.objects.new('camera', cam_data)
@@ -374,7 +379,7 @@ for current_argument in sys.argv:
 	#bpy.ops.export_scene.fbx(filepath=export_file+current_basename+'.fbx')
 	
 	scene.camera=cam
-	cam.location = (0, dist_y*2.5, dist_z*0.9)
+	cam.location = (0, dist_y*2.5, 0)
 	sun.location = cam.location
 	#sun_bottom.location = cam.location
 	#cam.location=Vector((dist_x/multiplier, dist_y/multiplier, dist_z/multiplier))
@@ -387,7 +392,7 @@ for current_argument in sys.argv:
 	for angle in range(0, 360, 90):
 		sun.location = rotate(sun.location, 80, axis=(0, 0, 1))
 		#sun_bottom.location = rotate(sun_bottom.location, 80, axis=(0, 0, 1))
-		scene.render.filepath=export_file+current_basename+'_side'+str(angle)+'.png'
+		scene.render.filepath=export_file+current_basename+"."+original_extension+'_side'+str(angle)+'.png'
 		bpy.ops.render.render(write_still=True)
 		cam.location = rotate(cam.location, 90, axis=(0, 0, 1))
 
@@ -396,7 +401,7 @@ for current_argument in sys.argv:
 	for angle in range(45, 360, 90):
 		sun.location = rotate(sun.location, 80, axis=(0, 0, 1))
 		#sun_bottom.location = rotate(sun_bottom.location, 80, axis=(0, 0, 1))
-		scene.render.filepath=export_file+current_basename+'_side'+str(angle)+'.png'
+		scene.render.filepath=export_file+current_basename+"."+original_extension+'_side'+str(angle)+'.png'
 		bpy.ops.render.render(write_still=True)
 		cam.location = rotate(cam.location, 90, axis=(0, 0, 1))
 		
@@ -404,7 +409,7 @@ for current_argument in sys.argv:
 	#top
 	cam.location=Vector((0, 0, dist_z*5))
 	sun.location = cam.location
-	scene.render.filepath=export_file+current_basename+'_top.png'
+	scene.render.filepath=export_file+current_basename+"."+original_extension+'_top.png'
 	bpy.ops.render.render(write_still=True)
 	
 	#bottom

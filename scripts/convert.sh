@@ -25,6 +25,13 @@ while getopts ":c:l:o:i:b:f:" flag; do
     esac
 done
 
+render_preview () {
+	if [[ ! -d "$INPATH" ]]; then
+		mkdir $INPATH/views/
+	fi
+	xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo ${BLENDER_PATH}blender -b -P /var/www/html/3drepository/modules/dfg_3dviewer/scripts/render.py -- "$INPATH/gltf/$NAME.glb" "glb" $1 "$INPATH/views/" -E BLENDER_EEVEE -f 1 > /dev/null 2>&1
+}
+
 handle_file () {
 	INPATH=$1
 	FILENAME=$2
@@ -38,6 +45,8 @@ handle_file () {
 	else
 		${BLENDER_PATH}blender -b -P /var/www/html/3drepository/modules/dfg_3dviewer/scripts/2gltf2/2gltf2.py -- "$INPATH/$FILENAME" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" "$OUTPUT$OUTPUTPATH" > /dev/null 2>&1
 	fi
+	
+	render_preview $EXT
 }
 
 handle_ifc_file () {
@@ -52,6 +61,7 @@ handle_ifc_file () {
 		mkdir "$INPATH"/gltf/
 	fi
 	/var/www/html/3drepository/modules/dfg_3dviewer/scripts/IfcConvert "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
+	render_preview $EXT
 }
 
 if [[ ! -z "$INPUT" && -f $INPUT ]]; then
