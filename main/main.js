@@ -524,7 +524,7 @@ function setupCamera (_object, _camera, _light, _data, _controls) {
 		}
 		_camera.updateProjectionMatrix();
 		_controls.update();
-		fitCameraToCenteredObject ( _camera, _object, 1.7, _controls, true );
+		fitCameraToCenteredObject ( _camera, _object, 2.3, _controls, true );
 	}
 	else {
 		var boundingBox = new THREE.Box3();
@@ -539,7 +539,7 @@ function setupCamera (_object, _camera, _light, _data, _controls) {
 		var size = new THREE.Vector3();
 		boundingBox.getSize(size);
 		camera.position.set(size.x, size.y, size.z);
-		fitCameraToCenteredObject ( _camera, _object, 1.7, _controls, false );
+		fitCameraToCenteredObject ( _camera, _object, 2.3, _controls, false );
 	}
 }
 

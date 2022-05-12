@@ -150,8 +150,8 @@ else:
 
 if sys.argv[7:]:
     original_extension = sys.argv[7]
-if sys.argv[9:]:
-    is_archive = sys.argv[9]
+
+is_archive = sys.argv[9]
 
 print("Converting: '" + original_extension + "'")
 
@@ -297,6 +297,11 @@ for current_argument in sys.argv:
 	else:
 		root = root[::-1].replace(current_basename[::-1], "", 1)[::-1]
 		export_file = root + "_" + extension
+
+	if is_archive:
+		mainfilepath=export_file+current_basename
+	else:
+		mainfilepath=export_file+current_basename+"."+original_extension
 		
 	multiplier=10
 
@@ -317,7 +322,8 @@ for current_argument in sys.argv:
 	light_data = bpy.data.lights.new('light', type='AREA')
 	sun = bpy.data.objects.new('light', light_data)
 	sun.data.energy=max_size*10000.0
-	sun.data.size = max_size*5
+	sun.data.size = max_size*10
+	sun.data.size_y = max_size*10
 	#sun.location = (3, 4, -5)
 	#sun.location = (dist_x*1.4, dist_y*1.4, dist_z*1.4)
 	sun.location = (0,0,0)
@@ -331,12 +337,6 @@ for current_argument in sys.argv:
 	#bpy.context.collection.objects.link(sun_bottom)
 	
 	scene.render.image_settings.file_format='PNG'
-	
-	
-	if is_archive:
-		mainfilepath=export_file+current_basename
-	else:
-		mainfilepath=export_file+current_basename+"."+original_extension
 	
 	scene.render.filepath=mainfilepath+".png"
 	print("Rendering: " + scene.render.filepath)
@@ -359,60 +359,28 @@ for current_argument in sys.argv:
 	print(dist_x, dist_y, dist_z)
 	#cam.location=Vector((dist_x, dist_y, dist_z))
 	bpy.context.collection.objects.link(cam)
-
-	"""
-	# get the current object
-	for _obj in scene.objects:
-		if (_obj.type == 'MESH'):
-			current_obj = _obj
-			# set geometry to origin
-			bpy.ops.object.origin_set(type="GEOMETRY_ORIGIN")
-			zverts = []
-			# get all z coordinates of the vertices
-			for face in current_obj.data.polygons:
-				verts_in_face = face.vertices[:]
-				for vert in verts_in_face:
-					local_point = current_obj.data.vertices[vert].co
-					world_point = current_obj.matrix_world @ local_point
-					zverts.append(world_point[2])
-
-			scene.cursor.location = (0, 0, min(zverts))
-			bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
-			# set the object to (0,0,0)
-			current_obj.location = (0,0,0)
-			# reset the cursor
-			scene.cursor.location = (0,0,0)
-	"""
-	#bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY')
-	
-	#bpy.ops.export_scene.fbx(filepath=export_file+current_basename+'.fbx')
 	
 	scene.camera=cam
 	cam.location = (0, dist_y*2.5, 0)
-	sun.location = cam.location
-	#sun_bottom.location = cam.location
-	#cam.location=Vector((dist_x/multiplier, dist_y/multiplier, dist_z/multiplier))
-
-	#scene.render.filepath=export_file+current_basename+'_org.png'
-	#bpy.ops.render.render(write_still=True)
-
-	#cam.location = rotate(cam.location, 45, axis=(0, 0, 1))
+	sun.location = (0, dist_y*2.5, dist_z*1.7)
 
 	for angle in range(0, 360, 90):
-		sun.location = rotate(sun.location, 80, axis=(0, 0, 1))
 		#sun_bottom.location = rotate(sun_bottom.location, 80, axis=(0, 0, 1))
 		scene.render.filepath=mainfilepath+'_side'+str(angle)+'.png'
 		bpy.ops.render.render(write_still=True)
 		cam.location = rotate(cam.location, 90, axis=(0, 0, 1))
+		sun.location = rotate(sun.location, 90, axis=(0, 0, 1))
 
 	cam.location = (0, dist_y*2.9, dist_z*1.7)
 	cam.location = rotate(cam.location, 45, axis=(0, 0, 1))
+	sun.location = (0, dist_y*2.9, dist_z*1.7)
+	sun.location = rotate(cam.location, 45, axis=(0, 0, 1))
 	for angle in range(45, 360, 90):
-		sun.location = rotate(sun.location, 80, axis=(0, 0, 1))
 		#sun_bottom.location = rotate(sun_bottom.location, 80, axis=(0, 0, 1))
 		scene.render.filepath=mainfilepath+'_side'+str(angle)+'.png'
 		bpy.ops.render.render(write_still=True)
 		cam.location = rotate(cam.location, 90, axis=(0, 0, 1))
+		sun.location = rotate(sun.location, 90, axis=(0, 0, 1))
 		
 	
 	#top
