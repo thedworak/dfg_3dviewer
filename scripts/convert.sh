@@ -13,6 +13,7 @@ COMPRESSION_LEVEL=3
 GLTF="gltf"
 FORCE="false"
 isOutput=false
+IS_ARCHIVE=false
 
 while getopts ":c:l:o:i:b:f:" flag; do
     case "${flag}" in
@@ -21,6 +22,7 @@ while getopts ":c:l:o:i:b:f:" flag; do
         i) INPUT="${OPTARG}";;
         o) OUTPUT="${OPTARG}";;
         f) FORCE="${OPTARG}";;
+        a) IS_ARCHIVE="${OPTARG}";;
         b) if [[ "${OPTARG}" = "true" ]]; then GLTF="glb"; else GLTF="gltf"; fi;;
     esac
 done
@@ -29,7 +31,7 @@ render_preview () {
 	if [[ ! -d "$INPATH" ]]; then
 		mkdir $INPATH/views/
 	fi
-	xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo ${BLENDER_PATH}blender -b -P /var/www/html/3drepository/modules/dfg_3dviewer/scripts/render.py -- "$INPATH/gltf/$NAME.glb" "glb" $1 "$INPATH/views/" -E BLENDER_EEVEE -f 1 > /dev/null 2>&1
+	xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo ${BLENDER_PATH}blender -b -P /var/www/html/3drepository/modules/dfg_3dviewer/scripts/render.py -- "$INPATH/gltf/$NAME.glb" "glb" $1 "$INPATH/views/" $IS_ARCHIVE -E BLENDER_EEVEE -f 1 > /dev/null 2>&1
 }
 
 handle_file () {

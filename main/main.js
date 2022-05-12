@@ -26,6 +26,8 @@ import { STLLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/STLLoader.j
 import { XYZLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/XYZLoader.js';
 import { TDSLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/TDSLoader.js';
 import { PCDLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/PCDLoader.js';
+import { FontLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/FontLoader.js';
+import { TextGeometry } from '/modules/dfg_3dviewer/main/js/jsm/geometries/TextGeometry.js';
 
 /*if (supportedFormats.indexOf(extension.toUpperCase()) < 0) {
 	return
@@ -50,6 +52,7 @@ const extension = filename.substring(filename.lastIndexOf('.') + 1);
 const path = container.getAttribute("3d").substring(0, container.getAttribute("3d").lastIndexOf(filename));
 const domain = "https://3d-repository.hs-mainz.de";
 const uri = path.replace(domain+"/", "");
+const COPYRIGHTS = false;
 
 var spinnerContainer = document.createElement("div");
 spinnerContainer.id = 'spinnerContainer';
@@ -181,6 +184,19 @@ var clippingGeometry = [];
 let clippingObject = new THREE.Group();
 const planeGeom = new THREE.PlaneGeometry( 4, 4 );
 
+var textMesh;
+
+function readWissKI () {
+	const xmlhttp = new XMLHttpRequest();
+	xmlhttp.onload = function() {
+		console.log(this.responseText);
+	}
+	xmlhttp.open("GET", "php/fetchWissKI.php?q=");
+	xmlhttp.send();
+}
+
+//readWissKI();
+
 function createClippingPlaneGroup( geometry, plane, renderOrder ) {
 
 	const group = new THREE.Group();
@@ -224,6 +240,45 @@ function showToast (_str) {
 	var myToast = Toastify(options);
 	myToast.options.text = _str;
 	myToast.showToast();
+}
+
+function addTextWatermark (_text, _scale) {
+	var textGeo;
+	var materials = [
+		new THREE.MeshPhongMaterial( { color: 0xffffff, flatShading: false, side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 0.7 } ), // front
+		new THREE.MeshPhongMaterial( { color: 0xffffff, flatShading: false, side: THREE.DoubleSide, depthTest: false } ) // side
+	];
+	const loader = new FontLoader();
+
+	loader.load( '/modules/dfg_3dviewer/main/fonts/helvetiker_regular.typeface.json', function ( font ) {
+
+		const textGeo = new TextGeometry( _text, {
+			font: font,
+			size: _scale*3,
+			height: _scale/10,
+			curveSegments: 5,
+			bevelEnabled: true,
+			bevelThickness: _scale/8,
+			bevelSize: _scale/10,
+			bevelOffset: 0,
+			bevelSegments: 1
+		} );
+		console.log(textGeo);
+		textGeo.computeBoundingBox();
+
+		const centerOffset = - 0.5 * ( textGeo.boundingBox.max.x - textGeo.boundingBox.min.x );
+
+		textMesh = new THREE.Mesh( textGeo, materials );
+
+		textMesh.rotation.z = Math.PI;
+		textMesh.rotation.y = Math.PI;
+		
+		textMesh.position.x = 0;
+		textMesh.position.y = 0;
+		textMesh.position.z = 0;
+		textMesh.renderOrder = 1;
+		scene.add( textMesh );		
+	} );
 }
 
 function selectObjectHierarchy (_id) {
@@ -433,9 +488,9 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit 
 
     // set the far plane of the camera so that it easily encompasses the whole object
     const minZ = boundingBox.min.z;
-    const cameraToFarEdge = ( minZ < 0 ) ? -minZ + cameraZ : cameraZ - minZ;
+    //const cameraToFarEdge = ( minZ < 0 ) ? -minZ + cameraZ : cameraZ - minZ;
 
-    camera.far = cameraToFarEdge * 3;
+    //camera.far = cameraToFarEdge * 3;
     camera.updateProjectionMatrix();
 
     if ( orbitControls !== undefined ) {
@@ -443,11 +498,12 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit 
         orbitControls.target = new THREE.Vector3(0, 0, 0);
 
         // prevent camera from zooming out far enough to create far plane cutoff
-        orbitControls.maxDistance = cameraToFarEdge * 2;
+        //orbitControls.maxDistance = cameraToFarEdge * 2;
     }
 	controls.update();
 	
 	setupClippingPlanes(object.geometry, gridSize, distance);
+	if (COPYRIGHTS) { addTextWatermark("©", gridSize/10); }
 }
 
 function render() {
@@ -607,7 +663,7 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 		//hierarchyFolder.add(hierarchyText, 'Faces' );
 	});
 	helperObjects.push (object);
-
+	//addTextWatermark("©", object.scale.x);
 	//lightObjects.push (object);
 }
 
@@ -912,6 +968,7 @@ function animate() {
 		}
 
 	}
+	if (textMesh !== undefined) { textMesh.lookAt(camera.position); }
 	renderer.render( scene, camera );
 	stats.update();
 }
@@ -978,7 +1035,6 @@ function init() {
 	// model
 	//canvasDimensions = {x: container.getBoundingClientRect().width, y: container.getBoundingClientRect().bottom};
 	canvasDimensions = {x: window.self.innerWidth*0.8, y: window.self.innerHeight*0.55};
-	console.log(canvasDimensions);
 	container.setAttribute("width", canvasDimensions.x);
 	container.setAttribute("height", canvasDimensions.y);
 
@@ -1007,14 +1063,31 @@ function init() {
 	lightObjects.push( dirLight );
 
 	// scene.add( new THREE.CameraHelper( dirLight.shadow.camera ) );
-
 	renderer = new THREE.WebGLRenderer( { antialias: true, logarithmicDepthBuffer: true, colorManagement: true, sortObjects: true, preserveDrawingBuffer: true, powerPreference: "high-performance" } );
 	renderer.setPixelRatio( window.devicePixelRatio );
 	renderer.setSize( canvasDimensions.x, canvasDimensions.y );
 	renderer.shadowMap.enabled = true;
 	renderer.localClippingEnabled = true;
 	renderer.setClearColor( 0x263238 );
+	renderer.domElement.id = 'MainCanvas';
 	container.appendChild( renderer.domElement );
+	/*var canvas = document.getElementById("MainCanvas");
+	canvas.style.position = "absolute";
+	canvas.width = canvasDimensions.x;
+	canvas.height = canvasDimensions.y;
+	canvas.style.zIndex = 1;*/
+	
+	var canvasText = document.createElement('div');
+	canvasText.id = "TextCanvas";
+	canvasText.width = canvasDimensions.x;
+	canvasText.height = canvasDimensions.y;
+	canvasText.style.position = "absolute";
+	canvasText.style.zIndex = 8;
+	container.appendChild( canvasText );
+	
+	/*var ctx = canvas.getContext("2d");
+	ctx.font = "30px Arial";
+	ctx.fillText("Hello World", 10, 50);*/
 
 	controls = new OrbitControls( camera, renderer.domElement );
 	controls.target.set( 0, 100, 0 );
@@ -1074,7 +1147,7 @@ function init() {
 
 	// stats
 	stats = new Stats();
-	stats.domElement.style.cssText = 'position:relative;top:0px;left:0px;max-height:120px;max-width:90px;';
+	stats.domElement.style.cssText = 'position:relative;top:0px;left:0px;max-height:120px;max-width:90px;z-index:2;';
 	container.appendChild( stats.dom );
 	
 	windowHalfX = canvasDimensions.x / 2;
@@ -1138,5 +1211,5 @@ function init() {
 	}
 }
 
-init();
+window.onload=init();
 animate();

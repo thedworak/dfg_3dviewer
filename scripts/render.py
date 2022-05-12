@@ -150,6 +150,8 @@ else:
 
 if sys.argv[7:]:
     original_extension = sys.argv[7]
+if sys.argv[9:]:
+    is_archive = sys.argv[9]
 
 print("Converting: '" + original_extension + "'")
 
@@ -329,7 +331,14 @@ for current_argument in sys.argv:
 	#bpy.context.collection.objects.link(sun_bottom)
 	
 	scene.render.image_settings.file_format='PNG'
-	scene.render.filepath=export_file+current_basename+"."+original_extension+'.png'
+	
+	
+	if is_archive:
+		mainfilepath=export_file+current_basename
+	else:
+		mainfilepath=export_file+current_basename+"."+original_extension
+	
+	scene.render.filepath=mainfilepath+".png"
 	print("Rendering: " + scene.render.filepath)
 	cam_data = bpy.data.cameras.new('camera')
 	cam = bpy.data.objects.new('camera', cam_data)
@@ -392,7 +401,7 @@ for current_argument in sys.argv:
 	for angle in range(0, 360, 90):
 		sun.location = rotate(sun.location, 80, axis=(0, 0, 1))
 		#sun_bottom.location = rotate(sun_bottom.location, 80, axis=(0, 0, 1))
-		scene.render.filepath=export_file+current_basename+"."+original_extension+'_side'+str(angle)+'.png'
+		scene.render.filepath=mainfilepath+'_side'+str(angle)+'.png'
 		bpy.ops.render.render(write_still=True)
 		cam.location = rotate(cam.location, 90, axis=(0, 0, 1))
 
@@ -401,7 +410,7 @@ for current_argument in sys.argv:
 	for angle in range(45, 360, 90):
 		sun.location = rotate(sun.location, 80, axis=(0, 0, 1))
 		#sun_bottom.location = rotate(sun_bottom.location, 80, axis=(0, 0, 1))
-		scene.render.filepath=export_file+current_basename+"."+original_extension+'_side'+str(angle)+'.png'
+		scene.render.filepath=mainfilepath+'_side'+str(angle)+'.png'
 		bpy.ops.render.render(write_still=True)
 		cam.location = rotate(cam.location, 90, axis=(0, 0, 1))
 		
@@ -409,7 +418,7 @@ for current_argument in sys.argv:
 	#top
 	cam.location=Vector((0, 0, dist_z*5))
 	sun.location = cam.location
-	scene.render.filepath=export_file+current_basename+"."+original_extension+'_top.png'
+	scene.render.filepath=mainfilepath+'_top.png'
 	bpy.ops.render.render(write_still=True)
 	
 	#bottom

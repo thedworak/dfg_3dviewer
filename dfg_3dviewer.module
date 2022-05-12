@@ -19,27 +19,55 @@ function dfg_3dviewer_help($route_name, RouteMatchInterface $route_match) {
   }
 }
 
+function in_arrayi($needle, $haystack)
+{
+	return in_array(strtolower($needle), array_map('strtolower', $haystack));
+}
+
+function url_exists ($url) {
+	return str_contains(get_headers($url)[0], "200 OK");
+}
+
 /**
 * Implements hook_file_validate().
  */
 function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity) {
 	#\Drupal::messenger()->addMessage(serialize($entity));
+	$archives = array("zip", "rar", "tar", "xz", "gz");
 	if($entity->bundle() == "bd3d7baa74856d141bcff7b4193fa128") {
 		$file_info = $entity->fbf95bddee5160d515b982b3fd2e05f7->getValue();
 		$file_id = $file_info[0]['target_id'];
 		$file = \Drupal\file\Entity\File::load($file_id);
-		$fileName = $file->getFilename();
-		#$entity->set('fa554b216188fd7c52502e8e17509f9d', $fileName);
-		#$entity->set('fa554b216188fd7c52502e8e17509f9d', array("en" => array(array("target_id" => $fileName))));
-		$file_url = \Drupal::service('file_url_generator')->generate($file->getFileUri());
-		$path = str_replace($fileName, "views/" . $fileName, $file_url->toString());
-		$base = \Drupal::request()->getSchemeAndHttpHost();
-		if (file_exists($base . $path . "_side45.png"))
-			$entity->set('f7061d026b2c53e34096e35831b841cd', array($base . $path . "_side45.png", $base . $path . "_side0.png", $base . $path . "_side90.png", $base . $path . "_side135.png", $base . $path . "_side180.png", $base . $path . "_side225.png", $base . $path . "_side270.png", $base . $path . "_side315.png", $base . $path . "_top.png"));
-		
-		/*\Drupal::messenger()->addMessage($file_url->toString());
-		\Drupal::messenger()->addMessage($fileName);
-		\Drupal::messenger()->addMessage($path);*/
+		if (!is_null($file)) {
+			$fileName = $file->getFilename();
+			$extension = pathinfo($fileName, PATHINFO_EXTENSION);
+			$fileBase = str_replace(".$extension", "", $fileName);
+			$base = \Drupal::request()->getSchemeAndHttpHost();
+
+			#$entity->set('fa554b216188fd7c52502e8e17509f9d', $fileName);
+			#$entity->set('fa554b216188fd7c52502e8e17509f9d', array("en" => array(array("target_id" => $fileName))));
+			$file_url = \Drupal::service('file_url_generator')->generate($file->getFileUri());
+			$viewBase = "";
+			if (in_arrayi($extension, $archives)) {
+				$path = str_replace($fileName, "", $file_url->toString());
+				$viewBase = $base . $path . $fileBase . "_" . strtoupper($extension) . "/views/" . $fileBase;
+			}
+			else
+			{
+				$path = str_replace($fileName, "views/" . $fileName, $file_url->toString());
+				$viewBase = $base . $path;
+			}
+			\Drupal::messenger()->addMessage(file_exists($viewBase . "_side45.png"));
+			\Drupal::messenger()->addMessage($viewBase . "_side45.png");
+			clearstatcache();
+			if (url_exists($viewBase . "_side45.png"))
+				$entity->set('f605dc6b727a1099b9e52b3ccbdf5673', array($viewBase . "_side45.png", $viewBase . "_side0.png", $viewBase . "_side90.png", $viewBase . "_side135.png", $viewBase . "_side180.png", $viewBase . "_side225.png", $viewBase . "_side270.png", $viewBase . "_side315.png", $viewBase . "_top.png"));
+
+			/*\Drupal::messenger()->addMessage($file_url->toString());
+			\Drupal::messenger()->addMessage(file_exists($viewBase . "_side45.png"));
+			\Drupal::messenger()->addMessage($fileName);
+			\Drupal::messenger()->addMessage($path);*/
+		}
 	}
 	#$file = $entity->fbda64e9ba217e59e5fc5f99244f4821;
 	//$compression = $entity->field_3d_compression_level;
@@ -78,7 +106,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 							case "glb":
 							case "gltf":
 								#\Drupal::messenger()->addMessage(serialize($extractPath . $zipFile . $parts['filename']), 'status');
-								$output = shell_exec ('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/convert.sh -c true -l 3 -b true -i "' . $extractPath . $zipFile . '" -o "' . $extractPath . '" -f true');
+								$output = shell_exec ('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/convert.sh -c true -l 3 -b true -i "' . $extractPath . $zipFile . '" -o "' . $extractPath . '" -f true -a false');
 								
 							break;
 						}
