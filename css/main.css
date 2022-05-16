@@ -31,9 +31,15 @@ a.wisski-inline-iip > div#wisski-iip-cont > img {
 }
 
 canvas {
-   width: 90% !important;
+   width: 70% !important;
    height: 60% !important;
    display: block;
+   z-index: 0;
+   position: absolute;
+}
+
+#guiContainer {
+	z-index: 10;
 }
 
 .toastify {
@@ -89,4 +95,22 @@ canvas {
 
 .closed {
 	overflow: hidden;
+}
+
+#TextCanvas {
+	position: absolute;
+	z-index: 8;
+	pointer-events: none;
+	--font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    --font-family-mono: Menlo,Monaco,Consolas,"Droid Sans Mono",monospace;
+    color: #000000;
+    font-family: var(--font-family);
+    font-size: 14px;
+    font-style: normal;
+    font-weight: 350;
+	padding: 10px 0 0 10px
+}
+
+#image-list {
+	display: flex;
 }

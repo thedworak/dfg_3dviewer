@@ -52,7 +52,10 @@ const extension = filename.substring(filename.lastIndexOf('.') + 1);
 const path = container.getAttribute("3d").substring(0, container.getAttribute("3d").lastIndexOf(filename));
 const domain = "https://3d-repository.hs-mainz.de";
 const uri = path.replace(domain+"/", "");
+const loadedFile = basename + "." + extension;
 const COPYRIGHTS = false;
+
+var canvasText;
 
 var spinnerContainer = document.createElement("div");
 spinnerContainer.id = 'spinnerContainer';
@@ -133,7 +136,6 @@ const saveProperties = {
 var EDITOR = false;
 
 const gui = new GUI({ container: guiContainer });
-const metadataFolder = gui.addFolder('Metadata');
 //const mainHierarchyFolder = gui.addFolder('Hierarchy');
 var hierarchyFolder;
 const GUILength = 35;
@@ -515,6 +517,8 @@ function setupCamera (_object, _camera, _light, _data, _controls) {
 	if (typeof (_data) != "undefined") {
 		if (typeof (_data["cameraPosition"]) != "undefined") {
 			_camera.position.set (_data["cameraPosition"][0], _data["cameraPosition"][1], _data["cameraPosition"][2]);
+		}
+		if (typeof (_data["controlsTarget"]) != "undefined") {
 			_controls.target.set (_data["controlsTarget"][0], _data["controlsTarget"][1], _data["controlsTarget"][2]);
 		}
 		if (typeof (_data["lightPosition"]) != "undefined") {
@@ -562,6 +566,10 @@ function pickFaces(_id) {
 }
 
 function onWindowResize() {
+	canvasDimensions = {x: window.self.innerWidth*0.65, y: window.self.innerHeight*0.55};
+	container.setAttribute("width", canvasDimensions.x);
+	container.setAttribute("height", canvasDimensions.y);
+	renderer.setPixelRatio( window.devicePixelRatio );
 	camera.aspect = canvasDimensions.x / canvasDimensions.y;
 	camera.updateProjectionMatrix();
 	renderer.setSize( canvasDimensions.x, canvasDimensions.y );
@@ -646,20 +654,12 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 			metadata['vertices'] += fetchMetadata (object, 'vertices');
 			metadata['faces'] += fetchMetadata (object, 'faces');
 		}
-		var loadedFile = basename + "." + extension;
-		var metadataText =
-		{
-			'Original extension': orgExtension.toUpperCase(),
-			'Loaded file': loadedFile,
-			Vertices: metadata['vertices'],
-			Faces: metadata['faces']
-		};
-		hierarchyMain.domElement.classList.add("hierarchy");
 
-		metadataFolder.add(metadataText, 'Original extension' );
-		metadataFolder.add(metadataText, 'Loaded file' );
-		metadataFolder.add(metadataText, 'Vertices' );
-		metadataFolder.add(metadataText, 'Faces' );
+		hierarchyMain.domElement.classList.add("hierarchy");
+		canvasText.innerHTML += 'Uploaded format: <b>' + orgExtension + "</b><br>";
+		canvasText.innerHTML += 'Loaded format: <b>' + extension + "</b><br>";
+		canvasText.innerHTML += 'Vertices: <b>' + metadata['vertices'] + "</b><br>";
+		canvasText.innerHTML += 'Faces: <b>' + metadata['faces'] + "</b><br>";
 		//hierarchyFolder.add(hierarchyText, 'Faces' );
 	});
 	helperObjects.push (object);
@@ -1034,16 +1034,16 @@ function onPointerMove( event ) {
 function init() {
 	// model
 	//canvasDimensions = {x: container.getBoundingClientRect().width, y: container.getBoundingClientRect().bottom};
-	canvasDimensions = {x: window.self.innerWidth*0.8, y: window.self.innerHeight*0.55};
+	canvasDimensions = {x: window.self.innerWidth*0.65, y: window.self.innerHeight*0.55};
 	container.setAttribute("width", canvasDimensions.x);
 	container.setAttribute("height", canvasDimensions.y);
 
-	camera = new THREE.PerspectiveCamera( 45, canvasDimensions.x / canvasDimensions.y, 0.1, 200000 );
+	camera = new THREE.PerspectiveCamera( 45, canvasDimensions.x / canvasDimensions.y, 0.1, 999000000 );
 	camera.position.set( 0, 0, 0 );
 
 	scene = new THREE.Scene();
 	scene.background = new THREE.Color( 0xa0a0a0 );
-	scene.fog = new THREE.Fog( 0xa0a0a0, 90000, 1000000 );
+	//scene.fog = new THREE.Fog( 0xa0a0a0, 90000, 1000000 );
 
 	const hemiLight = new THREE.HemisphereLight( 0xffffff, 0x444444 );
 	hemiLight.position.set( 0, 200, 0 );
@@ -1077,17 +1077,41 @@ function init() {
 	canvas.height = canvasDimensions.y;
 	canvas.style.zIndex = 1;*/
 	
-	var canvasText = document.createElement('div');
+	canvasText = document.createElement('div');
 	canvasText.id = "TextCanvas";
 	canvasText.width = canvasDimensions.x;
 	canvasText.height = canvasDimensions.y;
-	canvasText.style.position = "absolute";
-	canvasText.style.zIndex = 8;
+	canvasText.innerHTML = 'METADATA:</br>';
+	canvasText.innerHTML += 'Uploaded file name: <b>' + basename + "</b><br>"
+	//DRUPAL WissKI [start]
+	var elements = window.location.pathname;
+	elements = elements.match(new RegExp('wisski/navigate/' + "(.*)" + '/view'));
+	const wisskiID = elements[0];
+
+	var req = new XMLHttpRequest();
+	req.open('GET', 'https://3d-repository.hs-mainz.de/xml_single_export/' + wisskiID + '?page=0&_format=xml', true); /* Argument trzeci, wartość true, określa, że żądanie ma być asynchroniczne */
+	req.onreadystatechange = function (aEvt) {
+		if (req.readyState == 4) {
+			if(req.status == 200)
+				console.log(req);
+			else
+				console.log("Błąd podczas ładowania strony\n");
+			}
+	};
+	req.send(null);
+	//console.log(document.querySelectorAll('[data-quickedit-field-id^="wisski_individual/' + elements[1] + '"]'));
+	var fileElement = document.getElementsByClassName("field--type-file");
+	fileElement[0].style.height = canvasDimensions.y*1.1 + "px";
+	var mainElement = document.getElementById("block-bootstrap5-content");
+	var imageElements = document.getElementsByClassName("field--type-image");
+	var imageList = document.createElement("div");
+	imageList.setAttribute('id', 'image-list');
+	for (var i = 0; imageElements.length - i; imageList.firstChild === imageElements[0] && i++) {
+		imageList.appendChild(imageElements[i]);
+	}
+	//DRUPAL WissKI [end]
+	mainElement.append(imageList);
 	container.appendChild( canvasText );
-	
-	/*var ctx = canvas.getContext("2d");
-	ctx.font = "30px Arial";
-	ctx.fillText("Hello World", 10, 50);*/
 
 	controls = new OrbitControls( camera, renderer.domElement );
 	controls.target.set( 0, 100, 0 );
@@ -1211,5 +1235,7 @@ function init() {
 	}
 }
 
-window.onload=init();
-animate();
+window.onload = function() {
+	init();
+	animate();
+};
