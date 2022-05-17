@@ -114,3 +114,7 @@ canvas {
 #image-list {
 	display: flex;
 }
+
+.download {
+	background-image: url(../main/img/cloud-arrow-down.svg);
+}

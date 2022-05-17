@@ -1081,21 +1081,22 @@ function init() {
 	canvasText.id = "TextCanvas";
 	canvasText.width = canvasDimensions.x;
 	canvasText.height = canvasDimensions.y;
-	canvasText.innerHTML = 'METADATA:</br>';
+	//canvasText.innerHTML = '<div class="download"></div><br>';
+	//canvasText.innerHTML += '</br>';
 	canvasText.innerHTML += 'Uploaded file name: <b>' + basename + "</b><br>"
 	//DRUPAL WissKI [start]
-	var elements = window.location.pathname;
-	elements = elements.match(new RegExp('wisski/navigate/' + "(.*)" + '/view'));
-	const wisskiID = elements[0];
+	var elementsURL = window.location.pathname;
+	elementsURL = elementsURL.match("/wisski/navigate/(.*)/view");
+	const wisskiID = elementsURL[1];
 
 	var req = new XMLHttpRequest();
-	req.open('GET', 'https://3d-repository.hs-mainz.de/xml_single_export/' + wisskiID + '?page=0&_format=xml', true); /* Argument trzeci, wartość true, określa, że żądanie ma być asynchroniczne */
+	req.open('GET', 'https://3d-repository.hs-mainz.de/xml_single_export/' + wisskiID + '?page=0&amp;_format=xml', true); /* Argument trzeci, wartość true, określa, że żądanie ma być asynchroniczne */
 	req.onreadystatechange = function (aEvt) {
 		if (req.readyState == 4) {
 			if(req.status == 200)
-				console.log(req);
+				console.log(req.responseXML);
 			else
-				console.log("Błąd podczas ładowania strony\n");
+				console.log("Error during loading metadata content\n");
 			}
 	};
 	req.send(null);
