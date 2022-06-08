@@ -321,9 +321,9 @@ for current_argument in sys.argv:
 
 	light_data = bpy.data.lights.new('light', type='AREA')
 	sun = bpy.data.objects.new('light', light_data)
-	sun.data.energy=max_size*10000.0
-	sun.data.size = max_size*10
-	sun.data.size_y = max_size*10
+	sun.data.energy=max_size*5000.0
+	sun.data.size = max_size*5
+	sun.data.size_y = max_size*5
 	#sun.location = (3, 4, -5)
 	#sun.location = (dist_x*1.4, dist_y*1.4, dist_z*1.4)
 	sun.location = (0,0,0)

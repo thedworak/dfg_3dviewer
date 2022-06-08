@@ -53,7 +53,12 @@ const path = container.getAttribute("3d").substring(0, container.getAttribute("3
 const domain = "https://3d-repository.hs-mainz.de";
 const uri = path.replace(domain+"/", "");
 const loadedFile = basename + "." + extension;
-const COPYRIGHTS = false;
+var COPYRIGHTS = false;
+const allowedFormats = ['obj', 'fbx', 'ply', 'dae', 'ifc', 'stl', 'xyz', 'pcd', 'json', '3ds'];
+var EXIT_CODE=1;
+var isArchive=0;
+var gridSize;
+var clippingMode=false;
 
 var canvasText;
 
@@ -61,8 +66,9 @@ var spinnerContainer = document.createElement("div");
 spinnerContainer.id = 'spinnerContainer';
 spinnerContainer.className = 'spinnerContainer';
 spinnerContainer.style.position = 'absolute';
-spinnerContainer.style.left = '45%';
+spinnerContainer.style.left = '40%';
 spinnerContainer.style.marginTop = '10px';
+spinnerContainer.style.zIndex = '100';
 var spinnerElement = document.createElement("div");
 spinnerElement.id = 'spinner';
 spinnerElement.className = 'lv-determinate_circle lv-mid md';
@@ -247,8 +253,8 @@ function showToast (_str) {
 function addTextWatermark (_text, _scale) {
 	var textGeo;
 	var materials = [
-		new THREE.MeshPhongMaterial( { color: 0xffffff, flatShading: false, side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 0.7 } ), // front
-		new THREE.MeshPhongMaterial( { color: 0xffffff, flatShading: false, side: THREE.DoubleSide, depthTest: false } ) // side
+		new THREE.MeshStandardMaterial( { color: 0xffffff, flatShading: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 0.4 } ), // front
+		new THREE.MeshStandardMaterial( { color: 0xffffff, flatShading: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 0.4 } ) // side
 	];
 	const loader = new FontLoader();
 
@@ -265,7 +271,6 @@ function addTextWatermark (_text, _scale) {
 			bevelOffset: 0,
 			bevelSegments: 1
 		} );
-		console.log(textGeo);
 		textGeo.computeBoundingBox();
 
 		const centerOffset = - 0.5 * ( textGeo.boundingBox.max.x - textGeo.boundingBox.min.x );
@@ -412,7 +417,7 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit 
     boundingBox.getSize(size);
 	// ground
 	var distance = new THREE.Vector3(Math.abs(boundingBox.max.x - boundingBox.min.x), Math.abs(boundingBox.max.y - boundingBox.min.y), Math.abs(boundingBox.max.z - boundingBox.min.z));
-	var gridSize = Math.max(distance.x, distance.y, distance.z);
+	gridSize = Math.max(distance.x, distance.y, distance.z);
 	var gridSizeScale = gridSize*1.5;
 	const mesh = new THREE.Mesh( new THREE.PlaneGeometry( gridSizeScale, gridSizeScale ), new THREE.MeshPhongMaterial( { color: 0x999999, depthWrite: false, transparent: true, opacity: 0.85 } ) );
 	mesh.rotation.x = - Math.PI / 2;
@@ -505,7 +510,7 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit 
 	controls.update();
 	
 	setupClippingPlanes(object.geometry, gridSize, distance);
-	if (COPYRIGHTS) { addTextWatermark("©", gridSize/10); }
+	
 }
 
 function render() {
@@ -576,6 +581,56 @@ function onWindowResize() {
 	render();
 }
 
+function addWissKIMetadata(label, value) {
+	if ((typeof (label) !== "undefined") && (typeof (value) !== "undefined")) {
+		var _str = "";
+		label = label.replace("wisski_path_3d_model__", "");
+		switch (label) {
+			case "title":
+				_str = "Title";
+			break;
+			case "author_name":
+				_str = "Author";
+			break;
+			case "reconstructed_period_start":
+				_str = "period";
+			break;
+			case "reconstructed_period_end":
+				_str = "-";
+			break;
+			case "author_affiliation":
+				_str = "Author affiliation";
+			break;
+			case "license":
+				_str = "License";
+				switch (value) {
+					case "CC0 1.0":
+					case "CC-BY Attribution":
+					case "CC-BY-SA Attribution-ShareAlike":
+					case "CC-BY-ND Attribution-NoDerivs":
+					case "CC-BY-NC Attribution-NonCommercial":
+					case "CC-BY-NC-SA Attribution-NonCommercial-ShareAlike":
+					case "CC BY-NC-ND Attribution-NonCommercial-NoDerivs":
+						//addTextWatermark("©", gridSize/10);
+					break;
+				}
+			break;
+			default:
+				_str = ""
+			break;
+		}
+		if (_str == "period") {
+			return "Reconstruction period: <b>"+value+" - ";
+		}
+		else if (_str == "-") {
+			return value+"</b><br>";
+		}
+		else if (_str !== "") {
+			return _str+": <b>"+value+"</b><br>";
+		}
+	}
+}
+
 function truncateString(str, n) {
 	if (str.length === 0) {return str;}
 	else if (str.length > n) {
@@ -583,6 +638,11 @@ function truncateString(str, n) {
 	} else {
 		return str;
 	}
+}
+
+function expandMetadata () {
+   const el = document.getElementById("metadata-content");
+   el.classList.toggle('expanded');
 }
 
 function fetchSettings ( path, basename, filename, object, camera, light, controls, orgExtension, extension ) {
@@ -656,10 +716,48 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 		}
 
 		hierarchyMain.domElement.classList.add("hierarchy");
-		canvasText.innerHTML += 'Uploaded format: <b>' + orgExtension + "</b><br>";
-		canvasText.innerHTML += 'Loaded format: <b>' + extension + "</b><br>";
-		canvasText.innerHTML += 'Vertices: <b>' + metadata['vertices'] + "</b><br>";
-		canvasText.innerHTML += 'Faces: <b>' + metadata['faces'] + "</b><br>";
+		var metadataContent = "";
+		metadataContent += '<div id="metadata-collapse" class="metadata-collapse">METADATA</div>';
+		metadataContent += '<div id="metadata-content" class="metadata-content">Uploaded file name: <b>' + basename + '</b><br>';
+		metadataContent += 'Uploaded format: <b>' + orgExtension + '</b><br>';
+		metadataContent += 'Loaded format: <b>' + extension + '</b><br>';
+		metadataContent += 'Vertices: <b>' + metadata['vertices'] + '</b><br>';
+		metadataContent += 'Faces: <b>' + metadata['faces'] + '</b><br>';
+		var elementsURL = window.location.pathname;
+		elementsURL = elementsURL.match("/wisski/navigate/(.*)/view");
+		const wisskiID = elementsURL[1];
+
+		var req = new XMLHttpRequest();
+		req.responseType = 'xml';
+		req.open('GET', 'https://3d-repository.hs-mainz.de/xml_single_export/' + wisskiID + '?page=0&amp;_format=xml', true);
+		req.onreadystatechange = function (aEvt) {
+			if (req.readyState == 4) {
+				if(req.status == 200) {
+					const parser = new DOMParser();
+					const doc = parser.parseFromString(req.responseText, "application/xml");
+					var data = doc.documentElement.childNodes[0].childNodes;
+					if (typeof (data) !== undefined) {
+						for(var i = 0; i < data.length; i++) {
+							var fetchedValue = addWissKIMetadata(data[i].tagName, data[i].textContent);
+							if (typeof(fetchedValue) !== "undefined") {
+								metadataContent += fetchedValue;
+							}
+						}
+					}
+					metadataContent += '</div>';
+					canvasText.innerHTML = metadataContent;
+					container.appendChild( canvasText );
+					var downloadModel = document.createElement('div');
+					downloadModel.setAttribute('id', 'downloadModel');
+					downloadModel.innerHTML = "<a href=" + path + filename + " download><img src='/modules/dfg_3dviewer/main/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'>";
+					container.appendChild( downloadModel );
+					document.getElementById ("metadata-collapse").addEventListener ("click", expandMetadata, false);
+				}
+				else
+					console.log("Error during loading metadata content\n");
+				}
+		};
+		req.send(null);
 		//hierarchyFolder.add(hierarchyText, 'Faces' );
 	});
 	helperObjects.push (object);
@@ -668,16 +766,19 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 }
 
 const onError = function () {
-	circle.set(100, 100);
-	circle.hide();	
+	//circle.set(100, 100);
+	circle.hide();
+	EXIT_CODE=1;
 };
 
 const onProgress = function ( xhr ) {
 	var percentComplete = xhr.loaded / xhr.total * 100;
+	circle.show();
 	circle.set(percentComplete, 100);
 	if (percentComplete >= 100) {
 		circle.hide();
 		showToast("Model has been loaded.");
+		EXIT_CODE=0;
 	}
 };
 
@@ -827,7 +928,7 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 			case '3DS':
 				loader = new TDSLoader( );
 				loader.setResourcePath( path );
-				loader.load( path + filename, function ( object ) {
+				loader.load( path + basename + "." + extension, function ( object ) {
 					object.traverse( function ( child ) {
 						if ( child.isMesh ) {
 							//child.material.specular.setScalar( 0.1 );
@@ -835,8 +936,9 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 						}
 					} );
 					scene.add( object );
+					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension );
 					mainObject.push(object);
-				} );
+				}, onProgress, onError );
 			break;
 
 			case 'zip':
@@ -928,7 +1030,10 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 					},
 					function ( ) {						
 							showToast("GLTF representation not found, trying original file " + path.replace("gltf/", "") + filename + " [" + orgExtension + "]");
-							loadModel(path.replace("gltf/", ""), basename, filename, orgExtension, orgExtension);
+							allowedFormats.forEach(function(item, index, array) {
+								if (EXIT_CODE != 0) { loadModel(path.replace("gltf/", ""), basename, filename, item, orgExtension); }
+							});
+							//loadModel(path.replace("gltf/", ""), basename, filename, orgExtension, orgExtension);
 							imported = true;
 					}
 				);
@@ -954,8 +1059,7 @@ function animate() {
 	if ( mixer ) mixer.update( delta ); {
 		TWEEN.update();
 	}
-	for ( let i = 0; i < clippingPlanes.length; i ++ ) {
-
+	for ( let i = 0; i < clippingPlanes.length && clippingMode; i ++ ) {
 		const plane = clippingPlanes[ i ];
 		const po = planeObjects[ i ];
 		if (po !== undefined ) {
@@ -966,7 +1070,6 @@ function animate() {
 				po.position.z - plane.normal.z,
 			);
 		}
-
 	}
 	if (textMesh !== undefined) { textMesh.lookAt(camera.position); }
 	renderer.render( scene, camera );
@@ -1081,38 +1184,49 @@ function init() {
 	canvasText.id = "TextCanvas";
 	canvasText.width = canvasDimensions.x;
 	canvasText.height = canvasDimensions.y;
-	//canvasText.innerHTML = '<div class="download"></div><br>';
-	//canvasText.innerHTML += '</br>';
-	canvasText.innerHTML += 'Uploaded file name: <b>' + basename + "</b><br>"
-	//DRUPAL WissKI [start]
-	var elementsURL = window.location.pathname;
-	elementsURL = elementsURL.match("/wisski/navigate/(.*)/view");
-	const wisskiID = elementsURL[1];
 
-	var req = new XMLHttpRequest();
-	req.open('GET', 'https://3d-repository.hs-mainz.de/xml_single_export/' + wisskiID + '?page=0&amp;_format=xml', true); /* Argument trzeci, wartość true, określa, że żądanie ma być asynchroniczne */
-	req.onreadystatechange = function (aEvt) {
-		if (req.readyState == 4) {
-			if(req.status == 200)
-				console.log(req.responseXML);
-			else
-				console.log("Error during loading metadata content\n");
-			}
-	};
-	req.send(null);
-	//console.log(document.querySelectorAll('[data-quickedit-field-id^="wisski_individual/' + elements[1] + '"]'));
+	//DRUPAL WissKI [start]
+
 	var fileElement = document.getElementsByClassName("field--type-file");
 	fileElement[0].style.height = canvasDimensions.y*1.1 + "px";
 	var mainElement = document.getElementById("block-bootstrap5-content");
 	var imageElements = document.getElementsByClassName("field--type-image");
 	var imageList = document.createElement("div");
 	imageList.setAttribute('id', 'image-list');
+	var modalGallery = document.createElement('div');
+	var modalImage = document.createElement('img');
+	modalImage.setAttribute('class', 'modalImage');
+	var modalClose = document.createElement('span');
+	modalGallery.setAttribute('id', 'modalGallery');
+	modalGallery.setAttribute('class', 'modalGallery');
+	modalClose.setAttribute('class', 'closeGallery');
+	modalClose.setAttribute('title', 'Close');
+	modalClose.innerHTML = "&times";
+	modalClose.onclick = function() {
+		modalGallery.style.display = "none";
+	}
+
+	document.addEventListener('click', function(event) {
+		if (!modalGallery.contains(event.target) && !imageList.contains(event.target)) {
+			modalGallery.style.display = "none";
+		}
+	});
+
+	modalGallery.appendChild(modalImage);
+	modalGallery.appendChild(modalClose);
 	for (var i = 0; imageElements.length - i; imageList.firstChild === imageElements[0] && i++) {
+		imageElements[i].className += " image-list-item";
+		imageElements[i].getElementsByTagName("a")[0].setAttribute("href", "#");
+		imageElements[i].getElementsByTagName("img")[0].onclick = function(){
+			modalGallery.style.display = "block";
+			modalImage.src = this.src;
+		};
 		imageList.appendChild(imageElements[i]);
 	}
+
 	//DRUPAL WissKI [end]
-	mainElement.append(imageList);
-	container.appendChild( canvasText );
+	fileElement[0].insertAdjacentElement('beforebegin', modalGallery);
+	mainElement.insertBefore(imageList, fileElement[0]);
 
 	controls = new OrbitControls( camera, renderer.domElement );
 	controls.target.set( 0, 100, 0 );
@@ -1195,7 +1309,6 @@ function init() {
 	lightFolder.add( intensity, 'startIntensity', 0, 10 ).onChange(function (value) {
 		lightObjects[0].intensity = value;
 	});
-	clippingFolder = editorFolder.addFolder('Clipping Planes').close();
 	propertiesFolder = editorFolder.addFolder('Save properties').close();
 	propertiesFolder.add( saveProperties, 'Camera' ); 
 	propertiesFolder.add( saveProperties, 'Light' ); 
@@ -1227,12 +1340,13 @@ function init() {
 			};
 			xhr.send(params);
 		}}, 'Save');
-		editorFolder.add({["Picking"] (){
+		/*editorFolder.add({["Picking"] (){
 			EDITOR=!EDITOR;
 			var _str;
 			EDITOR ? _str = "enabled" : _str = "disabled";
 			showToast ("Face picking is " + _str);
-		}}, 'Picking');
+		}}, 'Picking');*/
+		clippingFolder = editorFolder.addFolder('Clipping Planes').close();
 	}
 }
 

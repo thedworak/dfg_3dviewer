@@ -51,6 +51,17 @@ handle_file () {
 	render_preview $EXT
 }
 
+handle_unsupported_file () {
+	INPATH=$1
+	FILENAME=$2
+	NAME=$3
+	EXT=$4
+	OUTPUT=$5
+	OUTPUTPATH=$6
+
+	touch $INPATH/gltf/$NAME.glb.off
+}
+
 handle_ifc_file () {
 	INPATH=$1
 	FILENAME=$2
@@ -101,19 +112,20 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 				abc|blend|dae|fbx|obj|ply|stl|wrl|x3d)
 					handle_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
 					end=`date +%s`
-					echo "File $OUTPUT/$FILENAME compressed successfully. Runtime: $((end-start))s."
+					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
 				;;
 			  ifc)
 					handle_ifc_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
 					end=`date +%s`
-					echo "File $OUTPUT/$FILENAME compressed successfully. Runtime: $((end-start))s."
+					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
 				;;
 			  glb)
-				echo "Given file was already compressed."
+					echo "Given file was already compressed."
 				;;
 
 			  *)
-				echo "Flie extension $EXT is not supported for conversion yet."
+					handle_unsupported_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
+					echo "Flie extension $EXT is not supported for conversion yet."
 				;;
 			esac
 		else
