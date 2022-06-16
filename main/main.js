@@ -111,6 +111,7 @@ let transformControl, transformControlLight;
 
 const helperObjects = [];
 const lightObjects = [];
+var lightHelper;
 
 var selectedObject = false;
 var selectedObjects = [];
@@ -145,6 +146,9 @@ const gui = new GUI({ container: guiContainer });
 //const mainHierarchyFolder = gui.addFolder('Hierarchy');
 var hierarchyFolder;
 const GUILength = 35;
+
+let zoomImage = 1;
+const ZOOM_SPEED_IMAGE = 0.1;
 
 var canvasDimensions;
 var compressedFile = '';
@@ -528,7 +532,14 @@ function setupCamera (_object, _camera, _light, _data, _controls) {
 		}
 		if (typeof (_data["lightPosition"]) != "undefined") {
 			_light.position.set( _data["lightPosition"][0], _data["lightPosition"][1], _data["lightPosition"][2] );
+		}
+		if (typeof (_data["lightTarget"]) != "undefined") {
+			_light.rotation.set( _data["lightTarget"][0], _data["lightTarget"][1], _data["lightTarget"][2] );
+		}
+		if (typeof (_data["lightColor"]) != "undefined") {
 			_light.color = new THREE.Color( _data["lightColor"][0] );
+		}
+		if (typeof (_data["lightIntensity"]) != "undefined") {
 			_light.intensity = _data["lightIntensity"][0];
 		}
 		_camera.updateProjectionMatrix();
@@ -716,7 +727,9 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 		}
 
 		hierarchyMain.domElement.classList.add("hierarchy");
-		var metadataContent = "";
+		var metadataContainer = document.createElement('div');
+		metadataContainer.setAttribute('id', 'metadata-container');
+		var metadataContent = '';
 		metadataContent += '<div id="metadata-collapse" class="metadata-collapse">METADATA</div>';
 		metadataContent += '<div id="metadata-content" class="metadata-content">Uploaded file name: <b>' + basename + '</b><br>';
 		metadataContent += 'Uploaded format: <b>' + orgExtension + '</b><br>';
@@ -746,11 +759,12 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 					}
 					metadataContent += '</div>';
 					canvasText.innerHTML = metadataContent;
-					container.appendChild( canvasText );
+					metadataContainer.appendChild( canvasText );
 					var downloadModel = document.createElement('div');
 					downloadModel.setAttribute('id', 'downloadModel');
-					downloadModel.innerHTML = "<a href=" + path + filename + " download><img src='/modules/dfg_3dviewer/main/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'>";
-					container.appendChild( downloadModel );
+					downloadModel.innerHTML = "<a href=" + path + filename + " download><img src='/modules/dfg_3dviewer/main/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
+					metadataContainer.appendChild( downloadModel );
+					container.appendChild(metadataContainer);
 					document.getElementById ("metadata-collapse").addEventListener ("click", expandMetadata, false);
 				}
 				else
@@ -1134,6 +1148,25 @@ function onPointerMove( event ) {
 	}*/
 }
 
+function changeScale () {
+	if (transformControl.getMode() === "scale") {
+		switch (transformControl.axis) {
+			case 'X':
+			case 'XY':
+				helperObjects[0].scale.set(helperObjects[0].scale.x,helperObjects[0].scale.x,helperObjects[0].scale.x);
+			break;
+			case 'Y':
+			case 'YZ':
+				helperObjects[0].scale.set(helperObjects[0].scale.y,helperObjects[0].scale.y,helperObjects[0].scale.y);
+			break;
+			case 'Z':
+			case 'XZ':
+				helperObjects[0].scale.set(helperObjects[0].scale.x,helperObjects[0].scale.x,helperObjects[0].scale.x);
+			break;
+		}
+	}
+}
+
 function init() {
 	// model
 	//canvasDimensions = {x: container.getBoundingClientRect().width, y: container.getBoundingClientRect().bottom};
@@ -1164,6 +1197,9 @@ function init() {
 	dirLight.shadow.mapSize.height = 1024*4;
 	scene.add( dirLight );
 	lightObjects.push( dirLight );
+	lightHelper = new THREE.DirectionalLightHelper( dirLight, 5 );
+	scene.add( lightHelper );
+	lightHelper.visible = false;
 
 	// scene.add( new THREE.CameraHelper( dirLight.shadow.camera ) );
 	renderer = new THREE.WebGLRenderer( { antialias: true, logarithmicDepthBuffer: true, colorManagement: true, sortObjects: true, preserveDrawingBuffer: true, powerPreference: "high-performance" } );
@@ -1196,6 +1232,16 @@ function init() {
 	var modalGallery = document.createElement('div');
 	var modalImage = document.createElement('img');
 	modalImage.setAttribute('class', 'modalImage');
+	modalGallery.addEventListener("wheel", function(e){
+		e.preventDefault();
+		e.stopPropagation();
+		if(e.deltaY < 0){    
+			modalImage.style.transform = `scale(${zoomImage += ZOOM_SPEED_IMAGE})`;  
+		}else{    
+			modalImage.style.transform = `scale(${zoomImage -= ZOOM_SPEED_IMAGE})`;
+		}
+		return false;
+	});
 	var modalClose = document.createElement('span');
 	modalGallery.setAttribute('id', 'modalGallery');
 	modalGallery.setAttribute('class', 'modalGallery');
@@ -1209,6 +1255,8 @@ function init() {
 	document.addEventListener('click', function(event) {
 		if (!modalGallery.contains(event.target) && !imageList.contains(event.target)) {
 			modalGallery.style.display = "none";
+			zoomImage = 1.0;
+			modalImage.style.transform = `scale(1.0)`;
 		}
 	});
 
@@ -1233,13 +1281,17 @@ function init() {
 	controls.update();
 	
 	transformControl = new TransformControls( camera, renderer.domElement );
+	transformControl.rotationSnap = THREE.Math.degToRad(5);
+	transformControl.space = "local";
 	transformControl.addEventListener( 'change', render );
+	transformControl.addEventListener( 'objectChange', changeScale );
 	transformControl.addEventListener( 'dragging-changed', function ( event ) {
-		controls.enabled = ! event.value;
+		controls.enabled = ! event.value
 	} );
 	scene.add( transformControl );
 	
 	transformControlLight = new TransformControls( camera, renderer.domElement );
+	transformControlLight.space = "local";
 	transformControlLight.addEventListener( 'change', render );
 	transformControlLight.addEventListener( 'dragging-changed', function ( event ) {
 		controls.enabled = ! event.value;
@@ -1295,12 +1347,16 @@ function init() {
 	const editorFolder = gui.addFolder('Editor').close();
 	editorFolder.add(transformText, 'Transform 3D Object', { None: '', Move: 'translate', Rotate: 'rotate', Scale: 'scale' } ).onChange(function (value)
 	{ 
-		if (value === '') transformControl.detach(); else { transformControl.mode = value; transformControl.attach( helperObjects[0] ); }
+		if (value === '') { transformControl.detach(); } 
+		else { 
+			transformControl.mode = value; 
+			transformControl.attach( helperObjects[0] );
+		}
 	});
 	const lightFolder = editorFolder.addFolder('Lights').close();
-	lightFolder.add(transformText, 'Transform Light', { None: '', Move: 'translate', Rotate: 'rotate', Scale: 'scale' } ).onChange(function (value)
+	lightFolder.add(transformText, 'Transform Light', { None: '', Move: 'translate', Rotate: 'rotate' } ).onChange(function (value)
 	{ 
-		if (value === '') transformControlLight.detach(); else { transformControlLight.mode = value; transformControlLight.attach( lightObjects[0] ); }
+		if (value === '') { transformControlLight.detach(); lightHelper.visible = false; } else { transformControlLight.mode = value; transformControlLight.attach( lightObjects[0] ); lightHelper.visible = true; }
 	});
 	lightFolder.addColor ( colors, 'Light1' ).onChange(function (value) {
 		const tempColor = new THREE.Color( value );
@@ -1326,7 +1382,7 @@ function init() {
 			var rotateMetadata = new THREE.Vector3(THREE.Math.radToDeg(helperObjects[0].rotation.x),THREE.Math.radToDeg(helperObjects[0].rotation.y),THREE.Math.radToDeg(helperObjects[0].rotation.z));
 			var newMetadata = ({"objPosition": [ helperObjects[0].position.x, helperObjects[0].position.y, helperObjects[0].position.z ], "objScale": [ helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z ], "objRotation": [ rotateMetadata.x, rotateMetadata.y, rotateMetadata.z ] });
 			if (saveProperties.Camera) { newMetadata = Object.assign(newMetadata, {"cameraPosition": [ camera.position.x, camera.position.y, camera.position.z ], "controlsTarget": [ controls.target.x, controls.target.y, controls.target.z ]}); }
-			if (saveProperties.Light) { newMetadata = Object.assign(newMetadata, {"lightPosition": [ dirLight.position.x, dirLight.position.y, dirLight.position.z ], "lightColor": [ "#" + (dirLight.color.getHexString()).toUpperCase() ], "lightIntensity": [ dirLight.intensity ] }); }
+			if (saveProperties.Light) { newMetadata = Object.assign(newMetadata, {"lightPosition": [ dirLight.position.x, dirLight.position.y, dirLight.position.z ], "lightTarget": [ dirLight.rotation._x, dirLight.rotation._y, dirLight.rotation._z ], "lightColor": [ "#" + (dirLight.color.getHexString()).toUpperCase() ], "lightIntensity": [ dirLight.intensity ] }); }
 			if (compressedFile !== '') { params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+basename+compressedFile+"&filename="+filename; }
 			else { params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+"&filename="+filename; }
 			xhr.onreadystatechange = function()

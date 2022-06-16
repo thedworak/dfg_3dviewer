@@ -109,10 +109,12 @@ canvas {
     font-style: normal;
     font-weight: 350;
 	padding: 10px 0 0 10px;
-	max-width: 30%;
+	max-width: 70%;
+	width: 70%;
 }
 
 #metadata-collapse {
+	width: 45%;
 	pointer-events: auto;
 	font-weight: 500;
 	cursor: pointer;
@@ -120,6 +122,11 @@ canvas {
 
 #metadata-collapse:after {
 	content: "\21B4";
+}
+
+#metadata-container {
+	width: 100%;
+	position: absolute;
 }
 
 #metadata-content {
@@ -136,8 +143,7 @@ canvas {
 }
 
 #image-list {
-	display: flex;
-	
+	display: flex;	
 }
 
 .modalGallery {
@@ -162,7 +168,8 @@ canvas {
 .modalImage{
 	margin: auto;
 	display: block;
-	width: 90%;
+	width: auto;
+	height: 90%;
 	max-width: 90%;
 	animation-name: zoom;
 	animation-duration: 0.6s;
@@ -201,8 +208,8 @@ canvas {
 #downloadModel {
     z-index: 1;
     position: relative;
-    right: -73%;
-    top: 10px;
+    right: -67%;
+    top: 5px;
     width: 25px;
     height: 25px;
     background-size: 25px;
@@ -230,4 +237,8 @@ canvas {
 	display: inline-block;
 	z-index: 999;
 	margin: -1em 0 -1em 0;
+}
+
+.widget>select {
+    color: #000;
 }
