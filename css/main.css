@@ -108,7 +108,7 @@ canvas {
     font-size: 14px;
     font-style: normal;
     font-weight: 350;
-	padding: 10px 0 0 10px;
+	padding: 10px 0 0 15px;
 	max-width: 70%;
 	width: 70%;
 }
@@ -118,10 +118,19 @@ canvas {
 	pointer-events: auto;
 	font-weight: 500;
 	cursor: pointer;
+	margin-bottom: 5px;
+}
+
+#metadata-collapse:hover {
+	font-weight: 600;
 }
 
 #metadata-collapse:after {
 	content: "\21B4";
+}
+
+#metadata-collapse.metadata-collapsed:after {
+	content: "\21B5";
 }
 
 #metadata-container {
@@ -208,10 +217,20 @@ canvas {
 #downloadModel {
     z-index: 1;
     position: relative;
-    right: -67%;
+    right: -65%;
     top: 5px;
     width: 25px;
     height: 25px;
+    background-size: 25px;
+	cursor: pointer;
+}
+
+#fullscreenMode {
+    z-index: 1;
+    position: relative;
+    right: -66%;
+    width: 20px;
+    height: 20px;
     background-size: 25px;
 	cursor: pointer;
 }
@@ -241,4 +260,9 @@ canvas {
 
 .widget>select {
     color: #000;
+}
+
+.metadataSeparator {
+	width: 80px;
+	margin: 5px 0px;
 }

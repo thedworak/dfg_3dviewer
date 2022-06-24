@@ -33,12 +33,15 @@ import { TextGeometry } from '/modules/dfg_3dviewer/main/js/jsm/geometries/TextG
 	return
 }*/
 
-let camera, scene, renderer, stats, controls, loader;
+let camera, scene, renderer, stats, controls, loader, ambientLight, dirLight, dirLightTarget;
 let imported;
 var mainObject = [];
+var metadataContentTech;
+var distanceGeometry = new THREE.Vector3();
 
 const clock = new THREE.Clock();
 const editor = true;
+var FULLSCREEN = false;
 
 let mixer;
 
@@ -56,7 +59,6 @@ const loadedFile = basename + "." + extension;
 var COPYRIGHTS = false;
 const allowedFormats = ['obj', 'fbx', 'ply', 'dae', 'ifc', 'stl', 'xyz', 'pcd', 'json', '3ds'];
 var EXIT_CODE=1;
-var isArchive=0;
 var gridSize;
 var clippingMode=false;
 
@@ -107,11 +109,11 @@ const onUpPosition = new THREE.Vector2();
 const onDownPosition = new THREE.Vector2();
 
 const geometry = new THREE.BoxGeometry( 20, 20, 20 );
-let transformControl, transformControlLight;
+let transformControl, transformControlLight, transformControlLightTarget;
 
 const helperObjects = [];
 const lightObjects = [];
-var lightHelper;
+var lightHelper, lightHelperTarget;
 
 var selectedObject = false;
 var selectedObjects = [];
@@ -130,10 +132,11 @@ var transformText =
 };
 
 const colors = {
-	Light1: '0xFFFFFF'
+	DirectionalLight: '0xFFFFFF',
+	AmbientLight: '0x404040'
 };
 
-const intensity = { startIntensity: 1 };
+const intensity = { startIntensityDir: 1 , startIntensityAmbient: 1};
 
 const saveProperties = {
 	Camera: true,
@@ -193,8 +196,6 @@ var propertiesFolder;
 var planeObjects = [];
 
 var clippingGeometry = [];
-let clippingObject = new THREE.Group();
-const planeGeom = new THREE.PlaneGeometry( 4, 4 );
 
 var textMesh;
 
@@ -383,23 +384,23 @@ function setupClippingPlanes (_geometry, _size, _distance) {
 		ph.name = "PlaneHelper";
 		scene.add( ph );
 	} );
-
-	clippingFolder.add( planeParams.planeX, 'displayHelperX' ).onChange( (v) => planeHelpers[ 0 ].visible = v );
-	clippingFolder.add( planeParams.planeX, 'constant' ).min( - _distance.x ).max( _distance.x ).setValue(_distance.x).step(_size/100).onChange(function (value) {
+	distanceGeometry = _distance;
+	clippingFolder.add( planeParams.planeX, 'displayHelperX' ).onChange( (v) => { planeHelpers[ 0 ].visible = v; renderer.localClippingEnabled = v; } );
+	clippingFolder.add( planeParams.planeX, 'constant' ).min( - distanceGeometry.x ).max( distanceGeometry.x ).setValue(distanceGeometry.x).step(_size/100).listen().onChange(function (value) {
 		clippingPlanes[ 0 ].constant = value;
 		render();
 	});
 
 
-	clippingFolder.add( planeParams.planeY, 'displayHelperY' ).onChange( (v) => planeHelpers[ 1 ].visible = v );
-	clippingFolder.add( planeParams.planeY, 'constant' ).min( - _distance.y ).max( _distance.y ).setValue(_distance.y).step(_size/100).onChange(function (value) {
+	clippingFolder.add( planeParams.planeY, 'displayHelperY' ).onChange( (v) => { planeHelpers[ 1 ].visible = v; renderer.localClippingEnabled = v; } );
+	clippingFolder.add( planeParams.planeY, 'constant' ).min( - distanceGeometry.y ).max( distanceGeometry.y ).setValue(distanceGeometry.y).step(_size/100).listen().onChange(function (value) {
 		clippingPlanes[ 1 ].constant = value;
 		render();
 	});
 
 
-	clippingFolder.add( planeParams.planeZ, 'displayHelperZ' ).onChange( (v) => planeHelpers[ 2 ].visible = v );
-	clippingFolder.add( planeParams.planeZ, 'constant' ).min( - _distance.z ).max( _distance.z ).setValue(_distance.z).step(_size/100).onChange(function (value) {
+	clippingFolder.add( planeParams.planeZ, 'displayHelperZ' ).onChange( (v) => { planeHelpers[ 2 ].visible = v; renderer.localClippingEnabled = v; } );
+	clippingFolder.add( planeParams.planeZ, 'constant' ).min( - distanceGeometry.z ).max( distanceGeometry.z ).setValue(distanceGeometry.z).step(_size/100).listen().onChange(function (value) {
 		clippingPlanes[ 2 ].constant = value;
 		render();
 	});
@@ -422,6 +423,19 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit 
 	// ground
 	var distance = new THREE.Vector3(Math.abs(boundingBox.max.x - boundingBox.min.x), Math.abs(boundingBox.max.y - boundingBox.min.y), Math.abs(boundingBox.max.z - boundingBox.min.z));
 	gridSize = Math.max(distance.x, distance.y, distance.z);
+	
+	dirLightTarget = new THREE.Object3D();
+	dirLightTarget.position.set(0,0,0);
+
+	lightHelper = new THREE.DirectionalLightHelper( dirLight, gridSize );
+	scene.add( lightHelper );
+	lightHelper.visible = false;
+
+	scene.add(dirLightTarget);
+	dirLight.target = dirLightTarget;
+	dirLight.target.updateMatrixWorld();
+	
+
 	var gridSizeScale = gridSize*1.5;
 	const mesh = new THREE.Mesh( new THREE.PlaneGeometry( gridSizeScale, gridSizeScale ), new THREE.MeshPhongMaterial( { color: 0x999999, depthWrite: false, transparent: true, opacity: 0.85 } ) );
 	mesh.rotation.x = - Math.PI / 2;
@@ -542,6 +556,12 @@ function setupCamera (_object, _camera, _light, _data, _controls) {
 		if (typeof (_data["lightIntensity"]) != "undefined") {
 			_light.intensity = _data["lightIntensity"][0];
 		}
+		if (typeof (_data["lightAmbientColor"]) != "undefined") {
+			ambientLight.color = new THREE.Color( _data["lightAmbientColor"][0] );
+		}
+		if (typeof (_data["lightAmbientIntensity"]) != "undefined") {
+			ambientLight.intensity = _data["lightAmbientIntensity"][0];
+		}
 		_camera.updateProjectionMatrix();
 		_controls.update();
 		fitCameraToCenteredObject ( _camera, _object, 2.3, _controls, true );
@@ -582,13 +602,17 @@ function pickFaces(_id) {
 }
 
 function onWindowResize() {
-	canvasDimensions = {x: window.self.innerWidth*0.65, y: window.self.innerHeight*0.55};
+	if (FULLSCREEN)
+		canvasDimensions = {x: screen.width, y: screen.height};
+	else
+		canvasDimensions = {x: window.innerWidth*0.65, y: window.innerHeight*0.55};
 	container.setAttribute("width", canvasDimensions.x);
 	container.setAttribute("height", canvasDimensions.y);
 	renderer.setPixelRatio( window.devicePixelRatio );
 	camera.aspect = canvasDimensions.x / canvasDimensions.y;
 	camera.updateProjectionMatrix();
 	renderer.setSize( canvasDimensions.x, canvasDimensions.y );
+	controls.update();
 	render();
 }
 
@@ -603,12 +627,12 @@ function addWissKIMetadata(label, value) {
 			case "author_name":
 				_str = "Author";
 			break;
-			case "reconstructed_period_start":
+			/*case "reconstructed_period_start":
 				_str = "period";
 			break;
 			case "reconstructed_period_end":
 				_str = "-";
-			break;
+			break;*/
 			case "author_affiliation":
 				_str = "Author affiliation";
 			break;
@@ -654,6 +678,30 @@ function truncateString(str, n) {
 function expandMetadata () {
    const el = document.getElementById("metadata-content");
    el.classList.toggle('expanded');
+   const elm = document.getElementById("metadata-collapse");
+   elm.classList.toggle('metadata-collapsed');
+}
+
+function fullscreen() {
+	FULLSCREEN=!FULLSCREEN;
+	var _container = document.getElementById("MainCanvas");
+	if (_container.requestFullscreen && FULLSCREEN) {
+		_container.requestFullscreen();
+	} 
+	else if (_container.webkitRequestFullscreen && FULLSCREEN) { /* Safari */
+		_container.webkitRequestFullscreen();
+	}
+	else if (_container.msRequestFullscreen && FULLSCREEN) { /* IE11 */
+		_container.msRequestFullscreen();
+	}
+	else if (_container.mozRequestFullScreen && FULLSCREEN) { /* IE11 */
+		_container.mozRequestFullScreen();
+	}
+	else {
+		document.exitFullscreen();
+		FULLSCREEN=false;
+	}
+	onWindowResize();
 }
 
 function fetchSettings ( path, basename, filename, object, camera, light, controls, orgExtension, extension ) {
@@ -727,15 +775,15 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 		}
 
 		hierarchyMain.domElement.classList.add("hierarchy");
+		
 		var metadataContainer = document.createElement('div');
 		metadataContainer.setAttribute('id', 'metadata-container');
-		var metadataContent = '';
-		metadataContent += '<div id="metadata-collapse" class="metadata-collapse">METADATA</div>';
-		metadataContent += '<div id="metadata-content" class="metadata-content">Uploaded file name: <b>' + basename + '</b><br>';
-		metadataContent += 'Uploaded format: <b>' + orgExtension + '</b><br>';
-		metadataContent += 'Loaded format: <b>' + extension + '</b><br>';
-		metadataContent += 'Vertices: <b>' + metadata['vertices'] + '</b><br>';
-		metadataContent += 'Faces: <b>' + metadata['faces'] + '</b><br>';
+		var metadataContent = '<div id="metadata-collapse" class="metadata-collapse">METADATA </div><div id="metadata-content" class="metadata-content">';
+		metadataContentTech = '<hr class="metadataSeparator">';
+		metadataContentTech += 'Uploaded file name: <b>' + basename + "." + orgExtension + '</b><br>';
+		metadataContentTech += 'Loaded format: <b>' + extension + '</b><br>';
+		metadataContentTech += 'Vertices: <b>' + metadata['vertices'] + '</b><br>';
+		metadataContentTech += 'Faces: <b>' + metadata['faces'] + '</b><br>';
 		var elementsURL = window.location.pathname;
 		elementsURL = elementsURL.match("/wisski/navigate/(.*)/view");
 		const wisskiID = elementsURL[1];
@@ -757,15 +805,24 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 							}
 						}
 					}
-					metadataContent += '</div>';
+					metadataContent += metadataContentTech + '</div>';
 					canvasText.innerHTML = metadataContent;
 					metadataContainer.appendChild( canvasText );
 					var downloadModel = document.createElement('div');
 					downloadModel.setAttribute('id', 'downloadModel');
-					downloadModel.innerHTML = "<a href=" + path + filename + " download><img src='/modules/dfg_3dviewer/main/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
+					var c_path = "";
+					if (compressedFile === '') { c_path = path; }
+					downloadModel.innerHTML = "<a href='" + c_path + filename + "' download><img src='/modules/dfg_3dviewer/main/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
 					metadataContainer.appendChild( downloadModel );
+					var fullscreenMode = document.createElement('div');
+					fullscreenMode.setAttribute('id', 'fullscreenMode');
+					fullscreenMode.setAttribute('style', 'top:' + Math.round(canvasDimensions.y-12) + 'px');
+					fullscreenMode.innerHTML = "<img src='/modules/dfg_3dviewer/main/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
+					metadataContainer.appendChild(fullscreenMode);
+					//var _container = document.getElementById("MainCanvas");
 					container.appendChild(metadataContainer);
 					document.getElementById ("metadata-collapse").addEventListener ("click", expandMetadata, false);
+					document.getElementById ("fullscreenMode").addEventListener ("click", fullscreen, false);
 				}
 				else
 					console.log("Error during loading metadata content\n");
@@ -988,42 +1045,6 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 							child.geometry.computeVertexNormals();
 							if(child.material.map) { child.material.map.anisotropy = 16 };
 							child.material.side = THREE.DoubleSide;
-							/*for ( let i = 0; i < 3; i ++ ) {
-
-								const poGroup = new THREE.Group();
-								const plane = clippingPlanes[ i ];
-								const stencilGroup = createClippingPlaneGroup( child.geometry, plane, i + 1 );
-
-								// plane is clipped by the other clipping planes
-								const planeMat =
-									new THREE.MeshStandardMaterial( {
-
-										color: 0xE91E63,
-										metalness: 0.1,
-										roughness: 0.75,
-										clippingPlanes: clippingPlanes.filter( p => p !== plane ),
-
-										stencilWrite: true,
-										stencilRef: 0,
-										stencilFunc: THREE.NotEqualStencilFunc,
-										stencilFail: THREE.ReplaceStencilOp,
-										stencilZFail: THREE.ReplaceStencilOp,
-										stencilZPass: THREE.ReplaceStencilOp,
-
-									} );
-								const po = new THREE.Mesh( planeGeom, planeMat );
-								po.onAfterRender = function ( renderer ) {
-									renderer.clearStencil();
-								};
-
-								po.renderOrder = i + 1.1;
-
-								clippingObject.add( stencilGroup );
-								poGroup.add( po );
-								planeObjects.push( po );
-								scene.add( poGroup );
-
-							}*/
 							child.material.clippingPlanes = clippingPlanes;
 							child.material.clipIntersection = false;
 							mainObject.push(child);	
@@ -1167,6 +1188,40 @@ function changeScale () {
 	}
 }
 
+function calculateObjectScale () {
+	const boundingBox = new THREE.Box3();
+	if (Array.isArray(helperObjects[0])) {
+		for (var i = 0; i < helperObjects[0].length; i++) {			
+			boundingBox.setFromObject( object[i] );
+		}
+	}
+	else {
+		boundingBox.setFromObject( helperObjects[0] );
+	}
+
+    var middle = new THREE.Vector3();
+    var size = new THREE.Vector3();
+    boundingBox.getSize(size);
+	// ground
+	var _distance = new THREE.Vector3(Math.abs(boundingBox.max.x - boundingBox.min.x), Math.abs(boundingBox.max.y - boundingBox.min.y), Math.abs(boundingBox.max.z - boundingBox.min.z));
+	distanceGeometry = _distance;
+	planeParams.planeX.constant = clippingFolder.controllers[1]._max = clippingPlanes[ 0 ].constant = _distance.x;
+	clippingFolder.controllers[1]._min = -clippingFolder.controllers[1]._max;
+	planeParams.planeY.constant = clippingFolder.controllers[3]._max = clippingPlanes[ 1 ].constant = _distance.y;
+	clippingFolder.controllers[3]._min = -clippingFolder.controllers[3]._max;
+	planeParams.planeZ.constant = clippingFolder.controllers[5]._max = clippingPlanes[ 2 ].constant = _distance.z;
+	clippingFolder.controllers[5]._min = -clippingFolder.controllers[5]._max;
+	clippingFolder.controllers[1].updateDisplay();
+	clippingFolder.controllers[3].updateDisplay();
+	clippingFolder.controllers[5].updateDisplay();
+	var _maxDistance = Math.max(_distance.x, _distance.y, _distance.z);
+	planeHelpers[0].size = planeHelpers[1].size = planeHelpers[2].size = _maxDistance;
+}
+
+function changeLightRotation () {
+	lightHelper.update();
+}
+
 function init() {
 	// model
 	//canvasDimensions = {x: container.getBoundingClientRect().width, y: container.getBoundingClientRect().bottom};
@@ -1184,8 +1239,11 @@ function init() {
 	const hemiLight = new THREE.HemisphereLight( 0xffffff, 0x444444 );
 	hemiLight.position.set( 0, 200, 0 );
 	scene.add( hemiLight );
+	
+	ambientLight = new THREE.AmbientLight( 0x404040 ); // soft white light
+	scene.add( ambientLight );
 
-	const dirLight = new THREE.DirectionalLight( 0xffffff );
+	dirLight = new THREE.DirectionalLight( 0xffffff );
 	dirLight.position.set( 0, 100, 50 );
 	dirLight.castShadow = true;
 	dirLight.shadow.camera.top = 180;
@@ -1197,24 +1255,15 @@ function init() {
 	dirLight.shadow.mapSize.height = 1024*4;
 	scene.add( dirLight );
 	lightObjects.push( dirLight );
-	lightHelper = new THREE.DirectionalLightHelper( dirLight, 5 );
-	scene.add( lightHelper );
-	lightHelper.visible = false;
 
-	// scene.add( new THREE.CameraHelper( dirLight.shadow.camera ) );
 	renderer = new THREE.WebGLRenderer( { antialias: true, logarithmicDepthBuffer: true, colorManagement: true, sortObjects: true, preserveDrawingBuffer: true, powerPreference: "high-performance" } );
 	renderer.setPixelRatio( window.devicePixelRatio );
 	renderer.setSize( canvasDimensions.x, canvasDimensions.y );
 	renderer.shadowMap.enabled = true;
-	renderer.localClippingEnabled = true;
+	renderer.localClippingEnabled = false;
 	renderer.setClearColor( 0x263238 );
 	renderer.domElement.id = 'MainCanvas';
 	container.appendChild( renderer.domElement );
-	/*var canvas = document.getElementById("MainCanvas");
-	canvas.style.position = "absolute";
-	canvas.width = canvasDimensions.x;
-	canvas.height = canvasDimensions.y;
-	canvas.style.zIndex = 1;*/
 	
 	canvasText = document.createElement('div');
 	canvasText.id = "TextCanvas";
@@ -1235,9 +1284,10 @@ function init() {
 	modalGallery.addEventListener("wheel", function(e){
 		e.preventDefault();
 		e.stopPropagation();
-		if(e.deltaY < 0){    
+		if(e.deltaY > 0 && zoomImage < 5) {    
 			modalImage.style.transform = `scale(${zoomImage += ZOOM_SPEED_IMAGE})`;  
-		}else{    
+		}
+		else if (e.deltaY < 0 && zoomImage > 0.15) {    
 			modalImage.style.transform = `scale(${zoomImage -= ZOOM_SPEED_IMAGE})`;
 		}
 		return false;
@@ -1285,6 +1335,7 @@ function init() {
 	transformControl.space = "local";
 	transformControl.addEventListener( 'change', render );
 	transformControl.addEventListener( 'objectChange', changeScale );
+	transformControl.addEventListener( 'mouseUp', calculateObjectScale );
 	transformControl.addEventListener( 'dragging-changed', function ( event ) {
 		controls.enabled = ! event.value
 	} );
@@ -1293,10 +1344,20 @@ function init() {
 	transformControlLight = new TransformControls( camera, renderer.domElement );
 	transformControlLight.space = "local";
 	transformControlLight.addEventListener( 'change', render );
+	//transformControlLight.addEventListener( 'objectChange', changeLightRotation );
 	transformControlLight.addEventListener( 'dragging-changed', function ( event ) {
 		controls.enabled = ! event.value;
 	} );
 	scene.add( transformControlLight );
+
+	transformControlLightTarget = new TransformControls( camera, renderer.domElement );
+	transformControlLightTarget.space = "global";
+	transformControlLightTarget.addEventListener( 'change', render );
+	transformControlLightTarget.addEventListener( 'objectChange', changeLightRotation );
+	transformControlLightTarget.addEventListener( 'dragging-changed', function ( event ) {
+		controls.enabled = ! event.value;
+	} );
+	scene.add( transformControlLightTarget );
 
 	/*try {
 
@@ -1353,18 +1414,40 @@ function init() {
 			transformControl.attach( helperObjects[0] );
 		}
 	});
-	const lightFolder = editorFolder.addFolder('Lights').close();
-	lightFolder.add(transformText, 'Transform Light', { None: '', Move: 'translate', Rotate: 'rotate' } ).onChange(function (value)
+	const lightFolder = editorFolder.addFolder('Directional Light').close();
+	lightFolder.add(transformText, 'Transform Light', { None: '', Move: 'translate', Target: 'rotate' } ).onChange(function (value)
 	{ 
-		if (value === '') { transformControlLight.detach(); lightHelper.visible = false; } else { transformControlLight.mode = value; transformControlLight.attach( lightObjects[0] ); lightHelper.visible = true; }
+		if (value === '') { transformControlLight.detach(); transformControlLightTarget.detach(); lightHelper.visible = false; } else {
+			if (value === "translate") {
+				transformControlLight.mode = "translate";
+				transformControlLight.attach( dirLight );
+				lightHelper.visible = true;
+			}
+			else {
+				lightHelper.visible = true;
+				transformControlLightTarget.mode = "translate";
+				transformControlLightTarget.attach( dirLightTarget );
+				//lightHelperTarget.visible = true;
+			}
+		}
 	});
-	lightFolder.addColor ( colors, 'Light1' ).onChange(function (value) {
+	lightFolder.addColor ( colors, 'DirectionalLight' ).onChange(function (value) {
 		const tempColor = new THREE.Color( value );
 		lightObjects[0].color = tempColor ;
 	});
-	lightFolder.add( intensity, 'startIntensity', 0, 10 ).onChange(function (value) {
+	lightFolder.add( intensity, 'startIntensityDir', 0, 10 ).onChange(function (value) {
 		lightObjects[0].intensity = value;
 	});
+
+	const lightFolderAmbient = editorFolder.addFolder('Ambient Light').close();
+	lightFolderAmbient.addColor ( colors, 'AmbientLight' ).onChange(function (value) {
+		const tempColor = new THREE.Color( value );
+		ambientLight.color = tempColor ;
+	});
+	lightFolderAmbient.add( intensity, 'startIntensityAmbient', 0, 10 ).onChange(function (value) {
+		ambientLight.intensity = value;
+	});
+
 	propertiesFolder = editorFolder.addFolder('Save properties').close();
 	propertiesFolder.add( saveProperties, 'Camera' ); 
 	propertiesFolder.add( saveProperties, 'Light' ); 
@@ -1382,7 +1465,7 @@ function init() {
 			var rotateMetadata = new THREE.Vector3(THREE.Math.radToDeg(helperObjects[0].rotation.x),THREE.Math.radToDeg(helperObjects[0].rotation.y),THREE.Math.radToDeg(helperObjects[0].rotation.z));
 			var newMetadata = ({"objPosition": [ helperObjects[0].position.x, helperObjects[0].position.y, helperObjects[0].position.z ], "objScale": [ helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z ], "objRotation": [ rotateMetadata.x, rotateMetadata.y, rotateMetadata.z ] });
 			if (saveProperties.Camera) { newMetadata = Object.assign(newMetadata, {"cameraPosition": [ camera.position.x, camera.position.y, camera.position.z ], "controlsTarget": [ controls.target.x, controls.target.y, controls.target.z ]}); }
-			if (saveProperties.Light) { newMetadata = Object.assign(newMetadata, {"lightPosition": [ dirLight.position.x, dirLight.position.y, dirLight.position.z ], "lightTarget": [ dirLight.rotation._x, dirLight.rotation._y, dirLight.rotation._z ], "lightColor": [ "#" + (dirLight.color.getHexString()).toUpperCase() ], "lightIntensity": [ dirLight.intensity ] }); }
+			if (saveProperties.Light) { newMetadata = Object.assign(newMetadata, {"lightPosition": [ dirLight.position.x, dirLight.position.y, dirLight.position.z ], "lightTarget": [ dirLight.rotation._x, dirLight.rotation._y, dirLight.rotation._z ], "lightColor": [ "#" + (dirLight.color.getHexString()).toUpperCase() ], "lightIntensity": [ dirLight.intensity ], "lightAmbientColor": [ "#" + (ambientLight.color.getHexString()).toUpperCase() ], "lightAmbientIntensity": [ ambientLight.intensity ] }); }
 			if (compressedFile !== '') { params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+basename+compressedFile+"&filename="+filename; }
 			else { params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+"&filename="+filename; }
 			xhr.onreadystatechange = function()
