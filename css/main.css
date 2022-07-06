@@ -217,7 +217,7 @@ canvas {
 #downloadModel {
     z-index: 1;
     position: relative;
-    right: -65%;
+    right: -64%;
     top: 5px;
     width: 25px;
     height: 25px;
@@ -225,18 +225,27 @@ canvas {
 	cursor: pointer;
 }
 
-#fullscreenMode {
+#viewEntity {
     z-index: 1;
     position: relative;
-    right: -66%;
+    right: -67%;
+    top: -20px;
+    width: 22px;
+    height: 22px;
+    background-size: 22px;
+	cursor: pointer;
+}
+
+#fullscreenMode {
+    z-index: 1;
+    position: absolute;
+    right: 31%;
+	bottom: 50%;
     width: 20px;
     height: 20px;
     background-size: 25px;
 	cursor: pointer;
-}
-
-.share {
-	background-image: url(../main/img/cloud-arrow-down.svg);
+	margin-bottom: 25px;
 }
 
 .field--type-image{	

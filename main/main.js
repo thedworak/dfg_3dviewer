@@ -38,6 +38,7 @@ let imported;
 var mainObject = [];
 var metadataContentTech;
 var distanceGeometry = new THREE.Vector3();
+let wisskiID = '';
 
 const clock = new THREE.Clock();
 const editor = true;
@@ -612,6 +613,7 @@ function onWindowResize() {
 	camera.aspect = canvasDimensions.x / canvasDimensions.y;
 	camera.updateProjectionMatrix();
 	renderer.setSize( canvasDimensions.x, canvasDimensions.y );
+	fullscreenMode.setAttribute('style', 'bottom:' + (-canvasDimensions.y*1.05 + 25) + 'px');
 	controls.update();
 	render();
 }
@@ -786,7 +788,7 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 		metadataContentTech += 'Faces: <b>' + metadata['faces'] + '</b><br>';
 		var elementsURL = window.location.pathname;
 		elementsURL = elementsURL.match("/wisski/navigate/(.*)/view");
-		const wisskiID = elementsURL[1];
+		wisskiID = elementsURL[1];
 
 		var req = new XMLHttpRequest();
 		req.responseType = 'xml';
@@ -810,13 +812,18 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 					metadataContainer.appendChild( canvasText );
 					var downloadModel = document.createElement('div');
 					downloadModel.setAttribute('id', 'downloadModel');
-					var c_path = "";
-					if (compressedFile === '') { c_path = path; }
+					var viewEntity = document.createElement('div');
+					viewEntity.setAttribute('id', 'viewEntity');
+					var c_path = path;
+					if (compressedFile !== '') { c_path = domain + '/' +uri; }
+					console.log(domain + uri);
 					downloadModel.innerHTML = "<a href='" + c_path + filename + "' download><img src='/modules/dfg_3dviewer/main/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
+					viewEntity.innerHTML = "<a href='" + domain + "/wisski/navigate/" + wisskiID + "/view' target='_blank'><img src='/modules/dfg_3dviewer/main/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>";
 					metadataContainer.appendChild( downloadModel );
+					metadataContainer.appendChild( viewEntity );
 					var fullscreenMode = document.createElement('div');
 					fullscreenMode.setAttribute('id', 'fullscreenMode');
-					fullscreenMode.setAttribute('style', 'top:' + Math.round(canvasDimensions.y-12) + 'px');
+					fullscreenMode.setAttribute('style', 'bottom:' + Math.round(-canvasDimensions.y * 1.05 + 26) + 'px');
 					fullscreenMode.innerHTML = "<img src='/modules/dfg_3dviewer/main/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
 					metadataContainer.appendChild(fullscreenMode);
 					//var _container = document.getElementById("MainCanvas");
@@ -1422,12 +1429,13 @@ function init() {
 				transformControlLight.mode = "translate";
 				transformControlLight.attach( dirLight );
 				lightHelper.visible = true;
+				transformControlLightTarget.detach();
 			}
 			else {
-				lightHelper.visible = true;
 				transformControlLightTarget.mode = "translate";
 				transformControlLightTarget.attach( dirLightTarget );
-				//lightHelperTarget.visible = true;
+				lightHelper.visible = true;
+				transformControlLight.detach();
 			}
 		}
 	});
