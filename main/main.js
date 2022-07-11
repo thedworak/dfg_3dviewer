@@ -538,6 +538,60 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit 
 	
 }
 
+function buildGallery() {
+	var fileElement = document.getElementsByClassName("field--type-file");
+	fileElement[0].style.height = canvasDimensions.y*1.1 + "px";
+	var mainElement = document.getElementById("block-bootstrap5-content");
+	var imageElements = document.getElementsByClassName("field--type-image");
+	var imageList = document.createElement("div");
+	imageList.setAttribute('id', 'image-list');
+	var modalGallery = document.createElement('div');
+	var modalImage = document.createElement('img');
+	modalImage.setAttribute('class', 'modalImage');
+	modalGallery.addEventListener("wheel", function(e){
+		e.preventDefault();
+		e.stopPropagation();
+		if(e.deltaY > 0 && zoomImage > 0.15) {    
+			modalImage.style.transform = `scale(${zoomImage -= ZOOM_SPEED_IMAGE})`;  
+		}
+		else if (e.deltaY < 0 && zoomImage < 5) {    
+			modalImage.style.transform = `scale(${zoomImage += ZOOM_SPEED_IMAGE})`;
+		}
+		return false;
+	});
+	var modalClose = document.createElement('span');
+	modalGallery.setAttribute('id', 'modalGallery');
+	modalGallery.setAttribute('class', 'modalGallery');
+	modalClose.setAttribute('class', 'closeGallery');
+	modalClose.setAttribute('title', 'Close');
+	modalClose.innerHTML = "&times";
+	modalClose.onclick = function() {
+		modalGallery.style.display = "none";
+	}
+
+	document.addEventListener('click', function(event) {
+		if (!modalGallery.contains(event.target) && !imageList.contains(event.target)) {
+			modalGallery.style.display = "none";
+			zoomImage = 1.0;
+			modalImage.style.transform = `scale(1.0)`;
+		}
+	});
+
+	modalGallery.appendChild(modalImage);
+	modalGallery.appendChild(modalClose);
+	for (var i = 0; imageElements.length - i; imageList.firstChild === imageElements[0] && i++) {
+		imageElements[i].className += " image-list-item";
+		imageElements[i].getElementsByTagName("a")[0].setAttribute("href", "#");
+		imageElements[i].getElementsByTagName("img")[0].onclick = function(){
+			modalGallery.style.display = "block";
+			modalImage.src = this.src;
+		};
+		imageList.appendChild(imageElements[i]);
+	}
+	fileElement[0].insertAdjacentElement('beforebegin', modalGallery);
+	mainElement.insertBefore(imageList, fileElement[0]);
+}
+
 function render() {
 	controls.update();
 	renderer.render( scene, camera );
@@ -683,6 +737,11 @@ function truncateString(str, n) {
 	}
 }
 
+function getProxyPath(url) {
+	var tempPath = decodeURIComponent(proxyPath);
+	return tempPath.replace(originalPath, encodeURIComponent(url));
+}
+
 function expandMetadata () {
    const el = document.getElementById("metadata-content");
    el.classList.toggle('expanded');
@@ -716,7 +775,12 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 	var metadata = {'vertices': 0, 'faces': 0};
 	var hierarchy = [];
 	var geometry;
-	fetch(path + "metadata/" + filename + "_viewer", {cache: "no-cache"})
+	var metadataUrl = path + "metadata/" + filename + "_viewer";
+	if (proxyPath) {
+		metadataUrl = getProxyPath(metadataUrl);
+	}
+
+	fetch(metadataUrl, {cache: "no-cache"})
 	.then((response) => {
 		if (response['status'] !== 404) {
 			showToast("Settings " + filename + "_viewer found");
@@ -867,6 +931,11 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 	if (!imported) {
 		circle.show();
 		circle.set(0, 100);
+		var modelPath = path + filename;
+		if (proxyPath) {
+			modelPath = getProxyPath(modelPath);
+		}
+
 		switch(extension) {
 			case 'obj':
 			case 'OBJ':
@@ -893,7 +962,7 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 			case 'fbx':
 			case 'FBX':
 				var FBXloader = new FBXLoader();
-				FBXloader.load( path + filename, function ( object ) {
+				FBXloader.load( modelPath, function ( object ) {
 					object.traverse( function ( child ) {
 						if ( child.isMesh ) {
 							child.castShadow = true;
@@ -910,7 +979,7 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 			case 'ply':
 			case 'PLY':
 				loader = new PLYLoader();
-				loader.load( path + filename, function ( geometry ) {
+				loader.load( modelPath, function ( geometry ) {
 					geometry.computeVertexNormals();
 					const material = new THREE.MeshStandardMaterial( { color: 0x0055ff, flatShading: true } );
 					const object = new THREE.Mesh( geometry, material );
@@ -929,7 +998,7 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 					scene.add( object );
 				} );
 				loader = new ColladaLoader( loadingManager );
-				loader.load( path + filename, function ( object ) {
+				loader.load( modelPath, function ( object ) {
 					object = object.scene;
 					object.position.set (0, 0, 0);
 					scene.add( object );
@@ -942,7 +1011,7 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 			case 'IFC':
 				const ifcLoader = new IFCLoader();
 				ifcLoader.ifcManager.setWasmPath( '/modules/dfg_3dviewer/main/js/jsm/loaders/ifc/' );
-				ifcLoader.load( path + filename, function ( object ) {
+				ifcLoader.load( modelPath, function ( object ) {
 					//object.position.set (0, 300, 0);
 					scene.add( object );
 					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension );
@@ -953,7 +1022,7 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 			case 'stl':
 			case 'STL':
 				loader = new STLLoader();
-				loader.load( path + filename, function ( geometry ) {
+				loader.load( modelPath, function ( geometry ) {
 					let meshMaterial = new THREE.MeshPhongMaterial( { color: 0xff5533, specular: 0x111111, shininess: 200 } );
 					if ( geometry.hasColors ) {
 						meshMaterial = new THREE.MeshPhongMaterial( { opacity: geometry.alpha, vertexColors: true } );
@@ -971,7 +1040,7 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 			case 'xyz':
 			case 'XYZ':
 				loader = new XYZLoader();
-				loader.load( path + filename, function ( geometry ) {
+				loader.load( modelPath, function ( geometry ) {
 					geometry.center();
 					const vertexColors = ( geometry.hasAttribute( 'color' ) === true );
 					const material = new THREE.PointsMaterial( { size: 0.1, vertexColors: vertexColors } );
@@ -986,7 +1055,7 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 			case 'pcd':
 			case 'PCD':
 				loader = new PCDLoader();
-				loader.load( path + filename, function ( mesh ) {
+				loader.load( modelPath, function ( mesh ) {
 					scene.add( mesh );
 					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension );
 					mainObject.push(object);
@@ -997,7 +1066,7 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 			case 'JSON':
 				loader = new THREE.ObjectLoader();
 				loader.load(
-					path + filename, function ( object ) {
+					modelPath, function ( object ) {
 						object.position.set (0, 0, 0);
 						scene.add( object );
 						fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension );
@@ -1009,7 +1078,11 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 			case '3DS':
 				loader = new TDSLoader( );
 				loader.setResourcePath( path );
-				loader.load( path + basename + "." + extension, function ( object ) {
+				modelPath = path + basename + "." + extension;
+				if (proxyPath) {
+					modelPath = getProxyPath(modelPath);
+				}
+				loader.load( modelPath + basename + "." + extension, function ( object ) {
 					object.traverse( function ( child ) {
 						if ( child.isMesh ) {
 							//child.material.specular.setScalar( 0.1 );
@@ -1046,8 +1119,12 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 				gltf.setDRACOLoader(dracoLoader);
 				showToast("Trying to load model from " + extension + " representation.");
 
-				const glbPath = path + basename + "." + extension;
-				gltf.load(glbPath, function(gltf) {
+				modelPath = path + basename + "." + extension;
+				if (proxyPath) {
+					modelPath = getProxyPath(modelPath);
+				}
+
+				gltf.load(modelPath, function(gltf) {
 					gltf.scene.traverse( function ( child ) {
 						if ( child.isMesh ) {
 							child.castShadow = true;
@@ -1281,60 +1358,8 @@ function init() {
 	canvasText.height = canvasDimensions.y;
 
 	//DRUPAL WissKI [start]
-
-	var fileElement = document.getElementsByClassName("field--type-file");
-	fileElement[0].style.height = canvasDimensions.y*1.1 + "px";
-	var mainElement = document.getElementById("block-bootstrap5-content");
-	var imageElements = document.getElementsByClassName("field--type-image");
-	var imageList = document.createElement("div");
-	imageList.setAttribute('id', 'image-list');
-	var modalGallery = document.createElement('div');
-	var modalImage = document.createElement('img');
-	modalImage.setAttribute('class', 'modalImage');
-	modalGallery.addEventListener("wheel", function(e){
-		e.preventDefault();
-		e.stopPropagation();
-		if(e.deltaY > 0 && zoomImage < 5) {    
-			modalImage.style.transform = `scale(${zoomImage += ZOOM_SPEED_IMAGE})`;  
-		}
-		else if (e.deltaY < 0 && zoomImage > 0.15) {    
-			modalImage.style.transform = `scale(${zoomImage -= ZOOM_SPEED_IMAGE})`;
-		}
-		return false;
-	});
-	var modalClose = document.createElement('span');
-	modalGallery.setAttribute('id', 'modalGallery');
-	modalGallery.setAttribute('class', 'modalGallery');
-	modalClose.setAttribute('class', 'closeGallery');
-	modalClose.setAttribute('title', 'Close');
-	modalClose.innerHTML = "&times";
-	modalClose.onclick = function() {
-		modalGallery.style.display = "none";
-	}
-
-	document.addEventListener('click', function(event) {
-		if (!modalGallery.contains(event.target) && !imageList.contains(event.target)) {
-			modalGallery.style.display = "none";
-			zoomImage = 1.0;
-			modalImage.style.transform = `scale(1.0)`;
-		}
-	});
-
-	modalGallery.appendChild(modalImage);
-	modalGallery.appendChild(modalClose);
-	for (var i = 0; imageElements.length - i; imageList.firstChild === imageElements[0] && i++) {
-		imageElements[i].className += " image-list-item";
-		imageElements[i].getElementsByTagName("a")[0].setAttribute("href", "#");
-		imageElements[i].getElementsByTagName("img")[0].onclick = function(){
-			modalGallery.style.display = "block";
-			modalImage.src = this.src;
-		};
-		imageList.appendChild(imageElements[i]);
-	}
-
+	buildGallery();
 	//DRUPAL WissKI [end]
-	fileElement[0].insertAdjacentElement('beforebegin', modalGallery);
-	mainElement.insertBefore(imageList, fileElement[0]);
 
 	controls = new OrbitControls( camera, renderer.domElement );
 	controls.target.set( 0, 100, 0 );
