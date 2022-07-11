@@ -39,20 +39,20 @@ import sys
 #
 current_directory = os.getcwd()
 
-if sys.argv[6:]:
-    extension = sys.argv[6]
+if sys.argv[8:]:
+    extension = sys.argv[8]
 if extension == "gltf":
     format = "GLTF_EMBEDDED"
 else:
    format = "GLB"
 
-if sys.argv[7:]:
-    compression = sys.argv[7]
+if sys.argv[9:]:
+    compression = sys.argv[9]
 else:
     compression = "false"
 
-if sys.argv[8:]:
-    compression_level = int(sys.argv[8])
+if sys.argv[10:]:
+    compression_level = int(sys.argv[10])
 else:
     compression_level = 3
 
@@ -101,8 +101,8 @@ for current_argument in sys.argv:
         bpy.ops.import_scene.x3d(filepath=current_argument)
 
     #
-    if sys.argv[9:]:
-        export_file = str(sys.argv[9])
+    if sys.argv[11:]:
+        export_file = str(sys.argv[11])
         #export_file = root + current_basename + "." + extension
     else:
         root = root[::-1].replace(current_basename[::-1], "", 1)[::-1]

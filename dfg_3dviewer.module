@@ -38,6 +38,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		$file_info = $entity->fbf95bddee5160d515b982b3fd2e05f7->getValue();
 		$file_id = $file_info[0]['target_id'];
 		$file = \Drupal\file\Entity\File::load($file_id);
+		clearstatcache();
 		if (!is_null($file)) {
 			$fileName = $file->getFilename();
 			$extension = pathinfo($fileName, PATHINFO_EXTENSION);
@@ -50,19 +51,34 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			$viewBase = "";
 			if (in_arrayi($extension, $archives)) {
 				$path = str_replace($fileName, "", $file_url->toString());
-				$viewBase = $base . $path . $fileBase . "_" . strtoupper($extension) . "/views/" . $fileBase;
+				$subPath = substr($path, 0, strrpos( $path, '/') );
+				$viewBase = $base . $subPath . "/" . $fileBase . "_" . strtoupper($extension) . "/views/" . $fileBase;
+				if (!url_exists($viewBase . "_side45.png")) {
+					$subPath = substr($path, 0, strrpos( $path, '/') );
+					$fileBaseArchive = preg_replace('/_[0-9]+$/', '', $fileBase, 1);
+					$viewBase = $base . $subPath . "/" . $fileBase . "_" . strtoupper($extension) . "/views/" . $fileBaseArchive;
+				}				
 			}
 			else
 			{
 				$path = str_replace($fileName, "views/" . $fileName, $file_url->toString());
 				$viewBase = $base . $path;
+				if (!url_exists($viewBase . "_side45.png")) {
+					$subPath = substr($path, 0, strrpos( $path, '/') );
+					//$path = str_replace($fileName, "", $file_url->toString());
+					//$fileBaseStripped = preg_replace('/_[0-9]+$/', '', $fileBase, 1);
+					$viewBase = $base . $subPath . "/" . $fileBase;
+					if (!url_exists($viewBase . "_side45.png")) {
+						$viewBase = $base . $subPath . "/views/" . $fileBase;
+					}
+				}
 			}
-			\Drupal::messenger()->addMessage(file_exists($viewBase . "_side45.png"));
-			\Drupal::messenger()->addMessage($viewBase . "_side45.png");
+			$viewBase = str_replace(' ', '%20', $viewBase);
 			clearstatcache();
-			if (url_exists($viewBase . "_side45.png"))
+			if (url_exists($viewBase . "_side45.png")) {
+				\Drupal::messenger()->addMessage("Renderings were added to the entity");
 				$entity->set('f605dc6b727a1099b9e52b3ccbdf5673', array($viewBase . "_side45.png", $viewBase . "_side0.png", $viewBase . "_side90.png", $viewBase . "_side135.png", $viewBase . "_side180.png", $viewBase . "_side225.png", $viewBase . "_side270.png", $viewBase . "_side315.png", $viewBase . "_top.png"));
-
+			}
 			/*\Drupal::messenger()->addMessage($file_url->toString());
 			\Drupal::messenger()->addMessage(file_exists($viewBase . "_side45.png"));
 			\Drupal::messenger()->addMessage($fileName);

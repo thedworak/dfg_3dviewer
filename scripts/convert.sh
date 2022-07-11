@@ -28,10 +28,14 @@ while getopts ":c:l:o:i:b:f:" flag; do
 done
 
 render_preview () {
-	if [[ ! -d "$INPATH" ]]; then
-		mkdir $INPATH/views/
+	if [[ ! -d "$INPATH/views" ]]; then
+		mkdir "$INPATH/views/"
 	fi
-	xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo ${BLENDER_PATH}blender -b -P /var/www/html/3drepository/modules/dfg_3dviewer/scripts/render.py -- "$INPATH/gltf/$NAME.glb" "glb" $1 "$INPATH/views/" $IS_ARCHIVE -E BLENDER_EEVEE -f 1 > /dev/null 2>&1
+	if [[ "$EXT" = "glb" ]]; then
+		xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo ${BLENDER_PATH}blender -b -P /var/www/html/3drepository/modules/dfg_3dviewer/scripts/render.py -- "$INPATH/$NAME.glb" "glb" $1 "$INPATH/views/" $IS_ARCHIVE -E BLENDER_EEVEE -f 1  > /dev/null 2>&1
+	else
+		xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo ${BLENDER_PATH}blender -b -P /var/www/html/3drepository/modules/dfg_3dviewer/scripts/render.py -- "$INPATH/gltf/$NAME.glb" "glb" $1 "$INPATH/views/" $IS_ARCHIVE -E BLENDER_EEVEE -f 1  > /dev/null 2>&1
+	fi;
 }
 
 handle_file () {
@@ -48,7 +52,11 @@ handle_file () {
 		${BLENDER_PATH}blender -b -P /var/www/html/3drepository/modules/dfg_3dviewer/scripts/2gltf2/2gltf2.py -- "$INPATH/$FILENAME" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" "$OUTPUT$OUTPUTPATH" > /dev/null 2>&1
 	fi
 	
-	render_preview $EXT
+	if [[ -f "$INPATH/gltf/$NAME.glb" ]]; then
+		render_preview $EXT
+	else
+		render_preview "$INPATH/$NAME.$EXT"
+	fi;
 }
 
 handle_unsupported_file () {
@@ -120,6 +128,8 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
 				;;
 			  glb)
+					render_preview $EXT
+					end=`date +%s`
 					echo "Given file was already compressed."
 				;;
 

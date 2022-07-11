@@ -792,7 +792,7 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 
 		var req = new XMLHttpRequest();
 		req.responseType = 'xml';
-		req.open('GET', 'https://3d-repository.hs-mainz.de/xml_single_export/' + wisskiID + '?page=0&amp;_format=xml', true);
+		req.open('GET', domain + '/export_xml_single/' + wisskiID + '?page=0&amp;_format=xml', true);
 		req.onreadystatechange = function (aEvt) {
 			if (req.readyState == 4) {
 				if(req.status == 200) {
@@ -1465,7 +1465,7 @@ function init() {
 			var xhr = new XMLHttpRequest(),
 				jsonArr,
 				method = "POST",
-				jsonRequestURL = "https://3d-repository.hs-mainz.de/editor.php";
+				jsonRequestURL = domain + "/editor.php";
 
 			xhr.open(method, jsonRequestURL, true);
 			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");

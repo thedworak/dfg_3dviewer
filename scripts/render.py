@@ -141,17 +141,17 @@ def scale_scene():
 #
 current_directory = os.getcwd()
 
-if sys.argv[6:]:
-    extension = sys.argv[6]
+if sys.argv[8:]:
+    extension = sys.argv[8]
 if extension == "gltf":
     format = "GLTF_EMBEDDED"
 else:
    format = "GLB"
 
-if sys.argv[7:]:
-    original_extension = sys.argv[7]
+if sys.argv[9:]:
+    original_extension = sys.argv[9]
 
-is_archive = sys.argv[9]
+is_archive = sys.argv[11]
 
 print("Converting: '" + original_extension + "'")
 
@@ -292,8 +292,8 @@ for current_argument in sys.argv:
 
 	#
 	#print("ROOT" + root)
-	if sys.argv[8:]:
-		export_file = str(sys.argv[8])
+	if sys.argv[10:]:
+		export_file = str(sys.argv[10])
 	else:
 		root = root[::-1].replace(current_basename[::-1], "", 1)[::-1]
 		export_file = root + "_" + extension
