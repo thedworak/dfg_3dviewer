@@ -1,8 +1,5 @@
 //Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF
 
-//const path = '/modules/dfg_3dviewer';
-//const path = '..'; //local
-
 import * as THREE from '/modules/dfg_3dviewer/main/build/three.module.js';
 import { TWEEN } from '/modules/dfg_3dviewer/main/js/jsm/libs/tween.module.min.js';
 
@@ -50,12 +47,14 @@ const container = document.getElementById("DFG_3DViewer");
 container.setAttribute("width", window.self.innerWidth);
 container.setAttribute("height", window.self.innerHeight);
 const supportedFormats = [ 'OBJ', 'DAE', 'FBX', 'PLY', 'IFC', 'STL', 'XYZ', 'PCD', 'JSON', '3DS', 'GLFT' ];
-var elementsURL = window.location.pathname;
-elementsURL = elementsURL.match("/wisski/navigate/(.*)/view");
-wisskiID = elementsURL[1];
-container.setAttribute("wisski_id", wisskiID);
 const originalPath = container.getAttribute("3d");
 const proxyPath = container.getAttribute("proxy");
+if (!proxyPath) {
+	var elementsURL = window.location.pathname;
+	elementsURL = elementsURL.match("/wisski/navigate/(.*)/view");
+	wisskiID = elementsURL[1];
+	container.setAttribute("wisski_id", wisskiID);
+}
 const filename = container.getAttribute("3d").split("/").pop();
 const basename = filename.substring(0, filename.lastIndexOf('.'));
 const extension = filename.substring(filename.lastIndexOf('.') + 1);	
@@ -70,6 +69,7 @@ var gridSize;
 var clippingMode=false;
 
 var canvasText;
+var fullscreenMode;
 
 var spinnerContainer = document.createElement("div");
 spinnerContainer.id = 'spinnerContainer';
@@ -883,12 +883,11 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 					viewEntity.setAttribute('id', 'viewEntity');
 					var c_path = path;
 					if (compressedFile !== '') { c_path = domain + '/' +uri; }
-					console.log(domain + uri);
 					downloadModel.innerHTML = "<a href='" + c_path + filename + "' download><img src='/modules/dfg_3dviewer/main/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
 					viewEntity.innerHTML = "<a href='" + domain + "/wisski/navigate/" + wisskiID + "/view' target='_blank'><img src='/modules/dfg_3dviewer/main/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>";
 					metadataContainer.appendChild( downloadModel );
 					metadataContainer.appendChild( viewEntity );
-					var fullscreenMode = document.createElement('div');
+					fullscreenMode = document.createElement('div');
 					fullscreenMode.setAttribute('id', 'fullscreenMode');
 					fullscreenMode.setAttribute('style', 'bottom:' + Math.round(-canvasDimensions.y * 1.05 + 26) + 'px');
 					fullscreenMode.innerHTML = "<img src='/modules/dfg_3dviewer/main/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
@@ -1358,7 +1357,9 @@ function init() {
 	canvasText.height = canvasDimensions.y;
 
 	//DRUPAL WissKI [start]
-	buildGallery();
+	if (!proxyPath) {
+		buildGallery();
+	}
 	//DRUPAL WissKI [end]
 
 	controls = new OrbitControls( camera, renderer.domElement );
