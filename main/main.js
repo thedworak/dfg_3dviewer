@@ -50,6 +50,12 @@ const container = document.getElementById("DFG_3DViewer");
 container.setAttribute("width", window.self.innerWidth);
 container.setAttribute("height", window.self.innerHeight);
 const supportedFormats = [ 'OBJ', 'DAE', 'FBX', 'PLY', 'IFC', 'STL', 'XYZ', 'PCD', 'JSON', '3DS', 'GLFT' ];
+var elementsURL = window.location.pathname;
+elementsURL = elementsURL.match("/wisski/navigate/(.*)/view");
+wisskiID = elementsURL[1];
+container.setAttribute("wisski_id", wisskiID);
+const originalPath = container.getAttribute("3d");
+const proxyPath = container.getAttribute("proxy");
 const filename = container.getAttribute("3d").split("/").pop();
 const basename = filename.substring(0, filename.lastIndexOf('.'));
 const extension = filename.substring(filename.lastIndexOf('.') + 1);	
@@ -786,9 +792,6 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 		metadataContentTech += 'Loaded format: <b>' + extension + '</b><br>';
 		metadataContentTech += 'Vertices: <b>' + metadata['vertices'] + '</b><br>';
 		metadataContentTech += 'Faces: <b>' + metadata['faces'] + '</b><br>';
-		var elementsURL = window.location.pathname;
-		elementsURL = elementsURL.match("/wisski/navigate/(.*)/view");
-		wisskiID = elementsURL[1];
 
 		var req = new XMLHttpRequest();
 		req.responseType = 'xml';
