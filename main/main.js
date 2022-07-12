@@ -675,7 +675,7 @@ function onWindowResize() {
 		canvasDimensions = {x: screen.width, y: screen.height};
 		rightOffsetDownload = -86.5;
 		rightOffsetEntity = -88;
-		rightOffsetFullscreen = 5;		
+		rightOffsetFullscreen = 10;		
 	}
 	else {
 		canvasDimensions = {x: window.self.innerWidth*0.7, y: window.self.innerHeight*0.6};
