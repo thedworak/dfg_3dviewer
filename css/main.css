@@ -31,8 +31,6 @@ a.wisski-inline-iip > div#wisski-iip-cont > img {
 }
 
 canvas {
-   width: 70% !important;
-   height: 60% !important;
    display: block;
    z-index: 0;
    position: absolute;
@@ -238,7 +236,6 @@ canvas {
 #fullscreenMode {
     z-index: 1;
     position: absolute;
-    right: 31%;
 	bottom: 50%;
     width: 20px;
     height: 20px;

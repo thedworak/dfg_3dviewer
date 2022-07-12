@@ -34,6 +34,7 @@ let camera, scene, renderer, stats, controls, loader, ambientLight, dirLight, di
 let imported;
 var mainObject = [];
 var metadataContentTech;
+var mainCanvas;
 var distanceGeometry = new THREE.Vector3();
 let wisskiID = '';
 
@@ -66,10 +67,9 @@ var COPYRIGHTS = false;
 const allowedFormats = ['obj', 'fbx', 'ply', 'dae', 'ifc', 'stl', 'xyz', 'pcd', 'json', '3ds'];
 var EXIT_CODE=1;
 var gridSize;
-var clippingMode=false;
 
 var canvasText;
-var fullscreenMode;
+var downloadModel, viewEntity, fullscreenMode;
 
 var spinnerContainer = document.createElement("div");
 spinnerContainer.id = 'spinnerContainer';
@@ -89,8 +89,8 @@ container.appendChild(spinnerContainer);
 var statsContainer = document.createElement("div");
 statsContainer.id = 'statsContainer';
 statsContainer.className = 'statsContainer';
-statsContainer.style.position = 'relative';
-statsContainer.style.right = '93%';
+statsContainer.style.position = 'absolute';
+statsContainer.style.left = '3%';
 container.appendChild(statsContainer);
 
 var guiContainer = document.createElement("div");
@@ -394,6 +394,7 @@ function setupClippingPlanes (_geometry, _size, _distance) {
 	distanceGeometry = _distance;
 	clippingFolder.add( planeParams.planeX, 'displayHelperX' ).onChange( (v) => { planeHelpers[ 0 ].visible = v; renderer.localClippingEnabled = v; } );
 	clippingFolder.add( planeParams.planeX, 'constant' ).min( - distanceGeometry.x ).max( distanceGeometry.x ).setValue(distanceGeometry.x).step(_size/100).listen().onChange(function (value) {
+		renderer.localClippingEnabled = true;
 		clippingPlanes[ 0 ].constant = value;
 		render();
 	});
@@ -401,15 +402,19 @@ function setupClippingPlanes (_geometry, _size, _distance) {
 
 	clippingFolder.add( planeParams.planeY, 'displayHelperY' ).onChange( (v) => { planeHelpers[ 1 ].visible = v; renderer.localClippingEnabled = v; } );
 	clippingFolder.add( planeParams.planeY, 'constant' ).min( - distanceGeometry.y ).max( distanceGeometry.y ).setValue(distanceGeometry.y).step(_size/100).listen().onChange(function (value) {
+		renderer.localClippingEnabled = true;
 		clippingPlanes[ 1 ].constant = value;
 		render();
+
 	});
 
 
 	clippingFolder.add( planeParams.planeZ, 'displayHelperZ' ).onChange( (v) => { planeHelpers[ 2 ].visible = v; renderer.localClippingEnabled = v; } );
 	clippingFolder.add( planeParams.planeZ, 'constant' ).min( - distanceGeometry.z ).max( distanceGeometry.z ).setValue(distanceGeometry.z).step(_size/100).listen().onChange(function (value) {
+		renderer.localClippingEnabled = true;
 		clippingPlanes[ 2 ].constant = value;
 		render();
+
 	});
 }
 
@@ -663,17 +668,33 @@ function pickFaces(_id) {
 }
 
 function onWindowResize() {
-	if (FULLSCREEN)
+	var rightOffsetDownload = -64;
+	var rightOffsetEntity = -67;
+	var rightOffsetFullscreen = 31;
+	if (FULLSCREEN) {
 		canvasDimensions = {x: screen.width, y: screen.height};
-	else
-		canvasDimensions = {x: window.innerWidth*0.65, y: window.innerHeight*0.55};
+		rightOffsetDownload = -86.5;
+		rightOffsetEntity = -88;
+		rightOffsetFullscreen = 5;		
+	}
+	else {
+		canvasDimensions = {x: window.self.innerWidth*0.7, y: window.self.innerHeight*0.6};
+	}
 	container.setAttribute("width", canvasDimensions.x);
 	container.setAttribute("height", canvasDimensions.y);
+
+	mainCanvas.setAttribute("width", canvasDimensions.x);
+	mainCanvas.setAttribute("height", canvasDimensions.y);
+	mainCanvas.style.width = "100% !imporant";
+	mainCanvas.style.height = "100% !important";	
+
 	renderer.setPixelRatio( window.devicePixelRatio );
 	camera.aspect = canvasDimensions.x / canvasDimensions.y;
 	camera.updateProjectionMatrix();
 	renderer.setSize( canvasDimensions.x, canvasDimensions.y );
-	fullscreenMode.setAttribute('style', 'bottom:' + (-canvasDimensions.y*1.05 + 25) + 'px');
+	downloadModel.setAttribute('style', 'right: ' + rightOffsetDownload +'%');
+	viewEntity.setAttribute('style', 'right: ' + rightOffsetEntity +'%');
+	fullscreenMode.setAttribute('style', 'bottom:' + Math.round(-canvasDimensions.y * 0.96 + 25) + 'px; right: ' + rightOffsetFullscreen +'%');
 	controls.update();
 	render();
 }
@@ -751,24 +772,43 @@ function expandMetadata () {
 
 function fullscreen() {
 	FULLSCREEN=!FULLSCREEN;
-	var _container = document.getElementById("MainCanvas");
-	if (_container.requestFullscreen && FULLSCREEN) {
-		_container.requestFullscreen();
-	} 
-	else if (_container.webkitRequestFullscreen && FULLSCREEN) { /* Safari */
-		_container.webkitRequestFullscreen();
+	//var _container = document.getElementById("MainCanvas");
+	var _container = container;
+	if (FULLSCREEN) {
+		if (_container.requestFullscreen ) {
+			_container.requestFullscreen();
+		} 
+		else if (_container.webkitRequestFullscreen) { /* Safari */
+			_container.webkitRequestFullscreen();
+		}
+		else if (_container.msRequestFullscreen) { /* IE11 */
+			_container.msRequestFullscreen();
+		}
+		else if (_container.mozRequestFullScreen) { /* Mozilla */
+			_container.mozRequestFullScreen();
+		}
 	}
-	else if (_container.msRequestFullscreen && FULLSCREEN) { /* IE11 */
-		_container.msRequestFullscreen();
-	}
-	else if (_container.mozRequestFullScreen && FULLSCREEN) { /* IE11 */
-		_container.mozRequestFullScreen();
-	}
-	else {
-		document.exitFullscreen();
-		FULLSCREEN=false;
+	else
+	{
+		if (document.exitFullscreen) {
+			document.exitFullscreen();
+		}
+		else if (document.webkitExitFullscreen) { /* Safari */
+			document.webkitExitFullscreen();
+		}
+		else if (document.msExitFullscreen) { /* IE11 */
+			document.msExitFullscreen();
+		}
 	}
 	onWindowResize();
+}
+
+function exitFullscreenHandler() {
+	var fullscreenElement = document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement;
+	var fullscreenElement2 = document.webkitIsFullScreen && document.mozFullScreen && document.msFullscreenElement;
+	if (!fullscreenElement && typeof(fullscreenElement2 === undefined) && FULLSCREEN) {
+		fullscreen();
+	}
 }
 
 function fetchSettings ( path, basename, filename, object, camera, light, controls, orgExtension, extension ) {
@@ -877,9 +917,9 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 					metadataContent += metadataContentTech + '</div>';
 					canvasText.innerHTML = metadataContent;
 					metadataContainer.appendChild( canvasText );
-					var downloadModel = document.createElement('div');
+					downloadModel = document.createElement('div');
 					downloadModel.setAttribute('id', 'downloadModel');
-					var viewEntity = document.createElement('div');
+					viewEntity = document.createElement('div');
 					viewEntity.setAttribute('id', 'viewEntity');
 					var c_path = path;
 					if (compressedFile !== '') { c_path = domain + '/' +uri; }
@@ -889,13 +929,19 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 					metadataContainer.appendChild( viewEntity );
 					fullscreenMode = document.createElement('div');
 					fullscreenMode.setAttribute('id', 'fullscreenMode');
-					fullscreenMode.setAttribute('style', 'bottom:' + Math.round(-canvasDimensions.y * 1.05 + 26) + 'px');
+					fullscreenMode.setAttribute('style', 'bottom:' + Math.round(-canvasDimensions.y * 1.05 + 26) + 'px; right: 31%');
 					fullscreenMode.innerHTML = "<img src='/modules/dfg_3dviewer/main/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
 					metadataContainer.appendChild(fullscreenMode);
 					//var _container = document.getElementById("MainCanvas");
 					container.appendChild(metadataContainer);
 					document.getElementById ("metadata-collapse").addEventListener ("click", expandMetadata, false);
 					document.getElementById ("fullscreenMode").addEventListener ("click", fullscreen, false);
+					if (document.addEventListener) {
+						document.addEventListener('webkitfullscreenchange', exitFullscreenHandler, false);
+						document.addEventListener('mozfullscreenchange', exitFullscreenHandler, false);
+						document.addEventListener('fullscreenchange', exitFullscreenHandler, false);
+						document.addEventListener('MSFullscreenChange', exitFullscreenHandler, false);
+					}
 				}
 				else
 					console.log("Error during loading metadata content\n");
@@ -1180,7 +1226,7 @@ function animate() {
 	if ( mixer ) mixer.update( delta ); {
 		TWEEN.update();
 	}
-	for ( let i = 0; i < clippingPlanes.length && clippingMode; i ++ ) {
+	/*for ( let i = 0; i < clippingPlanes.length && clippingMode; i ++ ) {
 		const plane = clippingPlanes[ i ];
 		const po = planeObjects[ i ];
 		if (po !== undefined ) {
@@ -1191,7 +1237,7 @@ function animate() {
 				po.position.z - plane.normal.z,
 			);
 		}
-	}
+	}*/
 	if (textMesh !== undefined) { textMesh.lookAt(camera.position); }
 	renderer.render( scene, camera );
 	stats.update();
@@ -1350,6 +1396,10 @@ function init() {
 	renderer.setClearColor( 0x263238 );
 	renderer.domElement.id = 'MainCanvas';
 	container.appendChild( renderer.domElement );
+	mainCanvas = document.getElementById("MainCanvas");
+
+	mainCanvas.style.width = "70%";
+	mainCanvas.style.height = "60%";
 	
 	canvasText = document.createElement('div');
 	canvasText.id = "TextCanvas";
@@ -1435,7 +1485,7 @@ function init() {
 
 	// stats
 	stats = new Stats();
-	stats.domElement.style.cssText = 'position:relative;top:0px;left:0px;max-height:120px;max-width:90px;z-index:2;';
+	stats.domElement.style.cssText = 'position:relative;top:0px;left:-80px;max-height:120px;max-width:90px;z-index:2;';
 	container.appendChild( stats.dom );
 	
 	windowHalfX = canvasDimensions.x / 2;
@@ -1445,7 +1495,8 @@ function init() {
 	editorFolder.add(transformText, 'Transform 3D Object', { None: '', Move: 'translate', Rotate: 'rotate', Scale: 'scale' } ).onChange(function (value)
 	{ 
 		if (value === '') { transformControl.detach(); } 
-		else { 
+		else {
+			renderer.localClippingEnabled = false;
 			transformControl.mode = value; 
 			transformControl.attach( helperObjects[0] );
 		}
