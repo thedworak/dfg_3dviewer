@@ -1188,6 +1188,7 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 					function ( xhr ) {
 						var percentComplete = xhr.loaded / xhr.total * 100;
 						if (percentComplete !== Infinity) {
+							circle.show();
 							circle.set(percentComplete, 100);
 							if (percentComplete >= 100) {
 								circle.hide();
@@ -1196,10 +1197,28 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 						}
 					},
 					function ( ) {						
-							showToast("GLTF representation not found, trying original file " + path.replace("gltf/", "") + filename + " [" + orgExtension + "]");
-							allowedFormats.forEach(function(item, index, array) {
-								if (EXIT_CODE != 0) { loadModel(path.replace("gltf/", ""), basename, filename, item, orgExtension); }
-							});
+							showToast("GLTF or file with given name (possible archive/filename mismatch) representation not found, trying original file [semi-automatic]...");
+							showToast(path.replace("gltf/", "") + filename + " [" + orgExtension + "]");
+							var autoBasename = basename.replace(/_[0-9]+$/, '');
+							if (EXIT_CODE != 0) {
+								loadModel (path, autoBasename, '', 'glb', orgExtension);
+								if (EXIT_CODE != 0) {
+									allowedFormats.forEach(function(item, index, array) {
+										if (EXIT_CODE != 0) {
+											loadModel (path.replace("gltf/", ""), autoBasename, filename, item, orgExtension); 
+										}
+									});
+								}
+							}
+							if (EXIT_CODE != 0) {
+								allowedFormats.forEach(function(item, index, array) {
+									if (EXIT_CODE != 0) {
+										circle.show();
+										loadModel (path.replace("gltf/", ""), basename, filename, item, orgExtension);
+									}
+								});
+							}
+
 							//loadModel(path.replace("gltf/", ""), basename, filename, orgExtension, orgExtension);
 							imported = true;
 					}
@@ -1212,7 +1231,7 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 	else {
 		showToast("File " + path + basename + " not found.");
 		//circle.set(100, 100);
-		circle.hide();
+		//circle.hide();
 	}
 	
 	scene.updateMatrixWorld();
