@@ -121,28 +121,34 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 					handle_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
 					end=`date +%s`
 					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
+					exit 0;
 				;;
 			  ifc)
 					handle_ifc_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
 					end=`date +%s`
 					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
+					exit 0;
 				;;
 			  glb)
 					render_preview $EXT
 					end=`date +%s`
 					echo "Given file was already compressed."
+					exit 0;
 				;;
 
 			  *)
 					handle_unsupported_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
 					echo "Flie extension $EXT is not supported for conversion yet."
+					exit 1;
 				;;
 			esac
 		else
 			echo "Compressed file $OUTPUT/$NAME.$GLTF already exists."
+			exit 1;
 		fi
 	else
 		echo "No extension found on $FILENAME";
+		exit 2;
 	fi
 else
 	echo "No file $INPUT or 0 arguments given."

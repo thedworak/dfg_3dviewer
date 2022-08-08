@@ -1,6 +1,6 @@
 //Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF
 
-import * as THREE from '/modules/dfg_3dviewer/main/build/three.module.js';
+import * as THREE from './build_143/three.module.js';
 import { TWEEN } from '/modules/dfg_3dviewer/main/js/jsm/libs/tween.module.min.js';
 
 import Stats from '/modules/dfg_3dviewer/main/js/jsm/libs/stats.module.js';
@@ -348,7 +348,7 @@ function setupObject (_object, _camera, _light, _data, _controls) {
 	if (typeof (_data) !== "undefined") {
 		_object.position.set (_data["objPosition"][0], _data["objPosition"][1], _data["objPosition"][2]);
 		_object.scale.set (_data["objScale"][0], _data["objScale"][1], _data["objScale"][2]);
-		_object.rotation.set (THREE.Math.degToRad(_data["objRotation"][0]), THREE.Math.degToRad(_data["objRotation"][1]), THREE.Math.degToRad(_data["objRotation"][2]));
+		_object.rotation.set (THREE.MathUtils.degToRad(_data["objRotation"][0]), THREE.MathUtils.degToRad(_data["objRotation"][1]), THREE.MathUtils.degToRad(_data["objRotation"][2]));
 		_object.needsUpdate = true;
 		if (typeof (_object.geometry) !== "undefined") {
 			_object.geometry.computeBoundingBox();
@@ -1436,7 +1436,7 @@ function init() {
 	controls.update();
 	
 	transformControl = new TransformControls( camera, renderer.domElement );
-	transformControl.rotationSnap = THREE.Math.degToRad(5);
+	transformControl.rotationSnap = THREE.MathUtils.degToRad(5);
 	transformControl.space = "local";
 	transformControl.addEventListener( 'change', render );
 	transformControl.addEventListener( 'objectChange', changeScale );
@@ -1569,7 +1569,7 @@ function init() {
 			xhr.open(method, jsonRequestURL, true);
 			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
 			var params;
-			var rotateMetadata = new THREE.Vector3(THREE.Math.radToDeg(helperObjects[0].rotation.x),THREE.Math.radToDeg(helperObjects[0].rotation.y),THREE.Math.radToDeg(helperObjects[0].rotation.z));
+			var rotateMetadata = new THREE.Vector3(THREE.MathUtils.radToDeg(helperObjects[0].rotation.x),THREE.MathUtils.radToDeg(helperObjects[0].rotation.y),THREE.MathUtils.radToDeg(helperObjects[0].rotation.z));
 			var newMetadata = ({"objPosition": [ helperObjects[0].position.x, helperObjects[0].position.y, helperObjects[0].position.z ], "objScale": [ helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z ], "objRotation": [ rotateMetadata.x, rotateMetadata.y, rotateMetadata.z ] });
 			if (saveProperties.Camera) { newMetadata = Object.assign(newMetadata, {"cameraPosition": [ camera.position.x, camera.position.y, camera.position.z ], "controlsTarget": [ controls.target.x, controls.target.y, controls.target.z ]}); }
 			if (saveProperties.Light) { newMetadata = Object.assign(newMetadata, {"lightPosition": [ dirLight.position.x, dirLight.position.y, dirLight.position.z ], "lightTarget": [ dirLight.rotation._x, dirLight.rotation._y, dirLight.rotation._z ], "lightColor": [ "#" + (dirLight.color.getHexString()).toUpperCase() ], "lightIntensity": [ dirLight.intensity ], "lightAmbientColor": [ "#" + (ambientLight.color.getHexString()).toUpperCase() ], "lightAmbientIntensity": [ ambientLight.intensity ] }); }
