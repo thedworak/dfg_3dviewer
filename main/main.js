@@ -1,6 +1,6 @@
 //Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF
 
-import * as THREE from './build_143/three.module.js';
+import * as THREE from './build/three.module.js';
 import { TWEEN } from '/modules/dfg_3dviewer/main/js/jsm/libs/tween.module.min.js';
 
 import Stats from '/modules/dfg_3dviewer/main/js/jsm/libs/stats.module.js';
@@ -26,10 +26,6 @@ import { PCDLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/PCDLoader.j
 import { FontLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/FontLoader.js';
 import { TextGeometry } from '/modules/dfg_3dviewer/main/js/jsm/geometries/TextGeometry.js';
 
-/*if (supportedFormats.indexOf(extension.toUpperCase()) < 0) {
-	return
-}*/
-
 let camera, scene, renderer, stats, controls, loader, ambientLight, dirLight, dirLightTarget;
 let imported;
 var mainObject = [];
@@ -47,7 +43,6 @@ let mixer;
 const container = document.getElementById("DFG_3DViewer");
 container.setAttribute("width", window.self.innerWidth);
 container.setAttribute("height", window.self.innerHeight);
-const supportedFormats = [ 'OBJ', 'DAE', 'FBX', 'PLY', 'IFC', 'STL', 'XYZ', 'PCD', 'JSON', '3DS', 'GLFT' ];
 const originalPath = container.getAttribute("3d");
 const proxyPath = container.getAttribute("proxy");
 if (!proxyPath) {
@@ -151,6 +146,8 @@ const saveProperties = {
 };
 
 var EDITOR = false;
+const lineMaterial = new THREE.LineBasicMaterial( { color: 0x0000ff } );
+const linePoints = [];
 
 const gui = new GUI({ container: guiContainer });
 //const mainHierarchyFolder = gui.addFolder('Hierarchy');
@@ -285,7 +282,7 @@ function addTextWatermark (_text, _scale) {
 		} );
 		textGeo.computeBoundingBox();
 
-		const centerOffset = - 0.5 * ( textGeo.boundingBox.max.x - textGeo.boundingBox.min.x );
+		//const centerOffset = - 0.5 * ( textGeo.boundingBox.max.x - textGeo.boundingBox.min.x );
 
 		textMesh = new THREE.Mesh( textGeo, materials );
 
@@ -295,6 +292,42 @@ function addTextWatermark (_text, _scale) {
 		textMesh.position.x = 0;
 		textMesh.position.y = 0;
 		textMesh.position.z = 0;
+		textMesh.renderOrder = 1;
+		scene.add( textMesh );		
+	} );
+}
+
+function addTextPoint (_text, _scale, _point) {
+	var textGeo;
+	var materials = [
+		new THREE.MeshStandardMaterial( { color: 0x0000ff, flatShading: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 0.4 } ), // front
+		new THREE.MeshStandardMaterial( { color: 0x0000ff, flatShading: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 0.4 } ) // side
+	];
+	const loader = new FontLoader();
+
+	loader.load( '/modules/dfg_3dviewer/main/fonts/helvetiker_regular.typeface.json', function ( font ) {
+
+		const textGeo = new TextGeometry( _text, {
+			font: font,
+			size: _scale*3,
+			height: _scale/10,
+			curveSegments: 5,
+			bevelEnabled: true,
+			bevelThickness: _scale/8,
+			bevelSize: _scale/10,
+			bevelOffset: 0,
+			bevelSegments: 1
+		} );
+		textGeo.computeBoundingBox();
+
+		//const centerOffset = - 0.5 * ( textGeo.boundingBox.max.x - textGeo.boundingBox.min.x );
+
+		textMesh = new THREE.Mesh( textGeo, materials );
+
+		textMesh.rotation.z = Math.PI;
+		textMesh.rotation.y = Math.PI;
+		
+		textMesh.position.set(_point.x, _point.y, _point.z);
 		textMesh.renderOrder = 1;
 		scene.add( textMesh );		
 	} );
@@ -649,13 +682,31 @@ function setupCamera (_object, _camera, _light, _data, _controls) {
 	}
 }
 
+function distanceBetweenPoints(pointA, pointB) {
+	return Math.sqrt(Math.pow(pointB.x - pointA.x, 2) + Math.pow(pointB.y - pointA.y, 2) + Math.pow(pointB.z - pointA.z, 2) ,2);
+}
+
+function halfwayBetweenPoints(pointA, pointB) {
+	return new THREE.Vector3((pointB.x + pointA.x)/2, (pointB.y + pointA.y)/2, (pointB.z + pointA.z)/2);
+}
+
 function pickFaces(_id) {
-	var sphere = new THREE.Mesh(new THREE.SphereGeometry(0.1, 7, 7), new THREE.MeshNormalMaterial({
+	var sphere = new THREE.Mesh(new THREE.SphereGeometry(gridSize/150, 7, 7), new THREE.MeshNormalMaterial({
 				transparent : true,
 				opacity : 0.8
 			}));
-	sphere.position.set(_id[0].point.x, _id[0].point.y, _id[0].point.z);
+	var newPoint = new THREE.Vector3( _id[0].point.x, _id[0].point.y, _id[0].point.z );
+	sphere.position.set( newPoint.x, newPoint.y, newPoint.z	);
 	scene.add(sphere);
+	linePoints.push( newPoint );
+	const lineGeometry = new THREE.BufferGeometry().setFromPoints( linePoints );
+	const line = new THREE.Line( lineGeometry, lineMaterial );
+	scene.add( line );
+	if (linePoints.length > 1) {
+		var distancePoints = distanceBetweenPoints(linePoints[linePoints.length-2], newPoint);
+		var halfwayPoints = halfwayBetweenPoints(linePoints[linePoints.length-2], newPoint);
+		addTextPoint(distancePoints.toFixed(2), gridSize/200, halfwayPoints);
+	}
 	/*if (mainObject.name == "Scene" || mainObject.children.length > 0)
 		mainObject.traverse( function ( child ) {
 			if (child.isMesh) {
@@ -981,9 +1032,8 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 			modelPath = getProxyPath(modelPath);
 		}
 
-		switch(extension) {
+		switch(extension.toLowerCase()) {
 			case 'obj':
-			case 'OBJ':
 				const manager = new THREE.LoadingManager();
 				manager.onLoad = function ( ) { showToast ("OBJ model has been loaded"); };
 				manager.addHandler( /\.dds$/i, new DDSLoader() );
@@ -1005,7 +1055,6 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 			break;
 			
 			case 'fbx':
-			case 'FBX':
 				var FBXloader = new FBXLoader();
 				FBXloader.load( modelPath, function ( object ) {
 					object.traverse( function ( child ) {
@@ -1022,7 +1071,6 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 			break;
 			
 			case 'ply':
-			case 'PLY':
 				loader = new PLYLoader();
 				loader.load( modelPath, function ( geometry ) {
 					geometry.computeVertexNormals();
@@ -1038,7 +1086,6 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 			break;
 			
 			case 'dae':
-			case 'DAE':
 				const loadingManager = new THREE.LoadingManager( function () {
 					scene.add( object );
 				} );
@@ -1053,7 +1100,6 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 			break;
 			
 			case 'ifc':
-			case 'IFC':
 				const ifcLoader = new IFCLoader();
 				ifcLoader.ifcManager.setWasmPath( '/modules/dfg_3dviewer/main/js/jsm/loaders/ifc/' );
 				ifcLoader.load( modelPath, function ( object ) {
@@ -1065,7 +1111,6 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 			break;
 			
 			case 'stl':
-			case 'STL':
 				loader = new STLLoader();
 				loader.load( modelPath, function ( geometry ) {
 					let meshMaterial = new THREE.MeshPhongMaterial( { color: 0xff5533, specular: 0x111111, shininess: 200 } );
@@ -1083,7 +1128,6 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 			break;
 
 			case 'xyz':
-			case 'XYZ':
 				loader = new XYZLoader();
 				loader.load( modelPath, function ( geometry ) {
 					geometry.center();
@@ -1098,7 +1142,6 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 			break;
 
 			case 'pcd':
-			case 'PCD':
 				loader = new PCDLoader();
 				loader.load( modelPath, function ( mesh ) {
 					scene.add( mesh );
@@ -1108,7 +1151,6 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 			break;
 
 			case 'json':
-			case 'JSON':
 				loader = new THREE.ObjectLoader();
 				loader.load(
 					modelPath, function ( object ) {
@@ -1120,7 +1162,6 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 			break;
 
 			case '3ds':
-			case '3DS':
 				loader = new TDSLoader( );
 				loader.setResourcePath( path );
 				modelPath = path + basename + "." + extension;
@@ -1141,22 +1182,15 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 			break;
 
 			case 'zip':
-			case 'ZIP':
 			case 'rar':
-			case 'RAR':
 			case 'tar':
-			case 'TAR':
 			case 'gz':
-			case 'GZ':
 			case 'xz':
-			case 'XZ':
 				showToast("Model is being loaded from compressed archive.");
 			break;
 			
 			case 'glb':
-			case 'GLB':
 			case 'gltf':
-			case 'GLTF':
 				const dracoLoader = new DRACOLoader();
 				dracoLoader.setDecoderPath( '/modules/dfg_3dviewer/main/js/libs/draco/' );
 				dracoLoader.preload();
@@ -1268,29 +1302,41 @@ function updateObject () {
 function onPointerDown( e ) {
 	//onDownPosition.x = event.clientX;
 	//onDownPosition.y = event.clientY;
-	onDownPosition.x = ( e.clientX / canvasDimensions.x ) * 2 - 1;
-	onDownPosition.y = - ( e.clientY / canvasDimensions.y ) * 2 + 1;
+	if (e.button == 0) {
+		onDownPosition.x = ((e.clientX - container.getBoundingClientRect().left)/ renderer.domElement.clientWidth) * 2 - 1;
+		onDownPosition.y = - ((e.clientY - container.getBoundingClientRect().top) / renderer.domElement.clientHeight) * 2 + 1;
+	}
 }
 
 function onPointerUp( e ) {
-    onUpPosition.x = ( e.clientX / canvasDimensions.x ) * 2 - 1;
-    onUpPosition.y = -( e.clientY / canvasDimensions.y ) * 2 + 1;
-	var mouseVector = new THREE.Vector2();
-	//onUpPosition.x = ((e.clientX - container.offsetLeft) / canvasDimensions.x) * 2 - 1;
-	//onUpPosition.y =  - ((e.clientY - (container.offsetTop - document.body.scrollTop + 11)) / (canvasDimensions.y)) * 2 + 1;
-	raycaster.setFromCamera( pointer, camera );
-	var intersects;
-	if (EDITOR) {
-		if (mainObject.name === "Scene" || mainObject.length > 1) {
-			/*for (let ii = 0; ii < mainObject.length; ii++) {	
-				intersects = raycaster.intersectObjects( mainObject[ii].children, false );
-			}*/
-			intersects = raycaster.intersectObjects( mainObject[0].children, false );
+    //onUpPosition.x = ( e.clientX / canvasDimensions.x ) * 2 - 1;
+    //onUpPosition.y = -( e.clientY / canvasDimensions.y ) * 2 + 1;
+    //onUpPosition.x = ( e.clientX / (canvasDimensions.x - container.offsetLeft)) * 2 - 1;
+    //onUpPosition.y = -( e.clientY / (canvasDimensions.y - container.offsetTop)) * 2 + 1;
+	if (e.button == 0) {
+		onUpPosition.x = ((e.clientX - container.getBoundingClientRect().left)/ renderer.domElement.clientWidth) * 2 - 1;
+		onUpPosition.y = - ((e.clientY - container.getBoundingClientRect().top) / renderer.domElement.clientHeight) * 2 + 1;
+		
+		if (onUpPosition.x == onDownPosition.x && onUpPosition.y == onDownPosition.y) {
+			raycaster.setFromCamera( onUpPosition, camera );
+			var intersects;
+			if (EDITOR) {
+				if (mainObject.length > 1) {
+					for (let ii = 0; ii < mainObject.length; ii++) {
+						intersects = raycaster.intersectObjects( mainObject[ii].children, true );
+					}
+					if (intersects.length <= 0) {
+						intersects = raycaster.intersectObjects( mainObject, true );
+					}
+				}
+				else {
+					intersects = raycaster.intersectObjects( mainObject[0], true );
+				}
+				if (intersects.length > 0) {
+					pickFaces(intersects);
+				}
+			}
 		}
-		else {
-			intersects = raycaster.intersectObjects( mainObject[0], false );
-		}
-		if (intersects.length > 0) {pickFaces(intersects); }
 	}
 }
 
@@ -1470,26 +1516,27 @@ function init() {
 		// statements to handle any exceptions
 		loadModel(path, basename, filename, extension);
 	}*/
-	if (extension === "glb" || extension === "GLB" || extension === "gltf" || extension === "GLTF") {
+	var _ext = extension.toLowerCase();
+	if (_ext === "glb" || _ext === "gltf") {
 		loadModel (path, basename, filename, extension, extension);
 	}
-	else if  (extension === "zip" || extension === "ZIP" ) {
+	else if  (_ext === "zip" ) {
 		compressedFile = "_ZIP/";
 		loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
 	}
-	else if  (extension === "rar" || extension === "RAR" ) {
+	else if  (_ext === "rar" ) {
 		compressedFile = "_RAR/";
 		loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
 	}
-	else if  (extension === "tar" ) {
+	else if  (_ext === "tar" ) {
 		compressedFile = "_TAR/";
 		loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
 	}
-	else if  (extension === "xz" ) {
+	else if  (_ext === "xz" ) {
 		compressedFile = "_XZ/";
 		loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
 	}
-	else if  (extension === "gz" ) {
+	else if  (_ext === "gz" ) {
 		compressedFile = "_GZ/";
 		loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
 	}
@@ -1498,7 +1545,7 @@ function init() {
 	}
 
 	container.addEventListener( 'pointerdown', onPointerDown );
-	container.addEventListener( 'pointerup', onPointerUp );
+	mainCanvas.addEventListener( 'pointerup', onPointerUp );
 	container.addEventListener( 'pointermove', onPointerMove );
 	window.addEventListener( 'resize', onWindowResize );
 
@@ -1586,12 +1633,12 @@ function init() {
 			};
 			xhr.send(params);
 		}}, 'Save');
-		/*editorFolder.add({["Picking"] (){
+		editorFolder.add({["Picking"] (){
 			EDITOR=!EDITOR;
 			var _str;
 			EDITOR ? _str = "enabled" : _str = "disabled";
 			showToast ("Face picking is " + _str);
-		}}, 'Picking');*/
+		}}, 'Picking');
 		clippingFolder = editorFolder.addFolder('Clipping Planes').close();
 	}
 }

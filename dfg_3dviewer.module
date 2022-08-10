@@ -187,7 +187,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 						//\Drupal::messenger()->addMessage("Decompressed files: " . serialize($zip->listContents()), 'status');
 					}
 					catch (ArchiverException $exception) {
-						\Drupal::messenger()->addMessage(serialize($exception), 'status');
+						\Drupal::messenger()->addMessage("Exception while handling archive: " . serialize($exception), 'status');
 					}
 				}
 				else {
