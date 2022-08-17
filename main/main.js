@@ -202,6 +202,7 @@ var planeObjects = [];
 var clippingGeometry = [];
 
 var textMesh;
+var ruler;
 
 function readWissKI () {
 	const xmlhttp = new XMLHttpRequest();
@@ -311,7 +312,7 @@ function addTextPoint (_text, _scale, _point) {
 			font: font,
 			size: _scale*3,
 			height: _scale/10,
-			curveSegments: 5,
+			curveSegments: 4,
 			bevelEnabled: true,
 			bevelThickness: _scale/8,
 			bevelSize: _scale/10,
@@ -686,27 +687,66 @@ function distanceBetweenPoints(pointA, pointB) {
 	return Math.sqrt(Math.pow(pointB.x - pointA.x, 2) + Math.pow(pointB.y - pointA.y, 2) + Math.pow(pointB.z - pointA.z, 2) ,2);
 }
 
+function distanceBetweenPointsVector(vector) {
+	return Math.sqrt(Math.pow(vector.x, 2) + Math.pow(vector.y, 2) + Math.pow(vector.z, 2) ,2);
+}
+
+function vectorBetweenPoints (pointA, pointB) {
+	return new THREE.Vector3(pointB.x - pointA.x, pointB.y - pointA.y, pointB.z - pointA.z);
+}
+
 function halfwayBetweenPoints(pointA, pointB) {
 	return new THREE.Vector3((pointB.x + pointA.x)/2, (pointB.y + pointA.y)/2, (pointB.z + pointA.z)/2);
 }
 
+function interpolateDistanceBetweenPoints(pointA, vector, length, scalar) {
+	var _x = pointA.x + (scalar/Math.abs(length)) * vector.x;
+	var _y = pointA.y + (scalar/Math.abs(length)) * vector.y;
+	var _z = pointA.z + (scalar/Math.abs(length)) * vector.z;
+	return new THREE.Vector3(_x, _y, _z);
+}
+
 function pickFaces(_id) {
+	console.log(_id);
+	var rulerObject = new THREE.Object3D();
 	var sphere = new THREE.Mesh(new THREE.SphereGeometry(gridSize/150, 7, 7), new THREE.MeshNormalMaterial({
 				transparent : true,
-				opacity : 0.8
+				opacity : 0.8,
+				side: THREE.DoubleSide, depthTest: false, depthWrite: false
 			}));
 	var newPoint = new THREE.Vector3( _id[0].point.x, _id[0].point.y, _id[0].point.z );
 	sphere.position.set( newPoint.x, newPoint.y, newPoint.z	);
-	scene.add(sphere);
+	rulerObject.add(sphere);
 	linePoints.push( newPoint );
 	const lineGeometry = new THREE.BufferGeometry().setFromPoints( linePoints );
 	const line = new THREE.Line( lineGeometry, lineMaterial );
-	scene.add( line );
+	rulerObject.add( line );
+	var lineMtr = new THREE.LineBasicMaterial({ color: 0x0000FF, linewidth: 3, opacity: 1, side: THREE.DoubleSide, depthTest: false, depthWrite: false });
 	if (linePoints.length > 1) {
-		var distancePoints = distanceBetweenPoints(linePoints[linePoints.length-2], newPoint);
+		var vectorPoints = vectorBetweenPoints(linePoints[linePoints.length-2], newPoint);
+		var distancePoints = distanceBetweenPointsVector(vectorPoints);
+		
+		//var distancePoints = distanceBetweenPoints(linePoints[linePoints.length-2], newPoint);
 		var halfwayPoints = halfwayBetweenPoints(linePoints[linePoints.length-2], newPoint);
 		addTextPoint(distancePoints.toFixed(2), gridSize/200, halfwayPoints);
+		var rulerI = 0;
+		var measureSize = gridSize/400;
+        while (rulerI <= distancePoints*100) {
+            const geoSegm = [];
+			var interpolatePoints = interpolateDistanceBetweenPoints(linePoints[linePoints.length-2], vectorPoints, distancePoints, rulerI/100);
+            geoSegm.push(new THREE.Vector3(interpolatePoints.x, interpolatePoints.y, interpolatePoints.z));
+            //geoSegm.push(new THREE.Vector3(interpolatePoints.x+_id[0].face.normal.x, interpolatePoints.y+_id[0].face.normal.y, interpolatePoints.z+_id[0].face.normal.z));
+			geoSegm.push(new THREE.Vector3(interpolatePoints.x+measureSize, interpolatePoints.y+measureSize, interpolatePoints.z+measureSize));
+			const geometryLine = new THREE.BufferGeometry().setFromPoints( geoSegm );
+            var lineSegm = new THREE.Line(geometryLine, lineMtr);
+			rulerObject.add(lineSegm);
+            //var textSprite = makeTextSprite((i * 10).toString(), {r: 255, g: 255, b: 255, a: 255}, new THREE.Vector3(0.2, ruler, 3), Math.PI);
+            //ruler.add(textSprite);
+            rulerI+=10;
+        }
 	}
+	rulerObject.renderOrder = 1;
+	scene.add(rulerObject);
 	/*if (mainObject.name == "Scene" || mainObject.children.length > 0)
 		mainObject.traverse( function ( child ) {
 			if (child.isMesh) {
@@ -1545,7 +1585,7 @@ function init() {
 	}
 
 	container.addEventListener( 'pointerdown', onPointerDown );
-	mainCanvas.addEventListener( 'pointerup', onPointerUp );
+	container.addEventListener( 'pointerup', onPointerUp );
 	container.addEventListener( 'pointermove', onPointerMove );
 	window.addEventListener( 'resize', onWindowResize );
 
@@ -1637,6 +1677,7 @@ function init() {
 			EDITOR=!EDITOR;
 			var _str;
 			EDITOR ? _str = "enabled" : _str = "disabled";
+			ruler = new THREE.Group();
 			showToast ("Face picking is " + _str);
 		}}, 'Picking');
 		clippingFolder = editorFolder.addFolder('Clipping Planes').close();
