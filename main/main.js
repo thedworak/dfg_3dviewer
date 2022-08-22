@@ -43,6 +43,7 @@ let mixer;
 const container = document.getElementById("DFG_3DViewer");
 container.setAttribute("width", window.self.innerWidth);
 container.setAttribute("height", window.self.innerHeight);
+container.setAttribute("display", "flex");
 const originalPath = container.getAttribute("3d");
 const proxyPath = container.getAttribute("proxy");
 if (!proxyPath) {
@@ -91,13 +92,10 @@ container.appendChild(statsContainer);
 var guiContainer = document.createElement("div");
 guiContainer.id = 'guiContainer';
 guiContainer.className = 'guiContainer';
-guiContainer.style.position = 'absolute';
-guiContainer.style.right = '2%';
-guiContainer.style.marginTop = '0px';
 var guiElement = document.createElement("div");
-guiElement.id = 'guiContainer';
-guiElement.className = 'guiContainer';
-guiElement.appendChild(guiContainer);
+guiElement.id = 'guiElement';
+guiElement.className = 'guiElement';
+guiContainer.appendChild(guiElement);
 container.appendChild(guiContainer);
 
 let spinner = new lv();
@@ -610,6 +608,7 @@ function buildGallery() {
 
 	document.addEventListener('click', function(event) {
 		if (!modalGallery.contains(event.target) && !imageList.contains(event.target)) {
+			//event.preventDefault();
 			modalGallery.style.display = "none";
 			zoomImage = 1.0;
 			modalImage.style.transform = `scale(1.0)`;
@@ -619,12 +618,21 @@ function buildGallery() {
 	modalGallery.appendChild(modalImage);
 	modalGallery.appendChild(modalClose);
 	for (var i = 0; imageElements.length - i; imageList.firstChild === imageElements[0] && i++) {
-		imageElements[i].className += " image-list-item";
-		imageElements[i].getElementsByTagName("a")[0].setAttribute("href", "#");
-		imageElements[i].getElementsByTagName("img")[0].onclick = function(){
-			modalGallery.style.display = "block";
-			modalImage.src = this.src;
-		};
+		//imageElements[i].className += " image-list-item";
+		var imgList = imageElements[i].getElementsByTagName("a");
+		for (var j = 0; j < imgList.length; j++) {
+			imgList[j].setAttribute("href", "#");
+			imgList[j].setAttribute("src", imgList[j].firstChild.src);
+			imgList[j].setAttribute("class", "image-list-item");
+		}
+		imgList = imageElements[i].getElementsByTagName("img");
+		for (var j = 0; j < imgList.length; j++) {
+			imgList[j].onclick = function(){
+				modalGallery.style.display = "block";
+				modalImage.src = this.src;
+			};
+		}
+		//imageElements[i].getElementsByTagName("a")[0].setAttribute("href", "#");
 		imageList.appendChild(imageElements[i]);
 	}
 	fileElement[0].insertAdjacentElement('beforebegin', modalGallery);
@@ -761,15 +769,19 @@ function pickFaces(_id) {
 function onWindowResize() {
 	var rightOffsetDownload = -64;
 	var rightOffsetEntity = -67;
-	var rightOffsetFullscreen = 31;
+	var rightOffsetFullscreen = canvasDimensions.x * 0.45;
+	var bottomOffsetFullscreen = -canvasDimensions.y * 0.97 + 25;
 	if (FULLSCREEN) {
 		canvasDimensions = {x: screen.width, y: screen.height};
 		rightOffsetDownload = -86.5;
 		rightOffsetEntity = -88;
-		rightOffsetFullscreen = 10;		
+		rightOffsetFullscreen = 40;	
+		bottomOffsetFullscreen = -canvasDimensions.y * 0.96 + 25;		
 	}
 	else {
 		canvasDimensions = {x: window.self.innerWidth*0.7, y: window.self.innerHeight*0.6};
+		bottomOffsetFullscreen = -canvasDimensions.y * 0.96 + 25;
+		rightOffsetFullscreen = canvasDimensions.x * 0.44;
 	}
 	container.setAttribute("width", canvasDimensions.x);
 	container.setAttribute("height", canvasDimensions.y);
@@ -777,7 +789,10 @@ function onWindowResize() {
 	mainCanvas.setAttribute("width", canvasDimensions.x);
 	mainCanvas.setAttribute("height", canvasDimensions.y);
 	mainCanvas.style.width = "100% !imporant";
-	mainCanvas.style.height = "100% !important";	
+	mainCanvas.style.height = "100% !important";
+	
+	guiContainer.style.left = mainCanvas.offsetLeft + canvasDimensions.x + 'px';
+	guiContainer.style.top = mainCanvas.offsetTop + 'px';
 
 	renderer.setPixelRatio( window.devicePixelRatio );
 	camera.aspect = canvasDimensions.x / canvasDimensions.y;
@@ -785,7 +800,8 @@ function onWindowResize() {
 	renderer.setSize( canvasDimensions.x, canvasDimensions.y );
 	downloadModel.setAttribute('style', 'right: ' + rightOffsetDownload +'%');
 	viewEntity.setAttribute('style', 'right: ' + rightOffsetEntity +'%');
-	fullscreenMode.setAttribute('style', 'bottom:' + Math.round(-canvasDimensions.y * 0.96 + 25) + 'px; right: ' + rightOffsetFullscreen +'%');
+
+	fullscreenMode.setAttribute('style', 'bottom:' + Math.round(bottomOffsetFullscreen) + 'px; right: ' + rightOffsetFullscreen + 'px');
 	controls.update();
 	render();
 }
@@ -1020,7 +1036,7 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 					metadataContainer.appendChild( viewEntity );
 					fullscreenMode = document.createElement('div');
 					fullscreenMode.setAttribute('id', 'fullscreenMode');
-					fullscreenMode.setAttribute('style', 'bottom:' + Math.round(-canvasDimensions.y * 1.05 + 26) + 'px; right: 31%');
+					fullscreenMode.setAttribute('style', 'bottom:' + Math.round(-canvasDimensions.y * 1.05 + 26) + 'px; right: ' + canvasDimensions.x * 0.45 + 'px');
 					fullscreenMode.innerHTML = "<img src='/modules/dfg_3dviewer/main/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
 					metadataContainer.appendChild(fullscreenMode);
 					//var _container = document.getElementById("MainCanvas");
@@ -1462,7 +1478,7 @@ function changeLightRotation () {
 function init() {
 	// model
 	//canvasDimensions = {x: container.getBoundingClientRect().width, y: container.getBoundingClientRect().bottom};
-	canvasDimensions = {x: window.self.innerWidth*0.65, y: window.self.innerHeight*0.55};
+	canvasDimensions = {x: window.self.innerWidth*0.7, y: window.self.innerHeight*0.55};
 	container.setAttribute("width", canvasDimensions.x);
 	container.setAttribute("height", canvasDimensions.y);
 
@@ -1510,6 +1526,9 @@ function init() {
 	canvasText.id = "TextCanvas";
 	canvasText.width = canvasDimensions.x;
 	canvasText.height = canvasDimensions.y;
+	
+	guiContainer.style.left = mainCanvas.offsetLeft + canvasDimensions.x - 18 + 'px';
+	guiContainer.style.top = mainCanvas.offsetTop + 'px';
 
 	//DRUPAL WissKI [start]
 	if (!proxyPath) {
