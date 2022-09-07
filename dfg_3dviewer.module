@@ -208,7 +208,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			$origPath = $subPath . "/gltf/" . $fileBase . ".glb";
 			$origArchPath = $subPath . '/' . $fileBase . "_" . strtoupper($extension) . "/gltf/" . $fileBase . ".glb";
 			if ((!$isArchive && strcmp($origPath, $autoPath) !== 0) || ($isArchive && strcmp($origArchPath, $autoPath) !== 0)) {
-				\Drupal::messenger()->addMessage("GLTF or file with given name (possible archive/filename mismatch) representation not found, trying original file [semi-automatic]...\n", 'warning');
+				\Drupal::messenger()->addMessage("GLTF or file with given name (possible archive/filename mismatch) representation not found, semi-automatic path applied\n", 'warning');
 			}
 			else if (($autoPath))
 			{
@@ -219,7 +219,8 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 					$autoPath = $origPath;
 				}
 			}
-			\Drupal::messenger()->addMessage($fileBase, 'status');
+			$autoPath = str_replace("/var/www/html/3drepository", "https://3d-repository.hs-mainz.de", $autoPath);
+			//\Drupal::messenger()->addMessage($fileBase, 'status');
 			/*\Drupal::messenger()->addMessage($file_url->toString());
 			\Drupal::messenger()->addMessage(file_exists($viewBase . "_side45.png"));
 			\Drupal::messenger()->addMessage($fileName);

@@ -52,12 +52,13 @@ if (!proxyPath) {
 	wisskiID = elementsURL[1];
 	container.setAttribute("wisski_id", wisskiID);
 }
-const filename = container.getAttribute("3d").split("/").pop();
-const basename = filename.substring(0, filename.lastIndexOf('.'));
-const extension = filename.substring(filename.lastIndexOf('.') + 1);	
-const path = container.getAttribute("3d").substring(0, container.getAttribute("3d").lastIndexOf(filename));
+var filename = container.getAttribute("3d").split("/").pop();
+var basename = filename.substring(0, filename.lastIndexOf('.'));
+var extension = filename.substring(filename.lastIndexOf('.') + 1);	
+var path = container.getAttribute("3d").substring(0, container.getAttribute("3d").lastIndexOf(filename));
 const domain = "https://3d-repository.hs-mainz.de";
 const uri = path.replace(domain+"/", "");
+const EXPORT_PATH = '/export_xml_single/';
 const loadedFile = basename + "." + extension;
 var COPYRIGHTS = false;
 const allowedFormats = ['obj', 'fbx', 'ply', 'dae', 'ifc', 'stl', 'xyz', 'pcd', 'json', '3ds'];
@@ -144,8 +145,9 @@ const saveProperties = {
 };
 
 var EDITOR = false;
+var RULER_MODE = false;
 const lineMaterial = new THREE.LineBasicMaterial( { color: 0x0000ff } );
-const linePoints = [];
+var  linePoints = [];
 
 const gui = new GUI({ container: guiContainer });
 //const mainHierarchyFolder = gui.addFolder('Hierarchy');
@@ -200,7 +202,10 @@ var planeObjects = [];
 var clippingGeometry = [];
 
 var textMesh;
-var ruler;
+var textMeshDistance;
+var ruler = [];
+var rulerObject;
+var lastPickedFace = {id: '', color: '', object: ''};
 
 function readWissKI () {
 	const xmlhttp = new XMLHttpRequest();
@@ -321,14 +326,15 @@ function addTextPoint (_text, _scale, _point) {
 
 		//const centerOffset = - 0.5 * ( textGeo.boundingBox.max.x - textGeo.boundingBox.min.x );
 
-		textMesh = new THREE.Mesh( textGeo, materials );
+		textMeshDistance = new THREE.Mesh( textGeo, materials );
 
-		textMesh.rotation.z = Math.PI;
-		textMesh.rotation.y = Math.PI;
+		//textMeshDistance.rotation.z = Math.PI;
+		//textMeshDistance.rotation.y = Math.PI;
 		
-		textMesh.position.set(_point.x, _point.y, _point.z);
-		textMesh.renderOrder = 1;
-		scene.add( textMesh );		
+		textMeshDistance.position.set(_point.x, _point.y, _point.z);
+		textMeshDistance.renderOrder = 1;
+		rulerObject.add(textMeshDistance);
+		//scene.add( textMesh );		
 	} );
 }
 
@@ -375,6 +381,35 @@ function fetchMetadata (_object, _type) {
 		break;
 	}
 }
+function recreateBoundingBox (object) {
+	var _min = new THREE.Vector3();
+	var _max = new THREE.Vector3();
+	if (object instanceof THREE.Object3D)
+	{
+		object.traverse (function (mesh)
+		{
+			if (mesh instanceof THREE.Mesh)
+			{
+				mesh.geometry.computeBoundingBox ();
+				var bBox = mesh.geometry.boundingBox;
+
+				// compute overall bbox
+				_min.x = Math.min (_min.x, bBox.min.x + mesh.position.x);
+				_min.y = Math.min (_min.y, bBox.min.y + mesh.position.y);
+				_min.z = Math.min (_min.z, bBox.min.z + mesh.position.z);
+				_max.x = Math.max (_max.x, bBox.max.x + mesh.position.x);
+				_max.y = Math.max (_max.y, bBox.max.y + mesh.position.y);
+				_max.z = Math.max (_max.z, bBox.max.z + mesh.position.z);
+			}
+		});
+
+		var bBox_min = new THREE.Vector3 (_min.x, _min.y, _min.z);
+		var bBox_max = new THREE.Vector3 (_max.x, _max.y, _max.z);
+		var bBox_new = new THREE.Box3 (bBox_min, bBox_max);
+		object.position.set((bBox_new.min.x+bBox_new.max.x)/2, bBox_new.min.y, (bBox_new.min.z+bBox_new.max.z)/2);
+	}
+	return object;
+}
 
 function setupObject (_object, _camera, _light, _data, _controls) {
 	if (typeof (_data) !== "undefined") {
@@ -392,7 +427,8 @@ function setupObject (_object, _camera, _light, _data, _controls) {
 		if (Array.isArray(_object)) {
 			for (var i = 0; i < _object.length; i++) {
 				boundingBox.setFromObject( _object[i] );
-				_object[i].position.set (0, 0, 0);
+				_object[i].position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
+				//_object[i].position.set (0, 0, 0);
 				_object[i].needsUpdate = true;
 				if (typeof (_object[i].geometry) !== "undefined") {
 					_object[i].geometry.computeBoundingBox();
@@ -402,7 +438,8 @@ function setupObject (_object, _camera, _light, _data, _controls) {
 		}
 		else {
 			boundingBox.setFromObject( _object );
-			_object.position.set (0, 0, 0);
+			_object.position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
+			//_object.position.set (0, 0, 0);
 			_object.needsUpdate = true;
 			if (typeof (_object.geometry) !== "undefined") {
 				_object.geometry.computeBoundingBox();
@@ -715,14 +752,29 @@ function interpolateDistanceBetweenPoints(pointA, vector, length, scalar) {
 }
 
 function pickFaces(_id) {
-	console.log(_id);
-	var rulerObject = new THREE.Object3D();
+	if (lastPickedFace.id == '' && _id !== '') {
+		lastPickedFace = {id: _id, color: _id.object.material.color.getHex(), object: _id.object.id};
+	}
+	else if (_id == '' && lastPickedFace.id !== '') {
+		scene.getObjectById(lastPickedFace.object).material.color.setHex(lastPickedFace.color);
+		lastPickedFace = {id: '', color: '', object: ''};
+	}
+	else if (_id != lastPickedFace.id) {
+		scene.getObjectById(lastPickedFace.object).material.color.setHex(lastPickedFace.color);
+		lastPickedFace = {id: _id, color: _id.object.material.color.getHex(), object: _id.object.id};		
+	}
+	if (_id !== '')
+		_id.object.material.color.setHex(0xFF0000);
+}
+
+function buildRuler(_id) {
+	rulerObject = new THREE.Object3D();
 	var sphere = new THREE.Mesh(new THREE.SphereGeometry(gridSize/150, 7, 7), new THREE.MeshNormalMaterial({
 				transparent : true,
 				opacity : 0.8,
 				side: THREE.DoubleSide, depthTest: false, depthWrite: false
 			}));
-	var newPoint = new THREE.Vector3( _id[0].point.x, _id[0].point.y, _id[0].point.z );
+	var newPoint = new THREE.Vector3( _id.point.x, _id.point.y, _id.point.z );
 	sphere.position.set( newPoint.x, newPoint.y, newPoint.z	);
 	rulerObject.add(sphere);
 	linePoints.push( newPoint );
@@ -743,7 +795,7 @@ function pickFaces(_id) {
             const geoSegm = [];
 			var interpolatePoints = interpolateDistanceBetweenPoints(linePoints[linePoints.length-2], vectorPoints, distancePoints, rulerI/100);
             geoSegm.push(new THREE.Vector3(interpolatePoints.x, interpolatePoints.y, interpolatePoints.z));
-            //geoSegm.push(new THREE.Vector3(interpolatePoints.x+_id[0].face.normal.x, interpolatePoints.y+_id[0].face.normal.y, interpolatePoints.z+_id[0].face.normal.z));
+            //geoSegm.push(new THREE.Vector3(interpolatePoints.x+_id.face.normal.x, interpolatePoints.y+_id.face.normal.y, interpolatePoints.z+_id.face.normal.z));
 			geoSegm.push(new THREE.Vector3(interpolatePoints.x+measureSize, interpolatePoints.y+measureSize, interpolatePoints.z+measureSize));
 			const geometryLine = new THREE.BufferGeometry().setFromPoints( geoSegm );
             var lineSegm = new THREE.Line(geometryLine, lineMtr);
@@ -755,15 +807,7 @@ function pickFaces(_id) {
 	}
 	rulerObject.renderOrder = 1;
 	scene.add(rulerObject);
-	/*if (mainObject.name == "Scene" || mainObject.children.length > 0)
-		mainObject.traverse( function ( child ) {
-			if (child.isMesh) {
-				child.traverse( function ( children ) {
-				});
-			}
-		});
-	else
-		var intersects = raycaster.intersectObjects( mainObject, false );*/
+	ruler.push(rulerObject);
 }
 
 function onWindowResize() {
@@ -1006,7 +1050,7 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 
 		var req = new XMLHttpRequest();
 		req.responseType = 'xml';
-		req.open('GET', domain + '/export_xml_single/' + wisskiID + '?page=0&amp;_format=xml', true);
+		req.open('GET', domain + EXPORT_PATH + wisskiID + '?page=0&amp;_format=xml', true);
 		req.onreadystatechange = function (aEvt) {
 			if (req.readyState == 4) {
 				if(req.status == 200) {
@@ -1285,7 +1329,7 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 								showToast("Model " + filename + " has been loaded.");
 							}
 						}
-					},
+					}/*,
 					function ( ) {						
 							showToast("GLTF or file with given name (possible archive/filename mismatch) representation not found, trying original file [semi-automatic]...");
 							showToast(path.replace("gltf/", "") + filename + " [" + orgExtension + "]");
@@ -1311,7 +1355,7 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 
 							//loadModel(path.replace("gltf/", ""), basename, filename, orgExtension, orgExtension);
 							imported = true;
-					}
+					}*/
 				);
 			break;
 			default:
@@ -1376,7 +1420,7 @@ function onPointerUp( e ) {
 		if (onUpPosition.x == onDownPosition.x && onUpPosition.y == onDownPosition.y) {
 			raycaster.setFromCamera( onUpPosition, camera );
 			var intersects;
-			if (EDITOR) {
+			if (EDITOR || RULER_MODE) {
 				if (mainObject.length > 1) {
 					for (let ii = 0; ii < mainObject.length; ii++) {
 						intersects = raycaster.intersectObjects( mainObject[ii].children, true );
@@ -1389,37 +1433,41 @@ function onPointerUp( e ) {
 					intersects = raycaster.intersectObjects( mainObject[0], true );
 				}
 				if (intersects.length > 0) {
-					pickFaces(intersects);
+					if (RULER_MODE) buildRuler(intersects[0]);
+					else if (EDITOR) pickFaces(intersects[0]);
 				}
 			}
 		}
 	}
 }
 
-function onPointerMove( event ) {
-	//pointer.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
-	//pointer.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
-	pointer.x = ( ( event.clientX - container.getBoundingClientRect().left ) / (canvasDimensions.x - 200 )) * 2 - 1;
-	pointer.y = - ((event.clientY - (container.getBoundingClientRect().top - document.body.scrollTop - 50)) / (canvasDimensions.y)) * 2 + 1;
-	/*pointer.x = ( event.clientX - windowHalfX ) / canvasDimensions.x;
-	pointer.y = ( event.clientY - windowHalfY ) / canvasDimensions.y;
-	raycaster.setFromCamera( pointer, camera );
-	if (typeof(helperObjects[0]) !== "undefined") {
-		if (helperObjects[0].name == "Scene" || helperObjects[0].children.length > 0)
-			var intersects = raycaster.intersectObjects( helperObjects[0].children, false );
-		else
-			var intersects = raycaster.intersectObjects( helperObjects[0], false );
-
-		if ( intersects.length > 0 ) {
-			const object = intersects[ 0 ].object;
-			if ( object !== transformControl.object ) {
-				if ( transformType != "" ) {
-					transformControl.mode = transformType;
-					transformControl.attach( helperObjects[0] );
+function onPointerMove( e ) {
+	pointer.x = ((e.clientX - container.getBoundingClientRect().left)/ renderer.domElement.clientWidth) * 2 - 1;
+	pointer.y = - ((e.clientY - container.getBoundingClientRect().top) / renderer.domElement.clientHeight) * 2 + 1;
+	if (e.buttons != 1) {
+		if (EDITOR) {
+			raycaster.setFromCamera( pointer, camera );
+			var intersects;
+		
+			if (mainObject.length > 1) {
+				for (let ii = 0; ii < mainObject.length; ii++) {
+					intersects = raycaster.intersectObjects( mainObject[ii].children, true );
+				}
+				if (intersects.length <= 0) {
+					intersects = raycaster.intersectObjects( mainObject, true );
 				}
 			}
+			else {
+				intersects = raycaster.intersectObjects( mainObject[0], true );
+			}
+			if (intersects.length > 0) {
+				pickFaces(intersects[0]);
+			}
+			else {
+				pickFaces("");
+			}
 		}
-	}*/
+	}
 }
 
 function changeScale () {
@@ -1568,40 +1616,78 @@ function init() {
 		controls.enabled = ! event.value;
 	} );
 	scene.add( transformControlLightTarget );
+	
+	var _ext = extension.toLowerCase();
 
+	var req = new XMLHttpRequest();
+	req.responseType = 'xml';
+	req.open('GET', domain + EXPORT_PATH + wisskiID + '?page=0&amp;_format=xml', true);
+	req.onreadystatechange = function (aEvt) {
+		if (req.readyState == 4) {
+			if(req.status == 200) {
+				const parser = new DOMParser();
+				const doc = parser.parseFromString(req.responseText, "application/xml");
+				var data = doc.documentElement.childNodes[0].childNodes;
+				if (typeof (data) !== undefined) {
+					var _found = false;
+					for(var i = 0; i < data.length && !_found; i++) {
+						if ((typeof (data[i].tagName) !== "undefined") && (typeof (data[i].textContent) !== "undefined")) {							
+							var _label = data[i].tagName.replace("wisski_path_3d_model__", "");
+							if (typeof(_label) !== "undefined" && _label === "converted_file_name") {
+								_found = true;
+								var _autoPath = data[i].textContent;
+								//check wheter semo-automatic path found
+								if (_autoPath !== '') {							
+									filename = _autoPath.split("/").pop();
+									basename = filename.substring(0, filename.lastIndexOf('.'));
+									extension = filename.substring(filename.lastIndexOf('.') + 1);
+									_ext = extension.toLowerCase();
+									path = _autoPath.substring(0, _autoPath.lastIndexOf(filename));
+								}
+								console.log(path + " | " + basename + " | " + filename + " | " + extension);
+								if (_ext === "glb" || _ext === "gltf") {
+									loadModel (path, basename, filename, extension, extension);
+								}
+								else if  (_ext === "zip" ) {
+									compressedFile = "_ZIP/";
+									loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
+								}
+								else if  (_ext === "rar" ) {
+									compressedFile = "_RAR/";
+									loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
+								}
+								else if  (_ext === "tar" ) {
+									compressedFile = "_TAR/";
+									loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
+								}
+								else if  (_ext === "xz" ) {
+									compressedFile = "_XZ/";
+									loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
+								}
+								else if  (_ext === "gz" ) {
+									compressedFile = "_GZ/";
+									loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
+								}
+								else {
+									loadModel (path+"gltf/", basename, filename, "glb", extension);
+								}								
+							}
+						}
+					}
+				}
+			}
+			else
+				console.log("Error during loading metadata content\n");
+			}
+	};
+	req.send(null);
 	/*try {
 
 	} catch (e) {
 		// statements to handle any exceptions
 		loadModel(path, basename, filename, extension);
 	}*/
-	var _ext = extension.toLowerCase();
-	if (_ext === "glb" || _ext === "gltf") {
-		loadModel (path, basename, filename, extension, extension);
-	}
-	else if  (_ext === "zip" ) {
-		compressedFile = "_ZIP/";
-		loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
-	}
-	else if  (_ext === "rar" ) {
-		compressedFile = "_RAR/";
-		loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
-	}
-	else if  (_ext === "tar" ) {
-		compressedFile = "_TAR/";
-		loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
-	}
-	else if  (_ext === "xz" ) {
-		compressedFile = "_XZ/";
-		loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
-	}
-	else if  (_ext === "gz" ) {
-		compressedFile = "_GZ/";
-		loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
-	}
-	else {
-		loadModel (path+"gltf/", basename, filename, "glb", extension);
-	}
+
 
 	container.addEventListener( 'pointerdown', onPointerDown );
 	container.addEventListener( 'pointerup', onPointerUp );
@@ -1692,13 +1778,36 @@ function init() {
 			};
 			xhr.send(params);
 		}}, 'Save');
-		editorFolder.add({["Picking"] (){
+		editorFolder.add({["Picking mode"] () {
 			EDITOR=!EDITOR;
 			var _str;
 			EDITOR ? _str = "enabled" : _str = "disabled";
-			ruler = new THREE.Group();
 			showToast ("Face picking is " + _str);
-		}}, 'Picking');
+			if (!EDITOR) {
+
+			}
+			else {
+				RULER_MODE = false;
+			}
+		}}, 'Picking mode');
+		editorFolder.add({["Ruler"] () {
+			RULER_MODE=!RULER_MODE;
+			var _str;
+			RULER_MODE ? _str = "enabled" : _str = "disabled";
+			showToast ("Ruler mode is " + _str);
+			if (!RULER_MODE) {
+				
+				ruler.forEach( (r) => {
+					scene.remove(r);
+				});
+				rulerObject = new THREE.Object3D();
+				ruler = [];
+				linePoints = [];
+			}
+			else {
+				EDITOR = false;
+			}
+		}}, 'Ruler');
 		clippingFolder = editorFolder.addFolder('Clipping Planes').close();
 	}
 }
