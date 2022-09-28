@@ -614,7 +614,7 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit 
 
 function buildGallery() {
 	var fileElement = document.getElementsByClassName("field--type-file");
-	fileElement[0].style.height = canvasDimensions.y*1.1 + "px";
+	fileElement[0].style.height = canvasDimensions.y*1.5 + "px";
 	var mainElement = document.getElementById("block-bootstrap5-content");
 	var imageElements = document.getElementsByClassName("field--type-image");
 	var imageList = document.createElement("div");
@@ -647,8 +647,8 @@ function buildGallery() {
 		if (!modalGallery.contains(event.target) && !imageList.contains(event.target)) {
 			//event.preventDefault();
 			modalGallery.style.display = "none";
-			zoomImage = 1.0;
-			modalImage.style.transform = `scale(1.0)`;
+			zoomImage = 1.5;
+			modalImage.style.transform = `scale(1.5)`;
 		}
 	});
 
@@ -814,17 +814,17 @@ function onWindowResize() {
 	var rightOffsetDownload = -64;
 	var rightOffsetEntity = -67;
 	var rightOffsetFullscreen = canvasDimensions.x * 0.45;
-	var bottomOffsetFullscreen = -canvasDimensions.y * 0.97 + 25;
+	var bottomOffsetFullscreen = -canvasDimensions.y * 0.97 + 20;
 	if (FULLSCREEN) {
 		canvasDimensions = {x: screen.width, y: screen.height};
 		rightOffsetDownload = -86.5;
 		rightOffsetEntity = -88;
 		rightOffsetFullscreen = 40;	
-		bottomOffsetFullscreen = -canvasDimensions.y * 0.96 + 25;		
+		bottomOffsetFullscreen = -canvasDimensions.y * 0.96 + 20;		
 	}
 	else {
 		canvasDimensions = {x: window.self.innerWidth*0.7, y: window.self.innerHeight*0.6};
-		bottomOffsetFullscreen = -canvasDimensions.y * 0.96 + 25;
+		bottomOffsetFullscreen = -canvasDimensions.y * 0.96 + 20;
 		rightOffsetFullscreen = canvasDimensions.x * 0.44;
 	}
 	container.setAttribute("width", canvasDimensions.x);
@@ -1041,7 +1041,8 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 		
 		var metadataContainer = document.createElement('div');
 		metadataContainer.setAttribute('id', 'metadata-container');
-		var metadataContent = '<div id="metadata-collapse" class="metadata-collapse">METADATA </div><div id="metadata-content" class="metadata-content">';
+
+		var metadataContent = '<div id="metadata-collapse" class="metadata-collapse metadata-collapsed">METADATA </div><div id="metadata-content" class="metadata-content expanded">';
 		metadataContentTech = '<hr class="metadataSeparator">';
 		metadataContentTech += 'Uploaded file name: <b>' + basename + "." + orgExtension + '</b><br>';
 		metadataContentTech += 'Loaded format: <b>' + extension + '</b><br>';
@@ -1073,14 +1074,17 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 					viewEntity = document.createElement('div');
 					viewEntity.setAttribute('id', 'viewEntity');
 					var c_path = path;
+					console.log(c_path + filename);
 					if (compressedFile !== '') { c_path = domain + '/' +uri; }
 					downloadModel.innerHTML = "<a href='" + c_path + filename + "' download><img src='/modules/dfg_3dviewer/main/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
 					viewEntity.innerHTML = "<a href='" + domain + "/wisski/navigate/" + wisskiID + "/view' target='_blank'><img src='/modules/dfg_3dviewer/main/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>";
-					metadataContainer.appendChild( downloadModel );
+					if (!proxyPath) {
+						metadataContainer.appendChild( downloadModel );
+					}
 					metadataContainer.appendChild( viewEntity );
 					fullscreenMode = document.createElement('div');
 					fullscreenMode.setAttribute('id', 'fullscreenMode');
-					fullscreenMode.setAttribute('style', 'bottom:' + Math.round(-canvasDimensions.y * 1.05 + 26) + 'px; right: ' + canvasDimensions.x * 0.45 + 'px');
+					fullscreenMode.setAttribute('style', 'bottom:' + Math.round(-canvasDimensions.y * 1.05 + 36) + 'px; right: ' + canvasDimensions.x * 0.45 + 'px');
 					fullscreenMode.innerHTML = "<img src='/modules/dfg_3dviewer/main/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
 					metadataContainer.appendChild(fullscreenMode);
 					//var _container = document.getElementById("MainCanvas");
@@ -1316,7 +1320,7 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 							mainObject.push(child);	
 						}
 					});
-					fetchSettings (path.replace("gltf/", ""), basename, filename, gltf.scene, camera, lightObjects[0], controls, orgExtension, extension );
+					fetchSettings (path, basename, filename, gltf.scene, camera, lightObjects[0], controls, orgExtension, extension );
 					scene.add( gltf.scene );
 				},
 					function ( xhr ) {
@@ -1644,7 +1648,7 @@ function init() {
 									_ext = extension.toLowerCase();
 									path = _autoPath.substring(0, _autoPath.lastIndexOf(filename));
 								}
-								console.log(path + " | " + basename + " | " + filename + " | " + extension);
+								//console.log(path + " | " + basename + " | " + filename + " | " + extension);
 								if (_ext === "glb" || _ext === "gltf") {
 									loadModel (path, basename, filename, extension, extension);
 								}
