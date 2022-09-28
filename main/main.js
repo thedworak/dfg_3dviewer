@@ -1030,9 +1030,10 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 				tempArray = {[object.name] (){selectObjectHierarchy(object.id)}, 'id': object.id};
 			}
 			//hierarchy.push(tempArray);
+			if (object.name === "undefined") object.name = "level";
 			clippingGeometry.push(object.geometry);
-			hierarchyFolder = hierarchyMain.addFolder(object.name).close();
-			hierarchyFolder.add(tempArray, 'name' ).name(object.name);
+			hierarchyFolder = hierarchyMain.addFolder(object.name).close();			
+			//hierarchyFolder.add(tempArray, 'name' ).name(object.name);
 			metadata['vertices'] += fetchMetadata (object, 'vertices');
 			metadata['faces'] += fetchMetadata (object, 'faces');
 		}
@@ -1110,8 +1111,9 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 	//lightObjects.push (object);
 }
 
-const onError = function () {
+const onError = function (_event) {
 	//circle.set(100, 100);
+	console.log("Loader error: " + _event);
 	circle.hide();
 	EXIT_CODE=1;
 };
@@ -1237,9 +1239,10 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 					geometry.center();
 					const vertexColors = ( geometry.hasAttribute( 'color' ) === true );
 					const material = new THREE.PointsMaterial( { size: 0.1, vertexColors: vertexColors } );
-					object = new THREE.Points( geometry, material );
+					const object = new THREE.Points( geometry, material );
 					object.position.set (0, 0, 0);
 					scene.add( object );
+					console.log(object);
 					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension );
 					mainObject.push(object);
 				}, onProgress, onError );
@@ -1673,7 +1676,10 @@ function init() {
 									loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
 								}
 								else {
-									loadModel (path+"gltf/", basename, filename, "glb", extension);
+									if (_ext === "glb")
+										loadModel (path, basename, filename, "glb", extension);
+									else
+										loadModel (path, basename, filename, _ext, extension);
 								}								
 							}
 						}

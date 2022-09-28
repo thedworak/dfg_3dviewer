@@ -33,13 +33,31 @@ function url_exists ($url) {
 	return str_contains(get_headers($url)[0], "200 OK");
 }
 
-function semi_automatic_path ($prefix, $filename, $filenameArchive, &$autoPath) {
+function semi_automatic_path ($prefix, $filename, $filenameArchive, &$autoPath, $extension) {
 	$allowedFormats = array('obj', 'fbx', 'ply', 'dae', 'ifc', 'stl', 'xyz', 'pcd', 'json', '3ds');
 	$prefix = "/var/www/html/3drepository" . $prefix;
 	$autoPath = '';
 	if ($filenameArchive === '') $filenameArchive = $filename;
-	if(!file_exists($prefix . "/gltf/" . $filename . ".glb")) {
-		if(!file_exists($prefix . "/gltf/" . $filenameArchive . ".glb")) {
+	if (in_arrayi($extension, $allowedFormats)) {
+		if(!file_exists($prefix . "/gltf/" . $filename . ".glb")) {
+			if(!file_exists($prefix . "/gltf/" . $filenameArchive . ".glb")) {
+				foreach ($allowedFormats as $value) {
+					$autoPath = $prefix . "/" . $filenameArchive . "." . $value;
+					if(!file_exists($autoPath)) {
+						$autoPath = '';
+					}
+				}
+			}
+			else
+			{
+				$autoPath = $prefix . "/gltf/" . $filenameArchive . ".glb";
+			}
+		}
+		else
+		{
+			$autoPath = $prefix . "/gltf/" . $filename . ".glb";
+		}
+		if ($autoPath === '') {
 			foreach ($allowedFormats as $value) {
 				$autoPath = $prefix . "/" . $filenameArchive . "." . $value;
 				if(!file_exists($autoPath)) {
@@ -47,21 +65,17 @@ function semi_automatic_path ($prefix, $filename, $filenameArchive, &$autoPath) 
 				}
 			}
 		}
-		else
-		{
-			$autoPath = $prefix . "/gltf/" . $filenameArchive . ".glb";
+	}
+	else {
+		$autoPath = $prefix . "/" . $filenameArchive . "." . $extension;
+		if(!file_exists($autoPath)) {
+			$autoPath = '';
 		}
 	}
-	else
-	{
-		$autoPath = $prefix . "/gltf/" . $filename . ".glb";
-	}
 	if ($autoPath === '') {
-		foreach ($allowedFormats as $value) {
-			$autoPath = $prefix . "/" . $filenameArchive . "." . $value;
-			if(!file_exists($autoPath)) {
-				$autoPath = '';
-			}
+		$autoPath = $prefix . "/" . $filenameArchive . "." . $extension;
+		if(!file_exists($autoPath)) {
+			$autoPath = '';
 		}
 	}
 }
@@ -140,10 +154,10 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 				\Drupal::messenger()->addMessage($output, 'status');
 			}
 			else if ($retval === 1) {
-				\Drupal::messenger()->addMessage(serialize($output), 'warning');
+				\Drupal::messenger()->addMessage($output, 'warning');
 			}
 			else if ($retval === 2) {
-			\Drupal::messenger()->addMessage(serialize($output), 'error');
+			\Drupal::messenger()->addMessage($output, 'error');
 			}
 		}
 	}
@@ -200,14 +214,14 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			//$fileBase = $parts['filename'];
 			$fileBaseArchive = preg_replace('/_[0-9]+$/', '', $fileBase, 1);
 			if (in_arrayi($extension, $archives)) {
-				semi_automatic_path ($subPath . '/' . $fileBase . "_" . strtoupper($extension), $fileBase, $fileBaseArchive, $autoPath);
+				semi_automatic_path ($subPath . '/' . $fileBase . "_" . strtoupper($extension), $fileBase, $fileBaseArchive, $autoPath, $extension);
 			}
 			else {
-				semi_automatic_path ($subPath, $fileBase, '', $autoPath);
+				semi_automatic_path ($subPath, $fileBase, '', $autoPath, $extension);
 			}
 			$origPath = $subPath . "/gltf/" . $fileBase . ".glb";
 			$origArchPath = $subPath . '/' . $fileBase . "_" . strtoupper($extension) . "/gltf/" . $fileBase . ".glb";
-			if ((!$isArchive && strcmp($origPath, $autoPath) !== 0) || ($isArchive && strcmp($origArchPath, $autoPath) !== 0)) {
+			if ($autoPath != "" && ((!$isArchive && strcmp($origPath, $autoPath) !== 0) || ($isArchive && strcmp($origArchPath, $autoPath) !== 0))) {
 				\Drupal::messenger()->addMessage("GLTF or file with given name (possible archive/filename mismatch) representation not found, semi-automatic path applied\n", 'warning');
 			}
 			else if (($autoPath))

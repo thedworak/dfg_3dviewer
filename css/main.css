@@ -179,8 +179,8 @@ canvas {
 	margin: auto;
 	display: block;
 	width: auto;
-	height: 90%;
-	max-width: 90%;
+	height: 100%;
+	max-width: 100%;
 	animation-name: zoom;
 	animation-duration: 0.6s;
 }
