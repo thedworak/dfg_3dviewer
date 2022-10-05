@@ -1695,6 +1695,35 @@ function init() {
 			}
 			else
 				console.log("Error during loading metadata content\n");
+				if (_ext === "glb" || _ext === "gltf") {
+					loadModel (path, basename, filename, extension, extension);
+				}
+				else if  (_ext === "zip" ) {
+					compressedFile = "_ZIP/";
+					loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
+				}
+				else if  (_ext === "rar" ) {
+					compressedFile = "_RAR/";
+					loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
+				}
+				else if  (_ext === "tar" ) {
+					compressedFile = "_TAR/";
+					loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
+				}
+				else if  (_ext === "xz" ) {
+					compressedFile = "_XZ/";
+					loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
+				}
+				else if  (_ext === "gz" ) {
+					compressedFile = "_GZ/";
+					loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
+				}
+				else {
+					if (_ext === "glb")
+						loadModel (path, basename, filename, "glb", extension);
+					else
+						loadModel (path, basename, filename, _ext, extension);
+				}
 			}
 	};
 	req.send(null);
