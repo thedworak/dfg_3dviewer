@@ -26,6 +26,8 @@ import { PCDLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/PCDLoader.j
 import { FontLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/FontLoader.js';
 import { TextGeometry } from '/modules/dfg_3dviewer/main/js/jsm/geometries/TextGeometry.js';
 
+import CONFIG from './config.json' assert {type: 'json'};
+
 let camera, scene, renderer, stats, controls, loader, ambientLight, dirLight, dirLightTarget;
 let imported;
 var mainObject = [];
@@ -40,7 +42,7 @@ var FULLSCREEN = false;
 
 let mixer;
 
-const container = document.getElementById("DFG_3DViewer");
+const container = document.getElementById(CONFIG.container);
 container.setAttribute("width", window.self.innerWidth);
 container.setAttribute("height", window.self.innerHeight);
 container.setAttribute("display", "flex");
@@ -56,8 +58,7 @@ var filename = container.getAttribute("3d").split("/").pop();
 var basename = filename.substring(0, filename.lastIndexOf('.'));
 var extension = filename.substring(filename.lastIndexOf('.') + 1);	
 var path = container.getAttribute("3d").substring(0, container.getAttribute("3d").lastIndexOf(filename));
-const domain = "https://3d-repository.hs-mainz.de";
-const uri = path.replace(domain+"/", "");
+const uri = path.replace(CONFIG.domain+"/", "");
 const EXPORT_PATH = '/export_xml_single/';
 const loadedFile = basename + "." + extension;
 var COPYRIGHTS = false;
@@ -811,14 +812,14 @@ function buildRuler(_id) {
 }
 
 function onWindowResize() {
-	var rightOffsetDownload = -64;
-	var rightOffsetEntity = -67;
+	var rightOffsetDownload = -67;
+	var rightOffsetEntity = -65;
 	var rightOffsetFullscreen = canvasDimensions.x * 0.45;
 	var bottomOffsetFullscreen = -canvasDimensions.y * 0.97 + 20;
 	if (FULLSCREEN) {
 		canvasDimensions = {x: screen.width, y: screen.height};
-		rightOffsetDownload = -86.5;
-		rightOffsetEntity = -88;
+		rightOffsetDownload = -98;
+		rightOffsetEntity = -95;
 		rightOffsetFullscreen = 40;	
 		bottomOffsetFullscreen = -canvasDimensions.y * 0.96 + 20;		
 	}
@@ -1052,7 +1053,7 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 
 		var req = new XMLHttpRequest();
 		req.responseType = 'xml';
-		req.open('GET', domain + EXPORT_PATH + wisskiID + '?page=0&amp;_format=xml', true);
+		req.open('GET', CONFIG.domain + EXPORT_PATH + wisskiID + '?page=0&amp;_format=xml', true);
 		req.onreadystatechange = function (aEvt) {
 			if (req.readyState == 4) {
 				if(req.status == 200) {
@@ -1076,11 +1077,15 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 					viewEntity.setAttribute('id', 'viewEntity');
 					var c_path = path;
 					console.log(c_path + filename);
-					if (compressedFile !== '') { c_path = domain + '/' +uri; }
+					if (compressedFile !== '') { c_path = CONFIG.domain + '/' +uri; }
 					downloadModel.innerHTML = "<a href='" + c_path + filename + "' download><img src='/modules/dfg_3dviewer/main/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
-					viewEntity.innerHTML = "<a href='" + domain + "/wisski/navigate/" + wisskiID + "/view' target='_blank'><img src='/modules/dfg_3dviewer/main/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>";
+					
 					if (!proxyPath) {
 						metadataContainer.appendChild( downloadModel );
+					}
+					else
+					{
+						viewEntity.innerHTML = "<a href='" + CONFIG.domain + "/wisski/navigate/" + wisskiID + "/view' target='_blank'><img src='/modules/dfg_3dviewer/main/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>";
 					}
 					metadataContainer.appendChild( viewEntity );
 					fullscreenMode = document.createElement('div');
@@ -1242,7 +1247,6 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 					const object = new THREE.Points( geometry, material );
 					object.position.set (0, 0, 0);
 					scene.add( object );
-					console.log(object);
 					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension );
 					mainObject.push(object);
 				}, onProgress, onError );
@@ -1628,7 +1632,7 @@ function init() {
 
 	var req = new XMLHttpRequest();
 	req.responseType = 'xml';
-	req.open('GET', domain + EXPORT_PATH + wisskiID + '?page=0&amp;_format=xml', true);
+	req.open('GET', CONFIG.domain + EXPORT_PATH + wisskiID + '?page=0&amp;_format=xml', true);
 	req.onreadystatechange = function (aEvt) {
 		if (req.readyState == 4) {
 			if(req.status == 200) {
@@ -1766,7 +1770,7 @@ function init() {
 			var xhr = new XMLHttpRequest(),
 				jsonArr,
 				method = "POST",
-				jsonRequestURL = domain + "/editor.php";
+				jsonRequestURL = CONFIG.domain + "/editor.php";
 
 			xhr.open(method, jsonRequestURL, true);
 			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
