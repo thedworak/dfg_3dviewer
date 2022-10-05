@@ -1,3 +1,4 @@
 *.yml~
 *.module~
 *.php~
+main/config.json

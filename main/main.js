@@ -616,8 +616,8 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit 
 function buildGallery() {
 	var fileElement = document.getElementsByClassName("field--type-file");
 	fileElement[0].style.height = canvasDimensions.y*1.5 + "px";
-	var mainElement = document.getElementById("block-bootstrap5-content");
-	var imageElements = document.getElementsByClassName("field--type-image");
+	var mainElement = document.getElementById(CONFIG.galleryContainer);
+	var imageElements = document.getElementsByClassName(CONFIG.galleryImageClass);
 	var imageList = document.createElement("div");
 	imageList.setAttribute('id', 'image-list');
 	var modalGallery = document.createElement('div');
