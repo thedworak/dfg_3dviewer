@@ -1635,7 +1635,7 @@ function init() {
 
 	var req = new XMLHttpRequest();
 	req.responseType = 'xml';
-	req.open('GET', CONFIG.domain + EXPORT_PATH + wisskiID + '?page=0&amp;_format=xml', true);
+	req.open('GET', CONFIG.metadataDomain + EXPORT_PATH + wisskiID + '?page=0&amp;_format=xml', true);
 	req.onreadystatechange = function (aEvt) {
 		if (req.readyState == 4) {
 			if(req.status == 200) {
