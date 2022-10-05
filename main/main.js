@@ -1055,7 +1055,7 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 
 		var req = new XMLHttpRequest();
 		req.responseType = 'xml';
-		req.open('GET', CONFIG.domain + EXPORT_PATH + wisskiID + '?page=0&amp;_format=xml', true);
+		req.open('GET', CONFIG.metadataDomain + EXPORT_PATH + wisskiID + '?page=0&amp;_format=xml', true);
 		req.onreadystatechange = function (aEvt) {
 			if (req.readyState == 4) {
 				if(req.status == 200) {
@@ -1079,7 +1079,8 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 					viewEntity.setAttribute('id', 'viewEntity');
 					var c_path = path;
 					console.log(c_path + filename);
-					if (compressedFile !== '') { c_path = CONFIG.domain + '/' +uri; }
+					//if (compressedFile !== '') { c_path = CONFIG.domain + '/' + uri; }
+					if (compressedFile !== '') { filename = filename.replace(orgExtension, extension); }
 					downloadModel.innerHTML = "<a href='" + c_path + filename + "' download><img src='/modules/dfg_3dviewer/main/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
 					
 					if (!proxyPath) {
@@ -1657,7 +1658,7 @@ function init() {
 									_ext = extension.toLowerCase();
 									path = _autoPath.substring(0, _autoPath.lastIndexOf(filename));
 								}
-								//console.log(path + " | " + basename + " | " + filename + " | " + extension);
+								//console.log(path + " | " + basename + " | " + filename + " | " + extension + " | " + _ext);
 								if (_ext === "glb" || _ext === "gltf") {
 									loadModel (path, basename, filename, extension, extension);
 								}
