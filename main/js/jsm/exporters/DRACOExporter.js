@@ -1,5 +1,5 @@
 /**
- * Export draco compressed files from threejs geometry objects.
+ * Export draco compressed files from ../../../build/three.module.jsjs geometry objects.
  *
  * Draco files are compressed and usually are smaller than conventional 3D file formats.
  *
@@ -26,12 +26,6 @@ class DRACOExporter {
 		exportColor: false,
 	} ) {
 
-		if ( object.isBufferGeometry === true ) {
-
-			throw new Error( 'DRACOExporter: The first parameter of parse() is now an instance of Mesh or Points.' );
-
-		}
-
 		if ( DracoEncoderModule === undefined ) {
 
 			throw new Error( 'THREE.DRACOExporter: required the draco_encoder to work.' );
@@ -44,13 +38,6 @@ class DRACOExporter {
 		const encoder = new dracoEncoder.Encoder();
 		let builder;
 		let dracoObject;
-
-
-		if ( geometry.isBufferGeometry !== true ) {
-
-			throw new Error( 'THREE.DRACOExporter.parse(geometry, options): geometry is not a THREE.BufferGeometry instance.' );
-
-		}
 
 		if ( object.isMesh === true ) {
 

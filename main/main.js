@@ -1,30 +1,31 @@
 //Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF
 
+
 import * as THREE from './build/three.module.js';
-import { TWEEN } from '/modules/dfg_3dviewer/main/js/jsm/libs/tween.module.min.js';
+import { TWEEN } from './js/jsm/libs/tween.module.min.js';
 
-import Stats from '/modules/dfg_3dviewer/main/js/jsm/libs/stats.module.js';
+import Stats from './js/jsm/libs/stats.module.js';
 
-import { OrbitControls } from '/modules/dfg_3dviewer/main/js/jsm/controls/OrbitControls.js';
-import { TransformControls } from '/modules/dfg_3dviewer/main/js/jsm/controls/TransformControls.js';
+import { OrbitControls } from './js/jsm/controls/OrbitControls.js';
+import { TransformControls } from './js/jsm/controls/TransformControls.js';
 import { GUI } from '/modules/dfg_3dviewer/main/node_modules/lil-gui/dist/lil-gui.esm.min.js';
-import { FBXLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/FBXLoader.js';
-import { DDSLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/DDSLoader.js';
-import { MTLLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/MTLLoader.js';
-import { OBJLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/OBJLoader.js';
-import { GLTFLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/GLTFLoader.js';
-import { DRACOLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/DRACOLoader.js';
-import { KTX2Loader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/KTX2Loader.js';
-import { MeshoptDecoder } from '/modules/dfg_3dviewer/main/js/jsm/libs/meshopt_decoder.module.js';
-import { IFCLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/IFCLoader.js';
-import { PLYLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/PLYLoader.js';
-import { ColladaLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/ColladaLoader.js';
-import { STLLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/STLLoader.js';
-import { XYZLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/XYZLoader.js';
-import { TDSLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/TDSLoader.js';
-import { PCDLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/PCDLoader.js';
-import { FontLoader } from '/modules/dfg_3dviewer/main/js/jsm/loaders/FontLoader.js';
-import { TextGeometry } from '/modules/dfg_3dviewer/main/js/jsm/geometries/TextGeometry.js';
+import { FBXLoader } from './js/jsm/loaders/FBXLoader.js';
+import { DDSLoader } from './js/jsm/loaders/DDSLoader.js';
+import { MTLLoader } from './js/jsm/loaders/MTLLoader.js';
+import { OBJLoader } from './js/jsm/loaders/OBJLoader.js';
+import { GLTFLoader } from './js/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from './js/jsm/loaders/DRACOLoader.js';
+import { KTX2Loader } from './js/jsm/loaders/KTX2Loader.js';
+import { MeshoptDecoder } from './js/jsm/libs/meshopt_decoder.module.js';
+import { IFCLoader } from './js/jsm/loaders/IFCLoader.js';
+import { PLYLoader } from './js/jsm/loaders/PLYLoader.js';
+import { ColladaLoader } from './js/jsm/loaders/ColladaLoader.js';
+import { STLLoader } from './js/jsm/loaders/STLLoader.js';
+import { XYZLoader } from './js/jsm/loaders/XYZLoader.js'; 
+import { TDSLoader } from './js/jsm/loaders/TDSLoader.js';
+import { PCDLoader } from './js/jsm/loaders/PCDLoader.js';
+import { FontLoader } from './js/jsm/loaders/FontLoader.js';
+import { TextGeometry } from './js/jsm/geometries/TextGeometry.js';
 
 import CONFIG from './config.json' assert {type: 'json'};
 
@@ -1145,7 +1146,7 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 		if (proxyPath) {
 			modelPath = getProxyPath(modelPath);
 		}
-
+		console.log(path + " " + basename + " " + filename + " " + extension + " " + orgExtension);
 		switch(extension.toLowerCase()) {
 			case 'obj':
 				const manager = new THREE.LoadingManager();
@@ -1278,7 +1279,7 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 			case '3ds':
 				loader = new TDSLoader( );
 				loader.setResourcePath( path );
-				modelPath = path + basename + "." + extension;
+				modelPath = path;
 				if (proxyPath) {
 					modelPath = getProxyPath(modelPath);
 				}
@@ -1537,6 +1538,22 @@ function changeLightRotation () {
 	lightHelper.update();
 }
 
+function mainLoadModel (_ext) {
+	if (_ext === "glb" || _ext === "gltf") {
+		loadModel (path, basename, filename, extension, _ext);
+	}
+	else if  (_ext === "zip" || _ext === "rar" || _ext === "tar" || _ext === "xz" || _ext === "gz" ) {
+		compressedFile = "_" + _ext.toUpperCase() + "/";
+		loadModel (path+basename+compressedFile+"gltf/", basename, filename,  "glb", _ext);
+	}
+	else {
+		if (_ext === "glb")
+			loadModel (path, basename, filename, "glb", extension);
+		else
+			loadModel (path, basename, filename, _ext, extension);
+	}
+}
+
 function init() {
 	// model
 	//canvasDimensions = {x: container.getBoundingClientRect().width, y: container.getBoundingClientRect().bottom};
@@ -1659,72 +1676,17 @@ function init() {
 									path = _autoPath.substring(0, _autoPath.lastIndexOf(filename));
 								}
 								//console.log(path + " | " + basename + " | " + filename + " | " + extension + " | " + _ext);
-								if (_ext === "glb" || _ext === "gltf") {
-									loadModel (path, basename, filename, extension, extension);
-								}
-								else if  (_ext === "zip" ) {
-									compressedFile = "_ZIP/";
-									loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
-								}
-								else if  (_ext === "rar" ) {
-									compressedFile = "_RAR/";
-									loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
-								}
-								else if  (_ext === "tar" ) {
-									compressedFile = "_TAR/";
-									loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
-								}
-								else if  (_ext === "xz" ) {
-									compressedFile = "_XZ/";
-									loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
-								}
-								else if  (_ext === "gz" ) {
-									compressedFile = "_GZ/";
-									loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
-								}
-								else {
-									if (_ext === "glb")
-										loadModel (path, basename, filename, "glb", extension);
-									else
-										loadModel (path, basename, filename, _ext, extension);
-								}								
+								mainLoadModel(_ext);
 							}
 						}
 					}
 				}
 			}
-			else
+			else {
 				console.log("Error during loading metadata content\n");
-				if (_ext === "glb" || _ext === "gltf") {
-					loadModel (path, basename, filename, extension, extension);
-				}
-				else if  (_ext === "zip" ) {
-					compressedFile = "_ZIP/";
-					loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
-				}
-				else if  (_ext === "rar" ) {
-					compressedFile = "_RAR/";
-					loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
-				}
-				else if  (_ext === "tar" ) {
-					compressedFile = "_TAR/";
-					loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
-				}
-				else if  (_ext === "xz" ) {
-					compressedFile = "_XZ/";
-					loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
-				}
-				else if  (_ext === "gz" ) {
-					compressedFile = "_GZ/";
-					loadModel (path+basename+compressedFile+"gltf/", basename, filename, "glb", extension);
-				}
-				else {
-					if (_ext === "glb")
-						loadModel (path, basename, filename, "glb", extension);
-					else
-						loadModel (path, basename, filename, _ext, extension);
-				}
+				mainLoadModel (_ext);
 			}
+		}
 	};
 	req.send(null);
 	/*try {
