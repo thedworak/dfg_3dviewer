@@ -2,6 +2,7 @@ dfg_3dviewer:
   js:
     #main/importmap.js: { attributes: { type: importmap } }
     main/main.js: { attributes: { type: module } }
+    #main/data.js: { }
     main/toastify.js: { }
     main/spinner/main.js: { }
   css:

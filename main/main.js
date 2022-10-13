@@ -27,7 +27,14 @@ import { PCDLoader } from './js/jsm/loaders/PCDLoader.js';
 import { FontLoader } from './js/jsm/loaders/FontLoader.js';
 import { TextGeometry } from './js/jsm/geometries/TextGeometry.js';
 
-import CONFIG from './config.json' assert {type: 'json'};
+//import CONFIG from './config.json' assert {type: 'json'}; //disabled temporary because of Firefox assertion bug
+const CONFIG = {
+	"domain": "https://3d-repository.hs-mainz.de",
+	"metadataDomain": "https://3d-repository.hs-mainz.de",
+	"container": "DFG_3DViewer",
+	"galleryContainer": "block-bootstrap5-content",
+	"galleryImageClass": "field--type-image"
+};
 
 let camera, scene, renderer, stats, controls, loader, ambientLight, dirLight, dirLightTarget;
 let imported;
