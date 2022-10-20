@@ -1,3 +1,19 @@
+/*
+DFG 3D-Viewer
+Copyright (C) 2022 - Daniel Dworak
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details at 
+https://www.gnu.org/licenses/.
+*/
+
 //Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF
 
 
@@ -1805,11 +1821,11 @@ function init() {
 				RULER_MODE = false;
 			}
 		}}, 'Picking mode');
-		editorFolder.add({["Ruler"] () {
+		editorFolder.add({["Distance Measurement"] () {
 			RULER_MODE=!RULER_MODE;
 			var _str;
 			RULER_MODE ? _str = "enabled" : _str = "disabled";
-			showToast ("Ruler mode is " + _str);
+			showToast ("Distance measurement mode is " + _str);
 			if (!RULER_MODE) {
 				
 				ruler.forEach( (r) => {
@@ -1822,7 +1838,7 @@ function init() {
 			else {
 				EDITOR = false;
 			}
-		}}, 'Ruler');
+		}}, 'Distance Measurement');
 		clippingFolder = editorFolder.addFolder('Clipping Planes').close();
 	}
 }
