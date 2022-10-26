@@ -299,7 +299,7 @@ function addTextWatermark (_text, _scale) {
 	loader.load( '/modules/dfg_3dviewer/main/fonts/helvetiker_regular.typeface.json', function ( font ) {
 
 		const textGeo = new TextGeometry( _text, {
-			font: font,
+			font,
 			size: _scale*3,
 			height: _scale/10,
 			curveSegments: 5,
@@ -450,7 +450,7 @@ function setupObject (_object, _camera, _light, _data, _controls) {
 	else {
 		var boundingBox = new THREE.Box3();
 		if (Array.isArray(_object)) {
-			for (var i = 0; i < _object.length; i++) {
+			for (let i = 0; i < _object.length; i++) {
 				boundingBox.setFromObject( _object[i] );
 				_object[i].position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
 				//_object[i].position.set (0, 0, 0);
@@ -515,7 +515,7 @@ function setupClippingPlanes (_geometry, _size, _distance) {
 function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit ) {
 	const boundingBox = new THREE.Box3();
 	if (Array.isArray(object)) {
-		for (var i = 0; i < object.length; i++) {			
+		for (let i = 0; i < object.length; i++) {			
 			boundingBox.setFromObject( object[i] );
 		}
 	}
@@ -680,16 +680,16 @@ function buildGallery() {
 
 		modalGallery.appendChild(modalImage);
 		modalGallery.appendChild(modalClose);
-		for (var i = 0; imageElements.length - i; imageList.firstChild === imageElements[0] && i++) {
+		for (let i = 0; imageElements.length - i; imageList.firstChild === imageElements[0] && i++) {
 			//imageElements[i].className += " image-list-item";
 			var imgList = imageElements[i].getElementsByTagName("a");
-			for (var j = 0; j < imgList.length; j++) {
+			for (let j = 0; j < imgList.length; j++) {
 				imgList[j].setAttribute("href", "#");
 				imgList[j].setAttribute("src", imgList[j].firstChild.src);
 				imgList[j].setAttribute("class", "image-list-item");
 			}
 			imgList = imageElements[i].getElementsByTagName("img");
-			for (var j = 0; j < imgList.length; j++) {
+			for (let j = 0; j < imgList.length; j++) {
 				imgList[j].onclick = function(){
 					modalGallery.style.display = "block";
 					modalImage.src = this.src;
@@ -741,7 +741,7 @@ function setupCamera (_object, _camera, _light, _data, _controls) {
 	else {
 		var boundingBox = new THREE.Box3();
 		if (Array.isArray(_object)) {
-			for (var i = 0; i < _object.length; i++) {
+			for (let i = 0; i < _object.length; i++) {
 				boundingBox.setFromObject( _object[i] );
 			}
 		}
@@ -1132,7 +1132,7 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 					}
 				}
 				else
-					console.log("Error during loading metadata content\n");
+					showToast("Error during loading metadata content");
 				}
 		};
 		req.send(null);
@@ -1414,9 +1414,8 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 function animate() {
 	requestAnimationFrame( animate );
 	const delta = clock.getDelta();
-	if ( mixer ) mixer.update( delta ); {
-		TWEEN.update();
-	}
+	if ( mixer ) { mixer.update( delta ); }
+	TWEEN.update();
 	/*for ( let i = 0; i < clippingPlanes.length && clippingMode; i ++ ) {
 		const plane = clippingPlanes[ i ];
 		const po = planeObjects[ i ];
@@ -1440,7 +1439,7 @@ function updateObject () {
 function onPointerDown( e ) {
 	//onDownPosition.x = event.clientX;
 	//onDownPosition.y = event.clientY;
-	if (e.button == 0) {
+	if (e.button === 0) {
 		onDownPosition.x = ((e.clientX - container.getBoundingClientRect().left)/ renderer.domElement.clientWidth) * 2 - 1;
 		onDownPosition.y = - ((e.clientY - container.getBoundingClientRect().top) / renderer.domElement.clientHeight) * 2 + 1;
 	}
@@ -1455,7 +1454,7 @@ function onPointerUp( e ) {
 		onUpPosition.x = ((e.clientX - container.getBoundingClientRect().left)/ renderer.domElement.clientWidth) * 2 - 1;
 		onUpPosition.y = - ((e.clientY - container.getBoundingClientRect().top) / renderer.domElement.clientHeight) * 2 + 1;
 		
-		if (onUpPosition.x == onDownPosition.x && onUpPosition.y == onDownPosition.y) {
+		if (onUpPosition.x === onDownPosition.x && onUpPosition.y === onDownPosition.y) {
 			raycaster.setFromCamera( onUpPosition, camera );
 			var intersects;
 			if (EDITOR || RULER_MODE) {
@@ -1530,7 +1529,7 @@ function changeScale () {
 function calculateObjectScale () {
 	const boundingBox = new THREE.Box3();
 	if (Array.isArray(helperObjects[0])) {
-		for (var i = 0; i < helperObjects[0].length; i++) {			
+		for (let i = 0; i < helperObjects[0].length; i++) {			
 			boundingBox.setFromObject( object[i] );
 		}
 	}
