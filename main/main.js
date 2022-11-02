@@ -869,7 +869,9 @@ function onWindowResize() {
 	camera.aspect = canvasDimensions.x / canvasDimensions.y;
 	camera.updateProjectionMatrix();
 	renderer.setSize( canvasDimensions.x, canvasDimensions.y );
-	downloadModel.setAttribute('style', 'right: ' + rightOffsetDownload +'%');
+	if (!proxyPath) {
+		downloadModel.setAttribute('style', 'right: ' + rightOffsetDownload +'%');
+	}
 	viewEntity.setAttribute('style', 'right: ' + rightOffsetEntity +'%');
 
 	fullscreenMode.setAttribute('style', 'bottom:' + Math.round(bottomOffsetFullscreen) + 'px; right: ' + rightOffsetFullscreen + 'px');
@@ -1097,15 +1099,19 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 					metadataContent += metadataContentTech + '</div>';
 					canvasText.innerHTML = metadataContent;
 					metadataContainer.appendChild( canvasText );
-					downloadModel = document.createElement('div');
-					downloadModel.setAttribute('id', 'downloadModel');
+					if (!proxyPath) {
+						downloadModel = document.createElement('div');
+						downloadModel.setAttribute('id', 'downloadModel');
+					}
 					viewEntity = document.createElement('div');
 					viewEntity.setAttribute('id', 'viewEntity');
 					var c_path = path;
 					console.log(c_path + filename);
 					//if (compressedFile !== '') { c_path = CONFIG.domain + '/' + uri; }
 					if (compressedFile !== '') { filename = filename.replace(orgExtension, extension); }
-					downloadModel.innerHTML = "<a href='" + c_path + filename + "' download><img src='/modules/dfg_3dviewer/main/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
+					if (!proxyPath) {
+						downloadModel.innerHTML = "<a href='" + c_path + filename + "' download><img src='/modules/dfg_3dviewer/main/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
+					}
 					
 					if (!proxyPath) {
 						metadataContainer.appendChild( downloadModel );
