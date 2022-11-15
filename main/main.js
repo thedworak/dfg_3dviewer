@@ -53,6 +53,7 @@ const CONFIG = {
 };
 
 let camera, scene, renderer, stats, controls, loader, ambientLight, dirLight, dirLightTarget;
+let dirLights = [];
 let imported;
 var mainObject = [];
 var metadataContentTech;

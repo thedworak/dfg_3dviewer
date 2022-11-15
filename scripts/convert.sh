@@ -14,6 +14,7 @@ GLTF="gltf"
 FORCE="false"
 isOutput=false
 IS_ARCHIVE=false
+SPATH="/var/www/html/3drepository/modules/dfg_3dviewer"
 
 while getopts ":c:l:o:i:b:f:" flag; do
     case "${flag}" in
@@ -32,9 +33,9 @@ render_preview () {
 		mkdir "$INPATH/views/"
 	fi
 	if [[ "$EXT" = "glb" ]]; then
-		xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo ${BLENDER_PATH}blender -b -P /var/www/html/3drepository/modules/dfg_3dviewer/scripts/render.py -- "$INPATH/$NAME.glb" "glb" $1 "$INPATH/views/" $IS_ARCHIVE -E BLENDER_EEVEE -f 1  > /dev/null 2>&1
+		xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/render.py -- "$INPATH/$NAME.glb" "glb" $1 "$INPATH/views/" $IS_ARCHIVE -E BLENDER_EEVEE -f 1  > /dev/null 2>&1
 	else
-		xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo ${BLENDER_PATH}blender -b -P /var/www/html/3drepository/modules/dfg_3dviewer/scripts/render.py -- "$INPATH/gltf/$NAME.glb" "glb" $1 "$INPATH/views/" $IS_ARCHIVE -E BLENDER_EEVEE -f 1  > /dev/null 2>&1
+		xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/render.py -- "$INPATH/gltf/$NAME.glb" "glb" $1 "$INPATH/views/" $IS_ARCHIVE -E BLENDER_EEVEE -f 1  > /dev/null 2>&1
 	fi;
 }
 
@@ -47,9 +48,9 @@ handle_file () {
 	OUTPUTPATH=$6
 
 	if [[ "$isOutput" = false ]]; then
-		${BLENDER_PATH}blender -b -P /var/www/html/3drepository/modules/dfg_3dviewer/scripts/2gltf2/2gltf2.py -- "$INPATH/$FILENAME" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" > /dev/null 2>&1
+		${BLENDER_PATH}blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- "$INPATH/$FILENAME" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" > /dev/null 2>&1
 	else
-		${BLENDER_PATH}blender -b -P /var/www/html/3drepository/modules/dfg_3dviewer/scripts/2gltf2/2gltf2.py -- "$INPATH/$FILENAME" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" "$OUTPUT$OUTPUTPATH" > /dev/null 2>&1
+		${BLENDER_PATH}blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- "$INPATH/$FILENAME" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" "$OUTPUT$OUTPUTPATH" > /dev/null 2>&1
 	fi
 	
 	if [[ -f "$INPATH/gltf/$NAME.glb" ]]; then
@@ -81,7 +82,7 @@ handle_ifc_file () {
 	if [[ ! -d "$INPATH"/gltf/ ]]; then
 		mkdir "$INPATH"/gltf/
 	fi
-	/var/www/html/3drepository/modules/dfg_3dviewer/scripts/IfcConvert "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
+	${SPATH}/scripts/IfcConvert "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
 	render_preview $EXT
 }
 

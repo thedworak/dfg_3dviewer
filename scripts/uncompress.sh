@@ -33,7 +33,7 @@ for filename in ${OUTPUT}*; do
 
 	case $ext in
 		abc|blend|dae|fbx|obj|ply|stl|wrl|x3d|ifc)
-			bash /var/www/html/3drepository/modules/dfg_3dviewer/scripts/convert.sh -c 'true' -l '3' -b 'true' -i "${OUTPUT}${name}.${ext}" -o "${OUTPUT}" -f 'true' -a 'true'
+			bash ${SPATH}/scripts/convert.sh -c 'true' -l '3' -b 'true' -i "${OUTPUT}${name}.${ext}" -o "${OUTPUT}" -f 'true' -a 'true'
 		;;
 	  #*)
 		#echo "Flie extension $ext is not supported for conversion yet."
