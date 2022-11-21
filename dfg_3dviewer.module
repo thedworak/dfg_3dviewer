@@ -8,6 +8,9 @@ use Drupal\image\Entity\ImageStyle;
 use Drupal\Core\Archiver\Zip;
 use Drupal\Core\Archiver\ArchiverException;
 
+$SPATH="/var/www/html/3drepository/modules/dfg_3dviewer/scripts";
+$REPOSITORY="/var/www/html/3drepository";
+
 /**
  * Implements hook_help().
  */
@@ -35,7 +38,7 @@ function url_exists ($url) {
 
 function semi_automatic_path ($prefix, $filename, $filenameArchive, &$autoPath, $extension) {
 	$allowedFormats = array('obj', 'fbx', 'ply', 'dae', 'ifc', 'stl', 'xyz', 'pcd', 'json', '3ds');
-	$prefix = "/var/www/html/3drepository" . $prefix;
+	$prefix = $REPOSITORY . $prefix;
 	$autoPath = '';
 	if ($filenameArchive === '') $filenameArchive = $filename;
 	if (in_arrayi($extension, $allowedFormats)) {
@@ -100,7 +103,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		$isArchive = false;
 		if (!file_exists($newFile) && !is_dir($newDir) && !file_exists($newFile."off")) {			
 			if (!in_arrayi($extension, $archives)) {
-				$output = exec ('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/convert.sh -c true -l 3 -b true -i "' . "$realpath" . '" -f true', $output, $retval);
+				$output = exec ('${SPATH}/convert.sh -c true -l 3 -b true -i "' . "$realpath" . '" -f true', $output, $retval);
 			}
 			elseif (in_arrayi($extension, $archives)) {
 				try {
@@ -126,19 +129,19 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 								case "ifc":
 								case "glb":
 								case "gltf":
-									exec ('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/convert.sh -c true -l 3 -b true -i "' . $extractPath . $zipFile . '" -o "' . $extractPath . '" -f true -a false', $output, $retval);										
+									exec ('${SPATH}/convert.sh -c true -l 3 -b true -i "' . $extractPath . $zipFile . '" -o "' . $extractPath . '" -f true -a false', $output, $retval);										
 								break;
 							}
 						}
 					}
 					elseif ($extension == 'RAR') {
-						$output = shell_exec('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/uncompress.sh -t rar -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
+						$output = shell_exec('${SPATH}/uncompress.sh -t rar -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
 					}
 					elseif ($extension == 'TAR' || $extension == 'GZ' ) {
-						$output = shell_exec('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/uncompress.sh -t tar -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
+						$output = shell_exec('${SPATH}/uncompress.sh -t tar -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
 					}
 					elseif ($extension == 'XZ') {
-						$output = shell_exec('/var/www/html/3drepository/modules/dfg_3dviewer/scripts/uncompress.sh -t xz -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
+						$output = shell_exec('${SPATH}/uncompress.sh -t xz -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
 					}
 				}
 				catch (ArchiverException $exception) {
@@ -233,7 +236,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 					$autoPath = $origPath;
 				}
 			}
-			$autoPath = str_replace("/var/www/html/3drepository", "https://3d-repository.hs-mainz.de", $autoPath);
+			$autoPath = str_replace($REPOSITORY, "https://3d-repository.hs-mainz.de", $autoPath);
 			//\Drupal::messenger()->addMessage($fileBase, 'status');
 			/*\Drupal::messenger()->addMessage($file_url->toString());
 			\Drupal::messenger()->addMessage(file_exists($viewBase . "_side45.png"));
