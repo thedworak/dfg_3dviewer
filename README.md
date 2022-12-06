@@ -1,4 +1,4 @@
-# 3D-DFG-Viewer
+# dfg_3dviewer
 
 The module is created for viewing 3D data as Drupal extension for WissKI based repository.
 Supported 3D file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, glTF.
