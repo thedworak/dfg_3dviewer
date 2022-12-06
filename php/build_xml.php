@@ -27,13 +27,19 @@ if (!file_exists($FILEPATH)) {
 
 	$data = file_get_contents_curl($url);
 	$xml = simplexml_load_string($data);
-	$xml->registerXPathNamespace('mets', 'http://www.loc.gov/METS/');
-	$xpathResult = $xml->xpath('//mets:mets');
+
+	$xsl = simplexml_load_file("https://raw.githubusercontent.com/slub/dfg-viewer/e54305a9fa58951d3f3d1dd7e64554cb2ee881eb/Resources/Public/XSLT/exportSingleToMetsMods.xsl");
+	$xslt = new \XSLTProcessor();
+	$xslt->importStyleSheet($xsl);
+	$xmlt = simplexml_load_string($xslt->transformToXML($xml));
+
+	$xmlt->registerXPathNamespace('mets', 'http://www.loc.gov/METS/');
+	$xpathResult = $xmlt->xpath('//mets:mets');
 
 	$dom = new DOMDocument('1.0');
 	$dom->preserveWhiteSpace = false;
 	$dom->formatOutput = true;
-	$dom->loadXML($xml->asXML());
+	$dom->loadXML($xmlt->asXML());
 	$dom->save($FILEPATH);
 }
 

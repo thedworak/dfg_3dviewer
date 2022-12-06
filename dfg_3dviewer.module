@@ -8,8 +8,10 @@ use Drupal\image\Entity\ImageStyle;
 use Drupal\Core\Archiver\Zip;
 use Drupal\Core\Archiver\ArchiverException;
 
-$SPATH="/var/www/html/3drepository/modules/dfg_3dviewer/scripts";
-$REPOSITORY="/var/www/html/3drepository";
+#$ENTITY_BUNDLE="bd3d7baa74856d141bcff7b4193fa128";
+#$VIEWER_FILE_UPLOAD="fbf95bddee5160d515b982b3fd2e05f7";
+#$IMAGE_GENERATION="f605dc6b727a1099b9e52b3ccbdf5673";
+#$VIEWER_FILE_NAME="faa602a0be629324806aef22892cdbe5";
 
 /**
  * Implements hook_help().
@@ -38,7 +40,8 @@ function url_exists ($url) {
 
 function semi_automatic_path ($prefix, $filename, $filenameArchive, &$autoPath, $extension) {
 	$allowedFormats = array('obj', 'fbx', 'ply', 'dae', 'ifc', 'stl', 'xyz', 'pcd', 'json', '3ds');
-	$prefix = $REPOSITORY . $prefix;
+	$SPATH=\Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath());
+	$prefix = $SPATH . $prefix;
 	$autoPath = '';
 	if ($filenameArchive === '') $filenameArchive = $filename;
 	if (in_arrayi($extension, $allowedFormats)) {
@@ -88,6 +91,8 @@ function semi_automatic_path ($prefix, $filename, $filenameArchive, &$autoPath, 
  */
 function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity) {
 	#\Drupal::messenger()->addMessage(serialize($entity));
+	$SPATH=\Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath());
+	$XPATH=dirname(dirname($SPATH));
 	$archives = array("zip", "rar", "tar", "xz", "gz");
 	$base = \Drupal::request()->getSchemeAndHttpHost();
 	$output = null;
@@ -103,7 +108,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		$isArchive = false;
 		if (!file_exists($newFile) && !is_dir($newDir) && !file_exists($newFile."off")) {			
 			if (!in_arrayi($extension, $archives)) {
-				$output = exec ('${SPATH}/convert.sh -c true -l 3 -b true -i "' . "$realpath" . '" -f true', $output, $retval);
+				$output = exec ('${SPATH}/scripts/convert.sh -c true -l 3 -b true -i "' . "$realpath" . '" -f true', $output, $retval);
 			}
 			elseif (in_arrayi($extension, $archives)) {
 				try {
@@ -129,19 +134,19 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 								case "ifc":
 								case "glb":
 								case "gltf":
-									exec ('${SPATH}/convert.sh -c true -l 3 -b true -i "' . $extractPath . $zipFile . '" -o "' . $extractPath . '" -f true -a false', $output, $retval);										
+									exec ('${SPATH}/scripts/convert.sh -c true -l 3 -b true -i "' . $extractPath . $zipFile . '" -o "' . $extractPath . '" -f true -a false', $output, $retval);										
 								break;
 							}
 						}
 					}
 					elseif ($extension == 'RAR') {
-						$output = shell_exec('${SPATH}/uncompress.sh -t rar -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
+						$output = shell_exec('${SPATH}/scripts/uncompress.sh -t rar -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
 					}
 					elseif ($extension == 'TAR' || $extension == 'GZ' ) {
-						$output = shell_exec('${SPATH}/uncompress.sh -t tar -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
+						$output = shell_exec('${SPATH}/scripts/uncompress.sh -t tar -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
 					}
 					elseif ($extension == 'XZ') {
-						$output = shell_exec('${SPATH}/uncompress.sh -t xz -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
+						$output = shell_exec('${SPATH}/scripts/uncompress.sh -t xz -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
 					}
 				}
 				catch (ArchiverException $exception) {
@@ -164,8 +169,8 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			}
 		}
 	}
-	if($entity->bundle() == "bd3d7baa74856d141bcff7b4193fa128") {
-		$file_info = $entity->fbf95bddee5160d515b982b3fd2e05f7->getValue();
+	if($entity->bundle() == $ENTITY_BUNDLE) {
+		$file_info = $entity->$ENTITY_VALUE->getValue();
 		$file_id = $file_info[0]['target_id'];
 		$file = \Drupal\file\Entity\File::load($file_id);
 		clearstatcache();
@@ -174,8 +179,6 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			$extension = pathinfo($fileName, PATHINFO_EXTENSION);
 			$fileBase = str_replace(".$extension", "", $fileName);
 
-			#$entity->set('fa554b216188fd7c52502e8e17509f9d', $fileName);
-			#$entity->set('fa554b216188fd7c52502e8e17509f9d', array("en" => array(array("target_id" => $fileName))));
 			$file_url = \Drupal::service('file_url_generator')->generate($file->getFileUri());
 			$viewBase = "";
 			$path = "";
@@ -196,8 +199,6 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 				$viewBase = $base . $path;
 				if (!url_exists($viewBase . "_side45.png")) {
 					$subPath = substr($path, 0, strrpos( $path, '/') );
-					//$path = str_replace($fileName, "", $file_url->toString());
-					//$fileBaseStripped = preg_replace('/_[0-9]+$/', '', $fileBase, 1);
 					$viewBase = $base . $subPath . "/" . $fileBase;
 					if (!url_exists($viewBase . "_side45.png")) {
 						$viewBase = $base . $subPath . "/views/" . $fileBase;
@@ -236,7 +237,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 					$autoPath = $origPath;
 				}
 			}
-			$autoPath = str_replace($REPOSITORY, "https://3d-repository.hs-mainz.de", $autoPath);
+			$autoPath = str_replace($XPATH, "https://3d-repository.hs-mainz.de", $autoPath);
 			//\Drupal::messenger()->addMessage($fileBase, 'status');
 			/*\Drupal::messenger()->addMessage($file_url->toString());
 			\Drupal::messenger()->addMessage(file_exists($viewBase . "_side45.png"));
