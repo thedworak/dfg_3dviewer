@@ -169,7 +169,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			}
 		}
 	}
-	if($entity->bundle() == $ENTITY_BUNDLE) {
+	if($entity->bundle() == "bd3d7baa74856d141bcff7b4193fa128") {
 		$file_info = $entity->$ENTITY_VALUE->getValue();
 		$file_id = $file_info[0]['target_id'];
 		$file = \Drupal\file\Entity\File::load($file_id);
