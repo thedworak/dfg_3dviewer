@@ -17,13 +17,16 @@ function file_get_contents_curl( $url ) {
 
 }
 
-$ID=isset($_GET['id']) ? $_GET['id'] : $argv[1];
-$FILEPATH="/var/www/html/3drepository/sites/default/files/xml_structure/$ID.xml";
+function build_xml ($id) {
+	$ID=isset($_GET['id']) ? $_GET['id'] : $argv[1];
+	$FILEPATH="sites/default/files/xml_structure/$id.xml";
+	//$FILEPATH="/var/www/html/3drepository/modules/dfg_3dviewer/xml_structure/$id.xml";
+	//$FILEPATH="/var/www/html/3drepository/sites/default/files/xml_structure/$id.xml";
 
-if (!file_exists($FILEPATH)) {
+	//if (!file_exists($FILEPATH)) {
 	$DOMAIN = "https://3d-repository.hs-mainz.de";
 	$EXPORT_PATH = '/export_xml_single/';
-	$url = $DOMAIN . $EXPORT_PATH . $ID . '?page=0&amp;_format=xml';
+	$url = $DOMAIN . $EXPORT_PATH . $id . '?page=0&amp;_format=xml';
 
 	$data = file_get_contents_curl($url);
 	$xml = simplexml_load_string($data);
@@ -41,6 +44,7 @@ if (!file_exists($FILEPATH)) {
 	$dom->formatOutput = true;
 	$dom->loadXML($xmlt->asXML());
 	$dom->save($FILEPATH);
+	//}
 }
 
 ?>
