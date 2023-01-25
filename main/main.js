@@ -1083,7 +1083,7 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 		metadataContentTech += 'Faces: <b>' + metadata['faces'] + '</b><br>';
 
 		var req = new XMLHttpRequest();
-		req.responseType = 'xml';
+		req.responseType = '';
 		req.open('GET', CONFIG.metadataDomain + EXPORT_PATH + wisskiID + '?page=0&amp;_format=xml', true);
 		req.onreadystatechange = function (aEvt) {
 			if (req.readyState == 4) {
@@ -1178,7 +1178,6 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 		if (proxyPath) {
 			modelPath = getProxyPath(modelPath);
 		}
-		console.log(path + " " + basename + " " + filename + " " + extension + " " + orgExtension);
 		switch(extension.toLowerCase()) {
 			case 'obj':
 				const manager = new THREE.LoadingManager();
@@ -1699,7 +1698,7 @@ function init() {
 	var _ext = extension.toLowerCase();
 
 	var req = new XMLHttpRequest();
-	req.responseType = 'xml';
+	req.responseType = '';
 	req.open('GET', CONFIG.metadataDomain + EXPORT_PATH + wisskiID + '?page=0&amp;_format=xml', true);
 	req.onreadystatechange = function (aEvt) {
 		if (req.readyState == 4) {
