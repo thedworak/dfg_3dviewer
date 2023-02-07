@@ -166,6 +166,9 @@ const colors = {
 const intensity = { startIntensityDir: 1 , startIntensityAmbient: 1};
 
 const saveProperties = {
+	Position: true,
+	Rotation: true,
+	Scale: true,
 	Camera: true,
 	Light: true
 };
@@ -437,7 +440,7 @@ function recreateBoundingBox (object) {
 	return object;
 }
 
-function setupObject (_object, _camera, _light, _data, _controls) {
+function setupObject (_object, _light, _data, _controls) {
 	if (typeof (_data) !== "undefined") {
 		_object.position.set (_data["objPosition"][0], _data["objPosition"][1], _data["objPosition"][2]);
 		_object.scale.set (_data["objScale"][0], _data["objScale"][1], _data["objScale"][2]);
@@ -602,13 +605,14 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit 
     let dx = size.z / 2 + Math.abs( size.x / 2 / Math.tan( fovh / 2 ) );
     let dy = size.z / 2 + Math.abs( size.y / 2 / Math.tan( fov / 2 ) );
     let cameraZ = Math.max(dx, dy);
-	if (_fit) { cameraZ = camera.position.z; }
+	if (_fit) { camera.position.x *= 1.1; camera.position.y *= 1.1; camera.position.z *= 1.1; }
 
     // offset the camera, if desired (to avoid filling the whole canvas)
-    if( offset !== undefined && offset !== 0 ) { cameraZ *= offset; }
+    if( offset !== undefined && offset !== 0 && !_fit ) { cameraZ *= offset; }
+
 	const coords = {x: camera.position.x, y: camera.position.y, z: cameraZ*0.8};
     new TWEEN.Tween(coords)
-		.to({ z: cameraZ }, 800)
+		.to({ z: camera.position.z }, 800)
 		.onUpdate(() =>
 			{
 				camera.position.set( coords.x, coords.y, coords.z );
@@ -714,7 +718,7 @@ function render() {
 function setupCamera (_object, _camera, _light, _data, _controls) {
 	if (typeof (_data) != "undefined") {
 		if (typeof (_data["cameraPosition"]) != "undefined") {
-			_camera.position.set (_data["cameraPosition"][0], _data["cameraPosition"][1], _data["cameraPosition"][2]);
+			_camera.position.set (_data["cameraPosition"][0]*0.9, _data["cameraPosition"][1]*0.9, _data["cameraPosition"][2]*0.9);
 		}
 		if (typeof (_data["controlsTarget"]) != "undefined") {
 			_controls.target.set (_data["controlsTarget"][0], _data["controlsTarget"][1], _data["controlsTarget"][2]);
@@ -1017,7 +1021,7 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 		var tempArray = [];
 		const hierarchyMain = gui.addFolder( 'Hierarchy' ).close();
 		if (object.name === "Scene" || object.children.length > 0 ) {
-			setupObject(object, camera, light, data, controls);
+			setupObject(object, light, data, controls);
 			object.traverse( function ( child ) {
 				if ( child.isMesh ) {
 					metadata['vertices'] += fetchMetadata (child, 'vertices');
@@ -1050,7 +1054,7 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 			setupCamera (object, camera, light, data, controls);				
 		}
 		else {
-			setupObject(object, camera, light, data, controls);
+			setupObject(object, light, data, controls);
 			setupCamera (object, camera, light, data, controls);
 			metadata['vertices'] += fetchMetadata (object, 'vertices');
 			metadata['faces'] += fetchMetadata (object, 'faces');
@@ -1803,6 +1807,9 @@ function init() {
 	});
 
 	propertiesFolder = editorFolder.addFolder('Save properties').close();
+	propertiesFolder.add( saveProperties, 'Position' ); 
+	propertiesFolder.add( saveProperties, 'Rotation' ); 
+	propertiesFolder.add( saveProperties, 'Scale' ); 
 	propertiesFolder.add( saveProperties, 'Camera' ); 
 	propertiesFolder.add( saveProperties, 'Light' ); 
 
@@ -1817,7 +1824,11 @@ function init() {
 			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
 			var params;
 			var rotateMetadata = new THREE.Vector3(THREE.MathUtils.radToDeg(helperObjects[0].rotation.x),THREE.MathUtils.radToDeg(helperObjects[0].rotation.y),THREE.MathUtils.radToDeg(helperObjects[0].rotation.z));
-			var newMetadata = ({"objPosition": [ helperObjects[0].position.x, helperObjects[0].position.y, helperObjects[0].position.z ], "objScale": [ helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z ], "objRotation": [ rotateMetadata.x, rotateMetadata.y, rotateMetadata.z ] });
+			var newMetadata = new Object();
+			//var newMetadata = ({"objPosition": [ helperObjects[0].position.x, helperObjects[0].position.y, helperObjects[0].position.z ], "objScale": [ helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z ], "objRotation": [ rotateMetadata.x, rotateMetadata.y, rotateMetadata.z ] });
+			if (saveProperties.Position) { newMetadata = Object.assign(newMetadata, {"objPosition": [ helperObjects[0].position.x, helperObjects[0].position.y, helperObjects[0].position.z ]}); }
+			if (saveProperties.Rotation) { newMetadata = Object.assign(newMetadata, {"objRotation": [ rotateMetadata.x, rotateMetadata.y, rotateMetadata.z ]}); }
+			if (saveProperties.Scale) { newMetadata = Object.assign(newMetadata, {"objScale": [ helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z ]}); }
 			if (saveProperties.Camera) { newMetadata = Object.assign(newMetadata, {"cameraPosition": [ camera.position.x, camera.position.y, camera.position.z ], "controlsTarget": [ controls.target.x, controls.target.y, controls.target.z ]}); }
 			if (saveProperties.Light) { newMetadata = Object.assign(newMetadata, {"lightPosition": [ dirLight.position.x, dirLight.position.y, dirLight.position.z ], "lightTarget": [ dirLight.rotation._x, dirLight.rotation._y, dirLight.rotation._z ], "lightColor": [ "#" + (dirLight.color.getHexString()).toUpperCase() ], "lightIntensity": [ dirLight.intensity ], "lightAmbientColor": [ "#" + (ambientLight.color.getHexString()).toUpperCase() ], "lightAmbientIntensity": [ ambientLight.intensity ] }); }
 			if (compressedFile !== '') { params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+basename+compressedFile+"&filename="+filename; }

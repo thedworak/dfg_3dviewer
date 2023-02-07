@@ -39,8 +39,9 @@ function url_exists ($url) {
 }
 
 function semi_automatic_path ($prefix, $filename, $filenameArchive, &$autoPath, $extension) {
-	$allowedFormats = array('obj', 'fbx', 'ply', 'dae', 'ifc', 'stl', 'xyz', 'pcd', 'json', '3ds');
+	$allowedFormats = array('abc', 'obj', 'fbx', 'ply', 'dae', 'ifc', 'stl', 'xyz', 'pcd', 'json', '3ds');
 	$SPATH=\Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath());
+	$SPATH = str_replace('/modules/dfg_3dviewer', '', $SPATH);
 	$prefix = $SPATH . $prefix;
 	$autoPath = '';
 	if ($filenameArchive === '') $filenameArchive = $filename;
@@ -48,7 +49,7 @@ function semi_automatic_path ($prefix, $filename, $filenameArchive, &$autoPath, 
 		if(!file_exists($prefix . "/gltf/" . $filename . ".glb")) {
 			if(!file_exists($prefix . "/gltf/" . $filenameArchive . ".glb")) {
 				foreach ($allowedFormats as $value) {
-					$autoPath = $prefix . "/" . $filenameArchive . "." . $value;
+					$autoPath = $prefix . "/" . $filenameArchive . "." . $value;					
 					if(!file_exists($autoPath)) {
 						$autoPath = '';
 					}
