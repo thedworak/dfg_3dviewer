@@ -13,7 +13,7 @@ import {
 	NearestFilter,
 	Plane,
 	HalfFloatType
-} from '../../../build/three.module.js';
+} from 'three';
 
 class ReflectorForSSRPass extends Mesh {
 

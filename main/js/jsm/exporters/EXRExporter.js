@@ -10,7 +10,7 @@ import {
 	HalfFloatType,
 	RGBAFormat,
 	DataUtils,
-} from '../../../build/three.module.js';
+} from 'three';
 import * as fflate from '../libs/fflate.module.js';
 
 const textEncoder = new TextEncoder();
@@ -266,13 +266,7 @@ function compressZIP( data, tmpBuffer ) {
 
 	}
 
-	if ( typeof fflate === 'undefined' ) {
-
-		console.error( 'THREE.EXRLoader: External \`fflate.module.js\` required' );
-
-	}
-
-	const deflate = fflate.zlibSync( tmpBuffer ); // eslint-disable-line no-undef
+	const deflate = fflate.zlibSync( tmpBuffer );
 
 	return deflate;
 

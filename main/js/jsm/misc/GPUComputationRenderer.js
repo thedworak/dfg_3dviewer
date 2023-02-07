@@ -12,7 +12,7 @@ import {
 	Scene,
 	ShaderMaterial,
 	WebGLRenderTarget
-} from '../../../build/three.module.js';
+} from 'three';
 
 /**
  * GPUComputationRenderer, based on SimulationRenderer by zz85
@@ -301,7 +301,7 @@ class GPUComputationRenderer {
 
 				const variable = variables[ i ];
 
-				variable.initialValueTexture?.dispose();
+				if ( variable.initialValueTexture ) variable.initialValueTexture.dispose();
 
 				const renderTargets = variable.renderTargets;
 

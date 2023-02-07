@@ -21,7 +21,7 @@ import {
 	Vector3,
 	WebGLRenderTarget,
 	ZeroFactor
-} from '../../../build/three.module.js';
+} from 'three';
 import { Pass, FullScreenQuad } from './Pass.js';
 import { SimplexNoise } from '../math/SimplexNoise.js';
 import { SSAOShader } from '../shaders/SSAOShader.js';
@@ -82,12 +82,6 @@ class SSAOPass extends Pass {
 		this.blurRenderTarget = this.ssaoRenderTarget.clone();
 
 		// ssao material
-
-		if ( SSAOShader === undefined ) {
-
-			console.error( 'THREE.SSAOPass: The pass relies on SSAOShader.' );
-
-		}
 
 		this.ssaoMaterial = new ShaderMaterial( {
 			defines: Object.assign( {}, SSAOShader.defines ),
@@ -376,12 +370,6 @@ class SSAOPass extends Pass {
 	generateRandomKernelRotations() {
 
 		const width = 4, height = 4;
-
-		if ( SimplexNoise === undefined ) {
-
-			console.error( 'THREE.SSAOPass: The pass relies on SimplexNoise.' );
-
-		}
 
 		const simplex = new SimplexNoise();
 

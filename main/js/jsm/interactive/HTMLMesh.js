@@ -6,7 +6,7 @@ import {
 	PlaneGeometry,
 	sRGBEncoding,
 	Color
-} from '../../../build/three.module.js';
+} from 'three';
 
 class HTMLMesh extends Mesh {
 
@@ -36,6 +36,8 @@ class HTMLMesh extends Mesh {
 			material.dispose();
 
 			material.map.dispose();
+
+			canvases.delete( dom );
 
 			this.removeEventListener( 'mousedown', onEvent );
 			this.removeEventListener( 'mousemove', onEvent );

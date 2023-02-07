@@ -14,7 +14,7 @@ import {
 	UnsignedShortType,
 	WebGLRenderTarget,
 	HalfFloatType,
-} from '../../../build/three.module.js';
+} from 'three';
 import { Pass, FullScreenQuad } from './Pass.js';
 import { SSRShader } from '../shaders/SSRShader.js';
 import { SSRBlurShader } from '../shaders/SSRShader.js';
@@ -201,12 +201,6 @@ class SSRPass extends Pass {
 		// this.blurRenderTarget3 = this.ssrRenderTarget.clone();
 
 		// ssr material
-
-		if ( SSRShader === undefined ) {
-
-			console.error( 'THREE.SSRPass: The pass relies on SSRShader.' );
-
-		}
 
 		this.ssrMaterial = new ShaderMaterial( {
 			defines: Object.assign( {}, SSRShader.defines, {

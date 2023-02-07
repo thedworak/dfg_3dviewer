@@ -1338,7 +1338,7 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 			case 'glb':
 			case 'gltf':
 				const dracoLoader = new DRACOLoader();
-				dracoLoader.setDecoderPath( '/modules/dfg_3dviewer/main/js/libs/draco/' );
+				dracoLoader.setDecoderPath( '/modules/dfg_3dviewer/main/js/jsm/libs/draco/' );
 				dracoLoader.preload();
 				const gltf = new GLTFLoader();
 				gltf.setDRACOLoader(dracoLoader);

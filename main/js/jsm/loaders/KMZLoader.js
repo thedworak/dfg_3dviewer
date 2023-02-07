@@ -3,7 +3,7 @@ import {
 	Group,
 	Loader,
 	LoadingManager
-} from '../../../build/three.module.js';
+} from 'three';
 import { ColladaLoader } from '../loaders/ColladaLoader.js';
 import * as fflate from '../libs/fflate.module.js';
 
@@ -86,18 +86,18 @@ class KMZLoader extends Loader {
 
 		//
 
-		const zip = fflate.unzipSync( new Uint8Array( data ) ); // eslint-disable-line no-undef
+		const zip = fflate.unzipSync( new Uint8Array( data ) );
 
 		if ( zip[ 'doc.kml' ] ) {
 
-			const xml = new DOMParser().parseFromString( fflate.strFromU8( zip[ 'doc.kml' ] ), 'application/xml' ); // eslint-disable-line no-undef
+			const xml = new DOMParser().parseFromString( fflate.strFromU8( zip[ 'doc.kml' ] ), 'application/xml' );
 
 			const model = xml.querySelector( 'Placemark Model Link href' );
 
 			if ( model ) {
 
 				const loader = new ColladaLoader( manager );
-				return loader.parse( fflate.strFromU8( zip[ model.textContent ] ) ); // eslint-disable-line no-undef
+				return loader.parse( fflate.strFromU8( zip[ model.textContent ] ) );
 
 			}
 
@@ -112,7 +112,7 @@ class KMZLoader extends Loader {
 				if ( extension === 'dae' ) {
 
 					const loader = new ColladaLoader( manager );
-					return loader.parse( fflate.strFromU8( zip[ path ] ) ); // eslint-disable-line no-undef
+					return loader.parse( fflate.strFromU8( zip[ path ] ) );
 
 				}
 

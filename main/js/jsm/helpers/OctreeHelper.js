@@ -3,7 +3,7 @@ import {
 	BufferGeometry,
 	Float32BufferAttribute,
 	LineBasicMaterial
-} from '../../../build/three.module.js';
+} from 'three';
 
 class OctreeHelper extends LineSegments {
 
@@ -67,6 +67,7 @@ class OctreeHelper extends LineSegments {
 		this.material.dispose();
 
 	}
+
 }
 
 export { OctreeHelper };

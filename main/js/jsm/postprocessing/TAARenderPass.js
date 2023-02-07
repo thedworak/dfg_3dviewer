@@ -1,6 +1,6 @@
 import {
 	WebGLRenderTarget
-} from '../../../build/three.module.js';
+} from 'three';
 import { SSAARenderPass } from './SSAARenderPass.js';
 
 /**
@@ -127,6 +127,15 @@ class TAARenderPass extends SSAARenderPass {
 		}
 
 		renderer.autoClear = autoClear;
+
+	}
+
+	dispose() {
+
+		super.dispose();
+
+		if ( this.sampleRenderTarget !== undefined ) this.sampleRenderTarget.dispose();
+		if ( this.holdRenderTarget !== undefined ) this.holdRenderTarget.dispose();
 
 	}
 

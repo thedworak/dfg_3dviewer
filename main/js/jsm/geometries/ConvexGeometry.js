@@ -1,7 +1,7 @@
 import {
 	BufferGeometry,
 	Float32BufferAttribute
-} from '../../../build/three.module.js';
+} from 'three';
 import { ConvexHull } from '../math/ConvexHull.js';
 
 class ConvexGeometry extends BufferGeometry {
@@ -14,12 +14,6 @@ class ConvexGeometry extends BufferGeometry {
 
 		const vertices = [];
 		const normals = [];
-
-		if ( ConvexHull === undefined ) {
-
-			console.error( 'THREE.ConvexGeometry: ConvexGeometry relies on ConvexHull' );
-
-		}
 
 		const convexHull = new ConvexHull().setFromPoints( points );
 

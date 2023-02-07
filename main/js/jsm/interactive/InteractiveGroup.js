@@ -3,7 +3,7 @@ import {
 	Matrix4,
 	Raycaster,
 	Vector2
-} from '../../../build/three.module.js';
+} from 'three';
 
 const _pointer = new Vector2();
 const _event = { type: '', data: _pointer };
@@ -28,7 +28,7 @@ class InteractiveGroup extends Group {
 			event.stopPropagation();
 
 			const rect = renderer.domElement.getBoundingClientRect();
-			
+
 			_pointer.x = ( event.clientX - rect.left ) / rect.width * 2 - 1;
 			_pointer.y = - ( event.clientY - rect.top ) / rect.height * 2 + 1;
 
