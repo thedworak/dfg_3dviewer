@@ -24,7 +24,7 @@ import Stats from './js/jsm/libs/stats.module.js';
 
 import { OrbitControls } from './js/jsm/controls/OrbitControls.js';
 import { TransformControls } from './js/jsm/controls/TransformControls.js';
-import { GUI } from '/modules/dfg_3dviewer/main/node_modules/lil-gui/dist/lil-gui.esm.min.js';
+import { GUI } from './js/jsm/libs/lil-gui.module.min.js';
 import { FBXLoader } from './js/jsm/loaders/FBXLoader.js';
 import { DDSLoader } from './js/jsm/loaders/DDSLoader.js';
 import { MTLLoader } from './js/jsm/loaders/MTLLoader.js';
