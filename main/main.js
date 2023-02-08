@@ -49,7 +49,8 @@ const CONFIG = {
 	"metadataDomain": "https://3d-repository.hs-mainz.de",
 	"container": "DFG_3DViewer",
 	"galleryContainer": "block-bootstrap5-content",
-	"galleryImageClass": "field--type-image"
+	"galleryImageClass": "field--type-image",
+	"basePath": "/modules/dfg_3dviewer/main"
 };
 
 let camera, scene, renderer, stats, controls, loader, ambientLight, dirLight, dirLightTarget, cameraLight, cameraLightTarget;
@@ -302,7 +303,7 @@ function addTextWatermark (_text, _scale) {
 	];
 	const loader = new FontLoader();
 
-	loader.load('/modules/dfg_3dviewer/main/fonts/helvetiker_regular.typeface.json', function (font) {
+	loader.load(CONFIG.basePath + '/fonts/helvetiker_regular.typeface.json', function (font) {
 
 		const textGeo = new TextGeometry(_text, {
 			font,
@@ -340,7 +341,7 @@ function addTextPoint (_text, _scale, _point) {
 	];
 	const loader = new FontLoader();
 
-	loader.load('/modules/dfg_3dviewer/main/fonts/helvetiker_regular.typeface.json', function (font) {
+	loader.load(CONFIG.basePath + '/fonts/helvetiker_regular.typeface.json', function (font) {
 
 		const textGeo = new TextGeometry(_text, {
 			font: font,
@@ -1120,7 +1121,7 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 					//if (compressedFile !== '') { c_path = CONFIG.domain + '/' + uri; }
 					if (compressedFile !== '') { filename = filename.replace(orgExtension, extension); }
 					if (!proxyPath) {
-						downloadModel.innerHTML = "<a href='" + c_path + filename + "' download><img src='/modules/dfg_3dviewer/main/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
+						downloadModel.innerHTML = "<a href='" + c_path + filename + "' download><img src='" + CONFIG.basePath + "/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
 					}
 					
 					if (!proxyPath) {
@@ -1128,13 +1129,13 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 					}
 					else
 					{
-						viewEntity.innerHTML = "<a href='" + CONFIG.domain + "/wisski/navigate/" + wisskiID + "/view' target='_blank'><img src='/modules/dfg_3dviewer/main/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>";
+						viewEntity.innerHTML = "<a href='" + CONFIG.domain + "/wisski/navigate/" + wisskiID + "/view' target='_blank'><img src='" + CONFIG.basePath + "/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>";
 					}
 					metadataContainer.appendChild(viewEntity);
 					fullscreenMode = document.createElement('div');
 					fullscreenMode.setAttribute('id', 'fullscreenMode');
 					fullscreenMode.setAttribute('style', 'bottom:' + Math.round(-canvasDimensions.y * 1.04 + 36) + 'px; right: ' + canvasDimensions.x * 0.45 + 'px');
-					fullscreenMode.innerHTML = "<img src='/modules/dfg_3dviewer/main/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
+					fullscreenMode.innerHTML = "<img src='" + CONFIG.basePath + "/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
 					metadataContainer.appendChild(fullscreenMode);
 					//var _container = document.getElementById("MainCanvas");
 					container.appendChild(metadataContainer);
@@ -1267,7 +1268,7 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 			
 			case 'ifc':
 				const ifcLoader = new IFCLoader();
-				ifcLoader.ifcManager.setWasmPath('/modules/dfg_3dviewer/main/js/jsm/loaders/ifc/');
+				ifcLoader.ifcManager.setWasmPath(CONFIG.basePath + '/js/jsm/loaders/ifc/');
 				ifcLoader.load(modelPath, function (object) {
 					//object.position.set (0, 300, 0);
 					traverseMesh(object);
@@ -1358,7 +1359,7 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 			case 'glb':
 			case 'gltf':
 				const dracoLoader = new DRACOLoader();
-				dracoLoader.setDecoderPath('/modules/dfg_3dviewer/main/js/jsm/libs/draco/');
+				dracoLoader.setDecoderPath(CONFIG.basePath + '/js/jsm/libs/draco/');
 				dracoLoader.preload();
 				const gltf = new GLTFLoader();
 				gltf.setDRACOLoader(dracoLoader);
