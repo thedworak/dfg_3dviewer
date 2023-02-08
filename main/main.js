@@ -135,7 +135,7 @@ const pointer = new THREE.Vector2();
 const onUpPosition = new THREE.Vector2();
 const onDownPosition = new THREE.Vector2();
 
-const geometry = new THREE.BoxGeometry( 20, 20, 20 );
+const geometry = new THREE.BoxGeometry(20, 20, 20);
 let transformControl, transformControlLight, transformControlLightTarget;
 
 const helperObjects = [];
@@ -160,7 +160,8 @@ var transformText =
 
 const colors = {
 	DirectionalLight: '0xFFFFFF',
-	AmbientLight: '0x404040'
+	AmbientLight: '0x404040',
+	BackgroundColor: '0xA0A0A0'
 };
 
 const intensity = { startIntensityDir: 1 , startIntensityAmbient: 1};
@@ -170,12 +171,13 @@ const saveProperties = {
 	Rotation: true,
 	Scale: true,
 	Camera: true,
-	Light: true
+	Light: true,
+	BackgroundColor: true
 };
 
 var EDITOR = false;
 var RULER_MODE = false;
-const lineMaterial = new THREE.LineBasicMaterial( { color: 0x0000ff } );
+const lineMaterial = new THREE.LineBasicMaterial({ color: 0x0000ff });
 var  linePoints = [];
 
 const gui = new GUI({ container: guiContainer });
@@ -220,9 +222,9 @@ const planeParams = {
 };
 
 var clippingPlanes = [
-		new THREE.Plane( new THREE.Vector3( - 1, 0, 0 ), 0 ),
-		new THREE.Plane( new THREE.Vector3( 0, - 1, 0 ), 0 ),
-		new THREE.Plane( new THREE.Vector3( 0, 0, - 1 ), 0 )
+		new THREE.Plane(new THREE.Vector3(- 1, 0, 0), 0),
+		new THREE.Plane(new THREE.Vector3(0, - 1, 0), 0),
+		new THREE.Plane(new THREE.Vector3(0, 0, - 1), 0)
 	];
 var planeHelpers, clippingFolder;
 var propertiesFolder;
@@ -247,7 +249,7 @@ function readWissKI () {
 
 //readWissKI();
 
-function createClippingPlaneGroup( geometry, plane, renderOrder ) {
+function createClippingPlaneGroup(geometry, plane, renderOrder) {
 
 	const group = new THREE.Group();
 	const baseMat = new THREE.MeshBasicMaterial();
@@ -265,9 +267,9 @@ function createClippingPlaneGroup( geometry, plane, renderOrder ) {
 	mat0.stencilZFail = THREE.IncrementWrapStencilOp;
 	mat0.stencilZPass = THREE.IncrementWrapStencilOp;
 
-	const mesh0 = new THREE.Mesh( geometry, mat0 );
+	const mesh0 = new THREE.Mesh(geometry, mat0);
 	mesh0.renderOrder = renderOrder;
-	group.add( mesh0 );
+	group.add(mesh0);
 
 	// front faces
 	const mat1 = baseMat.clone();
@@ -277,10 +279,10 @@ function createClippingPlaneGroup( geometry, plane, renderOrder ) {
 	mat1.stencilZFail = THREE.DecrementWrapStencilOp;
 	mat1.stencilZPass = THREE.DecrementWrapStencilOp;
 
-	const mesh1 = new THREE.Mesh( geometry, mat1 );
+	const mesh1 = new THREE.Mesh(geometry, mat1);
 	mesh1.renderOrder = renderOrder;
 
-	group.add( mesh1 );
+	group.add(mesh1);
 
 	return group;
 
@@ -295,14 +297,14 @@ function showToast (_str) {
 function addTextWatermark (_text, _scale) {
 	var textGeo;
 	var materials = [
-		new THREE.MeshStandardMaterial( { color: 0xffffff, flatShading: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 0.4 } ), // front
-		new THREE.MeshStandardMaterial( { color: 0xffffff, flatShading: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 0.4 } ) // side
+		new THREE.MeshStandardMaterial({ color: 0xffffff, flatShading: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 0.4 }), // front
+		new THREE.MeshStandardMaterial({ color: 0xffffff, flatShading: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 0.4 }) // side
 	];
 	const loader = new FontLoader();
 
-	loader.load( '/modules/dfg_3dviewer/main/fonts/helvetiker_regular.typeface.json', function ( font ) {
+	loader.load('/modules/dfg_3dviewer/main/fonts/helvetiker_regular.typeface.json', function (font) {
 
-		const textGeo = new TextGeometry( _text, {
+		const textGeo = new TextGeometry(_text, {
 			font,
 			size: _scale*3,
 			height: _scale/10,
@@ -312,12 +314,12 @@ function addTextWatermark (_text, _scale) {
 			bevelSize: _scale/10,
 			bevelOffset: 0,
 			bevelSegments: 1
-		} );
+		});
 		textGeo.computeBoundingBox();
 
-		//const centerOffset = - 0.5 * ( textGeo.boundingBox.max.x - textGeo.boundingBox.min.x );
+		//const centerOffset = - 0.5 * (textGeo.boundingBox.max.x - textGeo.boundingBox.min.x);
 
-		textMesh = new THREE.Mesh( textGeo, materials );
+		textMesh = new THREE.Mesh(textGeo, materials);
 
 		textMesh.rotation.z = Math.PI;
 		textMesh.rotation.y = Math.PI;
@@ -326,21 +328,21 @@ function addTextWatermark (_text, _scale) {
 		textMesh.position.y = 0;
 		textMesh.position.z = 0;
 		textMesh.renderOrder = 1;
-		scene.add( textMesh );		
-	} );
+		scene.add(textMesh);		
+	});
 }
 
 function addTextPoint (_text, _scale, _point) {
 	var textGeo;
 	var materials = [
-		new THREE.MeshStandardMaterial( { color: 0x0000ff, flatShading: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 0.4 } ), // front
-		new THREE.MeshStandardMaterial( { color: 0x0000ff, flatShading: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 0.4 } ) // side
+		new THREE.MeshStandardMaterial({ color: 0x0000ff, flatShading: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 0.4 }), // front
+		new THREE.MeshStandardMaterial({ color: 0x0000ff, flatShading: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 0.4 }) // side
 	];
 	const loader = new FontLoader();
 
-	loader.load( '/modules/dfg_3dviewer/main/fonts/helvetiker_regular.typeface.json', function ( font ) {
+	loader.load('/modules/dfg_3dviewer/main/fonts/helvetiker_regular.typeface.json', function (font) {
 
-		const textGeo = new TextGeometry( _text, {
+		const textGeo = new TextGeometry(_text, {
 			font: font,
 			size: _scale*3,
 			height: _scale/10,
@@ -350,12 +352,12 @@ function addTextPoint (_text, _scale, _point) {
 			bevelSize: _scale/10,
 			bevelOffset: 0,
 			bevelSegments: 1
-		} );
+		});
 		textGeo.computeBoundingBox();
 
-		//const centerOffset = - 0.5 * ( textGeo.boundingBox.max.x - textGeo.boundingBox.min.x );
+		//const centerOffset = - 0.5 * (textGeo.boundingBox.max.x - textGeo.boundingBox.min.x);
 
-		textMeshDistance = new THREE.Mesh( textGeo, materials );
+		textMeshDistance = new THREE.Mesh(textGeo, materials);
 
 		//textMeshDistance.rotation.z = Math.PI;
 		//textMeshDistance.rotation.y = Math.PI;
@@ -363,13 +365,13 @@ function addTextPoint (_text, _scale, _point) {
 		textMeshDistance.position.set(_point.x, _point.y, _point.z);
 		textMeshDistance.renderOrder = 1;
 		rulerObject.add(textMeshDistance);
-		//scene.add( textMesh );		
-	} );
+		//scene.add(textMesh);		
+	});
 }
 
 function selectObjectHierarchy (_id) {
 	let search = true;
-	for (let i = 0; i < selectedObjects.length && search === true; i++ ) {
+	for (let i = 0; i < selectedObjects.length && search === true; i++) {
 		if (selectedObjects[i].id === _id) {
 			search = false;
 			if (selectedObjects[i].selected === true) {
@@ -455,7 +457,7 @@ function setupObject (_object, _light, _data, _controls) {
 		var boundingBox = new THREE.Box3();
 		if (Array.isArray(_object)) {
 			for (let i = 0; i < _object.length; i++) {
-				boundingBox.setFromObject( _object[i] );
+				boundingBox.setFromObject(_object[i]);
 				_object[i].position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
 				//_object[i].position.set (0, 0, 0);
 				_object[i].needsUpdate = true;
@@ -466,7 +468,7 @@ function setupObject (_object, _light, _data, _controls) {
 			}
 		}
 		else {
-			boundingBox.setFromObject( _object );
+			boundingBox.setFromObject(_object);
 			_object.position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
 			//_object.position.set (0, 0, 0);
 			_object.needsUpdate = true;
@@ -485,23 +487,23 @@ function setupClippingPlanes (_geometry, _size, _distance) {
 	clippingPlanes[ 1 ].constant = _distance.y;
 	clippingPlanes[ 2 ].constant = _distance.z;
 
-	planeHelpers = clippingPlanes.map( (p) => new THREE.PlaneHelper( p, _size*2, 0xffffff ) );
-	planeHelpers.forEach( (ph) => {
+	planeHelpers = clippingPlanes.map((p) => new THREE.PlaneHelper(p, _size*2, 0xffffff));
+	planeHelpers.forEach((ph) => {
 		ph.visible = false;
 		ph.name = "PlaneHelper";
-		scene.add( ph );
-	} );
+		scene.add(ph);
+	});
 	distanceGeometry = _distance;
-	clippingFolder.add( planeParams.planeX, 'displayHelperX' ).onChange( (v) => { planeHelpers[ 0 ].visible = v; renderer.localClippingEnabled = v; } );
-	clippingFolder.add( planeParams.planeX, 'constant' ).min( - distanceGeometry.x ).max( distanceGeometry.x ).setValue(distanceGeometry.x).step(_size/100).listen().onChange(function (value) {
+	clippingFolder.add(planeParams.planeX, 'displayHelperX').onChange((v) => { planeHelpers[ 0 ].visible = v; renderer.localClippingEnabled = v; });
+	clippingFolder.add(planeParams.planeX, 'constant').min(- distanceGeometry.x).max(distanceGeometry.x).setValue(distanceGeometry.x).step(_size/100).listen().onChange(function (value) {
 		renderer.localClippingEnabled = true;
 		clippingPlanes[ 0 ].constant = value;
 		render();
 	});
 
 
-	clippingFolder.add( planeParams.planeY, 'displayHelperY' ).onChange( (v) => { planeHelpers[ 1 ].visible = v; renderer.localClippingEnabled = v; } );
-	clippingFolder.add( planeParams.planeY, 'constant' ).min( - distanceGeometry.y ).max( distanceGeometry.y ).setValue(distanceGeometry.y).step(_size/100).listen().onChange(function (value) {
+	clippingFolder.add(planeParams.planeY, 'displayHelperY').onChange((v) => { planeHelpers[ 1 ].visible = v; renderer.localClippingEnabled = v; });
+	clippingFolder.add(planeParams.planeY, 'constant').min(- distanceGeometry.y).max(distanceGeometry.y).setValue(distanceGeometry.y).step(_size/100).listen().onChange(function (value) {
 		renderer.localClippingEnabled = true;
 		clippingPlanes[ 1 ].constant = value;
 		render();
@@ -509,8 +511,8 @@ function setupClippingPlanes (_geometry, _size, _distance) {
 	});
 
 
-	clippingFolder.add( planeParams.planeZ, 'displayHelperZ' ).onChange( (v) => { planeHelpers[ 2 ].visible = v; renderer.localClippingEnabled = v; } );
-	clippingFolder.add( planeParams.planeZ, 'constant' ).min( - distanceGeometry.z ).max( distanceGeometry.z ).setValue(distanceGeometry.z).step(_size/100).listen().onChange(function (value) {
+	clippingFolder.add(planeParams.planeZ, 'displayHelperZ').onChange((v) => { planeHelpers[ 2 ].visible = v; renderer.localClippingEnabled = v; });
+	clippingFolder.add(planeParams.planeZ, 'constant').min(- distanceGeometry.z).max(distanceGeometry.z).setValue(distanceGeometry.z).step(_size/100).listen().onChange(function (value) {
 		renderer.localClippingEnabled = true;
 		clippingPlanes[ 2 ].constant = value;
 		render();
@@ -518,15 +520,15 @@ function setupClippingPlanes (_geometry, _size, _distance) {
 	});
 }
 
-function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit ) {
+function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit) {
 	const boundingBox = new THREE.Box3();
 	if (Array.isArray(object)) {
 		for (let i = 0; i < object.length; i++) {			
-			boundingBox.setFromObject( object[i] );
+			boundingBox.setFromObject(object[i]);
 		}
 	}
 	else {
-		boundingBox.setFromObject( object );
+		boundingBox.setFromObject(object);
 	}
 
     var middle = new THREE.Vector3();
@@ -539,31 +541,30 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit 
 	dirLightTarget = new THREE.Object3D();
 	dirLightTarget.position.set(0,0,0);
 
-	lightHelper = new THREE.DirectionalLightHelper( dirLight, gridSize );
-	scene.add( lightHelper );
+	lightHelper = new THREE.DirectionalLightHelper(dirLight, gridSize);
+	scene.add(lightHelper);
 	lightHelper.visible = false;
 
 	scene.add(dirLightTarget);
 	dirLight.target = dirLightTarget;
-	dirLight.target.updateMatrixWorld();
-	
+	dirLight.target.updateMatrixWorld();	
 
 	var gridSizeScale = gridSize*1.5;
-	const mesh = new THREE.Mesh( new THREE.PlaneGeometry( gridSizeScale, gridSizeScale ), new THREE.MeshPhongMaterial( { color: 0x999999, depthWrite: false, transparent: true, opacity: 0.85 } ) );
+	const mesh = new THREE.Mesh(new THREE.PlaneGeometry(gridSizeScale, gridSizeScale), new THREE.MeshPhongMaterial({ color: 0x999999, depthWrite: false, transparent: true, opacity: 0.85 }));
 	mesh.rotation.x = - Math.PI / 2;
 	mesh.position.set(0, 0, 0);
 	mesh.receiveShadow = false;
-	scene.add( mesh );	
+	scene.add(mesh);	
 
-	const axesHelper = new THREE.AxesHelper( gridSize );
+	const axesHelper = new THREE.AxesHelper(gridSize);
 	axesHelper.position.set(0, 0, 0);
-	scene.add( axesHelper );
+	scene.add(axesHelper);
 	
-	const grid = new THREE.GridHelper( gridSizeScale, 80, 0x000000, 0x000000 );
+	const grid = new THREE.GridHelper(gridSizeScale, 80, 0x000000, 0x000000);
 	grid.material.opacity = 0.2;
 	grid.material.transparent = true;
 	grid.position.set(0, 0, 0);
-	scene.add( grid );
+	scene.add(grid);
 
     // figure out how to fit the box in the view:
     // 1. figure out horizontal FOV (on non-1.0 aspects)
@@ -600,38 +601,37 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit 
     // FTR, from https://threejs.org/docs/#api/en/cameras/PerspectiveCamera
     // the camera.fov is the vertical FOV.
 
-    const fov = camera.fov * ( Math.PI / 180 );
+    const fov = camera.fov * (Math.PI / 180);
     const fovh = 2*Math.atan(Math.tan(fov/2) * camera.aspect);
-    let dx = size.z / 2 + Math.abs( size.x / 2 / Math.tan( fovh / 2 ) );
-    let dy = size.z / 2 + Math.abs( size.y / 2 / Math.tan( fov / 2 ) );
+    let dx = size.z / 2 + Math.abs(size.x / 2 / Math.tan(fovh / 2));
+    let dy = size.z / 2 + Math.abs(size.y / 2 / Math.tan(fov / 2));
     let cameraZ = Math.max(dx, dy);
-	if (_fit) { camera.position.x *= 1.1; camera.position.y *= 1.1; camera.position.z *= 1.1; }
+	if (_fit) { cameraZ = camera.position.z; }
 
     // offset the camera, if desired (to avoid filling the whole canvas)
-    if( offset !== undefined && offset !== 0 && !_fit ) { cameraZ *= offset; }
+    if(offset !== undefined && offset !== 0 && !_fit) { cameraZ *= offset; }
 
-	const coords = {x: camera.position.x, y: camera.position.y, z: cameraZ*0.8};
+	const coords = {x: camera.position.x, y: camera.position.y, z: cameraZ*0.65};
     new TWEEN.Tween(coords)
-		.to({ z: camera.position.z }, 800)
+		.to({ z: camera.position.z }, 1500)
 		.onUpdate(() =>
 			{
-				camera.position.set( coords.x, coords.y, coords.z );
+				camera.position.set(coords.x, coords.y, coords.z);
 				camera.updateProjectionMatrix();
 				controls.update();
 			}
-      )
-      .start();
+     ).start();
 
-    //camera.position.set( camera.position.x, camera.position.y, cameraZ );
+    //camera.position.set(camera.position.x, camera.position.y, cameraZ);
 
     // set the far plane of the camera so that it easily encompasses the whole object
     const minZ = boundingBox.min.z;
-    //const cameraToFarEdge = ( minZ < 0 ) ? -minZ + cameraZ : cameraZ - minZ;
+    //const cameraToFarEdge = (minZ < 0) ? -minZ + cameraZ : cameraZ - minZ;
 
     //camera.far = cameraToFarEdge * 3;
     camera.updateProjectionMatrix();
 
-    if ( orbitControls !== undefined ) {
+    if (orbitControls !== undefined && !_fit) {
         // set camera to rotate around the center
         orbitControls.target = new THREE.Vector3(0, 0, 0);
 
@@ -712,53 +712,57 @@ function buildGallery() {
 
 function render() {
 	controls.update();
-	renderer.render( scene, camera );
+	renderer.render(scene, camera);
 }
 
 function setupCamera (_object, _camera, _light, _data, _controls) {
 	if (typeof (_data) != "undefined") {
 		if (typeof (_data["cameraPosition"]) != "undefined") {
-			_camera.position.set (_data["cameraPosition"][0]*0.9, _data["cameraPosition"][1]*0.9, _data["cameraPosition"][2]*0.9);
+			_camera.position.set (_data["cameraPosition"][0], _data["cameraPosition"][1], _data["cameraPosition"][2]);
 		}
 		if (typeof (_data["controlsTarget"]) != "undefined") {
 			_controls.target.set (_data["controlsTarget"][0], _data["controlsTarget"][1], _data["controlsTarget"][2]);
 		}
 		if (typeof (_data["lightPosition"]) != "undefined") {
-			_light.position.set( _data["lightPosition"][0], _data["lightPosition"][1], _data["lightPosition"][2] );
+			_light.position.set(_data["lightPosition"][0], _data["lightPosition"][1], _data["lightPosition"][2]);
 		}
 		if (typeof (_data["lightTarget"]) != "undefined") {
-			_light.rotation.set( _data["lightTarget"][0], _data["lightTarget"][1], _data["lightTarget"][2] );
+			_light.rotation.set(_data["lightTarget"][0], _data["lightTarget"][1], _data["lightTarget"][2]);
 		}
 		if (typeof (_data["lightColor"]) != "undefined") {
-			_light.color = new THREE.Color( _data["lightColor"][0] );
+			_light.color = new THREE.Color(_data["lightColor"][0]);
 		}
 		if (typeof (_data["lightIntensity"]) != "undefined") {
 			_light.intensity = _data["lightIntensity"][0];
 		}
 		if (typeof (_data["lightAmbientColor"]) != "undefined") {
-			ambientLight.color = new THREE.Color( _data["lightAmbientColor"][0] );
+			ambientLight.color = new THREE.Color(_data["lightAmbientColor"][0]);
 		}
 		if (typeof (_data["lightAmbientIntensity"]) != "undefined") {
 			ambientLight.intensity = _data["lightAmbientIntensity"][0];
 		}
+		if (typeof (_data["backgroundColor"]) != "undefined") {
+			scene.background.set(new THREE.Color(_data["backgroundColor"][0]));
+			colors['BackgroundColor'] = _data["backgroundColor"][0];
+		}
 		_camera.updateProjectionMatrix();
 		_controls.update();
-		fitCameraToCenteredObject ( _camera, _object, 2.3, _controls, true );
+		fitCameraToCenteredObject (_camera, _object, 2.3, _controls, true);
 	}
 	else {
 		var boundingBox = new THREE.Box3();
 		if (Array.isArray(_object)) {
 			for (let i = 0; i < _object.length; i++) {
-				boundingBox.setFromObject( _object[i] );
+				boundingBox.setFromObject(_object[i]);
 			}
 		}
 		else {
-			boundingBox.setFromObject( _object );
+			boundingBox.setFromObject(_object);
 		}
 		var size = new THREE.Vector3();
 		boundingBox.getSize(size);
 		camera.position.set(size.x, size.y, size.z);
-		fitCameraToCenteredObject ( _camera, _object, 2.3, _controls, false );
+		fitCameraToCenteredObject (_camera, _object, 2.3, _controls, false);
 	}
 }
 
@@ -808,13 +812,13 @@ function buildRuler(_id) {
 				opacity : 0.8,
 				side: THREE.DoubleSide, depthTest: false, depthWrite: false
 			}));
-	var newPoint = new THREE.Vector3( _id.point.x, _id.point.y, _id.point.z );
-	sphere.position.set( newPoint.x, newPoint.y, newPoint.z	);
+	var newPoint = new THREE.Vector3(_id.point.x, _id.point.y, _id.point.z);
+	sphere.position.set(newPoint.x, newPoint.y, newPoint.z	);
 	rulerObject.add(sphere);
-	linePoints.push( newPoint );
-	const lineGeometry = new THREE.BufferGeometry().setFromPoints( linePoints );
-	const line = new THREE.Line( lineGeometry, lineMaterial );
-	rulerObject.add( line );
+	linePoints.push(newPoint);
+	const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
+	const line = new THREE.Line(lineGeometry, lineMaterial);
+	rulerObject.add(line);
 	var lineMtr = new THREE.LineBasicMaterial({ color: 0x0000FF, linewidth: 3, opacity: 1, side: THREE.DoubleSide, depthTest: false, depthWrite: false });
 	if (linePoints.length > 1) {
 		var vectorPoints = vectorBetweenPoints(linePoints[linePoints.length-2], newPoint);
@@ -831,7 +835,7 @@ function buildRuler(_id) {
             geoSegm.push(new THREE.Vector3(interpolatePoints.x, interpolatePoints.y, interpolatePoints.z));
             //geoSegm.push(new THREE.Vector3(interpolatePoints.x+_id.face.normal.x, interpolatePoints.y+_id.face.normal.y, interpolatePoints.z+_id.face.normal.z));
 			geoSegm.push(new THREE.Vector3(interpolatePoints.x+measureSize, interpolatePoints.y+measureSize, interpolatePoints.z+measureSize));
-			const geometryLine = new THREE.BufferGeometry().setFromPoints( geoSegm );
+			const geometryLine = new THREE.BufferGeometry().setFromPoints(geoSegm);
             var lineSegm = new THREE.Line(geometryLine, lineMtr);
 			rulerObject.add(lineSegm);
             //var textSprite = makeTextSprite((i * 10).toString(), {r: 255, g: 255, b: 255, a: 255}, new THREE.Vector3(0.2, ruler, 3), Math.PI);
@@ -872,10 +876,10 @@ function onWindowResize() {
 	guiContainer.style.left = mainCanvas.offsetLeft + canvasDimensions.x + 'px';
 	guiContainer.style.top = mainCanvas.offsetTop + 'px';
 
-	renderer.setPixelRatio( window.devicePixelRatio );
+	renderer.setPixelRatio(window.devicePixelRatio);
 	camera.aspect = canvasDimensions.x / canvasDimensions.y;
 	camera.updateProjectionMatrix();
-	renderer.setSize( canvasDimensions.x, canvasDimensions.y );
+	renderer.setSize(canvasDimensions.x, canvasDimensions.y);
 	if (!proxyPath) {
 		downloadModel.setAttribute('style', 'right: ' + rightOffsetDownload +'%');
 	}
@@ -962,7 +966,7 @@ function fullscreen() {
 	//var _container = document.getElementById("MainCanvas");
 	var _container = container;
 	if (FULLSCREEN) {
-		if (_container.requestFullscreen ) {
+		if (_container.requestFullscreen) {
 			_container.requestFullscreen();
 		} 
 		else if (_container.webkitRequestFullscreen) { /* Safari */
@@ -998,7 +1002,7 @@ function exitFullscreenHandler() {
 	}
 }
 
-function fetchSettings ( path, basename, filename, object, camera, light, controls, orgExtension, extension ) {
+function fetchSettings (path, basename, filename, object, camera, light, controls, orgExtension, extension) {
 	var metadata = {'vertices': 0, 'faces': 0};
 	var hierarchy = [];
 	var geometry;
@@ -1019,11 +1023,11 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 		})
 	.then(data => {
 		var tempArray = [];
-		const hierarchyMain = gui.addFolder( 'Hierarchy' ).close();
-		if (object.name === "Scene" || object.children.length > 0 ) {
+		const hierarchyMain = gui.addFolder('Hierarchy').close();
+		if (object.name === "Scene" || object.children.length > 0) {
 			setupObject(object, light, data, controls);
-			object.traverse( function ( child ) {
-				if ( child.isMesh ) {
+			object.traverse(function (child) {
+				if (child.isMesh) {
 					metadata['vertices'] += fetchMetadata (child, 'vertices');
 					metadata['faces'] += fetchMetadata (child, 'faces');
 					var shortChildName = truncateString(child.name, GUILength);
@@ -1036,8 +1040,8 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 					hierarchyFolder = hierarchyMain.addFolder(shortChildName).close();
 					hierarchyFolder.add(tempArray, shortChildName);
 					clippingGeometry.push(child.geometry);
-					child.traverse( function ( children ) {
-						if ( children.isMesh &&  children.name !== child.name) {
+					child.traverse(function (children) {
+						if (children.isMesh &&  children.name !== child.name) {
 							var shortChildrenName = truncateString(children.name, GUILength);
 							if (children.name === '') {
 								tempArray = {["Mesh"] (){selectObjectHierarchy(children.id)}, 'id': children.id};
@@ -1069,7 +1073,7 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 			if (object.name === "undefined") object.name = "level";
 			clippingGeometry.push(object.geometry);
 			hierarchyFolder = hierarchyMain.addFolder(object.name).close();			
-			//hierarchyFolder.add(tempArray, 'name' ).name(object.name);
+			//hierarchyFolder.add(tempArray, 'name').name(object.name);
 			metadata['vertices'] += fetchMetadata (object, 'vertices');
 			metadata['faces'] += fetchMetadata (object, 'faces');
 		}
@@ -1105,7 +1109,7 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 					}
 					metadataContent += metadataContentTech + '</div>';
 					canvasText.innerHTML = metadataContent;
-					metadataContainer.appendChild( canvasText );
+					metadataContainer.appendChild(canvasText);
 					if (!proxyPath) {
 						downloadModel = document.createElement('div');
 						downloadModel.setAttribute('id', 'downloadModel');
@@ -1113,7 +1117,6 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 					viewEntity = document.createElement('div');
 					viewEntity.setAttribute('id', 'viewEntity');
 					var c_path = path;
-					console.log(c_path + filename);
 					//if (compressedFile !== '') { c_path = CONFIG.domain + '/' + uri; }
 					if (compressedFile !== '') { filename = filename.replace(orgExtension, extension); }
 					if (!proxyPath) {
@@ -1121,13 +1124,13 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 					}
 					
 					if (!proxyPath) {
-						metadataContainer.appendChild( downloadModel );
+						metadataContainer.appendChild(downloadModel);
 					}
 					else
 					{
 						viewEntity.innerHTML = "<a href='" + CONFIG.domain + "/wisski/navigate/" + wisskiID + "/view' target='_blank'><img src='/modules/dfg_3dviewer/main/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>";
 					}
-					metadataContainer.appendChild( viewEntity );
+					metadataContainer.appendChild(viewEntity);
 					fullscreenMode = document.createElement('div');
 					fullscreenMode.setAttribute('id', 'fullscreenMode');
 					fullscreenMode.setAttribute('style', 'bottom:' + Math.round(-canvasDimensions.y * 1.04 + 36) + 'px; right: ' + canvasDimensions.x * 0.45 + 'px');
@@ -1149,7 +1152,7 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 				}
 		};
 		req.send(null);
-		//hierarchyFolder.add(hierarchyText, 'Faces' );
+		//hierarchyFolder.add(hierarchyText, 'Faces');
 	});
 	helperObjects.push (object);
 	//addTextWatermark("©", object.scale.x);
@@ -1163,7 +1166,7 @@ const onError = function (_event) {
 	EXIT_CODE=1;
 };
 
-const onProgress = function ( xhr ) {
+const onProgress = function (xhr) {
 	var percentComplete = xhr.loaded / xhr.total * 100;
 	circle.show();
 	circle.set(percentComplete, 100);
@@ -1174,7 +1177,22 @@ const onProgress = function ( xhr ) {
 	}
 };
 
-function loadModel ( path, basename, filename, extension, orgExtension ) {
+function traverseMesh (object) {
+	object.traverse(function (child) {
+		if (child.isMesh) {
+			child.castShadow = true;
+			child.receiveShadow = true;
+			child.geometry.computeVertexNormals();
+			if(child.material.map) { child.material.map.anisotropy = 16 };
+			child.material.side = THREE.DoubleSide;
+			child.material.clippingPlanes = clippingPlanes;
+			child.material.clipIntersection = false;
+			mainObject.push(child);	
+		}
+	});
+}
+
+function loadModel (path, basename, filename, extension, orgExtension) {
 	if (!imported) {
 		circle.show();
 		circle.set(0, 100);
@@ -1185,150 +1203,148 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 		switch(extension.toLowerCase()) {
 			case 'obj':
 				const manager = new THREE.LoadingManager();
-				manager.onLoad = function ( ) { showToast ("OBJ model has been loaded"); };
-				manager.addHandler( /\.dds$/i, new DDSLoader() );
-				// manager.addHandler( /\.tga$/i, new TGALoader() );
-				new MTLLoader( manager )
-					.setPath( path )
-					.load( basename + '.mtl', function ( materials ) {
+				manager.onLoad = function () { showToast ("OBJ model has been loaded"); };
+				manager.addHandler(/\.dds$/i, new DDSLoader());
+				// manager.addHandler(/\.tga$/i, new TGALoader());
+				new MTLLoader(manager)
+					.setPath(path)
+					.load(basename + '.mtl', function (materials) {
 						materials.preload();
-						new OBJLoader( manager )
-							.setMaterials( materials )
-							.setPath( path )
-							.load( filename, function ( object ) {
+						new OBJLoader(manager)
+							.setMaterials(materials)
+							.setPath(path)
+							.load(filename, function (object) {
 								object.position.set (0, 0, 0);
-								scene.add( object );
-								fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension );
+								traverseMesh(object);
+								scene.add(object);
+								fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
 								mainObject.push(object);
-							}, onProgress, onError );
-					} );
+							}, onProgress, onError);
+					});
 			break;
 			
 			case 'fbx':
 				var FBXloader = new FBXLoader();
-				FBXloader.load( modelPath, function ( object ) {
-					object.traverse( function ( child ) {
-						if ( child.isMesh ) {
-							child.castShadow = true;
-							child.receiveShadow = true;
-						}
-					} );
+				FBXloader.load(modelPath, function (object) {
+					traverseMesh (object);
 					object.position.set (0, 0, 0);
-					scene.add( object );
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object.children, camera, controls, orgExtension, extension );
+					scene.add(object);
+					fetchSettings (path.replace("gltf/", ""), basename, filename, object.children, camera, controls, orgExtension, extension);
 					mainObject.push(object);
-				}, onProgress, onError );
+				}, onProgress, onError);
 			break;
 			
 			case 'ply':
 				loader = new PLYLoader();
-				loader.load( modelPath, function ( geometry ) {
+				loader.load(modelPath, function (geometry) {
 					geometry.computeVertexNormals();
-					const material = new THREE.MeshStandardMaterial( { color: 0x0055ff, flatShading: true } );
-					const object = new THREE.Mesh( geometry, material );
+					const material = new THREE.MeshStandardMaterial({ color: 0x0055ff, flatShading: true });
+					const object = new THREE.Mesh(geometry, material);
 					object.position.set (0, 0, 0);
 					object.castShadow = true;
 					object.receiveShadow = true;
-					scene.add( object );
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension );
+					traverseMesh(object);
+					scene.add(object);
+					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
 					mainObject.push(object);
-				}, onProgress, onError );
+				}, onProgress, onError);
 			break;
 			
 			case 'dae':
-				const loadingManager = new THREE.LoadingManager( function () {
-					scene.add( object );
-				} );
-				loader = new ColladaLoader( loadingManager );
-				loader.load( modelPath, function ( object ) {
+				const loadingManager = new THREE.LoadingManager(function () {
+					scene.add(object);
+				});
+				loader = new ColladaLoader(loadingManager);
+				loader.load(modelPath, function (object) {
 					object = object.scene;
 					object.position.set (0, 0, 0);
-					scene.add( object );
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension );
+					traverseMesh(object);
+					scene.add(object);
+					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
 					mainObject.push(object);
-				}, onProgress, onError );
+				}, onProgress, onError);
 			break;
 			
 			case 'ifc':
 				const ifcLoader = new IFCLoader();
-				ifcLoader.ifcManager.setWasmPath( '/modules/dfg_3dviewer/main/js/jsm/loaders/ifc/' );
-				ifcLoader.load( modelPath, function ( object ) {
+				ifcLoader.ifcManager.setWasmPath('/modules/dfg_3dviewer/main/js/jsm/loaders/ifc/');
+				ifcLoader.load(modelPath, function (object) {
 					//object.position.set (0, 300, 0);
-					scene.add( object );
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension );
+					traverseMesh(object);
+					scene.add(object);
+					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
 					mainObject.push(object);
-				}, onProgress, onError );
+				}, onProgress, onError);
 			break;
 			
 			case 'stl':
 				loader = new STLLoader();
-				loader.load( modelPath, function ( geometry ) {
-					let meshMaterial = new THREE.MeshPhongMaterial( { color: 0xff5533, specular: 0x111111, shininess: 200 } );
-					if ( geometry.hasColors ) {
-						meshMaterial = new THREE.MeshPhongMaterial( { opacity: geometry.alpha, vertexColors: true } );
+				loader.load(modelPath, function (geometry) {
+					let meshMaterial = new THREE.MeshPhongMaterial({ color: 0xff5533, specular: 0x111111, shininess: 200 });
+					if (geometry.hasColors) {
+						meshMaterial = new THREE.MeshPhongMaterial({ opacity: geometry.alpha, vertexColors: true });
 					}
-					const object = new THREE.Mesh( geometry, meshMaterial );
+					const object = new THREE.Mesh(geometry, meshMaterial);
 					object.position.set (0, 0, 0);
+					traverseMesh(object);
 					object.castShadow = true;
 					object.receiveShadow = true;
-					scene.add( object );
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension );
+					scene.add(object);
+					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
 					mainObject.push(object);
-				}, onProgress, onError );
+				}, onProgress, onError);
 			break;
 
 			case 'xyz':
 				loader = new XYZLoader();
-				loader.load( modelPath, function ( geometry ) {
+				loader.load(modelPath, function (geometry) {
 					geometry.center();
-					const vertexColors = ( geometry.hasAttribute( 'color' ) === true );
-					const material = new THREE.PointsMaterial( { size: 0.1, vertexColors: vertexColors } );
-					const object = new THREE.Points( geometry, material );
+					const vertexColors = (geometry.hasAttribute('color') === true);
+					const material = new THREE.PointsMaterial({ size: 0.1, vertexColors: vertexColors });
+					const object = new THREE.Points(geometry, material);
+					traverseMesh(object);
 					object.position.set (0, 0, 0);
-					scene.add( object );
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension );
+					scene.add(object);
+					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
 					mainObject.push(object);
-				}, onProgress, onError );
+				}, onProgress, onError);
 			break;
 
 			case 'pcd':
 				loader = new PCDLoader();
-				loader.load( modelPath, function ( mesh ) {
-					scene.add( mesh );
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension );
+				loader.load(modelPath, function (mesh) {
+					traverseMesh(mesh);
+					scene.add(mesh);
+					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
 					mainObject.push(object);
-				}, onProgress, onError );
+				}, onProgress, onError);
 			break;
 
 			case 'json':
 				loader = new THREE.ObjectLoader();
 				loader.load(
-					modelPath, function ( object ) {
+					modelPath, function (object) {
 						object.position.set (0, 0, 0);
-						scene.add( object );
-						fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension );
+						traverseMesh(object);
+						scene.add(object);
+						fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
 						mainObject.push(object);
-					}, onProgress, onError );
+					}, onProgress, onError);
 			break;
 
 			case '3ds':
-				loader = new TDSLoader( );
-				loader.setResourcePath( path );
+				loader = new TDSLoader();
+				loader.setResourcePath(path);
 				modelPath = path;
 				if (proxyPath) {
 					modelPath = getProxyPath(modelPath);
 				}
-				loader.load( modelPath + basename + "." + extension, function ( object ) {
-					object.traverse( function ( child ) {
-						if ( child.isMesh ) {
-							//child.material.specular.setScalar( 0.1 );
-							//child.material.normalMap = normal;
-						}
-					} );
-					scene.add( object );
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension );
+				loader.load(modelPath + basename + "." + extension, function (object) {
+					traverseMesh(object);
+					scene.add(object);
+					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
 					mainObject.push(object);
-				}, onProgress, onError );
+				}, onProgress, onError);
 			break;
 
 			case 'zip':
@@ -1342,7 +1358,7 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 			case 'glb':
 			case 'gltf':
 				const dracoLoader = new DRACOLoader();
-				dracoLoader.setDecoderPath( '/modules/dfg_3dviewer/main/js/jsm/libs/draco/' );
+				dracoLoader.setDecoderPath('/modules/dfg_3dviewer/main/js/jsm/libs/draco/');
 				dracoLoader.preload();
 				const gltf = new GLTFLoader();
 				gltf.setDRACOLoader(dracoLoader);
@@ -1354,22 +1370,11 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 				}
 
 				gltf.load(modelPath, function(gltf) {
-					gltf.scene.traverse( function ( child ) {
-						if ( child.isMesh ) {
-							child.castShadow = true;
-							child.receiveShadow = true;
-							child.geometry.computeVertexNormals();
-							if(child.material.map) { child.material.map.anisotropy = 16 };
-							child.material.side = THREE.DoubleSide;
-							child.material.clippingPlanes = clippingPlanes;
-							child.material.clipIntersection = false;
-							mainObject.push(child);	
-						}
-					});
-					fetchSettings (path, basename, filename, gltf.scene, camera, lightObjects[0], controls, orgExtension, extension );
-					scene.add( gltf.scene );
+					traverseMesh(gltf.scene);
+					fetchSettings (path.replace("/gltf/", "/"), basename, filename, gltf.scene, camera, lightObjects[0], controls, orgExtension, extension);
+					scene.add(gltf.scene);
 				},
-					function ( xhr ) {
+					function (xhr) {
 						var percentComplete = xhr.loaded / xhr.total * 100;
 						if (percentComplete !== Infinity) {
 							circle.show();
@@ -1380,7 +1385,7 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 							}
 						}
 					}/*,
-					function ( ) {						
+					function () {						
 							showToast("GLTF or file with given name (possible archive/filename mismatch) representation not found, trying original file [semi-automatic]...");
 							showToast(path.replace("gltf/", "") + filename + " [" + orgExtension + "]");
 							var autoBasename = basename.replace(/_[0-9]+$/, '');
@@ -1424,15 +1429,15 @@ function loadModel ( path, basename, filename, extension, orgExtension ) {
 //
 
 function animate() {
-	requestAnimationFrame( animate );
+	requestAnimationFrame(animate);
 	const delta = clock.getDelta();
-	if ( mixer ) { mixer.update( delta ); }
+	if (mixer) { mixer.update(delta); }
 	TWEEN.update();
-	/*for ( let i = 0; i < clippingPlanes.length && clippingMode; i ++ ) {
+	/*for (let i = 0; i < clippingPlanes.length && clippingMode; i ++) {
 		const plane = clippingPlanes[ i ];
 		const po = planeObjects[ i ];
-		if (po !== undefined ) {
-			plane.coplanarPoint( po.position );
+		if (po !== undefined) {
+			plane.coplanarPoint(po.position);
 			po.lookAt(
 				po.position.x - plane.normal.x,
 				po.position.y - plane.normal.y,
@@ -1441,14 +1446,14 @@ function animate() {
 		}
 	}*/
 	if (textMesh !== undefined) { textMesh.lookAt(camera.position); }
-	renderer.render( scene, camera );
+	renderer.render(scene, camera);
 	stats.update();
 }
 
 function updateObject () {
 }
 
-function onPointerDown( e ) {
+function onPointerDown(e) {
 	//onDownPosition.x = event.clientX;
 	//onDownPosition.y = event.clientY;
 	if (e.button === 0) {
@@ -1457,29 +1462,29 @@ function onPointerDown( e ) {
 	}
 }
 
-function onPointerUp( e ) {
-    //onUpPosition.x = ( e.clientX / canvasDimensions.x ) * 2 - 1;
-    //onUpPosition.y = -( e.clientY / canvasDimensions.y ) * 2 + 1;
-    //onUpPosition.x = ( e.clientX / (canvasDimensions.x - container.offsetLeft)) * 2 - 1;
-    //onUpPosition.y = -( e.clientY / (canvasDimensions.y - container.offsetTop)) * 2 + 1;
+function onPointerUp(e) {
+    //onUpPosition.x = (e.clientX / canvasDimensions.x) * 2 - 1;
+    //onUpPosition.y = -(e.clientY / canvasDimensions.y) * 2 + 1;
+    //onUpPosition.x = (e.clientX / (canvasDimensions.x - container.offsetLeft)) * 2 - 1;
+    //onUpPosition.y = -(e.clientY / (canvasDimensions.y - container.offsetTop)) * 2 + 1;
 	if (e.button == 0) {
 		onUpPosition.x = ((e.clientX - container.getBoundingClientRect().left)/ renderer.domElement.clientWidth) * 2 - 1;
 		onUpPosition.y = - ((e.clientY - container.getBoundingClientRect().top) / renderer.domElement.clientHeight) * 2 + 1;
 		
 		if (onUpPosition.x === onDownPosition.x && onUpPosition.y === onDownPosition.y) {
-			raycaster.setFromCamera( onUpPosition, camera );
+			raycaster.setFromCamera(onUpPosition, camera);
 			var intersects;
 			if (EDITOR || RULER_MODE) {
 				if (mainObject.length > 1) {
 					for (let ii = 0; ii < mainObject.length; ii++) {
-						intersects = raycaster.intersectObjects( mainObject[ii].children, true );
+						intersects = raycaster.intersectObjects(mainObject[ii].children, true);
 					}
 					if (intersects.length <= 0) {
-						intersects = raycaster.intersectObjects( mainObject, true );
+						intersects = raycaster.intersectObjects(mainObject, true);
 					}
 				}
 				else {
-					intersects = raycaster.intersectObjects( mainObject[0], true );
+					intersects = raycaster.intersectObjects(mainObject[0], true);
 				}
 				if (intersects.length > 0) {
 					if (RULER_MODE) buildRuler(intersects[0]);
@@ -1490,7 +1495,7 @@ function onPointerUp( e ) {
 	}
 }
 
-function onPointerMove( e ) {
+function onPointerMove(e) {
 	pointer.x = ((e.clientX - container.getBoundingClientRect().left)/ renderer.domElement.clientWidth) * 2 - 1;
 	pointer.y = - ((e.clientY - container.getBoundingClientRect().top) / renderer.domElement.clientHeight) * 2 + 1;
 	if (e.buttons == 1) {
@@ -1500,19 +1505,19 @@ function onPointerMove( e ) {
 	}
 	if (e.buttons != 1) {
 		if (EDITOR) {
-			raycaster.setFromCamera( pointer, camera );
+			raycaster.setFromCamera(pointer, camera);
 			var intersects;
 		
 			if (mainObject.length > 1) {
 				for (let ii = 0; ii < mainObject.length; ii++) {
-					intersects = raycaster.intersectObjects( mainObject[ii].children, true );
+					intersects = raycaster.intersectObjects(mainObject[ii].children, true);
 				}
 				if (intersects.length <= 0) {
-					intersects = raycaster.intersectObjects( mainObject, true );
+					intersects = raycaster.intersectObjects(mainObject, true);
 				}
 			}
 			else {
-				intersects = raycaster.intersectObjects( mainObject[0], true );
+				intersects = raycaster.intersectObjects(mainObject[0], true);
 			}
 			if (intersects.length > 0) {
 				pickFaces(intersects[0]);
@@ -1547,11 +1552,11 @@ function calculateObjectScale () {
 	const boundingBox = new THREE.Box3();
 	if (Array.isArray(helperObjects[0])) {
 		for (let i = 0; i < helperObjects[0].length; i++) {			
-			boundingBox.setFromObject( object[i] );
+			boundingBox.setFromObject(object[i]);
 		}
 	}
 	else {
-		boundingBox.setFromObject( helperObjects[0] );
+		boundingBox.setFromObject(helperObjects[0]);
 	}
 
     var middle = new THREE.Vector3();
@@ -1581,7 +1586,7 @@ function mainLoadModel (_ext) {
 	if (_ext === "glb" || _ext === "gltf") {
 		loadModel (path, basename, filename, extension, _ext);
 	}
-	else if  (_ext === "zip" || _ext === "rar" || _ext === "tar" || _ext === "xz" || _ext === "gz" ) {
+	else if  (_ext === "zip" || _ext === "rar" || _ext === "tar" || _ext === "xz" || _ext === "gz") {
 		compressedFile = "_" + _ext.toUpperCase() + "/";
 		loadModel (path+basename+compressedFile+"gltf/", basename, filename,  "glb", _ext);
 	}
@@ -1600,22 +1605,22 @@ function init() {
 	container.setAttribute("width", canvasDimensions.x);
 	container.setAttribute("height", canvasDimensions.y);
 
-	camera = new THREE.PerspectiveCamera( 45, canvasDimensions.x / canvasDimensions.y, 0.1, 999000000 );
-	camera.position.set( 0, 0, 0 );
+	camera = new THREE.PerspectiveCamera(45, canvasDimensions.x / canvasDimensions.y, 0.1, 999000000);
+	camera.position.set(0, 0, 0);
 
 	scene = new THREE.Scene();
-	scene.background = new THREE.Color( 0xa0a0a0 );
-	//scene.fog = new THREE.Fog( 0xa0a0a0, 90000, 1000000 );
+	scene.background = new THREE.Color(0xa0a0a0);
+	//scene.fog = new THREE.Fog(0xa0a0a0, 90000, 1000000);
 
-	const hemiLight = new THREE.HemisphereLight( 0xffffff, 0x444444 );
-	hemiLight.position.set( 0, 200, 0 );
-	scene.add( hemiLight );
+	const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444);
+	hemiLight.position.set(0, 200, 0);
+	scene.add(hemiLight);
 	
-	ambientLight = new THREE.AmbientLight( 0x404040 ); // soft white light
-	scene.add( ambientLight );
+	ambientLight = new THREE.AmbientLight(0x404040); // soft white light
+	scene.add(ambientLight);
 
-	dirLight = new THREE.DirectionalLight( 0xffffff );
-	dirLight.position.set( 0, 100, 50 );
+	dirLight = new THREE.DirectionalLight(0xffffff);
+	dirLight.position.set(0, 100, 50);
 	dirLight.castShadow = true;
 	dirLight.shadow.camera.top = 180;
 	dirLight.shadow.camera.bottom = - 100;
@@ -1624,29 +1629,29 @@ function init() {
 	dirLight.shadow.bias = -0.0001;
 	dirLight.shadow.mapSize.width = 1024*4;
 	dirLight.shadow.mapSize.height = 1024*4;
-	scene.add( dirLight );
-	lightObjects.push( dirLight );
+	scene.add(dirLight);
+	lightObjects.push(dirLight);
 	
 	cameraLightTarget = new THREE.Object3D();
 	cameraLightTarget.position.set(camera.position.x, camera.position.y, camera.position.z);
 	scene.add(cameraLightTarget);
 
-	cameraLight = new THREE.DirectionalLight( 0xffffff );
-	cameraLight.position.set( camera.position );
+	cameraLight = new THREE.DirectionalLight(0xffffff);
+	cameraLight.position.set(camera.position);
 	cameraLight.castShadow = false;
 	cameraLight.intensity = 0.3;
-	scene.add( cameraLight );
+	scene.add(cameraLight);
 	cameraLight.target = cameraLightTarget;
 	cameraLight.target.updateMatrixWorld();
 
-	renderer = new THREE.WebGLRenderer( { antialias: true, logarithmicDepthBuffer: true, colorManagement: true, sortObjects: true, preserveDrawingBuffer: true, powerPreference: "high-performance" } );
-	renderer.setPixelRatio( window.devicePixelRatio );
-	renderer.setSize( canvasDimensions.x, canvasDimensions.y );
+	renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true, colorManagement: true, sortObjects: true, preserveDrawingBuffer: true, powerPreference: "high-performance" });
+	renderer.setPixelRatio(window.devicePixelRatio);
+	renderer.setSize(canvasDimensions.x, canvasDimensions.y);
 	renderer.shadowMap.enabled = true;
 	renderer.localClippingEnabled = false;
-	renderer.setClearColor( 0x263238 );
+	renderer.setClearColor(0x263238);
 	renderer.domElement.id = 'MainCanvas';
-	container.appendChild( renderer.domElement );
+	container.appendChild(renderer.domElement);
 	mainCanvas = document.getElementById("MainCanvas");
 
 	mainCanvas.style.width = "70%";
@@ -1666,38 +1671,38 @@ function init() {
 	}
 	//DRUPAL WissKI [end]
 
-	controls = new OrbitControls( camera, renderer.domElement );
-	controls.target.set( 0, 100, 0 );
+	controls = new OrbitControls(camera, renderer.domElement);
+	controls.target.set(0, 100, 0);
 	controls.update();
 	
-	transformControl = new TransformControls( camera, renderer.domElement );
+	transformControl = new TransformControls(camera, renderer.domElement);
 	transformControl.rotationSnap = THREE.MathUtils.degToRad(5);
 	transformControl.space = "local";
-	transformControl.addEventListener( 'change', render );
-	transformControl.addEventListener( 'objectChange', changeScale );
-	transformControl.addEventListener( 'mouseUp', calculateObjectScale );
-	transformControl.addEventListener( 'dragging-changed', function ( event ) {
+	transformControl.addEventListener('change', render);
+	transformControl.addEventListener('objectChange', changeScale);
+	transformControl.addEventListener('mouseUp', calculateObjectScale);
+	transformControl.addEventListener('dragging-changed', function (event) {
 		controls.enabled = ! event.value
-	} );
-	scene.add( transformControl );
+	});
+	scene.add(transformControl);
 	
-	transformControlLight = new TransformControls( camera, renderer.domElement );
+	transformControlLight = new TransformControls(camera, renderer.domElement);
 	transformControlLight.space = "local";
-	transformControlLight.addEventListener( 'change', render );
-	//transformControlLight.addEventListener( 'objectChange', changeLightRotation );
-	transformControlLight.addEventListener( 'dragging-changed', function ( event ) {
+	transformControlLight.addEventListener('change', render);
+	//transformControlLight.addEventListener('objectChange', changeLightRotation);
+	transformControlLight.addEventListener('dragging-changed', function (event) {
 		controls.enabled = ! event.value;
-	} );
-	scene.add( transformControlLight );
+	});
+	scene.add(transformControlLight);
 
-	transformControlLightTarget = new TransformControls( camera, renderer.domElement );
+	transformControlLightTarget = new TransformControls(camera, renderer.domElement);
 	transformControlLightTarget.space = "global";
-	transformControlLightTarget.addEventListener( 'change', render );
-	transformControlLightTarget.addEventListener( 'objectChange', changeLightRotation );
-	transformControlLightTarget.addEventListener( 'dragging-changed', function ( event ) {
+	transformControlLightTarget.addEventListener('change', render);
+	transformControlLightTarget.addEventListener('objectChange', changeLightRotation);
+	transformControlLightTarget.addEventListener('dragging-changed', function (event) {
 		controls.enabled = ! event.value;
-	} );
-	scene.add( transformControlLightTarget );
+	});
+	scene.add(transformControlLightTarget);
 	
 	var _ext = extension.toLowerCase();
 
@@ -1726,7 +1731,6 @@ function init() {
 									_ext = extension.toLowerCase();
 									path = _autoPath.substring(0, _autoPath.lastIndexOf(filename));
 								}
-								//console.log(path + " | " + basename + " | " + filename + " | " + extension + " | " + _ext);
 								mainLoadModel(_ext);
 							}
 						}
@@ -1748,70 +1752,76 @@ function init() {
 	}*/
 
 
-	container.addEventListener( 'pointerdown', onPointerDown );
-	container.addEventListener( 'pointerup', onPointerUp );
-	container.addEventListener( 'pointermove', onPointerMove );
-	window.addEventListener( 'resize', onWindowResize );
+	container.addEventListener('pointerdown', onPointerDown);
+	container.addEventListener('pointerup', onPointerUp);
+	container.addEventListener('pointermove', onPointerMove);
+	window.addEventListener('resize', onWindowResize);
 
 	// stats
 	stats = new Stats();
 	stats.domElement.style.cssText = 'position:relative;top:0px;left:-80px;max-height:120px;max-width:90px;z-index:2;';
-	container.appendChild( stats.dom );
+	container.appendChild(stats.dom);
 	
 	windowHalfX = canvasDimensions.x / 2;
 	windowHalfY = canvasDimensions.y / 2;
 	
 	const editorFolder = gui.addFolder('Editor').close();
-	editorFolder.add(transformText, 'Transform 3D Object', { None: '', Move: 'translate', Rotate: 'rotate', Scale: 'scale' } ).onChange(function (value)
+	editorFolder.add(transformText, 'Transform 3D Object', { None: '', Move: 'translate', Rotate: 'rotate', Scale: 'scale' }).onChange(function (value)
 	{ 
 		if (value === '') { transformControl.detach(); } 
 		else {
 			renderer.localClippingEnabled = false;
 			transformControl.mode = value; 
-			transformControl.attach( helperObjects[0] );
+			transformControl.attach(helperObjects[0]);
 		}
 	});
 	const lightFolder = editorFolder.addFolder('Directional Light').close();
-	lightFolder.add(transformText, 'Transform Light', { None: '', Move: 'translate', Target: 'rotate' } ).onChange(function (value)
+	lightFolder.add(transformText, 'Transform Light', { None: '', Move: 'translate', Target: 'rotate' }).onChange(function (value)
 	{ 
 		if (value === '') { transformControlLight.detach(); transformControlLightTarget.detach(); lightHelper.visible = false; } else {
 			if (value === "translate") {
 				transformControlLight.mode = "translate";
-				transformControlLight.attach( dirLight );
+				transformControlLight.attach(dirLight);
 				lightHelper.visible = true;
 				transformControlLightTarget.detach();
 			}
 			else {
 				transformControlLightTarget.mode = "translate";
-				transformControlLightTarget.attach( dirLightTarget );
+				transformControlLightTarget.attach(dirLightTarget);
 				lightHelper.visible = true;
 				transformControlLight.detach();
 			}
 		}
 	});
-	lightFolder.addColor ( colors, 'DirectionalLight' ).onChange(function (value) {
-		const tempColor = new THREE.Color( value );
+	lightFolder.addColor (colors, 'DirectionalLight').onChange(function (value) {
+		const tempColor = new THREE.Color(value);
 		lightObjects[0].color = tempColor ;
-	});
-	lightFolder.add( intensity, 'startIntensityDir', 0, 10 ).onChange(function (value) {
+	}).listen();
+	lightFolder.add(intensity, 'startIntensityDir', 0, 10).onChange(function (value) {
 		lightObjects[0].intensity = value;
-	});
+	}).listen();
 
 	const lightFolderAmbient = editorFolder.addFolder('Ambient Light').close();
-	lightFolderAmbient.addColor ( colors, 'AmbientLight' ).onChange(function (value) {
-		const tempColor = new THREE.Color( value );
-		ambientLight.color = tempColor ;
-	});
-	lightFolderAmbient.add( intensity, 'startIntensityAmbient', 0, 10 ).onChange(function (value) {
+	lightFolderAmbient.addColor (colors, 'AmbientLight').onChange(function (value) {
+		const tempColor = new THREE.Color(value);
+		ambientLight.color = tempColor;
+	}).listen();
+	lightFolderAmbient.add(intensity, 'startIntensityAmbient', 0, 10).onChange(function (value) {
 		ambientLight.intensity = value;
-	});
+	}).listen();
+	const backgroundFolder = editorFolder.addFolder('Background Color').close();
+	backgroundFolder.addColor (colors, 'BackgroundColor').onChange(function (value) {
+		const tempColor = new THREE.Color(value);
+		scene.background.set(tempColor);
+	}).listen();
 
 	propertiesFolder = editorFolder.addFolder('Save properties').close();
-	propertiesFolder.add( saveProperties, 'Position' ); 
-	propertiesFolder.add( saveProperties, 'Rotation' ); 
-	propertiesFolder.add( saveProperties, 'Scale' ); 
-	propertiesFolder.add( saveProperties, 'Camera' ); 
-	propertiesFolder.add( saveProperties, 'Light' ); 
+	propertiesFolder.add(saveProperties, 'Position'); 
+	propertiesFolder.add(saveProperties, 'Rotation'); 
+	propertiesFolder.add(saveProperties, 'Scale'); 
+	propertiesFolder.add(saveProperties, 'Camera'); 
+	propertiesFolder.add(saveProperties, 'Light'); 
+	propertiesFolder.add(saveProperties, 'BackgroundColor'); 
 
 	if (editor) {
 		editorFolder.add({["Save"] (){
@@ -1831,6 +1841,7 @@ function init() {
 			if (saveProperties.Scale) { newMetadata = Object.assign(newMetadata, {"objScale": [ helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z ]}); }
 			if (saveProperties.Camera) { newMetadata = Object.assign(newMetadata, {"cameraPosition": [ camera.position.x, camera.position.y, camera.position.z ], "controlsTarget": [ controls.target.x, controls.target.y, controls.target.z ]}); }
 			if (saveProperties.Light) { newMetadata = Object.assign(newMetadata, {"lightPosition": [ dirLight.position.x, dirLight.position.y, dirLight.position.z ], "lightTarget": [ dirLight.rotation._x, dirLight.rotation._y, dirLight.rotation._z ], "lightColor": [ "#" + (dirLight.color.getHexString()).toUpperCase() ], "lightIntensity": [ dirLight.intensity ], "lightAmbientColor": [ "#" + (ambientLight.color.getHexString()).toUpperCase() ], "lightAmbientIntensity": [ ambientLight.intensity ] }); }
+			if (saveProperties.BackgroundColor) { newMetadata = Object.assign(newMetadata, {"backgroundColor": [ "#" + (scene.background.getHexString()).toUpperCase() ] }); }
 			if (compressedFile !== '') { params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+basename+compressedFile+"&filename="+filename; }
 			else { params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+"&filename="+filename; }
 			xhr.onreadystatechange = function()
@@ -1863,7 +1874,7 @@ function init() {
 			showToast ("Distance measurement mode is " + _str);
 			if (!RULER_MODE) {
 				
-				ruler.forEach( (r) => {
+				ruler.forEach((r) => {
 					scene.remove(r);
 				});
 				rulerObject = new THREE.Object3D();
