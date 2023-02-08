@@ -1130,7 +1130,7 @@ function fetchSettings ( path, basename, filename, object, camera, light, contro
 					metadataContainer.appendChild( viewEntity );
 					fullscreenMode = document.createElement('div');
 					fullscreenMode.setAttribute('id', 'fullscreenMode');
-					fullscreenMode.setAttribute('style', 'bottom:' + Math.round(-canvasDimensions.y * 1.05 + 36) + 'px; right: ' + canvasDimensions.x * 0.45 + 'px');
+					fullscreenMode.setAttribute('style', 'bottom:' + Math.round(-canvasDimensions.y * 1.04 + 36) + 'px; right: ' + canvasDimensions.x * 0.45 + 'px');
 					fullscreenMode.innerHTML = "<img src='/modules/dfg_3dviewer/main/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
 					metadataContainer.appendChild(fullscreenMode);
 					//var _container = document.getElementById("MainCanvas");
