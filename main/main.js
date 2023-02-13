@@ -49,7 +49,8 @@ const CONFIG = {
 	"metadataDomain": "https://3d-repository.hs-mainz.de",
 	"container": "DFG_3DViewer",
 	"galleryContainer": "block-bootstrap5-content",
-	"galleryImageClass": "field--type-image"
+	"galleryImageClass": "field--type-image",
+	"basePath": "/modules/dfg_3dviewer/main"
 };
 
 let camera, scene, renderer, stats, controls, loader, ambientLight, dirLight, dirLightTarget, cameraLight, cameraLightTarget;
@@ -73,7 +74,7 @@ container.setAttribute("height", window.self.innerHeight);
 container.setAttribute("display", "flex");
 const originalPath = container.getAttribute("3d");
 const proxyPath = container.getAttribute("proxy");
-if (!proxyPath) {
+if (proxyPath !== null) {
 	var elementsURL = window.location.pathname;
 	elementsURL = elementsURL.match("/wisski/navigate/(.*)/view");
 	wisskiID = elementsURL[1];
@@ -302,7 +303,7 @@ function addTextWatermark (_text, _scale) {
 	];
 	const loader = new FontLoader();
 
-	loader.load('/modules/dfg_3dviewer/main/fonts/helvetiker_regular.typeface.json', function (font) {
+	loader.load(CONFIG.basePath + '/fonts/helvetiker_regular.typeface.json', function (font) {
 
 		const textGeo = new TextGeometry(_text, {
 			font,
@@ -340,7 +341,7 @@ function addTextPoint (_text, _scale, _point) {
 	];
 	const loader = new FontLoader();
 
-	loader.load('/modules/dfg_3dviewer/main/fonts/helvetiker_regular.typeface.json', function (font) {
+	loader.load(CONFIG.basePath + '/fonts/helvetiker_regular.typeface.json', function (font) {
 
 		const textGeo = new TextGeometry(_text, {
 			font: font,
@@ -646,67 +647,70 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit)
 
 function buildGallery() {
 	var fileElement = document.getElementsByClassName("field--type-file");
-	fileElement[0].style.height = canvasDimensions.y*1.5 + "px";
-	var mainElement = document.getElementById(CONFIG.galleryContainer);
-	var imageElements = document.getElementsByClassName(CONFIG.galleryImageClass);
-	if (imageElements.length > 0) {
-		var imageList = document.createElement("div");
-		imageList.setAttribute('id', 'image-list');
-		var modalGallery = document.createElement('div');
-		var modalImage = document.createElement('img');
-		modalImage.setAttribute('class', 'modalImage');
-		modalGallery.addEventListener("wheel", function(e){
-			e.preventDefault();
-			e.stopPropagation();
-			if(e.deltaY > 0 && zoomImage > 0.15) {    
-				modalImage.style.transform = `scale(${zoomImage -= ZOOM_SPEED_IMAGE})`;  
-			}
-			else if (e.deltaY < 0 && zoomImage < 5) {    
-				modalImage.style.transform = `scale(${zoomImage += ZOOM_SPEED_IMAGE})`;
-			}
-			return false;
-		});
-		var modalClose = document.createElement('span');
-		modalGallery.setAttribute('id', 'modalGallery');
-		modalGallery.setAttribute('class', 'modalGallery');
-		modalClose.setAttribute('class', 'closeGallery');
-		modalClose.setAttribute('title', 'Close');
-		modalClose.innerHTML = "&times";
-		modalClose.onclick = function() {
-			modalGallery.style.display = "none";
-		}
-
-		document.addEventListener('click', function(event) {
-			if (!modalGallery.contains(event.target) && !imageList.contains(event.target)) {
-				//event.preventDefault();
+	console.log(fileElement);
+	if (fileElement.length > 0) {
+		fileElement[0].style.height = canvasDimensions.y*1.5 + "px";
+		var mainElement = document.getElementById(CONFIG.galleryContainer);
+		var imageElements = document.getElementsByClassName(CONFIG.galleryImageClass);
+		if (imageElements.length > 0) {
+			var imageList = document.createElement("div");
+			imageList.setAttribute('id', 'image-list');
+			var modalGallery = document.createElement('div');
+			var modalImage = document.createElement('img');
+			modalImage.setAttribute('class', 'modalImage');
+			modalGallery.addEventListener("wheel", function(e){
+				e.preventDefault();
+				e.stopPropagation();
+				if(e.deltaY > 0 && zoomImage > 0.15) {    
+					modalImage.style.transform = `scale(${zoomImage -= ZOOM_SPEED_IMAGE})`;  
+				}
+				else if (e.deltaY < 0 && zoomImage < 5) {    
+					modalImage.style.transform = `scale(${zoomImage += ZOOM_SPEED_IMAGE})`;
+				}
+				return false;
+			});
+			var modalClose = document.createElement('span');
+			modalGallery.setAttribute('id', 'modalGallery');
+			modalGallery.setAttribute('class', 'modalGallery');
+			modalClose.setAttribute('class', 'closeGallery');
+			modalClose.setAttribute('title', 'Close');
+			modalClose.innerHTML = "&times";
+			modalClose.onclick = function() {
 				modalGallery.style.display = "none";
-				zoomImage = 1.5;
-				modalImage.style.transform = `scale(1.5)`;
 			}
-		});
 
-		modalGallery.appendChild(modalImage);
-		modalGallery.appendChild(modalClose);
-		for (let i = 0; imageElements.length - i; imageList.firstChild === imageElements[0] && i++) {
-			//imageElements[i].className += " image-list-item";
-			var imgList = imageElements[i].getElementsByTagName("a");
-			for (let j = 0; j < imgList.length; j++) {
-				imgList[j].setAttribute("href", "#");
-				imgList[j].setAttribute("src", imgList[j].firstChild.src);
-				imgList[j].setAttribute("class", "image-list-item");
+			document.addEventListener('click', function(event) {
+				if (!modalGallery.contains(event.target) && !imageList.contains(event.target)) {
+					//event.preventDefault();
+					modalGallery.style.display = "none";
+					zoomImage = 1.5;
+					modalImage.style.transform = `scale(1.5)`;
+				}
+			});
+
+			modalGallery.appendChild(modalImage);
+			modalGallery.appendChild(modalClose);
+			for (let i = 0; imageElements.length - i; imageList.firstChild === imageElements[0] && i++) {
+				//imageElements[i].className += " image-list-item";
+				var imgList = imageElements[i].getElementsByTagName("a");
+				for (let j = 0; j < imgList.length; j++) {
+					imgList[j].setAttribute("href", "#");
+					imgList[j].setAttribute("src", imgList[j].firstChild.src);
+					imgList[j].setAttribute("class", "image-list-item");
+				}
+				imgList = imageElements[i].getElementsByTagName("img");
+				for (let j = 0; j < imgList.length; j++) {
+					imgList[j].onclick = function(){
+						modalGallery.style.display = "block";
+						modalImage.src = this.src;
+					};
+				}
+				//imageElements[i].getElementsByTagName("a")[0].setAttribute("href", "#");
+				imageList.appendChild(imageElements[i]);
 			}
-			imgList = imageElements[i].getElementsByTagName("img");
-			for (let j = 0; j < imgList.length; j++) {
-				imgList[j].onclick = function(){
-					modalGallery.style.display = "block";
-					modalImage.src = this.src;
-				};
-			}
-			//imageElements[i].getElementsByTagName("a")[0].setAttribute("href", "#");
-			imageList.appendChild(imageElements[i]);
+			fileElement[0].insertAdjacentElement('beforebegin', modalGallery);
+			mainElement.insertBefore(imageList, fileElement[0]);
 		}
-		fileElement[0].insertAdjacentElement('beforebegin', modalGallery);
-		mainElement.insertBefore(imageList, fileElement[0]);
 	}
 }
 
@@ -880,7 +884,7 @@ function onWindowResize() {
 	camera.aspect = canvasDimensions.x / canvasDimensions.y;
 	camera.updateProjectionMatrix();
 	renderer.setSize(canvasDimensions.x, canvasDimensions.y);
-	if (!proxyPath) {
+	if (proxyPath !== null) {
 		downloadModel.setAttribute('style', 'right: ' + rightOffsetDownload +'%');
 	}
 	viewEntity.setAttribute('style', 'right: ' + rightOffsetEntity +'%');
@@ -1120,7 +1124,7 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 					//if (compressedFile !== '') { c_path = CONFIG.domain + '/' + uri; }
 					if (compressedFile !== '') { filename = filename.replace(orgExtension, extension); }
 					if (!proxyPath) {
-						downloadModel.innerHTML = "<a href='" + c_path + filename + "' download><img src='/modules/dfg_3dviewer/main/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
+						downloadModel.innerHTML = "<a href='" + c_path + filename + "' download><img src='" + CONFIG.basePath + "/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
 					}
 					
 					if (!proxyPath) {
@@ -1128,13 +1132,13 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 					}
 					else
 					{
-						viewEntity.innerHTML = "<a href='" + CONFIG.domain + "/wisski/navigate/" + wisskiID + "/view' target='_blank'><img src='/modules/dfg_3dviewer/main/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>";
+						viewEntity.innerHTML = "<a href='" + CONFIG.domain + "/wisski/navigate/" + wisskiID + "/view' target='_blank'><img src='" + CONFIG.basePath + "/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>";
 					}
 					metadataContainer.appendChild(viewEntity);
 					fullscreenMode = document.createElement('div');
 					fullscreenMode.setAttribute('id', 'fullscreenMode');
 					fullscreenMode.setAttribute('style', 'bottom:' + Math.round(-canvasDimensions.y * 1.04 + 36) + 'px; right: ' + canvasDimensions.x * 0.45 + 'px');
-					fullscreenMode.innerHTML = "<img src='/modules/dfg_3dviewer/main/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
+					fullscreenMode.innerHTML = "<img src='" + CONFIG.basePath + "/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
 					metadataContainer.appendChild(fullscreenMode);
 					//var _container = document.getElementById("MainCanvas");
 					container.appendChild(metadataContainer);
@@ -1267,7 +1271,7 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 			
 			case 'ifc':
 				const ifcLoader = new IFCLoader();
-				ifcLoader.ifcManager.setWasmPath('/modules/dfg_3dviewer/main/js/jsm/loaders/ifc/');
+				ifcLoader.ifcManager.setWasmPath(CONFIG.basePath + '/js/jsm/loaders/ifc/');
 				ifcLoader.load(modelPath, function (object) {
 					//object.position.set (0, 300, 0);
 					traverseMesh(object);
@@ -1358,7 +1362,7 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 			case 'glb':
 			case 'gltf':
 				const dracoLoader = new DRACOLoader();
-				dracoLoader.setDecoderPath('/modules/dfg_3dviewer/main/js/jsm/libs/draco/');
+				dracoLoader.setDecoderPath(CONFIG.basePath + '/js/jsm/libs/draco/');
 				dracoLoader.preload();
 				const gltf = new GLTFLoader();
 				gltf.setDRACOLoader(dracoLoader);
@@ -1666,7 +1670,7 @@ function init() {
 	guiContainer.style.top = mainCanvas.offsetTop + 'px';
 
 	//DRUPAL WissKI [start]
-	if (!proxyPath) {
+	if (proxyPath !== null) {
 		buildGallery();
 	}
 	//DRUPAL WissKI [end]
