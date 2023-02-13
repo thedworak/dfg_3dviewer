@@ -647,7 +647,6 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit)
 
 function buildGallery() {
 	var fileElement = document.getElementsByClassName("field--type-file");
-	console.log(fileElement);
 	if (fileElement.length > 0) {
 		fileElement[0].style.height = canvasDimensions.y*1.5 + "px";
 		var mainElement = document.getElementById(CONFIG.galleryContainer);
