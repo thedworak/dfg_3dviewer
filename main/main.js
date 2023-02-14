@@ -95,6 +95,7 @@ var gridSize;
 
 var canvasText;
 var downloadModel, viewEntity, fullscreenMode;
+var originalMetadata = [];
 
 var spinnerContainer = document.createElement("div");
 spinnerContainer.id = 'spinnerContainer';
@@ -609,7 +610,9 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit)
     let dx = size.z / 2 + Math.abs(size.x / 2 / Math.tan(fovh / 2));
     let dy = size.z / 2 + Math.abs(size.y / 2 / Math.tan(fov / 2));
     let cameraZ = Math.max(dx, dy);
-	if (_fit) { cameraZ = camera.position.z; }
+	if (_fit) {
+		cameraZ = camera.position.z;
+	}
 
     // offset the camera, if desired (to avoid filling the whole canvas)
     if(offset !== undefined && offset !== 0 && !_fit) { cameraZ *= offset; }
@@ -643,6 +646,18 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit)
         //orbitControls.maxDistance = cameraToFarEdge * 2;
     }
 	controls.update();
+
+	if  (!_fit)
+	{
+		console.log("!");
+		var rotateMetadata = new THREE.Vector3(THREE.MathUtils.radToDeg(helperObjects[0].rotation.x),THREE.MathUtils.radToDeg(helperObjects[0].rotation.y),THREE.MathUtils.radToDeg(helperObjects[0].rotation.z));
+		originalMetadata = {"objPosition": [object.position.x, object.position.y, object.position.z ],
+							"objRotation": [rotateMetadata.x, rotateMetadata.y, rotateMetadata.z],
+							"objScale": [helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z],
+							"cameraPosition": [ camera.position.x, camera.position.y, camera.position.z ],
+							"controlsTarget": [ controls.target.x, controls.target.y, controls.target.z ]
+							};		
+	}
 	
 	setupClippingPlanes(object.geometry, gridSize, distance);
 	
@@ -1852,7 +1867,7 @@ function init() {
 			var newMetadata = new Object();
 
 			//Fetch data from original metadata file anyway
-			var originalMetadata;
+			//var originalMetadata = [];
 			var metadataUrl = path.replace("gltf/", "") + "metadata/" + filename + "_viewer";
 			if (proxyPath) {
 				metadataUrl = getProxyPath(metadataUrl);
@@ -1869,6 +1884,7 @@ function init() {
 				}
 			})
 			.then(_data2 => {
+				console.log(originalMetadata);
 				if (saveProperties.Position) {
 					newMetadata = Object.assign(newMetadata, {"objPosition": [ helperObjects[0].position.x, helperObjects[0].position.y, helperObjects[0].position.z ]});
 				}
