@@ -164,10 +164,11 @@ var transformText =
 const colors = {
 	DirectionalLight: '0xFFFFFF',
 	AmbientLight: '0x404040',
+	CameraLight: '0xFFFFFF',
 	BackgroundColor: '0xA0A0A0'
 };
 
-const intensity = { startIntensityDir: 1 , startIntensityAmbient: 1};
+const intensity = { startIntensityDir: 1 , startIntensityAmbient: 1, startIntensityCamera: 1};
 
 const saveProperties = {
 	Position: true,
@@ -176,6 +177,7 @@ const saveProperties = {
 	Camera: true,
 	DirectionalLight: true,
 	AmbientLight: true,
+	CameraLight: true,
 	BackgroundColor: true
 };
 
@@ -648,16 +650,14 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit)
     }
 	controls.update();
 
-	if  (!_fit)
-	{
-		console.log("!");
+	if  (!_fit) {
 		var rotateMetadata = new THREE.Vector3(THREE.MathUtils.radToDeg(helperObjects[0].rotation.x),THREE.MathUtils.radToDeg(helperObjects[0].rotation.y),THREE.MathUtils.radToDeg(helperObjects[0].rotation.z));
 		originalMetadata = {"objPosition": [object.position.x, object.position.y, object.position.z ],
 							"objRotation": [rotateMetadata.x, rotateMetadata.y, rotateMetadata.z],
 							"objScale": [helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z],
 							"cameraPosition": [ camera.position.x, camera.position.y, camera.position.z ],
 							"controlsTarget": [ controls.target.x, controls.target.y, controls.target.z ]
-							};		
+							};
 	}
 	
 	setupClippingPlanes(object.geometry, gridSize, distance);
@@ -767,6 +767,14 @@ function setupCamera (_object, _camera, _light, _data, _controls) {
 		if (typeof (_data["lightAmbientIntensity"]) != "undefined") {
 			ambientLight.intensity = _data["lightAmbientIntensity"][0];
 			intensity.startIntensityAmbient = _data["lightAmbientIntensity"][0];
+		}
+		if (typeof (_data["lightCameraColor"]) != "undefined") {
+			cameraLight.color = new THREE.Color(_data["lightCameraColor"][0]);
+			colors['CameraLight'] = _data["lightCameraColor"][0];
+		}
+		if (typeof (_data["lightCameraIntensity"]) != "undefined") {
+			cameraLight.intensity = _data["lightCameraIntensity"][0];
+			intensity.startIntensityCamera = _data["lightCameraIntensity"][0];
 		}
 		if (typeof (_data["backgroundColor"]) != "undefined") {
 			scene.background.set(new THREE.Color(_data["backgroundColor"][0]));
@@ -1840,6 +1848,16 @@ function init() {
 	lightFolderAmbient.add(intensity, 'startIntensityAmbient', 0, 10).onChange(function (value) {
 		ambientLight.intensity = value;
 	}).listen();
+
+	const lightFolderCamera = editorFolder.addFolder('Camera Light').close();
+	lightFolderCamera.addColor (colors, 'CameraLight').onChange(function (value) {
+		const tempColor = new THREE.Color(value);
+		cameraLight.color = tempColor;
+	}).listen();
+	lightFolderCamera.add(intensity, 'startIntensityCamera', 0, 10).onChange(function (value) {
+		cameraLight.intensity = value;
+	}).listen();
+
 	const backgroundFolder = editorFolder.addFolder('Background Color').close();
 	backgroundFolder.addColor (colors, 'BackgroundColor').onChange(function (value) {
 		const tempColor = new THREE.Color(value);
@@ -1853,6 +1871,7 @@ function init() {
 	propertiesFolder.add(saveProperties, 'Camera'); 
 	propertiesFolder.add(saveProperties, 'DirectionalLight'); 
 	propertiesFolder.add(saveProperties, 'AmbientLight'); 
+	propertiesFolder.add(saveProperties, 'CameraLight'); 
 	propertiesFolder.add(saveProperties, 'BackgroundColor'); 
 
 	if (editor) {
@@ -1877,12 +1896,26 @@ function init() {
 
 			fetch(metadataUrl, {cache: "no-cache"})
 			.then((response) => {
-				if (response['status'] !== 404) {
-					return response.json();
+			if (response['status'] !== 404) {
+				return response.json();
 			}})
 			.then(_data => {
 				if (typeof (_data) !== "undefined") {
-					originalMetadata = _data;
+					if (typeof (_data["objPosition"]) !== "undefined") originalMetadata["objPosition"] = _data["objPosition"];
+					if (typeof (_data["objRotation"]) !== "undefined") originalMetadata["objRotation"] = _data["objRotation"];
+					if (typeof (_data["objScale"]) !== "undefined") originalMetadata["objScale"] = _data["objScale"];
+					if (typeof (_data["cameraPosition"]) !== "undefined") originalMetadata["cameraPosition"] = _data["cameraPosition"];
+					if (typeof (_data["controlsTarget"]) !== "undefined") originalMetadata["controlsTarget"] = _data["controlsTarget"];
+					if (typeof (_data["lightPosition"]) !== "undefined") originalMetadata["lightPosition"] = _data["lightPosition"];
+					if (typeof (_data["lightTarget"]) !== "undefined") originalMetadata["lightTarget"] = _data["lightTarget"];
+					if (typeof (_data["lightColor"]) !== "undefined") originalMetadata["lightColor"] = _data["lightColor"];
+					if (typeof (_data["lightIntensity"]) !== "undefined") originalMetadata["lightIntensity"] = _data["lightIntensity"];
+					if (typeof (_data["lightAmbientColor"]) !== "undefined") originalMetadata["lightAmbientColor"] = _data["lightAmbientColor"];
+					if (typeof (_data["lightAmbientIntensity"]) !== "undefined") originalMetadata["lightAmbientIntensity"] = _data["lightAmbientIntensity"];
+					if (typeof (_data["lightCameraColor"]) !== "undefined") originalMetadata["lightCameraColor"] = _data["lightCameraColor"];
+					if (typeof (_data["lightCameraIntensity"]) !== "undefined") originalMetadata["lightCameraIntensity"] = _data["lightCameraIntensity"];
+					if (typeof (_data["backgroundColor"]) !== "undefined") originalMetadata["backgroundColor"] = _data["backgroundColor"];
+
 					if (saveProperties.Position) {
 						newMetadata = Object.assign(newMetadata, {"objPosition": [ helperObjects[0].position.x, helperObjects[0].position.y, helperObjects[0].position.z ]});
 					}
@@ -1946,6 +1979,19 @@ function init() {
 							"lightAmbientIntensity": [ originalMetadata["lightAmbientIntensity"][0] ],
 						});
 					}
+
+					if (saveProperties.CameraLight) {
+						newMetadata = Object.assign(newMetadata, {
+							"lightCameraColor": [ "#" + (cameraLight.color.getHexString()).toUpperCase() ],
+							"lightCameraIntensity": [ cameraLight.intensity ]
+						});
+					}
+					else {
+						newMetadata = Object.assign(newMetadata, {
+							"lightCameraColor": [ originalMetadata["lightCameraColor"][0] ],
+							"lightCameraIntensity": [ originalMetadata["lightCameraIntensity"][0] ],
+						});
+					}
 					
 					if (saveProperties.BackgroundColor) {
 						newMetadata = Object.assign(newMetadata, {"backgroundColor": [ "#" + (scene.background.getHexString()).toUpperCase() ] });
@@ -1953,6 +1999,7 @@ function init() {
 					else {
 						newMetadata = Object.assign(newMetadata, {"backgroundColor": [ originalMetadata["backgroundColor"][0] ]});
 					}
+
 					if (compressedFile !== '') { params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+basename+compressedFile+"&filename="+filename; }
 					else { params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+"&filename="+filename; }
 					xhr.onreadystatechange = function()
