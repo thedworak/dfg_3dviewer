@@ -61,6 +61,7 @@ var metadataContentTech;
 var mainCanvas;
 var distanceGeometry = new THREE.Vector3();
 let wisskiID = '';
+var metadataUrl;
 
 const clock = new THREE.Clock();
 const editor = true;
@@ -1041,8 +1042,8 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 	var metadata = {'vertices': 0, 'faces': 0};
 	var hierarchy = [];
 	var geometry;
-	var metadataUrl = path + "metadata/" + filename + "_viewer";
-	if (proxyPath) {
+	metadataUrl = path + "metadata/" + filename + "_viewer";
+	if (proxyPath !== null) {
 		metadataUrl = getProxyPath(metadataUrl);
 	}
 
@@ -1145,7 +1146,7 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 					metadataContent += metadataContentTech + '</div>';
 					canvasText.innerHTML = metadataContent;
 					metadataContainer.appendChild(canvasText);
-					if (!proxyPath) {
+					if (proxyPath === null) {
 						downloadModel = document.createElement('div');
 						downloadModel.setAttribute('id', 'downloadModel');
 					}
@@ -1154,11 +1155,11 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 					var c_path = path;
 					//if (compressedFile !== '') { c_path = CONFIG.domain + '/' + uri; }
 					if (compressedFile !== '') { filename = filename.replace(orgExtension, extension); }
-					if (!proxyPath) {
+					if (proxyPath === null) {
 						downloadModel.innerHTML = "<a href='" + c_path + filename + "' download><img src='" + CONFIG.basePath + "/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
 					}
 					
-					if (!proxyPath) {
+					if (proxyPath === null) {
 						metadataContainer.appendChild(downloadModel);
 					}
 					else
@@ -1232,7 +1233,7 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 		circle.show();
 		circle.set(0, 100);
 		var modelPath = path + filename;
-		if (proxyPath) {
+		if (proxyPath !== null) {
 			modelPath = getProxyPath(modelPath);
 		}
 		switch(extension.toLowerCase()) {
@@ -1371,7 +1372,7 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 				loader = new TDSLoader();
 				loader.setResourcePath(path);
 				modelPath = path;
-				if (proxyPath) {
+				if (proxyPath !== null) {
 					modelPath = getProxyPath(modelPath);
 				}
 				loader.load(modelPath + basename + "." + extension, function (object) {
@@ -1400,7 +1401,7 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 				showToast("Model has being loaded from " + extension + " representation.");
 
 				modelPath = path + basename + "." + extension;
-				if (proxyPath) {
+				if (proxyPath !== null) {
 					modelPath = getProxyPath(modelPath);
 				}
 
@@ -1889,8 +1890,8 @@ function init() {
 
 			//Fetch data from original metadata file anyway before saving any changes
 			//var originalMetadata = [];
-			var metadataUrl = path.replace("gltf/", "") + "metadata/" + filename + "_viewer";
-			if (proxyPath) {
+			//var metadataUrl = path.replace("gltf/", "") + "metadata/" + filename + "_viewer";
+			if (proxyPath !== null) {
 				metadataUrl = getProxyPath(metadataUrl);
 			}
 
