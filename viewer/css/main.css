@@ -257,13 +257,13 @@ canvas {
 	/*margin: 5em 0 5em 0;*/
 }
 
-.field--type-image:hover {
+.field--type-image:not(:focus):hover {
 	transition: all 500ms linear;
 	width: 175%;
 	height: 175%;
 	box-sizing: border-box;
 	display: flex;
-	z-index: 999;
+	z-index: 990;
 	/*margin: -1em 0 -1em 0;*/
 }
 

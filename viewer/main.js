@@ -50,7 +50,7 @@ const CONFIG = {
 	"container": "DFG_3DViewer",
 	"galleryContainer": "block-bootstrap5-content",
 	"galleryImageClass": "field--type-image",
-	"basePath": "/modules/dfg_3dviewer/main"
+	"basePath": "/modules/dfg_3dviewer/viewer"
 };
 
 let camera, scene, renderer, stats, controls, loader, ambientLight, dirLight, dirLightTarget, cameraLight, cameraLightTarget;
@@ -174,7 +174,8 @@ const saveProperties = {
 	Rotation: true,
 	Scale: true,
 	Camera: true,
-	Light: true,
+	DirectionalLight: true,
+	AmbientLight: true,
 	BackgroundColor: true
 };
 
@@ -1388,7 +1389,7 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 				dracoLoader.preload();
 				const gltf = new GLTFLoader();
 				gltf.setDRACOLoader(dracoLoader);
-				showToast("Trying to load model from " + extension + " representation.");
+				showToast("Model has being loaded from " + extension + " representation.");
 
 				modelPath = path + basename + "." + extension;
 				if (proxyPath) {
@@ -1850,7 +1851,8 @@ function init() {
 	propertiesFolder.add(saveProperties, 'Rotation'); 
 	propertiesFolder.add(saveProperties, 'Scale'); 
 	propertiesFolder.add(saveProperties, 'Camera'); 
-	propertiesFolder.add(saveProperties, 'Light'); 
+	propertiesFolder.add(saveProperties, 'DirectionalLight'); 
+	propertiesFolder.add(saveProperties, 'AmbientLight'); 
 	propertiesFolder.add(saveProperties, 'BackgroundColor'); 
 
 	if (editor) {
@@ -1866,7 +1868,7 @@ function init() {
 			var rotateMetadata = new THREE.Vector3(THREE.MathUtils.radToDeg(helperObjects[0].rotation.x),THREE.MathUtils.radToDeg(helperObjects[0].rotation.y),THREE.MathUtils.radToDeg(helperObjects[0].rotation.z));
 			var newMetadata = new Object();
 
-			//Fetch data from original metadata file anyway
+			//Fetch data from original metadata file anyway before saving any changes
 			//var originalMetadata = [];
 			var metadataUrl = path.replace("gltf/", "") + "metadata/" + filename + "_viewer";
 			if (proxyPath) {
@@ -1881,83 +1883,89 @@ function init() {
 			.then(_data => {
 				if (typeof (_data) !== "undefined") {
 					originalMetadata = _data;
-				}
-			})
-			.then(_data2 => {
-				console.log(originalMetadata);
-				if (saveProperties.Position) {
-					newMetadata = Object.assign(newMetadata, {"objPosition": [ helperObjects[0].position.x, helperObjects[0].position.y, helperObjects[0].position.z ]});
-				}
-				else {
-					newMetadata = Object.assign(newMetadata, {"objPosition": [ originalMetadata["objPosition"][0], originalMetadata["objPosition"][1], originalMetadata["objPosition"][2] ]});
-				}
-				
-				if (saveProperties.Rotation) {
-					newMetadata = Object.assign(newMetadata, {"objRotation": [ rotateMetadata.x, rotateMetadata.y, rotateMetadata.z ]});
-				}
-				else {
-					newMetadata = Object.assign(newMetadata, {"objRotation": [ originalMetadata["objRotation"][0], originalMetadata["objRotation"][1], originalMetadata["objRotation"][2] ]});
-				}
-				
-				if (saveProperties.Scale) {
-					newMetadata = Object.assign(newMetadata, {"objScale": [ helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z ]});
-				}
-				else {
-					newMetadata = Object.assign(newMetadata, {"objScale": [ originalMetadata["objScale"][0], originalMetadata["objScale"][1], originalMetadata["objScale"][2] ]});
-				}
-				
-				if (saveProperties.Camera) {
-					newMetadata = Object.assign(newMetadata, {
-						"cameraPosition": [ camera.position.x, camera.position.y, camera.position.z ],
-						"controlsTarget": [ controls.target.x, controls.target.y, controls.target.z ]
-					});
-				}
-				else {
-					newMetadata = Object.assign(newMetadata, {
-						"cameraPosition": [ originalMetadata["cameraPosition"][0], originalMetadata["cameraPosition"][1], originalMetadata["cameraPosition"][2] ],
-						"controlsTarget": [ originalMetadata["controlsTarget"][0], originalMetadata["controlsTarget"][1], originalMetadata["controlsTarget"][2] ]
-					});
-				}
-				
-				if (saveProperties.Light) {
-					newMetadata = Object.assign(newMetadata, {
-						"lightPosition": [ dirLight.position.x, dirLight.position.y, dirLight.position.z ],
-						"lightTarget": [ dirLight.rotation._x, dirLight.rotation._y, dirLight.rotation._z ],
-						"lightColor": [ "#" + (dirLight.color.getHexString()).toUpperCase() ],
-						"lightIntensity": [ dirLight.intensity ],
-						"lightAmbientColor": [ "#" + (ambientLight.color.getHexString()).toUpperCase() ],
-						"lightAmbientIntensity": [ ambientLight.intensity ]
-					});
-				}
-				else {
-					newMetadata = Object.assign(newMetadata, {
-						"lightPosition": [ originalMetadata["lightPosition"][0], originalMetadata["lightPosition"][1], originalMetadata["lightPosition"][2] ], 
-						"lightTarget": [ originalMetadata["lightTarget"][0], originalMetadata["lightTarget"][1], originalMetadata["lightTarget"][2] ],
-						"lightColor": [ originalMetadata["lightColor"][0] ],
-						"lightIntensity": [ originalMetadata["lightIntensity"][0] ],
-						"lightAmbientColor": [ originalMetadata["lightAmbientColor"][0] ],
-						"lightAmbientIntensity": [ originalMetadata["lightAmbientIntensity"][0] ],
-					});
-				}
-				
-				if (saveProperties.BackgroundColor) {
-					newMetadata = Object.assign(newMetadata, {"backgroundColor": [ "#" + (scene.background.getHexString()).toUpperCase() ] });
-				}
-				else {
-					newMetadata = Object.assign(newMetadata, {"backgroundColor": [ originalMetadata["backgroundColor"][0] ]});
-				}
-				if (compressedFile !== '') { params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+basename+compressedFile+"&filename="+filename; }
-				else { params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+"&filename="+filename; }
-				xhr.onreadystatechange = function()
-				{
-					if(xhr.readyState === XMLHttpRequest.DONE) {
-						var status = xhr.status;
-						if (status === 0 || (status >= 200 && status < 400)) {
-							showToast ("Settings have been saved.");
-						}
+					if (saveProperties.Position) {
+						newMetadata = Object.assign(newMetadata, {"objPosition": [ helperObjects[0].position.x, helperObjects[0].position.y, helperObjects[0].position.z ]});
 					}
-				};
-				xhr.send(params);
+					else {
+						newMetadata = Object.assign(newMetadata, {"objPosition": [ originalMetadata["objPosition"][0], originalMetadata["objPosition"][1], originalMetadata["objPosition"][2] ]});
+					}
+					
+					if (saveProperties.Rotation) {
+						newMetadata = Object.assign(newMetadata, {"objRotation": [ rotateMetadata.x, rotateMetadata.y, rotateMetadata.z ]});
+					}
+					else {
+						newMetadata = Object.assign(newMetadata, {"objRotation": [ originalMetadata["objRotation"][0], originalMetadata["objRotation"][1], originalMetadata["objRotation"][2] ]});
+					}
+					
+					if (saveProperties.Scale) {
+						newMetadata = Object.assign(newMetadata, {"objScale": [ helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z ]});
+					}
+					else {
+						newMetadata = Object.assign(newMetadata, {"objScale": [ originalMetadata["objScale"][0], originalMetadata["objScale"][1], originalMetadata["objScale"][2] ]});
+					}
+					
+					if (saveProperties.Camera) {
+						newMetadata = Object.assign(newMetadata, {
+							"cameraPosition": [ camera.position.x, camera.position.y, camera.position.z ],
+							"controlsTarget": [ controls.target.x, controls.target.y, controls.target.z ]
+						});
+					}
+					else {
+						newMetadata = Object.assign(newMetadata, {
+							"cameraPosition": [ originalMetadata["cameraPosition"][0], originalMetadata["cameraPosition"][1], originalMetadata["cameraPosition"][2] ],
+							"controlsTarget": [ originalMetadata["controlsTarget"][0], originalMetadata["controlsTarget"][1], originalMetadata["controlsTarget"][2] ]
+						});
+					}
+					
+					if (saveProperties.DirectionalLight) {
+						newMetadata = Object.assign(newMetadata, {
+							"lightPosition": [ dirLight.position.x, dirLight.position.y, dirLight.position.z ],
+							"lightTarget": [ dirLight.rotation._x, dirLight.rotation._y, dirLight.rotation._z ],
+							"lightColor": [ "#" + (dirLight.color.getHexString()).toUpperCase() ],
+							"lightIntensity": [ dirLight.intensity ]
+						});
+					}
+					else {
+						newMetadata = Object.assign(newMetadata, {
+							"lightPosition": [ originalMetadata["lightPosition"][0], originalMetadata["lightPosition"][1], originalMetadata["lightPosition"][2] ], 
+							"lightTarget": [ originalMetadata["lightTarget"][0], originalMetadata["lightTarget"][1], originalMetadata["lightTarget"][2] ],
+							"lightColor": [ originalMetadata["lightColor"][0] ],
+							"lightIntensity": [ originalMetadata["lightIntensity"][0] ]
+						});
+					}
+
+					if (saveProperties.AmbientLight) {
+						newMetadata = Object.assign(newMetadata, {
+							"lightAmbientColor": [ "#" + (ambientLight.color.getHexString()).toUpperCase() ],
+							"lightAmbientIntensity": [ ambientLight.intensity ]
+						});
+					}
+					else {
+						newMetadata = Object.assign(newMetadata, {
+							"lightAmbientColor": [ originalMetadata["lightAmbientColor"][0] ],
+							"lightAmbientIntensity": [ originalMetadata["lightAmbientIntensity"][0] ],
+						});
+					}
+					
+					if (saveProperties.BackgroundColor) {
+						newMetadata = Object.assign(newMetadata, {"backgroundColor": [ "#" + (scene.background.getHexString()).toUpperCase() ] });
+					}
+					else {
+						newMetadata = Object.assign(newMetadata, {"backgroundColor": [ originalMetadata["backgroundColor"][0] ]});
+					}
+					if (compressedFile !== '') { params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+basename+compressedFile+"&filename="+filename; }
+					else { params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+"&filename="+filename; }
+					xhr.onreadystatechange = function()
+					{
+						if(xhr.readyState === XMLHttpRequest.DONE) {
+							var status = xhr.status;
+							if (status === 0 || (status >= 200 && status < 400)) {
+								showToast ("Settings have been saved.");
+							}
+						}
+					};
+					xhr.send(params);
+				}
 			});
 
 		}}, 'Save');

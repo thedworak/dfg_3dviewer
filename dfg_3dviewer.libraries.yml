@@ -1,14 +1,14 @@
 dfg_3dviewer:
   js:
     #main/importmap.js: { attributes: { type: importmap } }
-    main/main.js: { attributes: { type: module } }
+    viewer/main.js: { attributes: { type: module } }
     #main/data.js: { }
-    main/toastify.js: { }
-    main/spinner/main.js: { }
+    viewer/toastify.js: { }
+    viewer/spinner/main.js: { }
   css:
     theme:
-      css/main.css: {}
-      css/spinner.css: {}
+      viewer/css/main.css: {}
+      viewer/css/spinner.css: {}
   dependencies:
     - core/jquery
     - core/jquery.once
