@@ -83,7 +83,7 @@ if (proxyPath === null) {
 }
 var filename = container.getAttribute("3d").split("/").pop();
 var basename = filename.substring(0, filename.lastIndexOf('.'));
-var extension = filename.substring(filename.lastIndexOf('.') + 1);	
+var extension = filename.substring(filename.lastIndexOf('.') + 1);
 var path = container.getAttribute("3d").substring(0, container.getAttribute("3d").lastIndexOf(filename));
 const uri = path.replace(CONFIG.domain+"/", "");
 const EXPORT_PATH = '/export_xml_single/';
@@ -159,7 +159,13 @@ var transformType = "";
 var transformText =
 {
     'Transform 3D Object': 'select type',
-    'Transform Light': 'select type'
+    'Transform Light': 'select type',
+    'Transform Mode': 'Local'
+};
+
+var materialsPropertiesText =
+{
+    'Edit material': 'select by name'
 };
 
 const colors = {
@@ -167,6 +173,13 @@ const colors = {
 	AmbientLight: '0x404040',
 	CameraLight: '0xFFFFFF',
 	BackgroundColor: '0xA0A0A0'
+};
+
+const materialProperties = {
+	color: '0xFFFFFF',
+	emissiveColor: '0x404040',
+	emissive: 1,
+	metalness: 0
 };
 
 const intensity = { startIntensityDir: 1 , startIntensityAmbient: 1, startIntensityCamera: 1};
@@ -236,6 +249,7 @@ var clippingPlanes = [
 var planeHelpers, clippingFolder;
 var propertiesFolder;
 var planeObjects = [];
+var materialsFolder;
 
 var clippingGeometry = [];
 
@@ -1213,17 +1227,90 @@ const onProgress = function (xhr) {
 	}
 };
 
+function setupMaterials (_object) {
+	var materials = [];
+	if (_object.isMesh) {
+		_object.castShadow = true;
+		_object.receiveShadow = true;
+		_object.geometry.computeVertexNormals();
+		if (_object.material.isMaterial) {
+			if(_object.material.map) { _object.material.map.anisotropy = 16 };
+			_object.material.side = THREE.DoubleSide;
+			_object.material.clippingPlanes = clippingPlanes;
+			_object.material.clipIntersection = false;
+			if (_object.material.name === '') _object.material.name = _object.material.uuid;
+			var newMaterial = {'name': _object.material.name, 'uuid': _object.material.uuid};
+			if (!materials.includes(newMaterial))
+				materials.push(newMaterial);
+			//materials.push(_object.material.uuid);
+		}
+	}
+	return materials;
+}
+
+function getMaterialByID (_object, _uuid) {
+	var _material;
+	_object.traverse(function (child) {
+		if (child.isMesh && child.material.isMaterial && child.material.uuid === _uuid) {
+			_material = child.material;
+		}
+	});
+	return _material;
+}
+
 function traverseMesh (object) {
+	var _objectMaterials = [];
+	_objectMaterials.push(setupMaterials(object));
 	object.traverse(function (child) {
-		if (child.isMesh) {
-			child.castShadow = true;
-			child.receiveShadow = true;
-			child.geometry.computeVertexNormals();
-			if(child.material.map) { child.material.map.anisotropy = 16 };
-			child.material.side = THREE.DoubleSide;
-			child.material.clippingPlanes = clippingPlanes;
-			child.material.clipIntersection = false;
-			mainObject.push(child);	
+		_objectMaterials.push(setupMaterials(child));
+	});
+	var objectMaterials = ['select by name'];
+	_objectMaterials.forEach (function (item, index, array) {
+		if (item.length > 1) {
+			item.forEach (function (_item, _index, _array) {
+				objectMaterials.push(_item.uuid);
+			});
+		}
+		else if (item.length == 1) {
+			objectMaterials.push(item[0].uuid);
+		}
+	});
+	var _material = null;
+	var _materialGui = null;
+	var _uuid = null;
+	materialsFolder.add(materialsPropertiesText, 'Edit material',  objectMaterials).onChange(function (value)
+	{
+		if ((value === 'select by name' || value !== _uuid) && _material !== null) {
+			_materialGui.color.destroy();
+			_materialGui.emissiveColor.destroy();
+			_materialGui.emissive.destroy();
+			_materialGui.metalness.destroy();
+			_materialGui = null;
+			_material = null;
+		} 
+		if (_material === null) {
+			_materialGui = {};
+			_material = getMaterialByID(object, value);
+			console.log(_material);
+			materialProperties.color = _material.color;
+			materialProperties.emissiveColor = _material.emissive;
+			materialProperties.emissive = _material.emissiveIntensity;
+			materialProperties.metalness = _material.metalness;
+			_materialGui.color = materialsFolder.addColor (materialProperties, 'color').onChange(function (value) {
+				_material.color = new THREE.Color(value);
+			}).listen();
+			_materialGui.emissiveColor = materialsFolder.addColor (materialProperties, 'emissiveColor').onChange(function (value) {
+				_material.emissive = new THREE.Color(value);
+			}).listen();
+			_materialGui.emissive = materialsFolder.add(materialProperties, 'emissive', 0, 1).onChange(function (value) {
+				_material.emissiveIntensity = value;
+			}).listen();
+			_materialGui.metalness = materialsFolder.add(materialProperties, 'metalness', 0, 1).onChange(function (value) {
+				_material.metalness = value;
+			}).listen();
+		}
+		if (_uuid === null || _uuid !== value) {
+			_uuid = value;
 		}
 	});
 }
@@ -1618,6 +1705,37 @@ function changeLightRotation () {
 	lightHelper.update();
 }
 
+function takeScreenshot() {
+	/*const messDiv = document.createElement('div');
+	messDiv.classList.add('message');
+	document.body.appendChild(messDiv);*/
+    renderer.render(scene, camera);
+    mainCanvas.toBlob(imgBlob => {
+		const fileform = new FormData();
+		fileform.append('filename', basename + '.' + extension);
+		fileform.append('path', uri);
+		fileform.append('data', imgBlob);
+		fetch(CONFIG.domain + '/thumbnail_upload.php', {
+			method: 'POST',
+			body: fileform,
+		})
+		.then(response => {
+			return response.json();
+		})
+		.then(data => {
+			if (data.error) { //Show server errors
+				showToast(data.error);
+			} else { //Show success message
+				//showToast(data.message);
+				showToast("Rendering saved successfully");
+			}
+		})
+		.catch(err => { //Handle js errors
+			showToast(err.message);
+		});
+	}, 'image/png');    
+}
+
 function mainLoadModel (_ext) {
 	if (_ext === "glb" || _ext === "gltf") {
 		loadModel (path, basename, filename, extension, _ext);
@@ -1685,6 +1803,7 @@ function init() {
 	renderer.setSize(canvasDimensions.x, canvasDimensions.y);
 	renderer.shadowMap.enabled = true;
 	renderer.localClippingEnabled = false;
+	//renderer.physicallyCorrectLights = true; //can be considered as better looking
 	renderer.setClearColor(0x263238);
 	renderer.domElement.id = 'MainCanvas';
 	container.appendChild(renderer.domElement);
@@ -1815,6 +1934,10 @@ function init() {
 			transformControl.attach(helperObjects[0]);
 		}
 	});
+	editorFolder.add(transformText, 'Transform Mode', { Local: 'local', Global: 'global' }).onChange(function (value)
+	{ 
+		transformControl.space = value;
+	});
 	const lightFolder = editorFolder.addFolder('Directional Light').close();
 	lightFolder.add(transformText, 'Transform Light', { None: '', Move: 'translate', Target: 'rotate' }).onChange(function (value)
 	{ 
@@ -1864,6 +1987,9 @@ function init() {
 		const tempColor = new THREE.Color(value);
 		scene.background.set(tempColor);
 	}).listen();
+	
+	clippingFolder = editorFolder.addFolder('Clipping Planes').close();
+	materialsFolder = editorFolder.addFolder('Materials').close();
 
 	propertiesFolder = editorFolder.addFolder('Save properties').close();
 	propertiesFolder.add(saveProperties, 'Position'); 
@@ -1897,9 +2023,13 @@ function init() {
 
 			fetch(metadataUrl, {cache: "no-cache"})
 			.then((response) => {
-			if (response['status'] !== 404) {
-				return response.json();
-			}})
+				if (response['status'] !== 404) {
+					return response.json();
+				}
+				else {
+					return response = {};
+				}
+			})
 			.then(_data => {
 				if (typeof (_data) !== "undefined") {
 					if (typeof (_data["objPosition"]) !== "undefined") originalMetadata["objPosition"] = _data["objPosition"];
@@ -2014,7 +2144,8 @@ function init() {
 					};
 					xhr.send(params);
 				}
-			});
+			})
+			.catch((error) => console.log(error));
 
 		}}, 'Save');
 		editorFolder.add({["Picking mode"] () {
@@ -2047,7 +2178,9 @@ function init() {
 				EDITOR = false;
 			}
 		}}, 'Distance Measurement');
-		clippingFolder = editorFolder.addFolder('Clipping Planes').close();
+		editorFolder.add({["Render preview"] () {
+			takeScreenshot();
+		}}, 'Render preview');
 	}
 }
 
