@@ -722,7 +722,6 @@ function buildGallery() {
 			modalGallery.appendChild(modalImage);
 			modalGallery.appendChild(modalClose);
 			for (let i = 0; imageElements.length - i; imageList.firstChild === imageElements[0] && i++) {
-				//imageElements[i].className += " image-list-item";
 				var imgList = imageElements[i].getElementsByTagName("a");
 				for (let j = 0; j < imgList.length; j++) {
 					imgList[j].setAttribute("href", "#");
@@ -1715,6 +1714,7 @@ function takeScreenshot() {
 		fileform.append('filename', basename + '.' + extension);
 		fileform.append('path', uri);
 		fileform.append('data', imgBlob);
+		fileform.append('wisski_individual', wisskiID);
 		fetch(CONFIG.domain + '/thumbnail_upload.php', {
 			method: 'POST',
 			body: fileform,
@@ -1726,7 +1726,7 @@ function takeScreenshot() {
 			if (data.error) { //Show server errors
 				showToast(data.error);
 			} else { //Show success message
-				//showToast(data.message);
+				console.log(data.message);
 				showToast("Rendering saved successfully");
 			}
 		})

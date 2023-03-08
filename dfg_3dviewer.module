@@ -39,7 +39,7 @@ function url_exists ($url) {
 }
 
 function semi_automatic_path ($prefix, $filename, $filenameArchive, &$autoPath, $extension) {
-	$allowedFormats = array('abc', 'obj', 'fbx', 'ply', 'dae', 'ifc', 'stl', 'xyz', 'pcd', 'json', '3ds');
+	$allowedFormats = array('abc', 'obj', 'fbx', 'ply', 'dae', 'ifc', 'stl', 'xyz', 'pcd', 'json', '3ds', 'zip', 'rar', 'xz', 'gz');
 	$SPATH=\Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath());
 	$SPATH = str_replace('/modules/dfg_3dviewer', '', $SPATH);
 	$prefix = $SPATH . $prefix;
@@ -49,9 +49,12 @@ function semi_automatic_path ($prefix, $filename, $filenameArchive, &$autoPath, 
 		if(!file_exists($prefix . "/gltf/" . $filename . ".glb")) {
 			if(!file_exists($prefix . "/gltf/" . $filenameArchive . ".glb")) {
 				foreach ($allowedFormats as $value) {
-					$autoPath = $prefix . "/" . $filenameArchive . "." . $value;					
+					$autoPath = $prefix . "/" . $filenameArchive . "." . $value;
 					if(!file_exists($autoPath)) {
 						$autoPath = '';
+					}
+					else {
+						return;
 					}
 				}
 			}
@@ -69,6 +72,9 @@ function semi_automatic_path ($prefix, $filename, $filenameArchive, &$autoPath, 
 				$autoPath = $prefix . "/" . $filenameArchive . "." . $value;
 				if(!file_exists($autoPath)) {
 					$autoPath = '';
+				}				
+				else {
+					return;
 				}
 			}
 		}
@@ -78,11 +84,17 @@ function semi_automatic_path ($prefix, $filename, $filenameArchive, &$autoPath, 
 		if(!file_exists($autoPath)) {
 			$autoPath = '';
 		}
+		else {
+			return;
+		}
 	}
 	if ($autoPath === '') {
 		$autoPath = $prefix . "/" . $filenameArchive . "." . $extension;
 		if(!file_exists($autoPath)) {
 			$autoPath = '';
+		}
+		else {
+			return;
 		}
 	}
 }
@@ -92,8 +104,8 @@ function semi_automatic_path ($prefix, $filename, $filenameArchive, &$autoPath, 
  */
 function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity) {
 	//\Drupal::messenger()->addMessage(serialize($entity));
-	$SPATH=\Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath());
-	$XPATH=dirname(dirname($SPATH));
+	$SPATH = \Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath());
+	$XPATH = dirname(dirname($SPATH));
 	$archives = array("zip", "rar", "tar", "xz", "gz");
 	$base = \Drupal::request()->getSchemeAndHttpHost();
 	$output = null;
@@ -183,7 +195,10 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			$fileName = $file->getFilename();
 			$extension = pathinfo($fileName, PATHINFO_EXTENSION);
 			$fileBase = str_replace(".$extension", "", $fileName);
-
+			$isArchive = false;
+			if (in_arrayi($extension, $archives)) {
+				$isArchive = true;
+			}
 			$file_url = \Drupal::service('file_url_generator')->generate($file->getFileUri());
 			$viewBase = "";
 			$path = "";
@@ -213,9 +228,16 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 
 			$viewBase = str_replace(' ', '%20', $viewBase);
 			clearstatcache();
-			if (url_exists($viewBase . $imgSuffix)) {
+			$imagesTemp = array($viewBase . $imgSuffix, $viewBase . "_side0.png", $viewBase . "_side90.png", $viewBase . "_side135.png", $viewBase . "_side180.png", $viewBase . "_side225.png", $viewBase . "_side270.png", $viewBase . "_side315.png", $viewBase . "_top.png");
+			$imagesPaths = [];
+			foreach ($imagesTemp as $value) {
+				if (url_exists($value) && getimagesize($value) !== false) {
+					array_push($imagesPaths, $value);
+				}
+			}
+			if (count($imagesPaths) > 0) {
 				\Drupal::messenger()->addMessage("Renderings were added to the entity");
-				$entity->set('f605dc6b727a1099b9e52b3ccbdf5673', array($viewBase . $imgSuffix, $viewBase . "_side0.png", $viewBase . "_side90.png", $viewBase . "_side135.png", $viewBase . "_side180.png", $viewBase . "_side225.png", $viewBase . "_side270.png", $viewBase . "_side315.png", $viewBase . "_top.png"));
+				$entity->set('f605dc6b727a1099b9e52b3ccbdf5673', $imagesPaths);
 			}
 			$fpath = $file_url->toString();
 			$fpath = str_replace($fileName, "", $fpath);
@@ -233,10 +255,17 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			if ($autoPath != "" && ((!$isArchive && strcmp($origPath, $autoPath) !== 0) || ($isArchive && strcmp($origArchPath, $autoPath) !== 0))) {
 				\Drupal::messenger()->addMessage("GLTF or file with given name (possible archive/filename mismatch) representation not found, semi-automatic path applied\n", 'warning');
 			}
-			else if (($autoPath))
+			elseif ($autoPath)
 			{
+				//Check last time if it really exists
 				if ($isArchive) {
-					$autoPath = $origArchPath;
+					if (file_exists($origArchPath)) {
+						$autoPath = $origArchPath;
+					}
+					else {
+						$autoPath = $origPath;
+						#\Drupal::messenger()->addMessage(serialize($subPath . '/' . $fileBase . "_" . strtoupper($extension) . '/' . $fileBase));
+					}
 				}
 				else {
 					$autoPath = $origPath;

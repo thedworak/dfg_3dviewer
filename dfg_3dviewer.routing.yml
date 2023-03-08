@@ -1,0 +1,6 @@
+entity.wisski_individual.manifest:
+  path: '/wisski/dfg_3dviewer/{wisski_individual}/savePreview'
+  defaults:
+    _controller: '\Drupal\dfg_3dviewer\Controller\DFG3dController::editEntity'
+  requirements:
+    _access: 'TRUE'
