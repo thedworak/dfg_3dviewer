@@ -50,7 +50,8 @@ const CONFIG = {
 	"container": "DFG_3DViewer",
 	"galleryContainer": "block-bootstrap5-content",
 	"galleryImageClass": "field--type-image",
-	"basePath": "/modules/dfg_3dviewer/viewer"
+	"basePath": "/modules/dfg_3dviewer/viewer",
+	"wisskiIdUri": "/wisski/navigate/(.*)/view"
 };
 
 let camera, scene, renderer, stats, controls, loader, ambientLight, dirLight, dirLightTarget, cameraLight, cameraLightTarget;
@@ -77,9 +78,11 @@ const originalPath = container.getAttribute("3d");
 const proxyPath = container.getAttribute("proxy");
 if (proxyPath === null) {
 	var elementsURL = window.location.pathname;
-	elementsURL = elementsURL.match("/wisski/navigate/(.*)/view");
-	wisskiID = elementsURL[1];
-	container.setAttribute("wisski_id", wisskiID);
+	elementsURL = elementsURL.match(CONFIG.wisskiIdUri);
+	if (elementsURL !== null) {
+		wisskiID = elementsURL[1];
+		container.setAttribute("wisski_id", wisskiID);
+	}
 }
 var filename = container.getAttribute("3d").split("/").pop();
 var basename = filename.substring(0, filename.lastIndexOf('.'));
