@@ -35,7 +35,7 @@ from mathutils import Matrix, Vector
 import itertools
 from math import radians
 
-bpy.context.scene.render.resolution_percentage = 50
+bpy.context.scene.render.resolution_percentage = 70
 bpy.context.scene.render.resolution_x = 1280
 bpy.context.scene.render.resolution_y = 960
 bpy.context.scene.cycles.samples = 20
@@ -279,8 +279,8 @@ for current_argument in sys.argv:
 	render.image_settings.color_mode = 'RGBA'
 	render.image_settings.color_depth = '16' 
 	render.image_settings.file_format = 'PNG'
-	render.resolution_x = 512
-	render.resolution_y = 512
+	render.resolution_x = 1024
+	render.resolution_y = 1024
 	render.resolution_percentage = 100
 	render.film_transparent = True
 	#scene.render.engine = 'CYCLES'
@@ -302,13 +302,6 @@ for current_argument in sys.argv:
 		mainfilepath=export_file+current_basename
 	else:
 		mainfilepath=export_file+current_basename+"."+original_extension
-		
-	multiplier=10
-
-	levels=3
-	density=5
-	r_offset=0.2
-	z_offset=0.2
 
 	#target_obj = bpy.context.selected_objects[0]
 	#target_origin = target_obj.location

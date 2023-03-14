@@ -578,7 +578,7 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit)
 	const mesh = new THREE.Mesh(new THREE.PlaneGeometry(gridSizeScale, gridSizeScale), new THREE.MeshPhongMaterial({ color: 0x999999, depthWrite: false, transparent: true, opacity: 0.85 }));
 	mesh.rotation.x = - Math.PI / 2;
 	mesh.position.set(0, 0, 0);
-	mesh.receiveShadow = false;
+	mesh.receiveShadow = true;
 	scene.add(mesh);	
 
 	const axesHelper = new THREE.AxesHelper(gridSize);
@@ -630,15 +630,17 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit)
     const fovh = 2*Math.atan(Math.tan(fov/2) * camera.aspect);
     let dx = size.z / 2 + Math.abs(size.x / 2 / Math.tan(fovh / 2));
     let dy = size.z / 2 + Math.abs(size.y / 2 / Math.tan(fov / 2));
-    let cameraZ = Math.max(dx, dy);
-	if (_fit) {
-		cameraZ = camera.position.z;
+	let cameraZ = camera.position.z;
+	if (!_fit) {
+		cameraZ = Math.max(dx, dy);
+		camera.position.y*=1.4;
+		camera.position.z*=1.5;
 	}
 
     // offset the camera, if desired (to avoid filling the whole canvas)
     if(offset !== undefined && offset !== 0 && !_fit) { cameraZ *= offset; }
 
-	const coords = {x: camera.position.x, y: camera.position.y, z: cameraZ*0.65};
+	const coords = {x: camera.position.x, y: camera.position.y, z: cameraZ*0.55};
     new TWEEN.Tween(coords)
 		.to({ z: camera.position.z }, 1500)
 		.onUpdate(() =>
@@ -732,6 +734,11 @@ function buildGallery() {
 					imgList[j].setAttribute("class", "image-list-item");
 				}
 				imgList = imageElements[i].getElementsByTagName("img");
+				//for single thumbnail
+				if (imgList.length == 1) {
+					imgList[0].style.maxWidth = "120px !important";
+					imgList[0].style.maxHeight = "180px";
+				}
 				for (let j = 0; j < imgList.length; j++) {
 					imgList[j].onclick = function(){
 						modalGallery.style.display = "block";
@@ -814,7 +821,7 @@ function setupCamera (_object, _camera, _light, _data, _controls) {
 		var size = new THREE.Vector3();
 		boundingBox.getSize(size);
 		camera.position.set(size.x, size.y, size.z);
-		fitCameraToCenteredObject (_camera, _object, 2.3, _controls, false);
+		fitCameraToCenteredObject (_camera, _object, 3.5, _controls, false);
 	}
 }
 
@@ -1762,7 +1769,7 @@ function init() {
 	container.setAttribute("width", canvasDimensions.x);
 	container.setAttribute("height", canvasDimensions.y);
 
-	camera = new THREE.PerspectiveCamera(45, canvasDimensions.x / canvasDimensions.y, 0.1, 999000000);
+	camera = new THREE.PerspectiveCamera(45, canvasDimensions.x / canvasDimensions.y, 0.001, 999000000);
 	camera.position.set(0, 0, 0);
 
 	scene = new THREE.Scene();
