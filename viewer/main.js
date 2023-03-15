@@ -51,7 +51,8 @@ const CONFIG = {
 	"galleryContainer": "block-bootstrap5-content",
 	"galleryImageClass": "field--type-image",
 	"basePath": "/modules/dfg_3dviewer/viewer",
-	"wisskiIdUri": "/wisski/navigate/(.*)/view"
+	"wisskiIdUri": "/wisski/navigate/(.*)/view",
+	"lightweight": false
 };
 
 let camera, scene, renderer, stats, controls, loader, ambientLight, dirLight, dirLightTarget, cameraLight, cameraLightTarget;
@@ -75,15 +76,20 @@ container.setAttribute("width", window.self.innerWidth);
 container.setAttribute("height", window.self.innerHeight);
 container.setAttribute("display", "flex");
 const originalPath = container.getAttribute("3d");
-const proxyPath = container.getAttribute("proxy");
-if (proxyPath === null) {
-	var elementsURL = window.location.pathname;
-	elementsURL = elementsURL.match(CONFIG.wisskiIdUri);
-	if (elementsURL !== null) {
-		wisskiID = elementsURL[1];
-		container.setAttribute("wisski_id", wisskiID);
+
+if (CONFIG.lightweight === true) {
+	CONFIG.lightweight = container.getAttribute("proxy");
+	if (CONFIG.lightweight === null) {
+		var elementsURL = window.location.pathname;
+		elementsURL = elementsURL.match(CONFIG.wisskiIdUri);
+		if (elementsURL !== null) {
+			wisskiID = elementsURL[1];
+			container.setAttribute("wisski_id", wisskiID);
+		}
 	}
 }
+
+console.log(CONFIG.lightweight);
 var filename = container.getAttribute("3d").split("/").pop();
 var basename = filename.substring(0, filename.lastIndexOf('.'));
 var extension = filename.substring(filename.lastIndexOf('.') + 1);
@@ -928,7 +934,7 @@ function onWindowResize() {
 	camera.aspect = canvasDimensions.x / canvasDimensions.y;
 	camera.updateProjectionMatrix();
 	renderer.setSize(canvasDimensions.x, canvasDimensions.y);
-	if (proxyPath === null) {
+	if (CONFIG.lightweight === false) {
 		downloadModel.setAttribute('style', 'right: ' + rightOffsetDownload +'%');
 	}
 	viewEntity.setAttribute('style', 'right: ' + rightOffsetEntity +'%');
@@ -998,7 +1004,7 @@ function truncateString(str, n) {
 }
 
 function getProxyPath(url) {
-	var tempPath = decodeURIComponent(proxyPath);
+	var tempPath = decodeURIComponent(CONFIG.lightweight);
 	return tempPath.replace(originalPath, encodeURIComponent(url));
 }
 
@@ -1050,12 +1056,19 @@ function exitFullscreenHandler() {
 	}
 }
 
+function appendMetadata (metadataContent, canvasText, metadataContainer, container) {
+	metadataContent += metadataContentTech + '</div>';
+	canvasText.innerHTML = metadataContent;
+	metadataContainer.appendChild(canvasText);
+	container.appendChild(metadataContainer);
+}
+
 function fetchSettings (path, basename, filename, object, camera, light, controls, orgExtension, extension) {
 	var metadata = {'vertices': 0, 'faces': 0};
 	var hierarchy = [];
 	var geometry;
 	metadataUrl = path + "metadata/" + filename + "_viewer";
-	if (proxyPath !== null) {
+	if (CONFIG.lightweight === null && CONFIG.lightweight !== false) {
 		metadataUrl = getProxyPath(metadataUrl);
 	}
 
@@ -1137,66 +1150,65 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 		metadataContentTech += 'Loaded format: <b>' + extension + '</b><br>';
 		metadataContentTech += 'Vertices: <b>' + metadata['vertices'] + '</b><br>';
 		metadataContentTech += 'Faces: <b>' + metadata['faces'] + '</b><br>';
-
-		var req = new XMLHttpRequest();
-		req.responseType = '';
-		req.open('GET', CONFIG.metadataDomain + EXPORT_PATH + wisskiID + '?page=0&amp;_format=xml', true);
-		req.onreadystatechange = function (aEvt) {
-			if (req.readyState == 4) {
-				if(req.status == 200) {
-					const parser = new DOMParser();
-					const doc = parser.parseFromString(req.responseText, "application/xml");
-					var data = doc.documentElement.childNodes[0].childNodes;
-					if (typeof (data) !== undefined) {
-						for(var i = 0; i < data.length; i++) {
-							var fetchedValue = addWissKIMetadata(data[i].tagName, data[i].textContent);
-							if (typeof(fetchedValue) !== "undefined") {
-								metadataContent += fetchedValue;
+		viewEntity = document.createElement('div');
+		viewEntity.setAttribute('id', 'viewEntity');
+		
+		if (CONFIG.lightweight !== true && CONFIG.lightweight !== null) {
+			var req = new XMLHttpRequest();
+			req.responseType = '';
+			req.open('GET', CONFIG.metadataDomain + EXPORT_PATH + wisskiID + '?page=0&amp;_format=xml', true);
+			req.onreadystatechange = function (aEvt) {
+				if (req.readyState == 4) {
+					if(req.status == 200) {
+						const parser = new DOMParser();
+						const doc = parser.parseFromString(req.responseText, "application/xml");
+						var data = doc.documentElement.childNodes[0].childNodes;
+						if (typeof (data) !== undefined) {
+							for(var i = 0; i < data.length; i++) {
+								var fetchedValue = addWissKIMetadata(data[i].tagName, data[i].textContent);
+								if (typeof(fetchedValue) !== "undefined") {
+									metadataContent += fetchedValue;
+								}
 							}
 						}
-					}
-					metadataContent += metadataContentTech + '</div>';
-					canvasText.innerHTML = metadataContent;
-					metadataContainer.appendChild(canvasText);
-					if (proxyPath === null) {
+
 						downloadModel = document.createElement('div');
 						downloadModel.setAttribute('id', 'downloadModel');
-					}
-					viewEntity = document.createElement('div');
-					viewEntity.setAttribute('id', 'viewEntity');
-					var c_path = path;
-					//if (compressedFile !== '') { c_path = CONFIG.domain + '/' + uri; }
-					if (compressedFile !== '') { filename = filename.replace(orgExtension, extension); }
-					if (proxyPath === null) {
+
+						var c_path = path;
+						if (compressedFile !== '') { filename = filename.replace(orgExtension, extension); }
 						downloadModel.innerHTML = "<a href='" + c_path + filename + "' download><img src='" + CONFIG.basePath + "/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
 						metadataContainer.appendChild(downloadModel);
+
+						metadataContainer.appendChild(viewEntity);
+						fullscreenMode = document.createElement('div');
+						fullscreenMode.setAttribute('id', 'fullscreenMode');
+						fullscreenMode.setAttribute('style', 'bottom:' + Math.round(-canvasDimensions.y * 1.04 + 36) + 'px; right: ' + canvasDimensions.x * 0.45 + 'px');
+						fullscreenMode.innerHTML = "<img src='" + CONFIG.basePath + "/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
+						metadataContainer.appendChild(fullscreenMode);
+						appendMetadata (metadataContent, canvasText, metadataContainer, container);
+						
+						document.getElementById ("metadata-collapse").addEventListener ("click", expandMetadata, false);
+						document.getElementById ("fullscreenMode").addEventListener ("click", fullscreen, false);
+						if (document.addEventListener) {
+							document.addEventListener('webkitfullscreenchange', exitFullscreenHandler, false);
+							document.addEventListener('mozfullscreenchange', exitFullscreenHandler, false);
+							document.addEventListener('fullscreenchange', exitFullscreenHandler, false);
+							document.addEventListener('MSFullscreenChange', exitFullscreenHandler, false);
+						}
 					}
 					else
-					{
-						viewEntity.innerHTML = "<a href='" + CONFIG.domain + "/wisski/navigate/" + wisskiID + "/view' target='_blank'><img src='" + CONFIG.basePath + "/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>";
+						showToast("Error during loading metadata content");
 					}
-					metadataContainer.appendChild(viewEntity);
-					fullscreenMode = document.createElement('div');
-					fullscreenMode.setAttribute('id', 'fullscreenMode');
-					fullscreenMode.setAttribute('style', 'bottom:' + Math.round(-canvasDimensions.y * 1.04 + 36) + 'px; right: ' + canvasDimensions.x * 0.45 + 'px');
-					fullscreenMode.innerHTML = "<img src='" + CONFIG.basePath + "/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
-					metadataContainer.appendChild(fullscreenMode);
-					//var _container = document.getElementById("MainCanvas");
-					container.appendChild(metadataContainer);
-					document.getElementById ("metadata-collapse").addEventListener ("click", expandMetadata, false);
-					document.getElementById ("fullscreenMode").addEventListener ("click", fullscreen, false);
-					if (document.addEventListener) {
-						document.addEventListener('webkitfullscreenchange', exitFullscreenHandler, false);
-						document.addEventListener('mozfullscreenchange', exitFullscreenHandler, false);
-						document.addEventListener('fullscreenchange', exitFullscreenHandler, false);
-						document.addEventListener('MSFullscreenChange', exitFullscreenHandler, false);
-					}
-				}
-				else
-					showToast("Error during loading metadata content");
-				}
-		};
-		req.send(null);
+			};
+			req.send(null);
+		}
+		else
+		{
+			viewEntity.innerHTML = "<a href='" + CONFIG.domain + "/wisski/navigate/" + wisskiID + "/view' target='_blank'><img src='" + CONFIG.basePath + "/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>";
+			appendMetadata (metadataContent, canvasText, metadataContainer, container);
+		}
+
 		//hierarchyFolder.add(hierarchyText, 'Faces');
 	});
 	helperObjects.push (object);
@@ -1315,7 +1327,7 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 		circle.show();
 		circle.set(0, 100);
 		var modelPath = path + filename;
-		if (proxyPath !== null) {
+		if (CONFIG.lightweight !== null && CONFIG.lightweight !== false) {
 			modelPath = getProxyPath(modelPath);
 		}
 		switch(extension.toLowerCase()) {
@@ -1454,7 +1466,7 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 				loader = new TDSLoader();
 				loader.setResourcePath(path);
 				modelPath = path;
-				if (proxyPath !== null) {
+				if (CONFIG.lightweight !== null && CONFIG.lightweight !== false) {
 					modelPath = getProxyPath(modelPath);
 				}
 				loader.load(modelPath + basename + "." + extension, function (object) {
@@ -1483,7 +1495,7 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 				showToast("Model has being loaded from " + extension + " representation.");
 
 				modelPath = path + basename + "." + extension;
-				if (proxyPath !== null) {
+				if (CONFIG.lightweight !== null && CONFIG.lightweight !== false) {
 					modelPath = getProxyPath(modelPath);
 				}
 
@@ -1502,33 +1514,7 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 								showToast("Model " + filename + " has been loaded.");
 							}
 						}
-					}/*,
-					function () {						
-							showToast("GLTF or file with given name (possible archive/filename mismatch) representation not found, trying original file [semi-automatic]...");
-							showToast(path.replace("gltf/", "") + filename + " [" + orgExtension + "]");
-							var autoBasename = basename.replace(/_[0-9]+$/, '');
-							if (EXIT_CODE != 0) {
-								loadModel (path, autoBasename, '', 'glb', orgExtension);
-								if (EXIT_CODE != 0) {
-									allowedFormats.forEach(function(item, index, array) {
-										if (EXIT_CODE != 0) {
-											loadModel (path.replace("gltf/", ""), autoBasename, filename, item, orgExtension); 
-										}
-									});
-								}
-							}
-							if (EXIT_CODE != 0) {
-								allowedFormats.forEach(function(item, index, array) {
-									if (EXIT_CODE != 0) {
-										circle.show();
-										loadModel (path.replace("gltf/", ""), basename, filename, item, orgExtension);
-									}
-								});
-							}
-
-							//loadModel(path.replace("gltf/", ""), basename, filename, orgExtension, orgExtension);
-							imported = true;
-					}*/
+					}
 				);
 			break;
 			default:
@@ -1821,7 +1807,7 @@ function init() {
 		fileElement[0].style.height = canvasDimensions.y*1.1 + "px";
 	}
 	//DRUPAL WissKI [start]
-	if (proxyPath === null) {
+	if (CONFIG.lightweight === false) {
 		buildGallery();
 	}
 	//DRUPAL WissKI [end]
@@ -2013,7 +1999,7 @@ function init() {
 			//Fetch data from original metadata file anyway before saving any changes
 			//var originalMetadata = [];
 			//var metadataUrl = path.replace("gltf/", "") + "metadata/" + filename + "_viewer";
-			if (proxyPath !== null) {
+			if (CONFIG.lightweight !== null && CONFIG.lightweight !== false) {
 				metadataUrl = getProxyPath(metadataUrl);
 			}
 
