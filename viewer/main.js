@@ -262,17 +262,6 @@ var ruler = [];
 var rulerObject;
 var lastPickedFace = {id: '', color: '', object: ''};
 
-function readWissKI () {
-	const xmlhttp = new XMLHttpRequest();
-	xmlhttp.onload = function() {
-		console.log(this.responseText);
-	}
-	xmlhttp.open("GET", "php/fetchWissKI.php?q=");
-	xmlhttp.send();
-}
-
-//readWissKI();
-
 function createClippingPlaneGroup(geometry, plane, renderOrder) {
 
 	const group = new THREE.Group();
@@ -1180,9 +1169,6 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 					if (compressedFile !== '') { filename = filename.replace(orgExtension, extension); }
 					if (proxyPath === null) {
 						downloadModel.innerHTML = "<a href='" + c_path + filename + "' download><img src='" + CONFIG.basePath + "/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
-					}
-					
-					if (proxyPath === null) {
 						metadataContainer.appendChild(downloadModel);
 					}
 					else
@@ -1773,7 +1759,7 @@ function init() {
 	camera.position.set(0, 0, 0);
 
 	scene = new THREE.Scene();
-	scene.background = new THREE.Color(0xa0a0a0);
+	scene.background = new THREE.Color(0xffffff);
 	//scene.fog = new THREE.Fog(0xa0a0a0, 90000, 1000000);
 
 	const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444);
