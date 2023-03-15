@@ -51,7 +51,9 @@ const CONFIG = {
 	"galleryContainer": "block-bootstrap5-content",
 	"galleryImageClass": "field--type-image",
 	"basePath": "/modules/dfg_3dviewer/viewer",
-	"wisskiIdUri": "/wisski/navigate/(.*)/view",
+	"entityIdUri": "/wisski/navigate/(.*)/view",
+	"viewEntityPath": "/wisski/navigate/",
+	"attributeId": "wisski_id",
 	"lightweight": false
 };
 
@@ -62,7 +64,7 @@ var mainObject = [];
 var metadataContentTech;
 var mainCanvas;
 var distanceGeometry = new THREE.Vector3();
-let wisskiID = '';
+let entityID = '';
 var metadataUrl;
 
 const clock = new THREE.Clock();
@@ -81,10 +83,10 @@ if (CONFIG.lightweight === true) {
 	CONFIG.lightweight = container.getAttribute("proxy");
 	if (CONFIG.lightweight === null) {
 		var elementsURL = window.location.pathname;
-		elementsURL = elementsURL.match(CONFIG.wisskiIdUri);
+		elementsURL = elementsURL.match(CONFIG.entityIdUri);
 		if (elementsURL !== null) {
-			wisskiID = elementsURL[1];
-			container.setAttribute("wisski_id", wisskiID);
+			entityID = elementsURL[1];
+			container.setAttribute(CONFIG.attributeId, entityID);
 		}
 	}
 }
@@ -181,7 +183,7 @@ const colors = {
 	DirectionalLight: '0xFFFFFF',
 	AmbientLight: '0x404040',
 	CameraLight: '0xFFFFFF',
-	BackgroundColor: '0xA0A0A0'
+	BackgroundColor: '0xFFFFFF'
 };
 
 const materialProperties = {
@@ -502,12 +504,23 @@ function setupObject (_object, _light, _data, _controls) {
 	cameraLight.target.updateMatrixWorld();
 }
 
+function invertHexColor(hexTripletColor) {
+	var color = hexTripletColor;
+	color = color.substring(1); // remove #
+	color = parseInt(color, 16); // convert to integer
+	color = 0xFFFFFF ^ color; // invert three bytes
+	color = color.toString(16); // convert to hex
+	color = ("000000" + color).slice(-6); // pad with leading zeros
+	color = "#" + color; // prepend #
+	return color;
+}
+
 function setupClippingPlanes (_geometry, _size, _distance) {	
 	clippingPlanes[0].constant = _distance.x;
 	clippingPlanes[1].constant = _distance.y;
 	clippingPlanes[2].constant = _distance.z;
 
-	planeHelpers = clippingPlanes.map((p) => new THREE.PlaneHelper(p, _size*2, 0xffffff));
+	planeHelpers = clippingPlanes.map((p) => new THREE.PlaneHelper(p, _size*2, invertHexColor(scene.background.getHexString())));
 	planeHelpers.forEach((ph) => {
 		ph.visible = false;
 		ph.name = "PlaneHelper";
@@ -1156,7 +1169,7 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 		if (CONFIG.lightweight !== true && CONFIG.lightweight !== null) {
 			var req = new XMLHttpRequest();
 			req.responseType = '';
-			req.open('GET', CONFIG.metadataDomain + EXPORT_PATH + wisskiID + '?page=0&amp;_format=xml', true);
+			req.open('GET', CONFIG.metadataDomain + EXPORT_PATH + entityID + '?page=0&amp;_format=xml', true);
 			req.onreadystatechange = function (aEvt) {
 				if (req.readyState == 4) {
 					if(req.status == 200) {
@@ -1205,7 +1218,7 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 		}
 		else
 		{
-			viewEntity.innerHTML = "<a href='" + CONFIG.domain + "/wisski/navigate/" + wisskiID + "/view' target='_blank'><img src='" + CONFIG.basePath + "/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>";
+			viewEntity.innerHTML = "<a href='" + CONFIG.domain + CONFIG.viewEntityPath + entityID + "/view' target='_blank'><img src='" + CONFIG.basePath + "/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>";
 			appendMetadata (metadataContent, canvasText, metadataContainer, container);
 		}
 
@@ -1696,7 +1709,7 @@ function takeScreenshot() {
 		fileform.append('filename', basename + '.' + extension);
 		fileform.append('path', uri);
 		fileform.append('data', imgBlob);
-		fileform.append('wisski_individual', wisskiID);
+		fileform.append('wisski_individual', entityID);
 		fetch(CONFIG.domain + '/thumbnail_upload.php', {
 			method: 'POST',
 			body: fileform,
@@ -1849,7 +1862,7 @@ function init() {
 
 	var req = new XMLHttpRequest();
 	req.responseType = '';
-	req.open('GET', CONFIG.metadataDomain + EXPORT_PATH + wisskiID + '?page=0&amp;_format=xml', true);
+	req.open('GET', CONFIG.metadataDomain + EXPORT_PATH + entityID + '?page=0&amp;_format=xml', true);
 	req.onreadystatechange = function (aEvt) {
 		if (req.readyState == 4) {
 			if(req.status == 200) {
