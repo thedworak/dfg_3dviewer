@@ -91,7 +91,6 @@ if (CONFIG.lightweight === true) {
 	}
 }
 
-console.log(CONFIG.lightweight);
 var filename = container.getAttribute("3d").split("/").pop();
 var basename = filename.substring(0, filename.lastIndexOf('.'));
 var extension = filename.substring(filename.lastIndexOf('.') + 1);
@@ -104,6 +103,7 @@ var COPYRIGHTS = false;
 const allowedFormats = ['obj', 'fbx', 'ply', 'dae', 'ifc', 'stl', 'xyz', 'pcd', 'json', '3ds'];
 var EXIT_CODE=1;
 var gridSize;
+var noMTL=false;
 
 var canvasText;
 var downloadModel, viewEntity, fullscreenMode;
@@ -480,7 +480,6 @@ function setupObject (_object, _light, _data, _controls) {
 			for (let i = 0; i < _object.length; i++) {
 				boundingBox.setFromObject(_object[i]);
 				_object[i].position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
-				//_object[i].position.set (0, 0, 0);
 				_object[i].needsUpdate = true;
 				if (typeof (_object[i].geometry) !== "undefined") {
 					_object[i].geometry.computeBoundingBox();
@@ -500,7 +499,12 @@ function setupObject (_object, _light, _data, _controls) {
 		}
 	}
 	cameraLight.position.set(camera.position.x, camera.position.y, camera.position.z);
-	cameraLightTarget.position.set(_object.position.x, _object.position.y, _object.position.z);
+	if (Array.isArray(_object)) {
+		cameraLightTarget.position.set(_object[0].position.x, _object[0].position.y, _object[0].position.z);
+	}
+	else {
+		cameraLightTarget.position.set(_object.position.x, _object.position.y, _object.position.z);
+	}
 	cameraLight.target.updateMatrixWorld();
 }
 
@@ -1084,6 +1088,8 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 	if (CONFIG.lightweight === null && CONFIG.lightweight !== false) {
 		metadataUrl = getProxyPath(metadataUrl);
 	}
+	
+	const hierarchyMain = gui.addFolder('Hierarchy').close();
 
 	fetch(metadataUrl, {cache: "no-cache"})
 	.then((response) => {
@@ -1097,8 +1103,11 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 		})
 	.then(data => {
 		var tempArray = [];
-		const hierarchyMain = gui.addFolder('Hierarchy').close();
-		if (object.name === "Scene" || object.children.length > 0) {
+		if (Array.isArray(object)) {
+			setupObject(object[0], light, data, controls);
+			setupCamera (object[0], camera, light, data, controls);
+		}
+		else if (object.name === "Scene" || object.children.length > 0) {
 			setupObject(object, light, data, controls);
 			object.traverse(function (child) {
 				if (child.isMesh) {
@@ -1129,7 +1138,7 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 					});
 				}
 			});
-			setupCamera (object, camera, light, data, controls);				
+			setupCamera (object, camera, light, data, controls);
 		}
 		else {
 			setupObject(object, light, data, controls);
@@ -1146,11 +1155,8 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 			//hierarchy.push(tempArray);
 			if (object.name === "undefined") object.name = "level";
 			clippingGeometry.push(object.geometry);
-			hierarchyFolder = hierarchyMain.addFolder(object.name).close();			
-			//hierarchyFolder.add(tempArray, 'name').name(object.name);
-			metadata['vertices'] += fetchMetadata (object, 'vertices');
-			metadata['faces'] += fetchMetadata (object, 'faces');
-		}
+			hierarchyFolder = hierarchyMain.addFolder(object.name).close();
+		}		
 
 		hierarchyMain.domElement.classList.add("hierarchy");
 		
@@ -1234,6 +1240,13 @@ const onError = function (_event) {
 	console.log("Loader error: " + _event);
 	circle.hide();
 	EXIT_CODE=1;
+};
+
+const onErrorMTL = function (_event) {
+	//circle.set(100, 100);
+	noMTL = true;
+	showToast("Error occured while loading attached MTL file.");
+	loadModel (path, basename, filename, 'obj', extension);
 };
 
 const onProgress = function (xhr) {
@@ -1345,25 +1358,38 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 		}
 		switch(extension.toLowerCase()) {
 			case 'obj':
-				const manager = new THREE.LoadingManager();
-				manager.onLoad = function () { showToast ("OBJ model has been loaded"); };
-				manager.addHandler(/\.dds$/i, new DDSLoader());
-				// manager.addHandler(/\.tga$/i, new TGALoader());
-				new MTLLoader(manager)
-					.setPath(path)
-					.load(basename + '.mtl', function (materials) {
-						materials.preload();
-						new OBJLoader(manager)
-							.setMaterials(materials)
-							.setPath(path)
-							.load(filename, function (object) {
-								object.position.set (0, 0, 0);
-								traverseMesh(object);
-								scene.add(object);
-								fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
-								mainObject.push(object);
-							}, onProgress, onError);
-					});
+				if (!noMTL) {
+					const manager = new THREE.LoadingManager();
+					manager.onLoad = function () { showToast ("OBJ model has been loaded"); };
+					manager.addHandler(/\.dds$/i, new DDSLoader());
+					// manager.addHandler(/\.tga$/i, new TGALoader());
+					new MTLLoader(manager)
+						.setPath(path)
+						.load(basename + '.mtl', function (materials) {
+							materials.preload();
+							new OBJLoader(manager)
+								.setMaterials(materials)
+								.setPath(path)
+								.load(filename, function (object) {
+									object.position.set (0, 0, 0);
+									traverseMesh(object);
+									scene.add(object);
+									fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
+									mainObject.push(object);
+								}, onProgress, onError);
+						}, function (){}, onErrorMTL);
+				}
+				else {
+					const loader = new OBJLoader();
+					loader.setPath(path)
+						.load(filename, function (object) {
+						object.position.set (0, 0, 0);
+						traverseMesh(object);
+						scene.add(object);
+						fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
+						mainObject.push(object);
+					}, onProgress, onError);
+				}
 			break;
 			
 			case 'fbx':
@@ -1819,11 +1845,10 @@ function init() {
 	if (fileElement.length > 0) {
 		fileElement[0].style.height = canvasDimensions.y*1.1 + "px";
 	}
-	//DRUPAL WissKI [start]
+
 	if (CONFIG.lightweight === false) {
 		buildGallery();
 	}
-	//DRUPAL WissKI [end]
 
 	controls = new OrbitControls(camera, renderer.domElement);
 	controls.target.set(0, 100, 0);
