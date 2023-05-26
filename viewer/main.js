@@ -81,13 +81,13 @@ const originalPath = container.getAttribute("3d");
 
 if (CONFIG.lightweight === true) {
 	CONFIG.lightweight = container.getAttribute("proxy");
-	if (CONFIG.lightweight === null) {
-		var elementsURL = window.location.pathname;
-		elementsURL = elementsURL.match(CONFIG.entityIdUri);
-		if (elementsURL !== null) {
-			entityID = elementsURL[1];
-			container.setAttribute(CONFIG.attributeId, entityID);
-		}
+}
+if (CONFIG.lightweight === null || CONFIG.lightweight === false) {
+	var elementsURL = window.location.pathname;
+	elementsURL = elementsURL.match(CONFIG.entityIdUri);
+	if (elementsURL !== null) {
+		entityID = elementsURL[1];
+		container.setAttribute(CONFIG.attributeId, entityID);
 	}
 }
 
@@ -221,6 +221,7 @@ const ZOOM_SPEED_IMAGE = 0.1;
 
 var canvasDimensions;
 var compressedFile = '';
+var archiveType = '';
 //guiContainer.appendChild(gui.domElement);
 
 var options = {
@@ -487,7 +488,15 @@ function setupObject (_object, _light, _data, _controls) {
 				}			
 			}
 		}
-		else {
+		else if (_object.isGroup && extension == 'fbx') { //workaround for specific FBX case
+			boundingBox.setFromObject(_object);
+			var _obj = new THREE.Object3D();
+			_obj.attach(_object);
+			//_obj.position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
+			_obj.updateMatrixWorld();
+			_object = _obj;
+		}
+		else {			
 			boundingBox.setFromObject(_object);
 			_object.position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
 			//_object.position.set (0, 0, 0);
@@ -672,7 +681,6 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit)
 
     //camera.far = cameraToFarEdge * 3;
     camera.updateProjectionMatrix();
-
     if (orbitControls !== undefined && !_fit) {
         // set camera to rotate around the center
         orbitControls.target = new THREE.Vector3(0, 0, 0);
@@ -748,7 +756,7 @@ function buildGallery() {
 				imgList = imageElements[i].getElementsByTagName("img");
 				//for single thumbnail
 				if (imgList.length == 1) {
-					imgList[0].style.maxWidth = "120px !important";
+					imgList[0].style.maxWidth = "fit-content";
 					imgList[0].style.maxHeight = "180px";
 				}
 				for (let j = 0; j < imgList.length; j++) {
@@ -1230,7 +1238,12 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 
 		//hierarchyFolder.add(hierarchyText, 'Faces');
 	});
-	helperObjects.push (object);
+	if (Array.isArray(object)) {
+		helperObjects.push (object[0]);
+	}
+	else {
+		helperObjects.push (object);
+	}
 	//addTextWatermark("©", object.scale.x);
 	//lightObjects.push (object);
 }
@@ -1398,7 +1411,7 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 					traverseMesh (object);
 					object.position.set (0, 0, 0);
 					scene.add(object);
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object.children, camera, controls, orgExtension, extension);
+					fetchSettings (path.replace("gltf/", ""), basename, filename, object.children, camera, lightObjects[0], controls, orgExtension, extension);
 					mainObject.push(object);
 				}, onProgress, onError);
 			break;
@@ -1729,7 +1742,11 @@ function takeScreenshot() {
 	/*const messDiv = document.createElement('div');
 	messDiv.classList.add('message');
 	document.body.appendChild(messDiv);*/
+	camera.aspect = 1;
+	camera.updateProjectionMatrix();
+	renderer.setSize(256, 256);
     renderer.render(scene, camera);
+
     mainCanvas.toBlob(imgBlob => {
 		const fileform = new FormData();
 		fileform.append('filename', basename + '.' + extension);
@@ -1754,7 +1771,11 @@ function takeScreenshot() {
 		.catch(err => { //Handle js errors
 			showToast(err.message);
 		});
-	}, 'image/png');    
+	}, 'image/png');
+	renderer.setPixelRatio(window.devicePixelRatio);
+	camera.aspect = canvasDimensions.x / canvasDimensions.y;
+	camera.updateProjectionMatrix();
+	renderer.setSize(canvasDimensions.x, canvasDimensions.y);
 }
 
 function mainLoadModel (_ext) {
@@ -1838,8 +1859,9 @@ function init() {
 	canvasText.width = canvasDimensions.x;
 	canvasText.height = canvasDimensions.y;
 	
-	guiContainer.style.left = mainCanvas.offsetLeft + canvasDimensions.x - 18 + 'px';
-	guiContainer.style.top = mainCanvas.offsetTop + 'px';
+	guiContainer.style.left = mainCanvas.offsetLeft + canvasDimensions.x - 10 + 'px';
+	//guiContainer.style.top = mainCanvas.offsetTop + 'px';
+	guiContainer.style.display = 'flex';
 	
 	fileElement = document.getElementsByClassName("field--type-file");
 	if (fileElement.length > 0) {
@@ -1884,6 +1906,9 @@ function init() {
 	scene.add(transformControlLightTarget);
 	
 	var _ext = extension.toLowerCase();
+	if  (_ext === "zip" || _ext === "rar" || _ext === "tar" || _ext === "xz" || _ext === "gz") {
+		archiveType = _ext;
+	}
 
 	var req = new XMLHttpRequest();
 	req.responseType = '';
@@ -1950,7 +1975,7 @@ function init() {
 		if (value === '') { transformControl.detach(); } 
 		else {
 			renderer.localClippingEnabled = false;
-			transformControl.mode = value; 
+			transformControl.mode = value;
 			transformControl.attach(helperObjects[0]);
 		}
 	});
@@ -2150,8 +2175,11 @@ function init() {
 					else {
 						newMetadata = Object.assign(newMetadata, {"backgroundColor": [ originalMetadata["backgroundColor"][0] ]});
 					}
-
-					if (compressedFile !== '') { params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+basename+compressedFile+"&filename="+filename; }
+					
+					if (archiveType !== '') {
+						if (!compressedFile.includes(archiveType.toUpperCase())) compressedFile+="_" + archiveType.toUpperCase();
+						params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+basename+compressedFile + "/"+"&filename="+filename;
+					}
 					else { params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+"&filename="+filename; }
 					xhr.onreadystatechange = function()
 					{

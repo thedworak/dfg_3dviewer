@@ -41,6 +41,7 @@ try {
     echo json_encode([
       'message' => "Image uploaded and saved to $savePath ($bytes bytes)"
     ]);
+	//clearstatcache();
   }
  
 } catch (Exception $err) {
