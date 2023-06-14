@@ -271,6 +271,8 @@ var ruler = [];
 var rulerObject;
 var lastPickedFace = {id: '', color: '', object: ''};
 
+var loadedTimes = 0;
+
 function createClippingPlaneGroup(geometry, plane, renderOrder) {
 
 	const group = new THREE.Group();
@@ -1262,6 +1264,18 @@ const onErrorMTL = function (_event) {
 	loadModel (path, basename, filename, 'obj', extension);
 };
 
+const onErrorGLB = function (_event) {
+	if (typeof(_event) !== undefined && loadedTimes <= 1) {
+		console.log(path+basename+compressedFile, basename, filename,  "glb", extension);
+		loadModel (path+basename+compressedFile+"gltf/", basename, filename, 'glb', extension);
+		loadedTimes++;
+	}
+	else {
+		showToast("Error occured while loading attached GLB file.");
+	}
+	
+};
+
 const onProgress = function (xhr) {
 	var percentComplete = xhr.loaded / xhr.total * 100;
 	circle.show();
@@ -1550,7 +1564,6 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 				if (CONFIG.lightweight !== null && CONFIG.lightweight !== false) {
 					modelPath = getProxyPath(modelPath);
 				}
-
 				gltf.load(modelPath, function(gltf) {
 					traverseMesh(gltf.scene);
 					fetchSettings (path.replace("/gltf/", "/"), basename, filename, gltf.scene, camera, lightObjects[0], controls, orgExtension, extension);
@@ -1566,7 +1579,7 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 								showToast("Model " + filename + " has been loaded.");
 							}
 						}
-					}
+					}, onErrorGLB
 				);
 			break;
 			default:
@@ -1746,11 +1759,15 @@ function takeScreenshot() {
 	camera.updateProjectionMatrix();
 	renderer.setSize(256, 256);
     renderer.render(scene, camera);
+	var prependName = '';
+	if (archiveType !== '') {
+		prependName = basename+"_"+archiveType.toUpperCase()+"/";
+	}
 
     mainCanvas.toBlob(imgBlob => {
 		const fileform = new FormData();
-		fileform.append('filename', basename + '.' + extension);
-		fileform.append('path', uri);
+		fileform.append('filename', basename);
+		fileform.append('path', uri+prependName);
 		fileform.append('data', imgBlob);
 		fileform.append('wisski_individual', entityID);
 		fetch(CONFIG.domain + '/thumbnail_upload.php', {
@@ -1784,7 +1801,8 @@ function mainLoadModel (_ext) {
 	}
 	else if  (_ext === "zip" || _ext === "rar" || _ext === "tar" || _ext === "xz" || _ext === "gz") {
 		compressedFile = "_" + _ext.toUpperCase() + "/";
-		loadModel (path+basename+compressedFile+"gltf/", basename, filename,  "glb", _ext);
+		loadModel (path+basename+compressedFile, basename, filename,  "glb", _ext);
+		//loadModel (path+basename+compressedFile+"gltf/", basename, filename,  "glb", _ext);
 	}
 	else {
 		if (_ext === "glb")
@@ -1846,7 +1864,8 @@ function init() {
 	renderer.shadowMap.enabled = true;
 	renderer.localClippingEnabled = false;
 	//renderer.physicallyCorrectLights = true; //can be considered as better looking
-	renderer.setClearColor(0x263238);
+	//renderer.setClearColor(0x263238);
+	renderer.setClearColor(0xffffff);
 	renderer.domElement.id = 'MainCanvas';
 	container.appendChild(renderer.domElement);
 	mainCanvas = document.getElementById("MainCanvas");

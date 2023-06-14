@@ -86,6 +86,19 @@ handle_ifc_file () {
 	render_preview $EXT
 }
 
+handle_blend_file () {
+	INPATH=$1
+	FILENAME=$2
+	NAME=$3
+	EXT=$4
+
+	if [[ ! -d "$INPATH"/gltf/ ]]; then
+		mkdir "$INPATH"/gltf/
+	fi
+	${BLENDER_PATH}blender -b -P ${SPATH}/scripts/convert-blender-to-gltf.py "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
+	render_preview $EXT
+}
+
 if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 	FILENAME=${INPUT##*/}
 	NAME="${FILENAME%.*}"
@@ -118,7 +131,7 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 		if [[ ! -f $OUTPUT/$NAME.$GLTF || $FORCE ]]; then
 			start=`date +%s`
 			case $EXT in
-				abc|blend|dae|fbx|obj|ply|stl|wrl|x3d)
+				abc|dae|fbx|obj|ply|stl|wrl|x3d)
 					handle_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
 					end=`date +%s`
 					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
@@ -126,6 +139,12 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 				;;
 			  ifc)
 					handle_ifc_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
+					end=`date +%s`
+					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
+					exit 0;
+				;;
+			  blend)
+					handle_blend_file "$INPATH" "$FILENAME" "$NAME" $EXT
 					end=`date +%s`
 					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
 					exit 0;
