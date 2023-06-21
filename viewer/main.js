@@ -1095,13 +1095,27 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 	var hierarchy = [];
 	var geometry;
 	metadataUrl = path + "metadata/" + filename + "_viewer";
+	const hierarchyMain = gui.addFolder('Hierarchy').close();
 	if (CONFIG.lightweight === null && CONFIG.lightweight !== false) {
 		metadataUrl = getProxyPath(metadataUrl);
+		if (Array.isArray(object)) {
+			setupObject(object[0], light, undefined, controls);
+			setupCamera (object[0], camera, light, undefined, controls);
+		}
+		else if (object.name === "Scene" || object.children.length > 0) {
+			setupObject(object, light, undefined, controls);
+			setupCamera (object, camera, light, undefined, controls);
+		}
+		else {
+			setupObject(object, light, undefined, controls);
+			setupCamera (object, camera, light, undefined, controls);
+			//hierarchy.push(tempArray);
+			if (object.name === "undefined") object.name = "level";
+			hierarchyFolder = hierarchyMain.addFolder(object.name).close();
+		}
+	}
 	}
 	else {
-	
-		const hierarchyMain = gui.addFolder('Hierarchy').close();
-
 		fetch(metadataUrl, {cache: "no-cache"})
 		.then((response) => {
 			if (response['status'] !== 404) {
