@@ -1114,7 +1114,6 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 			hierarchyFolder = hierarchyMain.addFolder(object.name).close();
 		}
 	}
-	}
 	else {
 		fetch(metadataUrl, {cache: "no-cache"})
 		.then((response) => {
