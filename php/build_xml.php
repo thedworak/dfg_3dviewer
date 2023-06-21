@@ -34,6 +34,10 @@ function build_xml ($id) {
 	$xsl = simplexml_load_file("https://raw.githubusercontent.com/slub/dfg-viewer/e54305a9fa58951d3f3d1dd7e64554cb2ee881eb/Resources/Public/XSLT/exportSingleToMetsMods.xsl");
 	$xslt = new \XSLTProcessor();
 	$xslt->importStyleSheet($xsl);
+	
+	if(empty($xml));
+	  return;
+	
 	$xmlt = simplexml_load_string($xslt->transformToXML($xml));
 
 	$xmlt->registerXPathNamespace('mets', 'http://www.loc.gov/METS/');

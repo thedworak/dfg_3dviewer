@@ -1098,148 +1098,150 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 	if (CONFIG.lightweight === null && CONFIG.lightweight !== false) {
 		metadataUrl = getProxyPath(metadataUrl);
 	}
+	else {
 	
-	const hierarchyMain = gui.addFolder('Hierarchy').close();
+		const hierarchyMain = gui.addFolder('Hierarchy').close();
 
-	fetch(metadataUrl, {cache: "no-cache"})
-	.then((response) => {
-		if (response['status'] !== 404) {
-			showToast("Settings " + filename + "_viewer found");
-			return response.json();
-		}
-		else if (response['status'] === 404) {
-			showToast("No settings " + filename + "_viewer found");
-		}
-		})
-	.then(data => {
-		var tempArray = [];
-		if (Array.isArray(object)) {
-			setupObject(object[0], light, data, controls);
-			setupCamera (object[0], camera, light, data, controls);
-		}
-		else if (object.name === "Scene" || object.children.length > 0) {
-			setupObject(object, light, data, controls);
-			object.traverse(function (child) {
-				if (child.isMesh) {
-					metadata['vertices'] += fetchMetadata (child, 'vertices');
-					metadata['faces'] += fetchMetadata (child, 'faces');
-					var shortChildName = truncateString(child.name, GUILength);
-					if (child.name === '') {
-						tempArray = {["Mesh"]() {selectObjectHierarchy(child.id)}, 'id': child.id};
-					}
-					else {
-						tempArray = { [shortChildName]() {selectObjectHierarchy(child.id)}, 'id': child.id};
-					}
-					hierarchyFolder = hierarchyMain.addFolder(shortChildName).close();
-					hierarchyFolder.add(tempArray, shortChildName);
-					clippingGeometry.push(child.geometry);
-					child.traverse(function (children) {
-						if (children.isMesh &&  children.name !== child.name) {
-							var shortChildrenName = truncateString(children.name, GUILength);
-							if (children.name === '') {
-								tempArray = {["Mesh"] (){selectObjectHierarchy(children.id)}, 'id': children.id};
-							}
-							else {
-								tempArray = { [shortChildrenName] (){selectObjectHierarchy(children.id)}, 'id': children.id};
-							}
-							clippingGeometry.push(children.geometry);
-							hierarchyFolder.add(tempArray, shortChildrenName);
+		fetch(metadataUrl, {cache: "no-cache"})
+		.then((response) => {
+			if (response['status'] !== 404) {
+				showToast("Settings " + filename + "_viewer found");
+				return response.json();
+			}
+			else if (response['status'] === 404) {
+				showToast("No settings " + filename + "_viewer found");
+			}
+			})
+		.then(data => {
+			var tempArray = [];
+			if (Array.isArray(object)) {
+				setupObject(object[0], light, data, controls);
+				setupCamera (object[0], camera, light, data, controls);
+			}
+			else if (object.name === "Scene" || object.children.length > 0) {
+				setupObject(object, light, data, controls);
+				object.traverse(function (child) {
+					if (child.isMesh) {
+						metadata['vertices'] += fetchMetadata (child, 'vertices');
+						metadata['faces'] += fetchMetadata (child, 'faces');
+						var shortChildName = truncateString(child.name, GUILength);
+						if (child.name === '') {
+							tempArray = {["Mesh"]() {selectObjectHierarchy(child.id)}, 'id': child.id};
 						}
-					});
-				}
-			});
-			setupCamera (object, camera, light, data, controls);
-		}
-		else {
-			setupObject(object, light, data, controls);
-			setupCamera (object, camera, light, data, controls);
-			metadata['vertices'] += fetchMetadata (object, 'vertices');
-			metadata['faces'] += fetchMetadata (object, 'faces');
-			if (object.name === '') {
-				tempArray = {["Mesh"] (){selectObjectHierarchy(object.id)}, 'id': object.id};
-				object.name = object.id;
+						else {
+							tempArray = { [shortChildName]() {selectObjectHierarchy(child.id)}, 'id': child.id};
+						}
+						hierarchyFolder = hierarchyMain.addFolder(shortChildName).close();
+						hierarchyFolder.add(tempArray, shortChildName);
+						clippingGeometry.push(child.geometry);
+						child.traverse(function (children) {
+							if (children.isMesh &&  children.name !== child.name) {
+								var shortChildrenName = truncateString(children.name, GUILength);
+								if (children.name === '') {
+									tempArray = {["Mesh"] (){selectObjectHierarchy(children.id)}, 'id': children.id};
+								}
+								else {
+									tempArray = { [shortChildrenName] (){selectObjectHierarchy(children.id)}, 'id': children.id};
+								}
+								clippingGeometry.push(children.geometry);
+								hierarchyFolder.add(tempArray, shortChildrenName);
+							}
+						});
+					}
+				});
+				setupCamera (object, camera, light, data, controls);
 			}
 			else {
-				tempArray = {[object.name] (){selectObjectHierarchy(object.id)}, 'id': object.id};
+				setupObject(object, light, data, controls);
+				setupCamera (object, camera, light, data, controls);
+				metadata['vertices'] += fetchMetadata (object, 'vertices');
+				metadata['faces'] += fetchMetadata (object, 'faces');
+				if (object.name === '') {
+					tempArray = {["Mesh"] (){selectObjectHierarchy(object.id)}, 'id': object.id};
+					object.name = object.id;
+				}
+				else {
+					tempArray = {[object.name] (){selectObjectHierarchy(object.id)}, 'id': object.id};
+				}
+				//hierarchy.push(tempArray);
+				if (object.name === "undefined") object.name = "level";
+				clippingGeometry.push(object.geometry);
+				hierarchyFolder = hierarchyMain.addFolder(object.name).close();
 			}
-			//hierarchy.push(tempArray);
-			if (object.name === "undefined") object.name = "level";
-			clippingGeometry.push(object.geometry);
-			hierarchyFolder = hierarchyMain.addFolder(object.name).close();
-		}		
 
-		hierarchyMain.domElement.classList.add("hierarchy");
-		
-		var metadataContainer = document.createElement('div');
-		metadataContainer.setAttribute('id', 'metadata-container');
+			hierarchyMain.domElement.classList.add("hierarchy");
+			
+			var metadataContainer = document.createElement('div');
+			metadataContainer.setAttribute('id', 'metadata-container');
 
-		var metadataContent = '<div id="metadata-collapse" class="metadata-collapse metadata-collapsed">METADATA </div><div id="metadata-content" class="metadata-content expanded">';
-		metadataContentTech = '<hr class="metadataSeparator">';
-		metadataContentTech += 'Uploaded file name: <b>' + basename + "." + orgExtension + '</b><br>';
-		metadataContentTech += 'Loaded format: <b>' + extension + '</b><br>';
-		metadataContentTech += 'Vertices: <b>' + metadata['vertices'] + '</b><br>';
-		metadataContentTech += 'Faces: <b>' + metadata['faces'] + '</b><br>';
-		viewEntity = document.createElement('div');
-		viewEntity.setAttribute('id', 'viewEntity');
-		
-		if (CONFIG.lightweight !== true && CONFIG.lightweight !== null) {
-			var req = new XMLHttpRequest();
-			req.responseType = '';
-			req.open('GET', CONFIG.metadataDomain + EXPORT_PATH + entityID + '?page=0&amp;_format=xml', true);
-			req.onreadystatechange = function (aEvt) {
-				if (req.readyState == 4) {
-					if(req.status == 200) {
-						const parser = new DOMParser();
-						const doc = parser.parseFromString(req.responseText, "application/xml");
-						var data = doc.documentElement.childNodes[0].childNodes;
-						if (typeof (data) !== undefined) {
-							for(var i = 0; i < data.length; i++) {
-								var fetchedValue = addWissKIMetadata(data[i].tagName, data[i].textContent);
-								if (typeof(fetchedValue) !== "undefined") {
-									metadataContent += fetchedValue;
+			var metadataContent = '<div id="metadata-collapse" class="metadata-collapse metadata-collapsed">METADATA </div><div id="metadata-content" class="metadata-content expanded">';
+			metadataContentTech = '<hr class="metadataSeparator">';
+			metadataContentTech += 'Uploaded file name: <b>' + basename + "." + orgExtension + '</b><br>';
+			metadataContentTech += 'Loaded format: <b>' + extension + '</b><br>';
+			metadataContentTech += 'Vertices: <b>' + metadata['vertices'] + '</b><br>';
+			metadataContentTech += 'Faces: <b>' + metadata['faces'] + '</b><br>';
+			viewEntity = document.createElement('div');
+			viewEntity.setAttribute('id', 'viewEntity');
+			
+			if (CONFIG.lightweight !== true && CONFIG.lightweight !== null) {
+				var req = new XMLHttpRequest();
+				req.responseType = '';
+				req.open('GET', CONFIG.metadataDomain + EXPORT_PATH + entityID + '?page=0&amp;_format=xml', true);
+				req.onreadystatechange = function (aEvt) {
+					if (req.readyState == 4) {
+						if(req.status == 200) {
+							const parser = new DOMParser();
+							const doc = parser.parseFromString(req.responseText, "application/xml");
+							var data = doc.documentElement.childNodes[0].childNodes;
+							if (typeof (data) !== undefined) {
+								for(var i = 0; i < data.length; i++) {
+									var fetchedValue = addWissKIMetadata(data[i].tagName, data[i].textContent);
+									if (typeof(fetchedValue) !== "undefined") {
+										metadataContent += fetchedValue;
+									}
 								}
 							}
+
+							downloadModel = document.createElement('div');
+							downloadModel.setAttribute('id', 'downloadModel');
+
+							var c_path = path;
+							if (compressedFile !== '') { filename = filename.replace(orgExtension, extension); }
+							downloadModel.innerHTML = "<a href='" + c_path + filename + "' download><img src='" + CONFIG.basePath + "/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
+							metadataContainer.appendChild(downloadModel);
+
+							metadataContainer.appendChild(viewEntity);
+							fullscreenMode = document.createElement('div');
+							fullscreenMode.setAttribute('id', 'fullscreenMode');
+							fullscreenMode.setAttribute('style', 'bottom:' + Math.round(-canvasDimensions.y * 1.04 + 36) + 'px; right: ' + canvasDimensions.x * 0.45 + 'px');
+							fullscreenMode.innerHTML = "<img src='" + CONFIG.basePath + "/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
+							metadataContainer.appendChild(fullscreenMode);
+							appendMetadata (metadataContent, canvasText, metadataContainer, container);
+							
+							document.getElementById ("metadata-collapse").addEventListener ("click", expandMetadata, false);
+							document.getElementById ("fullscreenMode").addEventListener ("click", fullscreen, false);
+							if (document.addEventListener) {
+								document.addEventListener('webkitfullscreenchange', exitFullscreenHandler, false);
+								document.addEventListener('mozfullscreenchange', exitFullscreenHandler, false);
+								document.addEventListener('fullscreenchange', exitFullscreenHandler, false);
+								document.addEventListener('MSFullscreenChange', exitFullscreenHandler, false);
+							}
 						}
-
-						downloadModel = document.createElement('div');
-						downloadModel.setAttribute('id', 'downloadModel');
-
-						var c_path = path;
-						if (compressedFile !== '') { filename = filename.replace(orgExtension, extension); }
-						downloadModel.innerHTML = "<a href='" + c_path + filename + "' download><img src='" + CONFIG.basePath + "/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
-						metadataContainer.appendChild(downloadModel);
-
-						metadataContainer.appendChild(viewEntity);
-						fullscreenMode = document.createElement('div');
-						fullscreenMode.setAttribute('id', 'fullscreenMode');
-						fullscreenMode.setAttribute('style', 'bottom:' + Math.round(-canvasDimensions.y * 1.04 + 36) + 'px; right: ' + canvasDimensions.x * 0.45 + 'px');
-						fullscreenMode.innerHTML = "<img src='" + CONFIG.basePath + "/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
-						metadataContainer.appendChild(fullscreenMode);
-						appendMetadata (metadataContent, canvasText, metadataContainer, container);
-						
-						document.getElementById ("metadata-collapse").addEventListener ("click", expandMetadata, false);
-						document.getElementById ("fullscreenMode").addEventListener ("click", fullscreen, false);
-						if (document.addEventListener) {
-							document.addEventListener('webkitfullscreenchange', exitFullscreenHandler, false);
-							document.addEventListener('mozfullscreenchange', exitFullscreenHandler, false);
-							document.addEventListener('fullscreenchange', exitFullscreenHandler, false);
-							document.addEventListener('MSFullscreenChange', exitFullscreenHandler, false);
+						else
+							showToast("Error during loading metadata content");
 						}
-					}
-					else
-						showToast("Error during loading metadata content");
-					}
-			};
-			req.send(null);
-		}
-		else
-		{
-			viewEntity.innerHTML = "<a href='" + CONFIG.domain + CONFIG.viewEntityPath + entityID + "/view' target='_blank'><img src='" + CONFIG.basePath + "/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>";
-			appendMetadata (metadataContent, canvasText, metadataContainer, container);
-		}
+				};
+				req.send(null);
+			}
+			else
+			{
+				viewEntity.innerHTML = "<a href='" + CONFIG.domain + CONFIG.viewEntityPath + entityID + "/view' target='_blank'><img src='" + CONFIG.basePath + "/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>";
+				appendMetadata (metadataContent, canvasText, metadataContainer, container);
+			}
 
-		//hierarchyFolder.add(hierarchyText, 'Faces');
-	});
+			//hierarchyFolder.add(hierarchyText, 'Faces');
+		});
+	}
 	if (Array.isArray(object)) {
 		helperObjects.push (object[0]);
 	}
