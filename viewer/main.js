@@ -1095,6 +1095,12 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 	var hierarchy = [];
 	var geometry;
 	metadataUrl = path + "metadata/" + filename + "_viewer";
+	if (Array.isArray(object)) {
+		helperObjects.push (object[0]);
+	}
+	else {
+		helperObjects.push (object);
+	}
 	const hierarchyMain = gui.addFolder('Hierarchy').close();
 	if (CONFIG.lightweight === null && CONFIG.lightweight !== false) {
 		metadataUrl = getProxyPath(metadataUrl);
@@ -1201,7 +1207,6 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 				req.responseType = '';
 				req.open('GET', CONFIG.metadataDomain + EXPORT_PATH + entityID + '?page=0&amp;_format=xml', true);
 				req.onreadystatechange = function (aEvt) {
-					console.log(req.readyState);
 					if (req.readyState == 4) {
 						if(req.status == 200) {
 							const parser = new DOMParser();
@@ -1256,12 +1261,7 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 			//hierarchyFolder.add(hierarchyText, 'Faces');
 		});
 	}
-	if (Array.isArray(object)) {
-		helperObjects.push (object[0]);
-	}
-	else {
-		helperObjects.push (object);
-	}
+
 	//addTextWatermark("©", object.scale.x);
 	//lightObjects.push (object);
 }
