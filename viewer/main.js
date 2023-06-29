@@ -1201,6 +1201,7 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 				req.responseType = '';
 				req.open('GET', CONFIG.metadataDomain + EXPORT_PATH + entityID + '?page=0&amp;_format=xml', true);
 				req.onreadystatechange = function (aEvt) {
+					console.log(req.readyState);
 					if (req.readyState == 4) {
 						if(req.status == 200) {
 							const parser = new DOMParser();
@@ -1958,7 +1959,7 @@ function init() {
 					for(var i = 0; i < data.length && !_found; i++) {
 						if ((typeof (data[i].tagName) !== "undefined") && (typeof (data[i].textContent) !== "undefined")) {							
 							var _label = data[i].tagName.replace("wisski_path_3d_model__", "");
-							if (typeof(_label) !== "undefined" && _label === "converted_file_name") {
+							if (typeof(_label) !== "undefined" && _label === "converted_file") {
 								_found = true;
 								var _autoPath = data[i].textContent;
 								//check wheter semo-automatic path found
