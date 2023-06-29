@@ -3,8 +3,8 @@
 
 
 The module was primarily created for viewing 3D data as a Drupal extension for a WissKI based repository. During development it became also possible to use as a standalone version to be integrated with more environments.
-The Viewer is written in JavScript, based on the three.js library for viewing 3D models and can handle PHP/bash scripts for server-side operations.
-Supported 3D file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, glTF. There is also prepared complete workflow to handle more file formats and allow to render thumbnails for entries. If uploaded file is saved in one of the compression-supported format (obj, fbx, ply, dae, abc, blend, stl, wrl, x3d, glb, gltf), it is compressed on-the-fly and converted into GLB format and triggers automatic rendering (based on Blender utility).
+The Viewer is written in JavaScript, based on the three.js library for viewing 3D models and uses PHP/bash scripts for server-side operations.
+Supported 3D file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, glTF. There is also a pre-configured complete workflow to handle more file formats and allow to render thumbnails for entries. If an uploaded file is saved in one of the compression-supported formats (obj, fbx, ply, dae, abc, blend, stl, wrl, x3d, glb, gltf), it is compressed on-the-fly and converted into GLB format and triggers automatic rendering (based on Blender utility).
 
 
 
@@ -14,7 +14,7 @@ Supported 3D file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, glTF. T
     - hyphens or underscores instead of spaces
     - no national characters such as symbols or spaces
     - uploaded archive should be named the same as input file and content should be placed directly in the archive (without subdirectories)
-- upload all the sources needed for rendering. For example OBJ needs MTL files (if any) and textures uploaded too. If you want to do this, please place them inside single archive.
+- upload all the sources needed for rendering. For example OBJ needs MTL files (if any) and textures uploaded too. If you want to do this, please place them inside a single archive.
 
 ## Screenshots
 
@@ -84,14 +84,14 @@ const CONFIG = {
 	"lightweight": false
 };
 
-domain, metadaDomain - domains that deliver 3D content and metadata content respectively
+domain, metadataDomain - domains that deliver 3D content and metadata content respectively
 container - container to attach to and will contain 3D content
 galleryContainer - container with generated thumbnails
 galleryImageClass - class for gallery 
 basePath - relative path where this script is placed
-entityIdUri - WissKI side uri that can deliver ID of the entity
+entityIdUri - WissKI side URI that can deliver ID of the entity
 attributeId - the ID name that container will be given
-lightweight - use Viewer as simple version - mostly for viewing 3D content
+lightweight - use Viewer as simple version - mostly for usage as a standalone 3D viewer
 ```
 
 **3D DFG Viewer functions overview**
@@ -133,7 +133,7 @@ onErrorMTL = function (_event) - MTL error loading handler
 onProgress = function (xhr) - loading progress handler
 setupMaterials (_object) - setups materials of an object
 getMaterialByID (_object, _uuid) - gets material with given ID
-traverseMesh (object) - traverses mesh to get more datiled info
+traverseMesh (object) - traverses mesh to get more detailed info
 loadModel (path, basename, filename, extension, orgExtension) - main function for loading object
 animate() - main animation funcion
 onPointerDown(e) - mouse down click handler
