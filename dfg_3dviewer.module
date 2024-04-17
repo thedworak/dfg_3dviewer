@@ -253,7 +253,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			$origPath = $subPath . "/gltf/" . $fileBase . ".glb";
 			$origArchPath = $subPath . '/' . $fileBase . "_" . strtoupper($extension) . "/gltf/" . $fileBase . ".glb";
 			if ($autoPath != "" && ((!$isArchive && strcmp($origPath, $autoPath) !== 0) || ($isArchive && strcmp($origArchPath, $autoPath) !== 0))) {
-				\Drupal::messenger()->addMessage("GLTF or file with given name (possible archive/filename mismatch) representation not found, semi-automatic path applied\n", 'warning');
+			//	\Drupal::messenger()->addMessage("GLTF or file with given name (possible archive/filename mismatch) representation not found, semi-automatic path applied\n", 'warning');
 			}
 			elseif ($autoPath)
 			{
@@ -280,6 +280,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		}
 		require ('php/build_xml.php');
 		build_xml ($entity_id);
+		$entity->set('field_df', 'https://3dtest.dfg-viewer.de/viewer?tx_dlf[id]=https://3d-repository.hs-mainz.de/sites/default/files/xml_structure/' . $entity_id . '.xml&no_cache=1');
 	}
 	#$file = $entity->fbda64e9ba217e59e5fc5f99244f4821;
 	//$compression = $entity->field_3d_compression_level;

@@ -68,7 +68,7 @@ handle_unsupported_file () {
 	OUTPUT=$5
 	OUTPUTPATH=$6
 
-	touch $INPATH/gltf/$NAME.glb.off
+	touch "${INPATH}/gltf/${NAME}.glb.off"
 }
 
 handle_ifc_file () {
@@ -158,8 +158,8 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 
 			  *)
 					handle_unsupported_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
-					echo "Flie extension $EXT is not supported for conversion yet."
-					exit 1;
+					#echo "Flie extension $EXT is not supported for conversion yet."
+					exit 0;
 				;;
 			esac
 		else
