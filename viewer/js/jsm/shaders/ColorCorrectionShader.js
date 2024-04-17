@@ -1,12 +1,14 @@
 import {
 	Vector3
-} from 'three';
+} from '../../../build/three.module.js';
 
 /**
  * Color correction
  */
 
 const ColorCorrectionShader = {
+
+	name: 'ColorCorrectionShader',
 
 	uniforms: {
 

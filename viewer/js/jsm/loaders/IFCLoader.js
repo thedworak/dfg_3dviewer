@@ -18,7 +18,7 @@ import {
 	Loader,
 	FileLoader
 } from '../../../build/three.module.js';
-import { mergeBufferGeometries } from '../utils/BufferGeometryUtils.js';
+import { mergeGeometries } from '../utils/BufferGeometryUtils.js';
 
 const IdAttrName = 'expressID';
 const merge = ( geoms, createGroups = false ) => {

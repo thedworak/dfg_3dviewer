@@ -1,6 +1,7 @@
-import Node from '../core/Node.js';
-import PropertyNode from '../core/PropertyNode.js';
-import ContextNode from '../core/ContextNode.js';
+import Node, { addNodeClass } from '../core/Node.js';
+import { property } from '../core/PropertyNode.js';
+import { context as contextNode } from '../core/ContextNode.js';
+import { addNodeElement, nodeProxy } from '../shadernode/ShaderNode.js';
 
 class CondNode extends Node {
 
@@ -35,38 +36,86 @@ class CondNode extends Node {
 
 	}
 
-	generate( builder ) {
+	generate( builder, output ) {
 
 		const type = this.getNodeType( builder );
 		const context = { tempWrite: false };
 
-		const needsProperty = this.ifNode.getNodeType( builder ) !== 'void' || ( this.elseNode && this.elseNode.getNodeType( builder ) !== 'void' );
-		const nodeProperty = needsProperty ? new PropertyNode( type ).build( builder ) : '';
+		const nodeData = builder.getDataFromNode( this );
 
-		const nodeSnippet = new ContextNode( this.condNode/*, context*/ ).build( builder, 'bool' );
+		if ( nodeData.nodeProperty !== undefined ) {
 
-		builder.addFlowCode( `if ( ${nodeSnippet} ) {\n\n\t\t`, false );
-
-		let ifSnippet = new ContextNode( this.ifNode, context ).build( builder, type );
-
-		ifSnippet = needsProperty ? nodeProperty + ' = ' + ifSnippet + ';' : ifSnippet;
-
-		builder.addFlowCode( ifSnippet + '\n\n\t}', false );
-
-		let elseSnippet = this.elseNode ? new ContextNode( this.elseNode, context ).build( builder, type ) : null;
-
-		if ( elseSnippet ) {
-
-			elseSnippet = nodeProperty ? nodeProperty + ' = ' + elseSnippet + ';' : elseSnippet;
-
-			builder.addFlowCode( 'else {\n\n\t\t' + elseSnippet + '\n\n\t}', false );
+			return nodeData.nodeProperty;
 
 		}
 
-		return nodeProperty;
+		const { ifNode, elseNode } = this;
+
+		const needsOutput = output !== 'void';
+		const nodeProperty = needsOutput ? property( type ).build( builder ) : '';
+
+		nodeData.nodeProperty = nodeProperty;
+
+		const nodeSnippet = contextNode( this.condNode/*, context*/ ).build( builder, 'bool' );
+
+		builder.addFlowCode( `\n${ builder.tab }if ( ${ nodeSnippet } ) {\n\n` ).addFlowTab();
+
+		let ifSnippet = contextNode( ifNode, context ).build( builder, type );
+
+		if ( ifSnippet ) {
+
+			if ( needsOutput ) {
+
+				ifSnippet = nodeProperty + ' = ' + ifSnippet + ';';
+
+			} else {
+
+				ifSnippet = 'return ' + ifSnippet + ';';
+
+			}
+
+		}
+
+		builder.removeFlowTab().addFlowCode( builder.tab + '\t' + ifSnippet + '\n\n' + builder.tab + '}' );
+
+		if ( elseNode !== null ) {
+
+			builder.addFlowCode( ' else {\n\n' ).addFlowTab();
+
+			let elseSnippet = contextNode( elseNode, context ).build( builder, type );
+
+			if ( elseSnippet ) {
+
+				if ( needsOutput ) {
+
+					elseSnippet = nodeProperty + ' = ' + elseSnippet + ';';
+
+				} else {
+
+					elseSnippet = 'return ' + elseSnippet + ';';
+
+				}
+
+			}
+
+			builder.removeFlowTab().addFlowCode( builder.tab + '\t' + elseSnippet + '\n\n' + builder.tab + '}\n\n' );
+
+		} else {
+
+			builder.addFlowCode( '\n\n' );
+
+		}
+
+		return builder.format( nodeProperty, type, output );
 
 	}
 
 }
 
 export default CondNode;
+
+export const cond = nodeProxy( CondNode );
+
+addNodeElement( 'cond', cond );
+
+addNodeClass( 'CondNode', CondNode );

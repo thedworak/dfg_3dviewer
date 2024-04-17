@@ -2,13 +2,15 @@ import {
 	UniformsLib,
 	UniformsUtils,
 	Matrix4
-} from 'three';
+} from '../../../build/three.module.js';
 
 /**
  * Mesh Velocity Shader @bhouston
  */
 
 const VelocityShader = {
+
+	name: 'VelocityShader',
 
 	uniforms: UniformsUtils.merge( [
 		UniformsLib.common,
@@ -23,7 +25,7 @@ const VelocityShader = {
 	vertexShader: /* glsl */`
 #define NORMAL
 
-#if defined( FLAT_SHADED ) || defined( USE_BUMPMAP ) || defined( TANGENTSPACE_NORMALMAP )
+#if defined( FLAT_SHADED ) || defined( USE_BUMPMAP ) || defined( USE_NORMALMAP_TANGENTSPACE )
 
 	varying vec3 vViewPosition;
 

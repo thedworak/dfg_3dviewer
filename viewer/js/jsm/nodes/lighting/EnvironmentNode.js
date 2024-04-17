@@ -1,8 +1,16 @@
 import LightingNode from './LightingNode.js';
-import ContextNode from '../core/ContextNode.js';
-import CacheNode from '../core/CacheNode.js';
-import SpecularMIPLevelNode from '../utils/SpecularMIPLevelNode.js';
-import { float, mul, roughness, positionViewDirection, transformedNormalView, transformedNormalWorld, cameraViewMatrix, equirectUV, vec2 } from '../shadernode/ShaderNodeElements.js';
+import { cache } from '../core/CacheNode.js';
+import { context } from '../core/ContextNode.js';
+import { roughness, clearcoatRoughness } from '../core/PropertyNode.js';
+import { cameraViewMatrix } from '../accessors/CameraNode.js';
+import { transformedClearcoatNormalView, transformedNormalView, transformedNormalWorld } from '../accessors/NormalNode.js';
+import { positionViewDirection } from '../accessors/PositionNode.js';
+import { addNodeClass } from '../core/Node.js';
+import { float } from '../shadernode/ShaderNode.js';
+import { reference } from '../accessors/ReferenceNode.js';
+import { pmremTexture } from '../pmrem/PMREMNode.js';
+
+const envNodeCache = new WeakMap();
 
 class EnvironmentNode extends LightingNode {
 
@@ -14,116 +22,103 @@ class EnvironmentNode extends LightingNode {
 
 	}
 
-	construct( builder ) {
+	setup( builder ) {
 
-		const envNode = this.envNode;
-		const properties = builder.getNodeProperties( this );
+		let envNode = this.envNode;
 
-		let reflectVec;
-		let radianceTextureUVNode;
-		let irradianceTextureUVNode;
+		if ( envNode.isTextureNode ) {
 
-		const radianceContext = new ContextNode( envNode, {
-			getUVNode: ( textureNode ) => {
+			let cacheEnvNode = envNodeCache.get( envNode.value );
 
-				let node = null;
+			if ( cacheEnvNode === undefined ) {
 
-				if ( reflectVec === undefined ) {
+				cacheEnvNode = pmremTexture( envNode.value );
 
-					reflectVec = positionViewDirection.negate().reflect( transformedNormalView );
-					reflectVec = reflectVec.mix( transformedNormalView, roughness.mul( roughness ) ).normalize();
-					reflectVec = reflectVec.transformDirection( cameraViewMatrix );
-
-				}
-
-				if ( textureNode.isCubeTextureNode ) {
-
-					node = reflectVec;
-
-				} else if ( textureNode.isTextureNode ) {
-
-					if ( radianceTextureUVNode === undefined ) {
-
-						// @TODO: Needed PMREM
-
-						radianceTextureUVNode = equirectUV( reflectVec );
-						radianceTextureUVNode = vec2( radianceTextureUVNode.x, radianceTextureUVNode.y.invert() );
-
-					}
-
-					node = radianceTextureUVNode;
-
-				}
-
-				return node;
-
-			},
-			getSamplerLevelNode: () => {
-
-				return roughness;
-
-			},
-			getMIPLevelAlgorithmNode: ( textureNode, levelNode ) => {
-
-				return new SpecularMIPLevelNode( textureNode, levelNode );
+				envNodeCache.set( envNode.value, cacheEnvNode );
 
 			}
-		} );
 
-		const irradianceContext = new ContextNode( envNode, {
-			getUVNode: ( textureNode ) => {
+			envNode	= cacheEnvNode;
 
-				let node = null;
-
-				if ( textureNode.isCubeTextureNode ) {
-
-					node = transformedNormalWorld;
-
-				} else if ( textureNode.isTextureNode ) {
-
-					if ( irradianceTextureUVNode === undefined ) {
-
-						// @TODO: Needed PMREM
-
-						irradianceTextureUVNode = equirectUV( transformedNormalWorld );
-						irradianceTextureUVNode = vec2( irradianceTextureUVNode.x, irradianceTextureUVNode.y.invert() );
-
-					}
-
-					node = irradianceTextureUVNode;
-
-				}
-
-				return node;
-
-			},
-			getSamplerLevelNode: () => {
-
-				return float( 1 );
-
-			},
-			getMIPLevelAlgorithmNode: ( textureNode, levelNode ) => {
-
-				return new SpecularMIPLevelNode( textureNode, levelNode );
-
-			}
-		} );
+		}
 
 		//
 
-		const isolateRadianceFlowContext = new CacheNode( radianceContext );
+		const envMap = builder.material.envMap;
+		const intensity = envMap ? reference( 'envMapIntensity', 'float', builder.material ) : reference( 'environmentIntensity', 'float', builder.scene ); // @TODO: Add materialEnvIntensity in MaterialNode
+
+		const radiance = context( envNode, createRadianceContext( roughness, transformedNormalView ) ).mul( intensity );
+		const irradiance = context( envNode, createIrradianceContext( transformedNormalWorld ) ).mul( Math.PI ).mul( intensity );
+
+		const isolateRadiance = cache( radiance );
 
 		//
 
-		builder.context.radiance.add( isolateRadianceFlowContext );
+		builder.context.radiance.addAssign( isolateRadiance );
 
-		builder.context.iblIrradiance.add( mul( Math.PI, irradianceContext ) );
+		builder.context.iblIrradiance.addAssign( irradiance );
 
-		properties.radianceContext = isolateRadianceFlowContext;
-		properties.irradianceContext = irradianceContext;
+		//
+
+		const clearcoatRadiance = builder.context.lightingModel.clearcoatRadiance;
+
+		if ( clearcoatRadiance ) {
+
+			const clearcoatRadianceContext = context( envNode, createRadianceContext( clearcoatRoughness, transformedClearcoatNormalView ) ).mul( intensity );
+			const isolateClearcoatRadiance = cache( clearcoatRadianceContext );
+
+			clearcoatRadiance.addAssign( isolateClearcoatRadiance );
+
+		}
 
 	}
 
 }
 
+const createRadianceContext = ( roughnessNode, normalViewNode ) => {
+
+	let reflectVec = null;
+
+	return {
+		getUV: () => {
+
+			if ( reflectVec === null ) {
+
+				reflectVec = positionViewDirection.negate().reflect( normalViewNode );
+				reflectVec = roughnessNode.mul( roughnessNode ).mix( reflectVec, normalViewNode ).normalize();
+				reflectVec = reflectVec.transformDirection( cameraViewMatrix );
+
+			}
+
+			return reflectVec;
+
+		},
+		getTextureLevel: () => {
+
+			return roughnessNode;
+
+		}
+	};
+
+};
+
+const createIrradianceContext = ( normalWorldNode ) => {
+
+	return {
+		getUV: () => {
+
+			return normalWorldNode;
+
+		},
+		getTextureLevel: () => {
+
+			return float( 1.0 );
+
+		}
+	};
+
+};
+
 export default EnvironmentNode;
+
+addNodeClass( 'EnvironmentNode', EnvironmentNode );

@@ -1,6 +1,6 @@
 import {
 	Vector2
-} from 'three';
+} from '../../../build/three.module.js';
 
 /**
  * Dot screen shader
@@ -9,6 +9,8 @@ import {
  */
 
 const DotScreenShader = {
+
+	name: 'DotScreenShader',
 
 	uniforms: {
 

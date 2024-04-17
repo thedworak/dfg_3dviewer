@@ -1,7 +1,7 @@
 import {
 	ShaderMaterial,
 	UniformsUtils
-} from 'three';
+} from '../../../build/three.module.js';
 import { Pass, FullScreenQuad } from './Pass.js';
 import { CopyShader } from '../shaders/CopyShader.js';
 
@@ -24,7 +24,8 @@ class TexturePass extends Pass {
 			vertexShader: shader.vertexShader,
 			fragmentShader: shader.fragmentShader,
 			depthTest: false,
-			depthWrite: false
+			depthWrite: false,
+			premultipliedAlpha: true
 
 		} );
 

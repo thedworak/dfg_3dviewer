@@ -7,7 +7,7 @@ import {
 	Loader,
 	Mesh,
 	MeshPhongMaterial
-} from 'three';
+} from '../../../build/three.module.js';
 import * as fflate from '../libs/fflate.module.js';
 
 /**
@@ -432,7 +432,11 @@ class AMFLoader extends Loader {
 		}
 
 		const sceneObject = new Group();
-		const defaultMaterial = new MeshPhongMaterial( { color: 0xaaaaff, flatShading: true } );
+		const defaultMaterial = new MeshPhongMaterial( {
+			name: Loader.DEFAULT_MATERIAL_NAME,
+			color: 0xaaaaff,
+			flatShading: true
+		} );
 
 		sceneObject.name = amfName;
 		sceneObject.userData.author = amfAuthor;

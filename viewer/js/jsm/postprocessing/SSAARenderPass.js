@@ -1,13 +1,11 @@
 import {
-	CustomBlending,
-	OneFactor,
-	AddEquation,
-	SrcAlphaFactor,
+	AdditiveBlending,
 	Color,
+	HalfFloatType,
 	ShaderMaterial,
 	UniformsUtils,
 	WebGLRenderTarget
-} from 'three';
+} from '../../../build/three.module.js';
 import { Pass, FullScreenQuad } from './Pass.js';
 import { CopyShader } from '../shaders/CopyShader.js';
 
@@ -48,14 +46,8 @@ class SSAARenderPass extends Pass {
 			transparent: true,
 			depthTest: false,
 			depthWrite: false,
-
-			// do not use AdditiveBlending because it mixes the alpha channel instead of adding
-			blending: CustomBlending,
-			blendEquation: AddEquation,
-			blendDst: OneFactor,
-			blendDstAlpha: OneFactor,
-			blendSrc: SrcAlphaFactor,
-			blendSrcAlpha: OneFactor
+			premultipliedAlpha: true,
+			blending: AdditiveBlending
 		} );
 
 		this.fsQuad = new FullScreenQuad( this.copyMaterial );
@@ -87,7 +79,7 @@ class SSAARenderPass extends Pass {
 
 		if ( ! this.sampleRenderTarget ) {
 
-			this.sampleRenderTarget = new WebGLRenderTarget( readBuffer.width, readBuffer.height );
+			this.sampleRenderTarget = new WebGLRenderTarget( readBuffer.width, readBuffer.height, { type: HalfFloatType } );
 			this.sampleRenderTarget.texture.name = 'SSAARenderPass.sample';
 
 		}

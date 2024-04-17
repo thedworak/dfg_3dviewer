@@ -13,7 +13,7 @@ import {
 	NearestFilter,
 	DynamicDrawUsage,
 	Matrix4
-} from 'three';
+} from '../../../build/three.module.js';
 
 /**
  * Make a new DataTexture to store the descriptions of the curves.
@@ -214,8 +214,26 @@ export class Flow {
 				child instanceof InstancedMesh
 			) {
 
-				child.material = child.material.clone();
-				modifyShader( child.material, uniforms, numberOfCurves );
+				if ( Array.isArray( child.material ) ) {
+
+					const materials = [];
+
+					for ( const material of child.material ) {
+
+						const newMaterial = material.clone();
+						modifyShader( newMaterial, uniforms, numberOfCurves );
+						materials.push( newMaterial );
+
+					}
+
+					child.material = materials;
+
+				} else {
+
+					child.material = child.material.clone();
+					modifyShader( child.material, uniforms, numberOfCurves );
+
+				}
 
 			}
 
@@ -270,6 +288,7 @@ export class InstancedFlow extends Flow {
 			count
 		);
 		mesh.instanceMatrix.setUsage( DynamicDrawUsage );
+		mesh.frustumCulled = false;
 		super( mesh, curveCount );
 
 		this.offsets = new Array( count ).fill( 0 );

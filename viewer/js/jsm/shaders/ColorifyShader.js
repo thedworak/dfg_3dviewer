@@ -1,12 +1,14 @@
 import {
 	Color
-} from 'three';
+} from '../../../build/three.module.js';
 
 /**
  * Colorify shader
  */
 
 const ColorifyShader = {
+
+	name: 'ColorifyShader',
 
 	uniforms: {
 

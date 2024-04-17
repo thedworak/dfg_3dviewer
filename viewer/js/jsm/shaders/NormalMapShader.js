@@ -1,6 +1,6 @@
 import {
 	Vector2
-} from 'three';
+} from '../../../build/three.module.js';
 
 /**
  * Normal map shader
@@ -8,6 +8,8 @@ import {
  */
 
 const NormalMapShader = {
+
+	name: 'NormalMapShader',
 
 	uniforms: {
 
