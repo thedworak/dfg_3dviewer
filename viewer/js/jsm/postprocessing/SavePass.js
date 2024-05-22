@@ -1,8 +1,10 @@
 import {
+	HalfFloatType,
+	NoBlending,
 	ShaderMaterial,
 	UniformsUtils,
 	WebGLRenderTarget
-} from 'three';
+} from '../../../build/three.module.js';
 import { Pass, FullScreenQuad } from './Pass.js';
 import { CopyShader } from '../shaders/CopyShader.js';
 
@@ -22,7 +24,8 @@ class SavePass extends Pass {
 
 			uniforms: this.uniforms,
 			vertexShader: shader.vertexShader,
-			fragmentShader: shader.fragmentShader
+			fragmentShader: shader.fragmentShader,
+			blending: NoBlending
 
 		} );
 
@@ -30,7 +33,7 @@ class SavePass extends Pass {
 
 		if ( this.renderTarget === undefined ) {
 
-			this.renderTarget = new WebGLRenderTarget(); // will be resized later
+			this.renderTarget = new WebGLRenderTarget( 1, 1, { type: HalfFloatType } ); // will be resized later
 			this.renderTarget.texture.name = 'SavePass.rt';
 
 		}

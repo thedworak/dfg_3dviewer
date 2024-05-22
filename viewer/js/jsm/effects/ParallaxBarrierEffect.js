@@ -9,7 +9,7 @@ import {
 	ShaderMaterial,
 	StereoCamera,
 	WebGLRenderTarget
-} from 'three';
+} from '../../../build/three.module.js';
 
 class ParallaxBarrierEffect {
 
@@ -67,6 +67,9 @@ class ParallaxBarrierEffect {
 				'		gl_FragColor = texture2D( mapRight, uv );',
 
 				'	}',
+
+				'	#include <tonemapping_fragment>',
+				'	#include <colorspace_fragment>',
 
 				'}'
 

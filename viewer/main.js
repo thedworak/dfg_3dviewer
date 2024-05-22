@@ -17,14 +17,13 @@ https://www.gnu.org/licenses/.
 //Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF
 
 
+//three.js core
 import * as THREE from './build/three.module.js';
 import { TWEEN } from './js/jsm/libs/tween.module.min.js';
 
-import Stats from './js/jsm/libs/stats.module.js';
-
+//three.js components
 import { OrbitControls } from './js/jsm/controls/OrbitControls.js';
 import { TransformControls } from './js/jsm/controls/TransformControls.js';
-import { GUI } from './js/jsm/libs/lil-gui.module.min.js';
 import { FBXLoader } from './js/jsm/loaders/FBXLoader.js';
 import { DDSLoader } from './js/jsm/loaders/DDSLoader.js';
 import { MTLLoader } from './js/jsm/loaders/MTLLoader.js';
@@ -42,6 +41,10 @@ import { TDSLoader } from './js/jsm/loaders/TDSLoader.js';
 import { PCDLoader } from './js/jsm/loaders/PCDLoader.js';
 import { FontLoader } from './js/jsm/loaders/FontLoader.js';
 import { TextGeometry } from './js/jsm/geometries/TextGeometry.js';
+
+//custom libraries
+import Stats from './js/jsm/libs/stats.module.js';
+import { GUI } from './js/jsm/libs/lil-gui.module.min.js';
 
 //import CONFIG from './config.json' assert {type: 'json'}; //disabled temporary because of Firefox assertion bug
 const CONFIG = {

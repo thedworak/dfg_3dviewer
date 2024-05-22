@@ -5,7 +5,7 @@ import {
 	CubeTexture,
 	HalfFloatType,
 	DataUtils
-} from 'three';
+} from '../../../build/three.module.js';
 
 class RGBMLoader extends DataTextureLoader {
 
@@ -35,6 +35,12 @@ class RGBMLoader extends DataTextureLoader {
 	loadCubemap( urls, onLoad, onProgress, onError ) {
 
 		const texture = new CubeTexture();
+
+		for ( let i = 0; i < 6; i ++ ) {
+
+			texture.images[ i ] = undefined;
+
+		}
 
 		let loaded = 0;
 
@@ -72,6 +78,16 @@ class RGBMLoader extends DataTextureLoader {
 		texture.generateMipmaps = false;
 
 		return texture;
+
+	}
+
+	loadCubemapAsync( urls, onProgress ) {
+
+		return new Promise( ( resolve, reject ) => {
+
+			this.loadCubemap( urls, resolve, onProgress, reject );
+
+		} );
 
 	}
 

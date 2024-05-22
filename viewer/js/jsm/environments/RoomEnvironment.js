@@ -10,11 +10,11 @@ import {
  	MeshStandardMaterial,
  	PointLight,
  	Scene,
-} from 'three';
+} from '../../../build/three.module.js';
 
 class RoomEnvironment extends Scene {
 
-	constructor() {
+	constructor( renderer = null ) {
 
 		super();
 
@@ -24,7 +24,11 @@ class RoomEnvironment extends Scene {
 		const roomMaterial = new MeshStandardMaterial( { side: BackSide } );
 		const boxMaterial = new MeshStandardMaterial();
 
-		const mainLight = new PointLight( 0xffffff, 5.0, 28, 2 );
+		let intensity = 5;
+
+		if ( renderer !== null && renderer._useLegacyLights === false ) intensity = 900;
+
+		const mainLight = new PointLight( 0xffffff, intensity, 28, 2 );
 		mainLight.position.set( 0.418, 16.199, 0.300 );
 		this.add( mainLight );
 

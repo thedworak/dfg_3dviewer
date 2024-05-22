@@ -4,7 +4,7 @@ import {
 	ShaderMaterial,
 	UniformsLib,
 	UniformsUtils
-} from 'three';
+} from '../../../build/three.module.js';
 
 /**
  * Reference: https://en.wikipedia.org/wiki/Cel_shading
@@ -165,7 +165,7 @@ class OutlineEffect {
 			'	gl_FragColor = vec4( outlineColor, outlineAlpha );',
 
 			'	#include <tonemapping_fragment>',
-			'	#include <encodings_fragment>',
+			'	#include <colorspace_fragment>',
 			'	#include <fog_fragment>',
 			'	#include <premultiplied_alpha_fragment>',
 
@@ -227,21 +227,7 @@ class OutlineEffect {
 		function isCompatible( object ) {
 
 			const geometry = object.geometry;
-			let hasNormals = false;
-
-			if ( object.geometry !== undefined ) {
-
-				if ( geometry.isBufferGeometry ) {
-
-					hasNormals = geometry.attributes.normal !== undefined;
-
-				} else {
-
-					hasNormals = true; // the renderer always produces a normal attribute for Geometry
-
-				}
-
-			}
+			const hasNormals = ( geometry !== undefined ) && ( geometry.attributes.normal !== undefined );
 
 			return ( object.isMesh === true && object.material !== undefined && hasNormals === true );
 

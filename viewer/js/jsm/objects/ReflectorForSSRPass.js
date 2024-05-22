@@ -13,7 +13,7 @@ import {
 	NearestFilter,
 	Plane,
 	HalfFloatType
-} from 'three';
+} from '../../../build/three.module.js';
 
 class ReflectorForSSRPass extends Mesh {
 
@@ -111,6 +111,7 @@ class ReflectorForSSRPass extends Mesh {
 		const renderTarget = new WebGLRenderTarget( textureWidth, textureHeight, parameters );
 
 		const material = new ShaderMaterial( {
+			name: ( shader.name !== undefined ) ? shader.name : 'unspecified',
 			transparent: useDepthTexture,
 			defines: Object.assign( {}, ReflectorForSSRPass.ReflectorShader.defines, {
 				useDepthTexture
@@ -250,6 +251,8 @@ class ReflectorForSSRPass extends Mesh {
 }
 
 ReflectorForSSRPass.ReflectorShader = {
+
+	name: 'ReflectorShader',
 
 	defines: {
 		DISTANCE_ATTENUATION: true,

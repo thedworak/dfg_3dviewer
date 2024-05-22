@@ -9,9 +9,12 @@ import {
 	Shape,
 	ShapePath,
 	ShapeUtils,
+	SRGBColorSpace,
 	Vector2,
 	Vector3
-} from 'three';
+} from '../../../build/three.module.js';
+
+const COLOR_SPACE_SVG = SRGBColorSpace;
 
 class SVGLoader extends Loader {
 
@@ -155,7 +158,7 @@ class SVGLoader extends Loader {
 
 				if ( style.fill !== undefined && style.fill !== 'none' ) {
 
-					path.color.setStyle( style.fill );
+					path.color.setStyle( style.fill, COLOR_SPACE_SVG );
 
 				}
 
@@ -217,6 +220,8 @@ class SVGLoader extends Loader {
 			let doSetFirstPoint = false;
 
 			const d = node.getAttribute( 'd' );
+
+			if ( d === '' || d === 'none' ) return null;
 
 			// console.log( d );
 
@@ -2382,7 +2387,7 @@ class SVGLoader extends Loader {
 
 	static pointsToStroke( points, style, arcDivisions, minDistance ) {
 
-		// Generates a stroke with some witdh around the given path.
+		// Generates a stroke with some width around the given path.
 		// The path can be open or closed (last point equals to first point)
 		// Param points: Array of Vector2D (the path). Minimum 2 points.
 		// Param style: Object with SVG properties as returned by SVGLoader.getStrokeStyle(), or SVGLoader.parse() in the path.userData.style object
@@ -2919,8 +2924,8 @@ class SVGLoader extends Loader {
 			addVertex( currentPointL, u1, 0 );
 
 			addVertex( lastPointR, u0, 1 );
-			addVertex( currentPointL, u1, 1 );
-			addVertex( currentPointR, u1, 0 );
+			addVertex( currentPointL, u1, 0 );
+			addVertex( currentPointR, u1, 1 );
 
 		}
 
@@ -2963,8 +2968,8 @@ class SVGLoader extends Loader {
 					// Bevel join triangle
 
 					addVertex( currentPointR, u, 1 );
-					addVertex( nextPointR, u, 0 );
-					addVertex( innerPoint, u, 0.5 );
+					addVertex( innerPoint, u, 0 );
+					addVertex( nextPointR, u, 1 );
 
 				}
 
@@ -3077,7 +3082,8 @@ class SVGLoader extends Loader {
 						} else {
 
 							tempV2_3.toArray( vertices, 1 * 3 );
-							tempV2_3.toArray( vertices, 3 * 3 );
+							// using tempV2_4 to update 3rd vertex if the uv.y of 3rd vertex is 1
+							uvs[ 3 * 2 + 1 ] === 1 ? tempV2_4.toArray( vertices, 3 * 3 ) : tempV2_3.toArray( vertices, 3 * 3 );
 							tempV2_4.toArray( vertices, 0 * 3 );
 
 						}
@@ -3101,8 +3107,8 @@ class SVGLoader extends Loader {
 
 						} else {
 
-							tempV2_3.toArray( vertices, vl - 2 * 3 );
-							tempV2_4.toArray( vertices, vl - 1 * 3 );
+							tempV2_4.toArray( vertices, vl - 2 * 3 );
+							tempV2_3.toArray( vertices, vl - 1 * 3 );
 							tempV2_4.toArray( vertices, vl - 4 * 3 );
 
 						}

@@ -1,6 +1,6 @@
 import {
 	Vector2
-} from 'three';
+} from '../../../build/three.module.js';
 
 /**
  * Edge Detection Shader using Frei-Chen filter
@@ -10,6 +10,8 @@ import {
  */
 
 const FreiChenShader = {
+
+	name: 'FreiChenShader',
 
 	uniforms: {
 
