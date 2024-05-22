@@ -1587,6 +1587,7 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 					traverseMesh(gltf.scene);
 					fetchSettings (path.replace("/gltf/", "/"), basename, filename, gltf.scene, camera, lightObjects[0], controls, orgExtension, extension);
 					scene.add(gltf.scene);
+					mainObject.push(gltf.scene);
 				},
 					function (xhr) {
 						var percentComplete = xhr.loaded / xhr.total * 100;
@@ -1672,7 +1673,7 @@ function onPointerUp(e) {
 					}
 				}
 				else {
-					intersects = raycaster.intersectObjects(mainObject[0], true);
+					intersects = raycaster.intersectObject(mainObject[0], true);
 				}
 				if (intersects.length > 0) {
 					if (RULER_MODE) buildRuler(intersects[0]);
@@ -1705,7 +1706,7 @@ function onPointerMove(e) {
 				}
 			}
 			else {
-				intersects = raycaster.intersectObjects(mainObject[0], true);
+				intersects = raycaster.intersectObject(mainObject[0], true);
 			}
 			if (intersects.length > 0) {
 				pickFaces(intersects[0]);
