@@ -68,7 +68,7 @@ class DFG3DViewerFormatter extends FileFormatterBase {
           $elements[$delta] = array(
             '#type' => 'html_tag',
             '#tag' => 'p',
-            '#attributes' => array('id' => 'DFG_3DViewer', '3d' => file_create_url($file->getFileUri())),
+            '#attributes' => array('id' => 'DFG_3DViewer', '3d' => \Drupal::service('file_url_generator')->generateAbsoluteString($file->getFileUri())),
             //'#value' => file_create_url($file->getFileUri()), //$file->getFilename(),
           );
 

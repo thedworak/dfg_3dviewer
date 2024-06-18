@@ -24,9 +24,9 @@ function build_xml ($id) {
 	//$FILEPATH="/var/www/html/3drepository/sites/default/files/xml_structure/$id.xml";
 
 	//if (!file_exists($FILEPATH)) {
-	const DOMAIN = "https://3d-repository.hs-mainz.de";
+	$DOMAIN = "https://3d-repository.hs-mainz.de";
 	$EXPORT_PATH = '/export_xml_single/';
-	$url = DOMAIN . $EXPORT_PATH . $id . '?page=0&amp;_format=xml';
+	$url = $DOMAIN . $EXPORT_PATH . $id . '?page=0&amp;_format=xml';
 
 	$data = file_get_contents_curl($url);
 	$xml = simplexml_load_string($data);
