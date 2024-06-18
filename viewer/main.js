@@ -154,7 +154,7 @@ const onUpPosition = new THREE.Vector2();
 const onDownPosition = new THREE.Vector2();
 
 const geometry = new THREE.BoxGeometry(20, 20, 20);
-let transformControl, transformControlLight, transformControlLightTarget;
+let transformControl, transformControlLight, transformControlLightTarget, transformControlClippingPlane;
 
 const helperObjects = [];
 const lightObjects = [];
@@ -209,6 +209,7 @@ const saveProperties = {
 	BackgroundColor: true
 };
 
+var clippingMode = false;
 var EDITOR = false;
 var RULER_MODE = false;
 const lineMaterial = new THREE.LineBasicMaterial({ color: 0x0000ff });
@@ -257,9 +258,9 @@ const planeParams = {
 };
 
 var clippingPlanes = [
-		new THREE.Plane(new THREE.Vector3(- 1, 0, 0), 0),
-		new THREE.Plane(new THREE.Vector3(0, - 1, 0), 0),
-		new THREE.Plane(new THREE.Vector3(0, 0, - 1), 0)
+		new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0),
+		new THREE.Plane(new THREE.Vector3(0, -1, 0), 0),
+		new THREE.Plane(new THREE.Vector3(0, 0, -1), 0)
 	];
 var planeHelpers, clippingFolder;
 var propertiesFolder;
@@ -277,7 +278,6 @@ var lastPickedFace = {id: '', color: '', object: ''};
 var loadedTimes = 0;
 
 function createClippingPlaneGroup(geometry, plane, renderOrder) {
-
 	const group = new THREE.Group();
 	const baseMat = new THREE.MeshBasicMaterial();
 	baseMat.depthWrite = false;
@@ -289,27 +289,40 @@ function createClippingPlaneGroup(geometry, plane, renderOrder) {
 	// back faces
 	const mat0 = baseMat.clone();
 	mat0.side = THREE.BackSide;
-	mat0.clippingPlanes = [ plane ];
+	mat0.clippingPlanes = [plane];
 	mat0.stencilFail = THREE.IncrementWrapStencilOp;
 	mat0.stencilZFail = THREE.IncrementWrapStencilOp;
 	mat0.stencilZPass = THREE.IncrementWrapStencilOp;
 
-	const mesh0 = new THREE.Mesh(geometry, mat0);
-	mesh0.renderOrder = renderOrder;
-	group.add(mesh0);
-
 	// front faces
 	const mat1 = baseMat.clone();
 	mat1.side = THREE.FrontSide;
-	mat1.clippingPlanes = [ plane ];
+	mat1.clippingPlanes = [plane];
 	mat1.stencilFail = THREE.DecrementWrapStencilOp;
 	mat1.stencilZFail = THREE.DecrementWrapStencilOp;
 	mat1.stencilZPass = THREE.DecrementWrapStencilOp;
 
-	const mesh1 = new THREE.Mesh(geometry, mat1);
-	mesh1.renderOrder = renderOrder;
-
-	group.add(mesh1);
+	if (Array.isArray(geometry)) {
+		for (var ii=0; ii < geometry.length; ii++) {
+			var newGeom = geometry[ii].clone();
+			//newGeom.position.set(geometry[ii].position.x, geometry[ii].position.y, geometry[ii].position.z);
+			//newGeom.updateMatrix();
+			newGeom.material = mat0;
+			newGeom.renderOrder = renderOrder;
+			group.add(newGeom);
+			newGeom.material = mat1;
+			newGeom.renderOrder = renderOrder;
+			group.add(newGeom);
+		}
+	}
+	else {
+		const mesh0 = new THREE.Mesh(geometry, mat0);
+		mesh0.renderOrder = renderOrder;
+		group.add(mesh0);
+		const mesh1 = new THREE.Mesh(geometry, mat1);
+		mesh1.renderOrder = renderOrder;
+		group.add(mesh1);
+	}
 
 	return group;
 
@@ -533,10 +546,18 @@ function invertHexColor(hexTripletColor) {
 	return color;
 }
 
-function setupClippingPlanes (_geometry, _size, _distance) {	
+function setupClippingPlanes (_geom, _size, _distance) {
+	var _geometry;
+	if (_geom.isGroup)
+		_geometry = _geom.children;
+	else
+		_geometry = _geom.geometry.clone();
+
 	clippingPlanes[0].constant = _distance.x;
 	clippingPlanes[1].constant = _distance.y;
 	clippingPlanes[2].constant = _distance.z;
+	
+	scene.add(transformControlClippingPlane);
 
 	planeHelpers = clippingPlanes.map((p) => new THREE.PlaneHelper(p, _size*2, invertHexColor(scene.background.getHexString())));
 	planeHelpers.forEach((ph) => {
@@ -544,31 +565,103 @@ function setupClippingPlanes (_geometry, _size, _distance) {
 		ph.name = "PlaneHelper";
 		scene.add(ph);
 	});
+	
+	/*const helperObject = new THREE.Group();
+
+	// Set up clip plane rendering
+	planeObjects = [];
+	const planeGeom = new THREE.PlaneGeometry(_size*2, _size*2);
+
+	for (let i = 0; i < 3; i++) {
+		const poGroup = new THREE.Group();
+		const plane = clippingPlanes[i];
+		const stencilGroup = createClippingPlaneGroup(_geometry, plane, i + 1);
+
+		// plane is clipped by the other clipping planes
+		const planeMat =
+			new THREE.MeshStandardMaterial({
+				color: 0xE91E63,
+				metalness: 0.5,
+				roughness: 0.2,
+				clippingPlanes: clippingPlanes.filter(p => p !== plane),
+				stencilWrite: true,
+				stencilRef: 0,
+				stencilFunc: THREE.NotEqualStencilFunc,
+				stencilFail: THREE.ReplaceStencilOp,
+				stencilZFail: THREE.ReplaceStencilOp,
+				stencilZPass: THREE.ReplaceStencilOp,
+			});
+		const po = new THREE.Mesh( planeGeom, planeMat );
+		po.onAfterRender = function ( renderer ) {
+			renderer.clearStencil();
+		};
+		po.renderOrder = i + 1.1;
+		helperObject.add( stencilGroup );
+		poGroup.add( po );
+		planeObjects.push( po );
+		scene.add( poGroup );
+	}
+	scene.add(helperObject);
+	helperObject.position.set(_geom.position.x, _geom.position.y, _geom.position.z);
+	helperObject.updateMatrixWorld();*/
+
+	/*const materialPlanes = new THREE.MeshStandardMaterial({
+		color: 0x0000FF,
+		metalness: 0.1,
+		roughness: 0.2,
+		clippingPlanes: clippingPlanes,
+		clipShadows: true,
+		shadowSide: THREE.DoubleSide
+	});
+
+	// add the color
+	if(Array.isArray(_geometry)) {
+		for (var ii = 0; ii < _geometry.length; ii++) {
+			var newGeom = _geometry[ii].clone();
+			newGeom.material = materialPlanes;
+			newGeom.updateMatrix();
+			newGeom.castShadow = true;
+			newGeom.renderOrder = 6;
+			helperObject.add(newGeom);
+		}
+	}
+	else
+	{
+		const clippedColorFront = new THREE.Mesh( _geometry, materialPlanes );
+		clippedColorFront.castShadow = true;
+		clippedColorFront.renderOrder = 6;
+		helperObject.add(clippedColorFront);
+	}
+	helperObject.position.set(_geom.position.x, _geom.position.y, _geom.position.z);
+	helperObject.updateMatrixWorld();
+	scene.add(helperObject);*/
+
 	distanceGeometry = _distance;
-	clippingFolder.add(planeParams.planeX, 'displayHelperX').onChange((v) => { planeHelpers[ 0 ].visible = v; renderer.localClippingEnabled = v; });
-	clippingFolder.add(planeParams.planeX, 'constant').min(-distanceGeometry.x).max(distanceGeometry.x).setValue(distanceGeometry.x).step(_size/100).listen().onChange(function (value) {
-		renderer.localClippingEnabled = true;
-		clippingPlanes[0].constant = value;
-		render();
+	clippingFolder.add(planeParams.planeX, 'displayHelperX').onChange((v) => {
+		planeHelpers[0].visible = v;
+		clippingMode = v;
+		transformControlClippingPlane.showX = transformControlClippingPlane.showY = false;
+		v ? transformControlClippingPlane.attach(planeHelpers[0]) : transformControlClippingPlane.detach();
 	});
+	clippingFolder.add(planeParams.planeX, 'constant').min(-distanceGeometry.x).max(distanceGeometry.x).setValue(distanceGeometry.x).step(_size/100).listen().onChange(d => clippingPlanes[0].constant = d);
 
 
-	clippingFolder.add(planeParams.planeY, 'displayHelperY').onChange((v) => { planeHelpers[ 1 ].visible = v; renderer.localClippingEnabled = v; });
-	clippingFolder.add(planeParams.planeY, 'constant').min(-distanceGeometry.y).max(distanceGeometry.y).setValue(distanceGeometry.y).step(_size/100).listen().onChange(function (value) {
-		renderer.localClippingEnabled = true;
-		clippingPlanes[1].constant = value;
-		render();
-
+	clippingFolder.add(planeParams.planeY, 'displayHelperY').onChange((v) => { 
+		planeHelpers[1].visible = v;
+		clippingMode = v;
+		transformControlClippingPlane.showX = transformControlClippingPlane.showY = false;
+		v ? transformControlClippingPlane.attach(planeHelpers[1]) : transformControlClippingPlane.detach();
 	});
+	clippingFolder.add(planeParams.planeY, 'constant').min(-distanceGeometry.y).max(distanceGeometry.y).setValue(distanceGeometry.y).step(_size/100).listen().onChange(d => clippingPlanes[1].constant = d);
 
 
-	clippingFolder.add(planeParams.planeZ, 'displayHelperZ').onChange((v) => { planeHelpers[ 2 ].visible = v; renderer.localClippingEnabled = v; });
-	clippingFolder.add(planeParams.planeZ, 'constant').min(-distanceGeometry.z).max(distanceGeometry.z).setValue(distanceGeometry.z).step(_size/100).listen().onChange(function (value) {
-		renderer.localClippingEnabled = true;
-		clippingPlanes[2].constant = value;
-		render();
-
+	clippingFolder.add(planeParams.planeZ, 'displayHelperZ').onChange((v) => { 
+		planeHelpers[2].visible = v;
+		clippingMode = v;
+		transformControlClippingPlane.showX = transformControlClippingPlane.showY = false;
+		v ? transformControlClippingPlane.attach(planeHelpers[2]) : transformControlClippingPlane.detach();
 	});
+	clippingFolder.add(planeParams.planeZ, 'constant').min(-distanceGeometry.z).max(distanceGeometry.z).setValue(distanceGeometry.z).step(_size/100).listen().onChange(d => clippingPlanes[2].constant = d);
 }
 
 function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit) {
@@ -704,8 +797,7 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit)
 							"controlsTarget": [ controls.target.x, controls.target.y, controls.target.z ]
 							};
 	}
-	
-	setupClippingPlanes(object.geometry, gridSize, distance);
+	setupClippingPlanes(object, gridSize, distance);
 	
 }
 
@@ -1314,9 +1406,11 @@ function setupMaterials (_object) {
 		_object.geometry.computeVertexNormals();
 		if (_object.material.isMaterial) {
 			if(_object.material.map) { _object.material.map.anisotropy = 16 };
-			_object.material.side = THREE.DoubleSide;
+			//_object.material.side = THREE.DoubleSide;
+			_object.material.clipShadows = true;
+			_object.material.side = THREE.FrontSide;
 			_object.material.clippingPlanes = clippingPlanes;
-			_object.material.clipIntersection = false;
+			//_object.material.clipIntersection = false;
 			if (_object.material.name === '') _object.material.name = _object.material.uuid;
 			var newMaterial = {'name': _object.material.name, 'uuid': _object.material.uuid};
 			if (!materials.includes(newMaterial))
@@ -1586,8 +1680,22 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 				gltf.load(modelPath, function(gltf) {
 					traverseMesh(gltf.scene);
 					fetchSettings (path.replace("/gltf/", "/"), basename, filename, gltf.scene, camera, lightObjects[0], controls, orgExtension, extension);
+
+					var guts = gltf.scene.clone(true);
+					var gutsMaterial = new THREE.MeshBasicMaterial({color: 'crimson', side: THREE.BackSide, clippingPlanes: clippingPlanes, clipShadows: true});
+						
+					guts.traverse(function (child)
+					{
+						if( child.type=='Mesh' )
+						{
+							child.material = gutsMaterial;
+						}
+					} );
+					//scene.add(gltf.scene, guts);
 					scene.add(gltf.scene);
-					mainObject.push(gltf.scene);
+					//mainObject.push(gltf.scene);
+					//mainObject.push(guts.scene);
+				
 				},
 					function (xhr) {
 						var percentComplete = xhr.loaded / xhr.total * 100;
@@ -1622,18 +1730,18 @@ function animate() {
 	const delta = clock.getDelta();
 	if (mixer) { mixer.update(delta); }
 	TWEEN.update();
-	/*for (let i = 0; i < clippingPlanes.length && clippingMode; i ++) {
+
+	/*for (let i = 0; i < planeObjects.length && clippingMode; i ++) {
 		const plane = clippingPlanes[ i ];
 		const po = planeObjects[ i ];
-		if (po !== undefined) {
-			plane.coplanarPoint(po.position);
-			po.lookAt(
-				po.position.x - plane.normal.x,
-				po.position.y - plane.normal.y,
-				po.position.z - plane.normal.z,
-			);
-		}
+		plane.coplanarPoint( po.position );
+		po.lookAt(
+			po.position.x - plane.normal.x,
+			po.position.y - plane.normal.y,
+			po.position.z - plane.normal.z,
+		);
 	}*/
+
 	if (textMesh !== undefined) { textMesh.lookAt(camera.position); }
 	renderer.render(scene, camera);
 	stats.update();
@@ -1878,11 +1986,12 @@ function init() {
 	cameraLight.target = cameraLightTarget;
 	cameraLight.target.updateMatrixWorld();
 
-	renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true, colorManagement: true, sortObjects: true, preserveDrawingBuffer: true, powerPreference: "high-performance" });
+	renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true, colorManagement: true, sortObjects: true, preserveDrawingBuffer: true, powerPreference: "high-performance", stencil: true });
 	renderer.setPixelRatio(window.devicePixelRatio);
 	renderer.setSize(canvasDimensions.x, canvasDimensions.y);
 	renderer.shadowMap.enabled = true;
-	renderer.localClippingEnabled = false;
+	//renderer.setAnimationLoop( animate );
+	renderer.localClippingEnabled = true;
 	//renderer.physicallyCorrectLights = true; //can be considered as better looking
 	//renderer.setClearColor(0x263238);
 	renderer.setClearColor(0xffffff);
@@ -1943,6 +2052,17 @@ function init() {
 		controls.enabled = ! event.value;
 	});
 	scene.add(transformControlLightTarget);
+
+	transformControlClippingPlane = new TransformControls(camera, renderer.domElement);
+	transformControlClippingPlane.space = "local";
+	transformControlClippingPlane.mode = "translate";
+	transformControlClippingPlane.addEventListener('change', render);
+	transformControlClippingPlane.addEventListener('objectChange', function (event){
+		clippingPlanes[0].constant = event.target.children[0].pointEnd.x;
+	});
+	transformControlClippingPlane.addEventListener('dragging-changed', function (event) {
+		controls.enabled = ! event.value;
+	});
 	
 	var _ext = extension.toLowerCase();
 	if  (_ext === "zip" || _ext === "rar" || _ext === "tar" || _ext === "xz" || _ext === "gz") {
