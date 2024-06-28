@@ -36,10 +36,13 @@ canvas {
    position: absolute;
 }
 
+.lil-gui.root {
+	position: relative;
+}
+
 #guiContainer {
-	z-index: 10;
+	z-index: 100;
 	position: absolute;
-	display: block;
 }
 
 .toastify {
@@ -135,8 +138,11 @@ canvas {
 
 #metadata-container {
 	width: 100%;
-	position: absolute;
+	height: 100%;
+	position: relative;
 	margin-top: 10px;
+	top: -80px;
+	display: flex;
 }
 
 #metadata-content {
@@ -218,8 +224,7 @@ canvas {
 #downloadModel {
     z-index: 1;
     position: relative;
-    right: -67%;
-    top: 5px;
+    left: 12px;
     width: 25px;
     height: 25px;
     background-size: 25px;
@@ -238,8 +243,8 @@ canvas {
 }
 
 #fullscreenMode {
-    z-index: 1;
-    position: absolute;
+    z-index: 10;
+    position: relative;
 	bottom: 50%;
     width: 20px;
     height: 20px;

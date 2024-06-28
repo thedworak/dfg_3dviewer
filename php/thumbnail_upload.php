@@ -1,5 +1,5 @@
 <?php
-//photo_upload.php
+//thumbnail_upload.php
 
 #use Drupal\Core\Routing\RouteMatchInterface;
 #use Drupal\Core\Form\FormStateInterface;

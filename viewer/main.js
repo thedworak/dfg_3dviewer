@@ -44,7 +44,7 @@ import { TextGeometry } from './js/jsm/geometries/TextGeometry.js';
 
 //custom libraries
 import Stats from './js/jsm/libs/stats.module.js';
-import { GUI } from './js/jsm/libs/lil-gui.module.min.js';
+import { GUI } from './js/jsm/libs/lil-gui.esm.min.js';
 
 //import CONFIG from './config.json' assert {type: 'json'}; //disabled temporary because of Firefox assertion bug
 const CONFIG = {
@@ -70,6 +70,8 @@ var distanceGeometry = new THREE.Vector3();
 let entityID = '';
 var metadataUrl;
 
+var canvasDimensions, CANVASDIMENSIONS;
+
 const clock = new THREE.Clock();
 const editor = true;
 var FULLSCREEN = false;
@@ -77,8 +79,9 @@ var FULLSCREEN = false;
 let mixer;
 
 const container = document.getElementById(CONFIG.container);
-container.setAttribute("width", window.self.innerWidth);
-container.setAttribute("height", window.self.innerHeight);
+canvasDimensions = CANVASDIMENSIONS = {x: container.getBoundingClientRect().width, y: container.getBoundingClientRect().bottom*1.4};
+container.setAttribute("width", CANVASDIMENSIONS.x);
+container.setAttribute("height", CANVASDIMENSIONS.y);
 container.setAttribute("display", "flex");
 const originalPath = container.getAttribute("3d");
 
@@ -127,26 +130,17 @@ spinnerElement.setAttribute("data-percentage", "true");
 spinnerContainer.appendChild(spinnerElement);
 container.appendChild(spinnerContainer);
 
-var statsContainer = document.createElement("div");
-statsContainer.id = 'statsContainer';
-statsContainer.className = 'statsContainer';
-statsContainer.style.position = 'absolute';
-statsContainer.style.left = '3%';
-container.appendChild(statsContainer);
-
 var guiContainer = document.createElement("div");
 guiContainer.id = 'guiContainer';
 guiContainer.className = 'guiContainer';
-var guiElement = document.createElement("div");
-guiElement.id = 'guiElement';
-guiElement.className = 'guiElement';
-guiContainer.appendChild(guiElement);
 container.appendChild(guiContainer);
 
 let spinner = new lv();
 spinner.initLoaderAll();
 spinner.startObserving();
 let circle = lv.create(spinnerElement);
+
+var lilGui;
 
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
@@ -209,23 +203,25 @@ const saveProperties = {
 	BackgroundColor: true
 };
 
+const performanceMode = {
+	Performance: 'high-performance'
+}
+
 var EDITOR = false;
 var RULER_MODE = false;
 const lineMaterial = new THREE.LineBasicMaterial({ color: 0x0000ff });
 var  linePoints = [];
 
 const gui = new GUI({ container: guiContainer });
-//const mainHierarchyFolder = gui.addFolder('Hierarchy');
+
 var hierarchyFolder;
 const GUILength = 35;
 
 let zoomImage = 1;
 const ZOOM_SPEED_IMAGE = 0.1;
 
-var canvasDimensions;
 var compressedFile = '';
 var archiveType = '';
-//guiContainer.appendChild(gui.domElement);
 
 var options = {
     duration: 6500,
@@ -993,34 +989,35 @@ function onWindowResize() {
 		rightOffsetDownload = -98;
 		rightOffsetEntity = -95;
 		rightOffsetFullscreen = 40;	
-		bottomOffsetFullscreen = -canvasDimensions.y * 0.96 + 20;		
+		bottomOffsetFullscreen = -canvasDimensions.y * 0.96 + 20;
 	}
 	else {
-		canvasDimensions = {x: window.self.innerWidth*0.7, y: window.self.innerHeight*0.6};
-		bottomOffsetFullscreen = -canvasDimensions.y * 0.96 + 20;
-		rightOffsetFullscreen = canvasDimensions.x * 0.44;
+		//canvasDimensions = {x: window.self.innerWidth*0.7, y: window.self.innerHeight*0.6};
+		canvasDimensions = {x: container.getBoundingClientRect().width, y: container.getBoundingClientRect().bottom*1.4};
+		bottomOffsetFullscreen = Math.round(-canvasDimensions.y) + 36;
+		rightOffsetFullscreen = Math.round(canvasDimensions.x) - 36;
 	}
-	container.setAttribute("width", canvasDimensions.x);
-	container.setAttribute("height", canvasDimensions.y);
-
-	mainCanvas.setAttribute("width", canvasDimensions.x);
-	mainCanvas.setAttribute("height", canvasDimensions.y);
-	mainCanvas.style.width = "100% !imporant";
-	mainCanvas.style.height = "100% !important";
 	
-	guiContainer.style.left = mainCanvas.offsetLeft + canvasDimensions.x + 'px';
-	guiContainer.style.top = mainCanvas.offsetTop + 'px';
+	if (CONFIG.lightweight === false) {
+		downloadModel.setAttribute('style', 'right: ' + rightOffsetDownload +'%');
+	}
+	//container.setAttribute("width", canvasDimensions.x);
+	//container.setAttribute("height", canvasDimensions.y);
+
+	//mainCanvas.setAttribute("width", canvasDimensions.x);
+	//mainCanvas.setAttribute("height", canvasDimensions.y);
+	//mainCanvas.style.width = "100% !imporant";
+	//mainCanvas.style.height = "100% !important";
+	lilGui[0].style.left = container.getBoundingClientRect().right - lilGui[0].getBoundingClientRect().width*2 + 'px';
 
 	renderer.setPixelRatio(window.devicePixelRatio);
 	camera.aspect = canvasDimensions.x / canvasDimensions.y;
 	camera.updateProjectionMatrix();
 	renderer.setSize(canvasDimensions.x, canvasDimensions.y);
-	if (CONFIG.lightweight === false) {
-		downloadModel.setAttribute('style', 'right: ' + rightOffsetDownload +'%');
-	}
+
 	viewEntity.setAttribute('style', 'right: ' + rightOffsetEntity +'%');
 
-	fullscreenMode.setAttribute('style', 'bottom:' + Math.round(bottomOffsetFullscreen) + 'px; right: ' + rightOffsetFullscreen + 'px');
+	fullscreenMode.setAttribute('style', 'bottom:' + bottomOffsetFullscreen + 'px; left: ' + rightOffsetFullscreen + 'px');
 	controls.update();
 	render();
 }
@@ -1249,7 +1246,7 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 
 			var metadataContent = '<div id="metadata-collapse" class="metadata-collapse metadata-collapsed">METADATA </div><div id="metadata-content" class="metadata-content expanded">';
 			metadataContentTech = '<hr class="metadataSeparator">';
-			metadataContentTech += 'Uploaded file name: <b>' + basename + "." + orgExtension + '</b><br>';
+			metadataContentTech += 'Visualized file: <b>' + basename + "." + orgExtension + '</b><br>';
 			metadataContentTech += 'Loaded format: <b>' + extension + '</b><br>';
 			metadataContentTech += 'Vertices: <b>' + metadata['vertices'] + '</b><br>';
 			metadataContentTech += 'Faces: <b>' + metadata['faces'] + '</b><br>';
@@ -1281,24 +1278,13 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 							var c_path = path;
 							if (compressedFile !== '') { filename = filename.replace(orgExtension, extension); }
 							downloadModel.innerHTML = "<a href='" + c_path + filename + "' download><img src='" + CONFIG.basePath + "/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
-							metadataContainer.appendChild(downloadModel);
+							downloadModel.style.top = (canvasDimensions.y - 80) + 'px';
+							container.appendChild(downloadModel);
 
 							metadataContainer.appendChild(viewEntity);
-							fullscreenMode = document.createElement('div');
-							fullscreenMode.setAttribute('id', 'fullscreenMode');
-							fullscreenMode.setAttribute('style', 'bottom:' + Math.round(-canvasDimensions.y * 1.04 + 36) + 'px; right: ' + canvasDimensions.x * 0.45 + 'px');
-							fullscreenMode.innerHTML = "<img src='" + CONFIG.basePath + "/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
-							metadataContainer.appendChild(fullscreenMode);
 							appendMetadata (metadataContent, canvasText, metadataContainer, container);
 							
 							document.getElementById ("metadata-collapse").addEventListener ("click", expandMetadata, false);
-							document.getElementById ("fullscreenMode").addEventListener ("click", fullscreen, false);
-							if (document.addEventListener) {
-								document.addEventListener('webkitfullscreenchange', exitFullscreenHandler, false);
-								document.addEventListener('mozfullscreenchange', exitFullscreenHandler, false);
-								document.addEventListener('fullscreenchange', exitFullscreenHandler, false);
-								document.addEventListener('MSFullscreenChange', exitFullscreenHandler, false);
-							}
 						}
 						else
 							showToast("Error during loading metadata content");
@@ -1318,6 +1304,20 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 
 	//addTextWatermark("©", object.scale.x);
 	//lightObjects.push (object);
+	const statsMain = gui.addFolder('Statistics').close();
+	statsMain.add(performanceMode, 'Performance', { 'High-performance': 'high-performance', 'Low-power': 'low-power', 'Default': 'default' }).onChange(function (value)	{ 
+		renderer.powerPreference = value;
+	});
+	statsMain.onOpenClose( changedGUI => {
+		if (changedGUI._closed) {
+			stats.dom.style.visibility = "hidden";
+		}
+		else {
+			stats.dom.style.visibility = "visible";
+		}
+	} );
+	guiContainer.appendChild(stats.dom);
+	//guiContainer.appendChild(statsContainer);
 }
 
 const onError = function (_event) {
@@ -1720,10 +1720,6 @@ function onPointerDown(e) {
 }
 
 function onPointerUp(e) {
-    //onUpPosition.x = (e.clientX / canvasDimensions.x) * 2 - 1;
-    //onUpPosition.y = -(e.clientY / canvasDimensions.y) * 2 + 1;
-    //onUpPosition.x = (e.clientX / (canvasDimensions.x - container.offsetLeft)) * 2 - 1;
-    //onUpPosition.y = -(e.clientY / (canvasDimensions.y - container.offsetTop)) * 2 + 1;
 	if (e.button == 0) {
 		onUpPosition.x = ((e.clientX - container.getBoundingClientRect().left)/ renderer.domElement.clientWidth) * 2 - 1;
 		onUpPosition.y = - ((e.clientY - container.getBoundingClientRect().top) / renderer.domElement.clientHeight) * 2 + 1;
@@ -1929,8 +1925,6 @@ function createClippingPlaneAxis (_number) {
 
 function init() {
 	// model
-	//canvasDimensions = {x: container.getBoundingClientRect().width, y: container.getBoundingClientRect().bottom};
-	canvasDimensions = {x: window.self.innerWidth*0.7, y: window.self.innerHeight*0.55};
 	container.setAttribute("width", canvasDimensions.x);
 	container.setAttribute("height", canvasDimensions.y);
 
@@ -1978,24 +1972,24 @@ function init() {
 	renderer.setSize(canvasDimensions.x, canvasDimensions.y);
 	renderer.shadowMap.enabled = true;
 	renderer.localClippingEnabled = true;
-	renderer.physicallyCorrectLights = true; //can be considered as better looking
-	//renderer.setClearColor(0x263238);
+	//renderer.physicallyCorrectLights = true; //can be considered as better looking
 	renderer.setClearColor(0xffffff);
 	renderer.domElement.id = 'MainCanvas';
 	container.appendChild(renderer.domElement);
 	mainCanvas = document.getElementById("MainCanvas");
 
-	mainCanvas.style.width = "70%";
-	mainCanvas.style.height = "60%";
+	mainCanvas.style.width = canvasDimensions.x;
+	mainCanvas.style.height = canvasDimensions.y;
 	
 	canvasText = document.createElement('div');
 	canvasText.id = "TextCanvas";
 	canvasText.width = canvasDimensions.x;
 	canvasText.height = canvasDimensions.y;
 	
-	guiContainer.style.left = mainCanvas.offsetLeft + canvasDimensions.x - 10 + 'px';
-	//guiContainer.style.top = mainCanvas.offsetTop + 'px';
-	guiContainer.style.display = 'flex';
+	guiContainer.style.width = canvasDimensions.x;
+	guiContainer.style.left = container.offsetLeft + 'px';
+	lilGui = document.getElementsByClassName("lil-gui root");
+	lilGui[0].style.left = canvasDimensions.x - lilGui[0].getBoundingClientRect().width - 10 + 'px';
 	
 	fileElement = document.getElementsByClassName("field--type-file");
 	if (fileElement.length > 0) {
@@ -2103,10 +2097,22 @@ function init() {
 	container.addEventListener('pointermove', onPointerMove);
 	window.addEventListener('resize', onWindowResize);
 
+	fullscreenMode = document.createElement('div');
+	fullscreenMode.setAttribute('id', 'fullscreenMode');
+	fullscreenMode.setAttribute('style', 'bottom:' + Math.round(-canvasDimensions.y + 36) + 'px; left: ' + Math.round(canvasDimensions.x - 36) + 'px');
+	fullscreenMode.innerHTML = "<img src='" + CONFIG.basePath + "/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
+	container.appendChild(fullscreenMode);
+	document.getElementById ("fullscreenMode").addEventListener ("click", fullscreen, false);
+	if (document.addEventListener) {
+		document.addEventListener('webkitfullscreenchange', exitFullscreenHandler, false);
+		document.addEventListener('mozfullscreenchange', exitFullscreenHandler, false);
+		document.addEventListener('fullscreenchange', exitFullscreenHandler, false);
+		document.addEventListener('MSFullscreenChange', exitFullscreenHandler, false);
+	}
+
 	// stats
 	stats = new Stats();
-	stats.domElement.style.cssText = 'position:relative;top:0px;left:-80px;max-height:120px;max-width:90px;z-index:2;';
-	container.appendChild(stats.dom);
+	stats.domElement.style.cssText = 'position:relative;top:0px;left:' + (canvasDimensions.x - 90) +'px;max-height:120px;max-width:90px;z-index:2;visibility:hidden;';
 	
 	windowHalfX = canvasDimensions.x / 2;
 	windowHalfY = canvasDimensions.y / 2;

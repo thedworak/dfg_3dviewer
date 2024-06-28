@@ -1,8 +1,9 @@
 #!/bin/bash
 
+#apt install xvfb
 #apt install blender python3-pip
 #pip install numpy
-#usage: ./convert.sh -c COMPRESS -cl COMPRESSION_LEVEL -i INPUT -o OUTPUT -b BINARY -f FORCE_OVERRIDE
+#usage: ./convert.sh -c COMPRESS -cl COMPRESSION_LEVEL -i 'INPUT' -o 'OUTPUT' -b BINARY -f FORCE_OVERRIDE
 
 BLENDER_PATH=''
 #BLENDER_PATH='/var/lib/snapd/snap/blender/current/'
