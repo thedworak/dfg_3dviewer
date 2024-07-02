@@ -44,7 +44,7 @@ import { TextGeometry } from './js/jsm/geometries/TextGeometry.js';
 
 //custom libraries
 import Stats from './js/jsm/libs/stats.module.js';
-import { GUI } from './js/jsm/libs/lil-gui.module.min.js';
+import { GUI } from './js/jsm/libs/lil-gui.esm.min.js';
 
 //import CONFIG from './config.json' assert {type: 'json'}; //disabled temporary because of Firefox assertion bug
 const CONFIG = {
@@ -70,6 +70,8 @@ var distanceGeometry = new THREE.Vector3();
 let entityID = '';
 var metadataUrl;
 
+var canvasDimensions, CANVASDIMENSIONS;
+
 const clock = new THREE.Clock();
 const editor = true;
 var FULLSCREEN = false;
@@ -77,8 +79,9 @@ var FULLSCREEN = false;
 let mixer;
 
 const container = document.getElementById(CONFIG.container);
-container.setAttribute("width", window.self.innerWidth);
-container.setAttribute("height", window.self.innerHeight);
+canvasDimensions = CANVASDIMENSIONS = {x: container.getBoundingClientRect().width, y: container.getBoundingClientRect().bottom*1.4};
+container.setAttribute("width", CANVASDIMENSIONS.x);
+container.setAttribute("height", CANVASDIMENSIONS.y);
 container.setAttribute("display", "flex");
 const originalPath = container.getAttribute("3d");
 
@@ -127,20 +130,9 @@ spinnerElement.setAttribute("data-percentage", "true");
 spinnerContainer.appendChild(spinnerElement);
 container.appendChild(spinnerContainer);
 
-var statsContainer = document.createElement("div");
-statsContainer.id = 'statsContainer';
-statsContainer.className = 'statsContainer';
-statsContainer.style.position = 'absolute';
-statsContainer.style.left = '3%';
-container.appendChild(statsContainer);
-
 var guiContainer = document.createElement("div");
 guiContainer.id = 'guiContainer';
 guiContainer.className = 'guiContainer';
-var guiElement = document.createElement("div");
-guiElement.id = 'guiElement';
-guiElement.className = 'guiElement';
-guiContainer.appendChild(guiElement);
 container.appendChild(guiContainer);
 
 let spinner = new lv();
@@ -148,13 +140,15 @@ spinner.initLoaderAll();
 spinner.startObserving();
 let circle = lv.create(spinnerElement);
 
+var lilGui;
+
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const onUpPosition = new THREE.Vector2();
 const onDownPosition = new THREE.Vector2();
 
 const geometry = new THREE.BoxGeometry(20, 20, 20);
-let transformControl, transformControlLight, transformControlLightTarget;
+let transformControl, transformControlLight, transformControlLightTarget, transformControlClippingPlaneX, transformControlClippingPlaneY, transformControlClippingPlaneZ, outlineClipping;
 
 const helperObjects = [];
 const lightObjects = [];
@@ -209,23 +203,25 @@ const saveProperties = {
 	BackgroundColor: true
 };
 
+const performanceMode = {
+	Performance: 'high-performance'
+}
+
 var EDITOR = false;
 var RULER_MODE = false;
 const lineMaterial = new THREE.LineBasicMaterial({ color: 0x0000ff });
 var  linePoints = [];
 
 const gui = new GUI({ container: guiContainer });
-//const mainHierarchyFolder = gui.addFolder('Hierarchy');
+
 var hierarchyFolder;
 const GUILength = 35;
 
 let zoomImage = 1;
 const ZOOM_SPEED_IMAGE = 0.1;
 
-var canvasDimensions;
 var compressedFile = '';
 var archiveType = '';
-//guiContainer.appendChild(gui.domElement);
 
 var options = {
     duration: 6500,
@@ -253,13 +249,21 @@ const planeParams = {
 		constant: 0,
 		negated: false,
 		displayHelperZ: false
+	},
+	outline: {
+		visible: false
+	},
+	clippingMode: {
+		x: false,
+		y: false,
+		z: false
 	}
 };
 
 var clippingPlanes = [
-		new THREE.Plane(new THREE.Vector3(- 1, 0, 0), 0),
-		new THREE.Plane(new THREE.Vector3(0, - 1, 0), 0),
-		new THREE.Plane(new THREE.Vector3(0, 0, - 1), 0)
+		new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0),
+		new THREE.Plane(new THREE.Vector3(0, -1, 0), 0),
+		new THREE.Plane(new THREE.Vector3(0, 0, -1), 0)
 	];
 var planeHelpers, clippingFolder;
 var propertiesFolder;
@@ -277,11 +281,10 @@ var lastPickedFace = {id: '', color: '', object: ''};
 var loadedTimes = 0;
 
 function createClippingPlaneGroup(geometry, plane, renderOrder) {
-
 	const group = new THREE.Group();
 	const baseMat = new THREE.MeshBasicMaterial();
-	baseMat.depthWrite = false;
-	baseMat.depthTest = false;
+	baseMat.depthWrite = true;
+	baseMat.depthTest = true;
 	baseMat.colorWrite = false;
 	baseMat.stencilWrite = true;
 	baseMat.stencilFunc = THREE.AlwaysStencilFunc;
@@ -289,27 +292,40 @@ function createClippingPlaneGroup(geometry, plane, renderOrder) {
 	// back faces
 	const mat0 = baseMat.clone();
 	mat0.side = THREE.BackSide;
-	mat0.clippingPlanes = [ plane ];
+	mat0.clippingPlanes = [plane];
 	mat0.stencilFail = THREE.IncrementWrapStencilOp;
 	mat0.stencilZFail = THREE.IncrementWrapStencilOp;
 	mat0.stencilZPass = THREE.IncrementWrapStencilOp;
 
-	const mesh0 = new THREE.Mesh(geometry, mat0);
-	mesh0.renderOrder = renderOrder;
-	group.add(mesh0);
-
 	// front faces
 	const mat1 = baseMat.clone();
 	mat1.side = THREE.FrontSide;
-	mat1.clippingPlanes = [ plane ];
+	mat1.clippingPlanes = [plane];
 	mat1.stencilFail = THREE.DecrementWrapStencilOp;
 	mat1.stencilZFail = THREE.DecrementWrapStencilOp;
 	mat1.stencilZPass = THREE.DecrementWrapStencilOp;
 
-	const mesh1 = new THREE.Mesh(geometry, mat1);
-	mesh1.renderOrder = renderOrder;
-
-	group.add(mesh1);
+	if (Array.isArray(geometry)) {
+		for (var ii=0; ii < geometry.length; ii++) {
+			var newGeom = geometry[ii].clone();
+			newGeom.position.set(geometry[ii].position.x, geometry[ii].position.y, geometry[ii].position.z);
+			newGeom.updateMatrix();
+			newGeom.material = mat0;
+			newGeom.renderOrder = renderOrder;
+			group.add(newGeom);
+			newGeom.material = mat1;
+			newGeom.renderOrder = renderOrder;
+			group.add(newGeom);
+		}
+	}
+	else {
+		const mesh0 = new THREE.Mesh(geometry, mat0);
+		mesh0.renderOrder = renderOrder;
+		group.add(mesh0);
+		const mesh1 = new THREE.Mesh(geometry, mat1);
+		mesh1.renderOrder = renderOrder;
+		group.add(mesh1);
+	}
 
 	return group;
 
@@ -479,6 +495,7 @@ function setupObject (_object, _light, _data, _controls) {
 			_object.geometry.computeBoundingBox();
 			_object.geometry.computeBoundingSphere();	
 		}
+		outlineClipping.position.set(_object.position.x,_object.position.y,_object.position.z);
 	}
 	else {
 		var boundingBox = new THREE.Box3();
@@ -533,10 +550,20 @@ function invertHexColor(hexTripletColor) {
 	return color;
 }
 
-function setupClippingPlanes (_geometry, _size, _distance) {	
+function setupClippingPlanes (_geom, _size, _distance) {
+	var _geometry;
+	if (_geom.isGroup)
+		_geometry = _geom.children;
+	else
+		_geometry = _geom.geometry.clone();
+
 	clippingPlanes[0].constant = _distance.x;
 	clippingPlanes[1].constant = _distance.y;
 	clippingPlanes[2].constant = _distance.z;
+	
+	scene.add(transformControlClippingPlaneX);
+	scene.add(transformControlClippingPlaneY);
+	scene.add(transformControlClippingPlaneZ);
 
 	planeHelpers = clippingPlanes.map((p) => new THREE.PlaneHelper(p, _size*2, invertHexColor(scene.background.getHexString())));
 	planeHelpers.forEach((ph) => {
@@ -544,30 +571,51 @@ function setupClippingPlanes (_geometry, _size, _distance) {
 		ph.name = "PlaneHelper";
 		scene.add(ph);
 	});
+
 	distanceGeometry = _distance;
-	clippingFolder.add(planeParams.planeX, 'displayHelperX').onChange((v) => { planeHelpers[ 0 ].visible = v; renderer.localClippingEnabled = v; });
-	clippingFolder.add(planeParams.planeX, 'constant').min(-distanceGeometry.x).max(distanceGeometry.x).setValue(distanceGeometry.x).step(_size/100).listen().onChange(function (value) {
-		renderer.localClippingEnabled = true;
-		clippingPlanes[0].constant = value;
-		render();
+	clippingFolder.add(planeParams.planeX, 'displayHelperX').onChange((v) => {
+		planeParams.clippingMode.x = planeHelpers[0].visible = v;
+		if (v) {
+			transformControlClippingPlaneX.attach(planeHelpers[0]);
+			if (planeParams.outline.visible) outlineClipping.visible = true;
+		}
+		else {
+			transformControlClippingPlaneX.detach();
+			if (!planeParams.clippingMode.y && !planeParams.clippingMode.z && !planeParams.outline.visible) outlineClipping.visible = false;
+		}
 	});
+	clippingFolder.add(planeParams.planeX, 'constant').min(-distanceGeometry.x).max(distanceGeometry.x).setValue(distanceGeometry.x).step(_size/100).listen().onChange(d => clippingPlanes[0].constant = d);
 
 
-	clippingFolder.add(planeParams.planeY, 'displayHelperY').onChange((v) => { planeHelpers[ 1 ].visible = v; renderer.localClippingEnabled = v; });
-	clippingFolder.add(planeParams.planeY, 'constant').min(-distanceGeometry.y).max(distanceGeometry.y).setValue(distanceGeometry.y).step(_size/100).listen().onChange(function (value) {
-		renderer.localClippingEnabled = true;
-		clippingPlanes[1].constant = value;
-		render();
-
+	clippingFolder.add(planeParams.planeY, 'displayHelperY').onChange((v) => { 
+		planeParams.clippingMode.y = planeHelpers[1].visible = v;
+		if (v) {
+			transformControlClippingPlaneY.attach(planeHelpers[1]);
+			if (planeParams.outline.visible) outlineClipping.visible = true;
+		}
+		else {
+			transformControlClippingPlaneY.detach();
+			if (!planeParams.clippingMode.x && !planeParams.clippingMode.z && !planeParams.outline.visible) outlineClipping.visible = false;
+		}
 	});
+	clippingFolder.add(planeParams.planeY, 'constant').min(-distanceGeometry.y).max(distanceGeometry.y).setValue(distanceGeometry.y).step(_size/100).listen().onChange(d => clippingPlanes[1].constant = d);
 
 
-	clippingFolder.add(planeParams.planeZ, 'displayHelperZ').onChange((v) => { planeHelpers[ 2 ].visible = v; renderer.localClippingEnabled = v; });
-	clippingFolder.add(planeParams.planeZ, 'constant').min(-distanceGeometry.z).max(distanceGeometry.z).setValue(distanceGeometry.z).step(_size/100).listen().onChange(function (value) {
-		renderer.localClippingEnabled = true;
-		clippingPlanes[2].constant = value;
-		render();
+	clippingFolder.add(planeParams.planeZ, 'displayHelperZ').onChange((v) => { 
+		planeParams.clippingMode.z = planeHelpers[2].visible = v;
+		if (v) {
+			transformControlClippingPlaneZ.attach(planeHelpers[2]);
+			if (planeParams.outline.visible) outlineClipping.visible = true;
+		}
+		else {
+			transformControlClippingPlaneZ.detach();
+			if (!planeParams.clippingMode.x && !planeParams.clippingMode.y && !planeParams.outline.visible) outlineClipping.visible = false;
+		}
+	});
+	clippingFolder.add(planeParams.planeZ, 'constant').min(-distanceGeometry.z).max(distanceGeometry.z).setValue(distanceGeometry.z).step(_size/100).listen().onChange(d => clippingPlanes[2].constant = d);
 
+	clippingFolder.add(planeParams.outline, 'visible').onChange((v) => {
+		outlineClipping.visible = v;
 	});
 }
 
@@ -704,8 +752,7 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit)
 							"controlsTarget": [ controls.target.x, controls.target.y, controls.target.z ]
 							};
 	}
-	
-	setupClippingPlanes(object.geometry, gridSize, distance);
+	setupClippingPlanes(object, gridSize, distance);
 	
 }
 
@@ -933,43 +980,44 @@ function buildRuler(_id) {
 }
 
 function onWindowResize() {
-	var rightOffsetDownload = -67;
 	var rightOffsetEntity = -65;
 	var rightOffsetFullscreen = canvasDimensions.x * 0.45;
 	var bottomOffsetFullscreen = -canvasDimensions.y * 0.97 + 20;
 	if (FULLSCREEN) {
 		canvasDimensions = {x: screen.width, y: screen.height};
-		rightOffsetDownload = -98;
 		rightOffsetEntity = -95;
-		rightOffsetFullscreen = 40;	
-		bottomOffsetFullscreen = -canvasDimensions.y * 0.96 + 20;		
+		bottomOffsetFullscreen = -canvasDimensions.y * 0.96 + 20;
+		downloadModel.setAttribute('style', 'visibility: hidden');
 	}
 	else {
-		canvasDimensions = {x: window.self.innerWidth*0.7, y: window.self.innerHeight*0.6};
-		bottomOffsetFullscreen = -canvasDimensions.y * 0.96 + 20;
-		rightOffsetFullscreen = canvasDimensions.x * 0.44;
+		//canvasDimensions = {x: window.self.innerWidth*0.7, y: window.self.innerHeight*0.6};
+		canvasDimensions = {x: container.getBoundingClientRect().width, y: container.getBoundingClientRect().bottom*1.4};
+		bottomOffsetFullscreen = Math.round(-canvasDimensions.y) + 36;
+		
+		if (CONFIG.lightweight === false) {
+			downloadModel.setAttribute('style', 'visibility: visible');
+			downloadModel.style.top = (canvasDimensions.y - 80) + 'px';
+		}
 	}
-	container.setAttribute("width", canvasDimensions.x);
-	container.setAttribute("height", canvasDimensions.y);
+	
+	rightOffsetFullscreen = Math.round(canvasDimensions.x) - 36;
+	//container.setAttribute("width", canvasDimensions.x);
+	//container.setAttribute("height", canvasDimensions.y);
 
 	mainCanvas.setAttribute("width", canvasDimensions.x);
 	mainCanvas.setAttribute("height", canvasDimensions.y);
 	mainCanvas.style.width = "100% !imporant";
 	mainCanvas.style.height = "100% !important";
-	
-	guiContainer.style.left = mainCanvas.offsetLeft + canvasDimensions.x + 'px';
-	guiContainer.style.top = mainCanvas.offsetTop + 'px';
+	lilGui[0].style.left = canvasDimensions.x - lilGui[0].getBoundingClientRect().width - 10 + 'px';
 
 	renderer.setPixelRatio(window.devicePixelRatio);
 	camera.aspect = canvasDimensions.x / canvasDimensions.y;
 	camera.updateProjectionMatrix();
 	renderer.setSize(canvasDimensions.x, canvasDimensions.y);
-	if (CONFIG.lightweight === false) {
-		downloadModel.setAttribute('style', 'right: ' + rightOffsetDownload +'%');
-	}
+
 	viewEntity.setAttribute('style', 'right: ' + rightOffsetEntity +'%');
 
-	fullscreenMode.setAttribute('style', 'bottom:' + Math.round(bottomOffsetFullscreen) + 'px; right: ' + rightOffsetFullscreen + 'px');
+	fullscreenMode.setAttribute('style', 'bottom:' + bottomOffsetFullscreen + 'px; left: ' + rightOffsetFullscreen + 'px');
 	controls.update();
 	render();
 }
@@ -1198,7 +1246,7 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 
 			var metadataContent = '<div id="metadata-collapse" class="metadata-collapse metadata-collapsed">METADATA </div><div id="metadata-content" class="metadata-content expanded">';
 			metadataContentTech = '<hr class="metadataSeparator">';
-			metadataContentTech += 'Uploaded file name: <b>' + basename + "." + orgExtension + '</b><br>';
+			metadataContentTech += 'Visualized file: <b>' + basename + "." + orgExtension + '</b><br>';
 			metadataContentTech += 'Loaded format: <b>' + extension + '</b><br>';
 			metadataContentTech += 'Vertices: <b>' + metadata['vertices'] + '</b><br>';
 			metadataContentTech += 'Faces: <b>' + metadata['faces'] + '</b><br>';
@@ -1230,24 +1278,13 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 							var c_path = path;
 							if (compressedFile !== '') { filename = filename.replace(orgExtension, extension); }
 							downloadModel.innerHTML = "<a href='" + c_path + filename + "' download><img src='" + CONFIG.basePath + "/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
-							metadataContainer.appendChild(downloadModel);
+							downloadModel.style.top = (canvasDimensions.y - 80) + 'px';
+							container.appendChild(downloadModel);
 
 							metadataContainer.appendChild(viewEntity);
-							fullscreenMode = document.createElement('div');
-							fullscreenMode.setAttribute('id', 'fullscreenMode');
-							fullscreenMode.setAttribute('style', 'bottom:' + Math.round(-canvasDimensions.y * 1.04 + 36) + 'px; right: ' + canvasDimensions.x * 0.45 + 'px');
-							fullscreenMode.innerHTML = "<img src='" + CONFIG.basePath + "/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
-							metadataContainer.appendChild(fullscreenMode);
 							appendMetadata (metadataContent, canvasText, metadataContainer, container);
 							
 							document.getElementById ("metadata-collapse").addEventListener ("click", expandMetadata, false);
-							document.getElementById ("fullscreenMode").addEventListener ("click", fullscreen, false);
-							if (document.addEventListener) {
-								document.addEventListener('webkitfullscreenchange', exitFullscreenHandler, false);
-								document.addEventListener('mozfullscreenchange', exitFullscreenHandler, false);
-								document.addEventListener('fullscreenchange', exitFullscreenHandler, false);
-								document.addEventListener('MSFullscreenChange', exitFullscreenHandler, false);
-							}
 						}
 						else
 							showToast("Error during loading metadata content");
@@ -1267,6 +1304,20 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 
 	//addTextWatermark("©", object.scale.x);
 	//lightObjects.push (object);
+	const statsMain = gui.addFolder('Statistics').close();
+	statsMain.add(performanceMode, 'Performance', { 'High-performance': 'high-performance', 'Low-power': 'low-power', 'Default': 'default' }).onChange(function (value)	{ 
+		renderer.powerPreference = value;
+	});
+	statsMain.onOpenClose( changedGUI => {
+		if (changedGUI._closed) {
+			stats.dom.style.visibility = "hidden";
+		}
+		else {
+			stats.dom.style.visibility = "visible";
+		}
+	} );
+	guiContainer.appendChild(stats.dom);
+	//guiContainer.appendChild(statsContainer);
 }
 
 const onError = function (_event) {
@@ -1314,9 +1365,11 @@ function setupMaterials (_object) {
 		_object.geometry.computeVertexNormals();
 		if (_object.material.isMaterial) {
 			if(_object.material.map) { _object.material.map.anisotropy = 16 };
-			_object.material.side = THREE.DoubleSide;
+			//_object.material.side = THREE.DoubleSide;
+			_object.material.clipShadows = true;
+			_object.material.side = THREE.FrontSide;
 			_object.material.clippingPlanes = clippingPlanes;
-			_object.material.clipIntersection = false;
+			//_object.material.clipIntersection = false;
 			if (_object.material.name === '') _object.material.name = _object.material.uuid;
 			var newMaterial = {'name': _object.material.name, 'uuid': _object.material.uuid};
 			if (!materials.includes(newMaterial))
@@ -1586,8 +1639,23 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 				gltf.load(modelPath, function(gltf) {
 					traverseMesh(gltf.scene);
 					fetchSettings (path.replace("/gltf/", "/"), basename, filename, gltf.scene, camera, lightObjects[0], controls, orgExtension, extension);
+
+					outlineClipping = gltf.scene.clone(true);
+					var gutsMaterial = new THREE.MeshBasicMaterial({color: 'crimson', side: THREE.BackSide, clippingPlanes: clippingPlanes, clipShadows: true});
+						
+					outlineClipping.traverse(function (child)
+					{
+						if( child.type=='Mesh' )
+						{
+							child.material = gutsMaterial;
+						}
+					} );
+					outlineClipping.visible = false;
+					scene.add(gltf.scene, outlineClipping);
 					scene.add(gltf.scene);
-					mainObject.push(gltf.scene);
+					//mainObject.push(gltf.scene);
+					//mainObject.push(guts.scene);
+				
 				},
 					function (xhr) {
 						var percentComplete = xhr.loaded / xhr.total * 100;
@@ -1622,18 +1690,18 @@ function animate() {
 	const delta = clock.getDelta();
 	if (mixer) { mixer.update(delta); }
 	TWEEN.update();
-	/*for (let i = 0; i < clippingPlanes.length && clippingMode; i ++) {
+
+	/*for (let i = 0; i < planeObjects.length && clippingMode; i ++) {
 		const plane = clippingPlanes[ i ];
 		const po = planeObjects[ i ];
-		if (po !== undefined) {
-			plane.coplanarPoint(po.position);
-			po.lookAt(
-				po.position.x - plane.normal.x,
-				po.position.y - plane.normal.y,
-				po.position.z - plane.normal.z,
-			);
-		}
+		plane.coplanarPoint( po.position );
+		po.lookAt(
+			po.position.x - plane.normal.x,
+			po.position.y - plane.normal.y,
+			po.position.z - plane.normal.z,
+		);
 	}*/
+
 	if (textMesh !== undefined) { textMesh.lookAt(camera.position); }
 	renderer.render(scene, camera);
 	stats.update();
@@ -1652,10 +1720,6 @@ function onPointerDown(e) {
 }
 
 function onPointerUp(e) {
-    //onUpPosition.x = (e.clientX / canvasDimensions.x) * 2 - 1;
-    //onUpPosition.y = -(e.clientY / canvasDimensions.y) * 2 + 1;
-    //onUpPosition.x = (e.clientX / (canvasDimensions.x - container.offsetLeft)) * 2 - 1;
-    //onUpPosition.y = -(e.clientY / (canvasDimensions.y - container.offsetTop)) * 2 + 1;
 	if (e.button == 0) {
 		onUpPosition.x = ((e.clientX - container.getBoundingClientRect().left)/ renderer.domElement.clientWidth) * 2 - 1;
 		onUpPosition.y = - ((e.clientY - container.getBoundingClientRect().top) / renderer.domElement.clientHeight) * 2 + 1;
@@ -1832,10 +1896,35 @@ function mainLoadModel (_ext) {
 	}
 }
 
+function createClippingPlaneAxis (_number) {
+	var tempClippingControl = new TransformControls(camera, renderer.domElement);
+	tempClippingControl.space = "local";
+	tempClippingControl.mode = "translate";
+	tempClippingControl.addEventListener('change', render);
+	tempClippingControl.addEventListener('objectChange', function (event) {
+		switch (_number) {
+			case 0:
+				clippingPlanes[_number].constant = event.target.children[0].pointEnd.x + distanceGeometry.x;
+				//planeParams.planeX.constant = clippingPlanes[_number].constant;
+				//distanceGeometry.x = clippingPlanes[_number].constant;
+			break;
+			case 1:
+				clippingPlanes[_number].constant = event.target.children[0].pointEnd.y + distanceGeometry.y;
+			break;
+			case 2:
+				clippingPlanes[_number].constant = event.target.children[0].pointEnd.z + distanceGeometry.z;
+			break;
+		}
+		
+	});
+	tempClippingControl.addEventListener('dragging-changed', function (event) {
+		controls.enabled = ! event.value;
+	});
+	return tempClippingControl;
+}
+
 function init() {
 	// model
-	//canvasDimensions = {x: container.getBoundingClientRect().width, y: container.getBoundingClientRect().bottom};
-	canvasDimensions = {x: window.self.innerWidth*0.7, y: window.self.innerHeight*0.55};
 	container.setAttribute("width", canvasDimensions.x);
 	container.setAttribute("height", canvasDimensions.y);
 
@@ -1882,25 +1971,25 @@ function init() {
 	renderer.setPixelRatio(window.devicePixelRatio);
 	renderer.setSize(canvasDimensions.x, canvasDimensions.y);
 	renderer.shadowMap.enabled = true;
-	renderer.localClippingEnabled = false;
+	renderer.localClippingEnabled = true;
 	//renderer.physicallyCorrectLights = true; //can be considered as better looking
-	//renderer.setClearColor(0x263238);
 	renderer.setClearColor(0xffffff);
 	renderer.domElement.id = 'MainCanvas';
 	container.appendChild(renderer.domElement);
 	mainCanvas = document.getElementById("MainCanvas");
 
-	mainCanvas.style.width = "70%";
-	mainCanvas.style.height = "60%";
+	mainCanvas.style.width = canvasDimensions.x;
+	mainCanvas.style.height = canvasDimensions.y;
 	
 	canvasText = document.createElement('div');
 	canvasText.id = "TextCanvas";
 	canvasText.width = canvasDimensions.x;
 	canvasText.height = canvasDimensions.y;
 	
-	guiContainer.style.left = mainCanvas.offsetLeft + canvasDimensions.x - 10 + 'px';
-	//guiContainer.style.top = mainCanvas.offsetTop + 'px';
-	guiContainer.style.display = 'flex';
+	guiContainer.style.width = canvasDimensions.x;
+	guiContainer.style.left = container.offsetLeft + 'px';
+	lilGui = document.getElementsByClassName("lil-gui root");
+	lilGui[0].style.left = canvasDimensions.x - lilGui[0].getBoundingClientRect().width - 10 + 'px';
 	
 	fileElement = document.getElementsByClassName("field--type-file");
 	if (fileElement.length > 0) {
@@ -1943,6 +2032,14 @@ function init() {
 		controls.enabled = ! event.value;
 	});
 	scene.add(transformControlLightTarget);
+
+	transformControlClippingPlaneX = createClippingPlaneAxis (0, 'x');
+	transformControlClippingPlaneY = createClippingPlaneAxis (1, 'y');
+	transformControlClippingPlaneZ = createClippingPlaneAxis (2, 'z');
+	
+	transformControlClippingPlaneX.showX = transformControlClippingPlaneX.showY = false;
+	transformControlClippingPlaneY.showX = transformControlClippingPlaneY.showY = false;
+	transformControlClippingPlaneZ.showX = transformControlClippingPlaneZ.showY = false;
 	
 	var _ext = extension.toLowerCase();
 	if  (_ext === "zip" || _ext === "rar" || _ext === "tar" || _ext === "xz" || _ext === "gz") {
@@ -2000,10 +2097,22 @@ function init() {
 	container.addEventListener('pointermove', onPointerMove);
 	window.addEventListener('resize', onWindowResize);
 
+	fullscreenMode = document.createElement('div');
+	fullscreenMode.setAttribute('id', 'fullscreenMode');
+	fullscreenMode.setAttribute('style', 'bottom:' + Math.round(-canvasDimensions.y + 36) + 'px; left: ' + Math.round(canvasDimensions.x - 36) + 'px');
+	fullscreenMode.innerHTML = "<img src='" + CONFIG.basePath + "/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
+	container.appendChild(fullscreenMode);
+	document.getElementById ("fullscreenMode").addEventListener ("click", fullscreen, false);
+	if (document.addEventListener) {
+		document.addEventListener('webkitfullscreenchange', exitFullscreenHandler, false);
+		document.addEventListener('mozfullscreenchange', exitFullscreenHandler, false);
+		document.addEventListener('fullscreenchange', exitFullscreenHandler, false);
+		document.addEventListener('MSFullscreenChange', exitFullscreenHandler, false);
+	}
+
 	// stats
 	stats = new Stats();
-	stats.domElement.style.cssText = 'position:relative;top:0px;left:-80px;max-height:120px;max-width:90px;z-index:2;';
-	container.appendChild(stats.dom);
+	stats.domElement.style.cssText = 'position:relative;top:0px;left:' + (canvasDimensions.x - 90) +'px;max-height:120px;max-width:90px;z-index:2;visibility:hidden;';
 	
 	windowHalfX = canvasDimensions.x / 2;
 	windowHalfY = canvasDimensions.y / 2;

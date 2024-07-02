@@ -8,10 +8,11 @@ use Drupal\image\Entity\ImageStyle;
 use Drupal\Core\Archiver\Zip;
 use Drupal\Core\Archiver\ArchiverException;
 
-#$ENTITY_BUNDLE="bd3d7baa74856d141bcff7b4193fa128";
-#$VIEWER_FILE_UPLOAD="fbf95bddee5160d515b982b3fd2e05f7";
-#$IMAGE_GENERATION="f605dc6b727a1099b9e52b3ccbdf5673";
-#$VIEWER_FILE_NAME="faa602a0be629324806aef22892cdbe5";
+const ENTITY_BUNDLE="bd3d7baa74856d141bcff7b4193fa128";
+const VIEWER_FILE_UPLOAD="fbf95bddee5160d515b982b3fd2e05f7";
+const IMAGE_GENERATION="f605dc6b727a1099b9e52b3ccbdf5673";
+const VIEWER_FILE_NAME="faa602a0be629324806aef22892cdbe5";
+const FIELD_DF="field_df";
 
 /**
  * Implements hook_help().
@@ -102,6 +103,24 @@ function semi_automatic_path ($prefix, $filename, $filenameArchive, &$autoPath, 
 /**
 * Implements hook_file_validate().
  */
+function dfg_3dviewer_hook_file_validate(Drupal\file\FileInterface $file) {
+    $errors = [];
+	$filename = $file->getFilename();
+    if (!$filename) {
+        $errors[] = t("The file's name is empty. Give a name to the file.");
+    }
+    if (strlen($filename) > 255) {
+        $errors[] = t("The file's name exceeds the 255 characters limit. Rename the file and try again.");
+    }
+	if (preg_match('/\s/', $filename)) {
+		$errors[] = t("Whitespaces are not allowed in filenames");
+	}
+    return $errors;
+}
+
+/**
+* Implements hook_file_validate().
+ */
 function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity) {
 	//\Drupal::messenger()->addMessage(serialize($entity));
 	$SPATH = \Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath());
@@ -115,6 +134,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		$file = $entity->toArray();
 		$realpath = \Drupal::service('file_system')->realpath($file['uri'][0]['value']);
 		$parts = pathinfo($realpath);
+
 		$extension = strtoupper($parts['extension']);
 		$newFile = $parts['dirname'] . "/gltf/" . $parts['filename'] . ".glb";
 		$newDir = $parts['dirname'] . "/" . $parts['filename'] . "_" . $extension . "/gltf/";
@@ -170,7 +190,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 				\Drupal::messenger()->addMessage($extension . " is not supported yet", 'warning');
 			}
 			#semi-automatic path change
-			//$entity->set('faa602a0be629324806aef22892cdbe5', $autoPath);
+			//$entity->set(VIEWER_FILE_NAME, $autoPath);
 			if ($retval === null) {
 				\Drupal::messenger()->addMessage($output, 'status');
 			}
@@ -182,10 +202,10 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			}
 		}
 	}
-	if($entity->bundle() == "bd3d7baa74856d141bcff7b4193fa128") {
+	if($entity->bundle() == ENTITY_BUNDLE) {
 		//\Drupal::messenger()->addMessage(serialize($entity->eid->value));
 		//$file_info = $entity->label->getValue();
-		$file_info = $entity->fbf95bddee5160d515b982b3fd2e05f7->getValue();
+		$file_info = $entity->{VIEWER_FILE_UPLOAD}->getValue();
 		$file_id = $file_info[0]['target_id'];
 		$entity_id = $entity->eid->value;
 		$file = \Drupal\file\Entity\File::load($file_id);
@@ -237,7 +257,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			}
 			if (count($imagesPaths) > 0) {
 				\Drupal::messenger()->addMessage("Renderings were added to the entity");
-				$entity->set('f605dc6b727a1099b9e52b3ccbdf5673', $imagesPaths);
+				$entity->set(IMAGE_GENERATION, $imagesPaths);
 			}
 			$fpath = $file_url->toString();
 			$fpath = str_replace($fileName, "", $fpath);
@@ -276,11 +296,17 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			/*\Drupal::messenger()->addMessage($file_url->toString());
 			\Drupal::messenger()->addMessage($fileName);
 			\Drupal::messenger()->addMessage($path);*/
-			$entity->set('faa602a0be629324806aef22892cdbe5', $autoPath);
+			$entity->set(VIEWER_FILE_NAME, $autoPath);
 		}
 		require ('php/build_xml.php');
 		build_xml ($entity_id);
-		$entity->set('field_df', 'https://3dtest.dfg-viewer.de/viewer?tx_dlf[id]=https://3d-repository.hs-mainz.de/sites/default/files/xml_structure/' . $entity_id . '.xml&no_cache=1');
+		#$entity->set('field_df', 'https://3dtest.dfg-viewer.de/viewer?tx_dlf[id]=https://3d-repository.hs-mainz.de/sites/default/files/xml_structure/' . $entity_id . '.xml&no_cache=1');
+		$xml_struc = 'public://xml_structure/' . $entity_id . '.xml&no_cache=1';
+		$xml_wrapper = \Drupal::service('stream_wrapper_manager')->getViaUri($xml_struc);
+		$xml_uri = $xml_wrapper->getExternalURL();
+		global $base_url;
+		$uri = $base_url . "/viewer?tx_dlf[id]=" . $xml_uri;
+		$entity->set(FIELD_DF, $uri);
 	}
 	#$file = $entity->fbda64e9ba217e59e5fc5f99244f4821;
 	//$compression = $entity->field_3d_compression_level;
