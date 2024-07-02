@@ -980,35 +980,35 @@ function buildRuler(_id) {
 }
 
 function onWindowResize() {
-	var rightOffsetDownload = -67;
 	var rightOffsetEntity = -65;
 	var rightOffsetFullscreen = canvasDimensions.x * 0.45;
 	var bottomOffsetFullscreen = -canvasDimensions.y * 0.97 + 20;
 	if (FULLSCREEN) {
 		canvasDimensions = {x: screen.width, y: screen.height};
-		rightOffsetDownload = -98;
 		rightOffsetEntity = -95;
-		rightOffsetFullscreen = 40;	
 		bottomOffsetFullscreen = -canvasDimensions.y * 0.96 + 20;
+		downloadModel.setAttribute('style', 'visibility: hidden');
 	}
 	else {
 		//canvasDimensions = {x: window.self.innerWidth*0.7, y: window.self.innerHeight*0.6};
 		canvasDimensions = {x: container.getBoundingClientRect().width, y: container.getBoundingClientRect().bottom*1.4};
 		bottomOffsetFullscreen = Math.round(-canvasDimensions.y) + 36;
-		rightOffsetFullscreen = Math.round(canvasDimensions.x) - 36;
+		
+		if (CONFIG.lightweight === false) {
+			downloadModel.setAttribute('style', 'visibility: visible');
+			downloadModel.style.top = (canvasDimensions.y - 80) + 'px';
+		}
 	}
 	
-	if (CONFIG.lightweight === false) {
-		downloadModel.setAttribute('style', 'right: ' + rightOffsetDownload +'%');
-	}
+	rightOffsetFullscreen = Math.round(canvasDimensions.x) - 36;
 	//container.setAttribute("width", canvasDimensions.x);
 	//container.setAttribute("height", canvasDimensions.y);
 
-	//mainCanvas.setAttribute("width", canvasDimensions.x);
-	//mainCanvas.setAttribute("height", canvasDimensions.y);
-	//mainCanvas.style.width = "100% !imporant";
-	//mainCanvas.style.height = "100% !important";
-	lilGui[0].style.left = container.getBoundingClientRect().right - lilGui[0].getBoundingClientRect().width*2 + 'px';
+	mainCanvas.setAttribute("width", canvasDimensions.x);
+	mainCanvas.setAttribute("height", canvasDimensions.y);
+	mainCanvas.style.width = "100% !imporant";
+	mainCanvas.style.height = "100% !important";
+	lilGui[0].style.left = canvasDimensions.x - lilGui[0].getBoundingClientRect().width - 10 + 'px';
 
 	renderer.setPixelRatio(window.devicePixelRatio);
 	camera.aspect = canvasDimensions.x / canvasDimensions.y;
