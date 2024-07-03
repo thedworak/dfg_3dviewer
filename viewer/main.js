@@ -1262,12 +1262,14 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 						if(req.status == 200) {
 							const parser = new DOMParser();
 							const doc = parser.parseFromString(req.responseText, "application/xml");
-							var data = doc.documentElement.childNodes[0].childNodes;
-							if (typeof (data) !== undefined) {
-								for(var i = 0; i < data.length; i++) {
-									var fetchedValue = addWissKIMetadata(data[i].tagName, data[i].textContent);
-									if (typeof(fetchedValue) !== "undefined") {
-										metadataContent += fetchedValue;
+							if (doc.documentElement.childNodes > 0) {
+								var data = doc.documentElement.childNodes[0].childNodes;
+								if (typeof (data) !== undefined) {
+									for(var i = 0; i < data.length; i++) {
+										var fetchedValue = addWissKIMetadata(data[i].tagName, data[i].textContent);
+										if (typeof(fetchedValue) !== "undefined") {
+											metadataContent += fetchedValue;
+										}
 									}
 								}
 							}
@@ -2100,6 +2102,7 @@ function init() {
 		archiveType = _ext;
 	}
 
+	var _autoPath='';
 	var req = new XMLHttpRequest();
 	req.responseType = '';
 	req.open('GET', CONFIG.metadataDomain + EXPORT_PATH + entityID + '?page=0&amp;_format=xml', true);
@@ -2108,28 +2111,31 @@ function init() {
 			if(req.status == 200) {
 				const parser = new DOMParser();
 				const doc = parser.parseFromString(req.responseText, "application/xml");
-				var data = doc.documentElement.childNodes[0].childNodes;
-				if (typeof (data) !== undefined) {
-					var _found = false;
-					for(var i = 0; i < data.length && !_found; i++) {
-						if ((typeof (data[i].tagName) !== "undefined") && (typeof (data[i].textContent) !== "undefined")) {							
-							var _label = data[i].tagName.replace("wisski_path_3d_model__", "");
-							if (typeof(_label) !== "undefined" && _label === "converted_file") {
-								_found = true;
-								var _autoPath = data[i].textContent;
-								//check wheter semo-automatic path found
-								if (_autoPath !== '') {							
-									filename = _autoPath.split("/").pop();
-									basename = filename.substring(0, filename.lastIndexOf('.'));
-									extension = filename.substring(filename.lastIndexOf('.') + 1);
-									_ext = extension.toLowerCase();
-									path = _autoPath.substring(0, _autoPath.lastIndexOf(filename));
+				if (doc.documentElement.childNodes > 0) {
+					var data = doc.documentElement.childNodes[0].childNodes;
+					if (typeof (data) !== undefined) {
+						var _found = false;
+						for(var i = 0; i < data.length && !_found; i++) {
+							if ((typeof (data[i].tagName) !== "undefined") && (typeof (data[i].textContent) !== "undefined")) {							
+								var _label = data[i].tagName.replace("wisski_path_3d_model__", "");
+								if (typeof(_label) !== "undefined" && _label === "converted_file") {
+									_found = true;
+									_autoPath = data[i].textContent;
+									console.log(_autoPath);
 								}
-								mainLoadModel(_ext);
 							}
 						}
 					}
 				}
+				//check wheter semo-automatic path found
+				if (_autoPath !== '') {
+					filename = _autoPath.split("/").pop();
+					basename = filename.substring(0, filename.lastIndexOf('.'));
+					extension = filename.substring(filename.lastIndexOf('.') + 1);
+					_ext = extension.toLowerCase();
+					path = _autoPath.substring(0, _autoPath.lastIndexOf(filename));
+				}
+				mainLoadModel(_ext);
 			}
 			else {
 				console.log("Error during loading metadata content\n");
