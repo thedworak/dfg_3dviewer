@@ -13,6 +13,7 @@ const VIEWER_FILE_UPLOAD="fbf95bddee5160d515b982b3fd2e05f7";
 const IMAGE_GENERATION="f605dc6b727a1099b9e52b3ccbdf5673";
 const VIEWER_FILE_NAME="faa602a0be629324806aef22892cdbe5";
 const FIELD_DF="field_df";
+const MAIN_URL="https://3d-repository.hs-mainz.de";
 
 /**
  * Implements hook_help().
@@ -291,7 +292,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 					$autoPath = $origPath;
 				}
 			}
-			$autoPath = str_replace($XPATH, "https://3d-repository.hs-mainz.de", $autoPath);
+			$autoPath = str_replace($XPATH, MAIN_URL, $autoPath);
 			//\Drupal::messenger()->addMessage($fileBase, 'status');
 			/*\Drupal::messenger()->addMessage($file_url->toString());
 			\Drupal::messenger()->addMessage($fileName);

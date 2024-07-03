@@ -1,13 +1,13 @@
-import { Material, ShaderMaterial, NoColorSpace, LinearSRGBColorSpace } from '../../../../build/three.module.js';
+import { Material, NormalBlending } from '../../../../build/three.module.js';
 import { getNodeChildren, getCacheKey } from '../core/NodeUtils.js';
 import { attribute } from '../core/AttributeNode.js';
 import { output, diffuseColor, varyingProperty } from '../core/PropertyNode.js';
 import { materialAlphaTest, materialColor, materialOpacity, materialEmissive, materialNormal } from '../accessors/MaterialNode.js';
 import { modelViewProjection } from '../accessors/ModelViewProjectionNode.js';
-import { transformedNormalView } from '../accessors/NormalNode.js';
+import { transformedNormalView, normalLocal } from '../accessors/NormalNode.js';
 import { instance } from '../accessors/InstanceNode.js';
 import { batch } from '../accessors/BatchNode.js';
-
+import { materialReference } from '../accessors/MaterialReferenceNode.js';
 import { positionLocal, positionView } from '../accessors/PositionNode.js';
 import { skinningReference } from '../accessors/SkinningNode.js';
 import { morphReference } from '../accessors/MorphNode.js';
@@ -19,14 +19,15 @@ import { float, vec3, vec4 } from '../shadernode/ShaderNode.js';
 import AONode from '../lighting/AONode.js';
 import { lightingContext } from '../lighting/LightingContextNode.js';
 import EnvironmentNode from '../lighting/EnvironmentNode.js';
-import { depthPixel } from '../display/ViewportDepthNode.js';
+import IrradianceNode from '../lighting/IrradianceNode.js';
+import { depth } from '../display/ViewportDepthNode.js';
 import { cameraLogDepth } from '../accessors/CameraNode.js';
 import { clipping, clippingAlpha } from '../accessors/ClippingNode.js';
 import { faceDirection } from '../display/FrontFacingNode.js';
 
 const NodeMaterials = new Map();
 
-class NodeMaterial extends ShaderMaterial {
+class NodeMaterial extends Material {
 
 	constructor() {
 
@@ -42,10 +43,9 @@ class NodeMaterial extends ShaderMaterial {
 		this.lights = true;
 		this.normals = true;
 
-		this.colorSpaced = true;
-
 		this.lightsNode = null;
 		this.envNode = null;
+		this.aoNode = null;
 
 		this.colorNode = null;
 		this.normalNode = null;
@@ -58,6 +58,7 @@ class NodeMaterial extends ShaderMaterial {
 
 		this.depthNode = null;
 		this.shadowNode = null;
+		this.shadowPositionNode = null;
 
 		this.outputNode = null;
 
@@ -96,9 +97,9 @@ class NodeMaterial extends ShaderMaterial {
 
 		const clippingNode = this.setupClipping( builder );
 
-		if ( this.fragmentNode === null ) {
+		if ( this.depthWrite === true ) this.setupDepth( builder );
 
-			if ( this.depthWrite === true ) this.setupDepth( builder );
+		if ( this.fragmentNode === null ) {
 
 			if ( this.normals === true ) this.setupNormal( builder );
 
@@ -125,7 +126,15 @@ class NodeMaterial extends ShaderMaterial {
 
 		} else {
 
-			resultNode = this.setupOutput( builder, this.fragmentNode );
+			let fragmentNode = this.fragmentNode;
+
+			if ( fragmentNode.isOutputStructNode !== true ) {
+
+				fragmentNode = vec4( fragmentNode );
+
+			}
+
+			resultNode = this.setupOutput( builder, fragmentNode );
 
 		}
 
@@ -136,6 +145,8 @@ class NodeMaterial extends ShaderMaterial {
 	}
 
 	setupClipping( builder ) {
+
+		if ( builder.clippingContext === null ) return null;
 
 		const { globalClippingCount, localClippingCount } = builder.clippingContext;
 
@@ -178,7 +189,7 @@ class NodeMaterial extends ShaderMaterial {
 
 		if ( depthNode !== null ) {
 
-			depthPixel.assign( depthNode ).append();
+			depth.assign( depthNode ).append();
 
 		}
 
@@ -205,13 +216,23 @@ class NodeMaterial extends ShaderMaterial {
 
 		}
 
+		if ( this.displacementMap ) {
+
+			const displacementMap = materialReference( 'displacementMap', 'texture' );
+			const displacementScale = materialReference( 'displacementScale', 'float' );
+			const displacementBias = materialReference( 'displacementBias', 'float' );
+
+			positionLocal.addAssign( normalLocal.normalize().mul( ( displacementMap.x.mul( displacementScale ).add( displacementBias ) ) ) );
+
+		}
+
 		if ( object.isBatchedMesh ) {
 
 			batch( object ).append();
 
 		}
 
-		if ( ( object.instanceMatrix && object.instanceMatrix.isInstancedBufferAttribute === true ) && builder.isAvailable( 'instance' ) === true ) {
+		if ( ( object.instanceMatrix && object.instanceMatrix.isInstancedBufferAttribute === true ) ) {
 
 			instance( object ).append();
 
@@ -270,6 +291,12 @@ class NodeMaterial extends ShaderMaterial {
 			const alphaTestNode = this.alphaTestNode !== null ? float( this.alphaTestNode ) : materialAlphaTest;
 
 			diffuseColor.a.lessThanEqual( alphaTestNode ).discard();
+
+		}
+
+		if ( this.transparent === false && this.blending === NormalBlending && this.alphaToCoverage === false ) {
+
+			diffuseColor.a.assign( 1.0 );
 
 		}
 
@@ -337,9 +364,17 @@ class NodeMaterial extends ShaderMaterial {
 
 		}
 
-		if ( builder.material.aoMap ) {
+		if ( builder.material.lightMap ) {
 
-			materialLightsNode.push( new AONode( texture( builder.material.aoMap ) ) );
+			materialLightsNode.push( new IrradianceNode( materialReference( 'lightMap', 'texture' ) ) );
+
+		}
+
+		if ( this.aoNode !== null || builder.material.aoMap ) {
+
+			const aoNode = this.aoNode !== null ? this.aoNode : texture( builder.material.aoMap );
+
+			materialLightsNode.push( new AONode( aoNode ) );
 
 		}
 
@@ -400,8 +435,6 @@ class NodeMaterial extends ShaderMaterial {
 
 	setupOutput( builder, outputNode ) {
 
-		const renderer = builder.renderer;
-
 		// FOG
 
 		if ( this.fog === true ) {
@@ -409,30 +442,6 @@ class NodeMaterial extends ShaderMaterial {
 			const fogNode = builder.fogNode;
 
 			if ( fogNode ) outputNode = vec4( fogNode.mix( outputNode.rgb, fogNode.colorNode ), outputNode.a );
-
-		}
-
-		// TONE MAPPING
-
-		const toneMappingNode = builder.toneMappingNode;
-
-		if ( this.toneMapped === true && toneMappingNode ) {
-
-			outputNode = vec4( toneMappingNode.context( { color: outputNode.rgb } ), outputNode.a );
-
-		}
-
-		// ENCODING
-
-		if ( this.colorSpaced === true ) {
-
-			const outputColorSpace = renderer.currentColorSpace;
-
-			if ( outputColorSpace !== LinearSRGBColorSpace && outputColorSpace !== NoColorSpace ) {
-
-				outputNode = outputNode.linearToColorSpace( outputColorSpace );
-
-			}
 
 		}
 
@@ -458,8 +467,6 @@ class NodeMaterial extends ShaderMaterial {
 			}
 
 		}
-
-		Object.assign( this.defines, material.defines );
 
 		const descriptors = Object.getOwnPropertyDescriptors( material.constructor.prototype );
 
@@ -551,6 +558,7 @@ class NodeMaterial extends ShaderMaterial {
 
 		this.depthNode = source.depthNode;
 		this.shadowNode = source.shadowNode;
+		this.shadowPositionNode = source.shadowPositionNode;
 
 		this.outputNode = source.outputNode;
 
