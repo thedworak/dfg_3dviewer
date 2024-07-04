@@ -39,8 +39,18 @@ check_xvfb_run () {
 	fi
 }
 
+check_scripts () {
+	if [ ! -d ${SPATH}/scripts ]; then
+		echo "Can't find dependencies directory. Did you change your SPATH value in scripts/.env?"
+		return 1
+	else
+		return 0
+	fi
+}
+
 check_blender
 check_xvfb_run
+check_scripts
 
 show_usage () {
 	echo "Usage: ./convert.sh -c true/false -cl [0-6] -i 'INPUT' -o 'OUTPUT' -b true/false -f true/false"
@@ -63,6 +73,9 @@ render_preview () {
 	if [[ ! -d "$INPATH/views" ]]; then
 		mkdir "$INPATH/views/"
 	fi
+
+	echo "Rendering thumbnails..."
+
 	if [[ "$EXT" = "glb" ]]; then
 		xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/render.py -- "$INPATH/$NAME.glb" "glb" $1 "$INPATH/views/" $IS_ARCHIVE -E BLENDER_EEVEE -f 1  > /dev/null 2>&1
 	else
@@ -113,6 +126,7 @@ handle_ifc_file () {
 	if [[ ! -d "$INPATH"/gltf/ ]]; then
 		mkdir "$INPATH"/gltf/
 	fi
+
 	${SPATH}/scripts/IfcConvert "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
 	render_preview $EXT
 }
@@ -126,6 +140,7 @@ handle_blend_file () {
 	if [[ ! -d "$INPATH"/gltf/ ]]; then
 		mkdir "$INPATH"/gltf/
 	fi
+
 	${BLENDER_PATH}blender -b -P ${SPATH}/scripts/convert-blender-to-gltf.py "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
 	render_preview $EXT
 }
@@ -163,18 +178,21 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 			start=`date +%s`
 			case $EXT in
 				abc|dae|fbx|obj|ply|stl|wrl|x3d)
+					echo "Converting $EXT file..."
 					handle_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
 					end=`date +%s`
 					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
 					exit 0;
 				;;
 			  ifc)
+					echo "Converting $EXT file..."
 					handle_ifc_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
 					end=`date +%s`
 					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
 					exit 0;
 				;;
 			  blend)
+					echo "Converting $EXT file..."
 					handle_blend_file "$INPATH" "$FILENAME" "$NAME" $EXT
 					end=`date +%s`
 					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
