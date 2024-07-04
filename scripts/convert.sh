@@ -5,7 +5,10 @@
 #pip install numpy
 #usage: ./convert.sh -c COMPRESS -cl COMPRESSION_LEVEL -i 'INPUT' -o 'OUTPUT' -b BINARY -f FORCE_OVERRIDE
 
-BLENDER_PATH=''
+set -e
+
+source $(dirname $0)/.env
+
 #BLENDER_PATH='/var/lib/snapd/snap/blender/current/'
 
 #Defaults:
@@ -15,7 +18,34 @@ GLTF="gltf"
 FORCE="false"
 isOutput=false
 IS_ARCHIVE=false
-SPATH="/var/www/html/3drepository/modules/dfg_3dviewer"
+
+check_blender () {
+	if ! command -v blender &> /dev/null; then
+		echo "Blender doesn't exist, install it by 'apt install blender python3-pip' then 'pip install numpy' or change BLENDER_PATH with your Blender instance"
+		return 1
+	else
+		echo "Blender exists and be used for next steps..."
+		return 0
+	fi
+}
+
+check_xvfb_run () {
+	if ! command -v xvfb-run &> /dev/null; then
+		echo "xvfb-run doesn't exist, install it by 'apt install xvfb'"
+		return 1
+	else
+		echo "xvfb-run exists and be used for next steps..."
+		return 0
+	fi
+}
+
+check_blender
+check_xvfb_run
+
+show_usage () {
+	echo "Usage: ./convert.sh -c true/false -cl [0-6] -i INPUT -o OUTPUT -b true/false -f true/false"
+	echo "-c=compress -cl=compression level -i=input path -o=output path -b=binary -f=force override existing file"
+}
 
 while getopts ":c:l:o:i:b:f:" flag; do
     case "${flag}" in
@@ -171,8 +201,10 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 		echo "No extension found on $FILENAME";
 		exit 2;
 	fi
+elif [[ -z "$INPUT" ]]; then
+	echo "No input file provided"
+	show_usage
 else
-	echo "No file $INPUT or 0 arguments given."
-	echo "Usage: ./convert.sh -c true/false -cl [0-6] -i INPUT -o OUTPUT -b true/false -f true/false"
-	echo "-c=compress -cl=compression level -i=input path -o=output path -b=binary -f=force override existing file"
+	echo "Given file '$INPUT' not found"
+	show_usage
 fi

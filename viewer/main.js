@@ -97,10 +97,10 @@ if (CONFIG.lightweight === null || CONFIG.lightweight === false) {
 	}
 }
 
-var filename = container.getAttribute("3d").split("/").pop();
+var filename = originalPath.split("/").pop();
 var basename = filename.substring(0, filename.lastIndexOf('.'));
 var extension = filename.substring(filename.lastIndexOf('.') + 1);
-var path = container.getAttribute("3d").substring(0, container.getAttribute("3d").lastIndexOf(filename));
+var path = originalPath.substring(0, originalPath.lastIndexOf(filename));
 const uri = path.replace(CONFIG.domain+"/", "");
 const EXPORT_PATH = '/export_xml_single/';
 const loadedFile = basename + "." + extension;
