@@ -2,3 +2,4 @@
 *.module~
 *.php~
 ./main/config.json
+scripts/.env

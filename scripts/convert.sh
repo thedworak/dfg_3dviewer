@@ -2,7 +2,7 @@
 
 #apt install xvfb
 #apt install blender python3-pip
-#pip install numpy
+#pip install numpy or apt install python3-numpy
 #usage: ./convert.sh -c COMPRESS -cl COMPRESSION_LEVEL -i 'INPUT' -o 'OUTPUT' -b BINARY -f FORCE_OVERRIDE
 
 set -e
@@ -43,7 +43,7 @@ check_blender
 check_xvfb_run
 
 show_usage () {
-	echo "Usage: ./convert.sh -c true/false -cl [0-6] -i INPUT -o OUTPUT -b true/false -f true/false"
+	echo "Usage: ./convert.sh -c true/false -cl [0-6] -i 'INPUT' -o 'OUTPUT' -b true/false -f true/false"
 	echo "-c=compress -cl=compression level -i=input path -o=output path -b=binary -f=force override existing file"
 }
 
