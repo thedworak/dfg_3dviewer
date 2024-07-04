@@ -70,17 +70,18 @@ while getopts ":c:l:o:i:b:f:" flag; do
 done
 
 render_preview () {
+	SNAME=$NAME
 	if [[ ! -d "$INPATH/views" ]]; then
 		mkdir "$INPATH/views/"
 	fi
 
 	echo "Rendering thumbnails..."
 
-	if [[ "$EXT" = "glb" ]]; then
-		xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/render.py -- "$INPATH/$NAME.glb" "glb" $1 "$INPATH/views/" $IS_ARCHIVE -E BLENDER_EEVEE -f 1  > /dev/null 2>&1
-	else
-		xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/render.py -- "$INPATH/gltf/$NAME.glb" "glb" $1 "$INPATH/views/" $IS_ARCHIVE -E BLENDER_EEVEE -f 1  > /dev/null 2>&1
+	if [[ "$EXT" != "glb" ]]; then
+		SNAME="gltf/${NAME}"
 	fi;
+
+	xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/render.py -- "$INPATH/$SNAME.glb" "glb" $1 "$INPATH/views/" $IS_ARCHIVE -E BLENDER_EEVEE -f 1  > /dev/null 2>&1
 }
 
 handle_file () {
