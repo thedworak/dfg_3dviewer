@@ -1,8 +1,16 @@
 #!/bin/bash
 
+# Ubuntu way
 #apt install xvfb
 #apt install blender python3-pip
+#apt install python3-lxml python3-shapely python3-matplotlib (for CityGML converter)
+#OR
+# Debian way
+#wget https://download.blender.org/release/Blender2.92/blender-2.92.0-linux64.tar.xz
+#tar -xvf blender-2.92.0-linux64.tar.xz
+#change .env BLENDER_PATH or make symlink to it `ln -s PATH_TO_YOUR_UNCOMPRESSED_BLENDER/blender-2.92.0-linux64/blender /usr/local/bin/blender`
 #pip install numpy or apt install python3-numpy
+#pip install triangle
 #usage: ./convert.sh -c COMPRESS -cl COMPRESSION_LEVEL -i 'INPUT' -o 'OUTPUT' -b BINARY -f FORCE_OVERRIDE
 
 set -e
@@ -146,6 +154,31 @@ handle_blend_file () {
 	render_preview $EXT
 }
 
+handle_gml_file () {
+	INPATH=$1
+	FILENAME=$2
+	NAME=$3
+	EXT=$4
+	OUTPUT=$5
+	OUTPUTPATH=$6
+	
+	GLB_PATH="${INPATH}/${NAME}_GLB"
+	
+	#if [[ ! -d $GLB_PATH ]]; then
+		mkdir -p $GLB_PATH
+		cp -rf $INPATH/$FILENAME $GLB_PATH/
+		#python3 ${SPATH}/scripts/CityGML2OBJv2/CityGML2OBJs.py -i "$GLB_PATH" -o "$GLB_PATH" #> /dev/null 2>&1
+		if [[ ! -d "$INPATH"/gltf/ ]]; then
+			mkdir "$INPATH"/gltf/
+		fi
+		${BLENDER_PATH}blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- "$GLB_PATH/${NAME}.obj" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
+		render_preview $EXT
+		#rm -rf $GLB_PATH
+	#fi
+
+
+}
+
 if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 	FILENAME=${INPUT##*/}
 	NAME="${FILENAME%.*}"
@@ -195,6 +228,13 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 			  blend)
 					echo "Converting $EXT file..."
 					handle_blend_file "$INPATH" "$FILENAME" "$NAME" $EXT
+					end=`date +%s`
+					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
+					exit 0;
+				;;
+			  gml)
+					echo "Converting $EXT file..."
+					handle_gml_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
 					end=`date +%s`
 					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
 					exit 0;

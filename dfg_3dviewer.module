@@ -41,7 +41,7 @@ function url_exists ($url) {
 }
 
 function semi_automatic_path ($prefix, $filename, $filenameArchive, &$autoPath, $extension) {
-	$allowedFormats = array('abc', 'obj', 'fbx', 'ply', 'dae', 'ifc', 'stl', 'xyz', 'pcd', 'json', '3ds', 'blend', 'zip', 'rar', 'xz', 'gz');
+	$allowedFormats = array('abc', 'obj', 'fbx', 'ply', 'dae', 'ifc', 'stl', 'xyz', 'pcd', 'json', '3ds', 'blend', 'zip', 'rar', 'xz', 'gz', 'gml');
 	$SPATH=\Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath());
 	$SPATH = str_replace('/modules/dfg_3dviewer', '', $SPATH);
 	$prefix = $SPATH . $prefix;
@@ -168,6 +168,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 								case "ifc":
 								case "glb":
 								case "gltf":
+								case "gml":
 									exec ($SPATH . '/scripts/convert.sh -c true -l 3 -b true -i "' . $extractPath . $zipFile . '" -o "' . $extractPath . '" -f true -a false', $output, $retval);										
 								break;
 							}
