@@ -173,6 +173,7 @@ class WebGLBackend extends Backend {
 		//
 
 		//
+
 		this.initTimestampQuery( renderContext );
 
 		renderContextData.previousContext = this._currentContext;
@@ -566,9 +567,9 @@ class WebGLBackend extends Backend {
 
 	}
 
-	draw( renderObject, info ) {
+	draw( renderObject/*, info*/ ) {
 
-		const { pipeline, material, context } = renderObject;
+		const { object, pipeline, material, context } = renderObject;
 		const { programGPU } = this.get( pipeline );
 
 		const { gl, state } = this;
@@ -579,7 +580,9 @@ class WebGLBackend extends Backend {
 
 		this._bindUniforms( renderObject.getBindings() );
 
-		state.setMaterial( material );
+		const frontFaceCW = ( object.isMesh && object.matrixWorld.determinant() < 0 );
+
+		state.setMaterial( material, frontFaceCW );
 
 		gl.useProgram( programGPU );
 
@@ -611,9 +614,8 @@ class WebGLBackend extends Backend {
 
 		const index = renderObject.getIndex();
 
-		const object = renderObject.object;
 		const geometry = renderObject.geometry;
-		const drawRange = geometry.drawRange;
+		const drawRange = renderObject.drawRange;
 		const firstVertex = drawRange.start;
 
 		//
@@ -699,16 +701,7 @@ class WebGLBackend extends Backend {
 
 		if ( object.isBatchedMesh ) {
 
-			if ( instanceCount > 1 ) {
-
-				// TODO: Better support with InstancedBatchedMesh
-				if ( object._multiDrawInstances === undefined ) {
-
-					object._multiDrawInstances = new Int32Array( object._maxGeometryCount );
-
-				}
-
-				object._multiDrawInstances.fill( instanceCount );
+			if ( object._multiDrawInstances !== null ) {
 
 				renderer.renderMultiDrawInstances( object._multiDrawStarts, object._multiDrawCounts, object._multiDrawCount, object._multiDrawInstances );
 
@@ -794,9 +787,9 @@ class WebGLBackend extends Backend {
 
 	// node builder
 
-	createNodeBuilder( object, renderer, scene = null ) {
+	createNodeBuilder( object, renderer ) {
 
-		return new GLSLNodeBuilder( object, renderer, scene );
+		return new GLSLNodeBuilder( object, renderer );
 
 	}
 
@@ -882,6 +875,90 @@ class WebGLBackend extends Backend {
 
 	}
 
+
+
+	_handleSource( string, errorLine ) {
+
+		const lines = string.split( '\n' );
+		const lines2 = [];
+
+		const from = Math.max( errorLine - 6, 0 );
+		const to = Math.min( errorLine + 6, lines.length );
+
+		for ( let i = from; i < to; i ++ ) {
+
+			const line = i + 1;
+			lines2.push( `${line === errorLine ? '>' : ' '} ${line}: ${lines[ i ]}` );
+
+		}
+
+		return lines2.join( '\n' );
+
+	}
+
+	_getShaderErrors( gl, shader, type ) {
+
+		const status = gl.getShaderParameter( shader, gl.COMPILE_STATUS );
+		const errors = gl.getShaderInfoLog( shader ).trim();
+
+		if ( status && errors === '' ) return '';
+
+		const errorMatches = /ERROR: 0:(\d+)/.exec( errors );
+		if ( errorMatches ) {
+
+			const errorLine = parseInt( errorMatches[ 1 ] );
+			return type.toUpperCase() + '\n\n' + errors + '\n\n' + this._handleSource( gl.getShaderSource( shader ), errorLine );
+
+		} else {
+
+			return errors;
+
+		}
+
+	}
+
+	_logProgramError( programGPU, glFragmentShader, glVertexShader ) {
+
+		if ( this.renderer.debug.checkShaderErrors ) {
+
+			const gl = this.gl;
+
+			const programLog = gl.getProgramInfoLog( programGPU ).trim();
+
+			if ( gl.getProgramParameter( programGPU, gl.LINK_STATUS ) === false ) {
+
+
+				if ( typeof this.renderer.debug.onShaderError === 'function' ) {
+
+					this.renderer.debug.onShaderError( gl, programGPU, glVertexShader, glFragmentShader );
+
+				} else {
+
+					// default error reporting
+
+					const vertexErrors = this._getShaderErrors( gl, glVertexShader, 'vertex' );
+					const fragmentErrors = this._getShaderErrors( gl, glFragmentShader, 'fragment' );
+
+					console.error(
+						'THREE.WebGLProgram: Shader Error ' + gl.getError() + ' - ' +
+						'VALIDATE_STATUS ' + gl.getProgramParameter( programGPU, gl.VALIDATE_STATUS ) + '\n\n' +
+						'Program Info Log: ' + programLog + '\n' +
+						vertexErrors + '\n' +
+						fragmentErrors
+					);
+
+				}
+
+			} else if ( programLog !== '' ) {
+
+				console.warn( 'THREE.WebGLProgram: Program Info Log:', programLog );
+
+			}
+
+		}
+
+	}
+
 	_completeCompile( renderObject, pipeline ) {
 
 		const gl = this.gl;
@@ -890,10 +967,7 @@ class WebGLBackend extends Backend {
 
 		if ( gl.getProgramParameter( programGPU, gl.LINK_STATUS ) === false ) {
 
-			console.error( 'THREE.WebGLBackend:', gl.getProgramInfoLog( programGPU ) );
-
-			console.error( 'THREE.WebGLBackend:', gl.getShaderInfoLog( fragmentShader ) );
-			console.error( 'THREE.WebGLBackend:', gl.getShaderInfoLog( vertexShader ) );
+			this._logProgramError( programGPU, fragmentShader, vertexShader );
 
 		}
 
@@ -901,7 +975,9 @@ class WebGLBackend extends Backend {
 
 		// Bindings
 
-		this._setupBindings( renderObject.getBindings(), programGPU );
+		const bindings = renderObject.getBindings();
+
+		this._setupBindings( bindings, programGPU );
 
 		//
 
@@ -951,17 +1027,15 @@ class WebGLBackend extends Backend {
 		gl.transformFeedbackVaryings(
 			programGPU,
 			transformVaryingNames,
-			gl.SEPARATE_ATTRIBS,
+			gl.SEPARATE_ATTRIBS
 		);
 
 		gl.linkProgram( programGPU );
 
 		if ( gl.getProgramParameter( programGPU, gl.LINK_STATUS ) === false ) {
 
-			console.error( 'THREE.WebGLBackend:', gl.getProgramInfoLog( programGPU ) );
+			this._logProgramError( programGPU, fragmentShader, vertexShader );
 
-			console.error( 'THREE.WebGLBackend:', gl.getShaderInfoLog( fragmentShader ) );
-			console.error( 'THREE.WebGLBackend:', gl.getShaderInfoLog( vertexShader ) );
 
 		}
 
@@ -969,7 +1043,7 @@ class WebGLBackend extends Backend {
 
 		// Bindings
 
-		this.createBindings( bindings );
+		this.createBindings( null, bindings );
 
 		this._setupBindings( bindings, programGPU );
 
@@ -1009,44 +1083,48 @@ class WebGLBackend extends Backend {
 
 	}
 
-	createBindings( bindings ) {
+	createBindings( bindGroup, bindings ) {
 
-		this.updateBindings( bindings );
+		this.updateBindings( bindGroup, bindings );
 
 	}
 
-	updateBindings( bindings ) {
+	updateBindings( bindGroup, bindings ) {
 
 		const { gl } = this;
 
 		let groupIndex = 0;
 		let textureIndex = 0;
 
-		for ( const binding of bindings ) {
+		for ( const bindGroup of bindings ) {
 
-			if ( binding.isUniformsGroup || binding.isUniformBuffer ) {
+			for ( const binding of bindGroup.bindings ) {
 
-				const bufferGPU = gl.createBuffer();
-				const data = binding.buffer;
+				if ( binding.isUniformsGroup || binding.isUniformBuffer ) {
 
-				gl.bindBuffer( gl.UNIFORM_BUFFER, bufferGPU );
-				gl.bufferData( gl.UNIFORM_BUFFER, data, gl.DYNAMIC_DRAW );
-				gl.bindBufferBase( gl.UNIFORM_BUFFER, groupIndex, bufferGPU );
+					const bufferGPU = gl.createBuffer();
+					const data = binding.buffer;
 
-				this.set( binding, {
-					index: groupIndex ++,
-					bufferGPU
-				} );
+					gl.bindBuffer( gl.UNIFORM_BUFFER, bufferGPU );
+					gl.bufferData( gl.UNIFORM_BUFFER, data, gl.DYNAMIC_DRAW );
+					gl.bindBufferBase( gl.UNIFORM_BUFFER, groupIndex, bufferGPU );
 
-			} else if ( binding.isSampledTexture ) {
+					this.set( binding, {
+						index: groupIndex ++,
+						bufferGPU
+					} );
 
-				const { textureGPU, glTextureType } = this.get( binding.texture );
+				} else if ( binding.isSampledTexture ) {
 
-				this.set( binding, {
-					index: textureIndex ++,
-					textureGPU,
-					glTextureType
-				} );
+					const { textureGPU, glTextureType } = this.get( binding.texture );
+
+					this.set( binding, {
+						index: textureIndex ++,
+						textureGPU,
+						glTextureType
+					} );
+
+				}
 
 			}
 
@@ -1093,7 +1171,11 @@ class WebGLBackend extends Backend {
 
 	createStorageAttribute( attribute ) {
 
-		//console.warn( 'Abstract class.' );
+		if ( this.has( attribute ) ) return;
+
+		const gl = this.gl;
+
+		this.attributeUtils.createAttribute( attribute, gl.ARRAY_BUFFER );
 
 	}
 
@@ -1115,12 +1197,6 @@ class WebGLBackend extends Backend {
 
 	}
 
-	async hasFeatureAsync( name ) {
-
-		return this.hasFeature( name );
-
-	}
-
 	hasFeature( name ) {
 
 		const keysMatching = Object.keys( GLFeatureName ).filter( key => GLFeatureName[ key ] === name );
@@ -1128,7 +1204,6 @@ class WebGLBackend extends Backend {
 		const extensions = this.extensions;
 
 		for ( let i = 0; i < keysMatching.length; i ++ ) {
-
 
 			if ( extensions.has( keysMatching[ i ] ) ) return true;
 
@@ -1457,20 +1532,24 @@ class WebGLBackend extends Backend {
 
 		const gl = this.gl;
 
-		for ( const binding of bindings ) {
+		for ( const bindGroup of bindings ) {
 
-			const bindingData = this.get( binding );
-			const index = bindingData.index;
+			for ( const binding of bindGroup.bindings ) {
 
-			if ( binding.isUniformsGroup || binding.isUniformBuffer ) {
+				const bindingData = this.get( binding );
+				const index = bindingData.index;
 
-				const location = gl.getUniformBlockIndex( programGPU, binding.name );
-				gl.uniformBlockBinding( programGPU, location, index );
+				if ( binding.isUniformsGroup || binding.isUniformBuffer ) {
 
-			} else if ( binding.isSampledTexture ) {
+					const location = gl.getUniformBlockIndex( programGPU, binding.name );
+					gl.uniformBlockBinding( programGPU, location, index );
 
-				const location = gl.getUniformLocation( programGPU, binding.name );
-				gl.uniform1i( location, index );
+				} else if ( binding.isSampledTexture ) {
+
+					const location = gl.getUniformLocation( programGPU, binding.name );
+					gl.uniform1i( location, index );
+
+				}
 
 			}
 
@@ -1482,18 +1561,22 @@ class WebGLBackend extends Backend {
 
 		const { gl, state } = this;
 
-		for ( const binding of bindings ) {
+		for ( const bindGroup of bindings ) {
 
-			const bindingData = this.get( binding );
-			const index = bindingData.index;
+			for ( const binding of bindGroup.bindings ) {
 
-			if ( binding.isUniformsGroup || binding.isUniformBuffer ) {
+				const bindingData = this.get( binding );
+				const index = bindingData.index;
 
-				gl.bindBufferBase( gl.UNIFORM_BUFFER, index, bindingData.bufferGPU );
+				if ( binding.isUniformsGroup || binding.isUniformBuffer ) {
 
-			} else if ( binding.isSampledTexture ) {
+					gl.bindBufferBase( gl.UNIFORM_BUFFER, index, bindingData.bufferGPU );
 
-				state.bindTexture( bindingData.glTextureType, bindingData.textureGPU, gl.TEXTURE0 + index );
+				} else if ( binding.isSampledTexture ) {
+
+					state.bindTexture( bindingData.glTextureType, bindingData.textureGPU, gl.TEXTURE0 + index );
+
+				}
 
 			}
 

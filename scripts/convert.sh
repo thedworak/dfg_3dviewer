@@ -1,11 +1,22 @@
 #!/bin/bash
 
+# Ubuntu way
 #apt install xvfb
 #apt install blender python3-pip
-#pip install numpy
+#apt install python3-lxml python3-shapely python3-matplotlib (for CityGML converter)
+#OR
+# Debian way
+#wget https://download.blender.org/release/Blender2.92/blender-2.92.0-linux64.tar.xz
+#tar -xvf blender-2.92.0-linux64.tar.xz
+#change .env BLENDER_PATH or make symlink to it `ln -s PATH_TO_YOUR_UNCOMPRESSED_BLENDER/blender-2.92.0-linux64/blender /usr/local/bin/blender`
+#pip install numpy or apt install python3-numpy
+#pip install triangle
 #usage: ./convert.sh -c COMPRESS -cl COMPRESSION_LEVEL -i 'INPUT' -o 'OUTPUT' -b BINARY -f FORCE_OVERRIDE
 
-BLENDER_PATH=''
+set -e
+
+source $(dirname $0)/.env
+
 #BLENDER_PATH='/var/lib/snapd/snap/blender/current/'
 
 #Defaults:
@@ -15,7 +26,44 @@ GLTF="gltf"
 FORCE="false"
 isOutput=false
 IS_ARCHIVE=false
-SPATH="/var/www/html/3drepository/modules/dfg_3dviewer"
+
+check_blender () {
+	if ! command -v blender &> /dev/null; then
+		echo "Blender doesn't exist, install it by 'apt install blender python3-pip' then 'pip install numpy' or change BLENDER_PATH with your Blender instance"
+		return 1
+	else
+		echo "Blender exists and be used for next steps..."
+		return 0
+	fi
+}
+
+check_xvfb_run () {
+	if ! command -v xvfb-run &> /dev/null; then
+		echo "xvfb-run doesn't exist, install it by 'apt install xvfb'"
+		return 1
+	else
+		echo "xvfb-run exists and be used for next steps..."
+		return 0
+	fi
+}
+
+check_scripts () {
+	if [ ! -d ${SPATH}/scripts ]; then
+		echo "Can't find dependencies directory. Did you change your SPATH value in scripts/.env?"
+		return 1
+	else
+		return 0
+	fi
+}
+
+check_blender
+check_xvfb_run
+check_scripts
+
+show_usage () {
+	echo "Usage: ./convert.sh -c true/false -cl [0-6] -i 'INPUT' -o 'OUTPUT' -b true/false -f true/false"
+	echo "-c=compress -cl=compression level -i=input path -o=output path -b=binary -f=force override existing file"
+}
 
 while getopts ":c:l:o:i:b:f:" flag; do
     case "${flag}" in
@@ -30,14 +78,18 @@ while getopts ":c:l:o:i:b:f:" flag; do
 done
 
 render_preview () {
+	SNAME=$NAME
 	if [[ ! -d "$INPATH/views" ]]; then
 		mkdir "$INPATH/views/"
 	fi
-	if [[ "$EXT" = "glb" ]]; then
-		xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/render.py -- "$INPATH/$NAME.glb" "glb" $1 "$INPATH/views/" $IS_ARCHIVE -E BLENDER_EEVEE -f 1  > /dev/null 2>&1
-	else
-		xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/render.py -- "$INPATH/gltf/$NAME.glb" "glb" $1 "$INPATH/views/" $IS_ARCHIVE -E BLENDER_EEVEE -f 1  > /dev/null 2>&1
+
+	echo "Rendering thumbnails..."
+
+	if [[ "$EXT" != "glb" ]]; then
+		SNAME="gltf/${NAME}"
 	fi;
+
+	xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/render.py -- "$INPATH/$SNAME.glb" "glb" $1 "$INPATH/views/" $IS_ARCHIVE -E BLENDER_EEVEE -f 1  > /dev/null 2>&1
 }
 
 handle_file () {
@@ -83,6 +135,7 @@ handle_ifc_file () {
 	if [[ ! -d "$INPATH"/gltf/ ]]; then
 		mkdir "$INPATH"/gltf/
 	fi
+
 	${SPATH}/scripts/IfcConvert "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
 	render_preview $EXT
 }
@@ -96,8 +149,34 @@ handle_blend_file () {
 	if [[ ! -d "$INPATH"/gltf/ ]]; then
 		mkdir "$INPATH"/gltf/
 	fi
+
 	${BLENDER_PATH}blender -b -P ${SPATH}/scripts/convert-blender-to-gltf.py "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
 	render_preview $EXT
+}
+
+handle_gml_file () {
+	INPATH=$1
+	FILENAME=$2
+	NAME=$3
+	EXT=$4
+	OUTPUT=$5
+	OUTPUTPATH=$6
+	
+	GLB_PATH="${INPATH}/${NAME}_GLB"
+	
+	#if [[ ! -d $GLB_PATH ]]; then
+		mkdir -p $GLB_PATH
+		cp -rf $INPATH/$FILENAME $GLB_PATH/
+		#python3 ${SPATH}/scripts/CityGML2OBJv2/CityGML2OBJs.py -i "$GLB_PATH" -o "$GLB_PATH" #> /dev/null 2>&1
+		if [[ ! -d "$INPATH"/gltf/ ]]; then
+			mkdir "$INPATH"/gltf/
+		fi
+		${BLENDER_PATH}blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- "$GLB_PATH/${NAME}.obj" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
+		render_preview $EXT
+		#rm -rf $GLB_PATH
+	#fi
+
+
 }
 
 if [[ ! -z "$INPUT" && -f $INPUT ]]; then
@@ -133,19 +212,29 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 			start=`date +%s`
 			case $EXT in
 				abc|dae|fbx|obj|ply|stl|wrl|x3d)
+					echo "Converting $EXT file..."
 					handle_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
 					end=`date +%s`
 					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
 					exit 0;
 				;;
 			  ifc)
+					echo "Converting $EXT file..."
 					handle_ifc_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
 					end=`date +%s`
 					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
 					exit 0;
 				;;
 			  blend)
+					echo "Converting $EXT file..."
 					handle_blend_file "$INPATH" "$FILENAME" "$NAME" $EXT
+					end=`date +%s`
+					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
+					exit 0;
+				;;
+			  gml)
+					echo "Converting $EXT file..."
+					handle_gml_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
 					end=`date +%s`
 					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
 					exit 0;
@@ -171,8 +260,10 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 		echo "No extension found on $FILENAME";
 		exit 2;
 	fi
+elif [[ -z "$INPUT" ]]; then
+	echo "No input file provided"
+	show_usage
 else
-	echo "No file $INPUT or 0 arguments given."
-	echo "Usage: ./convert.sh -c true/false -cl [0-6] -i INPUT -o OUTPUT -b true/false -f true/false"
-	echo "-c=compress -cl=compression level -i=input path -o=output path -b=binary -f=force override existing file"
+	echo "Given file '$INPUT' not found"
+	show_usage
 fi

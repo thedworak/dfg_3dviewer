@@ -97,10 +97,10 @@ if (CONFIG.lightweight === null || CONFIG.lightweight === false) {
 	}
 }
 
-var filename = container.getAttribute("3d").split("/").pop();
+var filename = originalPath.split("/").pop();
 var basename = filename.substring(0, filename.lastIndexOf('.'));
 var extension = filename.substring(filename.lastIndexOf('.') + 1);
-var path = container.getAttribute("3d").substring(0, container.getAttribute("3d").lastIndexOf(filename));
+var path = originalPath.substring(0, originalPath.lastIndexOf(filename));
 const uri = path.replace(CONFIG.domain+"/", "");
 const EXPORT_PATH = '/export_xml_single/';
 const loadedFile = basename + "." + extension;
@@ -495,7 +495,6 @@ function setupObject (_object, _light, _data, _controls) {
 			_object.geometry.computeBoundingBox();
 			_object.geometry.computeBoundingSphere();	
 		}
-		outlineClipping.position.set(_object.position.x,_object.position.y,_object.position.z);
 	}
 	else {
 		var boundingBox = new THREE.Box3();
@@ -537,6 +536,7 @@ function setupObject (_object, _light, _data, _controls) {
 		cameraLightTarget.position.set(_object.position.x, _object.position.y, _object.position.z);
 	}
 	cameraLight.target.updateMatrixWorld();
+	outlineClipping.position.set(_object.position.x, _object.position.y, _object.position.z);
 }
 
 function invertHexColor(hexTripletColor) {
@@ -1247,7 +1247,7 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 			var metadataContent = '<div id="metadata-collapse" class="metadata-collapse metadata-collapsed">METADATA </div><div id="metadata-content" class="metadata-content expanded">';
 			metadataContentTech = '<hr class="metadataSeparator">';
 			metadataContentTech += 'Visualized file: <b>' + basename + "." + orgExtension + '</b><br>';
-			metadataContentTech += 'Loaded format: <b>' + extension + '</b><br>';
+			//metadataContentTech += 'Loaded format: <b>' + extension + '</b><br>';
 			metadataContentTech += 'Vertices: <b>' + metadata['vertices'] + '</b><br>';
 			metadataContentTech += 'Faces: <b>' + metadata['faces'] + '</b><br>';
 			viewEntity = document.createElement('div');
@@ -1262,12 +1262,14 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 						if(req.status == 200) {
 							const parser = new DOMParser();
 							const doc = parser.parseFromString(req.responseText, "application/xml");
-							var data = doc.documentElement.childNodes[0].childNodes;
-							if (typeof (data) !== undefined) {
-								for(var i = 0; i < data.length; i++) {
-									var fetchedValue = addWissKIMetadata(data[i].tagName, data[i].textContent);
-									if (typeof(fetchedValue) !== "undefined") {
-										metadataContent += fetchedValue;
+							if (doc.documentElement.childNodes > 0) {
+								var data = doc.documentElement.childNodes[0].childNodes;
+								if (typeof (data) !== undefined) {
+									for(var i = 0; i < data.length; i++) {
+										var fetchedValue = addWissKIMetadata(data[i].tagName, data[i].textContent);
+										if (typeof(fetchedValue) !== "undefined") {
+											metadataContent += fetchedValue;
+										}
 									}
 								}
 							}
@@ -1447,6 +1449,21 @@ function traverseMesh (object) {
 	});
 }
 
+function prepareOutlineClipping (_object) {
+		var outlineClipping = _object.clone(true);
+		var gutsMaterial = new THREE.MeshBasicMaterial({color: 'crimson', side: THREE.BackSide, clippingPlanes: clippingPlanes, clipShadows: true});
+			
+		outlineClipping.traverse(function (child)
+		{
+			if( child.type=='Mesh' )
+			{
+				child.material = gutsMaterial;
+			}
+		} );
+		outlineClipping.visible = false;
+		return outlineClipping;
+}
+
 function loadModel (path, basename, filename, extension, orgExtension) {
 	if (!imported) {
 		circle.show();
@@ -1472,8 +1489,13 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 								.load(filename, function (object) {
 									object.position.set (0, 0, 0);
 									traverseMesh(object);
-									scene.add(object);
+
 									fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
+
+									outlineClipping = prepareOutlineClipping(object);
+									scene.add(object, outlineClipping);
+									scene.add(object);
+
 									mainObject.push(object);
 								}, onProgress, onError);
 						}, function (){}, onErrorMTL);
@@ -1484,8 +1506,12 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 						.load(filename, function (object) {
 						object.position.set (0, 0, 0);
 						traverseMesh(object);
-						scene.add(object);
 						fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
+
+						outlineClipping = prepareOutlineClipping(object);
+						scene.add(object, outlineClipping);
+						scene.add(object);
+
 						mainObject.push(object);
 					}, onProgress, onError);
 				}
@@ -1496,8 +1522,13 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 				FBXloader.load(modelPath, function (object) {
 					traverseMesh (object);
 					object.position.set (0, 0, 0);
-					scene.add(object);
+
 					fetchSettings (path.replace("gltf/", ""), basename, filename, object.children, camera, lightObjects[0], controls, orgExtension, extension);
+
+					outlineClipping = prepareOutlineClipping(object);
+					scene.add(object, outlineClipping);
+					scene.add(object);
+
 					mainObject.push(object);
 				}, onProgress, onError);
 			break;
@@ -1512,9 +1543,14 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 					object.castShadow = true;
 					object.receiveShadow = true;
 					traverseMesh(object);
-					scene.add(object);
+
 					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
 					mainObject.push(object);
+
+					outlineClipping = prepareOutlineClipping(object);
+					scene.add(object, outlineClipping);
+					scene.add(object);
+
 				}, onProgress, onError);
 			break;
 			
@@ -1527,9 +1563,13 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 					object = object.scene;
 					object.position.set (0, 0, 0);
 					traverseMesh(object);
-					scene.add(object);
 					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
 					mainObject.push(object);
+
+					outlineClipping = prepareOutlineClipping(object);
+					scene.add(object, outlineClipping);
+					scene.add(object);
+
 				}, onProgress, onError);
 			break;
 			
@@ -1537,10 +1577,14 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 				const ifcLoader = new IFCLoader();
 				ifcLoader.ifcManager.setWasmPath(CONFIG.basePath + '/js/jsm/loaders/ifc/');
 				ifcLoader.load(modelPath, function (object) {
-					//object.position.set (0, 300, 0);
 					traverseMesh(object);
-					scene.add(object);
+					
 					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
+					
+					outlineClipping = prepareOutlineClipping(object);
+					scene.add(object, outlineClipping);
+					scene.add(object);
+					
 					mainObject.push(object);
 				}, onProgress, onError);
 			break;
@@ -1557,8 +1601,12 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 					traverseMesh(object);
 					object.castShadow = true;
 					object.receiveShadow = true;
-					scene.add(object);
 					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
+					
+					outlineClipping = prepareOutlineClipping(object);
+					scene.add(object, outlineClipping);
+					scene.add(object);
+
 					mainObject.push(object);
 				}, onProgress, onError);
 			break;
@@ -1572,8 +1620,12 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 					const object = new THREE.Points(geometry, material);
 					traverseMesh(object);
 					object.position.set (0, 0, 0);
-					scene.add(object);
 					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
+					
+					outlineClipping = prepareOutlineClipping(object);
+					scene.add(object, outlineClipping);
+					scene.add(object);
+					
 					mainObject.push(object);
 				}, onProgress, onError);
 			break;
@@ -1582,9 +1634,13 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 				loader = new PCDLoader();
 				loader.load(modelPath, function (mesh) {
 					traverseMesh(mesh);
-					scene.add(mesh);
 					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
 					mainObject.push(object);
+			
+					outlineClipping = prepareOutlineClipping(mesh);
+					scene.add(mesh, outlineClipping);
+					scene.add(mesh);
+
 				}, onProgress, onError);
 			break;
 
@@ -1594,8 +1650,13 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 					modelPath, function (object) {
 						object.position.set (0, 0, 0);
 						traverseMesh(object);
-						scene.add(object);
+
 						fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
+		
+						outlineClipping = prepareOutlineClipping(object);
+						scene.add(object, outlineClipping);
+						scene.add(object);
+
 						mainObject.push(object);
 					}, onProgress, onError);
 			break;
@@ -1608,10 +1669,15 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 					modelPath = getProxyPath(modelPath);
 				}
 				loader.load(modelPath + basename + "." + extension, function (object) {
-					traverseMesh(object);
-					scene.add(object);
+					traverseMesh(object);				
+
 					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
 					mainObject.push(object);
+			
+					outlineClipping = prepareOutlineClipping(object);
+					scene.add(object, outlineClipping);
+					scene.add(object);
+					
 				}, onProgress, onError);
 			break;
 
@@ -1639,18 +1705,8 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 				gltf.load(modelPath, function(gltf) {
 					traverseMesh(gltf.scene);
 					fetchSettings (path.replace("/gltf/", "/"), basename, filename, gltf.scene, camera, lightObjects[0], controls, orgExtension, extension);
-
-					outlineClipping = gltf.scene.clone(true);
-					var gutsMaterial = new THREE.MeshBasicMaterial({color: 'crimson', side: THREE.BackSide, clippingPlanes: clippingPlanes, clipShadows: true});
-						
-					outlineClipping.traverse(function (child)
-					{
-						if( child.type=='Mesh' )
-						{
-							child.material = gutsMaterial;
-						}
-					} );
-					outlineClipping.visible = false;
+					
+					outlineClipping = prepareOutlineClipping(gltf.scene);
 					scene.add(gltf.scene, outlineClipping);
 					scene.add(gltf.scene);
 					//mainObject.push(gltf.scene);
@@ -2046,6 +2102,7 @@ function init() {
 		archiveType = _ext;
 	}
 
+	var _autoPath='';
 	var req = new XMLHttpRequest();
 	req.responseType = '';
 	req.open('GET', CONFIG.metadataDomain + EXPORT_PATH + entityID + '?page=0&amp;_format=xml', true);
@@ -2054,28 +2111,31 @@ function init() {
 			if(req.status == 200) {
 				const parser = new DOMParser();
 				const doc = parser.parseFromString(req.responseText, "application/xml");
-				var data = doc.documentElement.childNodes[0].childNodes;
-				if (typeof (data) !== undefined) {
-					var _found = false;
-					for(var i = 0; i < data.length && !_found; i++) {
-						if ((typeof (data[i].tagName) !== "undefined") && (typeof (data[i].textContent) !== "undefined")) {							
-							var _label = data[i].tagName.replace("wisski_path_3d_model__", "");
-							if (typeof(_label) !== "undefined" && _label === "converted_file") {
-								_found = true;
-								var _autoPath = data[i].textContent;
-								//check wheter semo-automatic path found
-								if (_autoPath !== '') {							
-									filename = _autoPath.split("/").pop();
-									basename = filename.substring(0, filename.lastIndexOf('.'));
-									extension = filename.substring(filename.lastIndexOf('.') + 1);
-									_ext = extension.toLowerCase();
-									path = _autoPath.substring(0, _autoPath.lastIndexOf(filename));
+				if (doc.documentElement.childNodes > 0) {
+					var data = doc.documentElement.childNodes[0].childNodes;
+					if (typeof (data) !== undefined) {
+						var _found = false;
+						for(var i = 0; i < data.length && !_found; i++) {
+							if ((typeof (data[i].tagName) !== "undefined") && (typeof (data[i].textContent) !== "undefined")) {							
+								var _label = data[i].tagName.replace("wisski_path_3d_model__", "");
+								if (typeof(_label) !== "undefined" && _label === "converted_file") {
+									_found = true;
+									_autoPath = data[i].textContent;
+									console.log(_autoPath);
 								}
-								mainLoadModel(_ext);
 							}
 						}
 					}
 				}
+				//check wheter semo-automatic path found
+				if (_autoPath !== '') {
+					filename = _autoPath.split("/").pop();
+					basename = filename.substring(0, filename.lastIndexOf('.'));
+					extension = filename.substring(filename.lastIndexOf('.') + 1);
+					_ext = extension.toLowerCase();
+					path = _autoPath.substring(0, _autoPath.lastIndexOf(filename));
+				}
+				mainLoadModel(_ext);
 			}
 			else {
 				console.log("Error during loading metadata content\n");

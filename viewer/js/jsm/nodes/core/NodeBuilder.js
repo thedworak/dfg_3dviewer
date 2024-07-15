@@ -11,11 +11,16 @@ import { createNodeMaterialFromType, default as NodeMaterial } from '../material
 import { NodeUpdateType, defaultBuildStages, shaderStages } from './constants.js';
 
 import {
-	FloatNodeUniform, Vector2NodeUniform, Vector3NodeUniform, Vector4NodeUniform,
+	NumberNodeUniform, Vector2NodeUniform, Vector3NodeUniform, Vector4NodeUniform,
 	ColorNodeUniform, Matrix3NodeUniform, Matrix4NodeUniform
 } from '../../renderers/common/nodes/NodeUniform.js';
 
-import { REVISION, RenderTarget, Color, Vector2, Vector3, Vector4, IntType, UnsignedIntType, Float16BufferAttribute } from '../../../../build/three.module.js';
+import BindGroup from '../../renderers/common/BindGroup.js';
+
+import {
+	REVISION, RenderTarget, Color, Vector2, Vector3, Vector4, IntType, UnsignedIntType, Float16BufferAttribute,
+	LinearFilter, LinearMipmapNearestFilter, NearestMipmapLinearFilter, LinearMipmapLinearFilter
+} from '../../../../build/three.module.js';
 
 import { stack } from './StackNode.js';
 import { getCurrentStack, setCurrentStack } from '../shadernode/ShaderNode.js';
@@ -25,7 +30,7 @@ import ChainMap from '../../renderers/common/ChainMap.js';
 
 import PMREMGenerator from '../../renderers/common/extras/PMREMGenerator.js';
 
-const uniformsGroupCache = new ChainMap();
+const rendererCache = new WeakMap();
 
 const typeFromLength = new Map( [
 	[ 2, 'vec2' ],
@@ -55,24 +60,25 @@ const toFloat = ( value ) => {
 
 class NodeBuilder {
 
-	constructor( object, renderer, parser, scene = null, material = null ) {
+	constructor( object, renderer, parser ) {
 
 		this.object = object;
-		this.material = material || ( object && object.material ) || null;
+		this.material = ( object && object.material ) || null;
 		this.geometry = ( object && object.geometry ) || null;
 		this.renderer = renderer;
 		this.parser = parser;
-		this.scene = scene;
+		this.scene = null;
+		this.camera = null;
 
 		this.nodes = [];
 		this.updateNodes = [];
 		this.updateBeforeNodes = [];
+		this.updateAfterNodes = [];
 		this.hashNodes = {};
 
 		this.lightsNode = null;
 		this.environmentNode = null;
 		this.fogNode = null;
-		this.toneMappingNode = null;
 
 		this.clippingContext = null;
 
@@ -81,12 +87,12 @@ class NodeBuilder {
 		this.computeShader = null;
 
 		this.flowNodes = { vertex: [], fragment: [], compute: [] };
-		this.flowCode = { vertex: '', fragment: '', compute: [] };
+		this.flowCode = { vertex: '', fragment: '', compute: '' };
 		this.uniforms = { vertex: [], fragment: [], compute: [], index: 0 };
 		this.structs = { vertex: [], fragment: [], compute: [], index: 0 };
-		this.bindings = { vertex: [], fragment: [], compute: [] };
-		this.bindingsOffset = { vertex: 0, fragment: 0, compute: 0 };
-		this.bindingsArray = null;
+		this.bindings = { vertex: {}, fragment: {}, compute: {} };
+		this.bindingsIndexes = {};
+		this.bindGroups = null;
 		this.attributes = [];
 		this.bufferAttributes = [];
 		this.varyings = [];
@@ -97,6 +103,8 @@ class NodeBuilder {
 		this.stack = stack();
 		this.stacks = [];
 		this.tab = '\t';
+
+		this.instanceBindGroups = true;
 
 		this.currentFunctionNode = null;
 
@@ -112,6 +120,22 @@ class NodeBuilder {
 
 		this.shaderStage = null;
 		this.buildStage = null;
+
+	}
+
+	getBingGroupsCache() {
+
+		let bindGroupsCache = rendererCache.get( this.renderer );
+
+		if ( bindGroupsCache === undefined ) {
+
+			bindGroupsCache = new ChainMap();
+
+			rendererCache.set( this.renderer, bindGroupsCache );
+
+		}
+
+		return bindGroupsCache;
 
 	}
 
@@ -141,54 +165,131 @@ class NodeBuilder {
 
 	}
 
-	_getSharedBindings( bindings ) {
+	_getBindGroup( groupName, bindings ) {
 
-		const shared = [];
+		const bindGroupsCache = this.getBingGroupsCache();
+
+		// cache individual uniforms group
+
+		const bindingsArray = [];
+
+		let sharedGroup = true;
 
 		for ( const binding of bindings ) {
 
-			if ( binding.shared === true ) {
+			if ( binding.groupNode.shared === true ) {
 
 				// nodes is the chainmap key
 				const nodes = binding.getNodes();
 
-				let sharedBinding = uniformsGroupCache.get( nodes );
+				let sharedBinding = bindGroupsCache.get( nodes );
 
 				if ( sharedBinding === undefined ) {
 
-					uniformsGroupCache.set( nodes, binding );
+					bindGroupsCache.set( nodes, binding );
 
 					sharedBinding = binding;
 
 				}
 
-				shared.push( sharedBinding );
+				bindingsArray.push( sharedBinding );
 
 			} else {
 
-				shared.push( binding );
+				bindingsArray.push( binding );
+
+				sharedGroup = false;
 
 			}
 
 		}
 
-		return shared;
+		//
+
+		let bindGroup;
+
+		if ( sharedGroup ) {
+
+			bindGroup = bindGroupsCache.get( bindingsArray );
+
+			if ( bindGroup === undefined ) {
+
+				bindGroup = new BindGroup( groupName, bindingsArray );
+				bindGroupsCache.set( bindingsArray, bindGroup );
+
+			}
+
+		} else {
+
+			bindGroup = new BindGroup( groupName, bindingsArray );
+
+		}
+
+		return bindGroup;
+
+	}
+
+	getBindGroupArray( groupName, shaderStage ) {
+
+		const bindings = this.bindings[ shaderStage ];
+
+		let bindGroup = bindings[ groupName ];
+
+		if ( bindGroup === undefined ) {
+
+			if ( this.bindingsIndexes[ groupName ] === undefined ) {
+
+				this.bindingsIndexes[ groupName ] = { binding: 0, group: Object.keys( this.bindingsIndexes ).length };
+
+			}
+
+			bindings[ groupName ] = bindGroup = [];
+
+		}
+
+		return bindGroup;
 
 	}
 
 	getBindings() {
 
-		let bindingsArray = this.bindingsArray;
+		let bindingsGroups = this.bindGroups;
 
-		if ( bindingsArray === null ) {
+		if ( bindingsGroups === null ) {
 
+			const groups = {};
 			const bindings = this.bindings;
 
-			this.bindingsArray = bindingsArray = this._getSharedBindings( ( this.material !== null ) ? [ ...bindings.vertex, ...bindings.fragment ] : bindings.compute );
+			for ( const shaderStage of shaderStages ) {
+
+				for ( const groupName in bindings[ shaderStage ] ) {
+
+					const uniforms = bindings[ shaderStage ][ groupName ];
+
+					const groupUniforms = groups[ groupName ] || ( groups[ groupName ] = [] );
+					groupUniforms.push( ...uniforms );
+
+				}
+
+			}
+
+			bindingsGroups = [];
+
+			for ( const groupName in groups ) {
+
+				const group = groups[ groupName ];
+
+				const bindingsGroup = this._getBindGroup( groupName, group );
+
+				bindingsGroups.push( bindingsGroup );
+
+			}
+
+			this.bindGroups = bindingsGroups;
 
 		}
 
-		return bindingsArray;
+		return bindingsGroups;
 
 	}
 
@@ -216,6 +317,7 @@ class NodeBuilder {
 
 			const updateType = node.getUpdateType();
 			const updateBeforeType = node.getUpdateBeforeType();
+			const updateAfterType = node.getUpdateAfterType();
 
 			if ( updateType !== NodeUpdateType.NONE ) {
 
@@ -229,6 +331,12 @@ class NodeBuilder {
 
 			}
 
+			if ( updateAfterType !== NodeUpdateType.NONE ) {
+
+				this.updateAfterNodes.push( node );
+
+			}
+
 		}
 
 	}
@@ -236,6 +344,13 @@ class NodeBuilder {
 	get currentNode() {
 
 		return this.chaining[ this.chaining.length - 1 ];
+
+	}
+
+	isFilteredTexture( texture ) {
+
+		return ( texture.magFilter === LinearFilter || texture.magFilter === LinearMipmapNearestFilter || texture.magFilter === NearestMipmapLinearFilter || texture.magFilter === LinearMipmapLinearFilter ||
+			texture.minFilter === LinearFilter || texture.minFilter === LinearMipmapNearestFilter || texture.minFilter === NearestMipmapLinearFilter || texture.minFilter === LinearMipmapLinearFilter );
 
 	}
 
@@ -306,6 +421,15 @@ class NodeBuilder {
 	getCache() {
 
 		return this.cache;
+
+	}
+
+	getCacheFromNode( node, parent = true ) {
+
+		const data = this.getDataFromNode( node );
+		if ( data.cache === undefined ) data.cache = new NodeCache( parent ? this.getCache() : null );
+
+		return data.cache;
 
 	}
 
@@ -416,12 +540,6 @@ class NodeBuilder {
 
 	}
 
-	generateMethod( method ) {
-
-		return method;
-
-	}
-
 	hasGeometryAttribute( name ) {
 
 		return this.geometry && this.geometry.getAttribute( name ) !== undefined;
@@ -474,7 +592,7 @@ class NodeBuilder {
 
 	isReference( type ) {
 
-		return type === 'void' || type === 'property' || type === 'sampler' || type === 'texture' || type === 'cubeTexture' || type === 'storageTexture';
+		return type === 'void' || type === 'property' || type === 'sampler' || type === 'texture' || type === 'cubeTexture' || type === 'storageTexture' || type === 'depthTexture' || type === 'texture3D';
 
 	}
 
@@ -499,6 +617,16 @@ class NodeBuilder {
 
 	}
 
+	getElementType( type ) {
+
+		if ( type === 'mat2' ) return 'vec2';
+		if ( type === 'mat3' ) return 'vec3';
+		if ( type === 'mat4' ) return 'vec4';
+
+		return this.getComponentType( type );
+
+	}
+
 	getComponentType( type ) {
 
 		type = this.getVectorType( type );
@@ -520,7 +648,7 @@ class NodeBuilder {
 	getVectorType( type ) {
 
 		if ( type === 'color' ) return 'vec3';
-		if ( type === 'texture' || type === 'cubeTexture' || type === 'storageTexture' ) return 'vec4';
+		if ( type === 'texture' || type === 'cubeTexture' || type === 'storageTexture' || type === 'texture3D' ) return 'vec4';
 
 		return type;
 
@@ -628,13 +756,13 @@ class NodeBuilder {
 
 		cache = cache === null ? ( node.isGlobal( this ) ? this.globalCache : this.cache ) : cache;
 
-		let nodeData = cache.getNodeData( node );
+		let nodeData = cache.getData( node );
 
 		if ( nodeData === undefined ) {
 
 			nodeData = {};
 
-			cache.setNodeData( node, nodeData );
+			cache.setData( node, nodeData );
 
 		}
 
@@ -908,7 +1036,9 @@ class NodeBuilder {
 
 		const previousFlow = this.flow;
 		const previousVars = this.vars;
+		const previousCache = this.cache;
 		const previousBuildStage = this.buildStage;
+		const previousStack = this.stack;
 
 		const flow = {
 			code: ''
@@ -916,6 +1046,8 @@ class NodeBuilder {
 
 		this.flow = flow;
 		this.vars = {};
+		this.cache = new NodeCache();
+		this.stack = stack();
 
 		for ( const buildStage of defaultBuildStages ) {
 
@@ -929,6 +1061,9 @@ class NodeBuilder {
 
 		this.flow = previousFlow;
 		this.vars = previousVars;
+		this.cache = previousCache;
+		this.stack = previousStack;
+
 		this.setBuildStage( previousBuildStage );
 
 		return flow;
@@ -1087,21 +1222,18 @@ class NodeBuilder {
 
 	}
 
-	build( convertMaterial = true ) {
+	build() {
 
 		const { object, material } = this;
 
-		if ( convertMaterial ) {
 
-			if ( material !== null ) {
+		if ( material !== null ) {
 
-				NodeMaterial.fromMaterial( material ).build( this );
+			NodeMaterial.fromMaterial( material ).build( this );
 
-			} else {
+		} else {
 
-				this.addFlow( 'compute', object );
-
-			}
+			this.addFlow( 'compute', object );
 
 		}
 
@@ -1157,10 +1289,10 @@ class NodeBuilder {
 
 	getNodeUniform( uniformNode, type ) {
 
-		if ( type === 'float' ) return new FloatNodeUniform( uniformNode );
-		if ( type === 'vec2' ) return new Vector2NodeUniform( uniformNode );
-		if ( type === 'vec3' ) return new Vector3NodeUniform( uniformNode );
-		if ( type === 'vec4' ) return new Vector4NodeUniform( uniformNode );
+		if ( type === 'float' || type === 'int' || type === 'uint' ) return new NumberNodeUniform( uniformNode );
+		if ( type === 'vec2' || type === 'ivec2' || type === 'uvec2' ) return new Vector2NodeUniform( uniformNode );
+		if ( type === 'vec3' || type === 'ivec3' || type === 'uvec3' ) return new Vector3NodeUniform( uniformNode );
+		if ( type === 'vec4' || type === 'ivec4' || type === 'uvec4' ) return new Vector4NodeUniform( uniformNode );
 		if ( type === 'color' ) return new ColorNodeUniform( uniformNode );
 		if ( type === 'mat3' ) return new Matrix3NodeUniform( uniformNode );
 		if ( type === 'mat4' ) return new Matrix4NodeUniform( uniformNode );
@@ -1231,7 +1363,7 @@ class NodeBuilder {
 
 		}
 
-		if ( fromTypeLength === 1 && toTypeLength > 1 && fromType[ 0 ] !== toType[ 0 ] ) { // fromType is float-like
+		if ( fromTypeLength === 1 && toTypeLength > 1 && fromType !== this.getComponentType( toType ) ) { // fromType is float-like
 
 			// convert a number value to vector type, e.g:
 			// vec3( 1u ) -> vec3( float( 1u ) )
@@ -1246,7 +1378,7 @@ class NodeBuilder {
 
 	getSignature() {
 
-		return `// Three.js r${ REVISION } - NodeMaterial System\n`;
+		return `// Three.js r${ REVISION } - Node System\n`;
 
 	}
 

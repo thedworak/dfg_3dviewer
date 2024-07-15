@@ -23,7 +23,7 @@ import { mergeGeometries } from '../utils/BufferGeometryUtils.js';
 const IdAttrName = 'expressID';
 const merge = ( geoms, createGroups = false ) => {
 
-	return mergeBufferGeometries( geoms, createGroups );
+	return mergeGeometries( geoms, createGroups );
 
 };
 
