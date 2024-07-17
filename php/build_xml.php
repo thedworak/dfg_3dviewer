@@ -1,43 +1,48 @@
 <?php
 
+const DOMAIN='https://3d-repository.hs-mainz.de';
+const EXPORT_PATH='/export_xml_single/';
+const MFILEPATH='sites/default/files/xml_structure';
+const XSLURL="https://raw.githubusercontent.com/slub/dfg-viewer/e54305a9fa58951d3f3d1dd7e64554cb2ee881eb/Resources/Public/XSLT/exportSingleToMetsMods.xsl";
+
 function file_get_contents_curl( $url ) {
+	$ch = curl_init();
 
-  $ch = curl_init();
+	curl_setopt( $ch, CURLOPT_AUTOREFERER, TRUE );
+	curl_setopt( $ch, CURLOPT_HEADER, 0 );
+	curl_setopt( $ch, CURLOPT_RETURNTRANSFER, 1 );
+	curl_setopt( $ch, CURLOPT_URL, $url );
+	curl_setopt( $ch, CURLOPT_FOLLOWLOCATION, TRUE );
+	curl_setopt( $ch, CURLOPT_SSL_VERIFYPEER, false);
 
-  curl_setopt( $ch, CURLOPT_AUTOREFERER, TRUE );
-  curl_setopt( $ch, CURLOPT_HEADER, 0 );
-  curl_setopt( $ch, CURLOPT_RETURNTRANSFER, 1 );
-  curl_setopt( $ch, CURLOPT_URL, $url );
-  curl_setopt( $ch, CURLOPT_FOLLOWLOCATION, TRUE );
+	$data = curl_exec( $ch );
+	
+	curl_close( $ch );
 
-  $data = curl_exec( $ch );
-  curl_close( $ch );
-
-  return $data;
+	if($data === false) {
+		echo 'Curl ERROR: ' . curl_error($ch);
+	} else
+	{
+		return $data;
+	}
 
 }
 
 function build_xml ($id) {
-	$ID=isset($_GET['id']) ? $_GET['id'] : $argv[1];
-	$FILEPATH="sites/default/files/xml_structure/$id.xml";
-	//$FILEPATH="/var/www/html/3drepository/modules/dfg_3dviewer/xml_structure/$id.xml";
-	//$FILEPATH="/var/www/html/3drepository/sites/default/files/xml_structure/$id.xml";
+	$id = isset($id) ? $id : $_GET['id'];
+	$FILEPATH=MFILEPATH."/$id.xml";
 
-	//if (!file_exists($FILEPATH)) {
-	$DOMAIN = "https://3d-repository.hs-mainz.de";
-	$EXPORT_PATH = '/export_xml_single/';
-	$url = $DOMAIN . $EXPORT_PATH . $id . '?page=0&amp;_format=xml';
+	$url = DOMAIN . EXPORT_PATH . $id . '?page=0&amp;_format=xml';
 
 	$data = file_get_contents_curl($url);
 	$xml = simplexml_load_string($data);
 
-	$xsl = simplexml_load_file("https://raw.githubusercontent.com/slub/dfg-viewer/e54305a9fa58951d3f3d1dd7e64554cb2ee881eb/Resources/Public/XSLT/exportSingleToMetsMods.xsl");
+	if(empty($xml)) return;
+
+	$xsl = simplexml_load_file(XSLURL);
 	$xslt = new \XSLTProcessor();
 	$xslt->importStyleSheet($xsl);
-	
-	if(empty($xml));
-	  return;
-	
+
 	$xmlt = simplexml_load_string($xslt->transformToXML($xml));
 
 	$xmlt->registerXPathNamespace('mets', 'http://www.loc.gov/METS/');
@@ -48,7 +53,9 @@ function build_xml ($id) {
 	$dom->formatOutput = true;
 	$dom->loadXML($xmlt->asXML());
 	$dom->save($FILEPATH);
-	//}
 }
+
+#$id = isset($entity_id) ? $entity_id : $_GET['id'];
+#build_xml ($id);
 
 ?>
