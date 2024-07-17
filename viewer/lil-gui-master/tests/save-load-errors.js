@@ -1,5 +1,5 @@
 import assert from 'assert';
-import GUI from '..';
+import GUI from '../dist/lil-gui.esm.min.js';
 
 export default () => {
 
@@ -27,7 +27,7 @@ export default () => {
 	const f2 = f1.addFolder( 'foo' );
 	f2.add( { foo }, 'foo' );
 
-	assert.doesNotThrow( () => gui.save(), Error, 'doesn\'t throw error if names collide across folders' );
+	assert.doesNotThrow( () => gui.save(), Error, "doesn't throw error if names collide across folders" );
 
 	assert.doesNotThrow( () => gui.load( {} ), 'does nothing with an empty object' );
 

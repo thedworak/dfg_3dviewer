@@ -30,10 +30,13 @@ export default class GUI {
 	 *
 	 * @param {number} [options.width=245]
 	 * Width of the GUI in pixels, usually set when name labels become too long. Note that you can make
-	 * name labels wider in CSS with `.lil‑gui { ‑‑name‑width: 55% }`
+	 * name labels wider in CSS with `.lil‑gui { ‑‑name‑width: 55% }`.
 	 *
 	 * @param {string} [options.title=Controls]
 	 * Name to display in the title bar.
+	 *
+	 * @param {boolean} [options.closeFolders=false]
+	 * Pass `true` to close all folders in this GUI by default.
 	 *
 	 * @param {boolean} [options.injectStyles=true]
 	 * Injects the default stylesheet into the page if this is the first GUI.
@@ -52,6 +55,7 @@ export default class GUI {
 		container,
 		width,
 		title = 'Controls',
+		closeFolders = false,
 		injectStyles = true,
 		touchStyles = true
 	} = {} ) {
@@ -93,6 +97,12 @@ export default class GUI {
 		this._closed = false;
 
 		/**
+		 * Used to determine if the GUI is hidden. Use `gui.show()` or `gui.hide()` to change this.
+		 * @type {boolean}
+		 */
+		this._hidden = false;
+
+		/**
 		 * The outermost container element.
 		 * @type {HTMLElement}
 		 */
@@ -118,7 +128,7 @@ export default class GUI {
 		} );
 
 		// enables :active pseudo class on mobile
-		this.$title.addEventListener( 'touchstart', () => { } );
+		this.$title.addEventListener( 'touchstart', () => {}, { passive: true } );
 
 		/**
 		 * The DOM element that contains children.
@@ -131,10 +141,6 @@ export default class GUI {
 		this.domElement.appendChild( this.$children );
 
 		this.title( title );
-
-		if ( touchStyles ) {
-			this.domElement.classList.add( 'allow-touch-styles' );
-		}
 
 		if ( this.parent ) {
 
@@ -149,6 +155,10 @@ export default class GUI {
 		}
 
 		this.domElement.classList.add( 'root' );
+
+		if ( touchStyles ) {
+			this.domElement.classList.add( 'allow-touch-styles' );
+		}
 
 		// Inject stylesheet if we haven't done that yet
 		if ( !stylesInjected && injectStyles ) {
@@ -170,6 +180,8 @@ export default class GUI {
 		if ( width ) {
 			this.domElement.style.setProperty( '--width', width + 'px' );
 		}
+
+		this._closeFolders = closeFolders;
 
 	}
 
@@ -242,7 +254,7 @@ export default class GUI {
 	 * @param {object} object The object the controller will modify.
 	 * @param {string} property Name of the property to control.
 	 * @param {number} rgbScale Maximum value for a color channel when using an RGB color. You may
-	 * need to set this to 255 if your colors are too dark.
+	 * need to set this to 255 if your colors are too bright.
 	 * @returns {Controller}
 	 */
 	addColor( object, property, rgbScale = 1 ) {
@@ -262,7 +274,9 @@ export default class GUI {
 	 * @returns {GUI}
 	 */
 	addFolder( title ) {
-		return new GUI( { parent: this, title } );
+		const folder = new GUI( { parent: this, title } );
+		if ( this.root._closeFolders ) folder.close();
+		return folder;
 	}
 
 	/**
@@ -362,7 +376,7 @@ export default class GUI {
 
 	/**
 	 * Opens a GUI or folder. GUI and folders are open by default.
-	 * @param {boolean} open Pass false to close
+	 * @param {boolean} open Pass false to close.
 	 * @returns {this}
 	 * @example
 	 * gui.open(); // open
@@ -371,7 +385,7 @@ export default class GUI {
 	 */
 	open( open = true ) {
 
-		this._closed = !open;
+		this._setClosed( !open );
 
 		this.$title.setAttribute( 'aria-expanded', !this._closed );
 		this.domElement.classList.toggle( 'closed', this._closed );
@@ -388,10 +402,43 @@ export default class GUI {
 		return this.open( false );
 	}
 
+	_setClosed( closed ) {
+		if ( this._closed === closed ) return;
+		this._closed = closed;
+		this._callOnOpenClose( this );
+	}
+
+	/**
+	 * Shows the GUI after it's been hidden.
+	 * @param {boolean} show
+	 * @returns {this}
+	 * @example
+	 * gui.show();
+	 * gui.show( false ); // hide
+	 * gui.show( gui._hidden ); // toggle
+	 */
+	show( show = true ) {
+
+		this._hidden = !show;
+
+		this.domElement.style.display = this._hidden ? 'none' : '';
+
+		return this;
+
+	}
+
+	/**
+	 * Hides the GUI.
+	 * @returns {this}
+	 */
+	hide() {
+		return this.show( false );
+	}
+
 	openAnimated( open = true ) {
 
 		// set state immediately
-		this._closed = !open;
+		this._setClosed( !open );
 
 		this.$title.setAttribute( 'aria-expanded', !this._closed );
 
@@ -439,7 +486,7 @@ export default class GUI {
 		 * @type {string}
 		 */
 		this._title = title;
-		this.$title.innerHTML = title;
+		this.$title.textContent = title;
 		return this;
 	}
 
@@ -531,7 +578,31 @@ export default class GUI {
 	}
 
 	/**
-	 * Destroys all DOM elements and event listeners associated with this GUI
+	 * Pass a function to be called when this GUI or its descendants are opened or closed.
+	 * @param {function(GUI)} callback
+	 * @returns {this}
+	 * @example
+	 * gui.onOpenClose( changedGUI => {
+	 * 	console.log( changedGUI._closed );
+	 * } );
+	 */
+	onOpenClose( callback ) {
+		this._onOpenClose = callback;
+		return this;
+	}
+
+	_callOnOpenClose( changedGUI ) {
+		if ( this.parent ) {
+			this.parent._callOnOpenClose( changedGUI );
+		}
+
+		if ( this._onOpenClose !== undefined ) {
+			this._onOpenClose.call( this, changedGUI );
+		}
+	}
+
+	/**
+	 * Destroys all DOM elements and event listeners associated with this GUI.
 	 */
 	destroy() {
 

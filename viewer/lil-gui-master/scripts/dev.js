@@ -1,5 +1,5 @@
 import concurrently from 'concurrently';
-import pkg from '../package.json';
+import pkg from './package.js';
 
 dev( {
 	'api': {
@@ -11,7 +11,8 @@ dev( {
 	},
 	'homepage': {
 		onchange: [
-			'scripts/homepage*',
+			'scripts/homepage.js',
+			'homepage/homepage.hbs.html',
 			'package.json',
 			'*.md'
 		],

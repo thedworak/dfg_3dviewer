@@ -18,6 +18,12 @@ export default class NumberController extends Controller {
 
 	}
 
+	decimals( decimals ) {
+		this._decimals = decimals;
+		this.updateDisplay();
+		return this;
+	}
+
 	min( min ) {
 		this._min = min;
 		this._onUpdateMinMax();
@@ -50,7 +56,7 @@ export default class NumberController extends Controller {
 		}
 
 		if ( !this._inputFocused ) {
-			this.$input.value = value;
+			this.$input.value = this._decimals === undefined ? value : value.toFixed( this._decimals );
 		}
 
 		return this;
@@ -60,21 +66,34 @@ export default class NumberController extends Controller {
 	_initInput() {
 
 		this.$input = document.createElement( 'input' );
-		this.$input.setAttribute( 'type', 'number' );
-		this.$input.setAttribute( 'step', 'any' );
+		this.$input.setAttribute( 'type', 'text' );
 		this.$input.setAttribute( 'aria-labelledby', this.$name.id );
+
+		// On touch devices only, use input[type=number] to force a numeric keyboard.
+		// Ideally we could use one input type everywhere, but [type=number] has quirks
+		// on desktop, and [inputmode=decimal] has quirks on iOS.
+		// See https://github.com/georgealways/lil-gui/pull/16
+
+		const isTouch = window.matchMedia( '(pointer: coarse)' ).matches;
+
+		if ( isTouch ) {
+			this.$input.setAttribute( 'type', 'number' );
+			this.$input.setAttribute( 'step', 'any' );
+		}
 
 		this.$widget.appendChild( this.$input );
 
 		this.$disable = this.$input;
 
-		this._captureKeyEvents( this.$input );
-
 		const onInput = () => {
 
-			const value = parseFloat( this.$input.value );
+			let value = parseFloat( this.$input.value );
 
 			if ( isNaN( value ) ) return;
+
+			if ( this._stepExplicit ) {
+				value = this._snap( value );
+			}
 
 			this.setValue( this._clamp( value ) );
 
@@ -97,7 +116,8 @@ export default class NumberController extends Controller {
 		};
 
 		const onKeyDown = e => {
-			if ( e.code === 'Enter' ) {
+			// Using `e.key` instead of `e.code` also catches NumpadEnter
+			if ( e.key === 'Enter' ) {
 				this.$input.blur();
 			}
 			if ( e.code === 'ArrowUp' ) {
@@ -212,7 +232,7 @@ export default class NumberController extends Controller {
 
 		this.$input.addEventListener( 'input', onInput );
 		this.$input.addEventListener( 'keydown', onKeyDown );
-		this.$input.addEventListener( 'wheel', onWheel );
+		this.$input.addEventListener( 'wheel', onWheel, { passive: false } );
 		this.$input.addEventListener( 'mousedown', onMouseDown );
 		this.$input.addEventListener( 'focus', onFocus );
 		this.$input.addEventListener( 'blur', onBlur );
@@ -302,7 +322,7 @@ export default class NumberController extends Controller {
 
 			}
 
-			window.addEventListener( 'touchmove', onTouchMove );
+			window.addEventListener( 'touchmove', onTouchMove, { passive: false } );
 			window.addEventListener( 'touchend', onTouchEnd );
 
 		};
@@ -374,8 +394,8 @@ export default class NumberController extends Controller {
 		};
 
 		this.$slider.addEventListener( 'mousedown', mouseDown );
-		this.$slider.addEventListener( 'touchstart', onTouchStart );
-		this.$slider.addEventListener( 'wheel', onWheel );
+		this.$slider.addEventListener( 'touchstart', onTouchStart, { passive: false } );
+		this.$slider.addEventListener( 'wheel', onWheel, { passive: false } );
 
 	}
 

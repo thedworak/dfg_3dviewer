@@ -1,12 +1,17 @@
-@mixin touch-vars { 
+@mixin touch-vars {
+
 	@media (pointer: coarse) {
-		&.allow-touch-styles {
+		&.allow-touch-styles,
+		&.allow-touch-styles & {
 			@content;
 		}
 	}
-	&.force-touch-styles { 
+
+	&.force-touch-styles,
+	&.force-touch-styles & {
 		@content;
 	}
+
 }
 
 .lil-gui {
@@ -18,7 +23,6 @@
 	font-style: normal;
 	text-align: left;
 
-	background-color: var(--background-color);
 	color: var(--text-color);
 
 	user-select: none;
@@ -38,6 +42,7 @@
 		width: var(--width, 245px);
 		display: flex;
 		flex-direction: column;
+		background: var(--background-color);
 		> .title {
 			background: var(--title-background-color);
 			color: var(--title-text-color);
@@ -76,6 +81,7 @@
 	--padding: 4px;
 	--spacing: 4px;
 	--widget-height: 20px;
+	--title-height: calc(var(--widget-height) + var(--spacing) * 1.25);
 	--name-width: 45%;
 	--slider-knob-width: 2px;
 	--slider-input-width: 27%;
@@ -88,14 +94,13 @@
 	--checkbox-size: calc(0.75 * var(--widget-height));
 	--scrollbar-width: 5px;
 
-	@include touch-vars { 
+	@include touch-vars {
 		--widget-height: 28px;
 		--padding: 6px;
 		--spacing: 6px;
 		--font-size: 13px;
 		--input-font-size: 16px; // < 16px causes zoom on iOS
 		--folder-indent: 10px;
-		--widget-padding: 0 0 0 3px;
 		--scrollbar-width: 7px;
 		--slider-input-min-width: 50px;
 		--color-input-min-width: 65px;
@@ -108,5 +113,4 @@
 		right: 15px;
 		z-index: 1001;
 	}
-	
 }

@@ -5,7 +5,7 @@
  */
 export default class Controller {
 
-	constructor( parent, object, property, className, widgetTag = 'div' ) {
+	constructor( parent, object, property, className, elementType = 'div' ) {
 
 		/**
 		 * The GUI that contains this controller.
@@ -27,10 +27,17 @@ export default class Controller {
 
 		/**
 		 * Used to determine if the controller is disabled.
-		 * Use `controller.disable( true|false )` to modify this value
+		 * Use `controller.disable( true|false )` to modify this value.
 		 * @type {boolean}
 		 */
 		this._disabled = false;
+
+		/**
+		 * Used to determine if the Controller is hidden.
+		 * Use `controller.show()` or `controller.hide()` to change this.
+		 * @type {boolean}
+		 */
+		this._hidden = false;
 
 		/**
 		 * The value of `object[ property ]` when the controller was created.
@@ -42,7 +49,7 @@ export default class Controller {
 		 * The outermost container DOM element for this controller.
 		 * @type {HTMLElement}
 		 */
-		this.domElement = document.createElement( 'div' );
+		this.domElement = document.createElement( elementType );
 		this.domElement.classList.add( 'controller' );
 		this.domElement.classList.add( className );
 
@@ -60,17 +67,21 @@ export default class Controller {
 		 * The DOM element that contains the controller's "widget" (which differs by controller type).
 		 * @type {HTMLElement}
 		 */
-		this.$widget = document.createElement( widgetTag );
+		this.$widget = document.createElement( 'div' );
 		this.$widget.classList.add( 'widget' );
 
 		/**
-		 * The DOM element that receives the disabled attribute when using disable()
+		 * The DOM element that receives the disabled attribute when using disable().
 		 * @type {HTMLElement}
 		 */
 		this.$disable = this.$widget;
 
 		this.domElement.appendChild( this.$name );
 		this.domElement.appendChild( this.$widget );
+
+		// Don't fire global key events while typing in a controller
+		this.domElement.addEventListener( 'keydown', e => e.stopPropagation() );
+		this.domElement.addEventListener( 'keyup', e => e.stopPropagation() );
 
 		this.parent.children.push( this );
 		this.parent.controllers.push( this );
@@ -94,7 +105,7 @@ export default class Controller {
 		 * @type {string}
 		 */
 		this._name = name;
-		this.$name.innerHTML = name;
+		this.$name.textContent = name;
 		return this;
 	}
 
@@ -102,6 +113,9 @@ export default class Controller {
 	 * Pass a function to be called whenever the value is modified by this controller.
 	 * The function receives the new value as its first parameter. The value of `this` will be the
 	 * controller.
+	 *
+	 * For function controllers, the `onChange` callback will be fired on click, after the function
+	 * executes.
 	 * @param {Function} callback
 	 * @returns {this}
 	 * @example
@@ -226,29 +240,55 @@ export default class Controller {
 	}
 
 	/**
-	 * Destroys this controller and replaces it with a new option controller. Provided as a more
-	 * descriptive syntax for `gui.add`, but primarily for compatibility with dat.gui.
+	 * Shows the Controller after it's been hidden.
+	 * @param {boolean} show
+	 * @returns {this}
+	 * @example
+	 * controller.show();
+	 * controller.show( false ); // hide
+	 * controller.show( controller._hidden ); // toggle
+	 */
+	show( show = true ) {
+
+		this._hidden = !show;
+
+		this.domElement.style.display = this._hidden ? 'none' : '';
+
+		return this;
+
+	}
+
+	/**
+	 * Hides the Controller.
+	 * @returns {this}
+	 */
+	hide() {
+		return this.show( false );
+	}
+
+	/**
+	 * Changes this controller into a dropdown of options.
 	 *
-	 * Use caution, as this method will destroy old references to this controller. It will also
-	 * change controller order if called out of sequence, moving the option controller to the end of
-	 * the GUI.
+	 * Calling this method on an option controller will simply update the options. However, if this
+	 * controller was not already an option controller, old references to this controller are
+	 * destroyed, and a new controller is added to the end of the GUI.
 	 * @example
 	 * // safe usage
 	 *
-	 * gui.add( object1, 'property' ).options( [ 'a', 'b', 'c' ] );
-	 * gui.add( object2, 'property' );
+	 * gui.add( obj, 'prop1' ).options( [ 'a', 'b', 'c' ] );
+	 * gui.add( obj, 'prop2' ).options( { Big: 10, Small: 1 } );
+	 * gui.add( obj, 'prop3' );
 	 *
 	 * // danger
 	 *
-	 * const c = gui.add( object1, 'property' );
-	 * gui.add( object2, 'property' );
+	 * const ctrl1 = gui.add( obj, 'prop1' );
+	 * gui.add( obj, 'prop2' );
 	 *
-	 * c.options( [ 'a', 'b', 'c' ] );
-	 * // controller is now at the end of the GUI even though it was added first
+	 * // calling options out of order adds a new controller to the end...
+	 * const ctrl2 = ctrl1.options( [ 'a', 'b', 'c' ] );
 	 *
-	 * assert( c.parent.children.indexOf( c ) === -1 )
-	 * // c references a controller that no longer exists
-	 *
+	 * // ...and ctrl1 now references a controller that doesn't exist
+	 * assert( ctrl2 !== ctrl1 )
 	 * @param {object|Array} options
 	 * @returns {Controller}
 	 */
@@ -280,12 +320,26 @@ export default class Controller {
 	}
 
 	/**
-	 * Sets the step. Only works on number controllers.
+	 * Values set by this controller will be rounded to multiples of `step`. Only works on number
+	 * controllers.
 	 * @param {number} step
 	 * @returns {this}
 	 */
 	// eslint-disable-next-line no-unused-vars
 	step( step ) {
+		return this;
+	}
+
+	/**
+	 * Rounds the displayed value to a fixed number of decimals, without affecting the actual value
+	 * like `step()`. Only works on number controllers.
+	 * @example
+	 * gui.add( object, 'property' ).listen().decimals( 4 );
+	 * @param {number} decimals
+	 * @returns {this}
+	 */
+	// eslint-disable-next-line no-unused-vars
+	decimals( decimals ) {
 		return this;
 	}
 
@@ -317,8 +371,21 @@ export default class Controller {
 	}
 
 	_listenCallback() {
+
 		this._listenCallbackID = requestAnimationFrame( this._listenCallback );
-		this.updateDisplay();
+
+		// To prevent framerate loss, make sure the value has changed before updating the display.
+		// Note: save() is used here instead of getValue() only because of ColorController. The !== operator
+		// won't work for color objects or arrays, but ColorController.save() always returns a string.
+
+		const curValue = this.save();
+
+		if ( curValue !== this._listenPrevValue ) {
+			this.updateDisplay();
+		}
+
+		this._listenPrevValue = curValue;
+
 	}
 
 	/**
@@ -335,10 +402,17 @@ export default class Controller {
 	 * @returns {this}
 	 */
 	setValue( value ) {
-		this.object[ this.property ] = value;
-		this._callOnChange();
-		this.updateDisplay();
+
+		if ( this.getValue() !== value ) {
+
+			this.object[ this.property ] = value;
+			this._callOnChange();
+			this.updateDisplay();
+
+		}
+
 		return this;
+
 	}
 
 	/**
@@ -364,20 +438,10 @@ export default class Controller {
 	 * Destroys this controller and removes it from the parent GUI.
 	 */
 	destroy() {
+		this.listen( false );
 		this.parent.children.splice( this.parent.children.indexOf( this ), 1 );
 		this.parent.controllers.splice( this.parent.controllers.indexOf( this ), 1 );
 		this.parent.$children.removeChild( this.domElement );
-	}
-
-	/**
-	 * Stops propagation of `keyup` and `keydown` events for `el`. Used on inputs
-	 * that allow typing to prevent triggering global key commands.
-	 * @param {HTMLElement} el
-	 * @protected
-	 */
-	_captureKeyEvents( el ) {
-		el.addEventListener( 'keydown', e => e.stopPropagation() );
-		el.addEventListener( 'keyup', e => e.stopPropagation() );
 	}
 
 }

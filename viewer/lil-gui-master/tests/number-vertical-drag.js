@@ -1,7 +1,7 @@
 import assert from 'assert';
-import GUI from '..';
+import GUI from '../dist/lil-gui.esm.min.js';
 
-import simulateDrag from './utils/simulateDrag';
+import simulateDrag from './utils/simulateDrag.js';
 
 export default () => {
 
@@ -10,13 +10,13 @@ export default () => {
 	const num = gui.add( obj, 'x' );
 
 	simulateDrag( 'mouse', num.$input, { dx: 235, dy: 0 } );
-	assert.strictEqual( obj.x, 3, 'horizontal drags don\'t trigger change' );
+	assert.strictEqual( obj.x, 3, "horizontal drags don't trigger change" );
 
 	simulateDrag( 'mouse', num.$input, { dx: -200, dy: 4 } );
-	assert.strictEqual( obj.x, 3, 'ambiguous drags don\'t trigger change' );
+	assert.strictEqual( obj.x, 3, "ambiguous drags don't trigger change" );
 
 	simulateDrag( 'mouse', num.$input, { dx: 0, dy: 4 } );
-	assert.strictEqual( obj.x, 3, 'small vertical drags don\'t trigger change' );
+	assert.strictEqual( obj.x, 3, "small vertical drags don't trigger change" );
 
 	simulateDrag( 'mouse', num.$input, { dx: 0, dy: -25 } );
 	assert.strictEqual( obj.x, 28, 'vertical drags change' );

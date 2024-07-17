@@ -8,6 +8,7 @@ export default class StringController extends Controller {
 
 		this.$input = document.createElement( 'input' );
 		this.$input.setAttribute( 'type', 'text' );
+		this.$input.setAttribute( 'spellcheck', 'false' );
 		this.$input.setAttribute( 'aria-labelledby', this.$name.id );
 
 		this.$input.addEventListener( 'input', () => {
@@ -27,8 +28,6 @@ export default class StringController extends Controller {
 		this.$widget.appendChild( this.$input );
 
 		this.$disable = this.$input;
-
-		this._captureKeyEvents( this.$input );
 
 		this.updateDisplay();
 

@@ -4,8 +4,9 @@
 It's intended as a drop-in replacement for [dat.gui](https://github.com/dataarts/dat.gui), 
 implemented with more modern web standards and some new quality of life features.
 
-If you've used dat.gui before, the beginning of this guide will be review. The [Migrating](#Migrating) 
-section points out the notable differences between the two libraries.
+The [Migrating](#Migrating) section lists any breaking changes between the two libraries. The changes are limited to the lesser-used portions of the API, but you should read it before moving a project to lil-gui.
+
+If you've used dat.gui before, the beginning of this guide will be review. New features are introduced beginning in the [Change Events](/#Guide#Change-Events) section.
 
 ## Installation
 
@@ -45,10 +46,9 @@ const gui = new GUI();
 gui.add( document, 'title' );
 ```
 
-lil-gui will choose an appropriate controller type based on the property's value when it was added
-to the GUI. Since `document.title` was a string, a text field was created.
+lil-gui will choose an appropriate controller based on the property's data type. Since `document.title` is a string, a text field is created.
 
-Here are some more of the variable types you can control:
+Here are some more of the data types you can control:
 
 ```js
 obj = {
@@ -178,10 +178,11 @@ gui.add( params, 'foo' ).onChange( value => {
 } );
 ```
 
-The `onFinishChange` handler fires after a controller changes and loses focus. This comes in handy if you're using a slow function with a controller that produces continuous change events (like numbers or colors for example). 
+The `onFinishChange` handler fires after a controller changes and loses focus. This comes in handy if you're using a slow function with a controller that produces continuous change events (like a slider or color picker). 
 
 ```js
-gui.add( params, 'mySlider', 0, 1 ).onFinishChange( complexFunction );
+gui.add( params, 'foo' )
+   .onFinishChange( complexFunction );
 ```
 
 ### Global Change Handlers
@@ -225,7 +226,7 @@ You can also call `controller.updateDisplay()` at any time to manage this behavi
 
 ## Saving
 
-Using `gui.save()` you can create an object that saves the current value of all properties
+Using `gui.save()`, you can create an object that saves the current value of all properties
 added to the GUI. You can pass that object to `gui.load()` to restore the saved values.
 
 The following creates a GUI that can save a preset. Press the savePreset button, then modify any
@@ -252,9 +253,8 @@ gui.add( obj, 'value2' );
 
 gui.add( obj, 'savePreset' );
 
-const loadButton = 
-	gui.add( obj, 'loadPreset' )
-	   .disable();
+const loadButton = gui.add( obj, 'loadPreset' );
+loadButton.disable();
 ```
 
 ### Save Object Format
@@ -347,7 +347,7 @@ new GUI( { injectStyles: false } );
 ### Touch Styles
 
 Controllers are larger on touch devices to make them easier to use. By default, these styles are 
-applied using a CSS query `@media (pointer: coarse)`. You can disable this behavior with the `touchStyles` parameter.
+applied using a CSS query: `@media (pointer: coarse)`. You can disable this behavior with the `touchStyles` parameter.
 
 ```js
 gui = new GUI( { touchStyles: false } );

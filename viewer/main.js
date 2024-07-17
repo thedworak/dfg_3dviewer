@@ -270,7 +270,7 @@ var propertiesFolder;
 var planeObjects = [];
 var materialsFolder;
 
-var clippingGeometry = [];
+//var clippingGeometry = [];
 
 var textMesh;
 var textMeshDistance;
@@ -279,57 +279,6 @@ var rulerObject;
 var lastPickedFace = {id: '', color: '', object: ''};
 
 var loadedTimes = 0;
-
-function createClippingPlaneGroup(geometry, plane, renderOrder) {
-	const group = new THREE.Group();
-	const baseMat = new THREE.MeshBasicMaterial();
-	baseMat.depthWrite = true;
-	baseMat.depthTest = true;
-	baseMat.colorWrite = false;
-	baseMat.stencilWrite = true;
-	baseMat.stencilFunc = THREE.AlwaysStencilFunc;
-
-	// back faces
-	const mat0 = baseMat.clone();
-	mat0.side = THREE.BackSide;
-	mat0.clippingPlanes = [plane];
-	mat0.stencilFail = THREE.IncrementWrapStencilOp;
-	mat0.stencilZFail = THREE.IncrementWrapStencilOp;
-	mat0.stencilZPass = THREE.IncrementWrapStencilOp;
-
-	// front faces
-	const mat1 = baseMat.clone();
-	mat1.side = THREE.FrontSide;
-	mat1.clippingPlanes = [plane];
-	mat1.stencilFail = THREE.DecrementWrapStencilOp;
-	mat1.stencilZFail = THREE.DecrementWrapStencilOp;
-	mat1.stencilZPass = THREE.DecrementWrapStencilOp;
-
-	if (Array.isArray(geometry)) {
-		for (var ii=0; ii < geometry.length; ii++) {
-			var newGeom = geometry[ii].clone();
-			newGeom.position.set(geometry[ii].position.x, geometry[ii].position.y, geometry[ii].position.z);
-			newGeom.updateMatrix();
-			newGeom.material = mat0;
-			newGeom.renderOrder = renderOrder;
-			group.add(newGeom);
-			newGeom.material = mat1;
-			newGeom.renderOrder = renderOrder;
-			group.add(newGeom);
-		}
-	}
-	else {
-		const mesh0 = new THREE.Mesh(geometry, mat0);
-		mesh0.renderOrder = renderOrder;
-		group.add(mesh0);
-		const mesh1 = new THREE.Mesh(geometry, mat1);
-		mesh1.renderOrder = renderOrder;
-		group.add(mesh1);
-	}
-
-	return group;
-
-}
 
 function showToast (_str) {
 	var myToast = Toastify(options);
@@ -517,7 +466,7 @@ function setupObject (_object, _light, _data, _controls) {
 			_obj.updateMatrixWorld();
 			_object = _obj;
 		}
-		else {			
+		else {
 			boundingBox.setFromObject(_object);
 			_object.position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
 			//_object.position.set (0, 0, 0);
@@ -551,11 +500,11 @@ function invertHexColor(hexTripletColor) {
 }
 
 function setupClippingPlanes (_geom, _size, _distance) {
-	var _geometry;
+	/*var _geometry;
 	if (_geom.isGroup)
 		_geometry = _geom.children;
 	else
-		_geometry = _geom.geometry.clone();
+		_geometry = _geom.geometry.clone();*/
 
 	clippingPlanes[0].constant = _distance.x;
 	clippingPlanes[1].constant = _distance.y;
@@ -1188,35 +1137,31 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 				setupObject(object[0], light, data, controls);
 				setupCamera (object[0], camera, light, data, controls);
 			}
-			else if (object.name === "Scene" || object.children.length > 0) {
+			else if (object.name === "Scene" || object.children.length > 0 || object.type == "Mesh") {
 				setupObject(object, light, data, controls);
 				object.traverse(function (child) {
 					if (child.isMesh) {
 						metadata['vertices'] += fetchMetadata (child, 'vertices');
 						metadata['faces'] += fetchMetadata (child, 'faces');
+						if (child.name === '') child.name = 'Mesh'
 						var shortChildName = truncateString(child.name, GUILength);
-						if (child.name === '') {
-							tempArray = {["Mesh"]() {selectObjectHierarchy(child.id)}, 'id': child.id};
-						}
-						else {
-							tempArray = { [shortChildName]() {selectObjectHierarchy(child.id)}, 'id': child.id};
-						}
+						tempArray = { [shortChildName]() {selectObjectHierarchy(child.id)}, 'id': child.id};
 						hierarchyFolder = hierarchyMain.addFolder(shortChildName).close();
 						hierarchyFolder.add(tempArray, shortChildName);
-						clippingGeometry.push(child.geometry);
-						child.traverse(function (children) {
-							if (children.isMesh &&  children.name !== child.name) {
-								var shortChildrenName = truncateString(children.name, GUILength);
-								if (children.name === '') {
-									tempArray = {["Mesh"] (){selectObjectHierarchy(children.id)}, 'id': children.id};
-								}
-								else {
+						//if (object.type == "Mesh")
+							//clippingGeometry.push(child.mesh.geometry);
+						//else {
+							//clippingGeometry.push(child.geometry);
+							child.traverse(function (children) {
+								if (children.isMesh &&  children.name !== child.name) {
+									if (children.name === '') children.name = 'ChildrenMesh';
+									var shortChildrenName = truncateString(children.name, GUILength);
 									tempArray = { [shortChildrenName] (){selectObjectHierarchy(children.id)}, 'id': children.id};
+									//clippingGeometry.push(children.geometry);
+									hierarchyFolder.add(tempArray, shortChildrenName);
 								}
-								clippingGeometry.push(children.geometry);
-								hierarchyFolder.add(tempArray, shortChildrenName);
-							}
-						});
+							});
+						//}
 					}
 				});
 				setupCamera (object, camera, light, data, controls);
@@ -1235,7 +1180,7 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 				}
 				//hierarchy.push(tempArray);
 				if (object.name === "undefined") object.name = "level";
-				clippingGeometry.push(object.geometry);
+				//clippingGeometry.push(object.geometry);
 				hierarchyFolder = hierarchyMain.addFolder(object.name).close();
 			}
 
@@ -1359,6 +1304,19 @@ const onProgress = function (xhr) {
 	}
 };
 
+function setupSingleMaterial (materials, material) {
+	if(material.map) { material.map.anisotropy = 16 };
+	//material.side = THREE.DoubleSide;
+	material.clipShadows = true;
+	material.side = THREE.FrontSide;
+	material.clippingPlanes = clippingPlanes;
+	//material.clipIntersection = false;
+	if (material.name === '') material.name = material.uuid;
+	var newMaterial = {'name': material.name, 'uuid': material.uuid};
+	if (!materials.includes(newMaterial))
+		materials.push(newMaterial);
+}
+
 function setupMaterials (_object) {
 	var materials = [];
 	if (_object.isMesh) {
@@ -1366,17 +1324,10 @@ function setupMaterials (_object) {
 		_object.receiveShadow = true;
 		_object.geometry.computeVertexNormals();
 		if (_object.material.isMaterial) {
-			if(_object.material.map) { _object.material.map.anisotropy = 16 };
-			//_object.material.side = THREE.DoubleSide;
-			_object.material.clipShadows = true;
-			_object.material.side = THREE.FrontSide;
-			_object.material.clippingPlanes = clippingPlanes;
-			//_object.material.clipIntersection = false;
-			if (_object.material.name === '') _object.material.name = _object.material.uuid;
-			var newMaterial = {'name': _object.material.name, 'uuid': _object.material.uuid};
-			if (!materials.includes(newMaterial))
-				materials.push(newMaterial);
-			//materials.push(_object.material.uuid);
+			setupSingleMaterial(materials, _object.material);
+		}
+		else if (Array.isArray(_object.material)) {
+			_object.material.forEach((material) => setupSingleMaterial(materials, material));
 		}
 	}
 	return materials;
@@ -1395,6 +1346,7 @@ function getMaterialByID (_object, _uuid) {
 function traverseMesh (object) {
 	var _objectMaterials = [];
 	_objectMaterials.push(setupMaterials(object));
+
 	object.traverse(function (child) {
 		_objectMaterials.push(setupMaterials(child));
 	});
@@ -1450,18 +1402,18 @@ function traverseMesh (object) {
 }
 
 function prepareOutlineClipping (_object) {
-		var outlineClipping = _object.clone(true);
-		var gutsMaterial = new THREE.MeshBasicMaterial({color: 'crimson', side: THREE.BackSide, clippingPlanes: clippingPlanes, clipShadows: true});
-			
-		outlineClipping.traverse(function (child)
+	var outlineClipping = _object.clone(true);
+	var gutsMaterial = new THREE.MeshBasicMaterial({color: 'crimson', side: THREE.BackSide, clippingPlanes: clippingPlanes, clipShadows: true});
+		
+	outlineClipping.traverse(function (child)
+	{
+		if( child.type=='Mesh' || child.type=='Object3D' )
 		{
-			if( child.type=='Mesh' )
-			{
-				child.material = gutsMaterial;
-			}
-		} );
-		outlineClipping.visible = false;
-		return outlineClipping;
+			child.material = gutsMaterial;
+		}
+	} );
+	outlineClipping.visible = false;
+	return outlineClipping;
 }
 
 function loadModel (path, basename, filename, extension, orgExtension) {
@@ -1961,8 +1913,6 @@ function createClippingPlaneAxis (_number) {
 		switch (_number) {
 			case 0:
 				clippingPlanes[_number].constant = event.target.children[0].pointEnd.x + distanceGeometry.x;
-				//planeParams.planeX.constant = clippingPlanes[_number].constant;
-				//distanceGeometry.x = clippingPlanes[_number].constant;
 			break;
 			case 1:
 				clippingPlanes[_number].constant = event.target.children[0].pointEnd.y + distanceGeometry.y;

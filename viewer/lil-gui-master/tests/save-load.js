@@ -1,5 +1,5 @@
 import assert from 'assert';
-import GUI from '..';
+import GUI from '../dist/lil-gui.esm.min.js';
 
 export default () => {
 
@@ -87,7 +87,7 @@ export default () => {
 
 		// assert matches original state
 		// assert object types retain reference
-		this.compare = ( state ) => {
+		this.compare = state => {
 			for ( let key in obj ) {
 				const val = obj[ key ];
 				const deep = state[ key ];
