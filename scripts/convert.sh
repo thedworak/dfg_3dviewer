@@ -167,13 +167,13 @@ handle_gml_file () {
 	#if [[ ! -d $GLB_PATH ]]; then
 		mkdir -p $GLB_PATH
 		cp -rf $INPATH/$FILENAME $GLB_PATH/
-		#python3 ${SPATH}/scripts/CityGML2OBJv2/CityGML2OBJs.py -i "$GLB_PATH" -o "$GLB_PATH" #> /dev/null 2>&1
+		python3 ${SPATH}/scripts/CityGML2OBJv2/CityGML2OBJs.py -i "$GLB_PATH" -o "$GLB_PATH" > /dev/null 2>&1
 		if [[ ! -d "$INPATH"/gltf/ ]]; then
 			mkdir "$INPATH"/gltf/
 		fi
 		${BLENDER_PATH}blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- "$GLB_PATH/${NAME}.obj" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
 		render_preview $EXT
-		#rm -rf $GLB_PATH
+		rm -rf $GLB_PATH
 	#fi
 
 
