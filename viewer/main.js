@@ -149,6 +149,7 @@ const onDownPosition = new THREE.Vector2();
 
 const geometry = new THREE.BoxGeometry(20, 20, 20);
 let transformControl, transformControlLight, transformControlLightTarget, transformControlClippingPlaneX, transformControlClippingPlaneY, transformControlClippingPlaneZ, outlineClipping;
+var cameraCoords;
 
 const helperObjects = [];
 const lightObjects = [];
@@ -159,8 +160,7 @@ var selectedObjects = [];
 var selectedFaces = [];
 let pickingTexture;
 
-var windowHalfX;
-var windowHalfY;
+var windowHalfX, windowHalfY;
 
 var transformType = "";
 
@@ -663,13 +663,13 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit)
     // offset the camera, if desired (to avoid filling the whole canvas)
     if(offset !== undefined && offset !== 0 && !_fit) { cameraZ *= offset; }
 
-	const coords = {x: camera.position.x, y: camera.position.y, z: cameraZ*0.55};
-    new TWEEN.Tween(coords)
+	cameraCoords = {x: camera.position.x, y: camera.position.y, z: cameraZ*0.55};
+    new TWEEN.Tween(cameraCoords)
 		.to({ z: camera.position.z }, 1500)
 		.onUpdate(() =>
 			{
-				camera.position.set(coords.x, coords.y, coords.z);
-				cameraLight.position.set(coords.x, coords.y, coords.z);
+				camera.position.set(cameraCoords.x, cameraCoords.y, cameraCoords.z);
+				cameraLight.position.set(cameraCoords.x, cameraCoords.y, cameraCoords.z);
 				camera.updateProjectionMatrix();
 				controls.update();
 			}
@@ -1224,7 +1224,7 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 
 							var c_path = path;
 							if (compressedFile !== '') { filename = filename.replace(orgExtension, extension); }
-							downloadModel.innerHTML = "<a href='" + c_path + filename + "' download><img src='" + CONFIG.basePath + "/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
+							downloadModel.innerHTML = "<a href='blob:" + c_path + filename + "' download><img src='" + CONFIG.basePath + "/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
 							downloadModel.style.top = (canvasDimensions.y - 80) + 'px';
 							container.appendChild(downloadModel);
 
@@ -1929,6 +1929,20 @@ function createClippingPlaneAxis (_number) {
 	return tempClippingControl;
 }
 
+function resetCamera() {
+	var camPosition = camera.position;
+    new TWEEN.Tween(camPosition)
+		.to(cameraCoords, 1500)
+		.onUpdate(() =>
+			{
+				camera.position.set(camPosition.x, camPosition.y, camPosition.z);
+				cameraLight.position.set(camPosition.x, camPosition.y, camPosition.z);
+				camera.updateProjectionMatrix();
+				controls.update();
+			}
+     ).start();	
+}
+
 function init() {
 	// model
 	container.setAttribute("width", canvasDimensions.x);
@@ -2387,6 +2401,9 @@ function init() {
 		editorFolder.add({["Render preview"] () {
 			takeScreenshot();
 		}}, 'Render preview');
+		editorFolder.add({["Reset camera position"] () {
+			resetCamera();
+		}}, 'Reset camera position');
 	}
 }
 

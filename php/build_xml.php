@@ -47,6 +47,7 @@ function build_xml ($id) {
 
 	$xmlt->registerXPathNamespace('mets', 'http://www.loc.gov/METS/');
 	$xpathResult = $xmlt->xpath('//mets:mets');
+	echo $xmlt;
 
 	$dom = new DOMDocument('1.0');
 	$dom->preserveWhiteSpace = false;
@@ -56,6 +57,6 @@ function build_xml ($id) {
 }
 
 #$id = isset($entity_id) ? $entity_id : $_GET['id'];
-#build_xml ($id);
+build_xml ($id);
 
 ?>
