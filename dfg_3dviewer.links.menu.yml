@@ -1,5 +1,10 @@
-dfg_3dviewer.content:
+dfg_3dviewer.config_content:
   title: '3D Viewer Settings'
-  parent: system.admin_config
+  parent: dfg_3dviewer.menu_content
   weight: -100
   route_name: dfg_3dviewer.config_menu
+dfg_3dviewer.menu_content:
+  title: 'DFG 3D Viewer'
+  parent: system.admin_config
+  weight: -100
+  route_name: dfg_3dviewer.menu

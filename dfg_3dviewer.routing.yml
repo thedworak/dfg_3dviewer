@@ -9,4 +9,11 @@ dfg_3dviewer.config_menu:
   defaults:
     _form: '\Drupal\dfg_3dviewer\Form\DFG3dViewerConfigForm'
   requirements:
-    _access: 'TRUE'
+    _permission: 'administer dfg_3dviewer'
+dfg_3dviewer.menu:
+  path: '/admin/config/dfg_3dviewer'
+  defaults:
+    _controller: '\Drupal\system\Controller\SystemController::systemAdminMenuBlockPage'
+    _title: 'DFG 3D Viewer'
+  requirements:
+    _permission: 'administer dfg_3dviewer'

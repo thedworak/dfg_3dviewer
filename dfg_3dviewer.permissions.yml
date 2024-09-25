@@ -1,2 +1,5 @@
 access dfg3dmodels:
   title: 'Access 3D Models via DFG Viewer'
+administer dfg_3dviewer:
+  title: 'Administer DFG 3D Viewer settings'
+  restrict access: TRUE
