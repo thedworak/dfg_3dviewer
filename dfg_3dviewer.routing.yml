@@ -4,3 +4,9 @@ entity.wisski_individual.manifest:
     _controller: '\Drupal\dfg_3dviewer\Controller\DFG3dController::editEntity'
   requirements:
     _access: 'TRUE'
+dfg_3dviewer.config_menu:
+  path: '/admin/config/dfg_3dviewer'
+  defaults:
+    _form: '\Drupal\dfg_3dviewer\Form\DFG3dViewerConfigForm'
+  requirements:
+    _access: 'TRUE'
