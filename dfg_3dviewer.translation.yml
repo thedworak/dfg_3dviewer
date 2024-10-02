@@ -1,0 +1,5 @@
+dfg_3dviewer.admin.config:
+  title: 'DFG 3D Viewer Module'
+  base_route_name: dfg_3dviewer.admin.config
+  names:
+    - dfg_3dviewer.settings
