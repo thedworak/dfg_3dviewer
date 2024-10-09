@@ -123,6 +123,23 @@ function dfg_3dviewer_hook_file_validate(Drupal\file\FileInterface $file) {
 * Implements hook_file_validate().
  */
 function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity) {
+	$DEFAULT_CONFIG = \Drupal::config('dfg_3dviewer.settings');
+	$SETTINGS = Array();
+	$SETTINGS['entity_bundle']=ENTITY_BUNDLE;
+	$SETTINGS['viewer_file_upload']=VIEWER_FILE_UPLOAD;
+	$SETTINGS['image_generation']=IMAGE_GENERATION;
+	$SETTINGS['viewer_file_name']=VIEWER_FILE_NAME;
+	$SETTINGS['field_df']=FIELD_DF;
+	$SETTINGS['main_url']=MAIN_URL;
+
+	if (isset($DEFAULT_CONFIG)) {		
+		$SETTINGS['entity_bundle']=$DEFAULT_CONFIG->get('entity_bundle');
+		$SETTINGS['viewer_file_upload']=$DEFAULT_CONFIG->get('viewer_file_upload');
+		$SETTINGS['image_generation']=$DEFAULT_CONFIG->get('image_generation');
+		$SETTINGS['viewer_file_name']=$DEFAULT_CONFIG->get('viewer_file_name');
+		$SETTINGS['field_df']=$DEFAULT_CONFIG->get('field_df');
+		$SETTINGS['main_url']=$DEFAULT_CONFIG->get('main_url');
+	}
 	//\Drupal::messenger()->addMessage(serialize($entity));
 	$SPATH = \Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath());
 	$XPATH = dirname(dirname($SPATH));
@@ -192,7 +209,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 				\Drupal::messenger()->addMessage($extension . " is not supported yet", 'warning');
 			}
 			#semi-automatic path change
-			//$entity->set(VIEWER_FILE_NAME, $autoPath);
+			//$entity->set($SETTINGS['viewer_file_name'], $autoPath);
 			if ($retval === null) {
 				\Drupal::messenger()->addMessage($output, 'status');
 			}
@@ -204,10 +221,10 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			}
 		}
 	}
-	if($entity->bundle() == ENTITY_BUNDLE) {
+	if($entity->bundle() == $SETTINGS['entity_bundle']) {
 		//\Drupal::messenger()->addMessage(serialize($entity->eid->value));
 		//$file_info = $entity->label->getValue();
-		$file_info = $entity->{VIEWER_FILE_UPLOAD}->getValue();
+		$file_info = $entity->{$SETTINGS['viewer_file_upload']}->getValue();
 		$file_id = $file_info[0]['target_id'];
 		$entity_id = $entity->eid->value;
 		$file = \Drupal\file\Entity\File::load($file_id);
@@ -259,7 +276,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			}
 			if (count($imagesPaths) > 0) {
 				\Drupal::messenger()->addMessage("Renderings were added to the entity");
-				$entity->set(IMAGE_GENERATION, $imagesPaths);
+				$entity->set($SETTINGS['image_generation'], $imagesPaths);
 			}
 			$fpath = $file_url->toString();
 			$fpath = str_replace($fileName, "", $fpath);
@@ -293,22 +310,22 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 					$autoPath = $origPath;
 				}
 			}
-			$autoPath = str_replace($XPATH, MAIN_URL, $autoPath);
+			$autoPath = str_replace($XPATH, $SETTINGS['main_url'], $autoPath);
 			//\Drupal::messenger()->addMessage($fileBase, 'status');
 			/*\Drupal::messenger()->addMessage($file_url->toString());
 			\Drupal::messenger()->addMessage($fileName);
 			\Drupal::messenger()->addMessage($path);*/
-			$entity->set(VIEWER_FILE_NAME, $autoPath);
+			$entity->set($SETTINGS['viewer_file_name'], $autoPath);
 		}
 		require ('php/build_xml.php');
 		build_xml ($entity_id);
-		#$entity->set('field_df', 'https://3dtest.dfg-viewer.de/viewer?tx_dlf[id]=https://3d-repository.hs-mainz.de/sites/default/files/xml_structure/' . $entity_id . '.xml&no_cache=1');
+		#$entity->set('$SETTINGS['field_df']', 'https://3dtest.dfg-viewer.de/viewer?tx_dlf[id]=https://3d-repository.hs-mainz.de/sites/default/files/xml_structure/' . $entity_id . '.xml&no_cache=1');
 		$xml_struc = 'public://xml_structure/' . $entity_id . '.xml&no_cache=1';
 		$xml_wrapper = \Drupal::service('stream_wrapper_manager')->getViaUri($xml_struc);
 		$xml_uri = $xml_wrapper->getExternalURL();
 		global $base_url;
 		$uri = $base_url . "/viewer?tx_dlf[id]=" . $xml_uri;
-		$entity->set(FIELD_DF, $uri);
+		$entity->set($SETTINGS['field_df'], $uri);
 	}
 	#$file = $entity->fbda64e9ba217e59e5fc5f99244f4821;
 	//$compression = $entity->field_3d_compression_level;
