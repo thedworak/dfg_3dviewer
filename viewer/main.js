@@ -2356,6 +2356,7 @@ function init() {
 					xhr.onreadystatechange = function()
 					{
 						if(xhr.readyState === XMLHttpRequest.DONE) {
+							console.log(xhr);
 							var status = xhr.status;
 							if (status === 0 || (status >= 200 && status < 400)) {
 								showToast ("Settings have been saved.");
