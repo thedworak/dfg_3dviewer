@@ -37,12 +37,6 @@ class DFG3dViewerConfigForm extends FormBase {
 
     $form['#dfg_3dviewer_settings'] = $settings;
 
-	$form['dfg_3dviewer_basenamespace'] = [
-		'#default_value' => $settings->get('dfg_3dviewer_basenamespace'),
-		'#type' => 'textfield',
-		'#title' => $this->t('Default base namespace'),
-    ];
-
 	$form['dfg_3dviewer_main_url'] = [
 		'#default_value' => $default_settings['main_url'],
 		'#type' => 'textfield',
@@ -51,12 +45,19 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#description' => 'Change main URL for used repository',
     ];
 
+	$form['dfg_3dviewer_basenamespace'] = [
+		'#default_value' => $settings->get('dfg_3dviewer_basenamespace'),
+		'#type' => 'textfield',
+		'#title' => $this->t('Default base namespace'),
+		'#description' => $this->t('(if different than Main URL)'),
+    ];
+
 	$form['dfg_3dviewer_entitybundle'] = [
 		'#default_value' => $default_settings['entity_bundle'],
 		'#type' => 'textfield',
 		'#title' => $this->t('Entity Bundle'),
 		'#required' => true,
-		'#description' => 'ID of the bundle for the entity',
+		'#description' => 'ID of the bundle for the entity given in wisski pathbuilder for 3d_model field',
     ];
 
 	$form['dfg_3dviewer_viewer_file_upload'] = [
@@ -64,6 +65,7 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#type' => 'textfield',
 		'#title' => $this->t('Viewer File Upload'),
 		'#required' => true,
+		'#description' => 'ID of the bundle for the entity given in wisski pathbuilder for 3d_upload field',
     ];
 
 	$form['dfg_3dviewer_viewer_file_name'] = [
@@ -71,6 +73,7 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#type' => 'textfield',
 		'#title' => $this->t('Viewer File Name'),
 		'#required' => true,
+		'#description' => 'ID of the bundle for the entity given in wisski pathbuilder for viewer_file_name field',
     ];
 
 	$form['dfg_3dviewer_image_generation'] = [
@@ -78,6 +81,7 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#type' => 'textfield',
 		'#title' => $this->t('Image Generation'),
 		'#required' => true,
+		'#description' => 'ID of the bundle for the entity given in wisski pathbuilder for image_generation field',
     ];
 
 	$form['dfg_3dviewer_field_df'] = [
@@ -85,6 +89,7 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#type' => 'textfield',
 		'#title' => $this->t('Field DF'),
 		'#required' => true,
+		'#description' => 'Name of the field given for image_generation',
     ];
 
     $form['submit'] = [
