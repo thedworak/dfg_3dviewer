@@ -510,9 +510,9 @@ function setupClippingPlanes (_geom, _size, _distance) {
 	clippingPlanes[1].constant = _distance.y;
 	clippingPlanes[2].constant = _distance.z;
 	
-	scene.add(transformControlClippingPlaneX);
-	scene.add(transformControlClippingPlaneY);
-	scene.add(transformControlClippingPlaneZ);
+	scene.add(transformControlClippingPlaneX.getHelper());
+	scene.add(transformControlClippingPlaneY.getHelper());
+	scene.add(transformControlClippingPlaneZ.getHelper());
 
 	planeHelpers = clippingPlanes.map((p) => new THREE.PlaneHelper(p, _size*2, invertHexColor(scene.background.getHexString())));
 	planeHelpers.forEach((ph) => {
@@ -2033,7 +2033,7 @@ function init() {
 	transformControl.addEventListener('dragging-changed', function (event) {
 		controls.enabled = ! event.value
 	});
-	scene.add(transformControl);
+	scene.add(transformControl.getHelper());
 	
 	transformControlLight = new TransformControls(camera, renderer.domElement);
 	transformControlLight.space = "local";
@@ -2042,7 +2042,7 @@ function init() {
 	transformControlLight.addEventListener('dragging-changed', function (event) {
 		controls.enabled = ! event.value;
 	});
-	scene.add(transformControlLight);
+	scene.add(transformControlLight.getHelper());
 
 	transformControlLightTarget = new TransformControls(camera, renderer.domElement);
 	transformControlLightTarget.space = "global";
@@ -2051,7 +2051,7 @@ function init() {
 	transformControlLightTarget.addEventListener('dragging-changed', function (event) {
 		controls.enabled = ! event.value;
 	});
-	scene.add(transformControlLightTarget);
+	scene.add(transformControlLightTarget.getHelper());
 
 	transformControlClippingPlaneX = createClippingPlaneAxis (0, 'x');
 	transformControlClippingPlaneY = createClippingPlaneAxis (1, 'y');
