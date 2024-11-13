@@ -33,6 +33,7 @@ import { DRACOLoader } from './js/jsm/loaders/DRACOLoader.js';
 import { KTX2Loader } from './js/jsm/loaders/KTX2Loader.js';
 import { MeshoptDecoder } from './js/jsm/libs/meshopt_decoder.module.js';
 import { IFCLoader } from './js/jsm/loaders/IFCLoader.js';
+import { IFCSPACE } from './js/jsm/loaders/web-ifc-api.js';
 import { PLYLoader } from './js/jsm/loaders/PLYLoader.js';
 import { ColladaLoader } from './js/jsm/loaders/ColladaLoader.js';
 import { STLLoader } from './js/jsm/loaders/STLLoader.js';
@@ -57,7 +58,8 @@ const CONFIG = {
 	"entityIdUri": "/wisski/navigate/(.*)/view",
 	"viewEntityPath": "/wisski/navigate/",
 	"attributeId": "wisski_id",
-	"lightweight": false
+	"lightweight": false,
+	"scaleContainer": {x: 1, y: 1.4}
 };
 
 let camera, scene, renderer, stats, controls, loader, ambientLight, dirLight, dirLightTarget, cameraLight, cameraLightTarget;
@@ -79,9 +81,7 @@ var FULLSCREEN = false;
 let mixer;
 
 const container = document.getElementById(CONFIG.container);
-canvasDimensions = CANVASDIMENSIONS = {x: container.getBoundingClientRect().width, y: container.getBoundingClientRect().bottom*1.4};
-container.setAttribute("width", CANVASDIMENSIONS.x);
-container.setAttribute("height", CANVASDIMENSIONS.y);
+canvasDimensions = CANVASDIMENSIONS = {x: container.getBoundingClientRect().width*CONFIG.scaleContainer.x, y: container.getBoundingClientRect().bottom*CONFIG.scaleContainer.y};
 container.setAttribute("display", "flex");
 const originalPath = container.getAttribute("3d");
 
@@ -95,6 +95,10 @@ if (CONFIG.lightweight === null || CONFIG.lightweight === false) {
 		entityID = elementsURL[1];
 		container.setAttribute(CONFIG.attributeId, entityID);
 	}
+}
+
+if(container.hasAttribute("basePath")) {
+	CONFIG.basePath = container.getAttribute("basePath");
 }
 
 var filename = originalPath.split("/").pop();
@@ -649,21 +653,22 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit)
     // FTR, from https://threejs.org/docs/#api/en/cameras/PerspectiveCamera
     // the camera.fov is the vertical FOV.
 
-    const fov = camera.fov * (Math.PI / 180);
-    const fovh = 2*Math.atan(Math.tan(fov/2) * camera.aspect);
-    let dx = size.z / 2 + Math.abs(size.x / 2 / Math.tan(fovh / 2));
-    let dy = size.z / 2 + Math.abs(size.y / 2 / Math.tan(fov / 2));
 	let cameraZ = camera.position.z;
-	if (!_fit) {
+	let dx, dy, offsetY = 0, offsetZ = 0;
+	if (_fit) {
+		const fov = camera.fov * (Math.PI / 180);
+		const fovh = 2*Math.atan(Math.tan(fov/2) * camera.aspect);
+		dx = size.z / 2 + Math.abs(size.x / 2 / Math.tan(fovh / 2));
+		dy = size.z / 2 + Math.abs(size.y / 2 / Math.tan(fov / 2));
 		cameraZ = Math.max(dx, dy);
-		camera.position.y*=1.4;
-		camera.position.z*=1.5;
+		camera.position.y*=1.2;
+		camera.position.z*=2;
 	}
 
     // offset the camera, if desired (to avoid filling the whole canvas)
-    if(offset !== undefined && offset !== 0 && !_fit) { cameraZ *= offset; }
+    if(offset !== undefined && offset !== 0 && _fit) { cameraZ *= offset; offsetY = Math.abs(dy/2); offsetZ = + Math.abs(dx/2);}
 
-	cameraCoords = {x: camera.position.x, y: camera.position.y, z: cameraZ*0.55};
+	cameraCoords = {x: camera.position.x, y: camera.position.y + offsetY, z: cameraZ*0.55 + offsetZ};
     new TWEEN.Tween(cameraCoords)
 		.to({ z: camera.position.z }, 1500)
 		.onUpdate(() =>
@@ -683,7 +688,7 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit)
 
     //camera.far = cameraToFarEdge * 3;
     camera.updateProjectionMatrix();
-    if (orbitControls !== undefined && !_fit) {
+    if (orbitControls !== undefined && _fit) {
         // set camera to rotate around the center
         orbitControls.target = new THREE.Vector3(0, 0, 0);
 
@@ -692,7 +697,7 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit)
     }
 	controls.update();
 
-	if  (!_fit) {
+	if  (_fit) {
 		var rotateMetadata = new THREE.Vector3(THREE.MathUtils.radToDeg(helperObjects[0].rotation.x),THREE.MathUtils.radToDeg(helperObjects[0].rotation.y),THREE.MathUtils.radToDeg(helperObjects[0].rotation.z));
 		originalMetadata = {"objPosition": [object.position.x, object.position.y, object.position.z ],
 							"objRotation": [rotateMetadata.x, rotateMetadata.y, rotateMetadata.z],
@@ -827,7 +832,7 @@ function setupCamera (_object, _camera, _light, _data, _controls) {
 		}
 		_camera.updateProjectionMatrix();
 		_controls.update();
-		fitCameraToCenteredObject (_camera, _object, 2.3, _controls, true);
+		fitCameraToCenteredObject (_camera, _object, 2.3, _controls, false);
 	}
 	else {
 		var boundingBox = new THREE.Box3();
@@ -842,7 +847,7 @@ function setupCamera (_object, _camera, _light, _data, _controls) {
 		var size = new THREE.Vector3();
 		boundingBox.getSize(size);
 		camera.position.set(size.x, size.y, size.z);
-		fitCameraToCenteredObject (_camera, _object, 3.5, _controls, false);
+		fitCameraToCenteredObject (_camera, _object, 1.2, _controls, true);
 	}
 }
 
@@ -939,8 +944,7 @@ function onWindowResize() {
 		downloadModel.setAttribute('style', 'visibility: hidden');
 	}
 	else {
-		//canvasDimensions = {x: window.self.innerWidth*0.7, y: window.self.innerHeight*0.6};
-		canvasDimensions = {x: container.getBoundingClientRect().width, y: container.getBoundingClientRect().bottom*1.4};
+		canvasDimensions = {x: container.getBoundingClientRect().width, y: container.getBoundingClientRect().bottom};
 		bottomOffsetFullscreen = Math.round(-canvasDimensions.y) + 36;
 		
 		if (CONFIG.lightweight === false) {
@@ -950,11 +954,8 @@ function onWindowResize() {
 	}
 	
 	rightOffsetFullscreen = Math.round(canvasDimensions.x) - 36;
-	//container.setAttribute("width", canvasDimensions.x);
-	//container.setAttribute("height", canvasDimensions.y);
 
-	mainCanvas.setAttribute("width", canvasDimensions.x);
-	mainCanvas.setAttribute("height", canvasDimensions.y);
+	mainCanvas.setAttribute("style", "width:" + canvasDimensions.x+"px;" + "height:" + canvasDimensions.y +"px;" );
 	mainCanvas.style.width = "100% !imporant";
 	mainCanvas.style.height = "100% !important";
 	lilGui[0].style.left = canvasDimensions.x - lilGui[0].getBoundingClientRect().width - 10 + 'px';
@@ -1527,7 +1528,8 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 			
 			case 'ifc':
 				const ifcLoader = new IFCLoader();
-				ifcLoader.ifcManager.setWasmPath(CONFIG.basePath + '/js/jsm/loaders/ifc/');
+				const ifcPath = CONFIG.basePath + '/js/jsm/loaders/ifc/';
+				ifcLoader.ifcManager.setWasmPath(ifcPath, true);
 				ifcLoader.load(modelPath, function (object) {
 					traverseMesh(object);
 					
@@ -1722,15 +1724,15 @@ function onPointerDown(e) {
 	//onDownPosition.x = event.clientX;
 	//onDownPosition.y = event.clientY;
 	if (e.button === 0) {
-		onDownPosition.x = ((e.clientX - container.getBoundingClientRect().left)/ renderer.domElement.clientWidth) * 2 - 1;
-		onDownPosition.y = - ((e.clientY - container.getBoundingClientRect().top) / renderer.domElement.clientHeight) * 2 + 1;
+		onDownPosition.x = ((e.clientX - mainCanvas.getBoundingClientRect().left)/ renderer.domElement.clientWidth) * 2 - 1;
+		onDownPosition.y = - ((e.clientY - mainCanvas.getBoundingClientRect().top) / renderer.domElement.clientHeight) * 2 + 1;
 	}
 }
 
 function onPointerUp(e) {
 	if (e.button == 0) {
-		onUpPosition.x = ((e.clientX - container.getBoundingClientRect().left)/ renderer.domElement.clientWidth) * 2 - 1;
-		onUpPosition.y = - ((e.clientY - container.getBoundingClientRect().top) / renderer.domElement.clientHeight) * 2 + 1;
+		onUpPosition.x = ((e.clientX - mainCanvas.getBoundingClientRect().left)/ renderer.domElement.clientWidth) * 2 - 1;
+		onUpPosition.y = - ((e.clientY - mainCanvas.getBoundingClientRect().top) / renderer.domElement.clientHeight) * 2 + 1;
 		
 		if (onUpPosition.x === onDownPosition.x && onUpPosition.y === onDownPosition.y) {
 			raycaster.setFromCamera(onUpPosition, camera);
@@ -1757,8 +1759,9 @@ function onPointerUp(e) {
 }
 
 function onPointerMove(e) {
-	pointer.x = ((e.clientX - container.getBoundingClientRect().left)/ renderer.domElement.clientWidth) * 2 - 1;
-	pointer.y = - ((e.clientY - container.getBoundingClientRect().top) / renderer.domElement.clientHeight) * 2 + 1;
+	pointer.x = ((e.clientX - mainCanvas.getBoundingClientRect().left)/ renderer.domElement.clientWidth) * 2 - 1;
+	pointer.y = - ((e.clientY - mainCanvas.getBoundingClientRect().top) / renderer.domElement.clientHeight) * 2 + 1;
+
 	if (e.buttons == 1) {
 		if (pointer.x !== onDownPosition.x && pointer.y !== onDownPosition.y) {
 			cameraLight.position.set(camera.position.x, camera.position.y, camera.position.z);
@@ -1945,8 +1948,8 @@ function resetCamera() {
 
 function init() {
 	// model
-	container.setAttribute("width", canvasDimensions.x);
-	container.setAttribute("height", canvasDimensions.y);
+	//container.setAttribute("width", canvasDimensions.x);
+	//container.setAttribute("height", canvasDimensions.y);
 
 	camera = new THREE.PerspectiveCamera(45, canvasDimensions.x / canvasDimensions.y, 0.001, 999000000);
 	camera.position.set(0, 0, 0);
@@ -1996,11 +1999,10 @@ function init() {
 	renderer.setClearColor(0xffffff);
 	renderer.domElement.id = 'MainCanvas';
 	container.appendChild(renderer.domElement);
-	mainCanvas = document.getElementById("MainCanvas");
 
-	mainCanvas.style.width = canvasDimensions.x;
-	mainCanvas.style.height = canvasDimensions.y;
-	
+	mainCanvas = document.getElementById("MainCanvas");
+	mainCanvas.setAttribute("style", "width:" + canvasDimensions.x+"px;" + " height:" + canvasDimensions.y+"px;" + " display: flex;");
+
 	canvasText = document.createElement('div');
 	canvasText.id = "TextCanvas";
 	canvasText.width = canvasDimensions.x;
