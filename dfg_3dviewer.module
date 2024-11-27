@@ -324,7 +324,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		$xml_wrapper = \Drupal::service('stream_wrapper_manager')->getViaUri($xml_struc);
 		$xml_uri = $xml_wrapper->getExternalURL();
 		global $base_url;
-		$uri = $base_url . "/viewer?tx_dlf[id]=" . $xml_uri;
+		$uri = $base_url . "/viewer?tx_dlf[id]=" . $xml_uri . "&no_cache=1&modelviewer=1";
 		$entity->set($SETTINGS['field_df'], $uri);
 	}
 	#$file = $entity->fbda64e9ba217e59e5fc5f99244f4821;
