@@ -1,4 +1,4 @@
-import { Lighting } from '../../../build/three.module.js';
+import { Lighting } from 'three/webgpu';
 import { tiledLights } from '../tsl/lighting/TiledLightsNode.js';
 
 export class TiledLighting extends Lighting {

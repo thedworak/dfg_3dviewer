@@ -1,7 +1,8 @@
+import { Line2NodeMaterial } from 'three/webgpu';
+
 import { LineSegments2 } from './LineSegments2.js';
 import { LineGeometry } from '../LineGeometry.js';
 
-import { Line2NodeMaterial } from '../../../../build/three.module.js';
 
 class Line2 extends LineSegments2 {
 

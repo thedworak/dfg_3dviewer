@@ -157,7 +157,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		$newFile = $parts['dirname'] . "/gltf/" . $parts['filename'] . ".glb";
 		$newDir = $parts['dirname'] . "/" . $parts['filename'] . "_" . $extension . "/gltf/";
 		$isArchive = false;
-		if (!file_exists($newFile) && !is_dir($newDir) && !file_exists($newFile."off")) {			
+		if (!file_exists($newFile) && !is_dir($newDir) && !file_exists($newFile."off")) {
 			if (!in_arrayi($extension, $archives)) {
 				$output = exec ($SPATH . '/scripts/convert.sh -c true -l 3 -b true -i "' . "$realpath" . '" -f true 2>&1', $output, $retval);
 			}
@@ -222,7 +222,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		}
 	}
 	if($entity->bundle() == $SETTINGS['entity_bundle']) {
-		//\Drupal::messenger()->addMessage(serialize($entity->eid->value));
+		#\Drupal::messenger()->addMessage(serialize($entity->eid->value));
 		//$file_info = $entity->label->getValue();
 		$file_info = $entity->{$SETTINGS['viewer_file_upload']}->getValue();
 		$file_id = $file_info[0]['target_id'];

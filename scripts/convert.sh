@@ -77,6 +77,15 @@ while getopts ":c:l:o:i:b:f:" flag; do
     esac
 done
 
+check_status () {
+	if [ ! -f "${INPATH}/${FILENAME}.off" ]; then
+		touch "${INPATH}/${FILENAME}.off"
+		exit 1
+	else
+		rm -rf "${INPATH}/${FILENAME}.off"
+	fi;
+}
+
 render_preview () {
 	SNAME=$NAME
 	if [[ ! -d "$INPATH/views" ]]; then
@@ -121,7 +130,7 @@ handle_unsupported_file () {
 	OUTPUT=$5
 	OUTPUTPATH=$6
 
-	touch "${INPATH}/gltf/${NAME}.glb.off"
+	#touch "${INPATH}/gltf/${NAME}.glb.off"
 }
 
 handle_ifc_file () {
@@ -161,21 +170,18 @@ handle_gml_file () {
 	EXT=$4
 	OUTPUT=$5
 	OUTPUTPATH=$6
-	
+
 	GLB_PATH="${INPATH}/${NAME}_GLB"
 	
-	#if [[ ! -d $GLB_PATH ]]; then
-		mkdir -p $GLB_PATH
-		cp -rf $INPATH/$FILENAME $GLB_PATH/
-		python3 ${SPATH}/scripts/CityGML2OBJv2/CityGML2OBJs.py -i "$GLB_PATH" -o "$GLB_PATH" > /dev/null 2>&1
-		if [[ ! -d "$INPATH"/gltf/ ]]; then
-			mkdir "$INPATH"/gltf/
-		fi
-		${BLENDER_PATH}blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- "$GLB_PATH/${NAME}.obj" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
-		render_preview $EXT
-		rm -rf $GLB_PATH
-	#fi
-
+	mkdir -p $GLB_PATH
+	cp -rf $INPATH/$FILENAME $GLB_PATH/
+	python3 ${SPATH}/scripts/CityGML2OBJv2/CityGML2OBJs.py -i "$GLB_PATH" -o "$GLB_PATH" > /dev/null 2>&1
+	if [[ ! -d "$INPATH"/gltf/ ]]; then
+		mkdir "$INPATH"/gltf/
+	fi
+	${BLENDER_PATH}blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- "$GLB_PATH/${NAME}.obj" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
+	render_preview $EXT
+	rm -rf $GLB_PATH
 
 }
 
@@ -213,6 +219,7 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 			case $EXT in
 				abc|dae|fbx|obj|ply|stl|wrl|x3d)
 					echo "Converting $EXT file..."
+					touch "${INPATH}/${FILENAME}.off"
 					handle_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
 					end=`date +%s`
 					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
@@ -220,6 +227,7 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 				;;
 			  ifc)
 					echo "Converting $EXT file..."
+					touch "${INPATH}/${FILENAME}.off"
 					handle_ifc_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
 					end=`date +%s`
 					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
@@ -227,6 +235,7 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 				;;
 			  blend)
 					echo "Converting $EXT file..."
+					touch "${INPATH}/${FILENAME}.off"
 					handle_blend_file "$INPATH" "$FILENAME" "$NAME" $EXT
 					end=`date +%s`
 					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
@@ -234,6 +243,7 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 				;;
 			  gml)
 					echo "Converting $EXT file..."
+					touch "${INPATH}/${FILENAME}.off"
 					handle_gml_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
 					end=`date +%s`
 					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
@@ -248,7 +258,7 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 
 			  *)
 					handle_unsupported_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
-					#echo "Flie extension $EXT is not supported for conversion yet."
+					#echo "File extension $EXT is not supported for conversion yet."
 					exit 0;
 				;;
 			esac

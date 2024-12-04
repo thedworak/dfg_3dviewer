@@ -19,7 +19,7 @@ https://www.gnu.org/licenses/.
 
 //three.js core
 import * as THREE from './build/three.module.js';
-import { TWEEN } from './js/jsm/libs/tween.module.min.js';
+import { TWEEN } from './js/external_libs/tween.module.min.js';
 
 //three.js components
 import { OrbitControls } from './js/jsm/controls/OrbitControls.js';
@@ -32,8 +32,8 @@ import { GLTFLoader } from './js/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from './js/jsm/loaders/DRACOLoader.js';
 import { KTX2Loader } from './js/jsm/loaders/KTX2Loader.js';
 import { MeshoptDecoder } from './js/jsm/libs/meshopt_decoder.module.js';
-import { IFCLoader } from './js/jsm/loaders/IFCLoader.js';
-import { IFCSPACE } from './js/jsm/loaders/web-ifc-api.js';
+import { IFCLoader } from './js/external_libs/loaders/IFCLoader.js';
+import { IFCSPACE } from './js/external_libs/loaders/ifc/web-ifc-api.js';
 import { PLYLoader } from './js/jsm/loaders/PLYLoader.js';
 import { ColladaLoader } from './js/jsm/loaders/ColladaLoader.js';
 import { STLLoader } from './js/jsm/loaders/STLLoader.js';
@@ -45,7 +45,7 @@ import { TextGeometry } from './js/jsm/geometries/TextGeometry.js';
 
 //custom libraries
 import Stats from './js/jsm/libs/stats.module.js';
-import { GUI } from './js/jsm/libs/lil-gui.esm.min.js';
+import { GUI } from './js/external_libs/lil-gui.esm.min.js';
 
 //import CONFIG from './config.json' assert {type: 'json'}; //disabled temporary because of Firefox assertion bug
 const CONFIG = {
@@ -602,7 +602,7 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit)
 	dirLight.target.updateMatrixWorld();	
 
 	var gridSizeScale = gridSize*1.5;
-	const mesh = new THREE.Mesh(new THREE.PlaneGeometry(gridSizeScale, gridSizeScale), new THREE.MeshPhongMaterial({ color: 0x999999, depthWrite: false, transparent: true, opacity: 0.85 }));
+	const mesh = new THREE.Mesh(new THREE.PlaneGeometry(gridSizeScale, gridSizeScale), new THREE.MeshPhongMaterial({ color: 0xefefef, depthWrite: false, transparent: true, opacity: 0.85 }));
 	mesh.rotation.x = - Math.PI / 2;
 	mesh.position.set(0, 0, 0);
 	mesh.receiveShadow = true;
@@ -612,7 +612,7 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit)
 	axesHelper.position.set(0, 0, 0);
 	scene.add(axesHelper);
 	
-	const grid = new THREE.GridHelper(gridSizeScale, 80, 0x000000, 0x000000);
+	const grid = new THREE.GridHelper(gridSizeScale, 50, 0x000000, 0x000000);
 	grid.material.opacity = 0.2;
 	grid.material.transparent = true;
 	grid.position.set(0, 0, 0);
@@ -1528,7 +1528,7 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 			
 			case 'ifc':
 				const ifcLoader = new IFCLoader();
-				const ifcPath = CONFIG.basePath + '/js/jsm/loaders/ifc/';
+				const ifcPath = CONFIG.basePath + '/js/external_libs/loaders/ifc/';
 				ifcLoader.ifcManager.setWasmPath(ifcPath, true);
 				ifcLoader.load(modelPath, function (object) {
 					traverseMesh(object);
