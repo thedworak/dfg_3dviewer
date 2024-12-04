@@ -572,7 +572,7 @@ function setupClippingPlanes (_geom, _size, _distance) {
 	});
 }
 
-function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit) {
+function fitCameraToCenteredObject (camera, object, add_offset, orbitControls, _fit) {
 	const boundingBox = new THREE.Box3();
 	if (Array.isArray(object)) {
 		for (let i = 0; i < object.length; i++) {			
@@ -618,7 +618,7 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit)
 	grid.position.set(0, 0, 0);
 	scene.add(grid);
 
-    // figure out how to fit the box in the view:
+    // How to fit the box in the view:
     // 1. figure out horizontal FOV (on non-1.0 aspects)
     // 2. figure out distance from the object in X and Y planes
     // 3. select the max distance (to fit both sides in)
@@ -654,21 +654,23 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit)
     // the camera.fov is the vertical FOV.
 
 	let cameraZ = camera.position.z;
-	let dx, dy, offsetY = 0, offsetZ = 0;
+	let offset = new THREE.Vector3 (0, 0, 0);
+	let sizeZ = size.z / 2;
+	let dx, dy;
 	if (_fit) {
 		const fov = camera.fov * (Math.PI / 180);
-		const fovh = 2*Math.atan(Math.tan(fov/2) * camera.aspect);
-		dx = size.z / 2 + Math.abs(size.x / 2 / Math.tan(fovh / 2));
-		dy = size.z / 2 + Math.abs(size.y / 2 / Math.tan(fov / 2));
+		const fovh = Math.atan(Math.tan(fov) * camera.aspect);
+		dx = sizeZ + (size.x / 2 / Math.tan(fovh));
+		dy = sizeZ + (size.y / 2 / Math.tan(fov));
 		cameraZ = Math.max(dx, dy);
-		camera.position.y*=1.2;
+		camera.position.y*=0.75;
 		camera.position.z*=2;
 	}
 
     // offset the camera, if desired (to avoid filling the whole canvas)
-    if(offset !== undefined && offset !== 0 && _fit) { cameraZ *= offset; offsetY = Math.abs(dy/2); offsetZ = + Math.abs(dx/2);}
+    if(add_offset !== undefined && add_offset !== 0 && _fit) { cameraZ *= add_offset; offset.y = dy/3; offset.z = dx/2;}
 
-	cameraCoords = {x: camera.position.x, y: camera.position.y + offsetY, z: cameraZ*0.55 + offsetZ};
+	cameraCoords = {x: camera.position.x, y: camera.position.y + offset.y, z: cameraZ*0.55 + offset.z};
     new TWEEN.Tween(cameraCoords)
 		.to({ z: camera.position.z }, 1500)
 		.onUpdate(() =>
@@ -680,20 +682,18 @@ function fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit)
 			}
      ).start();
 
-    //camera.position.set(camera.position.x, camera.position.y, cameraZ);
-
     // set the far plane of the camera so that it easily encompasses the whole object
     const minZ = boundingBox.min.z;
-    //const cameraToFarEdge = (minZ < 0) ? -minZ + cameraZ : cameraZ - minZ;
+    const cameraToFarEdge = (minZ < 0) ? -minZ + cameraZ : cameraZ - minZ;
 
     //camera.far = cameraToFarEdge * 3;
     camera.updateProjectionMatrix();
     if (orbitControls !== undefined && _fit) {
         // set camera to rotate around the center
-        orbitControls.target = new THREE.Vector3(0, 0, 0);
+        orbitControls.target = new THREE.Vector3(0, offset.y, 0);
 
         // prevent camera from zooming out far enough to create far plane cutoff
-        //orbitControls.maxDistance = cameraToFarEdge * 2;
+        orbitControls.maxDistance = cameraToFarEdge * 2;
     }
 	controls.update();
 
@@ -2125,7 +2125,7 @@ function init() {
 
 	fullscreenMode = document.createElement('div');
 	fullscreenMode.setAttribute('id', 'fullscreenMode');
-	fullscreenMode.setAttribute('style', 'bottom:' + Math.round(-canvasDimensions.y + 36) + 'px; left: ' + Math.round(canvasDimensions.x - 36) + 'px');
+	fullscreenMode.setAttribute('style', 'bottom:' + Math.round(-canvasDimensions.y + 65) + 'px; left: ' + Math.round(canvasDimensions.x - 36) + 'px');
 	fullscreenMode.innerHTML = "<img src='" + CONFIG.basePath + "/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
 	container.appendChild(fullscreenMode);
 	document.getElementById ("fullscreenMode").addEventListener ("click", fullscreen, false);
