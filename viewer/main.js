@@ -655,7 +655,7 @@ function fitCameraToCenteredObject (camera, object, add_offset, orbitControls, _
 
 	let cameraZ = camera.position.z;
 	let offset = new THREE.Vector3 (0, 0, 0);
-	let sizeZ = size.z / 2;
+	let sizeZ = Math.max(size.x, size.y, size.z)/2;
 	let dx, dy;
 	if (_fit) {
 		const fov = camera.fov * (Math.PI / 180);
@@ -663,14 +663,14 @@ function fitCameraToCenteredObject (camera, object, add_offset, orbitControls, _
 		dx = sizeZ + (size.x / 2 / Math.tan(fovh));
 		dy = sizeZ + (size.y / 2 / Math.tan(fov));
 		cameraZ = Math.max(dx, dy);
-		camera.position.y*=0.75;
-		camera.position.z*=2;
+		camera.position.y*=0.65;
+		camera.position.z*=2.5;
 	}
 
     // offset the camera, if desired (to avoid filling the whole canvas)
-    if(add_offset !== undefined && add_offset !== 0 && _fit) { cameraZ *= add_offset; offset.y = dy/3; offset.z = dx/2;}
+    if(add_offset !== undefined && add_offset !== 0 && _fit) { cameraZ *= add_offset; offset.y = dy/2; offset.z = dx/2;}
 
-	cameraCoords = {x: camera.position.x, y: camera.position.y + offset.y, z: cameraZ*0.55 + offset.z};
+	cameraCoords = {x: camera.position.x, y: camera.position.y + offset.y, z: cameraZ*0.75 + offset.z};
     new TWEEN.Tween(cameraCoords)
 		.to({ z: camera.position.z }, 1500)
 		.onUpdate(() =>
@@ -967,7 +967,7 @@ function onWindowResize() {
 
 	viewEntity.setAttribute('style', 'right: ' + rightOffsetEntity +'%');
 
-	fullscreenMode.setAttribute('style', 'bottom:' + bottomOffsetFullscreen + 'px; left: ' + rightOffsetFullscreen + 'px');
+	fullscreenMode.style.top = (canvasDimensions.y - 60) + 'px';
 	controls.update();
 	render();
 }
@@ -2125,7 +2125,7 @@ function init() {
 
 	fullscreenMode = document.createElement('div');
 	fullscreenMode.setAttribute('id', 'fullscreenMode');
-	fullscreenMode.setAttribute('style', 'bottom:' + Math.round(-canvasDimensions.y + 65) + 'px; left: ' + Math.round(canvasDimensions.x - 36) + 'px');
+	fullscreenMode.setAttribute('style', 'top:' + (canvasDimensions.y - 60) + 'px; left: ' + (canvasDimensions.x - 36) + 'px');
 	fullscreenMode.innerHTML = "<img src='" + CONFIG.basePath + "/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
 	container.appendChild(fullscreenMode);
 	document.getElementById ("fullscreenMode").addEventListener ("click", fullscreen, false);
