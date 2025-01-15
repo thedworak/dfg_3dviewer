@@ -183,7 +183,8 @@ const colors = {
 	DirectionalLight: '0xFFFFFF',
 	AmbientLight: '0x404040',
 	CameraLight: '0xFFFFFF',
-	BackgroundColor: '0xFFFFFF'
+	BackgroundColor: '#D2D2D2',
+	BackgroundColorOuter: '#FFFFFF'
 };
 
 const materialProperties = {
@@ -193,7 +194,7 @@ const materialProperties = {
 	metalness: 0
 };
 
-const intensity = { startIntensityDir: 1 , startIntensityAmbient: 1, startIntensityCamera: 1};
+const intensity = { startIntensityDir: 1 , startIntensityAmbient: 1, startIntensityCamera: 1 };
 
 const saveProperties = {
 	Position: true,
@@ -203,8 +204,12 @@ const saveProperties = {
 	DirectionalLight: true,
 	AmbientLight: true,
 	CameraLight: true,
-	BackgroundColor: true
+	BackgroundColor: true,
+	BackgroundColorOuter: true
 };
+
+const backgroundType = { 'Background Type': 'gradient' };
+let backgroundOuterFolder;
 
 const performanceMode = {
 	Performance: 'high-performance'
@@ -830,6 +835,14 @@ function setupCamera (_object, _camera, _light, _data, _controls) {
 		if (typeof (_data["backgroundColor"]) != "undefined") {
 			//scene.background.set(new THREE.Color(_data["backgroundColor"][0])); //TODO: migrate to gradient setup
 			colors['BackgroundColor'] = _data["backgroundColor"][0];
+		}
+		if (typeof (_data["backgroundColorOuter"]) != "undefined") {
+			//scene.background.set(new THREE.Color(_data["backgroundColorOuter"][0])); //TODO: migrate to gradient setup
+			colors['BackgroundColorOuter'] = _data["backgroundColorOuter"][0];
+		}
+		if (typeof (_data["backgroundType"]) != "undefined") {
+			//scene.background.set(new THREE.Color(_data["backgroundColorOuter"][0])); //TODO: migrate to gradient setup
+			backgroundType = _data["backgroundType"][0];
 		}
 		_camera.updateProjectionMatrix();
 		_controls.update();
@@ -1938,6 +1951,52 @@ function resetCamera() {
      ).start();	
 }
 
+function detectColorFormat(color) {
+	const hexRegex = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+	const rgbRegex = /^rgb\((\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})\)$/;
+
+	if (hexRegex.test(color)) {
+		return "hex";
+	} else if (rgbRegex.test(color)) {
+		return "rgb";
+	} else {
+		return "unknown";
+	}
+}
+
+function hexToRgb(hex) {
+	// Remove the '#' if it exists
+	hex = hex.replace(/^#/, '');
+
+	// Handle shorthand hex (e.g., #FFF -> #FFFFFF)
+	if (hex.length === 3) {
+		hex = hex.split('').map(char => char + char).join('');
+	}
+
+	// Parse the hex into RGB components
+	const bigint = parseInt(hex, 16);
+	const r = (bigint >> 16) & 255;
+	const g = (bigint >> 8) & 255;
+	const b = bigint & 255;
+
+	return `rgb(${r}, ${g}, ${b})`;
+}
+
+function changeBackground (_type, _color1, _color2) {
+	switch (_type) {
+		case 'linear':
+			mainCanvas.style.setProperty("background", "-moz-radial-gradient(circle, " + _color1 + " 0%, " + _color1 + " 100%)");
+			mainCanvas.style.setProperty("background", "-webkit-radial-gradient(circle, " + _color1 + " 0%, " + _color1 + " 100%)");
+			mainCanvas.style.setProperty("background", "radial-gradient(circle, " + _color1 + " 0%, " + _color1 + " 100%)");
+		break;
+		case 'gradient':
+			mainCanvas.style.setProperty("background", "-moz-radial-gradient(circle, " + _color1 + " 0%, " + _color2 + " 100%)");
+			mainCanvas.style.setProperty("background", "-webkit-radial-gradient(circle, " + _color1 + " 0%, " + _color2 + " 100%)");
+			mainCanvas.style.setProperty("background", "radial-gradient(circle, " + _color1 + " 0%, " + _color2 + " 100%)");
+		break;
+	}	
+}
+
 function init() {
 	// model
 	//container.setAttribute("width", canvasDimensions.x);
@@ -2169,8 +2228,7 @@ function init() {
 		}
 	});
 	lightFolder.addColor (colors, 'DirectionalLight').onChange(function (value) {
-		const tempColor = new THREE.Color(value);
-		lightObjects[0].color = tempColor ;
+		lightObjects[0].color = new THREE.Color(value);
 	}).listen();
 	lightFolder.add(intensity, 'startIntensityDir', 0, 10).onChange(function (value) {
 		lightObjects[0].intensity = value;
@@ -2178,8 +2236,7 @@ function init() {
 
 	const lightFolderAmbient = editorFolder.addFolder('Ambient Light').close();
 	lightFolderAmbient.addColor (colors, 'AmbientLight').onChange(function (value) {
-		const tempColor = new THREE.Color(value);
-		ambientLight.color = tempColor;
+		ambientLight.color = new THREE.Color(value);
 	}).listen();
 	lightFolderAmbient.add(intensity, 'startIntensityAmbient', 0, 10).onChange(function (value) {
 		ambientLight.intensity = value;
@@ -2187,8 +2244,7 @@ function init() {
 
 	const lightFolderCamera = editorFolder.addFolder('Camera Light').close();
 	lightFolderCamera.addColor (colors, 'CameraLight').onChange(function (value) {
-		const tempColor = new THREE.Color(value);
-		cameraLight.color = tempColor;
+		cameraLight.color = new THREE.Color(value);
 	}).listen();
 	lightFolderCamera.add(intensity, 'startIntensityCamera', 0, 10).onChange(function (value) {
 		cameraLight.intensity = value;
@@ -2196,22 +2252,33 @@ function init() {
 
 	const backgroundFolder = editorFolder.addFolder('Background Color').close();
 	backgroundFolder.addColor (colors, 'BackgroundColor').onChange(function (value) {
-		const tempColor = new THREE.Color(value);
-		scene.background.set(tempColor);
+		//mainCanvas.style.setProperty('background', new THREE.Color(value), 'important');
+		changeBackground(backgroundType['Background Type'], value, colors['BackgroundColorOuter']);
 	}).listen();
+	backgroundOuterFolder = backgroundFolder.addColor (colors, 'BackgroundColorOuter').onChange(function (value) {
+		changeBackground(backgroundType['Background Type'], colors['BackgroundColor'], value);
+	}).listen();
+	backgroundFolder.add(backgroundType, 'Background Type', { 'Linear': 'linear', 'Gradient': 'gradient' }).onChange(function (value)
+	{
+		if (value == "linear")
+			backgroundOuterFolder.hide();
+		else
+			backgroundOuterFolder.show();
+		changeBackground(value, colors['BackgroundColor'], colors['BackgroundColorOuter']);
+	});
 	
 	clippingFolder = editorFolder.addFolder('Clipping Planes').close();
 	materialsFolder = editorFolder.addFolder('Materials').close();
 
 	propertiesFolder = editorFolder.addFolder('Save properties').close();
-	propertiesFolder.add(saveProperties, 'Position'); 
-	propertiesFolder.add(saveProperties, 'Rotation'); 
-	propertiesFolder.add(saveProperties, 'Scale'); 
-	propertiesFolder.add(saveProperties, 'Camera'); 
-	propertiesFolder.add(saveProperties, 'DirectionalLight'); 
-	propertiesFolder.add(saveProperties, 'AmbientLight'); 
-	propertiesFolder.add(saveProperties, 'CameraLight'); 
-	propertiesFolder.add(saveProperties, 'BackgroundColor'); 
+	propertiesFolder.add(saveProperties, 'Position');
+	propertiesFolder.add(saveProperties, 'Rotation');
+	propertiesFolder.add(saveProperties, 'Scale');
+	propertiesFolder.add(saveProperties, 'Camera');
+	propertiesFolder.add(saveProperties, 'DirectionalLight');
+	propertiesFolder.add(saveProperties, 'AmbientLight');
+	propertiesFolder.add(saveProperties, 'CameraLight');
+	propertiesFolder.add(saveProperties, 'BackgroundColor');
 
 	if (editor) {
 		editorFolder.add({["Save"] () {
@@ -2258,6 +2325,8 @@ function init() {
 					if (typeof (_data["lightCameraColor"]) !== "undefined") originalMetadata["lightCameraColor"] = _data["lightCameraColor"];
 					if (typeof (_data["lightCameraIntensity"]) !== "undefined") originalMetadata["lightCameraIntensity"] = _data["lightCameraIntensity"];
 					if (typeof (_data["backgroundColor"]) !== "undefined") originalMetadata["backgroundColor"] = _data["backgroundColor"];
+					if (typeof (_data["backgroundColorOuter"]) !== "undefined") originalMetadata["backgroundColorOuter"] = _data["backgroundColorOuter"];
+					if (typeof (_data["backgroundType"]) !== "undefined") originalMetadata["backgroundType"] = _data["backgroundType"];
 
 					if (saveProperties.Position) {
 						newMetadata = Object.assign(newMetadata, {"objPosition": [ helperObjects[0].position.x, helperObjects[0].position.y, helperObjects[0].position.z ]});
@@ -2338,9 +2407,13 @@ function init() {
 					
 					if (saveProperties.BackgroundColor) {
 						newMetadata = Object.assign(newMetadata, {"backgroundColor": [ "#" + (scene.background.getHexString()).toUpperCase() ] });
+						newMetadata = Object.assign(newMetadata, {"backgroundColorOuter": [ "#" + (scene.background.getHexString()).toUpperCase() ] });
+						newMetadata = Object.assign(newMetadata, {"backgroundType": [ "#" + (scene.background.getHexString()).toUpperCase() ] });
 					}
 					else {
 						newMetadata = Object.assign(newMetadata, {"backgroundColor": [ originalMetadata["backgroundColor"][0] ]});
+						newMetadata = Object.assign(newMetadata, {"backgroundColorOuter": [ originalMetadata["backgroundColorOuter"][0] ]});
+						newMetadata = Object.assign(newMetadata, {"backgroundType": [ originalMetadata["backgroundType"][0] ]});
 					}
 					
 					if (archiveType !== '') {
