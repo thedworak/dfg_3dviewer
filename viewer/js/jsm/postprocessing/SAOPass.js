@@ -19,8 +19,7 @@ import {
 } from '../../../build/three.module.js';
 import { Pass, FullScreenQuad } from './Pass.js';
 import { SAOShader } from '../shaders/SAOShader.js';
-import { DepthLimitedBlurShader } from '../shaders/DepthLimitedBlurShader.js';
-import { BlurShaderUtils } from '../shaders/DepthLimitedBlurShader.js';
+import { BlurShaderUtils, DepthLimitedBlurShader } from '../shaders/DepthLimitedBlurShader.js';
 import { CopyShader } from '../shaders/CopyShader.js';
 
 /**
