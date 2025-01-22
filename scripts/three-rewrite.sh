@@ -1,14 +1,16 @@
 #!/bin/bash
 
-#cp -R -p viewer/build viewer/build_171
-#cp -R -p viewer/js/jsm viewer/js/jsm_171
+OLD_BUILD=$1
+BUILD=$2
+
+#cp -R -p viewer/build viewer/build_${OLD_BUILD}
+#cp -R -p viewer/js/jsm viewer/js/jsm_${OLD_BUILD}
 #wget https://github.com/mrdoob/three.js/archive/refs/tags/r172.zip
 #unzip r172.zip
 #rm r172.zip
 #cp -R three.js-r172/build/* viewer/build/
 #cp -R three.js-r172/examples/jsm/* viewer/js/jsm/
-
-BUILD=$1
+#rm -rf three.js-r172 viewer/build_${OLD_BUILD} viewer/js/jsm_${OLD_BUILD}
 
 fixlinks() {
   BASE=${1/#\.\//}
