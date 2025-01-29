@@ -34,11 +34,27 @@ import math
 from mathutils import Matrix, Vector
 import itertools
 from math import radians
+import argparse
 
-bpy.context.scene.render.resolution_percentage = 70
-bpy.context.scene.render.resolution_x = 1280
-bpy.context.scene.render.resolution_y = 960
-bpy.context.scene.cycles.samples = 20
+if '--' in sys.argv:
+    argv = sys.argv[sys.argv.index('--') + 1:]
+    parser=argparse.ArgumentParser()
+    parser.add_argument("--input", help="Input file path")
+    parser.add_argument("--ext", help="Extenstion of imported file")
+    parser.add_argument("--org_ext", help="Original extenstion of imported file")
+    parser.add_argument("--output", help="Output file path")
+    parser.add_argument("--is_archive", help="Importing archive flag")
+    parser.add_argument("--resolution", help="Resolution preview images")
+    parser.add_argument("--samples", help="Samples rendering quality")
+    args = parser.parse_known_args(argv)[0]
+
+    print('input: ', args.input)
+    print('ext: ', args.ext)
+    print('org_ext: ', args.org_ext)
+    print('output: ', args.output)
+    print('is_archive: ', args.is_archive)
+    print('resolution: ', args.resolution)
+    print('samples: ', args.samples)
 
 def rotation_matrix(axis, theta):
     """
@@ -132,76 +148,75 @@ def scale_scene():
     ]
     return bounds
 
+
 #
 # Globals
 #
+bpy.context.scene.render.resolution_percentage = 70
+bpy.context.scene.render.resolution_x = 1280
+bpy.context.scene.render.resolution_y = 960
+bpy.context.scene.cycles.samples = 20
 
+if args.resolution:
+    resolution = args.resolution.split('x', 2)
+    print (resolution)
+    bpy.context.scene.render.resolution_x = int(resolution[0])
+    bpy.context.scene.render.resolution_y = int(resolution[1])
+if args.samples:
+    bpy.context.scene.cycles.samples = int(args.samples)
 #
 # Functions
 #
 current_directory = os.getcwd()
 
-if sys.argv[8:]:
-    extension = sys.argv[8]
+if args.ext:
+    extension = args.ext
 if extension == "gltf":
     format = "GLTF_EMBEDDED"
 else:
    format = "GLB"
 
-if sys.argv[9:]:
-    original_extension = sys.argv[9]
+if args.org_ext:
+	original_extension = args.ext
 
-is_archive = sys.argv[11]
+is_archive = args.is_archive
 
 print("Converting: '" + original_extension + "'")
 
-force_continue = True
-for current_argument in sys.argv:
+root, current_extension = os.path.splitext(args.input)
+current_basename = os.path.basename(root)
 
-	if force_continue:
-		if current_argument == '--':
-			force_continue = False
-		continue
-
-	#
-
-	root, current_extension = os.path.splitext(current_argument)
-	current_basename = os.path.basename(root)
-
-	if current_extension != ".abc" and current_extension != ".blend" and current_extension != ".dae" and current_extension != ".fbx" and current_extension != ".gltf" and current_extension != ".glb" and current_extension != ".obj" and current_extension != ".ply" and current_extension != ".stl" and current_extension != ".wrl" and current_extension != ".x3d":
-		continue
+if current_extension == ".abc" or current_extension == ".blend" or current_extension == ".dae" or current_extension == ".fbx" or current_extension == ".gltf" or current_extension == ".glb" or current_extension == ".obj" or current_extension == ".ply" or current_extension == ".stl" or current_extension == ".wrl" or current_extension == ".x3d":
 
 	bpy.ops.wm.read_factory_settings(use_empty=True)
-	#print("Converting: '" + current_argument + "'")
-
-	#
+	print("Converting: '" + args.input + "'")
 
 	if current_extension == ".abc":
-		bpy.ops.wm.alembic_import(filepath=current_argument)    
+		bpy.ops.wm.alembic_import(filepath=args.input)    
 
 	if current_extension == ".blend":
-		bpy.ops.wm.open_mainfile(filepath=current_argument)
+		bpy.ops.wm.open_mainfile(filepath=args.input)
 
 	if current_extension == ".dae":
-		bpy.ops.wm.collada_import(filepath=current_argument)    
+		bpy.ops.wm.collada_import(filepath=args.input)    
 
 	if current_extension == ".fbx":
-		bpy.ops.import_scene.fbx(filepath=current_argument)    
+		bpy.ops.import_scene.fbx(filepath=args.input)    
 
 	if current_extension == ".obj":
-		object=bpy.ops.import_scene.obj(filepath=current_argument)    
+		object=bpy.ops.import_scene.obj(filepath=args.input)    
 
 	if current_extension == ".ply":
-		bpy.ops.import_mesh.ply(filepath=current_argument)    
+		bpy.ops.import_mesh.ply(filepath=args.input)    
 
 	if current_extension == ".stl":
-		bpy.ops.import_mesh.stl(filepath=current_argument)
+		bpy.ops.import_mesh.stl(filepath=args.input)
 
 	if current_extension == ".wrl" or current_extension == ".x3d":
-		bpy.ops.import_scene.x3d(filepath=current_argument)
+		bpy.ops.import_scene.x3d(filepath=args.input)
 
 	if current_extension == ".gltf" or current_extension == ".glb":
-		bpy.ops.import_scene.gltf(filepath=current_argument)
+		bpy.ops.import_scene.gltf(filepath=args.input)
 
 	scene = bpy.context.scene
 	context = bpy.context
@@ -291,9 +306,8 @@ for current_argument in sys.argv:
 	scene.view_layers["View Layer"].use_pass_object_index = True
 
 	#
-	#print("ROOT" + root)
-	if sys.argv[10:]:
-		export_file = str(sys.argv[10])
+	if args.output:
+		export_file = args.output
 	else:
 		root = root[::-1].replace(current_basename[::-1], "", 1)[::-1]
 		export_file = root + "_" + extension

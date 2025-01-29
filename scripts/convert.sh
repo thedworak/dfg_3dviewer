@@ -16,7 +16,7 @@
 set -e
 
 source $(dirname $0)/.env
-
+BLENDER_PATH=''
 #BLENDER_PATH='/var/lib/snapd/snap/blender/current/'
 
 #Defaults:
@@ -97,8 +97,10 @@ render_preview () {
 	if [[ "$EXT" != "glb" ]]; then
 		SNAME="gltf/${NAME}"
 	fi;
-
-	xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/render.py -- "$INPATH/$SNAME.glb" "glb" $1 "$INPATH/views/" $IS_ARCHIVE -E BLENDER_EEVEE -f 1  > /dev/null 2>&1
+	
+	RESOLUTION="512x512x16"
+	SAMPLES="20"
+	xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/render.py -- --input "$INPATH/$SNAME.glb" --ext "glb" --org_ext $1 --output "$INPATH/views/" --is_archive $IS_ARCHIVE --resolution $RESOLUTION --samples $SAMPLES -E BLENDER_EEVEE -f 1 > /dev/null 2>&1
 }
 
 handle_file () {
