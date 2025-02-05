@@ -48,14 +48,6 @@ if '--' in sys.argv:
     parser.add_argument("--samples", help="Samples rendering quality")
     args = parser.parse_known_args(argv)[0]
 
-    print('input: ', args.input)
-    print('ext: ', args.ext)
-    print('org_ext: ', args.org_ext)
-    print('output: ', args.output)
-    print('is_archive: ', args.is_archive)
-    print('resolution: ', args.resolution)
-    print('samples: ', args.samples)
-
 def rotation_matrix(axis, theta):
     """
     Return the rotation matrix associated with counterclockwise rotation about
@@ -153,13 +145,12 @@ def scale_scene():
 # Globals
 #
 bpy.context.scene.render.resolution_percentage = 70
-bpy.context.scene.render.resolution_x = 1280
-bpy.context.scene.render.resolution_y = 960
+bpy.context.scene.render.resolution_x = 1024
+bpy.context.scene.render.resolution_y = 1024
 bpy.context.scene.cycles.samples = 20
 
 if args.resolution:
     resolution = args.resolution.split('x', 2)
-    print (resolution)
     bpy.context.scene.render.resolution_x = int(resolution[0])
     bpy.context.scene.render.resolution_y = int(resolution[1])
 if args.samples:
@@ -189,7 +180,6 @@ current_basename = os.path.basename(root)
 if current_extension == ".abc" or current_extension == ".blend" or current_extension == ".dae" or current_extension == ".fbx" or current_extension == ".gltf" or current_extension == ".glb" or current_extension == ".obj" or current_extension == ".ply" or current_extension == ".stl" or current_extension == ".wrl" or current_extension == ".x3d":
 
 	bpy.ops.wm.read_factory_settings(use_empty=True)
-	print("Converting: '" + args.input + "'")
 
 	if current_extension == ".abc":
 		bpy.ops.wm.alembic_import(filepath=args.input)    
@@ -245,7 +235,6 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 				if o.type == 'MESH'
 				)
 			)
-	print("#" * 72)
 	# bottom front left (all the mins)
 	bfl = coords.min(axis=0)
 	# top back right
@@ -253,12 +242,8 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	G  = np.array((bfl, tbr)).T
 	# bound box coords ie the 8 combinations of bfl tbr.
 	bbc = [i for i in itertools.product(*G)]
-	print(np.array(bbc))
 	bb_sides = get_min(bbc) - get_max(bbc)
 	bb_sides = (abs(bb_sides[0]), abs(bb_sides[1]), abs(bb_sides[2]))
-	print("#" * 72)
-	print('BBOX')
-	print(bb_sides)
 	
 	group = bpy.data.collections.new("MainGroup")
 	bpy.context.scene.collection.children.link(group)
@@ -294,8 +279,8 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	render.image_settings.color_mode = 'RGBA'
 	render.image_settings.color_depth = '16' 
 	render.image_settings.file_format = 'PNG'
-	render.resolution_x = 1024
-	render.resolution_y = 1024
+	render.resolution_x = int(resolution[0])
+	render.resolution_y = int(resolution[1])
 	render.resolution_percentage = 100
 	render.film_transparent = True
 	#scene.render.engine = 'CYCLES'
@@ -346,7 +331,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	scene.render.image_settings.file_format='PNG'
 	
 	scene.render.filepath=mainfilepath+".png"
-	print("Rendering: " + scene.render.filepath)
+	print("Rendering: " + scene.render.filepath + " (" + str(render.resolution_x) + "x" + str(render.resolution_y) + ")")
 	cam_data = bpy.data.cameras.new('camera')
 	cam = bpy.data.objects.new('camera', cam_data)
 	cam.data.lens = 35
