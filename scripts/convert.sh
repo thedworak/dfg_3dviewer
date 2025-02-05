@@ -4,6 +4,7 @@
 #apt install xvfb
 #apt install blender python3-pip
 #apt install python3-lxml python3-shapely python3-matplotlib (for CityGML converter)
+#apt install libxi6 libgconf-2-4
 #OR
 # Debian way
 #wget https://download.blender.org/release/Blender2.92/blender-2.92.0-linux64.tar.xz
@@ -78,11 +79,10 @@ while getopts ":c:l:o:i:b:f:" flag; do
 done
 
 check_status () {
-	if [ ! -f "${INPATH}/${FILENAME}.off" ]; then
-		touch "${INPATH}/${FILENAME}.off"
-		exit 1
+	if [ ! -f "$1.off" ]; then
+		touch "$1.off"
 	else
-		rm -rf "${INPATH}/${FILENAME}.off"
+		rm -rf "$1.off"
 	fi;
 }
 
@@ -100,7 +100,7 @@ render_preview () {
 	
 	RESOLUTION="512x512x16"
 	SAMPLES="20"
-	xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/render.py -- --input "$INPATH/$SNAME.glb" --ext "glb" --org_ext $1 --output "$INPATH/views/" --is_archive $IS_ARCHIVE --resolution $RESOLUTION --samples $SAMPLES -E BLENDER_EEVEE -f 1 > /dev/null 2>&1
+	xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/render.py -- --input "$INPATH/$SNAME.glb" --ext "glb" --org_ext "$1" --output "$INPATH/views/" --is_archive $IS_ARCHIVE --resolution $RESOLUTION --samples $SAMPLES -E BLENDER_EEVEE -f 1 > /dev/null 2>&1
 }
 
 handle_file () {
@@ -112,9 +112,9 @@ handle_file () {
 	OUTPUTPATH=$6
 
 	if [[ "$isOutput" = false ]]; then
-		${BLENDER_PATH}blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- "$INPATH/$FILENAME" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" > /dev/null 2>&1
+		sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- --input "$INPATH/$FILENAME" --ext "$GLTF" --compression "$COMPRESSION" --compression_level "$COMPRESSION_LEVEL" > /dev/null 2>&1
 	else
-		${BLENDER_PATH}blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- "$INPATH/$FILENAME" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" "$OUTPUT$OUTPUTPATH" > /dev/null 2>&1
+		sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- --input "$INPATH/$FILENAME" --ext "$GLTF" --compression "$COMPRESSION" --compression_level "$COMPRESSION_LEVEL" --output "$OUTPUT$OUTPUTPATH" > /dev/null 2>&1
 	fi
 	
 	if [[ -f "$INPATH/gltf/$NAME.glb" ]]; then
@@ -161,7 +161,7 @@ handle_blend_file () {
 		mkdir "$INPATH"/gltf/
 	fi
 
-	${BLENDER_PATH}blender -b -P ${SPATH}/scripts/convert-blender-to-gltf.py "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
+	sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/convert-blender-to-gltf.py "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
 	render_preview $EXT
 }
 
@@ -181,7 +181,7 @@ handle_gml_file () {
 	if [[ ! -d "$INPATH"/gltf/ ]]; then
 		mkdir "$INPATH"/gltf/
 	fi
-	${BLENDER_PATH}blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- "$GLB_PATH/${NAME}.obj" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
+	sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- "$GLB_PATH/${NAME}.obj" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
 	render_preview $EXT
 	rm -rf $GLB_PATH
 
@@ -221,33 +221,37 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 			case $EXT in
 				abc|dae|fbx|obj|ply|stl|wrl|x3d)
 					echo "Converting $EXT file..."
-					touch "${INPATH}/${FILENAME}.off"
+					check_status "${INPATH}/${FILENAME}"
 					handle_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
 					end=`date +%s`
+					check_status "${INPATH}/${FILENAME}"
 					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
 					exit 0;
 				;;
 			  ifc)
 					echo "Converting $EXT file..."
-					touch "${INPATH}/${FILENAME}.off"
+					check_status "${INPATH}/${FILENAME}"
 					handle_ifc_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
 					end=`date +%s`
+					check_status "${INPATH}/${FILENAME}"
 					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
 					exit 0;
 				;;
 			  blend)
 					echo "Converting $EXT file..."
-					touch "${INPATH}/${FILENAME}.off"
+					check_status "${INPATH}/${FILENAME}"
 					handle_blend_file "$INPATH" "$FILENAME" "$NAME" $EXT
 					end=`date +%s`
+					check_status "${INPATH}/${FILENAME}"
 					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
 					exit 0;
 				;;
 			  gml)
 					echo "Converting $EXT file..."
-					touch "${INPATH}/${FILENAME}.off"
+					check_status "${INPATH}/${FILENAME}"
 					handle_gml_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
 					end=`date +%s`
+					check_status "${INPATH}/${FILENAME}"
 					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
 					exit 0;
 				;;
