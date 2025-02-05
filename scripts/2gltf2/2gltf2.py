@@ -29,6 +29,31 @@
 import bpy
 import os
 import sys
+import argparse
+
+if '--' in sys.argv:
+    argv = sys.argv[sys.argv.index('--') + 1:]
+    parser=argparse.ArgumentParser()
+    parser.add_argument("--input", help="Input file path")
+    parser.add_argument("--ext", help="Extenstion of imported file")
+    parser.add_argument("--org_ext", help="Original extenstion of imported file")
+    parser.add_argument("--output", help="Output file path")
+    parser.add_argument("--is_archive", help="Importing archive flag")
+    parser.add_argument("--resolution", help="Resolution preview images")
+    parser.add_argument("--samples", help="Samples rendering quality")
+    parser.add_argument("--compression", help="Compress object")
+    parser.add_argument("--compression_level", help="Compress object level")
+    args = parser.parse_known_args(argv)[0]
+
+    print('input: ', args.input)
+    print('ext: ', args.ext)
+    print('org_ext: ', args.org_ext)
+    print('output: ', args.output)
+    print('is_archive: ', args.is_archive)
+    print('resolution: ', args.resolution)
+    print('samples: ', args.samples)
+    print('compression: ', args.compression)
+    print('compression_level: ', args.compression_level)
 
 #
 # Globals
@@ -38,77 +63,65 @@ import sys
 # Functions
 #
 current_directory = os.getcwd()
+compression = "false"
+compression_level = 3
 
-if sys.argv[8:]:
-    extension = sys.argv[8]
+if args.ext:
+    extension = args.ext
 if extension == "gltf":
     format = "GLTF_EMBEDDED"
 else:
    format = "GLB"
 
-if sys.argv[9:]:
-    compression = sys.argv[9]
-else:
-    compression = "false"
+if args.org_ext:
+	original_extension = args.ext
 
-if sys.argv[10:]:
-    compression_level = int(sys.argv[10])
-else:
-    compression_level = 3
+if args.compression:
+    compression = args.compression
 
-force_continue = True
-for current_argument in sys.argv:
+if args.compression_level:
+    compression_level = int(args.compression_level)
 
-    if force_continue:
-        if current_argument == '--':
-            force_continue = False
-        continue
+root, current_extension = os.path.splitext(args.input)
+current_basename = os.path.basename(root)
 
-    #
+if current_extension == ".abc" or current_extension == ".blend" or current_extension == ".dae" or current_extension == ".fbx" or current_extension == ".obj" or current_extension == ".ply" or current_extension == ".stl" or current_extension == ".wrl" or current_extension == ".x3d":
 
-    root, current_extension = os.path.splitext(current_argument)
-    current_basename = os.path.basename(root)
+	bpy.ops.wm.read_factory_settings(use_empty=True)
 
-    if current_extension != ".abc" and current_extension != ".blend" and current_extension != ".dae" and current_extension != ".fbx" and current_extension != ".obj" and current_extension != ".ply" and current_extension != ".stl" and current_extension != ".wrl" and current_extension != ".x3d":
-        continue
+	if current_extension == ".abc":
+		bpy.ops.wm.alembic_import(filepath=args.input)    
 
-    bpy.ops.wm.read_factory_settings(use_empty=True)
+	if current_extension == ".blend":
+		bpy.ops.wm.open_mainfile(filepath=args.input)
 
-    #
+	if current_extension == ".dae":
+		bpy.ops.wm.collada_import(filepath=args.input)    
 
-    if current_extension == ".abc":
-        bpy.ops.wm.alembic_import(filepath=current_argument)    
+	if current_extension == ".fbx":
+		bpy.ops.import_scene.fbx(filepath=args.input)    
 
-    if current_extension == ".blend":
-        bpy.ops.wm.open_mainfile(filepath=current_argument)
+	if current_extension == ".obj":
+		bpy.ops.import_scene.obj(filepath=args.input)    
 
-    if current_extension == ".dae":
-        bpy.ops.wm.collada_import(filepath=current_argument)    
+	if current_extension == ".ply":
+		bpy.ops.import_mesh.ply(filepath=args.input)    
 
-    if current_extension == ".fbx":
-        bpy.ops.import_scene.fbx(filepath=current_argument)    
+	if current_extension == ".stl":
+		bpy.ops.import_mesh.stl(filepath=args.input)
 
-    if current_extension == ".obj":
-        bpy.ops.import_scene.obj(filepath=current_argument)    
+	if current_extension == ".wrl" or current_extension == ".x3d":
+		bpy.ops.import_scene.x3d(filepath=args.input)
 
-    if current_extension == ".ply":
-        bpy.ops.import_mesh.ply(filepath=current_argument)    
-
-    if current_extension == ".stl":
-        bpy.ops.import_mesh.stl(filepath=current_argument)
-
-    if current_extension == ".wrl" or current_extension == ".x3d":
-        bpy.ops.import_scene.x3d(filepath=current_argument)
-
-    #
-    if sys.argv[11:]:
-        export_file = str(sys.argv[11])
-        #export_file = root + current_basename + "." + extension
-    else:
-        root = root[::-1].replace(current_basename[::-1], "", 1)[::-1]
-        export_file = root + "gltf/" + current_basename + "." + extension
-    print("Writing: '" + export_file + "'")
-    if compression == 'true':
-        bpy.ops.export_scene.gltf(filepath=export_file,export_format=format,export_draco_mesh_compression_enable=True,export_draco_mesh_compression_level=compression_level)
-    else:
-        bpy.ops.export_scene.gltf(filepath=export_file,export_format=format)
+	#
+	if args.output:
+		export_file = str(args.output)
+		#export_file = root + current_basename + "." + extension
+	else:
+		root = root[::-1].replace(current_basename[::-1], "", 1)[::-1]
+		export_file = root + "gltf/" + current_basename + "." + extension
+	print("Writing: '" + export_file + "'")
+	if compression == 'true':
+		bpy.ops.export_scene.gltf(filepath=export_file,export_format=format,export_draco_mesh_compression_enable=True,export_draco_mesh_compression_level=compression_level)
+	else:
+		bpy.ops.export_scene.gltf(filepath=export_file,export_format=format)
