@@ -24,7 +24,7 @@ if (file_exists($file_path)) {
 	\Drupal::messenger()->addMessage(serialize($config_data), 'status');
 }
 else {
-	\Drupal::messenger()->addMessage("Cant load settings file", 'status');
+	\Drupal::messenger()->addMessage("Cant load settings file", 'warning');
 }
 
 /**
@@ -145,14 +145,13 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 	$SETTINGS['main_url']=constant("MAIN_URL");
 
 	if (isset($DEFAULT_CONFIG)) {		
-		$SETTINGS['entity_bundle']=$DEFAULT_CONFIG->get('entity_bundle');
-		$SETTINGS['viewer_file_upload']=$DEFAULT_CONFIG->get('viewer_file_upload');
-		$SETTINGS['image_generation']=$DEFAULT_CONFIG->get('image_generation');
-		$SETTINGS['viewer_file_name']=$DEFAULT_CONFIG->get('viewer_file_name');
-		$SETTINGS['field_df']=$DEFAULT_CONFIG->get('field_df');
-		$SETTINGS['main_url']=$DEFAULT_CONFIG->get('main_url');
+		$SETTINGS['entity_bundle']=$DEFAULT_CONFIG->get('dfg_3dviewer_entitybundle');
+		$SETTINGS['viewer_file_upload']=$DEFAULT_CONFIG->get('dfg_3dviewer_viewer_file_upload');
+		$SETTINGS['image_generation']=$DEFAULT_CONFIG->get('dfg_3dviewer_image_generation');
+		$SETTINGS['viewer_file_name']=$DEFAULT_CONFIG->get('dfg_3dviewer_viewer_file_name');
+		$SETTINGS['field_df']=$DEFAULT_CONFIG->get('dfg_3dviewer_field_df');
+		$SETTINGS['main_url']=$DEFAULT_CONFIG->get('dfg_3dviewer_main_url');
 	}
-	//\Drupal::messenger()->addMessage(serialize($entity));
 	$SPATH = \Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath());
 	$XPATH = dirname(dirname($SPATH));
 	$archives = array("zip", "rar", "tar", "xz", "gz");
@@ -221,7 +220,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 				\Drupal::messenger()->addMessage($extension . " is not supported yet", 'warning');
 			}
 			#semi-automatic path change
-			//$entity->set($SETTINGS['viewer_file_name'], $autoPath);
+			$entity->set($SETTINGS['viewer_file_name'], $autoPath);
 			#for debugging only
 			if ($retval === null) {
 				\Drupal::messenger()->addMessage($output, 'status');
@@ -236,10 +235,9 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		}
 	}
 	if($entity->bundle() == $SETTINGS['entity_bundle']) {
-		#\Drupal::messenger()->addMessage(serialize($entity->eid->value));
 		//$file_info = $entity->label->getValue();
 		$file_info = $entity->{$SETTINGS['viewer_file_upload']}->getValue();
-		$file_id = $file_info[0]['target_id'];
+		$file_id = $file_info[0]["target_id"];
 		$entity_id = $entity->eid->value;
 		$file = \Drupal\file\Entity\File::load($file_id);
 		$imgSuffix = "_side45.png";
@@ -327,13 +325,14 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			$entity->set($SETTINGS['viewer_file_name'], $autoPath);
 		}
 		require ('php/build_xml.php');
-		build_xml ($entity_id);
-		#$entity->set('$SETTINGS['field_df']', 'https://3dtest.dfg-viewer.de/viewer?tx_dlf[id]=https://3d-repository.hs-mainz.de/sites/default/files/xml_structure/' . $entity_id . '.xml&no_cache=1');
-		$xml_struc = 'public://xml_structure/' . $entity_id . '.xml&no_cache=1';
+		build_xml ($entity_id, $SETTINGS['main_url']);
+		$no_cache=false;
+		$caching = $no_cache ? '?no_cache=1' : ''; //temporary workaround
+		$xml_struc = 'public://xml_structure/' . $entity_id . '.xml' . $caching;
 		$xml_wrapper = \Drupal::service('stream_wrapper_manager')->getViaUri($xml_struc);
 		$xml_uri = $xml_wrapper->getExternalURL();
-		global $base_url;
-		$uri = $base_url . "/viewer?tx_dlf[id]=" . $xml_uri . "&no_cache=1&modelviewer=1";
+		//global $base_url;
+		$uri = $SETTINGS['main_url'] . "/viewer?tx_dlf[id]=" . $xml_uri . "&no_cache=1&modelviewer=1";
 		$entity->set($SETTINGS['field_df'], $uri);
 	}
 	//\Drupal::messenger()->addMessage(serialize($entity), 'status');
