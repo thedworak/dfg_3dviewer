@@ -1,6 +1,5 @@
 <?php
 
-const DOMAIN='https://3d-repository.hs-mainz.de';
 const EXPORT_PATH='/export_xml_single/';
 const MFILEPATH='sites/default/files/xml_structure';
 const XSLURL="https://raw.githubusercontent.com/slub/dfg-viewer/e54305a9fa58951d3f3d1dd7e64554cb2ee881eb/Resources/Public/XSLT/exportSingleToMetsMods.xsl";
@@ -28,16 +27,17 @@ function file_get_contents_curl( $url ) {
 
 }
 
-function build_xml ($id) {
+function build_xml ($id, $domain) {
 	$id = isset($id) ? $id : $_GET['id'];
+	$domain = isset($domain) ? $domain : $_GET['domain'];
 	$FILEPATH=MFILEPATH."/$id.xml";
 
-	$url = DOMAIN . EXPORT_PATH . $id . '?page=0&amp;_format=xml';
+	$url = $domain . EXPORT_PATH . $id . '?page=0&amp;_format=xml';
 
 	$data = file_get_contents_curl($url);
 	$xml = simplexml_load_string($data);
 
-	if(empty($xml)) return;
+	if(!empty($xml)) return;
 
 	$xsl = simplexml_load_file(XSLURL);
 	$xslt = new \XSLTProcessor();
@@ -57,6 +57,7 @@ function build_xml ($id) {
 }
 
 #$id = isset($entity_id) ? $entity_id : $_GET['id'];
-build_xml ($id);
+#$domain = isset($domain) ? $domain : $_GET['domain'];
+#build_xml ($id);
 
 ?>
