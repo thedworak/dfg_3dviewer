@@ -100,7 +100,7 @@ render_preview () {
 	
 	RESOLUTION="512x512x16"
 	SAMPLES="20"
-	xvfb-run --auto-servernum --server-args="-screen 0 ${RESOLUTION}" sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/render.py -- --input "$INPATH/$SNAME.glb" --ext "glb" --org_ext "$1" --output "$INPATH/views/" --is_archive $IS_ARCHIVE --resolution $RESOLUTION --samples $SAMPLES -E BLENDER_EEVEE -f 1 #> /dev/null 2>&1
+	xvfb-run --auto-servernum --server-args="-screen 0 ${RESOLUTION}" sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/render.py -- --input "$INPATH/$SNAME.glb" --ext "glb" --org_ext "$1" --output "$INPATH/views/" --is_archive $IS_ARCHIVE --resolution $RESOLUTION --samples $SAMPLES -E BLENDER_EEVEE -f 1 > /dev/null 2>&1
 }
 
 handle_file () {

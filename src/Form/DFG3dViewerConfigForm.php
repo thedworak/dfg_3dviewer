@@ -27,12 +27,12 @@ class DFG3dViewerConfigForm extends FormBase {
     $settings = $this->configFactory()->getEditable('dfg_3dviewer.settings');
     $default_config = \Drupal::config('dfg_3dviewer.settings');
     $default_settings = [
-      'entity_bundle' => $default_config->get('entity_bundle'),
-      'viewer_file_upload' => $default_config->get('viewer_file_upload'),
-      'image_generation' => $default_config->get('image_generation'),
-      'viewer_file_name' => $default_config->get('viewer_file_name'),
-      'field_df' => $default_config->get('field_df'),
-      'main_url' => $default_config->get('main_url'),
+      'entity_bundle' => $default_config->get('dfg_3dviewer_entitybundle'),
+      'viewer_file_upload' => $default_config->get('dfg_3dviewer_viewer_file_upload'),
+      'image_generation' => $default_config->get('dfg_3dviewer_image_generation'),
+      'viewer_file_name' => $default_config->get('dfg_3dviewer_viewer_file_name'),
+      'field_df' => $default_config->get('dfg_3dviewer_field_df'),
+      'main_url' => $default_config->get('dfg_3dviewer_main_url'),
     ];
 
     $form['#dfg_3dviewer_settings'] = $settings;
