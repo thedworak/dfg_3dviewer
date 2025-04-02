@@ -834,7 +834,7 @@ function buildGallery() {
 					handleImages(fileElement, mainElement, imageElements);
 				}
 			}
-			else if (imageElements.childNodes.length > 0) {
+			else if (imageElements.childNodes !== undefined && imageElements.childNodes.length > 0) {
 				if (typeof (imageElements.childNodes[0].innerHTML) == 'string' || typeof (imageElements.childNodes[1].innerHTML) == 'string') { //handle links and convert to img
 					let imagesList = Array.from(imageElements.childNodes);
 					prepareGalleryImages(imagesList);
