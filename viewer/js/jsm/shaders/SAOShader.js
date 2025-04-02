@@ -3,10 +3,16 @@ import {
 	Vector2
 } from '../../../build/three.module.js';
 
-/**
- * TODO
- */
+/** @module SAOShader */
 
+/**
+ * SAO shader.
+ *
+ * Used by {@link SAOPass}.
+ *
+ * @constant
+ * @type {ShaderMaterial~Shader}
+ */
 const SAOShader = {
 
 	name: 'SAOShader',

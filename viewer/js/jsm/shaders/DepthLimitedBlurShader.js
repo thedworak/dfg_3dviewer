@@ -2,10 +2,16 @@ import {
 	Vector2
 } from '../../../build/three.module.js';
 
+/** @module DepthLimitedBlurShader */
+
 /**
  * TODO
+ *
+ * Used by {@link SAOPass}.
+ *
+ * @constant
+ * @type {ShaderMaterial~Shader}
  */
-
 const DepthLimitedBlurShader = {
 
 	name: 'DepthLimitedBlurShader',
