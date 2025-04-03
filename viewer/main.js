@@ -49,8 +49,8 @@ import { GUI } from './js/external_libs/lil-gui.esm.min.js';
 
 //import CONFIG from './config.json' assert {type: 'json'}; //disabled temporary because of Firefox assertion bug
 const CONFIG = {
-	"domain": "https://3d-repository.hs-mainz.de",
-	"metadataDomain": "https://3d-repository.hs-mainz.de",
+	"domain": "https://repository.covher.eu",
+	"metadataDomain": "https://repository.covher.eu",
 	"container": "DFG_3DViewer",
 	"galleryContainer": "block-bootstrap5-content",
 	"galleryImageClass": "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
@@ -60,7 +60,8 @@ const CONFIG = {
 	"viewEntityPath": "/wisski/navigate/",
 	"attributeId": "wisski_id",
 	"lightweight": false,
-	"scaleContainer": {x: 1, y: 1.4}
+	"scaleContainer": {x: 1, y: 1.4},
+	"salt": "Z7FYJMmTiEzcGp4lTpuk4LiO" //TODO: loading from external file
 };
 
 let camera, scene, renderer, stats, controls, loader, ambientLight, dirLight, dirLightTarget, cameraLight, cameraLightTarget;
@@ -2469,21 +2470,31 @@ function init() {
 					}
 					
 					if (saveProperties.BackgroundColor) {
-						newMetadata = Object.assign(newMetadata, {"backgroundColor": [ "#" + (scene.background.getHexString()).toUpperCase() ] });
-						newMetadata = Object.assign(newMetadata, {"backgroundColorOuter": [ "#" + (scene.background.getHexString()).toUpperCase() ] });
-						newMetadata = Object.assign(newMetadata, {"backgroundType": [ "#" + (scene.background.getHexString()).toUpperCase() ] });
+						if (scene.background !== null) {
+							newMetadata = Object.assign(newMetadata, {"backgroundColor": [ "#" + (scene.background.getHexString()).toUpperCase() ] });
+							newMetadata = Object.assign(newMetadata, {"backgroundColorOuter": [ "#" + (scene.background.getHexString()).toUpperCase() ] });
+							newMetadata = Object.assign(newMetadata, {"backgroundType": [ "#" + (scene.background.getHexString()).toUpperCase() ] });
+						}
+						else {
+							newMetadata = Object.assign(newMetadata, {"background": [ window.getComputedStyle(mainCanvas).background ] });
+						}
 					}
 					else {
-						newMetadata = Object.assign(newMetadata, {"backgroundColor": [ originalMetadata["backgroundColor"][0] ]});
-						newMetadata = Object.assign(newMetadata, {"backgroundColorOuter": [ originalMetadata["backgroundColorOuter"][0] ]});
-						newMetadata = Object.assign(newMetadata, {"backgroundType": [ originalMetadata["backgroundType"][0] ]});
+						if (scene.background !== null) {
+							newMetadata = Object.assign(newMetadata, {"backgroundColor": [ originalMetadata["backgroundColor"][0] ]});
+							newMetadata = Object.assign(newMetadata, {"backgroundColorOuter": [ originalMetadata["backgroundColorOuter"][0] ]});
+							newMetadata = Object.assign(newMetadata, {"backgroundType": [ originalMetadata["backgroundType"][0] ]});
+						}
+						else {
+							newMetadata = Object.assign(newMetadata, {"background": [ window.getComputedStyle(mainCanvas).background ] });
+						}
 					}
 					
 					if (archiveType !== '') {
 						if (!compressedFile.includes(archiveType.toUpperCase())) compressedFile+="_" + archiveType.toUpperCase();
-						params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+basename+compressedFile + "/"+"&filename="+filename;
+						params = CONFIG.salt+"="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+basename+compressedFile + "/"+"&filename="+filename;
 					}
-					else { params = "5MJQTqB7W4uwBPUe="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+"&filename="+filename; }
+					else { params = CONFIG.salt+"="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+"&filename="+filename; }
 					xhr.onreadystatechange = function()
 					{
 						if(xhr.readyState === XMLHttpRequest.DONE) {

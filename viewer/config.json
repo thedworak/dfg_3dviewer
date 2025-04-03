@@ -4,9 +4,12 @@
 	"container": "DFG_3DViewer",
 	"galleryContainer": "block-bootstrap5-content",
 	"galleryImageClass": "field--type-image",
+	"galleryImageID": "",
 	"basePath": "/modules/dfg_3dviewer/viewer",
 	"entityIdUri": "/wisski/navigate/(.*)/view",
 	"viewEntityPath": "/wisski/navigate/",
 	"attributeId": "wisski_id",
-	"lightweight": false
+	"lightweight": false,
+	"scaleContainer": {"x": 1, "y": 1.4},
+	"salt": "Z7FYJMmTiEzcGp4lTpuk4LiO"
 }

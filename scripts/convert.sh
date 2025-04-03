@@ -100,7 +100,16 @@ render_preview () {
 	
 	RESOLUTION="512x512x16"
 	SAMPLES="20"
-	xvfb-run --auto-servernum --server-args="-screen 0 ${RESOLUTION}" sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/render.py -- --input "$INPATH/$SNAME.glb" --ext "glb" --org_ext "$1" --output "$INPATH/views/" --is_archive $IS_ARCHIVE --resolution $RESOLUTION --samples $SAMPLES -E BLENDER_EEVEE -f 1 > /dev/null 2>&1
+	xvfb-run --auto-servernum --server-args="-screen 0 ${RESOLUTION}" sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/render.py -- --input "$INPATH/$SNAME.glb" --ext "glb" --org_ext "$1" --output "$INPATH/views/" --is_archive $IS_ARCHIVE --resolution $RESOLUTION --samples $SAMPLES -E BLENDER_EEVEE -f 1 #> /dev/null 2>&1
+}
+
+create_dirs () {
+	if [[ ! -d "$INPATH"/gltf/ ]]; then
+		mkdir "$INPATH"/gltf/
+	fi
+	if [[ ! -d "$INPATH"/metadata/ ]]; then
+		mkdir "$INPATH"/metadata/
+	fi
 }
 
 handle_file () {
@@ -143,9 +152,7 @@ handle_ifc_file () {
 	OUTPUT=$5
 	OUTPUTPATH=$6
 
-	if [[ ! -d "$INPATH"/gltf/ ]]; then
-		mkdir "$INPATH"/gltf/
-	fi
+	create_dirs
 
 	${SPATH}/scripts/IfcConvert "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
 	render_preview $EXT
@@ -157,9 +164,7 @@ handle_blend_file () {
 	NAME=$3
 	EXT=$4
 
-	if [[ ! -d "$INPATH"/gltf/ ]]; then
-		mkdir "$INPATH"/gltf/
-	fi
+	create_dirs
 
 	sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/convert-blender-to-gltf.py "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
 	render_preview $EXT
@@ -178,9 +183,7 @@ handle_gml_file () {
 	mkdir -p $GLB_PATH
 	cp -rf $INPATH/$FILENAME $GLB_PATH/
 	python3 ${SPATH}/scripts/CityGML2OBJv2/CityGML2OBJs.py -i "$GLB_PATH" -o "$GLB_PATH" > /dev/null 2>&1
-	if [[ ! -d "$INPATH"/gltf/ ]]; then
-		mkdir "$INPATH"/gltf/
-	fi
+	create_dirs
 	sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- "$GLB_PATH/${NAME}.obj" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
 	render_preview $EXT
 	rm -rf $GLB_PATH
