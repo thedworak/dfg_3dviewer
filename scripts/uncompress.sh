@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Ubuntu way
+#apt install unrar-free
+
 while getopts ":t:o:i:f:n:" flag; do
     case "${flag}" in
 		t) TYPE="${OPTARG}";;

@@ -86,6 +86,7 @@ const container = document.getElementById(CONFIG.container);
 canvasDimensions = CANVASDIMENSIONS = {x: container.getBoundingClientRect().width*CONFIG.scaleContainer.x, y: container.getBoundingClientRect().bottom*CONFIG.scaleContainer.y};
 container.setAttribute("display", "block");
 const originalPath = container.getAttribute("3d");
+const bottomLineGUI = canvasDimensions.y - 70;
 
 if (CONFIG.lightweight === true) {
 	CONFIG.lightweight = container.getAttribute("proxy");
@@ -185,8 +186,8 @@ const colors = {
 	DirectionalLight: '0xFFFFFF',
 	AmbientLight: '0x404040',
 	CameraLight: '0xFFFFFF',
-	BackgroundColor: '#D2D2D2',
-	BackgroundColorOuter: '#FFFFFF'
+	BackgroundColor: '#FFFFFF',
+	BackgroundColorOuter: '#D2D2D2'
 };
 
 const materialProperties = {
@@ -280,12 +281,7 @@ var propertiesFolder;
 var planeObjects = [];
 var materialsFolder;
 
-//var clippingGeometry = [];
-
-var textMesh;
-var textMeshDistance;
-var ruler = [];
-var rulerObject;
+var textMesh, textMeshDistance, ruler = [], rulerObject;
 var lastPickedFace = {id: '', color: '', object: ''};
 
 var loadedTimes = 0;
@@ -341,33 +337,28 @@ function addTextPoint (_text, _scale, _point) {
 		new THREE.MeshStandardMaterial({ color: 0x0000ff, flatShading: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 0.4 }) // side
 	];
 	const loader = new FontLoader();
-
+	var textSize = _scale/10;
 	loader.load(CONFIG.basePath + '/fonts/helvetiker_regular.typeface.json', function (font) {
 
 		const textGeo = new TextGeometry(_text, {
 			font: font,
 			size: _scale*3,
-			height: _scale/10,
+			height: textSize,
 			curveSegments: 4,
 			bevelEnabled: true,
-			bevelThickness: _scale/8,
-			bevelSize: _scale/10,
+			bevelThickness: textSize,
+			bevelSize: textSize,
 			bevelOffset: 0,
-			bevelSegments: 1
+			bevelSegments: 1,
+			depth: textSize
 		});
 		textGeo.computeBoundingBox();
 
-		//const centerOffset = - 0.5 * (textGeo.boundingBox.max.x - textGeo.boundingBox.min.x);
-
 		textMeshDistance = new THREE.Mesh(textGeo, materials);
-
-		//textMeshDistance.rotation.z = Math.PI;
-		//textMeshDistance.rotation.y = Math.PI;
 		
 		textMeshDistance.position.set(_point.x, _point.y, _point.z);
 		textMeshDistance.renderOrder = 1;
 		rulerObject.add(textMeshDistance);
-		//scene.add(textMesh);		
 	});
 }
 
@@ -896,17 +887,8 @@ function setupCamera (_object, _camera, _light, _data, _controls) {
 			cameraLight.intensity = _data["lightCameraIntensity"][0];
 			intensity.startIntensityCamera = _data["lightCameraIntensity"][0];
 		}
-		if (typeof (_data["backgroundColor"]) != "undefined") {
-			//scene.background.set(new THREE.Color(_data["backgroundColor"][0])); //TODO: migrate to gradient setup
-			colors['BackgroundColor'] = _data["backgroundColor"][0];
-		}
-		if (typeof (_data["backgroundColorOuter"]) != "undefined") {
-			//scene.background.set(new THREE.Color(_data["backgroundColorOuter"][0])); //TODO: migrate to gradient setup
-			colors['BackgroundColorOuter'] = _data["backgroundColorOuter"][0];
-		}
-		if (typeof (_data["backgroundType"]) != "undefined") {
-			//scene.background.set(new THREE.Color(_data["backgroundColorOuter"][0])); //TODO: migrate to gradient setup
-			backgroundType = _data["backgroundType"][0];
+		if (typeof (_data["background"]) != "undefined") {
+			mainCanvas.style.setProperty("background", _data["background"][0]);
 		}
 		_camera.updateProjectionMatrix();
 		_controls.update();
@@ -996,13 +978,10 @@ function buildRuler(_id) {
             const geoSegm = [];
 			var interpolatePoints = interpolateDistanceBetweenPoints(linePoints[linePoints.length-2], vectorPoints, distancePoints, rulerI/100);
             geoSegm.push(new THREE.Vector3(interpolatePoints.x, interpolatePoints.y, interpolatePoints.z));
-            //geoSegm.push(new THREE.Vector3(interpolatePoints.x+_id.face.normal.x, interpolatePoints.y+_id.face.normal.y, interpolatePoints.z+_id.face.normal.z));
 			geoSegm.push(new THREE.Vector3(interpolatePoints.x+measureSize, interpolatePoints.y+measureSize, interpolatePoints.z+measureSize));
 			const geometryLine = new THREE.BufferGeometry().setFromPoints(geoSegm);
             var lineSegm = new THREE.Line(geometryLine, lineMtr);
 			rulerObject.add(lineSegm);
-            //var textSprite = makeTextSprite((i * 10).toString(), {r: 255, g: 255, b: 255, a: 255}, new THREE.Vector3(0.2, ruler, 3), Math.PI);
-            //ruler.add(textSprite);
             rulerI+=10;
         }
 	}
@@ -1026,7 +1005,7 @@ function onWindowResize() {
 		metadataContainer.style.height = "10%";
 	}
 	else {
-		canvasDimensions = {x: container.getBoundingClientRect().width, y: container.getBoundingClientRect().bottom};
+		canvasDimensions = {x: container.getBoundingClientRect().width*CONFIG.scaleContainer.x, y: container.getBoundingClientRect().bottom*(CONFIG.scaleContainer.y+0.3)};
 		bottomOffsetFullscreen = Math.round(-canvasDimensions.y) + 36;
 		mainCanvas.style.width = "100% !imporant";
 		mainCanvas.style.height = "100% !important";
@@ -1035,11 +1014,12 @@ function onWindowResize() {
 
 		if (CONFIG.lightweight === false) {
 			downloadModel.setAttribute('style', 'visibility: visible');
-			downloadModel.setAttribute("style", "top:" + (canvasDimensions.y - 80) + "px;");
+			downloadModel.setAttribute('style', 'top:' + (canvasDimensions.y - 60) + 'px;');
 		}
 	}
-
-	mainCanvas.setAttribute("style", "width:" + canvasDimensions.x+"px;" + "height:" + canvasDimensions.y +"px;" );
+	mainCanvas.style.width = canvasDimensions.x+"px;";
+	mainCanvas.style.height = canvasDimensions.y +"px;";
+	//mainCanvas.setAttribute("style", "width:" + canvasDimensions.x+"px;" + "height:" + canvasDimensions.y +"px;" );
 
 	guiContainer.setAttribute("style", "width:" + canvasDimensions.x + "px; left: " + canvasDimensions.x - lilGui[0].getBoundingClientRect().width + 'px');
 	lilGui[0].style.left = canvasDimensions.x - lilGui[0].getBoundingClientRect().width - 10 + 'px';
@@ -1051,7 +1031,8 @@ function onWindowResize() {
 	renderer.setSize(canvasDimensions.x, canvasDimensions.y);
 
 	viewEntity.setAttribute('style', 'right: ' + rightOffsetEntity +'%');
-	fullscreenMode.setAttribute('style', 'top:' + (canvasDimensions.y - 60) + 'px; left: ' + (canvasDimensions.x - 36) + 'px');
+	fullscreenMode.setAttribute('style', 'top:' + (canvasDimensions.y - 50) + 'px; left: ' + (canvasDimensions.x - 36) + 'px;');
+	//fullscreenMode.style.top = (bottomLineGUI) + 'px;';
 
 	controls.update();
 	render();
@@ -1307,7 +1288,7 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 							var c_path = path;
 							if (compressedFile !== '') { filename = filename.replace(orgExtension, extension); }
 							downloadModel.innerHTML = "<a href='blob:" + c_path + filename + "' download><img src='" + CONFIG.basePath + "/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
-							downloadModel.style.top = (canvasDimensions.y - 80) + 'px';
+							downloadModel.style.top = bottomLineGUI + 'px';
 							container.appendChild(downloadModel);
 
 							metadataContainer.appendChild(viewEntity);
@@ -1744,7 +1725,7 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 					outlineClipping = prepareOutlineClipping(gltf.scene);
 					scene.add(gltf.scene, outlineClipping);
 					scene.add(gltf.scene);
-					//mainObject.push(gltf.scene);
+					mainObject.push(gltf.scene);
 					//mainObject.push(guts.scene);
 				
 				},
@@ -1806,6 +1787,7 @@ function onPointerUp(e) {
 		if (onUpPosition.x === onDownPosition.x && onUpPosition.y === onDownPosition.y) {
 			raycaster.setFromCamera(onUpPosition, camera);
 			var intersects;
+			
 			if (EDITOR || RULER_MODE) {
 				if (mainObject.length > 1) {
 					for (let ii = 0; ii < mainObject.length; ii++) {
@@ -1840,7 +1822,6 @@ function onPointerMove(e) {
 		if (EDITOR) {
 			raycaster.setFromCamera(pointer, camera);
 			var intersects;
-		
 			if (mainObject.length > 1) {
 				for (let ii = 0; ii < mainObject.length; ii++) {
 					intersects = raycaster.intersectObjects(mainObject[ii].children, true);
@@ -1930,6 +1911,7 @@ function takeScreenshot() {
 
     mainCanvas.toBlob(imgBlob => {
 		const fileform = new FormData();
+		fileform.append('domain', CONFIG.domain);
 		fileform.append('filename', basename);
 		fileform.append('path', uri+prependName);
 		fileform.append('data', imgBlob);
@@ -2046,32 +2028,28 @@ function hexToRgb(hex) {
 	return `rgb(${r}, ${g}, ${b})`;
 }
 
+function changeBackgroundHelper (_color1, _color2) {
+	mainCanvas.style.setProperty("background", "-moz-radial-gradient(circle, " + _color1 + " 0%, " + _color2 + " 100%)");
+	mainCanvas.style.setProperty("background", "-webkit-radial-gradient(circle, " + _color1 + " 0%, " + _color2 + " 100%)");
+	mainCanvas.style.setProperty("background", "radial-gradient(circle, " + _color1 + " 0%, " + _color2 + " 100%)");	
+}
+
 function changeBackground (_type, _color1, _color2) {
 	switch (_type) {
 		case 'linear':
-			mainCanvas.style.setProperty("background", "-moz-radial-gradient(circle, " + _color1 + " 0%, " + _color1 + " 100%)");
-			mainCanvas.style.setProperty("background", "-webkit-radial-gradient(circle, " + _color1 + " 0%, " + _color1 + " 100%)");
-			mainCanvas.style.setProperty("background", "radial-gradient(circle, " + _color1 + " 0%, " + _color1 + " 100%)");
+			changeBackgroundHelper(_color1, _color1);
 		break;
 		case 'gradient':
-			mainCanvas.style.setProperty("background", "-moz-radial-gradient(circle, " + _color1 + " 0%, " + _color2 + " 100%)");
-			mainCanvas.style.setProperty("background", "-webkit-radial-gradient(circle, " + _color1 + " 0%, " + _color2 + " 100%)");
-			mainCanvas.style.setProperty("background", "radial-gradient(circle, " + _color1 + " 0%, " + _color2 + " 100%)");
+			changeBackgroundHelper(_color1, _color2);
 		break;
 	}	
 }
 
 function init() {
-	// model
-	//container.setAttribute("width", canvasDimensions.x);
-	//container.setAttribute("height", canvasDimensions.y);
-
 	camera = new THREE.PerspectiveCamera(45, canvasDimensions.x / canvasDimensions.y, 0.001, 999000000);
 	camera.position.set(0, 0, 0);
 
 	scene = new THREE.Scene();
-	//scene.background = new THREE.Color(0x000000);
-	//scene.fog = new THREE.Fog(0xa0a0a0, 90000, 1000000);
 
 	const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444);
 	hemiLight.position.set(0, 200, 0);
@@ -2241,8 +2219,8 @@ function init() {
 
 	fullscreenMode = document.createElement('div');
 	fullscreenMode.setAttribute('id', 'fullscreenMode');
-	fullscreenMode.setAttribute('style', 'top:' + (canvasDimensions.y - 60) + 'px; left: ' + (canvasDimensions.x - 36) + 'px');
 	fullscreenMode.innerHTML = "<img src='" + CONFIG.basePath + "/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
+	fullscreenMode.setAttribute('style', 'top:' + (bottomLineGUI + 20) + 'px; left: ' + (canvasDimensions.x - 36) + 'px');
 	container.appendChild(fullscreenMode);
 	document.getElementById ("fullscreenMode").addEventListener ("click", fullscreen, false);
 	if (document.addEventListener) {
@@ -2316,7 +2294,6 @@ function init() {
 
 	const backgroundFolder = editorFolder.addFolder('Background Color').close();
 	backgroundFolder.addColor (colors, 'BackgroundColor').onChange(function (value) {
-		//mainCanvas.style.setProperty('background', new THREE.Color(value), 'important');
 		changeBackground(backgroundType['Background Type'], value, colors['BackgroundColorOuter']);
 	}).listen();
 	backgroundOuterFolder = backgroundFolder.addColor (colors, 'BackgroundColorOuter').onChange(function (value) {
@@ -2388,9 +2365,7 @@ function init() {
 					if (typeof (_data["lightAmbientIntensity"]) !== "undefined") originalMetadata["lightAmbientIntensity"] = _data["lightAmbientIntensity"];
 					if (typeof (_data["lightCameraColor"]) !== "undefined") originalMetadata["lightCameraColor"] = _data["lightCameraColor"];
 					if (typeof (_data["lightCameraIntensity"]) !== "undefined") originalMetadata["lightCameraIntensity"] = _data["lightCameraIntensity"];
-					if (typeof (_data["backgroundColor"]) !== "undefined") originalMetadata["backgroundColor"] = _data["backgroundColor"];
-					if (typeof (_data["backgroundColorOuter"]) !== "undefined") originalMetadata["backgroundColorOuter"] = _data["backgroundColorOuter"];
-					if (typeof (_data["backgroundType"]) !== "undefined") originalMetadata["backgroundType"] = _data["backgroundType"];
+					if (typeof (_data["background"]) !== "undefined") originalMetadata["background"] = _data["background"];
 
 					if (saveProperties.Position) {
 						newMetadata = Object.assign(newMetadata, {"objPosition": [ helperObjects[0].position.x, helperObjects[0].position.y, helperObjects[0].position.z ]});
@@ -2470,24 +2445,7 @@ function init() {
 					}
 					
 					if (saveProperties.BackgroundColor) {
-						if (scene.background !== null) {
-							newMetadata = Object.assign(newMetadata, {"backgroundColor": [ "#" + (scene.background.getHexString()).toUpperCase() ] });
-							newMetadata = Object.assign(newMetadata, {"backgroundColorOuter": [ "#" + (scene.background.getHexString()).toUpperCase() ] });
-							newMetadata = Object.assign(newMetadata, {"backgroundType": [ "#" + (scene.background.getHexString()).toUpperCase() ] });
-						}
-						else {
 							newMetadata = Object.assign(newMetadata, {"background": [ window.getComputedStyle(mainCanvas).background ] });
-						}
-					}
-					else {
-						if (scene.background !== null) {
-							newMetadata = Object.assign(newMetadata, {"backgroundColor": [ originalMetadata["backgroundColor"][0] ]});
-							newMetadata = Object.assign(newMetadata, {"backgroundColorOuter": [ originalMetadata["backgroundColorOuter"][0] ]});
-							newMetadata = Object.assign(newMetadata, {"backgroundType": [ originalMetadata["backgroundType"][0] ]});
-						}
-						else {
-							newMetadata = Object.assign(newMetadata, {"background": [ window.getComputedStyle(mainCanvas).background ] });
-						}
 					}
 					
 					if (archiveType !== '') {
@@ -2498,7 +2456,6 @@ function init() {
 					xhr.onreadystatechange = function()
 					{
 						if(xhr.readyState === XMLHttpRequest.DONE) {
-							console.log(xhr);
 							var status = xhr.status;
 							if (status === 0 || (status >= 200 && status < 400)) {
 								showToast ("Settings have been saved.");

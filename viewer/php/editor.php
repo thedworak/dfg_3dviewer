@@ -16,7 +16,7 @@ $salt = $configData['salt'];
 
 if (isset($_POST[$salt])) {
 	$result = $_POST[$salt];
-	$path = '.'.$_POST['path'];
+	$path = './'.$_POST['path'];
 	$filename = $_POST['filename'];
 
 	file_put_contents($path . "metadata/" . $filename . "_viewer", $result);

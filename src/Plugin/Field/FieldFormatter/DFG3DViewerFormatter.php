@@ -41,27 +41,53 @@ class DFG3DViewerFormatter extends FileFormatterBase {
      * {@inheritdoc}
      */
     public function viewElements(FieldItemListInterface $items, $langcode) {
-
-#      dpm(serialize($items), "items");
-
-
 //      $elements = parent::viewElements($items, $langcode);    
       $elements = array();
 
-      $files = $this->getEntitiesToView($items, $langcode);
+      // By Mark:
+      // get the derivative field id
+      // here must be some handling if this is empty.
+      $derivative_field_id = \Drupal::service('config.factory')->getEditable('dfg_3dviewer.settings')->get('dfg_3dviewer_viewer_file_name');
 
-      $elements['#attached']['library'][] = 'dfg_3dviewer/dfg_3dviewer';
+      // store the derivative values to an array.
+      $derivative_values = array();
+      
+      // only act if we have a field id, otherwise it will die.
+      if(!empty($derivative_field_id))
+        $derivative_values = $items->getEntity()->get($derivative_field_id)->getValue();
 
-      foreach ($files as $delta => $file) {
+      // if we have derivative values, act on that and not on the real values.
+      if(!empty($derivative_values)) {
+        $elements = array();
+
+        $elements['#attached']['library'][] = 'dfg_3dviewer/dfg_3dviewer';
+
+        foreach($derivative_values as $delta => $derivative_value) {
+          
+          // here you probably still have to check if $derivative_value['value'] is still existing          
+          $elements[$delta] = array(
+            '#type' => 'html_tag',
+            '#tag' => 'p',
+            '#attributes' => array('id' => 'DFG_3DViewer', '3d' => $derivative_value['value']),
+          );        
+        }
+      } else {
+
+        $files = $this->getEntitiesToView($items, $langcode);
+
+        $elements['#attached']['library'][] = 'dfg_3dviewer/dfg_3dviewer';
+
+        foreach ($files as $delta => $file) {
           $override_basenamespace = \Drupal::service('config.factory')->getEditable('dfg_3dviewer.settings')->get('dfg_3dviewer_basenamespace') . \Drupal::service('file_url_generator')->generateString($file->getFileUri());
+
           if (is_null($override_basenamespace)) $override_basenamespace = \Drupal::service('file_url_generator')->generateAbsoluteString($file->getFileUri());
 
           $elements[$delta] = array(
             '#type' => 'html_tag',
             '#tag' => 'p',
             '#attributes' => array('id' => 'DFG_3DViewer', '3d' => $override_basenamespace),
-            //'#value' => file_create_url($file->getFileUri()), //$file->getFilename(),
           );
+        }
       }
 
       return $elements;
