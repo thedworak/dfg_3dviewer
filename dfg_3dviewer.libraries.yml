@@ -8,6 +8,7 @@ dfg_3dviewer:
     theme:
       viewer/css/main.css: {}
       viewer/css/spinner.css: {}
+      css/theme.css: {}
   dependencies:
     - core/jquery
     - core/jquery.once

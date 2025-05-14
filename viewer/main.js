@@ -46,23 +46,47 @@ import { TextGeometry } from './js/jsm/geometries/TextGeometry.js';
 //custom libraries
 import Stats from './js/jsm/libs/stats.module.js';
 import { GUI } from './js/external_libs/lil-gui.esm.min.js';
+import ViewerSettings from "./viewer-settings.json" with { type: "json" };
 
-//import CONFIG from './config.json' assert {type: 'json'}; //disabled temporary because of Firefox assertion bug
-const CONFIG = {
-	"domain": "https://repository.covher.eu",
-	"metadataDomain": "https://repository.covher.eu",
-	"container": "DFG_3DViewer",
-	"galleryContainer": "block-bootstrap5-content",
-	"galleryImageClass": "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
-	"galleryImageID": "",
-	"basePath": "/modules/dfg_3dviewer/viewer",
-	"entityIdUri": "/wisski/navigate/(.*)/view",
-	"viewEntityPath": "/wisski/navigate/",
-	"attributeId": "wisski_id",
-	"lightweight": false,
-	"scaleContainer": {x: 1, y: 1.4},
-	"salt": "Z7FYJMmTiEzcGp4lTpuk4LiO" //TODO: loading from external file
-};
+let CONFIG = {};
+if (ViewerSettings !== undefined) {
+	CONFIG = ViewerSettings;
+	console.log(CONFIG);
+}
+else {
+	CONFIG = {
+		"mainUrl": "https://dfg-repository.wisski.cloud",
+		"baseNamespace": "https://dfg-repository.wisski.cloud",
+		"metadataUrl": "https://dfg-repository.wisski.cloud",
+		"baseModulePath": "/modules/dfg_3dviewer-main/viewer",
+		"entity": {
+			"bundle": "bd3d7baa74856d141bcff7b4193fa128",
+			"fieldDf": "field_df",
+			"idUri": "/wisski/navigate/(.*)/view",
+			"viewEntityPath": "/wisski/navigate/",
+			"attributeId": "wisski_id"
+		},
+		"viewer": {
+			"container": "DFG_3DViewer",
+			"fileUpload": "fbf95bddee5160d515b982b3fd2e05f7",
+			"fileName": "faa602a0be629324806aef22892cdbe5",
+			"imageGeneration": "f605dc6b727a1099b9e52b3ccbdf5673",
+			"lightweight": 1,
+			"salt": "Z7FYJMmTiEzcGp4lTpuk4LiA",
+			"scaleContainer": {
+				"x": 1,
+				"y": 1.4
+			},
+			"gallery": {
+				"container": "block-bootstrap5-content",
+				"imageClass": "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
+				"imageId": ""
+			}
+		}
+	};
+}
+
+
 
 let camera, scene, renderer, stats, controls, loader, ambientLight, dirLight, dirLightTarget, cameraLight, cameraLightTarget;
 let dirLights = [];
@@ -82,33 +106,34 @@ var FULLSCREEN = false;
 
 let mixer;
 
-const container = document.getElementById(CONFIG.container);
-canvasDimensions = CANVASDIMENSIONS = {x: container.getBoundingClientRect().width*CONFIG.scaleContainer.x, y: container.getBoundingClientRect().bottom*CONFIG.scaleContainer.y};
+const container = document.getElementById(CONFIG.viewer.container);
+const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+canvasDimensions = CANVASDIMENSIONS = {x: container.getBoundingClientRect().width*CONFIG.scaleContainer.x, y: (container.getBoundingClientRect().top + scrollTop)*CONFIG.scaleContainer.y};
 container.setAttribute("display", "block");
 const originalPath = container.getAttribute("3d");
 const bottomLineGUI = canvasDimensions.y - 70;
 
-if (CONFIG.lightweight === true) {
-	CONFIG.lightweight = container.getAttribute("proxy");
+if (CONFIG.viewer.lightweight === true) {
+	CONFIG.viewer.lightweight = container.getAttribute("proxy");
 }
-if (CONFIG.lightweight === null || CONFIG.lightweight === false) {
+if (CONFIG.viewer.lightweight === null || CONFIG.viewer.lightweight === false) {
 	var elementsURL = window.location.pathname;
-	elementsURL = elementsURL.match(CONFIG.entityIdUri);
+	elementsURL = elementsURL.match(CONFIG.entity.idUri);
 	if (elementsURL !== null) {
 		entityID = elementsURL[1];
-		container.setAttribute(CONFIG.attributeId, entityID);
+		container.setAttribute(CONFIG.entity.attributeId, entityID);
 	}
 }
 
 if(container.hasAttribute("basePath")) {
-	CONFIG.basePath = container.getAttribute("basePath");
+	CONFIG.baseModulePath = container.getAttribute("basePath");
 }
 
 var filename = originalPath.split("/").pop();
 var basename = filename.substring(0, filename.lastIndexOf('.'));
 var extension = filename.substring(filename.lastIndexOf('.') + 1);
 var path = originalPath.substring(0, originalPath.lastIndexOf(filename));
-const uri = path.replace(CONFIG.domain+"/", "");
+const uri = path.replace(CONFIG.mainUrl+"/", "");
 const EXPORT_PATH = '/export_xml_single/';
 const loadedFile = basename + "." + extension;
 var fileElement;
@@ -300,7 +325,7 @@ function addTextWatermark (_text, _scale) {
 	];
 	const loader = new FontLoader();
 
-	loader.load(CONFIG.basePath + '/fonts/helvetiker_regular.typeface.json', function (font) {
+	loader.load(CONFIG.baseModulePath + '/fonts/helvetiker_regular.typeface.json', function (font) {
 
 		const textGeo = new TextGeometry(_text, {
 			font,
@@ -338,7 +363,7 @@ function addTextPoint (_text, _scale, _point) {
 	];
 	const loader = new FontLoader();
 	var textSize = _scale/10;
-	loader.load(CONFIG.basePath + '/fonts/helvetiker_regular.typeface.json', function (font) {
+	loader.load(CONFIG.baseModulePath + '/fonts/helvetiker_regular.typeface.json', function (font) {
 
 		const textGeo = new TextGeometry(_text, {
 			font: font,
@@ -799,13 +824,17 @@ function handleImages (fileElement, mainElement, imageElements, imageElementsChi
 
 function buildGallery() {
 	if (fileElement.length > 0) {
-		var mainElement = document.getElementById(CONFIG.galleryContainer);
+		var mainElement = document.getElementById(CONFIG.viewer.gallery.container);
 		var imageElements;
-		if (CONFIG.galleryImageClass !== '') {
-			imageElements = document.getElementsByClassName(CONFIG.galleryImageClass);
+		if (CONFIG.viewer.gallery.imageClass !== '') {
+			imageElements = document.getElementsByClassName(CONFIG.viewer.gallery.imageClass);
+			if (imageElements.length > 0) {
+				var galleryLabel = document.getElementsByClassName("field__label");
+				if (galleryLabel !== undefined) galleryLabel[0].innerText = '';
+			}
 		}
-		else if (CONFIG.galleryImageID !== '') {
-			imageElements = document.getElementById(CONFIG.galleryImageID);
+		else if (CONFIG.viewer.gallery.imageId !== '') {
+			imageElements = document.getElementById(CONFIG.viewer.gallery.imageId);
 		}
 		else {
 			console.log('No gallery created');
@@ -1005,14 +1034,14 @@ function onWindowResize() {
 		metadataContainer.style.height = "10%";
 	}
 	else {
-		canvasDimensions = {x: container.getBoundingClientRect().width*CONFIG.scaleContainer.x, y: container.getBoundingClientRect().bottom*(CONFIG.scaleContainer.y+0.3)};
+		canvasDimensions = {x: container.getBoundingClientRect().width*CONFIG.viewer.scaleContainer.x, y: container.getBoundingClientRect().bottom*(CONFIG.viewer.scaleContainer.y+0.3)};
 		bottomOffsetFullscreen = Math.round(-canvasDimensions.y) + 36;
 		mainCanvas.style.width = "100% !imporant";
 		mainCanvas.style.height = "100% !important";
 		metadataContainer.style.width = "100%";
 		metadataContainer.style.height = "100%";
 
-		if (CONFIG.lightweight === false) {
+		if (CONFIG.viewer.lightweight === false) {
 			downloadModel.setAttribute('style', 'visibility: visible');
 			downloadModel.setAttribute('style', 'top:' + (canvasDimensions.y - 60) + 'px;');
 		}
@@ -1098,7 +1127,7 @@ function truncateString(str, n) {
 }
 
 function getProxyPath(url) {
-	var tempPath = decodeURIComponent(CONFIG.lightweight);
+	var tempPath = decodeURIComponent(CONFIG.viewer.lightweight);
 	return tempPath.replace(originalPath, encodeURIComponent(url));
 }
 
@@ -1168,7 +1197,7 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 		helperObjects.push (object);
 	}
 	const hierarchyMain = gui.addFolder('Hierarchy').close();
-	if (CONFIG.lightweight === null && CONFIG.lightweight !== false) {
+	if (CONFIG.viewer.lightweight === null && CONFIG.viewer.lightweight !== false) {
 		metadataUrl = getProxyPath(metadataUrl);
 		if (Array.isArray(object)) {
 			setupObject(object[0], light, undefined, controls);
@@ -1261,10 +1290,10 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 			viewEntity = document.createElement('div');
 			viewEntity.setAttribute('id', 'viewEntity');
 			
-			if (CONFIG.lightweight !== true && CONFIG.lightweight !== null) {
+			if (CONFIG.viewer.lightweight !== true && CONFIG.viewer.lightweight !== null) {
 				var req = new XMLHttpRequest();
 				req.responseType = '';
-				req.open('GET', CONFIG.metadataDomain + EXPORT_PATH + entityID + '?page=0&amp;_format=xml', true);
+				req.open('GET', CONFIG.metadataUrl + EXPORT_PATH + entityID + '?page=0&amp;_format=xml', true);
 				req.onreadystatechange = function (aEvt) {
 					if (req.readyState == 4) {
 						if(req.status == 200) {
@@ -1287,7 +1316,7 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 
 							var c_path = path;
 							if (compressedFile !== '') { filename = filename.replace(orgExtension, extension); }
-							downloadModel.innerHTML = "<a href='blob:" + c_path + filename + "' download><img src='" + CONFIG.basePath + "/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
+							downloadModel.innerHTML = "<a href='blob:" + c_path + filename + "' download><img src='" + CONFIG.baseModulePath + "/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
 							downloadModel.style.top = bottomLineGUI + 'px';
 							container.appendChild(downloadModel);
 
@@ -1304,7 +1333,7 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 			}
 			else
 			{
-				viewEntity.innerHTML = "<a href='" + CONFIG.domain + CONFIG.viewEntityPath + entityID + "/view' target='_blank'><img src='" + CONFIG.basePath + "/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>";
+				viewEntity.innerHTML = "<a href='" + CONFIG.mainUrl + CONFIG.entity.viewEntityPath + entityID + "/view' target='_blank'><img src='" + CONFIG.baseModulePath + "/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>";
 				appendMetadata (metadataContent, canvasText, metadataContainer, container);
 			}
 
@@ -1484,7 +1513,7 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 		circle.show();
 		circle.set(0, 100);
 		var modelPath = path + filename;
-		if (CONFIG.lightweight !== null && CONFIG.lightweight !== false) {
+		if (CONFIG.viewer.lightweight !== null && CONFIG.viewer.lightweight !== false) {
 			modelPath = getProxyPath(modelPath);
 		}
 		switch(extension.toLowerCase()) {
@@ -1590,7 +1619,7 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 			
 			case 'ifc':
 				const ifcLoader = new IFCLoader();
-				const ifcPath = CONFIG.basePath + '/js/external_libs/loaders/ifc/';
+				const ifcPath = CONFIG.baseModulePath + '/js/external_libs/loaders/ifc/';
 				ifcLoader.ifcManager.setWasmPath(ifcPath, true);
 				ifcLoader.load(modelPath, function (object) {
 					traverseMesh(object);
@@ -1681,7 +1710,7 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 				loader = new TDSLoader();
 				loader.setResourcePath(path);
 				modelPath = path;
-				if (CONFIG.lightweight !== null && CONFIG.lightweight !== false) {
+				if (CONFIG.viewer.lightweight !== null && CONFIG.viewer.lightweight !== false) {
 					modelPath = getProxyPath(modelPath);
 				}
 				loader.load(modelPath + basename + "." + extension, function (object) {
@@ -1708,14 +1737,14 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 			case 'glb':
 			case 'gltf':
 				const dracoLoader = new DRACOLoader();
-				dracoLoader.setDecoderPath(CONFIG.basePath + '/js/jsm/libs/draco/');
+				dracoLoader.setDecoderPath(CONFIG.baseModulePath + '/js/jsm/libs/draco/');
 				dracoLoader.preload();
 				const gltf = new GLTFLoader();
 				gltf.setDRACOLoader(dracoLoader);
 				showToast("Model has being loaded from " + extension + " representation.");
 
 				modelPath = path + basename + "." + extension;
-				if (CONFIG.lightweight !== null && CONFIG.lightweight !== false) {
+				if (CONFIG.viewer.lightweight !== null && CONFIG.viewer.lightweight !== false) {
 					modelPath = getProxyPath(modelPath);
 				}
 				gltf.load(modelPath, function(gltf) {
@@ -1911,12 +1940,12 @@ function takeScreenshot() {
 
     mainCanvas.toBlob(imgBlob => {
 		const fileform = new FormData();
-		fileform.append('domain', CONFIG.domain);
+		fileform.append('domain', CONFIG.mainUrl);
 		fileform.append('filename', basename);
 		fileform.append('path', uri+prependName);
 		fileform.append('data', imgBlob);
 		fileform.append('wisski_individual', entityID);
-		fetch(CONFIG.domain + '/thumbnail_upload.php', {
+		fetch(CONFIG.mainUrl + '/thumbnail_upload.php', {
 			method: 'POST',
 			body: fileform,
 		})
@@ -2112,7 +2141,7 @@ function init() {
 		fileElement[0].style.height = canvasDimensions.y*1.1 + "px";
 	}
 
-	if (CONFIG.lightweight === false) {
+	if (CONFIG.viewer.lightweight === false) {
 		buildGallery();
 	}
 
@@ -2165,7 +2194,7 @@ function init() {
 	var _autoPath='';
 	var req = new XMLHttpRequest();
 	req.responseType = '';
-	req.open('GET', CONFIG.metadataDomain + EXPORT_PATH + entityID + '?page=0&amp;_format=xml', true);
+	req.open('GET', CONFIG.metadataUrl + EXPORT_PATH + entityID + '?page=0&amp;_format=xml', true);
 	req.onreadystatechange = function (aEvt) {
 		if (req.readyState == 4) {
 			if(req.status == 200) {
@@ -2219,7 +2248,7 @@ function init() {
 
 	fullscreenMode = document.createElement('div');
 	fullscreenMode.setAttribute('id', 'fullscreenMode');
-	fullscreenMode.innerHTML = "<img src='" + CONFIG.basePath + "/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
+	fullscreenMode.innerHTML = "<img src='" + CONFIG.baseModulePath + "/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
 	fullscreenMode.setAttribute('style', 'top:' + (bottomLineGUI + 20) + 'px; left: ' + (canvasDimensions.x - 36) + 'px');
 	container.appendChild(fullscreenMode);
 	document.getElementById ("fullscreenMode").addEventListener ("click", fullscreen, false);
@@ -2311,22 +2340,24 @@ function init() {
 	clippingFolder = editorFolder.addFolder('Clipping Planes').close();
 	materialsFolder = editorFolder.addFolder('Materials').close();
 
-	propertiesFolder = editorFolder.addFolder('Save properties').close();
-	propertiesFolder.add(saveProperties, 'Position');
-	propertiesFolder.add(saveProperties, 'Rotation');
-	propertiesFolder.add(saveProperties, 'Scale');
-	propertiesFolder.add(saveProperties, 'Camera');
-	propertiesFolder.add(saveProperties, 'DirectionalLight');
-	propertiesFolder.add(saveProperties, 'AmbientLight');
-	propertiesFolder.add(saveProperties, 'CameraLight');
-	propertiesFolder.add(saveProperties, 'BackgroundColor');
+	if (!CONFIG.viewer.lightweight) {
+		propertiesFolder = editorFolder.addFolder('Save properties').close();
+		propertiesFolder.add(saveProperties, 'Position');
+		propertiesFolder.add(saveProperties, 'Rotation');
+		propertiesFolder.add(saveProperties, 'Scale');
+		propertiesFolder.add(saveProperties, 'Camera');
+		propertiesFolder.add(saveProperties, 'DirectionalLight');
+		propertiesFolder.add(saveProperties, 'AmbientLight');
+		propertiesFolder.add(saveProperties, 'CameraLight');
+		propertiesFolder.add(saveProperties, 'BackgroundColor');
+	}
 
-	if (editor) {
+	if (editor && !CONFIG.viewer.lightweight) {
 		editorFolder.add({["Save"] () {
 			var xhr = new XMLHttpRequest(),
 			jsonArr,
 			method = "POST",
-			jsonRequestURL = CONFIG.domain + "/editor.php";
+			jsonRequestURL = CONFIG.mainUrl + "/editor.php";
 
 			xhr.open(method, jsonRequestURL, true);
 			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
@@ -2337,7 +2368,7 @@ function init() {
 			//Fetch data from original metadata file anyway before saving any changes
 			//var originalMetadata = [];
 			//var metadataUrl = path.replace("gltf/", "") + "metadata/" + filename + "_viewer";
-			if (CONFIG.lightweight !== null && CONFIG.lightweight !== false) {
+			if (CONFIG.viewer.lightweight !== null && CONFIG.viewer.lightweight !== false) {
 				metadataUrl = getProxyPath(metadataUrl);
 			}
 
@@ -2450,9 +2481,9 @@ function init() {
 					
 					if (archiveType !== '') {
 						if (!compressedFile.includes(archiveType.toUpperCase())) compressedFile+="_" + archiveType.toUpperCase();
-						params = CONFIG.salt+"="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+basename+compressedFile + "/"+"&filename="+filename;
+						params = CONFIG.viewer.salt+"="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+basename+compressedFile + "/"+"&filename="+filename;
 					}
-					else { params = CONFIG.salt+"="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+"&filename="+filename; }
+					else { params = CONFIG.viewer.salt+"="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+"&filename="+filename; }
 					xhr.onreadystatechange = function()
 					{
 						if(xhr.readyState === XMLHttpRequest.DONE) {
@@ -2468,18 +2499,20 @@ function init() {
 			.catch((error) => console.log(error));
 
 		}}, 'Save');
-		editorFolder.add({["Picking mode"] () {
-			EDITOR=!EDITOR;
-			var _str;
-			EDITOR ? _str = "enabled" : _str = "disabled";
-			showToast ("Face picking is " + _str);
-			if (!EDITOR) {
+		if (!CONFIG.viewer.lightweight) {
+			editorFolder.add({["Picking mode"] () {
+				EDITOR=!EDITOR;
+				var _str;
+				EDITOR ? _str = "enabled" : _str = "disabled";
+				showToast ("Face picking is " + _str);
+				if (!EDITOR) {
 
-			}
-			else {
-				RULER_MODE = false;
-			}
-		}}, 'Picking mode');
+				}
+				else {
+					RULER_MODE = false;
+				}
+			}}, 'Picking mode');
+		}
 		editorFolder.add({["Distance Measurement"] () {
 			RULER_MODE=!RULER_MODE;
 			var _str;
@@ -2498,9 +2531,11 @@ function init() {
 				EDITOR = false;
 			}
 		}}, 'Distance Measurement');
-		editorFolder.add({["Render preview"] () {
-			takeScreenshot();
-		}}, 'Render preview');
+		if (!CONFIG.viewer.lightweight) {
+			editorFolder.add({["Render preview"] () {
+				takeScreenshot();
+			}}, 'Render preview');
+		}
 		editorFolder.add({["Reset camera position"] () {
 			resetCamera();
 		}}, 'Reset camera position');

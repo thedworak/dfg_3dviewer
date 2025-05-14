@@ -1,0 +1,36 @@
+.flex-container {
+	display: flex;
+	gap: 0.5rem;
+}
+
+.half-width {
+	min-width: 0;
+	flex: 0 0 auto;
+	max-width: 100%;
+	width: 200px;
+}
+
+.scale-fields-wrapper {
+	border: 1px solid #ccc;
+	padding: 1rem;
+	border-radius: 8px;
+	background-color: #f9f9f9;
+	margin-top: 1rem;
+	max-width: 100%;
+	width: 500px;
+}
+
+.gallery-container {
+	display: block;
+	gap: 0.5rem;
+}
+
+.gallery-fields-wrapper {
+	border: 1px solid #ccc;
+	padding: 1rem;
+	border-radius: 8px;
+	background-color: #f9f9f9;
+	margin-top: 1rem;
+	max-width: 100%;
+	width: 500px;
+}
