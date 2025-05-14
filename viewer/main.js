@@ -108,7 +108,7 @@ let mixer;
 
 const container = document.getElementById(CONFIG.viewer.container);
 const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-canvasDimensions = CANVASDIMENSIONS = {x: container.getBoundingClientRect().width*CONFIG.scaleContainer.x, y: (container.getBoundingClientRect().top + scrollTop)*CONFIG.scaleContainer.y};
+canvasDimensions = CANVASDIMENSIONS = {x: container.getBoundingClientRect().width*CONFIG.viewer.scaleContainer.x, y: (container.getBoundingClientRect().top + scrollTop)*CONFIG.viewer.scaleContainer.y};
 container.setAttribute("display", "block");
 const originalPath = container.getAttribute("3d");
 const bottomLineGUI = canvasDimensions.y - 70;
