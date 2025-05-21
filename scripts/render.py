@@ -286,9 +286,9 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	#scene.render.engine = 'CYCLES'
 	scene.render.use_freestyle = False
 	scene.use_nodes = True
-	scene.view_layers["View Layer"].use_pass_normal = True
-	scene.view_layers["View Layer"].use_pass_diffuse_color = True
-	scene.view_layers["View Layer"].use_pass_object_index = True
+	context.window.view_layer.use_pass_normal = True
+	context.window.view_layer.use_pass_diffuse_color = True
+	context.window.view_layer.use_pass_object_index = True
 
 	#
 	if args.output:

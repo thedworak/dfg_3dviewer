@@ -102,10 +102,10 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 		bpy.ops.import_scene.fbx(filepath=args.input)    
 
 	if current_extension == ".obj":
-		bpy.ops.import_scene.obj(filepath=args.input)    
+		bpy.ops.wm.obj_import(filepath=args.input)    
 
 	if current_extension == ".ply":
-		bpy.ops.import_mesh.ply(filepath=args.input)    
+		bpy.ops.wm.ply_import(filepath=args.input)    
 
 	if current_extension == ".stl":
 		bpy.ops.import_mesh.stl(filepath=args.input)

@@ -2,17 +2,22 @@
 
 # Ubuntu way
 #apt install xvfb
+#apt install libxkbcommon0
 #apt install blender python3-pip
 #apt install python3-lxml python3-shapely python3-matplotlib (for CityGML converter)
 #apt install libxi6 libgconf-2-4
 #OR
 # Debian way
-#wget https://download.blender.org/release/Blender2.92/blender-2.92.0-linux64.tar.xz
-#tar -xvf blender-2.92.0-linux64.tar.xz
-#change .env BLENDER_PATH or make symlink to it `ln -s PATH_TO_YOUR_UNCOMPRESSED_BLENDER/blender-2.92.0-linux64/blender /usr/local/bin/blender`
+#wget https://ftp.halifax.rwth-aachen.de/blender/release/Blender4.4/blender-4.4.3-linux-x64.tar.xz
+#tar -xvf blender-4.4.3-linux-x64.tar.xz
+#change .env BLENDER_PATH or make symlink to it `ln -s PATH_TO_YOUR_UNCOMPRESSED_BLENDER/blender-4.4.3-linux64/blender /usr/local/bin/blender`
 #pip install numpy or apt install python3-numpy
 #pip install triangle
 #usage: ./convert.sh -c COMPRESS -cl COMPRESSION_LEVEL -i 'INPUT' -o 'OUTPUT' -b BINARY -f FORCE_OVERRIDE
+
+#TESTING:
+# sudo blender -b -P ./scripts/2gltf2/2gltf2.py -- --input "/opt/drupal/web/sites/default/files/{NAME}" --ext "$GLTF" --compression "true" --compression_level "3" --output "/opt/drupal/web/sites/default/files/2025-05/test-TEST.glb"
+# xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo blender -b -P ./scripts/render.py -- --input "/var/www/html/sites/default/files/{NAME}.glb" --ext "glb" --org_ext "glb" --output "/var/www/html/sites/default/files/views/" --is_archive false --resolution 512x512x16 --samples 20 -E BLENDER_EEVEE -f 1
 
 set -e
 
