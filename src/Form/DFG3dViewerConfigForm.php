@@ -221,7 +221,7 @@ class DFG3dViewerConfigForm extends FormBase {
     ];
 
 	$form['gallery_wrapper']['dfg_3dviewer_gallery_image_id'] = [
-		'#default_value' => $default_settings['gallery_gallery_image_id'],
+		'#default_value' => $default_settings['gallery_image_id'],
 		'#type' => 'textfield',
 		'#title' => $this->t('Gallery ID name for images'),
 		'#required' => false,

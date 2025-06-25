@@ -1,6 +1,6 @@
 /*
 DFG 3D-Viewer
-Copyright (C) 2022 - Daniel Dworak
+Copyright (C) 2022 - 2025 - Daniel Dworak
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -51,7 +51,6 @@ import ViewerSettings from "./viewer-settings.json" with { type: "json" };
 let CONFIG = {};
 if (ViewerSettings !== undefined) {
 	CONFIG = ViewerSettings;
-	console.log(CONFIG);
 }
 else {
 	CONFIG = {

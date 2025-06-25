@@ -3,6 +3,7 @@
 const EXPORT_PATH='/export_xml_single/';
 const MFILEPATH='sites/default/files/xml_structure';
 const XSLURL="https://raw.githubusercontent.com/slub/dfg-viewer/e54305a9fa58951d3f3d1dd7e64554cb2ee881eb/Resources/Public/XSLT/exportSingleToMetsMods.xsl";
+libxml_use_internal_errors(true); // Suppress default XML errors
 
 function file_get_contents_curl( $url ) {
 	$ch = curl_init();
@@ -37,23 +38,28 @@ function build_xml ($id, $domain) {
 	$data = file_get_contents_curl($url);
 	$xml = simplexml_load_string($data);
 
-	if(!empty($xml)) return;
+	if(!empty($xml) || !(is_object($xml))) return;
 
 	$xsl = simplexml_load_file(XSLURL);
 	$xslt = new \XSLTProcessor();
 	$xslt->importStyleSheet($xsl);
 
-	$xmlt = simplexml_load_string($xslt->transformToXML($xml));
+	$result = $xslt->transformToXML($xml);
+	if ($result === false) {
+		echo "XSLT Transformation failed.\n";
+	} else {
+		$xmlt = simplexml_load_string($result);
 
-	$xmlt->registerXPathNamespace('mets', 'http://www.loc.gov/METS/');
-	$xpathResult = $xmlt->xpath('//mets:mets');
-	echo $xmlt;
+		$xmlt->registerXPathNamespace('mets', 'http://www.loc.gov/METS/');
+		$xpathResult = $xmlt->xpath('//mets:mets');
+		echo $xmlt;
 
-	$dom = new DOMDocument('1.0');
-	$dom->preserveWhiteSpace = false;
-	$dom->formatOutput = true;
-	$dom->loadXML($xmlt->asXML());
-	$dom->save($FILEPATH);
+		$dom = new DOMDocument('1.0');
+		$dom->preserveWhiteSpace = false;
+		$dom->formatOutput = true;
+		$dom->loadXML($xmlt->asXML());
+		$dom->save($FILEPATH);
+	}
 }
 
 #$id = isset($entity_id) ? $entity_id : $_GET['id'];

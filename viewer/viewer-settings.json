@@ -1,0 +1,30 @@
+{
+    "baseNamespace": "",
+    "mainUrl": "https:\/\/3d-repository.hs-mainz.de",
+    "metadataUrl": "",
+    "baseModulePath": "\/modules\/dfg_3dviewer\/viewer",
+    "entity": {
+        "bundle": "bd1220d6ec7f07e726c65fd215d8e493",
+        "fieldDf": "field_df",
+        "idUri": "\/wisski\/navigate\/(.*)\/view",
+        "viewEntityPath": "\/wisski\/navigate\/",
+        "attributeId": "wisski_id"
+    },
+    "viewer": {
+        "container": "DFG_3DViewer",
+        "fileUpload": "fad29437cb2a561b91b26aca5dbb7c42",
+        "fileName": "fb76901eb219495fee0512b5cdfdaa18",
+        "imageGeneration": "fd6a974b7120d422c7b21b5f1f2315d9",
+        "lightweight": 0,
+        "salt": "Z7FYJMmTiEzcGp4lTpuk4LiA",
+        "scaleContainer": {
+            "x": "1.1",
+            "y": "1.4"
+        },
+        "gallery": {
+            "container": "block-bootstrap5-content",
+            "imageClass": "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
+            "imageId": "field--name-fd6a974b7120d422c7b21b5f1f2315d9"
+        }
+    }
+}
