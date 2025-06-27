@@ -80,6 +80,60 @@ else {
 				"container": "block-bootstrap5-content",
 				"imageClass": "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
 				"imageId": ""
+			},
+			"background": "radial-gradient(circle, rgb(255, 255, 255) 0%, rgb(210, 210, 210) 100%)"
+		},
+		"model": {
+			"position": {
+				"x": 0,
+				"y": 0,	
+				"z": 0
+			},
+			"scale": {
+				"x": 1,
+				"y": 1,
+				"z": 1
+			},
+			"rotation": {
+				"x": 0,
+				"y": 0,
+				"z": 0
+			}
+		},
+		"scene": {
+			"light": {
+				"directional": {
+					"color": "0xffffff",
+					"intensity": 1,
+					"position": {
+						"x": 0,
+						"y": 100,
+						"z": 100
+					},
+					"target": {
+						"x": 0,
+						"y": 0,
+						"z": 0
+					}
+				},
+				"ambient": {
+					"color": "0x404040",
+					"intensity": 1
+				},
+				"camera": {
+					"color": "0xffffff",
+					"intensity": 1,
+					"position": {
+						"x": 0,
+						"y": 100,
+						"z": 100
+					},
+					"target": {
+						"x": 0,
+						"y": 0,
+						"z": 0
+					}
+				}
 			}
 		}
 	};
