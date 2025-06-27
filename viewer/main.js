@@ -1,6 +1,6 @@
 /*
 DFG 3D-Viewer
-Copyright (C) 2022 - 2025 - Daniel Dworak
+Copyright (C) 2022 - Daniel Dworak
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -84,8 +84,6 @@ else {
 		}
 	};
 }
-
-
 
 let camera, scene, renderer, stats, controls, loader, ambientLight, dirLight, dirLightTarget, cameraLight, cameraLightTarget;
 let dirLights = [];
@@ -1126,7 +1124,7 @@ function truncateString(str, n) {
 }
 
 function getProxyPath(url) {
-	var tempPath = decodeURIComponent(CONFIG.viewer.lightweight);
+	var tempPath = decodeURIComponent(CONFIG.mainUrl);
 	return tempPath.replace(originalPath, encodeURIComponent(url));
 }
 
@@ -1184,6 +1182,120 @@ function appendMetadata (metadataContent, canvasText, metadataContainer, contain
 	container.appendChild(metadataContainer);
 }
 
+function handleMetadataResponse(data, metadata, path, basename, filename, object, camera, light, controls, orgExtension, extension, hierarchyMain) {
+	var tempArray = [];
+	if (Array.isArray(object)) {
+		setupObject(object[0], light, data, controls);
+		setupCamera (object[0], camera, light, data, controls);
+	}
+	else if (object.name === "Scene" || object.children.length > 0 || object.type == "Mesh") {
+		setupObject(object, light, data, controls);
+		object.traverse(function (child) {
+			if (child.isMesh) {
+				metadata['vertices'] += fetchMetadata (child, 'vertices');
+				metadata['faces'] += fetchMetadata (child, 'faces');
+				if (child.name === '') child.name = 'Mesh'
+				var shortChildName = truncateString(child.name, GUILength);
+				tempArray = { [shortChildName]() {selectObjectHierarchy(child.id)}, 'id': child.id};
+				hierarchyFolder = hierarchyMain.addFolder(shortChildName).close();
+				hierarchyFolder.add(tempArray, shortChildName);
+				//if (object.type == "Mesh")
+					//clippingGeometry.push(child.mesh.geometry);
+				//else {
+					//clippingGeometry.push(child.geometry);
+					child.traverse(function (children) {
+						if (children.isMesh &&  children.name !== child.name) {
+							if (children.name === '') children.name = 'ChildrenMesh';
+							var shortChildrenName = truncateString(children.name, GUILength);
+							tempArray = { [shortChildrenName] (){selectObjectHierarchy(children.id)}, 'id': children.id};
+							//clippingGeometry.push(children.geometry);
+							hierarchyFolder.add(tempArray, shortChildrenName);
+						}
+					});
+				//}
+			}
+		});
+		setupCamera (object, camera, light, data, controls);
+	}
+	else {
+		setupObject(object, light, data, controls);
+		setupCamera (object, camera, light, data, controls);
+		metadata['vertices'] += fetchMetadata (object, 'vertices');
+		metadata['faces'] += fetchMetadata (object, 'faces');
+		if (object.name === '') {
+			tempArray = {["Mesh"] (){selectObjectHierarchy(object.id)}, 'id': object.id};
+			object.name = object.id;
+		}
+		else {
+			tempArray = {[object.name] (){selectObjectHierarchy(object.id)}, 'id': object.id};
+		}
+		//hierarchy.push(tempArray);
+		if (object.name === "undefined") object.name = "level";
+		//clippingGeometry.push(object.geometry);
+		hierarchyFolder = hierarchyMain.addFolder(object.name).close();
+	}
+
+	hierarchyMain.domElement.classList.add("hierarchy");
+
+	var metadataContent = '<div id="metadata-collapse" class="metadata-collapse metadata-collapsed">METADATA </div><div id="metadata-content" class="metadata-content expanded">';
+	metadataContentTech = '<hr class="metadataSeparator">';
+	metadataContentTech += 'Visualized file: <b>' + basename + "." + orgExtension + '</b><br>';
+	//metadataContentTech += 'Loaded format: <b>' + extension + '</b><br>';
+	metadataContentTech += 'Vertices: <b>' + metadata['vertices'] + '</b><br>';
+	metadataContentTech += 'Faces: <b>' + metadata['faces'] + '</b><br>';
+	viewEntity = document.createElement('div');
+	viewEntity.setAttribute('id', 'viewEntity');
+	
+	if (CONFIG.viewer.lightweight !== true && CONFIG.viewer.lightweight !== null) {
+		var req = new XMLHttpRequest();
+		req.responseType = '';
+		req.open('GET', CONFIG.metadataUrl + EXPORT_PATH + entityID + '?page=0&amp;_format=xml', true);
+		req.onreadystatechange = function (aEvt) {
+			if (req.readyState == 4) {
+				if(req.status == 200) {
+					const parser = new DOMParser();
+					const doc = parser.parseFromString(req.responseText, "application/xml");
+					if (doc.documentElement.childNodes > 0) {
+						var data = doc.documentElement.childNodes[0].childNodes;
+						if (typeof (data) !== undefined) {
+							for(var i = 0; i < data.length; i++) {
+								var fetchedValue = addWissKIMetadata(data[i].tagName, data[i].textContent);
+								if (typeof(fetchedValue) !== "undefined") {
+									metadataContent += fetchedValue;
+								}
+							}
+						}
+					}
+
+					downloadModel = document.createElement('div');
+					downloadModel.setAttribute('id', 'downloadModel');
+
+					var c_path = path;
+					if (compressedFile !== '') { filename = filename.replace(orgExtension, extension); }
+					downloadModel.innerHTML = "<a href='blob:" + c_path + filename + "' download><img src='" + CONFIG.baseModulePath + "/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
+					downloadModel.style.top = bottomLineGUI + 'px';
+					container.appendChild(downloadModel);
+
+					metadataContainer.appendChild(viewEntity);
+					appendMetadata (metadataContent, canvasText, metadataContainer, container);
+					
+					document.getElementById ("metadata-collapse").addEventListener ("click", expandMetadata, false);
+				}
+				else
+					showToast("Error during loading metadata content");
+				}
+		};
+		req.send(null);
+	}
+	else
+	{
+		viewEntity.innerHTML = "<a href='" + CONFIG.mainUrl + CONFIG.entity.viewEntityPath + entityID + "/view' target='_blank'><img src='" + CONFIG.baseModulePath + "/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>";
+		appendMetadata (metadataContent, canvasText, metadataContainer, container);
+	}
+
+	//hierarchyFolder.add(hierarchyText, 'Faces');
+}
+
 function fetchSettings (path, basename, filename, object, camera, light, controls, orgExtension, extension) {
 	var metadata = {'vertices': 0, 'faces': 0};
 	var hierarchy = [];
@@ -1196,7 +1308,7 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 		helperObjects.push (object);
 	}
 	const hierarchyMain = gui.addFolder('Hierarchy').close();
-	if (CONFIG.viewer.lightweight === null && CONFIG.viewer.lightweight !== false) {
+	if (CONFIG.entity.proxyPath !== undefined) {
 		metadataUrl = getProxyPath(metadataUrl);
 		if (Array.isArray(object)) {
 			setupObject(object[0], light, undefined, controls);
@@ -1226,117 +1338,7 @@ function fetchSettings (path, basename, filename, object, camera, light, control
 			}
 			})
 		.then(data => {
-			var tempArray = [];
-			if (Array.isArray(object)) {
-				setupObject(object[0], light, data, controls);
-				setupCamera (object[0], camera, light, data, controls);
-			}
-			else if (object.name === "Scene" || object.children.length > 0 || object.type == "Mesh") {
-				setupObject(object, light, data, controls);
-				object.traverse(function (child) {
-					if (child.isMesh) {
-						metadata['vertices'] += fetchMetadata (child, 'vertices');
-						metadata['faces'] += fetchMetadata (child, 'faces');
-						if (child.name === '') child.name = 'Mesh'
-						var shortChildName = truncateString(child.name, GUILength);
-						tempArray = { [shortChildName]() {selectObjectHierarchy(child.id)}, 'id': child.id};
-						hierarchyFolder = hierarchyMain.addFolder(shortChildName).close();
-						hierarchyFolder.add(tempArray, shortChildName);
-						//if (object.type == "Mesh")
-							//clippingGeometry.push(child.mesh.geometry);
-						//else {
-							//clippingGeometry.push(child.geometry);
-							child.traverse(function (children) {
-								if (children.isMesh &&  children.name !== child.name) {
-									if (children.name === '') children.name = 'ChildrenMesh';
-									var shortChildrenName = truncateString(children.name, GUILength);
-									tempArray = { [shortChildrenName] (){selectObjectHierarchy(children.id)}, 'id': children.id};
-									//clippingGeometry.push(children.geometry);
-									hierarchyFolder.add(tempArray, shortChildrenName);
-								}
-							});
-						//}
-					}
-				});
-				setupCamera (object, camera, light, data, controls);
-			}
-			else {
-				setupObject(object, light, data, controls);
-				setupCamera (object, camera, light, data, controls);
-				metadata['vertices'] += fetchMetadata (object, 'vertices');
-				metadata['faces'] += fetchMetadata (object, 'faces');
-				if (object.name === '') {
-					tempArray = {["Mesh"] (){selectObjectHierarchy(object.id)}, 'id': object.id};
-					object.name = object.id;
-				}
-				else {
-					tempArray = {[object.name] (){selectObjectHierarchy(object.id)}, 'id': object.id};
-				}
-				//hierarchy.push(tempArray);
-				if (object.name === "undefined") object.name = "level";
-				//clippingGeometry.push(object.geometry);
-				hierarchyFolder = hierarchyMain.addFolder(object.name).close();
-			}
-
-			hierarchyMain.domElement.classList.add("hierarchy");
-
-			var metadataContent = '<div id="metadata-collapse" class="metadata-collapse metadata-collapsed">METADATA </div><div id="metadata-content" class="metadata-content expanded">';
-			metadataContentTech = '<hr class="metadataSeparator">';
-			metadataContentTech += 'Visualized file: <b>' + basename + "." + orgExtension + '</b><br>';
-			//metadataContentTech += 'Loaded format: <b>' + extension + '</b><br>';
-			metadataContentTech += 'Vertices: <b>' + metadata['vertices'] + '</b><br>';
-			metadataContentTech += 'Faces: <b>' + metadata['faces'] + '</b><br>';
-			viewEntity = document.createElement('div');
-			viewEntity.setAttribute('id', 'viewEntity');
-			
-			if (CONFIG.viewer.lightweight !== true && CONFIG.viewer.lightweight !== null) {
-				var req = new XMLHttpRequest();
-				req.responseType = '';
-				req.open('GET', CONFIG.metadataUrl + EXPORT_PATH + entityID + '?page=0&amp;_format=xml', true);
-				req.onreadystatechange = function (aEvt) {
-					if (req.readyState == 4) {
-						if(req.status == 200) {
-							const parser = new DOMParser();
-							const doc = parser.parseFromString(req.responseText, "application/xml");
-							if (doc.documentElement.childNodes > 0) {
-								var data = doc.documentElement.childNodes[0].childNodes;
-								if (typeof (data) !== undefined) {
-									for(var i = 0; i < data.length; i++) {
-										var fetchedValue = addWissKIMetadata(data[i].tagName, data[i].textContent);
-										if (typeof(fetchedValue) !== "undefined") {
-											metadataContent += fetchedValue;
-										}
-									}
-								}
-							}
-
-							downloadModel = document.createElement('div');
-							downloadModel.setAttribute('id', 'downloadModel');
-
-							var c_path = path;
-							if (compressedFile !== '') { filename = filename.replace(orgExtension, extension); }
-							downloadModel.innerHTML = "<a href='blob:" + c_path + filename + "' download><img src='" + CONFIG.baseModulePath + "/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
-							downloadModel.style.top = bottomLineGUI + 'px';
-							container.appendChild(downloadModel);
-
-							metadataContainer.appendChild(viewEntity);
-							appendMetadata (metadataContent, canvasText, metadataContainer, container);
-							
-							document.getElementById ("metadata-collapse").addEventListener ("click", expandMetadata, false);
-						}
-						else
-							showToast("Error during loading metadata content");
-						}
-				};
-				req.send(null);
-			}
-			else
-			{
-				viewEntity.innerHTML = "<a href='" + CONFIG.mainUrl + CONFIG.entity.viewEntityPath + entityID + "/view' target='_blank'><img src='" + CONFIG.baseModulePath + "/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>";
-				appendMetadata (metadataContent, canvasText, metadataContainer, container);
-			}
-
-			//hierarchyFolder.add(hierarchyText, 'Faces');
+			handleMetadataResponse(data, metadata, path, basename, filename, object, camera, light, controls, orgExtension, extension, hierarchyMain);
 		});
 	}
 
@@ -1512,7 +1514,7 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 		circle.show();
 		circle.set(0, 100);
 		var modelPath = path + filename;
-		if (CONFIG.viewer.lightweight !== null && CONFIG.viewer.lightweight !== false) {
+		if (CONFIG.entity.proxyPath !== undefined) {
 			modelPath = getProxyPath(modelPath);
 		}
 		switch(extension.toLowerCase()) {
@@ -1709,7 +1711,7 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 				loader = new TDSLoader();
 				loader.setResourcePath(path);
 				modelPath = path;
-				if (CONFIG.viewer.lightweight !== null && CONFIG.viewer.lightweight !== false) {
+				if (CONFIG.entity.proxyPath !== undefined) {
 					modelPath = getProxyPath(modelPath);
 				}
 				loader.load(modelPath + basename + "." + extension, function (object) {
@@ -1743,13 +1745,13 @@ function loadModel (path, basename, filename, extension, orgExtension) {
 				showToast("Model has being loaded from " + extension + " representation.");
 
 				modelPath = path + basename + "." + extension;
-				if (CONFIG.viewer.lightweight !== null && CONFIG.viewer.lightweight !== false) {
+
+				if (CONFIG.entity.proxyPath !== undefined) {
 					modelPath = getProxyPath(modelPath);
 				}
 				gltf.load(modelPath, function(gltf) {
 					traverseMesh(gltf.scene);
 					fetchSettings (path.replace("/gltf/", "/"), basename, filename, gltf.scene, camera, lightObjects[0], controls, orgExtension, extension);
-					
 					outlineClipping = prepareOutlineClipping(gltf.scene);
 					scene.add(gltf.scene, outlineClipping);
 					scene.add(gltf.scene);
@@ -1949,13 +1951,13 @@ function takeScreenshot() {
 			body: fileform,
 		})
 		.then(response => {
-			return response.json();
+			console.log(response);
+			return response;
 		})
 		.then(data => {
 			if (data.error) { //Show server errors
 				showToast(data.error);
 			} else { //Show success message
-				console.log(data.message);
 				showToast("Rendering saved successfully");
 			}
 		})
@@ -2140,7 +2142,7 @@ function init() {
 		fileElement[0].style.height = canvasDimensions.y*1.1 + "px";
 	}
 
-	if (CONFIG.viewer.lightweight === false) {
+	if (CONFIG.viewer.lightweight === 0 || CONFIG.viewer.lightweight === false) {
 		buildGallery();
 	}
 
@@ -2367,7 +2369,7 @@ function init() {
 			//Fetch data from original metadata file anyway before saving any changes
 			//var originalMetadata = [];
 			//var metadataUrl = path.replace("gltf/", "") + "metadata/" + filename + "_viewer";
-			if (CONFIG.viewer.lightweight !== null && CONFIG.viewer.lightweight !== false) {
+			if (CONFIG.entity.proxyPath !== undefined) {
 				metadataUrl = getProxyPath(metadataUrl);
 			}
 

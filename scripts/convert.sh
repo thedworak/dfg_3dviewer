@@ -207,7 +207,7 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 	if [[ -z "$OUTPUT" ]]; then
 		OUTPUT=`echo $INPATH/\gltf`
 	else
-		echo $OUTPUT
+		#echo $OUTPUT
 		OUTFILENAME=${OUTPUT%/*}     # trim everything past the last /
 		OUTFILENAME=${OUTFILENAME##*/}
 		OUTFILENAME=${OUTFILENAME/"_ZIP"/""}

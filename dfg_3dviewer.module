@@ -63,7 +63,7 @@ function automatic_helper (&$autoPath, $prefix, $filename, $value) {
 }
 
 function semi_automatic_path ($prefix, $filename, $filenameArchive, &$autoPath, $extension) {
-	$allowedFormats = array('abc', 'obj', 'fbx', 'ply', 'dae', 'ifc', 'stl', 'xyz', 'pcd', 'json', '3ds', 'blend', 'zip', 'rar', 'xz', 'gz', 'gml');
+	$allowedFormats = array('abc', 'obj', 'fbx', 'ply', 'dae', 'ifc', 'stl', 'xyz', 'pcd', 'json', '3ds', 'blend', 'zip', 'rar', 'tar', 'xz', 'gz', 'gml');
 	$SPATH=\Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath());
 	$SPATH = str_replace('/modules/dfg_3dviewer', '', $SPATH);
 	$prefix = $SPATH . $prefix;
@@ -145,7 +145,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 	}
 	$SPATH = \Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath());
 	$XPATH = dirname(dirname($SPATH));
-	$archives = array("zip", "rar", "tar", "xz", "gz");
+	$archives = array('ZIP', 'RAR', 'TAR', 'XZ', 'GZ');
 	$base = \Drupal::request()->getSchemeAndHttpHost();
 	$output = null;
 	$retval = null;
@@ -198,6 +198,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 					}
 					elseif ($extension == 'TAR' || $extension == 'GZ' ) {
 						$output = shell_exec($SPATH . '/scripts/uncompress.sh -t tar -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
+						\Drupal::messenger()->addMessage("Test " . serialize($output), 'status');
 					}
 					elseif ($extension == 'XZ') {
 						$output = shell_exec($SPATH . '/scripts/uncompress.sh -t xz -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
@@ -228,9 +229,8 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 	if ($entity->bundle() == $SETTINGS['entity_bundle']) {
 		//$file_info = $entity->label->getValue();
 		$file_info = $entity->{$SETTINGS['viewer_file_upload']}->getValue();	
-		
-		if (is_array($file_info[0])) {
-			$file_id = json_decode(json_encode($file_info[0]))->target_id;
+		if (isset($file_info[0]) && isset($file_info[0]['target_id'])) {
+			$file_id = $file_info[0]['target_id'];
 			$entity_id = $entity->eid->value;
 			$file = \Drupal\file\Entity\File::load($file_id);
 			$imgSuffix = "_side45.png";
@@ -318,17 +318,17 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 				$entity->set($SETTINGS['viewer_file_name'], $autoPath);
 				//\Drupal::messenger()->addMessage(serialize($autoPath), 'status');
 			}
+			require ('php/build_xml.php');
+			build_xml ($entity_id, $SETTINGS['main_url']);
+			$no_cache=false;
+			$caching = $no_cache ? '?no_cache=1' : ''; //temporary workaround
+			$xml_struc = 'public://xml_structure/' . $entity_id . '.xml' . $caching;
+			$xml_wrapper = \Drupal::service('stream_wrapper_manager')->getViaUri($xml_struc);
+			$xml_uri = $xml_wrapper->getExternalURL();
+			$uri = $SETTINGS['main_url'] . "/viewer?tx_dlf[id]=" . $xml_uri . "&no_cache=1&modelviewer=1";
+			$entity->set($SETTINGS['field_df'], $uri);
 		}
 
-		require ('php/build_xml.php');
-		build_xml ($entity_id, $SETTINGS['main_url']);
-		$no_cache=false;
-		$caching = $no_cache ? '?no_cache=1' : ''; //temporary workaround
-		$xml_struc = 'public://xml_structure/' . $entity_id . '.xml' . $caching;
-		$xml_wrapper = \Drupal::service('stream_wrapper_manager')->getViaUri($xml_struc);
-		$xml_uri = $xml_wrapper->getExternalURL();
-		$uri = $SETTINGS['main_url'] . "/viewer?tx_dlf[id]=" . $xml_uri . "&no_cache=1&modelviewer=1";
-		$entity->set($SETTINGS['field_df'], $uri);
 	}
 	//\Drupal::messenger()->addMessage(serialize($entity), 'status');
 }

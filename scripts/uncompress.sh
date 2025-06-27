@@ -13,16 +13,18 @@ while getopts ":t:o:i:f:n:" flag; do
     esac
 done
 
+source $(dirname $0)/.env
+
 if [[ ! -d $OUTPUT ]]; then
 	mkdir -p ${OUTPUT}/gltf
 fi
 
 case $TYPE in
-	rar) strOutput=`unrar e $INPUT $OUTPUT/`
+	rar) strOutput=$(unrar x "$INPUT" "$OUTPUT/")
 		;;
-	xz) strOutput=`tar xf $INPUT -C $OUTPUT/`
+	xz) strOutput=$(tar x -g "$INPUT" -C "$OUTPUT/")
 		;;
-	tar|gz) strOutput=`tar xvzf $INPUT -C $OUTPUT/`
+	tar|gz) strOutput=$(tar xvz -g "$INPUT" -C "$OUTPUT/" 2>&1)
 		;;
 esac
 
@@ -36,7 +38,7 @@ for filename in ${OUTPUT}*; do
 
 	case $ext in
 		abc|blend|dae|fbx|obj|ply|stl|wrl|x3d|ifc)
-			bash ${SPATH}/scripts/convert.sh -c 'true' -l '3' -b 'true' -i "${OUTPUT}${name}.${ext}" -o "${OUTPUT}" -f 'true' -a 'true'
+			strOutput=$("${SPATH}/scripts/convert.sh" -c 'true' -l '3' -b 'true' -i "${OUTPUT}${name}.${ext}" -o "${OUTPUT}" -f 'true' -a 'true')
 		;;
 	  #*)
 		#echo "Flie extension $ext is not supported for conversion yet."
