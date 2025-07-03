@@ -1,8 +1,6 @@
-//spinner
-
-.spinnerContainer {
-	position: absolute;
-	left: 50%;
+#spinner .spinnerContainer {
+  position: absolute;
+  left: 50%;
 }
 
 .lv-mid {
@@ -100,73 +98,156 @@
   margin-right: 100px;
 }
 
-.lv-bars, .lv-circles, .lv-dots, .lv-squares, .lv-determinate_circle, .lv-spinner, .lv-dashed {
+.lv-bars,
+.lv-circles,
+.lv-dots,
+.lv-squares,
+.lv-determinate_circle,
+.lv-spinner,
+.lv-dashed {
   height: 100%;
   width: 100%;
 }
-.lv-bars.tiniest, .lv-circles.tiniest, .lv-dots.tiniest, .lv-squares.tiniest, .lv-determinate_circle.tiniest, .lv-spinner.tiniest, .lv-dashed.tiniest {
+.lv-bars.tiniest,
+.lv-circles.tiniest,
+.lv-dots.tiniest,
+.lv-squares.tiniest,
+.lv-determinate_circle.tiniest,
+.lv-spinner.tiniest,
+.lv-dashed.tiniest {
   height: 20px;
   width: 20px;
 }
-.lv-bars.tiny, .lv-circles.tiny, .lv-dots.tiny, .lv-squares.tiny, .lv-determinate_circle.tiny, .lv-spinner.tiny, .lv-dashed.tiny {
+.lv-bars.tiny,
+.lv-circles.tiny,
+.lv-dots.tiny,
+.lv-squares.tiny,
+.lv-determinate_circle.tiny,
+.lv-spinner.tiny,
+.lv-dashed.tiny {
   height: 30px;
   width: 30px;
 }
-.lv-bars.sm, .lv-circles.sm, .lv-dots.sm, .lv-squares.sm, .lv-determinate_circle.sm, .lv-spinner.sm, .lv-dashed.sm {
+.lv-bars.sm,
+.lv-circles.sm,
+.lv-dots.sm,
+.lv-squares.sm,
+.lv-determinate_circle.sm,
+.lv-spinner.sm,
+.lv-dashed.sm {
   height: 50px;
   width: 50px;
 }
-.lv-bars.md, .lv-circles.md, .lv-dots.md, .lv-squares.md, .lv-determinate_circle.md, .lv-spinner.md, .lv-dashed.md {
+.lv-bars.md,
+.lv-circles.md,
+.lv-dots.md,
+.lv-squares.md,
+.lv-determinate_circle.md,
+.lv-spinner.md,
+.lv-dashed.md {
   height: 100px;
   width: 100px;
 }
-.lv-bars.lg, .lv-circles.lg, .lv-dots.lg, .lv-squares.lg, .lv-determinate_circle.lg, .lv-spinner.lg, .lv-dashed.lg {
+.lv-bars.lg,
+.lv-circles.lg,
+.lv-dots.lg,
+.lv-squares.lg,
+.lv-determinate_circle.lg,
+.lv-spinner.lg,
+.lv-dashed.lg {
   height: 200px;
   width: 200px;
 }
-.lv-bars[data-label].tiny:after, .lv-circles[data-label].tiny:after, .lv-dots[data-label].tiny:after, .lv-squares[data-label].tiny:after, .lv-determinate_circle[data-label].tiny:after, .lv-spinner[data-label].tiny:after, .lv-dashed[data-label].tiny:after {
+.lv-bars[data-label].tiny:after,
+.lv-circles[data-label].tiny:after,
+.lv-dots[data-label].tiny:after,
+.lv-squares[data-label].tiny:after,
+.lv-determinate_circle[data-label].tiny:after,
+.lv-spinner[data-label].tiny:after,
+.lv-dashed[data-label].tiny:after {
   padding: 0 120%;
   margin-top: 20%;
 }
-.lv-bars[data-label].sm:after, .lv-circles[data-label].sm:after, .lv-dots[data-label].sm:after, .lv-squares[data-label].sm:after, .lv-determinate_circle[data-label].sm:after, .lv-spinner[data-label].sm:after, .lv-dashed[data-label].sm:after {
+.lv-bars[data-label].sm:after,
+.lv-circles[data-label].sm:after,
+.lv-dots[data-label].sm:after,
+.lv-squares[data-label].sm:after,
+.lv-determinate_circle[data-label].sm:after,
+.lv-spinner[data-label].sm:after,
+.lv-dashed[data-label].sm:after {
   padding: 0 120%;
   margin-top: 35%;
 }
 
-.lv-bordered_line, .lv-determinate_bordered_line {
+.lv-bordered_line,
+.lv-determinate_bordered_line {
   width: 100%;
   height: 21px;
   border-radius: 10px;
   box-sizing: border-box;
 }
 
-.lv-line, .lv-determinate_line {
+.lv-line,
+.lv-determinate_line {
   height: 5px;
   width: 100%;
   background-color: darkgray;
 }
 
-.lv-bars, .lv-circles, .lv-determinate_line, .lv-bordered_line, .lv-determinate_bordered_line, .lv-dots, .lv-squares, .lv-line, .lv-spinner, .lv-determinate_circle, .lv-dashed {
+.lv-bars,
+.lv-circles,
+.lv-determinate_line,
+.lv-bordered_line,
+.lv-determinate_bordered_line,
+.lv-dots,
+.lv-squares,
+.lv-line,
+.lv-spinner,
+.lv-determinate_circle,
+.lv-dashed {
   position: relative;
 }
-.lv-bars div, .lv-circles div, .lv-determinate_line div, .lv-bordered_line div, .lv-determinate_bordered_line div, .lv-dots div, .lv-squares div, .lv-line div, .lv-spinner div, .lv-determinate_circle div, .lv-dashed div {
+.lv-bars div,
+.lv-circles div,
+.lv-determinate_line div,
+.lv-bordered_line div,
+.lv-determinate_bordered_line div,
+.lv-dots div,
+.lv-squares div,
+.lv-line div,
+.lv-spinner div,
+.lv-determinate_circle div,
+.lv-dashed div {
   position: absolute;
 }
 
-.lv-determinate_bordered_line[data-percentage=true] div:nth-child(2), .lv-determinate_line[data-percentage=true] div:nth-child(2) {
+.lv-determinate_bordered_line[data-percentage="true"] div:nth-child(2),
+.lv-determinate_line[data-percentage="true"] div:nth-child(2) {
   visibility: visible;
 }
 
-.lv-line.sm, .lv-determinate_line.sm, .lv-determinate_bordered_line.sm, .lv-bordered_line.sm {
+.lv-line.sm,
+.lv-determinate_line.sm,
+.lv-determinate_bordered_line.sm,
+.lv-bordered_line.sm {
   width: 300px;
 }
-.lv-line.md, .lv-determinate_line.md, .lv-determinate_bordered_line.md, .lv-bordered_line.md {
+.lv-line.md,
+.lv-determinate_line.md,
+.lv-determinate_bordered_line.md,
+.lv-bordered_line.md {
   width: 600px;
 }
-.lv-line.lg, .lv-determinate_line.lg, .lv-determinate_bordered_line.lg, .lv-bordered_line.lg {
+.lv-line.lg,
+.lv-determinate_line.lg,
+.lv-determinate_bordered_line.lg,
+.lv-bordered_line.lg {
   width: 1000px;
 }
-.lv-line[data-label]:after, .lv-determinate_line[data-label]:after, .lv-determinate_bordered_line[data-label]:after, .lv-bordered_line[data-label]:after {
+.lv-line[data-label]:after,
+.lv-determinate_line[data-label]:after,
+.lv-determinate_bordered_line[data-label]:after,
+.lv-bordered_line[data-label]:after {
   content: attr(data-label);
   display: block;
   padding-top: 20px;
@@ -177,20 +258,26 @@
   text-align: center;
 }
 
-.lv-spinner[data-label]:after, .lv-circles[data-label]:after, .lv-determinate_circle[data-label]:after, .lv-dashed[data-label]:after {
+.lv-spinner[data-label]:after,
+.lv-circles[data-label]:after,
+.lv-determinate_circle[data-label]:after,
+.lv-dashed[data-label]:after {
   content: attr(data-label);
   display: inline-block;
   padding: 40% 0 40% 0;
   overflow: hidden;
 }
 
-.lv-bars[data-label]:after, .lv-squares[data-label]:after, .lv-dots[data-label]:after {
+.lv-bars[data-label]:after,
+.lv-squares[data-label]:after,
+.lv-dots[data-label]:after {
   content: attr(data-label);
   display: inline-block;
   overflow: hidden;
 }
 
-.lv-squares[data-label]:after, .lv-bars[data-label]:after {
+.lv-squares[data-label]:after,
+.lv-bars[data-label]:after {
   margin-top: 100%;
 }
 
@@ -259,7 +346,7 @@
 .lv-determinate_circle div:nth-child(4) {
   visibility: hidden;
 }
-.lv-determinate_circle[data-percentage=true] div:nth-child(4) {
+.lv-determinate_circle[data-percentage="true"] div:nth-child(4) {
   visibility: visible;
   height: inherit;
   width: inherit;
@@ -268,18 +355,18 @@
   margin-top: 20%;
   color: #343a40;
 }
-.lv-determinate_circle[data-percentage=true].sm div:nth-child(4) {
+.lv-determinate_circle[data-percentage="true"].sm div:nth-child(4) {
   margin-top: 15px;
 }
-.lv-determinate_circle[data-percentage=true].tiny div:nth-child(4) {
+.lv-determinate_circle[data-percentage="true"].tiny div:nth-child(4) {
   visibility: hidden;
 }
 
 .lv-dashed[data-label]:after {
-  color: #138D75;
+  color: #138d75;
 }
 .lv-dashed div {
-  border: 12px dashed #138D75;
+  border: 12px dashed #138d75;
   height: inherit;
   width: inherit;
   box-sizing: border-box;
@@ -302,16 +389,16 @@
   border: 5px #067861 solid;
 }
 .lv-determinate_bordered_line[data-label]:after {
-  color: #138D75;
+  color: #138d75;
 }
 .lv-determinate_bordered_line div:nth-child(1) {
   height: 11px;
   width: 0;
-  background-color: #138D75;
+  background-color: #138d75;
   border-radius: 3px;
 }
 .lv-determinate_bordered_line div:nth-child(2) {
-  color: #138D75;
+  color: #138d75;
   left: 103%;
   top: -3px;
   visibility: hidden;
@@ -319,14 +406,14 @@
 
 /* LINE */
 .lv-bordered_line {
-  border: 5px solid #138D75;
+  border: 5px solid #138d75;
 }
 .lv-bordered_line[data-label]:after {
-  color: #138D75;
+  color: #138d75;
 }
 .lv-bordered_line div {
   height: 5px;
-  background-color: #138D75;
+  background-color: #138d75;
   left: 2px;
   top: 3px;
   border-radius: 3px;
@@ -335,7 +422,7 @@
 
 /* BARS */
 .lv-bars[data-label]:after {
-  color: #0B5345;
+  color: #0b5345;
 }
 .lv-bars div {
   width: 5%;
@@ -380,13 +467,13 @@
 }
 .lv-bars div:nth-child(8) {
   left: 82.5%;
-  background: #0B5345;
+  background: #0b5345;
 }
 
 /* PULSATING DOTS */
 .lv-dots[data-label]:after {
   margin-top: 65%;
-  color: #0B5345;
+  color: #0b5345;
 }
 .lv-dots div {
   width: 19%;
@@ -412,13 +499,13 @@
 }
 .lv-dots div:nth-child(4) {
   left: 77.5%;
-  background-color: #0B5345;
+  background-color: #0b5345;
   animation-delay: 0.3s;
 }
 
 /* CIRCLES */
 .lv-circles[data-label]:after {
-  color: #138D75;
+  color: #138d75;
 }
 .lv-circles.tiniest div:before {
   width: 3px;
@@ -449,7 +536,7 @@
   display: block;
   margin: 0 auto;
   border-radius: 50%;
-  background-color: #138D75;
+  background-color: #138d75;
 }
 .lv-circles div:nth-child(1) {
   animation: lv-circles_move_1 1.2s infinite linear;
@@ -512,7 +599,7 @@
 
 /* SQUARES */
 .lv-squares[data-label]:after {
-  color: #0B5345;
+  color: #0b5345;
 }
 .lv-squares div {
   width: 40%;
@@ -542,7 +629,7 @@
   animation: lv-square3_move 2s ease-in-out infinite;
 }
 .lv-squares div:nth-child(4) {
-  background-color: #0B5345;
+  background-color: #0b5345;
   bottom: 7%;
   left: 7%;
   animation: lv-square4_move 2s ease-in-out infinite;
@@ -729,7 +816,8 @@
   }
 }
 @keyframes lv-square1_move {
-  0%, 100% {
+  0%,
+  100% {
     transform: translate(0, 0);
   }
   25% {
@@ -743,7 +831,8 @@
   }
 }
 @keyframes lv-square2_move {
-  0%, 100% {
+  0%,
+  100% {
     transform: translate(0, 0);
   }
   25% {
@@ -757,7 +846,8 @@
   }
 }
 @keyframes lv-square3_move {
-  0%, 100% {
+  0%,
+  100% {
     transform: translate(0, 0);
   }
   25% {
@@ -771,7 +861,8 @@
   }
 }
 @keyframes lv-square4_move {
-  0%, 100% {
+  0%,
+  100% {
     transform: translate(0, 0);
   }
   25% {
@@ -791,7 +882,7 @@
   }
   50% {
     transform: scale(1);
-    background-color: #0B5345;
+    background-color: #0b5345;
   }
   100% {
     transform: scale(0.01);
@@ -839,7 +930,8 @@
   }
 }
 @keyframes lv-bar_animation {
-  0%, 100% {
+  0%,
+  100% {
     top: 37.5%;
     height: 25%;
     bottom: 37.5%;

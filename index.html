@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Title</title>
+    <link href="viewer/css/main.css" rel="stylesheet" />
+    <link href="viewer/css/spinner.css" rel="stylesheet" />
+    <link href="css/theme.css" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="DFG_3DViewer" 3d="https://3d-repository.hs-mainz.de/sites/default/files/2024-01/gltf/test2.glb" style="height:50vh;"></div>
+    <div id="form">
+      <select name="manifest" id="manifest-select">
+        <optgroup label="1. Basic Model in Scene">
+          <option value="https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin.json">
+            Single Model
+          </option>
+          <option value="https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin_bgcolor.json">
+            Single Model with background color
+          </option>
+        </optgroup>
+        <optgroup label="4. Transform and Position">
+          <option value="https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_position.json">
+            Single Positioned Model
+          </option>
+          <option value="https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json">
+            Scaled, Translated Model with original for comparison
+          </option>
+        </optgroup>
+        
+      </select>
+      <div class="form-group">
+        <input type="text" id="manifest-url" name="manifest-url" value=""></input>
+        <button id="load-manifest-from-url">Load Manifest From URL</button>
+      </div>
+      <textarea id="manifest-text" name="manifest-text" rows="10"></textarea>
+      <button id="load-manifest-from-text">Load Manifest From Text</button>
+    </div>
+    <script type="module" src="viewer/main.js"></script>
+  </body>
+</html>

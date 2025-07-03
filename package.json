@@ -1,0 +1,26 @@
+{
+  "name": "dfg_3dviewer",
+  "version": "1.0.0",
+  "lockfileVersion": 3,
+  "requires": true,
+  "description": "Three.js based DFG 3D Viewer",
+  "keywords": [
+    "typescript",
+    "javascript"
+  ],
+  "source": "index.html",
+  "type": "module",
+  "packages": {},
+  "devDependencies": {
+    "buffer": "^6.0.3",
+    "parcel": "^2.12.0",
+    "process": "^0.11.10"
+  },
+  "scripts": {
+    "build": "parcel build",
+    "start": "parcel"
+  },
+  "dependencies": {
+    "@iiif/3d-manifesto-dev": "^0.6.1"
+  }
+}
