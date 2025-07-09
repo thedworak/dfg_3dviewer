@@ -49,6 +49,8 @@ import ViewerSettings from "./viewer-settings.json" with { type: "json" };
 import Toastify from "./toastify.js";
 import { lv } from "./spinner/main.js";
 
+import { loadIIIFManifest } from "./IIIF/iiif-api.js";
+
 let CONFIG = {};
 if (ViewerSettings !== undefined) {
   CONFIG = ViewerSettings;
@@ -159,6 +161,9 @@ var mainCanvas;
 var distanceGeometry = new THREE.Vector3();
 let entityID = "";
 var metadataUrl;
+
+let iiifConfigURL =
+  "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json";
 
 var canvasDimensions, CANVASDIMENSIONS;
 
@@ -2001,7 +2006,12 @@ function prepareOutlineClipping(_object) {
   return outlineClipping;
 }
 
-function loadModel(path, basename, filename, extension, orgExtension) {
+async function loadModel(path, basename, filename, extension, orgExtension) {
+  if (iiifConfigURL !== "") {
+    const loadedIIIF = await loadIIIFManifest(iiifConfigURL);
+    //CONFIG.model.position = new THREE.Vector3(loadedIIIF.manifest.);
+  }
+
   if (!imported) {
     circle.show();
     circle.set(0, 100);
