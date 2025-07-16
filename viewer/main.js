@@ -1,6 +1,6 @@
 /*
 DFG 3D-Viewer
-Copyright (C) 2022 - Daniel Dworak
+Copyright (C) 2025 - Daniel Dworak
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -49,7 +49,7 @@ import ViewerSettings from "./viewer-settings.json" with { type: "json" };
 import Toastify from "./toastify.js";
 import { lv } from "./spinner/main.js";
 
-import { loadIIIFManifest } from "./IIIF/iiif-api.js";
+import { loadIIIFManifest, getAnnotations } from "./IIIF/iiif-api.js";
 
 let CONFIG = {};
 if (ViewerSettings !== undefined) {
@@ -66,6 +66,9 @@ if (ViewerSettings !== undefined) {
       idUri: "/wisski/navigate/(.*)/view",
       viewEntityPath: "/wisski/navigate/",
       attributeId: "wisski_id",
+      metadata: {
+        source: "",
+      },
     },
     viewer: {
       container: "DFG_3DViewer",
@@ -141,6 +144,8 @@ if (ViewerSettings !== undefined) {
     },
   };
 }
+
+CONFIG.entity.metadata.source = "IIIF";
 
 let camera,
   scene,
@@ -603,17 +608,35 @@ function setupObject(_object, _light, _data, _controls) {
         _data["objPosition"][1],
         _data["objPosition"][2]
       );
+    else if (typeof CONFIG.model.position !== undefined)
+      _object.position.set(
+        CONFIG.model.position.x,
+        CONFIG.model.position.y,
+        CONFIG.model.position.z
+      );
     if (typeof _data["objScale"] !== "undefined")
       _object.scale.set(
         _data["objScale"][0],
         _data["objScale"][1],
         _data["objScale"][2]
       );
+    else if (typeof _data.scale !== undefined)
+      _object.scale.set(
+        CONFIG.model.scale.x,
+        CONFIG.model.scale.y,
+        CONFIG.model.scale.z
+      );
     if (typeof _data["objRotation"] !== "undefined")
       _object.rotation.set(
         THREE.MathUtils.degToRad(_data["objRotation"][0]),
         THREE.MathUtils.degToRad(_data["objRotation"][1]),
         THREE.MathUtils.degToRad(_data["objRotation"][2])
+      );
+    else if (typeof _data.rotation !== undefined)
+      _object.rotation.set(
+        THREE.MathUtils.degToRad(CONFIG.model.rotation.x),
+        THREE.MathUtils.degToRad(CONFIG.model.rotation.y),
+        THREE.MathUtils.degToRad(CONFIG.model.rotation.z)
       );
     _object.needsUpdate = true;
     if (typeof _object.geometry !== "undefined") {
@@ -678,11 +701,6 @@ function setupObject(_object, _light, _data, _controls) {
     );
   }
   cameraLight.target.updateMatrixWorld();
-  outlineClipping.position.set(
-    _object.position.x,
-    _object.position.y,
-    _object.position.z
-  );
 }
 
 function invertHexColor(hexTripletColor) {
@@ -1736,6 +1754,21 @@ function handleMetadataResponse(
   //hierarchyFolder.add(hierarchyText, 'Faces');
 }
 
+function settingsHandler(object, camera, light, controls) {
+  if (Array.isArray(object)) {
+    setupObject(object[0], light, undefined, controls);
+    setupCamera(object[0], camera, light, undefined, controls);
+  } else if (object.name === "Scene" || object.children.length > 0) {
+    setupObject(object, light, undefined, controls);
+    setupCamera(object, camera, light, undefined, controls);
+  } else {
+    setupObject(object, light, undefined, controls);
+    setupCamera(object, camera, light, undefined, controls);
+    if (object.name === "undefined") object.name = "level";
+    hierarchyFolder = hierarchyMain.addFolder(object.name).close();
+  }
+}
+
 function fetchSettings(
   path,
   basename,
@@ -1759,19 +1792,23 @@ function fetchSettings(
   const hierarchyMain = gui.addFolder("Hierarchy").close();
   if (CONFIG.entity.proxyPath !== undefined) {
     metadataUrl = getProxyPath(metadataUrl);
-    if (Array.isArray(object)) {
-      setupObject(object[0], light, undefined, controls);
-      setupCamera(object[0], camera, light, undefined, controls);
-    } else if (object.name === "Scene" || object.children.length > 0) {
-      setupObject(object, light, undefined, controls);
-      setupCamera(object, camera, light, undefined, controls);
-    } else {
-      setupObject(object, light, undefined, controls);
-      setupCamera(object, camera, light, undefined, controls);
-      //hierarchy.push(tempArray);
-      if (object.name === "undefined") object.name = "level";
-      hierarchyFolder = hierarchyMain.addFolder(object.name).close();
-    }
+    settingsHandler(object, camera, light, controls);
+  } else if (CONFIG.entity.metadata.source === "IIIF") {
+    console.log("Changing settings for IIIF");
+    handleMetadataResponse(
+      CONFIG.model,
+      metadata,
+      path,
+      basename,
+      filename,
+      object,
+      camera,
+      light,
+      controls,
+      orgExtension,
+      extension,
+      hierarchyMain
+    );
   } else {
     fetch(metadataUrl, { cache: "no-cache" })
       .then((response) => {
@@ -1799,7 +1836,6 @@ function fetchSettings(
         );
       });
   }
-
   //addTextWatermark("©", object.scale.x);
   //lightObjects.push (object);
   const statsMain = gui.addFolder("Statistics").close();
@@ -1838,6 +1874,7 @@ const onErrorMTL = function (_event) {
 };
 
 const onErrorGLB = function (_event) {
+  console.log(_event);
   if (typeof _event !== undefined && loadedTimes <= 1) {
     console.log(
       path + basename + compressedFile,
@@ -2007,11 +2044,6 @@ function prepareOutlineClipping(_object) {
 }
 
 async function loadModel(path, basename, filename, extension, orgExtension) {
-  if (iiifConfigURL !== "") {
-    const loadedIIIF = await loadIIIFManifest(iiifConfigURL);
-    //CONFIG.model.position = new THREE.Vector3(loadedIIIF.manifest.);
-  }
-
   if (!imported) {
     circle.show();
     circle.set(0, 100);
@@ -2448,6 +2480,11 @@ async function loadModel(path, basename, filename, extension, orgExtension) {
               extension
             );
             outlineClipping = prepareOutlineClipping(gltf.scene);
+            outlineClipping.position.set(
+              gltf.scene.position.x,
+              gltf.scene.position.y,
+              gltf.scene.position.z
+            );
             scene.add(gltf.scene, outlineClipping);
             scene.add(gltf.scene);
             mainObject.push(gltf.scene);
@@ -2863,7 +2900,7 @@ function changeBackground(_type, _color1, _color2) {
   }
 }
 
-function init() {
+async function init() {
   camera = new THREE.PerspectiveCamera(
     45,
     canvasDimensions.x / canvasDimensions.y,
@@ -3027,59 +3064,74 @@ function init() {
   }
 
   var _autoPath = "";
-  var req = new XMLHttpRequest();
-  req.responseType = "";
-  req.open(
-    "GET",
-    CONFIG.metadataUrl + EXPORT_PATH + entityID + "?page=0&amp;_format=xml",
-    true
-  );
-  req.onreadystatechange = function (aEvt) {
-    if (req.readyState == 4) {
-      if (req.status == 200) {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(req.responseText, "application/xml");
-        if (doc.documentElement.childNodes > 0) {
-          var data = doc.documentElement.childNodes[0].childNodes;
-          if (typeof data !== undefined) {
-            var _found = false;
-            for (var i = 0; i < data.length && !_found; i++) {
-              if (
-                typeof data[i].tagName !== "undefined" &&
-                typeof data[i].textContent !== "undefined"
-              ) {
-                var _label = data[i].tagName.replace(
-                  "wisski_path_3d_model__",
-                  ""
-                );
+  if (CONFIG.entity.metadata.source === "") {
+    var req = new XMLHttpRequest();
+    req.responseType = "";
+    req.open(
+      "GET",
+      CONFIG.metadataUrl + EXPORT_PATH + entityID + "?page=0&amp;_format=xml",
+      true
+    );
+    req.onreadystatechange = function (aEvt) {
+      if (req.readyState == 4) {
+        if (req.status == 200) {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(
+            req.responseText,
+            "application/xml"
+          );
+          if (doc.documentElement.childNodes > 0) {
+            var data = doc.documentElement.childNodes[0].childNodes;
+            if (typeof data !== undefined) {
+              var _found = false;
+              for (var i = 0; i < data.length && !_found; i++) {
                 if (
-                  typeof _label !== "undefined" &&
-                  _label === "converted_file"
+                  typeof data[i].tagName !== "undefined" &&
+                  typeof data[i].textContent !== "undefined"
                 ) {
-                  _found = true;
-                  _autoPath = data[i].textContent;
-                  console.log(_autoPath);
+                  var _label = data[i].tagName.replace(
+                    "wisski_path_3d_model__",
+                    ""
+                  );
+                  if (
+                    typeof _label !== "undefined" &&
+                    _label === "converted_file"
+                  ) {
+                    _found = true;
+                    _autoPath = data[i].textContent;
+                  }
                 }
               }
             }
           }
+          //check wheter semo-automatic path found
+          if (_autoPath !== "") {
+            filename = _autoPath.split("/").pop();
+            basename = filename.substring(0, filename.lastIndexOf("."));
+            extension = filename.substring(filename.lastIndexOf(".") + 1);
+            _ext = extension.toLowerCase();
+            path = _autoPath.substring(0, _autoPath.lastIndexOf(filename));
+          }
+          mainLoadModel(_ext);
+        } else {
+          console.log("Error during loading metadata content\n");
+          mainLoadModel(_ext);
         }
-        //check wheter semo-automatic path found
-        if (_autoPath !== "") {
-          filename = _autoPath.split("/").pop();
-          basename = filename.substring(0, filename.lastIndexOf("."));
-          extension = filename.substring(filename.lastIndexOf(".") + 1);
-          _ext = extension.toLowerCase();
-          path = _autoPath.substring(0, _autoPath.lastIndexOf(filename));
-        }
-        mainLoadModel(_ext);
-      } else {
-        console.log("Error during loading metadata content\n");
+      }
+    };
+    req.send(null);
+  } else {
+    if (iiifConfigURL !== "") {
+      async function loadAnnotations() {
+        const loadedIIIF = await loadIIIFManifest(iiifConfigURL);
+        await getAnnotations(loadedIIIF.annotations, CONFIG);
         mainLoadModel(_ext);
       }
+      await loadAnnotations();
+      CONFIG.entity.metadata.source = "IIIF";
+      //CONFIG.model.position = new THREE.Vector3(loadedIIIF.manifest.);
     }
-  };
-  req.send(null);
+  }
   /*try {
 
 	} catch (e) {
@@ -3608,7 +3660,7 @@ function init() {
   }
 }
 
-(function () {
-  init();
+(async function () {
+  await init();
   animate();
 })();

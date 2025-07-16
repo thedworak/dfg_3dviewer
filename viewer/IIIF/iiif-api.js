@@ -22,8 +22,17 @@ export async function loadIIIFManifest(manifestUrlOrJson) {
         );
       });
     });
+  }
+  return {
+    manifest: iiifManifest.manifest,
+    scenes: iiifManifest.scenes,
+    annotations: filteredAnnos,
+  };
+}
 
-    filteredAnnos.forEach((modelAnnotation) => {
+export async function getAnnotations(filteredAnnos, CONFIG) {
+  await Promise.all(
+    filteredAnnos.map(async (modelAnnotation) => {
       if (modelAnnotation.getBody()[0].isSpecificResource) {
         let transforms = [];
 
@@ -34,46 +43,53 @@ export async function loadIIIFManifest(manifestUrlOrJson) {
         } catch (e) {
           console.warn("Failed to read transform");
         }
-        console.log(transforms);
 
-        transforms.forEach((transform) => {
-          if (!transform.isTransform) return;
+        // ✅ Correct use of async-safe loop
+        for (const transform of transforms) {
+          if (!transform.isTransform) continue;
 
           const transformHandlers = [
             {
               key: "isScaleTransform",
               action: () => {
                 const scale = transform.getScale();
-                if (scale) console.log("scaling");
+                if (scale) {
+                  console.log("scaling");
+                  CONFIG.model.scale = scale;
+                }
               },
             },
             {
               key: "isRotateTransform",
               action: () => {
-                console.log("rotating");
+                const rotation = transform.getRotation();
+                if (rotation) {
+                  console.log("rotating");
+                  CONFIG.model.rotation = rotation;
+                }
               },
             },
             {
               key: "isTranslateTransform",
               action: () => {
                 const translation = transform.getTranslation();
-                if (translation) console.log("translating");
+                if (translation) {
+                  console.log("translating");
+                  CONFIG.model.position = translation;
+                }
               },
             },
           ];
 
-          transformHandlers.forEach(({ key, action }) => {
+          for (const { key, action } of transformHandlers) {
             if (transform[key]) {
               action();
             }
-          });
-        });
+          }
+        }
       }
-    });
-  }
-  return {
-    manifest: iiifManifest.manifest,
-    scenes: iiifManifest.scenes,
-    annotations: filteredAnnos,
-  };
+    })
+  );
+
+  return filteredAnnos;
 }

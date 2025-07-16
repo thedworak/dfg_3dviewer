@@ -8,7 +8,10 @@
         "fieldDf": "field_df",
         "idUri": "\/wisski\/navigate\/(.*)\/view",
         "viewEntityPath": "\/wisski\/navigate\/",
-        "attributeId": "wisski_id"
+        "attributeId": "wisski_id",
+		"metadata": {
+			"source": ""
+		}
     },
     "viewer": {
         "container": "DFG_3DViewer",
