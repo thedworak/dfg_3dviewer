@@ -818,13 +818,7 @@ function setupClippingPlanes(_geom, _size, _distance) {
   });
 }
 
-function fitCameraToCenteredObject(
-  camera,
-  object,
-  add_offset,
-  orbitControls,
-  _fit
-) {
+function fitCameraToCenteredObject(camera, object, add_offset, _fit) {
   const boundingBox = new THREE.Box3();
   if (Array.isArray(object)) {
     for (let i = 0; i < object.length; i++) {
@@ -857,7 +851,7 @@ function fitCameraToCenteredObject(
   dirLight.target.updateMatrixWorld();
 
   var gridSizeScale = gridSize * 1.5;
-  const mesh = new THREE.Mesh(
+  const planeMesh = new THREE.Mesh(
     new THREE.PlaneGeometry(gridSizeScale, gridSizeScale),
     new THREE.MeshPhongMaterial({
       color: 0xefefef,
@@ -866,10 +860,10 @@ function fitCameraToCenteredObject(
       opacity: 0.65,
     })
   );
-  mesh.rotation.x = -Math.PI / 2;
-  mesh.position.set(0, 0, 0);
-  mesh.receiveShadow = true;
-  scene.add(mesh);
+  planeMesh.rotation.x = -Math.PI / 2;
+  planeMesh.position.set(0, 0, 0);
+  planeMesh.receiveShadow = true;
+  scene.add(planeMesh);
 
   const axesHelper = new THREE.AxesHelper(gridSize);
   axesHelper.position.set(0, 0, 0);
@@ -958,12 +952,12 @@ function fitCameraToCenteredObject(
 
   //camera.far = cameraToFarEdge * 3;
   camera.updateProjectionMatrix();
-  if (orbitControls !== undefined && _fit) {
+  if (controls !== undefined && _fit) {
     // set camera to rotate around the center
-    orbitControls.target = new THREE.Vector3(0, offset.y, 0);
+    controls.target = new THREE.Vector3(0, offset.y, 0);
 
     // prevent camera from zooming out far enough to create far plane cutoff
-    orbitControls.maxDistance = cameraToFarEdge * 2;
+    controls.maxDistance = cameraToFarEdge * 2;
   }
   controls.update();
 
@@ -1155,79 +1149,89 @@ function render() {
   renderer.render(scene, camera);
 }
 
-function setupCamera(_object, _camera, _light, _data, _controls) {
-  if (typeof _data != "undefined") {
-    if (typeof _data["cameraPosition"] != "undefined") {
-      _camera.position.set(
-        _data["cameraPosition"][0],
-        _data["cameraPosition"][1],
-        _data["cameraPosition"][2]
-      );
+function setupEmptyCamera(_camera, _object) {
+  var boundingBox = new THREE.Box3();
+  if (Array.isArray(_object)) {
+    for (let i = 0; i < _object.length; i++) {
+      boundingBox.setFromObject(_object[i]);
     }
-    if (typeof _data["controlsTarget"] != "undefined") {
-      _controls.target.set(
-        _data["controlsTarget"][0],
-        _data["controlsTarget"][1],
-        _data["controlsTarget"][2]
-      );
+  } else {
+    boundingBox.setFromObject(_object);
+  }
+  var size = new THREE.Vector3();
+  boundingBox.getSize(size);
+  camera.position.set(size.x, size.y, size.z);
+  //controls.target.set(0, 100, 0);
+  fitCameraToCenteredObject(_camera, _object, 1.2, true);
+}
+
+const keysProperties = [
+  "cameraPosition",
+  "controlsTarget",
+  "lightPosition",
+  "lightTarget",
+  "lightColor",
+  "lightIntensity",
+  "lightAmbientColor",
+  "lightAmbientIntensity",
+  "lightCameraColor",
+  "lightCameraIntensity",
+  "background",
+];
+
+function setupCamera(_object, _camera, _light, _data) {
+  const hasAnyProperty = keysProperties.some(
+    (key) => typeof _data[key] !== "undefined"
+  );
+  if (hasAnyProperty) {
+    if (typeof _data["cameraPosition"] !== "undefined") {
+      _camera.position.set(..._data["cameraPosition"]);
+    } else {
+      setupEmptyCamera(_camera, _object);
     }
-    if (typeof _data["lightPosition"] != "undefined") {
-      _light.position.set(
-        _data["lightPosition"][0],
-        _data["lightPosition"][1],
-        _data["lightPosition"][2]
-      );
+    if (typeof _data["controlsTarget"] !== "undefined") {
+      controls.target.set(..._data["controlsTarget"]);
+    } else {
+      setupEmptyCamera(_camera, _object);
     }
-    if (typeof _data["lightTarget"] != "undefined") {
-      _light.rotation.set(
-        _data["lightTarget"][0],
-        _data["lightTarget"][1],
-        _data["lightTarget"][2]
-      );
+    if (typeof _data["lightPosition"] !== "undefined") {
+      _light.position.set(..._data["lightPosition"]);
     }
-    if (typeof _data["lightColor"] != "undefined") {
+    if (typeof _data["lightTarget"] !== "undefined") {
+      _light.rotation.set(..._data["lightTarget"]);
+    }
+    if (typeof _data["lightColor"] !== "undefined") {
       _light.color = new THREE.Color(_data["lightColor"][0]);
       colors["DirectionalLight"] = _data["lightColor"][0];
     }
-    if (typeof _data["lightIntensity"] != "undefined") {
+    if (typeof _data["lightIntensity"] !== "undefined") {
       _light.intensity = _data["lightIntensity"][0];
       intensity.startIntensityDir = _data["lightIntensity"][0];
     }
-    if (typeof _data["lightAmbientColor"] != "undefined") {
+    if (typeof _data["lightAmbientColor"] !== "undefined") {
       ambientLight.color = new THREE.Color(_data["lightAmbientColor"][0]);
       colors["AmbientLight"] = _data["lightAmbientColor"][0];
     }
-    if (typeof _data["lightAmbientIntensity"] != "undefined") {
+    if (typeof _data["lightAmbientIntensity"] !== "undefined") {
       ambientLight.intensity = _data["lightAmbientIntensity"][0];
       intensity.startIntensityAmbient = _data["lightAmbientIntensity"][0];
     }
-    if (typeof _data["lightCameraColor"] != "undefined") {
+    if (typeof _data["lightCameraColor"] !== "undefined") {
       cameraLight.color = new THREE.Color(_data["lightCameraColor"][0]);
       colors["CameraLight"] = _data["lightCameraColor"][0];
     }
-    if (typeof _data["lightCameraIntensity"] != "undefined") {
+    if (typeof _data["lightCameraIntensity"] !== "undefined") {
       cameraLight.intensity = _data["lightCameraIntensity"][0];
       intensity.startIntensityCamera = _data["lightCameraIntensity"][0];
     }
-    if (typeof _data["background"] != "undefined") {
+    if (typeof _data["background"] !== "undefined") {
       mainCanvas.style.setProperty("background", _data["background"][0]);
     }
     _camera.updateProjectionMatrix();
-    _controls.update();
-    fitCameraToCenteredObject(_camera, _object, 2.3, _controls, false);
+    controls.update();
+    fitCameraToCenteredObject(_camera, _object, 2.3, false);
   } else {
-    var boundingBox = new THREE.Box3();
-    if (Array.isArray(_object)) {
-      for (let i = 0; i < _object.length; i++) {
-        boundingBox.setFromObject(_object[i]);
-      }
-    } else {
-      boundingBox.setFromObject(_object);
-    }
-    var size = new THREE.Vector3();
-    boundingBox.getSize(size);
-    camera.position.set(size.x, size.y, size.z);
-    fitCameraToCenteredObject(_camera, _object, 1.2, _controls, true);
+    setupEmptyCamera(_camera, _object);
   }
 }
 
@@ -1590,7 +1594,7 @@ function handleMetadataResponse(
   var tempArray = [];
   if (Array.isArray(object)) {
     setupObject(object[0], light, data, controls);
-    setupCamera(object[0], camera, light, data, controls);
+    setupCamera(object[0], camera, light, data);
   } else if (
     object.name === "Scene" ||
     object.children.length > 0 ||
@@ -1632,10 +1636,10 @@ function handleMetadataResponse(
         //}
       }
     });
-    setupCamera(object, camera, light, data, controls);
+    setupCamera(object, camera, light, data);
   } else {
     setupObject(object, light, data, controls);
-    setupCamera(object, camera, light, data, controls);
+    setupCamera(object, camera, light, data);
     metadata["vertices"] += fetchMetadata(object, "vertices");
     metadata["faces"] += fetchMetadata(object, "faces");
     if (object.name === "") {
@@ -1757,13 +1761,13 @@ function handleMetadataResponse(
 function settingsHandler(object, camera, light, controls) {
   if (Array.isArray(object)) {
     setupObject(object[0], light, undefined, controls);
-    setupCamera(object[0], camera, light, undefined, controls);
+    setupCamera(object[0], camera, light, undefined);
   } else if (object.name === "Scene" || object.children.length > 0) {
     setupObject(object, light, undefined, controls);
-    setupCamera(object, camera, light, undefined, controls);
+    setupCamera(object, camera, light, undefined);
   } else {
     setupObject(object, light, undefined, controls);
-    setupCamera(object, camera, light, undefined, controls);
+    setupCamera(object, camera, light, undefined);
     if (object.name === "undefined") object.name = "level";
     hierarchyFolder = hierarchyMain.addFolder(object.name).close();
   }
@@ -2530,13 +2534,18 @@ function animate(time) {
   renderer.clear();
   renderer.render(scene, camera);
   stats.update();
+  controls.update();
 }
 
-function updateObject() {}
-
 function onPointerDown(e) {
-  //onDownPosition.x = event.clientX;
-  //onDownPosition.y = event.clientY;
+  e.stopPropagation();
+  if (e.isTrusted) {
+    console.clear();
+    console.log("Target:", e.target);
+    console.log("Pointer down");
+    console.log("Controls:", controls.target.clone());
+    console.log("Camera:", camera.position.clone());
+  }
   if (e.button === 0) {
     onDownPosition.x =
       ((e.clientX - mainCanvas.getBoundingClientRect().left) /
@@ -2567,7 +2576,6 @@ function onPointerUp(e) {
       ) *
         2 +
       1;
-
     if (
       onUpPosition.x === onDownPosition.x &&
       onUpPosition.y === onDownPosition.y
@@ -2620,8 +2628,7 @@ function onPointerMove(e) {
         camera.position.z
       );
     }
-  }
-  if (e.buttons != 1) {
+  } else {
     if (EDITOR) {
       raycaster.setFromCamera(pointer, camera);
       var intersects;
@@ -2901,762 +2908,776 @@ function changeBackground(_type, _color1, _color2) {
 }
 
 async function init() {
-  camera = new THREE.PerspectiveCamera(
-    45,
-    canvasDimensions.x / canvasDimensions.y,
-    0.001,
-    999000000
-  );
-  camera.position.set(0, 0, 0);
-
-  scene = new THREE.Scene();
-
-  const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444);
-  hemiLight.position.set(0, 200, 0);
-  scene.add(hemiLight);
-
-  ambientLight = new THREE.AmbientLight(0x404040); // soft white light
-  scene.add(ambientLight);
-
-  dirLight = new THREE.DirectionalLight(0xffffff);
-  dirLight.position.set(0, 100, 50);
-  dirLight.castShadow = true;
-  dirLight.shadow.camera.top = 180;
-  dirLight.shadow.camera.bottom = -100;
-  dirLight.shadow.camera.left = -120;
-  dirLight.shadow.camera.right = 120;
-  dirLight.shadow.bias = -0.0001;
-  dirLight.shadow.mapSize.width = 1024 * 4;
-  dirLight.shadow.mapSize.height = 1024 * 4;
-  scene.add(dirLight);
-  lightObjects.push(dirLight);
-
-  cameraLightTarget = new THREE.Object3D();
-  cameraLightTarget.position.set(
-    camera.position.x,
-    camera.position.y,
-    camera.position.z
-  );
-  scene.add(cameraLightTarget);
-
-  cameraLight = new THREE.DirectionalLight(0xffffff);
-  cameraLight.position.set(camera.position);
-  cameraLight.castShadow = false;
-  cameraLight.intensity = 0.3;
-  scene.add(cameraLight);
-  cameraLight.target = cameraLightTarget;
-  cameraLight.target.updateMatrixWorld();
-
-  renderer = new THREE.WebGLRenderer({
-    antialias: true,
-    logarithmicDepthBuffer: true,
-    colorManagement: true,
-    sortObjects: true,
-    preserveDrawingBuffer: true,
-    powerPreference: "high-performance",
-    alpha: true,
-  });
-  renderer.setPixelRatio(window.devicePixelRatio);
-  renderer.setSize(canvasDimensions.x, canvasDimensions.y);
-  renderer.shadowMap.enabled = true;
-  renderer.localClippingEnabled = true;
-  renderer.physicallyCorrectLights = true; //can be considered as better looking
-  renderer.autoClear = false;
-  renderer.setClearColor(0x000000, 0.0);
-  renderer.domElement.id = "MainCanvas";
-  container.appendChild(renderer.domElement);
-
-  mainCanvas = document.getElementById("MainCanvas");
-  mainCanvas.setAttribute(
-    "style",
-    "width:" +
-      canvasDimensions.x +
-      "px;" +
-      " height: clamp(20vh, " +
-      canvasDimensions.y +
-      ", 100vh)" +
-      +"px;" +
-      " display: flex;"
-  );
-  //mainCanvas.style.setProperty("minHeight", "clamp(100px, 20vh, 300px)");
-  canvasText = document.createElement("div");
-  canvasText.id = "TextCanvas";
-  canvasText.width = canvasDimensions.x;
-  canvasText.height = canvasDimensions.y;
-
-  guiContainer.style.width = canvasDimensions.x;
-  guiContainer.style.left = container.offsetLeft + "px";
-  lilGui = document.getElementsByClassName("lil-gui root");
-  lilGui[0].style.left =
-    canvasDimensions.x - lilGui[0].getBoundingClientRect().width - 10 + "px";
-
-  fileElement = document.getElementsByClassName("field--type-file");
-  if (fileElement.length > 0) {
-    fileElement[0].style.height = canvasDimensions.y * 1.1 + "px";
-  }
-
-  if (CONFIG.viewer.lightweight === 0 || CONFIG.viewer.lightweight === false) {
-    buildGallery();
-  }
-
-  controls = new OrbitControls(camera, renderer.domElement);
-  controls.target.set(0, 100, 0);
-  controls.update();
-
-  transformControl = new TransformControls(camera, renderer.domElement);
-  transformControl.rotationSnap = THREE.MathUtils.degToRad(5);
-  transformControl.space = "local";
-  transformControl.addEventListener("change", render);
-  transformControl.addEventListener("objectChange", changeScale);
-  transformControl.addEventListener("mouseUp", calculateObjectScale);
-  transformControl.addEventListener("dragging-changed", function (event) {
-    controls.enabled = !event.value;
-  });
-  scene.add(transformControl.getHelper());
-
-  transformControlLight = new TransformControls(camera, renderer.domElement);
-  transformControlLight.space = "local";
-  transformControlLight.addEventListener("change", render);
-  //transformControlLight.addEventListener('objectChange', changeLightRotation);
-  transformControlLight.addEventListener("dragging-changed", function (event) {
-    controls.enabled = !event.value;
-  });
-  scene.add(transformControlLight.getHelper());
-
-  transformControlLightTarget = new TransformControls(
-    camera,
-    renderer.domElement
-  );
-  transformControlLightTarget.space = "global";
-  transformControlLightTarget.addEventListener("change", render);
-  transformControlLightTarget.addEventListener(
-    "objectChange",
-    changeLightRotation
-  );
-  transformControlLightTarget.addEventListener(
-    "dragging-changed",
-    function (event) {
-      controls.enabled = !event.value;
-    }
-  );
-  scene.add(transformControlLightTarget.getHelper());
-
-  transformControlClippingPlaneX = createClippingPlaneAxis(0, "x");
-  transformControlClippingPlaneY = createClippingPlaneAxis(1, "y");
-  transformControlClippingPlaneZ = createClippingPlaneAxis(2, "z");
-
-  transformControlClippingPlaneX.showX =
-    transformControlClippingPlaneX.showY = false;
-  transformControlClippingPlaneY.showX =
-    transformControlClippingPlaneY.showY = false;
-  transformControlClippingPlaneZ.showX =
-    transformControlClippingPlaneZ.showY = false;
-
-  var _ext = extension.toLowerCase();
-  if (
-    _ext === "zip" ||
-    _ext === "rar" ||
-    _ext === "tar" ||
-    _ext === "xz" ||
-    _ext === "gz"
-  ) {
-    archiveType = _ext;
-  }
-
-  var _autoPath = "";
-  if (CONFIG.entity.metadata.source === "") {
-    var req = new XMLHttpRequest();
-    req.responseType = "";
-    req.open(
-      "GET",
-      CONFIG.metadataUrl + EXPORT_PATH + entityID + "?page=0&amp;_format=xml",
-      true
+  if (!renderer) {
+    camera = new THREE.PerspectiveCamera(
+      45,
+      canvasDimensions.x / canvasDimensions.y,
+      0.001,
+      999000000
     );
-    req.onreadystatechange = function (aEvt) {
-      if (req.readyState == 4) {
-        if (req.status == 200) {
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(
-            req.responseText,
-            "application/xml"
-          );
-          if (doc.documentElement.childNodes > 0) {
-            var data = doc.documentElement.childNodes[0].childNodes;
-            if (typeof data !== undefined) {
-              var _found = false;
-              for (var i = 0; i < data.length && !_found; i++) {
-                if (
-                  typeof data[i].tagName !== "undefined" &&
-                  typeof data[i].textContent !== "undefined"
-                ) {
-                  var _label = data[i].tagName.replace(
-                    "wisski_path_3d_model__",
-                    ""
-                  );
+    camera.position.set(0, 0, 0);
+
+    scene = new THREE.Scene();
+
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444);
+    hemiLight.position.set(0, 200, 0);
+    scene.add(hemiLight);
+
+    ambientLight = new THREE.AmbientLight(0x404040); // soft white light
+    scene.add(ambientLight);
+
+    dirLight = new THREE.DirectionalLight(0xffffff);
+    dirLight.position.set(0, 100, 50);
+    dirLight.castShadow = true;
+    dirLight.shadow.camera.top = 180;
+    dirLight.shadow.camera.bottom = -100;
+    dirLight.shadow.camera.left = -120;
+    dirLight.shadow.camera.right = 120;
+    dirLight.shadow.bias = -0.0001;
+    dirLight.shadow.mapSize.width = 1024 * 4;
+    dirLight.shadow.mapSize.height = 1024 * 4;
+    scene.add(dirLight);
+    lightObjects.push(dirLight);
+
+    cameraLightTarget = new THREE.Object3D();
+    cameraLightTarget.position.set(
+      camera.position.x,
+      camera.position.y,
+      camera.position.z
+    );
+    scene.add(cameraLightTarget);
+
+    cameraLight = new THREE.DirectionalLight(0xffffff);
+    cameraLight.position.set(camera.position);
+    cameraLight.castShadow = false;
+    cameraLight.intensity = 0.3;
+    scene.add(cameraLight);
+    cameraLight.target = cameraLightTarget;
+    cameraLight.target.updateMatrixWorld();
+
+    renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      logarithmicDepthBuffer: true,
+      colorManagement: true,
+      sortObjects: true,
+      preserveDrawingBuffer: true,
+      powerPreference: "high-performance",
+      alpha: true,
+    });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(canvasDimensions.x, canvasDimensions.y);
+    renderer.shadowMap.enabled = true;
+    renderer.localClippingEnabled = true;
+    renderer.physicallyCorrectLights = true; //can be considered as better looking
+    renderer.autoClear = false;
+    renderer.setClearColor(0x000000, 0.0);
+    renderer.domElement.id = "MainCanvas";
+    container.appendChild(renderer.domElement);
+    mainCanvas = document.getElementById("MainCanvas");
+
+    renderer.domElement.addEventListener("pointerdown", onPointerDown);
+    renderer.domElement.addEventListener("pointerup", onPointerUp);
+    renderer.domElement.addEventListener("pointermove", onPointerMove);
+
+    renderer.setSize(canvasDimensions.x, canvasDimensions.y);
+    renderer.domElement.style.width = `${canvasDimensions.x}px`;
+    renderer.domElement.style.height = `${canvasDimensions.y}px`;
+    renderer.domElement.style.display = "block"; // usually best
+    //mainCanvas.style.setProperty("minHeight", "clamp(100px, 20vh, 300px)");
+    canvasText = document.createElement("div");
+    canvasText.id = "TextCanvas";
+    canvasText.width = canvasDimensions.x;
+    canvasText.height = canvasDimensions.y;
+
+    guiContainer.style.width = canvasDimensions.x;
+    guiContainer.style.left = container.offsetLeft + "px";
+    lilGui = document.getElementsByClassName("lil-gui root");
+    lilGui[0].style.left =
+      canvasDimensions.x - lilGui[0].getBoundingClientRect().width - 10 + "px";
+
+    fileElement = document.getElementsByClassName("field--type-file");
+    if (fileElement.length > 0) {
+      fileElement[0].style.height = canvasDimensions.y * 1.1 + "px";
+    }
+
+    if (
+      CONFIG.viewer.lightweight === 0 ||
+      CONFIG.viewer.lightweight === false
+    ) {
+      buildGallery();
+    }
+
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 100, 0);
+    controls.enableRotate = true;
+    controls.update();
+
+    transformControl = new TransformControls(camera, renderer.domElement);
+    transformControl.rotationSnap = THREE.MathUtils.degToRad(5);
+    transformControl.space = "local";
+    transformControl.addEventListener("change", render);
+    transformControl.addEventListener("objectChange", changeScale);
+    transformControl.addEventListener("mouseUp", calculateObjectScale);
+    transformControl.addEventListener("dragging-changed", function (event) {
+      controls.enabled = !event.value;
+    });
+    scene.add(transformControl.getHelper());
+
+    transformControlLight = new TransformControls(camera, renderer.domElement);
+    transformControlLight.space = "local";
+    transformControlLight.addEventListener("change", render);
+    //transformControlLight.addEventListener('objectChange', changeLightRotation);
+    transformControlLight.addEventListener(
+      "dragging-changed",
+      function (event) {
+        controls.enabled = !event.value;
+      }
+    );
+    scene.add(transformControlLight.getHelper());
+
+    transformControlLightTarget = new TransformControls(
+      camera,
+      renderer.domElement
+    );
+    transformControlLightTarget.space = "global";
+    transformControlLightTarget.addEventListener("change", render);
+    transformControlLightTarget.addEventListener(
+      "objectChange",
+      changeLightRotation
+    );
+    transformControlLightTarget.addEventListener(
+      "dragging-changed",
+      function (event) {
+        controls.enabled = !event.value;
+      }
+    );
+    scene.add(transformControlLightTarget.getHelper());
+
+    transformControlClippingPlaneX = createClippingPlaneAxis(0, "x");
+    transformControlClippingPlaneY = createClippingPlaneAxis(1, "y");
+    transformControlClippingPlaneZ = createClippingPlaneAxis(2, "z");
+
+    transformControlClippingPlaneX.showX =
+      transformControlClippingPlaneX.showY = false;
+    transformControlClippingPlaneY.showX =
+      transformControlClippingPlaneY.showY = false;
+    transformControlClippingPlaneZ.showX =
+      transformControlClippingPlaneZ.showY = false;
+
+    var _ext = extension.toLowerCase();
+    if (
+      _ext === "zip" ||
+      _ext === "rar" ||
+      _ext === "tar" ||
+      _ext === "xz" ||
+      _ext === "gz"
+    ) {
+      archiveType = _ext;
+    }
+
+    var _autoPath = "";
+    if (CONFIG.entity.metadata.source === "") {
+      var req = new XMLHttpRequest();
+      req.responseType = "";
+      req.open(
+        "GET",
+        CONFIG.metadataUrl + EXPORT_PATH + entityID + "?page=0&amp;_format=xml",
+        true
+      );
+      req.onreadystatechange = function (aEvt) {
+        if (req.readyState == 4) {
+          if (req.status == 200) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(
+              req.responseText,
+              "application/xml"
+            );
+            if (doc.documentElement.childNodes > 0) {
+              var data = doc.documentElement.childNodes[0].childNodes;
+              if (typeof data !== undefined) {
+                var _found = false;
+                for (var i = 0; i < data.length && !_found; i++) {
                   if (
-                    typeof _label !== "undefined" &&
-                    _label === "converted_file"
+                    typeof data[i].tagName !== "undefined" &&
+                    typeof data[i].textContent !== "undefined"
                   ) {
-                    _found = true;
-                    _autoPath = data[i].textContent;
+                    var _label = data[i].tagName.replace(
+                      "wisski_path_3d_model__",
+                      ""
+                    );
+                    if (
+                      typeof _label !== "undefined" &&
+                      _label === "converted_file"
+                    ) {
+                      _found = true;
+                      _autoPath = data[i].textContent;
+                    }
                   }
                 }
               }
             }
+            //check wheter semo-automatic path found
+            if (_autoPath !== "") {
+              filename = _autoPath.split("/").pop();
+              basename = filename.substring(0, filename.lastIndexOf("."));
+              extension = filename.substring(filename.lastIndexOf(".") + 1);
+              _ext = extension.toLowerCase();
+              path = _autoPath.substring(0, _autoPath.lastIndexOf(filename));
+            }
+            mainLoadModel(_ext);
+          } else {
+            console.log("Error during loading metadata content\n");
+            mainLoadModel(_ext);
           }
-          //check wheter semo-automatic path found
-          if (_autoPath !== "") {
-            filename = _autoPath.split("/").pop();
-            basename = filename.substring(0, filename.lastIndexOf("."));
-            extension = filename.substring(filename.lastIndexOf(".") + 1);
-            _ext = extension.toLowerCase();
-            path = _autoPath.substring(0, _autoPath.lastIndexOf(filename));
-          }
-          mainLoadModel(_ext);
-        } else {
-          console.log("Error during loading metadata content\n");
+        }
+      };
+      req.send(null);
+    } else {
+      if (iiifConfigURL !== "") {
+        async function loadAnnotations() {
+          const loadedIIIF = await loadIIIFManifest(iiifConfigURL);
+          await getAnnotations(loadedIIIF.annotations, CONFIG);
           mainLoadModel(_ext);
         }
+        await loadAnnotations();
+        CONFIG.entity.metadata.source = "IIIF";
+        //CONFIG.model.position = new THREE.Vector3(loadedIIIF.manifest.);
       }
-    };
-    req.send(null);
-  } else {
-    if (iiifConfigURL !== "") {
-      async function loadAnnotations() {
-        const loadedIIIF = await loadIIIFManifest(iiifConfigURL);
-        await getAnnotations(loadedIIIF.annotations, CONFIG);
-        mainLoadModel(_ext);
-      }
-      await loadAnnotations();
-      CONFIG.entity.metadata.source = "IIIF";
-      //CONFIG.model.position = new THREE.Vector3(loadedIIIF.manifest.);
     }
-  }
-  /*try {
+    /*try {
 
 	} catch (e) {
 		// statements to handle any exceptions
 		loadModel(path, basename, filename, extension);
 	}*/
+    window.addEventListener("resize", onWindowResize);
 
-  container.addEventListener("pointerdown", onPointerDown);
-  container.addEventListener("pointerup", onPointerUp);
-  container.addEventListener("pointermove", onPointerMove);
-  window.addEventListener("resize", onWindowResize);
-
-  fullscreenMode = document.createElement("div");
-  fullscreenMode.setAttribute("id", "fullscreenMode");
-  fullscreenMode.innerHTML =
-    "<img src='" +
-    CONFIG.baseModulePath +
-    "/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
-  fullscreenMode.setAttribute(
-    "style",
-    "top:" +
-      (bottomLineGUI + 20) +
-      "px; left: " +
-      (canvasDimensions.x - 36) +
-      "px"
-  );
-  container.appendChild(fullscreenMode);
-  document
-    .getElementById("fullscreenMode")
-    .addEventListener("click", fullscreen, false);
-  if (document.addEventListener) {
-    document.addEventListener(
-      "webkitfullscreenchange",
-      exitFullscreenHandler,
-      false
+    fullscreenMode = document.createElement("div");
+    fullscreenMode.setAttribute("id", "fullscreenMode");
+    fullscreenMode.innerHTML =
+      "<img src='" +
+      CONFIG.baseModulePath +
+      "/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
+    fullscreenMode.setAttribute(
+      "style",
+      "top:" +
+        (bottomLineGUI + 20) +
+        "px; left: " +
+        (canvasDimensions.x - 36) +
+        "px"
     );
-    document.addEventListener(
-      "mozfullscreenchange",
-      exitFullscreenHandler,
-      false
-    );
-    document.addEventListener("fullscreenchange", exitFullscreenHandler, false);
-    document.addEventListener(
-      "MSFullscreenChange",
-      exitFullscreenHandler,
-      false
-    );
-  }
+    container.appendChild(fullscreenMode);
+    document
+      .getElementById("fullscreenMode")
+      .addEventListener("click", fullscreen, false);
+    if (document.addEventListener) {
+      document.addEventListener(
+        "webkitfullscreenchange",
+        exitFullscreenHandler,
+        false
+      );
+      document.addEventListener(
+        "mozfullscreenchange",
+        exitFullscreenHandler,
+        false
+      );
+      document.addEventListener(
+        "fullscreenchange",
+        exitFullscreenHandler,
+        false
+      );
+      document.addEventListener(
+        "MSFullscreenChange",
+        exitFullscreenHandler,
+        false
+      );
+    }
 
-  // stats
-  stats = new Stats();
-  stats.domElement.style.cssText =
-    "position:relative;top:0px;left:" +
-    (canvasDimensions.x - 90) +
-    "px;max-height:120px;max-width:90px;z-index:2;visibility:hidden;";
+    // stats
+    stats = new Stats();
+    stats.domElement.style.cssText =
+      "position:relative;top:0px;left:" +
+      (canvasDimensions.x - 90) +
+      "px;max-height:120px;max-width:90px;z-index:2;visibility:hidden;";
 
-  windowHalfX = canvasDimensions.x / 2;
-  windowHalfY = canvasDimensions.y / 2;
+    windowHalfX = canvasDimensions.x / 2;
+    windowHalfY = canvasDimensions.y / 2;
 
-  const editorFolder = gui.addFolder("Editor").close();
-  editorFolder
-    .add(transformText, "Transform 3D Object", {
-      None: "",
-      Move: "translate",
-      Rotate: "rotate",
-      Scale: "scale",
-    })
-    .onChange(function (value) {
-      if (value === "") {
-        transformControl.detach();
-      } else {
-        renderer.localClippingEnabled = false;
-        transformControl.mode = value;
-        transformControl.attach(helperObjects[0]);
-      }
-    });
-  editorFolder
-    .add(transformText, "Transform Mode", { Local: "local", Global: "global" })
-    .onChange(function (value) {
-      transformControl.space = value;
-    });
-  const lightFolder = editorFolder.addFolder("Directional Light").close();
-  lightFolder
-    .add(transformText, "Transform Light", {
-      None: "",
-      Move: "translate",
-      Target: "rotate",
-    })
-    .onChange(function (value) {
-      if (value === "") {
-        transformControlLight.detach();
-        transformControlLightTarget.detach();
-        lightHelper.visible = false;
-      } else {
-        if (value === "translate") {
-          transformControlLight.mode = "translate";
-          transformControlLight.attach(dirLight);
-          lightHelper.visible = true;
-          transformControlLightTarget.detach();
+    const editorFolder = gui.addFolder("Editor").close();
+    editorFolder
+      .add(transformText, "Transform 3D Object", {
+        None: "",
+        Move: "translate",
+        Rotate: "rotate",
+        Scale: "scale",
+      })
+      .onChange(function (value) {
+        if (value === "") {
+          transformControl.detach();
         } else {
-          transformControlLightTarget.mode = "translate";
-          transformControlLightTarget.attach(dirLightTarget);
-          lightHelper.visible = true;
-          transformControlLight.detach();
+          renderer.localClippingEnabled = false;
+          transformControl.mode = value;
+          transformControl.attach(helperObjects[0]);
         }
-      }
-    });
-  lightFolder
-    .addColor(colors, "DirectionalLight")
-    .onChange(function (value) {
-      lightObjects[0].color = new THREE.Color(value);
-    })
-    .listen();
-  lightFolder
-    .add(intensity, "startIntensityDir", 0, 10)
-    .onChange(function (value) {
-      lightObjects[0].intensity = value;
-    })
-    .listen();
-
-  const lightFolderAmbient = editorFolder.addFolder("Ambient Light").close();
-  lightFolderAmbient
-    .addColor(colors, "AmbientLight")
-    .onChange(function (value) {
-      ambientLight.color = new THREE.Color(value);
-    })
-    .listen();
-  lightFolderAmbient
-    .add(intensity, "startIntensityAmbient", 0, 10)
-    .onChange(function (value) {
-      ambientLight.intensity = value;
-    })
-    .listen();
-
-  const lightFolderCamera = editorFolder.addFolder("Camera Light").close();
-  lightFolderCamera
-    .addColor(colors, "CameraLight")
-    .onChange(function (value) {
-      cameraLight.color = new THREE.Color(value);
-    })
-    .listen();
-  lightFolderCamera
-    .add(intensity, "startIntensityCamera", 0, 10)
-    .onChange(function (value) {
-      cameraLight.intensity = value;
-    })
-    .listen();
-
-  const backgroundFolder = editorFolder.addFolder("Background Color").close();
-  backgroundFolder
-    .addColor(colors, "BackgroundColor")
-    .onChange(function (value) {
-      changeBackground(
-        backgroundType["Background Type"],
-        value,
-        colors["BackgroundColorOuter"]
-      );
-    })
-    .listen();
-  backgroundOuterFolder = backgroundFolder
-    .addColor(colors, "BackgroundColorOuter")
-    .onChange(function (value) {
-      changeBackground(
-        backgroundType["Background Type"],
-        colors["BackgroundColor"],
-        value
-      );
-    })
-    .listen();
-  backgroundFolder
-    .add(backgroundType, "Background Type", {
-      Linear: "linear",
-      Gradient: "gradient",
-    })
-    .onChange(function (value) {
-      if (value == "linear") backgroundOuterFolder.hide();
-      else backgroundOuterFolder.show();
-      changeBackground(
-        value,
-        colors["BackgroundColor"],
-        colors["BackgroundColorOuter"]
-      );
-    });
-
-  clippingFolder = editorFolder.addFolder("Clipping Planes").close();
-  materialsFolder = editorFolder.addFolder("Materials").close();
-
-  if (!CONFIG.viewer.lightweight) {
-    propertiesFolder = editorFolder.addFolder("Save properties").close();
-    propertiesFolder.add(saveProperties, "Position");
-    propertiesFolder.add(saveProperties, "Rotation");
-    propertiesFolder.add(saveProperties, "Scale");
-    propertiesFolder.add(saveProperties, "Camera");
-    propertiesFolder.add(saveProperties, "DirectionalLight");
-    propertiesFolder.add(saveProperties, "AmbientLight");
-    propertiesFolder.add(saveProperties, "CameraLight");
-    propertiesFolder.add(saveProperties, "BackgroundColor");
-  }
-
-  if (editor && !CONFIG.viewer.lightweight) {
-    editorFolder.add(
-      {
-        ["Save"]() {
-          var xhr = new XMLHttpRequest(),
-            jsonArr,
-            method = "POST",
-            jsonRequestURL = CONFIG.mainUrl + "/editor.php";
-
-          xhr.open(method, jsonRequestURL, true);
-          xhr.setRequestHeader(
-            "Content-Type",
-            "application/x-www-form-urlencoded"
-          );
-          var params;
-          var rotateMetadata = new THREE.Vector3(
-            THREE.MathUtils.radToDeg(helperObjects[0].rotation.x),
-            THREE.MathUtils.radToDeg(helperObjects[0].rotation.y),
-            THREE.MathUtils.radToDeg(helperObjects[0].rotation.z)
-          );
-          var newMetadata = new Object();
-
-          //Fetch data from original metadata file anyway before saving any changes
-          //var originalMetadata = [];
-          //var metadataUrl = path.replace("gltf/", "") + "metadata/" + filename + "_viewer";
-          if (CONFIG.entity.proxyPath !== undefined) {
-            metadataUrl = getProxyPath(metadataUrl);
+      });
+    editorFolder
+      .add(transformText, "Transform Mode", {
+        Local: "local",
+        Global: "global",
+      })
+      .onChange(function (value) {
+        transformControl.space = value;
+      });
+    const lightFolder = editorFolder.addFolder("Directional Light").close();
+    lightFolder
+      .add(transformText, "Transform Light", {
+        None: "",
+        Move: "translate",
+        Target: "rotate",
+      })
+      .onChange(function (value) {
+        if (value === "") {
+          transformControlLight.detach();
+          transformControlLightTarget.detach();
+          lightHelper.visible = false;
+        } else {
+          if (value === "translate") {
+            transformControlLight.mode = "translate";
+            transformControlLight.attach(dirLight);
+            lightHelper.visible = true;
+            transformControlLightTarget.detach();
+          } else {
+            transformControlLightTarget.mode = "translate";
+            transformControlLightTarget.attach(dirLightTarget);
+            lightHelper.visible = true;
+            transformControlLight.detach();
           }
+        }
+      });
+    lightFolder
+      .addColor(colors, "DirectionalLight")
+      .onChange(function (value) {
+        lightObjects[0].color = new THREE.Color(value);
+      })
+      .listen();
+    lightFolder
+      .add(intensity, "startIntensityDir", 0, 10)
+      .onChange(function (value) {
+        lightObjects[0].intensity = value;
+      })
+      .listen();
 
-          fetch(metadataUrl, { cache: "no-cache" })
-            .then((response) => {
-              if (response["status"] !== 404) {
-                return response.json();
-              } else {
-                return (response = {});
-              }
-            })
-            .then((_data) => {
-              if (typeof _data !== "undefined") {
-                if (typeof _data["objPosition"] !== "undefined")
-                  originalMetadata["objPosition"] = _data["objPosition"];
-                if (typeof _data["objRotation"] !== "undefined")
-                  originalMetadata["objRotation"] = _data["objRotation"];
-                if (typeof _data["objScale"] !== "undefined")
-                  originalMetadata["objScale"] = _data["objScale"];
-                if (typeof _data["cameraPosition"] !== "undefined")
-                  originalMetadata["cameraPosition"] = _data["cameraPosition"];
-                if (typeof _data["controlsTarget"] !== "undefined")
-                  originalMetadata["controlsTarget"] = _data["controlsTarget"];
-                if (typeof _data["lightPosition"] !== "undefined")
-                  originalMetadata["lightPosition"] = _data["lightPosition"];
-                if (typeof _data["lightTarget"] !== "undefined")
-                  originalMetadata["lightTarget"] = _data["lightTarget"];
-                if (typeof _data["lightColor"] !== "undefined")
-                  originalMetadata["lightColor"] = _data["lightColor"];
-                if (typeof _data["lightIntensity"] !== "undefined")
-                  originalMetadata["lightIntensity"] = _data["lightIntensity"];
-                if (typeof _data["lightAmbientColor"] !== "undefined")
-                  originalMetadata["lightAmbientColor"] =
-                    _data["lightAmbientColor"];
-                if (typeof _data["lightAmbientIntensity"] !== "undefined")
-                  originalMetadata["lightAmbientIntensity"] =
-                    _data["lightAmbientIntensity"];
-                if (typeof _data["lightCameraColor"] !== "undefined")
-                  originalMetadata["lightCameraColor"] =
-                    _data["lightCameraColor"];
-                if (typeof _data["lightCameraIntensity"] !== "undefined")
-                  originalMetadata["lightCameraIntensity"] =
-                    _data["lightCameraIntensity"];
-                if (typeof _data["background"] !== "undefined")
-                  originalMetadata["background"] = _data["background"];
+    const lightFolderAmbient = editorFolder.addFolder("Ambient Light").close();
+    lightFolderAmbient
+      .addColor(colors, "AmbientLight")
+      .onChange(function (value) {
+        ambientLight.color = new THREE.Color(value);
+      })
+      .listen();
+    lightFolderAmbient
+      .add(intensity, "startIntensityAmbient", 0, 10)
+      .onChange(function (value) {
+        ambientLight.intensity = value;
+      })
+      .listen();
 
-                if (saveProperties.Position) {
-                  newMetadata = Object.assign(newMetadata, {
-                    objPosition: [
-                      helperObjects[0].position.x,
-                      helperObjects[0].position.y,
-                      helperObjects[0].position.z,
-                    ],
-                  });
-                } else {
-                  newMetadata = Object.assign(newMetadata, {
-                    objPosition: [
-                      originalMetadata["objPosition"][0],
-                      originalMetadata["objPosition"][1],
-                      originalMetadata["objPosition"][2],
-                    ],
-                  });
-                }
+    const lightFolderCamera = editorFolder.addFolder("Camera Light").close();
+    lightFolderCamera
+      .addColor(colors, "CameraLight")
+      .onChange(function (value) {
+        cameraLight.color = new THREE.Color(value);
+      })
+      .listen();
+    lightFolderCamera
+      .add(intensity, "startIntensityCamera", 0, 10)
+      .onChange(function (value) {
+        cameraLight.intensity = value;
+      })
+      .listen();
 
-                if (saveProperties.Rotation) {
-                  newMetadata = Object.assign(newMetadata, {
-                    objRotation: [
-                      rotateMetadata.x,
-                      rotateMetadata.y,
-                      rotateMetadata.z,
-                    ],
-                  });
-                } else {
-                  newMetadata = Object.assign(newMetadata, {
-                    objRotation: [
-                      originalMetadata["objRotation"][0],
-                      originalMetadata["objRotation"][1],
-                      originalMetadata["objRotation"][2],
-                    ],
-                  });
-                }
+    const backgroundFolder = editorFolder.addFolder("Background Color").close();
+    backgroundFolder
+      .addColor(colors, "BackgroundColor")
+      .onChange(function (value) {
+        changeBackground(
+          backgroundType["Background Type"],
+          value,
+          colors["BackgroundColorOuter"]
+        );
+      })
+      .listen();
+    backgroundOuterFolder = backgroundFolder
+      .addColor(colors, "BackgroundColorOuter")
+      .onChange(function (value) {
+        changeBackground(
+          backgroundType["Background Type"],
+          colors["BackgroundColor"],
+          value
+        );
+      })
+      .listen();
+    backgroundFolder
+      .add(backgroundType, "Background Type", {
+        Linear: "linear",
+        Gradient: "gradient",
+      })
+      .onChange(function (value) {
+        if (value == "linear") backgroundOuterFolder.hide();
+        else backgroundOuterFolder.show();
+        changeBackground(
+          value,
+          colors["BackgroundColor"],
+          colors["BackgroundColorOuter"]
+        );
+      });
 
-                if (saveProperties.Scale) {
-                  newMetadata = Object.assign(newMetadata, {
-                    objScale: [
-                      helperObjects[0].scale.x,
-                      helperObjects[0].scale.y,
-                      helperObjects[0].scale.z,
-                    ],
-                  });
-                } else {
-                  newMetadata = Object.assign(newMetadata, {
-                    objScale: [
-                      originalMetadata["objScale"][0],
-                      originalMetadata["objScale"][1],
-                      originalMetadata["objScale"][2],
-                    ],
-                  });
-                }
+    clippingFolder = editorFolder.addFolder("Clipping Planes").close();
+    materialsFolder = editorFolder.addFolder("Materials").close();
 
-                if (saveProperties.Camera) {
-                  newMetadata = Object.assign(newMetadata, {
-                    cameraPosition: [
-                      camera.position.x,
-                      camera.position.y,
-                      camera.position.z,
-                    ],
-                    controlsTarget: [
-                      controls.target.x,
-                      controls.target.y,
-                      controls.target.z,
-                    ],
-                  });
-                } else {
-                  newMetadata = Object.assign(newMetadata, {
-                    cameraPosition: [
-                      originalMetadata["cameraPosition"][0],
-                      originalMetadata["cameraPosition"][1],
-                      originalMetadata["cameraPosition"][2],
-                    ],
-                    controlsTarget: [
-                      originalMetadata["controlsTarget"][0],
-                      originalMetadata["controlsTarget"][1],
-                      originalMetadata["controlsTarget"][2],
-                    ],
-                  });
-                }
-
-                if (saveProperties.DirectionalLight) {
-                  newMetadata = Object.assign(newMetadata, {
-                    lightPosition: [
-                      dirLight.position.x,
-                      dirLight.position.y,
-                      dirLight.position.z,
-                    ],
-                    lightTarget: [
-                      dirLight.rotation._x,
-                      dirLight.rotation._y,
-                      dirLight.rotation._z,
-                    ],
-                    lightColor: [
-                      "#" + dirLight.color.getHexString().toUpperCase(),
-                    ],
-                    lightIntensity: [dirLight.intensity],
-                  });
-                } else {
-                  newMetadata = Object.assign(newMetadata, {
-                    lightPosition: [
-                      originalMetadata["lightPosition"][0],
-                      originalMetadata["lightPosition"][1],
-                      originalMetadata["lightPosition"][2],
-                    ],
-                    lightTarget: [
-                      originalMetadata["lightTarget"][0],
-                      originalMetadata["lightTarget"][1],
-                      originalMetadata["lightTarget"][2],
-                    ],
-                    lightColor: [originalMetadata["lightColor"][0]],
-                    lightIntensity: [originalMetadata["lightIntensity"][0]],
-                  });
-                }
-
-                if (saveProperties.AmbientLight) {
-                  newMetadata = Object.assign(newMetadata, {
-                    lightAmbientColor: [
-                      "#" + ambientLight.color.getHexString().toUpperCase(),
-                    ],
-                    lightAmbientIntensity: [ambientLight.intensity],
-                  });
-                } else {
-                  newMetadata = Object.assign(newMetadata, {
-                    lightAmbientColor: [
-                      originalMetadata["lightAmbientColor"][0],
-                    ],
-                    lightAmbientIntensity: [
-                      originalMetadata["lightAmbientIntensity"][0],
-                    ],
-                  });
-                }
-
-                if (saveProperties.CameraLight) {
-                  newMetadata = Object.assign(newMetadata, {
-                    lightCameraColor: [
-                      "#" + cameraLight.color.getHexString().toUpperCase(),
-                    ],
-                    lightCameraIntensity: [cameraLight.intensity],
-                  });
-                } else {
-                  newMetadata = Object.assign(newMetadata, {
-                    lightCameraColor: [originalMetadata["lightCameraColor"][0]],
-                    lightCameraIntensity: [
-                      originalMetadata["lightCameraIntensity"][0],
-                    ],
-                  });
-                }
-
-                if (saveProperties.BackgroundColor) {
-                  newMetadata = Object.assign(newMetadata, {
-                    background: [
-                      window.getComputedStyle(mainCanvas).background,
-                    ],
-                  });
-                }
-
-                if (archiveType !== "") {
-                  if (!compressedFile.includes(archiveType.toUpperCase()))
-                    compressedFile += "_" + archiveType.toUpperCase();
-                  params =
-                    CONFIG.viewer.salt +
-                    "=" +
-                    JSON.stringify(newMetadata, null, "\t") +
-                    "&path=" +
-                    uri +
-                    basename +
-                    compressedFile +
-                    "/" +
-                    "&filename=" +
-                    filename;
-                } else {
-                  params =
-                    CONFIG.viewer.salt +
-                    "=" +
-                    JSON.stringify(newMetadata, null, "\t") +
-                    "&path=" +
-                    uri +
-                    "&filename=" +
-                    filename;
-                }
-                xhr.onreadystatechange = function () {
-                  if (xhr.readyState === XMLHttpRequest.DONE) {
-                    var status = xhr.status;
-                    if (status === 0 || (status >= 200 && status < 400)) {
-                      showToast("Settings have been saved.");
-                    }
-                  }
-                };
-                xhr.send(params);
-              }
-            })
-            .catch((error) => console.log(error));
-        },
-      },
-      "Save"
-    );
     if (!CONFIG.viewer.lightweight) {
+      propertiesFolder = editorFolder.addFolder("Save properties").close();
+      propertiesFolder.add(saveProperties, "Position");
+      propertiesFolder.add(saveProperties, "Rotation");
+      propertiesFolder.add(saveProperties, "Scale");
+      propertiesFolder.add(saveProperties, "Camera");
+      propertiesFolder.add(saveProperties, "DirectionalLight");
+      propertiesFolder.add(saveProperties, "AmbientLight");
+      propertiesFolder.add(saveProperties, "CameraLight");
+      propertiesFolder.add(saveProperties, "BackgroundColor");
+    }
+
+    if (editor && !CONFIG.viewer.lightweight) {
       editorFolder.add(
         {
-          ["Picking mode"]() {
-            EDITOR = !EDITOR;
+          ["Save"]() {
+            var xhr = new XMLHttpRequest(),
+              jsonArr,
+              method = "POST",
+              jsonRequestURL = CONFIG.mainUrl + "/editor.php";
+
+            xhr.open(method, jsonRequestURL, true);
+            xhr.setRequestHeader(
+              "Content-Type",
+              "application/x-www-form-urlencoded"
+            );
+            var params;
+            var rotateMetadata = new THREE.Vector3(
+              THREE.MathUtils.radToDeg(helperObjects[0].rotation.x),
+              THREE.MathUtils.radToDeg(helperObjects[0].rotation.y),
+              THREE.MathUtils.radToDeg(helperObjects[0].rotation.z)
+            );
+            var newMetadata = new Object();
+
+            //Fetch data from original metadata file anyway before saving any changes
+            //var originalMetadata = [];
+            //var metadataUrl = path.replace("gltf/", "") + "metadata/" + filename + "_viewer";
+            if (CONFIG.entity.proxyPath !== undefined) {
+              metadataUrl = getProxyPath(metadataUrl);
+            }
+
+            fetch(metadataUrl, { cache: "no-cache" })
+              .then((response) => {
+                if (response["status"] !== 404) {
+                  return response.json();
+                } else {
+                  return (response = {});
+                }
+              })
+              .then((_data) => {
+                if (typeof _data !== "undefined") {
+                  if (typeof _data["objPosition"] !== "undefined")
+                    originalMetadata["objPosition"] = _data["objPosition"];
+                  if (typeof _data["objRotation"] !== "undefined")
+                    originalMetadata["objRotation"] = _data["objRotation"];
+                  if (typeof _data["objScale"] !== "undefined")
+                    originalMetadata["objScale"] = _data["objScale"];
+                  if (typeof _data["cameraPosition"] !== "undefined")
+                    originalMetadata["cameraPosition"] =
+                      _data["cameraPosition"];
+                  if (typeof _data["controlsTarget"] !== "undefined")
+                    originalMetadata["controlsTarget"] =
+                      _data["controlsTarget"];
+                  if (typeof _data["lightPosition"] !== "undefined")
+                    originalMetadata["lightPosition"] = _data["lightPosition"];
+                  if (typeof _data["lightTarget"] !== "undefined")
+                    originalMetadata["lightTarget"] = _data["lightTarget"];
+                  if (typeof _data["lightColor"] !== "undefined")
+                    originalMetadata["lightColor"] = _data["lightColor"];
+                  if (typeof _data["lightIntensity"] !== "undefined")
+                    originalMetadata["lightIntensity"] =
+                      _data["lightIntensity"];
+                  if (typeof _data["lightAmbientColor"] !== "undefined")
+                    originalMetadata["lightAmbientColor"] =
+                      _data["lightAmbientColor"];
+                  if (typeof _data["lightAmbientIntensity"] !== "undefined")
+                    originalMetadata["lightAmbientIntensity"] =
+                      _data["lightAmbientIntensity"];
+                  if (typeof _data["lightCameraColor"] !== "undefined")
+                    originalMetadata["lightCameraColor"] =
+                      _data["lightCameraColor"];
+                  if (typeof _data["lightCameraIntensity"] !== "undefined")
+                    originalMetadata["lightCameraIntensity"] =
+                      _data["lightCameraIntensity"];
+                  if (typeof _data["background"] !== "undefined")
+                    originalMetadata["background"] = _data["background"];
+
+                  if (saveProperties.Position) {
+                    newMetadata = Object.assign(newMetadata, {
+                      objPosition: [
+                        helperObjects[0].position.x,
+                        helperObjects[0].position.y,
+                        helperObjects[0].position.z,
+                      ],
+                    });
+                  } else {
+                    newMetadata = Object.assign(newMetadata, {
+                      objPosition: [
+                        originalMetadata["objPosition"][0],
+                        originalMetadata["objPosition"][1],
+                        originalMetadata["objPosition"][2],
+                      ],
+                    });
+                  }
+
+                  if (saveProperties.Rotation) {
+                    newMetadata = Object.assign(newMetadata, {
+                      objRotation: [
+                        rotateMetadata.x,
+                        rotateMetadata.y,
+                        rotateMetadata.z,
+                      ],
+                    });
+                  } else {
+                    newMetadata = Object.assign(newMetadata, {
+                      objRotation: [
+                        originalMetadata["objRotation"][0],
+                        originalMetadata["objRotation"][1],
+                        originalMetadata["objRotation"][2],
+                      ],
+                    });
+                  }
+
+                  if (saveProperties.Scale) {
+                    newMetadata = Object.assign(newMetadata, {
+                      objScale: [
+                        helperObjects[0].scale.x,
+                        helperObjects[0].scale.y,
+                        helperObjects[0].scale.z,
+                      ],
+                    });
+                  } else {
+                    newMetadata = Object.assign(newMetadata, {
+                      objScale: [
+                        originalMetadata["objScale"][0],
+                        originalMetadata["objScale"][1],
+                        originalMetadata["objScale"][2],
+                      ],
+                    });
+                  }
+
+                  if (saveProperties.Camera) {
+                    newMetadata = Object.assign(newMetadata, {
+                      cameraPosition: [
+                        camera.position.x,
+                        camera.position.y,
+                        camera.position.z,
+                      ],
+                      controlsTarget: [
+                        controls.target.x,
+                        controls.target.y,
+                        controls.target.z,
+                      ],
+                    });
+                  } else {
+                    newMetadata = Object.assign(newMetadata, {
+                      cameraPosition: [
+                        originalMetadata["cameraPosition"][0],
+                        originalMetadata["cameraPosition"][1],
+                        originalMetadata["cameraPosition"][2],
+                      ],
+                      controlsTarget: [
+                        originalMetadata["controlsTarget"][0],
+                        originalMetadata["controlsTarget"][1],
+                        originalMetadata["controlsTarget"][2],
+                      ],
+                    });
+                  }
+
+                  if (saveProperties.DirectionalLight) {
+                    newMetadata = Object.assign(newMetadata, {
+                      lightPosition: [
+                        dirLight.position.x,
+                        dirLight.position.y,
+                        dirLight.position.z,
+                      ],
+                      lightTarget: [
+                        dirLight.rotation._x,
+                        dirLight.rotation._y,
+                        dirLight.rotation._z,
+                      ],
+                      lightColor: [
+                        "#" + dirLight.color.getHexString().toUpperCase(),
+                      ],
+                      lightIntensity: [dirLight.intensity],
+                    });
+                  } else {
+                    newMetadata = Object.assign(newMetadata, {
+                      lightPosition: [
+                        originalMetadata["lightPosition"][0],
+                        originalMetadata["lightPosition"][1],
+                        originalMetadata["lightPosition"][2],
+                      ],
+                      lightTarget: [
+                        originalMetadata["lightTarget"][0],
+                        originalMetadata["lightTarget"][1],
+                        originalMetadata["lightTarget"][2],
+                      ],
+                      lightColor: [originalMetadata["lightColor"][0]],
+                      lightIntensity: [originalMetadata["lightIntensity"][0]],
+                    });
+                  }
+
+                  if (saveProperties.AmbientLight) {
+                    newMetadata = Object.assign(newMetadata, {
+                      lightAmbientColor: [
+                        "#" + ambientLight.color.getHexString().toUpperCase(),
+                      ],
+                      lightAmbientIntensity: [ambientLight.intensity],
+                    });
+                  } else {
+                    newMetadata = Object.assign(newMetadata, {
+                      lightAmbientColor: [
+                        originalMetadata["lightAmbientColor"][0],
+                      ],
+                      lightAmbientIntensity: [
+                        originalMetadata["lightAmbientIntensity"][0],
+                      ],
+                    });
+                  }
+
+                  if (saveProperties.CameraLight) {
+                    newMetadata = Object.assign(newMetadata, {
+                      lightCameraColor: [
+                        "#" + cameraLight.color.getHexString().toUpperCase(),
+                      ],
+                      lightCameraIntensity: [cameraLight.intensity],
+                    });
+                  } else {
+                    newMetadata = Object.assign(newMetadata, {
+                      lightCameraColor: [
+                        originalMetadata["lightCameraColor"][0],
+                      ],
+                      lightCameraIntensity: [
+                        originalMetadata["lightCameraIntensity"][0],
+                      ],
+                    });
+                  }
+
+                  if (saveProperties.BackgroundColor) {
+                    newMetadata = Object.assign(newMetadata, {
+                      background: [
+                        window.getComputedStyle(mainCanvas).background,
+                      ],
+                    });
+                  }
+
+                  if (archiveType !== "") {
+                    if (!compressedFile.includes(archiveType.toUpperCase()))
+                      compressedFile += "_" + archiveType.toUpperCase();
+                    params =
+                      CONFIG.viewer.salt +
+                      "=" +
+                      JSON.stringify(newMetadata, null, "\t") +
+                      "&path=" +
+                      uri +
+                      basename +
+                      compressedFile +
+                      "/" +
+                      "&filename=" +
+                      filename;
+                  } else {
+                    params =
+                      CONFIG.viewer.salt +
+                      "=" +
+                      JSON.stringify(newMetadata, null, "\t") +
+                      "&path=" +
+                      uri +
+                      "&filename=" +
+                      filename;
+                  }
+                  xhr.onreadystatechange = function () {
+                    if (xhr.readyState === XMLHttpRequest.DONE) {
+                      var status = xhr.status;
+                      if (status === 0 || (status >= 200 && status < 400)) {
+                        showToast("Settings have been saved.");
+                      }
+                    }
+                  };
+                  xhr.send(params);
+                }
+              })
+              .catch((error) => console.log(error));
+          },
+        },
+        "Save"
+      );
+      if (!CONFIG.viewer.lightweight) {
+        editorFolder.add(
+          {
+            ["Picking mode"]() {
+              EDITOR = !EDITOR;
+              var _str;
+              EDITOR ? (_str = "enabled") : (_str = "disabled");
+              showToast("Face picking is " + _str);
+              if (!EDITOR) {
+              } else {
+                RULER_MODE = false;
+              }
+            },
+          },
+          "Picking mode"
+        );
+      }
+      editorFolder.add(
+        {
+          ["Distance Measurement"]() {
+            RULER_MODE = !RULER_MODE;
             var _str;
-            EDITOR ? (_str = "enabled") : (_str = "disabled");
-            showToast("Face picking is " + _str);
-            if (!EDITOR) {
+            RULER_MODE ? (_str = "enabled") : (_str = "disabled");
+            showToast("Distance measurement mode is " + _str);
+            if (!RULER_MODE) {
+              ruler.forEach((r) => {
+                scene.remove(r);
+              });
+              rulerObject = new THREE.Object3D();
+              ruler = [];
+              linePoints = [];
             } else {
-              RULER_MODE = false;
+              EDITOR = false;
             }
           },
         },
-        "Picking mode"
+        "Distance Measurement"
       );
-    }
-    editorFolder.add(
-      {
-        ["Distance Measurement"]() {
-          RULER_MODE = !RULER_MODE;
-          var _str;
-          RULER_MODE ? (_str = "enabled") : (_str = "disabled");
-          showToast("Distance measurement mode is " + _str);
-          if (!RULER_MODE) {
-            ruler.forEach((r) => {
-              scene.remove(r);
-            });
-            rulerObject = new THREE.Object3D();
-            ruler = [];
-            linePoints = [];
-          } else {
-            EDITOR = false;
-          }
-        },
-      },
-      "Distance Measurement"
-    );
-    if (!CONFIG.viewer.lightweight) {
+      if (!CONFIG.viewer.lightweight) {
+        editorFolder.add(
+          {
+            ["Render preview"]() {
+              takeScreenshot();
+            },
+          },
+          "Render preview"
+        );
+      }
       editorFolder.add(
         {
-          ["Render preview"]() {
-            takeScreenshot();
+          ["Reset camera position"]() {
+            resetCamera();
           },
         },
-        "Render preview"
+        "Reset camera position"
       );
     }
-    editorFolder.add(
-      {
-        ["Reset camera position"]() {
-          resetCamera();
-        },
-      },
-      "Reset camera position"
-    );
   }
 }
 
