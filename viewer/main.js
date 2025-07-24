@@ -1959,6 +1959,7 @@ function traverseMesh(object) {
 
   object.traverse(function (child) {
     _objectMaterials.push(setupMaterials(child));
+    _objectMaterials.side = THREE.DoubleSide;
   });
   var objectMaterials = ["select by name"];
   _objectMaterials.forEach(function (item, index, array) {
@@ -2486,6 +2487,14 @@ async function loadModel(path, basename, filename, extension, orgExtension) {
               gltf.scene.position.y,
               gltf.scene.position.z
             );
+            const box = new THREE.Box3().setFromObject(gltf.scene);
+            const size = box.getSize(new THREE.Vector3()).length();
+            const center = box.getCenter(new THREE.Vector3());
+
+            //gltf.scene.position.sub(center); // center the model
+            const scaleFactor = 10 / size;
+            gltf.scene.scale.setScalar(scaleFactor); // scale to unit size
+            //gltf.scene.scale.setScalar(2);
             scene.add(gltf.scene, outlineClipping);
             scene.add(gltf.scene);
             mainObject.push(gltf.scene);
@@ -2973,10 +2982,10 @@ async function init() {
     renderer.domElement.style.height = `${canvasDimensions.y}px`;
     renderer.domElement.style.display = "block"; // usually best
     container.appendChild(renderer.domElement);
-      mainCanvas.setAttribute(
-    "style",
-    `width: ${canvasDimensions.x}px; height: clamp(20vh, ${canvasDimensions.y}px, 100vh); display: flex;`
-  );
+    mainCanvas.setAttribute(
+      "style",
+      `width: ${canvasDimensions.x}px; height: clamp(20vh, ${canvasDimensions.y}px, 100vh); display: flex;`
+    );
     canvasText = document.createElement("div");
     canvasText.id = "TextCanvas";
     canvasText.width = canvasDimensions.x;
