@@ -2,7 +2,10 @@ import {
 	Vector2
 } from '../../../build/three.module.js';
 
-/** @module FXAAShader */
+/**
+ * @module FXAAShader
+ * @three_import import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
+ */
 
 /**
  * FXAA algorithm from NVIDIA, C# implementation by Jasper Flick, GLSL port by Dave Hoskins.

@@ -2,7 +2,10 @@ import {
 	Vector3
 } from '../../../build/three.module.js';
 
-/** @module ColorCorrectionShader */
+/**
+ * @module ColorCorrectionShader
+ * @three_import import { ColorCorrectionShader } from 'three/addons/shaders/ColorCorrectionShader.js';
+ */
 
 /**
  * Color correction shader.

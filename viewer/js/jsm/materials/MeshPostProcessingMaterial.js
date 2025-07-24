@@ -23,6 +23,7 @@ import { MeshPhysicalMaterial } from '../../../build/three.module.js';
  * This would then create the possibility of SSR and IR depending on material properties such as `roughness`, `metalness` and `reflectivity`.
  *
  * @augments MeshPhysicalMaterial
+ * @three_import import { MeshPostProcessingMaterial } from 'three/addons/materials/MeshPostProcessingMaterial.js';
  */
 class MeshPostProcessingMaterial extends MeshPhysicalMaterial {
 

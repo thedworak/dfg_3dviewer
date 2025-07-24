@@ -3,3 +3,6 @@
 *.php~
 ./main/config.json
 ./scripts/.env
+node_modules
+/.parcel-cache
+*.mdb~

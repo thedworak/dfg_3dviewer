@@ -1,6 +1,9 @@
 import { DoubleSide, Mesh, MeshBasicMaterial, PlaneGeometry, Texture } from '../../../build/three.module.js';
 
-/** @module Text2D */
+/**
+ * @module Text2D
+ * @three_import import * as Text2D from 'three/addons/webxr/Text2D.js';
+ */
 
 /**
  * A helper function for creating a simple plane mesh

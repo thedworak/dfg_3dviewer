@@ -18,9 +18,9 @@ https://www.gnu.org/licenses/.
 
 //three.js core
 import * as THREE from "./build/three.module.js";
-import { Tween } from "./js/external_libs/tween.module.min.js";
 
 //three.js components
+import { Tween } from "./js/jsm/libs/tween.module.js";
 import { OrbitControls } from "./js/jsm/controls/OrbitControls.js";
 import { TransformControls } from "./js/jsm/controls/TransformControls.js";
 import { FBXLoader } from "./js/jsm/loaders/FBXLoader.js";
@@ -29,10 +29,7 @@ import { MTLLoader } from "./js/jsm/loaders/MTLLoader.js";
 import { OBJLoader } from "./js/jsm/loaders/OBJLoader.js";
 import { GLTFLoader } from "./js/jsm/loaders/GLTFLoader.js";
 import { DRACOLoader } from "./js/jsm/loaders/DRACOLoader.js";
-import { KTX2Loader } from "./js/jsm/loaders/KTX2Loader.js";
-import { MeshoptDecoder } from "./js/jsm/libs/meshopt_decoder.module.js";
 import { IFCLoader } from "./js/external_libs/loaders/IFCLoader.js";
-import { IFCSPACE } from "./js/external_libs/loaders/ifc/web-ifc-api.js";
 import { PLYLoader } from "./js/jsm/loaders/PLYLoader.js";
 import { ColladaLoader } from "./js/jsm/loaders/ColladaLoader.js";
 import { STLLoader } from "./js/jsm/loaders/STLLoader.js";
@@ -2527,25 +2524,18 @@ function animate(time) {
     mixer.update(delta);
   }
   tween.update(time);
+  controls.update();
 
   if (textMesh !== undefined) {
-    textMesh.lookAt(camera.position);
+    textMesh.lookAt(camera.position.clone());
   }
   renderer.clear();
   renderer.render(scene, camera);
   stats.update();
-  controls.update();
 }
 
 function onPointerDown(e) {
   e.stopPropagation();
-  if (e.isTrusted) {
-    console.clear();
-    console.log("Target:", e.target);
-    console.log("Pointer down");
-    console.log("Controls:", controls.target.clone());
-    console.log("Camera:", camera.position.clone());
-  }
   if (e.button === 0) {
     onDownPosition.x =
       ((e.clientX - mainCanvas.getBoundingClientRect().left) /
@@ -2972,8 +2962,7 @@ async function init() {
     renderer.autoClear = false;
     renderer.setClearColor(0x000000, 0.0);
     renderer.domElement.id = "MainCanvas";
-    container.appendChild(renderer.domElement);
-    mainCanvas = document.getElementById("MainCanvas");
+    mainCanvas = document.getElementById("MainCanvas") || renderer.domElement;
 
     renderer.domElement.addEventListener("pointerdown", onPointerDown);
     renderer.domElement.addEventListener("pointerup", onPointerUp);
@@ -2983,7 +2972,11 @@ async function init() {
     renderer.domElement.style.width = `${canvasDimensions.x}px`;
     renderer.domElement.style.height = `${canvasDimensions.y}px`;
     renderer.domElement.style.display = "block"; // usually best
-    //mainCanvas.style.setProperty("minHeight", "clamp(100px, 20vh, 300px)");
+    container.appendChild(renderer.domElement);
+      mainCanvas.setAttribute(
+    "style",
+    `width: ${canvasDimensions.x}px; height: clamp(20vh, ${canvasDimensions.y}px, 100vh); display: flex;`
+  );
     canvasText = document.createElement("div");
     canvasText.id = "TextCanvas";
     canvasText.width = canvasDimensions.x;
@@ -3009,6 +3002,8 @@ async function init() {
 
     controls = new OrbitControls(camera, renderer.domElement);
     controls.target.set(0, 100, 0);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
     controls.enableRotate = true;
     controls.update();
 

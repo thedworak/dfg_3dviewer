@@ -3,7 +3,10 @@ import {
 	Vector2
 } from '../../../build/three.module.js';
 
-/** @module SAOShader */
+/**
+ * @module SAOShader
+ * @three_import import { SAOShader } from 'three/addons/shaders/SAOShader.js';
+ */
 
 /**
  * SAO shader.

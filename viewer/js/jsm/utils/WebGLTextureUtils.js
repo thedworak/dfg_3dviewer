@@ -10,7 +10,10 @@ import {
 	SRGBColorSpace
 } from '../../../build/three.module.js';
 
-/** @module WebGLTextureUtils */
+/**
+ * @module WebGLTextureUtils
+ * @three_import import * as WebGLTextureUtils from 'three/addons/utils/WebGLTextureUtils.js';
+ */
 
 let _renderer;
 let fullscreenQuadGeometry;

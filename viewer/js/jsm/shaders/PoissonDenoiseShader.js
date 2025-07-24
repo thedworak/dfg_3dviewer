@@ -4,7 +4,10 @@ import {
 	Vector3,
 } from '../../../build/three.module.js';
 
-/** @module PoissonDenoiseShader */
+/**
+ * @module PoissonDenoiseShader
+ * @three_import import { PoissonDenoiseShader } from 'three/addons/shaders/PoissonDenoiseShader.js';
+ */
 
 /**
  * Poisson Denoise Shader.

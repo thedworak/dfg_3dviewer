@@ -2,7 +2,10 @@ import {
 	Vector2
 } from '../../../build/three.module.js';
 
-/** @module FreiChenShader */
+/**
+ * @module FreiChenShader
+ * @three_import import { FreiChenShader } from 'three/addons/shaders/FreiChenShader.js';
+ */
 
 /**
  * Edge Detection Shader using Frei-Chen filter.
