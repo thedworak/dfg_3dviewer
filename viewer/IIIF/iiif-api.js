@@ -21,12 +21,24 @@ export async function loadIIIFManifest(manifestUrlOrJson) {
           (body.isSpecificResource || body?.getType() === "model")
         );
       });
+
+      filteredAnnos.forEach((modelAnnotation) => {
+        let modelUrl;
+        if (modelAnnotation.getBody()[0]?.isSpecificResource) {
+          modelUrl = modelAnnotation.getBody()[0].getSource()?.id;
+        } else {
+          modelUrl = modelAnnotation.getBody()[0]?.id;
+        }
+        const modelTarget = modelAnnotation.getTarget();
+        iiifManifest.modelUrl = modelUrl;
+      });
     });
   }
   return {
     manifest: iiifManifest.manifest,
     scenes: iiifManifest.scenes,
     annotations: filteredAnnos,
+    modelUrl: iiifManifest.modelUrl
   };
 }
 

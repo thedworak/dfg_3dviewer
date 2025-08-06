@@ -186,8 +186,10 @@ canvasDimensions = CANVASDIMENSIONS = {
     CONFIG.viewer.scaleContainer.y,
 };
 
+var fileObject = { originalPath: '', filename: '', basename: '', extension: '', path: '', uri: ''};
+
 container.setAttribute("display", "block");
-const originalPath = container.getAttribute("3d");
+fileObject.originalPath = container.getAttribute("3d");
 const bottomLineGUI = canvasDimensions.y - 70;
 
 if (CONFIG.viewer.lightweight === true) {
@@ -206,13 +208,18 @@ if (container.hasAttribute("basePath")) {
   CONFIG.baseModulePath = container.getAttribute("basePath");
 }
 
-var filename = originalPath.split("/").pop();
-var basename = filename.substring(0, filename.lastIndexOf("."));
-var extension = filename.substring(filename.lastIndexOf(".") + 1);
-var path = originalPath.substring(0, originalPath.lastIndexOf(filename));
-const uri = path.replace(CONFIG.mainUrl + "/", "");
+function setModelPaths () {
+  fileObject.filename = fileObject.originalPath.split("/").pop();
+  fileObject.basename = fileObject.filename.substring(0, fileObject.filename.lastIndexOf("."));
+  fileObject.extension = fileObject.filename.substring(fileObject.filename.lastIndexOf(".") + 1);
+  fileObject.path = fileObject.originalPath.substring(0, fileObject.originalPath.lastIndexOf(fileObject.filename));
+  fileObject.uri = fileObject.path.replace(CONFIG.mainUrl + "/", "");
+}
+
+setModelPaths();
+
 const EXPORT_PATH = "/export_xml_single/";
-const loadedFile = basename + "." + extension;
+const loadedFile = fileObject.basename + "." + fileObject.extension;
 var fileElement;
 var COPYRIGHTS = false;
 var EXIT_CODE = 1;
@@ -1504,7 +1511,7 @@ function truncateString(str, n) {
 
 function getProxyPath(url) {
   var tempPath = decodeURIComponent(CONFIG.mainUrl);
-  return tempPath.replace(originalPath, encodeURIComponent(url));
+  return tempPath.replace(fileObject.originalPath, encodeURIComponent(url));
 }
 
 function expandMetadata() {
@@ -1713,12 +1720,12 @@ function handleMetadataResponse(
 
           var c_path = path;
           if (compressedFile !== "") {
-            filename = filename.replace(orgExtension, extension);
+            fileObject.filename = fileObject.filename.replace(orgExtension, fileObject.extension);
           }
           downloadModel.innerHTML =
             "<a href='blob:" +
             c_path +
-            filename +
+            fileObject.filename +
             "' download><img src='" +
             CONFIG.baseModulePath +
             "/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
@@ -1795,7 +1802,7 @@ function fetchSettings(
     metadataUrl = getProxyPath(metadataUrl);
     settingsHandler(object, camera, light, controls);
   } else if (CONFIG.entity.metadata.source === "IIIF") {
-    console.log("Changing settings for IIIF");
+    console.log("Loading settings for IIIF...");
     handleMetadataResponse(
       CONFIG.model,
       metadata,
@@ -2783,7 +2790,7 @@ function takeScreenshot() {
 
 function mainLoadModel(_ext) {
   if (_ext === "glb" || _ext === "gltf") {
-    loadModel(path, basename, filename, extension, _ext);
+    loadModel(fileObject.path, fileObject.basename, fileObject.filename, fileObject.extension, _ext);
   } else if (
     _ext === "zip" ||
     _ext === "rar" ||
@@ -2793,16 +2800,16 @@ function mainLoadModel(_ext) {
   ) {
     compressedFile = "_" + _ext.toUpperCase() + "/";
     loadModel(
-      path + basename + compressedFile,
-      basename,
-      filename,
+      fileObject.path + fileObject.basename + compressedFile,
+      fileObject.basename,
+      fileObject.filename,
       "glb",
       _ext
     );
     //loadModel (path+basename+compressedFile+"gltf/", basename, filename,  "glb", _ext);
   } else {
-    if (_ext === "glb") loadModel(path, basename, filename, "glb", extension);
-    else loadModel(path, basename, filename, _ext, extension);
+    if (_ext === "glb") loadModel(fileObject.path, fileObject.basename, fileObject.filename, "glb", fileObject.extension);
+    else loadModel(fileObject.path, fileObject.basename, fileObject.filename, _ext, fileObject.extension);
   }
 }
 
@@ -3068,7 +3075,7 @@ async function init() {
     transformControlClippingPlaneZ.showX =
       transformControlClippingPlaneZ.showY = false;
 
-    var _ext = extension.toLowerCase();
+    var _ext = fileObject.extension.toLowerCase();
     if (
       _ext === "zip" ||
       _ext === "rar" ||
@@ -3122,11 +3129,11 @@ async function init() {
             }
             //check wheter semo-automatic path found
             if (_autoPath !== "") {
-              filename = _autoPath.split("/").pop();
-              basename = filename.substring(0, filename.lastIndexOf("."));
-              extension = filename.substring(filename.lastIndexOf(".") + 1);
-              _ext = extension.toLowerCase();
-              path = _autoPath.substring(0, _autoPath.lastIndexOf(filename));
+              fileObject.filename = _autoPath.split("/").pop();
+              fileObject.basename = fileObject.filename.substring(0, fileObject.filename.lastIndexOf("."));
+              fileObject.extension = fileObject.filename.substring(fileObject.filename.lastIndexOf(".") + 1);
+              _ext = fileObject.extension.toLowerCase();
+              fileObject.path = _autoPath.substring(0, _autoPath.lastIndexOf(fileObject.filename));
             }
             mainLoadModel(_ext);
           } else {
@@ -3140,7 +3147,10 @@ async function init() {
       if (iiifConfigURL !== "") {
         async function loadAnnotations() {
           const loadedIIIF = await loadIIIFManifest(iiifConfigURL);
+          fileObject.originalPath = loadedIIIF.modelUrl;
+          setModelPaths();
           await getAnnotations(loadedIIIF.annotations, CONFIG);
+          _ext = fileObject.extension.toLowerCase();
           mainLoadModel(_ext);
         }
         await loadAnnotations();
@@ -3593,8 +3603,8 @@ async function init() {
                       "=" +
                       JSON.stringify(newMetadata, null, "\t") +
                       "&path=" +
-                      uri +
-                      basename +
+                      fileObject.uri +
+                      fileObject.basename +
                       compressedFile +
                       "/" +
                       "&filename=" +
