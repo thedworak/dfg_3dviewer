@@ -16,6 +16,22 @@ https://www.gnu.org/licenses/.
 
 //Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF
 
+import {
+  distanceBetweenPoints,
+  distanceBetweenPointsVector,
+  vectorBetweenPoints,
+  halfwayBetweenPoints,
+  interpolateDistanceBetweenPoints,
+  invertHexColor,
+  detectColorFormat,
+  hexToRgb,
+  isValidUrl,
+  truncateString,
+  getProxyPath
+} from "./utils.js";
+
+import { loadModel, showToast } from "./loaders.js";
+
 //three.js core
 import * as THREE from "./build/three.module.js";
 
@@ -23,19 +39,6 @@ import * as THREE from "./build/three.module.js";
 import { Tween } from "./js/jsm/libs/tween.module.js";
 import { OrbitControls } from "./js/jsm/controls/OrbitControls.js";
 import { TransformControls } from "./js/jsm/controls/TransformControls.js";
-import { FBXLoader } from "./js/jsm/loaders/FBXLoader.js";
-import { DDSLoader } from "./js/jsm/loaders/DDSLoader.js";
-import { MTLLoader } from "./js/jsm/loaders/MTLLoader.js";
-import { OBJLoader } from "./js/jsm/loaders/OBJLoader.js";
-import { GLTFLoader } from "./js/jsm/loaders/GLTFLoader.js";
-import { DRACOLoader } from "./js/jsm/loaders/DRACOLoader.js";
-import { IFCLoader } from "./js/external_libs/loaders/IFCLoader.js";
-import { PLYLoader } from "./js/jsm/loaders/PLYLoader.js";
-import { ColladaLoader } from "./js/jsm/loaders/ColladaLoader.js";
-import { STLLoader } from "./js/jsm/loaders/STLLoader.js";
-import { XYZLoader } from "./js/jsm/loaders/XYZLoader.js";
-import { TDSLoader } from "./js/jsm/loaders/TDSLoader.js";
-import { PCDLoader } from "./js/jsm/loaders/PCDLoader.js";
 import { FontLoader } from "./js/jsm/loaders/FontLoader.js";
 import { TextGeometry } from "./js/jsm/geometries/TextGeometry.js";
 
@@ -352,15 +355,6 @@ const ZOOM_SPEED_IMAGE = 0.1;
 var compressedFile = "";
 var archiveType = "";
 
-var options = {
-  duration: 6500,
-  gravity: "bottom",
-  close: true,
-  callback() {
-    Toastify.reposition();
-  },
-};
-
 const planeParams = {
   planeX: {
     constant: 0,
@@ -404,12 +398,6 @@ var textMesh,
 var lastPickedFace = { id: "", color: "", object: "" };
 
 var loadedTimes = 0;
-
-function showToast(_str) {
-  var myToast = Toastify(options);
-  myToast.options.text = _str;
-  myToast.showToast();
-}
 
 function addTextWatermark(_text, _scale) {
   var textGeo;
@@ -707,17 +695,6 @@ function setupObject(_object, _light, _data, _controls) {
   cameraLight.target.updateMatrixWorld();
 }
 
-function invertHexColor(hexTripletColor) {
-  var color = hexTripletColor;
-  color = color.substring(1); // remove #
-  color = parseInt(color, 16); // convert to integer
-  color = 0xffffff ^ color; // invert three bytes
-  color = color.toString(16); // convert to hex
-  color = ("000000" + color).slice(-6); // pad with leading zeros
-  color = "#" + color; // prepend #
-  return color;
-}
-
 function setupClippingPlanes(_geom, _size, _distance) {
   /*var _geometry;
 	if (_geom.isGroup)
@@ -986,19 +963,6 @@ function fitCameraToCenteredObject(camera, object, add_offset, _fit) {
   setupClippingPlanes(object, gridSize, distance);
 }
 
-function isValidUrl(urlString) {
-  var urlPattern = new RegExp(
-    "^(https?:\\/\\/)?" + // validate protocol
-      "((([a-z\\d]([a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|" + // validate domain name
-      "((\\d{1,3}\\.){3}\\d{1,3}))" + // validate OR ip (v4) address
-      "(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*" + // validate port and path
-      "(\\?[;&a-z\\d%_.~+=-]*)?" + // validate query string
-      "(\\#[-a-z\\d_]*)?$",
-    "i"
-  ); // validate fragment locator
-  return !!urlPattern.test(urlString);
-}
-
 function prepareGalleryImages(imageElementsChildren) {
   imageElementsChildren = imageElementsChildren.filter(function (_image) {
     return isValidUrl(_image.innerHTML);
@@ -1239,45 +1203,6 @@ function setupCamera(_object, _camera, _light, _data) {
   }
 }
 
-function distanceBetweenPoints(pointA, pointB) {
-  return Math.sqrt(
-    Math.pow(pointB.x - pointA.x, 2) +
-      Math.pow(pointB.y - pointA.y, 2) +
-      Math.pow(pointB.z - pointA.z, 2),
-    2
-  );
-}
-
-function distanceBetweenPointsVector(vector) {
-  return Math.sqrt(
-    Math.pow(vector.x, 2) + Math.pow(vector.y, 2) + Math.pow(vector.z, 2),
-    2
-  );
-}
-
-function vectorBetweenPoints(pointA, pointB) {
-  return new THREE.Vector3(
-    pointB.x - pointA.x,
-    pointB.y - pointA.y,
-    pointB.z - pointA.z
-  );
-}
-
-function halfwayBetweenPoints(pointA, pointB) {
-  return new THREE.Vector3(
-    (pointB.x + pointA.x) / 2,
-    (pointB.y + pointA.y) / 2,
-    (pointB.z + pointA.z) / 2
-  );
-}
-
-function interpolateDistanceBetweenPoints(pointA, vector, length, scalar) {
-  var _x = pointA.x + (scalar / Math.abs(length)) * vector.x;
-  var _y = pointA.y + (scalar / Math.abs(length)) * vector.y;
-  var _z = pointA.z + (scalar / Math.abs(length)) * vector.z;
-  return new THREE.Vector3(_x, _y, _z);
-}
-
 function pickFaces(_id) {
   if (lastPickedFace.id == "" && _id !== "") {
     lastPickedFace = {
@@ -1497,21 +1422,6 @@ function addWissKIMetadata(label, value) {
       return _str + ": <b>" + value + "</b><br>";
     }
   }
-}
-
-function truncateString(str, n) {
-  if (str.length === 0) {
-    return str;
-  } else if (str.length > n) {
-    return str.substring(0, n) + "...";
-  } else {
-    return str;
-  }
-}
-
-function getProxyPath(url) {
-  var tempPath = decodeURIComponent(CONFIG.mainUrl);
-  return tempPath.replace(fileObject.originalPath, encodeURIComponent(url));
 }
 
 function expandMetadata() {
@@ -1867,54 +1777,6 @@ function fetchSettings(
   //guiContainer.appendChild(statsContainer);
 }
 
-const onError = function (_event) {
-  //circle.set(100, 100);
-  console.log("Loader error: " + _event);
-  circle.hide();
-  EXIT_CODE = 1;
-};
-
-const onErrorMTL = function (_event) {
-  //circle.set(100, 100);
-  noMTL = true;
-  showToast("Error occured while loading attached MTL file.");
-  loadModel(path, basename, filename, "obj", extension);
-};
-
-const onErrorGLB = function (_event) {
-  console.log(_event);
-  if (typeof _event !== undefined && loadedTimes <= 1) {
-    console.log(
-      path + basename + compressedFile,
-      basename,
-      filename,
-      "glb",
-      extension
-    );
-    loadModel(
-      path + basename + compressedFile + "gltf/",
-      basename,
-      filename,
-      "glb",
-      extension
-    );
-    loadedTimes++;
-  } else {
-    showToast("Error occured while loading attached GLB file.");
-  }
-};
-
-const onProgress = function (xhr) {
-  var percentComplete = (xhr.loaded / xhr.total) * 100;
-  circle.show();
-  circle.set(percentComplete, 100);
-  if (percentComplete >= 100) {
-    circle.hide();
-    showToast("Model has been loaded.");
-    EXIT_CODE = 0;
-  }
-};
-
 function setupSingleMaterial(materials, material) {
   if (material.map) {
     material.map.anisotropy = 16;
@@ -2051,486 +1913,6 @@ function prepareOutlineClipping(_object) {
   outlineClipping.visible = false;
   return outlineClipping;
 }
-
-async function loadModel(path, basename, filename, extension, orgExtension) {
-  if (!imported) {
-    circle.show();
-    circle.set(0, 100);
-    var modelPath = path + filename;
-    if (CONFIG.entity.proxyPath !== undefined) {
-      modelPath = getProxyPath(modelPath);
-    }
-    switch (extension.toLowerCase()) {
-      case "obj":
-        if (!noMTL) {
-          const manager = new THREE.LoadingManager();
-          manager.onLoad = function () {
-            showToast("OBJ model has been loaded");
-          };
-          manager.addHandler(/\.dds$/i, new DDSLoader());
-          // manager.addHandler(/\.tga$/i, new TGALoader());
-          new MTLLoader(manager).setPath(path).load(
-            basename + ".mtl",
-            function (materials) {
-              materials.preload();
-              new OBJLoader(manager)
-                .setMaterials(materials)
-                .setPath(path)
-                .load(
-                  filename,
-                  function (object) {
-                    object.position.set(0, 0, 0);
-                    traverseMesh(object);
-
-                    fetchSettings(
-                      path.replace("gltf/", ""),
-                      basename,
-                      filename,
-                      object,
-                      camera,
-                      lightObjects[0],
-                      controls,
-                      orgExtension,
-                      extension
-                    );
-
-                    outlineClipping = prepareOutlineClipping(object);
-                    scene.add(object, outlineClipping);
-                    scene.add(object);
-
-                    mainObject.push(object);
-                  },
-                  onProgress,
-                  onError
-                );
-            },
-            function () {},
-            onErrorMTL
-          );
-        } else {
-          const loader = new OBJLoader();
-          loader.setPath(path).load(
-            filename,
-            function (object) {
-              object.position.set(0, 0, 0);
-              traverseMesh(object);
-              fetchSettings(
-                path.replace("gltf/", ""),
-                basename,
-                filename,
-                object,
-                camera,
-                lightObjects[0],
-                controls,
-                orgExtension,
-                extension
-              );
-
-              outlineClipping = prepareOutlineClipping(object);
-              scene.add(object, outlineClipping);
-              scene.add(object);
-
-              mainObject.push(object);
-            },
-            onProgress,
-            onError
-          );
-        }
-        break;
-
-      case "fbx":
-        var FBXloader = new FBXLoader();
-        FBXloader.load(
-          modelPath,
-          function (object) {
-            traverseMesh(object);
-            object.position.set(0, 0, 0);
-
-            fetchSettings(
-              path.replace("gltf/", ""),
-              basename,
-              filename,
-              object.children,
-              camera,
-              lightObjects[0],
-              controls,
-              orgExtension,
-              extension
-            );
-
-            outlineClipping = prepareOutlineClipping(object);
-            scene.add(object, outlineClipping);
-            scene.add(object);
-
-            mainObject.push(object);
-          },
-          onProgress,
-          onError
-        );
-        break;
-
-      case "ply":
-        loader = new PLYLoader();
-        loader.load(
-          modelPath,
-          function (geometry) {
-            geometry.computeVertexNormals();
-            const material = new THREE.MeshStandardMaterial({
-              color: 0x0055ff,
-              flatShading: true,
-            });
-            const object = new THREE.Mesh(geometry, material);
-            object.position.set(0, 0, 0);
-            object.castShadow = true;
-            object.receiveShadow = true;
-            traverseMesh(object);
-
-            fetchSettings(
-              path.replace("gltf/", ""),
-              basename,
-              filename,
-              object,
-              camera,
-              lightObjects[0],
-              controls,
-              orgExtension,
-              extension
-            );
-            mainObject.push(object);
-
-            outlineClipping = prepareOutlineClipping(object);
-            scene.add(object, outlineClipping);
-            scene.add(object);
-          },
-          onProgress,
-          onError
-        );
-        break;
-
-      case "dae":
-        const loadingManager = new THREE.LoadingManager(function () {
-          scene.add(object);
-        });
-        loader = new ColladaLoader(loadingManager);
-        loader.load(
-          modelPath,
-          function (object) {
-            object = object.scene;
-            object.position.set(0, 0, 0);
-            traverseMesh(object);
-            fetchSettings(
-              path.replace("gltf/", ""),
-              basename,
-              filename,
-              object,
-              camera,
-              lightObjects[0],
-              controls,
-              orgExtension,
-              extension
-            );
-            mainObject.push(object);
-
-            outlineClipping = prepareOutlineClipping(object);
-            scene.add(object, outlineClipping);
-            scene.add(object);
-          },
-          onProgress,
-          onError
-        );
-        break;
-
-      case "ifc":
-        const ifcLoader = new IFCLoader();
-        const ifcPath =
-          CONFIG.baseModulePath + "/js/external_libs/loaders/ifc/";
-        ifcLoader.ifcManager.setWasmPath(ifcPath, true);
-        ifcLoader.load(
-          modelPath,
-          function (object) {
-            traverseMesh(object);
-
-            fetchSettings(
-              path.replace("gltf/", ""),
-              basename,
-              filename,
-              object,
-              camera,
-              lightObjects[0],
-              controls,
-              orgExtension,
-              extension
-            );
-
-            outlineClipping = prepareOutlineClipping(object);
-            scene.add(object, outlineClipping);
-            scene.add(object);
-
-            mainObject.push(object);
-          },
-          onProgress,
-          onError
-        );
-        break;
-
-      case "stl":
-        loader = new STLLoader();
-        loader.load(
-          modelPath,
-          function (geometry) {
-            let meshMaterial = new THREE.MeshPhongMaterial({
-              color: 0xff5533,
-              specular: 0x111111,
-              shininess: 200,
-            });
-            if (geometry.hasColors) {
-              meshMaterial = new THREE.MeshPhongMaterial({
-                opacity: geometry.alpha,
-                vertexColors: true,
-              });
-            }
-            const object = new THREE.Mesh(geometry, meshMaterial);
-            object.position.set(0, 0, 0);
-            traverseMesh(object);
-            object.castShadow = true;
-            object.receiveShadow = true;
-            fetchSettings(
-              path.replace("gltf/", ""),
-              basename,
-              filename,
-              object,
-              camera,
-              lightObjects[0],
-              controls,
-              orgExtension,
-              extension
-            );
-
-            outlineClipping = prepareOutlineClipping(object);
-            scene.add(object, outlineClipping);
-            scene.add(object);
-
-            mainObject.push(object);
-          },
-          onProgress,
-          onError
-        );
-        break;
-
-      case "xyz":
-        loader = new XYZLoader();
-        loader.load(
-          modelPath,
-          function (geometry) {
-            geometry.center();
-            const vertexColors = geometry.hasAttribute("color") === true;
-            const material = new THREE.PointsMaterial({
-              size: 0.1,
-              vertexColors: vertexColors,
-            });
-            const object = new THREE.Points(geometry, material);
-            traverseMesh(object);
-            object.position.set(0, 0, 0);
-            fetchSettings(
-              path.replace("gltf/", ""),
-              basename,
-              filename,
-              object,
-              camera,
-              lightObjects[0],
-              controls,
-              orgExtension,
-              extension
-            );
-
-            outlineClipping = prepareOutlineClipping(object);
-            scene.add(object, outlineClipping);
-            scene.add(object);
-
-            mainObject.push(object);
-          },
-          onProgress,
-          onError
-        );
-        break;
-
-      case "pcd":
-        loader = new PCDLoader();
-        loader.load(
-          modelPath,
-          function (mesh) {
-            traverseMesh(mesh);
-            fetchSettings(
-              path.replace("gltf/", ""),
-              basename,
-              filename,
-              object,
-              camera,
-              lightObjects[0],
-              controls,
-              orgExtension,
-              extension
-            );
-            mainObject.push(object);
-
-            outlineClipping = prepareOutlineClipping(mesh);
-            scene.add(mesh, outlineClipping);
-            scene.add(mesh);
-          },
-          onProgress,
-          onError
-        );
-        break;
-
-      case "json":
-        loader = new THREE.ObjectLoader();
-        loader.load(
-          modelPath,
-          function (object) {
-            object.position.set(0, 0, 0);
-            traverseMesh(object);
-
-            fetchSettings(
-              path.replace("gltf/", ""),
-              basename,
-              filename,
-              object,
-              camera,
-              lightObjects[0],
-              controls,
-              orgExtension,
-              extension
-            );
-
-            outlineClipping = prepareOutlineClipping(object);
-            scene.add(object, outlineClipping);
-            scene.add(object);
-
-            mainObject.push(object);
-          },
-          onProgress,
-          onError
-        );
-        break;
-
-      case "3ds":
-        loader = new TDSLoader();
-        loader.setResourcePath(path);
-        modelPath = path;
-        if (CONFIG.entity.proxyPath !== undefined) {
-          modelPath = getProxyPath(modelPath);
-        }
-        loader.load(
-          modelPath + basename + "." + extension,
-          function (object) {
-            traverseMesh(object);
-
-            fetchSettings(
-              path.replace("gltf/", ""),
-              basename,
-              filename,
-              object,
-              camera,
-              lightObjects[0],
-              controls,
-              orgExtension,
-              extension
-            );
-            mainObject.push(object);
-
-            outlineClipping = prepareOutlineClipping(object);
-            scene.add(object, outlineClipping);
-            scene.add(object);
-          },
-          onProgress,
-          onError
-        );
-        break;
-
-      case "zip":
-      case "rar":
-      case "tar":
-      case "gz":
-      case "xz":
-        showToast("Model is being loaded from compressed archive.");
-        break;
-
-      case "glb":
-      case "gltf":
-        const dracoLoader = new DRACOLoader();
-        dracoLoader.setDecoderPath(
-          CONFIG.baseModulePath + "/js/jsm/libs/draco/"
-        );
-        dracoLoader.preload();
-        const gltf = new GLTFLoader();
-        gltf.setDRACOLoader(dracoLoader);
-        showToast(
-          "Model has being loaded from " + extension + " representation."
-        );
-
-        modelPath = path + basename + "." + extension;
-
-        if (CONFIG.entity.proxyPath !== undefined) {
-          modelPath = getProxyPath(modelPath);
-        }
-        gltf.load(
-          modelPath,
-          function (gltf) {
-            traverseMesh(gltf.scene);
-            fetchSettings(
-              path.replace("/gltf/", "/"),
-              basename,
-              filename,
-              gltf.scene,
-              camera,
-              lightObjects[0],
-              controls,
-              orgExtension,
-              extension
-            );
-            outlineClipping = prepareOutlineClipping(gltf.scene);
-            outlineClipping.position.set(
-              gltf.scene.position.x,
-              gltf.scene.position.y,
-              gltf.scene.position.z
-            );
-            const box = new THREE.Box3().setFromObject(gltf.scene);
-            const size = box.getSize(new THREE.Vector3()).length();
-            const center = box.getCenter(new THREE.Vector3());
-
-            //gltf.scene.position.sub(center); // center the model
-            const scaleFactor = 10 / size;
-            gltf.scene.scale.setScalar(scaleFactor); // scale to unit size
-            //gltf.scene.scale.setScalar(2);
-            scene.add(gltf.scene, outlineClipping);
-            scene.add(gltf.scene);
-            mainObject.push(gltf.scene);
-            //mainObject.push(guts.scene);
-          },
-          function (xhr) {
-            var percentComplete = (xhr.loaded / xhr.total) * 100;
-            if (percentComplete !== Infinity) {
-              circle.show();
-              circle.set(percentComplete, 100);
-              if (percentComplete >= 100) {
-                circle.hide();
-                showToast("Model " + filename + " has been loaded.");
-              }
-            }
-          },
-          onErrorGLB
-        );
-        break;
-      default:
-        showToast("Extension not supported yet");
-    }
-  } else {
-    showToast("File " + path + basename + " not found.");
-  }
-
-  scene.updateMatrixWorld();
-}
-
 //
 
 function animate(time) {
@@ -2788,9 +2170,30 @@ function takeScreenshot() {
   renderer.setSize(canvasDimensions.x, canvasDimensions.y);
 }
 
-function mainLoadModel(_ext) {
+async function mainLoadModel(_ext) {
   if (_ext === "glb" || _ext === "gltf") {
-    loadModel(fileObject.path, fileObject.basename, fileObject.filename, fileObject.extension, _ext);
+    console.log(fileObject);
+    await loadModel({
+      path: fileObject.path,
+      basename: fileObject.basename,
+      filename: fileObject.filename,
+      extension: fileObject.extension,
+      orgExtension: fileObject.extension, // or original extension if available
+      fileObject, // <-- pass the whole fileObject
+      config: CONFIG,
+      getProxyPath,
+      traverseMesh,
+      prepareOutlineClipping,
+      fetchSettings,
+      camera,
+      lightObjects,
+      controls,
+      scene,
+      mainObject,
+      outlineClipping,
+      showToast,
+      circle
+    });
   } else if (
     _ext === "zip" ||
     _ext === "rar" ||
@@ -2799,17 +2202,16 @@ function mainLoadModel(_ext) {
     _ext === "gz"
   ) {
     compressedFile = "_" + _ext.toUpperCase() + "/";
-    loadModel(
+    await loadModel(
       fileObject.path + fileObject.basename + compressedFile,
       fileObject.basename,
       fileObject.filename,
       "glb",
-      _ext
+      _ext, config, getProxyPath, traverseMesh, prepareOutlineClipping, fetchSettings, camera, lightObjects, controls, scene, mainObject, outlineClipping, showToast, circle
     );
-    //loadModel (path+basename+compressedFile+"gltf/", basename, filename,  "glb", _ext);
   } else {
-    if (_ext === "glb") loadModel(fileObject.path, fileObject.basename, fileObject.filename, "glb", fileObject.extension);
-    else loadModel(fileObject.path, fileObject.basename, fileObject.filename, _ext, fileObject.extension);
+    if (_ext === "glb") await loadModel(fileObject.path, fileObject.basename, fileObject.filename, "glb", fileObject.extension, CONFIG, getProxyPath, traverseMesh, prepareOutlineClipping, fetchSettings, camera, lightObjects, controls, scene, mainObject, outlineClipping, showToast, circle);
+    else await loadModel(fileObject.path, fileObject.basename, fileObject.filename, _ext, fileObject.extension, CONFIG, getProxyPath, traverseMesh, prepareOutlineClipping, fetchSettings, camera, lightObjects, controls, scene, mainObject, outlineClipping, showToast, circle);
   }
 }
 
@@ -2851,40 +2253,6 @@ function resetCamera() {
       controls.update();
     })
     .start();
-}
-
-function detectColorFormat(color) {
-  const hexRegex = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
-  const rgbRegex = /^rgb\((\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})\)$/;
-
-  if (hexRegex.test(color)) {
-    return "hex";
-  } else if (rgbRegex.test(color)) {
-    return "rgb";
-  } else {
-    return "unknown";
-  }
-}
-
-function hexToRgb(hex) {
-  // Remove the '#' if it exists
-  hex = hex.replace(/^#/, "");
-
-  // Handle shorthand hex (e.g., #FFF -> #FFFFFF)
-  if (hex.length === 3) {
-    hex = hex
-      .split("")
-      .map((char) => char + char)
-      .join("");
-  }
-
-  // Parse the hex into RGB components
-  const bigint = parseInt(hex, 16);
-  const r = (bigint >> 16) & 255;
-  const g = (bigint >> 8) & 255;
-  const b = bigint & 255;
-
-  return `rgb(${r}, ${g}, ${b})`;
 }
 
 function changeBackgroundHelper(_color1, _color2) {
@@ -3095,7 +2463,7 @@ async function init() {
         CONFIG.metadataUrl + EXPORT_PATH + entityID + "?page=0&amp;_format=xml",
         true
       );
-      req.onreadystatechange = function (aEvt) {
+      req.onreadystatechange = async function (aEvt) {
         if (req.readyState == 4) {
           if (req.status == 200) {
             const parser = new DOMParser();
@@ -3135,10 +2503,10 @@ async function init() {
               _ext = fileObject.extension.toLowerCase();
               fileObject.path = _autoPath.substring(0, _autoPath.lastIndexOf(fileObject.filename));
             }
-            mainLoadModel(_ext);
+            await mainLoadModel(_ext);
           } else {
             console.log("Error during loading metadata content\n");
-            mainLoadModel(_ext);
+            await mainLoadModel(_ext);
           }
         }
       };
@@ -3151,7 +2519,7 @@ async function init() {
           setModelPaths();
           await getAnnotations(loadedIIIF.annotations, CONFIG);
           _ext = fileObject.extension.toLowerCase();
-          mainLoadModel(_ext);
+          await mainLoadModel(_ext);
         }
         await loadAnnotations();
         CONFIG.entity.metadata.source = "IIIF";
