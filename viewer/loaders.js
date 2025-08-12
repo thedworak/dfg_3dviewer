@@ -21,7 +21,7 @@ export async function loadModel(params) {
     filename,
     extension,
     orgExtension,
-    fileObject, // <-- now available here
+    fileObject,
     config,
     getProxyPath,
     traverseMesh,
