@@ -88,6 +88,9 @@ if (ViewerSettings !== undefined) {
       },
       background:
         "radial-gradient(circle, rgb(255, 255, 255) 0%, rgb(210, 210, 210) 100%)",
+      performanceMode: {
+        Performance: "high-performance",
+      }
     },
     model: {
       position: {
@@ -189,7 +192,7 @@ canvasDimensions = CANVASDIMENSIONS = {
     CONFIG.viewer.scaleContainer.y,
 };
 
-var fileObject = { originalPath: '', filename: '', basename: '', extension: '', path: '', uri: ''};
+var fileObject = { originalPath: '', filename: '', basename: '', extension: '', path: '', uri: '', newExtension: '' };
 
 container.setAttribute("display", "block");
 fileObject.originalPath = container.getAttribute("3d");
@@ -211,7 +214,7 @@ if (container.hasAttribute("basePath")) {
   CONFIG.baseModulePath = container.getAttribute("basePath");
 }
 
-function setModelPaths () {
+function setModelPaths() {
   fileObject.filename = fileObject.originalPath.split("/").pop();
   fileObject.basename = fileObject.filename.substring(0, fileObject.filename.lastIndexOf("."));
   fileObject.extension = fileObject.filename.substring(fileObject.filename.lastIndexOf(".") + 1);
@@ -221,7 +224,7 @@ function setModelPaths () {
 
 setModelPaths();
 
-const EXPORT_PATH = "/export_xml_single/";
+CONFIG.viewer.exportPath = "/export_xml_single/";
 const loadedFile = fileObject.basename + "." + fileObject.extension;
 var fileElement;
 var COPYRIGHTS = false;
@@ -276,7 +279,8 @@ let transformControl,
   outlineClipping;
 var cameraCoords;
 
-const helperObjects = [];
+let helperObjects = [];
+
 const lightObjects = [];
 var lightHelper, lightHelperTarget;
 
@@ -295,7 +299,7 @@ var transformText = {
   "Transform Mode": "Local",
 };
 
-var materialsPropertiesText = {
+export var materialsPropertiesText = {
   "Edit material": "select by name",
 };
 
@@ -334,10 +338,6 @@ const saveProperties = {
 
 const backgroundType = { "Background Type": "gradient" };
 let backgroundOuterFolder;
-
-const performanceMode = {
-  Performance: "high-performance",
-};
 
 var EDITOR = false;
 var RULER_MODE = false;
@@ -381,7 +381,7 @@ const planeParams = {
   },
 };
 
-var clippingPlanes = [
+export var clippingPlanes = [
   new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0),
   new THREE.Plane(new THREE.Vector3(0, -1, 0), 0),
   new THREE.Plane(new THREE.Vector3(0, 0, -1), 0),
@@ -389,7 +389,7 @@ var clippingPlanes = [
 var planeHelpers, clippingFolder;
 var propertiesFolder;
 var planeObjects = [];
-var materialsFolder;
+export var materialsFolder;
 
 var textMesh,
   textMeshDistance,
@@ -505,7 +505,7 @@ function addTextPoint(_text, _scale, _point) {
   );
 }
 
-function selectObjectHierarchy(_id) {
+export function selectObjectHierarchy(_id) {
   let search = true;
   for (let i = 0; i < selectedObjects.length && search === true; i++) {
     if (selectedObjects[i].id === _id) {
@@ -531,7 +531,7 @@ function selectObjectHierarchy(_id) {
   }
 }
 
-function fetchMetadata(_object, _type) {
+export function fetchMetadata(_object, _type) {
   switch (_type) {
     case "vertices":
       if (
@@ -592,7 +592,7 @@ function recreateBoundingBox(object) {
   return object;
 }
 
-function setupObject(_object, _light, _data, _controls) {
+export function setupObject(_object, _light, _data, _controls, _helperObjects) {
   if (typeof _data !== "undefined") {
     if (typeof _data["objPosition"] !== "undefined")
       _object.position.set(
@@ -697,10 +697,10 @@ function setupObject(_object, _light, _data, _controls) {
 
 function setupClippingPlanes(_geom, _size, _distance) {
   /*var _geometry;
-	if (_geom.isGroup)
-		_geometry = _geom.children;
-	else
-		_geometry = _geom.geometry.clone();*/
+  if (_geom.isGroup)
+    _geometry = _geom.children;
+  else
+    _geometry = _geom.geometry.clone();*/
 
   clippingPlanes[0].constant = _distance.x;
   clippingPlanes[1].constant = _distance.y;
@@ -799,7 +799,7 @@ function setupClippingPlanes(_geom, _size, _distance) {
   });
 }
 
-function fitCameraToCenteredObject(camera, object, add_offset, _fit) {
+async function fitCameraToCenteredObject(camera, object, add_offset, _fit, _helperObjects) {
   const boundingBox = new THREE.Box3();
   if (Array.isArray(object)) {
     for (let i = 0; i < object.length; i++) {
@@ -944,17 +944,17 @@ function fitCameraToCenteredObject(camera, object, add_offset, _fit) {
 
   if (_fit) {
     var rotateMetadata = new THREE.Vector3(
-      THREE.MathUtils.radToDeg(helperObjects[0].rotation.x),
-      THREE.MathUtils.radToDeg(helperObjects[0].rotation.y),
-      THREE.MathUtils.radToDeg(helperObjects[0].rotation.z)
+      THREE.MathUtils.radToDeg(_helperObjects[0].rotation.x),
+      THREE.MathUtils.radToDeg(_helperObjects[0].rotation.y),
+      THREE.MathUtils.radToDeg(_helperObjects[0].rotation.z)
     );
     originalMetadata = {
       objPosition: [object.position.x, object.position.y, object.position.z],
       objRotation: [rotateMetadata.x, rotateMetadata.y, rotateMetadata.z],
       objScale: [
-        helperObjects[0].scale.x,
-        helperObjects[0].scale.y,
-        helperObjects[0].scale.z,
+        _helperObjects[0].scale.x,
+        _helperObjects[0].scale.y,
+        _helperObjects[0].scale.z,
       ],
       cameraPosition: [camera.position.x, camera.position.y, camera.position.z],
       controlsTarget: [controls.target.x, controls.target.y, controls.target.z],
@@ -1117,7 +1117,7 @@ function render() {
   renderer.render(scene, camera);
 }
 
-function setupEmptyCamera(_camera, _object) {
+async function setupEmptyCamera(_camera, _object, _helperObjects) {
   var boundingBox = new THREE.Box3();
   if (Array.isArray(_object)) {
     for (let i = 0; i < _object.length; i++) {
@@ -1129,8 +1129,7 @@ function setupEmptyCamera(_camera, _object) {
   var size = new THREE.Vector3();
   boundingBox.getSize(size);
   camera.position.set(size.x, size.y, size.z);
-  //controls.target.set(0, 100, 0);
-  fitCameraToCenteredObject(_camera, _object, 1.2, true);
+  await fitCameraToCenteredObject(_camera, _object, 1.2, true, _helperObjects);
 }
 
 const keysProperties = [
@@ -1147,7 +1146,7 @@ const keysProperties = [
   "background",
 ];
 
-function setupCamera(_object, _camera, _light, _data) {
+export async function setupCamera(_object, _camera, _light, _data, controls, _config, _helperObjects) {
   const hasAnyProperty = keysProperties.some(
     (key) => typeof _data[key] !== "undefined"
   );
@@ -1155,12 +1154,12 @@ function setupCamera(_object, _camera, _light, _data) {
     if (typeof _data["cameraPosition"] !== "undefined") {
       _camera.position.set(..._data["cameraPosition"]);
     } else {
-      setupEmptyCamera(_camera, _object);
+      setupEmptyCamera(_camera, _object, _helperObjects);
     }
     if (typeof _data["controlsTarget"] !== "undefined") {
       controls.target.set(..._data["controlsTarget"]);
     } else {
-      setupEmptyCamera(_camera, _object);
+      setupEmptyCamera(_camera, _object, _helperObjects);
     }
     if (typeof _data["lightPosition"] !== "undefined") {
       _light.position.set(..._data["lightPosition"]);
@@ -1197,9 +1196,9 @@ function setupCamera(_object, _camera, _light, _data) {
     }
     _camera.updateProjectionMatrix();
     controls.update();
-    fitCameraToCenteredObject(_camera, _object, 2.3, false);
+    await fitCameraToCenteredObject(_camera, _object, 2.3, false, _helperObjects);
   } else {
-    setupEmptyCamera(_camera, _object);
+    setupEmptyCamera(_camera, _object, _helperObjects);
   }
 }
 
@@ -1346,11 +1345,11 @@ function onWindowResize() {
   guiContainer.setAttribute(
     "style",
     "width:" +
-      canvasDimensions.x +
-      "px; left: " +
-      canvasDimensions.x -
-      lilGui[0].getBoundingClientRect().width +
-      "px"
+    canvasDimensions.x +
+    "px; left: " +
+    canvasDimensions.x -
+    lilGui[0].getBoundingClientRect().width +
+    "px"
   );
   lilGui[0].style.left =
     canvasDimensions.x - lilGui[0].getBoundingClientRect().width - 10 + "px";
@@ -1365,70 +1364,15 @@ function onWindowResize() {
   fullscreenMode.setAttribute(
     "style",
     "top:" +
-      (canvasDimensions.y - 50) +
-      "px; left: " +
-      (canvasDimensions.x - 36) +
-      "px;"
+    (canvasDimensions.y - 50) +
+    "px; left: " +
+    (canvasDimensions.x - 36) +
+    "px;"
   );
   //fullscreenMode.style.top = (bottomLineGUI) + 'px;';
 
   controls.update();
   render();
-}
-
-function addWissKIMetadata(label, value) {
-  if (typeof label !== "undefined" && typeof value !== "undefined") {
-    var _str = "";
-    label = label.replace("wisski_path_3d_model__", "");
-    switch (label) {
-      case "title":
-        _str = "Title";
-        break;
-      case "author_name":
-        _str = "Author";
-        break;
-      /*case "reconstructed_period_start":
-				_str = "period";
-			break;
-			case "reconstructed_period_end":
-				_str = "-";
-			break;*/
-      case "author_affiliation":
-        _str = "Author affiliation";
-        break;
-      case "license":
-        _str = "License";
-        switch (value) {
-          case "CC0 1.0":
-          case "CC-BY Attribution":
-          case "CC-BY-SA Attribution-ShareAlike":
-          case "CC-BY-ND Attribution-NoDerivs":
-          case "CC-BY-NC Attribution-NonCommercial":
-          case "CC-BY-NC-SA Attribution-NonCommercial-ShareAlike":
-          case "CC BY-NC-ND Attribution-NonCommercial-NoDerivs":
-            //addTextWatermark("©", gridSize/10);
-            break;
-        }
-        break;
-      default:
-        _str = "";
-        break;
-    }
-    if (_str == "period") {
-      return "Reconstruction period: <b>" + value + " - ";
-    } else if (_str == "-") {
-      return value + "</b><br>";
-    } else if (_str !== "") {
-      return _str + ": <b>" + value + "</b><br>";
-    }
-  }
-}
-
-function expandMetadata() {
-  const el = document.getElementById("metadata-content");
-  el.classList.toggle("expanded");
-  const elm = document.getElementById("metadata-collapse");
-  elm.classList.toggle("metadata-collapsed");
 }
 
 function fullscreen() {
@@ -1479,442 +1423,6 @@ function exitFullscreenHandler() {
   }
 }
 
-function appendMetadata(
-  metadataContent,
-  canvasText,
-  metadataContainer,
-  container
-) {
-  metadataContent += metadataContentTech + "</div>";
-  canvasText.innerHTML = metadataContent;
-  metadataContainer.appendChild(canvasText);
-  container.appendChild(metadataContainer);
-}
-
-function handleMetadataResponse(
-  data,
-  metadata,
-  path,
-  basename,
-  filename,
-  object,
-  camera,
-  light,
-  controls,
-  orgExtension,
-  extension,
-  hierarchyMain
-) {
-  var tempArray = [];
-  if (Array.isArray(object)) {
-    setupObject(object[0], light, data, controls);
-    setupCamera(object[0], camera, light, data);
-  } else if (
-    object.name === "Scene" ||
-    object.children.length > 0 ||
-    object.type == "Mesh"
-  ) {
-    setupObject(object, light, data, controls);
-    object.traverse(function (child) {
-      if (child.isMesh) {
-        metadata["vertices"] += fetchMetadata(child, "vertices");
-        metadata["faces"] += fetchMetadata(child, "faces");
-        if (child.name === "") child.name = "Mesh";
-        var shortChildName = truncateString(child.name, GUILength);
-        tempArray = {
-          [shortChildName]() {
-            selectObjectHierarchy(child.id);
-          },
-          id: child.id,
-        };
-        hierarchyFolder = hierarchyMain.addFolder(shortChildName).close();
-        hierarchyFolder.add(tempArray, shortChildName);
-        //if (object.type == "Mesh")
-        //clippingGeometry.push(child.mesh.geometry);
-        //else {
-        //clippingGeometry.push(child.geometry);
-        child.traverse(function (children) {
-          if (children.isMesh && children.name !== child.name) {
-            if (children.name === "") children.name = "ChildrenMesh";
-            var shortChildrenName = truncateString(children.name, GUILength);
-            tempArray = {
-              [shortChildrenName]() {
-                selectObjectHierarchy(children.id);
-              },
-              id: children.id,
-            };
-            //clippingGeometry.push(children.geometry);
-            hierarchyFolder.add(tempArray, shortChildrenName);
-          }
-        });
-        //}
-      }
-    });
-    setupCamera(object, camera, light, data);
-  } else {
-    setupObject(object, light, data, controls);
-    setupCamera(object, camera, light, data);
-    metadata["vertices"] += fetchMetadata(object, "vertices");
-    metadata["faces"] += fetchMetadata(object, "faces");
-    if (object.name === "") {
-      tempArray = {
-        ["Mesh"]() {
-          selectObjectHierarchy(object.id);
-        },
-        id: object.id,
-      };
-      object.name = object.id;
-    } else {
-      tempArray = {
-        [object.name]() {
-          selectObjectHierarchy(object.id);
-        },
-        id: object.id,
-      };
-    }
-    //hierarchy.push(tempArray);
-    if (object.name === "undefined") object.name = "level";
-    //clippingGeometry.push(object.geometry);
-    hierarchyFolder = hierarchyMain.addFolder(object.name).close();
-  }
-
-  hierarchyMain.domElement.classList.add("hierarchy");
-
-  var metadataContent =
-    '<div id="metadata-collapse" class="metadata-collapse metadata-collapsed">METADATA </div><div id="metadata-content" class="metadata-content expanded">';
-  metadataContentTech = '<hr class="metadataSeparator">';
-  metadataContentTech +=
-    "Visualized file: <b>" + basename + "." + orgExtension + "</b><br>";
-  //metadataContentTech += 'Loaded format: <b>' + extension + '</b><br>';
-  metadataContentTech += "Vertices: <b>" + metadata["vertices"] + "</b><br>";
-  metadataContentTech += "Faces: <b>" + metadata["faces"] + "</b><br>";
-  viewEntity = document.createElement("div");
-  viewEntity.setAttribute("id", "viewEntity");
-
-  if (
-    CONFIG.viewer.lightweight !== true &&
-    CONFIG.viewer.lightweight !== null
-  ) {
-    var req = new XMLHttpRequest();
-    req.responseType = "";
-    req.open(
-      "GET",
-      CONFIG.metadataUrl + EXPORT_PATH + entityID + "?page=0&amp;_format=xml",
-      true
-    );
-    req.onreadystatechange = function (aEvt) {
-      if (req.readyState == 4) {
-        if (req.status == 200) {
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(
-            req.responseText,
-            "application/xml"
-          );
-          if (doc.documentElement.childNodes > 0) {
-            var data = doc.documentElement.childNodes[0].childNodes;
-            if (typeof data !== undefined) {
-              for (var i = 0; i < data.length; i++) {
-                var fetchedValue = addWissKIMetadata(
-                  data[i].tagName,
-                  data[i].textContent
-                );
-                if (typeof fetchedValue !== "undefined") {
-                  metadataContent += fetchedValue;
-                }
-              }
-            }
-          }
-
-          downloadModel = document.createElement("div");
-          downloadModel.setAttribute("id", "downloadModel");
-
-          var c_path = path;
-          if (compressedFile !== "") {
-            fileObject.filename = fileObject.filename.replace(orgExtension, fileObject.extension);
-          }
-          downloadModel.innerHTML =
-            "<a href='blob:" +
-            c_path +
-            fileObject.filename +
-            "' download><img src='" +
-            CONFIG.baseModulePath +
-            "/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
-          downloadModel.style.top = bottomLineGUI + "px";
-          container.appendChild(downloadModel);
-
-          metadataContainer.appendChild(viewEntity);
-          appendMetadata(
-            metadataContent,
-            canvasText,
-            metadataContainer,
-            container
-          );
-
-          document
-            .getElementById("metadata-collapse")
-            .addEventListener("click", expandMetadata, false);
-        } else showToast("Error during loading metadata content");
-      }
-    };
-    req.send(null);
-  } else {
-    viewEntity.innerHTML =
-      "<a href='" +
-      CONFIG.mainUrl +
-      CONFIG.entity.viewEntityPath +
-      entityID +
-      "/view' target='_blank'><img src='" +
-      CONFIG.baseModulePath +
-      "/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>";
-    appendMetadata(metadataContent, canvasText, metadataContainer, container);
-  }
-
-  //hierarchyFolder.add(hierarchyText, 'Faces');
-}
-
-function settingsHandler(object, camera, light, controls) {
-  if (Array.isArray(object)) {
-    setupObject(object[0], light, undefined, controls);
-    setupCamera(object[0], camera, light, undefined);
-  } else if (object.name === "Scene" || object.children.length > 0) {
-    setupObject(object, light, undefined, controls);
-    setupCamera(object, camera, light, undefined);
-  } else {
-    setupObject(object, light, undefined, controls);
-    setupCamera(object, camera, light, undefined);
-    if (object.name === "undefined") object.name = "level";
-    hierarchyFolder = hierarchyMain.addFolder(object.name).close();
-  }
-}
-
-function fetchSettings(
-  path,
-  basename,
-  filename,
-  object,
-  camera,
-  light,
-  controls,
-  orgExtension,
-  extension
-) {
-  var metadata = { vertices: 0, faces: 0 };
-  var hierarchy = [];
-  var geometry;
-  metadataUrl = path + "metadata/" + filename + "_viewer";
-  if (Array.isArray(object)) {
-    helperObjects.push(object[0]);
-  } else {
-    helperObjects.push(object);
-  }
-  const hierarchyMain = gui.addFolder("Hierarchy").close();
-  if (CONFIG.entity.proxyPath !== undefined) {
-    metadataUrl = getProxyPath(metadataUrl);
-    settingsHandler(object, camera, light, controls);
-  } else if (CONFIG.entity.metadata.source === "IIIF") {
-    console.log("Loading settings for IIIF...");
-    handleMetadataResponse(
-      CONFIG.model,
-      metadata,
-      path,
-      basename,
-      filename,
-      object,
-      camera,
-      light,
-      controls,
-      orgExtension,
-      extension,
-      hierarchyMain
-    );
-  } else {
-    fetch(metadataUrl, { cache: "no-cache" })
-      .then((response) => {
-        if (response["status"] !== 404) {
-          showToast("Settings " + filename + "_viewer found");
-          return response.json();
-        } else if (response["status"] === 404) {
-          showToast("No settings " + filename + "_viewer found");
-        }
-      })
-      .then((data) => {
-        handleMetadataResponse(
-          data,
-          metadata,
-          path,
-          basename,
-          filename,
-          object,
-          camera,
-          light,
-          controls,
-          orgExtension,
-          extension,
-          hierarchyMain
-        );
-      });
-  }
-  //addTextWatermark("©", object.scale.x);
-  //lightObjects.push (object);
-  const statsMain = gui.addFolder("Statistics").close();
-  statsMain
-    .add(performanceMode, "Performance", {
-      "High-performance": "high-performance",
-      "Low-power": "low-power",
-      Default: "default",
-    })
-    .onChange(function (value) {
-      renderer.powerPreference = value;
-    });
-  statsMain.onOpenClose((changedGUI) => {
-    if (changedGUI._closed) {
-      stats.dom.style.visibility = "hidden";
-    } else {
-      stats.dom.style.visibility = "visible";
-    }
-  });
-  guiContainer.appendChild(stats.dom);
-  //guiContainer.appendChild(statsContainer);
-}
-
-function setupSingleMaterial(materials, material) {
-  if (material.map) {
-    material.map.anisotropy = 16;
-  }
-  //material.side = THREE.DoubleSide;
-  material.clipShadows = true;
-  material.side = THREE.FrontSide;
-  material.clippingPlanes = clippingPlanes;
-  //material.clipIntersection = false;
-  if (material.name === "") material.name = material.uuid;
-  var newMaterial = { name: material.name, uuid: material.uuid };
-  if (!materials.includes(newMaterial)) materials.push(newMaterial);
-}
-
-function setupMaterials(_object) {
-  var materials = [];
-  if (_object.isMesh) {
-    _object.castShadow = true;
-    _object.receiveShadow = true;
-    _object.geometry.computeVertexNormals();
-    if (_object.material.isMaterial) {
-      setupSingleMaterial(materials, _object.material);
-    } else if (Array.isArray(_object.material)) {
-      _object.material.forEach((material) =>
-        setupSingleMaterial(materials, material)
-      );
-    }
-  }
-  return materials;
-}
-
-function getMaterialByID(_object, _uuid) {
-  var _material;
-  _object.traverse(function (child) {
-    if (
-      child.isMesh &&
-      child.material.isMaterial &&
-      child.material.uuid === _uuid
-    ) {
-      _material = child.material;
-    }
-  });
-  return _material;
-}
-
-function traverseMesh(object) {
-  var _objectMaterials = [];
-  _objectMaterials.push(setupMaterials(object));
-
-  object.traverse(function (child) {
-    _objectMaterials.push(setupMaterials(child));
-    _objectMaterials.side = THREE.DoubleSide;
-  });
-  var objectMaterials = ["select by name"];
-  _objectMaterials.forEach(function (item, index, array) {
-    if (item.length > 1) {
-      item.forEach(function (_item, _index, _array) {
-        objectMaterials.push(_item.uuid);
-      });
-    } else if (item.length == 1) {
-      objectMaterials.push(item[0].uuid);
-    }
-  });
-  var _material = null;
-  var _materialGui = null;
-  var _uuid = null;
-  materialsFolder
-    .add(materialsPropertiesText, "Edit material", objectMaterials)
-    .onChange(function (value) {
-      if (
-        (value === "select by name" || value !== _uuid) &&
-        _material !== null
-      ) {
-        _materialGui.color.destroy();
-        _materialGui.emissiveColor.destroy();
-        _materialGui.emissive.destroy();
-        _materialGui.metalness.destroy();
-        _materialGui = null;
-        _material = null;
-      }
-      if (_material === null) {
-        _materialGui = {};
-        _material = getMaterialByID(object, value);
-        console.log(_material);
-        materialProperties.color = _material.color;
-        materialProperties.emissiveColor = _material.emissive;
-        materialProperties.emissive = _material.emissiveIntensity;
-        materialProperties.metalness = _material.metalness;
-        _materialGui.color = materialsFolder
-          .addColor(materialProperties, "color")
-          .onChange(function (value) {
-            _material.color = new THREE.Color(value);
-          })
-          .listen();
-        _materialGui.emissiveColor = materialsFolder
-          .addColor(materialProperties, "emissiveColor")
-          .onChange(function (value) {
-            _material.emissive = new THREE.Color(value);
-          })
-          .listen();
-        _materialGui.emissive = materialsFolder
-          .add(materialProperties, "emissive", 0, 1)
-          .onChange(function (value) {
-            _material.emissiveIntensity = value;
-          })
-          .listen();
-        _materialGui.metalness = materialsFolder
-          .add(materialProperties, "metalness", 0, 1)
-          .onChange(function (value) {
-            _material.metalness = value;
-          })
-          .listen();
-      }
-      if (_uuid === null || _uuid !== value) {
-        _uuid = value;
-      }
-    });
-}
-
-function prepareOutlineClipping(_object) {
-  var outlineClipping = _object.clone(true);
-  var gutsMaterial = new THREE.MeshBasicMaterial({
-    color: "crimson",
-    side: THREE.BackSide,
-    clippingPlanes: clippingPlanes,
-    clipShadows: true,
-  });
-
-  outlineClipping.traverse(function (child) {
-    if (child.type == "Mesh" || child.type == "Object3D") {
-      child.material = gutsMaterial;
-    }
-  });
-  outlineClipping.visible = false;
-  return outlineClipping;
-}
-//
-
 function animate(time) {
   requestAnimationFrame(animate);
   const delta = clock.getDelta();
@@ -1938,14 +1446,14 @@ function onPointerDown(e) {
     onDownPosition.x =
       ((e.clientX - mainCanvas.getBoundingClientRect().left) /
         renderer.domElement.clientWidth) *
-        2 -
+      2 -
       1;
     onDownPosition.y =
       -(
         (e.clientY - mainCanvas.getBoundingClientRect().top) /
         renderer.domElement.clientHeight
       ) *
-        2 +
+      2 +
       1;
   }
 }
@@ -1955,14 +1463,14 @@ function onPointerUp(e) {
     onUpPosition.x =
       ((e.clientX - mainCanvas.getBoundingClientRect().left) /
         renderer.domElement.clientWidth) *
-        2 -
+      2 -
       1;
     onUpPosition.y =
       -(
         (e.clientY - mainCanvas.getBoundingClientRect().top) /
         renderer.domElement.clientHeight
       ) *
-        2 +
+      2 +
       1;
     if (
       onUpPosition.x === onDownPosition.x &&
@@ -1998,14 +1506,14 @@ function onPointerMove(e) {
   pointer.x =
     ((e.clientX - mainCanvas.getBoundingClientRect().left) /
       renderer.domElement.clientWidth) *
-      2 -
+    2 -
     1;
   pointer.y =
     -(
       (e.clientY - mainCanvas.getBoundingClientRect().top) /
       renderer.domElement.clientHeight
     ) *
-      2 +
+    2 +
     1;
 
   if (e.buttons == 1) {
@@ -2096,17 +1604,17 @@ function calculateObjectScale() {
   planeParams.planeX.constant =
     clippingFolder.controllers[1]._max =
     clippingPlanes[0].constant =
-      _distance.x;
+    _distance.x;
   clippingFolder.controllers[1]._min = -clippingFolder.controllers[1]._max;
   planeParams.planeY.constant =
     clippingFolder.controllers[3]._max =
     clippingPlanes[1].constant =
-      _distance.y;
+    _distance.y;
   clippingFolder.controllers[3]._min = -clippingFolder.controllers[3]._max;
   planeParams.planeZ.constant =
     clippingFolder.controllers[5]._max =
     clippingPlanes[2].constant =
-      _distance.z;
+    _distance.z;
   clippingFolder.controllers[5]._min = -clippingFolder.controllers[5]._max;
   clippingFolder.controllers[1].updateDisplay();
   clippingFolder.controllers[3].updateDisplay();
@@ -2115,7 +1623,7 @@ function calculateObjectScale() {
   planeHelpers[0].size =
     planeHelpers[1].size =
     planeHelpers[2].size =
-      _maxDistance;
+    _maxDistance;
 }
 
 function changeLightRotation() {
@@ -2124,8 +1632,8 @@ function changeLightRotation() {
 
 function takeScreenshot() {
   /*const messDiv = document.createElement('div');
-	messDiv.classList.add('message');
-	document.body.appendChild(messDiv);*/
+  messDiv.classList.add('message');
+  document.body.appendChild(messDiv);*/
   camera.aspect = 1;
   camera.updateProjectionMatrix();
   renderer.setSize(256, 256);
@@ -2172,27 +1680,27 @@ function takeScreenshot() {
 
 async function mainLoadModel(_ext) {
   if (_ext === "glb" || _ext === "gltf") {
-    console.log(fileObject);
     await loadModel({
-      path: fileObject.path,
-      basename: fileObject.basename,
-      filename: fileObject.filename,
-      extension: fileObject.extension,
-      orgExtension: fileObject.extension, // or original extension if available
       fileObject, // <-- pass the whole fileObject
       config: CONFIG,
       getProxyPath,
-      traverseMesh,
-      prepareOutlineClipping,
-      fetchSettings,
       camera,
       lightObjects,
       controls,
       scene,
       mainObject,
       outlineClipping,
-      showToast,
-      circle
+      circle,
+      gui,
+      stats,
+      entityID,
+      container,
+      metadataContainer,
+      canvasText,
+      bottomLineGUI,
+      compressedFile,
+      viewEntity,
+      helperObjects
     });
   } else if (
     _ext === "zip" ||
@@ -2202,16 +1710,35 @@ async function mainLoadModel(_ext) {
     _ext === "gz"
   ) {
     compressedFile = "_" + _ext.toUpperCase() + "/";
-    await loadModel(
-      fileObject.path + fileObject.basename + compressedFile,
-      fileObject.basename,
-      fileObject.filename,
-      "glb",
-      _ext, config, getProxyPath, traverseMesh, prepareOutlineClipping, fetchSettings, camera, lightObjects, controls, scene, mainObject, outlineClipping, showToast, circle
+    fileObject.path = fileObject.path + fileObject.basename + compressedFile
+    fileObject.extension = "glb";
+    fileObject.newExtension = _ext;
+    await loadModel(fileObject, config, getProxyPath, camera, lightObjects, controls, scene, mainObject, outlineClipping, circle, gui, stats,
+      entityID, container,
+      metadataContainer,
+      canvasText,
+      bottomLineGUI,
+      compressedFile,
+      viewEntity, helperObjects
     );
   } else {
-    if (_ext === "glb") await loadModel(fileObject.path, fileObject.basename, fileObject.filename, "glb", fileObject.extension, CONFIG, getProxyPath, traverseMesh, prepareOutlineClipping, fetchSettings, camera, lightObjects, controls, scene, mainObject, outlineClipping, showToast, circle);
-    else await loadModel(fileObject.path, fileObject.basename, fileObject.filename, _ext, fileObject.extension, CONFIG, getProxyPath, traverseMesh, prepareOutlineClipping, fetchSettings, camera, lightObjects, controls, scene, mainObject, outlineClipping, showToast, circle);
+    fileObject.extension = "glb";
+    if (_ext === "glb") {
+      await loadModel(fileObject, CONFIG, getProxyPath, camera, lightObjects, controls, scene, mainObject, outlineClipping, circle, gui, stats,
+        entityID, container,
+        metadataContainer,
+        canvasText,
+        bottomLineGUI,
+        compressedFile,
+        viewEntity, helperObjects);
+    }
+    else await loadModel(fileObject.path, fileObject.basename, fileObject.filename, _ext, fileObject.extension, CONFIG, getProxyPath, camera, lightObjects, controls, scene, mainObject, outlineClipping, circle, gui, stats,
+      entityID, container,
+      metadataContainer,
+      canvasText,
+      bottomLineGUI,
+      compressedFile,
+      viewEntity, helperObjects);
   }
 }
 
@@ -2460,7 +1987,7 @@ async function init() {
       req.responseType = "";
       req.open(
         "GET",
-        CONFIG.metadataUrl + EXPORT_PATH + entityID + "?page=0&amp;_format=xml",
+        CONFIG.metadataUrl + CONFIG.viewer.exportPath + entityID + "?page=0&amp;_format=xml",
         true
       );
       req.onreadystatechange = async function (aEvt) {
@@ -2523,15 +2050,14 @@ async function init() {
         }
         await loadAnnotations();
         CONFIG.entity.metadata.source = "IIIF";
-        //CONFIG.model.position = new THREE.Vector3(loadedIIIF.manifest.);
       }
     }
     /*try {
 
-	} catch (e) {
-		// statements to handle any exceptions
-		loadModel(path, basename, filename, extension);
-	}*/
+  } catch (e) {
+    // statements to handle any exceptions
+    loadModel(path, basename, filename, extension);
+  }*/
     window.addEventListener("resize", onWindowResize);
 
     fullscreenMode = document.createElement("div");
@@ -2543,10 +2069,10 @@ async function init() {
     fullscreenMode.setAttribute(
       "style",
       "top:" +
-        (bottomLineGUI + 20) +
-        "px; left: " +
-        (canvasDimensions.x - 36) +
-        "px"
+      (bottomLineGUI + 20) +
+      "px; left: " +
+      (canvasDimensions.x - 36) +
+      "px"
     );
     container.appendChild(fullscreenMode);
     document
@@ -2767,56 +2293,31 @@ async function init() {
               })
               .then((_data) => {
                 if (typeof _data !== "undefined") {
-                  if (typeof _data["objPosition"] !== "undefined")
-                    originalMetadata["objPosition"] = _data["objPosition"];
-                  if (typeof _data["objRotation"] !== "undefined")
-                    originalMetadata["objRotation"] = _data["objRotation"];
-                  if (typeof _data["objScale"] !== "undefined")
-                    originalMetadata["objScale"] = _data["objScale"];
-                  if (typeof _data["cameraPosition"] !== "undefined")
-                    originalMetadata["cameraPosition"] =
-                      _data["cameraPosition"];
-                  if (typeof _data["controlsTarget"] !== "undefined")
-                    originalMetadata["controlsTarget"] =
-                      _data["controlsTarget"];
-                  if (typeof _data["lightPosition"] !== "undefined")
-                    originalMetadata["lightPosition"] = _data["lightPosition"];
-                  if (typeof _data["lightTarget"] !== "undefined")
-                    originalMetadata["lightTarget"] = _data["lightTarget"];
-                  if (typeof _data["lightColor"] !== "undefined")
-                    originalMetadata["lightColor"] = _data["lightColor"];
-                  if (typeof _data["lightIntensity"] !== "undefined")
-                    originalMetadata["lightIntensity"] =
-                      _data["lightIntensity"];
-                  if (typeof _data["lightAmbientColor"] !== "undefined")
-                    originalMetadata["lightAmbientColor"] =
-                      _data["lightAmbientColor"];
-                  if (typeof _data["lightAmbientIntensity"] !== "undefined")
-                    originalMetadata["lightAmbientIntensity"] =
-                      _data["lightAmbientIntensity"];
-                  if (typeof _data["lightCameraColor"] !== "undefined")
-                    originalMetadata["lightCameraColor"] =
-                      _data["lightCameraColor"];
-                  if (typeof _data["lightCameraIntensity"] !== "undefined")
-                    originalMetadata["lightCameraIntensity"] =
-                      _data["lightCameraIntensity"];
-                  if (typeof _data["background"] !== "undefined")
-                    originalMetadata["background"] = _data["background"];
+                  if (typeof _data["objPosition"] !== "undefined") originalMetadata["objPosition"] = _data["objPosition"];
+                  if (typeof _data["objRotation"] !== "undefined") originalMetadata["objRotation"] = _data["objRotation"];
+                  if (typeof _data["objScale"] !== "undefined") originalMetadata["objScale"] = _data["objScale"];
+                  if (typeof _data["cameraPosition"] !== "undefined") originalMetadata["cameraPosition"] = _data["cameraPosition"];
+                  if (typeof _data["controlsTarget"] !== "undefined") originalMetadata["controlsTarget"] = _data["controlsTarget"];
+                  if (typeof _data["lightPosition"] !== "undefined") originalMetadata["lightPosition"] = _data["lightPosition"];
+                  if (typeof _data["lightTarget"] !== "undefined") originalMetadata["lightTarget"] = _data["lightTarget"];
+                  if (typeof _data["lightColor"] !== "undefined") originalMetadata["lightColor"] = _data["lightColor"];
+                  if (typeof _data["lightIntensity"] !== "undefined") originalMetadata["lightIntensity"] = _data["lightIntensity"];
+                  if (typeof _data["lightAmbientColor"] !== "undefined") originalMetadata["lightAmbientColor"] = _data["lightAmbientColor"];
+                  if (typeof _data["lightAmbientIntensity"] !== "undefined") originalMetadata["lightAmbientIntensity"] = _data["lightAmbientIntensity"];
+                  if (typeof _data["lightCameraColor"] !== "undefined") originalMetadata["lightCameraColor"] = _data["lightCameraColor"];
+                  if (typeof _data["lightCameraIntensity"] !== "undefined") originalMetadata["lightCameraIntensity"] = _data["lightCameraIntensity"];
+                  if (typeof _data["background"] !== "undefined") originalMetadata["background"] = _data["background"];
 
                   if (saveProperties.Position) {
                     newMetadata = Object.assign(newMetadata, {
                       objPosition: [
-                        helperObjects[0].position.x,
-                        helperObjects[0].position.y,
-                        helperObjects[0].position.z,
+                        helperObjects[0].position.x, helperObjects[0].position.y, helperObjects[0].position.z,
                       ],
                     });
                   } else {
                     newMetadata = Object.assign(newMetadata, {
                       objPosition: [
-                        originalMetadata["objPosition"][0],
-                        originalMetadata["objPosition"][1],
-                        originalMetadata["objPosition"][2],
+                        originalMetadata["objPosition"][0], originalMetadata["objPosition"][1], originalMetadata["objPosition"][2],
                       ],
                     });
                   }
@@ -2824,17 +2325,13 @@ async function init() {
                   if (saveProperties.Rotation) {
                     newMetadata = Object.assign(newMetadata, {
                       objRotation: [
-                        rotateMetadata.x,
-                        rotateMetadata.y,
-                        rotateMetadata.z,
+                        rotateMetadata.x, rotateMetadata.y, rotateMetadata.z,
                       ],
                     });
                   } else {
                     newMetadata = Object.assign(newMetadata, {
                       objRotation: [
-                        originalMetadata["objRotation"][0],
-                        originalMetadata["objRotation"][1],
-                        originalMetadata["objRotation"][2],
+                        originalMetadata["objRotation"][0], originalMetadata["objRotation"][1], originalMetadata["objRotation"][2],
                       ],
                     });
                   }
@@ -2842,17 +2339,13 @@ async function init() {
                   if (saveProperties.Scale) {
                     newMetadata = Object.assign(newMetadata, {
                       objScale: [
-                        helperObjects[0].scale.x,
-                        helperObjects[0].scale.y,
-                        helperObjects[0].scale.z,
+                      helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z,
                       ],
-                    });
+                      });
                   } else {
                     newMetadata = Object.assign(newMetadata, {
                       objScale: [
-                        originalMetadata["objScale"][0],
-                        originalMetadata["objScale"][1],
-                        originalMetadata["objScale"][2],
+                        originalMetadata["objScale"][0], originalMetadata["objScale"][1], originalMetadata["objScale"][2],
                       ],
                     });
                   }
@@ -2860,27 +2353,19 @@ async function init() {
                   if (saveProperties.Camera) {
                     newMetadata = Object.assign(newMetadata, {
                       cameraPosition: [
-                        camera.position.x,
-                        camera.position.y,
-                        camera.position.z,
+                        camera.position.x, camera.position.y, camera.position.z,
                       ],
                       controlsTarget: [
-                        controls.target.x,
-                        controls.target.y,
-                        controls.target.z,
+                        controls.target.x, controls.target.y, controls.target.z,
                       ],
                     });
                   } else {
                     newMetadata = Object.assign(newMetadata, {
                       cameraPosition: [
-                        originalMetadata["cameraPosition"][0],
-                        originalMetadata["cameraPosition"][1],
-                        originalMetadata["cameraPosition"][2],
+                        originalMetadata["cameraPosition"][0], originalMetadata["cameraPosition"][1], originalMetadata["cameraPosition"][2],
                       ],
                       controlsTarget: [
-                        originalMetadata["controlsTarget"][0],
-                        originalMetadata["controlsTarget"][1],
-                        originalMetadata["controlsTarget"][2],
+                        originalMetadata["controlsTarget"][0], originalMetadata["controlsTarget"][1], originalMetadata["controlsTarget"][2],
                       ],
                     });
                   }
@@ -2888,14 +2373,10 @@ async function init() {
                   if (saveProperties.DirectionalLight) {
                     newMetadata = Object.assign(newMetadata, {
                       lightPosition: [
-                        dirLight.position.x,
-                        dirLight.position.y,
-                        dirLight.position.z,
+                        dirLight.position.x, dirLight.position.y, dirLight.position.z,
                       ],
                       lightTarget: [
-                        dirLight.rotation._x,
-                        dirLight.rotation._y,
-                        dirLight.rotation._z,
+                        dirLight.rotation._x, dirLight.rotation._y, dirLight.rotation._z,
                       ],
                       lightColor: [
                         "#" + dirLight.color.getHexString().toUpperCase(),
@@ -2905,14 +2386,10 @@ async function init() {
                   } else {
                     newMetadata = Object.assign(newMetadata, {
                       lightPosition: [
-                        originalMetadata["lightPosition"][0],
-                        originalMetadata["lightPosition"][1],
-                        originalMetadata["lightPosition"][2],
+                        originalMetadata["lightPosition"][0], originalMetadata["lightPosition"][1], originalMetadata["lightPosition"][2],
                       ],
                       lightTarget: [
-                        originalMetadata["lightTarget"][0],
-                        originalMetadata["lightTarget"][1],
-                        originalMetadata["lightTarget"][2],
+                        originalMetadata["lightTarget"][0], originalMetadata["lightTarget"][1], originalMetadata["lightTarget"][2],
                       ],
                       lightColor: [originalMetadata["lightColor"][0]],
                       lightIntensity: [originalMetadata["lightIntensity"][0]],

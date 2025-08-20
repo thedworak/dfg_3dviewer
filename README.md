@@ -1,5 +1,4 @@
-
-# 3D DFG Viewer
+# DLF AIM 3D Viewer
 
 
 The module was primarily created for viewing 3D data as a Drupal extension for a WissKI based repository. During development it became also possible to use as a standalone version to be integrated with more environments.

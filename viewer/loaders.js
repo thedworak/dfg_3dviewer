@@ -14,36 +14,181 @@ import { GLTFLoader } from "./js/jsm/loaders/GLTFLoader.js";
 import { DRACOLoader } from "./js/jsm/loaders/DRACOLoader.js";
 import Toastify from "./toastify.js";
 
+import {
+  fetchSettings
+} from "./metadata.js";
+
+import {clippingPlanes, materialsFolder, materialsPropertiesText} from "./main.js";
+
+function prepareOutlineClipping(_object) {
+  var outlineClipping = _object.clone(true);
+  var gutsMaterial = new THREE.MeshBasicMaterial({
+    color: "crimson",
+    side: THREE.BackSide,
+    clippingPlanes: clippingPlanes,
+    clipShadows: true,
+  });
+
+  outlineClipping.traverse(function (child) {
+    if (child.type == "Mesh" || child.type == "Object3D") {
+      child.material = gutsMaterial;
+    }
+  });
+  outlineClipping.visible = false;
+  return outlineClipping;
+}
+
+function setupSingleMaterial(materials, material) {
+  if (material.map) {
+    material.map.anisotropy = 16;
+  }
+  //material.side = THREE.DoubleSide;
+  material.clipShadows = true;
+  material.side = THREE.FrontSide;
+  material.clippingPlanes = clippingPlanes;
+  //material.clipIntersection = false;
+  if (material.name === "") material.name = material.uuid;
+  var newMaterial = { name: material.name, uuid: material.uuid };
+  if (!materials.includes(newMaterial)) materials.push(newMaterial);
+}
+
+function setupMaterials(_object) {
+  var materials = [];
+  if (_object.isMesh) {
+    _object.castShadow = true;
+    _object.receiveShadow = true;
+    _object.geometry.computeVertexNormals();
+    if (_object.material.isMaterial) {
+      setupSingleMaterial(materials, _object.material);
+    } else if (Array.isArray(_object.material)) {
+      _object.material.forEach((material) =>
+        setupSingleMaterial(materials, material)
+      );
+    }
+  }
+  return materials;
+}
+
+function getMaterialByID(_object, _uuid) {
+  var _material;
+  _object.traverse(function (child) {
+    if (
+      child.isMesh &&
+      child.material.isMaterial &&
+      child.material.uuid === _uuid
+    ) {
+      _material = child.material;
+    }
+  });
+  return _material;
+}
+
+function traverseMesh(object) {
+  var _objectMaterials = [];
+  _objectMaterials.push(setupMaterials(object));
+
+  object.traverse(function (child) {
+    _objectMaterials.push(setupMaterials(child));
+    _objectMaterials.side = THREE.DoubleSide;
+  });
+  var objectMaterials = ["select by name"];
+  _objectMaterials.forEach(function (item, index, array) {
+    if (item.length > 1) {
+      item.forEach(function (_item, _index, _array) {
+        objectMaterials.push(_item.uuid);
+      });
+    } else if (item.length == 1) {
+      objectMaterials.push(item[0].uuid);
+    }
+  });
+  var _material = null;
+  var _materialGui = null;
+  var _uuid = null;
+  materialsFolder
+    .add(materialsPropertiesText, "Edit material", objectMaterials)
+    .onChange(function (value) {
+      if (
+        (value === "select by name" || value !== _uuid) &&
+        _material !== null
+      ) {
+        _materialGui.color.destroy();
+        _materialGui.emissiveColor.destroy();
+        _materialGui.emissive.destroy();
+        _materialGui.metalness.destroy();
+        _materialGui = null;
+        _material = null;
+      }
+      if (_material === null) {
+        _materialGui = {};
+        _material = getMaterialByID(object, value);
+        console.log(_material);
+        materialProperties.color = _material.color;
+        materialProperties.emissiveColor = _material.emissive;
+        materialProperties.emissive = _material.emissiveIntensity;
+        materialProperties.metalness = _material.metalness;
+        _materialGui.color = materialsFolder
+          .addColor(materialProperties, "color")
+          .onChange(function (value) {
+            _material.color = new THREE.Color(value);
+          })
+          .listen();
+        _materialGui.emissiveColor = materialsFolder
+          .addColor(materialProperties, "emissiveColor")
+          .onChange(function (value) {
+            _material.emissive = new THREE.Color(value);
+          })
+          .listen();
+        _materialGui.emissive = materialsFolder
+          .add(materialProperties, "emissive", 0, 1)
+          .onChange(function (value) {
+            _material.emissiveIntensity = value;
+          })
+          .listen();
+        _materialGui.metalness = materialsFolder
+          .add(materialProperties, "metalness", 0, 1)
+          .onChange(function (value) {
+            _material.metalness = value;
+          })
+          .listen();
+      }
+      if (_uuid === null || _uuid !== value) {
+        _uuid = value;
+      }
+    });
+}
+
 export async function loadModel(params) {
   var {
-    path,
-    basename,
-    filename,
-    extension,
-    orgExtension,
     fileObject,
     config,
     getProxyPath,
-    traverseMesh,
-    prepareOutlineClipping,
-    fetchSettings,
     camera,
     lightObjects,
     controls,
     scene,
     mainObject,
     outlineClipping,
-    circle
+    circle,
+    gui,
+    stats,
+    entityID,
+    container,
+    metadataContainer,
+    canvasText,
+    bottomLineGUI, 
+    compressedFile,
+    viewEntity,
+    helperObjects
   } = params;
 
   // Example usage:
   // Instead of fileObject.originalPath, use params.fileObject.originalPath
-  let modelPath = path + filename;
+  let modelPath = fileObject.path + fileObject.filename;
   if (config.entity.proxyPath !== undefined) {
-    modelPath = getProxyPath(modelPath, config, fileObject);
+    modelPath = getProxyPath(modelPath, config, params.fileObject);
   }
 
-  switch (extension.toLowerCase()) {
+  switch (fileObject.extension.toLowerCase()) {
     case "obj":
       if (!config.noMTL) {
         const manager = new THREE.LoadingManager();
@@ -51,28 +196,38 @@ export async function loadModel(params) {
           showToast("OBJ model has been loaded");
         };
         manager.addHandler(/\.dds$/i, new DDSLoader());
-        new MTLLoader(manager).setPath(path).load(
+        new MTLLoader(manager).setPath(fileObject.path).load(
           basename + ".mtl",
           function (materials) {
             materials.preload();
             new OBJLoader(manager)
               .setMaterials(materials)
-              .setPath(path)
+              .setPath(fileObject.path)
               .load(
                 filename,
                 function (object) {
                   object.position.set(0, 0, 0);
                   traverseMesh(object);
+                  fileObject.path = fileObject.path.replace("gltf/", "");
                   fetchSettings(
-                    path.replace("gltf/", ""),
-                    basename,
-                    filename,
+                    fileObject,
                     object,
                     camera,
                     lightObjects[0],
                     controls,
-                    orgExtension,
-                    extension
+                    gui,
+                    config,  
+                    getProxyPath,
+                    stats,
+                    guiContainer,
+                    entityID,
+                    container,
+                    metadataContainer,
+                    canvasText,
+                    bottomLineGUI,
+                    compressedFile,
+                    viewEntity,
+                    helperObjects
                   );
                   outlineClipping = prepareOutlineClipping(object);
                   scene.add(object, outlineClipping);
@@ -93,17 +248,27 @@ export async function loadModel(params) {
           function (object) {
             object.position.set(0, 0, 0);
             traverseMesh(object);
-            fetchSettings(
-              path.replace("gltf/", ""),
-              basename,
-              filename,
-              object,
-              camera,
-              lightObjects[0],
-              controls,
-              orgExtension,
-              extension
-            );
+            fileObject.path = fileObject.path.replace("gltf/", "");
+              fetchSettings(
+                fileObject,
+                object,
+                camera,
+                lightObjects[0],
+                controls,
+                gui,
+                config,  
+                getProxyPath,
+                stats,
+                guiContainer,
+                entityID,
+                container,
+                metadataContainer,
+                canvasText,
+                bottomLineGUI,
+                compressedFile,
+                viewEntity,
+                helperObjects
+              );
             outlineClipping = prepareOutlineClipping(object);
             scene.add(object, outlineClipping);
             scene.add(object);
@@ -122,17 +287,27 @@ export async function loadModel(params) {
         function (object) {
           traverseMesh(object);
           object.position.set(0, 0, 0);
-          fetchSettings(
-            path.replace("gltf/", ""),
-            basename,
-            filename,
-            object.children,
-            camera,
-            lightObjects[0],
-            controls,
-            orgExtension,
-            extension
-          );
+          fileObject.path = fileObject.path.replace("gltf/", "");
+            fetchSettings(
+              fileObject,
+              object.children,
+              camera,
+              lightObjects[0],
+              controls,
+              gui,
+              config,  
+              getProxyPath,
+              stats,
+              guiContainer,
+              entityID,
+              container,
+              metadataContainer,
+              canvasText,
+              bottomLineGUI,
+              compressedFile,
+              viewEntity,
+              helperObjects
+            );
           outlineClipping = prepareOutlineClipping(object);
           scene.add(object, outlineClipping);
           scene.add(object);
@@ -158,17 +333,27 @@ export async function loadModel(params) {
           object.castShadow = true;
           object.receiveShadow = true;
           traverseMesh(object);
-          fetchSettings(
-            path.replace("gltf/", ""),
-            basename,
-            filename,
-            object,
-            camera,
-            lightObjects[0],
-            controls,
-            orgExtension,
-            extension
-          );
+          fileObject.path = fileObject.path.replace("gltf/", "");
+            fetchSettings(
+              fileObject,
+              object,
+              camera,
+              lightObjects[0],
+              controls,
+              gui,
+              config,  
+              getProxyPath,
+              stats,
+              guiContainer,
+              entityID,
+              container,
+              metadataContainer,
+              canvasText,
+              bottomLineGUI,
+              compressedFile,
+              viewEntity,
+              helperObjects
+            );
           mainObject.push(object);
           outlineClipping = prepareOutlineClipping(object);
           scene.add(object, outlineClipping);
@@ -190,16 +375,26 @@ export async function loadModel(params) {
           object = object.scene;
           object.position.set(0, 0, 0);
           traverseMesh(object);
+          fileObject.path = fileObject.path.replace("gltf/", "");
           fetchSettings(
-            path.replace("gltf/", ""),
-            basename,
-            filename,
+            fileObject,
             object,
             camera,
             lightObjects[0],
             controls,
-            orgExtension,
-            extension
+            gui,
+            config,  
+            getProxyPath,
+            stats,
+            guiContainer,
+            entityID,
+            container,
+            metadataContainer,
+            canvasText,
+            bottomLineGUI,
+            compressedFile,
+            viewEntity,
+            helperObjects
           );
           mainObject.push(object);
           outlineClipping = prepareOutlineClipping(object);
@@ -219,16 +414,26 @@ export async function loadModel(params) {
         modelPath,
         function (object) {
           traverseMesh(object);
+          fileObject.path = fileObject.path.replace("gltf/", "");
           fetchSettings(
-            path.replace("gltf/", ""),
-            basename,
-            filename,
+            fileObject,
             object,
             camera,
             lightObjects[0],
             controls,
-            orgExtension,
-            extension
+            gui,
+            config,  
+            getProxyPath,
+            stats,
+            guiContainer,
+            entityID,
+            container,
+            metadataContainer,
+            canvasText,
+            bottomLineGUI,
+            compressedFile,
+            viewEntity,
+            helperObjects
           );
           outlineClipping = prepareOutlineClipping(object);
           scene.add(object, outlineClipping);
@@ -261,16 +466,26 @@ export async function loadModel(params) {
           traverseMesh(object);
           object.castShadow = true;
           object.receiveShadow = true;
+          fileObject.path = fileObject.path.replace("gltf/", "");
           fetchSettings(
-            path.replace("gltf/", ""),
-            basename,
-            filename,
+            fileObject,
             object,
             camera,
             lightObjects[0],
             controls,
-            orgExtension,
-            extension
+            gui,
+            config,  
+            getProxyPath,
+            stats,
+            guiContainer,
+            entityID,
+            container,
+            metadataContainer,
+            canvasText,
+            bottomLineGUI,
+            compressedFile,
+            viewEntity,
+            helperObjects
           );
           outlineClipping = prepareOutlineClipping(object);
           scene.add(object, outlineClipping);
@@ -296,16 +511,26 @@ export async function loadModel(params) {
           const object = new THREE.Points(geometry, material);
           traverseMesh(object);
           object.position.set(0, 0, 0);
+          fileObject.path = fileObject.path.replace("gltf/", "");
           fetchSettings(
-            path.replace("gltf/", ""),
-            basename,
-            filename,
+            fileObject,
             object,
             camera,
             lightObjects[0],
             controls,
-            orgExtension,
-            extension
+            gui,
+            config,  
+            getProxyPath,
+            stats,
+            guiContainer,
+            entityID,
+            container,
+            metadataContainer,
+            canvasText,
+            bottomLineGUI,
+            compressedFile,
+            viewEntity,
+            helperObjects
           );
           outlineClipping = prepareOutlineClipping(object);
           scene.add(object, outlineClipping);
@@ -323,16 +548,26 @@ export async function loadModel(params) {
         modelPath,
         function (mesh) {
           traverseMesh(mesh);
+          fileObject.path = fileObject.path.replace("gltf/", "");
           fetchSettings(
-            path.replace("gltf/", ""),
-            basename,
-            filename,
+            fileObject,
             mesh,
             camera,
             lightObjects[0],
             controls,
-            orgExtension,
-            extension
+            gui,
+            config,  
+            getProxyPath,
+            stats,
+            guiContainer,
+            entityID,
+            container,
+            metadataContainer,
+            canvasText,
+            bottomLineGUI,
+            compressedFile,
+            viewEntity,
+            helperObjects
           );
           mainObject.push(mesh);
           outlineClipping = prepareOutlineClipping(mesh);
@@ -351,16 +586,26 @@ export async function loadModel(params) {
         function (object) {
           object.position.set(0, 0, 0);
           traverseMesh(object);
+          fileObject.path = fileObject.path.replace("gltf/", "");
           fetchSettings(
-            path.replace("gltf/", ""),
-            basename,
-            filename,
+            fileObject,
             object,
             camera,
             lightObjects[0],
             controls,
-            orgExtension,
-            extension
+            gui,
+            config,  
+            getProxyPath,
+            stats,
+            guiContainer,
+            entityID,
+            container,
+            metadataContainer,
+            canvasText,
+            bottomLineGUI,
+            compressedFile,
+            viewEntity,
+            helperObjects
           );
           outlineClipping = prepareOutlineClipping(object);
           scene.add(object, outlineClipping);
@@ -374,25 +619,35 @@ export async function loadModel(params) {
 
     case "3ds":
       loader = new TDSLoader();
-      loader.setResourcePath(path);
+      loader.setResourcePath(fileObject.path);
       modelPath = path;
       if (config.entity.proxyPath !== undefined) {
         modelPath = getProxyPath(modelPath);
       }
       loader.load(
-        modelPath + basename + "." + extension,
+        modelPath + fileObject.basename + "." + fileObject.extension,
         function (object) {
           traverseMesh(object);
+          fileObject.path = fileObject.path.replace("gltf/", "");
           fetchSettings(
-            path.replace("gltf/", ""),
-            basename,
-            filename,
+            fileObject,
             object,
             camera,
             lightObjects[0],
             controls,
-            orgExtension,
-            extension
+            gui,
+            config,  
+            getProxyPath,
+            stats,
+            guiContainer,
+            entityID,
+            container,
+            metadataContainer,
+            canvasText,
+            bottomLineGUI,
+            compressedFile,
+            viewEntity,
+            helperObjects
           );
           mainObject.push(object);
           outlineClipping = prepareOutlineClipping(object);
@@ -414,9 +669,9 @@ export async function loadModel(params) {
       const gltf = new GLTFLoader();
       gltf.setDRACOLoader(dracoLoader);
       showToast(
-        "Model has being loaded from " + extension + " representation."
+        "Model has being loaded from " + fileObject.extension + " representation."
       );
-      modelPath = path + basename + "." + extension;
+      modelPath = fileObject.path + fileObject.basename + "." + fileObject.extension;
       if (config.entity.proxyPath !== undefined) {
         modelPath = getProxyPath(modelPath);
       }
@@ -424,16 +679,26 @@ export async function loadModel(params) {
         modelPath,
         function (gltf) {
           traverseMesh(gltf.scene);
+          fileObject.path = fileObject.path.replace("gltf/", "");
           fetchSettings(
-            path.replace("/gltf/", "/"),
-            basename,
-            filename,
+            fileObject,
             gltf.scene,
             camera,
-            lightObjects[0],
+            params.lightObjects[0],
             controls,
-            orgExtension,
-            extension
+            gui,
+            config,  
+            getProxyPath,
+            stats,
+            guiContainer,
+            entityID,
+            container,
+            metadataContainer,
+            canvasText,
+            bottomLineGUI,
+            compressedFile,
+            viewEntity,
+            helperObjects
           );
           outlineClipping = prepareOutlineClipping(gltf.scene);
           outlineClipping.position.set(
@@ -457,7 +722,7 @@ export async function loadModel(params) {
             circle.set(percentComplete, 100);
             if (percentComplete >= 100) {
               circle.hide();
-              showToast("Model " + filename + " has been loaded.");
+              showToast("Model " + fileObject.filename + " has been loaded.");
             }
           }
         },
