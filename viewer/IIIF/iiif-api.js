@@ -42,9 +42,11 @@ export async function loadIIIFManifest(manifestUrlOrJson) {
   };
 }
 
-export async function getAnnotations(filteredAnnos, CONFIG) {
+export async function getAnnotations(filteredAnnos, objectsConfig) {
+  var ind = 0;
   await Promise.all(
     filteredAnnos.map(async (modelAnnotation) => {
+      console.log("Processing annotation", ind, "of", filteredAnnos.length);
       if (modelAnnotation.getBody()[0].isSpecificResource) {
         let transforms = [];
 
@@ -55,8 +57,8 @@ export async function getAnnotations(filteredAnnos, CONFIG) {
         } catch (e) {
           console.warn("Failed to read transform");
         }
-
-        // ✅ Correct use of async-safe loop
+        console.log("Transforms", transforms);
+        // Correct use of async-safe loop
         for (const transform of transforms) {
           if (!transform.isTransform) continue;
 
@@ -67,7 +69,7 @@ export async function getAnnotations(filteredAnnos, CONFIG) {
                 const scale = transform.getScale();
                 if (scale) {
                   console.log("scaling");
-                  CONFIG.model.scale = scale;
+                  objectsConfig.models[0].scale = scale;
                 }
               },
             },
@@ -77,7 +79,7 @@ export async function getAnnotations(filteredAnnos, CONFIG) {
                 const rotation = transform.getRotation();
                 if (rotation) {
                   console.log("rotating");
-                  CONFIG.model.rotation = rotation;
+                  objectsConfig.models[0].rotation = rotation;
                 }
               },
             },
@@ -87,7 +89,7 @@ export async function getAnnotations(filteredAnnos, CONFIG) {
                 const translation = transform.getTranslation();
                 if (translation) {
                   console.log("translating");
-                  CONFIG.model.position = translation;
+                  objectsConfig.models[0].position = translation;
                 }
               },
             },
@@ -100,6 +102,7 @@ export async function getAnnotations(filteredAnnos, CONFIG) {
           }
         }
       }
+      ind++;
     })
   );
 

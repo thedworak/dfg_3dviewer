@@ -46,6 +46,7 @@ import { TextGeometry } from "./js/jsm/geometries/TextGeometry.js";
 import Stats from "./js/jsm/libs/stats.module.js";
 import { GUI } from "./js/external_libs/lil-gui.esm.min.js";
 import ViewerSettings from "./viewer-settings.json" with { type: "json" };
+import { objectsConfig } from "./object-settings.js";
 import Toastify from "./toastify.js";
 import { lv } from "./spinner/main.js";
 
@@ -92,59 +93,6 @@ if (ViewerSettings !== undefined) {
         Performance: "high-performance",
       }
     },
-    model: {
-      position: {
-        x: 0,
-        y: 0,
-        z: 0,
-      },
-      scale: {
-        x: 1,
-        y: 1,
-        z: 1,
-      },
-      rotation: {
-        x: 0,
-        y: 0,
-        z: 0,
-      },
-    },
-    scene: {
-      light: {
-        directional: {
-          color: "0xffffff",
-          intensity: 1,
-          position: {
-            x: 0,
-            y: 100,
-            z: 100,
-          },
-          target: {
-            x: 0,
-            y: 0,
-            z: 0,
-          },
-        },
-        ambient: {
-          color: "0x404040",
-          intensity: 1,
-        },
-        camera: {
-          color: "0xffffff",
-          intensity: 1,
-          position: {
-            x: 0,
-            y: 100,
-            z: 100,
-          },
-          target: {
-            x: 0,
-            y: 0,
-            z: 0,
-          },
-        },
-      },
-    },
   };
 }
 
@@ -186,10 +134,9 @@ const container = document.getElementById(CONFIG.viewer.container);
 const scrollTop = window.scrollY || document.documentElement.scrollTop;
 
 canvasDimensions = CANVASDIMENSIONS = {
-  x: container.getBoundingClientRect().width * CONFIG.viewer.scaleContainer.x,
+  x: container.getBoundingClientRect().width * Number(CONFIG.viewer.scaleContainer.x),
   y:
-    (container.getBoundingClientRect().height + scrollTop) *
-    CONFIG.viewer.scaleContainer.y,
+    (container.getBoundingClientRect().height + scrollTop) * Number(CONFIG.viewer.scaleContainer.y),
 };
 
 var fileObject = { originalPath: '', filename: '', basename: '', extension: '', path: '', uri: '', newExtension: '' };
@@ -592,45 +539,23 @@ function recreateBoundingBox(object) {
   return object;
 }
 
-export function setupObject(_object, _light, _data, _controls, _helperObjects) {
-  if (typeof _data !== "undefined") {
-    if (typeof _data["objPosition"] !== "undefined")
-      _object.position.set(
-        _data["objPosition"][0],
-        _data["objPosition"][1],
-        _data["objPosition"][2]
+function fetchObjectFromConfig(_name) {
+  return objectsConfig?.models?.find(model => model.name === _name);
+}
+
+export function setupObject(_object, _light, _controls, _helperObjects) {
+  const model = fetchObjectFromConfig(_object.children[0].name); //TODO: check for multiple objects
+  if (typeof objectsConfig !== "undefined" && model) {
+    console.log("Applying config for", model);
+    if (typeof model.position !== undefined)
+      _object.position.set(model.position.x, model.position.y, model.position.z);
+    if (typeof objectsConfig.models.scale !== undefined)
+      _object.scale.set(model.scale.x, model.scale.y, model.scale.z);
+    if (typeof model.rotation !== undefined)
+      _object.rotation.set(THREE.MathUtils.degToRad(model.rotation.x), THREE.MathUtils.degToRad(model.rotation.y), THREE.MathUtils.degToRad(model.rotation.z)
       );
-    else if (typeof CONFIG.model.position !== undefined)
-      _object.position.set(
-        CONFIG.model.position.x,
-        CONFIG.model.position.y,
-        CONFIG.model.position.z
-      );
-    if (typeof _data["objScale"] !== "undefined")
-      _object.scale.set(
-        _data["objScale"][0],
-        _data["objScale"][1],
-        _data["objScale"][2]
-      );
-    else if (typeof _data.scale !== undefined)
-      _object.scale.set(
-        CONFIG.model.scale.x,
-        CONFIG.model.scale.y,
-        CONFIG.model.scale.z
-      );
-    if (typeof _data["objRotation"] !== "undefined")
-      _object.rotation.set(
-        THREE.MathUtils.degToRad(_data["objRotation"][0]),
-        THREE.MathUtils.degToRad(_data["objRotation"][1]),
-        THREE.MathUtils.degToRad(_data["objRotation"][2])
-      );
-    else if (typeof _data.rotation !== undefined)
-      _object.rotation.set(
-        THREE.MathUtils.degToRad(CONFIG.model.rotation.x),
-        THREE.MathUtils.degToRad(CONFIG.model.rotation.y),
-        THREE.MathUtils.degToRad(CONFIG.model.rotation.z)
-      );
-    _object.needsUpdate = true;
+    
+      _object.needsUpdate = true;
     if (typeof _object.geometry !== "undefined") {
       _object.geometry.computeBoundingBox();
       _object.geometry.computeBoundingSphere();
@@ -651,7 +576,7 @@ export function setupObject(_object, _light, _data, _controls, _helperObjects) {
           _object[i].geometry.computeBoundingSphere();
         }
       }
-    } else if (_object.isGroup && extension == "fbx") {
+    } else if (_object.isGroup && fileObject.extension == "fbx") {
       //workaround for specific FBX case
       boundingBox.setFromObject(_object);
       var _obj = new THREE.Object3D();
@@ -1132,67 +1057,51 @@ async function setupEmptyCamera(_camera, _object, _helperObjects) {
   await fitCameraToCenteredObject(_camera, _object, 1.2, true, _helperObjects);
 }
 
-const keysProperties = [
-  "cameraPosition",
-  "controlsTarget",
-  "lightPosition",
-  "lightTarget",
-  "lightColor",
-  "lightIntensity",
-  "lightAmbientColor",
-  "lightAmbientIntensity",
-  "lightCameraColor",
-  "lightCameraIntensity",
-  "background",
-];
+export async function setupCamera(_object, _camera, _light, controls, _config, _helperObjects) {
 
-export async function setupCamera(_object, _camera, _light, _data, controls, _config, _helperObjects) {
-  const hasAnyProperty = keysProperties.some(
-    (key) => typeof _data[key] !== "undefined"
-  );
-  if (hasAnyProperty) {
-    if (typeof _data["cameraPosition"] !== "undefined") {
-      _camera.position.set(..._data["cameraPosition"]);
+  if (objectsConfig /*&& CONFIG.entity.metadata.source !== ''*/) {
+    if (typeof objectsConfig.camera.position !== "undefined") {
+      _camera.position.set(objectsConfig.camera.position.x, objectsConfig.camera.position.y, objectsConfig.camera.position.z);
     } else {
       setupEmptyCamera(_camera, _object, _helperObjects);
     }
-    if (typeof _data["controlsTarget"] !== "undefined") {
-      controls.target.set(..._data["controlsTarget"]);
+    if (typeof objectsConfig.camera.target !== "undefined") {
+      controls.target.set(objectsConfig.camera.target.x, objectsConfig.camera.target.y, objectsConfig.camera.target.z);
     } else {
       setupEmptyCamera(_camera, _object, _helperObjects);
     }
-    if (typeof _data["lightPosition"] !== "undefined") {
-      _light.position.set(..._data["lightPosition"]);
-    }
-    if (typeof _data["lightTarget"] !== "undefined") {
-      _light.rotation.set(..._data["lightTarget"]);
-    }
-    if (typeof _data["lightColor"] !== "undefined") {
-      _light.color = new THREE.Color(_data["lightColor"][0]);
-      colors["DirectionalLight"] = _data["lightColor"][0];
-    }
-    if (typeof _data["lightIntensity"] !== "undefined") {
-      _light.intensity = _data["lightIntensity"][0];
-      intensity.startIntensityDir = _data["lightIntensity"][0];
-    }
-    if (typeof _data["lightAmbientColor"] !== "undefined") {
-      ambientLight.color = new THREE.Color(_data["lightAmbientColor"][0]);
-      colors["AmbientLight"] = _data["lightAmbientColor"][0];
-    }
-    if (typeof _data["lightAmbientIntensity"] !== "undefined") {
-      ambientLight.intensity = _data["lightAmbientIntensity"][0];
-      intensity.startIntensityAmbient = _data["lightAmbientIntensity"][0];
-    }
-    if (typeof _data["lightCameraColor"] !== "undefined") {
-      cameraLight.color = new THREE.Color(_data["lightCameraColor"][0]);
-      colors["CameraLight"] = _data["lightCameraColor"][0];
-    }
-    if (typeof _data["lightCameraIntensity"] !== "undefined") {
-      cameraLight.intensity = _data["lightCameraIntensity"][0];
-      intensity.startIntensityCamera = _data["lightCameraIntensity"][0];
-    }
-    if (typeof _data["background"] !== "undefined") {
-      mainCanvas.style.setProperty("background", _data["background"][0]);
+  
+    // Setup lights
+    objectsConfig.scene.lights.forEach(light => {
+      switch (light.type) {
+        case "directional":
+          console.log("Directional light with color", light.color);
+          _light.position.set(light.position.x, light.position.y, light.position.z);
+          _light.rotation.set(light.target.x, light.target.y, light.target.z);
+          
+          _light.color = new THREE.Color().setHex(light.color);
+          colors["DirectionalLight"] = light.color;
+          
+          intensity.startIntensityDir = _light.intensity = light.intensity;
+
+        break;
+        case "ambient":
+          console.log("Ambient light with color", light.color);
+          ambientLight.color = new THREE.Color().setHex(light.color);
+          colors["AmbientLight"] = light.color;
+          intensity.startIntensityAmbient = ambientLight.intensity = light.intensity;
+        break;
+        case "point":
+          console.log("Point light at", light.position);
+          cameraLight.color = new THREE.Color().setHex(light.color);
+          colors["CameraLight"] = light.color;
+          intensity.startIntensityCamera = cameraLight.intensity = light.intensity;
+        break;
+      }
+    });
+
+    if (typeof objectsConfig.scene.background !== "undefined") {
+      mainCanvas.style.setProperty("background", objectsConfig.scene.background);
     }
     _camera.updateProjectionMatrix();
     controls.update();
@@ -1317,12 +1226,8 @@ function onWindowResize() {
     metadataContainer.style.height = "10%";
   } else {
     canvasDimensions = {
-      x:
-        container.getBoundingClientRect().width *
-        CONFIG.viewer.scaleContainer.x,
-      y:
-        container.getBoundingClientRect().bottom *
-        (CONFIG.viewer.scaleContainer.y + 0.3),
+      x: container.getBoundingClientRect().width * Number(CONFIG.viewer.scaleContainer.x),
+      y: container.getBoundingClientRect().bottom * Number(CONFIG.viewer.scaleContainer.y),
     };
     bottomOffsetFullscreen = Math.round(-canvasDimensions.y) + 36;
     mainCanvas.style.width = "100% !imporant";
@@ -1338,6 +1243,7 @@ function onWindowResize() {
       );
     }
   }
+
   mainCanvas.style.width = canvasDimensions.x + "px;";
   mainCanvas.style.height = canvasDimensions.y + "px;";
   //mainCanvas.setAttribute("style", "width:" + canvasDimensions.x+"px;" + "height:" + canvasDimensions.y +"px;" );
@@ -1351,8 +1257,7 @@ function onWindowResize() {
     lilGui[0].getBoundingClientRect().width +
     "px"
   );
-  lilGui[0].style.left =
-    canvasDimensions.x - lilGui[0].getBoundingClientRect().width - 10 + "px";
+  lilGui[0].style.left = canvasDimensions.x - lilGui[0].getBoundingClientRect().width - 10 + "px";
 
   renderer.setSize(canvasDimensions.x, canvasDimensions.y);
   renderer.setPixelRatio(window.devicePixelRatio);
@@ -1360,17 +1265,10 @@ function onWindowResize() {
   camera.updateProjectionMatrix();
   renderer.setSize(canvasDimensions.x, canvasDimensions.y);
 
-  viewEntity.setAttribute("style", "right: " + rightOffsetEntity + "%");
-  fullscreenMode.setAttribute(
-    "style",
-    "top:" +
-    (canvasDimensions.y - 50) +
-    "px; left: " +
-    (canvasDimensions.x - 36) +
-    "px;"
+  if (typeof (viewEntity) !== "undefined") viewEntity.setAttribute("style", "right: " + rightOffsetEntity + "%");
+  fullscreenMode.setAttribute("style", "top:" + (canvasDimensions.y - 50) + "px; left: " + (canvasDimensions.x - 36) + "px;"
   );
   //fullscreenMode.style.top = (bottomLineGUI) + 'px;';
-
   controls.update();
   render();
 }
@@ -2042,9 +1940,10 @@ async function init() {
       if (iiifConfigURL !== "") {
         async function loadAnnotations() {
           const loadedIIIF = await loadIIIFManifest(iiifConfigURL);
+          console.log(loadedIIIF.modelUrl);
           fileObject.originalPath = loadedIIIF.modelUrl;
           setModelPaths();
-          await getAnnotations(loadedIIIF.annotations, CONFIG);
+          await getAnnotations(loadedIIIF.annotations, objectsConfig);
           _ext = fileObject.extension.toLowerCase();
           await mainLoadModel(_ext);
         }
@@ -2293,7 +2192,7 @@ async function init() {
               })
               .then((_data) => {
                 if (typeof _data !== "undefined") {
-                  if (typeof _data["objPosition"] !== "undefined") originalMetadata["objPosition"] = _data["objPosition"];
+                  if (typeof _data[`objPosition`] !== "undefined") originalMetadata["objPosition"] = _data["objPosition"];
                   if (typeof _data["objRotation"] !== "undefined") originalMetadata["objRotation"] = _data["objRotation"];
                   if (typeof _data["objScale"] !== "undefined") originalMetadata["objScale"] = _data["objScale"];
                   if (typeof _data["cameraPosition"] !== "undefined") originalMetadata["cameraPosition"] = _data["cameraPosition"];
