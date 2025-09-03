@@ -24,13 +24,14 @@ export async function loadIIIFManifest(manifestUrlOrJson) {
 
       filteredAnnos.forEach((modelAnnotation) => {
         let modelUrl;
-        if (modelAnnotation.getBody()[0]?.isSpecificResource) {
-          modelUrl = modelAnnotation.getBody()[0].getSource()?.id;
+        if (modelAnnotation.getBody3D()?.isSpecificResource) {
+          modelUrl = modelAnnotation.getBody3D().getSource()?.id;
         } else {
-          modelUrl = modelAnnotation.getBody()[0]?.id;
+          modelUrl = modelAnnotation.getBody3D()?.id;
         }
         const modelTarget = modelAnnotation.getTarget();
-        iiifManifest.modelUrl = modelUrl;
+        if (modelUrl && modelTarget)
+          iiifManifest.modelUrl = modelUrl;
       });
     });
   }
@@ -97,6 +98,7 @@ export async function getAnnotations(filteredAnnos, objectsConfig) {
 
           for (const { key, action } of transformHandlers) {
             if (transform[key]) {
+              console.log( "Applying transform:", key);
               action();
             }
           }

@@ -31,6 +31,7 @@ import {
 } from "./utils.js";
 
 import { loadModel, showToast } from "./loaders.js";
+import { createIIIFDropdown } from "./metadata.js";
 
 //three.js core
 import * as THREE from "./build/three.module.js";
@@ -162,6 +163,7 @@ if (container.hasAttribute("basePath")) {
 }
 
 function setModelPaths() {
+  console.log(fileObject);
   fileObject.filename = fileObject.originalPath.split("/").pop();
   fileObject.basename = fileObject.filename.substring(0, fileObject.filename.lastIndexOf("."));
   fileObject.extension = fileObject.filename.substring(fileObject.filename.lastIndexOf(".") + 1);
@@ -1937,18 +1939,42 @@ async function init() {
       };
       req.send(null);
     } else {
-      if (iiifConfigURL !== "") {
-        async function loadAnnotations() {
-          const loadedIIIF = await loadIIIFManifest(iiifConfigURL);
-          console.log(loadedIIIF.modelUrl);
+      async function setupIIIF() {
+        const loadedIIIF = await loadIIIFManifest(iiifConfigURL);
+        if (loadedIIIF.modelUrl) {
           fileObject.originalPath = loadedIIIF.modelUrl;
           setModelPaths();
           await getAnnotations(loadedIIIF.annotations, objectsConfig);
           _ext = fileObject.extension.toLowerCase();
           await mainLoadModel(_ext);
         }
-        await loadAnnotations();
-        CONFIG.entity.metadata.source = "IIIF";
+      }
+      async function loadIIIFURL() {
+        // create a small dropdown to switch iiif manifests at runtime
+        document.getElementById("iiif-dropdown").addEventListener("change", async (ev) => {
+          try {
+            if (ev.target.value !== iiifConfigURL) {
+              iiifConfigURL = ev.target.value;
+              await setupIIIF();
+            }
+          } catch (err) {
+            console.error(err);
+            showToast("Error loading IIIF manifest: " + (err.message || err));
+          }
+          });
+      }      
+      
+      switch(CONFIG.entity.metadata.source.substring(0, 4).toLowerCase()) {
+        case "iiif":
+          if (iiifConfigURL !== "") {
+            createIIIFDropdown(container, iiifConfigURL, canvasDimensions);
+            await loadIIIFURL();
+            CONFIG.entity.metadata.source = "IIIF";
+            await setupIIIF();
+          }
+          break;
+        case "file": //TODO: add more sources
+          break;
       }
     }
     /*try {

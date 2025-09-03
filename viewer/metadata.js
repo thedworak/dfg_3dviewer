@@ -373,3 +373,41 @@ export async function fetchSettings(
     guiContainer.appendChild(stats.dom);
   }
 }
+
+export function createIIIFDropdown(container, iiifConfigURL, canvasDimensions) {
+  // list of candidate IIIF config URLs (add more as needed)
+  const iiifList = [
+    iiifConfigURL,
+    "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin.json",
+    "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin_bgcolor.json",
+    "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_position.json",
+    "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json"
+  ].filter(Boolean);
+
+  const wrapper = document.createElement("div");
+  wrapper.id = "iiif-dropdown";
+  wrapper.style.margin = "6px 0";
+  wrapper.style.display = "block";
+  wrapper.style.gap = "6px";
+  wrapper.style.position = "relative";
+  wrapper.style.top = (canvasDimensions.y + 10) + "px";
+  const label = document.createElement("label");
+  label.textContent = "IIIF manifest:";
+  label.style.fontSize = "12px";
+  label.style.alignSelf = "center";
+
+  const select = document.createElement("select");
+  select.style.fontSize = "12px";
+  select.style.minWidth = "360px";
+
+  iiifList.forEach((url) => {
+    const opt = document.createElement("option");
+    opt.value = url;
+    opt.textContent = url;
+    select.appendChild(opt);
+  });
+
+  wrapper.appendChild(label);
+  wrapper.appendChild(select);
+  container.appendChild(wrapper);
+}
