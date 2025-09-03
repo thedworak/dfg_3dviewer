@@ -213,7 +213,7 @@ This step needs some steps to be performed before rendering:
     	<link rel="stylesheet" href="./3D-DFG-Viewer/css/main.css">
     </head>
     <body>
-    	<script type="module" src="./3D-DFG-Viewer/main/jquery-3.6.0.min.js"></script>
+    	<script type="module" src="./3D-DFG-Viewer/main/jquery-3.7.1.min.js"></script>
     	<script src="./3D-DFG-Viewer/main/toastify.js"></script>
     	<script src="./3D-DFG-Viewer/main/spinner/main.js"></script>
     	<script type="module" src="./3D-DFG-Viewer/main/main.js"></script>
