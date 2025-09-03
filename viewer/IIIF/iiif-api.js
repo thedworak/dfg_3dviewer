@@ -13,6 +13,7 @@ export async function loadIIIFManifest(manifestUrlOrJson) {
 
       // Load individual model annotations
       const annos = iiifManifest.annotationsFromScene(manifestScene);
+      iiifManifest.modelUrls = new Array();
 
       filteredAnnos = annos.filter((anno) => {
         const body = anno.getBody()[0];
@@ -24,14 +25,16 @@ export async function loadIIIFManifest(manifestUrlOrJson) {
 
       filteredAnnos.forEach((modelAnnotation) => {
         let modelUrl;
-        if (modelAnnotation.getBody3D()?.isSpecificResource) {
-          modelUrl = modelAnnotation.getBody3D().getSource()?.id;
+        if (modelAnnotation.getBody()[0].isSpecificResource) {
+          modelUrl = modelAnnotation.getBody()[0].getSource()?.id;
         } else {
-          modelUrl = modelAnnotation.getBody3D()?.id;
+          modelUrl = modelAnnotation.getBody()[0].id;
         }
         const modelTarget = modelAnnotation.getTarget();
-        if (modelUrl && modelTarget)
+        if (modelUrl && modelTarget) {
+          iiifManifest.modelUrls.push(modelUrl);
           iiifManifest.modelUrl = modelUrl;
+        }
       });
     });
   }

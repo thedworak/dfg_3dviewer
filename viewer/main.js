@@ -119,8 +119,7 @@ var distanceGeometry = new THREE.Vector3();
 let entityID = "";
 var metadataUrl;
 
-let iiifConfigURL =
-  "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json";
+let iiifConfigURL = {url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: "Object with Position and Scale"};
 
 var canvasDimensions, CANVASDIMENSIONS;
 
@@ -1940,8 +1939,13 @@ async function init() {
       req.send(null);
     } else {
       async function setupIIIF() {
-        const loadedIIIF = await loadIIIFManifest(iiifConfigURL);
+        const loadedIIIF = await loadIIIFManifest(iiifConfigURL.url);
+        console.log(loadedIIIF);
         if (loadedIIIF.modelUrl) {
+          loadedIIIF.modelUrls?.forEach(element => {
+            console.log(element);
+            loadedIIIF.modelUrl = element;
+          });
           fileObject.originalPath = loadedIIIF.modelUrl;
           setModelPaths();
           await getAnnotations(loadedIIIF.annotations, objectsConfig);
@@ -1953,8 +1957,8 @@ async function init() {
         // create a small dropdown to switch iiif manifests at runtime
         document.getElementById("iiif-dropdown").addEventListener("change", async (ev) => {
           try {
-            if (ev.target.value !== iiifConfigURL) {
-              iiifConfigURL = ev.target.value;
+            if (ev.target.value !== iiifConfigURL.url) {
+              iiifConfigURL.url = ev.target.value;
               await setupIIIF();
             }
           } catch (err) {
@@ -1966,7 +1970,7 @@ async function init() {
       
       switch(CONFIG.entity.metadata.source.substring(0, 4).toLowerCase()) {
         case "iiif":
-          if (iiifConfigURL !== "") {
+          if (iiifConfigURL.url !== "") {
             createIIIFDropdown(container, iiifConfigURL, canvasDimensions);
             await loadIIIFURL();
             CONFIG.entity.metadata.source = "IIIF";
