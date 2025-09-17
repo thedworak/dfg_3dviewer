@@ -1,5 +1,5 @@
-import manifesto from "@iiif/3d-manifesto-dev/dist-commonjs/";
-import * as manifest from "@iiif/3d-manifesto-dev/dist-esmodule";
+//import manifest from "@iiif/3d-manifesto-dev/dist-esmodule/";
+import * as manifesto from "@iiif/3d-manifesto-dev/dist-esmodule";
 
 export class IIIFManifest {
   constructor(manifest) {
