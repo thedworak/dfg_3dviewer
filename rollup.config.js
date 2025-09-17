@@ -5,7 +5,7 @@ import json from '@rollup/plugin-json';
 export default {
   input: 'viewer/main.js',
   output: {
-    file: 'dist/dfg_3dviewer.js',
+    file: 'dist/dfg_3dviewer-module.js',
     format: 'iife', // or 'esm' if you want <script type="module">
     sourcemap: true
   },
