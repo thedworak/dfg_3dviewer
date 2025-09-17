@@ -4,6 +4,7 @@ dfg_3dviewer:
     viewer/main.js: { attributes: { type: module } }
     viewer/toastify.js: { }
     viewer/spinner/main.js: { }
+    dist/dfg3dviewer-module.js: {}  
   css:
     theme:
       viewer/css/main.css: {}

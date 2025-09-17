@@ -6,4 +6,3 @@
 node_modules
 /.parcel-cache
 *.mdb~
-dist
