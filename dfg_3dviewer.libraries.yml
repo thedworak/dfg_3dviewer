@@ -1,6 +1,6 @@
 dfg_3dviewer:
   js:
-    dist/dfg3dviewer-module.js: {}  
+    dist/dfg_3dviewer-module.js: {}  
   css:
     theme:
       viewer/css/main.css: {}
