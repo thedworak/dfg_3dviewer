@@ -7,8 +7,12 @@ export default {
   output: {
     file: 'dist/dfg_3dviewer-module.js',
     format: 'iife', // or 'esm' if you want <script type="module">
-    sourcemap: true
+    name: 'Dfg3DViewer',
+    globals: {
+      three: 'THREE'
+    }
   },
+  external: ['three'],
   plugins: [
     resolve(), 
     commonjs(),
