@@ -1,4 +1,4 @@
-const manifesto = require("@iiif/3d-manifesto-dev/dist-commonjs/");
+import manifesto from "@iiif/3d-manifesto-dev/dist-commonjs/";
 import * as manifest from "@iiif/3d-manifesto-dev/dist-esmodule";
 
 export class IIIFManifest {
