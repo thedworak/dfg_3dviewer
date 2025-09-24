@@ -663,7 +663,7 @@ export async function loadModel(params) {
     case "gltf":
       const dracoLoader = new DRACOLoader();
       dracoLoader.setDecoderPath(
-        config.baseModulePath + "/js/jsm/libs/draco/"
+        "./js/jsm/libs/draco/"
       );
       dracoLoader.preload();
       const gltf = new GLTFLoader();
@@ -706,11 +706,6 @@ export async function loadModel(params) {
             gltf.scene.position.y,
             gltf.scene.position.z
           );
-          const box = new THREE.Box3().setFromObject(gltf.scene);
-          const size = box.getSize(new THREE.Vector3()).length();
-          const center = box.getCenter(new THREE.Vector3());
-          const scaleFactor = 10 / size;
-          gltf.scene.scale.setScalar(scaleFactor);
           scene.add(gltf.scene, outlineClipping);
           scene.add(gltf.scene);
           mainObject.push(gltf.scene);

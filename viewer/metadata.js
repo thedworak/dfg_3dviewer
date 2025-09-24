@@ -68,6 +68,8 @@ export function appendMetadata(
   container.appendChild(metadataContainer);
 }
 
+  export let downloadModel;
+
 /**
  * Handles metadata response and builds the metadata UI.
  */
@@ -198,21 +200,19 @@ export async function handleMetadataResponse(
             }
           }
 
-          let downloadModel = document.createElement("div");
+          downloadModel = document.createElement("div");
           downloadModel.setAttribute("id", "downloadModel");
+          downloadModel.style.top = (CONFIG.viewer.canvasDimensions.y - 50) + "px;";
 
           var c_path = fileObject.path;
           if (compressedFile !== "") {
             fileObject.filename = fileObject.filename.replace(fileObject.orgExtension, fileObject.extension);
           }
-          downloadModel.innerHTML =
-            "<a href='blob:" +
-            c_path +
-            fileObject.filename +
-            "' download><img src='" +
-            CONFIG.baseModulePath +
-            "/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
-          downloadModel.style.top = bottomLineGUI + "px";
+
+          downloadModel.innerHTML = `
+          <a href="blob:${c_path}${fileObject.filename}" download>
+            <img src="assets/cloud-arrow-down.svg" alt="download" width="25" height="25" title="Download source file"/>`;
+          downloadModel.style.top = (bottomLineGUI) + "px";
           container.appendChild(downloadModel);
 
           metadataContainer.appendChild(viewEntity);
@@ -392,8 +392,8 @@ export function createIIIFDropdown(container, iiifConfigURL, canvasDimensions) {
   wrapper.style.position = "relative";
   wrapper.style.top = (canvasDimensions.y + 10) + "px";
   const label = document.createElement("label");
-  label.textContent = "IIIF manifest:";
-  label.style.fontSize = "12px";
+  label.textContent = "IIIF manifest: ";
+  label.style.fontSize = "14px";
   label.style.alignSelf = "center";
 
   const select = document.createElement("select");

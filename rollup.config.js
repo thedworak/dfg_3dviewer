@@ -1,3 +1,5 @@
+import url from '@rollup/plugin-url';
+import copy from 'rollup-plugin-copy';
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
@@ -14,7 +16,18 @@ export default {
   },
   external: ['three'],
   plugins: [
-    resolve(), 
+      url({
+      include: ['**/*.svg', '**/*.png', '**/*.jpg', '**/*.gif'],
+      limit: 0, // always copy instead of base64 inline
+      fileName: 'assets/[name][hash][extname]', // nice hashed filenames
+      publicPath: 'assets/', // path inside dist
+    }),
+    copy({
+      targets: [
+        { src: 'viewer/img/*', dest: 'dist/assets' }
+      ]
+    }),
+    resolve(),
     commonjs(),
     json()
   ]

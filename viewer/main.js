@@ -31,7 +31,7 @@ import {
 } from "./utils.js";
 
 import { loadModel, showToast } from "./loaders.js";
-import { createIIIFDropdown } from "./metadata.js";
+import { createIIIFDropdown, downloadModel } from "./metadata.js";
 
 //three.js core
 import * as THREE from "./build/three.module.js";
@@ -80,7 +80,7 @@ if (ViewerSettings !== undefined) {
       lightweight: 1,
       salt: "Z7FYJMmTiEzcGp4lTpuk4LiA",
       scaleContainer: {
-        x: 1,
+        x: 0.85,
         y: 1.4,
       },
       gallery: {
@@ -121,8 +121,6 @@ var metadataUrl;
 
 let iiifConfigURL = {url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: "Object with Position and Scale"};
 
-var canvasDimensions, CANVASDIMENSIONS;
-
 const clock = new THREE.Clock();
 const editor = true;
 var FULLSCREEN = false;
@@ -133,7 +131,7 @@ let tween = new Tween();
 const container = document.getElementById(CONFIG.viewer.container);
 const scrollTop = window.scrollY || document.documentElement.scrollTop;
 
-canvasDimensions = CANVASDIMENSIONS = {
+CONFIG.viewer.canvasDimensions = {
   x: container.getBoundingClientRect().width * Number(CONFIG.viewer.scaleContainer.x),
   y:
     (container.getBoundingClientRect().height + scrollTop) * Number(CONFIG.viewer.scaleContainer.y),
@@ -143,7 +141,7 @@ var fileObject = { originalPath: '', filename: '', basename: '', extension: '', 
 
 container.setAttribute("display", "block");
 fileObject.originalPath = container.getAttribute("3d");
-const bottomLineGUI = canvasDimensions.y - 70;
+const bottomLineGUI = CONFIG.viewer.canvasDimensions.y - 85;
 
 if (CONFIG.viewer.lightweight === true) {
   CONFIG.viewer.lightweight = container.getAttribute("proxy");
@@ -181,7 +179,7 @@ var gridSize;
 var noMTL = false;
 
 var canvasText;
-var downloadModel, viewEntity, fullscreenMode;
+var viewEntity, fullscreenMode;
 var originalMetadata = [];
 
 var spinnerContainer = document.createElement("div");
@@ -561,6 +559,8 @@ export function setupObject(_object, _light, _controls, _helperObjects) {
       _object.geometry.computeBoundingBox();
       _object.geometry.computeBoundingSphere();
     }
+    _object.updateMatrix();
+    _object.updateMatrixWorld(true);
   } else {
     var boundingBox = new THREE.Box3();
     if (Array.isArray(_object)) {
@@ -576,6 +576,7 @@ export function setupObject(_object, _light, _controls, _helperObjects) {
           _object[i].geometry.computeBoundingBox();
           _object[i].geometry.computeBoundingSphere();
         }
+        _object[i].updateMatrixWorld();
       }
     } else if (_object.isGroup && fileObject.extension == "fbx") {
       //workaround for specific FBX case
@@ -592,6 +593,7 @@ export function setupObject(_object, _light, _controls, _helperObjects) {
         -boundingBox.min.y,
         -(boundingBox.min.z + boundingBox.max.z) / 2
       );
+      _object.updateMatrixWorld();
       //_object.position.set (0, 0, 0);
       _object.needsUpdate = true;
       if (typeof _object.geometry !== "undefined") {
@@ -725,26 +727,27 @@ function setupClippingPlanes(_geom, _size, _distance) {
   });
 }
 
-async function fitCameraToCenteredObject(camera, object, add_offset, _fit, _helperObjects) {
+function fitCameraToCenteredObject(camera, object, add_offset, _fit, _helperObjects) {
   const boundingBox = new THREE.Box3();
   if (Array.isArray(object)) {
     for (let i = 0; i < object.length; i++) {
-      boundingBox.setFromObject(object[i]);
+      const box = new THREE.Box3().setFromObject(object[i]);
+      boundingBox.union(box);
     }
   } else {
     boundingBox.setFromObject(object);
   }
 
-  var middle = new THREE.Vector3();
-  var size = new THREE.Vector3();
+  var size = new THREE.Vector3(), center = new THREE.Vector3();
   boundingBox.getSize(size);
+  boundingBox.getCenter(center); // center point
   // ground
-  var distance = new THREE.Vector3(
+  var distance1 = new THREE.Vector3(
     Math.abs(boundingBox.max.x - boundingBox.min.x),
     Math.abs(boundingBox.max.y - boundingBox.min.y),
     Math.abs(boundingBox.max.z - boundingBox.min.z)
   );
-  gridSize = Math.max(distance.x, distance.y, distance.z);
+  gridSize = Math.max(distance1.x, distance1.y, distance1.z);
 
   dirLightTarget = new THREE.Object3D();
   dirLightTarget.position.set(0, 0, 0);
@@ -782,71 +785,31 @@ async function fitCameraToCenteredObject(camera, object, add_offset, _fit, _help
   grid.position.set(0, 0, 0);
   scene.add(grid);
 
-  // How to fit the box in the view:
-  // 1. figure out horizontal FOV (on non-1.0 aspects)
-  // 2. figure out distance from the object in X and Y planes
-  // 3. select the max distance (to fit both sides in)
-  //
-  // The reason is as follows:
-  //
-  // Imagine a bounding box (BB) is centered at (0,0,0).
-  // Camera has vertical FOV (camera.fov) and horizontal FOV
-  // (camera.fov scaled by aspect, see fovh below)
-  //
-  // Therefore if you want to put the entire object into the field of view,
-  // you have to compute the distance as: z/2 (half of Z size of the BB
-  // protruding towards us) plus for both X and Y size of BB you have to
-  // figure out the distance created by the appropriate FOV.
-  //
-  // The FOV is always a triangle:
-  //
-  //  (size/2)
-  // +--------+
-  // |       /
-  // |      /
-  // |     /
-  // | F° /
-  // |   /
-  // |  /
-  // | /
-  // |/
-  //
-  // F° is half of respective FOV, so to compute the distance (the length
-  // of the straight line) one has to: `size/2 / Math.tan(F)`.
-  //
-  // FTR, from https://threejs.org/docs/#api/en/cameras/PerspectiveCamera
-  // the camera.fov is the vertical FOV.
+  // Half size of the object
+  const halfHeight = size.y / 2;
+  const halfWidth = size.x / 2;
 
+  // Camera distance from object center (along z-axis or camera direction)
+  const fitHeightDistance = halfHeight / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const fitWidthDistance = halfWidth / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / camera.aspect;
+
+  const distance = Math.max(fitHeightDistance, fitWidthDistance) * add_offset;
+
+  // Compute camera position
+  const direction = new THREE.Vector3(0, 0, 1); // camera looks along -Z by default
+  camera.position.copy(center).add(direction.multiplyScalar(distance));
+  camera.lookAt(center);
   let cameraZ = camera.position.z;
-  let offset = new THREE.Vector3(0, 0, 0);
-  let sizeZ = Math.max(size.x, size.y, size.z) / 2;
-  let dx, dy;
-  if (_fit) {
-    const fov = camera.fov * (Math.PI / 180);
-    const fovh = Math.atan(Math.tan(fov) * camera.aspect);
-    dx = sizeZ + size.x / 2 / Math.tan(fovh);
-    dy = sizeZ + size.y / 2 / Math.tan(fov);
-    cameraZ = Math.max(dx, dy);
-    camera.position.y *= 0.65;
-    camera.position.z *= 2.5;
-  }
-
-  // offset the camera, if desired (to avoid filling the whole canvas)
-  if (add_offset !== undefined && add_offset !== 0 && _fit) {
-    cameraZ *= add_offset;
-    offset.y = dy / 2;
-    offset.z = dx / 2;
-  }
 
   cameraCoords = {
     x: camera.position.x,
-    y: camera.position.y + offset.y,
-    z: cameraZ * 0.75 + offset.z,
+    y: camera.position.y,
+    z: cameraZ * 0.85,
   };
   tween = new Tween(cameraCoords)
     .to({ z: camera.position.z }, 1500)
     .onUpdate(() => {
-      camera.position.set(cameraCoords.x, cameraCoords.y, cameraCoords.z);
+      camera.position.set(-cameraCoords.x*1.2, cameraCoords.y*1.7, cameraCoords.z*1.1);
       cameraLight.position.set(cameraCoords.x, cameraCoords.y, cameraCoords.z);
       camera.updateProjectionMatrix();
       controls.update();
@@ -1055,7 +1018,7 @@ async function setupEmptyCamera(_camera, _object, _helperObjects) {
   var size = new THREE.Vector3();
   boundingBox.getSize(size);
   camera.position.set(size.x, size.y, size.z);
-  await fitCameraToCenteredObject(_camera, _object, 1.2, true, _helperObjects);
+  fitCameraToCenteredObject(_camera, _object, 1.2, true, _helperObjects);
 }
 
 export async function setupCamera(_object, _camera, _light, controls, _config, _helperObjects) {
@@ -1106,7 +1069,7 @@ export async function setupCamera(_object, _camera, _light, controls, _config, _
     }
     _camera.updateProjectionMatrix();
     controls.update();
-    await fitCameraToCenteredObject(_camera, _object, 2.3, false, _helperObjects);
+    fitCameraToCenteredObject(_camera, _object, 2.5, false, _helperObjects);
   } else {
     setupEmptyCamera(_camera, _object, _helperObjects);
   }
@@ -1213,95 +1176,91 @@ function buildRuler(_id) {
 }
 
 function onWindowResize() {
-  var rightOffsetEntity = -65;
-  var rightOffsetFullscreen = canvasDimensions.x * 0.45;
-  var bottomOffsetFullscreen = -canvasDimensions.y * 0.97 + 20;
+  var rightOffsetEntity = -75;
+  var rightOffsetFullscreen = CONFIG.viewer.canvasDimensions.x * 0.45;
+  var bottomOffsetFullscreen = -CONFIG.viewer.canvasDimensions.y * 0.97 + 20;
+  let containerRect;
+  const dpr = window.devicePixelRatio || 1;
   if (FULLSCREEN) {
-    canvasDimensions = { x: window.innerWidth, y: window.innerHeight };
+    CONFIG.viewer.canvasDimensions = { x: window.innerWidth, y: window.innerHeight };
     rightOffsetEntity = -95;
-    bottomOffsetFullscreen = -canvasDimensions.y * 0.96 + 20;
+    bottomOffsetFullscreen = -CONFIG.viewer.canvasDimensions.y * 0.96 + 20;
     downloadModel.setAttribute("style", "visibility: hidden");
     mainCanvas.style.width = "100vw !important";
     mainCanvas.style.height = "100vh !important";
     metadataContainer.style.width = "10%";
     metadataContainer.style.height = "10%";
+    containerRect  = container.getBoundingClientRect(); // CSS pixels
   } else {
-    canvasDimensions = {
+    CONFIG.viewer.canvasDimensions = {
       x: container.getBoundingClientRect().width * Number(CONFIG.viewer.scaleContainer.x),
       y: container.getBoundingClientRect().bottom * Number(CONFIG.viewer.scaleContainer.y),
     };
-    bottomOffsetFullscreen = Math.round(-canvasDimensions.y) + 36;
+    bottomOffsetFullscreen = Math.round(-CONFIG.viewer.canvasDimensions.y) + 36;
     mainCanvas.style.width = "100% !imporant";
     mainCanvas.style.height = "100% !important";
     metadataContainer.style.width = "100%";
     metadataContainer.style.height = "100%";
 
-    if (CONFIG.viewer.lightweight === false) {
-      downloadModel.setAttribute("style", "visibility: visible");
-      downloadModel.setAttribute(
-        "style",
-        "top:" + (canvasDimensions.y - 60) + "px;"
-      );
-    }
+    containerRect  = mainCanvas.getBoundingClientRect(); // CSS pixels
+    downloadModel?.setAttribute("style", "visibility: visible");
+    downloadModel.style.top = (containerRect.height / dpr - 85) + "px";  
   }
-
-  mainCanvas.style.width = canvasDimensions.x + "px;";
-  mainCanvas.style.height = canvasDimensions.y + "px;";
+    
+  fullscreenMode.style.top  = (containerRect.height / dpr - 60) + "px";
+  fullscreenMode.style.left = (containerRect.width  - 36) + "px";
+  mainCanvas.style.width = CONFIG.viewer.canvasDimensions.x + "px;";
+  mainCanvas.style.height = CONFIG.viewer.canvasDimensions.y + "px;";
   //mainCanvas.setAttribute("style", "width:" + canvasDimensions.x+"px;" + "height:" + canvasDimensions.y +"px;" );
 
   guiContainer.setAttribute(
     "style",
     "width:" +
-    canvasDimensions.x +
+    CONFIG.viewer.canvasDimensions.x +
     "px; left: " +
-    canvasDimensions.x -
+    CONFIG.viewer.canvasDimensions.x -
     lilGui[0].getBoundingClientRect().width +
     "px"
   );
-  lilGui[0].style.left = canvasDimensions.x - lilGui[0].getBoundingClientRect().width - 10 + "px";
+  lilGui[0].style.left = CONFIG.viewer.canvasDimensions.x - lilGui[0].getBoundingClientRect().width - 10 + "px";
 
-  renderer.setSize(canvasDimensions.x, canvasDimensions.y);
+  renderer.setSize(CONFIG.viewer.canvasDimensions.x, CONFIG.viewer.canvasDimensions.y);
   renderer.setPixelRatio(window.devicePixelRatio);
-  camera.aspect = canvasDimensions.x / canvasDimensions.y;
+  camera.aspect = CONFIG.viewer.canvasDimensions.x / CONFIG.viewer.canvasDimensions.y;
   camera.updateProjectionMatrix();
-  renderer.setSize(canvasDimensions.x, canvasDimensions.y);
 
   if (typeof (viewEntity) !== "undefined") viewEntity.setAttribute("style", "right: " + rightOffsetEntity + "%");
-  fullscreenMode.setAttribute("style", "top:" + (canvasDimensions.y - 50) + "px; left: " + (canvasDimensions.x - 36) + "px;"
-  );
+
   //fullscreenMode.style.top = (bottomLineGUI) + 'px;';
   controls.update();
-  render();
 }
 
 function fullscreen() {
-  FULLSCREEN = !FULLSCREEN;
+  FULLSCREEN = !FULLSCREEN
+
   if (FULLSCREEN) {
     if (container.requestFullscreen) {
-      //mainCanvas.requestFullscreen();
       container.requestFullscreen();
-    } else if (container.webkitRequestFullscreen) {
-      /* Safari */
+    } else if (container.webkitRequestFullscreen) { // Safari
       container.webkitRequestFullscreen();
-    } else if (container.msRequestFullscreen) {
-      /* IE11 */
+    } else if (container.msRequestFullscreen) { // IE11
       container.msRequestFullscreen();
-    } else if (container.mozRequestFullScreen) {
-      /* Mozilla */
+    } else if (container.mozRequestFullScreen) { // old Firefox
       container.mozRequestFullScreen();
     }
   } else {
     if (document.exitFullscreen) {
       document.exitFullscreen();
     } else if (document.webkitExitFullscreen) {
-      /* Safari */
       document.webkitExitFullscreen();
     } else if (document.msExitFullscreen) {
-      /* IE11 */
       document.msExitFullscreen();
+    } else if (document.mozCancelFullScreen) {
+      document.mozCancelFullScreen();
     }
   }
-  onWindowResize();
+  // Update camera/renderer after a short delay
+  setTimeout(onWindowResize, 100);
 }
 
 function exitFullscreenHandler() {
@@ -1572,9 +1531,9 @@ function takeScreenshot() {
       });
   }, "image/png");
   renderer.setPixelRatio(window.devicePixelRatio);
-  camera.aspect = canvasDimensions.x / canvasDimensions.y;
+  camera.aspect = CONFIG.viewer.canvasDimensions.x / CONFIG.viewer.canvasDimensions.y;
   camera.updateProjectionMatrix();
-  renderer.setSize(canvasDimensions.x, canvasDimensions.y);
+  renderer.setSize(CONFIG.viewer.canvasDimensions.x, CONFIG.viewer.canvasDimensions.y);
 }
 
 async function mainLoadModel(_ext) {
@@ -1631,7 +1590,7 @@ async function mainLoadModel(_ext) {
         compressedFile,
         viewEntity, helperObjects);
     }
-    else await loadModel(fileObject.path, fileObject.basename, fileObject.filename, _ext, fileObject.extension, CONFIG, getProxyPath, camera, lightObjects, controls, scene, mainObject, outlineClipping, circle, gui, stats,
+    else await loadModel(fileObject, CONFIG, getProxyPath, camera, lightObjects, controls, scene, mainObject, outlineClipping, circle, gui, stats,
       entityID, container,
       metadataContainer,
       canvasText,
@@ -1711,7 +1670,7 @@ async function init() {
   if (!renderer) {
     camera = new THREE.PerspectiveCamera(
       45,
-      canvasDimensions.x / canvasDimensions.y,
+      CONFIG.viewer.canvasDimensions.x / CONFIG.viewer.canvasDimensions.y,
       0.001,
       999000000
     );
@@ -1765,7 +1724,7 @@ async function init() {
       alpha: true,
     });
     renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.setSize(canvasDimensions.x, canvasDimensions.y);
+    renderer.setSize(CONFIG.viewer.canvasDimensions.x, CONFIG.viewer.canvasDimensions.y);
     renderer.shadowMap.enabled = true;
     renderer.localClippingEnabled = true;
     renderer.physicallyCorrectLights = true; //can be considered as better looking
@@ -1778,29 +1737,29 @@ async function init() {
     renderer.domElement.addEventListener("pointerup", onPointerUp);
     renderer.domElement.addEventListener("pointermove", onPointerMove);
 
-    renderer.setSize(canvasDimensions.x, canvasDimensions.y);
-    renderer.domElement.style.width = `${canvasDimensions.x}px`;
-    renderer.domElement.style.height = `${canvasDimensions.y}px`;
+    renderer.setSize(CONFIG.viewer.canvasDimensions.x, CONFIG.viewer.canvasDimensions.y);
+    renderer.domElement.style.width = CONFIG.viewer.canvasDimensions.x + "px";
+    renderer.domElement.style.height = CONFIG.viewer.canvasDimensions.y + "px";
     renderer.domElement.style.display = "block"; // usually best
     container.appendChild(renderer.domElement);
     mainCanvas.setAttribute(
       "style",
-      `width: ${canvasDimensions.x}px; height: clamp(20vh, ${canvasDimensions.y}px, 100vh); display: flex;`
+      `width: ${CONFIG.viewer.canvasDimensions.x}px; height: clamp(20vh, ${CONFIG.viewer.canvasDimensions.y}px, 100vh); display: flex;`
     );
     canvasText = document.createElement("div");
     canvasText.id = "TextCanvas";
-    canvasText.width = canvasDimensions.x;
-    canvasText.height = canvasDimensions.y;
+    canvasText.width = CONFIG.viewer.canvasDimensions.x + "px";
+    canvasText.height = CONFIG.viewer.canvasDimensions.y + "px";
 
-    guiContainer.style.width = canvasDimensions.x;
-    guiContainer.style.left = container.offsetLeft + "px";
+    guiContainer.style.width = CONFIG.viewer.canvasDimensions.x;
+    guiContainer.style.left = container.getBoundingClientRect().left + "px";
     lilGui = document.getElementsByClassName("lil-gui root");
     lilGui[0].style.left =
-      canvasDimensions.x - lilGui[0].getBoundingClientRect().width - 10 + "px";
+      CONFIG.viewer.canvasDimensions.x - lilGui[0].getBoundingClientRect().width - 10 + "px";
 
     fileElement = document.getElementsByClassName("field--type-file");
     if (fileElement.length > 0) {
-      fileElement[0].style.height = canvasDimensions.y * 1.1 + "px";
+      fileElement[0].style.height = CONFIG.viewer.canvasDimensions.y * 1.1 + "px";
     }
 
     if (
@@ -1971,7 +1930,7 @@ async function init() {
       switch(CONFIG.entity.metadata.source.substring(0, 4).toLowerCase()) {
         case "iiif":
           if (iiifConfigURL.url !== "") {
-            createIIIFDropdown(container, iiifConfigURL, canvasDimensions);
+            createIIIFDropdown(container, iiifConfigURL, CONFIG.viewer.canvasDimensions);
             await loadIIIFURL();
             CONFIG.entity.metadata.source = "IIIF";
             await setupIIIF();
@@ -1992,15 +1951,13 @@ async function init() {
     fullscreenMode = document.createElement("div");
     fullscreenMode.setAttribute("id", "fullscreenMode");
     fullscreenMode.innerHTML =
-      "<img src='" +
-      CONFIG.baseModulePath +
-      "/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
+      "<img src='" + "./assets/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
     fullscreenMode.setAttribute(
       "style",
       "top:" +
       (bottomLineGUI + 20) +
       "px; left: " +
-      (canvasDimensions.x - 36) +
+      (CONFIG.viewer.canvasDimensions.x - 36) +
       "px"
     );
     container.appendChild(fullscreenMode);
@@ -2034,11 +1991,11 @@ async function init() {
     stats = new Stats();
     stats.domElement.style.cssText =
       "position:relative;top:0px;left:" +
-      (canvasDimensions.x - 90) +
+      (CONFIG.viewer.canvasDimensions.x - 90) +
       "px;max-height:120px;max-width:90px;z-index:2;visibility:hidden;";
 
-    windowHalfX = canvasDimensions.x / 2;
-    windowHalfY = canvasDimensions.y / 2;
+    windowHalfX = CONFIG.viewer.canvasDimensions.x / 2;
+    windowHalfY = CONFIG.viewer.canvasDimensions.y / 2;
 
     const editorFolder = gui.addFolder("Editor").close();
     editorFolder

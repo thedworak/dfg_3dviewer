@@ -7,9 +7,10 @@ export async function loadIIIFManifest(manifestUrlOrJson) {
   let filteredAnnos;
 
   if (iiifManifest.scenes.length > 0) {
-    iiifManifest.scenes.forEach((scene) => {
+    //iiifManifest.scenes.forEach((scene) => { //TODO: support multiple scenes const manifestScene = scene;
+    //if (!scene) return;
       // Root scene
-      const manifestScene = scene;
+      const manifestScene = iiifManifest.scenes[0];
 
       // Load individual model annotations
       const annos = iiifManifest.annotationsFromScene(manifestScene);
@@ -36,7 +37,7 @@ export async function loadIIIFManifest(manifestUrlOrJson) {
           iiifManifest.modelUrl = modelUrl;
         }
       });
-    });
+    //});
   }
   return {
     manifest: iiifManifest.manifest,
