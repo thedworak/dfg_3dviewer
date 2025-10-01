@@ -5,12 +5,16 @@ export async function loadIIIFManifest(manifestUrlOrJson) {
   let iiifManifest = new IIIFManifest(manifestUrlOrJson);
   await iiifManifest.loadManifest();
   let filteredAnnos;
+  let i = 0;
 
   if (iiifManifest.scenes.length > 0) {
     //iiifManifest.scenes.forEach((scene) => { //TODO: support multiple scenes const manifestScene = scene;
     //if (!scene) return;
       // Root scene
-      const manifestScene = iiifManifest.scenes[0];
+      const manifestScene = iiifManifest.scenes[i];
+
+      // Add scene BG color
+      iiifManifest.scenes[i].background = await manifestScene.getBackgroundColor();
 
       // Load individual model annotations
       const annos = iiifManifest.annotationsFromScene(manifestScene);
@@ -34,24 +38,24 @@ export async function loadIIIFManifest(manifestUrlOrJson) {
         const modelTarget = modelAnnotation.getTarget();
         if (modelUrl && modelTarget) {
           iiifManifest.modelUrls.push(modelUrl);
-          iiifManifest.modelUrl = modelUrl;
         }
       });
     //});
+    i++;
   }
   return {
     manifest: iiifManifest.manifest,
     scenes: iiifManifest.scenes,
     annotations: filteredAnnos,
-    modelUrl: iiifManifest.modelUrl
+    modelUrls: iiifManifest.modelUrls
   };
 }
 
-export async function getAnnotations(filteredAnnos, objectsConfig) {
+export async function getAnnotations(iiifManifest, objectsConfig) {
   var ind = 0;
   await Promise.all(
-    filteredAnnos.map(async (modelAnnotation) => {
-      console.log("Processing annotation", ind, "of", filteredAnnos.length);
+    iiifManifest.annotations.map(async (modelAnnotation) => {
+      console.log("Processing annotation", ind, "of", iiifManifest.annotations.length);
       if (modelAnnotation.getBody()[0].isSpecificResource) {
         let transforms = [];
 
@@ -67,6 +71,8 @@ export async function getAnnotations(filteredAnnos, objectsConfig) {
         for (const transform of transforms) {
           if (!transform.isTransform) continue;
 
+          var transforms = new Array();
+
           const transformHandlers = [
             {
               key: "isScaleTransform",
@@ -74,8 +80,9 @@ export async function getAnnotations(filteredAnnos, objectsConfig) {
                 const scale = transform.getScale();
                 if (scale) {
                   console.log("scaling");
-                  objectsConfig.models[0].scale = scale;
+                  objectsConfig.models.push({scale: scale});
                 }
+                else objectsConfig.models[0].scale = { x: 1, y: 1, z: 1};
               },
             },
             {
@@ -86,6 +93,7 @@ export async function getAnnotations(filteredAnnos, objectsConfig) {
                   console.log("rotating");
                   objectsConfig.models[0].rotation = rotation;
                 }
+                else objectsConfig.models[0].rotation = { x: 0, y: 0, z: 0};
               },
             },
             {
@@ -96,6 +104,7 @@ export async function getAnnotations(filteredAnnos, objectsConfig) {
                   console.log("translating");
                   objectsConfig.models[0].position = translation;
                 }
+                else objectsConfig.models[0].position = { x: 0, y: 0, z: 0};
               },
             },
           ];
@@ -112,5 +121,5 @@ export async function getAnnotations(filteredAnnos, objectsConfig) {
     })
   );
 
-  return filteredAnnos;
+  return iiifManifest.annotations;
 }

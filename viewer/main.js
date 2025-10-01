@@ -119,7 +119,7 @@ var distanceGeometry = new THREE.Vector3();
 let entityID = "";
 var metadataUrl;
 
-let iiifConfigURL = {url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: "Object with Position and Scale"};
+let iiifConfigURL = {url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: "Model Position and Scale"};
 
 const clock = new THREE.Clock();
 const editor = true;
@@ -290,7 +290,7 @@ var RULER_MODE = false;
 const lineMaterial = new THREE.LineBasicMaterial({ color: 0x0000ff });
 var linePoints = [];
 
-const gui = new GUI({ container: guiContainer });
+let gui = new GUI({ container: guiContainer });
 
 var hierarchyFolder;
 const GUILength = 35;
@@ -335,6 +335,7 @@ export var clippingPlanes = [
 var planeHelpers, clippingFolder;
 var propertiesFolder;
 var planeObjects = [];
+var editorFolder;
 export var materialsFolder;
 
 var textMesh,
@@ -623,6 +624,10 @@ export function setupObject(_object, _light, _controls, _helperObjects) {
   cameraLight.target.updateMatrixWorld();
 }
 
+function lilGUIhasFolder(folder, name) {
+  return folder.folders.some(f => f._title === name);
+}
+
 function setupClippingPlanes(_geom, _size, _distance) {
   /*var _geometry;
   if (_geom.isGroup)
@@ -650,81 +655,88 @@ function setupClippingPlanes(_geom, _size, _distance) {
   });
 
   distanceGeometry = _distance;
-  clippingFolder.add(planeParams.planeX, "displayHelperX").onChange((v) => {
-    planeParams.clippingMode.x = planeHelpers[0].visible = v;
-    if (v) {
-      transformControlClippingPlaneX.attach(planeHelpers[0]);
-      if (planeParams.outline.visible) outlineClipping.visible = true;
-    } else {
-      transformControlClippingPlaneX.detach();
-      if (
-        !planeParams.clippingMode.y &&
-        !planeParams.clippingMode.z &&
-        !planeParams.outline.visible
-      )
-        outlineClipping.visible = false;
-    }
-  });
-  clippingFolder
-    .add(planeParams.planeX, "constant")
-    .min(-distanceGeometry.x)
-    .max(distanceGeometry.x)
-    .setValue(distanceGeometry.x)
-    .step(_size / 100)
-    .listen()
-    .onChange((d) => (clippingPlanes[0].constant = d));
 
-  clippingFolder.add(planeParams.planeY, "displayHelperY").onChange((v) => {
-    planeParams.clippingMode.y = planeHelpers[1].visible = v;
-    if (v) {
-      transformControlClippingPlaneY.attach(planeHelpers[1]);
-      if (planeParams.outline.visible) outlineClipping.visible = true;
-    } else {
-      transformControlClippingPlaneY.detach();
-      if (
-        !planeParams.clippingMode.x &&
-        !planeParams.clippingMode.z &&
-        !planeParams.outline.visible
-      )
-        outlineClipping.visible = false;
-    }
-  });
-  clippingFolder
-    .add(planeParams.planeY, "constant")
-    .min(-distanceGeometry.y)
-    .max(distanceGeometry.y)
-    .setValue(distanceGeometry.y)
-    .step(_size / 100)
-    .listen()
-    .onChange((d) => (clippingPlanes[1].constant = d));
+  if (!lilGUIhasFolder(editorFolder, "Clipping Planes")) {
+    clippingFolder.add(planeParams.planeX, "displayHelperX").onChange((v) => {
+      planeParams.clippingMode.x = planeHelpers[0].visible = v;
+      if (v) {
+        transformControlClippingPlaneX.attach(planeHelpers[0]);
+        if (planeParams.outline.visible) outlineClipping.visible = true;
+      } else {
+        transformControlClippingPlaneX.detach();
+        if (
+          !planeParams.clippingMode.y &&
+          !planeParams.clippingMode.z &&
+          !planeParams.outline.visible
+        )
+          outlineClipping.visible = false;
+      }
+    });
 
-  clippingFolder.add(planeParams.planeZ, "displayHelperZ").onChange((v) => {
-    planeParams.clippingMode.z = planeHelpers[2].visible = v;
-    if (v) {
-      transformControlClippingPlaneZ.attach(planeHelpers[2]);
-      if (planeParams.outline.visible) outlineClipping.visible = true;
-    } else {
-      transformControlClippingPlaneZ.detach();
-      if (
-        !planeParams.clippingMode.x &&
-        !planeParams.clippingMode.y &&
-        !planeParams.outline.visible
-      )
-        outlineClipping.visible = false;
-    }
-  });
-  clippingFolder
-    .add(planeParams.planeZ, "constant")
-    .min(-distanceGeometry.z)
-    .max(distanceGeometry.z)
-    .setValue(distanceGeometry.z)
-    .step(_size / 100)
-    .listen()
-    .onChange((d) => (clippingPlanes[2].constant = d));
+    clippingFolder
+      .add(planeParams.planeX, "constant")
+      .min(-distanceGeometry.x)
+      .max(distanceGeometry.x)
+      .setValue(distanceGeometry.x)
+      .step(_size / 100)
+      .listen()
+      .onChange((d) => (clippingPlanes[0].constant = d));
+
+          clippingFolder.add(planeParams.planeY, "displayHelperY").onChange((v) => {
+      planeParams.clippingMode.y = planeHelpers[1].visible = v;
+      if (v) {
+        transformControlClippingPlaneY.attach(planeHelpers[1]);
+        if (planeParams.outline.visible) outlineClipping.visible = true;
+      } else {
+        transformControlClippingPlaneY.detach();
+        if (
+          !planeParams.clippingMode.x &&
+          !planeParams.clippingMode.z &&
+          !planeParams.outline.visible
+        )
+          outlineClipping.visible = false;
+      }
+    });
+    clippingFolder
+      .add(planeParams.planeY, "constant")
+      .min(-distanceGeometry.y)
+      .max(distanceGeometry.y)
+      .setValue(distanceGeometry.y)
+      .step(_size / 100)
+      .listen()
+      .onChange((d) => (clippingPlanes[1].constant = d));
+  
+
+    clippingFolder.add(planeParams.planeZ, "displayHelperZ").onChange((v) => {
+      planeParams.clippingMode.z = planeHelpers[2].visible = v;
+      if (v) {
+        transformControlClippingPlaneZ.attach(planeHelpers[2]);
+        if (planeParams.outline.visible) outlineClipping.visible = true;
+      } else {
+        transformControlClippingPlaneZ.detach();
+        if (
+          !planeParams.clippingMode.x &&
+          !planeParams.clippingMode.y &&
+          !planeParams.outline.visible
+        )
+          outlineClipping.visible = false;
+      }
+    });
+    clippingFolder
+      .add(planeParams.planeZ, "constant")
+      .min(-distanceGeometry.z)
+      .max(distanceGeometry.z)
+      .setValue(distanceGeometry.z)
+      .step(_size / 100)
+      .listen()
+      .onChange((d) => (clippingPlanes[2].constant = d));
 
   clippingFolder.add(planeParams.outline, "visible").onChange((v) => {
     outlineClipping.visible = v;
   });
+  }
+
+
 }
 
 function fitCameraToCenteredObject(camera, object, add_offset, _fit, _helperObjects) {
@@ -1063,8 +1075,19 @@ export async function setupCamera(_object, _camera, _light, controls, _config, _
         break;
       }
     });
-
-    if (typeof objectsConfig.scene.background !== "undefined") {
+    console.log(objectsConfig);
+    if (objectsConfig.scenes !== undefined && Array.isArray(objectsConfig.scenes)) {
+        objectsConfig.scenes.forEach(scene => {
+          if (scene.background !== null) { 
+                if ("red" in scene.background && "green" in scene.background && "blue" in scene.background) {
+                  var newBackground = new THREE.Color(`rgb(${scene.background.red}, ${scene.background.green}, ${scene.background.blue})`);
+                  changeBackground("linear", "#" + newBackground.getHexString());
+                  console.log("Setting up scene background", scene.background);
+              }
+          }
+        });
+    }
+    else if (typeof objectsConfig.scene.background !== "undefined") {
       mainCanvas.style.setProperty("background", objectsConfig.scene.background);
     }
     _camera.updateProjectionMatrix();
@@ -1666,327 +1689,7 @@ function changeBackground(_type, _color1, _color2) {
   }
 }
 
-async function init() {
-  if (!renderer) {
-    camera = new THREE.PerspectiveCamera(
-      45,
-      CONFIG.viewer.canvasDimensions.x / CONFIG.viewer.canvasDimensions.y,
-      0.001,
-      999000000
-    );
-    camera.position.set(0, 0, 0);
-
-    scene = new THREE.Scene();
-
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444);
-    hemiLight.position.set(0, 200, 0);
-    scene.add(hemiLight);
-
-    ambientLight = new THREE.AmbientLight(0x404040); // soft white light
-    scene.add(ambientLight);
-
-    dirLight = new THREE.DirectionalLight(0xffffff);
-    dirLight.position.set(0, 100, 50);
-    dirLight.castShadow = true;
-    dirLight.shadow.camera.top = 180;
-    dirLight.shadow.camera.bottom = -100;
-    dirLight.shadow.camera.left = -120;
-    dirLight.shadow.camera.right = 120;
-    dirLight.shadow.bias = -0.0001;
-    dirLight.shadow.mapSize.width = 1024 * 4;
-    dirLight.shadow.mapSize.height = 1024 * 4;
-    scene.add(dirLight);
-    lightObjects.push(dirLight);
-
-    cameraLightTarget = new THREE.Object3D();
-    cameraLightTarget.position.set(
-      camera.position.x,
-      camera.position.y,
-      camera.position.z
-    );
-    scene.add(cameraLightTarget);
-
-    cameraLight = new THREE.DirectionalLight(0xffffff);
-    cameraLight.position.set(camera.position);
-    cameraLight.castShadow = false;
-    cameraLight.intensity = 0.3;
-    scene.add(cameraLight);
-    cameraLight.target = cameraLightTarget;
-    cameraLight.target.updateMatrixWorld();
-
-    renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      logarithmicDepthBuffer: true,
-      colorManagement: true,
-      sortObjects: true,
-      preserveDrawingBuffer: true,
-      powerPreference: "high-performance",
-      alpha: true,
-    });
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.setSize(CONFIG.viewer.canvasDimensions.x, CONFIG.viewer.canvasDimensions.y);
-    renderer.shadowMap.enabled = true;
-    renderer.localClippingEnabled = true;
-    renderer.physicallyCorrectLights = true; //can be considered as better looking
-    renderer.autoClear = false;
-    renderer.setClearColor(0x000000, 0.0);
-    renderer.domElement.id = "MainCanvas";
-    mainCanvas = document.getElementById("MainCanvas") || renderer.domElement;
-
-    renderer.domElement.addEventListener("pointerdown", onPointerDown);
-    renderer.domElement.addEventListener("pointerup", onPointerUp);
-    renderer.domElement.addEventListener("pointermove", onPointerMove);
-
-    renderer.setSize(CONFIG.viewer.canvasDimensions.x, CONFIG.viewer.canvasDimensions.y);
-    renderer.domElement.style.width = CONFIG.viewer.canvasDimensions.x + "px";
-    renderer.domElement.style.height = CONFIG.viewer.canvasDimensions.y + "px";
-    renderer.domElement.style.display = "block"; // usually best
-    container.appendChild(renderer.domElement);
-    mainCanvas.setAttribute(
-      "style",
-      `width: ${CONFIG.viewer.canvasDimensions.x}px; height: clamp(20vh, ${CONFIG.viewer.canvasDimensions.y}px, 100vh); display: flex;`
-    );
-    canvasText = document.createElement("div");
-    canvasText.id = "TextCanvas";
-    canvasText.width = CONFIG.viewer.canvasDimensions.x + "px";
-    canvasText.height = CONFIG.viewer.canvasDimensions.y + "px";
-
-    guiContainer.style.width = CONFIG.viewer.canvasDimensions.x;
-    guiContainer.style.left = container.getBoundingClientRect().left + "px";
-    lilGui = document.getElementsByClassName("lil-gui root");
-    lilGui[0].style.left =
-      CONFIG.viewer.canvasDimensions.x - lilGui[0].getBoundingClientRect().width - 10 + "px";
-
-    fileElement = document.getElementsByClassName("field--type-file");
-    if (fileElement.length > 0) {
-      fileElement[0].style.height = CONFIG.viewer.canvasDimensions.y * 1.1 + "px";
-    }
-
-    if (
-      CONFIG.viewer.lightweight === 0 ||
-      CONFIG.viewer.lightweight === false
-    ) {
-      buildGallery();
-    }
-
-    controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 100, 0);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.enableRotate = true;
-    controls.update();
-
-    transformControl = new TransformControls(camera, renderer.domElement);
-    transformControl.rotationSnap = THREE.MathUtils.degToRad(5);
-    transformControl.space = "local";
-    transformControl.addEventListener("change", render);
-    transformControl.addEventListener("objectChange", changeScale);
-    transformControl.addEventListener("mouseUp", calculateObjectScale);
-    transformControl.addEventListener("dragging-changed", function (event) {
-      controls.enabled = !event.value;
-    });
-    scene.add(transformControl.getHelper());
-
-    transformControlLight = new TransformControls(camera, renderer.domElement);
-    transformControlLight.space = "local";
-    transformControlLight.addEventListener("change", render);
-    //transformControlLight.addEventListener('objectChange', changeLightRotation);
-    transformControlLight.addEventListener(
-      "dragging-changed",
-      function (event) {
-        controls.enabled = !event.value;
-      }
-    );
-    scene.add(transformControlLight.getHelper());
-
-    transformControlLightTarget = new TransformControls(
-      camera,
-      renderer.domElement
-    );
-    transformControlLightTarget.space = "global";
-    transformControlLightTarget.addEventListener("change", render);
-    transformControlLightTarget.addEventListener(
-      "objectChange",
-      changeLightRotation
-    );
-    transformControlLightTarget.addEventListener(
-      "dragging-changed",
-      function (event) {
-        controls.enabled = !event.value;
-      }
-    );
-    scene.add(transformControlLightTarget.getHelper());
-
-    transformControlClippingPlaneX = createClippingPlaneAxis(0, "x");
-    transformControlClippingPlaneY = createClippingPlaneAxis(1, "y");
-    transformControlClippingPlaneZ = createClippingPlaneAxis(2, "z");
-
-    transformControlClippingPlaneX.showX =
-      transformControlClippingPlaneX.showY = false;
-    transformControlClippingPlaneY.showX =
-      transformControlClippingPlaneY.showY = false;
-    transformControlClippingPlaneZ.showX =
-      transformControlClippingPlaneZ.showY = false;
-
-    var _ext = fileObject.extension.toLowerCase();
-    if (
-      _ext === "zip" ||
-      _ext === "rar" ||
-      _ext === "tar" ||
-      _ext === "xz" ||
-      _ext === "gz"
-    ) {
-      archiveType = _ext;
-    }
-
-    var _autoPath = "";
-    if (CONFIG.entity.metadata.source === "") {
-      var req = new XMLHttpRequest();
-      req.responseType = "";
-      req.open(
-        "GET",
-        CONFIG.metadataUrl + CONFIG.viewer.exportPath + entityID + "?page=0&amp;_format=xml",
-        true
-      );
-      req.onreadystatechange = async function (aEvt) {
-        if (req.readyState == 4) {
-          if (req.status == 200) {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(
-              req.responseText,
-              "application/xml"
-            );
-            if (doc.documentElement.childNodes > 0) {
-              var data = doc.documentElement.childNodes[0].childNodes;
-              if (typeof data !== undefined) {
-                var _found = false;
-                for (var i = 0; i < data.length && !_found; i++) {
-                  if (
-                    typeof data[i].tagName !== "undefined" &&
-                    typeof data[i].textContent !== "undefined"
-                  ) {
-                    var _label = data[i].tagName.replace(
-                      "wisski_path_3d_model__",
-                      ""
-                    );
-                    if (
-                      typeof _label !== "undefined" &&
-                      _label === "converted_file"
-                    ) {
-                      _found = true;
-                      _autoPath = data[i].textContent;
-                    }
-                  }
-                }
-              }
-            }
-            //check wheter semo-automatic path found
-            if (_autoPath !== "") {
-              fileObject.filename = _autoPath.split("/").pop();
-              fileObject.basename = fileObject.filename.substring(0, fileObject.filename.lastIndexOf("."));
-              fileObject.extension = fileObject.filename.substring(fileObject.filename.lastIndexOf(".") + 1);
-              _ext = fileObject.extension.toLowerCase();
-              fileObject.path = _autoPath.substring(0, _autoPath.lastIndexOf(fileObject.filename));
-            }
-            await mainLoadModel(_ext);
-          } else {
-            console.log("Error during loading metadata content\n");
-            await mainLoadModel(_ext);
-          }
-        }
-      };
-      req.send(null);
-    } else {
-      async function setupIIIF() {
-        const loadedIIIF = await loadIIIFManifest(iiifConfigURL.url);
-        console.log(loadedIIIF);
-        if (loadedIIIF.modelUrl) {
-          loadedIIIF.modelUrls?.forEach(element => {
-            console.log(element);
-            loadedIIIF.modelUrl = element;
-          });
-          fileObject.originalPath = loadedIIIF.modelUrl;
-          setModelPaths();
-          await getAnnotations(loadedIIIF.annotations, objectsConfig);
-          _ext = fileObject.extension.toLowerCase();
-          await mainLoadModel(_ext);
-        }
-      }
-      async function loadIIIFURL() {
-        // create a small dropdown to switch iiif manifests at runtime
-        document.getElementById("iiif-dropdown").addEventListener("change", async (ev) => {
-          try {
-            if (ev.target.value !== iiifConfigURL.url) {
-              iiifConfigURL.url = ev.target.value;
-              await setupIIIF();
-            }
-          } catch (err) {
-            console.error(err);
-            showToast("Error loading IIIF manifest: " + (err.message || err));
-          }
-          });
-      }      
-      
-      switch(CONFIG.entity.metadata.source.substring(0, 4).toLowerCase()) {
-        case "iiif":
-          if (iiifConfigURL.url !== "") {
-            createIIIFDropdown(container, iiifConfigURL, CONFIG.viewer.canvasDimensions);
-            await loadIIIFURL();
-            CONFIG.entity.metadata.source = "IIIF";
-            await setupIIIF();
-          }
-          break;
-        case "file": //TODO: add more sources
-          break;
-      }
-    }
-    /*try {
-
-  } catch (e) {
-    // statements to handle any exceptions
-    loadModel(path, basename, filename, extension);
-  }*/
-    window.addEventListener("resize", onWindowResize);
-
-    fullscreenMode = document.createElement("div");
-    fullscreenMode.setAttribute("id", "fullscreenMode");
-    fullscreenMode.innerHTML =
-      "<img src='" + "./assets/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
-    fullscreenMode.setAttribute(
-      "style",
-      "top:" +
-      (bottomLineGUI + 20) +
-      "px; left: " +
-      (CONFIG.viewer.canvasDimensions.x - 36) +
-      "px"
-    );
-    container.appendChild(fullscreenMode);
-    document
-      .getElementById("fullscreenMode")
-      .addEventListener("click", fullscreen, false);
-    if (document.addEventListener) {
-      document.addEventListener(
-        "webkitfullscreenchange",
-        exitFullscreenHandler,
-        false
-      );
-      document.addEventListener(
-        "mozfullscreenchange",
-        exitFullscreenHandler,
-        false
-      );
-      document.addEventListener(
-        "fullscreenchange",
-        exitFullscreenHandler,
-        false
-      );
-      document.addEventListener(
-        "MSFullscreenChange",
-        exitFullscreenHandler,
-        false
-      );
-    }
-
+    function prepareStats () {
     // stats
     stats = new Stats();
     stats.domElement.style.cssText =
@@ -1997,7 +1700,7 @@ async function init() {
     windowHalfX = CONFIG.viewer.canvasDimensions.x / 2;
     windowHalfY = CONFIG.viewer.canvasDimensions.y / 2;
 
-    const editorFolder = gui.addFolder("Editor").close();
+    editorFolder = gui.addFolder("Editor").close();
     editorFolder
       .add(transformText, "Transform 3D Object", {
         None: "",
@@ -2424,6 +2127,334 @@ async function init() {
       );
     }
   }
+
+async function init() {
+  if (!renderer) {
+    camera = new THREE.PerspectiveCamera(
+      45,
+      CONFIG.viewer.canvasDimensions.x / CONFIG.viewer.canvasDimensions.y,
+      0.001,
+      999000000
+    );
+    camera.position.set(0, 0, 0);
+
+    scene = new THREE.Scene();
+
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444);
+    hemiLight.position.set(0, 200, 0);
+    scene.add(hemiLight);
+
+    ambientLight = new THREE.AmbientLight(0x404040); // soft white light
+    scene.add(ambientLight);
+
+    dirLight = new THREE.DirectionalLight(0xffffff);
+    dirLight.position.set(0, 100, 50);
+    dirLight.castShadow = true;
+    dirLight.shadow.camera.top = 180;
+    dirLight.shadow.camera.bottom = -100;
+    dirLight.shadow.camera.left = -120;
+    dirLight.shadow.camera.right = 120;
+    dirLight.shadow.bias = -0.0001;
+    dirLight.shadow.mapSize.width = 1024 * 4;
+    dirLight.shadow.mapSize.height = 1024 * 4;
+    scene.add(dirLight);
+    lightObjects.push(dirLight);
+
+    cameraLightTarget = new THREE.Object3D();
+    cameraLightTarget.position.set(
+      camera.position.x,
+      camera.position.y,
+      camera.position.z
+    );
+    scene.add(cameraLightTarget);
+
+    cameraLight = new THREE.DirectionalLight(0xffffff);
+    cameraLight.position.set(camera.position);
+    cameraLight.castShadow = false;
+    cameraLight.intensity = 0.3;
+    scene.add(cameraLight);
+    cameraLight.target = cameraLightTarget;
+    cameraLight.target.updateMatrixWorld();
+
+    renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      logarithmicDepthBuffer: true,
+      colorManagement: true,
+      sortObjects: true,
+      preserveDrawingBuffer: true,
+      powerPreference: "high-performance",
+      alpha: true,
+    });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(CONFIG.viewer.canvasDimensions.x, CONFIG.viewer.canvasDimensions.y);
+    renderer.shadowMap.enabled = true;
+    renderer.localClippingEnabled = true;
+    renderer.physicallyCorrectLights = true; //can be considered as better looking
+    renderer.autoClear = false;
+    renderer.setClearColor(0x000000, 0.0);
+    renderer.domElement.id = "MainCanvas";
+    mainCanvas = document.getElementById("MainCanvas") || renderer.domElement;
+
+    renderer.domElement.addEventListener("pointerdown", onPointerDown);
+    renderer.domElement.addEventListener("pointerup", onPointerUp);
+    renderer.domElement.addEventListener("pointermove", onPointerMove);
+
+    renderer.setSize(CONFIG.viewer.canvasDimensions.x, CONFIG.viewer.canvasDimensions.y);
+    renderer.domElement.style.width = CONFIG.viewer.canvasDimensions.x + "px";
+    renderer.domElement.style.height = CONFIG.viewer.canvasDimensions.y + "px";
+    renderer.domElement.style.display = "block"; // usually best
+    container.appendChild(renderer.domElement);
+    mainCanvas.setAttribute(
+      "style",
+      `width: ${CONFIG.viewer.canvasDimensions.x}px; height: clamp(20vh, ${CONFIG.viewer.canvasDimensions.y}px, 100vh); display: flex;`
+    );
+    canvasText = document.createElement("div");
+    canvasText.id = "TextCanvas";
+    canvasText.width = CONFIG.viewer.canvasDimensions.x + "px";
+    canvasText.height = CONFIG.viewer.canvasDimensions.y + "px";
+
+    guiContainer.style.width = CONFIG.viewer.canvasDimensions.x;
+    guiContainer.style.left = container.getBoundingClientRect().left + "px";
+    lilGui = document.getElementsByClassName("lil-gui root");
+    lilGui[0].style.left =
+      CONFIG.viewer.canvasDimensions.x - lilGui[0].getBoundingClientRect().width - 10 + "px";
+
+    fileElement = document.getElementsByClassName("field--type-file");
+    if (fileElement.length > 0) {
+      fileElement[0].style.height = CONFIG.viewer.canvasDimensions.y * 1.1 + "px";
+    }
+
+    if (
+      CONFIG.viewer.lightweight === 0 ||
+      CONFIG.viewer.lightweight === false
+    ) {
+      buildGallery();
+    }
+
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 100, 0);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.enableRotate = true;
+    controls.update();
+
+    transformControl = new TransformControls(camera, renderer.domElement);
+    transformControl.rotationSnap = THREE.MathUtils.degToRad(5);
+    transformControl.space = "local";
+    transformControl.addEventListener("change", render);
+    transformControl.addEventListener("objectChange", changeScale);
+    transformControl.addEventListener("mouseUp", calculateObjectScale);
+    transformControl.addEventListener("dragging-changed", function (event) {
+      controls.enabled = !event.value;
+    });
+    scene.add(transformControl.getHelper());
+
+    transformControlLight = new TransformControls(camera, renderer.domElement);
+    transformControlLight.space = "local";
+    transformControlLight.addEventListener("change", render);
+    //transformControlLight.addEventListener('objectChange', changeLightRotation);
+    transformControlLight.addEventListener(
+      "dragging-changed",
+      function (event) {
+        controls.enabled = !event.value;
+      }
+    );
+    scene.add(transformControlLight.getHelper());
+
+    transformControlLightTarget = new TransformControls(
+      camera,
+      renderer.domElement
+    );
+    transformControlLightTarget.space = "global";
+    transformControlLightTarget.addEventListener("change", render);
+    transformControlLightTarget.addEventListener(
+      "objectChange",
+      changeLightRotation
+    );
+    transformControlLightTarget.addEventListener(
+      "dragging-changed",
+      function (event) {
+        controls.enabled = !event.value;
+      }
+    );
+    scene.add(transformControlLightTarget.getHelper());
+
+    transformControlClippingPlaneX = createClippingPlaneAxis(0, "x");
+    transformControlClippingPlaneY = createClippingPlaneAxis(1, "y");
+    transformControlClippingPlaneZ = createClippingPlaneAxis(2, "z");
+
+    transformControlClippingPlaneX.showX =
+      transformControlClippingPlaneX.showY = false;
+    transformControlClippingPlaneY.showX =
+      transformControlClippingPlaneY.showY = false;
+    transformControlClippingPlaneZ.showX =
+      transformControlClippingPlaneZ.showY = false;
+
+    var _ext = fileObject.extension.toLowerCase();
+    if (
+      _ext === "zip" ||
+      _ext === "rar" ||
+      _ext === "tar" ||
+      _ext === "xz" ||
+      _ext === "gz"
+    ) {
+      archiveType = _ext;
+    }
+
+    var _autoPath = "";
+    if (CONFIG.entity.metadata.source === "") {
+      var req = new XMLHttpRequest();
+      req.responseType = "";
+      req.open(
+        "GET",
+        CONFIG.metadataUrl + CONFIG.viewer.exportPath + entityID + "?page=0&amp;_format=xml",
+        true
+      );
+      req.onreadystatechange = async function (aEvt) {
+        if (req.readyState == 4) {
+          if (req.status == 200) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(
+              req.responseText,
+              "application/xml"
+            );
+            if (doc.documentElement.childNodes > 0) {
+              var data = doc.documentElement.childNodes[0].childNodes;
+              if (typeof data !== undefined) {
+                var _found = false;
+                for (var i = 0; i < data.length && !_found; i++) {
+                  if (
+                    typeof data[i].tagName !== "undefined" &&
+                    typeof data[i].textContent !== "undefined"
+                  ) {
+                    var _label = data[i].tagName.replace(
+                      "wisski_path_3d_model__",
+                      ""
+                    );
+                    if (
+                      typeof _label !== "undefined" &&
+                      _label === "converted_file"
+                    ) {
+                      _found = true;
+                      _autoPath = data[i].textContent;
+                    }
+                  }
+                }
+              }
+            }
+            //check wheter semo-automatic path found
+            if (_autoPath !== "") {
+              fileObject.filename = _autoPath.split("/").pop();
+              fileObject.basename = fileObject.filename.substring(0, fileObject.filename.lastIndexOf("."));
+              fileObject.extension = fileObject.filename.substring(fileObject.filename.lastIndexOf(".") + 1);
+              _ext = fileObject.extension.toLowerCase();
+              fileObject.path = _autoPath.substring(0, _autoPath.lastIndexOf(fileObject.filename));
+            }
+            await mainLoadModel(_ext);
+          } else {
+            console.log("Error during loading metadata content\n");
+            await mainLoadModel(_ext);
+          }
+        }
+      };
+      req.send(null);
+    } else {
+      async function setupIIIF(newUrl) {
+        iiifConfigURL.url = newUrl;
+        const loadedIIIF = await loadIIIFManifest(iiifConfigURL.url);
+        if (loadedIIIF.modelUrls.length === 0) { // no 3D model found, use example model
+          loadedIIIF.modelUrls.push('https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb');
+          showToast("No 3D model found in IIIF manifest, loading example model.");
+        }
+        let ind = 0;
+        loadedIIIF.modelUrls?.forEach( async (url) => {
+          loadedIIIF.modelUrl = url;
+          fileObject.originalPath = loadedIIIF.modelUrl;
+          setModelPaths();
+          await getAnnotations(loadedIIIF, objectsConfig);
+          if (loadedIIIF.scenes && loadedIIIF.scenes.length > 0) {
+            objectsConfig.scenes = loadedIIIF.scenes;
+          }
+          _ext = fileObject.extension.toLowerCase();
+          await mainLoadModel(_ext);
+          ind++;
+        });
+      }
+      async function loadIIIFURL() {
+        // create a small dropdown to switch iiif manifests at runtime
+        document.getElementById("iiif-dropdown").addEventListener("change", async (ev) => {
+          try {
+            if (ev.target.value !== iiifConfigURL.url) {
+              await setupIIIF(ev.target.value);
+            }
+          } catch (err) {
+            console.error(err);
+            showToast("Error loading IIIF manifest: " + (err.message || err));
+          }
+          });
+      }      
+      
+      switch(CONFIG.entity.metadata.source.substring(0, 4).toLowerCase()) {
+        case "iiif":
+          if (iiifConfigURL.url !== "") {
+            createIIIFDropdown(container, iiifConfigURL, CONFIG.viewer.canvasDimensions);
+            await loadIIIFURL();
+            CONFIG.entity.metadata.source = "IIIF";
+            await setupIIIF(iiifConfigURL.url);
+          }
+          break;
+        case "file": //TODO: add more sources
+          break;
+      }
+    }
+    /*try {
+
+  } catch (e) {
+    // statements to handle any exceptions
+    loadModel(path, basename, filename, extension);
+  }*/
+    window.addEventListener("resize", onWindowResize);
+
+    fullscreenMode = document.createElement("div");
+    fullscreenMode.setAttribute("id", "fullscreenMode");
+    fullscreenMode.innerHTML =
+      "<img src='" + "./assets/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
+    fullscreenMode.setAttribute(
+      "style",
+      "top:" +
+      (bottomLineGUI + 20) +
+      "px; left: " +
+      (CONFIG.viewer.canvasDimensions.x - 36) +
+      "px"
+    );
+    container.appendChild(fullscreenMode);
+    document
+      .getElementById("fullscreenMode")
+      .addEventListener("click", fullscreen, false);
+    if (document.addEventListener) {
+      document.addEventListener(
+        "webkitfullscreenchange",
+        exitFullscreenHandler,
+        false
+      );
+      document.addEventListener(
+        "mozfullscreenchange",
+        exitFullscreenHandler,
+        false
+      );
+      document.addEventListener(
+        "fullscreenchange",
+        exitFullscreenHandler,
+        false
+      );
+      document.addEventListener(
+        "MSFullscreenChange",
+        exitFullscreenHandler,
+        false
+      );
+    }
+  prepareStats();
+}
 }
 
 (async function () {
