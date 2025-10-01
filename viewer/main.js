@@ -159,6 +159,31 @@ if (container.hasAttribute("basePath")) {
   CONFIG.baseModulePath = container.getAttribute("basePath");
 }
 
+export function outputLog(debug = false, label = "DEBUG") {
+  return (...args) => {
+    if (!debug) return;
+
+    const timestamp = new Date().toISOString();
+
+    // Get caller info from stack trace
+    const stack = new Error().stack.split("\n")[2]; // caller line
+    const match = stack.match(/(?:at\s+.*\()?(.*):(\d+):(\d+)\)?/);
+
+    let location = "";
+    if (match) {
+      const filePath = match[1];
+      const line = match[2];
+      const col = match[3];
+      const file = filePath.split("/").pop(); // just file name
+      location = `${file}:${line}:${col}`;
+    }
+
+    console.log(`[${label}] ${timestamp} (${location})`, ...args);
+  };
+}
+
+const printLog = outputLog(true, 'DEBUG');
+
 function setModelPaths() {
   console.log(fileObject);
   fileObject.filename = fileObject.originalPath.split("/").pop();
@@ -1075,20 +1100,25 @@ export async function setupCamera(_object, _camera, _light, controls, _config, _
         break;
       }
     });
-    console.log(objectsConfig);
+    // Setup background
+    let _foundScene = false;
     if (objectsConfig.scenes !== undefined && Array.isArray(objectsConfig.scenes)) {
-        objectsConfig.scenes.forEach(scene => {
-          if (scene.background !== null) { 
-                if ("red" in scene.background && "green" in scene.background && "blue" in scene.background) {
-                  var newBackground = new THREE.Color(`rgb(${scene.background.red}, ${scene.background.green}, ${scene.background.blue})`);
-                  changeBackground("linear", "#" + newBackground.getHexString());
-                  console.log("Setting up scene background", scene.background);
+        objectsConfig.scenes.forEach(_scene => {
+          if (_scene.background !== null) {
+            if ("red" in _scene.background && "green" in _scene.background && "blue" in _scene.background) {
+              var newBackground = new THREE.Color(`rgb(${_scene.background.red}, ${_scene.background.green}, ${_scene.background.blue})`);
+              if (newBackground !== null) {
+                _foundScene = true;
+                changeBackground("linear", "#" + newBackground.getHexString());
               }
+              console.log("Setting up scene background", _scene.background);
+            }
           }
         });
     }
-    else if (typeof objectsConfig.scene.background !== "undefined") {
-      mainCanvas.style.setProperty("background", objectsConfig.scene.background);
+    if (typeof objectsConfig.scene.background !== "undefined" && !_foundScene) {
+      var newBackground = new THREE.Color(`rgb(${objectsConfig.scene.background.red}, ${objectsConfig.scene.background.green}, ${objectsConfig.scene.background.blue})`);
+      changeBackground("linear", "#" + newBackground.getHexString());
     }
     _camera.updateProjectionMatrix();
     controls.update();
