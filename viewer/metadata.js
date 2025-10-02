@@ -3,7 +3,9 @@ import {
   setupObject,
   setupCamera,
   fetchMetadata,
-  selectObjectHierarchy
+  selectObjectHierarchy,
+  lilGUIhasFolder,
+  lilGUIgetFolder
 } from "./main.js";
 
 import { showToast } from "./loaders.js";
@@ -113,21 +115,23 @@ export async function handleMetadataResponse(
           },
           id: child.id,
         };
-        hierarchyFolder = hierarchyMain.addFolder(shortChildName).close();
-        hierarchyFolder.add(tempArray, shortChildName);
-        child.traverse(function (children) {
-          if (children.isMesh && children.name !== child.name) {
-            if (children.name === "") children.name = "ChildrenMesh";
-            var shortChildrenName = truncateString(children.name, 35);
-            tempArray = {
-              [shortChildrenName]() {
-                selectObjectHierarchy(children.id, container);
-              },
-              id: children.id,
-            };
-            hierarchyFolder.add(tempArray, shortChildrenName);
-          }
-        });
+        if (!lilGUIhasFolder(hierarchyMain, shortChildName)) {
+          hierarchyFolder = hierarchyMain.addFolder(shortChildName).close();
+          hierarchyFolder.add(tempArray, shortChildName);
+          child.traverse(function (children) {
+            if (children.isMesh && children.name !== child.name) {
+              if (children.name === "") children.name = "ChildrenMesh";
+              var shortChildrenName = truncateString(children.name, 35);
+              tempArray = {
+                [shortChildrenName]() {
+                  selectObjectHierarchy(children.id, container);
+                },
+                id: children.id,
+              };
+              hierarchyFolder.add(tempArray, shortChildrenName);
+            }
+          });
+        }
       }
     });
     await setupCamera(object, camera, light, controls, CONFIG, helperObjects);
@@ -152,7 +156,9 @@ export async function handleMetadataResponse(
         id: object.id,
       };
     }
+    if (!lilGUIhasFolder(hierarchyMain, object.name)) {
     hierarchyFolder = hierarchyMain.addFolder(object.name).close();
+    }
   }
 
   hierarchyMain.domElement.classList.add("hierarchy");
@@ -259,7 +265,9 @@ export async function settingsHandler(object, camera, light, controls, hierarchy
     setupObject(object, light, controls, CONFIG, helperObjects);
     await setupCamera(object, camera, light, controls, CONFIG, helperObjects);
     if (object.name === "undefined") object.name = "level";
-    hierarchyMain.addFolder(object.name).close();
+    if (!lilGUIhasFolder(hierarchyMain, object.name)) {
+      hierarchyMain.addFolder(object.name).close();
+    }
   }
 }
 
@@ -296,6 +304,10 @@ export async function fetchSettings(
   }
 
   const hierarchyMain = gui.addFolder("Hierarchy").close();
+  console.log(lilGUIgetFolder(gui, "Hierarchy"));
+  if (lilGUIgetFolder(gui, "Hierarchy") !== null) {
+    //hierarchyMain = gui.addFolder("Hierarchy").close();
+  }
   if (CONFIG.entity.proxyPath !== undefined) {
     metadataUrl = getProxyPath(metadataUrl, CONFIG, fileObject);
     settingsHandler(object, camera, light, controls, hierarchyMain, CONFIG, helperObjects);

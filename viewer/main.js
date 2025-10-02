@@ -649,8 +649,12 @@ export function setupObject(_object, _light, _controls, _helperObjects) {
   cameraLight.target.updateMatrixWorld();
 }
 
-function lilGUIhasFolder(folder, name) {
+export function lilGUIhasFolder(folder, name) {
   return folder.folders.some(f => f._title === name);
+}
+
+export function lilGUIgetFolder(gui, name) {
+  return gui.folders.find(f => f._title === name) || null;
 }
 
 function setupClippingPlanes(_geom, _size, _distance) {
