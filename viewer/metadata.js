@@ -92,7 +92,8 @@ export async function handleMetadataResponse(
   bottomLineGUI,
   compressedFile,
   viewEntity,
-  helperObjects
+  helperObjects,
+  gui
 ) {
   var tempArray = [];
   let hierarchyFolder;
@@ -115,7 +116,7 @@ export async function handleMetadataResponse(
           },
           id: child.id,
         };
-        if (!lilGUIhasFolder(hierarchyMain, shortChildName)) {
+        if (typeof hierarchyMain !== "undefined" && lilGUIgetFolder(gui, "Hierarchy") !== null && !lilGUIhasFolder(hierarchyMain, shortChildName)) {
           hierarchyFolder = hierarchyMain.addFolder(shortChildName).close();
           hierarchyFolder.add(tempArray, shortChildName);
           child.traverse(function (children) {
@@ -156,12 +157,14 @@ export async function handleMetadataResponse(
         id: object.id,
       };
     }
-    if (!lilGUIhasFolder(hierarchyMain, object.name)) {
+    if (lilGUIgetFolder(gui, "Hierarchy") !== null && !lilGUIhasFolder(hierarchyMain, object.name)) {
     hierarchyFolder = hierarchyMain.addFolder(object.name).close();
     }
   }
 
+  if (typeof hierarchyMain !== "undefined") {
   hierarchyMain.domElement.classList.add("hierarchy");
+  }
 
   var metadataContent =
     '<div id="metadata-collapse" class="metadata-collapse metadata-collapsed">METADATA </div><div id="metadata-content" class="metadata-content expanded">';
@@ -206,20 +209,20 @@ export async function handleMetadataResponse(
             }
           }
 
-          downloadModel = document.createElement("div");
-          downloadModel.setAttribute("id", "downloadModel");
-          downloadModel.style.top = (CONFIG.viewer.canvasDimensions.y - 50) + "px;";
+          if (!document.getElementById("downloadModel")) {
+            downloadModel = document.createElement("div");
+            downloadModel.setAttribute("id", "downloadModel");
+            downloadModel.style.top = (CONFIG.viewer.canvasDimensions.y - 50) + "px;";
 
-          var c_path = fileObject.path;
-          if (compressedFile !== "") {
-            fileObject.filename = fileObject.filename.replace(fileObject.orgExtension, fileObject.extension);
+            var c_path = fileObject.path;
+            if (compressedFile !== "") fileObject.filename = fileObject.filename.replace(fileObject.orgExtension, fileObject.extension);
+
+            downloadModel.style.top = (bottomLineGUI) + "px";
+            container.appendChild(downloadModel);
           }
-
           downloadModel.innerHTML = `
-          <a href="blob:${c_path}${fileObject.filename}" download>
-            <img src="assets/cloud-arrow-down.svg" alt="download" width="25" height="25" title="Download source file"/>`;
-          downloadModel.style.top = (bottomLineGUI) + "px";
-          container.appendChild(downloadModel);
+            <a href="blob:${c_path}${fileObject.filename}" download>
+              <img src="assets/cloud-arrow-down.svg" alt="download" width="25" height="25" title="Download source file"/>`;
 
           metadataContainer.appendChild(viewEntity);
           appendMetadata(
@@ -303,10 +306,9 @@ export async function fetchSettings(
     helperObjects.push(object);
   }
 
-  const hierarchyMain = gui.addFolder("Hierarchy").close();
-  console.log(lilGUIgetFolder(gui, "Hierarchy"));
-  if (lilGUIgetFolder(gui, "Hierarchy") !== null) {
-    //hierarchyMain = gui.addFolder("Hierarchy").close();
+  let hierarchyMain;
+  if (lilGUIgetFolder(gui, "Hierarchy") === null) {
+    hierarchyMain = gui.addFolder("Hierarchy").close();
   }
   if (CONFIG.entity.proxyPath !== undefined) {
     metadataUrl = getProxyPath(metadataUrl, CONFIG, fileObject);
@@ -329,7 +331,8 @@ export async function fetchSettings(
       bottomLineGUI,
       compressedFile,
       viewEntity,
-      helperObjects
+      helperObjects,
+      gui
     );
   } else {
     fetch(metadataUrl, { cache: "no-cache" })
@@ -364,8 +367,10 @@ export async function fetchSettings(
       });
   }
   // Add statistics GUI
-  const statsMain = gui.addFolder("Statistics").close();
-  statsMain
+  let statsMain;
+  if (lilGUIgetFolder(gui, "Statistics") === null) {
+    statsMain = gui.addFolder("Statistics").close();
+    statsMain
     .add(CONFIG.viewer.performanceMode, "Performance", {
       "High-performance": "high-performance",
       "Low-power": "low-power",
@@ -374,15 +379,16 @@ export async function fetchSettings(
     .onChange(function (value) {
       if (typeof renderer !== "undefined") renderer.powerPreference = value;
     });
-  statsMain.onOpenClose((changedGUI) => {
+    statsMain.onOpenClose((changedGUI) => {
     if (changedGUI._closed) {
       if (typeof stats !== "undefined") stats.dom.style.visibility = "hidden";
     } else {
       if (typeof stats !== "undefined") stats.dom.style.visibility = "visible";
     }
-  });
-  if (typeof guiContainer !== "undefined" && typeof stats !== "undefined") {
+    });
+    if (typeof guiContainer !== "undefined" && typeof stats !== "undefined") {
     guiContainer.appendChild(stats.dom);
+    }
   }
 }
 

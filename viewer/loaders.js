@@ -20,8 +20,10 @@ import {
 
 import {clippingPlanes, materialsFolder, materialsPropertiesText} from "./main.js";
 
+export let outlineClipping;
+
 function prepareOutlineClipping(_object) {
-  var outlineClipping = _object.clone(true);
+  outlineClipping = _object.clone(true);
   var gutsMaterial = new THREE.MeshBasicMaterial({
     color: "crimson",
     side: THREE.BackSide,

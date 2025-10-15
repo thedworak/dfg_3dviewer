@@ -30,7 +30,7 @@ import {
   getProxyPath
 } from "./utils.js";
 
-import { loadModel, showToast } from "./loaders.js";
+import { loadModel, showToast, outlineClipping } from "./loaders.js";
 import { createIIIFDropdown, downloadModel } from "./metadata.js";
 
 //three.js core
@@ -246,8 +246,7 @@ let transformControl,
   transformControlLightTarget,
   transformControlClippingPlaneX,
   transformControlClippingPlaneY,
-  transformControlClippingPlaneZ,
-  outlineClipping;
+  transformControlClippingPlaneZ;
 var cameraCoords;
 
 let helperObjects = [];
@@ -328,17 +327,17 @@ var archiveType = "";
 
 const planeParams = {
   planeX: {
-    constant: 0,
+    constantX: 0,
     negated: false,
     displayHelperX: false,
   },
   planeY: {
-    constant: 0,
+    constantY: 0,
     negated: false,
     displayHelperY: false,
   },
   planeZ: {
-    constant: 0,
+    constantZ: 0,
     negated: false,
     displayHelperZ: false,
   },
@@ -657,6 +656,17 @@ export function lilGUIgetFolder(gui, name) {
   return gui.folders.find(f => f._title === name) || null;
 }
 
+export function getOrAddGuiController(folder, object, prop) {
+  let controller = folder.controllers.find(c => c._name === prop);
+  if (controller) return controller;
+
+  for (const subfolder of folder.folders) {
+    const found = getOrAddController(subfolder, object, prop);
+    if (found) return found;
+  }
+  return folder.add(object, prop);
+}
+
 function setupClippingPlanes(_geom, _size, _distance) {
   /*var _geometry;
   if (_geom.isGroup)
@@ -684,9 +694,8 @@ function setupClippingPlanes(_geom, _size, _distance) {
   });
 
   distanceGeometry = _distance;
-
-  if (!lilGUIhasFolder(editorFolder, "Clipping Planes")) {
-    clippingFolder.add(planeParams.planeX, "displayHelperX").onChange((v) => {
+  let displayHelper = {x: getOrAddGuiController(clippingFolder, planeParams.planeX, "displayHelperX"), constantX: getOrAddGuiController(clippingFolder, planeParams.planeX, "constantX"), y: getOrAddGuiController(clippingFolder, planeParams.planeY, "displayHelperY"), constantY: getOrAddGuiController(clippingFolder, planeParams.planeY, "constantY"), z: getOrAddGuiController(clippingFolder, planeParams.planeZ, "displayHelperZ"), constantZ: getOrAddGuiController(clippingFolder, planeParams.planeZ, "constantZ"), outline: getOrAddGuiController(clippingFolder, planeParams.outline, "visible")};
+  displayHelper.x.onChange((v) => {
       planeParams.clippingMode.x = planeHelpers[0].visible = v;
       if (v) {
         transformControlClippingPlaneX.attach(planeHelpers[0]);
@@ -702,8 +711,7 @@ function setupClippingPlanes(_geom, _size, _distance) {
       }
     });
 
-    clippingFolder
-      .add(planeParams.planeX, "constant")
+    displayHelper.constantX
       .min(-distanceGeometry.x)
       .max(distanceGeometry.x)
       .setValue(distanceGeometry.x)
@@ -711,7 +719,7 @@ function setupClippingPlanes(_geom, _size, _distance) {
       .listen()
       .onChange((d) => (clippingPlanes[0].constant = d));
 
-          clippingFolder.add(planeParams.planeY, "displayHelperY").onChange((v) => {
+    displayHelper.y.onChange((v) => {
       planeParams.clippingMode.y = planeHelpers[1].visible = v;
       if (v) {
         transformControlClippingPlaneY.attach(planeHelpers[1]);
@@ -726,8 +734,7 @@ function setupClippingPlanes(_geom, _size, _distance) {
           outlineClipping.visible = false;
       }
     });
-    clippingFolder
-      .add(planeParams.planeY, "constant")
+    displayHelper.constantY
       .min(-distanceGeometry.y)
       .max(distanceGeometry.y)
       .setValue(distanceGeometry.y)
@@ -735,8 +742,7 @@ function setupClippingPlanes(_geom, _size, _distance) {
       .listen()
       .onChange((d) => (clippingPlanes[1].constant = d));
   
-
-    clippingFolder.add(planeParams.planeZ, "displayHelperZ").onChange((v) => {
+    displayHelper.z.onChange((v) => {
       planeParams.clippingMode.z = planeHelpers[2].visible = v;
       if (v) {
         transformControlClippingPlaneZ.attach(planeHelpers[2]);
@@ -751,8 +757,7 @@ function setupClippingPlanes(_geom, _size, _distance) {
           outlineClipping.visible = false;
       }
     });
-    clippingFolder
-      .add(planeParams.planeZ, "constant")
+    displayHelper.constantZ
       .min(-distanceGeometry.z)
       .max(distanceGeometry.z)
       .setValue(distanceGeometry.z)
@@ -760,12 +765,9 @@ function setupClippingPlanes(_geom, _size, _distance) {
       .listen()
       .onChange((d) => (clippingPlanes[2].constant = d));
 
-  clippingFolder.add(planeParams.outline, "visible").onChange((v) => {
-    outlineClipping.visible = v;
-  });
-  }
-
-
+    displayHelper.outline.onChange((v) => {
+      outlineClipping.visible = v;
+    });
 }
 
 function fitCameraToCenteredObject(camera, object, add_offset, _fit, _helperObjects) {
@@ -890,7 +892,7 @@ function fitCameraToCenteredObject(camera, object, add_offset, _fit, _helperObje
       controlsTarget: [controls.target.x, controls.target.y, controls.target.z],
     };
   }
-  setupClippingPlanes(object, gridSize, distance);
+  setupClippingPlanes(object, gridSize, {x: boundingBox.max.x*1.1, y: boundingBox.max.y*1.1, z: boundingBox.max.z*1.1});
 }
 
 function prepareGalleryImages(imageElementsChildren) {
@@ -1516,17 +1518,17 @@ function calculateObjectScale() {
     Math.abs(boundingBox.max.z - boundingBox.min.z)
   );
   distanceGeometry = _distance;
-  planeParams.planeX.constant =
+  planeParams.planeX.constantZ =
     clippingFolder.controllers[1]._max =
     clippingPlanes[0].constant =
     _distance.x;
   clippingFolder.controllers[1]._min = -clippingFolder.controllers[1]._max;
-  planeParams.planeY.constant =
+  planeParams.planeY.constantY =
     clippingFolder.controllers[3]._max =
     clippingPlanes[1].constant =
     _distance.y;
   clippingFolder.controllers[3]._min = -clippingFolder.controllers[3]._max;
-  planeParams.planeZ.constant =
+  planeParams.planeZ.constantZ =
     clippingFolder.controllers[5]._max =
     clippingPlanes[2].constant =
     _distance.z;
