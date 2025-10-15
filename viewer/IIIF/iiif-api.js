@@ -4,6 +4,7 @@ import { IIIFManifest } from "./iiif";
 export async function loadIIIFManifest(manifestUrlOrJson) {
   let iiifManifest = new IIIFManifest(manifestUrlOrJson);
   await iiifManifest.loadManifest();
+  let modelTarget;
   let filteredAnnos;
   let i = 0;
 
@@ -35,7 +36,7 @@ export async function loadIIIFManifest(manifestUrlOrJson) {
         } else {
           modelUrl = modelAnnotation.getBody()[0].id;
         }
-        const modelTarget = modelAnnotation.getTarget();
+        modelTarget = modelAnnotation.getTarget();
         if (modelUrl && modelTarget) {
           iiifManifest.modelUrls.push(modelUrl);
         }
@@ -47,31 +48,32 @@ export async function loadIIIFManifest(manifestUrlOrJson) {
     manifest: iiifManifest.manifest,
     scenes: iiifManifest.scenes,
     annotations: filteredAnnos,
-    modelUrls: iiifManifest.modelUrls
+    modelUrls: iiifManifest.modelUrls,
+    modelTarget: modelTarget
   };
 }
 
-export async function getAnnotations(iiifManifest, objectsConfig) {
-  var ind = 0;
+export async function getAnnotations(iiifManifest, objectsConfig, ind) {
   await Promise.all(
     iiifManifest.annotations.map(async (modelAnnotation) => {
       console.log("Processing annotation", ind, "of", iiifManifest.annotations.length);
       if (modelAnnotation.getBody()[0].isSpecificResource) {
-        let transforms = [];
+        let transforms = new Array();
 
         try {
           const body = modelAnnotation.getBody?.();
           const first = Array.isArray(body) ? body[0] : null;
           transforms = first?.getTransform?.() || [];
         } catch (e) {
-          console.warn("Failed to read transform");
+          // No transforms present so keep defaults
+          objectsConfig.models[ind].scale = {x: 1, y: 1, z: 1};
+          objectsConfig.models[ind].rotation = {x: 0, y: 0, z: 0};
+          objectsConfig.models[ind].position = {x: 0, y: 0, z: 0};
+          //console.warn("Failed to read transform");
         }
-        console.log("Transforms", transforms);
         // Correct use of async-safe loop
         for (const transform of transforms) {
           if (!transform.isTransform) continue;
-
-          var transforms = new Array();
 
           const transformHandlers = [
             {
@@ -79,10 +81,10 @@ export async function getAnnotations(iiifManifest, objectsConfig) {
               action: () => {
                 const scale = transform.getScale();
                 if (scale) {
-                  console.log("scaling");
-                  objectsConfig.models.push({scale: scale});
+                  //console.log("scaling");
+                  objectsConfig.models[ind].scale = scale;
                 }
-                else objectsConfig.models[0].scale = { x: 1, y: 1, z: 1};
+                else objectsConfig.models[ind].scale = {x: 1, y: 1, z: 1};
               },
             },
             {
@@ -90,10 +92,10 @@ export async function getAnnotations(iiifManifest, objectsConfig) {
               action: () => {
                 const rotation = transform.getRotation();
                 if (rotation) {
-                  console.log("rotating");
-                  objectsConfig.models[0].rotation = rotation;
+                  //console.log("rotating");
+                  objectsConfig.models[ind].rotation = rotation;
                 }
-                else objectsConfig.models[0].rotation = { x: 0, y: 0, z: 0};
+                else objectsConfig.models[ind].rotation = {x: 0, y: 0, z: 0};
               },
             },
             {
@@ -101,10 +103,10 @@ export async function getAnnotations(iiifManifest, objectsConfig) {
               action: () => {
                 const translation = transform.getTranslation();
                 if (translation) {
-                  console.log("translating");
-                  objectsConfig.models[0].position = translation;
+                  //console.log("translating");
+                  objectsConfig.models[ind].position = translation;
                 }
-                else objectsConfig.models[0].position = { x: 0, y: 0, z: 0};
+                else objectsConfig.models[ind].position = {x: 0, y: 0, z: 0};
               },
             },
           ];
@@ -117,9 +119,18 @@ export async function getAnnotations(iiifManifest, objectsConfig) {
           }
         }
       }
-      ind++;
+
+      // Position model within target scene if position selector present
+      if (iiifManifest.modelTarget.isSpecificResource == true && typeof iiifManifest.modelTarget !== "string") {
+        const selector = iiifManifest.modelTarget.getSelector();
+        if (selector && selector.isPointSelector) {
+          const position = selector.getLocation();
+          console.log("Position from target selector", position);
+          objectsConfig.models[ind].position = position;
+        }
+      }
+      
     })
   );
-
   return iiifManifest.annotations;
 }

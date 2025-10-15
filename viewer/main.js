@@ -119,7 +119,7 @@ var distanceGeometry = new THREE.Vector3();
 let entityID = "";
 var metadataUrl;
 
-let iiifConfigURL = {url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: "Model Position and Scale"};
+let iiifConfigURL = {url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: "Inbuilt"};
 
 const clock = new THREE.Clock();
 const editor = true;
@@ -248,7 +248,7 @@ let transformControl,
   transformControlClippingPlaneY,
   transformControlClippingPlaneZ;
 var cameraCoords;
-
+var basicGrid;
 let helperObjects = [];
 
 const lightObjects = [];
@@ -564,20 +564,32 @@ function recreateBoundingBox(object) {
 }
 
 function fetchObjectFromConfig(_name) {
+  console.log("Fetching config for", _name, objectsConfig);
   return objectsConfig?.models?.find(model => model.name === _name);
 }
 
 export function setupObject(_object, _light, _controls, _helperObjects) {
   const model = fetchObjectFromConfig(_object.children[0].name); //TODO: check for multiple objects
   if (typeof objectsConfig !== "undefined" && model) {
-    console.log("Applying config for", model);
+    if (typeof (objectsConfig.models) !== "Array") {
     if (typeof model.position !== undefined)
       _object.position.set(model.position.x, model.position.y, model.position.z);
-    if (typeof objectsConfig.models.scale !== undefined)
+
+    if (typeof model.scale !== undefined)
       _object.scale.set(model.scale.x, model.scale.y, model.scale.z);
+    
     if (typeof model.rotation !== undefined)
-      _object.rotation.set(THREE.MathUtils.degToRad(model.rotation.x), THREE.MathUtils.degToRad(model.rotation.y), THREE.MathUtils.degToRad(model.rotation.z)
-      );
+      _object.rotation.set(THREE.MathUtils.degToRad(model.rotation.x), THREE.MathUtils.degToRad(model.rotation.y), THREE.MathUtils.degToRad(model.rotation.z));
+  } else {
+    objectsConfig.models.forEach((m, ind) => {
+      if (typeof m.position !== undefined)
+        _object.position.set(m.position.x, m.position.y, m.position.z);
+      if (typeof m.scale !== undefined)
+      _object.scale.set(m.scale.x, m.scale.y, m.scale.z);
+      if (typeof m.rotation !== undefined)
+        _object.rotation.set(THREE.MathUtils.degToRad(m.rotation.x), THREE.MathUtils.degToRad(m.rotation.y), THREE.MathUtils.degToRad(m.rotation.z));
+    });
+  }
     
       _object.needsUpdate = true;
     if (typeof _object.geometry !== "undefined") {
@@ -803,8 +815,10 @@ function fitCameraToCenteredObject(camera, object, add_offset, _fit, _helperObje
   dirLight.target = dirLightTarget;
   dirLight.target.updateMatrixWorld();
 
-  var gridSizeScale = gridSize * 1.5;
-  const planeMesh = new THREE.Mesh(
+  var gridSizeScale = gridSize * 2.5;
+  if (basicGrid !== undefined) scene.remove(basicGrid);
+  basicGrid = new THREE.Group();
+  var planeMesh = new THREE.Mesh(
     new THREE.PlaneGeometry(gridSizeScale, gridSizeScale),
     new THREE.MeshPhongMaterial({
       color: 0xefefef,
@@ -816,17 +830,19 @@ function fitCameraToCenteredObject(camera, object, add_offset, _fit, _helperObje
   planeMesh.rotation.x = -Math.PI / 2;
   planeMesh.position.set(0, 0, 0);
   planeMesh.receiveShadow = true;
-  scene.add(planeMesh);
+  basicGrid.add(planeMesh);
 
   const axesHelper = new THREE.AxesHelper(gridSize);
   axesHelper.position.set(0, 0, 0);
-  scene.add(axesHelper);
+  basicGrid.add(axesHelper);
 
-  const grid = new THREE.GridHelper(gridSizeScale, 50, 0xaeaeae, 0x000000);
+  const grid = new THREE.GridHelper(gridSizeScale, 25, 0xaeaeae, 0x000000);
   grid.material.opacity = 0.1;
   grid.material.transparent = true;
   grid.position.set(0, 0, 0);
-  scene.add(grid);
+  basicGrid.add(grid);
+
+  scene.add(basicGrid);
 
   // Half size of the object
   const halfHeight = size.y / 2;
@@ -2403,11 +2419,16 @@ async function init() {
           showToast("No 3D model found in IIIF manifest, loading example model.");
         }
         let ind = 0;
+        // reset scene
+        mainObject.forEach((obj) => {
+          scene.remove(obj);
+        });
+        mainObject = [];
         loadedIIIF.modelUrls?.forEach( async (url) => {
           loadedIIIF.modelUrl = url;
           fileObject.originalPath = loadedIIIF.modelUrl;
           setModelPaths();
-          await getAnnotations(loadedIIIF, objectsConfig);
+          await getAnnotations(loadedIIIF, objectsConfig, ind);
           if (loadedIIIF.scenes && loadedIIIF.scenes.length > 0) {
             objectsConfig.scenes = loadedIIIF.scenes;
           }
