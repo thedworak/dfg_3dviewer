@@ -120,6 +120,8 @@ let entityID = "";
 var metadataUrl;
 
 let iiifConfigURL = {url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: "Inbuilt"};
+const testModelURL = 'https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb';
+objectsConfig.setupIndex = objectsConfig.index = 0;
 
 const clock = new THREE.Clock();
 const editor = true;
@@ -185,7 +187,6 @@ export function outputLog(debug = false, label = "DEBUG") {
 const printLog = outputLog(true, 'DEBUG');
 
 function setModelPaths() {
-  console.log(fileObject);
   fileObject.filename = fileObject.originalPath.split("/").pop();
   fileObject.basename = fileObject.filename.substring(0, fileObject.filename.lastIndexOf("."));
   fileObject.extension = fileObject.filename.substring(fileObject.filename.lastIndexOf(".") + 1);
@@ -564,34 +565,31 @@ function recreateBoundingBox(object) {
 }
 
 function fetchObjectFromConfig(_name) {
-  console.log("Fetching config for", _name, objectsConfig);
+  //console.log("Fetching config for", _name, objectsConfig);
   return objectsConfig?.models?.find(model => model.name === _name);
 }
 
 export function setupObject(_object, _light, _controls, _helperObjects) {
   const model = fetchObjectFromConfig(_object.children[0].name); //TODO: check for multiple objects
   if (typeof objectsConfig !== "undefined" && model) {
-    if (typeof (objectsConfig.models) !== "Array") {
-    if (typeof model.position !== undefined)
-      _object.position.set(model.position.x, model.position.y, model.position.z);
+    if (typeof objectsConfig.models == undefined || objectsConfig.models?.length == 0) {
+      if (typeof model.position !== undefined) _object.position.set(model.position.x, model.position.y, model.position.z);
 
-    if (typeof model.scale !== undefined)
-      _object.scale.set(model.scale.x, model.scale.y, model.scale.z);
-    
-    if (typeof model.rotation !== undefined)
-      _object.rotation.set(THREE.MathUtils.degToRad(model.rotation.x), THREE.MathUtils.degToRad(model.rotation.y), THREE.MathUtils.degToRad(model.rotation.z));
-  } else {
-    objectsConfig.models.forEach((m, ind) => {
-      if (typeof m.position !== undefined)
+      if (typeof model.scale !== undefined) _object.scale.set(model.scale.x, model.scale.y, model.scale.z);
+      
+      if (typeof model.rotation !== undefined) _object.rotation.set(THREE.MathUtils.degToRad(model.rotation.x), THREE.MathUtils.degToRad(model.rotation.y), THREE.MathUtils.degToRad(model.rotation.z));
+    } else {
+      let m = objectsConfig.models[objectsConfig.setupIndex];
+      console.log("Applying config for index", objectsConfig.setupIndex, m);
+      if (typeof m.position !== "undefined")
         _object.position.set(m.position.x, m.position.y, m.position.z);
-      if (typeof m.scale !== undefined)
+      if (typeof m.scale !== "undefined")
       _object.scale.set(m.scale.x, m.scale.y, m.scale.z);
-      if (typeof m.rotation !== undefined)
+      if (typeof m.rotation !== "undefined")
         _object.rotation.set(THREE.MathUtils.degToRad(m.rotation.x), THREE.MathUtils.degToRad(m.rotation.y), THREE.MathUtils.degToRad(m.rotation.z));
-    });
-  }
+    }
     
-      _object.needsUpdate = true;
+    _object.needsUpdate = true;
     if (typeof _object.geometry !== "undefined") {
       _object.geometry.computeBoundingBox();
       _object.geometry.computeBoundingSphere();
@@ -658,6 +656,7 @@ export function setupObject(_object, _light, _controls, _helperObjects) {
     );
   }
   cameraLight.target.updateMatrixWorld();
+  objectsConfig.setupIndex++;
 }
 
 export function lilGUIhasFolder(folder, name) {
@@ -1080,6 +1079,27 @@ async function setupEmptyCamera(_camera, _object, _helperObjects) {
   fitCameraToCenteredObject(_camera, _object, 1.2, true, _helperObjects);
 }
 
+function parseGradient(str) {
+  // Match "radial-gradient" or "linear-gradient"
+  const typeMatch = str.match(/(radial|linear)-gradient\s*\(([^,]+)/i);
+  const gradientType = typeMatch ? typeMatch[1].toLowerCase() : null;
+  const shapeOrDirection = typeMatch ? typeMatch[2].trim() : null;
+
+  // Match all rgb(...) values
+  const colors = [...str.matchAll(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/g)]
+    .map(([, r, g, b]) => ({
+      r: +r,
+      g: +g,
+      b: +b,
+    }));
+
+  return {
+    type: gradientType,       // "radial" or "linear"
+    shapeOrDirection,         // e.g. "circle" or "to right"
+    colors,                   // array of { r, g, b }
+  };
+}
+
 export async function setupCamera(_object, _camera, _light, controls, _config, _helperObjects) {
 
   if (objectsConfig /*&& CONFIG.entity.metadata.source !== ''*/) {
@@ -1098,7 +1118,7 @@ export async function setupCamera(_object, _camera, _light, controls, _config, _
     objectsConfig.scene.lights.forEach(light => {
       switch (light.type) {
         case "directional":
-          console.log("Directional light with color", light.color);
+          //console.log("Directional light with color", light.color);
           _light.position.set(light.position.x, light.position.y, light.position.z);
           _light.rotation.set(light.target.x, light.target.y, light.target.z);
           
@@ -1109,13 +1129,13 @@ export async function setupCamera(_object, _camera, _light, controls, _config, _
 
         break;
         case "ambient":
-          console.log("Ambient light with color", light.color);
+          //console.log("Ambient light with color", light.color);
           ambientLight.color = new THREE.Color().setHex(light.color);
           colors["AmbientLight"] = light.color;
           intensity.startIntensityAmbient = ambientLight.intensity = light.intensity;
         break;
         case "point":
-          console.log("Point light at", light.position);
+          //console.log("Point light at", light.position);
           cameraLight.color = new THREE.Color().setHex(light.color);
           colors["CameraLight"] = light.color;
           intensity.startIntensityCamera = cameraLight.intensity = light.intensity;
@@ -1132,15 +1152,21 @@ export async function setupCamera(_object, _camera, _light, controls, _config, _
               if (newBackground !== null) {
                 _foundScene = true;
                 changeBackground("linear", "#" + newBackground.getHexString());
+                //console.log("Setting up scene background", _scene.background);
               }
-              console.log("Setting up scene background", _scene.background);
             }
           }
         });
-    }
-    if (typeof objectsConfig.scene.background !== "undefined" && !_foundScene) {
-      var newBackground = new THREE.Color(`rgb(${objectsConfig.scene.background.red}, ${objectsConfig.scene.background.green}, ${objectsConfig.scene.background.blue})`);
-      changeBackground("linear", "#" + newBackground.getHexString());
+    } 
+    if (!_foundScene) {
+      if (objectsConfig.scene.background === null) {
+        changeBackground("linear", "#ffffff", "#ffffff");
+      } else {
+        const gradient = parseGradient(objectsConfig.scene.background);
+        const newBackground0 = new THREE.Color(`rgb(${gradient.colors[0].r}, ${gradient.colors[0].g}, ${gradient.colors[0].b})`);
+        const newBackground1 = new THREE.Color(`rgb(${gradient.colors[1].r}, ${gradient.colors[1].g}, ${gradient.colors[1].b})`);
+        changeBackground(gradient.type, "#" + newBackground0.getHexString(), "#" + newBackground1.getHexString());
+      }
     }
     _camera.updateProjectionMatrix();
     controls.update();
@@ -1612,6 +1638,7 @@ function takeScreenshot() {
 }
 
 async function mainLoadModel(_ext) {
+  console.log("Loading model with extension:", _ext);
   if (_ext === "glb" || _ext === "gltf") {
     await loadModel({
       fileObject, // <-- pass the whole fileObject
@@ -1736,6 +1763,7 @@ function changeBackground(_type, _color1, _color2) {
       changeBackgroundHelper(_color1, _color1);
       break;
     case "gradient":
+    case "radial":
       changeBackgroundHelper(_color1, _color2);
       break;
   }
@@ -2424,24 +2452,38 @@ async function init() {
           scene.remove(obj);
         });
         mainObject = [];
-        loadedIIIF.modelUrls?.forEach( async (url) => {
-          loadedIIIF.modelUrl = url;
-          fileObject.originalPath = loadedIIIF.modelUrl;
+        console.log("TOTAL Annotations: " + loadedIIIF.annotations.length);
+        if (loadedIIIF.annotations.length !== loadedIIIF.modelUrls.length) {
+          console.warn("Number of annotations does not match number of model URLs, adding testing model...");
+            const diff = loadedIIIF.annotations.length - loadedIIIF.modelUrls.length;
+            if (diff > 0) {
+              // Need more model URLs → push empty strings (or null)
+              for (let i = 0; i < diff; i++) {
+                loadedIIIF.modelUrls.push(testModelURL);
+                objectsConfig.models.push({name: "Test Model", url: testModelURL});
+              }
+            }
+        }
+        for (const [i, url] of loadedIIIF.modelUrls?.entries()) {
+          console.log(i);
+          objectsConfig.index = i;
+          fileObject.originalPath = loadedIIIF.modelUrl = url;
+          //fileObject.originalPath = loadedIIIF.modelUrl;
           setModelPaths();
-          await getAnnotations(loadedIIIF, objectsConfig, ind);
+          await getAnnotations(loadedIIIF, objectsConfig);
           if (loadedIIIF.scenes && loadedIIIF.scenes.length > 0) {
             objectsConfig.scenes = loadedIIIF.scenes;
           }
           _ext = fileObject.extension.toLowerCase();
           await mainLoadModel(_ext);
-          ind++;
-        });
+        }
       }
       async function loadIIIFURL() {
         // create a small dropdown to switch iiif manifests at runtime
         document.getElementById("iiif-dropdown").addEventListener("change", async (ev) => {
           try {
             if (ev.target.value !== iiifConfigURL.url) {
+              objectsConfig.setupIndex = 0;
               await setupIIIF(ev.target.value);
             }
           } catch (err) {
