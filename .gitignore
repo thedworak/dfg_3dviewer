@@ -6,4 +6,7 @@
 node_modules
 /.parcel-cache
 *.mdb~
-./dist
+/dist/*
+!/dist/.gitkeep
+!/dist/index.html
+!/dist/assets/**
