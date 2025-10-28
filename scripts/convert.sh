@@ -32,6 +32,7 @@ GLTF="gltf"
 FORCE="false"
 isOutput=false
 IS_ARCHIVE=false
+LIGHTWEIGHT=false
 
 check_blender () {
 	if ! command -v blender &> /dev/null; then
@@ -63,7 +64,11 @@ check_scripts () {
 }
 
 check_blender
-check_xvfb_run
+
+if [ ! $LIGHTWEIGHT ]; then
+	check_xvfb_run
+fi
+
 check_scripts
 
 show_usage () {
@@ -73,6 +78,7 @@ show_usage () {
 
 while getopts ":c:l:o:i:b:f:" flag; do
     case "${flag}" in
+		t) LIGHTWEIGHT=${OPTARG};;
         c) COMPRESSION=${OPTARG};;
         l) COMPRESSION_LEVEL=${OPTARG};;
         i) INPUT="${OPTARG}";;
@@ -126,9 +132,9 @@ handle_file () {
 	OUTPUTPATH=$6
 
 	if [[ "$isOutput" = false ]]; then
-		sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- --input "$INPATH/$FILENAME" --ext "$GLTF" --compression "$COMPRESSION" --compression_level "$COMPRESSION_LEVEL" > /dev/null 2>&1
+		${BLENDER_PATH}blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- --input "$INPATH/$FILENAME" --ext "$GLTF" --compression "$COMPRESSION" --compression_level "$COMPRESSION_LEVEL" > /dev/null 2>&1
 	else
-		sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- --input "$INPATH/$FILENAME" --ext "$GLTF" --compression "$COMPRESSION" --compression_level "$COMPRESSION_LEVEL" --output "$OUTPUT$OUTPUTPATH" > /dev/null 2>&1
+		${BLENDER_PATH}blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- --input "$INPATH/$FILENAME" --ext "$GLTF" --compression "$COMPRESSION" --compression_level "$COMPRESSION_LEVEL" --output "$OUTPUT$OUTPUTPATH" > /dev/null 2>&1
 	fi
 	
 	if [[ -f "$INPATH/gltf/$NAME.glb" ]]; then
@@ -190,7 +196,9 @@ handle_gml_file () {
 	python3 ${SPATH}/scripts/CityGML2OBJv2/CityGML2OBJs.py -i "$GLB_PATH" -o "$GLB_PATH" > /dev/null 2>&1
 	create_dirs
 	sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- "$GLB_PATH/${NAME}.obj" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
-	render_preview $EXT
+	if [ ! $LIGHTWEIGHT ]; then
+		render_preview $EXT
+	fi
 	rm -rf $GLB_PATH
 
 }
@@ -264,7 +272,9 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 					exit 0;
 				;;
 			  glb)
-					render_preview $EXT
+			  		if [ ! $LIGHTWEIGHT ]; then
+						render_preview $EXT
+					fi
 					end=`date +%s`
 					echo "Given file was already compressed."
 					exit 0;
