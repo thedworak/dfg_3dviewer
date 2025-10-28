@@ -12,22 +12,20 @@ import { TDSLoader } from "./js/jsm/loaders/TDSLoader.js";
 import { PCDLoader } from "./js/jsm/loaders/PCDLoader.js";
 import { GLTFLoader } from "./js/jsm/loaders/GLTFLoader.js";
 import { DRACOLoader } from "./js/jsm/loaders/DRACOLoader.js";
-import Toastify from "./toastify.js";
 
-import {
-  fetchSettings
-} from "./metadata.js";
+// Remove main.js import
+import { core, setCore } from './core.js';
+import { fetchSettings } from "./metadata.js";
+import { showToast, initClippingPlanes } from "./viewer-utils.js";
 
-import {clippingPlanes, materialsFolder, materialsPropertiesText} from "./main.js";
-
-export let outlineClipping;
+export var outlineClipping;
 
 function prepareOutlineClipping(_object) {
   outlineClipping = _object.clone(true);
   var gutsMaterial = new THREE.MeshBasicMaterial({
     color: "crimson",
     side: THREE.BackSide,
-    clippingPlanes: clippingPlanes,
+    clippingPlanes: core.clippingPlanes,
     clipShadows: true,
   });
 
@@ -47,7 +45,7 @@ function setupSingleMaterial(materials, material) {
   //material.side = THREE.DoubleSide;
   material.clipShadows = true;
   material.side = THREE.FrontSide;
-  material.clippingPlanes = clippingPlanes;
+  material.clippingPlanes = core.clippingPlanes;
   //material.clipIntersection = false;
   if (material.name === "") material.name = material.uuid;
   var newMaterial = { name: material.name, uuid: material.uuid };
@@ -106,8 +104,8 @@ function traverseMesh(object) {
   var _material = null;
   var _materialGui = null;
   var _uuid = null;
-  materialsFolder
-    .add(materialsPropertiesText, "Edit material", objectMaterials)
+  core.materialsFolder
+    .add(core.materialsPropertiesText, "Edit material", objectMaterials)
     .onChange(function (value) {
       if (
         (value === "select by name" || value !== _uuid) &&
@@ -128,25 +126,25 @@ function traverseMesh(object) {
         materialProperties.emissiveColor = _material.emissive;
         materialProperties.emissive = _material.emissiveIntensity;
         materialProperties.metalness = _material.metalness;
-        _materialGui.color = materialsFolder
+        _materialGui.color = core.materialsFolder
           .addColor(materialProperties, "color")
           .onChange(function (value) {
             _material.color = new THREE.Color(value);
           })
           .listen();
-        _materialGui.emissiveColor = materialsFolder
+        _materialGui.emissiveColor = core.materialsFolder
           .addColor(materialProperties, "emissiveColor")
           .onChange(function (value) {
             _material.emissive = new THREE.Color(value);
           })
           .listen();
-        _materialGui.emissive = materialsFolder
+        _materialGui.emissive = core.materialsFolder
           .add(materialProperties, "emissive", 0, 1)
           .onChange(function (value) {
             _material.emissiveIntensity = value;
           })
           .listen();
-        _materialGui.metalness = materialsFolder
+        _materialGui.metalness = core.materialsFolder
           .add(materialProperties, "metalness", 0, 1)
           .onChange(function (value) {
             _material.metalness = value;
@@ -177,7 +175,7 @@ export async function loadModel(params) {
     container,
     metadataContainer,
     canvasText,
-    bottomLineGUI, 
+    bottomLineGUI,
     compressedFile,
     viewEntity,
     helperObjects
@@ -218,7 +216,7 @@ export async function loadModel(params) {
                     lightObjects[0],
                     controls,
                     gui,
-                    config,  
+                    config,
                     getProxyPath,
                     stats,
                     guiContainer,
@@ -258,7 +256,7 @@ export async function loadModel(params) {
                 lightObjects[0],
                 controls,
                 gui,
-                config,  
+                config,
                 getProxyPath,
                 stats,
                 guiContainer,
@@ -297,7 +295,7 @@ export async function loadModel(params) {
               lightObjects[0],
               controls,
               gui,
-              config,  
+              config,
               getProxyPath,
               stats,
               guiContainer,
@@ -343,7 +341,7 @@ export async function loadModel(params) {
               lightObjects[0],
               controls,
               gui,
-              config,  
+              config,
               getProxyPath,
               stats,
               guiContainer,
@@ -385,7 +383,7 @@ export async function loadModel(params) {
             lightObjects[0],
             controls,
             gui,
-            config,  
+            config,
             getProxyPath,
             stats,
             guiContainer,
@@ -410,7 +408,8 @@ export async function loadModel(params) {
 
     case "ifc":
       const ifcLoader = new IFCLoader();
-      const ifcPath = '.' + config.baseModulePath + "/js/external_libs/loaders/ifc/";
+      // Use relative path to ifc files in dist folder
+      const ifcPath = "./dist/ifc/";
       ifcLoader.ifcManager.setWasmPath(ifcPath, true);
       ifcLoader.load(
         modelPath,
@@ -424,7 +423,7 @@ export async function loadModel(params) {
             lightObjects[0],
             controls,
             gui,
-            config,  
+            config,
             getProxyPath,
             stats,
             guiContainer,
@@ -476,7 +475,7 @@ export async function loadModel(params) {
             lightObjects[0],
             controls,
             gui,
-            config,  
+            config,
             getProxyPath,
             stats,
             guiContainer,
@@ -521,7 +520,7 @@ export async function loadModel(params) {
             lightObjects[0],
             controls,
             gui,
-            config,  
+            config,
             getProxyPath,
             stats,
             guiContainer,
@@ -558,7 +557,7 @@ export async function loadModel(params) {
             lightObjects[0],
             controls,
             gui,
-            config,  
+            config,
             getProxyPath,
             stats,
             guiContainer,
@@ -596,7 +595,7 @@ export async function loadModel(params) {
             lightObjects[0],
             controls,
             gui,
-            config,  
+            config,
             getProxyPath,
             stats,
             guiContainer,
@@ -638,7 +637,7 @@ export async function loadModel(params) {
             lightObjects[0],
             controls,
             gui,
-            config,  
+            config,
             getProxyPath,
             stats,
             guiContainer,
@@ -664,9 +663,8 @@ export async function loadModel(params) {
     case "glb":
     case "gltf":
       const dracoLoader = new DRACOLoader();
-      dracoLoader.setDecoderPath(
-        "./js/jsm/libs/draco/"
-      );
+      // Use relative path to draco files in dist folder
+      dracoLoader.setDecoderPath("./dist/draco/");
       dracoLoader.preload();
       const gltf = new GLTFLoader();
       gltf.setDRACOLoader(dracoLoader);
@@ -689,7 +687,7 @@ export async function loadModel(params) {
             params.lightObjects[0],
             controls,
             gui,
-            config,  
+            config,
             getProxyPath,
             stats,
             guiContainer,
@@ -730,21 +728,6 @@ export async function loadModel(params) {
     default:
       showToast("Extension not supported yet");
   }
-}
-
-export var toastifyOptions = {
-  duration: 6500,
-  gravity: "bottom",
-  close: true,
-  callback() {
-    Toastify.reposition();
-  },
-};
-
-export function showToast(_str) {
-  var myToast = Toastify(toastifyOptions);
-  myToast.options.text = _str;
-  myToast.showToast();
 }
 
 export const onError = function (_event) {

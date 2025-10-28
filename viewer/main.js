@@ -16,13 +16,14 @@ https://www.gnu.org/licenses/.
 
 //Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF
 
+import { core, setCore } from './core.js';
+
 import {
   distanceBetweenPoints,
   distanceBetweenPointsVector,
   vectorBetweenPoints,
   halfwayBetweenPoints,
   interpolateDistanceBetweenPoints,
-  invertHexColor,
   detectColorFormat,
   hexToRgb,
   isValidUrl,
@@ -30,7 +31,15 @@ import {
   getProxyPath
 } from "./utils.js";
 
-import { loadModel, showToast, outlineClipping } from "./loaders.js";
+import { initClippingPlanes, showToast } from './viewer-utils.js';
+
+// Initialize clipping planes at startup
+initClippingPlanes();
+
+// materialsFolder will be set when created in setupEditor
+// materialsPropertiesText will be set when defined below
+
+import { loadModel, outlineClipping } from "./loaders.js";
 import { createIIIFDropdown, downloadModel } from "./metadata.js";
 
 //three.js core
@@ -121,6 +130,9 @@ var metadataUrl;
 
 let iiifConfigURL = {url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: "Inbuilt"};
 const testModelURL = 'https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb';
+
+// Initialize objectsConfig in core
+setCore('objectsConfig', objectsConfig);
 objectsConfig.setupIndex = objectsConfig.index = 0;
 
 const clock = new THREE.Clock();
@@ -129,6 +141,7 @@ var FULLSCREEN = false;
 
 let mixer;
 let tween = new Tween();
+setCore('tween', tween);
 
 const container = document.getElementById(CONFIG.viewer.container);
 const scrollTop = window.scrollY || document.documentElement.scrollTop;
@@ -249,7 +262,6 @@ let transformControl,
   transformControlClippingPlaneY,
   transformControlClippingPlaneZ;
 var cameraCoords;
-var basicGrid;
 let helperObjects = [];
 
 const lightObjects = [];
@@ -270,9 +282,12 @@ var transformText = {
   "Transform Mode": "Local",
 };
 
-export var materialsPropertiesText = {
+const materialsPropertiesText = {
   "Edit material": "select by name",
 };
+
+// Initialize materialsPropertiesText in core
+setCore('materialsPropertiesText', materialsPropertiesText);
 
 const colors = {
   DirectionalLight: "0xFFFFFF",
@@ -281,6 +296,8 @@ const colors = {
   BackgroundColor: "#FFFFFF",
   BackgroundColorOuter: "#D2D2D2",
 };
+
+setCore('colors', colors);
 
 const materialProperties = {
   color: "0xFFFFFF",
@@ -294,6 +311,8 @@ const intensity = {
   startIntensityAmbient: 1,
   startIntensityCamera: 1,
 };
+
+setCore('intensity', intensity);
 
 const saveProperties = {
   Position: true,
@@ -352,16 +371,17 @@ const planeParams = {
   },
 };
 
-export var clippingPlanes = [
-  new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0),
-  new THREE.Plane(new THREE.Vector3(0, -1, 0), 0),
-  new THREE.Plane(new THREE.Vector3(0, 0, -1), 0),
-];
+// Use clipping planes from core
+const { clippingPlanes } = core;
 var planeHelpers, clippingFolder;
 var propertiesFolder;
 var planeObjects = [];
 var editorFolder;
 export var materialsFolder;
+
+setCore("planeHelpers", planeHelpers);
+setCore("clippingPlanes", clippingPlanes);
+setCore("planeParams", planeParams);
 
 var textMesh,
   textMeshDistance,
@@ -503,36 +523,7 @@ export function selectObjectHierarchy(_id) {
   }
 }
 
-export function fetchMetadata(_object, _type) {
-  switch (_type) {
-    case "vertices":
-      if (
-        typeof _object.geometry.index !== "undefined" &&
-        _object.geometry.index !== null
-      ) {
-        return _object.geometry.index.count;
-      } else if (
-        typeof _object.attributes !== "undefined" &&
-        _object.attributes !== null
-      ) {
-        return _object.attributes.position.count;
-      }
-      break;
-    case "faces":
-      if (
-        typeof _object.geometry.index !== "undefined" &&
-        _object.geometry.index !== null
-      ) {
-        return _object.geometry.index.count / 3;
-      } else if (
-        typeof _object.attributes !== "undefined" &&
-        _object.attributes !== null
-      ) {
-        return _object.attributes.position.count / 3;
-      }
-      break;
-  }
-}
+
 function recreateBoundingBox(object) {
   var _min = new THREE.Vector3();
   var _max = new THREE.Vector3();
@@ -562,352 +553,6 @@ function recreateBoundingBox(object) {
     );
   }
   return object;
-}
-
-function fetchObjectFromConfig(_name) {
-  //console.log("Fetching config for", _name, objectsConfig);
-  return objectsConfig?.models?.find(model => model.name === _name);
-}
-
-export function setupObject(_object, _light, _controls, _helperObjects) {
-  const model = fetchObjectFromConfig(_object.children[0].name); //TODO: check for multiple objects
-  if (typeof objectsConfig !== "undefined" && model) {
-    if (typeof objectsConfig.models == undefined || objectsConfig.models?.length == 0) {
-      if (typeof model.position !== undefined) _object.position.set(model.position.x, model.position.y, model.position.z);
-
-      if (typeof model.scale !== undefined) _object.scale.set(model.scale.x, model.scale.y, model.scale.z);
-      
-      if (typeof model.rotation !== undefined) _object.rotation.set(THREE.MathUtils.degToRad(model.rotation.x), THREE.MathUtils.degToRad(model.rotation.y), THREE.MathUtils.degToRad(model.rotation.z));
-    } else {
-      let m = objectsConfig.models[objectsConfig.setupIndex];
-      console.log("Applying config for index", objectsConfig.setupIndex, m);
-      if (typeof m.position !== "undefined")
-        _object.position.set(m.position.x, m.position.y, m.position.z);
-      if (typeof m.scale !== "undefined")
-      _object.scale.set(m.scale.x, m.scale.y, m.scale.z);
-      if (typeof m.rotation !== "undefined")
-        _object.rotation.set(THREE.MathUtils.degToRad(m.rotation.x), THREE.MathUtils.degToRad(m.rotation.y), THREE.MathUtils.degToRad(m.rotation.z));
-    }
-    
-    _object.needsUpdate = true;
-    if (typeof _object.geometry !== "undefined") {
-      _object.geometry.computeBoundingBox();
-      _object.geometry.computeBoundingSphere();
-    }
-    _object.updateMatrix();
-    _object.updateMatrixWorld(true);
-  } else {
-    var boundingBox = new THREE.Box3();
-    if (Array.isArray(_object)) {
-      for (let i = 0; i < _object.length; i++) {
-        boundingBox.setFromObject(_object[i]);
-        _object[i].position.set(
-          -(boundingBox.min.x + boundingBox.max.x) / 2,
-          -boundingBox.min.y,
-          -(boundingBox.min.z + boundingBox.max.z) / 2
-        );
-        _object[i].needsUpdate = true;
-        if (typeof _object[i].geometry !== "undefined") {
-          _object[i].geometry.computeBoundingBox();
-          _object[i].geometry.computeBoundingSphere();
-        }
-        _object[i].updateMatrixWorld();
-      }
-    } else if (_object.isGroup && fileObject.extension == "fbx") {
-      //workaround for specific FBX case
-      boundingBox.setFromObject(_object);
-      var _obj = new THREE.Object3D();
-      _obj.attach(_object);
-      //_obj.position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
-      _obj.updateMatrixWorld();
-      _object = _obj;
-    } else {
-      boundingBox.setFromObject(_object);
-      _object.position.set(
-        -(boundingBox.min.x + boundingBox.max.x) / 2,
-        -boundingBox.min.y,
-        -(boundingBox.min.z + boundingBox.max.z) / 2
-      );
-      _object.updateMatrixWorld();
-      //_object.position.set (0, 0, 0);
-      _object.needsUpdate = true;
-      if (typeof _object.geometry !== "undefined") {
-        _object.geometry.computeBoundingBox();
-        _object.geometry.computeBoundingSphere();
-      }
-    }
-  }
-  cameraLight.position.set(
-    camera.position.x,
-    camera.position.y,
-    camera.position.z
-  );
-  if (Array.isArray(_object)) {
-    cameraLightTarget.position.set(
-      _object[0].position.x,
-      _object[0].position.y,
-      _object[0].position.z
-    );
-  } else {
-    cameraLightTarget.position.set(
-      _object.position.x,
-      _object.position.y,
-      _object.position.z
-    );
-  }
-  cameraLight.target.updateMatrixWorld();
-  objectsConfig.setupIndex++;
-}
-
-export function lilGUIhasFolder(folder, name) {
-  return folder.folders.some(f => f._title === name);
-}
-
-export function lilGUIgetFolder(gui, name) {
-  return gui.folders.find(f => f._title === name) || null;
-}
-
-export function getOrAddGuiController(folder, object, prop) {
-  let controller = folder.controllers.find(c => c._name === prop);
-  if (controller) return controller;
-
-  for (const subfolder of folder.folders) {
-    const found = getOrAddController(subfolder, object, prop);
-    if (found) return found;
-  }
-  return folder.add(object, prop);
-}
-
-function setupClippingPlanes(_geom, _size, _distance) {
-  /*var _geometry;
-  if (_geom.isGroup)
-    _geometry = _geom.children;
-  else
-    _geometry = _geom.geometry.clone();*/
-
-  clippingPlanes[0].constant = _distance.x;
-  clippingPlanes[1].constant = _distance.y;
-  clippingPlanes[2].constant = _distance.z;
-
-  scene.add(transformControlClippingPlaneX.getHelper());
-  scene.add(transformControlClippingPlaneY.getHelper());
-  scene.add(transformControlClippingPlaneZ.getHelper());
-  let planeColor = new THREE.Color(0xffffff).getHexString();
-  if (scene.background != null) planeColor = scene.background.getHexString();
-
-  planeHelpers = clippingPlanes.map(
-    (p) => new THREE.PlaneHelper(p, _size * 2, invertHexColor(planeColor))
-  );
-  planeHelpers.forEach((ph) => {
-    ph.visible = false;
-    ph.name = "PlaneHelper";
-    scene.add(ph);
-  });
-
-  distanceGeometry = _distance;
-  let displayHelper = {x: getOrAddGuiController(clippingFolder, planeParams.planeX, "displayHelperX"), constantX: getOrAddGuiController(clippingFolder, planeParams.planeX, "constantX"), y: getOrAddGuiController(clippingFolder, planeParams.planeY, "displayHelperY"), constantY: getOrAddGuiController(clippingFolder, planeParams.planeY, "constantY"), z: getOrAddGuiController(clippingFolder, planeParams.planeZ, "displayHelperZ"), constantZ: getOrAddGuiController(clippingFolder, planeParams.planeZ, "constantZ"), outline: getOrAddGuiController(clippingFolder, planeParams.outline, "visible")};
-  displayHelper.x.onChange((v) => {
-      planeParams.clippingMode.x = planeHelpers[0].visible = v;
-      if (v) {
-        transformControlClippingPlaneX.attach(planeHelpers[0]);
-        if (planeParams.outline.visible) outlineClipping.visible = true;
-      } else {
-        transformControlClippingPlaneX.detach();
-        if (
-          !planeParams.clippingMode.y &&
-          !planeParams.clippingMode.z &&
-          !planeParams.outline.visible
-        )
-          outlineClipping.visible = false;
-      }
-    });
-
-    displayHelper.constantX
-      .min(-distanceGeometry.x)
-      .max(distanceGeometry.x)
-      .setValue(distanceGeometry.x)
-      .step(_size / 100)
-      .listen()
-      .onChange((d) => (clippingPlanes[0].constant = d));
-
-    displayHelper.y.onChange((v) => {
-      planeParams.clippingMode.y = planeHelpers[1].visible = v;
-      if (v) {
-        transformControlClippingPlaneY.attach(planeHelpers[1]);
-        if (planeParams.outline.visible) outlineClipping.visible = true;
-      } else {
-        transformControlClippingPlaneY.detach();
-        if (
-          !planeParams.clippingMode.x &&
-          !planeParams.clippingMode.z &&
-          !planeParams.outline.visible
-        )
-          outlineClipping.visible = false;
-      }
-    });
-    displayHelper.constantY
-      .min(-distanceGeometry.y)
-      .max(distanceGeometry.y)
-      .setValue(distanceGeometry.y)
-      .step(_size / 100)
-      .listen()
-      .onChange((d) => (clippingPlanes[1].constant = d));
-  
-    displayHelper.z.onChange((v) => {
-      planeParams.clippingMode.z = planeHelpers[2].visible = v;
-      if (v) {
-        transformControlClippingPlaneZ.attach(planeHelpers[2]);
-        if (planeParams.outline.visible) outlineClipping.visible = true;
-      } else {
-        transformControlClippingPlaneZ.detach();
-        if (
-          !planeParams.clippingMode.x &&
-          !planeParams.clippingMode.y &&
-          !planeParams.outline.visible
-        )
-          outlineClipping.visible = false;
-      }
-    });
-    displayHelper.constantZ
-      .min(-distanceGeometry.z)
-      .max(distanceGeometry.z)
-      .setValue(distanceGeometry.z)
-      .step(_size / 100)
-      .listen()
-      .onChange((d) => (clippingPlanes[2].constant = d));
-
-    displayHelper.outline.onChange((v) => {
-      outlineClipping.visible = v;
-    });
-}
-
-function fitCameraToCenteredObject(camera, object, add_offset, _fit, _helperObjects) {
-  const boundingBox = new THREE.Box3();
-  if (Array.isArray(object)) {
-    for (let i = 0; i < object.length; i++) {
-      const box = new THREE.Box3().setFromObject(object[i]);
-      boundingBox.union(box);
-    }
-  } else {
-    boundingBox.setFromObject(object);
-  }
-
-  var size = new THREE.Vector3(), center = new THREE.Vector3();
-  boundingBox.getSize(size);
-  boundingBox.getCenter(center); // center point
-  // ground
-  var distance1 = new THREE.Vector3(
-    Math.abs(boundingBox.max.x - boundingBox.min.x),
-    Math.abs(boundingBox.max.y - boundingBox.min.y),
-    Math.abs(boundingBox.max.z - boundingBox.min.z)
-  );
-  gridSize = Math.max(distance1.x, distance1.y, distance1.z);
-
-  dirLightTarget = new THREE.Object3D();
-  dirLightTarget.position.set(0, 0, 0);
-
-  lightHelper = new THREE.DirectionalLightHelper(dirLight, gridSize);
-  scene.add(lightHelper);
-  lightHelper.visible = false;
-
-  scene.add(dirLightTarget);
-  dirLight.target = dirLightTarget;
-  dirLight.target.updateMatrixWorld();
-
-  var gridSizeScale = gridSize * 2.5;
-  if (basicGrid !== undefined) scene.remove(basicGrid);
-  basicGrid = new THREE.Group();
-  var planeMesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(gridSizeScale, gridSizeScale),
-    new THREE.MeshPhongMaterial({
-      color: 0xefefef,
-      depthWrite: false,
-      transparent: true,
-      opacity: 0.65,
-    })
-  );
-  planeMesh.rotation.x = -Math.PI / 2;
-  planeMesh.position.set(0, 0, 0);
-  planeMesh.receiveShadow = true;
-  basicGrid.add(planeMesh);
-
-  const axesHelper = new THREE.AxesHelper(gridSize);
-  axesHelper.position.set(0, 0, 0);
-  basicGrid.add(axesHelper);
-
-  const grid = new THREE.GridHelper(gridSizeScale, 25, 0xaeaeae, 0x000000);
-  grid.material.opacity = 0.1;
-  grid.material.transparent = true;
-  grid.position.set(0, 0, 0);
-  basicGrid.add(grid);
-
-  scene.add(basicGrid);
-
-  // Half size of the object
-  const halfHeight = size.y / 2;
-  const halfWidth = size.x / 2;
-
-  // Camera distance from object center (along z-axis or camera direction)
-  const fitHeightDistance = halfHeight / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-  const fitWidthDistance = halfWidth / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / camera.aspect;
-
-  const distance = Math.max(fitHeightDistance, fitWidthDistance) * add_offset;
-
-  // Compute camera position
-  const direction = new THREE.Vector3(0, 0, 1); // camera looks along -Z by default
-  camera.position.copy(center).add(direction.multiplyScalar(distance));
-  camera.lookAt(center);
-  let cameraZ = camera.position.z;
-
-  cameraCoords = {
-    x: camera.position.x,
-    y: camera.position.y,
-    z: cameraZ * 0.85,
-  };
-  tween = new Tween(cameraCoords)
-    .to({ z: camera.position.z }, 1500)
-    .onUpdate(() => {
-      camera.position.set(-cameraCoords.x*1.2, cameraCoords.y*1.7, cameraCoords.z*1.1);
-      cameraLight.position.set(cameraCoords.x, cameraCoords.y, cameraCoords.z);
-      camera.updateProjectionMatrix();
-      controls.update();
-    })
-    .start();
-
-  // set the far plane of the camera so that it easily encompasses the whole object
-  const minZ = boundingBox.min.z;
-  const cameraToFarEdge = minZ < 0 ? -minZ + cameraZ : cameraZ - minZ;
-
-  //camera.far = cameraToFarEdge * 3;
-  camera.updateProjectionMatrix();
-  if (controls !== undefined && _fit) {
-    // set camera to rotate around the center
-    controls.target = new THREE.Vector3(0, offset.y, 0);
-
-    // prevent camera from zooming out far enough to create far plane cutoff
-    controls.maxDistance = cameraToFarEdge * 2;
-  }
-  controls.update();
-
-  if (_fit) {
-    var rotateMetadata = new THREE.Vector3(
-      THREE.MathUtils.radToDeg(_helperObjects[0].rotation.x),
-      THREE.MathUtils.radToDeg(_helperObjects[0].rotation.y),
-      THREE.MathUtils.radToDeg(_helperObjects[0].rotation.z)
-    );
-    originalMetadata = {
-      objPosition: [object.position.x, object.position.y, object.position.z],
-      objRotation: [rotateMetadata.x, rotateMetadata.y, rotateMetadata.z],
-      objScale: [
-        _helperObjects[0].scale.x,
-        _helperObjects[0].scale.y,
-        _helperObjects[0].scale.z,
-      ],
-      cameraPosition: [camera.position.x, camera.position.y, camera.position.z],
-      controlsTarget: [controls.target.x, controls.target.y, controls.target.z],
-    };
-  }
-  setupClippingPlanes(object, gridSize, {x: boundingBox.max.x*1.1, y: boundingBox.max.y*1.1, z: boundingBox.max.z*1.1});
 }
 
 function prepareGalleryImages(imageElementsChildren) {
@@ -1077,103 +722,6 @@ async function setupEmptyCamera(_camera, _object, _helperObjects) {
   boundingBox.getSize(size);
   camera.position.set(size.x, size.y, size.z);
   fitCameraToCenteredObject(_camera, _object, 1.2, true, _helperObjects);
-}
-
-function parseGradient(str) {
-  // Match "radial-gradient" or "linear-gradient"
-  const typeMatch = str.match(/(radial|linear)-gradient\s*\(([^,]+)/i);
-  const gradientType = typeMatch ? typeMatch[1].toLowerCase() : null;
-  const shapeOrDirection = typeMatch ? typeMatch[2].trim() : null;
-
-  // Match all rgb(...) values
-  const colors = [...str.matchAll(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/g)]
-    .map(([, r, g, b]) => ({
-      r: +r,
-      g: +g,
-      b: +b,
-    }));
-
-  return {
-    type: gradientType,       // "radial" or "linear"
-    shapeOrDirection,         // e.g. "circle" or "to right"
-    colors,                   // array of { r, g, b }
-  };
-}
-
-export async function setupCamera(_object, _camera, _light, controls, _config, _helperObjects) {
-
-  if (objectsConfig /*&& CONFIG.entity.metadata.source !== ''*/) {
-    if (typeof objectsConfig.camera.position !== "undefined") {
-      _camera.position.set(objectsConfig.camera.position.x, objectsConfig.camera.position.y, objectsConfig.camera.position.z);
-    } else {
-      setupEmptyCamera(_camera, _object, _helperObjects);
-    }
-    if (typeof objectsConfig.camera.target !== "undefined") {
-      controls.target.set(objectsConfig.camera.target.x, objectsConfig.camera.target.y, objectsConfig.camera.target.z);
-    } else {
-      setupEmptyCamera(_camera, _object, _helperObjects);
-    }
-  
-    // Setup lights
-    objectsConfig.scene.lights.forEach(light => {
-      switch (light.type) {
-        case "directional":
-          //console.log("Directional light with color", light.color);
-          _light.position.set(light.position.x, light.position.y, light.position.z);
-          _light.rotation.set(light.target.x, light.target.y, light.target.z);
-          
-          _light.color = new THREE.Color().setHex(light.color);
-          colors["DirectionalLight"] = light.color;
-          
-          intensity.startIntensityDir = _light.intensity = light.intensity;
-
-        break;
-        case "ambient":
-          //console.log("Ambient light with color", light.color);
-          ambientLight.color = new THREE.Color().setHex(light.color);
-          colors["AmbientLight"] = light.color;
-          intensity.startIntensityAmbient = ambientLight.intensity = light.intensity;
-        break;
-        case "point":
-          //console.log("Point light at", light.position);
-          cameraLight.color = new THREE.Color().setHex(light.color);
-          colors["CameraLight"] = light.color;
-          intensity.startIntensityCamera = cameraLight.intensity = light.intensity;
-        break;
-      }
-    });
-    // Setup background
-    let _foundScene = false;
-    if (objectsConfig.scenes !== undefined && Array.isArray(objectsConfig.scenes)) {
-        objectsConfig.scenes.forEach(_scene => {
-          if (_scene.background !== null) {
-            if ("red" in _scene.background && "green" in _scene.background && "blue" in _scene.background) {
-              var newBackground = new THREE.Color(`rgb(${_scene.background.red}, ${_scene.background.green}, ${_scene.background.blue})`);
-              if (newBackground !== null) {
-                _foundScene = true;
-                changeBackground("linear", "#" + newBackground.getHexString());
-                //console.log("Setting up scene background", _scene.background);
-              }
-            }
-          }
-        });
-    } 
-    if (!_foundScene) {
-      if (objectsConfig.scene.background === null) {
-        changeBackground("linear", "#ffffff", "#ffffff");
-      } else {
-        const gradient = parseGradient(objectsConfig.scene.background);
-        const newBackground0 = new THREE.Color(`rgb(${gradient.colors[0].r}, ${gradient.colors[0].g}, ${gradient.colors[0].b})`);
-        const newBackground1 = new THREE.Color(`rgb(${gradient.colors[1].r}, ${gradient.colors[1].g}, ${gradient.colors[1].b})`);
-        changeBackground(gradient.type, "#" + newBackground0.getHexString(), "#" + newBackground1.getHexString());
-      }
-    }
-    _camera.updateProjectionMatrix();
-    controls.update();
-    fitCameraToCenteredObject(_camera, _object, 2.5, false, _helperObjects);
-  } else {
-    setupEmptyCamera(_camera, _object, _helperObjects);
-  }
 }
 
 function pickFaces(_id) {
@@ -1388,8 +936,8 @@ function animate(time) {
   if (mixer) {
     mixer.update(delta);
   }
-  tween.update(time);
-  controls.update();
+  core.tween.update(time);
+  core.controls.update();
 
   if (textMesh !== undefined) {
     textMesh.lookAt(camera.position.clone());
@@ -1560,6 +1108,7 @@ function calculateObjectScale() {
     Math.abs(boundingBox.max.z - boundingBox.min.z)
   );
   distanceGeometry = _distance;
+  setCore("distanceGeometry", distanceGeometry);
   planeParams.planeX.constantZ =
     clippingFolder.controllers[1]._max =
     clippingPlanes[0].constant =
@@ -1732,7 +1281,7 @@ function createClippingPlaneAxis(_number) {
 function resetCamera() {
   var camPosition = camera.position;
   let _tween = new Tween(camPosition)
-    .to(cameraCoords, 1500)
+    .to(core.cameraCoords, 1500)
     .onUpdate(() => {
       camera.position.set(camPosition.x, camPosition.y, camPosition.z);
       cameraLight.position.set(camPosition.x, camPosition.y, camPosition.z);
@@ -1740,33 +1289,6 @@ function resetCamera() {
       controls.update();
     })
     .start();
-}
-
-function changeBackgroundHelper(_color1, _color2) {
-  mainCanvas.style.setProperty(
-    "background",
-    "-moz-radial-gradient(circle, " + _color1 + " 0%, " + _color2 + " 100%)"
-  );
-  mainCanvas.style.setProperty(
-    "background",
-    "-webkit-radial-gradient(circle, " + _color1 + " 0%, " + _color2 + " 100%)"
-  );
-  mainCanvas.style.setProperty(
-    "background",
-    "radial-gradient(circle, " + _color1 + " 0%, " + _color2 + " 100%)"
-  );
-}
-
-function changeBackground(_type, _color1, _color2) {
-  switch (_type) {
-    case "linear":
-      changeBackgroundHelper(_color1, _color1);
-      break;
-    case "gradient":
-    case "radial":
-      changeBackgroundHelper(_color1, _color2);
-      break;
-  }
 }
 
     function prepareStats () {
@@ -1909,7 +1431,8 @@ function changeBackground(_type, _color1, _color2) {
       });
 
     clippingFolder = editorFolder.addFolder("Clipping Planes").close();
-    materialsFolder = editorFolder.addFolder("Materials").close();
+    setCore("clippingFolder", clippingFolder);
+    core.materialsFolder = editorFolder.addFolder("Materials").close();
 
     if (!CONFIG.viewer.lightweight) {
       propertiesFolder = editorFolder.addFolder("Save properties").close();
@@ -2217,8 +1740,10 @@ async function init() {
       999000000
     );
     camera.position.set(0, 0, 0);
+    setCore('camera', camera);
 
     scene = new THREE.Scene();
+    setCore('scene', scene);
 
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444);
     hemiLight.position.set(0, 200, 0);
@@ -2226,6 +1751,8 @@ async function init() {
 
     ambientLight = new THREE.AmbientLight(0x404040); // soft white light
     scene.add(ambientLight);
+
+    setCore('ambientLight', ambientLight);
 
     dirLight = new THREE.DirectionalLight(0xffffff);
     dirLight.position.set(0, 100, 50);
@@ -2239,6 +1766,7 @@ async function init() {
     dirLight.shadow.mapSize.height = 1024 * 4;
     scene.add(dirLight);
     lightObjects.push(dirLight);
+    setCore('dirLight', dirLight);
 
     cameraLightTarget = new THREE.Object3D();
     cameraLightTarget.position.set(
@@ -2247,6 +1775,8 @@ async function init() {
       camera.position.z
     );
     scene.add(cameraLightTarget);
+    // Store in core
+    setCore('cameraLightTarget', cameraLightTarget);
 
     cameraLight = new THREE.DirectionalLight(0xffffff);
     cameraLight.position.set(camera.position);
@@ -2254,6 +1784,8 @@ async function init() {
     cameraLight.intensity = 0.3;
     scene.add(cameraLight);
     cameraLight.target = cameraLightTarget;
+    // Store in core
+    setCore('cameraLight', cameraLight);
     cameraLight.target.updateMatrixWorld();
 
     renderer = new THREE.WebGLRenderer({
@@ -2293,6 +1825,8 @@ async function init() {
     canvasText.width = CONFIG.viewer.canvasDimensions.x + "px";
     canvasText.height = CONFIG.viewer.canvasDimensions.y + "px";
 
+    setCore('mainCanvas', mainCanvas);
+
     guiContainer.style.width = CONFIG.viewer.canvasDimensions.x;
     guiContainer.style.left = container.getBoundingClientRect().left + "px";
     lilGui = document.getElementsByClassName("lil-gui root");
@@ -2317,6 +1851,7 @@ async function init() {
     controls.dampingFactor = 0.05;
     controls.enableRotate = true;
     controls.update();
+    setCore('controls', controls);
 
     transformControl = new TransformControls(camera, renderer.domElement);
     transformControl.rotationSnap = THREE.MathUtils.degToRad(5);
@@ -2362,6 +1897,9 @@ async function init() {
     transformControlClippingPlaneX = createClippingPlaneAxis(0, "x");
     transformControlClippingPlaneY = createClippingPlaneAxis(1, "y");
     transformControlClippingPlaneZ = createClippingPlaneAxis(2, "z");
+    setCore('transformControlClippingPlaneX', transformControlClippingPlaneX);
+    setCore('transformControlClippingPlaneY', transformControlClippingPlaneY);
+    setCore('transformControlClippingPlaneZ', transformControlClippingPlaneZ);
 
     transformControlClippingPlaneX.showX =
       transformControlClippingPlaneX.showY = false;

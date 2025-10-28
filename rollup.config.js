@@ -3,38 +3,47 @@ import copy from 'rollup-plugin-copy';
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
+import nodePolyfills from 'rollup-plugin-node-polyfills';
 
 export default {
   input: 'viewer/main.js',
   output: {
     file: 'dist/dfg_3dviewer-module.js',
-    format: 'iife', // or 'esm' if you want <script type="module">
+    format: 'iife',
     name: 'Dfg3DViewer',
     globals: {
-      three: 'THREE',
-      stream: 'Stream',
-      http: 'http',
-      https: 'Https',
-      url: 'Url',
-      zlib: 'Zlib',
-      punycode: 'Punycode'
-    }
+      three: 'THREE'
+    },
+    intro: 'var global = window; var module = { exports: {} }; var exports = module.exports;'
   },
   external: ['three'],
   plugins: [
-      url({
+    url({
       include: ['**/*.svg', '**/*.png', '**/*.jpg', '**/*.gif'],
-      limit: 0, // always copy instead of base64 inline
-      fileName: 'assets/[name][hash][extname]', // nice hashed filenames
-      publicPath: 'assets/', // path inside dist
+      limit: 0,
+      fileName: 'assets/[name][hash][extname]',
+      publicPath: 'assets/',
     }),
     copy({
       targets: [
-        { src: 'viewer/img/*', dest: 'dist/assets' }
+        { src: 'viewer/img/*', dest: 'dist/assets' },
+        { src: 'viewer/js/jsm/libs/draco/gltf/*', dest: 'dist/draco' },
+        { src: 'viewer/js/external_libs/loaders/ifc/*', dest: 'dist/ifc' },
+        { src: 'viewer/fonts/*', dest: 'dist/fonts' }
       ]
     }),
-    resolve(),
-    commonjs(),
+    nodePolyfills(),
+    resolve({
+      browser: true,
+      preferBuiltins: false,
+      mainFields: ['browser', 'module', 'main']
+    }),
+    commonjs({
+      include: [/node_modules/, 'viewer/**'],
+      transformMixedEsModules: true,
+      ignoreDynamicRequires: true,
+      requireReturnsDefault: 'auto'
+    }),
     json()
   ]
 };

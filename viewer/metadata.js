@@ -1,14 +1,5 @@
 import { truncateString, getProxyPath, hexToRgb } from "./utils.js";
-import {
-  setupObject,
-  setupCamera,
-  fetchMetadata,
-  selectObjectHierarchy,
-  lilGUIhasFolder,
-  lilGUIgetFolder
-} from "./main.js";
-
-import { showToast } from "./loaders.js";
+import { showToast, setupObject, setupCamera } from './viewer-utils.js';
 
 /**
  * Formats WissKI metadata labels and values for display.
@@ -44,6 +35,14 @@ export function addWissKIMetadata(label, value) {
   }
 }
 
+export function lilGUIhasFolder(folder, name) {
+  return folder.folders.some(f => f._title === name);
+}
+
+export function lilGUIgetFolder(gui, name) {
+  return gui.folders.find(f => f._title === name) || null;
+}
+
 /**
  * Expands/collapses the metadata panel.
  */
@@ -71,6 +70,37 @@ export function appendMetadata(
 }
 
   export let downloadModel;
+
+export function fetchMetadata(_object, _type) {
+  switch (_type) {
+    case "vertices":
+      if (
+        typeof _object.geometry.index !== "undefined" &&
+        _object.geometry.index !== null
+      ) {
+        return _object.geometry.index.count;
+      } else if (
+        typeof _object.attributes !== "undefined" &&
+        _object.attributes !== null
+      ) {
+        return _object.attributes.position.count;
+      }
+      break;
+    case "faces":
+      if (
+        typeof _object.geometry.index !== "undefined" &&
+        _object.geometry.index !== null
+      ) {
+        return _object.geometry.index.count / 3;
+      } else if (
+        typeof _object.attributes !== "undefined" &&
+        _object.attributes !== null
+      ) {
+        return _object.attributes.position.count / 3;
+      }
+      break;
+  }
+}
 
 /**
  * Handles metadata response and builds the metadata UI.
@@ -100,7 +130,7 @@ export async function handleMetadataResponse(
   let metadataContentTech = '<hr class="metadataSeparator">';
   if (Array.isArray(object)) {
     setupObject(object[0], light, controls, CONFIG);
-    await setupCamera(object[0], camera, light, controls, CONFIG, helperObjects);
+    await setupCamera(object[0], light, CONFIG, helperObjects);
   } else if (object.name === "Scene" || object.children.length > 0 || object.type == "Mesh"
   ) {
     setupObject(object, light, controls, CONFIG);
@@ -135,10 +165,10 @@ export async function handleMetadataResponse(
         }
       }
     });
-    await setupCamera(object, camera, light, controls, CONFIG, helperObjects);
+    await setupCamera(object, light, CONFIG, helperObjects);
   } else {
     setupObject(object, light, controls, CONFIG);
-    await setupCamera(object, camera, light, controls, CONFIG, helperObjects);
+    await setupCamera(object, light, CONFIG, helperObjects);
     metadata["vertices"] += fetchMetadata(object, "vertices");
     metadata["faces"] += fetchMetadata(object, "faces");
     if (object.name === "") {
@@ -247,9 +277,7 @@ export async function handleMetadataResponse(
       CONFIG.mainUrl +
       CONFIG.entity.viewEntityPath +
       entityID +
-      "/view' target='_blank'><img src='" +
-      CONFIG.baseModulePath + '.' +
-      "/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>";
+      "/view' target='_blank'><img src='./assets/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>";
     appendMetadata(metadataContent, canvasText, metadataContainer, container, metadataContentTech);
   }
 }
@@ -260,13 +288,13 @@ export async function handleMetadataResponse(
 export async function settingsHandler(object, camera, light, controls, hierarchyMain, CONFIG, helperObjects) {
   if (Array.isArray(object)) {
     setupObject(object[0], light, controls, CONFIG, helperObjects);
-    await setupCamera(object[0], camera, light, controls, CONFIG, helperObjects);
+    await setupCamera(object[0], light, CONFIG, helperObjects);
   } else if (object.name === "Scene" || object.children.length > 0) {
     setupObject(object, light, controls, CONFIG, helperObjects);
-    await setupCamera(object, camera, light, controls, CONFIG, helperObjects);
+    await setupCamera(object, light, CONFIG, helperObjects);
   } else {
     setupObject(object, light, controls, CONFIG, helperObjects);
-    await setupCamera(object, camera, light, controls, CONFIG, helperObjects);
+    await setupCamera(object, light, CONFIG, helperObjects);
     if (object.name === "undefined") object.name = "level";
     if (!lilGUIhasFolder(hierarchyMain, object.name)) {
       hierarchyMain.addFolder(object.name).close();

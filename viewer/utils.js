@@ -38,16 +38,6 @@ export function interpolateDistanceBetweenPoints(pointA, vector, length, scalar)
   return { x: _x, y: _y, z: _z };
 }
 
-// Color helpers
-export function invertHexColor(hexTripletColor) {
-  let color = hexTripletColor.substring(1);
-  color = parseInt(color, 16);
-  color = 0xffffff ^ color;
-  color = color.toString(16);
-  color = ("000000" + color).slice(-6);
-  return "#" + color;
-}
-
 export function detectColorFormat(color) {
   const hexRegex = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
   const rgbRegex = /^rgb\((\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})\)$/;
