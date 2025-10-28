@@ -11,7 +11,13 @@ export default {
     format: 'iife', // or 'esm' if you want <script type="module">
     name: 'Dfg3DViewer',
     globals: {
-      three: 'THREE'
+      three: 'THREE',
+      stream: 'Stream',
+      http: 'http',
+      https: 'Https',
+      url: 'Url',
+      zlib: 'Zlib',
+      punycode: 'Punycode'
     }
   },
   external: ['three'],
