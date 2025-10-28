@@ -396,7 +396,7 @@ function addTextWatermark(_text, _scale) {
   const loader = new FontLoader();
 
   loader.load(
-    CONFIG.baseModulePath + "/fonts/helvetiker_regular.typeface.json",
+    '.' + CONFIG.baseModulePath + "/fonts/helvetiker_regular.typeface.json",
     function (font) {
       const textGeo = new TextGeometry(_text, {
         font,
@@ -452,7 +452,7 @@ function addTextPoint(_text, _scale, _point) {
   const loader = new FontLoader();
   var textSize = _scale / 10;
   loader.load(
-    CONFIG.baseModulePath + "/fonts/helvetiker_regular.typeface.json",
+    '.' + CONFIG.baseModulePath + "/fonts/helvetiker_regular.typeface.json",
     function (font) {
       const textGeo = new TextGeometry(_text, {
         font: font,

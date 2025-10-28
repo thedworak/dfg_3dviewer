@@ -248,7 +248,7 @@ export async function handleMetadataResponse(
       CONFIG.entity.viewEntityPath +
       entityID +
       "/view' target='_blank'><img src='" +
-      CONFIG.baseModulePath +
+      CONFIG.baseModulePath + '.' +
       "/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>";
     appendMetadata(metadataContent, canvasText, metadataContainer, container, metadataContentTech);
   }

@@ -410,7 +410,7 @@ export async function loadModel(params) {
 
     case "ifc":
       const ifcLoader = new IFCLoader();
-      const ifcPath = config.baseModulePath + "/js/external_libs/loaders/ifc/";
+      const ifcPath = '.' + config.baseModulePath + "/js/external_libs/loaders/ifc/";
       ifcLoader.ifcManager.setWasmPath(ifcPath, true);
       ifcLoader.load(
         modelPath,
