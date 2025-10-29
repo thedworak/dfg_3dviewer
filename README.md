@@ -31,7 +31,7 @@ Supported 3D file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, glTF. T
 
 ## Tech Stack
 
-**Client:** JavaScript, three.js, CSS, HTML, PHP, Drupal
+**Client:** JavaScript, three.js (180+), CSS, HTML, PHP (8.X), Drupal (9+), Node.js (v22.21.0), npm (v11.6.0)
 
 **Server:** PHP, Drupal, bash, blender
 
@@ -70,18 +70,45 @@ import { TextGeometry } from './js/jsm/geometries/TextGeometry.js';
 Then, basic configuration should be changed:
 
 ```bash
-const CONFIG = {
-	"domain": "https://3d-repository.hs-mainz.de",
-	"metadataDomain": "https://3d-repository.hs-mainz.de",
-	"container": "DFG_3DViewer",
-	"galleryContainer": "block-bootstrap5-content",
-	"galleryImageClass": "field--type-image",
-	"basePath": "/modules/dfg_3dviewer/viewer",
-	"entityIdUri": "/wisski/navigate/(.*)/view",
-	"viewEntityPath": "/wisski/navigate/",
-	"attributeId": "wisski_id",
-	"lightweight": false
-};
+  CONFIG = {
+    mainUrl: "https://dfg-repository.wisski.cloud",
+    baseNamespace: "https://dfg-repository.wisski.cloud",
+    metadataUrl: "https://dfg-repository.wisski.cloud",
+    baseModulePath: "/modules/dfg_3dviewer-main/viewer",
+    entity: {
+      bundle: "bd3d7baa74856d141bcff7b4193fa128",
+      fieldDf: "field_df",
+      idUri: "/wisski/navigate/(.*)/view",
+      viewEntityPath: "/wisski/navigate/",
+      attributeId: "wisski_id",
+      metadata: {
+        source: "",
+      },
+    },
+    viewer: {
+      container: "DFG_3DViewer",
+      fileUpload: "fbf95bddee5160d515b982b3fd2e05f7",
+      fileName: "faa602a0be629324806aef22892cdbe5",
+      imageGeneration: "f605dc6b727a1099b9e52b3ccbdf5673",
+      lightweight: 1,
+      salt: "Z7FYJMmTiEzcGp4lTpuk4LiA",
+      scaleContainer: {
+        x: 0.85,
+        y: 1.4,
+      },
+      gallery: {
+        container: "block-bootstrap5-content",
+        imageClass: "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
+        imageId: "",
+      },
+      background:
+        "radial-gradient(circle, rgb(255, 255, 255) 0%, rgb(210, 210, 210) 100%)",
+      performanceMode: {
+        Performance: "high-performance",
+      }
+    },
+  };
+}
 
 domain, metadataDomain - domains that deliver 3D content and metadata content respectively
 container - container to attach to and will contain 3D content
@@ -202,6 +229,13 @@ This step needs some steps to be performed before rendering:
 - write rendering outputs into png files with consecutive naming
 
 ## Minimal effort setup for 3D DFG Viewer
+
+Since ```npm-refactor``` branch, there is a need to setup and compile necessary files by running 
+```bash
+node install
+npm run build-all
+npm start
+```
 
 
 ```html
