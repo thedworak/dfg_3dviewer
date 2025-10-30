@@ -398,6 +398,78 @@ Security & operational notes
 - Ensure the PHP process user has permission to execute `scripts/convert.sh` and write to the target folders. Avoid running as root — prefer proper file permissions or a dedicated service account.
 - If you need to run conversions in parallel or at scale, consider delegating to a job worker (supervisor, systemd, or external job queue) and let the web process enqueue jobs only.
 
+## Using prebuilt files (quick start)
+
+If you prefer not to build the viewer on every machine, this repository provides a ready-to-use `dist/` folder containing the prebuilt viewer bundles and assets. Consumers can either:
+
+- Download and extract the `dfg_3dviewer-dist.zip` from the GitHub release (or copy the `dist/` folder from this repo).
+- Copy the `dist/` folder to any static webroot and serve it as-is.
+
+Two simple usage patterns:
+
+- Use the shipped `index.html` (recommended):
+  - Extract `dist/` and point your webserver to the folder root. Open `/index.html` in a browser.
+
+- Embed the module in an existing page:
+  - Copy the needed files from `dist/` (e.g. `dfg_3dviewer-module.js`, CSS and assets) into your webroot and include the script tag:
+
+```html
+<link rel="stylesheet" href="/path/to/dfg_3dviewer.b0020198.css">
+<script type="module" src="/path/to/dfg_3dviewer-module.js"></script>
+<div id="DFG_3DViewer" 3d="/path/to/model.glb" style="height:50vh"></div>
+```
+
+Notes:
+- Always serve the files over HTTP(S). Opening `index.html` via `file://` often breaks module imports, WASM loads and XHR/fetch requests (causing errors such as `net::ERR_FAILED`). Use a small static server for local testing (examples below).
+- The `dist/` folder already contains bundled dependencies (three.js, loaders, draco, etc.) so consumers don't need to run the build steps.
+
+## Serving the prebuilt files locally
+
+If you want to quickly test the prebuilt `dist/` on your machine, run a tiny static server and open the site at `http://localhost:<port>/index.html`.
+
+Examples (PowerShell):
+
+Node (no global install required if Node is present):
+```powershell
+# run the included lightweight server (uses PORT env or 8080)
+node .\scripts\serve-dist.js
+# or explicitly set a port
+$env:PORT=8082; node .\scripts\serve-dist.js
+```
+
+npx http-server (one-liner, will prompt to install if not present):
+```powershell
+npx http-server .\dist -p 8080
+Start-Process "http://localhost:8080/index.html"
+```
+
+Python (if you have Python installed):
+```powershell
+python -m http.server 8080 --directory .\dist
+Start-Process "http://localhost:8080/index.html"
+```
+
+If the page loads correctly over HTTP but fails via `file://`, the issue is the browser's local-file restrictions — serving via HTTP is the correct remedy.
+
+## Packaging & releases
+
+The project contains a `pack-dist` helper and a GitHub Actions workflow that builds the `dist/` and uploads a `dfg_3dviewer-dist.zip` release artifact when a tag is created. Consumers can download that ZIP and extract it to any static host.
+
+## Recent Updates
+
+Notable changes in the latest updates:
+
+Distribution & Packaging
+- Added ready-to-use prebuilt `dist/` folder containing bundled viewer and assets.
+- Created a distribution helper (`scripts/pack-dist.js`) and CI workflow for automatic release artifacts.
+- Modified build to bundle three.js and loaders into self-contained output.
+- Normalized paths in bundled HTML/JS for portability (can be hosted at any URL).
+
+Development Improvements
+- Added `scripts/serve-dist.js` — small Node static server for local testing.
+- Added PowerShell-compatible example commands for serving files locally.
+- Documented how to avoid `file://` limitations when testing locally.
+
 
 Functions used during this step:
 - ```handle_file``` - uses python script (downloaded and modified version of https://github.com/ux3d/2gltf2/tree/master) triggered by blender 
@@ -470,4 +542,32 @@ The `build-all` script runs Parcel and Rollup (see `package.json`), producing th
 - fullscreen mode
 - cross platform
 - add watermark
+
+## Using prebuilt files (quick start)
+
+If you don't want to build the project on every machine, use the prebuilt distribution in `dist/`.
+
+- Build locally and create a zip of the distribution:
+
+```powershell
+npm ci
+npm run build
+npm run pack-dist
+# The resulting archive is `dfg_3dviewer-dist.zip` and `dist/` contains JS and assets
+```
+
+- Consumer usage (in a plain HTML site): copy `dist/dfg_3dviewer-module.js` and the `dist/assets/` folder to your webroot and include the script:
+
+```html
+<script src="/path/to/dfg_3dviewer-module.js"></script>
+```
+
+The bundle is produced as a self-contained IIFE exposing `Dfg3DViewer` (see `rollup.config.js`). If you choose not to bundle `three.js` in the future, include `three` before the module:
+
+```html
+<script src="/path/to/three.min.js"></script>
+<script src="/path/to/dfg_3dviewer-module.js"></script>
+```
+
+- CI / releases: The included GitHub Actions workflow (`.github/workflows/build-release.yml`) will build the project and attach `dfg_3dviewer-dist.zip` to any tag that matches `v*` (e.g. `v1.0.0`). This lets to distribute ready-to-go archives without committing `dist/` to the repo.
 

@@ -3,7 +3,7 @@ import copy from 'rollup-plugin-copy';
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
-import nodePolyfills from 'rollup-plugin-node-polyfills';
+import terser from '@rollup/plugin-terser';
 
 export default {
   input: 'viewer/main.js',
@@ -11,12 +11,15 @@ export default {
     file: 'dist/dfg_3dviewer-module.js',
     format: 'iife',
     name: 'Dfg3DViewer',
+    sourcemap: true,
     globals: {
       three: 'THREE'
     },
     intro: 'var global = window; var module = { exports: {} }; var exports = module.exports;'
   },
-  external: ['three'],
+  // bundle `three` and other dependencies into the dist so consumers can use the
+  // prebuilt files without running a build. Do not mark 'three' as external here.
+  // external: ['three'],
   plugins: [
     url({
       include: ['**/*.svg', '**/*.png', '**/*.jpg', '**/*.gif'],
@@ -32,7 +35,6 @@ export default {
         { src: 'viewer/fonts/*', dest: 'dist/fonts' }
       ]
     }),
-    nodePolyfills(),
     resolve({
       browser: true,
       preferBuiltins: false,
@@ -44,6 +46,7 @@ export default {
       ignoreDynamicRequires: true,
       requireReturnsDefault: 'auto'
     }),
-    json()
+    json(),
+    terser()
   ]
 };

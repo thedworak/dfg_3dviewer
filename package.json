@@ -12,24 +12,31 @@
   "type": "module",
   "packages": {},
   "devDependencies": {
-    "@rollup/plugin-commonjs": "^28.0.6",
+    "@rollup/plugin-commonjs": "^28.0.9",
     "@rollup/plugin-json": "^6.1.0",
-    "@rollup/plugin-node-resolve": "^16.0.1",
-    "@rollup/plugin-typescript": "^12.1.4",
+    "@rollup/plugin-node-resolve": "^16.0.3",
+    "@rollup/plugin-typescript": "^12.3.0",
     "@rollup/plugin-url": "^8.0.2",
     "buffer": "^6.0.3",
-    "parcel": "^2.12.0",
+    "parcel": "^2.16.0",
     "process": "^0.11.10",
-    "rollup": "^4.50.2",
-    "rollup-plugin-copy": "^3.5.0",
-    "rollup-plugin-dts": "^6.2.3"
+    "rollup": "^4.52.5",
+  "rollup-plugin-copy": "^3.5.0",
+    "rollup-plugin-dts": "^6.2.3",
+    "@rollup/plugin-terser": "^0.4.0",
+    "archiver": "^7.0.1"
   },
   "scripts": {
     "build-all": "parcel build && rollup -c",
-    "build": "run build-all",
+    "build": "rollup -c",
+    "build:prod": "rollup -c --environment NODE_ENV:production",
     "start": "parcel",
-    "watch": "rollup -c -w"
+    "watch": "rollup -c -w",
+    "pack-dist": "node ./scripts/pack-dist.js"
   },
+  "files": [
+    "dist/**"
+  ],
   "dependencies": {
     "@iiif/3d-manifesto-dev": "^0.6.1",
     "jquery": "^3.7.1"
