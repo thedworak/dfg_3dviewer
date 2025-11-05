@@ -361,8 +361,6 @@ Notes & troubleshooting
 - The script creates `gltf/` and `metadata/` directories next to the input file and writes rendered views to `views/`.
 - For large conversions or CI, run the script in an environment where Blender has access to necessary codecs and WASM decoders for IFC/DRACO if used.
 
-If you'd like, I can add a condensed `Developer` subsection with a short test harness showing how to call the script from Node/PHP (the Drupal module integration) or add exact `.env` variable examples for common server layouts.
-Developer: Drupal / PHP example
 --------------------------------
 If your Drupal module invokes `convert.sh` (for example during an entity presave or a background worker), it's common to run the script in lightweight mode and let Drupal or a job runner manage rendering resources. Below is a minimal, safe example showing how to call the script from PHP. It demonstrates safe argument escaping and basic error handling — don't run user-provided paths without validation.
 
