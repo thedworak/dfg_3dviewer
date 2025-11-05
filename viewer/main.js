@@ -57,7 +57,6 @@ import Stats from "./js/jsm/libs/stats.module.js";
 import { GUI } from "./js/external_libs/lil-gui.esm.min.js";
 import ViewerSettings from "./viewer-settings.json" with { type: "json" };
 import { objectsConfig } from "./object-settings.js";
-import Toastify from "./toastify.js";
 import { lv } from "./spinner/main.js";
 
 import { loadIIIFManifest, getAnnotations } from "./IIIF/iiif-api.js";
@@ -246,6 +245,7 @@ let spinner = new lv();
 spinner.initLoaderAll();
 spinner.startObserving();
 let circle = lv.create(spinnerElement);
+console.log('Spinner initialized:', circle);
 
 var lilGui;
 
@@ -852,8 +852,10 @@ function onWindowResize() {
     metadataContainer.style.height = "100%";
 
     containerRect  = mainCanvas.getBoundingClientRect(); // CSS pixels
-    downloadModel?.setAttribute("style", "visibility: visible");
-    downloadModel.style.top = (containerRect.height / dpr - 85) + "px";  
+    if (downloadModel !== undefined) {
+      downloadModel.setAttribute("style", "visibility: visible");
+      downloadModel.style.top = (containerRect.height / dpr - 85) + "px"; 
+    }
   }
     
   fullscreenMode.style.top  = (containerRect.height / dpr - 60) + "px";

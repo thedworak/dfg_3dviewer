@@ -15,16 +15,16 @@
     "@rollup/plugin-commonjs": "^28.0.9",
     "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.3",
+    "@rollup/plugin-terser": "^0.4.0",
     "@rollup/plugin-typescript": "^12.3.0",
     "@rollup/plugin-url": "^8.0.2",
+    "archiver": "^7.0.1",
     "buffer": "^6.0.3",
-    "parcel": "^2.16.0",
+    "parcel": "^2.16.1",
     "process": "^0.11.10",
     "rollup": "^4.52.5",
-  "rollup-plugin-copy": "^3.5.0",
-    "rollup-plugin-dts": "^6.2.3",
-    "@rollup/plugin-terser": "^0.4.0",
-    "archiver": "^7.0.1"
+    "rollup-plugin-copy": "^3.5.0",
+    "rollup-plugin-dts": "^6.2.3"
   },
   "scripts": {
     "build-all": "parcel build && rollup -c",
