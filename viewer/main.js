@@ -1922,6 +1922,7 @@ async function init() {
     }
 
     var _autoPath = "";
+    
     if (CONFIG.entity.metadata.source === "") {
       var req = new XMLHttpRequest();
       req.responseType = "";
@@ -2057,7 +2058,7 @@ async function init() {
     fullscreenMode = document.createElement("div");
     fullscreenMode.setAttribute("id", "fullscreenMode");
     fullscreenMode.innerHTML =
-      "<img src='" + "./assets/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
+      "<img src='" + "assets/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
     fullscreenMode.setAttribute(
       "style",
       "top:" +

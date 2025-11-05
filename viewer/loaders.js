@@ -664,7 +664,7 @@ export async function loadModel(params) {
     case "gltf":
       const dracoLoader = new DRACOLoader();
       // Use relative path to draco files in dist folder
-      dracoLoader.setDecoderPath("./dist/draco/");
+      dracoLoader.setDecoderPath("assets/draco/");
       dracoLoader.preload();
       const gltf = new GLTFLoader();
       gltf.setDRACOLoader(dracoLoader);

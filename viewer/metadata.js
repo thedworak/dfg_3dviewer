@@ -206,7 +206,7 @@ export async function handleMetadataResponse(
   viewEntity.setAttribute("id", "viewEntity");
 
   if (
-    CONFIG.viewer.lightweight !== true &&
+    CONFIG.viewer.lightweight !== false &&
     CONFIG.viewer.lightweight !== null
   ) {
     var req = new XMLHttpRequest();
@@ -252,7 +252,7 @@ export async function handleMetadataResponse(
           }
           downloadModel.innerHTML = `
             <a href="blob:${c_path}${fileObject.filename}" download>
-              <img src="assets/cloud-arrow-down.svg" alt="download" width="25" height="25" title="Download source file"/>`;
+              <img src="assets/img/cloud-arrow-down.svg" alt="download" width="25" height="25" title="Download source file"/>`;
 
           metadataContainer.appendChild(viewEntity);
           appendMetadata(

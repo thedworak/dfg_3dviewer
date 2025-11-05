@@ -12,6 +12,7 @@
   "type": "module",
   "packages": {},
   "devDependencies": {
+    "@jsxtools/rollup-plugin-copy": "^0.3.1",
     "@rollup/plugin-commonjs": "^28.0.9",
     "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.3",
@@ -24,6 +25,7 @@
     "process": "^0.11.10",
     "rollup": "^4.52.5",
     "rollup-plugin-copy": "^3.5.0",
+    "rollup-plugin-copy-assets": "^2.0.3",
     "rollup-plugin-dts": "^6.2.3"
   },
   "scripts": {
@@ -39,6 +41,7 @@
   ],
   "dependencies": {
     "@iiif/3d-manifesto-dev": "^0.6.1",
-    "jquery": "^3.7.1"
+    "jquery": "^3.7.1",
+    "lru-cache": "^11.2.2"
   }
 }
