@@ -6,6 +6,7 @@
     <link href="viewer/css/main.css" rel="stylesheet" />
     <link href="viewer/css/spinner.css" rel="stylesheet" />
     <link href="css/theme.css" rel="stylesheet" />
+    <link href="css/external-sources.css" rel="stylesheet"/>
   </head>
   <body>
     <!--3d="https://3d-repository.hs-mainz.de/sites/default/files/2024-01/gltf/test2.glb"-->
@@ -14,17 +15,20 @@
       3d="https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb"
       style="height: 50vh"
     >
+      <div id="form-IIIF">
+        <div class="form-IIIF-group">
+          <input type="text" id="manifest-url" name="manifest-url" value=""></input>
+          <button id="load-manifest-from-url">Load Manifest From URL</button>
+        </div>
+        <div class="form-IIIF-group">
+          <textarea id="manifest-text" name="manifest-text" rows="10"></textarea>
+          <p>
+          <button id="load-manifest-from-text">Load Manifest From Text</button>
+          </p>
+        </div>
     </div>
   </div>
-    <!--<div id="form">
-      </select>
-      <div class="form-group">
-        <input type="text" id="manifest-url" name="manifest-url" value=""></input>
-        <button id="load-manifest-from-url">Load Manifest From URL</button>
-      </div>
-      <textarea id="manifest-text" name="manifest-text" rows="10"></textarea>
-      <button id="load-manifest-from-text">Load Manifest From Text</button>
-    </div>-->
+
     <script type="module" src="viewer/main.js"></script>
   </body>
 </html>

@@ -1980,9 +1980,13 @@ async function init() {
       };
       req.send(null);
     } else {
-      async function setupIIIF(newUrl) {
-        iiifConfigURL.url = newUrl;
-        const loadedIIIF = await loadIIIFManifest(iiifConfigURL.url);
+      async function setupIIIF(newUrlOrJson, type="url") {
+        if (type === "text") {
+          iiifConfigURL.url = "";
+        } else {
+          iiifConfigURL.url = newUrlOrJson;
+        }
+        const loadedIIIF = await loadIIIFManifest(newUrlOrJson);
         if (loadedIIIF.modelUrls.length === 0) { // no 3D model found, use example model
           loadedIIIF.modelUrls.push('https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb');
           showToast("No 3D model found in IIIF manifest, loading example model.");
@@ -2019,19 +2023,78 @@ async function init() {
           await mainLoadModel(_ext);
         }
       }
+
+      function isUrlFlexible(string) {
+        try {
+          new URL(string);
+          return true;
+        } catch {
+          return /^(https?:\/\/)?([\w-]+\.)+[\w-]{2,}(\/\S*)?$/i.test(string);
+        }
+      }
+
+      function isValidJsonObject(text) {
+        try {
+          const parsed = JSON.parse(text);
+          return typeof parsed === 'object' && parsed !== null;
+        } catch {
+          return false;
+        }
+      }
+
       async function loadIIIFURL() {
         // create a small dropdown to switch iiif manifests at runtime
         document.getElementById("iiif-dropdown").addEventListener("change", async (ev) => {
           try {
             if (ev.target.value !== iiifConfigURL.url) {
               objectsConfig.setupIndex = 0;
-              await setupIIIF(ev.target.value);
+              await setupIIIF(ev.target.value, "url");
             }
           } catch (err) {
             console.error(err);
             showToast("Error loading IIIF manifest: " + (err.message || err));
           }
           });
+
+        document.getElementById("load-manifest-from-url").addEventListener("click", async (ev) => {
+          try {
+            const inputElement = document.getElementById("manifest-url");
+            if (inputElement.value === "" || !isUrlFlexible(inputElement.value)) {
+              inputElement.style.border = "2px solid red";
+              showToast("Please enter a valid IIIF manifest URL.");
+              return;
+            } else {
+              inputElement.style.border = "2px solid green";
+              objectsConfig.setupIndex = 0;
+              console.log("Loading IIIF manifest from URL: " + inputElement.value);
+              await setupIIIF(inputElement.value, "url");
+            }
+          } catch (err) {
+            console.error(err);
+            showToast("Error loading IIIF manifest: " + (err.message || err));
+          }
+          });
+
+        document.getElementById("load-manifest-from-text").addEventListener("click", async (ev) => {
+          try {
+            const inputElement = document.getElementById("manifest-text");
+            if (inputElement.value === "" || !isValidJsonObject(inputElement.value)) {
+              inputElement.style.border = "2px solid red";
+              showToast("Please enter a valid IIIF JSON text.");
+              return;
+            } else {
+              inputElement.style.border = "2px solid green";
+              objectsConfig.setupIndex = 0;
+              console.log("Loading IIIF manifest from privided text");
+              await setupIIIF(inputElement.value, "text");
+            }
+          } catch (err) {
+            console.error(err);
+            showToast("Error loading IIIF manifest: " + (err.message || err));
+          }
+          });
+
+          
       }      
       
       switch(CONFIG.entity.metadata.source.substring(0, 4).toLowerCase()) {

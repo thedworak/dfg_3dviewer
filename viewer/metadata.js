@@ -443,6 +443,8 @@ export function createIIIFDropdown(container, iiifConfigURL, canvasDimensions) {
   label.style.alignSelf = "center";
 
   const select = document.createElement("select");
+  select.id = "iiif-manifest-select";
+  select.name = "iiif-manifest-select";
   select.style.fontSize = "12px";
   select.style.minWidth = "360px";
 
@@ -454,6 +456,6 @@ export function createIIIFDropdown(container, iiifConfigURL, canvasDimensions) {
   });
 
   wrapper.appendChild(label);
-  wrapper.appendChild(select);
+  label.appendChild(select);
   container.appendChild(wrapper);
 }
