@@ -440,15 +440,15 @@ npx http-server (one-liner, will prompt to install if not present):
 npx http-server .\dist -p 8080
 Start-Process "http://localhost:8080/index.html"
 ```
+OR
+```powershell
+http-server -c-1
+```
 
 Python (if you have Python installed):
 ```powershell
 python -m http.server 8080 --directory .\dist
 Start-Process "http://localhost:8080/index.html"
-```
-
-```powershell
-http-server -c-1
 ```
 
 If the page loads correctly over HTTP but fails via `file://`, the issue is the browser's local-file restrictions — serving via HTTP is the correct remedy.
