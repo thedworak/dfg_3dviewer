@@ -447,6 +447,10 @@ python -m http.server 8080 --directory .\dist
 Start-Process "http://localhost:8080/index.html"
 ```
 
+```powershell
+http-server -c-1
+```
+
 If the page loads correctly over HTTP but fails via `file://`, the issue is the browser's local-file restrictions — serving via HTTP is the correct remedy.
 
 ## Packaging & releases
