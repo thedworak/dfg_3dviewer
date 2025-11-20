@@ -9,8 +9,6 @@ export async function loadIIIFManifest(manifestUrlOrJson) {
   let i = 0;
   iiifManifest.modelUrls = new Array();
 
-  console.log(iiifManifest);
-
   if (iiifManifest.scenes.length > 0) {
     for (const [i, scene] of iiifManifest.scenes.entries()) { //TODO: support multiple scenes const manifestScene = scene;
     //if (!scene) return;
@@ -39,7 +37,6 @@ export async function loadIIIFManifest(manifestUrlOrJson) {
           modelUrl = modelAnnotation.getBody()[0].id;
         }
         modelTarget = modelAnnotation.getTarget();
-        //console.log("Model URL:", modelUrl, " Model Target:", modelTarget);
         if (modelUrl && modelTarget) {
           iiifManifest.modelUrls.push(modelUrl);
         }
@@ -57,7 +54,6 @@ export async function loadIIIFManifest(manifestUrlOrJson) {
 
 export async function getAnnotations(iiifManifest, objectsConfig) {
   let ind = objectsConfig.index || 0;
-  console.log("Getting annotations for model index:", ind);
   const modelAnnotations = iiifManifest.annotations[ind];
   if (!modelAnnotations) return;
 
@@ -72,14 +68,12 @@ export async function getAnnotations(iiifManifest, objectsConfig) {
   const items = Array.isArray(target) ? target : [target];
 
   await Promise.all(
-    items.map(async (modelAnnotation) => {
-        console.log("Processing annotation", ind + 1, "of", iiifManifest.annotations.length);
+    items.map(async (modelAnnotation) => {       
         if (modelAnnotation.getBody()[0].isSpecificResource) {
           let transforms = new Array();
 
           try {
             const body = modelAnnotation.getBody?.();
-            console.log("Model body:", body);
             const first = Array.isArray(body) ? body[0] : null;
             transforms = first?.getTransform?.() || [];
           } catch (e) {
@@ -87,7 +81,7 @@ export async function getAnnotations(iiifManifest, objectsConfig) {
             //objectsConfig.models[ind].scale = {x: 1, y: 1, z: 1};
             //objectsConfig.models[ind].rotation = {x: 0, y: 0, z: 0};
             //objectsConfig.models[ind].position = {x: 0, y: 0, z: 0};
-            console.warn("Failed to read transform");
+            //console.log("No transform present in specific resource body");
           }
           // Correct use of async-safe loop
           for (const transform of transforms) {
@@ -99,7 +93,6 @@ export async function getAnnotations(iiifManifest, objectsConfig) {
                 action: () => {
                   const scale = transform.getScale();
                   if (scale) {
-                    //console.log("scaling");
                     objectsConfig.models[ind].scale = scale;
                   }
                   else {
@@ -113,7 +106,6 @@ export async function getAnnotations(iiifManifest, objectsConfig) {
                 action: () => {
                   const rotation = transform.getRotation();
                   if (rotation) {
-                    //console.log("rotating");
                     objectsConfig.models[ind].rotation = rotation;
                   }
                   else { 
@@ -127,12 +119,10 @@ export async function getAnnotations(iiifManifest, objectsConfig) {
                 action: () => {
                   const translation = transform.getTranslation();
                   if (translation) {
-                    //console.log("translating");
                     objectsConfig.models[ind].position = translation;
                   }
                   else { 
                     objectsConfig.models[ind].position = {x: 0, y: 0, z: 0};
-                    console.log("No position defined in translate transform");
                   }
                 },
               },
@@ -140,7 +130,6 @@ export async function getAnnotations(iiifManifest, objectsConfig) {
 
             for (const { key, action } of transformHandlers) {
               if (transform[key]) {
-                //console.log( "Applying transform:", key);
                 action();
               }
             }
@@ -152,7 +141,6 @@ export async function getAnnotations(iiifManifest, objectsConfig) {
           const selector = iiifManifest.modelTarget.getSelector();
           if (selector && selector.isPointSelector) {
             const position = selector.getLocation();
-            console.log(objectsConfig.models[ind].position, position, selector);
             if (position) {
               objectsConfig.models[ind].position.x += position.x;
               objectsConfig.models[ind].position.y += position.y;

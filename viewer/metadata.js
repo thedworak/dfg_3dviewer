@@ -338,7 +338,7 @@ export async function fetchSettings(
   if (lilGUIgetFolder(gui, "Hierarchy") === null) {
     hierarchyMain = gui.addFolder("Hierarchy").close();
   }
-  if (CONFIG.entity.proxyPath !== undefined) {
+  if (CONFIG.entity.proxyPath !== undefined || !CONFIG.viewer.lightweight) {
     metadataUrl = getProxyPath(metadataUrl, CONFIG, fileObject);
     settingsHandler(object, camera, light, controls, hierarchyMain, CONFIG, helperObjects);
   } else if (CONFIG.entity.metadata.source === "IIIF") {

@@ -36,9 +36,6 @@ import { initClippingPlanes, showToast } from './viewer-utils.js';
 // Initialize clipping planes at startup
 initClippingPlanes();
 
-// materialsFolder will be set when created in setupEditor
-// materialsPropertiesText will be set when defined below
-
 import { loadModel, outlineClipping } from "./loaders.js";
 import { createIIIFDropdown, downloadModel } from "./metadata.js";
 
@@ -104,8 +101,8 @@ if (ViewerSettings !== undefined) {
     },
   };
 }
-
-CONFIG.entity.metadata.source = "IIIF";
+if (process.env.BUILD_SOURCE == undefined)
+CONFIG.entity.metadata.source = 'IIIF';
 
 let camera,
   scene,
@@ -245,7 +242,6 @@ let spinner = new lv();
 spinner.initLoaderAll();
 spinner.startObserving();
 let circle = lv.create(spinnerElement);
-console.log('Spinner initialized:', circle);
 
 var lilGui;
 
@@ -1979,7 +1975,24 @@ async function init() {
         }
       };
       req.send(null);
-    } else {
+    } else if (CONFIG.entity.metadata.source.toLowerCase().substring(0, 4) === "iiif") {
+        const formContainer = document.createElement("div");
+        formContainer.id = "form-IIIF";
+        formContainer.innerHTML = `
+          <div class="form-IIIF-group">
+            <input type="text" id="manifest-url" name="manifest-url" value="">
+            <button id="load-manifest-from-url">Load Manifest From URL</button>
+          </div>
+          <div class="form-IIIF-group">
+            <textarea id="manifest-text" name="manifest-text" rows="10"></textarea>
+            <p>
+              <button id="load-manifest-from-text">Load Manifest From Text</button>
+            </p>
+          </div>
+        `;
+
+        document.body.appendChild(formContainer);
+
       async function setupIIIF(newUrlOrJson, type="url") {
         if (type === "text") {
           iiifConfigURL.url = "";
@@ -1999,7 +2012,7 @@ async function init() {
         mainObject = [];
         console.log("TOTAL Annotations: " + loadedIIIF.annotations.length);
         if (loadedIIIF.annotations.length !== loadedIIIF.modelUrls.length) {
-          console.warn("Number of annotations does not match number of model URLs, adding testing model...");
+          //console.warn("Number of annotations does not match number of model URLs, adding testing model...");
             const diff = loadedIIIF.annotations.length - loadedIIIF.modelUrls.length;
             if (diff > 0) {
               // Need more model URLs → push empty strings (or null)
@@ -2010,7 +2023,6 @@ async function init() {
             }
         }
         for (const [i, url] of loadedIIIF.modelUrls?.entries()) {
-          console.log(i);
           objectsConfig.index = i;
           fileObject.originalPath = loadedIIIF.modelUrl = url;
           //fileObject.originalPath = loadedIIIF.modelUrl;

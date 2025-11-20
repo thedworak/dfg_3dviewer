@@ -4,9 +4,18 @@ import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
 import terser from '@rollup/plugin-terser';
+import replace from '@rollup/plugin-replace';
+
+const source = process.env.BUILD_SOURCE || "IIIF";
 
 export default {
   input: 'viewer/main.js',
+  plugins: [
+    replace({
+      preventAssignment: true,
+      BUILD_SOURCE: JSON.stringify(source)
+    })
+  ],
   output: {
     file: 'dist/dfg_3dviewer-module.js',
     format: 'iife',
@@ -35,6 +44,14 @@ export default {
         { src: 'viewer/fonts/*', dest: 'dist/assets/fonts' },
         { src: 'viewer/css/*', dest: 'dist/assets/css' },
         { src: 'css/*', dest: 'dist/assets/css' },
+        { src: 'viewer/viewer-settings.json', dest: 'dist',
+          transform: (contents) => {
+            const json = JSON.parse(contents);
+            json.viewer.lightweight = 1;
+
+            return JSON.stringify(json, null, 2);
+          }
+        },
         {
           src: 'index.html',
           dest: 'dist',
@@ -52,6 +69,7 @@ export default {
           }
         },
       ],
+      hook: 'writeBundle',
       verbose: true
     }),
     resolve({

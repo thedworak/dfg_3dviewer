@@ -45,7 +45,7 @@ export const setupObject = (_object, _light, _controls, _helperObjects) => {
       if (typeof model.rotation !== undefined) _object.rotation.set(THREE.MathUtils.degToRad(model.rotation.x), THREE.MathUtils.degToRad(model.rotation.y), THREE.MathUtils.degToRad(model.rotation.z));
     } else {
       let m = core.objectsConfig.models[core.objectsConfig.setupIndex];
-      console.log("Applying config for index", core.objectsConfig.setupIndex, m);
+      //console.log("Applying config for index", core.objectsConfig.setupIndex, m);
       if (typeof m.position !== "undefined")
         _object.position.set(m.position.x, m.position.y, m.position.z);
       if (typeof m.scale !== "undefined")
