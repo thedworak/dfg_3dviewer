@@ -101,7 +101,7 @@ if (ViewerSettings !== undefined) {
     },
   };
 }
-if (process.env.BUILD_SOURCE == undefined)
+if (process?.env.BUILD_SOURCE == undefined)
 CONFIG.entity.metadata.source = 'IIIF';
 
 let camera,
