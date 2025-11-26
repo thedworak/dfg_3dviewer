@@ -101,7 +101,9 @@ if (ViewerSettings !== undefined) {
     },
   };
 }
-if (process?.env.BUILD_SOURCE == undefined)
+const buildSource = process?.env?.BUILD_SOURCE;
+
+if (buildSource === undefined)
 CONFIG.entity.metadata.source = 'IIIF';
 
 let camera,
