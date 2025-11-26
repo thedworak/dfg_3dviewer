@@ -26,8 +26,8 @@
       "command": "npm start build"
     },
     "build:dist": {
-      "name": "Build (dist)",
-      "command": "cross-env BUILD_SOURCE= npm run build"
+      "name": "Build dist",
+      "command": "cross-env BUILD_SOURCE='' BUILD=prod npm run build"
     },
     "build:test": {
       "name": "Build (test)",

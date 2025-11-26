@@ -36,6 +36,7 @@
     "build:prod": "rollup -c --environment NODE_ENV:production",
     "start": "parcel",
     "start:dist": "cross-env BUILD_SOURCE='' parcel",
+    "build:dist": "rollup -c --environment BUILD:prod",
     "watch": "rollup -c -w",
     "pack-dist": "node ./scripts/pack-dist.js"
   },

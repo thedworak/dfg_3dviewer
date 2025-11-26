@@ -78,7 +78,7 @@ export const setupObject = (_object, _light, _controls, _helperObjects) => {
         }
         _object[i].updateMatrixWorld();
       }
-    } else if (_object.isGroup && fileObject.extension == "fbx") {
+    } /*else if (_object.isGroup && fileObject.extension == "fbx") {
       //workaround for specific FBX case
       boundingBox.setFromObject(_object);
       var _obj = new THREE.Object3D();
@@ -86,7 +86,7 @@ export const setupObject = (_object, _light, _controls, _helperObjects) => {
       //_obj.position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
       _obj.updateMatrixWorld();
       _object = _obj;
-    } else {
+    }*/ else {
       boundingBox.setFromObject(_object);
       _object.position.set(
         -(boundingBox.min.x + boundingBox.max.x) / 2,

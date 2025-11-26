@@ -25,6 +25,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Build dist
+        run: npm run build:dist
+
       - name: Pack dist
         run: node ./scripts/pack-dist.js
 
