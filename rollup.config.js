@@ -18,20 +18,17 @@ export default {
       BUILD_SOURCE: JSON.stringify(source)
     }),
 
-    isProd &&
-      replace({
-        preventAssignment: true,
-        values: {
-          '"assets/draco/"': '"/modules/custom/dfg_3dviewer/dist/assets/draco/"',
-          '"assets/img/': '"/modules/custom/dfg_3dviewer/dist/assets/img/'
-        },
-        verbose: true
-      }),
+    isProd && replace({
+      preventAssignment: true,
+      values: {
+        '"assets/draco/"': '(window.DFG_3DVIEWER_BASE || "/") + "modules/custom/dfg_3dviewer/dist/assets/draco/"'
+            }
+    }),
 
-      replace({
-        preventAssignment: true,
-        BUILD_SOURCE: JSON.stringify(source)  // source = "IIIF" lub z env
-      }),
+    replace({
+      preventAssignment: true,
+      BUILD_SOURCE: JSON.stringify(source)  // source = "IIIF" lub z env
+    }),
 
     url({
       include: ['**/*.svg', '**/*.png', '**/*.jpg', '**/*.gif'],

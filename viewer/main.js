@@ -102,6 +102,14 @@ if (ViewerSettings !== undefined) {
   };
 }
 
+window.DFG_ASSETS = (() => {
+  const script = document.currentScript?.src || '';
+  if (script.includes('/modules/custom/dfg_3dviewer/dist/')) {
+    return script.replace(/dfg_3dviewer-module\.js.*$/, 'assets/');
+  }
+  return 'assets/';
+})();
+
 //CONFIG.entity.metadata.source = typeof BUILD_SOURCE === 'undefined' ? BUILD_SOURCE : 'IIIF';
 
 let camera,
@@ -2133,7 +2141,7 @@ async function init() {
     fullscreenMode = document.createElement("div");
     fullscreenMode.setAttribute("id", "fullscreenMode");
     fullscreenMode.innerHTML =
-      "<img src='" + "assets/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
+      "<img src='" + DFG_ASSETS + "img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
     fullscreenMode.setAttribute(
       "style",
       "top:" +

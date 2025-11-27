@@ -8,5 +8,3 @@ node_modules
 *.mdb~
 /dist/*
 !/dist/.gitkeep
-!/dist/index.html
-!/dist/assets/**
