@@ -1818,6 +1818,12 @@ async function init() {
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.domElement.style.width = CONFIG.viewer.canvasDimensions.x + "px";
     renderer.domElement.style.height = CONFIG.viewer.canvasDimensions.y + "px";
+
+    if (container.parentElement) {
+      container.parentElement.style.width = CONFIG.viewer.canvasDimensions.x + "px";
+      container.parentElement.style.height = "clamp(20vh, " + CONFIG.viewer.canvasDimensions.y + "px, 100vh)";
+    }
+
     renderer.domElement.style.display = "block";
     container.appendChild(renderer.domElement);
     mainCanvas.setAttribute(
@@ -1828,7 +1834,6 @@ async function init() {
     canvasText.id = "TextCanvas";
     canvasText.width = CONFIG.viewer.canvasDimensions.x + "px";
     canvasText.height = CONFIG.viewer.canvasDimensions.y + "px";
-
 
     camera.aspect = CONFIG.viewer.canvasDimensions.x / CONFIG.viewer.canvasDimensions.y;
     camera.updateProjectionMatrix();
