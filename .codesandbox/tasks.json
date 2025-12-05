@@ -11,7 +11,7 @@
   "tasks": {
     "start": {
       "name": "Start (test mode)",
-      "command": "cross-env BUILD_SOURCE=IIIF npm start",
+      "command": "cross-env BUILD_SOURCE=IIIF BUILD=prod npm start",
       "runAtStart": true,
       "preview": {
         "port": 1234
@@ -19,7 +19,7 @@
     },
     "start:dist": {
       "name": "Start (dist mode)",
-      "command": "cross-env BUILD_SOURCE='' npm run start:dist"
+      "command": "cross-env BUILD_SOURCE='' BUILD=dist npm run start:dist"
     },
     "build": {
       "name": "Build",
@@ -27,7 +27,7 @@
     },
     "build:dist": {
       "name": "Build dist",
-      "command": "cross-env BUILD_SOURCE='' BUILD=prod npm run build"
+      "command": "cross-env BUILD_SOURCE='' BUILD=dist npm run build:dist"
     },
     "build:test": {
       "name": "Build (test)",

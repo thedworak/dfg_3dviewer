@@ -7,7 +7,7 @@ import terser from '@rollup/plugin-terser';
 import replace from '@rollup/plugin-replace';
 
 const source = process.env.BUILD_SOURCE || "IIIF";
-const isProd = process.env.BUILD === 'prod';
+const isProd = process.env.BUILD || 'prod';
 console.log("isProd =", isProd);
 
 export default {

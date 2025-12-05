@@ -33,10 +33,10 @@
   "scripts": {
     "build-all": "parcel build && rollup -c",
     "build": "rollup -c",
-    "build:prod": "rollup -c --environment NODE_ENV:production",
-    "start": "parcel",
-    "start:dist": "cross-env BUILD_SOURCE='' parcel",
-    "build:dist": "rollup -c --environment BUILD:prod",
+    "build:prod": "rollup -c --environment BUILD:prod NODE_ENV:production",
+    "start": "cross-env BUILD_SOURCE='IIIF' BUILD=prod parcel",
+    "start:dist": "cross-env BUILD_SOURCE='' BUILD=dist parcel",
+    "build:dist": "rollup -c --environment BUILD:dist --environment BUILD_SOURCE=''",
     "watch": "rollup -c -w",
     "pack-dist": "node ./scripts/pack-dist.js"
   },

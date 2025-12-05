@@ -74,7 +74,7 @@ if (ViewerSettings !== undefined) {
       viewEntityPath: "/wisski/navigate/",
       attributeId: "wisski_id",
       metadata: {
-        source: "",
+        source: "IIIF",
       },
     },
     viewer: {
@@ -82,7 +82,7 @@ if (ViewerSettings !== undefined) {
       fileUpload: "fbf95bddee5160d515b982b3fd2e05f7",
       fileName: "faa602a0be629324806aef22892cdbe5",
       imageGeneration: "f605dc6b727a1099b9e52b3ccbdf5673",
-      lightweight: 1,
+      lightweight: 0,
       salt: "Z7FYJMmTiEzcGp4lTpuk4LiA",
       scaleContainer: {
         x: 0.85,
@@ -110,8 +110,8 @@ window.DFG_ASSETS = (() => {
   return 'assets/';
 })();
 
-//CONFIG.entity.metadata.source = typeof BUILD_SOURCE === 'undefined' ? BUILD_SOURCE : 'IIIF';
-
+//CONFIG.entity.metadata.source = typeof env.BUILD_SOURCE === 'undefined' ? BUILD_SOURCE : 'IIIF';
+console.log('Using metadata source:', CONFIG.entity.metadata.source);
 let camera,
   scene,
   renderer,
@@ -830,8 +830,6 @@ function buildRuler(_id) {
 
 function onWindowResize() {
   var rightOffsetEntity = -75;
-  var rightOffsetFullscreen = CONFIG.viewer.canvasDimensions.x * 0.45;
-  var bottomOffsetFullscreen = -CONFIG.viewer.canvasDimensions.y * 0.97 + 20;
   let containerRect;
   const dpr = window.devicePixelRatio || 1;
   if (FULLSCREEN) {
@@ -1803,8 +1801,7 @@ async function init() {
       powerPreference: "high-performance",
       alpha: true,
     });
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.setSize(CONFIG.viewer.canvasDimensions.x, CONFIG.viewer.canvasDimensions.y);
+    
     renderer.shadowMap.enabled = true;
     renderer.localClippingEnabled = true;
     renderer.physicallyCorrectLights = true; //can be considered as better looking
@@ -1818,9 +1815,10 @@ async function init() {
     renderer.domElement.addEventListener("pointermove", onPointerMove);
 
     renderer.setSize(CONFIG.viewer.canvasDimensions.x, CONFIG.viewer.canvasDimensions.y);
+    renderer.setPixelRatio(window.devicePixelRatio);
     renderer.domElement.style.width = CONFIG.viewer.canvasDimensions.x + "px";
     renderer.domElement.style.height = CONFIG.viewer.canvasDimensions.y + "px";
-    renderer.domElement.style.display = "block"; // usually best
+    renderer.domElement.style.display = "block";
     container.appendChild(renderer.domElement);
     mainCanvas.setAttribute(
       "style",
@@ -1830,6 +1828,10 @@ async function init() {
     canvasText.id = "TextCanvas";
     canvasText.width = CONFIG.viewer.canvasDimensions.x + "px";
     canvasText.height = CONFIG.viewer.canvasDimensions.y + "px";
+
+
+    camera.aspect = CONFIG.viewer.canvasDimensions.x / CONFIG.viewer.canvasDimensions.y;
+    camera.updateProjectionMatrix();
 
     setCore('mainCanvas', mainCanvas);
 
