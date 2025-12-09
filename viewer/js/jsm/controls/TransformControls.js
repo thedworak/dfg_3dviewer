@@ -19,7 +19,7 @@ import {
 	SphereGeometry,
 	TorusGeometry,
 	Vector3
-} from '../../../build/three.module.js';
+} from 'three';
 
 const _raycaster = new Raycaster();
 
@@ -80,7 +80,7 @@ class TransformControls extends Controls {
 	 * Constructs a new controls instance.
 	 *
 	 * @param {Camera} camera - The camera of the rendered scene.
-	 * @param {?HTMLDOMElement} domElement - The HTML element used for event listeners.
+	 * @param {?HTMLElement} domElement - The HTML element used for event listeners.
 	 */
 	constructor( camera, domElement = null ) {
 

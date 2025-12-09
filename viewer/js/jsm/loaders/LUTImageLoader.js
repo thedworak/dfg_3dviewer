@@ -6,7 +6,7 @@ import {
 	UnsignedByteType,
 	ClampToEdgeWrapping,
 	LinearFilter,
-} from '../../../build/three.module.js';
+} from 'three';
 
 /**
  * A loader for loading LUT images.

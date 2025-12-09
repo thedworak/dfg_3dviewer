@@ -1,6 +1,6 @@
 import {
 	Group
-} from '../../../build/three.module.js';
+} from 'three';
 
 class USDCParser {
 

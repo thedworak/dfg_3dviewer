@@ -9,7 +9,7 @@ import {
 	LinearFilter,
 	HalfFloatType,
 	DataUtils
-} from '../../../build/three.module.js';
+} from 'three';
 
 /**
  * A loader for the IES format.

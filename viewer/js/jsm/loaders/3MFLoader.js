@@ -18,13 +18,13 @@ import {
 	RepeatWrapping,
 	TextureLoader,
 	SRGBColorSpace
-} from '../../../build/three.module.js';
+} from 'three';
 import * as fflate from '../libs/fflate.module.js';
 
 const COLOR_SPACE_3MF = SRGBColorSpace;
 
 /**
- * A loader for the [3D Manufacturing Format (3MF)]{@link https://3mf.io/specification/} format.
+ * A loader for the [3D Manufacturing Format (3MF)](https://3mf.io/specification/) format.
  *
  * The following features from the core specification are supported:
  *

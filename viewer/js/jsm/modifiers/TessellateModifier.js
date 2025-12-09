@@ -4,7 +4,7 @@ import {
 	Float32BufferAttribute,
 	Vector2,
 	Vector3
-} from '../../../build/three.module.js';
+} from 'three';
 
 /**
  * This class can be used to modify a geometry by breaking its edges if they

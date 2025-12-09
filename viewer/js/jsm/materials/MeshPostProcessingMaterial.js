@@ -1,4 +1,4 @@
-import { MeshPhysicalMaterial } from '../../../build/three.module.js';
+import { MeshPhysicalMaterial } from 'three';
 
 /**
  * The aim of this mesh material is to use information from a post processing pass in the diffuse color pass.

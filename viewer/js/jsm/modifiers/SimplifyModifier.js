@@ -5,7 +5,7 @@ import {
 	Vector2,
 	Vector3,
 	Vector4
-} from '../../../build/three.module.js';
+} from 'three';
 import * as BufferGeometryUtils from '../utils/BufferGeometryUtils.js';
 
 const _cb = new Vector3(), _ab = new Vector3();
@@ -14,7 +14,7 @@ const _cb = new Vector3(), _ab = new Vector3();
  * This class can be used to modify a geometry by simplifying it. A typical use
  * case for such a modifier is automatic LOD generation.
  *
- * The implementation is based on [Progressive Mesh type Polygon Reduction Algorithm]{@link https://web.archive.org/web/20230610044040/http://www.melax.com/polychop/}
+ * The implementation is based on [Progressive Mesh type Polygon Reduction Algorithm](https://web.archive.org/web/20230610044040/http://www.melax.com/polychop/)
  * by Stan Melax in 1998.
  *
  * ```js

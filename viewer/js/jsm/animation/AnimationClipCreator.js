@@ -5,7 +5,7 @@ import {
 	NumberKeyframeTrack,
 	Vector3,
 	VectorKeyframeTrack
-} from '../../../build/three.module.js';
+} from 'three';
 
 /**
  * A utility class with factory methods for creating basic animation clips.

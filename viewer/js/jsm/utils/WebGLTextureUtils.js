@@ -8,7 +8,7 @@ import {
 	WebGLRenderer,
 	CanvasTexture,
 	SRGBColorSpace
-} from '../../../build/three.module.js';
+} from 'three';
 
 /**
  * @module WebGLTextureUtils

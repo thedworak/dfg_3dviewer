@@ -7,7 +7,7 @@ import {
 	RGB_S3TC_DXT1_Format,
 	RGB_BPTC_SIGNED_Format,
 	RGB_BPTC_UNSIGNED_Format
-} from '../../../build/three.module.js';
+} from 'three';
 
 /**
  * A loader for the S3TC texture compression format.
@@ -44,7 +44,7 @@ class DDSLoader extends CompressedTextureLoader {
 	 */
 	parse( buffer, loadMipmaps ) {
 
-		const dds = { mipmaps: [], width: 0, height: 0, format: null, mipmapCount: 1 };
+		const dds = { mipmaps: [], width: 0, height: 0, format: null, mipmapCount: 1, isCubemap: false };
 
 		// Adapted from @toji's DDS utils
 		// https://github.com/toji/webgl-texture-utils/blob/master/texture-util/dds.js

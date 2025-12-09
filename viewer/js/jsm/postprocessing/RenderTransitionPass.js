@@ -2,7 +2,7 @@ import {
 	HalfFloatType,
 	ShaderMaterial,
 	WebGLRenderTarget
-} from '../../../build/three.module.js';
+} from 'three';
 import { FullScreenQuad, Pass } from './Pass.js';
 
 /**

@@ -1,4 +1,4 @@
-import { Vector3 } from '../../../build/three.module.js';
+import { Vector3 } from 'three';
 
 /**
  * An exporter for STL.

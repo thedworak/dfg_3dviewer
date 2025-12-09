@@ -2,7 +2,7 @@ import {
 	Group,
 	Raycaster,
 	Vector2
-} from '../../../build/three.module.js';
+} from 'three';
 
 const _pointer = new Vector2();
 const _event = { type: '', data: _pointer };
@@ -52,7 +52,7 @@ class InteractiveGroup extends Group {
 		/**
 		 * The internal raycaster.
 		 *
-		 * @type {?HTMLDOMElement}
+		 * @type {?HTMLElement}
 		 * @default null
 		 */
 		this.element = null;

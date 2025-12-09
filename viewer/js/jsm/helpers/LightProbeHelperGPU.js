@@ -2,7 +2,7 @@ import {
 	Mesh,
 	NodeMaterial,
 	SphereGeometry
-} from '../../../build/three.module.js';
+} from 'three';
 import { float, Fn, getShIrradianceAt, normalWorld, uniformArray, uniform, vec4 } from 'three/tsl';
 
 /**

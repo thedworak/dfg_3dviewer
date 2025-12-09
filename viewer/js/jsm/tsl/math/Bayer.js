@@ -1,4 +1,4 @@
-import { TextureLoader } from '../../../../build/three.module.js';
+import { TextureLoader } from 'three';
 import { Fn, int, ivec2, textureLoad } from 'three/tsl';
 
 /**

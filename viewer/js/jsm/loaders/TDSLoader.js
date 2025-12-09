@@ -12,7 +12,7 @@ import {
 	Mesh,
 	MeshPhongMaterial,
 	TextureLoader
-} from '../../../build/three.module.js';
+} from 'three';
 
 /**
  * A loader for the 3DS format, based on lib3ds.

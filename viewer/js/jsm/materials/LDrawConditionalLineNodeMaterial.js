@@ -1,4 +1,4 @@
-import { Color } from '../../../build/three.module.js';
+import { Color } from 'three';
 import { attribute, cameraProjectionMatrix, dot, float, Fn, modelViewMatrix, modelViewProjection, NodeMaterial, normalize, positionGeometry, sign, uniform, varyingProperty, vec2, vec4 } from 'three/tsl';
 
 /**

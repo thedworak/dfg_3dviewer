@@ -1,7 +1,7 @@
 import {
 	MathUtils,
 	Mesh
-} from '../../../build/three.module.js';
+} from 'three';
 
 /**
  * A special type of an animated mesh with a more advanced interface

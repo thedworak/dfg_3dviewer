@@ -5,7 +5,7 @@ import {
 	Loader,
 	Color,
 	SRGBColorSpace
-} from '../../../build/three.module.js';
+} from 'three';
 
 const _color = new Color();
 

@@ -12,7 +12,7 @@ import {
 	SRGBColorSpace,
 	Vector2,
 	Vector3
-} from '../../../build/three.module.js';
+} from 'three';
 
 const COLOR_SPACE_SVG = SRGBColorSpace;
 
@@ -1502,8 +1502,8 @@ class SVGLoader extends Loader {
 
 			if ( node.nodeName === 'use' && ( node.hasAttribute( 'x' ) || node.hasAttribute( 'y' ) ) ) {
 
-				const tx = parseFloatWithUnits( node.getAttribute( 'x' ) );
-				const ty = parseFloatWithUnits( node.getAttribute( 'y' ) );
+				const tx = parseFloatWithUnits( node.getAttribute( 'x' ) || 0 );
+				const ty = parseFloatWithUnits( node.getAttribute( 'y' ) || 0 );
 
 				transform.translate( tx, ty );
 

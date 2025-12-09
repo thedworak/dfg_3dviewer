@@ -1,7 +1,7 @@
 import {
 	FileLoader,
 	Loader
-} from '../../build/three.module.js';
+} from 'three';
 
 import * as fflate from '../libs/fflate.module.js';
 import { USDAParser } from './usd/USDAParser.js';

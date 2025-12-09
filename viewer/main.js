@@ -110,6 +110,8 @@ window.DFG_ASSETS = (() => {
   return 'assets/';
 })();
 
+console.log(`Powered by Three.js (v${THREE.REVISION}) - DFG 3D-Viewer`);
+
 //CONFIG.entity.metadata.source = typeof env.BUILD_SOURCE === 'undefined' ? BUILD_SOURCE : 'IIIF';
 console.log('Using metadata source:', CONFIG.entity.metadata.source);
 let camera,

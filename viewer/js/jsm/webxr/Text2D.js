@@ -1,4 +1,4 @@
-import { DoubleSide, Mesh, MeshBasicMaterial, PlaneGeometry, Texture } from '../../../build/three.module.js';
+import { DoubleSide, Mesh, MeshBasicMaterial, PlaneGeometry, Texture } from 'three';
 
 /**
  * @module Text2D

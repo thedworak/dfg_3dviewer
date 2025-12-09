@@ -12,7 +12,7 @@ import {
 	TextureLoader,
 	Object3D,
 	Vector2
-} from '../../../build/three.module.js';
+} from 'three';
 
 class USDAParser {
 

@@ -10,7 +10,7 @@ import {
 	Loader,
 	RGBAFormat,
 	UVMapping,
-} from '../../../build/three.module.js';
+} from 'three';
 
 /**
  * UltraHDR Image Format - https://developer.android.com/media/platform/hdr-image-format
@@ -39,7 +39,7 @@ const SRGB_TO_LINEAR = Array( 1024 )
 /**
  * A loader for the Ultra HDR Image Format.
  *
- * Existing HDR or EXR textures can be converted to Ultra HDR with this [tool]{@link https://gainmap-creator.monogrid.com/}.
+ * Existing HDR or EXR textures can be converted to Ultra HDR with this [tool](https://gainmap-creator.monogrid.com/).
  *
  * Current feature set:
  * - JPEG headers (required)
@@ -89,7 +89,7 @@ class UltraHDRLoader extends Loader {
 	 * Sets the texture type.
 	 *
 	 * @param {(HalfFloatType|FloatType)} value - The texture type to set.
-	 * @return {RGBELoader} A reference to this loader.
+	 * @return {UltraHDRLoader} A reference to this loader.
 	 */
 	setDataType( value ) {
 

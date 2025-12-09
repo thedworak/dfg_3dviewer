@@ -2,7 +2,7 @@ import {
 	Mesh,
 	ShaderMaterial,
 	SphereGeometry
-} from '../../../build/three.module.js';
+} from 'three';
 
 /**
  * Renders a sphere to visualize a light probe in the scene.

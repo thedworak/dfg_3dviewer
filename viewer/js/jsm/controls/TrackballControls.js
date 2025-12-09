@@ -5,7 +5,7 @@ import {
 	Quaternion,
 	Vector2,
 	Vector3
-} from '../../../build/three.module.js';
+} from 'three';
 
 /**
  * Fires when the camera has been transformed by the controls.
@@ -59,7 +59,7 @@ class TrackballControls extends Controls {
 	 * Constructs a new controls instance.
 	 *
 	 * @param {Object3D} object - The object that is managed by the controls.
-	 * @param {?HTMLDOMElement} domElement - The HTML element used for event listeners.
+	 * @param {?HTMLElement} domElement - The HTML element used for event listeners.
 	 */
 	constructor( object, domElement = null ) {
 

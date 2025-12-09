@@ -4,7 +4,7 @@ import {
 	RGBA_PVRTC_4BPPV1_Format,
 	RGB_PVRTC_2BPPV1_Format,
 	RGB_PVRTC_4BPPV1_Format
-} from '../../../build/three.module.js';
+} from 'three';
 
 /**
  * A loader for the PVRTC texture compression format.

@@ -14,7 +14,7 @@ import {
 	Vector3,
 	Color,
 	SRGBColorSpace
-} from '../../../build/three.module.js';
+} from 'three';
 
 // o object_name | g group_name
 const _object_pattern = /^[og]\s*(.+)?/;
@@ -436,7 +436,7 @@ function ParserState() {
 /**
  * A loader for the OBJ format.
  *
- * The [OBJ format]{@link https://en.wikipedia.org/wiki/Wavefront_.obj_file} is a simple data-format that
+ * The [OBJ format](https://en.wikipedia.org/wiki/Wavefront_.obj_file) is a simple data-format that
  * represents 3D geometry in a human readable format as the position of each vertex, the UV position of
  * each texture coordinate vertex, vertex normals, and the faces that make each polygon defined as a list
  * of vertices, and texture vertices.

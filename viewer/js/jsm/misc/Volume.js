@@ -2,7 +2,7 @@ import {
 	Matrix3,
 	Matrix4,
 	Vector3
-} from '../../../build/three.module.js';
+} from 'three';
 import { VolumeSlice } from '../misc/VolumeSlice.js';
 
 /**
@@ -234,7 +234,7 @@ class Volume {
 		/**
 		 * The list of all the slices associated to this volume
 		 *
-		 * @type {Array}
+		 * @type {Array<VolumeSlice>}
 		 */
 		this.sliceList = [];
 

@@ -1,4 +1,4 @@
-import { LineSegments, LineBasicMaterial, BufferAttribute } from '../../../build/three.module.js';
+import { LineSegments, LineBasicMaterial, BufferAttribute } from 'three';
 /**
  * This class displays all Rapier Colliders in outline.
  *

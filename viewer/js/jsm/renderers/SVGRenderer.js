@@ -7,7 +7,7 @@ import {
 	Object3D,
 	SRGBColorSpace,
 	Vector3
-} from '../../../build/three.module.js';
+} from 'three';
 import {
 	Projector,
 	RenderableFace,
@@ -120,7 +120,7 @@ class SVGRenderer {
 		/**
 		 * The DOM where the renderer appends its child-elements.
 		 *
-		 * @type {DOMElement}
+		 * @type {SVGSVGElement}
 		 */
 		this.domElement = _svg;
 

@@ -1,4 +1,4 @@
-import { Object3D, Sphere, Box3 } from '../../../build/three.module.js';
+import { Object3D, Sphere, Box3 } from 'three';
 import { XRHandMeshModel } from './XRHandMeshModel.js';
 
 const TOUCH_RADIUS = 0.01;
@@ -122,7 +122,7 @@ class OculusHandModel extends Object3D {
 	/**
 	 * Returns the pointer position which is the position of the index finger tip.
 	 *
-	 * @return {Vector3|null} The pointer position. Returns `null` if not index finger tip joint was found.
+	 * @return {?Vector3} The pointer position. Returns `null` if not index finger tip joint was found.
 	 */
 	getPointerPosition() {
 

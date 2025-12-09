@@ -13,7 +13,7 @@ import {
 	Vector2,
 	Vector3,
 	Vector4
-} from '../../../build/three.module.js';
+} from 'three';
 
 /**
  * Creates a simulated lens flare that tracks a light.

@@ -12,7 +12,7 @@ import {
 	Mesh,
 	InstancedMesh,
 	LinearFilter
-} from '../../../build/three.module.js';
+} from 'three';
 
 import { modelWorldMatrix, normalLocal, vec2, vec3, vec4, mat3, varyingProperty, texture, reference, Fn, select, positionLocal } from 'three/tsl';
 

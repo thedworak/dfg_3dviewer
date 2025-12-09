@@ -6,7 +6,7 @@ import {
 	PlaneGeometry,
 	ShaderMaterial,
 	Vector3,
-} from '../../../build/three.module.js';
+} from 'three';
 import { mergeGeometries } from '../utils/BufferGeometryUtils.js';
 
 /**

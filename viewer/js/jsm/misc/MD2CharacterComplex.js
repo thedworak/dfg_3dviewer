@@ -6,7 +6,7 @@ import {
 	TextureLoader,
 	UVMapping,
 	SRGBColorSpace
-} from '../../../build/three.module.js';
+} from 'three';
 import { MD2Loader } from '../loaders/MD2Loader.js';
 import { MorphBlendMesh } from '../misc/MorphBlendMesh.js';
 
@@ -121,7 +121,7 @@ class MD2CharacterComplex {
 		/**
 		 * The movement controls.
 		 *
-		 * @type {Object}
+		 * @type {?Object}
 		 * @default null
 		 */
 		this.controls = null;

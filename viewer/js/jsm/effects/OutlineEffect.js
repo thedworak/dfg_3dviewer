@@ -4,7 +4,7 @@ import {
 	ShaderMaterial,
 	UniformsLib,
 	UniformsUtils
-} from '../../../build/three.module.js';
+} from 'three';
 
 /**
  * An outline effect for toon shaders.

@@ -1,7 +1,7 @@
 import {
 	BufferGeometry,
 	Float32BufferAttribute
-} from '../../../build/three.module.js';
+} from 'three';
 
 /**
  * A special type of box geometry intended for {@link LineSegments}.

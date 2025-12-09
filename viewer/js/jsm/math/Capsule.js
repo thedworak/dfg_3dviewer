@@ -1,6 +1,6 @@
 import {
 	Vector3
-} from '../../../build/three.module.js';
+} from 'three';
 
 /**
  * A capsule is essentially a cylinder with hemispherical caps at both ends.

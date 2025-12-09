@@ -4,7 +4,7 @@ import {
 	Color,
 	ColorManagement,
 	SRGBColorSpace
-} from '../../../build/three.module.js';
+} from 'three';
 
 /**
  * An exporter for PLY.
@@ -31,7 +31,7 @@ class PLYExporter {
 	 * @param {Object3D} object - The 3D object to export.
 	 * @param {PLYExporter~OnDone} onDone - A callback function that is executed when the export has finished.
 	 * @param {PLYExporter~Options} options - The export options.
-	 * @return {?string|ArrayBuffer} The exported PLY.
+	 * @return {?(string|ArrayBuffer)} The exported PLY.
 	 */
 	parse( object, onDone, options = {} ) {
 

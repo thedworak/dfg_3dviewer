@@ -3,7 +3,7 @@ import {
 	BufferGeometry,
 	Float32BufferAttribute,
 	LineBasicMaterial
-} from '../../../build/three.module.js';
+} from 'three';
 
 /**
  * A helper for visualizing an Octree.

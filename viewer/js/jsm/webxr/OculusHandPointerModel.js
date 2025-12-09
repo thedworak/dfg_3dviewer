@@ -1,4 +1,4 @@
-import { BufferGeometry, Float32BufferAttribute, Matrix4, Mesh, MeshBasicMaterial, Object3D, Raycaster, SphereGeometry, Vector3 } from '../../../build/three.module.js';
+import { BufferGeometry, Float32BufferAttribute, Matrix4, Mesh, MeshBasicMaterial, Object3D, Raycaster, SphereGeometry, Vector3 } from 'three';
 
 const PINCH_MAX = 0.05;
 const PINCH_THRESHOLD = 0.02;

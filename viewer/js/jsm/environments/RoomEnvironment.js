@@ -3,12 +3,12 @@ import {
  	BoxGeometry,
  	InstancedMesh,
  	Mesh,
-	MeshBasicMaterial,
+	MeshLambertMaterial,
  	MeshStandardMaterial,
  	PointLight,
  	Scene,
  	Object3D,
-} from '../../../build/three.module.js';
+} from 'three';
 
 /**
  * This class represents a scene with a basic room setup that can be used as
@@ -168,8 +168,13 @@ class RoomEnvironment extends Scene {
 
 function createAreaLightMaterial( intensity ) {
 
-	const material = new MeshBasicMaterial();
-	material.color.setScalar( intensity );
+	// create an emissive-only material. see #31348
+	const material = new MeshLambertMaterial( {
+		color: 0x000000,
+		emissive: 0xffffff,
+		emissiveIntensity: intensity
+	} );
+
 	return material;
 
 }

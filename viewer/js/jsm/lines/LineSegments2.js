@@ -9,9 +9,9 @@ import {
 	Sphere,
 	Vector3,
 	Vector4
-} from '../../../build/three.module.js';
-import { LineSegmentsGeometry } from '../lines/LineSegmentsGeometry.js';
-import { LineMaterial } from '../lines/LineMaterial.js';
+} from 'three';
+import { LineSegmentsGeometry } from './LineSegmentsGeometry.js';
+import { LineMaterial } from './LineMaterial.js';
 
 const _viewport = new Vector4();
 

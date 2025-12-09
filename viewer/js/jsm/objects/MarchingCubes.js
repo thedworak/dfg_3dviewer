@@ -6,7 +6,7 @@ import {
 	Mesh,
 	Sphere,
 	Vector3
-} from '../../../build/three.module.js';
+} from 'three';
 
 /**
  * A marching cubes implementation.

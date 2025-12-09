@@ -1,4 +1,4 @@
-import { Mesh, MeshBasicMaterial, SphereGeometry, Vector3 } from '../../../build/three.module.js';
+import { Mesh, MeshBasicMaterial, SphereGeometry, Vector3 } from 'three';
 
 /**
  * A ground-projected skybox.

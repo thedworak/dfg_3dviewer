@@ -5,10 +5,10 @@ import {
 	ShaderMaterial,
 	UniformsUtils,
 	Vector3
-} from '../../../build/three.module.js';
+} from 'three';
 
 /**
- * Represents a skydome for scene backgrounds. Based on [A Practical Analytic Model for Daylight]{@link https://www.researchgate.net/publication/220720443_A_Practical_Analytic_Model_for_Daylight}
+ * Represents a skydome for scene backgrounds. Based on [A Practical Analytic Model for Daylight](https://www.researchgate.net/publication/220720443_A_Practical_Analytic_Model_for_Daylight)
  * aka The Preetham Model, the de facto standard for analytical skydomes.
  *
  * Note that this class can only be used with {@link WebGLRenderer}.

@@ -13,7 +13,7 @@ import {
 	SRGBColorSpace,
 	Vector3,
 	Ray
-} from '../../../build/three.module.js';
+} from 'three';
 
 // Special surface finish tag types.
 // Note: "MATERIAL" tag (e.g. GLITTER, SPECKLE) is not implemented
@@ -1749,7 +1749,7 @@ function createObject( loader, elements, elementSize, isConditionalSegments = fa
 /**
  * A loader for the LDraw format.
  *
- * [LDraw]{@link https://ldraw.org/} (LEGO Draw) is an [open format specification]{@link https://ldraw.org/article/218.html}
+ * [LDraw](https://ldraw.org/} (LEGO Draw) is an [open format specification]{@link https://ldraw.org/article/218.html)
  * for describing LEGO and other construction set 3D models.
  *
  * An LDraw asset (a text file usually with extension .ldr, .dat or .txt) can describe just a single construction
