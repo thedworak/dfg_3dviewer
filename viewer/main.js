@@ -118,6 +118,7 @@ window.DFG_ASSETS = (() => {
 })();
 
 console.log(`Powered by Three.js (v${THREE.REVISION}) - DFG 3D-Viewer`);
+console.log(CONFIG);
 
 //CONFIG.entity.metadata.source = typeof env.BUILD_SOURCE === 'undefined' ? BUILD_SOURCE : 'IIIF';
 if (CONFIG.entity.metadata.source) console.log('Using metadata source:', CONFIG.entity.metadata.source);
@@ -188,31 +189,6 @@ if (CONFIG.viewer.lightweight === null || CONFIG.viewer.lightweight === false) {
 if (container.hasAttribute("basePath")) {
   CONFIG.baseModulePath = container.getAttribute("basePath");
 }
-
-export function outputLog(debug = false, label = "DEBUG") {
-  return (...args) => {
-    if (!debug) return;
-
-    const timestamp = new Date().toISOString();
-
-    // Get caller info from stack trace
-    const stack = new Error().stack.split("\n")[2]; // caller line
-    const match = stack.match(/(?:at\s+.*\()?(.*):(\d+):(\d+)\)?/);
-
-    let location = "";
-    if (match) {
-      const filePath = match[1];
-      const line = match[2];
-      const col = match[3];
-      const file = filePath.split("/").pop(); // just file name
-      location = `${file}:${line}:${col}`;
-    }
-
-    console.log(`[${label}] ${timestamp} (${location})`, ...args);
-  };
-}
-
-const printLog = outputLog(true, 'DEBUG');
 
 function setModelPaths() {
   fileObject.filename = fileObject.originalPath.split("/").pop();
@@ -394,7 +370,8 @@ var planeHelpers, clippingFolder;
 var propertiesFolder;
 var planeObjects = [];
 var editorFolder;
-export var materialsFolder;
+
+let materialsFolder = null;
 
 setCore("planeHelpers", planeHelpers);
 setCore("clippingPlanes", clippingPlanes);
@@ -514,7 +491,7 @@ function addTextPoint(_text, _scale, _point) {
   );
 }
 
-export function selectObjectHierarchy(_id) {
+function selectObjectHierarchy(_id) {
   let search = true;
   for (let i = 0; i < selectedObjects.length && search === true; i++) {
     if (selectedObjects[i].id === _id) {

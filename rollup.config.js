@@ -91,12 +91,9 @@ export default {
 
   output: {
     file: 'dist/dfg_3dviewer-module.js',
-    format: 'iife',
-    name: 'Dfg3DViewer',
+    entryFileNames: 'dfg_3dviewer-module.js',
+    format: 'es',
     sourcemap: true,
-    globals: {
-      three: 'THREE'
-    },
-    intro: 'var global = window; var module = { exports: {} }; var exports = module.exports;'
+    inlineDynamicImports: true
   }
 };
