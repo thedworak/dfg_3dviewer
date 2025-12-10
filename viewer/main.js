@@ -58,6 +58,13 @@ import { lv } from "./spinner/main.js";
 
 import { loadIIIFManifest, getAnnotations } from "./IIIF/iiif-api.js";
 
+/*const loadSettings = async () => {
+  const res = await fetch("./viewer-settings.json");
+  return await res.json();
+};
+
+const ViewerSettings = await loadSettings();*/
+
 let CONFIG = {};
 if (ViewerSettings !== undefined) {
   CONFIG = ViewerSettings;
@@ -113,7 +120,7 @@ window.DFG_ASSETS = (() => {
 console.log(`Powered by Three.js (v${THREE.REVISION}) - DFG 3D-Viewer`);
 
 //CONFIG.entity.metadata.source = typeof env.BUILD_SOURCE === 'undefined' ? BUILD_SOURCE : 'IIIF';
-console.log('Using metadata source:', CONFIG.entity.metadata.source);
+if (CONFIG.entity.metadata.source) console.log('Using metadata source:', CONFIG.entity.metadata.source);
 let camera,
   scene,
   renderer,
@@ -152,15 +159,17 @@ setCore('tween', tween);
 const container = document.getElementById(CONFIG.viewer.container);
 const scrollTop = window.scrollY || document.documentElement.scrollTop;
 
+container.classList.add("mainContainer");
+
+const rect = container.getBoundingClientRect();
+
 CONFIG.viewer.canvasDimensions = {
-  x: container.getBoundingClientRect().width * Number(CONFIG.viewer.scaleContainer.x),
-  y:
-    (container.getBoundingClientRect().height + scrollTop) * Number(CONFIG.viewer.scaleContainer.y),
+  x: rect.width * Number(CONFIG.viewer.scaleContainer.x),
+  y: rect.height * Number(CONFIG.viewer.scaleContainer.y),
 };
 
 var fileObject = { originalPath: '', filename: '', basename: '', extension: '', path: '', uri: '', newExtension: '' };
 
-container.setAttribute("display", "block");
 fileObject.originalPath = container.getAttribute("3d");
 const bottomLineGUI = CONFIG.viewer.canvasDimensions.y - 85;
 
@@ -259,6 +268,8 @@ const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const onUpPosition = new THREE.Vector2();
 const onDownPosition = new THREE.Vector2();
+
+var bottomOffsetFullscreen = 0;
 
 const geometry = new THREE.BoxGeometry(20, 20, 20);
 let transformControl,
@@ -830,92 +841,82 @@ function buildRuler(_id) {
   ruler.push(rulerObject);
 }
 
-function onWindowResize() {
-  var rightOffsetEntity = -75;
-  let containerRect;
-  const dpr = window.devicePixelRatio || 1;
-  if (FULLSCREEN) {
-    CONFIG.viewer.canvasDimensions = { x: window.innerWidth, y: window.innerHeight };
-    rightOffsetEntity = -95;
-    bottomOffsetFullscreen = -CONFIG.viewer.canvasDimensions.y * 0.96 + 20;
-    downloadModel.setAttribute("style", "visibility: hidden");
-    mainCanvas.style.width = "100vw !important";
-    mainCanvas.style.height = "100vh !important";
-    metadataContainer.style.width = "10%";
-    metadataContainer.style.height = "10%";
-    containerRect  = container.getBoundingClientRect(); // CSS pixels
+function updateSize() {
+  const isFullscreen = !!document.fullscreenElement;
+  FULLSCREEN = isFullscreen;
+
+  let widthCSS, heightCSS;  // CSS pixels (for layout)
+  let widthDev, heightDev;  // Device pixels (for Three.js)
+
+  if (isFullscreen) {
+    widthCSS = window.innerWidth;
+    heightCSS = window.innerHeight;
+    widthDev = widthCSS * devicePixelRatio;
+    heightDev = heightCSS * devicePixelRatio;
+
+    mainCanvas.style.width = '100vw';
+    mainCanvas.style.height = '100vh';
+    metadataContainer.style.width = '10%';
+    metadataContainer.style.height = '10%';
+    downloadModel?.setAttribute("style", "visibility: hidden");
+
   } else {
-    CONFIG.viewer.canvasDimensions = {
-      x: container.getBoundingClientRect().width * Number(CONFIG.viewer.scaleContainer.x),
-      y: container.getBoundingClientRect().bottom * Number(CONFIG.viewer.scaleContainer.y),
-    };
-    bottomOffsetFullscreen = Math.round(-CONFIG.viewer.canvasDimensions.y) + 36;
-    mainCanvas.style.width = "100% !imporant";
-    mainCanvas.style.height = "100% !important";
-    metadataContainer.style.width = "100%";
-    metadataContainer.style.height = "100%";
+    const rect = container.getBoundingClientRect();
+    widthCSS = rect.width * Number(CONFIG.viewer.scaleContainer.x);
+    heightCSS = rect.height * Number(CONFIG.viewer.scaleContainer.y);
+    console.log('Resizing to', widthCSS, 'x', heightCSS);
 
-    containerRect  = mainCanvas.getBoundingClientRect(); // CSS pixels
-    if (downloadModel !== undefined) {
-      downloadModel.setAttribute("style", "visibility: visible");
-      downloadModel.style.top = (containerRect.height / dpr - 85) + "px"; 
-    }
+    mainCanvas.style.width = widthCSS + 'px';
+    mainCanvas.style.height = heightCSS + 'px';
+
+    // Convert to device pixels for Three.js
+    widthDev = widthCSS * devicePixelRatio;
+    heightDev = heightCSS * devicePixelRatio;
+
+    metadataContainer.style.width = '100%';
+    metadataContainer.style.height = '100%';
+    downloadModel?.setAttribute("style", "visibility: visible");
   }
-    
-  fullscreenMode.style.top  = (containerRect.height / dpr - 60) + "px";
-  fullscreenMode.style.left = (containerRect.width  - 36) + "px";
-  mainCanvas.style.width = CONFIG.viewer.canvasDimensions.x + "px;";
-  mainCanvas.style.height = CONFIG.viewer.canvasDimensions.y + "px;";
-  //mainCanvas.setAttribute("style", "width:" + canvasDimensions.x+"px;" + "height:" + canvasDimensions.y +"px;" );
 
-  guiContainer.setAttribute(
-    "style",
-    "width:" +
-    CONFIG.viewer.canvasDimensions.x +
-    "px; left: " +
-    CONFIG.viewer.canvasDimensions.x -
-    lilGui[0].getBoundingClientRect().width +
-    "px"
-  );
-  lilGui[0].style.left = CONFIG.viewer.canvasDimensions.x - lilGui[0].getBoundingClientRect().width - 10 + "px";
+  //CONFIG.viewer.canvasDimensions = { x: widthCSS, y: heightCSS };
 
-  renderer.setSize(CONFIG.viewer.canvasDimensions.x, CONFIG.viewer.canvasDimensions.y);
-  renderer.setPixelRatio(window.devicePixelRatio);
-  camera.aspect = CONFIG.viewer.canvasDimensions.x / CONFIG.viewer.canvasDimensions.y;
+  // Three.js renderer needs actual pixel size
+  renderer.setSize(widthCSS, heightDev);
+  renderer.setPixelRatio(devicePixelRatio);
+
+  camera.aspect = widthCSS / heightCSS;
   camera.updateProjectionMatrix();
 
-  if (typeof (viewEntity) !== "undefined") viewEntity.setAttribute("style", "right: " + rightOffsetEntity + "%");
+  fullscreenMode.style.top = (heightCSS - 60) + 'px';
+  fullscreenMode.style.left = (widthCSS - 56) + 'px';
 
-  //fullscreenMode.style.top = (bottomLineGUI) + 'px;';
-  controls.update();
+  if (downloadModel && !isFullscreen) {
+    downloadModel.style.top = (heightCSS - 85) + 'px';
+  }
+
+  if (viewEntity) {
+    viewEntity.style.right = isFullscreen ? '-95%' : '-75%';
+  }
+
+  // GUI positioning
+  const guiWidth = lilGui[0]?.getBoundingClientRect().width || 0;
+  lilGui[0]?.style.setProperty('left', `${widthCSS - guiWidth - 10}px`);
+
+  controls?.update();
 }
 
-function fullscreen() {
-  FULLSCREEN = !FULLSCREEN
-
-  if (FULLSCREEN) {
-    if (container.requestFullscreen) {
-      container.requestFullscreen();
-    } else if (container.webkitRequestFullscreen) { // Safari
-      container.webkitRequestFullscreen();
-    } else if (container.msRequestFullscreen) { // IE11
-      container.msRequestFullscreen();
-    } else if (container.mozRequestFullScreen) { // old Firefox
-      container.mozRequestFullScreen();
+// Proper fullscreen toggle
+async function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    try {
+      await container.requestFullscreen();
+      // fullscreenchange event will trigger updateSize()
+    } catch (err) {
+      console.error("Failed to enter fullscreen:", err);
     }
   } else {
-    if (document.exitFullscreen) {
-      document.exitFullscreen();
-    } else if (document.webkitExitFullscreen) {
-      document.webkitExitFullscreen();
-    } else if (document.msExitFullscreen) {
-      document.msExitFullscreen();
-    } else if (document.mozCancelFullScreen) {
-      document.mozCancelFullScreen();
-    }
+    await document.exitFullscreen();
   }
-  // Update camera/renderer after a short delay
-  setTimeout(onWindowResize, 100);
 }
 
 function exitFullscreenHandler() {
@@ -1186,7 +1187,8 @@ function takeScreenshot() {
         showToast(err.message);
       });
   }, "image/png");
-  renderer.setPixelRatio(window.devicePixelRatio);
+
+  renderer.setPixelRatio(devicePixelRatio);
   camera.aspect = CONFIG.viewer.canvasDimensions.x / CONFIG.viewer.canvasDimensions.y;
   camera.updateProjectionMatrix();
   renderer.setSize(CONFIG.viewer.canvasDimensions.x, CONFIG.viewer.canvasDimensions.y);
@@ -1816,26 +1818,21 @@ async function init() {
     renderer.domElement.addEventListener("pointerup", onPointerUp);
     renderer.domElement.addEventListener("pointermove", onPointerMove);
 
+    const devicePixelRatio = window.devicePixelRatio || 1;
     renderer.setSize(CONFIG.viewer.canvasDimensions.x, CONFIG.viewer.canvasDimensions.y);
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setPixelRatio(devicePixelRatio);
     renderer.domElement.style.width = CONFIG.viewer.canvasDimensions.x + "px";
     renderer.domElement.style.height = CONFIG.viewer.canvasDimensions.y + "px";
 
-    if (container.parentElement) {
-      container.parentElement.style.width = CONFIG.viewer.canvasDimensions.x + "px";
-      container.parentElement.style.height = "clamp(20vh, " + CONFIG.viewer.canvasDimensions.y + "px, 100vh)";
-    }
-
     renderer.domElement.style.display = "block";
     container.appendChild(renderer.domElement);
-    mainCanvas.setAttribute(
-      "style",
-      `width: ${CONFIG.viewer.canvasDimensions.x}px; height: clamp(20vh, ${CONFIG.viewer.canvasDimensions.y}px, 100vh); display: flex;`
-    );
+    mainCanvas.classList.add("mainCanvas");
     canvasText = document.createElement("div");
     canvasText.id = "TextCanvas";
     canvasText.width = CONFIG.viewer.canvasDimensions.x + "px";
     canvasText.height = CONFIG.viewer.canvasDimensions.y + "px";
+
+    container.parentElement.classList.add("viewer-wrapper");
 
     camera.aspect = CONFIG.viewer.canvasDimensions.x / CONFIG.viewer.canvasDimensions.y;
     camera.updateProjectionMatrix();
@@ -2145,7 +2142,6 @@ async function init() {
     // statements to handle any exceptions
     loadModel(path, basename, filename, extension);
   }*/
-    window.addEventListener("resize", onWindowResize);
 
     fullscreenMode = document.createElement("div");
     fullscreenMode.setAttribute("id", "fullscreenMode");
@@ -2159,37 +2155,26 @@ async function init() {
       (CONFIG.viewer.canvasDimensions.x - 36) +
       "px"
     );
+    renderer.setPixelRatio(devicePixelRatio);
+    window.addEventListener('resize', updateSize);
+    document.addEventListener('fullscreenchange', updateSize);
+    window.addEventListener('orientationchange', () => setTimeout(updateSize, 100));
+    //updateSize();
+
     container.appendChild(fullscreenMode);
-    document
-      .getElementById("fullscreenMode")
-      .addEventListener("click", fullscreen, false);
-    if (document.addEventListener) {
-      document.addEventListener(
-        "webkitfullscreenchange",
-        exitFullscreenHandler,
-        false
-      );
-      document.addEventListener(
-        "mozfullscreenchange",
-        exitFullscreenHandler,
-        false
-      );
-      document.addEventListener(
-        "fullscreenchange",
-        exitFullscreenHandler,
-        false
-      );
-      document.addEventListener(
-        "MSFullscreenChange",
-        exitFullscreenHandler,
-        false
-      );
-    }
-  prepareStats();
-}
+    document.getElementById("fullscreenMode").addEventListener("click", toggleFullscreen, false);
+    prepareStats();
+  }
 }
 
 (async function () {
   await init();
+  window.addEventListener("load", () => {
+    requestAnimationFrame(() => {
+      const rect = container.getBoundingClientRect();
+      console.log("Initial real height:", rect.height);
+      updateSize();
+    });
+  });
   animate();
 })();
