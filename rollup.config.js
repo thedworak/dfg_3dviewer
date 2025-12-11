@@ -8,39 +8,36 @@ import replace from '@rollup/plugin-replace';
 
 const source = process.env.BUILD_SOURCE || "IIIF";
 const isProd = process.env.BUILD || 'prod';
-console.log("isProd =", isProd);
 
 export default {
   input: 'viewer/main.js',
+
   plugins: [
     replace({
       preventAssignment: true,
-      BUILD_SOURCE: JSON.stringify(source)
+      values: {
+        BUILD_SOURCE: JSON.stringify(source)
+      }
     }),
 
     isProd && replace({
       preventAssignment: true,
       values: {
         '"assets/draco/"': '(window.DFG_3DVIEWER_BASE || "/") + "modules/custom/dfg_3dviewer/dist/assets/draco/"'
-            }
-    }),
-
-    replace({
-      preventAssignment: true,
-      BUILD_SOURCE: JSON.stringify(source)  // source = "IIIF" lub z env
+      }
     }),
 
     url({
       include: ['**/*.svg', '**/*.png', '**/*.jpg', '**/*.gif'],
       limit: 0,
       fileName: 'assets/[name][hash][extname]',
-      publicPath: 'dist/assets/',
+      publicPath: 'dist/assets/'
     }),
 
     copy({
       targets: [
         { src: 'viewer/img/*', dest: 'dist/assets/img' },
-        { src: 'viewer/js/jsm/libs/draco/gltf/*', dest: 'dist/assets/draco' },
+        { src: 'node_modules/three/examples/jsm/libs/draco/*', dest: 'dist/assets/draco' },
         { src: 'viewer/js/external_libs/loaders/ifc/*', dest: 'dist/assets/ifc' },
         { src: 'viewer/fonts/*', dest: 'dist/assets/fonts' },
         { src: 'viewer/css/*', dest: 'dist/assets/css' },
@@ -75,11 +72,15 @@ export default {
     resolve({
       browser: true,
       preferBuiltins: false,
-      mainFields: ['browser', 'module', 'main']
+      mainFields: ['browser', 'module', 'main'],
+      extensions: ['.js'],
+      dedupe: ['three'],
+      preserveSymlinks: false
     }),
 
     commonjs({
-      include: [/node_modules/, 'viewer/**'],
+      include: [/node_modules/],
+      exclude: ['node_modules/three/**'],
       transformMixedEsModules: true,
       ignoreDynamicRequires: true,
       requireReturnsDefault: 'auto'

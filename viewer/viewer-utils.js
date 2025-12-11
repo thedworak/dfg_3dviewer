@@ -1,8 +1,8 @@
 // viewer-utils.js
-import * as THREE from "./build/three.module.js";
-import Toastify from "./toastify.js";
+import THREE from "./init.js";
+import Toastify from "toastify-js";
 import { core, setCore } from './core.js';
-import { Tween } from "./js/jsm/libs/tween.module.js";
+import TWEEN from "three/examples/jsm/libs/tween.module.js";
 
 export const initClippingPlanes = () => {
   const clippingPlanes = [
@@ -282,7 +282,7 @@ function fitCameraToCenteredObject(object, add_offset, _fit, _helperObjects) {
     y: core.camera.position.y,
     z: cameraZ * 0.85,
   };
-  core.tween = new Tween(core.cameraCoords)
+  core.tween = new TWEEN.Tween(core.cameraCoords)
     .to({ z: core.camera.position.z }, 1500)
     .onUpdate(() => {
       core.camera.position.set(-core.cameraCoords.x*1.2, core.cameraCoords.y*1.7, core.cameraCoords.z*1.1);
@@ -382,7 +382,6 @@ function setupClippingPlanes(_geom, _size, _distance) {
     _geometry = _geom.children;
   else
     _geometry = _geom.geometry.clone();*/
-
   core.clippingPlanes[0].constant = _distance.x;
   core.clippingPlanes[1].constant = _distance.y;
   core.clippingPlanes[2].constant = _distance.z;

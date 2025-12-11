@@ -1,5 +1,5 @@
-import { Group, Scene } from "./build/three.core";
-import { Tween } from "./js/jsm/libs/tween.module";
+import THREE from "./init.js";
+import TWEEN from "three/examples/jsm/libs/tween.module.js";
 
 // core.js
 export const core = {
@@ -15,10 +15,10 @@ export const core = {
     gridSize: null,
     dirLightTarget: null,
     lightHelper: null,
-    Scene: new Scene(),
-    basicGrid: new Group(),
+    Scene: new THREE.Scene(),
+    basicGrid: new THREE.Group(),
     cameraCoords: null,
-    tween: new Tween(),
+    tween: new TWEEN.Tween(),
     controls: null,
     transformControlClippingPlaneY: null,
     transformControlClippingPlaneX: null,

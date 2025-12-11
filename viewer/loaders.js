@@ -1,17 +1,17 @@
-import * as THREE from "./build/three.module.js";
-import { DDSLoader } from "./js/jsm/loaders/DDSLoader.js";
-import { MTLLoader } from "./js/jsm/loaders/MTLLoader.js";
-import { OBJLoader } from "./js/jsm/loaders/OBJLoader.js";
-import { FBXLoader } from "./js/jsm/loaders/FBXLoader.js";
-import { PLYLoader } from "./js/jsm/loaders/PLYLoader.js";
-import { ColladaLoader } from "./js/jsm/loaders/ColladaLoader.js";
-import { IFCLoader } from "./js/external_libs/loaders/IFCLoader.js";
-import { STLLoader } from "./js/jsm/loaders/STLLoader.js";
-import { XYZLoader } from "./js/jsm/loaders/XYZLoader.js";
-import { TDSLoader } from "./js/jsm/loaders/TDSLoader.js";
-import { PCDLoader } from "./js/jsm/loaders/PCDLoader.js";
-import { GLTFLoader } from "./js/jsm/loaders/GLTFLoader.js";
-import { DRACOLoader } from "./js/jsm/loaders/DRACOLoader.js";
+import THREE from "./init.js";
+import { DDSLoader } from "three/examples/jsm/loaders/DDSLoader.js";
+import { MTLLoader } from "three/examples/jsm/loaders/MTLLoader.js";
+import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
+import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
+import { PLYLoader } from "three/examples/jsm/loaders/PLYLoader.js";
+import { ColladaLoader } from "three/examples/jsm/loaders/ColladaLoader.js";
+import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
+import { XYZLoader } from "three/examples/jsm/loaders/XYZLoader.js";
+import { TDSLoader } from "three/examples/jsm/loaders/TDSLoader.js";
+import { PCDLoader } from "three/examples/jsm/loaders/PCDLoader.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
+import { IFCLoader } from "web-ifc-three";
 
 // Remove main.js import
 import { core, setCore } from './core.js';

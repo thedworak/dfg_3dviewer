@@ -47,6 +47,9 @@
     "@iiif/3d-manifesto-dev": "^0.6.1",
     "jquery": "^3.7.1",
     "lru-cache": "^11.2.2",
-    "three": "^0.181.2"
+    "stats.js": "^0.17.0",
+    "three": "^0.182.0",
+    "toastify-js": "^1.12.0",
+    "web-ifc-three": "^0.0.126"
   }
 }

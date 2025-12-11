@@ -40,7 +40,7 @@ export function lilGUIhasFolder(folder, name) {
 }
 
 export function lilGUIgetFolder(gui, name) {
-  return gui.folders.find(f => f._title === name) || null;
+  return gui?.folders.find(f => f._title === name) || null;
 }
 
 /**
@@ -338,7 +338,7 @@ export async function fetchSettings(
   if (lilGUIgetFolder(gui, "Hierarchy") === null) {
     hierarchyMain = gui.addFolder("Hierarchy").close();
   }
-  if (CONFIG.entity.proxyPath !== undefined || !CONFIG.viewer.lightweight) {
+  if (CONFIG.entity.proxyPath !== undefined || (CONFIG.viewer.lightweight === 1 || CONFIG.viewer.lightweight === true)) {
     metadataUrl = getProxyPath(metadataUrl, CONFIG, fileObject);
     settingsHandler(object, camera, light, controls, hierarchyMain, CONFIG, helperObjects);
   } else if (CONFIG.entity.metadata.source === "IIIF") {

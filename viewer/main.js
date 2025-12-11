@@ -17,6 +17,7 @@ https://www.gnu.org/licenses/.
 //Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF
 
 import { core, setCore } from './core.js';
+import { loadSettings } from './viewer-settings.js';
 
 import {
   distanceBetweenPoints,
@@ -33,81 +34,2099 @@ import {
 
 import { initClippingPlanes, showToast } from './viewer-utils.js';
 
-// Initialize clipping planes at startup
-initClippingPlanes();
-
 import { loadModel, outlineClipping } from "./loaders.js";
 import { createIIIFDropdown, downloadModel } from "./metadata.js";
 
 //three.js core
-import * as THREE from "./build/three.module.js";
+import THREE from "./init.js";
 
 //three.js components
-import { Tween } from "./js/jsm/libs/tween.module.js";
-import { OrbitControls } from "./js/jsm/controls/OrbitControls.js";
-import { TransformControls } from "./js/jsm/controls/TransformControls.js";
-import { FontLoader } from "./js/jsm/loaders/FontLoader.js";
-import { TextGeometry } from "./js/jsm/geometries/TextGeometry.js";
+import TWEEN from "three/examples/jsm/libs/tween.module.js";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { TransformControls } from "three/examples/jsm/controls/TransformControls.js";
+import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
+import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
 
 //custom libraries
-import Stats from "./js/jsm/libs/stats.module.js";
+import Stats from "stats.js";
 import { GUI } from "./js/external_libs/lil-gui.esm.min.js";
-import ViewerSettings from "./viewer-settings.json" with { type: "json" };
 import { objectsConfig } from "./object-settings.js";
 import { lv } from "./spinner/main.js";
 
 import { loadIIIFManifest, getAnnotations } from "./IIIF/iiif-api.js";
 
-/*const loadSettings = async () => {
-  const res = await fetch("./viewer-settings.json");
-  return await res.json();
-};
 
-const ViewerSettings = await loadSettings();*/
+export const Viewer = {
+  CONFIG: null,
+  camera: null,
+  scene: null,
+  renderer: null,
+  stats: null,
+  controls: null,
+  loader: null,
+  ambientLight: null,
+  dirLight: null,
+  dirLightTarget: null,
+  cameraLight: null,
+  cameraLightTarget: null,
+  dirLights: [],
+  imported: null,
+  mainObject: [],
+  metadataContentTech: null,
+  mainCanvas: null,
+  distanceGeometry: new THREE.Vector3(),
+  entityID: "",
+  metadataUrl: null,
 
-let CONFIG = {};
-if (ViewerSettings !== undefined) {
-  CONFIG = ViewerSettings;
-} else {
-  CONFIG = {
-    mainUrl: "https://dfg-repository.wisski.cloud",
-    baseNamespace: "https://dfg-repository.wisski.cloud",
-    metadataUrl: "https://dfg-repository.wisski.cloud",
-    baseModulePath: "/modules/dfg_3dviewer-main/viewer",
-    entity: {
-      bundle: "bd3d7baa74856d141bcff7b4193fa128",
-      fieldDf: "field_df",
-      idUri: "/wisski/navigate/(.*)/view",
-      viewEntityPath: "/wisski/navigate/",
-      attributeId: "wisski_id",
-      metadata: {
-        source: "IIIF",
+    iiifConfigURL: {url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: "Inbuilt"},
+    testModelURL: 'https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb',
+    clock: null,
+    editor: true,
+    FULLSCREEN: false,
+    mixer: null,
+    tween: null,  
+    container: null,   
+    scrollTop: null,
+    rect: null,
+    fileObject: { originalPath: '', filename: '', basename: '', extension: '', path: '', uri: '', newExtension: '' },
+    bottomLineGUI: null,
+    loadedFile: null,    
+    fileElement: null,
+    COPYRIGHTS: false,
+    EXIT_CODE: 1,
+    gridSize: null,
+    noMTL: false,
+    canvasText: null,
+    viewEntity: null,
+    fullscreenMode: null,
+    originalMetadata: [],
+    spinnerContainer: null,
+    spinnerElement: null,
+    guiContainer: null,
+    metadataContainer: null,
+    spinner: null,
+    circle: null,
+    lilGui: null,
+    raycaster: new THREE.Raycaster(),
+    pointer: new THREE.Vector2(),
+    onUpPosition: new THREE.Vector2(),
+    onDownPosition: new THREE.Vector2(),
+    bottomOffsetFullscreen: 0,
+    geometry: new THREE.BoxGeometry(20, 20, 20),
+    transformControl: null,
+    transformControlLight: null,
+    transformControlLightTarget: null,
+    transformControlClippingPlaneX: null,
+    transformControlClippingPlaneY: null,
+    transformControlClippingPlaneZ: null,
+    cameraCoords: null,
+    helperObjects: [],
+    lightObjects: [],
+    lightHelper: null,
+    lightHelperTarget: null,
+    selectedObject: false,
+    selectedObjects:[],
+    selectedFaces: [],
+    pickingTexture: null,
+    windowHalfX: null,
+    windowHalfY: null,
+    transformType: "",
+    transformText: {
+      "Transform 3D Object": "select type",
+      "Transform Light": "select type",
+      "Transform Mode": "Local",
+    },
+    materialsPropertiesText: {
+      "Edit material": "select by name",
+    },
+    colors: {
+      DirectionalLight: "0xFFFFFF",
+      AmbientLight: "0x404040",
+      CameraLight: "0xFFFFFF",
+      BackgroundColor: "#FFFFFF",
+      BackgroundColorOuter: "#D2D2D2",
+    },
+    materialProperties: {
+      color: "0xFFFFFF",
+      emissiveColor: "0x404040",
+      emissive: 1,
+      metalness: 0,
+    },
+    intensity: {
+      startIntensityDir: 1,
+      startIntensityAmbient: 1,
+      startIntensityCamera: 1,
+    },
+    saveProperties: {
+      Position: true,
+      Rotation: true,
+      Scale: true,
+      Camera: true,
+      DirectionalLight: true,
+      AmbientLight: true,
+      CameraLight: true,
+      BackgroundColor: true,
+      BackgroundColorOuter: true,
+    },
+    backgroundType: { "Background Type": "gradient" },
+    backgroundOuterFolder: null,
+    EDITOR: false,
+    RULER_MODE: false,
+    lineMaterial: new THREE.LineBasicMaterial({ color: 0x0000ff }),
+    linePoints: [],
+    gui: null,
+    hierarchyFolder: null,
+    GUILength: 35,
+    zoomImage: 1,
+    ZOOM_SPEED_IMAGE: 0.1,
+    compressedFile: "",
+    archiveType: "",
+    planeParams: {
+      planeX: {
+        constantX: 0,
+        negated: false,
+        displayHelperX: false,
+      },
+      planeY: {
+        constantY: 0,
+        negated: false,
+        displayHelperY: false,
+      },
+      planeZ: {
+        constantZ: 0,
+        negated: false,
+        displayHelperZ: false,
+      },
+      outline: {
+        visible: false,
+      },
+      clippingMode: {
+        x: false,
+        y: false,
+        z: false,
       },
     },
-    viewer: {
-      container: "DFG_3DViewer",
-      fileUpload: "fbf95bddee5160d515b982b3fd2e05f7",
-      fileName: "faa602a0be629324806aef22892cdbe5",
-      imageGeneration: "f605dc6b727a1099b9e52b3ccbdf5673",
-      lightweight: 0,
-      salt: "Z7FYJMmTiEzcGp4lTpuk4LiA",
-      scaleContainer: {
-        x: 0.85,
-        y: 1.4,
-      },
-      gallery: {
-        container: "block-bootstrap5-content",
-        imageClass: "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
-        imageId: "",
-      },
-      background:
-        "radial-gradient(circle, rgb(255, 255, 255) 0%, rgb(210, 210, 210) 100%)",
-      performanceMode: {
-        Performance: "high-performance",
+    clippingPlanes: null,    
+    planeHelpers: null,
+    clippingFolder: null,
+    propertiesFolder: null,
+    planeObjects: [],
+    editorFolder: null,
+    materialsFolder: null,
+    textMesh: null,
+    textMeshDistance: null,
+    ruler: [],
+    rulerObject: null,
+    lastPickedFace: { id: "", color: "", object: "" },
+    loadedTimes: 0,
+    _ext: '',
+
+  async MainInit() {
+    const res = await fetch("./viewer-settings.json");
+    this.CONFIG = await res.json();
+
+    if (Object.keys(this.CONFIG).length === 0) {
+      this.CONFIG = {
+        mainUrl: "https://dfg-repository.wisski.cloud",
+        baseNamespace: "https://dfg-repository.wisski.cloud",
+        metadataUrl: "https://dfg-repository.wisski.cloud",
+        baseModulePath: "/modules/dfg_3dviewer-main/viewer",
+        entity: {
+          bundle: "bd3d7baa74856d141bcff7b4193fa128",
+          fieldDf: "field_df",
+          idUri: "/wisski/navigate/(.*)/view",
+          viewEntityPath: "/wisski/navigate/",
+          attributeId: "wisski_id",
+          metadata: {
+            source: "IIIF",
+          },
+        },
+        viewer: {
+          container: "DFG_3DViewer",
+          fileUpload: "fbf95bddee5160d515b982b3fd2e05f7",
+          fileName: "faa602a0be629324806aef22892cdbe5",
+          imageGeneration: "f605dc6b727a1099b9e52b3ccbdf5673",
+          lightweight: 0,
+          salt: "Z7FYJMmTiEzcGp4lTpuk4LiA",
+          scaleContainer: {
+            x: 0.85,
+            y: 1.4,
+          },
+          gallery: {
+            container: "block-bootstrap5-content",
+            imageClass: "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
+            imageId: "",
+          },
+          background:
+            "radial-gradient(circle, rgb(255, 255, 255) 0%, rgb(210, 210, 210) 100%)",
+          performanceMode: {
+            Performance: "high-performance",
+          }
+        },
+      };
+    }
+
+    this.container = document.getElementById(this.CONFIG.viewer.container);
+    this.scrollTop = window.scrollY || document.documentElement.scrollTop;
+    this.rect = this.container.getBoundingClientRect();
+    this.fileObject.originalPath = this.container.getAttribute("3d");   
+    this.CONFIG.viewer.canvasDimensions = {
+      x: this.rect.width * Number(this.CONFIG.viewer.scaleContainer.x),
+      y: this.rect.height * Number(this.CONFIG.viewer.scaleContainer.y),
+    };
+    this.bottomLineGUI = this.CONFIG.viewer.canvasDimensions.y - 85;
+
+
+    if (this.CONFIG.viewer.lightweight === true) {
+      this.CONFIG.viewer.lightweight = container.getAttribute("proxy");
+    }
+    if (this.CONFIG.viewer.lightweight === null || this.CONFIG.viewer.lightweight === false) {
+      var elementsURL = window.location.pathname;
+      elementsURL = elementsURL.match(this.CONFIG.entity.idUri);
+      if (elementsURL !== null) {
+        this.entityID = elementsURL[1];
+        this.container.setAttribute(this.CONFIG.entity.attributeId, this.entityID);
+      }
+    }
+
+    
+    // Initialize clipping planes at startup
+    this.core = initClippingPlanes();
+    // Initialize objectsConfig in core
+    setCore('objectsConfig', objectsConfig);
+    objectsConfig.setupIndex = objectsConfig.index = 0;
+
+    this.tween = new TWEEN.Tween();
+    setCore('tween', this.tween);
+    this.container.classList.add("mainContainer");
+
+    if (this.container.hasAttribute("basePath")) {
+      this.CONFIG.baseModulePath = this.container.getAttribute("basePath");
+    }
+
+    this.setModelPaths(this.fileObject);
+
+    this.CONFIG.viewer.exportPath = "/export_xml_single/";
+
+    console.log(`Powered by Three.js (v${THREE.REVISION}) - DFG 3D-Viewer`);
+    
+    this.loadedFile = this.fileObject.basename + "." + this.fileObject.extension;
+    this.spinnerContainer = document.createElement("div");
+    this.spinnerContainer.id = "spinnerContainer";
+
+    this.spinnerElement = document.createElement("div");
+    this.spinnerElement.id = "spinner";
+    this.spinnerElement.className = "lv-determinate_circle lv-mid md";
+    this.spinnerElement.setAttribute("data-label", "Loading...");
+    this.spinnerElement.setAttribute("data-percentage", "true");
+    this.spinnerContainer.appendChild(this.spinnerElement);
+    this.container.appendChild(this.spinnerContainer);
+    this.spinnerContainer.style.left = "50%" - this.spinnerContainer.getBoundingClientRect().width + "px";
+
+    this.guiContainer = document.createElement("div");
+    this.guiContainer.id = "guiContainer";
+    this.guiContainer.className = "guiContainer";
+    this.container.appendChild(this.guiContainer);
+
+    this.gui  = new GUI({ container: guiContainer });
+
+    this.metadataContainer = document.createElement("div");
+    this.metadataContainer.setAttribute("id", "metadata-container");
+
+    this.spinner = new lv();
+    this.spinner.initLoaderAll();
+    this.spinner.startObserving();
+    this.circle = lv.create(this.spinnerElement);
+    
+    setCore('colors', this.colors);
+    setCore("planeHelpers", this.planeHelpers);    
+    setCore("planeParams", this.planeParams);
+    // Initialize materialsPropertiesText in core
+    setCore('materialsPropertiesText', this.materialsPropertiesText);
+    setCore('intensity', this.intensity);
+    this.clippingPlanes = this.core;
+    setCore("clippingPlanes", this.clippingPlanes);
+
+    this.clock = new THREE.Clock();
+
+    //CONFIG.entity.metadata.source = typeof env.BUILD_SOURCE === 'undefined' ? BUILD_SOURCE : 'IIIF';
+
+    //this.init();
+
+    window.addEventListener("load", () => {
+      requestAnimationFrame(() => {
+        const rect = this.container.getBoundingClientRect();
+        this.updateSize();
+        this.animate();
+      });
+    });
+
+  },
+  setModelPaths(fileObject) {
+    fileObject.filename = fileObject.originalPath.split("/").pop();
+    fileObject.basename = fileObject.filename.substring(0, fileObject.filename.lastIndexOf("."));
+    fileObject.extension = fileObject.filename.substring(fileObject.filename.lastIndexOf(".") + 1);
+    fileObject.path = fileObject.originalPath.substring(0, fileObject.originalPath.lastIndexOf(fileObject.filename));
+    fileObject.uri = fileObject.path.replace(this.CONFIG.mainUrl + "/", "");
+  },  
+
+  addTextWatermark(_text, _scale) {
+    var textGeo;
+    var materials = [
+      new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        flatShading: true,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        depthWrite: false,
+        transparent: true,
+        opacity: 0.4,
+      }), // front
+      new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        flatShading: true,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        depthWrite: false,
+        transparent: true,
+        opacity: 0.4,
+      }), // side
+    ];
+    const loader = new FontLoader();
+
+    loader.load(
+      '.' + CONFIG.baseModulePath + "/fonts/helvetiker_regular.typeface.json",
+      function (font) {
+        const textGeo = new TextGeometry(_text, {
+          font,
+          size: _scale * 3,
+          height: _scale / 10,
+          curveSegments: 5,
+          bevelEnabled: true,
+          bevelThickness: _scale / 8,
+          bevelSize: _scale / 10,
+          bevelOffset: 0,
+          bevelSegments: 1,
+        });
+        textGeo.computeBoundingBox();
+
+        //const centerOffset = - 0.5 * (textGeo.boundingBox.max.x - textGeo.boundingBox.min.x);
+
+        Viewer.textMesh = new THREE.Mesh(textGeo, materials);
+
+        Viewer.textMesh.rotation.z = Math.PI;
+        Viewer.textMesh.rotation.y = Math.PI;
+
+        Viewer.textMesh.position.x = 0;
+        Viewer.textMesh.position.y = 0;
+        Viewer.textMesh.position.z = 0;
+        Viewer.textMesh.renderOrder = 1;
+        Viewer.scene.add(Viewer.textMesh);
+      }
+    );
+  },
+
+  addTextPoint(_text, _scale, _point) {
+    var textGeo;
+    var materials = [
+      new THREE.MeshStandardMaterial({
+        color: 0x0000ff,
+        flatShading: true,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        depthWrite: false,
+        transparent: true,
+        opacity: 0.4,
+      }), // front
+      new THREE.MeshStandardMaterial({
+        color: 0x0000ff,
+        flatShading: true,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        depthWrite: false,
+        transparent: true,
+        opacity: 0.4,
+      }), // side
+    ];
+    const loader = new FontLoader();
+    var textSize = _scale / 10;
+    loader.load(
+      '.' + CONFIG.baseModulePath + "/fonts/helvetiker_regular.typeface.json",
+      function (font) {
+        const textGeo = new TextGeometry(_text, {
+          font: font,
+          size: _scale * 3,
+          height: textSize,
+          curveSegments: 4,
+          bevelEnabled: true,
+          bevelThickness: textSize,
+          bevelSize: textSize,
+          bevelOffset: 0,
+          bevelSegments: 1,
+          depth: textSize,
+        });
+        textGeo.computeBoundingBox();
+
+        Viewer.textMeshDistance = new THREE.Mesh(textGeo, materials);
+
+        Viewer.textMeshDistance.position.set(_point.x, _point.y, _point.z);
+        Viewer.textMeshDistance.renderOrder = 1;
+        Viewer.rulerObject.add(Viewer.textMeshDistance);
+      }
+    );
+  },
+
+  selectObjectHierarchy(_id) {
+    let search = true;
+    for (let i = 0; i < selectedObjects.length && search === true; i++) {
+      if (selectedObjects[i].id === _id) {
+        search = false;
+        if (selectedObjects[i].selected === true) {
+          scene.getObjectById(_id).material = selectedObjects[i].originalMaterial;
+          scene.getObjectById(_id).material.needsUpdate = true;
+          selectedObjects[i].selected = false;
+          selectedObjects.splice(selectedObjects.indexOf(selectedObjects[i]), 1);
+        }
+      }
+    }
+    if (search) {
+      selectedObjects.push({
+        id: _id,
+        selected: true,
+        originalMaterial: scene.getObjectById(_id).material.clone(),
+      });
+      const tempMaterial = scene.getObjectById(_id).material.clone();
+      tempMaterial.color.setHex("0x00FF00");
+      scene.getObjectById(_id).material = tempMaterial;
+      scene.getObjectById(_id).material.needsUpdate = true;
+    }
+  },
+
+  recreateBoundingBox(object) {
+    var _min = new THREE.Vector3();
+    var _max = new THREE.Vector3();
+    if (object instanceof THREE.Object3D) {
+      object.traverse(function (mesh) {
+        if (mesh instanceof THREE.Mesh) {
+          mesh.geometry.computeBoundingBox();
+          var bBox = mesh.geometry.boundingBox;
+
+          // compute overall bbox
+          _min.x = Math.min(_min.x, bBox.min.x + mesh.position.x);
+          _min.y = Math.min(_min.y, bBox.min.y + mesh.position.y);
+          _min.z = Math.min(_min.z, bBox.min.z + mesh.position.z);
+          _max.x = Math.max(_max.x, bBox.max.x + mesh.position.x);
+          _max.y = Math.max(_max.y, bBox.max.y + mesh.position.y);
+          _max.z = Math.max(_max.z, bBox.max.z + mesh.position.z);
+        }
+      });
+
+      var bBox_min = new THREE.Vector3(_min.x, _min.y, _min.z);
+      var bBox_max = new THREE.Vector3(_max.x, _max.y, _max.z);
+      var bBox_new = new THREE.Box3(bBox_min, bBox_max);
+      object.position.set(
+        (bBox_new.min.x + bBox_new.max.x) / 2,
+        bBox_new.min.y,
+        (bBox_new.min.z + bBox_new.max.z) / 2
+      );
+    }
+    return object;
+  },
+
+  prepareGalleryImages(imageElementsChildren) {
+    imageElementsChildren = imageElementsChildren.filter(function (_image) {
+      return isValidUrl(_image.innerHTML);
+    });
+    imageElementsChildren.forEach(function (imgLink, index) {
+      imgLink.innerHTML =
+        '<img loading="lazy" src="' +
+        imgLink.innerHTML +
+        '" width="200px" height="200px" alt="" class="img-fluid image-style-wisski-preview">';
+    });
+  },
+
+  handleImages(
+    fileElement,
+    mainElement,
+    imageElements,
+    imageElementsChildren
+  ) {
+    if (typeof (imageElementsChildren == undefined)) {
+      imageElementsChildren = imageElements;
+    }
+    var imageList = document.createElement("div");
+    imageList.setAttribute("id", "image-list");
+    var modalGallery = document.createElement("div");
+    var modalImage = document.createElement("img");
+    modalImage.setAttribute("class", "modalImage");
+    modalGallery.addEventListener("wheel", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.deltaY > 0 && zoomImage > 0.15) {
+        modalImage.style.transform = `scale(${(zoomImage -= ZOOM_SPEED_IMAGE)})`;
+      } else if (e.deltaY < 0 && zoomImage < 5) {
+        modalImage.style.transform = `scale(${(zoomImage += ZOOM_SPEED_IMAGE)})`;
+      }
+      return false;
+    });
+    var modalClose = document.createElement("span");
+    modalGallery.setAttribute("id", "modalGallery");
+    modalGallery.setAttribute("class", "modalGallery");
+    modalClose.setAttribute("class", "closeGallery");
+    modalClose.setAttribute("title", "Close");
+    modalClose.innerHTML = "&times";
+    modalClose.onclick = function () {
+      modalGallery.style.display = "none";
+    };
+
+    document.addEventListener("click", function (event) {
+      if (
+        !modalGallery.contains(event.target) &&
+        !imageList.contains(event.target)
+      ) {
+        modalGallery.style.display = "none";
+        zoomImage = 1.5;
+        modalImage.style.transform = `scale(1.5)`;
+      }
+    });
+
+    modalGallery.appendChild(modalImage);
+    modalGallery.appendChild(modalClose);
+    for (let i = 0; imageElementsChildren.length - i >= 0; i++) {
+      if (
+        imageElementsChildren[i] !== undefined &&
+        imageElementsChildren[i].innerHTML !== undefined
+      ) {
+        var imgList = imageElementsChildren[i].getElementsByTagName("a");
+        for (let j = 0; j < imgList.length; j++) {
+          imgList[j].setAttribute("href", "#");
+          imgList[j].setAttribute("src", imgList[j].firstChild.src);
+          imgList[j].setAttribute("class", "image-list-item");
+        }
+        imgList = imageElementsChildren[i].getElementsByTagName("img");
+        //for single thumbnail
+        if (imgList.length == 1) {
+          imgList[0].style.maxWidth = "fit-content";
+          imgList[0].style.maxHeight = "180px";
+        }
+        for (let j = 0; j < imgList.length; j++) {
+          imgList[j].onclick = function () {
+            modalGallery.style.display = "block";
+            modalGallery.style.zIndex = 999;
+            imageList.style.zIndex = 0;
+            imageList.style.display = "hidden";
+            modalImage.src = this.src;
+          };
+        }
+        imageList.appendChild(imageElementsChildren[i]);
+      }
+    }
+    fileElement[0].insertAdjacentElement("beforebegin", modalGallery);
+    mainElement.insertAdjacentElement("beforebegin", imageList);
+    //mainElement.insertBefore(imageList, fileElement[0]);
+  },
+
+  buildGallery() {
+    if (fileElement.length > 0) {
+      var mainElement = document.getElementById(CONFIG.viewer.gallery.container);
+      var imageElements;
+      if (CONFIG.viewer.gallery.imageClass !== "") {
+        imageElements = document.getElementsByClassName(
+          CONFIG.viewer.gallery.imageClass
+        );
+        if (imageElements.length > 0) {
+          var galleryLabel = document.getElementsByClassName("field__label");
+          if (galleryLabel !== undefined) galleryLabel[0].innerText = "";
+        }
+      } else if (CONFIG.viewer.gallery.imageId !== "") {
+        imageElements = document.getElementById(CONFIG.viewer.gallery.imageId);
+      } else {
+        console.log("No gallery created");
+      }
+
+      if (imageElements !== null) {
+        if (imageElements.length > 0) {
+          if (imageElements[0].innerHTML !== undefined) {
+            let imagesList = Array.from(
+              imageElements[0].getElementsByClassName("field__items")[0]
+                .childNodes
+            );
+            prepareGalleryImages(imagesList);
+            //imageElements[0].classList.add("field--type-image");
+            imageElements[0].classList.add("field--label-hidden");
+            imageElements[0].classList.add("field__items");
+            handleImages(fileElement, mainElement, imagesList, imageElements);
+          } else {
+            handleImages(fileElement, mainElement, imageElements);
+          }
+        } else if (
+          imageElements.childNodes !== undefined &&
+          imageElements.childNodes.length > 0
+        ) {
+          if (
+            typeof imageElements.childNodes[0].innerHTML == "string" ||
+            typeof imageElements.childNodes[1].innerHTML == "string"
+          ) {
+            //handle links and convert to img
+            let imagesList = Array.from(imageElements.childNodes);
+            prepareGalleryImages(imagesList);
+            imageElements.classList.add("field--type-image");
+            imageElements.classList.add("field--label-hidden");
+            imageElements.classList.add("field__items");
+            handleImages(fileElement, mainElement, imagesList, imageElements);
+          } else {
+            handleImages(fileElement, mainElement, imageElements);
+          }
+        }
+      }
+    }
+  },
+
+  async setupEmptyCamera(_camera, _object, _helperObjects) {
+    var boundingBox = new THREE.Box3();
+    if (Array.isArray(_object)) {
+      for (let i = 0; i < _object.length; i++) {
+        boundingBox.setFromObject(_object[i]);
+      }
+    } else {
+      boundingBox.setFromObject(_object);
+    }
+    var size = new THREE.Vector3();
+    boundingBox.getSize(size);
+    camera.position.set(size.x, size.y, size.z);
+    fitCameraToCenteredObject(_camera, _object, 1.2, true, _helperObjects);
+  },
+
+  pickFaces(_id) {
+    if (lastPickedFace.id == "" && _id !== "") {
+      lastPickedFace = {
+        id: _id,
+        color: _id.object.material.color.getHex(),
+        object: _id.object.id,
+      };
+    } else if (_id == "" && lastPickedFace.id !== "") {
+      scene
+        .getObjectById(lastPickedFace.object)
+        .material.color.setHex(lastPickedFace.color);
+      lastPickedFace = { id: "", color: "", object: "" };
+    } else if (_id != lastPickedFace.id) {
+      scene
+        .getObjectById(lastPickedFace.object)
+        .material.color.setHex(lastPickedFace.color);
+      lastPickedFace = {
+        id: _id,
+        color: _id.object.material.color.getHex(),
+        object: _id.object.id,
+      };
+    }
+    if (_id !== "") _id.object.material.color.setHex(0xff0000);
+  },
+
+  buildRuler(_id) {
+    rulerObject = new THREE.Object3D();
+    var sphere = new THREE.Mesh(
+      new THREE.SphereGeometry(gridSize / 150, 7, 7),
+      new THREE.MeshNormalMaterial({
+        transparent: true,
+        opacity: 0.8,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        depthWrite: false,
+      })
+    );
+    var newPoint = new THREE.Vector3(_id.point.x, _id.point.y, _id.point.z);
+    sphere.position.set(newPoint.x, newPoint.y, newPoint.z);
+    rulerObject.add(sphere);
+    linePoints.push(newPoint);
+    const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
+    const line = new THREE.Line(lineGeometry, lineMaterial);
+    rulerObject.add(line);
+    var lineMtr = new THREE.LineBasicMaterial({
+      color: 0x0000ff,
+      linewidth: 3,
+      opacity: 1,
+      side: THREE.DoubleSide,
+      depthTest: false,
+      depthWrite: false,
+    });
+    if (linePoints.length > 1) {
+      var vectorPoints = vectorBetweenPoints(
+        linePoints[linePoints.length - 2],
+        newPoint
+      );
+      var distancePoints = distanceBetweenPointsVector(vectorPoints);
+
+      //var distancePoints = distanceBetweenPoints(linePoints[linePoints.length-2], newPoint);
+      var halfwayPoints = halfwayBetweenPoints(
+        linePoints[linePoints.length - 2],
+        newPoint
+      );
+      addTextPoint(distancePoints.toFixed(2), gridSize / 200, halfwayPoints);
+      var rulerI = 0;
+      var measureSize = gridSize / 400;
+      while (rulerI <= distancePoints * 100) {
+        const geoSegm = [];
+        var interpolatePoints = interpolateDistanceBetweenPoints(
+          linePoints[linePoints.length - 2],
+          vectorPoints,
+          distancePoints,
+          rulerI / 100
+        );
+        geoSegm.push(
+          new THREE.Vector3(
+            interpolatePoints.x,
+            interpolatePoints.y,
+            interpolatePoints.z
+          )
+        );
+        geoSegm.push(
+          new THREE.Vector3(
+            interpolatePoints.x + measureSize,
+            interpolatePoints.y + measureSize,
+            interpolatePoints.z + measureSize
+          )
+        );
+        const geometryLine = new THREE.BufferGeometry().setFromPoints(geoSegm);
+        var lineSegm = new THREE.Line(geometryLine, lineMtr);
+        rulerObject.add(lineSegm);
+        rulerI += 10;
+      }
+    }
+    rulerObject.renderOrder = 1;
+    scene.add(rulerObject);
+    ruler.push(rulerObject);
+  },
+
+  updateSize() {
+    const isFullscreen = !!document.fullscreenElement;
+    Viewer.FULLSCREEN = isFullscreen;
+
+    let widthCSS, heightCSS;  // CSS pixels (for layout)
+    let widthDev, heightDev;  // Device pixels (for Three.js)
+
+    if (isFullscreen) {
+      widthCSS = window.innerWidth;
+      heightCSS = window.innerHeight;
+      widthDev = widthCSS * devicePixelRatio;
+      heightDev = heightCSS * devicePixelRatio;
+
+      Viewer.mainCanvas.style.width = '100vw';
+      Viewer.mainCanvas.style.height = '100vh';
+      Viewer.metadataContainer.style.width = '10%';
+      Viewer.metadataContainer.style.height = '10%';
+      Viewer.downloadModel?.setAttribute("style", "visibility: hidden");
+
+    } else {
+      const rect = Viewer.container.getBoundingClientRect();
+      widthCSS = rect.width * Number(Viewer.CONFIG.viewer.scaleContainer.x);
+      heightCSS = rect.height * Number(Viewer.CONFIG.viewer.scaleContainer.y);
+
+      Viewer.mainCanvas.style.width = widthCSS + 'px';
+      Viewer.mainCanvas.style.height = heightCSS + 'px';
+
+      // Convert to device pixels for Three.js
+      widthDev = widthCSS * devicePixelRatio;
+      heightDev = heightCSS * devicePixelRatio;
+
+      Viewer.metadataContainer.style.width = '100%';
+      Viewer.metadataContainer.style.height = '100%';
+      Viewer.downloadModel?.setAttribute("style", "visibility: visible");
+    }
+
+    //CONFIG.viewer.canvasDimensions = { x: widthCSS, y: heightCSS };
+
+    // Three.js renderer needs actual pixel size
+    Viewer.renderer.setSize(widthCSS, heightDev);
+    Viewer.renderer.setPixelRatio(devicePixelRatio);
+
+    Viewer.camera.aspect = widthCSS / heightCSS;
+    Viewer.camera.updateProjectionMatrix();
+
+    Viewer.fullscreenMode.style.top = (heightCSS - 60) + 'px';
+    Viewer.fullscreenMode.style.left = (widthCSS - 56) + 'px';
+
+    if (Viewer.downloadModel && !isFullscreen) {
+      Viewer.downloadModel.style.top = (heightCSS - 85) + 'px';
+    }
+
+    if (Viewer.viewEntity) {
+      Viewer.viewEntity.style.right = isFullscreen ? '-95%' : '-75%';
+    }
+
+    // GUI positioning
+    const guiWidth = Viewer.lilGui[0]?.getBoundingClientRect().width || 0;
+    Viewer.lilGui[0]?.style.setProperty('left', `${widthCSS - guiWidth - 10}px`);
+
+    Viewer.controls?.update();
+  },
+
+  // Proper fullscreen toggle
+  async toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      try {
+        await Viewer.container.requestFullscreen();
+        // fullscreenchange event will trigger updateSize()
+      } catch (err) {
+        console.error("Failed to enter fullscreen:", err);
+      }
+    } else {
+      await document.exitFullscreen();
+    }
+  },
+
+  exitFullscreenHandler() {
+    var fullscreenElement =
+      document.fullscreenElement ||
+      document.mozFullScreenElement ||
+      document.webkitFullscreenElement;
+    var fullscreenElement2 =
+      document.webkitIsFullScreen &&
+      document.mozFullScreen &&
+      document.msFullscreenElement;
+    if (
+      !fullscreenElement &&
+      typeof (fullscreenElement2 === undefined) &&
+      Viewer.FULLSCREEN
+    ) {
+      fullscreen();
+    }
+  },
+
+  animate : (time) => {
+    requestAnimationFrame(Viewer.animate);
+
+    const delta = Viewer.clock.getDelta();
+    if (Viewer.mixer) {
+      Viewer.mixer.update(delta);
+    }
+
+    Viewer.tween.update(time);
+    Viewer.controls.update();
+
+    if (Viewer.textMesh !== null) {
+      Viewer.textMesh.lookAt(Viewer.camera.position.clone());
+    }
+
+    Viewer.renderer.clear();
+    Viewer.renderer.render(Viewer.scene, Viewer.camera);
+    Viewer.stats.update();
+  },
+
+  onPointerDown(e) {
+    e.stopPropagation();
+    if (e.button === 0) {
+      Viewer.onDownPosition.x =
+        ((e.clientX - Viewer.mainCanvas.getBoundingClientRect().left) /
+          Viewer.renderer.domElement.clientWidth) *
+        2 -
+        1;
+      Viewer.onDownPosition.y =
+        -(
+          (e.clientY - Viewer.mainCanvas.getBoundingClientRect().top) /
+          Viewer.renderer.domElement.clientHeight
+        ) *
+        2 +
+        1;
+    }
+  },
+
+  onPointerUp(e) {
+    if (e.button == 0) {
+      Viewer.onUpPosition.x =
+        ((e.clientX - Viewer.mainCanvas.getBoundingClientRect().left) /
+          Viewer.renderer.domElement.clientWidth) *
+        2 -
+        1;
+      Viewer.onUpPosition.y =
+        -(
+          (e.clientY - Viewer.mainCanvas.getBoundingClientRect().top) /
+          Viewer.renderer.domElement.clientHeight
+        ) *
+        2 +
+        1;
+      if (
+        Viewer.onUpPosition.x === Viewer.onDownPosition.x &&
+        Viewer.onUpPosition.y === Viewer.onDownPosition.y
+      ) {
+        Viewer.raycaster.setFromCamera(Viewer.onUpPosition, Viewer.camera);
+        var intersects;
+
+        if (Viewer.EDITOR || Viewer.RULER_MODE) {
+          if (Viewer.mainObject.length > 1) {
+            for (let ii = 0; ii < Viewer.mainObject.length; ii++) {
+              intersects = Viewer.raycaster.intersectObjects(
+                Viewer.mainObject[ii].children,
+                true
+              );
+            }
+            if (intersects.length <= 0) {
+              intersects = Viewer.raycaster.intersectObjects(Viewer.mainObject, true);
+            }
+          } else {
+            intersects = Viewer.raycaster.intersectObject(Viewer.mainObject[0], true);
+          }
+          if (intersects.length > 0) {
+            if (Viewer.RULER_MODE) buildRuler(intersects[0]);
+            else if (Viewer.EDITOR) pickFaces(intersects[0]);
+          }
+        }
+      }
+    }
+  },
+
+  onPointerMove(e) {
+    Viewer.pointer.x =
+      ((e.clientX - Viewer.mainCanvas.getBoundingClientRect().left) /
+        Viewer.renderer.domElement.clientWidth) *
+      2 -
+      1;
+    Viewer.pointer.y =
+      -(
+        (e.clientY - Viewer.mainCanvas.getBoundingClientRect().top) /
+        Viewer.renderer.domElement.clientHeight
+      ) *
+      2 +
+      1;
+
+    if (e.buttons == 1) {
+      if (Viewer.pointer.x !== Viewer.onDownPosition.x && Viewer.pointer.y !== Viewer.onDownPosition.y) {
+        Viewer.cameraLight.position.set(
+          Viewer.camera.position.x,
+          Viewer.camera.position.y,
+          Viewer.camera.position.z
+        );
+      }
+    } else {
+      if (this.EDITOR) {
+        Viewer.raycaster.setFromCamera(Viewer.pointer, Viewer.camera);
+        var intersects;
+        if (Viewer.mainObject.length > 1) {
+          for (let ii = 0; ii < Viewer.mainObject.length; ii++) {
+            intersects = Viewer.raycaster.intersectObjects(
+              Viewer.mainObject[ii].children,
+              true
+            );
+          }
+          if (intersects.length <= 0) {
+            intersects = Viewer.raycaster.intersectObjects(Viewer.mainObject, true);
+          }
+        } else {
+          intersects = Viewer.raycaster.intersectObject(Viewer.mainObject[0], true);
+        }
+        if (intersects.length > 0) {
+          pickFaces(intersects[0]);
+        } else {
+          pickFaces("");
+        }
+      }
+    }
+  },
+
+  changeScale() {
+    if (this.transformControl.getMode() === "scale") {
+      switch (transformControl.axis) {
+        case "X":
+        case "XY":
+          this.helperObjects[0].scale.set(
+            this.helperObjects[0].scale.x,
+            this.helperObjects[0].scale.x,
+            this.helperObjects[0].scale.x
+          );
+          break;
+        case "Y":
+        case "YZ":
+          this.helperObjects[0].scale.set(
+            this.helperObjects[0].scale.y,
+            this.helperObjects[0].scale.y,
+            this.helperObjects[0].scale.y
+          );
+          break;
+        case "Z":
+        case "XZ":
+          this.helperObjects[0].scale.set(
+            this.helperObjects[0].scale.x,
+            this.helperObjects[0].scale.x,
+            this.helperObjects[0].scale.x
+          );
+          break;
+      }
+    }
+  },
+
+  calculateObjectScale() {
+    const boundingBox = new THREE.Box3();
+    if (Array.isArray(this.helperObjects[0])) {
+      for (let i = 0; i < this.helperObjects[0].length; i++) {
+        boundingBox.setFromObject(this.object[i]);
+      }
+    } else {
+      boundingBox.setFromObject(this.helperObjects[0]);
+    }
+
+    var middle = new THREE.Vector3();
+    var size = new THREE.Vector3();
+    boundingBox.getSize(size);
+    // ground
+    var _distance = new THREE.Vector3(
+      Math.abs(boundingBox.max.x - boundingBox.min.x),
+      Math.abs(boundingBox.max.y - boundingBox.min.y),
+      Math.abs(boundingBox.max.z - boundingBox.min.z)
+    );
+    this.distanceGeometry = _distance;
+    setCore("distanceGeometry", this.distanceGeometry);
+    planeParams.planeX.constantZ =
+      clippingFolder.controllers[1]._max =
+      clippingPlanes[0].constant =
+      _distance.x;
+    clippingFolder.controllers[1]._min = -clippingFolder.controllers[1]._max;
+    planeParams.planeY.constantY =
+      clippingFolder.controllers[3]._max =
+      clippingPlanes[1].constant =
+      _distance.y;
+    clippingFolder.controllers[3]._min = -clippingFolder.controllers[3]._max;
+    planeParams.planeZ.constantZ =
+      clippingFolder.controllers[5]._max =
+      clippingPlanes[2].constant =
+      _distance.z;
+    clippingFolder.controllers[5]._min = -clippingFolder.controllers[5]._max;
+    clippingFolder.controllers[1].updateDisplay();
+    clippingFolder.controllers[3].updateDisplay();
+    clippingFolder.controllers[5].updateDisplay();
+    var _maxDistance = Math.max(_distance.x, _distance.y, _distance.z);
+    planeHelpers[0].size =
+      planeHelpers[1].size =
+      planeHelpers[2].size =
+      _maxDistance;
+  },
+
+  changeLightRotation() {
+    this.lightHelper.update();
+  },
+
+  takeScreenshot() {
+    /*const messDiv = document.createElement('div');
+    messDiv.classList.add('message');
+    document.body.appendChild(messDiv);*/
+    this.camera.aspect = 1;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(256, 256);
+    this.renderer.render(this.scene, this.camera);
+    var prependName = "";
+    if (this.archiveType !== "") {
+      prependName = this.basename + "_" + this.archiveType.toUpperCase() + "/";
+    }
+
+    this.mainCanvas.toBlob((imgBlob) => {
+      const fileform = new FormData();
+      fileform.append("domain", CONFIG.mainUrl);
+      fileform.append("filename", basename);
+      fileform.append("path", uri + prependName);
+      fileform.append("data", imgBlob);
+      fileform.append("wisski_individual", entityID);
+      fetch(CONFIG.mainUrl + "/thumbnail_upload.php", {
+        method: "POST",
+        body: fileform,
+      })
+        .then((response) => {
+          console.log(response);
+          return response;
+        })
+        .then((data) => {
+          if (data.error) {
+            //Show server errors
+            showToast(data.error);
+          } else {
+            //Show success message
+            showToast("Rendering saved successfully");
+          }
+        })
+        .catch((err) => {
+          //Handle js errors
+          showToast(err.message);
+        });
+    }, "image/png");
+
+    renderer.setPixelRatio(devicePixelRatio);
+    camera.aspect = CONFIG.viewer.canvasDimensions.x / CONFIG.viewer.canvasDimensions.y;
+    camera.updateProjectionMatrix();
+    renderer.setSize(CONFIG.viewer.canvasDimensions.x, CONFIG.viewer.canvasDimensions.y);
+  },
+
+  async mainLoadModel() {
+    console.log("Loading model with extension:", this._ext);
+    if (this._ext === "glb" || this._ext === "gltf") {
+      await loadModel({
+        fileObject: this.fileObject,
+        config: this.CONFIG,
+        getProxyPath: getProxyPath,
+        camera: this.camera,
+        lightObjects: this.lightObjects,
+        controls: this.controls,
+        scene: this.scene,
+        mainObject: this.mainObject,
+        outlineClipping: this.outlineClipping,
+        circle: this.circle,
+        gui: this.gui,
+        stats: this.stats,
+        entityID: this.entityID,
+        container: this.container,
+        metadataContainer: this.metadataContainer,
+        canvasText: this.canvasText,
+        bottomLineGUI: this.bottomLineGUI,
+        compressedFile: this.compressedFile,
+        viewEntity: this.viewEntity,
+        helperObjects: this.helperObjects
+      });
+    } else if (
+      this._ext === "zip" ||
+      this._ext === "rar" ||
+      this._ext === "tar" ||
+      this._ext === "xz" ||
+      this._ext === "gz"
+    ) {
+      this.compressedFile = "_" + this._ext.toUpperCase() + "/";
+      this.fileObject.path = this.fileObject.path + this.fileObject.basename + this.compressedFile
+      this.fileObject.extension = "glb";
+      this.fileObject.newExtension = this._ext;
+      await loadModel(this.fileObject, config, getProxyPath, this.camera, this.lightObjects, this.controls, this.scene, this.mainObject, this.outlineClipping, this.circle, this.gui, this.stats,
+        this.entityID, this.container,
+        this.metadataContainer,
+        this.canvasText,
+        this.bottomLineGUI,
+        this.compressedFile,
+        this.viewEntity, this.helperObjects
+      );
+    } else {
+      this.fileObject.extension = "glb";
+      if (this._ext === "glb") {
+        await loadModel(this.fileObject, this.CONFIG, getProxyPath, this.camera, this.lightObjects, this.controls, this.scene, this.mainObject, this.outlineClipping, this.circle, this.gui, this.stats,
+        this.entityID, this.container,
+        this.metadataContainer,
+        this.canvasText,
+        this.bottomLineGUI,
+        this.compressedFile,
+        this.viewEntity, this.helperObjects);
+      }
+      else await loadModel(this.fileObject, this.CONFIG, getProxyPath, this.camera, this.lightObjects, this.controls, this.scene, this.mainObject, this.outlineClipping, this.circle, this.gui, this.stats,
+        this.entityID, this.container,
+        this.metadataContainer,
+        this.canvasText,
+        this.bottomLineGUI,
+        this.compressedFile,
+        this.viewEntity, this.helperObjects);
+    }
+  },
+
+  createClippingPlaneAxis(_number) {
+    var tempClippingControl = new TransformControls(this.camera, this.renderer.domElement);
+    tempClippingControl.space = "local";
+    tempClippingControl.mode = "translate";
+    tempClippingControl.addEventListener("change", this.render);
+    tempClippingControl.addEventListener("objectChange", function (event) {
+      switch (_number) {
+        case 0:
+          this.clippingPlanes[_number].constant =
+            event.target.children[0].pointEnd.x + this.distanceGeometry.x;
+          break;
+        case 1:
+          this.clippingPlanes[_number].constant =
+            event.target.children[0].pointEnd.y + this.distanceGeometry.y;
+          break;
+        case 2:
+          this.clippingPlanes[_number].constant =
+            event.target.children[0].pointEnd.z + this.distanceGeometry.z;
+          break;
+      }
+    });
+    tempClippingControl.addEventListener("dragging-changed", function (event) {
+      this.controls.enabled = !event.value;
+    });
+    return tempClippingControl;
+  },
+
+  resetCamera() {
+    var camPosition = this.camera.position;
+    let _tween = new Tween(camPosition)
+      .to(core.cameraCoords, 1500)
+      .onUpdate(() => {
+        this.camera.position.set(camPosition.x, camPosition.y, camPosition.z);
+        this.cameraLight.position.set(camPosition.x, camPosition.y, camPosition.z);
+        this.camera.updateProjectionMatrix();
+        this.controls.update();
+      })
+      .start();
+  },
+
+  prepareStats () {
+      // stats
+      Viewer.stats = new Stats();
+      Viewer.stats.domElement.style.cssText =
+        "position:relative;top:0px;left:" +
+        (Viewer.CONFIG.viewer.canvasDimensions.x - 90) +
+        "px;max-height:120px;max-width:90px;z-index:2;visibility:hidden;";
+
+      Viewer.windowHalfX = Viewer.CONFIG.viewer.canvasDimensions.x / 2;
+      Viewer.windowHalfY = Viewer.CONFIG.viewer.canvasDimensions.y / 2;
+
+      Viewer.editorFolder = Viewer.gui.addFolder("Editor").close();
+      Viewer.editorFolder
+        .add(Viewer.transformText, "Transform 3D Object", {
+          None: "",
+          Move: "translate",
+          Rotate: "rotate",
+          Scale: "scale",
+        })
+        .onChange(function (value) {
+          if (value === "") {
+            Viewer.transformControl.detach();
+          } else {
+            Viewer.renderer.localClippingEnabled = false;
+            Viewer.transformControl.mode = value;
+            Viewer.transformControl.attach(Viewer.helperObjects[0]);
+          }
+        });
+      Viewer.editorFolder
+        .add(Viewer.transformText, "Transform Mode", {
+          Local: "local",
+          Global: "global",
+        })
+        .onChange(function (value) {
+          Viewer.transformControl.space = value;
+        });
+      const lightFolder = Viewer.editorFolder.addFolder("Directional Light").close();
+      lightFolder
+        .add(Viewer.transformText, "Transform Light", {
+          None: "",
+          Move: "translate",
+          Target: "rotate",
+        })
+        .onChange(function (value) {
+          if (value === "") {
+            Viewer.transformControlLight.detach();
+            Viewer.transformControlLightTarget.detach();
+            Viewer.lightHelper.visible = false;
+          } else {
+            if (value === "translate") {
+              Viewer.transformControlLight.mode = "translate";
+              Viewer.transformControlLight.attach(Viewer.dirLight);
+              Viewer.lightHelper.visible = true;
+              Viewer.transformControlLightTarget.detach();
+            } else {
+              Viewer.transformControlLightTarget.mode = "translate";
+              Viewer.transformControlLightTarget.attach(Viewer.dirLightTarget);
+              Viewer.lightHelper.visible = true;
+              Viewer.transformControlLight.detach();
+            }
+          }
+        });
+      lightFolder
+        .addColor(Viewer.colors, "DirectionalLight")
+        .onChange(function (value) {
+          Viewer.lightObjects[0].color = new THREE.Color(value);
+        })
+        .listen();
+      lightFolder
+        .add(Viewer.intensity, "startIntensityDir", 0, 10)
+        .onChange(function (value) {
+          Viewer.lightObjects[0].intensity = value;
+        })
+        .listen();
+
+      const lightFolderAmbient = Viewer.editorFolder.addFolder("Ambient Light").close();
+      lightFolderAmbient
+        .addColor(Viewer.colors, "AmbientLight")
+        .onChange(function (value) {
+          Viewer.ambientLight.color = new THREE.Color(value);
+        })
+        .listen();
+      lightFolderAmbient
+        .add(Viewer.intensity, "startIntensityAmbient", 0, 10)
+        .onChange(function (value) {
+          Viewer.ambientLight.intensity = value;
+        })
+        .listen();
+
+      const lightFolderCamera = Viewer.editorFolder.addFolder("Camera Light").close();
+      lightFolderCamera
+        .addColor(Viewer.colors, "CameraLight")
+        .onChange(function (value) {
+          Viewer.cameraLight.color = new THREE.Color(value);
+        })
+        .listen();
+      lightFolderCamera
+        .add(Viewer.intensity, "startIntensityCamera", 0, 10)
+        .onChange(function (value) {
+          Viewer.cameraLight.intensity = value;
+        })
+        .listen();
+
+      const backgroundFolder = Viewer.editorFolder.addFolder("Background Color").close();
+      backgroundFolder
+        .addColor(Viewer.colors, "BackgroundColor")
+        .onChange(function (value) {
+          Viewer.changeBackground(
+            Viewer.backgroundType["Background Type"],
+            value,
+            Viewer.colors["BackgroundColorOuter"]
+          );
+        })
+        .listen();
+      Viewer.backgroundOuterFolder = backgroundFolder
+        .addColor(Viewer.colors, "BackgroundColorOuter")
+        .onChange(function (value) {
+          Viewer.changeBackground(
+            Viewer.backgroundType["Background Type"],
+            Viewer.colors["BackgroundColor"],
+            value
+          );
+        })
+        .listen();
+      backgroundFolder
+        .add(Viewer.backgroundType, "Background Type", {
+          Linear: "linear",
+          Gradient: "gradient",
+        })
+        .onChange(function (value) {
+          if (value == "linear") Viewer.backgroundOuterFolder.hide();
+          else Viewer.backgroundOuterFolder.show();
+          changeBackground(
+            value,
+            Viewer.colors["BackgroundColor"],
+            Viewer.colors["BackgroundColorOuter"]
+          );
+        });
+
+      Viewer.clippingFolder = Viewer.editorFolder.addFolder("Clipping Planes").close();
+      setCore("clippingFolder", Viewer.clippingFolder);
+      Viewer.core.materialsFolder = Viewer.editorFolder.addFolder("Materials").close();
+      setCore("materialsFolder", Viewer.core.materialsFolder);
+
+      if (!Viewer.CONFIG.viewer.lightweight) {
+        Viewer.propertiesFolder = Viewer.editorFolder.addFolder("Save properties").close();
+        Viewer.propertiesFolder.add(Viewer.saveProperties, "Position");
+        Viewer.propertiesFolder.add(Viewer.saveProperties, "Rotation");
+        Viewer.propertiesFolder.add(Viewer.saveProperties, "Scale");
+        Viewer.propertiesFolder.add(Viewer.saveProperties, "Camera");
+        Viewer.propertiesFolder.add(Viewer.saveProperties, "DirectionalLight");
+        Viewer.propertiesFolder.add(Viewer.saveProperties, "AmbientLight");
+        Viewer.propertiesFolder.add(Viewer.saveProperties, "CameraLight");
+        Viewer.propertiesFolder.add(Viewer.saveProperties, "BackgroundColor");
+      }
+
+      if (Viewer.editor && !Viewer.CONFIG.viewer.lightweight) {
+        Viewer.editorFolder.add(
+          {
+            ["Save"]() {
+              var xhr = new XMLHttpRequest(),
+                jsonArr,
+                method = "POST",
+                jsonRequestURL = CONFIG.mainUrl + "/editor.php";
+
+              xhr.open(method, jsonRequestURL, true);
+              xhr.setRequestHeader(
+                "Content-Type",
+                "application/x-www-form-urlencoded"
+              );
+              var params;
+              var rotateMetadata = new THREE.Vector3(
+                THREE.MathUtils.radToDeg(helperObjects[0].rotation.x),
+                THREE.MathUtils.radToDeg(helperObjects[0].rotation.y),
+                THREE.MathUtils.radToDeg(helperObjects[0].rotation.z)
+              );
+              var newMetadata = new Object();
+
+              //Fetch data from original metadata file anyway before saving any changes
+              //var originalMetadata = [];
+              //var metadataUrl = path.replace("gltf/", "") + "metadata/" + filename + "_viewer";
+              if (CONFIG.entity.proxyPath !== undefined) {
+                metadataUrl = getProxyPath(metadataUrl);
+              }
+
+              fetch(metadataUrl, { cache: "no-cache" })
+                .then((response) => {
+                  if (response["status"] !== 404) {
+                    return response.json();
+                  } else {
+                    return (response = {});
+                  }
+                })
+                .then((_data) => {
+                  if (typeof _data !== "undefined") {
+                    if (typeof _data[`objPosition`] !== "undefined") originalMetadata["objPosition"] = _data["objPosition"];
+                    if (typeof _data["objRotation"] !== "undefined") originalMetadata["objRotation"] = _data["objRotation"];
+                    if (typeof _data["objScale"] !== "undefined") originalMetadata["objScale"] = _data["objScale"];
+                    if (typeof _data["cameraPosition"] !== "undefined") originalMetadata["cameraPosition"] = _data["cameraPosition"];
+                    if (typeof _data["controlsTarget"] !== "undefined") originalMetadata["controlsTarget"] = _data["controlsTarget"];
+                    if (typeof _data["lightPosition"] !== "undefined") originalMetadata["lightPosition"] = _data["lightPosition"];
+                    if (typeof _data["lightTarget"] !== "undefined") originalMetadata["lightTarget"] = _data["lightTarget"];
+                    if (typeof _data["lightColor"] !== "undefined") originalMetadata["lightColor"] = _data["lightColor"];
+                    if (typeof _data["lightIntensity"] !== "undefined") originalMetadata["lightIntensity"] = _data["lightIntensity"];
+                    if (typeof _data["lightAmbientColor"] !== "undefined") originalMetadata["lightAmbientColor"] = _data["lightAmbientColor"];
+                    if (typeof _data["lightAmbientIntensity"] !== "undefined") originalMetadata["lightAmbientIntensity"] = _data["lightAmbientIntensity"];
+                    if (typeof _data["lightCameraColor"] !== "undefined") originalMetadata["lightCameraColor"] = _data["lightCameraColor"];
+                    if (typeof _data["lightCameraIntensity"] !== "undefined") originalMetadata["lightCameraIntensity"] = _data["lightCameraIntensity"];
+                    if (typeof _data["background"] !== "undefined") originalMetadata["background"] = _data["background"];
+
+                    if (saveProperties.Position) {
+                      newMetadata = Object.assign(newMetadata, {
+                        objPosition: [
+                          helperObjects[0].position.x, helperObjects[0].position.y, helperObjects[0].position.z,
+                        ],
+                      });
+                    } else {
+                      newMetadata = Object.assign(newMetadata, {
+                        objPosition: [
+                          originalMetadata["objPosition"][0], originalMetadata["objPosition"][1], originalMetadata["objPosition"][2],
+                        ],
+                      });
+                    }
+
+                    if (saveProperties.Rotation) {
+                      newMetadata = Object.assign(newMetadata, {
+                        objRotation: [
+                          rotateMetadata.x, rotateMetadata.y, rotateMetadata.z,
+                        ],
+                      });
+                    } else {
+                      newMetadata = Object.assign(newMetadata, {
+                        objRotation: [
+                          originalMetadata["objRotation"][0], originalMetadata["objRotation"][1], originalMetadata["objRotation"][2],
+                        ],
+                      });
+                    }
+
+                    if (saveProperties.Scale) {
+                      newMetadata = Object.assign(newMetadata, {
+                        objScale: [
+                        helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z,
+                        ],
+                        });
+                    } else {
+                      newMetadata = Object.assign(newMetadata, {
+                        objScale: [
+                          originalMetadata["objScale"][0], originalMetadata["objScale"][1], originalMetadata["objScale"][2],
+                        ],
+                      });
+                    }
+
+                    if (saveProperties.Camera) {
+                      newMetadata = Object.assign(newMetadata, {
+                        cameraPosition: [
+                          camera.position.x, camera.position.y, camera.position.z,
+                        ],
+                        controlsTarget: [
+                          controls.target.x, controls.target.y, controls.target.z,
+                        ],
+                      });
+                    } else {
+                      newMetadata = Object.assign(newMetadata, {
+                        cameraPosition: [
+                          originalMetadata["cameraPosition"][0], originalMetadata["cameraPosition"][1], originalMetadata["cameraPosition"][2],
+                        ],
+                        controlsTarget: [
+                          originalMetadata["controlsTarget"][0], originalMetadata["controlsTarget"][1], originalMetadata["controlsTarget"][2],
+                        ],
+                      });
+                    }
+
+                    if (saveProperties.DirectionalLight) {
+                      newMetadata = Object.assign(newMetadata, {
+                        lightPosition: [
+                          dirLight.position.x, dirLight.position.y, dirLight.position.z,
+                        ],
+                        lightTarget: [
+                          dirLight.rotation._x, dirLight.rotation._y, dirLight.rotation._z,
+                        ],
+                        lightColor: [
+                          "#" + dirLight.color.getHexString().toUpperCase(),
+                        ],
+                        lightIntensity: [dirLight.intensity],
+                      });
+                    } else {
+                      newMetadata = Object.assign(newMetadata, {
+                        lightPosition: [
+                          originalMetadata["lightPosition"][0], originalMetadata["lightPosition"][1], originalMetadata["lightPosition"][2],
+                        ],
+                        lightTarget: [
+                          originalMetadata["lightTarget"][0], originalMetadata["lightTarget"][1], originalMetadata["lightTarget"][2],
+                        ],
+                        lightColor: [originalMetadata["lightColor"][0]],
+                        lightIntensity: [originalMetadata["lightIntensity"][0]],
+                      });
+                    }
+
+                    if (saveProperties.AmbientLight) {
+                      newMetadata = Object.assign(newMetadata, {
+                        lightAmbientColor: [
+                          "#" + ambientLight.color.getHexString().toUpperCase(),
+                        ],
+                        lightAmbientIntensity: [ambientLight.intensity],
+                      });
+                    } else {
+                      newMetadata = Object.assign(newMetadata, {
+                        lightAmbientColor: [
+                          originalMetadata["lightAmbientColor"][0],
+                        ],
+                        lightAmbientIntensity: [
+                          originalMetadata["lightAmbientIntensity"][0],
+                        ],
+                      });
+                    }
+
+                    if (saveProperties.CameraLight) {
+                      newMetadata = Object.assign(newMetadata, {
+                        lightCameraColor: [
+                          "#" + cameraLight.color.getHexString().toUpperCase(),
+                        ],
+                        lightCameraIntensity: [cameraLight.intensity],
+                      });
+                    } else {
+                      newMetadata = Object.assign(newMetadata, {
+                        lightCameraColor: [
+                          originalMetadata["lightCameraColor"][0],
+                        ],
+                        lightCameraIntensity: [
+                          originalMetadata["lightCameraIntensity"][0],
+                        ],
+                      });
+                    }
+
+                    if (saveProperties.BackgroundColor) {
+                      newMetadata = Object.assign(newMetadata, {
+                        background: [
+                          window.getComputedStyle(mainCanvas).background,
+                        ],
+                      });
+                    }
+
+                    if (archiveType !== "") {
+                      if (!compressedFile.includes(archiveType.toUpperCase()))
+                        compressedFile += "_" + archiveType.toUpperCase();
+                      params =
+                        CONFIG.viewer.salt +
+                        "=" +
+                        JSON.stringify(newMetadata, null, "\t") +
+                        "&path=" +
+                        fileObject.uri +
+                        fileObject.basename +
+                        compressedFile +
+                        "/" +
+                        "&filename=" +
+                        filename;
+                    } else {
+                      params =
+                        CONFIG.viewer.salt +
+                        "=" +
+                        JSON.stringify(newMetadata, null, "\t") +
+                        "&path=" +
+                        uri +
+                        "&filename=" +
+                        filename;
+                    }
+                    xhr.onreadystatechange = function () {
+                      if (xhr.readyState === XMLHttpRequest.DONE) {
+                        var status = xhr.status;
+                        if (status === 0 || (status >= 200 && status < 400)) {
+                          showToast("Settings have been saved.");
+                        }
+                      }
+                    };
+                    xhr.send(params);
+                  }
+                })
+                .catch((error) => console.log(error));
+            },
+          },
+          "Save"
+        );
+        if (!Viewer.CONFIG.viewer.lightweight) {
+          Viewer.editorFolder.add(
+            {
+              ["Picking mode"]() {
+                Viewer.EDITOR = !EDITOR;
+                var _str;
+                Viewer.EDITOR ? (_str = "enabled") : (_str = "disabled");
+                showToast("Face picking is " + _str);
+                if (!Viewer.EDITOR) {
+                } else {
+                  Viewer.RULER_MODE = false;
+                }
+              },
+            },
+            "Picking mode"
+          );
+        }
+        Viewer.editorFolder.add(
+          {
+            ["Distance Measurement"]() {
+              Viewer.RULER_MODE = !Viewer.RULER_MODE;
+              var _str;
+              Viewer.RULER_MODE ? (_str = "enabled") : (_str = "disabled");
+              showToast("Distance measurement mode is " + _str);
+              if (!RULER_MODE) {
+                Viewer.ruler.forEach((r) => {
+                  Viewer.scene.remove(r);
+                });
+                Viewer.rulerObject = new THREE.Object3D();
+                Viewer.ruler = [];
+                Viewer.linePoints = [];
+              } else {
+                Viewer.EDITOR = false;
+              }
+            },
+          },
+          "Distance Measurement"
+        );
+        if (!Viewer.CONFIG.viewer.lightweight) {
+          Viewer.editorFolder.add(
+            {
+              ["Render preview"]() {
+                takeScreenshot();
+              },
+            },
+            "Render preview"
+          );
+        }
+        Viewer.editorFolder.add(
+          {
+            ["Reset camera position"]() {
+              resetCamera();
+            },
+          },
+          "Reset camera position"
+        );
       }
     },
-  };
-}
+
+  async init() {
+    if (!Viewer.renderer) {
+      Viewer.camera = new THREE.PerspectiveCamera(
+        45,
+        Viewer.CONFIG.viewer.canvasDimensions.x / Viewer.CONFIG.viewer.canvasDimensions.y,
+        0.001,
+        999000000
+      );
+      Viewer.camera.position.set(0, 0, 0);
+      setCore('camera', Viewer.camera);
+
+      Viewer.scene = new THREE.Scene();
+      setCore('scene', Viewer.scene);
+
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444);
+      hemiLight.position.set(0, 200, 0);
+      Viewer.scene.add(hemiLight);
+
+      Viewer.ambientLight = new THREE.AmbientLight(0x404040); // soft white light
+      Viewer.scene.add(Viewer.ambientLight);
+
+      setCore('ambientLight', Viewer.ambientLight);
+
+      Viewer.dirLight = new THREE.DirectionalLight(0xffffff);
+      Viewer.dirLight.position.set(0, 100, 50);
+      Viewer.dirLight.castShadow = true;
+      Viewer.dirLight.shadow.camera.top = 180;
+      Viewer.dirLight.shadow.camera.bottom = -100;
+      Viewer.dirLight.shadow.camera.left = -120;
+      Viewer.dirLight.shadow.camera.right = 120;
+      Viewer.dirLight.shadow.bias = -0.0001;
+      Viewer.dirLight.shadow.mapSize.width = 1024 * 4;
+      Viewer.dirLight.shadow.mapSize.height = 1024 * 4;
+      Viewer.scene.add(Viewer.dirLight);
+      Viewer.lightObjects.push(Viewer.dirLight);
+      setCore('dirLight', Viewer.dirLight);
+
+      Viewer.cameraLightTarget = new THREE.Object3D();
+      Viewer.cameraLightTarget.position.set(
+        Viewer.camera.position.x,
+        Viewer.camera.position.y,
+        Viewer.camera.position.z
+      );
+      Viewer.scene.add(Viewer.cameraLightTarget);
+      // Store in core
+      setCore('cameraLightTarget', Viewer.cameraLightTarget);
+
+      Viewer.cameraLight = new THREE.DirectionalLight(0xffffff);
+      Viewer.cameraLight.position.set(Viewer.camera.position);
+      Viewer.cameraLight.castShadow = false;
+      Viewer.cameraLight.intensity = 0.3;
+      Viewer.scene.add(Viewer.cameraLight);
+      Viewer.cameraLight.target = Viewer.cameraLightTarget;
+      // Store in core
+      setCore('cameraLight', Viewer.cameraLight);
+      Viewer.cameraLight.target.updateMatrixWorld();
+
+      Viewer.renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        logarithmicDepthBuffer: true,
+        colorManagement: true,
+        sortObjects: true,
+        preserveDrawingBuffer: true,
+        powerPreference: "high-performance",
+        alpha: true,
+      });
+      
+      Viewer.renderer.shadowMap.enabled = true;
+      Viewer.renderer.localClippingEnabled = true;
+      Viewer.renderer.physicallyCorrectLights = true; //can be considered as better looking
+      Viewer.renderer.autoClear = false;
+      Viewer.renderer.setClearColor(0x000000, 0.0);
+      Viewer.renderer.domElement.id = "MainCanvas";
+      Viewer.mainCanvas = document.getElementById("MainCanvas") || Viewer.renderer.domElement;
+
+      Viewer.renderer.domElement.addEventListener("pointerdown", Viewer.onPointerDown);
+      Viewer.renderer.domElement.addEventListener("pointerup", Viewer.onPointerUp);
+      Viewer.renderer.domElement.addEventListener("pointermove", Viewer.onPointerMove);
+
+      const devicePixelRatio = window.devicePixelRatio || 1;
+      Viewer.renderer.setSize(Viewer.CONFIG.viewer.canvasDimensions.x, Viewer.CONFIG.viewer.canvasDimensions.y);
+      Viewer.renderer.setPixelRatio(devicePixelRatio);
+      Viewer.renderer.domElement.style.width = Viewer.CONFIG.viewer.canvasDimensions.x + "px";
+      Viewer.renderer.domElement.style.height = Viewer.CONFIG.viewer.canvasDimensions.y + "px";
+
+      Viewer.renderer.domElement.style.display = "block";
+      Viewer.container.appendChild(Viewer.renderer.domElement);
+      Viewer.mainCanvas.classList.add("mainCanvas");
+      Viewer.canvasText = document.createElement("div");
+      Viewer.canvasText.id = "TextCanvas";
+      Viewer.canvasText.width = Viewer.CONFIG.viewer.canvasDimensions.x + "px";
+      Viewer.canvasText.height = Viewer.CONFIG.viewer.canvasDimensions.y + "px";
+
+      Viewer.container.parentElement.classList.add("viewer-wrapper");
+
+      Viewer.camera.aspect = Viewer.CONFIG.viewer.canvasDimensions.x / Viewer.CONFIG.viewer.canvasDimensions.y;
+      Viewer.camera.updateProjectionMatrix();
+
+      setCore('mainCanvas', Viewer.mainCanvas);
+
+      Viewer.guiContainer.style.width = Viewer.CONFIG.viewer.canvasDimensions.x;
+      Viewer.guiContainer.style.left = Viewer.container.getBoundingClientRect().left + "px";
+      Viewer.lilGui = document.getElementsByClassName("lil-gui root");
+      Viewer.lilGui[0].style.left =
+        Viewer.CONFIG.viewer.canvasDimensions.x - Viewer.lilGui[0].getBoundingClientRect().width - 10 + "px";
+
+      Viewer.fileElement = document.getElementsByClassName("field--type-file");
+      if (Viewer.fileElement.length > 0) {
+        Viewer.fileElement[0].style.height = Viewer.CONFIG.viewer.canvasDimensions.y * 1.1 + "px";
+      }
+
+      if (
+        Viewer.CONFIG.viewer.lightweight === 0 ||
+        Viewer.CONFIG.viewer.lightweight === false
+      ) {
+        buildGallery();
+      }
+
+      Viewer.controls = new OrbitControls(Viewer.camera, Viewer.renderer.domElement);
+      Viewer.controls.target.set(0, 100, 0);
+      Viewer.controls.enableDamping = true;
+      Viewer.controls.dampingFactor = 0.05;
+      Viewer.controls.enableRotate = true;
+      Viewer.controls.update();
+      setCore('controls', Viewer.controls);
+
+      Viewer.transformControl = new TransformControls(Viewer.camera, Viewer.renderer.domElement);
+      Viewer.transformControl.rotationSnap = THREE.MathUtils.degToRad(5);
+      Viewer.transformControl.space = "local";
+      Viewer.transformControl.addEventListener("change", Viewer.render);
+      Viewer.transformControl.addEventListener("objectChange", Viewer.changeScale);
+      Viewer.transformControl.addEventListener("mouseUp", Viewer.calculateObjectScale);
+      Viewer.transformControl.addEventListener("dragging-changed", function (event) {
+        Viewer.controls.enabled = !event.value;
+      });
+      Viewer.scene.add(Viewer.transformControl.getHelper());
+
+      Viewer.transformControlLight = new TransformControls(Viewer.camera, Viewer.renderer.domElement);
+      Viewer.transformControlLight.space = "local";
+      Viewer.transformControlLight.addEventListener("change", Viewer.render);
+      //Viewer.transformControlLight.addEventListener('objectChange', changeLightRotation);
+      Viewer.transformControlLight.addEventListener(
+        "dragging-changed",
+        function (event) {
+          Viewer.controls.enabled = !event.value;
+        }
+      );
+      Viewer.scene.add(Viewer.transformControlLight.getHelper());
+
+      Viewer.transformControlLightTarget = new TransformControls(
+        Viewer.camera,
+        Viewer.renderer.domElement
+      );
+      Viewer.transformControlLightTarget.space = "global";
+      Viewer.transformControlLightTarget.addEventListener("change", Viewer.render);
+      Viewer.transformControlLightTarget.addEventListener(
+        "objectChange",
+        Viewer.changeLightRotation
+      );
+      Viewer.transformControlLightTarget.addEventListener(
+        "dragging-changed",
+        function (event) {
+          Viewer.controls.enabled = !event.value;
+        }
+      );
+      Viewer.scene.add(Viewer.transformControlLightTarget.getHelper());
+
+      Viewer.transformControlClippingPlaneX = Viewer.createClippingPlaneAxis(0, "x");
+      Viewer.transformControlClippingPlaneY = Viewer.createClippingPlaneAxis(1, "y");
+      Viewer.transformControlClippingPlaneZ = Viewer.createClippingPlaneAxis(2, "z");
+      setCore('transformControlClippingPlaneX', Viewer.transformControlClippingPlaneX);
+      setCore('transformControlClippingPlaneY', Viewer.transformControlClippingPlaneY);
+      setCore('transformControlClippingPlaneZ', Viewer.transformControlClippingPlaneZ);
+
+      setCore('clippingPlanes', Viewer.clippingPlanes);
+
+      Viewer.transformControlClippingPlaneX.showX = Viewer.transformControlClippingPlaneX.showY = false;
+      Viewer.transformControlClippingPlaneY.showX = Viewer.transformControlClippingPlaneY.showY = false;
+      Viewer.transformControlClippingPlaneZ.showX = Viewer.transformControlClippingPlaneZ.showY = false;
+
+      Viewer._ext = Viewer.fileObject.extension.toLowerCase();
+      if (
+        Viewer._ext === "zip" ||
+        Viewer._ext === "rar" ||
+        Viewer._ext === "tar" ||
+        Viewer._ext === "xz" ||
+        Viewer._ext === "gz"
+      ) {
+        archiveType = Viewer._ext;
+      }
+
+      var _autoPath = "";
+      
+      if (Viewer.CONFIG.entity.metadata.source === "" && (Viewer.CONFIG.viewer.lightweight === 0 || Viewer.CONFIG.viewer.lightweight === false)) {
+        var req = new XMLHttpRequest();
+        req.responseType = "";
+        req.open(
+          "GET",
+          Viewer.CONFIG.metadataUrl + Viewer.CONFIG.viewer.exportPath + entityID + "?page=0&amp;_format=xml",
+          true
+        );
+        req.onreadystatechange = async function (aEvt) {
+          if (req.readyState == 4) {
+            if (req.status == 200) {
+              const parser = new DOMParser();
+              const doc = parser.parseFromString(
+                req.responseText,
+                "application/xml"
+              );
+              if (doc.documentElement.childNodes > 0) {
+                var data = doc.documentElement.childNodes[0].childNodes;
+                if (typeof data !== undefined) {
+                  var _found = false;
+                  for (var i = 0; i < data.length && !_found; i++) {
+                    if (
+                      typeof data[i].tagName !== "undefined" &&
+                      typeof data[i].textContent !== "undefined"
+                    ) {
+                      var _label = data[i].tagName.replace(
+                        "wisski_path_3d_model__",
+                        ""
+                      );
+                      if (
+                        typeof _label !== "undefined" &&
+                        _label === "converted_file"
+                      ) {
+                        _found = true;
+                        _autoPath = data[i].textContent;
+                      }
+                    }
+                  }
+                }
+              }
+              //check wheter semo-automatic path found
+              if (_autoPath !== "") {
+                Viewer.fileObject.filename = _autoPath.split("/").pop();
+                Viewer.fileObject.basename = Viewer.fileObject.filename.substring(0, Viewer.fileObject.filename.lastIndexOf("."));
+                Viewer.fileObject.extension = Viewer.fileObject.filename.substring(Viewer.fileObject.filename.lastIndexOf(".") + 1);
+                Viewer._ext = fileObject.extension.toLowerCase();
+                Viewer.fileObject.path = _autoPath.substring(0, _autoPath.lastIndexOf(Viewer.fileObject.filename));
+              }
+              await mainLoadModel(Viewer._ext);
+            } else {
+              console.log("Error during loading metadata content\n");
+              await mainLoadModel(Viewer._ext);
+            }
+          }
+        };
+        req.send(null);
+      } else if (Viewer.CONFIG.entity.metadata.source.toLowerCase().substring(0, 4) === "iiif") {
+          const formContainer = document.createElement("div");
+          formContainer.id = "form-IIIF";
+          formContainer.innerHTML = `
+            <div class="form-IIIF-group">
+              <input type="text" id="manifest-url" name="manifest-url" value="">
+              <button id="load-manifest-from-url">Load Manifest From URL</button>
+            </div>
+            <div class="form-IIIF-group">
+              <textarea id="manifest-text" name="manifest-text" rows="10"></textarea>
+              <p>
+                <button id="load-manifest-from-text">Load Manifest From Text</button>
+              </p>
+            </div>
+          `;
+
+          document.body.appendChild(formContainer);
+
+        async function setupIIIF(newUrlOrJson, type="url") {
+          if (type === "text") {
+            iiifConfigURL.url = "";
+          } else {
+            iiifConfigURL.url = newUrlOrJson;
+          }
+          const loadedIIIF = await loadIIIFManifest(newUrlOrJson);
+          if (loadedIIIF.modelUrls.length === 0) { // no 3D model found, use example model
+            loadedIIIF.modelUrls.push('https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb');
+            showToast("No 3D model found in IIIF manifest, loading example model.");
+          }
+          let ind = 0;
+          // reset scene
+          mainObject.forEach((obj) => {
+            scene.remove(obj);
+          });
+          mainObject = [];
+          console.log("TOTAL Annotations: " + loadedIIIF.annotations.length);
+          if (loadedIIIF.annotations.length !== loadedIIIF.modelUrls.length) {
+            //console.warn("Number of annotations does not match number of model URLs, adding testing model...");
+              const diff = loadedIIIF.annotations.length - loadedIIIF.modelUrls.length;
+              if (diff > 0) {
+                // Need more model URLs → push empty strings (or null)
+                for (let i = 0; i < diff; i++) {
+                  loadedIIIF.modelUrls.push(testModelURL);
+                  Viewer.objectsConfig.models.push({name: "Test Model", url: Viewer.testModelURL});
+                }
+              }
+          }
+          for (const [i, url] of loadedIIIF.modelUrls?.entries()) {
+            Viewer.objectsConfig.index = i;
+            Viewer.fileObject.originalPath = loadedIIIF.modelUrl = url;
+            //fileObject.originalPath = loadedIIIF.modelUrl;
+            setModelPaths();
+            await getAnnotations(loadedIIIF, objectsConfig);
+            if (loadedIIIF.scenes && loadedIIIF.scenes.length > 0) {
+              Viewer.objectsConfig.scenes = loadedIIIF.scenes;
+            }
+            Viewer._ext = fileObject.extension.toLowerCase();
+            await mainLoadModel(Viewer._ext);
+          }
+        }
+
+        function isUrlFlexible(string) {
+          try {
+            new URL(string);
+            return true;
+          } catch {
+            return /^(https?:\/\/)?([\w-]+\.)+[\w-]{2,}(\/\S*)?$/i.test(string);
+          }
+        }
+
+        function isValidJsonObject(text) {
+          try {
+            const parsed = JSON.parse(text);
+            return typeof parsed === 'object' && parsed !== null;
+          } catch {
+            return false;
+          }
+        }
+
+        async function loadIIIFURL() {
+          // create a small dropdown to switch iiif manifests at runtime
+          document.getElementById("iiif-dropdown").addEventListener("change", async (ev) => {
+            try {
+              if (ev.target.value !== iiifConfigURL.url) {
+                objectsConfig.setupIndex = 0;
+                await setupIIIF(ev.target.value, "url");
+              }
+            } catch (err) {
+              console.error(err);
+              showToast("Error loading IIIF manifest: " + (err.message || err));
+            }
+            });
+
+          document.getElementById("load-manifest-from-url").addEventListener("click", async (ev) => {
+            try {
+              const inputElement = document.getElementById("manifest-url");
+              if (inputElement.value === "" || !isUrlFlexible(inputElement.value)) {
+                inputElement.style.border = "2px solid red";
+                showToast("Please enter a valid IIIF manifest URL.");
+                return;
+              } else {
+                inputElement.style.border = "2px solid green";
+                objectsConfig.setupIndex = 0;
+                console.log("Loading IIIF manifest from URL: " + inputElement.value);
+                await setupIIIF(inputElement.value, "url");
+              }
+            } catch (err) {
+              console.error(err);
+              showToast("Error loading IIIF manifest: " + (err.message || err));
+            }
+            });
+
+          document.getElementById("load-manifest-from-text").addEventListener("click", async (ev) => {
+            try {
+              const inputElement = document.getElementById("manifest-text");
+              if (inputElement.value === "" || !isValidJsonObject(inputElement.value)) {
+                inputElement.style.border = "2px solid red";
+                showToast("Please enter a valid IIIF JSON text.");
+                return;
+              } else {
+                inputElement.style.border = "2px solid green";
+                objectsConfig.setupIndex = 0;
+                console.log("Loading IIIF manifest from privided text");
+                await setupIIIF(inputElement.value, "text");
+              }
+            } catch (err) {
+              console.error(err);
+              showToast("Error loading IIIF manifest: " + (err.message || err));
+            }
+            });
+
+            
+        }      
+        
+        switch(Viewer.CONFIG.entity.metadata.source.substring(0, 4).toLowerCase()) {
+          case "iiif":
+            if (Viewer.iiifConfigURL.url !== "") {
+              createIIIFDropdown(Viewer.container, Viewer.iiifConfigURL, Viewer.CONFIG.viewer.canvasDimensions);
+              await loadIIIFURL();
+              Viewer.CONFIG.entity.metadata.source = "IIIF";
+              await setupIIIF(Viewer.iiifConfigURL.url);
+            }
+            break;
+          case "file": //TODO: add more sources
+            break;
+        }
+      } else {
+      // statements to handle any exceptions
+    }
+
+      Viewer.fullscreenMode = document.createElement("div");
+      Viewer.fullscreenMode.setAttribute("id", "fullscreenMode");
+      Viewer.fullscreenMode.innerHTML =
+        "<img src='" + DFG_ASSETS + "img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
+      Viewer.fullscreenMode.setAttribute(
+        "style",
+        "top:" +
+        (Viewer.bottomLineGUI + 20) +
+        "px; left: " +
+        (Viewer.CONFIG.viewer.canvasDimensions.x - 36) +
+        "px"
+      );
+      Viewer.renderer.setPixelRatio(devicePixelRatio);
+      window.addEventListener('resize', Viewer.updateSize);
+      document.addEventListener('fullscreenchange', Viewer.updateSize);
+      window.addEventListener('orientationchange', () => setTimeout(Viewer.updateSize, 100));
+      //updateSize();
+
+      Viewer.container.appendChild(Viewer.fullscreenMode);
+      document.getElementById("fullscreenMode").addEventListener("click", Viewer.toggleFullscreen, false);
+      Viewer.prepareStats();
+    }
+  },
+  render() {
+    Viewer.controls?.update();
+    Viewer.renderer?.render(Viewer.scene, Viewer.camera);
+  }
+  
+};
+
 
 window.DFG_ASSETS = (() => {
   const script = document.currentScript?.src || '';
@@ -117,2041 +2136,14 @@ window.DFG_ASSETS = (() => {
   return 'assets/';
 })();
 
-console.log(`Powered by Three.js (v${THREE.REVISION}) - DFG 3D-Viewer`);
-console.log(CONFIG);
 
-//CONFIG.entity.metadata.source = typeof env.BUILD_SOURCE === 'undefined' ? BUILD_SOURCE : 'IIIF';
-if (CONFIG.entity.metadata.source) console.log('Using metadata source:', CONFIG.entity.metadata.source);
-let camera,
-  scene,
-  renderer,
-  stats,
-  controls,
-  loader,
-  ambientLight,
-  dirLight,
-  dirLightTarget,
-  cameraLight,
-  cameraLightTarget;
-let dirLights = [];
-let imported;
-var mainObject = [];
-var metadataContentTech;
-var mainCanvas;
-var distanceGeometry = new THREE.Vector3();
-let entityID = "";
-var metadataUrl;
 
-let iiifConfigURL = {url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: "Inbuilt"};
-const testModelURL = 'https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb';
 
-// Initialize objectsConfig in core
-setCore('objectsConfig', objectsConfig);
-objectsConfig.setupIndex = objectsConfig.index = 0;
 
-const clock = new THREE.Clock();
-const editor = true;
-var FULLSCREEN = false;
-
-let mixer;
-let tween = new Tween();
-setCore('tween', tween);
-
-const container = document.getElementById(CONFIG.viewer.container);
-const scrollTop = window.scrollY || document.documentElement.scrollTop;
-
-container.classList.add("mainContainer");
-
-const rect = container.getBoundingClientRect();
-
-CONFIG.viewer.canvasDimensions = {
-  x: rect.width * Number(CONFIG.viewer.scaleContainer.x),
-  y: rect.height * Number(CONFIG.viewer.scaleContainer.y),
-};
-
-var fileObject = { originalPath: '', filename: '', basename: '', extension: '', path: '', uri: '', newExtension: '' };
-
-fileObject.originalPath = container.getAttribute("3d");
-const bottomLineGUI = CONFIG.viewer.canvasDimensions.y - 85;
-
-if (CONFIG.viewer.lightweight === true) {
-  CONFIG.viewer.lightweight = container.getAttribute("proxy");
-}
-if (CONFIG.viewer.lightweight === null || CONFIG.viewer.lightweight === false) {
-  var elementsURL = window.location.pathname;
-  elementsURL = elementsURL.match(CONFIG.entity.idUri);
-  if (elementsURL !== null) {
-    entityID = elementsURL[1];
-    container.setAttribute(CONFIG.entity.attributeId, entityID);
-  }
-}
-
-if (container.hasAttribute("basePath")) {
-  CONFIG.baseModulePath = container.getAttribute("basePath");
-}
-
-function setModelPaths() {
-  fileObject.filename = fileObject.originalPath.split("/").pop();
-  fileObject.basename = fileObject.filename.substring(0, fileObject.filename.lastIndexOf("."));
-  fileObject.extension = fileObject.filename.substring(fileObject.filename.lastIndexOf(".") + 1);
-  fileObject.path = fileObject.originalPath.substring(0, fileObject.originalPath.lastIndexOf(fileObject.filename));
-  fileObject.uri = fileObject.path.replace(CONFIG.mainUrl + "/", "");
-}
-
-setModelPaths();
-
-CONFIG.viewer.exportPath = "/export_xml_single/";
-const loadedFile = fileObject.basename + "." + fileObject.extension;
-var fileElement;
-var COPYRIGHTS = false;
-var EXIT_CODE = 1;
-var gridSize;
-var noMTL = false;
-
-var canvasText;
-var viewEntity, fullscreenMode;
-var originalMetadata = [];
-
-var spinnerContainer = document.createElement("div");
-spinnerContainer.id = "spinnerContainer";
-
-var spinnerElement = document.createElement("div");
-spinnerElement.id = "spinner";
-spinnerElement.className = "lv-determinate_circle lv-mid md";
-spinnerElement.setAttribute("data-label", "Loading...");
-spinnerElement.setAttribute("data-percentage", "true");
-spinnerContainer.appendChild(spinnerElement);
-container.appendChild(spinnerContainer);
-spinnerContainer.style.left =
-  "50%" - spinnerContainer.getBoundingClientRect().width + "px";
-
-var guiContainer = document.createElement("div");
-guiContainer.id = "guiContainer";
-guiContainer.className = "guiContainer";
-container.appendChild(guiContainer);
-
-var metadataContainer = document.createElement("div");
-metadataContainer.setAttribute("id", "metadata-container");
-
-let spinner = new lv();
-spinner.initLoaderAll();
-spinner.startObserving();
-let circle = lv.create(spinnerElement);
-
-var lilGui;
-
-const raycaster = new THREE.Raycaster();
-const pointer = new THREE.Vector2();
-const onUpPosition = new THREE.Vector2();
-const onDownPosition = new THREE.Vector2();
-
-var bottomOffsetFullscreen = 0;
-
-const geometry = new THREE.BoxGeometry(20, 20, 20);
-let transformControl,
-  transformControlLight,
-  transformControlLightTarget,
-  transformControlClippingPlaneX,
-  transformControlClippingPlaneY,
-  transformControlClippingPlaneZ;
-var cameraCoords;
-let helperObjects = [];
-
-const lightObjects = [];
-var lightHelper, lightHelperTarget;
-
-var selectedObject = false;
-var selectedObjects = [];
-var selectedFaces = [];
-let pickingTexture;
-
-var windowHalfX, windowHalfY;
-
-var transformType = "";
-
-var transformText = {
-  "Transform 3D Object": "select type",
-  "Transform Light": "select type",
-  "Transform Mode": "Local",
-};
-
-const materialsPropertiesText = {
-  "Edit material": "select by name",
-};
-
-// Initialize materialsPropertiesText in core
-setCore('materialsPropertiesText', materialsPropertiesText);
-
-const colors = {
-  DirectionalLight: "0xFFFFFF",
-  AmbientLight: "0x404040",
-  CameraLight: "0xFFFFFF",
-  BackgroundColor: "#FFFFFF",
-  BackgroundColorOuter: "#D2D2D2",
-};
-
-setCore('colors', colors);
-
-const materialProperties = {
-  color: "0xFFFFFF",
-  emissiveColor: "0x404040",
-  emissive: 1,
-  metalness: 0,
-};
-
-const intensity = {
-  startIntensityDir: 1,
-  startIntensityAmbient: 1,
-  startIntensityCamera: 1,
-};
-
-setCore('intensity', intensity);
-
-const saveProperties = {
-  Position: true,
-  Rotation: true,
-  Scale: true,
-  Camera: true,
-  DirectionalLight: true,
-  AmbientLight: true,
-  CameraLight: true,
-  BackgroundColor: true,
-  BackgroundColorOuter: true,
-};
-
-const backgroundType = { "Background Type": "gradient" };
-let backgroundOuterFolder;
-
-var EDITOR = false;
-var RULER_MODE = false;
-const lineMaterial = new THREE.LineBasicMaterial({ color: 0x0000ff });
-var linePoints = [];
-
-let gui = new GUI({ container: guiContainer });
-
-var hierarchyFolder;
-const GUILength = 35;
-
-let zoomImage = 1;
-const ZOOM_SPEED_IMAGE = 0.1;
-
-var compressedFile = "";
-var archiveType = "";
-
-const planeParams = {
-  planeX: {
-    constantX: 0,
-    negated: false,
-    displayHelperX: false,
-  },
-  planeY: {
-    constantY: 0,
-    negated: false,
-    displayHelperY: false,
-  },
-  planeZ: {
-    constantZ: 0,
-    negated: false,
-    displayHelperZ: false,
-  },
-  outline: {
-    visible: false,
-  },
-  clippingMode: {
-    x: false,
-    y: false,
-    z: false,
-  },
-};
-
-// Use clipping planes from core
-const { clippingPlanes } = core;
-var planeHelpers, clippingFolder;
-var propertiesFolder;
-var planeObjects = [];
-var editorFolder;
-
-let materialsFolder = null;
-
-setCore("planeHelpers", planeHelpers);
-setCore("clippingPlanes", clippingPlanes);
-setCore("planeParams", planeParams);
-
-var textMesh,
-  textMeshDistance,
-  ruler = [],
-  rulerObject;
-var lastPickedFace = { id: "", color: "", object: "" };
-
-var loadedTimes = 0;
-
-function addTextWatermark(_text, _scale) {
-  var textGeo;
-  var materials = [
-    new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      flatShading: true,
-      side: THREE.DoubleSide,
-      depthTest: false,
-      depthWrite: false,
-      transparent: true,
-      opacity: 0.4,
-    }), // front
-    new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      flatShading: true,
-      side: THREE.DoubleSide,
-      depthTest: false,
-      depthWrite: false,
-      transparent: true,
-      opacity: 0.4,
-    }), // side
-  ];
-  const loader = new FontLoader();
-
-  loader.load(
-    '.' + CONFIG.baseModulePath + "/fonts/helvetiker_regular.typeface.json",
-    function (font) {
-      const textGeo = new TextGeometry(_text, {
-        font,
-        size: _scale * 3,
-        height: _scale / 10,
-        curveSegments: 5,
-        bevelEnabled: true,
-        bevelThickness: _scale / 8,
-        bevelSize: _scale / 10,
-        bevelOffset: 0,
-        bevelSegments: 1,
-      });
-      textGeo.computeBoundingBox();
-
-      //const centerOffset = - 0.5 * (textGeo.boundingBox.max.x - textGeo.boundingBox.min.x);
-
-      textMesh = new THREE.Mesh(textGeo, materials);
-
-      textMesh.rotation.z = Math.PI;
-      textMesh.rotation.y = Math.PI;
-
-      textMesh.position.x = 0;
-      textMesh.position.y = 0;
-      textMesh.position.z = 0;
-      textMesh.renderOrder = 1;
-      scene.add(textMesh);
-    }
-  );
-}
-
-function addTextPoint(_text, _scale, _point) {
-  var textGeo;
-  var materials = [
-    new THREE.MeshStandardMaterial({
-      color: 0x0000ff,
-      flatShading: true,
-      side: THREE.DoubleSide,
-      depthTest: false,
-      depthWrite: false,
-      transparent: true,
-      opacity: 0.4,
-    }), // front
-    new THREE.MeshStandardMaterial({
-      color: 0x0000ff,
-      flatShading: true,
-      side: THREE.DoubleSide,
-      depthTest: false,
-      depthWrite: false,
-      transparent: true,
-      opacity: 0.4,
-    }), // side
-  ];
-  const loader = new FontLoader();
-  var textSize = _scale / 10;
-  loader.load(
-    '.' + CONFIG.baseModulePath + "/fonts/helvetiker_regular.typeface.json",
-    function (font) {
-      const textGeo = new TextGeometry(_text, {
-        font: font,
-        size: _scale * 3,
-        height: textSize,
-        curveSegments: 4,
-        bevelEnabled: true,
-        bevelThickness: textSize,
-        bevelSize: textSize,
-        bevelOffset: 0,
-        bevelSegments: 1,
-        depth: textSize,
-      });
-      textGeo.computeBoundingBox();
-
-      textMeshDistance = new THREE.Mesh(textGeo, materials);
-
-      textMeshDistance.position.set(_point.x, _point.y, _point.z);
-      textMeshDistance.renderOrder = 1;
-      rulerObject.add(textMeshDistance);
-    }
-  );
-}
-
-function selectObjectHierarchy(_id) {
-  let search = true;
-  for (let i = 0; i < selectedObjects.length && search === true; i++) {
-    if (selectedObjects[i].id === _id) {
-      search = false;
-      if (selectedObjects[i].selected === true) {
-        scene.getObjectById(_id).material = selectedObjects[i].originalMaterial;
-        scene.getObjectById(_id).material.needsUpdate = true;
-        selectedObjects[i].selected = false;
-        selectedObjects.splice(selectedObjects.indexOf(selectedObjects[i]), 1);
-      }
-    }
-  }
-  if (search) {
-    selectedObjects.push({
-      id: _id,
-      selected: true,
-      originalMaterial: scene.getObjectById(_id).material.clone(),
-    });
-    const tempMaterial = scene.getObjectById(_id).material.clone();
-    tempMaterial.color.setHex("0x00FF00");
-    scene.getObjectById(_id).material = tempMaterial;
-    scene.getObjectById(_id).material.needsUpdate = true;
-  }
-}
-
-
-function recreateBoundingBox(object) {
-  var _min = new THREE.Vector3();
-  var _max = new THREE.Vector3();
-  if (object instanceof THREE.Object3D) {
-    object.traverse(function (mesh) {
-      if (mesh instanceof THREE.Mesh) {
-        mesh.geometry.computeBoundingBox();
-        var bBox = mesh.geometry.boundingBox;
-
-        // compute overall bbox
-        _min.x = Math.min(_min.x, bBox.min.x + mesh.position.x);
-        _min.y = Math.min(_min.y, bBox.min.y + mesh.position.y);
-        _min.z = Math.min(_min.z, bBox.min.z + mesh.position.z);
-        _max.x = Math.max(_max.x, bBox.max.x + mesh.position.x);
-        _max.y = Math.max(_max.y, bBox.max.y + mesh.position.y);
-        _max.z = Math.max(_max.z, bBox.max.z + mesh.position.z);
-      }
-    });
-
-    var bBox_min = new THREE.Vector3(_min.x, _min.y, _min.z);
-    var bBox_max = new THREE.Vector3(_max.x, _max.y, _max.z);
-    var bBox_new = new THREE.Box3(bBox_min, bBox_max);
-    object.position.set(
-      (bBox_new.min.x + bBox_new.max.x) / 2,
-      bBox_new.min.y,
-      (bBox_new.min.z + bBox_new.max.z) / 2
-    );
-  }
-  return object;
-}
-
-function prepareGalleryImages(imageElementsChildren) {
-  imageElementsChildren = imageElementsChildren.filter(function (_image) {
-    return isValidUrl(_image.innerHTML);
-  });
-  imageElementsChildren.forEach(function (imgLink, index) {
-    imgLink.innerHTML =
-      '<img loading="lazy" src="' +
-      imgLink.innerHTML +
-      '" width="200px" height="200px" alt="" class="img-fluid image-style-wisski-preview">';
-  });
-}
-
-function handleImages(
-  fileElement,
-  mainElement,
-  imageElements,
-  imageElementsChildren
-) {
-  if (typeof (imageElementsChildren == undefined)) {
-    imageElementsChildren = imageElements;
-  }
-  var imageList = document.createElement("div");
-  imageList.setAttribute("id", "image-list");
-  var modalGallery = document.createElement("div");
-  var modalImage = document.createElement("img");
-  modalImage.setAttribute("class", "modalImage");
-  modalGallery.addEventListener("wheel", function (e) {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.deltaY > 0 && zoomImage > 0.15) {
-      modalImage.style.transform = `scale(${(zoomImage -= ZOOM_SPEED_IMAGE)})`;
-    } else if (e.deltaY < 0 && zoomImage < 5) {
-      modalImage.style.transform = `scale(${(zoomImage += ZOOM_SPEED_IMAGE)})`;
-    }
-    return false;
-  });
-  var modalClose = document.createElement("span");
-  modalGallery.setAttribute("id", "modalGallery");
-  modalGallery.setAttribute("class", "modalGallery");
-  modalClose.setAttribute("class", "closeGallery");
-  modalClose.setAttribute("title", "Close");
-  modalClose.innerHTML = "&times";
-  modalClose.onclick = function () {
-    modalGallery.style.display = "none";
-  };
-
-  document.addEventListener("click", function (event) {
-    if (
-      !modalGallery.contains(event.target) &&
-      !imageList.contains(event.target)
-    ) {
-      modalGallery.style.display = "none";
-      zoomImage = 1.5;
-      modalImage.style.transform = `scale(1.5)`;
-    }
-  });
-
-  modalGallery.appendChild(modalImage);
-  modalGallery.appendChild(modalClose);
-  for (let i = 0; imageElementsChildren.length - i >= 0; i++) {
-    if (
-      imageElementsChildren[i] !== undefined &&
-      imageElementsChildren[i].innerHTML !== undefined
-    ) {
-      var imgList = imageElementsChildren[i].getElementsByTagName("a");
-      for (let j = 0; j < imgList.length; j++) {
-        imgList[j].setAttribute("href", "#");
-        imgList[j].setAttribute("src", imgList[j].firstChild.src);
-        imgList[j].setAttribute("class", "image-list-item");
-      }
-      imgList = imageElementsChildren[i].getElementsByTagName("img");
-      //for single thumbnail
-      if (imgList.length == 1) {
-        imgList[0].style.maxWidth = "fit-content";
-        imgList[0].style.maxHeight = "180px";
-      }
-      for (let j = 0; j < imgList.length; j++) {
-        imgList[j].onclick = function () {
-          modalGallery.style.display = "block";
-          modalGallery.style.zIndex = 999;
-          imageList.style.zIndex = 0;
-          imageList.style.display = "hidden";
-          modalImage.src = this.src;
-        };
-      }
-      imageList.appendChild(imageElementsChildren[i]);
-    }
-  }
-  fileElement[0].insertAdjacentElement("beforebegin", modalGallery);
-  mainElement.insertAdjacentElement("beforebegin", imageList);
-  //mainElement.insertBefore(imageList, fileElement[0]);
-}
-
-function buildGallery() {
-  if (fileElement.length > 0) {
-    var mainElement = document.getElementById(CONFIG.viewer.gallery.container);
-    var imageElements;
-    if (CONFIG.viewer.gallery.imageClass !== "") {
-      imageElements = document.getElementsByClassName(
-        CONFIG.viewer.gallery.imageClass
-      );
-      if (imageElements.length > 0) {
-        var galleryLabel = document.getElementsByClassName("field__label");
-        if (galleryLabel !== undefined) galleryLabel[0].innerText = "";
-      }
-    } else if (CONFIG.viewer.gallery.imageId !== "") {
-      imageElements = document.getElementById(CONFIG.viewer.gallery.imageId);
-    } else {
-      console.log("No gallery created");
-    }
-
-    if (imageElements !== null) {
-      if (imageElements.length > 0) {
-        if (imageElements[0].innerHTML !== undefined) {
-          let imagesList = Array.from(
-            imageElements[0].getElementsByClassName("field__items")[0]
-              .childNodes
-          );
-          prepareGalleryImages(imagesList);
-          //imageElements[0].classList.add("field--type-image");
-          imageElements[0].classList.add("field--label-hidden");
-          imageElements[0].classList.add("field__items");
-          handleImages(fileElement, mainElement, imagesList, imageElements);
-        } else {
-          handleImages(fileElement, mainElement, imageElements);
-        }
-      } else if (
-        imageElements.childNodes !== undefined &&
-        imageElements.childNodes.length > 0
-      ) {
-        if (
-          typeof imageElements.childNodes[0].innerHTML == "string" ||
-          typeof imageElements.childNodes[1].innerHTML == "string"
-        ) {
-          //handle links and convert to img
-          let imagesList = Array.from(imageElements.childNodes);
-          prepareGalleryImages(imagesList);
-          imageElements.classList.add("field--type-image");
-          imageElements.classList.add("field--label-hidden");
-          imageElements.classList.add("field__items");
-          handleImages(fileElement, mainElement, imagesList, imageElements);
-        } else {
-          handleImages(fileElement, mainElement, imageElements);
-        }
-      }
-    }
-  }
-}
-
-function render() {
-  controls.update();
-  renderer.render(scene, camera);
-}
-
-async function setupEmptyCamera(_camera, _object, _helperObjects) {
-  var boundingBox = new THREE.Box3();
-  if (Array.isArray(_object)) {
-    for (let i = 0; i < _object.length; i++) {
-      boundingBox.setFromObject(_object[i]);
-    }
-  } else {
-    boundingBox.setFromObject(_object);
-  }
-  var size = new THREE.Vector3();
-  boundingBox.getSize(size);
-  camera.position.set(size.x, size.y, size.z);
-  fitCameraToCenteredObject(_camera, _object, 1.2, true, _helperObjects);
-}
-
-function pickFaces(_id) {
-  if (lastPickedFace.id == "" && _id !== "") {
-    lastPickedFace = {
-      id: _id,
-      color: _id.object.material.color.getHex(),
-      object: _id.object.id,
-    };
-  } else if (_id == "" && lastPickedFace.id !== "") {
-    scene
-      .getObjectById(lastPickedFace.object)
-      .material.color.setHex(lastPickedFace.color);
-    lastPickedFace = { id: "", color: "", object: "" };
-  } else if (_id != lastPickedFace.id) {
-    scene
-      .getObjectById(lastPickedFace.object)
-      .material.color.setHex(lastPickedFace.color);
-    lastPickedFace = {
-      id: _id,
-      color: _id.object.material.color.getHex(),
-      object: _id.object.id,
-    };
-  }
-  if (_id !== "") _id.object.material.color.setHex(0xff0000);
-}
-
-function buildRuler(_id) {
-  rulerObject = new THREE.Object3D();
-  var sphere = new THREE.Mesh(
-    new THREE.SphereGeometry(gridSize / 150, 7, 7),
-    new THREE.MeshNormalMaterial({
-      transparent: true,
-      opacity: 0.8,
-      side: THREE.DoubleSide,
-      depthTest: false,
-      depthWrite: false,
-    })
-  );
-  var newPoint = new THREE.Vector3(_id.point.x, _id.point.y, _id.point.z);
-  sphere.position.set(newPoint.x, newPoint.y, newPoint.z);
-  rulerObject.add(sphere);
-  linePoints.push(newPoint);
-  const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
-  const line = new THREE.Line(lineGeometry, lineMaterial);
-  rulerObject.add(line);
-  var lineMtr = new THREE.LineBasicMaterial({
-    color: 0x0000ff,
-    linewidth: 3,
-    opacity: 1,
-    side: THREE.DoubleSide,
-    depthTest: false,
-    depthWrite: false,
-  });
-  if (linePoints.length > 1) {
-    var vectorPoints = vectorBetweenPoints(
-      linePoints[linePoints.length - 2],
-      newPoint
-    );
-    var distancePoints = distanceBetweenPointsVector(vectorPoints);
-
-    //var distancePoints = distanceBetweenPoints(linePoints[linePoints.length-2], newPoint);
-    var halfwayPoints = halfwayBetweenPoints(
-      linePoints[linePoints.length - 2],
-      newPoint
-    );
-    addTextPoint(distancePoints.toFixed(2), gridSize / 200, halfwayPoints);
-    var rulerI = 0;
-    var measureSize = gridSize / 400;
-    while (rulerI <= distancePoints * 100) {
-      const geoSegm = [];
-      var interpolatePoints = interpolateDistanceBetweenPoints(
-        linePoints[linePoints.length - 2],
-        vectorPoints,
-        distancePoints,
-        rulerI / 100
-      );
-      geoSegm.push(
-        new THREE.Vector3(
-          interpolatePoints.x,
-          interpolatePoints.y,
-          interpolatePoints.z
-        )
-      );
-      geoSegm.push(
-        new THREE.Vector3(
-          interpolatePoints.x + measureSize,
-          interpolatePoints.y + measureSize,
-          interpolatePoints.z + measureSize
-        )
-      );
-      const geometryLine = new THREE.BufferGeometry().setFromPoints(geoSegm);
-      var lineSegm = new THREE.Line(geometryLine, lineMtr);
-      rulerObject.add(lineSegm);
-      rulerI += 10;
-    }
-  }
-  rulerObject.renderOrder = 1;
-  scene.add(rulerObject);
-  ruler.push(rulerObject);
-}
-
-function updateSize() {
-  const isFullscreen = !!document.fullscreenElement;
-  FULLSCREEN = isFullscreen;
-
-  let widthCSS, heightCSS;  // CSS pixels (for layout)
-  let widthDev, heightDev;  // Device pixels (for Three.js)
-
-  if (isFullscreen) {
-    widthCSS = window.innerWidth;
-    heightCSS = window.innerHeight;
-    widthDev = widthCSS * devicePixelRatio;
-    heightDev = heightCSS * devicePixelRatio;
-
-    mainCanvas.style.width = '100vw';
-    mainCanvas.style.height = '100vh';
-    metadataContainer.style.width = '10%';
-    metadataContainer.style.height = '10%';
-    downloadModel?.setAttribute("style", "visibility: hidden");
-
-  } else {
-    const rect = container.getBoundingClientRect();
-    widthCSS = rect.width * Number(CONFIG.viewer.scaleContainer.x);
-    heightCSS = rect.height * Number(CONFIG.viewer.scaleContainer.y);
-    console.log('Resizing to', widthCSS, 'x', heightCSS);
-
-    mainCanvas.style.width = widthCSS + 'px';
-    mainCanvas.style.height = heightCSS + 'px';
-
-    // Convert to device pixels for Three.js
-    widthDev = widthCSS * devicePixelRatio;
-    heightDev = heightCSS * devicePixelRatio;
-
-    metadataContainer.style.width = '100%';
-    metadataContainer.style.height = '100%';
-    downloadModel?.setAttribute("style", "visibility: visible");
-  }
-
-  //CONFIG.viewer.canvasDimensions = { x: widthCSS, y: heightCSS };
-
-  // Three.js renderer needs actual pixel size
-  renderer.setSize(widthCSS, heightDev);
-  renderer.setPixelRatio(devicePixelRatio);
-
-  camera.aspect = widthCSS / heightCSS;
-  camera.updateProjectionMatrix();
-
-  fullscreenMode.style.top = (heightCSS - 60) + 'px';
-  fullscreenMode.style.left = (widthCSS - 56) + 'px';
-
-  if (downloadModel && !isFullscreen) {
-    downloadModel.style.top = (heightCSS - 85) + 'px';
-  }
-
-  if (viewEntity) {
-    viewEntity.style.right = isFullscreen ? '-95%' : '-75%';
-  }
-
-  // GUI positioning
-  const guiWidth = lilGui[0]?.getBoundingClientRect().width || 0;
-  lilGui[0]?.style.setProperty('left', `${widthCSS - guiWidth - 10}px`);
-
-  controls?.update();
-}
-
-// Proper fullscreen toggle
-async function toggleFullscreen() {
-  if (!document.fullscreenElement) {
-    try {
-      await container.requestFullscreen();
-      // fullscreenchange event will trigger updateSize()
-    } catch (err) {
-      console.error("Failed to enter fullscreen:", err);
-    }
-  } else {
-    await document.exitFullscreen();
-  }
-}
-
-function exitFullscreenHandler() {
-  var fullscreenElement =
-    document.fullscreenElement ||
-    document.mozFullScreenElement ||
-    document.webkitFullscreenElement;
-  var fullscreenElement2 =
-    document.webkitIsFullScreen &&
-    document.mozFullScreen &&
-    document.msFullscreenElement;
-  if (
-    !fullscreenElement &&
-    typeof (fullscreenElement2 === undefined) &&
-    FULLSCREEN
-  ) {
-    fullscreen();
-  }
-}
-
-function animate(time) {
-  requestAnimationFrame(animate);
-  const delta = clock.getDelta();
-  if (mixer) {
-    mixer.update(delta);
-  }
-  core.tween.update(time);
-  core.controls.update();
-
-  if (textMesh !== undefined) {
-    textMesh.lookAt(camera.position.clone());
-  }
-  renderer.clear();
-  renderer.render(scene, camera);
-  stats.update();
-}
-
-function onPointerDown(e) {
-  e.stopPropagation();
-  if (e.button === 0) {
-    onDownPosition.x =
-      ((e.clientX - mainCanvas.getBoundingClientRect().left) /
-        renderer.domElement.clientWidth) *
-      2 -
-      1;
-    onDownPosition.y =
-      -(
-        (e.clientY - mainCanvas.getBoundingClientRect().top) /
-        renderer.domElement.clientHeight
-      ) *
-      2 +
-      1;
-  }
-}
-
-function onPointerUp(e) {
-  if (e.button == 0) {
-    onUpPosition.x =
-      ((e.clientX - mainCanvas.getBoundingClientRect().left) /
-        renderer.domElement.clientWidth) *
-      2 -
-      1;
-    onUpPosition.y =
-      -(
-        (e.clientY - mainCanvas.getBoundingClientRect().top) /
-        renderer.domElement.clientHeight
-      ) *
-      2 +
-      1;
-    if (
-      onUpPosition.x === onDownPosition.x &&
-      onUpPosition.y === onDownPosition.y
-    ) {
-      raycaster.setFromCamera(onUpPosition, camera);
-      var intersects;
-
-      if (EDITOR || RULER_MODE) {
-        if (mainObject.length > 1) {
-          for (let ii = 0; ii < mainObject.length; ii++) {
-            intersects = raycaster.intersectObjects(
-              mainObject[ii].children,
-              true
-            );
-          }
-          if (intersects.length <= 0) {
-            intersects = raycaster.intersectObjects(mainObject, true);
-          }
-        } else {
-          intersects = raycaster.intersectObject(mainObject[0], true);
-        }
-        if (intersects.length > 0) {
-          if (RULER_MODE) buildRuler(intersects[0]);
-          else if (EDITOR) pickFaces(intersects[0]);
-        }
-      }
-    }
-  }
-}
-
-function onPointerMove(e) {
-  pointer.x =
-    ((e.clientX - mainCanvas.getBoundingClientRect().left) /
-      renderer.domElement.clientWidth) *
-    2 -
-    1;
-  pointer.y =
-    -(
-      (e.clientY - mainCanvas.getBoundingClientRect().top) /
-      renderer.domElement.clientHeight
-    ) *
-    2 +
-    1;
-
-  if (e.buttons == 1) {
-    if (pointer.x !== onDownPosition.x && pointer.y !== onDownPosition.y) {
-      cameraLight.position.set(
-        camera.position.x,
-        camera.position.y,
-        camera.position.z
-      );
-    }
-  } else {
-    if (EDITOR) {
-      raycaster.setFromCamera(pointer, camera);
-      var intersects;
-      if (mainObject.length > 1) {
-        for (let ii = 0; ii < mainObject.length; ii++) {
-          intersects = raycaster.intersectObjects(
-            mainObject[ii].children,
-            true
-          );
-        }
-        if (intersects.length <= 0) {
-          intersects = raycaster.intersectObjects(mainObject, true);
-        }
-      } else {
-        intersects = raycaster.intersectObject(mainObject[0], true);
-      }
-      if (intersects.length > 0) {
-        pickFaces(intersects[0]);
-      } else {
-        pickFaces("");
-      }
-    }
-  }
-}
-
-function changeScale() {
-  if (transformControl.getMode() === "scale") {
-    switch (transformControl.axis) {
-      case "X":
-      case "XY":
-        helperObjects[0].scale.set(
-          helperObjects[0].scale.x,
-          helperObjects[0].scale.x,
-          helperObjects[0].scale.x
-        );
-        break;
-      case "Y":
-      case "YZ":
-        helperObjects[0].scale.set(
-          helperObjects[0].scale.y,
-          helperObjects[0].scale.y,
-          helperObjects[0].scale.y
-        );
-        break;
-      case "Z":
-      case "XZ":
-        helperObjects[0].scale.set(
-          helperObjects[0].scale.x,
-          helperObjects[0].scale.x,
-          helperObjects[0].scale.x
-        );
-        break;
-    }
-  }
-}
-
-function calculateObjectScale() {
-  const boundingBox = new THREE.Box3();
-  if (Array.isArray(helperObjects[0])) {
-    for (let i = 0; i < helperObjects[0].length; i++) {
-      boundingBox.setFromObject(object[i]);
-    }
-  } else {
-    boundingBox.setFromObject(helperObjects[0]);
-  }
-
-  var middle = new THREE.Vector3();
-  var size = new THREE.Vector3();
-  boundingBox.getSize(size);
-  // ground
-  var _distance = new THREE.Vector3(
-    Math.abs(boundingBox.max.x - boundingBox.min.x),
-    Math.abs(boundingBox.max.y - boundingBox.min.y),
-    Math.abs(boundingBox.max.z - boundingBox.min.z)
-  );
-  distanceGeometry = _distance;
-  setCore("distanceGeometry", distanceGeometry);
-  planeParams.planeX.constantZ =
-    clippingFolder.controllers[1]._max =
-    clippingPlanes[0].constant =
-    _distance.x;
-  clippingFolder.controllers[1]._min = -clippingFolder.controllers[1]._max;
-  planeParams.planeY.constantY =
-    clippingFolder.controllers[3]._max =
-    clippingPlanes[1].constant =
-    _distance.y;
-  clippingFolder.controllers[3]._min = -clippingFolder.controllers[3]._max;
-  planeParams.planeZ.constantZ =
-    clippingFolder.controllers[5]._max =
-    clippingPlanes[2].constant =
-    _distance.z;
-  clippingFolder.controllers[5]._min = -clippingFolder.controllers[5]._max;
-  clippingFolder.controllers[1].updateDisplay();
-  clippingFolder.controllers[3].updateDisplay();
-  clippingFolder.controllers[5].updateDisplay();
-  var _maxDistance = Math.max(_distance.x, _distance.y, _distance.z);
-  planeHelpers[0].size =
-    planeHelpers[1].size =
-    planeHelpers[2].size =
-    _maxDistance;
-}
-
-function changeLightRotation() {
-  lightHelper.update();
-}
-
-function takeScreenshot() {
-  /*const messDiv = document.createElement('div');
-  messDiv.classList.add('message');
-  document.body.appendChild(messDiv);*/
-  camera.aspect = 1;
-  camera.updateProjectionMatrix();
-  renderer.setSize(256, 256);
-  renderer.render(scene, camera);
-  var prependName = "";
-  if (archiveType !== "") {
-    prependName = basename + "_" + archiveType.toUpperCase() + "/";
-  }
-
-  mainCanvas.toBlob((imgBlob) => {
-    const fileform = new FormData();
-    fileform.append("domain", CONFIG.mainUrl);
-    fileform.append("filename", basename);
-    fileform.append("path", uri + prependName);
-    fileform.append("data", imgBlob);
-    fileform.append("wisski_individual", entityID);
-    fetch(CONFIG.mainUrl + "/thumbnail_upload.php", {
-      method: "POST",
-      body: fileform,
-    })
-      .then((response) => {
-        console.log(response);
-        return response;
-      })
-      .then((data) => {
-        if (data.error) {
-          //Show server errors
-          showToast(data.error);
-        } else {
-          //Show success message
-          showToast("Rendering saved successfully");
-        }
-      })
-      .catch((err) => {
-        //Handle js errors
-        showToast(err.message);
-      });
-  }, "image/png");
-
-  renderer.setPixelRatio(devicePixelRatio);
-  camera.aspect = CONFIG.viewer.canvasDimensions.x / CONFIG.viewer.canvasDimensions.y;
-  camera.updateProjectionMatrix();
-  renderer.setSize(CONFIG.viewer.canvasDimensions.x, CONFIG.viewer.canvasDimensions.y);
-}
-
-async function mainLoadModel(_ext) {
-  console.log("Loading model with extension:", _ext);
-  if (_ext === "glb" || _ext === "gltf") {
-    await loadModel({
-      fileObject, // <-- pass the whole fileObject
-      config: CONFIG,
-      getProxyPath,
-      camera,
-      lightObjects,
-      controls,
-      scene,
-      mainObject,
-      outlineClipping,
-      circle,
-      gui,
-      stats,
-      entityID,
-      container,
-      metadataContainer,
-      canvasText,
-      bottomLineGUI,
-      compressedFile,
-      viewEntity,
-      helperObjects
-    });
-  } else if (
-    _ext === "zip" ||
-    _ext === "rar" ||
-    _ext === "tar" ||
-    _ext === "xz" ||
-    _ext === "gz"
-  ) {
-    compressedFile = "_" + _ext.toUpperCase() + "/";
-    fileObject.path = fileObject.path + fileObject.basename + compressedFile
-    fileObject.extension = "glb";
-    fileObject.newExtension = _ext;
-    await loadModel(fileObject, config, getProxyPath, camera, lightObjects, controls, scene, mainObject, outlineClipping, circle, gui, stats,
-      entityID, container,
-      metadataContainer,
-      canvasText,
-      bottomLineGUI,
-      compressedFile,
-      viewEntity, helperObjects
-    );
-  } else {
-    fileObject.extension = "glb";
-    if (_ext === "glb") {
-      await loadModel(fileObject, CONFIG, getProxyPath, camera, lightObjects, controls, scene, mainObject, outlineClipping, circle, gui, stats,
-        entityID, container,
-        metadataContainer,
-        canvasText,
-        bottomLineGUI,
-        compressedFile,
-        viewEntity, helperObjects);
-    }
-    else await loadModel(fileObject, CONFIG, getProxyPath, camera, lightObjects, controls, scene, mainObject, outlineClipping, circle, gui, stats,
-      entityID, container,
-      metadataContainer,
-      canvasText,
-      bottomLineGUI,
-      compressedFile,
-      viewEntity, helperObjects);
-  }
-}
-
-function createClippingPlaneAxis(_number) {
-  var tempClippingControl = new TransformControls(camera, renderer.domElement);
-  tempClippingControl.space = "local";
-  tempClippingControl.mode = "translate";
-  tempClippingControl.addEventListener("change", render);
-  tempClippingControl.addEventListener("objectChange", function (event) {
-    switch (_number) {
-      case 0:
-        clippingPlanes[_number].constant =
-          event.target.children[0].pointEnd.x + distanceGeometry.x;
-        break;
-      case 1:
-        clippingPlanes[_number].constant =
-          event.target.children[0].pointEnd.y + distanceGeometry.y;
-        break;
-      case 2:
-        clippingPlanes[_number].constant =
-          event.target.children[0].pointEnd.z + distanceGeometry.z;
-        break;
-    }
-  });
-  tempClippingControl.addEventListener("dragging-changed", function (event) {
-    controls.enabled = !event.value;
-  });
-  return tempClippingControl;
-}
-
-function resetCamera() {
-  var camPosition = camera.position;
-  let _tween = new Tween(camPosition)
-    .to(core.cameraCoords, 1500)
-    .onUpdate(() => {
-      camera.position.set(camPosition.x, camPosition.y, camPosition.z);
-      cameraLight.position.set(camPosition.x, camPosition.y, camPosition.z);
-      camera.updateProjectionMatrix();
-      controls.update();
-    })
-    .start();
-}
-
-    function prepareStats () {
-    // stats
-    stats = new Stats();
-    stats.domElement.style.cssText =
-      "position:relative;top:0px;left:" +
-      (CONFIG.viewer.canvasDimensions.x - 90) +
-      "px;max-height:120px;max-width:90px;z-index:2;visibility:hidden;";
-
-    windowHalfX = CONFIG.viewer.canvasDimensions.x / 2;
-    windowHalfY = CONFIG.viewer.canvasDimensions.y / 2;
-
-    editorFolder = gui.addFolder("Editor").close();
-    editorFolder
-      .add(transformText, "Transform 3D Object", {
-        None: "",
-        Move: "translate",
-        Rotate: "rotate",
-        Scale: "scale",
-      })
-      .onChange(function (value) {
-        if (value === "") {
-          transformControl.detach();
-        } else {
-          renderer.localClippingEnabled = false;
-          transformControl.mode = value;
-          transformControl.attach(helperObjects[0]);
-        }
-      });
-    editorFolder
-      .add(transformText, "Transform Mode", {
-        Local: "local",
-        Global: "global",
-      })
-      .onChange(function (value) {
-        transformControl.space = value;
-      });
-    const lightFolder = editorFolder.addFolder("Directional Light").close();
-    lightFolder
-      .add(transformText, "Transform Light", {
-        None: "",
-        Move: "translate",
-        Target: "rotate",
-      })
-      .onChange(function (value) {
-        if (value === "") {
-          transformControlLight.detach();
-          transformControlLightTarget.detach();
-          lightHelper.visible = false;
-        } else {
-          if (value === "translate") {
-            transformControlLight.mode = "translate";
-            transformControlLight.attach(dirLight);
-            lightHelper.visible = true;
-            transformControlLightTarget.detach();
-          } else {
-            transformControlLightTarget.mode = "translate";
-            transformControlLightTarget.attach(dirLightTarget);
-            lightHelper.visible = true;
-            transformControlLight.detach();
-          }
-        }
-      });
-    lightFolder
-      .addColor(colors, "DirectionalLight")
-      .onChange(function (value) {
-        lightObjects[0].color = new THREE.Color(value);
-      })
-      .listen();
-    lightFolder
-      .add(intensity, "startIntensityDir", 0, 10)
-      .onChange(function (value) {
-        lightObjects[0].intensity = value;
-      })
-      .listen();
-
-    const lightFolderAmbient = editorFolder.addFolder("Ambient Light").close();
-    lightFolderAmbient
-      .addColor(colors, "AmbientLight")
-      .onChange(function (value) {
-        ambientLight.color = new THREE.Color(value);
-      })
-      .listen();
-    lightFolderAmbient
-      .add(intensity, "startIntensityAmbient", 0, 10)
-      .onChange(function (value) {
-        ambientLight.intensity = value;
-      })
-      .listen();
-
-    const lightFolderCamera = editorFolder.addFolder("Camera Light").close();
-    lightFolderCamera
-      .addColor(colors, "CameraLight")
-      .onChange(function (value) {
-        cameraLight.color = new THREE.Color(value);
-      })
-      .listen();
-    lightFolderCamera
-      .add(intensity, "startIntensityCamera", 0, 10)
-      .onChange(function (value) {
-        cameraLight.intensity = value;
-      })
-      .listen();
-
-    const backgroundFolder = editorFolder.addFolder("Background Color").close();
-    backgroundFolder
-      .addColor(colors, "BackgroundColor")
-      .onChange(function (value) {
-        changeBackground(
-          backgroundType["Background Type"],
-          value,
-          colors["BackgroundColorOuter"]
-        );
-      })
-      .listen();
-    backgroundOuterFolder = backgroundFolder
-      .addColor(colors, "BackgroundColorOuter")
-      .onChange(function (value) {
-        changeBackground(
-          backgroundType["Background Type"],
-          colors["BackgroundColor"],
-          value
-        );
-      })
-      .listen();
-    backgroundFolder
-      .add(backgroundType, "Background Type", {
-        Linear: "linear",
-        Gradient: "gradient",
-      })
-      .onChange(function (value) {
-        if (value == "linear") backgroundOuterFolder.hide();
-        else backgroundOuterFolder.show();
-        changeBackground(
-          value,
-          colors["BackgroundColor"],
-          colors["BackgroundColorOuter"]
-        );
-      });
-
-    clippingFolder = editorFolder.addFolder("Clipping Planes").close();
-    setCore("clippingFolder", clippingFolder);
-    core.materialsFolder = editorFolder.addFolder("Materials").close();
-
-    if (!CONFIG.viewer.lightweight) {
-      propertiesFolder = editorFolder.addFolder("Save properties").close();
-      propertiesFolder.add(saveProperties, "Position");
-      propertiesFolder.add(saveProperties, "Rotation");
-      propertiesFolder.add(saveProperties, "Scale");
-      propertiesFolder.add(saveProperties, "Camera");
-      propertiesFolder.add(saveProperties, "DirectionalLight");
-      propertiesFolder.add(saveProperties, "AmbientLight");
-      propertiesFolder.add(saveProperties, "CameraLight");
-      propertiesFolder.add(saveProperties, "BackgroundColor");
-    }
-
-    if (editor && !CONFIG.viewer.lightweight) {
-      editorFolder.add(
-        {
-          ["Save"]() {
-            var xhr = new XMLHttpRequest(),
-              jsonArr,
-              method = "POST",
-              jsonRequestURL = CONFIG.mainUrl + "/editor.php";
-
-            xhr.open(method, jsonRequestURL, true);
-            xhr.setRequestHeader(
-              "Content-Type",
-              "application/x-www-form-urlencoded"
-            );
-            var params;
-            var rotateMetadata = new THREE.Vector3(
-              THREE.MathUtils.radToDeg(helperObjects[0].rotation.x),
-              THREE.MathUtils.radToDeg(helperObjects[0].rotation.y),
-              THREE.MathUtils.radToDeg(helperObjects[0].rotation.z)
-            );
-            var newMetadata = new Object();
-
-            //Fetch data from original metadata file anyway before saving any changes
-            //var originalMetadata = [];
-            //var metadataUrl = path.replace("gltf/", "") + "metadata/" + filename + "_viewer";
-            if (CONFIG.entity.proxyPath !== undefined) {
-              metadataUrl = getProxyPath(metadataUrl);
-            }
-
-            fetch(metadataUrl, { cache: "no-cache" })
-              .then((response) => {
-                if (response["status"] !== 404) {
-                  return response.json();
-                } else {
-                  return (response = {});
-                }
-              })
-              .then((_data) => {
-                if (typeof _data !== "undefined") {
-                  if (typeof _data[`objPosition`] !== "undefined") originalMetadata["objPosition"] = _data["objPosition"];
-                  if (typeof _data["objRotation"] !== "undefined") originalMetadata["objRotation"] = _data["objRotation"];
-                  if (typeof _data["objScale"] !== "undefined") originalMetadata["objScale"] = _data["objScale"];
-                  if (typeof _data["cameraPosition"] !== "undefined") originalMetadata["cameraPosition"] = _data["cameraPosition"];
-                  if (typeof _data["controlsTarget"] !== "undefined") originalMetadata["controlsTarget"] = _data["controlsTarget"];
-                  if (typeof _data["lightPosition"] !== "undefined") originalMetadata["lightPosition"] = _data["lightPosition"];
-                  if (typeof _data["lightTarget"] !== "undefined") originalMetadata["lightTarget"] = _data["lightTarget"];
-                  if (typeof _data["lightColor"] !== "undefined") originalMetadata["lightColor"] = _data["lightColor"];
-                  if (typeof _data["lightIntensity"] !== "undefined") originalMetadata["lightIntensity"] = _data["lightIntensity"];
-                  if (typeof _data["lightAmbientColor"] !== "undefined") originalMetadata["lightAmbientColor"] = _data["lightAmbientColor"];
-                  if (typeof _data["lightAmbientIntensity"] !== "undefined") originalMetadata["lightAmbientIntensity"] = _data["lightAmbientIntensity"];
-                  if (typeof _data["lightCameraColor"] !== "undefined") originalMetadata["lightCameraColor"] = _data["lightCameraColor"];
-                  if (typeof _data["lightCameraIntensity"] !== "undefined") originalMetadata["lightCameraIntensity"] = _data["lightCameraIntensity"];
-                  if (typeof _data["background"] !== "undefined") originalMetadata["background"] = _data["background"];
-
-                  if (saveProperties.Position) {
-                    newMetadata = Object.assign(newMetadata, {
-                      objPosition: [
-                        helperObjects[0].position.x, helperObjects[0].position.y, helperObjects[0].position.z,
-                      ],
-                    });
-                  } else {
-                    newMetadata = Object.assign(newMetadata, {
-                      objPosition: [
-                        originalMetadata["objPosition"][0], originalMetadata["objPosition"][1], originalMetadata["objPosition"][2],
-                      ],
-                    });
-                  }
-
-                  if (saveProperties.Rotation) {
-                    newMetadata = Object.assign(newMetadata, {
-                      objRotation: [
-                        rotateMetadata.x, rotateMetadata.y, rotateMetadata.z,
-                      ],
-                    });
-                  } else {
-                    newMetadata = Object.assign(newMetadata, {
-                      objRotation: [
-                        originalMetadata["objRotation"][0], originalMetadata["objRotation"][1], originalMetadata["objRotation"][2],
-                      ],
-                    });
-                  }
-
-                  if (saveProperties.Scale) {
-                    newMetadata = Object.assign(newMetadata, {
-                      objScale: [
-                      helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z,
-                      ],
-                      });
-                  } else {
-                    newMetadata = Object.assign(newMetadata, {
-                      objScale: [
-                        originalMetadata["objScale"][0], originalMetadata["objScale"][1], originalMetadata["objScale"][2],
-                      ],
-                    });
-                  }
-
-                  if (saveProperties.Camera) {
-                    newMetadata = Object.assign(newMetadata, {
-                      cameraPosition: [
-                        camera.position.x, camera.position.y, camera.position.z,
-                      ],
-                      controlsTarget: [
-                        controls.target.x, controls.target.y, controls.target.z,
-                      ],
-                    });
-                  } else {
-                    newMetadata = Object.assign(newMetadata, {
-                      cameraPosition: [
-                        originalMetadata["cameraPosition"][0], originalMetadata["cameraPosition"][1], originalMetadata["cameraPosition"][2],
-                      ],
-                      controlsTarget: [
-                        originalMetadata["controlsTarget"][0], originalMetadata["controlsTarget"][1], originalMetadata["controlsTarget"][2],
-                      ],
-                    });
-                  }
-
-                  if (saveProperties.DirectionalLight) {
-                    newMetadata = Object.assign(newMetadata, {
-                      lightPosition: [
-                        dirLight.position.x, dirLight.position.y, dirLight.position.z,
-                      ],
-                      lightTarget: [
-                        dirLight.rotation._x, dirLight.rotation._y, dirLight.rotation._z,
-                      ],
-                      lightColor: [
-                        "#" + dirLight.color.getHexString().toUpperCase(),
-                      ],
-                      lightIntensity: [dirLight.intensity],
-                    });
-                  } else {
-                    newMetadata = Object.assign(newMetadata, {
-                      lightPosition: [
-                        originalMetadata["lightPosition"][0], originalMetadata["lightPosition"][1], originalMetadata["lightPosition"][2],
-                      ],
-                      lightTarget: [
-                        originalMetadata["lightTarget"][0], originalMetadata["lightTarget"][1], originalMetadata["lightTarget"][2],
-                      ],
-                      lightColor: [originalMetadata["lightColor"][0]],
-                      lightIntensity: [originalMetadata["lightIntensity"][0]],
-                    });
-                  }
-
-                  if (saveProperties.AmbientLight) {
-                    newMetadata = Object.assign(newMetadata, {
-                      lightAmbientColor: [
-                        "#" + ambientLight.color.getHexString().toUpperCase(),
-                      ],
-                      lightAmbientIntensity: [ambientLight.intensity],
-                    });
-                  } else {
-                    newMetadata = Object.assign(newMetadata, {
-                      lightAmbientColor: [
-                        originalMetadata["lightAmbientColor"][0],
-                      ],
-                      lightAmbientIntensity: [
-                        originalMetadata["lightAmbientIntensity"][0],
-                      ],
-                    });
-                  }
-
-                  if (saveProperties.CameraLight) {
-                    newMetadata = Object.assign(newMetadata, {
-                      lightCameraColor: [
-                        "#" + cameraLight.color.getHexString().toUpperCase(),
-                      ],
-                      lightCameraIntensity: [cameraLight.intensity],
-                    });
-                  } else {
-                    newMetadata = Object.assign(newMetadata, {
-                      lightCameraColor: [
-                        originalMetadata["lightCameraColor"][0],
-                      ],
-                      lightCameraIntensity: [
-                        originalMetadata["lightCameraIntensity"][0],
-                      ],
-                    });
-                  }
-
-                  if (saveProperties.BackgroundColor) {
-                    newMetadata = Object.assign(newMetadata, {
-                      background: [
-                        window.getComputedStyle(mainCanvas).background,
-                      ],
-                    });
-                  }
-
-                  if (archiveType !== "") {
-                    if (!compressedFile.includes(archiveType.toUpperCase()))
-                      compressedFile += "_" + archiveType.toUpperCase();
-                    params =
-                      CONFIG.viewer.salt +
-                      "=" +
-                      JSON.stringify(newMetadata, null, "\t") +
-                      "&path=" +
-                      fileObject.uri +
-                      fileObject.basename +
-                      compressedFile +
-                      "/" +
-                      "&filename=" +
-                      filename;
-                  } else {
-                    params =
-                      CONFIG.viewer.salt +
-                      "=" +
-                      JSON.stringify(newMetadata, null, "\t") +
-                      "&path=" +
-                      uri +
-                      "&filename=" +
-                      filename;
-                  }
-                  xhr.onreadystatechange = function () {
-                    if (xhr.readyState === XMLHttpRequest.DONE) {
-                      var status = xhr.status;
-                      if (status === 0 || (status >= 200 && status < 400)) {
-                        showToast("Settings have been saved.");
-                      }
-                    }
-                  };
-                  xhr.send(params);
-                }
-              })
-              .catch((error) => console.log(error));
-          },
-        },
-        "Save"
-      );
-      if (!CONFIG.viewer.lightweight) {
-        editorFolder.add(
-          {
-            ["Picking mode"]() {
-              EDITOR = !EDITOR;
-              var _str;
-              EDITOR ? (_str = "enabled") : (_str = "disabled");
-              showToast("Face picking is " + _str);
-              if (!EDITOR) {
-              } else {
-                RULER_MODE = false;
-              }
-            },
-          },
-          "Picking mode"
-        );
-      }
-      editorFolder.add(
-        {
-          ["Distance Measurement"]() {
-            RULER_MODE = !RULER_MODE;
-            var _str;
-            RULER_MODE ? (_str = "enabled") : (_str = "disabled");
-            showToast("Distance measurement mode is " + _str);
-            if (!RULER_MODE) {
-              ruler.forEach((r) => {
-                scene.remove(r);
-              });
-              rulerObject = new THREE.Object3D();
-              ruler = [];
-              linePoints = [];
-            } else {
-              EDITOR = false;
-            }
-          },
-        },
-        "Distance Measurement"
-      );
-      if (!CONFIG.viewer.lightweight) {
-        editorFolder.add(
-          {
-            ["Render preview"]() {
-              takeScreenshot();
-            },
-          },
-          "Render preview"
-        );
-      }
-      editorFolder.add(
-        {
-          ["Reset camera position"]() {
-            resetCamera();
-          },
-        },
-        "Reset camera position"
-      );
-    }
-  }
-
-async function init() {
-  if (!renderer) {
-    camera = new THREE.PerspectiveCamera(
-      45,
-      CONFIG.viewer.canvasDimensions.x / CONFIG.viewer.canvasDimensions.y,
-      0.001,
-      999000000
-    );
-    camera.position.set(0, 0, 0);
-    setCore('camera', camera);
-
-    scene = new THREE.Scene();
-    setCore('scene', scene);
-
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444);
-    hemiLight.position.set(0, 200, 0);
-    scene.add(hemiLight);
-
-    ambientLight = new THREE.AmbientLight(0x404040); // soft white light
-    scene.add(ambientLight);
-
-    setCore('ambientLight', ambientLight);
-
-    dirLight = new THREE.DirectionalLight(0xffffff);
-    dirLight.position.set(0, 100, 50);
-    dirLight.castShadow = true;
-    dirLight.shadow.camera.top = 180;
-    dirLight.shadow.camera.bottom = -100;
-    dirLight.shadow.camera.left = -120;
-    dirLight.shadow.camera.right = 120;
-    dirLight.shadow.bias = -0.0001;
-    dirLight.shadow.mapSize.width = 1024 * 4;
-    dirLight.shadow.mapSize.height = 1024 * 4;
-    scene.add(dirLight);
-    lightObjects.push(dirLight);
-    setCore('dirLight', dirLight);
-
-    cameraLightTarget = new THREE.Object3D();
-    cameraLightTarget.position.set(
-      camera.position.x,
-      camera.position.y,
-      camera.position.z
-    );
-    scene.add(cameraLightTarget);
-    // Store in core
-    setCore('cameraLightTarget', cameraLightTarget);
-
-    cameraLight = new THREE.DirectionalLight(0xffffff);
-    cameraLight.position.set(camera.position);
-    cameraLight.castShadow = false;
-    cameraLight.intensity = 0.3;
-    scene.add(cameraLight);
-    cameraLight.target = cameraLightTarget;
-    // Store in core
-    setCore('cameraLight', cameraLight);
-    cameraLight.target.updateMatrixWorld();
-
-    renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      logarithmicDepthBuffer: true,
-      colorManagement: true,
-      sortObjects: true,
-      preserveDrawingBuffer: true,
-      powerPreference: "high-performance",
-      alpha: true,
-    });
-    
-    renderer.shadowMap.enabled = true;
-    renderer.localClippingEnabled = true;
-    renderer.physicallyCorrectLights = true; //can be considered as better looking
-    renderer.autoClear = false;
-    renderer.setClearColor(0x000000, 0.0);
-    renderer.domElement.id = "MainCanvas";
-    mainCanvas = document.getElementById("MainCanvas") || renderer.domElement;
-
-    renderer.domElement.addEventListener("pointerdown", onPointerDown);
-    renderer.domElement.addEventListener("pointerup", onPointerUp);
-    renderer.domElement.addEventListener("pointermove", onPointerMove);
-
-    const devicePixelRatio = window.devicePixelRatio || 1;
-    renderer.setSize(CONFIG.viewer.canvasDimensions.x, CONFIG.viewer.canvasDimensions.y);
-    renderer.setPixelRatio(devicePixelRatio);
-    renderer.domElement.style.width = CONFIG.viewer.canvasDimensions.x + "px";
-    renderer.domElement.style.height = CONFIG.viewer.canvasDimensions.y + "px";
-
-    renderer.domElement.style.display = "block";
-    container.appendChild(renderer.domElement);
-    mainCanvas.classList.add("mainCanvas");
-    canvasText = document.createElement("div");
-    canvasText.id = "TextCanvas";
-    canvasText.width = CONFIG.viewer.canvasDimensions.x + "px";
-    canvasText.height = CONFIG.viewer.canvasDimensions.y + "px";
-
-    container.parentElement.classList.add("viewer-wrapper");
-
-    camera.aspect = CONFIG.viewer.canvasDimensions.x / CONFIG.viewer.canvasDimensions.y;
-    camera.updateProjectionMatrix();
-
-    setCore('mainCanvas', mainCanvas);
-
-    guiContainer.style.width = CONFIG.viewer.canvasDimensions.x;
-    guiContainer.style.left = container.getBoundingClientRect().left + "px";
-    lilGui = document.getElementsByClassName("lil-gui root");
-    lilGui[0].style.left =
-      CONFIG.viewer.canvasDimensions.x - lilGui[0].getBoundingClientRect().width - 10 + "px";
-
-    fileElement = document.getElementsByClassName("field--type-file");
-    if (fileElement.length > 0) {
-      fileElement[0].style.height = CONFIG.viewer.canvasDimensions.y * 1.1 + "px";
-    }
-
-    if (
-      CONFIG.viewer.lightweight === 0 ||
-      CONFIG.viewer.lightweight === false
-    ) {
-      buildGallery();
-    }
-
-    controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 100, 0);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.enableRotate = true;
-    controls.update();
-    setCore('controls', controls);
-
-    transformControl = new TransformControls(camera, renderer.domElement);
-    transformControl.rotationSnap = THREE.MathUtils.degToRad(5);
-    transformControl.space = "local";
-    transformControl.addEventListener("change", render);
-    transformControl.addEventListener("objectChange", changeScale);
-    transformControl.addEventListener("mouseUp", calculateObjectScale);
-    transformControl.addEventListener("dragging-changed", function (event) {
-      controls.enabled = !event.value;
-    });
-    scene.add(transformControl.getHelper());
-
-    transformControlLight = new TransformControls(camera, renderer.domElement);
-    transformControlLight.space = "local";
-    transformControlLight.addEventListener("change", render);
-    //transformControlLight.addEventListener('objectChange', changeLightRotation);
-    transformControlLight.addEventListener(
-      "dragging-changed",
-      function (event) {
-        controls.enabled = !event.value;
-      }
-    );
-    scene.add(transformControlLight.getHelper());
-
-    transformControlLightTarget = new TransformControls(
-      camera,
-      renderer.domElement
-    );
-    transformControlLightTarget.space = "global";
-    transformControlLightTarget.addEventListener("change", render);
-    transformControlLightTarget.addEventListener(
-      "objectChange",
-      changeLightRotation
-    );
-    transformControlLightTarget.addEventListener(
-      "dragging-changed",
-      function (event) {
-        controls.enabled = !event.value;
-      }
-    );
-    scene.add(transformControlLightTarget.getHelper());
-
-    transformControlClippingPlaneX = createClippingPlaneAxis(0, "x");
-    transformControlClippingPlaneY = createClippingPlaneAxis(1, "y");
-    transformControlClippingPlaneZ = createClippingPlaneAxis(2, "z");
-    setCore('transformControlClippingPlaneX', transformControlClippingPlaneX);
-    setCore('transformControlClippingPlaneY', transformControlClippingPlaneY);
-    setCore('transformControlClippingPlaneZ', transformControlClippingPlaneZ);
-
-    transformControlClippingPlaneX.showX =
-      transformControlClippingPlaneX.showY = false;
-    transformControlClippingPlaneY.showX =
-      transformControlClippingPlaneY.showY = false;
-    transformControlClippingPlaneZ.showX =
-      transformControlClippingPlaneZ.showY = false;
-
-    var _ext = fileObject.extension.toLowerCase();
-    if (
-      _ext === "zip" ||
-      _ext === "rar" ||
-      _ext === "tar" ||
-      _ext === "xz" ||
-      _ext === "gz"
-    ) {
-      archiveType = _ext;
-    }
-
-    var _autoPath = "";
-    
-    if (CONFIG.entity.metadata.source === "") {
-      var req = new XMLHttpRequest();
-      req.responseType = "";
-      req.open(
-        "GET",
-        CONFIG.metadataUrl + CONFIG.viewer.exportPath + entityID + "?page=0&amp;_format=xml",
-        true
-      );
-      req.onreadystatechange = async function (aEvt) {
-        if (req.readyState == 4) {
-          if (req.status == 200) {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(
-              req.responseText,
-              "application/xml"
-            );
-            if (doc.documentElement.childNodes > 0) {
-              var data = doc.documentElement.childNodes[0].childNodes;
-              if (typeof data !== undefined) {
-                var _found = false;
-                for (var i = 0; i < data.length && !_found; i++) {
-                  if (
-                    typeof data[i].tagName !== "undefined" &&
-                    typeof data[i].textContent !== "undefined"
-                  ) {
-                    var _label = data[i].tagName.replace(
-                      "wisski_path_3d_model__",
-                      ""
-                    );
-                    if (
-                      typeof _label !== "undefined" &&
-                      _label === "converted_file"
-                    ) {
-                      _found = true;
-                      _autoPath = data[i].textContent;
-                    }
-                  }
-                }
-              }
-            }
-            //check wheter semo-automatic path found
-            if (_autoPath !== "") {
-              fileObject.filename = _autoPath.split("/").pop();
-              fileObject.basename = fileObject.filename.substring(0, fileObject.filename.lastIndexOf("."));
-              fileObject.extension = fileObject.filename.substring(fileObject.filename.lastIndexOf(".") + 1);
-              _ext = fileObject.extension.toLowerCase();
-              fileObject.path = _autoPath.substring(0, _autoPath.lastIndexOf(fileObject.filename));
-            }
-            await mainLoadModel(_ext);
-          } else {
-            console.log("Error during loading metadata content\n");
-            await mainLoadModel(_ext);
-          }
-        }
-      };
-      req.send(null);
-    } else if (CONFIG.entity.metadata.source.toLowerCase().substring(0, 4) === "iiif") {
-        const formContainer = document.createElement("div");
-        formContainer.id = "form-IIIF";
-        formContainer.innerHTML = `
-          <div class="form-IIIF-group">
-            <input type="text" id="manifest-url" name="manifest-url" value="">
-            <button id="load-manifest-from-url">Load Manifest From URL</button>
-          </div>
-          <div class="form-IIIF-group">
-            <textarea id="manifest-text" name="manifest-text" rows="10"></textarea>
-            <p>
-              <button id="load-manifest-from-text">Load Manifest From Text</button>
-            </p>
-          </div>
-        `;
-
-        document.body.appendChild(formContainer);
-
-      async function setupIIIF(newUrlOrJson, type="url") {
-        if (type === "text") {
-          iiifConfigURL.url = "";
-        } else {
-          iiifConfigURL.url = newUrlOrJson;
-        }
-        const loadedIIIF = await loadIIIFManifest(newUrlOrJson);
-        if (loadedIIIF.modelUrls.length === 0) { // no 3D model found, use example model
-          loadedIIIF.modelUrls.push('https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb');
-          showToast("No 3D model found in IIIF manifest, loading example model.");
-        }
-        let ind = 0;
-        // reset scene
-        mainObject.forEach((obj) => {
-          scene.remove(obj);
-        });
-        mainObject = [];
-        console.log("TOTAL Annotations: " + loadedIIIF.annotations.length);
-        if (loadedIIIF.annotations.length !== loadedIIIF.modelUrls.length) {
-          //console.warn("Number of annotations does not match number of model URLs, adding testing model...");
-            const diff = loadedIIIF.annotations.length - loadedIIIF.modelUrls.length;
-            if (diff > 0) {
-              // Need more model URLs → push empty strings (or null)
-              for (let i = 0; i < diff; i++) {
-                loadedIIIF.modelUrls.push(testModelURL);
-                objectsConfig.models.push({name: "Test Model", url: testModelURL});
-              }
-            }
-        }
-        for (const [i, url] of loadedIIIF.modelUrls?.entries()) {
-          objectsConfig.index = i;
-          fileObject.originalPath = loadedIIIF.modelUrl = url;
-          //fileObject.originalPath = loadedIIIF.modelUrl;
-          setModelPaths();
-          await getAnnotations(loadedIIIF, objectsConfig);
-          if (loadedIIIF.scenes && loadedIIIF.scenes.length > 0) {
-            objectsConfig.scenes = loadedIIIF.scenes;
-          }
-          _ext = fileObject.extension.toLowerCase();
-          await mainLoadModel(_ext);
-        }
-      }
-
-      function isUrlFlexible(string) {
-        try {
-          new URL(string);
-          return true;
-        } catch {
-          return /^(https?:\/\/)?([\w-]+\.)+[\w-]{2,}(\/\S*)?$/i.test(string);
-        }
-      }
-
-      function isValidJsonObject(text) {
-        try {
-          const parsed = JSON.parse(text);
-          return typeof parsed === 'object' && parsed !== null;
-        } catch {
-          return false;
-        }
-      }
-
-      async function loadIIIFURL() {
-        // create a small dropdown to switch iiif manifests at runtime
-        document.getElementById("iiif-dropdown").addEventListener("change", async (ev) => {
-          try {
-            if (ev.target.value !== iiifConfigURL.url) {
-              objectsConfig.setupIndex = 0;
-              await setupIIIF(ev.target.value, "url");
-            }
-          } catch (err) {
-            console.error(err);
-            showToast("Error loading IIIF manifest: " + (err.message || err));
-          }
-          });
-
-        document.getElementById("load-manifest-from-url").addEventListener("click", async (ev) => {
-          try {
-            const inputElement = document.getElementById("manifest-url");
-            if (inputElement.value === "" || !isUrlFlexible(inputElement.value)) {
-              inputElement.style.border = "2px solid red";
-              showToast("Please enter a valid IIIF manifest URL.");
-              return;
-            } else {
-              inputElement.style.border = "2px solid green";
-              objectsConfig.setupIndex = 0;
-              console.log("Loading IIIF manifest from URL: " + inputElement.value);
-              await setupIIIF(inputElement.value, "url");
-            }
-          } catch (err) {
-            console.error(err);
-            showToast("Error loading IIIF manifest: " + (err.message || err));
-          }
-          });
-
-        document.getElementById("load-manifest-from-text").addEventListener("click", async (ev) => {
-          try {
-            const inputElement = document.getElementById("manifest-text");
-            if (inputElement.value === "" || !isValidJsonObject(inputElement.value)) {
-              inputElement.style.border = "2px solid red";
-              showToast("Please enter a valid IIIF JSON text.");
-              return;
-            } else {
-              inputElement.style.border = "2px solid green";
-              objectsConfig.setupIndex = 0;
-              console.log("Loading IIIF manifest from privided text");
-              await setupIIIF(inputElement.value, "text");
-            }
-          } catch (err) {
-            console.error(err);
-            showToast("Error loading IIIF manifest: " + (err.message || err));
-          }
-          });
-
-          
-      }      
-      
-      switch(CONFIG.entity.metadata.source.substring(0, 4).toLowerCase()) {
-        case "iiif":
-          if (iiifConfigURL.url !== "") {
-            createIIIFDropdown(container, iiifConfigURL, CONFIG.viewer.canvasDimensions);
-            await loadIIIFURL();
-            CONFIG.entity.metadata.source = "IIIF";
-            await setupIIIF(iiifConfigURL.url);
-          }
-          break;
-        case "file": //TODO: add more sources
-          break;
-      }
-    }
-    /*try {
-
-  } catch (e) {
-    // statements to handle any exceptions
-    loadModel(path, basename, filename, extension);
-  }*/
-
-    fullscreenMode = document.createElement("div");
-    fullscreenMode.setAttribute("id", "fullscreenMode");
-    fullscreenMode.innerHTML =
-      "<img src='" + DFG_ASSETS + "img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
-    fullscreenMode.setAttribute(
-      "style",
-      "top:" +
-      (bottomLineGUI + 20) +
-      "px; left: " +
-      (CONFIG.viewer.canvasDimensions.x - 36) +
-      "px"
-    );
-    renderer.setPixelRatio(devicePixelRatio);
-    window.addEventListener('resize', updateSize);
-    document.addEventListener('fullscreenchange', updateSize);
-    window.addEventListener('orientationchange', () => setTimeout(updateSize, 100));
-    //updateSize();
-
-    container.appendChild(fullscreenMode);
-    document.getElementById("fullscreenMode").addEventListener("click", toggleFullscreen, false);
-    prepareStats();
-  }
-}
 
 (async function () {
-  await init();
-  window.addEventListener("load", () => {
-    requestAnimationFrame(() => {
-      const rect = container.getBoundingClientRect();
-      console.log("Initial real height:", rect.height);
-      updateSize();
-    });
-  });
-  animate();
+  await Viewer.MainInit();
+  Viewer.init();
+  Viewer.mainLoadModel();
+  Viewer.animate();
 })();
