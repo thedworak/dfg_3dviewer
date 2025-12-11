@@ -6,8 +6,8 @@ import json from '@rollup/plugin-json';
 import terser from '@rollup/plugin-terser';
 import replace from '@rollup/plugin-replace';
 
-const source = process.env.BUILD_SOURCE || "IIIF";
-const isProd = process.env.BUILD || 'prod';
+const source = process.env.BUILD_SOURCE ?? "IIIF";
+const envBuild = process.env.BUILD ?? "prod";
 
 export default {
   input: 'viewer/main.js',
@@ -16,11 +16,12 @@ export default {
     replace({
       preventAssignment: true,
       values: {
-        BUILD_SOURCE: JSON.stringify(source)
+        __BUILD_SOURCE__: JSON.stringify(source),
+        __BUILD__: JSON.stringify(envBuild)
       }
     }),
 
-    isProd && replace({
+    envBuild && replace({
       preventAssignment: true,
       values: {
         '"assets/draco/"': '(window.DFG_3DVIEWER_BASE || "/") + "modules/custom/dfg_3dviewer/dist/assets/draco/"'

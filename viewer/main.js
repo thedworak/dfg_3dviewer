@@ -16,6 +16,9 @@ https://www.gnu.org/licenses/.
 
 //Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF
 
+const SOURCE = (typeof __BUILD_SOURCE__ !== 'undefined') ? __BUILD_SOURCE__ : "";
+const IS_PROD = (typeof __IS_PROD__ !== 'undefined') ? __IS_PROD__ : "prod";
+
 import { core, setCore } from './core.js';
 import { loadSettings } from './viewer-settings.js';
 
@@ -77,153 +80,155 @@ export const Viewer = {
   distanceGeometry: new THREE.Vector3(),
   entityID: "",
   metadataUrl: null,
-
-    iiifConfigURL: {url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: "Inbuilt"},
-    testModelURL: 'https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb',
-    clock: null,
-    editor: true,
-    FULLSCREEN: false,
-    mixer: null,
-    tween: null,  
-    container: null,   
-    scrollTop: null,
-    rect: null,
-    fileObject: { originalPath: '', filename: '', basename: '', extension: '', path: '', uri: '', newExtension: '' },
-    bottomLineGUI: null,
-    loadedFile: null,    
-    fileElement: null,
-    COPYRIGHTS: false,
-    EXIT_CODE: 1,
-    gridSize: null,
-    noMTL: false,
-    canvasText: null,
-    viewEntity: null,
-    fullscreenMode: null,
-    originalMetadata: [],
-    spinnerContainer: null,
-    spinnerElement: null,
-    guiContainer: null,
-    metadataContainer: null,
-    spinner: null,
-    circle: null,
-    lilGui: null,
-    raycaster: new THREE.Raycaster(),
-    pointer: new THREE.Vector2(),
-    onUpPosition: new THREE.Vector2(),
-    onDownPosition: new THREE.Vector2(),
-    bottomOffsetFullscreen: 0,
-    geometry: new THREE.BoxGeometry(20, 20, 20),
-    transformControl: null,
-    transformControlLight: null,
-    transformControlLightTarget: null,
-    transformControlClippingPlaneX: null,
-    transformControlClippingPlaneY: null,
-    transformControlClippingPlaneZ: null,
-    cameraCoords: null,
-    helperObjects: [],
-    lightObjects: [],
-    lightHelper: null,
-    lightHelperTarget: null,
-    selectedObject: false,
-    selectedObjects:[],
-    selectedFaces: [],
-    pickingTexture: null,
-    windowHalfX: null,
-    windowHalfY: null,
-    transformType: "",
-    transformText: {
-      "Transform 3D Object": "select type",
-      "Transform Light": "select type",
-      "Transform Mode": "Local",
+  iiifConfigURL: {url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: "Inbuilt"},
+  testModelURL: 'https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb',
+  clock: null,
+  editor: true,
+  FULLSCREEN: false,
+  mixer: null,
+  tween: null,  
+  container: null,   
+  scrollTop: null,
+  rect: null,
+  fileObject: { originalPath: '', filename: '', basename: '', extension: '', path: '', uri: '', newExtension: '' },
+  bottomLineGUI: null,
+  loadedFile: null,    
+  fileElement: null,
+  COPYRIGHTS: false,
+  EXIT_CODE: 1,
+  gridSize: null,
+  noMTL: false,
+  canvasText: null,
+  viewEntity: null,
+  fullscreenMode: null,
+  originalMetadata: [],
+  spinnerContainer: null,
+  spinnerElement: null,
+  guiContainer: null,
+  metadataContainer: null,
+  spinner: null,
+  circle: null,
+  lilGui: null,
+  raycaster: new THREE.Raycaster(),
+  pointer: new THREE.Vector2(),
+  onUpPosition: new THREE.Vector2(),
+  onDownPosition: new THREE.Vector2(),
+  bottomOffsetFullscreen: 0,
+  geometry: new THREE.BoxGeometry(20, 20, 20),
+  transformControl: null,
+  transformControlLight: null,
+  transformControlLightTarget: null,
+  transformControlClippingPlaneX: null,
+  transformControlClippingPlaneY: null,
+  transformControlClippingPlaneZ: null,
+  cameraCoords: null,
+  helperObjects: [],
+  lightObjects: [],
+  lightHelper: null,
+  lightHelperTarget: null,
+  selectedObject: false,
+  selectedObjects:[],
+  selectedFaces: [],
+  pickingTexture: null,
+  windowHalfX: null,
+  windowHalfY: null,
+  transformType: "",
+  transformText: {
+    "Transform 3D Object": "select type",
+    "Transform Light": "select type",
+    "Transform Mode": "Local",
+  },
+  materialsPropertiesText: {
+    "Edit material": "select by name",
+  },
+  colors: {
+    DirectionalLight: "0xFFFFFF",
+    AmbientLight: "0x404040",
+    CameraLight: "0xFFFFFF",
+    BackgroundColor: "#FFFFFF",
+    BackgroundColorOuter: "#D2D2D2",
+  },
+  materialProperties: {
+    color: "0xFFFFFF",
+    emissiveColor: "0x404040",
+    emissive: 1,
+    metalness: 0,
+  },
+  intensity: {
+    startIntensityDir: 1,
+    startIntensityAmbient: 1,
+    startIntensityCamera: 1,
+  },
+  saveProperties: {
+    Position: true,
+    Rotation: true,
+    Scale: true,
+    Camera: true,
+    DirectionalLight: true,
+    AmbientLight: true,
+    CameraLight: true,
+    BackgroundColor: true,
+    BackgroundColorOuter: true,
+  },
+  backgroundType: { "Background Type": "gradient" },
+  backgroundOuterFolder: null,
+  EDITOR: false,
+  RULER_MODE: false,
+  lineMaterial: new THREE.LineBasicMaterial({ color: 0x0000ff }),
+  linePoints: [],
+  gui: null,
+  hierarchyFolder: null,
+  GUILength: 35,
+  zoomImage: 1,
+  ZOOM_SPEED_IMAGE: 0.1,
+  compressedFile: "",
+  archiveType: "",
+  planeParams: {
+    planeX: {
+      constantX: 0,
+      negated: false,
+      displayHelperX: false,
     },
-    materialsPropertiesText: {
-      "Edit material": "select by name",
+    planeY: {
+      constantY: 0,
+      negated: false,
+      displayHelperY: false,
     },
-    colors: {
-      DirectionalLight: "0xFFFFFF",
-      AmbientLight: "0x404040",
-      CameraLight: "0xFFFFFF",
-      BackgroundColor: "#FFFFFF",
-      BackgroundColorOuter: "#D2D2D2",
+    planeZ: {
+      constantZ: 0,
+      negated: false,
+      displayHelperZ: false,
     },
-    materialProperties: {
-      color: "0xFFFFFF",
-      emissiveColor: "0x404040",
-      emissive: 1,
-      metalness: 0,
+    outline: {
+      visible: false,
     },
-    intensity: {
-      startIntensityDir: 1,
-      startIntensityAmbient: 1,
-      startIntensityCamera: 1,
+    clippingMode: {
+      x: false,
+      y: false,
+      z: false,
     },
-    saveProperties: {
-      Position: true,
-      Rotation: true,
-      Scale: true,
-      Camera: true,
-      DirectionalLight: true,
-      AmbientLight: true,
-      CameraLight: true,
-      BackgroundColor: true,
-      BackgroundColorOuter: true,
-    },
-    backgroundType: { "Background Type": "gradient" },
-    backgroundOuterFolder: null,
-    EDITOR: false,
-    RULER_MODE: false,
-    lineMaterial: new THREE.LineBasicMaterial({ color: 0x0000ff }),
-    linePoints: [],
-    gui: null,
-    hierarchyFolder: null,
-    GUILength: 35,
-    zoomImage: 1,
-    ZOOM_SPEED_IMAGE: 0.1,
-    compressedFile: "",
-    archiveType: "",
-    planeParams: {
-      planeX: {
-        constantX: 0,
-        negated: false,
-        displayHelperX: false,
-      },
-      planeY: {
-        constantY: 0,
-        negated: false,
-        displayHelperY: false,
-      },
-      planeZ: {
-        constantZ: 0,
-        negated: false,
-        displayHelperZ: false,
-      },
-      outline: {
-        visible: false,
-      },
-      clippingMode: {
-        x: false,
-        y: false,
-        z: false,
-      },
-    },
-    clippingPlanes: null,    
-    planeHelpers: null,
-    clippingFolder: null,
-    propertiesFolder: null,
-    planeObjects: [],
-    editorFolder: null,
-    materialsFolder: null,
-    textMesh: null,
-    textMeshDistance: null,
-    ruler: [],
-    rulerObject: null,
-    lastPickedFace: { id: "", color: "", object: "" },
-    loadedTimes: 0,
-    _ext: '',
+  },
+  clippingPlanes: null,    
+  planeHelpers: null,
+  clippingFolder: null,
+  propertiesFolder: null,
+  planeObjects: [],
+  editorFolder: null,
+  materialsFolder: null,
+  textMesh: null,
+  textMeshDistance: null,
+  ruler: [],
+  rulerObject: null,
+  lastPickedFace: { id: "", color: "", object: "" },
+  loadedTimes: 0,
+  _ext: '',
 
   async MainInit() {
-    const res = await fetch("./viewer-settings.json");
+    const res = await fetch(`./viewer-settings.json?t=${Date.now()}`, {
+    cache: "no-store"
+  });
     this.CONFIG = await res.json();
+    console.log("Loaded viewer-settings.json", this.CONFIG.viewer);
 
     if (Object.keys(this.CONFIG).length === 0) {
       this.CONFIG = {
@@ -265,6 +270,9 @@ export const Viewer = {
         },
       };
     }
+    console.log(`Powered by Three.js (v${THREE.REVISION}) - DFG 3D-Viewer`);
+    
+    this.CONFIG.entity.metadata.source = SOURCE;
 
     this.container = document.getElementById(this.CONFIG.viewer.container);
     this.scrollTop = window.scrollY || document.documentElement.scrollTop;
@@ -307,8 +315,6 @@ export const Viewer = {
     this.setModelPaths(this.fileObject);
 
     this.CONFIG.viewer.exportPath = "/export_xml_single/";
-
-    console.log(`Powered by Three.js (v${THREE.REVISION}) - DFG 3D-Viewer`);
     
     this.loadedFile = this.fileObject.basename + "." + this.fileObject.extension;
     this.spinnerContainer = document.createElement("div");
@@ -348,10 +354,6 @@ export const Viewer = {
     setCore("clippingPlanes", this.clippingPlanes);
 
     this.clock = new THREE.Clock();
-
-    //CONFIG.entity.metadata.source = typeof env.BUILD_SOURCE === 'undefined' ? BUILD_SOURCE : 'IIIF';
-
-    //this.init();
 
     window.addEventListener("load", () => {
       requestAnimationFrame(() => {
@@ -1967,9 +1969,9 @@ export const Viewer = {
 
         async function setupIIIF(newUrlOrJson, type="url") {
           if (type === "text") {
-            iiifConfigURL.url = "";
+            Viewer.iiifConfigURL.url = "";
           } else {
-            iiifConfigURL.url = newUrlOrJson;
+            Viewer.iiifConfigURL.url = newUrlOrJson;
           }
           const loadedIIIF = await loadIIIFManifest(newUrlOrJson);
           if (loadedIIIF.modelUrls.length === 0) { // no 3D model found, use example model
@@ -1978,10 +1980,10 @@ export const Viewer = {
           }
           let ind = 0;
           // reset scene
-          mainObject.forEach((obj) => {
-            scene.remove(obj);
+          Viewer.mainObject.forEach((obj) => {
+            Viewer.scene.remove(obj);
           });
-          mainObject = [];
+          Viewer.mainObject = [];
           console.log("TOTAL Annotations: " + loadedIIIF.annotations.length);
           if (loadedIIIF.annotations.length !== loadedIIIF.modelUrls.length) {
             //console.warn("Number of annotations does not match number of model URLs, adding testing model...");
@@ -1989,22 +1991,22 @@ export const Viewer = {
               if (diff > 0) {
                 // Need more model URLs → push empty strings (or null)
                 for (let i = 0; i < diff; i++) {
-                  loadedIIIF.modelUrls.push(testModelURL);
-                  Viewer.objectsConfig.models.push({name: "Test Model", url: Viewer.testModelURL});
+                  loadedIIIF.modelUrls.push(Viewer.testModelURL);
+                  objectsConfig.models.push({name: "Test Model", url: Viewer.testModelURL});
                 }
               }
           }
           for (const [i, url] of loadedIIIF.modelUrls?.entries()) {
-            Viewer.objectsConfig.index = i;
+            objectsConfig.index = i;
             Viewer.fileObject.originalPath = loadedIIIF.modelUrl = url;
             //fileObject.originalPath = loadedIIIF.modelUrl;
-            setModelPaths();
+            Viewer.setModelPaths(Viewer.fileObject);
             await getAnnotations(loadedIIIF, objectsConfig);
             if (loadedIIIF.scenes && loadedIIIF.scenes.length > 0) {
-              Viewer.objectsConfig.scenes = loadedIIIF.scenes;
+              objectsConfig.scenes = loadedIIIF.scenes;
             }
-            Viewer._ext = fileObject.extension.toLowerCase();
-            await mainLoadModel(Viewer._ext);
+            Viewer._ext = Viewer.fileObject.extension.toLowerCase();
+            await Viewer.mainLoadModel(Viewer._ext);
           }
         }
 
@@ -2030,7 +2032,7 @@ export const Viewer = {
           // create a small dropdown to switch iiif manifests at runtime
           document.getElementById("iiif-dropdown").addEventListener("change", async (ev) => {
             try {
-              if (ev.target.value !== iiifConfigURL.url) {
+              if (ev.target.value !== Viewer.iiifConfigURL.url) {
                 objectsConfig.setupIndex = 0;
                 await setupIIIF(ev.target.value, "url");
               }
@@ -2117,7 +2119,6 @@ export const Viewer = {
 
       Viewer.container.appendChild(Viewer.fullscreenMode);
       document.getElementById("fullscreenMode").addEventListener("click", Viewer.toggleFullscreen, false);
-      Viewer.prepareStats();
     }
   },
   render() {
@@ -2137,13 +2138,10 @@ window.DFG_ASSETS = (() => {
 })();
 
 
-
-
-
-
 (async function () {
   await Viewer.MainInit();
   Viewer.init();
-  Viewer.mainLoadModel();
+  if (Viewer.CONFIG.entity?.metadata?.source == "") Viewer.mainLoadModel();
+  Viewer.prepareStats();
   Viewer.animate();
 })();

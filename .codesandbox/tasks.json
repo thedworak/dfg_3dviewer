@@ -1,5 +1,4 @@
 {
-  // These tasks will run in order when initializing your CodeSandbox project.
   "setupTasks": [
     {
       "name": "Install Dependencies",
@@ -7,31 +6,29 @@
     }
   ],
 
-  // These tasks can be run from CodeSandbox. Running one will open a log in the app.
   "tasks": {
-    "start": {
-      "name": "Start (test mode)",
-      "command": "cross-env BUILD_SOURCE=IIIF BUILD=prod npm start",
+    "start:test": {
+      "name": "Start (TEST mode – Parcel)",
+      "command": "cross-env BUILD_SOURCE=IIIF BUILD=test npm start",
       "runAtStart": true,
       "preview": {
         "port": 1234
       }
     },
-    "start:dist": {
-      "name": "Start (dist mode)",
-      "command": "cross-env BUILD_SOURCE='' BUILD=dist npm run start:dist"
+
+    "start:prod": {
+      "name": "Start (PROD mode – dist viewer)",
+      "command": "cross-env BUILD_SOURCE='' BUILD=prod npm run start:dist"
     },
-    "build": {
-      "name": "Build",
-      "command": "npm start build"
-    },
-    "build:dist": {
-      "name": "Build dist",
-      "command": "cross-env BUILD_SOURCE='' BUILD=dist npm run build:dist"
-    },
+
     "build:test": {
-      "name": "Build (test)",
-      "command": "cross-env BUILD_SOURCE=IIIF npm run build"
+      "name": "Build (TEST bundle)",
+      "command": "cross-env BUILD_SOURCE=IIIF BUILD=test npm run build"
+    },
+
+    "build:prod": {
+      "name": "Build (PROD bundle)",
+      "command": "cross-env BUILD_SOURCE='' BUILD=prod npm run build:dist"
     }
   }
 }
