@@ -94,9 +94,6 @@ export default {
     format: 'iife',
     name: 'Dfg3DViewer',
     sourcemap: true,
-    globals: {
-      three: 'THREE'
-    },
     intro: 'var global = window; var module = { exports: {} }; var exports = module.exports;'
   }
 };

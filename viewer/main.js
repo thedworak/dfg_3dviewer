@@ -89,10 +89,10 @@ if (ViewerSettings !== undefined) {
       fileUpload: "fbf95bddee5160d515b982b3fd2e05f7",
       fileName: "faa602a0be629324806aef22892cdbe5",
       imageGeneration: "f605dc6b727a1099b9e52b3ccbdf5673",
-      lightweight: 0,
+      lightweight: 1,
       salt: "Z7FYJMmTiEzcGp4lTpuk4LiA",
       scaleContainer: {
-        x: 0.85,
+        x: 1,
         y: 1.4,
       },
       gallery: {
@@ -118,6 +118,7 @@ window.DFG_ASSETS = (() => {
 })();
 
 console.log(`Powered by Three.js (v${THREE.REVISION}) - DFG 3D-Viewer`);
+console.log(`Viewer settings:`, CONFIG);
 
 //CONFIG.entity.metadata.source = typeof env.BUILD_SOURCE === 'undefined' ? BUILD_SOURCE : 'IIIF';
 if (CONFIG.entity.metadata.source) console.log('Using metadata source:', CONFIG.entity.metadata.source);
