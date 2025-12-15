@@ -713,6 +713,7 @@ export async function loadModel(params) {
         function (xhr) {
           var percentComplete = (xhr.loaded / xhr.total) * 100;
           if (percentComplete !== Infinity) {
+            circle.set(0, 100);
             circle.show();
             circle.set(percentComplete, 100);
             if (percentComplete >= 100) {
