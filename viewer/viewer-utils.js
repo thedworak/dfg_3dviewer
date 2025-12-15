@@ -1,6 +1,7 @@
 // viewer-utils.js
 import THREE from "./init.js";
 import Toastify from "toastify-js";
+import "toastify-js/src/toastify.css";
 import { core, setCore } from './core.js';
 import TWEEN from "three/examples/jsm/libs/tween.module.js";
 
@@ -45,13 +46,15 @@ export const setupObject = (_object, _light, _controls, _helperObjects) => {
       if (typeof model.rotation !== undefined) _object.rotation.set(THREE.MathUtils.degToRad(model.rotation.x), THREE.MathUtils.degToRad(model.rotation.y), THREE.MathUtils.degToRad(model.rotation.z));
     } else {
       let m = core.objectsConfig.models[core.objectsConfig.setupIndex];
-      //console.log("Applying config for index", core.objectsConfig.setupIndex, m);
-      if (typeof m.position !== "undefined")
-        _object.position.set(m.position.x, m.position.y, m.position.z);
-      if (typeof m.scale !== "undefined")
-      _object.scale.set(m.scale.x, m.scale.y, m.scale.z);
-      if (typeof m.rotation !== "undefined")
-        _object.rotation.set(THREE.MathUtils.degToRad(m.rotation.x), THREE.MathUtils.degToRad(m.rotation.y), THREE.MathUtils.degToRad(m.rotation.z));
+      if (m !== undefined) {
+        //console.log("Applying config for index", core.objectsConfig.setupIndex, m);
+        if (typeof m.position !== "undefined")
+          _object.position.set(m.position.x, m.position.y, m.position.z);
+        if (typeof m.scale !== "undefined")
+        _object.scale.set(m.scale.x, m.scale.y, m.scale.z);
+        if (typeof m.rotation !== "undefined")
+          _object.rotation.set(THREE.MathUtils.degToRad(m.rotation.x), THREE.MathUtils.degToRad(m.rotation.y), THREE.MathUtils.degToRad(m.rotation.z));
+      }
     }
     
     _object.needsUpdate = true;
@@ -125,7 +128,7 @@ export const setupObject = (_object, _light, _controls, _helperObjects) => {
 }
 
 export async function setupCamera (_object, _light, _config, _helperObjects) {
-  if (core.objectsConfig /*&& CONFIG.entity.metadata.source !== ''*/) {
+  if (core.objectsConfig !== "undefined") {
     if (typeof core.objectsConfig.camera.position !== "undefined") {
       core.camera.position.set(core.objectsConfig.camera.position.x, core.objectsConfig.camera.position.y, core.objectsConfig.camera.position.z);
     } else {
@@ -364,7 +367,7 @@ function changeBackgroundHelper(_color1, _color2) {
   );
 }
 
-function changeBackground(_type, _color1, _color2) {
+export function changeBackground(_type, _color1, _color2) {
   switch (_type) {
     case "linear":
       changeBackgroundHelper(_color1, _color1);
@@ -407,7 +410,7 @@ function setupClippingPlanes(_geom, _size, _distance) {
       core.planeParams.clippingMode.x = core.planeHelpers[0].visible = v;
       if (v) {
         core.transformControlClippingPlaneX.attach(core.planeHelpers[0]);
-        if (core.planeParams.outline.visible) outlineClipping.visible = true;
+        if (core.planeParams.outline.visible) core.outlineClipping.visible = true;
       } else {
         core.transformControlClippingPlaneX.detach();
         if (
@@ -415,7 +418,7 @@ function setupClippingPlanes(_geom, _size, _distance) {
           !core.planeParams.clippingMode.z &&
           !core.planeParams.outline.visible
         )
-          outlineClipping.visible = false;
+          core.outlineClipping.visible = false;
       }
     });
 
@@ -431,7 +434,7 @@ function setupClippingPlanes(_geom, _size, _distance) {
       core.planeParams.clippingMode.y = core.planeHelpers[1].visible = v;
       if (v) {
         core.transformControlClippingPlaneY.attach(core.planeHelpers[1]);
-        if (core.planeParams.outline.visible) outlineClipping.visible = true;
+        if (core.planeParams.outline.visible) core.outlineClipping.visible = true;
       } else {
         core.transformControlClippingPlaneY.detach();
         if (
@@ -439,7 +442,7 @@ function setupClippingPlanes(_geom, _size, _distance) {
           !core.planeParams.clippingMode.z &&
           !core.planeParams.outline.visible
         )
-          outlineClipping.visible = false;
+          core.outlineClipping.visible = false;
       }
     });
     displayHelper.constantY
@@ -454,7 +457,7 @@ function setupClippingPlanes(_geom, _size, _distance) {
       core.planeParams.clippingMode.z = core.planeHelpers[2].visible = v;
       if (v) {
         core.transformControlClippingPlaneZ.attach(core.planeHelpers[2]);
-        if (core.planeParams.outline.visible) outlineClipping.visible = true;
+        if (core.planeParams.outline.visible) core.outlineClipping.visible = true;
       } else {
         core.transformControlClippingPlaneZ.detach();
         if (
@@ -462,7 +465,7 @@ function setupClippingPlanes(_geom, _size, _distance) {
           !core.planeParams.clippingMode.y &&
           !core.planeParams.outline.visible
         )
-          outlineClipping.visible = false;
+          core.outlineClipping.visible = false;
       }
     });
     displayHelper.constantZ
@@ -474,7 +477,7 @@ function setupClippingPlanes(_geom, _size, _distance) {
       .onChange((d) => (core.clippingPlanes[2].constant = d));
 
     displayHelper.outline.onChange((v) => {
-      outlineClipping.visible = v;
+      core.outlineClipping.visible = v;
     });
 }
 

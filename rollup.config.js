@@ -5,6 +5,7 @@ import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
 import terser from '@rollup/plugin-terser';
 import replace from '@rollup/plugin-replace';
+import postcss from 'rollup-plugin-postcss';
 
 const source = process.env.BUILD_SOURCE ?? "IIIF";
 const envBuild = process.env.BUILD ?? "prod";
@@ -86,7 +87,10 @@ export default {
       ignoreDynamicRequires: true,
       requireReturnsDefault: 'auto'
     }),
-
+    postcss({
+      extensions: ['.css'],
+      minimize: true
+    }),
     json(),
     terser()
   ].filter(Boolean),

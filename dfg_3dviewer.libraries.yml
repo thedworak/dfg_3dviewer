@@ -1,13 +1,8 @@
 dfg_3dviewer:
   js:
-    dist/dfg_3dviewer-module.js: {}  
-  css:
-    theme:
-      viewer/css/main.css: {}
-      viewer/css/spinner.css: {}
-      css/theme.css: {}
+    dist/dfg_3dviewer-module.js:
+      attributes:
+        type: module
   dependencies:
-    - core/jquery
-    - core/jquery.once
     - core/drupal
     - core/drupalSettings

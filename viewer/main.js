@@ -20,7 +20,6 @@ const SOURCE = (typeof __BUILD_SOURCE__ !== 'undefined') ? __BUILD_SOURCE__ : ""
 const IS_PROD = (typeof __IS_PROD__ !== 'undefined') ? __IS_PROD__ : "prod";
 
 import { core, setCore } from './core.js';
-import { loadSettings } from './viewer-settings.js';
 
 import {
   distanceBetweenPoints,
@@ -35,7 +34,7 @@ import {
   getProxyPath
 } from "./utils.js";
 
-import { initClippingPlanes, showToast } from './viewer-utils.js';
+import { initClippingPlanes, showToast, changeBackground } from './viewer-utils.js';
 
 import { loadModel, outlineClipping } from "./loaders.js";
 import { createIIIFDropdown, downloadModel } from "./metadata.js";
@@ -56,8 +55,12 @@ import { GUI } from "./js/external_libs/lil-gui.esm.min.js";
 import { objectsConfig } from "./object-settings.js";
 import { lv } from "./spinner/main.js";
 
-import { loadIIIFManifest, getAnnotations } from "./IIIF/iiif-api.js";
+import './css/main.css';
+import './css/spinner.css';
+import '../css/theme.css';
+import '../css/external-sources.css';
 
+import { loadIIIFManifest, getAnnotations } from "./IIIF/iiif-api.js";
 
 export const Viewer = {
   CONFIG: null,
@@ -87,7 +90,8 @@ export const Viewer = {
   FULLSCREEN: false,
   mixer: null,
   tween: null,  
-  container: null,   
+  container: null,
+  viewerWrapper: null,
   scrollTop: null,
   rect: null,
   fileObject: { originalPath: '', filename: '', basename: '', extension: '', path: '', uri: '', newExtension: '' },
@@ -209,7 +213,7 @@ export const Viewer = {
     },
   },
   clippingPlanes: null,    
-  planeHelpers: null,
+  planeHelpers: [],
   clippingFolder: null,
   propertiesFolder: null,
   planeObjects: [],
@@ -224,9 +228,14 @@ export const Viewer = {
   _ext: '',
 
   async MainInit() {
-    const res = await fetch(`./viewer-settings.json?t=${Date.now()}`, {
-    cache: "no-store"
-  });
+    await new Promise(r => {
+      if (document.readyState !== 'loading') r();
+      else document.addEventListener('DOMContentLoaded', r);
+    });
+    const url = new URL('./viewer-settings.json', import.meta.url);
+
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     this.CONFIG = await res.json();
     console.log("Loaded viewer-settings.json", this.CONFIG.viewer);
 
@@ -275,6 +284,8 @@ export const Viewer = {
     this.CONFIG.entity.metadata.source = SOURCE;
 
     this.container = document.getElementById(this.CONFIG.viewer.container);
+    if (!this.container) throw new Error("Container not found");
+
     this.scrollTop = window.scrollY || document.documentElement.scrollTop;
     this.rect = this.container.getBoundingClientRect();
     this.fileObject.originalPath = this.container.getAttribute("3d");   
@@ -283,7 +294,6 @@ export const Viewer = {
       y: this.rect.height * Number(this.CONFIG.viewer.scaleContainer.y),
     };
     this.bottomLineGUI = this.CONFIG.viewer.canvasDimensions.y - 85;
-
 
     if (this.CONFIG.viewer.lightweight === true) {
       this.CONFIG.viewer.lightweight = container.getAttribute("proxy");
@@ -295,14 +305,13 @@ export const Viewer = {
         this.entityID = elementsURL[1];
         this.container.setAttribute(this.CONFIG.entity.attributeId, this.entityID);
       }
-    }
-
-    
+    }    
     // Initialize clipping planes at startup
     this.core = initClippingPlanes();
     // Initialize objectsConfig in core
     setCore('objectsConfig', objectsConfig);
-    objectsConfig.setupIndex = objectsConfig.index = 0;
+    setCore('outlineClipping', outlineClipping);
+    core.objectsConfig.setupIndex = core.objectsConfig.index = 0;
 
     this.tween = new TWEEN.Tween();
     setCore('tween', this.tween);
@@ -314,12 +323,11 @@ export const Viewer = {
 
     this.setModelPaths(this.fileObject);
 
-    this.CONFIG.viewer.exportPath = "/export_xml_single/";
-    
-    this.loadedFile = this.fileObject.basename + "." + this.fileObject.extension;
+    this.CONFIG.viewer.exportPath = "/export_xml_single/";    
+    this.loadedFile = `${this.fileObject.basename}.${this.fileObject.extension}`;
+
     this.spinnerContainer = document.createElement("div");
     this.spinnerContainer.id = "spinnerContainer";
-
     this.spinnerElement = document.createElement("div");
     this.spinnerElement.id = "spinner";
     this.spinnerElement.className = "lv-determinate_circle lv-mid md";
@@ -327,7 +335,9 @@ export const Viewer = {
     this.spinnerElement.setAttribute("data-percentage", "true");
     this.spinnerContainer.appendChild(this.spinnerElement);
     this.container.appendChild(this.spinnerContainer);
-    this.spinnerContainer.style.left = "50%" - this.spinnerContainer.getBoundingClientRect().width + "px";
+    this.spinnerContainer.style.left = `calc(50% - ${this.spinnerContainer.getBoundingClientRect().width / 2}px)`;
+
+    this.rect = this.container.getBoundingClientRect();
 
     this.guiContainer = document.createElement("div");
     this.guiContainer.id = "guiContainer";
@@ -338,16 +348,20 @@ export const Viewer = {
 
     this.metadataContainer = document.createElement("div");
     this.metadataContainer.setAttribute("id", "metadata-container");
+    this.metadataContainer.style.top = -this.metadataContainer.getBoundingClientRect().top + "px";
 
     this.spinner = new lv();
     this.spinner.initLoaderAll();
     this.spinner.startObserving();
+
     this.circle = lv.create(this.spinnerElement);
-    
+    setCore('circle', this.circle);
+    setCore('spinner', this.spinner);
+        
     setCore('colors', this.colors);
     setCore("planeHelpers", this.planeHelpers);    
     setCore("planeParams", this.planeParams);
-    // Initialize materialsPropertiesText in core
+    setCore('materialProperties', this.materialProperties);
     setCore('materialsPropertiesText', this.materialsPropertiesText);
     setCore('intensity', this.intensity);
     this.clippingPlanes = this.core;
@@ -355,14 +369,14 @@ export const Viewer = {
 
     this.clock = new THREE.Clock();
 
-    window.addEventListener("load", () => {
-      requestAnimationFrame(() => {
-        const rect = this.container.getBoundingClientRect();
-        this.updateSize();
-        this.animate();
-      });
-    });
-
+    Viewer.init();
+    Viewer.prepareStats();
+    
+    this.updateSize();
+    if (!Viewer.CONFIG.entity?.metadata?.source) {
+      await Viewer.mainLoadModel();
+    }
+    Viewer.animate();
   },
   setModelPaths(fileObject) {
     fileObject.filename = fileObject.originalPath.split("/").pop();
@@ -819,13 +833,19 @@ export const Viewer = {
       Viewer.downloadModel?.setAttribute("style", "visibility: hidden");
 
     } else {
-      const rect = Viewer.container.getBoundingClientRect();
+      const rect = Viewer.viewerWrapper.getBoundingClientRect();
       widthCSS = rect.width * Number(Viewer.CONFIG.viewer.scaleContainer.x);
       heightCSS = rect.height * Number(Viewer.CONFIG.viewer.scaleContainer.y);
 
-      Viewer.mainCanvas.style.width = widthCSS + 'px';
-      Viewer.mainCanvas.style.height = heightCSS + 'px';
-
+      Viewer.guiContainer.style.left = `${widthCSS}-${Viewer.lilGui[0].getBoundingClientRect().width}px`;
+      //Viewer.guiContainer.style.right = `${Viewer.lilGui[0].getBoundingClientRect().width - 20}px`;
+      
+      //Viewer.mainCanvas.style.width = widthCSS + 'px';
+      //Viewer.mainCanvas.style.height = heightCSS + 'px';
+      //console.log(widthCSS, heightCSS);
+      //Viewer.viewerWrapper.setAttribute("style", `width: ${widthCSS}px; height: ${heightCSS}px;`);
+      //Viewer.viewerWrapper.style.width = widthCSS + 'px';
+      //Viewer.mainCanvas.style.height = heightCSS + 'px';
       // Convert to device pixels for Three.js
       widthDev = widthCSS * devicePixelRatio;
       heightDev = heightCSS * devicePixelRatio;
@@ -854,10 +874,6 @@ export const Viewer = {
     if (Viewer.viewEntity) {
       Viewer.viewEntity.style.right = isFullscreen ? '-95%' : '-75%';
     }
-
-    // GUI positioning
-    const guiWidth = Viewer.lilGui[0]?.getBoundingClientRect().width || 0;
-    Viewer.lilGui[0]?.style.setProperty('left', `${widthCSS - guiWidth - 10}px`);
 
     Viewer.controls?.update();
   },
@@ -1025,30 +1041,30 @@ export const Viewer = {
   },
 
   changeScale() {
-    if (this.transformControl.getMode() === "scale") {
-      switch (transformControl.axis) {
+    if (Viewer.transformControl.getMode() === "scale") {
+      switch (Viewer.transformControl.axis) {
         case "X":
         case "XY":
-          this.helperObjects[0].scale.set(
-            this.helperObjects[0].scale.x,
-            this.helperObjects[0].scale.x,
-            this.helperObjects[0].scale.x
+          Viewer.helperObjects[0].scale.set(
+            Viewer.helperObjects[0].scale.x,
+            thViewers.helperObjects[0].scale.x,
+            Viewer.helperObjects[0].scale.x
           );
           break;
         case "Y":
         case "YZ":
-          this.helperObjects[0].scale.set(
-            this.helperObjects[0].scale.y,
-            this.helperObjects[0].scale.y,
-            this.helperObjects[0].scale.y
+          Viewer.helperObjects[0].scale.set(
+            Viewer.helperObjects[0].scale.y,
+            Viewer.helperObjects[0].scale.y,
+            Viewer.helperObjects[0].scale.y
           );
           break;
         case "Z":
         case "XZ":
-          this.helperObjects[0].scale.set(
-            this.helperObjects[0].scale.x,
-            this.helperObjects[0].scale.x,
-            this.helperObjects[0].scale.x
+          Viewer.helperObjects[0].scale.set(
+            Viewer.helperObjects[0].scale.x,
+            Viewer.helperObjects[0].scale.x,
+            Viewer.helperObjects[0].scale.x
           );
           break;
       }
@@ -1057,12 +1073,12 @@ export const Viewer = {
 
   calculateObjectScale() {
     const boundingBox = new THREE.Box3();
-    if (Array.isArray(this.helperObjects[0])) {
-      for (let i = 0; i < this.helperObjects[0].length; i++) {
-        boundingBox.setFromObject(this.object[i]);
+    if (Array.isArray(Viewer.helperObjects[0])) {
+      for (let i = 0; i < Viewer.helperObjects[0].length; i++) {
+        boundingBox.setFromObject(Viewer.object[i]);
       }
     } else {
-      boundingBox.setFromObject(this.helperObjects[0]);
+      boundingBox.setFromObject(Viewer.helperObjects[0]);
     }
 
     var middle = new THREE.Vector3();
@@ -1074,35 +1090,35 @@ export const Viewer = {
       Math.abs(boundingBox.max.y - boundingBox.min.y),
       Math.abs(boundingBox.max.z - boundingBox.min.z)
     );
-    this.distanceGeometry = _distance;
-    setCore("distanceGeometry", this.distanceGeometry);
-    planeParams.planeX.constantZ =
-      clippingFolder.controllers[1]._max =
-      clippingPlanes[0].constant =
+    Viewer.distanceGeometry = _distance;
+    setCore("distanceGeometry", Viewer.distanceGeometry);
+    Viewer.planeParams.planeX.constantZ =
+      Viewer.clippingFolder.controllers[1]._max =
+      Viewer.clippingPlanes[0].constant =
       _distance.x;
-    clippingFolder.controllers[1]._min = -clippingFolder.controllers[1]._max;
-    planeParams.planeY.constantY =
-      clippingFolder.controllers[3]._max =
-      clippingPlanes[1].constant =
+    Viewer.clippingFolder.controllers[1]._min = -Viewer.clippingFolder.controllers[1]._max;
+    Viewer.planeParams.planeY.constantY =
+      Viewer.clippingFolder.controllers[3]._max =
+      Viewer.clippingPlanes[1].constant =
       _distance.y;
-    clippingFolder.controllers[3]._min = -clippingFolder.controllers[3]._max;
-    planeParams.planeZ.constantZ =
-      clippingFolder.controllers[5]._max =
-      clippingPlanes[2].constant =
+    Viewer.clippingFolder.controllers[3]._min = -Viewer.clippingFolder.controllers[3]._max;
+    Viewer.planeParams.planeZ.constantZ =
+      Viewer.clippingFolder.controllers[5]._max =
+      Viewer.clippingPlanes[2].constant =
       _distance.z;
-    clippingFolder.controllers[5]._min = -clippingFolder.controllers[5]._max;
-    clippingFolder.controllers[1].updateDisplay();
-    clippingFolder.controllers[3].updateDisplay();
-    clippingFolder.controllers[5].updateDisplay();
+    Viewer.clippingFolder.controllers[5]._min = -Viewer.clippingFolder.controllers[5]._max;
+    Viewer.clippingFolder.controllers[1].updateDisplay();
+    Viewer.clippingFolder.controllers[3].updateDisplay();
+    Viewer.clippingFolder.controllers[5].updateDisplay();
     var _maxDistance = Math.max(_distance.x, _distance.y, _distance.z);
-    planeHelpers[0].size =
-      planeHelpers[1].size =
-      planeHelpers[2].size =
+    Viewer.planeHelpers[0].size =
+      Viewer.planeHelpers[1].size =
+      Viewer.planeHelpers[2].size =
       _maxDistance;
   },
 
   changeLightRotation() {
-    this.lightHelper.update();
+    Viewer.lightHelper.update();
   },
 
   takeScreenshot() {
@@ -1166,8 +1182,6 @@ export const Viewer = {
         controls: this.controls,
         scene: this.scene,
         mainObject: this.mainObject,
-        outlineClipping: this.outlineClipping,
-        circle: this.circle,
         gui: this.gui,
         stats: this.stats,
         entityID: this.entityID,
@@ -1190,7 +1204,7 @@ export const Viewer = {
       this.fileObject.path = this.fileObject.path + this.fileObject.basename + this.compressedFile
       this.fileObject.extension = "glb";
       this.fileObject.newExtension = this._ext;
-      await loadModel(this.fileObject, config, getProxyPath, this.camera, this.lightObjects, this.controls, this.scene, this.mainObject, this.outlineClipping, this.circle, this.gui, this.stats,
+      await loadModel(this.fileObject, config, getProxyPath, this.camera, this.lightObjects, this.controls, this.scene, this.mainObject, this.gui, this.stats,
         this.entityID, this.container,
         this.metadataContainer,
         this.canvasText,
@@ -1201,7 +1215,7 @@ export const Viewer = {
     } else {
       this.fileObject.extension = "glb";
       if (this._ext === "glb") {
-        await loadModel(this.fileObject, this.CONFIG, getProxyPath, this.camera, this.lightObjects, this.controls, this.scene, this.mainObject, this.outlineClipping, this.circle, this.gui, this.stats,
+        await loadModel(this.fileObject, this.CONFIG, getProxyPath, this.camera, this.lightObjects, this.controls, this.scene, this.mainObject, this.gui, this.stats,
         this.entityID, this.container,
         this.metadataContainer,
         this.canvasText,
@@ -1209,7 +1223,7 @@ export const Viewer = {
         this.compressedFile,
         this.viewEntity, this.helperObjects);
       }
-      else await loadModel(this.fileObject, this.CONFIG, getProxyPath, this.camera, this.lightObjects, this.controls, this.scene, this.mainObject, this.outlineClipping, this.circle, this.gui, this.stats,
+      else await loadModel(this.fileObject, this.CONFIG, getProxyPath, this.camera, this.lightObjects, this.controls, this.scene, this.mainObject, this.gui, this.stats,
         this.entityID, this.container,
         this.metadataContainer,
         this.canvasText,
@@ -1366,7 +1380,7 @@ export const Viewer = {
       backgroundFolder
         .addColor(Viewer.colors, "BackgroundColor")
         .onChange(function (value) {
-          Viewer.changeBackground(
+          changeBackground(
             Viewer.backgroundType["Background Type"],
             value,
             Viewer.colors["BackgroundColorOuter"]
@@ -1376,7 +1390,7 @@ export const Viewer = {
       Viewer.backgroundOuterFolder = backgroundFolder
         .addColor(Viewer.colors, "BackgroundColorOuter")
         .onChange(function (value) {
-          Viewer.changeBackground(
+          changeBackground(
             Viewer.backgroundType["Background Type"],
             Viewer.colors["BackgroundColor"],
             value
@@ -1793,18 +1807,24 @@ export const Viewer = {
       Viewer.canvasText.width = Viewer.CONFIG.viewer.canvasDimensions.x + "px";
       Viewer.canvasText.height = Viewer.CONFIG.viewer.canvasDimensions.y + "px";
 
-      Viewer.container.parentElement.classList.add("viewer-wrapper");
+      Viewer.viewerWrapper = Viewer.container.closest('.viewer-wrapper');
+
+      if (!Viewer.viewerWrapper) {
+        Viewer.viewerWrapper = Viewer.container.parentElement;
+        Viewer.viewerWrapper.classList.add('viewer-wrapper');
+      }
 
       Viewer.camera.aspect = Viewer.CONFIG.viewer.canvasDimensions.x / Viewer.CONFIG.viewer.canvasDimensions.y;
       Viewer.camera.updateProjectionMatrix();
 
       setCore('mainCanvas', Viewer.mainCanvas);
 
-      Viewer.guiContainer.style.width = Viewer.CONFIG.viewer.canvasDimensions.x;
-      Viewer.guiContainer.style.left = Viewer.container.getBoundingClientRect().left + "px";
+      Viewer.rect = this.container.getBoundingClientRect();
+      this.guiContainer.style.maxHeight = `${Viewer.rect.height - 20}px`;
+      //Viewer.guiContainer.style.width = Viewer.CONFIG.viewer.canvasDimensions.x;
+      //Viewer.guiContainer.style.left = Viewer.container.getBoundingClientRect().left + "px";
       Viewer.lilGui = document.getElementsByClassName("lil-gui root");
-      Viewer.lilGui[0].style.left =
-        Viewer.CONFIG.viewer.canvasDimensions.x - Viewer.lilGui[0].getBoundingClientRect().width - 10 + "px";
+      //Viewer.lilGui[0].style.left = Viewer.CONFIG.viewer.canvasDimensions.x - Viewer.lilGui[0].getBoundingClientRect().width - 10 + "px";
 
       Viewer.fileElement = document.getElementsByClassName("field--type-file");
       if (Viewer.fileElement.length > 0) {
@@ -2099,26 +2119,27 @@ export const Viewer = {
       // statements to handle any exceptions
     }
 
-      Viewer.fullscreenMode = document.createElement("div");
-      Viewer.fullscreenMode.setAttribute("id", "fullscreenMode");
-      Viewer.fullscreenMode.innerHTML =
-        "<img src='" + DFG_ASSETS + "img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
-      Viewer.fullscreenMode.setAttribute(
-        "style",
-        "top:" +
-        (Viewer.bottomLineGUI + 20) +
-        "px; left: " +
-        (Viewer.CONFIG.viewer.canvasDimensions.x - 36) +
-        "px"
-      );
-      Viewer.renderer.setPixelRatio(devicePixelRatio);
-      window.addEventListener('resize', Viewer.updateSize);
-      document.addEventListener('fullscreenchange', Viewer.updateSize);
-      window.addEventListener('orientationchange', () => setTimeout(Viewer.updateSize, 100));
-      //updateSize();
+    Viewer.fullscreenMode = document.createElement("div");
+    Viewer.fullscreenMode.setAttribute("id", "fullscreenMode");
+    const scriptUrl = document.currentScript?.src || import.meta.url;
+    let DFG_ASSETS = scriptUrl.replace(/dfg_3dviewer-module\.js.*$/, 'assets/img/');
 
-      Viewer.container.appendChild(Viewer.fullscreenMode);
-      document.getElementById("fullscreenMode").addEventListener("click", Viewer.toggleFullscreen, false);
+    Viewer.fullscreenMode.innerHTML = `<img src="${DFG_ASSETS}fullscreen.png" alt="Fullscreen" width=20 height=20 title="Fullscreen mode"/>`;
+    Viewer.fullscreenMode.setAttribute(
+      "style",
+      "top:" +
+      (Viewer.bottomLineGUI + 20) +
+      "px; left: " +
+      (Viewer.CONFIG.viewer.canvasDimensions.x - 36) +
+      "px"
+    );
+    Viewer.renderer.setPixelRatio(devicePixelRatio);
+    window.addEventListener('resize', Viewer.updateSize);
+    document.addEventListener('fullscreenchange', Viewer.updateSize);
+    window.addEventListener('orientationchange', () => setTimeout(Viewer.updateSize, 100));
+
+    Viewer.container.appendChild(Viewer.fullscreenMode);
+    document.getElementById("fullscreenMode").addEventListener("click", Viewer.toggleFullscreen, false);
     }
   },
   render() {
@@ -2128,20 +2149,6 @@ export const Viewer = {
   
 };
 
-
-window.DFG_ASSETS = (() => {
-  const script = document.currentScript?.src || '';
-  if (script.includes('/modules/custom/dfg_3dviewer/dist/')) {
-    return script.replace(/dfg_3dviewer-module\.js.*$/, 'assets/');
-  }
-  return 'assets/';
-})();
-
-
-(async function () {
+(async () => {
   await Viewer.MainInit();
-  Viewer.init();
-  if (Viewer.CONFIG.entity?.metadata?.source == "") Viewer.mainLoadModel();
-  Viewer.prepareStats();
-  Viewer.animate();
 })();

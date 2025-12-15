@@ -21,7 +21,7 @@ import { showToast, initClippingPlanes } from "./viewer-utils.js";
 export var outlineClipping;
 
 function prepareOutlineClipping(_object) {
-  outlineClipping = _object.clone(true);
+  core.outlineClipping = _object.clone(true);
   var gutsMaterial = new THREE.MeshBasicMaterial({
     color: "crimson",
     side: THREE.BackSide,
@@ -29,13 +29,13 @@ function prepareOutlineClipping(_object) {
     clipShadows: true,
   });
 
-  outlineClipping.traverse(function (child) {
+  core.outlineClipping.traverse(function (child) {
     if (child.type == "Mesh" || child.type == "Object3D") {
       child.material = gutsMaterial;
     }
   });
-  outlineClipping.visible = false;
-  return outlineClipping;
+  core.outlineClipping.visible = false;
+  return core.outlineClipping;
 }
 
 function setupSingleMaterial(materials, material) {
@@ -122,30 +122,30 @@ function traverseMesh(object) {
         _materialGui = {};
         _material = getMaterialByID(object, value);
         console.log(_material);
-        materialProperties.color = _material.color;
-        materialProperties.emissiveColor = _material.emissive;
-        materialProperties.emissive = _material.emissiveIntensity;
-        materialProperties.metalness = _material.metalness;
+        core.materialProperties.color = _material.color;
+        core.materialProperties.emissiveColor = _material.emissive;
+        core.materialProperties.emissive = _material.emissiveIntensity;
+        core.materialProperties.metalness = _material.metalness;
         _materialGui.color = core.materialsFolder
-          .addColor(materialProperties, "color")
+          .addColor(core.materialProperties, "color")
           .onChange(function (value) {
             _material.color = new THREE.Color(value);
           })
           .listen();
         _materialGui.emissiveColor = core.materialsFolder
-          .addColor(materialProperties, "emissiveColor")
+          .addColor(core.materialProperties, "emissiveColor")
           .onChange(function (value) {
             _material.emissive = new THREE.Color(value);
           })
           .listen();
         _materialGui.emissive = core.materialsFolder
-          .add(materialProperties, "emissive", 0, 1)
+          .add(core.materialProperties, "emissive", 0, 1)
           .onChange(function (value) {
             _material.emissiveIntensity = value;
           })
           .listen();
         _materialGui.metalness = core.materialsFolder
-          .add(materialProperties, "metalness", 0, 1)
+          .add(core.materialProperties, "metalness", 0, 1)
           .onChange(function (value) {
             _material.metalness = value;
           })
@@ -167,8 +167,6 @@ export async function loadModel(params) {
     controls,
     scene,
     mainObject,
-    outlineClipping,
-    circle,
     gui,
     stats,
     entityID,
@@ -229,8 +227,8 @@ export async function loadModel(params) {
                     viewEntity,
                     helperObjects
                   );
-                  outlineClipping = prepareOutlineClipping(object);
-                  scene.add(object, outlineClipping);
+                  core.outlineClipping = prepareOutlineClipping(object);
+                  scene.add(object, core.outlineClipping);
                   scene.add(object);
                   mainObject.push(object);
                 },
@@ -269,8 +267,8 @@ export async function loadModel(params) {
                 viewEntity,
                 helperObjects
               );
-            outlineClipping = prepareOutlineClipping(object);
-            scene.add(object, outlineClipping);
+            core.outlineClipping = prepareOutlineClipping(object);
+            scene.add(object, core.outlineClipping);
             scene.add(object);
             mainObject.push(object);
           },
@@ -308,8 +306,8 @@ export async function loadModel(params) {
               viewEntity,
               helperObjects
             );
-          outlineClipping = prepareOutlineClipping(object);
-          scene.add(object, outlineClipping);
+          core.outlineClipping = prepareOutlineClipping(object);
+          scene.add(object, core.outlineClipping);
           scene.add(object);
           mainObject.push(object);
         },
@@ -355,8 +353,8 @@ export async function loadModel(params) {
               helperObjects
             );
           mainObject.push(object);
-          outlineClipping = prepareOutlineClipping(object);
-          scene.add(object, outlineClipping);
+          core.outlineClipping = prepareOutlineClipping(object);
+          scene.add(object, core.outlineClipping);
           scene.add(object);
         },
         onProgress,
@@ -397,8 +395,8 @@ export async function loadModel(params) {
             helperObjects
           );
           mainObject.push(object);
-          outlineClipping = prepareOutlineClipping(object);
-          scene.add(object, outlineClipping);
+          core.outlineClipping = prepareOutlineClipping(object);
+          scene.add(object, core.outlineClipping);
           scene.add(object);
         },
         onProgress,
@@ -436,8 +434,8 @@ export async function loadModel(params) {
             viewEntity,
             helperObjects
           );
-          outlineClipping = prepareOutlineClipping(object);
-          scene.add(object, outlineClipping);
+          core.outlineClipping = prepareOutlineClipping(object);
+          scene.add(object, core.outlineClipping);
           scene.add(object);
           mainObject.push(object);
         },
@@ -488,8 +486,8 @@ export async function loadModel(params) {
             viewEntity,
             helperObjects
           );
-          outlineClipping = prepareOutlineClipping(object);
-          scene.add(object, outlineClipping);
+          core.outlineClipping = prepareOutlineClipping(object);
+          scene.add(object, core.outlineClipping);
           scene.add(object);
           mainObject.push(object);
         },
@@ -533,8 +531,8 @@ export async function loadModel(params) {
             viewEntity,
             helperObjects
           );
-          outlineClipping = prepareOutlineClipping(object);
-          scene.add(object, outlineClipping);
+          core.outlineClipping = prepareOutlineClipping(object);
+          scene.add(object, core.outlineClipping);
           scene.add(object);
           mainObject.push(object);
         },
@@ -571,8 +569,8 @@ export async function loadModel(params) {
             helperObjects
           );
           mainObject.push(mesh);
-          outlineClipping = prepareOutlineClipping(mesh);
-          scene.add(mesh, outlineClipping);
+          core.outlineClipping = prepareOutlineClipping(mesh);
+          scene.add(mesh, core.outlineClipping);
           scene.add(mesh);
         },
         onProgress,
@@ -608,8 +606,8 @@ export async function loadModel(params) {
             viewEntity,
             helperObjects
           );
-          outlineClipping = prepareOutlineClipping(object);
-          scene.add(object, outlineClipping);
+          core.outlineClipping = prepareOutlineClipping(object);
+          scene.add(object, core.outlineClipping);
           scene.add(object);
           mainObject.push(object);
         },
@@ -651,8 +649,8 @@ export async function loadModel(params) {
             helperObjects
           );
           mainObject.push(object);
-          outlineClipping = prepareOutlineClipping(object);
-          scene.add(object, outlineClipping);
+          core.outlineClipping = prepareOutlineClipping(object);
+          scene.add(object, core.outlineClipping);
           scene.add(object);
         },
         onProgress,
@@ -700,25 +698,27 @@ export async function loadModel(params) {
             viewEntity,
             helperObjects
           );
-          outlineClipping = prepareOutlineClipping(gltf.scene);
-          outlineClipping.position.set(
+          core.outlineClipping = prepareOutlineClipping(gltf.scene);
+          core.outlineClipping.position.set(
             gltf.scene.position.x,
             gltf.scene.position.y,
             gltf.scene.position.z
           );
-          scene.add(gltf.scene, outlineClipping);
+          scene.add(gltf.scene, core.outlineClipping);
           scene.add(gltf.scene);
           mainObject.push(gltf.scene);
         },
         function (xhr) {
-          var percentComplete = (xhr.loaded / xhr.total) * 100;
-          if (percentComplete !== Infinity) {
-            circle.show();
-            circle.set(percentComplete, 100);
-            if (percentComplete >= 100) {
-              circle.hide();
-              showToast("Model " + fileObject.filename + " has been loaded.");
-            }
+          if (!core.circle) return;
+          const total = xhr.total || xhr.loaded || 1;
+          const percentComplete = Math.min((xhr.loaded / total) * 100, 100);
+
+          if (!Number.isFinite(percentComplete)) return;
+          core.circle.show();
+          core.circle.set(percentComplete, 100);
+          if (percentComplete >= 100) {
+            core.circle.hide();
+            showToast("Model " + fileObject.filename + " has been loaded.");
           }
         },
         onErrorGLB
@@ -733,7 +733,7 @@ export async function loadModel(params) {
 export const onError = function (_event) {
   //circle.set(100, 100);
   console.log("Loader error: " + _event);
-  if (typeof circle !== "undefined") circle.hide();
+  if (typeof core.circle !== "undefined") core.circle.hide();
   if (typeof EXIT_CODE !== "undefined") EXIT_CODE = 1;
 };
 
@@ -759,14 +759,17 @@ export const onErrorGLB = async function (_event, params, loadedTimes) {
 };
 
 export const onProgress = function (xhr, params) {
-  var percentComplete = (xhr.loaded / xhr.total) * 100;
-  if (typeof params.circle !== "undefined") {
-    params.circle.show();
-    params.circle.set(percentComplete, 100);
-    if (percentComplete >= 100) {
-      params.circle.hide();
-      showToast("Model has been loaded.");
-      if (typeof params.EXIT_CODE !== "undefined") params.EXIT_CODE = 0;
-    }
+  if (!core.circle) return;
+  const total = xhr.total || xhr.loaded || 1;
+  const percentComplete = Math.min((xhr.loaded / total) * 100, 100);
+
+  if (!Number.isFinite(percentComplete)) return;
+
+  core.circle.show();
+  core.circle.set(percentComplete, 100);
+  if (percentComplete >= 100) {
+    core.circle.hide();
+    showToast("Model has been loaded.");
+    if (typeof params.EXIT_CODE !== "undefined") params.EXIT_CODE = 0;
   }
 };

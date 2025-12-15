@@ -188,25 +188,25 @@ export async function handleMetadataResponse(
       };
     }
     if (lilGUIgetFolder(gui, "Hierarchy") !== null && !lilGUIhasFolder(hierarchyMain, object.name)) {
-    hierarchyFolder = hierarchyMain.addFolder(object.name).close();
+      hierarchyFolder = hierarchyMain.addFolder(object.name).close();
     }
   }
 
   if (typeof hierarchyMain !== "undefined") {
-  hierarchyMain.domElement.classList.add("hierarchy");
+    hierarchyMain.domElement.classList.add("hierarchy");
   }
 
   var metadataContent =
     '<div id="metadata-collapse" class="metadata-collapse metadata-collapsed">METADATA </div><div id="metadata-content" class="metadata-content expanded">';
   metadataContentTech +=
-    "Visualized file: <b>" + fileObject.basename + "." + fileObject.orgExtension + "</b><br>";
+    "Visualized file: <b>" + fileObject.basename + "." + fileObject.extension + "</b><br>";
   metadataContentTech += "Vertices: <b>" + metadata["vertices"] + "</b><br>";
   metadataContentTech += "Faces: <b>" + metadata["faces"] + "</b><br>";
   viewEntity = document.createElement("div");
   viewEntity.setAttribute("id", "viewEntity");
 
   if (
-    CONFIG.viewer.lightweight !== false &&
+    CONFIG.viewer.lightweight !== false && CONFIG.viewer.lightweight !== 1 &&
     CONFIG.viewer.lightweight !== null
   ) {
     var req = new XMLHttpRequest();
@@ -250,9 +250,12 @@ export async function handleMetadataResponse(
             downloadModel.style.top = (bottomLineGUI) + "px";
             container.appendChild(downloadModel);
           }
+          const scriptUrl = document.currentScript?.src || import.meta.url;
+          let DFG_ASSETS = scriptUrl.replace(/dfg_3dviewer-module\.js.*$/, 'assets/img/');
+
           downloadModel.innerHTML = `
             <a href="blob:${c_path}${fileObject.filename}" download>
-              <img src="assets/img/cloud-arrow-down.svg" alt="download" width="25" height="25" title="Download source file"/>`;
+              <img src="${DFG_ASSETS}/img/cloud-arrow-down.svg" alt="download" width="25" height="25" title="Download source file"/>`;
 
           metadataContainer.appendChild(viewEntity);
           appendMetadata(
@@ -272,12 +275,11 @@ export async function handleMetadataResponse(
     };
     req.send(null);
   } else {
+    const scriptUrl = document.currentScript?.src || import.meta.url;
+    let DFG_ASSETS = scriptUrl.replace(/dfg_3dviewer-module\.js.*$/, 'assets/img/');
+
     viewEntity.innerHTML =
-      "<a href='" +
-      CONFIG.mainUrl +
-      CONFIG.entity.viewEntityPath +
-      entityID +
-      "/view' target='_blank'><img src='./assets/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>";
+      `<a href='${CONFIG.mainUrl}${CONFIG.entity.viewEntityPath}${entityID}/view' target='_blank'><img src='${DFG_ASSETS}share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>`;
     appendMetadata(metadataContent, canvasText, metadataContainer, container, metadataContentTech);
   }
 }
@@ -285,7 +287,7 @@ export async function handleMetadataResponse(
 /**
  * Handles settings for the loaded object and camera.
  */
-export async function settingsHandler(object, camera, light, controls, hierarchyMain, CONFIG, helperObjects) {
+export async function settingsHandler(object, light, controls, hierarchyMain, CONFIG, helperObjects) {
   if (Array.isArray(object)) {
     setupObject(object[0], light, controls, CONFIG, helperObjects);
     await setupCamera(object[0], light, CONFIG, helperObjects);
@@ -340,7 +342,8 @@ export async function fetchSettings(
   }
   if (CONFIG.entity.proxyPath !== undefined || (CONFIG.viewer.lightweight === 1 || CONFIG.viewer.lightweight === true)) {
     metadataUrl = getProxyPath(metadataUrl, CONFIG, fileObject);
-    settingsHandler(object, camera, light, controls, hierarchyMain, CONFIG, helperObjects);
+    await handleMetadataResponse(null, metadata, fileObject, object, camera, light, controls, hierarchyMain, CONFIG, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, helperObjects);
+    settingsHandler(object, light, controls, hierarchyMain, CONFIG, helperObjects);
   } else if (CONFIG.entity.metadata.source === "IIIF") {
     await handleMetadataResponse(
       CONFIG.model,
@@ -415,7 +418,7 @@ export async function fetchSettings(
     }
     });
     if (typeof guiContainer !== "undefined" && typeof stats !== "undefined") {
-    guiContainer.appendChild(stats.dom);
+      guiContainer.appendChild(stats.dom);
     }
   }
 }
