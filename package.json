@@ -39,12 +39,16 @@
     "rollup-plugin-postcss": "^4.0.2"
   },
   "scripts": {
-    "start:test": "cross-env BUILD_SOURCE=IIIF BUILD=test parcel",
-    "start:prod": "cross-env BUILD_SOURCE='' BUILD=prod parcel",
+    "dev:test": "cross-env BUILD_SOURCE=IIIF BUILD=test parcel src/index.html",
+    "dev:prod": "cross-env BUILD_SOURCE='' BUILD=prod parcel src/index.html",
+
     "build:test": "cross-env BUILD_SOURCE=IIIF BUILD=test rollup -c",
     "build:prod": "cross-env BUILD_SOURCE='' BUILD=prod rollup -c",
-    "start:dist": "cross-env BUILD_SOURCE='' BUILD=prod parcel dist/index.html",
+
+    "serve:dist": "cross-env BUILD_SOURCE='' BUILD=prod serve dist",
+
     "watch": "cross-env BUILD_SOURCE=IIIF BUILD=test rollup -c -w",
+
     "pack-dist": "node ./scripts/pack-dist.js"
   },
   "files": [

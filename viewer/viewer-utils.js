@@ -3,7 +3,7 @@ import THREE from "./init.js";
 import Toastify from "toastify-js";
 import "toastify-js/src/toastify.css";
 import { core, setCore } from './core.js';
-import TWEEN from "three/examples/jsm/libs/tween.module.js";
+import TWEEN, { add } from "three/examples/jsm/libs/tween.module.js";
 
 export const initClippingPlanes = () => {
   const clippingPlanes = [
@@ -127,17 +127,33 @@ export const setupObject = (_object, _light, _controls, _helperObjects) => {
   core.objectsConfig.setupIndex++;
 }
 
+  async function setupEmptyCamera(_camera, _object, _helperObjects) {
+    var boundingBox = new THREE.Box3();
+    if (Array.isArray(_object)) {
+      for (let i = 0; i < _object.length; i++) {
+        boundingBox.setFromObject(_object[i]);
+      }
+    } else {
+      boundingBox.setFromObject(_object);
+    }
+    var size = new THREE.Vector3();
+    boundingBox.getSize(size);
+    _camera.position.set(size.x, size.y, size.z);
+    await fitCameraToCenteredObject(_camera, _object, 1.2, true, _helperObjects, core.objectsConfig.originalMetadata);
+  }
+
 export async function setupCamera (_object, _light, _config, _helperObjects) {
   if (core.objectsConfig !== "undefined") {
     if (typeof core.objectsConfig.camera.position !== "undefined") {
       core.camera.position.set(core.objectsConfig.camera.position.x, core.objectsConfig.camera.position.y, core.objectsConfig.camera.position.z);
+      //await setupEmptyCamera(core.camera, _object, _helperObjects);
     } else {
-      setupEmptyCamera(core.camera, _object, _helperObjects);
+      await setupEmptyCamera(core.camera, _object, _helperObjects);
     }
     if (typeof core.objectsConfig.camera.target !== "undefined") {
       core.controls.target.set(core.objectsConfig.camera.target.x, core.objectsConfig.camera.target.y, core.objectsConfig.camera.target.z);
     } else {
-      setupEmptyCamera(core.camera, _object, _helperObjects);
+      await setupEmptyCamera(core.camera, _object, _helperObjects);
     }
   
     // Setup lights
@@ -196,13 +212,13 @@ export async function setupCamera (_object, _light, _config, _helperObjects) {
     }
     core.camera.updateProjectionMatrix();
     core.controls.update();
-    fitCameraToCenteredObject(_object, 2.5, false, _helperObjects);
+    await fitCameraToCenteredObject(_object, 2.5, false, _helperObjects, core.objectsConfig.originalMetadata);
   } else {
-    setupEmptyCamera(core.camera, _object, _helperObjects);
+    await setupEmptyCamera(core.camera, _object, _helperObjects);
   }
 }
 
-function fitCameraToCenteredObject(object, add_offset, _fit, _helperObjects) {
+async function fitCameraToCenteredObject(object, add_offset, _fit, _helperObjects, originalMetadata) {
   const boundingBox = new THREE.Box3();
   if (Array.isArray(object)) {
     for (let i = 0; i < object.length; i++) {
@@ -303,7 +319,7 @@ function fitCameraToCenteredObject(object, add_offset, _fit, _helperObjects) {
   core.camera.updateProjectionMatrix();
   if (core.controls !== undefined && _fit) {
     // set camera to rotate around the center
-    core.controls.target = new THREE.Vector3(0, offset.y, 0);
+    core.controls.target = new THREE.Vector3(0, add_offset, 0);
 
     // prevent camera from zooming out far enough to create far plane cutoff
     core.controls.maxDistance = cameraToFarEdge * 2;
@@ -311,18 +327,21 @@ function fitCameraToCenteredObject(object, add_offset, _fit, _helperObjects) {
   core.controls.update();
 
   if (_fit) {
-    var rotateMetadata = new THREE.Vector3(
-      THREE.MathUtils.radToDeg(_helperObjects[0].rotation.x),
-      THREE.MathUtils.radToDeg(_helperObjects[0].rotation.y),
-      THREE.MathUtils.radToDeg(_helperObjects[0].rotation.z)
+    var rotateMetadata = new THREE.Vector3();
+    if (_helperObjects[0] !== undefined && _helperObjects[0].rotation.x !== undefined && _helperObjects[0].rotation.y !== undefined && _helperObjects[0].rotation.z !== undefined) {
+    rotateMetadata = new THREE.Vector3(
+      THREE.MathUtils.radToDeg(_helperObjects[0].rotation.x || 1),
+      THREE.MathUtils.radToDeg(_helperObjects[0].rotation.y || 5),
+      THREE.MathUtils.radToDeg(_helperObjects[0].rotation.z || 1)
     );
+  }
     originalMetadata = {
       objPosition: [object.position.x, object.position.y, object.position.z],
       objRotation: [rotateMetadata.x, rotateMetadata.y, rotateMetadata.z],
       objScale: [
-        _helperObjects[0].scale.x,
-        _helperObjects[0].scale.y,
-        _helperObjects[0].scale.z,
+        _helperObjects[0]?.scale.x || 1,
+        _helperObjects[0]?.scale.y || 5,
+        _helperObjects[0]?.scale.z || 1,
       ],
       cameraPosition: [core.camera.position.x, core.camera.position.y, core.camera.position.z],
       controlsTarget: [core.controls.target.x, core.controls.target.y, core.controls.target.z],

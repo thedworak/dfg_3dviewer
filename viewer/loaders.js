@@ -157,125 +157,180 @@ function traverseMesh(object) {
     });
 }
 
-export async function loadModel(params) {
-  var {
-    fileObject,
-    config,
-    getProxyPath,
-    camera,
-    lightObjects,
-    controls,
-    scene,
-    mainObject,
-    gui,
-    stats,
-    entityID,
-    container,
-    metadataContainer,
-    canvasText,
-    bottomLineGUI,
-    compressedFile,
-    viewEntity,
-    helperObjects
-  } = params;
+  export async function loadModel(params) {
+    var {
+      fileObject,
+      config,
+      getProxyPath,
+      camera,
+      lightObjects,
+      controls,
+      scene,
+      mainObject,
+      gui,
+      stats,
+      entityID,
+      container,
+      metadataContainer,
+      canvasText,
+      bottomLineGUI,
+      compressedFile,
+      viewEntity,
+      helperObjects
+    } = params;
 
-  // Example usage:
-  // Instead of fileObject.originalPath, use params.fileObject.originalPath
-  let modelPath = fileObject.path + fileObject.filename;
-  if (config.entity.proxyPath !== undefined) {
-    modelPath = getProxyPath(modelPath, config, params.fileObject);
-  }
+    // Example usage:
+    // Instead of fileObject.originalPath, use params.fileObject.originalPath
+    let modelPath = fileObject.path + fileObject.filename;
+    if (config.entity.proxyPath !== undefined) {
+      modelPath = getProxyPath(modelPath, config, params.fileObject);
+    }
 
-  switch (fileObject.extension.toLowerCase()) {
-    case "obj":
+  async function loadOBJWithMTL(fileObject, config, scene, mainObject) {
+    const object = await new Promise((resolve, reject) => {
+      const manager = new THREE.LoadingManager();
+      manager.onLoad = () => showToast("OBJ model has been loaded");
+      manager.addHandler(/\.dds$/i, new DDSLoader());
+
+      const basename = fileObject.filename.replace(/\.[^/.]+$/, "");
+      const filename = fileObject.filename;
+      const onError = (err) => reject(err);
+      const onErrorMTL = (err) => reject(err);
+
+      const handleLoadedObject = (obj) => {
+        obj.position.set(0, 0, 0);
+        traverseMesh(obj);
+        fileObject.path = fileObject.path.replace("gltf/", "");
+        core.outlineClipping = prepareOutlineClipping(obj);
+        scene.add(obj, core.outlineClipping);
+        mainObject.push(obj);
+        resolve(obj);
+      };
+
       if (!config.noMTL) {
-        const manager = new THREE.LoadingManager();
-        manager.onLoad = function () {
-          showToast("OBJ model has been loaded");
-        };
-        manager.addHandler(/\.dds$/i, new DDSLoader());
         new MTLLoader(manager).setPath(fileObject.path).load(
           basename + ".mtl",
-          function (materials) {
+          (materials) => {
             materials.preload();
             new OBJLoader(manager)
               .setMaterials(materials)
               .setPath(fileObject.path)
-              .load(
-                filename,
-                function (object) {
-                  object.position.set(0, 0, 0);
-                  traverseMesh(object);
-                  fileObject.path = fileObject.path.replace("gltf/", "");
-                  fetchSettings(
-                    fileObject,
-                    object,
-                    camera,
-                    lightObjects[0],
-                    controls,
-                    gui,
-                    config,
-                    getProxyPath,
-                    stats,
-                    guiContainer,
-                    entityID,
-                    container,
-                    metadataContainer,
-                    canvasText,
-                    bottomLineGUI,
-                    compressedFile,
-                    viewEntity,
-                    helperObjects
-                  );
-                  core.outlineClipping = prepareOutlineClipping(object);
-                  scene.add(object, core.outlineClipping);
-                  scene.add(object);
-                  mainObject.push(object);
-                },
-                onProgress,
-                onError
-              );
+              .load(filename, handleLoadedObject, onProgress, onError);
           },
-          function () {},
+          undefined,
           onErrorMTL
         );
       } else {
-        const loader = new OBJLoader();
-        loader.setPath(path).load(
+        new OBJLoader().setPath(fileObject.path).load(
           filename,
-          function (object) {
-            object.position.set(0, 0, 0);
-            traverseMesh(object);
-            fileObject.path = fileObject.path.replace("gltf/", "");
-              fetchSettings(
-                fileObject,
-                object,
-                camera,
-                lightObjects[0],
-                controls,
-                gui,
-                config,
-                getProxyPath,
-                stats,
-                guiContainer,
-                entityID,
-                container,
-                metadataContainer,
-                canvasText,
-                bottomLineGUI,
-                compressedFile,
-                viewEntity,
-                helperObjects
-              );
-            core.outlineClipping = prepareOutlineClipping(object);
-            scene.add(object, core.outlineClipping);
-            scene.add(object);
-            mainObject.push(object);
-          },
+          handleLoadedObject,
           onProgress,
           onError
         );
       }
+    });
+
+    await fetchSettings(
+      fileObject,
+      object,
+      camera,
+      lightObjects[0],
+      controls,
+      gui,
+      config,
+      getProxyPath,
+      stats,
+      guiContainer,
+      entityID,
+      container,
+      metadataContainer,
+      canvasText,
+      bottomLineGUI,
+      compressedFile,
+      viewEntity,
+      helperObjects
+    );
+
+    return object;
+  }
+
+  async function loadGLTFModel(fileObject, config, scene, mainObject) {
+    const modelPath = (() => {
+      let path = fileObject.path + fileObject.basename + "." + fileObject.extension;
+      if (config.entity.proxyPath !== undefined) {
+        path = getProxyPath(path);
+      }
+      return path;
+    })();
+
+    const object = await new Promise((resolve, reject) => {
+      const dracoLoader = new DRACOLoader();
+      dracoLoader.setDecoderPath("assets/draco/");
+      dracoLoader.preload();
+
+      const loader = new GLTFLoader();
+      loader.setDRACOLoader(dracoLoader);
+
+      showToast("Model has being loaded from " + fileObject.extension + " representation.");
+
+      loader.load(
+        modelPath,
+        (gltf) => {
+          traverseMesh(gltf.scene);
+          fileObject.path = fileObject.path.replace("gltf/", "");
+          core.outlineClipping = prepareOutlineClipping(gltf.scene);
+          core.outlineClipping.position.set(
+            gltf.scene.position.x,
+            gltf.scene.position.y,
+            gltf.scene.position.z
+          );
+          scene.add(gltf.scene, core.outlineClipping);
+          mainObject.push(gltf.scene);
+          resolve(gltf.scene);
+        },
+        (xhr) => {
+          if (!core.circle) return;
+          const total = xhr.total || xhr.loaded || 1;
+          const percentComplete = Math.min((xhr.loaded / total) * 100, 100);
+          if (!Number.isFinite(percentComplete)) return;
+          core.circle.show();
+          core.circle.set(percentComplete, 100);
+          if (percentComplete >= 100) {
+            core.circle.hide();
+            showToast("Model " + fileObject.filename + " has been loaded.");
+          }
+        },
+        (err) => reject(err)
+      );
+    });
+
+    await fetchSettings(
+      fileObject,
+      object,
+      camera,
+      lightObjects[0],
+      controls,
+      gui,
+      config,
+      getProxyPath,
+      stats,
+      guiContainer,
+      entityID,
+      container,
+      metadataContainer,
+      canvasText,
+      bottomLineGUI,
+      compressedFile,
+      viewEntity,
+      helperObjects
+    );
+
+    return object;
+  }
+
+  switch (fileObject.extension.toLowerCase()) {
+    case "obj":
+      const obj = await loadOBJWithMTL(fileObject, config, scene, mainObject, params);
       break;
 
     case "fbx":
@@ -660,71 +715,8 @@ export async function loadModel(params) {
 
     case "glb":
     case "gltf":
-      const dracoLoader = new DRACOLoader();
-      // Use relative path to draco files in dist folder
-      dracoLoader.setDecoderPath("assets/draco/");
-      dracoLoader.preload();
-      const gltf = new GLTFLoader();
-      gltf.setDRACOLoader(dracoLoader);
-      showToast(
-        "Model has being loaded from " + fileObject.extension + " representation."
-      );
-      modelPath = fileObject.path + fileObject.basename + "." + fileObject.extension;
-      if (config.entity.proxyPath !== undefined) {
-        modelPath = getProxyPath(modelPath);
-      }
-      gltf.load(
-        modelPath,
-        function (gltf) {
-          traverseMesh(gltf.scene);
-          fileObject.path = fileObject.path.replace("gltf/", "");
-          fetchSettings(
-            fileObject,
-            gltf.scene,
-            camera,
-            params.lightObjects[0],
-            controls,
-            gui,
-            config,
-            getProxyPath,
-            stats,
-            guiContainer,
-            entityID,
-            container,
-            metadataContainer,
-            canvasText,
-            bottomLineGUI,
-            compressedFile,
-            viewEntity,
-            helperObjects
-          );
-          core.outlineClipping = prepareOutlineClipping(gltf.scene);
-          core.outlineClipping.position.set(
-            gltf.scene.position.x,
-            gltf.scene.position.y,
-            gltf.scene.position.z
-          );
-          scene.add(gltf.scene, core.outlineClipping);
-          scene.add(gltf.scene);
-          mainObject.push(gltf.scene);
-        },
-        function (xhr) {
-          if (!core.circle) return;
-          const total = xhr.total || xhr.loaded || 1;
-          const percentComplete = Math.min((xhr.loaded / total) * 100, 100);
-
-          if (!Number.isFinite(percentComplete)) return;
-          core.circle.show();
-          core.circle.set(percentComplete, 100);
-          if (percentComplete >= 100) {
-            core.circle.hide();
-            showToast("Model " + fileObject.filename + " has been loaded.");
-          }
-        },
-        onErrorGLB
-      );
+      await loadGLTFModel(fileObject, config, scene, mainObject);
       break;
-
     default:
       showToast("Extension not supported yet");
   }

@@ -698,21 +698,6 @@ export const Viewer = {
     }
   },
 
-  async setupEmptyCamera(_camera, _object, _helperObjects) {
-    var boundingBox = new THREE.Box3();
-    if (Array.isArray(_object)) {
-      for (let i = 0; i < _object.length; i++) {
-        boundingBox.setFromObject(_object[i]);
-      }
-    } else {
-      boundingBox.setFromObject(_object);
-    }
-    var size = new THREE.Vector3();
-    boundingBox.getSize(size);
-    camera.position.set(size.x, size.y, size.z);
-    fitCameraToCenteredObject(_camera, _object, 1.2, true, _helperObjects);
-  },
-
   pickFaces(_id) {
     if (lastPickedFace.id == "" && _id !== "") {
       lastPickedFace = {
@@ -813,70 +798,66 @@ export const Viewer = {
     ruler.push(rulerObject);
   },
 
+
   updateSize() {
     const isFullscreen = !!document.fullscreenElement;
     Viewer.FULLSCREEN = isFullscreen;
 
-    let widthCSS, heightCSS;  // CSS pixels (for layout)
-    let widthDev, heightDev;  // Device pixels (for Three.js)
+    let widthCSS, heightCSS;  // CSS pixels (layout)
+    let widthDev, heightDev;  // Device pixels (Three.js)
 
     if (isFullscreen) {
-      widthCSS = window.innerWidth;
-      heightCSS = window.innerHeight;
-      widthDev = widthCSS * devicePixelRatio;
-      heightDev = heightCSS * devicePixelRatio;
+        widthCSS = window.innerWidth;
+        heightCSS = window.innerHeight;
+        widthDev = widthCSS * devicePixelRatio;
+        heightDev = heightCSS * devicePixelRatio;
 
-      Viewer.mainCanvas.style.width = '100vw';
-      Viewer.mainCanvas.style.height = '100vh';
-      Viewer.metadataContainer.style.width = '10%';
-      Viewer.metadataContainer.style.height = '10%';
-      Viewer.downloadModel?.setAttribute("style", "visibility: hidden");
+        Viewer.mainCanvas.style.width = '100vw';
+        Viewer.mainCanvas.style.height = '100vh';
 
     } else {
       const rect = Viewer.viewerWrapper.getBoundingClientRect();
-      widthCSS = rect.width * Number(Viewer.CONFIG.viewer.scaleContainer.x);
-      heightCSS = rect.height * Number(Viewer.CONFIG.viewer.scaleContainer.y);
+      widthCSS = rect.width || 800;
+      heightCSS = rect.height || 600;
 
-      Viewer.guiContainer.style.left = `${widthCSS}-${Viewer.lilGui[0].getBoundingClientRect().width}px`;
-      //Viewer.guiContainer.style.right = `${Viewer.lilGui[0].getBoundingClientRect().width - 20}px`;
+      widthDev = widthCSS * devicePixelRatio * Number(Viewer.CONFIG.viewer.scaleContainer.x);
+      heightDev = heightCSS * devicePixelRatio * Number(Viewer.CONFIG.viewer.scaleContainer.y);
+
+      Viewer.viewerWrapper.style.width = widthCSS + 'px';
+      Viewer.viewerWrapper.style.height = heightCSS + 'px';
+      Viewer.mainCanvas.style.width = widthCSS + 'px';
+      Viewer.mainCanvas.style.height = heightCSS + 'px';
       
-      //Viewer.mainCanvas.style.width = widthCSS + 'px';
-      //Viewer.mainCanvas.style.height = heightCSS + 'px';
-      //console.log(widthCSS, heightCSS);
-      //Viewer.viewerWrapper.setAttribute("style", `width: ${widthCSS}px; height: ${heightCSS}px;`);
-      //Viewer.viewerWrapper.style.width = widthCSS + 'px';
-      //Viewer.mainCanvas.style.height = heightCSS + 'px';
-      // Convert to device pixels for Three.js
-      widthDev = widthCSS * devicePixelRatio;
-      heightDev = heightCSS * devicePixelRatio;
-
       Viewer.metadataContainer.style.width = '100%';
       Viewer.metadataContainer.style.height = '100%';
       Viewer.downloadModel?.setAttribute("style", "visibility: visible");
+
+      if (Viewer.fileElement && Viewer.fileElement.length > 0) {
+        Viewer.fileElement[0].style.height = (heightCSS * 1.1) + 'px';
+      }
     }
 
-    //CONFIG.viewer.canvasDimensions = { x: widthCSS, y: heightCSS };
+    Viewer.mainCanvas.width = widthDev;
+    Viewer.mainCanvas.height = heightDev;
 
-    // Three.js renderer needs actual pixel size
-    Viewer.renderer.setSize(widthCSS, heightDev);
-    Viewer.renderer.setPixelRatio(devicePixelRatio);
-
-    Viewer.camera.aspect = widthCSS / heightCSS;
-    Viewer.camera.updateProjectionMatrix();
-
-    Viewer.fullscreenMode.style.top = (heightCSS - 60) + 'px';
-    Viewer.fullscreenMode.style.left = (widthCSS - 56) + 'px';
-
+    Viewer.fullscreenMode.style.left = (widthCSS - 35) + 'px';
+    Viewer.fullscreenMode.style.top = (heightCSS - 35) + 'px';
     if (Viewer.downloadModel && !isFullscreen) {
       Viewer.downloadModel.style.top = (heightCSS - 85) + 'px';
     }
-
     if (Viewer.viewEntity) {
       Viewer.viewEntity.style.right = isFullscreen ? '-95%' : '-75%';
     }
 
+    Viewer.renderer.setSize(widthCSS, heightCSS, false);
+    Viewer.camera.aspect = widthCSS / heightCSS;
+    Viewer.camera.updateProjectionMatrix();
     Viewer.controls?.update();
+    Viewer.CONFIG.viewer.canvasDimensions = { x: widthCSS, y: heightCSS };
+
   },
+
+    // Three.js renderer needs actual pixel size
 
   // Proper fullscreen toggle
   async toggleFullscreen() {
@@ -1047,7 +1028,7 @@ export const Viewer = {
         case "XY":
           Viewer.helperObjects[0].scale.set(
             Viewer.helperObjects[0].scale.x,
-            thViewers.helperObjects[0].scale.x,
+            Viewer.helperObjects[0].scale.x,
             Viewer.helperObjects[0].scale.x
           );
           break;
@@ -1191,7 +1172,7 @@ export const Viewer = {
         bottomLineGUI: this.bottomLineGUI,
         compressedFile: this.compressedFile,
         viewEntity: this.viewEntity,
-        helperObjects: this.helperObjects
+        helperObjects: Viewer.helperObjects
       });
     } else if (
       this._ext === "zip" ||
@@ -1210,7 +1191,7 @@ export const Viewer = {
         this.canvasText,
         this.bottomLineGUI,
         this.compressedFile,
-        this.viewEntity, this.helperObjects
+        this.viewEntity, Viewer.helperObjects
       );
     } else {
       this.fileObject.extension = "glb";
@@ -1221,7 +1202,7 @@ export const Viewer = {
         this.canvasText,
         this.bottomLineGUI,
         this.compressedFile,
-        this.viewEntity, this.helperObjects);
+        this.viewEntity, Viewer.helperObjects);
       }
       else await loadModel(this.fileObject, this.CONFIG, getProxyPath, this.camera, this.lightObjects, this.controls, this.scene, this.mainObject, this.gui, this.stats,
         this.entityID, this.container,
@@ -1229,7 +1210,7 @@ export const Viewer = {
         this.canvasText,
         this.bottomLineGUI,
         this.compressedFile,
-        this.viewEntity, this.helperObjects);
+        this.viewEntity, Viewer.helperObjects);
     }
   },
 
@@ -1445,9 +1426,9 @@ export const Viewer = {
               );
               var params;
               var rotateMetadata = new THREE.Vector3(
-                THREE.MathUtils.radToDeg(helperObjects[0].rotation.x),
-                THREE.MathUtils.radToDeg(helperObjects[0].rotation.y),
-                THREE.MathUtils.radToDeg(helperObjects[0].rotation.z)
+                THREE.MathUtils.radToDeg(Viewer.helperObjects[0].rotation.x),
+                THREE.MathUtils.radToDeg(Viewer.helperObjects[0].rotation.y),
+                THREE.MathUtils.radToDeg(Viewer.helperObjects[0].rotation.z)
               );
               var newMetadata = new Object();
 
@@ -1486,7 +1467,7 @@ export const Viewer = {
                     if (saveProperties.Position) {
                       newMetadata = Object.assign(newMetadata, {
                         objPosition: [
-                          helperObjects[0].position.x, helperObjects[0].position.y, helperObjects[0].position.z,
+                          Viewer.helperObjects[0].position.x, Viewer.helperObjects[0].position.y, Viewer.helperObjects[0].position.z,
                         ],
                       });
                     } else {
@@ -1514,7 +1495,7 @@ export const Viewer = {
                     if (saveProperties.Scale) {
                       newMetadata = Object.assign(newMetadata, {
                         objScale: [
-                        helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z,
+                        Viewer.helperObjects[0].scale.x, Viewer.helperObjects[0].scale.y, Viewer.helperObjects[0].scale.z,
                         ],
                         });
                     } else {
@@ -1821,10 +1802,7 @@ export const Viewer = {
 
       Viewer.rect = this.container.getBoundingClientRect();
       this.guiContainer.style.maxHeight = `${Viewer.rect.height - 20}px`;
-      //Viewer.guiContainer.style.width = Viewer.CONFIG.viewer.canvasDimensions.x;
-      //Viewer.guiContainer.style.left = Viewer.container.getBoundingClientRect().left + "px";
       Viewer.lilGui = document.getElementsByClassName("lil-gui root");
-      //Viewer.lilGui[0].style.left = Viewer.CONFIG.viewer.canvasDimensions.x - Viewer.lilGui[0].getBoundingClientRect().width - 10 + "px";
 
       Viewer.fileElement = document.getElementsByClassName("field--type-file");
       if (Viewer.fileElement.length > 0) {
@@ -2012,18 +1990,18 @@ export const Viewer = {
                 // Need more model URLs → push empty strings (or null)
                 for (let i = 0; i < diff; i++) {
                   loadedIIIF.modelUrls.push(Viewer.testModelURL);
-                  objectsConfig.models.push({name: "Test Model", url: Viewer.testModelURL});
+                  core.objectsConfig.models.push({name: "Test Model", url: Viewer.testModelURL});
                 }
               }
           }
           for (const [i, url] of loadedIIIF.modelUrls?.entries()) {
-            objectsConfig.index = i;
+            core.objectsConfig.index = i;
             Viewer.fileObject.originalPath = loadedIIIF.modelUrl = url;
             //fileObject.originalPath = loadedIIIF.modelUrl;
             Viewer.setModelPaths(Viewer.fileObject);
-            await getAnnotations(loadedIIIF, objectsConfig);
+            await getAnnotations(loadedIIIF, core.objectsConfig);
             if (loadedIIIF.scenes && loadedIIIF.scenes.length > 0) {
-              objectsConfig.scenes = loadedIIIF.scenes;
+              core.objectsConfig.scenes = loadedIIIF.scenes;
             }
             Viewer._ext = Viewer.fileObject.extension.toLowerCase();
             await Viewer.mainLoadModel(Viewer._ext);
@@ -2053,7 +2031,7 @@ export const Viewer = {
           document.getElementById("iiif-dropdown").addEventListener("change", async (ev) => {
             try {
               if (ev.target.value !== Viewer.iiifConfigURL.url) {
-                objectsConfig.setupIndex = 0;
+                core.objectsConfig.setupIndex = 0;
                 await setupIIIF(ev.target.value, "url");
               }
             } catch (err) {
@@ -2071,7 +2049,7 @@ export const Viewer = {
                 return;
               } else {
                 inputElement.style.border = "2px solid green";
-                objectsConfig.setupIndex = 0;
+                core.objectsConfig.setupIndex = 0;
                 console.log("Loading IIIF manifest from URL: " + inputElement.value);
                 await setupIIIF(inputElement.value, "url");
               }
@@ -2090,7 +2068,7 @@ export const Viewer = {
                 return;
               } else {
                 inputElement.style.border = "2px solid green";
-                objectsConfig.setupIndex = 0;
+                core.objectsConfig.setupIndex = 0;
                 console.log("Loading IIIF manifest from privided text");
                 await setupIIIF(inputElement.value, "text");
               }
@@ -2134,7 +2112,15 @@ export const Viewer = {
       "px"
     );
     Viewer.renderer.setPixelRatio(devicePixelRatio);
-    window.addEventListener('resize', Viewer.updateSize);
+    Viewer.resizeObserver = new ResizeObserver(entries => {
+      const entry = entries[0];
+      if (!entry) return;
+
+      requestAnimationFrame(() => Viewer.updateSize());
+    });
+
+    Viewer.resizeObserver.observe(Viewer.viewerWrapper);
+    //window.addEventListener('resize', Viewer.updateSize);
     document.addEventListener('fullscreenchange', Viewer.updateSize);
     window.addEventListener('orientationchange', () => setTimeout(Viewer.updateSize, 100));
 
