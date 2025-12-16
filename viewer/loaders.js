@@ -20,6 +20,8 @@ import { showToast, initClippingPlanes } from "./viewer-utils.js";
 
 export var outlineClipping;
 
+const DRACO_BASE = __DFG_DRACO_PATH__;
+
 function prepareOutlineClipping(_object) {
   core.outlineClipping = _object.clone(true);
   var gutsMaterial = new THREE.MeshBasicMaterial({
@@ -265,7 +267,7 @@ function traverseMesh(object) {
 
     const object = await new Promise((resolve, reject) => {
       const dracoLoader = new DRACOLoader();
-      dracoLoader.setDecoderPath("assets/draco/");
+      dracoLoader.setDecoderPath(DRACO_BASE);
       dracoLoader.preload();
 
       const loader = new GLTFLoader();

@@ -8,11 +8,10 @@ import replace from '@rollup/plugin-replace';
 import postcss from 'rollup-plugin-postcss';
 
 const source = process.env.BUILD_SOURCE ?? "IIIF";
-const envBuild = process.env.BUILD ?? "prod";
+const envBuild = process.env.BUILD ?? "test";
 
 export default {
   input: 'viewer/main.js',
-
   plugins: [
     replace({
       preventAssignment: true,
@@ -22,11 +21,12 @@ export default {
       }
     }),
 
-    envBuild && replace({
+    replace({
       preventAssignment: true,
-      values: {
-        '"assets/draco/"': '(window.DFG_3DVIEWER_BASE || "/") + "modules/custom/dfg_3dviewer/dist/assets/draco/"'
-      }
+      __DFG_DRACO_PATH__:
+        envBuild === 'drupal'
+          ? '(window.DFG_3DVIEWER_BASE || "/") + "modules/custom/dfg_3dviewer/dist/assets/draco/"'
+          : '"assets/draco/"',
     }),
 
     url({

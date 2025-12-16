@@ -1,5 +1,5 @@
 #form-IIIF {
-	position: absolute;
+	position: fixed;
 	bottom: 5px;
     width: 50%;
     background-color: rgba(228, 228, 228, 0.8);

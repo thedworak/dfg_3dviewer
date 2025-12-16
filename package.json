@@ -44,6 +44,7 @@
 
     "build:test": "cross-env BUILD_SOURCE=IIIF BUILD=test rollup -c",
     "build:prod": "cross-env BUILD_SOURCE='' BUILD=prod rollup -c",
+    "build:drupal": "cross-env BUILD_SOURCE='' BUILD=drupal rollup -c",
 
     "serve:dist": "cross-env BUILD_SOURCE='' BUILD=prod serve dist",
 
