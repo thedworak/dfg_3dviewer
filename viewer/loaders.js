@@ -177,551 +177,215 @@ function traverseMesh(object) {
       canvasText,
       bottomLineGUI,
       compressedFile,
-      viewEntity,
-      helperObjects
+      viewEntity
     } = params;
 
-    // Example usage:
-    // Instead of fileObject.originalPath, use params.fileObject.originalPath
-    let modelPath = params.path + params.filename;
+    let modelPath = params.fileObject.path + params.fileObject.filename;
     if (config.entity.proxyPath !== undefined) {
-      modelPath = getProxyPath(modelPath, config, params);
+      modelPath = getProxyPath(modelPath, config, params.fileObject);
     }
 
-  async function loadOBJWithMTL(fileObject, config, scene, mainObject) {
-    const object = await new Promise((resolve, reject) => {
+    // Helper: promisify THREE loader.load
+    function loadAsync(loader, url, onProgress) {
+      return new Promise((resolve, reject) => {
+        loader.load(url, resolve, onProgress, reject);
+      });
+    }
+
+    // Helper: common post-load pipeline
+    function afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core }) {
+      traverseMesh(object);
+      params.fileObject.path = params.fileObject.path.replace("gltf/", "");
+      fetchSettings( params.fileObject, object, camera, lightObjects[0], controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity);
+      core.outlineClipping = prepareOutlineClipping(object);
+      scene.add(object, core.outlineClipping);
+      scene.add(object);
+      mainObject.push(object);
+    }
+
+    async function loadOBJWithMTL(fileObject, config) {
       const manager = new THREE.LoadingManager();
       manager.onLoad = () => showToast("OBJ model has been loaded");
       manager.addHandler(/\.dds$/i, new DDSLoader());
 
       const basename = fileObject.filename.replace(/\.[^/.]+$/, "");
       const filename = fileObject.filename;
-      const onError = (err) => reject(err);
-      const onErrorMTL = (err) => reject(err);
-
-      const handleLoadedObject = (obj) => {
-        obj.position.set(0, 0, 0);
-        traverseMesh(obj);
-        fileObject.path = fileObject.path.replace("gltf/", "");
-        core.outlineClipping = prepareOutlineClipping(obj);
-        scene.add(obj, core.outlineClipping);
-        mainObject.push(obj);
-        resolve(obj);
-      };
 
       if (!config.noMTL) {
-        new MTLLoader(manager).setPath(fileObject.path).load(
-          basename + ".mtl",
-          (materials) => {
-            materials.preload();
-            new OBJLoader(manager)
-              .setMaterials(materials)
-              .setPath(fileObject.path)
-              .load(filename, handleLoadedObject, onProgress, onError);
-          },
-          undefined,
-          onErrorMTL
-        );
-      } else {
-        new OBJLoader().setPath(fileObject.path).load(
-          filename,
-          handleLoadedObject,
-          onProgress,
-          onError
-        );
+        const materials = await new Promise((resolve, reject) => {
+          new MTLLoader(manager)
+          .setPath(fileObject.path)
+          .load(basename + ".mtl", resolve, undefined, reject);
+        });
+        materials.preload();
+
+        const obj = await new Promise((resolve, reject) => {
+          new OBJLoader(manager)
+          .setMaterials(materials)
+          .setPath(fileObject.path)
+          .load(filename, resolve, onProgress, reject);
+        });
+
+        obj.position.set(0, 0, 0);
+        return obj;
       }
-    });
 
-    await fetchSettings(
-      fileObject,
-      object,
-      camera,
-      lightObjects[0],
-      controls,
-      gui,
-      config,
-      getProxyPath,
-      stats,
-      guiContainer,
-      entityID,
-      container,
-      metadataContainer,
-      canvasText,
-      bottomLineGUI,
-      compressedFile,
-      viewEntity,
-      helperObjects
-    );
+      const obj = await new Promise((resolve, reject) => {
+        new OBJLoader()
+        .setPath(fileObject.path)
+        .load(filename, resolve, onProgress, reject);
+      });
 
-    return object;
-  }
+      obj.position.set(0, 0, 0);
+      return obj;
+    }
 
-  async function loadGLTFModel(fileObject, config, scene, mainObject) {
-    const modelPath = (() => {
-      let path = fileObject.path + fileObject.basename + "." + fileObject.extension;
+
+    async function loadGLTFModel(fileObject, config) {
+      let modelPath = fileObject.path + fileObject.basename + "." + fileObject.extension;
       if (config.entity.proxyPath !== undefined) {
-        path = getProxyPath(path);
+        modelPath = getProxyPath(modelPath);
       }
-      return path;
-    })();
 
-    const object = await new Promise((resolve, reject) => {
       const dracoLoader = new DRACOLoader();
       dracoLoader.setDecoderPath(DRACO_BASE);
       dracoLoader.preload();
 
       const loader = new GLTFLoader();
       loader.setDRACOLoader(dracoLoader);
-
+    
       showToast("Model has being loaded from " + fileObject.extension + " representation.");
 
-      loader.load(
-        modelPath,
-        (gltf) => {
-          traverseMesh(gltf.scene);
-          fileObject.path = fileObject.path.replace("gltf/", "");
-          core.outlineClipping = prepareOutlineClipping(gltf.scene);
-          core.outlineClipping.position.set(
-            gltf.scene.position.x,
-            gltf.scene.position.y,
-            gltf.scene.position.z
-          );
-          scene.add(gltf.scene, core.outlineClipping);
-          mainObject.push(gltf.scene);
-          resolve(gltf.scene);
-        },
-        (xhr) => {
-          if (!core.circle) return;
-          const total = xhr.total || xhr.loaded || 1;
-          const percentComplete = Math.min((xhr.loaded / total) * 100, 100);
-          if (!Number.isFinite(percentComplete)) return;
-          core.circle.show();
-          core.circle.set(percentComplete, 100);
-          if (percentComplete >= 100) {
-            core.circle.hide();
-            showToast("Model " + fileObject.filename + " has been loaded.");
-          }
-        },
-        (err) => reject(err)
-      );
-    });
-
-    await fetchSettings(
-      fileObject,
-      object,
-      camera,
-      lightObjects[0],
-      controls,
-      gui,
-      config,
-      getProxyPath,
-      stats,
-      guiContainer,
-      entityID,
-      container,
-      metadataContainer,
-      canvasText,
-      bottomLineGUI,
-      compressedFile,
-      viewEntity,
-      helperObjects
-    );
-
-    return object;
-  }
-
-  switch (fileObject.extension.toLowerCase()) {
-    case "obj":
-      const obj = await loadOBJWithMTL(params.fileObject, config, scene, mainObject, params);
-      break;
-
-    case "fbx":
-      loader = new FBXLoader();
-      loader.load(
-        modelPath,
-        function (object) {
-          traverseMesh(object);
-          object.position.set(0, 0, 0);
-          params.fileObject.path = params.fileObject.path.replace("gltf/", "");
-            fetchSettings(
-              params.fileObject,
-              object.children,
-              camera,
-              lightObjects[0],
-              controls,
-              gui,
-              config,
-              getProxyPath,
-              stats,
-              guiContainer,
-              entityID,
-              container,
-              metadataContainer,
-              canvasText,
-              bottomLineGUI,
-              compressedFile,
-              viewEntity,
-              helperObjects
-            );
-          core.outlineClipping = prepareOutlineClipping(object);
-          scene.add(object, core.outlineClipping);
-          scene.add(object);
-          mainObject.push(object);
-        },
-        onProgress,
-        onError
-      );
-      break;
-
-    case "ply":
-      loader = new PLYLoader();
-      loader.load(
-        modelPath,
-        function (geometry) {
-          geometry.computeVertexNormals();
-          const material = new THREE.MeshStandardMaterial({
-            color: 0x0055ff,
-            flatShading: true,
-          });
-          const object = new THREE.Mesh(geometry, material);
-          object.position.set(0, 0, 0);
-          object.castShadow = true;
-          object.receiveShadow = true;
-          traverseMesh(object);
-          params.fileObject.path = params.fileObject.path.replace("gltf/", "");
-            fetchSettings(
-              params.fileObject,
-              object,
-              camera,
-              lightObjects[0],
-              controls,
-              gui,
-              config,
-              getProxyPath,
-              stats,
-              guiContainer,
-              entityID,
-              container,
-              metadataContainer,
-              canvasText,
-              bottomLineGUI,
-              compressedFile,
-              viewEntity,
-              helperObjects
-            );
-          mainObject.push(object);
-          core.outlineClipping = prepareOutlineClipping(object);
-          scene.add(object, core.outlineClipping);
-          scene.add(object);
-        },
-        onProgress,
-        onError
-      );
-      break;
-
-    case "dae":
-      const loadingManager = new THREE.LoadingManager(function () {
-        scene.add(object);
+      const gltf = await new Promise((resolve, reject) => {
+        loader.load(
+          modelPath,
+          resolve,
+          (xhr) => {
+            if (!core.circle) return;
+            const total = xhr.total || xhr.loaded || 1;
+            const percentComplete = Math.min((xhr.loaded / total) * 100, 100);
+            if (!Number.isFinite(percentComplete)) return;
+            core.circle.show();
+            core.circle.set(percentComplete, 100);
+            if (percentComplete >= 100) {
+              core.circle.hide();
+              showToast("Model " + fileObject.filename + " has been loaded.");
+            }
+          },
+        reject
+        );
       });
-      loader = new ColladaLoader(loadingManager);
-      loader.load(
-        modelPath,
-        function (object) {
-          object = object.scene;
-          object.position.set(0, 0, 0);
-          traverseMesh(object);
-          params.fileObject.path = params.fileObject.path.replace("gltf/", "");
-          fetchSettings(
-            params.fileObject,
-            object,
-            camera,
-            lightObjects[0],
-            controls,
-            gui,
-            config,
-            getProxyPath,
-            stats,
-            guiContainer,
-            entityID,
-            container,
-            metadataContainer,
-            canvasText,
-            bottomLineGUI,
-            compressedFile,
-            viewEntity,
-            helperObjects
-          );
-          mainObject.push(object);
-          core.outlineClipping = prepareOutlineClipping(object);
-          scene.add(object, core.outlineClipping);
-          scene.add(object);
-        },
-        onProgress,
-        onError
-      );
-      break;
 
-    case "ifc":
-      const ifcLoader = new IFCLoader();
-      // Use relative path to ifc files in dist folder
-      const ifcPath = "./dist/ifc/";
-      ifcLoader.ifcManager.setWasmPath(ifcPath, true);
-      ifcLoader.load(
-        modelPath,
-        function (object) {
-          traverseMesh(object);
-          params.fileObject.path = params.fileObject.path.replace("gltf/", "");
-          fetchSettings(
-            params.fileObject,
-            object,
-            camera,
-            lightObjects[0],
-            controls,
-            gui,
-            config,
-            getProxyPath,
-            stats,
-            guiContainer,
-            entityID,
-            container,
-            metadataContainer,
-            canvasText,
-            bottomLineGUI,
-            compressedFile,
-            viewEntity,
-            helperObjects
-          );
-          core.outlineClipping = prepareOutlineClipping(object);
-          scene.add(object, core.outlineClipping);
-          scene.add(object);
-          mainObject.push(object);
-        },
-        onProgress,
-        onError
-      );
-      break;
+      gltf.scene.position.set(0, 0, 0);
+      return gltf.scene;
+    }
 
-    case "stl":
-      loader = new STLLoader();
-      loader.load(
-        modelPath,
-        function (geometry) {
-          let meshMaterial = new THREE.MeshPhongMaterial({
-            color: 0xff5533,
-            specular: 0x111111,
-            shininess: 200,
-          });
-          if (geometry.hasColors) {
-            meshMaterial = new THREE.MeshPhongMaterial({
-              opacity: geometry.alpha,
-              vertexColors: true,
-            });
-          }
-          const object = new THREE.Mesh(geometry, meshMaterial);
-          object.position.set(0, 0, 0);
-          traverseMesh(object);
-          object.castShadow = true;
-          object.receiveShadow = true;
-          params.fileObject.path = params.fileObject.path.replace("gltf/", "");
-          fetchSettings(
-            params.fileObject,
-            object,
-            camera,
-            lightObjects[0],
-            controls,
-            gui,
-            config,
-            getProxyPath,
-            stats,
-            guiContainer,
-            entityID,
-            container,
-            metadataContainer,
-            canvasText,
-            bottomLineGUI,
-            compressedFile,
-            viewEntity,
-            helperObjects
-          );
-          core.outlineClipping = prepareOutlineClipping(object);
-          scene.add(object, core.outlineClipping);
-          scene.add(object);
-          mainObject.push(object);
-        },
-        onProgress,
-        onError
-      );
-      break;
-
-    case "xyz":
-      loader = new XYZLoader();
-      loader.load(
-        modelPath,
-        function (geometry) {
-          geometry.center();
-          const vertexColors = geometry.hasAttribute("color") === true;
-          const material = new THREE.PointsMaterial({
-            size: 0.1,
-            vertexColors: vertexColors,
-          });
-          const object = new THREE.Points(geometry, material);
-          traverseMesh(object);
-          object.position.set(0, 0, 0);
-          params.fileObject.path = params.fileObject.path.replace("gltf/", "");
-          fetchSettings(
-            params.fileObject,
-            object,
-            camera,
-            lightObjects[0],
-            controls,
-            gui,
-            config,
-            getProxyPath,
-            stats,
-            guiContainer,
-            entityID,
-            container,
-            metadataContainer,
-            canvasText,
-            bottomLineGUI,
-            compressedFile,
-            viewEntity,
-            helperObjects
-          );
-          core.outlineClipping = prepareOutlineClipping(object);
-          scene.add(object, core.outlineClipping);
-          scene.add(object);
-          mainObject.push(object);
-        },
-        onProgress,
-        onError
-      );
-      break;
-
-    case "pcd":
-      loader = new PCDLoader();
-      loader.load(
-        modelPath,
-        function (mesh) {
-          traverseMesh(mesh);
-          params.fileObject.path = params.fileObject.path.replace("gltf/", "");
-          fetchSettings(
-            params.fileObject,
-            mesh,
-            camera,
-            lightObjects[0],
-            controls,
-            gui,
-            config,
-            getProxyPath,
-            stats,
-            guiContainer,
-            entityID,
-            container,
-            metadataContainer,
-            canvasText,
-            bottomLineGUI,
-            compressedFile,
-            viewEntity,
-            helperObjects
-          );
-          mainObject.push(mesh);
-          core.outlineClipping = prepareOutlineClipping(mesh);
-          scene.add(mesh, core.outlineClipping);
-          scene.add(mesh);
-        },
-        onProgress,
-        onError
-      );
-      break;
-
-    case "json":
-      loader = new THREE.ObjectLoader();
-      loader.load(
-        modelPath,
-        function (object) {
-          object.position.set(0, 0, 0);
-          traverseMesh(object);
-          params.fileObject.path = params.fileObject.path.replace("gltf/", "");
-          fetchSettings(
-            params.fileObject,
-            object,
-            camera,
-            lightObjects[0],
-            controls,
-            gui,
-            config,
-            getProxyPath,
-            stats,
-            guiContainer,
-            entityID,
-            container,
-            metadataContainer,
-            canvasText,
-            bottomLineGUI,
-            compressedFile,
-            viewEntity,
-            helperObjects
-          );
-          core.outlineClipping = prepareOutlineClipping(object);
-          scene.add(object, core.outlineClipping);
-          scene.add(object);
-          mainObject.push(object);
-        },
-        onProgress,
-        onError
-      );
-      break;
-
-    case "3ds":
-      loader = new TDSLoader();
-      loader.setResourcePath(params.fileObject.path);
-      modelPath = path;
-      if (config.entity.proxyPath !== undefined) {
-        modelPath = getProxyPath(modelPath);
+    switch (fileObject.extension.toLowerCase()) {
+      case "obj": {
+        const object = await loadOBJWithMTL(params.fileObject, config, scene, mainObject, params);
+        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core });
+        break;
       }
-      loader.load(
-        modelPath + params.fileObject.basename + "." + params.fileObject.extension,
-        function (object) {
-          traverseMesh(object);
-          params.fileObject.path = params.fileObject.path.replace("gltf/", "");
-          fetchSettings(
-            params.fileObject,
-            object,
-            camera,
-            lightObjects[0],
-            controls,
-            gui,
-            config,
-            getProxyPath,
-            stats,
-            guiContainer,
-            entityID,
-            container,
-            metadataContainer,
-            canvasText,
-            bottomLineGUI,
-            compressedFile,
-            viewEntity,
-            helperObjects
-          );
-          mainObject.push(object);
-          core.outlineClipping = prepareOutlineClipping(object);
-          scene.add(object, core.outlineClipping);
-          scene.add(object);
-        },
-        onProgress,
-        onError
-      );
-      break;
 
-    case "glb":
-    case "gltf":
-      await loadGLTFModel(params.fileObject, config, scene, mainObject);
-      break;
-    default:
-      showToast("Extension not supported yet");
-  }
+      case "fbx": {
+        const loader = new FBXLoader();
+        const object = await loadAsync(loader, modelPath, onProgress);
+        object.position.set(0, 0, 0);
+        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core });
+        break;
+      }
+
+      case "ply": {
+        const loader = new PLYLoader();
+        const geometry = await loadAsync(loader, modelPath, onProgress);
+        geometry.computeVertexNormals();
+        const material = new THREE.MeshStandardMaterial({ color: 0x0055ff, flatShading: true });
+        const object = new THREE.Mesh(geometry, material);
+        object.position.set(0, 0, 0);
+        object.castShadow = true;
+        object.receiveShadow = true;
+        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core });
+        break;
+      }
+
+      case "dae": {
+        const loader = new ColladaLoader();
+        const collada = await loadAsync(loader, modelPath, onProgress);
+        const object = collada.scene;
+        object.position.set(0, 0, 0);
+        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core });
+        break;
+      }
+
+      case "ifc": {
+        const ifcLoader = new IFCLoader();
+        ifcLoader.ifcManager.setWasmPath("./dist/ifc/", true);
+        const object = await loadAsync(ifcLoader, modelPath, onProgress);
+        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core });
+        break;
+      }
+
+      case "stl": {
+        const loader = new STLLoader();
+        const geometry = await loadAsync(loader, modelPath, onProgress);
+        let meshMaterial = new THREE.MeshPhongMaterial({ color: 0xff5533, specular: 0x111111, shininess: 200 });
+        if (geometry.hasColors) {
+          meshMaterial = new THREE.MeshPhongMaterial({ opacity: geometry.alpha, vertexColors: true });
+        }
+        const object = new THREE.Mesh(geometry, meshMaterial);
+        object.position.set(0, 0, 0);
+        object.castShadow = true;
+        object.receiveShadow = true;
+        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core });
+        break;
+      }
+
+      case "xyz": {
+        const loader = new XYZLoader();
+        const geometry = await loadAsync(loader, modelPath, onProgress);
+        geometry.center();
+        const material = new THREE.PointsMaterial({ size: 0.1, vertexColors: geometry.hasAttribute("color") === true });
+        const object = new THREE.Points(geometry, material);
+        object.position.set(0, 0, 0);
+        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core });
+        break;
+      }
+
+      case "pcd": {
+        const loader = new PCDLoader();
+        const mesh = await loadAsync(loader, modelPath, onProgress);
+        afterLoad({ object: mesh, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core });
+        break;
+      }
+
+      case "json": {
+        const loader = new THREE.ObjectLoader();
+        const object = await loadAsync(loader, modelPath, onProgress);
+        object.position.set(0, 0, 0);
+        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core });
+        break;
+      }
+
+      case "3ds": {
+        const loader = new TDSLoader();
+        loader.setResourcePath(params.fileObject.path);
+        let mp = path;
+        if (config.entity.proxyPath !== undefined) mp = getProxyPath(mp);
+        const object = await loadAsync(loader, mp + params.fileObject.basename + "." + params.fileObject.extension, onProgress);
+        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core });
+        break;
+      }
+
+      case "glb":
+      case "gltf": {
+        const object = await loadGLTFModel(params.fileObject, config, scene, mainObject);
+        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core });
+        break;
+      }
+      default:
+        showToast("Extension not supported yet");
+        break;
+    }
 }
 
 export const onError = function (_event) {

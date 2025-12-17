@@ -1,5 +1,6 @@
 import { truncateString, getProxyPath, hexToRgb } from "./utils.js";
 import { showToast, setupObject, setupCamera } from './viewer-utils.js';
+import { core, setCore } from './core.js';
 
 /**
  * Formats WissKI metadata labels and values for display.
@@ -122,7 +123,6 @@ export async function handleMetadataResponse(
   bottomLineGUI,
   compressedFile,
   viewEntity,
-  helperObjects,
   gui
 ) {
   var tempArray = [];
@@ -324,16 +324,15 @@ export async function fetchSettings(
   canvasText,
   bottomLineGUI,
   compressedFile,
-  viewEntity,
-  helperObjects
+  viewEntity
 ) {
   var metadata = { vertices: 0, faces: 0 };
   let metadataUrl = fileObject.path + "metadata/" + fileObject.filename + "_viewer";
 
   if (Array.isArray(object)) {
-    helperObjects.push(object[0]);
+    core.helperObjects.push(object[0]);
   } else {
-    helperObjects.push(object);
+    core.helperObjects.push(object);
   }
 
   let hierarchyMain;
@@ -342,8 +341,8 @@ export async function fetchSettings(
   }
   if (CONFIG.entity.proxyPath !== undefined || (CONFIG.viewer.lightweight === 1 || CONFIG.viewer.lightweight === true)) {
     metadataUrl = getProxyPath(metadataUrl, CONFIG, fileObject);
-    await handleMetadataResponse(null, metadata, fileObject, object, camera, light, controls, hierarchyMain, CONFIG, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, helperObjects);
-    settingsHandler(object, light, controls, hierarchyMain, CONFIG, helperObjects);
+    await handleMetadataResponse(null, metadata, fileObject, object, camera, light, controls, hierarchyMain, CONFIG, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity);
+    settingsHandler(object, light, controls, hierarchyMain, CONFIG);
   } else if (CONFIG.entity.metadata.source === "IIIF") {
     await handleMetadataResponse(
       CONFIG.model,
@@ -362,7 +361,6 @@ export async function fetchSettings(
       bottomLineGUI,
       compressedFile,
       viewEntity,
-      helperObjects,
       gui
     );
   } else {
@@ -392,8 +390,7 @@ export async function fetchSettings(
           canvasText,
           bottomLineGUI,
           compressedFile,
-          viewEntity,
-          helperObjects
+          viewEntity
         );
       });
   }

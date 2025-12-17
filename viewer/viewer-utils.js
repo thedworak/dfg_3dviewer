@@ -138,15 +138,14 @@ export const setupObject = (_object, _light, _controls) => {
     }
     var size = new THREE.Vector3();
     boundingBox.getSize(size);
-    _camera.position.set(size.x, size.y, size.z);
-    await fitCameraToCenteredObject(_camera, _object, 1.2, true);
+    core.camera.position.set(size.x, size.y, size.z);
+    await fitCameraToCenteredObject(core.camera, _object, 1.2, true);
   }
 
 export async function setupCamera (_object, _light, _config) {
   if (core.objectsConfig !== "undefined") {
     if (typeof core.objectsConfig.camera.position !== "undefined") {
       core.camera.position.set(core.objectsConfig.camera.position.x, core.objectsConfig.camera.position.y, core.objectsConfig.camera.position.z);
-      //await setupEmptyCamera(_object);
     } else {
       await setupEmptyCamera(_object);
     }
@@ -155,7 +154,8 @@ export async function setupCamera (_object, _light, _config) {
     } else {
       await setupEmptyCamera(_object);
     }
-  
+    //await fitCameraToCenteredObject(core.camera, _object, 1.2, true);
+
     // Setup lights
     core.objectsConfig.scene.lights.forEach(light => {
       switch (light.type) {
@@ -325,16 +325,13 @@ async function fitCameraToCenteredObject(object, add_offset, _fit) {
     core.controls.maxDistance = cameraToFarEdge * 2;
   }
   core.controls.update();
-
   if (_fit) {
     var rotateMetadata = new THREE.Vector3();
-    if (core.helperObjects[0] !== undefined && core.helperObjects[0].rotation.x !== undefined && core.helperObjects[0].rotation.y !== undefined && core.helperObjects[0].rotation.z !== undefined) {
     rotateMetadata = new THREE.Vector3(
       THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.x || 1),
       THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.y || 5),
       THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.z || 1)
     );
-  }
     core.objectsConfig.originalMetadata = {
       objPosition: [object.position.x, object.position.y, object.position.z],
       objRotation: [rotateMetadata.x, rotateMetadata.y, rotateMetadata.z],

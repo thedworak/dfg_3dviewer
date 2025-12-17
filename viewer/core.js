@@ -15,7 +15,7 @@ export const core = {
     gridSize: null,
     dirLightTarget: null,
     lightHelper: null,
-    Scene: new THREE.Scene(),
+    scene: new THREE.Scene(),
     basicGrid: new THREE.Group(),
     cameraCoords: null,
     tween: new TWEEN.Tween(),
@@ -29,6 +29,7 @@ export const core = {
     distanceGeometry: null,
     planeParams: null,
     clippingFolder: null,
+    helperObjects: []
     // Add other shared state here
 };
 

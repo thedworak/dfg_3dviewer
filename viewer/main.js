@@ -367,6 +367,7 @@ export const Viewer = {
     setCore('intensity', this.intensity);
     this.clippingPlanes = this.core;
     setCore("clippingPlanes", this.clippingPlanes);
+    setCore('helperObjects', this.helperObjects);
 
     this.clock = new THREE.Clock();
 
@@ -907,7 +908,7 @@ export const Viewer = {
       Viewer.mixer.update(delta);
     }
 
-    Viewer.tween.update(time);
+    core.tween.update(time);
     Viewer.controls?.update();
 
     if (Viewer.textMesh !== null) {
@@ -1179,8 +1180,7 @@ export const Viewer = {
         canvasText: this.canvasText,
         bottomLineGUI: this.bottomLineGUI,
         compressedFile: this.compressedFile,
-        viewEntity: this.viewEntity,
-        helperObjects: Viewer.helperObjects
+        viewEntity: this.viewEntity
       });
     } else if (
       this._ext === "zip" ||
@@ -1199,7 +1199,7 @@ export const Viewer = {
         this.canvasText,
         this.bottomLineGUI,
         this.compressedFile,
-        this.viewEntity, Viewer.helperObjects
+        this.viewEntity
       );
     } else {
       //this.fileObject.extension = "glb";
@@ -1210,7 +1210,7 @@ export const Viewer = {
         this.canvasText,
         this.bottomLineGUI,
         this.compressedFile,
-        this.viewEntity, Viewer.helperObjects);
+        this.viewEntity);
       }
       else await loadModel({
         fileObject: this.fileObject,
@@ -1229,8 +1229,8 @@ export const Viewer = {
         canvasText: this.canvasText,
         bottomLineGUI: this.bottomLineGUI,
         compressedFile: this.compressedFile,
-        viewEntity: this.viewEntity,
-        helperObjects: Viewer.helperObjects});
+        viewEntity: this.viewEntity
+      });
       }
   },
 
