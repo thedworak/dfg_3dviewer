@@ -308,6 +308,7 @@ export const Viewer = {
     }    
     // Initialize clipping planes at startup
     this.core = initClippingPlanes();
+    setCore('EXIT_CODE', this.EXIT_CODE);
     // Initialize objectsConfig in core
     setCore('objectsConfig', objectsConfig);
     setCore('outlineClipping', outlineClipping);
@@ -1028,7 +1029,7 @@ export const Viewer = {
     }
   },
 
-  changeScale() {
+  async changeScale() {
     if (Viewer.transformControl.getMode() === "scale") {
       switch (Viewer.transformControl.axis) {
         case "X":
@@ -1059,7 +1060,7 @@ export const Viewer = {
     }
   },
 
-  calculateObjectScale() {
+  async calculateObjectScale() {
     const boundingBox = new THREE.Box3();
     if (Array.isArray(Viewer.helperObjects[0])) {
       for (let i = 0; i < Viewer.helperObjects[0].length; i++) {
@@ -1201,7 +1202,7 @@ export const Viewer = {
         this.viewEntity, Viewer.helperObjects
       );
     } else {
-      this.fileObject.extension = "glb";
+      //this.fileObject.extension = "glb";
       if (this._ext === "glb") {
         await loadModel(this.fileObject, this.CONFIG, getProxyPath, this.camera, this.lightObjects, this.controls, this.scene, this.mainObject, this.gui, this.stats,
         this.entityID, this.container,
@@ -1211,14 +1212,26 @@ export const Viewer = {
         this.compressedFile,
         this.viewEntity, Viewer.helperObjects);
       }
-      else await loadModel(this.fileObject, this.CONFIG, getProxyPath, this.camera, this.lightObjects, this.controls, this.scene, this.mainObject, this.gui, this.stats,
-        this.entityID, this.container,
-        this.metadataContainer,
-        this.canvasText,
-        this.bottomLineGUI,
-        this.compressedFile,
-        this.viewEntity, Viewer.helperObjects);
-    }
+      else await loadModel({
+        fileObject: this.fileObject,
+        config: this.CONFIG,
+        getProxyPath: getProxyPath,
+        camera: this.camera,
+        lightObjects: this.lightObjects,
+        controls: this.controls,
+        scene: this.scene,
+        mainObject: this.mainObject,
+        gui: this.gui,
+        stats: this.stats,
+        entityID: this.entityID,
+        container: this.container,
+        metadataContainer: this.metadataContainer,
+        canvasText: this.canvasText,
+        bottomLineGUI: this.bottomLineGUI,
+        compressedFile: this.compressedFile,
+        viewEntity: this.viewEntity,
+        helperObjects: Viewer.helperObjects});
+      }
   },
 
   createClippingPlaneAxis(_number) {
@@ -1847,6 +1860,8 @@ export const Viewer = {
       Viewer.controls.enableRotate = true;
       Viewer.controls.update();
       setCore('controls', Viewer.controls);
+      //Viewer.changeScale();
+      setCore('', Viewer.helperObjects);
 
       Viewer.transformControl = new TransformControls(Viewer.camera, Viewer.renderer.domElement);
       Viewer.transformControl.rotationSnap = THREE.MathUtils.degToRad(5);

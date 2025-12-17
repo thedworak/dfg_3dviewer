@@ -183,9 +183,10 @@ function traverseMesh(object) {
 
     // Example usage:
     // Instead of fileObject.originalPath, use params.fileObject.originalPath
-    let modelPath = fileObject.path + fileObject.filename;
+    console.log(params);
+    let modelPath = params.path + params.filename;
     if (config.entity.proxyPath !== undefined) {
-      modelPath = getProxyPath(modelPath, config, params.fileObject);
+      modelPath = getProxyPath(modelPath, config, params);
     }
 
   async function loadOBJWithMTL(fileObject, config, scene, mainObject) {
@@ -332,7 +333,7 @@ function traverseMesh(object) {
 
   switch (fileObject.extension.toLowerCase()) {
     case "obj":
-      const obj = await loadOBJWithMTL(fileObject, config, scene, mainObject, params);
+      const obj = await loadOBJWithMTL(params.fileObject, config, scene, mainObject, params);
       break;
 
     case "fbx":
@@ -342,9 +343,9 @@ function traverseMesh(object) {
         function (object) {
           traverseMesh(object);
           object.position.set(0, 0, 0);
-          fileObject.path = fileObject.path.replace("gltf/", "");
+          params.fileObject.path = params.fileObject.path.replace("gltf/", "");
             fetchSettings(
-              fileObject,
+              params.fileObject,
               object.children,
               camera,
               lightObjects[0],
@@ -388,9 +389,9 @@ function traverseMesh(object) {
           object.castShadow = true;
           object.receiveShadow = true;
           traverseMesh(object);
-          fileObject.path = fileObject.path.replace("gltf/", "");
+          params.fileObject.path = params.fileObject.path.replace("gltf/", "");
             fetchSettings(
-              fileObject,
+              params.fileObject,
               object,
               camera,
               lightObjects[0],
@@ -430,9 +431,9 @@ function traverseMesh(object) {
           object = object.scene;
           object.position.set(0, 0, 0);
           traverseMesh(object);
-          fileObject.path = fileObject.path.replace("gltf/", "");
+          params.fileObject.path = params.fileObject.path.replace("gltf/", "");
           fetchSettings(
-            fileObject,
+            params.fileObject,
             object,
             camera,
             lightObjects[0],
@@ -470,9 +471,9 @@ function traverseMesh(object) {
         modelPath,
         function (object) {
           traverseMesh(object);
-          fileObject.path = fileObject.path.replace("gltf/", "");
+          params.fileObject.path = params.fileObject.path.replace("gltf/", "");
           fetchSettings(
-            fileObject,
+            params.fileObject,
             object,
             camera,
             lightObjects[0],
@@ -522,9 +523,9 @@ function traverseMesh(object) {
           traverseMesh(object);
           object.castShadow = true;
           object.receiveShadow = true;
-          fileObject.path = fileObject.path.replace("gltf/", "");
+          params.fileObject.path = params.fileObject.path.replace("gltf/", "");
           fetchSettings(
-            fileObject,
+            params.fileObject,
             object,
             camera,
             lightObjects[0],
@@ -567,9 +568,9 @@ function traverseMesh(object) {
           const object = new THREE.Points(geometry, material);
           traverseMesh(object);
           object.position.set(0, 0, 0);
-          fileObject.path = fileObject.path.replace("gltf/", "");
+          params.fileObject.path = params.fileObject.path.replace("gltf/", "");
           fetchSettings(
-            fileObject,
+            params.fileObject,
             object,
             camera,
             lightObjects[0],
@@ -604,9 +605,9 @@ function traverseMesh(object) {
         modelPath,
         function (mesh) {
           traverseMesh(mesh);
-          fileObject.path = fileObject.path.replace("gltf/", "");
+          params.fileObject.path = params.fileObject.path.replace("gltf/", "");
           fetchSettings(
-            fileObject,
+            params.fileObject,
             mesh,
             camera,
             lightObjects[0],
@@ -642,9 +643,9 @@ function traverseMesh(object) {
         function (object) {
           object.position.set(0, 0, 0);
           traverseMesh(object);
-          fileObject.path = fileObject.path.replace("gltf/", "");
+          params.fileObject.path = params.fileObject.path.replace("gltf/", "");
           fetchSettings(
-            fileObject,
+            params.fileObject,
             object,
             camera,
             lightObjects[0],
@@ -675,18 +676,18 @@ function traverseMesh(object) {
 
     case "3ds":
       loader = new TDSLoader();
-      loader.setResourcePath(fileObject.path);
+      loader.setResourcePath(params.fileObject.path);
       modelPath = path;
       if (config.entity.proxyPath !== undefined) {
         modelPath = getProxyPath(modelPath);
       }
       loader.load(
-        modelPath + fileObject.basename + "." + fileObject.extension,
+        modelPath + params.fileObject.basename + "." + params.fileObject.extension,
         function (object) {
           traverseMesh(object);
-          fileObject.path = fileObject.path.replace("gltf/", "");
+          params.fileObject.path = params.fileObject.path.replace("gltf/", "");
           fetchSettings(
-            fileObject,
+            params.fileObject,
             object,
             camera,
             lightObjects[0],
@@ -717,7 +718,7 @@ function traverseMesh(object) {
 
     case "glb":
     case "gltf":
-      await loadGLTFModel(fileObject, config, scene, mainObject);
+      await loadGLTFModel(params.fileObject, config, scene, mainObject);
       break;
     default:
       showToast("Extension not supported yet");
@@ -728,7 +729,7 @@ export const onError = function (_event) {
   //circle.set(100, 100);
   console.log("Loader error: " + _event);
   if (typeof core.circle !== "undefined") core.circle.hide();
-  if (typeof EXIT_CODE !== "undefined") EXIT_CODE = 1;
+  if (typeof core.EXIT_CODE !== "undefined") core.EXIT_CODE = 1;
 };
 
 export const onErrorMTL = async function (_event, params) {
@@ -764,6 +765,6 @@ export const onProgress = function (xhr, params) {
   if (percentComplete >= 100) {
     core.circle.hide();
     showToast("Model has been loaded.");
-    if (typeof params.EXIT_CODE !== "undefined") params.EXIT_CODE = 0;
+    if (typeof core.EXIT_CODE !== "undefined") core.EXIT_CODE = 0;
   }
 };

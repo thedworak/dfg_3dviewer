@@ -130,7 +130,7 @@ export async function handleMetadataResponse(
   let metadataContentTech = '<hr class="metadataSeparator">';
   if (Array.isArray(object)) {
     setupObject(object[0], light, controls, CONFIG);
-    await setupCamera(object[0], light, CONFIG, helperObjects);
+    await setupCamera(object[0], light, CONFIG);
   } else if (object.name === "Scene" || object.children.length > 0 || object.type == "Mesh"
   ) {
     setupObject(object, light, controls, CONFIG);
@@ -165,10 +165,10 @@ export async function handleMetadataResponse(
         }
       }
     });
-    await setupCamera(object, light, CONFIG, helperObjects);
+    await setupCamera(object, light, CONFIG);
   } else {
     setupObject(object, light, controls, CONFIG);
-    await setupCamera(object, light, CONFIG, helperObjects);
+    await setupCamera(object, light, CONFIG);
     metadata["vertices"] += fetchMetadata(object, "vertices");
     metadata["faces"] += fetchMetadata(object, "faces");
     if (object.name === "") {
@@ -287,16 +287,16 @@ export async function handleMetadataResponse(
 /**
  * Handles settings for the loaded object and camera.
  */
-export async function settingsHandler(object, light, controls, hierarchyMain, CONFIG, helperObjects) {
+export async function settingsHandler(object, light, controls, hierarchyMain, CONFIG) {
   if (Array.isArray(object)) {
-    setupObject(object[0], light, controls, CONFIG, helperObjects);
-    await setupCamera(object[0], light, CONFIG, helperObjects);
+    setupObject(object[0], light, controls, CONFIG);
+    await setupCamera(object[0], light, CONFIG);
   } else if (object.name === "Scene" || object.children.length > 0) {
-    setupObject(object, light, controls, CONFIG, helperObjects);
-    await setupCamera(object, light, CONFIG, helperObjects);
+    setupObject(object, light, controls, CONFIG);
+    await setupCamera(object, light, CONFIG);
   } else {
-    setupObject(object, light, controls, CONFIG, helperObjects);
-    await setupCamera(object, light, CONFIG, helperObjects);
+    setupObject(object, light, controls, CONFIG);
+    await setupCamera(object, light, CONFIG);
     if (object.name === "undefined") object.name = "level";
     if (!lilGUIhasFolder(hierarchyMain, object.name)) {
       hierarchyMain.addFolder(object.name).close();

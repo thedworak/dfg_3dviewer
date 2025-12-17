@@ -35,7 +35,7 @@ function fetchObjectFromConfig(_name) {
   return core.objectsConfig?.models?.find(model => model.name === _name);
 }
 
-export const setupObject = (_object, _light, _controls, _helperObjects) => {
+export const setupObject = (_object, _light, _controls) => {
   const model = fetchObjectFromConfig(_object.children[0].name); //TODO: check for multiple objects
   if (typeof core.objectsConfig !== "undefined" && model) {
     if (typeof core.objectsConfig.models == undefined || core.objectsConfig.models?.length == 0) {
@@ -127,7 +127,7 @@ export const setupObject = (_object, _light, _controls, _helperObjects) => {
   core.objectsConfig.setupIndex++;
 }
 
-  async function setupEmptyCamera(_camera, _object, _helperObjects) {
+  async function setupEmptyCamera(_object) {
     var boundingBox = new THREE.Box3();
     if (Array.isArray(_object)) {
       for (let i = 0; i < _object.length; i++) {
@@ -139,21 +139,21 @@ export const setupObject = (_object, _light, _controls, _helperObjects) => {
     var size = new THREE.Vector3();
     boundingBox.getSize(size);
     _camera.position.set(size.x, size.y, size.z);
-    await fitCameraToCenteredObject(_camera, _object, 1.2, true, _helperObjects, core.objectsConfig.originalMetadata);
+    await fitCameraToCenteredObject(_camera, _object, 1.2, true);
   }
 
-export async function setupCamera (_object, _light, _config, _helperObjects) {
+export async function setupCamera (_object, _light, _config) {
   if (core.objectsConfig !== "undefined") {
     if (typeof core.objectsConfig.camera.position !== "undefined") {
       core.camera.position.set(core.objectsConfig.camera.position.x, core.objectsConfig.camera.position.y, core.objectsConfig.camera.position.z);
-      //await setupEmptyCamera(core.camera, _object, _helperObjects);
+      //await setupEmptyCamera(_object);
     } else {
-      await setupEmptyCamera(core.camera, _object, _helperObjects);
+      await setupEmptyCamera(_object);
     }
     if (typeof core.objectsConfig.camera.target !== "undefined") {
       core.controls.target.set(core.objectsConfig.camera.target.x, core.objectsConfig.camera.target.y, core.objectsConfig.camera.target.z);
     } else {
-      await setupEmptyCamera(core.camera, _object, _helperObjects);
+      await setupEmptyCamera(_object);
     }
   
     // Setup lights
@@ -212,13 +212,13 @@ export async function setupCamera (_object, _light, _config, _helperObjects) {
     }
     core.camera.updateProjectionMatrix();
     core.controls.update();
-    await fitCameraToCenteredObject(_object, 2.5, false, _helperObjects, core.objectsConfig.originalMetadata);
+    await fitCameraToCenteredObject(_object, 2.5, false);
   } else {
-    await setupEmptyCamera(core.camera, _object, _helperObjects);
+    await setupEmptyCamera(_object);
   }
 }
 
-async function fitCameraToCenteredObject(object, add_offset, _fit, _helperObjects, originalMetadata) {
+async function fitCameraToCenteredObject(object, add_offset, _fit) {
   const boundingBox = new THREE.Box3();
   if (Array.isArray(object)) {
     for (let i = 0; i < object.length; i++) {
@@ -328,20 +328,20 @@ async function fitCameraToCenteredObject(object, add_offset, _fit, _helperObject
 
   if (_fit) {
     var rotateMetadata = new THREE.Vector3();
-    if (_helperObjects[0] !== undefined && _helperObjects[0].rotation.x !== undefined && _helperObjects[0].rotation.y !== undefined && _helperObjects[0].rotation.z !== undefined) {
+    if (core.helperObjects[0] !== undefined && core.helperObjects[0].rotation.x !== undefined && core.helperObjects[0].rotation.y !== undefined && core.helperObjects[0].rotation.z !== undefined) {
     rotateMetadata = new THREE.Vector3(
-      THREE.MathUtils.radToDeg(_helperObjects[0].rotation.x || 1),
-      THREE.MathUtils.radToDeg(_helperObjects[0].rotation.y || 5),
-      THREE.MathUtils.radToDeg(_helperObjects[0].rotation.z || 1)
+      THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.x || 1),
+      THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.y || 5),
+      THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.z || 1)
     );
   }
-    originalMetadata = {
+    core.objectsConfig.originalMetadata = {
       objPosition: [object.position.x, object.position.y, object.position.z],
       objRotation: [rotateMetadata.x, rotateMetadata.y, rotateMetadata.z],
       objScale: [
-        _helperObjects[0]?.scale.x || 1,
-        _helperObjects[0]?.scale.y || 5,
-        _helperObjects[0]?.scale.z || 1,
+        core.helperObjects[0]?.scale.x || 1,
+        core.helperObjects[0]?.scale.y || 5,
+        core.helperObjects[0]?.scale.z || 1,
       ],
       cameraPosition: [core.camera.position.x, core.camera.position.y, core.camera.position.z],
       controlsTarget: [core.controls.target.x, core.controls.target.y, core.controls.target.z],
