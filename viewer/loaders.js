@@ -183,7 +183,6 @@ function traverseMesh(object) {
 
     // Example usage:
     // Instead of fileObject.originalPath, use params.fileObject.originalPath
-    console.log(params);
     let modelPath = params.path + params.filename;
     if (config.entity.proxyPath !== undefined) {
       modelPath = getProxyPath(modelPath, config, params);
