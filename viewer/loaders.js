@@ -11,12 +11,12 @@ import { TDSLoader } from "three/examples/jsm/loaders/TDSLoader.js";
 import { PCDLoader } from "three/examples/jsm/loaders/PCDLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
-import { IFCLoader } from "web-ifc-three";
+import { IFCLoader } from 'web-ifc-three/IFCLoader.js';
 
 // Remove main.js import
 import { core, setCore } from './core.js';
 import { fetchSettings } from "./metadata.js";
-import { showToast, initClippingPlanes } from "./viewer-utils.js";
+import { showToast } from "./viewer-utils.js";
 
 export var outlineClipping;
 

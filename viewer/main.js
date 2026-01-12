@@ -18,6 +18,7 @@ https://www.gnu.org/licenses/.
 
 const SOURCE = (typeof __BUILD_SOURCE__ !== 'undefined') ? __BUILD_SOURCE__ : "";
 const IS_PROD = (typeof __IS_PROD__ !== 'undefined') ? __IS_PROD__ : "prod";
+const isE2E = import.meta.env.MODE === 'test' ||  window.__E2E__ === true;
 
 import { core, setCore } from './core.js';
 
@@ -1796,7 +1797,14 @@ export const Viewer = {
 
       const devicePixelRatio = window.devicePixelRatio || 1;
       Viewer.renderer.setSize(Viewer.CONFIG.viewer.canvasDimensions.x, Viewer.CONFIG.viewer.canvasDimensions.y);
-      Viewer.renderer.setPixelRatio(devicePixelRatio);
+
+      if (isE2E) {
+        renderer.setPixelRatio(1);
+        renderer.toneMappingExposure = 1;
+        disablePostProcessing();
+      } else {
+            Viewer.renderer.setPixelRatio(devicePixelRatio);
+      }
       Viewer.renderer.domElement.style.width = Viewer.CONFIG.viewer.canvasDimensions.x + "px";
       Viewer.renderer.domElement.style.height = Viewer.CONFIG.viewer.canvasDimensions.y + "px";
 
@@ -2154,6 +2162,21 @@ export const Viewer = {
   }
   
 };
+
+export async function expectWebGL(page) {
+  const hasWebGL = await page.evaluate(() => {
+    const canvas = document.querySelector('canvas');
+    if (!canvas) return false;
+    const gl =
+      canvas.getContext('webgl') ||
+      canvas.getContext('webgl2');
+    return !!gl;
+  });
+
+  if (!hasWebGL) {
+    throw new Error('WebGL context not available');
+  }
+}
 
 (async () => {
   await Viewer.MainInit();
