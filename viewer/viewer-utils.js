@@ -36,8 +36,14 @@ function fetchObjectFromConfig(_name) {
 }
 
 export const setupObject = (_object, _light, _controls) => {
-  const model = fetchObjectFromConfig(_object.children[0].name); //TODO: check for multiple objects
-  if (typeof core.objectsConfig !== "undefined" && model) {
+  let model;
+  if (typeof _object.children === "undefined" || _object.children.length == 0) {
+    model = fetchObjectFromConfig(_object.name);
+  } else if (_object.children.length > 0) {
+    model = fetchObjectFromConfig(_object.children[0].name); //TODO: check for multiple objects
+  }
+  
+  if (typeof core.objectsConfig !== "undefined" && model) { //Setup from config
     if (typeof core.objectsConfig.models == undefined || core.objectsConfig.models?.length == 0) {
       if (typeof model.position !== undefined) _object.position.set(model.position.x, model.position.y, model.position.z);
 
@@ -81,23 +87,15 @@ export const setupObject = (_object, _light, _controls) => {
         }
         _object[i].updateMatrixWorld();
       }
-    } /*else if (_object.isGroup && fileObject.extension == "fbx") {
-      //workaround for specific FBX case
+    } else if (_object.isGroup) {
+      //workaround for specific Group case
       boundingBox.setFromObject(_object);
-      var _obj = new THREE.Object3D();
-      _obj.attach(_object);
-      //_obj.position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
-      _obj.updateMatrixWorld();
-      _object = _obj;
-    }*/ else {
-      boundingBox.setFromObject(_object);
-      _object.position.set(
-        -(boundingBox.min.x + boundingBox.max.x) / 2,
-        -boundingBox.min.y,
-        -(boundingBox.min.z + boundingBox.max.z) / 2
-      );
+      _object.position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
       _object.updateMatrixWorld();
-      //_object.position.set (0, 0, 0);
+    } else {
+      boundingBox.setFromObject(_object);
+      _object.position.set((boundingBox.max.x - boundingBox.min.x ) / 2, (boundingBox.max.y - boundingBox.min.y) / 2, (boundingBox.max.z - boundingBox.min.z ) / 2);
+      _object.updateMatrixWorld();
       _object.needsUpdate = true;
       if (typeof _object.geometry !== "undefined") {
         _object.geometry.computeBoundingBox();
