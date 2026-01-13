@@ -103,7 +103,7 @@ Then, basic configuration should be changed:
         imageId: "",
       },
       background:
-        "radial-gradient(circle, rgb(255, 255, 255) 0%, rgb(210, 210, 210) 100%)",
+        "radial-gradient(circle, #ffffff 0%, #999999 100%)",
       performanceMode: {
         Performance: "high-performance",
       }

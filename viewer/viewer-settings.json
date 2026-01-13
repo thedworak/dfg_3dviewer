@@ -21,15 +21,15 @@
     "lightweight": 1,
     "salt": "Z7FYJMmTiEzcGp4lTpuk4LiA",
     "scaleContainer": {
-      "x": "1.2",
-      "y": "1.2"
+      "x": "1.0",
+      "y": "1.4"
     },
     "gallery": {
       "container": "block-bootstrap5-content",
       "imageClass": "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
       "imageId": "field--name-fd6a974b7120d422c7b21b5f1f2315d9"
     },
-    "background": "radial-gradient(circle, rgb(255, 255, 255) 0%, rgb(210, 210, 210) 100%)",
+    "background": "radial-gradient(circle, #ffffff 0%, #999999 100%)",
     "performanceMode": {
       "Performance": "high-performance"
     }

@@ -17,16 +17,12 @@ export default {
       preventAssignment: true,
       values: {
         __BUILD_SOURCE__: JSON.stringify(source),
-        __BUILD__: JSON.stringify(envBuild)
-      }
-    }),
-
-    replace({
-      preventAssignment: true,
-      __DFG_DRACO_PATH__:
-        envBuild === 'drupal'
-          ? '(window.DFG_3DVIEWER_BASE || "/") + "modules/custom/dfg_3dviewer/dist/assets/draco/"'
-          : '"assets/draco/"',
+        __BUILD__: JSON.stringify(envBuild),
+        __DFG_DRACO_PATH__:
+          envBuild === 'drupal'
+            ? '(window.DFG_3DVIEWER_BASE || "/") + "modules/custom/dfg_3dviewer/dist/assets/draco/"'
+            : '"assets/draco/"',
+      },
     }),
 
     url({

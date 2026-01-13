@@ -11,7 +11,7 @@ import { TDSLoader } from "three/examples/jsm/loaders/TDSLoader.js";
 import { PCDLoader } from "three/examples/jsm/loaders/PCDLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
-import { IFCLoader } from 'web-ifc-three/IFCLoader.js';
+import { IFCLoader } from "./js/loaders/IFCLoader.js";
 
 // Remove main.js import
 import { core, setCore } from './core.js';
@@ -194,6 +194,18 @@ function traverseMesh(object) {
 
     // Helper: common post-load pipeline
     function afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core }) {
+      if (object === null || typeof object === "undefined") {
+        showToast("Loaded object is null or undefined.");
+        if (window.__E2E__) { window.viewer.modelLoaded = false;
+
+        }
+        return;
+      }
+      if (window.__E2E__) {
+        window.viewer.modelLoaded = true;
+        window.viewer.camera = camera;
+        window.viewer.scene = scene;
+      }
       traverseMesh(object);
       params.fileObject.path = params.fileObject.path.replace("gltf/", "");
       fetchSettings( params.fileObject, object, camera, lightObjects[0], controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity);
@@ -290,7 +302,7 @@ function traverseMesh(object) {
       case "fbx": {
         const loader = new FBXLoader();
         const object = await loadAsync(loader, modelPath, onProgress);
-        object.position.set(0, 0, 0);
+        //object.position.set(0, 0, 0);
         afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core });
         break;
       }

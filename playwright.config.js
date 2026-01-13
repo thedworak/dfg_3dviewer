@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
-  testDir: './tests/e2e',
+  testDir: './tests',
   timeout: 30_000,
 
   expect: {
@@ -15,9 +15,9 @@ export default defineConfig({
   reporter: process.env.CI ? 'github' : 'html',
 
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: 'http://localhost:1234',
 
-    // 🔑 WebGL STABILITY
+    // WebGL STABILITY
     launchOptions: {
       args: [
         '--use-gl=angle',
@@ -29,7 +29,6 @@ export default defineConfig({
       ],
     },
 
-    // 🎯 deterministyczne testy
     deviceScaleFactor: 1,
     viewport: { width: 1280, height: 800 },
 
@@ -37,7 +36,6 @@ export default defineConfig({
     video: 'retain-on-failure',
     trace: 'retain-on-failure',
 
-    // 🧪 ważne dla WebGL
     colorScheme: 'light',
     reducedMotion: 'reduce',
   },
@@ -49,23 +47,11 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
       },
     },
-
-    // Firefox – opcjonalnie (słabsze WebGL)
-    // {
-    //   name: 'firefox',
-    //   use: { ...devices['Desktop Firefox'] },
-    // },
-
-    // WebKit – TYLKO jeśli celujesz w Safari/iOS
-    // {
-    //   name: 'webkit',
-    //   use: { ...devices['Desktop Safari'] },
-    // },
   ],
 
   webServer: {
     command: 'npm run dev',
-    port: 3000,
+    port: 1234,
     reuseExistingServer: !process.env.CI,
   },
 });

@@ -18,7 +18,17 @@ https://www.gnu.org/licenses/.
 
 const SOURCE = (typeof __BUILD_SOURCE__ !== 'undefined') ? __BUILD_SOURCE__ : "";
 const IS_PROD = (typeof __IS_PROD__ !== 'undefined') ? __IS_PROD__ : "prod";
-const isE2E = import.meta.env.MODE === 'test' ||  window.__E2E__ === true;
+const isE2E = (typeof __IS_PROD__ !== 'undefined') ? window.__E2E__ === true : false;
+
+window.viewer = {
+  ready: false,
+  modelLoaded: false,
+  webglReady: false,
+  camera: null,
+  scene: null,
+  renderer: null,
+  controls: null
+};
 
 import { core, setCore } from './core.js';
 
@@ -151,7 +161,7 @@ export const Viewer = {
     AmbientLight: "0x404040",
     CameraLight: "0xFFFFFF",
     BackgroundColor: "#FFFFFF",
-    BackgroundColorOuter: "#D2D2D2",
+    BackgroundColorOuter: "#999999",
   },
   materialProperties: {
     color: "0xFFFFFF",
@@ -273,7 +283,7 @@ export const Viewer = {
             imageId: "",
           },
           background:
-            "radial-gradient(circle, rgb(255, 255, 255) 0%, rgb(210, 210, 210) 100%)",
+            "radial-gradient(circle, #ffffff 0%, #999999 100%)",
           performanceMode: {
             Performance: "high-performance",
           }
@@ -844,7 +854,6 @@ export const Viewer = {
       }
       Viewer.fullscreenMode.style.left = (widthCSS - Viewer.fullscreenMode.getBoundingClientRect().width - 5) + 'px';
       Viewer.guiContainer.style.left = (widthCSS - Viewer.lilGui[0]?.getBoundingClientRect().width - 5) + 'px';
-      console.log();
     }
 
     Viewer.mainCanvas.width = widthDev;
@@ -1127,32 +1136,31 @@ export const Viewer = {
 
     this.mainCanvas.toBlob((imgBlob) => {
       const fileform = new FormData();
-      fileform.append("domain", CONFIG.mainUrl);
+      //fileform.append("domain", CONFIG.mainUrl);
       fileform.append("filename", basename);
-      fileform.append("path", uri + prependName);
-      fileform.append("data", imgBlob);
+      //fileform.append("path", uri + prependName);
+      fileform.append("data", imgBlob, "thumbnail.png");
       fileform.append("wisski_individual", entityID);
-      fetch(CONFIG.mainUrl + "/thumbnail_upload.php", {
+      fetch(CONFIG.mainUrl + "/api/editor/upload_thumbnail.php", {
         method: "POST",
-        body: fileform,
+        credentials: "same-origin",
+        headers: {
+          "X-CSRF-Token": window.CSRF_TOKEN
+        },
+        body: fileform
       })
-        .then((response) => {
-          console.log(response);
-          return response;
-        })
-        .then((data) => {
-          if (data.error) {
-            //Show server errors
-            showToast(data.error);
-          } else {
-            //Show success message
-            showToast("Rendering saved successfully");
-          }
-        })
-        .catch((err) => {
-          //Handle js errors
-          showToast(err.message);
-        });
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Upload failed");
+        return data;
+      })
+      .then(() => {
+        showToast("Rendering saved successfully");
+      })
+      .catch((err) => {
+        console.error(err);
+        showToast(err.message);
+      });
     }, "image/png");
 
     renderer.setPixelRatio(devicePixelRatio);
@@ -1435,17 +1443,8 @@ export const Viewer = {
         Viewer.editorFolder.add(
           {
             ["Save"]() {
-              var xhr = new XMLHttpRequest(),
-                jsonArr,
-                method = "POST",
-                jsonRequestURL = CONFIG.mainUrl + "/editor.php";
 
-              xhr.open(method, jsonRequestURL, true);
-              xhr.setRequestHeader(
-                "Content-Type",
-                "application/x-www-form-urlencoded"
-              );
-              var params;
+
               var rotateMetadata = new THREE.Vector3(
                 THREE.MathUtils.radToDeg(Viewer.helperObjects[0].rotation.x),
                 THREE.MathUtils.radToDeg(Viewer.helperObjects[0].rotation.y),
@@ -1454,8 +1453,6 @@ export const Viewer = {
               var newMetadata = new Object();
 
               //Fetch data from original metadata file anyway before saving any changes
-              //var originalMetadata = [];
-              //var metadataUrl = path.replace("gltf/", "") + "metadata/" + filename + "_viewer";
               if (CONFIG.entity.proxyPath !== undefined) {
                 metadataUrl = getProxyPath(metadataUrl);
               }
@@ -1616,43 +1613,37 @@ export const Viewer = {
                         ],
                       });
                     }
+                    fetch(CONFIG.mainUrl + "/api/editor/save_metadata.php", {
+                      method: "POST",
+                      credentials: "same-origin",
+                      headers: {
+                      "Content-Type": "application/json",
+                      "X-CSRF-Token": window.CSRF_TOKEN
+                    },
+                      body: JSON.stringify({
+                      filename: filename,
+                      path:
+                        archiveType !== ""
+                        ? fileObject.uri + fileObject.basename + compressedFile + "/"
+                        : uri,
+                      content: JSON.stringify(newMetadata, null, "\t")
+                      })
+                    })
+                    .then(res => {
+                      if (!res.ok) throw new Error("Save failed");
+                      return res.json();
+                    })
+                    .then(() => {
+                      showToast("Settings have been saved.");
+                    })
+                    .catch(err => {
+                      console.error(err);
+                      showToast("Error saving settings");
+                    });
 
-                    if (archiveType !== "") {
-                      if (!compressedFile.includes(archiveType.toUpperCase()))
-                        compressedFile += "_" + archiveType.toUpperCase();
-                      params =
-                        CONFIG.viewer.salt +
-                        "=" +
-                        JSON.stringify(newMetadata, null, "\t") +
-                        "&path=" +
-                        fileObject.uri +
-                        fileObject.basename +
-                        compressedFile +
-                        "/" +
-                        "&filename=" +
-                        filename;
-                    } else {
-                      params =
-                        CONFIG.viewer.salt +
-                        "=" +
-                        JSON.stringify(newMetadata, null, "\t") +
-                        "&path=" +
-                        uri +
-                        "&filename=" +
-                        filename;
-                    }
-                    xhr.onreadystatechange = function () {
-                      if (xhr.readyState === XMLHttpRequest.DONE) {
-                        var status = xhr.status;
-                        if (status === 0 || (status >= 200 && status < 400)) {
-                          showToast("Settings have been saved.");
-                        }
-                      }
-                    };
-                    xhr.send(params);
                   }
                 })
-                .catch((error) => console.log(error));
+              .catch((error) => console.log(error));
             },
           },
           "Save"
@@ -1799,9 +1790,14 @@ export const Viewer = {
       Viewer.renderer.setSize(Viewer.CONFIG.viewer.canvasDimensions.x, Viewer.CONFIG.viewer.canvasDimensions.y);
 
       if (isE2E) {
+        console.info('E2E MODE ENABLED');
         renderer.setPixelRatio(1);
         renderer.toneMappingExposure = 1;
         disablePostProcessing();
+        window.viewer = {
+          e2eMode: true,
+          modelLoaded: false
+        };
       } else {
             Viewer.renderer.setPixelRatio(devicePixelRatio);
       }

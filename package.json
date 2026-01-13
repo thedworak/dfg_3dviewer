@@ -29,6 +29,7 @@
     "@rollup/plugin-url": "^8.0.2",
     "@types/node": "^25.0.6",
     "archiver": "^7.0.1",
+    "baseline-browser-mapping": "^2.9.14",
     "buffer": "^6.0.3",
     "cross-env": "^10.1.0",
     "parcel": "^2.16.1",
@@ -41,8 +42,9 @@
     "rollup-plugin-postcss": "^4.0.2"
   },
   "scripts": {
-    "dev:test": "cross-env BUILD_SOURCE=IIIF BUILD=test parcel src/index.html",
-    "dev:prod": "cross-env BUILD_SOURCE='' BUILD=prod parcel src/index.html",
+    "dev": "npm run dev:test",
+    "dev:test": "cross-env BUILD_SOURCE=IIIF BUILD=test parcel index.html --port 1234",
+    "dev:prod": "cross-env BUILD_SOURCE='' BUILD=prod parcel index.html --port 1234",
     "build:test": "cross-env BUILD_SOURCE=IIIF BUILD=test rollup -c",
     "build:prod": "cross-env BUILD_SOURCE='' BUILD=prod rollup -c",
     "build:drupal": "cross-env BUILD_SOURCE='' BUILD=drupal rollup -c",

@@ -192,7 +192,6 @@ export async function setupCamera (_object, _light, _config) {
               if (newBackground !== null) {
                 _foundScene = true;
                 changeBackground("linear", "#" + newBackground.getHexString());
-                //console.log("Setting up scene background", _scene.background);
               }
             }
           }
@@ -346,23 +345,54 @@ async function fitCameraToCenteredObject(object, add_offset, _fit) {
 }
 
 function parseGradient(str) {
+  if (!str || typeof str !== "string") return null;
+
   // Match "radial-gradient" or "linear-gradient"
   const typeMatch = str.match(/(radial|linear)-gradient\s*\(([^,]+)/i);
   const gradientType = typeMatch ? typeMatch[1].toLowerCase() : null;
   const shapeOrDirection = typeMatch ? typeMatch[2].trim() : null;
 
-  // Match all rgb(...) values
-  const colors = [...str.matchAll(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/g)]
-    .map(([, r, g, b]) => ({
+  const colors = [];
+
+  /* ==========================
+     RGB / RGBA
+  ========================== */
+  const rgbMatches = str.matchAll(
+    /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?\s*\)/gi
+  );
+
+  for (const [, r, g, b, a] of rgbMatches) {
+    colors.push({
       r: +r,
       g: +g,
       b: +b,
-    }));
+      a: a !== undefined ? +a : 1,
+    });
+  }
+
+  /* ==========================
+     HEX (#RGB / #RRGGBB)
+  ========================== */
+  const hexMatches = str.matchAll(/#([0-9a-f]{3}|[0-9a-f]{6})/gi);
+
+  for (const [, hex] of hexMatches) {
+    const fullHex =
+      hex.length === 3
+        ? hex.split("").map(c => c + c).join("")
+        : hex;
+
+    colors.push({
+      r: parseInt(fullHex.slice(0, 2), 16),
+      g: parseInt(fullHex.slice(2, 4), 16),
+      b: parseInt(fullHex.slice(4, 6), 16),
+      a: 1,
+    });
+  }
 
   return {
-    type: gradientType,       // "radial" or "linear"
-    shapeOrDirection,         // e.g. "circle" or "to right"
-    colors,                   // array of { r, g, b }
+    type: gradientType,        // "radial" | "linear"
+    shapeOrDirection,          // "circle", "to right", etc.
+    colors,                    // [{ r, g, b, a }]
   };
 }
 
