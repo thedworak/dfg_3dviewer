@@ -116,6 +116,7 @@ export const Viewer = {
   canvasText: null,
   viewEntity: null,
   fullscreenMode: null,
+  handAnimationTime: 0,
   originalMetadata: [],
   spinnerContainer: null,
   spinnerElement: null,
@@ -338,6 +339,11 @@ export const Viewer = {
     this.CONFIG.viewer.exportPath = "/export_xml_single/";    
     this.loadedFile = `${this.fileObject.basename}.${this.fileObject.extension}`;
 
+    this.handHint = document.createElement("div");
+    this.handHint.id = "handHint";
+    this.container.appendChild(this.handHint);
+    setCore('handHint', this.handHint);
+
     this.spinnerContainer = document.createElement("div");
     this.spinnerContainer.id = "spinnerContainer";
     this.spinnerElement = document.createElement("div");
@@ -384,6 +390,7 @@ export const Viewer = {
 
     Viewer.init();
     Viewer.prepareStats();
+    localStorage.setItem("viewerHintSeen", "0");
     
     this.updateSize();
     if (!Viewer.CONFIG.entity?.metadata?.source) {
@@ -397,7 +404,14 @@ export const Viewer = {
     fileObject.extension = fileObject.filename.substring(fileObject.filename.lastIndexOf(".") + 1);
     fileObject.path = fileObject.originalPath.substring(0, fileObject.originalPath.lastIndexOf(fileObject.filename));
     fileObject.uri = fileObject.path.replace(this.CONFIG.mainUrl + "/", "");
-  },  
+  },
+  // Disable interaction hint on first interaction
+ disableInteractionHint() {
+    Viewer.handHint.hidden = true;
+    Viewer.handHint.classList.remove("hand-drag-animate");
+    Viewer.controls.autoRotate = false;
+    localStorage.setItem("viewerHintSeen", "1");
+  },
 
   addTextWatermark(_text, _scale) {
     var textGeo;
@@ -911,6 +925,13 @@ export const Viewer = {
   },
 
   animate : (time) => {
+    if (!window.__E2E__ && !Viewer.handHint.hidden && window.viewer.modelLoaded /*&& !localStorage.getItem("viewerHintSeen")*/) {
+      if (!Viewer.controls.autoRotate) return;
+
+      Viewer.handAnimationTime += 0.006;
+      Viewer.controls.autoRotateSpeed = Math.sin(Viewer.handAnimationTime) * 0.12;
+    }
+
     requestAnimationFrame(Viewer.animate);
 
     const delta = Viewer.clock.getDelta();
@@ -931,6 +952,7 @@ export const Viewer = {
   },
 
   onPointerDown(e) {
+    Viewer.disableInteractionHint();
     e.stopPropagation();
     if (e.button === 0) {
       Viewer.onDownPosition.x =

@@ -22,6 +22,17 @@ export var outlineClipping;
 
 const DRACO_BASE = __DFG_DRACO_PATH__;
 
+// Show interaction hint on first load
+function showInteractionHint() {
+  if (window.__E2E__) return;
+  //if (localStorage.getItem("viewerHintSeen")) return;
+
+  if (core.controls) core.controls.autoRotate = true;
+
+  core.handHint.hidden = false;
+  core.handHint.classList.add("hand-drag-animate");
+};
+
 function prepareOutlineClipping(_object) {
   core.outlineClipping = _object.clone(true);
   var gutsMaterial = new THREE.MeshBasicMaterial({
@@ -196,13 +207,11 @@ function traverseMesh(object) {
     function afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core }) {
       if (object === null || typeof object === "undefined") {
         showToast("Loaded object is null or undefined.");
-        if (window.__E2E__) { window.viewer.modelLoaded = false;
-
-        }
         return;
       }
-      if (window.__E2E__) {
-        window.viewer.modelLoaded = true;
+      showInteractionHint();
+      window.viewer.modelLoaded = true;
+      if (window.__E2E__) {        
         window.viewer.camera = camera;
         window.viewer.scene = scene;
       }
