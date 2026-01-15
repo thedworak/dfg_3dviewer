@@ -12,6 +12,7 @@ import { PCDLoader } from "three/examples/jsm/loaders/PCDLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { IFCLoader } from "./js/loaders/IFCLoader.js";
+import { HDRLoader } from "three/examples/jsm/loaders/HDRLoader.js";
 
 // Remove main.js import
 import { core, setCore } from './core.js';
@@ -54,6 +55,7 @@ function prepareOutlineClipping(_object) {
 function setupSingleMaterial(materials, material) {
   if (material.map) {
     material.map.anisotropy = 16;
+    material.envMapIntensity = 1.2;
   }
   //material.side = THREE.DoubleSide;
   material.clipShadows = true;
@@ -204,7 +206,7 @@ function traverseMesh(object) {
     }
 
     // Helper: common post-load pipeline
-    function afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core }) {
+    async function afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core }) {
       if (object === null || typeof object === "undefined") {
         showToast("Loaded object is null or undefined.");
         return;
@@ -222,6 +224,21 @@ function traverseMesh(object) {
       scene.add(object, core.outlineClipping);
       scene.add(object);
       mainObject.push(object);
+      const pmrem = new THREE.PMREMGenerator(core.renderer);
+      pmrem.compileEquirectangularShader();
+
+      new HDRLoader().load('./assets/img/custom/studio_small_09_1k.hdr', (texture) => {
+        texture.mapping = THREE.EquirectangularReflectionMapping;
+
+        const envRT = pmrem.fromEquirectangular(texture);
+        const envMap = envRT.texture;
+
+        scene.environment = envMap;
+        scene.background = null;
+
+        texture.dispose();
+        pmrem.dispose();
+      });
     }
 
     async function loadOBJWithMTL(fileObject, config) {
@@ -297,7 +314,7 @@ function traverseMesh(object) {
         );
       });
 
-      gltf.scene.position.set(0, 0, 0);
+      //gltf.scene.position.set(0, 0, 0);
       return gltf.scene;
     }
 

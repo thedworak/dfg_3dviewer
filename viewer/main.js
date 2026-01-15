@@ -1801,6 +1801,12 @@ export const Viewer = {
       Viewer.renderer.physicallyCorrectLights = true; //can be considered as better looking
       Viewer.renderer.autoClear = false;
       Viewer.renderer.setClearColor(0x000000, 0.0);
+
+      Viewer.renderer.outputColorSpace = THREE.SRGBColorSpace;
+      Viewer.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      Viewer.renderer.toneMappingExposure = 1.0;
+      setCore('renderer', Viewer.renderer);
+
       Viewer.renderer.domElement.id = "MainCanvas";
       Viewer.mainCanvas = document.getElementById("MainCanvas") || Viewer.renderer.domElement;
 
