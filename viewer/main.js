@@ -1862,6 +1862,7 @@ export const Viewer = {
       Viewer.container.appendChild(Viewer.fullscreenMode);
       document.getElementById("fullscreenMode").addEventListener("click", Viewer.toggleFullscreen, false);
 
+      Viewer.handHint.innerHTML = `<img src="${DFG_ASSETS}hand-hint.png" alt="Fullscreen" width=48 height=48 title="Hand hint animation"/>`;
       
       Viewer.rect = this.container.getBoundingClientRect();
       this.guiContainer.style.maxHeight = `${Viewer.rect.height - 20}px`;
