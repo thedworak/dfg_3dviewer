@@ -75,7 +75,7 @@ canvas {
   margin: auto;
   width: 48px;
   height: 48px;
-  background-image: url("/assets/img/hand-hint.png");
+  background-image: url("../assets/img/hand-hint.png");
   background-repeat: no-repeat;
   background-size: contain;
   background-position: center;
