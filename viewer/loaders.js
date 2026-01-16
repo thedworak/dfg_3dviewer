@@ -12,7 +12,7 @@ import { PCDLoader } from "three/examples/jsm/loaders/PCDLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { IFCLoader } from "./js/loaders/IFCLoader.js";
-import { HDRLoader } from "three/examples/jsm/loaders/HDRLoader.js";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 
 // Remove main.js import
 import { core, setCore } from './core.js';
@@ -22,17 +22,6 @@ import { showToast } from "./viewer-utils.js";
 export var outlineClipping;
 
 const DRACO_BASE = __DFG_DRACO_PATH__;
-
-// Show interaction hint on first load
-function showInteractionHint() {
-  if (window.__E2E__) return;
-  //if (localStorage.getItem("viewerHintSeen")) return;
-
-  if (core.controls) core.controls.autoRotate = true;
-
-  core.handHint.hidden = false;
-  core.handHint.classList.add("hand-drag-animate");
-};
 
 function prepareOutlineClipping(_object) {
   core.outlineClipping = _object.clone(true);
@@ -55,8 +44,10 @@ function prepareOutlineClipping(_object) {
 function setupSingleMaterial(materials, material) {
   if (material.map) {
     material.map.anisotropy = 16;
-    material.envMapIntensity = 1.2;
+    material.map.colorSpace = THREE.SRGBColorSpace;
   }
+  material.envMapIntensity = 0.6;
+  material.roughness = Math.max(material.roughness * 0.85, 0.05);
   //material.side = THREE.DoubleSide;
   material.clipShadows = true;
   material.side = THREE.FrontSide;
@@ -211,7 +202,7 @@ function traverseMesh(object) {
         showToast("Loaded object is null or undefined.");
         return;
       }
-      showInteractionHint();
+      core.handHint.hidden = true;
       window.viewer.modelLoaded = true;
       if (window.__E2E__) {        
         window.viewer.camera = camera;
@@ -224,21 +215,10 @@ function traverseMesh(object) {
       scene.add(object, core.outlineClipping);
       scene.add(object);
       mainObject.push(object);
+
       const pmrem = new THREE.PMREMGenerator(core.renderer);
-      pmrem.compileEquirectangularShader();
-
-      new HDRLoader().load('./assets/img/custom/studio_small_09_1k.hdr', (texture) => {
-        texture.mapping = THREE.EquirectangularReflectionMapping;
-
-        const envRT = pmrem.fromEquirectangular(texture);
-        const envMap = envRT.texture;
-
-        scene.environment = envMap;
-        scene.background = null;
-
-        texture.dispose();
-        pmrem.dispose();
-      });
+      scene.environment = pmrem.fromScene(new RoomEnvironment()).texture;
+      pmrem.dispose();
     }
 
     async function loadOBJWithMTL(fileObject, config) {

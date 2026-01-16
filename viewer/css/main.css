@@ -78,21 +78,28 @@ canvas {
   background-repeat: no-repeat;
   background-size: contain;
   background-position: center;
-  opacity: 0.7;
+  opacity: 0;
   pointer-events: none;
-  transition: opacity 0.7s ease;
   z-index: 100;
   top: 95%;
   left: 0px;
 }
 
+@keyframes fadeIn {
+  to {
+    opacity: 0.6;
+  }
+}
+
 .hand-drag-animate {
-  animation: dragHint 2.3s linear infinite alternate;
+  animation:
+    fadeIn 2.5s ease forwards,
+    dragHint 2.2s linear infinite alternate;
 }
 
 @keyframes dragHint {
-  from { transform: translateX(32px); }
-  to   { transform: translateX(-32px); }
+  from { transform: translateX(45px); }
+  to   { transform: translateX(-45px); }
 }
 
 #guiContainer {
@@ -330,13 +337,18 @@ canvas {
 }
 
 #fullscreenMode {
+  opacity: 0.65;
   z-index: 10;
   position: relative;
   width: 25px;
   height: 25px;
   background-size: 25px;
   cursor: pointer;
-  bottom: 16px;
+  bottom: 21px;
+}
+
+#fullscreenMode:hover {
+  opacity: 1;
 }
 
 .field--type-image {

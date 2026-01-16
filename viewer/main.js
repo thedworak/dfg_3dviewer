@@ -238,6 +238,7 @@ export const Viewer = {
   lastPickedFace: { id: "", color: "", object: "" },
   loadedTimes: 0,
   _ext: '',
+  DFG_ASSETS: '',
 
   async MainInit() {
     await new Promise(r => {
@@ -341,6 +342,7 @@ export const Viewer = {
 
     this.handHint = document.createElement("div");
     this.handHint.id = "handHint";
+    this.handHint.hidden = true;
     this.container.appendChild(this.handHint);
     setCore('handHint', this.handHint);
 
@@ -843,8 +845,8 @@ export const Viewer = {
 
         Viewer.mainCanvas.style.width = '100vw';
         Viewer.mainCanvas.style.height = '100vh';
-        Viewer.fullscreenMode.style.left = (widthCSS - 35) + 'px';
-
+        Viewer.fullscreenMode.style.left = (widthCSS - 40) + 'px';
+        Viewer.fullscreenMode.innerHTML = `<img src="${Viewer.DFG_ASSETS}exit-fullscreen.png" alt="Fullscreen" width=25 height=25 title="Exit fullscreen mode"/>`;
     } else {
       scale = {x: Number(Viewer.CONFIG.viewer.scaleContainer?.x || 1), y: Number(Viewer.CONFIG.viewer.scaleContainer?.y || 1)};
       rect = Viewer.viewerWrapper.getBoundingClientRect();
@@ -853,9 +855,6 @@ export const Viewer = {
 
       widthDev = widthCSS * devicePixelRatio;
       heightDev = heightCSS * devicePixelRatio;
-
-      //Viewer.viewerWrapper.style.width = widthCSS + 'px';
-      //Viewer.viewerWrapper.style.height = heightCSS + 'px';
       Viewer.mainCanvas.style.width = widthCSS + 'px';
       Viewer.mainCanvas.style.height = heightCSS + 'px';
       
@@ -866,14 +865,14 @@ export const Viewer = {
       if (Viewer.fileElement && Viewer.fileElement.length > 0) {
         Viewer.fileElement[0].style.height = (heightCSS * 1.1) + 'px';
       }
-      Viewer.fullscreenMode.style.left = (widthCSS - Viewer.fullscreenMode.getBoundingClientRect().width - 5) + 'px';
+      Viewer.fullscreenMode.style.left = (widthCSS - Viewer.fullscreenMode.getBoundingClientRect().width - 15) + 'px';
       Viewer.guiContainer.style.left = (widthCSS - Viewer.lilGui[0]?.getBoundingClientRect().width - 5) + 'px';
     }
 
     Viewer.mainCanvas.width = widthDev;
     Viewer.mainCanvas.height = heightDev;
 
-    Viewer.fullscreenMode.style.top = (heightCSS - 35) + 'px';
+    Viewer.fullscreenMode.style.top = (heightCSS - 40) + 'px';
     if (Viewer.downloadModel && !isFullscreen) {
       Viewer.downloadModel.style.top = (heightCSS - 85) + 'px';
     }
@@ -887,7 +886,6 @@ export const Viewer = {
     Viewer.camera.updateProjectionMatrix();
     Viewer.controls?.update();
     Viewer.CONFIG.viewer.canvasDimensions = { x: widthCSS, y: heightCSS };
-
   },
 
     // Three.js renderer needs actual pixel size
@@ -895,6 +893,7 @@ export const Viewer = {
   // Proper fullscreen toggle
   async toggleFullscreen() {
     if (!document.fullscreenElement) {
+      Viewer.fullscreenMode.innerHTML = `<img src="${Viewer.DFG_ASSETS}exit-fullscreen.png" alt="Fullscreen" width=25 height=25 title="Exit fullscreen mode"/>`;
       try {
         await Viewer.container.requestFullscreen();
         // fullscreenchange event will trigger updateSize()
@@ -902,6 +901,7 @@ export const Viewer = {
         console.error("Failed to enter fullscreen:", err);
       }
     } else {
+      Viewer.fullscreenMode.innerHTML = `<img src="${Viewer.DFG_ASSETS}fullscreen.png" alt="Fullscreen" width=25 height=25 title="Fullscreen mode"/>`;
       await document.exitFullscreen();
     }
   },
@@ -929,7 +929,7 @@ export const Viewer = {
       if (!Viewer.controls.autoRotate) return;
 
       Viewer.handAnimationTime += 0.006;
-      Viewer.controls.autoRotateSpeed = Math.sin(Viewer.handAnimationTime) * 0.12;
+      Viewer.controls.autoRotateSpeed = Math.sin(Viewer.handAnimationTime) * 0.25;
     }
 
     requestAnimationFrame(Viewer.animate);
@@ -1804,7 +1804,7 @@ export const Viewer = {
 
       Viewer.renderer.outputColorSpace = THREE.SRGBColorSpace;
       Viewer.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      Viewer.renderer.toneMappingExposure = 1.0;
+      Viewer.renderer.toneMappingExposure = 0.65;
       setCore('renderer', Viewer.renderer);
 
       Viewer.renderer.domElement.id = "MainCanvas";
@@ -1854,21 +1854,21 @@ export const Viewer = {
       Viewer.fullscreenMode = document.createElement("div");
       Viewer.fullscreenMode.setAttribute("id", "fullscreenMode");
       const scriptUrl = document.currentScript?.src || import.meta.url;
-      let DFG_ASSETS = scriptUrl.replace(/dfg_3dviewer-module\.js.*$/, 'assets/img/');
+      Viewer.DFG_ASSETS = scriptUrl.replace(/dfg_3dviewer-module\.js.*$/, 'assets/img/');
 
-      Viewer.fullscreenMode.innerHTML = `<img src="${DFG_ASSETS}fullscreen.png" alt="Fullscreen" width=20 height=20 title="Fullscreen mode"/>`;
+      Viewer.fullscreenMode.innerHTML = `<img src="${Viewer.DFG_ASSETS}fullscreen.png" alt="Fullscreen" width=25 height=25 title="Fullscreen mode"/>`;
       Viewer.fullscreenMode.setAttribute(
         "style",
         "top:" +
         (Viewer.bottomLineGUI + 20) +
         "px; left: " +
-        (Viewer.CONFIG.viewer.canvasDimensions.x - 36) +
+        (Viewer.CONFIG.viewer.canvasDimensions.x - 40) +
         "px"
       );
       Viewer.container.appendChild(Viewer.fullscreenMode);
       document.getElementById("fullscreenMode").addEventListener("click", Viewer.toggleFullscreen, false);
 
-      Viewer.handHint.innerHTML = `<img src="${DFG_ASSETS}hand-hint.png" alt="Fullscreen" width=48 height=48 title="Hand hint animation"/>`;
+      Viewer.handHint.innerHTML = `<img src="${Viewer.DFG_ASSETS}hand-hint.png" alt="Fullscreen" width=48 height=48 title="Hand hint animation"/>`;
       
       Viewer.rect = this.container.getBoundingClientRect();
       this.guiContainer.style.maxHeight = `${Viewer.rect.height - 20}px`;

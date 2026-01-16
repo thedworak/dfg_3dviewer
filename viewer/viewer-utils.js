@@ -215,6 +215,17 @@ export async function setupCamera (_object, _light, _config) {
   }
 }
 
+// Show interaction hint on first load
+function showInteractionHint() {
+  if (window.__E2E__) return;
+  //if (localStorage.getItem("viewerHintSeen")) return;
+
+  if (core.controls) core.controls.autoRotate = true;
+
+  core.handHint.hidden = false;
+  core.handHint.classList.add("hand-drag-animate");
+}
+
 async function fitCameraToCenteredObject(object, add_offset, _fit) {
   const boundingBox = new THREE.Box3();
   if (Array.isArray(object)) {
@@ -305,6 +316,8 @@ async function fitCameraToCenteredObject(object, add_offset, _fit) {
       core.cameraLight.position.set(core.cameraCoords.x, core.cameraCoords.y, core.cameraCoords.z);
       core.camera.updateProjectionMatrix();
       core.controls.update();
+    }).onComplete(() => {
+      showInteractionHint();
     })
     .start();
 
