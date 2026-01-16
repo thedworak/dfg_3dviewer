@@ -9,23 +9,32 @@ use Drupal\Core\Archiver\Zip;
 use Drupal\Core\Archiver\ArchiverException;
 use Symfony\Component\Yaml\Yaml;
 
-$file_path = \Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath()) . "/config/install/dfg_3dviewer.settings.yml";
+function preload() {
+	$file_path = \Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath()) . "/config/install/dfg_3dviewer.settings.yml";
 
-if (file_exists($file_path)) {
-    $config_data = Yaml::parseFile($file_path);
+	if (file_exists($file_path)) {
+		$config_data = Yaml::parseFile($file_path);
 
-	define('MAIN_URL', $config_data['main_url'] ?? "https://3d-repository.hs-mainz.de");
-	define('ENTITY_BUNDLE', $config_data['entity_bundle'] ?? "bd3d7baa74856d141bcff7b4193fa128");
-	define('VIEWER_FILE_UPLOAD', $config_data['viewer_file_upload'] ?? "fbf95bddee5160d515b982b3fd2e05f7");
-	define('VIEWER_FILE_NAME', $config_data['viewer_file_name'] ?? "faa602a0be629324806aef22892cdbe5");
-	define('IMAGE_GENERATION', $config_data['image_generation'] ?? "f605dc6b727a1099b9e52b3ccbdf5673");
-	define('FIELD_DF', $config_data['field_df'] ?? "field_df");
-	define('LIGHTWEIGHT', $config_data['lightweight'] ?? "lightweight");
+		if(!defined('MAIN_URL'))
+			define('MAIN_URL', $config_data['main_url'] ?? "https://3d-repository.hs-mainz.de");
+		if(!defined('ENTITY_BUNDLE'))
+			define('ENTITY_BUNDLE', $config_data['entity_bundle'] ?? "bd3d7baa74856d141bcff7b4193fa128");
+		if(!defined('VIEWER_FILE_UPLOAD'))
+			define('VIEWER_FILE_UPLOAD', $config_data['viewer_file_upload'] ?? "fbf95bddee5160d515b982b3fd2e05f7");
+		if(!defined('VIEWER_FILE_NAME'))
+			define('VIEWER_FILE_NAME', $config_data['viewer_file_name'] ?? "faa602a0be629324806aef22892cdbe5");
+		if(!defined('IMAGE_GENERATION'))
+			define('IMAGE_GENERATION', $config_data['image_generation'] ?? "f605dc6b727a1099b9e52b3ccbdf5673");
+		if(!defined('FIELD_DF'))
+			define('FIELD_DF', $config_data['field_df'] ?? "field_df");
+		if(!defined('LIGHTWEIGHT'))
+			define('LIGHTWEIGHT', $config_data['lightweight'] ?? "lightweight");
 
-	\Drupal::messenger()->addMessage(serialize($config_data), 'status');
-}
-else {
-	\Drupal::messenger()->addMessage("Cant load settings file", 'warning');
+		//\Drupal::messenger()->addMessage(serialize($config_data), 'status');
+	}
+	else {
+		\Drupal::messenger()->addMessage("Cant load settings file", 'warning');
+	}
 }
 
 /**
@@ -201,7 +210,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 					}
 					elseif ($extension == 'TAR' || $extension == 'GZ' ) {
 						$output = shell_exec($SPATH . '/scripts/uncompress.sh -t tar -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
-						\Drupal::messenger()->addMessage("Test " . serialize($output), 'status');
+						//\Drupal::messenger()->addMessage("Test " . serialize($output), 'status');
 					}
 					elseif ($extension == 'XZ') {
 						$output = shell_exec($SPATH . '/scripts/uncompress.sh -t xz -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
@@ -215,17 +224,17 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 				\Drupal::messenger()->addMessage($extension . " is not supported yet", 'warning');
 			}
 			#semi-automatic path change
-#			$entity->set($SETTINGS['viewer_file_name'], $autoPath);
+			#$entity->set($SETTINGS['viewer_file_name'], $autoPath);
 			#for debugging only
-			#if ($retval === null) {
-			#	\Drupal::messenger()->addMessage($output, 'status');
-			#}
-			#else if ($retval === 1) {
-			#	\Drupal::messenger()->addMessage($output, 'warning');
-			#}
-			#else if ($retval === 2) {
-			#	\Drupal::messenger()->addMessage($output, 'error');
-			#}
+			/*if ($retval === null) {
+				\Drupal::messenger()->addMessage($output, 'status');
+			}
+			else if ($retval === 1) {
+				\Drupal::messenger()->addMessage($output, 'warning');
+			}
+			else if ($retval === 2) {
+				\Drupal::messenger()->addMessage($output, 'error');
+			}*/
 			#for debugging only
 		}
 	}
