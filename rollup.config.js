@@ -9,6 +9,18 @@ import postcss from 'rollup-plugin-postcss';
 
 const source = process.env.BUILD_SOURCE ?? "IIIF";
 const envBuild = process.env.BUILD ?? "test";
+const customModules = process.env.MODULE_CUSTOM ?? "";
+
+function normalizePathSegment(seg = '') {
+  return seg.replace(/^\/+|\/+$/g, '');
+}
+
+const modulesPath = normalizePathSegment(customModules);
+
+const dracoPath =
+  envBuild === 'drupal'
+    ? `/modules/${modulesPath}/dfg_3dviewer/dist/assets/draco/`
+    : '/assets/draco/';
 
 export default {
   input: 'viewer/main.js',
@@ -18,10 +30,7 @@ export default {
       values: {
         __BUILD_SOURCE__: JSON.stringify(source),
         __BUILD__: JSON.stringify(envBuild),
-        __DFG_DRACO_PATH__:
-          envBuild === 'drupal'
-            ? '(window.DFG_3DVIEWER_BASE || "/") + "modules/custom/dfg_3dviewer/dist/assets/draco/"'
-            : '"assets/draco/"',
+        __DFG_DRACO_PATH__: JSON.stringify(dracoPath),
       },
     }),
 

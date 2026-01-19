@@ -7,6 +7,7 @@ node_modules
 /.parcel-cache
 *.mdb~
 !/dist/.gitkeep
+/viewer/viewer-settings.json
 
 # Playwright
 /test-results/

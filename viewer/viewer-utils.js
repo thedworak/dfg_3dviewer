@@ -141,13 +141,13 @@ export const setupObject = (_object, _light, _controls) => {
   }
 
 export async function setupCamera (_object, _light, _config) {
-  if (core.objectsConfig !== "undefined") {
-    if (typeof core.objectsConfig.camera.position !== "undefined") {
+  if (core.objectsConfig !== undefined) {
+    if (core.objectsConfig?.camera?.position && core.camera) {
       core.camera.position.set(core.objectsConfig.camera.position.x, core.objectsConfig.camera.position.y, core.objectsConfig.camera.position.z);
     } else {
       await setupEmptyCamera(_object);
     }
-    if (typeof core.objectsConfig.camera.target !== "undefined") {
+    if (core.objectsConfig?.camera?.target && core.controls) {
       core.controls.target.set(core.objectsConfig.camera.target.x, core.objectsConfig.camera.target.y, core.objectsConfig.camera.target.z);
     } else {
       await setupEmptyCamera(_object);

@@ -12,7 +12,7 @@ use Drupal\wisski_salz\Entity\Adapter;
 
 class DFG3dController {
 
-	public function editEntity(WisskiEntity $wisski_individual = NULL) {
+	public function editEntity(?WisskiEntity $wisski_individual = NULL) {
 		// Get module path (e.g., modules/custom/your_module/)
 		$module_path = \Drupal::service('extension.list.module')->getPath('dfg_3dviewer');
 

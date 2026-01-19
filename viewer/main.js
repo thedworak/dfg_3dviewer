@@ -280,6 +280,7 @@ export const Viewer = {
             y: 1.4,
           },
           gallery: {
+            build: true,
             container: "block-bootstrap5-content",
             imageClass: "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
             imageId: "",
@@ -591,7 +592,6 @@ export const Viewer = {
   },
 
   handleImages(
-    fileElement,
     mainElement,
     imageElements,
     imageElementsChildren
@@ -666,25 +666,25 @@ export const Viewer = {
         imageList.appendChild(imageElementsChildren[i]);
       }
     }
-    fileElement[0].insertAdjacentElement("beforebegin", modalGallery);
+    Viewer.fileElement[0].insertAdjacentElement("beforebegin", modalGallery);
     mainElement.insertAdjacentElement("beforebegin", imageList);
     //mainElement.insertBefore(imageList, fileElement[0]);
   },
 
   buildGallery() {
-    if (fileElement.length > 0) {
-      var mainElement = document.getElementById(CONFIG.viewer.gallery.container);
+    if (Viewer.fileElement && Viewer.fileElement?.length > 0) {
+      var mainElement = document.getElementById(Viewer.CONFIG.viewer.gallery.container);
       var imageElements;
-      if (CONFIG.viewer.gallery.imageClass !== "") {
+      if (Viewer.CONFIG.viewer.gallery.imageClass !== "") {
         imageElements = document.getElementsByClassName(
-          CONFIG.viewer.gallery.imageClass
+          Viewer.CONFIG.viewer.gallery.imageClass
         );
         if (imageElements.length > 0) {
           var galleryLabel = document.getElementsByClassName("field__label");
           if (galleryLabel !== undefined) galleryLabel[0].innerText = "";
         }
-      } else if (CONFIG.viewer.gallery.imageId !== "") {
-        imageElements = document.getElementById(CONFIG.viewer.gallery.imageId);
+      } else if (Viewer.CONFIG.viewer.gallery.imageId !== "") {
+        imageElements = document.getElementById(Viewer.CONFIG.viewer.gallery.imageId);
       } else {
         console.log("No gallery created");
       }
@@ -696,13 +696,13 @@ export const Viewer = {
               imageElements[0].getElementsByClassName("field__items")[0]
                 .childNodes
             );
-            prepareGalleryImages(imagesList);
+            Viewer.prepareGalleryImages(imagesList);
             //imageElements[0].classList.add("field--type-image");
             imageElements[0].classList.add("field--label-hidden");
             imageElements[0].classList.add("field__items");
-            handleImages(fileElement, mainElement, imagesList, imageElements);
+            Viewer.handleImages(mainElement, imagesList, imageElements);
           } else {
-            handleImages(fileElement, mainElement, imageElements);
+            Viewer.handleImages(mainElement, imageElements);
           }
         } else if (
           imageElements.childNodes !== undefined &&
@@ -714,13 +714,13 @@ export const Viewer = {
           ) {
             //handle links and convert to img
             let imagesList = Array.from(imageElements.childNodes);
-            prepareGalleryImages(imagesList);
+            Viewer.prepareGalleryImages(imagesList);
             imageElements.classList.add("field--type-image");
             imageElements.classList.add("field--label-hidden");
             imageElements.classList.add("field__items");
-            handleImages(fileElement, mainElement, imagesList, imageElements);
+            Viewer.handleImages(mainElement, imagesList, imageElements);
           } else {
-            handleImages(fileElement, mainElement, imageElements);
+            Viewer.handleImages(mainElement, imageElements);
           }
         }
       }
@@ -866,7 +866,7 @@ export const Viewer = {
         Viewer.fileElement[0].style.height = (heightCSS * 1.1) + 'px';
       }
       Viewer.fullscreenMode.style.left = (widthCSS - Viewer.fullscreenMode.getBoundingClientRect().width - 15) + 'px';
-      Viewer.guiContainer.style.left = (widthCSS - Viewer.lilGui[0]?.getBoundingClientRect().width - 5) + 'px';
+      Viewer.guiContainer.style.left = (widthCSS - Viewer.lilGui[0]?.getBoundingClientRect().width) + 'px';
     }
 
     Viewer.mainCanvas.width = widthDev;
@@ -1881,9 +1881,10 @@ export const Viewer = {
 
       if (
         Viewer.CONFIG.viewer.lightweight === 0 ||
-        Viewer.CONFIG.viewer.lightweight === false
+        Viewer.CONFIG.viewer.lightweight === false || 
+        Viewer.CONFIG.viewer.gallery?.build === true
       ) {
-        buildGallery();
+        Viewer.buildGallery();
       }
 
       Viewer.controls = new OrbitControls(Viewer.camera, Viewer.renderer.domElement);
