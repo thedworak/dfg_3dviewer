@@ -10,6 +10,5 @@
 	"viewEntityPath": "/wisski/navigate/",
 	"attributeId": "wisski_id",
 	"lightweight": false,
-	"scaleContainer": {"x": 1, "y": 1.4},
-	"salt": "Z7FYJMmTiEzcGp4lTpuk4LiO"
+	"scaleContainer": {"x": 1, "y": 1.4}
 }

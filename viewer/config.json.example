@@ -1,6 +1,6 @@
 {
-	"domain": "https://3d-repository.hs-mainz.de",
-	"metadataDomain": "https://3d-repository.hs-mainz.de",
+	"domain": "https://your.domain.com,
+	"metadataDomain": "https://your.domain.com",
 	"container": "DFG_3DViewer",
 	"galleryContainer": "block-bootstrap5-content",
 	"galleryImageClass": "field--type-image",
@@ -10,6 +10,5 @@
 	"viewEntityPath": "/wisski/navigate/",
 	"attributeId": "wisski_id",
 	"lightweight": false,
-	"scaleContainer": {"x": 1, "y": 1.4},
-	"salt": "ChAnGe_Me"
+	"scaleContainer": {"x": 1, "y": 1.0}
 }

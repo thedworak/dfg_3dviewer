@@ -1,6 +1,6 @@
 {
   "baseNamespace": "",
-  "mainUrl": "https:\\/\\/3d-repository.hs-mainz.de",
+  "mainUrl": "https:\\/\\/your.domain.com",
   "metadataUrl": "",
   "baseModulePath": "\\/modules\\/dfg_3dviewer\\/viewer",
   "entity": {
@@ -19,10 +19,9 @@
     "fileName": "fb76901eb219495fee0512b5cdfdaa18",
     "imageGeneration": "fd6a974b7120d422c7b21b5f1f2315d9",
     "lightweight": 1,
-    "salt": "Z7FYJMmTiEzcGp4lTpuk4LiA",
     "scaleContainer": {
       "x": "1.0",
-      "y": "1.4"
+      "y": "1.0"
     },
     "gallery": {
       "container": "block-bootstrap5-content",
