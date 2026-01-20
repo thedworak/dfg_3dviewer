@@ -875,7 +875,7 @@ export const Viewer = {
 
     Viewer.fullscreenMode.style.top = (heightCSS - 40) + 'px';
     if (Viewer.downloadModel && !isFullscreen) {
-      Viewer.downloadModel.style.top = (heightCSS - 40) + 'px';
+      Viewer.downloadModel.style.top = (heightCSS - 60) + 'px';
     }
     if (Viewer.viewEntity) {
       Viewer.viewEntity.style.right = isFullscreen ? '-95%' : '-75%';
