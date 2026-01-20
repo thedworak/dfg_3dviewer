@@ -70,8 +70,6 @@ export function appendMetadata(
   container.appendChild(metadataContainer);
 }
 
-  export let downloadModel;
-
 export function fetchMetadata(_object, _type) {
   switch (_type) {
     case "vertices":
@@ -240,22 +238,19 @@ export async function handleMetadataResponse(
           }
 
           if (!document.getElementById("downloadModel")) {
-            downloadModel = document.createElement("div");
-            downloadModel.setAttribute("id", "downloadModel");
-            downloadModel.style.top = (CONFIG.viewer.canvasDimensions.y - 50) + "px;";
+            core.downloadModel.setAttribute("id", "downloadModel");
 
             var c_path = fileObject.path;
             if (compressedFile !== "") fileObject.filename = fileObject.filename.replace(fileObject.orgExtension, fileObject.extension);
 
-            downloadModel.style.top = (bottomLineGUI) + "px";
-            container.appendChild(downloadModel);
-          }
-          const scriptUrl = document.currentScript?.src || import.meta.url;
-          let DFG_ASSETS = scriptUrl.replace(/dfg_3dviewer-module\.js.*$/, 'assets/img/');
+            container.appendChild(core.downloadModel);
+            const scriptUrl = document.currentScript?.src || import.meta.url;
+            let DFG_ASSETS = scriptUrl.replace(/dfg_3dviewer-module\.js.*$/, 'assets/img/');
 
-          downloadModel.innerHTML = `
-            <a href="blob:${c_path}${fileObject.filename}" download>
-              <img src="${DFG_ASSETS}/img/cloud-arrow-down.svg" alt="download" width="25" height="25" title="Download source file"/>`;
+            core.downloadModel.innerHTML = `
+              <a href="blob:${c_path}${fileObject.filename}" download>
+                <img src="${DFG_ASSETS}/cloud-arrow-down.svg" alt="download" width="30" height="30" title="Download source file"/>`;
+          }
 
           metadataContainer.appendChild(viewEntity);
           appendMetadata(
@@ -266,9 +261,6 @@ export async function handleMetadataResponse(
             metadataContentTech
           );
 
-          document
-            .getElementById("metadata-collapse")
-            .addEventListener("click", expandMetadata, false);
         } else 
           showToast("Error during loading metadata content");
       }
@@ -282,6 +274,9 @@ export async function handleMetadataResponse(
       `<a href='${CONFIG.mainUrl}${CONFIG.entity.viewEntityPath}${entityID}/view' target='_blank'><img src='${DFG_ASSETS}share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>`;
     appendMetadata(metadataContent, canvasText, metadataContainer, container, metadataContentTech);
   }
+  document
+    .getElementById("metadata-collapse")
+    .addEventListener("click", expandMetadata, false);
 }
 
 /**
@@ -416,6 +411,7 @@ export async function fetchSettings(
     });
     if (typeof guiContainer !== "undefined" && typeof stats !== "undefined") {
       guiContainer.appendChild(stats.dom);
+      stats.dom.style.left = (core.lilGui[0]?.getBoundingClientRect().width - stats.domElement.getBoundingClientRect().width + 10) + 'px';
     }
   }
 }

@@ -52,6 +52,7 @@ a.wisski-inline-iip > div#wisski-iip-cont > img {
 
 .mainCanvas {
   display: block;
+  border-radius: 6px;
 }
 
 canvas {
@@ -104,9 +105,9 @@ canvas {
 
 #guiContainer {
   position: absolute;
-  top: 8px;
+  top: 0px;
   left: auto;
-  right: 5px;
+  right: 0px;
   z-index: 100;
   pointer-events: auto;
 }
@@ -318,11 +319,15 @@ canvas {
   z-index: 10;
   position: relative;
   left: 12px;
-  width: 25px;
-  height: 25px;
-  background-size: 25px;
+  width: 30px;
+  height: 30px;
+  background-size: 30px;
   cursor: pointer;
-  bottom: 48px;
+  opacity: 0.65;
+}
+
+#downloadModel:hover {
+  opacity: 1;
 }
 
 #viewEntity {

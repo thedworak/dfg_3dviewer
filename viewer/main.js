@@ -48,7 +48,7 @@ import {
 import { initClippingPlanes, showToast, changeBackground } from './viewer-utils.js';
 
 import { loadModel, outlineClipping } from "./loaders.js";
-import { createIIIFDropdown, downloadModel } from "./metadata.js";
+import { createIIIFDropdown } from "./metadata.js";
 
 //three.js core
 import THREE from "./init.js";
@@ -116,6 +116,7 @@ export const Viewer = {
   canvasText: null,
   viewEntity: null,
   fullscreenMode: null,
+  downloadModel: null,
   handAnimationTime: 0,
   originalMetadata: [],
   spinnerContainer: null,
@@ -607,10 +608,10 @@ export const Viewer = {
     modalGallery.addEventListener("wheel", function (e) {
       e.preventDefault();
       e.stopPropagation();
-      if (e.deltaY > 0 && zoomImage > 0.15) {
-        modalImage.style.transform = `scale(${(zoomImage -= ZOOM_SPEED_IMAGE)})`;
-      } else if (e.deltaY < 0 && zoomImage < 5) {
-        modalImage.style.transform = `scale(${(zoomImage += ZOOM_SPEED_IMAGE)})`;
+      if (e.deltaY > 0 && Viewer.zoomImage > 0.15) {
+        modalImage.style.transform = `scale(${(Viewer.zoomImage -= Viewer.ZOOM_SPEED_IMAGE)})`;
+      } else if (e.deltaY < 0 && Viewer.zoomImage < 5) {
+        modalImage.style.transform = `scale(${(Viewer.zoomImage += Viewer.ZOOM_SPEED_IMAGE)})`;
       }
       return false;
     });
@@ -630,7 +631,7 @@ export const Viewer = {
         !imageList.contains(event.target)
       ) {
         modalGallery.style.display = "none";
-        zoomImage = 1.5;
+        Viewer.zoomImage = 1.5;
         modalImage.style.transform = `scale(1.5)`;
       }
     });
@@ -874,7 +875,7 @@ export const Viewer = {
 
     Viewer.fullscreenMode.style.top = (heightCSS - 40) + 'px';
     if (Viewer.downloadModel && !isFullscreen) {
-      Viewer.downloadModel.style.top = (heightCSS - 85) + 'px';
+      Viewer.downloadModel.style.top = (heightCSS - 40) + 'px';
     }
     if (Viewer.viewEntity) {
       Viewer.viewEntity.style.right = isFullscreen ? '-95%' : '-75%';
@@ -1162,7 +1163,7 @@ export const Viewer = {
       fileform.append("filename", basename);
       //fileform.append("path", uri + prependName);
       fileform.append("data", imgBlob, "thumbnail.png");
-      fileform.append("wisski_individual", entityID);
+      fileform.append("wisski_individual", Viewer.entityID);
       fetch(CONFIG.mainUrl + "/api/editor/upload_thumbnail.php", {
         method: "POST",
         credentials: "same-origin",
@@ -1309,9 +1310,8 @@ export const Viewer = {
       // stats
       Viewer.stats = new Stats();
       Viewer.stats.domElement.style.cssText =
-        "position:relative;top:0px;left:" +
-        (Viewer.CONFIG.viewer.canvasDimensions.x - 90) +
-        "px;max-height:120px;max-width:90px;z-index:2;visibility:hidden;";
+        "position:relative;top:0px;" +
+        "max-height:120px;max-width:90px;z-index:2;visibility:hidden;";
 
       Viewer.windowHalfX = Viewer.CONFIG.viewer.canvasDimensions.x / 2;
       Viewer.windowHalfY = Viewer.CONFIG.viewer.canvasDimensions.y / 2;
@@ -1466,7 +1466,6 @@ export const Viewer = {
           {
             ["Save"]() {
 
-
               var rotateMetadata = new THREE.Vector3(
                 THREE.MathUtils.radToDeg(Viewer.helperObjects[0].rotation.x),
                 THREE.MathUtils.radToDeg(Viewer.helperObjects[0].rotation.y),
@@ -1475,11 +1474,11 @@ export const Viewer = {
               var newMetadata = new Object();
 
               //Fetch data from original metadata file anyway before saving any changes
-              if (CONFIG.entity.proxyPath !== undefined) {
-                metadataUrl = getProxyPath(metadataUrl);
+              if (Viewer.CONFIG.entity.proxyPath !== undefined) {
+                Viewer.metadataUrl = getProxyPath(Viewer.metadataUrl);
               }
 
-              fetch(metadataUrl, { cache: "no-cache" })
+              fetch(Viewer.metadataUrl, { cache: "no-cache" })
                 .then((response) => {
                   if (response["status"] !== 404) {
                     return response.json();
@@ -1643,11 +1642,11 @@ export const Viewer = {
                       "X-CSRF-Token": window.CSRF_TOKEN
                     },
                       body: JSON.stringify({
-                      filename: filename,
+                      filename: Viewer.filename,
                       path:
-                        archiveType !== ""
-                        ? fileObject.uri + fileObject.basename + compressedFile + "/"
-                        : uri,
+                        Viewer.archiveType !== ""
+                        ? Viewer.fileObject.uri + Viewer.fileObject.basename + Viewer.compressedFile + "/"
+                        : Viewer.fileObject.uri,
                       content: JSON.stringify(newMetadata, null, "\t")
                       })
                     })
@@ -1860,7 +1859,7 @@ export const Viewer = {
       Viewer.fullscreenMode.setAttribute(
         "style",
         "top:" +
-        (Viewer.bottomLineGUI + 20) +
+        (Viewer.bottomLineGUI + 18) +
         "px; left: " +
         (Viewer.CONFIG.viewer.canvasDimensions.x - 40) +
         "px"
@@ -1868,11 +1867,15 @@ export const Viewer = {
       Viewer.container.appendChild(Viewer.fullscreenMode);
       document.getElementById("fullscreenMode").addEventListener("click", Viewer.toggleFullscreen, false);
 
+      Viewer.downloadModel = document.createElement("div");
+      setCore('downloadModel', Viewer.downloadModel);
+
       Viewer.handHint.innerHTML = `<img src="${Viewer.DFG_ASSETS}hand-hint.png" alt="Fullscreen" width=48 height=48 title="Hand hint animation"/>`;
       
       Viewer.rect = this.container.getBoundingClientRect();
       this.guiContainer.style.maxHeight = `${Viewer.rect.height - 20}px`;
       Viewer.lilGui = document.getElementsByClassName("lil-gui root");
+      setCore('lilGui', Viewer.lilGui);
 
       Viewer.fileElement = document.getElementsByClassName("field--type-file");
       if (Viewer.fileElement.length > 0) {
@@ -1959,7 +1962,7 @@ export const Viewer = {
         Viewer._ext === "xz" ||
         Viewer._ext === "gz"
       ) {
-        archiveType = Viewer._ext;
+        Viewer.archiveType = Viewer._ext;
       }
 
       var _autoPath = "";
@@ -1969,7 +1972,7 @@ export const Viewer = {
         req.responseType = "";
         req.open(
           "GET",
-          Viewer.CONFIG.metadataUrl + Viewer.CONFIG.viewer.exportPath + entityID + "?page=0&amp;_format=xml",
+          Viewer.CONFIG.metadataUrl + Viewer.CONFIG.viewer.exportPath + Viewer.entityID + "?page=0&amp;_format=xml",
           true
         );
         req.onreadystatechange = async function (aEvt) {
