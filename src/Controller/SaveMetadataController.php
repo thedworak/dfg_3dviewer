@@ -2,81 +2,103 @@
 
 declare(strict_types=1);
 
-namespace Drupal\dfg3dviewer\Controller;
+namespace Drupal\dfg_3dviewer\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Drupal\Core\File\FileSystemInterface;
 
 class SaveMetadataController extends ControllerBase {
+	
+	private const ALLOWED_SUBDIR = 'viewer';
 
-  public function save(Request $request): JsonResponse {
+	public function save(Request $request): JsonResponse {	  
 
-    /* =========================
-       Auth (zastępuje $_SESSION)
-    ========================= */
+		/* =========================
+		   Auth (no $_SESSION)
+		========================= */
 
-    if ($this->currentUser()->isAnonymous()) {
-      throw new AccessDeniedHttpException('Unauthorized');
-    }
+		if ($this->currentUser()->isAnonymous()) {
+			throw new AccessDeniedHttpException('Unauthorized');
+		}
 
-    /* =========================
-       Input JSON
-    ========================= */
+		/* =========================
+		   Input JSON
+		========================= */
 
-    $input = json_decode($request->getContent(), true);
-    if (!is_array($input)) {
-      throw new BadRequestHttpException('Invalid JSON');
-    }
+		$input = json_decode($request->getContent(), true);
+		if (!is_array($input)) {
+			throw new BadRequestHttpException('Invalid JSON');
+		}
 
-    /* =========================
-       Validate data
-    ========================= */
+		/* =========================
+		   Validate data
+		========================= */
 
-    $allowedPaths = [
-      'modules/dfg_3dviewer/viewer',
-    ];
+		$path = $input['path'] ?? '';
+		$filename = $input['filename'] ?? '';
+		$content = $input['content'] ?? '';
 
-    $path = $input['path'] ?? '';
-    $filename = $input['filename'] ?? '';
-    $content = $input['content'] ?? '';
+		if (!is_string($path) || !is_string($filename)) {
+			throw new BadRequestHttpException('Invalid input');
+		}
 
-    if (
-      !in_array($path, $allowedPaths, true) ||
-      !preg_match('/^[a-zA-Z0-9_-]+$/', $filename)
-    ) {
-      throw new BadRequestHttpException('Invalid parameters');
-    }
+		// ie. 2025-02 albo project_1/session_3
+		if (!preg_match('#^[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_-]+)*$#', $path)) {
+			\Drupal::logger('dfg_3dviewer')->error(
+			  'Invalid filename received: "@path"',
+			  ['@path' => $path]
+			);
+		}
 
-    /* =========================
-       Paths (bezpieczne)
-    ========================= */
+		if (!preg_match('#^[a-zA-Z0-9_-]+$#', $filename)) {
+			\Drupal::logger('dfg_3dviewer')->error(
+			  'Invalid filename received: "@filename"',
+			  ['@filename' => $filename]
+			);
+		}
 
-    $baseDir = realpath(DRUPAL_ROOT);
-    $targetDir = realpath($baseDir . '/' . $path . '/metadata');
+		/* =========================
+		   Paths (safe)
+		========================= */
 
-    if (!$targetDir || !str_starts_with($targetDir, $baseDir)) {
-      throw new AccessDeniedHttpException('Invalid path');
-    }
+		$directory = $path . '/metadata';
 
-    /* =========================
-       Save file
-    ========================= */
+		$fileSystem = \Drupal::service('file_system');
 
-    $filePath = $targetDir . '/' . $filename . '_viewer';
+		$fileSystem->prepareDirectory(
+			$directory,
+			FileSystemInterface::CREATE_DIRECTORY |
+			FileSystemInterface::MODIFY_PERMISSIONS
+		);
 
-    if (file_put_contents($filePath, $content, LOCK_EX) === false) {
-      throw new \RuntimeException('Cannot save file');
-    }
+		$realDir = $fileSystem->realpath($directory);
 
-    /* =========================
-       Response
-    ========================= */
+		/* =========================
+		   Save file
+		========================= */
 
-    return new JsonResponse([
-      'status' => 'ok',
-    ]);
-  }
+		$content = is_array($content)
+			? json_encode($content, JSON_PRETTY_PRINT)
+			: (string) $content;
+
+		$filePath = $directory . '/' . $filename . '_viewer';
+
+		$fileSystem->saveData(
+		  $content,
+		  $filePath,
+		  FileSystemInterface::EXISTS_REPLACE
+		);
+
+		/* =========================
+		   Response
+		========================= */
+
+		return new JsonResponse([
+		  'status' => 'ok',
+		]);
+	  }
 }

@@ -1504,7 +1504,7 @@ export const Viewer = {
                     if (typeof _data["lightCameraIntensity"] !== "undefined") originalMetadata["lightCameraIntensity"] = _data["lightCameraIntensity"];
                     if (typeof _data["background"] !== "undefined") originalMetadata["background"] = _data["background"];
 
-                    if (saveProperties.Position) {
+                    if (Viewer.saveProperties.Position) {
                       newMetadata = Object.assign(newMetadata, {
                         objPosition: [
                           Viewer.helperObjects[0].position.x, Viewer.helperObjects[0].position.y, Viewer.helperObjects[0].position.z,
@@ -1518,7 +1518,7 @@ export const Viewer = {
                       });
                     }
 
-                    if (saveProperties.Rotation) {
+                    if (Viewer.saveProperties.Rotation) {
                       newMetadata = Object.assign(newMetadata, {
                         objRotation: [
                           rotateMetadata.x, rotateMetadata.y, rotateMetadata.z,
@@ -1532,7 +1532,7 @@ export const Viewer = {
                       });
                     }
 
-                    if (saveProperties.Scale) {
+                    if (Viewer.saveProperties.Scale) {
                       newMetadata = Object.assign(newMetadata, {
                         objScale: [
                         Viewer.helperObjects[0].scale.x, Viewer.helperObjects[0].scale.y, Viewer.helperObjects[0].scale.z,
@@ -1546,13 +1546,13 @@ export const Viewer = {
                       });
                     }
 
-                    if (saveProperties.Camera) {
+                    if (Viewer.saveProperties.Camera) {
                       newMetadata = Object.assign(newMetadata, {
                         cameraPosition: [
-                          camera.position.x, camera.position.y, camera.position.z,
+                          Viewer.camera.position.x, Viewer.camera.position.y, Viewer.camera.position.z,
                         ],
                         controlsTarget: [
-                          controls.target.x, controls.target.y, controls.target.z,
+                          Viewer.controls.target.x, Viewer.controls.target.y, Viewer.controls.target.z,
                         ],
                       });
                     } else {
@@ -1566,18 +1566,18 @@ export const Viewer = {
                       });
                     }
 
-                    if (saveProperties.DirectionalLight) {
+                    if (Viewer.saveProperties.DirectionalLight) {
                       newMetadata = Object.assign(newMetadata, {
                         lightPosition: [
-                          dirLight.position.x, dirLight.position.y, dirLight.position.z,
+                          Viewer.dirLight.position.x, Viewer.dirLight.position.y, Viewer.dirLight.position.z,
                         ],
                         lightTarget: [
-                          dirLight.rotation._x, dirLight.rotation._y, dirLight.rotation._z,
+                          Viewer.dirLight.rotation._x, Viewer.dirLight.rotation._y, Viewer.dirLight.rotation._z,
                         ],
                         lightColor: [
-                          "#" + dirLight.color.getHexString().toUpperCase(),
+                          "#" + Viewer.dirLight.color.getHexString().toUpperCase(),
                         ],
-                        lightIntensity: [dirLight.intensity],
+                        lightIntensity: [Viewer.dirLight.intensity],
                       });
                     } else {
                       newMetadata = Object.assign(newMetadata, {
@@ -1592,12 +1592,12 @@ export const Viewer = {
                       });
                     }
 
-                    if (saveProperties.AmbientLight) {
+                    if (Viewer.saveProperties.AmbientLight) {
                       newMetadata = Object.assign(newMetadata, {
                         lightAmbientColor: [
-                          "#" + ambientLight.color.getHexString().toUpperCase(),
+                          "#" + Viewer.ambientLight.color.getHexString().toUpperCase(),
                         ],
-                        lightAmbientIntensity: [ambientLight.intensity],
+                        lightAmbientIntensity: [Viewer.ambientLight.intensity],
                       });
                     } else {
                       newMetadata = Object.assign(newMetadata, {
@@ -1610,12 +1610,12 @@ export const Viewer = {
                       });
                     }
 
-                    if (saveProperties.CameraLight) {
+                    if (Viewer.saveProperties.CameraLight) {
                       newMetadata = Object.assign(newMetadata, {
                         lightCameraColor: [
-                          "#" + cameraLight.color.getHexString().toUpperCase(),
+                          "#" + Viewer.cameraLight.color.getHexString().toUpperCase(),
                         ],
-                        lightCameraIntensity: [cameraLight.intensity],
+                        lightCameraIntensity: [Viewer.cameraLight.intensity],
                       });
                     } else {
                       newMetadata = Object.assign(newMetadata, {
@@ -1628,15 +1628,15 @@ export const Viewer = {
                       });
                     }
 
-                    if (saveProperties.BackgroundColor) {
+                    if (Viewer.saveProperties.BackgroundColor) {
                       newMetadata = Object.assign(newMetadata, {
                         background: [
-                          window.getComputedStyle(mainCanvas).background,
+                          window.getComputedStyle(Viewer.mainCanvas).background,
                         ],
                       });
                     }
                     const token = await fetch('/session/token').then(r => r.text());
-                    fetch(CONFIG.mainUrl + "/api/editor/save-metadata", {
+                    fetch(Viewer.CONFIG.mainUrl + "/api/editor/save-metadata", {
                       method: "POST",
                       credentials: "same-origin",
                       headers: {
@@ -1644,10 +1644,10 @@ export const Viewer = {
                       "X-CSRF-Token": token
                     },
                       body: JSON.stringify({
-                      filename: Viewer.filename,
+                      filename: Viewer.fileObject.filename,
                       path:
                         Viewer.archiveType !== ""
-                        ? Viewer.fileObject.uri + Viewer.fileObject.basename + Viewer.compressedFile + "/"
+                        ? Viewer.fileObject.uri + Viewer.fileObject.basename + Viewer.compressedFile
                         : Viewer.fileObject.uri,
                       content: JSON.stringify(newMetadata, null, "\t")
                       })
