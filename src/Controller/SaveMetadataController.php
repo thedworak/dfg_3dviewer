@@ -85,7 +85,7 @@ class SaveMetadataController extends ControllerBase {
 			? json_encode($content, JSON_PRETTY_PRINT)
 			: (string) $content;
 
-		$filePath = $directory . '/' . $filename . '_viewer';
+		$filePath = $directory . '/' . $filename . '_viewer.json';
 
 		$fileSystem->saveData(
 		  $content,

@@ -322,7 +322,7 @@ export async function fetchSettings(
   viewEntity
 ) {
   var metadata = { vertices: 0, faces: 0 };
-  let metadataUrl = fileObject.path + "metadata/" + fileObject.filename + "_viewer";
+  let metadataUrl = fileObject.path + "metadata/" + fileObject.filename + "_viewer.json";
 
   if (Array.isArray(object)) {
     core.helperObjects.push(object[0]);
@@ -362,10 +362,10 @@ export async function fetchSettings(
     fetch(metadataUrl, { cache: "no-cache" })
       .then((response) => {
         if (response["status"] !== 404) {
-          showToast("Settings " + fileObject.filename + "_viewer found");
+          showToast("Settings " + fileObject.filename + "_viewer.json found");
           return response.json();
         } else if (response["status"] === 404) {
-          showToast("No settings " + fileObject.filename + "_viewer found");
+          showToast("No settings " + fileObject.filename + "_viewer.json found");
         }
       })
       .then(async (data) => {
