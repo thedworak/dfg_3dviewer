@@ -875,7 +875,7 @@ export const Viewer = {
 
     Viewer.fullscreenMode.style.top = (heightCSS - 40) + 'px';
     if (Viewer.downloadModel && !isFullscreen) {
-      Viewer.downloadModel.style.top = (heightCSS - 60) + 'px';
+      Viewer.downloadModel.style.top = (heightCSS - 70) + 'px';
     }
     if (Viewer.viewEntity) {
       Viewer.viewEntity.style.right = isFullscreen ? '-95%' : '-75%';
@@ -1327,7 +1327,9 @@ export const Viewer = {
         .onChange(function (value) {
           if (value === "") {
             Viewer.transformControl.detach();
+            core.axesHelper.visible = false;
           } else {
+            core.axesHelper.visible = true;
             Viewer.renderer.localClippingEnabled = false;
             Viewer.transformControl.mode = value;
             Viewer.transformControl.attach(Viewer.helperObjects[0]);
@@ -1354,15 +1356,14 @@ export const Viewer = {
             Viewer.transformControlLightTarget.detach();
             Viewer.lightHelper.visible = false;
           } else {
+            Viewer.lightHelper.visible = true;
             if (value === "translate") {
               Viewer.transformControlLight.mode = "translate";
               Viewer.transformControlLight.attach(Viewer.dirLight);
-              Viewer.lightHelper.visible = true;
               Viewer.transformControlLightTarget.detach();
             } else {
               Viewer.transformControlLightTarget.mode = "translate";
               Viewer.transformControlLightTarget.attach(Viewer.dirLightTarget);
-              Viewer.lightHelper.visible = true;
               Viewer.transformControlLight.detach();
             }
           }
@@ -2012,13 +2013,13 @@ export const Viewer = {
                 Viewer.fileObject.filename = _autoPath.split("/").pop();
                 Viewer.fileObject.basename = Viewer.fileObject.filename.substring(0, Viewer.fileObject.filename.lastIndexOf("."));
                 Viewer.fileObject.extension = Viewer.fileObject.filename.substring(Viewer.fileObject.filename.lastIndexOf(".") + 1);
-                Viewer._ext = fileObject.extension.toLowerCase();
+                Viewer._ext = Viewer.fileObject.extension.toLowerCase();
                 Viewer.fileObject.path = _autoPath.substring(0, _autoPath.lastIndexOf(Viewer.fileObject.filename));
               }
-              await mainLoadModel(Viewer._ext);
+              await Viewer.mainLoadModel(Viewer._ext);
             } else {
               console.log("Error during loading metadata content\n");
-              await mainLoadModel(Viewer._ext);
+              await Viewer.mainLoadModel(Viewer._ext);
             }
           }
         };

@@ -262,26 +262,22 @@ async function fitCameraToCenteredObject(object, add_offset, _fit) {
   var gridSizeScale = core.gridSize * 2.5;
   if (core.basicGrid !== undefined) core.scene.remove(core.basicGrid);
   core.basicGrid = new THREE.Group();
-  var planeMesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(gridSizeScale, gridSizeScale),
-    new THREE.MeshPhongMaterial({
-      color: 0xefefef,
-      depthWrite: false,
-      transparent: true,
-      opacity: 0.65,
-    })
-  );
+  var planeMaterial = new THREE.ShadowMaterial({ opacity: 0.35 })
+
+  var planeMesh = new THREE.Mesh(new THREE.PlaneGeometry(gridSizeScale, gridSizeScale), planeMaterial);
+
   planeMesh.rotation.x = -Math.PI / 2;
   planeMesh.position.set(0, 0, 0);
   planeMesh.receiveShadow = true;
   core.basicGrid.add(planeMesh);
 
-  const axesHelper = new THREE.AxesHelper(core.gridSize);
-  axesHelper.position.set(0, 0, 0);
-  core.basicGrid.add(axesHelper);
+  core.axesHelper = new THREE.AxesHelper(core.gridSize);
+  core.axesHelper.position.set(0, 0, 0);
+  core.axesHelper.visible = false;
+  core.basicGrid.add(core.axesHelper);
 
   const grid = new THREE.GridHelper(gridSizeScale, 25, 0xaeaeae, 0x000000);
-  grid.material.opacity = 0.1;
+  grid.material.opacity = 0.05;
   grid.material.transparent = true;
   grid.position.set(0, 0, 0);
   core.basicGrid.add(grid);

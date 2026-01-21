@@ -323,11 +323,12 @@ canvas {
   height: 30px;
   background-size: 30px;
   cursor: pointer;
-  opacity: 0.65;
+  opacity: 0.45;
 }
 
 #downloadModel:hover {
   opacity: 1;
+  transition: opacity 0.6s ease;
 }
 
 #viewEntity {
@@ -342,7 +343,7 @@ canvas {
 }
 
 #fullscreenMode {
-  opacity: 0.65;
+  opacity: 0.45;
   z-index: 10;
   position: relative;
   width: 25px;
@@ -354,6 +355,7 @@ canvas {
 
 #fullscreenMode:hover {
   opacity: 1;
+  transition: opacity 0.6s ease;
 }
 
 .field--type-image {

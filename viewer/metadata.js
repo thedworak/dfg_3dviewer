@@ -207,6 +207,22 @@ export async function handleMetadataResponse(
     CONFIG.viewer.lightweight !== false && CONFIG.viewer.lightweight !== 1 &&
     CONFIG.viewer.lightweight !== null
   ) {
+
+    if (!document.getElementById("downloadModel")) {
+      core.downloadModel.setAttribute("id", "downloadModel");
+
+      var c_path = fileObject.path;
+      if (compressedFile !== "") fileObject.filename = fileObject.filename.replace(fileObject.orgExtension, fileObject.extension);
+
+      container.appendChild(core.downloadModel);
+      const scriptUrl = document.currentScript?.src || import.meta.url;
+      let DFG_ASSETS = scriptUrl.replace(/dfg_3dviewer-module\.js.*$/, 'assets/img');
+
+      core.downloadModel.innerHTML = `
+        <a href="blob:${c_path}${fileObject.filename}" download>
+          <img src="${DFG_ASSETS}/download-icon.svg" alt="download" width="28" height="28" title="Download source file"/>`;
+    }
+
     var req = new XMLHttpRequest();
     req.responseType = "";
     req.open(
@@ -236,22 +252,6 @@ export async function handleMetadataResponse(
               }
             }
           }
-
-          if (!document.getElementById("downloadModel")) {
-            core.downloadModel.setAttribute("id", "downloadModel");
-
-            var c_path = fileObject.path;
-            if (compressedFile !== "") fileObject.filename = fileObject.filename.replace(fileObject.orgExtension, fileObject.extension);
-
-            container.appendChild(core.downloadModel);
-            const scriptUrl = document.currentScript?.src || import.meta.url;
-            let DFG_ASSETS = scriptUrl.replace(/dfg_3dviewer-module\.js.*$/, 'assets/img/');
-
-            core.downloadModel.innerHTML = `
-              <a href="blob:${c_path}${fileObject.filename}" download>
-                <img src="${DFG_ASSETS}/cloud-arrow-down.svg" alt="download" width="30" height="30" title="Download source file"/>`;
-          }
-
           metadataContainer.appendChild(viewEntity);
           appendMetadata(
             metadataContent,
@@ -276,7 +276,7 @@ export async function handleMetadataResponse(
   }
   document
     .getElementById("metadata-collapse")
-    .addEventListener("click", expandMetadata, false);
+    ?.addEventListener("click", expandMetadata, false);
 }
 
 /**

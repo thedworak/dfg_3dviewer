@@ -17,6 +17,7 @@ export const core = {
     lightHelper: null,
     scene: new THREE.Scene(),
     basicGrid: new THREE.Group(),
+    axesHelper: new THREE.AxesHelper(),
     cameraCoords: null,
     tween: new TWEEN.Tween(),
     controls: null,
