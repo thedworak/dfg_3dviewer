@@ -1487,7 +1487,7 @@ export const Viewer = {
                     return (response = {});
                   }
                 })
-                .then((_data) => {
+                .then(async (_data) => {
                   if (typeof _data !== "undefined") {
                     if (typeof _data[`objPosition`] !== "undefined") originalMetadata["objPosition"] = _data["objPosition"];
                     if (typeof _data["objRotation"] !== "undefined") originalMetadata["objRotation"] = _data["objRotation"];
@@ -1635,12 +1635,13 @@ export const Viewer = {
                         ],
                       });
                     }
-                    fetch(CONFIG.mainUrl + "/api/editor/save_metadata.php", {
+                    const token = await fetch('/session/token').then(r => r.text());
+                    fetch(CONFIG.mainUrl + "/api/editor/save-metadata", {
                       method: "POST",
                       credentials: "same-origin",
                       headers: {
                       "Content-Type": "application/json",
-                      "X-CSRF-Token": window.CSRF_TOKEN
+                      "X-CSRF-Token": token
                     },
                       body: JSON.stringify({
                       filename: Viewer.filename,

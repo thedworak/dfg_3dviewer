@@ -17,3 +17,10 @@ dfg_3dviewer.menu:
     _title: 'DFG 3D Viewer'
   requirements:
     _permission: 'administer dfg_3dviewer'
+dfg_3dviewer.save_metadata:
+  path: '/api/editor/save-metadata'
+  defaults:
+    _controller: '\Drupal\dfg_3dviewer\Controller\SaveMetadataController::save'
+  methods: [POST]
+  requirements:
+    _permission: 'access dfg 3dviewer editor'
