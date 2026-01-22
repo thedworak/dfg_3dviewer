@@ -24,3 +24,10 @@ dfg_3dviewer.save_metadata:
   methods: [POST]
   requirements:
     _permission: 'access dfg 3dviewer editor'
+dfg_3dviewer.thumbnail_upload:
+  path: '/api/editor/upload-thumbnail'
+  defaults:
+    _controller: '\Drupal\dfg_3dviewer\Controller\ThumbnailUploadController::upload'
+  methods: [POST]
+  requirements:
+    _permission: 'access dfg 3dviewer editor'

@@ -51,6 +51,7 @@ function setupObjectHandler (_object, _metadata) {
 }
 
 export const setupObject = (_object, _light, _controls, _metadata) => {
+  console.log(_metadata);
   let model;
   if (typeof _object.children === "undefined" || _object.children.length == 0) {
     model = fetchObjectFromConfig(_object.name);
