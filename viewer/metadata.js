@@ -125,11 +125,11 @@ export async function handleMetadataResponse(
   let hierarchyFolder;
   let metadataContentTech = '<hr class="metadataSeparator">';
   if (Array.isArray(object)) {
-    setupObject(object[0], light, controls, CONFIG);
-    await setupCamera(object[0], light, CONFIG);
+    setupObject(object[0], light, controls, data);
+    await setupCamera(object[0], light, data);
   } else if (object.name === "Scene" || object.children.length > 0 || object.type == "Mesh"
   ) {
-    setupObject(object, light, controls, CONFIG);
+    setupObject(object, light, controls, data);
     object.traverse(function (child) {
       if (child.isMesh) {
         metadata["vertices"] += fetchMetadata(child, "vertices");
@@ -161,10 +161,10 @@ export async function handleMetadataResponse(
         }
       }
     });
-    await setupCamera(object, light, CONFIG);
+    await setupCamera(object, light, data);
   } else {
-    setupObject(object, light, controls, CONFIG);
-    await setupCamera(object, light, CONFIG);
+    setupObject(object, light, controls, data);
+    await setupCamera(object, light, data);
     metadata["vertices"] += fetchMetadata(object, "vertices");
     metadata["faces"] += fetchMetadata(object, "faces");
     if (object.name === "") {
@@ -282,14 +282,14 @@ export async function handleMetadataResponse(
  */
 export async function settingsHandler(object, light, controls, hierarchyMain, CONFIG) {
   if (Array.isArray(object)) {
-    setupObject(object[0], light, controls, CONFIG);
-    await setupCamera(object[0], light, CONFIG);
+    setupObject(object[0], light, controls, data);
+    await setupCamera(object[0], light, data);
   } else if (object.name === "Scene" || object.children.length > 0) {
-    setupObject(object, light, controls, CONFIG);
-    await setupCamera(object, light, CONFIG);
+    setupObject(object, light, controls, data);
+    await setupCamera(object, light, data);
   } else {
-    setupObject(object, light, controls, CONFIG);
-    await setupCamera(object, light, CONFIG);
+    setupObject(object, light, controls, data);
+    await setupCamera(object, light, data);
     if (object.name === "undefined") object.name = "level";
     if (!lilGUIhasFolder(hierarchyMain, object.name)) {
       hierarchyMain.addFolder(object.name).close();
