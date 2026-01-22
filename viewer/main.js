@@ -17,7 +17,7 @@ https://www.gnu.org/licenses/.
 //Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF
 
 const SOURCE = (typeof __BUILD_SOURCE__ !== 'undefined') ? __BUILD_SOURCE__ : "";
-const IS_PROD = (typeof __IS_PROD__ !== 'undefined') ? __IS_PROD__ : "prod";
+const IS_PROD = (typeof __IS_PROD__ !== 'undefined') ? __IS_PROD__ === true : false;
 const isE2E = (typeof __IS_PROD__ !== 'undefined') ? window.__E2E__ === true : false;
 
 window.viewer = {
@@ -63,7 +63,7 @@ import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
 //custom libraries
 import Stats from "stats.js";
 import { GUI } from "./js/external_libs/lil-gui.esm.min.js";
-import { objectsConfig } from "./object-settings.js";
+import { objectsConfig, setObjectsConfig } from "./object-settings.js";
 import { lv } from "./spinner/main.js";
 
 import './css/main.css';

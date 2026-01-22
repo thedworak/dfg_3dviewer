@@ -1,4 +1,4 @@
-export const objectsConfig = {
+export let objectsConfig = {
   models: [
     {
       name: "Astronaut_mesh", // optional unique id
@@ -45,3 +45,11 @@ export const objectsConfig = {
     ]
   }
 };
+
+export function setObjectsConfig(cfg) {
+  objectsConfig = cfg;
+}
+
+export function getObjectsConfig() {
+  return objectsConfig;
+}

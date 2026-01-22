@@ -10,6 +10,7 @@ import postcss from 'rollup-plugin-postcss';
 const source = process.env.BUILD_SOURCE ?? "IIIF";
 const envBuild = process.env.BUILD ?? "test";
 const customModules = process.env.MODULE_CUSTOM ?? "";
+const production = process.env.IS_PROD === 'true';
 
 function normalizePathSegment(seg = '') {
   return seg.replace(/^\/+|\/+$/g, '');
@@ -31,6 +32,7 @@ export default {
         __BUILD_SOURCE__: JSON.stringify(source),
         __BUILD__: JSON.stringify(envBuild),
         __DFG_DRACO_PATH__: JSON.stringify(dracoPath),
+        __IS_PROD__: JSON.stringify(production),
       },
     }),
 

@@ -39,28 +39,37 @@ function setupObjectHandler (_object, _metadata) {
   if (typeof _metadata.position !== "undefined")
     _object.position.set(_metadata.position.x, _metadata.position.y, _metadata.position.z);
   else if (typeof _metadata["objPosition"] !== "undefined")
-    _object.position.set(_metadata["objPosition"].x, _metadata["objPosition"].y, _metadata["objPosition"].z);
+    _object.position.set(_metadata["objPosition"][0], _metadata["objPosition"][1], _metadata["objPosition"][2]);
   if (typeof _metadata.scale !== "undefined")
   _object.scale.set(_metadata.scale.x, _metadata.scale.y, _metadata.scale.z);
   else if (typeof _metadata["objScale"] !== "undefined")
-    _object.scale.set(_metadata["objScale"].x, _metadata["objScale"].y, _metadata["objScale"].z);
+    _object.scale.set(_metadata["objScale"][0], _metadata["objScale"][1], _metadata["objScale"][2]);
   if (typeof _metadata.rotation !== "undefined")
     _object.rotation.set(THREE.MathUtils.degToRad(_metadata.rotation.x), THREE.MathUtils.degToRad(_metadata.rotation.y), THREE.MathUtils.degToRad(_metadata.rotation.z));
   else if (typeof _metadata["objRotation"] !== "undefined")
-    _object.rotation.set(THREE.MathUtils.degToRad(_metadata["objRotation"].x), THREE.MathUtils.degToRad(_metadata["objRotation"].y), THREE.MathUtils.degToRad(_metadata["objRotation"].z));
+    _object.rotation.set(THREE.MathUtils.degToRad(_metadata["objRotation"][0]), THREE.MathUtils.degToRad(_metadata["objRotation"][1]), THREE.MathUtils.degToRad(_metadata["objRotation"][2]));
+}
+
+function setupGeometryHandler (_object) {
+  _object.needsUpdate = true;
+  if (typeof _object.geometry !== "undefined") {
+    _object.geometry.computeBoundingBox();
+    _object.geometry.computeBoundingSphere();
+  }
+  _object.updateMatrix();
+  _object.updateMatrixWorld(true);
 }
 
 export const setupObject = (_object, _light, _controls, _metadata) => {
-  console.log(_metadata);
   let model;
   if (typeof _object.children === "undefined" || _object.children.length == 0) {
     model = fetchObjectFromConfig(_object.name);
   } else if (_object.children.length > 0) {
     model = fetchObjectFromConfig(_object.children[0].name); //TODO: check for multiple objects
   }
-  
+
   if (typeof core.objectsConfig !== "undefined" && model) { //Setup from config
-    if (typeof core.objectsConfig.models == undefined || core.objectsConfig.models?.length == 0) {
+    if ((typeof core.objectsConfig.models == undefined || core.objectsConfig.models?.length == 0) && _metadata == undefined) {
       if (typeof model.position !== undefined) _object.position.set(model.position.x, model.position.y, model.position.z);
 
       if (typeof model.scale !== undefined) _object.scale.set(model.scale.x, model.scale.y, model.scale.z);
@@ -68,7 +77,7 @@ export const setupObject = (_object, _light, _controls, _metadata) => {
       if (typeof model.rotation !== undefined) _object.rotation.set(THREE.MathUtils.degToRad(model.rotation.x), THREE.MathUtils.degToRad(model.rotation.y), THREE.MathUtils.degToRad(model.rotation.z));
     } else {
       let m = core.objectsConfig.models[core.objectsConfig.setupIndex];
-      if (m !== undefined) {
+      if (m !== undefined && _metadata == undefined) {
         //console.log("Applying config for index", core.objectsConfig.setupIndex, m);
         setupObjectHandler(_object, m);
       } else if (_metadata !== undefined) {
@@ -76,15 +85,13 @@ export const setupObject = (_object, _light, _controls, _metadata) => {
         setupObjectHandler(_object, _metadata);
       }        
     }
-    
-    _object.needsUpdate = true;
-    if (typeof _object.geometry !== "undefined") {
-      _object.geometry.computeBoundingBox();
-      _object.geometry.computeBoundingSphere();
-    }
-    _object.updateMatrix();
-    _object.updateMatrixWorld(true);
-  } else {
+    setupGeometryHandler(_object);
+
+  } else if (_metadata !== null) {
+    setupObjectHandler(_object, _metadata);
+    setupGeometryHandler(_object);
+  } 
+  else {
     var boundingBox = new THREE.Box3();
     if (Array.isArray(_object)) {
       for (let i = 0; i < _object.length; i++) {
@@ -155,7 +162,7 @@ export const setupObject = (_object, _light, _controls, _metadata) => {
   }
 
 export async function setupCamera (_object, _light, _config) {
-  if (core.objectsConfig !== undefined) {
+  if (core.objectsConfig !== undefined || _config !== undefined) {
     if (core.objectsConfig?.camera?.position && core.camera) {
       core.camera.position.set(core.objectsConfig.camera.position.x, core.objectsConfig.camera.position.y, core.objectsConfig.camera.position.z);
     } else if (_config["cameraPosition"] !== undefined) {
