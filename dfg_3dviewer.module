@@ -138,13 +138,13 @@ function dfg_3dviewer_hook_file_validate(Drupal\file\FileInterface $file) {
 function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity) {
 	$DEFAULT_CONFIG = \Drupal::config('dfg_3dviewer.settings');
 	$SETTINGS = Array();
-	$SETTINGS['entity_bundle']=constant("ENTITY_BUNDLE");
-	$SETTINGS['viewer_file_upload']=constant("VIEWER_FILE_UPLOAD");
-	$SETTINGS['image_generation']=constant("IMAGE_GENERATION");
-	$SETTINGS['viewer_file_name']=constant("VIEWER_FILE_NAME");
-	$SETTINGS['field_df']=constant("FIELD_DF");
-	$SETTINGS['main_url']=constant("MAIN_URL");
-	$SETTINGS['lightweight']=constant("LIGHTWEIGHT");
+	$SETTINGS['entity_bundle']=ENTITY_BUNDLE;
+	$SETTINGS['viewer_file_upload']=VIEWER_FILE_UPLOAD;
+	$SETTINGS['image_generation']=MAGE_GENERATION;
+	$SETTINGS['viewer_file_name']=VIEWER_FILE_NAME;
+	$SETTINGS['field_df']=FIELD_DF;
+	$SETTINGS['main_url']=MAIN_URL;
+	$SETTINGS['lightweight']=LIGHTWEIGHT;
 
 	if (isset($DEFAULT_CONFIG)) {		
 		$SETTINGS['entity_bundle']=$DEFAULT_CONFIG->get('dfg_3dviewer_entitybundle');

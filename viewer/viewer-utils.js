@@ -35,7 +35,22 @@ function fetchObjectFromConfig(_name) {
   return core.objectsConfig?.models?.find(model => model.name === _name);
 }
 
-export const setupObject = (_object, _light, _controls) => {
+function setupObjectHandler (_object, _metadata) {
+  if (typeof _metadata.position !== "undefined")
+    _object.position.set(_metadata.position.x, _metadata.position.y, _metadata.position.z);
+  else if (typeof _metadata["objPosition"] !== "undefined")
+    _object.position.set(_metadata["objPosition"].x, _metadata["objPosition"].y, _metadata["objPosition"].z);
+  if (typeof _metadata.scale !== "undefined")
+  _object.scale.set(_metadata.scale.x, _metadata.scale.y, _metadata.scale.z);
+  else if (typeof _metadata["objScale"] !== "undefined")
+    _object.scale.set(_metadata["objScale"].x, _metadata["objScale"].y, _metadata["objScale"].z);
+  if (typeof _metadata.rotation !== "undefined")
+    _object.rotation.set(THREE.MathUtils.degToRad(_metadata.rotation.x), THREE.MathUtils.degToRad(_metadata.rotation.y), THREE.MathUtils.degToRad(_metadata.rotation.z));
+  else if (typeof _metadata["objRotation"] !== "undefined")
+    _object.rotation.set(THREE.MathUtils.degToRad(_metadata["objRotation"].x), THREE.MathUtils.degToRad(_metadata["objRotation"].y), THREE.MathUtils.degToRad(_metadata["objRotation"].z));
+}
+
+export const setupObject = (_object, _light, _controls, _metadata) => {
   let model;
   if (typeof _object.children === "undefined" || _object.children.length == 0) {
     model = fetchObjectFromConfig(_object.name);
@@ -54,13 +69,11 @@ export const setupObject = (_object, _light, _controls) => {
       let m = core.objectsConfig.models[core.objectsConfig.setupIndex];
       if (m !== undefined) {
         //console.log("Applying config for index", core.objectsConfig.setupIndex, m);
-        if (typeof m.position !== "undefined")
-          _object.position.set(m.position.x, m.position.y, m.position.z);
-        if (typeof m.scale !== "undefined")
-        _object.scale.set(m.scale.x, m.scale.y, m.scale.z);
-        if (typeof m.rotation !== "undefined")
-          _object.rotation.set(THREE.MathUtils.degToRad(m.rotation.x), THREE.MathUtils.degToRad(m.rotation.y), THREE.MathUtils.degToRad(m.rotation.z));
-      }
+        setupObjectHandler(_object, m);
+      } else if (_metadata !== undefined) {
+        // Fallback to metadata
+        setupObjectHandler(_object, _metadata);
+      }        
     }
     
     _object.needsUpdate = true;
@@ -144,21 +157,27 @@ export async function setupCamera (_object, _light, _config) {
   if (core.objectsConfig !== undefined) {
     if (core.objectsConfig?.camera?.position && core.camera) {
       core.camera.position.set(core.objectsConfig.camera.position.x, core.objectsConfig.camera.position.y, core.objectsConfig.camera.position.z);
+    } else if (_config["cameraPosition"] !== undefined) {
+      core.camera.position.set(_config["cameraPosition"][0], _config["cameraPosition"][1], _config["cameraPosition"][2]);
     } else {
       await setupEmptyCamera(_object);
     }
     if (core.objectsConfig?.camera?.target && core.controls) {
       core.controls.target.set(core.objectsConfig.camera.target.x, core.objectsConfig.camera.target.y, core.objectsConfig.camera.target.z);
-    } else {
+    }
+    else if (_config["controlsTarget"] !== undefined) {
+      core.controls.target.set(_config["controlsTarget"][0], _config["controlsTarget"][1], _config["controlsTarget"][2]);
+    } 
+    else {
       await setupEmptyCamera(_object);
     }
     //await fitCameraToCenteredObject(core.camera, _object, 1.2, true);
 
     // Setup lights
+    if (_config === undefined) {
     core.objectsConfig.scene.lights.forEach(light => {
       switch (light.type) {
         case "directional":
-          //console.log("Directional light with color", light.color);
           _light.position.set(light.position.x, light.position.y, light.position.z);
           _light.rotation.set(light.target.x, light.target.y, light.target.z);
           
@@ -169,19 +188,35 @@ export async function setupCamera (_object, _light, _config) {
 
         break;
         case "ambient":
-          //console.log("Ambient light with color", light.color);
           core.ambientLight.color = new THREE.Color().setHex(light.color);
           core.colors["AmbientLight"] = light.color;
           core.intensity.startIntensityAmbient = core.ambientLight.intensity = light.intensity;
         break;
         case "point":
-          //console.log("Point light at", light.position);
           core.cameraLight.color = new THREE.Color().setHex(light.color);
           core.colors["CameraLight"] = light.color;
           core.intensity.startIntensityCamera = core.cameraLight.intensity = light.intensity;
         break;
       }
     });
+  } else {
+    if (_config["lightAmbientColor"] !== undefined) {
+      _light.color = new THREE.Color().setHex(_config["lightAmbientColor"][0]);
+      core.colors["AmbientLight"] = _config["lightAmbientColor"][0];
+      core.intensity.startIntensityAmbient = core.ambientLight.intensity = _config["lightAmbientIntensity"] !== undefined ? _config["lightAmbientIntensity"][0] : core.ambientLight.intensity;
+    }
+    if (_config["lightColor"] !== undefined) {
+      _light.color = new THREE.Color().setHex(_config["lightColor"][0]);
+      core.colors["DirectionalLight"] = _config["lightColor"][0];
+      core.intensity.startIntensityDir = _light.intensity = _config["lightIntensity"] !== undefined ? _config["lightIntensity"][0] : _light.intensity;
+    }
+    if (_config["lightCameraColor"] !== undefined) {
+      core.cameraLight.color = new THREE.Color().setHex(_config["lightCameraColor"][0]);
+      core.colors["CameraLight"] = _config["lightCameraColor"][0];
+      core.intensity.startIntensityCamera = core.cameraLight.intensity = _config["lightCameraIntensity"] !== undefined ? _config["lightCameraIntensity"][0] : core.cameraLight.intensity;
+    }
+  }
+
     // Setup background
     let _foundScene = false;
     if (core.objectsConfig.scenes !== undefined && Array.isArray(core.objectsConfig.scenes)) {
