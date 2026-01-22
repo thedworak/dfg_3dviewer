@@ -109,7 +109,6 @@ export async function handleMetadataResponse(
   metadata,
   fileObject,
   object,
-  camera,
   light,
   controls,
   hierarchyMain,
@@ -118,7 +117,6 @@ export async function handleMetadataResponse(
   container,
   metadataContainer,
   canvasText,
-  bottomLineGUI,
   compressedFile,
   viewEntity,
   gui
@@ -322,7 +320,16 @@ export async function fetchSettings(
   viewEntity
 ) {
   var metadata = { vertices: 0, faces: 0 };
-  let metadataUrl = fileObject.path + "metadata/" + fileObject.filename + "_viewer.json";
+  // Concat URL for metadata file
+  const u = new URL(fileObject.path);
+  const pathResult =
+    u.origin +
+    u.pathname.replace(/\/$/, '') +
+    '/' +
+    fileObject.uri.replace(u.pathname.replace(/^\/+/, ''), '');
+
+  let metadataUrl = pathResult + "metadata/" + fileObject.filename + "_viewer.json";
+  console.log("Fetching settings from: " + metadataUrl);
 
   if (Array.isArray(object)) {
     core.helperObjects.push(object[0]);
@@ -336,7 +343,7 @@ export async function fetchSettings(
   }
   if (CONFIG.entity.proxyPath !== undefined || (CONFIG.viewer.lightweight === 1 || CONFIG.viewer.lightweight === true)) {
     metadataUrl = getProxyPath(metadataUrl, CONFIG, fileObject);
-    await handleMetadataResponse(null, metadata, fileObject, object, camera, light, controls, hierarchyMain, CONFIG, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity);
+    await handleMetadataResponse(null, metadata, fileObject, object, light, controls, hierarchyMain, CONFIG, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity);
     settingsHandler(object, light, controls, hierarchyMain, CONFIG);
   } else if (CONFIG.entity.metadata.source === "IIIF") {
     await handleMetadataResponse(
@@ -344,7 +351,6 @@ export async function fetchSettings(
       metadata,
       fileObject,
       object,
-      camera,
       light,
       controls,
       hierarchyMain,
@@ -353,7 +359,6 @@ export async function fetchSettings(
       container,
       metadataContainer,
       canvasText,
-      bottomLineGUI,
       compressedFile,
       viewEntity,
       gui
@@ -374,7 +379,6 @@ export async function fetchSettings(
           metadata,
           fileObject,
           object,
-          camera,
           light,
           controls,
           hierarchyMain,
@@ -383,7 +387,6 @@ export async function fetchSettings(
           container,
           metadataContainer,
           canvasText,
-          bottomLineGUI,
           compressedFile,
           viewEntity
         );

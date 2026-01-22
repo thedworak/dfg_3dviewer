@@ -209,7 +209,8 @@ function traverseMesh(object) {
         window.viewer.scene = scene;
       }
       traverseMesh(object);
-      params.fileObject.path = params.fileObject.path.replace("gltf/", "");
+      if (params.fileObject.extension.toLowerCase() === "gltf" || params.fileObject.extension.toLowerCase() === "glb") params.fileObject.path = params.fileObject.path.replace("/gltf/", "/");
+      else params.fileObject.path = params.fileObject.path.replace("gltf/", "");
       fetchSettings( params.fileObject, object, camera, lightObjects[0], controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity);
       core.outlineClipping = prepareOutlineClipping(object);
       scene.add(object, core.outlineClipping);

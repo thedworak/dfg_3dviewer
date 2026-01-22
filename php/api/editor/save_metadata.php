@@ -70,7 +70,7 @@ if ($targetDir === false || !str_starts_with($targetDir, $baseDir)) {
    Save file
 ========================= */
 
-$filePath = $targetDir . '/' . $filename . '_viewer';
+$filePath = $targetDir . '/' . $filename . '_viewer.json';
 
 file_put_contents($filePath, $content, LOCK_EX);
 

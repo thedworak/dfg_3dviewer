@@ -92,12 +92,12 @@ Then, basic configuration should be changed:
       fileName: "faa602a0be629324806aef22892cdbe5",
       imageGeneration: "f605dc6b727a1099b9e52b3ccbdf5673",
       lightweight: 1,
-      salt: "Z7FYJMmTiEzcGp4lTpuk4LiA",
       scaleContainer: {
         x: 0.85,
         y: 1.4,
       },
       gallery: {
+        build: true,       
         container: "block-bootstrap5-content",
         imageClass: "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
         imageId: "",

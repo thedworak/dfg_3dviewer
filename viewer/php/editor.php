@@ -12,16 +12,11 @@ if (json_last_error() !== JSON_ERROR_NONE) {
 	die("Error decoding JSON: " . json_last_error_msg());
 }
 
-$salt = $configData['salt'];
+$path = './'.$_POST['path'];
+$filename = $_POST['filename'];
 
-if (isset($_POST[$salt])) {
-	$result = $_POST[$salt];
-	$path = './'.$_POST['path'];
-	$filename = $_POST['filename'];
+file_put_contents($path . "metadata/" . $filename . "_viewer.json", $result);
 
-	file_put_contents($path . "metadata/" . $filename . "_viewer", $result);
-} else {
-	echo "Permission denied";
 }
 
 ?>

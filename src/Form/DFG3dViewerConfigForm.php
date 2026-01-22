@@ -38,7 +38,6 @@ class DFG3dViewerConfigForm extends FormBase {
       'basenamespace' => $default_config->get('dfg_3dviewer_basenamespace'),
       'container' => $default_config->get('dfg_3dviewer_container'),
       'lightweight' => $default_config->get('dfg_3dviewer_lightweight'),
-      'salt' => $default_config->get('dfg_3dviewer_salt'),
       'scale_container_x' => $default_config->get('dfg_3dviewer_scale_container_x'),
       'scale_container_y' => $default_config->get('dfg_3dviewer_scale_container_y'),
       'gallery_container' => $default_config->get('dfg_3dviewer_gallery_container'),
@@ -168,14 +167,6 @@ class DFG3dViewerConfigForm extends FormBase {
 		],
     ];
 
-	$form['dfg_3dviewer_salt'] = [
-		'#default_value' => $default_settings['salt'],
-		'#type' => 'textfield',
-		'#title' => $this->t('Salt'),
-		'#required' => true,
-		'#description' => 'Random <b>salt</b> string used with server scripts for security reasons. Change it after installation.',
-    ];
-
 	$form['gallery_wrapper'] = [
 		'#type' => 'container',
 		'#attributes' => [
@@ -299,7 +290,6 @@ class DFG3dViewerConfigForm extends FormBase {
     $settings->set('dfg_3dviewer_image_generation', $new_vals['dfg_3dviewer_image_generation']);
     $settings->set('dfg_3dviewer_field_df', $new_vals['dfg_3dviewer_field_df']);
     $settings->set('dfg_3dviewer_lightweight', $new_vals['dfg_3dviewer_lightweight']);
-    $settings->set('dfg_3dviewer_salt', $new_vals['dfg_3dviewer_salt']);
     $settings->set('dfg_3dviewer_scale_container_x', $new_vals['dfg_3dviewer_scale_container_x']);
     $settings->set('dfg_3dviewer_scale_container_y', $new_vals['dfg_3dviewer_scale_container_y']);
     $settings->set('dfg_3dviewer_gallery_container', $new_vals['dfg_3dviewer_gallery_container']);
@@ -331,7 +321,6 @@ class DFG3dViewerConfigForm extends FormBase {
 			'fileName' => $new_vals['dfg_3dviewer_viewer_file_name'],
 			'imageGeneration' => $new_vals['dfg_3dviewer_image_generation'],
 			'lightweight' => $new_vals['dfg_3dviewer_lightweight'],
-			'salt' => $new_vals['dfg_3dviewer_salt'],
 			'scaleContainer' => [
 				'x' => $new_vals['dfg_3dviewer_scale_container_x'],
 				'y' => $new_vals['dfg_3dviewer_scale_container_y']

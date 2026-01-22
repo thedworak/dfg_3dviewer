@@ -275,7 +275,6 @@ export const Viewer = {
           fileName: "faa602a0be629324806aef22892cdbe5",
           imageGeneration: "f605dc6b727a1099b9e52b3ccbdf5673",
           lightweight: 0,
-          salt: "Z7FYJMmTiEzcGp4lTpuk4LiA",
           scaleContainer: {
             x: 0.85,
             y: 1.4,
@@ -1489,20 +1488,20 @@ export const Viewer = {
                 })
                 .then(async (_data) => {
                   if (typeof _data !== "undefined") {
-                    if (typeof _data[`objPosition`] !== "undefined") originalMetadata["objPosition"] = _data["objPosition"];
-                    if (typeof _data["objRotation"] !== "undefined") originalMetadata["objRotation"] = _data["objRotation"];
-                    if (typeof _data["objScale"] !== "undefined") originalMetadata["objScale"] = _data["objScale"];
-                    if (typeof _data["cameraPosition"] !== "undefined") originalMetadata["cameraPosition"] = _data["cameraPosition"];
-                    if (typeof _data["controlsTarget"] !== "undefined") originalMetadata["controlsTarget"] = _data["controlsTarget"];
-                    if (typeof _data["lightPosition"] !== "undefined") originalMetadata["lightPosition"] = _data["lightPosition"];
-                    if (typeof _data["lightTarget"] !== "undefined") originalMetadata["lightTarget"] = _data["lightTarget"];
-                    if (typeof _data["lightColor"] !== "undefined") originalMetadata["lightColor"] = _data["lightColor"];
-                    if (typeof _data["lightIntensity"] !== "undefined") originalMetadata["lightIntensity"] = _data["lightIntensity"];
-                    if (typeof _data["lightAmbientColor"] !== "undefined") originalMetadata["lightAmbientColor"] = _data["lightAmbientColor"];
-                    if (typeof _data["lightAmbientIntensity"] !== "undefined") originalMetadata["lightAmbientIntensity"] = _data["lightAmbientIntensity"];
-                    if (typeof _data["lightCameraColor"] !== "undefined") originalMetadata["lightCameraColor"] = _data["lightCameraColor"];
-                    if (typeof _data["lightCameraIntensity"] !== "undefined") originalMetadata["lightCameraIntensity"] = _data["lightCameraIntensity"];
-                    if (typeof _data["background"] !== "undefined") originalMetadata["background"] = _data["background"];
+                    if (typeof _data[`objPosition`] !== "undefined") Viewer.originalMetadata["objPosition"] = _data["objPosition"];
+                    if (typeof _data["objRotation"] !== "undefined") Viewer.originalMetadata["objRotation"] = _data["objRotation"];
+                    if (typeof _data["objScale"] !== "undefined") Viewer.originalMetadata["objScale"] = _data["objScale"];
+                    if (typeof _data["cameraPosition"] !== "undefined") Viewer.originalMetadata["cameraPosition"] = _data["cameraPosition"];
+                    if (typeof _data["controlsTarget"] !== "undefined") Viewer.originalMetadata["controlsTarget"] = _data["controlsTarget"];
+                    if (typeof _data["lightPosition"] !== "undefined") Viewer.originalMetadata["lightPosition"] = _data["lightPosition"];
+                    if (typeof _data["lightTarget"] !== "undefined") Viewer.originalMetadata["lightTarget"] = _data["lightTarget"];
+                    if (typeof _data["lightColor"] !== "undefined") Viewer.originalMetadata["lightColor"] = _data["lightColor"];
+                    if (typeof _data["lightIntensity"] !== "undefined") Viewer.originalMetadata["lightIntensity"] = _data["lightIntensity"];
+                    if (typeof _data["lightAmbientColor"] !== "undefined") Viewer.originalMetadata["lightAmbientColor"] = _data["lightAmbientColor"];
+                    if (typeof _data["lightAmbientIntensity"] !== "undefined") Viewer.originalMetadata["lightAmbientIntensity"] = _data["lightAmbientIntensity"];
+                    if (typeof _data["lightCameraColor"] !== "undefined") Viewer.originalMetadata["lightCameraColor"] = _data["lightCameraColor"];
+                    if (typeof _data["lightCameraIntensity"] !== "undefined") Viewer.originalMetadata["lightCameraIntensity"] = _data["lightCameraIntensity"];
+                    if (typeof _data["background"] !== "undefined") Viewer.originalMetadata["background"] = _data["background"];
 
                     if (Viewer.saveProperties.Position) {
                       newMetadata = Object.assign(newMetadata, {
@@ -1513,7 +1512,7 @@ export const Viewer = {
                     } else {
                       newMetadata = Object.assign(newMetadata, {
                         objPosition: [
-                          originalMetadata["objPosition"][0], originalMetadata["objPosition"][1], originalMetadata["objPosition"][2],
+                          Viewer.originalMetadata["objPosition"][0], Viewer.originalMetadata["objPosition"][1], Viewer.originalMetadata["objPosition"][2],
                         ],
                       });
                     }
@@ -1527,7 +1526,7 @@ export const Viewer = {
                     } else {
                       newMetadata = Object.assign(newMetadata, {
                         objRotation: [
-                          originalMetadata["objRotation"][0], originalMetadata["objRotation"][1], originalMetadata["objRotation"][2],
+                          Viewer.originalMetadata["objRotation"][0], Viewer.originalMetadata["objRotation"][1], Viewer.originalMetadata["objRotation"][2],
                         ],
                       });
                     }
@@ -1541,7 +1540,7 @@ export const Viewer = {
                     } else {
                       newMetadata = Object.assign(newMetadata, {
                         objScale: [
-                          originalMetadata["objScale"][0], originalMetadata["objScale"][1], originalMetadata["objScale"][2],
+                          Viewer.originalMetadata["objScale"][0], Viewer.originalMetadata["objScale"][1], Viewer.originalMetadata["objScale"][2],
                         ],
                       });
                     }
@@ -1558,10 +1557,10 @@ export const Viewer = {
                     } else {
                       newMetadata = Object.assign(newMetadata, {
                         cameraPosition: [
-                          originalMetadata["cameraPosition"][0], originalMetadata["cameraPosition"][1], originalMetadata["cameraPosition"][2],
+                          Viewer.originalMetadata["cameraPosition"][0], Viewer.originalMetadata["cameraPosition"][1], Viewer.originalMetadata["cameraPosition"][2],
                         ],
                         controlsTarget: [
-                          originalMetadata["controlsTarget"][0], originalMetadata["controlsTarget"][1], originalMetadata["controlsTarget"][2],
+                          Viewer.originalMetadata["controlsTarget"][0], Viewer.originalMetadata["controlsTarget"][1], Viewer.originalMetadata["controlsTarget"][2],
                         ],
                       });
                     }
@@ -1582,13 +1581,13 @@ export const Viewer = {
                     } else {
                       newMetadata = Object.assign(newMetadata, {
                         lightPosition: [
-                          originalMetadata["lightPosition"][0], originalMetadata["lightPosition"][1], originalMetadata["lightPosition"][2],
+                          Viewer.originalMetadata["lightPosition"][0], Viewer.originalMetadata["lightPosition"][1], Viewer.originalMetadata["lightPosition"][2],
                         ],
                         lightTarget: [
-                          originalMetadata["lightTarget"][0], originalMetadata["lightTarget"][1], originalMetadata["lightTarget"][2],
+                          Viewer.originalMetadata["lightTarget"][0], Viewer.originalMetadata["lightTarget"][1], Viewer.originalMetadata["lightTarget"][2],
                         ],
-                        lightColor: [originalMetadata["lightColor"][0]],
-                        lightIntensity: [originalMetadata["lightIntensity"][0]],
+                        lightColor: [Viewer.originalMetadata["lightColor"][0]],
+                        lightIntensity: [Viewer.originalMetadata["lightIntensity"][0]],
                       });
                     }
 
@@ -1602,10 +1601,10 @@ export const Viewer = {
                     } else {
                       newMetadata = Object.assign(newMetadata, {
                         lightAmbientColor: [
-                          originalMetadata["lightAmbientColor"][0],
+                          Viewer.originalMetadata["lightAmbientColor"][0],
                         ],
                         lightAmbientIntensity: [
-                          originalMetadata["lightAmbientIntensity"][0],
+                          Viewer.originalMetadata["lightAmbientIntensity"][0],
                         ],
                       });
                     }
@@ -1620,10 +1619,10 @@ export const Viewer = {
                     } else {
                       newMetadata = Object.assign(newMetadata, {
                         lightCameraColor: [
-                          originalMetadata["lightCameraColor"][0],
+                          Viewer.originalMetadata["lightCameraColor"][0],
                         ],
                         lightCameraIntensity: [
-                          originalMetadata["lightCameraIntensity"][0],
+                          Viewer.originalMetadata["lightCameraIntensity"][0],
                         ],
                       });
                     }
