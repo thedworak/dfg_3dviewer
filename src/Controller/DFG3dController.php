@@ -37,6 +37,5 @@ class DFG3dController {
 
 			return $response;	
 		}
-
 	}
 }
