@@ -204,7 +204,7 @@ function traverseMesh(object) {
       }
       core.handHint.hidden = true;
       window.viewer.modelLoaded = true;
-      if (window.__E2E__) {        
+      if (window.__E2E__) {
         window.viewer.camera = camera;
         window.viewer.scene = scene;
       }

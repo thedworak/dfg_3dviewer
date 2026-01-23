@@ -137,14 +137,55 @@ function dfg_3dviewer_hook_file_validate(Drupal\file\FileInterface $file) {
  */
 function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity) {
 	$DEFAULT_CONFIG = \Drupal::config('dfg_3dviewer.settings');
+
+	$file_path = \Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath()) . "/config/install/dfg_3dviewer.settings.yml";
+
+	if (file_exists($file_path)) {
+		$config_data = Yaml::parseFile($file_path);
+
+		if(!defined('MAIN_URL'))
+			define('MAIN_URL', $config_data['main_url'] ?? "https://3d-repository.hs-mainz.de");
+		if(!defined('ENTITY_BUNDLE'))
+			define('ENTITY_BUNDLE', $config_data['entity_bundle'] ?? "bd3d7baa74856d141bcff7b4193fa128");
+		if(!defined('VIEWER_FILE_UPLOAD'))
+			define('VIEWER_FILE_UPLOAD', $config_data['viewer_file_upload'] ?? "fbf95bddee5160d515b982b3fd2e05f7");
+		if(!defined('VIEWER_FILE_NAME'))
+			define('VIEWER_FILE_NAME', $config_data['viewer_file_name'] ?? "faa602a0be629324806aef22892cdbe5");
+		if(!defined('IMAGE_GENERATION'))
+			define('IMAGE_GENERATION', $config_data['image_generation'] ?? "f605dc6b727a1099b9e52b3ccbdf5673");
+		if(!defined('FIELD_DF'))
+			define('FIELD_DF', $config_data['field_df'] ?? "field_df");
+		if(!defined('LIGHTWEIGHT'))
+			define('LIGHTWEIGHT', $config_data['lightweight'] ?? "lightweight");
+
+		//\Drupal::messenger()->addMessage(serialize($config_data), 'status');
+	}
+	else {
+			\Drupal::messenger()->addMessage("Cant load settings file", 'warning');
+	}
+
 	$SETTINGS = Array();
-	$SETTINGS['entity_bundle']=ENTITY_BUNDLE;
-	$SETTINGS['viewer_file_upload']=VIEWER_FILE_UPLOAD;
-	$SETTINGS['image_generation']=MAGE_GENERATION;
-	$SETTINGS['viewer_file_name']=VIEWER_FILE_NAME;
-	$SETTINGS['field_df']=FIELD_DF;
-	$SETTINGS['main_url']=MAIN_URL;
-	$SETTINGS['lightweight']=LIGHTWEIGHT;
+
+	if(defined('ENTITY_BUNDLE'))
+		$SETTINGS['entity_bundle']=ENTITY_BUNDLE;
+
+	if(defined('VIEWER_FILE_UPLOAD'))
+		$SETTINGS['viewer_file_upload']=VIEWER_FILE_UPLOAD;
+
+	if(defined('IMAGE_GENERATION'))
+		$SETTINGS['image_generation']=IMAGE_GENERATION;
+
+	if(defined('VIEWER_FILE_NAME'))
+		$SETTINGS['viewer_file_name']=VIEWER_FILE_NAME;
+
+	if(defined('FIELD_DF'))
+		$SETTINGS['field_df']=FIELD_DF;
+
+	if(defined('MAIN_URL')) 
+		$SETTINGS['main_url']=MAIN_URL;
+
+	if(defined('LIGHTWEIGHT'))
+		$SETTINGS['lightweight']=LIGHTWEIGHT;
 
 	if (isset($DEFAULT_CONFIG)) {		
 		$SETTINGS['entity_bundle']=$DEFAULT_CONFIG->get('dfg_3dviewer_entitybundle');
@@ -155,6 +196,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		$SETTINGS['main_url']=$DEFAULT_CONFIG->get('dfg_3dviewer_main_url');
 		$SETTINGS['lightweight']=$DEFAULT_CONFIG->get('dfg_3dviewer_lightweight');
 	}
+
 	$SPATH = \Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath());
 	$XPATH = dirname(dirname($SPATH));
 	$archives = array('ZIP', 'RAR', 'TAR', 'XZ', 'GZ');
