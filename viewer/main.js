@@ -1495,6 +1495,7 @@ export const Viewer = {
                     if (typeof _data["objScale"] !== "undefined") Viewer.originalMetadata["objScale"] = _data["objScale"];
                     if (typeof _data["cameraPosition"] !== "undefined") Viewer.originalMetadata["cameraPosition"] = _data["cameraPosition"];
                     if (typeof _data["controlsTarget"] !== "undefined") Viewer.originalMetadata["controlsTarget"] = _data["controlsTarget"];
+                    if (typeof _data["controlsZoom"] !== "undefined") Viewer.originalMetadata["controlsZoom"] = _data["controlsZoom"];
                     if (typeof _data["lightPosition"] !== "undefined") Viewer.originalMetadata["lightPosition"] = _data["lightPosition"];
                     if (typeof _data["lightTarget"] !== "undefined") Viewer.originalMetadata["lightTarget"] = _data["lightTarget"];
                     if (typeof _data["lightColor"] !== "undefined") Viewer.originalMetadata["lightColor"] = _data["lightColor"];
@@ -1555,6 +1556,9 @@ export const Viewer = {
                         controlsTarget: [
                           Viewer.controls.target.x, Viewer.controls.target.y, Viewer.controls.target.z,
                         ],
+                        controlsZoom: [
+                          Viewer.camera.position.distanceTo(Viewer.controls.target),
+                        ]
                       });
                     } else {
                       newMetadata = Object.assign(newMetadata, {
@@ -1563,6 +1567,9 @@ export const Viewer = {
                         ],
                         controlsTarget: [
                           Viewer.originalMetadata["controlsTarget"][0], Viewer.originalMetadata["controlsTarget"][1], Viewer.originalMetadata["controlsTarget"][2],
+                        ],
+                        controlsZoom: [
+                          Viewer.originalMetadata["controlsZoom"][0]
                         ],
                       });
                     }

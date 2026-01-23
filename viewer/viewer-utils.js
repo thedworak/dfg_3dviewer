@@ -176,13 +176,32 @@ export async function setupCamera (_object, _light, _config) {
     } else {
       await setupEmptyCamera(_object);
     }
+ 
+     // Setup controls target
+    let customZoom = 0;
+    if (_config !== undefined) {
 
-    // Setup controls target
-    if (_config !== undefined && _config["controlsTarget"] !== undefined) {
-      core.controls.target.set(_config["controlsTarget"][0], _config["controlsTarget"][1], _config["controlsTarget"][2]);
+      if  (_config["controlsZoom"] !== undefined) {
+        customZoom = _config["controlsZoom"][0];
+      }
+      if (_config["controlsTarget"] !== undefined) {
+        core.controls.target.set(_config["controlsTarget"][0], _config["controlsTarget"][1], _config["controlsTarget"][2]);
+      }
     }
     else if (core.objectsConfig?.camera?.target && core.controls) {
       core.controls.target.set(core.objectsConfig.camera.target.x, core.objectsConfig.camera.target.y, core.objectsConfig.camera.target.z);
+    }
+    if (customZoom !== 0) {
+      const dir = new THREE.Vector3()
+      .subVectors(core.camera.position, core.controls.target)
+      .normalize();
+
+      // nowa pozycja kamery
+      core.camera.position
+      .copy(core.controls.target)
+      .add(dir.multiplyScalar(customZoom));
+
+      core.controls.update();      
     }
     //await fitCameraToCenteredObject(core.camera, _object, 1.2, true);
 
