@@ -33,15 +33,11 @@ window.viewer = {
 import { core, setCore } from './core.js';
 
 import {
-  distanceBetweenPoints,
   distanceBetweenPointsVector,
   vectorBetweenPoints,
   halfwayBetweenPoints,
   interpolateDistanceBetweenPoints,
-  detectColorFormat,
-  hexToRgb,
   isValidUrl,
-  truncateString,
   getProxyPath
 } from "./utils.js";
 
@@ -100,7 +96,8 @@ export const Viewer = {
   editor: true,
   FULLSCREEN: false,
   mixer: null,
-  tween: null,  
+  cameraTween: null,
+  targetTween: null,
   container: null,
   viewerWrapper: null,
   scrollTop: null,
@@ -328,8 +325,12 @@ export const Viewer = {
     setCore('outlineClipping', outlineClipping);
     core.objectsConfig.setupIndex = core.objectsConfig.index = 0;
 
-    this.tween = new TWEEN.Tween();
-    setCore('tween', this.tween);
+    this.cameraTween = new TWEEN.Tween();
+    setCore('cameraTween', this.cameraTween);
+
+    this.targetTween = new TWEEN.Tween();
+    setCore('targetTween', this.targetTween);
+
     this.container.classList.add("mainContainer");
 
     if (this.container.hasAttribute("basePath")) {
@@ -939,7 +940,8 @@ export const Viewer = {
       Viewer.mixer.update(delta);
     }
 
-    core.tween.update(time);
+    core.cameraTween.update(time);
+    core.targetTween.update(time);
     Viewer.controls?.update();
 
     if (Viewer.textMesh !== null) {

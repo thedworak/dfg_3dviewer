@@ -36,18 +36,20 @@ function fetchObjectFromConfig(_name) {
 }
 
 function setupObjectHandler (_object, _metadata) {
-  if (typeof _metadata.position !== "undefined")
-    _object.position.set(_metadata.position.x, _metadata.position.y, _metadata.position.z);
-  else if (typeof _metadata["objPosition"] !== "undefined")
-    _object.position.set(_metadata["objPosition"][0], _metadata["objPosition"][1], _metadata["objPosition"][2]);
-  if (typeof _metadata.scale !== "undefined")
-  _object.scale.set(_metadata.scale.x, _metadata.scale.y, _metadata.scale.z);
-  else if (typeof _metadata["objScale"] !== "undefined")
-    _object.scale.set(_metadata["objScale"][0], _metadata["objScale"][1], _metadata["objScale"][2]);
-  if (typeof _metadata.rotation !== "undefined")
-    _object.rotation.set(THREE.MathUtils.degToRad(_metadata.rotation.x), THREE.MathUtils.degToRad(_metadata.rotation.y), THREE.MathUtils.degToRad(_metadata.rotation.z));
-  else if (typeof _metadata["objRotation"] !== "undefined")
-    _object.rotation.set(THREE.MathUtils.degToRad(_metadata["objRotation"][0]), THREE.MathUtils.degToRad(_metadata["objRotation"][1]), THREE.MathUtils.degToRad(_metadata["objRotation"][2]));
+  if (typeof _metadata !== "undefined") {
+    if (typeof _metadata.position !== "undefined")
+      _object.position.set(_metadata.position.x, _metadata.position.y, _metadata.position.z);
+    else if (typeof _metadata["objPosition"] !== "undefined")
+      _object.position.set(_metadata["objPosition"][0], _metadata["objPosition"][1], _metadata["objPosition"][2]);
+    if (typeof _metadata.scale !== "undefined")
+      _object.scale.set(_metadata.scale.x, _metadata.scale.y, _metadata.scale.z);
+    else if (typeof _metadata["objScale"] !== "undefined")
+      _object.scale.set(_metadata["objScale"][0], _metadata["objScale"][1], _metadata["objScale"][2]);
+    if (typeof _metadata.rotation !== "undefined")
+      _object.rotation.set(THREE.MathUtils.degToRad(_metadata.rotation.x), THREE.MathUtils.degToRad(_metadata.rotation.y), THREE.MathUtils.degToRad(_metadata.rotation.z));
+    else if (typeof _metadata["objRotation"] !== "undefined")
+      _object.rotation.set(THREE.MathUtils.degToRad(_metadata["objRotation"][0]), THREE.MathUtils.degToRad(_metadata["objRotation"][1]), THREE.MathUtils.degToRad(_metadata["objRotation"][2]));
+  }
 }
 
 function setupGeometryHandler (_object) {
@@ -68,7 +70,12 @@ export const setupObject = (_object, _light, _controls, _metadata) => {
     model = fetchObjectFromConfig(_object.children[0].name); //TODO: check for multiple objects
   }
 
-  if (typeof core.objectsConfig !== "undefined" && model) { //Setup from config
+  if (_metadata !== null) {
+    console.log("Applying metadata for object", _object.name, _metadata);
+    setupObjectHandler(_object, _metadata);
+    setupGeometryHandler(_object);
+  }
+  else if (typeof core.objectsConfig !== "undefined" && model) { //Setup from config
     if ((typeof core.objectsConfig.models == undefined || core.objectsConfig.models?.length == 0) && _metadata == undefined) {
       if (typeof model.position !== undefined) _object.position.set(model.position.x, model.position.y, model.position.z);
 
@@ -86,11 +93,7 @@ export const setupObject = (_object, _light, _controls, _metadata) => {
       }        
     }
     setupGeometryHandler(_object);
-
-  } else if (_metadata !== null) {
-    setupObjectHandler(_object, _metadata);
-    setupGeometryHandler(_object);
-  } 
+  }
   else {
     var boundingBox = new THREE.Box3();
     if (Array.isArray(_object)) {
@@ -124,6 +127,7 @@ export const setupObject = (_object, _light, _controls, _metadata) => {
       }
     }
   }
+
   core.cameraLight.position.set(
     core.camera.position.x,
     core.camera.position.y,
@@ -146,38 +150,39 @@ export const setupObject = (_object, _light, _controls, _metadata) => {
   core.objectsConfig.setupIndex++;
 }
 
-  async function setupEmptyCamera(_object) {
-    var boundingBox = new THREE.Box3();
-    if (Array.isArray(_object)) {
-      for (let i = 0; i < _object.length; i++) {
-        boundingBox.setFromObject(_object[i]);
-      }
-    } else {
-      boundingBox.setFromObject(_object);
+async function setupEmptyCamera(_object) {
+  console.log("Setting up empty camera");
+  var boundingBox = new THREE.Box3();
+  if (Array.isArray(_object)) {
+    for (let i = 0; i < _object.length; i++) {
+      boundingBox.setFromObject(_object[i]);
     }
-    var size = new THREE.Vector3();
-    boundingBox.getSize(size);
-    core.camera.position.set(size.x, size.y, size.z);
-    await fitCameraToCenteredObject(core.camera, _object, 1.2, true);
+  } else {
+    boundingBox.setFromObject(_object);
   }
+  var size = new THREE.Vector3();
+  boundingBox.getSize(size);
+  core.camera.position.set(size.x, size.y, size.z);
+  await fitCameraToCenteredObject(_object, true);
+}
 
 export async function setupCamera (_object, _light, _config) {
-  if (core.objectsConfig !== undefined || _config !== undefined) {
-    if (core.objectsConfig?.camera?.position && core.camera) {
-      core.camera.position.set(core.objectsConfig.camera.position.x, core.objectsConfig.camera.position.y, core.objectsConfig.camera.position.z);
-    } else if (_config["cameraPosition"] !== undefined) {
+  if (core.objectsConfig !== undefined || _config !== undefined) {    
+    // Setup camera position
+    if (_config !== undefined && _config["cameraPosition"] !== undefined) {
       core.camera.position.set(_config["cameraPosition"][0], _config["cameraPosition"][1], _config["cameraPosition"][2]);
+    } else if (core.objectsConfig?.camera?.position) {
+      core.camera.position.set(core.objectsConfig.camera.position.x, core.objectsConfig.camera.position.y, core.objectsConfig.camera.position.z);
     } else {
       await setupEmptyCamera(_object);
     }
-    if (core.objectsConfig?.camera?.target && core.controls) {
-      core.controls.target.set(core.objectsConfig.camera.target.x, core.objectsConfig.camera.target.y, core.objectsConfig.camera.target.z);
-    }
-    else if (_config["controlsTarget"] !== undefined) {
+
+    // Setup controls target
+    if (_config !== undefined && _config["controlsTarget"] !== undefined) {
       core.controls.target.set(_config["controlsTarget"][0], _config["controlsTarget"][1], _config["controlsTarget"][2]);
-    } 
-    else {
-      await setupEmptyCamera(_object);
+    }
+    else if (core.objectsConfig?.camera?.target && core.controls) {
+      core.controls.target.set(core.objectsConfig.camera.target.x, core.objectsConfig.camera.target.y, core.objectsConfig.camera.target.z);
     }
     //await fitCameraToCenteredObject(core.camera, _object, 1.2, true);
 
@@ -188,10 +193,8 @@ export async function setupCamera (_object, _light, _config) {
         case "directional":
           _light.position.set(light.position.x, light.position.y, light.position.z);
           _light.rotation.set(light.target.x, light.target.y, light.target.z);
-          
           _light.color = new THREE.Color().setHex(light.color);
           core.colors["DirectionalLight"] = light.color;
-          
           core.intensity.startIntensityDir = _light.intensity = light.intensity;
 
         break;
@@ -252,8 +255,10 @@ export async function setupCamera (_object, _light, _config) {
     }
     core.camera.updateProjectionMatrix();
     core.controls.update();
-    await fitCameraToCenteredObject(_object, 2.5, false);
-  } else {
+    console.log("Camera position", core.camera.position);
+    await fitCameraToCenteredObject(_object, false);
+  } 
+  else {
     await setupEmptyCamera(_object);
   }
 }
@@ -269,7 +274,92 @@ function showInteractionHint() {
   core.handHint.classList.add("hand-drag-animate");
 }
 
-async function fitCameraToCenteredObject(object, add_offset, _fit) {
+function animateCameraToPose ({
+  finalCameraPos,     // THREE.Vector3 (target camera position)
+  finalTarget,        // THREE.Vector3 (target)
+  boundingBox,        // THREE.Box3 (optional, near/far)
+  duration = 3500,
+  easing = TWEEN.Easing.Cubic.Out,
+  startOffsetFactor = 0.5, // % of moving back (0.2–0.4 should be good)
+  animate = true,
+  distanceOffsetFactor = 0,   // additional factor to move closer (0.1 = 10% closer) (optional)
+  distanceOffsetUnits  = 0,   // additional world units to move closer (optional)
+}) {
+
+  const endCamPos = finalCameraPos.clone();
+  const endTarget = finalTarget.clone();
+
+  const dir = endCamPos.clone().sub(endTarget).normalize();
+
+  const baseDistance = endCamPos.distanceTo(endTarget);
+
+  const distanceOffset =
+    baseDistance * distanceOffsetFactor + distanceOffsetUnits;
+
+  const startCamPos = endCamPos.clone().add(
+    dir.multiplyScalar(
+      baseDistance * startOffsetFactor + distanceOffset
+    )
+  );
+  const startTarget = endTarget.clone(); // target
+
+  if (!animate) {
+    core.camera.position.copy(endCamPos);
+    core.controls?.target.copy(endTarget);
+    core.controls?.update();
+    return;
+  }
+
+  core.camera.position.copy(startCamPos);
+  core.controls?.target.copy(startTarget);
+  core.controls?.update();
+
+  const camTweenPos = startCamPos.clone();
+  const targetTweenPos = startTarget.clone();
+
+  core.cameraTween = new TWEEN.Tween(camTweenPos)
+    .to(endCamPos, duration)
+    .easing(easing)
+    .onUpdate(() => {
+      core.camera.position.copy(camTweenPos);
+    });
+
+  core.targetTween = new TWEEN.Tween(targetTweenPos)
+    .to(endTarget, duration)
+    .easing(easing)
+    .onUpdate(() => {
+      core.controls?.target.copy(targetTweenPos);
+      core.controls?.update();
+    });
+
+  core.cameraTween.start();
+  core.targetTween.start();
+
+  // === (near / far / limits) ===
+  core.cameraTween.onComplete(() => {
+    core.camera.position.copy(endCamPos);
+    core.controls?.target.copy(endTarget);
+    core.controls?.update();
+    if (boundingBox) {
+      const boxCenter = boundingBox.getCenter(new THREE.Vector3());
+      const boxSize = boundingBox.getSize(new THREE.Vector3()).length();
+
+      const maxDistance =
+        endCamPos.distanceTo(boxCenter) + boxSize;
+
+      core.camera.near = maxDistance / 100;
+      core.camera.far  = maxDistance * 5;
+      core.camera.updateProjectionMatrix();
+
+      if (core.controls) {
+        core.controls.maxDistance = maxDistance;
+      }
+    }
+    showInteractionHint();
+  });
+}
+
+async function fitCameraToCenteredObject(object, _fit) {
   const boundingBox = new THREE.Box3();
   if (Array.isArray(object)) {
     for (let i = 0; i < object.length; i++) {
@@ -326,54 +416,40 @@ async function fitCameraToCenteredObject(object, add_offset, _fit) {
   core.basicGrid.add(grid);
 
   core.scene.add(core.basicGrid);
-
-  // Half size of the object
+ 
+  // === fit camera distance ===
   const halfHeight = size.y / 2;
-  const halfWidth = size.x / 2;
+  const halfWidth  = size.x / 2;
 
-  // Camera distance from object center (along z-axis or camera direction)
-  const fitHeightDistance = halfHeight / Math.tan(THREE.MathUtils.degToRad(core.camera.fov / 2));
-  const fitWidthDistance = halfWidth / Math.tan(THREE.MathUtils.degToRad(core.camera.fov / 2)) / core.camera.aspect;
+  const fitHeightDistance =
+    halfHeight / Math.tan(THREE.MathUtils.degToRad(core.camera.fov / 2));
 
-  const distance = Math.max(fitHeightDistance, fitWidthDistance) * add_offset;
+  const fitWidthDistance =
+    halfWidth /
+    Math.tan(THREE.MathUtils.degToRad(core.camera.fov / 2)) /
+    core.camera.aspect;
 
-  // Compute camera position
-  const direction = new THREE.Vector3(0, 0, 1); // camera looks along -Z by default
-  core.camera.position.copy(center).add(direction.multiplyScalar(distance));
-  core.camera.lookAt(center);
-  let cameraZ = core.camera.position.z;
+  const distance = Math.max(fitHeightDistance, fitWidthDistance) * 1.55;
 
-  core.cameraCoords = {
-    x: core.camera.position.x,
-    y: core.camera.position.y,
-    z: cameraZ * 0.85,
-  };
-  core.tween = new TWEEN.Tween(core.cameraCoords)
-    .to({ z: core.camera.position.z }, 1500)
-    .onUpdate(() => {
-      core.camera.position.set(-core.cameraCoords.x*1.2, core.cameraCoords.y*1.7, core.cameraCoords.z*1.1);
-      core.cameraLight.position.set(core.cameraCoords.x, core.cameraCoords.y, core.cameraCoords.z);
-      core.camera.updateProjectionMatrix();
-      core.controls.update();
-    }).onComplete(() => {
-      showInteractionHint();
-    })
-    .start();
+  // === target position ===
+  const dir = new THREE.Vector3();
+  core.camera.getWorldDirection(dir);
+  dir.multiplyScalar(-distance);
 
-  // set the far plane of the camera so that it easily encompasses the whole object
-  const minZ = boundingBox.min.z;
-  const cameraToFarEdge = minZ < 0 ? -minZ + cameraZ : cameraZ - minZ;
+  const finalCameraPos = center.clone().add(dir);
+  const finalTarget = center.clone();
 
-  //camera.far = cameraToFarEdge * 3;
-  core.camera.updateProjectionMatrix();
-  if (core.controls !== undefined && _fit) {
-    // set camera to rotate around the center
-    core.controls.target = new THREE.Vector3(0, add_offset, 0);
+  // === animate ===
+  animateCameraToPose({
+    finalCameraPos,
+    finalTarget,
+    boundingBox,
+    duration: 3500,
+    startOffsetFactor: 0.15,
+    distanceOffsetFactor: -0.5, // 0.1 = 10% closer
+    distanceOffsetUnits: 0, // +0.5 world units
+  });
 
-    // prevent camera from zooming out far enough to create far plane cutoff
-    core.controls.maxDistance = cameraToFarEdge * 2;
-  }
-  core.controls.update();
   if (_fit) {
     var rotateMetadata = new THREE.Vector3();
     rotateMetadata = new THREE.Vector3(
