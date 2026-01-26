@@ -35,20 +35,45 @@ function fetchObjectFromConfig(_name) {
   return core.objectsConfig?.models?.find(model => model.name === _name);
 }
 
-function setupObjectHandler (_object, _metadata) {
-  if (typeof _metadata !== "undefined") {
-    if (typeof _metadata.position !== "undefined")
-      _object.position.set(_metadata.position.x, _metadata.position.y, _metadata.position.z);
-    else if (typeof _metadata["objPosition"] !== "undefined")
-      _object.position.set(_metadata["objPosition"][0], _metadata["objPosition"][1], _metadata["objPosition"][2]);
-    if (typeof _metadata.scale !== "undefined")
-      _object.scale.set(_metadata.scale.x, _metadata.scale.y, _metadata.scale.z);
-    else if (typeof _metadata["objScale"] !== "undefined")
-      _object.scale.set(_metadata["objScale"][0], _metadata["objScale"][1], _metadata["objScale"][2]);
-    if (typeof _metadata.rotation !== "undefined")
-      _object.rotation.set(THREE.MathUtils.degToRad(_metadata.rotation.x), THREE.MathUtils.degToRad(_metadata.rotation.y), THREE.MathUtils.degToRad(_metadata.rotation.z));
-    else if (typeof _metadata["objRotation"] !== "undefined")
-      _object.rotation.set(THREE.MathUtils.degToRad(_metadata["objRotation"][0]), THREE.MathUtils.degToRad(_metadata["objRotation"][1]), THREE.MathUtils.degToRad(_metadata["objRotation"][2]));
+function normalizeVec3(v) {
+  if (!v) return null;
+
+  if (Array.isArray(v) && v.length === 3) {
+    return { x: v[0], y: v[1], z: v[2] };
+  }
+
+  if (
+    typeof v === "object" &&
+    typeof v.x === "number" &&
+    typeof v.y === "number" &&
+    typeof v.z === "number"
+  ) {
+    return v;
+  }
+
+  return null;
+}
+
+function setupObjectHandler(_object, _metadata) {
+  if (!_metadata) return;
+
+  const pos = normalizeVec3(_metadata.position ?? _metadata.objPosition);
+  if (pos) {
+    _object.position.set(pos.x, pos.y, pos.z);
+  }
+
+  const scale = normalizeVec3(_metadata.scale ?? _metadata.objScale);
+  if (scale) {
+    _object.scale.set(scale.x, scale.y, scale.z);
+  }
+
+  const rot = normalizeVec3(_metadata.rotation ?? _metadata.objRotation);
+  if (rot) {
+    _object.rotation.set(
+      THREE.MathUtils.degToRad(rot.x),
+      THREE.MathUtils.degToRad(rot.y),
+      THREE.MathUtils.degToRad(rot.z)
+    );
   }
 }
 
