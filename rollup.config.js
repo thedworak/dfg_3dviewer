@@ -6,11 +6,21 @@ import json from '@rollup/plugin-json';
 import terser from '@rollup/plugin-terser';
 import replace from '@rollup/plugin-replace';
 import postcss from 'rollup-plugin-postcss';
+import path from 'path';
 
 const source = process.env.BUILD_SOURCE ?? "IIIF";
 const envBuild = process.env.BUILD ?? "test";
 const customModules = process.env.MODULE_CUSTOM ?? "";
 const production = process.env.IS_PROD === 'true';
+
+const outDistDir = path.join(
+  'dist',
+  envBuild,
+  customModules.replace(/^\//, '')
+);
+
+console.log('[rollup] build:', envBuild);
+console.log('[rollup] outDir:', outDistDir);
 
 function normalizePathSegment(seg = '') {
   return seg.replace(/^\/+|\/+$/g, '');
@@ -45,15 +55,38 @@ export default {
 
     copy({
       targets: [
-        { src: 'viewer/img/*', dest: 'dist/assets/img' },
-        { src: 'node_modules/three/examples/jsm/libs/draco/*', dest: 'dist/assets/draco' },
-        { src: 'viewer/js/external_libs/loaders/ifc/*', dest: 'dist/assets/ifc' },
-        { src: 'viewer/fonts/*', dest: 'dist/assets/fonts' },
-        { src: 'viewer/css/*', dest: 'dist/assets/css' },
-        { src: 'css/*', dest: 'dist/assets/css' },
         {
-          src: 'viewer/viewer-settings.json',
-          dest: 'dist',
+          src: 'viewer/img/*',
+          dest: `${outDistDir}/assets/img`
+        },
+        {
+          src: 'node_modules/three/examples/jsm/libs/draco/*',
+          dest: `${outDistDir}/assets/draco`
+        },
+        {
+          src: 'viewer/js/external_libs/loaders/ifc/*',
+          dest: `${outDistDir}/assets/ifc`
+        },
+        {
+          src: 'viewer/fonts/*',
+          dest: `${outDistDir}/assets/fonts`
+        },
+        {
+          src: 'viewer/css/*',
+          dest: `${outDistDir}/assets/css`
+        },
+        {
+          src: 'css/*',
+          dest: `${outDistDir}/assets/css`
+        },
+        {
+          src: 'viewer/examples/*',
+          dest: `${outDistDir}/examples`
+        },
+        {
+          src: 'viewer/viewer-settings-example.json',
+          dest: `${outDistDir}/`,
+          rename: 'viewer-settings.json',
           transform: (contents) => {
             const json = JSON.parse(contents);
             json.viewer.lightweight = 1;
@@ -62,7 +95,7 @@ export default {
         },
         {
           src: 'index.html',
-          dest: 'dist',
+          dest: `${outDistDir}/`,
           transform: (contents) => {
             let html = contents.toString();
             html = html.replace(/img\//g, 'assets/img/');
@@ -103,8 +136,10 @@ export default {
   ].filter(Boolean),
 
   output: {
-    file: 'dist/dfg_3dviewer-module.js',
+    dir: outDistDir,
     entryFileNames: 'dfg_3dviewer-module.js',
+    chunkFileNames: '[name].[hash].js',
+    assetFileNames: '[name][extname]',
     format: 'es',
     sourcemap: true,
     inlineDynamicImports: true

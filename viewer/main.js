@@ -114,10 +114,8 @@ export const Viewer = {
   viewEntity: null,
   fullscreenMode: null,
   downloadModel: null,
-  handAnimationTime: 0,
-  GESTURE: {handPx: 55, orbitAngle: THREE.MathUtils.degToRad(18), period: 4.5},
-  baseAngle: null,
-  lastTime: performance.now(),
+  GESTURE: {handPx: 55, period: 5.5, rotate: false, active: false, target: new THREE.Vector3(), startTime: 0, baseAngle: 0, orbitAngle: THREE.MathUtils.degToRad(15), easeInTime: 2.25},
+  lastTime: null,
   originalMetadata: [],
   spinnerContainer: null,
   spinnerElement: null,
@@ -415,8 +413,8 @@ export const Viewer = {
   // Disable interaction hint on first interaction
  disableInteractionHint() {
     Viewer.handHint.hidden = true;
+    Viewer.stopGesture();
     //Viewer.handHint.classList.remove("hand-drag-animate");
-    Viewer.controls.autoRotate = false;
     localStorage.setItem("viewerHintSeen", "1");
   },
 
@@ -929,75 +927,110 @@ export const Viewer = {
     }
   },
 
-  easeInOut : (t) => {
-    return t * t * (3 - 2 * t);
-  },
+  updateHandAnimation: (time) => {
+    const g = core.GESTURE;
+    if (!g.active || !g.baseAngle || !g.target) return;
 
-  gestureSignal : (time, period) => {
-    const t = (time / period) % 2;        // 0..2
-    const p = 1 - Math.abs(1 - t);        // 0..1..0
-    return Viewer.easeInOut(p) * 2 - 1;          // -1..1
-  },
+    const t = (time - g.startTime) / 1000;
+    const s = Math.sin((t / core.GESTURE.period) * Math.PI * 2);
 
-  updateHandAnimation : (time) => {
-    if (Viewer.baseAngle === null) {
-      Viewer.controls.update();
+    // EASE-IN (smoothstep)
+    const ei = Math.min(t / g.easeInTime, 1);
+    const ease = ei * ei * (3 - 2 * ei); // smoothstep(0..1)
 
-      const offset = Viewer.camera.position.clone()
-        .sub(Viewer.controls.target);
-
-      Viewer.baseSpherical = new THREE.Spherical().setFromVector3(offset);
-      Viewer.baseAngle = Viewer.baseSpherical.theta;
-
-      return;
-    }
-    const s = Viewer.gestureSignal(time, Viewer.GESTURE.period); // -1..1
-
-    // hand
-    Viewer.handHint.style.setProperty(
+    // hand icon
+    core.handHint.style.setProperty(
       '--hand-x',
-      `${s * Viewer.GESTURE.handPx}px`
+      `${s * core.GESTURE.handPx}px`
     );
 
-    // camera
-    const sph = new THREE.Spherical();
-    sph.setFromVector3(
-      Viewer.camera.position.clone().sub(Viewer.controls.target)
-    );
+    // camera - orbit
+    const sph = g.baseAngle.clone();
+    sph.theta = g.baseAngle.theta + s * core.GESTURE.orbitAngle * ease;
 
-    sph.theta = Viewer.baseAngle + s * Viewer.GESTURE.orbitAngle;
 
-    Viewer.camera.position
+    core.camera.position
       .setFromSpherical(sph)
-      .add(Viewer.controls.target);
+      .add(g.target);
 
-    Viewer.controls.update();
+    core.camera.lookAt(g.target);
   },
 
-  animate : (time) => {
-    if (!window.__E2E__ && !Viewer.handHint.hidden && window.viewer.modelLoaded /*&& !localStorage.getItem("viewerHintSeen")*/) {
-      if (!Viewer.controls.autoRotate) return;
-      else {
-          const delta = (time - Viewer.lastTime) / 1000; // seconds
-          Viewer.lastTime = time;
-          Viewer.handAnimationTime += delta;
-          Viewer.updateHandAnimation(Viewer.handAnimationTime);
-      }
-    }
+  startGesture: (time) => {
+    const g = core.GESTURE;
+    if (g.active) return;
 
+    g.rotate = true;
+    g.startTime = time;
+    g.active = true;
+
+    g.target = core.controls.target.clone();
+
+    g.baseAngle = new THREE.Spherical().setFromVector3(
+      core.camera.position.clone().sub(g.target)
+    );
+
+    core.controls.enabled = false;
+  },
+
+  stopGesture: () => {
+    const g = core.GESTURE;
+    if (!g.active) return;
+    g.rotate = false;
+    g.active = false;
+
+    core.controls.target.copy(g.target);
+
+    core.controls.object.position.copy(core.camera.position);
+    core.controls.update();
+    core.controls.enabled = true;
+
+    g.baseAngle = null;
+    g.target = null;
+  },
+
+  animate: (time) => {
     requestAnimationFrame(Viewer.animate);
 
+    // =========================
+    // GESTURE LIFECYCLE
+    // =========================
+    const canGesture =
+      !window.__E2E__ &&
+      !core.handHint.hidden;
+
+    if (canGesture && core.GESTURE.rotate && !core.GESTURE.active ) {
+      Viewer.startGesture(time);
+    }
+
+    if (core.GESTURE.active && (!core.GESTURE.rotate || !canGesture)) {
+      Viewer.stopGesture();
+    }
+
+    // =========================
+    // GESTURE UPDATE
+    // =========================
+    Viewer.updateHandAnimation(time);
+
+    // =========================
+    // LOOP UPDATE
+    // =========================
     const delta = Viewer.clock.getDelta();
     if (Viewer.mixer) {
       Viewer.mixer.update(delta);
     }
 
-    core.cameraTween.update(time);
-    core.targetTween.update(time);
-    Viewer.controls?.update();
+    if (core.handHint.hidden && !core.GESTURE.active) {
+      core.cameraTween.update(time);
+      core.targetTween.update(time);
+    }
+
+    if (!core.GESTURE.active) {
+      Viewer.controls?.update();
+    }
 
     if (Viewer.textMesh !== null) {
-      Viewer.textMesh.lookAt(Viewer.camera.position.clone());
+      Viewer.textMesh.lookAt(Viewer.camera.position);
     }
 
     Viewer.renderer.clear();
@@ -1081,7 +1114,9 @@ export const Viewer = {
       ) *
       2 +
       1;
-
+    if (e.buttons !== 0) {
+      Viewer.disableInteractionHint();
+    }
     if (e.buttons == 1) {
       if (Viewer.pointer.x !== Viewer.onDownPosition.x && Viewer.pointer.y !== Viewer.onDownPosition.y) {
         Viewer.cameraLight.position.set(
@@ -1959,6 +1994,8 @@ export const Viewer = {
       Viewer.controls.enableRotate = true;
       Viewer.controls.update();
       setCore('controls', Viewer.controls);
+      setCore('GESTURE', Viewer.GESTURE);
+      setCore('lastTime', Viewer.lastTime);
       //Viewer.changeScale();
       setCore('', Viewer.helperObjects);
 

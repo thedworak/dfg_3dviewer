@@ -280,7 +280,7 @@ export async function handleMetadataResponse(
 /**
  * Handles settings for the loaded object and camera.
  */
-export async function settingsHandler(object, light, controls, hierarchyMain, CONFIG) {
+export async function settingsHandler(object, light, controls, hierarchyMain, data = {}) {
   if (Array.isArray(object)) {
     setupObject(object[0], light, controls, data);
     await setupCamera(object[0], light, data);
@@ -332,12 +332,12 @@ export async function fetchSettings(
   let pathResult = '';
   let metadataUrl = '';
   const u = safeURL(fileObject.path);
-  if (!u) {
+  if (u !== null) {
     pathResult =
-      u.origin +
-      u.pathname.replace(/\/$/, '') +
+      u?.origin +
+      u?.pathname.replace(/\/$/, '') +
       '/' +
-      fileObject.uri.replace(u.pathname.replace(/^\/+/, ''), '');
+      fileObject.uri.replace(u?.pathname.replace(/^\/+/, ''), '');
 
     metadataUrl = pathResult + "metadata/" + fileObject.filename + "_viewer.json";
     console.log("Fetching settings from: " + metadataUrl);

@@ -62,7 +62,7 @@ function setupGeometryHandler (_object) {
   _object.updateMatrixWorld(true);
 }
 
-export const setupObject = (_object, _light, _controls, _metadata) => {
+export const setupObject = (_object, _light, _controls, _metadata = {}) => {
   let model;
   if (typeof _object.children === "undefined" || _object.children.length == 0) {
     model = fetchObjectFromConfig(_object.name);
@@ -71,6 +71,7 @@ export const setupObject = (_object, _light, _controls, _metadata) => {
   }
 
   if (_metadata !== null) {
+    console.log("Applying metadata for object", _object.name, _metadata);
     setupObjectHandler(_object, _metadata);
     setupGeometryHandler(_object);
   }
@@ -168,22 +169,22 @@ async function setupEmptyCamera(_object) {
 export async function setupCamera (_object, _light, _config) {
   if (core.objectsConfig !== undefined || _config !== undefined) {    
     // Setup camera position
-    if (_config !== undefined && _config["cameraPosition"] !== undefined) {
+    if (_config?.["cameraPosition"] !== undefined) {
       core.camera.position.set(_config["cameraPosition"][0], _config["cameraPosition"][1], _config["cameraPosition"][2]);
     } else if (core.objectsConfig?.camera?.position) {
       core.camera.position.set(core.objectsConfig.camera.position.x, core.objectsConfig.camera.position.y, core.objectsConfig.camera.position.z);
     } else {
       await setupEmptyCamera(_object);
     }
-
+ 
      // Setup controls target
     let customZoom = 0;
     if (_config !== undefined) {
 
-      if  (_config["controlsZoom"] !== undefined) {
+      if  (_config?.["controlsZoom"] !== undefined) {
         customZoom = _config["controlsZoom"][0];
       }
-      if (_config["controlsTarget"] !== undefined) {
+      if (_config?.["controlsTarget"] !== undefined) {
         core.controls.target.set(_config["controlsTarget"][0], _config["controlsTarget"][1], _config["controlsTarget"][2]);
       }
     }
@@ -229,17 +230,17 @@ export async function setupCamera (_object, _light, _config) {
       }
     });
   } else {
-    if (_config["lightAmbientColor"] !== undefined) {
+    if (_config?.["lightAmbientColor"] !== undefined) {
       _light.color = new THREE.Color().setHex(_config["lightAmbientColor"][0]);
       core.colors["AmbientLight"] = _config["lightAmbientColor"][0];
       core.intensity.startIntensityAmbient = core.ambientLight.intensity = _config["lightAmbientIntensity"] !== undefined ? _config["lightAmbientIntensity"][0] : core.ambientLight.intensity;
     }
-    if (_config["lightColor"] !== undefined) {
+    if (_config?.["lightColor"] !== undefined) {
       _light.color = new THREE.Color().setHex(_config["lightColor"][0]);
       core.colors["DirectionalLight"] = _config["lightColor"][0];
       core.intensity.startIntensityDir = _light.intensity = _config["lightIntensity"] !== undefined ? _config["lightIntensity"][0] : _light.intensity;
     }
-    if (_config["lightCameraColor"] !== undefined) {
+    if (_config?.["lightCameraColor"] !== undefined) {
       core.cameraLight.color = new THREE.Color().setHex(_config["lightCameraColor"][0]);
       core.colors["CameraLight"] = _config["lightCameraColor"][0];
       core.intensity.startIntensityCamera = core.cameraLight.intensity = _config["lightCameraIntensity"] !== undefined ? _config["lightCameraIntensity"][0] : core.cameraLight.intensity;
@@ -281,11 +282,14 @@ export async function setupCamera (_object, _light, _config) {
 }
 
 // Show interaction hint on first load
-function showInteractionHint() {
+function showInteractionHint(boxCenter) {
   if (window.__E2E__) return;
   //if (localStorage.getItem("viewerHintSeen")) return;
 
-  if (core.controls) core.controls.autoRotate = true;
+  core.GESTURE.rotate = true;
+
+  core.GESTURE.target = boxCenter.clone();
+  core.controls.target.copy(core.GESTURE.target);
 
   core.handHint.hidden = false;
   core.handHint.classList.add("hand-drag-animate");
@@ -357,8 +361,8 @@ function animateCameraToPose ({
     core.camera.position.copy(endCamPos);
     core.controls?.target.copy(endTarget);
     core.controls?.update();
+    const boxCenter = boundingBox ? boundingBox.getCenter(new THREE.Vector3()) : new THREE.Vector3();
     if (boundingBox) {
-      const boxCenter = boundingBox.getCenter(new THREE.Vector3());
       const boxSize = boundingBox.getSize(new THREE.Vector3()).length();
 
       const maxDistance =
@@ -372,7 +376,7 @@ function animateCameraToPose ({
         core.controls.maxDistance = maxDistance;
       }
     }
-    showInteractionHint();
+    showInteractionHint(boxCenter);
   });
 }
 
@@ -463,8 +467,8 @@ async function fitCameraToCenteredObject(object, _fit) {
     boundingBox,
     duration: 3500,
     startOffsetFactor: 0.15,
-    distanceOffsetFactor: -0.75, // 0.1 = 10% closer
-    distanceOffsetUnits: 0.5, // +0.5 world units
+    distanceOffsetFactor: -0.5, // 0.1 = 10% closer
+    distanceOffsetUnits: 0, // +0.5 world units
   });
 
   if (_fit) {
