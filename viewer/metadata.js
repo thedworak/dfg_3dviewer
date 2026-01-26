@@ -297,6 +297,14 @@ export async function settingsHandler(object, light, controls, hierarchyMain, CO
   }
 }
 
+function safeURL(value) {
+  try {
+    return new URL(value);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Fetches settings and metadata for the loaded model.
  */
@@ -321,15 +329,19 @@ export async function fetchSettings(
 ) {
   var metadata = { vertices: 0, faces: 0 };
   // Concat URL for metadata file
-  const u = new URL(fileObject.path);
-  const pathResult =
-    u.origin +
-    u.pathname.replace(/\/$/, '') +
-    '/' +
-    fileObject.uri.replace(u.pathname.replace(/^\/+/, ''), '');
+  let pathResult = '';
+  let metadataUrl = '';
+  const u = safeURL(fileObject.path);
+  if (!u) {
+    pathResult =
+      u.origin +
+      u.pathname.replace(/\/$/, '') +
+      '/' +
+      fileObject.uri.replace(u.pathname.replace(/^\/+/, ''), '');
 
-  let metadataUrl = pathResult + "metadata/" + fileObject.filename + "_viewer.json";
-  console.log("Fetching settings from: " + metadataUrl);
+    metadataUrl = pathResult + "metadata/" + fileObject.filename + "_viewer.json";
+    console.log("Fetching settings from: " + metadataUrl);
+  }
 
   if (Array.isArray(object)) {
     core.helperObjects.push(object[0]);

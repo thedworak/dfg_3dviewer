@@ -93,14 +93,9 @@ canvas {
 }
 
 .hand-drag-animate {
-  animation:
-    fadeIn 2.5s ease forwards,
-    dragHint 2.2s linear infinite alternate;
-}
-
-@keyframes dragHint {
-  from { transform: translateX(45px); }
-  to   { transform: translateX(-45px); }
+  animation: fadeIn 2.5s ease forwards;
+  transform: translateX(var(--hand-x));
+  will-change: transform;
 }
 
 #guiContainer {
@@ -143,7 +138,7 @@ canvas {
   transition: all 1.4s cubic-bezier(0.215, 0.61, 0.355, 1);
   border-radius: 2px;
   cursor: pointer;
-  z-index: 10;
+  z-index: 15;
 }
 
 .toastify.on {

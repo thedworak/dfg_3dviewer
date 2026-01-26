@@ -115,6 +115,9 @@ export const Viewer = {
   fullscreenMode: null,
   downloadModel: null,
   handAnimationTime: 0,
+  GESTURE: {handPx: 55, orbitAngle: THREE.MathUtils.degToRad(18), period: 4.5},
+  baseAngle: null,
+  lastTime: performance.now(),
   originalMetadata: [],
   spinnerContainer: null,
   spinnerElement: null,
@@ -412,7 +415,7 @@ export const Viewer = {
   // Disable interaction hint on first interaction
  disableInteractionHint() {
     Viewer.handHint.hidden = true;
-    Viewer.handHint.classList.remove("hand-drag-animate");
+    //Viewer.handHint.classList.remove("hand-drag-animate");
     Viewer.controls.autoRotate = false;
     localStorage.setItem("viewerHintSeen", "1");
   },
@@ -875,7 +878,8 @@ export const Viewer = {
 
     Viewer.fullscreenMode.style.top = (heightCSS - 40) + 'px';
     if (Viewer.downloadModel && !isFullscreen) {
-      Viewer.downloadModel.style.top = (heightCSS - 70) + 'px';
+      let _offset = (Viewer.CONFIG.lightweight) ? 130 : 70;
+      Viewer.downloadModel.style.top = (heightCSS - _offset) + 'px';
     }
     if (Viewer.viewEntity) {
       Viewer.viewEntity.style.right = isFullscreen ? '-95%' : '-75%';
@@ -925,12 +929,60 @@ export const Viewer = {
     }
   },
 
+  easeInOut : (t) => {
+    return t * t * (3 - 2 * t);
+  },
+
+  gestureSignal : (time, period) => {
+    const t = (time / period) % 2;        // 0..2
+    const p = 1 - Math.abs(1 - t);        // 0..1..0
+    return Viewer.easeInOut(p) * 2 - 1;          // -1..1
+  },
+
+  updateHandAnimation : (time) => {
+    if (Viewer.baseAngle === null) {
+      Viewer.controls.update();
+
+      const offset = Viewer.camera.position.clone()
+        .sub(Viewer.controls.target);
+
+      Viewer.baseSpherical = new THREE.Spherical().setFromVector3(offset);
+      Viewer.baseAngle = Viewer.baseSpherical.theta;
+
+      return;
+    }
+    const s = Viewer.gestureSignal(time, Viewer.GESTURE.period); // -1..1
+
+    // hand
+    Viewer.handHint.style.setProperty(
+      '--hand-x',
+      `${s * Viewer.GESTURE.handPx}px`
+    );
+
+    // camera
+    const sph = new THREE.Spherical();
+    sph.setFromVector3(
+      Viewer.camera.position.clone().sub(Viewer.controls.target)
+    );
+
+    sph.theta = Viewer.baseAngle + s * Viewer.GESTURE.orbitAngle;
+
+    Viewer.camera.position
+      .setFromSpherical(sph)
+      .add(Viewer.controls.target);
+
+    Viewer.controls.update();
+  },
+
   animate : (time) => {
     if (!window.__E2E__ && !Viewer.handHint.hidden && window.viewer.modelLoaded /*&& !localStorage.getItem("viewerHintSeen")*/) {
       if (!Viewer.controls.autoRotate) return;
-
-      Viewer.handAnimationTime += 0.006;
-      Viewer.controls.autoRotateSpeed = Math.sin(Viewer.handAnimationTime) * 0.25;
+      else {
+          const delta = (time - Viewer.lastTime) / 1000; // seconds
+          Viewer.lastTime = time;
+          Viewer.handAnimationTime += delta;
+          Viewer.updateHandAnimation(Viewer.handAnimationTime);
+      }
     }
 
     requestAnimationFrame(Viewer.animate);
@@ -1963,6 +2015,8 @@ export const Viewer = {
       Viewer.transformControlClippingPlaneX.showX = Viewer.transformControlClippingPlaneX.showY = false;
       Viewer.transformControlClippingPlaneY.showX = Viewer.transformControlClippingPlaneY.showY = false;
       Viewer.transformControlClippingPlaneZ.showX = Viewer.transformControlClippingPlaneZ.showY = false;
+
+      Viewer.GESTURE.handPx *= Math.min(window.innerWidth / 1200, 1);
 
       Viewer._ext = Viewer.fileObject.extension.toLowerCase();
       if (

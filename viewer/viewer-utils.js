@@ -71,7 +71,6 @@ export const setupObject = (_object, _light, _controls, _metadata) => {
   }
 
   if (_metadata !== null) {
-    console.log("Applying metadata for object", _object.name, _metadata);
     setupObjectHandler(_object, _metadata);
     setupGeometryHandler(_object);
   }
@@ -176,7 +175,7 @@ export async function setupCamera (_object, _light, _config) {
     } else {
       await setupEmptyCamera(_object);
     }
- 
+
      // Setup controls target
     let customZoom = 0;
     if (_config !== undefined) {
@@ -274,7 +273,6 @@ export async function setupCamera (_object, _light, _config) {
     }
     core.camera.updateProjectionMatrix();
     core.controls.update();
-    console.log("Camera position", core.camera.position);
     await fitCameraToCenteredObject(_object, false);
   } 
   else {
@@ -465,8 +463,8 @@ async function fitCameraToCenteredObject(object, _fit) {
     boundingBox,
     duration: 3500,
     startOffsetFactor: 0.15,
-    distanceOffsetFactor: -0.5, // 0.1 = 10% closer
-    distanceOffsetUnits: 0, // +0.5 world units
+    distanceOffsetFactor: -0.75, // 0.1 = 10% closer
+    distanceOffsetUnits: 0.5, // +0.5 world units
   });
 
   if (_fit) {
