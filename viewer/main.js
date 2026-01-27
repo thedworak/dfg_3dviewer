@@ -1903,6 +1903,10 @@ export const Viewer = {
       Viewer.renderer.domElement.id = "MainCanvas";
       Viewer.mainCanvas = document.getElementById("MainCanvas") || Viewer.renderer.domElement;
 
+      if (window.__E2E__) {
+        document.body.appendChild(Viewer.renderer.domElement);
+      }
+
       Viewer.renderer.domElement.addEventListener("pointerdown", Viewer.onPointerDown);
       Viewer.renderer.domElement.addEventListener("pointerup", Viewer.onPointerUp);
       Viewer.renderer.domElement.addEventListener("pointermove", Viewer.onPointerMove);
