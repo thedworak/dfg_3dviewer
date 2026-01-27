@@ -9,6 +9,7 @@ node_modules
 !/dist/.gitkeep
 /viewer/viewer-settings.json
 /dist/*/viewer-settings.json
+settings.local.php
 
 # Playwright
 /test-results/

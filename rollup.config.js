@@ -84,6 +84,11 @@ export default {
           dest: `${outDistDir}/examples`
         },
         {
+          src: 'settings.php',
+          dest: `./`,
+          rename: 'settings.local.php',
+        },
+        {
           src: 'viewer/viewer-settings-example.json',
           dest: `${outDistDir}/`,
           rename: 'viewer-settings.json',

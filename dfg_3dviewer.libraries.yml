@@ -1,6 +1,15 @@
-dfg_3dviewer:
+dfg_3dviewer.drupal:
   js:
-    dist/dfg_3dviewer-module.js:
+    dist/drupal/dfg_3dviewer-module.js:
+      attributes:
+        type: module
+  dependencies:
+    - core/drupal
+    - core/drupalSettings
+
+dfg_3dviewer.test:
+  js:
+    dist/test/dfg_3dviewer-module.js:
       attributes:
         type: module
   dependencies:

@@ -8,6 +8,7 @@ use Drupal\image\Entity\ImageStyle;
 use Drupal\Core\Archiver\Zip;
 use Drupal\Core\Archiver\ArchiverException;
 use Symfony\Component\Yaml\Yaml;
+use Drupal\Core\Site\Settings;
 
 function preload() {
 	$file_path = \Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath()) . "/config/install/dfg_3dviewer.settings.yml";
@@ -385,4 +386,13 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 
 	}
 	//\Drupal::messenger()->addMessage(serialize($entity), 'status');
+}
+
+
+function dfg_3dviewer_get_library(): string {
+  $env = Settings::get('dfg_env', 'drupal');
+
+  return $env === 'test'
+    ? 'dfg_3dviewer/dfg_3dviewer.test'
+    : 'dfg_3dviewer/dfg_3dviewer.drupal';
 }
