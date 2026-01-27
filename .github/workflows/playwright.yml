@@ -24,10 +24,16 @@ jobs:
       - name: Build test dist
         run: npm run build:test
 
+      - name: Debug dist
+        shell: bash
+        run: ls -la dist
+
+      - name: Debug curl
+        shell: bash
+        run: curl http://localhost:4173
+
       - name: Run Playwright tests
         run: npx playwright test
-            - ls -la dist
-            - curl http://localhost:4173
         env:
           CI: true
 
