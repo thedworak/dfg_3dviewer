@@ -49,9 +49,15 @@ export default defineConfig({
     },
   ],
 
-  webServer: {
-    command: 'npm run dev',
-    port: 1234,
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: process.env.CI
+    ? {
+        command: 'npm run build:test && npx serve dist -p 4173',
+        port: 4173,
+        timeout: 120_000,
+      }
+    : {
+        command: 'npm run dev',
+        port: 1234,
+        reuseExistingServer: true,
+      },
 });
