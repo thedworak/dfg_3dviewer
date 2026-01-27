@@ -51,7 +51,7 @@ export default defineConfig({
 
   webServer: process.env.CI
     ? {
-        command: 'npm run build:test && npx serve dist -p 4173',
+        command: 'npx serve dist -p 4173',
         port: 4173,
         timeout: 120_000,
       }
