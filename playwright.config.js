@@ -15,7 +15,9 @@ export default defineConfig({
   reporter: process.env.CI ? 'github' : 'html',
 
   use: {
-    baseURL: 'http://localhost:1234',
+    baseURL: process.env.CI
+      ? 'http://localhost:4173'
+      : 'http://localhost:1234',
 
     // WebGL STABILITY
     launchOptions: {
