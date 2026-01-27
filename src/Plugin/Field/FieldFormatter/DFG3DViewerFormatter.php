@@ -60,7 +60,7 @@ class DFG3DViewerFormatter extends FileFormatterBase {
       if(!empty($derivative_values)) {
         $elements = array();
 
-        $elements['#attached']['library'][] = 'dfg_3dviewer/dfg_3dviewer';
+        $elements['#attached']['library'][] = dfg_3dviewer_get_library();
 
         foreach($derivative_values as $delta => $derivative_value) {
           
@@ -75,7 +75,7 @@ class DFG3DViewerFormatter extends FileFormatterBase {
 
         $files = $this->getEntitiesToView($items, $langcode);
 
-        $elements['#attached']['library'][] = 'dfg_3dviewer/dfg_3dviewer';
+        $elements['#attached']['library'][] = dfg_3dviewer_get_library();
 
         foreach ($files as $delta => $file) {
           $override_basenamespace = \Drupal::service('config.factory')->getEditable('dfg_3dviewer.settings')->get('dfg_3dviewer_basenamespace') . \Drupal::service('file_url_generator')->generateString($file->getFileUri());
