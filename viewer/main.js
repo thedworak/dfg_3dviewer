@@ -241,6 +241,21 @@ export const Viewer = {
   DFG_ASSETS: '',
 
   async MainInit() {
+    if (window.__E2E__) {
+      window.viewer = {
+        e2eMode: true,
+        modelLoaded: false,
+
+        get camera() {
+          return Viewer.camera;
+        },
+
+        get scene() {
+          return Viewer.scene;
+        },
+      };
+    }
+
     await new Promise(r => {
       if (document.readyState !== 'loading') r();
       else document.addEventListener('DOMContentLoaded', r);
