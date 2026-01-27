@@ -8,6 +8,7 @@ node_modules
 *.mdb~
 !/dist/.gitkeep
 /viewer/viewer-settings.json
+/dist/*/viewer-settings.json
 
 # Playwright
 /test-results/
