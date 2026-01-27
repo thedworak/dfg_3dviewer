@@ -83,3 +83,24 @@ export function getProxyPath(url, config, fileObject) {
   const tempPath = decodeURIComponent(config.mainUrl);
   return tempPath.replace(fileObject.originalPath, encodeURIComponent(url));
 }
+
+
+export function normalizeColor(value) {
+  if (Array.isArray(value)) value = value[0];
+
+  if (typeof value === "number") {
+    return new THREE.Color(value);
+  }
+
+  if (typeof value === "string") {
+    if (value.startsWith("#")) {
+      return new THREE.Color(value);
+    }
+
+    if (value.startsWith("0x")) {
+      return new THREE.Color(parseInt(value, 16));
+    }
+  }
+
+  return new THREE.Color(0xffffff);
+};

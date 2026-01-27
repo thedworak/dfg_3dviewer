@@ -38,7 +38,8 @@ import {
   halfwayBetweenPoints,
   interpolateDistanceBetweenPoints,
   isValidUrl,
-  getProxyPath
+  getProxyPath,
+  normalizeColor,
 } from "./utils.js";
 
 import { initClippingPlanes, showToast, changeBackground } from './viewer-utils.js';
@@ -403,6 +404,7 @@ export const Viewer = {
     }
     Viewer.animate();
   },
+
   setModelPaths(fileObject) {
     fileObject.filename = fileObject.originalPath.split("/").pop();
     fileObject.basename = fileObject.filename.substring(0, fileObject.filename.lastIndexOf("."));
@@ -544,7 +546,7 @@ export const Viewer = {
         originalMaterial: scene.getObjectById(_id).material.clone(),
       });
       const tempMaterial = scene.getObjectById(_id).material.clone();
-      tempMaterial.color.setHex("0x00FF00");
+      tempMaterial.color = normalizeColor("0x00FF00");
       scene.getObjectById(_id).material = tempMaterial;
       scene.getObjectById(_id).material.needsUpdate = true;
     }
@@ -739,19 +741,19 @@ export const Viewer = {
     } else if (_id == "" && lastPickedFace.id !== "") {
       scene
         .getObjectById(lastPickedFace.object)
-        .material.color.setHex(lastPickedFace.color);
+        .material.color = normalizeColor(lastPickedFace.color);
       lastPickedFace = { id: "", color: "", object: "" };
     } else if (_id != lastPickedFace.id) {
       scene
         .getObjectById(lastPickedFace.object)
-        .material.color.setHex(lastPickedFace.color);
+        .material.color = Viewer.normalizeColor(lastPickedFace.color);
       lastPickedFace = {
         id: _id,
         color: _id.object.material.color.getHex(),
         object: _id.object.id,
       };
     }
-    if (_id !== "") _id.object.material.color.setHex(0xff0000);
+    if (_id !== "") _id.object.material.color = normalizeColor(0xff0000);
   },
 
   buildRuler(_id) {
@@ -1394,6 +1396,140 @@ export const Viewer = {
       .start();
   },
 
+  buildMetadata(Viewer, rotateMetadata) {
+    const O = Viewer.originalMetadata;
+    const S = Viewer.saveProperties;
+
+    const M = {};
+
+    // --- OBJECT ---
+    M.objPosition = pick(
+      S.Position,
+      [
+        Viewer.helperObjects[0].position.x,
+        Viewer.helperObjects[0].position.y,
+        Viewer.helperObjects[0].position.z
+      ],
+      O.objPosition
+    );
+
+    M.objRotation = pick(
+      S.Rotation,
+      [rotateMetadata.x, rotateMetadata.y, rotateMetadata.z],
+      O.objRotation
+    );
+
+    M.objScale = pick(
+      S.Scale,
+      [
+        Viewer.helperObjects[0].scale.x,
+        Viewer.helperObjects[0].scale.y,
+        Viewer.helperObjects[0].scale.z
+      ],
+      O.objScale
+    );
+
+    // --- CAMERA ---
+    M.cameraPosition = pick(
+      S.Camera,
+      [
+        Viewer.camera.position.x,
+        Viewer.camera.position.y,
+        Viewer.camera.position.z
+      ],
+      O.cameraPosition
+    );
+
+    M.controlsTarget = pick(
+      S.Camera,
+      [
+        Viewer.controls.target.x,
+        Viewer.controls.target.y,
+        Viewer.controls.target.z
+      ],
+      O.controlsTarget
+    );
+
+    M.controlsZoom = pick(
+      S.Camera,
+      [
+        Viewer.camera.position.distanceTo(Viewer.controls.target)
+      ],
+      O.controlsZoom
+    );
+
+    // --- DIRECTIONAL LIGHT ---
+    M.lightPosition = pick(
+      S.DirectionalLight,
+      [
+        Viewer.dirLight.position.x,
+        Viewer.dirLight.position.y,
+        Viewer.dirLight.position.z
+      ],
+      O.lightPosition
+    );
+
+    M.lightTarget = pick(
+      S.DirectionalLight,
+      [
+        Viewer.dirLight.rotation._x,
+        Viewer.dirLight.rotation._y,
+        Viewer.dirLight.rotation._z
+      ],
+      O.lightTarget
+    );
+
+    M.lightColor = pick(
+      S.DirectionalLight,
+      ["#" + Viewer.dirLight.color.getHexString().toUpperCase()],
+      O.lightColor
+    );
+
+    M.lightIntensity = pick(
+      S.DirectionalLight,
+      [Viewer.dirLight.intensity],
+      O.lightIntensity
+    );
+
+    // --- AMBIENT LIGHT ---
+    M.lightAmbientColor = pick(
+      S.AmbientLight,
+      ["#" + Viewer.ambientLight.color.getHexString().toUpperCase()],
+      O.lightAmbientColor
+    );
+
+    M.lightAmbientIntensity = pick(
+      S.AmbientLight,
+      [Viewer.ambientLight.intensity],
+      O.lightAmbientIntensity
+    );
+
+    // --- CAMERA LIGHT ---
+    M.lightCameraColor = pick(
+      S.CameraLight,
+      ["#" + Viewer.cameraLight.color.getHexString().toUpperCase()],
+      O.lightCameraColor
+    );
+
+    M.lightCameraIntensity = pick(
+      S.CameraLight,
+      [Viewer.cameraLight.intensity],
+      O.lightCameraIntensity
+    );
+
+    // --- BACKGROUND ---
+    if (S.BackgroundColor) {
+      M.background = [
+        window.getComputedStyle(Viewer.mainCanvas).background
+      ];
+    } else {
+      M.background = O.background;
+    }
+
+    return M;
+  },
+
+
   prepareStats () {
       // stats
       Viewer.stats = new Stats();
@@ -1576,192 +1712,38 @@ export const Viewer = {
                   }
                 })
                 .then(async (_data) => {
-                  if (typeof _data !== "undefined") {
-                    if (typeof _data[`objPosition`] !== "undefined") Viewer.originalMetadata["objPosition"] = _data["objPosition"];
-                    if (typeof _data["objRotation"] !== "undefined") Viewer.originalMetadata["objRotation"] = _data["objRotation"];
-                    if (typeof _data["objScale"] !== "undefined") Viewer.originalMetadata["objScale"] = _data["objScale"];
-                    if (typeof _data["cameraPosition"] !== "undefined") Viewer.originalMetadata["cameraPosition"] = _data["cameraPosition"];
-                    if (typeof _data["controlsTarget"] !== "undefined") Viewer.originalMetadata["controlsTarget"] = _data["controlsTarget"];
-                    if (typeof _data["controlsZoom"] !== "undefined") Viewer.originalMetadata["controlsZoom"] = _data["controlsZoom"];
-                    if (typeof _data["lightPosition"] !== "undefined") Viewer.originalMetadata["lightPosition"] = _data["lightPosition"];
-                    if (typeof _data["lightTarget"] !== "undefined") Viewer.originalMetadata["lightTarget"] = _data["lightTarget"];
-                    if (typeof _data["lightColor"] !== "undefined") Viewer.originalMetadata["lightColor"] = _data["lightColor"];
-                    if (typeof _data["lightIntensity"] !== "undefined") Viewer.originalMetadata["lightIntensity"] = _data["lightIntensity"];
-                    if (typeof _data["lightAmbientColor"] !== "undefined") Viewer.originalMetadata["lightAmbientColor"] = _data["lightAmbientColor"];
-                    if (typeof _data["lightAmbientIntensity"] !== "undefined") Viewer.originalMetadata["lightAmbientIntensity"] = _data["lightAmbientIntensity"];
-                    if (typeof _data["lightCameraColor"] !== "undefined") Viewer.originalMetadata["lightCameraColor"] = _data["lightCameraColor"];
-                    if (typeof _data["lightCameraIntensity"] !== "undefined") Viewer.originalMetadata["lightCameraIntensity"] = _data["lightCameraIntensity"];
-                    if (typeof _data["background"] !== "undefined") Viewer.originalMetadata["background"] = _data["background"];
+                  if (!_data) return;
+                  Viewer.originalMetadata = {
+                    ...Viewer.originalMetadata,
+                    ..._data
+                  };
 
-                    if (Viewer.saveProperties.Position) {
-                      newMetadata = Object.assign(newMetadata, {
-                        objPosition: [
-                          Viewer.helperObjects[0].position.x, Viewer.helperObjects[0].position.y, Viewer.helperObjects[0].position.z,
-                        ],
-                      });
-                    } else {
-                      newMetadata = Object.assign(newMetadata, {
-                        objPosition: [
-                          Viewer.originalMetadata["objPosition"][0], Viewer.originalMetadata["objPosition"][1], Viewer.originalMetadata["objPosition"][2],
-                        ],
-                      });
-                    }
+                  const newMetadata = buildMetadata(Viewer, rotateMetadata);
 
-                    if (Viewer.saveProperties.Rotation) {
-                      newMetadata = Object.assign(newMetadata, {
-                        objRotation: [
-                          rotateMetadata.x, rotateMetadata.y, rotateMetadata.z,
-                        ],
-                      });
-                    } else {
-                      newMetadata = Object.assign(newMetadata, {
-                        objRotation: [
-                          Viewer.originalMetadata["objRotation"][0], Viewer.originalMetadata["objRotation"][1], Viewer.originalMetadata["objRotation"][2],
-                        ],
-                      });
-                    }
-
-                    if (Viewer.saveProperties.Scale) {
-                      newMetadata = Object.assign(newMetadata, {
-                        objScale: [
-                        Viewer.helperObjects[0].scale.x, Viewer.helperObjects[0].scale.y, Viewer.helperObjects[0].scale.z,
-                        ],
-                        });
-                    } else {
-                      newMetadata = Object.assign(newMetadata, {
-                        objScale: [
-                          Viewer.originalMetadata["objScale"][0], Viewer.originalMetadata["objScale"][1], Viewer.originalMetadata["objScale"][2],
-                        ],
-                      });
-                    }
-
-                    if (Viewer.saveProperties.Camera) {
-                      newMetadata = Object.assign(newMetadata, {
-                        cameraPosition: [
-                          Viewer.camera.position.x, Viewer.camera.position.y, Viewer.camera.position.z,
-                        ],
-                        controlsTarget: [
-                          Viewer.controls.target.x, Viewer.controls.target.y, Viewer.controls.target.z,
-                        ],
-                        controlsZoom: [
-                          Viewer.camera.position.distanceTo(Viewer.controls.target),
-                        ]
-                      });
-                    } else {
-                      newMetadata = Object.assign(newMetadata, {
-                        cameraPosition: [
-                          Viewer.originalMetadata["cameraPosition"][0], Viewer.originalMetadata["cameraPosition"][1], Viewer.originalMetadata["cameraPosition"][2],
-                        ],
-                        controlsTarget: [
-                          Viewer.originalMetadata["controlsTarget"][0], Viewer.originalMetadata["controlsTarget"][1], Viewer.originalMetadata["controlsTarget"][2],
-                        ],
-                        controlsZoom: [
-                          Viewer.originalMetadata["controlsZoom"][0]
-                        ],
-                      });
-                    }
-
-                    if (Viewer.saveProperties.DirectionalLight) {
-                      newMetadata = Object.assign(newMetadata, {
-                        lightPosition: [
-                          Viewer.dirLight.position.x, Viewer.dirLight.position.y, Viewer.dirLight.position.z,
-                        ],
-                        lightTarget: [
-                          Viewer.dirLight.rotation._x, Viewer.dirLight.rotation._y, Viewer.dirLight.rotation._z,
-                        ],
-                        lightColor: [
-                          "#" + Viewer.dirLight.color.getHexString().toUpperCase(),
-                        ],
-                        lightIntensity: [Viewer.dirLight.intensity],
-                      });
-                    } else {
-                      newMetadata = Object.assign(newMetadata, {
-                        lightPosition: [
-                          Viewer.originalMetadata["lightPosition"][0], Viewer.originalMetadata["lightPosition"][1], Viewer.originalMetadata["lightPosition"][2],
-                        ],
-                        lightTarget: [
-                          Viewer.originalMetadata["lightTarget"][0], Viewer.originalMetadata["lightTarget"][1], Viewer.originalMetadata["lightTarget"][2],
-                        ],
-                        lightColor: [Viewer.originalMetadata["lightColor"][0]],
-                        lightIntensity: [Viewer.originalMetadata["lightIntensity"][0]],
-                      });
-                    }
-
-                    if (Viewer.saveProperties.AmbientLight) {
-                      newMetadata = Object.assign(newMetadata, {
-                        lightAmbientColor: [
-                          "#" + Viewer.ambientLight.color.getHexString().toUpperCase(),
-                        ],
-                        lightAmbientIntensity: [Viewer.ambientLight.intensity],
-                      });
-                    } else {
-                      newMetadata = Object.assign(newMetadata, {
-                        lightAmbientColor: [
-                          Viewer.originalMetadata["lightAmbientColor"][0],
-                        ],
-                        lightAmbientIntensity: [
-                          Viewer.originalMetadata["lightAmbientIntensity"][0],
-                        ],
-                      });
-                    }
-
-                    if (Viewer.saveProperties.CameraLight) {
-                      newMetadata = Object.assign(newMetadata, {
-                        lightCameraColor: [
-                          "#" + Viewer.cameraLight.color.getHexString().toUpperCase(),
-                        ],
-                        lightCameraIntensity: [Viewer.cameraLight.intensity],
-                      });
-                    } else {
-                      newMetadata = Object.assign(newMetadata, {
-                        lightCameraColor: [
-                          Viewer.originalMetadata["lightCameraColor"][0],
-                        ],
-                        lightCameraIntensity: [
-                          Viewer.originalMetadata["lightCameraIntensity"][0],
-                        ],
-                      });
-                    }
-
-                    if (Viewer.saveProperties.BackgroundColor) {
-                      newMetadata = Object.assign(newMetadata, {
-                        background: [
-                          window.getComputedStyle(Viewer.mainCanvas).background,
-                        ],
-                      });
-                    }
-                    const token = await fetch('/session/token').then(r => r.text());
-                    fetch(Viewer.CONFIG.mainUrl + "/api/editor/save-metadata", {
-                      method: "POST",
-                      credentials: "same-origin",
-                      headers: {
+                  const token = await fetch("/session/token").then(r => r.text());
+                  await fetch(Viewer.CONFIG.mainUrl + "/api/editor/save-metadata", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: {
                       "Content-Type": "application/json",
                       "X-CSRF-Token": token
                     },
-                      body: JSON.stringify({
+                    body: JSON.stringify({
                       filename: Viewer.fileObject.filename,
                       path:
                         Viewer.archiveType !== ""
-                        ? Viewer.fileObject.uri + Viewer.fileObject.basename + Viewer.compressedFile
-                        : Viewer.fileObject.uri,
+                          ? Viewer.fileObject.uri + Viewer.fileObject.basename + Viewer.compressedFile
+                          : Viewer.fileObject.uri,
                       content: JSON.stringify(newMetadata, null, "\t")
-                      })
                     })
-                    .then(res => {
-                      if (!res.ok) throw new Error("Save failed");
-                      return res.json();
-                    })
-                    .then(() => {
-                      showToast("Settings have been saved.");
-                    })
-                    .catch(err => {
-                      console.error(err);
-                      showToast("Error saving settings");
-                    });
+                  });
 
-                  }
+                  showToast("Settings have been saved.");
                 })
-              .catch((error) => console.log(error));
+              .catch((error) => {
+                console.log(error);
+                showToast("Error saving settings");
+            });
             },
           },
           "Save"

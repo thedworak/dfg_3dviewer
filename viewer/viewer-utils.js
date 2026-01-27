@@ -4,6 +4,7 @@ import Toastify from "toastify-js";
 import "toastify-js/src/toastify.css";
 import { core, setCore } from './core.js';
 import TWEEN, { add } from "three/examples/jsm/libs/tween.module.js";
+import { normalizeColor } from './utils.js';
 
 export const initClippingPlanes = () => {
   const clippingPlanes = [
@@ -191,123 +192,98 @@ async function setupEmptyCamera(_object) {
   await fitCameraToCenteredObject(_object, true);
 }
 
-export async function setupCamera (_object, _light, _config) {
-  if (core.objectsConfig !== undefined || _config !== undefined) {    
-    // Setup camera position
-    if (_config?.["cameraPosition"] !== undefined) {
-      core.camera.position.set(_config["cameraPosition"][0], _config["cameraPosition"][1], _config["cameraPosition"][2]);
-    } else if (core.objectsConfig?.camera?.position) {
-      core.camera.position.set(core.objectsConfig.camera.position.x, core.objectsConfig.camera.position.y, core.objectsConfig.camera.position.z);
-    } else {
-      await setupEmptyCamera(_object);
-    }
- 
-     // Setup controls target
-    let customZoom = 0;
-    if (_config !== undefined) {
+export async function setupCamera(_object, _light, _config) {
+  const cfg = _config ?? null;
+  const fallback = core.objectsConfig ?? null;
 
-      if  (_config?.["controlsZoom"] !== undefined) {
-        customZoom = _config["controlsZoom"][0];
-      }
-      if (_config?.["controlsTarget"] !== undefined) {
-        core.controls.target.set(_config["controlsTarget"][0], _config["controlsTarget"][1], _config["controlsTarget"][2]);
-      }
-    }
-    else if (core.objectsConfig?.camera?.target && core.controls) {
-      core.controls.target.set(core.objectsConfig.camera.target.x, core.objectsConfig.camera.target.y, core.objectsConfig.camera.target.z);
-    }
-    if (customZoom !== 0) {
-      const dir = new THREE.Vector3()
-      .subVectors(core.camera.position, core.controls.target)
-      .normalize();
+  // --- CAMERA POSITION ---
+  const camPos = cfg?.cameraPosition ?? fallback?.camera?.position;
 
-      // nowa pozycja kamery
-      core.camera.position
-      .copy(core.controls.target)
-      .add(dir.multiplyScalar(customZoom));
+  if (Array.isArray(camPos)) {
+    core.camera.position.set(camPos[0], camPos[1], camPos[2]);
+  } else if (camPos && typeof camPos === "object") {
+    core.camera.position.set(camPos.x, camPos.y, camPos.z);
+  } else {
+    setupEmptyCamera(_object);
+  }
 
-      core.controls.update();      
-    }
-    //await fitCameraToCenteredObject(core.camera, _object, 1.2, true);
+  // --- CONTROLS TARGET + ZOOM ---
+  const target = cfg?.controlsTarget ?? fallback?.camera?.target;
 
-    // Setup lights
-    if (_config === undefined) {
-    core.objectsConfig.scene.lights.forEach(light => {
+  if (Array.isArray(target)) {
+    core.controls.target.set(target[0], target[1], target[2]);
+  } else if (target) {
+    core.controls.target.set(target.x, target.y, target.z);
+  }
+
+  const customZoom = cfg?.controlsZoom?.[0];
+
+  if (typeof customZoom === "number" && customZoom !== 0) {
+    const dir = new THREE.Vector3()
+    .subVectors(core.camera.position, core.controls.target)
+    .normalize();
+
+
+    core.camera.position
+    .copy(core.controls.target)
+    .add(dir.multiplyScalar(customZoom));
+  }
+
+  // --- LIGHTS ---
+  if (!cfg && fallback?.scene?.lights) {
+    fallback.scene.lights.forEach(light => {
       switch (light.type) {
         case "directional":
-          _light.position.set(light.position.x, light.position.y, light.position.z);
-          _light.rotation.set(light.target.x, light.target.y, light.target.z);
-          _light.color = new THREE.Color().setHex(light.color);
-          core.colors["DirectionalLight"] = light.color;
-          core.intensity.startIntensityDir = _light.intensity = light.intensity;
-
+        _light.position.set(light.position.x, light.position.y, light.position.z);
+        _light.color = new THREE.Color(normalizeColor(light.color));
+        _light.intensity = light.intensity;
         break;
         case "ambient":
-          core.ambientLight.color = new THREE.Color().setHex(light.color);
-          core.colors["AmbientLight"] = light.color;
-          core.intensity.startIntensityAmbient = core.ambientLight.intensity = light.intensity;
+        core.ambientLight.color = new THREE.Color(normalizeColor(light.color));
+        core.ambientLight.intensity = light.intensity;
         break;
         case "point":
-          core.cameraLight.color = new THREE.Color().setHex(light.color);
-          core.colors["CameraLight"] = light.color;
-          core.intensity.startIntensityCamera = core.cameraLight.intensity = light.intensity;
+        core.cameraLight.color = new THREE.Color(normalizeColor(light.color));
+        core.cameraLight.intensity = light.intensity;
         break;
       }
     });
-  } else {
-    if (_config?.["lightAmbientColor"] !== undefined) {
-      _light.color = new THREE.Color().setHex(_config["lightAmbientColor"][0]);
-      core.colors["AmbientLight"] = _config["lightAmbientColor"][0];
-      core.intensity.startIntensityAmbient = core.ambientLight.intensity = _config["lightAmbientIntensity"] !== undefined ? _config["lightAmbientIntensity"][0] : core.ambientLight.intensity;
-    }
-    if (_config?.["lightColor"] !== undefined) {
-      _light.color = new THREE.Color().setHex(_config["lightColor"][0]);
-      core.colors["DirectionalLight"] = _config["lightColor"][0];
-      core.intensity.startIntensityDir = _light.intensity = _config["lightIntensity"] !== undefined ? _config["lightIntensity"][0] : _light.intensity;
-    }
-    if (_config?.["lightCameraColor"] !== undefined) {
-      core.cameraLight.color = new THREE.Color().setHex(_config["lightCameraColor"][0]);
-      core.colors["CameraLight"] = _config["lightCameraColor"][0];
-      core.intensity.startIntensityCamera = core.cameraLight.intensity = _config["lightCameraIntensity"] !== undefined ? _config["lightCameraIntensity"][0] : core.cameraLight.intensity;
-    }
-  }
+    } else if (cfg) {
+      if (cfg.lightAmbientColor) {
+        core.ambientLight.color = new THREE.Color(normalizeColor(cfg.lightAmbientColor[0]));
+        core.ambientLight.intensity = cfg.lightAmbientIntensity?.[0] ?? core.ambientLight.intensity;
+      }
 
-    // Setup background
-    let _foundScene = false;
-    if (core.objectsConfig.scenes !== undefined && Array.isArray(core.objectsConfig.scenes)) {
-        core.objectsConfig.scenes.forEach(_scene => {
-          if (_scene.background !== null) {
-            if ("red" in _scene.background && "green" in _scene.background && "blue" in _scene.background) {
-              var newBackground = new THREE.Color(`rgb(${_scene.background.red}, ${_scene.background.green}, ${_scene.background.blue})`);
-              if (newBackground !== null) {
-                _foundScene = true;
-                changeBackground("linear", "#" + newBackground.getHexString());
-              }
-            }
-          }
-        });
-    } 
-    if (!_foundScene) {
-      if (core.objectsConfig.scene.background === null) {
-        changeBackground("linear", "#ffffff", "#ffffff");
-      } else {
-        const gradient = parseGradient(core.objectsConfig.scene.background);
-        const newBackground0 = new THREE.Color(`rgb(${gradient.colors[0].r}, ${gradient.colors[0].g}, ${gradient.colors[0].b})`);
-        const newBackground1 = new THREE.Color(`rgb(${gradient.colors[1].r}, ${gradient.colors[1].g}, ${gradient.colors[1].b})`);
-        changeBackground(gradient.type, "#" + newBackground0.getHexString(), "#" + newBackground1.getHexString());
+      if (cfg.lightColor) {
+        _light.color = new THREE.Color(normalizeColor(cfg.lightColor[0]));
+        _light.intensity = cfg.lightIntensity?.[0] ?? _light.intensity;
+      }
+
+      if (cfg.lightCameraColor) {
+        core.cameraLight.color = new THREE.Color(normalizeColor(cfg.lightCameraColor[0]));
+        core.cameraLight.intensity = cfg.lightCameraIntensity?.[0] ?? core.cameraLight.intensity;
       }
     }
+
+  // --- BACKGROUND ---
+  const sceneBg = fallback?.scene?.background;
+
+  if (!sceneBg) {
+    changeBackground("linear", "#ffffff", "#ffffff");
+  } else {
+    const gradient = parseGradient(sceneBg);
+    const c0 = new THREE.Color(`rgb(${gradient.colors[0].r}, ${gradient.colors[0].g}, ${gradient.colors[0].b})`);
+    const c1 = new THREE.Color(`rgb(${gradient.colors[1].r}, ${gradient.colors[1].g}, ${gradient.colors[1].b})`);
+    changeBackground(gradient.type, `#${c0.getHexString()}`, `#${c1.getHexString()}`);
+  }
+
     core.camera.updateProjectionMatrix();
     core.controls.update();
-    await fitCameraToCenteredObject(_object, false);
-  } 
-  else {
-    await setupEmptyCamera(_object);
+    fitCameraToCenteredObject(_object, false);
   }
-}
 
-// Show interaction hint on first load
-function showInteractionHint(boxCenter) {
+  // Show interaction hint on first load
+  function showInteractionHint(boxCenter) {
   if (window.__E2E__) return;
   //if (localStorage.getItem("viewerHintSeen")) return;
 
