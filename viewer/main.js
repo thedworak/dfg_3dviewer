@@ -1253,19 +1253,19 @@ export const Viewer = {
     /*const messDiv = document.createElement('div');
     messDiv.classList.add('message');
     document.body.appendChild(messDiv);*/
-    this.camera.aspect = 1;
-    this.camera.updateProjectionMatrix();
-    this.renderer.setSize(256, 256);
-    this.renderer.render(this.scene, this.camera);
+    Viewer.camera.aspect = 1;
+    Viewer.camera.updateProjectionMatrix();
+    Viewer.renderer.setSize(256, 256);
+    Viewer.renderer.render(Viewer.scene, Viewer.camera);
     var prependName = "";
-    if (this.archiveType !== "") {
-      prependName = this.basename + "_" + this.archiveType.toUpperCase() + "/";
+    if (this.fileObject.archiveType !== "") {
+      prependName = this.fileObject.basename + "_" + this.fileObject.archiveType.toUpperCase() + "/";
     }
 
-    this.mainCanvas.toBlob((imgBlob) => {
+    Viewer.mainCanvas.toBlob((imgBlob) => {
       const fileform = new FormData();
       //fileform.append("domain", CONFIG.mainUrl);
-      fileform.append("filename", basename);
+      fileform.append("filename", this.fileObject.basename);
       //fileform.append("path", uri + prependName);
       fileform.append("data", imgBlob, "thumbnail.png");
       fileform.append("wisski_individual", Viewer.entityID);
@@ -1291,10 +1291,10 @@ export const Viewer = {
       });
     }, "image/png");
 
-    renderer.setPixelRatio(devicePixelRatio);
-    camera.aspect = CONFIG.viewer.canvasDimensions.x / CONFIG.viewer.canvasDimensions.y;
-    camera.updateProjectionMatrix();
-    renderer.setSize(CONFIG.viewer.canvasDimensions.x, CONFIG.viewer.canvasDimensions.y);
+    Viewer.renderer.setPixelRatio(devicePixelRatio);
+    Viewer.camera.aspect = Viewer.CONFIG.viewer.canvasDimensions.x / Viewer.CONFIG.viewer.canvasDimensions.y;
+    Viewer.camera.updateProjectionMatrix();
+    Viewer.renderer.setSize(Viewer.CONFIG.viewer.canvasDimensions.x, Viewer.CONFIG.viewer.canvasDimensions.y);
   },
 
   async mainLoadModel() {
