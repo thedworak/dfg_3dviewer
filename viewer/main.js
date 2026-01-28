@@ -1259,7 +1259,7 @@ export const Viewer = {
     Viewer.renderer.render(Viewer.scene, Viewer.camera);
     var prependName = "";
     if (this.fileObject.archiveType !== "") {
-      prependName = this.fileObject.basename + "_" + this.fileObject.archiveType.toUpperCase() + "/";
+      prependName = this.fileObject.basename + "_" + this.archiveType.toUpperCase() + "/";
     }
 
     Viewer.mainCanvas.toBlob((imgBlob) => {
