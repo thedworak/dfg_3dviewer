@@ -261,29 +261,9 @@ function traverseMesh(object) {
     }
 
 
-    function resolveDracoBase(path) {
-      if (typeof document === 'undefined') {
-        return path;
-      }
-
-      const base = document.querySelector('base');
-
-      // No <base> tag found
-      if (!base || !base.href) {
-        return path;
-      }
-
-      // Resolve protocol mismatch between base and current page
-      const pageProtocol = window.location.protocol;
-      const baseProtocol = new URL(base.href).protocol;
-
-      if (pageProtocol !== baseProtocol) {
-        return new URL(path, window.location.origin).href;
-      }
-
-      return path;
+    function normalizePath(path) {
+      return path.replace(/\/{2,}/g, '/');
     }
-
 
     async function loadGLTFModel(fileObject, config) {
       let modelPath = fileObject.path + fileObject.basename + "." + fileObject.extension;
@@ -291,7 +271,7 @@ function traverseMesh(object) {
         modelPath = getProxyPath(modelPath);
       }
 
-      const dracoBase = resolveDracoBase(
+      const dracoBase = normalizePath(
       ENV_BUILD === 'drupal'
         ? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/assets/draco/`
         : `/assets/draco/`
