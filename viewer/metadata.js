@@ -329,19 +329,22 @@ export async function fetchSettings(
 ) {
   var metadata = { vertices: 0, faces: 0 };
   // Concat URL for metadata file
-  let pathResult = '';
-  let metadataUrl = '';
-  const u = safeURL(fileObject.path);
-  if (u !== null) {
-    pathResult =
-      u?.origin +
-      u?.pathname.replace(/\/$/, '') +
-      '/' +
-      fileObject.uri.replace(u?.pathname.replace(/^\/+/, ''), '');
-
-    metadataUrl = pathResult + "metadata/" + fileObject.filename + "_viewer.json";
-    console.log("Fetching settings from: " + metadataUrl);
+  function toURL(value, base = window.location.href) {
+    try {
+      return new URL(value, base);
+    } catch {
+      return null;
+    }
   }
+
+  const fileUrl = toURL(fileObject.uri);
+  if (!fileUrl) return;
+
+  const baseDir = new URL('.', fileUrl);
+  const metadataUrl = new URL(
+    `metadata/${fileObject.filename}_viewer.json`,
+    baseDir
+  ).href;
 
   if (Array.isArray(object)) {
     core.helperObjects.push(object[0]);
