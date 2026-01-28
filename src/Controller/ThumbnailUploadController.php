@@ -45,26 +45,27 @@ class ThumbnailUploadController extends ControllerBase {
 
     $file = $request->files->get('data');
 
-    if (!$file || !$file->isValid()) {
+    if (!$file || $file->getError() !== UPLOAD_ERR_OK) {
       throw new BadRequestHttpException('Upload failed');
     }
 
     $allowed = ['image/png', 'image/jpeg'];
 
-    if (!in_array($file->getClientMimeType(), $allowed, true)) {
+    $mime = $file->getClientMimeType();
+
+    if (!in_array($mime, $allowed, true)) {
       throw new HttpException(415, 'Invalid image type');
     }
-  
+
     if (!@getimagesize($file->getPathname())) {
       throw new HttpException(415, 'File is not a valid image');
     }
 
     /* =========================
-       Target directory
+      Target directory
     ========================= */
 
     $fileSystem = \Drupal::service('file_system');
-
     $directory = 'public://dfg_3dviewer/views';
 
     $fileSystem->prepareDirectory(
@@ -74,18 +75,28 @@ class ThumbnailUploadController extends ControllerBase {
     );
 
     /* =========================
-       Save file
+      Filename
     ========================= */
 
-    $extension = $file->getClientOriginalExtension() ?: 'png';
-    $targetPath = $directory . '/' . $filename . '_side45.' . $extension;
+    $filename = preg_replace('/[^a-zA-Z0-9_-]/', '_', $filename);
+
+    $extension = match ($mime) {
+      'image/png'  => 'png',
+      'image/jpeg' => 'jpg',
+    };
+
+    $targetName = $filename . '_side45.' . $extension;
+
+    /* =========================
+      Save
+    ========================= */
 
     $file->move(
       $fileSystem->realpath($directory),
-      basename($targetPath)
+      $targetName
     );
 
-    $realPath = $fileSystem->realpath($targetPath);
+    $realPath = $fileSystem->realpath($directory . '/' . $targetName);
 
     /* =========================
        WissKI call
