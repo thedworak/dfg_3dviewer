@@ -109,12 +109,11 @@ class ThumbnailUploadController extends ControllerBase {
     ========================= */
 
     $file->move(
-      $fileSystem->realpath($directory),
+      $fileSystem->realpath($views),
       $targetName
     );
 
-    $realPath = $fileSystem->realpath($directory . '/' . $targetName);
-
+    $realPath = $fileSystem->realpath($views . '/' . $targetName);
     /* =========================
        WissKI call
     ========================= */
