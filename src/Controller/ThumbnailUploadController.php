@@ -69,6 +69,8 @@ class ThumbnailUploadController extends ControllerBase {
     $subdir = preg_replace('/[^0-9\-]/', '', $subdir);
     $directory = "public://$subdir/views";
 
+    $fileSystem = \Drupal::service('file_system');
+
     $fileSystem->prepareDirectory(
       $directory,
       FileSystemInterface::CREATE_DIRECTORY |
