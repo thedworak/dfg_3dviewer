@@ -151,9 +151,6 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			}
 		}
 	}
-
-		//\Drupal::messenger()->addMessage(serialize($config_data), 'status');
-	}
 	else {
 			\Drupal::messenger()->addMessage("Cant load settings file", 'warning');
 	}
