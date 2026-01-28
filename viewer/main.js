@@ -1265,8 +1265,6 @@ export const Viewer = {
       prependName = this.fileObject.basename + "_" + this.archiveType.toUpperCase() + "/";
     }
 
-    console.log(this.fileObject);
-
     Viewer.mainCanvas.toBlob((imgBlob) => {
       if (!imgBlob) {
         console.error("Failed to capture screenshot");
