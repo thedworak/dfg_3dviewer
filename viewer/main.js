@@ -1268,7 +1268,8 @@ export const Viewer = {
       fileform.append("filename", this.fileObject.basename);
       //fileform.append("path", uri + prependName);
       fileform.append("data", imgBlob, "thumbnail.png");
-      fileform.append("wisski_individual", Viewer.entityID);
+      console.log("Uploading thumbnail for entity ID:", this.entityID);
+      fileform.append("wisski_individual", this.entityID);
       fetch(Viewer.CONFIG.mainUrl + "/api/editor/upload-thumbnail", {
         method: "POST",
         credentials: "same-origin",
