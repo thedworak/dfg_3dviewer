@@ -1271,7 +1271,10 @@ export const Viewer = {
         return;
       }
 
-      console.log("Blob type:", imgBlob.type);
+      if (!(imgBlob instanceof Blob) || imgBlob.size === 0) {
+        console.error("Invalid blob data");
+        return;
+      }
 
       if (!["image/png", "image/jpeg"].includes(imgBlob.type)) {
         console.error("Invalid blob type:", imgBlob.type);
