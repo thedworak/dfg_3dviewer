@@ -15,3 +15,12 @@ dfg_3dviewer.test:
   dependencies:
     - core/drupal
     - core/drupalSettings
+
+dfg_3dviewer.drupal_custom:
+  js:
+    dist/drupal/custom/dfg_3dviewer-module.js:
+      attributes:
+        type: module
+  dependencies:
+    - core/drupal
+    - core/drupalSettings

@@ -1,1 +1,1 @@
-$settings['dfg_env'] = 'drupal'; // possible values 'prod', 'test', 'drupal'
+$settings['dfg_env'] = 'drupal'; // possible values 'prod', 'test', 'drupal', 'drupal_custom'
