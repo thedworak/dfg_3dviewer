@@ -134,8 +134,7 @@ class ThumbnailUploadController extends ControllerBase {
       'bytes' => filesize($realPath),
       'wisski_status' => $wisskiStatus,
       'client' => $file->getClientMimeType(),
-      'server' => $file->getMimeType(),
-      'size'   => $file->getSize(),
-    ]);
+      'server' => $file->getMimeType()
+      ]);
   }
 }
