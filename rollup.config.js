@@ -28,6 +28,8 @@ function normalizePathSegment(seg = '') {
 
 const modulesPath = normalizePathSegment(customModules);
 
+console.log('[rollup] modulesPath:', modulesPath);
+
 export default {
   input: 'viewer/main.js',
   plugins: [
