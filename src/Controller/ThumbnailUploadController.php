@@ -66,7 +66,9 @@ class ThumbnailUploadController extends ControllerBase {
     ========================= */
 
     $subdir = $request->request->get('path', '');
-    $subdir = preg_replace('/[^0-9\-]/', '', $subdir);
+    if (!preg_match('/^\d{4}-\d{2}$/', $subdir)) {
+      throw new \InvalidArgumentException('Invalid path format');
+    }
     $directory = "public://$subdir";
 
     $fileSystem = \Drupal::service('file_system');
