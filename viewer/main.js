@@ -1805,7 +1805,7 @@ export const Viewer = {
           Viewer.editorFolder.add(
             {
               ["Render preview"]() {
-                takeScreenshot();
+                Viewer.takeScreenshot();
               },
             },
             "Render preview"
@@ -1814,7 +1814,7 @@ export const Viewer = {
         Viewer.editorFolder.add(
           {
             ["Reset camera position"]() {
-              resetCamera();
+              Viewer.resetCamera();
             },
           },
           "Reset camera position"
