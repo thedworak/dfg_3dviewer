@@ -1266,6 +1266,10 @@ export const Viewer = {
     }
 
     Viewer.mainCanvas.toBlob((imgBlob) => {
+      if (!imgBlob) {
+        showToast("Saving canvas failed (is it empty?)");
+        return;
+      }
       const fileform = new FormData();
       //fileform.append("domain", CONFIG.mainUrl);
       fileform.append("filename", this.fileObject.basename);

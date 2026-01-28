@@ -54,6 +54,12 @@ class ThumbnailUploadController extends ControllerBase {
 
     $allowed = ['image/png', 'image/jpeg'];
 
+    dump([
+    'client' => $file->getClientMimeType(),
+    'server' => $file->getMimeType(),
+    'ext'    => $file->guessExtension(),
+    ]);
+
     if (
       !in_array($clientMime, $allowed, true) ||
       !in_array($realMime, $allowed, true)
