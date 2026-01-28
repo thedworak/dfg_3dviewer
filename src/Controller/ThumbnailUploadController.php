@@ -78,10 +78,10 @@ class ThumbnailUploadController extends ControllerBase {
 
     $fileSystem = \Drupal::service('file_system');
 
-    $base = 'public://' . $relative;
-    $views = $base . '/views';
+    $directory = 'public://' . $relative;
+    $views = $directory . '/views';
 
-    if (!is_dir($fileSystem->realpath($base))) {
+    if (!is_dir($fileSystem->realpath($directory))) {
       throw new \RuntimeException('Base directory missing');
     }
 
