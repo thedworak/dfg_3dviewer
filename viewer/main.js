@@ -1281,7 +1281,7 @@ export const Viewer = {
         return;
       }
       const fileform = new FormData();
-      //fileform.append("domain", CONFIG.mainUrl);
+      fileform.append("path", this.fileObject.path);
       fileform.append("filename", this.fileObject.basename);
       //fileform.append("path", uri + prependName);
       fileform.append("data", imgBlob, "thumbnail.png");
@@ -1296,9 +1296,9 @@ export const Viewer = {
         body: fileform
       })
       .then(async (res) => {
-        console.log("HTTP STATUS:", res.status);
+        //console.log("HTTP STATUS:", res.status);
         const text = await res.text();
-        console.log("RAW RESPONSE:", text);
+        //console.log("RAW RESPONSE:", text);
         const data = text ? JSON.parse(text) : {};
         if (!res.ok) throw new Error(data.error || "Upload failed");
         return data;

@@ -65,6 +65,7 @@ class ThumbnailUploadController extends ControllerBase {
       Target directory
     ========================= */
 
+    $subdir = $request->request->get('path', '');
     $subdir = preg_replace('/[^0-9\-]/', '', $subdir);
     $directory = "public://$subdir/views";
 
