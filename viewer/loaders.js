@@ -21,7 +21,8 @@ import { showToast } from "./viewer-utils.js";
 
 export var outlineClipping;
 
-const DRACO_BASE = __DFG_DRACO_PATH__;
+const ENV_BUILD = __ENV_BUILD__;
+const MODULES_PATH = __MODULES_PATH__;
 
 function prepareOutlineClipping(_object) {
   core.outlineClipping = _object.clone(true);
@@ -260,6 +261,14 @@ function traverseMesh(object) {
     }
 
 
+    function getDracoBase() {
+      if (ENV_BUILD === 'drupal') {
+        return `/modules/${MODULES_PATH}/dfg_3dviewer/dist/assets/draco/`;
+      }
+      return '/assets/draco/';
+    }
+
+
     async function loadGLTFModel(fileObject, config) {
       let modelPath = fileObject.path + fileObject.basename + "." + fileObject.extension;
       if (config.entity.proxyPath !== undefined) {
@@ -267,7 +276,7 @@ function traverseMesh(object) {
       }
 
       const dracoLoader = new DRACOLoader();
-      dracoLoader.setDecoderPath(DRACO_BASE);
+      dracoLoader.setDecoderPath(getDracoBase(ENV_BUILD, MODULES_PATH));
       dracoLoader.preload();
 
       const loader = new GLTFLoader();

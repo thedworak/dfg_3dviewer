@@ -28,13 +28,6 @@ function normalizePathSegment(seg = '') {
 
 const modulesPath = normalizePathSegment(customModules);
 
-const base = window.location.origin;
-
-const dracoPath =
-  envBuild === 'drupal'
-    ? `${base}/modules/${modulesPath}/dfg_3dviewer/dist/assets/draco/`
-    : `${base}/assets/draco/`;
-
 export default {
   input: 'viewer/main.js',
   plugins: [
@@ -43,8 +36,8 @@ export default {
       values: {
         __BUILD_SOURCE__: JSON.stringify(source),
         __BUILD__: JSON.stringify(envBuild),
-        __DFG_DRACO_PATH__: JSON.stringify(dracoPath),
         __IS_PROD__: JSON.stringify(production),
+        __MODULES_PATH__: JSON.stringify(modulesPath),
       },
     }),
 
