@@ -10,28 +10,32 @@ use Drupal\Core\Archiver\ArchiverException;
 use Symfony\Component\Yaml\Yaml;
 use Drupal\Core\Site\Settings;
 
+function dfg_3dviewer_config(): array {
+  static $cfg;
+
+  if (!isset($cfg)) {
+    $config = \Drupal::config('dfg_3dviewer.settings');
+    $cfg = [
+      'main_url' => $config->get('main_url') ?? 'https://3d-repository.hs-mainz.de',
+      'entity_bundle' => $config->get('entity_bundle') ?? 'bd3d7baa74856d141bcff7b4193fa128',
+      'viewer_file_upload' => $config->get('viewer_file_upload'),
+      'viewer_file_name' => $config->get('viewer_file_name'),
+      'image_generation' => $config->get('image_generation'),
+      'field_df' => $config->get('field_df') ?? 'field_df',
+      'lightweight' => $config->get('lightweight') ?? 'lightweight',
+    ];
+  }
+  return $cfg;
+}
+
 function preload() {
-	$file_path = \Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath()) . "/config/install/dfg_3dviewer.settings.yml";
-
-	if (file_exists($file_path)) {
-		$config_data = Yaml::parseFile($file_path);
-
-		if(!defined('MAIN_URL'))
-			define('MAIN_URL', $config_data['main_url'] ?? "https://3d-repository.hs-mainz.de");
-		if(!defined('ENTITY_BUNDLE'))
-			define('ENTITY_BUNDLE', $config_data['entity_bundle'] ?? "bd3d7baa74856d141bcff7b4193fa128");
-		if(!defined('VIEWER_FILE_UPLOAD'))
-			define('VIEWER_FILE_UPLOAD', $config_data['viewer_file_upload'] ?? "fbf95bddee5160d515b982b3fd2e05f7");
-		if(!defined('VIEWER_FILE_NAME'))
-			define('VIEWER_FILE_NAME', $config_data['viewer_file_name'] ?? "faa602a0be629324806aef22892cdbe5");
-		if(!defined('IMAGE_GENERATION'))
-			define('IMAGE_GENERATION', $config_data['image_generation'] ?? "f605dc6b727a1099b9e52b3ccbdf5673");
-		if(!defined('FIELD_DF'))
-			define('FIELD_DF', $config_data['field_df'] ?? "field_df");
-		if(!defined('LIGHTWEIGHT'))
-			define('LIGHTWEIGHT', $config_data['lightweight'] ?? "lightweight");
-
-		//\Drupal::messenger()->addMessage(serialize($config_data), 'status');
+	$cfg = dfg_3dviewer_config();
+	if (isset($cfg)) {
+		foreach ($cfg as $key => $value) {
+			if (!defined($key)) {
+				define($key, $value);
+			}
+		}
 	}
 	else {
 		\Drupal::messenger()->addMessage("Cant load settings file", 'warning');
@@ -139,25 +143,14 @@ function dfg_3dviewer_hook_file_validate(Drupal\file\FileInterface $file) {
 function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity) {
 	$DEFAULT_CONFIG = \Drupal::config('dfg_3dviewer.settings');
 
-	$file_path = \Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath()) . "/config/install/dfg_3dviewer.settings.yml";
-
-	if (file_exists($file_path)) {
-		$config_data = Yaml::parseFile($file_path);
-
-		if(!defined('MAIN_URL'))
-			define('MAIN_URL', $config_data['main_url'] ?? "https://3d-repository.hs-mainz.de");
-		if(!defined('ENTITY_BUNDLE'))
-			define('ENTITY_BUNDLE', $config_data['entity_bundle'] ?? "bd3d7baa74856d141bcff7b4193fa128");
-		if(!defined('VIEWER_FILE_UPLOAD'))
-			define('VIEWER_FILE_UPLOAD', $config_data['viewer_file_upload'] ?? "fbf95bddee5160d515b982b3fd2e05f7");
-		if(!defined('VIEWER_FILE_NAME'))
-			define('VIEWER_FILE_NAME', $config_data['viewer_file_name'] ?? "faa602a0be629324806aef22892cdbe5");
-		if(!defined('IMAGE_GENERATION'))
-			define('IMAGE_GENERATION', $config_data['image_generation'] ?? "f605dc6b727a1099b9e52b3ccbdf5673");
-		if(!defined('FIELD_DF'))
-			define('FIELD_DF', $config_data['field_df'] ?? "field_df");
-		if(!defined('LIGHTWEIGHT'))
-			define('LIGHTWEIGHT', $config_data['lightweight'] ?? "lightweight");
+	$cfg = dfg_3dviewer_config();
+	if (isset($cfg)) {
+		foreach ($cfg as $key => $value) {
+			if (!defined($key)) {
+				define($key, $value);
+			}
+		}
+	}
 
 		//\Drupal::messenger()->addMessage(serialize($config_data), 'status');
 	}
