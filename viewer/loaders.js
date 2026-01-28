@@ -23,6 +23,8 @@ export var outlineClipping;
 
 const ENV_BUILD = __BUILD__;
 const MODULES_PATH = __MODULES_PATH__;
+console.log('[loaders] ENV_BUILD:', ENV_BUILD);
+console.log('[loaders] MODULES_PATH:', MODULES_PATH);
 
 function prepareOutlineClipping(_object) {
   core.outlineClipping = _object.clone(true);

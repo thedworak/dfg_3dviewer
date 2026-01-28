@@ -380,9 +380,14 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 
 
 function dfg_3dviewer_get_library(): string {
-  $env = Settings::get('dfg_env', 'drupal');
+  $lib = \Drupal::state()->get('dfg_3dviewer_library');
 
-  return $env === 'test'
-    ? 'dfg_3dviewer/dfg_3dviewer.test'
-    : 'dfg_3dviewer/dfg_3dviewer.drupal';
+  if ($lib) {
+    return "dfg_3dviewer.$lib";
+  }
+
+  $settings = \Drupal::service('settings');
+  $lib = $settings->get('dfg_3dviewer')['library'] ?? 'drupal';
+
+  return "dfg_3dviewer.$lib";
 }
