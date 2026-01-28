@@ -69,13 +69,12 @@ class ThumbnailUploadController extends ControllerBase {
     $subdir = preg_replace('/[^0-9\-]/', '', $subdir);
     $directory = "public://$subdir";
 
+    $fileSystem = \Drupal::service('file_system');
     if (!$fileSystem->exists($directory)) {
       throw new \RuntimeException('Base directory does not exist');
     }
 
     $views = $directory . '/views';
-
-    $fileSystem = \Drupal::service('file_system');
 
     $fileSystem->prepareDirectory(
       $views,
