@@ -239,6 +239,7 @@ export const Viewer = {
   loadedTimes: 0,
   _ext: '',
   DFG_ASSETS: '',
+  isLightweight: false,
 
   async MainInit() {
     if (window.__E2E__) {
@@ -307,6 +308,7 @@ export const Viewer = {
         },
       };
     }
+    this.isLightweight = [true, 1].includes(this.CONFIG.viewer.lightweight);
     console.log(`Powered by Three.js (v${THREE.REVISION}) - DFG 3D-Viewer`);
     
     this.CONFIG.entity.metadata.source = SOURCE;
@@ -323,10 +325,10 @@ export const Viewer = {
     };
     this.bottomLineGUI = this.CONFIG.viewer.canvasDimensions.y - 85;
 
-    if (this.CONFIG.viewer.lightweight === true) {
+    if (this.isLightweight) {
       this.CONFIG.viewer.lightweight = container.getAttribute("proxy");
     }
-    if (this.CONFIG.viewer.lightweight === null || this.CONFIG.viewer.lightweight === false) {
+    if (!this.isLightweight) {
       var elementsURL = window.location.pathname;
       console.log("elementsURL before match:", elementsURL);
       elementsURL = elementsURL.match(this.CONFIG.entity.idUri);
