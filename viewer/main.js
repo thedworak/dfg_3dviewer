@@ -1269,7 +1269,7 @@ export const Viewer = {
       //fileform.append("path", uri + prependName);
       fileform.append("data", imgBlob, "thumbnail.png");
       fileform.append("wisski_individual", Viewer.entityID);
-      fetch(CONFIG.mainUrl + "/api/editor/upload_thumbnail.php", {
+      fetch(Viewer.CONFIG.mainUrl + "/api/editor/upload_thumbnail.php", {
         method: "POST",
         credentials: "same-origin",
         headers: {
