@@ -21,7 +21,7 @@ import { showToast } from "./viewer-utils.js";
 
 export var outlineClipping;
 
-const ENV_BUILD = __ENV_BUILD__;
+const ENV_BUILD = __BUILD__;
 const MODULES_PATH = __MODULES_PATH__;
 
 function prepareOutlineClipping(_object) {
