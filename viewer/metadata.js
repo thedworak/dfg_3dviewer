@@ -341,7 +341,7 @@ export async function fetchSettings(
   if (!fileUrl) return;
 
   const baseDir = new URL('.', fileUrl);
-  const metadataUrl = new URL(
+  let metadataUrl = new URL(
     `metadata/${fileObject.filename}_viewer.json`,
     baseDir
   ).href;
