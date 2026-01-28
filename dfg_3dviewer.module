@@ -378,16 +378,14 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 	//\Drupal::messenger()->addMessage(serialize($entity), 'status');
 }
 
-
 function dfg_3dviewer_get_library(): string {
-  $lib = \Drupal::state()->get('dfg_3dviewer_library');
+  $env = Settings::get('dfg_env', 'drupal');
 
-  if ($lib) {
-    return "dfg_3dviewer.$lib";
-  }
+  $map = [
+    'test'          => 'dfg_3dviewer/dfg_3dviewer.test',
+    'drupal_custom' => 'dfg_3dviewer/dfg_3dviewer.drupal_custom',
+    'drupal'        => 'dfg_3dviewer/dfg_3dviewer.drupal',
+  ];
 
-  $settings = \Drupal::service('settings');
-  $lib = $settings->get('dfg_3dviewer')['library'] ?? 'drupal';
-
-  return "dfg_3dviewer.$lib";
+  return $map[$env] ?? $map['drupal'];
 }
