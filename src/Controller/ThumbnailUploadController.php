@@ -66,7 +66,7 @@ class ThumbnailUploadController extends ControllerBase {
     ========================= */
 
     $fileSystem = \Drupal::service('file_system');
-    $directory = 'public://dfg_3dviewer/views';
+    $directory = 'public://views';
 
     $fileSystem->prepareDirectory(
       $directory,
@@ -132,9 +132,7 @@ class ThumbnailUploadController extends ControllerBase {
     return new JsonResponse([
       'status' => 'ok',
       'bytes' => filesize($realPath),
-      'wisski_status' => $wisskiStatus,
-      'client' => $file->getClientMimeType(),
-      'server' => $file->getMimeType()
+      'wisski_status' => $wisskiStatus
       ]);
   }
 }
