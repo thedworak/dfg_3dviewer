@@ -1270,6 +1270,13 @@ export const Viewer = {
         showToast("Saving canvas failed (is it empty?)");
         return;
       }
+
+      console.log("Blob type:", imgBlob.type);
+
+      if (!["image/png", "image/jpeg"].includes(imgBlob.type)) {
+        console.error("Invalid blob type:", imgBlob.type);
+        return;
+      }
       const fileform = new FormData();
       //fileform.append("domain", CONFIG.mainUrl);
       fileform.append("filename", this.fileObject.basename);
