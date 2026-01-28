@@ -330,9 +330,7 @@ export const Viewer = {
     }
     if (!this.isLightweight) {
       var elementsURL = window.location.pathname;
-      console.log("elementsURL before match:", elementsURL);
       elementsURL = elementsURL.match(this.CONFIG.entity.idUri);
-      console.log("elementsURL:", elementsURL);
       if (elementsURL !== null) {
         this.entityID = elementsURL[1];
         this.container.setAttribute(this.CONFIG.entity.attributeId, this.entityID);

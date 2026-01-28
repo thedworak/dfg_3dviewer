@@ -49,8 +49,15 @@ class ThumbnailUploadController extends ControllerBase {
       throw new BadRequestHttpException('Upload failed');
     }
 
-    $allowedMimes = ['image/png', 'image/jpeg'];
-    if (!in_array($file->getMimeType(), $allowedMimes, true)) {
+    $clientMime = $file->getClientMimeType();
+    $realMime   = $file->getMimeType();
+
+    $allowed = ['image/png', 'image/jpeg'];
+
+    if (
+      !in_array($clientMime, $allowed, true) ||
+      !in_array($realMime, $allowed, true)
+    ) {
       throw new HttpException(415, 'Invalid image type');
     }
 
