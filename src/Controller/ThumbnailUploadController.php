@@ -49,16 +49,14 @@ class ThumbnailUploadController extends ControllerBase {
       throw new BadRequestHttpException('Upload failed');
     }
 
-    $clientMime = $file->getClientMimeType();
-    $realMime   = $file->getMimeType();
-
     $allowed = ['image/png', 'image/jpeg'];
 
-    if (
-      !in_array($clientMime, $allowed, true) ||
-      !in_array($realMime, $allowed, true)
-    ) {
+    if (!in_array($file->getClientMimeType(), $allowed, true)) {
       throw new HttpException(415, 'Invalid image type');
+    }
+  
+    if (!@getimagesize($file->getPathname())) {
+      throw new HttpException(415, 'File is not a valid image');
     }
 
     /* =========================
@@ -125,6 +123,9 @@ class ThumbnailUploadController extends ControllerBase {
       'status' => 'ok',
       'bytes' => filesize($realPath),
       'wisski_status' => $wisskiStatus,
+      'client' => $file->getClientMimeType(),
+      'server' => $file->getMimeType(),
+      'size'   => $file->getSize(),
     ]);
   }
 }

@@ -1297,17 +1297,13 @@ export const Viewer = {
         body: fileform
       })
       .then(async (res) => {
-        const data = await res.json();
+        console.log("HTTP STATUS:", res.status);
+        const text = await res.text();
+        console.log("RAW RESPONSE:", text);
+        const data = text ? JSON.parse(text) : {};
         if (!res.ok) throw new Error(data.error || "Upload failed");
         return data;
       })
-      .then(() => {
-        showToast("Rendering saved successfully");
-      })
-      .catch((err) => {
-        console.error(err);
-        showToast(err.message);
-      });
     }, "image/png");
 
     Viewer.renderer.setPixelRatio(devicePixelRatio);
