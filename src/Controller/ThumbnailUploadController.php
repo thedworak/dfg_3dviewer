@@ -69,6 +69,8 @@ class ThumbnailUploadController extends ControllerBase {
     $subdir = preg_replace('/[^0-9\-]/', '', $subdir);
     $directory = "public://$subdir";
 
+    $fileSystem = \Drupal::service('file_system');
+
     $realBase = $fileSystem->realpath($directory);
 
     if ($realBase === FALSE || !is_dir($realBase)) {
