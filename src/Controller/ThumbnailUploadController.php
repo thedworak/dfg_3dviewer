@@ -65,26 +65,30 @@ class ThumbnailUploadController extends ControllerBase {
       Target directory
     ========================= */
 
-    $subdir = $request->request->get('path', '');
-    if (!preg_match('/^\d{4}-\d{2}$/', $subdir)) {
-      throw new \InvalidArgumentException('Invalid path format');
+
+    $uri = (string) $request->request->get('path', '');
+    $parsed = parse_url($uri);
+    $path = $parsed['path'] ?? '';
+
+    $relative = preg_replace('#^/?sites/default/files/#', '', $path);
+
+    if (str_contains($relative, '..')) {
+      throw new \InvalidArgumentException('Invalid path');
     }
-    $directory = "public://$subdir";
 
     $fileSystem = \Drupal::service('file_system');
 
-    $realBase = $fileSystem->realpath($directory);
+    $base = 'public://' . $relative;
+    $views = $base . '/views';
 
-    if ($realBase === FALSE || !is_dir($realBase)) {
-      throw new \RuntimeException('Base directory does not exist');
+    if (!is_dir($fileSystem->realpath($base))) {
+      throw new \RuntimeException('Base directory missing');
     }
-
-    $views = $directory . '/views';
 
     $fileSystem->prepareDirectory(
       $views,
-      FileSystemInterface::CREATE_DIRECTORY |
-      FileSystemInterface::MODIFY_PERMISSIONS
+      FileSystemInterface::CREATE_DIRECTORY
+      | FileSystemInterface::MODIFY_PERMISSIONS
     );
 
     /* =========================
