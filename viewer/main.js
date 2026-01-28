@@ -1267,6 +1267,7 @@ export const Viewer = {
 
     Viewer.mainCanvas.toBlob((imgBlob) => {
       if (!imgBlob) {
+        console.log("Failed to capture screenshot");
         showToast("Saving canvas failed (is it empty?)");
         return;
       }
