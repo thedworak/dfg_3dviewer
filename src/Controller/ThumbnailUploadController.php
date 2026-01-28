@@ -91,12 +91,11 @@ class ThumbnailUploadController extends ControllerBase {
        WissKI call
     ========================= */
 
-    $wisskiBaseUrl = getenv('WISSKI_URL');
-    if (!$wisskiBaseUrl) {
-      throw new \RuntimeException('WISSKI_URL not configured');
-    }
+    $request = \Drupal::request();
 
-    $url = rtrim($wisskiBaseUrl, '/') . '/' . $wisskiId . '/savePreview';
+    $wisskiBaseUrl = $request->getSchemeAndHttpHost();
+
+    $url = $wisskiBaseUrl . '/' . $wisskiId . '/savePreview';
 
     $client = \Drupal::httpClient();
 
