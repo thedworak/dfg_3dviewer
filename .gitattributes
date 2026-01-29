@@ -1,0 +1,19 @@
+# Default text as LF
+* text=auto eol=lf
+
+# JS / CSS
+*.js   text eol=lf
+*.css  text eol=lf
+*.scss text eol=lf
+
+# PHP / Drupal
+*.php  text eol=lf
+*.module text eol=lf
+*.yml  text eol=lf
+*.twig text eol=lf
+
+# JSON
+*.json text eol=lf
+
+# Builds / dist – still LF
+dist/** text eol=lf
