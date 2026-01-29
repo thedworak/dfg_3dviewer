@@ -10,6 +10,10 @@ use Drupal\Core\Archiver\ArchiverException;
 use Symfony\Component\Yaml\Yaml;
 use Drupal\Core\Site\Settings;
 
+public function __construct() {
+  dfg_3dviewer_init_constants();
+}
+
 function dfg_3dviewer_config(): array {
   static $cfg;
 
@@ -40,6 +44,25 @@ function preload() {
 	else {
 		\Drupal::messenger()->addMessage("Cant load settings file", 'warning');
 	}
+}
+
+function dfg_3dviewer_init_constants(): void {
+  static $done = false;
+  if ($done) {
+    return;
+  }
+
+  $cfg = dfg_3dviewer_config();
+
+  foreach ($cfg as $key => $value) {
+    $const = 'DFG_3DVIEWER_' . strtoupper($key);
+
+    if (!defined($const)) {
+      define($const, $value);
+    }
+  }
+
+  $done = true;
 }
 
 /**
