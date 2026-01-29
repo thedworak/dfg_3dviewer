@@ -309,8 +309,9 @@ export const Viewer = {
         },
       };
     }
-    this.isLightweight = [true, 1].includes(this.CONFIG.viewer.lightweight);
-    console.log(`Powered by Three.js (v${THREE.REVISION}) - DFG 3D-Viewer`);
+    this.isLightweight = Boolean(this.CONFIG.viewer.lightweight);
+    console.log(`AIM 3D-Viewer ${this.isLightweight ? '🪶 LIGHTWEIGHT' : '💪 FULL'} mode`);
+    console.log(`Powered by Three.js (v${THREE.REVISION})`);
     
     this.CONFIG.entity.metadata.source = SOURCE;
 
@@ -898,7 +899,7 @@ export const Viewer = {
 
     Viewer.fullscreenMode.style.top = (heightCSS - 40) + 'px';
     if (Viewer.downloadModel && !isFullscreen) {
-      let _offset = (Viewer.CONFIG.lightweight) ? 130 : 70;
+      let _offset = (Viewer.CONFIG.isLightweight) ? 130 : 70;
       Viewer.downloadModel.style.top = (heightCSS - _offset) + 'px';
     }
     if (Viewer.viewEntity) {
