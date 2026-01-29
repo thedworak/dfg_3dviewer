@@ -340,6 +340,7 @@ export const Viewer = {
     }    
     // Initialize clipping planes at startup
     this.core = initClippingPlanes();
+    setCore('isLightweight', this.isLightweight);
     setCore('EXIT_CODE', this.EXIT_CODE);
     // Initialize objectsConfig in core
     setCore('objectsConfig', objectsConfig);
@@ -1704,7 +1705,7 @@ export const Viewer = {
       Viewer.core.materialsFolder = Viewer.editorFolder.addFolder("Materials").close();
       setCore("materialsFolder", Viewer.core.materialsFolder);
 
-      if (!Viewer.CONFIG.viewer.lightweight) {
+      if (!Viewer.isLightweight) {
         Viewer.propertiesFolder = Viewer.editorFolder.addFolder("Save properties").close();
         Viewer.propertiesFolder.add(Viewer.saveProperties, "Position");
         Viewer.propertiesFolder.add(Viewer.saveProperties, "Rotation");
@@ -1716,7 +1717,7 @@ export const Viewer = {
         Viewer.propertiesFolder.add(Viewer.saveProperties, "BackgroundColor");
       }
 
-      if (Viewer.editor && !Viewer.CONFIG.viewer.lightweight) {
+      if (Viewer.editor && !Viewer.isLightweight) {
         Viewer.editorFolder.add(
           {
             ["Save"]() {
@@ -1778,7 +1779,7 @@ export const Viewer = {
           },
           "Save"
         );
-        if (!Viewer.CONFIG.viewer.lightweight) {
+        if (!Viewer.isLightweight) {
           Viewer.editorFolder.add(
             {
               ["Picking mode"]() {
@@ -1816,7 +1817,7 @@ export const Viewer = {
           },
           "Distance Measurement"
         );
-        if (!Viewer.CONFIG.viewer.lightweight) {
+        if (!Viewer.isLightweight) {
           Viewer.editorFolder.add(
             {
               ["Render preview"]() {
@@ -1997,8 +1998,7 @@ export const Viewer = {
       }
 
       if (
-        Viewer.CONFIG.viewer.lightweight === 0 ||
-        Viewer.CONFIG.viewer.lightweight === false || 
+        !Viewer.isLightweight || 
         Viewer.CONFIG.viewer.gallery?.build === true
       ) {
         Viewer.buildGallery();
@@ -2084,8 +2084,8 @@ export const Viewer = {
       }
 
       var _autoPath = "";
-      
-      if (Viewer.CONFIG.entity.metadata.source === "" && (Viewer.CONFIG.viewer.lightweight === 0 || Viewer.CONFIG.viewer.lightweight === false)) {
+          
+        if (Viewer.CONFIG.entity.metadata.source === "" && (!Viewer.isLightweight)) {
         var req = new XMLHttpRequest();
         req.responseType = "";
         req.open(

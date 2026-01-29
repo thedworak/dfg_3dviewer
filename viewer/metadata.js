@@ -202,10 +202,7 @@ export async function handleMetadataResponse(
   viewEntity = document.createElement("div");
   viewEntity.setAttribute("id", "viewEntity");
 
-  if (
-    CONFIG.viewer.lightweight !== false && CONFIG.viewer.lightweight !== 1 &&
-    CONFIG.viewer.lightweight !== null
-  ) {
+  if (!core.isLightweight) {
 
     if (!document.getElementById("downloadModel")) {
       core.downloadModel.setAttribute("id", "downloadModel");
@@ -357,7 +354,7 @@ export async function fetchSettings(
   if (lilGUIgetFolder(gui, "Hierarchy") === null) {
     hierarchyMain = gui.addFolder("Hierarchy").close();
   }
-  if (CONFIG.entity.proxyPath !== undefined || (CONFIG.viewer.lightweight === 1 || CONFIG.viewer.lightweight === true)) {
+  if (CONFIG.entity.proxyPath !== undefined || !core.isLightweight) {
     metadataUrl = getProxyPath(metadataUrl, CONFIG, fileObject);
     await handleMetadataResponse(data, metadata, fileObject, object, light, controls, hierarchyMain, CONFIG, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity);
     settingsHandler(object, light, controls, hierarchyMain, CONFIG);
