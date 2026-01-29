@@ -1,19 +1,76 @@
-# Default text as LF
-* text=auto eol=lf
+# Default behavior
+* text=auto
 
-# JS / CSS
-*.js   text eol=lf
-*.css  text eol=lf
-*.scss text eol=lf
-
-# PHP / Drupal
-*.php  text eol=lf
+# Code files – use LF line endings
+*.js     text eol=lf
+*.css    text eol=lf
+*.scss   text eol=lf
+*.php    text eol=lf
 *.module text eol=lf
-*.yml  text eol=lf
-*.twig text eol=lf
+*.yml    text eol=lf
+*.twig   text eol=lf
+*.json   text eol=lf
 
-# JSON
-*.json text eol=lf
+# BUILD
+dist/**  text eol=lf
 
-# Builds / dist – still LF
-dist/** text eol=lf
+# Binary files
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.svg   binary
+*.webp  binary
+*.ico   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.eot   binary
+*.mp4   binary
+*.mp3   binary
+*.ogg   binary
+*.wav   binary
+*.glb   binary
+*.gltf  binary
+*.bin   binary
+*.zip   binary
+*.pdf   binary
+*.exe   binary
+*.dll   binary
+*.obj   binary
+*.mtl   binary
+*.3ds   binary
+*.fbx   binary
+*.dae   binary
+*.stl   binary
+*.ply   binary
+*.hdr   binary
+*.pic   binary
+*.tga   binary
+*.psd   binary
+*.raw   binary
+*.arw   binary
+*.cr2   binary
+*.nef   binary
+*.orf   binary
+*.sr2   binary
+*.xmp   binary
+*.db    binary
+*.sav   binary
+*.blend binary
+*.3dm   binary
+*.skp   binary
+*.max   binary
+*.c4d   binary
+*.lwo   binary
+*.lws   binary
+*.ma    binary
+*.mb    binary
+*.dxf   binary
+*.dwg   binary
+*.igs   binary
+*.iges  binary
+*.step  binary
+*.stp   binary
+*.sldprt binary
+*.sldasm binary
