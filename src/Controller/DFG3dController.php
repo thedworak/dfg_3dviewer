@@ -8,9 +8,25 @@ use Drupal\Core\Cache\CacheableJsonResponse;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Drupal\image\Entity\ImageStyle;
 use Drupal\wisski_salz\Entity\Adapter;
+use Drupal\Core\Controller\ControllerBase;
 
 
-class DFG3dController {
+class DFG3dController extends ControllerBase {
+
+
+	public function __construct() {
+		dfg_3dviewer_init_constants();
+	}
+
+	public static function create($container) {
+		return new static();
+	}
+
+	public function view() {
+		return [
+		'#markup' => DFG_3DVIEWER_MAIN_URL,
+		];
+	}
 
 	public function editEntity(?WisskiEntity $wisski_individual = NULL) {
 		// Get module path (e.g., modules/custom/your_module/)
