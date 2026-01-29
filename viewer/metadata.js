@@ -356,7 +356,7 @@ export async function fetchSettings(
   }
   if (CONFIG.entity.proxyPath !== undefined || !core.isLightweight) {
     metadataUrl = getProxyPath(metadataUrl, CONFIG, fileObject);
-    await handleMetadataResponse(data, metadata, fileObject, object, light, controls, hierarchyMain, CONFIG, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity);
+    await handleMetadataResponse(null, metadata, fileObject, object, light, controls, hierarchyMain, CONFIG, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity);
     settingsHandler(object, light, controls, hierarchyMain, CONFIG);
   } else if (CONFIG.entity.metadata.source === "IIIF") {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);
