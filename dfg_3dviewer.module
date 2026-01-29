@@ -10,10 +10,6 @@ use Drupal\Core\Archiver\ArchiverException;
 use Symfony\Component\Yaml\Yaml;
 use Drupal\Core\Site\Settings;
 
-public function __construct() {
-  dfg_3dviewer_init_constants();
-}
-
 function dfg_3dviewer_config(): array {
   static $cfg;
 
