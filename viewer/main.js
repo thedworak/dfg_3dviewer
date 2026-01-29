@@ -74,6 +74,7 @@ export const Viewer = {
   CONFIG: null,
   camera: null,
   scene: null,
+  activeScene: 0,
   renderer: null,
   stats: null,
   controls: null,
@@ -326,7 +327,7 @@ export const Viewer = {
     this.bottomLineGUI = this.CONFIG.viewer.canvasDimensions.y - 85;
 
     if (this.isLightweight) {
-      this.CONFIG.viewer.lightweight = container.getAttribute("proxy");
+      this.CONFIG.viewer.lightweight = this.container.getAttribute("proxy");
     }
     if (!this.isLightweight) {
       var elementsURL = window.location.pathname;
@@ -1849,6 +1850,7 @@ export const Viewer = {
 
       Viewer.scene = new THREE.Scene();
       setCore('scene', Viewer.scene);
+      setCore('activeScene', Viewer.activeScene);
 
       const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444);
       hemiLight.position.set(0, 200, 0);
@@ -2155,7 +2157,7 @@ export const Viewer = {
             </div>
           `;
 
-          document.body.appendChild(formContainer);
+        document.body.appendChild(formContainer);
 
         async function setupIIIF(newUrlOrJson, type="url") {
           if (type === "text") {

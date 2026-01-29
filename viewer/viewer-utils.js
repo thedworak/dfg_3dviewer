@@ -4,7 +4,7 @@ import Toastify from "toastify-js";
 import "toastify-js/src/toastify.css";
 import { core, setCore } from './core.js';
 import TWEEN, { add } from "three/examples/jsm/libs/tween.module.js";
-import { normalizeColor } from './utils.js';
+import { normalizeColor, parseCssColor } from './utils.js';
 
 export const initClippingPlanes = () => {
   const clippingPlanes = [
@@ -55,6 +55,17 @@ function normalizeVec3(v) {
   return null;
 }
 
+
+function normalizeGradient(gradient) {
+  return {
+    type: gradient.type,
+    shapeOrDirection: gradient.shapeOrDirection,
+    colors: gradient.colors
+      .map(normalizeColor)
+      .filter(Boolean)
+  };
+}
+
 function setupObjectHandler(_object, _metadata) {
   if (!_metadata) return;
 
@@ -88,7 +99,7 @@ function setupGeometryHandler (_object) {
   _object.updateMatrixWorld(true);
 }
 
-export const setupObject = (_object, _light, _controls, _metadata = {}) => {
+export const setupObject = (_object, _light, _controls, _metadata) => {
   let model;
   if (typeof _object.children === "undefined" || _object.children.length == 0) {
     model = fetchObjectFromConfig(_object.name);
@@ -96,24 +107,24 @@ export const setupObject = (_object, _light, _controls, _metadata = {}) => {
     model = fetchObjectFromConfig(_object.children[0].name); //TODO: check for multiple objects
   }
 
-  if (_metadata !== null) {
-    console.log("Applying metadata for object", _object.name, _metadata);
+  if (_metadata != null) {
     setupObjectHandler(_object, _metadata);
     setupGeometryHandler(_object);
+    console.log("Applying metadata for", _object.name, _metadata);
   }
   else if (typeof core.objectsConfig !== "undefined" && model) { //Setup from config
-    if ((typeof core.objectsConfig.models == undefined || core.objectsConfig.models?.length == 0) && _metadata == undefined) {
-      if (typeof model.position !== undefined) _object.position.set(model.position.x, model.position.y, model.position.z);
+    if ((typeof core.objectsConfig.models == null || core.objectsConfig.models?.length == 0) && _metadata == null) {
+      if (typeof model.position != null) _object.position.set(model.position.x, model.position.y, model.position.z);
 
-      if (typeof model.scale !== undefined) _object.scale.set(model.scale.x, model.scale.y, model.scale.z);
+      if (typeof model.scale != null) _object.scale.set(model.scale.x, model.scale.y, model.scale.z);
       
-      if (typeof model.rotation !== undefined) _object.rotation.set(THREE.MathUtils.degToRad(model.rotation.x), THREE.MathUtils.degToRad(model.rotation.y), THREE.MathUtils.degToRad(model.rotation.z));
+      if (typeof model.rotation != null) _object.rotation.set(THREE.MathUtils.degToRad(model.rotation.x), THREE.MathUtils.degToRad(model.rotation.y), THREE.MathUtils.degToRad(model.rotation.z));
     } else {
       let m = core.objectsConfig.models[core.objectsConfig.setupIndex];
-      if (m !== undefined && _metadata == undefined) {
+      if (m != undefined && _metadata == null) {
         //console.log("Applying config for index", core.objectsConfig.setupIndex, m);
         setupObjectHandler(_object, m);
-      } else if (_metadata !== undefined) {
+      } else if (_metadata != null) {
         // Fallback to metadata
         setupObjectHandler(_object, _metadata);
       }        
@@ -192,6 +203,88 @@ async function setupEmptyCamera(_object) {
   await fitCameraToCenteredObject(_object, true);
 }
 
+function getSceneValue(meta, sceneId, path, fallback) {
+  const scene = meta.scenes?.[sceneId];
+  const global = meta.globals;
+
+  return (
+    path.reduce((o, k) => o?.[k], scene) ??
+    path.reduce((o, k) => o?.[k], global) ??
+    fallback
+  );
+}
+
+function parseColor(v) {
+  if (Array.isArray(v)) {
+    const [r, g, b, a = 1] = v;
+    return { r, g, b, a };
+  }
+
+  if (typeof v === "string") {
+    return parseCssColor(v); // #hex / rgb / rgba
+  }
+
+  return null;
+}
+
+function parseGradientArray(arr) {
+  if (!Array.isArray(arr) || arr.length === 0) return null;
+
+  // [r, g, b] → single color
+  if (
+    arr.length === 3 &&
+    arr.every(v => typeof v === "number")
+  ) {
+    return {
+      type: "linear",
+      colors: [ { r: arr[0], g: arr[1], b: arr[2], a: 1 } ]
+    };
+  }
+
+  // list of colors
+  const colors = arr
+    .map(parseColor)
+    .filter(Boolean);
+
+  if (colors.length < 2) return null;
+
+  return {
+    type: "linear",
+    colors
+  };
+}
+
+function resolveBackground(meta, sceneId) {
+  const raw =
+    meta.scenes?.[sceneId]?.background ??
+    meta.scene?.background ??
+    meta.globals?.background ??
+    null;
+
+  if (!raw) return { kind: "default" };
+
+  // object + array of colors
+  if (typeof raw === "object" && Array.isArray(raw.value)) {
+    const gradient = parseGradientArray(raw.value);
+    if (gradient) {
+      const normalizedGradient = normalizeGradient(gradient);
+      return { kind: "gradient", normalizedGradient };
+    }
+  }
+
+  // css string
+  if (typeof raw === "string") {
+    const gradient = parseGradient(raw);
+    if (gradient) {
+      const normalizedGradient = normalizeGradient(gradient);
+      return { kind: "gradient", normalizedGradient };
+    }
+    return { kind: "color", color: raw };
+  }
+
+  return { kind: "default" };
+}
+
 export async function setupCamera(_object, _light, _config) {
   const cfg = _config ?? null;
   const fallback = core.objectsConfig ?? null;
@@ -248,39 +341,54 @@ export async function setupCamera(_object, _light, _config) {
         break;
       }
     });
-    } else if (cfg) {
-      if (cfg.lightAmbientColor) {
-        core.ambientLight.color = new THREE.Color(normalizeColor(cfg.lightAmbientColor[0]));
-        core.ambientLight.intensity = cfg.lightAmbientIntensity?.[0] ?? core.ambientLight.intensity;
-      }
-
-      if (cfg.lightColor) {
-        _light.color = new THREE.Color(normalizeColor(cfg.lightColor[0]));
-        _light.intensity = cfg.lightIntensity?.[0] ?? _light.intensity;
-      }
-
-      if (cfg.lightCameraColor) {
-        core.cameraLight.color = new THREE.Color(normalizeColor(cfg.lightCameraColor[0]));
-        core.cameraLight.intensity = cfg.lightCameraIntensity?.[0] ?? core.cameraLight.intensity;
-      }
+  } 
+  else if (cfg) {
+    if (cfg.lightAmbientColor) {
+      core.ambientLight.color = new THREE.Color(normalizeColor(cfg.lightAmbientColor[0]));
+      core.ambientLight.intensity = cfg.lightAmbientIntensity?.[0] ?? core.ambientLight.intensity;
     }
 
+    if (cfg.lightColor) {
+      _light.color = new THREE.Color(normalizeColor(cfg.lightColor[0]));
+      _light.intensity = cfg.lightIntensity?.[0] ?? _light.intensity;
+    }
+
+    if (cfg.lightCameraColor) {
+      core.cameraLight.color = new THREE.Color(normalizeColor(cfg.lightCameraColor[0]));
+      core.cameraLight.intensity = cfg.lightCameraIntensity?.[0] ?? core.cameraLight.intensity;
+    }
+  }
+
   // --- BACKGROUND ---
-  const sceneBg = fallback?.scene?.background;
+  //const sceneBg = fallback?.scene?.background;
 
-  if (!sceneBg) {
-    changeBackground("linear", "#ffffff", "#ffffff");
-  } else {
-    const gradient = parseGradient(sceneBg);
-    const c0 = new THREE.Color(`rgb(${gradient.colors[0].r}, ${gradient.colors[0].g}, ${gradient.colors[0].b})`);
-    const c1 = new THREE.Color(`rgb(${gradient.colors[1].r}, ${gradient.colors[1].g}, ${gradient.colors[1].b})`);
-    changeBackground(gradient.type, `#${c0.getHexString()}`, `#${c1.getHexString()}`);
+  const bg = resolveBackground(fallback, core.activeScene);
+
+  switch (bg.kind) {
+    case "gradient":
+    case "radial":
+      applyGradientCss(bg.normalizedGradient);
+      break;
+
+    case "color":
+    case "linear":
+      changeBackground("linear", bg.color);
+      break;
+
+    case "default":
+    case "unknown":
+      changeBackground(
+        "radial",
+        core.colors.BackgroundColor,
+        core.colors.BackgroundColorOuter
+      );
+      break;
   }
 
-    core.camera.updateProjectionMatrix();
-    core.controls.update();
-    fitCameraToCenteredObject(_object, false);
-  }
+  core.camera.updateProjectionMatrix();
+  core.controls.update();
+  fitCameraToCenteredObject(_object, false);
+}
 
   // Show interaction hint on first load
   function showInteractionHint(boxCenter) {
@@ -546,22 +654,54 @@ function parseGradient(str) {
   };
 }
 
+function rgbaToCss(c) {
+  return `rgba(${c.r}, ${c.g}, ${c.b}, ${c.a})`;
+}
+
 function changeBackgroundHelper(_color1, _color2) {
   core.mainCanvas.style.setProperty(
     "background",
-    "-moz-radial-gradient(circle, " + _color1 + " 0%, " + _color2 + " 100%)"
-  );
-  core.mainCanvas.style.setProperty(
-    "background",
-    "-webkit-radial-gradient(circle, " + _color1 + " 0%, " + _color2 + " 100%)"
-  );
-  core.mainCanvas.style.setProperty(
-    "background",
-    "radial-gradient(circle, " + _color1 + " 0%, " + _color2 + " 100%)"
+    `radial-gradient(circle, ${_color1} 0%, ${_color2} 100%)`
   );
 }
 
-export function changeBackground(_type, _color1, _color2) {
+export function applyGradientCss(gradient) {
+  if (!gradient || !Array.isArray(gradient.colors) || gradient.colors.length === 0) {
+    return;
+  }
+
+  const colors = gradient.colors;
+
+  // 1 color → solid background
+  if (colors.length === 1) {
+    const c = rgbaToCss(colors[0]);
+    changeBackground("linear", c);
+    return;
+  }
+
+  // 2 colors → legacy helper
+  if (colors.length === 2) {
+    const c1 = rgbaToCss(colors[0]);
+    const c2 = rgbaToCss(colors[1]);
+    changeBackground(gradient.type, c1, c2);
+    return;
+  }
+
+  // >= 3 stops → full CSS gradient
+  const stops = colors.map((c, i) => {
+    const t = Math.round((i / (colors.length - 1)) * 100);
+    return `${rgbaToCss(c)} ${t}%`;
+  });
+
+  const css =
+    gradient.type === "radial"
+      ? `radial-gradient(circle, ${stops.join(", ")})`
+      : `linear-gradient(to bottom, ${stops.join(", ")})`;
+
+  core.mainCanvas.style.setProperty("background", css);
+}
+
+export function changeBackground(_type, _color1, _color2 = _color1) {
   switch (_type) {
     case "linear":
       changeBackgroundHelper(_color1, _color1);

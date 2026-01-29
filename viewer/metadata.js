@@ -1,6 +1,7 @@
 import { truncateString, getProxyPath, hexToRgb } from "./utils.js";
 import { showToast, setupObject, setupCamera } from './viewer-utils.js';
 import { core, setCore } from './core.js';
+import { objectsConfig } from "./object-settings.js";
 
 /**
  * Formats WissKI metadata labels and values for display.
@@ -280,7 +281,7 @@ export async function handleMetadataResponse(
 /**
  * Handles settings for the loaded object and camera.
  */
-export async function settingsHandler(object, light, controls, hierarchyMain, data = {}) {
+export async function settingsHandler(object, light, controls, hierarchyMain, data) {
   if (Array.isArray(object)) {
     setupObject(object[0], light, controls, data);
     await setupCamera(object[0], light, data);
@@ -358,9 +359,10 @@ export async function fetchSettings(
   }
   if (CONFIG.entity.proxyPath !== undefined || (CONFIG.viewer.lightweight === 1 || CONFIG.viewer.lightweight === true)) {
     metadataUrl = getProxyPath(metadataUrl, CONFIG, fileObject);
-    await handleMetadataResponse(null, metadata, fileObject, object, light, controls, hierarchyMain, CONFIG, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity);
+    await handleMetadataResponse(data, metadata, fileObject, object, light, controls, hierarchyMain, CONFIG, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity);
     settingsHandler(object, light, controls, hierarchyMain, CONFIG);
   } else if (CONFIG.entity.metadata.source === "IIIF") {
+    console.log("Fetching IIIF metadata from ", core.objectsConfig);
     await handleMetadataResponse(
       CONFIG.model,
       metadata,

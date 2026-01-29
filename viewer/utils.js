@@ -84,23 +84,109 @@ export function getProxyPath(url, config, fileObject) {
   return tempPath.replace(fileObject.originalPath, encodeURIComponent(url));
 }
 
-
 export function normalizeColor(value) {
-  if (Array.isArray(value)) value = value[0];
+  if (value == null) return null;
 
+  //legacy: [[r,g,b]]
+  if (Array.isArray(value) && Array.isArray(value[0])) {
+    value = value[0];
+  }
+
+  //already normalized
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    typeof value.r === "number" &&
+    typeof value.g === "number" &&
+    typeof value.b === "number"
+  ) {
+    return {
+      r: value.r,
+      g: value.g,
+      b: value.b,
+      a: value.a ?? 1
+    };
+  }
+
+  //[r, g, b, a?]
+  if (Array.isArray(value)) {
+    const [r, g, b, a = 1] = value;
+    if (
+      typeof r === "number" &&
+      typeof g === "number" &&
+      typeof b === "number"
+    ) {
+      return { r, g, b, a };
+    }
+    return null;
+  }
+
+  //number (0xffffff or 16777215)
   if (typeof value === "number") {
-    return new THREE.Color(value);
+    return {
+      r: (value >> 16) & 255,
+      g: (value >> 8) & 255,
+      b: value & 255,
+      a: 1
+    };
   }
 
+  //string
   if (typeof value === "string") {
-    if (value.startsWith("#")) {
-      return new THREE.Color(value);
-    }
-
-    if (value.startsWith("0x")) {
-      return new THREE.Color(parseInt(value, 16));
-    }
+    return parseCssColor(value);
   }
 
-  return new THREE.Color(0xffffff);
-};
+  return null;
+}
+
+export function parseCssColor(str) {
+  if (typeof str !== "string") return null;
+
+  str = str.trim();
+
+  // 0xFFFFFF
+  if (str.startsWith("0x")) {
+    const n = parseInt(str, 16);
+    return {
+      r: (n >> 16) & 255,
+      g: (n >> 8) & 255,
+      b: n & 255,
+      a: 1
+    };
+  }
+
+  // #RGB / #RRGGBB
+  if (str.startsWith("#")) {
+    let hex = str.slice(1);
+
+    if (hex.length === 3) {
+      hex = hex.split("").map(c => c + c).join("");
+    }
+
+    if (hex.length !== 6) return null;
+
+    return {
+      r: parseInt(hex.slice(0, 2), 16),
+      g: parseInt(hex.slice(2, 4), 16),
+      b: parseInt(hex.slice(4, 6), 16),
+      a: 1
+    };
+  }
+
+  // rgb / rgba
+  const m = str.match(
+    /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?\s*\)/i
+  );
+
+  if (m) {
+    const [, r, g, b, a] = m;
+    return {
+      r: +r,
+      g: +g,
+      b: +b,
+      a: a !== undefined ? +a : 1
+    };
+  }
+
+  return null;
+}
