@@ -42,28 +42,15 @@ class DFG3DDerivativeLinkFormatter extends FileFormatterBase {
      */
     public function viewElements(FieldItemListInterface $items, $langcode) {
 
-#      dpm(serialize($items), "items");
-
 
 //      $elements = parent::viewElements($items, $langcode);    
       $elements = array();
 
       $files = $this->getEntitiesToView($items, $langcode);
 
-      $elements['#attached']['library'][] = 'dfg_3dviewer/dfg_3dviewer';
+      $elements['#attached']['library'][] = dfg_3dviewer_get_library();
 
       foreach ($files as $delta => $file) {
-
-//        if(strtolower(substr($file->getFilename(), -4)) == ".pdf") {
-
-#          dpm(serialize($file), "file");
-/*
-          $elements[$delta] = array(
-            '#type' => 'link',
-            '#title' => $file->getFilename(),
-            '#url' => Url::fromUri(file_create_url($file->getFileUri())),
-          );
-*/
 
           // get the filename
           $filename = $file->getFilename();
@@ -103,105 +90,11 @@ class DFG3DDerivativeLinkFormatter extends FileFormatterBase {
             '#type' => 'link',
             '#title' => $file_link, //$file->getFilename(),
             '#url' => $url,
-//            '#tag' => 'p',
-//            '#attributes' => array('id' => 'DFG_3DViewer', '3d' => file_create_url($file->getFileUri())),
-            //'#value' => file_create_url($file->getFileUri()), //$file->getFilename(),
           );
 
 //        }
       }
-/*      
-      $elements['#attached']['library'][] = 'wisski_iip_image/iipmooviewer';
-      $elements['#attached']['library'][] = 'wisski_iip_image/iip_integration';
-      $elements['#attached']['drupalSettings']['wisski']['iip']['config'] = \Drupal::config('wisski_iip_image.config')->get();
 
-      $files = $this->getEntitiesToView($items, $langcode);
-
-#      dpm($files, "files");
-
-      // Early opt-out if the field is empty.
-      if (empty($files)) {
-        return $elements;
-      }
-      
-      $service = \Drupal::service('image.toolkit.manager');
-      $toolkit = $service->getDefaultToolkit();
-#      dpm($toolkit);
-#      $config = $this->configFactory->getEditable('imagemagick.settings');
-      
-      if(empty($toolkit) || $toolkit->getPluginId() !== "imagemagick") {
-        $this->messenger()->addError('Your default toolkit is not imagemagick. Please use imagemagick for this module.');
-        return $elements;
-      }
-      
-      $config = \Drupal::service('config.factory')->getEditable('imagemagick.settings');
-      
-      $formats = $config->get('image_formats');
-      
-      if(!isset($formats["PTIF"])) {
-        $this->messenger()->addStatus("PTIF was not a valid image format. We enabled it for you. Make sure it is supported by your imagemagick configuration.");
-        $formats["PTIF"] = array('mime_type' => "image/tiff", "enabled" => TRUE);
-        $config->set('image_formats', $formats);
-        $config->save();
-      }
-      
-
-      $image_style_name = 'wisski_pyramid';
-
-      if(! $image_style = ImageStyle::load($image_style_name)) {
-        $values = array('name'=>$image_style_name,'label'=>'Wisski Pyramid Style');
-        $image_style = ImageStyle::create($values);
-        $image_style->addImageEffect(array('id' => 'WisskiPyramidalTiffImageEffect'));
-        $image_style->save();
-      }
-
-      foreach ($files as $delta => $file) {
-
-        if(strtolower(substr($file->getFilename(), -4)) == ".pdf") {
-
-#          dpm(serialize($file), "file");
-
-          $elements[$delta] = array(
-            '#type' => 'link',
-            '#title' => $file->getFilename(),
-            '#url' => Url::fromUri(file_create_url($file->getFileUri())),
-          );
-        }
-
-        // in case of prerendered files - use these paths.        
-        $prerendered_paths = \Drupal::config('wisski_iip_image.settings')->get('wisski_iip_image_prerendered_path');
-
-        // if there are paths
-        if(!empty($prerendered_paths)) {
-          $mainbreak = FALSE;
-
-          // try if any of them has files
-          foreach($prerendered_paths as $prerendered_path) {
-            $image_uri = $prerendered_path . $file->getFilename();
-
-            // if we find anything break here
-            if(file_exists($image_uri)) {
-              $mainbreak = TRUE;
-            }
-          }
-          // continue with next image
-          if($mainbreak)
-            continue;
-          // if we did not find anything we generate a derivative
-        }
-
-        $image_uri = ImageStyle::load('wisski_pyramid')->buildUri($file->getFileUri());
-
-        if(!file_exists($image_uri))
-          $image_style->createDerivative($file->getFileUri(),$image_uri);
-
-#        $url = Url::fromUri(file_create_url($image_uri));     
-
-      }
-#      dpm($elements);
-
-#      dpm(serialize($elements), "ele");
-*/
       return $elements;
 
     }
@@ -220,13 +113,6 @@ class DFG3DDerivativeLinkFormatter extends FileFormatterBase {
      */
     public function settingsForm(array $form, FormStateInterface $form_state) {
 
-/*      $element['wisski_inline'] = [
-        '#type' => 'checkbox',
-        '#title' => $this->t('Inline mode for IIP'),
-        '#default_value' => $this->getSetting('wisski_inline'),
-      ];
- */     
- //     $element = $element + parent::settingsForm($form, $form_state);
       $element = parent::settingsForm($form, $form_state);
       return $element;
     }

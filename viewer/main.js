@@ -1,6 +1,6 @@
 /*
 DFG 3D-Viewer
-Copyright (C) 2022 - Daniel Dworak
+Copyright (C) 2025 - Daniel Dworak
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -16,2588 +16,2315 @@ https://www.gnu.org/licenses/.
 
 //Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF
 
+const SOURCE = (typeof __BUILD_SOURCE__ !== 'undefined') ? __BUILD_SOURCE__ : "";
+const IS_PROD = (typeof __IS_PROD__ !== 'undefined') ? __IS_PROD__ === true : false;
+const isE2E = (typeof __IS_PROD__ !== 'undefined') ? window.__E2E__ === true : false;
+
+window.viewer = {
+  ready: false,
+  modelLoaded: false,
+  webglReady: false,
+  camera: null,
+  scene: null,
+  renderer: null,
+  controls: null
+};
+
+import { core, setCore } from './core.js';
+
+import {
+  distanceBetweenPointsVector,
+  vectorBetweenPoints,
+  halfwayBetweenPoints,
+  interpolateDistanceBetweenPoints,
+  isValidUrl,
+  getProxyPath,
+  normalizeColor,
+} from "./utils.js";
+
+import { initClippingPlanes, showToast, changeBackground } from './viewer-utils.js';
+
+import { loadModel, outlineClipping } from "./loaders.js";
+import { createIIIFDropdown } from "./metadata.js";
 
 //three.js core
-import * as THREE from './build/three.module.js';
-import { TWEEN } from './js/external_libs/tween.module.min.js';
+import THREE from "./init.js";
 
 //three.js components
-import { OrbitControls } from './js/jsm/controls/OrbitControls.js';
-import { TransformControls } from './js/jsm/controls/TransformControls.js';
-import { FBXLoader } from './js/jsm/loaders/FBXLoader.js';
-import { DDSLoader } from './js/jsm/loaders/DDSLoader.js';
-import { MTLLoader } from './js/jsm/loaders/MTLLoader.js';
-import { OBJLoader } from './js/jsm/loaders/OBJLoader.js';
-import { GLTFLoader } from './js/jsm/loaders/GLTFLoader.js';
-import { DRACOLoader } from './js/jsm/loaders/DRACOLoader.js';
-import { KTX2Loader } from './js/jsm/loaders/KTX2Loader.js';
-import { MeshoptDecoder } from './js/jsm/libs/meshopt_decoder.module.js';
-import { IFCLoader } from './js/external_libs/loaders/IFCLoader.js';
-import { IFCSPACE } from './js/external_libs/loaders/ifc/web-ifc-api.js';
-import { PLYLoader } from './js/jsm/loaders/PLYLoader.js';
-import { ColladaLoader } from './js/jsm/loaders/ColladaLoader.js';
-import { STLLoader } from './js/jsm/loaders/STLLoader.js';
-import { XYZLoader } from './js/jsm/loaders/XYZLoader.js'; 
-import { TDSLoader } from './js/jsm/loaders/TDSLoader.js';
-import { PCDLoader } from './js/jsm/loaders/PCDLoader.js';
-import { FontLoader } from './js/jsm/loaders/FontLoader.js';
-import { TextGeometry } from './js/jsm/geometries/TextGeometry.js';
+import TWEEN from "three/examples/jsm/libs/tween.module.js";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { TransformControls } from "three/examples/jsm/controls/TransformControls.js";
+import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
+import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
 
 //custom libraries
-import Stats from './js/jsm/libs/stats.module.js';
-import { GUI } from './js/external_libs/lil-gui.esm.min.js';
-import ViewerSettings from "./viewer-settings.json" with { type: "json" };
+import Stats from "stats.js";
+import { GUI } from "./js/external_libs/lil-gui.esm.min.js";
+import { objectsConfig, setObjectsConfig } from "./object-settings.js";
+import { lv } from "./spinner/main.js";
 
-let CONFIG = {};
-if (ViewerSettings !== undefined) {
-	CONFIG = ViewerSettings;
-}
-else {
-	CONFIG = {
-		"mainUrl": "https://dfg-repository.wisski.cloud",
-		"baseNamespace": "https://dfg-repository.wisski.cloud",
-		"metadataUrl": "https://dfg-repository.wisski.cloud",
-		"baseModulePath": "/modules/dfg_3dviewer-main/viewer",
-		"entity": {
-			"bundle": "bd3d7baa74856d141bcff7b4193fa128",
-			"fieldDf": "field_df",
-			"idUri": "/wisski/navigate/(.*)/view",
-			"viewEntityPath": "/wisski/navigate/",
-			"attributeId": "wisski_id"
-		},
-		"viewer": {
-			"container": "DFG_3DViewer",
-			"fileUpload": "fbf95bddee5160d515b982b3fd2e05f7",
-			"fileName": "faa602a0be629324806aef22892cdbe5",
-			"imageGeneration": "f605dc6b727a1099b9e52b3ccbdf5673",
-			"lightweight": 1,
-			"salt": "Z7FYJMmTiEzcGp4lTpuk4LiA",
-			"scaleContainer": {
-				"x": 1,
-				"y": 1.4
-			},
-			"gallery": {
-				"container": "block-bootstrap5-content",
-				"imageClass": "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
-				"imageId": ""
-			},
-			"background": "radial-gradient(circle, rgb(255, 255, 255) 0%, rgb(210, 210, 210) 100%)"
-		},
-		"model": {
-			"position": {
-				"x": 0,
-				"y": 0,	
-				"z": 0
-			},
-			"scale": {
-				"x": 1,
-				"y": 1,
-				"z": 1
-			},
-			"rotation": {
-				"x": 0,
-				"y": 0,
-				"z": 0
-			}
-		},
-		"scene": {
-			"light": {
-				"directional": {
-					"color": "0xffffff",
-					"intensity": 1,
-					"position": {
-						"x": 0,
-						"y": 100,
-						"z": 100
-					},
-					"target": {
-						"x": 0,
-						"y": 0,
-						"z": 0
-					}
-				},
-				"ambient": {
-					"color": "0x404040",
-					"intensity": 1
-				},
-				"camera": {
-					"color": "0xffffff",
-					"intensity": 1,
-					"position": {
-						"x": 0,
-						"y": 100,
-						"z": 100
-					},
-					"target": {
-						"x": 0,
-						"y": 0,
-						"z": 0
-					}
-				}
-			}
-		}
-	};
-}
+import './css/main.css';
+import './css/spinner.css';
+import '../css/theme.css';
+import '../css/external-sources.css';
 
-let camera, scene, renderer, stats, controls, loader, ambientLight, dirLight, dirLightTarget, cameraLight, cameraLightTarget;
-let dirLights = [];
-let imported;
-var mainObject = [];
-var metadataContentTech;
-var mainCanvas;
-var distanceGeometry = new THREE.Vector3();
-let entityID = '';
-var metadataUrl;
+import { loadIIIFManifest, getAnnotations } from "./IIIF/iiif-api.js";
 
-var canvasDimensions, CANVASDIMENSIONS;
+export const Viewer = {
+  CONFIG: null,
+  camera: null,
+  scene: null,
+  activeScene: 0,
+  renderer: null,
+  stats: null,
+  controls: null,
+  loader: null,
+  ambientLight: null,
+  dirLight: null,
+  dirLightTarget: null,
+  cameraLight: null,
+  cameraLightTarget: null,
+  dirLights: [],
+  imported: null,
+  mainObject: [],
+  metadataContentTech: null,
+  mainCanvas: null,
+  distanceGeometry: new THREE.Vector3(),
+  entityID: "",
+  metadataUrl: null,
+  iiifConfigURL: {url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: "Inbuilt"},
+  testModelURL: 'https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb',
+  clock: null,
+  editor: true,
+  FULLSCREEN: false,
+  mixer: null,
+  cameraTween: null,
+  targetTween: null,
+  container: null,
+  viewerWrapper: null,
+  scrollTop: null,
+  rect: null,
+  fileObject: { originalPath: '', filename: '', basename: '', extension: '', path: '', uri: '', newExtension: '' },
+  bottomLineGUI: null,
+  loadedFile: null,    
+  fileElement: null,
+  COPYRIGHTS: false,
+  EXIT_CODE: 1,
+  gridSize: null,
+  noMTL: false,
+  canvasText: null,
+  viewEntity: null,
+  fullscreenMode: null,
+  downloadModel: null,
+  GESTURE: {handPx: 55, period: 5.5, rotate: false, active: false, target: new THREE.Vector3(), startTime: 0, baseAngle: 0, orbitAngle: THREE.MathUtils.degToRad(15), easeInTime: 2.25},
+  lastTime: null,
+  originalMetadata: [],
+  spinnerContainer: null,
+  spinnerElement: null,
+  guiContainer: null,
+  metadataContainer: null,
+  spinner: null,
+  circle: null,
+  lilGui: null,
+  raycaster: new THREE.Raycaster(),
+  pointer: new THREE.Vector2(),
+  onUpPosition: new THREE.Vector2(),
+  onDownPosition: new THREE.Vector2(),
+  bottomOffsetFullscreen: 0,
+  geometry: new THREE.BoxGeometry(20, 20, 20),
+  transformControl: null,
+  transformControlLight: null,
+  transformControlLightTarget: null,
+  transformControlClippingPlaneX: null,
+  transformControlClippingPlaneY: null,
+  transformControlClippingPlaneZ: null,
+  cameraCoords: null,
+  helperObjects: [],
+  lightObjects: [],
+  lightHelper: null,
+  lightHelperTarget: null,
+  selectedObject: false,
+  selectedObjects:[],
+  selectedFaces: [],
+  pickingTexture: null,
+  windowHalfX: null,
+  windowHalfY: null,
+  transformType: "",
+  transformText: {
+    "Transform 3D Object": "select type",
+    "Transform Light": "select type",
+    "Transform Mode": "Local",
+  },
+  materialsPropertiesText: {
+    "Edit material": "select by name",
+  },
+  colors: {
+    DirectionalLight: "0xFFFFFF",
+    AmbientLight: "0x404040",
+    CameraLight: "0xFFFFFF",
+    BackgroundColor: "#FFFFFF",
+    BackgroundColorOuter: "#999999",
+  },
+  materialProperties: {
+    color: "0xFFFFFF",
+    emissiveColor: "0x404040",
+    emissive: 1,
+    metalness: 0,
+  },
+  intensity: {
+    startIntensityDir: 1,
+    startIntensityAmbient: 1,
+    startIntensityCamera: 1,
+  },
+  saveProperties: {
+    Position: true,
+    Rotation: true,
+    Scale: true,
+    Camera: true,
+    DirectionalLight: true,
+    AmbientLight: true,
+    CameraLight: true,
+    BackgroundColor: true,
+    BackgroundColorOuter: true,
+  },
+  backgroundType: { "Background Type": "gradient" },
+  backgroundOuterFolder: null,
+  EDITOR: false,
+  RULER_MODE: false,
+  lineMaterial: new THREE.LineBasicMaterial({ color: 0x0000ff }),
+  linePoints: [],
+  gui: null,
+  hierarchyFolder: null,
+  GUILength: 35,
+  zoomImage: 1,
+  ZOOM_SPEED_IMAGE: 0.1,
+  compressedFile: "",
+  archiveType: "",
+  planeParams: {
+    planeX: {
+      constantX: 0,
+      negated: false,
+      displayHelperX: false,
+    },
+    planeY: {
+      constantY: 0,
+      negated: false,
+      displayHelperY: false,
+    },
+    planeZ: {
+      constantZ: 0,
+      negated: false,
+      displayHelperZ: false,
+    },
+    outline: {
+      visible: false,
+    },
+    clippingMode: {
+      x: false,
+      y: false,
+      z: false,
+    },
+  },
+  clippingPlanes: null,    
+  planeHelpers: [],
+  clippingFolder: null,
+  propertiesFolder: null,
+  planeObjects: [],
+  editorFolder: null,
+  materialsFolder: null,
+  textMesh: null,
+  textMeshDistance: null,
+  ruler: [],
+  rulerObject: null,
+  lastPickedFace: { id: "", color: "", object: "" },
+  loadedTimes: 0,
+  _ext: '',
+  DFG_ASSETS: '',
+  isLightweight: false,
 
-const clock = new THREE.Clock();
-const editor = true;
-var FULLSCREEN = false;
+  async MainInit() {
+    if (window.__E2E__) {
+      window.viewer = {
+        e2eMode: true,
+        modelLoaded: false,
 
-let mixer;
+        get camera() {
+          return Viewer.camera;
+        },
 
-const container = document.getElementById(CONFIG.viewer.container);
-const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-canvasDimensions = CANVASDIMENSIONS = {x: container.getBoundingClientRect().width*CONFIG.viewer.scaleContainer.x, y: (container.getBoundingClientRect().top + scrollTop)*CONFIG.viewer.scaleContainer.y};
-container.setAttribute("display", "block");
-const originalPath = container.getAttribute("3d");
-const bottomLineGUI = canvasDimensions.y - 70;
-
-if (CONFIG.viewer.lightweight === true) {
-	CONFIG.viewer.lightweight = container.getAttribute("proxy");
-}
-if (CONFIG.viewer.lightweight === null || CONFIG.viewer.lightweight === false) {
-	var elementsURL = window.location.pathname;
-	elementsURL = elementsURL.match(CONFIG.entity.idUri);
-	if (elementsURL !== null) {
-		entityID = elementsURL[1];
-		container.setAttribute(CONFIG.entity.attributeId, entityID);
-	}
-}
-
-if(container.hasAttribute("basePath")) {
-	CONFIG.baseModulePath = container.getAttribute("basePath");
-}
-
-var filename = originalPath.split("/").pop();
-var basename = filename.substring(0, filename.lastIndexOf('.'));
-var extension = filename.substring(filename.lastIndexOf('.') + 1);
-var path = originalPath.substring(0, originalPath.lastIndexOf(filename));
-const uri = path.replace(CONFIG.mainUrl+"/", "");
-const EXPORT_PATH = '/export_xml_single/';
-const loadedFile = basename + "." + extension;
-var fileElement;
-var COPYRIGHTS = false;
-var EXIT_CODE=1;
-var gridSize;
-var noMTL=false;
-
-var canvasText;
-var downloadModel, viewEntity, fullscreenMode;
-var originalMetadata = [];
-
-var spinnerContainer = document.createElement("div");
-spinnerContainer.id = 'spinnerContainer';
-
-var spinnerElement = document.createElement("div");
-spinnerElement.id = 'spinner';
-spinnerElement.className = 'lv-determinate_circle lv-mid md';
-spinnerElement.setAttribute("data-label", "Loading...");
-spinnerElement.setAttribute("data-percentage", "true");
-spinnerContainer.appendChild(spinnerElement);
-container.appendChild(spinnerContainer);
-spinnerContainer.style.left = "50%" - spinnerContainer.getBoundingClientRect().width + "px";
-
-var guiContainer = document.createElement("div");
-guiContainer.id = 'guiContainer';
-guiContainer.className = 'guiContainer';
-container.appendChild(guiContainer);
-
-var metadataContainer = document.createElement("div");
-metadataContainer.setAttribute('id', 'metadata-container');
-
-let spinner = new lv();
-spinner.initLoaderAll();
-spinner.startObserving();
-let circle = lv.create(spinnerElement);
-
-var lilGui;
-
-const raycaster = new THREE.Raycaster();
-const pointer = new THREE.Vector2();
-const onUpPosition = new THREE.Vector2();
-const onDownPosition = new THREE.Vector2();
-
-const geometry = new THREE.BoxGeometry(20, 20, 20);
-let transformControl, transformControlLight, transformControlLightTarget, transformControlClippingPlaneX, transformControlClippingPlaneY, transformControlClippingPlaneZ, outlineClipping;
-var cameraCoords;
-
-const helperObjects = [];
-const lightObjects = [];
-var lightHelper, lightHelperTarget;
-
-var selectedObject = false;
-var selectedObjects = [];
-var selectedFaces = [];
-let pickingTexture;
-
-var windowHalfX, windowHalfY;
-
-var transformType = "";
-
-var transformText =
-{
-    'Transform 3D Object': 'select type',
-    'Transform Light': 'select type',
-    'Transform Mode': 'Local'
-};
-
-var materialsPropertiesText =
-{
-    'Edit material': 'select by name'
-};
-
-const colors = {
-	DirectionalLight: '0xFFFFFF',
-	AmbientLight: '0x404040',
-	CameraLight: '0xFFFFFF',
-	BackgroundColor: '#FFFFFF',
-	BackgroundColorOuter: '#D2D2D2'
-};
-
-const materialProperties = {
-	color: '0xFFFFFF',
-	emissiveColor: '0x404040',
-	emissive: 1,
-	metalness: 0
-};
-
-const intensity = { startIntensityDir: 1 , startIntensityAmbient: 1, startIntensityCamera: 1 };
-
-const saveProperties = {
-	Position: true,
-	Rotation: true,
-	Scale: true,
-	Camera: true,
-	DirectionalLight: true,
-	AmbientLight: true,
-	CameraLight: true,
-	BackgroundColor: true,
-	BackgroundColorOuter: true
-};
-
-const backgroundType = { 'Background Type': 'gradient' };
-let backgroundOuterFolder;
-
-const performanceMode = {
-	Performance: 'high-performance'
-}
-
-var EDITOR = false;
-var RULER_MODE = false;
-const lineMaterial = new THREE.LineBasicMaterial({ color: 0x0000ff });
-var  linePoints = [];
-
-const gui = new GUI({ container: guiContainer });
-
-var hierarchyFolder;
-const GUILength = 35;
-
-let zoomImage = 1;
-const ZOOM_SPEED_IMAGE = 0.1;
-
-var compressedFile = '';
-var archiveType = '';
-
-var options = {
-    duration: 6500,
-	gravity: "bottom",
-	close: true,
-    callback() {
-        this.remove();
-        Toastify.reposition();
+        get scene() {
+          return Viewer.scene;
+        },
+      };
     }
-};
-var myToast = Toastify(options);
 
-const planeParams = {
-	planeX: {
-		constant: 0,
-		negated: false,
-		displayHelperX: false
-	},
-	planeY: {
-		constant: 0,
-		negated: false,
-		displayHelperY: false
-	},
-	planeZ: {
-		constant: 0,
-		negated: false,
-		displayHelperZ: false
-	},
-	outline: {
-		visible: false
-	},
-	clippingMode: {
-		x: false,
-		y: false,
-		z: false
-	}
-};
+    await new Promise(r => {
+      if (document.readyState !== 'loading') r();
+      else document.addEventListener('DOMContentLoaded', r);
+    });
+    const url = new URL('./viewer-settings.json', import.meta.url);
 
-var clippingPlanes = [
-		new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0),
-		new THREE.Plane(new THREE.Vector3(0, -1, 0), 0),
-		new THREE.Plane(new THREE.Vector3(0, 0, -1), 0)
-	];
-var planeHelpers, clippingFolder;
-var propertiesFolder;
-var planeObjects = [];
-var materialsFolder;
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    this.CONFIG = await res.json();
+    console.log("Loaded viewer-settings.json", this.CONFIG.viewer);
 
-var textMesh, textMeshDistance, ruler = [], rulerObject;
-var lastPickedFace = {id: '', color: '', object: ''};
-
-var loadedTimes = 0;
-
-function showToast (_str) {
-	var myToast = Toastify(options);
-	myToast.options.text = _str;
-	myToast.showToast();
-}
-
-function addTextWatermark (_text, _scale) {
-	var textGeo;
-	var materials = [
-		new THREE.MeshStandardMaterial({ color: 0xffffff, flatShading: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 0.4 }), // front
-		new THREE.MeshStandardMaterial({ color: 0xffffff, flatShading: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 0.4 }) // side
-	];
-	const loader = new FontLoader();
-
-	loader.load(CONFIG.baseModulePath + '/fonts/helvetiker_regular.typeface.json', function (font) {
-
-		const textGeo = new TextGeometry(_text, {
-			font,
-			size: _scale*3,
-			height: _scale/10,
-			curveSegments: 5,
-			bevelEnabled: true,
-			bevelThickness: _scale/8,
-			bevelSize: _scale/10,
-			bevelOffset: 0,
-			bevelSegments: 1
-		});
-		textGeo.computeBoundingBox();
-
-		//const centerOffset = - 0.5 * (textGeo.boundingBox.max.x - textGeo.boundingBox.min.x);
-
-		textMesh = new THREE.Mesh(textGeo, materials);
-
-		textMesh.rotation.z = Math.PI;
-		textMesh.rotation.y = Math.PI;
-		
-		textMesh.position.x = 0;
-		textMesh.position.y = 0;
-		textMesh.position.z = 0;
-		textMesh.renderOrder = 1;
-		scene.add(textMesh);		
-	});
-}
-
-function addTextPoint (_text, _scale, _point) {
-	var textGeo;
-	var materials = [
-		new THREE.MeshStandardMaterial({ color: 0x0000ff, flatShading: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 0.4 }), // front
-		new THREE.MeshStandardMaterial({ color: 0x0000ff, flatShading: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 0.4 }) // side
-	];
-	const loader = new FontLoader();
-	var textSize = _scale/10;
-	loader.load(CONFIG.baseModulePath + '/fonts/helvetiker_regular.typeface.json', function (font) {
-
-		const textGeo = new TextGeometry(_text, {
-			font: font,
-			size: _scale*3,
-			height: textSize,
-			curveSegments: 4,
-			bevelEnabled: true,
-			bevelThickness: textSize,
-			bevelSize: textSize,
-			bevelOffset: 0,
-			bevelSegments: 1,
-			depth: textSize
-		});
-		textGeo.computeBoundingBox();
-
-		textMeshDistance = new THREE.Mesh(textGeo, materials);
-		
-		textMeshDistance.position.set(_point.x, _point.y, _point.z);
-		textMeshDistance.renderOrder = 1;
-		rulerObject.add(textMeshDistance);
-	});
-}
-
-function selectObjectHierarchy (_id) {
-	let search = true;
-	for (let i = 0; i < selectedObjects.length && search === true; i++) {
-		if (selectedObjects[i].id === _id) {
-			search = false;
-			if (selectedObjects[i].selected === true) {
-				scene.getObjectById(_id).material = selectedObjects[i].originalMaterial;
-				scene.getObjectById(_id).material.needsUpdate = true;
-				selectedObjects[i].selected = false;
-				selectedObjects.splice(selectedObjects.indexOf(selectedObjects[i]), 1);		
-			}
-		}
-	}
-	if (search) {
-		selectedObjects.push({id: _id, selected: true, originalMaterial: scene.getObjectById(_id).material.clone()});
-		const tempMaterial = scene.getObjectById(_id).material.clone();
-		tempMaterial.color.setHex("0x00FF00");
-		scene.getObjectById(_id).material = tempMaterial;
-		scene.getObjectById(_id).material.needsUpdate = true;
-
-	}
-}
-
-function fetchMetadata (_object, _type) {
-	switch (_type) {
-		case 'vertices':
-			if (typeof (_object.geometry.index) !== "undefined" && _object.geometry.index !== null) {
-				return _object.geometry.index.count;
-			}
-			else if (typeof (_object.attributes) !== "undefined" && _object.attributes !== null) {
-				return _object.attributes.position.count;
-			}
-		break;
-		case 'faces':
-			if (typeof (_object.geometry.index) !== "undefined" && _object.geometry.index !== null) {
-				return _object.geometry.index.count/3;
-			}
-			else if (typeof (_object.attributes) !== "undefined" && _object.attributes !== null) {
-				return _object.attributes.position.count/3;
-			}
-		break;
-	}
-}
-function recreateBoundingBox (object) {
-	var _min = new THREE.Vector3();
-	var _max = new THREE.Vector3();
-	if (object instanceof THREE.Object3D)
-	{
-		object.traverse (function (mesh)
-		{
-			if (mesh instanceof THREE.Mesh)
-			{
-				mesh.geometry.computeBoundingBox ();
-				var bBox = mesh.geometry.boundingBox;
-
-				// compute overall bbox
-				_min.x = Math.min (_min.x, bBox.min.x + mesh.position.x);
-				_min.y = Math.min (_min.y, bBox.min.y + mesh.position.y);
-				_min.z = Math.min (_min.z, bBox.min.z + mesh.position.z);
-				_max.x = Math.max (_max.x, bBox.max.x + mesh.position.x);
-				_max.y = Math.max (_max.y, bBox.max.y + mesh.position.y);
-				_max.z = Math.max (_max.z, bBox.max.z + mesh.position.z);
-			}
-		});
-
-		var bBox_min = new THREE.Vector3 (_min.x, _min.y, _min.z);
-		var bBox_max = new THREE.Vector3 (_max.x, _max.y, _max.z);
-		var bBox_new = new THREE.Box3 (bBox_min, bBox_max);
-		object.position.set((bBox_new.min.x+bBox_new.max.x)/2, bBox_new.min.y, (bBox_new.min.z+bBox_new.max.z)/2);
-	}
-	return object;
-}
-
-function setupObject (_object, _light, _data, _controls) {
-	if (typeof (_data) !== "undefined") {
-		if (typeof(_data["objPosition"]) !== "undefined") _object.position.set (_data["objPosition"][0], _data["objPosition"][1], _data["objPosition"][2]);
-		if (typeof(_data["objScale"]) !== "undefined") _object.scale.set (_data["objScale"][0], _data["objScale"][1], _data["objScale"][2]);
-		if (typeof(_data["objRotation"]) !== "undefined") _object.rotation.set (THREE.MathUtils.degToRad(_data["objRotation"][0]), THREE.MathUtils.degToRad(_data["objRotation"][1]), THREE.MathUtils.degToRad(_data["objRotation"][2]));
-		_object.needsUpdate = true;
-		if (typeof (_object.geometry) !== "undefined") {
-			_object.geometry.computeBoundingBox();
-			_object.geometry.computeBoundingSphere();	
-		}
-	}
-	else {
-		var boundingBox = new THREE.Box3();
-		if (Array.isArray(_object)) {
-			for (let i = 0; i < _object.length; i++) {
-				boundingBox.setFromObject(_object[i]);
-				_object[i].position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
-				_object[i].needsUpdate = true;
-				if (typeof (_object[i].geometry) !== "undefined") {
-					_object[i].geometry.computeBoundingBox();
-					_object[i].geometry.computeBoundingSphere();	
-				}			
-			}
-		}
-		else if (_object.isGroup && extension == 'fbx') { //workaround for specific FBX case
-			boundingBox.setFromObject(_object);
-			var _obj = new THREE.Object3D();
-			_obj.attach(_object);
-			//_obj.position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
-			_obj.updateMatrixWorld();
-			_object = _obj;
-		}
-		else {
-			boundingBox.setFromObject(_object);
-			_object.position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
-			//_object.position.set (0, 0, 0);
-			_object.needsUpdate = true;
-			if (typeof (_object.geometry) !== "undefined") {
-				_object.geometry.computeBoundingBox();
-				_object.geometry.computeBoundingSphere();
-			}
-		}
-	}
-	cameraLight.position.set(camera.position.x, camera.position.y, camera.position.z);
-	if (Array.isArray(_object)) {
-		cameraLightTarget.position.set(_object[0].position.x, _object[0].position.y, _object[0].position.z);
-	}
-	else {
-		cameraLightTarget.position.set(_object.position.x, _object.position.y, _object.position.z);
-	}
-	cameraLight.target.updateMatrixWorld();
-	outlineClipping.position.set(_object.position.x, _object.position.y, _object.position.z);
-}
-
-function invertHexColor(hexTripletColor) {
-	var color = hexTripletColor;
-	color = color.substring(1); // remove #
-	color = parseInt(color, 16); // convert to integer
-	color = 0xFFFFFF ^ color; // invert three bytes
-	color = color.toString(16); // convert to hex
-	color = ("000000" + color).slice(-6); // pad with leading zeros
-	color = "#" + color; // prepend #
-	return color;
-}
-
-function setupClippingPlanes (_geom, _size, _distance) {
-	/*var _geometry;
-	if (_geom.isGroup)
-		_geometry = _geom.children;
-	else
-		_geometry = _geom.geometry.clone();*/
-
-	clippingPlanes[0].constant = _distance.x;
-	clippingPlanes[1].constant = _distance.y;
-	clippingPlanes[2].constant = _distance.z;
-	
-	scene.add(transformControlClippingPlaneX.getHelper());
-	scene.add(transformControlClippingPlaneY.getHelper());
-	scene.add(transformControlClippingPlaneZ.getHelper());
-	let planeColor = new THREE.Color(0xffffff).getHexString();
-	if (scene.background != null) planeColor = scene.background.getHexString();
-
-	planeHelpers = clippingPlanes.map((p) => new THREE.PlaneHelper(p, _size*2, invertHexColor(planeColor)));
-	planeHelpers.forEach((ph) => {
-		ph.visible = false;
-		ph.name = "PlaneHelper";
-		scene.add(ph);
-	});
-
-	distanceGeometry = _distance;
-	clippingFolder.add(planeParams.planeX, 'displayHelperX').onChange((v) => {
-		planeParams.clippingMode.x = planeHelpers[0].visible = v;
-		if (v) {
-			transformControlClippingPlaneX.attach(planeHelpers[0]);
-			if (planeParams.outline.visible) outlineClipping.visible = true;
-		}
-		else {
-			transformControlClippingPlaneX.detach();
-			if (!planeParams.clippingMode.y && !planeParams.clippingMode.z && !planeParams.outline.visible) outlineClipping.visible = false;
-		}
-	});
-	clippingFolder.add(planeParams.planeX, 'constant').min(-distanceGeometry.x).max(distanceGeometry.x).setValue(distanceGeometry.x).step(_size/100).listen().onChange(d => clippingPlanes[0].constant = d);
-
-
-	clippingFolder.add(planeParams.planeY, 'displayHelperY').onChange((v) => { 
-		planeParams.clippingMode.y = planeHelpers[1].visible = v;
-		if (v) {
-			transformControlClippingPlaneY.attach(planeHelpers[1]);
-			if (planeParams.outline.visible) outlineClipping.visible = true;
-		}
-		else {
-			transformControlClippingPlaneY.detach();
-			if (!planeParams.clippingMode.x && !planeParams.clippingMode.z && !planeParams.outline.visible) outlineClipping.visible = false;
-		}
-	});
-	clippingFolder.add(planeParams.planeY, 'constant').min(-distanceGeometry.y).max(distanceGeometry.y).setValue(distanceGeometry.y).step(_size/100).listen().onChange(d => clippingPlanes[1].constant = d);
-
-
-	clippingFolder.add(planeParams.planeZ, 'displayHelperZ').onChange((v) => { 
-		planeParams.clippingMode.z = planeHelpers[2].visible = v;
-		if (v) {
-			transformControlClippingPlaneZ.attach(planeHelpers[2]);
-			if (planeParams.outline.visible) outlineClipping.visible = true;
-		}
-		else {
-			transformControlClippingPlaneZ.detach();
-			if (!planeParams.clippingMode.x && !planeParams.clippingMode.y && !planeParams.outline.visible) outlineClipping.visible = false;
-		}
-	});
-	clippingFolder.add(planeParams.planeZ, 'constant').min(-distanceGeometry.z).max(distanceGeometry.z).setValue(distanceGeometry.z).step(_size/100).listen().onChange(d => clippingPlanes[2].constant = d);
-
-	clippingFolder.add(planeParams.outline, 'visible').onChange((v) => {
-		outlineClipping.visible = v;
-	});
-}
-
-function fitCameraToCenteredObject (camera, object, add_offset, orbitControls, _fit) {
-	const boundingBox = new THREE.Box3();
-	if (Array.isArray(object)) {
-		for (let i = 0; i < object.length; i++) {			
-			boundingBox.setFromObject(object[i]);
-		}
-	}
-	else {
-		boundingBox.setFromObject(object);
-	}
-
-    var middle = new THREE.Vector3();
-    var size = new THREE.Vector3();
-    boundingBox.getSize(size);
-	// ground
-	var distance = new THREE.Vector3(Math.abs(boundingBox.max.x - boundingBox.min.x), Math.abs(boundingBox.max.y - boundingBox.min.y), Math.abs(boundingBox.max.z - boundingBox.min.z));
-	gridSize = Math.max(distance.x, distance.y, distance.z);
-	
-	dirLightTarget = new THREE.Object3D();
-	dirLightTarget.position.set(0,0,0);
-
-	lightHelper = new THREE.DirectionalLightHelper(dirLight, gridSize);
-	scene.add(lightHelper);
-	lightHelper.visible = false;
-
-	scene.add(dirLightTarget);
-	dirLight.target = dirLightTarget;
-	dirLight.target.updateMatrixWorld();	
-
-	var gridSizeScale = gridSize*1.5;
-	const mesh = new THREE.Mesh(new THREE.PlaneGeometry(gridSizeScale, gridSizeScale), new THREE.MeshPhongMaterial({ color: 0xefefef, depthWrite: false, transparent: true, opacity: 0.65 }));
-	mesh.rotation.x = - Math.PI / 2;
-	mesh.position.set(0, 0, 0);
-	mesh.receiveShadow = true;
-	scene.add(mesh);	
-
-	const axesHelper = new THREE.AxesHelper(gridSize);
-	axesHelper.position.set(0, 0, 0);
-	scene.add(axesHelper);
-	
-	const grid = new THREE.GridHelper(gridSizeScale, 50, 0xaeaeae, 0x000000);
-	grid.material.opacity = 0.1;
-	grid.material.transparent = true;
-	grid.position.set(0, 0, 0);
-	scene.add(grid);
-
-    // How to fit the box in the view:
-    // 1. figure out horizontal FOV (on non-1.0 aspects)
-    // 2. figure out distance from the object in X and Y planes
-    // 3. select the max distance (to fit both sides in)
-    //
-    // The reason is as follows:
-    //
-    // Imagine a bounding box (BB) is centered at (0,0,0).
-    // Camera has vertical FOV (camera.fov) and horizontal FOV
-    // (camera.fov scaled by aspect, see fovh below)
-    //
-    // Therefore if you want to put the entire object into the field of view,
-    // you have to compute the distance as: z/2 (half of Z size of the BB
-    // protruding towards us) plus for both X and Y size of BB you have to
-    // figure out the distance created by the appropriate FOV.
-    //
-    // The FOV is always a triangle:
-    //
-    //  (size/2)
-    // +--------+
-    // |       /
-    // |      /
-    // |     /
-    // | F° /
-    // |   /
-    // |  /
-    // | /
-    // |/
-    //
-    // F° is half of respective FOV, so to compute the distance (the length
-    // of the straight line) one has to: `size/2 / Math.tan(F)`.
-    //
-    // FTR, from https://threejs.org/docs/#api/en/cameras/PerspectiveCamera
-    // the camera.fov is the vertical FOV.
-
-	let cameraZ = camera.position.z;
-	let offset = new THREE.Vector3 (0, 0, 0);
-	let sizeZ = Math.max(size.x, size.y, size.z)/2;
-	let dx, dy;
-	if (_fit) {
-		const fov = camera.fov * (Math.PI / 180);
-		const fovh = Math.atan(Math.tan(fov) * camera.aspect);
-		dx = sizeZ + (size.x / 2 / Math.tan(fovh));
-		dy = sizeZ + (size.y / 2 / Math.tan(fov));
-		cameraZ = Math.max(dx, dy);
-		camera.position.y*=0.65;
-		camera.position.z*=2.5;
-	}
-
-    // offset the camera, if desired (to avoid filling the whole canvas)
-    if(add_offset !== undefined && add_offset !== 0 && _fit) { cameraZ *= add_offset; offset.y = dy/2; offset.z = dx/2;}
-
-	cameraCoords = {x: camera.position.x, y: camera.position.y + offset.y, z: cameraZ*0.75 + offset.z};
-    new TWEEN.Tween(cameraCoords)
-		.to({ z: camera.position.z }, 1500)
-		.onUpdate(() =>
-			{
-				camera.position.set(cameraCoords.x, cameraCoords.y, cameraCoords.z);
-				cameraLight.position.set(cameraCoords.x, cameraCoords.y, cameraCoords.z);
-				camera.updateProjectionMatrix();
-				controls.update();
-			}
-     ).start();
-
-    // set the far plane of the camera so that it easily encompasses the whole object
-    const minZ = boundingBox.min.z;
-    const cameraToFarEdge = (minZ < 0) ? -minZ + cameraZ : cameraZ - minZ;
-
-    //camera.far = cameraToFarEdge * 3;
-    camera.updateProjectionMatrix();
-    if (orbitControls !== undefined && _fit) {
-        // set camera to rotate around the center
-        orbitControls.target = new THREE.Vector3(0, offset.y, 0);
-
-        // prevent camera from zooming out far enough to create far plane cutoff
-        orbitControls.maxDistance = cameraToFarEdge * 2;
+    if (Object.keys(this.CONFIG).length === 0) {
+      this.CONFIG = {
+        mainUrl: "https://dfg-repository.wisski.cloud",
+        baseNamespace: "https://dfg-repository.wisski.cloud",
+        metadataUrl: "https://dfg-repository.wisski.cloud",
+        baseModulePath: "/modules/dfg_3dviewer-main/viewer",
+        entity: {
+          bundle: "bd3d7baa74856d141bcff7b4193fa128",
+          fieldDf: "field_df",
+          idUri: "/wisski/navigate/(.*)/view",
+          viewEntityPath: "/wisski/navigate/",
+          attributeId: "wisski_id",
+          metadata: {
+            source: "IIIF",
+          },
+        },
+        viewer: {
+          container: "DFG_3DViewer",
+          fileUpload: "fbf95bddee5160d515b982b3fd2e05f7",
+          fileName: "faa602a0be629324806aef22892cdbe5",
+          imageGeneration: "f605dc6b727a1099b9e52b3ccbdf5673",
+          lightweight: 0,
+          scaleContainer: {
+            x: 0.85,
+            y: 1.4,
+          },
+          gallery: {
+            build: true,
+            container: "block-bootstrap5-content",
+            imageClass: "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
+            imageId: "",
+          },
+          background:
+            "radial-gradient(circle, #ffffff 0%, #999999 100%)",
+          performanceMode: {
+            Performance: "high-performance",
+          }
+        },
+      };
     }
-	controls.update();
+    this.isLightweight = [true, 1].includes(this.CONFIG.viewer.lightweight);
+    console.log(`Powered by Three.js (v${THREE.REVISION}) - DFG 3D-Viewer`);
+    
+    this.CONFIG.entity.metadata.source = SOURCE;
 
-	if  (_fit) {
-		var rotateMetadata = new THREE.Vector3(THREE.MathUtils.radToDeg(helperObjects[0].rotation.x),THREE.MathUtils.radToDeg(helperObjects[0].rotation.y),THREE.MathUtils.radToDeg(helperObjects[0].rotation.z));
-		originalMetadata = {"objPosition": [object.position.x, object.position.y, object.position.z ],
-							"objRotation": [rotateMetadata.x, rotateMetadata.y, rotateMetadata.z],
-							"objScale": [helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z],
-							"cameraPosition": [ camera.position.x, camera.position.y, camera.position.z ],
-							"controlsTarget": [ controls.target.x, controls.target.y, controls.target.z ]
-							};
-	}
-	setupClippingPlanes(object, gridSize, distance);
-	
-}
+    this.container = document.getElementById(this.CONFIG.viewer.container);
+    if (!this.container) throw new Error("Container not found");
 
-function isValidUrl (urlString) {
-	var urlPattern = new RegExp('^(https?:\\/\\/)?'+ // validate protocol
-	'((([a-z\\d]([a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|'+ // validate domain name
-	'((\\d{1,3}\\.){3}\\d{1,3}))'+ // validate OR ip (v4) address
-	'(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*'+ // validate port and path
-	'(\\?[;&a-z\\d%_.~+=-]*)?'+ // validate query string
-	'(\\#[-a-z\\d_]*)?$','i'); // validate fragment locator
-  return !!urlPattern.test(urlString);
-}
+    this.scrollTop = window.scrollY || document.documentElement.scrollTop;
+    this.rect = this.container.getBoundingClientRect();
+    this.fileObject.originalPath = this.container.getAttribute("3d");   
+    this.CONFIG.viewer.canvasDimensions = {
+      x: this.rect.width * Number(this.CONFIG.viewer.scaleContainer.x),
+      y: this.rect.height * Number(this.CONFIG.viewer.scaleContainer.y),
+    };
+    this.bottomLineGUI = this.CONFIG.viewer.canvasDimensions.y - 85;
 
-function prepareGalleryImages (imageElementsChildren) {
-	imageElementsChildren = imageElementsChildren.filter(function (_image) {
-		return isValidUrl(_image.innerHTML);
-	});
-	imageElementsChildren.forEach(function(imgLink, index) {
-		imgLink.innerHTML = '<img loading="lazy" src="' + imgLink.innerHTML + '" width="200px" height="200px" alt="" class="img-fluid image-style-wisski-preview">';
-	});
-}
+    if (this.isLightweight) {
+      this.CONFIG.viewer.lightweight = this.container.getAttribute("proxy");
+    }
+    if (!this.isLightweight) {
+      var elementsURL = window.location.pathname;
+      elementsURL = elementsURL.match(this.CONFIG.entity.idUri);
+      if (elementsURL !== null) {
+        this.entityID = elementsURL[1];
+        this.container.setAttribute(this.CONFIG.entity.attributeId, this.entityID);
+        console.log("Entity ID:", this.entityID);
+      }
+    }    
+    // Initialize clipping planes at startup
+    this.core = initClippingPlanes();
+    setCore('EXIT_CODE', this.EXIT_CODE);
+    // Initialize objectsConfig in core
+    setCore('objectsConfig', objectsConfig);
+    setCore('outlineClipping', outlineClipping);
+    core.objectsConfig.setupIndex = core.objectsConfig.index = 0;
 
-function handleImages (fileElement, mainElement, imageElements, imageElementsChildren) {
-	if (typeof(imageElementsChildren == undefined)) {imageElementsChildren = imageElements}
-	var imageList = document.createElement("div");
-	imageList.setAttribute('id', 'image-list');
-	var modalGallery = document.createElement('div');
-	var modalImage = document.createElement('img');
-	modalImage.setAttribute('class', 'modalImage');
-	modalGallery.addEventListener("wheel", function(e){
-		e.preventDefault();
-		e.stopPropagation();
-		if(e.deltaY > 0 && zoomImage > 0.15) {    
-			modalImage.style.transform = `scale(${zoomImage -= ZOOM_SPEED_IMAGE})`;  
-		}
-		else if (e.deltaY < 0 && zoomImage < 5) {    
-			modalImage.style.transform = `scale(${zoomImage += ZOOM_SPEED_IMAGE})`;
-		}
-		return false;
-	});
-	var modalClose = document.createElement('span');
-	modalGallery.setAttribute('id', 'modalGallery');
-	modalGallery.setAttribute('class', 'modalGallery');
-	modalClose.setAttribute('class', 'closeGallery');
-	modalClose.setAttribute('title', 'Close');
-	modalClose.innerHTML = "&times";
-	modalClose.onclick = function() {
-		modalGallery.style.display = "none";
-	}
+    this.cameraTween = new TWEEN.Tween();
+    setCore('cameraTween', this.cameraTween);
 
-	document.addEventListener('click', function(event) {
-		if (!modalGallery.contains(event.target) && !imageList.contains(event.target)) {
-			modalGallery.style.display = "none";
-			zoomImage = 1.5;
-			modalImage.style.transform = `scale(1.5)`;
-		}
-	});
+    this.targetTween = new TWEEN.Tween();
+    setCore('targetTween', this.targetTween);
 
-	modalGallery.appendChild(modalImage);
-	modalGallery.appendChild(modalClose);
-	for (let i = 0; imageElementsChildren.length - i >= 0; i++) {
-		if (imageElementsChildren[i] !== undefined && imageElementsChildren[i].innerHTML !== undefined) {
-			var imgList = imageElementsChildren[i].getElementsByTagName("a");
-			for (let j = 0; j < imgList.length; j++) {
-				imgList[j].setAttribute("href", "#");
-				imgList[j].setAttribute("src", imgList[j].firstChild.src);
-				imgList[j].setAttribute("class", "image-list-item");
-			}
-			imgList = imageElementsChildren[i].getElementsByTagName("img");
-			//for single thumbnail
-			if (imgList.length == 1) {
-				imgList[0].style.maxWidth = "fit-content";
-				imgList[0].style.maxHeight = "180px";
-			}
-			for (let j = 0; j < imgList.length; j++) {
-				imgList[j].onclick = function(){
-					modalGallery.style.display = "block";
-					modalGallery.style.zIndex = 999;
-					imageList.style.zIndex = 0;
-					imageList.style.display = "hidden";
-					modalImage.src = this.src;
-				};
-			}
-			imageList.appendChild(imageElementsChildren[i]);
-		}
-	}
-	fileElement[0].insertAdjacentElement('beforebegin', modalGallery);
-	mainElement.insertAdjacentElement('beforebegin', imageList);
-	//mainElement.insertBefore(imageList, fileElement[0]);
-}
+    this.container.classList.add("mainContainer");
 
-function buildGallery() {
-	if (fileElement.length > 0) {
-		var mainElement = document.getElementById(CONFIG.viewer.gallery.container);
-		var imageElements;
-		if (CONFIG.viewer.gallery.imageClass !== '') {
-			imageElements = document.getElementsByClassName(CONFIG.viewer.gallery.imageClass);
-			if (imageElements.length > 0) {
-				var galleryLabel = document.getElementsByClassName("field__label");
-				if (galleryLabel !== undefined) galleryLabel[0].innerText = '';
-			}
-		}
-		else if (CONFIG.viewer.gallery.imageId !== '') {
-			imageElements = document.getElementById(CONFIG.viewer.gallery.imageId);
-		}
-		else {
-			console.log('No gallery created');
-		}
+    if (this.container.hasAttribute("basePath")) {
+      this.CONFIG.baseModulePath = this.container.getAttribute("basePath");
+    }
 
-		if (imageElements !== null) {
-			
-			if (imageElements.length > 0) {
-				if (imageElements[0].innerHTML !== undefined) {
-					let imagesList = Array.from(imageElements[0].getElementsByClassName("field__items")[0].childNodes);
-					prepareGalleryImages(imagesList);
-					//imageElements[0].classList.add("field--type-image");
-					imageElements[0].classList.add("field--label-hidden");
-					imageElements[0].classList.add("field__items");
-					handleImages(fileElement, mainElement, imagesList, imageElements);
-				}
-				else {
-					handleImages(fileElement, mainElement, imageElements);
-				}
-			}
-			else if (imageElements.childNodes !== undefined && imageElements.childNodes.length > 0) {
-				if (typeof (imageElements.childNodes[0].innerHTML) == 'string' || typeof (imageElements.childNodes[1].innerHTML) == 'string') { //handle links and convert to img
-					let imagesList = Array.from(imageElements.childNodes);
-					prepareGalleryImages(imagesList);
-					imageElements.classList.add("field--type-image");
-					imageElements.classList.add("field--label-hidden");
-					imageElements.classList.add("field__items");
-					handleImages(fileElement, mainElement, imagesList, imageElements);
-				}
-				else {
-					handleImages(fileElement, mainElement, imageElements);
-				}
-				
-			}
-		}
-	}
-}
+    this.setModelPaths(this.fileObject);
 
-function render() {
-	controls.update();
-	renderer.render(scene, camera);
-}
+    this.CONFIG.viewer.exportPath = "/export_xml_single/";    
+    this.loadedFile = `${this.fileObject.basename}.${this.fileObject.extension}`;
 
-function setupCamera (_object, _camera, _light, _data, _controls) {
-	if (typeof (_data) != "undefined") {
-		if (typeof (_data["cameraPosition"]) != "undefined") {
-			_camera.position.set (_data["cameraPosition"][0], _data["cameraPosition"][1], _data["cameraPosition"][2]);
-		}
-		if (typeof (_data["controlsTarget"]) != "undefined") {
-			_controls.target.set (_data["controlsTarget"][0], _data["controlsTarget"][1], _data["controlsTarget"][2]);
-		}
-		if (typeof (_data["lightPosition"]) != "undefined") {
-			_light.position.set(_data["lightPosition"][0], _data["lightPosition"][1], _data["lightPosition"][2]);
-		}
-		if (typeof (_data["lightTarget"]) != "undefined") {
-			_light.rotation.set(_data["lightTarget"][0], _data["lightTarget"][1], _data["lightTarget"][2]);
-		}
-		if (typeof (_data["lightColor"]) != "undefined") {
-			_light.color = new THREE.Color(_data["lightColor"][0]);
-			colors['DirectionalLight'] = _data["lightColor"][0];
-		}
-		if (typeof (_data["lightIntensity"]) != "undefined") {
-			_light.intensity = _data["lightIntensity"][0];
-			intensity.startIntensityDir = _data["lightIntensity"][0];
-		}
-		if (typeof (_data["lightAmbientColor"]) != "undefined") {
-			ambientLight.color = new THREE.Color(_data["lightAmbientColor"][0]);
-			colors['AmbientLight'] = _data["lightAmbientColor"][0];
-		}
-		if (typeof (_data["lightAmbientIntensity"]) != "undefined") {
-			ambientLight.intensity = _data["lightAmbientIntensity"][0];
-			intensity.startIntensityAmbient = _data["lightAmbientIntensity"][0];
-		}
-		if (typeof (_data["lightCameraColor"]) != "undefined") {
-			cameraLight.color = new THREE.Color(_data["lightCameraColor"][0]);
-			colors['CameraLight'] = _data["lightCameraColor"][0];
-		}
-		if (typeof (_data["lightCameraIntensity"]) != "undefined") {
-			cameraLight.intensity = _data["lightCameraIntensity"][0];
-			intensity.startIntensityCamera = _data["lightCameraIntensity"][0];
-		}
-		if (typeof (_data["background"]) != "undefined") {
-			mainCanvas.style.setProperty("background", _data["background"][0]);
-		}
-		_camera.updateProjectionMatrix();
-		_controls.update();
-		fitCameraToCenteredObject (_camera, _object, 2.3, _controls, false);
-	}
-	else {
-		var boundingBox = new THREE.Box3();
-		if (Array.isArray(_object)) {
-			for (let i = 0; i < _object.length; i++) {
-				boundingBox.setFromObject(_object[i]);
-			}
-		}
-		else {
-			boundingBox.setFromObject(_object);
-		}
-		var size = new THREE.Vector3();
-		boundingBox.getSize(size);
-		camera.position.set(size.x, size.y, size.z);
-		fitCameraToCenteredObject (_camera, _object, 1.2, _controls, true);
-	}
-}
+    this.handHint = document.createElement("div");
+    this.handHint.id = "handHint";
+    this.handHint.hidden = true;
+    this.container.appendChild(this.handHint);
+    setCore('handHint', this.handHint);
 
-function distanceBetweenPoints(pointA, pointB) {
-	return Math.sqrt(Math.pow(pointB.x - pointA.x, 2) + Math.pow(pointB.y - pointA.y, 2) + Math.pow(pointB.z - pointA.z, 2) ,2);
-}
+    this.spinnerContainer = document.createElement("div");
+    this.spinnerContainer.id = "spinnerContainer";
+    this.spinnerElement = document.createElement("div");
+    this.spinnerElement.id = "spinner";
+    this.spinnerElement.className = "lv-determinate_circle lv-mid md";
+    this.spinnerElement.setAttribute("data-label", "Loading...");
+    this.spinnerElement.setAttribute("data-percentage", "true");
+    this.spinnerContainer.appendChild(this.spinnerElement);
+    this.container.appendChild(this.spinnerContainer);
+    this.spinnerContainer.style.left = `calc(50% - ${this.spinnerContainer.getBoundingClientRect().width / 2}px)`;
 
-function distanceBetweenPointsVector(vector) {
-	return Math.sqrt(Math.pow(vector.x, 2) + Math.pow(vector.y, 2) + Math.pow(vector.z, 2) ,2);
-}
+    this.rect = this.container.getBoundingClientRect();
 
-function vectorBetweenPoints (pointA, pointB) {
-	return new THREE.Vector3(pointB.x - pointA.x, pointB.y - pointA.y, pointB.z - pointA.z);
-}
+    this.guiContainer = document.createElement("div");
+    this.guiContainer.id = "guiContainer";
+    this.guiContainer.className = "guiContainer";
+    this.container.appendChild(this.guiContainer);
 
-function halfwayBetweenPoints(pointA, pointB) {
-	return new THREE.Vector3((pointB.x + pointA.x)/2, (pointB.y + pointA.y)/2, (pointB.z + pointA.z)/2);
-}
+    this.gui  = new GUI({ container: guiContainer });
 
-function interpolateDistanceBetweenPoints(pointA, vector, length, scalar) {
-	var _x = pointA.x + (scalar/Math.abs(length)) * vector.x;
-	var _y = pointA.y + (scalar/Math.abs(length)) * vector.y;
-	var _z = pointA.z + (scalar/Math.abs(length)) * vector.z;
-	return new THREE.Vector3(_x, _y, _z);
-}
+    this.metadataContainer = document.createElement("div");
+    this.metadataContainer.setAttribute("id", "metadata-container");
+    this.metadataContainer.style.top = -this.metadataContainer.getBoundingClientRect().top + "px";
 
-function pickFaces(_id) {
-	if (lastPickedFace.id == '' && _id !== '') {
-		lastPickedFace = {id: _id, color: _id.object.material.color.getHex(), object: _id.object.id};
-	}
-	else if (_id == '' && lastPickedFace.id !== '') {
-		scene.getObjectById(lastPickedFace.object).material.color.setHex(lastPickedFace.color);
-		lastPickedFace = {id: '', color: '', object: ''};
-	}
-	else if (_id != lastPickedFace.id) {
-		scene.getObjectById(lastPickedFace.object).material.color.setHex(lastPickedFace.color);
-		lastPickedFace = {id: _id, color: _id.object.material.color.getHex(), object: _id.object.id};		
-	}
-	if (_id !== '')
-		_id.object.material.color.setHex(0xFF0000);
-}
+    this.spinner = new lv();
+    this.spinner.initLoaderAll();
+    this.spinner.startObserving();
 
-function buildRuler(_id) {
-	rulerObject = new THREE.Object3D();
-	var sphere = new THREE.Mesh(new THREE.SphereGeometry(gridSize/150, 7, 7), new THREE.MeshNormalMaterial({
-				transparent : true,
-				opacity : 0.8,
-				side: THREE.DoubleSide, depthTest: false, depthWrite: false
-			}));
-	var newPoint = new THREE.Vector3(_id.point.x, _id.point.y, _id.point.z);
-	sphere.position.set(newPoint.x, newPoint.y, newPoint.z	);
-	rulerObject.add(sphere);
-	linePoints.push(newPoint);
-	const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
-	const line = new THREE.Line(lineGeometry, lineMaterial);
-	rulerObject.add(line);
-	var lineMtr = new THREE.LineBasicMaterial({ color: 0x0000FF, linewidth: 3, opacity: 1, side: THREE.DoubleSide, depthTest: false, depthWrite: false });
-	if (linePoints.length > 1) {
-		var vectorPoints = vectorBetweenPoints(linePoints[linePoints.length-2], newPoint);
-		var distancePoints = distanceBetweenPointsVector(vectorPoints);
-		
-		//var distancePoints = distanceBetweenPoints(linePoints[linePoints.length-2], newPoint);
-		var halfwayPoints = halfwayBetweenPoints(linePoints[linePoints.length-2], newPoint);
-		addTextPoint(distancePoints.toFixed(2), gridSize/200, halfwayPoints);
-		var rulerI = 0;
-		var measureSize = gridSize/400;
-        while (rulerI <= distancePoints*100) {
-            const geoSegm = [];
-			var interpolatePoints = interpolateDistanceBetweenPoints(linePoints[linePoints.length-2], vectorPoints, distancePoints, rulerI/100);
-            geoSegm.push(new THREE.Vector3(interpolatePoints.x, interpolatePoints.y, interpolatePoints.z));
-			geoSegm.push(new THREE.Vector3(interpolatePoints.x+measureSize, interpolatePoints.y+measureSize, interpolatePoints.z+measureSize));
-			const geometryLine = new THREE.BufferGeometry().setFromPoints(geoSegm);
-            var lineSegm = new THREE.Line(geometryLine, lineMtr);
-			rulerObject.add(lineSegm);
-            rulerI+=10;
+    this.circle = lv.create(this.spinnerElement);
+    setCore('circle', this.circle);
+    setCore('spinner', this.spinner);
+        
+    setCore('colors', this.colors);
+    setCore("planeHelpers", this.planeHelpers);    
+    setCore("planeParams", this.planeParams);
+    setCore('materialProperties', this.materialProperties);
+    setCore('materialsPropertiesText', this.materialsPropertiesText);
+    setCore('intensity', this.intensity);
+    this.clippingPlanes = this.core;
+    setCore("clippingPlanes", this.clippingPlanes);
+    setCore('helperObjects', this.helperObjects);
+
+    this.clock = new THREE.Clock();
+
+    Viewer.init();
+    Viewer.prepareStats();
+    localStorage.setItem("viewerHintSeen", "0");
+    
+    this.updateSize();
+    if (!Viewer.CONFIG.entity?.metadata?.source) {
+      await Viewer.mainLoadModel();
+    }
+    Viewer.animate();
+  },
+
+  setModelPaths(fileObject) {
+    fileObject.filename = fileObject.originalPath.split("/").pop();
+    fileObject.basename = fileObject.filename.substring(0, fileObject.filename.lastIndexOf("."));
+    fileObject.extension = fileObject.filename.substring(fileObject.filename.lastIndexOf(".") + 1);
+    fileObject.path = fileObject.originalPath.substring(0, fileObject.originalPath.lastIndexOf(fileObject.filename));
+    fileObject.uri = fileObject.path.replace(this.CONFIG.mainUrl + "/", "");
+  },
+  // Disable interaction hint on first interaction
+ disableInteractionHint() {
+    Viewer.handHint.hidden = true;
+    Viewer.stopGesture();
+    //Viewer.handHint.classList.remove("hand-drag-animate");
+    localStorage.setItem("viewerHintSeen", "1");
+  },
+
+  addTextWatermark(_text, _scale) {
+    var textGeo;
+    var materials = [
+      new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        flatShading: true,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        depthWrite: false,
+        transparent: true,
+        opacity: 0.4,
+      }), // front
+      new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        flatShading: true,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        depthWrite: false,
+        transparent: true,
+        opacity: 0.4,
+      }), // side
+    ];
+    const loader = new FontLoader();
+
+    loader.load(
+      '.' + CONFIG.baseModulePath + "/fonts/helvetiker_regular.typeface.json",
+      function (font) {
+        const textGeo = new TextGeometry(_text, {
+          font,
+          size: _scale * 3,
+          height: _scale / 10,
+          curveSegments: 5,
+          bevelEnabled: true,
+          bevelThickness: _scale / 8,
+          bevelSize: _scale / 10,
+          bevelOffset: 0,
+          bevelSegments: 1,
+        });
+        textGeo.computeBoundingBox();
+
+        //const centerOffset = - 0.5 * (textGeo.boundingBox.max.x - textGeo.boundingBox.min.x);
+
+        Viewer.textMesh = new THREE.Mesh(textGeo, materials);
+
+        Viewer.textMesh.rotation.z = Math.PI;
+        Viewer.textMesh.rotation.y = Math.PI;
+
+        Viewer.textMesh.position.x = 0;
+        Viewer.textMesh.position.y = 0;
+        Viewer.textMesh.position.z = 0;
+        Viewer.textMesh.renderOrder = 1;
+        Viewer.scene.add(Viewer.textMesh);
+      }
+    );
+  },
+
+  addTextPoint(_text, _scale, _point) {
+    var textGeo;
+    var materials = [
+      new THREE.MeshStandardMaterial({
+        color: 0x0000ff,
+        flatShading: true,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        depthWrite: false,
+        transparent: true,
+        opacity: 0.4,
+      }), // front
+      new THREE.MeshStandardMaterial({
+        color: 0x0000ff,
+        flatShading: true,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        depthWrite: false,
+        transparent: true,
+        opacity: 0.4,
+      }), // side
+    ];
+    const loader = new FontLoader();
+    var textSize = _scale / 10;
+    loader.load(
+      '.' + CONFIG.baseModulePath + "/fonts/helvetiker_regular.typeface.json",
+      function (font) {
+        const textGeo = new TextGeometry(_text, {
+          font: font,
+          size: _scale * 3,
+          height: textSize,
+          curveSegments: 4,
+          bevelEnabled: true,
+          bevelThickness: textSize,
+          bevelSize: textSize,
+          bevelOffset: 0,
+          bevelSegments: 1,
+          depth: textSize,
+        });
+        textGeo.computeBoundingBox();
+
+        Viewer.textMeshDistance = new THREE.Mesh(textGeo, materials);
+
+        Viewer.textMeshDistance.position.set(_point.x, _point.y, _point.z);
+        Viewer.textMeshDistance.renderOrder = 1;
+        Viewer.rulerObject.add(Viewer.textMeshDistance);
+      }
+    );
+  },
+
+  selectObjectHierarchy(_id) {
+    let search = true;
+    for (let i = 0; i < selectedObjects.length && search === true; i++) {
+      if (selectedObjects[i].id === _id) {
+        search = false;
+        if (selectedObjects[i].selected === true) {
+          scene.getObjectById(_id).material = selectedObjects[i].originalMaterial;
+          scene.getObjectById(_id).material.needsUpdate = true;
+          selectedObjects[i].selected = false;
+          selectedObjects.splice(selectedObjects.indexOf(selectedObjects[i]), 1);
         }
-	}
-	rulerObject.renderOrder = 1;
-	scene.add(rulerObject);
-	ruler.push(rulerObject);
-}
-
-function onWindowResize() {
-	var rightOffsetEntity = -65;
-	var rightOffsetFullscreen = canvasDimensions.x * 0.45;
-	var bottomOffsetFullscreen = -canvasDimensions.y * 0.97 + 20;
-	if (FULLSCREEN) {
-		canvasDimensions = {x: window.innerWidth, y: window.innerHeight};
-		rightOffsetEntity = -95;
-		bottomOffsetFullscreen = -canvasDimensions.y * 0.96 + 20;
-		downloadModel.setAttribute('style', 'visibility: hidden');
-		mainCanvas.style.width = "100vw !important";
-		mainCanvas.style.height = "100vh !important";
-		metadataContainer.style.width = "10%";
-		metadataContainer.style.height = "10%";
-	}
-	else {
-		canvasDimensions = {x: container.getBoundingClientRect().width*CONFIG.viewer.scaleContainer.x, y: container.getBoundingClientRect().bottom*(CONFIG.viewer.scaleContainer.y+0.3)};
-		bottomOffsetFullscreen = Math.round(-canvasDimensions.y) + 36;
-		mainCanvas.style.width = "100% !imporant";
-		mainCanvas.style.height = "100% !important";
-		metadataContainer.style.width = "100%";
-		metadataContainer.style.height = "100%";
-
-		if (CONFIG.viewer.lightweight === false) {
-			downloadModel.setAttribute('style', 'visibility: visible');
-			downloadModel.setAttribute('style', 'top:' + (canvasDimensions.y - 60) + 'px;');
-		}
-	}
-	mainCanvas.style.width = canvasDimensions.x+"px;";
-	mainCanvas.style.height = canvasDimensions.y +"px;";
-	//mainCanvas.setAttribute("style", "width:" + canvasDimensions.x+"px;" + "height:" + canvasDimensions.y +"px;" );
-
-	guiContainer.setAttribute("style", "width:" + canvasDimensions.x + "px; left: " + canvasDimensions.x - lilGui[0].getBoundingClientRect().width + 'px');
-	lilGui[0].style.left = canvasDimensions.x - lilGui[0].getBoundingClientRect().width - 10 + 'px';
-
-	renderer.setSize(canvasDimensions.x, canvasDimensions.y);
-	renderer.setPixelRatio(window.devicePixelRatio);
-	camera.aspect = canvasDimensions.x / canvasDimensions.y;
-	camera.updateProjectionMatrix();
-	renderer.setSize(canvasDimensions.x, canvasDimensions.y);
-
-	viewEntity.setAttribute('style', 'right: ' + rightOffsetEntity +'%');
-	fullscreenMode.setAttribute('style', 'top:' + (canvasDimensions.y - 50) + 'px; left: ' + (canvasDimensions.x - 36) + 'px;');
-	//fullscreenMode.style.top = (bottomLineGUI) + 'px;';
-
-	controls.update();
-	render();
-}
-
-function addWissKIMetadata(label, value) {
-	if ((typeof (label) !== "undefined") && (typeof (value) !== "undefined")) {
-		var _str = "";
-		label = label.replace("wisski_path_3d_model__", "");
-		switch (label) {
-			case "title":
-				_str = "Title";
-			break;
-			case "author_name":
-				_str = "Author";
-			break;
-			/*case "reconstructed_period_start":
-				_str = "period";
-			break;
-			case "reconstructed_period_end":
-				_str = "-";
-			break;*/
-			case "author_affiliation":
-				_str = "Author affiliation";
-			break;
-			case "license":
-				_str = "License";
-				switch (value) {
-					case "CC0 1.0":
-					case "CC-BY Attribution":
-					case "CC-BY-SA Attribution-ShareAlike":
-					case "CC-BY-ND Attribution-NoDerivs":
-					case "CC-BY-NC Attribution-NonCommercial":
-					case "CC-BY-NC-SA Attribution-NonCommercial-ShareAlike":
-					case "CC BY-NC-ND Attribution-NonCommercial-NoDerivs":
-						//addTextWatermark("©", gridSize/10);
-					break;
-				}
-			break;
-			default:
-				_str = ""
-			break;
-		}
-		if (_str == "period") {
-			return "Reconstruction period: <b>"+value+" - ";
-		}
-		else if (_str == "-") {
-			return value+"</b><br>";
-		}
-		else if (_str !== "") {
-			return _str+": <b>"+value+"</b><br>";
-		}
-	}
-}
-
-function truncateString(str, n) {
-	if (str.length === 0) {return str;}
-	else if (str.length > n) {
-		return str.substring(0, n) + "...";
-	} else {
-		return str;
-	}
-}
-
-function getProxyPath(url) {
-	var tempPath = decodeURIComponent(CONFIG.mainUrl);
-	return tempPath.replace(originalPath, encodeURIComponent(url));
-}
-
-function expandMetadata () {
-   const el = document.getElementById("metadata-content");
-   el.classList.toggle('expanded');
-   const elm = document.getElementById("metadata-collapse");
-   elm.classList.toggle('metadata-collapsed');
-}
-
-function fullscreen() {
-	FULLSCREEN=!FULLSCREEN;
-	if (FULLSCREEN) {
-		if (container.requestFullscreen) {
-			//mainCanvas.requestFullscreen();
-			container.requestFullscreen();
-		} 
-		else if (container.webkitRequestFullscreen) { /* Safari */
-			container.webkitRequestFullscreen();
-		}
-		else if (container.msRequestFullscreen) { /* IE11 */
-			container.msRequestFullscreen();
-		}
-		else if (container.mozRequestFullScreen) { /* Mozilla */
-			container.mozRequestFullScreen();
-		}
-	}
-	else
-	{
-		if (document.exitFullscreen) {
-			document.exitFullscreen();
-		}
-		else if (document.webkitExitFullscreen) { /* Safari */
-			document.webkitExitFullscreen();
-		}
-		else if (document.msExitFullscreen) { /* IE11 */
-			document.msExitFullscreen();
-		}
-	}
-	onWindowResize();
-}
-
-function exitFullscreenHandler() {
-	var fullscreenElement = document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement;
-	var fullscreenElement2 = document.webkitIsFullScreen && document.mozFullScreen && document.msFullscreenElement;
-	if (!fullscreenElement && typeof(fullscreenElement2 === undefined) && FULLSCREEN) {
-		fullscreen();
-	}
-}
-
-function appendMetadata (metadataContent, canvasText, metadataContainer, container) {
-	metadataContent += metadataContentTech + '</div>';
-	canvasText.innerHTML = metadataContent;
-	metadataContainer.appendChild(canvasText);
-	container.appendChild(metadataContainer);
-}
-
-function handleMetadataResponse(data, metadata, path, basename, filename, object, camera, light, controls, orgExtension, extension, hierarchyMain) {
-	var tempArray = [];
-	if (Array.isArray(object)) {
-		setupObject(object[0], light, data, controls);
-		setupCamera (object[0], camera, light, data, controls);
-	}
-	else if (object.name === "Scene" || object.children.length > 0 || object.type == "Mesh") {
-		setupObject(object, light, data, controls);
-		object.traverse(function (child) {
-			if (child.isMesh) {
-				metadata['vertices'] += fetchMetadata (child, 'vertices');
-				metadata['faces'] += fetchMetadata (child, 'faces');
-				if (child.name === '') child.name = 'Mesh'
-				var shortChildName = truncateString(child.name, GUILength);
-				tempArray = { [shortChildName]() {selectObjectHierarchy(child.id)}, 'id': child.id};
-				hierarchyFolder = hierarchyMain.addFolder(shortChildName).close();
-				hierarchyFolder.add(tempArray, shortChildName);
-				//if (object.type == "Mesh")
-					//clippingGeometry.push(child.mesh.geometry);
-				//else {
-					//clippingGeometry.push(child.geometry);
-					child.traverse(function (children) {
-						if (children.isMesh &&  children.name !== child.name) {
-							if (children.name === '') children.name = 'ChildrenMesh';
-							var shortChildrenName = truncateString(children.name, GUILength);
-							tempArray = { [shortChildrenName] (){selectObjectHierarchy(children.id)}, 'id': children.id};
-							//clippingGeometry.push(children.geometry);
-							hierarchyFolder.add(tempArray, shortChildrenName);
-						}
-					});
-				//}
-			}
-		});
-		setupCamera (object, camera, light, data, controls);
-	}
-	else {
-		setupObject(object, light, data, controls);
-		setupCamera (object, camera, light, data, controls);
-		metadata['vertices'] += fetchMetadata (object, 'vertices');
-		metadata['faces'] += fetchMetadata (object, 'faces');
-		if (object.name === '') {
-			tempArray = {["Mesh"] (){selectObjectHierarchy(object.id)}, 'id': object.id};
-			object.name = object.id;
-		}
-		else {
-			tempArray = {[object.name] (){selectObjectHierarchy(object.id)}, 'id': object.id};
-		}
-		//hierarchy.push(tempArray);
-		if (object.name === "undefined") object.name = "level";
-		//clippingGeometry.push(object.geometry);
-		hierarchyFolder = hierarchyMain.addFolder(object.name).close();
-	}
-
-	hierarchyMain.domElement.classList.add("hierarchy");
-
-	var metadataContent = '<div id="metadata-collapse" class="metadata-collapse metadata-collapsed">METADATA </div><div id="metadata-content" class="metadata-content expanded">';
-	metadataContentTech = '<hr class="metadataSeparator">';
-	metadataContentTech += 'Visualized file: <b>' + basename + "." + orgExtension + '</b><br>';
-	//metadataContentTech += 'Loaded format: <b>' + extension + '</b><br>';
-	metadataContentTech += 'Vertices: <b>' + metadata['vertices'] + '</b><br>';
-	metadataContentTech += 'Faces: <b>' + metadata['faces'] + '</b><br>';
-	viewEntity = document.createElement('div');
-	viewEntity.setAttribute('id', 'viewEntity');
-	
-	if (CONFIG.viewer.lightweight !== true && CONFIG.viewer.lightweight !== null) {
-		var req = new XMLHttpRequest();
-		req.responseType = '';
-		req.open('GET', CONFIG.metadataUrl + EXPORT_PATH + entityID + '?page=0&amp;_format=xml', true);
-		req.onreadystatechange = function (aEvt) {
-			if (req.readyState == 4) {
-				if(req.status == 200) {
-					const parser = new DOMParser();
-					const doc = parser.parseFromString(req.responseText, "application/xml");
-					if (doc.documentElement.childNodes > 0) {
-						var data = doc.documentElement.childNodes[0].childNodes;
-						if (typeof (data) !== undefined) {
-							for(var i = 0; i < data.length; i++) {
-								var fetchedValue = addWissKIMetadata(data[i].tagName, data[i].textContent);
-								if (typeof(fetchedValue) !== "undefined") {
-									metadataContent += fetchedValue;
-								}
-							}
-						}
-					}
-
-					downloadModel = document.createElement('div');
-					downloadModel.setAttribute('id', 'downloadModel');
-
-					var c_path = path;
-					if (compressedFile !== '') { filename = filename.replace(orgExtension, extension); }
-					downloadModel.innerHTML = "<a href='blob:" + c_path + filename + "' download><img src='" + CONFIG.baseModulePath + "/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
-					downloadModel.style.top = bottomLineGUI + 'px';
-					container.appendChild(downloadModel);
-
-					metadataContainer.appendChild(viewEntity);
-					appendMetadata (metadataContent, canvasText, metadataContainer, container);
-					
-					document.getElementById ("metadata-collapse").addEventListener ("click", expandMetadata, false);
-				}
-				else
-					showToast("Error during loading metadata content");
-				}
-		};
-		req.send(null);
-	}
-	else
-	{
-		viewEntity.innerHTML = "<a href='" + CONFIG.mainUrl + CONFIG.entity.viewEntityPath + entityID + "/view' target='_blank'><img src='" + CONFIG.baseModulePath + "/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>";
-		appendMetadata (metadataContent, canvasText, metadataContainer, container);
-	}
-
-	//hierarchyFolder.add(hierarchyText, 'Faces');
-}
-
-function fetchSettings (path, basename, filename, object, camera, light, controls, orgExtension, extension) {
-	var metadata = {'vertices': 0, 'faces': 0};
-	var hierarchy = [];
-	var geometry;
-	metadataUrl = path + "metadata/" + filename + "_viewer";
-	if (Array.isArray(object)) {
-		helperObjects.push (object[0]);
-	}
-	else {
-		helperObjects.push (object);
-	}
-	const hierarchyMain = gui.addFolder('Hierarchy').close();
-	if (CONFIG.entity.proxyPath !== undefined) {
-		metadataUrl = getProxyPath(metadataUrl);
-		if (Array.isArray(object)) {
-			setupObject(object[0], light, undefined, controls);
-			setupCamera (object[0], camera, light, undefined, controls);
-		}
-		else if (object.name === "Scene" || object.children.length > 0) {
-			setupObject(object, light, undefined, controls);
-			setupCamera (object, camera, light, undefined, controls);
-		}
-		else {
-			setupObject(object, light, undefined, controls);
-			setupCamera (object, camera, light, undefined, controls);
-			//hierarchy.push(tempArray);
-			if (object.name === "undefined") object.name = "level";
-			hierarchyFolder = hierarchyMain.addFolder(object.name).close();
-		}
-	}
-	else {
-		fetch(metadataUrl, {cache: "no-cache"})
-		.then((response) => {
-			if (response['status'] !== 404) {
-				showToast("Settings " + filename + "_viewer found");
-				return response.json();
-			}
-			else if (response['status'] === 404) {
-				showToast("No settings " + filename + "_viewer found");
-			}
-			})
-		.then(data => {
-			handleMetadataResponse(data, metadata, path, basename, filename, object, camera, light, controls, orgExtension, extension, hierarchyMain);
-		});
-	}
-
-	//addTextWatermark("©", object.scale.x);
-	//lightObjects.push (object);
-	const statsMain = gui.addFolder('Statistics').close();
-	statsMain.add(performanceMode, 'Performance', { 'High-performance': 'high-performance', 'Low-power': 'low-power', 'Default': 'default' }).onChange(function (value)	{ 
-		renderer.powerPreference = value;
-	});
-	statsMain.onOpenClose( changedGUI => {
-		if (changedGUI._closed) {
-			stats.dom.style.visibility = "hidden";
-		}
-		else {
-			stats.dom.style.visibility = "visible";
-		}
-	} );
-	guiContainer.appendChild(stats.dom);
-	//guiContainer.appendChild(statsContainer);
-}
-
-const onError = function (_event) {
-	//circle.set(100, 100);
-	console.log("Loader error: " + _event);
-	circle.hide();
-	EXIT_CODE=1;
-};
-
-const onErrorMTL = function (_event) {
-	//circle.set(100, 100);
-	noMTL = true;
-	showToast("Error occured while loading attached MTL file.");
-	loadModel (path, basename, filename, 'obj', extension);
-};
-
-const onErrorGLB = function (_event) {
-	if (typeof(_event) !== undefined && loadedTimes <= 1) {
-		console.log(path+basename+compressedFile, basename, filename,  "glb", extension);
-		loadModel (path+basename+compressedFile+"gltf/", basename, filename, 'glb', extension);
-		loadedTimes++;
-	}
-	else {
-		showToast("Error occured while loading attached GLB file.");
-	}
-	
-};
-
-const onProgress = function (xhr) {
-	var percentComplete = xhr.loaded / xhr.total * 100;
-	circle.show();
-	circle.set(percentComplete, 100);
-	if (percentComplete >= 100) {
-		circle.hide();
-		showToast("Model has been loaded.");
-		EXIT_CODE=0;
-	}
-};
-
-function setupSingleMaterial (materials, material) {
-	if(material.map) { material.map.anisotropy = 16 };
-	//material.side = THREE.DoubleSide;
-	material.clipShadows = true;
-	material.side = THREE.FrontSide;
-	material.clippingPlanes = clippingPlanes;
-	//material.clipIntersection = false;
-	if (material.name === '') material.name = material.uuid;
-	var newMaterial = {'name': material.name, 'uuid': material.uuid};
-	if (!materials.includes(newMaterial))
-		materials.push(newMaterial);
-}
-
-function setupMaterials (_object) {
-	var materials = [];
-	if (_object.isMesh) {
-		_object.castShadow = true;
-		_object.receiveShadow = true;
-		_object.geometry.computeVertexNormals();
-		if (_object.material.isMaterial) {
-			setupSingleMaterial(materials, _object.material);
-		}
-		else if (Array.isArray(_object.material)) {
-			_object.material.forEach((material) => setupSingleMaterial(materials, material));
-		}
-	}
-	return materials;
-}
-
-function getMaterialByID (_object, _uuid) {
-	var _material;
-	_object.traverse(function (child) {
-		if (child.isMesh && child.material.isMaterial && child.material.uuid === _uuid) {
-			_material = child.material;
-		}
-	});
-	return _material;
-}
-
-function traverseMesh (object) {
-	var _objectMaterials = [];
-	_objectMaterials.push(setupMaterials(object));
-
-	object.traverse(function (child) {
-		_objectMaterials.push(setupMaterials(child));
-	});
-	var objectMaterials = ['select by name'];
-	_objectMaterials.forEach (function (item, index, array) {
-		if (item.length > 1) {
-			item.forEach (function (_item, _index, _array) {
-				objectMaterials.push(_item.uuid);
-			});
-		}
-		else if (item.length == 1) {
-			objectMaterials.push(item[0].uuid);
-		}
-	});
-	var _material = null;
-	var _materialGui = null;
-	var _uuid = null;
-	materialsFolder.add(materialsPropertiesText, 'Edit material',  objectMaterials).onChange(function (value)
-	{
-		if ((value === 'select by name' || value !== _uuid) && _material !== null) {
-			_materialGui.color.destroy();
-			_materialGui.emissiveColor.destroy();
-			_materialGui.emissive.destroy();
-			_materialGui.metalness.destroy();
-			_materialGui = null;
-			_material = null;
-		} 
-		if (_material === null) {
-			_materialGui = {};
-			_material = getMaterialByID(object, value);
-			console.log(_material);
-			materialProperties.color = _material.color;
-			materialProperties.emissiveColor = _material.emissive;
-			materialProperties.emissive = _material.emissiveIntensity;
-			materialProperties.metalness = _material.metalness;
-			_materialGui.color = materialsFolder.addColor (materialProperties, 'color').onChange(function (value) {
-				_material.color = new THREE.Color(value);
-			}).listen();
-			_materialGui.emissiveColor = materialsFolder.addColor (materialProperties, 'emissiveColor').onChange(function (value) {
-				_material.emissive = new THREE.Color(value);
-			}).listen();
-			_materialGui.emissive = materialsFolder.add(materialProperties, 'emissive', 0, 1).onChange(function (value) {
-				_material.emissiveIntensity = value;
-			}).listen();
-			_materialGui.metalness = materialsFolder.add(materialProperties, 'metalness', 0, 1).onChange(function (value) {
-				_material.metalness = value;
-			}).listen();
-		}
-		if (_uuid === null || _uuid !== value) {
-			_uuid = value;
-		}
-	});
-}
-
-function prepareOutlineClipping (_object) {
-	var outlineClipping = _object.clone(true);
-	var gutsMaterial = new THREE.MeshBasicMaterial({color: 'crimson', side: THREE.BackSide, clippingPlanes: clippingPlanes, clipShadows: true});
-		
-	outlineClipping.traverse(function (child)
-	{
-		if( child.type=='Mesh' || child.type=='Object3D' )
-		{
-			child.material = gutsMaterial;
-		}
-	} );
-	outlineClipping.visible = false;
-	return outlineClipping;
-}
-
-function loadModel (path, basename, filename, extension, orgExtension) {
-	if (!imported) {
-		circle.show();
-		circle.set(0, 100);
-		var modelPath = path + filename;
-		if (CONFIG.entity.proxyPath !== undefined) {
-			modelPath = getProxyPath(modelPath);
-		}
-		switch(extension.toLowerCase()) {
-			case 'obj':
-				if (!noMTL) {
-					const manager = new THREE.LoadingManager();
-					manager.onLoad = function () { showToast ("OBJ model has been loaded"); };
-					manager.addHandler(/\.dds$/i, new DDSLoader());
-					// manager.addHandler(/\.tga$/i, new TGALoader());
-					new MTLLoader(manager)
-						.setPath(path)
-						.load(basename + '.mtl', function (materials) {
-							materials.preload();
-							new OBJLoader(manager)
-								.setMaterials(materials)
-								.setPath(path)
-								.load(filename, function (object) {
-									object.position.set (0, 0, 0);
-									traverseMesh(object);
-
-									fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
-
-									outlineClipping = prepareOutlineClipping(object);
-									scene.add(object, outlineClipping);
-									scene.add(object);
-
-									mainObject.push(object);
-								}, onProgress, onError);
-						}, function (){}, onErrorMTL);
-				}
-				else {
-					const loader = new OBJLoader();
-					loader.setPath(path)
-						.load(filename, function (object) {
-						object.position.set (0, 0, 0);
-						traverseMesh(object);
-						fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
-
-						outlineClipping = prepareOutlineClipping(object);
-						scene.add(object, outlineClipping);
-						scene.add(object);
-
-						mainObject.push(object);
-					}, onProgress, onError);
-				}
-			break;
-			
-			case 'fbx':
-				var FBXloader = new FBXLoader();
-				FBXloader.load(modelPath, function (object) {
-					traverseMesh (object);
-					object.position.set (0, 0, 0);
-
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object.children, camera, lightObjects[0], controls, orgExtension, extension);
-
-					outlineClipping = prepareOutlineClipping(object);
-					scene.add(object, outlineClipping);
-					scene.add(object);
-
-					mainObject.push(object);
-				}, onProgress, onError);
-			break;
-			
-			case 'ply':
-				loader = new PLYLoader();
-				loader.load(modelPath, function (geometry) {
-					geometry.computeVertexNormals();
-					const material = new THREE.MeshStandardMaterial({ color: 0x0055ff, flatShading: true });
-					const object = new THREE.Mesh(geometry, material);
-					object.position.set (0, 0, 0);
-					object.castShadow = true;
-					object.receiveShadow = true;
-					traverseMesh(object);
-
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
-					mainObject.push(object);
-
-					outlineClipping = prepareOutlineClipping(object);
-					scene.add(object, outlineClipping);
-					scene.add(object);
-
-				}, onProgress, onError);
-			break;
-			
-			case 'dae':
-				const loadingManager = new THREE.LoadingManager(function () {
-					scene.add(object);
-				});
-				loader = new ColladaLoader(loadingManager);
-				loader.load(modelPath, function (object) {
-					object = object.scene;
-					object.position.set (0, 0, 0);
-					traverseMesh(object);
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
-					mainObject.push(object);
-
-					outlineClipping = prepareOutlineClipping(object);
-					scene.add(object, outlineClipping);
-					scene.add(object);
-
-				}, onProgress, onError);
-			break;
-			
-			case 'ifc':
-				const ifcLoader = new IFCLoader();
-				const ifcPath = CONFIG.baseModulePath + '/js/external_libs/loaders/ifc/';
-				ifcLoader.ifcManager.setWasmPath(ifcPath, true);
-				ifcLoader.load(modelPath, function (object) {
-					traverseMesh(object);
-					
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
-					
-					outlineClipping = prepareOutlineClipping(object);
-					scene.add(object, outlineClipping);
-					scene.add(object);
-					
-					mainObject.push(object);
-				}, onProgress, onError);
-			break;
-			
-			case 'stl':
-				loader = new STLLoader();
-				loader.load(modelPath, function (geometry) {
-					let meshMaterial = new THREE.MeshPhongMaterial({ color: 0xff5533, specular: 0x111111, shininess: 200 });
-					if (geometry.hasColors) {
-						meshMaterial = new THREE.MeshPhongMaterial({ opacity: geometry.alpha, vertexColors: true });
-					}
-					const object = new THREE.Mesh(geometry, meshMaterial);
-					object.position.set (0, 0, 0);
-					traverseMesh(object);
-					object.castShadow = true;
-					object.receiveShadow = true;
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
-					
-					outlineClipping = prepareOutlineClipping(object);
-					scene.add(object, outlineClipping);
-					scene.add(object);
-
-					mainObject.push(object);
-				}, onProgress, onError);
-			break;
-
-			case 'xyz':
-				loader = new XYZLoader();
-				loader.load(modelPath, function (geometry) {
-					geometry.center();
-					const vertexColors = (geometry.hasAttribute('color') === true);
-					const material = new THREE.PointsMaterial({ size: 0.1, vertexColors: vertexColors });
-					const object = new THREE.Points(geometry, material);
-					traverseMesh(object);
-					object.position.set (0, 0, 0);
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
-					
-					outlineClipping = prepareOutlineClipping(object);
-					scene.add(object, outlineClipping);
-					scene.add(object);
-					
-					mainObject.push(object);
-				}, onProgress, onError);
-			break;
-
-			case 'pcd':
-				loader = new PCDLoader();
-				loader.load(modelPath, function (mesh) {
-					traverseMesh(mesh);
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
-					mainObject.push(object);
-			
-					outlineClipping = prepareOutlineClipping(mesh);
-					scene.add(mesh, outlineClipping);
-					scene.add(mesh);
-
-				}, onProgress, onError);
-			break;
-
-			case 'json':
-				loader = new THREE.ObjectLoader();
-				loader.load(
-					modelPath, function (object) {
-						object.position.set (0, 0, 0);
-						traverseMesh(object);
-
-						fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
-		
-						outlineClipping = prepareOutlineClipping(object);
-						scene.add(object, outlineClipping);
-						scene.add(object);
-
-						mainObject.push(object);
-					}, onProgress, onError);
-			break;
-
-			case '3ds':
-				loader = new TDSLoader();
-				loader.setResourcePath(path);
-				modelPath = path;
-				if (CONFIG.entity.proxyPath !== undefined) {
-					modelPath = getProxyPath(modelPath);
-				}
-				loader.load(modelPath + basename + "." + extension, function (object) {
-					traverseMesh(object);				
-
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
-					mainObject.push(object);
-			
-					outlineClipping = prepareOutlineClipping(object);
-					scene.add(object, outlineClipping);
-					scene.add(object);
-					
-				}, onProgress, onError);
-			break;
-
-			case 'zip':
-			case 'rar':
-			case 'tar':
-			case 'gz':
-			case 'xz':
-				showToast("Model is being loaded from compressed archive.");
-			break;
-			
-			case 'glb':
-			case 'gltf':
-				const dracoLoader = new DRACOLoader();
-				dracoLoader.setDecoderPath(CONFIG.baseModulePath + '/js/jsm/libs/draco/');
-				dracoLoader.preload();
-				const gltf = new GLTFLoader();
-				gltf.setDRACOLoader(dracoLoader);
-				showToast("Model has being loaded from " + extension + " representation.");
-
-				modelPath = path + basename + "." + extension;
-
-				if (CONFIG.entity.proxyPath !== undefined) {
-					modelPath = getProxyPath(modelPath);
-				}
-				gltf.load(modelPath, function(gltf) {
-					traverseMesh(gltf.scene);
-					fetchSettings (path.replace("/gltf/", "/"), basename, filename, gltf.scene, camera, lightObjects[0], controls, orgExtension, extension);
-					outlineClipping = prepareOutlineClipping(gltf.scene);
-					scene.add(gltf.scene, outlineClipping);
-					scene.add(gltf.scene);
-					mainObject.push(gltf.scene);
-					//mainObject.push(guts.scene);
-				
-				},
-					function (xhr) {
-						var percentComplete = xhr.loaded / xhr.total * 100;
-						if (percentComplete !== Infinity) {
-							circle.show();
-							circle.set(percentComplete, 100);
-							if (percentComplete >= 100) {
-								circle.hide();
-								showToast("Model " + filename + " has been loaded.");
-							}
-						}
-					}, onErrorGLB
-				);
-			break;
-			default:
-				showToast("Extension not supported yet");
-		}
-	}
-	else {
-		showToast("File " + path + basename + " not found.");
-	}
-	
-	scene.updateMatrixWorld();
-}
-
-//
-
-function animate() {
-	requestAnimationFrame(animate);
-	const delta = clock.getDelta();
-	if (mixer) { mixer.update(delta); }
-	TWEEN.update();
-
-	if (textMesh !== undefined) { textMesh.lookAt(camera.position); }
-	renderer.clear();
-	renderer.render(scene, camera);
-	stats.update();
-}
-
-function updateObject () {
-}
-
-function onPointerDown(e) {
-	//onDownPosition.x = event.clientX;
-	//onDownPosition.y = event.clientY;
-	if (e.button === 0) {
-		onDownPosition.x = ((e.clientX - mainCanvas.getBoundingClientRect().left)/ renderer.domElement.clientWidth) * 2 - 1;
-		onDownPosition.y = - ((e.clientY - mainCanvas.getBoundingClientRect().top) / renderer.domElement.clientHeight) * 2 + 1;
-	}
-}
-
-function onPointerUp(e) {
-	if (e.button == 0) {
-		onUpPosition.x = ((e.clientX - mainCanvas.getBoundingClientRect().left)/ renderer.domElement.clientWidth) * 2 - 1;
-		onUpPosition.y = - ((e.clientY - mainCanvas.getBoundingClientRect().top) / renderer.domElement.clientHeight) * 2 + 1;
-		
-		if (onUpPosition.x === onDownPosition.x && onUpPosition.y === onDownPosition.y) {
-			raycaster.setFromCamera(onUpPosition, camera);
-			var intersects;
-			
-			if (EDITOR || RULER_MODE) {
-				if (mainObject.length > 1) {
-					for (let ii = 0; ii < mainObject.length; ii++) {
-						intersects = raycaster.intersectObjects(mainObject[ii].children, true);
-					}
-					if (intersects.length <= 0) {
-						intersects = raycaster.intersectObjects(mainObject, true);
-					}
-				}
-				else {
-					intersects = raycaster.intersectObject(mainObject[0], true);
-				}
-				if (intersects.length > 0) {
-					if (RULER_MODE) buildRuler(intersects[0]);
-					else if (EDITOR) pickFaces(intersects[0]);
-				}
-			}
-		}
-	}
-}
-
-function onPointerMove(e) {
-	pointer.x = ((e.clientX - mainCanvas.getBoundingClientRect().left)/ renderer.domElement.clientWidth) * 2 - 1;
-	pointer.y = - ((e.clientY - mainCanvas.getBoundingClientRect().top) / renderer.domElement.clientHeight) * 2 + 1;
-
-	if (e.buttons == 1) {
-		if (pointer.x !== onDownPosition.x && pointer.y !== onDownPosition.y) {
-			cameraLight.position.set(camera.position.x, camera.position.y, camera.position.z);
-		}
-	}
-	if (e.buttons != 1) {
-		if (EDITOR) {
-			raycaster.setFromCamera(pointer, camera);
-			var intersects;
-			if (mainObject.length > 1) {
-				for (let ii = 0; ii < mainObject.length; ii++) {
-					intersects = raycaster.intersectObjects(mainObject[ii].children, true);
-				}
-				if (intersects.length <= 0) {
-					intersects = raycaster.intersectObjects(mainObject, true);
-				}
-			}
-			else {
-				intersects = raycaster.intersectObject(mainObject[0], true);
-			}
-			if (intersects.length > 0) {
-				pickFaces(intersects[0]);
-			}
-			else {
-				pickFaces("");
-			}
-		}
-	}
-}
-
-function changeScale () {
-	if (transformControl.getMode() === "scale") {
-		switch (transformControl.axis) {
-			case 'X':
-			case 'XY':
-				helperObjects[0].scale.set(helperObjects[0].scale.x,helperObjects[0].scale.x,helperObjects[0].scale.x);
-			break;
-			case 'Y':
-			case 'YZ':
-				helperObjects[0].scale.set(helperObjects[0].scale.y,helperObjects[0].scale.y,helperObjects[0].scale.y);
-			break;
-			case 'Z':
-			case 'XZ':
-				helperObjects[0].scale.set(helperObjects[0].scale.x,helperObjects[0].scale.x,helperObjects[0].scale.x);
-			break;
-		}
-	}
-}
-
-function calculateObjectScale () {
-	const boundingBox = new THREE.Box3();
-	if (Array.isArray(helperObjects[0])) {
-		for (let i = 0; i < helperObjects[0].length; i++) {			
-			boundingBox.setFromObject(object[i]);
-		}
-	}
-	else {
-		boundingBox.setFromObject(helperObjects[0]);
-	}
+      }
+    }
+    if (search) {
+      selectedObjects.push({
+        id: _id,
+        selected: true,
+        originalMaterial: scene.getObjectById(_id).material.clone(),
+      });
+      const tempMaterial = scene.getObjectById(_id).material.clone();
+      tempMaterial.color = normalizeColor("0x00FF00");
+      scene.getObjectById(_id).material = tempMaterial;
+      scene.getObjectById(_id).material.needsUpdate = true;
+    }
+  },
+
+  recreateBoundingBox(object) {
+    var _min = new THREE.Vector3();
+    var _max = new THREE.Vector3();
+    if (object instanceof THREE.Object3D) {
+      object.traverse(function (mesh) {
+        if (mesh instanceof THREE.Mesh) {
+          mesh.geometry.computeBoundingBox();
+          var bBox = mesh.geometry.boundingBox;
+
+          // compute overall bbox
+          _min.x = Math.min(_min.x, bBox.min.x + mesh.position.x);
+          _min.y = Math.min(_min.y, bBox.min.y + mesh.position.y);
+          _min.z = Math.min(_min.z, bBox.min.z + mesh.position.z);
+          _max.x = Math.max(_max.x, bBox.max.x + mesh.position.x);
+          _max.y = Math.max(_max.y, bBox.max.y + mesh.position.y);
+          _max.z = Math.max(_max.z, bBox.max.z + mesh.position.z);
+        }
+      });
+
+      var bBox_min = new THREE.Vector3(_min.x, _min.y, _min.z);
+      var bBox_max = new THREE.Vector3(_max.x, _max.y, _max.z);
+      var bBox_new = new THREE.Box3(bBox_min, bBox_max);
+      object.position.set(
+        (bBox_new.min.x + bBox_new.max.x) / 2,
+        bBox_new.min.y,
+        (bBox_new.min.z + bBox_new.max.z) / 2
+      );
+    }
+    return object;
+  },
+
+  prepareGalleryImages(imageElementsChildren) {
+    imageElementsChildren = imageElementsChildren.filter(function (_image) {
+      return isValidUrl(_image.innerHTML);
+    });
+    imageElementsChildren.forEach(function (imgLink, index) {
+      imgLink.innerHTML =
+        '<img loading="lazy" src="' +
+        imgLink.innerHTML +
+        '" width="200px" height="200px" alt="" class="img-fluid image-style-wisski-preview">';
+    });
+  },
+
+  handleImages(
+    mainElement,
+    imageElements,
+    imageElementsChildren
+  ) {
+    if (typeof (imageElementsChildren == undefined)) {
+      imageElementsChildren = imageElements;
+    }
+    var imageList = document.createElement("div");
+    imageList.setAttribute("id", "image-list");
+    var modalGallery = document.createElement("div");
+    var modalImage = document.createElement("img");
+    modalImage.setAttribute("class", "modalImage");
+    modalGallery.addEventListener("wheel", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.deltaY > 0 && Viewer.zoomImage > 0.15) {
+        modalImage.style.transform = `scale(${(Viewer.zoomImage -= Viewer.ZOOM_SPEED_IMAGE)})`;
+      } else if (e.deltaY < 0 && Viewer.zoomImage < 5) {
+        modalImage.style.transform = `scale(${(Viewer.zoomImage += Viewer.ZOOM_SPEED_IMAGE)})`;
+      }
+      return false;
+    });
+    var modalClose = document.createElement("span");
+    modalGallery.setAttribute("id", "modalGallery");
+    modalGallery.setAttribute("class", "modalGallery");
+    modalClose.setAttribute("class", "closeGallery");
+    modalClose.setAttribute("title", "Close");
+    modalClose.innerHTML = "&times";
+    modalClose.onclick = function () {
+      modalGallery.style.display = "none";
+    };
+
+    document.addEventListener("click", function (event) {
+      if (
+        !modalGallery.contains(event.target) &&
+        !imageList.contains(event.target)
+      ) {
+        modalGallery.style.display = "none";
+        Viewer.zoomImage = 1.5;
+        modalImage.style.transform = `scale(1.5)`;
+      }
+    });
+
+    modalGallery.appendChild(modalImage);
+    modalGallery.appendChild(modalClose);
+    for (let i = 0; imageElementsChildren.length - i >= 0; i++) {
+      if (
+        imageElementsChildren[i] !== undefined &&
+        imageElementsChildren[i].innerHTML !== undefined
+      ) {
+        var imgList = imageElementsChildren[i].getElementsByTagName("a");
+        for (let j = 0; j < imgList.length; j++) {
+          imgList[j].setAttribute("href", "#");
+          imgList[j].setAttribute("src", imgList[j].firstChild.src);
+          imgList[j].setAttribute("class", "image-list-item");
+        }
+        imgList = imageElementsChildren[i].getElementsByTagName("img");
+        //for single thumbnail
+        if (imgList.length == 1) {
+          imgList[0].style.maxWidth = "fit-content";
+          imgList[0].style.maxHeight = "180px";
+        }
+        for (let j = 0; j < imgList.length; j++) {
+          imgList[j].onclick = function () {
+            modalGallery.style.display = "block";
+            modalGallery.style.zIndex = 999;
+            imageList.style.zIndex = 0;
+            imageList.style.display = "hidden";
+            modalImage.src = this.src;
+          };
+        }
+        imageList.appendChild(imageElementsChildren[i]);
+      }
+    }
+    Viewer.fileElement[0].insertAdjacentElement("beforebegin", modalGallery);
+    mainElement.insertAdjacentElement("beforebegin", imageList);
+    //mainElement.insertBefore(imageList, fileElement[0]);
+  },
+
+  buildGallery() {
+    if (Viewer.fileElement && Viewer.fileElement?.length > 0) {
+      var mainElement = document.getElementById(Viewer.CONFIG.viewer.gallery.container);
+      var imageElements;
+      if (Viewer.CONFIG.viewer.gallery.imageClass !== "") {
+        imageElements = document.getElementsByClassName(
+          Viewer.CONFIG.viewer.gallery.imageClass
+        );
+        if (imageElements.length > 0) {
+          var galleryLabel = document.getElementsByClassName("field__label");
+          if (galleryLabel !== undefined) galleryLabel[0].innerText = "";
+        }
+      } else if (Viewer.CONFIG.viewer.gallery.imageId !== "") {
+        imageElements = document.getElementById(Viewer.CONFIG.viewer.gallery.imageId);
+      } else {
+        console.log("No gallery created");
+      }
+
+      if (imageElements !== null) {
+        if (imageElements.length > 0) {
+          if (imageElements[0].innerHTML !== undefined) {
+            let imagesList = Array.from(
+              imageElements[0].getElementsByClassName("field__items")[0]
+                .childNodes
+            );
+            Viewer.prepareGalleryImages(imagesList);
+            //imageElements[0].classList.add("field--type-image");
+            imageElements[0].classList.add("field--label-hidden");
+            imageElements[0].classList.add("field__items");
+            Viewer.handleImages(mainElement, imagesList, imageElements);
+          } else {
+            Viewer.handleImages(mainElement, imageElements);
+          }
+        } else if (
+          imageElements.childNodes !== undefined &&
+          imageElements.childNodes.length > 0
+        ) {
+          if (
+            typeof imageElements.childNodes[0].innerHTML == "string" ||
+            typeof imageElements.childNodes[1].innerHTML == "string"
+          ) {
+            //handle links and convert to img
+            let imagesList = Array.from(imageElements.childNodes);
+            Viewer.prepareGalleryImages(imagesList);
+            imageElements.classList.add("field--type-image");
+            imageElements.classList.add("field--label-hidden");
+            imageElements.classList.add("field__items");
+            Viewer.handleImages(mainElement, imagesList, imageElements);
+          } else {
+            Viewer.handleImages(mainElement, imageElements);
+          }
+        }
+      }
+    }
+  },
+
+  pickFaces(_id) {
+    if (lastPickedFace.id == "" && _id !== "") {
+      lastPickedFace = {
+        id: _id,
+        color: _id.object.material.color.getHex(),
+        object: _id.object.id,
+      };
+    } else if (_id == "" && lastPickedFace.id !== "") {
+      scene
+        .getObjectById(lastPickedFace.object)
+        .material.color = normalizeColor(lastPickedFace.color);
+      lastPickedFace = { id: "", color: "", object: "" };
+    } else if (_id != lastPickedFace.id) {
+      scene
+        .getObjectById(lastPickedFace.object)
+        .material.color = Viewer.normalizeColor(lastPickedFace.color);
+      lastPickedFace = {
+        id: _id,
+        color: _id.object.material.color.getHex(),
+        object: _id.object.id,
+      };
+    }
+    if (_id !== "") _id.object.material.color = normalizeColor(0xff0000);
+  },
+
+  buildRuler(_id) {
+    rulerObject = new THREE.Object3D();
+    var sphere = new THREE.Mesh(
+      new THREE.SphereGeometry(gridSize / 150, 7, 7),
+      new THREE.MeshNormalMaterial({
+        transparent: true,
+        opacity: 0.8,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        depthWrite: false,
+      })
+    );
+    var newPoint = new THREE.Vector3(_id.point.x, _id.point.y, _id.point.z);
+    sphere.position.set(newPoint.x, newPoint.y, newPoint.z);
+    rulerObject.add(sphere);
+    linePoints.push(newPoint);
+    const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
+    const line = new THREE.Line(lineGeometry, lineMaterial);
+    rulerObject.add(line);
+    var lineMtr = new THREE.LineBasicMaterial({
+      color: 0x0000ff,
+      linewidth: 3,
+      opacity: 1,
+      side: THREE.DoubleSide,
+      depthTest: false,
+      depthWrite: false,
+    });
+    if (linePoints.length > 1) {
+      var vectorPoints = vectorBetweenPoints(
+        linePoints[linePoints.length - 2],
+        newPoint
+      );
+      var distancePoints = distanceBetweenPointsVector(vectorPoints);
+
+      //var distancePoints = distanceBetweenPoints(linePoints[linePoints.length-2], newPoint);
+      var halfwayPoints = halfwayBetweenPoints(
+        linePoints[linePoints.length - 2],
+        newPoint
+      );
+      addTextPoint(distancePoints.toFixed(2), gridSize / 200, halfwayPoints);
+      var rulerI = 0;
+      var measureSize = gridSize / 400;
+      while (rulerI <= distancePoints * 100) {
+        const geoSegm = [];
+        var interpolatePoints = interpolateDistanceBetweenPoints(
+          linePoints[linePoints.length - 2],
+          vectorPoints,
+          distancePoints,
+          rulerI / 100
+        );
+        geoSegm.push(
+          new THREE.Vector3(
+            interpolatePoints.x,
+            interpolatePoints.y,
+            interpolatePoints.z
+          )
+        );
+        geoSegm.push(
+          new THREE.Vector3(
+            interpolatePoints.x + measureSize,
+            interpolatePoints.y + measureSize,
+            interpolatePoints.z + measureSize
+          )
+        );
+        const geometryLine = new THREE.BufferGeometry().setFromPoints(geoSegm);
+        var lineSegm = new THREE.Line(geometryLine, lineMtr);
+        rulerObject.add(lineSegm);
+        rulerI += 10;
+      }
+    }
+    rulerObject.renderOrder = 1;
+    scene.add(rulerObject);
+    ruler.push(rulerObject);
+  },
+
+
+  updateSize() {
+    const isFullscreen = !!document.fullscreenElement;
+    Viewer.FULLSCREEN = isFullscreen;
+
+    let widthCSS, heightCSS;  // CSS pixels (layout)
+    let widthDev, heightDev;  // Device pixels (Three.js)
+    let scale = {x: 1, y: 1};
+    let rect = {width: 1, height: 1};
+
+    if (isFullscreen) {
+        widthCSS = window.innerWidth;
+        heightCSS = window.innerHeight;
+        widthDev = widthCSS * devicePixelRatio;
+        heightDev = heightCSS * devicePixelRatio;
+
+        Viewer.mainCanvas.style.width = '100vw';
+        Viewer.mainCanvas.style.height = '100vh';
+        Viewer.fullscreenMode.style.left = (widthCSS - 40) + 'px';
+        Viewer.fullscreenMode.innerHTML = `<img src="${Viewer.DFG_ASSETS}exit-fullscreen.png" alt="Fullscreen" width=25 height=25 title="Exit fullscreen mode"/>`;
+    } else {
+      scale = {x: Number(Viewer.CONFIG.viewer.scaleContainer?.x || 1), y: Number(Viewer.CONFIG.viewer.scaleContainer?.y || 1)};
+      rect = Viewer.viewerWrapper.getBoundingClientRect();
+      widthCSS = (rect.width * scale.x) || 800;
+      heightCSS = (rect.height * scale.y) || 600;
+
+      widthDev = widthCSS * devicePixelRatio;
+      heightDev = heightCSS * devicePixelRatio;
+      Viewer.mainCanvas.style.width = widthCSS + 'px';
+      Viewer.mainCanvas.style.height = heightCSS + 'px';
+      
+      Viewer.metadataContainer.style.width = '100%';
+      Viewer.metadataContainer.style.height = '100%';
+      Viewer.downloadModel?.setAttribute("style", "visibility: visible");
+
+      if (Viewer.fileElement && Viewer.fileElement.length > 0) {
+        Viewer.fileElement[0].style.height = (heightCSS * 1.1) + 'px';
+      }
+      Viewer.fullscreenMode.style.left = (widthCSS - Viewer.fullscreenMode.getBoundingClientRect().width - 15) + 'px';
+      Viewer.guiContainer.style.left = (widthCSS - Viewer.lilGui[0]?.getBoundingClientRect().width) + 'px';
+    }
+
+    Viewer.mainCanvas.width = widthDev;
+    Viewer.mainCanvas.height = heightDev;
+
+    Viewer.fullscreenMode.style.top = (heightCSS - 40) + 'px';
+    if (Viewer.downloadModel && !isFullscreen) {
+      let _offset = (Viewer.CONFIG.lightweight) ? 130 : 70;
+      Viewer.downloadModel.style.top = (heightCSS - _offset) + 'px';
+    }
+    if (Viewer.viewEntity) {
+      Viewer.viewEntity.style.right = isFullscreen ? '-95%' : '-75%';
+    }
+   
+    Viewer.renderer.setPixelRatio(devicePixelRatio * scale.x);
+    Viewer.renderer.setSize(widthCSS*scale.x, heightCSS*scale.y, false);
+    Viewer.camera.aspect = widthCSS / heightCSS;
+    Viewer.camera.updateProjectionMatrix();
+    Viewer.controls?.update();
+    Viewer.CONFIG.viewer.canvasDimensions = { x: widthCSS, y: heightCSS };
+  },
+
+    // Three.js renderer needs actual pixel size
+
+  // Proper fullscreen toggle
+  async toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      Viewer.fullscreenMode.innerHTML = `<img src="${Viewer.DFG_ASSETS}exit-fullscreen.png" alt="Fullscreen" width=25 height=25 title="Exit fullscreen mode"/>`;
+      try {
+        await Viewer.container.requestFullscreen();
+        // fullscreenchange event will trigger updateSize()
+      } catch (err) {
+        console.error("Failed to enter fullscreen:", err);
+      }
+    } else {
+      Viewer.fullscreenMode.innerHTML = `<img src="${Viewer.DFG_ASSETS}fullscreen.png" alt="Fullscreen" width=25 height=25 title="Fullscreen mode"/>`;
+      await document.exitFullscreen();
+    }
+  },
+
+  exitFullscreenHandler() {
+    var fullscreenElement =
+      document.fullscreenElement ||
+      document.mozFullScreenElement ||
+      document.webkitFullscreenElement;
+    var fullscreenElement2 =
+      document.webkitIsFullScreen &&
+      document.mozFullScreen &&
+      document.msFullscreenElement;
+    if (
+      !fullscreenElement &&
+      typeof (fullscreenElement2 === undefined) &&
+      Viewer.FULLSCREEN
+    ) {
+      fullscreen();
+    }
+  },
+
+  updateHandAnimation: (time) => {
+    const g = core.GESTURE;
+    if (!g.active || !g.baseAngle || !g.target) return;
+
+    const t = (time - g.startTime) / 1000;
+    const s = Math.sin((t / core.GESTURE.period) * Math.PI * 2);
+
+    // EASE-IN (smoothstep)
+    const ei = Math.min(t / g.easeInTime, 1);
+    const ease = ei * ei * (3 - 2 * ei); // smoothstep(0..1)
+
+    // hand icon
+    core.handHint.style.setProperty(
+      '--hand-x',
+      `${s * core.GESTURE.handPx}px`
+    );
+
+    // camera - orbit
+    const sph = g.baseAngle.clone();
+    sph.theta = g.baseAngle.theta + s * core.GESTURE.orbitAngle * ease;
+
+
+    core.camera.position
+      .setFromSpherical(sph)
+      .add(g.target);
+
+    core.camera.lookAt(g.target);
+  },
+
+  startGesture: (time) => {
+    const g = core.GESTURE;
+    if (g.active) return;
+
+    g.rotate = true;
+    g.startTime = time;
+    g.active = true;
+
+    g.target = core.controls.target.clone();
+
+    g.baseAngle = new THREE.Spherical().setFromVector3(
+      core.camera.position.clone().sub(g.target)
+    );
+
+    core.controls.enabled = false;
+  },
+
+  stopGesture: () => {
+    const g = core.GESTURE;
+    if (!g.active) return;
+    g.rotate = false;
+    g.active = false;
+
+    core.controls.target.copy(g.target);
+
+    core.controls.object.position.copy(core.camera.position);
+    core.controls.update();
+    core.controls.enabled = true;
+
+    g.baseAngle = null;
+    g.target = null;
+  },
+
+  animate: (time) => {
+    requestAnimationFrame(Viewer.animate);
+
+    // =========================
+    // GESTURE LIFECYCLE
+    // =========================
+    const canGesture =
+      !window.__E2E__ &&
+      !core.handHint.hidden;
+
+    if (canGesture && core.GESTURE.rotate && !core.GESTURE.active ) {
+      Viewer.startGesture(time);
+    }
+
+    if (core.GESTURE.active && (!core.GESTURE.rotate || !canGesture)) {
+      Viewer.stopGesture();
+    }
+
+    // =========================
+    // GESTURE UPDATE
+    // =========================
+    Viewer.updateHandAnimation(time);
+
+    // =========================
+    // LOOP UPDATE
+    // =========================
+    const delta = Viewer.clock.getDelta();
+    if (Viewer.mixer) {
+      Viewer.mixer.update(delta);
+    }
+
+    if (core.handHint.hidden && !core.GESTURE.active) {
+      core.cameraTween.update(time);
+      core.targetTween.update(time);
+    }
+
+    if (!core.GESTURE.active) {
+      Viewer.controls?.update();
+    }
+
+    if (Viewer.textMesh !== null) {
+      Viewer.textMesh.lookAt(Viewer.camera.position);
+    }
+
+    Viewer.renderer.clear();
+    Viewer.renderer.render(Viewer.scene, Viewer.camera);
+    Viewer.stats.update();
+  },
+
+  onPointerDown(e) {
+    Viewer.disableInteractionHint();
+    e.stopPropagation();
+    if (e.button === 0) {
+      Viewer.onDownPosition.x =
+        ((e.clientX - Viewer.mainCanvas.getBoundingClientRect().left) /
+          Viewer.renderer.domElement.clientWidth) *
+        2 -
+        1;
+      Viewer.onDownPosition.y =
+        -(
+          (e.clientY - Viewer.mainCanvas.getBoundingClientRect().top) /
+          Viewer.renderer.domElement.clientHeight
+        ) *
+        2 +
+        1;
+    }
+  },
+
+  onPointerUp(e) {
+    if (e.button == 0) {
+      Viewer.onUpPosition.x =
+        ((e.clientX - Viewer.mainCanvas.getBoundingClientRect().left) /
+          Viewer.renderer.domElement.clientWidth) *
+        2 -
+        1;
+      Viewer.onUpPosition.y =
+        -(
+          (e.clientY - Viewer.mainCanvas.getBoundingClientRect().top) /
+          Viewer.renderer.domElement.clientHeight
+        ) *
+        2 +
+        1;
+      if (
+        Viewer.onUpPosition.x === Viewer.onDownPosition.x &&
+        Viewer.onUpPosition.y === Viewer.onDownPosition.y
+      ) {
+        Viewer.raycaster.setFromCamera(Viewer.onUpPosition, Viewer.camera);
+        var intersects;
+
+        if (Viewer.EDITOR || Viewer.RULER_MODE) {
+          if (Viewer.mainObject.length > 1) {
+            for (let ii = 0; ii < Viewer.mainObject.length; ii++) {
+              intersects = Viewer.raycaster.intersectObjects(
+                Viewer.mainObject[ii].children,
+                true
+              );
+            }
+            if (intersects.length <= 0) {
+              intersects = Viewer.raycaster.intersectObjects(Viewer.mainObject, true);
+            }
+          } else {
+            intersects = Viewer.raycaster.intersectObject(Viewer.mainObject[0], true);
+          }
+          if (intersects.length > 0) {
+            if (Viewer.RULER_MODE) buildRuler(intersects[0]);
+            else if (Viewer.EDITOR) pickFaces(intersects[0]);
+          }
+        }
+      }
+    }
+  },
+
+  onPointerMove(e) {
+    Viewer.pointer.x =
+      ((e.clientX - Viewer.mainCanvas.getBoundingClientRect().left) /
+        Viewer.renderer.domElement.clientWidth) *
+      2 -
+      1;
+    Viewer.pointer.y =
+      -(
+        (e.clientY - Viewer.mainCanvas.getBoundingClientRect().top) /
+        Viewer.renderer.domElement.clientHeight
+      ) *
+      2 +
+      1;
+    if (e.buttons !== 0) {
+      Viewer.disableInteractionHint();
+    }
+    if (e.buttons == 1) {
+      if (Viewer.pointer.x !== Viewer.onDownPosition.x && Viewer.pointer.y !== Viewer.onDownPosition.y) {
+        Viewer.cameraLight.position.set(
+          Viewer.camera.position.x,
+          Viewer.camera.position.y,
+          Viewer.camera.position.z
+        );
+      }
+    } else {
+      if (this.EDITOR) {
+        Viewer.raycaster.setFromCamera(Viewer.pointer, Viewer.camera);
+        var intersects;
+        if (Viewer.mainObject.length > 1) {
+          for (let ii = 0; ii < Viewer.mainObject.length; ii++) {
+            intersects = Viewer.raycaster.intersectObjects(
+              Viewer.mainObject[ii].children,
+              true
+            );
+          }
+          if (intersects.length <= 0) {
+            intersects = Viewer.raycaster.intersectObjects(Viewer.mainObject, true);
+          }
+        } else {
+          intersects = Viewer.raycaster.intersectObject(Viewer.mainObject[0], true);
+        }
+        if (intersects.length > 0) {
+          pickFaces(intersects[0]);
+        } else {
+          pickFaces("");
+        }
+      }
+    }
+  },
+
+  async changeScale() {
+    if (Viewer.transformControl.getMode() === "scale") {
+      switch (Viewer.transformControl.axis) {
+        case "X":
+        case "XY":
+          Viewer.helperObjects[0].scale.set(
+            Viewer.helperObjects[0].scale.x,
+            Viewer.helperObjects[0].scale.x,
+            Viewer.helperObjects[0].scale.x
+          );
+          break;
+        case "Y":
+        case "YZ":
+          Viewer.helperObjects[0].scale.set(
+            Viewer.helperObjects[0].scale.y,
+            Viewer.helperObjects[0].scale.y,
+            Viewer.helperObjects[0].scale.y
+          );
+          break;
+        case "Z":
+        case "XZ":
+          Viewer.helperObjects[0].scale.set(
+            Viewer.helperObjects[0].scale.x,
+            Viewer.helperObjects[0].scale.x,
+            Viewer.helperObjects[0].scale.x
+          );
+          break;
+      }
+    }
+  },
+
+  async calculateObjectScale() {
+    const boundingBox = new THREE.Box3();
+    if (Array.isArray(Viewer.helperObjects[0])) {
+      for (let i = 0; i < Viewer.helperObjects[0].length; i++) {
+        boundingBox.setFromObject(Viewer.object[i]);
+      }
+    } else {
+      boundingBox.setFromObject(Viewer.helperObjects[0]);
+    }
 
     var middle = new THREE.Vector3();
     var size = new THREE.Vector3();
     boundingBox.getSize(size);
-	// ground
-	var _distance = new THREE.Vector3(Math.abs(boundingBox.max.x - boundingBox.min.x), Math.abs(boundingBox.max.y - boundingBox.min.y), Math.abs(boundingBox.max.z - boundingBox.min.z));
-	distanceGeometry = _distance;
-	planeParams.planeX.constant = clippingFolder.controllers[1]._max = clippingPlanes[ 0 ].constant = _distance.x;
-	clippingFolder.controllers[1]._min = -clippingFolder.controllers[1]._max;
-	planeParams.planeY.constant = clippingFolder.controllers[3]._max = clippingPlanes[ 1 ].constant = _distance.y;
-	clippingFolder.controllers[3]._min = -clippingFolder.controllers[3]._max;
-	planeParams.planeZ.constant = clippingFolder.controllers[5]._max = clippingPlanes[ 2 ].constant = _distance.z;
-	clippingFolder.controllers[5]._min = -clippingFolder.controllers[5]._max;
-	clippingFolder.controllers[1].updateDisplay();
-	clippingFolder.controllers[3].updateDisplay();
-	clippingFolder.controllers[5].updateDisplay();
-	var _maxDistance = Math.max(_distance.x, _distance.y, _distance.z);
-	planeHelpers[0].size = planeHelpers[1].size = planeHelpers[2].size = _maxDistance;
+    // ground
+    var _distance = new THREE.Vector3(
+      Math.abs(boundingBox.max.x - boundingBox.min.x),
+      Math.abs(boundingBox.max.y - boundingBox.min.y),
+      Math.abs(boundingBox.max.z - boundingBox.min.z)
+    );
+    Viewer.distanceGeometry = _distance;
+    setCore("distanceGeometry", Viewer.distanceGeometry);
+    Viewer.planeParams.planeX.constantZ =
+      Viewer.clippingFolder.controllers[1]._max =
+      Viewer.clippingPlanes[0].constant =
+      _distance.x;
+    Viewer.clippingFolder.controllers[1]._min = -Viewer.clippingFolder.controllers[1]._max;
+    Viewer.planeParams.planeY.constantY =
+      Viewer.clippingFolder.controllers[3]._max =
+      Viewer.clippingPlanes[1].constant =
+      _distance.y;
+    Viewer.clippingFolder.controllers[3]._min = -Viewer.clippingFolder.controllers[3]._max;
+    Viewer.planeParams.planeZ.constantZ =
+      Viewer.clippingFolder.controllers[5]._max =
+      Viewer.clippingPlanes[2].constant =
+      _distance.z;
+    Viewer.clippingFolder.controllers[5]._min = -Viewer.clippingFolder.controllers[5]._max;
+    Viewer.clippingFolder.controllers[1].updateDisplay();
+    Viewer.clippingFolder.controllers[3].updateDisplay();
+    Viewer.clippingFolder.controllers[5].updateDisplay();
+    var _maxDistance = Math.max(_distance.x, _distance.y, _distance.z);
+    Viewer.planeHelpers[0].size =
+      Viewer.planeHelpers[1].size =
+      Viewer.planeHelpers[2].size =
+      _maxDistance;
+  },
+
+  changeLightRotation() {
+    Viewer.lightHelper.update();
+  },
+
+  takeScreenshot() {
+    /*const messDiv = document.createElement('div');
+    messDiv.classList.add('message');
+    document.body.appendChild(messDiv);*/
+    Viewer.camera.aspect = 1;
+    Viewer.camera.updateProjectionMatrix();
+    Viewer.renderer.setSize(256, 256);
+    Viewer.renderer.render(Viewer.scene, Viewer.camera);
+    var prependName = "";
+    if (this.fileObject.archiveType !== "") {
+      prependName = this.fileObject.basename + "_" + this.archiveType.toUpperCase() + "/";
+    }
+
+    Viewer.mainCanvas.toBlob((imgBlob) => {
+      if (!imgBlob) {
+        console.error("Failed to capture screenshot");
+        return;
+      }
+
+      if (!(imgBlob instanceof Blob) || imgBlob.size === 0) {
+        console.error("Invalid blob data");
+        return;
+      }
+
+      if (!["image/png", "image/jpeg"].includes(imgBlob.type)) {
+        console.error("Invalid blob type:", imgBlob.type);
+        return;
+      }
+      const fileform = new FormData();
+      fileform.append("path", this.fileObject.path);
+      fileform.append("filename", this.fileObject.basename);
+      //fileform.append("path", uri + prependName);
+      fileform.append("data", imgBlob, "thumbnail.png");
+      console.log("Uploading thumbnail for entity ID:", Viewer.entityID);
+      fileform.append("wisski_individual", Viewer.entityID);
+      fetch(Viewer.CONFIG.mainUrl + "/api/editor/upload-thumbnail", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "X-CSRF-Token": window.CSRF_TOKEN
+        },
+        body: fileform
+      })
+      .then(async (res) => {
+        //console.log("HTTP STATUS:", res.status);
+        const text = await res.text();
+        //console.log("RAW RESPONSE:", text);
+        const data = text ? JSON.parse(text) : {};
+        if (!res.ok) throw new Error(data.error || "Upload failed");
+        return data;
+      })
+    }, "image/png");
+
+    Viewer.renderer.setPixelRatio(devicePixelRatio);
+    Viewer.camera.aspect = Viewer.CONFIG.viewer.canvasDimensions.x / Viewer.CONFIG.viewer.canvasDimensions.y;
+    Viewer.camera.updateProjectionMatrix();
+    Viewer.renderer.setSize(Viewer.CONFIG.viewer.canvasDimensions.x, Viewer.CONFIG.viewer.canvasDimensions.y);
+  },
+
+  async mainLoadModel() {
+    console.log("Loading model with extension:", this._ext);
+    if (this._ext === "glb" || this._ext === "gltf") {
+      await loadModel({
+        fileObject: this.fileObject,
+        config: this.CONFIG,
+        getProxyPath: getProxyPath,
+        camera: this.camera,
+        lightObjects: this.lightObjects,
+        controls: this.controls,
+        scene: this.scene,
+        mainObject: this.mainObject,
+        gui: this.gui,
+        stats: this.stats,
+        entityID: this.entityID,
+        container: this.container,
+        metadataContainer: this.metadataContainer,
+        canvasText: this.canvasText,
+        bottomLineGUI: this.bottomLineGUI,
+        compressedFile: this.compressedFile,
+        viewEntity: this.viewEntity
+      });
+    } else if (
+      this._ext === "zip" ||
+      this._ext === "rar" ||
+      this._ext === "tar" ||
+      this._ext === "xz" ||
+      this._ext === "gz"
+    ) {
+      this.compressedFile = "_" + this._ext.toUpperCase() + "/";
+      this.fileObject.path = this.fileObject.path + this.fileObject.basename + this.compressedFile
+      this.fileObject.extension = "glb";
+      this.fileObject.newExtension = this._ext;
+      await loadModel(this.fileObject, config, getProxyPath, this.camera, this.lightObjects, this.controls, this.scene, this.mainObject, this.gui, this.stats,
+        this.entityID, this.container,
+        this.metadataContainer,
+        this.canvasText,
+        this.bottomLineGUI,
+        this.compressedFile,
+        this.viewEntity
+      );
+    } else {
+      //this.fileObject.extension = "glb";
+      if (this._ext === "glb") {
+        await loadModel(this.fileObject, this.CONFIG, getProxyPath, this.camera, this.lightObjects, this.controls, this.scene, this.mainObject, this.gui, this.stats,
+        this.entityID, this.container,
+        this.metadataContainer,
+        this.canvasText,
+        this.bottomLineGUI,
+        this.compressedFile,
+        this.viewEntity);
+      }
+      else await loadModel({
+        fileObject: this.fileObject,
+        config: this.CONFIG,
+        getProxyPath: getProxyPath,
+        camera: this.camera,
+        lightObjects: this.lightObjects,
+        controls: this.controls,
+        scene: this.scene,
+        mainObject: this.mainObject,
+        gui: this.gui,
+        stats: this.stats,
+        entityID: this.entityID,
+        container: this.container,
+        metadataContainer: this.metadataContainer,
+        canvasText: this.canvasText,
+        bottomLineGUI: this.bottomLineGUI,
+        compressedFile: this.compressedFile,
+        viewEntity: this.viewEntity
+      });
+      }
+  },
+
+  createClippingPlaneAxis(_number) {
+    var tempClippingControl = new TransformControls(this.camera, this.renderer.domElement);
+    tempClippingControl.space = "local";
+    tempClippingControl.mode = "translate";
+    tempClippingControl.addEventListener("change", this.render);
+    tempClippingControl.addEventListener("objectChange", function (event) {
+      switch (_number) {
+        case 0:
+          this.clippingPlanes[_number].constant =
+            event.target.children[0].pointEnd.x + this.distanceGeometry.x;
+          break;
+        case 1:
+          this.clippingPlanes[_number].constant =
+            event.target.children[0].pointEnd.y + this.distanceGeometry.y;
+          break;
+        case 2:
+          this.clippingPlanes[_number].constant =
+            event.target.children[0].pointEnd.z + this.distanceGeometry.z;
+          break;
+      }
+    });
+    tempClippingControl.addEventListener("dragging-changed", function (event) {
+      this.controls.enabled = !event.value;
+    });
+    return tempClippingControl;
+  },
+
+  resetCamera() {
+    var camPosition = this.camera.position;
+    let _tween = new Tween(camPosition)
+      .to(core.cameraCoords, 1500)
+      .onUpdate(() => {
+        this.camera.position.set(camPosition.x, camPosition.y, camPosition.z);
+        this.cameraLight.position.set(camPosition.x, camPosition.y, camPosition.z);
+        this.camera.updateProjectionMatrix();
+        this.controls.update();
+      })
+      .start();
+  },
+
+  buildMetadata(Viewer, rotateMetadata) {
+    const O = Viewer.originalMetadata;
+    const S = Viewer.saveProperties;
+
+    const M = {};
+
+    // --- OBJECT ---
+    M.objPosition = pick(
+      S.Position,
+      [
+        Viewer.helperObjects[0].position.x,
+        Viewer.helperObjects[0].position.y,
+        Viewer.helperObjects[0].position.z
+      ],
+      O.objPosition
+    );
+
+    M.objRotation = pick(
+      S.Rotation,
+      [rotateMetadata.x, rotateMetadata.y, rotateMetadata.z],
+      O.objRotation
+    );
+
+    M.objScale = pick(
+      S.Scale,
+      [
+        Viewer.helperObjects[0].scale.x,
+        Viewer.helperObjects[0].scale.y,
+        Viewer.helperObjects[0].scale.z
+      ],
+      O.objScale
+    );
+
+    // --- CAMERA ---
+    M.cameraPosition = pick(
+      S.Camera,
+      [
+        Viewer.camera.position.x,
+        Viewer.camera.position.y,
+        Viewer.camera.position.z
+      ],
+      O.cameraPosition
+    );
+
+    M.controlsTarget = pick(
+      S.Camera,
+      [
+        Viewer.controls.target.x,
+        Viewer.controls.target.y,
+        Viewer.controls.target.z
+      ],
+      O.controlsTarget
+    );
+
+    M.controlsZoom = pick(
+      S.Camera,
+      [
+        Viewer.camera.position.distanceTo(Viewer.controls.target)
+      ],
+      O.controlsZoom
+    );
+
+    // --- DIRECTIONAL LIGHT ---
+    M.lightPosition = pick(
+      S.DirectionalLight,
+      [
+        Viewer.dirLight.position.x,
+        Viewer.dirLight.position.y,
+        Viewer.dirLight.position.z
+      ],
+      O.lightPosition
+    );
+
+    M.lightTarget = pick(
+      S.DirectionalLight,
+      [
+        Viewer.dirLight.rotation._x,
+        Viewer.dirLight.rotation._y,
+        Viewer.dirLight.rotation._z
+      ],
+      O.lightTarget
+    );
+
+    M.lightColor = pick(
+      S.DirectionalLight,
+      ["#" + Viewer.dirLight.color.getHexString().toUpperCase()],
+      O.lightColor
+    );
+
+    M.lightIntensity = pick(
+      S.DirectionalLight,
+      [Viewer.dirLight.intensity],
+      O.lightIntensity
+    );
+
+    // --- AMBIENT LIGHT ---
+    M.lightAmbientColor = pick(
+      S.AmbientLight,
+      ["#" + Viewer.ambientLight.color.getHexString().toUpperCase()],
+      O.lightAmbientColor
+    );
+
+    M.lightAmbientIntensity = pick(
+      S.AmbientLight,
+      [Viewer.ambientLight.intensity],
+      O.lightAmbientIntensity
+    );
+
+    // --- CAMERA LIGHT ---
+    M.lightCameraColor = pick(
+      S.CameraLight,
+      ["#" + Viewer.cameraLight.color.getHexString().toUpperCase()],
+      O.lightCameraColor
+    );
+
+    M.lightCameraIntensity = pick(
+      S.CameraLight,
+      [Viewer.cameraLight.intensity],
+      O.lightCameraIntensity
+    );
+
+    // --- BACKGROUND ---
+    if (S.BackgroundColor) {
+      M.background = [
+        window.getComputedStyle(Viewer.mainCanvas).background
+      ];
+    } else {
+      M.background = O.background;
+    }
+
+    return M;
+  },
+
+
+  prepareStats () {
+      // stats
+      Viewer.stats = new Stats();
+      Viewer.stats.domElement.style.cssText =
+        "position:relative;top:0px;" +
+        "max-height:120px;max-width:90px;z-index:2;visibility:hidden;";
+
+      Viewer.windowHalfX = Viewer.CONFIG.viewer.canvasDimensions.x / 2;
+      Viewer.windowHalfY = Viewer.CONFIG.viewer.canvasDimensions.y / 2;
+
+      Viewer.editorFolder = Viewer.gui.addFolder("Editor").close();
+      Viewer.editorFolder
+        .add(Viewer.transformText, "Transform 3D Object", {
+          None: "",
+          Move: "translate",
+          Rotate: "rotate",
+          Scale: "scale",
+        })
+        .onChange(function (value) {
+          if (value === "") {
+            Viewer.transformControl.detach();
+            core.axesHelper.visible = false;
+          } else {
+            core.axesHelper.visible = true;
+            Viewer.renderer.localClippingEnabled = false;
+            Viewer.transformControl.mode = value;
+            Viewer.transformControl.attach(Viewer.helperObjects[0]);
+          }
+        });
+      Viewer.editorFolder
+        .add(Viewer.transformText, "Transform Mode", {
+          Local: "local",
+          Global: "global",
+        })
+        .onChange(function (value) {
+          Viewer.transformControl.space = value;
+        });
+      const lightFolder = Viewer.editorFolder.addFolder("Directional Light").close();
+      lightFolder
+        .add(Viewer.transformText, "Transform Light", {
+          None: "",
+          Move: "translate",
+          Target: "rotate",
+        })
+        .onChange(function (value) {
+          if (value === "") {
+            Viewer.transformControlLight.detach();
+            Viewer.transformControlLightTarget.detach();
+            Viewer.lightHelper.visible = false;
+          } else {
+            Viewer.lightHelper.visible = true;
+            if (value === "translate") {
+              Viewer.transformControlLight.mode = "translate";
+              Viewer.transformControlLight.attach(Viewer.dirLight);
+              Viewer.transformControlLightTarget.detach();
+            } else {
+              Viewer.transformControlLightTarget.mode = "translate";
+              Viewer.transformControlLightTarget.attach(Viewer.dirLightTarget);
+              Viewer.transformControlLight.detach();
+            }
+          }
+        });
+      lightFolder
+        .addColor(Viewer.colors, "DirectionalLight")
+        .onChange(function (value) {
+          Viewer.lightObjects[0].color = new THREE.Color(value);
+        })
+        .listen();
+      lightFolder
+        .add(Viewer.intensity, "startIntensityDir", 0, 10)
+        .onChange(function (value) {
+          Viewer.lightObjects[0].intensity = value;
+        })
+        .listen();
+
+      const lightFolderAmbient = Viewer.editorFolder.addFolder("Ambient Light").close();
+      lightFolderAmbient
+        .addColor(Viewer.colors, "AmbientLight")
+        .onChange(function (value) {
+          Viewer.ambientLight.color = new THREE.Color(value);
+        })
+        .listen();
+      lightFolderAmbient
+        .add(Viewer.intensity, "startIntensityAmbient", 0, 10)
+        .onChange(function (value) {
+          Viewer.ambientLight.intensity = value;
+        })
+        .listen();
+
+      const lightFolderCamera = Viewer.editorFolder.addFolder("Camera Light").close();
+      lightFolderCamera
+        .addColor(Viewer.colors, "CameraLight")
+        .onChange(function (value) {
+          Viewer.cameraLight.color = new THREE.Color(value);
+        })
+        .listen();
+      lightFolderCamera
+        .add(Viewer.intensity, "startIntensityCamera", 0, 10)
+        .onChange(function (value) {
+          Viewer.cameraLight.intensity = value;
+        })
+        .listen();
+
+      const backgroundFolder = Viewer.editorFolder.addFolder("Background Color").close();
+      backgroundFolder
+        .addColor(Viewer.colors, "BackgroundColor")
+        .onChange(function (value) {
+          changeBackground(
+            Viewer.backgroundType["Background Type"],
+            value,
+            Viewer.colors["BackgroundColorOuter"]
+          );
+        })
+        .listen();
+      Viewer.backgroundOuterFolder = backgroundFolder
+        .addColor(Viewer.colors, "BackgroundColorOuter")
+        .onChange(function (value) {
+          changeBackground(
+            Viewer.backgroundType["Background Type"],
+            Viewer.colors["BackgroundColor"],
+            value
+          );
+        })
+        .listen();
+      backgroundFolder
+        .add(Viewer.backgroundType, "Background Type", {
+          Linear: "linear",
+          Gradient: "gradient",
+        })
+        .onChange(function (value) {
+          if (value == "linear") Viewer.backgroundOuterFolder.hide();
+          else Viewer.backgroundOuterFolder.show();
+          changeBackground(
+            value,
+            Viewer.colors["BackgroundColor"],
+            Viewer.colors["BackgroundColorOuter"]
+          );
+        });
+
+      Viewer.clippingFolder = Viewer.editorFolder.addFolder("Clipping Planes").close();
+      setCore("clippingFolder", Viewer.clippingFolder);
+      Viewer.core.materialsFolder = Viewer.editorFolder.addFolder("Materials").close();
+      setCore("materialsFolder", Viewer.core.materialsFolder);
+
+      if (!Viewer.CONFIG.viewer.lightweight) {
+        Viewer.propertiesFolder = Viewer.editorFolder.addFolder("Save properties").close();
+        Viewer.propertiesFolder.add(Viewer.saveProperties, "Position");
+        Viewer.propertiesFolder.add(Viewer.saveProperties, "Rotation");
+        Viewer.propertiesFolder.add(Viewer.saveProperties, "Scale");
+        Viewer.propertiesFolder.add(Viewer.saveProperties, "Camera");
+        Viewer.propertiesFolder.add(Viewer.saveProperties, "DirectionalLight");
+        Viewer.propertiesFolder.add(Viewer.saveProperties, "AmbientLight");
+        Viewer.propertiesFolder.add(Viewer.saveProperties, "CameraLight");
+        Viewer.propertiesFolder.add(Viewer.saveProperties, "BackgroundColor");
+      }
+
+      if (Viewer.editor && !Viewer.CONFIG.viewer.lightweight) {
+        Viewer.editorFolder.add(
+          {
+            ["Save"]() {
+
+              var rotateMetadata = new THREE.Vector3(
+                THREE.MathUtils.radToDeg(Viewer.helperObjects[0].rotation.x),
+                THREE.MathUtils.radToDeg(Viewer.helperObjects[0].rotation.y),
+                THREE.MathUtils.radToDeg(Viewer.helperObjects[0].rotation.z)
+              );
+              var newMetadata = new Object();
+
+              //Fetch data from original metadata file anyway before saving any changes
+              if (Viewer.CONFIG.entity.proxyPath !== undefined) {
+                Viewer.metadataUrl = getProxyPath(Viewer.metadataUrl);
+              }
+
+              fetch(Viewer.metadataUrl, { cache: "no-cache" })
+                .then((response) => {
+                  if (response["status"] !== 404) {
+                    return response.json();
+                  } else {
+                    return (response = {});
+                  }
+                })
+                .then(async (_data) => {
+                  if (!_data) return;
+                  Viewer.originalMetadata = {
+                    ...Viewer.originalMetadata,
+                    ..._data
+                  };
+
+                  const newMetadata = buildMetadata(Viewer, rotateMetadata);
+
+                  const token = await fetch("/session/token").then(r => r.text());
+                  await fetch(Viewer.CONFIG.mainUrl + "/api/editor/save-metadata", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: {
+                      "Content-Type": "application/json",
+                      "X-CSRF-Token": token
+                    },
+                    body: JSON.stringify({
+                      filename: Viewer.fileObject.filename,
+                      path:
+                        Viewer.archiveType !== ""
+                          ? Viewer.fileObject.uri + Viewer.fileObject.basename + Viewer.compressedFile
+                          : Viewer.fileObject.uri,
+                      content: JSON.stringify(newMetadata, null, "\t")
+                    })
+                  });
+
+                  showToast("Settings have been saved.");
+                })
+              .catch((error) => {
+                console.log(error);
+                showToast("Error saving settings");
+            });
+            },
+          },
+          "Save"
+        );
+        if (!Viewer.CONFIG.viewer.lightweight) {
+          Viewer.editorFolder.add(
+            {
+              ["Picking mode"]() {
+                Viewer.EDITOR = !EDITOR;
+                var _str;
+                Viewer.EDITOR ? (_str = "enabled") : (_str = "disabled");
+                showToast("Face picking is " + _str);
+                if (!Viewer.EDITOR) {
+                } else {
+                  Viewer.RULER_MODE = false;
+                }
+              },
+            },
+            "Picking mode"
+          );
+        }
+        Viewer.editorFolder.add(
+          {
+            ["Distance Measurement"]() {
+              Viewer.RULER_MODE = !Viewer.RULER_MODE;
+              var _str;
+              Viewer.RULER_MODE ? (_str = "enabled") : (_str = "disabled");
+              showToast("Distance measurement mode is " + _str);
+              if (!RULER_MODE) {
+                Viewer.ruler.forEach((r) => {
+                  Viewer.scene.remove(r);
+                });
+                Viewer.rulerObject = new THREE.Object3D();
+                Viewer.ruler = [];
+                Viewer.linePoints = [];
+              } else {
+                Viewer.EDITOR = false;
+              }
+            },
+          },
+          "Distance Measurement"
+        );
+        if (!Viewer.CONFIG.viewer.lightweight) {
+          Viewer.editorFolder.add(
+            {
+              ["Render preview"]() {
+                Viewer.takeScreenshot();
+              },
+            },
+            "Render preview"
+          );
+        }
+        Viewer.editorFolder.add(
+          {
+            ["Reset camera position"]() {
+              Viewer.resetCamera();
+            },
+          },
+          "Reset camera position"
+        );
+      }
+    },
+
+  async init() {
+    if (!Viewer.renderer) {
+      Viewer.camera = new THREE.PerspectiveCamera(
+        45,
+        Viewer.CONFIG.viewer.canvasDimensions.x / Viewer.CONFIG.viewer.canvasDimensions.y,
+        0.001,
+        999000000
+      );
+      Viewer.camera.position.set(0, 0, 0);
+      setCore('camera', Viewer.camera);
+
+      Viewer.scene = new THREE.Scene();
+      setCore('scene', Viewer.scene);
+      setCore('activeScene', Viewer.activeScene);
+
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444);
+      hemiLight.position.set(0, 200, 0);
+      Viewer.scene.add(hemiLight);
+
+      Viewer.ambientLight = new THREE.AmbientLight(0x404040); // soft white light
+      Viewer.scene.add(Viewer.ambientLight);
+
+      setCore('ambientLight', Viewer.ambientLight);
+
+      Viewer.dirLight = new THREE.DirectionalLight(0xffffff);
+      Viewer.dirLight.position.set(0, 100, 50);
+      Viewer.dirLight.castShadow = true;
+      Viewer.dirLight.shadow.camera.top = 180;
+      Viewer.dirLight.shadow.camera.bottom = -100;
+      Viewer.dirLight.shadow.camera.left = -120;
+      Viewer.dirLight.shadow.camera.right = 120;
+      Viewer.dirLight.shadow.bias = -0.0001;
+      Viewer.dirLight.shadow.mapSize.width = 1024 * 4;
+      Viewer.dirLight.shadow.mapSize.height = 1024 * 4;
+      Viewer.scene.add(Viewer.dirLight);
+      Viewer.lightObjects.push(Viewer.dirLight);
+      setCore('dirLight', Viewer.dirLight);
+
+      Viewer.cameraLightTarget = new THREE.Object3D();
+      Viewer.cameraLightTarget.position.set(
+        Viewer.camera.position.x,
+        Viewer.camera.position.y,
+        Viewer.camera.position.z
+      );
+      Viewer.scene.add(Viewer.cameraLightTarget);
+      // Store in core
+      setCore('cameraLightTarget', Viewer.cameraLightTarget);
+
+      Viewer.cameraLight = new THREE.DirectionalLight(0xffffff);
+      Viewer.cameraLight.position.set(Viewer.camera.position);
+      Viewer.cameraLight.castShadow = false;
+      Viewer.cameraLight.intensity = 0.3;
+      Viewer.scene.add(Viewer.cameraLight);
+      Viewer.cameraLight.target = Viewer.cameraLightTarget;
+      // Store in core
+      setCore('cameraLight', Viewer.cameraLight);
+      Viewer.cameraLight.target.updateMatrixWorld();
+
+      Viewer.renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        logarithmicDepthBuffer: true,
+        colorManagement: true,
+        sortObjects: true,
+        preserveDrawingBuffer: true,
+        powerPreference: "high-performance",
+        alpha: true,
+      });
+      
+      Viewer.renderer.shadowMap.enabled = true;
+      Viewer.renderer.localClippingEnabled = true;
+      Viewer.renderer.physicallyCorrectLights = true; //can be considered as better looking
+      Viewer.renderer.autoClear = false;
+      Viewer.renderer.setClearColor(0x000000, 0.0);
+
+      Viewer.renderer.outputColorSpace = THREE.SRGBColorSpace;
+      Viewer.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      Viewer.renderer.toneMappingExposure = 0.65;
+      setCore('renderer', Viewer.renderer);
+
+      Viewer.renderer.domElement.id = "MainCanvas";
+      Viewer.mainCanvas = document.getElementById("MainCanvas") || Viewer.renderer.domElement;
+
+      if (window.__E2E__) {
+        document.body.appendChild(Viewer.renderer.domElement);
+      }
+
+      Viewer.renderer.domElement.addEventListener("pointerdown", Viewer.onPointerDown);
+      Viewer.renderer.domElement.addEventListener("pointerup", Viewer.onPointerUp);
+      Viewer.renderer.domElement.addEventListener("pointermove", Viewer.onPointerMove);
+
+      const devicePixelRatio = window.devicePixelRatio || 1;
+      Viewer.renderer.setSize(Viewer.CONFIG.viewer.canvasDimensions.x, Viewer.CONFIG.viewer.canvasDimensions.y);
+
+      if (isE2E) {
+        console.info('E2E MODE ENABLED');
+        renderer.setPixelRatio(1);
+        renderer.toneMappingExposure = 1;
+        disablePostProcessing();
+        window.viewer = {
+          e2eMode: true,
+          modelLoaded: false
+        };
+      } else {
+            Viewer.renderer.setPixelRatio(devicePixelRatio);
+      }
+      Viewer.renderer.domElement.style.width = Viewer.CONFIG.viewer.canvasDimensions.x + "px";
+      Viewer.renderer.domElement.style.height = Viewer.CONFIG.viewer.canvasDimensions.y + "px";
+
+      Viewer.renderer.domElement.style.display = "block";
+      Viewer.container.appendChild(Viewer.renderer.domElement);
+      Viewer.mainCanvas.classList.add("mainCanvas");
+      Viewer.canvasText = document.createElement("div");
+      Viewer.canvasText.id = "TextCanvas";
+      Viewer.canvasText.width = Viewer.CONFIG.viewer.canvasDimensions.x + "px";
+      Viewer.canvasText.height = Viewer.CONFIG.viewer.canvasDimensions.y + "px";
+
+      Viewer.viewerWrapper = Viewer.container.closest('.viewer-wrapper');
+
+      if (!Viewer.viewerWrapper) {
+        Viewer.viewerWrapper = Viewer.container.parentElement;
+        Viewer.viewerWrapper.classList.add('viewer-wrapper');
+      }
+
+      Viewer.camera.aspect = Viewer.CONFIG.viewer.canvasDimensions.x / Viewer.CONFIG.viewer.canvasDimensions.y;
+      Viewer.camera.updateProjectionMatrix();
+
+      setCore('mainCanvas', Viewer.mainCanvas);
+      Viewer.fullscreenMode = document.createElement("div");
+      Viewer.fullscreenMode.setAttribute("id", "fullscreenMode");
+      const scriptUrl = document.currentScript?.src || import.meta.url;
+      Viewer.DFG_ASSETS = scriptUrl.replace(/dfg_3dviewer-module\.js.*$/, 'assets/img/');
+
+      Viewer.fullscreenMode.innerHTML = `<img src="${Viewer.DFG_ASSETS}fullscreen.png" alt="Fullscreen" width=25 height=25 title="Fullscreen mode"/>`;
+      Viewer.fullscreenMode.setAttribute(
+        "style",
+        "top:" +
+        (Viewer.bottomLineGUI + 18) +
+        "px; left: " +
+        (Viewer.CONFIG.viewer.canvasDimensions.x - 40) +
+        "px"
+      );
+      Viewer.container.appendChild(Viewer.fullscreenMode);
+      document.getElementById("fullscreenMode").addEventListener("click", Viewer.toggleFullscreen, false);
+
+      Viewer.downloadModel = document.createElement("div");
+      setCore('downloadModel', Viewer.downloadModel);
+
+      Viewer.handHint.innerHTML = `<img src="${Viewer.DFG_ASSETS}hand-hint.png" alt="Fullscreen" width=48 height=48 title="Hand hint animation"/>`;
+      
+      Viewer.rect = this.container.getBoundingClientRect();
+      this.guiContainer.style.maxHeight = `${Viewer.rect.height - 20}px`;
+      Viewer.lilGui = document.getElementsByClassName("lil-gui root");
+      setCore('lilGui', Viewer.lilGui);
+
+      Viewer.fileElement = document.getElementsByClassName("field--type-file");
+      if (Viewer.fileElement.length > 0) {
+        Viewer.fileElement[0].style.height = Viewer.CONFIG.viewer.canvasDimensions.y * 1.1 + "px";
+      }
+
+      if (
+        Viewer.CONFIG.viewer.lightweight === 0 ||
+        Viewer.CONFIG.viewer.lightweight === false || 
+        Viewer.CONFIG.viewer.gallery?.build === true
+      ) {
+        Viewer.buildGallery();
+      }
+
+      Viewer.controls = new OrbitControls(Viewer.camera, Viewer.renderer.domElement);
+      Viewer.controls.target.set(0, 100, 0);
+      Viewer.controls.enableDamping = true;
+      Viewer.controls.dampingFactor = 0.05;
+      Viewer.controls.enableRotate = true;
+      Viewer.controls.update();
+      setCore('controls', Viewer.controls);
+      setCore('GESTURE', Viewer.GESTURE);
+      setCore('lastTime', Viewer.lastTime);
+      //Viewer.changeScale();
+      setCore('', Viewer.helperObjects);
+
+      Viewer.transformControl = new TransformControls(Viewer.camera, Viewer.renderer.domElement);
+      Viewer.transformControl.rotationSnap = THREE.MathUtils.degToRad(5);
+      Viewer.transformControl.space = "local";
+      Viewer.transformControl.addEventListener("change", Viewer.render);
+      Viewer.transformControl.addEventListener("objectChange", Viewer.changeScale);
+      Viewer.transformControl.addEventListener("mouseUp", Viewer.calculateObjectScale);
+      Viewer.transformControl.addEventListener("dragging-changed", function (event) {
+        Viewer.controls.enabled = !event.value;
+      });
+      Viewer.scene.add(Viewer.transformControl.getHelper());
+
+      Viewer.transformControlLight = new TransformControls(Viewer.camera, Viewer.renderer.domElement);
+      Viewer.transformControlLight.space = "local";
+      Viewer.transformControlLight.addEventListener("change", Viewer.render);
+      //Viewer.transformControlLight.addEventListener('objectChange', changeLightRotation);
+      Viewer.transformControlLight.addEventListener(
+        "dragging-changed",
+        function (event) {
+          Viewer.controls.enabled = !event.value;
+        }
+      );
+      Viewer.scene.add(Viewer.transformControlLight.getHelper());
+
+      Viewer.transformControlLightTarget = new TransformControls(
+        Viewer.camera,
+        Viewer.renderer.domElement
+      );
+      Viewer.transformControlLightTarget.space = "global";
+      Viewer.transformControlLightTarget.addEventListener("change", Viewer.render);
+      Viewer.transformControlLightTarget.addEventListener(
+        "objectChange",
+        Viewer.changeLightRotation
+      );
+      Viewer.transformControlLightTarget.addEventListener(
+        "dragging-changed",
+        function (event) {
+          Viewer.controls.enabled = !event.value;
+        }
+      );
+      Viewer.scene.add(Viewer.transformControlLightTarget.getHelper());
+
+      Viewer.transformControlClippingPlaneX = Viewer.createClippingPlaneAxis(0, "x");
+      Viewer.transformControlClippingPlaneY = Viewer.createClippingPlaneAxis(1, "y");
+      Viewer.transformControlClippingPlaneZ = Viewer.createClippingPlaneAxis(2, "z");
+      setCore('transformControlClippingPlaneX', Viewer.transformControlClippingPlaneX);
+      setCore('transformControlClippingPlaneY', Viewer.transformControlClippingPlaneY);
+      setCore('transformControlClippingPlaneZ', Viewer.transformControlClippingPlaneZ);
+
+      setCore('clippingPlanes', Viewer.clippingPlanes);
+
+      Viewer.transformControlClippingPlaneX.showX = Viewer.transformControlClippingPlaneX.showY = false;
+      Viewer.transformControlClippingPlaneY.showX = Viewer.transformControlClippingPlaneY.showY = false;
+      Viewer.transformControlClippingPlaneZ.showX = Viewer.transformControlClippingPlaneZ.showY = false;
+
+      Viewer.GESTURE.handPx *= Math.min(window.innerWidth / 1200, 1);
+
+      Viewer._ext = Viewer.fileObject.extension.toLowerCase();
+      if (
+        Viewer._ext === "zip" ||
+        Viewer._ext === "rar" ||
+        Viewer._ext === "tar" ||
+        Viewer._ext === "xz" ||
+        Viewer._ext === "gz"
+      ) {
+        Viewer.archiveType = Viewer._ext;
+      }
+
+      var _autoPath = "";
+      
+      if (Viewer.CONFIG.entity.metadata.source === "" && (Viewer.CONFIG.viewer.lightweight === 0 || Viewer.CONFIG.viewer.lightweight === false)) {
+        var req = new XMLHttpRequest();
+        req.responseType = "";
+        req.open(
+          "GET",
+          Viewer.CONFIG.metadataUrl + Viewer.CONFIG.viewer.exportPath + Viewer.entityID + "?page=0&amp;_format=xml",
+          true
+        );
+        req.onreadystatechange = async function (aEvt) {
+          if (req.readyState == 4) {
+            if (req.status == 200) {
+              const parser = new DOMParser();
+              const doc = parser.parseFromString(
+                req.responseText,
+                "application/xml"
+              );
+              if (doc.documentElement.childNodes > 0) {
+                var data = doc.documentElement.childNodes[0].childNodes;
+                if (typeof data !== undefined) {
+                  var _found = false;
+                  for (var i = 0; i < data.length && !_found; i++) {
+                    if (
+                      typeof data[i].tagName !== "undefined" &&
+                      typeof data[i].textContent !== "undefined"
+                    ) {
+                      var _label = data[i].tagName.replace(
+                        "wisski_path_3d_model__",
+                        ""
+                      );
+                      if (
+                        typeof _label !== "undefined" &&
+                        _label === "converted_file"
+                      ) {
+                        _found = true;
+                        _autoPath = data[i].textContent;
+                      }
+                    }
+                  }
+                }
+              }
+              //check wheter semo-automatic path found
+              if (_autoPath !== "") {
+                Viewer.fileObject.filename = _autoPath.split("/").pop();
+                Viewer.fileObject.basename = Viewer.fileObject.filename.substring(0, Viewer.fileObject.filename.lastIndexOf("."));
+                Viewer.fileObject.extension = Viewer.fileObject.filename.substring(Viewer.fileObject.filename.lastIndexOf(".") + 1);
+                Viewer._ext = Viewer.fileObject.extension.toLowerCase();
+                Viewer.fileObject.path = _autoPath.substring(0, _autoPath.lastIndexOf(Viewer.fileObject.filename));
+              }
+              await Viewer.mainLoadModel(Viewer._ext);
+            } else {
+              console.log("Error during loading metadata content\n");
+              await Viewer.mainLoadModel(Viewer._ext);
+            }
+          }
+        };
+        req.send(null);
+      } else if (Viewer.CONFIG.entity.metadata.source.toLowerCase().substring(0, 4) === "iiif") {
+          const formContainer = document.createElement("div");
+          formContainer.id = "form-IIIF";
+          formContainer.innerHTML = `
+            <div class="form-IIIF-group">
+              <input type="text" id="manifest-url" name="manifest-url" value="">
+              <button id="load-manifest-from-url">Load Manifest From URL</button>
+            </div>
+            <div class="form-IIIF-group">
+              <textarea id="manifest-text" name="manifest-text" rows="10"></textarea>
+              <p>
+                <button id="load-manifest-from-text">Load Manifest From Text</button>
+              </p>
+            </div>
+          `;
+
+        document.body.appendChild(formContainer);
+
+        async function setupIIIF(newUrlOrJson, type="url") {
+          if (type === "text") {
+            Viewer.iiifConfigURL.url = "";
+          } else {
+            Viewer.iiifConfigURL.url = newUrlOrJson;
+          }
+          const loadedIIIF = await loadIIIFManifest(newUrlOrJson);
+          if (loadedIIIF.modelUrls.length === 0) { // no 3D model found, use example model
+            loadedIIIF.modelUrls.push('https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb');
+            showToast("No 3D model found in IIIF manifest, loading example model.");
+          }
+          let ind = 0;
+          // reset scene
+          Viewer.mainObject.forEach((obj) => {
+            Viewer.scene.remove(obj);
+          });
+          Viewer.mainObject = [];
+          console.log("TOTAL Annotations: " + loadedIIIF.annotations.length);
+          if (loadedIIIF.annotations.length !== loadedIIIF.modelUrls.length) {
+            //console.warn("Number of annotations does not match number of model URLs, adding testing model...");
+              const diff = loadedIIIF.annotations.length - loadedIIIF.modelUrls.length;
+              if (diff > 0) {
+                // Need more model URLs → push empty strings (or null)
+                for (let i = 0; i < diff; i++) {
+                  loadedIIIF.modelUrls.push(Viewer.testModelURL);
+                  core.objectsConfig.models.push({name: "Test Model", url: Viewer.testModelURL});
+                }
+              }
+          }
+          for (const [i, url] of loadedIIIF.modelUrls?.entries()) {
+            core.objectsConfig.index = i;
+            Viewer.fileObject.originalPath = loadedIIIF.modelUrl = url;
+            //fileObject.originalPath = loadedIIIF.modelUrl;
+            Viewer.setModelPaths(Viewer.fileObject);
+            await getAnnotations(loadedIIIF, core.objectsConfig);
+            if (loadedIIIF.scenes && loadedIIIF.scenes.length > 0) {
+              core.objectsConfig.scenes = loadedIIIF.scenes;
+            }
+            Viewer._ext = Viewer.fileObject.extension.toLowerCase();
+            await Viewer.mainLoadModel(Viewer._ext);
+          }
+        }
+
+        function isUrlFlexible(string) {
+          try {
+            new URL(string);
+            return true;
+          } catch {
+            return /^(https?:\/\/)?([\w-]+\.)+[\w-]{2,}(\/\S*)?$/i.test(string);
+          }
+        }
+
+        function isValidJsonObject(text) {
+          try {
+            const parsed = JSON.parse(text);
+            return typeof parsed === 'object' && parsed !== null;
+          } catch {
+            return false;
+          }
+        }
+
+        async function loadIIIFURL() {
+          // create a small dropdown to switch iiif manifests at runtime
+          document.getElementById("iiif-dropdown").addEventListener("change", async (ev) => {
+            try {
+              if (ev.target.value !== Viewer.iiifConfigURL.url) {
+                core.objectsConfig.setupIndex = 0;
+                await setupIIIF(ev.target.value, "url");
+              }
+            } catch (err) {
+              console.error(err);
+              showToast("Error loading IIIF manifest: " + (err.message || err));
+            }
+            });
+
+          document.getElementById("load-manifest-from-url").addEventListener("click", async (ev) => {
+            try {
+              const inputElement = document.getElementById("manifest-url");
+              if (inputElement.value === "" || !isUrlFlexible(inputElement.value)) {
+                inputElement.style.border = "2px solid red";
+                showToast("Please enter a valid IIIF manifest URL.");
+                return;
+              } else {
+                inputElement.style.border = "2px solid green";
+                core.objectsConfig.setupIndex = 0;
+                console.log("Loading IIIF manifest from URL: " + inputElement.value);
+                await setupIIIF(inputElement.value, "url");
+              }
+            } catch (err) {
+              console.error(err);
+              showToast("Error loading IIIF manifest: " + (err.message || err));
+            }
+            });
+
+          document.getElementById("load-manifest-from-text").addEventListener("click", async (ev) => {
+            try {
+              const inputElement = document.getElementById("manifest-text");
+              if (inputElement.value === "" || !isValidJsonObject(inputElement.value)) {
+                inputElement.style.border = "2px solid red";
+                showToast("Please enter a valid IIIF JSON text.");
+                return;
+              } else {
+                inputElement.style.border = "2px solid green";
+                core.objectsConfig.setupIndex = 0;
+                console.log("Loading IIIF manifest from privided text");
+                await setupIIIF(inputElement.value, "text");
+              }
+            } catch (err) {
+              console.error(err);
+              showToast("Error loading IIIF manifest: " + (err.message || err));
+            }
+            });
+
+        }      
+        
+        switch(Viewer.CONFIG.entity.metadata.source.substring(0, 4).toLowerCase()) {
+          case "iiif":
+            if (Viewer.iiifConfigURL.url !== "") {
+              createIIIFDropdown(Viewer.container, Viewer.iiifConfigURL, Viewer.CONFIG.viewer.canvasDimensions);
+              await loadIIIFURL();
+              Viewer.CONFIG.entity.metadata.source = "IIIF";
+              await setupIIIF(Viewer.iiifConfigURL.url);
+            }
+            break;
+          case "file": //TODO: add more sources
+            break;
+        }
+      } else {
+      // statements to handle any exceptions
+    }
+
+
+      Viewer.renderer.setPixelRatio(devicePixelRatio);
+      const update = () => Viewer.updateSize();
+
+      window.addEventListener('resize', update);
+
+      Viewer.resizeObserver = new ResizeObserver(update);
+      Viewer.resizeObserver.observe(Viewer.viewerWrapper);
+      //window.addEventListener('resize', Viewer.updateSize);
+      document.addEventListener('fullscreenchange', Viewer.updateSize);
+      window.addEventListener('orientationchange', () => setTimeout(Viewer.updateSize, 100));
+    }
+  },
+  render() {
+    Viewer.controls?.update();
+    Viewer.renderer?.render(Viewer.scene, Viewer.camera);
+  }
+  
+};
+
+export async function expectWebGL(page) {
+  const hasWebGL = await page.evaluate(() => {
+    const canvas = document.querySelector('canvas');
+    if (!canvas) return false;
+    const gl =
+      canvas.getContext('webgl') ||
+      canvas.getContext('webgl2');
+    return !!gl;
+  });
+
+  if (!hasWebGL) {
+    throw new Error('WebGL context not available');
+  }
 }
 
-function changeLightRotation () {
-	lightHelper.update();
-}
-
-function takeScreenshot() {
-	/*const messDiv = document.createElement('div');
-	messDiv.classList.add('message');
-	document.body.appendChild(messDiv);*/
-	camera.aspect = 1;
-	camera.updateProjectionMatrix();
-	renderer.setSize(256, 256);
-    renderer.render(scene, camera);
-	var prependName = '';
-	if (archiveType !== '') {
-		prependName = basename+"_"+archiveType.toUpperCase()+"/";
-	}
-
-    mainCanvas.toBlob(imgBlob => {
-		const fileform = new FormData();
-		fileform.append('domain', CONFIG.mainUrl);
-		fileform.append('filename', basename);
-		fileform.append('path', uri+prependName);
-		fileform.append('data', imgBlob);
-		fileform.append('wisski_individual', entityID);
-		fetch(CONFIG.mainUrl + '/thumbnail_upload.php', {
-			method: 'POST',
-			body: fileform,
-		})
-		.then(response => {
-			console.log(response);
-			return response;
-		})
-		.then(data => {
-			if (data.error) { //Show server errors
-				showToast(data.error);
-			} else { //Show success message
-				showToast("Rendering saved successfully");
-			}
-		})
-		.catch(err => { //Handle js errors
-			showToast(err.message);
-		});
-	}, 'image/png');
-	renderer.setPixelRatio(window.devicePixelRatio);
-	camera.aspect = canvasDimensions.x / canvasDimensions.y;
-	camera.updateProjectionMatrix();
-	renderer.setSize(canvasDimensions.x, canvasDimensions.y);
-}
-
-function mainLoadModel (_ext) {
-	if (_ext === "glb" || _ext === "gltf") {
-		loadModel (path, basename, filename, extension, _ext);
-	}
-	else if  (_ext === "zip" || _ext === "rar" || _ext === "tar" || _ext === "xz" || _ext === "gz") {
-		compressedFile = "_" + _ext.toUpperCase() + "/";
-		loadModel (path+basename+compressedFile, basename, filename,  "glb", _ext);
-		//loadModel (path+basename+compressedFile+"gltf/", basename, filename,  "glb", _ext);
-	}
-	else {
-		if (_ext === "glb")
-			loadModel (path, basename, filename, "glb", extension);
-		else
-			loadModel (path, basename, filename, _ext, extension);
-	}
-}
-
-function createClippingPlaneAxis (_number) {
-	var tempClippingControl = new TransformControls(camera, renderer.domElement);
-	tempClippingControl.space = "local";
-	tempClippingControl.mode = "translate";
-	tempClippingControl.addEventListener('change', render);
-	tempClippingControl.addEventListener('objectChange', function (event) {
-		switch (_number) {
-			case 0:
-				clippingPlanes[_number].constant = event.target.children[0].pointEnd.x + distanceGeometry.x;
-			break;
-			case 1:
-				clippingPlanes[_number].constant = event.target.children[0].pointEnd.y + distanceGeometry.y;
-			break;
-			case 2:
-				clippingPlanes[_number].constant = event.target.children[0].pointEnd.z + distanceGeometry.z;
-			break;
-		}
-		
-	});
-	tempClippingControl.addEventListener('dragging-changed', function (event) {
-		controls.enabled = ! event.value;
-	});
-	return tempClippingControl;
-}
-
-function resetCamera() {
-	var camPosition = camera.position;
-    new TWEEN.Tween(camPosition)
-		.to(cameraCoords, 1500)
-		.onUpdate(() =>
-			{
-				camera.position.set(camPosition.x, camPosition.y, camPosition.z);
-				cameraLight.position.set(camPosition.x, camPosition.y, camPosition.z);
-				camera.updateProjectionMatrix();
-				controls.update();
-			}
-     ).start();	
-}
-
-function detectColorFormat(color) {
-	const hexRegex = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
-	const rgbRegex = /^rgb\((\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})\)$/;
-
-	if (hexRegex.test(color)) {
-		return "hex";
-	} else if (rgbRegex.test(color)) {
-		return "rgb";
-	} else {
-		return "unknown";
-	}
-}
-
-function hexToRgb(hex) {
-	// Remove the '#' if it exists
-	hex = hex.replace(/^#/, '');
-
-	// Handle shorthand hex (e.g., #FFF -> #FFFFFF)
-	if (hex.length === 3) {
-		hex = hex.split('').map(char => char + char).join('');
-	}
-
-	// Parse the hex into RGB components
-	const bigint = parseInt(hex, 16);
-	const r = (bigint >> 16) & 255;
-	const g = (bigint >> 8) & 255;
-	const b = bigint & 255;
-
-	return `rgb(${r}, ${g}, ${b})`;
-}
-
-function changeBackgroundHelper (_color1, _color2) {
-	mainCanvas.style.setProperty("background", "-moz-radial-gradient(circle, " + _color1 + " 0%, " + _color2 + " 100%)");
-	mainCanvas.style.setProperty("background", "-webkit-radial-gradient(circle, " + _color1 + " 0%, " + _color2 + " 100%)");
-	mainCanvas.style.setProperty("background", "radial-gradient(circle, " + _color1 + " 0%, " + _color2 + " 100%)");	
-}
-
-function changeBackground (_type, _color1, _color2) {
-	switch (_type) {
-		case 'linear':
-			changeBackgroundHelper(_color1, _color1);
-		break;
-		case 'gradient':
-			changeBackgroundHelper(_color1, _color2);
-		break;
-	}	
-}
-
-function init() {
-	camera = new THREE.PerspectiveCamera(45, canvasDimensions.x / canvasDimensions.y, 0.001, 999000000);
-	camera.position.set(0, 0, 0);
-
-	scene = new THREE.Scene();
-
-	const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444);
-	hemiLight.position.set(0, 200, 0);
-	scene.add(hemiLight);
-	
-	ambientLight = new THREE.AmbientLight(0x404040); // soft white light
-	scene.add(ambientLight);
-
-	dirLight = new THREE.DirectionalLight(0xffffff);
-	dirLight.position.set(0, 100, 50);
-	dirLight.castShadow = true;
-	dirLight.shadow.camera.top = 180;
-	dirLight.shadow.camera.bottom = - 100;
-	dirLight.shadow.camera.left = - 120;
-	dirLight.shadow.camera.right = 120;
-	dirLight.shadow.bias = -0.0001;
-	dirLight.shadow.mapSize.width = 1024*4;
-	dirLight.shadow.mapSize.height = 1024*4;
-	scene.add(dirLight);
-	lightObjects.push(dirLight);
-	
-	cameraLightTarget = new THREE.Object3D();
-	cameraLightTarget.position.set(camera.position.x, camera.position.y, camera.position.z);
-	scene.add(cameraLightTarget);
-
-	cameraLight = new THREE.DirectionalLight(0xffffff);
-	cameraLight.position.set(camera.position);
-	cameraLight.castShadow = false;
-	cameraLight.intensity = 0.3;
-	scene.add(cameraLight);
-	cameraLight.target = cameraLightTarget;
-	cameraLight.target.updateMatrixWorld();
-
-	renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true, colorManagement: true, sortObjects: true, preserveDrawingBuffer: true, powerPreference: "high-performance", alpha: true });
-	renderer.setPixelRatio(window.devicePixelRatio);
-	renderer.setSize(canvasDimensions.x, canvasDimensions.y);
-	renderer.shadowMap.enabled = true;
-	renderer.localClippingEnabled = true;
-	renderer.physicallyCorrectLights = true; //can be considered as better looking
-	renderer.autoClear = false;
-	renderer.setClearColor(0x000000, 0.0);
-	renderer.domElement.id = 'MainCanvas';
-	container.appendChild(renderer.domElement);
-
-	mainCanvas = document.getElementById("MainCanvas");
-	mainCanvas.setAttribute("style", "width:" + canvasDimensions.x+"px;" + " height:" + canvasDimensions.y+"px;" + " display: flex;");
-
-	canvasText = document.createElement('div');
-	canvasText.id = "TextCanvas";
-	canvasText.width = canvasDimensions.x;
-	canvasText.height = canvasDimensions.y;
-	
-	guiContainer.style.width = canvasDimensions.x;
-	guiContainer.style.left = container.offsetLeft + 'px';
-	lilGui = document.getElementsByClassName("lil-gui root");
-	lilGui[0].style.left = canvasDimensions.x - lilGui[0].getBoundingClientRect().width - 10 + 'px';
-	
-	fileElement = document.getElementsByClassName("field--type-file");
-	if (fileElement.length > 0) {
-		fileElement[0].style.height = canvasDimensions.y*1.1 + "px";
-	}
-
-	if (CONFIG.viewer.lightweight === 0 || CONFIG.viewer.lightweight === false) {
-		buildGallery();
-	}
-
-	controls = new OrbitControls(camera, renderer.domElement);
-	controls.target.set(0, 100, 0);
-	controls.update();
-	
-	transformControl = new TransformControls(camera, renderer.domElement);
-	transformControl.rotationSnap = THREE.MathUtils.degToRad(5);
-	transformControl.space = "local";
-	transformControl.addEventListener('change', render);
-	transformControl.addEventListener('objectChange', changeScale);
-	transformControl.addEventListener('mouseUp', calculateObjectScale);
-	transformControl.addEventListener('dragging-changed', function (event) {
-		controls.enabled = ! event.value
-	});
-	scene.add(transformControl.getHelper());
-	
-	transformControlLight = new TransformControls(camera, renderer.domElement);
-	transformControlLight.space = "local";
-	transformControlLight.addEventListener('change', render);
-	//transformControlLight.addEventListener('objectChange', changeLightRotation);
-	transformControlLight.addEventListener('dragging-changed', function (event) {
-		controls.enabled = ! event.value;
-	});
-	scene.add(transformControlLight.getHelper());
-
-	transformControlLightTarget = new TransformControls(camera, renderer.domElement);
-	transformControlLightTarget.space = "global";
-	transformControlLightTarget.addEventListener('change', render);
-	transformControlLightTarget.addEventListener('objectChange', changeLightRotation);
-	transformControlLightTarget.addEventListener('dragging-changed', function (event) {
-		controls.enabled = ! event.value;
-	});
-	scene.add(transformControlLightTarget.getHelper());
-
-	transformControlClippingPlaneX = createClippingPlaneAxis (0, 'x');
-	transformControlClippingPlaneY = createClippingPlaneAxis (1, 'y');
-	transformControlClippingPlaneZ = createClippingPlaneAxis (2, 'z');
-	
-	transformControlClippingPlaneX.showX = transformControlClippingPlaneX.showY = false;
-	transformControlClippingPlaneY.showX = transformControlClippingPlaneY.showY = false;
-	transformControlClippingPlaneZ.showX = transformControlClippingPlaneZ.showY = false;
-	
-	var _ext = extension.toLowerCase();
-	if  (_ext === "zip" || _ext === "rar" || _ext === "tar" || _ext === "xz" || _ext === "gz") {
-		archiveType = _ext;
-	}
-
-	var _autoPath='';
-	var req = new XMLHttpRequest();
-	req.responseType = '';
-	req.open('GET', CONFIG.metadataUrl + EXPORT_PATH + entityID + '?page=0&amp;_format=xml', true);
-	req.onreadystatechange = function (aEvt) {
-		if (req.readyState == 4) {
-			if(req.status == 200) {
-				const parser = new DOMParser();
-				const doc = parser.parseFromString(req.responseText, "application/xml");
-				if (doc.documentElement.childNodes > 0) {
-					var data = doc.documentElement.childNodes[0].childNodes;
-					if (typeof (data) !== undefined) {
-						var _found = false;
-						for(var i = 0; i < data.length && !_found; i++) {
-							if ((typeof (data[i].tagName) !== "undefined") && (typeof (data[i].textContent) !== "undefined")) {							
-								var _label = data[i].tagName.replace("wisski_path_3d_model__", "");
-								if (typeof(_label) !== "undefined" && _label === "converted_file") {
-									_found = true;
-									_autoPath = data[i].textContent;
-									console.log(_autoPath);
-								}
-							}
-						}
-					}
-				}
-				//check wheter semo-automatic path found
-				if (_autoPath !== '') {
-					filename = _autoPath.split("/").pop();
-					basename = filename.substring(0, filename.lastIndexOf('.'));
-					extension = filename.substring(filename.lastIndexOf('.') + 1);
-					_ext = extension.toLowerCase();
-					path = _autoPath.substring(0, _autoPath.lastIndexOf(filename));
-				}
-				mainLoadModel(_ext);
-			}
-			else {
-				console.log("Error during loading metadata content\n");
-				mainLoadModel (_ext);
-			}
-		}
-	};
-	req.send(null);
-	/*try {
-
-	} catch (e) {
-		// statements to handle any exceptions
-		loadModel(path, basename, filename, extension);
-	}*/
-
-
-	container.addEventListener('pointerdown', onPointerDown);
-	container.addEventListener('pointerup', onPointerUp);
-	container.addEventListener('pointermove', onPointerMove);
-	window.addEventListener('resize', onWindowResize);
-
-	fullscreenMode = document.createElement('div');
-	fullscreenMode.setAttribute('id', 'fullscreenMode');
-	fullscreenMode.innerHTML = "<img src='" + CONFIG.baseModulePath + "/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
-	fullscreenMode.setAttribute('style', 'top:' + (bottomLineGUI + 20) + 'px; left: ' + (canvasDimensions.x - 36) + 'px');
-	container.appendChild(fullscreenMode);
-	document.getElementById ("fullscreenMode").addEventListener ("click", fullscreen, false);
-	if (document.addEventListener) {
-		document.addEventListener('webkitfullscreenchange', exitFullscreenHandler, false);
-		document.addEventListener('mozfullscreenchange', exitFullscreenHandler, false);
-		document.addEventListener('fullscreenchange', exitFullscreenHandler, false);
-		document.addEventListener('MSFullscreenChange', exitFullscreenHandler, false);
-	}
-
-	// stats
-	stats = new Stats();
-	stats.domElement.style.cssText = 'position:relative;top:0px;left:' + (canvasDimensions.x - 90) +'px;max-height:120px;max-width:90px;z-index:2;visibility:hidden;';
-	
-	windowHalfX = canvasDimensions.x / 2;
-	windowHalfY = canvasDimensions.y / 2;
-	
-	const editorFolder = gui.addFolder('Editor').close();
-	editorFolder.add(transformText, 'Transform 3D Object', { None: '', Move: 'translate', Rotate: 'rotate', Scale: 'scale' }).onChange(function (value)
-	{ 
-		if (value === '') { transformControl.detach(); } 
-		else {
-			renderer.localClippingEnabled = false;
-			transformControl.mode = value;
-			transformControl.attach(helperObjects[0]);
-		}
-	});
-	editorFolder.add(transformText, 'Transform Mode', { Local: 'local', Global: 'global' }).onChange(function (value)
-	{ 
-		transformControl.space = value;
-	});
-	const lightFolder = editorFolder.addFolder('Directional Light').close();
-	lightFolder.add(transformText, 'Transform Light', { None: '', Move: 'translate', Target: 'rotate' }).onChange(function (value)
-	{ 
-		if (value === '') { transformControlLight.detach(); transformControlLightTarget.detach(); lightHelper.visible = false; } else {
-			if (value === "translate") {
-				transformControlLight.mode = "translate";
-				transformControlLight.attach(dirLight);
-				lightHelper.visible = true;
-				transformControlLightTarget.detach();
-			}
-			else {
-				transformControlLightTarget.mode = "translate";
-				transformControlLightTarget.attach(dirLightTarget);
-				lightHelper.visible = true;
-				transformControlLight.detach();
-			}
-		}
-	});
-	lightFolder.addColor (colors, 'DirectionalLight').onChange(function (value) {
-		lightObjects[0].color = new THREE.Color(value);
-	}).listen();
-	lightFolder.add(intensity, 'startIntensityDir', 0, 10).onChange(function (value) {
-		lightObjects[0].intensity = value;
-	}).listen();
-
-	const lightFolderAmbient = editorFolder.addFolder('Ambient Light').close();
-	lightFolderAmbient.addColor (colors, 'AmbientLight').onChange(function (value) {
-		ambientLight.color = new THREE.Color(value);
-	}).listen();
-	lightFolderAmbient.add(intensity, 'startIntensityAmbient', 0, 10).onChange(function (value) {
-		ambientLight.intensity = value;
-	}).listen();
-
-	const lightFolderCamera = editorFolder.addFolder('Camera Light').close();
-	lightFolderCamera.addColor (colors, 'CameraLight').onChange(function (value) {
-		cameraLight.color = new THREE.Color(value);
-	}).listen();
-	lightFolderCamera.add(intensity, 'startIntensityCamera', 0, 10).onChange(function (value) {
-		cameraLight.intensity = value;
-	}).listen();
-
-	const backgroundFolder = editorFolder.addFolder('Background Color').close();
-	backgroundFolder.addColor (colors, 'BackgroundColor').onChange(function (value) {
-		changeBackground(backgroundType['Background Type'], value, colors['BackgroundColorOuter']);
-	}).listen();
-	backgroundOuterFolder = backgroundFolder.addColor (colors, 'BackgroundColorOuter').onChange(function (value) {
-		changeBackground(backgroundType['Background Type'], colors['BackgroundColor'], value);
-	}).listen();
-	backgroundFolder.add(backgroundType, 'Background Type', { 'Linear': 'linear', 'Gradient': 'gradient' }).onChange(function (value)
-	{
-		if (value == "linear")
-			backgroundOuterFolder.hide();
-		else
-			backgroundOuterFolder.show();
-		changeBackground(value, colors['BackgroundColor'], colors['BackgroundColorOuter']);
-	});
-	
-	clippingFolder = editorFolder.addFolder('Clipping Planes').close();
-	materialsFolder = editorFolder.addFolder('Materials').close();
-
-	if (!CONFIG.viewer.lightweight) {
-		propertiesFolder = editorFolder.addFolder('Save properties').close();
-		propertiesFolder.add(saveProperties, 'Position');
-		propertiesFolder.add(saveProperties, 'Rotation');
-		propertiesFolder.add(saveProperties, 'Scale');
-		propertiesFolder.add(saveProperties, 'Camera');
-		propertiesFolder.add(saveProperties, 'DirectionalLight');
-		propertiesFolder.add(saveProperties, 'AmbientLight');
-		propertiesFolder.add(saveProperties, 'CameraLight');
-		propertiesFolder.add(saveProperties, 'BackgroundColor');
-	}
-
-	if (editor && !CONFIG.viewer.lightweight) {
-		editorFolder.add({["Save"] () {
-			var xhr = new XMLHttpRequest(),
-			jsonArr,
-			method = "POST",
-			jsonRequestURL = CONFIG.mainUrl + "/editor.php";
-
-			xhr.open(method, jsonRequestURL, true);
-			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-			var params;
-			var rotateMetadata = new THREE.Vector3(THREE.MathUtils.radToDeg(helperObjects[0].rotation.x),THREE.MathUtils.radToDeg(helperObjects[0].rotation.y),THREE.MathUtils.radToDeg(helperObjects[0].rotation.z));
-			var newMetadata = new Object();
-
-			//Fetch data from original metadata file anyway before saving any changes
-			//var originalMetadata = [];
-			//var metadataUrl = path.replace("gltf/", "") + "metadata/" + filename + "_viewer";
-			if (CONFIG.entity.proxyPath !== undefined) {
-				metadataUrl = getProxyPath(metadataUrl);
-			}
-
-			fetch(metadataUrl, {cache: "no-cache"})
-			.then((response) => {
-				if (response['status'] !== 404) {
-					return response.json();
-				}
-				else {
-					return response = {};
-				}
-			})
-			.then(_data => {
-				if (typeof (_data) !== "undefined") {
-					if (typeof (_data["objPosition"]) !== "undefined") originalMetadata["objPosition"] = _data["objPosition"];
-					if (typeof (_data["objRotation"]) !== "undefined") originalMetadata["objRotation"] = _data["objRotation"];
-					if (typeof (_data["objScale"]) !== "undefined") originalMetadata["objScale"] = _data["objScale"];
-					if (typeof (_data["cameraPosition"]) !== "undefined") originalMetadata["cameraPosition"] = _data["cameraPosition"];
-					if (typeof (_data["controlsTarget"]) !== "undefined") originalMetadata["controlsTarget"] = _data["controlsTarget"];
-					if (typeof (_data["lightPosition"]) !== "undefined") originalMetadata["lightPosition"] = _data["lightPosition"];
-					if (typeof (_data["lightTarget"]) !== "undefined") originalMetadata["lightTarget"] = _data["lightTarget"];
-					if (typeof (_data["lightColor"]) !== "undefined") originalMetadata["lightColor"] = _data["lightColor"];
-					if (typeof (_data["lightIntensity"]) !== "undefined") originalMetadata["lightIntensity"] = _data["lightIntensity"];
-					if (typeof (_data["lightAmbientColor"]) !== "undefined") originalMetadata["lightAmbientColor"] = _data["lightAmbientColor"];
-					if (typeof (_data["lightAmbientIntensity"]) !== "undefined") originalMetadata["lightAmbientIntensity"] = _data["lightAmbientIntensity"];
-					if (typeof (_data["lightCameraColor"]) !== "undefined") originalMetadata["lightCameraColor"] = _data["lightCameraColor"];
-					if (typeof (_data["lightCameraIntensity"]) !== "undefined") originalMetadata["lightCameraIntensity"] = _data["lightCameraIntensity"];
-					if (typeof (_data["background"]) !== "undefined") originalMetadata["background"] = _data["background"];
-
-					if (saveProperties.Position) {
-						newMetadata = Object.assign(newMetadata, {"objPosition": [ helperObjects[0].position.x, helperObjects[0].position.y, helperObjects[0].position.z ]});
-					}
-					else {
-						newMetadata = Object.assign(newMetadata, {"objPosition": [ originalMetadata["objPosition"][0], originalMetadata["objPosition"][1], originalMetadata["objPosition"][2] ]});
-					}
-					
-					if (saveProperties.Rotation) {
-						newMetadata = Object.assign(newMetadata, {"objRotation": [ rotateMetadata.x, rotateMetadata.y, rotateMetadata.z ]});
-					}
-					else {
-						newMetadata = Object.assign(newMetadata, {"objRotation": [ originalMetadata["objRotation"][0], originalMetadata["objRotation"][1], originalMetadata["objRotation"][2] ]});
-					}
-					
-					if (saveProperties.Scale) {
-						newMetadata = Object.assign(newMetadata, {"objScale": [ helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z ]});
-					}
-					else {
-						newMetadata = Object.assign(newMetadata, {"objScale": [ originalMetadata["objScale"][0], originalMetadata["objScale"][1], originalMetadata["objScale"][2] ]});
-					}
-					
-					if (saveProperties.Camera) {
-						newMetadata = Object.assign(newMetadata, {
-							"cameraPosition": [ camera.position.x, camera.position.y, camera.position.z ],
-							"controlsTarget": [ controls.target.x, controls.target.y, controls.target.z ]
-						});
-					}
-					else {
-						newMetadata = Object.assign(newMetadata, {
-							"cameraPosition": [ originalMetadata["cameraPosition"][0], originalMetadata["cameraPosition"][1], originalMetadata["cameraPosition"][2] ],
-							"controlsTarget": [ originalMetadata["controlsTarget"][0], originalMetadata["controlsTarget"][1], originalMetadata["controlsTarget"][2] ]
-						});
-					}
-					
-					if (saveProperties.DirectionalLight) {
-						newMetadata = Object.assign(newMetadata, {
-							"lightPosition": [ dirLight.position.x, dirLight.position.y, dirLight.position.z ],
-							"lightTarget": [ dirLight.rotation._x, dirLight.rotation._y, dirLight.rotation._z ],
-							"lightColor": [ "#" + (dirLight.color.getHexString()).toUpperCase() ],
-							"lightIntensity": [ dirLight.intensity ]
-						});
-					}
-					else {
-						newMetadata = Object.assign(newMetadata, {
-							"lightPosition": [ originalMetadata["lightPosition"][0], originalMetadata["lightPosition"][1], originalMetadata["lightPosition"][2] ], 
-							"lightTarget": [ originalMetadata["lightTarget"][0], originalMetadata["lightTarget"][1], originalMetadata["lightTarget"][2] ],
-							"lightColor": [ originalMetadata["lightColor"][0] ],
-							"lightIntensity": [ originalMetadata["lightIntensity"][0] ]
-						});
-					}
-
-					if (saveProperties.AmbientLight) {
-						newMetadata = Object.assign(newMetadata, {
-							"lightAmbientColor": [ "#" + (ambientLight.color.getHexString()).toUpperCase() ],
-							"lightAmbientIntensity": [ ambientLight.intensity ]
-						});
-					}
-					else {
-						newMetadata = Object.assign(newMetadata, {
-							"lightAmbientColor": [ originalMetadata["lightAmbientColor"][0] ],
-							"lightAmbientIntensity": [ originalMetadata["lightAmbientIntensity"][0] ],
-						});
-					}
-
-					if (saveProperties.CameraLight) {
-						newMetadata = Object.assign(newMetadata, {
-							"lightCameraColor": [ "#" + (cameraLight.color.getHexString()).toUpperCase() ],
-							"lightCameraIntensity": [ cameraLight.intensity ]
-						});
-					}
-					else {
-						newMetadata = Object.assign(newMetadata, {
-							"lightCameraColor": [ originalMetadata["lightCameraColor"][0] ],
-							"lightCameraIntensity": [ originalMetadata["lightCameraIntensity"][0] ],
-						});
-					}
-					
-					if (saveProperties.BackgroundColor) {
-							newMetadata = Object.assign(newMetadata, {"background": [ window.getComputedStyle(mainCanvas).background ] });
-					}
-					
-					if (archiveType !== '') {
-						if (!compressedFile.includes(archiveType.toUpperCase())) compressedFile+="_" + archiveType.toUpperCase();
-						params = CONFIG.viewer.salt+"="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+basename+compressedFile + "/"+"&filename="+filename;
-					}
-					else { params = CONFIG.viewer.salt+"="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+"&filename="+filename; }
-					xhr.onreadystatechange = function()
-					{
-						if(xhr.readyState === XMLHttpRequest.DONE) {
-							var status = xhr.status;
-							if (status === 0 || (status >= 200 && status < 400)) {
-								showToast ("Settings have been saved.");
-							}
-						}
-					};
-					xhr.send(params);
-				}
-			})
-			.catch((error) => console.log(error));
-
-		}}, 'Save');
-		if (!CONFIG.viewer.lightweight) {
-			editorFolder.add({["Picking mode"] () {
-				EDITOR=!EDITOR;
-				var _str;
-				EDITOR ? _str = "enabled" : _str = "disabled";
-				showToast ("Face picking is " + _str);
-				if (!EDITOR) {
-
-				}
-				else {
-					RULER_MODE = false;
-				}
-			}}, 'Picking mode');
-		}
-		editorFolder.add({["Distance Measurement"] () {
-			RULER_MODE=!RULER_MODE;
-			var _str;
-			RULER_MODE ? _str = "enabled" : _str = "disabled";
-			showToast ("Distance measurement mode is " + _str);
-			if (!RULER_MODE) {
-				
-				ruler.forEach((r) => {
-					scene.remove(r);
-				});
-				rulerObject = new THREE.Object3D();
-				ruler = [];
-				linePoints = [];
-			}
-			else {
-				EDITOR = false;
-			}
-		}}, 'Distance Measurement');
-		if (!CONFIG.viewer.lightweight) {
-			editorFolder.add({["Render preview"] () {
-				takeScreenshot();
-			}}, 'Render preview');
-		}
-		editorFolder.add({["Reset camera position"] () {
-			resetCamera();
-		}}, 'Reset camera position');
-	}
-}
-
-(function() {
-	init();
-	animate();
+(async () => {
+  await Viewer.MainInit();
 })();

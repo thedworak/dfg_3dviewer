@@ -1,0 +1,70 @@
+{
+  "name": "dfg_3dviewer",
+  "version": "1.0.2",
+  "lockfileVersion": 3,
+  "requires": true,
+  "description": "Three.js based DFG 3D Viewer",
+  "keywords": [
+    "typescript",
+    "javascript"
+  ],
+  "source": "index.html",
+  "type": "module",
+  "targets": {
+    "default": {
+      "outputFormat": "esmodule",
+      "distDir": "dist"
+    }
+  },
+  "packages": {},
+  "devDependencies": {
+    "@jsxtools/rollup-plugin-copy": "^0.3.1",
+    "@playwright/test": "^1.57.0",
+    "@rollup/plugin-commonjs": "^28.0.9",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^16.0.3",
+    "@rollup/plugin-replace": "^6.0.3",
+    "@rollup/plugin-terser": "^0.4.0",
+    "@rollup/plugin-typescript": "^12.3.0",
+    "@rollup/plugin-url": "^8.0.2",
+    "@types/node": "^25.0.6",
+    "archiver": "^7.0.1",
+    "baseline-browser-mapping": "^2.9.14",
+    "buffer": "^6.0.3",
+    "cross-env": "^10.1.0",
+    "http-server": "^14.1.1",
+    "parcel": "^2.16.1",
+    "postcss": "^8.5.6",
+    "process": "^0.11.10",
+    "rollup": "^4.52.5",
+    "rollup-plugin-copy": "^3.5.0",
+    "rollup-plugin-copy-assets": "^2.0.3",
+    "rollup-plugin-dts": "^6.2.3",
+    "rollup-plugin-postcss": "^4.0.2",
+    "serve": "^14.2.5"
+  },
+  "scripts": {
+    "dev": "npm run dev:test",
+    "dev:test": "cross-env BUILD_SOURCE=IIIF BUILD=test parcel index.html --port 1234",
+    "dev:prod": "cross-env BUILD_SOURCE='' BUILD=prod parcel index.html --port 1234",
+    "build:test": "cross-env BUILD_SOURCE=IIIF BUILD=test rollup -c",
+    "build:prod": "cross-env BUILD_SOURCE='' BUILD=prod rollup -c",
+    "build:drupal": "cross-env BUILD_SOURCE='' IS_PROD=true BUILD=drupal MODULE_CUSTOM='' rollup -c",
+    "build:drupal:custom": "cross-env BUILD_SOURCE='' BUILD=drupal MODULE_CUSTOM=/custom rollup -c",
+    "serve:dist": "cross-env BUILD=test serve dist",
+    "watch": "cross-env BUILD_SOURCE=IIIF BUILD=test rollup -c -w",
+    "pack-dist": "node ./scripts/pack-dist.js"
+  },
+  "files": [
+    "dist/**"
+  ],
+  "dependencies": {
+    "@iiif/3d-manifesto-dev": "^0.6.1",
+    "jquery": "^3.7.1",
+    "lru-cache": "^11.2.2",
+    "stats.js": "^0.17.0",
+    "three": "^0.182.0",
+    "toastify-js": "^1.12.0",
+    "web-ifc": "^0.0.74"
+  }
+}

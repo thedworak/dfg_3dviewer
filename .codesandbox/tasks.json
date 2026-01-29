@@ -1,0 +1,34 @@
+{
+  "setupTasks": [
+    {
+      "name": "Install Dependencies",
+      "command": "npm install"
+    }
+  ],
+
+  "tasks": {
+    "start:test": {
+      "name": "Start (TEST mode – Parcel)",
+      "command": "cross-env BUILD_SOURCE=IIIF BUILD=test npm start",
+      "runAtStart": true,
+      "preview": {
+        "port": 1234
+      }
+    },
+
+    "start:prod": {
+      "name": "Start (PROD mode – dist viewer)",
+      "command": "cross-env BUILD_SOURCE='' BUILD=prod npm run start:dist"
+    },
+
+    "build:test": {
+      "name": "Build (TEST bundle)",
+      "command": "cross-env BUILD_SOURCE=IIIF BUILD=test npm run build"
+    },
+
+    "build:prod": {
+      "name": "Build (PROD bundle)",
+      "command": "cross-env BUILD_SOURCE='' BUILD=prod npm run build:dist"
+    }
+  }
+}
