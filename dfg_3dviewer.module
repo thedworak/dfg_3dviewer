@@ -224,7 +224,6 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 	$retval = null;
 	$autoPath = '';
 	if ($entity->bundle() == "file") {
-		\Drupal::logger('dfg_3dviewer')->notice('Handling file');
 		$file = $entity->toArray();
 		$realpath = \Drupal::service('file_system')->realpath($file['uri'][0]['value']);
 		$parts = pathinfo($realpath);
@@ -234,8 +233,10 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		$newDir = $parts['dirname'] . "/" . $parts['filename'] . "_" . $extension . "/gltf/";
 		$isArchive = false;
 		if (!file_exists($newFile) && !is_dir($newDir) && !file_exists($newFile."off")) {
+			\Drupal::logger('dfg_3dviewer')->notice('New file given, checking...');
 			if (!in_arrayi($extension, $archives)) {
 				$output = exec($SPATH . '/scripts/convert.sh -t ' . $cfg['lightweight'] . ' -c true -l 3 -b true -i "' . $realpath . '" -f true 2>&1', $output, $retval);
+				\Drupal::logger('dfg_3dviewer')->notice('Conversion triggered for new file');
 			}
 			elseif (in_arrayi($extension, $archives)) {
 				try {
@@ -289,7 +290,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			#semi-automatic path change
 			#$entity->set($cfg['viewer_file_name'], $autoPath);
 			#for debugging only
-			if ($retval === null) {
+			if ($retval === null && $output != null) {
 				\Drupal::logger('dfg_3dviewer')->notice(
 					'Output: @output',
 					['@output' => print_r($output, true)]
