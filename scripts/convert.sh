@@ -130,7 +130,9 @@ render_preview () {
 		--is_archive "$IS_ARCHIVE" \
 		--resolution "$RESOLUTION" \
 		--samples "$SAMPLES" \
-		-E BLENDER_EEVEE -f 1}
+		-E BLENDER_EEVEE -f 1
+	echo "Blender exit code: $?"
+}
 
 create_dirs () {
 	if [[ ! -d "$INPATH"/gltf/ ]]; then
