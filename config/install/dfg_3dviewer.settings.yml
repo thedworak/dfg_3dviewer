@@ -7,7 +7,7 @@ viewer_file_upload: "fbf95bddee5160d515b982b3fd2e05f7"
 viewer_file_name: "faa602a0be629324806aef22892cdbe5"
 image_generation: "f605dc6b727a1099b9e52b3ccbdf5673"
 field_df: "field_df"
-lightweight: "FALSE"
+lightweight: false
 scale_container_x: "1"
 scale_container_y: "1.4"
 gallery_container: "block-bootstrap5-content"
