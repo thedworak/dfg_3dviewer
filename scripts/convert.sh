@@ -15,6 +15,8 @@
 #pip install triangle
 #usage: ./convert.sh -c COMPRESS -cl COMPRESSION_LEVEL -i 'INPUT' -o 'OUTPUT' -b BINARY -f FORCE_OVERRIDE
 
+
+#apt install -y libxi6 libxrender1 libxrandr2 libxinerama1 libxcursor1 libxcomposite1 libxdamage1 libxtst6 libglib2.0-0 libsm6 libice6 libgl1 libxkbcommon0
 #TESTING:
 # sudo blender -b -P ./scripts/2gltf2/2gltf2.py -- --input "/opt/drupal/web/sites/default/files/{NAME}" --ext "$GLTF" --compression "true" --compression_level "3" --output "/opt/drupal/web/sites/default/files/2025-05/test-TEST.glb"
 # xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo blender -b -P ./scripts/render.py -- --input "/var/www/html/sites/default/files/{NAME}.glb" --ext "glb" --org_ext "glb" --output "/var/www/html/sites/default/files/views/" --is_archive false --resolution 512x512x16 --samples 20 -E BLENDER_EEVEE -f 1
@@ -36,10 +38,16 @@ IS_ARCHIVE=false
 LIGHTWEIGHT=false
 
 check_blender () {
-	if ! command -v blender &> /dev/null; then
+	if [[ -x "$BLENDER_PATH/blender" ]]; then
+	  BLENDER_BIN="$BLENDER_PATH/blender"
+	elif command -v blender &> /dev/null; then
+	  BLENDER_BIN="$(command -v blender)"
+	else
 		echo "Blender doesn't exist, install it by 'apt install blender python3-pip' then 'pip install numpy' or change BLENDER_PATH with your Blender instance"
 		return 1
-	else
+	fi
+	
+	if [[ ! -z $BLENDER_BIN ]]; then
 		echo "Blender exists and be used for next steps..."
 		return 0
 	fi
@@ -66,7 +74,7 @@ check_scripts () {
 
 check_blender
 
-if [ ! $LIGHTWEIGHT ]; then
+if [[ "$LIGHTWEIGHT" != "true" ]]; then
 	check_xvfb_run
 fi
 
@@ -77,7 +85,7 @@ show_usage () {
 	echo "-c=compress -cl=compression level -i=input path -o=output path -b=binary -f=force override existing file"
 }
 
-while getopts ":c:l:o:i:b:f:" flag; do
+while getopts ":c:l:o:i:b:f:t:" flag; do
     case "${flag}" in
 		t) LIGHTWEIGHT=${OPTARG};;
         c) COMPRESSION=${OPTARG};;
@@ -109,10 +117,10 @@ render_preview () {
 	if [[ "$EXT" != "glb" ]]; then
 		SNAME="gltf/${NAME}"
 	fi;
-	
+
 	RESOLUTION="512x512x16"
 	SAMPLES="20"
-	xvfb-run --auto-servernum --server-args="-screen 0 ${RESOLUTION}" sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/render.py -- --input "$INPATH/$SNAME.glb" --ext "glb" --org_ext "$1" --output "$INPATH/views/" --is_archive $IS_ARCHIVE --resolution $RESOLUTION --samples $SAMPLES -E BLENDER_EEVEE -f 1 #> /dev/null 2>&1
+	xvfb-run --auto-servernum --server-args="-screen 0 ${RESOLUTION}" sudo "$BLENDER_BIN" -b -P ${SPATH}/scripts/render.py -- --input "$INPATH/$SNAME.glb" --ext "glb" --org_ext "$1" --output "$INPATH/views/" --is_archive $IS_ARCHIVE --resolution $RESOLUTION --samples $SAMPLES -E BLENDER_EEVEE -f 1 #> /dev/null 2>&1
 }
 
 create_dirs () {
@@ -133,9 +141,9 @@ handle_file () {
 	OUTPUTPATH=$6
 
 	if [[ "$isOutput" = false ]]; then
-		${BLENDER_PATH}blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- --input "$INPATH/$FILENAME" --ext "$GLTF" --compression "$COMPRESSION" --compression_level "$COMPRESSION_LEVEL" > /dev/null 2>&1
+		"$BLENDER_BIN" -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- --input "$INPATH/$FILENAME" --ext "$GLTF" --compression "$COMPRESSION" --compression_level "$COMPRESSION_LEVEL" > /dev/null 2>&1
 	else
-		${BLENDER_PATH}blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- --input "$INPATH/$FILENAME" --ext "$GLTF" --compression "$COMPRESSION" --compression_level "$COMPRESSION_LEVEL" --output "$OUTPUT$OUTPUTPATH" > /dev/null 2>&1
+		"$BLENDER_BIN" -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- --input "$INPATH/$FILENAME" --ext "$GLTF" --compression "$COMPRESSION" --compression_level "$COMPRESSION_LEVEL" --output "$OUTPUT$OUTPUTPATH" > /dev/null 2>&1
 	fi
 	
 	if [[ -f "$INPATH/gltf/$NAME.glb" ]]; then
@@ -197,7 +205,7 @@ handle_gml_file () {
 	python3 ${SPATH}/scripts/CityGML2OBJv2/CityGML2OBJs.py -i "$GLB_PATH" -o "$GLB_PATH" > /dev/null 2>&1
 	create_dirs
 	sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- "$GLB_PATH/${NAME}.obj" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
-	if [ ! $LIGHTWEIGHT ]; then
+	if [[ "$LIGHTWEIGHT" != "true" ]]; then
 		render_preview $EXT
 	fi
 	rm -rf $GLB_PATH
@@ -273,7 +281,7 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 					exit 0;
 				;;
 			  glb)
-			  		if [ ! $LIGHTWEIGHT ]; then
+			  		if [[ "$LIGHTWEIGHT" != "true" ]]; then
 						render_preview $EXT
 					fi
 					end=`date +%s`
