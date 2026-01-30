@@ -20,10 +20,9 @@
 # xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo blender -b -P ./scripts/render.py -- --input "/var/www/html/sites/default/files/{NAME}.glb" --ext "glb" --org_ext "glb" --output "/var/www/html/sites/default/files/views/" --is_archive false --resolution 512x512x16 --samples 20 -E BLENDER_EEVEE -f 1
 
 set -e
-
-source $(dirname $0)/.env
 BLENDER_PATH=''
 #BLENDER_PATH='/var/lib/snapd/snap/blender/current/'
+source $(dirname $0)/.env
 
 #Defaults:
 COMPRESSION=false
