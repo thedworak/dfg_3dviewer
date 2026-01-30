@@ -290,15 +290,24 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			#$entity->set($cfg['viewer_file_name'], $autoPath);
 			#for debugging only
 			if ($retval === null) {
-				\Drupal::logger('dfg_3dviewer')->notice($output);
+				\Drupal::logger('dfg_3dviewer')->notice(
+					'Output: @output',
+					['@output' => print_r($output, true)]
+				);
 				//\Drupal::messenger()->addMessage($output, 'status');
 			}
 			else if ($retval === 1) {
-				\Drupal::logger('dfg_3dviewer')->debug($output);
+				\Drupal::logger('dfg_3dviewer')->notice(
+					'Output: @output',
+					['@output' => print_r($output, true)]
+				);
 				//\Drupal::messenger()->addMessage($output, 'warning');
 			}
 			else if ($retval === 2) {
-				\Drupal::logger('dfg_3dviewer')->debug($output);
+				\Drupal::logger('dfg_3dviewer')->notice(
+					'Output: @output',
+					['@output' => print_r($output, true)]
+				);
 				//\Drupal::messenger()->addMessage($output, 'error');
 			}
 			#for debugging only
@@ -357,7 +366,10 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 						array_push($imagesPaths, $value);
 					}
 				}
-				\Drupal::logger('dfg_3dviewer')->notice($imagesPaths);
+				\Drupal::logger('dfg_3dviewer')->notice(
+					'Output: @output',
+					['@output' => print_r($output, true)]
+				);
 				if (count($imagesPaths) > 0) {
 					\Drupal::messenger()->addMessage("Renderings were added to the entity");
 					$entity->set($cfg['image_generation'], $imagesPaths);
