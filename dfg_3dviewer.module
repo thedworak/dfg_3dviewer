@@ -198,13 +198,6 @@ function dfg_3dviewer_hook_file_validate(Drupal\file\FileInterface $file) {
 * Implements hook_file_validate().
  */
 function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity) {
-	$DEFAULT_CONFIG = \Drupal::config('dfg_3dviewer.settings');
-
-	\Drupal::logger('dfg_3dviewer')->notice('entity_presave fired for @type (@id)', [
-		'@type' => $entity->getEntityTypeId(),
-		'@id' => $entity->id() ?? 'NEW',
-	]);
-
 	$cfg = dfg_3dviewer_config();
 	if (isset($cfg)) {
 		foreach ($cfg as $key => $value) {
@@ -217,46 +210,24 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		\Drupal::messenger()->addMessage("Cant load settings file", 'warning');
 	}
 
-	\Drupal::logger('dfg_3dviewer')->debug(
-		'entity_presave fired. cfg=@cfg',
-		[
-		'@cfg' => print_r($cfg, true),
-		]
-	);
-
 	$SETTINGS = Array();
 
-	if(defined('ENTITY_BUNDLE'))
-		$SETTINGS['entity_bundle']=ENTITY_BUNDLE;
-
-	if(defined('VIEWER_FILE_UPLOAD'))
-		$SETTINGS['viewer_file_upload']=VIEWER_FILE_UPLOAD;
-
-	if(defined('IMAGE_GENERATION'))
-		$SETTINGS['image_generation']=IMAGE_GENERATION;
-
-	if(defined('VIEWER_FILE_NAME'))
-		$SETTINGS['viewer_file_name']=VIEWER_FILE_NAME;
-
-	if(defined('FIELD_DF'))
-		$SETTINGS['field_df']=FIELD_DF;
-
-	if(defined('MAIN_URL')) 
-		$SETTINGS['main_url']=MAIN_URL;
-
-	if(defined('LIGHTWEIGHT'))
-		$SETTINGS['lightweight']=LIGHTWEIGHT;
-
-	if (isset($DEFAULT_CONFIG)) {		
-		$SETTINGS['entity_bundle']=$DEFAULT_CONFIG->get('dfg_3dviewer_entitybundle');
-		$SETTINGS['viewer_file_upload']=$DEFAULT_CONFIG->get('dfg_3dviewer_viewer_file_upload');
-		$SETTINGS['image_generation']=$DEFAULT_CONFIG->get('dfg_3dviewer_image_generation');
-		$SETTINGS['viewer_file_name']=$DEFAULT_CONFIG->get('dfg_3dviewer_viewer_file_name');
-		$SETTINGS['field_df']=$DEFAULT_CONFIG->get('dfg_3dviewer_field_df');
-		$SETTINGS['main_url']=$DEFAULT_CONFIG->get('dfg_3dviewer_main_url');
-		$SETTINGS['lightweight']=$DEFAULT_CONFIG->get('dfg_3dviewer_lightweight');
+	if (isset($cfg)) {		
+		$SETTINGS['entity_bundle']=$cfg->get('entity_bundle');
+		$SETTINGS['viewer_file_upload']=$cfg->get('viewer_file_upload');
+		$SETTINGS['image_generation']=$cfg->get('image_generation');
+		$SETTINGS['viewer_file_name']=$cfg->get('viewer_file_name');
+		$SETTINGS['field_df']=$cfg->get('field_df');
+		$SETTINGS['main_url']=$cfg->get('main_url');
+		$SETTINGS['lightweight']=$cfg->get('lightweight');
 	}
-
+	
+	\Drupal::logger('dfg_3dviewer')->debug(
+		'entity_presave fired. SETTINGS=@SETTINGS',
+		[
+		'@SETTINGS' => print_r($SETTINGS, true),
+		]
+	);
 	$SPATH = \Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath());
 	$XPATH = dirname(dirname($SPATH));
 	$archives = array('ZIP', 'RAR', 'TAR', 'XZ', 'GZ');
@@ -265,6 +236,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 	$retval = null;
 	$autoPath = '';
 	if ($entity->bundle() == "file") {
+		\Drupal::logger('dfg_3dviewer')->debug('Handling file');
 		$file = $entity->toArray();
 		$realpath = \Drupal::service('file_system')->realpath($file['uri'][0]['value']);
 		$parts = pathinfo($realpath);
