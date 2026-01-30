@@ -210,7 +210,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		\Drupal::messenger()->addMessage("Cant load settings file", 'warning');
 	}
 	
-	\Drupal::logger('dfg_3dviewer')->debug(
+	\Drupal::logger('dfg_3dviewer')->notice(
 		'entity_presave fired. cfg=@cfg',
 		[
 		'@cfg' => print_r($cfg, true),
@@ -224,7 +224,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 	$retval = null;
 	$autoPath = '';
 	if ($entity->bundle() == "file") {
-		\Drupal::logger('dfg_3dviewer')->debug('Handling file');
+		\Drupal::logger('dfg_3dviewer')->notice('Handling file');
 		$file = $entity->toArray();
 		$realpath = \Drupal::service('file_system')->realpath($file['uri'][0]['value']);
 		$parts = pathinfo($realpath);
@@ -262,6 +262,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 								case "glb":
 								case "gltf":
 								case "gml":
+									\Drupal::logger('dfg_3dviewer')->notice('Conversion started');
 									exec ($SPATH . '/scripts/convert.sh -t ' . $cfg['lightweight'] . ' -c true -l 3 -b true -i "' . $extractPath . $zipFile . '" -o "' . $extractPath . '" -f true -a false', $output, $retval);										
 								break;
 							}
@@ -288,15 +289,18 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			#semi-automatic path change
 			#$entity->set($cfg['viewer_file_name'], $autoPath);
 			#for debugging only
-			/*if ($retval === null) {
-				\Drupal::messenger()->addMessage($output, 'status');
+			if ($retval === null) {
+				\Drupal::logger('dfg_3dviewer')->notice($output);
+				//\Drupal::messenger()->addMessage($output, 'status');
 			}
 			else if ($retval === 1) {
-				\Drupal::messenger()->addMessage($output, 'warning');
+				\Drupal::logger('dfg_3dviewer')->debug($output);
+				//\Drupal::messenger()->addMessage($output, 'warning');
 			}
 			else if ($retval === 2) {
-				\Drupal::messenger()->addMessage($output, 'error');
-			}*/
+				\Drupal::logger('dfg_3dviewer')->debug($output);
+				//\Drupal::messenger()->addMessage($output, 'error');
+			}
 			#for debugging only
 		}
 	}
@@ -353,6 +357,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 						array_push($imagesPaths, $value);
 					}
 				}
+				\Drupal::logger('dfg_3dviewer')->notice($imagesPaths);
 				if (count($imagesPaths) > 0) {
 					\Drupal::messenger()->addMessage("Renderings were added to the entity");
 					$entity->set($cfg['image_generation'], $imagesPaths);
