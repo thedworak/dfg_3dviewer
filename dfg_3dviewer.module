@@ -311,6 +311,10 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 				//\Drupal::messenger()->addMessage($output, 'error');
 			}
 			#for debugging only
+		} else {
+			\Drupal::logger('dfg_3dviewer')->notice('Conversion started');
+			$extractPath = $parts['dirname'] . "/" . $parts['filename'] . "_" . $extension . "/";
+			$output = exec($SPATH . '/scripts/convert.sh -t ' . $cfg['lightweight'] . ' -c true -l 3 -b true -i "' . $realpath . '" -f true 2>&1', $output, $retval);					
 		}
 	}
 	if ($entity->bundle() == $cfg['entity_bundle']) {
