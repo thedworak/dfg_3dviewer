@@ -2103,7 +2103,7 @@ export const Viewer = {
           
       if (Viewer.CONFIG.entity.metadata.source === "" && !Viewer.isLightweight) {
         try {
-          const response = await fetch('/api/editor/xml-export', {
+          const response = await fetch('/api/editor/xml-export/' + Viewer.entityID, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
