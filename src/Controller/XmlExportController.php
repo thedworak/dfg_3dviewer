@@ -36,10 +36,17 @@ class XmlExportController extends ControllerBase {
   /**
    * Route callback.
    */
-  public function export(string $id, Request $request): Response {
-    $domain = $request->query->get('domain');
+  public function export(Request $request, ?string $id = null): Response {
+    if ($request->isMethod('GET')) {
+      $domain = $request->query->get('domain');
+    }
+    else {
+      $data = json_decode($request->getContent(), true);
+      $id = $id ?? ($data['id'] ?? null);
+      $domain = $data['domain'] ?? null;
+    }
 
-    if (empty($id) || empty($domain)) {
+    if (!$id || !$domain) {
       return new Response('Missing id or domain', 400);
     }
 
