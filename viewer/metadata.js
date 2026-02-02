@@ -258,7 +258,7 @@ export async function handleMetadataResponse(
           );
 
         } else 
-          showToast("Error during loading metadata content");
+          showToast("No metadata found for entity " + entityID);
       }
     };
     req.send(null);

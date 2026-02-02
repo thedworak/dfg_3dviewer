@@ -2151,7 +2151,7 @@ export const Viewer = {
               }
               await Viewer.mainLoadModel();
             } else {
-              console.log("Error during loading metadata content\n");
+              //console.log("Error during loading metadata content\n");
               //await Viewer.mainLoadModel('API load failed');
             }
           }
