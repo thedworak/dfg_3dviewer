@@ -330,7 +330,7 @@ export const Viewer = {
     if (this.isLightweight) {
       this.CONFIG.viewer.lightweight = this.container.getAttribute("proxy");
     }
-    if (!this.isLightweight) {
+    else {
       var elementsURL = window.location.pathname;
       elementsURL = elementsURL.match(this.CONFIG.entity.idUri);
       if (elementsURL !== null) {
@@ -872,6 +872,7 @@ export const Viewer = {
         Viewer.mainCanvas.style.height = '100vh';
         Viewer.fullscreenMode.style.left = (widthCSS - 40) + 'px';
         Viewer.fullscreenMode.innerHTML = `<img src="${Viewer.DFG_ASSETS}exit-fullscreen.png" alt="Fullscreen" width=25 height=25 title="Exit fullscreen mode"/>`;
+        //Viewer.downloadModel?.setAttribute("style", "visibility: none");
     } else {
       scale = {x: Number(Viewer.CONFIG.viewer.scaleContainer?.x || 1), y: Number(Viewer.CONFIG.viewer.scaleContainer?.y || 1)};
       rect = Viewer.viewerWrapper.getBoundingClientRect();
@@ -898,7 +899,7 @@ export const Viewer = {
     Viewer.mainCanvas.height = heightDev;
 
     Viewer.fullscreenMode.style.top = (heightCSS - 40) + 'px';
-    if (Viewer.downloadModel && !isFullscreen) {
+    if (Viewer.downloadModel) {
       let _offset = (Viewer.CONFIG.isLightweight) ? 130 : 70;
       Viewer.downloadModel.style.top = (heightCSS - _offset) + 'px';
     }
@@ -916,20 +917,32 @@ export const Viewer = {
 
     // Three.js renderer needs actual pixel size
 
-  // Proper fullscreen toggle
   async toggleFullscreen() {
-    if (!document.fullscreenElement) {
-      Viewer.fullscreenMode.innerHTML = `<img src="${Viewer.DFG_ASSETS}exit-fullscreen.png" alt="Fullscreen" width=25 height=25 title="Exit fullscreen mode"/>`;
-      try {
+    try {
+      if (!document.fullscreenElement) {
         await Viewer.container.requestFullscreen();
-        // fullscreenchange event will trigger updateSize()
-      } catch (err) {
-        console.error("Failed to enter fullscreen:", err);
+      } else {
+        await document.exitFullscreen();
       }
-    } else {
-      Viewer.fullscreenMode.innerHTML = `<img src="${Viewer.DFG_ASSETS}fullscreen.png" alt="Fullscreen" width=25 height=25 title="Fullscreen mode"/>`;
-      await document.exitFullscreen();
+    } catch (err) {
+      console.error("Fullscreen error:", err);
     }
+  },
+
+  onFullscreenChange () {
+    const isFs = !!document.fullscreenElement;
+
+    // UI
+    Viewer.fullscreenMode.innerHTML = isFs
+      ? `<img src="${Viewer.DFG_ASSETS}exit-fullscreen.png" width="25" height="25" title="Exit fullscreen mode"/>`
+      : `<img src="${Viewer.DFG_ASSETS}fullscreen.png" width="25" height="25" title="Fullscreen mode"/>`;
+
+    // Layout (ESC + klik)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        Viewer.updateSize();
+      });
+    });
   },
 
   exitFullscreenHandler() {
@@ -2299,9 +2312,13 @@ export const Viewer = {
 
       Viewer.resizeObserver = new ResizeObserver(update);
       Viewer.resizeObserver.observe(Viewer.viewerWrapper);
-      //window.addEventListener('resize', Viewer.updateSize);
-      document.addEventListener('fullscreenchange', Viewer.updateSize);
-      window.addEventListener('orientationchange', () => setTimeout(Viewer.updateSize, 100));
+
+
+      document.addEventListener('fullscreenchange', Viewer.onFullscreenChange);
+
+      window.addEventListener('orientationchange', () =>
+        setTimeout(update, 100)
+      );
     }
   },
   render() {
