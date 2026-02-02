@@ -1278,8 +1278,8 @@ export const Viewer = {
     Viewer.renderer.setSize(256, 256);
     Viewer.renderer.render(Viewer.scene, Viewer.camera);
     var prependName = "";
-    if (this.fileObject.archiveType !== "") {
-      prependName = this.fileObject.basename + "_" + this.archiveType.toUpperCase() + "/";
+    if (Viewer.fileObject.archiveType !== "") {
+      prependName = Viewer.fileObject.basename + "_" + Viewer.fileObject.archiveType.toUpperCase() + "/";
     }
 
     Viewer.mainCanvas.toBlob((imgBlob) => {
@@ -1298,8 +1298,8 @@ export const Viewer = {
         return;
       }
       const fileform = new FormData();
-      fileform.append("path", this.fileObject.path);
-      fileform.append("filename", this.fileObject.basename);
+      fileform.append("path", Viewer.fileObject.path);
+      fileform.append("filename", Viewer.fileObject.basename);
       //fileform.append("path", uri + prependName);
       fileform.append("data", imgBlob, "thumbnail.png");
       console.log("Uploading thumbnail for entity ID:", Viewer.entityID);
@@ -1329,115 +1329,115 @@ export const Viewer = {
   },
 
   async mainLoadModel() {
-    console.log("Loading model with extension:", this._ext);
-    if (this._ext === "glb" || this._ext === "gltf") {
+    console.log("Loading model with extension:", Viewer._ext);
+    if (Viewer._ext === "glb" || Viewer._ext === "gltf") {
       await loadModel({
-        fileObject: this.fileObject,
-        config: this.CONFIG,
+        fileObject: Viewer.fileObject,
+        config: Viewer.CONFIG,
         getProxyPath: getProxyPath,
-        camera: this.camera,
-        lightObjects: this.lightObjects,
-        controls: this.controls,
-        scene: this.scene,
-        mainObject: this.mainObject,
-        gui: this.gui,
-        stats: this.stats,
-        entityID: this.entityID,
-        container: this.container,
-        metadataContainer: this.metadataContainer,
-        canvasText: this.canvasText,
-        bottomLineGUI: this.bottomLineGUI,
-        compressedFile: this.compressedFile,
-        viewEntity: this.viewEntity
+        camera: Viewer.camera,
+        lightObjects: Viewer.lightObjects,
+        controls: Viewer.controls,
+        scene: Viewer.scene,
+        mainObject: Viewer.mainObject,
+        gui: Viewer.gui,
+        stats: Viewer.stats,
+        entityID: Viewer.entityID,
+        container: Viewer.container,
+        metadataContainer: Viewer.metadataContainer,
+        canvasText: Viewer.canvasText,
+        bottomLineGUI: Viewer.bottomLineGUI,
+        compressedFile: Viewer.compressedFile,
+        viewEntity: Viewer.viewEntity
       });
     } else if (
-      this._ext === "zip" ||
-      this._ext === "rar" ||
-      this._ext === "tar" ||
-      this._ext === "xz" ||
-      this._ext === "gz"
+      Viewer._ext === "zip" ||
+      Viewer._ext === "rar" ||
+      Viewer._ext === "tar" ||
+      Viewer._ext === "xz" ||
+      Viewer._ext === "gz"
     ) {
-      this.compressedFile = "_" + this._ext.toUpperCase() + "/";
-      this.fileObject.path = this.fileObject.path + this.fileObject.basename + this.compressedFile
-      this.fileObject.extension = "glb";
-      this.fileObject.newExtension = this._ext;
-      await loadModel(this.fileObject, config, getProxyPath, this.camera, this.lightObjects, this.controls, this.scene, this.mainObject, this.gui, this.stats,
-        this.entityID, this.container,
-        this.metadataContainer,
-        this.canvasText,
-        this.bottomLineGUI,
-        this.compressedFile,
-        this.viewEntity
+      Viewer.compressedFile = "_" + Viewer._ext.toUpperCase() + "/";
+      Viewer.fileObject.path = Viewer.fileObject.path + Viewer.fileObject.basename + Viewer.compressedFile
+      Viewer.fileObject.extension = "glb";
+      Viewer.fileObject.newExtension = Viewer._ext;
+      await loadModel(Viewer.fileObject, config, getProxyPath, Viewer.camera, Viewer.lightObjects, Viewer.controls, Viewer.scene, Viewer.mainObject, Viewer.gui, Viewer.stats,
+        Viewer.entityID, Viewer.container,
+        Viewer.metadataContainer,
+        Viewer.canvasText,
+        Viewer.bottomLineGUI,
+        Viewer.compressedFile,
+        Viewer.viewEntity
       );
     } else {
       //this.fileObject.extension = "glb";
-      if (this._ext === "glb") {
-        await loadModel(this.fileObject, this.CONFIG, getProxyPath, this.camera, this.lightObjects, this.controls, this.scene, this.mainObject, this.gui, this.stats,
-        this.entityID, this.container,
-        this.metadataContainer,
-        this.canvasText,
-        this.bottomLineGUI,
-        this.compressedFile,
-        this.viewEntity);
+      if (Viewer._ext === "glb") {
+        await loadModel(Viewer.fileObject, Viewer.CONFIG, getProxyPath, Viewer.camera, Viewer.lightObjects, Viewer.controls, Viewer.scene, Viewer.mainObject, Viewer.gui, Viewer.stats,
+        Viewer.entityID, Viewer.container,
+        Viewer.metadataContainer,
+        Viewer.canvasText,
+        Viewer.bottomLineGUI,
+        Viewer.compressedFile,
+        Viewer.viewEntity);
       }
       else await loadModel({
-        fileObject: this.fileObject,
-        config: this.CONFIG,
+        fileObject: Viewer.fileObject,
+        config: Viewer.CONFIG,
         getProxyPath: getProxyPath,
-        camera: this.camera,
-        lightObjects: this.lightObjects,
-        controls: this.controls,
-        scene: this.scene,
-        mainObject: this.mainObject,
-        gui: this.gui,
-        stats: this.stats,
-        entityID: this.entityID,
-        container: this.container,
-        metadataContainer: this.metadataContainer,
-        canvasText: this.canvasText,
-        bottomLineGUI: this.bottomLineGUI,
-        compressedFile: this.compressedFile,
-        viewEntity: this.viewEntity
+        camera: Viewer.camera,
+        lightObjects: Viewer.lightObjects,
+        controls: Viewer.controls,
+        scene: Viewer.scene,
+        mainObject: Viewer.mainObject,
+        gui: Viewer.gui,
+        stats: Viewer.stats,
+        entityID: Viewer.entityID,
+        container: Viewer.container,
+        metadataContainer: Viewer.metadataContainer,
+        canvasText: Viewer.canvasText,
+        bottomLineGUI: Viewer.bottomLineGUI,
+        compressedFile: Viewer.compressedFile,
+        viewEntity: Viewer.viewEntity
       });
       }
   },
 
   createClippingPlaneAxis(_number) {
-    var tempClippingControl = new TransformControls(this.camera, this.renderer.domElement);
+    var tempClippingControl = new TransformControls(Viewer.camera, Viewer.renderer.domElement);
     tempClippingControl.space = "local";
     tempClippingControl.mode = "translate";
-    tempClippingControl.addEventListener("change", this.render);
+    tempClippingControl.addEventListener("change", Viewer.render);
     tempClippingControl.addEventListener("objectChange", function (event) {
       switch (_number) {
         case 0:
-          this.clippingPlanes[_number].constant =
-            event.target.children[0].pointEnd.x + this.distanceGeometry.x;
+          Viewer.clippingPlanes[_number].constant =
+            event.target.children[0].pointEnd.x + Viewer.distanceGeometry.x;
           break;
         case 1:
-          this.clippingPlanes[_number].constant =
-            event.target.children[0].pointEnd.y + this.distanceGeometry.y;
+          Viewer.clippingPlanes[_number].constant =
+            event.target.children[0].pointEnd.y + Viewer.distanceGeometry.y;
           break;
         case 2:
-          this.clippingPlanes[_number].constant =
-            event.target.children[0].pointEnd.z + this.distanceGeometry.z;
+          Viewer.clippingPlanes[_number].constant =
+            event.target.children[0].pointEnd.z + Viewer.distanceGeometry.z;
           break;
       }
     });
     tempClippingControl.addEventListener("dragging-changed", function (event) {
-      this.controls.enabled = !event.value;
+      Viewer.controls.enabled = !event.value;
     });
     return tempClippingControl;
   },
 
   resetCamera() {
-    var camPosition = this.camera.position;
+    var camPosition = Viewer.camera.position;
     let _tween = new Tween(camPosition)
       .to(core.cameraCoords, 1500)
       .onUpdate(() => {
-        this.camera.position.set(camPosition.x, camPosition.y, camPosition.z);
-        this.cameraLight.position.set(camPosition.x, camPosition.y, camPosition.z);
-        this.camera.updateProjectionMatrix();
-        this.controls.update();
+        Viewer.camera.position.set(camPosition.x, camPosition.y, camPosition.z);
+        Viewer.cameraLight.position.set(camPosition.x, camPosition.y, camPosition.z);
+        Viewer.camera.updateProjectionMatrix();
+        Viewer.controls.update();
       })
       .start();
   },
@@ -2002,8 +2002,8 @@ export const Viewer = {
 
       Viewer.handHint.innerHTML = `<img src="${Viewer.DFG_ASSETS}hand-hint.png" alt="Fullscreen" width=48 height=48 title="Hand hint animation"/>`;
       
-      Viewer.rect = this.container.getBoundingClientRect();
-      this.guiContainer.style.maxHeight = `${Viewer.rect.height - 20}px`;
+      Viewer.rect = Viewer.container.getBoundingClientRect();
+      Viewer.guiContainer.style.maxHeight = `${Viewer.rect.height - 20}px`;
       Viewer.lilGui = document.getElementsByClassName("lil-gui root");
       setCore('lilGui', Viewer.lilGui);
 
