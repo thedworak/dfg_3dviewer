@@ -120,8 +120,21 @@ function array_searchi($needle, $haystack)
 	return array_search(strtolower($needle), array_map('strtolower', $haystack));
 }
 
-function url_exists ($url) {
-	return str_contains(get_headers($url)[0], "200 OK");
+function url_exists(string $url): bool {
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_NOBODY => true,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_TIMEOUT => 5,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_RETURNTRANSFER => true,
+    ]);
+
+    curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    return $code >= 200 && $code < 400;
 }
 
 function automatic_helper (&$autoPath, $prefix, $filename, $value) {
@@ -328,9 +341,9 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			}
 			#for debugging only
 		} else {
-			\Drupal::logger('dfg_3dviewer')->notice('Conversion started');
-			$extractPath = $parts['dirname'] . "/" . $parts['filename'] . "_" . $extension . "/";
-			$output = exec($SPATH . '/scripts/convert.sh -t ' . $cfg['lightweight'] . ' -c true -l 3 -b true -i "' . $realpath . '" -f true 2>&1', $output, $retval);					
+			#\Drupal::logger('dfg_3dviewer')->notice('Conversion started');
+			#$extractPath = $parts['dirname'] . "/" . $parts['filename'] . "_" . $extension . "/";
+			#$output = exec($SPATH . '/scripts/convert.sh -t ' . $cfg['lightweight'] . ' -c true -l 3 -b true -i "' . $realpath . '" -f true 2>&1', $output, $retval);					
 		}
 	}
 	if ($entity->bundle() == $cfg['entity_bundle']) {
@@ -380,16 +393,14 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 				$viewBase = str_replace(' ', '%20', $viewBase);
 				clearstatcache();
 				$imagesTemp = array($viewBase . $imgSuffix, $viewBase . "_side0.png", $viewBase . "_side90.png", $viewBase . "_side135.png", $viewBase . "_side180.png", $viewBase . "_side225.png", $viewBase . "_side270.png", $viewBase . "_side315.png", $viewBase . "_top.png");
+
 				$imagesPaths = [];
 				foreach ($imagesTemp as $value) {
 					if (url_exists($value) && getimagesize($value) !== false) {
 						array_push($imagesPaths, $value);
 					}
 				}
-				\Drupal::logger('dfg_3dviewer')->notice(
-					'Output: @output',
-					['@output' => print_r($output, true)]
-				);
+
 				if (count($imagesPaths) > 0) {
 					\Drupal::messenger()->addMessage("Renderings were added to the entity");
 					$entity->set($cfg['image_generation'], $imagesPaths);
