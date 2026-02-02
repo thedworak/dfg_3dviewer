@@ -11,7 +11,6 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 
 class XmlExportController extends ControllerBase {
 
-  private const EXPORT_PATH = '/export_xml_single/';
   private const XSL_URL = 'https://raw.githubusercontent.com/slub/dfg-viewer/e54305a9fa58951d3f3d1dd7e64554cb2ee881eb/Resources/Public/XSLT/exportSingleToMetsMods.xsl';
   private const FILE_DIR = 'public://xml_structure';
 
@@ -51,7 +50,7 @@ class XmlExportController extends ControllerBase {
     }
 
     try {
-      $xml = $this->fetchSourceXml($id, $domain);
+      $xml = $this->fetchSourceXmlFromRequest($request);
       $result = $this->transformXml($xml);
       $this->saveXml($id, $result);
 
@@ -71,16 +70,15 @@ class XmlExportController extends ControllerBase {
   /**
    * Loading source XML
    */
-  protected function fetchSourceXml(string $id, string $domain): \SimpleXMLElement {
-    $url = $domain . self::EXPORT_PATH . $id . '?page=0&_format=xml';
+  protected function fetchSourceXmlFromRequest(Request $request): \SimpleXMLElement {
+    $xmlString = $request->getContent();
 
-    $response = $this->httpClient->get($url, [
-      'verify' => false,
-      'timeout' => 20,
-    ]);
+    if (empty($xmlString)) {
+      throw new \RuntimeException('Empty XML body');
+    }
 
-    $data = (string) $response->getBody();
-    $xml = simplexml_load_string($data);
+    libxml_use_internal_errors(true);
+    $xml = simplexml_load_string($xmlString);
 
     if (!$xml) {
       throw new \RuntimeException('Invalid source XML');
