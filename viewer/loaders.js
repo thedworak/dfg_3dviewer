@@ -285,8 +285,6 @@ function traverseMesh(object) {
       const loader = new GLTFLoader();
       loader.setDRACOLoader(dracoLoader);
     
-      showToast("Model has being loaded from " + fileObject.extension + " representation.");
-
       const gltf = await new Promise((resolve, reject) => {
         loader.load(
           modelPath,
@@ -434,8 +432,8 @@ export const onErrorMTL = async function (_event, params) {
 };
 
 export const onErrorGLB = async function (_event, params, loadedTimes) {
-  console.log(_event);
-  if (typeof _event !== undefined && loadedTimes <= 1) {
+  console.log("Loader error: " + _event);
+  if (typeof _event !== undefined && loadedTimes <= 1 && window.viewer.modelLoaded === false) {
     await loadModel({
       ...params,
       path: params.path + params.basename + params.compressedFile + "gltf/",

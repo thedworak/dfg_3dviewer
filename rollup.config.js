@@ -20,6 +20,7 @@ const outDistDir = path.join(
 );
 
 console.log('[rollup] build:', envBuild);
+console.log('[rollup] source:', source);
 console.log('[rollup] outDir:', outDistDir);
 
 function normalizePathSegment(seg = '') {

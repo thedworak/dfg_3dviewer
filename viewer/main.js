@@ -2288,7 +2288,7 @@ export const Viewer = {
             });
 
         }      
-        
+        console.log("Loading from source: " + Viewer.CONFIG.entity.metadata.source);
         switch(Viewer.CONFIG.entity.metadata.source.substring(0, 4).toLowerCase()) {
           case "iiif":
             if (Viewer.iiifConfigURL.url !== "") {
