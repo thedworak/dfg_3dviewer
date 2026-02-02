@@ -314,6 +314,7 @@ export const Viewer = {
     console.log(`Powered by Three.js (v${THREE.REVISION})`);
     
     this.CONFIG.entity.metadata.source = SOURCE;
+    console.log(`Metadata source: ${this.CONFIG.entity.metadata.source}`);
 
     this.container = document.getElementById(this.CONFIG.viewer.container);
     if (!this.container) throw new Error("Container not found");
@@ -420,8 +421,8 @@ export const Viewer = {
     localStorage.setItem("viewerHintSeen", "0");
     
     this.updateSize();
-    if (Viewer.CONFIG.entity?.metadata?.source != null) {
-      await Viewer.mainLoadModel();
+    if (this.CONFIG.entity?.metadata?.source != null) {
+      await Viewer.mainLoadModel('metadata loaded');
     }
     Viewer.animate();
   },
