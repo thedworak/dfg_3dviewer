@@ -2101,62 +2101,65 @@ export const Viewer = {
 
       var _autoPath = "";
           
-        if (Viewer.CONFIG.entity.metadata.source === "" && (!Viewer.isLightweight)) {
-        var req = new XMLHttpRequest();
-        req.responseType = "";
-        req.open(
-          "GET",
-          Viewer.CONFIG.metadataUrl + Viewer.CONFIG.viewer.exportPath + Viewer.entityID + "?page=0&amp;_format=xml",
-          true
-        );
-        req.onreadystatechange = async function (aEvt) {
-          if (req.readyState == 4) {
-            if (req.status == 200) {
-              const parser = new DOMParser();
-              const doc = parser.parseFromString(
-                req.responseText,
-                "application/xml"
-              );
-              if (doc.documentElement.childNodes > 0) {
-                var data = doc.documentElement.childNodes[0].childNodes;
-                if (typeof data !== undefined) {
-                  var _found = false;
-                  for (var i = 0; i < data.length && !_found; i++) {
-                    if (
-                      typeof data[i].tagName !== "undefined" &&
-                      typeof data[i].textContent !== "undefined"
-                    ) {
-                      var _label = data[i].tagName.replace(
-                        "wisski_path_3d_model__",
-                        ""
-                      );
-                      if (
-                        typeof _label !== "undefined" &&
-                        _label === "converted_file"
-                      ) {
-                        _found = true;
-                        _autoPath = data[i].textContent;
-                      }
-                    }
-                  }
-                }
-              }
-              //check wheter semo-automatic path found
-              if (_autoPath !== "") {
-                Viewer.fileObject.filename = _autoPath.split("/").pop();
-                Viewer.fileObject.basename = Viewer.fileObject.filename.substring(0, Viewer.fileObject.filename.lastIndexOf("."));
-                Viewer.fileObject.extension = Viewer.fileObject.filename.substring(Viewer.fileObject.filename.lastIndexOf(".") + 1);
-                Viewer._ext = Viewer.fileObject.extension.toLowerCase();
-                Viewer.fileObject.path = _autoPath.substring(0, _autoPath.lastIndexOf(Viewer.fileObject.filename));
-              }
-              await Viewer.mainLoadModel();
-            } else {
-              //console.log("Error during loading metadata content\n");
-              //await Viewer.mainLoadModel('API load failed');
+      if (Viewer.CONFIG.entity.metadata.source === "" && !Viewer.isLightweight) {
+        try {
+          const response = await fetch('/api/editor/xml-export', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/xml'
+            },
+            body: JSON.stringify({
+              id: Viewer.entityID,
+              domain: Viewer.CONFIG.metadataUrl
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error(`XML export failed: ${response.status}`);
+          }
+
+          const xmlText = await response.text();
+
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(xmlText, 'application/xml');
+
+          _autoPath = '';
+
+          const nodes = doc.getElementsByTagName('*');
+          for (let i = 0; i < nodes.length; i++) {
+            const node = nodes[i];
+            if (
+              node.tagName?.includes('converted_file') &&
+              node.textContent
+            ) {
+              _autoPath = node.textContent;
+              break;
             }
           }
-        };
-        req.send(null);
+
+          if (_autoPath !== '') {
+            Viewer.fileObject.filename = _autoPath.split('/').pop();
+            Viewer.fileObject.basename =
+              Viewer.fileObject.filename.substring(
+                0,
+                Viewer.fileObject.filename.lastIndexOf('.')
+              );
+            Viewer.fileObject.extension =
+              Viewer.fileObject.filename.substring(
+                Viewer.fileObject.filename.lastIndexOf('.') + 1
+              );
+            Viewer._ext = Viewer.fileObject.extension.toLowerCase();
+            Viewer.fileObject.path =
+              _autoPath.substring(0, _autoPath.lastIndexOf(Viewer.fileObject.filename));
+          }
+
+          await Viewer.mainLoadModel();
+
+        } catch (err) {
+          console.error('Metadata load error:', err);
+          // Viewer.mainLoadModel('API load failed');
+        }
       } else if (Viewer.CONFIG.entity.metadata.source.toLowerCase().substring(0, 4) === "iiif") {
           const formContainer = document.createElement("div");
           formContainer.id = "form-IIIF";
