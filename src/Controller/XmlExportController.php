@@ -62,7 +62,7 @@ class XmlExportController extends ControllerBase {
       );
     }
     catch (\Throwable $e) {
-      $this->logger('dfg_3dviewer')->error($e->getMessage());
+      \Drupal::logger('dfg_3dviewer')->error($e->getMessage());
       return new Response('XML export failed', 500);
     }
   }
