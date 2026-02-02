@@ -892,8 +892,9 @@ export const Viewer = {
         Viewer.fileElement[0].style.height = (heightCSS * 1.1) + 'px';
       }
       Viewer.fullscreenMode.style.left = (widthCSS - Viewer.fullscreenMode.getBoundingClientRect().width - 15) + 'px';
-      Viewer.guiContainer.style.left = (widthCSS - Viewer.lilGui[0]?.getBoundingClientRect().width) + 'px';
     }
+
+    Viewer.guiContainer.style.left = (widthCSS - Viewer.lilGui[0]?.getBoundingClientRect().width) + 'px';
 
     Viewer.mainCanvas.width = widthDev;
     Viewer.mainCanvas.height = heightDev;
