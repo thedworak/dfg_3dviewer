@@ -220,23 +220,26 @@ export async function handleMetadataResponse(
     }
 
     var req = new XMLHttpRequest();
-    req.responseType = "";
     req.open(
       "GET",
-      CONFIG.metadataUrl + CONFIG.viewer.exportPath + entityID + "?page=0&amp;_format=xml",
+      CONFIG.viewer.exportPath +
+        entityID +
+        "?domain=" + encodeURIComponent(CONFIG.metadataUrl),
       true
     );
-    req.onreadystatechange = function (aEvt) {
-      if (req.readyState == 4) {
-        if (req.status == 200) {
+
+    req.onreadystatechange = function () {
+      if (req.readyState === 4) {
+        if (req.status === 200) {
           const parser = new DOMParser();
           const doc = parser.parseFromString(
             req.responseText,
             "application/xml"
           );
-          if (doc.documentElement.childNodes > 0) {
+
+          if (doc.documentElement.childNodes.length > 0) {
             var data = doc.documentElement.childNodes[0].childNodes;
-            if (typeof data !== undefined) {
+            if (data !== undefined) {
               for (var i = 0; i < data.length; i++) {
                 var fetchedValue = addWissKIMetadata(
                   data[i].tagName,
@@ -248,6 +251,7 @@ export async function handleMetadataResponse(
               }
             }
           }
+
           metadataContainer.appendChild(viewEntity);
           appendMetadata(
             metadataContent,
@@ -257,11 +261,14 @@ export async function handleMetadataResponse(
             metadataContentTech
           );
 
-        } else 
+        } else {
           showToast("No metadata found for entity " + entityID);
+        }
       }
     };
+
     req.send(null);
+
   } else {
     const scriptUrl = document.currentScript?.src || import.meta.url;
     let DFG_ASSETS = scriptUrl.replace(/dfg_3dviewer-module\.js.*$/, 'assets/img/');
