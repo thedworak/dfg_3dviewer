@@ -1328,8 +1328,8 @@ export const Viewer = {
     Viewer.renderer.setSize(Viewer.CONFIG.viewer.canvasDimensions.x, Viewer.CONFIG.viewer.canvasDimensions.y);
   },
 
-  async mainLoadModel() {
-    console.log("Loading model with extension:", Viewer._ext);
+    async mainLoadModel(reason) {
+    console.log("Loading model with extension:", Viewer._ext, 'with reason: ', reason);
     if (Viewer._ext === "glb" || Viewer._ext === "gltf") {
       await loadModel({
         fileObject: Viewer.fileObject,
@@ -2148,10 +2148,10 @@ export const Viewer = {
                 Viewer._ext = Viewer.fileObject.extension.toLowerCase();
                 Viewer.fileObject.path = _autoPath.substring(0, _autoPath.lastIndexOf(Viewer.fileObject.filename));
               }
-              await Viewer.mainLoadModel(Viewer._ext);
+              await Viewer.mainLoadModel('Loaded metadata');
             } else {
               console.log("Error during loading metadata content\n");
-              await Viewer.mainLoadModel(Viewer._ext);
+              await Viewer.mainLoadModel('API load failed');
             }
           }
         };
@@ -2213,7 +2213,7 @@ export const Viewer = {
               core.objectsConfig.scenes = loadedIIIF.scenes;
             }
             Viewer._ext = Viewer.fileObject.extension.toLowerCase();
-            await Viewer.mainLoadModel(Viewer._ext);
+            await Viewer.mainLoadModel('iiif');
           }
         }
 
