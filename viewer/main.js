@@ -314,7 +314,7 @@ export const Viewer = {
     console.log(`Powered by Three.js (v${THREE.REVISION})`);
     
     this.CONFIG.entity.metadata.source = SOURCE;
-    console.log(`Metadata source: ${this.CONFIG.entity.metadata.source}`);
+    if (this.CONFIG.entity.metadata.source) console.log(`Metadata source: ${this.CONFIG.entity.metadata.source}`);
 
     this.container = document.getElementById(this.CONFIG.viewer.container);
     if (!this.container) throw new Error("Container not found");
@@ -422,7 +422,7 @@ export const Viewer = {
     
     this.updateSize();
     if (this.CONFIG.entity?.metadata?.source != null) {
-      await Viewer.mainLoadModel('metadata loaded');
+      await Viewer.mainLoadModel();
     }
     Viewer.animate();
   },
@@ -1329,8 +1329,8 @@ export const Viewer = {
     Viewer.renderer.setSize(Viewer.CONFIG.viewer.canvasDimensions.x, Viewer.CONFIG.viewer.canvasDimensions.y);
   },
 
-    async mainLoadModel(reason) {
-    console.log("Loading model with extension:", Viewer._ext, 'with reason: ', reason);
+    async mainLoadModel() {
+    console.log("Loading model with extension:", Viewer._ext);
     if (Viewer._ext === "glb" || Viewer._ext === "gltf") {
       await loadModel({
         fileObject: Viewer.fileObject,
@@ -2149,10 +2149,10 @@ export const Viewer = {
                 Viewer._ext = Viewer.fileObject.extension.toLowerCase();
                 Viewer.fileObject.path = _autoPath.substring(0, _autoPath.lastIndexOf(Viewer.fileObject.filename));
               }
-              await Viewer.mainLoadModel('Loaded metadata');
+              await Viewer.mainLoadModel();
             } else {
               console.log("Error during loading metadata content\n");
-              await Viewer.mainLoadModel('API load failed');
+              //await Viewer.mainLoadModel('API load failed');
             }
           }
         };
@@ -2214,7 +2214,7 @@ export const Viewer = {
               core.objectsConfig.scenes = loadedIIIF.scenes;
             }
             Viewer._ext = Viewer.fileObject.extension.toLowerCase();
-            await Viewer.mainLoadModel('iiif');
+            await Viewer.mainLoadModel();
           }
         }
 
