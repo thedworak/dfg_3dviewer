@@ -32,7 +32,7 @@ dfg_3dviewer.thumbnail_upload:
   requirements:
     _permission: 'access dfg 3dviewer editor'
 dfg_3dviewer.xml_export:
-  path: '/api/editor/xml-export'
+  path: '/api/editor/xml-export/{id}'
   defaults:
     _controller: '\Drupal\dfg_3dviewer\Controller\XmlExportController::export'
   methods: [POST]
