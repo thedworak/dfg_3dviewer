@@ -420,7 +420,7 @@ export const Viewer = {
     localStorage.setItem("viewerHintSeen", "0");
     
     this.updateSize();
-    if (!Viewer.CONFIG.entity?.metadata?.source) {
+    if (Viewer.CONFIG.entity?.metadata?.source != null) {
       await Viewer.mainLoadModel();
     }
     Viewer.animate();
