@@ -363,7 +363,7 @@ export const Viewer = {
 
     this.setModelPaths(this.fileObject);
 
-    this.CONFIG.viewer.exportPath = "/export_xml_single/";    
+    this.CONFIG.viewer.exportPath = "/api/editor/xml-export/";    
     this.loadedFile = `${this.fileObject.basename}.${this.fileObject.extension}`;
 
     this.handHint = document.createElement("div");
