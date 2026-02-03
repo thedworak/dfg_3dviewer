@@ -380,33 +380,29 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 
 	max_size = max(size)
 
-	if cam.data.type == 'ORTHO':
-		# SUN LIGHT (for ORTHO)
-		light_data = bpy.data.lights.new('SunLight', type='SUN')
-		light_data.energy = 5.0   # const, not related to model size
+	sun_data = bpy.data.lights.new('SunMain', type='SUN')
+	sun_data.energy = 5.0   # 4.0–6.0 sweet spot
 
-		light = bpy.data.objects.new('SunLight', light_data)
-		scene.collection.objects.link(light)
+	sun = bpy.data.objects.new('SunMain', sun_data)
+	scene.collection.objects.link(sun)
 
-		light.rotation_euler = (
-			math.radians(50),
-			0.0,
-			math.radians(30)
-		)
+	sun.rotation_euler = (
+		math.radians(50),
+		0.0,
+		math.radians(30)
+	)
 
-	else:
-		# AREA LIGHT (for PERSP)
-		light_data = bpy.data.lights.new('KeyLight', type='AREA')
-		light_data.energy = max_size * 5000
-		light_data.size = max_size * 5
+	fill_data = bpy.data.lights.new('SunFill', type='SUN')
+	fill_data.energy = 0.5   # 10% głównego
 
-		light = bpy.data.objects.new('KeyLight', light_data)
-		scene.collection.objects.link(light)
+	fill = bpy.data.objects.new('SunFill', fill_data)
+	scene.collection.objects.link(fill)
 
-		# need to update location after camera fit, otherwise light is too close to the model
-		light.location = cam.location + Vector((0, 0, max_size * 0.7))
-	
-	print("Light type:", light.data.type)
+	fill.rotation_euler = (
+		math.radians(75),
+		0.0,
+		math.radians(-120)
+	)
 
 	# --------------------------------------------------
 	# RENDERS

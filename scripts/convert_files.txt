@@ -1,5 +1,3 @@
-/opt/drupal/web/sites/default/files/2024-12/MAINZ_3D_Impressao_3D.glb
-/opt/drupal/web/sites/default/files/2025-01/Vivenda_celta_AR_repository_0.glb
 /opt/drupal/web/sites/default/files/2024-10/SY_Oszmiana_S23_05.glb
 /opt/drupal/web/sites/default/files/wisski_original/9e4fa2900234c425d490e29cfcd80ba4.glb
 /opt/drupal/web/sites/default/files/2025-04/SyMog_web_0.glb
