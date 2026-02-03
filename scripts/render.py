@@ -368,6 +368,13 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	constraint.target_space = 'WORLD'
 
 	# --------------------------------------------------
+	# BASE CAMERA FIT
+	# --------------------------------------------------
+
+	fit_camera_to_bounds(cam, center, size, margin=1.45)
+
+
+	# --------------------------------------------------
 	# LIGHT
 	# --------------------------------------------------
 
@@ -398,12 +405,8 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 
 		# need to update location after camera fit, otherwise light is too close to the model
 		light.location = cam.location + Vector((0, 0, max_size * 0.7))
-	# --------------------------------------------------
-	# BASE CAMERA FIT
-	# --------------------------------------------------
-
-	fit_camera_to_bounds(cam, center, size, margin=1.45)
-	light.location = cam.location + Vector((0, 0, max_size * 0.7))
+	
+	print("Light type:", light.data.type)
 
 	# --------------------------------------------------
 	# RENDERS
