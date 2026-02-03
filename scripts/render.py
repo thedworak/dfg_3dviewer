@@ -405,21 +405,39 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	)
 
 	# --------------------------------------------------
+	# SAFE RENDER FUNCTION
+	# --------------------------------------------------
+	def safe_render(final_path):
+		TMP_DIR = "/tmp/blender_renders"
+		os.makedirs(TMP_DIR, exist_ok=True)
+
+		tmp_path = os.path.join(
+			TMP_DIR,
+			os.path.basename(final_path) + "." + uuid.uuid4().hex + ".png"
+		)
+
+		# render to /tmp
+		scene.render.filepath = tmp_path
+		bpy.ops.render.render(write_still=True)
+
+		# make sure target directory exists
+		os.makedirs(os.path.dirname(final_path), exist_ok=True)
+
+		# atomic move to final location
+		os.replace(tmp_path, final_path)
+
+	# --------------------------------------------------
 	# RENDERS
 	# --------------------------------------------------
 	t0 = time.perf_counter()
-	
+
 	print("Starting rendering...")
 	def render_angle(angle_deg, suffix):
 		print(f"Rendering angle {angle_deg}")
 		cam_empty.rotation_euler = (0, 0, math.radians(angle_deg))
-		scene.render.filepath = f"{mainfilepath}_{suffix}.png"
-		final_path = scene.render.filepath
-		tmp_path = final_path + "." + uuid.uuid4().hex + ".tmp"
 
-		scene.render.filepath = tmp_path
-		bpy.ops.render.render(write_still=True)
-		os.replace(tmp_path, final_path)
+		final_path = f"{mainfilepath}_{suffix}.png"
+		safe_render(final_path)
 
 	# sides
 	for a in [0, 90, 180, 270]:
@@ -433,12 +451,8 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	cam.location = center + Vector((0, 0, max(size.x, size.y) * 1.3))
 	cam.rotation_euler = (0, 0, 0)
 	scene.render.filepath = f"{mainfilepath}_top.png"
-	final_path = scene.render.filepath
-	tmp_path = final_path + "." + uuid.uuid4().hex + ".tmp"
-
-	scene.render.filepath = tmp_path
-	bpy.ops.render.render(write_still=True)
-	os.replace(tmp_path, final_path)
+	final_path = f"{mainfilepath}_top.png"
+	safe_render(final_path)
 
 	t1 = time.perf_counter()
 
