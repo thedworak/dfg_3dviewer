@@ -289,6 +289,8 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	render.image_settings.color_mode = 'RGBA'
 	render.image_settings.color_depth = '16' 
 	render.image_settings.file_format = 'PNG'
+	render.image_settings.color_management = 'FOLLOW_SCENE'
+	render.image_settings.view_settings.view_transform = 'Standard'
 	render.resolution_x = int(resolution[0])
 	render.resolution_y = int(resolution[1])
 	render.resolution_percentage = 100
