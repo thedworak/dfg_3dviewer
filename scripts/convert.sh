@@ -300,7 +300,7 @@ handle_gml_file () {
 }
 
 printf "\n"
-echo "=== Parameters ==="
+echo "======== Parameters ========"
 echo "  INPUT: $INPUT"
 echo "  OUTPUT: $OUTPUT"
 echo "  COMPRESSION: $COMPRESSION"
@@ -309,7 +309,7 @@ echo "  FORMAT: $GLTF"
 echo "  FORCE: $FORCE"
 echo "  LIGHTWEIGHT: $LIGHTWEIGHT"
 echo "  ARCHIVE: $IS_ARCHIVE"
-echo "================="
+echo "==========================="
 printf "\n"
 
 if [[ ! -z "$INPUT" && -f $INPUT ]]; then
