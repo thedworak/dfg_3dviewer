@@ -5,13 +5,15 @@ set -uo pipefail
 # Config
 ######################################
 LOG_FILE="convert_$(date +%Y-%m-%d_%H-%M-%S).log"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+FILES_LIST="$SCRIPT_DIR/convert_files.txt"
 
-[[ -f convert_files.txt ]] || { echo "Missing file: convert_files.txt"; exit 1; }
+[[ -f $FILES_LIST ]] || { echo "Missing file: $FILES_LIST"; exit 1; }
 
 while IFS= read -r line || [[ -n "$line" ]]; do
   [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
   FILES+=("$line")
-done < convert_files.txt
+done < "$FILES_LIST"
 
 [[ ${#FILES[@]} -eq 0 ]] && {
   echo "No files to process."
