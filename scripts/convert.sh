@@ -85,7 +85,7 @@ show_usage () {
 	echo "-c=compress -cl=compression level -i=input path -o=output path -b=binary -f=force override existing file"
 }
 
-while getopts ":c:l:o:i:b:f:t:" flag; do
+while getopts ":c:l:o:i:b:f:t:a:" flag; do
     case "${flag}" in
 		t) LIGHTWEIGHT=${OPTARG};;
         c) COMPRESSION=${OPTARG};;
