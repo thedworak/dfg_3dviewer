@@ -32,10 +32,12 @@ BLENDER_PATH="$SCRIPT_DIR/$BLENDER_PATH"
 COMPRESSION=false
 COMPRESSION_LEVEL=3
 GLTF="gltf"
-FORCE="false"
+FORCE=false
 isOutput=false
 IS_ARCHIVE=false
 LIGHTWEIGHT=false
+INPUT=""
+OUTPUT=""
 
 check_blender () {
 	if [[ -x "$BLENDER_PATH/blender" ]]; then
@@ -85,17 +87,90 @@ show_usage () {
 	echo "-c=compress -cl=compression level -i=input path -o=output path -b=binary -f=force override existing file"
 }
 
-while getopts ":c:l:o:i:b:f:t:a:" flag; do
-    case "${flag}" in
-		t) LIGHTWEIGHT=${OPTARG};;
-        c) COMPRESSION=${OPTARG};;
-        l) COMPRESSION_LEVEL=${OPTARG};;
-        i) INPUT="${OPTARG}";;
-        o) OUTPUT="${OPTARG}";;
-        f) FORCE="${OPTARG}";;
-        a) IS_ARCHIVE="${OPTARG}";;
-        b) if [[ "${OPTARG}" = "true" ]]; then GLTF="glb"; else GLTF="gltf"; fi;;
-    esac
+######################################
+# Helpers
+######################################
+die() {
+  echo "Error: $*" >&2
+  exit 1
+}
+
+bool() {
+  [[ "$1" == "true" || "$1" == "false" ]] || die "Value must be true/false (is: $1)"
+}
+
+file_exists() {
+  [[ -f "$1" ]] || die "File not found: $1"
+}
+
+######################################
+# Parsing
+######################################
+while true; do
+  case "$1" in
+    -c|--compression)
+      bool "$2"
+      COMPRESSION="$2"
+      shift 2
+      ;;
+    -l|--compression-level)
+      [[ "$2" =~ ^[0-9]$ ]] || die "compression-level must be 0–9"
+      COMPRESSION_LEVEL="$2"
+      shift 2
+      ;;
+    -i|--input)
+      INPUT="$2"
+      shift 2
+      ;;
+    -o|--output)
+      OUTPUT="$2"
+      shift 2
+      ;;
+    -b|--binary)
+      bool "$2"
+      [[ "$2" == "true" ]] && GLTF="glb" || GLTF="gltf"
+      shift 2
+      ;;
+    -f|--force)
+      bool "$2"
+      FORCE="$2"
+      shift 2
+      ;;
+    -t|--lightweight)
+      bool "$2"
+      LIGHTWEIGHT="$2"
+      shift 2
+      ;;
+    -a|--archive)
+      bool "$2"
+      IS_ARCHIVE="$2"
+      shift 2
+      ;;
+    -h|--help)
+      cat <<EOF
+Usage: convert.sh [options]
+
+Options:
+  -c, --compression true|false
+  -l, --compression-level 0-9
+  -i, --input FILE
+  -o, --output FILE
+  -b, --binary true|false   (true = glb, false = gltf)
+  -f, --force true|false
+  -t, --lightweight true|false
+  -a, --archive true|false
+  -h, --help
+EOF
+      exit 0
+      ;;
+    --)
+      shift
+      break
+      ;;
+    *)
+      die "Error parsing arguments"
+      ;;
+  esac
 done
 
 check_status () {
@@ -314,10 +389,21 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 		echo "No extension found on $FILENAME";
 		exit 2;
 	fi
-elif [[ -z "$INPUT" ]]; then
-	echo "No input file provided"
-	show_usage
+elif [[ -z "$INPUT" && die "No --input argument provided"]]; then
+	file_exists "$INPUT"
+elif [[ -n "$OUTPUT" && -f "$OUTPUT" && "$FORCE" != "true" ]]; then
+	die "Output file already exists (use --force true)"
 else
 	echo "Given file '$INPUT' not found"
 	show_usage
 fi
+
+echo "=== Parameters ==="
+echo "  INPUT: $INPUT"
+echo "  OUTPUT: $OUTPUT"
+echo "  COMPRESSION: $COMPRESSION"
+echo "  LEVEL: $COMPRESSION_LEVEL"
+echo "  FORMAT: $GLTF"
+echo "  FORCE: $FORCE"
+echo "  LIGHTWEIGHT: $LIGHTWEIGHT"
+echo "  ARCHIVE: $IS_ARCHIVE"
