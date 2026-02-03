@@ -409,7 +409,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	# SAFE RENDER FUNCTION
 	# --------------------------------------------------
 	def safe_render(final_path):
-		TMP_DIR = "/opt/tmp/blender_renders"
+		TMP_DIR = "/opt/drupal/web/dfg3dviewer-utils/tmp/blender_renders"
 		os.makedirs(TMP_DIR, exist_ok=True)
 
 		tmp_path = os.path.join(
