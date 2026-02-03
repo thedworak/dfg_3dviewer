@@ -239,18 +239,30 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 
 
 	def fit_camera_to_bounds(cam, center, size, margin=1.2):
-		ratio = size.x / size.z
-
-		if ratio > 6:
-			cam.data.type = 'ORTHO'
-			cam.data.ortho_scale = size.x * 1.1
-		else:
-			cam.data.type = 'PERSP'
-		cam_data = cam.data
-
 		# aspect ratio of render
 		render = bpy.context.scene.render
 		aspect = render.resolution_x / render.resolution_y
+
+		ratio = size.x / size.z
+		print(f"Camera fit ratio: {ratio:.2f}")
+
+		if ratio > 6.0:
+			cam.data.type = 'ORTHO'
+
+			# ORTHO: skala = wysokość kadru
+			ortho_height = size.z * 1.2
+			ortho_width = size.x * 1.2 / aspect
+
+			cam.data.ortho_scale = max(ortho_height, ortho_width)
+
+			# clipping – MUST HAVE
+			cam.data.clip_start = 0.01
+			cam.data.clip_end = max(size) * 10
+
+		else:
+			cam.data.type = 'PERSP'
+			cam.data.clip_start = 0.01
+			cam.data.clip_end = max(size) * 10
 
 		# FOV vertical and horizontal
 		fov_x = cam_data.angle
