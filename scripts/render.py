@@ -361,7 +361,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	# BASE CAMERA FIT
 	# --------------------------------------------------
 
-	fit_camera_to_bounds(cam, center, size, margin=1.25)
+	fit_camera_to_bounds(cam, center, size, margin=1.35)
 	light.location = cam.location + Vector((0, 0, max_size * 0.7))
 
 	# --------------------------------------------------
