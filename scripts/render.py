@@ -27,7 +27,7 @@
 #
 
 import bpy
-import os
+import os, uuid
 import sys
 import numpy as np
 import math
@@ -414,7 +414,12 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 		print(f"Rendering angle {angle_deg}")
 		cam_empty.rotation_euler = (0, 0, math.radians(angle_deg))
 		scene.render.filepath = f"{mainfilepath}_{suffix}.png"
+		final_path = scene.render.filepath
+		tmp_path = final_path + "." + uuid.uuid4().hex + ".tmp"
+
+		scene.render.filepath = tmp_path
 		bpy.ops.render.render(write_still=True)
+		os.replace(tmp_path, final_path)
 
 	# sides
 	for a in [0, 90, 180, 270]:
@@ -428,7 +433,12 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	cam.location = center + Vector((0, 0, max(size.x, size.y) * 1.3))
 	cam.rotation_euler = (0, 0, 0)
 	scene.render.filepath = f"{mainfilepath}_top.png"
+	final_path = scene.render.filepath
+	tmp_path = final_path + "." + uuid.uuid4().hex + ".tmp"
+
+	scene.render.filepath = tmp_path
 	bpy.ops.render.render(write_still=True)
+	os.replace(tmp_path, final_path)
 
 	t1 = time.perf_counter()
 
