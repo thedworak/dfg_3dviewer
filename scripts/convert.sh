@@ -118,7 +118,7 @@ render_preview () {
 		SNAME="gltf/${NAME}"
 	fi;
 
-	RESOLUTION="512x512x16"
+	RESOLUTION="1024x1024x16"
 	SAMPLES="20"
 	xvfb-run --auto-servernum \
 		--server-args="-screen 0 ${RESOLUTION}" \
