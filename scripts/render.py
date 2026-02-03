@@ -237,11 +237,23 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 		return center, size
 
 
-	def fit_camera_to_bounds(cam, center, size, margin=1.15):
-		max_dim = max(size.x, size.z)
-		fov = cam.data.angle
-		distance = (max_dim * 0.5) / math.tan(fov * 0.5)
-		distance *= margin
+	def fit_camera_to_bounds(cam, center, size, margin=1.1):
+		cam_data = cam.data
+
+		# aspect ratio of render
+		render = bpy.context.scene.render
+		aspect = render.resolution_x / render.resolution_y
+
+		# FOV vertical and horizontal
+		fov_x = cam_data.angle
+		fov_y = 2 * math.atan(math.tan(fov_x / 2) / aspect)
+
+		# required distance to fit bounds in view
+		dist_x = (size.x * 0.5) / math.tan(fov_x * 0.5)
+		dist_z = (size.z * 0.5) / math.tan(fov_y * 0.5)
+
+		distance = max(dist_x, dist_z) * margin
+
 		cam.location = center + Vector((0, -distance, 0))
 
 	if args.output:
@@ -311,7 +323,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	# --------------------------------------------------
 
 	cam_data = bpy.data.cameras.new("Camera")
-	cam_data.lens = 50                 # product look
+	cam_data.lens = 35	# product look
 	cam_data.sensor_width = 36
 
 	cam = bpy.data.objects.new("Camera", cam_data)
