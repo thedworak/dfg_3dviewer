@@ -324,7 +324,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 
 	center, size = get_scene_bounds()
 	cam_data = bpy.data.cameras.new("Camera")
-	cam_data.lens = 35	# product look
+	cam_data.lens = 50	# product look
 	cam_data.sensor_width = 36
 
 	cam = bpy.data.objects.new("Camera", cam_data)
@@ -383,7 +383,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 		render_angle(a, f"side{a}")
 
 	# top
-	cam.location = center + Vector((0, 0, max(size.x, size.y) * 1.2))
+	cam.location = center + Vector((0, 0, max(size.x, size.y) * 1.3))
 	cam.rotation_euler = (0, 0, 0)
 	scene.render.filepath = f"{mainfilepath}_top.png"
 	bpy.ops.render.render(write_still=True)
