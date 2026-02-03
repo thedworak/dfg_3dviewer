@@ -21,7 +21,7 @@
 # sudo blender -b -P ./scripts/2gltf2/2gltf2.py -- --input "/opt/drupal/web/sites/default/files/{NAME}" --ext "$GLTF" --compression "true" --compression_level "3" --output "/opt/drupal/web/sites/default/files/2025-05/test-TEST.glb"
 # xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo blender -b -P ./scripts/render.py -- --input "/var/www/html/sites/default/files/{NAME}.glb" --ext "glb" --org_ext "glb" --output "/var/www/html/sites/default/files/views/" --is_archive false --resolution 512x512x16 --samples 20 -E BLENDER_EEVEE -f 1
 
-set -e
+set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BLENDER_PATH=''
 #BLENDER_PATH='/var/lib/snapd/snap/blender/current/'
@@ -83,8 +83,22 @@ fi
 check_scripts
 
 show_usage () {
-	echo "Usage: ./convert.sh -c true/false -cl [0-6] -i 'INPUT' -o 'OUTPUT' -b true/false -f true/false"
-	echo "-c=compress -cl=compression level -i=input path -o=output path -b=binary -f=force override existing file"
+	echo "-c=compress -l=compression level -i=input path -o=output path -b=binary -f=force override existing file"
+	cat <<EOF
+		Usage: convert.sh [options]
+
+		Options:
+		-c, --compression true|false
+		-l, --compression-level 0-9
+		-i, --input FILE
+		-o, --output FILE
+		-b, --binary true|false   (true = glb, false = gltf)
+		-f, --force true|false
+		-t, --lightweight true|false
+		-a, --archive true|false
+		-h, --help
+EOF
+	exit 0
 }
 
 ######################################
@@ -106,7 +120,7 @@ file_exists() {
 ######################################
 # Parsing
 ######################################
-while true; do
+while [[ $# -gt 0 ]]; do
   case "$1" in
     -c|--compression)
       bool "$2"
@@ -147,21 +161,8 @@ while true; do
       shift 2
       ;;
     -h|--help)
-      cat <<EOF
-Usage: convert.sh [options]
-
-Options:
-  -c, --compression true|false
-  -l, --compression-level 0-9
-  -i, --input FILE
-  -o, --output FILE
-  -b, --binary true|false   (true = glb, false = gltf)
-  -f, --force true|false
-  -t, --lightweight true|false
-  -a, --archive true|false
-  -h, --help
-EOF
-      exit 0
+		show_usage
+    	exit 0
       ;;
     --)
       shift
@@ -298,6 +299,16 @@ handle_gml_file () {
 
 }
 
+echo "=== Parameters ==="
+echo "  INPUT: $INPUT"
+echo "  OUTPUT: $OUTPUT"
+echo "  COMPRESSION: $COMPRESSION"
+echo "  LEVEL: $COMPRESSION_LEVEL"
+echo "  FORMAT: $GLTF"
+echo "  FORCE: $FORCE"
+echo "  LIGHTWEIGHT: $LIGHTWEIGHT"
+echo "  ARCHIVE: $IS_ARCHIVE"
+
 if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 	FILENAME=${INPUT##*/}
 	NAME="${FILENAME%.*}"
@@ -322,7 +333,7 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 		OUTPUT=`echo ${OUTPUT}gltf/`
 		isOutput=true
 	fi
-	if [[ "$EXT" != "$filename" ]]; then
+	if [[ "$EXT" != "$FILENAME" ]]; then
 		EXT="${EXT,,}"
 		if [[ ! -d "$OUTPUT" ]]; then
 			mkdir "$OUTPUT"
@@ -389,7 +400,7 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 		echo "No extension found on $FILENAME";
 		exit 2;
 	fi
-elif [[ -z "$INPUT" && die "No --input argument provided"]]; then
+elif [[ -z "$INPUT" ]] && die "No --input argument provided"; then
 	file_exists "$INPUT"
 elif [[ -n "$OUTPUT" && -f "$OUTPUT" && "$FORCE" != "true" ]]; then
 	die "Output file already exists (use --force true)"
@@ -397,13 +408,3 @@ else
 	echo "Given file '$INPUT' not found"
 	show_usage
 fi
-
-echo "=== Parameters ==="
-echo "  INPUT: $INPUT"
-echo "  OUTPUT: $OUTPUT"
-echo "  COMPRESSION: $COMPRESSION"
-echo "  LEVEL: $COMPRESSION_LEVEL"
-echo "  FORMAT: $GLTF"
-echo "  FORCE: $FORCE"
-echo "  LIGHTWEIGHT: $LIGHTWEIGHT"
-echo "  ARCHIVE: $IS_ARCHIVE"
