@@ -244,6 +244,16 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 		distance *= margin
 		cam.location = center + Vector((0, -distance, 0))
 
+	if args.output:
+		export_file = args.output
+	else:
+		root = root[::-1].replace(current_basename[::-1], "", 1)[::-1]
+		export_file = root + "_" + extension
+
+	if is_archive:
+		mainfilepath=export_file+current_basename
+	else:
+		mainfilepath=export_file+current_basename+"."+original_extension
 
 	# --------------------------------------------------
 	# RENDER / CYCLES
@@ -362,10 +372,5 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	cam.rotation_euler = (0, 0, 0)
 	scene.render.filepath = f"{mainfilepath}_top.png"
 	bpy.ops.render.render(write_still=True)
-	
-	#bottom
-	#cam.location=Vector((0, 0, -dist_z*5))
-	#sun.location = cam.location
-	#scene.render.filepath=export_file+current_basename+'_bottom.png'
-	#bpy.ops.render.render(write_still=True)
+
 	print("Rendering done")
