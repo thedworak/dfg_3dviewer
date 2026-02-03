@@ -35,6 +35,7 @@ from mathutils import Matrix, Vector
 import itertools
 from math import radians
 import argparse
+import time
 
 if '--' in sys.argv:
     argv = sys.argv[sys.argv.index('--') + 1:]
@@ -238,6 +239,13 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 
 
 	def fit_camera_to_bounds(cam, center, size, margin=1.2):
+		ratio = size.x / size.z
+
+		if ratio > 6:
+			cam.data.type = 'ORTHO'
+			cam.data.ortho_scale = size.x * 1.1
+		else:
+			cam.data.type = 'PERSP'
 		cam_data = cam.data
 
 		# aspect ratio of render
@@ -361,18 +369,20 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	# BASE CAMERA FIT
 	# --------------------------------------------------
 
-	fit_camera_to_bounds(cam, center, size, margin=1.35)
+	fit_camera_to_bounds(cam, center, size, margin=1.45)
 	light.location = cam.location + Vector((0, 0, max_size * 0.7))
 
 	# --------------------------------------------------
 	# RENDERS
 	# --------------------------------------------------
-
+	t0 = time.perf_counter()
+	
+	print("Starting rendering...")
 	def render_angle(angle_deg, suffix):
+		print(f"Rendering angle {angle_deg}")
 		cam_empty.rotation_euler = (0, 0, math.radians(angle_deg))
 		scene.render.filepath = f"{mainfilepath}_{suffix}.png"
 		bpy.ops.render.render(write_still=True)
-
 
 	# sides
 	for a in [0, 90, 180, 270]:
@@ -388,4 +398,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	scene.render.filepath = f"{mainfilepath}_top.png"
 	bpy.ops.render.render(write_still=True)
 
-	print("Rendering done")
+	t1 = time.perf_counter()
+
+	print(f"Rendering done (took: {t1 - t0:.3f} s)")
+	# --------------------------------------------------
