@@ -424,14 +424,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 		# make sure target dir exists
 		os.makedirs(os.path.dirname(final_path), exist_ok=True)
 
-		try:
-			# try atomic replace
-			os.replace(tmp_path, final_path)
-		except OSError as e:
-			if e.errno == 18:  # EXDEV: cross-device link
-				shutil.move(tmp_path, final_path)  # copy + unlink
-			else:
-				raise
+		shutil.move(tmp_path, final_path)
 
 	# --------------------------------------------------
 	# RENDERS
