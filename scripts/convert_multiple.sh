@@ -44,7 +44,7 @@ for file in "${FILES[@]}"; do
     --compression true \
     --compression-level 3 \
     --binary true \
-    --force true \
+    --force false \
     2>&1 | tee -a "$LOG_FILE"
   then
     log "OK: $file" | tee -a "$LOG_FILE"
