@@ -295,10 +295,15 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	render.film_transparent = True
 	#scene.render.engine = 'CYCLES'
 	scene.render.use_freestyle = False
-	scene.use_nodes = True
+	scene.render.use_compositing = True
 	context.window.view_layer.use_pass_normal = True
 	context.window.view_layer.use_pass_diffuse_color = True
 	context.window.view_layer.use_pass_object_index = True
+	view_layer = scene.view_layers["ViewLayer"]
+
+	view_layer.use_pass_normal = True
+	view_layer.use_pass_diffuse_color = True
+	view_layer.use_pass_object_index = True
 
 	#
 	if args.output:
