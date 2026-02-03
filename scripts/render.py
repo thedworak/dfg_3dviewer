@@ -237,7 +237,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 		return center, size
 
 
-	def fit_camera_to_bounds(cam, center, size, margin=1.1):
+	def fit_camera_to_bounds(cam, center, size, margin=1.2):
 		cam_data = cam.data
 
 		# aspect ratio of render
@@ -361,7 +361,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	# BASE CAMERA FIT
 	# --------------------------------------------------
 
-	fit_camera_to_bounds(cam, center, size, margin=1.15)
+	fit_camera_to_bounds(cam, center, size, margin=1.25)
 	light.location = cam.location + Vector((0, 0, max_size * 0.7))
 
 	# --------------------------------------------------
