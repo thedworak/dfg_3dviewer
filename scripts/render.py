@@ -256,8 +256,6 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	render.engine = "CYCLES"
 	render.film_transparent = True
 	scene.cycles.device = "CPU"
-	scene.cycles.threads_mode = 'AUTO'
-	scene.cycles.threads = 0
 	scene.cycles.samples = 256 # default 128
 	scene.cycles.use_adaptive_sampling = True
 	scene.cycles.adaptive_threshold = 0.03 # default 0.1
