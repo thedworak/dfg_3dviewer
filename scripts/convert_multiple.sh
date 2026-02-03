@@ -41,7 +41,7 @@ for file in "${FILES[@]}"; do
   START=$(date +%s)
   log "Start: $file" | tee -a "$LOG_FILE"
 
-  if convert.sh \
+  if "$SCRIPT_DIR/convert.sh" \
     --input "$file" \
     --compression true \
     --compression-level 3 \
