@@ -299,6 +299,7 @@ handle_gml_file () {
 
 }
 
+printf "\n"
 echo "=== Parameters ==="
 echo "  INPUT: $INPUT"
 echo "  OUTPUT: $OUTPUT"
@@ -308,6 +309,8 @@ echo "  FORMAT: $GLTF"
 echo "  FORCE: $FORCE"
 echo "  LIGHTWEIGHT: $LIGHTWEIGHT"
 echo "  ARCHIVE: $IS_ARCHIVE"
+echo "================="
+printf "\n"
 
 if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 	FILENAME=${INPUT##*/}
