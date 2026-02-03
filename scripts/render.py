@@ -374,27 +374,30 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	max_size = max(size)
 
 	if cam.data.type == 'ORTHO':
+		# SUN LIGHT (for ORTHO)
 		light_data = bpy.data.lights.new('SunLight', type='SUN')
-		light_data.energy = 5.0   # <- STAŁA, NIE zależna od skali
+		light_data.energy = 5.0   # const, not related to model size
 
 		light = bpy.data.objects.new('SunLight', light_data)
 		scene.collection.objects.link(light)
 
-		# kąt jak słońce do elewacji
 		light.rotation_euler = (
 			math.radians(50),
-			math.radians(0),
+			0.0,
 			math.radians(30)
 		)
+
 	else:
-		# AREA LIGHT
+		# AREA LIGHT (for PERSP)
 		light_data = bpy.data.lights.new('KeyLight', type='AREA')
 		light_data.energy = max_size * 5000
 		light_data.size = max_size * 5
 
-	light = bpy.data.objects.new('KeyLight', light_data)
-	scene.collection.objects.link(light)
+		light = bpy.data.objects.new('KeyLight', light_data)
+		scene.collection.objects.link(light)
 
+		# need to update location after camera fit, otherwise light is too close to the model
+		light.location = cam.location + Vector((0, 0, max_size * 0.7))
 	# --------------------------------------------------
 	# BASE CAMERA FIT
 	# --------------------------------------------------
