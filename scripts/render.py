@@ -322,6 +322,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	# CAMERA
 	# --------------------------------------------------
 
+	center, size = get_scene_bounds()
 	cam_data = bpy.data.cameras.new("Camera")
 	cam_data.lens = 35	# product look
 	cam_data.sensor_width = 36
@@ -331,6 +332,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	scene.camera = cam
 
 	cam_empty = bpy.data.objects.new("CamTarget", None)
+	cam_empty.location = center 
 	scene.collection.objects.link(cam_empty)
 
 	cam.parent = cam_empty
@@ -339,12 +341,13 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	constraint.target = cam_empty
 	constraint.track_axis = 'TRACK_NEGATIVE_Z'
 	constraint.up_axis = 'UP_Y'
+	constraint.owner_space = 'WORLD'
+	constraint.target_space = 'WORLD'
 
 	# --------------------------------------------------
 	# LIGHT
 	# --------------------------------------------------
 
-	center, size = get_scene_bounds()
 	max_size = max(size)
 
 	light_data = bpy.data.lights.new('KeyLight', type='AREA')
@@ -366,7 +369,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	# --------------------------------------------------
 
 	def render_angle(angle_deg, suffix):
-		cam_empty.rotation_euler[2] = math.radians(angle_deg)
+		cam_empty.rotation_euler = (0, 0, math.radians(angle_deg))
 		scene.render.filepath = f"{mainfilepath}_{suffix}.png"
 		bpy.ops.render.render(write_still=True)
 
