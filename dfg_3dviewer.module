@@ -437,7 +437,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 					}
 					\Drupal::logger('dfg_3dviewer')->notice(
 						'Checking thumbnails: @url @uri @info',
-						['@url' => $url]
+						['@url' => $url],
 						['@uri' => $uri],
 						['@info' => $info]
 					);
