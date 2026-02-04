@@ -341,13 +341,13 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			#$output = exec($SPATH . '/scripts/convert.sh -t ' . $cfg['lightweight'] . ' -c true -l 3 -b true -i "' . $realpath . '" -f true 2>&1', $output, $retval);					
 		}
 	}
-	\Drupal::logger('dfg_3dviewer')->notice(
-		'Checking against entity_bundle: @entity_bundle',
-		['@entity_bundle' => print_r($cfg['entity_bundle'], true)]
-	);
 	if ($entity->bundle() == $cfg['entity_bundle']) {
 		//$file_info = $entity->label->getValue();
-		$file_info = $entity->{$cfg['viewer_file_upload']}->getValue();	
+		$file_info = $entity->{$cfg['viewer_file_upload']}->getValue();
+		\Drupal::logger('dfg_3dviewer')->notice(
+			'Checking against entity_bundle: @file_info',
+			['@file_info' => print_r($file_info, true)]
+		);
 		if (isset($file_info[0]) && isset($file_info[0]['target_id'])) {
 			$file_id = $file_info[0]['target_id'];
 			$entity_id = $entity->eid->value;
