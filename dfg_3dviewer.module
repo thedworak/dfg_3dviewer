@@ -353,45 +353,74 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			if (!is_null($file)) {
 				$fileName = $file->getFilename();
 				$extension = pathinfo($fileName, PATHINFO_EXTENSION);
-				$fileBase = str_replace(".$extension", "", $fileName);
+				$fileBase  = pathinfo($fileName, PATHINFO_FILENAME);
 				$isArchive = false;
 				if (in_arrayi($extension, $archives)) {
 					$isArchive = true;
 				}
 				$file_url = \Drupal::service('file_url_generator')->generate($file->getFileUri());
+				$fileUrl = $file_url->toString(); 
 				$viewBase = "";
-				$path = "";
+				$baseDir  = rtrim(dirname($fileUrl), '/');
 				#is archive
-				if (in_arrayi($extension, $archives)) {
-					$path = str_replace($fileName, "", $file_url->toString());
-					$subPath = substr($path, 0, strrpos( $path, '/') );
-					$viewBase = $base . $subPath . "/" . $fileBase . "_" . strtoupper($extension) . "/views/" . $fileBase;
-					$fileBaseArchive = preg_replace('/_[0-9]+$/', '', $fileBase, 1);
+				if ($isArchive) {
+					// /sites/default/files/foo/model_ZIP/views/model
+					$viewBase = $base
+						. $baseDir
+						. '/'
+						. $fileBase
+						. '_'
+						. strtoupper($extension)
+						. '/views/'
+						. $fileBase;
+
+					// fallback: model_1.zip → model
 					if (!url_exists($viewBase . $imgSuffix)) {
-						$subPath = substr($path, 0, strrpos( $path, '/') );
-						$viewBase = $base . $subPath . "/" . $fileBase . "_" . strtoupper($extension) . "/views/" . $fileBaseArchive;
+						$fileBaseArchive = preg_replace('/_[0-9]+$/', '', $fileBase);
+						$viewBase = $base
+							. $baseDir
+							. '/'
+							. $fileBase
+							. '_'
+							. strtoupper($extension)
+							. '/views/'
+							. $fileBaseArchive;
 					}
 				}
-				else
-				{
-					$path = str_replace($fileName, "views/" . $fileName, $file_url->toString());
-					$viewBase = $base . $path;
+				else {
+					// standard: views obok pliku
+					$viewBase = $base . $baseDir . '/views/' . $fileBase;
+
 					\Drupal::logger('dfg_3dviewer')->notice(
 						'Checking file exists: @viewBase',
-						['@viewBase' => print_r($viewBase, true)]
+						['@viewBase' => $viewBase]
 					);
+
+					// fallback 1: bez /views
 					if (!url_exists($viewBase . $imgSuffix)) {
-						$subPath = substr($path, 0, strrpos( $path, '/') );
-						$viewBase = $base . $subPath . "/" . $fileBase;
-						if (!url_exists($viewBase . $imgSuffix)) {
-							$viewBase = $base . $subPath . "/views/" . $fileBase;
-						}
+						$viewBase = $base . $baseDir . '/' . $fileBase;
+					}
+
+					// fallback 2: /views jeszcze raz (inne layouty)
+					if (!url_exists($viewBase . $imgSuffix)) {
+						$viewBase = $base . $baseDir . '/views/' . $fileBase;
 					}
 				}
 
 				$viewBase = str_replace(' ', '%20', $viewBase);
 				clearstatcache();
-				$imagesTemp = array($viewBase . $imgSuffix, $viewBase . "_side0.png", $viewBase . "_side90.png", $viewBase . "_side135.png", $viewBase . "_side180.png", $viewBase . "_side225.png", $viewBase . "_side270.png", $viewBase . "_side315.png", $viewBase . "_top.png");
+
+				$imagesTemp = [
+					$viewBase . $imgSuffix,
+					$viewBase . '_side0.png',
+					$viewBase . '_side90.png',
+					$viewBase . '_side135.png',
+					$viewBase . '_side180.png',
+					$viewBase . '_side225.png',
+					$viewBase . '_side270.png',
+					$viewBase . '_side315.png',
+					$viewBase . '_top.png',
+				];
 
 				$imagesPaths = [];
 				foreach ($imagesTemp as $value) {
