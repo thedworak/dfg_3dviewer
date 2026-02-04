@@ -223,12 +223,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		\Drupal::messenger()->addMessage("Cant load settings file", 'warning');
 	}
 	
-	\Drupal::logger('dfg_3dviewer')->notice(
-		'entity_presave fired. cfg=@cfg',
-		[
-		'@cfg' => print_r($cfg, true),
-		]
-	);
+	\Drupal::logger('dfg_3dviewer')->notice('Entity_presave fired.');
 	$SPATH = \Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath());
 	$XPATH = dirname(dirname($SPATH));
 	$archives = array('ZIP', 'RAR', 'TAR', 'XZ', 'GZ');
@@ -346,6 +341,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			#$output = exec($SPATH . '/scripts/convert.sh -t ' . $cfg['lightweight'] . ' -c true -l 3 -b true -i "' . $realpath . '" -f true 2>&1', $output, $retval);					
 		}
 	}
+	\Drupal::logger('dfg_3dviewer')->notice('Checking against entity_bundle $cfg['entity_bundle']');
 	if ($entity->bundle() == $cfg['entity_bundle']) {
 		//$file_info = $entity->label->getValue();
 		$file_info = $entity->{$cfg['viewer_file_upload']}->getValue();	
