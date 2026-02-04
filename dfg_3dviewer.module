@@ -391,11 +391,6 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 					// standard: views obok pliku
 					$viewBase = $base . $baseDir . '/views/' . $fileBase;
 
-					\Drupal::logger('dfg_3dviewer')->notice(
-						'Checking file exists: @viewBase',
-						['@viewBase' => $viewBase]
-					);
-
 					// fallback 1: bez /views
 					if (!url_exists($viewBase . $imgSuffix)) {
 						$viewBase = $base . $baseDir . '/' . $fileBase;
@@ -442,6 +437,15 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 					}
 
 					$imagesPaths[] = $url;
+				}
+
+				if (count($imagesPaths) > 0) {
+					\Drupal::messenger()->addMessage("Renderings were added to the entity");
+					\Drupal::logger('dfg_3dviewer')->notice(
+						'Checking file exists: @imagesPaths',
+						['@imagesPaths' => $imagesPaths]
+					);
+					$entity->set($cfg['image_generation'], $imagesPaths);
 				}
 
 				$fpath = $file_url->toString();
