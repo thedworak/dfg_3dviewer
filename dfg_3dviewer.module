@@ -428,12 +428,12 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 					);
 
 					if (!$uri || !is_file($uri)) {
-						//continue;
+						continue;
 					}
 
 					$info = @getimagesize($uri);
 					if ($info === false) {
-						//continue;
+						continue;
 					}
 					\Drupal::logger('dfg_3dviewer')->notice(
 						'Checking thumbnails URL: @url | URI: @uri | info: @info',
