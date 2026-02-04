@@ -348,7 +348,7 @@ function traverseMesh(object) {
 
       case "ifc": {
         const ifcLoader = new IFCLoader();
-        ifcLoader.ifcManager.setWasmPath("./dist/ifc/", true);
+        ifcLoader.ifcManager.setWasmPath("./dist/assets/ifc/", true);
         const object = await loadAsync(ifcLoader, modelPath, onProgress);
         afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core });
         break;
