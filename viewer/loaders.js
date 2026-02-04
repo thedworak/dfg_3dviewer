@@ -348,7 +348,11 @@ function traverseMesh(object) {
 
       case "ifc": {
         const ifcLoader = new IFCLoader();
-        ifcLoader.ifcManager.setWasmPath("./dist/assets/ifc/", true);
+        const ifcWasmPath =
+          ENV_BUILD === 'drupal'
+            ? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/assets/ifc/`
+            : `/assets/ifc/`;
+        ifcLoader.ifcManager.setWasmPath(ifcWasmPath, true);
         const object = await loadAsync(ifcLoader, modelPath, onProgress);
         afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core });
         break;
