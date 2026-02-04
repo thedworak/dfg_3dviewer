@@ -436,10 +436,12 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 						//continue;
 					}
 					\Drupal::logger('dfg_3dviewer')->notice(
-						'Checking thumbnails: @url @uri @info',
-						['@url' => $url],
-						['@uri' => $uri],
-						['@info' => $info]
+						'Checking thumbnails URL: @url | URI: @uri | info: @info',
+						[
+							'@url'  => $url,
+							'@uri'  => $uri,
+							'@info' => print_r($info, true),
+						]
 					);
 
 					$imagesPaths[] = $url;
@@ -448,10 +450,10 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 				if (count($imagesPaths) > 0) {
 					\Drupal::messenger()->addMessage("Renderings were added to the entity");
 					\Drupal::logger('dfg_3dviewer')->notice(
-						'Checking file exists: @imagesPaths',
+						'Checked image paths @imagesPaths',
 						['@imagesPaths' => $imagesPaths]
 					);
-					//$entity->set($cfg['image_generation'], $imagesPaths);
+					$entity->set($cfg['image_generation'], $imagesPaths);
 				}
 
 				$fpath = $file_url->toString();
