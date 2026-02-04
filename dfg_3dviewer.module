@@ -428,16 +428,17 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 					);
 
 					if (!$uri || !is_file($uri)) {
-						continue;
+						//continue;
 					}
 
 					$info = @getimagesize($uri);
 					if ($info === false) {
-						continue;
+						//continue;
 					}
 					\Drupal::logger('dfg_3dviewer')->notice(
-						'Checking thumbnails: @url',
-						['@url' => $url],
+						'Checking thumbnails: @url @uri @info',
+						['@url' => $url]
+						['@uri' => $uri],
 						['@info' => $info]
 					);
 
@@ -450,7 +451,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 						'Checking file exists: @imagesPaths',
 						['@imagesPaths' => $imagesPaths]
 					);
-					$entity->set($cfg['image_generation'], $imagesPaths);
+					//$entity->set($cfg['image_generation'], $imagesPaths);
 				}
 
 				$fpath = $file_url->toString();
