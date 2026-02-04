@@ -322,7 +322,7 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 		INPATH="."
 	fi
 	if [[ -z "$OUTPUT" ]]; then
-		OUTPUT=`echo $INPATH/\gltf`
+		OUTPUT=`echo ${INPATH}/gltf`
 	else
 		#echo $OUTPUT
 		OUTFILENAME=${OUTPUT%/*}     # trim everything past the last /
