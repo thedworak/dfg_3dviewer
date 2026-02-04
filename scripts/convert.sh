@@ -38,6 +38,7 @@ IS_ARCHIVE=false
 LIGHTWEIGHT=false
 INPUT=""
 OUTPUT=""
+OUTPUTPATH=""
 
 check_blender () {
 	if [[ -x "$BLENDER_PATH/blender" ]]; then
