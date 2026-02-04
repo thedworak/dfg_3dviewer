@@ -82,8 +82,8 @@ canvas {
   opacity: 0;
   pointer-events: none;
   z-index: 100;
-  top: 95%;
   left: 0px;
+  filter: drop-shadow(0 0 2px rgba(0,0,0,.9));
 }
 
 @keyframes fadeIn {
@@ -319,6 +319,7 @@ canvas {
   background-size: 30px;
   cursor: pointer;
   opacity: 0.45;
+  filter: drop-shadow(0 0 1.5px rgba(0,0,0,.7));
 }
 
 #downloadModel:hover {
@@ -346,6 +347,7 @@ canvas {
   background-size: 25px;
   cursor: pointer;
   bottom: 21px;
+  filter: drop-shadow(0 0 1.5px rgba(0,0,0,.7));
 }
 
 #fullscreenMode:hover {

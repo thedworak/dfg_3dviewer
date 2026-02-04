@@ -908,6 +908,7 @@ export const Viewer = {
     if (Viewer.viewEntity) {
       Viewer.viewEntity.style.right = isFullscreen ? '-95%' : '-75%';
     }
+    core.handHint.style.top = (heightCSS - 70) + 'px';
    
     Viewer.renderer.setPixelRatio(devicePixelRatio * scale.x);
     Viewer.renderer.setSize(widthCSS*scale.x, heightCSS*scale.y, false);

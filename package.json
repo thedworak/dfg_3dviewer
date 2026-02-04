@@ -48,7 +48,7 @@
     "dev:test": "cross-env BUILD_SOURCE=IIIF BUILD=test parcel index.html --port 1234",
     "dev:prod": "cross-env BUILD_SOURCE='' BUILD=prod parcel index.html --port 1234",
     "build:test": "cross-env BUILD_SOURCE=IIIF BUILD=test rollup -c",
-    "build:dev": "cross-env BUILD_SOURCE='' BUILD=test rollup -c",
+    "build:dev": "cross-env BUILD_SOURCE='IIIF' BUILD=test rollup -c",
     "build:prod": "cross-env BUILD_SOURCE='' BUILD=prod rollup -c",
     "build:drupal": "cross-env BUILD_SOURCE='' IS_PROD=true BUILD=drupal MODULE_CUSTOM='' rollup -c",
     "build:drupal:custom": "cross-env BUILD_SOURCE='' BUILD=drupal MODULE_CUSTOM=/custom rollup -c",
