@@ -1966,10 +1966,10 @@ export const Viewer = {
       Viewer.renderer.domElement.style.display = "block";
       Viewer.container.appendChild(Viewer.renderer.domElement);
       Viewer.mainCanvas.classList.add("mainCanvas");
-      Viewer.canvasText = document.createElement("div");
-      Viewer.canvasText.id = "TextCanvas";
-      Viewer.canvasText.width = Viewer.CONFIG.viewer.canvasDimensions.x + "px";
-      Viewer.canvasText.height = Viewer.CONFIG.viewer.canvasDimensions.y + "px";
+      //Viewer.canvasText = document.createElement("div");
+      //Viewer.canvasText.id = "metadata-container";
+      //Viewer.canvasText.width = Viewer.CONFIG.viewer.canvasDimensions.x + "px";
+      //Viewer.canvasText.height = Viewer.CONFIG.viewer.canvasDimensions.y + "px";
 
       Viewer.viewerWrapper = Viewer.container.closest('.viewer-wrapper');
 
@@ -2164,20 +2164,41 @@ export const Viewer = {
       } else if (Viewer.CONFIG.entity.metadata.source.toLowerCase().substring(0, 4) === "iiif") {
           const formContainer = document.createElement("div");
           formContainer.id = "form-IIIF";
-          formContainer.innerHTML = `
-            <div class="form-IIIF-group">
-              <input type="text" id="manifest-url" name="manifest-url" value="">
-              <button id="load-manifest-from-url">Load Manifest From URL</button>
-            </div>
-            <div class="form-IIIF-group">
-              <textarea id="manifest-text" name="manifest-text" rows="10"></textarea>
-              <p>
-                <button id="load-manifest-from-text">Load Manifest From Text</button>
-              </p>
+
+          /* header */
+          const header = document.createElement("div");
+          header.className = "form-IIIF-header";
+          header.innerHTML = `
+            <span class="title">IIIF Loader</span>
+            <div class="tools">
+              <button type="button" id="iiif-toggle-theme" title="Toggle dark mode">🌙</button>
+              <button type="button" id="iiif-toggle-collapse" title="Collapse">▾</button>
             </div>
           `;
 
-        document.body.appendChild(formContainer);
+          formContainer.appendChild(header);
+
+          /* content */
+          const content = document.createElement("div");
+          content.className = "form-IIIF-content";
+          content.id = "form-IIIF-content";
+          content.innerHTML = `
+            <div class="form-IIIF-group">
+              <input type="text" id="manifest-url" placeholder="https://example.org/iiif/manifest.json">
+              <button class="primary" id="load-manifest-from-url">Load from URL</button>
+            </div>
+
+            <div class="form-IIIF-group column">
+              <textarea id="manifest-text" rows="8" placeholder="Paste IIIF manifest JSON here…"></textarea>
+              <div class="actions">
+                <button class="secondary" id="load-manifest-from-text">Load from Text</button>
+              </div>
+            </div>
+          `;
+
+          formContainer.appendChild(content);
+
+          document.body.appendChild(formContainer);
 
         async function setupIIIF(newUrlOrJson, type="url") {
           if (type === "text") {
@@ -2241,8 +2262,29 @@ export const Viewer = {
         }
 
         async function loadIIIFURL() {
+          const form = document.getElementById("form-IIIF");
+          const collapseBtn = document.getElementById("iiif-toggle-collapse");
+          const themeBtn = document.getElementById("iiif-toggle-theme");
+          const STORAGE_KEY = "iiif-dark-mode";
+
+          // restore
+          if (localStorage.getItem(STORAGE_KEY) === "1") {
+            form.classList.add("dark");
+            themeBtn.textContent = "☀️";
+          }
+
+          themeBtn.addEventListener("click", () => {
+            const isDark = form.classList.toggle("dark");
+            themeBtn.textContent = isDark ? "☀️" : "🌙";
+            localStorage.setItem(STORAGE_KEY, isDark ? "1" : "0");
+          });
+
+          collapseBtn.addEventListener("click", () => {
+            form.classList.toggle("collapsed");
+            collapseBtn.textContent = form.classList.contains("collapsed") ? "▸" : "▾";
+          });
           // create a small dropdown to switch iiif manifests at runtime
-          document.getElementById("iiif-dropdown").addEventListener("change", async (ev) => {
+          document.getElementById("iiif-manifest-select").addEventListener("change", async (ev) => {
             try {
               if (ev.target.value !== Viewer.iiifConfigURL.url) {
                 core.objectsConfig.setupIndex = 0;

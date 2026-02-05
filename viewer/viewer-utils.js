@@ -16,6 +16,9 @@ export const initClippingPlanes = () => {
   return clippingPlanes;
 };
 
+const scaleXYZ = (v, s) =>
+  ['x', 'y', 'z'].forEach(k => v[k] *= s);
+
 export var toastifyOptions = {
   duration: 6500,
   gravity: "bottom",
@@ -482,7 +485,7 @@ function animateCameraToPose ({
       core.camera.updateProjectionMatrix();
 
       if (core.controls) {
-        core.controls.maxDistance = maxDistance;
+        core.controls.maxDistance = maxDistance * 2;
       }
     }
     showInteractionHint(boxCenter);
@@ -739,6 +742,7 @@ function setupClippingPlanes(_geom, _size, _distance) {
   });
 
   core.distanceGeometry = _distance;
+  scaleXYZ(core.distanceGeometry, 2);
   let displayHelper = {x: getOrAddGuiController(core.clippingFolder, core.planeParams.planeX, "displayHelperX"), constantX: getOrAddGuiController(core.clippingFolder, core.planeParams.planeX, "constantX"), y: getOrAddGuiController(core.clippingFolder, core.planeParams.planeY, "displayHelperY"), constantY: getOrAddGuiController(core.clippingFolder, core.planeParams.planeY, "constantY"), z: getOrAddGuiController(core.clippingFolder, core.planeParams.planeZ, "displayHelperZ"), constantZ: getOrAddGuiController(core.clippingFolder, core.planeParams.planeZ, "constantZ"), outline: getOrAddGuiController(core.clippingFolder, core.planeParams.outline, "visible")};
   displayHelper.x.onChange((v) => {
       core.planeParams.clippingMode.x = core.planeHelpers[0].visible = v;

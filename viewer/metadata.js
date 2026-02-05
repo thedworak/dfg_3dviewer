@@ -49,10 +49,16 @@ export function lilGUIgetFolder(gui, name) {
  * Expands/collapses the metadata panel.
  */
 export function expandMetadata() {
-  const el = document.getElementById("metadata-content");
-  el.classList.toggle("expanded");
-  const elm = document.getElementById("metadata-collapse");
-  elm.classList.toggle("metadata-collapsed");
+  const content = document.getElementById("metadata-content");
+  const toggle = document.getElementById("metadata-collapse");
+
+  if (!content || !toggle) return;
+
+  const expanded = content.classList.toggle("expanded");
+  toggle.classList.toggle("metadata-collapsed", !expanded);
+
+  // accessibility
+  toggle.setAttribute("aria-expanded", expanded);
 }
 
 /**
@@ -66,9 +72,12 @@ export function appendMetadata(
   metadataContentTech
 ) {
   metadataContent += metadataContentTech + "</div>";
-  canvasText.innerHTML = metadataContent;
-  metadataContainer.appendChild(canvasText);
-  container.appendChild(metadataContainer);
+
+  metadataContainer.innerHTML = metadataContent;
+
+  if (!container.contains(metadataContainer)) {
+    container.appendChild(metadataContainer);
+  }
 }
 
 export function fetchMetadata(_object, _type) {
@@ -124,7 +133,7 @@ export async function handleMetadataResponse(
 ) {
   var tempArray = [];
   let hierarchyFolder;
-  let metadataContentTech = '<hr class="metadataSeparator">';
+  let metadataContentTech = '';
   if (Array.isArray(object)) {
     setupObject(object[0], light, controls, data);
     await setupCamera(object[0], light, data);
@@ -193,14 +202,39 @@ export async function handleMetadataResponse(
     hierarchyMain.domElement.classList.add("hierarchy");
   }
 
+  if (!metadataContainer) {
+    metadataContainer = document.createElement("div");
+    metadataContainer.id = "metadata-container";
+    document.body.appendChild(metadataContainer);
+  }
+
   var metadataContent =
-    '<div id="metadata-collapse" class="metadata-collapse metadata-collapsed">METADATA </div><div id="metadata-content" class="metadata-content expanded">';
-  metadataContentTech +=
-    "Visualized file: <b>" + fileObject.basename + "." + fileObject.extension + "</b><br>";
-  metadataContentTech += "Vertices: <b>" + metadata["vertices"] + "</b><br>";
-  metadataContentTech += "Faces: <b>" + metadata["faces"] + "</b><br>";
-  viewEntity = document.createElement("div");
-  viewEntity.setAttribute("id", "viewEntity");
+    '<div id="metadata-card">' +
+      '<div id="metadata-collapse" class="metadata-collapse metadata-collapsed">METADATA</div>' +
+      '<div id="metadata-content" class="metadata-content expanded">';
+  metadataContent +=
+    '<div class="metadata-row">' +
+      '<span class="metadata-label">Visualized file:</span>' +
+      '<span class="metadata-value">' +
+        fileObject.basename + '.' + fileObject.extension +
+      '</span>' +
+    '</div>';
+
+  metadataContent += '<div class="metadataSeparator"></div>';
+
+  metadataContent +=
+    '<div class="metadata-row">' +
+      '<span class="metadata-label">Vertices:</span>' +
+      '<span class="metadata-value">' + metadata["vertices"] + '</span>' +
+    '</div>';
+
+  metadataContent +=
+    '<div class="metadata-row">' +
+      '<span class="metadata-label">Faces:</span>' +
+      '<span class="metadata-value">' + metadata["faces"] + '</span>' +
+    '</div>';
+    viewEntity = document.createElement("div");
+    viewEntity.setAttribute("id", "viewEntity");
 
   if (!core.isLightweight) {
 
@@ -229,8 +263,9 @@ export async function handleMetadataResponse(
     );
 
     req.onreadystatechange = function () {
-      if (req.readyState === 4) {
-        if (req.status === 200) {
+      if (req.readyState !== 4) return;
+        try {
+          if (req.status === 200) {
           const parser = new DOMParser();
           const doc = parser.parseFromString(
             req.responseText,
@@ -253,25 +288,24 @@ export async function handleMetadataResponse(
           }
 
           metadataContainer.appendChild(viewEntity);
-          appendMetadata(
-            metadataContent,
-            canvasText,
-            metadataContainer,
-            container,
-            metadataContentTech
-          );
-
-        } else {
-          showToast("No metadata found for entity " + entityID);
+          } else {
+            showToast("No metadata found for entity " + entityID);
+          }
+        } finally {
+          metadataContent +=
+              '</div>' +  // #metadata-content
+            '</div>';  
+          appendMetadata( metadataContent, canvasText, metadataContainer, container, metadataContentTech);
         }
-      }
     };
 
     req.send(null);
-
   } else {
     const scriptUrl = document.currentScript?.src || import.meta.url;
     let DFG_ASSETS = scriptUrl.replace(/dfg_3dviewer-module\.js.*$/, 'assets/img/');
+    metadataContent +=
+      '</div>' +  // #metadata-content
+    '</div>';  
 
     viewEntity.innerHTML =
       `<a href='${CONFIG.mainUrl}${CONFIG.entity.viewEntityPath}${entityID}/view' target='_blank'><img src='${DFG_ASSETS}share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>`;
@@ -443,39 +477,35 @@ export async function fetchSettings(
 export function createIIIFDropdown(container, iiifConfigURL, canvasDimensions) {
   // list of candidate IIIF config URLs (add more as needed)
   const iiifList = [
-    {url: iiifConfigURL.url, name: iiifConfigURL.name},
-    {url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name :"Model Position and Scale"},
-    {url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin.json", name:"Model Origin"},
-    {url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin_bgcolor.json", name:"Model Origin with background color"},
-    {url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_position.json", name:"Model Position"},
+    { url: iiifConfigURL.url, name: iiifConfigURL.name },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: "Model Position and Scale" },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin.json", name: "Model Origin" },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin_bgcolor.json", name: "Model Origin with background color" },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_position.json", name: "Model Position" },
   ].filter(Boolean);
 
-  const wrapper = document.createElement("div");
-  wrapper.id = "iiif-dropdown";
-  wrapper.style.margin = "6px 0";
-  wrapper.style.display = "block";
-  wrapper.style.gap = "6px";
-  wrapper.style.position = "relative";
-  wrapper.style.top = (canvasDimensions.y + 10) + "px";
+  const group = document.createElement("div");
+  group.className = "form-IIIF-group";
+
   const label = document.createElement("label");
-  label.textContent = "IIIF manifest: ";
-  label.style.fontSize = "14px";
-  label.style.alignSelf = "center";
+  label.textContent = "IIIF manifest";
+  label.className = "form-IIIF-label";
 
   const select = document.createElement("select");
   select.id = "iiif-manifest-select";
   select.name = "iiif-manifest-select";
-  select.style.fontSize = "12px";
-  select.style.minWidth = "360px";
 
-  iiifList.forEach((item) => {
+  iiifList.forEach(item => {
     const opt = document.createElement("option");
     opt.value = item.url;
     opt.textContent = item.name;
     select.appendChild(opt);
   });
 
-  wrapper.appendChild(label);
-  label.appendChild(select);
-  container.appendChild(wrapper);
+  group.appendChild(label);
+  group.appendChild(select);
+
+  // add on the top
+  document.querySelector("#form-IIIF-content").prepend(group);
+
 }
