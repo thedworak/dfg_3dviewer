@@ -201,13 +201,15 @@ canvas {
 
 #metadata-container {
   position: absolute;
-  top: 16px;
-  left: 16px;
+  top: -5px !important;
+  left: 0px;
 
   pointer-events: none;
   z-index: 9999;
 
   padding: 12px 16px 12px 18px;
+  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
+             "Segoe UI", Roboto, Arial, sans-serif;
 }
 
 #metadata-container::before {
@@ -267,11 +269,12 @@ canvas {
 .metadata-value {
   color: rgba(0,0,0,.9);
   font-weight: 600;
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
+             "Segoe UI", Roboto, Arial, sans-serif;
 }
 
 .metadataSeparator {
-  height: 8px;
+  height: 3px;
 }
 
 #metadata-collapse {
@@ -280,22 +283,30 @@ canvas {
   letter-spacing: .18em;
   text-transform: uppercase;
 
-  color: rgba(0,0,0,.55);
+  color: rgba(0,0,0,.85);
 
   margin-bottom: 10px;
 
   cursor: pointer;
   user-select: none;
+  pointer-events: auto;
 }
 
 #metadata-collapse::after {
-  content: "›";
+  content: "▸";
+  display: inline-block;
   margin-left: 6px;
-  opacity: .6;
+
+  font-size: 12px;
+  line-height: 1;
+  opacity: .9;
+
+  transform: rotate(90deg); /* expanded */
+  transition: transform .15s ease;
 }
 
 #metadata-collapse.metadata-collapsed::after {
-  content: "▸";
+  transform: rotate(0deg);
 }
 
 #form-IIIF.dark #metadata-container::before {
@@ -394,7 +405,7 @@ canvas {
   height: 30px;
   background-size: 30px;
   cursor: pointer;
-  opacity: 0.45;
+  opacity: 0.55;
   filter: drop-shadow(0 0 1.5px rgba(0,0,0,.7));
 }
 
@@ -415,7 +426,7 @@ canvas {
 }
 
 #fullscreenMode {
-  opacity: 0.45;
+  opacity: 0.55;
   z-index: 10;
   position: relative;
   width: 25px;

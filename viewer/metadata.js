@@ -210,7 +210,7 @@ export async function handleMetadataResponse(
 
   var metadataContent =
     '<div id="metadata-card">' +
-      '<div id="metadata-collapse" class="metadata-collapse metadata-collapsed">METADATA</div>' +
+      '<div id="metadata-collapse" class="metadata-collapse">METADATA</div>' +
       '<div id="metadata-content" class="metadata-content expanded">';
   metadataContent +=
     '<div class="metadata-row">' +
