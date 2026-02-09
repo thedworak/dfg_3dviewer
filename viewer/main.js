@@ -1745,13 +1745,12 @@ export const Viewer = {
                 THREE.MathUtils.radToDeg(Viewer.helperObjects[0].rotation.y),
                 THREE.MathUtils.radToDeg(Viewer.helperObjects[0].rotation.z)
               );
-              var newMetadata = new Object();
 
               //Fetch data from original metadata file anyway before saving any changes
               if (Viewer.CONFIG.entity.proxyPath !== undefined) {
                 Viewer.metadataUrl = getProxyPath(Viewer.metadataUrl);
               }
-
+              console.log(Viewer.metadataUrl);
               fetch(Viewer.metadataUrl, { cache: "no-cache" })
                 .then((response) => {
                   if (response["status"] !== 404) {
