@@ -182,7 +182,6 @@ function traverseMesh(object) {
       container,
       metadataContainer,
       canvasText,
-      bottomLineGUI,
       compressedFile,
       viewEntity
     } = params;
@@ -200,7 +199,7 @@ function traverseMesh(object) {
     }
 
     // Helper: common post-load pipeline
-    async function afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core }) {
+    async function afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity, scene, mainObject, core }) {
       if (object === null || typeof object === "undefined") {
         showToast("Loaded object is null or undefined.");
         return;
@@ -214,7 +213,7 @@ function traverseMesh(object) {
       traverseMesh(object);
       if (params.fileObject.extension.toLowerCase() === "gltf" || params.fileObject.extension.toLowerCase() === "glb") params.fileObject.path = params.fileObject.path.replace("/gltf/", "/");
       else params.fileObject.path = params.fileObject.path.replace("gltf/", "");
-      fetchSettings( params.fileObject, object, camera, lightObjects[0], controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity);
+      fetchSettings( params.fileObject, object, lightObjects[0], controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity);
       core.outlineClipping = prepareOutlineClipping(object);
       scene.add(object, core.outlineClipping);
       scene.add(object);
@@ -312,7 +311,7 @@ function traverseMesh(object) {
     switch (fileObject.extension.toLowerCase()) {
       case "obj": {
         const object = await loadOBJWithMTL(params.fileObject, config, scene, mainObject, params);
-        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core });
+        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity, scene, mainObject, core });
         break;
       }
 
@@ -320,7 +319,7 @@ function traverseMesh(object) {
         const loader = new FBXLoader();
         const object = await loadAsync(loader, modelPath, onProgress);
         //object.position.set(0, 0, 0);
-        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core });
+        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity, scene, mainObject, core });
         break;
       }
 
@@ -333,7 +332,7 @@ function traverseMesh(object) {
         object.position.set(0, 0, 0);
         object.castShadow = true;
         object.receiveShadow = true;
-        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core });
+        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity, scene, mainObject, core });
         break;
       }
 
@@ -342,7 +341,7 @@ function traverseMesh(object) {
         const collada = await loadAsync(loader, modelPath, onProgress);
         const object = collada.scene;
         object.position.set(0, 0, 0);
-        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core });
+        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity, scene, mainObject, core });
         break;
       }
 
@@ -354,7 +353,7 @@ function traverseMesh(object) {
             : `/assets/ifc/`;
         ifcLoader.ifcManager.setWasmPath(ifcWasmPath, true);
         const object = await loadAsync(ifcLoader, modelPath, onProgress);
-        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core });
+        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity, scene, mainObject, core });
         break;
       }
 
@@ -369,7 +368,7 @@ function traverseMesh(object) {
         object.position.set(0, 0, 0);
         object.castShadow = true;
         object.receiveShadow = true;
-        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core });
+        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity, scene, mainObject, core });
         break;
       }
 
@@ -380,14 +379,14 @@ function traverseMesh(object) {
         const material = new THREE.PointsMaterial({ size: 0.1, vertexColors: geometry.hasAttribute("color") === true });
         const object = new THREE.Points(geometry, material);
         object.position.set(0, 0, 0);
-        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core });
+        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity, scene, mainObject, core });
         break;
       }
 
       case "pcd": {
         const loader = new PCDLoader();
         const mesh = await loadAsync(loader, modelPath, onProgress);
-        afterLoad({ object: mesh, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core });
+        afterLoad({ object: mesh, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity, scene, mainObject, core });
         break;
       }
 
@@ -395,7 +394,7 @@ function traverseMesh(object) {
         const loader = new THREE.ObjectLoader();
         const object = await loadAsync(loader, modelPath, onProgress);
         object.position.set(0, 0, 0);
-        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core });
+        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity, scene, mainObject, core });
         break;
       }
 
@@ -405,14 +404,14 @@ function traverseMesh(object) {
         let mp = path;
         if (config.entity.proxyPath !== undefined) mp = getProxyPath(mp);
         const object = await loadAsync(loader, mp + params.fileObject.basename + "." + params.fileObject.extension, onProgress);
-        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core });
+        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity, scene, mainObject, core });
         break;
       }
 
       case "glb":
       case "gltf": {
         const object = await loadGLTFModel(params.fileObject, config, scene, mainObject);
-        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, scene, mainObject, core });
+        afterLoad({ object, params, camera, lightObjects, controls, gui, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity, scene, mainObject, core });
         break;
       }
       default:

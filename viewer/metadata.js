@@ -369,7 +369,6 @@ async function loadMetadataData(metadataUrl, CONFIG, fileObject) {
 export async function fetchSettings(
   fileObject,
   object,
-  camera,
   light,
   controls,
   gui,
@@ -381,7 +380,6 @@ export async function fetchSettings(
   container,
   metadataContainer,
   canvasText,
-  bottomLineGUI,
   compressedFile,
   viewEntity
 ) {
