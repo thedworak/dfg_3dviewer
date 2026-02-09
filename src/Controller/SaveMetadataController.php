@@ -46,19 +46,20 @@ class SaveMetadataController extends ControllerBase {
 			throw new BadRequestHttpException('Invalid input');
 		}
 
-		// ie. 2025-02 albo project_1/session_3
-		if (!preg_match('#^[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_-]+)*$#', $path)) {
+		if (!preg_match('#^[a-zA-Z0-9._-]+(?:/[a-zA-Z0-9._-]+)*$#', $path)) {
 			\Drupal::logger('dfg_3dviewer')->error(
-			  'Invalid filename received: "@path"',
+			  'Invalid path received: "@path"',
 			  ['@path' => $path]
 			);
+  			throw new BadRequestHttpException('Invalid path');
 		}
 
-		if (!preg_match('#^[a-zA-Z0-9_-]+$#', $filename)) {
+		if (!preg_match('#^[a-zA-Z0-9._-]+$#', $filename)) {
 			\Drupal::logger('dfg_3dviewer')->error(
-			  'Invalid filename received: "@filename"',
-			  ['@filename' => $filename]
+				'Invalid filename received: "@filename"',
+				['@filename' => $filename]
 			);
+			throw new BadRequestHttpException('Invalid filename');
 		}
 
 		/* =========================

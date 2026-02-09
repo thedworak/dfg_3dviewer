@@ -361,7 +361,7 @@ export const Viewer = {
       this.CONFIG.baseModulePath = this.container.getAttribute("basePath");
     }
 
-    this.setModelPaths(this.fileObject);
+    this.setModelPaths();
 
     this.CONFIG.viewer.exportPath = "/api/editor/xml-export/";    
     this.loadedFile = `${this.fileObject.basename}.${this.fileObject.extension}`;
@@ -427,12 +427,12 @@ export const Viewer = {
     Viewer.animate();
   },
 
-  setModelPaths(fileObject) {
-    fileObject.filename = fileObject.originalPath.split("/").pop();
-    fileObject.basename = fileObject.filename.substring(0, fileObject.filename.lastIndexOf("."));
-    fileObject.extension = fileObject.filename.substring(fileObject.filename.lastIndexOf(".") + 1);
-    fileObject.path = fileObject.originalPath.substring(0, fileObject.originalPath.lastIndexOf(fileObject.filename));
-    fileObject.uri = fileObject.path.replace(this.CONFIG.mainUrl + "/", "");
+  setModelPaths() {
+    Viewer.fileObject.filename = Viewer.fileObject.originalPath.split("/").pop();
+    Viewer.fileObject.basename = Viewer.fileObject.filename.substring(0, Viewer.fileObject.filename.lastIndexOf("."));
+    Viewer.fileObject.extension = Viewer.fileObject.filename.substring(Viewer.fileObject.filename.lastIndexOf(".") + 1);
+    Viewer.fileObject.path = Viewer.fileObject.originalPath.substring(0, Viewer.fileObject.originalPath.lastIndexOf(Viewer.fileObject.filename));
+    Viewer.fileObject.uri = Viewer.fileObject.path.replace(this.CONFIG.mainUrl + "/", "");
   },
   // Disable interaction hint on first interaction
  disableInteractionHint() {
@@ -1767,6 +1767,7 @@ export const Viewer = {
                   };
 
                   const newMetadata = Viewer.buildMetadata(Viewer, rotateMetadata);
+                  console.log(Viewer.fileObject);
 
                   const token = await fetch("/session/token").then(r => r.text());
                   await fetch(Viewer.CONFIG.mainUrl + "/api/editor/save-metadata", {
@@ -1785,7 +1786,6 @@ export const Viewer = {
                       content: JSON.stringify(newMetadata, null, "\t")
                     })
                   });
-
                   showToast("Settings have been saved.");
                 })
               .catch((error) => {
@@ -2233,7 +2233,7 @@ export const Viewer = {
             core.objectsConfig.index = i;
             Viewer.fileObject.originalPath = loadedIIIF.modelUrl = url;
             //fileObject.originalPath = loadedIIIF.modelUrl;
-            Viewer.setModelPaths(Viewer.fileObject);
+            Viewer.setModelPaths();
             await getAnnotations(loadedIIIF, core.objectsConfig);
             if (loadedIIIF.scenes && loadedIIIF.scenes.length > 0) {
               core.objectsConfig.scenes = loadedIIIF.scenes;
