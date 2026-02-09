@@ -346,6 +346,23 @@ function safeURL(value) {
   }
 }
 
+async function loadMetadataData(metadataUrl, CONFIG, fileObject) {
+  // proxy / non-lightweight
+  if (CONFIG.entity.proxyPath !== undefined || !core.isLightweight) {
+    return null; // no data → proxy
+  }
+
+  const response = await fetch(metadataUrl, { cache: "no-cache" });
+
+  if (response.status === 404) {
+    showToast("No settings " + fileObject.filename + "_viewer.json found");
+    return null;
+  }
+
+  showToast("Settings " + fileObject.filename + "_viewer.json found");
+  return response.json();
+}
+
 /**
  * Fetches settings and metadata for the loaded model.
  */
@@ -399,7 +416,8 @@ export async function fetchSettings(
   }
   if (CONFIG.entity.proxyPath !== undefined || !core.isLightweight) {
     metadataUrl = getProxyPath(metadataUrl, CONFIG, fileObject);
-    await handleMetadataResponse(null, metadata, fileObject, object, light, controls, hierarchyMain, CONFIG, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity);
+    const data = await loadMetadataData(metadataUrl, CONFIG, fileObject);
+    await handleMetadataResponse(data, metadata, fileObject, object, light, controls, hierarchyMain, CONFIG, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity);
     settingsHandler(object, light, controls, hierarchyMain, CONFIG);
   } else if (CONFIG.entity.metadata.source === "IIIF") {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);
@@ -421,33 +439,8 @@ export async function fetchSettings(
       gui
     );
   } else {
-    fetch(metadataUrl, { cache: "no-cache" })
-      .then((response) => {
-        if (response["status"] !== 404) {
-          showToast("Settings " + fileObject.filename + "_viewer.json found");
-          return response.json();
-        } else if (response["status"] === 404) {
-          showToast("No settings " + fileObject.filename + "_viewer.json found");
-        }
-      })
-      .then(async (data) => {
-        await handleMetadataResponse(
-          data,
-          metadata,
-          fileObject,
-          object,
-          light,
-          controls,
-          hierarchyMain,
-          CONFIG,
-          entityID,
-          container,
-          metadataContainer,
-          canvasText,
-          compressedFile,
-          viewEntity
-        );
-      });
+    const data = await loadMetadataData(metadataUrl, CONFIG, fileObject);
+    await handleMetadataResponse(data, metadata, fileObject, object, light, controls, hierarchyMain, CONFIG, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity);
   }
   // Add statistics GUI
   let statsMain;
