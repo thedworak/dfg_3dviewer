@@ -104,7 +104,7 @@ export const Viewer = {
   viewerWrapper: null,
   scrollTop: null,
   rect: null,
-  fileObject: { originalPath: '', filename: '', basename: '', extension: '', path: '', uri: '', newExtension: '' },
+  fileObject: { originalPath: '', filename: '', basename: '', extension: '', path: '', uri: '', newExtension: '', relativePath: '' },
   bottomLineGUI: null,
   loadedFile: null,    
   fileElement: null,
@@ -433,6 +433,7 @@ export const Viewer = {
     Viewer.fileObject.extension = Viewer.fileObject.filename.substring(Viewer.fileObject.filename.lastIndexOf(".") + 1);
     Viewer.fileObject.path = Viewer.fileObject.originalPath.substring(0, Viewer.fileObject.originalPath.lastIndexOf(Viewer.fileObject.filename));
     Viewer.fileObject.uri = Viewer.fileObject.path.replace(this.CONFIG.mainUrl + "/", "");
+    Viewer.fileObject.relativePath = Viewer.fileObject.uri.replace(/^\/?sites\/default\/files\/?/, '');
   },
   // Disable interaction hint on first interaction
  disableInteractionHint() {
@@ -1781,8 +1782,8 @@ export const Viewer = {
                       filename: Viewer.fileObject.filename,
                       path:
                         Viewer.archiveType !== ""
-                          ? Viewer.fileObject.uri + Viewer.fileObject.basename + Viewer.compressedFile
-                          : Viewer.fileObject.uri,
+                          ? Viewer.fileObject.relativePath + Viewer.fileObject.basename + Viewer.compressedFile
+                          : Viewer.fileObject.relativePath,
                       content: JSON.stringify(newMetadata, null, "\t")
                     })
                   });
