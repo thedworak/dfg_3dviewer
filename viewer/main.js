@@ -1261,10 +1261,7 @@ export const Viewer = {
     Viewer.clippingFolder.controllers[3].updateDisplay();
     Viewer.clippingFolder.controllers[5].updateDisplay();
     var _maxDistance = Math.max(_distance.x, _distance.y, _distance.z);
-    Viewer.planeHelpers[0].size =
-      Viewer.planeHelpers[1].size =
-      Viewer.planeHelpers[2].size =
-      _maxDistance;
+    Viewer.planeHelpers?.forEach(h => h && (h.size = _maxDistance));
   },
 
   changeLightRotation() {
@@ -1766,7 +1763,7 @@ export const Viewer = {
                     ..._data
                   };
 
-                  const newMetadata = buildMetadata(Viewer, rotateMetadata);
+                  const newMetadata = Viewer.buildMetadata(Viewer, rotateMetadata);
 
                   const token = await fetch("/session/token").then(r => r.text());
                   await fetch(Viewer.CONFIG.mainUrl + "/api/editor/save-metadata", {
