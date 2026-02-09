@@ -66,7 +66,7 @@ class SaveMetadataController extends ControllerBase {
 		   Paths (safe)
 		========================= */
 
-		$directory = $path . '/metadata';
+		$directory = 'public://' . $path . '/metadata';
 
 		$fileSystem = \Drupal::service('file_system');
 
