@@ -1758,26 +1758,33 @@ export const Viewer = {
               if (Viewer.CONFIG.entity.proxyPath !== undefined) {
                 Viewer.metadataUrl = getProxyPath(Viewer.metadataUrl);
               }
-              console.log(Viewer.metadataUrl);
-              fetch(Viewer.metadataUrl, { cache: "no-cache" })
-                .then((response) => {
-                  if (response["status"] !== 404) {
-                    return response.json();
-                  } else {
-                    return (response = {});
+
+              (async () => {
+                let fetchedMetadata = {};
+
+                try {
+                  if (Viewer?.metadataUrl) {
+                    const response = await fetch(Viewer.metadataUrl, { cache: "no-cache" });
+
+                    if (response.ok) {
+                      fetchedMetadata = await response.json();
+                    }
                   }
-                })
-                .then(async (_data) => {
-                  if (!_data) return;
-                  Viewer.originalMetadata = {
-                    ...Viewer.originalMetadata,
-                    ..._data
-                  };
+                } catch (err) {
+                  console.warn("Metadata fetch failed, continuing with save", err);
+                }
 
-                  const newMetadata = Viewer.buildMetadata(Viewer, rotateMetadata);
-                  console.log(Viewer.fileObject);
+                // always run
+                Viewer.originalMetadata = {
+                  ...Viewer.originalMetadata,
+                  ...fetchedMetadata
+                };
 
+                const newMetadata = Viewer.buildMetadata(Viewer, rotateMetadata);
+
+                try {
                   const token = await fetch("/session/token").then(r => r.text());
+
                   await fetch(Viewer.CONFIG.mainUrl + "/api/editor/save-metadata", {
                     method: "POST",
                     credentials: "same-origin",
@@ -1789,18 +1796,21 @@ export const Viewer = {
                       filename: Viewer.fileObject.filename,
                       path:
                         Viewer.archiveType !== ""
-                          ? Viewer.fileObject.relativePath + Viewer.fileObject.basename + Viewer.compressedFile
+                          ? Viewer.fileObject.relativePath +
+                            Viewer.fileObject.basename +
+                            Viewer.compressedFile
                           : Viewer.fileObject.relativePath,
                       content: JSON.stringify(newMetadata, null, "\t")
                     })
                   });
+
                   showToast("Settings have been saved.");
-                })
-              .catch((error) => {
-                console.log(error);
-                showToast("Error saving settings");
-            });
-            },
+                } catch (err) {
+                  console.error(err);
+                  showToast("Error saving settings");
+                }
+              })();
+            }
           },
           "Save"
         );
