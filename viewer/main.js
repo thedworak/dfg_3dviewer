@@ -427,13 +427,20 @@ export const Viewer = {
     Viewer.animate();
   },
 
+  normalizeDrupalFilesPath(path) {
+    return path
+      .replace(/^\/?sites\/default\/files\/?/, '')
+      .replace(/\/+/g, '/')
+      .replace(/\/$/, '');
+  },
+
   setModelPaths() {
     Viewer.fileObject.filename = Viewer.fileObject.originalPath.split("/").pop();
     Viewer.fileObject.basename = Viewer.fileObject.filename.substring(0, Viewer.fileObject.filename.lastIndexOf("."));
     Viewer.fileObject.extension = Viewer.fileObject.filename.substring(Viewer.fileObject.filename.lastIndexOf(".") + 1);
     Viewer.fileObject.path = Viewer.fileObject.originalPath.substring(0, Viewer.fileObject.originalPath.lastIndexOf(Viewer.fileObject.filename));
     Viewer.fileObject.uri = Viewer.fileObject.path.replace(this.CONFIG.mainUrl + "/", "");
-    Viewer.fileObject.relativePath = Viewer.fileObject.uri.replace(/^\/?sites\/default\/files\/?/, '');
+    Viewer.fileObject.relativePath = Viewer.normalizeDrupalFilesPath(Viewer.fileObject.uri);
   },
   // Disable interaction hint on first interaction
  disableInteractionHint() {
