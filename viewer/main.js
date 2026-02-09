@@ -1441,6 +1441,10 @@ export const Viewer = {
       .start();
   },
 
+  pick(save, current, original) {
+    return save ? current : original;
+  },
+
   buildMetadata(Viewer, rotateMetadata) {
     const O = Viewer.originalMetadata;
     const S = Viewer.saveProperties;
@@ -1448,7 +1452,7 @@ export const Viewer = {
     const M = {};
 
     // --- OBJECT ---
-    M.objPosition = pick(
+    M.objPosition = Viewer.pick(
       S.Position,
       [
         Viewer.helperObjects[0].position.x,
@@ -1458,13 +1462,13 @@ export const Viewer = {
       O.objPosition
     );
 
-    M.objRotation = pick(
+    M.objRotation = Viewer.pick(
       S.Rotation,
       [rotateMetadata.x, rotateMetadata.y, rotateMetadata.z],
       O.objRotation
     );
 
-    M.objScale = pick(
+    M.objScale = Viewer.pick(
       S.Scale,
       [
         Viewer.helperObjects[0].scale.x,
@@ -1475,7 +1479,7 @@ export const Viewer = {
     );
 
     // --- CAMERA ---
-    M.cameraPosition = pick(
+    M.cameraPosition = Viewer.pick(
       S.Camera,
       [
         Viewer.camera.position.x,
@@ -1485,7 +1489,7 @@ export const Viewer = {
       O.cameraPosition
     );
 
-    M.controlsTarget = pick(
+    M.controlsTarget = Viewer.pick(
       S.Camera,
       [
         Viewer.controls.target.x,
@@ -1495,7 +1499,7 @@ export const Viewer = {
       O.controlsTarget
     );
 
-    M.controlsZoom = pick(
+    M.controlsZoom = Viewer.pick(
       S.Camera,
       [
         Viewer.camera.position.distanceTo(Viewer.controls.target)
@@ -1504,7 +1508,7 @@ export const Viewer = {
     );
 
     // --- DIRECTIONAL LIGHT ---
-    M.lightPosition = pick(
+    M.lightPosition = Viewer.pick(
       S.DirectionalLight,
       [
         Viewer.dirLight.position.x,
@@ -1514,7 +1518,7 @@ export const Viewer = {
       O.lightPosition
     );
 
-    M.lightTarget = pick(
+    M.lightTarget = Viewer.pick(
       S.DirectionalLight,
       [
         Viewer.dirLight.rotation._x,
@@ -1524,39 +1528,39 @@ export const Viewer = {
       O.lightTarget
     );
 
-    M.lightColor = pick(
+    M.lightColor = Viewer.pick(
       S.DirectionalLight,
       ["#" + Viewer.dirLight.color.getHexString().toUpperCase()],
       O.lightColor
     );
 
-    M.lightIntensity = pick(
+    M.lightIntensity = Viewer.pick(
       S.DirectionalLight,
       [Viewer.dirLight.intensity],
       O.lightIntensity
     );
 
     // --- AMBIENT LIGHT ---
-    M.lightAmbientColor = pick(
+    M.lightAmbientColor = Viewer.pick(
       S.AmbientLight,
       ["#" + Viewer.ambientLight.color.getHexString().toUpperCase()],
       O.lightAmbientColor
     );
 
-    M.lightAmbientIntensity = pick(
+    M.lightAmbientIntensity = Viewer.pick(
       S.AmbientLight,
       [Viewer.ambientLight.intensity],
       O.lightAmbientIntensity
     );
 
     // --- CAMERA LIGHT ---
-    M.lightCameraColor = pick(
+    M.lightCameraColor = Viewer.pick(
       S.CameraLight,
       ["#" + Viewer.cameraLight.color.getHexString().toUpperCase()],
       O.lightCameraColor
     );
 
-    M.lightCameraIntensity = pick(
+    M.lightCameraIntensity = Viewer.pick(
       S.CameraLight,
       [Viewer.cameraLight.intensity],
       O.lightCameraIntensity
