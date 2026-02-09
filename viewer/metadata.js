@@ -311,9 +311,11 @@ export async function handleMetadataResponse(
       `<a href='${CONFIG.mainUrl}${CONFIG.entity.viewEntityPath}${entityID}/view' target='_blank'><img src='${DFG_ASSETS}share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>`;
     appendMetadata(metadataContent, canvasText, metadataContainer, container, metadataContentTech);
   }
-  document
-    .getElementById("metadata-collapse")
-    ?.addEventListener("click", expandMetadata, false);
+  metadataContainer.addEventListener("click", (e) => {
+    if (e.target.id === "metadata-collapse") {
+      expandMetadata(e);
+    }
+  });
 }
 
 /**
