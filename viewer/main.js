@@ -691,7 +691,6 @@ export const Viewer = {
         for (let j = 0; j < imgList.length; j++) {
           imgList[j].onclick = function () {
             modalGallery.style.display = "block";
-            modalGallery.style.zIndex = 999;
             imageList.style.zIndex = 0;
             imageList.style.display = "hidden";
             modalImage.src = this.src;

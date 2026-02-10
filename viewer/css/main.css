@@ -205,7 +205,7 @@ canvas {
   left: 0px;
 
   pointer-events: none;
-  z-index: 9999;
+  z-index: 999;
 
   padding: 12px 16px 12px 18px;
   font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
@@ -337,7 +337,7 @@ canvas {
 .modalGallery {
   display: none; /* Hidden by default */
   position: fixed; /* Stay in place */
-  z-index: 20; /* Sit on top */
+  z-index: 9999; /* Sit on top */
   left: 0;
   top: 0;
   width: 95%;
