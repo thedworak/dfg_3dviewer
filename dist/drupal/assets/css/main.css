@@ -448,11 +448,15 @@ canvas {
   display: flex;
   gap: 16px;
   align-items: center;
-  overflow-x: auto;
+
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 #image-list .field__item {
-  flex: 0 0 200px;
+  flex: 1 1 200px;
+  max-width: 200px;
   height: 180px;
 
   position: relative;
@@ -462,7 +466,7 @@ canvas {
 .image-style-wisski-preview {
   display: block;
   width: 100% !important;
-  height: 100%;
+  height: 100% !important;
 
   max-width: 100% !important;
   max-height: 100% !important;
@@ -482,11 +486,6 @@ canvas {
   transform: scale(1.08);
   box-shadow: 0 0 20px 5px rgb(75 74 71);
   border-radius: 10%;
-}
-
-#image-list .field__item:hover {
-  transform: translateY(-4px);
-  z-index: 10;
 }
 
 .widget > select {
