@@ -8,22 +8,26 @@ use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 
 class ConvertProcessService {
 
-  protected $logger;
+    protected $logger;
 
-  public function __construct(LoggerChannelFactoryInterface $logger_factory) {
-    $this->logger = $logger_factory->get('dfg_3dviewer');
-  }
+    public function __construct(LoggerChannelFactoryInterface $logger_factory) {
+        $this->logger = $logger_factory->get('dfg_3dviewer');
+    }
 
-  /**
-   * Run convert.sh process.
-   *
-   * @param string $spath
-   * @param string $inputPath
-   * @param int $lightweight
-   * @param array $options
-   *
-   * @return array
-   */
+    private function boolToString($value): string {
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false';
+    }
+
+    /**
+     * Run convert.sh process.
+     *
+     * @param string $spath
+     * @param string $inputPath
+     * @param int $lightweight
+     * @param array $options
+     *
+     * @return array
+     */
     public function run(
         string $spath,
         string $inputPath,
@@ -44,10 +48,10 @@ class ConvertProcessService {
 
         $args = [
             $script,
-            '-t', $lightweight,
-            '-c', $options['c'] ?? 'true',
+            '-t', $this->boolToString($lightweight),
+            '-c', $this->boolToString($options['c'] ?? true),
             '-l', $options['l'] ?? '3',
-            '-b', $options['b'] ?? 'true',
+            '-b', $this->boolToString($options['b'] ?? true),
             '-i', $inputPath,
         ];
 
@@ -58,7 +62,7 @@ class ConvertProcessService {
         }
 
         $args[] = '-f';
-        $args[] = $options['f'] ?? 'true';
+        $args[] = $this->boolToString($options['f'] ?? true);
 
         if (isset($options['a'])) {
             $args[] = '-a';
