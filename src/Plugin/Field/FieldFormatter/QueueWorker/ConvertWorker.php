@@ -194,11 +194,11 @@ class ConvertWorker extends QueueWorkerBase {
   }
 
     private function updateProgress($entity, int $percent, string $status, string $message = '') {
-        $entity->set('processing_progress', $percent);
+        $entity->set('field_processing_progress', $percent);
         $entity->set('field_processing_status', $status);
 
         if ($message) {
-            $entity->set('processing_message', $message);
+            $entity->set('field_processing_message', $message);
         }
 
         $entity->save();

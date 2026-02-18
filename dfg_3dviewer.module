@@ -228,7 +228,7 @@ function dfg_3dviewer_entity_presave(\Drupal\Core\Entity\EntityInterface $entity
         'file_id'   => $file_info[0]['target_id'],
       ]);
 
-      $entity->set('processing_status', 'queued');
+      $entity->set('field_processing_status', 'queued');
     }
   }
 }
