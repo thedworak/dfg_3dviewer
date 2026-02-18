@@ -5,7 +5,7 @@ public function check($entity_id) {
     ->load($entity_id);
 
   return new JsonResponse([
-    'status' => $entity->get('processing_status')->value,
+    'status' => $entity->get('field_processing_status')->value,
     'progress' => (int)$entity->get('processing_progress')->value,
     'message' => $entity->get('processing_message')->value,
   ]);

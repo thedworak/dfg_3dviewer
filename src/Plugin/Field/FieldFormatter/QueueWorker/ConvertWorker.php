@@ -56,7 +56,7 @@ class ConvertWorker extends QueueWorkerBase {
 
     try {
 
-      $entity->set('processing_status', 'processing');
+      $entity->set('field_processing_status', 'processing');
       $entity->save();
 
       /* =======================================================
@@ -170,7 +170,7 @@ class ConvertWorker extends QueueWorkerBase {
          UPDATE ENTITY FIELDS
       ======================================================= */
 
-      $entity->set('processing_status', 'ready');
+      $entity->set('field_processing_status', 'ready');
       $entity->save();
 
       \Drupal::logger('dfg_3dviewer')
@@ -188,14 +188,14 @@ class ConvertWorker extends QueueWorkerBase {
       );
       $this->updateProgress($entity, 100, 'ready', 'Completed');
 
-      $entity->set('processing_status', 'failed');
+      $entity->set('field_processing_status', 'failed');
       $entity->save();
     }
   }
 
     private function updateProgress($entity, int $percent, string $status, string $message = '') {
         $entity->set('processing_progress', $percent);
-        $entity->set('processing_status', $status);
+        $entity->set('field_processing_status', $status);
 
         if ($message) {
             $entity->set('processing_message', $message);
