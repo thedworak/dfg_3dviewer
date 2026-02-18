@@ -262,8 +262,22 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 						$archiveFiles = scandir ($extractPath);
 						$allowedFormats = \Drupal::service('dfg_3dviewer.model_format_manager')->getAllowedModelFormats();
 						foreach ($archiveFiles as $zipFile) {
-							$partsZip = pathinfo($zipFile);	
-							if (in_arrayi(strtolower($partsZip["extension"]), $allowedFormats)) {
+							// skip current/parent entries
+							if ($zipFile === '.' || $zipFile === '..') {
+								continue;
+							}
+
+							// full path to the extracted entry
+							$fullEntry = $extractPath . DIRECTORY_SEPARATOR . $zipFile;
+
+							// only consider regular files
+							if (!is_file($fullEntry)) {
+								continue;
+							}
+
+							$partsZip = pathinfo($zipFile);
+							$ext = isset($partsZip['extension']) ? strtolower($partsZip['extension']) : '';
+							if ($ext !== '' && in_arrayi($ext, $allowedFormats)) {
 								\Drupal::logger('dfg_3dviewer')->notice('Handler for 3D model');
 								$result = \Drupal::service('dfg_3dviewer.convert_process')->run(
 									$SPATH,
