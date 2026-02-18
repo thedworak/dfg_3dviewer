@@ -15,8 +15,8 @@ class ProgressController extends ControllerBase {
 
     return new JsonResponse([
         'status' => $entity->get('field_processing_status')->value,
-        'progress' => (int)$entity->get('processing_progress')->value,
-        'message' => $entity->get('processing_message')->value,
+        'progress' => (int)$entity->get('field_processing_progress')->value,
+        'message' => $entity->get('field_processing_message')->value,
     ]);
     }
 }
