@@ -30,6 +30,12 @@ class ConvertWorker extends QueueWorkerBase {
       ->getStorage('wisski_individual')
       ->load($entity_id);
 
+    if (!$entity) {
+      \Drupal::logger('dfg_3dviewer')
+        ->error('Entity not found for ID @id', ['@id' => $entity_id]);
+      return;
+    }
+
     $file = File::load($file_id);
 
     if (!$entity || !$file) {

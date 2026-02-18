@@ -12,6 +12,11 @@ class ProgressController extends ControllerBase {
     $entity = \Drupal::entityTypeManager()
         ->getStorage('wisski_individual')
         ->load($entity_id);
+    if (!$entity) {
+      \Drupal::logger('dfg_3dviewer')
+        ->error('Entity not found for ID @id', ['@id' => $entity_id]);
+      return;
+    }
 
     return new JsonResponse([
         'status' => $entity->get('field_processing_status')->value,

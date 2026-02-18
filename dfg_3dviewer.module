@@ -213,7 +213,7 @@ function dfg_3dviewer_hook_file_validate(Drupal\file\FileInterface $file) {
 /**
 * Implements hook_file_validate().
  */
-function dfg_3dviewer_entity_presave(\Drupal\Core\Entity\EntityInterface $entity) {
+function dfg_3dviewer_entity_insert(\Drupal\Core\Entity\EntityInterface $entity) {
 
   $cfg = dfg_3dviewer_config();
 
