@@ -161,6 +161,9 @@ if args.samples:
 #
 current_directory = os.getcwd()
 
+extension = "glb"
+original_extension = "glb"
+
 if args.ext:
     extension = args.ext
 if extension == "gltf":
@@ -169,7 +172,7 @@ else:
    format = "GLB"
 
 if args.org_ext:
-	original_extension = args.ext
+	original_extension = args.org_ext
 
 is_archive = args.is_archive
 

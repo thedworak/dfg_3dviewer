@@ -185,6 +185,7 @@ check_status () {
 
 render_preview () {
 	SNAME=$NAME
+	INPUT_GLTF_PATH="$INPATH/$SNAME.glb"
 	if [[ ! -d "$INPATH/views" ]]; then
 		mkdir "$INPATH/views/"
 	fi
@@ -193,14 +194,24 @@ render_preview () {
 
 	if [[ "$EXT" != "glb" ]]; then
 		SNAME="gltf/${NAME}"
+		INPUT_GLTF_PATH="$INPATH/$SNAME.glb"
 	fi;
+
+	if [[ -n "${2:-}" ]]; then
+		INPUT_GLTF_PATH="$2"
+	fi
+
+	if [[ ! -f "$INPUT_GLTF_PATH" ]]; then
+		echo "Warning: Render input not found: $INPUT_GLTF_PATH"
+		return 1
+	fi
 
 	RESOLUTION="1024x1024x16"
 	SAMPLES="20"
 	xvfb-run --auto-servernum \
 		--server-args="-screen 0 ${RESOLUTION}" \
 		"$BLENDER_BIN" -b -P "$SPATH/scripts/render.py" -- \
-		--input "$INPATH/$SNAME.glb" \
+		--input "$INPUT_GLTF_PATH" \
 		--ext glb \
 		--org_ext "$1" \
 		--output "$INPATH/views/" \
@@ -233,9 +244,15 @@ handle_file () {
 	else
 		"$BLENDER_BIN" -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- --input "$INPATH/$FILENAME" --ext "$GLTF" --compression "$COMPRESSION" --compression_level "$COMPRESSION_LEVEL" --output "$OUTPUT$OUTPUTPATH" > /dev/null 2>&1
 	fi
-	
-	if [[ -f "$INPATH/gltf/$NAME.glb" ]]; then
-		render_preview $EXT
+
+	# Prefer the standard target first, then explicit-output target.
+	GENERATED_GLB="$INPATH/gltf/$NAME.glb"
+	if [[ ! -f "$GENERATED_GLB" && "$isOutput" = true ]]; then
+		GENERATED_GLB="$OUTPUT$OUTPUTPATH"
+	fi
+
+	if [[ -f "$GENERATED_GLB" ]]; then
+		render_preview "$EXT" "$GENERATED_GLB"
 	else
 		render_preview "$INPATH/$NAME.$EXT"
 	fi;
