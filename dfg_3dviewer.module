@@ -461,20 +461,18 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 					) ?: ''
 				);
 
-				foreach ($imagesTemp as $url) {
-					if (!$uri || !is_file($uri)) {
-						continue;
+				if (!$uri || !is_file($uri)) {
+					foreach ($imagesTemp as $url) {
+						\Drupal::logger('dfg_3dviewer')->notice(
+							'Checking thumbnails URL: @url | URI: @uri',
+							[
+								'@url'  => $url,
+								'@uri'  => $uri,
+							]
+						);
+
+						$imagesPaths[] = $url;
 					}
-
-					\Drupal::logger('dfg_3dviewer')->notice(
-						'Checking thumbnails URL: @url | URI: @uri',
-						[
-							'@url'  => $url,
-							'@uri'  => $uri,
-						]
-					);
-
-					$imagesPaths[] = $url;
 				}
 
 				if (count($imagesPaths) > 0) {
@@ -532,6 +530,10 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		}
 
 	}
+	\Drupal::logger('dfg_3dviewer')->notice(
+		'Output: @entity',
+		['@entity' => print_r($entity, true)]
+	);
 	//\Drupal::messenger()->addMessage(serialize($entity), 'status');
 }
 
