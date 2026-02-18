@@ -9,6 +9,7 @@ use Drupal\Core\Archiver\Zip;
 use Drupal\Core\Archiver\ArchiverException;
 use Symfony\Component\Yaml\Yaml;
 use Drupal\Core\Site\Settings;
+use Drupal\dfg_3dviewer\ModelFormatManager;
 
 function dfg_3dviewer_config(): array {
   static $cfg;
@@ -148,7 +149,9 @@ function automatic_helper (&$autoPath, $prefix, $filename, $value) {
 }
 
 function semi_automatic_path ($prefix, $filename, $filenameArchive, &$autoPath, $extension) {
-	$allowedFormats = array('abc', 'obj', 'fbx', 'ply', 'dae', 'ifc', 'stl', 'xyz', 'pcd', 'json', '3ds', 'blend', 'zip', 'rar', 'tar', 'xz', 'gz', 'gml');
+	$allowedModelFormats = \Drupal::service('dfg_3dviewer.model_format_manager')->getAllowedModelFormats();
+	$zipFormats = \Drupal::service('dfg_3dviewer.model_format_manager')->getZipFormats();
+	$allowedFormats = array_merge($allowedModelFormats, $zipFormats);
 	$SPATH=\Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath());
 	$SPATH = str_replace('/modules/dfg_3dviewer', '', $SPATH);
 	$prefix = $SPATH . $prefix;
@@ -236,7 +239,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		$realpath = \Drupal::service('file_system')->realpath($file['uri'][0]['value']);
 		$parts = pathinfo($realpath);
 
-		$extension = strtoupper($parts['extension']);
+		$extension = strtolower($parts['extension']);
 		$newFile = $parts['dirname'] . "/gltf/" . $parts['filename'] . ".glb";
 		$newDir = $parts['dirname'] . "/" . $parts['filename'] . "_" . $extension . "/gltf/";
 		$isArchive = false;
@@ -262,44 +265,33 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 				);
 			}
 			elseif (in_arrayi($extension, $archives)) {
+				\Drupal::logger('dfg_3dviewer')->notice('Archive handler');
 				try {
 					$isArchive = true;
 					$extractPath = $parts['dirname'] . "/" . $parts['filename'] . "_" . $extension . "/";
-					if ($extension == 'ZIP') {
+					if ($extension == 'zip') {
+						\Drupal::logger('dfg_3dviewer')->notice('ZIP started');
 						$zip = new Zip($realpath);
 						$zip->extract($extractPath);
 						$zip->remove($realpath);
 						$archiveFiles = scandir ($extractPath);
+						$allowedFormats = \Drupal::service('dfg_3dviewer.model_format_manager')->getAllowedModelFormats();
 						foreach ($archiveFiles as $zipFile) {
-							$partsZip = pathinfo($zipFile);					
-							switch (strtolower($partsZip["extension"])) {
-								case "obj":
-								case "fbx":
-								case "ply":
-								case "dae":
-								case "abc":
-								case "blend":
-								case "stl":
-								case "wrl":
-								case "x3d":
-								case "ifc":
-								case "glb":
-								case "gltf":
-								case "gml":
-									\Drupal::logger('dfg_3dviewer')->notice('Conversion started');
-									exec ($SPATH . '/scripts/convert.sh -t ' . $cfg['lightweight'] . ' -c true -l 3 -b true -i "' . $extractPath . $zipFile . '" -o "' . $extractPath . '" -f true -a false', $output, $retval);										
-								break;
+							$partsZip = pathinfo($zipFile);	
+							if (in_arrayi(strtolower($partsZip["extension"]), $allowedFormats)) {
+									\Drupal::logger('dfg_3dviewer')->notice('Handler for 3D model');
+									exec ($SPATH . '/scripts/convert.sh -t ' . $cfg['lightweight'] . ' -c true -l 3 -b true -i "' . $extractPath . $zipFile . '" -o "' . $extractPath . '" -f true -a false', $output, $retval);
 							}
 						}
 					}
-					elseif ($extension == 'RAR') {
+					elseif ($extension == 'rar') {
 						$output = shell_exec($SPATH . '/scripts/uncompress.sh -t rar -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
 					}
-					elseif ($extension == 'TAR' || $extension == 'GZ' ) {
+					elseif ($extension == 'tar' || $extension == 'gz' ) {
 						$output = shell_exec($SPATH . '/scripts/uncompress.sh -t tar -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
 						//\Drupal::messenger()->addMessage("Test " . serialize($output), 'status');
 					}
-					elseif ($extension == 'XZ') {
+					elseif ($extension == 'xz') {
 						$output = shell_exec($SPATH . '/scripts/uncompress.sh -t xz -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
 					}
 				}

@@ -1,0 +1,3 @@
+services:
+  dfg_3dviewer.model_format_manager:
+    class: Drupal\dfg_3dviewer\ModelFormatManager
