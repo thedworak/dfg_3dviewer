@@ -438,7 +438,7 @@ export const Viewer = {
     Viewer.fileObject.filename = Viewer.fileObject.originalPath.split("/").pop();
     Viewer.fileObject.basename = Viewer.fileObject.filename.substring(0, Viewer.fileObject.filename.lastIndexOf("."));
     Viewer.fileObject.extension = Viewer.fileObject.filename.substring(Viewer.fileObject.filename.lastIndexOf(".") + 1);
-    Viewer.fileObject.path = Viewer.fileObject.originalPath.substring(0, Viewer.fileObject.originalPath.lastIndexOf(Viewer.fileObject.filename));
+    Viewer.fileObject.path = Viewer.fileObject.originalPath.substring(0, Viewer.fileObject.originalPath.lastIndexOf(Viewer.fileObject.filename)) || "/";
     Viewer.fileObject.uri = Viewer.fileObject.path.replace(this.CONFIG.mainUrl + "/", "");
     Viewer.fileObject.relativePath = Viewer.normalizeDrupalFilesPath(Viewer.fileObject.uri);
   },
@@ -1367,24 +1367,47 @@ export const Viewer = {
       Viewer.fileObject.path = Viewer.fileObject.path + Viewer.fileObject.basename + Viewer.compressedFile
       Viewer.fileObject.extension = "glb";
       Viewer.fileObject.newExtension = Viewer._ext;
-      await loadModel(Viewer.fileObject, Viewer.CONFIG, getProxyPath, Viewer.camera, Viewer.lightObjects, Viewer.controls, Viewer.scene, Viewer.mainObject, Viewer.gui, Viewer.stats,
-        Viewer.entityID, Viewer.container,
-        Viewer.metadataContainer,
-        Viewer.canvasText,
-        Viewer.bottomLineGUI,
-        Viewer.compressedFile,
-        Viewer.viewEntity
-      );
+      await loadModel({
+        fileObject: Viewer.fileObject,
+        config: Viewer.CONFIG,
+        getProxyPath: getProxyPath,
+        camera: Viewer.camera,
+        lightObjects: Viewer.lightObjects,
+        controls: Viewer.controls,
+        scene: Viewer.scene,
+        mainObject: Viewer.mainObject,
+        gui: Viewer.gui,
+        stats: Viewer.stats,
+        entityID: Viewer.entityID,
+        container: Viewer.container,
+        metadataContainer: Viewer.metadataContainer,
+        canvasText: Viewer.canvasText,
+        bottomLineGUI: Viewer.bottomLineGUI,
+        compressedFile: Viewer.compressedFile,
+        viewEntity: Viewer.viewEntity
+      });
     } else {
       //this.fileObject.extension = "glb";
       if (Viewer._ext === "glb") {
-        await loadModel(Viewer.fileObject, Viewer.CONFIG, getProxyPath, Viewer.camera, Viewer.lightObjects, Viewer.controls, Viewer.scene, Viewer.mainObject, Viewer.gui, Viewer.stats,
-        Viewer.entityID, Viewer.container,
-        Viewer.metadataContainer,
-        Viewer.canvasText,
-        Viewer.bottomLineGUI,
-        Viewer.compressedFile,
-        Viewer.viewEntity);
+        await loadModel({
+        fileObject: Viewer.fileObject,
+        config: Viewer.CONFIG,
+        getProxyPath: getProxyPath,
+        camera: Viewer.camera,
+        lightObjects: Viewer.lightObjects,
+        controls: Viewer.controls,
+        scene: Viewer.scene,
+        mainObject: Viewer.mainObject,
+        gui: Viewer.gui,
+        stats: Viewer.stats,
+        entityID: Viewer.entityID,
+        container: Viewer.container,
+        metadataContainer: Viewer.metadataContainer,
+        canvasText: Viewer.canvasText,
+        bottomLineGUI: Viewer.bottomLineGUI,
+        compressedFile: Viewer.compressedFile,
+        viewEntity: Viewer.viewEntity
+      });
       }
       else await loadModel({
         fileObject: Viewer.fileObject,
