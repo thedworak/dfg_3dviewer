@@ -1,6 +1,6 @@
 <?php
 
-namespace Drupal\dfg_3dviewer;
+namespace Drupal\dfg_3dviewer\Service;
 
 class ModelFormatManager {
 
