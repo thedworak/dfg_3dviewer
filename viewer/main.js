@@ -1367,7 +1367,7 @@ export const Viewer = {
       Viewer.fileObject.path = Viewer.fileObject.path + Viewer.fileObject.basename + Viewer.compressedFile
       Viewer.fileObject.extension = "glb";
       Viewer.fileObject.newExtension = Viewer._ext;
-      await loadModel(Viewer.fileObject, config, getProxyPath, Viewer.camera, Viewer.lightObjects, Viewer.controls, Viewer.scene, Viewer.mainObject, Viewer.gui, Viewer.stats,
+      await loadModel(Viewer.fileObject, Viewer.CONFIG, getProxyPath, Viewer.camera, Viewer.lightObjects, Viewer.controls, Viewer.scene, Viewer.mainObject, Viewer.gui, Viewer.stats,
         Viewer.entityID, Viewer.container,
         Viewer.metadataContainer,
         Viewer.canvasText,
