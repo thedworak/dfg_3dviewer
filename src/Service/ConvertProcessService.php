@@ -51,7 +51,7 @@ class ConvertProcessService {
             '-i', $inputPath,
         ];
 
-        // opcjonalne parametry
+        // optional
         if (!empty($options['o'])) {
             $args[] = '-o';
             $args[] = $options['o'];

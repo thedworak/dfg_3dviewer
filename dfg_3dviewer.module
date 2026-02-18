@@ -266,16 +266,24 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 							if (in_arrayi(strtolower($partsZip["extension"]), $allowedFormats)) {
 								\Drupal::logger('dfg_3dviewer')->notice('Handler for 3D model');
 								$result = \Drupal::service('dfg_3dviewer.convert_process')->run(
-								$SPATH,
-								$extractPath . $zipFile,
-								(int) $cfg['lightweight'],
+									$SPATH,
+									$extractPath . $zipFile,
+									(int) $cfg['lightweight'],
+									[
+										'c' => 'true',
+										'l' => '3',
+										'b' => 'true',
+										'o' => $extractPath,
+										'f' => 'true',
+										'a' => 'false',
+									]
+								);
+								\Drupal::logger('dfg_3dviewer')->notice(
+								"Exit: @code\nSTDOUT:\n@out\nSTDERR:\n@err",
 								[
-									'c' => 'true',
-									'l' => '3',
-									'b' => 'true',
-									'o' => $extractPath,
-									'f' => 'true',
-									'a' => 'false',
+									'@code' => $result['exit_code'],
+									'@out' => $result['output'],
+									'@err' => $result['error'],
 								]
 								);
 							}
@@ -288,7 +296,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 						'gz'  => 'tar',
 						'xz'  => 'xz',
 						];
-						
+
 						if (isset($map[$extension])) {
 
 						$result = \Drupal::service('dfg_3dviewer.convert_process')->uncompress(
