@@ -210,6 +210,8 @@ class ConvertWorker extends QueueWorkerBase {
         'Conversion failed for entity @id: @msg',
         [
           '@id' => $entity_id,
+          '@msg' => $e->getMessage(),
+        ]);
     }
     finally {
       $lock->release($lock_name);
