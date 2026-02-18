@@ -260,6 +260,10 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 						$zip->extract($extractPath);
 						$zip->remove($realpath);
 						$archiveFiles = scandir ($extractPath);
+						\Drupal::logger('dfg_3dviewer')->notice(
+							'Archive files: @files',
+							['@files' => print_r($archiveFiles, true)]
+						);
 						$allowedFormats = \Drupal::service('dfg_3dviewer.model_format_manager')->getAllowedModelFormats();
 						foreach ($archiveFiles as $zipFile) {
 							// skip current/parent entries
@@ -451,28 +455,22 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 
 				$imagesPaths = [];
 				$fs = \Drupal::service('file_system');
+				$uri = $fs->realpath(
+					\Drupal::service('stream_wrapper_manager')->getViaUri(
+						parse_url($imagesTemp[0], PHP_URL_PATH)
+					) ?: ''
+				);
 
 				foreach ($imagesTemp as $url) {
-					$uri = $fs->realpath(
-						\Drupal::service('stream_wrapper_manager')->getViaUri(
-							parse_url($url, PHP_URL_PATH)
-						) ?: ''
-					);
-
 					if (!$uri || !is_file($uri)) {
 						continue;
 					}
 
-					$info = @getimagesize($uri);
-					if ($info === false) {
-						continue;
-					}
 					\Drupal::logger('dfg_3dviewer')->notice(
-						'Checking thumbnails URL: @url | URI: @uri | info: @info',
+						'Checking thumbnails URL: @url | URI: @uri,
 						[
 							'@url'  => $url,
 							'@uri'  => $uri,
-							'@info' => print_r($info, true),
 						]
 					);
 
