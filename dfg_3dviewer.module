@@ -253,7 +253,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 				\Drupal::logger('dfg_3dviewer')->notice('Archive handler');
 				try {
 					$isArchive = true;
-					$extractPath = $parts['dirname'] . "/" . $parts['filename'] . "_" . $extension . "/";
+					$extractPath = $parts['dirname'] . "/" . $parts['filename'] . "_" . strtoupper($extension) . "/";
 					if ($extension == 'zip') {
 						\Drupal::logger('dfg_3dviewer')->notice('ZIP started');
 						$zip = new Zip($realpath);
@@ -299,25 +299,25 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 
 						if (isset($map[$extension])) {
 
-						$result = \Drupal::service('dfg_3dviewer.convert_process')->uncompress(
-							$SPATH,
-							$map[$extension],
-							$realpath,
-							$extractPath,
-							$parts['filename']
-						);
-
-						if (!$result['success']) {
-							\Drupal::logger('dfg_3dviewer')->error(
-							"Uncompress failed (exit: @code)\n@error",
-							[
-								'@code' => $result['exit_code'],
-								'@error' => $result['error'],
-							]
+							$result = \Drupal::service('dfg_3dviewer.convert_process')->uncompress(
+								$SPATH,
+								strtoupper($map[$extension]),
+								$realpath,
+								$extractPath,
+								$parts['filename']
 							);
-						}
 
-						$output = $result['output'];
+							if (!$result['success']) {
+								\Drupal::logger('dfg_3dviewer')->error(
+								"Uncompress failed (exit: @code)\n@error",
+								[
+									'@code' => $result['exit_code'],
+									'@error' => $result['error'],
+								]
+								);
+							}
+
+							$output = $result['output'];
 						}
 					}
 				}
