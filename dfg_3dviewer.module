@@ -531,10 +531,9 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 
 	}
 	\Drupal::logger('dfg_3dviewer')->notice(
-		'Output: @entity',
-		['@entity' => print_r($entity, true)]
+	'Fields: @fields',
+	['@fields' => implode(', ', array_keys($entity->toArray()))]
 	);
-	//\Drupal::messenger()->addMessage(serialize($entity), 'status');
 }
 
 function dfg_3dviewer_get_library(): string {
