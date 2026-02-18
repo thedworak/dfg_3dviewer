@@ -17,6 +17,7 @@ use Drupal\Core\Archiver\ArchiverException;
 class ConvertWorker extends QueueWorkerBase {
 
   public function processItem($data) {
+    $this->updateProgress($entity, 5, 'processing', 'Preparing...');
 
     $entity_id = $data['entity_id'] ?? NULL;
     $file_id   = $data['file_id'] ?? NULL;
@@ -59,10 +60,11 @@ class ConvertWorker extends QueueWorkerBase {
       $entity->save();
 
       /* =======================================================
-         1ARCHIVE HANDLING
+         ARCHIVE HANDLING
       ======================================================= */
 
       if (in_array($extension, $archives)) {
+        $this->updateProgress($entity, 10, 'processing', 'Extracting archive...');
 
         if (!is_dir($extractPath)) {
           mkdir($extractPath, 0775, true);
@@ -99,6 +101,7 @@ class ConvertWorker extends QueueWorkerBase {
         /* =======================================================
            FIND FIRST SUPPORTED MODEL
         ======================================================= */
+        $this->updateProgress($entity, 25, 'processing', 'Model detected...');
 
         $allowedFormats = \Drupal::service('dfg_3dviewer.model_format_manager')
           ->getAllowedModelFormats();
@@ -135,6 +138,7 @@ class ConvertWorker extends QueueWorkerBase {
       /* =======================================================
          CONVERSION
       ======================================================= */
+      $this->updateProgress($entity, 35, 'processing', 'Converting to GLTF and generating thumbnails...');
 
       $convertResult = \Drupal::service('dfg_3dviewer.convert_process')
         ->run(
@@ -156,6 +160,8 @@ class ConvertWorker extends QueueWorkerBase {
       /* =======================================================
          BUILD XML
       ======================================================= */
+
+      $this->updateProgress($entity, 95, 'processing', 'Building XML...');
 
       require DRUPAL_ROOT . '/modules/dfg_3dviewer/php/build_xml.php';
       build_xml($entity_id, $cfg['main_url']);
@@ -180,9 +186,21 @@ class ConvertWorker extends QueueWorkerBase {
           '@msg' => $e->getMessage(),
         ]
       );
+      $this->updateProgress($entity, 100, 'ready', 'Completed');
 
       $entity->set('processing_status', 'failed');
       $entity->save();
     }
   }
+
+    private function updateProgress($entity, int $percent, string $status, string $message = '') {
+        $entity->set('processing_progress', $percent);
+        $entity->set('processing_status', $status);
+
+        if ($message) {
+            $entity->set('processing_message', $message);
+        }
+
+        $entity->save();
+    }
 }
