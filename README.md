@@ -27,12 +27,23 @@ Supported 3D file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, glTF. T
 
 ![Gallery Preview Element 2](https://i.postimg.cc/TKPc7Kny/image6.png)
 
+---
 
+# Release notes
+
+> Note (updated for current code on 2026-02-18):
+> - Current runtime entry: `viewer/main.js`
+> - Runtime settings file required: `viewer/viewer-settings.json` (copy from `viewer/viewer-settings-example.json`)
+> - Current npm scripts: `dev:test`, `build:test`, `build:prod`, `build:drupal`, `build:drupal:custom`, `watch`, `serve:dist`, `pack-dist`
+> - Runtime-supported formats from `viewer/loaders.js`: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, PCD, JSON, 3DS, GLB, glTF
+> - If a legacy section below conflicts with this note, follow this note.
+
+---
 
 ## Tech Stack
 
 **Client:** JavaScript, three.js (r180+), CSS, HTML, PHP (8.x), Drupal (9+)
-**Tooling:** Node.js (v18+), npm (v8+) — used for building the viewer with Parcel and Rollup
+**Tooling:** Node.js (v18+), npm (v8+) � used for building the viewer with Parcel and Rollup
 
 **Server:** PHP, Drupal, bash, blender
 
@@ -206,14 +217,14 @@ scene.add(outline);
 
 // Progress/error handlers are exported and used internally by the loader
 // Source (links)
-- prepareOutlineClipping — `viewer/loaders.js` line 23
-- loadModel — `viewer/loaders.js` line 160
-- onErrorGLB — `viewer/loaders.js` line 747
-- onProgress — `viewer/loaders.js` line 761
- - prepareOutlineClipping — `viewer/loaders.js` line 23 — [view source on GitHub](https://github.com/thedworak/dfg_3dviewer/blob/npm-refactor-update/viewer/loaders.js#L23)
- - loadModel — `viewer/loaders.js` line 160 — [view source on GitHub](https://github.com/thedworak/dfg_3dviewer/blob/npm-refactor-update/viewer/loaders.js#L160)
- - onErrorGLB — `viewer/loaders.js` line 747 — [view source on GitHub](https://github.com/thedworak/dfg_3dviewer/blob/npm-refactor-update/viewer/loaders.js#L747)
- - onProgress — `viewer/loaders.js` line 761 — [view source on GitHub](https://github.com/thedworak/dfg_3dviewer/blob/npm-refactor-update/viewer/loaders.js#L761)
+- prepareOutlineClipping � `viewer/loaders.js` line 23
+- loadModel � `viewer/loaders.js` line 160
+- onErrorGLB � `viewer/loaders.js` line 747
+- onProgress � `viewer/loaders.js` line 761
+ - prepareOutlineClipping � `viewer/loaders.js` line 23 � [view source on GitHub](https://github.com/thedworak/dfg_3dviewer/blob/npm-refactor-update/viewer/loaders.js#L23)
+ - loadModel � `viewer/loaders.js` line 160 � [view source on GitHub](https://github.com/thedworak/dfg_3dviewer/blob/npm-refactor-update/viewer/loaders.js#L160)
+ - onErrorGLB � `viewer/loaders.js` line 747 � [view source on GitHub](https://github.com/thedworak/dfg_3dviewer/blob/npm-refactor-update/viewer/loaders.js#L747)
+ - onProgress � `viewer/loaders.js` line 761 � [view source on GitHub](https://github.com/thedworak/dfg_3dviewer/blob/npm-refactor-update/viewer/loaders.js#L761)
 ```
 
 viewer/metadata.js
@@ -241,10 +252,10 @@ await fetchSettings(fileObject, object, camera, light, controls, gui, CONFIG, ge
 createIIIFDropdown(document.getElementById('DFG_3DViewer'), iiifConfigURL, CONFIG.viewer.canvasDimensions);
 
 // Source (links)
- - appendMetadata — `viewer/metadata.js` line 59 — [view source on GitHub](https://github.com/thedworak/dfg_3dviewer/blob/npm-refactor-update/viewer/metadata.js#L59)
- - handleMetadataResponse — `viewer/metadata.js` line 108 — [view source on GitHub](https://github.com/thedworak/dfg_3dviewer/blob/npm-refactor-update/viewer/metadata.js#L108)
- - fetchSettings — `viewer/metadata.js` line 308 — [view source on GitHub](https://github.com/thedworak/dfg_3dviewer/blob/npm-refactor-update/viewer/metadata.js#L308)
- - createIIIFDropdown — `viewer/metadata.js` line 423 — [view source on GitHub](https://github.com/thedworak/dfg_3dviewer/blob/npm-refactor-update/viewer/metadata.js#L423)
+ - appendMetadata � `viewer/metadata.js` line 59 � [view source on GitHub](https://github.com/thedworak/dfg_3dviewer/blob/npm-refactor-update/viewer/metadata.js#L59)
+ - handleMetadataResponse � `viewer/metadata.js` line 108 � [view source on GitHub](https://github.com/thedworak/dfg_3dviewer/blob/npm-refactor-update/viewer/metadata.js#L108)
+ - fetchSettings � `viewer/metadata.js` line 308 � [view source on GitHub](https://github.com/thedworak/dfg_3dviewer/blob/npm-refactor-update/viewer/metadata.js#L308)
+ - createIIIFDropdown � `viewer/metadata.js` line 423 � [view source on GitHub](https://github.com/thedworak/dfg_3dviewer/blob/npm-refactor-update/viewer/metadata.js#L423)
 ```
 
 viewer/core.js
@@ -262,8 +273,8 @@ setCore('camera', camera);
 console.log(core.camera); // -> the same camera reference
 
 // Source (links)
- - core (state bag) — `viewer/core.js` line 5 — [view source on GitHub](https://github.com/thedworak/dfg_3dviewer/blob/npm-refactor-update/viewer/core.js#L5)
- - setCore — `viewer/core.js` line 35 — [view source on GitHub](https://github.com/thedworak/dfg_3dviewer/blob/npm-refactor-update/viewer/core.js#L35)
+ - core (state bag) � `viewer/core.js` line 5 � [view source on GitHub](https://github.com/thedworak/dfg_3dviewer/blob/npm-refactor-update/viewer/core.js#L5)
+ - setCore � `viewer/core.js` line 35 � [view source on GitHub](https://github.com/thedworak/dfg_3dviewer/blob/npm-refactor-update/viewer/core.js#L35)
 ```
 
 ![Viewer overview](https://i.postimg.cc/VdgRWq0Q/image5.png)
@@ -274,7 +285,7 @@ console.log(core.camera); // -> the same camera reference
 
 Main workflow is divided into two automatic parts:
 - pre-processing - uploaded model is uncompressed (if so) and converted into glTF (glb) format
-- automatic rendering - Blender side rendering of 3D model’s thumbnails
+- automatic rendering - Blender side rendering of 3D model�s thumbnails
 
 Scripts needed there are placed under ```scripts``` and ```php``` directory.
 
@@ -290,7 +301,7 @@ After uploading 3D model into repository there are triggered following steps:
 
 This step is performed by the helper script `scripts/convert.sh`. The script wraps Blender-based conversion and an automatic thumbnail rendering pipeline. Below is a short reference so you can run or adapt it in your environment.
 
-scripts/convert.sh — quick reference
+scripts/convert.sh � quick reference
 
 - Purpose: convert a wide range of 3D formats (abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, etc.) into glTF / GLB and then render thumbnails with Blender.
 - Location: `scripts/convert.sh`
@@ -319,11 +330,11 @@ Usage / flags
 - Flags handled by the script:
   - `-c` compression (true/false)
   - `-l` compression level (0-6)
-  - `-i` input (required) — full path to the source file
-  - `-o` output (optional) — path where `gltf/` will be created; when omitted script writes into the input folder
-  - `-b` binary (true/false) — if true the script will produce `glb` output instead of `gltf`
-  - `-t` lightweight (true/false) — when true the script runs in lightweight mode and will skip checks and some heavyweight steps (notably the `xvfb-run` check and possibly some render steps). Useful when the conversion is run by another service that manages rendering resources.
-  - `-f` force (true/false) — overwrite existing output
+  - `-i` input (required) � full path to the source file
+  - `-o` output (optional) � path where `gltf/` will be created; when omitted script writes into the input folder
+  - `-b` binary (true/false) � if true the script will produce `glb` output instead of `gltf`
+  - `-t` lightweight (true/false) � when true the script runs in lightweight mode and will skip checks and some heavyweight steps (notably the `xvfb-run` check and possibly some render steps). Useful when the conversion is run by another service that manages rendering resources.
+  - `-f` force (true/false) � overwrite existing output
 
 What it does (high level)
 - Validates that Blender and `xvfb-run` (for headless rendering) exist (unless running in lightweight mode).
@@ -356,17 +367,17 @@ Examples
 
 Notes & troubleshooting
 - If Blender isn't on PATH, set `BLENDER_PATH` in `scripts/.env` to your blender binary or make a system symlink (`ln -s /path/to/blender /usr/local/bin/blender`).
-- The script uses `sudo` when invoking Blender for some rendering commands — on production servers you may want to remove `sudo` and run the script under an appropriate user.
+- The script uses `sudo` when invoking Blender for some rendering commands � on production servers you may want to remove `sudo` and run the script under an appropriate user.
 - Headless rendering requires `xvfb-run`; install it with `apt install xvfb` on Debian/Ubuntu.
 - The script creates `gltf/` and `metadata/` directories next to the input file and writes rendered views to `views/`.
 - For large conversions or CI, run the script in an environment where Blender has access to necessary codecs and WASM decoders for IFC/DRACO if used.
 
 --------------------------------
-If your Drupal module invokes `convert.sh` (for example during an entity presave or a background worker), it's common to run the script in lightweight mode and let Drupal or a job runner manage rendering resources. Below is a minimal, safe example showing how to call the script from PHP. It demonstrates safe argument escaping and basic error handling — don't run user-provided paths without validation.
+If your Drupal module invokes `convert.sh` (for example during an entity presave or a background worker), it's common to run the script in lightweight mode and let Drupal or a job runner manage rendering resources. Below is a minimal, safe example showing how to call the script from PHP. It demonstrates safe argument escaping and basic error handling � don't run user-provided paths without validation.
 
 ```php
 <?php
-// Minimal example — use inside a Drupal background job or cron task, not directly in a page request.
+// Minimal example � use inside a Drupal background job or cron task, not directly in a page request.
 $input = '/var/www/html/sites/default/files/my_model.obj';
 $repoRoot = DRUPAL_ROOT . '/modules/dfg_3dviewer'; // adjust to your layout
 
@@ -384,7 +395,7 @@ if ($exitCode !== 0) {
   // Log and handle error (replace with Drupal logger / watchdog in real module)
   error_log("convert.sh failed: " . implode("\n", $outputLines));
 } else {
-  // Success — converted GLB will be in the input folder under gltf/ and views/
+  // Success � converted GLB will be in the input folder under gltf/ and views/
   error_log("convert.sh finished: " . implode("\n", $outputLines));
 }
 
@@ -393,7 +404,7 @@ if ($exitCode !== 0) {
 Security & operational notes
 - Always validate and sanitize input file paths. Prefer passing server-side-constructed paths (not raw user input).
 - Run conversions in a background worker (Queue API or Batch API) instead of directly in a web request to avoid timeouts and blocking.
-- Ensure the PHP process user has permission to execute `scripts/convert.sh` and write to the target folders. Avoid running as root — prefer proper file permissions or a dedicated service account.
+- Ensure the PHP process user has permission to execute `scripts/convert.sh` and write to the target folders. Avoid running as root � prefer proper file permissions or a dedicated service account.
 - If you need to run conversions in parallel or at scale, consider delegating to a job worker (supervisor, systemd, or external job queue) and let the web process enqueue jobs only.
 
 ## Using prebuilt files (quick start)
@@ -451,7 +462,7 @@ python -m http.server 8080 --directory .\dist
 Start-Process "http://localhost:8080/index.html"
 ```
 
-If the page loads correctly over HTTP but fails via `file://`, the issue is the browser's local-file restrictions — serving via HTTP is the correct remedy.
+If the page loads correctly over HTTP but fails via `file://`, the issue is the browser's local-file restrictions � serving via HTTP is the correct remedy.
 
 ## Packaging & releases
 
@@ -468,7 +479,7 @@ Distribution & Packaging
 - Normalized paths in bundled HTML/JS for portability (can be hosted at any URL).
 
 Development Improvements
-- Added `scripts/serve-dist.js` — small Node static server for local testing.
+- Added `scripts/serve-dist.js` � small Node static server for local testing.
 - Added PowerShell-compatible example commands for serving files locally.
 - Documented how to avoid `file://` limitations when testing locally.
 
@@ -481,7 +492,7 @@ Functions used during this step:
 - ```handle_blend_file``` - (not fully tested yet) uses python script triggered by blender
 ```${BLENDER_PATH}blender -b -P ${SPATH}/scripts/convert-blender-to-gltf.py "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb"```
 
-- automatic rendering of 3D model for thumbnails - function ```render_preview```, which uses wrapper for triggering virtual environment (xvfb-run) for blender and it’s python script
+- automatic rendering of 3D model for thumbnails - function ```render_preview```, which uses wrapper for triggering virtual environment (xvfb-run) for blender and it�s python script
 ```xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/render.py -- "$INPATH/$NAME.glb" "glb" $1 "$INPATH/views/" $IS_ARCHIVE -E BLENDER_EEVEE -f 1```
 This step needs some steps to be performed before rendering:
 - create scene containing loaded 3D model
@@ -572,4 +583,3 @@ The bundle is produced as a self-contained IIFE exposing `Dfg3DViewer` (see `rol
 ```
 
 - CI / releases: The included GitHub Actions workflow (`.github/workflows/build-release.yml`) will build the project and attach `dfg_3dviewer-dist.zip` to any tag that matches `v*` (e.g. `v1.0.0`). This lets to distribute ready-to-go archives without committing `dist/` to the repo.
-
