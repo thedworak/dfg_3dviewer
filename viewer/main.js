@@ -975,6 +975,8 @@ export const Viewer = {
 
   updateHandAnimation: (time) => {
     const g = core.GESTURE;
+    if (!g) return;
+  
     if (!g.active || !g.baseAngle || !g.target) return;
 
     const t = (time - g.startTime) / 1000;
@@ -1004,6 +1006,7 @@ export const Viewer = {
 
   startGesture: (time) => {
     const g = core.GESTURE;
+    if (!g) return;
     if (g.active) return;
 
     g.rotate = true;
@@ -1021,6 +1024,7 @@ export const Viewer = {
 
   stopGesture: () => {
     const g = core.GESTURE;
+    if (!g) return;
     if (!g.active) return;
     g.rotate = false;
     g.active = false;
