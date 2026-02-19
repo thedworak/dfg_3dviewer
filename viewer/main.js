@@ -699,8 +699,10 @@ export const Viewer = {
         imageList.appendChild(imageElementsChildren[i]);
       }
     }
-    Viewer.fileElement[0].insertAdjacentElement("beforebegin", modalGallery);
-    mainElement.insertAdjacentElement("beforebegin", imageList);
+    if (imageList.childNodes.length > 0) {
+      Viewer.fileElement[0].insertAdjacentElement("beforebegin", modalGallery);
+      mainElement.insertAdjacentElement("beforebegin", imageList);
+    }
     //mainElement.insertBefore(imageList, fileElement[0]);
   },
 

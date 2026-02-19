@@ -309,19 +309,19 @@ export async function setupCamera(_object, _light, _config) {
   if (Array.isArray(target)) {
     core.controls.target.set(target[0], target[1], target[2]);
   } else if (target) {
-    core.controls.target.set(target.x, target.y, target.z);
+    core.controls?.target.set(target.x, target.y, target.z);
   }
 
   const customZoom = cfg?.controlsZoom?.[0];
 
   if (typeof customZoom === "number" && customZoom !== 0) {
     const dir = new THREE.Vector3()
-    .subVectors(core.camera.position, core.controls.target)
+    .subVectors(core.camera.position, core.controls?.target || new THREE.Vector3())
     .normalize();
 
 
     core.camera.position
-    .copy(core.controls.target)
+    .copy(core.controls?.target || new THREE.Vector3())
     .add(dir.multiplyScalar(customZoom));
   }
 
