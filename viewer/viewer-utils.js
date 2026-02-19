@@ -389,7 +389,7 @@ export async function setupCamera(_object, _light, _config) {
   }
 
   core.camera.updateProjectionMatrix();
-  core.controls.update();
+  core.controls?.update();
   fitCameraToCenteredObject(_object, false);
 }
 
