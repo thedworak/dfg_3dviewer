@@ -1045,11 +1045,11 @@ export const Viewer = {
       !window.__E2E__ &&
       !core.handHint.hidden;
 
-    if (canGesture && core.GESTURE.rotate && !core.GESTURE.active ) {
+    if (canGesture && core.GESTURE?.rotate && !core.GESTURE?.active ) {
       Viewer.startGesture(time);
     }
 
-    if (core.GESTURE.active && (!core.GESTURE.rotate || !canGesture)) {
+    if (core.GESTURE?.active && (!core.GESTURE?.rotate || !canGesture)) {
       Viewer.stopGesture();
     }
 
@@ -1066,12 +1066,12 @@ export const Viewer = {
       Viewer.mixer.update(delta);
     }
 
-    if (core.handHint.hidden && !core.GESTURE.active) {
+    if (core.handHint.hidden && !core.GESTURE?.active) {
       core.cameraTween.update(time);
       core.targetTween.update(time);
     }
 
-    if (!core.GESTURE.active) {
+    if (!core.GESTURE?.active) {
       Viewer.controls?.update();
     }
 
