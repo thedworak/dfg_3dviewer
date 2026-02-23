@@ -288,7 +288,8 @@ function resolveBackground(meta, sceneId) {
   return { kind: "default" };
 }
 
-export async function setupCamera(_object, _light, _config) {
+export async function setupCamera(_object, _config) {
+  const _light = core.lightObjects[0];
   const cfg = _config ?? null;
   const fallback = core.objectsConfig ?? null;
 

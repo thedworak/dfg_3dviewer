@@ -28,7 +28,7 @@
     "@rollup/plugin-typescript": "^12.3.0",
     "@rollup/plugin-url": "^8.0.2",
     "@types/node": "^25.0.6",
-    "archiver": "^7.0.1",
+    "archiver": "^4.0.2",
     "baseline-browser-mapping": "^2.9.14",
     "buffer": "^6.0.3",
     "cross-env": "^10.1.0",
@@ -41,7 +41,7 @@
     "rollup-plugin-copy-assets": "^2.0.3",
     "rollup-plugin-dts": "^6.2.3",
     "rollup-plugin-postcss": "^4.0.2",
-    "serve": "^14.2.5"
+    "serve": "^13.0.4"
   },
   "scripts": {
     "dev": "npm run dev:test",
@@ -60,11 +60,11 @@
     "dist/**"
   ],
   "dependencies": {
-    "@iiif/3d-manifesto-dev": "^0.6.1",
+    "@iiif/3d-manifesto-dev": "^0.7.0",
     "jquery": "^3.7.1",
     "lru-cache": "^11.2.2",
     "stats.js": "^0.17.0",
-    "three": "^0.182.0",
+    "three": "^0.183.1",
     "toastify-js": "^1.12.0",
     "web-ifc": "^0.0.74"
   }

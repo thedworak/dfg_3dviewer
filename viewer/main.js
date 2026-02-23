@@ -253,7 +253,7 @@ export const Viewer = {
         },
 
         get scene() {
-          return Viewer.scene;
+          return core.scene;
         },
       };
     }
@@ -413,8 +413,9 @@ export const Viewer = {
     this.clippingPlanes = this.core;
     setCore("clippingPlanes", this.clippingPlanes);
     setCore('helperObjects', this.helperObjects);
+    setCore('lightHelper', this.lightHelper);
 
-    this.clock = new THREE.Clock();
+    this.clock = new THREE.Timer();
 
     Viewer.init();
     Viewer.prepareStats();
@@ -501,7 +502,7 @@ export const Viewer = {
         Viewer.textMesh.position.y = 0;
         Viewer.textMesh.position.z = 0;
         Viewer.textMesh.renderOrder = 1;
-        Viewer.scene.add(Viewer.textMesh);
+        core.scene.add(Viewer.textMesh);
       }
     );
   },
@@ -562,8 +563,8 @@ export const Viewer = {
       if (selectedObjects[i].id === _id) {
         search = false;
         if (selectedObjects[i].selected === true) {
-          scene.getObjectById(_id).material = selectedObjects[i].originalMaterial;
-          scene.getObjectById(_id).material.needsUpdate = true;
+          core.scene.getObjectById(_id).material = selectedObjects[i].originalMaterial;
+          core.scene.getObjectById(_id).material.needsUpdate = true;
           selectedObjects[i].selected = false;
           selectedObjects.splice(selectedObjects.indexOf(selectedObjects[i]), 1);
         }
@@ -573,12 +574,12 @@ export const Viewer = {
       selectedObjects.push({
         id: _id,
         selected: true,
-        originalMaterial: scene.getObjectById(_id).material.clone(),
+        originalMaterial: core.scene.getObjectById(_id).material.clone(),
       });
-      const tempMaterial = scene.getObjectById(_id).material.clone();
+      const tempMaterial = core.scene.getObjectById(_id).material.clone();
       tempMaterial.color = normalizeColor("0x00FF00");
-      scene.getObjectById(_id).material = tempMaterial;
-      scene.getObjectById(_id).material.needsUpdate = true;
+      core.scene.getObjectById(_id).material = tempMaterial;
+      core.scene.getObjectById(_id).material.needsUpdate = true;
     }
   },
 
@@ -776,12 +777,12 @@ export const Viewer = {
         object: _id.object.id,
       };
     } else if (_id == "" && lastPickedFace.id !== "") {
-      scene
+      core.scene
         .getObjectById(lastPickedFace.object)
         .material.color = normalizeColor(lastPickedFace.color);
       lastPickedFace = { id: "", color: "", object: "" };
     } else if (_id != lastPickedFace.id) {
-      scene
+      core.scene
         .getObjectById(lastPickedFace.object)
         .material.color = Viewer.normalizeColor(lastPickedFace.color);
       lastPickedFace = {
@@ -864,7 +865,7 @@ export const Viewer = {
       }
     }
     rulerObject.renderOrder = 1;
-    scene.add(rulerObject);
+    core.scene.add(rulerObject);
     ruler.push(rulerObject);
   },
 
@@ -925,11 +926,11 @@ export const Viewer = {
     }
     core.handHint.style.top = (heightCSS - 70) + 'px';
    
-    Viewer.renderer.setPixelRatio(devicePixelRatio * scale.x);
-    Viewer.renderer.setSize(widthCSS*scale.x, heightCSS*scale.y, false);
+    core.renderer.setPixelRatio(devicePixelRatio * scale.x);
+    core.renderer.setSize(widthCSS*scale.x, heightCSS*scale.y, false);
     Viewer.camera.aspect = widthCSS / heightCSS;
     Viewer.camera.updateProjectionMatrix();
-    Viewer.controls?.update();
+    core.controls?.update();
     Viewer.CONFIG.viewer.canvasDimensions = { x: widthCSS, y: heightCSS };
   },
 
@@ -1084,15 +1085,15 @@ export const Viewer = {
     }
 
     if (!core.GESTURE?.active) {
-      Viewer.controls?.update();
+      core.controls?.update();
     }
 
     if (Viewer.textMesh !== null) {
       Viewer.textMesh.lookAt(Viewer.camera.position);
     }
 
-    Viewer.renderer.clear();
-    Viewer.renderer.render(Viewer.scene, Viewer.camera);
+    core.renderer.clear();
+    core.renderer.render(core.scene, Viewer.camera);
     Viewer.stats.update();
   },
 
@@ -1102,13 +1103,13 @@ export const Viewer = {
     if (e.button === 0) {
       Viewer.onDownPosition.x =
         ((e.clientX - Viewer.mainCanvas.getBoundingClientRect().left) /
-          Viewer.renderer.domElement.clientWidth) *
+          core.renderer.domElement.clientWidth) *
         2 -
         1;
       Viewer.onDownPosition.y =
         -(
           (e.clientY - Viewer.mainCanvas.getBoundingClientRect().top) /
-          Viewer.renderer.domElement.clientHeight
+          core.renderer.domElement.clientHeight
         ) *
         2 +
         1;
@@ -1119,13 +1120,13 @@ export const Viewer = {
     if (e.button == 0) {
       Viewer.onUpPosition.x =
         ((e.clientX - Viewer.mainCanvas.getBoundingClientRect().left) /
-          Viewer.renderer.domElement.clientWidth) *
+          core.renderer.domElement.clientWidth) *
         2 -
         1;
       Viewer.onUpPosition.y =
         -(
           (e.clientY - Viewer.mainCanvas.getBoundingClientRect().top) /
-          Viewer.renderer.domElement.clientHeight
+          core.renderer.domElement.clientHeight
         ) *
         2 +
         1;
@@ -1137,18 +1138,18 @@ export const Viewer = {
         var intersects;
 
         if (Viewer.EDITOR || Viewer.RULER_MODE) {
-          if (Viewer.mainObject.length > 1) {
-            for (let ii = 0; ii < Viewer.mainObject.length; ii++) {
+          if (core.mainObject.length > 1) {
+            for (let ii = 0; ii < core.mainObject.length; ii++) {
               intersects = Viewer.raycaster.intersectObjects(
-                Viewer.mainObject[ii].children,
+                core.mainObject[ii].children,
                 true
               );
             }
             if (intersects.length <= 0) {
-              intersects = Viewer.raycaster.intersectObjects(Viewer.mainObject, true);
+              intersects = Viewer.raycaster.intersectObjects(core.mainObject, true);
             }
           } else {
-            intersects = Viewer.raycaster.intersectObject(Viewer.mainObject[0], true);
+            intersects = Viewer.raycaster.intersectObject(core.mainObject[0], true);
           }
           if (intersects.length > 0) {
             if (Viewer.RULER_MODE) buildRuler(intersects[0]);
@@ -1162,13 +1163,13 @@ export const Viewer = {
   onPointerMove(e) {
     Viewer.pointer.x =
       ((e.clientX - Viewer.mainCanvas.getBoundingClientRect().left) /
-        Viewer.renderer.domElement.clientWidth) *
+        core.renderer.domElement.clientWidth) *
       2 -
       1;
     Viewer.pointer.y =
       -(
         (e.clientY - Viewer.mainCanvas.getBoundingClientRect().top) /
-        Viewer.renderer.domElement.clientHeight
+        core.renderer.domElement.clientHeight
       ) *
       2 +
       1;
@@ -1187,18 +1188,18 @@ export const Viewer = {
       if (this.EDITOR) {
         Viewer.raycaster.setFromCamera(Viewer.pointer, Viewer.camera);
         var intersects;
-        if (Viewer.mainObject.length > 1) {
-          for (let ii = 0; ii < Viewer.mainObject.length; ii++) {
+        if (core.mainObject.length > 1) {
+          for (let ii = 0; ii < core.mainObject.length; ii++) {
             intersects = Viewer.raycaster.intersectObjects(
-              Viewer.mainObject[ii].children,
+              core.mainObject[ii].children,
               true
             );
           }
           if (intersects.length <= 0) {
-            intersects = Viewer.raycaster.intersectObjects(Viewer.mainObject, true);
+            intersects = Viewer.raycaster.intersectObjects(core.mainObject, true);
           }
         } else {
-          intersects = Viewer.raycaster.intersectObject(Viewer.mainObject[0], true);
+          intersects = Viewer.raycaster.intersectObject(core.mainObject[0], true);
         }
         if (intersects.length > 0) {
           pickFaces(intersects[0]);
@@ -1210,30 +1211,30 @@ export const Viewer = {
   },
 
   async changeScale() {
-    if (Viewer.transformControl.getMode() === "scale") {
-      switch (Viewer.transformControl.axis) {
+    if (core.transformControl.getMode() === "scale") {
+      switch (core.transformControl.axis) {
         case "X":
         case "XY":
-          Viewer.helperObjects[0].scale.set(
-            Viewer.helperObjects[0].scale.x,
-            Viewer.helperObjects[0].scale.x,
-            Viewer.helperObjects[0].scale.x
+          core.helperObjects[0].scale.set(
+            core.helperObjects[0].scale.x,
+            core.helperObjects[0].scale.x,
+            core.helperObjects[0].scale.x
           );
           break;
         case "Y":
         case "YZ":
-          Viewer.helperObjects[0].scale.set(
-            Viewer.helperObjects[0].scale.y,
-            Viewer.helperObjects[0].scale.y,
-            Viewer.helperObjects[0].scale.y
+          core.helperObjects[0].scale.set(
+            core.helperObjects[0].scale.y,
+            core.helperObjects[0].scale.y,
+            core.helperObjects[0].scale.y
           );
           break;
         case "Z":
         case "XZ":
-          Viewer.helperObjects[0].scale.set(
-            Viewer.helperObjects[0].scale.x,
-            Viewer.helperObjects[0].scale.x,
-            Viewer.helperObjects[0].scale.x
+          core.helperObjects[0].scale.set(
+            core.helperObjects[0].scale.x,
+            core.helperObjects[0].scale.x,
+            core.helperObjects[0].scale.x
           );
           break;
       }
@@ -1242,12 +1243,12 @@ export const Viewer = {
 
   async calculateObjectScale() {
     const boundingBox = new THREE.Box3();
-    if (Array.isArray(Viewer.helperObjects[0])) {
-      for (let i = 0; i < Viewer.helperObjects[0].length; i++) {
+    if (Array.isArray(core.helperObjects[0])) {
+      for (let i = 0; i < core.helperObjects[0].length; i++) {
         boundingBox.setFromObject(Viewer.object[i]);
       }
     } else {
-      boundingBox.setFromObject(Viewer.helperObjects[0]);
+      boundingBox.setFromObject(core.helperObjects[0]);
     }
 
     var middle = new THREE.Vector3();
@@ -1284,7 +1285,7 @@ export const Viewer = {
   },
 
   changeLightRotation() {
-    Viewer.lightHelper.update();
+    core.lightHelper.update();
   },
 
   takeScreenshot() {
@@ -1293,8 +1294,8 @@ export const Viewer = {
     document.body.appendChild(messDiv);*/
     Viewer.camera.aspect = 1;
     Viewer.camera.updateProjectionMatrix();
-    Viewer.renderer.setSize(256, 256);
-    Viewer.renderer.render(Viewer.scene, Viewer.camera);
+    core.renderer.setSize(256, 256);
+    core.renderer.render(core.scene, Viewer.camera);
     var prependName = "";
     if (Viewer.fileObject.archiveType !== "") {
       prependName = Viewer.fileObject.basename + "_" + Viewer.fileObject.archiveType.toUpperCase() + "/";
@@ -1340,10 +1341,10 @@ export const Viewer = {
       })
     }, "image/png");
 
-    Viewer.renderer.setPixelRatio(devicePixelRatio);
+    core.renderer.setPixelRatio(devicePixelRatio);
     Viewer.camera.aspect = Viewer.CONFIG.viewer.canvasDimensions.x / Viewer.CONFIG.viewer.canvasDimensions.y;
     Viewer.camera.updateProjectionMatrix();
-    Viewer.renderer.setSize(Viewer.CONFIG.viewer.canvasDimensions.x, Viewer.CONFIG.viewer.canvasDimensions.y);
+    core.renderer.setSize(Viewer.CONFIG.viewer.canvasDimensions.x, Viewer.CONFIG.viewer.canvasDimensions.y);
   },
 
     async mainLoadModel() {
@@ -1354,11 +1355,6 @@ export const Viewer = {
         config: Viewer.CONFIG,
         getProxyPath: getProxyPath,
         camera: Viewer.camera,
-        lightObjects: Viewer.lightObjects,
-        controls: Viewer.controls,
-        scene: Viewer.scene,
-        mainObject: Viewer.mainObject,
-        gui: Viewer.gui,
         stats: Viewer.stats,
         entityID: Viewer.entityID,
         container: Viewer.container,
@@ -1384,11 +1380,6 @@ export const Viewer = {
         config: Viewer.CONFIG,
         getProxyPath: getProxyPath,
         camera: Viewer.camera,
-        lightObjects: Viewer.lightObjects,
-        controls: Viewer.controls,
-        scene: Viewer.scene,
-        mainObject: Viewer.mainObject,
-        gui: Viewer.gui,
         stats: Viewer.stats,
         entityID: Viewer.entityID,
         container: Viewer.container,
@@ -1406,11 +1397,6 @@ export const Viewer = {
         config: Viewer.CONFIG,
         getProxyPath: getProxyPath,
         camera: Viewer.camera,
-        lightObjects: Viewer.lightObjects,
-        controls: Viewer.controls,
-        scene: Viewer.scene,
-        mainObject: Viewer.mainObject,
-        gui: Viewer.gui,
         stats: Viewer.stats,
         entityID: Viewer.entityID,
         container: Viewer.container,
@@ -1426,11 +1412,6 @@ export const Viewer = {
         config: Viewer.CONFIG,
         getProxyPath: getProxyPath,
         camera: Viewer.camera,
-        lightObjects: Viewer.lightObjects,
-        controls: Viewer.controls,
-        scene: Viewer.scene,
-        mainObject: Viewer.mainObject,
-        gui: Viewer.gui,
         stats: Viewer.stats,
         entityID: Viewer.entityID,
         container: Viewer.container,
@@ -1444,9 +1425,9 @@ export const Viewer = {
   },
 
   createClippingPlaneAxis(_number) {
-    var tempClippingControl = new TransformControls(Viewer.camera, Viewer.renderer.domElement);
+    var tempClippingControl = new TransformControls(Viewer.camera, core.renderer.domElement);
     tempClippingControl.space = "local";
-    tempClippingControl.mode = "translate";
+    tempClippingControl.setMode("translate");
     tempClippingControl.addEventListener("change", Viewer.render);
     tempClippingControl.addEventListener("objectChange", function (event) {
       switch (_number) {
@@ -1465,7 +1446,7 @@ export const Viewer = {
       }
     });
     tempClippingControl.addEventListener("dragging-changed", function (event) {
-      Viewer.controls.enabled = !event.value;
+      core.controls.enabled = !event.value;
     });
     return tempClippingControl;
   },
@@ -1478,7 +1459,7 @@ export const Viewer = {
         Viewer.camera.position.set(camPosition.x, camPosition.y, camPosition.z);
         Viewer.cameraLight.position.set(camPosition.x, camPosition.y, camPosition.z);
         Viewer.camera.updateProjectionMatrix();
-        Viewer.controls.update();
+        core.controls.update();
       })
       .start();
   },
@@ -1497,9 +1478,9 @@ export const Viewer = {
     M.objPosition = Viewer.pick(
       S.Position,
       [
-        Viewer.helperObjects[0].position.x,
-        Viewer.helperObjects[0].position.y,
-        Viewer.helperObjects[0].position.z
+        core.helperObjects[0].position.x,
+        core.helperObjects[0].position.y,
+        core.helperObjects[0].position.z
       ],
       O.objPosition
     );
@@ -1513,9 +1494,9 @@ export const Viewer = {
     M.objScale = Viewer.pick(
       S.Scale,
       [
-        Viewer.helperObjects[0].scale.x,
-        Viewer.helperObjects[0].scale.y,
-        Viewer.helperObjects[0].scale.z
+        core.helperObjects[0].scale.x,
+        core.helperObjects[0].scale.y,
+        core.helperObjects[0].scale.z
       ],
       O.objScale
     );
@@ -1534,9 +1515,9 @@ export const Viewer = {
     M.controlsTarget = Viewer.pick(
       S.Camera,
       [
-        Viewer.controls.target.x,
-        Viewer.controls.target.y,
-        Viewer.controls.target.z
+        core.controls.target.x,
+        core.controls.target.y,
+        core.controls.target.z
       ],
       O.controlsTarget
     );
@@ -1544,7 +1525,7 @@ export const Viewer = {
     M.controlsZoom = Viewer.pick(
       S.Camera,
       [
-        Viewer.camera.position.distanceTo(Viewer.controls.target)
+        Viewer.camera.position.distanceTo(core.controls.target)
       ],
       O.controlsZoom
     );
@@ -1553,9 +1534,9 @@ export const Viewer = {
     M.lightPosition = Viewer.pick(
       S.DirectionalLight,
       [
-        Viewer.dirLight.position.x,
-        Viewer.dirLight.position.y,
-        Viewer.dirLight.position.z
+        core.dirLight.position.x,
+        core.dirLight.position.y,
+        core.dirLight.position.z
       ],
       O.lightPosition
     );
@@ -1563,48 +1544,48 @@ export const Viewer = {
     M.lightTarget = Viewer.pick(
       S.DirectionalLight,
       [
-        Viewer.dirLight.rotation._x,
-        Viewer.dirLight.rotation._y,
-        Viewer.dirLight.rotation._z
+        core.dirLight.rotation._x,
+        core.dirLight.rotation._y,
+        core.dirLight.rotation._z
       ],
       O.lightTarget
     );
 
     M.lightColor = Viewer.pick(
       S.DirectionalLight,
-      ["#" + Viewer.dirLight.color.getHexString().toUpperCase()],
+      ["#" + core.dirLight.color.getHexString().toUpperCase()],
       O.lightColor
     );
 
     M.lightIntensity = Viewer.pick(
       S.DirectionalLight,
-      [Viewer.dirLight.intensity],
+      [core.dirLight.intensity],
       O.lightIntensity
     );
 
     // --- AMBIENT LIGHT ---
     M.lightAmbientColor = Viewer.pick(
       S.AmbientLight,
-      ["#" + Viewer.ambientLight.color.getHexString().toUpperCase()],
+      ["#" + core.ambientLight.color.getHexString().toUpperCase()],
       O.lightAmbientColor
     );
 
     M.lightAmbientIntensity = Viewer.pick(
       S.AmbientLight,
-      [Viewer.ambientLight.intensity],
+      [core.ambientLight.intensity],
       O.lightAmbientIntensity
     );
 
     // --- CAMERA LIGHT ---
     M.lightCameraColor = Viewer.pick(
       S.CameraLight,
-      ["#" + Viewer.cameraLight.color.getHexString().toUpperCase()],
+      ["#" + core.cameraLight.color.getHexString().toUpperCase()],
       O.lightCameraColor
     );
 
     M.lightCameraIntensity = Viewer.pick(
       S.CameraLight,
-      [Viewer.cameraLight.intensity],
+      [core.cameraLight.intensity],
       O.lightCameraIntensity
     );
 
@@ -1631,7 +1612,7 @@ export const Viewer = {
       Viewer.windowHalfX = Viewer.CONFIG.viewer.canvasDimensions.x / 2;
       Viewer.windowHalfY = Viewer.CONFIG.viewer.canvasDimensions.y / 2;
 
-      Viewer.editorFolder = Viewer.gui.addFolder("Editor").close();
+      Viewer.editorFolder = core.gui.addFolder("Editor").close();
       Viewer.editorFolder
         .add(Viewer.transformText, "Transform 3D Object", {
           None: "",
@@ -1641,13 +1622,20 @@ export const Viewer = {
         })
         .onChange(function (value) {
           if (value === "") {
-            Viewer.transformControl.detach();
+            core.transformControl.detach();
             core.axesHelper.visible = false;
           } else {
+            const object = core.helperObjects?.[0];
+
+            if (!object) {
+              return;
+            }
             core.axesHelper.visible = true;
-            Viewer.renderer.localClippingEnabled = false;
-            Viewer.transformControl.mode = value;
-            Viewer.transformControl.attach(Viewer.helperObjects[0]);
+            core.renderer.localClippingEnabled = false;
+
+            core.transformControl.setMode(value);
+            core.transformControl.attach(object);
+
           }
         });
       Viewer.editorFolder
@@ -1656,7 +1644,7 @@ export const Viewer = {
           Global: "global",
         })
         .onChange(function (value) {
-          Viewer.transformControl.space = value;
+          core.transformControl.space = value;
         });
       const lightFolder = Viewer.editorFolder.addFolder("Directional Light").close();
       lightFolder
@@ -1667,32 +1655,32 @@ export const Viewer = {
         })
         .onChange(function (value) {
           if (value === "") {
-            Viewer.transformControlLight.detach();
-            Viewer.transformControlLightTarget.detach();
-            Viewer.lightHelper.visible = false;
+            core.transformControlLight.detach();
+            core.transformControlLightTarget.detach();
+            core.lightHelper.visible = false;
           } else {
-            Viewer.lightHelper.visible = true;
+            core.lightHelper.visible = true;
             if (value === "translate") {
-              Viewer.transformControlLight.mode = "translate";
-              Viewer.transformControlLight.attach(Viewer.dirLight);
-              Viewer.transformControlLightTarget.detach();
+              core.transformControlLight.setMode("translate");
+              core.transformControlLight.attach(core.dirLight);
+              core.transformControlLightTarget.detach();
             } else {
-              Viewer.transformControlLightTarget.mode = "translate";
-              Viewer.transformControlLightTarget.attach(Viewer.dirLightTarget);
-              Viewer.transformControlLight.detach();
+              core.transformControlLightTarget.setMode("translate");
+              core.transformControlLightTarget.attach(core.dirLightTarget);
+              core.transformControlLight.detach();
             }
           }
         });
       lightFolder
         .addColor(Viewer.colors, "DirectionalLight")
         .onChange(function (value) {
-          Viewer.lightObjects[0].color = new THREE.Color(value);
+          core.lightObjects[0].color = new THREE.Color(value);
         })
         .listen();
       lightFolder
         .add(Viewer.intensity, "startIntensityDir", 0, 10)
         .onChange(function (value) {
-          Viewer.lightObjects[0].intensity = value;
+          core.lightObjects[0].intensity = value;
         })
         .listen();
 
@@ -1783,9 +1771,9 @@ export const Viewer = {
             ["Save"]() {
 
               var rotateMetadata = new THREE.Vector3(
-                THREE.MathUtils.radToDeg(Viewer.helperObjects[0].rotation.x),
-                THREE.MathUtils.radToDeg(Viewer.helperObjects[0].rotation.y),
-                THREE.MathUtils.radToDeg(Viewer.helperObjects[0].rotation.z)
+                THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.x),
+                THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.y),
+                THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.z)
               );
 
               //Fetch data from original metadata file anyway before saving any changes
@@ -1874,7 +1862,7 @@ export const Viewer = {
               showToast("Distance measurement mode is " + _str);
               if (!RULER_MODE) {
                 Viewer.ruler.forEach((r) => {
-                  Viewer.scene.remove(r);
+                  core.scene.remove(r);
                 });
                 Viewer.rulerObject = new THREE.Object3D();
                 Viewer.ruler = [];
@@ -1916,7 +1904,9 @@ export const Viewer = {
         999000000
       );
       Viewer.camera.position.set(0, 0, 0);
+      setCore('renderer', Viewer.renderer);
       setCore('camera', Viewer.camera);
+      setCore('mainObject', Viewer.mainObject);
 
       Viewer.scene = new THREE.Scene();
       setCore('scene', Viewer.scene);
@@ -1924,10 +1914,10 @@ export const Viewer = {
 
       const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444);
       hemiLight.position.set(0, 200, 0);
-      Viewer.scene.add(hemiLight);
+      core.scene.add(hemiLight);
 
       Viewer.ambientLight = new THREE.AmbientLight(0x404040); // soft white light
-      Viewer.scene.add(Viewer.ambientLight);
+      core.scene.add(Viewer.ambientLight);
 
       setCore('ambientLight', Viewer.ambientLight);
 
@@ -1941,9 +1931,10 @@ export const Viewer = {
       Viewer.dirLight.shadow.bias = -0.0001;
       Viewer.dirLight.shadow.mapSize.width = 1024 * 4;
       Viewer.dirLight.shadow.mapSize.height = 1024 * 4;
-      Viewer.scene.add(Viewer.dirLight);
+      core.scene.add(Viewer.dirLight);
       Viewer.lightObjects.push(Viewer.dirLight);
       setCore('dirLight', Viewer.dirLight);
+      setCore('lightObjects', Viewer.lightObjects);
 
       Viewer.cameraLightTarget = new THREE.Object3D();
       Viewer.cameraLightTarget.position.set(
@@ -1951,7 +1942,7 @@ export const Viewer = {
         Viewer.camera.position.y,
         Viewer.camera.position.z
       );
-      Viewer.scene.add(Viewer.cameraLightTarget);
+      core.scene.add(Viewer.cameraLightTarget);
       // Store in core
       setCore('cameraLightTarget', Viewer.cameraLightTarget);
 
@@ -1959,13 +1950,13 @@ export const Viewer = {
       Viewer.cameraLight.position.set(Viewer.camera.position);
       Viewer.cameraLight.castShadow = false;
       Viewer.cameraLight.intensity = 0.3;
-      Viewer.scene.add(Viewer.cameraLight);
+      core.scene.add(Viewer.cameraLight);
       Viewer.cameraLight.target = Viewer.cameraLightTarget;
       // Store in core
       setCore('cameraLight', Viewer.cameraLight);
       Viewer.cameraLight.target.updateMatrixWorld();
 
-      Viewer.renderer = new THREE.WebGLRenderer({
+      core.renderer = new THREE.WebGLRenderer({
         antialias: true,
         logarithmicDepthBuffer: true,
         colorManagement: true,
@@ -1975,48 +1966,48 @@ export const Viewer = {
         alpha: true,
       });
       
-      Viewer.renderer.shadowMap.enabled = true;
-      Viewer.renderer.localClippingEnabled = true;
-      Viewer.renderer.physicallyCorrectLights = true; //can be considered as better looking
-      Viewer.renderer.autoClear = false;
-      Viewer.renderer.setClearColor(0x000000, 0.0);
+      core.renderer.shadowMap.enabled = true;
+      core.renderer.localClippingEnabled = true;
+      core.renderer.physicallyCorrectLights = true; //can be considered as better looking
+      core.renderer.autoClear = false;
+      core.renderer.setClearColor(0x000000, 0.0);
 
-      Viewer.renderer.outputColorSpace = THREE.SRGBColorSpace;
-      Viewer.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      Viewer.renderer.toneMappingExposure = 0.65;
-      setCore('renderer', Viewer.renderer);
+      core.renderer.outputColorSpace = THREE.SRGBColorSpace;
+      core.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      core.renderer.toneMappingExposure = 0.65;
+      setCore('renderer', core.renderer);
 
-      Viewer.renderer.domElement.id = "MainCanvas";
-      Viewer.mainCanvas = document.getElementById("MainCanvas") || Viewer.renderer.domElement;
+      core.renderer.domElement.id = "MainCanvas";
+      Viewer.mainCanvas = document.getElementById("MainCanvas") || core.renderer.domElement;
 
       if (window.__E2E__) {
-        document.body.appendChild(Viewer.renderer.domElement);
+        document.body.appendChild(core.renderer.domElement);
       }
 
-      Viewer.renderer.domElement.addEventListener("pointerdown", Viewer.onPointerDown);
-      Viewer.renderer.domElement.addEventListener("pointerup", Viewer.onPointerUp);
-      Viewer.renderer.domElement.addEventListener("pointermove", Viewer.onPointerMove);
+      core.renderer.domElement.addEventListener("pointerdown", Viewer.onPointerDown);
+      core.renderer.domElement.addEventListener("pointerup", Viewer.onPointerUp);
+      core.renderer.domElement.addEventListener("pointermove", Viewer.onPointerMove);
 
       const devicePixelRatio = window.devicePixelRatio || 1;
-      Viewer.renderer.setSize(Viewer.CONFIG.viewer.canvasDimensions.x, Viewer.CONFIG.viewer.canvasDimensions.y);
+      core.renderer.setSize(Viewer.CONFIG.viewer.canvasDimensions.x, Viewer.CONFIG.viewer.canvasDimensions.y);
 
       if (isE2E) {
         console.info('E2E MODE ENABLED');
-        renderer.setPixelRatio(1);
-        renderer.toneMappingExposure = 1;
+        core.renderer.setPixelRatio(1);
+        core.renderer.toneMappingExposure = 1;
         disablePostProcessing();
         window.viewer = {
           e2eMode: true,
           modelLoaded: false
         };
       } else {
-            Viewer.renderer.setPixelRatio(devicePixelRatio);
+            core.renderer.setPixelRatio(devicePixelRatio);
       }
-      Viewer.renderer.domElement.style.width = Viewer.CONFIG.viewer.canvasDimensions.x + "px";
-      Viewer.renderer.domElement.style.height = Viewer.CONFIG.viewer.canvasDimensions.y + "px";
+      core.renderer.domElement.style.width = Viewer.CONFIG.viewer.canvasDimensions.x + "px";
+      core.renderer.domElement.style.height = Viewer.CONFIG.viewer.canvasDimensions.y + "px";
 
-      Viewer.renderer.domElement.style.display = "block";
-      Viewer.container.appendChild(Viewer.renderer.domElement);
+      core.renderer.domElement.style.display = "block";
+      Viewer.container.appendChild(core.renderer.domElement);
       Viewer.mainCanvas.classList.add("mainCanvas");
       //Viewer.canvasText = document.createElement("div");
       //Viewer.canvasText.id = "metadata-container";
@@ -2060,6 +2051,7 @@ export const Viewer = {
       Viewer.guiContainer.style.maxHeight = `${Viewer.rect.height - 20}px`;
       Viewer.lilGui = document.getElementsByClassName("lil-gui root");
       setCore('lilGui', Viewer.lilGui);
+      setCore('gui', Viewer.gui);
 
       Viewer.fileElement = document.getElementsByClassName("field--type-file");
       if (Viewer.fileElement.length > 0) {
@@ -2073,7 +2065,7 @@ export const Viewer = {
         Viewer.buildGallery();
       }
 
-      Viewer.controls = new OrbitControls(Viewer.camera, Viewer.renderer.domElement);
+      Viewer.controls = new OrbitControls(Viewer.camera, core.renderer.domElement);
       Viewer.controls.target.set(0, 100, 0);
       Viewer.controls.enableDamping = true;
       Viewer.controls.dampingFactor = 0.05;
@@ -2083,34 +2075,36 @@ export const Viewer = {
       setCore('GESTURE', Viewer.GESTURE);
       setCore('lastTime', Viewer.lastTime);
       //Viewer.changeScale();
-      setCore('', Viewer.helperObjects);
+      setCore('helperObjects', Viewer.helperObjects);
 
-      Viewer.transformControl = new TransformControls(Viewer.camera, Viewer.renderer.domElement);
+      Viewer.transformControl = new TransformControls(Viewer.camera, core.renderer.domElement);
       Viewer.transformControl.rotationSnap = THREE.MathUtils.degToRad(5);
       Viewer.transformControl.space = "local";
       Viewer.transformControl.addEventListener("change", Viewer.render);
       Viewer.transformControl.addEventListener("objectChange", Viewer.changeScale);
       Viewer.transformControl.addEventListener("mouseUp", Viewer.calculateObjectScale);
       Viewer.transformControl.addEventListener("dragging-changed", function (event) {
-        Viewer.controls.enabled = !event.value;
+        core.controls.enabled = !event.value;
       });
-      Viewer.scene.add(Viewer.transformControl.getHelper());
+      core.scene.add(Viewer.transformControl.getHelper());
+      setCore('transformControl', Viewer.transformControl);
 
-      Viewer.transformControlLight = new TransformControls(Viewer.camera, Viewer.renderer.domElement);
+      Viewer.transformControlLight = new TransformControls(Viewer.camera, core.renderer.domElement);
       Viewer.transformControlLight.space = "local";
       Viewer.transformControlLight.addEventListener("change", Viewer.render);
       //Viewer.transformControlLight.addEventListener('objectChange', changeLightRotation);
       Viewer.transformControlLight.addEventListener(
         "dragging-changed",
         function (event) {
-          Viewer.controls.enabled = !event.value;
+          core.controls.enabled = !event.value;
         }
       );
-      Viewer.scene.add(Viewer.transformControlLight.getHelper());
+      core.scene.add(Viewer.transformControlLight.getHelper());
+      setCore('transformControlLight', Viewer.transformControlLight);
 
       Viewer.transformControlLightTarget = new TransformControls(
         Viewer.camera,
-        Viewer.renderer.domElement
+        core.renderer.domElement
       );
       Viewer.transformControlLightTarget.space = "global";
       Viewer.transformControlLightTarget.addEventListener("change", Viewer.render);
@@ -2121,10 +2115,11 @@ export const Viewer = {
       Viewer.transformControlLightTarget.addEventListener(
         "dragging-changed",
         function (event) {
-          Viewer.controls.enabled = !event.value;
+          core.controls.enabled = !event.value;
         }
       );
-      Viewer.scene.add(Viewer.transformControlLightTarget.getHelper());
+      core.scene.add(Viewer.transformControlLightTarget.getHelper());
+      setCore('transformControlLightTarget', Viewer.transformControlLightTarget);
 
       Viewer.transformControlClippingPlaneX = Viewer.createClippingPlaneAxis(0, "x");
       Viewer.transformControlClippingPlaneY = Viewer.createClippingPlaneAxis(1, "y");
@@ -2263,12 +2258,21 @@ export const Viewer = {
             loadedIIIF.modelUrls.push('https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb');
             showToast("No 3D model found in IIIF manifest, loading example model.");
           }
-          let ind = 0;
           // reset scene
-          Viewer.mainObject.forEach((obj) => {
-            Viewer.scene.remove(obj);
+          // detach first to avoid issues with transform controls
+          if (core.transformControl?.object) {
+            core.transformControl.detach();
+          }
+          core.axesHelper.visible = false;         
+
+          // remove objects from scene
+          core.mainObject.forEach((obj) => {
+            core.scene.remove(obj);
           });
-          Viewer.mainObject = [];
+
+          // clear arrays
+          core.mainObject.length = 0;
+          core.helperObjects.length = 0;
           console.log("TOTAL Annotations: " + loadedIIIF.annotations.length);
           if (loadedIIIF.annotations.length !== loadedIIIF.modelUrls.length) {
             //console.warn("Number of annotations does not match number of model URLs, adding testing model...");
@@ -2405,7 +2409,7 @@ export const Viewer = {
     }
 
 
-      Viewer.renderer.setPixelRatio(devicePixelRatio);
+      core.renderer.setPixelRatio(devicePixelRatio);
       const update = () => Viewer.updateSize();
 
       window.addEventListener('resize', update);
@@ -2422,8 +2426,8 @@ export const Viewer = {
     }
   },
   render() {
-    Viewer.controls?.update();
-    Viewer.renderer?.render(Viewer.scene, Viewer.camera);
+    core.controls?.update();
+    core.renderer?.render(core.scene, Viewer.camera);
   }
   
 };

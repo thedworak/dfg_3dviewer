@@ -42,7 +42,7 @@ export function lilGUIhasFolder(folder, name) {
 }
 
 export function lilGUIgetFolder(gui, name) {
-  return gui?.folders.find(f => f._title === name) || null;
+  return gui?.folders?.find(f => f._title === name) || null;
 }
 
 /**
@@ -119,8 +119,6 @@ export async function handleMetadataResponse(
   metadata,
   fileObject,
   object,
-  light,
-  controls,
   hierarchyMain,
   CONFIG,
   entityID,
@@ -128,18 +126,17 @@ export async function handleMetadataResponse(
   metadataContainer,
   canvasText,
   compressedFile,
-  viewEntity,
-  gui
+  viewEntity
 ) {
   var tempArray = [];
   let hierarchyFolder;
   let metadataContentTech = '';
   if (Array.isArray(object)) {
-    setupObject(object[0], light, controls, data);
-    await setupCamera(object[0], light, data);
+    setupObject(object[0], data);
+    await setupCamera(object[0], data);
   } else if (object.name === "Scene" || object.children.length > 0 || object.type == "Mesh"
   ) {
-    setupObject(object, light, controls, data);
+    setupObject(object, data);
     object.traverse(function (child) {
       if (child.isMesh) {
         metadata["vertices"] += fetchMetadata(child, "vertices");
@@ -152,7 +149,7 @@ export async function handleMetadataResponse(
           },
           id: child.id,
         };
-        if (typeof hierarchyMain !== "undefined" && lilGUIgetFolder(gui, "Hierarchy") !== null && !lilGUIhasFolder(hierarchyMain, shortChildName)) {
+        if (typeof hierarchyMain !== "undefined" && lilGUIgetFolder(core.gui, "Hierarchy") !== null && !lilGUIhasFolder(hierarchyMain, shortChildName)) {
           hierarchyFolder = hierarchyMain.addFolder(shortChildName).close();
           hierarchyFolder.add(tempArray, shortChildName);
           child.traverse(function (children) {
@@ -171,10 +168,10 @@ export async function handleMetadataResponse(
         }
       }
     });
-    await setupCamera(object, light, data);
+    await setupCamera(object, data);
   } else {
-    setupObject(object, light, controls, data);
-    await setupCamera(object, light, data);
+    setupObject(object, data);
+    await setupCamera(object, data);
     metadata["vertices"] += fetchMetadata(object, "vertices");
     metadata["faces"] += fetchMetadata(object, "faces");
     if (object.name === "") {
@@ -193,7 +190,7 @@ export async function handleMetadataResponse(
         id: object.id,
       };
     }
-    if (lilGUIgetFolder(gui, "Hierarchy") !== null && !lilGUIhasFolder(hierarchyMain, object.name)) {
+    if (lilGUIgetFolder(core.gui, "Hierarchy") !== null && !lilGUIhasFolder(hierarchyMain, object.name)) {
       hierarchyFolder = hierarchyMain.addFolder(object.name).close();
     }
   }
@@ -321,16 +318,16 @@ export async function handleMetadataResponse(
 /**
  * Handles settings for the loaded object and camera.
  */
-export async function settingsHandler(object, light, controls, hierarchyMain, data) {
+export async function settingsHandler(object, hierarchyMain, data) {
   if (Array.isArray(object)) {
-    setupObject(object[0], light, controls, data);
-    await setupCamera(object[0], light, data);
+    setupObject(object[0], data);
+    await setupCamera(object[0], data);
   } else if (object.name === "Scene" || object.children.length > 0) {
-    setupObject(object, light, controls, data);
-    await setupCamera(object, light, data);
+    setupObject(object, data);
+    await setupCamera(object, data);
   } else {
-    setupObject(object, light, controls, data);
-    await setupCamera(object, light, data);
+    setupObject(object, data);
+    await setupCamera(object, data);
     if (object.name === "undefined") object.name = "level";
     if (!lilGUIhasFolder(hierarchyMain, object.name)) {
       hierarchyMain.addFolder(object.name).close();
@@ -369,9 +366,6 @@ async function loadMetadataData(metadataUrl, CONFIG, fileObject) {
 export async function fetchSettings(
   fileObject,
   object,
-  light,
-  controls,
-  gui,
   CONFIG,
   getProxyPath,
   stats,
@@ -402,48 +396,27 @@ export async function fetchSettings(
     baseDir
   ).href;
 
-  if (Array.isArray(object)) {
-    core.helperObjects.push(object[0]);
-  } else {
-    core.helperObjects.push(object);
-  }
-
   let hierarchyMain;
-  if (lilGUIgetFolder(gui, "Hierarchy") === null) {
-    hierarchyMain = gui.addFolder("Hierarchy").close();
+  if (lilGUIgetFolder(core.gui, "Hierarchy") === null) {
+    hierarchyMain = core.gui?.addFolder("Hierarchy").close();
   }
   if (CONFIG.entity.proxyPath !== undefined || !core.isLightweight) {
     metadataUrl = getProxyPath(metadataUrl, CONFIG, fileObject);
     const data = await loadMetadataData(metadataUrl, CONFIG, fileObject);
-    await handleMetadataResponse(data, metadata, fileObject, object, light, controls, hierarchyMain, CONFIG, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity);
-    settingsHandler(object, light, controls, hierarchyMain, CONFIG);
+    await handleMetadataResponse(data, metadata, fileObject, object, hierarchyMain, CONFIG, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity);
+    settingsHandler(object, hierarchyMain, CONFIG);
   } else if (CONFIG.entity.metadata.source === "IIIF") {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);
-    await handleMetadataResponse(
-      CONFIG.model,
-      metadata,
-      fileObject,
-      object,
-      light,
-      controls,
-      hierarchyMain,
-      CONFIG,
-      entityID,
-      container,
-      metadataContainer,
-      canvasText,
-      compressedFile,
-      viewEntity,
-      gui
+    await handleMetadataResponse( CONFIG.model, metadata, fileObject, object, hierarchyMain, CONFIG, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity
     );
   } else {
     const data = await loadMetadataData(metadataUrl, CONFIG, fileObject);
-    await handleMetadataResponse(data, metadata, fileObject, object, light, controls, hierarchyMain, CONFIG, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity);
+    await handleMetadataResponse(data, metadata, fileObject, object, hierarchyMain, CONFIG, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity);
   }
   // Add statistics GUI
   let statsMain;
-  if (lilGUIgetFolder(gui, "Statistics") === null) {
-    statsMain = gui.addFolder("Statistics").close();
+  if (lilGUIgetFolder(core.gui, "Statistics") === null) {
+    statsMain = core.gui.addFolder("Statistics").close();
     statsMain
     .add(CONFIG.viewer.performanceMode, "Performance", {
       "High-performance": "high-performance",
@@ -451,7 +424,7 @@ export async function fetchSettings(
       Default: "default",
     })
     .onChange(function (value) {
-      if (typeof renderer !== "undefined") renderer.powerPreference = value;
+      if (typeof core.renderer !== "undefined") core.renderer.powerPreference = value;
     });
     statsMain.onOpenClose((changedGUI) => {
     if (changedGUI._closed) {

@@ -48,52 +48,52 @@ export default {
       include: ['**/*.svg', '**/*.png', '**/*.jpg', '**/*.gif'],
       limit: 0,
       fileName: 'assets/[name][hash][extname]',
-      publicPath: 'dist/assets/'
+      publicPath: 'assets/'
     }),
 
     copy({
       targets: [
         {
-          src: 'viewer/img/*',
+          src: 'viewer/img/**/*',
           dest: `${outDistDir}/assets/img`
         },
         {
-          src: 'node_modules/three/examples/jsm/libs/draco/*',
+          src: 'node_modules/three/examples/jsm/libs/draco/**/*',
           dest: `${outDistDir}/assets/draco`
         },
         {
-          src: 'viewer/js/external_libs/loaders/ifc/*',
+          src: 'viewer/js/external_libs/loaders/ifc/**/*',
           dest: `${outDistDir}/assets/ifc`
         },
         {
-          src: 'viewer/fonts/*',
+          src: 'viewer/fonts/**/*',
           dest: `${outDistDir}/assets/fonts`
         },
         {
-          src: 'viewer/css/*',
+          src: 'viewer/css/**/*',
           dest: `${outDistDir}/assets/css`
         },
         {
-          src: 'css/*',
+          src: 'css/**/*',
           dest: `${outDistDir}/assets/css`
         },
         {
-          src: 'viewer/examples/*',
+          src: 'viewer/examples/**/*',
           dest: `${outDistDir}/examples`
         },
         {
           src: 'settings.php',
-          dest: `./`,
-          rename: 'settings.local.php',
+          dest: `${outDistDir}/`,
+          rename: () => 'settings.local.php',
         },
         {
           src: 'viewer/viewer-settings-example.json',
           dest: `${outDistDir}/`,
-          rename: 'viewer-settings.json',
+          rename: () => 'viewer-settings.json',
           transform: (contents) => {
-            const json = JSON.parse(contents);
+            const json = JSON.parse(contents.toString());
             json.viewer.lightweight = 1;
-            return JSON.stringify(json, null, 2);
+            return Buffer.from(JSON.stringify(json, null, 2));
           }
         },
         {
@@ -110,6 +110,7 @@ export default {
           }
         },
       ],
+      outputFolder: outDistDir,
       hook: 'writeBundle',
       verbose: true
     }),
