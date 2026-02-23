@@ -67,16 +67,14 @@ export function expandMetadata() {
 export function appendMetadata(
   metadataContent,
   canvasText,
-  metadataContainer,
-  container,
   metadataContentTech
 ) {
   metadataContent += metadataContentTech + "</div>";
 
-  metadataContainer.innerHTML = metadataContent;
+  core.metadataContainer.innerHTML = metadataContent;
 
-  if (!container.contains(metadataContainer)) {
-    container.appendChild(metadataContainer);
+  if (!core.container.contains(core.metadataContainer)) {
+    core.container.appendChild(core.metadataContainer);
   }
 }
 
@@ -117,13 +115,10 @@ export function fetchMetadata(_object, _type) {
 export async function handleMetadataResponse(
   data,
   metadata,
-  fileObject,
   object,
   hierarchyMain,
   CONFIG,
   entityID,
-  container,
-  metadataContainer,
   canvasText,
   compressedFile,
   viewEntity
@@ -145,7 +140,7 @@ export async function handleMetadataResponse(
         var shortChildName = truncateString(child.name, 35);
         tempArray = {
           [shortChildName]() {
-            selectObjectHierarchy(child.id, container);
+           core.selectObjectHierarchy(child.id, core.container);
           },
           id: child.id,
         };
@@ -158,7 +153,7 @@ export async function handleMetadataResponse(
               var shortChildrenName = truncateString(children.name, 35);
               tempArray = {
                 [shortChildrenName]() {
-                  selectObjectHierarchy(children.id, container);
+                  core.selectObjectHierarchy(children.id, core.container);
                 },
                 id: children.id,
               };
@@ -177,7 +172,7 @@ export async function handleMetadataResponse(
     if (object.name === "") {
       tempArray = {
         ["Mesh"]() {
-          selectObjectHierarchy(object.id, container);
+          core.selectObjectHierarchy(object.id, core.container);
         },
         id: object.id,
       };
@@ -185,7 +180,7 @@ export async function handleMetadataResponse(
     } else {
       tempArray = {
         [object.name]() {
-          selectObjectHierarchy(object.id, container);
+          core.selectObjectHierarchy(object.id, core.container);
         },
         id: object.id,
       };
@@ -199,10 +194,10 @@ export async function handleMetadataResponse(
     hierarchyMain.domElement.classList.add("hierarchy");
   }
 
-  if (!metadataContainer) {
-    metadataContainer = document.createElement("div");
-    metadataContainer.id = "metadata-container";
-    document.body.appendChild(metadataContainer);
+  if (!core.metadataContainer) {
+    core.metadataContainer = document.createElement("div");
+    core.metadataContainer.id = "metadata-container";
+    document.body.appendChild(core.metadataContainer);
   }
 
   var metadataContent =
@@ -213,7 +208,7 @@ export async function handleMetadataResponse(
     '<div class="metadata-row">' +
       '<span class="metadata-label">Visualized file:</span>' +
       '<span class="metadata-value">' +
-        fileObject.basename + '.' + fileObject.extension +
+        core.fileObject.basename + '.' + core.fileObject.extension +
       '</span>' +
     '</div>';
 
@@ -238,15 +233,15 @@ export async function handleMetadataResponse(
     if (!document.getElementById("downloadModel")) {
       core.downloadModel.setAttribute("id", "downloadModel");
 
-      var c_path = fileObject.path;
-      if (compressedFile !== "") fileObject.filename = fileObject.filename.replace(fileObject.orgExtension, fileObject.extension);
+      var c_path = core.fileObject.path;
+      if (compressedFile !== "") core.fileObject.filename = core.fileObject.filename.replace(core.fileObject.orgExtension, core.fileObject.extension);
 
-      container.appendChild(core.downloadModel);
+      core.container.appendChild(core.downloadModel);
       const scriptUrl = document.currentScript?.src || import.meta.url;
       let DFG_ASSETS = scriptUrl.replace(/dfg_3dviewer-module\.js.*$/, 'assets/img');
 
       core.downloadModel.innerHTML = `
-        <a href="blob:${c_path}${fileObject.filename}" download>
+        <a href="blob:${c_path}${core.fileObject.filename}" download>
           <img src="${DFG_ASSETS}/download-icon.svg" alt="download" width="28" height="28" title="Download source file"/>`;
     }
 
@@ -284,7 +279,7 @@ export async function handleMetadataResponse(
             }
           }
 
-          metadataContainer.appendChild(viewEntity);
+          core.metadataContainer.appendChild(viewEntity);
           } else {
             showToast("No metadata found for entity " + entityID);
           }
@@ -292,7 +287,7 @@ export async function handleMetadataResponse(
           metadataContent +=
               '</div>' +  // #metadata-content
             '</div>';  
-          appendMetadata( metadataContent, canvasText, metadataContainer, container, metadataContentTech);
+          appendMetadata( metadataContent, canvasText, metadataContentTech);
         }
     };
 
@@ -306,9 +301,9 @@ export async function handleMetadataResponse(
 
     viewEntity.innerHTML =
       `<a href='${CONFIG.mainUrl}${CONFIG.entity.viewEntityPath}${entityID}/view' target='_blank'><img src='${DFG_ASSETS}share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>`;
-    appendMetadata(metadataContent, canvasText, metadataContainer, container, metadataContentTech);
+    appendMetadata(metadataContent, canvasText, metadataContentTech);
   }
-  metadataContainer.addEventListener("click", (e) => {
+  core.metadataContainer.addEventListener("click", (e) => {
     if (e.target.id === "metadata-collapse") {
       expandMetadata(e);
     }
@@ -343,7 +338,7 @@ function safeURL(value) {
   }
 }
 
-async function loadMetadataData(metadataUrl, CONFIG, fileObject) {
+async function loadMetadataData(metadataUrl, CONFIG) {
   // proxy / non-lightweight
   if (CONFIG.entity.proxyPath !== undefined || !core.isLightweight) {
     return null; // no data → proxy
@@ -352,11 +347,11 @@ async function loadMetadataData(metadataUrl, CONFIG, fileObject) {
   const response = await fetch(metadataUrl, { cache: "no-cache" });
 
   if (response.status === 404) {
-    showToast("No settings " + fileObject.filename + "_viewer.json found");
+    showToast("No settings " + core.fileObject.filename + "_viewer.json found");
     return null;
   }
 
-  showToast("Settings " + fileObject.filename + "_viewer.json found");
+  showToast("Settings " + core.fileObject.filename + "_viewer.json found");
   return response.json();
 }
 
@@ -364,15 +359,12 @@ async function loadMetadataData(metadataUrl, CONFIG, fileObject) {
  * Fetches settings and metadata for the loaded model.
  */
 export async function fetchSettings(
-  fileObject,
   object,
   CONFIG,
   getProxyPath,
   stats,
   guiContainer,
   entityID,
-  container,
-  metadataContainer,
   canvasText,
   compressedFile,
   viewEntity
@@ -387,12 +379,12 @@ export async function fetchSettings(
     }
   }
 
-  const fileUrl = toURL(fileObject.uri);
+  const fileUrl = toURL(core.fileObject.uri);
   if (!fileUrl) return;
 
   const baseDir = new URL('.', fileUrl);
   let metadataUrl = new URL(
-    `metadata/${fileObject.filename}_viewer.json`,
+    `metadata/${core.fileObject.filename}_viewer.json`,
     baseDir
   ).href;
 
@@ -401,17 +393,17 @@ export async function fetchSettings(
     hierarchyMain = core.gui?.addFolder("Hierarchy").close();
   }
   if (CONFIG.entity.proxyPath !== undefined || !core.isLightweight) {
-    metadataUrl = getProxyPath(metadataUrl, CONFIG, fileObject);
-    const data = await loadMetadataData(metadataUrl, CONFIG, fileObject);
-    await handleMetadataResponse(data, metadata, fileObject, object, hierarchyMain, CONFIG, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity);
+    metadataUrl = getProxyPath(metadataUrl, CONFIG);
+    const data = await loadMetadataData(metadataUrl, CONFIG);
+    await handleMetadataResponse(data, metadata, object, hierarchyMain, CONFIG, entityID, canvasText, compressedFile, viewEntity);
     settingsHandler(object, hierarchyMain, CONFIG);
   } else if (CONFIG.entity.metadata.source === "IIIF") {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);
-    await handleMetadataResponse( CONFIG.model, metadata, fileObject, object, hierarchyMain, CONFIG, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity
+    await handleMetadataResponse( CONFIG.model, metadata, object, hierarchyMain, CONFIG, entityID, canvasText, compressedFile, viewEntity
     );
   } else {
-    const data = await loadMetadataData(metadataUrl, CONFIG, fileObject);
-    await handleMetadataResponse(data, metadata, fileObject, object, hierarchyMain, CONFIG, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity);
+    const data = await loadMetadataData(metadataUrl, CONFIG);
+    await handleMetadataResponse(data, metadata, object, hierarchyMain, CONFIG, entityID, canvasText, compressedFile, viewEntity);
   }
   // Add statistics GUI
   let statsMain;
@@ -440,7 +432,7 @@ export async function fetchSettings(
   }
 }
 
-export function createIIIFDropdown(container, iiifConfigURL, canvasDimensions) {
+export function createIIIFDropdown(iiifConfigURL, canvasDimensions) {
   // list of candidate IIIF config URLs (add more as needed)
   const iiifList = [
     { url: iiifConfigURL.url, name: iiifConfigURL.name },

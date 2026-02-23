@@ -79,9 +79,9 @@ export function truncateString(str, n) {
 }
 
 // Path helpers
-export function getProxyPath(url, config, fileObject) {
+export function getProxyPath(url, config) {
   const tempPath = decodeURIComponent(config.mainUrl);
-  return tempPath.replace(fileObject.originalPath, encodeURIComponent(url));
+  return tempPath.replace(core.fileObject.originalPath, encodeURIComponent(url));
 }
 
 export function normalizeColor(value) {

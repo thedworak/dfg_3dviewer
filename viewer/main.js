@@ -318,10 +318,12 @@ export const Viewer = {
 
     this.container = document.getElementById(this.CONFIG.viewer.container);
     if (!this.container) throw new Error("Container not found");
+    setCore('container', this.container);
 
     this.scrollTop = window.scrollY || document.documentElement.scrollTop;
-    this.rect = this.container.getBoundingClientRect();
-    this.fileObject.originalPath = this.container.getAttribute("3d");   
+    this.rect = core.container.getBoundingClientRect();
+    this.fileObject.originalPath = core.container.getAttribute("3d");
+    setCore('fileObject', this.fileObject)
     this.CONFIG.viewer.canvasDimensions = {
       x: this.rect.width * Number(this.CONFIG.viewer.scaleContainer.x),
       y: this.rect.height * Number(this.CONFIG.viewer.scaleContainer.y),
@@ -329,14 +331,14 @@ export const Viewer = {
     this.bottomLineGUI = this.CONFIG.viewer.canvasDimensions.y - 85;
 
     if (this.isLightweight) {
-      this.CONFIG.viewer.lightweight = this.container.getAttribute("proxy");
+      this.CONFIG.viewer.lightweight = core.container.getAttribute("proxy");
     }
     else {
       var elementsURL = window.location.pathname;
       elementsURL = elementsURL.match(this.CONFIG.entity.idUri);
       if (elementsURL !== null) {
         this.entityID = elementsURL[1];
-        this.container.setAttribute(this.CONFIG.entity.attributeId, this.entityID);
+        core.container.setAttribute(this.CONFIG.entity.attributeId, this.entityID);
         console.log("Entity ID:", this.entityID);
       }
     }    
@@ -355,21 +357,21 @@ export const Viewer = {
     this.targetTween = new TWEEN.Tween();
     setCore('targetTween', this.targetTween);
 
-    this.container.classList.add("mainContainer");
+    core.container.classList.add("mainContainer");
 
-    if (this.container.hasAttribute("basePath")) {
-      this.CONFIG.baseModulePath = this.container.getAttribute("basePath");
+    if (core.container.hasAttribute("basePath")) {
+      this.CONFIG.baseModulePath = core.container.getAttribute("basePath");
     }
 
     this.setModelPaths();
 
     this.CONFIG.viewer.exportPath = "/api/editor/xml-export/";    
-    this.loadedFile = `${this.fileObject.basename}.${this.fileObject.extension}`;
+    this.loadedFile = `${core.fileObject.basename}.${core.fileObject.extension}`;
 
     this.handHint = document.createElement("div");
     this.handHint.id = "handHint";
     this.handHint.hidden = true;
-    this.container.appendChild(this.handHint);
+    core.container.appendChild(this.handHint);
     setCore('handHint', this.handHint);
 
     this.spinnerContainer = document.createElement("div");
@@ -380,21 +382,22 @@ export const Viewer = {
     this.spinnerElement.setAttribute("data-label", "Loading...");
     this.spinnerElement.setAttribute("data-percentage", "true");
     this.spinnerContainer.appendChild(this.spinnerElement);
-    this.container.appendChild(this.spinnerContainer);
+    core.container.appendChild(this.spinnerContainer);
     this.spinnerContainer.style.left = `calc(50% - ${this.spinnerContainer.getBoundingClientRect().width / 2}px)`;
 
-    this.rect = this.container.getBoundingClientRect();
+    this.rect = core.container.getBoundingClientRect();
 
     this.guiContainer = document.createElement("div");
     this.guiContainer.id = "guiContainer";
     this.guiContainer.className = "guiContainer";
-    this.container.appendChild(this.guiContainer);
+    core.container.appendChild(this.guiContainer);
 
     this.gui  = new GUI({ container: guiContainer });
 
     this.metadataContainer = document.createElement("div");
     this.metadataContainer.setAttribute("id", "metadata-container");
     this.metadataContainer.style.top = -this.metadataContainer.getBoundingClientRect().top + "px";
+    setCore('metadataContainer', this.metadataContainer)
 
     this.spinner = new lv();
     this.spinner.initLoaderAll();
@@ -414,6 +417,7 @@ export const Viewer = {
     setCore("clippingPlanes", this.clippingPlanes);
     setCore('helperObjects', this.helperObjects);
     setCore('lightHelper', this.lightHelper);
+    setCore('selectedObjects', this.selectedObjects)
 
     this.clock = new THREE.Timer();
 
@@ -436,12 +440,12 @@ export const Viewer = {
   },
 
   setModelPaths() {
-    Viewer.fileObject.filename = Viewer.fileObject.originalPath.split("/").pop();
-    Viewer.fileObject.basename = Viewer.fileObject.filename.substring(0, Viewer.fileObject.filename.lastIndexOf("."));
-    Viewer.fileObject.extension = Viewer.fileObject.filename.substring(Viewer.fileObject.filename.lastIndexOf(".") + 1);
-    Viewer.fileObject.path = Viewer.fileObject.originalPath.substring(0, Viewer.fileObject.originalPath.lastIndexOf(Viewer.fileObject.filename)) || "/";
-    Viewer.fileObject.uri = Viewer.fileObject.path.replace(this.CONFIG.mainUrl + "/", "");
-    Viewer.fileObject.relativePath = Viewer.normalizeDrupalFilesPath(Viewer.fileObject.uri);
+    core.fileObject.filename = core.fileObject.originalPath.split("/").pop();
+    core.fileObject.basename = core.fileObject.filename.substring(0, core.fileObject.filename.lastIndexOf("."));
+    core.fileObject.extension = core.fileObject.filename.substring(core.fileObject.filename.lastIndexOf(".") + 1);
+    core.fileObject.path = core.fileObject.originalPath.substring(0, core.fileObject.originalPath.lastIndexOf(core.fileObject.filename)) || "/";
+    core.fileObject.uri = core.fileObject.path.replace(this.CONFIG.mainUrl + "/", "");
+    core.fileObject.relativePath = Viewer.normalizeDrupalFilesPath(core.fileObject.uri);
   },
   // Disable interaction hint on first interaction
  disableInteractionHint() {
@@ -559,19 +563,19 @@ export const Viewer = {
 
   selectObjectHierarchy(_id) {
     let search = true;
-    for (let i = 0; i < selectedObjects.length && search === true; i++) {
-      if (selectedObjects[i].id === _id) {
+    for (let i = 0; i < core.selectedObjects.length && search === true; i++) {
+      if (core.selectedObjects[i].id === _id) {
         search = false;
-        if (selectedObjects[i].selected === true) {
-          core.scene.getObjectById(_id).material = selectedObjects[i].originalMaterial;
+        if (core.selectedObjects[i].selected === true) {
+          core.scene.getObjectById(_id).material = core.selectedObjects[i].originalMaterial;
           core.scene.getObjectById(_id).material.needsUpdate = true;
-          selectedObjects[i].selected = false;
-          selectedObjects.splice(selectedObjects.indexOf(selectedObjects[i]), 1);
+          core.selectedObjects[i].selected = false;
+          core.selectedObjects.splice(core.selectedObjects.indexOf(core.selectedObjects[i]), 1);
         }
       }
     }
     if (search) {
-      selectedObjects.push({
+      core.selectedObjects.push({
         id: _id,
         selected: true,
         originalMaterial: core.scene.getObjectById(_id).material.clone(),
@@ -901,8 +905,8 @@ export const Viewer = {
       Viewer.mainCanvas.style.width = widthCSS + 'px';
       Viewer.mainCanvas.style.height = heightCSS + 'px';
       
-      Viewer.metadataContainer.style.width = '100%';
-      Viewer.metadataContainer.style.height = '100%';
+      core.metadataContainer.style.width = '100%';
+      core.metadataContainer.style.height = '100%';
       Viewer.downloadModel?.setAttribute("style", "visibility: visible");
 
       if (Viewer.fileElement && Viewer.fileElement.length > 0) {
@@ -939,7 +943,7 @@ export const Viewer = {
   async toggleFullscreen() {
     try {
       if (!document.fullscreenElement) {
-        await Viewer.container.requestFullscreen();
+        await core.container.requestFullscreen();
       } else {
         await document.exitFullscreen();
       }
@@ -1297,8 +1301,8 @@ export const Viewer = {
     core.renderer.setSize(256, 256);
     core.renderer.render(core.scene, core.camera);
     var prependName = "";
-    if (Viewer.fileObject.archiveType !== "") {
-      prependName = Viewer.fileObject.basename + "_" + Viewer.fileObject.archiveType.toUpperCase() + "/";
+    if (core.fileObject.archiveType !== "") {
+      prependName = core.fileObject.basename + "_" + core.fileObject.archiveType.toUpperCase() + "/";
     }
 
     Viewer.mainCanvas.toBlob((imgBlob) => {
@@ -1317,8 +1321,8 @@ export const Viewer = {
         return;
       }
       const fileform = new FormData();
-      fileform.append("path", Viewer.fileObject.path);
-      fileform.append("filename", Viewer.fileObject.basename);
+      fileform.append("path", core.fileObject.path);
+      fileform.append("filename", core.fileObject.basename);
       //fileform.append("path", uri + prependName);
       fileform.append("data", imgBlob, "thumbnail.png");
       console.log("Uploading thumbnail for entity ID:", Viewer.entityID);
@@ -1351,13 +1355,10 @@ export const Viewer = {
     console.log("Loading model with extension:", Viewer._ext);
     if (Viewer._ext === "glb" || Viewer._ext === "gltf") {
       await loadModel({
-        fileObject: Viewer.fileObject,
         config: Viewer.CONFIG,
         getProxyPath: getProxyPath,
         stats: Viewer.stats,
         entityID: Viewer.entityID,
-        container: Viewer.container,
-        metadataContainer: Viewer.metadataContainer,
         canvasText: Viewer.canvasText,
         bottomLineGUI: Viewer.bottomLineGUI,
         compressedFile: Viewer.compressedFile,
@@ -1371,33 +1372,27 @@ export const Viewer = {
       Viewer._ext === "gz"
     ) {
       Viewer.compressedFile = "_" + Viewer._ext.toUpperCase() + "/";
-      Viewer.fileObject.path = Viewer.fileObject.path + Viewer.fileObject.basename + Viewer.compressedFile
-      Viewer.fileObject.extension = "glb";
-      Viewer.fileObject.newExtension = Viewer._ext;
+      core.fileObject.path = core.fileObject.path + core.fileObject.basename + Viewer.compressedFile
+      core.fileObject.extension = "glb";
+      core.fileObject.newExtension = Viewer._ext;
       await loadModel({
-        fileObject: Viewer.fileObject,
         config: Viewer.CONFIG,
         getProxyPath: getProxyPath,
         stats: Viewer.stats,
         entityID: Viewer.entityID,
-        container: Viewer.container,
-        metadataContainer: Viewer.metadataContainer,
         canvasText: Viewer.canvasText,
         bottomLineGUI: Viewer.bottomLineGUI,
         compressedFile: Viewer.compressedFile,
         viewEntity: Viewer.viewEntity
       });
     } else {
-      //this.fileObject.extension = "glb";
+      //core.fileObject.extension = "glb";
       if (Viewer._ext === "glb") {
         await loadModel({
-        fileObject: Viewer.fileObject,
         config: Viewer.CONFIG,
         getProxyPath: getProxyPath,
         stats: Viewer.stats,
         entityID: Viewer.entityID,
-        container: Viewer.container,
-        metadataContainer: Viewer.metadataContainer,
         canvasText: Viewer.canvasText,
         bottomLineGUI: Viewer.bottomLineGUI,
         compressedFile: Viewer.compressedFile,
@@ -1405,13 +1400,10 @@ export const Viewer = {
       });
       }
       else await loadModel({
-        fileObject: Viewer.fileObject,
         config: Viewer.CONFIG,
         getProxyPath: getProxyPath,
         stats: Viewer.stats,
         entityID: Viewer.entityID,
-        container: Viewer.container,
-        metadataContainer: Viewer.metadataContainer,
         canvasText: Viewer.canvasText,
         bottomLineGUI: Viewer.bottomLineGUI,
         compressedFile: Viewer.compressedFile,
@@ -1746,8 +1738,8 @@ export const Viewer = {
 
       Viewer.clippingFolder = Viewer.editorFolder.addFolder("Clipping Planes").close();
       setCore("clippingFolder", Viewer.clippingFolder);
-      Viewer.core.materialsFolder = Viewer.editorFolder.addFolder("Materials").close();
-      setCore("materialsFolder", Viewer.core.materialsFolder);
+      core.materialsFolder = Viewer.editorFolder.addFolder("Materials").close();
+      setCore("materialsFolder", core.materialsFolder);
 
       if (!Viewer.isLightweight) {
         Viewer.propertiesFolder = Viewer.editorFolder.addFolder("Save properties").close();
@@ -1811,13 +1803,13 @@ export const Viewer = {
                       "X-CSRF-Token": token
                     },
                     body: JSON.stringify({
-                      filename: Viewer.fileObject.filename,
+                      filename: core.fileObject.filename,
                       path:
                         Viewer.archiveType !== ""
-                          ? Viewer.fileObject.relativePath +
-                            Viewer.fileObject.basename +
+                          ? core.fileObject.relativePath +
+                            core.fileObject.basename +
                             Viewer.compressedFile
-                          : Viewer.fileObject.relativePath,
+                          : core.fileObject.relativePath,
                       content: JSON.stringify(newMetadata, null, "\t")
                     })
                   });
@@ -2003,17 +1995,17 @@ export const Viewer = {
       core.renderer.domElement.style.height = Viewer.CONFIG.viewer.canvasDimensions.y + "px";
 
       core.renderer.domElement.style.display = "block";
-      Viewer.container.appendChild(core.renderer.domElement);
+      core.container.appendChild(core.renderer.domElement);
       Viewer.mainCanvas.classList.add("mainCanvas");
       //Viewer.canvasText = document.createElement("div");
       //Viewer.canvasText.id = "metadata-container";
       //Viewer.canvasText.width = Viewer.CONFIG.viewer.canvasDimensions.x + "px";
       //Viewer.canvasText.height = Viewer.CONFIG.viewer.canvasDimensions.y + "px";
 
-      Viewer.viewerWrapper = Viewer.container.closest('.viewer-wrapper');
+      Viewer.viewerWrapper = core.container.closest('.viewer-wrapper');
 
       if (!Viewer.viewerWrapper) {
-        Viewer.viewerWrapper = Viewer.container.parentElement;
+        Viewer.viewerWrapper = core.container.parentElement;
         Viewer.viewerWrapper.classList.add('viewer-wrapper');
       }
 
@@ -2035,7 +2027,7 @@ export const Viewer = {
         (Viewer.CONFIG.viewer.canvasDimensions.x - 40) +
         "px"
       );
-      Viewer.container.appendChild(Viewer.fullscreenMode);
+      core.container.appendChild(Viewer.fullscreenMode);
       document.getElementById("fullscreenMode").addEventListener("click", Viewer.toggleFullscreen, false);
 
       Viewer.downloadModel = document.createElement("div");
@@ -2043,7 +2035,7 @@ export const Viewer = {
 
       Viewer.handHint.innerHTML = `<img src="${Viewer.DFG_ASSETS}hand-hint.png" alt="Fullscreen" width=48 height=48 title="Hand hint animation"/>`;
       
-      Viewer.rect = Viewer.container.getBoundingClientRect();
+      Viewer.rect = core.container.getBoundingClientRect();
       Viewer.guiContainer.style.maxHeight = `${Viewer.rect.height - 20}px`;
       Viewer.lilGui = document.getElementsByClassName("lil-gui root");
       setCore('lilGui', Viewer.lilGui);
@@ -2125,6 +2117,7 @@ export const Viewer = {
       setCore('transformControlClippingPlaneZ', Viewer.transformControlClippingPlaneZ);
 
       setCore('clippingPlanes', Viewer.clippingPlanes);
+      setCore('selectObjectHierarchy', this.selectObjectHierarchy);
 
       Viewer.transformControlClippingPlaneX.showX = Viewer.transformControlClippingPlaneX.showY = false;
       Viewer.transformControlClippingPlaneY.showX = Viewer.transformControlClippingPlaneY.showY = false;
@@ -2132,7 +2125,7 @@ export const Viewer = {
 
       Viewer.GESTURE.handPx *= Math.min(window.innerWidth / 1200, 1);
 
-      Viewer._ext = Viewer.fileObject.extension.toLowerCase();
+      Viewer._ext = core.fileObject.extension.toLowerCase();
       if (
         Viewer._ext === "zip" ||
         Viewer._ext === "rar" ||
@@ -2183,19 +2176,19 @@ export const Viewer = {
           }
 
           if (_autoPath !== '') {
-            Viewer.fileObject.filename = _autoPath.split('/').pop();
-            Viewer.fileObject.basename =
-              Viewer.fileObject.filename.substring(
+            core.fileObject.filename = _autoPath.split('/').pop();
+            core.fileObject.basename =
+              core.fileObject.filename.substring(
                 0,
-                Viewer.fileObject.filename.lastIndexOf('.')
+                core.fileObject.filename.lastIndexOf('.')
               );
-            Viewer.fileObject.extension =
-              Viewer.fileObject.filename.substring(
-                Viewer.fileObject.filename.lastIndexOf('.') + 1
+            core.fileObject.extension =
+              core.fileObject.filename.substring(
+                core.fileObject.filename.lastIndexOf('.') + 1
               );
-            Viewer._ext = Viewer.fileObject.extension.toLowerCase();
-            Viewer.fileObject.path =
-              _autoPath.substring(0, _autoPath.lastIndexOf(Viewer.fileObject.filename));
+            Viewer._ext = core.fileObject.extension.toLowerCase();
+            core.fileObject.path =
+              _autoPath.substring(0, _autoPath.lastIndexOf(core.fileObject.filename));
           }
 
           await Viewer.mainLoadModel();
@@ -2283,14 +2276,14 @@ export const Viewer = {
           }
           for (const [i, url] of loadedIIIF.modelUrls?.entries()) {
             core.objectsConfig.index = i;
-            Viewer.fileObject.originalPath = loadedIIIF.modelUrl = url;
+            core.fileObject.originalPath = loadedIIIF.modelUrl = url;
             //fileObject.originalPath = loadedIIIF.modelUrl;
             Viewer.setModelPaths();
             await getAnnotations(loadedIIIF, core.objectsConfig);
             if (loadedIIIF.scenes && loadedIIIF.scenes.length > 0) {
               core.objectsConfig.scenes = loadedIIIF.scenes;
             }
-            Viewer._ext = Viewer.fileObject.extension.toLowerCase();
+            Viewer._ext = core.fileObject.extension.toLowerCase();
             await Viewer.mainLoadModel();
           }
         }
@@ -2391,7 +2384,7 @@ export const Viewer = {
         switch(Viewer.CONFIG.entity.metadata.source.substring(0, 4).toLowerCase()) {
           case "iiif":
             if (Viewer.iiifConfigURL.url !== "") {
-              createIIIFDropdown(Viewer.container, Viewer.iiifConfigURL, Viewer.CONFIG.viewer.canvasDimensions);
+              createIIIFDropdown(core.container, Viewer.iiifConfigURL, Viewer.CONFIG.viewer.canvasDimensions);
               await loadIIIFURL();
               Viewer.CONFIG.entity.metadata.source = "IIIF";
               await setupIIIF(Viewer.iiifConfigURL.url);

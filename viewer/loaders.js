@@ -130,7 +130,7 @@ function traverseMesh(object) {
       if (_material === null) {
         _materialGui = {};
         _material = getMaterialByID(object, value);
-        console.log(_material);
+        //console.log(_material);
         core.materialProperties.color = _material.color;
         core.materialProperties.emissiveColor = _material.emissive;
         core.materialProperties.emissive = _material.emissiveIntensity;
@@ -168,21 +168,18 @@ function traverseMesh(object) {
 
   export async function loadModel(params) {
     var {
-      fileObject,
       config,
       getProxyPath,
       stats,
       entityID,
-      container,
-      metadataContainer,
       canvasText,
       compressedFile,
       viewEntity
     } = params;
 
-    let modelPath = params.fileObject.path + params.fileObject.filename;
+    let modelPath = core.fileObject.path + core.fileObject.filename;
     if (config.entity.proxyPath !== undefined) {
-      modelPath = getProxyPath(modelPath, config, params.fileObject);
+      modelPath = getProxyPath(modelPath, config, core.fileObject);
     }
 
     // Helper: promisify THREE loader.load
@@ -193,7 +190,7 @@ function traverseMesh(object) {
     }
 
     // Helper: common post-load pipeline
-    async function afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity, scene, core }) {
+    async function afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, canvasText, compressedFile, viewEntity, core }) {
       if (object === null || typeof object === "undefined") {
         showToast("Loaded object is null or undefined.");
         return;
@@ -205,9 +202,9 @@ function traverseMesh(object) {
         window.viewer.scene = core.scene;
       }
       traverseMesh(object);
-      if (params.fileObject.extension.toLowerCase() === "gltf" || params.fileObject.extension.toLowerCase() === "glb") params.fileObject.path = params.fileObject.path.replace("/gltf/", "/");
-      else params.fileObject.path = params.fileObject.path.replace("gltf/", "");
-      fetchSettings( params.fileObject, object, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity);
+      if (core.fileObject.extension.toLowerCase() === "gltf" || core.fileObject.extension.toLowerCase() === "glb") core.fileObject.path = core.fileObject.path.replace("/gltf/", "/");
+      else core.fileObject.path = core.fileObject.path.replace("gltf/", "");
+      fetchSettings( object, config, getProxyPath, stats, guiContainer, entityID, canvasText, compressedFile, viewEntity);
       core.outlineClipping = prepareOutlineClipping(object);
       if (Array.isArray(object)) {
         object.forEach(o => core.scene.add(o));
@@ -229,18 +226,18 @@ function traverseMesh(object) {
       });*/
     }
 
-    async function loadOBJWithMTL(fileObject, config) {
+    async function loadOBJWithMTL(config) {
       const manager = new THREE.LoadingManager();
       manager.onLoad = () => showToast("OBJ model has been loaded");
       manager.addHandler(/\.dds$/i, new DDSLoader());
 
-      const basename = fileObject.filename.replace(/\.[^/.]+$/, "");
-      const filename = fileObject.filename;
+      const basename = core.fileObject.filename.replace(/\.[^/.]+$/, "");
+      const filename = core.fileObject.filename;
 
       if (!config.noMTL) {
         const materials = await new Promise((resolve, reject) => {
           new MTLLoader(manager)
-          .setPath(fileObject.path)
+          .setPath(core.fileObject.path)
           .load(basename + ".mtl", resolve, undefined, reject);
         });
         materials.preload();
@@ -248,7 +245,7 @@ function traverseMesh(object) {
         const obj = await new Promise((resolve, reject) => {
           new OBJLoader(manager)
           .setMaterials(materials)
-          .setPath(fileObject.path)
+          .setPath(core.fileObject.path)
           .load(filename, resolve, onProgress, reject);
         });
 
@@ -258,7 +255,7 @@ function traverseMesh(object) {
 
       const obj = await new Promise((resolve, reject) => {
         new OBJLoader()
-        .setPath(fileObject.path)
+        .setPath(core.fileObject.path)
         .load(filename, resolve, onProgress, reject);
       });
 
@@ -271,8 +268,8 @@ function traverseMesh(object) {
       return path.replace(/\/{2,}/g, '/');
     }
 
-    async function loadGLTFModel(fileObject, config) {
-      let modelPath = fileObject.path + fileObject.basename + "." + fileObject.extension;
+    async function loadGLTFModel(config) {
+      let modelPath = core.fileObject.path + core.fileObject.basename + "." + core.fileObject.extension;
       if (config.entity.proxyPath !== undefined) {
         modelPath = getProxyPath(modelPath);
       }
@@ -302,7 +299,7 @@ function traverseMesh(object) {
             core.circle.set(percentComplete, 100);
             if (percentComplete >= 100) {
               core.circle.hide();
-              showToast("Model " + fileObject.filename + " has been loaded.");
+              showToast("Model " + core.fileObject.filename + " has been loaded.");
             }
           },
         reject
@@ -313,10 +310,10 @@ function traverseMesh(object) {
       return gltf.scene;
     }
 
-    switch (fileObject.extension.toLowerCase()) {
+    switch (core.fileObject.extension.toLowerCase()) {
       case "obj": {
-        const object = await loadOBJWithMTL(params.fileObject, config, params);
-        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity, core });
+        const object = await loadOBJWithMTL(config);
+        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, canvasText, compressedFile, viewEntity, core });
         break;
       }
 
@@ -324,7 +321,7 @@ function traverseMesh(object) {
         const loader = new FBXLoader();
         const object = await loadAsync(loader, modelPath, onProgress);
         //object.position.set(0, 0, 0);
-        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity, core });
+        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, canvasText, compressedFile, viewEntity, core });
         break;
       }
 
@@ -337,7 +334,7 @@ function traverseMesh(object) {
         object.position.set(0, 0, 0);
         object.castShadow = true;
         object.receiveShadow = true;
-        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity, core });
+        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, canvasText, compressedFile, viewEntity, core });
         break;
       }
 
@@ -346,7 +343,7 @@ function traverseMesh(object) {
         const collada = await loadAsync(loader, modelPath, onProgress);
         const object = collada.scene;
         object.position.set(0, 0, 0);
-        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity, core });
+        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, canvasText, compressedFile, viewEntity, core });
         break;
       }
 
@@ -358,7 +355,7 @@ function traverseMesh(object) {
             : `/assets/ifc/`;
         ifcLoader.ifcManager.setWasmPath(ifcWasmPath, true);
         const object = await loadAsync(ifcLoader, modelPath, onProgress);
-        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity, core });
+        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, canvasText, compressedFile, viewEntity, core });
         break;
       }
 
@@ -374,7 +371,7 @@ function traverseMesh(object) {
         object.castShadow = true;
         object.receiveShadow = true;
         core.mainObject.push(object);
-        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity, core });
+        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, canvasText, compressedFile, viewEntity, core });
         break;
       }
 
@@ -385,14 +382,14 @@ function traverseMesh(object) {
         const material = new THREE.PointsMaterial({ size: 0.1, vertexColors: geometry.hasAttribute("color") === true });
         const object = new THREE.Points(geometry, material);
         object.position.set(0, 0, 0);
-        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity, core });
+        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, canvasText, compressedFile, viewEntity, core });
         break;
       }
 
       case "pcd": {
         const loader = new PCDLoader();
         const mesh = await loadAsync(loader, modelPath, onProgress);
-        afterLoad({ object: mesh, params, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity, core });
+        afterLoad({ object: mesh, params, config, getProxyPath, stats, guiContainer, entityID, canvasText, compressedFile, viewEntity, core });
         break;
       }
 
@@ -401,25 +398,25 @@ function traverseMesh(object) {
         const object = await loadAsync(loader, modelPath, onProgress);
         object.position.set(0, 0, 0);
         core.mainObject.push(object);
-        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity, core });
+        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, canvasText, compressedFile, viewEntity, core });
         break;
       }
 
       case "3ds": {
         const loader = new TDSLoader();
-        loader.setResourcePath(params.fileObject.path);
+        loader.setResourcePath(core.fileObject.path);
         let mp = path;
         if (config.entity.proxyPath !== undefined) mp = getProxyPath(mp);
-        const object = await loadAsync(loader, mp + params.fileObject.basename + "." + params.fileObject.extension, onProgress);
+        const object = await loadAsync(loader, mp + core.fileObject.basename + "." + core.fileObject.extension, onProgress);
         core.mainObject.push(object);
-        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity, core });
+        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, canvasText, compressedFile, viewEntity, core });
         break;
       }
 
       case "glb":
       case "gltf": {
-        const object = await loadGLTFModel(params.fileObject, config);
-        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, compressedFile, viewEntity, core });
+        const object = await loadGLTFModel(config);
+        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, canvasText, compressedFile, viewEntity, core });
         break;
       }
       default:

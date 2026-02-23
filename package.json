@@ -63,6 +63,7 @@
     "@iiif/3d-manifesto-dev": "^0.7.0",
     "jquery": "^3.7.1",
     "lru-cache": "^11.2.2",
+    "node": "^24.13.1",
     "stats.js": "^0.17.0",
     "three": "^0.183.1",
     "toastify-js": "^1.12.0",
