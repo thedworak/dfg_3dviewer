@@ -101,9 +101,10 @@ export default {
           dest: `${outDistDir}/`,
           transform: (contents) => {
             let html = contents.toString();
-            html = html.replace(/img\//g, 'assets/img/');
-            html = html.replace(/fonts\//g, 'assets/fonts/');
-            html = html.replace(/css\//g, 'assets/css/');
+            html = html.replace(
+              /(href|src)="(img|css|fonts)\//g,
+              (_, attr, folder) => `${attr}="assets/${folder}/`
+            );
             html = html.replace(/viewer\//g, '');
             html = html.replace(/main\.js/g, 'dfg_3dviewer-module.js');
             return Buffer.from(html);

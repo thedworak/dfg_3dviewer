@@ -249,7 +249,7 @@ export const Viewer = {
         modelLoaded: false,
 
         get camera() {
-          return Viewer.camera;
+          return core.camera;
         },
 
         get scene() {
@@ -928,8 +928,8 @@ export const Viewer = {
    
     core.renderer.setPixelRatio(devicePixelRatio * scale.x);
     core.renderer.setSize(widthCSS*scale.x, heightCSS*scale.y, false);
-    Viewer.camera.aspect = widthCSS / heightCSS;
-    Viewer.camera.updateProjectionMatrix();
+    core.camera.aspect = widthCSS / heightCSS;
+    core.camera.updateProjectionMatrix();
     core.controls?.update();
     Viewer.CONFIG.viewer.canvasDimensions = { x: widthCSS, y: heightCSS };
   },
@@ -1089,11 +1089,11 @@ export const Viewer = {
     }
 
     if (Viewer.textMesh !== null) {
-      Viewer.textMesh.lookAt(Viewer.camera.position);
+      Viewer.textMesh.lookAt(core.camera.position);
     }
 
     core.renderer.clear();
-    core.renderer.render(core.scene, Viewer.camera);
+    core.renderer.render(core.scene, core.camera);
     Viewer.stats.update();
   },
 
@@ -1134,7 +1134,7 @@ export const Viewer = {
         Viewer.onUpPosition.x === Viewer.onDownPosition.x &&
         Viewer.onUpPosition.y === Viewer.onDownPosition.y
       ) {
-        Viewer.raycaster.setFromCamera(Viewer.onUpPosition, Viewer.camera);
+        Viewer.raycaster.setFromCamera(Viewer.onUpPosition, core.camera);
         var intersects;
 
         if (Viewer.EDITOR || Viewer.RULER_MODE) {
@@ -1179,14 +1179,14 @@ export const Viewer = {
     if (e.buttons == 1) {
       if (Viewer.pointer.x !== Viewer.onDownPosition.x && Viewer.pointer.y !== Viewer.onDownPosition.y) {
         Viewer.cameraLight.position.set(
-          Viewer.camera.position.x,
-          Viewer.camera.position.y,
-          Viewer.camera.position.z
+          core.camera.position.x,
+          core.camera.position.y,
+          core.camera.position.z
         );
       }
     } else {
       if (this.EDITOR) {
-        Viewer.raycaster.setFromCamera(Viewer.pointer, Viewer.camera);
+        Viewer.raycaster.setFromCamera(Viewer.pointer, core.camera);
         var intersects;
         if (core.mainObject.length > 1) {
           for (let ii = 0; ii < core.mainObject.length; ii++) {
@@ -1292,10 +1292,10 @@ export const Viewer = {
     /*const messDiv = document.createElement('div');
     messDiv.classList.add('message');
     document.body.appendChild(messDiv);*/
-    Viewer.camera.aspect = 1;
-    Viewer.camera.updateProjectionMatrix();
+    core.camera.aspect = 1;
+    core.camera.updateProjectionMatrix();
     core.renderer.setSize(256, 256);
-    core.renderer.render(core.scene, Viewer.camera);
+    core.renderer.render(core.scene, core.camera);
     var prependName = "";
     if (Viewer.fileObject.archiveType !== "") {
       prependName = Viewer.fileObject.basename + "_" + Viewer.fileObject.archiveType.toUpperCase() + "/";
@@ -1342,8 +1342,8 @@ export const Viewer = {
     }, "image/png");
 
     core.renderer.setPixelRatio(devicePixelRatio);
-    Viewer.camera.aspect = Viewer.CONFIG.viewer.canvasDimensions.x / Viewer.CONFIG.viewer.canvasDimensions.y;
-    Viewer.camera.updateProjectionMatrix();
+    core.camera.aspect = Viewer.CONFIG.viewer.canvasDimensions.x / Viewer.CONFIG.viewer.canvasDimensions.y;
+    core.camera.updateProjectionMatrix();
     core.renderer.setSize(Viewer.CONFIG.viewer.canvasDimensions.x, Viewer.CONFIG.viewer.canvasDimensions.y);
   },
 
@@ -1354,7 +1354,6 @@ export const Viewer = {
         fileObject: Viewer.fileObject,
         config: Viewer.CONFIG,
         getProxyPath: getProxyPath,
-        camera: Viewer.camera,
         stats: Viewer.stats,
         entityID: Viewer.entityID,
         container: Viewer.container,
@@ -1379,7 +1378,6 @@ export const Viewer = {
         fileObject: Viewer.fileObject,
         config: Viewer.CONFIG,
         getProxyPath: getProxyPath,
-        camera: Viewer.camera,
         stats: Viewer.stats,
         entityID: Viewer.entityID,
         container: Viewer.container,
@@ -1396,7 +1394,6 @@ export const Viewer = {
         fileObject: Viewer.fileObject,
         config: Viewer.CONFIG,
         getProxyPath: getProxyPath,
-        camera: Viewer.camera,
         stats: Viewer.stats,
         entityID: Viewer.entityID,
         container: Viewer.container,
@@ -1411,7 +1408,6 @@ export const Viewer = {
         fileObject: Viewer.fileObject,
         config: Viewer.CONFIG,
         getProxyPath: getProxyPath,
-        camera: Viewer.camera,
         stats: Viewer.stats,
         entityID: Viewer.entityID,
         container: Viewer.container,
@@ -1425,7 +1421,7 @@ export const Viewer = {
   },
 
   createClippingPlaneAxis(_number) {
-    var tempClippingControl = new TransformControls(Viewer.camera, core.renderer.domElement);
+    var tempClippingControl = new TransformControls(core.camera, core.renderer.domElement);
     tempClippingControl.space = "local";
     tempClippingControl.setMode("translate");
     tempClippingControl.addEventListener("change", Viewer.render);
@@ -1452,13 +1448,13 @@ export const Viewer = {
   },
 
   resetCamera() {
-    var camPosition = Viewer.camera.position;
+    var camPosition = core.camera.position;
     let _tween = new Tween(camPosition)
       .to(core.cameraCoords, 1500)
       .onUpdate(() => {
-        Viewer.camera.position.set(camPosition.x, camPosition.y, camPosition.z);
-        Viewer.cameraLight.position.set(camPosition.x, camPosition.y, camPosition.z);
-        Viewer.camera.updateProjectionMatrix();
+        core.camera.position.set(camPosition.x, camPosition.y, camPosition.z);
+        core.cameraLight.position.set(camPosition.x, camPosition.y, camPosition.z);
+        core.camera.updateProjectionMatrix();
         core.controls.update();
       })
       .start();
@@ -1505,9 +1501,9 @@ export const Viewer = {
     M.cameraPosition = Viewer.pick(
       S.Camera,
       [
-        Viewer.camera.position.x,
-        Viewer.camera.position.y,
-        Viewer.camera.position.z
+        core.camera.position.x,
+        core.camera.position.y,
+        core.camera.position.z
       ],
       O.cameraPosition
     );
@@ -1525,7 +1521,7 @@ export const Viewer = {
     M.controlsZoom = Viewer.pick(
       S.Camera,
       [
-        Viewer.camera.position.distanceTo(core.controls.target)
+        core.camera.position.distanceTo(core.controls.target)
       ],
       O.controlsZoom
     );
@@ -1947,14 +1943,14 @@ export const Viewer = {
       setCore('cameraLightTarget', Viewer.cameraLightTarget);
 
       Viewer.cameraLight = new THREE.DirectionalLight(0xffffff);
-      Viewer.cameraLight.position.set(Viewer.camera.position);
+      Viewer.cameraLight.position.set(core.camera.position);
       Viewer.cameraLight.castShadow = false;
       Viewer.cameraLight.intensity = 0.3;
       core.scene.add(Viewer.cameraLight);
       Viewer.cameraLight.target = Viewer.cameraLightTarget;
-      // Store in core
-      setCore('cameraLight', Viewer.cameraLight);
       Viewer.cameraLight.target.updateMatrixWorld();
+      // Store in core
+      setCore('cameraLight', Viewer.cameraLight);      
 
       core.renderer = new THREE.WebGLRenderer({
         antialias: true,
@@ -2021,8 +2017,8 @@ export const Viewer = {
         Viewer.viewerWrapper.classList.add('viewer-wrapper');
       }
 
-      Viewer.camera.aspect = Viewer.CONFIG.viewer.canvasDimensions.x / Viewer.CONFIG.viewer.canvasDimensions.y;
-      Viewer.camera.updateProjectionMatrix();
+      core.camera.aspect = Viewer.CONFIG.viewer.canvasDimensions.x / Viewer.CONFIG.viewer.canvasDimensions.y;
+      core.camera.updateProjectionMatrix();
 
       setCore('mainCanvas', Viewer.mainCanvas);
       Viewer.fullscreenMode = document.createElement("div");
@@ -2065,7 +2061,7 @@ export const Viewer = {
         Viewer.buildGallery();
       }
 
-      Viewer.controls = new OrbitControls(Viewer.camera, core.renderer.domElement);
+      Viewer.controls = new OrbitControls(core.camera, core.renderer.domElement);
       Viewer.controls.target.set(0, 100, 0);
       Viewer.controls.enableDamping = true;
       Viewer.controls.dampingFactor = 0.05;
@@ -2077,7 +2073,7 @@ export const Viewer = {
       //Viewer.changeScale();
       setCore('helperObjects', Viewer.helperObjects);
 
-      Viewer.transformControl = new TransformControls(Viewer.camera, core.renderer.domElement);
+      Viewer.transformControl = new TransformControls(core.camera, core.renderer.domElement);
       Viewer.transformControl.rotationSnap = THREE.MathUtils.degToRad(5);
       Viewer.transformControl.space = "local";
       Viewer.transformControl.addEventListener("change", Viewer.render);
@@ -2089,7 +2085,7 @@ export const Viewer = {
       core.scene.add(Viewer.transformControl.getHelper());
       setCore('transformControl', Viewer.transformControl);
 
-      Viewer.transformControlLight = new TransformControls(Viewer.camera, core.renderer.domElement);
+      Viewer.transformControlLight = new TransformControls(core.camera, core.renderer.domElement);
       Viewer.transformControlLight.space = "local";
       Viewer.transformControlLight.addEventListener("change", Viewer.render);
       //Viewer.transformControlLight.addEventListener('objectChange', changeLightRotation);
@@ -2103,7 +2099,7 @@ export const Viewer = {
       setCore('transformControlLight', Viewer.transformControlLight);
 
       Viewer.transformControlLightTarget = new TransformControls(
-        Viewer.camera,
+        core.camera,
         core.renderer.domElement
       );
       Viewer.transformControlLightTarget.space = "global";
@@ -2427,7 +2423,7 @@ export const Viewer = {
   },
   render() {
     core.controls?.update();
-    core.renderer?.render(core.scene, Viewer.camera);
+    core.renderer?.render(core.scene, core.camera);
   }
   
 };
