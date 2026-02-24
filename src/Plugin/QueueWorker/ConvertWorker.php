@@ -16,15 +16,37 @@ use Drupal\Core\Archiver\ArchiverException;
  */
 class ConvertWorker extends QueueWorkerBase {
 
-  public function processItem($data) {
-    $lock = \Drupal::lock();
-    $lock_name = 'dfg_3dviewer_convert_' . $entity_id;
+public function processItem($data) {
 
-    if (!$lock->acquire($lock_name, 3600)) {
-      return;
-    }
-    try {
-      $this->updateProgress($entity, 5, 'processing', 'Preparing...');
+  $entity_id = $data['entity_id'] ?? NULL;
+  $file_id   = $data['file_id'] ?? NULL;
+
+  if (!$entity_id || !$file_id) {
+    \Drupal::logger('dfg_3dviewer')
+      ->error('Missing entity_id or file_id in queue item.');
+    return;
+  }
+
+  $entity = \Drupal::entityTypeManager()
+    ->getStorage('wisski_individual')
+    ->load($entity_id);
+
+  if (!$entity) {
+    \Drupal::logger('dfg_3dviewer')
+      ->error('Entity not found for ID @id', ['@id' => $entity_id]);
+    return;
+  }
+
+  $lock = \Drupal::lock();
+  $lock_name = 'dfg_3dviewer_convert_' . $entity_id;
+
+  if (!$lock->acquire($lock_name, 3600)) {
+    return;
+  }
+
+  try {
+
+    $this->updateProgress($entity, 5, 'processing', 'Preparing...');
 
       $entity_id = $data['entity_id'] ?? NULL;
       $file_id   = $data['file_id'] ?? NULL;
@@ -199,9 +221,7 @@ class ConvertWorker extends QueueWorkerBase {
             '@msg' => $e->getMessage(),
           ]
         );
-        $this->updateProgress($entity, 100, 'ready', 'Completed');
-
-        $entity->set('field_processing_status', 'failed');
+        $this->updateProgress($entity, 100, 'failed', 'Conversion failed');
         $entity->save();
       }
     }
