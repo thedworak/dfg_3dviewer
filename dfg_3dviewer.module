@@ -210,33 +210,37 @@ function dfg_3dviewer_hook_file_validate(Drupal\file\FileInterface $file) {
 
 }
 
-function dfg_3dviewer_entity_insert(\Drupal\Core\Entity\EntityInterface $entity) {
-  _dfg_3dviewer_maybe_queue($entity);
-}
-
 function dfg_3dviewer_entity_update(\Drupal\Core\Entity\EntityInterface $entity) {
-  _dfg_3dviewer_maybe_queue($entity);
-}
 
-function _dfg_3dviewer_maybe_queue($entity) {
+  $cfg = dfg_3dviewer_config();
 
-  if ($entity->getEntityTypeId() !== 'wisski_individual') {
+  if ($entity->bundle() !== $cfg['entity_bundle']) {
     return;
   }
 
-  if (!$entity->hasField('field_model_file') || $entity->get('field_model_file')->isEmpty()) {
+  $field_name = $cfg['viewer_file_upload'];
+
+  if (!$entity->hasField($field_name) || $entity->get($field_name)->isEmpty()) {
     return;
   }
 
-  $file_id = $entity->get('field_model_file')->target_id;
+  $original = $entity->original ?? NULL;
+
+  if ($original) {
+    $old_file = $original->get($field_name)->target_id ?? NULL;
+    $new_file = $entity->get($field_name)->target_id ?? NULL;
+
+    if ($old_file == $new_file) {
+      return;
+    }
+  }
 
   \Drupal::queue('dfg_3dviewer_convert')->createItem([
     'entity_id' => $entity->id(),
-    'file_id'   => $file_id,
+    'file_id'   => $entity->get($field_name)->target_id,
   ]);
 
-  \Drupal::logger('dfg_3dviewer')
-    ->notice('Entity @id queued for conversion.', ['@id' => $entity->id()]);
+  $entity->set('field_processing_status', 'queued');
 }
 
 /**
