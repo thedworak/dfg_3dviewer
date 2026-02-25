@@ -210,23 +210,6 @@ function dfg_3dviewer_hook_file_validate(Drupal\file\FileInterface $file) {
 
 }
 
-private function updateProgress($entity, int $percent, string $status, string $message = '') {
-
-    if ($entity->hasField('field_processing_progress')) {
-        $entity->set('field_processing_progress', $percent);
-    }
-
-    if ($entity->hasField('field_processing_status')) {
-        $entity->set('field_processing_status', $status);
-    }
-
-    if ($message && $entity->hasField('field_processing_message')) {
-        $entity->set('field_processing_message', $message);
-    }
-
-    $entity->save();
-}
-
 function dfg_3dviewer_entity_update(\Drupal\Core\Entity\EntityInterface $entity) {
 
   $cfg = dfg_3dviewer_config();
