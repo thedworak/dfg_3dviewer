@@ -226,14 +226,14 @@ function dfg_3dviewer_entity_update(\Drupal\Core\Entity\EntityInterface $entity)
 
   $original = $entity->original ?? NULL;
 
-  /*if ($original) {
+  if ($original) {
     $old_file = $original->get($field)->target_id ?? NULL;
     $new_file = $entity->get($field)->target_id ?? NULL;
 
     if ($old_file == $new_file) {
       return; // STOP — file didnt change
     }
-  }*/
+  }
 
   \Drupal::queue('dfg_3dviewer_convert')->createItem([
     'entity_id' => $entity->id(),
@@ -277,3 +277,6 @@ function dfg_3dviewer_get_library(): string {
 
   return $map[$env] ?? $map['drupal'];
 }
+
+/*/opt/drupal/vendor/bin/drush php:eval "\$q = \Drupal::queue('dfg_3dviewer_convert'); print \$q->numberOfItems();"
+*/

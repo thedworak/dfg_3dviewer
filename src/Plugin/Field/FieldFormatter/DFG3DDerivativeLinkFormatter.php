@@ -80,11 +80,12 @@ class DFG3DDerivativeLinkFormatter extends FileFormatterBase {
              $local_fileuri = str_replace($filename, "gltf/" . $filename . ".glb", $local_fileuri);
            }
                     
-          $file_link = file_create_url($local_fileuri);
+          $file_link = \Drupal::service('file_url_generator')->generateString($local_fileuri);
                     
-          $url =  Url::fromUri($file_link);
-          
-
+          $url = Url::fromUri(
+            \Drupal::service('file_url_generator')->generateString($local_fileuri),
+            ['absolute' => FALSE]
+          );
 
           $elements[$delta] = array(
             '#type' => 'link',

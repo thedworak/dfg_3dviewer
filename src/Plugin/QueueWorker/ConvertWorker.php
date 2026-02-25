@@ -48,9 +48,6 @@ public function processItem($data) {
 
     $this->updateProgress($entity, 5, 'processing', 'Preparing...');
 
-      $entity_id = $data['entity_id'] ?? NULL;
-      $file_id   = $data['file_id'] ?? NULL;
-
       if (!$entity_id || !$file_id) {
         return;
       }

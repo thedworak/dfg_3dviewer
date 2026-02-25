@@ -1,5 +1,7 @@
 <?php
 
+use Drupal\Core\Url;
+
 const EXPORT_PATH='/export_xml_single/';
 const MFILEPATH='sites/default/files/xml_structure';
 const XSLURL="https://raw.githubusercontent.com/slub/dfg-viewer/e54305a9fa58951d3f3d1dd7e64554cb2ee881eb/Resources/Public/XSLT/exportSingleToMetsMods.xsl";
@@ -33,12 +35,17 @@ function build_xml ($id, $domain) {
 	$domain = isset($domain) ? $domain : $_GET['domain'];
 	$FILEPATH=MFILEPATH."/$id.xml";
 
-	$url = $domain . EXPORT_PATH . $id . '?page=0&amp;_format=xml';
+	$url = Url::fromUri('internal:' . EXPORT_PATH . $id, [
+		'query' => ['page' => 0, '_format' => 'xml'],
+		'absolute' => TRUE,
+	])->toString();
 
 	$data = file_get_content_curl($url);
 	$xml = simplexml_load_string($data);
 
-	if(!empty($xml) || !(is_object($xml))) return;
+	if (empty($xml) || !is_object($xml)) {
+		return;
+	}
 
 	$xsl = simplexml_load_file(XSLURL);
 	$xslt = new \XSLTProcessor();
