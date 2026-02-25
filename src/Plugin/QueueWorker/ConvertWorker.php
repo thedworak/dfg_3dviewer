@@ -242,7 +242,5 @@ public function processItem($data) {
       if ($message) {
           $entity->set('field_processing_message', $message);
       }
-
-      $entity->save();
   }
 }
