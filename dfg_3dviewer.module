@@ -210,11 +210,24 @@ function dfg_3dviewer_hook_file_validate(Drupal\file\FileInterface $file) {
 
 }
 
-function dfg_3dviewer_entity_update(\Drupal\Core\Entity\EntityInterface $entity) {
+private function updateProgress($entity, int $percent, string $status, string $message = '') {
 
-	\Drupal::logger('dfg_3dviewer')->warning('UPDATE HOOK FIRED for entity @id', [
-		'@id' => $entity->id(),
-	]);
+    if ($entity->hasField('field_processing_progress')) {
+        $entity->set('field_processing_progress', $percent);
+    }
+
+    if ($entity->hasField('field_processing_status')) {
+        $entity->set('field_processing_status', $status);
+    }
+
+    if ($message && $entity->hasField('field_processing_message')) {
+        $entity->set('field_processing_message', $message);
+    }
+
+    $entity->save();
+}
+
+function dfg_3dviewer_entity_update(\Drupal\Core\Entity\EntityInterface $entity) {
 
   $cfg = dfg_3dviewer_config();
 
@@ -228,21 +241,20 @@ function dfg_3dviewer_entity_update(\Drupal\Core\Entity\EntityInterface $entity)
     return;
   }
 
-  // Only when file really changes
-  /*if ($original) {
-	$old_file = $original->get($field)->target_id ?? NULL;
-	$new_file = $entity->get($field)->target_id ?? NULL;
+  $original = $entity->original ?? NULL;
 
-	if ($old_file == $new_file) {
-		return; // file didnt change
-	}
-  }*/
+  if ($original) {
+    $old_file = $original->get($field)->target_id ?? NULL;
+    $new_file = $entity->get($field)->target_id ?? NULL;
 
-  $file_id = $entity->get($field)->target_id;
+    if ($old_file == $new_file) {
+      return; // STOP — file didnt change
+    }
+  }
 
   \Drupal::queue('dfg_3dviewer_convert')->createItem([
     'entity_id' => $entity->id(),
-    'file_id'   => $file_id,
+    'file_id'   => $entity->get($field)->target_id,
   ]);
 
   $entity->set('field_processing_status', 'queued');
