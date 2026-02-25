@@ -212,6 +212,10 @@ function dfg_3dviewer_hook_file_validate(Drupal\file\FileInterface $file) {
 
 function dfg_3dviewer_entity_update(\Drupal\Core\Entity\EntityInterface $entity) {
 
+  if (!empty($GLOBALS['dfg_3dviewer_worker_running'])) {
+    return;
+  }
+
   $cfg = dfg_3dviewer_config();
 
   if ($entity->bundle() !== $cfg['entity_bundle']) {
@@ -224,16 +228,6 @@ function dfg_3dviewer_entity_update(\Drupal\Core\Entity\EntityInterface $entity)
     return;
   }
 
-  // Dont queue
-  if ($entity->hasField('field_processing_status')) {
-    $status = $entity->get('field_processing_status')->value;
-
-    if (in_array($status, ['queued', 'processing'])) {
-      return;
-    }
-  }
-
-  // Queue when file changed
   $original = $entity->original ?? NULL;
 
   if ($original) {
@@ -243,18 +237,6 @@ function dfg_3dviewer_entity_update(\Drupal\Core\Entity\EntityInterface $entity)
     if ($old_file == $new_file) {
       return;
     }
-  }
-
-  // Check if its locked
-  $lock = \Drupal::lock();
-  $lock_name = 'dfg_3dviewer_convert_' . $entity->id();
-
-  if ($lock->acquire($lock_name, 1)) {
-    // 
-    $lock->release($lock_name);
-  } else {
-    // queue it progress
-    return;
   }
 
   \Drupal::queue('dfg_3dviewer_convert')->createItem([

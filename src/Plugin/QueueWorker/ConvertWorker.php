@@ -17,6 +17,7 @@ use Drupal\Core\Archiver\ArchiverException;
 class ConvertWorker extends QueueWorkerBase {
 
 public function processItem($data) {
+  $GLOBALS['dfg_3dviewer_worker_running'] = TRUE;
 
   $entity_id = $data['entity_id'] ?? NULL;
   $file_id   = $data['file_id'] ?? NULL;
@@ -232,6 +233,7 @@ public function processItem($data) {
     }
     finally {
       $lock->release($lock_name);
+      unset($GLOBALS['dfg_3dviewer_worker_running']);
     }
   }
 
