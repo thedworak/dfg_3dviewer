@@ -198,7 +198,7 @@ public function processItem($data) {
 
         $this->updateProgress($entity, 95, 'processing', 'Building XML...');
 
-        require DRUPAL_ROOT . '/modules/dfg_3dviewer/php/build_xml.php';
+        require_once DRUPAL_ROOT . '/modules/dfg_3dviewer/php/build_xml.php';
         build_xml($entity_id, $cfg['main_url']);
 
         /* =======================================================
