@@ -212,6 +212,10 @@ function dfg_3dviewer_hook_file_validate(Drupal\file\FileInterface $file) {
 
 function dfg_3dviewer_entity_update(\Drupal\Core\Entity\EntityInterface $entity) {
 
+	\Drupal::logger('dfg_3dviewer')->warning('UPDATE HOOK FIRED for entity @id', [
+		'@id' => $entity->id(),
+	]);
+
   $cfg = dfg_3dviewer_config();
 
   if ($entity->bundle() !== $cfg['entity_bundle']) {
