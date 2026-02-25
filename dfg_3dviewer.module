@@ -218,26 +218,27 @@ function dfg_3dviewer_entity_update(\Drupal\Core\Entity\EntityInterface $entity)
     return;
   }
 
-  $field_name = $cfg['viewer_file_upload'];
+  $field = $cfg['viewer_file_upload'];
 
-  if (!$entity->hasField($field_name) || $entity->get($field_name)->isEmpty()) {
+  if (!$entity->hasField($field) || $entity->get($field)->isEmpty()) {
     return;
   }
 
-  $original = $entity->original ?? NULL;
+  // Only when file really changes
+  /*if ($original) {
+	$old_file = $original->get($field)->target_id ?? NULL;
+	$new_file = $entity->get($field)->target_id ?? NULL;
 
-  if ($original) {
-    $old_file = $original->get($field_name)->target_id ?? NULL;
-    $new_file = $entity->get($field_name)->target_id ?? NULL;
+	if ($old_file == $new_file) {
+		return; // file didnt change
+	}
+  }*/
 
-    if ($old_file == $new_file) {
-      return;
-    }
-  }
+  $file_id = $entity->get($field)->target_id;
 
   \Drupal::queue('dfg_3dviewer_convert')->createItem([
     'entity_id' => $entity->id(),
-    'file_id'   => $entity->get($field_name)->target_id,
+    'file_id'   => $file_id,
   ]);
 
   $entity->set('field_processing_status', 'queued');
