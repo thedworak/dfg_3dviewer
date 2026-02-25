@@ -5,7 +5,7 @@ const EXPORT_PATH='/export_xml_single/';
 const MFILEPATH='sites/default/files/xml_structure';
 const XSLURL="https://raw.githubusercontent.com/slub/dfg-viewer/e54305a9fa58951d3f3d1dd7e64554cb2ee881eb/Resources/Public/XSLT/exportSingleToMetsMods.xsl";
 
-function file_get_contents_curl( $url ) {
+function file_get_all_contents_curl( $url ) {
 	$ch = curl_init();
 
 	curl_setopt( $ch, CURLOPT_AUTOREFERER, TRUE );
@@ -34,7 +34,7 @@ function build_xml ($id) {
 
 	$url = DOMAIN . EXPORT_PATH . $id . '?page=0&amp;_format=xml';
 
-	$data = file_get_contents_curl($url);
+	$data = file_get_all_contents_curl($url);
 	$xml = simplexml_load_string($data);
 
 	if(empty($xml)) return;
