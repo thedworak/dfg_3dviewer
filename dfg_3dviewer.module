@@ -283,4 +283,5 @@ function dfg_3dviewer_get_library(): string {
 }
 
 /*/opt/drupal/vendor/bin/drush php:eval "\$q = \Drupal::queue('dfg_3dviewer_convert'); print \$q->numberOfItems();"
+sudo -Hu www-data nohup web/modules/dfg_3dviewer/scripts/worker.sh &
 */
