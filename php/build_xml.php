@@ -1,34 +1,12 @@
 <?php
 
 use Drupal\Core\Url;
+use Symfony\Component\HttpFoundation\Request;
 
 const EXPORT_PATH='/export_xml_single/';
 const MFILEPATH='sites/default/files/xml_structure';
 const XSLURL="https://raw.githubusercontent.com/slub/dfg-viewer/e54305a9fa58951d3f3d1dd7e64554cb2ee881eb/Resources/Public/XSLT/exportSingleToMetsMods.xsl";
 libxml_use_internal_errors(true); // Suppress default XML errors
-
-function file_get_content_curl( $url ) {
-	$ch = curl_init();
-
-	curl_setopt( $ch, CURLOPT_AUTOREFERER, TRUE );
-	curl_setopt( $ch, CURLOPT_HEADER, 0 );
-	curl_setopt( $ch, CURLOPT_RETURNTRANSFER, 1 );
-	curl_setopt( $ch, CURLOPT_URL, $url );
-	curl_setopt( $ch, CURLOPT_FOLLOWLOCATION, TRUE );
-	curl_setopt( $ch, CURLOPT_SSL_VERIFYPEER, false);
-
-	$data = curl_exec( $ch );
-	
-	curl_close( $ch );
-
-	if($data === false) {
-		echo 'Curl ERROR: ' . curl_error($ch);
-	} else
-	{
-		return $data;
-	}
-
-}
 
 function build_xml ($id, $domain) {
 	$id = isset($id) ? $id : $_GET['id'];
@@ -37,10 +15,15 @@ function build_xml ($id, $domain) {
 
 	$url = Url::fromUri('internal:' . EXPORT_PATH . $id, [
 		'query' => ['page' => 0, '_format' => 'xml'],
-		'absolute' => TRUE,
+		'absolute' => FALSE,
 	])->toString();
 
-	$data = file_get_content_curl($url);
+	$kernel = \Drupal::service('http_kernel');
+	$request = Request::create($url, 'GET');
+
+	$response = $kernel->handle($request);
+	$data = $response->getContent();
+
 	$xml = simplexml_load_string($data);
 
 	if (empty($xml) || !is_object($xml)) {
