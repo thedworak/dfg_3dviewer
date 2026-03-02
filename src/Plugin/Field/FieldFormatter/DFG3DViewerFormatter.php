@@ -96,7 +96,7 @@ class DFG3DViewerFormatter extends FileFormatterBase {
       if(!empty($derivative_values)) {
         $elements = array();
 
-        $elements['#attached']['library'][] = dfg_3dviewer_get_library();
+        $elements['#attached']['library'][] = 'dfg_3dviewer/dfg_3dviewer';
 
         foreach($derivative_values as $delta => $derivative_value) {
           $raw_value = isset($derivative_value['value']) ? (string) $derivative_value['value'] : '';
@@ -113,7 +113,7 @@ class DFG3DViewerFormatter extends FileFormatterBase {
 
         $files = $this->getEntitiesToView($items, $langcode);
 
-        $elements['#attached']['library'][] = dfg_3dviewer_get_library();
+        $elements['#attached']['library'][] = 'dfg_3dviewer/dfg_3dviewer';
 
         foreach ($files as $delta => $file) {
 
