@@ -208,7 +208,7 @@ public function processItem($data) {
 
         \Drupal::logger('dfg_3dviewer')
           ->notice('Conversion finished for entity @id', ['@id' => $entity_id]);
-        $this->updateProgress($entity, 100, 'success', 'Conversion failed');
+        $this->updateProgress($entity, 100, 'success', 'Conversion finished');
 
       }
       catch (\Throwable $e) {
