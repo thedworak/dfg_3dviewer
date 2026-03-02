@@ -37,6 +37,42 @@
 #  class WisskiIIPImageFormatter extends ImageFormatterBase {
 class DFG3DViewerFormatter extends FileFormatterBase {
 
+    private function normalizeViewerUrl(string $value): string {
+      $value = trim($value);
+      if ($value === '') {
+        return $value;
+      }
+
+      $config = \Drupal::service('config.factory')->getEditable('dfg_3dviewer.settings');
+      $main_url = (string) (
+        $config->get('dfg_3dviewer_main_url')
+        ?? $config->get('main_url')
+        ?? ''
+      );
+      $main_url = rtrim(trim($main_url), '/');
+
+      if ($main_url !== '') {
+        if (!preg_match('#^https?://#i', $main_url)) {
+          $main_url = 'https://' . $main_url;
+        }
+
+        $value = preg_replace('#^https?://(default|dfg_3dviewer)(?=/)#i', $main_url, $value);
+
+        $escaped = preg_quote($main_url, '#');
+        $value = preg_replace(
+          "#https?://[^/]+/sites/default/files/wisski_original/{$escaped}#i",
+          $main_url,
+          $value
+        );
+
+        if (strpos($value, '/sites/default/files/') === 0) {
+          $value = $main_url . $value;
+        }
+      }
+
+      return $value;
+    }
+
     /**
      * {@inheritdoc}
      */
@@ -63,12 +99,14 @@ class DFG3DViewerFormatter extends FileFormatterBase {
         $elements['#attached']['library'][] = dfg_3dviewer_get_library();
 
         foreach($derivative_values as $delta => $derivative_value) {
+          $raw_value = isset($derivative_value['value']) ? (string) $derivative_value['value'] : '';
+          $normalized_value = $this->normalizeViewerUrl($raw_value);
           
           // here you probably still have to check if $derivative_value['value'] is still existing          
           $elements[$delta] = array(
             '#type' => 'html_tag',
             '#tag' => 'p',
-            '#attributes' => array('id' => 'DFG_3DViewer', '3d' => $derivative_value['value']),
+            '#attributes' => array('id' => 'DFG_3DViewer', '3d' => $normalized_value),
           );        
         }
       } else {
@@ -83,6 +121,7 @@ class DFG3DViewerFormatter extends FileFormatterBase {
 
           $relative_url = \Drupal::service('file_url_generator')
             ->generateString($uri);
+          $relative_url = $this->normalizeViewerUrl((string) $relative_url);
 
           $elements[$delta] = [
             '#type' => 'html_tag',
