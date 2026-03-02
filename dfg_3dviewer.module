@@ -308,7 +308,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 				\Drupal::messenger()->addMessage($extension . " is not supported yet", 'warning');
 			}
 			#semi-automatic path change
-			#$entity->set($cfg['viewer_file_name'], $autoPath);
+			$entity->set($cfg['viewer_file_name'], $autoPath);
 			#for debugging only
 			if ($retval === null && $output != null) {
 				\Drupal::logger('dfg_3dviewer')->notice(
@@ -500,6 +500,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 
 	}
 	\Drupal::logger('dfg_3dviewer')->notice('Entity_presave fired.');
+	$entity->save();
 	//\Drupal::messenger()->addMessage(serialize($entity), 'status');
 }
 
