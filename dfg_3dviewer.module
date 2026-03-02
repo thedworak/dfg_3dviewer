@@ -425,31 +425,26 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 				];
 
 				$imagesPaths = [];
-				$basePath = rtrim(\Drupal::request()->getBasePath(), '/');
+				$fs = \Drupal::service('file_system');
 
 				foreach ($imagesTemp as $url) {
-					$path = urldecode((string) parse_url($url, PHP_URL_PATH));
-					if ($path === '') {
+					$uri = $fs->realpath(
+						\Drupal::service('stream_wrapper_manager')->getViaUri(
+							parse_url($url, PHP_URL_PATH)
+						) ?: ''
+					);
+
+					if (!$uri || !is_file($uri)) {
 						continue;
 					}
 
-					if ($basePath !== '' && strpos($path, $basePath . '/') === 0) {
-						$path = substr($path, strlen($basePath));
-					}
-
-					$localPath = DRUPAL_ROOT . $path;
-
-					if (!is_file($localPath)) {
-						continue;
-					}
-
-					/*\Drupal::logger('dfg_3dviewer')->notice(
-						'Checking thumbnails URL: @url | local path: @path',
+					\Drupal::logger('dfg_3dviewer')->notice(
+						'Checking thumbnails URL: @url | URI: @uri',
 						[
-						'@url' => $url,
-						'@path' => $localPath,
+							'@url'  => $url,
+							'@uri'  => $uri
 						]
-					);*/
+					);
 
 					$imagesPaths[] = $url;
 				}
