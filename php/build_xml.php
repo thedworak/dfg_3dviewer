@@ -44,7 +44,7 @@ function normalize_default_host_urls(string $xml, string $domain): string {
 		return $xml;
 	}
 
-	$normalized = preg_replace('#https?://default(?=/)#i', $domain, $xml);
+	$normalized = preg_replace('#https?://(default|dfg_3dviewer)(?=/)#i', $domain, $xml);
 
 	/*
 	  Avoid duplicated host prefixes in malformed paths, e.g.
@@ -53,6 +53,11 @@ function normalize_default_host_urls(string $xml, string $domain): string {
 	$escaped = preg_quote($domain, '#');
 	$normalized = preg_replace(
 		"#{$escaped}/sites/default/files/wisski_original/{$escaped}#i",
+		$domain,
+		$normalized
+	);
+	$normalized = preg_replace(
+		"#https?://[^/]+/sites/default/files/wisski_original/{$escaped}#i",
 		$domain,
 		$normalized
 	);

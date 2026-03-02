@@ -14,6 +14,24 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class ThumbnailUploadController extends ControllerBase {
 
+  private function getConfiguredBaseUrl(): string {
+    $config = \Drupal::config('dfg_3dviewer.settings');
+    $base = (string) (
+      $config->get('dfg_3dviewer_main_url')
+      ?? $config->get('main_url')
+      ?? ''
+    );
+    $base = trim($base);
+    if ($base === '') {
+      $request = \Drupal::request();
+      return rtrim($request->getSchemeAndHttpHost(), '/');
+    }
+    if (!preg_match('#^https?://#i', $base)) {
+      $base = 'https://' . $base;
+    }
+    return rtrim($base, '/');
+  }
+
   public function upload(Request $request): JsonResponse {
 
     /* =========================
@@ -118,11 +136,8 @@ class ThumbnailUploadController extends ControllerBase {
        WissKI call
     ========================= */
 
-    $request = \Drupal::request();
-
-    $wisskiBaseUrl = $request->getSchemeAndHttpHost();
-
-    $url = $wisskiBaseUrl . '/' . $wisskiId . '/savePreview';
+    $wisskiBaseUrl = $this->getConfiguredBaseUrl();
+    $url = $wisskiBaseUrl . '/wisski/dfg_3dviewer/' . $wisskiId . '/savePreview';
 
     $client = \Drupal::httpClient();
 
