@@ -251,7 +251,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 				\Drupal::logger('dfg_3dviewer')->notice(
 				"OUT:\n@out",
 				[
-					'@out' => implode("\n", $output),
+					'@out' => print_r($output),
 				]
 				);
 			}
