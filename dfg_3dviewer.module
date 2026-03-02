@@ -350,7 +350,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			clearstatcache();
 			if (!is_null($file)) {
 				$fileName = $file->getFilename();
-				$extension = pathinfo($fileName, PATHINFO_EXTENSION);
+				$extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
 				$fileBase  = pathinfo($fileName, PATHINFO_FILENAME);
 				$isArchive = false;
 				if (in_arrayi($extension, $archives)) {
@@ -368,7 +368,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 						. '/'
 						. $fileBase
 						. '_'
-						. strtoupper($extension)
+						. $extension
 						. '/views/'
 						. $fileBase;
 
@@ -380,7 +380,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 							. '/'
 							. $fileBase
 							. '_'
-							. strtoupper($extension)
+							. $extension
 							. '/views/'
 							. $fileBaseArchive;
 					}
@@ -459,13 +459,13 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 				$subPath = substr($fpath, 0, strrpos( $fpath, '/') );
 				$fileBaseArchive = preg_replace('/_[0-9]+$/', '', $fileBase, 1);
 				if (in_arrayi($extension, $archives)) {
-					semi_automatic_path ($subPath . '/' . $fileBase . "_" . strtoupper($extension), $fileBase, $fileBaseArchive, $autoPath, $extension);
+					semi_automatic_path ($subPath . '/' . $fileBase . "_" . $extension, $fileBase, $fileBaseArchive, $autoPath, $extension);
 				}
 				else {
 					semi_automatic_path ($subPath, $fileBase, '', $autoPath, $extension);
 				}
 				$origPath = $subPath . "/gltf/" . $fileBase . ".glb";
-				$origArchPath = $subPath . '/' . $fileBase . "_" . strtoupper($extension) . "/gltf/" . $fileBase . ".glb";
+				$origArchPath = $subPath . '/' . $fileBase . "_" . $extension . "/gltf/" . $fileBase . ".glb";
 				if ($autoPath != "" && ((!$isArchive && strcmp($origPath, $autoPath) !== 0) || ($isArchive && strcmp($origArchPath, $autoPath) !== 0))) {
 					//\Drupal::messenger()->addMessage("GLTF or file with given name (possible archive/filename mismatch) representation not found, semi-automatic path applied\n", 'warning');
 				}
