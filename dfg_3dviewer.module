@@ -265,7 +265,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 				[
 					'@cmd' => $cmd,
 					'@ret' => $retval,
-					'@out' => prnt_r($output),
+					'@out' => print_r($output),
 				]
 				);
 			}
