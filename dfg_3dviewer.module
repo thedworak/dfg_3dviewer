@@ -229,12 +229,11 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 	\Drupal::logger('dfg_3dviewer')->notice('Entity_presave fired.');
 	$SPATH = \Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath());
 	$XPATH = dirname(dirname($SPATH));
-	$archives = array('ZIP', 'RAR', 'TAR', 'XZ', 'GZ');
+	$archives = \Drupal::service('dfg_3dviewer.model_format_manager')->getZipFormats();
 	$base = \Drupal::request()->getSchemeAndHttpHost();
 	$output = null;
 	$retval = null;
 	$autoPath = '';
-	$script = $SPATH . '/scripts/convert.sh';
 	if ($entity->bundle() == "file") {
 		$file = $entity->toArray();
 		$realpath = \Drupal::service('file_system')->realpath($file['uri'][0]['value']);
@@ -252,11 +251,13 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 
 				$realpathArg = escapeshellarg($realpath);
 
+				$script = $SPATH . '/scripts/convert.sh';
+
 				$cmd = sprintf(
-					'%s/scripts/convert.sh -t %s -c true -l 3 -b true -i %s -f true',
-					escapeshellarg($SPATH),
-					$lightweightArg,
-					$realpathArg
+				'%s -t %s -c true -l 3 -b true -i %s -f true',
+				escapeshellcmd($script),
+				$lightweightArg,
+				escapeshellarg($realpath)
 				);
 
 				exec($cmd, $output, $retval);
@@ -500,7 +501,6 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 
 	}
 	\Drupal::logger('dfg_3dviewer')->notice('Entity_presave fired.');
-	$entity->save();
 	//\Drupal::messenger()->addMessage(serialize($entity), 'status');
 }
 
