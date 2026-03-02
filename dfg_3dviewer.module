@@ -245,6 +245,9 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		$isArchive = false;
 		if (!file_exists($newFile) && !is_dir($newDir) && !file_exists($newFile."off")) {
 			\Drupal::logger('dfg_3dviewer')->notice('New file given, checking...');
+			if ($extension === 'glb') {
+				$autoPath = $realpath;
+			}
 			if (!in_arrayi($extension, $archives)) {
 				$lightweight = filter_var($cfg['lightweight'], FILTER_VALIDATE_BOOLEAN);
 				$lightweightArg = $lightweight ? 'true' : 'false';
@@ -466,7 +469,11 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 				else {
 					semi_automatic_path ($subPath, $fileBase, '', $autoPath, $extension);
 				}
-				$origPath = $subPath . "/gltf/" . $fileBase . ".glb";
+				if ($extension === 'glb') {
+					$origPath = $subPath . "/" . $fileBase . ".glb";
+				} else {
+					$origPath = $subPath . "/gltf/" . $fileBase . ".glb";
+				}
 				$origArchPath = $subPath . '/' . $fileBase . "_" . $extension . "/gltf/" . $fileBase . ".glb";
 				if ($autoPath != "" && ((!$isArchive && strcmp($origPath, $autoPath) !== 0) || ($isArchive && strcmp($origArchPath, $autoPath) !== 0))) {
 					//\Drupal::messenger()->addMessage("GLTF or file with given name (possible archive/filename mismatch) representation not found, semi-automatic path applied\n", 'warning');
@@ -486,7 +493,11 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 						$autoPath = $origPath;
 					}
 				}
+				if ($extension === 'glb') {
+    				$autoPath = str_replace($XPATH, $cfg['main_url'], $realpath);
+				} else {
 				$autoPath = str_replace($XPATH, $cfg['main_url'], $autoPath);
+				}
 				if (!empty($autoPath)) {
 					$entity->set($cfg['viewer_file_name'], $autoPath);
 				}
