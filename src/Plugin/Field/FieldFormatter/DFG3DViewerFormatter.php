@@ -78,15 +78,20 @@ class DFG3DViewerFormatter extends FileFormatterBase {
         $elements['#attached']['library'][] = dfg_3dviewer_get_library();
 
         foreach ($files as $delta => $file) {
-          $override_basenamespace = \Drupal::service('config.factory')->getEditable('dfg_3dviewer.settings')->get('dfg_3dviewer_basenamespace') . \Drupal::service('file_url_generator')->generateString($file->getFileUri());
 
-          if (is_null($override_basenamespace)) $override_basenamespace = \Drupal::service('file_url_generator')->generateAbsoluteString($file->getFileUri());
+          $uri = $file->getFileUri();
 
-          $elements[$delta] = array(
+          $relative_url = \Drupal::service('file_url_generator')
+            ->generateString($uri);
+
+          $elements[$delta] = [
             '#type' => 'html_tag',
             '#tag' => 'p',
-            '#attributes' => array('id' => 'DFG_3DViewer', '3d' => $override_basenamespace),
-          );
+            '#attributes' => [
+              'id' => 'DFG_3DViewer',
+              '3d' => $relative_url,
+            ],
+          ];
         }
       }
 

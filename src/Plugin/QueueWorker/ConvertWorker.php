@@ -193,11 +193,11 @@ public function processItem($data) {
         /* =======================================================
           BUILD XML
         ======================================================= */
-
-        $this->updateProgress($entity, 95, 'processing', 'Building XML...');
+        //TEMPORARY disabled due to parsing issues
+        /*$this->updateProgress($entity, 95, 'processing', 'Building XML...');
 
         require_once DRUPAL_ROOT . '/modules/dfg_3dviewer/php/build_xml.php';
-        build_xml($entity_id, $cfg['main_url']);
+        build_xml($entity_id, $cfg['main_url']);*/
 
         /* =======================================================
           UPDATE ENTITY FIELDS
@@ -208,6 +208,7 @@ public function processItem($data) {
 
         \Drupal::logger('dfg_3dviewer')
           ->notice('Conversion finished for entity @id', ['@id' => $entity_id]);
+        $this->updateProgress($entity, 100, 'success', 'Conversion failed');
 
       }
       catch (\Throwable $e) {

@@ -43,7 +43,7 @@ Supported 3D file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, glTF. T
 ## Tech Stack
 
 **Client:** JavaScript, three.js (r180+), CSS, HTML, PHP (8.x), Drupal (9+)
-**Tooling:** Node.js (v18+), npm (v8+) - used for building the viewer with Parcel and Rollup
+**Tooling:** Node.js (v22+), npm (v9+) - used for building the viewer with Parcel and Rollup
 
 **Server:** PHP, Drupal, bash, blender
 
