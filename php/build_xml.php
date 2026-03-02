@@ -78,11 +78,10 @@ function build_xml ($id, $domain) {
 	$query = http_build_query(['page' => 0, '_format' => 'xml']);
 	$url = $domain . EXPORT_PATH . $id . '?' . $query;
 
-	$kernel = \Drupal::service('http_kernel');
-	$request = Request::create($url, 'GET');
-
-	$response = $kernel->handle($request);
-	$data = $response->getContent();
+	$data = file_get_content_curl($url);
+	if (!is_string($data) || $data === '') {
+		return;
+	}
 
 	$xml = simplexml_load_string($data);
 
