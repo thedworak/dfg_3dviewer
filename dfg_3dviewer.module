@@ -8,96 +8,24 @@ use Drupal\image\Entity\ImageStyle;
 use Drupal\Core\Archiver\Zip;
 use Drupal\Core\Archiver\ArchiverException;
 use Symfony\Component\Yaml\Yaml;
-use Drupal\Core\Site\Settings;
-use Drupal\dfg_3dviewer\ModelFormatManager;
 
-function dfg_3dviewer_config(): array {
-  static $cfg;
+$file_path = \Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath()) . "/config/install/dfg_3dviewer.settings.yml";
 
-  if ($cfg === NULL) {
-    $config = \Drupal::config('dfg_3dviewer.settings');
+if (file_exists($file_path)) {
+    $config_data = Yaml::parseFile($file_path);
 
-	$main_url = trim((string) (
-		$config->get('dfg_3dviewer_main_url')
-		?? $config->get('main_url')
-	)) ?: 'https://3d-repository.hs-mainz.de';
+	define('MAIN_URL', $config_data['main_url'] ?? "https://3d-repository.hs-mainz.de");
+	define('ENTITY_BUNDLE', $config_data['entity_bundle'] ?? "bd3d7baa74856d141bcff7b4193fa128");
+	define('VIEWER_FILE_UPLOAD', $config_data['viewer_file_upload'] ?? "fbf95bddee5160d515b982b3fd2e05f7");
+	define('VIEWER_FILE_NAME', $config_data['viewer_file_name'] ?? "faa602a0be629324806aef22892cdbe5");
+	define('IMAGE_GENERATION', $config_data['image_generation'] ?? "f605dc6b727a1099b9e52b3ccbdf5673");
+	define('FIELD_DF', $config_data['field_df'] ?? "field_df");
+	define('LIGHTWEIGHT', $config_data['lightweight'] ?? "lightweight");
 
-	$entity_bundle = trim((string) (
-		$config->get('dfg_3dviewer_entitybundle')
-		?? $config->get('entitybundle')
-	)) ?: 'bd3d7baa74856d141bcff7b4193fa128';
-
-	$viewer_file_upload = trim((string) (
-		$config->get('dfg_3dviewer_viewer_file_upload')
-		?? $config->get('viewer_file_upload')
-	)) ?: 'fbf95bddee5160d515b982b3fd2e05f7';
-
-	$viewer_file_name = trim((string) (
-		$config->get('dfg_3dviewer_viewer_file_name')
-		?? $config->get('viewer_file_name')
-	)) ?: 'faa602a0be629324806aef22892cdbe5';
-
-	$image_generation = trim((string) (
-		$config->get('dfg_3dviewer_image_generation')
-		?? $config->get('image_generation')
-	)) ?: 'f605dc6b727a1099b9e52b3ccbdf5673';
-
-	$field_df = trim((string) (
-		$config->get('dfg_3dviewer_field_df')
-		?? $config->get('field_df')
-	)) ?: 'field_df';
-
-	$lightweight = filter_var(
-	$config->get('dfg_3dviewer_lightweight')
-		?? $config->get('lightweight')
-		?? false,
-	FILTER_VALIDATE_BOOLEAN
-	);
-
-    $cfg = [
-      'main_url' => $main_url,
-      'entity_bundle' => $entity_bundle,
-      'viewer_file_upload' => $viewer_file_upload,
-      'viewer_file_name' => $viewer_file_name,
-      'image_generation' => $image_generation,
-      'field_df' => $field_df,
-      'lightweight' => $lightweight,
-    ];
-  }
-  return $cfg;
+	\Drupal::messenger()->addMessage(serialize($config_data), 'status');
 }
-
-function preload() {
-	$cfg = dfg_3dviewer_config();
-	if (isset($cfg)) {
-		foreach ($cfg as $key => $value) {
-			if (!defined($key)) {
-				define($key, $value);
-			}
-		}
-	}
-	else {
-		\Drupal::messenger()->addMessage("Cant load settings file", 'warning');
-	}
-}
-
-function dfg_3dviewer_init_constants(): void {
-  static $done = false;
-  if ($done) {
-    return;
-  }
-
-  $cfg = dfg_3dviewer_config();
-
-  foreach ($cfg as $key => $value) {
-    $const = 'DFG_3DVIEWER_' . strtoupper($key);
-
-    if (!defined($const)) {
-      define($const, $value);
-    }
-  }
-
-  $done = true;
+else {
+	\Drupal::messenger()->addMessage("Cant load settings file", 'warning');
 }
 
 /**
@@ -121,21 +49,8 @@ function array_searchi($needle, $haystack)
 	return array_search(strtolower($needle), array_map('strtolower', $haystack));
 }
 
-function url_exists(string $url): bool {
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_NOBODY => true,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_TIMEOUT => 5,
-        CURLOPT_SSL_VERIFYPEER => true,
-        CURLOPT_RETURNTRANSFER => true,
-    ]);
-
-    curl_exec($ch);
-    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-
-    return $code >= 200 && $code < 400;
+function url_exists ($url) {
+	return str_contains(get_headers($url)[0], "200 OK");
 }
 
 function automatic_helper (&$autoPath, $prefix, $filename, $value) {
@@ -149,9 +64,7 @@ function automatic_helper (&$autoPath, $prefix, $filename, $value) {
 }
 
 function semi_automatic_path ($prefix, $filename, $filenameArchive, &$autoPath, $extension) {
-	$allowedModelFormats = \Drupal::service('dfg_3dviewer.model_format_manager')->getAllowedModelFormats();
-	$zipFormats = \Drupal::service('dfg_3dviewer.model_format_manager')->getZipFormats();
-	$allowedFormats = array_merge($allowedModelFormats, $zipFormats);
+	$allowedFormats = array('abc', 'obj', 'fbx', 'ply', 'dae', 'ifc', 'stl', 'xyz', 'pcd', 'json', '3ds', 'blend', 'zip', 'rar', 'tar', 'xz', 'gz', 'gml');
 	$SPATH=\Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath());
 	$SPATH = str_replace('/modules/dfg_3dviewer', '', $SPATH);
 	$prefix = $SPATH . $prefix;
@@ -214,22 +127,28 @@ function dfg_3dviewer_hook_file_validate(Drupal\file\FileInterface $file) {
 * Implements hook_file_validate().
  */
 function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity) {
-	$cfg = dfg_3dviewer_config();
-	if (isset($cfg)) {
-		foreach ($cfg as $key => $value) {
-			if (!defined($key)) {
-				define($key, $value);
-			}
-		}
+	$DEFAULT_CONFIG = \Drupal::config('dfg_3dviewer.settings');
+	$SETTINGS = Array();
+	$SETTINGS['entity_bundle']=constant("ENTITY_BUNDLE");
+	$SETTINGS['viewer_file_upload']=constant("VIEWER_FILE_UPLOAD");
+	$SETTINGS['image_generation']=constant("IMAGE_GENERATION");
+	$SETTINGS['viewer_file_name']=constant("VIEWER_FILE_NAME");
+	$SETTINGS['field_df']=constant("FIELD_DF");
+	$SETTINGS['main_url']=constant("MAIN_URL");
+	$SETTINGS['lightweight']=constant("LIGHTWEIGHT");
+
+	if (isset($DEFAULT_CONFIG)) {		
+		$SETTINGS['entity_bundle']=$DEFAULT_CONFIG->get('dfg_3dviewer_entitybundle');
+		$SETTINGS['viewer_file_upload']=$DEFAULT_CONFIG->get('dfg_3dviewer_viewer_file_upload');
+		$SETTINGS['image_generation']=$DEFAULT_CONFIG->get('dfg_3dviewer_image_generation');
+		$SETTINGS['viewer_file_name']=$DEFAULT_CONFIG->get('dfg_3dviewer_viewer_file_name');
+		$SETTINGS['field_df']=$DEFAULT_CONFIG->get('dfg_3dviewer_field_df');
+		$SETTINGS['main_url']=$DEFAULT_CONFIG->get('dfg_3dviewer_main_url');
+		$SETTINGS['lightweight']=$DEFAULT_CONFIG->get('dfg_3dviewer_lightweight');
 	}
-	else {
-		\Drupal::messenger()->addMessage("Cant load settings file", 'warning');
-	}
-	
-	\Drupal::logger('dfg_3dviewer')->notice('Entity_presave fired.');
 	$SPATH = \Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath());
 	$XPATH = dirname(dirname($SPATH));
-	$archives = \Drupal::service('dfg_3dviewer.model_format_manager')->getZipFormats();
+	$archives = array('ZIP', 'RAR', 'TAR', 'XZ', 'GZ');
 	$base = \Drupal::request()->getSchemeAndHttpHost();
 	$output = null;
 	$retval = null;
@@ -239,68 +158,54 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		$realpath = \Drupal::service('file_system')->realpath($file['uri'][0]['value']);
 		$parts = pathinfo($realpath);
 
-		$extension = strtolower($parts['extension']);
+		$extension = strtoupper($parts['extension']);
 		$newFile = $parts['dirname'] . "/gltf/" . $parts['filename'] . ".glb";
 		$newDir = $parts['dirname'] . "/" . $parts['filename'] . "_" . $extension . "/gltf/";
 		$isArchive = false;
+		$lightweight = filter_var($SETTINGS['lightweight'], FILTER_VALIDATE_BOOLEAN);
+		$lightweightArg = $lightweight ? 'true' : 'false';
 		if (!file_exists($newFile) && !is_dir($newDir)) {
-			\Drupal::logger('dfg_3dviewer')->notice('New file given, checking...');
-			if ($extension === 'glb') {
-				$autoPath = $realpath;
-			}
 			if (!in_arrayi($extension, $archives)) {
-				$lightweight = filter_var($cfg['lightweight'], FILTER_VALIDATE_BOOLEAN);
-				$lightweightArg = $lightweight ? 'true' : 'false';
-
-				$realpathArg = escapeshellarg($realpath);
-
-				$script = $SPATH . '/scripts/convert.sh';
-
-				$cmd = sprintf(
-					'%s -t %s -c true -l 3 -b true -i %s -f true',
-					escapeshellcmd($script),
-					$lightweightArg,
-					escapeshellarg($realpath)
-				);
-
-				exec($cmd, $output, $retval);
-				\Drupal::logger('dfg_3dviewer')->notice(
-				"CMD: @cmd\nRET: @ret\nOUT:\n@out",
-				[
-					'@cmd' => $cmd,
-					'@ret' => $retval,
-					'@out' => print_r($output),
-				]
-				);
+				$output = exec($SPATH . '/scripts/convert.sh -t ' . $lightweightArg . ' -c true -l 3 -b true -i "' . $realpath . '" -f true', $output, $retval);
 			}
 			elseif (in_arrayi($extension, $archives)) {
-				\Drupal::logger('dfg_3dviewer')->notice('Archive handler');
 				try {
 					$isArchive = true;
 					$extractPath = $parts['dirname'] . "/" . $parts['filename'] . "_" . $extension . "/";
-					if ($extension == 'zip') {
-						\Drupal::logger('dfg_3dviewer')->notice('ZIP started');
+					if ($extension == 'ZIP') {
 						$zip = new Zip($realpath);
 						$zip->extract($extractPath);
 						$zip->remove($realpath);
 						$archiveFiles = scandir ($extractPath);
-						$allowedFormats = \Drupal::service('dfg_3dviewer.model_format_manager')->getAllowedModelFormats();
 						foreach ($archiveFiles as $zipFile) {
-							$partsZip = pathinfo($zipFile);	
-							if (in_arrayi(strtolower($partsZip["extension"]), $allowedFormats)) {
-									\Drupal::logger('dfg_3dviewer')->notice('Handler for 3D model');
-									exec ($SPATH . '/scripts/convert.sh -t ' . $cfg['lightweight'] . ' -c true -l 3 -b true -i "' . $extractPath . $zipFile . '" -o "' . $extractPath . '" -f true -a false', $output, $retval);
+							$partsZip = pathinfo($zipFile);					
+							switch (strtolower($partsZip["extension"])) {
+								case "obj":
+								case "fbx":
+								case "ply":
+								case "dae":
+								case "abc":
+								case "blend":
+								case "stl":
+								case "wrl":
+								case "x3d":
+								case "ifc":
+								case "glb":
+								case "gltf":
+								case "gml":
+									exec ($SPATH . '/scripts/convert.sh -t ' . $SETTINGS['lightweight'] . ' -c true -l 3 -b true -i "' . $extractPath . $zipFile . '" -o "' . $extractPath . '" -f true -a false', $output, $retval);										
+								break;
 							}
 						}
 					}
-					elseif ($extension == 'rar') {
+					elseif ($extension == 'RAR') {
 						$output = shell_exec($SPATH . '/scripts/uncompress.sh -t rar -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
 					}
-					elseif ($extension == 'tar' || $extension == 'gz' ) {
+					elseif ($extension == 'TAR' || $extension == 'GZ' ) {
 						$output = shell_exec($SPATH . '/scripts/uncompress.sh -t tar -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
-						//\Drupal::messenger()->addMessage("Test " . serialize($output), 'status');
+						\Drupal::messenger()->addMessage("Test " . serialize($output), 'status');
 					}
-					elseif ($extension == 'xz') {
+					elseif ($extension == 'XZ') {
 						$output = shell_exec($SPATH . '/scripts/uncompress.sh -t xz -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
 					}
 				}
@@ -312,45 +217,23 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 				\Drupal::messenger()->addMessage($extension . " is not supported yet", 'warning');
 			}
 			#semi-automatic path change
-			/*if (!empty($autoPath)) {
-				$entity->set($cfg['viewer_file_name'], $autoPath);
-			}*/
+#			$entity->set($SETTINGS['viewer_file_name'], $autoPath);
 			#for debugging only
-			if ($retval === null && $output != null) {
-				\Drupal::logger('dfg_3dviewer')->notice(
-					'Output: @output',
-					['@output' => print_r($output, true)]
-				);
-				//\Drupal::messenger()->addMessage($output, 'status');
-			}
-			else if ($retval === 1) {
-				\Drupal::logger('dfg_3dviewer')->notice(
-					'Output: @output',
-					['@output' => print_r($output, true)]
-				);
-				//\Drupal::messenger()->addMessage($output, 'warning');
-			}
-			else if ($retval === 2) {
-				\Drupal::logger('dfg_3dviewer')->notice(
-					'Output: @output',
-					['@output' => print_r($output, true)]
-				);
-				//\Drupal::messenger()->addMessage($output, 'error');
-			}
+			#if ($retval === null) {
+			#	\Drupal::messenger()->addMessage($output, 'status');
+			#}
+			#else if ($retval === 1) {
+			#	\Drupal::messenger()->addMessage($output, 'warning');
+			#}
+			#else if ($retval === 2) {
+			#	\Drupal::messenger()->addMessage($output, 'error');
+			#}
 			#for debugging only
-		} else {
-			#\Drupal::logger('dfg_3dviewer')->notice('Conversion started');
-			#$extractPath = $parts['dirname'] . "/" . $parts['filename'] . "_" . $extension . "/";
-			#$output = exec($SPATH . '/scripts/convert.sh -t ' . $cfg['lightweight'] . ' -c true -l 3 -b true -i "' . $realpath . '" -f true 2>&1', $output, $retval);					
 		}
 	}
-	if ($entity->bundle() == $cfg['entity_bundle']) {
+	if ($entity->bundle() == $SETTINGS['entity_bundle']) {
 		//$file_info = $entity->label->getValue();
-		$file_info = $entity->{$cfg['viewer_file_upload']}->getValue();
-		\Drupal::logger('dfg_3dviewer')->notice(
-			'File info @file_info',
-			['@file_info' => $file_info]
-		);
+		$file_info = $entity->{$SETTINGS['viewer_file_upload']}->getValue();	
 		if (isset($file_info[0]) && isset($file_info[0]['target_id'])) {
 			$file_id = $file_info[0]['target_id'];
 			$entity_id = $entity->eid->value;
@@ -359,109 +242,51 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			clearstatcache();
 			if (!is_null($file)) {
 				$fileName = $file->getFilename();
-				$extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-				$fileBase  = pathinfo($fileName, PATHINFO_FILENAME);
+				$extension = pathinfo($fileName, PATHINFO_EXTENSION);
+				$fileBase = str_replace(".$extension", "", $fileName);
 				$isArchive = false;
 				if (in_arrayi($extension, $archives)) {
 					$isArchive = true;
 				}
 				$file_url = \Drupal::service('file_url_generator')->generate($file->getFileUri());
-				$fileUrl = $file_url->toString(); 
 				$viewBase = "";
-				$baseDir  = rtrim(dirname($fileUrl), '/');
+				$path = "";
 				#is archive
-				if ($isArchive) {
-					// /sites/default/files/foo/model_ZIP/views/model
-					$viewBase = $base
-						. $baseDir
-						. '/'
-						. $fileBase
-						. '_'
-						. $extension
-						. '/views/'
-						. $fileBase;
-
-					// fallback: model_1.zip → model
+				if (in_arrayi($extension, $archives)) {
+					$path = str_replace($fileName, "", $file_url->toString());
+					$subPath = substr($path, 0, strrpos( $path, '/') );
+					$viewBase = $base . $subPath . "/" . $fileBase . "_" . strtoupper($extension) . "/views/" . $fileBase;
+					$fileBaseArchive = preg_replace('/_[0-9]+$/', '', $fileBase, 1);
 					if (!url_exists($viewBase . $imgSuffix)) {
-						$fileBaseArchive = preg_replace('/_[0-9]+$/', '', $fileBase);
-						$viewBase = $base
-							. $baseDir
-							. '/'
-							. $fileBase
-							. '_'
-							. $extension
-							. '/views/'
-							. $fileBaseArchive;
+						$subPath = substr($path, 0, strrpos( $path, '/') );
+						$viewBase = $base . $subPath . "/" . $fileBase . "_" . strtoupper($extension) . "/views/" . $fileBaseArchive;
 					}
 				}
-				else {
-					// standard: views
-					$viewBase = $base . $baseDir . '/views/' . $fileBase;
-
-					// fallback 1: no /views
+				else
+				{
+					$path = str_replace($fileName, "views/" . $fileName, $file_url->toString());
+					$viewBase = $base . $path;
 					if (!url_exists($viewBase . $imgSuffix)) {
-						$viewBase = $base . $baseDir . '/' . $fileBase;
-					}
-
-					// fallback 2: /views again (other layouts)
-					if (!url_exists($viewBase . $imgSuffix)) {
-						$viewBase = $base . $baseDir . '/views/' . $fileBase;
+						$subPath = substr($path, 0, strrpos( $path, '/') );
+						$viewBase = $base . $subPath . "/" . $fileBase;
+						if (!url_exists($viewBase . $imgSuffix)) {
+							$viewBase = $base . $subPath . "/views/" . $fileBase;
+						}
 					}
 				}
 
 				$viewBase = str_replace(' ', '%20', $viewBase);
 				clearstatcache();
-
-				$imagesTemp = [
-					$viewBase . $imgSuffix,
-					$viewBase . '_side0.png',
-					$viewBase . '_side90.png',
-					$viewBase . '_side135.png',
-					$viewBase . '_side180.png',
-					$viewBase . '_side225.png',
-					$viewBase . '_side270.png',
-					$viewBase . '_side315.png',
-					$viewBase . '_top.png',
-				];
-
+				$imagesTemp = array($viewBase . $imgSuffix, $viewBase . "_side0.png", $viewBase . "_side90.png", $viewBase . "_side135.png", $viewBase . "_side180.png", $viewBase . "_side225.png", $viewBase . "_side270.png", $viewBase . "_side315.png", $viewBase . "_top.png");
 				$imagesPaths = [];
-				$fs = \Drupal::service('file_system');
-
-				foreach ($imagesTemp as $url) {
-					$uri = $fs->realpath(
-						\Drupal::service('stream_wrapper_manager')->getViaUri(
-							parse_url($url, PHP_URL_PATH)
-						) ?: ''
-					);
-
-					if (!$uri || !is_file($uri)) {
-						continue;
+				foreach ($imagesTemp as $value) {
+					if (url_exists($value) && getimagesize($value) !== false) {
+						array_push($imagesPaths, $value);
 					}
-
-					\Drupal::logger('dfg_3dviewer')->notice(
-						'Checking thumbnails URL: @url | URI: @uri | info: @info',
-						[
-							'@url'  => $url,
-							'@uri'  => $uri,
-							'@info' => print_r($info, true),
-						]
-					);
-
-					$imagesPaths[] = $url;
 				}
-
 				if (count($imagesPaths) > 0) {
 					\Drupal::messenger()->addMessage("Renderings were added to the entity");
-					\Drupal::logger('dfg_3dviewer')->notice(
-						'Checked image paths @imagesPaths',
-						['@imagesPaths' => $imagesPaths]
-					);
-					$entity->set($cfg['image_generation'], $imagesPaths);
-				} else {
-					\Drupal::logger('dfg_3dviewer')->notice(
-						'No images added @imagesPaths',
-						['@imagesPaths' => count($imagesPaths)]
-					);
+					$entity->set($SETTINGS['image_generation'], $imagesPaths);
 				}
 
 				$fpath = $file_url->toString();
@@ -469,17 +294,13 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 				$subPath = substr($fpath, 0, strrpos( $fpath, '/') );
 				$fileBaseArchive = preg_replace('/_[0-9]+$/', '', $fileBase, 1);
 				if (in_arrayi($extension, $archives)) {
-					semi_automatic_path ($subPath . '/' . $fileBase . "_" . $extension, $fileBase, $fileBaseArchive, $autoPath, $extension);
+					semi_automatic_path ($subPath . '/' . $fileBase . "_" . strtoupper($extension), $fileBase, $fileBaseArchive, $autoPath, $extension);
 				}
 				else {
 					semi_automatic_path ($subPath, $fileBase, '', $autoPath, $extension);
 				}
-				if ($extension === 'glb') {
-					$origPath = $subPath . "/" . $fileBase . ".glb";
-				} else {
-					$origPath = $subPath . "/gltf/" . $fileBase . ".glb";
-				}
-				$origArchPath = $subPath . '/' . $fileBase . "_" . $extension . "/gltf/" . $fileBase . ".glb";
+				$origPath = $subPath . "/gltf/" . $fileBase . ".glb";
+				$origArchPath = $subPath . '/' . $fileBase . "_" . strtoupper($extension) . "/gltf/" . $fileBase . ".glb";
 				if ($autoPath != "" && ((!$isArchive && strcmp($origPath, $autoPath) !== 0) || ($isArchive && strcmp($origArchPath, $autoPath) !== 0))) {
 					//\Drupal::messenger()->addMessage("GLTF or file with given name (possible archive/filename mismatch) representation not found, semi-automatic path applied\n", 'warning');
 				}
@@ -498,49 +319,21 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 						$autoPath = $origPath;
 					}
 				}
-				if ($extension === 'glb') {
-    				$autoPath = str_replace($XPATH, $cfg['main_url'], $realpath);
-				} else {
-				$autoPath = str_replace($XPATH, $cfg['main_url'], $autoPath);
-				}
-				if (!empty($autoPath)) {
-					$entity->set($cfg['viewer_file_name'], $autoPath);
-				}
-				\Drupal::logger('dfg_3dviewer')->notice(
-					'Autopath @autoPath',
-					['@autoPath' => $autoPath]
-				);
+				$autoPath = str_replace($XPATH, $SETTINGS['main_url'], $autoPath);
+				$entity->set($SETTINGS['viewer_file_name'], $autoPath);
 				//\Drupal::messenger()->addMessage(serialize($autoPath), 'status');
 			}
-			/*require ('php/build_xml.php');
-			build_xml ($entity_id, $cfg['main_url']);
+			require ('php/build_xml.php');
+			build_xml ($entity_id, $SETTINGS['main_url']);
 			$no_cache=false;
 			$caching = $no_cache ? '?no_cache=1' : ''; //temporary workaround
 			$xml_struc = 'public://xml_structure/' . $entity_id . '.xml' . $caching;
 			$xml_wrapper = \Drupal::service('stream_wrapper_manager')->getViaUri($xml_struc);
 			$xml_uri = $xml_wrapper->getExternalURL();
-			$uri = $cfg['main_url'] . "/viewer?tx_dlf[id]=" . $xml_uri . "&no_cache=1&modelviewer=1";
-			$entity->set($cfg['field_df'], $uri);*/
-			$entity->set($cfg['field_df'], "");
+			$uri = $SETTINGS['main_url'] . "/viewer?tx_dlf[id]=" . $xml_uri . "&no_cache=1&modelviewer=1";
+			$entity->set($SETTINGS['field_df'], $uri);
 		}
 
 	}
-	\Drupal::logger('dfg_3dviewer')->notice('Entity_presave_bundle fired.');
-	\Drupal::logger('dfg_3dviewer')->notice(
-		'eNTITY @entity',
-		['@entity' => print_r($entity)]
-	);
 	//\Drupal::messenger()->addMessage(serialize($entity), 'status');
-}
-
-function dfg_3dviewer_get_library(): string {
-  $env = Settings::get('dfg_env', 'drupal');
-
-  $map = [
-    'test'          => 'dfg_3dviewer/dfg_3dviewer.test',
-    'drupal_custom' => 'dfg_3dviewer/dfg_3dviewer.drupal_custom',
-    'drupal'        => 'dfg_3dviewer/dfg_3dviewer.drupal',
-  ];
-
-  return $map[$env] ?? $map['drupal'];
 }
