@@ -451,8 +451,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 						'@path' => $localPath,
 						]
 					);*/
-
-					$url = preg_replace('#^http://#i', 'https://', $url);
+					
 					$imagesPaths[] = $url;
 				}
 
