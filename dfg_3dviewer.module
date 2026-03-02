@@ -499,9 +499,10 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 					}
 				}
 				if ($extension === 'glb') {
-    				$autoPath = str_replace($XPATH, $cfg['main_url'], $realpath);
+					$file = $entity->toArray();
+					$realpath = \Drupal::service('file_system')->realpath($file['uri'][0]['value']);
 				} else {
-				$autoPath = str_replace($XPATH, $cfg['main_url'], $autoPath);
+					$autoPath = str_replace($XPATH, $cfg['main_url'], $autoPath);
 				}
 				if (!empty($autoPath)) {
 					$entity->set($cfg['viewer_file_name'], $autoPath);
