@@ -1,6 +1,9 @@
 <?php
 
-const EXPORT_PATH='/export_xml_single/';
+const EXPORT_PATHS=[
+	'/wisski/navigate/%d/view',
+	'/export_xml_single/%d',
+];
 const MFILEPATH='sites/default/files/xml_structure';
 const XSLURL="https://raw.githubusercontent.com/slub/dfg-viewer/e54305a9fa58951d3f3d1dd7e64554cb2ee881eb/Resources/Public/XSLT/exportSingleToMetsMods.xsl";
 libxml_use_internal_errors(true); // Suppress default XML errors
@@ -76,14 +79,21 @@ function build_xml ($id, $domain) {
 	}
 
 	$query = http_build_query(['page' => 0, '_format' => 'xml']);
-	$url = $domain . EXPORT_PATH . $id . '?' . $query;
+	$xml = NULL;
+	$data = '';
 
-	$data = file_get_content_curl($url);
-	if (!is_string($data) || $data === '') {
-		return;
+	foreach (EXPORT_PATHS as $pattern) {
+		$url = $domain . sprintf($pattern, (int) $id) . '?' . $query;
+		$data = file_get_content_curl($url);
+		if (!is_string($data) || $data === '') {
+			continue;
+		}
+
+		$xml = simplexml_load_string($data);
+		if (!empty($xml) && is_object($xml)) {
+			break;
+		}
 	}
-
-	$xml = simplexml_load_string($data);
 
 	if (empty($xml) || !is_object($xml)) {
 		return;
