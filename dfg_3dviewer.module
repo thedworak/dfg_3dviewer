@@ -347,6 +347,10 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 	if ($entity->bundle() == $cfg['entity_bundle']) {
 		//$file_info = $entity->label->getValue();
 		$file_info = $entity->{$cfg['viewer_file_upload']}->getValue();
+		\Drupal::logger('dfg_3dviewer')->notice(
+			'File info @file_info',
+			['@file_info' => $file_info]
+		);
 		if (isset($file_info[0]) && isset($file_info[0]['target_id'])) {
 			$file_id = $file_info[0]['target_id'];
 			$entity_id = $entity->eid->value;
@@ -453,6 +457,11 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 						['@imagesPaths' => $imagesPaths]
 					);
 					$entity->set($cfg['image_generation'], $imagesPaths);
+				} else {
+					\Drupal::logger('dfg_3dviewer')->notice(
+						'No images added @imagesPaths',
+						['@imagesPaths' => count($imagesPaths)]
+					);
 				}
 
 				$fpath = $file_url->toString();
@@ -497,6 +506,10 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 				if (!empty($autoPath)) {
 					$entity->set($cfg['viewer_file_name'], $autoPath);
 				}
+				\Drupal::logger('dfg_3dviewer')->notice(
+					'Autopath @autoPath',
+					['@autoPath' => $autoPath]
+				);
 				//\Drupal::messenger()->addMessage(serialize($autoPath), 'status');
 			}
 			/*require ('php/build_xml.php');
@@ -508,10 +521,15 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			$xml_uri = $xml_wrapper->getExternalURL();
 			$uri = $cfg['main_url'] . "/viewer?tx_dlf[id]=" . $xml_uri . "&no_cache=1&modelviewer=1";
 			$entity->set($cfg['field_df'], $uri);*/
+			$entity->set($cfg['field_df'], "");
 		}
 
 	}
 	\Drupal::logger('dfg_3dviewer')->notice('Entity_presave_bundle fired.');
+	\Drupal::logger('dfg_3dviewer')->notice(
+		'eNTITY @entity',
+		['@entity' => print_r($entity)]
+	);
 	//\Drupal::messenger()->addMessage(serialize($entity), 'status');
 }
 

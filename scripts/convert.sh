@@ -215,7 +215,7 @@ render_preview () {
 		return 1
 	fi
 
-	RESOLUTION="1024x1024x16"
+	RESOLUTION="32x32x16"
 	SAMPLES="20"
 	xvfb-run --auto-servernum \
 		--server-args="-screen 0 ${RESOLUTION}" \
