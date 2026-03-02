@@ -461,7 +461,32 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 						'Checked image paths @imagesPaths',
 						['@imagesPaths' => $imagesPaths]
 					);
-					$entity->set($cfg['image_generation'], $imagesPaths);
+					$fieldName = $cfg['image_generation'];
+
+					if ($entity->hasField($fieldName)) {
+						$fieldDef = $entity->get($fieldName)->getFieldDefinition();
+						$fieldType = $fieldDef->getType();
+						$isMultiple = $fieldDef->getFieldStorageDefinition()->isMultiple();
+
+						if ($fieldType === 'entity_reference') {
+							// jeśli to file/image reference, tu powinny iść target_id, nie URL stringi
+							// tymczasowo: nie ustawiaj nic, dopóki nie zmapujesz URL -> file entity ID
+						}
+						else {
+							$main = $fieldDef->getFieldStorageDefinition()->getMainPropertyName() ?: 'value';
+
+							if ($isMultiple) {
+							$vals = [];
+							foreach ($imagesPaths as $u) {
+								$vals[] = [$main => (string) $u];
+							}
+							$entity->set($fieldName, $vals);
+							}
+							else {
+							$entity->set($fieldName, (string) ($imagesPaths[0] ?? ''));
+							}
+						}
+					}
 				} else {
 					\Drupal::logger('dfg_3dviewer')->notice(
 						'No images added @imagesPaths',
