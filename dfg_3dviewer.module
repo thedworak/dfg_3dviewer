@@ -247,11 +247,25 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		if (!file_exists($newFile) && !is_dir($newDir) && !file_exists($newFile."off")) {
 			\Drupal::logger('dfg_3dviewer')->notice('New file given, checking...');
 			if (!in_arrayi($extension, $archives)) {
-				$output = exec($SPATH . '/scripts/convert.sh -t ' . $cfg['lightweight'] . ' -c true -l 3 -b true -i "' . $realpath . '" -f true', $output, $retval);
+				$lightweight = filter_var($cfg['lightweight'], FILTER_VALIDATE_BOOLEAN);
+				$lightweightArg = $lightweight ? 'true' : 'false';
+
+				$realpathArg = escapeshellarg($realpath);
+
+				$cmd = sprintf(
+					'%s/scripts/convert.sh -t %s -c true -l 3 -b true -i %s -f true',
+					escapeshellarg($SPATH),
+					$lightweightArg,
+					$realpathArg
+				);
+
+				exec($cmd, $output, $retval);
 				\Drupal::logger('dfg_3dviewer')->notice(
-				"OUT:\n@out",
+				"CMD: @cmd\nRET: @ret\nOUT:\n@out",
 				[
-					'@out' => print_r($output),
+					'@cmd' => $cmd,
+					'@ret' => $retval,
+					'@out' => prnt_r($output),
 				]
 				);
 			}
