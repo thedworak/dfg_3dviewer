@@ -185,6 +185,15 @@ check_status () {
 
 render_preview () {
 	SNAME=$NAME
+	LOCKFILE="$INPATH/views/${SNAME}.lock"
+
+	exec 200>"$LOCKFILE" || exit 1
+
+	flock -n 200 || {
+		echo "Render already running for $SNAME"
+		return 0
+	}
+
 	INPUT_GLTF_PATH="$INPATH/$SNAME.glb"
 	if [[ ! -d "$INPATH/views" ]]; then
 		mkdir "$INPATH/views/"
@@ -231,6 +240,17 @@ create_dirs () {
 	fi
 }
 
+create_flock () {
+	INPATH=$1
+	FILENAME=$2
+	LOCKFILE="$INPATH/${FILENAME}.lock"
+	exec 200>"$LOCKFILE" || exit 1
+	flock -n 200 || {
+		echo "Process already running for $FILENAME"
+		exit 0
+	}
+}
+
 handle_file () {
 	INPATH=$1
 	FILENAME=$2
@@ -238,6 +258,8 @@ handle_file () {
 	EXT=$4
 	OUTPUT=$5
 	OUTPUTPATH=$6
+
+	create_flock "$INPATH" "$FILENAME"
 
 	if [[ "$isOutput" = false ]]; then
 		"$BLENDER_BIN" -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- --input "$INPATH/$FILENAME" --ext "$GLTF" --compression "$COMPRESSION" --compression_level "$COMPRESSION_LEVEL" > /dev/null 2>&1
@@ -277,6 +299,8 @@ handle_ifc_file () {
 	OUTPUT=$5
 	OUTPUTPATH=$6
 
+	create_flock "$INPATH" "$FILENAME"
+
 	create_dirs
 
 	${SPATH}/scripts/IfcConvert "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
@@ -288,6 +312,8 @@ handle_blend_file () {
 	FILENAME=$2
 	NAME=$3
 	EXT=$4
+
+	create_flock "$INPATH" "$FILENAME"
 
 	create_dirs
 
@@ -302,6 +328,8 @@ handle_gml_file () {
 	EXT=$4
 	OUTPUT=$5
 	OUTPUTPATH=$6
+
+	create_flock "$INPATH" "$FILENAME"
 
 	GLB_PATH="${INPATH}/${NAME}_GLB"
 	
@@ -364,37 +392,29 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 			case $EXT in
 				abc|dae|fbx|obj|ply|stl|wrl|x3d)
 					echo "Converting $EXT file..."
-					check_status "${INPATH}/${FILENAME}"
 					handle_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
 					end=`date +%s`
-					check_status "${INPATH}/${FILENAME}"
 					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
 					exit 0;
 				;;
 			  ifc)
 					echo "Converting $EXT file..."
-					check_status "${INPATH}/${FILENAME}"
 					handle_ifc_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
 					end=`date +%s`
-					check_status "${INPATH}/${FILENAME}"
 					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
 					exit 0;
 				;;
 			  blend)
 					echo "Converting $EXT file..."
-					check_status "${INPATH}/${FILENAME}"
 					handle_blend_file "$INPATH" "$FILENAME" "$NAME" $EXT
 					end=`date +%s`
-					check_status "${INPATH}/${FILENAME}"
 					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
 					exit 0;
 				;;
 			  gml)
 					echo "Converting $EXT file..."
-					check_status "${INPATH}/${FILENAME}"
 					handle_gml_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
 					end=`date +%s`
-					check_status "${INPATH}/${FILENAME}"
 					echo "File $FILENAME compressed successfully. Runtime: $((end-start))s."
 					exit 0;
 				;;

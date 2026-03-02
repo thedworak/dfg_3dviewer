@@ -243,7 +243,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		$newFile = $parts['dirname'] . "/gltf/" . $parts['filename'] . ".glb";
 		$newDir = $parts['dirname'] . "/" . $parts['filename'] . "_" . $extension . "/gltf/";
 		$isArchive = false;
-		if (!file_exists($newFile) && !is_dir($newDir) && !file_exists($newFile."off")) {
+		if (!file_exists($newFile) && !is_dir($newDir)) {
 			\Drupal::logger('dfg_3dviewer')->notice('New file given, checking...');
 			if ($extension === 'glb') {
 				$autoPath = $realpath;
@@ -257,10 +257,10 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 				$script = $SPATH . '/scripts/convert.sh';
 
 				$cmd = sprintf(
-				'%s -t %s -c true -l 3 -b true -i %s -f true',
-				escapeshellcmd($script),
-				$lightweightArg,
-				escapeshellarg($realpath)
+					'%s -t %s -c true -l 3 -b true -i %s -f true',
+					escapeshellcmd($script),
+					$lightweightArg,
+					escapeshellarg($realpath)
 				);
 
 				exec($cmd, $output, $retval);
@@ -391,15 +391,15 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 					}
 				}
 				else {
-					// standard: views obok pliku
+					// standard: views
 					$viewBase = $base . $baseDir . '/views/' . $fileBase;
 
-					// fallback 1: bez /views
+					// fallback 1: no /views
 					if (!url_exists($viewBase . $imgSuffix)) {
 						$viewBase = $base . $baseDir . '/' . $fileBase;
 					}
 
-					// fallback 2: /views jeszcze raz (inne layouty)
+					// fallback 2: /views again (other layouts)
 					if (!url_exists($viewBase . $imgSuffix)) {
 						$viewBase = $base . $baseDir . '/views/' . $fileBase;
 					}
@@ -434,10 +434,6 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 						continue;
 					}
 
-					$info = @getimagesize($uri);
-					if ($info === false) {
-						continue;
-					}
 					\Drupal::logger('dfg_3dviewer')->notice(
 						'Checking thumbnails URL: @url | URI: @uri | info: @info',
 						[
@@ -515,7 +511,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		}
 
 	}
-	\Drupal::logger('dfg_3dviewer')->notice('Entity_presave fired.');
+	\Drupal::logger('dfg_3dviewer')->notice('Entity_presave_bundle fired.');
 	//\Drupal::messenger()->addMessage(serialize($entity), 'status');
 }
 
