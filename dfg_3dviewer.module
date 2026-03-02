@@ -246,97 +246,53 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		if (!file_exists($newFile) && !is_dir($newDir) && !file_exists($newFile."off")) {
 			\Drupal::logger('dfg_3dviewer')->notice('New file given, checking...');
 			if (!in_arrayi($extension, $archives)) {
-				$result = \Drupal::service('dfg_3dviewer.convert_process')
-				->run($SPATH, $realpath, (int) $cfg['lightweight']);
+				$cmd = sprintf(
+				'%s/scripts/convert.sh -t %s -c 1 -l 3 -b 1 -i %s -f 1',
+				$SPATH,
+				(int) $cfg['lightweight'],
+				escapeshellarg($realpath)
+				);
+
+				$cmdOutput = [];
+				$lastLine = exec($cmd, $cmdOutput, $retval);
+				\Drupal::logger('dfg_3dviewer')->notice(
+				"CMD: @cmd\nRET: @ret\nOUT:\n@out",
+				[
+					'@cmd' => $cmd,
+					'@ret' => $retval,
+					'@out' => implode("\n", $cmdOutput),
+				]
+				);
 			}
 			elseif (in_arrayi($extension, $archives)) {
 				\Drupal::logger('dfg_3dviewer')->notice('Archive handler');
 				try {
 					$isArchive = true;
-					$extractPath = $parts['dirname'] . "/" . $parts['filename'] . "_" . strtoupper($extension) . "/";
+					$extractPath = $parts['dirname'] . "/" . $parts['filename'] . "_" . $extension . "/";
 					if ($extension == 'zip') {
 						\Drupal::logger('dfg_3dviewer')->notice('ZIP started');
 						$zip = new Zip($realpath);
 						$zip->extract($extractPath);
 						$zip->remove($realpath);
 						$archiveFiles = scandir ($extractPath);
-						\Drupal::logger('dfg_3dviewer')->notice(
-							'Archive files: @files',
-							['@files' => print_r($archiveFiles, true)]
-						);
 						$allowedFormats = \Drupal::service('dfg_3dviewer.model_format_manager')->getAllowedModelFormats();
 						foreach ($archiveFiles as $zipFile) {
-							// skip current/parent entries
-							if ($zipFile === '.' || $zipFile === '..') {
-								continue;
-							}
-
-							// full path to the extracted entry
-							$fullEntry = $extractPath . DIRECTORY_SEPARATOR . $zipFile;
-
-							// only consider regular files
-							if (!is_file($fullEntry)) {
-								continue;
-							}
-
-							$partsZip = pathinfo($zipFile);
-							$ext = isset($partsZip['extension']) ? strtolower($partsZip['extension']) : '';
-							if ($ext !== '' && in_arrayi($ext, $allowedFormats)) {
-								\Drupal::logger('dfg_3dviewer')->notice('Handler for 3D model');
-								$result = \Drupal::service('dfg_3dviewer.convert_process')->run(
-									$SPATH,
-									$extractPath . $zipFile,
-									(int) $cfg['lightweight'],
-									[
-										'c' => 'true',
-										'l' => '3',
-										'b' => 'true',
-										'o' => $extractPath,
-										'f' => 'true',
-										'a' => 'false',
-									]
-								);
-								\Drupal::logger('dfg_3dviewer')->notice(
-								"Exit: @code\nSTDOUT:\n@out\nSTDERR:\n@err",
-								[
-									'@code' => $result['exit_code'],
-									'@out' => $result['output'],
-									'@err' => $result['error'],
-								]
-								);
+							$partsZip = pathinfo($zipFile);	
+							if (in_arrayi(strtolower($partsZip["extension"]), $allowedFormats)) {
+									\Drupal::logger('dfg_3dviewer')->notice('Handler for 3D model');
+									exec ($SPATH . '/scripts/convert.sh -t ' . $cfg['lightweight'] . ' -c true -l 3 -b true -i "' . $extractPath . $zipFile . '" -o "' . $extractPath . '" -f true -a false', $output, $retval);
 							}
 						}
 					}
-					else {
-						$map = [
-						'rar' => 'rar',
-						'tar' => 'tar',
-						'gz'  => 'tar',
-						'xz'  => 'xz',
-						];
-
-						if (isset($map[$extension])) {
-
-							$result = \Drupal::service('dfg_3dviewer.convert_process')->uncompress(
-								$SPATH,
-								strtoupper($map[$extension]),
-								$realpath,
-								$extractPath,
-								$parts['filename']
-							);
-
-							if (!$result['success']) {
-								\Drupal::logger('dfg_3dviewer')->error(
-								"Uncompress failed (exit: @code)\n@error",
-								[
-									'@code' => $result['exit_code'],
-									'@error' => $result['error'],
-								]
-								);
-							}
-
-							$output = $result['output'];
-						}
+					elseif ($extension == 'rar') {
+						$output = shell_exec($SPATH . '/scripts/uncompress.sh -t rar -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
+					}
+					elseif ($extension == 'tar' || $extension == 'gz' ) {
+						$output = shell_exec($SPATH . '/scripts/uncompress.sh -t tar -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
+						//\Drupal::messenger()->addMessage("Test " . serialize($output), 'status');
+					}
+					elseif ($extension == 'xz') {
+						$output = shell_exec($SPATH . '/scripts/uncompress.sh -t xz -i "' . $realpath . '" -o "' . $extractPath . '" -n "' . $parts['filename'] . '"');
 					}
 				}
 				catch (ArchiverException $exception) {
@@ -455,24 +411,32 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 
 				$imagesPaths = [];
 				$fs = \Drupal::service('file_system');
-				$uri = $fs->realpath(
-					\Drupal::service('stream_wrapper_manager')->getViaUri(
-						parse_url($imagesTemp[0], PHP_URL_PATH)
-					) ?: ''
-				);
 
-				if (!$uri || !is_file($uri)) {
-					foreach ($imagesTemp as $url) {
-						\Drupal::logger('dfg_3dviewer')->notice(
-							'Checking thumbnails URL: @url | URI: @uri',
-							[
-								'@url'  => $url,
-								'@uri'  => $uri,
-							]
-						);
+				foreach ($imagesTemp as $url) {
+					$uri = $fs->realpath(
+						\Drupal::service('stream_wrapper_manager')->getViaUri(
+							parse_url($url, PHP_URL_PATH)
+						) ?: ''
+					);
 
-						$imagesPaths[] = $url;
+					if (!$uri || !is_file($uri)) {
+						continue;
 					}
+
+					$info = @getimagesize($uri);
+					if ($info === false) {
+						continue;
+					}
+					\Drupal::logger('dfg_3dviewer')->notice(
+						'Checking thumbnails URL: @url | URI: @uri | info: @info',
+						[
+							'@url'  => $url,
+							'@uri'  => $uri,
+							'@info' => print_r($info, true),
+						]
+					);
+
+					$imagesPaths[] = $url;
 				}
 
 				if (count($imagesPaths) > 0) {
@@ -530,10 +494,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		}
 
 	}
-	\Drupal::logger('dfg_3dviewer')->notice(
-	'Fields: @fields',
-	['@fields' => implode(', ', array_keys($entity->toArray()))]
-	);
+	//\Drupal::messenger()->addMessage(serialize($entity), 'status');
 }
 
 function dfg_3dviewer_get_library(): string {
