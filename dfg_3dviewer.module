@@ -482,7 +482,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 				$entity->set($cfg['viewer_file_name'], $autoPath);
 				//\Drupal::messenger()->addMessage(serialize($autoPath), 'status');
 			}
-			require ('php/build_xml.php');
+			/*require ('php/build_xml.php');
 			build_xml ($entity_id, $cfg['main_url']);
 			$no_cache=false;
 			$caching = $no_cache ? '?no_cache=1' : ''; //temporary workaround
@@ -490,10 +490,11 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			$xml_wrapper = \Drupal::service('stream_wrapper_manager')->getViaUri($xml_struc);
 			$xml_uri = $xml_wrapper->getExternalURL();
 			$uri = $cfg['main_url'] . "/viewer?tx_dlf[id]=" . $xml_uri . "&no_cache=1&modelviewer=1";
-			$entity->set($cfg['field_df'], $uri);
+			$entity->set($cfg['field_df'], $uri);*/
 		}
 
 	}
+	\Drupal::logger('dfg_3dviewer')->notice('Entity_presave fired.');
 	//\Drupal::messenger()->addMessage(serialize($entity), 'status');
 }
 
