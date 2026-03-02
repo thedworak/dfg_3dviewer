@@ -230,7 +230,8 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 	$SPATH = \Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath());
 	$XPATH = dirname(dirname($SPATH));
 	$archives = \Drupal::service('dfg_3dviewer.model_format_manager')->getZipFormats();
-	$base = \Drupal::request()->getSchemeAndHttpHost();
+	$base = rtrim((string) $cfg['main_url'], '/');
+	//$base = \Drupal::request()->getSchemeAndHttpHost();
 	$output = null;
 	$retval = null;
 	$autoPath = '';
@@ -264,14 +265,14 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 				);
 
 				exec($cmd, $output, $retval);
-				\Drupal::logger('dfg_3dviewer')->notice(
+				/*\Drupal::logger('dfg_3dviewer')->notice(
 				"CMD: @cmd\nRET: @ret\nOUT:\n@out",
 				[
 					'@cmd' => $cmd,
 					'@ret' => $retval,
 					'@out' => print_r($output),
 				]
-				);
+				);*/
 			}
 			elseif (in_arrayi($extension, $archives)) {
 				\Drupal::logger('dfg_3dviewer')->notice('Archive handler');
@@ -289,7 +290,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 							$partsZip = pathinfo($zipFile);	
 							if (in_arrayi(strtolower($partsZip["extension"]), $allowedFormats)) {
 									\Drupal::logger('dfg_3dviewer')->notice('Handler for 3D model');
-									exec ($SPATH . '/scripts/convert.sh -t ' . $cfg['lightweight'] . ' -c true -l 3 -b true -i "' . $extractPath . $zipFile . '" -o "' . $extractPath . '" -f true -a false', $output, $retval);
+									exec ($SPATH . '/scripts/convert.sh -t ' . $cfg['lightweight'] . ' -c true -l 3 -b true -i "' . $extractPath . $zipFile . '" -o "' . $extractPath . '" -f true -a false 2>&1', $output, $retval);
 							}
 						}
 					}
@@ -443,14 +444,16 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 						continue;
 					}
 
-					\Drupal::logger('dfg_3dviewer')->notice(
+					/*\Drupal::logger('dfg_3dviewer')->notice(
 						'Checking thumbnails URL: @url | local path: @path',
 						[
 						'@url' => $url,
 						'@path' => $localPath,
 						]
-					);
+					);*/
 
+					$url = $base . $relativePath;
+					$url = preg_replace('#^http://#i', 'https://', $url);
 					$imagesPaths[] = $url;
 				}
 
