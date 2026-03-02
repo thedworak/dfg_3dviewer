@@ -193,7 +193,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 								case "glb":
 								case "gltf":
 								case "gml":
-									exec ($SPATH . '/scripts/convert.sh -t ' . $SETTINGS['lightweight'] . ' -c true -l 3 -b true -i "' . $extractPath . $zipFile . '" -o "' . $extractPath . '" -f true -a false', $output, $retval);										
+									exec ($SPATH . '/scripts/convert.sh -t ' . $lightweightArg . ' -c true -l 3 -b true -i "' . $extractPath . $zipFile . '" -o "' . $extractPath . '" -f true -a false', $output, $retval);										
 								break;
 							}
 						}
@@ -323,7 +323,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 				$entity->set($SETTINGS['viewer_file_name'], $autoPath);
 				//\Drupal::messenger()->addMessage(serialize($autoPath), 'status');
 			}
-			require ('php/build_xml.php');
+			/*require ('php/build_xml.php');
 			build_xml ($entity_id, $SETTINGS['main_url']);
 			$no_cache=false;
 			$caching = $no_cache ? '?no_cache=1' : ''; //temporary workaround
@@ -331,9 +331,10 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			$xml_wrapper = \Drupal::service('stream_wrapper_manager')->getViaUri($xml_struc);
 			$xml_uri = $xml_wrapper->getExternalURL();
 			$uri = $SETTINGS['main_url'] . "/viewer?tx_dlf[id]=" . $xml_uri . "&no_cache=1&modelviewer=1";
-			$entity->set($SETTINGS['field_df'], $uri);
+			$entity->set($SETTINGS['field_df'], $uri);*/
+			$entity->set($SETTINGS['field_df'], "");
 		}
 
 	}
-	//\Drupal::messenger()->addMessage(serialize($entity), 'status');
+	\Drupal::messenger()->addMessage(serialize($entity), 'status');
 }
