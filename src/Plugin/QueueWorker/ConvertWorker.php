@@ -246,11 +246,7 @@ class ConvertWorker extends QueueWorkerBase {
     $fs = \Drupal::service('file_system');
     $file_uri = $file->getFileUri();
     $file_realpath = $fs->realpath($file_uri);
-
-    $request = \Drupal::requestStack()->getCurrentRequest();
-    $base = $request
-      ? $request->getSchemeAndHttpHost()
-      : rtrim((string) ($cfg['main_url'] ?? ''), '/');
+    $dir_uri = preg_replace('#/[^/]+$#', '', $file_uri) ?: '';
 
     if ($file_realpath && is_file($file_realpath)) {
       $file_name = pathinfo($file_realpath, PATHINFO_BASENAME);
@@ -260,69 +256,97 @@ class ConvertWorker extends QueueWorkerBase {
       $file_name = $file->getFilename();
       $file_base = pathinfo($file_uri, PATHINFO_FILENAME) ?: pathinfo($file_name, PATHINFO_FILENAME);
     }
-    $img_suffix = '_side45.png';
+    $file_base_archive = preg_replace('/_[0-9]+$/', '', $file_base, 1);
 
-    $file_url = \Drupal::service('file_url_generator')->generate($file->getFileUri())->toString();
-    $base_dir = rtrim(dirname($file_url), '/');
-    $base_prefix = preg_match('/^https?:\/\//i', $base_dir) ? '' : $base;
-
+    $views_dirs = [];
     if ($is_archive) {
-      $view_base = $base_prefix . $base_dir . '/' . $file_base . '_' . $extension . '/views/' . $file_base;
-
-      if (!url_exists($view_base . $img_suffix)) {
-        $file_base_archive = preg_replace('/_[0-9]+$/', '', $file_base);
-        $view_base = $base_prefix . $base_dir . '/' . $file_base . '_' . $extension . '/views/' . $file_base_archive;
-      }
+      $views_dirs[] = $dir_uri . '/' . $file_base . '_' . $extension . '/views';
+      $views_dirs[] = $dir_uri . '/' . $file_base . '_' . strtoupper($extension) . '/views';
     }
     else {
-      $view_base = $base_prefix . $base_dir . '/views/' . $file_base;
-
-      if (!url_exists($view_base . $img_suffix)) {
-        $view_base = $base_prefix . $base_dir . '/' . $file_base;
-      }
-
-      if (!url_exists($view_base . $img_suffix)) {
-        $view_base = $base_prefix . $base_dir . '/views/' . $file_base;
-      }
+      $views_dirs[] = $dir_uri . '/views';
     }
 
-    $view_base = str_replace(' ', '%20', $view_base);
-    clearstatcache();
-
-    $images_temp = [
-      $view_base . $img_suffix,
-      $view_base . '_side0.png',
-      $view_base . '_side90.png',
-      $view_base . '_side135.png',
-      $view_base . '_side180.png',
-      $view_base . '_side225.png',
-      $view_base . '_side270.png',
-      $view_base . '_side315.png',
-      $view_base . '_top.png',
+    $suffixes = [
+      '_side45.png',
+      '_side0.png',
+      '_side90.png',
+      '_side135.png',
+      '_side180.png',
+      '_side225.png',
+      '_side270.png',
+      '_side315.png',
+      '_top.png',
     ];
 
-    $images_paths = [];
-
-    foreach ($images_temp as $url) {
-      $url_path = parse_url($url, PHP_URL_PATH);
-      if (!$url_path) {
-        continue;
-      }
-
-      $local_path = rtrim(DRUPAL_ROOT, '/\\') . '/' . ltrim($url_path, '/');
-      if (!is_file($local_path)) {
-        continue;
-      }
-
-      $images_paths[] = $url;
+    $name_candidates = [$file_base];
+    if ($file_base_archive !== $file_base) {
+      $name_candidates[] = $file_base_archive;
     }
+    if ($is_archive) {
+      $name_candidates[] = $file_base . '_' . $extension;
+      $name_candidates[] = $file_base . '_' . strtoupper($extension);
+    }
+
+    $best_images = [];
+    foreach (array_unique($views_dirs) as $views_dir_uri) {
+      $views_real = $fs->realpath($views_dir_uri);
+      if (!$views_real || !is_dir($views_real)) {
+        continue;
+      }
+
+      $dynamic_names = [];
+      $side45_files = glob(rtrim($views_real, '/\\') . '/*_side45.png') ?: [];
+      foreach ($side45_files as $side45_file) {
+        $base_name = preg_replace('/_side45\.png$/', '', basename($side45_file));
+        if (!empty($base_name)) {
+          $dynamic_names[] = $base_name;
+        }
+      }
+
+      $all_names = array_unique(array_merge($name_candidates, $dynamic_names));
+      foreach ($all_names as $base_name) {
+        $candidate_images = [];
+        foreach ($suffixes as $suffix) {
+          $img_uri = $views_dir_uri . '/' . $base_name . $suffix;
+          if (!$this->uriExists($img_uri)) {
+            continue;
+          }
+
+          $img_url = $this->uriToUrl($img_uri);
+          if ($img_url !== NULL) {
+            $candidate_images[] = $img_url;
+          }
+        }
+
+        if (count($candidate_images) > count($best_images)) {
+          $best_images = $candidate_images;
+        }
+      }
+    }
+
+    $images_paths = $best_images;
 
     if (!empty($images_paths) && $this->entityHasField($entity, $cfg['image_generation'])) {
       $entity->set($cfg['image_generation'], $images_paths);
+      \Drupal::logger('dfg_3dviewer')->notice(
+        'Added @count rendered images to "@field".',
+        [
+          '@count' => count($images_paths),
+          '@field' => $cfg['image_generation'],
+        ]
+      );
+    }
+    else {
+      \Drupal::logger('dfg_3dviewer')->warning(
+        'No rendered images found for file_uri="@uri" (archive=@archive).',
+        [
+          '@uri' => $file_uri,
+          '@archive' => $is_archive ? 'true' : 'false',
+        ]
+      );
     }
 
-    $dir_uri = preg_replace('#/[^/]+$#', '', $file_uri) ?: '';
-    $file_base_archive = preg_replace('/_[0-9]+$/', '', $file_base, 1);
     $preferred_uris = [];
 
     if ($is_archive) {
@@ -400,6 +424,26 @@ class ConvertWorker extends QueueWorkerBase {
     $fs = \Drupal::service('file_system');
     $real = $fs->realpath($uri);
     return !empty($real) && is_file($real);
+  }
+
+  private function uriToUrl(string $uri): ?string {
+    if ($uri === '') {
+      return NULL;
+    }
+
+    try {
+      return \Drupal::service('file_url_generator')->generateString($uri);
+    }
+    catch (\Throwable $e) {
+      \Drupal::logger('dfg_3dviewer')->warning(
+        'Cannot build URL for URI "@uri": @msg',
+        [
+          '@uri' => $uri,
+          '@msg' => $e->getMessage(),
+        ]
+      );
+      return NULL;
+    }
   }
 
   private function saveEntity($entity): void {
