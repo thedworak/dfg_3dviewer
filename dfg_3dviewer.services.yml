@@ -1,7 +1,7 @@
 services:
   dfg_3dviewer.model_format_manager:
     class: Drupal\dfg_3dviewer\Service\ModelFormatManager
-  #dfg_3dviewer.convert_process:
-  #  class: Drupal\dfg_3dviewer\Service\ConvertProcessService
-  #  arguments:
-  #    - '@logger.factory'
+  dfg_3dviewer.convert_process:
+    class: Drupal\dfg_3dviewer\Service\ConvertProcessService
+    arguments:
+      - '@logger.factory'
