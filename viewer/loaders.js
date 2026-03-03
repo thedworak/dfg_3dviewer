@@ -282,7 +282,7 @@ function traverseMesh(object) {
       );
       const dracoLoader = new DRACOLoader();
       dracoLoader.setDecoderPath(dracoBase);
-      dracoLoader.setDecoderConfig({ type: 'wasm' });
+      dracoLoader.setDecoderConfig({ type: 'js' });
       dracoLoader.preload();
 
       const loader = new GLTFLoader();

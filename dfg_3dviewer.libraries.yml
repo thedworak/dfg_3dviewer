@@ -30,9 +30,3 @@ dfg_3dviewer.progress:
     scripts/progress.js: {}
   dependencies:
     - core/drupal
-
-draco:
-  js:
-    dist/drupal/assets/draco/draco_decoder.js: {}
-  dependencies:
-    - core/drupal
