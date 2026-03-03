@@ -321,54 +321,50 @@ class ConvertWorker extends QueueWorkerBase {
       $entity->set($cfg['image_generation'], $images_paths);
     }
 
-    $fpath = str_replace($file_name, '', $file_url);
-    $last_slash = strrpos($fpath, '/');
-    $sub_path = $last_slash !== FALSE ? substr($fpath, 0, $last_slash) : dirname($fpath);
-
+    $dir_uri = preg_replace('#/[^/]+$#', '', $file_uri) ?: '';
     $file_base_archive = preg_replace('/_[0-9]+$/', '', $file_base, 1);
-    $auto_path = '';
+    $preferred_uris = [];
 
     if ($is_archive) {
-      semi_automatic_path($sub_path . '/' . $file_base . '_' . $extension, $file_base, $file_base_archive, $auto_path, $extension);
+      $preferred_uris[] = $dir_uri . '/' . $file_base . '_' . $extension . '/gltf/' . $file_base . '.glb';
+
+      if ($file_base_archive !== $file_base) {
+        $preferred_uris[] = $dir_uri . '/' . $file_base . '_' . $extension . '/gltf/' . $file_base_archive . '.glb';
+      }
+
+      $preferred_uris[] = $dir_uri . '/gltf/' . $file_base . '.glb';
+
+      if ($file_base_archive !== $file_base) {
+        $preferred_uris[] = $dir_uri . '/gltf/' . $file_base_archive . '.glb';
+      }
     }
     else {
-      semi_automatic_path($sub_path, $file_base, '', $auto_path, $extension);
+      if ($extension === 'glb') {
+        $preferred_uris[] = $dir_uri . '/' . $file_base . '.glb';
+      }
+      else {
+        $preferred_uris[] = $dir_uri . '/gltf/' . $file_base . '.glb';
+      }
     }
 
-    if ($extension === 'glb') {
-      $orig_path = $sub_path . '/' . $file_base . '.glb';
+    $auto_path = '';
+    foreach ($preferred_uris as $candidate_uri) {
+      if ($this->uriExists($candidate_uri)) {
+        $auto_path = $candidate_uri;
+        break;
+      }
     }
-    else {
-      $orig_path = $sub_path . '/gltf/' . $file_base . '.glb';
-    }
-
-    $orig_arch_path = $sub_path . '/' . $file_base . '_' . $extension . '/gltf/' . $file_base . '.glb';
 
     if ($auto_path === '') {
-      // Keep semi-automatic fallback result as-is.
-    }
-    elseif (!$is_archive) {
-      $auto_path = $orig_path;
-    }
-    elseif (file_exists($orig_arch_path)) {
-      $auto_path = $orig_arch_path;
-    }
-    else {
-      $auto_path = $orig_path;
-    }
-
-    $auto_uri = $this->localPathToManagedUri($auto_path);
-    if (!empty($auto_uri)) {
-      $auto_path = $auto_uri;
+      $auto_path = $preferred_uris[0] ?? '';
     }
 
     if (!empty($auto_path) && $this->entityHasField($entity, $cfg['viewer_file_name'])) {
       $entity->set($cfg['viewer_file_name'], $auto_path);
       \Drupal::logger('dfg_3dviewer')->notice(
-        'Saved viewer_file_name value "@value" (resolved_uri="@uri").',
+        'Saved viewer_file_name value "@value".',
         [
           '@value' => $auto_path,
-          '@uri' => (string) $auto_uri,
         ]
       );
     }
@@ -396,37 +392,14 @@ class ConvertWorker extends QueueWorkerBase {
     return method_exists($entity, 'hasField') && $entity->hasField($field_name);
   }
 
-  private function localPathToManagedUri(string $path): ?string {
-    if ($path === '') {
-      return NULL;
+  private function uriExists(string $uri): bool {
+    if ($uri === '') {
+      return FALSE;
     }
 
-    $normalized_path = rtrim($this->normalizePath($path), '/');
     $fs = \Drupal::service('file_system');
-
-    foreach (['public', 'private', 'temporary'] as $scheme) {
-      $scheme_root = $fs->realpath($scheme . '://');
-      if (!$scheme_root) {
-        continue;
-      }
-
-      $normalized_root = rtrim($this->normalizePath($scheme_root), '/');
-      if ($normalized_path === $normalized_root) {
-        return $scheme . '://';
-      }
-
-      $prefix = $normalized_root . '/';
-      if (str_starts_with($normalized_path, $prefix)) {
-        $relative = ltrim(substr($normalized_path, strlen($prefix)), '/');
-        return $scheme . '://' . $relative;
-      }
-    }
-
-    return NULL;
-  }
-
-  private function normalizePath(string $path): string {
-    return str_replace('\\', '/', $path);
+    $real = $fs->realpath($uri);
+    return !empty($real) && is_file($real);
   }
 
   private function saveEntity($entity): void {
