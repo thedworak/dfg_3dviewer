@@ -14,8 +14,7 @@ import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { IFCLoader } from "./js/loaders/IFCLoader.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 
-// Remove main.js import
-import { core, setCore } from './core.js';
+import { core } from './core.js';
 import { fetchSettings } from "./metadata.js";
 import { showToast } from "./viewer-utils.js";
 
@@ -276,8 +275,8 @@ function traverseMesh(object) {
 
       const dracoBase = normalizePath(
       ENV_BUILD === 'drupal'
-        ? `/sites/default/files/draco/` //remember to copy draco files to this public location in drupal build
-        //? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/${ENV_BUILD}/assets/draco/`
+        //? `/sites/default/files/draco/` //remember to copy draco files to this public location in drupal build
+        ? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/${ENV_BUILD}/assets/draco/`
         : `/assets/draco/`
       );
       const dracoLoader = new DRACOLoader();

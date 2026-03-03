@@ -1,3 +1,5 @@
+import { core } from './core.js';
+
 // Geometry helpers
 export function distanceBetweenPoints(pointA, pointB) {
   return Math.sqrt(
