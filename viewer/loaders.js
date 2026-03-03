@@ -276,12 +276,12 @@ function traverseMesh(object) {
 
       const dracoBase = normalizePath(
       ENV_BUILD === 'drupal'
-        ? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/assets/draco/`
+        ? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/${ENV_BUILD}/assets/draco/`
         : `/assets/draco/`
       );
-      console.log('[loadGLTFModel] Draco decoder path:', dracoBase);
       const dracoLoader = new DRACOLoader();
       dracoLoader.setDecoderPath(dracoBase);
+      dracoLoader.setDecoderConfig({ type: 'wasm' });
       dracoLoader.preload();
 
       const loader = new GLTFLoader();
