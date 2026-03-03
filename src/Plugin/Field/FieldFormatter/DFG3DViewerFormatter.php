@@ -1,7 +1,7 @@
 <?php
  /**
  * @file
- * Definition of Drupal\dfg_3dviewer\Plugin\field\formatter\DFG3DDerivativeLinkFormatter.
+ * Definition of Drupal\dfg_3dviewer\Plugin\field\formatter\DFG3DViewerFormatter.
  */
    
   namespace Drupal\dfg_3dviewer\Plugin\Field\FieldFormatter;
@@ -26,73 +26,68 @@
  * Plugin implementation of the 'wisski_iip_image' formatter.
  *
  * @FieldFormatter(
- *   id = "dfg_3dderivativelink",
- *   module = "dfg_3dderivativelink",
- *   label = @Translation("DFG 3D Derivative Link"),
+ *   id = "dfg_3dviewer",
+ *   module = "dfg_3dviewer",
+ *   label = @Translation("DFG 3D Viewer"),
  *   field_types = {
  *     "file"
  *   }
  * )
  */
 #  class WisskiIIPImageFormatter extends ImageFormatterBase {
-class DFG3DDerivativeLinkFormatter extends FileFormatterBase {
+class DFG3DViewerFormatter extends FileFormatterBase {
 
     /**
      * {@inheritdoc}
      */
     public function viewElements(FieldItemListInterface $items, $langcode) {
-
-
 //      $elements = parent::viewElements($items, $langcode);    
       $elements = array();
 
-      $files = $this->getEntitiesToView($items, $langcode);
+      // By Mark:
+      // get the derivative field id
+      // here must be some handling if this is empty.
+      $derivative_field_id = \Drupal::service('config.factory')->getEditable('dfg_3dviewer.settings')->get('dfg_3dviewer_viewer_file_name');
 
-      $elements['#attached']['library'][] = dfg_3dviewer_get_library();
+      // store the derivative values to an array.
+      $derivative_values = array();
+      
+      // only act if we have a field id, otherwise it will die.
+      if(!empty($derivative_field_id))
+        $derivative_values = $items->getEntity()->get($derivative_field_id)->getValue();
 
-      foreach ($files as $delta => $file) {
+      // if we have derivative values, act on that and not on the real values.
+      if(!empty($derivative_values)) {
+        $elements = array();
 
-          // get the filename
-          $filename = $file->getFilename();
-          
-          // get pathinfo
-          $pathinfo = pathinfo($file->getFilename());
-          
-          // pathinfo without the first extension so bla.tar.gz goes to bla.tar
-          $local_filename = $pathinfo['filename'];
-          
-          // bla.tar.gz -> gz
-          $extension = $pathinfo['extension'];
-          
-          // thats something like public://2022-01/bla.tar.gz
-          $local_fileuri = $file->getFileUri();
-          
-          // we do a switch for compressed file formats because they are handled otherwise.
-          if($extension == "tar" || $extension == "zip" || $extension == "gz" || $extension == "xz" || $extension == "rar") {
-            $local_fileuri = str_replace("." . $extension, "_" . strtoupper($extension), $local_fileuri);
-            
-            $local_fileuri = $local_fileuri . "/gltf/" . $local_filename . ".glb"; 
- 
-           } if($extension == "glb" || $extension == "gltf") {
-             // do nothing - just party :D
-             
-           } else {
-             $local_fileuri = str_replace($filename, "gltf/" . $filename . ".glb", $local_fileuri);
-           }
-                    
-          $file_link = file_create_url($local_fileuri);
-                    
-          $url =  Url::fromUri($file_link);
-          
+        $elements['#attached']['library'][] = dfg_3dviewer_get_library();
 
+        foreach($derivative_values as $delta => $derivative_value) {
+          
+          // here you probably still have to check if $derivative_value['value'] is still existing          
+          $elements[$delta] = array(
+            '#type' => 'html_tag',
+            '#tag' => 'p',
+            '#attributes' => array('id' => 'DFG_3DViewer', '3d' => $derivative_value['value']),
+          );        
+        }
+      } else {
+
+        $files = $this->getEntitiesToView($items, $langcode);
+
+        $elements['#attached']['library'][] = dfg_3dviewer_get_library();
+
+        foreach ($files as $delta => $file) {
+          $override_basenamespace = \Drupal::service('config.factory')->getEditable('dfg_3dviewer.settings')->get('dfg_3dviewer_basenamespace') . \Drupal::service('file_url_generator')->generateString($file->getFileUri());
+
+          if (is_null($override_basenamespace)) $override_basenamespace = \Drupal::service('file_url_generator')->generateAbsoluteString($file->getFileUri());
 
           $elements[$delta] = array(
-            '#type' => 'link',
-            '#title' => $file_link, //$file->getFilename(),
-            '#url' => $url,
+            '#type' => 'html_tag',
+            '#tag' => 'p',
+            '#attributes' => array('id' => 'DFG_3DViewer', '3d' => $override_basenamespace),
           );
-
-//        }
+        }
       }
 
       return $elements;
@@ -113,6 +108,13 @@ class DFG3DDerivativeLinkFormatter extends FileFormatterBase {
      */
     public function settingsForm(array $form, FormStateInterface $form_state) {
 
+/*      $element['wisski_inline'] = [
+        '#type' => 'checkbox',
+        '#title' => $this->t('Inline mode for IIP'),
+        '#default_value' => $this->getSetting('wisski_inline'),
+      ];
+ */     
+ //     $element = $element + parent::settingsForm($form, $form_state);
       $element = parent::settingsForm($form, $form_state);
       return $element;
     }
