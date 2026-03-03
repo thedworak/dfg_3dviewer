@@ -1,7 +1,7 @@
 <?php
  /**
  * @file
- * Definition of Drupal\dfg_3dviewer\Plugin\field\formatter\DFG3DViewerFormatter.
+ * Definition of Drupal\dfg_3dviewer\Plugin\field\formatter\DFG3DDerivativeLinkFormatter.
  */
    
   namespace Drupal\dfg_3dviewer\Plugin\Field\FieldFormatter;
@@ -26,112 +26,73 @@
  * Plugin implementation of the 'wisski_iip_image' formatter.
  *
  * @FieldFormatter(
- *   id = "dfg_3dviewer",
- *   module = "dfg_3dviewer",
- *   label = @Translation("DFG 3D Viewer"),
+ *   id = "dfg_3dderivativelink",
+ *   module = "dfg_3dderivativelink",
+ *   label = @Translation("DFG 3D Derivative Link"),
  *   field_types = {
  *     "file"
  *   }
  * )
  */
 #  class WisskiIIPImageFormatter extends ImageFormatterBase {
-class DFG3DViewerFormatter extends FileFormatterBase {
-
-    private function normalizeViewerUrl(string $value): string {
-      $value = trim($value);
-      if ($value === '') {
-        return $value;
-      }
-
-      $config = \Drupal::service('config.factory')->getEditable('dfg_3dviewer.settings');
-      $main_url = (string) (
-        $config->get('dfg_3dviewer_main_url')
-        ?? $config->get('main_url')
-        ?? ''
-      );
-      $main_url = rtrim(trim($main_url), '/');
-
-      if ($main_url !== '') {
-        if (!preg_match('#^https?://#i', $main_url)) {
-          $main_url = 'https://' . $main_url;
-        }
-
-        $value = preg_replace('#^https?://(default|dfg_3dviewer)(?=/)#i', $main_url, $value);
-
-        $escaped = preg_quote($main_url, '#');
-        $value = preg_replace(
-          "#https?://[^/]+/sites/default/files/wisski_original/{$escaped}#i",
-          $main_url,
-          $value
-        );
-
-        if (strpos($value, '/sites/default/files/') === 0) {
-          $value = $main_url . $value;
-        }
-      }
-
-      return $value;
-    }
+class DFG3DDerivativeLinkFormatter extends FileFormatterBase {
 
     /**
      * {@inheritdoc}
      */
     public function viewElements(FieldItemListInterface $items, $langcode) {
+
+
 //      $elements = parent::viewElements($items, $langcode);    
       $elements = array();
 
-      // By Mark:
-      // get the derivative field id
-      // here must be some handling if this is empty.
-      $derivative_field_id = \Drupal::service('config.factory')->getEditable('dfg_3dviewer.settings')->get('dfg_3dviewer_viewer_file_name');
+      $files = $this->getEntitiesToView($items, $langcode);
 
-      // store the derivative values to an array.
-      $derivative_values = array();
-      
-      // only act if we have a field id, otherwise it will die.
-      if(!empty($derivative_field_id))
-        $derivative_values = $items->getEntity()->get($derivative_field_id)->getValue();
+      $elements['#attached']['library'][] = dfg_3dviewer_get_library();
 
-      // if we have derivative values, act on that and not on the real values.
-      if(!empty($derivative_values)) {
-        $elements = array();
+      foreach ($files as $delta => $file) {
 
-        $elements['#attached']['library'][] = 'dfg_3dviewer/dfg_3dviewer';
-
-        foreach($derivative_values as $delta => $derivative_value) {
-          $raw_value = isset($derivative_value['value']) ? (string) $derivative_value['value'] : '';
-          $normalized_value = $this->normalizeViewerUrl($raw_value);
+          // get the filename
+          $filename = $file->getFilename();
           
-          // here you probably still have to check if $derivative_value['value'] is still existing          
+          // get pathinfo
+          $pathinfo = pathinfo($file->getFilename());
+          
+          // pathinfo without the first extension so bla.tar.gz goes to bla.tar
+          $local_filename = $pathinfo['filename'];
+          
+          // bla.tar.gz -> gz
+          $extension = $pathinfo['extension'];
+          
+          // thats something like public://2022-01/bla.tar.gz
+          $local_fileuri = $file->getFileUri();
+          
+          // we do a switch for compressed file formats because they are handled otherwise.
+          if($extension == "tar" || $extension == "zip" || $extension == "gz" || $extension == "xz" || $extension == "rar") {
+            $local_fileuri = str_replace("." . $extension, "_" . strtoupper($extension), $local_fileuri);
+            
+            $local_fileuri = $local_fileuri . "/gltf/" . $local_filename . ".glb"; 
+ 
+           } if($extension == "glb" || $extension == "gltf") {
+             // do nothing - just party :D
+             
+           } else {
+             $local_fileuri = str_replace($filename, "gltf/" . $filename . ".glb", $local_fileuri);
+           }
+                    
+          $file_link = file_create_url($local_fileuri);
+                    
+          $url =  Url::fromUri($file_link);
+          
+
+
           $elements[$delta] = array(
-            '#type' => 'html_tag',
-            '#tag' => 'p',
-            '#attributes' => array('id' => 'DFG_3DViewer', '3d' => $normalized_value),
-          );        
-        }
-      } else {
+            '#type' => 'link',
+            '#title' => $file_link, //$file->getFilename(),
+            '#url' => $url,
+          );
 
-        $files = $this->getEntitiesToView($items, $langcode);
-
-        $elements['#attached']['library'][] = 'dfg_3dviewer/dfg_3dviewer';
-
-        foreach ($files as $delta => $file) {
-
-          $uri = $file->getFileUri();
-
-          $relative_url = \Drupal::service('file_url_generator')
-            ->generateString($uri);
-          $relative_url = $this->normalizeViewerUrl((string) $relative_url);
-
-          $elements[$delta] = [
-            '#type' => 'html_tag',
-            '#tag' => 'p',
-            '#attributes' => [
-              'id' => 'DFG_3DViewer',
-              '3d' => $relative_url,
-            ],
-          ];
-        }
+//        }
       }
 
       return $elements;
@@ -152,13 +113,6 @@ class DFG3DViewerFormatter extends FileFormatterBase {
      */
     public function settingsForm(array $form, FormStateInterface $form_state) {
 
-/*      $element['wisski_inline'] = [
-        '#type' => 'checkbox',
-        '#title' => $this->t('Inline mode for IIP'),
-        '#default_value' => $this->getSetting('wisski_inline'),
-      ];
- */     
- //     $element = $element + parent::settingsForm($form, $form_state);
       $element = parent::settingsForm($form, $form_state);
       return $element;
     }
