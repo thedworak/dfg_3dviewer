@@ -235,6 +235,30 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 	$file_id = (int) $file_info[0]['target_id'];
 	$entity_id = $entity->id();
 
+	$uploaded_file = \Drupal\file\Entity\File::load($file_id);
+	if ($uploaded_file) {
+		\Drupal::logger('dfg_3dviewer')->notice(
+			'Upload field "@field" on entity @entity_id resolved to file_id=@file_id, filename="@filename", uri="@uri".',
+			[
+				'@field' => $cfg['viewer_file_upload'],
+				'@entity_id' => (string) ($entity_id ?? ''),
+				'@file_id' => $file_id,
+				'@filename' => $uploaded_file->getFilename(),
+				'@uri' => $uploaded_file->getFileUri(),
+			]
+		);
+	}
+	else {
+		\Drupal::logger('dfg_3dviewer')->warning(
+			'Upload field "@field" on entity @entity_id points to missing file_id=@file_id.',
+			[
+				'@field' => $cfg['viewer_file_upload'],
+				'@entity_id' => (string) ($entity_id ?? ''),
+				'@file_id' => $file_id,
+			]
+		);
+	}
+
 	if (empty($entity_id) && $entity->hasField('eid')) {
 		$entity_id = $entity->get('eid')->value;
 	}

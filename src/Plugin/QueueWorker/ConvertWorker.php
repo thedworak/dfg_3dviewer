@@ -55,6 +55,19 @@ class ConvertWorker extends QueueWorkerBase {
 
       $cfg = dfg_3dviewer_config();
       $fs = \Drupal::service('file_system');
+      $file_uri = $file->getFileUri();
+      $input_realpath = $fs->realpath($file_uri);
+
+      \Drupal::logger('dfg_3dviewer')->notice(
+        'Worker picked queued file: file_id=@file_id, filename="@filename", uri="@uri", realpath="@realpath".',
+        [
+          '@file_id' => $file_id,
+          '@filename' => $file->getFilename(),
+          '@uri' => $file_uri,
+          '@realpath' => (string) $input_realpath,
+        ]
+      );
+
       $module_path = $fs->realpath(
         \Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath()
       );
