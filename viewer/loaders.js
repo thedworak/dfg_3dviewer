@@ -276,7 +276,8 @@ function traverseMesh(object) {
 
       const dracoBase = normalizePath(
       ENV_BUILD === 'drupal'
-        ? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/${ENV_BUILD}/assets/draco/`
+        ? `/sites/default/files/draco/` //remember to copy draco files to this public location in drupal build
+        //? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/${ENV_BUILD}/assets/draco/`
         : `/assets/draco/`
       );
       const dracoLoader = new DRACOLoader();
