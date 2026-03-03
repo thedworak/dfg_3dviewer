@@ -2,10 +2,10 @@
 
 namespace Drupal\dfg_3dviewer\Plugin\QueueWorker;
 
+use Drupal\Core\Archiver\ArchiverException;
+use Drupal\Core\Archiver\Zip;
 use Drupal\Core\Queue\QueueWorkerBase;
 use Drupal\file\Entity\File;
-use Drupal\Core\Archiver\Zip;
-use Drupal\Core\Archiver\ArchiverException;
 
 /**
  * @QueueWorker(
@@ -16,223 +16,80 @@ use Drupal\Core\Archiver\ArchiverException;
  */
 class ConvertWorker extends QueueWorkerBase {
 
-public function processItem($data) {
-  $GLOBALS['dfg_3dviewer_worker_running'] = TRUE;
+  public function processItem($data) {
+    $GLOBALS['dfg_3dviewer_worker_running'] = TRUE;
 
-  $entity_id = $data['entity_id'] ?? NULL;
-  $file_id   = $data['file_id'] ?? NULL;
+    $entity_id = $data['entity_id'] ?? NULL;
+    $file_id = $data['file_id'] ?? NULL;
+    $entity_type = $data['entity_type'] ?? 'wisski_individual';
 
-  if (!$entity_id || !$file_id) {
-    \Drupal::logger('dfg_3dviewer')
-      ->error('Missing entity_id or file_id in queue item.');
-    return;
-  }
+    if (!$entity_id || !$file_id) {
+      \Drupal::logger('dfg_3dviewer')->error('Missing entity_id or file_id in queue item.');
+      unset($GLOBALS['dfg_3dviewer_worker_running']);
+      return;
+    }
 
-  $entity = \Drupal::entityTypeManager()
-    ->getStorage('wisski_individual')
-    ->load($entity_id);
+    $entity = \Drupal::entityTypeManager()->getStorage($entity_type)->load($entity_id);
+    if (!$entity) {
+      \Drupal::logger('dfg_3dviewer')->error(
+        'Entity @type:@id not found for conversion.',
+        ['@type' => $entity_type, '@id' => $entity_id]
+      );
+      unset($GLOBALS['dfg_3dviewer_worker_running']);
+      return;
+    }
 
-  if (!$entity) {
-    \Drupal::logger('dfg_3dviewer')
-      ->error('Entity not found for ID @id', ['@id' => $entity_id]);
-    return;
-  }
+    $lock = \Drupal::lock();
+    $lock_name = 'dfg_3dviewer_convert_' . $entity_type . '_' . $entity_id . '_' . $file_id;
 
-  $lock = \Drupal::lock();
-  $lock_name = 'dfg_3dviewer_convert_' . $entity_id;
+    if (!$lock->acquire($lock_name, 3600)) {
+      unset($GLOBALS['dfg_3dviewer_worker_running']);
+      return;
+    }
 
-  if (!$lock->acquire($lock_name, 3600)) {
-    return;
-  }
-
-  try {
-
-    $this->updateProgress($entity, 5, 'processing', 'Preparing...');
-
-      if (!$entity_id || !$file_id) {
-        return;
-      }
-
-      $entity = \Drupal::entityTypeManager()
-        ->getStorage('wisski_individual')
-        ->load($entity_id);
-
-      if (!$entity) {
-        \Drupal::logger('dfg_3dviewer')
-          ->error('Entity not found for ID @id', ['@id' => $entity_id]);
-        return;
-      }
-
+    try {
       $file = File::load($file_id);
-
-      if (!$entity || !$file) {
-        return;
+      if (!$file) {
+        throw new \RuntimeException('File not found for conversion queue item.');
       }
 
       $cfg = dfg_3dviewer_config();
-
       $fs = \Drupal::service('file_system');
-      $realpath = $fs->realpath($file->getFileUri());
-      $parts = pathinfo($realpath);
-      $extension = strtolower($parts['extension']);
-
-      $archives = ['zip','rar','tar','xz','gz'];
-
-      $modulePath = $fs->realpath(
-        \Drupal::service('module_handler')
-          ->getModule('dfg_3dviewer')->getPath()
+      $module_path = $fs->realpath(
+        \Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath()
       );
 
-      $extractPath = $parts['dirname'] . '/' .
-                    $parts['filename'] . '_' .
-                    strtoupper($extension) . '/';
-
-      try {
-
-        $entity->set('field_processing_status', 'processing');
-        $entity->save();
-
-        /* =======================================================
-          ARCHIVE HANDLING
-        ======================================================= */
-
-        if (in_array($extension, $archives)) {
-          $this->updateProgress($entity, 10, 'processing', 'Extracting archive...');
-
-          if (!is_dir($extractPath)) {
-            mkdir($extractPath, 0775, true);
-          }
-
-          if ($extension === 'zip') {
-
-            $zip = new Zip($realpath);
-            $zip->extract($extractPath);
-
-          } else {
-
-            $map = [
-              'rar' => 'rar',
-              'tar' => 'tar',
-              'gz'  => 'tar',
-              'xz'  => 'xz',
-            ];
-
-            $result = \Drupal::service('dfg_3dviewer.convert_process')
-              ->uncompress(
-                $modulePath,
-                strtoupper($map[$extension]),
-                $realpath,
-                $extractPath,
-                $parts['filename']
-              );
-
-            if (!$result['success']) {
-              throw new \Exception('Archive extraction failed');
-            }
-          }
-
-          /* =======================================================
-            FIND FIRST SUPPORTED MODEL
-          ======================================================= */
-          $this->updateProgress($entity, 25, 'processing', 'Model detected...');
-
-          $allowedFormats = \Drupal::service('dfg_3dviewer.model_format_manager')
-            ->getAllowedModelFormats();
-
-          $modelFile = NULL;
-
-          $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($extractPath)
-          );
-
-          foreach ($iterator as $fileInfo) {
-
-            if (!$fileInfo->isFile()) {
-              continue;
-            }
-
-            $ext = strtolower($fileInfo->getExtension());
-
-            if (in_array($ext, $allowedFormats)) {
-              $modelFile = $fileInfo->getPathname();
-              break;
-            }
-          }
-
-          if (!$modelFile) {
-            throw new \Exception('No supported 3D model found in archive');
-          }
-
-        }
-        else {
-          $modelFile = $realpath;
-        }
-
-        /* =======================================================
-          CONVERSION
-        ======================================================= */
-        $this->updateProgress($entity, 35, 'processing', 'Converting to GLTF and generating thumbnails...');
-
-        $convertResult = \Drupal::service('dfg_3dviewer.convert_process')
-          ->run(
-            $modulePath,
-            $modelFile,
-            (int) $cfg['lightweight'],
-            [
-              'c' => 'true',
-              'l' => '3',
-              'b' => 'true',
-              'f' => 'true',
-            ]
-          );
-
-        if (($convertResult['exit_code'] ?? 1) !== 0) {
-          \Drupal::logger('dfg_3dviewer')
-            ->error('Conversion failed @convertResult', ['@convertResult' => $convertResult]);
-          throw new \Exception('Conversion failed');
-        }
-
-        /* =======================================================
-          BUILD XML
-        ======================================================= */
-        //TEMPORARY disabled due to parsing issues
-        /*$this->updateProgress($entity, 95, 'processing', 'Building XML...');
-
-        require_once DRUPAL_ROOT . '/modules/dfg_3dviewer/php/build_xml.php';
-        build_xml($entity_id, $cfg['main_url']);*/
-
-        /* =======================================================
-          UPDATE ENTITY FIELDS
-        ======================================================= */
-
-        $entity->set('field_processing_status', 'ready');
-        $entity->save();
-
-        \Drupal::logger('dfg_3dviewer')
-          ->notice('Conversion finished for entity @id', ['@id' => $entity_id]);
-        $this->updateProgress($entity, 100, 'success', 'Conversion finished');
-
+      if (!$module_path) {
+        throw new \RuntimeException('Cannot resolve module path.');
       }
-      catch (\Throwable $e) {
 
-        \Drupal::logger('dfg_3dviewer')->error(
-          'Conversion failed for entity @id: @msg',
-          [
-            '@id' => $entity_id,
-            '@msg' => $e->getMessage(),
-          ]
-        );
-        $this->updateProgress($entity, 100, 'failed', 'Conversion failed');
-        $entity->save();
-      }
+      $repo_root = dirname(dirname($module_path));
+
+      $this->updateProgress($entity, 5, 'processing', 'Preparing...');
+      $this->saveEntity($entity);
+
+      $context = $this->convertFile($entity, $file, $cfg, $module_path);
+      $this->saveEntity($entity);
+
+      $this->updateProgress($entity, 80, 'processing', 'Updating viewer fields...');
+      $this->applyViewerFields($entity, $file, $cfg, $repo_root, $context);
+
+      $this->updateProgress($entity, 100, 'ready', 'Conversion finished');
+      $this->saveEntity($entity);
+
+      \Drupal::logger('dfg_3dviewer')->notice(
+        'Conversion finished for entity @entity_id and file @file_id.',
+        ['@entity_id' => $entity_id, '@file_id' => $file_id]
+      );
     }
-    catch (\Throwable $e) {    
+    catch (\Throwable $e) {
       \Drupal::logger('dfg_3dviewer')->error(
         'Conversion failed for entity @id: @msg',
-        [
-          '@id' => $entity_id,
-          '@msg' => $e->getMessage(),
-        ]);
+        ['@id' => $entity_id, '@msg' => $e->getMessage()]
+      );
+
+      $this->updateProgress($entity, 100, 'failed', 'Conversion failed');
+      $this->saveEntity($entity);
     }
     finally {
       $lock->release($lock_name);
@@ -240,12 +97,275 @@ public function processItem($data) {
     }
   }
 
-  private function updateProgress($entity, int $percent, string $status, string $message = '') {
-      $entity->set('field_processing_progress', $percent);
-      $entity->set('field_processing_status', $status);
+  private function convertFile($entity, File $file, array $cfg, string $module_path): array {
+    $fs = \Drupal::service('file_system');
+    $realpath = $fs->realpath($file->getFileUri());
 
-      if ($message) {
-          $entity->set('field_processing_message', $message);
+    if (!$realpath || !is_file($realpath)) {
+      throw new \RuntimeException('Input file does not exist on filesystem.');
+    }
+
+    $parts = pathinfo($realpath);
+    $extension = strtolower($parts['extension'] ?? '');
+    if ($extension === '') {
+      throw new \RuntimeException('Cannot resolve input file extension.');
+    }
+
+    $archives = \Drupal::service('dfg_3dviewer.model_format_manager')->getZipFormats();
+    $is_archive = in_arrayi($extension, $archives);
+
+    $new_file = $parts['dirname'] . '/gltf/' . $parts['filename'] . '.glb';
+    $new_dir = $parts['dirname'] . '/' . $parts['filename'] . '_' . $extension . '/gltf/';
+
+    if (!file_exists($new_file) && !is_dir($new_dir)) {
+      if ($is_archive) {
+        $this->updateProgress($entity, 10, 'processing', 'Extracting archive...');
+
+        $extract_path = $parts['dirname'] . '/' . $parts['filename'] . '_' . $extension . '/';
+        if (!is_dir($extract_path) && !mkdir($extract_path, 0775, TRUE) && !is_dir($extract_path)) {
+          throw new \RuntimeException('Cannot create archive extraction directory.');
+        }
+
+        if ($extension === 'zip') {
+          try {
+            $zip = new Zip($realpath);
+            $zip->extract($extract_path);
+            $zip->remove($realpath);
+          }
+          catch (ArchiverException $e) {
+            throw new \RuntimeException('Archive extraction failed: ' . $e->getMessage(), 0, $e);
+          }
+        }
+        else {
+          $map = [
+            'rar' => 'RAR',
+            'tar' => 'TAR',
+            'gz' => 'TAR',
+            'xz' => 'XZ',
+          ];
+
+          $type = $map[$extension] ?? strtoupper($extension);
+          $result = \Drupal::service('dfg_3dviewer.convert_process')
+            ->uncompress($module_path, $type, $realpath, $extract_path, $parts['filename']);
+
+          if (!($result['success'] ?? FALSE)) {
+            throw new \RuntimeException('Archive extraction failed.');
+          }
+        }
+
+        $this->updateProgress($entity, 25, 'processing', 'Model detected...');
+
+        $allowed_formats = \Drupal::service('dfg_3dviewer.model_format_manager')->getAllowedModelFormats();
+        $model_file = NULL;
+
+        $iterator = new \RecursiveIteratorIterator(
+          new \RecursiveDirectoryIterator($extract_path, \FilesystemIterator::SKIP_DOTS)
+        );
+
+        foreach ($iterator as $candidate) {
+          if (!$candidate->isFile()) {
+            continue;
+          }
+
+          $candidate_ext = strtolower($candidate->getExtension());
+          if (in_arrayi($candidate_ext, $allowed_formats)) {
+            $model_file = $candidate->getPathname();
+            break;
+          }
+        }
+
+        if (!$model_file) {
+          throw new \RuntimeException('No supported 3D model found in archive.');
+        }
+
+        $this->updateProgress($entity, 35, 'processing', 'Converting to GLTF and generating thumbnails...');
+
+        $convert_result = \Drupal::service('dfg_3dviewer.convert_process')->run(
+          $module_path,
+          $model_file,
+          (int) $cfg['lightweight'],
+          [
+            'c' => TRUE,
+            'l' => '3',
+            'b' => TRUE,
+            'o' => $extract_path,
+            'f' => TRUE,
+            'a' => 'false',
+          ]
+        );
+
+        if (($convert_result['exit_code'] ?? 1) !== 0) {
+          throw new \RuntimeException('Conversion failed.');
+        }
       }
+      else {
+        $this->updateProgress($entity, 35, 'processing', 'Converting to GLTF and generating thumbnails...');
+
+        $convert_result = \Drupal::service('dfg_3dviewer.convert_process')->run(
+          $module_path,
+          $realpath,
+          (int) $cfg['lightweight'],
+          [
+            'c' => TRUE,
+            'l' => '3',
+            'b' => TRUE,
+            'f' => TRUE,
+          ]
+        );
+
+        if (($convert_result['exit_code'] ?? 1) !== 0) {
+          throw new \RuntimeException('Conversion failed.');
+        }
+      }
+    }
+
+    return [
+      'extension' => $extension,
+      'is_archive' => $is_archive,
+    ];
   }
+
+  private function applyViewerFields($entity, File $file, array $cfg, string $repo_root, array $context): void {
+    $extension = $context['extension'];
+    $is_archive = (bool) $context['is_archive'];
+
+    $request = \Drupal::requestStack()->getCurrentRequest();
+    $base = $request
+      ? $request->getSchemeAndHttpHost()
+      : rtrim((string) ($cfg['main_url'] ?? ''), '/');
+
+    $file_name = $file->getFilename();
+    $file_base = pathinfo($file_name, PATHINFO_FILENAME);
+    $img_suffix = '_side45.png';
+
+    $file_url = \Drupal::service('file_url_generator')->generate($file->getFileUri())->toString();
+    $base_dir = rtrim(dirname($file_url), '/');
+    $base_prefix = preg_match('/^https?:\/\//i', $base_dir) ? '' : $base;
+
+    if ($is_archive) {
+      $view_base = $base_prefix . $base_dir . '/' . $file_base . '_' . $extension . '/views/' . $file_base;
+
+      if (!url_exists($view_base . $img_suffix)) {
+        $file_base_archive = preg_replace('/_[0-9]+$/', '', $file_base);
+        $view_base = $base_prefix . $base_dir . '/' . $file_base . '_' . $extension . '/views/' . $file_base_archive;
+      }
+    }
+    else {
+      $view_base = $base_prefix . $base_dir . '/views/' . $file_base;
+
+      if (!url_exists($view_base . $img_suffix)) {
+        $view_base = $base_prefix . $base_dir . '/' . $file_base;
+      }
+
+      if (!url_exists($view_base . $img_suffix)) {
+        $view_base = $base_prefix . $base_dir . '/views/' . $file_base;
+      }
+    }
+
+    $view_base = str_replace(' ', '%20', $view_base);
+    clearstatcache();
+
+    $images_temp = [
+      $view_base . $img_suffix,
+      $view_base . '_side0.png',
+      $view_base . '_side90.png',
+      $view_base . '_side135.png',
+      $view_base . '_side180.png',
+      $view_base . '_side225.png',
+      $view_base . '_side270.png',
+      $view_base . '_side315.png',
+      $view_base . '_top.png',
+    ];
+
+    $images_paths = [];
+
+    foreach ($images_temp as $url) {
+      $url_path = parse_url($url, PHP_URL_PATH);
+      if (!$url_path) {
+        continue;
+      }
+
+      $local_path = rtrim(DRUPAL_ROOT, '/\\') . '/' . ltrim($url_path, '/');
+      if (!is_file($local_path)) {
+        continue;
+      }
+
+      $images_paths[] = $url;
+    }
+
+    if (!empty($images_paths) && $this->entityHasField($entity, $cfg['image_generation'])) {
+      $entity->set($cfg['image_generation'], $images_paths);
+    }
+
+    $fpath = str_replace($file_name, '', $file_url);
+    $last_slash = strrpos($fpath, '/');
+    $sub_path = $last_slash !== FALSE ? substr($fpath, 0, $last_slash) : dirname($fpath);
+
+    $file_base_archive = preg_replace('/_[0-9]+$/', '', $file_base, 1);
+    $auto_path = '';
+
+    if ($is_archive) {
+      semi_automatic_path($sub_path . '/' . $file_base . '_' . $extension, $file_base, $file_base_archive, $auto_path, $extension);
+    }
+    else {
+      semi_automatic_path($sub_path, $file_base, '', $auto_path, $extension);
+    }
+
+    if ($extension === 'glb') {
+      $orig_path = $sub_path . '/' . $file_base . '.glb';
+    }
+    else {
+      $orig_path = $sub_path . '/gltf/' . $file_base . '.glb';
+    }
+
+    $orig_arch_path = $sub_path . '/' . $file_base . '_' . $extension . '/gltf/' . $file_base . '.glb';
+
+    if ($auto_path === '') {
+      // Keep semi-automatic fallback result as-is.
+    }
+    elseif (!$is_archive) {
+      $auto_path = $orig_path;
+    }
+    elseif (file_exists($orig_arch_path)) {
+      $auto_path = $orig_arch_path;
+    }
+    else {
+      $auto_path = $orig_path;
+    }
+
+    $auto_path = str_replace($repo_root, $cfg['main_url'], $auto_path);
+
+    if (!empty($auto_path) && $this->entityHasField($entity, $cfg['viewer_file_name'])) {
+      $entity->set($cfg['viewer_file_name'], $auto_path);
+    }
+
+    if ($this->entityHasField($entity, $cfg['field_df'])) {
+      $entity->set($cfg['field_df'], '');
+    }
+  }
+
+  private function updateProgress($entity, int $percent, string $status, string $message = ''): void {
+    if ($this->entityHasField($entity, 'field_processing_progress')) {
+      $entity->set('field_processing_progress', $percent);
+    }
+
+    if ($this->entityHasField($entity, 'field_processing_status')) {
+      $entity->set('field_processing_status', $status);
+    }
+
+    if ($message && $this->entityHasField($entity, 'field_processing_message')) {
+      $entity->set('field_processing_message', $message);
+    }
+  }
+
+  private function entityHasField($entity, string $field_name): bool {
+    return method_exists($entity, 'hasField') && $entity->hasField($field_name);
+  }
+
+  private function saveEntity($entity): void {
+    if (method_exists($entity, 'save')) {
+      $entity->save();
+    }
+  }
+
 }
