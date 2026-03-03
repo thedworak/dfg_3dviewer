@@ -187,6 +187,8 @@ public function processItem($data) {
           );
 
         if (($convertResult['exit_code'] ?? 1) !== 0) {
+          \Drupal::logger('dfg_3dviewer')
+            ->error('Conversion failed @convertResult', ['@convertResult' => $convertResult]);
           throw new \Exception('Conversion failed');
         }
 
