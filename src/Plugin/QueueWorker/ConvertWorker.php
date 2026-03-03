@@ -269,7 +269,6 @@ class ConvertWorker extends QueueWorkerBase {
 
     $suffixes = [
       '_side45.png',
-      '_side0.png',
       '_side90.png',
       '_side135.png',
       '_side180.png',
@@ -277,6 +276,7 @@ class ConvertWorker extends QueueWorkerBase {
       '_side270.png',
       '_side315.png',
       '_top.png',
+      '_RENDER.png',
     ];
 
     $name_candidates = [$file_base];
@@ -328,7 +328,7 @@ class ConvertWorker extends QueueWorkerBase {
     $images_paths = $best_images;
 
     if (!empty($images_paths) && $this->entityHasField($entity, $cfg['image_generation'])) {
-      $images_field_values = $this->buildFieldValues($entity, $cfg['image_generation'], $images_paths);
+      $images_field_values = $this->buildImageGenerationValues($images_paths);
       $entity->set($cfg['image_generation'], $images_field_values);
       $first_image = $images_paths[0] ?? '';
       \Drupal::logger('dfg_3dviewer')->notice(
@@ -441,7 +441,7 @@ class ConvertWorker extends QueueWorkerBase {
     }
 
     try {
-      return \Drupal::service('file_url_generator')->generateString($uri);
+      return \Drupal::service('file_url_generator')->generateAbsoluteString($uri);
     }
     catch (\Throwable $e) {
       \Drupal::logger('dfg_3dviewer')->warning(
@@ -458,9 +458,22 @@ class ConvertWorker extends QueueWorkerBase {
   private function buildFieldValues($entity, string $field_name, array $scalar_values): array {
     $main_property = 'value';
     $field_type = 'unknown';
+    $property_defs = [];
+    $has_value_property = TRUE;
+    $has_wisski_language = FALSE;
 
     try {
       $definition = $entity->getFieldDefinition($field_name);
+      if ($definition && method_exists($definition, 'getItemDefinition')) {
+        $item_definition = $definition->getItemDefinition();
+        if ($item_definition && method_exists($item_definition, 'getPropertyDefinitions')) {
+          $property_defs = $item_definition->getPropertyDefinitions() ?: [];
+        }
+      }
+
+      $has_value_property = empty($property_defs) || isset($property_defs['value']);
+      $has_wisski_language = isset($property_defs['wisski_language']);
+
       if ($definition && method_exists($definition, 'getFieldStorageDefinition')) {
         $storage_definition = $definition->getFieldStorageDefinition();
         if ($storage_definition && method_exists($storage_definition, 'getType')) {
@@ -478,7 +491,11 @@ class ConvertWorker extends QueueWorkerBase {
       // Keep default main property fallback.
     }
 
-    if ($main_property === 'target_id') {
+    if ($has_value_property) {
+      $main_property = 'value';
+    }
+
+    if ($main_property === 'target_id' && !$has_value_property) {
       $values = [];
       foreach ($scalar_values as $value) {
         $uri = $this->imageLocationToUri((string) $value);
@@ -506,19 +523,58 @@ class ConvertWorker extends QueueWorkerBase {
     }
 
     $values = [];
+    $lang = 'en';
+    try {
+      $lang = (string) \Drupal::languageManager()->getCurrentLanguage()->getId();
+      if ($lang === '') {
+        $lang = 'en';
+      }
+    }
+    catch (\Throwable $e) {
+      $lang = 'en';
+    }
+
     foreach ($scalar_values as $value) {
-      $values[] = [$main_property => $value];
+      $row = [$main_property => $value];
+      if ($has_wisski_language) {
+        $row['wisski_language'] = $lang;
+      }
+      $values[] = $row;
     }
 
     \Drupal::logger('dfg_3dviewer')->notice(
-      'Prepared @count scalar values for field "@field" (type="@type", main_property="@main").',
+      'Prepared @count scalar values for field "@field" (type="@type", main_property="@main", wisski_language=@wl).',
       [
         '@count' => count($values),
         '@field' => $field_name,
         '@type' => $field_type,
         '@main' => $main_property,
+        '@wl' => $has_wisski_language ? 'yes' : 'no',
       ]
     );
+
+    return $values;
+  }
+
+  private function buildImageGenerationValues(array $image_urls): array {
+    $lang = 'en';
+    try {
+      $lang = (string) \Drupal::languageManager()->getCurrentLanguage()->getId();
+      if ($lang === '') {
+        $lang = 'en';
+      }
+    }
+    catch (\Throwable $e) {
+      $lang = 'en';
+    }
+
+    $values = [];
+    foreach ($image_urls as $url) {
+      $values[] = [
+        'value' => (string) $url,
+        'wisski_language' => $lang,
+      ];
+    }
 
     return $values;
   }
