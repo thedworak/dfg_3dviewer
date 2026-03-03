@@ -80,8 +80,6 @@ class ConvertWorker extends QueueWorkerBase {
         throw new \RuntimeException('Cannot resolve module path.');
       }
 
-      $repo_root = dirname(dirname($module_path));
-
       $this->updateProgress($entity, 5, 'processing', 'Preparing...');
       $this->saveEntity($entity);
 
@@ -89,7 +87,7 @@ class ConvertWorker extends QueueWorkerBase {
       $this->saveEntity($entity);
 
       $this->updateProgress($entity, 80, 'processing', 'Updating viewer fields...');
-      $this->applyViewerFields($entity, $file, $cfg, $repo_root, $context);
+      $this->applyViewerFields($entity, $file, $cfg, $context);
 
       $this->updateProgress($entity, 100, 'ready', 'Conversion finished');
       $this->saveEntity($entity);
@@ -242,7 +240,7 @@ class ConvertWorker extends QueueWorkerBase {
     ];
   }
 
-  private function applyViewerFields($entity, File $file, array $cfg, string $repo_root, array $context): void {
+  private function applyViewerFields($entity, File $file, array $cfg, array $context): void {
     $extension = $context['extension'];
     $is_archive = (bool) $context['is_archive'];
     $fs = \Drupal::service('file_system');
@@ -359,10 +357,20 @@ class ConvertWorker extends QueueWorkerBase {
       $auto_path = $orig_path;
     }
 
-    $auto_path = str_replace($repo_root, $cfg['main_url'], $auto_path);
+    $auto_uri = $this->localPathToManagedUri($auto_path);
+    if (!empty($auto_uri)) {
+      $auto_path = $auto_uri;
+    }
 
     if (!empty($auto_path) && $this->entityHasField($entity, $cfg['viewer_file_name'])) {
       $entity->set($cfg['viewer_file_name'], $auto_path);
+      \Drupal::logger('dfg_3dviewer')->notice(
+        'Saved viewer_file_name value "@value" (resolved_uri="@uri").',
+        [
+          '@value' => $auto_path,
+          '@uri' => (string) $auto_uri,
+        ]
+      );
     }
 
     if ($this->entityHasField($entity, $cfg['field_df'])) {
@@ -386,6 +394,39 @@ class ConvertWorker extends QueueWorkerBase {
 
   private function entityHasField($entity, string $field_name): bool {
     return method_exists($entity, 'hasField') && $entity->hasField($field_name);
+  }
+
+  private function localPathToManagedUri(string $path): ?string {
+    if ($path === '') {
+      return NULL;
+    }
+
+    $normalized_path = rtrim($this->normalizePath($path), '/');
+    $fs = \Drupal::service('file_system');
+
+    foreach (['public', 'private', 'temporary'] as $scheme) {
+      $scheme_root = $fs->realpath($scheme . '://');
+      if (!$scheme_root) {
+        continue;
+      }
+
+      $normalized_root = rtrim($this->normalizePath($scheme_root), '/');
+      if ($normalized_path === $normalized_root) {
+        return $scheme . '://';
+      }
+
+      $prefix = $normalized_root . '/';
+      if (str_starts_with($normalized_path, $prefix)) {
+        $relative = ltrim(substr($normalized_path, strlen($prefix)), '/');
+        return $scheme . '://' . $relative;
+      }
+    }
+
+    return NULL;
+  }
+
+  private function normalizePath(string $path): string {
+    return str_replace('\\', '/', $path);
   }
 
   private function saveEntity($entity): void {

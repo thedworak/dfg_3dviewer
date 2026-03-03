@@ -63,12 +63,17 @@ class DFG3DViewerFormatter extends FileFormatterBase {
         $elements['#attached']['library'][] = dfg_3dviewer_get_library();
 
         foreach($derivative_values as $delta => $derivative_value) {
-          
-          // here you probably still have to check if $derivative_value['value'] is still existing          
+          $raw_path = (string) ($derivative_value['value'] ?? '');
+          if ($raw_path === '') {
+            continue;
+          }
+
+          $resolved_path = $this->resolveViewerPath($raw_path);
+
           $elements[$delta] = array(
             '#type' => 'html_tag',
             '#tag' => 'p',
-            '#attributes' => array('id' => 'DFG_3DViewer', '3d' => $derivative_value['value']),
+            '#attributes' => array('id' => 'DFG_3DViewer', '3d' => $resolved_path),
           );        
         }
       } else {
@@ -124,5 +129,42 @@ class DFG3DViewerFormatter extends FileFormatterBase {
      */
     public function settingsSummary() {
       return parent::settingsSummary();
+    }
+
+    private function resolveViewerPath(string $value): string {
+      $value = trim($value);
+      if ($value === '') {
+        return $value;
+      }
+
+      if (preg_match('#^https?://#i', $value)) {
+        return $value;
+      }
+
+      if (str_starts_with($value, '/')) {
+        return $value;
+      }
+
+      if (preg_match('#^[a-z][a-z0-9+.-]*://#i', $value)) {
+        try {
+          return \Drupal::service('file_url_generator')->generateString($value);
+        }
+        catch (\Throwable $e) {
+          \Drupal::logger('dfg_3dviewer')->warning(
+            'Could not resolve stream wrapper URI "@value" for viewer path: @msg',
+            [
+              '@value' => $value,
+              '@msg' => $e->getMessage(),
+            ]
+          );
+          return $value;
+        }
+      }
+
+      if (str_starts_with($value, 'sites/default/files/')) {
+        return '/' . ltrim($value, '/');
+      }
+
+      return $value;
     }
   }
