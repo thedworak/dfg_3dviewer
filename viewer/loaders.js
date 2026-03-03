@@ -279,6 +279,7 @@ function traverseMesh(object) {
         ? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/assets/draco/`
         : `/assets/draco/`
       );
+      console.log('[loadGLTFModel] Draco decoder path:', dracoBase);
       const dracoLoader = new DRACOLoader();
       dracoLoader.setDecoderPath(dracoBase);
       dracoLoader.preload();

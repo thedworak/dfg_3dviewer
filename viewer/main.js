@@ -1352,64 +1352,64 @@ export const Viewer = {
   },
 
     async mainLoadModel() {
-    console.log("Loading model with extension:", Viewer._ext);
-    console.log("File object:", core.fileObject);
-    if (Viewer._ext === "glb" || Viewer._ext === "gltf") {
-      await loadModel({
-        config: Viewer.CONFIG,
-        getProxyPath: getProxyPath,
-        stats: Viewer.stats,
-        entityID: Viewer.entityID,
-        canvasText: Viewer.canvasText,
-        bottomLineGUI: Viewer.bottomLineGUI,
-        compressedFile: Viewer.compressedFile,
-        viewEntity: Viewer.viewEntity
-      });
-    } else if (
-      Viewer._ext === "zip" ||
-      Viewer._ext === "rar" ||
-      Viewer._ext === "tar" ||
-      Viewer._ext === "xz" ||
-      Viewer._ext === "gz"
-    ) {
-      Viewer.compressedFile = "_" + Viewer._ext.toUpperCase() + "/";
-      core.fileObject.path = core.fileObject.path + core.fileObject.basename + Viewer.compressedFile
-      core.fileObject.extension = "glb";
-      core.fileObject.newExtension = Viewer._ext;
-      await loadModel({
-        config: Viewer.CONFIG,
-        getProxyPath: getProxyPath,
-        stats: Viewer.stats,
-        entityID: Viewer.entityID,
-        canvasText: Viewer.canvasText,
-        bottomLineGUI: Viewer.bottomLineGUI,
-        compressedFile: Viewer.compressedFile,
-        viewEntity: Viewer.viewEntity
-      });
-    } else {
-      //core.fileObject.extension = "glb";
-      if (Viewer._ext === "glb") {
+      console.log("Loading model with extension:", Viewer._ext);
+      console.log("File object:", core.fileObject);
+      if (Viewer._ext === "glb" || Viewer._ext === "gltf") {
         await loadModel({
-        config: Viewer.CONFIG,
-        getProxyPath: getProxyPath,
-        stats: Viewer.stats,
-        entityID: Viewer.entityID,
-        canvasText: Viewer.canvasText,
-        bottomLineGUI: Viewer.bottomLineGUI,
-        compressedFile: Viewer.compressedFile,
-        viewEntity: Viewer.viewEntity
-      });
-      }
-      else await loadModel({
-        config: Viewer.CONFIG,
-        getProxyPath: getProxyPath,
-        stats: Viewer.stats,
-        entityID: Viewer.entityID,
-        canvasText: Viewer.canvasText,
-        bottomLineGUI: Viewer.bottomLineGUI,
-        compressedFile: Viewer.compressedFile,
-        viewEntity: Viewer.viewEntity
-      });
+          config: Viewer.CONFIG,
+          getProxyPath: getProxyPath,
+          stats: Viewer.stats,
+          entityID: Viewer.entityID,
+          canvasText: Viewer.canvasText,
+          bottomLineGUI: Viewer.bottomLineGUI,
+          compressedFile: Viewer.compressedFile,
+          viewEntity: Viewer.viewEntity
+        });
+      } else if (
+        Viewer._ext === "zip" ||
+        Viewer._ext === "rar" ||
+        Viewer._ext === "tar" ||
+        Viewer._ext === "xz" ||
+        Viewer._ext === "gz"
+      ) {
+        Viewer.compressedFile = "_" + Viewer._ext.toUpperCase() + "/";
+        core.fileObject.path = core.fileObject.path + core.fileObject.basename + Viewer.compressedFile
+        core.fileObject.extension = "glb";
+        core.fileObject.newExtension = Viewer._ext;
+        await loadModel({
+          config: Viewer.CONFIG,
+          getProxyPath: getProxyPath,
+          stats: Viewer.stats,
+          entityID: Viewer.entityID,
+          canvasText: Viewer.canvasText,
+          bottomLineGUI: Viewer.bottomLineGUI,
+          compressedFile: Viewer.compressedFile,
+          viewEntity: Viewer.viewEntity
+        });
+      } else {
+        //core.fileObject.extension = "glb";
+        if (Viewer._ext === "glb") {
+          await loadModel({
+          config: Viewer.CONFIG,
+          getProxyPath: getProxyPath,
+          stats: Viewer.stats,
+          entityID: Viewer.entityID,
+          canvasText: Viewer.canvasText,
+          bottomLineGUI: Viewer.bottomLineGUI,
+          compressedFile: Viewer.compressedFile,
+          viewEntity: Viewer.viewEntity
+        });
+        }
+        else await loadModel({
+          config: Viewer.CONFIG,
+          getProxyPath: getProxyPath,
+          stats: Viewer.stats,
+          entityID: Viewer.entityID,
+          canvasText: Viewer.canvasText,
+          bottomLineGUI: Viewer.bottomLineGUI,
+          compressedFile: Viewer.compressedFile,
+          viewEntity: Viewer.viewEntity
+        });
       }
   },
 
