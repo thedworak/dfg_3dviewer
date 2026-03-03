@@ -329,20 +329,28 @@ class ConvertWorker extends QueueWorkerBase {
 
     if (!empty($images_paths) && $this->entityHasField($entity, $cfg['image_generation'])) {
       $entity->set($cfg['image_generation'], $images_paths);
+      $first_image = $images_paths[0] ?? '';
       \Drupal::logger('dfg_3dviewer')->notice(
-        'Added @count rendered images to "@field".',
+        'Added @count rendered images to field "@field" for file "@filename" (@uri). First image: @first',
         [
           '@count' => count($images_paths),
           '@field' => $cfg['image_generation'],
+          '@filename' => $file_name,
+          '@uri' => $file_uri,
+          '@first' => $first_image,
         ]
       );
     }
     else {
+      $views_dirs_text = implode(', ', array_unique($views_dirs));
+      $name_candidates_text = implode(', ', array_unique($name_candidates));
       \Drupal::logger('dfg_3dviewer')->warning(
-        'No rendered images found for file_uri="@uri" (archive=@archive).',
+        'No rendered images found for file_uri="@uri" (archive=@archive). Checked views dirs: @dirs. Name candidates: @names',
         [
           '@uri' => $file_uri,
           '@archive' => $is_archive ? 'true' : 'false',
+          '@dirs' => $views_dirs_text,
+          '@names' => $name_candidates_text,
         ]
       );
     }
