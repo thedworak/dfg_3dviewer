@@ -329,6 +329,7 @@ export const Viewer = {
       y: this.rect.height * Number(this.CONFIG.viewer.scaleContainer.y),
     };
     this.bottomLineGUI = this.CONFIG.viewer.canvasDimensions.y - 85;
+    setCore('bottomLineGUI', this.bottomLineGUI);
 
     if (this.isLightweight) {
       this.CONFIG.viewer.lightweight = core.container.getAttribute("proxy");
@@ -1379,8 +1380,6 @@ export const Viewer = {
         getProxyPath: getProxyPath,
         stats: Viewer.stats,
         entityID: Viewer.entityID,
-        canvasText: Viewer.canvasText,
-        bottomLineGUI: Viewer.bottomLineGUI,
         compressedFile: Viewer.compressedFile,
         viewEntity: Viewer.viewEntity
       });
@@ -1400,8 +1399,6 @@ export const Viewer = {
         getProxyPath: getProxyPath,
         stats: Viewer.stats,
         entityID: Viewer.entityID,
-        canvasText: Viewer.canvasText,
-        bottomLineGUI: Viewer.bottomLineGUI,
         compressedFile: Viewer.compressedFile,
         viewEntity: Viewer.viewEntity
       });
@@ -1413,8 +1410,6 @@ export const Viewer = {
         getProxyPath: getProxyPath,
         stats: Viewer.stats,
         entityID: Viewer.entityID,
-        canvasText: Viewer.canvasText,
-        bottomLineGUI: Viewer.bottomLineGUI,
         compressedFile: Viewer.compressedFile,
         viewEntity: Viewer.viewEntity
       });
@@ -1424,8 +1419,6 @@ export const Viewer = {
         getProxyPath: getProxyPath,
         stats: Viewer.stats,
         entityID: Viewer.entityID,
-        canvasText: Viewer.canvasText,
-        bottomLineGUI: Viewer.bottomLineGUI,
         compressedFile: Viewer.compressedFile,
         viewEntity: Viewer.viewEntity
       });
@@ -2042,7 +2035,7 @@ export const Viewer = {
       Viewer.fullscreenMode.setAttribute(
         "style",
         "top:" +
-        (Viewer.bottomLineGUI + 18) +
+        (core.bottomLineGUI + 18) +
         "px; left: " +
         (Viewer.CONFIG.viewer.canvasDimensions.x - 40) +
         "px"

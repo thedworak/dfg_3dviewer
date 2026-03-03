@@ -66,7 +66,6 @@ export function expandMetadata() {
  */
 export function appendMetadata(
   metadataContent,
-  canvasText,
   metadataContentTech
 ) {
   metadataContent += metadataContentTech + "</div>";
@@ -119,7 +118,6 @@ export async function handleMetadataResponse(
   hierarchyMain,
   CONFIG,
   entityID,
-  canvasText,
   compressedFile,
   viewEntity
 ) {
@@ -287,7 +285,7 @@ export async function handleMetadataResponse(
           metadataContent +=
               '</div>' +  // #metadata-content
             '</div>';  
-          appendMetadata( metadataContent, canvasText, metadataContentTech);
+          appendMetadata( metadataContent, metadataContentTech);
         }
     };
 
@@ -301,7 +299,7 @@ export async function handleMetadataResponse(
 
     viewEntity.innerHTML =
       `<a href='${CONFIG.mainUrl}${CONFIG.entity.viewEntityPath}${entityID}/view' target='_blank'><img src='${DFG_ASSETS}share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>`;
-    appendMetadata(metadataContent, canvasText, metadataContentTech);
+    appendMetadata(metadataContent, metadataContentTech);
   }
   core.metadataContainer.addEventListener("click", (e) => {
     if (e.target.id === "metadata-collapse") {
@@ -365,7 +363,6 @@ export async function fetchSettings(
   stats,
   guiContainer,
   entityID,
-  canvasText,
   compressedFile,
   viewEntity
 ) {
@@ -395,15 +392,15 @@ export async function fetchSettings(
   if (CONFIG.entity.proxyPath !== undefined || !core.isLightweight) {
     metadataUrl = getProxyPath(metadataUrl, CONFIG);
     const data = await loadMetadataData(metadataUrl, CONFIG);
-    await handleMetadataResponse(data, metadata, object, hierarchyMain, CONFIG, entityID, canvasText, compressedFile, viewEntity);
+    await handleMetadataResponse(data, metadata, object, hierarchyMain, CONFIG, entityID, compressedFile, viewEntity);
     settingsHandler(object, hierarchyMain, CONFIG);
   } else if (CONFIG.entity.metadata.source === "IIIF") {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);
-    await handleMetadataResponse( CONFIG.model, metadata, object, hierarchyMain, CONFIG, entityID, canvasText, compressedFile, viewEntity
+    await handleMetadataResponse( CONFIG.model, metadata, object, hierarchyMain, CONFIG, entityID, compressedFile, viewEntity
     );
   } else {
     const data = await loadMetadataData(metadataUrl, CONFIG);
-    await handleMetadataResponse(data, metadata, object, hierarchyMain, CONFIG, entityID, canvasText, compressedFile, viewEntity);
+    await handleMetadataResponse(data, metadata, object, hierarchyMain, CONFIG, entityID, compressedFile, viewEntity);
   }
   // Add statistics GUI
   let statsMain;

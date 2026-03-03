@@ -11,6 +11,6 @@ echo "Worker started at $(date)" >> $LOG
 
 while true; do
   echo "Run at $(date)" >> $LOG
-  /opt/drupal/vendor/bin/drush --uri="$DRUPAL_SITE_URI" queue:run dfg_3dviewer_convert --time-limit=3600 >> $LOG 2>&1
+  sudo -Hu www-data /opt/drupal/vendor/bin/drush --uri="$DRUPAL_SITE_URI" queue:run dfg_3dviewer_convert --time-limit=3600 >> $LOG 2>&1
   sleep 5
 done
