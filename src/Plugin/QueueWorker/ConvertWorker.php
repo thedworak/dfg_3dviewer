@@ -328,7 +328,8 @@ class ConvertWorker extends QueueWorkerBase {
     $images_paths = $best_images;
 
     if (!empty($images_paths) && $this->entityHasField($entity, $cfg['image_generation'])) {
-      $entity->set($cfg['image_generation'], $images_paths);
+      $images_field_values = $this->buildFieldValues($entity, $cfg['image_generation'], $images_paths);
+      $entity->set($cfg['image_generation'], $images_field_values);
       $first_image = $images_paths[0] ?? '';
       \Drupal::logger('dfg_3dviewer')->notice(
         'Added @count rendered images to field "@field" for file "@filename" (@uri). First image: @first',
@@ -452,6 +453,33 @@ class ConvertWorker extends QueueWorkerBase {
       );
       return NULL;
     }
+  }
+
+  private function buildFieldValues($entity, string $field_name, array $scalar_values): array {
+    $main_property = 'value';
+
+    try {
+      $definition = $entity->getFieldDefinition($field_name);
+      if ($definition && method_exists($definition, 'getFieldStorageDefinition')) {
+        $storage_definition = $definition->getFieldStorageDefinition();
+        if ($storage_definition && method_exists($storage_definition, 'getMainPropertyName')) {
+          $candidate = (string) $storage_definition->getMainPropertyName();
+          if ($candidate !== '') {
+            $main_property = $candidate;
+          }
+        }
+      }
+    }
+    catch (\Throwable $e) {
+      // Keep default main property fallback.
+    }
+
+    $values = [];
+    foreach ($scalar_values as $value) {
+      $values[] = [$main_property => $value];
+    }
+
+    return $values;
   }
 
   private function saveEntity($entity): void {
