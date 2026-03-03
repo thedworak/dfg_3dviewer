@@ -457,11 +457,15 @@ class ConvertWorker extends QueueWorkerBase {
 
   private function buildFieldValues($entity, string $field_name, array $scalar_values): array {
     $main_property = 'value';
+    $field_type = 'unknown';
 
     try {
       $definition = $entity->getFieldDefinition($field_name);
       if ($definition && method_exists($definition, 'getFieldStorageDefinition')) {
         $storage_definition = $definition->getFieldStorageDefinition();
+        if ($storage_definition && method_exists($storage_definition, 'getType')) {
+          $field_type = (string) $storage_definition->getType();
+        }
         if ($storage_definition && method_exists($storage_definition, 'getMainPropertyName')) {
           $candidate = (string) $storage_definition->getMainPropertyName();
           if ($candidate !== '') {
@@ -474,12 +478,111 @@ class ConvertWorker extends QueueWorkerBase {
       // Keep default main property fallback.
     }
 
+    if ($main_property === 'target_id') {
+      $values = [];
+      foreach ($scalar_values as $value) {
+        $uri = $this->imageLocationToUri((string) $value);
+        if ($uri === NULL || !$this->uriExists($uri)) {
+          continue;
+        }
+
+        $file_id = $this->getOrCreateFileIdByUri($uri);
+        if (!empty($file_id)) {
+          $values[] = ['target_id' => $file_id];
+        }
+      }
+
+      \Drupal::logger('dfg_3dviewer')->notice(
+        'Prepared @count values for field "@field" (type="@type", main_property="@main").',
+        [
+          '@count' => count($values),
+          '@field' => $field_name,
+          '@type' => $field_type,
+          '@main' => $main_property,
+        ]
+      );
+
+      return $values;
+    }
+
     $values = [];
     foreach ($scalar_values as $value) {
       $values[] = [$main_property => $value];
     }
 
+    \Drupal::logger('dfg_3dviewer')->notice(
+      'Prepared @count scalar values for field "@field" (type="@type", main_property="@main").',
+      [
+        '@count' => count($values),
+        '@field' => $field_name,
+        '@type' => $field_type,
+        '@main' => $main_property,
+      ]
+    );
+
     return $values;
+  }
+
+  private function imageLocationToUri(string $location): ?string {
+    $location = trim($location);
+    if ($location === '') {
+      return NULL;
+    }
+
+    if (preg_match('#^[a-z][a-z0-9+.-]*://#i', $location)) {
+      if (str_starts_with($location, 'public://') || str_starts_with($location, 'private://') || str_starts_with($location, 'temporary://')) {
+        return $location;
+      }
+
+      $parsed_path = parse_url($location, PHP_URL_PATH);
+      if (is_string($parsed_path)) {
+        $location = $parsed_path;
+      }
+      else {
+        return NULL;
+      }
+    }
+
+    $location = ltrim($location, '/');
+    if (str_starts_with($location, 'sites/default/files/')) {
+      return 'public://' . substr($location, strlen('sites/default/files/'));
+    }
+
+    return NULL;
+  }
+
+  private function getOrCreateFileIdByUri(string $uri): ?int {
+    if ($uri === '') {
+      return NULL;
+    }
+
+    try {
+      $storage = \Drupal::entityTypeManager()->getStorage('file');
+      $existing = $storage->loadByProperties(['uri' => $uri]);
+      if (!empty($existing)) {
+        $file = reset($existing);
+        return $file ? (int) $file->id() : NULL;
+      }
+
+      if (!$this->uriExists($uri)) {
+        return NULL;
+      }
+
+      $file = File::create(['uri' => $uri]);
+      $file->setPermanent();
+      $file->save();
+      return (int) $file->id();
+    }
+    catch (\Throwable $e) {
+      \Drupal::logger('dfg_3dviewer')->warning(
+        'Could not map URI "@uri" to file entity: @msg',
+        [
+          '@uri' => $uri,
+          '@msg' => $e->getMessage(),
+        ]
+      );
+      return NULL;
+    }
   }
 
   private function saveEntity($entity): void {

@@ -306,21 +306,33 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		return;
 	}
 
-	\Drupal::service('queue')->get('dfg_3dviewer_convert')->createItem([
-		'entity_type' => $entity->getEntityTypeId(),
-		'entity_id' => $entity_id,
-		'file_id' => $file_id,
-		'source_filename' => $source_filename,
-		'source_uri' => $source_uri,
-	]);
+	try {
+		\Drupal::service('queue')->get('dfg_3dviewer_convert')->createItem([
+			'entity_type' => $entity->getEntityTypeId(),
+			'entity_id' => $entity_id,
+			'file_id' => $file_id,
+			'source_filename' => $source_filename,
+			'source_uri' => $source_uri,
+		]);
 
-	\Drupal::logger('dfg_3dviewer')->notice(
-		'Queued conversion for entity @entity_id and file @file_id.',
-		[
-			'@entity_id' => $entity_id,
-			'@file_id' => $file_id,
-		]
-	);
+		\Drupal::logger('dfg_3dviewer')->notice(
+			'Queued conversion for entity @entity_id and file @file_id.',
+			[
+				'@entity_id' => $entity_id,
+				'@file_id' => $file_id,
+			]
+		);
+	}
+	catch (\Throwable $e) {
+		\Drupal::logger('dfg_3dviewer')->error(
+			'Failed to enqueue conversion in presave for entity @entity_id and file @file_id: @msg',
+			[
+				'@entity_id' => $entity_id,
+				'@file_id' => $file_id,
+				'@msg' => $e->getMessage(),
+			]
+		);
+	}
 
 	$key = $entity->getEntityTypeId() . ':' . $entity_id . ':' . $file_id;
 	$GLOBALS['dfg_3dviewer_enqueued_in_presave'][$key] = TRUE;
@@ -375,21 +387,33 @@ function dfg_3dviewer_entity_insert(Drupal\Core\Entity\EntityInterface $entity) 
 	$source_filename = $uploaded_file ? $uploaded_file->getFilename() : '';
 	$source_uri = $uploaded_file ? $uploaded_file->getFileUri() : '';
 
-	\Drupal::service('queue')->get('dfg_3dviewer_convert')->createItem([
-		'entity_type' => $entity->getEntityTypeId(),
-		'entity_id' => $entity_id,
-		'file_id' => $file_id,
-		'source_filename' => $source_filename,
-		'source_uri' => $source_uri,
-	]);
+	try {
+		\Drupal::service('queue')->get('dfg_3dviewer_convert')->createItem([
+			'entity_type' => $entity->getEntityTypeId(),
+			'entity_id' => $entity_id,
+			'file_id' => $file_id,
+			'source_filename' => $source_filename,
+			'source_uri' => $source_uri,
+		]);
 
-	\Drupal::logger('dfg_3dviewer')->notice(
-		'Queued conversion on insert for entity @entity_id and file @file_id.',
-		[
-			'@entity_id' => $entity_id,
-			'@file_id' => $file_id,
-		]
-	);
+		\Drupal::logger('dfg_3dviewer')->notice(
+			'Queued conversion on insert for entity @entity_id and file @file_id.',
+			[
+				'@entity_id' => $entity_id,
+				'@file_id' => $file_id,
+			]
+		);
+	}
+	catch (\Throwable $e) {
+		\Drupal::logger('dfg_3dviewer')->error(
+			'Failed to enqueue conversion on insert for entity @entity_id and file @file_id: @msg',
+			[
+				'@entity_id' => $entity_id,
+				'@file_id' => $file_id,
+				'@msg' => $e->getMessage(),
+			]
+		);
+	}
 }
 function dfg_3dviewer_get_library(): string {
   $env = Settings::get('dfg_env', 'drupal');
