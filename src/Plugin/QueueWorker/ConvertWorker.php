@@ -329,15 +329,16 @@ class ConvertWorker extends QueueWorkerBase {
 
     if (!empty($images_paths) && $this->entityHasField($entity, $cfg['image_generation'])) {
       $images_field_values = $this->buildImageGenerationValues($images_paths);
-      $entity->set($cfg['image_generation'], $images_field_values);
+      $applied_count = $this->applyFieldValues($entity, $cfg['image_generation'], $images_field_values, 'en');
       $first_image = $images_paths[0] ?? '';
       \Drupal::logger('dfg_3dviewer')->notice(
-        'Added @count rendered images to field "@field" for file "@filename" (@uri). First image: @first',
+        'Added @count rendered images to field "@field" for file "@filename" (@uri). Applied count before save: @applied. First image: @first',
         [
           '@count' => count($images_paths),
           '@field' => $cfg['image_generation'],
           '@filename' => $file_name,
           '@uri' => $file_uri,
+          '@applied' => $applied_count,
           '@first' => $first_image,
         ]
       );
@@ -577,6 +578,81 @@ class ConvertWorker extends QueueWorkerBase {
     }
 
     return $values;
+  }
+
+  private function applyFieldValues($entity, string $field_name, array $values, string $lang = 'en'): int {
+    if (!$this->entityHasField($entity, $field_name)) {
+      return 0;
+    }
+
+    $applied = [];
+
+    try {
+      $entity->set($field_name, $values);
+      $applied = $entity->get($field_name)->getValue();
+    }
+    catch (\Throwable $e) {
+      \Drupal::logger('dfg_3dviewer')->warning(
+        'Direct set() failed for field "@field": @msg',
+        [
+          '@field' => $field_name,
+          '@msg' => $e->getMessage(),
+        ]
+      );
+    }
+
+    if (empty($applied) && !empty($values)) {
+      try {
+        $entity->set($field_name, []);
+        foreach ($values as $row) {
+          $entity->get($field_name)->appendItem($row);
+        }
+        $applied = $entity->get($field_name)->getValue();
+      }
+      catch (\Throwable $e) {
+        \Drupal::logger('dfg_3dviewer')->warning(
+          'appendItem() fallback failed for field "@field": @msg',
+          [
+            '@field' => $field_name,
+            '@msg' => $e->getMessage(),
+          ]
+        );
+      }
+    }
+
+    if (empty($applied)
+      && !empty($values)
+      && method_exists($entity, 'hasTranslation')
+      && method_exists($entity, 'getTranslation')
+      && $entity->hasTranslation($lang)) {
+      try {
+        $translation = $entity->getTranslation($lang);
+        if ($this->entityHasField($translation, $field_name)) {
+          $translation->set($field_name, $values);
+          $applied = $translation->get($field_name)->getValue();
+
+          if (empty($applied)) {
+            $translation->set($field_name, []);
+            foreach ($values as $row) {
+              $translation->get($field_name)->appendItem($row);
+            }
+            $applied = $translation->get($field_name)->getValue();
+          }
+        }
+      }
+      catch (\Throwable $e) {
+        \Drupal::logger('dfg_3dviewer')->warning(
+          'Translation fallback failed for field "@field" lang="@lang": @msg',
+          [
+            '@field' => $field_name,
+            '@lang' => $lang,
+            '@msg' => $e->getMessage(),
+          ]
+        );
+      }
+    }
+
+    return is_array($applied) ? count($applied) : 0;
   }
 
   private function imageLocationToUri(string $location): ?string {
