@@ -104,7 +104,7 @@ export const Viewer = {
   viewerWrapper: null,
   scrollTop: null,
   rect: null,
-  fileObject: { originalPath: '', filename: '', basename: '', extension: '', path: '', uri: '', newExtension: '', relativePath: '' },
+  fileObject: { originalPath: '', filename: '', basename: '', extension: '', path: '', uri: '', newExtension: '', relativePath: '', autopath: '' },
   bottomLineGUI: null,
   loadedFile: null,    
   fileElement: null,
@@ -1351,65 +1351,85 @@ export const Viewer = {
     core.renderer.setSize(Viewer.CONFIG.viewer.canvasDimensions.x, Viewer.CONFIG.viewer.canvasDimensions.y);
   },
 
-    async mainLoadModel() {
-      console.log("Loading model: ", core.fileObject.basename, ", with extension: ", core.fileObject.extension);
-      if (Viewer._ext === "glb" || Viewer._ext === "gltf") {
+  async mainLoadModelWrapper() {
+    if (core.autoPath !== '') {
+      core.fileObject.filename = core.autoPath.split('/').pop();
+      core.fileObject.basename =
+        core.fileObject.filename.substring(
+          0,
+          core.fileObject.filename.lastIndexOf('.')
+        );
+      core.fileObject.extension =
+        core.fileObject.filename.substring(
+          core.fileObject.filename.lastIndexOf('.') + 1
+        );
+      Viewer._ext = core.fileObject.extension.toLowerCase();
+      core.fileObject.path =
+        core.autoPath.substring(0, core.autoPath.lastIndexOf(core.fileObject.filename));
+    }
+
+    await Viewer.mainLoadModel();
+  },
+
+  async mainLoadModel() {
+    console.log("Loading model: ", core.fileObject.basename, ", with extension: ", core.fileObject.extension);
+    if (Viewer._ext === "glb" || Viewer._ext === "gltf") {
+      await loadModel({
+        config: Viewer.CONFIG,
+        getProxyPath: getProxyPath,
+        stats: Viewer.stats,
+        entityID: Viewer.entityID,
+        canvasText: Viewer.canvasText,
+        bottomLineGUI: Viewer.bottomLineGUI,
+        compressedFile: Viewer.compressedFile,
+        viewEntity: Viewer.viewEntity
+      });
+    } else if (
+      Viewer._ext === "zip" ||
+      Viewer._ext === "rar" ||
+      Viewer._ext === "tar" ||
+      Viewer._ext === "xz" ||
+      Viewer._ext === "gz"
+    ) {
+      Viewer.compressedFile = "_" + Viewer._ext.toUpperCase() + "/";
+      core.fileObject.path = core.fileObject.path + core.fileObject.basename + Viewer.compressedFile
+      core.fileObject.extension = "glb";
+      core.fileObject.newExtension = Viewer._ext;
+      await loadModel({
+        config: Viewer.CONFIG,
+        getProxyPath: getProxyPath,
+        stats: Viewer.stats,
+        entityID: Viewer.entityID,
+        canvasText: Viewer.canvasText,
+        bottomLineGUI: Viewer.bottomLineGUI,
+        compressedFile: Viewer.compressedFile,
+        viewEntity: Viewer.viewEntity
+      });
+    } else {
+      //core.fileObject.extension = "glb";
+      if (Viewer._ext === "glb") {
         await loadModel({
-          config: Viewer.CONFIG,
-          getProxyPath: getProxyPath,
-          stats: Viewer.stats,
-          entityID: Viewer.entityID,
-          canvasText: Viewer.canvasText,
-          bottomLineGUI: Viewer.bottomLineGUI,
-          compressedFile: Viewer.compressedFile,
-          viewEntity: Viewer.viewEntity
-        });
-      } else if (
-        Viewer._ext === "zip" ||
-        Viewer._ext === "rar" ||
-        Viewer._ext === "tar" ||
-        Viewer._ext === "xz" ||
-        Viewer._ext === "gz"
-      ) {
-        Viewer.compressedFile = "_" + Viewer._ext.toUpperCase() + "/";
-        core.fileObject.path = core.fileObject.path + core.fileObject.basename + Viewer.compressedFile
-        core.fileObject.extension = "glb";
-        core.fileObject.newExtension = Viewer._ext;
-        await loadModel({
-          config: Viewer.CONFIG,
-          getProxyPath: getProxyPath,
-          stats: Viewer.stats,
-          entityID: Viewer.entityID,
-          canvasText: Viewer.canvasText,
-          bottomLineGUI: Viewer.bottomLineGUI,
-          compressedFile: Viewer.compressedFile,
-          viewEntity: Viewer.viewEntity
-        });
-      } else {
-        //core.fileObject.extension = "glb";
-        if (Viewer._ext === "glb") {
-          await loadModel({
-          config: Viewer.CONFIG,
-          getProxyPath: getProxyPath,
-          stats: Viewer.stats,
-          entityID: Viewer.entityID,
-          canvasText: Viewer.canvasText,
-          bottomLineGUI: Viewer.bottomLineGUI,
-          compressedFile: Viewer.compressedFile,
-          viewEntity: Viewer.viewEntity
-        });
-        }
-        else await loadModel({
-          config: Viewer.CONFIG,
-          getProxyPath: getProxyPath,
-          stats: Viewer.stats,
-          entityID: Viewer.entityID,
-          canvasText: Viewer.canvasText,
-          bottomLineGUI: Viewer.bottomLineGUI,
-          compressedFile: Viewer.compressedFile,
-          viewEntity: Viewer.viewEntity
-        });
+        config: Viewer.CONFIG,
+        getProxyPath: getProxyPath,
+        stats: Viewer.stats,
+        entityID: Viewer.entityID,
+        canvasText: Viewer.canvasText,
+        bottomLineGUI: Viewer.bottomLineGUI,
+        compressedFile: Viewer.compressedFile,
+        viewEntity: Viewer.viewEntity
+      });
       }
+      else await loadModel({
+        config: Viewer.CONFIG,
+        getProxyPath: getProxyPath,
+        stats: Viewer.stats,
+        entityID: Viewer.entityID,
+        canvasText: Viewer.canvasText,
+        bottomLineGUI: Viewer.bottomLineGUI,
+        compressedFile: Viewer.compressedFile,
+        viewEntity: Viewer.viewEntity
+      });
+    }
   },
 
   createClippingPlaneAxis(_number) {
@@ -2136,7 +2156,7 @@ export const Viewer = {
         Viewer.archiveType = Viewer._ext;
       }
 
-      var _autoPath = "";
+      core.autoPath = "";
           
       if (Viewer.CONFIG.entity.metadata.source === "" && !Viewer.isLightweight) {
         try {
@@ -2161,7 +2181,7 @@ export const Viewer = {
           const parser = new DOMParser();
           const doc = parser.parseFromString(xmlText, 'application/xml');
 
-          _autoPath = '';
+          core.autoPath = '';
 
           const nodes = doc.getElementsByTagName('*');
           for (let i = 0; i < nodes.length; i++) {
@@ -2170,32 +2190,13 @@ export const Viewer = {
               node.tagName?.includes('converted_file') &&
               node.textContent
             ) {
-              _autoPath = node.textContent;
+              core.autoPath = node.textContent;
               break;
             }
           }
-
-          if (_autoPath !== '') {
-            core.fileObject.filename = _autoPath.split('/').pop();
-            core.fileObject.basename =
-              core.fileObject.filename.substring(
-                0,
-                core.fileObject.filename.lastIndexOf('.')
-              );
-            core.fileObject.extension =
-              core.fileObject.filename.substring(
-                core.fileObject.filename.lastIndexOf('.') + 1
-              );
-            Viewer._ext = core.fileObject.extension.toLowerCase();
-            core.fileObject.path =
-              _autoPath.substring(0, _autoPath.lastIndexOf(core.fileObject.filename));
-          }
-
-          await Viewer.mainLoadModel();
-
+          await Viewer.mainLoadModelWrapper();
         } catch (err) {
           console.error('Metadata load error:', err);
-          // Viewer.mainLoadModel('API load failed');
         }
       } else if (Viewer.CONFIG.entity.metadata.source.toLowerCase().substring(0, 4) === "iiif") {
           const formContainer = document.createElement("div");
