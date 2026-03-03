@@ -298,10 +298,15 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		$entity->set($cfg['field_df'], '');
 	}
 
+	$source_filename = $uploaded_file ? $uploaded_file->getFilename() : '';
+	$source_uri = $uploaded_file ? $uploaded_file->getFileUri() : '';
+
 	\Drupal::service('queue')->get('dfg_3dviewer_convert')->createItem([
 		'entity_type' => $entity->getEntityTypeId(),
 		'entity_id' => $entity_id,
 		'file_id' => $file_id,
+		'source_filename' => $source_filename,
+		'source_uri' => $source_uri,
 	]);
 
 	\Drupal::logger('dfg_3dviewer')->notice(

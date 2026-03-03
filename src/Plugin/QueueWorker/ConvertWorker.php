@@ -22,6 +22,8 @@ class ConvertWorker extends QueueWorkerBase {
     $entity_id = $data['entity_id'] ?? NULL;
     $file_id = $data['file_id'] ?? NULL;
     $entity_type = $data['entity_type'] ?? 'wisski_individual';
+    $source_filename = $data['source_filename'] ?? '';
+    $source_uri = $data['source_uri'] ?? '';
 
     if (!$entity_id || !$file_id) {
       \Drupal::logger('dfg_3dviewer')->error('Missing entity_id or file_id in queue item.');
@@ -59,12 +61,14 @@ class ConvertWorker extends QueueWorkerBase {
       $input_realpath = $fs->realpath($file_uri);
 
       \Drupal::logger('dfg_3dviewer')->notice(
-        'Worker picked queued file: file_id=@file_id, filename="@filename", uri="@uri", realpath="@realpath".',
+        'Worker picked queued file: file_id=@file_id, filename="@filename", uri="@uri", realpath="@realpath", queued_filename="@queued_filename", queued_uri="@queued_uri".',
         [
           '@file_id' => $file_id,
           '@filename' => $file->getFilename(),
           '@uri' => $file_uri,
           '@realpath' => (string) $input_realpath,
+          '@queued_filename' => (string) $source_filename,
+          '@queued_uri' => (string) $source_uri,
         ]
       );
 
@@ -241,14 +245,23 @@ class ConvertWorker extends QueueWorkerBase {
   private function applyViewerFields($entity, File $file, array $cfg, string $repo_root, array $context): void {
     $extension = $context['extension'];
     $is_archive = (bool) $context['is_archive'];
+    $fs = \Drupal::service('file_system');
+    $file_uri = $file->getFileUri();
+    $file_realpath = $fs->realpath($file_uri);
 
     $request = \Drupal::requestStack()->getCurrentRequest();
     $base = $request
       ? $request->getSchemeAndHttpHost()
       : rtrim((string) ($cfg['main_url'] ?? ''), '/');
 
-    $file_name = $file->getFilename();
-    $file_base = pathinfo($file_name, PATHINFO_FILENAME);
+    if ($file_realpath && is_file($file_realpath)) {
+      $file_name = pathinfo($file_realpath, PATHINFO_BASENAME);
+      $file_base = pathinfo($file_realpath, PATHINFO_FILENAME);
+    }
+    else {
+      $file_name = $file->getFilename();
+      $file_base = pathinfo($file_uri, PATHINFO_FILENAME) ?: pathinfo($file_name, PATHINFO_FILENAME);
+    }
     $img_suffix = '_side45.png';
 
     $file_url = \Drupal::service('file_url_generator')->generate($file->getFileUri())->toString();
