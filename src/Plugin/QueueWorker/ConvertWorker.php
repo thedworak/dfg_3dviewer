@@ -313,7 +313,7 @@ class ConvertWorker extends QueueWorkerBase {
             continue;
           }
 
-          $img_url = $this->uriToUrl($img_uri);
+          $img_url = $this->uriToUrl($img_uri, (string) ($cfg['main_url'] ?? ''));
           if ($img_url !== NULL) {
             $candidate_images[] = $img_url;
           }
@@ -447,13 +447,30 @@ class ConvertWorker extends QueueWorkerBase {
     return !empty($real) && is_file($real);
   }
 
-  private function uriToUrl(string $uri): ?string {
+  private function uriToUrl(string $uri, string $public_base_url = ''): ?string {
     if ($uri === '') {
       return NULL;
     }
 
     try {
-      return \Drupal::service('file_url_generator')->generateAbsoluteString($uri);
+      $generator = \Drupal::service('file_url_generator');
+      $relative = (string) $generator->generateString($uri);
+
+      $public_base_url = trim($public_base_url);
+      if ($public_base_url !== '') {
+        $base_parts = parse_url($public_base_url);
+        if (is_array($base_parts) && !empty($base_parts['scheme']) && !empty($base_parts['host'])) {
+          return rtrim($public_base_url, '/') . '/' . ltrim($relative, '/');
+        }
+      }
+
+      $absolute = $generator->generateAbsoluteString($uri);
+      $host = parse_url($absolute, PHP_URL_HOST);
+      if (is_string($host) && strpos($host, '_') !== FALSE) {
+        return $relative;
+      }
+
+      return $absolute;
     }
     catch (\Throwable $e) {
       \Drupal::logger('dfg_3dviewer')->warning(
