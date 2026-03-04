@@ -451,23 +451,25 @@ class ConvertWorker extends QueueWorkerBase {
       }
     }
 
-    $legacy_gallery_field = $this->extractFieldNameFromClass((string) ($cfg['gallery_image_class'] ?? ''));
-    if (!empty($images_paths)
-      && $legacy_gallery_field !== ''
-      && $legacy_gallery_field !== (string) ($cfg['image_generation'] ?? '')
-      && $this->entityHasField($entity, $legacy_gallery_field)) {
+    $legacy_gallery_field = 'fd6a974b7120d422c7b21b5f1f2315d9';
+    if (!empty($images_paths) && $this->entityHasField($entity, $legacy_gallery_field)) {
       $legacy_lang = $this->getCurrentLanguageId();
-      $legacy_applied = $this->applyPlainScalarFieldValues($entity, $legacy_gallery_field, $images_paths, $legacy_lang);
+      $legacy_rows = [];
+      foreach ($images_paths as $url) {
+        $legacy_rows[] = ['value' => (string) $url];
+      }
+
+      $legacy_applied = $this->applyFieldValues($entity, $legacy_gallery_field, $legacy_rows, $legacy_lang);
       if ($legacy_applied === 0) {
-        $legacy_values = $this->buildFieldValues($entity, $legacy_gallery_field, $images_paths);
-        $legacy_applied = $this->applyFieldValues($entity, $legacy_gallery_field, $legacy_values, $legacy_lang);
+        $legacy_applied = $this->applyPlainScalarFieldValues($entity, $legacy_gallery_field, $images_paths, $legacy_lang);
       }
       \Drupal::logger('dfg_3dviewer')->notice(
-        'Mirrored @count rendered images to legacy gallery field "@field". Applied before save: @applied',
+        'Forced URL mirror to field "@field". Added @count URLs. Applied before save: @applied. First: @first',
         [
-          '@count' => count($images_paths),
           '@field' => $legacy_gallery_field,
+          '@count' => count($images_paths),
           '@applied' => $legacy_applied,
+          '@first' => (string) ($images_paths[0] ?? ''),
         ]
       );
     }
@@ -858,19 +860,6 @@ class ConvertWorker extends QueueWorkerBase {
     }
 
     return FALSE;
-  }
-
-  private function extractFieldNameFromClass(string $class_name): string {
-    $class_name = trim($class_name);
-    if ($class_name === '') {
-      return '';
-    }
-
-    if (preg_match('/field--name-([a-zA-Z0-9_]+)/', $class_name, $matches)) {
-      return (string) ($matches[1] ?? '');
-    }
-
-    return '';
   }
 
   private function getCurrentLanguageId(): string {

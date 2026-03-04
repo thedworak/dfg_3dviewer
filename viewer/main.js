@@ -625,7 +625,23 @@ export const Viewer = {
 
   prepareGalleryImages(imageElementsChildren) {
     imageElementsChildren = imageElementsChildren.filter(function (_image) {
-      return isValidUrl(_image.innerHTML);
+      let rawUrl = "";
+      const img = _image.querySelector("img");
+      const link = _image.querySelector("a");
+      if (img && img.getAttribute("src")) {
+        rawUrl = img.getAttribute("src");
+      } else if (link && link.getAttribute("href")) {
+        rawUrl = link.getAttribute("href");
+      } else {
+        rawUrl = (_image.textContent || _image.innerHTML || "").trim();
+      }
+
+      const normalized = Viewer.normalizeGalleryUrl(rawUrl);
+      if (!isValidUrl(normalized)) {
+        return false;
+      }
+      _image.innerHTML = normalized;
+      return true;
     });
     imageElementsChildren.forEach(function (imgLink, index) {
       imgLink.innerHTML =
@@ -633,6 +649,48 @@ export const Viewer = {
         imgLink.innerHTML +
         '" width="200px" height="200px" alt="" class="img-fluid image-style-wisski-preview">';
     });
+    return imageElementsChildren;
+  },
+
+  normalizeGalleryUrl(rawUrl) {
+    if (!rawUrl || typeof rawUrl !== "string") {
+      return "";
+    }
+
+    let url = rawUrl.trim();
+    if (url === "") {
+      return "";
+    }
+
+    if (url.startsWith("public://")) {
+      url = "/sites/default/files/" + url.substring("public://".length);
+    } else if (url.startsWith("sites/default/files/")) {
+      url = "/" + url;
+    }
+
+    const base = (core.CONFIG?.mainUrl || window.location.origin || "").replace(/\/+$/, "");
+
+    try {
+      const parsed = new URL(url, window.location.origin);
+      const host = parsed.host || "";
+      const path = parsed.pathname || "";
+
+      if (path.startsWith("/sites/default/files/")) {
+        if (host.includes("_")) {
+          return `${base}${path}`;
+        }
+        if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+          return parsed.href;
+        }
+        return `${base}${path}`;
+      }
+      return parsed.href;
+    } catch (e) {
+      if (url.startsWith("/sites/default/files/")) {
+        return `${base}${url}`;
+      }
+      return url;
+    }
   },
 
   handleImages(
@@ -747,7 +805,7 @@ export const Viewer = {
               imageElements[0].getElementsByClassName("field__items")[0]
                 .childNodes
             );
-            Viewer.prepareGalleryImages(imagesList);
+            imagesList = Viewer.prepareGalleryImages(imagesList);
             //imageElements[0].classList.add("field--type-image");
             imageElements[0].classList.add("field--label-hidden");
             imageElements[0].classList.add("field__items");
@@ -765,7 +823,7 @@ export const Viewer = {
           ) {
             //handle links and convert to img
             let imagesList = Array.from(imageElements.childNodes);
-            Viewer.prepareGalleryImages(imagesList);
+            imagesList = Viewer.prepareGalleryImages(imagesList);
             imageElements.classList.add("field--type-image");
             imageElements.classList.add("field--label-hidden");
             imageElements.classList.add("field__items");
