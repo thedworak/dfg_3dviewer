@@ -454,22 +454,22 @@ class ConvertWorker extends QueueWorkerBase {
     $legacy_gallery_field = 'fd6a974b7120d422c7b21b5f1f2315d9';
     if (!empty($images_paths) && $this->entityHasField($entity, $legacy_gallery_field)) {
       $legacy_lang = $this->getCurrentLanguageId();
-      $legacy_rows = [];
+      $normalized_urls = [];
       foreach ($images_paths as $url) {
-        $legacy_rows[] = ['value' => (string) $url];
+        $normalized = $this->normalizePublicImageUrl((string) $url, (string) ($cfg['main_url'] ?? ''));
+        if ($normalized !== '') {
+          $normalized_urls[] = $normalized;
+        }
       }
 
-      $legacy_applied = $this->applyFieldValues($entity, $legacy_gallery_field, $legacy_rows, $legacy_lang);
-      if ($legacy_applied === 0) {
-        $legacy_applied = $this->applyPlainScalarFieldValues($entity, $legacy_gallery_field, $images_paths, $legacy_lang);
-      }
+      $legacy_applied = $this->forceReplaceUrlValueField($entity, $legacy_gallery_field, $normalized_urls, $legacy_lang);
       \Drupal::logger('dfg_3dviewer')->notice(
         'Forced URL mirror to field "@field". Added @count URLs. Applied before save: @applied. First: @first',
         [
           '@field' => $legacy_gallery_field,
-          '@count' => count($images_paths),
+          '@count' => count($normalized_urls),
           '@applied' => $legacy_applied,
-          '@first' => (string) ($images_paths[0] ?? ''),
+          '@first' => (string) ($normalized_urls[0] ?? ''),
         ]
       );
     }
@@ -860,6 +860,123 @@ class ConvertWorker extends QueueWorkerBase {
     }
 
     return FALSE;
+  }
+
+  private function normalizePublicImageUrl(string $url, string $public_base_url = ''): string {
+    $url = trim($url);
+    if ($url === '') {
+      return '';
+    }
+
+    $public_base_url = rtrim(trim($public_base_url), '/');
+    $base_parts = parse_url($public_base_url);
+    $has_base = is_array($base_parts) && !empty($base_parts['scheme']) && !empty($base_parts['host']);
+
+    if (str_starts_with($url, 'public://')) {
+      $relative = '/sites/default/files/' . ltrim(substr($url, strlen('public://')), '/');
+      return $has_base ? $public_base_url . $relative : $relative;
+    }
+
+    if (str_starts_with($url, '/sites/default/files/')) {
+      return $has_base ? $public_base_url . $url : $url;
+    }
+
+    $parts = parse_url($url);
+    if (!is_array($parts)) {
+      return $url;
+    }
+
+    $path = (string) ($parts['path'] ?? '');
+    $host = (string) ($parts['host'] ?? '');
+    $scheme = (string) ($parts['scheme'] ?? '');
+
+    if ($path !== '' && str_starts_with($path, '/sites/default/files/')) {
+      if ($host !== '' && strpos($host, '_') !== FALSE) {
+        return $has_base ? $public_base_url . $path : $path;
+      }
+      if ($has_base && in_array(strtolower($scheme), ['http', 'https'], TRUE)) {
+        return $public_base_url . $path;
+      }
+    }
+
+    return $url;
+  }
+
+  private function forceReplaceUrlValueField($entity, string $field_name, array $urls, string $lang = 'en'): int {
+    if (!$this->entityHasField($entity, $field_name)) {
+      return 0;
+    }
+
+    $rows = [];
+    foreach ($urls as $url) {
+      $rows[] = ['value' => (string) $url];
+    }
+
+    $apply_rows = static function ($target, string $field, array $values): int {
+      if (!method_exists($target, 'set') || !method_exists($target, 'get')) {
+        return 0;
+      }
+      $target->set($field, []);
+      foreach ($values as $row) {
+        $target->get($field)->appendItem($row);
+      }
+      $applied = $target->get($field)->getValue();
+      return is_array($applied) ? count($applied) : 0;
+    };
+
+    $applied = 0;
+    try {
+      $applied = $apply_rows($entity, $field_name, $rows);
+    }
+    catch (\Throwable $e) {
+      \Drupal::logger('dfg_3dviewer')->warning(
+        'forceReplaceUrlValueField failed on base entity field "@field": @msg',
+        ['@field' => $field_name, '@msg' => $e->getMessage()]
+      );
+    }
+
+    if (method_exists($entity, 'getUntranslated')) {
+      try {
+        $untranslated = $entity->getUntranslated();
+        if ($this->entityHasField($untranslated, $field_name)) {
+          $apply_rows($untranslated, $field_name, $rows);
+        }
+      }
+      catch (\Throwable $e) {
+        \Drupal::logger('dfg_3dviewer')->warning(
+          'forceReplaceUrlValueField untranslated mirror failed for "@field": @msg',
+          ['@field' => $field_name, '@msg' => $e->getMessage()]
+        );
+      }
+    }
+
+    if (method_exists($entity, 'getTranslationLanguages')
+      && method_exists($entity, 'hasTranslation')
+      && method_exists($entity, 'getTranslation')) {
+      try {
+        $languages = $entity->getTranslationLanguages();
+        foreach ($languages as $langcode => $language) {
+          if ($langcode === \Drupal\Core\Language\LanguageInterface::LANGCODE_DEFAULT) {
+            continue;
+          }
+          if (!$entity->hasTranslation($langcode)) {
+            continue;
+          }
+          $translation = $entity->getTranslation($langcode);
+          if ($this->entityHasField($translation, $field_name)) {
+            $apply_rows($translation, $field_name, $rows);
+          }
+        }
+      }
+      catch (\Throwable $e) {
+        \Drupal::logger('dfg_3dviewer')->warning(
+          'forceReplaceUrlValueField translation mirror failed for "@field": @msg',
+          ['@field' => $field_name, '@msg' => $e->getMessage()]
+        );
+      }
+    }
+
+    return $applied;
   }
 
   private function getCurrentLanguageId(): string {
