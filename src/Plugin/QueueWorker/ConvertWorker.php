@@ -544,7 +544,12 @@ class ConvertWorker extends QueueWorkerBase {
       // Keep default main property fallback.
     }
 
-    if ($has_value_property) {
+    if (in_array($field_type, ['image', 'entity_reference'], TRUE)) {
+      $main_property = 'target_id';
+      $has_value_property = FALSE;
+    }
+
+    if ($has_value_property && $main_property !== 'target_id') {
       $main_property = 'value';
     }
 
@@ -904,7 +909,7 @@ class ConvertWorker extends QueueWorkerBase {
 
     $entity_probe = \Drupal::entityTypeManager()->getStorage($entity_type)->load($entity_id);
     $formats = $this->fieldRequiresTargetId($entity_probe, $field_name)
-      ? ['buildFieldValues', 'plain_scalar_values', 'legacy_value_wisski_language', 'plain_single_scalar']
+      ? ['buildFieldValues']
       : ['plain_scalar_values', 'buildFieldValues', 'legacy_value_wisski_language', 'plain_single_scalar'];
 
     foreach ($formats as $format) {
