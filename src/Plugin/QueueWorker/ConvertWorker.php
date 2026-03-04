@@ -346,10 +346,19 @@ class ConvertWorker extends QueueWorkerBase {
 
     if (!empty($images_paths) && $this->entityHasField($entity, $cfg['image_generation'])) {
       $lang = $this->getCurrentLanguageId();
-      $applied_count = $this->applyPlainScalarFieldValues($entity, $cfg['image_generation'], $images_paths, $lang);
-      if ($applied_count === 0) {
-        $images_field_values = $this->buildFieldValues($entity, $cfg['image_generation'], $images_paths);
-        $applied_count = $this->applyFieldValues($entity, $cfg['image_generation'], $images_field_values, $lang);
+      $image_field = (string) $cfg['image_generation'];
+      $requires_target_id = $this->fieldRequiresTargetId($entity, $image_field);
+
+      if ($requires_target_id) {
+        $images_field_values = $this->buildFieldValues($entity, $image_field, $images_paths);
+        $applied_count = $this->applyFieldValues($entity, $image_field, $images_field_values, $lang);
+      }
+      else {
+        $applied_count = $this->applyPlainScalarFieldValues($entity, $image_field, $images_paths, $lang);
+        if ($applied_count === 0) {
+          $images_field_values = $this->buildFieldValues($entity, $image_field, $images_paths);
+          $applied_count = $this->applyFieldValues($entity, $image_field, $images_field_values, $lang);
+        }
       }
       $result['image_urls'] = $images_paths;
       $result['lang'] = $lang;
@@ -776,6 +785,39 @@ class ConvertWorker extends QueueWorkerBase {
     return is_array($applied) ? count($applied) : 0;
   }
 
+  private function fieldRequiresTargetId($entity, string $field_name): bool {
+    try {
+      if (!$this->entityHasField($entity, $field_name)) {
+        return FALSE;
+      }
+
+      $definition = $entity->getFieldDefinition($field_name);
+      if (!$definition || !method_exists($definition, 'getFieldStorageDefinition')) {
+        return FALSE;
+      }
+
+      $storage_definition = $definition->getFieldStorageDefinition();
+      if ($storage_definition && method_exists($storage_definition, 'getMainPropertyName')) {
+        $main_property = (string) $storage_definition->getMainPropertyName();
+        if ($main_property === 'target_id') {
+          return TRUE;
+        }
+      }
+
+      if ($storage_definition && method_exists($storage_definition, 'getType')) {
+        $type = (string) $storage_definition->getType();
+        if (in_array($type, ['image', 'entity_reference'], TRUE)) {
+          return TRUE;
+        }
+      }
+    }
+    catch (\Throwable $e) {
+      // Fallback below.
+    }
+
+    return FALSE;
+  }
+
   private function getCurrentLanguageId(): string {
     $lang = 'en';
     try {
@@ -860,12 +902,9 @@ class ConvertWorker extends QueueWorkerBase {
       ]
     );
 
-    $formats = [
-      'plain_scalar_values',
-      'buildFieldValues',
-      'legacy_value_wisski_language',
-      'plain_single_scalar',
-    ];
+    $formats = $this->fieldRequiresTargetId($entity, $field_name)
+      ? ['buildFieldValues', 'plain_scalar_values', 'legacy_value_wisski_language', 'plain_single_scalar']
+      : ['plain_scalar_values', 'buildFieldValues', 'legacy_value_wisski_language', 'plain_single_scalar'];
 
     foreach ($formats as $format) {
       try {
