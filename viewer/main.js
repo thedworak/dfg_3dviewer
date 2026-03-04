@@ -1194,7 +1194,7 @@ export const Viewer = {
         );
       }
     } else {
-      if (this.EDITOR) {
+      if (Viewer.EDITOR) {
         Viewer.raycaster.setFromCamera(Viewer.pointer, core.camera);
         var intersects;
         if (core.mainObject.length > 1) {
@@ -1817,7 +1817,7 @@ export const Viewer = {
           Viewer.editorFolder.add(
             {
               ["Picking mode"]() {
-                Viewer.EDITOR = !EDITOR;
+                Viewer.EDITOR = !Viewer.EDITOR;
                 var _str;
                 Viewer.EDITOR ? (_str = "enabled") : (_str = "disabled");
                 showToast("Face picking is " + _str);
