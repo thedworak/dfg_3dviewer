@@ -345,9 +345,11 @@ class ConvertWorker extends QueueWorkerBase {
 
     if (!empty($images_paths) && $this->entityHasField($entity, $cfg['image_generation'])) {
       $lang = $this->getCurrentLanguageId();
-
-      $images_field_values = $this->buildFieldValues($entity, $cfg['image_generation'], $images_paths);
-      $applied_count = $this->applyFieldValues($entity, $cfg['image_generation'], $images_field_values, $lang);
+      $applied_count = $this->applyPlainScalarFieldValues($entity, $cfg['image_generation'], $images_paths, $lang);
+      if ($applied_count === 0) {
+        $images_field_values = $this->buildFieldValues($entity, $cfg['image_generation'], $images_paths);
+        $applied_count = $this->applyFieldValues($entity, $cfg['image_generation'], $images_field_values, $lang);
+      }
       $result['image_urls'] = $images_paths;
       $result['lang'] = $lang;
       $result['applied_before_save'] = $applied_count;
@@ -498,6 +500,10 @@ class ConvertWorker extends QueueWorkerBase {
     $property_defs = [];
     $has_value_property = TRUE;
     $has_wisski_language = FALSE;
+    $entity_type_id = '';
+    if (is_object($entity) && method_exists($entity, 'getEntityTypeId')) {
+      $entity_type_id = (string) $entity->getEntityTypeId();
+    }
 
     try {
       $definition = $entity->getFieldDefinition($field_name);
@@ -530,6 +536,12 @@ class ConvertWorker extends QueueWorkerBase {
 
     if ($has_value_property) {
       $main_property = 'value';
+    }
+
+    if (!$has_wisski_language && $entity_type_id === 'wisski_individual') {
+      // WissKI-backed entities can require language-qualified values even when
+      // field metadata does not expose the wisski_language property reliably.
+      $has_wisski_language = TRUE;
     }
 
     if ($main_property === 'target_id' && !$has_value_property) {
@@ -715,6 +727,52 @@ class ConvertWorker extends QueueWorkerBase {
     return is_array($applied) ? count($applied) : 0;
   }
 
+  private function applyPlainScalarFieldValues($entity, string $field_name, array $scalar_values, string $lang = 'en'): int {
+    if (!$this->entityHasField($entity, $field_name)) {
+      return 0;
+    }
+
+    $applied = [];
+    try {
+      $entity->set($field_name, $scalar_values);
+      $applied = $entity->get($field_name)->getValue();
+    }
+    catch (\Throwable $e) {
+      \Drupal::logger('dfg_3dviewer')->warning(
+        'Plain scalar set() failed for field "@field": @msg',
+        [
+          '@field' => $field_name,
+          '@msg' => $e->getMessage(),
+        ]
+      );
+    }
+
+    if (empty($applied)
+      && method_exists($entity, 'hasTranslation')
+      && method_exists($entity, 'getTranslation')
+      && $entity->hasTranslation($lang)) {
+      try {
+        $translation = $entity->getTranslation($lang);
+        if ($this->entityHasField($translation, $field_name)) {
+          $translation->set($field_name, $scalar_values);
+          $applied = $translation->get($field_name)->getValue();
+        }
+      }
+      catch (\Throwable $e) {
+        \Drupal::logger('dfg_3dviewer')->warning(
+          'Plain scalar translation set() failed for field "@field" lang="@lang": @msg',
+          [
+            '@field' => $field_name,
+            '@lang' => $lang,
+            '@msg' => $e->getMessage(),
+          ]
+        );
+      }
+    }
+
+    return is_array($applied) ? count($applied) : 0;
+  }
+
   private function getCurrentLanguageId(): string {
     $lang = 'en';
     try {
@@ -800,9 +858,9 @@ class ConvertWorker extends QueueWorkerBase {
     );
 
     $formats = [
+      'plain_scalar_values',
       'buildFieldValues',
       'legacy_value_wisski_language',
-      'plain_scalar_values',
       'plain_single_scalar',
     ];
 
