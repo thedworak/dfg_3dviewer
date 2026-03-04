@@ -414,8 +414,21 @@ class ConvertWorker extends QueueWorkerBase {
       );
     }
 
-    if ($this->entityHasField($entity, $cfg['field_df'])) {
-      $entity->set($cfg['field_df'], '');
+    $field_df = (string) ($cfg['field_df'] ?? '');
+    $reserved_fields = array_filter([
+      (string) ($cfg['image_generation'] ?? ''),
+      (string) ($cfg['viewer_file_name'] ?? ''),
+      (string) ($cfg['viewer_file_upload'] ?? ''),
+    ]);
+
+    if ($field_df !== '' && in_array($field_df, $reserved_fields, TRUE)) {
+      \Drupal::logger('dfg_3dviewer')->warning(
+        'Skipped clearing field_df "@field_df" because it collides with a configured viewer field.',
+        ['@field_df' => $field_df]
+      );
+    }
+    elseif ($field_df !== '' && $this->entityHasField($entity, $field_df)) {
+      $entity->set($field_df, '');
     }
   }
 
