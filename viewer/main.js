@@ -38,7 +38,6 @@ import {
   halfwayBetweenPoints,
   interpolateDistanceBetweenPoints,
   isValidUrl,
-  getProxyPath,
   normalizeColor,
 } from "./utils.js";
 
@@ -90,7 +89,6 @@ export const Viewer = {
   metadataContentTech: null,
   mainCanvas: null,
   distanceGeometry: new THREE.Vector3(),
-  entityID: "",
   metadataUrl: null,
   iiifConfigURL: {url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: "Inbuilt"},
   testModelURL: 'https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb',
@@ -198,7 +196,7 @@ export const Viewer = {
   GUILength: 35,
   zoomImage: 1,
   ZOOM_SPEED_IMAGE: 0.1,
-  compressedFile: "",
+  loadedFile: "",
   archiveType: "",
   planeParams: {
     planeX: {
@@ -264,13 +262,18 @@ export const Viewer = {
     });
     const url = new URL('./viewer-settings.json', import.meta.url);
 
+    //Setup core variables first to make them available in the loaders and utils
+    setCore('viewEntity', this.viewEntity);
+    setCore('CONFIG', this.CONFIG);
+    setCore('loadedFile', this.loadedFile);
+
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    this.CONFIG = await res.json();
-    console.log("Loaded viewer-settings.json", this.CONFIG.viewer);
+    core.CONFIG = await res.json();
+    console.log("Loaded viewer-settings.json", core.CONFIG.viewer);
 
-    if (Object.keys(this.CONFIG).length === 0) {
-      this.CONFIG = {
+    if (Object.keys(core.CONFIG).length === 0) {
+      core.CONFIG = {
         mainUrl: "https://dfg-repository.wisski.cloud",
         baseNamespace: "https://dfg-repository.wisski.cloud",
         metadataUrl: "https://dfg-repository.wisski.cloud",
@@ -309,14 +312,15 @@ export const Viewer = {
         },
       };
     }
-    this.isLightweight = Boolean(this.CONFIG.viewer.lightweight);
+
+    this.isLightweight = Boolean(core.CONFIG.viewer.lightweight);
     console.log(`AIM 3D-Viewer ${this.isLightweight ? '🪶 LIGHTWEIGHT' : '💪 FULL'} mode`);
     console.log(`Powered by Three.js (v${THREE.REVISION})`);
     
-    this.CONFIG.entity.metadata.source = SOURCE;
-    if (this.CONFIG.entity.metadata.source) console.log(`Metadata source: ${this.CONFIG.entity.metadata.source}`);
+    core.CONFIG.entity.metadata.source = SOURCE;
+    if (core.CONFIG.entity.metadata.source) console.log(`Metadata source: ${core.CONFIG.entity.metadata.source}`);
 
-    this.container = document.getElementById(this.CONFIG.viewer.container);
+    this.container = document.getElementById(core.CONFIG.viewer.container);
     if (!this.container) throw new Error("Container not found");
     setCore('container', this.container);
 
@@ -324,23 +328,23 @@ export const Viewer = {
     this.rect = core.container.getBoundingClientRect();
     this.fileObject.originalPath = core.container.getAttribute("3d");
     setCore('fileObject', this.fileObject)
-    this.CONFIG.viewer.canvasDimensions = {
-      x: this.rect.width * Number(this.CONFIG.viewer.scaleContainer.x),
-      y: this.rect.height * Number(this.CONFIG.viewer.scaleContainer.y),
+    core.CONFIG.viewer.canvasDimensions = {
+      x: this.rect.width * Number(core.CONFIG.viewer.scaleContainer.x),
+      y: this.rect.height * Number(core.CONFIG.viewer.scaleContainer.y),
     };
-    this.bottomLineGUI = this.CONFIG.viewer.canvasDimensions.y - 85;
+    this.bottomLineGUI = core.CONFIG.viewer.canvasDimensions.y - 85;
     setCore('bottomLineGUI', this.bottomLineGUI);
 
     if (this.isLightweight) {
-      this.CONFIG.viewer.lightweight = core.container.getAttribute("proxy");
+      core.CONFIG.viewer.lightweight = core.container.getAttribute("proxy");
     }
     else {
       var elementsURL = window.location.pathname;
-      elementsURL = elementsURL.match(this.CONFIG.entity.idUri);
+      elementsURL = elementsURL.match(core.CONFIG.entity.idUri);
       if (elementsURL !== null) {
-        this.entityID = elementsURL[1];
-        core.container.setAttribute(this.CONFIG.entity.attributeId, this.entityID);
-        console.log("Entity ID:", this.entityID);
+        core.CONFIG.entity.id = elementsURL[1];
+        core.container.setAttribute(core.CONFIG.entity.attributeId, core.CONFIG.entity.id);
+        console.log("Entity ID:", core.CONFIG.entity.id);
       }
     }    
     // Initialize clipping planes at startup
@@ -361,12 +365,12 @@ export const Viewer = {
     core.container.classList.add("mainContainer");
 
     if (core.container.hasAttribute("basePath")) {
-      this.CONFIG.baseModulePath = core.container.getAttribute("basePath");
+      core.CONFIG.baseModulePath = core.container.getAttribute("basePath");
     }
 
     this.setModelPaths();
 
-    this.CONFIG.viewer.exportPath = "/api/editor/xml-export/";    
+    core.CONFIG.viewer.exportPath = "/api/editor/xml-export/";    
     this.loadedFile = `${core.fileObject.basename}.${core.fileObject.extension}`;
 
     this.handHint = document.createElement("div");
@@ -427,7 +431,7 @@ export const Viewer = {
     localStorage.setItem("viewerHintSeen", "0");
     
     this.updateSize();
-    if (this.CONFIG.entity?.metadata?.source != null) {
+    if (core.CONFIG.entity?.metadata?.source != null) {
       await Viewer.mainLoadModel();
     }
     Viewer.animate();
@@ -445,7 +449,7 @@ export const Viewer = {
     core.fileObject.basename = core.fileObject.filename.substring(0, core.fileObject.filename.lastIndexOf("."));
     core.fileObject.extension = core.fileObject.filename.substring(core.fileObject.filename.lastIndexOf(".") + 1);
     core.fileObject.path = core.fileObject.originalPath.substring(0, core.fileObject.originalPath.lastIndexOf(core.fileObject.filename)) || "/";
-    core.fileObject.uri = core.fileObject.path.replace(this.CONFIG.mainUrl + "/", "");
+    core.fileObject.uri = core.fileObject.path.replace(core.CONFIG.mainUrl + "/", "");
     core.fileObject.relativePath = Viewer.normalizeDrupalFilesPath(core.fileObject.uri);
   },
   // Disable interaction hint on first interaction
@@ -481,7 +485,7 @@ export const Viewer = {
     const loader = new FontLoader();
 
     loader.load(
-      '.' + CONFIG.baseModulePath + "/fonts/helvetiker_regular.typeface.json",
+      '.' + core.CONFIG.baseModulePath + "/fonts/helvetiker_regular.typeface.json",
       function (font) {
         const textGeo = new TextGeometry(_text, {
           font,
@@ -537,7 +541,7 @@ export const Viewer = {
     const loader = new FontLoader();
     var textSize = _scale / 10;
     loader.load(
-      '.' + CONFIG.baseModulePath + "/fonts/helvetiker_regular.typeface.json",
+      '.' + core.CONFIG.baseModulePath + "/fonts/helvetiker_regular.typeface.json",
       function (font) {
         const textGeo = new TextGeometry(_text, {
           font: font,
@@ -720,18 +724,18 @@ export const Viewer = {
 
   buildGallery() {
     if (Viewer.fileElement && Viewer.fileElement?.length > 0) {
-      var mainElement = document.getElementById(Viewer.CONFIG.viewer.gallery.container);
+      var mainElement = document.getElementById(core.CONFIG.viewer.gallery.container);
       var imageElements;
-      if (Viewer.CONFIG.viewer.gallery.imageClass !== "") {
+      if (core.CONFIG.viewer.gallery.imageClass !== "") {
         imageElements = document.getElementsByClassName(
-          Viewer.CONFIG.viewer.gallery.imageClass
+          core.CONFIG.viewer.gallery.imageClass
         );
         if (imageElements.length > 0) {
           var galleryLabel = document.getElementsByClassName("field__label");
           if (galleryLabel !== undefined) galleryLabel[0].innerText = "";
         }
-      } else if (Viewer.CONFIG.viewer.gallery.imageId !== "") {
-        imageElements = document.getElementById(Viewer.CONFIG.viewer.gallery.imageId);
+      } else if (core.CONFIG.viewer.gallery.imageId !== "") {
+        imageElements = document.getElementById(core.CONFIG.viewer.gallery.imageId);
       } else {
         console.log("No gallery created");
       }
@@ -896,7 +900,7 @@ export const Viewer = {
         Viewer.fullscreenMode.innerHTML = `<img src="${Viewer.DFG_ASSETS}exit-fullscreen.png" alt="Fullscreen" width=25 height=25 title="Exit fullscreen mode"/>`;
         //Viewer.downloadModel?.setAttribute("style", "visibility: none");
     } else {
-      scale = {x: Number(Viewer.CONFIG.viewer.scaleContainer?.x || 1), y: Number(Viewer.CONFIG.viewer.scaleContainer?.y || 1)};
+      scale = {x: Number(core.CONFIG.viewer.scaleContainer?.x || 1), y: Number(core.CONFIG.viewer.scaleContainer?.y || 1)};
       rect = Viewer.viewerWrapper.getBoundingClientRect();
       widthCSS = (rect.width * scale.x) || 800;
       heightCSS = (rect.height * scale.y) || 600;
@@ -923,11 +927,11 @@ export const Viewer = {
 
     Viewer.fullscreenMode.style.top = (heightCSS - 40) + 'px';
     if (Viewer.downloadModel) {
-      let _offset = (Viewer.CONFIG.isLightweight) ? 130 : 70;
+      let _offset = (core.CONFIG.isLightweight) ? 130 : 70;
       Viewer.downloadModel.style.top = (heightCSS - _offset) + 'px';
     }
-    if (Viewer.viewEntity) {
-      Viewer.viewEntity.style.right = isFullscreen ? '-95%' : '-75%';
+    if (core.viewEntity) {
+      core.viewEntity.style.right = isFullscreen ? '-95%' : '-75%';
     }
     core.handHint.style.top = (heightCSS - 70) + 'px';
    
@@ -936,7 +940,7 @@ export const Viewer = {
     core.camera.aspect = widthCSS / heightCSS;
     core.camera.updateProjectionMatrix();
     core.controls?.update();
-    Viewer.CONFIG.viewer.canvasDimensions = { x: widthCSS, y: heightCSS };
+    core.CONFIG.viewer.canvasDimensions = { x: widthCSS, y: heightCSS };
   },
 
     // Three.js renderer needs actual pixel size
@@ -1326,9 +1330,9 @@ export const Viewer = {
       fileform.append("filename", core.fileObject.basename);
       //fileform.append("path", uri + prependName);
       fileform.append("data", imgBlob, "thumbnail.png");
-      console.log("Uploading thumbnail for entity ID:", Viewer.entityID);
-      fileform.append("wisski_individual", Viewer.entityID);
-      fetch(Viewer.CONFIG.mainUrl + "/api/editor/upload-thumbnail", {
+      console.log("Uploading thumbnail for entity ID:", core.CONFIG.entity.id);
+      fileform.append("wisski_individual", core.CONFIG.entity.id);
+      fetch(core.CONFIG.mainUrl + "/api/editor/upload-thumbnail", {
         method: "POST",
         credentials: "same-origin",
         headers: {
@@ -1347,9 +1351,9 @@ export const Viewer = {
     }, "image/png");
 
     core.renderer.setPixelRatio(devicePixelRatio);
-    core.camera.aspect = Viewer.CONFIG.viewer.canvasDimensions.x / Viewer.CONFIG.viewer.canvasDimensions.y;
+    core.camera.aspect = core.CONFIG.viewer.canvasDimensions.x / core.CONFIG.viewer.canvasDimensions.y;
     core.camera.updateProjectionMatrix();
-    core.renderer.setSize(Viewer.CONFIG.viewer.canvasDimensions.x, Viewer.CONFIG.viewer.canvasDimensions.y);
+    core.renderer.setSize(core.CONFIG.viewer.canvasDimensions.x, core.CONFIG.viewer.canvasDimensions.y);
   },
 
   async mainLoadModelWrapper() {
@@ -1375,14 +1379,7 @@ export const Viewer = {
   async mainLoadModel() {
     console.log("Loading model: ", core.fileObject.basename, ", with extension: ", core.fileObject.extension);
     if (Viewer._ext === "glb" || Viewer._ext === "gltf") {
-      await loadModel({
-        config: Viewer.CONFIG,
-        getProxyPath: getProxyPath,
-        stats: Viewer.stats,
-        entityID: Viewer.entityID,
-        compressedFile: Viewer.compressedFile,
-        viewEntity: Viewer.viewEntity
-      });
+      await loadModel();
     } else if (
       Viewer._ext === "zip" ||
       Viewer._ext === "rar" ||
@@ -1390,38 +1387,17 @@ export const Viewer = {
       Viewer._ext === "xz" ||
       Viewer._ext === "gz"
     ) {
-      Viewer.compressedFile = "_" + Viewer._ext.toUpperCase() + "/";
-      core.fileObject.path = core.fileObject.path + core.fileObject.basename + Viewer.compressedFile
+      core.loadedFile = "_" + Viewer._ext.toUpperCase() + "/";
+      core.fileObject.path = core.fileObject.path + core.fileObject.basename + core.loadedFile
       core.fileObject.extension = "glb";
       core.fileObject.newExtension = Viewer._ext;
-      await loadModel({
-        config: Viewer.CONFIG,
-        getProxyPath: getProxyPath,
-        stats: Viewer.stats,
-        entityID: Viewer.entityID,
-        compressedFile: Viewer.compressedFile,
-        viewEntity: Viewer.viewEntity
-      });
+      await loadModel();
     } else {
       //core.fileObject.extension = "glb";
       if (Viewer._ext === "glb") {
-        await loadModel({
-        config: Viewer.CONFIG,
-        getProxyPath: getProxyPath,
-        stats: Viewer.stats,
-        entityID: Viewer.entityID,
-        compressedFile: Viewer.compressedFile,
-        viewEntity: Viewer.viewEntity
-      });
+        await loadModel();
       }
-      else await loadModel({
-        config: Viewer.CONFIG,
-        getProxyPath: getProxyPath,
-        stats: Viewer.stats,
-        entityID: Viewer.entityID,
-        compressedFile: Viewer.compressedFile,
-        viewEntity: Viewer.viewEntity
-      });
+      else await loadModel();
     }
   },
 
@@ -1610,8 +1586,8 @@ export const Viewer = {
         "position:relative;top:0px;" +
         "max-height:120px;max-width:90px;z-index:2;visibility:hidden;";
 
-      Viewer.windowHalfX = Viewer.CONFIG.viewer.canvasDimensions.x / 2;
-      Viewer.windowHalfY = Viewer.CONFIG.viewer.canvasDimensions.y / 2;
+      Viewer.windowHalfX = core.CONFIG.viewer.canvasDimensions.x / 2;
+      Viewer.windowHalfY = core.CONFIG.viewer.canvasDimensions.y / 2;
 
       Viewer.editorFolder = core.gui.addFolder("Editor").close();
       Viewer.editorFolder
@@ -1778,8 +1754,8 @@ export const Viewer = {
               );
 
               //Fetch data from original metadata file anyway before saving any changes
-              if (Viewer.CONFIG.entity.proxyPath !== undefined) {
-                Viewer.metadataUrl = getProxyPath(Viewer.metadataUrl);
+              if (core.CONFIG.entity.proxyPath !== undefined) {
+                Viewer.metadataUrl = core.getProxyPath(Viewer.metadataUrl);
               }
 
               (async () => {
@@ -1808,7 +1784,7 @@ export const Viewer = {
                 try {
                   const token = await fetch("/session/token").then(r => r.text());
 
-                  await fetch(Viewer.CONFIG.mainUrl + "/api/editor/save-metadata", {
+                  await fetch(core.CONFIG.mainUrl + "/api/editor/save-metadata", {
                     method: "POST",
                     credentials: "same-origin",
                     headers: {
@@ -1821,7 +1797,7 @@ export const Viewer = {
                         Viewer.archiveType !== ""
                           ? core.fileObject.relativePath +
                             core.fileObject.basename +
-                            Viewer.compressedFile
+                            core.loadedFile
                           : core.fileObject.relativePath,
                       content: JSON.stringify(newMetadata, null, "\t")
                     })
@@ -1900,7 +1876,7 @@ export const Viewer = {
     if (!Viewer.renderer) {
       Viewer.camera = new THREE.PerspectiveCamera(
         45,
-        Viewer.CONFIG.viewer.canvasDimensions.x / Viewer.CONFIG.viewer.canvasDimensions.y,
+        core.CONFIG.viewer.canvasDimensions.x / core.CONFIG.viewer.canvasDimensions.y,
         0.001,
         999000000
       );
@@ -1990,7 +1966,7 @@ export const Viewer = {
       core.renderer.domElement.addEventListener("pointermove", Viewer.onPointerMove);
 
       const devicePixelRatio = window.devicePixelRatio || 1;
-      core.renderer.setSize(Viewer.CONFIG.viewer.canvasDimensions.x, Viewer.CONFIG.viewer.canvasDimensions.y);
+      core.renderer.setSize(core.CONFIG.viewer.canvasDimensions.x, core.CONFIG.viewer.canvasDimensions.y);
 
       if (isE2E) {
         console.info('E2E MODE ENABLED');
@@ -2004,16 +1980,16 @@ export const Viewer = {
       } else {
             core.renderer.setPixelRatio(devicePixelRatio);
       }
-      core.renderer.domElement.style.width = Viewer.CONFIG.viewer.canvasDimensions.x + "px";
-      core.renderer.domElement.style.height = Viewer.CONFIG.viewer.canvasDimensions.y + "px";
+      core.renderer.domElement.style.width = core.CONFIG.viewer.canvasDimensions.x + "px";
+      core.renderer.domElement.style.height = core.CONFIG.viewer.canvasDimensions.y + "px";
 
       core.renderer.domElement.style.display = "block";
       core.container.appendChild(core.renderer.domElement);
       Viewer.mainCanvas.classList.add("mainCanvas");
       //Viewer.canvasText = document.createElement("div");
       //Viewer.canvasText.id = "metadata-container";
-      //Viewer.canvasText.width = Viewer.CONFIG.viewer.canvasDimensions.x + "px";
-      //Viewer.canvasText.height = Viewer.CONFIG.viewer.canvasDimensions.y + "px";
+      //Viewer.canvasText.width = core.CONFIG.viewer.canvasDimensions.x + "px";
+      //Viewer.canvasText.height = core.CONFIG.viewer.canvasDimensions.y + "px";
 
       Viewer.viewerWrapper = core.container.closest('.viewer-wrapper');
 
@@ -2022,7 +1998,7 @@ export const Viewer = {
         Viewer.viewerWrapper.classList.add('viewer-wrapper');
       }
 
-      core.camera.aspect = Viewer.CONFIG.viewer.canvasDimensions.x / Viewer.CONFIG.viewer.canvasDimensions.y;
+      core.camera.aspect = core.CONFIG.viewer.canvasDimensions.x / core.CONFIG.viewer.canvasDimensions.y;
       core.camera.updateProjectionMatrix();
 
       setCore('mainCanvas', Viewer.mainCanvas);
@@ -2037,7 +2013,7 @@ export const Viewer = {
         "top:" +
         (core.bottomLineGUI + 18) +
         "px; left: " +
-        (Viewer.CONFIG.viewer.canvasDimensions.x - 40) +
+        (core.CONFIG.viewer.canvasDimensions.x - 40) +
         "px"
       );
       core.container.appendChild(Viewer.fullscreenMode);
@@ -2056,12 +2032,12 @@ export const Viewer = {
 
       Viewer.fileElement = document.getElementsByClassName("field--type-file");
       if (Viewer.fileElement.length > 0) {
-        Viewer.fileElement[0].style.height = Viewer.CONFIG.viewer.canvasDimensions.y * 1.1 + "px";
+        Viewer.fileElement[0].style.height = core.CONFIG.viewer.canvasDimensions.y * 1.1 + "px";
       }
 
       if (
         !Viewer.isLightweight || 
-        Viewer.CONFIG.viewer.gallery?.build === true
+        core.CONFIG.viewer.gallery?.build === true
       ) {
         Viewer.buildGallery();
       }
@@ -2151,17 +2127,17 @@ export const Viewer = {
 
       core.autoPath = "";
           
-      if (Viewer.CONFIG.entity.metadata.source === "" && !Viewer.isLightweight) {
+      if (core.CONFIG.entity.metadata.source === "" && !Viewer.isLightweight) {
         try {
-          const response = await fetch('/api/editor/xml-export/' + Viewer.entityID, {
+          const response = await fetch('/api/editor/xml-export/' + core.CONFIG.entity.id, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/xml'
             },
             body: JSON.stringify({
-              id: Viewer.entityID,
-              domain: Viewer.CONFIG.metadataUrl
+              id: core.CONFIG.entity.id,
+              domain: core.CONFIG.metadataUrl
             })
           });
 
@@ -2191,7 +2167,7 @@ export const Viewer = {
         } catch (err) {
           console.error('Metadata load error:', err);
         }
-      } else if (Viewer.CONFIG.entity.metadata.source.toLowerCase().substring(0, 4) === "iiif") {
+      } else if (core.CONFIG.entity.metadata.source.toLowerCase().substring(0, 4) === "iiif") {
           const formContainer = document.createElement("div");
           formContainer.id = "form-IIIF";
 
@@ -2374,13 +2350,13 @@ export const Viewer = {
             });
 
         }      
-        console.log("Loading from source: " + Viewer.CONFIG.entity.metadata.source);
-        switch(Viewer.CONFIG.entity.metadata.source.substring(0, 4).toLowerCase()) {
+        console.log("Loading from source: " + core.CONFIG.entity.metadata.source);
+        switch(core.CONFIG.entity.metadata.source.substring(0, 4).toLowerCase()) {
           case "iiif":
             if (Viewer.iiifConfigURL.url !== "") {
-              createIIIFDropdown(core.container, Viewer.iiifConfigURL, Viewer.CONFIG.viewer.canvasDimensions);
+              createIIIFDropdown(core.container, Viewer.iiifConfigURL, core.CONFIG.viewer.canvasDimensions);
               await loadIIIFURL();
-              Viewer.CONFIG.entity.metadata.source = "IIIF";
+              core.CONFIG.entity.metadata.source = "IIIF";
               await setupIIIF(Viewer.iiifConfigURL.url);
             }
             break;

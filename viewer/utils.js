@@ -1,4 +1,4 @@
-import { core } from './core.js';
+import { core, setCore } from './core.js';
 
 // Geometry helpers
 export function distanceBetweenPoints(pointA, pointB) {
@@ -85,6 +85,8 @@ export function getProxyPath(url, config) {
   const tempPath = decodeURIComponent(config.mainUrl);
   return tempPath.replace(core.fileObject.originalPath, encodeURIComponent(url));
 }
+
+setCore("getProxyPath", getProxyPath);
 
 export function normalizeColor(value) {
   if (value == null) return null;

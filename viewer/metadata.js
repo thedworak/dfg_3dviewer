@@ -1,7 +1,6 @@
-import { truncateString, getProxyPath, hexToRgb } from "./utils.js";
+import { truncateString } from "./utils.js";
 import { showToast, setupObject, setupCamera } from './viewer-utils.js';
-import { core, setCore } from './core.js';
-import { objectsConfig } from "./object-settings.js";
+import { core } from './core.js';
 
 /**
  * Formats WissKI metadata labels and values for display.
@@ -116,17 +115,13 @@ export async function handleMetadataResponse(
   metadata,
   object,
   hierarchyMain,
-  CONFIG,
-  entityID,
-  compressedFile,
-  viewEntity
 ) {
   var tempArray = [];
   let hierarchyFolder;
   let metadataContentTech = '';
   if (Array.isArray(object)) {
     setupObject(object[0], data);
-    await setupCamera(object[0], data);
+    await setupCamera(object[0]);
   } else if (object.name === "Scene" || object.children.length > 0 || object.type == "Mesh"
   ) {
     setupObject(object, data);
@@ -161,10 +156,10 @@ export async function handleMetadataResponse(
         }
       }
     });
-    await setupCamera(object, data);
+    await setupCamera(object);
   } else {
     setupObject(object, data);
-    await setupCamera(object, data);
+    await setupCamera(object);
     metadata["vertices"] += fetchMetadata(object, "vertices");
     metadata["faces"] += fetchMetadata(object, "faces");
     if (object.name === "") {
@@ -223,8 +218,8 @@ export async function handleMetadataResponse(
       '<span class="metadata-label">Faces:</span>' +
       '<span class="metadata-value">' + metadata["faces"] + '</span>' +
     '</div>';
-    viewEntity = document.createElement("div");
-    viewEntity.setAttribute("id", "viewEntity");
+    core.viewEntity = document.createElement("div");
+    core.viewEntity.setAttribute("id", "viewEntity");
 
   if (!core.isLightweight) {
 
@@ -232,7 +227,7 @@ export async function handleMetadataResponse(
       core.downloadModel.setAttribute("id", "downloadModel");
 
       var c_path = core.fileObject.path;
-      if (compressedFile !== "") core.fileObject.filename = core.fileObject.filename.replace(core.fileObject.orgExtension, core.fileObject.extension);
+      if (core.loadedFile !== "") core.fileObject.filename = core.fileObject.filename.replace(core.fileObject.orgExtension, core.fileObject.extension);
 
       core.container.appendChild(core.downloadModel);
       const scriptUrl = document.currentScript?.src || import.meta.url;
@@ -246,9 +241,9 @@ export async function handleMetadataResponse(
     var req = new XMLHttpRequest();
     req.open(
       "GET",
-      CONFIG.viewer.exportPath +
-        entityID +
-        "?domain=" + encodeURIComponent(CONFIG.metadataUrl),
+      core.CONFIG.viewer.exportPath +
+        core.CONFIG.entity.id +
+        "?domain=" + encodeURIComponent(core.CONFIG.metadataUrl),
       true
     );
 
@@ -277,9 +272,9 @@ export async function handleMetadataResponse(
             }
           }
 
-          core.metadataContainer.appendChild(viewEntity);
+          core.metadataContainer.appendChild(core.viewEntity);
           } else {
-            showToast("No metadata found for entity " + entityID);
+            showToast("No metadata found for entity " + core.CONFIG.entity.id);
           }
         } finally {
           metadataContent +=
@@ -297,8 +292,8 @@ export async function handleMetadataResponse(
       '</div>' +  // #metadata-content
     '</div>';  
 
-    viewEntity.innerHTML =
-      `<a href='${CONFIG.mainUrl}${CONFIG.entity.viewEntityPath}${entityID}/view' target='_blank'><img src='${DFG_ASSETS}share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>`;
+    core.viewEntity.innerHTML =
+      `<a href='${core.CONFIG.mainUrl}${core.CONFIG.entity.viewEntityPath}${core.CONFIG.entity.id}/view' target='_blank'><img src='${DFG_ASSETS}share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>`;
     appendMetadata(metadataContent, metadataContentTech);
   }
   core.metadataContainer.addEventListener("click", (e) => {
@@ -314,13 +309,13 @@ export async function handleMetadataResponse(
 export async function settingsHandler(object, hierarchyMain, data) {
   if (Array.isArray(object)) {
     setupObject(object[0], data);
-    await setupCamera(object[0], data);
+    await setupCamera(object[0]);
   } else if (object.name === "Scene" || object.children.length > 0) {
     setupObject(object, data);
-    await setupCamera(object, data);
+    await setupCamera(object);
   } else {
     setupObject(object, data);
-    await setupCamera(object, data);
+    await setupCamera(object);
     if (object.name === "undefined") object.name = "level";
     if (!lilGUIhasFolder(hierarchyMain, object.name)) {
       hierarchyMain.addFolder(object.name).close();
@@ -336,9 +331,9 @@ function safeURL(value) {
   }
 }
 
-async function loadMetadataData(metadataUrl, CONFIG) {
+async function loadMetadataData(metadataUrl) {
   // proxy / non-lightweight
-  if (CONFIG.entity.proxyPath !== undefined || !core.isLightweight) {
+  if (core.CONFIG.entity.proxyPath !== undefined || !core.isLightweight) {
     return null; // no data → proxy
   }
 
@@ -358,13 +353,7 @@ async function loadMetadataData(metadataUrl, CONFIG) {
  */
 export async function fetchSettings(
   object,
-  CONFIG,
-  getProxyPath,
-  stats,
   guiContainer,
-  entityID,
-  compressedFile,
-  viewEntity
 ) {
   var metadata = { vertices: 0, faces: 0 };
   // Concat URL for metadata file
@@ -389,25 +378,24 @@ export async function fetchSettings(
   if (lilGUIgetFolder(core.gui, "Hierarchy") === null) {
     hierarchyMain = core.gui?.addFolder("Hierarchy").close();
   }
-  if (CONFIG.entity.proxyPath !== undefined || !core.isLightweight) {
-    metadataUrl = getProxyPath(metadataUrl, CONFIG);
-    const data = await loadMetadataData(metadataUrl, CONFIG);
-    await handleMetadataResponse(data, metadata, object, hierarchyMain, CONFIG, entityID, compressedFile, viewEntity);
-    settingsHandler(object, hierarchyMain, CONFIG);
-  } else if (CONFIG.entity.metadata.source === "IIIF") {
+  if (core.CONFIG.entity.proxyPath !== undefined || !core.isLightweight) {
+    metadataUrl = core.getProxyPath(metadataUrl, core.CONFIG);
+    const data = await loadMetadataData(metadataUrl);
+    await handleMetadataResponse(data, metadata, object, hierarchyMain);
+    settingsHandler(object, hierarchyMain, core.CONFIG);
+  } else if (core.CONFIG.entity.metadata.source === "IIIF") {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);
-    await handleMetadataResponse( CONFIG.model, metadata, object, hierarchyMain, CONFIG, entityID, compressedFile, viewEntity
-    );
+    await handleMetadataResponse( core.CONFIG.model, metadata, object, hierarchyMain);
   } else {
-    const data = await loadMetadataData(metadataUrl, CONFIG);
-    await handleMetadataResponse(data, metadata, object, hierarchyMain, CONFIG, entityID, compressedFile, viewEntity);
+    const data = await loadMetadataData(metadataUrl);
+    await handleMetadataResponse(data, metadata, object, hierarchyMain);
   }
   // Add statistics GUI
   let statsMain;
   if (lilGUIgetFolder(core.gui, "Statistics") === null) {
     statsMain = core.gui.addFolder("Statistics").close();
     statsMain
-    .add(CONFIG.viewer.performanceMode, "Performance", {
+    .add(core.CONFIG.viewer.performanceMode, "Performance", {
       "High-performance": "high-performance",
       "Low-power": "low-power",
       Default: "default",
@@ -417,14 +405,14 @@ export async function fetchSettings(
     });
     statsMain.onOpenClose((changedGUI) => {
     if (changedGUI._closed) {
-      if (typeof stats !== "undefined") stats.dom.style.visibility = "hidden";
+      if (typeof core.stats !== "undefined") core.stats.dom.style.visibility = "hidden";
     } else {
-      if (typeof stats !== "undefined") stats.dom.style.visibility = "visible";
+      if (typeof core.stats !== "undefined") core.stats.dom.style.visibility = "visible";
     }
     });
-    if (typeof guiContainer !== "undefined" && typeof stats !== "undefined") {
-      guiContainer.appendChild(stats.dom);
-      stats.dom.style.left = (core.lilGui[0]?.getBoundingClientRect().width - stats.domElement.getBoundingClientRect().width + 10) + 'px';
+    if (typeof guiContainer !== "undefined" && typeof core.stats !== "undefined") {
+      guiContainer.appendChild(core.stats.dom);
+      core.stats.dom.style.left = (core.lilGui[0]?.getBoundingClientRect().width - core.stats.domElement.getBoundingClientRect().width + 10) + 'px';
     }
   }
 }

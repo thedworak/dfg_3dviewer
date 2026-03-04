@@ -165,20 +165,11 @@ function traverseMesh(object) {
     });
 }
 
-  export async function loadModel(params) {
-    var {
-      config,
-      getProxyPath,
-      stats,
-      entityID,
-      canvasText,
-      compressedFile,
-      viewEntity
-    } = params;
+  export async function loadModel() {
 
     let modelPath = core.fileObject.path + core.fileObject.filename;
-    if (config.entity.proxyPath !== undefined) {
-      modelPath = getProxyPath(modelPath, config, core.fileObject);
+    if (core.CONFIG.entity.proxyPath !== undefined) {
+      modelPath = core.getProxyPath(modelPath, core.CONFIG, core.fileObject);
     }
 
     // Helper: promisify THREE loader.load
@@ -189,7 +180,7 @@ function traverseMesh(object) {
     }
 
     // Helper: common post-load pipeline
-    async function afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, canvasText, compressedFile, viewEntity, core }) {
+    async function afterLoad({ object }) {
       if (object === null || typeof object === "undefined") {
         showToast("Loaded object is null or undefined.");
         return;
@@ -203,7 +194,7 @@ function traverseMesh(object) {
       traverseMesh(object);
       if (core.fileObject.extension.toLowerCase() === "gltf" || core.fileObject.extension.toLowerCase() === "glb") core.fileObject.path = core.fileObject.path.replace("/gltf/", "/");
       else core.fileObject.path = core.fileObject.path.replace("gltf/", "");
-      fetchSettings( object, config, getProxyPath, stats, guiContainer, entityID, canvasText, compressedFile, viewEntity);
+      fetchSettings( object);
       core.outlineClipping = prepareOutlineClipping(object);
       if (Array.isArray(object)) {
         object.forEach(o => core.scene.add(o));
@@ -225,7 +216,7 @@ function traverseMesh(object) {
       });*/
     }
 
-    async function loadOBJWithMTL(config) {
+    async function loadOBJWithMTL() {
       const manager = new THREE.LoadingManager();
       manager.onLoad = () => showToast("OBJ model has been loaded");
       manager.addHandler(/\.dds$/i, new DDSLoader());
@@ -233,7 +224,7 @@ function traverseMesh(object) {
       const basename = core.fileObject.filename.replace(/\.[^/.]+$/, "");
       const filename = core.fileObject.filename;
 
-      if (!config.noMTL) {
+      if (!core.CONFIG.noMTL) {
         const materials = await new Promise((resolve, reject) => {
           new MTLLoader(manager)
           .setPath(core.fileObject.path)
@@ -267,10 +258,10 @@ function traverseMesh(object) {
       return path.replace(/\/{2,}/g, '/');
     }
 
-    async function loadGLTFModel(config) {
+    async function loadGLTFModel() {
       let modelPath = core.fileObject.path + core.fileObject.basename + "." + core.fileObject.extension;
-      if (config.entity.proxyPath !== undefined) {
-        modelPath = getProxyPath(modelPath);
+      if (core.CONFIG.entity.proxyPath !== undefined) {
+        modelPath = core.getProxyPath(modelPath);
       }
 
       const dracoBase = normalizePath(
@@ -313,8 +304,8 @@ function traverseMesh(object) {
 
     switch (core.fileObject.extension.toLowerCase()) {
       case "obj": {
-        const object = await loadOBJWithMTL(config);
-        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, canvasText, compressedFile, viewEntity, core });
+        const object = await loadOBJWithMTL();
+        afterLoad({ object });
         break;
       }
 
@@ -322,7 +313,7 @@ function traverseMesh(object) {
         const loader = new FBXLoader();
         const object = await loadAsync(loader, modelPath, onProgress);
         //object.position.set(0, 0, 0);
-        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, canvasText, compressedFile, viewEntity, core });
+        afterLoad({ object });
         break;
       }
 
@@ -335,7 +326,7 @@ function traverseMesh(object) {
         object.position.set(0, 0, 0);
         object.castShadow = true;
         object.receiveShadow = true;
-        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, canvasText, compressedFile, viewEntity, core });
+        afterLoad({ object });
         break;
       }
 
@@ -344,7 +335,7 @@ function traverseMesh(object) {
         const collada = await loadAsync(loader, modelPath, onProgress);
         const object = collada.scene;
         object.position.set(0, 0, 0);
-        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, canvasText, compressedFile, viewEntity, core });
+        afterLoad({ object });
         break;
       }
 
@@ -356,7 +347,7 @@ function traverseMesh(object) {
             : `/assets/ifc/`;
         ifcLoader.ifcManager.setWasmPath(ifcWasmPath, true);
         const object = await loadAsync(ifcLoader, modelPath, onProgress);
-        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, canvasText, compressedFile, viewEntity, core });
+        afterLoad({ object });
         break;
       }
 
@@ -372,7 +363,7 @@ function traverseMesh(object) {
         object.castShadow = true;
         object.receiveShadow = true;
         core.mainObject.push(object);
-        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, canvasText, compressedFile, viewEntity, core });
+        afterLoad({ object });
         break;
       }
 
@@ -383,14 +374,14 @@ function traverseMesh(object) {
         const material = new THREE.PointsMaterial({ size: 0.1, vertexColors: geometry.hasAttribute("color") === true });
         const object = new THREE.Points(geometry, material);
         object.position.set(0, 0, 0);
-        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, canvasText, compressedFile, viewEntity, core });
+        afterLoad({ object });
         break;
       }
 
       case "pcd": {
         const loader = new PCDLoader();
         const mesh = await loadAsync(loader, modelPath, onProgress);
-        afterLoad({ object: mesh, params, config, getProxyPath, stats, guiContainer, entityID, canvasText, compressedFile, viewEntity, core });
+        afterLoad({ object: mesh });
         break;
       }
 
@@ -399,7 +390,7 @@ function traverseMesh(object) {
         const object = await loadAsync(loader, modelPath, onProgress);
         object.position.set(0, 0, 0);
         core.mainObject.push(object);
-        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, canvasText, compressedFile, viewEntity, core });
+        afterLoad({ object });
         break;
       }
 
@@ -407,17 +398,17 @@ function traverseMesh(object) {
         const loader = new TDSLoader();
         loader.setResourcePath(core.fileObject.path);
         let mp = path;
-        if (config.entity.proxyPath !== undefined) mp = getProxyPath(mp);
+        if (core.CONFIG.entity.proxyPath !== undefined) mp = core.getProxyPath(mp);
         const object = await loadAsync(loader, mp + core.fileObject.basename + "." + core.fileObject.extension, onProgress);
         core.mainObject.push(object);
-        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, canvasText, compressedFile, viewEntity, core });
+        afterLoad({ object });
         break;
       }
 
       case "glb":
       case "gltf": {
-        const object = await loadGLTFModel(config);
-        afterLoad({ object, params, config, getProxyPath, stats, guiContainer, entityID, canvasText, compressedFile, viewEntity, core });
+        const object = await loadGLTFModel();
+        afterLoad({ object });
         break;
       }
       default:
@@ -433,28 +424,25 @@ export const onError = function (_event) {
   if (typeof core.EXIT_CODE !== "undefined") core.EXIT_CODE = 1;
 };
 
-export const onErrorMTL = async function (_event, params) {
+export const onErrorMTL = async function (_event) {
   //circle.set(100, 100);
-  if (typeof params !== "undefined") params.noMTL = true;
+  core.CONFIG.noMTL = true;
   showToast("Error occured while loading attached MTL file.");
-  await loadModel(params);
+  await loadModel();
 };
 
 export const onErrorGLB = async function (_event, params, loadedTimes) {
   console.log("Loader error: " + _event);
+  core.loadedFile = params.path + params.basename + core.loadedFile + "gltf/";
   if (typeof _event !== undefined && loadedTimes <= 1 && window.viewer.modelLoaded === false) {
-    await loadModel({
-      ...params,
-      path: params.path + params.basename + params.compressedFile + "gltf/",
-      extension: "glb"
-    });
+    await loadModel();
     loadedTimes++;
   } else {
     showToast("Error occured while loading attached GLB file.");
   }
 };
 
-export const onProgress = function (xhr, params) {
+export const onProgress = function (xhr) {
   if (!core.circle) return;
   const total = xhr.total || xhr.loaded || 1;
   const percentComplete = Math.min((xhr.loaded / total) * 100, 100);

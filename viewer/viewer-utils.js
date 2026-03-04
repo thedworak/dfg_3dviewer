@@ -102,7 +102,7 @@ function setupGeometryHandler (_object) {
   _object.updateMatrixWorld(true);
 }
 
-export const setupObject = (_object, _light, _controls, _metadata) => {
+export const setupObject = (_object, _metadata) => {
   let model;
   if (typeof _object.children === "undefined" || _object.children.length == 0) {
     model = fetchObjectFromConfig(_object.name);
@@ -288,9 +288,9 @@ function resolveBackground(meta, sceneId) {
   return { kind: "default" };
 }
 
-export async function setupCamera(_object, _config) {
+export async function setupCamera(_object) {
   const _light = core.lightObjects[0];
-  const cfg = _config ?? null;
+  const cfg = core.CONFIG ?? null;
   const fallback = core.objectsConfig ?? null;
 
   // --- CAMERA POSITION ---
