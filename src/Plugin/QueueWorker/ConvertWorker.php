@@ -427,14 +427,51 @@ class ConvertWorker extends QueueWorkerBase {
     }
 
     if (!empty($auto_path) && $this->entityHasField($entity, $cfg['viewer_file_name'])) {
-      $entity->set($cfg['viewer_file_name'], $auto_path);
+      $viewer_field = (string) $cfg['viewer_file_name'];
+      if ($this->fieldRequiresTargetId($entity, $viewer_field)) {
+        $viewer_values = $this->buildFieldValues($entity, $viewer_field, [$auto_path]);
+        $this->applyFieldValues($entity, $viewer_field, $viewer_values, $this->getCurrentLanguageId());
+        \Drupal::logger('dfg_3dviewer')->notice(
+          'Saved viewer_file_name field "@field" via target_id mapping from "@value".',
+          [
+            '@field' => $viewer_field,
+            '@value' => $auto_path,
+          ]
+        );
+      }
+      else {
+        $auto_path_url = $this->uriToUrl($auto_path, (string) ($cfg['main_url'] ?? '')) ?? $auto_path;
+        $entity->set($viewer_field, $auto_path_url);
+        \Drupal::logger('dfg_3dviewer')->notice(
+          'Saved viewer_file_name value "@value".',
+          [
+            '@value' => $auto_path_url,
+          ]
+        );
+      }
+    }
+
+    $legacy_gallery_field = $this->extractFieldNameFromClass((string) ($cfg['gallery_image_class'] ?? ''));
+    if (!empty($images_paths)
+      && $legacy_gallery_field !== ''
+      && $legacy_gallery_field !== (string) ($cfg['image_generation'] ?? '')
+      && $this->entityHasField($entity, $legacy_gallery_field)) {
+      $legacy_lang = $this->getCurrentLanguageId();
+      $legacy_applied = $this->applyPlainScalarFieldValues($entity, $legacy_gallery_field, $images_paths, $legacy_lang);
+      if ($legacy_applied === 0) {
+        $legacy_values = $this->buildFieldValues($entity, $legacy_gallery_field, $images_paths);
+        $legacy_applied = $this->applyFieldValues($entity, $legacy_gallery_field, $legacy_values, $legacy_lang);
+      }
       \Drupal::logger('dfg_3dviewer')->notice(
-        'Saved viewer_file_name value "@value".',
+        'Mirrored @count rendered images to legacy gallery field "@field". Applied before save: @applied',
         [
-          '@value' => $auto_path,
+          '@count' => count($images_paths),
+          '@field' => $legacy_gallery_field,
+          '@applied' => $legacy_applied,
         ]
       );
     }
+
     clearstatcache();
     return $result;
   }
@@ -821,6 +858,19 @@ class ConvertWorker extends QueueWorkerBase {
     }
 
     return FALSE;
+  }
+
+  private function extractFieldNameFromClass(string $class_name): string {
+    $class_name = trim($class_name);
+    if ($class_name === '') {
+      return '';
+    }
+
+    if (preg_match('/field--name-([a-zA-Z0-9_]+)/', $class_name, $matches)) {
+      return (string) ($matches[1] ?? '');
+    }
+
+    return '';
   }
 
   private function getCurrentLanguageId(): string {

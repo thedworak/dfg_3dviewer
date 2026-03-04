@@ -54,6 +54,11 @@ function dfg_3dviewer_config(): array {
 	FILTER_VALIDATE_BOOLEAN
 	);
 
+	$gallery_image_class = trim((string) (
+		$config->get('dfg_3dviewer_gallery_image_class')
+		?? $config->get('gallery_image_class')
+	)) ?: 'field--name-fd6a974b7120d422c7b21b5f1f2315d9';
+
     $cfg = [
       'main_url' => $main_url,
       'entity_bundle' => $entity_bundle,
@@ -62,6 +67,7 @@ function dfg_3dviewer_config(): array {
       'image_generation' => $image_generation,
       'field_df' => $field_df,
       'lightweight' => $lightweight,
+      'gallery_image_class' => $gallery_image_class,
     ];
   }
   return $cfg;
