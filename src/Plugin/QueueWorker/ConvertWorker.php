@@ -251,6 +251,7 @@ class ConvertWorker extends QueueWorkerBase {
   }
 
   private function applyViewerFields($entity, File $file, array $cfg, array $context): array {
+    clearstatcache();
     $result = [
       'image_field' => (string) ($cfg['image_generation'] ?? ''),
       'image_urls' => [],
@@ -425,7 +426,7 @@ class ConvertWorker extends QueueWorkerBase {
         ]
       );
     }
-
+    clearstatcache();
     return $result;
   }
 
@@ -731,6 +732,8 @@ class ConvertWorker extends QueueWorkerBase {
     if (!$this->entityHasField($entity, $field_name)) {
       return 0;
     }
+
+    clearstatcache();
 
     $applied = [];
     try {
