@@ -328,8 +328,19 @@ class ConvertWorker extends QueueWorkerBase {
     $images_paths = $best_images;
 
     if (!empty($images_paths) && $this->entityHasField($entity, $cfg['image_generation'])) {
-      $images_field_values = $this->buildImageGenerationValues($images_paths);
-      $applied_count = $this->applyFieldValues($entity, $cfg['image_generation'], $images_field_values, 'en');
+      $lang = 'en';
+      try {
+        $lang = (string) \Drupal::languageManager()->getCurrentLanguage()->getId();
+        if ($lang === '') {
+          $lang = 'en';
+        }
+      }
+      catch (\Throwable $e) {
+        $lang = 'en';
+      }
+
+      $images_field_values = $this->buildFieldValues($entity, $cfg['image_generation'], $images_paths);
+      $applied_count = $this->applyFieldValues($entity, $cfg['image_generation'], $images_field_values, $lang);
       $first_image = $images_paths[0] ?? '';
       \Drupal::logger('dfg_3dviewer')->notice(
         'Added @count rendered images to field "@field" for file "@filename" (@uri). Applied count before save: @applied. First image: @first',
@@ -553,29 +564,6 @@ class ConvertWorker extends QueueWorkerBase {
         '@wl' => $has_wisski_language ? 'yes' : 'no',
       ]
     );
-
-    return $values;
-  }
-
-  private function buildImageGenerationValues(array $image_urls): array {
-    $lang = 'en';
-    try {
-      $lang = (string) \Drupal::languageManager()->getCurrentLanguage()->getId();
-      if ($lang === '') {
-        $lang = 'en';
-      }
-    }
-    catch (\Throwable $e) {
-      $lang = 'en';
-    }
-
-    $values = [];
-    foreach ($image_urls as $url) {
-      $values[] = [
-        'value' => (string) $url,
-        'wisski_language' => $lang,
-      ];
-    }
 
     return $values;
   }

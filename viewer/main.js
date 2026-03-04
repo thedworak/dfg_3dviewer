@@ -2106,7 +2106,7 @@ export const Viewer = {
       setCore('transformControlClippingPlaneZ', Viewer.transformControlClippingPlaneZ);
 
       setCore('clippingPlanes', Viewer.clippingPlanes);
-      setCore('selectObjectHierarchy', this.selectObjectHierarchy);
+      setCore('selectObjectHierarchy', Viewer.selectObjectHierarchy);
 
       Viewer.transformControlClippingPlaneX.showX = Viewer.transformControlClippingPlaneX.showY = false;
       Viewer.transformControlClippingPlaneY.showX = Viewer.transformControlClippingPlaneY.showY = false;
