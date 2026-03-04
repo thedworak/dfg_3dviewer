@@ -424,23 +424,6 @@ class ConvertWorker extends QueueWorkerBase {
       );
     }
 
-    $field_df = (string) ($cfg['field_df'] ?? '');
-    $reserved_fields = array_filter([
-      (string) ($cfg['image_generation'] ?? ''),
-      (string) ($cfg['viewer_file_name'] ?? ''),
-      (string) ($cfg['viewer_file_upload'] ?? ''),
-    ]);
-
-    if ($field_df !== '' && in_array($field_df, $reserved_fields, TRUE)) {
-      \Drupal::logger('dfg_3dviewer')->warning(
-        'Skipped clearing field_df "@field_df" because it collides with a configured viewer field.',
-        ['@field_df' => $field_df]
-      );
-    }
-    elseif ($field_df !== '' && $this->entityHasField($entity, $field_df)) {
-      $entity->set($field_df, '');
-    }
-
     return $result;
   }
 
@@ -701,7 +684,17 @@ class ConvertWorker extends QueueWorkerBase {
 
   private function getPersistedFieldValues(string $entity_type, string $entity_id, string $field_name): array {
     try {
-      $loaded = \Drupal::entityTypeManager()->getStorage($entity_type)->load($entity_id);
+      $storage = \Drupal::entityTypeManager()->getStorage($entity_type);
+      if (method_exists($storage, 'resetCache')) {
+        $storage->resetCache([$entity_id]);
+      }
+
+      if (method_exists($storage, 'loadUnchanged')) {
+        $loaded = $storage->loadUnchanged($entity_id);
+      }
+      else {
+        $loaded = $storage->load($entity_id);
+      }
       if (!$loaded || !$this->entityHasField($loaded, $field_name)) {
         return [];
       }
