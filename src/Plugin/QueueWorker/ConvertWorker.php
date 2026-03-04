@@ -665,6 +665,53 @@ class ConvertWorker extends QueueWorkerBase {
       }
     }
 
+    if (!empty($values) && method_exists($entity, 'getUntranslated')) {
+      try {
+        $untranslated = $entity->getUntranslated();
+        if ($this->entityHasField($untranslated, $field_name)) {
+          $untranslated->set($field_name, $values);
+        }
+      }
+      catch (\Throwable $e) {
+        \Drupal::logger('dfg_3dviewer')->warning(
+          'Untranslated mirror set failed for field "@field": @msg',
+          [
+            '@field' => $field_name,
+            '@msg' => $e->getMessage(),
+          ]
+        );
+      }
+    }
+
+    if (!empty($values)
+      && method_exists($entity, 'getTranslationLanguages')
+      && method_exists($entity, 'getTranslation')) {
+      try {
+        $languages = $entity->getTranslationLanguages();
+        foreach ($languages as $langcode => $language) {
+          if ($langcode === \Drupal\Core\Language\LanguageInterface::LANGCODE_DEFAULT) {
+            continue;
+          }
+          if (!method_exists($entity, 'hasTranslation') || !$entity->hasTranslation($langcode)) {
+            continue;
+          }
+          $translation = $entity->getTranslation($langcode);
+          if ($this->entityHasField($translation, $field_name)) {
+            $translation->set($field_name, $values);
+          }
+        }
+      }
+      catch (\Throwable $e) {
+        \Drupal::logger('dfg_3dviewer')->warning(
+          'Translation mirror set failed for field "@field": @msg',
+          [
+            '@field' => $field_name,
+            '@msg' => $e->getMessage(),
+          ]
+        );
+      }
+    }
+
     return is_array($applied) ? count($applied) : 0;
   }
 
