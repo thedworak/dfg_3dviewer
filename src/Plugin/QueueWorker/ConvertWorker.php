@@ -71,6 +71,15 @@ class ConvertWorker extends QueueWorkerBase {
           '@queued_uri' => (string) $source_uri,
         ]
       );
+      \Drupal::logger('dfg_3dviewer')->notice(
+        'Resolved viewer field config: image_generation="@image", field_df="@field_df", viewer_file_name="@viewer_file_name", viewer_file_upload="@viewer_file_upload".',
+        [
+          '@image' => (string) ($cfg['image_generation'] ?? ''),
+          '@field_df' => (string) ($cfg['field_df'] ?? ''),
+          '@viewer_file_name' => (string) ($cfg['viewer_file_name'] ?? ''),
+          '@viewer_file_upload' => (string) ($cfg['viewer_file_upload'] ?? ''),
+        ]
+      );
 
       $module_path = $fs->realpath(
         \Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath()
@@ -87,10 +96,11 @@ class ConvertWorker extends QueueWorkerBase {
       $this->saveEntity($entity);
 
       $this->updateProgress($entity, 80, 'processing', 'Updating viewer fields...');
-      $this->applyViewerFields($entity, $file, $cfg, $context);
+      $viewer_result = $this->applyViewerFields($entity, $file, $cfg, $context);
 
       $this->updateProgress($entity, 100, 'ready', 'Conversion finished');
       $this->saveEntity($entity);
+      $this->ensureImageFieldPersisted($entity_type, (string) $entity_id, $viewer_result);
 
       \Drupal::logger('dfg_3dviewer')->notice(
         'Conversion finished for entity @entity_id and file @file_id.',
@@ -240,7 +250,13 @@ class ConvertWorker extends QueueWorkerBase {
     ];
   }
 
-  private function applyViewerFields($entity, File $file, array $cfg, array $context): void {
+  private function applyViewerFields($entity, File $file, array $cfg, array $context): array {
+    $result = [
+      'image_field' => (string) ($cfg['image_generation'] ?? ''),
+      'image_urls' => [],
+      'lang' => 'en',
+      'applied_before_save' => 0,
+    ];
     $extension = $context['extension'];
     $is_archive = (bool) $context['is_archive'];
     $fs = \Drupal::service('file_system');
@@ -328,19 +344,13 @@ class ConvertWorker extends QueueWorkerBase {
     $images_paths = $best_images;
 
     if (!empty($images_paths) && $this->entityHasField($entity, $cfg['image_generation'])) {
-      $lang = 'en';
-      try {
-        $lang = (string) \Drupal::languageManager()->getCurrentLanguage()->getId();
-        if ($lang === '') {
-          $lang = 'en';
-        }
-      }
-      catch (\Throwable $e) {
-        $lang = 'en';
-      }
+      $lang = $this->getCurrentLanguageId();
 
       $images_field_values = $this->buildFieldValues($entity, $cfg['image_generation'], $images_paths);
       $applied_count = $this->applyFieldValues($entity, $cfg['image_generation'], $images_field_values, $lang);
+      $result['image_urls'] = $images_paths;
+      $result['lang'] = $lang;
+      $result['applied_before_save'] = $applied_count;
       $first_image = $images_paths[0] ?? '';
       \Drupal::logger('dfg_3dviewer')->notice(
         'Added @count rendered images to field "@field" for file "@filename" (@uri). Applied count before save: @applied. First image: @first',
@@ -430,6 +440,8 @@ class ConvertWorker extends QueueWorkerBase {
     elseif ($field_df !== '' && $this->entityHasField($entity, $field_df)) {
       $entity->set($field_df, '');
     }
+
+    return $result;
   }
 
   private function updateProgress($entity, int $percent, string $status, string $message = ''): void {
@@ -671,6 +683,164 @@ class ConvertWorker extends QueueWorkerBase {
     }
 
     return is_array($applied) ? count($applied) : 0;
+  }
+
+  private function getCurrentLanguageId(): string {
+    $lang = 'en';
+    try {
+      $lang = (string) \Drupal::languageManager()->getCurrentLanguage()->getId();
+      if ($lang === '') {
+        $lang = 'en';
+      }
+    }
+    catch (\Throwable $e) {
+      $lang = 'en';
+    }
+    return $lang;
+  }
+
+  private function getPersistedFieldValues(string $entity_type, string $entity_id, string $field_name): array {
+    try {
+      $loaded = \Drupal::entityTypeManager()->getStorage($entity_type)->load($entity_id);
+      if (!$loaded || !$this->entityHasField($loaded, $field_name)) {
+        return [];
+      }
+      $values = $loaded->get($field_name)->getValue();
+      return is_array($values) ? $values : [];
+    }
+    catch (\Throwable $e) {
+      \Drupal::logger('dfg_3dviewer')->warning(
+        'Could not read persisted values for field "@field" on @type:@id: @msg',
+        [
+          '@field' => $field_name,
+          '@type' => $entity_type,
+          '@id' => $entity_id,
+          '@msg' => $e->getMessage(),
+        ]
+      );
+      return [];
+    }
+  }
+
+  private function ensureImageFieldPersisted(string $entity_type, string $entity_id, array $viewer_result): void {
+    $field_name = trim((string) ($viewer_result['image_field'] ?? ''));
+    $image_urls = array_values(array_filter(
+      (array) ($viewer_result['image_urls'] ?? []),
+      static fn($url): bool => is_string($url) && trim($url) !== ''
+    ));
+
+    if ($field_name === '' || empty($image_urls)) {
+      return;
+    }
+
+    $persisted_values = $this->getPersistedFieldValues($entity_type, $entity_id, $field_name);
+    $persisted_count = count($persisted_values);
+    if ($persisted_count > 0) {
+      \Drupal::logger('dfg_3dviewer')->notice(
+        'Persisted image field "@field" on @type:@id after save with @count values.',
+        [
+          '@field' => $field_name,
+          '@type' => $entity_type,
+          '@id' => $entity_id,
+          '@count' => $persisted_count,
+        ]
+      );
+      return;
+    }
+
+    $lang = trim((string) ($viewer_result['lang'] ?? '')) ?: $this->getCurrentLanguageId();
+
+    \Drupal::logger('dfg_3dviewer')->warning(
+      'Image field "@field" on @type:@id is empty after save. Starting retry with alternate value formats.',
+      [
+        '@field' => $field_name,
+        '@type' => $entity_type,
+        '@id' => $entity_id,
+      ]
+    );
+
+    $formats = [
+      'buildFieldValues',
+      'legacy_value_wisski_language',
+      'plain_scalar_values',
+      'plain_single_scalar',
+    ];
+
+    foreach ($formats as $format) {
+      try {
+        $entity = \Drupal::entityTypeManager()->getStorage($entity_type)->load($entity_id);
+        if (!$entity || !$this->entityHasField($entity, $field_name)) {
+          return;
+        }
+
+        $applied_count = 0;
+        if ($format === 'buildFieldValues') {
+          $rows = $this->buildFieldValues($entity, $field_name, $image_urls);
+          $applied_count = $this->applyFieldValues($entity, $field_name, $rows, $lang);
+        }
+        elseif ($format === 'legacy_value_wisski_language') {
+          $rows = [];
+          foreach ($image_urls as $url) {
+            $rows[] = [
+              'value' => (string) $url,
+              'wisski_language' => $lang,
+            ];
+          }
+          $applied_count = $this->applyFieldValues($entity, $field_name, $rows, $lang);
+        }
+        elseif ($format === 'plain_scalar_values') {
+          $entity->set($field_name, $image_urls);
+          $applied_now = $entity->get($field_name)->getValue();
+          $applied_count = is_array($applied_now) ? count($applied_now) : 0;
+        }
+        else {
+          $entity->set($field_name, [$image_urls[0]]);
+          $applied_now = $entity->get($field_name)->getValue();
+          $applied_count = is_array($applied_now) ? count($applied_now) : 0;
+        }
+
+        $this->saveEntity($entity);
+        $persisted_values = $this->getPersistedFieldValues($entity_type, $entity_id, $field_name);
+        $persisted_count = count($persisted_values);
+
+        \Drupal::logger('dfg_3dviewer')->notice(
+          'Retry format "@format" for field "@field" on @type:@id: applied_before_save=@applied, persisted_after_save=@persisted.',
+          [
+            '@format' => $format,
+            '@field' => $field_name,
+            '@type' => $entity_type,
+            '@id' => $entity_id,
+            '@applied' => $applied_count,
+            '@persisted' => $persisted_count,
+          ]
+        );
+
+        if ($persisted_count > 0) {
+          return;
+        }
+      }
+      catch (\Throwable $e) {
+        \Drupal::logger('dfg_3dviewer')->warning(
+          'Retry format "@format" failed for field "@field" on @type:@id: @msg',
+          [
+            '@format' => $format,
+            '@field' => $field_name,
+            '@type' => $entity_type,
+            '@id' => $entity_id,
+            '@msg' => $e->getMessage(),
+          ]
+        );
+      }
+    }
+
+    \Drupal::logger('dfg_3dviewer')->error(
+      'Could not persist image field "@field" on @type:@id after all retries.',
+      [
+        '@field' => $field_name,
+        '@type' => $entity_type,
+        '@id' => $entity_id,
+      ]
+    );
   }
 
   private function imageLocationToUri(string $location): ?string {
