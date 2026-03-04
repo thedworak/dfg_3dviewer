@@ -454,7 +454,7 @@ class ConvertWorker extends QueueWorkerBase {
   }
 
   private function entityHasField($entity, string $field_name): bool {
-    return method_exists($entity, 'hasField') && $entity->hasField($field_name);
+    return is_object($entity) && method_exists($entity, 'hasField') && $entity->hasField($field_name);
   }
 
   private function uriExists(string $uri): bool {
@@ -902,7 +902,8 @@ class ConvertWorker extends QueueWorkerBase {
       ]
     );
 
-    $formats = $this->fieldRequiresTargetId($entity, $field_name)
+    $entity_probe = \Drupal::entityTypeManager()->getStorage($entity_type)->load($entity_id);
+    $formats = $this->fieldRequiresTargetId($entity_probe, $field_name)
       ? ['buildFieldValues', 'plain_scalar_values', 'legacy_value_wisski_language', 'plain_single_scalar']
       : ['plain_scalar_values', 'buildFieldValues', 'legacy_value_wisski_language', 'plain_single_scalar'];
 
