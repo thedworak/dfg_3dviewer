@@ -4,7 +4,6 @@ namespace Drupal\dfg_3dviewer\Controller;
 
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
-use Drupal\Core\Database\Database;
 use Drupal\node\Entity\Node;
 
 class ModelController {
@@ -32,28 +31,32 @@ class ModelController {
   }
 
   public function status($id) {
+    $node = Node::load((int) $id);
+    if (!$node) {
+      return new JsonResponse(['error' => 'not found'], 404);
+    }
 
-    $db = Database::getConnection();
+    $progress = 0;
+    $status = 'unknown';
+    $message = '';
 
-    $result = $db->query("
-      SELECT
-      p.field_processing_progress_value AS progress,
-      s.field_processing_status_value AS status,
-      m.field_processing_message_value AS message
-      FROM node__field_processing_progress p
-      LEFT JOIN node__field_processing_status s ON s.entity_id = p.entity_id
-      LEFT JOIN node__field_processing_message m ON m.entity_id = p.entity_id
-      WHERE p.entity_id = :id
-    ", [':id' => $id])->fetchAssoc();
-
-    if (!$result) {
-      return new JsonResponse(['error'=>'not found'],404);
+    if ($node->hasField('field_processing_progress')) {
+      $value = $node->get('field_processing_progress')->value;
+      $progress = is_numeric($value) ? (int) $value : 0;
+    }
+    if ($node->hasField('field_processing_status')) {
+      $statusValue = $node->get('field_processing_status')->value;
+      $status = $statusValue !== NULL && $statusValue !== '' ? (string) $statusValue : 'unknown';
+    }
+    if ($node->hasField('field_processing_message')) {
+      $messageValue = $node->get('field_processing_message')->value;
+      $message = $messageValue !== NULL ? (string) $messageValue : '';
     }
 
     $response = new JsonResponse([
-      'progress' => (int)$result['progress'],
-      'status' => $result['status'],
-      'message' => $result['message']
+      'progress' => $progress,
+      'status' => $status,
+      'message' => $message
     ]);
 
     $response->headers->set('Cache-Control','no-store');

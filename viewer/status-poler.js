@@ -45,7 +45,7 @@ export class StatusPoller {
 
         UltraLoader.set(data.progress);
 
-        updateSteps(data.status);
+        this.updateSteps(data.status);
 
         if(data.status==="ready") {
             UltraLoader.finish("Model ready");
