@@ -1224,8 +1224,8 @@ export const Viewer = {
             intersects = Viewer.raycaster.intersectObject(core.mainObject[0], true);
           }
           if (intersects.length > 0) {
-            if (Viewer.RULER_MODE) buildRuler(intersects[0]);
-            else if (Viewer.EDITOR) pickFaces(intersects[0]);
+            if (Viewer.RULER_MODE) Viewer.buildRuler(intersects[0]);
+            else if (Viewer.EDITOR) Viewer.pickFaces(intersects[0]);
           }
         }
       }
@@ -1274,9 +1274,9 @@ export const Viewer = {
           intersects = Viewer.raycaster.intersectObject(core.mainObject[0], true);
         }
         if (intersects.length > 0) {
-          pickFaces(intersects[0]);
+          Viewer.pickFaces(intersects[0]);
         } else {
-          pickFaces("");
+          Viewer.pickFaces("");
         }
       }
     }
