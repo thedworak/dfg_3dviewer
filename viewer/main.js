@@ -625,25 +625,24 @@ export const Viewer = {
 
   prepareGalleryImages(imageElementsChildren) {
     imageElementsChildren = imageElementsChildren.filter(function (_image) {
-      if (!_image.innerHTML) {
-        let rawUrl = "";
-        const img = _image.querySelector("img");
-        const link = _image.querySelector("a");
-        if (img && img.getAttribute("src")) {
-          rawUrl = img.getAttribute("src");
-        } else if (link && link.getAttribute("href")) {
-          rawUrl = link.getAttribute("href");
-        } else {
-          rawUrl = (_image.textContent || _image.innerHTML || "").trim();
-        }
-
-        const normalized = Viewer.normalizeGalleryUrl(rawUrl);
-        if (!isValidUrl(normalized)) {
-          return false;
-        }
-        _image.innerHTML = normalized;
-        return true;
+      if (!(_image instanceof Element)) return false;
+      let rawUrl = "";
+      const img = _image.querySelector("img");
+      const link = _image.querySelector("a");
+      if (img && img.getAttribute("src")) {
+        rawUrl = img.getAttribute("src");
+      } else if (link && link.getAttribute("href")) {
+        rawUrl = link.getAttribute("href");
+      } else {
+        rawUrl = (_image.textContent || _image.innerHTML || "").trim();
       }
+
+      const normalized = Viewer.normalizeGalleryUrl(rawUrl);
+      if (!isValidUrl(normalized)) {
+        return false;
+      }
+      _image.innerHTML = normalized;
+      return !!img;
     });
     imageElementsChildren.forEach(function (imgLink, index) {
       imgLink.innerHTML =
