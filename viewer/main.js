@@ -841,11 +841,59 @@ export const Viewer = {
     }
   },
 
+  toHexColor(input) {
+    if (!input) return null;
+
+    // THREE.Color
+    if (typeof input.getHex === "function") {
+      return input.getHex();
+    }
+
+    // hex number
+    if (typeof input === "number") {
+      return input >>> 0;
+    }
+
+    // hex string: "#ff00aa" / "ff00aa"
+    if (typeof input === "string") {
+      const s = input.replace("#", "");
+      if (/^[0-9a-fA-F]{6}$/.test(s)) return parseInt(s, 16);
+      return null;
+    }
+
+    // array [r,g,b] / [r,g,b,a]
+    if (Array.isArray(input)) {
+      const [r, g, b] = input;
+      if ([r, g, b].every(v => typeof v === "number")) {
+        const rr = r <= 1 ? Math.round(r * 255) : r;
+        const gg = g <= 1 ? Math.round(g * 255) : g;
+        const bb = b <= 1 ? Math.round(b * 255) : b;
+        return ((rr & 255) << 16) | ((gg & 255) << 8) | (bb & 255);
+      }
+      return null;
+    }
+
+    // object { r, g, b, a? }
+    if (typeof input === "object" && "r" in input && "g" in input && "b" in input) {
+      const rr = input.r <= 1 ? Math.round(input.r * 255) : input.r;
+      const gg = input.g <= 1 ? Math.round(input.g * 255) : input.g;
+      const bb = input.b <= 1 ? Math.round(input.b * 255) : input.b;
+      return ((rr & 255) << 16) | ((gg & 255) << 8) | (bb & 255);
+    }
+
+    return null;
+  },
+
   pickFaces(_id) {
+    let mat, colorHex;
+    if ((Viewer.lastPickedFace.id == "" && _id !== "") || _id != Viewer.lastPickedFace.id) {
+      mat = Array.isArray(_id?.object?.material) ? _id.object.material[0] : _id?.object?.material;
+      colorHex = Viewer.toHexColor(mat?.color);
+    }
     if (Viewer.lastPickedFace.id == "" && _id !== "") {
       Viewer.lastPickedFace = {
         id: _id,
-        color: _id.object.material.color.getHex(),
+        color: colorHex,
         object: _id.object.id,
       };
     } else if (_id == "" && Viewer.lastPickedFace.id !== "") {
@@ -859,7 +907,7 @@ export const Viewer = {
         .material.color = normalizeColor(Viewer.lastPickedFace.color);
       Viewer.lastPickedFace = {
         id: _id,
-        color: _id.object.material.color.getHex(),
+        color: colorHex,
         object: _id.object.id,
       };
     }
