@@ -267,7 +267,9 @@ export const Viewer = {
     setCore('CONFIG', this.CONFIG);
     setCore('loadedFile', this.loadedFile);
     setCore('stats', this.stats);
-
+    setCore('guiContainer', this.guiContainer);
+    setCore('lilGui', this.lilGui);
+    setCore('gui', this.gui);
 
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -394,12 +396,12 @@ export const Viewer = {
 
     this.rect = core.container.getBoundingClientRect();
 
-    this.guiContainer = document.createElement("div");
-    this.guiContainer.id = "guiContainer";
-    this.guiContainer.className = "guiContainer";
-    core.container.appendChild(this.guiContainer);
+    core.guiContainer = document.createElement("div");
+    core.guiContainer.id = "guiContainer";
+    core.guiContainer.className = "guiContainer";
+    core.container.appendChild(core.guiContainer);
 
-    this.gui  = new GUI({ container: guiContainer });
+    core.gui  = new GUI({ container: core.guiContainer });
 
     this.metadataContainer = document.createElement("div");
     this.metadataContainer.setAttribute("id", "metadata-container");
@@ -981,7 +983,7 @@ export const Viewer = {
       Viewer.fullscreenMode.style.left = (widthCSS - Viewer.fullscreenMode.getBoundingClientRect().width - 15) + 'px';
     }
 
-    Viewer.guiContainer.style.left = (widthCSS - Viewer.lilGui[0]?.getBoundingClientRect().width) + 'px';
+    core.guiContainer.style.left = (widthCSS - core.lilGui[0]?.getBoundingClientRect().width) + 'px';
 
     Viewer.mainCanvas.width = widthDev;
     Viewer.mainCanvas.height = heightDev;
@@ -2086,10 +2088,9 @@ export const Viewer = {
       Viewer.handHint.innerHTML = `<img src="${Viewer.DFG_ASSETS}hand-hint.png" alt="Fullscreen" width=48 height=48 title="Hand hint animation"/>`;
       
       Viewer.rect = core.container.getBoundingClientRect();
-      Viewer.guiContainer.style.maxHeight = `${Viewer.rect.height - 20}px`;
-      Viewer.lilGui = document.getElementsByClassName("lil-gui root");
-      setCore('lilGui', Viewer.lilGui);
-      setCore('gui', Viewer.gui);
+      core.guiContainer.style.maxHeight = `${Viewer.rect.height - 20}px`;
+      core.lilGui = document.getElementsByClassName("lil-gui root");      
+
 
       Viewer.fileElement = document.getElementsByClassName("field--type-file");
       if (Viewer.fileElement.length > 0) {

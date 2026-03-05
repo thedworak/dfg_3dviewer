@@ -353,7 +353,6 @@ async function loadMetadataData(metadataUrl) {
  */
 export async function fetchSettings(
   object,
-  guiContainer,
 ) {
   var metadata = { vertices: 0, faces: 0 };
   // Concat URL for metadata file
@@ -410,8 +409,8 @@ export async function fetchSettings(
       if (typeof core.stats !== "undefined") core.stats.dom.style.visibility = "visible";
     }
     });
-    if (typeof guiContainer !== "undefined" && typeof core.stats !== "undefined") {
-      guiContainer.appendChild(core.stats.dom);
+    if (typeof core.guiContainer !== "undefined" && typeof core.stats !== "undefined") {
+      core.guiContainer.appendChild(core.stats.dom);
       core.stats.dom.style.left = (core.lilGui[0]?.getBoundingClientRect().width - core.stats.domElement.getBoundingClientRect().width + 10) + 'px';
     }
   }
