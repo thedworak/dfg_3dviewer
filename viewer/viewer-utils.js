@@ -727,9 +727,12 @@ function setupClippingPlanes(_geom, _size, _distance) {
   core.clippingPlanes[1].constant = _distance.y;
   core.clippingPlanes[2].constant = _distance.z;
 
-  core.scene.add(core.transformControlClippingPlaneX?.getHelper());
-  core.scene.add(core.transformControlClippingPlaneY?.getHelper());
-  core.scene.add(core.transformControlClippingPlaneZ?.getHelper());
+  if (core.transformControlClippingPlaneX && core.transformControlClippingPlaneY && core.transformControlClippingPlaneZ) {
+    core.scene.add(core.transformControlClippingPlaneX?.getHelper());
+    core.scene.add(core.transformControlClippingPlaneY?.getHelper());
+    core.scene.add(core.transformControlClippingPlaneZ?.getHelper());
+  }
+
   let planeColor = new THREE.Color(0xffffff).getHexString();
   if (core.scene.background != null) planeColor = core.scene.background.getHexString();
 
