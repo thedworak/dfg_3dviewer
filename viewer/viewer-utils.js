@@ -399,6 +399,7 @@ export async function setupCamera(_object) {
   if (window.__E2E__) return;
   //if (localStorage.getItem("viewerHintSeen")) return;
 
+  if (core.GESTURE == null) return;
   core.GESTURE.rotate = true;
 
   core.GESTURE.target = boxCenter.clone();
