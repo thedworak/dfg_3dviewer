@@ -453,12 +453,11 @@ class ConvertWorker extends QueueWorkerBase {
         );
       }
       else {
-        $auto_path_url = $this->uriToUrl($auto_path, (string) ($cfg['main_url'] ?? '')) ?? $auto_path;
-        $entity->set($viewer_field, $auto_path_url);
+        $entity->set($viewer_field, $auto_path);
         \Drupal::logger('dfg_3dviewer')->notice(
-          'Saved viewer_file_name value "@value".',
+          'Saved viewer_file_name scalar value "@value".',
           [
-            '@value' => $auto_path_url,
+            '@value' => $auto_path,
           ]
         );
       }
@@ -487,13 +486,12 @@ class ConvertWorker extends QueueWorkerBase {
         );
       }
       else {
-        $auto_path_url = $this->uriToUrl($auto_path, (string) ($cfg['main_url'] ?? '')) ?? $auto_path;
-        $entity->set($upload_field, $auto_path_url);
+        $entity->set($upload_field, $auto_path);
         \Drupal::logger('dfg_3dviewer')->notice(
-          'Updated viewer_file_upload scalar field "@field" to converted value "@value".',
+          'Updated viewer_file_upload scalar field "@field" to converted URI "@value".',
           [
             '@field' => $upload_field,
-            '@value' => $auto_path_url,
+            '@value' => $auto_path,
           ]
         );
       }

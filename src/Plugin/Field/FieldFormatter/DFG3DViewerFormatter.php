@@ -161,7 +161,15 @@ class DFG3DViewerFormatter extends FileFormatterBase {
         $host = (string) parse_url($value, PHP_URL_HOST);
         $path = (string) parse_url($value, PHP_URL_PATH);
         if ($host !== '' && strpos($host, '_') !== FALSE && str_starts_with($path, '/sites/default/files/')) {
-          return $path;
+          $cfg = \Drupal::config('dfg_3dviewer.settings');
+          $main_url = trim((string) ($cfg->get('dfg_3dviewer_main_url') ?? $cfg->get('main_url') ?? ''));
+          $main_parts = parse_url($main_url);
+          $main_host = is_array($main_parts) ? (string) ($main_parts['host'] ?? '') : '';
+          $has_safe_main = is_array($main_parts)
+            && !empty($main_parts['scheme'])
+            && $main_host !== ''
+            && strpos($main_host, '_') === FALSE;
+          return $has_safe_main ? rtrim($main_url, '/') . $path : $path;
         }
         return $value;
       }
