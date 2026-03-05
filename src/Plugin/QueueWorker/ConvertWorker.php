@@ -572,6 +572,21 @@ class ConvertWorker extends QueueWorkerBase {
     }
 
     try {
+      $public_base_url = trim($public_base_url);
+      $base_parts = parse_url($public_base_url);
+      $base_host = is_array($base_parts) ? (string) ($base_parts['host'] ?? '') : '';
+      $has_safe_base = is_array($base_parts)
+        && !empty($base_parts['scheme'])
+        && $base_host !== ''
+        && strpos($base_host, '_') === FALSE;
+
+      // Keep storage deterministic in CLI contexts (e.g. drush) where request
+      // host may resolve to container aliases like "dfg_3dviewer".
+      if (str_starts_with($uri, 'public://')) {
+        $relative_public = '/sites/default/files/' . ltrim(substr($uri, strlen('public://')), '/');
+        return $has_safe_base ? rtrim($public_base_url, '/') . $relative_public : $relative_public;
+      }
+
       $generator = \Drupal::service('file_url_generator');
       $relative = (string) $generator->generateString($uri);
       $relative_parts = parse_url($relative);
@@ -582,23 +597,18 @@ class ConvertWorker extends QueueWorkerBase {
       if ($relative_has_bad_host && str_starts_with($relative_path, '/sites/default/files/')) {
         $relative = $relative_path;
       }
+      if (!$relative_is_absolute && str_starts_with($relative, 'sites/default/files/')) {
+        $relative = '/' . ltrim($relative, '/');
+      }
 
-      $public_base_url = trim($public_base_url);
-      if ($public_base_url !== '') {
-        $base_parts = parse_url($public_base_url);
-        $base_host = is_array($base_parts) ? (string) ($base_parts['host'] ?? '') : '';
-        if (is_array($base_parts)
-          && !empty($base_parts['scheme'])
-          && $base_host !== ''
-          && strpos($base_host, '_') === FALSE) {
-          if ($relative_is_absolute) {
-            if ($relative_path !== '' && str_starts_with($relative_path, '/sites/default/files/')) {
-              return rtrim($public_base_url, '/') . $relative_path;
-            }
-            return $relative;
+      if ($public_base_url !== '' && $has_safe_base) {
+        if ($relative_is_absolute) {
+          if ($relative_path !== '' && str_starts_with($relative_path, '/sites/default/files/')) {
+            return rtrim($public_base_url, '/') . $relative_path;
           }
-          return rtrim($public_base_url, '/') . '/' . ltrim($relative, '/');
+          return $relative;
         }
+        return rtrim($public_base_url, '/') . '/' . ltrim($relative, '/');
       }
 
       $absolute = $generator->generateAbsoluteString($uri);

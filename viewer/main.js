@@ -46,6 +46,7 @@ import { initClippingPlanes, showToast, changeBackground } from './viewer-utils.
 import { loadModel, outlineClipping } from "./loaders.js";
 import { createIIIFDropdown } from "./metadata.js";
 import { UltraLoader } from "./ultra-loader.js";
+import { StatusPoller } from "./status-poler.js";
 
 //three.js core
 import THREE from "./init.js";
@@ -2003,7 +2004,7 @@ export const Viewer = {
       "Viewer is ready"
     ]);
 
-    const poller=new StatusPoller(id);
+    const poller = new StatusPoller(id);
 
     poller.start();
   },

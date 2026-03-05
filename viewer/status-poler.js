@@ -1,4 +1,4 @@
-class StatusPoller {
+export class StatusPoller {
 
     constructor(id) {
         this.id=id;
