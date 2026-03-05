@@ -136,20 +136,6 @@ class ConvertWorker extends QueueWorkerBase {
       throw new \RuntimeException('Cannot resolve input file extension.');
     }
 
-    if (in_array($extension, ['glb', 'gltf'], TRUE)) {
-      \Drupal::logger('dfg_3dviewer')->notice(
-        'Skipping conversion for already-converted input "@path" (ext=@ext).',
-        [
-          '@path' => $realpath,
-          '@ext' => $extension,
-        ]
-      );
-      return [
-        'extension' => $extension,
-        'is_archive' => FALSE,
-      ];
-    }
-
     $archives = \Drupal::service('dfg_3dviewer.model_format_manager')->getZipFormats();
     $is_archive = in_arrayi($extension, $archives);
 
