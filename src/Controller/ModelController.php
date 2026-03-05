@@ -5,6 +5,7 @@ namespace Drupal\dfg_3dviewer\Controller;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Drupal\node\Entity\Node;
+use Drupal\Core\Entity\EntityInterface;
 
 class ModelController {
 
@@ -31,8 +32,8 @@ class ModelController {
   }
 
   public function status($id) {
-    $node = Node::load((int) $id);
-    if (!$node) {
+    $entity = $this->loadProcessingEntity((string) $id);
+    if (!$entity) {
       return new JsonResponse(['error' => 'not found'], 404);
     }
 
@@ -40,16 +41,16 @@ class ModelController {
     $status = 'unknown';
     $message = '';
 
-    if ($node->hasField('field_processing_progress')) {
-      $value = $node->get('field_processing_progress')->value;
+    if ($entity->hasField('field_processing_progress')) {
+      $value = $entity->get('field_processing_progress')->value;
       $progress = is_numeric($value) ? (int) $value : 0;
     }
-    if ($node->hasField('field_processing_status')) {
-      $statusValue = $node->get('field_processing_status')->value;
+    if ($entity->hasField('field_processing_status')) {
+      $statusValue = $entity->get('field_processing_status')->value;
       $status = $statusValue !== NULL && $statusValue !== '' ? (string) $statusValue : 'unknown';
     }
-    if ($node->hasField('field_processing_message')) {
-      $messageValue = $node->get('field_processing_message')->value;
+    if ($entity->hasField('field_processing_message')) {
+      $messageValue = $entity->get('field_processing_message')->value;
       $message = $messageValue !== NULL ? (string) $messageValue : '';
     }
 
@@ -63,6 +64,36 @@ class ModelController {
 
     return $response;
 
+  }
+
+  private function loadProcessingEntity(string $id): ?EntityInterface {
+    if ($id === '') {
+      return NULL;
+    }
+
+    $entity_type_manager = \Drupal::entityTypeManager();
+
+    foreach (['wisski_individual', 'node'] as $entity_type) {
+      try {
+        if ($entity_type_manager->hasDefinition($entity_type)) {
+          $entity = $entity_type_manager->getStorage($entity_type)->load($id);
+          if ($entity instanceof EntityInterface) {
+            return $entity;
+          }
+        }
+      }
+      catch (\Throwable $e) {
+      }
+    }
+
+    if (ctype_digit($id)) {
+      $node = Node::load((int) $id);
+      if ($node instanceof EntityInterface) {
+        return $node;
+      }
+    }
+
+    return NULL;
   }
 
 }
