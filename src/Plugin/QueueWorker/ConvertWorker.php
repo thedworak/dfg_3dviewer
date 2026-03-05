@@ -11,7 +11,7 @@ use Drupal\file\Entity\File;
  * @QueueWorker(
  *   id = "dfg_3dviewer_convert",
  *   title = @Translation("DFG 3D Viewer Convert Worker"),
- *   cron = {"time" = 120}
+ *   cron = {"time" = 600}
  * )
  */
 class ConvertWorker extends QueueWorkerBase {
