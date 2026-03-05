@@ -518,7 +518,11 @@ class ConvertWorker extends QueueWorkerBase {
       $public_base_url = trim($public_base_url);
       if ($public_base_url !== '') {
         $base_parts = parse_url($public_base_url);
-        if (is_array($base_parts) && !empty($base_parts['scheme']) && !empty($base_parts['host'])) {
+        $base_host = is_array($base_parts) ? (string) ($base_parts['host'] ?? '') : '';
+        if (is_array($base_parts)
+          && !empty($base_parts['scheme'])
+          && $base_host !== ''
+          && strpos($base_host, '_') === FALSE) {
           return rtrim($public_base_url, '/') . '/' . ltrim($relative, '/');
         }
       }
@@ -870,7 +874,11 @@ class ConvertWorker extends QueueWorkerBase {
 
     $public_base_url = rtrim(trim($public_base_url), '/');
     $base_parts = parse_url($public_base_url);
-    $has_base = is_array($base_parts) && !empty($base_parts['scheme']) && !empty($base_parts['host']);
+    $base_host = is_array($base_parts) ? (string) ($base_parts['host'] ?? '') : '';
+    $has_base = is_array($base_parts)
+      && !empty($base_parts['scheme'])
+      && $base_host !== ''
+      && strpos($base_host, '_') === FALSE;
 
     if (str_starts_with($url, 'public://')) {
       $relative = '/sites/default/files/' . ltrim(substr($url, strlen('public://')), '/');
