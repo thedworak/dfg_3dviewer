@@ -266,6 +266,8 @@ export const Viewer = {
     setCore('viewEntity', this.viewEntity);
     setCore('CONFIG', this.CONFIG);
     setCore('loadedFile', this.loadedFile);
+    setCore('stats', this.stats);
+
 
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1162,7 +1164,7 @@ export const Viewer = {
 
     core.renderer.clear();
     core.renderer.render(core.scene, core.camera);
-    Viewer.stats.update();
+    core.stats.update();
   },
 
   onPointerDown(e) {
@@ -1640,8 +1642,8 @@ export const Viewer = {
 
   prepareStats () {
       // stats
-      Viewer.stats = new Stats();
-      Viewer.stats.domElement.style.cssText =
+      core.stats = new Stats();
+      core.stats.domElement.style.cssText =
         "position:relative;top:0px;" +
         "max-height:120px;max-width:90px;z-index:2;visibility:hidden;";
 
