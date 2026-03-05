@@ -1988,13 +1988,15 @@ export const Viewer = {
   },
 
   async startModelProcessing() {
-    const r = await fetch("/api/model/create", {method:"POST" });
+    /*const r = await fetch("/api/model/create", {method:"POST" });
 
     const data = await r.json();
 
-    const id = data.entity_id;
+    const id = data.entity_id;*/
 
-    localStorage.setItem("processing_model_id", id);
+    const _id = core.CONFIG.entity.id;
+
+    localStorage.setItem("processing_model_id", _id);
 
     UltraLoader.start([
       "Preparing model",
@@ -2004,7 +2006,7 @@ export const Viewer = {
       "Viewer is ready"
     ]);
 
-    const poller = new StatusPoller(id);
+    const poller = new StatusPoller(_id);
 
     poller.start();
   },
