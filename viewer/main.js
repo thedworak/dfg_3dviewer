@@ -851,19 +851,19 @@ export const Viewer = {
     } else if (_id == "" && Viewer.lastPickedFace.id !== "") {
       core.scene
         .getObjectById(Viewer.lastPickedFace.object)
-        .material.color = Viewer.normalizeColor(Viewer.lastPickedFace.color);
+        .material.color = normalizeColor(Viewer.lastPickedFace.color);
       Viewer.lastPickedFace = { id: "", color: "", object: "" };
     } else if (_id != Viewer.lastPickedFace.id) {
       core.scene
         .getObjectById(Viewer.lastPickedFace.object)
-        .material.color = Viewer.normalizeColor(Viewer.lastPickedFace.color);
+        .material.color = normalizeColor(Viewer.lastPickedFace.color);
       Viewer.lastPickedFace = {
         id: _id,
         color: _id.object.material.color.getHex(),
         object: _id.object.id,
       };
     }
-    if (_id !== "") _id.object.material.color = Viewer.normalizeColor(0xff0000);
+    if (_id !== "") _id.object.material.color = normalizeColor(0xff0000);
   },
 
   buildRuler(_id) {
