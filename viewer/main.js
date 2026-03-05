@@ -625,23 +625,25 @@ export const Viewer = {
 
   prepareGalleryImages(imageElementsChildren) {
     imageElementsChildren = imageElementsChildren.filter(function (_image) {
-      let rawUrl = "";
-      const img = _image.querySelector("img");
-      const link = _image.querySelector("a");
-      if (img && img.getAttribute("src")) {
-        rawUrl = img.getAttribute("src");
-      } else if (link && link.getAttribute("href")) {
-        rawUrl = link.getAttribute("href");
-      } else {
-        rawUrl = (_image.textContent || _image.innerHTML || "").trim();
-      }
+      if (!_image.innerHTML) {
+        let rawUrl = "";
+        const img = _image.querySelector("img");
+        const link = _image.querySelector("a");
+        if (img && img.getAttribute("src")) {
+          rawUrl = img.getAttribute("src");
+        } else if (link && link.getAttribute("href")) {
+          rawUrl = link.getAttribute("href");
+        } else {
+          rawUrl = (_image.textContent || _image.innerHTML || "").trim();
+        }
 
-      const normalized = Viewer.normalizeGalleryUrl(rawUrl);
-      if (!isValidUrl(normalized)) {
-        return false;
+        const normalized = Viewer.normalizeGalleryUrl(rawUrl);
+        if (!isValidUrl(normalized)) {
+          return false;
+        }
+        _image.innerHTML = normalized;
+        return true;
       }
-      _image.innerHTML = normalized;
-      return true;
     });
     imageElementsChildren.forEach(function (imgLink, index) {
       imgLink.innerHTML =
@@ -2166,9 +2168,9 @@ export const Viewer = {
       setCore('clippingPlanes', Viewer.clippingPlanes);
       setCore('selectObjectHierarchy', Viewer.selectObjectHierarchy);
 
-      Viewer.transformControlClippingPlaneX.showX = Viewer.transformControlClippingPlaneX.showY = false;
-      Viewer.transformControlClippingPlaneY.showX = Viewer.transformControlClippingPlaneY.showY = false;
-      Viewer.transformControlClippingPlaneZ.showX = Viewer.transformControlClippingPlaneZ.showY = false;
+      core.transformControlClippingPlaneX.showX = core.transformControlClippingPlaneX.showY = false;
+      core.transformControlClippingPlaneY.showX = core.transformControlClippingPlaneY.showY = false;
+      core.transformControlClippingPlaneZ.showX = core.transformControlClippingPlaneZ.showY = false;
 
       Viewer.GESTURE.handPx *= Math.min(window.innerWidth / 1200, 1);
 
