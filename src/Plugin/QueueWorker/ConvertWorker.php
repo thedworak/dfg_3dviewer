@@ -473,6 +473,32 @@ class ConvertWorker extends QueueWorkerBase {
       );
     }
 
+    if (!empty($auto_path) && $this->entityHasField($entity, $cfg['viewer_file_upload'])) {
+      $upload_field = (string) $cfg['viewer_file_upload'];
+      if ($this->fieldRequiresTargetId($entity, $upload_field)) {
+        $upload_values = $this->buildFieldValues($entity, $upload_field, [$auto_path]);
+        $this->applyFieldValues($entity, $upload_field, $upload_values, $this->getCurrentLanguageId());
+        \Drupal::logger('dfg_3dviewer')->notice(
+          'Updated viewer_file_upload field "@field" to converted file "@value".',
+          [
+            '@field' => $upload_field,
+            '@value' => $auto_path,
+          ]
+        );
+      }
+      else {
+        $auto_path_url = $this->uriToUrl($auto_path, (string) ($cfg['main_url'] ?? '')) ?? $auto_path;
+        $entity->set($upload_field, $auto_path_url);
+        \Drupal::logger('dfg_3dviewer')->notice(
+          'Updated viewer_file_upload scalar field "@field" to converted value "@value".',
+          [
+            '@field' => $upload_field,
+            '@value' => $auto_path_url,
+          ]
+        );
+      }
+    }
+
     $legacy_gallery_field = 'fd6a974b7120d422c7b21b5f1f2315d9';
     if (!empty($images_paths) && $this->entityHasField($entity, $legacy_gallery_field)) {
       $legacy_lang = $this->getCurrentLanguageId();
