@@ -38,9 +38,17 @@ dfg_3dviewer.xml_export:
   methods: [GET, POST]
   requirements:
     _permission: 'access dfg 3dviewer editor'
-dfg_3dviewer.progress:
-  path: '/dfg-3dviewer/progress/{entity_id}'
+dfg_3dviewer.status:
+  path: '/api/model/status/{id}'
   defaults:
-    _controller: '\Drupal\dfg_3dviewer\Controller\ProgressController::check'
+    _controller: '\Drupal\dfg_3dviewer\Controller\ModelController::status'
+  methods: [GET]
+  requirements:
+    _permission: 'access content'
+dfg_3dviewer.create:
+  path: '/api/model/create'
+  defaults:
+    _controller: '\Drupal\dfg_3dviewer\Controller\ModelController::create'
+  methods: [POST]
   requirements:
     _permission: 'access content'

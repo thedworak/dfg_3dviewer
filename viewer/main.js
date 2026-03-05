@@ -45,6 +45,7 @@ import { initClippingPlanes, showToast, changeBackground } from './viewer-utils.
 
 import { loadModel, outlineClipping } from "./loaders.js";
 import { createIIIFDropdown } from "./metadata.js";
+import { UltraLoader } from "./ultra-loader.js";
 
 //three.js core
 import THREE from "./init.js";
@@ -1692,299 +1693,320 @@ export const Viewer = {
     return M;
   },
 
-
   prepareStats () {
-      // stats
-      core.stats = new Stats();
-      core.stats.domElement.style.cssText =
-        "position:relative;top:0px;" +
-        "max-height:120px;max-width:90px;z-index:2;visibility:hidden;";
+    // stats
+    core.stats = new Stats();
+    core.stats.domElement.style.cssText =
+      "position:relative;top:0px;" +
+      "max-height:120px;max-width:90px;z-index:2;visibility:hidden;";
 
-      Viewer.windowHalfX = core.CONFIG.viewer.canvasDimensions.x / 2;
-      Viewer.windowHalfY = core.CONFIG.viewer.canvasDimensions.y / 2;
+    Viewer.windowHalfX = core.CONFIG.viewer.canvasDimensions.x / 2;
+    Viewer.windowHalfY = core.CONFIG.viewer.canvasDimensions.y / 2;
 
-      Viewer.editorFolder = core.gui.addFolder("Editor").close();
-      Viewer.editorFolder
-        .add(Viewer.transformText, "Transform 3D Object", {
-          None: "",
-          Move: "translate",
-          Rotate: "rotate",
-          Scale: "scale",
-        })
-        .onChange(function (value) {
-          if (value === "") {
-            core.transformControl.detach();
-            core.axesHelper.visible = false;
-          } else {
-            const object = core.helperObjects?.[0];
+    Viewer.editorFolder = core.gui.addFolder("Editor").close();
+    Viewer.editorFolder
+      .add(Viewer.transformText, "Transform 3D Object", {
+        None: "",
+        Move: "translate",
+        Rotate: "rotate",
+        Scale: "scale",
+      })
+      .onChange(function (value) {
+        if (value === "") {
+          core.transformControl.detach();
+          core.axesHelper.visible = false;
+        } else {
+          const object = core.helperObjects?.[0];
 
-            if (!object) {
-              return;
-            }
-            core.axesHelper.visible = true;
-            core.renderer.localClippingEnabled = false;
-
-            core.transformControl.setMode(value);
-            core.transformControl.attach(object);
-
+          if (!object) {
+            return;
           }
-        });
-      Viewer.editorFolder
-        .add(Viewer.transformText, "Transform Mode", {
-          Local: "local",
-          Global: "global",
-        })
-        .onChange(function (value) {
-          core.transformControl.space = value;
-        });
-      const lightFolder = Viewer.editorFolder.addFolder("Directional Light").close();
-      lightFolder
-        .add(Viewer.transformText, "Transform Light", {
-          None: "",
-          Move: "translate",
-          Target: "rotate",
-        })
-        .onChange(function (value) {
-          if (value === "") {
-            core.transformControlLight.detach();
+          core.axesHelper.visible = true;
+          core.renderer.localClippingEnabled = false;
+
+          core.transformControl.setMode(value);
+          core.transformControl.attach(object);
+
+        }
+      });
+    Viewer.editorFolder
+      .add(Viewer.transformText, "Transform Mode", {
+        Local: "local",
+        Global: "global",
+      })
+      .onChange(function (value) {
+        core.transformControl.space = value;
+      });
+    const lightFolder = Viewer.editorFolder.addFolder("Directional Light").close();
+    lightFolder
+      .add(Viewer.transformText, "Transform Light", {
+        None: "",
+        Move: "translate",
+        Target: "rotate",
+      })
+      .onChange(function (value) {
+        if (value === "") {
+          core.transformControlLight.detach();
+          core.transformControlLightTarget.detach();
+          core.lightHelper.visible = false;
+        } else {
+          core.lightHelper.visible = true;
+          if (value === "translate") {
+            core.transformControlLight.setMode("translate");
+            core.transformControlLight.attach(core.dirLight);
             core.transformControlLightTarget.detach();
-            core.lightHelper.visible = false;
           } else {
-            core.lightHelper.visible = true;
-            if (value === "translate") {
-              core.transformControlLight.setMode("translate");
-              core.transformControlLight.attach(core.dirLight);
-              core.transformControlLightTarget.detach();
-            } else {
-              core.transformControlLightTarget.setMode("translate");
-              core.transformControlLightTarget.attach(core.dirLightTarget);
-              core.transformControlLight.detach();
-            }
+            core.transformControlLightTarget.setMode("translate");
+            core.transformControlLightTarget.attach(core.dirLightTarget);
+            core.transformControlLight.detach();
           }
-        });
-      lightFolder
-        .addColor(Viewer.colors, "DirectionalLight")
-        .onChange(function (value) {
-          core.lightObjects[0].color = new THREE.Color(value);
-        })
-        .listen();
-      lightFolder
-        .add(Viewer.intensity, "startIntensityDir", 0, 10)
-        .onChange(function (value) {
-          core.lightObjects[0].intensity = value;
-        })
-        .listen();
+        }
+      });
+    lightFolder
+      .addColor(Viewer.colors, "DirectionalLight")
+      .onChange(function (value) {
+        core.lightObjects[0].color = new THREE.Color(value);
+      })
+      .listen();
+    lightFolder
+      .add(Viewer.intensity, "startIntensityDir", 0, 10)
+      .onChange(function (value) {
+        core.lightObjects[0].intensity = value;
+      })
+      .listen();
 
-      const lightFolderAmbient = Viewer.editorFolder.addFolder("Ambient Light").close();
-      lightFolderAmbient
-        .addColor(Viewer.colors, "AmbientLight")
-        .onChange(function (value) {
-          Viewer.ambientLight.color = new THREE.Color(value);
-        })
-        .listen();
-      lightFolderAmbient
-        .add(Viewer.intensity, "startIntensityAmbient", 0, 10)
-        .onChange(function (value) {
-          Viewer.ambientLight.intensity = value;
-        })
-        .listen();
+    const lightFolderAmbient = Viewer.editorFolder.addFolder("Ambient Light").close();
+    lightFolderAmbient
+      .addColor(Viewer.colors, "AmbientLight")
+      .onChange(function (value) {
+        Viewer.ambientLight.color = new THREE.Color(value);
+      })
+      .listen();
+    lightFolderAmbient
+      .add(Viewer.intensity, "startIntensityAmbient", 0, 10)
+      .onChange(function (value) {
+        Viewer.ambientLight.intensity = value;
+      })
+      .listen();
 
-      const lightFolderCamera = Viewer.editorFolder.addFolder("Camera Light").close();
-      lightFolderCamera
-        .addColor(Viewer.colors, "CameraLight")
-        .onChange(function (value) {
-          Viewer.cameraLight.color = new THREE.Color(value);
-        })
-        .listen();
-      lightFolderCamera
-        .add(Viewer.intensity, "startIntensityCamera", 0, 10)
-        .onChange(function (value) {
-          Viewer.cameraLight.intensity = value;
-        })
-        .listen();
+    const lightFolderCamera = Viewer.editorFolder.addFolder("Camera Light").close();
+    lightFolderCamera
+      .addColor(Viewer.colors, "CameraLight")
+      .onChange(function (value) {
+        Viewer.cameraLight.color = new THREE.Color(value);
+      })
+      .listen();
+    lightFolderCamera
+      .add(Viewer.intensity, "startIntensityCamera", 0, 10)
+      .onChange(function (value) {
+        Viewer.cameraLight.intensity = value;
+      })
+      .listen();
 
-      const backgroundFolder = Viewer.editorFolder.addFolder("Background Color").close();
-      backgroundFolder
-        .addColor(Viewer.colors, "BackgroundColor")
-        .onChange(function (value) {
-          changeBackground(
-            Viewer.backgroundType["Background Type"],
-            value,
-            Viewer.colors["BackgroundColorOuter"]
-          );
-        })
-        .listen();
-      Viewer.backgroundOuterFolder = backgroundFolder
-        .addColor(Viewer.colors, "BackgroundColorOuter")
-        .onChange(function (value) {
-          changeBackground(
-            Viewer.backgroundType["Background Type"],
-            Viewer.colors["BackgroundColor"],
-            value
-          );
-        })
-        .listen();
-      backgroundFolder
-        .add(Viewer.backgroundType, "Background Type", {
-          Linear: "linear",
-          Gradient: "gradient",
-        })
-        .onChange(function (value) {
-          if (value == "linear") Viewer.backgroundOuterFolder.hide();
-          else Viewer.backgroundOuterFolder.show();
-          changeBackground(
-            value,
-            Viewer.colors["BackgroundColor"],
-            Viewer.colors["BackgroundColorOuter"]
-          );
-        });
+    const backgroundFolder = Viewer.editorFolder.addFolder("Background Color").close();
+    backgroundFolder
+      .addColor(Viewer.colors, "BackgroundColor")
+      .onChange(function (value) {
+        changeBackground(
+          Viewer.backgroundType["Background Type"],
+          value,
+          Viewer.colors["BackgroundColorOuter"]
+        );
+      })
+      .listen();
+    Viewer.backgroundOuterFolder = backgroundFolder
+      .addColor(Viewer.colors, "BackgroundColorOuter")
+      .onChange(function (value) {
+        changeBackground(
+          Viewer.backgroundType["Background Type"],
+          Viewer.colors["BackgroundColor"],
+          value
+        );
+      })
+      .listen();
+    backgroundFolder
+      .add(Viewer.backgroundType, "Background Type", {
+        Linear: "linear",
+        Gradient: "gradient",
+      })
+      .onChange(function (value) {
+        if (value == "linear") Viewer.backgroundOuterFolder.hide();
+        else Viewer.backgroundOuterFolder.show();
+        changeBackground(
+          value,
+          Viewer.colors["BackgroundColor"],
+          Viewer.colors["BackgroundColorOuter"]
+        );
+      });
 
-      Viewer.clippingFolder = Viewer.editorFolder.addFolder("Clipping Planes").close();
-      setCore("clippingFolder", Viewer.clippingFolder);
-      core.materialsFolder = Viewer.editorFolder.addFolder("Materials").close();
-      setCore("materialsFolder", core.materialsFolder);
+    Viewer.clippingFolder = Viewer.editorFolder.addFolder("Clipping Planes").close();
+    setCore("clippingFolder", Viewer.clippingFolder);
+    core.materialsFolder = Viewer.editorFolder.addFolder("Materials").close();
+    setCore("materialsFolder", core.materialsFolder);
 
-      if (!Viewer.isLightweight) {
-        Viewer.propertiesFolder = Viewer.editorFolder.addFolder("Save properties").close();
-        Viewer.propertiesFolder.add(Viewer.saveProperties, "Position");
-        Viewer.propertiesFolder.add(Viewer.saveProperties, "Rotation");
-        Viewer.propertiesFolder.add(Viewer.saveProperties, "Scale");
-        Viewer.propertiesFolder.add(Viewer.saveProperties, "Camera");
-        Viewer.propertiesFolder.add(Viewer.saveProperties, "DirectionalLight");
-        Viewer.propertiesFolder.add(Viewer.saveProperties, "AmbientLight");
-        Viewer.propertiesFolder.add(Viewer.saveProperties, "CameraLight");
-        Viewer.propertiesFolder.add(Viewer.saveProperties, "BackgroundColor");
-      }
+    if (!Viewer.isLightweight) {
+      Viewer.propertiesFolder = Viewer.editorFolder.addFolder("Save properties").close();
+      Viewer.propertiesFolder.add(Viewer.saveProperties, "Position");
+      Viewer.propertiesFolder.add(Viewer.saveProperties, "Rotation");
+      Viewer.propertiesFolder.add(Viewer.saveProperties, "Scale");
+      Viewer.propertiesFolder.add(Viewer.saveProperties, "Camera");
+      Viewer.propertiesFolder.add(Viewer.saveProperties, "DirectionalLight");
+      Viewer.propertiesFolder.add(Viewer.saveProperties, "AmbientLight");
+      Viewer.propertiesFolder.add(Viewer.saveProperties, "CameraLight");
+      Viewer.propertiesFolder.add(Viewer.saveProperties, "BackgroundColor");
+    }
 
-      if (Viewer.editor && !Viewer.isLightweight) {
-        Viewer.editorFolder.add(
-          {
-            ["Save"]() {
+    if (Viewer.editor && !Viewer.isLightweight) {
+      Viewer.editorFolder.add(
+        {
+          ["Save"]() {
 
-              var rotateMetadata = new THREE.Vector3(
-                THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.x),
-                THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.y),
-                THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.z)
-              );
+            var rotateMetadata = new THREE.Vector3(
+              THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.x),
+              THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.y),
+              THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.z)
+            );
 
-              //Fetch data from original metadata file anyway before saving any changes
-              if (core.CONFIG.entity.proxyPath !== undefined) {
-                Viewer.metadataUrl = core.getProxyPath(Viewer.metadataUrl);
+            //Fetch data from original metadata file anyway before saving any changes
+            if (core.CONFIG.entity.proxyPath !== undefined) {
+              Viewer.metadataUrl = core.getProxyPath(Viewer.metadataUrl);
+            }
+
+            (async () => {
+              let fetchedMetadata = {};
+
+              try {
+                if (Viewer?.metadataUrl) {
+                  const response = await fetch(Viewer.metadataUrl, { cache: "no-cache" });
+
+                  if (response.ok) {
+                    fetchedMetadata = await response.json();
+                  }
+                }
+              } catch (err) {
+                console.warn("Metadata fetch failed, continuing with save", err);
               }
 
-              (async () => {
-                let fetchedMetadata = {};
+              // always run
+              Viewer.originalMetadata = {
+                ...Viewer.originalMetadata,
+                ...fetchedMetadata
+              };
 
-                try {
-                  if (Viewer?.metadataUrl) {
-                    const response = await fetch(Viewer.metadataUrl, { cache: "no-cache" });
+              const newMetadata = Viewer.buildMetadata(Viewer, rotateMetadata);
 
-                    if (response.ok) {
-                      fetchedMetadata = await response.json();
-                    }
-                  }
-                } catch (err) {
-                  console.warn("Metadata fetch failed, continuing with save", err);
-                }
+              try {
+                const token = await fetch("/session/token").then(r => r.text());
 
-                // always run
-                Viewer.originalMetadata = {
-                  ...Viewer.originalMetadata,
-                  ...fetchedMetadata
-                };
+                await fetch(core.CONFIG.mainUrl + "/api/editor/save-metadata", {
+                  method: "POST",
+                  credentials: "same-origin",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-Token": token
+                  },
+                  body: JSON.stringify({
+                    filename: core.fileObject.filename,
+                    path:
+                      Viewer.archiveType !== ""
+                        ? core.fileObject.relativePath +
+                          core.fileObject.basename +
+                          core.loadedFile
+                        : core.fileObject.relativePath,
+                    content: JSON.stringify(newMetadata, null, "\t")
+                  })
+                });
 
-                const newMetadata = Viewer.buildMetadata(Viewer, rotateMetadata);
-
-                try {
-                  const token = await fetch("/session/token").then(r => r.text());
-
-                  await fetch(core.CONFIG.mainUrl + "/api/editor/save-metadata", {
-                    method: "POST",
-                    credentials: "same-origin",
-                    headers: {
-                      "Content-Type": "application/json",
-                      "X-CSRF-Token": token
-                    },
-                    body: JSON.stringify({
-                      filename: core.fileObject.filename,
-                      path:
-                        Viewer.archiveType !== ""
-                          ? core.fileObject.relativePath +
-                            core.fileObject.basename +
-                            core.loadedFile
-                          : core.fileObject.relativePath,
-                      content: JSON.stringify(newMetadata, null, "\t")
-                    })
-                  });
-
-                  showToast("Settings have been saved.");
-                } catch (err) {
-                  console.error(err);
-                  showToast("Error saving settings");
-                }
-              })();
+                showToast("Settings have been saved.");
+              } catch (err) {
+                console.error(err);
+                showToast("Error saving settings");
+              }
+            })();
+          }
+        },
+        "Save"
+      );
+      if (!Viewer.isLightweight) {
+        Viewer.editorFolder.add(
+          {
+            ["Picking mode"]() {
+              Viewer.EDITOR = !Viewer.EDITOR;
+              var _str;
+              Viewer.EDITOR ? (_str = "enabled") : (_str = "disabled");
+              showToast("Face picking is " + _str);
+              if (!Viewer.EDITOR) {
+              } else {
+                Viewer.RULER_MODE = false;
+              }
+            },
+          },
+          "Picking mode"
+        );
+      }
+      Viewer.editorFolder.add(
+        {
+          ["Distance Measurement"]() {
+            Viewer.RULER_MODE = !Viewer.RULER_MODE;
+            var _str;
+            Viewer.RULER_MODE ? (_str = "enabled") : (_str = "disabled");
+            showToast("Distance measurement mode is " + _str);
+            if (!RULER_MODE) {
+              Viewer.ruler.forEach((r) => {
+                core.scene.remove(r);
+              });
+              Viewer.rulerObject = new THREE.Object3D();
+              Viewer.ruler = [];
+              Viewer.linePoints = [];
+            } else {
+              Viewer.EDITOR = false;
             }
           },
-          "Save"
-        );
-        if (!Viewer.isLightweight) {
-          Viewer.editorFolder.add(
-            {
-              ["Picking mode"]() {
-                Viewer.EDITOR = !Viewer.EDITOR;
-                var _str;
-                Viewer.EDITOR ? (_str = "enabled") : (_str = "disabled");
-                showToast("Face picking is " + _str);
-                if (!Viewer.EDITOR) {
-                } else {
-                  Viewer.RULER_MODE = false;
-                }
-              },
-            },
-            "Picking mode"
-          );
-        }
+        },
+        "Distance Measurement"
+      );
+      if (!Viewer.isLightweight) {
         Viewer.editorFolder.add(
           {
-            ["Distance Measurement"]() {
-              Viewer.RULER_MODE = !Viewer.RULER_MODE;
-              var _str;
-              Viewer.RULER_MODE ? (_str = "enabled") : (_str = "disabled");
-              showToast("Distance measurement mode is " + _str);
-              if (!RULER_MODE) {
-                Viewer.ruler.forEach((r) => {
-                  core.scene.remove(r);
-                });
-                Viewer.rulerObject = new THREE.Object3D();
-                Viewer.ruler = [];
-                Viewer.linePoints = [];
-              } else {
-                Viewer.EDITOR = false;
-              }
+            ["Render preview"]() {
+              Viewer.takeScreenshot();
             },
           },
-          "Distance Measurement"
-        );
-        if (!Viewer.isLightweight) {
-          Viewer.editorFolder.add(
-            {
-              ["Render preview"]() {
-                Viewer.takeScreenshot();
-              },
-            },
-            "Render preview"
-          );
-        }
-        Viewer.editorFolder.add(
-          {
-            ["Reset camera position"]() {
-              Viewer.resetCamera();
-            },
-          },
-          "Reset camera position"
+          "Render preview"
         );
       }
-    },
+      Viewer.editorFolder.add(
+        {
+          ["Reset camera position"]() {
+            Viewer.resetCamera();
+          },
+        },
+        "Reset camera position"
+      );
+    }
+  },
+
+  async startModelProcessing() {
+    const r = await fetch("/api/model/create", {method:"POST" });
+
+    const data = await r.json();
+
+    const id = data.entity_id;
+
+    localStorage.setItem("processing_model_id", id);
+
+    UltraLoader.start([
+      "Preparing model",
+      "Converting to transmission format",
+      "Rendering thumbnails",
+      "Saving entity",
+      "Viewer is ready"
+    ]);
+
+    const poller=new StatusPoller(id);
+
+    poller.start();
+  },
 
   async init() {
     if (!Viewer.renderer) {
@@ -2002,6 +2024,8 @@ export const Viewer = {
       Viewer.scene = new THREE.Scene();
       setCore('scene', Viewer.scene);
       setCore('activeScene', Viewer.activeScene);
+
+      Viewer.startModelProcessing();
 
       const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444);
       hemiLight.position.set(0, 200, 0);

@@ -40,6 +40,8 @@ class ConvertWorker extends QueueWorkerBase {
       unset($GLOBALS['dfg_3dviewer_worker_running']);
       return;
     }
+    $this->updateProgress($entity, 5, 'preparing', 'Preparing...');
+    $this->saveEntity($entity);
 
     $lock = \Drupal::lock();
     $lock_name = 'dfg_3dviewer_convert_' . $entity_type . '_' . $entity_id . '_' . $file_id;
@@ -89,7 +91,7 @@ class ConvertWorker extends QueueWorkerBase {
         throw new \RuntimeException('Cannot resolve module path.');
       }
 
-      $this->updateProgress($entity, 5, 'processing', 'Preparing...');
+      $this->updateProgress($entity, 5, 'processing', 'Converting model...');
       $this->saveEntity($entity);
 
       $context = $this->convertFile($entity, $file, $cfg, $module_path);
