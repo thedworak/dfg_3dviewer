@@ -136,6 +136,20 @@ class ConvertWorker extends QueueWorkerBase {
       throw new \RuntimeException('Cannot resolve input file extension.');
     }
 
+    if (in_array($extension, ['glb', 'gltf'], TRUE)) {
+      \Drupal::logger('dfg_3dviewer')->notice(
+        'Skipping conversion for already-converted input "@path" (ext=@ext).',
+        [
+          '@path' => $realpath,
+          '@ext' => $extension,
+        ]
+      );
+      return [
+        'extension' => $extension,
+        'is_archive' => FALSE,
+      ];
+    }
+
     $archives = \Drupal::service('dfg_3dviewer.model_format_manager')->getZipFormats();
     $is_archive = in_arrayi($extension, $archives);
 
@@ -220,7 +234,13 @@ class ConvertWorker extends QueueWorkerBase {
         );
 
         if (($convert_result['exit_code'] ?? 1) !== 0) {
-          throw new \RuntimeException('Conversion failed.');
+          $exit_code = (int) ($convert_result['exit_code'] ?? 1);
+          $error_output = trim((string) ($convert_result['error'] ?? ''));
+          $message = 'Conversion failed (exit=' . $exit_code . ').';
+          if ($error_output !== '') {
+            $message .= ' Error: ' . $error_output;
+          }
+          throw new \RuntimeException($message);
         }
       }
       else {
@@ -239,7 +259,13 @@ class ConvertWorker extends QueueWorkerBase {
         );
 
         if (($convert_result['exit_code'] ?? 1) !== 0) {
-          throw new \RuntimeException('Conversion failed.');
+          $exit_code = (int) ($convert_result['exit_code'] ?? 1);
+          $error_output = trim((string) ($convert_result['error'] ?? ''));
+          $message = 'Conversion failed (exit=' . $exit_code . ').';
+          if ($error_output !== '') {
+            $message .= ' Error: ' . $error_output;
+          }
+          throw new \RuntimeException($message);
         }
       }
     }
