@@ -40,7 +40,7 @@ class ConvertWorker extends QueueWorkerBase {
       unset($GLOBALS['dfg_3dviewer_worker_running']);
       return;
     }
-    $this->updateProgress($entity, 5, 'preparing', 'Preparing...');
+    $this->updateProgress($entity, 5, 'init', 'Preparing...');
     $this->saveEntity($entity);
 
     $lock = \Drupal::lock();
@@ -61,6 +61,7 @@ class ConvertWorker extends QueueWorkerBase {
       $fs = \Drupal::service('file_system');
       $file_uri = $file->getFileUri();
       $input_realpath = $fs->realpath($file_uri);
+      $this->updateProgress($entity, 5, 'preparing', 'Preparing...');
 
       \Drupal::logger('dfg_3dviewer')->notice(
         'Worker picked queued file: file_id=@file_id, filename="@filename", uri="@uri", realpath="@realpath", queued_filename="@queued_filename", queued_uri="@queued_uri".',
@@ -97,7 +98,7 @@ class ConvertWorker extends QueueWorkerBase {
       $context = $this->convertFile($entity, $file, $cfg, $module_path);
       $this->saveEntity($entity);
 
-      $this->updateProgress($entity, 80, 'processing', 'Updating viewer fields...');
+      $this->updateProgress($entity, 90, 'updating', 'Updating viewer fields...');
       $viewer_result = $this->applyViewerFields($entity, $file, $cfg, $context);
 
       $this->updateProgress($entity, 100, 'ready', 'Conversion finished');
@@ -205,8 +206,6 @@ class ConvertWorker extends QueueWorkerBase {
           throw new \RuntimeException('No supported 3D model found in archive.');
         }
 
-        $this->updateProgress($entity, 35, 'processing', 'Converting to GLTF and generating thumbnails...');
-
         $convert_result = \Drupal::service('dfg_3dviewer.convert_process')->run(
           $module_path,
           $model_file,
@@ -218,7 +217,11 @@ class ConvertWorker extends QueueWorkerBase {
             'o' => $extract_path,
             'f' => TRUE,
             'a' => 'false',
-          ]
+          ],
+          function (int $percent, string $state, string $message) use ($entity): void {
+            $this->updateProgress($entity, $percent, $state, $message);
+            $this->saveEntity($entity);
+          }
         );
 
         if (($convert_result['exit_code'] ?? 1) !== 0) {
@@ -232,8 +235,6 @@ class ConvertWorker extends QueueWorkerBase {
         }
       }
       else {
-        $this->updateProgress($entity, 35, 'processing', 'Converting to GLTF and generating thumbnails...');
-
         $convert_result = \Drupal::service('dfg_3dviewer.convert_process')->run(
           $module_path,
           $realpath,
@@ -243,7 +244,11 @@ class ConvertWorker extends QueueWorkerBase {
             'l' => '3',
             'b' => TRUE,
             'f' => TRUE,
-          ]
+          ],
+          function (int $percent, string $state, string $message) use ($entity): void {
+            $this->updateProgress($entity, $percent, $state, $message);
+            $this->saveEntity($entity);
+          }
         );
 
         if (($convert_result['exit_code'] ?? 1) !== 0) {

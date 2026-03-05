@@ -20,11 +20,12 @@ export class StatusPoller {
 
     updateSteps(status) {
         const map={
-            preparing:0,
-            optimizing:1,
-            compressing:2,
-            lod:3,
-            packaging:4
+            init:0,
+            preparing:1,
+            processing:2,
+            converted:3,
+            rendering:4,
+            ready:5
         }
         if(map[status]!==undefined) {
             UltraLoader.step(map[status]);

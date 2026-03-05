@@ -56,16 +56,6 @@ check_blender () {
 	fi
 }
 
-check_xvfb_run () {
-	if ! command -v xvfb-run &> /dev/null; then
-		echo "xvfb-run doesn't exist, install it by 'apt install xvfb'"
-		return 1
-	else
-		echo "xvfb-run exists and be used for next steps..."
-		return 0
-	fi
-}
-
 check_scripts () {
 	if [ ! -d ${SPATH}/scripts ]; then
 		echo "Can't find dependencies directory. Did you change your SPATH value in scripts/.env?"
@@ -76,10 +66,6 @@ check_scripts () {
 }
 
 check_blender
-
-if [[ "$LIGHTWEIGHT" != "true" ]]; then
-	check_xvfb_run
-fi
 
 check_scripts
 
@@ -191,53 +177,6 @@ cleanup_main_lock() {
 	fi
 }
 
-render_preview () {
-	SNAME=$NAME
-	mkdir -p "$INPATH/views"
-	RENDER_LOCKFILE="$INPATH/views/${SNAME}.lock"
-
-	exec 201>"$RENDER_LOCKFILE" || exit 1
-
-	flock -n 201 || {
-		echo "Render already running for $SNAME"
-		exec 201>&- 2>/dev/null || true
-		return 0
-	}
-	trap 'flock -u 201 2>/dev/null || true; exec 201>&- 2>/dev/null || true; rm -f "$RENDER_LOCKFILE"' RETURN
-
-	INPUT_GLTF_PATH="$INPATH/$SNAME.glb"
-	echo "Rendering thumbnails..."
-
-	if [[ "$EXT" != "glb" ]]; then
-		SNAME="gltf/${NAME}"
-		INPUT_GLTF_PATH="$INPATH/$SNAME.glb"
-	fi;
-
-	if [[ -n "${2:-}" ]]; then
-		INPUT_GLTF_PATH="$2"
-	fi
-
-	if [[ ! -f "$INPUT_GLTF_PATH" ]]; then
-		echo "Warning: Render input not found: $INPUT_GLTF_PATH"
-		return 1
-	fi
-
-	RESOLUTION="32x32x16"
-	SAMPLES="20"
-	xvfb-run --auto-servernum \
-		--server-args="-screen 0 ${RESOLUTION}" \
-		"$BLENDER_BIN" -b -P "$SPATH/scripts/render.py" -- \
-		--input "$INPUT_GLTF_PATH" \
-		--ext glb \
-		--org_ext "$1" \
-		--output "$INPATH/views/" \
-		--is_archive "$IS_ARCHIVE" \
-		--resolution "$RESOLUTION" \
-		--samples "$SAMPLES" \
-		-E BLENDER_EEVEE -f 1
-	echo "Blender exit code: $?"
-}
-
 create_dirs () {
 	mkdir -p "$INPATH"/gltf/
 	mkdir -p "$INPATH"/metadata/
@@ -271,17 +210,6 @@ handle_file () {
 		"$BLENDER_BIN" -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- --input "$INPATH/$FILENAME" --ext "$GLTF" --compression "$COMPRESSION" --compression_level "$COMPRESSION_LEVEL" --output "$OUTPUT$OUTPUTPATH" #> /dev/null 2>&1
 	fi
 
-	# Prefer the standard target first, then explicit-output target.
-	GENERATED_GLB="$INPATH/gltf/$NAME.glb"
-	if [[ ! -f "$GENERATED_GLB" && "$isOutput" = true ]]; then
-		GENERATED_GLB="$OUTPUT$OUTPUTPATH"
-	fi
-
-	if [[ -f "$GENERATED_GLB" ]]; then
-		render_preview "$EXT" "$GENERATED_GLB"
-	else
-		render_preview "$INPATH/$NAME.$EXT"
-	fi;
 }
 
 handle_unsupported_file () {
@@ -308,7 +236,6 @@ handle_ifc_file () {
 	create_dirs
 
 	${SPATH}/scripts/IfcConvert "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
-	render_preview $EXT
 }
 
 handle_blend_file () {
@@ -322,7 +249,6 @@ handle_blend_file () {
 	create_dirs
 
 	sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/convert-blender-to-gltf.py "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
-	render_preview $EXT
 }
 
 handle_gml_file () {
@@ -342,9 +268,6 @@ handle_gml_file () {
 	python3 ${SPATH}/scripts/CityGML2OBJv2/CityGML2OBJs.py -i "$GLB_PATH" -o "$GLB_PATH" > /dev/null 2>&1
 	create_dirs
 	sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- "$GLB_PATH/${NAME}.obj" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
-	if [[ "$LIGHTWEIGHT" != "true" ]]; then
-		render_preview $EXT
-	fi
 	rm -rf $GLB_PATH
 
 }
@@ -423,9 +346,6 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 					exit 0;
 				;;
 			  glb)
-			  		if [[ "$LIGHTWEIGHT" != "true" ]]; then
-						render_preview $EXT
-					fi
 					end=`date +%s`
 					echo "Given file was already compressed."
 					exit 0;
