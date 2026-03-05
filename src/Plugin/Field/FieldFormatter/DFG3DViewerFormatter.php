@@ -83,9 +83,29 @@ class DFG3DViewerFormatter extends FileFormatterBase {
         $elements['#attached']['library'][] = dfg_3dviewer_get_library();
 
         foreach ($files as $delta => $file) {
-          $override_basenamespace = \Drupal::service('config.factory')->getEditable('dfg_3dviewer.settings')->get('dfg_3dviewer_basenamespace') . \Drupal::service('file_url_generator')->generateString($file->getFileUri());
+          $generator = \Drupal::service('file_url_generator');
+          $relative_path = (string) $generator->generateString($file->getFileUri());
+          $absolute_path = (string) $generator->generateAbsoluteString($file->getFileUri());
 
-          if (is_null($override_basenamespace)) $override_basenamespace = \Drupal::service('file_url_generator')->generateAbsoluteString($file->getFileUri());
+          $base = trim((string) \Drupal::service('config.factory')
+            ->getEditable('dfg_3dviewer.settings')
+            ->get('dfg_3dviewer_basenamespace'));
+          $base_parts = parse_url($base);
+          $base_host = is_array($base_parts) ? (string) ($base_parts['host'] ?? '') : '';
+          $has_safe_base = is_array($base_parts)
+            && !empty($base_parts['scheme'])
+            && $base_host !== ''
+            && strpos($base_host, '_') === FALSE;
+
+          if ($has_safe_base) {
+            $override_basenamespace = rtrim($base, '/') . '/' . ltrim($relative_path, '/');
+          }
+          else {
+            $absolute_host = (string) parse_url($absolute_path, PHP_URL_HOST);
+            $override_basenamespace = (strpos($absolute_host, '_') !== FALSE)
+              ? $relative_path
+              : $absolute_path;
+          }
 
           $elements[$delta] = array(
             '#type' => 'html_tag',
@@ -138,6 +158,11 @@ class DFG3DViewerFormatter extends FileFormatterBase {
       }
 
       if (preg_match('#^https?://#i', $value)) {
+        $host = (string) parse_url($value, PHP_URL_HOST);
+        $path = (string) parse_url($value, PHP_URL_PATH);
+        if ($host !== '' && strpos($host, '_') !== FALSE && str_starts_with($path, '/sites/default/files/')) {
+          return $path;
+        }
         return $value;
       }
 
