@@ -273,6 +273,10 @@ class ConvertWorker extends QueueWorkerBase {
       $file_name = $file->getFilename();
       $file_base = pathinfo($file_uri, PATHINFO_FILENAME) ?: pathinfo($file_name, PATHINFO_FILENAME);
     }
+    $upload_base = pathinfo((string) $file->getFilename(), PATHINFO_FILENAME);
+    if ($upload_base === '') {
+      $upload_base = $file_base;
+    }
     $file_base_archive = preg_replace('/_[0-9]+$/', '', $file_base, 1);
 
     $views_dirs = [];
@@ -391,26 +395,39 @@ class ConvertWorker extends QueueWorkerBase {
     }
 
     $preferred_uris = [];
+    $base_names = array_values(array_filter(array_unique([
+      $upload_base,
+      $file_base,
+      $file_base_archive,
+    ])));
+    $output_extensions = ['glb', 'gltf'];
 
     if ($is_archive) {
-      $preferred_uris[] = $dir_uri . '/' . $file_base . '_' . $extension . '/gltf/' . $file_base . '.glb';
+      $archive_dirs = [
+        $dir_uri . '/' . $file_base . '_' . $extension . '/gltf',
+        $dir_uri . '/' . $file_base . '_' . strtoupper($extension) . '/gltf',
+        $dir_uri . '/gltf',
+      ];
 
-      if ($file_base_archive !== $file_base) {
-        $preferred_uris[] = $dir_uri . '/' . $file_base . '_' . $extension . '/gltf/' . $file_base_archive . '.glb';
-      }
-
-      $preferred_uris[] = $dir_uri . '/gltf/' . $file_base . '.glb';
-
-      if ($file_base_archive !== $file_base) {
-        $preferred_uris[] = $dir_uri . '/gltf/' . $file_base_archive . '.glb';
+      foreach (array_unique($archive_dirs) as $candidate_dir) {
+        foreach ($base_names as $base_name) {
+          foreach ($output_extensions as $output_ext) {
+            $preferred_uris[] = rtrim($candidate_dir, '/\\') . '/' . $base_name . '.' . $output_ext;
+          }
+        }
       }
     }
     else {
-      if ($extension === 'glb') {
-        $preferred_uris[] = $dir_uri . '/' . $file_base . '.glb';
-      }
-      else {
-        $preferred_uris[] = $dir_uri . '/gltf/' . $file_base . '.glb';
+      $non_archive_dirs = in_array($extension, ['glb', 'gltf'], TRUE)
+        ? [$dir_uri, $dir_uri . '/gltf']
+        : [$dir_uri . '/gltf', $dir_uri];
+
+      foreach (array_unique($non_archive_dirs) as $candidate_dir) {
+        foreach ($base_names as $base_name) {
+          foreach ($output_extensions as $output_ext) {
+            $preferred_uris[] = rtrim($candidate_dir, '/\\') . '/' . $base_name . '.' . $output_ext;
+          }
+        }
       }
     }
 
@@ -420,10 +437,6 @@ class ConvertWorker extends QueueWorkerBase {
         $auto_path = $candidate_uri;
         break;
       }
-    }
-
-    if ($auto_path === '') {
-      $auto_path = $preferred_uris[0] ?? '';
     }
 
     if (!empty($auto_path) && $this->entityHasField($entity, $cfg['viewer_file_name'])) {
@@ -449,6 +462,15 @@ class ConvertWorker extends QueueWorkerBase {
           ]
         );
       }
+    }
+    elseif ($this->entityHasField($entity, $cfg['viewer_file_name'])) {
+      \Drupal::logger('dfg_3dviewer')->warning(
+        'No converted model found for file "@filename". Checked: @candidates',
+        [
+          '@filename' => $file_name,
+          '@candidates' => implode(', ', $preferred_uris),
+        ]
+      );
     }
 
     $legacy_gallery_field = 'fd6a974b7120d422c7b21b5f1f2315d9';
