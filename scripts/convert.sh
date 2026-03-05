@@ -183,22 +183,29 @@ check_status () {
 	fi;
 }
 
+cleanup_main_lock() {
+	flock -u 200 2>/dev/null || true
+	exec 200>&- 2>/dev/null || true
+	if [[ -n "${MAIN_LOCKFILE:-}" ]]; then
+		rm -f "$MAIN_LOCKFILE"
+	fi
+}
+
 render_preview () {
 	SNAME=$NAME
-	LOCKFILE="$INPATH/views/${SNAME}.lock"
+	mkdir -p "$INPATH/views"
+	RENDER_LOCKFILE="$INPATH/views/${SNAME}.lock"
 
-	exec 200>"$LOCKFILE" || exit 1
+	exec 201>"$RENDER_LOCKFILE" || exit 1
 
-	flock -n 200 || {
+	flock -n 201 || {
 		echo "Render already running for $SNAME"
+		exec 201>&- 2>/dev/null || true
 		return 0
 	}
+	trap 'flock -u 201 2>/dev/null || true; exec 201>&- 2>/dev/null || true; rm -f "$RENDER_LOCKFILE"' RETURN
 
 	INPUT_GLTF_PATH="$INPATH/$SNAME.glb"
-	if [[ ! -d "$INPATH/views" ]]; then
-		mkdir "$INPATH/views/"
-	fi
-
 	echo "Rendering thumbnails..."
 
 	if [[ "$EXT" != "glb" ]]; then
@@ -232,23 +239,20 @@ render_preview () {
 }
 
 create_dirs () {
-	if [[ ! -d "$INPATH"/gltf/ ]]; then
-		mkdir "$INPATH"/gltf/
-	fi
-	if [[ ! -d "$INPATH"/metadata/ ]]; then
-		mkdir "$INPATH"/metadata/
-	fi
+	mkdir -p "$INPATH"/gltf/
+	mkdir -p "$INPATH"/metadata/
 }
 
 create_flock () {
 	INPATH=$1
 	FILENAME=$2
-	LOCKFILE="$INPATH/${FILENAME}.lock"
-	exec 200>"$LOCKFILE" || exit 1
+	MAIN_LOCKFILE="$INPATH/${FILENAME}.lock"
+	exec 200>"$MAIN_LOCKFILE" || exit 1
 	flock -n 200 || {
 		echo "Process already running for $FILENAME"
 		exit 0
 	}
+	trap cleanup_main_lock EXIT
 }
 
 handle_file () {
