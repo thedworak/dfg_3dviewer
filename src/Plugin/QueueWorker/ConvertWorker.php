@@ -572,6 +572,14 @@ class ConvertWorker extends QueueWorkerBase {
     try {
       $generator = \Drupal::service('file_url_generator');
       $relative = (string) $generator->generateString($uri);
+      $relative_parts = parse_url($relative);
+      $relative_host = is_array($relative_parts) ? (string) ($relative_parts['host'] ?? '') : '';
+      $relative_path = is_array($relative_parts) ? (string) ($relative_parts['path'] ?? '') : '';
+      $relative_is_absolute = is_array($relative_parts) && !empty($relative_parts['scheme']) && $relative_host !== '';
+      $relative_has_bad_host = $relative_is_absolute && strpos($relative_host, '_') !== FALSE;
+      if ($relative_has_bad_host && str_starts_with($relative_path, '/sites/default/files/')) {
+        $relative = $relative_path;
+      }
 
       $public_base_url = trim($public_base_url);
       if ($public_base_url !== '') {
@@ -581,6 +589,12 @@ class ConvertWorker extends QueueWorkerBase {
           && !empty($base_parts['scheme'])
           && $base_host !== ''
           && strpos($base_host, '_') === FALSE) {
+          if ($relative_is_absolute) {
+            if ($relative_path !== '' && str_starts_with($relative_path, '/sites/default/files/')) {
+              return rtrim($public_base_url, '/') . $relative_path;
+            }
+            return $relative;
+          }
           return rtrim($public_base_url, '/') . '/' . ltrim($relative, '/');
         }
       }
@@ -959,6 +973,9 @@ class ConvertWorker extends QueueWorkerBase {
     if ($path !== '' && str_starts_with($path, '/sites/default/files/')) {
       if ($host !== '' && strpos($host, '_') !== FALSE) {
         return $has_base ? $public_base_url . $path : $path;
+      }
+      if (!$has_base && in_array(strtolower($scheme), ['http', 'https'], TRUE)) {
+        return $path;
       }
       if ($has_base && in_array(strtolower($scheme), ['http', 'https'], TRUE)) {
         return $public_base_url . $path;
