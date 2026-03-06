@@ -139,24 +139,21 @@ function dfg_3dviewer_kick_convert_worker(): void {
     }
 
     $arguments = [$drush, 'queue:run', 'dfg_3dviewer_convert', '--time-limit=30'];
-    $request = \Drupal::requestStack()->getCurrentRequest();
-    if ($request) {
-      $host = (string) $request->getSchemeAndHttpHost();
-      if ($host !== '') {
-        $arguments[] = '--uri=' . $host;
-      }
-    }
 
     // Using Process::start() here is unreliable because the Process object
     // is destroyed at the end of this function and may terminate the child.
     // Spawn a detached shell command instead.
     $escaped = array_map('escapeshellarg', $arguments);
-    $command = implode(' ', $escaped) . ' > /dev/null 2>&1 &';
+    $runner_log = '/tmp/dfg_3dviewer_queue_runner.log';
+    $command = implode(' ', $escaped) . ' >> ' . escapeshellarg($runner_log) . ' 2>&1 &';
     $process = Process::fromShellCommandline($command, DRUPAL_ROOT);
     $process->disableOutput();
     $process->run();
 
-    \Drupal::logger('dfg_3dviewer')->notice('Triggered background queue runner for dfg_3dviewer_convert.');
+    \Drupal::logger('dfg_3dviewer')->notice(
+      'Triggered background queue runner for dfg_3dviewer_convert (log: @log).',
+      ['@log' => $runner_log]
+    );
   }
   catch (\Throwable $e) {
     \Drupal::logger('dfg_3dviewer')->warning(
