@@ -18,6 +18,8 @@ class ConvertWorker extends QueueWorkerBase {
 
   public function processItem($data) {
     $GLOBALS['dfg_3dviewer_worker_running'] = TRUE;
+    $started_at = microtime(TRUE);
+    $outcome = 'unknown';
 
     $entity_id = $data['entity_id'] ?? NULL;
     $file_id = $data['file_id'] ?? NULL;
@@ -47,6 +49,14 @@ class ConvertWorker extends QueueWorkerBase {
     $lock_name = 'dfg_3dviewer_convert_' . $entity_type . '_' . $entity_id . '_' . $file_id;
 
     if (!$lock->acquire($lock_name, 3600)) {
+      \Drupal::logger('dfg_3dviewer')->notice(
+        'Worker skipped for entity @entity_id file @file_id: lock "@lock" is already held.',
+        [
+          '@entity_id' => (string) $entity_id,
+          '@file_id' => (string) $file_id,
+          '@lock' => $lock_name,
+        ]
+      );
       unset($GLOBALS['dfg_3dviewer_worker_running']);
       return;
     }
@@ -104,6 +114,40 @@ class ConvertWorker extends QueueWorkerBase {
       $this->updateProgress($entity, 100, 'ready', 'Conversion finished');
       $this->saveEntity($entity);
       $this->ensureImageFieldPersisted($entity_type, (string) $entity_id, $viewer_result);
+      $outcome = 'success';
+
+      $status_after = '';
+      $progress_after = '';
+      $message_after = '';
+      try {
+        $reloaded = \Drupal::entityTypeManager()->getStorage($entity_type)->load($entity_id);
+        if ($reloaded) {
+          $status_after = $reloaded->hasField('field_processing_status')
+            ? (string) $reloaded->get('field_processing_status')->value
+            : '';
+          $progress_after = $reloaded->hasField('field_processing_progress')
+            ? (string) $reloaded->get('field_processing_progress')->value
+            : '';
+          $message_after = $reloaded->hasField('field_processing_message')
+            ? (string) $reloaded->get('field_processing_message')->value
+            : '';
+        }
+      }
+      catch (\Throwable $e) {
+        // Keep conversion successful; this log is best-effort diagnostics.
+      }
+
+      \Drupal::logger('dfg_3dviewer')->notice(
+        'Worker post-conversion state for @type:@entity_id file @file_id => status="@status", progress="@progress", message="@message".',
+        [
+          '@type' => (string) $entity_type,
+          '@entity_id' => (string) $entity_id,
+          '@file_id' => (string) $file_id,
+          '@status' => $status_after,
+          '@progress' => $progress_after,
+          '@message' => $message_after,
+        ]
+      );
 
       \Drupal::logger('dfg_3dviewer')->notice(
         'Conversion finished for entity @entity_id and file @file_id.',
@@ -111,6 +155,7 @@ class ConvertWorker extends QueueWorkerBase {
       );
     }
     catch (\Throwable $e) {
+      $outcome = 'failed';
       \Drupal::logger('dfg_3dviewer')->error(
         'Conversion failed for entity @id: @msg',
         ['@id' => $entity_id, '@msg' => $e->getMessage()]
@@ -121,6 +166,17 @@ class ConvertWorker extends QueueWorkerBase {
     }
     finally {
       $lock->release($lock_name);
+      $duration_ms = (int) round((microtime(TRUE) - $started_at) * 1000);
+      \Drupal::logger('dfg_3dviewer')->notice(
+        'Worker finalized for @type:@entity_id file @file_id with outcome="@outcome" in @duration_ms ms.',
+        [
+          '@type' => (string) $entity_type,
+          '@entity_id' => (string) $entity_id,
+          '@file_id' => (string) $file_id,
+          '@outcome' => $outcome,
+          '@duration_ms' => (string) $duration_ms,
+        ]
+      );
       unset($GLOBALS['dfg_3dviewer_worker_running']);
     }
   }
