@@ -125,6 +125,13 @@ function dfg_3dviewer_kick_convert_worker(): void {
   }
 
   try {
+    $queue = \Drupal::service('queue')->get('dfg_3dviewer_convert');
+    $queue_size = method_exists($queue, 'numberOfItems') ? (int) $queue->numberOfItems() : -1;
+    \Drupal::logger('dfg_3dviewer')->notice(
+      'Queue runner kick requested. Queue size before start: @size',
+      ['@size' => (string) $queue_size]
+    );
+
     $drush = dfg_3dviewer_find_drush_binary();
     if ($drush === '') {
       \Drupal::logger('dfg_3dviewer')->warning('Cannot kick queue runner: drush binary not found.');
@@ -799,6 +806,51 @@ function dfg_3dviewer_entity_update(Drupal\Core\Entity\EntityInterface $entity) 
 				'@raw' => json_encode($configured_raw_first, JSON_UNESCAPED_SLASHES),
 			]
 		);
+
+		$entity_id_fallback = $entity->id();
+		$entity_type_fallback = $entity->getEntityTypeId();
+		if (!empty($entity_id_fallback)) {
+			try {
+				$stored = \Drupal::entityTypeManager()->getStorage($entity_type_fallback)->loadUnchanged($entity_id_fallback);
+				if ($stored) {
+					$stored_resolved = dfg_3dviewer_resolve_current_file_reference($stored, (string) $cfg['viewer_file_upload']);
+					if ($stored_resolved !== NULL) {
+						$stored_file_id = (int) $stored_resolved['file_id'];
+						$stored_file = \Drupal\file\Entity\File::load($stored_file_id);
+						$stored_source_filename = $stored_file ? $stored_file->getFilename() : '';
+						$stored_source_uri = $stored_file ? $stored_file->getFileUri() : '';
+
+						\Drupal::service('queue')->get('dfg_3dviewer_convert')->createItem([
+							'entity_type' => $entity_type_fallback,
+							'entity_id' => $entity_id_fallback,
+							'file_id' => $stored_file_id,
+							'source_filename' => $stored_source_filename,
+							'source_uri' => $stored_source_uri,
+						]);
+
+						\Drupal::logger('dfg_3dviewer')->notice(
+							'entity_update fallback enqueue from stored entity: entity @entity_id file @file_id.',
+							[
+								'@entity_id' => (string) $entity_id_fallback,
+								'@file_id' => (string) $stored_file_id,
+							]
+						);
+						dfg_3dviewer_kick_convert_worker();
+						return;
+					}
+				}
+			}
+			catch (\Throwable $e) {
+				\Drupal::logger('dfg_3dviewer')->warning(
+					'entity_update stored fallback enqueue failed for entity @entity_id: @msg',
+					[
+						'@entity_id' => (string) $entity_id_fallback,
+						'@msg' => $e->getMessage(),
+					]
+				);
+			}
+		}
+
 		\Drupal::logger('dfg_3dviewer')->notice(
 			'entity_update fallback behavior: kicking queue runner even without resolved file_id for entity @entity_id.',
 			['@entity_id' => (string) ($entity->id() ?? '')]
