@@ -390,6 +390,33 @@ function dfg_3dviewer_resolve_previous_file_id(
 }
 
 /**
+ * Stores last resolved file ID per entity for fallback re-queueing.
+ */
+function dfg_3dviewer_store_last_file_id(string $entity_type, string $entity_id, int $file_id): void {
+  if ($entity_type === '' || $entity_id === '' || $file_id <= 0) {
+    return;
+  }
+  $key = 'dfg_3dviewer.last_file_id.' . $entity_type . '.' . $entity_id;
+  \Drupal::state()->set($key, $file_id);
+}
+
+/**
+ * Loads last resolved file ID per entity.
+ */
+function dfg_3dviewer_load_last_file_id(string $entity_type, string $entity_id): ?int {
+  if ($entity_type === '' || $entity_id === '') {
+    return NULL;
+  }
+  $key = 'dfg_3dviewer.last_file_id.' . $entity_type . '.' . $entity_id;
+  $value = \Drupal::state()->get($key);
+  if ($value === NULL) {
+    return NULL;
+  }
+  $candidate = (string) $value;
+  return ($candidate !== '' && ctype_digit($candidate)) ? (int) $candidate : NULL;
+}
+
+/**
  * Implements hook_help().
  */
 function dfg_3dviewer_help($route_name, RouteMatchInterface $route_match) {
@@ -621,6 +648,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			'source_filename' => $source_filename,
 			'source_uri' => $source_uri,
 		]);
+		dfg_3dviewer_store_last_file_id((string) $entity->getEntityTypeId(), (string) $entity_id, (int) $file_id);
 		\Drupal::logger('dfg_3dviewer')->notice(
 			'entity_presave enqueue ok: entity @entity_id file @file_id.',
 			[
@@ -746,6 +774,7 @@ function dfg_3dviewer_entity_insert(Drupal\Core\Entity\EntityInterface $entity) 
 			'source_filename' => $source_filename,
 			'source_uri' => $source_uri,
 		]);
+		dfg_3dviewer_store_last_file_id((string) $entity->getEntityTypeId(), (string) $entity_id, (int) $file_id);
 		dfg_3dviewer_kick_convert_worker();
 
 		\Drupal::logger('dfg_3dviewer')->notice(
@@ -845,6 +874,7 @@ function dfg_3dviewer_entity_update(Drupal\Core\Entity\EntityInterface $entity) 
 						'source_filename' => $stored_source_filename,
 						'source_uri' => $stored_source_uri,
 					]);
+					dfg_3dviewer_store_last_file_id((string) $entity_type_fallback, (string) $entity_id_fallback, (int) $stored_file_id);
 
 					\Drupal::logger('dfg_3dviewer')->notice(
 						'entity_update fallback enqueue from candidate entity: entity @entity_id file @file_id.',
@@ -865,6 +895,42 @@ function dfg_3dviewer_entity_update(Drupal\Core\Entity\EntityInterface $entity) 
 						'@msg' => $e->getMessage(),
 					]
 				);
+			}
+		}
+
+		if (!empty($entity_id_fallback)) {
+			$last_file_id = dfg_3dviewer_load_last_file_id((string) $entity_type_fallback, (string) $entity_id_fallback);
+			if ($last_file_id !== NULL) {
+				try {
+					$last_file = \Drupal\file\Entity\File::load($last_file_id);
+					$last_source_filename = $last_file ? $last_file->getFilename() : '';
+					$last_source_uri = $last_file ? $last_file->getFileUri() : '';
+					\Drupal::service('queue')->get('dfg_3dviewer_convert')->createItem([
+						'entity_type' => $entity_type_fallback,
+						'entity_id' => $entity_id_fallback,
+						'file_id' => $last_file_id,
+						'source_filename' => $last_source_filename,
+						'source_uri' => $last_source_uri,
+					]);
+					\Drupal::logger('dfg_3dviewer')->notice(
+						'entity_update state fallback enqueue: entity @entity_id file @file_id.',
+						[
+							'@entity_id' => (string) $entity_id_fallback,
+							'@file_id' => (string) $last_file_id,
+						]
+					);
+					dfg_3dviewer_kick_convert_worker();
+					return;
+				}
+				catch (\Throwable $e) {
+					\Drupal::logger('dfg_3dviewer')->warning(
+						'entity_update state fallback enqueue failed for entity @entity_id: @msg',
+						[
+							'@entity_id' => (string) $entity_id_fallback,
+							'@msg' => $e->getMessage(),
+						]
+					);
+				}
 			}
 		}
 
@@ -911,6 +977,7 @@ function dfg_3dviewer_entity_update(Drupal\Core\Entity\EntityInterface $entity) 
 			'source_filename' => $source_filename,
 			'source_uri' => $source_uri,
 		]);
+		dfg_3dviewer_store_last_file_id((string) $entity->getEntityTypeId(), (string) $entity_id, (int) $file_id);
 		\Drupal::logger('dfg_3dviewer')->notice(
 			'entity_update enqueue ok: entity @entity_id file @file_id.',
 			[
