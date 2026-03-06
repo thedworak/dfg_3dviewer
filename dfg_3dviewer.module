@@ -872,10 +872,51 @@ function dfg_3dviewer_entity_update(Drupal\Core\Entity\EntityInterface $entity) 
 		);
 	}
 
+	$entity_id = $entity->id();
+	if (empty($entity_id) && $entity->hasField('eid')) {
+		$entity_id = $entity->get('eid')->value;
+	}
+	if (empty($entity_id)) {
+		\Drupal::logger('dfg_3dviewer')->warning('entity_update cannot enqueue: missing entity ID.');
+		dfg_3dviewer_kick_convert_worker();
+		return;
+	}
+
+	$uploaded_file = \Drupal\file\Entity\File::load($file_id);
+	$source_filename = $uploaded_file ? $uploaded_file->getFilename() : '';
+	$source_uri = $uploaded_file ? $uploaded_file->getFileUri() : '';
+
+	try {
+		\Drupal::service('queue')->get('dfg_3dviewer_convert')->createItem([
+			'entity_type' => $entity->getEntityTypeId(),
+			'entity_id' => $entity_id,
+			'file_id' => $file_id,
+			'source_filename' => $source_filename,
+			'source_uri' => $source_uri,
+		]);
+		\Drupal::logger('dfg_3dviewer')->notice(
+			'entity_update enqueue ok: entity @entity_id file @file_id.',
+			[
+				'@entity_id' => (string) $entity_id,
+				'@file_id' => (string) $file_id,
+			]
+		);
+	}
+	catch (\Throwable $e) {
+		\Drupal::logger('dfg_3dviewer')->error(
+			'entity_update enqueue failed for entity @entity_id file @file_id: @msg',
+			[
+				'@entity_id' => (string) $entity_id,
+				'@file_id' => (string) $file_id,
+				'@msg' => $e->getMessage(),
+			]
+		);
+	}
+
 	\Drupal::logger('dfg_3dviewer')->notice(
 		'entity_update force kick on save: entity @entity_id file @file_id.',
 		[
-			'@entity_id' => (string) ($entity->id() ?? ''),
+			'@entity_id' => (string) $entity_id,
 			'@file_id' => (string) $file_id,
 		]
 	);
