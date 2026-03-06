@@ -306,6 +306,21 @@ function dfg_3dviewer_extract_file_id_from_entity_field(
     }
   }
 
+  if (!empty($entity->original)
+    && method_exists($entity->original, 'hasField')
+    && $entity->original->hasField($field_name)) {
+    try {
+      $file_info = $entity->original->{$field_name}->getValue();
+      $file_id = dfg_3dviewer_extract_file_id($file_info);
+      if ($file_id !== NULL) {
+        return $file_id;
+      }
+    }
+    catch (\Throwable $e) {
+      // Ignore and return NULL below.
+    }
+  }
+
   return NULL;
 }
 
@@ -784,6 +799,11 @@ function dfg_3dviewer_entity_update(Drupal\Core\Entity\EntityInterface $entity) 
 				'@raw' => json_encode($configured_raw_first, JSON_UNESCAPED_SLASHES),
 			]
 		);
+		\Drupal::logger('dfg_3dviewer')->notice(
+			'entity_update fallback behavior: kicking queue runner even without resolved file_id for entity @entity_id.',
+			['@entity_id' => (string) ($entity->id() ?? '')]
+		);
+		dfg_3dviewer_kick_convert_worker();
 		return;
 	}
 	$file_id = (int) $resolved['file_id'];
