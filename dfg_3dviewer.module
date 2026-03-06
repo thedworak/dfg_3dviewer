@@ -144,7 +144,7 @@ function dfg_3dviewer_kick_convert_worker(): void {
     // is destroyed at the end of this function and may terminate the child.
     // Spawn a detached shell command instead.
     $escaped = array_map('escapeshellarg', $arguments);
-    $runner_log = '/tmp/dfg_3dviewer_queue_runner.log';
+    $runner_log = '/opt/drupal/dfg3dworker.log';
     $command = implode(' ', $escaped) . ' >> ' . escapeshellarg($runner_log) . ' 2>&1 &';
 
     // Drush may fail in web/PHP contexts when HOME is missing.

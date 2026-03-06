@@ -120,12 +120,7 @@ if [[ ! -f "$INPUT_GLTF_PATH" ]]; then
 fi
 
 mkdir -p "$INPATH/views"
-[[ -w "$INPATH/views" ]] || die "Views directory is not writable: $INPATH/views"
-
-LOCK_DIR="${TMPDIR:-/tmp}/dfg_3dviewer_locks"
-mkdir -p "$LOCK_DIR"
-LOCK_KEY="$(printf '%s' "$INPATH/$NAME" | cksum | awk '{print $1}')"
-RENDER_LOCKFILE="$LOCK_DIR/${LOCK_KEY}.lock"
+RENDER_LOCKFILE="$INPATH/views/${NAME}.lock"
 
 exec 201>"$RENDER_LOCKFILE" || exit 1
 flock -n 201 || {
