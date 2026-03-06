@@ -290,15 +290,6 @@ function dfg_3dviewer_hook_file_validate(Drupal\file\FileInterface $file) {
 * Implements hook_entity_presave().
  */
 function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity) {
-	\Drupal::logger('dfg_3dviewer')->notice(
-		'entity_presave called: type=@type bundle=@bundle id=@id',
-		[
-			'@type' => $entity->getEntityTypeId(),
-			'@bundle' => method_exists($entity, 'bundle') ? (string) $entity->bundle() : '',
-			'@id' => (string) ($entity->id() ?? ''),
-		]
-	);
-
 	if (!empty($GLOBALS['dfg_3dviewer_worker_running'])) {
 		return;
 	}
@@ -311,6 +302,15 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 	if (!method_exists($entity, 'hasField') || !$entity->hasField($cfg['viewer_file_upload'])) {
 		return;
 	}
+
+	\Drupal::logger('dfg_3dviewer')->notice(
+		'entity_presave matched target entity: type=@type bundle=@bundle id=@id',
+		[
+			'@type' => $entity->getEntityTypeId(),
+			'@bundle' => (string) $entity->bundle(),
+			'@id' => (string) ($entity->id() ?? ''),
+		]
+	);
 
 	$file_info = $entity->{$cfg['viewer_file_upload']}->getValue();
 	if (!isset($file_info[0]['target_id'])) {
@@ -423,15 +423,6 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
  * Implements hook_entity_insert().
  */
 function dfg_3dviewer_entity_insert(Drupal\Core\Entity\EntityInterface $entity) {
-	\Drupal::logger('dfg_3dviewer')->notice(
-		'entity_insert called: type=@type bundle=@bundle id=@id',
-		[
-			'@type' => $entity->getEntityTypeId(),
-			'@bundle' => method_exists($entity, 'bundle') ? (string) $entity->bundle() : '',
-			'@id' => (string) ($entity->id() ?? ''),
-		]
-	);
-
 	if (!empty($GLOBALS['dfg_3dviewer_worker_running'])) {
 		return;
 	}
@@ -444,6 +435,15 @@ function dfg_3dviewer_entity_insert(Drupal\Core\Entity\EntityInterface $entity) 
 	if (!method_exists($entity, 'hasField') || !$entity->hasField($cfg['viewer_file_upload'])) {
 		return;
 	}
+
+	\Drupal::logger('dfg_3dviewer')->notice(
+		'entity_insert matched target entity: type=@type bundle=@bundle id=@id',
+		[
+			'@type' => $entity->getEntityTypeId(),
+			'@bundle' => (string) $entity->bundle(),
+			'@id' => (string) ($entity->id() ?? ''),
+		]
+	);
 
 	$status = $entity->hasField('field_processing_status')
 		? (string) $entity->get('field_processing_status')->value
@@ -511,15 +511,6 @@ function dfg_3dviewer_entity_insert(Drupal\Core\Entity\EntityInterface $entity) 
  * Implements hook_entity_update().
  */
 function dfg_3dviewer_entity_update(Drupal\Core\Entity\EntityInterface $entity) {
-	\Drupal::logger('dfg_3dviewer')->notice(
-		'entity_update called: type=@type bundle=@bundle id=@id',
-		[
-			'@type' => $entity->getEntityTypeId(),
-			'@bundle' => method_exists($entity, 'bundle') ? (string) $entity->bundle() : '',
-			'@id' => (string) ($entity->id() ?? ''),
-		]
-	);
-
 	if (!empty($GLOBALS['dfg_3dviewer_worker_running'])) {
 		return;
 	}
@@ -532,6 +523,15 @@ function dfg_3dviewer_entity_update(Drupal\Core\Entity\EntityInterface $entity) 
 	if (!method_exists($entity, 'hasField') || !$entity->hasField($cfg['viewer_file_upload'])) {
 		return;
 	}
+
+	\Drupal::logger('dfg_3dviewer')->notice(
+		'entity_update matched target entity: type=@type bundle=@bundle id=@id',
+		[
+			'@type' => $entity->getEntityTypeId(),
+			'@bundle' => (string) $entity->bundle(),
+			'@id' => (string) ($entity->id() ?? ''),
+		]
+	);
 
 	$status = $entity->hasField('field_processing_status')
 		? (string) $entity->get('field_processing_status')->value
