@@ -1345,6 +1345,11 @@ class ConvertWorker extends QueueWorkerBase {
       return NULL;
     }
 
+    // Handle malformed values like "/http://host/sites/default/files/...".
+    if (preg_match('#^/[a-z][a-z0-9+.-]*://#i', $location)) {
+      $location = ltrim($location, '/');
+    }
+
     if (preg_match('#^[a-z][a-z0-9+.-]*://#i', $location)) {
       if (str_starts_with($location, 'public://') || str_starts_with($location, 'private://') || str_starts_with($location, 'temporary://')) {
         return $location;
