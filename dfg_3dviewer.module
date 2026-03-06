@@ -111,7 +111,7 @@ function dfg_3dviewer_init_constants(): void {
  * Starts a background queue runner in a non-blocking way.
  */
 function dfg_3dviewer_kick_convert_worker(): void {
-  \Drupal::logger('dfg_3dviewer')->debug('dfg_3dviewer_kick_convert_worker() invoked.');
+  \Drupal::logger('dfg_3dviewer')->notice('dfg_3dviewer_kick_convert_worker() invoked.');
 
   if (!empty($GLOBALS['dfg_3dviewer_worker_running'])) {
     return;
@@ -290,6 +290,15 @@ function dfg_3dviewer_hook_file_validate(Drupal\file\FileInterface $file) {
 * Implements hook_entity_presave().
  */
 function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity) {
+	\Drupal::logger('dfg_3dviewer')->notice(
+		'entity_presave called: type=@type bundle=@bundle id=@id',
+		[
+			'@type' => $entity->getEntityTypeId(),
+			'@bundle' => method_exists($entity, 'bundle') ? (string) $entity->bundle() : '',
+			'@id' => (string) ($entity->id() ?? ''),
+		]
+	);
+
 	if (!empty($GLOBALS['dfg_3dviewer_worker_running'])) {
 		return;
 	}
@@ -414,6 +423,15 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
  * Implements hook_entity_insert().
  */
 function dfg_3dviewer_entity_insert(Drupal\Core\Entity\EntityInterface $entity) {
+	\Drupal::logger('dfg_3dviewer')->notice(
+		'entity_insert called: type=@type bundle=@bundle id=@id',
+		[
+			'@type' => $entity->getEntityTypeId(),
+			'@bundle' => method_exists($entity, 'bundle') ? (string) $entity->bundle() : '',
+			'@id' => (string) ($entity->id() ?? ''),
+		]
+	);
+
 	if (!empty($GLOBALS['dfg_3dviewer_worker_running'])) {
 		return;
 	}
@@ -493,6 +511,15 @@ function dfg_3dviewer_entity_insert(Drupal\Core\Entity\EntityInterface $entity) 
  * Implements hook_entity_update().
  */
 function dfg_3dviewer_entity_update(Drupal\Core\Entity\EntityInterface $entity) {
+	\Drupal::logger('dfg_3dviewer')->notice(
+		'entity_update called: type=@type bundle=@bundle id=@id',
+		[
+			'@type' => $entity->getEntityTypeId(),
+			'@bundle' => method_exists($entity, 'bundle') ? (string) $entity->bundle() : '',
+			'@id' => (string) ($entity->id() ?? ''),
+		]
+	);
+
 	if (!empty($GLOBALS['dfg_3dviewer_worker_running'])) {
 		return;
 	}
