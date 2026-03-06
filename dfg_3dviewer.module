@@ -146,7 +146,28 @@ function dfg_3dviewer_kick_convert_worker(): void {
     $escaped = array_map('escapeshellarg', $arguments);
     $runner_log = '/tmp/dfg_3dviewer_queue_runner.log';
     $command = implode(' ', $escaped) . ' >> ' . escapeshellarg($runner_log) . ' 2>&1 &';
-    $process = Process::fromShellCommandline($command, DRUPAL_ROOT);
+
+    // Drush may fail in web/PHP contexts when HOME is missing.
+    $home = (string) getenv('HOME');
+    if ($home === '') {
+      $home = '/tmp';
+    }
+    $composer_home = (string) getenv('COMPOSER_HOME');
+    if ($composer_home === '') {
+      $composer_home = rtrim($home, '/') . '/.composer';
+    }
+    $xdg_config_home = (string) getenv('XDG_CONFIG_HOME');
+    if ($xdg_config_home === '') {
+      $xdg_config_home = rtrim($home, '/') . '/.config';
+    }
+
+    $env = [
+      'HOME' => $home,
+      'COMPOSER_HOME' => $composer_home,
+      'XDG_CONFIG_HOME' => $xdg_config_home,
+    ];
+
+    $process = Process::fromShellCommandline($command, DRUPAL_ROOT, $env);
     $process->disableOutput();
     $process->run();
 
