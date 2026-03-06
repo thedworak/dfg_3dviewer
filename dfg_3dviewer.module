@@ -222,7 +222,7 @@ function dfg_3dviewer_detect_file_field_fallback(Drupal\Core\Entity\EntityInterf
       }
 
       $field_type = (string) $storage_definition->getType();
-      if (!in_array($field_type, ['entity_reference', 'file', 'image'], TRUE)) {
+      if (!in_array($field_type, ['entity_reference', 'file'], TRUE)) {
         continue;
       }
 
@@ -250,6 +250,66 @@ function dfg_3dviewer_detect_file_field_fallback(Drupal\Core\Entity\EntityInterf
 }
 
 /**
+ * Tries to resolve file ID from a field on base/untranslated/translated entity.
+ */
+function dfg_3dviewer_extract_file_id_from_entity_field(
+  Drupal\Core\Entity\EntityInterface $entity,
+  string $field_name
+): ?int {
+  if ($field_name === '' || !method_exists($entity, 'hasField') || !$entity->hasField($field_name)) {
+    return NULL;
+  }
+
+  $file_info = $entity->{$field_name}->getValue();
+  $file_id = dfg_3dviewer_extract_file_id($file_info);
+  if ($file_id !== NULL) {
+    return $file_id;
+  }
+
+  if (method_exists($entity, 'getUntranslated')) {
+    try {
+      $untranslated = $entity->getUntranslated();
+      if ($untranslated && method_exists($untranslated, 'hasField') && $untranslated->hasField($field_name)) {
+        $file_info = $untranslated->{$field_name}->getValue();
+        $file_id = dfg_3dviewer_extract_file_id($file_info);
+        if ($file_id !== NULL) {
+          return $file_id;
+        }
+      }
+    }
+    catch (\Throwable $e) {
+      // Ignore and continue.
+    }
+  }
+
+  if (method_exists($entity, 'getTranslationLanguages')
+    && method_exists($entity, 'hasTranslation')
+    && method_exists($entity, 'getTranslation')) {
+    try {
+      foreach ($entity->getTranslationLanguages() as $langcode => $language) {
+        if (!method_exists($entity, 'hasTranslation') || !$entity->hasTranslation($langcode)) {
+          continue;
+        }
+        $translation = $entity->getTranslation($langcode);
+        if (!method_exists($translation, 'hasField') || !$translation->hasField($field_name)) {
+          continue;
+        }
+        $file_info = $translation->{$field_name}->getValue();
+        $file_id = dfg_3dviewer_extract_file_id($file_info);
+        if ($file_id !== NULL) {
+          return $file_id;
+        }
+      }
+    }
+    catch (\Throwable $e) {
+      // Ignore and return NULL below.
+    }
+  }
+
+  return NULL;
+}
+
+/**
  * Resolves current file reference for entity from configured field or fallback.
  *
  * @return array{field_name:string,file_id:int,configured_field:string,used_fallback:bool,configured_raw:array}
@@ -264,7 +324,7 @@ function dfg_3dviewer_resolve_current_file_reference(
     && $entity->hasField($configured_field)) {
     $file_info = $entity->{$configured_field}->getValue();
     $configured_raw = is_array($file_info[0] ?? NULL) ? $file_info[0] : [];
-    $file_id = dfg_3dviewer_extract_file_id($file_info);
+    $file_id = dfg_3dviewer_extract_file_id_from_entity_field($entity, $configured_field);
     if ($file_id !== NULL) {
       return [
         'field_name' => $configured_field,
