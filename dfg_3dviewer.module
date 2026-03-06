@@ -120,6 +120,7 @@ function dfg_3dviewer_kick_convert_worker(): void {
   $lock = \Drupal::lock();
   $lock_name = 'dfg_3dviewer_convert_runner_kick';
   if (!$lock->acquire($lock_name, 30.0)) {
+    \Drupal::logger('dfg_3dviewer')->notice('Skip queue runner kick: lock "@lock" is already held.', ['@lock' => $lock_name]);
     return;
   }
 
@@ -314,6 +315,13 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 
 	$file_info = $entity->{$cfg['viewer_file_upload']}->getValue();
 	if (!isset($file_info[0]['target_id'])) {
+		\Drupal::logger('dfg_3dviewer')->notice(
+			'entity_presave skip: upload field "@field" has no target_id on entity @entity_id.',
+			[
+				'@field' => $cfg['viewer_file_upload'],
+				'@entity_id' => (string) ($entity->id() ?? ''),
+			]
+		);
 		return;
 	}
 
@@ -362,6 +370,14 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 
 	$same_file = $previous_file_id !== NULL && (string) $previous_file_id === (string) $file_id;
 	if ($same_file && in_array($status, ['queued', 'processing', 'ready'], TRUE)) {
+		\Drupal::logger('dfg_3dviewer')->notice(
+			'entity_presave skip: same file (@file_id) and status "@status" for entity @entity_id.',
+			[
+				'@file_id' => $file_id,
+				'@status' => $status,
+				'@entity_id' => (string) ($entity_id ?? $entity->id() ?? ''),
+			]
+		);
 		return;
 	}
 
@@ -395,6 +411,13 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			'source_filename' => $source_filename,
 			'source_uri' => $source_uri,
 		]);
+		\Drupal::logger('dfg_3dviewer')->notice(
+			'entity_presave enqueue ok: entity @entity_id file @file_id.',
+			[
+				'@entity_id' => (string) $entity_id,
+				'@file_id' => (string) $file_id,
+			]
+		);
 		dfg_3dviewer_kick_convert_worker();
 		\Drupal::logger('dfg_3dviewer')->notice(
 			'Queued conversion for entity @entity_id and file @file_id.',
@@ -450,6 +473,13 @@ function dfg_3dviewer_entity_insert(Drupal\Core\Entity\EntityInterface $entity) 
 		: '';
 
 	if ($status !== 'queued') {
+		\Drupal::logger('dfg_3dviewer')->notice(
+			'entity_insert skip: processing status is "@status" (expected "queued") for entity @entity_id.',
+			[
+				'@status' => $status,
+				'@entity_id' => (string) ($entity->id() ?? ''),
+			]
+		);
 		return;
 	}
 
@@ -537,6 +567,13 @@ function dfg_3dviewer_entity_update(Drupal\Core\Entity\EntityInterface $entity) 
 		? (string) $entity->get('field_processing_status')->value
 		: '';
 	if ($status !== 'queued') {
+		\Drupal::logger('dfg_3dviewer')->notice(
+			'entity_update skip: processing status is "@status" (expected "queued") for entity @entity_id.',
+			[
+				'@status' => $status,
+				'@entity_id' => (string) ($entity->id() ?? ''),
+			]
+		);
 		return;
 	}
 
