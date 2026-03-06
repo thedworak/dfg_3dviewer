@@ -561,24 +561,13 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		$entity_id = $entity->get('eid')->value;
 	}
 
-	$previous_file_id = dfg_3dviewer_resolve_previous_file_id($entity, $source_field);
-
-	$status = $entity->hasField('field_processing_status')
-		? (string) $entity->get('field_processing_status')->value
-		: '';
-
-	$same_file = $previous_file_id !== NULL && (string) $previous_file_id === (string) $file_id;
-	if ($same_file && in_array($status, ['processing', 'ready'], TRUE)) {
-		\Drupal::logger('dfg_3dviewer')->notice(
-			'entity_presave skip: same file (@file_id) and status "@status" for entity @entity_id.',
-			[
-				'@file_id' => $file_id,
-				'@status' => $status,
-				'@entity_id' => (string) ($entity_id ?? $entity->id() ?? ''),
-			]
-		);
-		return;
-	}
+	\Drupal::logger('dfg_3dviewer')->notice(
+		'entity_presave force requeue on save: entity @entity_id file @file_id.',
+		[
+			'@entity_id' => (string) ($entity_id ?? $entity->id() ?? ''),
+			'@file_id' => (string) $file_id,
+		]
+	);
 
 	if ($entity->hasField('field_processing_progress')) {
 		$entity->set('field_processing_progress', 0);
@@ -779,20 +768,6 @@ function dfg_3dviewer_entity_update(Drupal\Core\Entity\EntityInterface $entity) 
 		]
 	);
 
-	$status = $entity->hasField('field_processing_status')
-		? (string) $entity->get('field_processing_status')->value
-		: '';
-	if ($status !== 'queued') {
-		\Drupal::logger('dfg_3dviewer')->notice(
-			'entity_update skip: processing status is "@status" (expected "queued") for entity @entity_id.',
-			[
-				'@status' => $status,
-				'@entity_id' => (string) ($entity->id() ?? ''),
-			]
-		);
-		return;
-	}
-
 	$configured_raw_first = [];
 	if (method_exists($entity, 'hasField') && $entity->hasField((string) $cfg['viewer_file_upload'])) {
 		$configured_values = $entity->{(string) $cfg['viewer_file_upload']}->getValue();
@@ -824,6 +799,14 @@ function dfg_3dviewer_entity_update(Drupal\Core\Entity\EntityInterface $entity) 
 			]
 		);
 	}
+
+	\Drupal::logger('dfg_3dviewer')->notice(
+		'entity_update force kick on save: entity @entity_id file @file_id.',
+		[
+			'@entity_id' => (string) ($entity->id() ?? ''),
+			'@file_id' => (string) $file_id,
+		]
+	);
 
 	dfg_3dviewer_kick_convert_worker();
 }
