@@ -178,6 +178,28 @@ function dfg_3dviewer_find_drush_binary(): string {
 }
 
 /**
+ * Tries to resolve file ID from entity field values.
+ */
+function dfg_3dviewer_extract_file_id(array $file_info): ?int {
+  $first = $file_info[0] ?? NULL;
+  if (!is_array($first)) {
+    return NULL;
+  }
+
+  foreach (['target_id', 'fid', 'id', 'value'] as $key) {
+    if (!array_key_exists($key, $first)) {
+      continue;
+    }
+    $candidate = (string) $first[$key];
+    if ($candidate !== '' && ctype_digit($candidate)) {
+      return (int) $candidate;
+    }
+  }
+
+  return NULL;
+}
+
+/**
  * Implements hook_help().
  */
 function dfg_3dviewer_help($route_name, RouteMatchInterface $route_match) {
@@ -314,18 +336,18 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 	);
 
 	$file_info = $entity->{$cfg['viewer_file_upload']}->getValue();
-	if (!isset($file_info[0]['target_id'])) {
+	$file_id = dfg_3dviewer_extract_file_id($file_info);
+	if ($file_id === NULL) {
 		\Drupal::logger('dfg_3dviewer')->notice(
-			'entity_presave skip: upload field "@field" has no target_id on entity @entity_id.',
+			'entity_presave skip: upload field "@field" has no file ID in first item on entity @entity_id. Raw value: @raw',
 			[
 				'@field' => $cfg['viewer_file_upload'],
 				'@entity_id' => (string) ($entity->id() ?? ''),
+				'@raw' => json_encode($file_info[0] ?? [], JSON_UNESCAPED_SLASHES),
 			]
 		);
 		return;
 	}
-
-	$file_id = (int) $file_info[0]['target_id'];
 	$entity_id = $entity->id();
 
 	$uploaded_file = \Drupal\file\Entity\File::load($file_id);
@@ -484,11 +506,18 @@ function dfg_3dviewer_entity_insert(Drupal\Core\Entity\EntityInterface $entity) 
 	}
 
 	$file_info = $entity->{$cfg['viewer_file_upload']}->getValue();
-	if (!isset($file_info[0]['target_id'])) {
+	$file_id = dfg_3dviewer_extract_file_id($file_info);
+	if ($file_id === NULL) {
+		\Drupal::logger('dfg_3dviewer')->notice(
+			'entity_insert skip: upload field "@field" has no file ID in first item on entity @entity_id. Raw value: @raw',
+			[
+				'@field' => $cfg['viewer_file_upload'],
+				'@entity_id' => (string) ($entity->id() ?? ''),
+				'@raw' => json_encode($file_info[0] ?? [], JSON_UNESCAPED_SLASHES),
+			]
+		);
 		return;
 	}
-
-	$file_id = (int) $file_info[0]['target_id'];
 	$entity_id = $entity->id();
 	if (empty($entity_id) && $entity->hasField('eid')) {
 		$entity_id = $entity->get('eid')->value;
@@ -578,7 +607,16 @@ function dfg_3dviewer_entity_update(Drupal\Core\Entity\EntityInterface $entity) 
 	}
 
 	$file_info = $entity->{$cfg['viewer_file_upload']}->getValue();
-	if (!isset($file_info[0]['target_id'])) {
+	$file_id = dfg_3dviewer_extract_file_id($file_info);
+	if ($file_id === NULL) {
+		\Drupal::logger('dfg_3dviewer')->notice(
+			'entity_update skip: upload field "@field" has no file ID in first item on entity @entity_id. Raw value: @raw',
+			[
+				'@field' => $cfg['viewer_file_upload'],
+				'@entity_id' => (string) ($entity->id() ?? ''),
+				'@raw' => json_encode($file_info[0] ?? [], JSON_UNESCAPED_SLASHES),
+			]
+		);
 		return;
 	}
 
