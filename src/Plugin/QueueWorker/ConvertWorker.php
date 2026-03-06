@@ -467,8 +467,26 @@ class ConvertWorker extends QueueWorkerBase {
       $requires_target_id = $this->fieldRequiresTargetId($entity, $image_field);
 
       if ($requires_target_id) {
-        $images_field_values = $this->buildFieldValues($entity, $image_field, $images_paths);
-        $applied_count = $this->applyFieldValues($entity, $image_field, $images_field_values, $lang);
+        if ($this->hasMalformedTargetIdFieldValues($entity, $image_field)) {
+          $applied_count = 0;
+          \Drupal::logger('dfg_3dviewer')->warning(
+            'Skipped updating target_id image field "@field": malformed existing values detected (non-numeric target IDs).',
+            ['@field' => $image_field]
+          );
+        }
+        else {
+          $images_field_values = $this->buildFieldValues($entity, $image_field, $images_paths);
+          if (!empty($images_field_values)) {
+            $applied_count = $this->applyFieldValues($entity, $image_field, $images_field_values, $lang);
+          }
+          else {
+            $applied_count = 0;
+            \Drupal::logger('dfg_3dviewer')->warning(
+              'Skipped updating target_id image field "@field": no valid file IDs could be mapped from rendered image paths.',
+              ['@field' => $image_field]
+            );
+          }
+        }
       }
       else {
         $applied_count = $this->applyPlainScalarFieldValues($entity, $image_field, $images_paths, $lang);
@@ -785,7 +803,7 @@ class ConvertWorker extends QueueWorkerBase {
       $has_wisski_language = TRUE;
     }
 
-    if ($main_property === 'target_id' && !$has_value_property) {
+    if ($main_property === 'target_id') {
       $values = [];
       foreach ($scalar_values as $value) {
         $uri = $this->imageLocationToUri((string) $value);
@@ -1044,6 +1062,37 @@ class ConvertWorker extends QueueWorkerBase {
     }
     catch (\Throwable $e) {
       // Fallback below.
+    }
+
+    return FALSE;
+  }
+
+  private function hasMalformedTargetIdFieldValues($entity, string $field_name): bool {
+    if (!$this->entityHasField($entity, $field_name)) {
+      return FALSE;
+    }
+
+    try {
+      $values = $entity->get($field_name)->getValue();
+      if (!is_array($values)) {
+        return FALSE;
+      }
+
+      foreach ($values as $row) {
+        if (!is_array($row)) {
+          continue;
+        }
+
+        if (array_key_exists('target_id', $row)) {
+          $target_id = trim((string) $row['target_id']);
+          if ($target_id === '' || !ctype_digit($target_id)) {
+            return TRUE;
+          }
+        }
+      }
+    }
+    catch (\Throwable $e) {
+      return FALSE;
     }
 
     return FALSE;
