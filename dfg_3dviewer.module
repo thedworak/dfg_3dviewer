@@ -147,9 +147,14 @@ function dfg_3dviewer_kick_convert_worker(): void {
       }
     }
 
-    $process = new Process($arguments, DRUPAL_ROOT);
+    // Using Process::start() here is unreliable because the Process object
+    // is destroyed at the end of this function and may terminate the child.
+    // Spawn a detached shell command instead.
+    $escaped = array_map('escapeshellarg', $arguments);
+    $command = implode(' ', $escaped) . ' > /dev/null 2>&1 &';
+    $process = Process::fromShellCommandline($command, DRUPAL_ROOT);
     $process->disableOutput();
-    $process->start();
+    $process->run();
 
     \Drupal::logger('dfg_3dviewer')->notice('Triggered background queue runner for dfg_3dviewer_convert.');
   }
