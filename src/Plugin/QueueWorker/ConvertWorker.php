@@ -27,8 +27,8 @@ class ConvertWorker extends QueueWorkerBase {
     $source_filename = $data['source_filename'] ?? '';
     $source_uri = $data['source_uri'] ?? '';
 
-    if (!$entity_id || !$file_id) {
-      \Drupal::logger('dfg_3dviewer')->error('Missing entity_id or file_id in queue item.');
+    if (!$entity_id) {
+      \Drupal::logger('dfg_3dviewer')->error('Missing entity_id in queue item.');
       unset($GLOBALS['dfg_3dviewer_worker_running']);
       return;
     }
@@ -42,6 +42,45 @@ class ConvertWorker extends QueueWorkerBase {
       unset($GLOBALS['dfg_3dviewer_worker_running']);
       return;
     }
+
+    $cfg = dfg_3dviewer_config();
+    if (empty($file_id)) {
+      if (function_exists('dfg_3dviewer_resolve_current_file_reference')) {
+        $resolved = dfg_3dviewer_resolve_current_file_reference($entity, (string) ($cfg['viewer_file_upload'] ?? ''));
+        if (is_array($resolved) && !empty($resolved['file_id'])) {
+          $file_id = (int) $resolved['file_id'];
+          \Drupal::logger('dfg_3dviewer')->notice(
+            'Worker resolved missing file_id from entity: entity @entity_id file @file_id.',
+            [
+              '@entity_id' => (string) $entity_id,
+              '@file_id' => (string) $file_id,
+            ]
+          );
+        }
+      }
+    }
+    if (empty($file_id) && function_exists('dfg_3dviewer_load_last_file_id')) {
+      $last_file_id = dfg_3dviewer_load_last_file_id((string) $entity_type, (string) $entity_id);
+      if (!empty($last_file_id)) {
+        $file_id = (int) $last_file_id;
+        \Drupal::logger('dfg_3dviewer')->notice(
+          'Worker resolved missing file_id from state: entity @entity_id file @file_id.',
+          [
+            '@entity_id' => (string) $entity_id,
+            '@file_id' => (string) $file_id,
+          ]
+        );
+      }
+    }
+    if (empty($file_id)) {
+      \Drupal::logger('dfg_3dviewer')->error(
+        'Worker cannot resolve file_id for entity @entity_id; skipping item.',
+        ['@entity_id' => (string) $entity_id]
+      );
+      unset($GLOBALS['dfg_3dviewer_worker_running']);
+      return;
+    }
+
     $this->updateProgress($entity, 5, 'init', 'Preparing...');
     $this->saveEntity($entity);
 
@@ -67,7 +106,6 @@ class ConvertWorker extends QueueWorkerBase {
         throw new \RuntimeException('File not found for conversion queue item.');
       }
 
-      $cfg = dfg_3dviewer_config();
       $fs = \Drupal::service('file_system');
       $file_uri = $file->getFileUri();
       $input_realpath = $fs->realpath($file_uri);

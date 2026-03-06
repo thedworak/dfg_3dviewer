@@ -997,6 +997,31 @@ function dfg_3dviewer_entity_update(Drupal\Core\Entity\EntityInterface $entity) 
 			'entity_update fallback behavior: kicking queue runner even without resolved file_id for entity @entity_id.',
 			['@entity_id' => (string) ($entity->id() ?? '')]
 		);
+		try {
+			$entity_id_fallback = (string) ($entity->id() ?? '');
+			if ($entity_id_fallback !== '') {
+				\Drupal::service('queue')->get('dfg_3dviewer_convert')->createItem([
+					'entity_type' => (string) $entity->getEntityTypeId(),
+					'entity_id' => $entity_id_fallback,
+					'file_id' => 0,
+					'source_filename' => '',
+					'source_uri' => '',
+				]);
+				\Drupal::logger('dfg_3dviewer')->notice(
+					'entity_update enqueued entity-only fallback job for entity @entity_id.',
+					['@entity_id' => $entity_id_fallback]
+				);
+			}
+		}
+		catch (\Throwable $e) {
+			\Drupal::logger('dfg_3dviewer')->warning(
+				'entity_update failed to enqueue entity-only fallback job for entity @entity_id: @msg',
+				[
+					'@entity_id' => (string) ($entity->id() ?? ''),
+					'@msg' => $e->getMessage(),
+				]
+			);
+		}
 		dfg_3dviewer_kick_convert_worker();
 		return;
 	}
