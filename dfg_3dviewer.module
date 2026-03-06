@@ -193,7 +193,7 @@ function dfg_3dviewer_extract_file_id(array $file_info): ?int {
     return NULL;
   }
 
-  foreach (['target_id', 'fid', 'id', 'value'] as $key) {
+  foreach (['target_id', 'fid', 'id', 'value', 'original_target_id', 'uri'] as $key) {
     if (!array_key_exists($key, $first)) {
       continue;
     }
@@ -201,6 +201,65 @@ function dfg_3dviewer_extract_file_id(array $file_info): ?int {
     if ($candidate !== '' && ctype_digit($candidate)) {
       return (int) $candidate;
     }
+    if ($candidate !== '') {
+      $mapped = dfg_3dviewer_file_id_from_location($candidate);
+      if ($mapped !== NULL) {
+        return $mapped;
+      }
+    }
+  }
+
+  return NULL;
+}
+
+/**
+ * Maps URL/public path to a file entity ID when possible.
+ */
+function dfg_3dviewer_file_id_from_location(string $location): ?int {
+  $uri = dfg_3dviewer_location_to_public_uri($location);
+  if ($uri === NULL) {
+    return NULL;
+  }
+
+  try {
+    $storage = \Drupal::entityTypeManager()->getStorage('file');
+    $existing = $storage->loadByProperties(['uri' => $uri]);
+    if (!empty($existing)) {
+      $file = reset($existing);
+      return $file ? (int) $file->id() : NULL;
+    }
+  }
+  catch (\Throwable $e) {
+    return NULL;
+  }
+
+  return NULL;
+}
+
+/**
+ * Converts full URL or public path into public:// URI.
+ */
+function dfg_3dviewer_location_to_public_uri(string $location): ?string {
+  $location = trim($location);
+  if ($location === '') {
+    return NULL;
+  }
+
+  if (str_starts_with($location, 'public://')) {
+    return $location;
+  }
+
+  if (preg_match('#^[a-z][a-z0-9+.-]*://#i', $location)) {
+    $path = parse_url($location, PHP_URL_PATH);
+    if (!is_string($path) || $path === '') {
+      return NULL;
+    }
+    $location = $path;
+  }
+
+  $location = ltrim($location, '/');
+  if (str_starts_with($location, 'sites/default/files/')) {
+    return 'public://' . substr($location, strlen('sites/default/files/'));
   }
 
   return NULL;
