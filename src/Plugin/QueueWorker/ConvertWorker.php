@@ -695,7 +695,8 @@ class ConvertWorker extends QueueWorkerBase {
       $has_safe_base = is_array($base_parts)
         && !empty($base_parts['scheme'])
         && $base_host !== ''
-        && strpos($base_host, '_') === FALSE;
+        && strpos($base_host, '_') === FALSE
+        && strtolower($base_host) !== 'default';
 
       // Keep storage deterministic in CLI contexts (e.g. drush) where request
       // host may resolve to container aliases like "dfg_3dviewer".
@@ -711,7 +712,8 @@ class ConvertWorker extends QueueWorkerBase {
       $relative_path = is_array($relative_parts) ? (string) ($relative_parts['path'] ?? '') : '';
       $relative_is_absolute = is_array($relative_parts) && !empty($relative_parts['scheme']) && $relative_host !== '';
       $relative_has_bad_host = $relative_is_absolute && strpos($relative_host, '_') !== FALSE;
-      if ($relative_has_bad_host && str_starts_with($relative_path, '/sites/default/files/')) {
+      if (($relative_has_bad_host || strtolower($relative_host) === 'default')
+        && str_starts_with($relative_path, '/sites/default/files/')) {
         $relative = $relative_path;
       }
       if (!$relative_is_absolute && str_starts_with($relative, 'sites/default/files/')) {
@@ -730,7 +732,7 @@ class ConvertWorker extends QueueWorkerBase {
 
       $absolute = $generator->generateAbsoluteString($uri);
       $host = parse_url($absolute, PHP_URL_HOST);
-      if (is_string($host) && strpos($host, '_') !== FALSE) {
+      if (is_string($host) && (strpos($host, '_') !== FALSE || strtolower($host) === 'default')) {
         return $relative;
       }
 
@@ -1110,7 +1112,8 @@ class ConvertWorker extends QueueWorkerBase {
     $has_base = is_array($base_parts)
       && !empty($base_parts['scheme'])
       && $base_host !== ''
-      && strpos($base_host, '_') === FALSE;
+      && strpos($base_host, '_') === FALSE
+      && strtolower($base_host) !== 'default';
 
     if (str_starts_with($url, 'public://')) {
       $relative = '/sites/default/files/' . ltrim(substr($url, strlen('public://')), '/');
@@ -1131,7 +1134,7 @@ class ConvertWorker extends QueueWorkerBase {
     $scheme = (string) ($parts['scheme'] ?? '');
 
     if ($path !== '' && str_starts_with($path, '/sites/default/files/')) {
-      if ($host !== '' && strpos($host, '_') !== FALSE) {
+      if ($host !== '' && (strpos($host, '_') !== FALSE || strtolower($host) === 'default')) {
         return $has_base ? $public_base_url . $path : $path;
       }
       if (!$has_base && in_array(strtolower($scheme), ['http', 'https'], TRUE)) {
