@@ -250,6 +250,64 @@ function dfg_3dviewer_detect_file_field_fallback(Drupal\Core\Entity\EntityInterf
 }
 
 /**
+ * Resolves current file reference for entity from configured field or fallback.
+ *
+ * @return array{field_name:string,file_id:int,configured_field:string,used_fallback:bool,configured_raw:array}
+ */
+function dfg_3dviewer_resolve_current_file_reference(
+  Drupal\Core\Entity\EntityInterface $entity,
+  string $configured_field
+): ?array {
+  $configured_raw = [];
+  if ($configured_field !== ''
+    && method_exists($entity, 'hasField')
+    && $entity->hasField($configured_field)) {
+    $file_info = $entity->{$configured_field}->getValue();
+    $configured_raw = is_array($file_info[0] ?? NULL) ? $file_info[0] : [];
+    $file_id = dfg_3dviewer_extract_file_id($file_info);
+    if ($file_id !== NULL) {
+      return [
+        'field_name' => $configured_field,
+        'file_id' => $file_id,
+        'configured_field' => $configured_field,
+        'used_fallback' => FALSE,
+        'configured_raw' => $configured_raw,
+      ];
+    }
+  }
+
+  $fallback = dfg_3dviewer_detect_file_field_fallback($entity);
+  if ($fallback !== NULL) {
+    return [
+      'field_name' => (string) $fallback['field_name'],
+      'file_id' => (int) $fallback['file_id'],
+      'configured_field' => $configured_field,
+      'used_fallback' => TRUE,
+      'configured_raw' => $configured_raw,
+    ];
+  }
+
+  return NULL;
+}
+
+/**
+ * Resolves previous file ID from original entity by selected field.
+ */
+function dfg_3dviewer_resolve_previous_file_id(
+  Drupal\Core\Entity\EntityInterface $entity,
+  string $field_name
+): ?int {
+  if (empty($entity->original)
+    || !method_exists($entity->original, 'hasField')
+    || !$entity->original->hasField($field_name)) {
+    return NULL;
+  }
+
+  $old = $entity->original->{$field_name}->getValue();
+  return dfg_3dviewer_extract_file_id($old);
+}
+
+/**
  * Implements hook_help().
  */
 function dfg_3dviewer_help($route_name, RouteMatchInterface $route_match) {
@@ -372,10 +430,6 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		return;
 	}
 
-	if (!method_exists($entity, 'hasField') || !$entity->hasField($cfg['viewer_file_upload'])) {
-		return;
-	}
-
 	\Drupal::logger('dfg_3dviewer')->notice(
 		'entity_presave matched target entity: type=@type bundle=@bundle id=@id',
 		[
@@ -385,42 +439,46 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		]
 	);
 
-	$file_info = $entity->{$cfg['viewer_file_upload']}->getValue();
-	$file_id = dfg_3dviewer_extract_file_id($file_info);
-	if ($file_id === NULL) {
-		$fallback = dfg_3dviewer_detect_file_field_fallback($entity);
-		if ($fallback !== NULL) {
-			$file_id = (int) $fallback['file_id'];
-			\Drupal::logger('dfg_3dviewer')->notice(
-				'entity_presave fallback: configured upload field "@field" is empty; using "@fallback_field" with file_id=@file_id for entity @entity_id.',
-				[
-					'@field' => $cfg['viewer_file_upload'],
-					'@fallback_field' => $fallback['field_name'],
-					'@file_id' => (string) $file_id,
-					'@entity_id' => (string) ($entity->id() ?? ''),
-				]
-			);
-		}
+	$configured_raw_first = [];
+	if (method_exists($entity, 'hasField') && $entity->hasField((string) $cfg['viewer_file_upload'])) {
+		$configured_values = $entity->{(string) $cfg['viewer_file_upload']}->getValue();
+		$configured_raw_first = is_array($configured_values[0] ?? NULL) ? $configured_values[0] : [];
 	}
-	if ($file_id === NULL) {
+
+	$resolved = dfg_3dviewer_resolve_current_file_reference($entity, (string) $cfg['viewer_file_upload']);
+	if ($resolved === NULL) {
 		\Drupal::logger('dfg_3dviewer')->notice(
 			'entity_presave skip: upload field "@field" has no file ID in first item on entity @entity_id. Raw value: @raw',
 			[
 				'@field' => $cfg['viewer_file_upload'],
 				'@entity_id' => (string) ($entity->id() ?? ''),
-				'@raw' => json_encode($file_info[0] ?? [], JSON_UNESCAPED_SLASHES),
+				'@raw' => json_encode($configured_raw_first, JSON_UNESCAPED_SLASHES),
 			]
 		);
 		return;
+	}
+	$file_id = (int) $resolved['file_id'];
+	$source_field = (string) $resolved['field_name'];
+	if (!empty($resolved['used_fallback'])) {
+		\Drupal::logger('dfg_3dviewer')->notice(
+			'entity_presave fallback: configured upload field "@field" is empty; using "@fallback_field" with file_id=@file_id for entity @entity_id. Configured raw: @raw',
+			[
+				'@field' => (string) $resolved['configured_field'],
+				'@fallback_field' => $source_field,
+				'@file_id' => (string) $file_id,
+				'@entity_id' => (string) ($entity->id() ?? ''),
+				'@raw' => json_encode($resolved['configured_raw'], JSON_UNESCAPED_SLASHES),
+			]
+		);
 	}
 	$entity_id = $entity->id();
 
 	$uploaded_file = \Drupal\file\Entity\File::load($file_id);
 	if ($uploaded_file) {
 		\Drupal::logger('dfg_3dviewer')->notice(
-			'Upload field "@field" on entity @entity_id resolved to file_id=@file_id, filename="@filename", uri="@uri".',
+			'Upload source field "@field" on entity @entity_id resolved to file_id=@file_id, filename="@filename", uri="@uri".',
 			[
-				'@field' => $cfg['viewer_file_upload'],
+				'@field' => $source_field,
 				'@entity_id' => (string) ($entity_id ?? ''),
 				'@file_id' => $file_id,
 				'@filename' => $uploaded_file->getFilename(),
@@ -430,9 +488,9 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 	}
 	else {
 		\Drupal::logger('dfg_3dviewer')->warning(
-			'Upload field "@field" on entity @entity_id points to missing file_id=@file_id.',
+			'Upload source field "@field" on entity @entity_id points to missing file_id=@file_id.',
 			[
-				'@field' => $cfg['viewer_file_upload'],
+				'@field' => $source_field,
 				'@entity_id' => (string) ($entity_id ?? ''),
 				'@file_id' => $file_id,
 			]
@@ -443,13 +501,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 		$entity_id = $entity->get('eid')->value;
 	}
 
-	$previous_file_id = NULL;
-	if (!empty($entity->original)
-		&& method_exists($entity->original, 'hasField')
-		&& $entity->original->hasField($cfg['viewer_file_upload'])) {
-		$old = $entity->original->{$cfg['viewer_file_upload']}->getValue();
-		$previous_file_id = $old[0]['target_id'] ?? NULL;
-	}
+	$previous_file_id = dfg_3dviewer_resolve_previous_file_id($entity, $source_field);
 
 	$status = $entity->hasField('field_processing_status')
 		? (string) $entity->get('field_processing_status')->value
@@ -542,10 +594,6 @@ function dfg_3dviewer_entity_insert(Drupal\Core\Entity\EntityInterface $entity) 
 		return;
 	}
 
-	if (!method_exists($entity, 'hasField') || !$entity->hasField($cfg['viewer_file_upload'])) {
-		return;
-	}
-
 	\Drupal::logger('dfg_3dviewer')->notice(
 		'entity_insert matched target entity: type=@type bundle=@bundle id=@id',
 		[
@@ -570,33 +618,36 @@ function dfg_3dviewer_entity_insert(Drupal\Core\Entity\EntityInterface $entity) 
 		return;
 	}
 
-	$file_info = $entity->{$cfg['viewer_file_upload']}->getValue();
-	$file_id = dfg_3dviewer_extract_file_id($file_info);
-	if ($file_id === NULL) {
-		$fallback = dfg_3dviewer_detect_file_field_fallback($entity);
-		if ($fallback !== NULL) {
-			$file_id = (int) $fallback['file_id'];
-			\Drupal::logger('dfg_3dviewer')->notice(
-				'entity_insert fallback: configured upload field "@field" is empty; using "@fallback_field" with file_id=@file_id for entity @entity_id.',
-				[
-					'@field' => $cfg['viewer_file_upload'],
-					'@fallback_field' => $fallback['field_name'],
-					'@file_id' => (string) $file_id,
-					'@entity_id' => (string) ($entity->id() ?? ''),
-				]
-			);
-		}
+	$configured_raw_first = [];
+	if (method_exists($entity, 'hasField') && $entity->hasField((string) $cfg['viewer_file_upload'])) {
+		$configured_values = $entity->{(string) $cfg['viewer_file_upload']}->getValue();
+		$configured_raw_first = is_array($configured_values[0] ?? NULL) ? $configured_values[0] : [];
 	}
-	if ($file_id === NULL) {
+
+	$resolved = dfg_3dviewer_resolve_current_file_reference($entity, (string) $cfg['viewer_file_upload']);
+	if ($resolved === NULL) {
 		\Drupal::logger('dfg_3dviewer')->notice(
 			'entity_insert skip: upload field "@field" has no file ID in first item on entity @entity_id. Raw value: @raw',
 			[
 				'@field' => $cfg['viewer_file_upload'],
 				'@entity_id' => (string) ($entity->id() ?? ''),
-				'@raw' => json_encode($file_info[0] ?? [], JSON_UNESCAPED_SLASHES),
+				'@raw' => json_encode($configured_raw_first, JSON_UNESCAPED_SLASHES),
 			]
 		);
 		return;
+	}
+	$file_id = (int) $resolved['file_id'];
+	if (!empty($resolved['used_fallback'])) {
+		\Drupal::logger('dfg_3dviewer')->notice(
+			'entity_insert fallback: configured upload field "@field" is empty; using "@fallback_field" with file_id=@file_id for entity @entity_id. Configured raw: @raw',
+			[
+				'@field' => (string) $resolved['configured_field'],
+				'@fallback_field' => (string) $resolved['field_name'],
+				'@file_id' => (string) $file_id,
+				'@entity_id' => (string) ($entity->id() ?? ''),
+				'@raw' => json_encode($resolved['configured_raw'], JSON_UNESCAPED_SLASHES),
+			]
+		);
 	}
 	$entity_id = $entity->id();
 	if (empty($entity_id) && $entity->hasField('eid')) {
@@ -659,10 +710,6 @@ function dfg_3dviewer_entity_update(Drupal\Core\Entity\EntityInterface $entity) 
 		return;
 	}
 
-	if (!method_exists($entity, 'hasField') || !$entity->hasField($cfg['viewer_file_upload'])) {
-		return;
-	}
-
 	\Drupal::logger('dfg_3dviewer')->notice(
 		'entity_update matched target entity: type=@type bundle=@bundle id=@id',
 		[
@@ -686,33 +733,36 @@ function dfg_3dviewer_entity_update(Drupal\Core\Entity\EntityInterface $entity) 
 		return;
 	}
 
-	$file_info = $entity->{$cfg['viewer_file_upload']}->getValue();
-	$file_id = dfg_3dviewer_extract_file_id($file_info);
-	if ($file_id === NULL) {
-		$fallback = dfg_3dviewer_detect_file_field_fallback($entity);
-		if ($fallback !== NULL) {
-			$file_id = (int) $fallback['file_id'];
-			\Drupal::logger('dfg_3dviewer')->notice(
-				'entity_update fallback: configured upload field "@field" is empty; using "@fallback_field" with file_id=@file_id for entity @entity_id.',
-				[
-					'@field' => $cfg['viewer_file_upload'],
-					'@fallback_field' => $fallback['field_name'],
-					'@file_id' => (string) $file_id,
-					'@entity_id' => (string) ($entity->id() ?? ''),
-				]
-			);
-		}
+	$configured_raw_first = [];
+	if (method_exists($entity, 'hasField') && $entity->hasField((string) $cfg['viewer_file_upload'])) {
+		$configured_values = $entity->{(string) $cfg['viewer_file_upload']}->getValue();
+		$configured_raw_first = is_array($configured_values[0] ?? NULL) ? $configured_values[0] : [];
 	}
-	if ($file_id === NULL) {
+
+	$resolved = dfg_3dviewer_resolve_current_file_reference($entity, (string) $cfg['viewer_file_upload']);
+	if ($resolved === NULL) {
 		\Drupal::logger('dfg_3dviewer')->notice(
 			'entity_update skip: upload field "@field" has no file ID in first item on entity @entity_id. Raw value: @raw',
 			[
 				'@field' => $cfg['viewer_file_upload'],
 				'@entity_id' => (string) ($entity->id() ?? ''),
-				'@raw' => json_encode($file_info[0] ?? [], JSON_UNESCAPED_SLASHES),
+				'@raw' => json_encode($configured_raw_first, JSON_UNESCAPED_SLASHES),
 			]
 		);
 		return;
+	}
+	$file_id = (int) $resolved['file_id'];
+	if (!empty($resolved['used_fallback'])) {
+		\Drupal::logger('dfg_3dviewer')->notice(
+			'entity_update fallback: configured upload field "@field" is empty; using "@fallback_field" with file_id=@file_id for entity @entity_id. Configured raw: @raw',
+			[
+				'@field' => (string) $resolved['configured_field'],
+				'@fallback_field' => (string) $resolved['field_name'],
+				'@file_id' => (string) $file_id,
+				'@entity_id' => (string) ($entity->id() ?? ''),
+				'@raw' => json_encode($resolved['configured_raw'], JSON_UNESCAPED_SLASHES),
+			]
+		);
 	}
 
 	dfg_3dviewer_kick_convert_worker();
