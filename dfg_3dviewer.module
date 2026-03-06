@@ -111,6 +111,8 @@ function dfg_3dviewer_init_constants(): void {
  * Starts a background queue runner in a non-blocking way.
  */
 function dfg_3dviewer_kick_convert_worker(): void {
+  \Drupal::logger('dfg_3dviewer')->debug('dfg_3dviewer_kick_convert_worker() invoked.');
+
   if (!empty($GLOBALS['dfg_3dviewer_worker_running'])) {
     return;
   }
@@ -384,6 +386,7 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			'source_filename' => $source_filename,
 			'source_uri' => $source_uri,
 		]);
+		dfg_3dviewer_kick_convert_worker();
 		\Drupal::logger('dfg_3dviewer')->notice(
 			'Queued conversion for entity @entity_id and file @file_id.',
 			[
