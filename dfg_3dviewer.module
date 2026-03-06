@@ -8,6 +8,7 @@ use Drupal\image\Entity\ImageStyle;
 use Drupal\Core\Archiver\Zip;
 use Drupal\Core\Archiver\ArchiverException;
 use Symfony\Component\Yaml\Yaml;
+use Symfony\Component\Process\Process;
 use Drupal\Core\Site\Settings;
 use Drupal\dfg_3dviewer\ModelFormatManager;
 
@@ -104,6 +105,73 @@ function dfg_3dviewer_init_constants(): void {
   }
 
   $done = true;
+}
+
+/**
+ * Starts a background queue runner in a non-blocking way.
+ */
+function dfg_3dviewer_kick_convert_worker(): void {
+  if (!empty($GLOBALS['dfg_3dviewer_worker_running'])) {
+    return;
+  }
+
+  $lock = \Drupal::lock();
+  $lock_name = 'dfg_3dviewer_convert_runner_kick';
+  if (!$lock->acquire($lock_name, 30.0)) {
+    return;
+  }
+
+  try {
+    $drush = dfg_3dviewer_find_drush_binary();
+    if ($drush === '') {
+      \Drupal::logger('dfg_3dviewer')->warning('Cannot kick queue runner: drush binary not found.');
+      return;
+    }
+
+    $arguments = [$drush, 'queue:run', 'dfg_3dviewer_convert', '--time-limit=30'];
+    $request = \Drupal::requestStack()->getCurrentRequest();
+    if ($request) {
+      $host = (string) $request->getSchemeAndHttpHost();
+      if ($host !== '') {
+        $arguments[] = '--uri=' . $host;
+      }
+    }
+
+    $process = new Process($arguments, DRUPAL_ROOT);
+    $process->disableOutput();
+    $process->start();
+
+    \Drupal::logger('dfg_3dviewer')->notice('Triggered background queue runner for dfg_3dviewer_convert.');
+  }
+  catch (\Throwable $e) {
+    \Drupal::logger('dfg_3dviewer')->warning(
+      'Failed to trigger background queue runner: @msg',
+      ['@msg' => $e->getMessage()]
+    );
+  }
+  finally {
+    $lock->release($lock_name);
+  }
+}
+
+/**
+ * Finds a usable drush executable path.
+ */
+function dfg_3dviewer_find_drush_binary(): string {
+  $candidates = [
+    DRUPAL_ROOT . '/vendor/bin/drush',
+    DRUPAL_ROOT . '/vendor/bin/drush.bat',
+    DRUPAL_ROOT . '/../vendor/bin/drush',
+    DRUPAL_ROOT . '/../vendor/bin/drush.bat',
+  ];
+
+  foreach ($candidates as $candidate) {
+    if (is_file($candidate)) {
+      return $candidate;
+    }
+  }
+
+  return '';
 }
 
 /**
@@ -316,7 +384,6 @@ function dfg_3dviewer_entity_presave(Drupal\Core\Entity\EntityInterface $entity)
 			'source_filename' => $source_filename,
 			'source_uri' => $source_uri,
 		]);
-
 		\Drupal::logger('dfg_3dviewer')->notice(
 			'Queued conversion for entity @entity_id and file @file_id.',
 			[
@@ -397,6 +464,7 @@ function dfg_3dviewer_entity_insert(Drupal\Core\Entity\EntityInterface $entity) 
 			'source_filename' => $source_filename,
 			'source_uri' => $source_uri,
 		]);
+		dfg_3dviewer_kick_convert_worker();
 
 		\Drupal::logger('dfg_3dviewer')->notice(
 			'Queued conversion on insert for entity @entity_id and file @file_id.',
@@ -416,6 +484,38 @@ function dfg_3dviewer_entity_insert(Drupal\Core\Entity\EntityInterface $entity) 
 			]
 		);
 	}
+}
+
+/**
+ * Implements hook_entity_update().
+ */
+function dfg_3dviewer_entity_update(Drupal\Core\Entity\EntityInterface $entity) {
+	if (!empty($GLOBALS['dfg_3dviewer_worker_running'])) {
+		return;
+	}
+
+	$cfg = dfg_3dviewer_config();
+	if (empty($cfg) || $entity->bundle() !== $cfg['entity_bundle']) {
+		return;
+	}
+
+	if (!method_exists($entity, 'hasField') || !$entity->hasField($cfg['viewer_file_upload'])) {
+		return;
+	}
+
+	$status = $entity->hasField('field_processing_status')
+		? (string) $entity->get('field_processing_status')->value
+		: '';
+	if ($status !== 'queued') {
+		return;
+	}
+
+	$file_info = $entity->{$cfg['viewer_file_upload']}->getValue();
+	if (!isset($file_info[0]['target_id'])) {
+		return;
+	}
+
+	dfg_3dviewer_kick_convert_worker();
 }
 function dfg_3dviewer_get_library(): string {
   $env = Settings::get('dfg_env', 'drupal');
