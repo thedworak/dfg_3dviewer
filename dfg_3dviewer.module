@@ -811,33 +811,50 @@ function dfg_3dviewer_entity_update(Drupal\Core\Entity\EntityInterface $entity) 
 		$entity_type_fallback = $entity->getEntityTypeId();
 		if (!empty($entity_id_fallback)) {
 			try {
-				$stored = \Drupal::entityTypeManager()->getStorage($entity_type_fallback)->loadUnchanged($entity_id_fallback);
-				if ($stored) {
-					$stored_resolved = dfg_3dviewer_resolve_current_file_reference($stored, (string) $cfg['viewer_file_upload']);
-					if ($stored_resolved !== NULL) {
-						$stored_file_id = (int) $stored_resolved['file_id'];
-						$stored_file = \Drupal\file\Entity\File::load($stored_file_id);
-						$stored_source_filename = $stored_file ? $stored_file->getFilename() : '';
-						$stored_source_uri = $stored_file ? $stored_file->getFileUri() : '';
-
-						\Drupal::service('queue')->get('dfg_3dviewer_convert')->createItem([
-							'entity_type' => $entity_type_fallback,
-							'entity_id' => $entity_id_fallback,
-							'file_id' => $stored_file_id,
-							'source_filename' => $stored_source_filename,
-							'source_uri' => $stored_source_uri,
-						]);
-
-						\Drupal::logger('dfg_3dviewer')->notice(
-							'entity_update fallback enqueue from stored entity: entity @entity_id file @file_id.',
-							[
-								'@entity_id' => (string) $entity_id_fallback,
-								'@file_id' => (string) $stored_file_id,
-							]
-						);
-						dfg_3dviewer_kick_convert_worker();
-						return;
+				$storage = \Drupal::entityTypeManager()->getStorage($entity_type_fallback);
+				$candidates = [];
+				if (!empty($entity->original)) {
+					$candidates[] = $entity->original;
+				}
+				$loaded = $storage->load($entity_id_fallback);
+				if ($loaded) {
+					$candidates[] = $loaded;
+				}
+				if (method_exists($storage, 'loadUnchanged')) {
+					$loaded_unchanged = $storage->loadUnchanged($entity_id_fallback);
+					if ($loaded_unchanged) {
+						$candidates[] = $loaded_unchanged;
 					}
+				}
+
+				foreach ($candidates as $candidate_entity) {
+					$stored_resolved = dfg_3dviewer_resolve_current_file_reference($candidate_entity, (string) $cfg['viewer_file_upload']);
+					if ($stored_resolved === NULL) {
+						continue;
+					}
+
+					$stored_file_id = (int) $stored_resolved['file_id'];
+					$stored_file = \Drupal\file\Entity\File::load($stored_file_id);
+					$stored_source_filename = $stored_file ? $stored_file->getFilename() : '';
+					$stored_source_uri = $stored_file ? $stored_file->getFileUri() : '';
+
+					\Drupal::service('queue')->get('dfg_3dviewer_convert')->createItem([
+						'entity_type' => $entity_type_fallback,
+						'entity_id' => $entity_id_fallback,
+						'file_id' => $stored_file_id,
+						'source_filename' => $stored_source_filename,
+						'source_uri' => $stored_source_uri,
+					]);
+
+					\Drupal::logger('dfg_3dviewer')->notice(
+						'entity_update fallback enqueue from candidate entity: entity @entity_id file @file_id.',
+						[
+							'@entity_id' => (string) $entity_id_fallback,
+							'@file_id' => (string) $stored_file_id,
+						]
+					);
+					dfg_3dviewer_kick_convert_worker();
+					return;
 				}
 			}
 			catch (\Throwable $e) {
