@@ -367,10 +367,8 @@ export async function fetchSettings(object) {
     }
   }
 
-  const baseDir = new URL('.', core.metadataUrl);
   let metadataUrl = new URL(
-    `${core.metadataUrl}/${core.fileObject.uri}metadata/${core.fileObject.filename}_viewer.json`,
-    baseDir
+    `${core.metadataUrl}/${core.fileObject.uri}metadata/${core.fileObject.filename}_viewer.json`
   ).href;
 
   let hierarchyMain;
