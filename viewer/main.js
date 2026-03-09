@@ -1872,15 +1872,15 @@ export const Viewer = {
 
             //Fetch data from original metadata file anyway before saving any changes
             if (core.CONFIG.entity.proxyPath !== undefined) {
-              Viewer.metadataUrl = core.getProxyPath(Viewer.metadataUrl);
+              core.CONFIG.metadataUrl = core.getProxyPath(core.CONFIG.metadataUrl);
             }
 
             (async () => {
               let fetchedMetadata = {};
 
               try {
-                if (Viewer?.metadataUrl) {
-                  const response = await fetch(Viewer.metadataUrl, { cache: "no-cache" });
+                if (core.CONFIG?.metadataUrl) {
+                  const response = await fetch(core.CONFIG.metadataUrl, { cache: "no-cache" });
 
                   if (response.ok) {
                     fetchedMetadata = await response.json();

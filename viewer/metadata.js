@@ -335,14 +335,9 @@ function safeURL(value) {
 
 async function loadMetadataData(metadataUrl) {
   // proxy / non-lightweight
-  if (core.isLightweight) {
-    console.log("No metadata found due to lightweight mode", core.isLightweight);
-    return null;
-  }
-  
-  if (core.CONFIG.entity.proxyPath !== undefined) {
-    console.log("No metadata found due to proxy mode", core.CONFIG.entity.proxyPath);
-    return null; // no data → proxy
+  if (core.CONFIG.entity.proxyPath !== undefined || core.isLightweight) {
+    console.log("No metadata found due to proxy or lightweight mode", core.CONFIG.entity.proxyPath);
+         return null; // no data → proxy
   }
 
   const response = await fetch(metadataUrl, { cache: "no-cache" });
@@ -383,7 +378,7 @@ export async function fetchSettings(object) {
   if (lilGUIgetFolder(core.gui, "Hierarchy") === null) {
     hierarchyMain = core.gui?.addFolder("Hierarchy").close();
   }
-  if (core.CONFIG.entity.proxyPath !== undefined) {
+  if (core.CONFIG.entity.proxyPath !== undefined || core.isLightweight) {
     metadataUrl = core.getProxyPath(metadataUrl, core.CONFIG);
     const data = await loadMetadataData(metadataUrl);
     await handleMetadataResponse(data, metadata, object, hierarchyMain);
@@ -394,7 +389,6 @@ export async function fetchSettings(object) {
   } else {
     const data = await loadMetadataData(metadataUrl);
     await handleMetadataResponse(data, metadata, object, hierarchyMain);
-    settingsHandler(object, hierarchyMain, core.CONFIG);
   }
   // Add statistics GUI
   let statsMain;
