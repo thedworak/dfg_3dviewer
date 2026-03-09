@@ -1042,7 +1042,7 @@ export const Viewer = {
 
     Viewer.fullscreenMode.style.top = (heightCSS - 40) + 'px';
     if (Viewer.downloadModel) {
-      let _offset = (core.CONFIG.isLightweight) ? 130 : 70;
+      let _offset = (core.isLightweight) ? 130 : 70;
       Viewer.downloadModel.style.top = (heightCSS - _offset) + 'px';
     }
     if (core.viewEntity) {
@@ -1847,7 +1847,7 @@ export const Viewer = {
     core.materialsFolder = Viewer.editorFolder.addFolder("Materials").close();
     setCore("materialsFolder", core.materialsFolder);
 
-    if (!Viewer.isLightweight) {
+    if (!core.isLightweight) {
       Viewer.propertiesFolder = Viewer.editorFolder.addFolder("Save properties").close();
       Viewer.propertiesFolder.add(Viewer.saveProperties, "Position");
       Viewer.propertiesFolder.add(Viewer.saveProperties, "Rotation");
@@ -1859,7 +1859,7 @@ export const Viewer = {
       Viewer.propertiesFolder.add(Viewer.saveProperties, "BackgroundColor");
     }
 
-    if (Viewer.editor && !Viewer.isLightweight) {
+    if (Viewer.editor && !core.isLightweight) {
       Viewer.editorFolder.add(
         {
           ["Save"]() {
@@ -1930,7 +1930,7 @@ export const Viewer = {
         },
         "Save"
       );
-      if (!Viewer.isLightweight) {
+      if (!core.isLightweight) {
         Viewer.editorFolder.add(
           {
             ["Picking mode"]() {
@@ -1968,7 +1968,7 @@ export const Viewer = {
         },
         "Distance Measurement"
       );
-      if (!Viewer.isLightweight) {
+      if (!core.isLightweight) {
         Viewer.editorFolder.add(
           {
             ["Render preview"]() {
@@ -2178,7 +2178,7 @@ export const Viewer = {
       }
 
       if (
-        !Viewer.isLightweight || 
+        !core.isLightweight || 
         core.CONFIG.viewer.gallery?.build === true
       ) {
         Viewer.buildGallery();
