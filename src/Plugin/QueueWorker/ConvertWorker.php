@@ -722,9 +722,6 @@ class ConvertWorker extends QueueWorkerBase {
 
       if ($public_base_url !== '' && $has_safe_base) {
         if ($relative_is_absolute) {
-          if ($relative_path !== '' && str_starts_with($relative_path, '/sites/default/files/')) {
-            return rtrim($public_base_url, '/') . $relative_path;
-          }
           return $relative;
         }
         return rtrim($public_base_url, '/') . '/' . ltrim($relative, '/');

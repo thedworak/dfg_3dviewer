@@ -134,18 +134,23 @@ check_blender
 check_xvfb_run
 check_scripts
 
-RESOLUTION="32x32x16"
-SAMPLES="20"
+if [[ -z "$RENDER_RESOLUTION" ]]; then
+  RENDER_RESOLUTION='1024x1024x16'
+fi
+if [[ -z "$RENDER_SAMPLES" ]]; then
+  RENDER_SAMPLES='20'
+fi
+
 echo "Rendering thumbnails..."
 xvfb-run --auto-servernum \
-  --server-args="-screen 0 ${RESOLUTION}" \
+  --server-args="-screen 0 ${RENDER_RESOLUTION}" \
   "$BLENDER_BIN" -b -P "$SPATH/scripts/render.py" -- \
   --input "$INPUT_GLTF_PATH" \
   --ext glb \
   --org_ext "$ORG_EXT" \
   --output "$INPATH/views/" \
   --is_archive "$IS_ARCHIVE" \
-  --resolution "$RESOLUTION" \
-  --samples "$SAMPLES" \
+  --resolution "$RENDER_RESOLUTION" \
+  --samples "$RENDER_SAMPLES" \
   -E BLENDER_EEVEE -f 1
 echo "Blender exit code: $?"
