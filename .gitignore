@@ -1,15 +1,25 @@
+# editor backups
 *.yml~
 *.module~
 *.php~
-./main/config.json
-scripts/.env
-node_modules
-/.parcel-cache
 *.mdb~
+
+# config
+/main/config.json
+scripts/.env
+settings.local.php
+
+# node
+node_modules/
+
+# build
+/.parcel-cache
+/dist/*
 !/dist/.gitkeep
+
+# viewer config
 /viewer/viewer-settings.json
 /dist/*/viewer-settings.json
-settings.local.php
 
 # Playwright
 /test-results/
