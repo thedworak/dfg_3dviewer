@@ -367,16 +367,16 @@ export async function fetchSettings(object) {
     }
   }
 
-  console.log("Base URL for metadata:", core.metadataUrl);
+  console.log("Base URL for metadata:", core.CONFIG.metadataUrl);
   console.log(core.fileObject.uri, core.fileObject.filename);
 
   let _metadataUrl = toURL(
-    `${core.metadataUrl}/${core.fileObject.uri}metadata/${core.fileObject.filename}_viewer.json`
+    `${core.CONFIG.metadataUrl}/${core.fileObject.uri}metadata/${core.fileObject.filename}_viewer.json`
   );
   console.log("Constructed metadata URL:", _metadataUrl);
 
   let metadataUrl = new URL(
-    `${core.metadataUrl}/${core.fileObject.uri}metadata/${core.fileObject.filename}_viewer.json`
+    `${core.CONFIG.metadataUrl}/${core.fileObject.uri}metadata/${core.fileObject.filename}_viewer.json`
   ).href;
 
   let hierarchyMain;
