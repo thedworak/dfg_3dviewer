@@ -25,7 +25,8 @@ export class StatusPoller {
             processing:2,
             converted:3,
             rendering:4,
-            ready:5
+            ready:5,
+            failed:6,
         }
         if(map[status]!==undefined) {
             UltraLoader.step(map[status]);
@@ -49,7 +50,10 @@ export class StatusPoller {
         this.updateSteps(data.status);
 
         if(data.status==="ready" || data.status==="failed") {
+            if (data.status==="ready")
             UltraLoader.finish("Model ready");
+            else
+            UltraLoader.finish("Model failed");
             this.stop();
             localStorage.removeItem("processing_model_id");
             return;
