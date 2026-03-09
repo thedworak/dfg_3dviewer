@@ -337,8 +337,10 @@ async function loadMetadataData(metadataUrl) {
   // proxy / non-lightweight
   if (core.CONFIG.entity.proxyPath !== undefined || core.isLightweight) {
     console.log("No metadata found due to proxy or lightweight mode", core.CONFIG.entity.proxyPath);
-         return null; // no data → proxy
+      return null; // no data → proxy
   }
+
+  console.log("Fetching metadata from ", metadataUrl);
 
   const response = await fetch(metadataUrl, { cache: "no-cache" });
 
