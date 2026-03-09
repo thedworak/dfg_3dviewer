@@ -367,7 +367,7 @@ export async function fetchSettings(object) {
     }
   }
 
-  const fileUrl = toURL(core.fileObject.uri);
+  const fileUrl = toURL(core.metadataUrl);
   if (!fileUrl) return;
 
   console.log("File URL:", fileUrl.href);
@@ -375,7 +375,7 @@ export async function fetchSettings(object) {
 
   const baseDir = new URL('.', fileUrl);
   let metadataUrl = new URL(
-    `metadata/${core.fileObject.filename}_viewer.json`,
+    `${core.metadataUrl}/${core.fileObject.uri}metadata/${core.fileObject.filename}_viewer.json`,
     baseDir
   ).href;
 
