@@ -48,7 +48,7 @@ export class StatusPoller {
 
         this.updateSteps(data.status);
 
-        if(data.status==="ready") {
+        if(data.status==="ready" || data.status==="failed") {
             UltraLoader.finish("Model ready");
             this.stop();
             localStorage.removeItem("processing_model_id");
