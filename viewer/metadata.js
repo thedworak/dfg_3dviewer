@@ -335,8 +335,13 @@ function safeURL(value) {
 
 async function loadMetadataData(metadataUrl) {
   // proxy / non-lightweight
-  if (core.CONFIG.entity.proxyPath !== undefined || !core.isLightweight) {
-    console.log("No metadata found due to proxy or lightweight mode", core.CONFIG.entity.proxyPath);
+  if (!core.isLightweight) {
+    console.log("No metadata found due to lightweight mode", core.isLightweight);
+    return null;
+  }
+  
+  if (core.CONFIG.entity.proxyPath !== undefined) {
+    console.log("No metadata found due to proxy mode", core.CONFIG.entity.proxyPath);
     return null; // no data → proxy
   }
 
