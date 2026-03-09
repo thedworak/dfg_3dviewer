@@ -439,9 +439,9 @@ export const Viewer = {
     localStorage.setItem("viewerHintSeen", "0");
     
     this.updateSize();
-    if (core.CONFIG.entity?.metadata?.source != null) {
+    /*if (core.CONFIG.entity?.metadata?.source != null) {
       await Viewer.mainLoadModel();
-    }
+    }*/
     Viewer.animate();
   },
 
