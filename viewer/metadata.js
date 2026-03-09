@@ -370,6 +370,9 @@ export async function fetchSettings(object) {
   const fileUrl = toURL(core.fileObject.uri);
   if (!fileUrl) return;
 
+  console.log("File URL:", fileUrl.href);
+  console.log("File uri:", core.fileObject.uri);
+
   const baseDir = new URL('.', fileUrl);
   let metadataUrl = new URL(
     `metadata/${core.fileObject.filename}_viewer.json`,
