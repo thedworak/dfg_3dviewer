@@ -2,7 +2,7 @@
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BLENDER_PATH=''
+BLENDER_PATH='blender' # Default to system blender, can be overridden by .env
 source "${SCRIPT_DIR}/.env"
 BLENDER_PATH="${SCRIPT_DIR}/${BLENDER_PATH}"
 
