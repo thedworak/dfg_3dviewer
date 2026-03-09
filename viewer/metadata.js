@@ -336,7 +336,8 @@ function safeURL(value) {
 async function loadMetadataData(metadataUrl) {
   // proxy / non-lightweight
   if (core.CONFIG.entity.proxyPath !== undefined || !core.isLightweight) {
-    return null; // no data → proxy
+    console.log("No metadata found due to proxy or lightweight mode", core.CONFIG.entity.proxyPath);
+         return null; // no data → proxy
   }
 
   const response = await fetch(metadataUrl, { cache: "no-cache" });
@@ -353,9 +354,7 @@ async function loadMetadataData(metadataUrl) {
 /**
  * Fetches settings and metadata for the loaded model.
  */
-export async function fetchSettings(
-  object,
-) {
+export async function fetchSettings(object) {
   var metadata = { vertices: 0, faces: 0 };
   // Concat URL for metadata file
   function toURL(value, base = window.location.href) {

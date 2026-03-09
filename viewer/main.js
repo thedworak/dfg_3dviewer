@@ -1492,7 +1492,7 @@ export const Viewer = {
   },
 
   async mainLoadModel() {
-    console.log("Loading model: ", core.fileObject.basename, ", with extension: ", core.fileObject.extension);
+    console.log("Loading model:", core.fileObject.basename, ", with extension:", core.fileObject.extension);
     if (Viewer._ext === "glb" || Viewer._ext === "gltf") {
       await loadModel();
     } else if (
