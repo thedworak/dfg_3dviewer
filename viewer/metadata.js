@@ -238,53 +238,55 @@ export async function handleMetadataResponse(
           <img src="${DFG_ASSETS}/download-icon.svg" alt="download" width="28" height="28" title="Download source file"/>`;
     }
 
-    var req = new XMLHttpRequest();
-    req.open(
-      "GET",
-      core.CONFIG.viewer.exportPath +
-        core.CONFIG.entity.id +
-        "?domain=" + encodeURIComponent(core.CONFIG.metadataUrl),
-      true
-    );
+    if (core.fetchMetadataXML) {
+      var req = new XMLHttpRequest();
+      req.open(
+        "GET",
+        core.CONFIG.viewer.exportPath +
+          core.CONFIG.entity.id +
+          "?domain=" + encodeURIComponent(core.CONFIG.metadataUrl),
+        true
+      );
 
-    req.onreadystatechange = function () {
-      if (req.readyState !== 4) return;
-        try {
-          if (req.status === 200) {
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(
-            req.responseText,
-            "application/xml"
-          );
+      req.onreadystatechange = function () {
+        if (req.readyState !== 4) return;
+          try {
+            if (req.status === 200) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(
+              req.responseText,
+              "application/xml"
+            );
 
-          if (doc.documentElement.childNodes.length > 0) {
-            var data = doc.documentElement.childNodes[0].childNodes;
-            if (data !== undefined) {
-              for (var i = 0; i < data.length; i++) {
-                var fetchedValue = addWissKIMetadata(
-                  data[i].tagName,
-                  data[i].textContent
-                );
-                if (typeof fetchedValue !== "undefined") {
-                  metadataContent += fetchedValue;
+            if (doc.documentElement.childNodes.length > 0) {
+              var data = doc.documentElement.childNodes[0].childNodes;
+              if (data !== undefined) {
+                for (var i = 0; i < data.length; i++) {
+                  var fetchedValue = addWissKIMetadata(
+                    data[i].tagName,
+                    data[i].textContent
+                  );
+                  if (typeof fetchedValue !== "undefined") {
+                    metadataContent += fetchedValue;
+                  }
                 }
               }
             }
-          }
 
-          core.metadataContainer.appendChild(core.viewEntity);
-          } else {
-            showToast("No metadata found for entity " + core.CONFIG.entity.id);
+            core.metadataContainer.appendChild(core.viewEntity);
+            } else {
+              showToast("No metadata found for entity " + core.CONFIG.entity.id);
+            }
+          } finally {
+            metadataContent +=
+                '</div>' +  // #metadata-content
+              '</div>';  
+            appendMetadata( metadataContent, metadataContentTech);
           }
-        } finally {
-          metadataContent +=
-              '</div>' +  // #metadata-content
-            '</div>';  
-          appendMetadata( metadataContent, metadataContentTech);
-        }
-    };
+      };
 
-    req.send(null);
+      req.send(null);
+    }
   } else {
     const scriptUrl = document.currentScript?.src || import.meta.url;
     let DFG_ASSETS = scriptUrl.replace(/dfg_3dviewer-module\.js.*$/, 'assets/img/');

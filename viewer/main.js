@@ -94,6 +94,7 @@ export const Viewer = {
   metadataUrl: null,
   iiifConfigURL: {url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: "Inbuilt"},
   testModelURL: 'https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb',
+  fetchMetadataXML: false,
   clock: null,
   editor: true,
   FULLSCREEN: false,
@@ -272,6 +273,7 @@ export const Viewer = {
     setCore('guiContainer', this.guiContainer);
     setCore('lilGui', this.lilGui);
     setCore('gui', this.gui);
+    setCore('fetchMetadataXML', this.fetchMetadataXML);
 
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -2269,38 +2271,40 @@ export const Viewer = {
           
       if (core.CONFIG.entity.metadata.source === "" && !Viewer.isLightweight) {
         try {
-          const response = await fetch('/api/editor/xml-export/' + core.CONFIG.entity.id, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/xml'
-            },
-            body: JSON.stringify({
-              id: core.CONFIG.entity.id,
-              domain: core.CONFIG.metadataUrl
-            })
-          });
+          if (core.fetchMetadataXML) {
+            const response = await fetch(core.CONFIG.viewer.exportPath + core.CONFIG.entity.id, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/xml'
+              },
+              body: JSON.stringify({
+                id: core.CONFIG.entity.id,
+                domain: core.CONFIG.metadataUrl
+              })
+            });
 
-          if (!response.ok) {
-            throw new Error(`XML export failed: ${response.status}`);
-          }
+            if (!response.ok) {
+              throw new Error(`XML export failed: ${response.status}`);
+            }
 
-          const xmlText = await response.text();
+            const xmlText = await response.text();
 
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(xmlText, 'application/xml');
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(xmlText, 'application/xml');
 
-          core.autoPath = '';
+            core.autoPath = '';
 
-          const nodes = doc.getElementsByTagName('*');
-          for (let i = 0; i < nodes.length; i++) {
-            const node = nodes[i];
-            if (
-              node.tagName?.includes('converted_file') &&
-              node.textContent
-            ) {
-              core.autoPath = node.textContent;
-              break;
+            const nodes = doc.getElementsByTagName('*');
+            for (let i = 0; i < nodes.length; i++) {
+              const node = nodes[i];
+              if (
+                node.tagName?.includes('converted_file') &&
+                node.textContent
+              ) {
+                core.autoPath = node.textContent;
+                break;
+              }
             }
           }
           await Viewer.mainLoadModelWrapper();
