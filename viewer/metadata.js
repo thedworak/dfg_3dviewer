@@ -367,17 +367,10 @@ export async function fetchSettings(object) {
     }
   }
 
-  console.log("Base URL for metadata:", core.CONFIG.metadataUrl);
-  console.log(core.fileObject.uri, core.fileObject.filename);
-
-  let _metadataUrl = toURL(
-    `${core.CONFIG.metadataUrl}/${core.fileObject.uri}metadata/${core.fileObject.filename}_viewer.json`
-  );
-  console.log("Constructed metadata URL:", _metadataUrl);
-
   let metadataUrl = new URL(
     `${core.CONFIG.metadataUrl}/${core.fileObject.uri}metadata/${core.fileObject.filename}_viewer.json`
   ).href;
+  console.log("Fetched metadata from:", metadataUrl);
 
   let hierarchyMain;
   if (lilGUIgetFolder(core.gui, "Hierarchy") === null) {

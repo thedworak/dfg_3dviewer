@@ -102,6 +102,34 @@ function setupGeometryHandler (_object) {
   _object.updateMatrixWorld(true);
 }
 
+function setupCameraHandler(_object, _metadata) {
+  if (!_metadata) return;
+
+  const pos = normalizeVec3(_metadata.camera ?? _metadata.cameraPosition);
+  if (pos) {
+    _object.position.set(pos.x, pos.y, pos.z);
+  }
+    /*core.cameraLight.position.set(
+    core.camera.position.x,
+    core.camera.position.y,
+    core.camera.position.z
+  );
+  if (Array.isArray(_object)) {
+    core.cameraLightTarget.position.set(
+      _object[0].position.x,
+      _object[0].position.y,
+      _object[0].position.z
+    );
+  } else {
+    core.cameraLightTarget.position.set(
+      _object.position.x,
+      _object.position.y,
+      _object.position.z
+    );
+  }
+  core.cameraLight.target.updateMatrixWorld();*/
+}
+
 export const setupObject = (_object, _metadata) => {
   let model;
   if (typeof _object.children === "undefined" || _object.children.length == 0) {
@@ -113,7 +141,8 @@ export const setupObject = (_object, _metadata) => {
   if (_metadata != null) {
     setupObjectHandler(_object, _metadata);
     setupGeometryHandler(_object);
-    console.log("Applying metadata for", _object.name, _metadata);
+    setupCameraHandler(core.camera, _metadata);
+    console.log("Applied metadata for", _object.name, _metadata);
   }
   else if (typeof core.objectsConfig !== "undefined" && model) { //Setup from config
     if ((typeof core.objectsConfig.models == null || core.objectsConfig.models?.length == 0) && _metadata == null) {
