@@ -3,7 +3,6 @@
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BLENDER_BIN=${BLENDER_BIN:-blender}
-BLENDER_BIN=$(command -v "$BLENDER_BIN")
 source "${SCRIPT_DIR}/.env"
 
 IS_ARCHIVE=false
