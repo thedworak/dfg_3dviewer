@@ -367,6 +367,9 @@ export async function fetchSettings(object) {
     }
   }
 
+  console.log("Base URL for metadata:", core.metadataUrl);
+  console.log(core.fileObject.uri, core.fileObject.filename);
+
   let _metadataUrl = toURL(
     `${core.metadataUrl}/${core.fileObject.uri}metadata/${core.fileObject.filename}_viewer.json`
   );
