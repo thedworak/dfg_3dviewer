@@ -335,7 +335,7 @@ function safeURL(value) {
 
 async function loadMetadataData(metadataUrl) {
   // proxy / non-lightweight
-  if (!core.isLightweight) {
+  if (core.isLightweight) {
     console.log("No metadata found due to lightweight mode", core.isLightweight);
     return null;
   }
