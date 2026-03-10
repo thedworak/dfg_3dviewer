@@ -322,11 +322,9 @@ export async function setupCamera(_object, _data) {
   const _light = core.lightObjects[0];
   const cfg = _data ?? core.CONFIG ?? null;
   const fallback = _data ?? core.objectsConfig ?? null;
-  console.log("Setting up camera with fallback:", fallback);
 
   // --- CAMERA POSITION ---
   const camPos = cfg?.cameraPosition ?? fallback?.camera?.position;
-  console.log("Camera position from config:", camPos);
 
   if (Array.isArray(camPos)) {
     core.camera.position.set(camPos[0], camPos[1], camPos[2]);

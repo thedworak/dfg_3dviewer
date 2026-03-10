@@ -335,20 +335,26 @@ function safeURL(value) {
 
 async function loadMetadataData(metadataUrl) {
   // proxy / non-lightweight
-  if (core.CONFIG.entity.proxyPath !== undefined || core.isLightweight) {
-    console.log("No metadata found due to proxy or lightweight mode", core.CONFIG.entity.proxyPath);
-      return null; // no data → proxy
+  if (core.CONFIG.entity.proxyPath !== undefined || metadataUrl === null || metadataUrl === '') {
+    console.log("No metadata found due to proxy or null URL", core.CONFIG.entity.proxyPath);
+    return null; // no data → proxy
   }
 
-  const response = await fetch(metadataUrl, { cache: "no-cache" });
+  try {
+    const response = await fetch(metadataUrl, { cache: "no-cache" });
 
-  if (response.status === 404) {
-    showToast("No settings " + core.fileObject.filename + "_viewer.json found");
+    if (response.status === 404) {
+      showToast("No settings " + core.fileObject.filename + "_viewer.json found");
+      return null;
+    }
+
+    showToast("Settings " + core.fileObject.filename + "_viewer.json found");
+    return response.json();
+  } catch (error) {
+    console.error("Error fetching metadata:", error);
+    showToast("Error fetching metadata: " + error.message);
     return null;
   }
-
-  showToast("Settings " + core.fileObject.filename + "_viewer.json found");
-  return response.json();
 }
 
 /**
