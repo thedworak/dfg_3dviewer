@@ -340,8 +340,6 @@ async function loadMetadataData(metadataUrl) {
       return null; // no data → proxy
   }
 
-  console.log("Fetching metadata from ", metadataUrl);
-
   const response = await fetch(metadataUrl, { cache: "no-cache" });
 
   if (response.status === 404) {

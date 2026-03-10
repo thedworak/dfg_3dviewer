@@ -113,7 +113,7 @@ function setupCameraHandler(_metadata) {
   if (controlsTarget) {
     core.controls.object.position.copy(new THREE.Vector3(controlsTarget.x, controlsTarget.y, controlsTarget.z));
   }
-  const controlsZoom = _metadata.controlsZoom ?? _metadata.controlsZoom?.[0];
+  const controlsZoom = _metadata.controlsZoom?.[0];
   if (typeof controlsZoom === "number" && controlsZoom !== 0) {
     const dir = new THREE.Vector3()
     .subVectors(core.camera.position, core.controls?.target || new THREE.Vector3())
@@ -122,6 +122,7 @@ function setupCameraHandler(_metadata) {
     core.camera.position
     .copy(core.controls?.target || new THREE.Vector3())
     .add(dir.multiplyScalar(controlsZoom));
+    console.log("Applied camera zoom from metadata:", controlsZoom);
   }
 
   core.camera.updateProjectionMatrix();
