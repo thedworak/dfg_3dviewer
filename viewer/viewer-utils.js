@@ -112,13 +112,13 @@ function setupCameraHandler(_object, meta) {
   core.controls.enableDamping = false;
 
   if (target) {
-    core.controls.target.set(target.x, target.y, target.z);
-    core.controls.target0.copy(core.controls.target); // reset saved state
+    core.controls.target?.set(target.x, target.y, target.z);
+    core.controls.target0?.copy(core.controls.target); // reset saved state
   }
 
   if (camPos) {
-    core.camera.position.set(camPos.x, camPos.y, camPos.z);
-    core.camera.position0.copy(core.camera.position); // reset saved state
+    core.camera.position?.set(camPos.x, camPos.y, camPos.z);
+    core.camera.position0?.copy(core.camera.position); // reset saved state
   }
 
   core.controls.reset(); // apply position0/target0
