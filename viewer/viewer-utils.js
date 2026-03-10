@@ -102,12 +102,28 @@ function setupGeometryHandler (_object) {
   _object.updateMatrixWorld(true);
 }
 
-function setupCameraHandler(_metadata) {
+function setupCameraHandler(_object, _metadata) {
   if (!_metadata) return;
 
-  const pos = normalizeVec3(_metadata.camera ?? _metadata.cameraPosition);
-  if (pos) {
-    core.camera.position.set(pos.x, pos.y, pos.z);
+  const camPos = normalizeVec3(_metadata.camera ?? _metadata.cameraPosition);
+  if (Array.isArray(camPos)) {
+    core.camera.position.set(camPos[0], camPos[1], camPos[2]);
+  } else if (camPos && typeof camPos === "object") {
+    core.camera.position.set(camPos.x, camPos.y, camPos.z);
+  } else {
+    setupEmptyCamera(_object);
+  }
+
+  const fallback = core.objectsConfig ?? null;
+  const cfg = _metadata ?? null;
+
+  // --- CONTROLS TARGET + ZOOM ---
+  const target = cfg?.controlsTarget ?? fallback?.camera?.target;
+
+  if (Array.isArray(target)) {
+    core.controls.target.set(target[0], target[1], target[2]);
+  } else if (target) {
+    core.controls?.target.set(target.x, target.y, target.z);
   }
   const controlsTarget = normalizeVec3(_metadata.camera ?? _metadata.controlsTarget);
   if (controlsTarget) {
@@ -128,7 +144,7 @@ function setupCameraHandler(_metadata) {
   core.camera.updateProjectionMatrix();
   core.controls?.update();
 
-  /*core.cameraLight.position.set(
+  core.cameraLight.position.set(
     core.camera.position.x,
     core.camera.position.y,
     core.camera.position.z
@@ -146,7 +162,7 @@ function setupCameraHandler(_metadata) {
       _object.position.z
     );
   }
-  core.cameraLight.target.updateMatrixWorld();*/
+  core.cameraLight.target.updateMatrixWorld();
 }
 
 export const setupObject = (_object, _metadata) => {
@@ -160,7 +176,7 @@ export const setupObject = (_object, _metadata) => {
   if (_metadata != null) {
     setupObjectHandler(_object, _metadata);
     setupGeometryHandler(_object);
-    setupCameraHandler(_metadata);
+    setupCameraHandler(_object, _metadata);
     console.log("Applied metadata for", _object.name, _metadata);
   }
   else if (typeof core.objectsConfig !== "undefined" && model) { //Setup from config
