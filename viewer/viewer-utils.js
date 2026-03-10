@@ -138,31 +138,11 @@ function setupCameraHandler(_object, _metadata) {
     core.camera.position
     .copy(core.controls?.target || new THREE.Vector3())
     .add(dir.multiplyScalar(controlsZoom));
-    console.log("Applied camera zoom from metadata:", controlsZoom);
   }
 
   core.camera.updateProjectionMatrix();
   core.controls?.update();
-
-  core.cameraLight.position.set(
-    core.camera.position.x,
-    core.camera.position.y,
-    core.camera.position.z
-  );
-  if (Array.isArray(_object)) {
-    core.cameraLightTarget.position.set(
-      _object[0].position.x,
-      _object[0].position.y,
-      _object[0].position.z
-    );
-  } else {
-    core.cameraLightTarget.position.set(
-      _object.position.x,
-      _object.position.y,
-      _object.position.z
-    );
-  }
-  core.cameraLight.target.updateMatrixWorld();
+  console.log("Applied camera metadata", core.camera, core.controls);
 }
 
 export const setupObject = (_object, _metadata) => {
