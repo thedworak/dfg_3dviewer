@@ -320,7 +320,7 @@ function resolveBackground(meta, sceneId) {
 
 export async function setupCamera(_object, _data) {
   const _light = core.lightObjects[0];
-  const cfg = core.CONFIG ?? null;
+  const cfg = _data ?? core.CONFIG ?? null;
   const fallback = _data ?? core.objectsConfig ?? null;
   console.log("Setting up camera with fallback:", fallback);
 
