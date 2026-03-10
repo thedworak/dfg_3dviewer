@@ -102,47 +102,21 @@ function setupGeometryHandler (_object) {
   _object.updateMatrixWorld(true);
 }
 
-function setupCameraHandler(_object, _metadata) {
-  if (!_metadata) return;
+function setupCameraHandler(_object, meta) {
+  if (!meta) return;
 
-  const camPos = normalizeVec3(_metadata.camera ?? _metadata.cameraPosition);
-  if (Array.isArray(camPos)) {
-    core.camera.position.set(camPos[0], camPos[1], camPos[2]);
-  } else if (camPos && typeof camPos === "object") {
-    core.camera.position.set(camPos.x, camPos.y, camPos.z);
-  } else {
-    setupEmptyCamera(_object);
+  const cam = normalizeVec3(meta.camera ?? meta.cameraPosition);
+  const target = normalizeVec3(meta.controlsTarget);
+
+  if (cam) {
+    core.camera.position.set(cam.x, cam.y, cam.z);
   }
 
-  const fallback = core.objectsConfig ?? null;
-  const cfg = _metadata ?? null;
-
-  // --- CONTROLS TARGET + ZOOM ---
-  const target = cfg?.controlsTarget ?? fallback?.camera?.target;
-
-  if (Array.isArray(target)) {
-    core.controls.target.set(target[0], target[1], target[2]);
-  } else if (target) {
-    core.controls?.target.set(target.x, target.y, target.z);
-  }
-  const controlsTarget = normalizeVec3(_metadata.camera ?? _metadata.controlsTarget);
-  if (controlsTarget) {
-    core.controls.object.position.copy(new THREE.Vector3(controlsTarget.x, controlsTarget.y, controlsTarget.z));
-  }
-  const controlsZoom = _metadata.controlsZoom?.[0];
-  if (typeof controlsZoom === "number" && controlsZoom !== 0) {
-    const dir = new THREE.Vector3()
-    .subVectors(core.camera.position, core.controls?.target || new THREE.Vector3())
-    .normalize();
-
-    core.camera.position
-    .copy(core.controls?.target || new THREE.Vector3())
-    .add(dir.multiplyScalar(controlsZoom));
+  if (target) {
+    core.controls.target.set(target.x, target.y, target.z);
   }
 
-  core.camera.updateProjectionMatrix();
-  core.controls?.update();
-  console.log("Applied camera metadata", core.camera, core.controls);
+  core.controls.update();
 }
 
 export const setupObject = (_object, _metadata) => {
