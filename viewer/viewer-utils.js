@@ -105,18 +105,36 @@ function setupGeometryHandler (_object) {
 function setupCameraHandler(_object, meta) {
   if (!meta) return;
 
-  const cam = normalizeVec3(meta.camera ?? meta.cameraPosition);
   const target = normalizeVec3(meta.controlsTarget);
+  const camPos = normalizeVec3(meta.cameraPosition);
+  const zoom = meta.controlsZoom?.[0];
 
-  if (cam) {
-    core.camera.position.set(cam.x, cam.y, cam.z);
-  }
-
+  // --- TARGET ---
   if (target) {
     core.controls.target.set(target.x, target.y, target.z);
   }
 
+  // --- EXACT CAMERA RESTORE ---
+  if (camPos) {
+    core.camera.position.set(camPos.x, camPos.y, camPos.z);
+  }
+
+  // --- FALLBACK ZOOM ---
+  else if (typeof zoom === "number" && target) {
+
+    const dir = new THREE.Vector3(1, 0.35, 0.5).normalize();
+
+    core.camera.position
+      .copy(core.controls.target)
+      .add(dir.multiplyScalar(zoom));
+  }
+
   core.controls.update();
+
+  console.log("Camera restored", {
+    camera: core.camera.position,
+    target: core.controls.target
+  });
 }
 
 export const setupObject = (_object, _metadata) => {
