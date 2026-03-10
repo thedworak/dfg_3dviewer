@@ -121,7 +121,7 @@ export async function handleMetadataResponse(
   let metadataContentTech = '';
   if (Array.isArray(object)) {
     setupObject(object[0], data);
-    await setupCamera(object[0]);
+    await setupCamera(object[0], data);
   } else if (object.name === "Scene" || object.children.length > 0 || object.type == "Mesh"
   ) {
     setupObject(object, data);
@@ -156,10 +156,10 @@ export async function handleMetadataResponse(
         }
       }
     });
-    await setupCamera(object);
+    await setupCamera(object, data);
   } else {
     setupObject(object, data);
-    await setupCamera(object);
+    await setupCamera(object, data);
     metadata["vertices"] += fetchMetadata(object, "vertices");
     metadata["faces"] += fetchMetadata(object, "faces");
     if (object.name === "") {
@@ -311,13 +311,13 @@ export async function handleMetadataResponse(
 export async function settingsHandler(object, hierarchyMain, data) {
   if (Array.isArray(object)) {
     setupObject(object[0], data);
-    await setupCamera(object[0]);
+    await setupCamera(object[0], data);
   } else if (object.name === "Scene" || object.children.length > 0) {
     setupObject(object, data);
-    await setupCamera(object);
+    await setupCamera(object, data);
   } else {
     setupObject(object, data);
-    await setupCamera(object);
+    await setupCamera(object, data);
     if (object.name === "undefined") object.name = "level";
     if (!lilGUIhasFolder(hierarchyMain, object.name)) {
       hierarchyMain.addFolder(object.name).close();

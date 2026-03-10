@@ -131,7 +131,6 @@ export const setupObject = (_object, _metadata) => {
     setupObjectHandler(_object, _metadata);
     setupGeometryHandler(_object);
     setupCameraHandler(_object, _metadata);
-    console.log("Applied metadata for", _object.name, _metadata);
   }
   else if (typeof core.objectsConfig !== "undefined" && model) { //Setup from config
     if ((typeof core.objectsConfig.models == null || core.objectsConfig.models?.length == 0) && _metadata == null) {
@@ -306,10 +305,11 @@ function resolveBackground(meta, sceneId) {
   return { kind: "default" };
 }
 
-export async function setupCamera(_object) {
+export async function setupCamera(_object, _data) {
   const _light = core.lightObjects[0];
-  const cfg = core.CONFIG ?? null;
-  const fallback = core.objectsConfig ?? null;
+  const cfg = core.CONFIG ?? _data ?? null;
+  const fallback = core.objectsConfig ?? _data ?? null;
+  console.log("Setting up camera with config:", cfg, "and fallback:", fallback);
 
   // --- CAMERA POSITION ---
   const camPos = cfg?.cameraPosition ?? fallback?.camera?.position;
