@@ -120,7 +120,7 @@ function setupCameraHandler(_object, meta) {
   }
 
   // --- FALLBACK ZOOM ---
-  if (typeof zoom === "number" && target) {
+  if (typeof zoom === "number" && zoom !== 0) {
 
     const dir = new THREE.Vector3(1, 0.35, 0.5).normalize();
 
@@ -133,7 +133,8 @@ function setupCameraHandler(_object, meta) {
 
   console.log("Camera restored", {
     camera: core.camera.position,
-    target: core.controls.target
+    target: core.controls.target,
+    zoom: zoom
   });
 }
 
