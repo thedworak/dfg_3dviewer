@@ -107,26 +107,13 @@ function setupCameraHandler(_object, meta) {
 
   const target = normalizeVec3(meta.controlsTarget);
   const camPos = normalizeVec3(meta.cameraPosition);
-  const zoom = meta.controlsZoom?.[0];
 
-  // --- TARGET ---
   if (target) {
     core.controls.target.set(target.x, target.y, target.z);
   }
 
-  // --- EXACT CAMERA RESTORE ---
   if (camPos) {
     core.camera.position.set(camPos.x, camPos.y, camPos.z);
-  }
-
-  // --- FALLBACK ZOOM ---
-  if (typeof zoom === "number" && zoom !== 0) {
-
-    const dir = new THREE.Vector3(1, 0.35, 0.5).normalize();
-
-    core.camera.position
-      .copy(core.controls.target)
-      .add(dir.multiplyScalar(zoom));
   }
 
   core.controls.update();
@@ -134,7 +121,6 @@ function setupCameraHandler(_object, meta) {
   console.log("Camera restored", {
     camera: core.camera.position,
     target: core.controls.target,
-    zoom: zoom
   });
 }
 
