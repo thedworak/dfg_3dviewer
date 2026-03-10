@@ -120,7 +120,7 @@ function setupCameraHandler(_object, meta) {
   }
 
   // --- FALLBACK ZOOM ---
-  else if (typeof zoom === "number" && target) {
+  if (typeof zoom === "number" && target) {
 
     const dir = new THREE.Vector3(1, 0.35, 0.5).normalize();
 
