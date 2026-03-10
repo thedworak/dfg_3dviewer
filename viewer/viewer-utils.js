@@ -113,13 +113,15 @@ function setupCameraHandler(_object, meta) {
 
   if (target) {
     core.controls.target.set(target.x, target.y, target.z);
+    core.controls.target0.copy(core.controls.target); // reset saved state
   }
 
   if (camPos) {
     core.camera.position.set(camPos.x, camPos.y, camPos.z);
+    core.camera.position0.copy(core.camera.position); // reset saved state
   }
 
-  core.controls.update();
+  core.controls.reset(); // apply position0/target0
   core.controls.enableDamping = wasDamping;
 
   console.log("Camera restored", {

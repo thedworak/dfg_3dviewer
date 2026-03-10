@@ -365,10 +365,16 @@ export async function fetchSettings(object) {
     }
   }
 
-  let metadataUrl = new URL(
-    `${core.CONFIG.metadataUrl}/${core.fileObject.uri}metadata/${core.fileObject.filename}_viewer.json`
-  ).href;
-  console.log("Fetched metadata from:", metadataUrl);
+  let metadataUrl = '';
+
+  if (core.CONFIG.metadataUrl && core.fileObject.uri && core.fileObject.filename) {
+    metadataUrl = new URL(
+      `${core.CONFIG.metadataUrl}/${core.fileObject.uri}metadata/${core.fileObject.filename}_viewer.json`
+    ).href;
+    console.log("Fetched metadata from:", metadataUrl);
+  } else {
+    console.warn("Metadata URL or file information is missing. Skipping metadata fetch.");
+  }
 
   let hierarchyMain;
   if (lilGUIgetFolder(core.gui, "Hierarchy") === null) {

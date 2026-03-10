@@ -322,6 +322,7 @@ export const Viewer = {
     }
 
     this.isLightweight = Boolean(core.CONFIG.viewer.lightweight);
+    setCore('isLightweight', this.isLightweight);
     console.log(`AIM 3D-Viewer ${this.isLightweight ? '🪶 LIGHTWEIGHT' : '💪 FULL'} mode`);
     console.log(`Powered by Three.js (v${THREE.REVISION})`);
     
@@ -343,7 +344,7 @@ export const Viewer = {
     this.bottomLineGUI = core.CONFIG.viewer.canvasDimensions.y - 85;
     setCore('bottomLineGUI', this.bottomLineGUI);
 
-    if (this.isLightweight) {
+    if (core.isLightweight) {
       core.CONFIG.viewer.lightweight = core.container.getAttribute("proxy");
     }
     else {
@@ -357,7 +358,6 @@ export const Viewer = {
     }    
     // Initialize clipping planes at startup
     this.core = initClippingPlanes();
-    setCore('isLightweight', this.isLightweight);
     setCore('EXIT_CODE', this.EXIT_CODE);
     // Initialize objectsConfig in core
     setCore('objectsConfig', objectsConfig);
@@ -2030,7 +2030,9 @@ export const Viewer = {
       setCore('scene', Viewer.scene);
       setCore('activeScene', Viewer.activeScene);
 
-      Viewer.startModelProcessing();
+      if (!core.isLightweight) {
+        Viewer.startModelProcessing();
+      }
 
       const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444);
       hemiLight.position.set(0, 200, 0);
