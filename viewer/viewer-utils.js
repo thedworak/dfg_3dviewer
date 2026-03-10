@@ -108,6 +108,9 @@ function setupCameraHandler(_object, meta) {
   const target = normalizeVec3(meta.controlsTarget);
   const camPos = normalizeVec3(meta.cameraPosition);
 
+  const wasDamping = core.controls.enableDamping;
+  core.controls.enableDamping = false;
+
   if (target) {
     core.controls.target.set(target.x, target.y, target.z);
   }
@@ -117,6 +120,7 @@ function setupCameraHandler(_object, meta) {
   }
 
   core.controls.update();
+  core.controls.enableDamping = wasDamping;
 
   console.log("Camera restored", {
     camera: core.camera.position,
