@@ -102,7 +102,7 @@ function setupGeometryHandler (_object) {
   _object.updateMatrixWorld(true);
 }
 
-function setupCameraHandler(_object, _metadata) {
+function setupCameraHandler(_metadata) {
   if (!_metadata) return;
 
   const pos = normalizeVec3(_metadata.camera ?? _metadata.cameraPosition);
@@ -123,6 +123,9 @@ function setupCameraHandler(_object, _metadata) {
     .copy(core.controls?.target || new THREE.Vector3())
     .add(dir.multiplyScalar(controlsZoom));
   }
+
+  core.camera.updateProjectionMatrix();
+  core.controls?.update();
 
   /*core.cameraLight.position.set(
     core.camera.position.x,
@@ -156,7 +159,7 @@ export const setupObject = (_object, _metadata) => {
   if (_metadata != null) {
     setupObjectHandler(_object, _metadata);
     setupGeometryHandler(_object);
-    setupCameraHandler(core.camera, _metadata);
+    setupCameraHandler(_metadata);
     console.log("Applied metadata for", _object.name, _metadata);
   }
   else if (typeof core.objectsConfig !== "undefined" && model) { //Setup from config
