@@ -108,20 +108,22 @@ function setupCameraHandler(_object, meta) {
   const target = normalizeVec3(meta.controlsTarget);
   const camPos = normalizeVec3(meta.cameraPosition);
 
+  if (!target && !camPos) return;
+
   const wasDamping = core.controls.enableDamping;
   core.controls.enableDamping = false;
 
   if (target) {
     core.controls.target?.set(target.x, target.y, target.z);
-    core.controls.target0?.copy(core.controls.target); // reset saved state
   }
 
   if (camPos) {
     core.camera.position?.set(camPos.x, camPos.y, camPos.z);
-    core.camera.position0?.copy(core.camera.position); // reset saved state
   }
 
-  core.controls.reset(); // apply position0/target0
+  core.camera.updateProjectionMatrix();
+  core.controls.update();
+  core.controls.saveState();
   core.controls.enableDamping = wasDamping;
 
   console.log("Camera restored", {
