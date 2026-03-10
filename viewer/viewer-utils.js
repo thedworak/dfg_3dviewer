@@ -107,9 +107,24 @@ function setupCameraHandler(_object, _metadata) {
 
   const pos = normalizeVec3(_metadata.camera ?? _metadata.cameraPosition);
   if (pos) {
-    _object.position.set(pos.x, pos.y, pos.z);
+    core.camera.position.set(pos.x, pos.y, pos.z);
   }
-    /*core.cameraLight.position.set(
+  const controlsTarget = normalizeVec3(_metadata.camera ?? _metadata.controlsTarget);
+  if (controlsTarget) {
+    core.controls.object.position.copy(new THREE.Vector3(controlsTarget.x, controlsTarget.y, controlsTarget.z));
+  }
+  const controlsZoom = _metadata.controlsZoom ?? _metadata.controlsZoom?.[0];
+  if (typeof controlsZoom === "number" && controlsZoom !== 0) {
+    const dir = new THREE.Vector3()
+    .subVectors(core.camera.position, core.controls?.target || new THREE.Vector3())
+    .normalize();
+
+    core.camera.position
+    .copy(core.controls?.target || new THREE.Vector3())
+    .add(dir.multiplyScalar(controlsZoom));
+  }
+
+  /*core.cameraLight.position.set(
     core.camera.position.x,
     core.camera.position.y,
     core.camera.position.z
