@@ -46,7 +46,7 @@ import { initClippingPlanes, showToast, changeBackground } from './viewer-utils.
 import { loadModel, outlineClipping } from "./loaders.js";
 import { createIIIFDropdown } from "./metadata.js";
 import { UltraLoader } from "./ultra-loader.js";
-import { StatusPoller } from "./status-poler.js";
+import { StatusPoller } from "./status-poller.js";
 
 //three.js core
 import THREE from "./init.js";
@@ -2500,7 +2500,7 @@ export const Viewer = {
         switch(core.CONFIG.entity.metadata.source.substring(0, 4).toLowerCase()) {
           case "iiif":
             if (Viewer.iiifConfigURL.url !== "") {
-              createIIIFDropdown(core.container, Viewer.iiifConfigURL, core.CONFIG.viewer.canvasDimensions);
+              createIIIFDropdown(Viewer.iiifConfigURL);
               await loadIIIFURL();
               core.CONFIG.entity.metadata.source = "IIIF";
               await setupIIIF(Viewer.iiifConfigURL.url);

@@ -39,11 +39,22 @@ export class StatusPoller {
         if(!this.running) return;
 
         try {
-            const r=await fetch(`/api/model/status/${this.id}`,{
-            cache:"no-store"
-        })
+            const r=await fetch(`/api/model/status/${this.id}`, {
+                cache:"no-store"
+            });
+
+        if(!r.ok){
+            throw new Error("API error");
+        }
 
         const data=await r.json();
+
+        if(data.status==="error") {
+            UltraLoader.error(data.message || "Processing failed");
+            this.stop();
+            localStorage.removeItem("processing_model_id");
+            return;
+        }
 
         UltraLoader.set(data.progress);
 
@@ -61,7 +72,8 @@ export class StatusPoller {
 
     }
     catch(e){
-        console.warn("poll error",e);
+        UltraLoader.error("Connection error");
+        this.stop();
     }
 
     this.timer=setTimeout(()=>this.tick(),this.interval);

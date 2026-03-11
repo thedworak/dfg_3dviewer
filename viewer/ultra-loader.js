@@ -23,21 +23,21 @@ export const UltraLoader = {
   },
 
   start(steps) {
-  this.init();
+    this.init();
 
-  this.steps=steps;
-  this.progress=5;
+    this.steps=steps;
+    this.progress=5;
 
-  this.renderSteps(0);
+    this.renderSteps(0);
 
-  this.panel.classList.add("show");
+    this.panel.classList.add("show");
 
-  this.render();
-  },
-
-  set(progress,message) {
-    this.progress=Math.max(this.progress,progress);
     this.render();
+    },
+
+    set(progress,message) {
+      this.progress=Math.max(this.progress,progress);
+      this.render();
   },
 
   step(index) {
@@ -77,6 +77,25 @@ export const UltraLoader = {
         row.classList.add("pending");
         row.innerHTML="□ "+s;
       }
+      this.panel.appendChild(row);
+    });
+  },
+
+  error(message="Processing error") {
+    this.renderErrorSteps();
+    this.panel.innerHTML += `
+    <div id="ultra-loader-error">
+    ERROR: ${message}
+    </div>`;
+    this.bar.style.background="#d93025";
+  },
+
+  renderErrorSteps() {
+    this.panel.innerHTML="";
+    this.steps.forEach((s)=>{
+      const row=document.createElement("div");
+      row.className="ultra-step error";
+      row.innerHTML="✖ "+s;
       this.panel.appendChild(row);
     });
   }

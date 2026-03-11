@@ -5,6 +5,9 @@ The module was primarily created for viewing 3D data as a Drupal extension for a
 The Viewer is written in JavaScript, based on the three.js library for viewing 3D models and uses PHP/bash scripts for server-side operations.
 Supported 3D file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, glTF. There is also a pre-configured complete workflow to handle more file formats and allow to render thumbnails for entries. If an uploaded file is saved in one of the compression-supported formats (obj, fbx, ply, dae, abc, blend, stl, wrl, x3d, glb, gltf), it is compressed on-the-fly and converted into GLB format and triggers automatic rendering (based on Blender utility).
 
+> Current code note:
+> the active viewer entry point is `viewer/main.js`, the current build pipeline uses Parcel and Rollup, and the browser runtime now also supports `PCD`, `GLB` and `glTF` via `viewer/loaders.js`.
+
 
 
 ## Minimal Requirements
@@ -138,82 +141,88 @@ Below is an updated, code-accurate summary of the main functions found in the vi
 
 viewer/main.js
 ```text
-outputLog(debug = false, label) - helper that returns a namespaced logger (uses stack trace to include location)
 setModelPaths() - derives filename, basename, extension and paths from the container `3d` attribute
-addTextWatermark(text, scale) - adds a 3D text watermark to the scene
-addTextPoint(text, scale, point) - adds a 3D text label at a given point (used by the ruler)
-selectObjectHierarchy(id) - toggle-selects an object in the scene hierarchy (visually highlights it)
+normalizeDrupalFilesPath(path) - normalizes Drupal file paths relative to `sites/default/files`
+disableInteractionHint() - hides the hand hint and stops the demo gesture
+addTextWatermark(_text, _scale) - adds a 3D text watermark to the scene
+addTextPoint(_text, _scale, _point) - adds a 3D text label at a given point (used by the ruler)
+selectObjectHierarchy(_id) - toggle-selects an object in the scene hierarchy (visually highlights it)
 recreateBoundingBox(object) - recomputes object's bounding box and recenters the object
 prepareGalleryImages(imageElementsChildren) - normalizes/validates gallery image links (converts to <img> elements)
-handleImages(fileElement, mainElement, imageElements, imageElementsChildren) - builds modal gallery UI and wiring
+normalizeGalleryUrl(rawUrl) - converts Drupal/public gallery URLs into browser-usable paths
+handleImages(mainElement, imageElements, imageElementsChildren) - builds modal gallery UI and wiring
 buildGallery() - finds gallery DOM elements and initialises the gallery UI
-render() - one-frame render (calls controls.update and renderer.render)
-setupEmptyCamera(camera, object, helperObjects) - positions camera relative to object bounding box (fallback camera setup)
-pickFaces(intersect) - visual face picking / highlight logic
-buildRuler(intersect) - creates ruler geometry and labels between points
-onWindowResize() - adjusts canvas, renderer and GUI to current container/window size
-fullscreen() / exitFullscreenHandler() - toggle and handle fullscreen changes
-animate(time) - main RAF loop: update mixers, tweens, controls and render
+toHexColor(input) - converts supported color inputs into a numeric hex value
+pickFaces(_id) - visual face picking / highlight logic
+buildRuler(_id) - creates ruler geometry and labels between picked points
+updateSize() - recalculates canvas/UI size for embedded and fullscreen modes
+toggleFullscreen() / onFullscreenChange() / exitFullscreenHandler() - fullscreen lifecycle helpers
+updateHandAnimation(time) / startGesture(time) / stopGesture() - animated interaction hint helpers
+animate(time) - main RAF loop: update gesture, mixers, tweens, controls and render
 onPointerDown(e) / onPointerUp(e) / onPointerMove(e) - pointer interaction handlers (picking, dragging)
+changeScale() / calculateObjectScale() - editor helpers for uniform scaling and clipping bounds refresh
+takeScreenshot() - renders and uploads a generated thumbnail
+mainLoadModelWrapper() / mainLoadModel() - main model-loading entry helpers
+createClippingPlaneAxis(_number) - creates a transform control for a clipping plane helper
+resetCamera() - animates camera back to stored coordinates
+buildMetadata(Viewer, rotateMetadata) - serializes current editor state into metadata
+render() - one-frame render helper (calls controls.update and renderer.render)
+expectWebGL(page) - exported E2E helper that verifies a WebGL context exists
 ```
 
 viewer/viewer-utils.js
 ```text
 initClippingPlanes() - create and register three clipping planes in core
 showToast(message) - thin wrapper around Toastify to show temporary messages
-setupObject(object, light, controls, helperObjects) - apply model-specific configuration (position/scale/rotation) from `objectsConfig` or auto-fit
-setupCamera(object, light, config, helperObjects) - set camera and lights according to `objectsConfig` (falls back to empty camera setup)
-fitCameraToCenteredObject(object, add_offset, fit, helperObjects) - compute camera distance/position to fit object in view and animate to it
-setupClippingPlanes(geom, size, distance) - configure GUI controls, helpers and plane helpers for clipping
-changeBackground(type, color1, color2) / parseGradient(...) - helpers to set scene background from CSS-like strings
-invertHexColor(hex) - color utility used for helpers and UI contrast
+setupObject(_object, _metadata) - apply model-specific configuration from metadata/config or auto-fit the object
+setupCamera(_object, _data) - set camera, controls, lights and background from metadata/config
+applyGradientCss(gradient) - apply multi-stop gradient definitions to the canvas background
+changeBackground(_type, _color1, _color2 = _color1) - helper to set a solid/radial background
+invertHexColor(hexTripletColor) - color utility used for helpers and UI contrast
 getOrAddGuiController(folder, object, prop) - utility to find or add a lil-gui controller
+
+Internal-only helpers currently used inside this module include `setupEmptyCamera(_object)`, `fitCameraToCenteredObject(object, _fit)`, `setupClippingPlanes(_geom, _size, _distance)` and `parseGradient(str)`.
 ```
 
 viewer/utils.js
 ```text
-distanceBetweenPoints(a, b) - euclidean distance between two points
-distanceBetweenPointsVector(v) - length of a vector
-vectorBetweenPoints(a, b) - returns vector from a to b
-halfwayBetweenPoints(a, b) - midpoint between two points
-interpolateDistanceBetweenPoints(start, vector, length, scalar) - linear interpolation along vector
+distanceBetweenPoints(pointA, pointB) - euclidean distance between two points
+distanceBetweenPointsVector(vector) - length of a vector
+vectorBetweenPoints(pointA, pointB) - returns vector from point A to point B
+halfwayBetweenPoints(pointA, pointB) - midpoint between two points
+interpolateDistanceBetweenPoints(pointA, vector, length, scalar) - linear interpolation along vector
 detectColorFormat(color) / hexToRgb(hex) - color format helpers
 isValidUrl(url) - basic URL validator used by gallery code
 truncateString(str, n) - truncates and adds ellipsis
-getProxyPath(url, config, fileObject) - helper to convert source URL into proxied path (used for metadata/image proxies)
+getProxyPath(url, config) - helper to convert source URL into proxied path
+normalizeColor(value) / parseCssColor(str) - normalize color inputs used across viewer/background helpers
 ```
 
 Other important imports (used by the viewer entry point)
 ```text
-loadModel(path, basename, filename, extension, orgExtension) - from `loaders.js` (main model loading routine)
+loadModel() - from `loaders.js` (main model loading routine; uses runtime state from `core`)
 outlineClipping - (exported from loaders) used by clipping helpers
-createIIIFDropdown(...) / downloadModel - from `metadata.js` (IIIF / metadata helpers)
+fetchSettings(object) - from `metadata.js` (loads metadata/settings for the loaded object)
+createIIIFDropdown(iiifConfigURL, canvasDimensions) - from `metadata.js` (IIIF selector helper)
 ```
 
 viewer/loaders.js
 ```text
 outlineClipping (var) - outline clone used for clipping visualization
-loadModel(params) - main loader routine that dispatches based on file extension (obj, fbx, ply, dae, ifc, stl, xyz, pcd, json, 3ds, glb/gltf) and adds the resulting object(s) to the scene; accepts a params object containing many runtime dependencies (fileObject, scene, camera, controls, gui, etc.)
-prepareOutlineClipping(object) - build a crimson-backside outline clone used for clipping/outline visualization
-setupMaterials(object) - scan an object or mesh and prepare materials (anisotropy, clippingPlanes) and return a materials list for GUI
-getMaterialByID(object, uuid) - traverse object and return material with matching uuid
+loadModel() - main loader routine that dispatches based on `core.fileObject.extension` (obj, fbx, ply, dae, ifc, stl, xyz, pcd, json, 3ds, glb/gltf) and adds the resulting object(s) to the scene
+prepareOutlineClipping(_object) - internal helper that builds a crimson-backside outline clone used for clipping visualization
+setupMaterials(_object) - internal helper that prepares materials for clipping and GUI editing
+getMaterialByID(_object, _uuid) - internal helper that returns a material with the given uuid
 traverseMesh(object) - helper to populate material GUI entries and connect material editing controls
-onError(event) / onErrorMTL(event, params) / onErrorGLB(event, params) - error handlers used during async loading to fallback or retry
-onProgress(xhr, params) - generic loading progress callback (updates spinner/circle and shows toasts)
+onError(_event) / onErrorMTL(_event) / onErrorGLB(_event, params, loadedTimes) - exported error handlers used during async loading to fallback or retry
+onProgress(xhr) - exported loading progress callback (updates spinner/circle and shows toasts)
 ```
 
 Usage examples & source
 ```text
-// Programmatic model load (viewer runtime provides most dependencies)
+// Programmatic model load (runtime state must already be prepared in `core`)
 import { loadModel } from './viewer/loaders.js';
-
-const params = { fileObject, config: CONFIG, getProxyPath, camera, lightObjects, controls, scene, mainObject, gui, stats, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, helperObjects };
-await loadModel(params);
-
-// Create outline clone for clipping visualization
-import { prepareOutlineClipping } from './viewer/loaders.js';
-const outline = prepareOutlineClipping(myMesh);
-scene.add(outline);
+await loadModel();
 
 // Progress/error handlers are exported and used internally by the loader
 // Source (links)
@@ -232,13 +241,12 @@ viewer/metadata.js
 addWissKIMetadata(label, value) - format WissKI metadata keys into human-friendly labels for display
 lilGUIhasFolder(folder, name) / lilGUIgetFolder(gui, name) - small helpers for lil-gui folder detection/lookup
 expandMetadata() - toggle-expand/collapse the metadata panel in the UI
-appendMetadata(metadataContent, canvasText, metadataContainer, container, metadataContentTech) - append built metadata HTML to the DOM
-downloadModel (let) - DOM element reference created when metadata includes a downloadable source
-fetchMetadata(object, type) - returns counts (vertices/faces) for a mesh/object
-handleMetadataResponse(data, metadata, fileObject, object, camera, light, controls, ...) - main handler that builds metadata UI from fetched data and wires hierarchy controls and download link
-settingsHandler(object, camera, light, controls, hierarchyMain, CONFIG, helperObjects) - applies per-model settings (calls setupObject/setupCamera) and ensures hierarchy GUI exists
-fetchSettings(fileObject, object, camera, light, controls, gui, CONFIG, getProxyPath, ...) - fetch or compute viewer settings & metadata (tries proxy, IIIF, or metadata URL) and calls handleMetadataResponse
-createIIIFDropdown(container, iiifConfigURL, canvasDimensions) - UI helper that inserts a IIIF manifest selector/dropdown into the viewer UI
+appendMetadata(metadataContent, metadataContentTech) - append built metadata HTML to the DOM
+fetchMetadata(_object, _type) - returns counts (vertices/faces) for a mesh/object
+handleMetadataResponse(data, metadata, object, hierarchyMain) - main handler that builds metadata UI from fetched data and wires hierarchy controls and download link
+settingsHandler(object, hierarchyMain, data) - applies per-model settings (calls setupObject/setupCamera) and ensures hierarchy GUI exists
+fetchSettings(object) - fetch or compute viewer settings & metadata (tries proxy, IIIF, or metadata URL) and calls handlers
+createIIIFDropdown(iiifConfigURL, canvasDimensions) - UI helper that inserts a IIIF manifest selector/dropdown into the viewer UI
 ```
 
 Usage examples & source
@@ -246,10 +254,10 @@ Usage examples & source
 import { fetchSettings, createIIIFDropdown } from './viewer/metadata.js';
 
 // Typical call after an object was loaded
-await fetchSettings(fileObject, object, camera, light, controls, gui, CONFIG, getProxyPath, stats, guiContainer, entityID, container, metadataContainer, canvasText, bottomLineGUI, compressedFile, viewEntity, helperObjects);
+await fetchSettings(object);
 
 // Add IIIF manifest selector to the UI
-createIIIFDropdown(document.getElementById('DFG_3DViewer'), iiifConfigURL, CONFIG.viewer.canvasDimensions);
+createIIIFDropdown(iiifConfigURL, CONFIG.viewer.canvasDimensions);
 
 // Source (links)
  - appendMetadata - `viewer/metadata.js` line 59 - [view source on GitHub](https://github.com/thedworak/dfg_3dviewer/blob/npm-refactor-update/viewer/metadata.js#L59)
@@ -508,10 +516,16 @@ Since the project was refactored to use npm-based build tooling, you need to ins
 
 ```bash
 npm install
-npm run build-all
-npm start
+npm run dev:test
 ```
-The `build-all` script runs Parcel and Rollup (see `package.json`), producing the compiled viewer assets under the `viewer`/`build` directories.
+For static output builds use:
+
+```bash
+npm run build:test
+npm run serve:dist
+```
+
+Available build targets in the current project are `build:test`, `build:prod`, `build:drupal`, `build:drupal:custom`, `watch`, `serve:dist` and `pack-dist`. Rollup writes output into `dist/<target>/` and generates a `viewer-settings.json` file from `viewer/viewer-settings-example.json`.
 
 
 ```html
@@ -542,7 +556,7 @@ The `build-all` script runs Parcel and Rollup (see `package.json`), producing th
 
 ## Features
 
-- 3D file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, glTF
+- 3D file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, PCD, JSON, 3DS, GLB, glTF
 - compression and rendering on-the-fly: obj, fbx, ply, dae, abc, blend, stl, wrl, x3d, glb, gltf
 - basic interaction (rotate, scale, translate, zoom)
 - metadata displaying
@@ -564,7 +578,7 @@ If you don't want to build the project on every machine, use the prebuilt distri
 
 ```powershell
 npm ci
-npm run build
+npm run build:test
 npm run pack-dist
 # The resulting archive is `dfg_3dviewer-dist.zip` and `dist/` contains JS and assets
 ```
@@ -572,14 +586,9 @@ npm run pack-dist
 - Consumer usage (in a plain HTML site): copy `dist/dfg_3dviewer-module.js` and the `dist/assets/` folder to your webroot and include the script:
 
 ```html
-<script src="/path/to/dfg_3dviewer-module.js"></script>
+<script type="module" src="/path/to/dfg_3dviewer-module.js"></script>
 ```
 
-The bundle is produced as a self-contained IIFE exposing `Dfg3DViewer` (see `rollup.config.js`). If you choose not to bundle `three.js` in the future, include `three` before the module:
-
-```html
-<script src="/path/to/three.min.js"></script>
-<script src="/path/to/dfg_3dviewer-module.js"></script>
-```
+The current Rollup output is an ES module bundle, not an IIFE, and Drupal libraries load it with `type: module`.
 
 - CI / releases: The included GitHub Actions workflow (`.github/workflows/build-release.yml`) will build the project and attach `dfg_3dviewer-dist.zip` to any tag that matches `v*` (e.g. `v1.0.0`). This lets to distribute ready-to-go archives without committing `dist/` to the repo.

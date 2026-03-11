@@ -425,7 +425,7 @@ export async function fetchSettings(object) {
   }
 }
 
-export function createIIIFDropdown(iiifConfigURL, canvasDimensions) {
+export function createIIIFDropdown(iiifConfigURL) {
   // list of candidate IIIF config URLs (add more as needed)
   const iiifList = [
     { url: iiifConfigURL.url, name: iiifConfigURL.name },

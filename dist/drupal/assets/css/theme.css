@@ -86,3 +86,16 @@
 .ultra-step.pending {
   color: #999;
 }
+
+.ultra-step.error {
+  color: #d93025;
+}
+
+#ultra-loader-error {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #eee;
+  font-size: 12px;
+  color: #d93025;
+  font-weight: 600;
+}
