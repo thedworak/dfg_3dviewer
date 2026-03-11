@@ -252,36 +252,32 @@ export async function handleMetadataResponse(
         if (req.readyState !== 4) return;
           try {
             if (req.status === 200) {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(
-              req.responseText,
-              "application/xml"
-            );
+              const parser = new DOMParser();
+              const doc = parser.parseFromString(
+                req.responseText,
+                "application/xml"
+              );
 
-            if (doc.documentElement.childNodes.length > 0) {
-              var data = doc.documentElement.childNodes[0].childNodes;
-              if (data !== undefined) {
-                for (var i = 0; i < data.length; i++) {
-                  var fetchedValue = addWissKIMetadata(
-                    data[i].tagName,
-                    data[i].textContent
-                  );
-                  if (typeof fetchedValue !== "undefined") {
-                    metadataContent += fetchedValue;
+              if (doc.documentElement.childNodes.length > 0) {
+                var data = doc.documentElement.childNodes[0].childNodes;
+                if (data !== undefined) {
+                  for (var i = 0; i < data.length; i++) {
+                    var fetchedValue = addWissKIMetadata(
+                      data[i].tagName,
+                      data[i].textContent
+                    );
+                    if (typeof fetchedValue !== "undefined") {
+                      metadataContent += fetchedValue;
+                    }
                   }
                 }
               }
-            }
-
-            core.metadataContainer.appendChild(core.viewEntity);
+              core.metadataContainer.appendChild(core.viewEntity);
             } else {
               showToast("No metadata found for entity " + core.CONFIG.entity.id);
             }
           } finally {
-            metadataContent +=
-                '</div>' +  // #metadata-content
-              '</div>';  
-            appendMetadata( metadataContent, metadataContentTech);
+
           }
       };
 
@@ -296,8 +292,11 @@ export async function handleMetadataResponse(
 
     core.viewEntity.innerHTML =
       `<a href='${core.CONFIG.mainUrl}${core.CONFIG.entity.viewEntityPath}${core.CONFIG.entity.id}/view' target='_blank'><img src='${DFG_ASSETS}share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>`;
-    appendMetadata(metadataContent, metadataContentTech);
   }
+  metadataContent +=
+      '</div>' +  // #metadata-content
+    '</div>';  
+  appendMetadata( metadataContent, metadataContentTech);
   core.metadataContainer.addEventListener("click", (e) => {
     if (e.target.id === "metadata-collapse") {
       expandMetadata(e);
@@ -351,7 +350,6 @@ async function loadMetadataData(metadataUrl) {
     showToast("Settings " + core.fileObject.filename + "_viewer.json found");
     return response.json();
   } catch (error) {
-    console.error("Error fetching metadata:", error);
     showToast("Error fetching metadata: " + error.message);
     return null;
   }
