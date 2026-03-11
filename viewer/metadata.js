@@ -384,7 +384,7 @@ export async function fetchSettings(object) {
   if (lilGUIgetFolder(core.gui, "Hierarchy") === null) {
     hierarchyMain = core.gui?.addFolder("Hierarchy").close();
   }
-  if (core.CONFIG.entity.proxyPath !== undefined || core.isLightweight) {
+  if (core.CONFIG.entity.proxyPath !== undefined || !core.isLightweight) {
     metadataUrl = core.getProxyPath(metadataUrl, core.CONFIG);
     const data = await loadMetadataData(metadataUrl);
     await handleMetadataResponse(data, metadata, object, hierarchyMain);
