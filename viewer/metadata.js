@@ -277,7 +277,10 @@ export async function handleMetadataResponse(
               showToast("No metadata found for entity " + core.CONFIG.entity.id);
             }
           } finally {
-
+            metadataContent +=
+                '</div>' +  // #metadata-content
+              '</div>';  
+            appendMetadata( metadataContent, metadataContentTech);
           }
       };
 
@@ -293,9 +296,6 @@ export async function handleMetadataResponse(
     core.viewEntity.innerHTML =
       `<a href='${core.CONFIG.mainUrl}${core.CONFIG.entity.viewEntityPath}${core.CONFIG.entity.id}/view' target='_blank'><img src='${DFG_ASSETS}share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>`;
   }
-  metadataContent +=
-      '</div>' +  // #metadata-content
-    '</div>';  
   appendMetadata( metadataContent, metadataContentTech);
   core.metadataContainer.addEventListener("click", (e) => {
     if (e.target.id === "metadata-collapse") {
