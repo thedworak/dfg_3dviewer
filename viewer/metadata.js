@@ -190,8 +190,8 @@ export async function handleMetadataResponse(
   if (!core.metadataContainer) {
     core.metadataContainer = document.createElement("div");
     core.metadataContainer.id = "metadata-container";
-    document.body.appendChild(core.metadataContainer);
   }
+  document.body.appendChild(core.metadataContainer);
 
   var metadataContent =
     '<div id="metadata-card">' +
@@ -218,8 +218,8 @@ export async function handleMetadataResponse(
       '<span class="metadata-label">Faces:</span>' +
       '<span class="metadata-value">' + metadata["faces"] + '</span>' +
     '</div>';
-    core.viewEntity = document.createElement("div");
-    core.viewEntity.setAttribute("id", "viewEntity");
+  core.viewEntity = document.createElement("div");
+  core.viewEntity.setAttribute("id", "viewEntity");
 
   if (!core.isLightweight) {
 
