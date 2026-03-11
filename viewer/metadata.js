@@ -384,14 +384,15 @@ export async function fetchSettings(object) {
   if (lilGUIgetFolder(core.gui, "Hierarchy") === null) {
     hierarchyMain = core.gui?.addFolder("Hierarchy").close();
   }
-  if (core.CONFIG.entity.proxyPath !== undefined || core.isLightweight) {
+  if (core.CONFIG.entity.metadata.source === "IIIF") {
+    console.log("Fetching IIIF metadata from ", core.objectsConfig);
+    await handleMetadataResponse( core.CONFIG.model, metadata, object, hierarchyMain);
+  }
+  else if (core.CONFIG.entity.proxyPath !== undefined || core.isLightweight) {
     metadataUrl = core.getProxyPath(metadataUrl, core.CONFIG);
     const data = await loadMetadataData(metadataUrl);
     await handleMetadataResponse(data, metadata, object, hierarchyMain);
     settingsHandler(object, hierarchyMain, core.CONFIG);
-  } else if (core.CONFIG.entity.metadata.source === "IIIF") {
-    console.log("Fetching IIIF metadata from ", core.objectsConfig);
-    await handleMetadataResponse( core.CONFIG.model, metadata, object, hierarchyMain);
   } else {
     const data = await loadMetadataData(metadataUrl);
     await handleMetadataResponse(data, metadata, object, hierarchyMain);
