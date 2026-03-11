@@ -295,8 +295,8 @@ export async function handleMetadataResponse(
 
     core.viewEntity.innerHTML =
       `<a href='${core.CONFIG.mainUrl}${core.CONFIG.entity.viewEntityPath}${core.CONFIG.entity.id}/view' target='_blank'><img src='${DFG_ASSETS}share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>`;
+    appendMetadata(metadataContent, metadataContentTech);
   }
-  appendMetadata( metadataContent, metadataContentTech);
   core.metadataContainer.addEventListener("click", (e) => {
     if (e.target.id === "metadata-collapse") {
       expandMetadata(e);
@@ -384,7 +384,7 @@ export async function fetchSettings(object) {
   if (lilGUIgetFolder(core.gui, "Hierarchy") === null) {
     hierarchyMain = core.gui?.addFolder("Hierarchy").close();
   }
-  if (core.CONFIG.entity.proxyPath !== undefined || !core.isLightweight) {
+  if (core.CONFIG.entity.proxyPath !== undefined || core.isLightweight) {
     metadataUrl = core.getProxyPath(metadataUrl, core.CONFIG);
     const data = await loadMetadataData(metadataUrl);
     await handleMetadataResponse(data, metadata, object, hierarchyMain);
