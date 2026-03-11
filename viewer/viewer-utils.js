@@ -125,11 +125,6 @@ function setupCameraHandler(_object, meta) {
   core.controls.update();
   core.controls.saveState();
   core.controls.enableDamping = wasDamping;
-
-  console.log("Camera restored", {
-    camera: core.camera.position,
-    target: core.controls.target,
-  });
 }
 
 export const setupObject = (_object, _metadata) => {
