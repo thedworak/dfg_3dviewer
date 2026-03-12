@@ -292,14 +292,18 @@ function traverseMesh(object) {
 
       const dracoBase = normalizePath(
       ENV_BUILD === 'drupal'
-        //? `/sites/default/files/draco/` //remember to copy draco files to this public location in drupal build
-        ? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/${ENV_BUILD}/assets/draco/`
-        : `/assets/draco/`
+        // GLTFLoader works with the dedicated Draco runtime files from the gltf subfolder.
+        ? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/${ENV_BUILD}/assets/draco/gltf/`
+        : `/assets/draco/gltf/`
       );
 
       const loader = await createLoader(core.fileObject.extension.toLowerCase());
       const DRACOLoader = await loadDRACOLoader();
       const draco = new DRACOLoader();
+      if (ENV_BUILD === 'drupal') {
+        // Some Drupal setups do not serve wasm from module directories correctly.
+        draco.setDecoderConfig({ type: 'js' });
+      }
       draco.setDecoderPath(dracoBase);
       loader.setDRACOLoader(draco);
     
