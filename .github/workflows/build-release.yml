@@ -17,16 +17,16 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '24'
 
       - name: Install deps
-        run: npm ci
+        run: pnpm install
 
       - name: Build
-        run: npm run build
+        run: pnpm run build
 
       - name: Build dist
-        run: npm run build:dist
+        run: pnpm run build:dist ""
 
       - name: Pack dist
         run: node ./scripts/pack-dist.js
