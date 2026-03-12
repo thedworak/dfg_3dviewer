@@ -19,6 +19,8 @@ node_modules/
 # viewer config
 /viewer/viewer-settings.json
 /dist/*/viewer-settings.json
+/dist/drupal/viewer-settings.json
+/dist/test/viewer-settings.json
 
 # Playwright
 /test-results/
