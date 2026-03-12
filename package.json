@@ -24,7 +24,7 @@
     "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-replace": "^6.0.3",
-    "@rollup/plugin-terser": "^0.4.0",
+    "@rollup/plugin-terser": "^1.0.0",
     "@rollup/plugin-typescript": "^12.3.0",
     "@rollup/plugin-url": "^8.0.2",
     "@types/node": "^25.0.6",
@@ -41,10 +41,10 @@
     "rollup-plugin-copy-assets": "^2.0.3",
     "rollup-plugin-dts": "^6.2.3",
     "rollup-plugin-postcss": "^4.0.2",
-    "serve": "^13.0.4"
+    "serve": "^14.2.6"
   },
   "scripts": {
-    "dev": "npm run dev:test",
+    "dev": "pnpm run dev:test",
     "dev:test": "cross-env BUILD_SOURCE=IIIF BUILD=test parcel index.html --port 1234",
     "dev:prod": "cross-env BUILD_SOURCE='' BUILD=prod parcel index.html --port 1234",
     "build:test": "cross-env BUILD_SOURCE=IIIF BUILD=test rollup -c",
