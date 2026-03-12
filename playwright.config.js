@@ -15,7 +15,11 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
 
   reporter: process.env.CI
-    ? [['github'], ['html', { outputFolder: 'playwright-report' }]]
+    ? [
+        ['list'],
+        ['github'],
+        ['html', { outputFolder: 'playwright-report' }],
+      ]
     : 'html',
 
   use: {
