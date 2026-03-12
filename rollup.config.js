@@ -1,11 +1,11 @@
 import url from '@rollup/plugin-url';
-import copy from 'rollup-plugin-copy';
+import { rollupPluginCopy } from '@jsxtools/rollup-plugin-copy';
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
 import terser from '@rollup/plugin-terser';
 import replace from '@rollup/plugin-replace';
-import postcss from 'rollup-plugin-postcss';
+import ignore from "rollup-plugin-ignore";
 import path from 'path';
 
 const source = process.env.BUILD_SOURCE ?? "IIIF";
@@ -33,7 +33,13 @@ console.log('[rollup] modulesPath:', modulesPath);
 
 export default {
   input: 'viewer/main.js',
+  treeshake: {
+    moduleSideEffects: false,
+    propertyReadSideEffects: false,
+    tryCatchDeoptimization: false
+  },
   plugins: [
+    ignore(["**/*.css"]),
     replace({
       preventAssignment: true,
       values: {
@@ -43,86 +49,14 @@ export default {
         __MODULES_PATH__: JSON.stringify(modulesPath),
       },
     }),
-
-    url({
-      include: ['**/*.svg', '**/*.png', '**/*.jpg', '**/*.gif'],
-      limit: 0,
-      fileName: 'assets/[name][hash][extname]',
-      publicPath: 'assets/'
-    }),
-
-    copy({
-      targets: [
-        {
-          src: 'viewer/img/**/*',
-          dest: `${outDistDir}/assets/img`
-        },
-        {
-          src: 'node_modules/three/examples/jsm/libs/draco/**/*',
-          dest: `${outDistDir}/assets/draco`
-        },
-        {
-          src: 'viewer/js/external_libs/loaders/ifc/**/*',
-          dest: `${outDistDir}/assets/ifc`
-        },
-        {
-          src: 'viewer/fonts/**/*',
-          dest: `${outDistDir}/assets/fonts`
-        },
-        {
-          src: 'viewer/css/**/*',
-          dest: `${outDistDir}/assets/css`
-        },
-        {
-          src: 'css/**/*',
-          dest: `${outDistDir}/assets/css`
-        },
-        {
-          src: 'viewer/examples/**/*',
-          dest: `${outDistDir}/examples`
-        },
-        {
-          src: 'settings.php',
-          dest: `${outDistDir}/`,
-          rename: () => 'settings.local.php',
-        },
-        {
-          src: 'viewer/viewer-settings-example.json',
-          dest: `${outDistDir}/`,
-          rename: () => 'viewer-settings.json',
-          transform: (contents) => {
-            const json = JSON.parse(contents.toString());
-            json.viewer.lightweight = 1;
-            return Buffer.from(JSON.stringify(json, null, 2));
-          }
-        },
-        {
-          src: 'index.html',
-          dest: `${outDistDir}/`,
-          transform: (contents) => {
-            let html = contents.toString();
-            html = html.replace(
-              /(href|src)="(img|css|fonts)\//g,
-              (_, attr, folder) => `${attr}="assets/${folder}/`
-            );
-            html = html.replace(/viewer\//g, '');
-            html = html.replace(/main\.js/g, 'dfg_3dviewer-module.js');
-            return Buffer.from(html);
-          }
-        },
-      ],
-      outputFolder: outDistDir,
-      hook: 'writeBundle',
-      verbose: true
-    }),
-
     resolve({
       browser: true,
       preferBuiltins: false,
-      mainFields: ['browser', 'module', 'main'],
+      mainFields: ['module', 'browser', 'main'],
       extensions: ['.js'],
       dedupe: ['three'],
-      preserveSymlinks: false
+      preserveSymlinks: false,
+      exportConditions: ['module']
     }),
 
     commonjs({
@@ -132,12 +66,84 @@ export default {
       ignoreDynamicRequires: true,
       requireReturnsDefault: 'auto'
     }),
-    postcss({
-      extensions: ['.css'],
-      minimize: true
-    }),
     json(),
-    terser()
+
+    url({
+      include: ['viewer/**/*.{svg,png,jpg,gif}'],
+      limit: 0,
+      fileName: 'assets/[name][hash][extname]',
+      publicPath: 'assets/'
+    }),
+
+    rollupPluginCopy({
+      patterns: [
+        {
+          from: 'viewer/img/**/*',
+          to: `${outDistDir}/assets/img`
+        },
+        {
+          from: 'node_modules/three/examples/jsm/libs/draco/**/*',
+          to: `${outDistDir}/assets/draco`
+        },
+        {
+          from: 'viewer/js/external_libs/loaders/ifc/**/*',
+          to: `${outDistDir}/assets/ifc`
+        },
+        {
+          from: 'viewer/fonts/**/*',
+          to: `${outDistDir}/assets/fonts`
+        },
+        {
+          from: 'viewer/css/**/*',
+          to: `${outDistDir}/assets/css`
+        },
+        {
+          from: 'css/**/*',
+          to: `${outDistDir}/assets/css`
+        },
+        {
+          from: 'viewer/examples/**/*',
+          to: `${outDistDir}/examples`
+        },
+        {
+          from: 'node_modules/toastify-js/src/toastify.css',
+          to: `${outDistDir}/assets/css/toastify.css`
+        },
+        {
+          from: 'settings.php',
+          to: `${outDistDir}/settings.local.php`
+        },
+        {
+          from: 'viewer/viewer-settings-example.json',
+          to: `${outDistDir}/viewer-settings.json`,
+          transform: (contents) => {
+            const json = JSON.parse(contents.toString());
+            json.viewer.lightweight = 1;
+            return JSON.stringify(json, null, 2);
+          }
+        },
+        {
+          from: 'index.html',
+          to: `${outDistDir}/`,
+          transform: (contents) => {
+            let html = contents.toString();
+            html = html.replace(
+              /(href|src)="(img|css|fonts)\//g,
+              (_, attr, folder) => `${attr}="assets/${folder}/`
+            );
+            html = html.replace(/viewer\//g, '');
+            html = html.replace(/main\.js/g, 'dfg_3dviewer-module.js');
+            return html;
+          }
+        },
+      ],
+      outputFolder: outDistDir,
+      hook: 'writeBundle',
+      verbose: true
+    }),
+
+    production && terser(),
+
   ].filter(Boolean),
 
   output: {
@@ -146,7 +152,11 @@ export default {
     chunkFileNames: '[name].[hash].js',
     assetFileNames: '[name][extname]',
     format: 'es',
+    manualChunks(id) {
+      if (id.includes("node_modules/three")) {
+        return "three";
+      }
+    },
     sourcemap: true,
-    inlineDynamicImports: true
-  }
+  },
 };

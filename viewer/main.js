@@ -64,11 +64,6 @@ import { GUI } from "./js/external_libs/lil-gui.esm.min.js";
 import { objectsConfig, setObjectsConfig } from "./object-settings.js";
 import { lv } from "./spinner/main.js";
 
-import './css/main.css';
-import './css/spinner.css';
-import '../css/theme.css';
-import '../css/external-sources.css';
-
 import { loadIIIFManifest, getAnnotations } from "./IIIF/iiif-api.js";
 
 export const Viewer = {

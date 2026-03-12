@@ -1,24 +1,49 @@
 import THREE from "./init.js";
-import { DDSLoader } from "three/examples/jsm/loaders/DDSLoader.js";
-import { MTLLoader } from "three/examples/jsm/loaders/MTLLoader.js";
-import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
-import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
-import { PLYLoader } from "three/examples/jsm/loaders/PLYLoader.js";
-import { ColladaLoader } from "three/examples/jsm/loaders/ColladaLoader.js";
-import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
-import { XYZLoader } from "three/examples/jsm/loaders/XYZLoader.js";
-import { TDSLoader } from "three/examples/jsm/loaders/TDSLoader.js";
-import { PCDLoader } from "three/examples/jsm/loaders/PCDLoader.js";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
-import { IFCLoader } from "./js/loaders/IFCLoader.js";
-import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+export const loadDDSLoader = async () => (await import("three/examples/jsm/loaders/DDSLoader.js")).DDSLoader;
+export const loadMTLLoader = async () => (await import("three/examples/jsm/loaders/MTLLoader.js")).MTLLoader;
+export const loadOBJLoader = async () => (await import("three/examples/jsm/loaders/OBJLoader.js")).OBJLoader;
+export const loadFBXLoader = async () => (await import("three/examples/jsm/loaders/FBXLoader.js")).FBXLoader;
+export const loadPLYLoader = async () => (await import("three/examples/jsm/loaders/PLYLoader.js")).PLYLoader;
+export const loadColladaLoader = async () => (await import("three/examples/jsm/loaders/ColladaLoader.js")).ColladaLoader;
+export const loadSTLLoader = async () => (await import("three/examples/jsm/loaders/STLLoader.js")).STLLoader;
+export const loadXYZLoader = async () => (await import("three/examples/jsm/loaders/XYZLoader.js")).XYZLoader;
+export const loadTDSLoader = async () => (await import("three/examples/jsm/loaders/TDSLoader.js")).TDSLoader;
+export const loadPCDLoader = async () => (await import("three/examples/jsm/loaders/PCDLoader.js")).PCDLoader;
+export const loadGLTFLoader = async () => (await import("three/examples/jsm/loaders/GLTFLoader.js")).GLTFLoader;
+export const loadDRACOLoader = async () => (await import("three/examples/jsm/loaders/DRACOLoader.js")).DRACOLoader;
+export const loadIFCLoader = async () => (await import("./js/loaders/IFCLoader.js")).IFCLoader;
+export const loadRoomEnvironment = async () => (await import("three/examples/jsm/environments/RoomEnvironment.js")).RoomEnvironment;
 
 import { core } from './core.js';
 import { fetchSettings } from "./metadata.js";
 import { showToast } from "./viewer-utils.js";
 
 export var outlineClipping;
+
+const loaderMap = {
+  gltf: loadGLTFLoader,
+  glb: loadGLTFLoader,
+  obj: loadOBJLoader,
+  fbx: loadFBXLoader,
+  ply: loadPLYLoader,
+  stl: loadSTLLoader,
+  dae: loadColladaLoader,
+  xyz: loadXYZLoader,
+  '3ds': loadTDSLoader,
+  pcd: loadPCDLoader
+};
+
+async function createLoader(ext) {
+
+  const loadLoader = loaderMap[ext];
+
+  if (!loadLoader) {
+    throw new Error(`Unsupported format: ${ext}`);
+  }
+
+  const LoaderClass = await loadLoader();
+  return new LoaderClass();
+}
 
 const ENV_BUILD = __BUILD__;
 const MODULES_PATH = __MODULES_PATH__;
@@ -207,7 +232,8 @@ function traverseMesh(object) {
       core.mainObject.push(object);
 
       const pmrem = new THREE.PMREMGenerator(core.renderer);
-      core.scene.environment = pmrem.fromScene(new RoomEnvironment()).texture;
+      const TempRoomEnvironment = await loadRoomEnvironment();
+      core.scene.environment = pmrem.fromScene(new TempRoomEnvironment()).texture;
       pmrem.dispose();
       /*const rgbeLoader = new RGBELoader();
       rgbeLoader.load('env.hdr', (texture) => {
@@ -270,13 +296,12 @@ function traverseMesh(object) {
         ? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/${ENV_BUILD}/assets/draco/`
         : `/assets/draco/`
       );
-      const dracoLoader = new DRACOLoader();
-      dracoLoader.setDecoderPath(dracoBase);
-      dracoLoader.setDecoderConfig({ type: 'js' });
-      dracoLoader.preload();
 
-      const loader = new GLTFLoader();
-      loader.setDRACOLoader(dracoLoader);
+      const loader = await createLoader(core.fileObject.extension.toLowerCase());
+      const DRACOLoader = await loadDRACOLoader();
+      const draco = new DRACOLoader();
+      draco.setDecoderPath("assets/draco/");
+      loader.setDRACOLoader(draco);
     
       const gltf = await new Promise((resolve, reject) => {
         loader.load(
@@ -310,7 +335,7 @@ function traverseMesh(object) {
       }
 
       case "fbx": {
-        const loader = new FBXLoader();
+        const loader = await createLoader(core.fileObject.extension.toLowerCase());
         const object = await loadAsync(loader, modelPath, onProgress);
         //object.position.set(0, 0, 0);
         afterLoad({ object });
@@ -318,7 +343,7 @@ function traverseMesh(object) {
       }
 
       case "ply": {
-        const loader = new PLYLoader();
+        const loader = await createLoader(core.fileObject.extension.toLowerCase());
         const geometry = await loadAsync(loader, modelPath, onProgress);
         geometry.computeVertexNormals();
         const material = new THREE.MeshStandardMaterial({ color: 0x0055ff, flatShading: true });
@@ -331,7 +356,7 @@ function traverseMesh(object) {
       }
 
       case "dae": {
-        const loader = new ColladaLoader();
+        const loader = await createLoader(core.fileObject.extension.toLowerCase());
         const collada = await loadAsync(loader, modelPath, onProgress);
         const object = collada.scene;
         object.position.set(0, 0, 0);
@@ -340,7 +365,7 @@ function traverseMesh(object) {
       }
 
       case "ifc": {
-        const ifcLoader = new IFCLoader();
+        const loader = await createLoader(core.fileObject.extension.toLowerCase());
         const ifcWasmPath =
           ENV_BUILD === 'drupal'
             ? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/assets/ifc/`
@@ -352,7 +377,7 @@ function traverseMesh(object) {
       }
 
       case "stl": {
-        const loader = new STLLoader();
+        const loader = await createLoader(core.fileObject.extension.toLowerCase());
         const geometry = await loadAsync(loader, modelPath, onProgress);
         let meshMaterial = new THREE.MeshPhongMaterial({ color: 0xff5533, specular: 0x111111, shininess: 200 });
         if (geometry.hasColors) {
@@ -368,7 +393,7 @@ function traverseMesh(object) {
       }
 
       case "xyz": {
-        const loader = new XYZLoader();
+        const loader = await createLoader(core.fileObject.extension.toLowerCase());
         const geometry = await loadAsync(loader, modelPath, onProgress);
         geometry.center();
         const material = new THREE.PointsMaterial({ size: 0.1, vertexColors: geometry.hasAttribute("color") === true });
@@ -379,7 +404,7 @@ function traverseMesh(object) {
       }
 
       case "pcd": {
-        const loader = new PCDLoader();
+        const loader = await createLoader(core.fileObject.extension.toLowerCase());
         const mesh = await loadAsync(loader, modelPath, onProgress);
         afterLoad({ object: mesh });
         break;
@@ -395,7 +420,7 @@ function traverseMesh(object) {
       }
 
       case "3ds": {
-        const loader = new TDSLoader();
+        const loader = await createLoader(core.fileObject.extension.toLowerCase());
         loader.setResourcePath(core.fileObject.path);
         let mp = path;
         if (core.CONFIG.entity.proxyPath !== undefined) mp = core.getProxyPath(mp);

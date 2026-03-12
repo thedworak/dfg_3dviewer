@@ -1,7 +1,6 @@
 // viewer-utils.js
 import THREE from "./init.js";
 import Toastify from "toastify-js";
-import "toastify-js/src/toastify.css";
 import { core, setCore } from './core.js';
 import TWEEN, { add } from "three/examples/jsm/libs/tween.module.js";
 import { normalizeColor, parseCssColor } from './utils.js';
