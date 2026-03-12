@@ -238,11 +238,21 @@ export const Viewer = {
   DFG_ASSETS: '',
   isLightweight: false,
 
-  async MainInit() {
-    if (window.__E2E__) {
+  getE2EModelOverride() {
+    if (!window.__E2E__) return null;
+    const model = new URLSearchParams(window.location.search).get('e2eModel');
+    return model || null;
+  },
+
+  ensureE2EState() {
+    if (!window.__E2E__) return null;
+
+    if (!window.viewer || window.viewer.e2eMode !== true) {
       window.viewer = {
         e2eMode: true,
         modelLoaded: false,
+        errors: [],
+        toasts: [],
 
         get camera() {
           return core.camera;
@@ -252,6 +262,24 @@ export const Viewer = {
           return core.scene;
         },
       };
+    } else {
+      window.viewer.errors ??= [];
+      window.viewer.toasts ??= [];
+    }
+
+    return window.viewer;
+  },
+
+  recordE2EError(error) {
+    if (!window.__E2E__) return;
+    const state = this.ensureE2EState();
+    const message = error instanceof Error ? error.message : String(error);
+    state.errors.push(message);
+  },
+
+  async MainInit() {
+    if (window.__E2E__) {
+      this.ensureE2EState();
     }
 
     await new Promise(r => {
@@ -330,6 +358,11 @@ export const Viewer = {
 
     this.scrollTop = window.scrollY || document.documentElement.scrollTop;
     this.rect = core.container.getBoundingClientRect();
+    const e2eModel = this.getE2EModelOverride();
+    if (e2eModel) {
+      core.container.setAttribute("3d", e2eModel);
+    }
+
     this.fileObject.originalPath = core.container.getAttribute("3d");
     setCore('fileObject', this.fileObject)
     core.CONFIG.viewer.canvasDimensions = {
@@ -2115,10 +2148,7 @@ export const Viewer = {
         if (typeof disablePostProcessing === 'function') {
           disablePostProcessing();
         }
-        window.viewer = {
-          e2eMode: true,
-          modelLoaded: false
-        };
+        this.ensureE2EState();
       } else {
             core.renderer.setPixelRatio(devicePixelRatio);
       }
@@ -2269,7 +2299,12 @@ export const Viewer = {
       core.autoPath = "";
           
       if (window.__E2E__) {
-        await Viewer.mainLoadModelWrapper();
+        try {
+          await Viewer.mainLoadModelWrapper();
+        } catch (error) {
+          Viewer.recordE2EError(error);
+          console.error('E2E model load error:', error);
+        }
       } else if (core.CONFIG.entity.metadata.source === "" && !Viewer.isLightweight) {
         try {
           if (core.fetchMetadataXML) {

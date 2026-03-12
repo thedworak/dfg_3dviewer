@@ -1,4 +1,4 @@
-import { T as THREE, e as _exports, V as Vector3, M as Matrix4, Q as Quaternion, E as Euler, a as MathUtils$1, O as OrbitControls, b as TransformControls, F as FontLoader, c as TextGeometry } from './three.BhmbD82c.js';
+import { T as THREE, e as _exports, V as Vector3, M as Matrix4, Q as Quaternion, E as Euler, a as MathUtils$1, O as OrbitControls, b as TransformControls, F as FontLoader, c as TextGeometry } from './three.CAlKdkC4.js';
 
 window.THREE = THREE;
 
@@ -698,6 +698,10 @@ var toastifyOptions = {
 };
 
 const showToast = (message) => {
+    if (window.__E2E__ && window.viewer) {
+      window.viewer.toasts ??= [];
+      window.viewer.toasts.push(String(message));
+    }
     var myToast = Toastify(toastifyOptions);
     myToast.options.text = message;
     myToast.showToast();
@@ -1967,17 +1971,20 @@ function createIIIFDropdown(iiifConfigURL) {
 
 }
 
-const loadOBJLoader = async () => (await import('./three.BhmbD82c.js').then(function (n) { return n.d; })).OBJLoader;
-const loadFBXLoader = async () => (await import('./three.BhmbD82c.js').then(function (n) { return n.f; })).FBXLoader;
-const loadPLYLoader = async () => (await import('./three.BhmbD82c.js').then(function (n) { return n.P; })).PLYLoader;
-const loadColladaLoader = async () => (await import('./three.BhmbD82c.js').then(function (n) { return n.C; })).ColladaLoader;
-const loadSTLLoader = async () => (await import('./three.BhmbD82c.js').then(function (n) { return n.S; })).STLLoader;
-const loadXYZLoader = async () => (await import('./three.BhmbD82c.js').then(function (n) { return n.X; })).XYZLoader;
-const loadTDSLoader = async () => (await import('./three.BhmbD82c.js').then(function (n) { return n.g; })).TDSLoader;
-const loadPCDLoader = async () => (await import('./three.BhmbD82c.js').then(function (n) { return n.h; })).PCDLoader;
-const loadGLTFLoader = async () => (await import('./three.BhmbD82c.js').then(function (n) { return n.G; })).GLTFLoader;
-const loadDRACOLoader = async () => (await import('./three.BhmbD82c.js').then(function (n) { return n.D; })).DRACOLoader;
-const loadRoomEnvironment = async () => (await import('./three.BhmbD82c.js').then(function (n) { return n.R; })).RoomEnvironment;
+const loadDDSLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.j; })).DDSLoader;
+const loadMTLLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.k; })).MTLLoader;
+const loadOBJLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.l; })).OBJLoader;
+const loadFBXLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.n; })).FBXLoader;
+const loadPLYLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.P; })).PLYLoader;
+const loadColladaLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.o; })).ColladaLoader;
+const loadSTLLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.S; })).STLLoader;
+const loadXYZLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.X; })).XYZLoader;
+const loadTDSLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.p; })).TDSLoader;
+const loadPCDLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.q; })).PCDLoader;
+const loadGLTFLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.G; })).GLTFLoader;
+const loadDRACOLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.r; })).DRACOLoader;
+const loadIFCLoader = async () => (await import('./IFCLoader.Bvpn-rA6.js')).IFCLoader;
+const loadRoomEnvironment = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.R; })).RoomEnvironment;
 
 var outlineClipping;
 
@@ -1991,7 +1998,8 @@ const loaderMap = {
   dae: loadColladaLoader,
   xyz: loadXYZLoader,
   '3ds': loadTDSLoader,
-  pcd: loadPCDLoader
+  pcd: loadPCDLoader,
+  ifc: loadIFCLoader
 };
 
 async function createLoader(ext) {
@@ -2173,10 +2181,6 @@ function traverseMesh(object) {
       }
       core.handHint.hidden = true;
       window.viewer.modelLoaded = true;
-      if (window.__E2E__) {
-        window.viewer.camera = core.camera;
-        window.viewer.scene = core.scene;
-      }
       traverseMesh(object);
       if (core.fileObject.extension.toLowerCase() === "gltf" || core.fileObject.extension.toLowerCase() === "glb") core.fileObject.path = core.fileObject.path.replace("/gltf/", "/");
       else core.fileObject.path = core.fileObject.path.replace("gltf/", "");
@@ -2204,6 +2208,9 @@ function traverseMesh(object) {
     }
 
     async function loadOBJWithMTL() {
+      const DDSLoader = await loadDDSLoader();
+      const MTLLoader = await loadMTLLoader();
+      const OBJLoader = await loadOBJLoader();
       const manager = new THREE.LoadingManager();
       manager.onLoad = () => showToast("OBJ model has been loaded");
       manager.addHandler(/\.dds$/i, new DDSLoader());
@@ -2212,22 +2219,27 @@ function traverseMesh(object) {
       const filename = core.fileObject.filename;
 
       if (!core.CONFIG.noMTL) {
-        const materials = await new Promise((resolve, reject) => {
-          new MTLLoader(manager)
-          .setPath(core.fileObject.path)
-          .load(basename + ".mtl", resolve, undefined, reject);
-        });
-        materials.preload();
+        try {
+          const materials = await new Promise((resolve, reject) => {
+            new MTLLoader(manager)
+            .setPath(core.fileObject.path)
+            .load(basename + ".mtl", resolve, undefined, reject);
+          });
+          materials.preload();
 
-        const obj = await new Promise((resolve, reject) => {
-          new OBJLoader(manager)
-          .setMaterials(materials)
-          .setPath(core.fileObject.path)
-          .load(filename, resolve, onProgress, reject);
-        });
+          const obj = await new Promise((resolve, reject) => {
+            new OBJLoader(manager)
+            .setMaterials(materials)
+            .setPath(core.fileObject.path)
+            .load(filename, resolve, onProgress, reject);
+          });
 
-        obj.position.set(0, 0, 0);
-        return obj;
+          obj.position.set(0, 0, 0);
+          return obj;
+        } catch (_event) {
+          core.CONFIG.noMTL = true;
+          showToast("Error occured while loading attached MTL file.");
+        }
       }
 
       const obj = await new Promise((resolve, reject) => {
@@ -2323,11 +2335,11 @@ function traverseMesh(object) {
       }
 
       case "ifc": {
-        await createLoader(core.fileObject.extension.toLowerCase());
+        const loader = await createLoader(core.fileObject.extension.toLowerCase());
         const ifcWasmPath =
           `/assets/ifc/`;
-        ifcLoader.ifcManager.setWasmPath(ifcWasmPath, true);
-        const object = await loadAsync(ifcLoader, modelPath, onProgress);
+        loader.ifcManager.setWasmPath(ifcWasmPath, true);
+        const object = await loadAsync(loader, modelPath, onProgress);
         afterLoad({ object });
         break;
       }
@@ -2378,7 +2390,7 @@ function traverseMesh(object) {
       case "3ds": {
         const loader = await createLoader(core.fileObject.extension.toLowerCase());
         loader.setResourcePath(core.fileObject.path);
-        let mp = path;
+        let mp = core.fileObject.path;
         if (core.CONFIG.entity.proxyPath !== undefined) mp = core.getProxyPath(mp);
         const object = await loadAsync(loader, mp + core.fileObject.basename + "." + core.fileObject.extension, onProgress);
         core.mainObject.push(object);
@@ -9432,11 +9444,21 @@ const Viewer = {
   DFG_ASSETS: '',
   isLightweight: false,
 
-  async MainInit() {
-    if (window.__E2E__) {
+  getE2EModelOverride() {
+    if (!window.__E2E__) return null;
+    const model = new URLSearchParams(window.location.search).get('e2eModel');
+    return model || null;
+  },
+
+  ensureE2EState() {
+    if (!window.__E2E__) return null;
+
+    if (!window.viewer || window.viewer.e2eMode !== true) {
       window.viewer = {
         e2eMode: true,
         modelLoaded: false,
+        errors: [],
+        toasts: [],
 
         get camera() {
           return core.camera;
@@ -9446,6 +9468,24 @@ const Viewer = {
           return core.scene;
         },
       };
+    } else {
+      window.viewer.errors ??= [];
+      window.viewer.toasts ??= [];
+    }
+
+    return window.viewer;
+  },
+
+  recordE2EError(error) {
+    if (!window.__E2E__) return;
+    const state = this.ensureE2EState();
+    const message = error instanceof Error ? error.message : String(error);
+    state.errors.push(message);
+  },
+
+  async MainInit() {
+    if (window.__E2E__) {
+      this.ensureE2EState();
     }
 
     await new Promise(r => {
@@ -9524,6 +9564,11 @@ const Viewer = {
 
     this.scrollTop = window.scrollY || document.documentElement.scrollTop;
     this.rect = core.container.getBoundingClientRect();
+    const e2eModel = this.getE2EModelOverride();
+    if (e2eModel) {
+      core.container.setAttribute("3d", e2eModel);
+    }
+
     this.fileObject.originalPath = core.container.getAttribute("3d");
     setCore('fileObject', this.fileObject);
     core.CONFIG.viewer.canvasDimensions = {
@@ -11305,10 +11350,7 @@ const Viewer = {
         if (typeof disablePostProcessing === 'function') {
           disablePostProcessing();
         }
-        window.viewer = {
-          e2eMode: true,
-          modelLoaded: false
-        };
+        this.ensureE2EState();
       } else {
             core.renderer.setPixelRatio(devicePixelRatio);
       }
@@ -11459,7 +11501,12 @@ const Viewer = {
       core.autoPath = "";
           
       if (window.__E2E__) {
-        await Viewer.mainLoadModelWrapper();
+        try {
+          await Viewer.mainLoadModelWrapper();
+        } catch (error) {
+          Viewer.recordE2EError(error);
+          console.error('E2E model load error:', error);
+        }
       } else if (core.CONFIG.entity.metadata.source === "" && !Viewer.isLightweight) {
         try {
           if (core.fetchMetadataXML) {

@@ -24,10 +24,6 @@ jobs:
        - name: Build test dist
          run: npm run build:test
  
-       - name: Checking dist
-         shell: bash
-         run: ls -la dist
- 
        - name: Run Playwright tests
          run: npx playwright test
          env:

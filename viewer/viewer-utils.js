@@ -28,6 +28,10 @@ export var toastifyOptions = {
 };
 
 export const showToast = (message) => {
+    if (window.__E2E__ && window.viewer) {
+      window.viewer.toasts ??= [];
+      window.viewer.toasts.push(String(message));
+    }
     var myToast = Toastify(toastifyOptions);
     myToast.options.text = message;
     myToast.showToast();

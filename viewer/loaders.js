@@ -30,7 +30,8 @@ const loaderMap = {
   dae: loadColladaLoader,
   xyz: loadXYZLoader,
   '3ds': loadTDSLoader,
-  pcd: loadPCDLoader
+  pcd: loadPCDLoader,
+  ifc: loadIFCLoader
 };
 
 async function createLoader(ext) {
@@ -212,10 +213,6 @@ function traverseMesh(object) {
       }
       core.handHint.hidden = true;
       window.viewer.modelLoaded = true;
-      if (window.__E2E__) {
-        window.viewer.camera = core.camera;
-        window.viewer.scene = core.scene;
-      }
       traverseMesh(object);
       if (core.fileObject.extension.toLowerCase() === "gltf" || core.fileObject.extension.toLowerCase() === "glb") core.fileObject.path = core.fileObject.path.replace("/gltf/", "/");
       else core.fileObject.path = core.fileObject.path.replace("gltf/", "");
@@ -243,6 +240,9 @@ function traverseMesh(object) {
     }
 
     async function loadOBJWithMTL() {
+      const DDSLoader = await loadDDSLoader();
+      const MTLLoader = await loadMTLLoader();
+      const OBJLoader = await loadOBJLoader();
       const manager = new THREE.LoadingManager();
       manager.onLoad = () => showToast("OBJ model has been loaded");
       manager.addHandler(/\.dds$/i, new DDSLoader());
@@ -251,22 +251,27 @@ function traverseMesh(object) {
       const filename = core.fileObject.filename;
 
       if (!core.CONFIG.noMTL) {
-        const materials = await new Promise((resolve, reject) => {
-          new MTLLoader(manager)
-          .setPath(core.fileObject.path)
-          .load(basename + ".mtl", resolve, undefined, reject);
-        });
-        materials.preload();
+        try {
+          const materials = await new Promise((resolve, reject) => {
+            new MTLLoader(manager)
+            .setPath(core.fileObject.path)
+            .load(basename + ".mtl", resolve, undefined, reject);
+          });
+          materials.preload();
 
-        const obj = await new Promise((resolve, reject) => {
-          new OBJLoader(manager)
-          .setMaterials(materials)
-          .setPath(core.fileObject.path)
-          .load(filename, resolve, onProgress, reject);
-        });
+          const obj = await new Promise((resolve, reject) => {
+            new OBJLoader(manager)
+            .setMaterials(materials)
+            .setPath(core.fileObject.path)
+            .load(filename, resolve, onProgress, reject);
+          });
 
-        obj.position.set(0, 0, 0);
-        return obj;
+          obj.position.set(0, 0, 0);
+          return obj;
+        } catch (_event) {
+          core.CONFIG.noMTL = true;
+          showToast("Error occured while loading attached MTL file.");
+        }
       }
 
       const obj = await new Promise((resolve, reject) => {
@@ -374,8 +379,8 @@ function traverseMesh(object) {
           ENV_BUILD === 'drupal'
             ? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/${ENV_BUILD}/assets/ifc/`
             : `/assets/ifc/`;
-        ifcLoader.ifcManager.setWasmPath(ifcWasmPath, true);
-        const object = await loadAsync(ifcLoader, modelPath, onProgress);
+        loader.ifcManager.setWasmPath(ifcWasmPath, true);
+        const object = await loadAsync(loader, modelPath, onProgress);
         afterLoad({ object });
         break;
       }
@@ -426,7 +431,7 @@ function traverseMesh(object) {
       case "3ds": {
         const loader = await createLoader(core.fileObject.extension.toLowerCase());
         loader.setResourcePath(core.fileObject.path);
-        let mp = path;
+        let mp = core.fileObject.path;
         if (core.CONFIG.entity.proxyPath !== undefined) mp = core.getProxyPath(mp);
         const object = await loadAsync(loader, mp + core.fileObject.basename + "." + core.fileObject.extension, onProgress);
         core.mainObject.push(object);
@@ -449,6 +454,10 @@ function traverseMesh(object) {
 export const onError = function (_event) {
   //circle.set(100, 100);
   console.log("Loader error: " + _event);
+  if (window.__E2E__ && window.viewer) {
+    window.viewer.errors ??= [];
+    window.viewer.errors.push(String(_event));
+  }
   if (typeof core.circle !== "undefined") core.circle.hide();
   if (typeof core.EXIT_CODE !== "undefined") core.EXIT_CODE = 1;
 };
@@ -462,6 +471,10 @@ export const onErrorMTL = async function (_event) {
 
 export const onErrorGLB = async function (_event, params, loadedTimes) {
   console.log("Loader error: " + _event);
+  if (window.__E2E__ && window.viewer) {
+    window.viewer.errors ??= [];
+    window.viewer.errors.push(String(_event));
+  }
   core.loadedFile = params.path + params.basename + core.loadedFile + "gltf/";
   if (typeof _event !== undefined && loadedTimes <= 1 && window.viewer.modelLoaded === false) {
     await loadModel();
