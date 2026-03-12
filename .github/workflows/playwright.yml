@@ -16,13 +16,13 @@ jobs:
            node-version: 24
  
        - name: Install dependencies
-         run: pnpm install
+         run: npm ci
  
        - name: Install Playwright browsers
          run: npx playwright install --with-deps chromium
  
        - name: Build test dist
-         run: pnpm run build:test
+         run: npm run build:test
  
        - name: Checking dist
          shell: bash

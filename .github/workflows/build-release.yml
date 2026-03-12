@@ -20,13 +20,13 @@ jobs:
           node-version: '24'
 
       - name: Install deps
-        run: pnpm install
+        run: npm ci
 
       - name: Build
-        run: pnpm run build
+        run: npm run build
 
       - name: Build dist
-        run: pnpm run build:dist ""
+        run: npm run build:dist ""
 
       - name: Pack dist
         run: node ./scripts/pack-dist.js
