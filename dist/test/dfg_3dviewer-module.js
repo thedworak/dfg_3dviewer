@@ -2240,16 +2240,25 @@ function traverseMesh(object) {
       return obj;
     }
 
+
+    function normalizePath(path) {
+      return path.replace(/\/{2,}/g, '/');
+    }
+
     async function loadGLTFModel() {
       let modelPath = core.fileObject.path + core.fileObject.basename + "." + core.fileObject.extension;
       if (core.CONFIG.entity.proxyPath !== undefined) {
         modelPath = core.getProxyPath(modelPath);
       }
 
+      const dracoBase = normalizePath(
+      `/assets/draco/gltf/`
+      );
+
       const loader = await createLoader(core.fileObject.extension.toLowerCase());
       const DRACOLoader = await loadDRACOLoader();
       const draco = new DRACOLoader();
-      draco.setDecoderPath("assets/draco/");
+      draco.setDecoderPath(dracoBase);
       loader.setDRACOLoader(draco);
     
       const gltf = await new Promise((resolve, reject) => {
@@ -11293,7 +11302,9 @@ const Viewer = {
         console.info('E2E MODE ENABLED');
         core.renderer.setPixelRatio(1);
         core.renderer.toneMappingExposure = 1;
-        disablePostProcessing();
+        if (typeof disablePostProcessing === 'function') {
+          disablePostProcessing();
+        }
         window.viewer = {
           e2eMode: true,
           modelLoaded: false
@@ -11447,7 +11458,9 @@ const Viewer = {
 
       core.autoPath = "";
           
-      if (core.CONFIG.entity.metadata.source === "" && !Viewer.isLightweight) {
+      if (window.__E2E__) {
+        await Viewer.mainLoadModelWrapper();
+      } else if (core.CONFIG.entity.metadata.source === "" && !Viewer.isLightweight) {
         try {
           if (core.fetchMetadataXML) {
             const response = await fetch(core.CONFIG.viewer.exportPath + core.CONFIG.entity.id, {

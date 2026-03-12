@@ -2112,7 +2112,9 @@ export const Viewer = {
         console.info('E2E MODE ENABLED');
         core.renderer.setPixelRatio(1);
         core.renderer.toneMappingExposure = 1;
-        disablePostProcessing();
+        if (typeof disablePostProcessing === 'function') {
+          disablePostProcessing();
+        }
         window.viewer = {
           e2eMode: true,
           modelLoaded: false
@@ -2266,7 +2268,9 @@ export const Viewer = {
 
       core.autoPath = "";
           
-      if (core.CONFIG.entity.metadata.source === "" && !Viewer.isLightweight) {
+      if (window.__E2E__) {
+        await Viewer.mainLoadModelWrapper();
+      } else if (core.CONFIG.entity.metadata.source === "" && !Viewer.isLightweight) {
         try {
           if (core.fetchMetadataXML) {
             const response = await fetch(core.CONFIG.viewer.exportPath + core.CONFIG.entity.id, {
