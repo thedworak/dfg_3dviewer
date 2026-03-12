@@ -5,7 +5,7 @@ dfg_3dviewer.drupal:
         type: module
   css:
     theme:
-      dist/drupal/custom/assets/css/viewer.css:
+      dist/drupal/assets/css/viewer.css:
         weight: 10
   dependencies:
     - core/drupal
@@ -18,7 +18,7 @@ dfg_3dviewer.test:
         type: module
   css:
     theme:
-      dist/drupal/custom/assets/css/viewer.css:
+      dist/test/assets/css/viewer.css:
         weight: 10
   dependencies:
     - core/drupal
