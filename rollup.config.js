@@ -28,6 +28,7 @@ function normalizePathSegment(seg = '') {
 }
 
 const modulesPath = normalizePathSegment(customModules);
+const drupalModulePrefix = modulesPath ? `/modules/${modulesPath}/dfg_3dviewer` : '/modules/dfg_3dviewer';
 
 console.log('[rollup] modulesPath:', modulesPath);
 
@@ -64,6 +65,9 @@ function copyBuildAssets() {
         await fs.readFile(viewerSettingsSource, 'utf8')
       );
       viewerSettings.viewer.lightweight = 1;
+      if (envBuild === 'drupal') {
+        viewerSettings.baseModulePath = `${drupalModulePrefix}/dist/${envBuild}/assets`;
+      }
 
       await fs.mkdir(outDistDir, { recursive: true });
       await Promise.all([

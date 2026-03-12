@@ -368,7 +368,7 @@ function traverseMesh(object) {
         const loader = await createLoader(core.fileObject.extension.toLowerCase());
         const ifcWasmPath =
           ENV_BUILD === 'drupal'
-            ? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/assets/ifc/`
+            ? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/${ENV_BUILD}/assets/ifc/`
             : `/assets/ifc/`;
         ifcLoader.ifcManager.setWasmPath(ifcWasmPath, true);
         const object = await loadAsync(ifcLoader, modelPath, onProgress);
