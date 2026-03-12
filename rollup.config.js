@@ -1,5 +1,4 @@
 import url from '@rollup/plugin-url';
-import { rollupPluginCopy } from '@jsxtools/rollup-plugin-copy';
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
@@ -7,6 +6,7 @@ import terser from '@rollup/plugin-terser';
 import replace from '@rollup/plugin-replace';
 import ignore from "rollup-plugin-ignore";
 import path from 'path';
+import fs from 'fs/promises';
 
 const source = process.env.BUILD_SOURCE ?? "IIIF";
 const envBuild = process.env.BUILD ?? "test";
@@ -31,6 +31,54 @@ const modulesPath = normalizePathSegment(customModules);
 
 console.log('[rollup] modulesPath:', modulesPath);
 
+async function copyDirectory(source, target) {
+  await fs.cp(source, target, { recursive: true });
+}
+
+function copyBuildAssets() {
+  return {
+    name: 'copy-build-assets',
+    async writeBundle() {
+      await Promise.all([
+        copyDirectory(
+          'node_modules/three/examples/jsm/libs/draco',
+          path.join(outDistDir, 'assets/draco')
+        ),
+        copyDirectory(
+          'node_modules/web-ifc',
+          path.join(outDistDir, 'assets/ifc')
+        ),
+        copyDirectory('viewer/css', path.join(outDistDir, 'assets/css')),
+        copyDirectory('viewer/img', path.join(outDistDir, 'assets/img')),
+        copyDirectory('viewer/fonts', path.join(outDistDir, 'assets/fonts')),
+        copyDirectory('viewer/examples', path.join(outDistDir, 'examples')),
+      ]);
+
+      const viewerSettingsSource = 'viewer/viewer-settings-example.json';
+      const viewerSettingsTarget = path.join(outDistDir, 'viewer-settings.json');
+      const settingsPhpTarget = path.join(outDistDir, 'settings.local.php');
+      const indexTarget = path.join(outDistDir, 'index.html');
+      const toastifyTarget = path.join(outDistDir, 'assets/css/toastify.css');
+
+      const viewerSettings = JSON.parse(
+        await fs.readFile(viewerSettingsSource, 'utf8')
+      );
+      viewerSettings.viewer.lightweight = 1;
+
+      await fs.mkdir(outDistDir, { recursive: true });
+      await Promise.all([
+        fs.copyFile('settings.php', settingsPhpTarget),
+        fs.copyFile('index.html', indexTarget),
+        fs.copyFile('node_modules/toastify-js/src/toastify.css', toastifyTarget),
+        fs.writeFile(
+          viewerSettingsTarget,
+          JSON.stringify(viewerSettings, null, 2)
+        ),
+      ]);
+    },
+  };
+}
+
 export default {
   input: 'viewer/main.js',
   treeshake: {
@@ -39,7 +87,6 @@ export default {
     tryCatchDeoptimization: false
   },
   plugins: [
-    ignore(["**/*.css"]),
     replace({
       preventAssignment: true,
       values: {
@@ -75,72 +122,7 @@ export default {
       publicPath: 'assets/'
     }),
 
-    rollupPluginCopy({
-      patterns: [
-        {
-          from: 'viewer/img/**/*',
-          to: `${outDistDir}/assets/img`
-        },
-        {
-          from: 'node_modules/three/examples/jsm/libs/draco/**/*',
-          to: `${outDistDir}/assets/draco`
-        },
-        {
-          from: 'viewer/js/external_libs/loaders/ifc/**/*',
-          to: `${outDistDir}/assets/ifc`
-        },
-        {
-          from: 'viewer/fonts/**/*',
-          to: `${outDistDir}/assets/fonts`
-        },
-        {
-          from: 'viewer/css/**/*',
-          to: `${outDistDir}/assets/css`
-        },
-        {
-          from: 'css/**/*',
-          to: `${outDistDir}/assets/css`
-        },
-        {
-          from: 'viewer/examples/**/*',
-          to: `${outDistDir}/examples`
-        },
-        {
-          from: 'node_modules/toastify-js/src/toastify.css',
-          to: `${outDistDir}/assets/css/toastify.css`
-        },
-        {
-          from: 'settings.php',
-          to: `${outDistDir}/settings.local.php`
-        },
-        {
-          from: 'viewer/viewer-settings-example.json',
-          to: `${outDistDir}/viewer-settings.json`,
-          transform: (contents) => {
-            const json = JSON.parse(contents.toString());
-            json.viewer.lightweight = 1;
-            return JSON.stringify(json, null, 2);
-          }
-        },
-        {
-          from: 'index.html',
-          to: `${outDistDir}/`,
-          transform: (contents) => {
-            let html = contents.toString();
-            html = html.replace(
-              /(href|src)="(img|css|fonts)\//g,
-              (_, attr, folder) => `${attr}="assets/${folder}/`
-            );
-            html = html.replace(/viewer\//g, '');
-            html = html.replace(/main\.js/g, 'dfg_3dviewer-module.js');
-            return html;
-          }
-        },
-      ],
-      outputFolder: outDistDir,
-      hook: 'writeBundle',
-      verbose: true
-    }),
+    copyBuildAssets(),
 
     production && terser(),
 

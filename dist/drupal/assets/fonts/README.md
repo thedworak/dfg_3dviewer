@@ -1,9 +1,11 @@
-# Kenney Fonts
+## MgOpen typefaces
 
-## Source
+# Source and License
 
-https://www.kenney.nl/assets/kenney-fonts
+https://web.archive.org/web/20050528114140/https://ellak.gr/fonts/mgopen/index.en
 
-## License
+# Usage
 
-CC0 1.0 Universal (CC0 1.0) Public Domain Dedication (https://creativecommons.org/publicdomain/zero/1.0/)
+Use Facetype.js to generate typeface.json fonts: https://gero3.github.io/facetype.js/
+
+Collection of Google fonts as typeface data for usage with three.js: https://github.com/components-ai/typefaces
