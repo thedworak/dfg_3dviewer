@@ -53,7 +53,7 @@ export default defineConfig({
 
   webServer: process.env.CI
     ? {
-        command: 'npx serve dist -p 4173',
+        command: 'HOST=127.0.0.1 PORT=4173 DIST_DIR=dist/test node scripts/serve-dist.js',
         port: 4173,
         timeout: 120_000,
       }

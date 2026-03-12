@@ -4,7 +4,9 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const root = path.join(__dirname, '..', 'dist')
+const distDir = process.env.DIST_DIR || 'dist'
+const root = path.resolve(__dirname, '..', distDir)
+const host = process.env.HOST || '127.0.0.1'
 const port = process.env.PORT || 8080
 
 const mime = {
@@ -48,4 +50,4 @@ const server = http.createServer((req, res) => {
   }
 })
 
-server.listen(port, () => console.log(`Serving ${root} at http://localhost:${port}/`))
+server.listen(port, host, () => console.log(`Serving ${root} at http://${host}:${port}/`))
