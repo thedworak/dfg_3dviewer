@@ -300,7 +300,7 @@ function traverseMesh(object) {
       const loader = await createLoader(core.fileObject.extension.toLowerCase());
       const DRACOLoader = await loadDRACOLoader();
       const draco = new DRACOLoader();
-      draco.setDecoderPath("assets/draco/");
+      draco.setDecoderPath(dracoBase);
       loader.setDRACOLoader(draco);
     
       const gltf = await new Promise((resolve, reject) => {
