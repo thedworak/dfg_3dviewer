@@ -2485,51 +2485,50 @@ export const Viewer = {
 
       const isLocalPreview = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
       console.info('Running on', window.location.hostname, '- Local preview mode:', isLocalPreview);
-      if (!isLocalPreview) return;
-      else {
+      if (isLocalPreview) {
         const picker = document.getElementById('example-model-picker');
         const select = document.getElementById('example-model-select');
         const themeToggle = document.getElementById('example-theme-toggle');
         const viewer = document.getElementById('DFG_3DViewer');
         const THEME_STORAGE_KEY = 'iiif-dark-mode';
-        if (!picker || !select || !themeToggle || !viewer) return;
+        if (picker || select || themeToggle || viewer) {
+          const syncPickerTheme = (isDark = window.localStorage.getItem(THEME_STORAGE_KEY) === '1') => {
+            document.body.classList.toggle('iiif-dark', Boolean(isDark));
+            themeToggle.textContent = isDark ? '☀️' : '🌙';
+            themeToggle.setAttribute('aria-pressed', isDark ? 'true' : 'false');
+          };
 
-        const syncPickerTheme = (isDark = window.localStorage.getItem(THEME_STORAGE_KEY) === '1') => {
-          document.body.classList.toggle('iiif-dark', Boolean(isDark));
-          themeToggle.textContent = isDark ? '☀️' : '🌙';
-          themeToggle.setAttribute('aria-pressed', isDark ? 'true' : 'false');
-        };
+          const localurl = new URL(window.location.href);
+          const selectedModel =
+            localurl.searchParams.get('model') ||
+            window.localStorage.getItem('dfg3dviewer-test-model') ||
+            viewer.getAttribute('3d') ||
+            './examples/box.stl';
 
-        const localurl = new URL(window.location.href);
-        const selectedModel =
-          localurl.searchParams.get('model') ||
-          window.localStorage.getItem('dfg3dviewer-test-model') ||
-          viewer.getAttribute('3d') ||
-          './examples/box.stl';
+          picker.style.display = 'inline-flex';
+          select.value = selectedModel;
+          viewer.setAttribute('3d', selectedModel);
+          syncPickerTheme();
 
-        picker.style.display = 'inline-flex';
-        select.value = selectedModel;
-        viewer.setAttribute('3d', selectedModel);
-        syncPickerTheme();
+          themeToggle.addEventListener('click', () => {
+            const nextIsDark = !document.body.classList.contains('iiif-dark');
+            window.localStorage.setItem(THEME_STORAGE_KEY, nextIsDark ? '1' : '0');
+            document.getElementById('form-IIIF')?.classList.toggle('dark', nextIsDark);
+            const iiifThemeToggle = document.getElementById('iiif-toggle-theme');
+            if (iiifThemeToggle) {
+              iiifThemeToggle.textContent = nextIsDark ? '☀️' : '🌙';
+              iiifThemeToggle.setAttribute('aria-pressed', nextIsDark ? 'true' : 'false');
+            }
+            syncPickerTheme(nextIsDark);
+          });
 
-        themeToggle.addEventListener('click', () => {
-          const nextIsDark = !document.body.classList.contains('iiif-dark');
-          window.localStorage.setItem(THEME_STORAGE_KEY, nextIsDark ? '1' : '0');
-          document.getElementById('form-IIIF')?.classList.toggle('dark', nextIsDark);
-          const iiifThemeToggle = document.getElementById('iiif-toggle-theme');
-          if (iiifThemeToggle) {
-            iiifThemeToggle.textContent = nextIsDark ? '☀️' : '🌙';
-            iiifThemeToggle.setAttribute('aria-pressed', nextIsDark ? 'true' : 'false');
-          }
-          syncPickerTheme(nextIsDark);
-        });
-
-        select.addEventListener('change', () => {
-          const nextModel = select.value;
-          window.localStorage.setItem('dfg3dviewer-test-model', nextModel);
-          localurl.searchParams.set('model', nextModel);
-          window.location.href = localurl.toString();
-        });
+          select.addEventListener('change', () => {
+            const nextModel = select.value;
+            window.localStorage.setItem('dfg3dviewer-test-model', nextModel);
+            localurl.searchParams.set('model', nextModel);
+            window.location.href = localurl.toString();
+          });
+        }
       }
 
       core.autoPath = "";
