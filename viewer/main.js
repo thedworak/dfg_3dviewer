@@ -911,7 +911,7 @@ export const Viewer = {
     var modalGallery = document.createElement("div");
     var modalImage = document.createElement("img");
     modalImage.setAttribute("class", "modalImage");
-    modalImage.style.transform = `scale(1.0)`;
+    modalImage.style.transform = `scale(0.95)`;
     Viewer.bindEventListener(modalGallery, "wheel", function (e) {
       e.preventDefault();
       e.stopPropagation();
