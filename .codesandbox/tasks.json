@@ -23,7 +23,12 @@
 
     "build:test": {
       "name": "Build (TEST bundle)",
-      "command": "cross-env BUILD_SOURCE=IIIF BUILD=test pnpm run build:test"
+      "command": "cross-env BUILD_SOURCE='' BUILD=test pnpm run build:test"
+    },
+
+    "build:dev": {
+      "name": "Build (DEV bundle)",
+      "command": "cross-env BUILD_SOURCE='IIIF' BUILD=dev pnpm run build:dev"
     },
 
     "build:prod": {

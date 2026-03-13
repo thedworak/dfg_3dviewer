@@ -37,6 +37,37 @@ export const showToast = (message) => {
     myToast.showToast();
 };
 
+export function getErrorMessage(error) {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string") return error;
+  return String(error);
+}
+
+export function reportViewerError(error, options = {}) {
+  const {
+    context = "",
+    consoleLabel = "Viewer error",
+    toast = true,
+    e2e = true,
+  } = options;
+
+  const baseMessage = getErrorMessage(error);
+  const message = context ? `${context}: ${baseMessage}` : baseMessage;
+
+  console.error(consoleLabel, error);
+
+  if (e2e && window.__E2E__ && window.viewer) {
+    window.viewer.errors ??= [];
+    window.viewer.errors.push(message);
+  }
+
+  if (toast) {
+    showToast(message);
+  }
+
+  return message;
+}
+
 function fetchObjectFromConfig(_name) {
   //console.log("Fetching config for", _name, core.objectsConfig);
   return core.objectsConfig?.models?.find(model => model.name === _name);
@@ -144,12 +175,12 @@ export const setupObject = (_object, _metadata) => {
     setupCameraHandler(_object, _metadata);
   }
   else if (typeof core.objectsConfig !== "undefined" && model) { //Setup from config
-    if ((typeof core.objectsConfig.models == null || core.objectsConfig.models?.length == 0) && _metadata == null) {
-      if (typeof model.position != null) _object.position.set(model.position.x, model.position.y, model.position.z);
+    if ((!Array.isArray(core.objectsConfig.models) || core.objectsConfig.models.length === 0) && _metadata == null) {
+      if (model.position != null) _object.position.set(model.position.x, model.position.y, model.position.z);
 
-      if (typeof model.scale != null) _object.scale.set(model.scale.x, model.scale.y, model.scale.z);
+      if (model.scale != null) _object.scale.set(model.scale.x, model.scale.y, model.scale.z);
       
-      if (typeof model.rotation != null) _object.rotation.set(THREE.MathUtils.degToRad(model.rotation.x), THREE.MathUtils.degToRad(model.rotation.y), THREE.MathUtils.degToRad(model.rotation.z));
+      if (model.rotation != null) _object.rotation.set(THREE.MathUtils.degToRad(model.rotation.x), THREE.MathUtils.degToRad(model.rotation.y), THREE.MathUtils.degToRad(model.rotation.z));
     } else {
       let m = core.objectsConfig.models[core.objectsConfig.setupIndex];
       if (m != undefined && _metadata == null) {
@@ -616,9 +647,9 @@ async function fitCameraToCenteredObject(object, _fit) {
   if (_fit) {
     var rotateMetadata = new THREE.Vector3();
     rotateMetadata = new THREE.Vector3(
-      THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.x || 1),
-      THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.y || 5),
-      THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.z || 1)
+      THREE.MathUtils.radToDeg(core.helperObjects[0]?.rotation.x || 1),
+      THREE.MathUtils.radToDeg(core.helperObjects[0]?.rotation.y || 5),
+      THREE.MathUtils.radToDeg(core.helperObjects[0]?.rotation.z || 1)
     );
     core.objectsConfig.originalMetadata = {
       objPosition: [object.position.x, object.position.y, object.position.z],

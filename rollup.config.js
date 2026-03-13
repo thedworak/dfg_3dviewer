@@ -4,7 +4,6 @@ import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
 import terser from '@rollup/plugin-terser';
 import replace from '@rollup/plugin-replace';
-import ignore from "rollup-plugin-ignore";
 import path from 'path';
 import fs from 'fs/promises';
 

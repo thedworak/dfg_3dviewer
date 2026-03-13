@@ -8,40 +8,11 @@
     <link href="assets/css/spinner.css" rel="stylesheet" />
     <link href="assets/css/theme.css" rel="stylesheet" />
     <link href="assets/css/external-sources.css" rel="stylesheet"/>
-    <style>
-      #test-model-picker {
-        display: none;
-        align-items: center;
-        gap: 12px;
-        margin: 16px;
-        padding: 12px 14px;
-        border: 1px solid #d0d7de;
-        border-radius: 10px;
-        background: rgba(255, 255, 255, 0.92);
-        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
-        font:
-          14px/1.4 "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-      }
-
-      #test-model-picker label {
-        font-weight: 600;
-        color: #1f2937;
-      }
-
-      #test-model-picker select {
-        min-width: 220px;
-        padding: 8px 10px;
-        border: 1px solid #cbd5e1;
-        border-radius: 8px;
-        background: #ffffff;
-        color: #111827;
-      }
-    </style>
   </head>
   <body>
-    <div id="test-model-picker">
-      <label for="test-model-select">Load example model</label>
-      <select id="test-model-select">
+    <div id="example-model-picker">
+      <label for="example-model-select">Load example model</label>
+      <select id="example-model-select">
         <option value="./examples/box.dae">DAE</option>
         <option value="./examples/box.stl" selected>STL</option>
         <option value="./examples/box.ply">PLY</option>
@@ -55,6 +26,8 @@
         <option value="./examples/box-missing-mtl.obj">OBJ (missing MTL)</option>
         <option value="./examples/broken.glb">Broken GLB</option>
       </select>
+      <span class="example-model-picker-spacer"></span>
+      <button type="button" id="example-theme-toggle" title="Toggle dark mode">🌙</button>
     </div>
     <!--For in-built examples use one of the following 3d="./examples/box.obj"
         OR
@@ -67,35 +40,6 @@
       style="height: 50vh"
     >
   </div>
-    <script>
-      (() => {
-        const isLocalPreview = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
-        if (!isLocalPreview) return;
-
-        const picker = document.getElementById('test-model-picker');
-        const select = document.getElementById('test-model-select');
-        const viewer = document.getElementById('DFG_3DViewer');
-        if (!picker || !select || !viewer) return;
-
-        const url = new URL(window.location.href);
-        const selectedModel =
-          url.searchParams.get('model') ||
-          window.localStorage.getItem('dfg3dviewer-test-model') ||
-          viewer.getAttribute('3d') ||
-          './examples/box.stl';
-
-        picker.style.display = 'inline-flex';
-        select.value = selectedModel;
-        viewer.setAttribute('3d', selectedModel);
-
-        select.addEventListener('change', () => {
-          const nextModel = select.value;
-          window.localStorage.setItem('dfg3dviewer-test-model', nextModel);
-          url.searchParams.set('model', nextModel);
-          window.location.href = url.toString();
-        });
-      })();
-    </script>
     <script type="module" src="dfg_3dviewer-module.js"></script>
   </body>
 </html>

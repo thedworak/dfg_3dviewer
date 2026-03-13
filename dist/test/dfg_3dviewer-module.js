@@ -707,6 +707,37 @@ const showToast = (message) => {
     myToast.showToast();
 };
 
+function getErrorMessage(error) {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string") return error;
+  return String(error);
+}
+
+function reportViewerError(error, options = {}) {
+  const {
+    context = "",
+    consoleLabel = "Viewer error",
+    toast = true,
+    e2e = true,
+  } = options;
+
+  const baseMessage = getErrorMessage(error);
+  const message = context ? `${context}: ${baseMessage}` : baseMessage;
+
+  console.error(consoleLabel, error);
+
+  if (e2e && window.__E2E__ && window.viewer) {
+    window.viewer.errors ??= [];
+    window.viewer.errors.push(message);
+  }
+
+  if (toast) {
+    showToast(message);
+  }
+
+  return message;
+}
+
 function fetchObjectFromConfig(_name) {
   //console.log("Fetching config for", _name, core.objectsConfig);
   return core.objectsConfig?.models?.find(model => model.name === _name);
@@ -814,12 +845,12 @@ const setupObject = (_object, _metadata) => {
     setupCameraHandler(_object, _metadata);
   }
   else if (typeof core.objectsConfig !== "undefined" && model) { //Setup from config
-    if ((typeof core.objectsConfig.models == null || core.objectsConfig.models?.length == 0) && _metadata == null) {
-      if (typeof model.position != null) _object.position.set(model.position.x, model.position.y, model.position.z);
+    if ((!Array.isArray(core.objectsConfig.models) || core.objectsConfig.models.length === 0) && _metadata == null) {
+      if (model.position != null) _object.position.set(model.position.x, model.position.y, model.position.z);
 
-      if (typeof model.scale != null) _object.scale.set(model.scale.x, model.scale.y, model.scale.z);
+      if (model.scale != null) _object.scale.set(model.scale.x, model.scale.y, model.scale.z);
       
-      if (typeof model.rotation != null) _object.rotation.set(THREE.MathUtils.degToRad(model.rotation.x), THREE.MathUtils.degToRad(model.rotation.y), THREE.MathUtils.degToRad(model.rotation.z));
+      if (model.rotation != null) _object.rotation.set(THREE.MathUtils.degToRad(model.rotation.x), THREE.MathUtils.degToRad(model.rotation.y), THREE.MathUtils.degToRad(model.rotation.z));
     } else {
       let m = core.objectsConfig.models[core.objectsConfig.setupIndex];
       if (m != undefined && _metadata == null) {
@@ -1275,9 +1306,9 @@ async function fitCameraToCenteredObject(object, _fit) {
   if (_fit) {
     var rotateMetadata = new THREE.Vector3();
     rotateMetadata = new THREE.Vector3(
-      THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.x || 1),
-      THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.y || 5),
-      THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.z || 1)
+      THREE.MathUtils.radToDeg(core.helperObjects[0]?.rotation.x || 1),
+      THREE.MathUtils.radToDeg(core.helperObjects[0]?.rotation.y || 5),
+      THREE.MathUtils.radToDeg(core.helperObjects[0]?.rotation.z || 1)
     );
     core.objectsConfig.originalMetadata = {
       objPosition: [object.position.x, object.position.y, object.position.z],
@@ -1533,12 +1564,22 @@ function getOrAddGuiController(folder, object, prop) {
   return folder.add(object, prop);
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 /**
  * Formats WissKI metadata labels and values for display.
  */
 function addWissKIMetadata(label, value) {
   if (typeof label !== "undefined" && typeof value !== "undefined") {
     var _str = "";
+    const safeValue = escapeHtml(value);
     label = label.replace("wisski_path_3d_model__", "");
     switch (label) {
       case "title":
@@ -1558,11 +1599,11 @@ function addWissKIMetadata(label, value) {
         break;
     }
     if (_str == "period") {
-      return "Reconstruction period: <b>" + value + " - ";
+      return "Reconstruction period: <b>" + safeValue + " - ";
     } else if (_str == "-") {
-      return value + "</b><br>";
+      return safeValue + "</b><br>";
     } else if (_str !== "") {
-      return _str + ": <b>" + value + "</b><br>";
+      return _str + ": <b>" + safeValue + "</b><br>";
     }
   }
 }
@@ -1608,33 +1649,18 @@ function appendMetadata(
 }
 
 function fetchMetadata(_object, _type) {
+  if (!_object?.geometry) return 0;
+
+  const indexedCount = _object.geometry.index?.count;
+  const positionCount = _object.geometry.attributes?.position?.count ?? 0;
+
   switch (_type) {
     case "vertices":
-      if (
-        typeof _object.geometry.index !== "undefined" &&
-        _object.geometry.index !== null
-      ) {
-        return _object.geometry.index.count;
-      } else if (
-        typeof _object.attributes !== "undefined" &&
-        _object.attributes !== null
-      ) {
-        return _object.attributes.position.count;
-      }
-      break;
+      return positionCount;
     case "faces":
-      if (
-        typeof _object.geometry.index !== "undefined" &&
-        _object.geometry.index !== null
-      ) {
-        return _object.geometry.index.count / 3;
-      } else if (
-        typeof _object.attributes !== "undefined" &&
-        _object.attributes !== null
-      ) {
-        return _object.attributes.position.count / 3;
-      }
-      break;
+      return (indexedCount ?? positionCount) / 3;
+    default:
+      return 0;
   }
 }
 
@@ -1709,7 +1735,7 @@ async function handleMetadataResponse(
         id: object.id,
       };
     }
-    if (lilGUIgetFolder(core.gui, "Hierarchy") !== null && !lilGUIhasFolder(hierarchyMain, object.name)) {
+    if (hierarchyMain && lilGUIgetFolder(core.gui, "Hierarchy") !== null && !lilGUIhasFolder(hierarchyMain, object.name)) {
       hierarchyFolder = hierarchyMain.addFolder(object.name).close();
     }
   }
@@ -1722,7 +1748,6 @@ async function handleMetadataResponse(
     core.metadataContainer = document.createElement("div");
     core.metadataContainer.id = "metadata-container";
   }
-  document.body.appendChild(core.metadataContainer);
 
   var metadataContent =
     '<div id="metadata-card">' +
@@ -1732,7 +1757,7 @@ async function handleMetadataResponse(
     '<div class="metadata-row">' +
       '<span class="metadata-label">Visualized file:</span>' +
       '<span class="metadata-value">' +
-        core.fileObject.basename + '.' + core.fileObject.extension +
+        escapeHtml(core.fileObject.basename) + '.' + escapeHtml(core.fileObject.extension) +
       '</span>' +
     '</div>';
 
@@ -1754,7 +1779,7 @@ async function handleMetadataResponse(
 
   if (!core.isLightweight) {
 
-    if (!document.getElementById("downloadModel")) {
+    if (core.downloadModel && !document.getElementById("downloadModel")) {
       core.downloadModel.setAttribute("id", "downloadModel");
 
       var c_path = core.fileObject.path;
@@ -1765,7 +1790,7 @@ async function handleMetadataResponse(
       let DFG_ASSETS = scriptUrl.replace(/dfg_3dviewer-module\.js.*$/, 'assets/img');
 
       core.downloadModel.innerHTML = `
-        <a href="blob:${c_path}${core.fileObject.filename}" download>
+        <a href="blob:${encodeURI(c_path + core.fileObject.filename)}" download>
           <img src="${DFG_ASSETS}/download-icon.svg" alt="download" width="28" height="28" title="Download source file"/>`;
     }
 
@@ -1824,11 +1849,14 @@ async function handleMetadataResponse(
       '</div>' +  // #metadata-content
     '</div>';  
   appendMetadata( metadataContent, metadataContentTech);
-  core.metadataContainer.addEventListener("click", (e) => {
-    if (e.target.id === "metadata-collapse") {
-      expandMetadata();
-    }
-  });
+  if (core.metadataContainer.dataset.boundCollapse !== "true") {
+    core.metadataContainer.addEventListener("click", (e) => {
+      if (e.target.id === "metadata-collapse") {
+        expandMetadata();
+      }
+    });
+    core.metadataContainer.dataset.boundCollapse = "true";
+  }
 }
 
 /**
@@ -1845,7 +1873,7 @@ async function settingsHandler(object, hierarchyMain, data) {
     setupObject(object, data);
     await setupCamera(object, data);
     if (object.name === "undefined") object.name = "level";
-    if (!lilGUIhasFolder(hierarchyMain, object.name)) {
+    if (hierarchyMain && !lilGUIhasFolder(hierarchyMain, object.name)) {
       hierarchyMain.addFolder(object.name).close();
     }
   }
@@ -1879,7 +1907,6 @@ async function loadMetadataData(metadataUrl) {
  */
 async function fetchSettings(object) {
   var metadata = { vertices: 0, faces: 0 };
-
   let metadataUrl = '';
 
   if (core.CONFIG.metadataUrl && core.fileObject.uri && core.fileObject.filename) {
@@ -1892,8 +1919,11 @@ async function fetchSettings(object) {
   }
 
   let hierarchyMain;
-  if (lilGUIgetFolder(core.gui, "Hierarchy") === null) {
+  const existingHierarchy = lilGUIgetFolder(core.gui, "Hierarchy");
+  if (existingHierarchy === null) {
     hierarchyMain = core.gui?.addFolder("Hierarchy").close();
+  } else {
+    hierarchyMain = existingHierarchy;
   }
   if (core.CONFIG.entity.metadata.source === "IIIF") {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);
@@ -1987,6 +2017,7 @@ const loadIFCLoader = async () => (await import('./IFCLoader.Bvpn-rA6.js')).IFCL
 const loadRoomEnvironment = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.R; })).RoomEnvironment;
 
 var outlineClipping;
+let environmentTexturePromise = null;
 
 const loaderMap = {
   gltf: loadGLTFLoader,
@@ -2051,7 +2082,7 @@ function setupSingleMaterial(materials, material) {
   //material.clipIntersection = false;
   if (material.name === "") material.name = material.uuid;
   var newMaterial = { name: material.name, uuid: material.uuid };
-  if (!materials.includes(newMaterial)) materials.push(newMaterial);
+  if (!materials.some((item) => item.uuid === newMaterial.uuid)) materials.push(newMaterial);
 }
 
 function setupMaterials(_object) {
@@ -2059,7 +2090,13 @@ function setupMaterials(_object) {
   if (_object.isMesh) {
     _object.castShadow = true;
     _object.receiveShadow = true;
-    _object.geometry.computeVertexNormals();
+    if (
+      _object.geometry &&
+      typeof _object.geometry.computeVertexNormals === "function" &&
+      !_object.geometry.getAttribute?.("normal")
+    ) {
+      _object.geometry.computeVertexNormals();
+    }
     if (_object.material.isMaterial) {
       setupSingleMaterial(materials, _object.material);
     } else if (Array.isArray(_object.material)) {
@@ -2106,6 +2143,7 @@ function traverseMesh(object) {
   var _material = null;
   var _materialGui = null;
   var _uuid = null;
+  if (!core.materialsFolder) return;
   core.materialsFolder
     .add(core.materialsPropertiesText, "Edit material", objectMaterials)
     .onChange(function (value) {
@@ -2159,32 +2197,54 @@ function traverseMesh(object) {
     });
 }
 
-  async function loadModel() {
+function getEnvironmentTexture(renderer) {
+  if (!renderer) return Promise.resolve(null);
+  if (!environmentTexturePromise) {
+    environmentTexturePromise = (async () => {
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      try {
+        const TempRoomEnvironment = await loadRoomEnvironment();
+        return pmrem.fromScene(new TempRoomEnvironment()).texture;
+      } finally {
+        pmrem.dispose();
+      }
+    })();
+  }
+  return environmentTexturePromise;
+}
 
+function reportLoadError(error, context = "") {
+  const message = reportViewerError(error, {
+    context,
+    consoleLabel: "Viewer load error:",
+  });
+  core.circle?.hide();
+  if (typeof core.EXIT_CODE !== "undefined") core.EXIT_CODE = 1;
+  return message;
+}
+
+  async function loadModel() {
     let modelPath = core.fileObject.path + core.fileObject.filename;
     if (core.CONFIG.entity.proxyPath !== undefined) {
       modelPath = core.getProxyPath(modelPath, core.CONFIG, core.fileObject);
     }
 
-    // Helper: promisify THREE loader.load
-    function loadAsync(loader, url, onProgress) {
+    function loadAsync(loader, url, progressHandler = onProgress) {
       return new Promise((resolve, reject) => {
-        loader.load(url, resolve, onProgress, reject);
+        loader.load(url, resolve, progressHandler, reject);
       });
     }
 
-    // Helper: common post-load pipeline
     async function afterLoad({ object }) {
       if (object === null || typeof object === "undefined") {
-        showToast("Loaded object is null or undefined.");
-        return;
+        throw new Error("Loaded object is null or undefined.");
       }
       core.handHint.hidden = true;
       window.viewer.modelLoaded = true;
       traverseMesh(object);
       if (core.fileObject.extension.toLowerCase() === "gltf" || core.fileObject.extension.toLowerCase() === "glb") core.fileObject.path = core.fileObject.path.replace("/gltf/", "/");
       else core.fileObject.path = core.fileObject.path.replace("gltf/", "");
-      fetchSettings(object);
+      await fetchSettings(object);
       core.outlineClipping = prepareOutlineClipping(object);
       if (Array.isArray(object)) {
         object.forEach(o => core.scene.add(o));
@@ -2195,16 +2255,7 @@ function traverseMesh(object) {
       }
       core.scene.add(core.outlineClipping);
       core.mainObject.push(object);
-
-      const pmrem = new THREE.PMREMGenerator(core.renderer);
-      const TempRoomEnvironment = await loadRoomEnvironment();
-      core.scene.environment = pmrem.fromScene(new TempRoomEnvironment()).texture;
-      pmrem.dispose();
-      /*const rgbeLoader = new RGBELoader();
-      rgbeLoader.load('env.hdr', (texture) => {
-        texture.mapping = THREE.EquirectangularReflectionMapping;
-        core.scene.environment = texture;
-      });*/
+      core.scene.environment = await getEnvironmentTexture(core.renderer);
     }
 
     async function loadOBJWithMTL() {
@@ -2236,9 +2287,10 @@ function traverseMesh(object) {
 
           obj.position.set(0, 0, 0);
           return obj;
-        } catch (_event) {
+        } catch (error) {
           core.CONFIG.noMTL = true;
           showToast("Error occured while loading attached MTL file.");
+          console.warn("MTL load failed, falling back to OBJ-only load.", error);
         }
       }
 
@@ -2252,15 +2304,14 @@ function traverseMesh(object) {
       return obj;
     }
 
-
     function normalizePath(path) {
       return path.replace(/\/{2,}/g, '/');
     }
 
     async function loadGLTFModel() {
-      let modelPath = core.fileObject.path + core.fileObject.basename + "." + core.fileObject.extension;
+      let gltfModelPath = core.fileObject.path + core.fileObject.basename + "." + core.fileObject.extension;
       if (core.CONFIG.entity.proxyPath !== undefined) {
-        modelPath = core.getProxyPath(modelPath);
+        gltfModelPath = core.getProxyPath(gltfModelPath);
       }
 
       const dracoBase = normalizePath(
@@ -2272,141 +2323,150 @@ function traverseMesh(object) {
       const draco = new DRACOLoader();
       draco.setDecoderPath(dracoBase);
       loader.setDRACOLoader(draco);
-    
-      const gltf = await new Promise((resolve, reject) => {
-        loader.load(
-          modelPath,
-          resolve,
-          (xhr) => {
-            if (!core.circle) return;
-            const total = xhr.total || xhr.loaded || 1;
-            const percentComplete = Math.min((xhr.loaded / total) * 100, 100);
-            if (!Number.isFinite(percentComplete)) return;
-            core.circle.show();
-            core.circle.set(percentComplete, 100);
-            if (percentComplete >= 100) {
-              core.circle.hide();
-              showToast("Model " + core.fileObject.filename + " has been loaded.");
-            }
-          },
-        reject
-        );
-      });
 
-      //gltf.scene.position.set(0, 0, 0);
-      return gltf.scene;
+      try {
+        const gltf = await new Promise((resolve, reject) => {
+          loader.load(
+            gltfModelPath,
+            resolve,
+            (xhr) => {
+              if (!core.circle) return;
+              const total = xhr.total || xhr.loaded || 1;
+              const percentComplete = Math.min((xhr.loaded / total) * 100, 100);
+              if (!Number.isFinite(percentComplete)) return;
+              core.circle.show();
+              core.circle.set(percentComplete, 100);
+              if (percentComplete >= 100) {
+                core.circle.hide();
+                showToast("Model " + core.fileObject.filename + " has been loaded.");
+              }
+            },
+            reject
+          );
+        });
+        return gltf.scene;
+      } finally {
+        draco.dispose();
+      }
     }
 
-    switch (core.fileObject.extension.toLowerCase()) {
-      case "obj": {
-        const object = await loadOBJWithMTL();
-        afterLoad({ object });
-        break;
-      }
-
-      case "fbx": {
-        const loader = await createLoader(core.fileObject.extension.toLowerCase());
-        const object = await loadAsync(loader, modelPath, onProgress);
-        //object.position.set(0, 0, 0);
-        afterLoad({ object });
-        break;
-      }
-
-      case "ply": {
-        const loader = await createLoader(core.fileObject.extension.toLowerCase());
-        const geometry = await loadAsync(loader, modelPath, onProgress);
-        geometry.computeVertexNormals();
-        const material = new THREE.MeshStandardMaterial({ color: 0x0055ff, flatShading: true });
-        const object = new THREE.Mesh(geometry, material);
-        object.position.set(0, 0, 0);
-        object.castShadow = true;
-        object.receiveShadow = true;
-        afterLoad({ object });
-        break;
-      }
-
-      case "dae": {
-        const loader = await createLoader(core.fileObject.extension.toLowerCase());
-        const collada = await loadAsync(loader, modelPath, onProgress);
-        const object = collada.scene;
-        object.position.set(0, 0, 0);
-        afterLoad({ object });
-        break;
-      }
-
-      case "ifc": {
-        const loader = await createLoader(core.fileObject.extension.toLowerCase());
-        const ifcWasmPath =
-          `/assets/ifc/`;
-        loader.ifcManager.setWasmPath(ifcWasmPath, true);
-        const object = await loadAsync(loader, modelPath, onProgress);
-        afterLoad({ object });
-        break;
-      }
-
-      case "stl": {
-        const loader = await createLoader(core.fileObject.extension.toLowerCase());
-        const geometry = await loadAsync(loader, modelPath, onProgress);
-        let meshMaterial = new THREE.MeshPhongMaterial({ color: 0xff5533, specular: 0x111111, shininess: 200 });
-        if (geometry.hasColors) {
-          meshMaterial = new THREE.MeshPhongMaterial({ opacity: geometry.alpha, vertexColors: true });
+    try {
+      switch (core.fileObject.extension.toLowerCase()) {
+        case "obj": {
+          const object = await loadOBJWithMTL();
+          await afterLoad({ object });
+          break;
         }
-        const object = new THREE.Mesh(geometry, meshMaterial);
-        object.position.set(0, 0, 0);
-        object.castShadow = true;
-        object.receiveShadow = true;
-        core.mainObject.push(object);
-        afterLoad({ object });
-        break;
-      }
 
-      case "xyz": {
-        const loader = await createLoader(core.fileObject.extension.toLowerCase());
-        const geometry = await loadAsync(loader, modelPath, onProgress);
-        geometry.center();
-        const material = new THREE.PointsMaterial({ size: 0.1, vertexColors: geometry.hasAttribute("color") === true });
-        const object = new THREE.Points(geometry, material);
-        object.position.set(0, 0, 0);
-        afterLoad({ object });
-        break;
-      }
+        case "fbx": {
+          const loader = await createLoader(core.fileObject.extension.toLowerCase());
+          const object = await loadAsync(loader, modelPath, onProgress);
+          await afterLoad({ object });
+          break;
+        }
 
-      case "pcd": {
-        const loader = await createLoader(core.fileObject.extension.toLowerCase());
-        const mesh = await loadAsync(loader, modelPath, onProgress);
-        afterLoad({ object: mesh });
-        break;
-      }
+        case "ply": {
+          const loader = await createLoader(core.fileObject.extension.toLowerCase());
+          const geometry = await loadAsync(loader, modelPath, onProgress);
+          if (!geometry.getAttribute?.("normal")) {
+            geometry.computeVertexNormals();
+          }
+          const material = new THREE.MeshStandardMaterial({ color: 0x0055ff, flatShading: true });
+          const object = new THREE.Mesh(geometry, material);
+          object.position.set(0, 0, 0);
+          object.castShadow = true;
+          object.receiveShadow = true;
+          await afterLoad({ object });
+          break;
+        }
 
-      case "json": {
-        const loader = new THREE.ObjectLoader();
-        const object = await loadAsync(loader, modelPath, onProgress);
-        object.position.set(0, 0, 0);
-        core.mainObject.push(object);
-        afterLoad({ object });
-        break;
-      }
+        case "dae": {
+          const loader = await createLoader(core.fileObject.extension.toLowerCase());
+          const collada = await loadAsync(loader, modelPath, onProgress);
+          const object = collada.scene;
+          object.position.set(0, 0, 0);
+          await afterLoad({ object });
+          break;
+        }
 
-      case "3ds": {
-        const loader = await createLoader(core.fileObject.extension.toLowerCase());
-        loader.setResourcePath(core.fileObject.path);
-        let mp = core.fileObject.path;
-        if (core.CONFIG.entity.proxyPath !== undefined) mp = core.getProxyPath(mp);
-        const object = await loadAsync(loader, mp + core.fileObject.basename + "." + core.fileObject.extension, onProgress);
-        core.mainObject.push(object);
-        afterLoad({ object });
-        break;
-      }
+        case "ifc": {
+          const loader = await createLoader(core.fileObject.extension.toLowerCase());
+          const ifcWasmPath =
+            `/assets/ifc/`;
+          loader.ifcManager.setWasmPath(ifcWasmPath, true);
+          const object = await loadAsync(loader, modelPath, onProgress);
+          await afterLoad({ object });
+          break;
+        }
 
-      case "glb":
-      case "gltf": {
-        const object = await loadGLTFModel();
-        afterLoad({ object });
-        break;
+        case "stl": {
+          const loader = await createLoader(core.fileObject.extension.toLowerCase());
+          const geometry = await loadAsync(loader, modelPath, onProgress);
+          let meshMaterial = new THREE.MeshPhongMaterial({ color: 0xff5533, specular: 0x111111, shininess: 200 });
+          if (geometry.hasColors) {
+            meshMaterial = new THREE.MeshPhongMaterial({ opacity: geometry.alpha, vertexColors: true });
+          }
+          const object = new THREE.Mesh(geometry, meshMaterial);
+          object.position.set(0, 0, 0);
+          object.castShadow = true;
+          object.receiveShadow = true;
+          await afterLoad({ object });
+          break;
+        }
+
+        case "xyz": {
+          const loader = await createLoader(core.fileObject.extension.toLowerCase());
+          const geometry = await loadAsync(loader, modelPath, onProgress);
+          geometry.center();
+          const material = new THREE.PointsMaterial({ size: 0.1, vertexColors: geometry.hasAttribute("color") === true });
+          const object = new THREE.Points(geometry, material);
+          object.position.set(0, 0, 0);
+          await afterLoad({ object });
+          break;
+        }
+
+        case "pcd": {
+          const loader = await createLoader(core.fileObject.extension.toLowerCase());
+          const mesh = await loadAsync(loader, modelPath, onProgress);
+          mesh.geometry?.center?.();
+          if (mesh.material) {
+            mesh.material.size = Math.max(mesh.material.size ?? 0, 0.1);
+          }
+          await afterLoad({ object: mesh });
+          break;
+        }
+
+        case "json": {
+          const loader = new THREE.ObjectLoader();
+          const object = await loadAsync(loader, modelPath, onProgress);
+          object.position.set(0, 0, 0);
+          await afterLoad({ object });
+          break;
+        }
+
+        case "3ds": {
+          const loader = await createLoader(core.fileObject.extension.toLowerCase());
+          loader.setResourcePath(core.fileObject.path);
+          let mp = core.fileObject.path;
+          if (core.CONFIG.entity.proxyPath !== undefined) mp = core.getProxyPath(mp);
+          const object = await loadAsync(loader, mp + core.fileObject.basename + "." + core.fileObject.extension, onProgress);
+          await afterLoad({ object });
+          break;
+        }
+
+        case "glb":
+        case "gltf": {
+          const object = await loadGLTFModel();
+          await afterLoad({ object });
+          break;
+        }
+        default:
+          showToast("Extension not supported yet");
+          return;
       }
-      default:
-        showToast("Extension not supported yet");
-        break;
+    } catch (error) {
+      reportLoadError(error, `Failed to load ${core.fileObject.filename}`);
+      throw error;
     }
 }
 
@@ -9259,7 +9319,7 @@ https://www.gnu.org/licenses/.
 
 //Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF
 
-const SOURCE = "IIIF" ;
+const SOURCE = "" ;
 const isE2E = window.__E2E__ === true ;
 
 window.viewer = {
@@ -9443,6 +9503,8 @@ const Viewer = {
   _ext: '',
   DFG_ASSETS: '',
   isLightweight: false,
+  cleanupCallbacks: [],
+  resizeObserver: null,
 
   getE2EModelOverride() {
     if (!window.__E2E__) return null;
@@ -9483,10 +9545,173 @@ const Viewer = {
     state.errors.push(message);
   },
 
+  addCleanup(callback) {
+    if (typeof callback === "function") {
+      this.cleanupCallbacks.push(callback);
+    }
+  },
+
+  bindEventListener(target, type, handler, options) {
+    if (!target || typeof target.addEventListener !== "function") return;
+    target.addEventListener(type, handler, options);
+    this.addCleanup(() => target.removeEventListener(type, handler, options));
+  },
+
+  cleanupRuntimeBindings() {
+    while (this.cleanupCallbacks.length > 0) {
+      const callback = this.cleanupCallbacks.pop();
+      try {
+        callback();
+      } catch (error) {
+        console.warn("Viewer cleanup callback failed:", error);
+      }
+    }
+
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    }
+  },
+
+  cleanupTransientUI() {
+    const iiifForm = document.getElementById("form-IIIF");
+    if (iiifForm) {
+      iiifForm.remove();
+    }
+  },
+
+  reportError(error, options = {}) {
+    return reportViewerError(error, {
+      consoleLabel: "Viewer error:",
+      ...options,
+    });
+  },
+
+  disposeMaterial(material) {
+    if (!material) return;
+
+    const materials = Array.isArray(material) ? material : [material];
+
+    materials.forEach((entry) => {
+      if (!entry || typeof entry !== "object") return;
+
+      Object.values(entry).forEach((value) => {
+        if (value && typeof value === "object" && value.isTexture === true) {
+          value.dispose();
+        }
+      });
+
+      entry.dispose?.();
+    });
+  },
+
+  disposeObjectResources(object) {
+    if (!object) return;
+
+    const disposeNode = (node) => {
+      if (!node || typeof node !== "object") return;
+      node.geometry?.dispose?.();
+      Viewer.disposeMaterial(node.material);
+    };
+
+    if (Array.isArray(object)) {
+      object.forEach((entry) => Viewer.disposeObjectResources(entry));
+      return;
+    }
+
+    object.traverse?.((child) => disposeNode(child));
+  },
+
+  removeAndDisposeFromScene(object) {
+    if (!object) return;
+
+    if (Array.isArray(object)) {
+      object.forEach((entry) => Viewer.removeAndDisposeFromScene(entry));
+      return;
+    }
+
+    if (object.parent) {
+      object.parent.remove(object);
+    } else {
+      core.scene?.remove?.(object);
+    }
+
+    Viewer.disposeObjectResources(object);
+  },
+
+  resetLoadedModelState() {
+    core.transformControl?.detach?.();
+    core.transformControlLight?.detach?.();
+    core.transformControlLightTarget?.detach?.();
+
+    if (core.outlineClipping) {
+      Viewer.removeAndDisposeFromScene(core.outlineClipping);
+      core.outlineClipping = null;
+      setCore('outlineClipping', null);
+    }
+
+    if (Viewer.textMesh) {
+      Viewer.removeAndDisposeFromScene(Viewer.textMesh);
+      Viewer.textMesh = null;
+    }
+
+    if (Viewer.ruler?.length) {
+      Viewer.ruler.forEach((item) => Viewer.removeAndDisposeFromScene(item));
+    }
+    Viewer.ruler = [];
+    Viewer.rulerObject = null;
+    Viewer.textMeshDistance = null;
+
+    if (core.mainObject?.length) {
+      core.mainObject.forEach((obj) => Viewer.removeAndDisposeFromScene(obj));
+      core.mainObject.length = 0;
+    }
+
+    if (Array.isArray(core.helperObjects)) core.helperObjects.length = 0;
+    if (Array.isArray(core.selectedObjects)) core.selectedObjects.length = 0;
+    if (Array.isArray(Viewer.helperObjects)) Viewer.helperObjects.length = 0;
+    if (Array.isArray(Viewer.selectedObjects)) Viewer.selectedObjects.length = 0;
+    if (Array.isArray(Viewer.selectedFaces)) Viewer.selectedFaces.length = 0;
+    Viewer.lastPickedFace = { id: "", color: "", object: "" };
+  },
+
+  renderFatalError(error) {
+    const message = this.reportError(error, {
+      context: "Viewer initialization failed",
+      toast: false,
+      consoleLabel: "Viewer initialization error:",
+    });
+    const container =
+      this.container ||
+      document.getElementById(core.CONFIG?.viewer?.container || "DFG_3DViewer") ||
+      document.body;
+
+    if (!container) return;
+
+    let errorBox = document.getElementById("viewer-fatal-error");
+    if (!errorBox) {
+      errorBox = document.createElement("div");
+      errorBox.id = "viewer-fatal-error";
+      errorBox.style.padding = "16px";
+      errorBox.style.margin = "12px 0";
+      errorBox.style.border = "1px solid #b91c1c";
+      errorBox.style.background = "#fef2f2";
+      errorBox.style.color = "#7f1d1d";
+      errorBox.style.fontFamily = "sans-serif";
+      container.prepend(errorBox);
+    }
+
+    errorBox.textContent = message;
+  },
+
   async MainInit() {
     if (window.__E2E__) {
       this.ensureE2EState();
     }
+
+    this.cleanupRuntimeBindings();
+    this.cleanupTransientUI();
+    this.resetLoadedModelState();
 
     await new Promise(r => {
       if (document.readyState !== 'loading') r();
@@ -9826,7 +10051,10 @@ const Viewer = {
         originalMaterial: core.scene.getObjectById(_id).material.clone(),
       });
       const tempMaterial = core.scene.getObjectById(_id).material.clone();
-      tempMaterial.color = normalizeColor("0x00FF00");
+      const selectedColor = Viewer.toThreeColor("0x00FF00");
+      if (selectedColor) {
+        tempMaterial.color = selectedColor;
+      }
       core.scene.getObjectById(_id).material = tempMaterial;
       core.scene.getObjectById(_id).material.needsUpdate = true;
     }
@@ -9947,7 +10175,7 @@ const Viewer = {
     var modalGallery = document.createElement("div");
     var modalImage = document.createElement("img");
     modalImage.setAttribute("class", "modalImage");
-    modalGallery.addEventListener("wheel", function (e) {
+    Viewer.bindEventListener(modalGallery, "wheel", function (e) {
       e.preventDefault();
       e.stopPropagation();
       if (e.deltaY > 0 && Viewer.zoomImage > 0.15) {
@@ -9967,7 +10195,7 @@ const Viewer = {
       modalGallery.style.display = "none";
     };
 
-    document.addEventListener("click", function (event) {
+    Viewer.bindEventListener(document, "click", function (event) {
       if (
         !modalGallery.contains(event.target) &&
         !imageList.contains(event.target)
@@ -10120,6 +10348,16 @@ const Viewer = {
     return null;
   },
 
+  toThreeColor(input) {
+    const normalized = normalizeColor(input);
+    if (!normalized) return null;
+    return new THREE.Color(
+      normalized.r / 255,
+      normalized.g / 255,
+      normalized.b / 255
+    );
+  },
+
   pickFaces(_id) {
     let mat, colorHex;
     if ((Viewer.lastPickedFace.id == "" && _id !== "") || _id != Viewer.lastPickedFace.id) {
@@ -10133,21 +10371,26 @@ const Viewer = {
         object: _id.object.id,
       };
     } else if (_id == "" && Viewer.lastPickedFace.id !== "") {
+      const previousColor = Viewer.toThreeColor(Viewer.lastPickedFace.color);
       core.scene
         .getObjectById(Viewer.lastPickedFace.object)
-        .material.color = normalizeColor(Viewer.lastPickedFace.color);
+        .material.color = previousColor ?? core.scene.getObjectById(Viewer.lastPickedFace.object).material.color;
       Viewer.lastPickedFace = { id: "", color: "", object: "" };
     } else if (_id != Viewer.lastPickedFace.id) {
+      const previousColor = Viewer.toThreeColor(Viewer.lastPickedFace.color);
       core.scene
         .getObjectById(Viewer.lastPickedFace.object)
-        .material.color = normalizeColor(Viewer.lastPickedFace.color);
+        .material.color = previousColor ?? core.scene.getObjectById(Viewer.lastPickedFace.object).material.color;
       Viewer.lastPickedFace = {
         id: _id,
         color: colorHex,
         object: _id.object.id,
       };
     }
-    if (_id !== "") _id.object.material.color = normalizeColor(0xff0000);
+    if (_id !== "") {
+      const pickedColor = Viewer.toThreeColor(0xff0000);
+      if (pickedColor) _id.object.material.color = pickedColor;
+    }
   },
 
   buildRuler(_id) {
@@ -10300,7 +10543,11 @@ const Viewer = {
         await document.exitFullscreen();
       }
     } catch (err) {
-      console.error("Fullscreen error:", err);
+      Viewer.reportError(err, {
+        context: "Fullscreen error",
+        toast: false,
+        e2e: false,
+      });
     }
   },
 
@@ -11336,9 +11583,9 @@ const Viewer = {
         document.body.appendChild(core.renderer.domElement);
       }
 
-      core.renderer.domElement.addEventListener("pointerdown", Viewer.onPointerDown);
-      core.renderer.domElement.addEventListener("pointerup", Viewer.onPointerUp);
-      core.renderer.domElement.addEventListener("pointermove", Viewer.onPointerMove);
+	      Viewer.bindEventListener(core.renderer.domElement, "pointerdown", Viewer.onPointerDown);
+	      Viewer.bindEventListener(core.renderer.domElement, "pointerup", Viewer.onPointerUp);
+	      Viewer.bindEventListener(core.renderer.domElement, "pointermove", Viewer.onPointerMove);
 
       const devicePixelRatio = window.devicePixelRatio || 1;
       core.renderer.setSize(core.CONFIG.viewer.canvasDimensions.x, core.CONFIG.viewer.canvasDimensions.y);
@@ -11391,7 +11638,7 @@ const Viewer = {
         "px"
       );
       core.container.appendChild(Viewer.fullscreenMode);
-      document.getElementById("fullscreenMode").addEventListener("click", Viewer.toggleFullscreen, false);
+	      Viewer.bindEventListener(document.getElementById("fullscreenMode"), "click", Viewer.toggleFullscreen, false);
 
       Viewer.downloadModel = document.createElement("div");
       setCore('downloadModel', Viewer.downloadModel);
@@ -11498,21 +11745,71 @@ const Viewer = {
         Viewer.archiveType = Viewer._ext;
       }
 
+      const isLocalPreview = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+      console.info('Running on', window.location.hostname, '- Local preview mode:', isLocalPreview);
+      if (!isLocalPreview) return;
+      else {
+        const picker = document.getElementById('example-model-picker');
+        const select = document.getElementById('example-model-select');
+        const themeToggle = document.getElementById('example-theme-toggle');
+        const viewer = document.getElementById('DFG_3DViewer');
+        const THEME_STORAGE_KEY = 'iiif-dark-mode';
+        if (!picker || !select || !themeToggle || !viewer) return;
+
+        const syncPickerTheme = (isDark = window.localStorage.getItem(THEME_STORAGE_KEY) === '1') => {
+          document.body.classList.toggle('iiif-dark', Boolean(isDark));
+          themeToggle.textContent = isDark ? '☀️' : '🌙';
+          themeToggle.setAttribute('aria-pressed', isDark ? 'true' : 'false');
+        };
+
+        const localurl = new URL(window.location.href);
+        const selectedModel =
+          localurl.searchParams.get('model') ||
+          window.localStorage.getItem('dfg3dviewer-test-model') ||
+          viewer.getAttribute('3d') ||
+          './examples/box.stl';
+
+        picker.style.display = 'inline-flex';
+        select.value = selectedModel;
+        viewer.setAttribute('3d', selectedModel);
+        syncPickerTheme();
+
+        themeToggle.addEventListener('click', () => {
+          const nextIsDark = !document.body.classList.contains('iiif-dark');
+          window.localStorage.setItem(THEME_STORAGE_KEY, nextIsDark ? '1' : '0');
+          document.getElementById('form-IIIF')?.classList.toggle('dark', nextIsDark);
+          const iiifThemeToggle = document.getElementById('iiif-toggle-theme');
+          if (iiifThemeToggle) {
+            iiifThemeToggle.textContent = nextIsDark ? '☀️' : '🌙';
+            iiifThemeToggle.setAttribute('aria-pressed', nextIsDark ? 'true' : 'false');
+          }
+          syncPickerTheme(nextIsDark);
+        });
+
+        select.addEventListener('change', () => {
+          const nextModel = select.value;
+          window.localStorage.setItem('dfg3dviewer-test-model', nextModel);
+          localurl.searchParams.set('model', nextModel);
+          window.location.href = localurl.toString();
+        });
+      }
+
       core.autoPath = "";
           
       if (window.__E2E__) {
         try {
           await Viewer.mainLoadModelWrapper();
         } catch (error) {
-          Viewer.recordE2EError(error);
-          console.error('E2E model load error:', error);
+          Viewer.reportError(error, {
+            context: "E2E model load error",
+          });
         }
-      } else if (core.CONFIG.entity.metadata.source === "" && !Viewer.isLightweight) {
-        try {
-          if (core.fetchMetadataXML) {
-            const response = await fetch(core.CONFIG.viewer.exportPath + core.CONFIG.entity.id, {
-              method: 'POST',
-              headers: {
+	      } else if (core.CONFIG.entity.metadata.source === "") {
+	        try {
+	          if (core.fetchMetadataXML && !core.isLightweight) {
+	            const response = await fetch(core.CONFIG.viewer.exportPath + core.CONFIG.entity.id, {
+	              method: 'POST',
+	              headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/xml'
               },
@@ -11542,51 +11839,54 @@ const Viewer = {
               ) {
                 core.autoPath = node.textContent;
                 break;
-              }
-            }
-          }
-          await Viewer.mainLoadModelWrapper();
-        } catch (err) {
-          console.error('Metadata load error:', err);
-        }
-      } else if (core.CONFIG.entity.metadata.source.toLowerCase().substring(0, 4) === "iiif") {
-          const formContainer = document.createElement("div");
-          formContainer.id = "form-IIIF";
+	              }
+	            }
+	          }
+	          await Viewer.mainLoadModelWrapper();
+	        } catch (err) {
+	          Viewer.reportError(err, {
+	            context: core.isLightweight ? "Lightweight model load error" : "Metadata load error",
+	          });
+	        }
+	      } else if (core.CONFIG.entity.metadata.source.toLowerCase().substring(0, 4) === "iiif") {
+	          Viewer.cleanupTransientUI();
+	          const formContainer = document.createElement("div");
+            formContainer.id = "form-IIIF";
 
-          /* header */
-          const header = document.createElement("div");
-          header.className = "form-IIIF-header";
-          header.innerHTML = `
-            <span class="title">IIIF Loader</span>
-            <div class="tools">
-              <button type="button" id="iiif-toggle-theme" title="Toggle dark mode">🌙</button>
-              <button type="button" id="iiif-toggle-collapse" title="Collapse">▾</button>
-            </div>
-          `;
-
-          formContainer.appendChild(header);
-
-          /* content */
-          const content = document.createElement("div");
-          content.className = "form-IIIF-content";
-          content.id = "form-IIIF-content";
-          content.innerHTML = `
-            <div class="form-IIIF-group">
-              <input type="text" id="manifest-url" placeholder="https://example.org/iiif/manifest.json">
-              <button class="primary" id="load-manifest-from-url">Load from URL</button>
-            </div>
-
-            <div class="form-IIIF-group column">
-              <textarea id="manifest-text" rows="8" placeholder="Paste IIIF manifest JSON here…"></textarea>
-              <div class="actions">
-                <button class="secondary" id="load-manifest-from-text">Load from Text</button>
+            /* header */
+            const header = document.createElement("div");
+            header.className = "form-IIIF-header";
+            header.innerHTML = `
+              <span class="title">IIIF Loader</span>
+              <div class="tools">
+                <button type="button" id="iiif-toggle-theme" title="Toggle dark mode">🌙</button>
+                <button type="button" id="iiif-toggle-collapse" title="Collapse">▾</button>
               </div>
-            </div>
-          `;
+            `;
 
-          formContainer.appendChild(content);
+            formContainer.appendChild(header);
 
-          document.body.appendChild(formContainer);
+            /* content */
+            const content = document.createElement("div");
+            content.className = "form-IIIF-content";
+            content.id = "form-IIIF-content";
+            content.innerHTML = `
+              <div class="form-IIIF-group">
+                <input type="text" id="manifest-url" placeholder="https://example.org/iiif/manifest.json">
+                <button class="primary" id="load-manifest-from-url">Load from URL</button>
+              </div>
+
+              <div class="form-IIIF-group column">
+                <textarea id="manifest-text" rows="8" placeholder="Paste IIIF manifest JSON here…"></textarea>
+                <div class="actions">
+                  <button class="secondary" id="load-manifest-from-text">Load from Text</button>
+                </div>
+              </div>
+            `;
+
+            formContainer.appendChild(content);
+
+            document.body.appendChild(formContainer);
 
         async function setupIIIF(newUrlOrJson, type="url") {
           if (type === "text") {
@@ -11599,21 +11899,9 @@ const Viewer = {
             loadedIIIF.modelUrls.push('https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb');
             showToast("No 3D model found in IIIF manifest, loading example model.");
           }
-          // reset scene
-          // detach first to avoid issues with transform controls
-          if (core.transformControl?.object) {
-            core.transformControl.detach();
-          }
-          core.axesHelper.visible = false;         
-
-          // remove objects from scene
-          core.mainObject.forEach((obj) => {
-            core.scene.remove(obj);
-          });
-
-          // clear arrays
-          core.mainObject.length = 0;
-          core.helperObjects.length = 0;
+          // reset scene and release GPU resources from the previous model batch
+          Viewer.resetLoadedModelState();
+          core.axesHelper.visible = false;
           console.log("TOTAL Annotations: " + loadedIIIF.annotations.length);
           if (loadedIIIF.annotations.length !== loadedIIIF.modelUrls.length) {
             //console.warn("Number of annotations does not match number of model URLs, adding testing model...");
@@ -11663,74 +11951,86 @@ const Viewer = {
           const collapseBtn = document.getElementById("iiif-toggle-collapse");
           const themeBtn = document.getElementById("iiif-toggle-theme");
           const STORAGE_KEY = "iiif-dark-mode";
+          const syncGlobalTheme = (isDark) => {
+            document.body.classList.toggle("iiif-dark", isDark);
+            themeBtn.textContent = isDark ? "☀️" : "🌙";
+            themeBtn.setAttribute("aria-pressed", isDark ? "true" : "false");
+            const testThemeToggle = document.getElementById("test-theme-toggle");
+            if (testThemeToggle) {
+              testThemeToggle.textContent = isDark ? "☀️" : "🌙";
+              testThemeToggle.setAttribute("aria-pressed", isDark ? "true" : "false");
+            }
+          };
 
           // restore
           if (localStorage.getItem(STORAGE_KEY) === "1") {
             form.classList.add("dark");
-            themeBtn.textContent = "☀️";
           }
+          syncGlobalTheme(form.classList.contains("dark"));
 
-          themeBtn.addEventListener("click", () => {
+          Viewer.bindEventListener(themeBtn, "click", () => {
             const isDark = form.classList.toggle("dark");
-            themeBtn.textContent = isDark ? "☀️" : "🌙";
             localStorage.setItem(STORAGE_KEY, isDark ? "1" : "0");
+            syncGlobalTheme(isDark);
           });
 
-          collapseBtn.addEventListener("click", () => {
+          Viewer.bindEventListener(collapseBtn, "click", () => {
             form.classList.toggle("collapsed");
             collapseBtn.textContent = form.classList.contains("collapsed") ? "▸" : "▾";
           });
           // create a small dropdown to switch iiif manifests at runtime
-          document.getElementById("iiif-manifest-select").addEventListener("change", async (ev) => {
+          Viewer.bindEventListener(document.getElementById("iiif-manifest-select"), "change", async (ev) => {
             try {
               if (ev.target.value !== Viewer.iiifConfigURL.url) {
                 core.objectsConfig.setupIndex = 0;
                 await setupIIIF(ev.target.value, "url");
               }
             } catch (err) {
-              console.error(err);
-              showToast("Error loading IIIF manifest: " + (err.message || err));
+              Viewer.reportError(err, {
+                context: "Error loading IIIF manifest",
+              });
             }
             });
 
-          document.getElementById("load-manifest-from-url").addEventListener("click", async (ev) => {
+          Viewer.bindEventListener(document.getElementById("load-manifest-from-url"), "click", async (ev) => {
             try {
               const inputElement = document.getElementById("manifest-url");
               if (inputElement.value === "" || !isUrlFlexible(inputElement.value)) {
-                inputElement.style.border = "2px solid red";
-                showToast("Please enter a valid IIIF manifest URL.");
-                return;
-              } else {
-                inputElement.style.border = "2px solid green";
-                core.objectsConfig.setupIndex = 0;
+              inputElement.style.border = "2px solid red";
+              showToast("Please enter a valid IIIF manifest URL.");
+              return;
+            } else {
+              inputElement.style.border = "2px solid green";
+              core.objectsConfig.setupIndex = 0;
                 console.log("Loading IIIF manifest from URL: " + inputElement.value);
                 await setupIIIF(inputElement.value, "url");
               }
             } catch (err) {
-              console.error(err);
-              showToast("Error loading IIIF manifest: " + (err.message || err));
+              Viewer.reportError(err, {
+                context: "Error loading IIIF manifest",
+              });
             }
             });
 
-          document.getElementById("load-manifest-from-text").addEventListener("click", async (ev) => {
+          Viewer.bindEventListener(document.getElementById("load-manifest-from-text"), "click", async (ev) => {
             try {
               const inputElement = document.getElementById("manifest-text");
               if (inputElement.value === "" || !isValidJsonObject(inputElement.value)) {
-                inputElement.style.border = "2px solid red";
-                showToast("Please enter a valid IIIF JSON text.");
-                return;
-              } else {
-                inputElement.style.border = "2px solid green";
-                core.objectsConfig.setupIndex = 0;
+              inputElement.style.border = "2px solid red";
+              showToast("Please enter a valid IIIF JSON text.");
+              return;
+            } else {
+              inputElement.style.border = "2px solid green";
+              core.objectsConfig.setupIndex = 0;
                 console.log("Loading IIIF manifest from privided text");
                 await setupIIIF(inputElement.value, "text");
               }
             } catch (err) {
-              console.error(err);
-              showToast("Error loading IIIF manifest: " + (err.message || err));
+              Viewer.reportError(err, {
+                context: "Error loading IIIF manifest",
+              });
             }
-            });
-
+          });
         }      
         console.log("Loading from source: " + core.CONFIG.entity.metadata.source);
         switch(core.CONFIG.entity.metadata.source.substring(0, 4).toLowerCase()) {
@@ -11749,18 +12049,17 @@ const Viewer = {
       core.renderer.setPixelRatio(devicePixelRatio);
       const update = () => Viewer.updateSize();
 
-      window.addEventListener('resize', update);
+	      Viewer.bindEventListener(window, 'resize', update);
 
-      Viewer.resizeObserver = new ResizeObserver(update);
-      Viewer.resizeObserver.observe(Viewer.viewerWrapper);
+	      Viewer.resizeObserver = new ResizeObserver(update);
+	      Viewer.resizeObserver.observe(Viewer.viewerWrapper);
 
 
-      document.addEventListener('fullscreenchange', Viewer.onFullscreenChange);
+	      Viewer.bindEventListener(document, 'fullscreenchange', Viewer.onFullscreenChange);
 
-      window.addEventListener('orientationchange', () =>
-        setTimeout(update, 100)
-      );
-    }
+	      const onOrientationChange = () => setTimeout(update, 100);
+	      Viewer.bindEventListener(window, 'orientationchange', onOrientationChange);
+	    }
   },
   render() {
     core.controls?.update();
@@ -11785,7 +12084,11 @@ async function expectWebGL(page) {
 }
 
 (async () => {
-  await Viewer.MainInit();
+  try {
+    await Viewer.MainInit();
+  } catch (error) {
+    Viewer.renderFatalError(error);
+  }
 })();
 
 export { Viewer, expectWebGL };

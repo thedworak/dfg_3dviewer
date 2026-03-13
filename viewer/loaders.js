@@ -16,9 +16,10 @@ export const loadRoomEnvironment = async () => (await import("three/examples/jsm
 
 import { core } from './core.js';
 import { fetchSettings } from "./metadata.js";
-import { showToast } from "./viewer-utils.js";
+import { reportViewerError, showToast } from "./viewer-utils.js";
 
 export var outlineClipping;
+let environmentTexturePromise = null;
 
 const loaderMap = {
   gltf: loadGLTFLoader,
@@ -83,7 +84,7 @@ function setupSingleMaterial(materials, material) {
   //material.clipIntersection = false;
   if (material.name === "") material.name = material.uuid;
   var newMaterial = { name: material.name, uuid: material.uuid };
-  if (!materials.includes(newMaterial)) materials.push(newMaterial);
+  if (!materials.some((item) => item.uuid === newMaterial.uuid)) materials.push(newMaterial);
 }
 
 function setupMaterials(_object) {
@@ -91,7 +92,13 @@ function setupMaterials(_object) {
   if (_object.isMesh) {
     _object.castShadow = true;
     _object.receiveShadow = true;
-    _object.geometry.computeVertexNormals();
+    if (
+      _object.geometry &&
+      typeof _object.geometry.computeVertexNormals === "function" &&
+      !_object.geometry.getAttribute?.("normal")
+    ) {
+      _object.geometry.computeVertexNormals();
+    }
     if (_object.material.isMaterial) {
       setupSingleMaterial(materials, _object.material);
     } else if (Array.isArray(_object.material)) {
@@ -138,6 +145,7 @@ function traverseMesh(object) {
   var _material = null;
   var _materialGui = null;
   var _uuid = null;
+  if (!core.materialsFolder) return;
   core.materialsFolder
     .add(core.materialsPropertiesText, "Edit material", objectMaterials)
     .onChange(function (value) {
@@ -191,32 +199,54 @@ function traverseMesh(object) {
     });
 }
 
-  export async function loadModel() {
+function getEnvironmentTexture(renderer) {
+  if (!renderer) return Promise.resolve(null);
+  if (!environmentTexturePromise) {
+    environmentTexturePromise = (async () => {
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      try {
+        const TempRoomEnvironment = await loadRoomEnvironment();
+        return pmrem.fromScene(new TempRoomEnvironment()).texture;
+      } finally {
+        pmrem.dispose();
+      }
+    })();
+  }
+  return environmentTexturePromise;
+}
 
+function reportLoadError(error, context = "") {
+  const message = reportViewerError(error, {
+    context,
+    consoleLabel: "Viewer load error:",
+  });
+  core.circle?.hide();
+  if (typeof core.EXIT_CODE !== "undefined") core.EXIT_CODE = 1;
+  return message;
+}
+
+  export async function loadModel() {
     let modelPath = core.fileObject.path + core.fileObject.filename;
     if (core.CONFIG.entity.proxyPath !== undefined) {
       modelPath = core.getProxyPath(modelPath, core.CONFIG, core.fileObject);
     }
 
-    // Helper: promisify THREE loader.load
-    function loadAsync(loader, url, onProgress) {
+    function loadAsync(loader, url, progressHandler = onProgress) {
       return new Promise((resolve, reject) => {
-        loader.load(url, resolve, onProgress, reject);
+        loader.load(url, resolve, progressHandler, reject);
       });
     }
 
-    // Helper: common post-load pipeline
     async function afterLoad({ object }) {
       if (object === null || typeof object === "undefined") {
-        showToast("Loaded object is null or undefined.");
-        return;
+        throw new Error("Loaded object is null or undefined.");
       }
       core.handHint.hidden = true;
       window.viewer.modelLoaded = true;
       traverseMesh(object);
       if (core.fileObject.extension.toLowerCase() === "gltf" || core.fileObject.extension.toLowerCase() === "glb") core.fileObject.path = core.fileObject.path.replace("/gltf/", "/");
       else core.fileObject.path = core.fileObject.path.replace("gltf/", "");
-      fetchSettings(object);
+      await fetchSettings(object);
       core.outlineClipping = prepareOutlineClipping(object);
       if (Array.isArray(object)) {
         object.forEach(o => core.scene.add(o));
@@ -227,16 +257,7 @@ function traverseMesh(object) {
       }
       core.scene.add(core.outlineClipping);
       core.mainObject.push(object);
-
-      const pmrem = new THREE.PMREMGenerator(core.renderer);
-      const TempRoomEnvironment = await loadRoomEnvironment();
-      core.scene.environment = pmrem.fromScene(new TempRoomEnvironment()).texture;
-      pmrem.dispose();
-      /*const rgbeLoader = new RGBELoader();
-      rgbeLoader.load('env.hdr', (texture) => {
-        texture.mapping = THREE.EquirectangularReflectionMapping;
-        core.scene.environment = texture;
-      });*/
+      core.scene.environment = await getEnvironmentTexture(core.renderer);
     }
 
     async function loadOBJWithMTL() {
@@ -268,9 +289,10 @@ function traverseMesh(object) {
 
           obj.position.set(0, 0, 0);
           return obj;
-        } catch (_event) {
+        } catch (error) {
           core.CONFIG.noMTL = true;
           showToast("Error occured while loading attached MTL file.");
+          console.warn("MTL load failed, falling back to OBJ-only load.", error);
         }
       }
 
@@ -284,20 +306,18 @@ function traverseMesh(object) {
       return obj;
     }
 
-
     function normalizePath(path) {
       return path.replace(/\/{2,}/g, '/');
     }
 
     async function loadGLTFModel() {
-      let modelPath = core.fileObject.path + core.fileObject.basename + "." + core.fileObject.extension;
+      let gltfModelPath = core.fileObject.path + core.fileObject.basename + "." + core.fileObject.extension;
       if (core.CONFIG.entity.proxyPath !== undefined) {
-        modelPath = core.getProxyPath(modelPath);
+        gltfModelPath = core.getProxyPath(gltfModelPath);
       }
 
       const dracoBase = normalizePath(
       ENV_BUILD === 'drupal'
-        // GLTFLoader works with the dedicated Draco runtime files from the gltf subfolder.
         ? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/${ENV_BUILD}/assets/draco/gltf/`
         : `/assets/draco/gltf/`
       );
@@ -306,160 +326,161 @@ function traverseMesh(object) {
       const DRACOLoader = await loadDRACOLoader();
       const draco = new DRACOLoader();
       if (ENV_BUILD === 'drupal') {
-        // Some Drupal setups do not serve wasm from module directories correctly.
         draco.setDecoderConfig({ type: 'js' });
       }
       draco.setDecoderPath(dracoBase);
       loader.setDRACOLoader(draco);
-    
-      const gltf = await new Promise((resolve, reject) => {
-        loader.load(
-          modelPath,
-          resolve,
-          (xhr) => {
-            if (!core.circle) return;
-            const total = xhr.total || xhr.loaded || 1;
-            const percentComplete = Math.min((xhr.loaded / total) * 100, 100);
-            if (!Number.isFinite(percentComplete)) return;
-            core.circle.show();
-            core.circle.set(percentComplete, 100);
-            if (percentComplete >= 100) {
-              core.circle.hide();
-              showToast("Model " + core.fileObject.filename + " has been loaded.");
-            }
-          },
-        reject
-        );
-      });
 
-      //gltf.scene.position.set(0, 0, 0);
-      return gltf.scene;
+      try {
+        const gltf = await new Promise((resolve, reject) => {
+          loader.load(
+            gltfModelPath,
+            resolve,
+            (xhr) => {
+              if (!core.circle) return;
+              const total = xhr.total || xhr.loaded || 1;
+              const percentComplete = Math.min((xhr.loaded / total) * 100, 100);
+              if (!Number.isFinite(percentComplete)) return;
+              core.circle.show();
+              core.circle.set(percentComplete, 100);
+              if (percentComplete >= 100) {
+                core.circle.hide();
+                showToast("Model " + core.fileObject.filename + " has been loaded.");
+              }
+            },
+            reject
+          );
+        });
+        return gltf.scene;
+      } finally {
+        draco.dispose();
+      }
     }
 
-    switch (core.fileObject.extension.toLowerCase()) {
-      case "obj": {
-        const object = await loadOBJWithMTL();
-        afterLoad({ object });
-        break;
-      }
-
-      case "fbx": {
-        const loader = await createLoader(core.fileObject.extension.toLowerCase());
-        const object = await loadAsync(loader, modelPath, onProgress);
-        //object.position.set(0, 0, 0);
-        afterLoad({ object });
-        break;
-      }
-
-      case "ply": {
-        const loader = await createLoader(core.fileObject.extension.toLowerCase());
-        const geometry = await loadAsync(loader, modelPath, onProgress);
-        geometry.computeVertexNormals();
-        const material = new THREE.MeshStandardMaterial({ color: 0x0055ff, flatShading: true });
-        const object = new THREE.Mesh(geometry, material);
-        object.position.set(0, 0, 0);
-        object.castShadow = true;
-        object.receiveShadow = true;
-        afterLoad({ object });
-        break;
-      }
-
-      case "dae": {
-        const loader = await createLoader(core.fileObject.extension.toLowerCase());
-        const collada = await loadAsync(loader, modelPath, onProgress);
-        const object = collada.scene;
-        object.position.set(0, 0, 0);
-        afterLoad({ object });
-        break;
-      }
-
-      case "ifc": {
-        const loader = await createLoader(core.fileObject.extension.toLowerCase());
-        const ifcWasmPath =
-          ENV_BUILD === 'drupal'
-            ? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/${ENV_BUILD}/assets/ifc/`
-            : `/assets/ifc/`;
-        loader.ifcManager.setWasmPath(ifcWasmPath, true);
-        const object = await loadAsync(loader, modelPath, onProgress);
-        afterLoad({ object });
-        break;
-      }
-
-      case "stl": {
-        const loader = await createLoader(core.fileObject.extension.toLowerCase());
-        const geometry = await loadAsync(loader, modelPath, onProgress);
-        let meshMaterial = new THREE.MeshPhongMaterial({ color: 0xff5533, specular: 0x111111, shininess: 200 });
-        if (geometry.hasColors) {
-          meshMaterial = new THREE.MeshPhongMaterial({ opacity: geometry.alpha, vertexColors: true });
+    try {
+      switch (core.fileObject.extension.toLowerCase()) {
+        case "obj": {
+          const object = await loadOBJWithMTL();
+          await afterLoad({ object });
+          break;
         }
-        const object = new THREE.Mesh(geometry, meshMaterial);
-        object.position.set(0, 0, 0);
-        object.castShadow = true;
-        object.receiveShadow = true;
-        core.mainObject.push(object);
-        afterLoad({ object });
-        break;
-      }
 
-      case "xyz": {
-        const loader = await createLoader(core.fileObject.extension.toLowerCase());
-        const geometry = await loadAsync(loader, modelPath, onProgress);
-        geometry.center();
-        const material = new THREE.PointsMaterial({ size: 0.1, vertexColors: geometry.hasAttribute("color") === true });
-        const object = new THREE.Points(geometry, material);
-        object.position.set(0, 0, 0);
-        afterLoad({ object });
-        break;
-      }
+        case "fbx": {
+          const loader = await createLoader(core.fileObject.extension.toLowerCase());
+          const object = await loadAsync(loader, modelPath, onProgress);
+          await afterLoad({ object });
+          break;
+        }
 
-      case "pcd": {
-        const loader = await createLoader(core.fileObject.extension.toLowerCase());
-        const mesh = await loadAsync(loader, modelPath, onProgress);
-        afterLoad({ object: mesh });
-        break;
-      }
+        case "ply": {
+          const loader = await createLoader(core.fileObject.extension.toLowerCase());
+          const geometry = await loadAsync(loader, modelPath, onProgress);
+          if (!geometry.getAttribute?.("normal")) {
+            geometry.computeVertexNormals();
+          }
+          const material = new THREE.MeshStandardMaterial({ color: 0x0055ff, flatShading: true });
+          const object = new THREE.Mesh(geometry, material);
+          object.position.set(0, 0, 0);
+          object.castShadow = true;
+          object.receiveShadow = true;
+          await afterLoad({ object });
+          break;
+        }
 
-      case "json": {
-        const loader = new THREE.ObjectLoader();
-        const object = await loadAsync(loader, modelPath, onProgress);
-        object.position.set(0, 0, 0);
-        core.mainObject.push(object);
-        afterLoad({ object });
-        break;
-      }
+        case "dae": {
+          const loader = await createLoader(core.fileObject.extension.toLowerCase());
+          const collada = await loadAsync(loader, modelPath, onProgress);
+          const object = collada.scene;
+          object.position.set(0, 0, 0);
+          await afterLoad({ object });
+          break;
+        }
 
-      case "3ds": {
-        const loader = await createLoader(core.fileObject.extension.toLowerCase());
-        loader.setResourcePath(core.fileObject.path);
-        let mp = core.fileObject.path;
-        if (core.CONFIG.entity.proxyPath !== undefined) mp = core.getProxyPath(mp);
-        const object = await loadAsync(loader, mp + core.fileObject.basename + "." + core.fileObject.extension, onProgress);
-        core.mainObject.push(object);
-        afterLoad({ object });
-        break;
-      }
+        case "ifc": {
+          const loader = await createLoader(core.fileObject.extension.toLowerCase());
+          const ifcWasmPath =
+            ENV_BUILD === 'drupal'
+              ? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/${ENV_BUILD}/assets/ifc/`
+              : `/assets/ifc/`;
+          loader.ifcManager.setWasmPath(ifcWasmPath, true);
+          const object = await loadAsync(loader, modelPath, onProgress);
+          await afterLoad({ object });
+          break;
+        }
 
-      case "glb":
-      case "gltf": {
-        const object = await loadGLTFModel();
-        afterLoad({ object });
-        break;
+        case "stl": {
+          const loader = await createLoader(core.fileObject.extension.toLowerCase());
+          const geometry = await loadAsync(loader, modelPath, onProgress);
+          let meshMaterial = new THREE.MeshPhongMaterial({ color: 0xff5533, specular: 0x111111, shininess: 200 });
+          if (geometry.hasColors) {
+            meshMaterial = new THREE.MeshPhongMaterial({ opacity: geometry.alpha, vertexColors: true });
+          }
+          const object = new THREE.Mesh(geometry, meshMaterial);
+          object.position.set(0, 0, 0);
+          object.castShadow = true;
+          object.receiveShadow = true;
+          await afterLoad({ object });
+          break;
+        }
+
+        case "xyz": {
+          const loader = await createLoader(core.fileObject.extension.toLowerCase());
+          const geometry = await loadAsync(loader, modelPath, onProgress);
+          geometry.center();
+          const material = new THREE.PointsMaterial({ size: 0.1, vertexColors: geometry.hasAttribute("color") === true });
+          const object = new THREE.Points(geometry, material);
+          object.position.set(0, 0, 0);
+          await afterLoad({ object });
+          break;
+        }
+
+        case "pcd": {
+          const loader = await createLoader(core.fileObject.extension.toLowerCase());
+          const mesh = await loadAsync(loader, modelPath, onProgress);
+          mesh.geometry?.center?.();
+          if (mesh.material) {
+            mesh.material.size = Math.max(mesh.material.size ?? 0, 0.1);
+          }
+          await afterLoad({ object: mesh });
+          break;
+        }
+
+        case "json": {
+          const loader = new THREE.ObjectLoader();
+          const object = await loadAsync(loader, modelPath, onProgress);
+          object.position.set(0, 0, 0);
+          await afterLoad({ object });
+          break;
+        }
+
+        case "3ds": {
+          const loader = await createLoader(core.fileObject.extension.toLowerCase());
+          loader.setResourcePath(core.fileObject.path);
+          let mp = core.fileObject.path;
+          if (core.CONFIG.entity.proxyPath !== undefined) mp = core.getProxyPath(mp);
+          const object = await loadAsync(loader, mp + core.fileObject.basename + "." + core.fileObject.extension, onProgress);
+          await afterLoad({ object });
+          break;
+        }
+
+        case "glb":
+        case "gltf": {
+          const object = await loadGLTFModel();
+          await afterLoad({ object });
+          break;
+        }
+        default:
+          showToast("Extension not supported yet");
+          return;
       }
-      default:
-        showToast("Extension not supported yet");
-        break;
+    } catch (error) {
+      reportLoadError(error, `Failed to load ${core.fileObject.filename}`);
+      throw error;
     }
 }
 
 export const onError = function (_event) {
-  //circle.set(100, 100);
-  console.log("Loader error: " + _event);
-  if (window.__E2E__ && window.viewer) {
-    window.viewer.errors ??= [];
-    window.viewer.errors.push(String(_event));
-  }
-  if (typeof core.circle !== "undefined") core.circle.hide();
-  if (typeof core.EXIT_CODE !== "undefined") core.EXIT_CODE = 1;
+  reportLoadError(_event, "Loader error");
 };
 
 export const onErrorMTL = async function (_event) {

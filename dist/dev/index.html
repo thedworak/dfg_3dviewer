@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>DLF DFG 3D Viewer testing environment</title>
+    <link rel="shortcut icon" href="assets/img/dfgviewerFavicon.png" type="image/png">
+    <link href="assets/css/main.css" rel="stylesheet" />
+    <link href="assets/css/spinner.css" rel="stylesheet" />
+    <link href="assets/css/theme.css" rel="stylesheet" />
+    <link href="assets/css/external-sources.css" rel="stylesheet"/>
+  </head>
+  <body>
+    <div id="example-model-picker">
+      <label for="example-model-select">Load example model</label>
+      <select id="example-model-select">
+        <option value="./examples/box.dae">DAE</option>
+        <option value="./examples/box.stl" selected>STL</option>
+        <option value="./examples/box.ply">PLY</option>
+        <option value="./examples/box.obj">OBJ</option>
+        <option value="./examples/box.xyz">XYZ</option>
+        <option value="./examples/box.pcd">PCD</option>
+        <option value="./examples/box.3ds">3DS</option>
+        <option value="./examples/box.ifc">IFC</option>
+        <option value="./examples/box.fbx">FBX</option>
+        <option value="./examples/box.glb">GLB</option>
+        <option value="./examples/box-missing-mtl.obj">OBJ (missing MTL)</option>
+        <option value="./examples/broken.glb">Broken GLB</option>
+      </select>
+      <span class="example-model-picker-spacer"></span>
+      <button type="button" id="test-theme-toggle" title="Toggle dark mode">🌙</button>
+    </div>
+    <!--For in-built examples use one of the following 3d="./examples/box.obj"
+        OR
+        USE external samples:
+    3d="https://3d-repository.hs-mainz.de/sites/default/files/2024-01/gltf/test2.glb"
+    3d="https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb"-->
+    <div
+      id="DFG_3DViewer"
+      3d="./examples/box.stl"
+      style="height: 50vh"
+    >
+  </div>
+    <script type="module" src="dfg_3dviewer-module.js"></script>
+  </body>
+</html>

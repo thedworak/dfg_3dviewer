@@ -2,12 +2,22 @@ import { truncateString } from "./utils.js";
 import { showToast, setupObject, setupCamera } from './viewer-utils.js';
 import { core } from './core.js';
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 /**
  * Formats WissKI metadata labels and values for display.
  */
 export function addWissKIMetadata(label, value) {
   if (typeof label !== "undefined" && typeof value !== "undefined") {
     var _str = "";
+    const safeValue = escapeHtml(value);
     label = label.replace("wisski_path_3d_model__", "");
     switch (label) {
       case "title":
@@ -27,11 +37,11 @@ export function addWissKIMetadata(label, value) {
         break;
     }
     if (_str == "period") {
-      return "Reconstruction period: <b>" + value + " - ";
+      return "Reconstruction period: <b>" + safeValue + " - ";
     } else if (_str == "-") {
-      return value + "</b><br>";
+      return safeValue + "</b><br>";
     } else if (_str !== "") {
-      return _str + ": <b>" + value + "</b><br>";
+      return _str + ": <b>" + safeValue + "</b><br>";
     }
   }
 }
@@ -77,33 +87,18 @@ export function appendMetadata(
 }
 
 export function fetchMetadata(_object, _type) {
+  if (!_object?.geometry) return 0;
+
+  const indexedCount = _object.geometry.index?.count;
+  const positionCount = _object.geometry.attributes?.position?.count ?? 0;
+
   switch (_type) {
     case "vertices":
-      if (
-        typeof _object.geometry.index !== "undefined" &&
-        _object.geometry.index !== null
-      ) {
-        return _object.geometry.index.count;
-      } else if (
-        typeof _object.attributes !== "undefined" &&
-        _object.attributes !== null
-      ) {
-        return _object.attributes.position.count;
-      }
-      break;
+      return positionCount;
     case "faces":
-      if (
-        typeof _object.geometry.index !== "undefined" &&
-        _object.geometry.index !== null
-      ) {
-        return _object.geometry.index.count / 3;
-      } else if (
-        typeof _object.attributes !== "undefined" &&
-        _object.attributes !== null
-      ) {
-        return _object.attributes.position.count / 3;
-      }
-      break;
+      return (indexedCount ?? positionCount) / 3;
+    default:
+      return 0;
   }
 }
 
@@ -178,7 +173,7 @@ export async function handleMetadataResponse(
         id: object.id,
       };
     }
-    if (lilGUIgetFolder(core.gui, "Hierarchy") !== null && !lilGUIhasFolder(hierarchyMain, object.name)) {
+    if (hierarchyMain && lilGUIgetFolder(core.gui, "Hierarchy") !== null && !lilGUIhasFolder(hierarchyMain, object.name)) {
       hierarchyFolder = hierarchyMain.addFolder(object.name).close();
     }
   }
@@ -191,7 +186,6 @@ export async function handleMetadataResponse(
     core.metadataContainer = document.createElement("div");
     core.metadataContainer.id = "metadata-container";
   }
-  document.body.appendChild(core.metadataContainer);
 
   var metadataContent =
     '<div id="metadata-card">' +
@@ -201,7 +195,7 @@ export async function handleMetadataResponse(
     '<div class="metadata-row">' +
       '<span class="metadata-label">Visualized file:</span>' +
       '<span class="metadata-value">' +
-        core.fileObject.basename + '.' + core.fileObject.extension +
+        escapeHtml(core.fileObject.basename) + '.' + escapeHtml(core.fileObject.extension) +
       '</span>' +
     '</div>';
 
@@ -223,7 +217,7 @@ export async function handleMetadataResponse(
 
   if (!core.isLightweight) {
 
-    if (!document.getElementById("downloadModel")) {
+    if (core.downloadModel && !document.getElementById("downloadModel")) {
       core.downloadModel.setAttribute("id", "downloadModel");
 
       var c_path = core.fileObject.path;
@@ -234,7 +228,7 @@ export async function handleMetadataResponse(
       let DFG_ASSETS = scriptUrl.replace(/dfg_3dviewer-module\.js.*$/, 'assets/img');
 
       core.downloadModel.innerHTML = `
-        <a href="blob:${c_path}${core.fileObject.filename}" download>
+        <a href="blob:${encodeURI(c_path + core.fileObject.filename)}" download>
           <img src="${DFG_ASSETS}/download-icon.svg" alt="download" width="28" height="28" title="Download source file"/>`;
     }
 
@@ -293,11 +287,14 @@ export async function handleMetadataResponse(
       '</div>' +  // #metadata-content
     '</div>';  
   appendMetadata( metadataContent, metadataContentTech);
-  core.metadataContainer.addEventListener("click", (e) => {
-    if (e.target.id === "metadata-collapse") {
-      expandMetadata(e);
-    }
-  });
+  if (core.metadataContainer.dataset.boundCollapse !== "true") {
+    core.metadataContainer.addEventListener("click", (e) => {
+      if (e.target.id === "metadata-collapse") {
+        expandMetadata(e);
+      }
+    });
+    core.metadataContainer.dataset.boundCollapse = "true";
+  }
 }
 
 /**
@@ -314,7 +311,7 @@ export async function settingsHandler(object, hierarchyMain, data) {
     setupObject(object, data);
     await setupCamera(object, data);
     if (object.name === "undefined") object.name = "level";
-    if (!lilGUIhasFolder(hierarchyMain, object.name)) {
+    if (hierarchyMain && !lilGUIhasFolder(hierarchyMain, object.name)) {
       hierarchyMain.addFolder(object.name).close();
     }
   }
@@ -356,15 +353,6 @@ async function loadMetadataData(metadataUrl) {
  */
 export async function fetchSettings(object) {
   var metadata = { vertices: 0, faces: 0 };
-  // Concat URL for metadata file
-  function toURL(value, base = window.location.href) {
-    try {
-      return new URL(value, base);
-    } catch {
-      return null;
-    }
-  }
-
   let metadataUrl = '';
 
   if (core.CONFIG.metadataUrl && core.fileObject.uri && core.fileObject.filename) {
@@ -377,8 +365,11 @@ export async function fetchSettings(object) {
   }
 
   let hierarchyMain;
-  if (lilGUIgetFolder(core.gui, "Hierarchy") === null) {
+  const existingHierarchy = lilGUIgetFolder(core.gui, "Hierarchy");
+  if (existingHierarchy === null) {
     hierarchyMain = core.gui?.addFolder("Hierarchy").close();
+  } else {
+    hierarchyMain = existingHierarchy;
   }
   if (core.CONFIG.entity.metadata.source === "IIIF") {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);

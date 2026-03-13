@@ -1,14 +1,14 @@
 ISO-10303-21;
 HEADER;
 FILE_DESCRIPTION(('ViewDefinition [CoordinationView]'),'2;1');
-FILE_NAME('box.ifc','2026-03-12T00:00:00',('OpenAI'),('OpenAI'),'Codex','Codex','');
+FILE_NAME('box.ifc','2026-03-12T00:00:00',('DFG 3DViewer'),('OpenAI'),'DFG 3DViewer','DFG 3DViewer','');
 FILE_SCHEMA(('IFC4'));
 ENDSEC;
 DATA;
-#1=IFCPERSON($,$,'OpenAI',$,$,$,$,$);
-#2=IFCORGANIZATION($,'OpenAI',$,$,$);
+#1=IFCPERSON($,$,'DFG 3DViewer',$,$,$,$,$);
+#2=IFCORGANIZATION($,'DFG 3DViewer',$,$,$);
 #3=IFCPERSONANDORGANIZATION(#1,#2,$);
-#4=IFCAPPLICATION(#2,'1.0','Codex','CODEX');
+#4=IFCAPPLICATION(#2,'1.0','DFG 3DViewer','DFG 3DViewer');
 #5=IFCOWNERHISTORY(#3,#4,$,.ADDED.,$,$,$,0);
 #10=IFCCARTESIANPOINT((0.,0.,0.));
 #11=IFCDIRECTION((0.,0.,1.));
