@@ -525,3 +525,23 @@ canvas {
 .field--type-file {
   width: 100%;
 }
+
+#spinner .spinnerContainer {
+  position: absolute;
+  left: 50%;
+}
+
+.lv-bars,
+.lv-circles,
+.lv-determinate_line,
+.lv-bordered_line,
+.lv-determinate_bordered_line,
+.lv-dots,
+.lv-squares,
+.lv-line,
+.lv-spinner,
+.lv-determinate_circle,
+.lv-dashed {
+  font-family: sans-serif;
+  font-size: small;
+}

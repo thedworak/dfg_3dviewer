@@ -1887,6 +1887,9 @@ async function loadMetadataData(metadataUrl) {
   }
 
   try {
+    if (core.isLocalPreview) {
+      return null;
+    }
     const response = await fetch(metadataUrl, { cache: "no-cache" });
 
     if (response.status === 404) {
@@ -2330,16 +2333,7 @@ function reportLoadError(error, context = "") {
             gltfModelPath,
             resolve,
             (xhr) => {
-              if (!core.circle) return;
-              const total = xhr.total || xhr.loaded || 1;
-              const percentComplete = Math.min((xhr.loaded / total) * 100, 100);
-              if (!Number.isFinite(percentComplete)) return;
-              core.circle.show();
-              core.circle.set(percentComplete, 100);
-              if (percentComplete >= 100) {
-                core.circle.hide();
-                showToast("Model " + core.fileObject.filename + " has been loaded.");
-              }
+              progressLoaderHandler(xhr);
             },
             reject
           );
@@ -2471,18 +2465,23 @@ function reportLoadError(error, context = "") {
 }
 
 const onProgress = function (xhr) {
+  progressLoaderHandler(xhr);
+};
+
+const progressLoaderHandler = function (xhr) {
   if (!core.circle) return;
   const total = xhr.total || xhr.loaded || 1;
   const percentComplete = Math.min((xhr.loaded / total) * 100, 100);
-
   if (!Number.isFinite(percentComplete)) return;
-
   core.circle.show();
   core.circle.set(percentComplete, 100);
+  core.UltraLoader.set(percentComplete);
   if (percentComplete >= 100) {
     core.circle.hide();
-    showToast("Model has been loaded.");
+    showToast("Model " + core.fileObject.filename + " has been loaded.");
     if (typeof core.EXIT_CODE !== "undefined") core.EXIT_CODE = 0;
+    core.UltraLoader.finish();
+    core.poller.updateSteps(2);
   }
 };
 
@@ -2536,11 +2535,13 @@ const UltraLoader$1 = {
     this.progress=100;
     this.render();
     this.renderSteps(this.steps.length);
-    setTimeout(()=>{
+    setTimeout(() => {
       this.panel.classList.remove("show");
-      this.bar.style.width="0%";
-      this.progress=0;
-    }, 1500);
+      setTimeout(() => {
+        this.bar.style.width = "0%";
+        this.progress = 0;
+      }, 1500);
+    }, 3000);
 
   },
 
@@ -2604,74 +2605,85 @@ class StatusPoller {
     async start() {
         if(this.running) return;
         this.running=true;
-        await this.tick();
+        if (!core.isLocalPreview)
+            await this.tick();
+        else {
+            this.map = core.isLocalPreview
+                ? Object.fromEntries(
+                    Object.entries(this.fullMap)
+                        .slice(-3)      // Only keep the last 2 steps for local preview
+                        .map(([k], i) => [k, i])
+                    )
+                : this.fullMap;
+        }
     }
 
     stop() {
         this.running=false;
         if(this.timer) clearTimeout(this.timer);
     }
+    fullMap = {
+        init: 0,
+        preparing: 1,
+        processing: 2,
+        converted: 3,
+        rendering: 4,
+        model_ready: 5,
+        viewer_ready: 6,
+        failed: 7,
+    };
+
+    map = this.fullMap;
 
     updateSteps(status) {
-        const map={
-            init:0,
-            preparing:1,
-            processing:2,
-            converted:3,
-            rendering:4,
-            ready:5,
-            failed:6,
-        };
-        if(map[status]!==undefined) {
-            UltraLoader.step(map[status]);
+        if(this.map[status]!==undefined) {
+            UltraLoader.step(this.map[status]);
         }
 
     }
 
     async tick() {
-
-        if(!this.running) return;
+        if(!this.running || core.isLocalPreview) return;
 
         try {
             const r=await fetch(`/api/model/status/${this.id}`, {
                 cache:"no-store"
             });
 
-        if(!r.ok){
-            throw new Error("API error");
+            if(!r.ok){
+                throw new Error("API error");
+            }
+
+            const data=await r.json();
+
+            if(data.status==="error") {
+                UltraLoader.error(data.message || "Processing failed");
+                this.stop();
+                localStorage.removeItem("processing_model_id");
+                return;
+            }
+
+            UltraLoader.set(data.progress);
+
+            this.updateSteps(data.status);
+
+            if(data.status==="ready" || data.status==="failed") {
+                if (data.status==="ready")
+                    UltraLoader.finish("3D Viewer is ready");
+                else
+                    UltraLoader.finish("Failed processing the model");
+                this.stop();
+                localStorage.removeItem("processing_model_id");
+                return;
+            }
         }
-
-        const data=await r.json();
-
-        if(data.status==="error") {
-            UltraLoader.error(data.message || "Processing failed");
-            this.stop();
-            localStorage.removeItem("processing_model_id");
-            return;
+        catch(e){
+            if (!core.isLocalPreview) {
+                UltraLoader.error("Connection error");
+                this.stop();
+            }
         }
-
-        UltraLoader.set(data.progress);
-
-        this.updateSteps(data.status);
-
-        if(data.status==="ready" || data.status==="failed") {
-            if (data.status==="ready")
-            UltraLoader.finish("Model ready");
-            else
-            UltraLoader.finish("Model failed");
-            this.stop();
-            localStorage.removeItem("processing_model_id");
-            return;
-        }
-
-    }
-    catch(e){
-        UltraLoader.error("Connection error");
-        this.stop();
-    }
-
-    this.timer=setTimeout(()=>this.tick(),this.interval);
-
+        this.timer=setTimeout(()=>this.tick(),this.interval);
     }
 
 }
@@ -9851,7 +9863,7 @@ const Viewer = {
     this.spinnerElement = document.createElement("div");
     this.spinnerElement.id = "spinner";
     this.spinnerElement.className = "lv-determinate_circle lv-mid md";
-    this.spinnerElement.setAttribute("data-label", "Loading...");
+    this.spinnerElement.setAttribute("data-label", "Loading 3D model...");
     this.spinnerElement.setAttribute("data-percentage", "true");
     this.spinnerContainer.appendChild(this.spinnerElement);
     core.container.appendChild(this.spinnerContainer);
@@ -10175,6 +10187,7 @@ const Viewer = {
     var modalGallery = document.createElement("div");
     var modalImage = document.createElement("img");
     modalImage.setAttribute("class", "modalImage");
+    modalImage.style.transform = `scale(0.95)`;
     Viewer.bindEventListener(modalGallery, "wheel", function (e) {
       e.preventDefault();
       e.stopPropagation();
@@ -11477,16 +11490,22 @@ const Viewer = {
 
     localStorage.setItem("processing_model_id", _id);
 
-    UltraLoader$1.start([
+    let loadingMap =  [
       "Preparing model",
       "Converting to transmission format",
       "Rendering thumbnails",
       "Saving entity",
-      "Viewer is ready"
-    ]);
+      "Finalizing 3D model",
+      "Initializing viewer"
+    ];
+
+    loadingMap = core.isLocalPreview ? loadingMap.slice(-2) : loadingMap;
+
+    UltraLoader$1.start(loadingMap);
+    setCore("UltraLoader", UltraLoader$1);
 
     const poller = new StatusPoller(_id);
-
+    setCore("poller", poller);
     poller.start();
   },
 
@@ -11507,9 +11526,11 @@ const Viewer = {
       setCore('scene', Viewer.scene);
       setCore('activeScene', Viewer.activeScene);
 
-      if (!core.isLightweight) {
-        Viewer.startModelProcessing();
-      }
+      const isLocalPreview = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+      setCore('isLocalPreview', isLocalPreview);
+      console.info('Running on', window.location.hostname, '- Local preview mode:', core.isLocalPreview);
+
+      Viewer.startModelProcessing();
 
       const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444);
       hemiLight.position.set(0, 200, 0);
@@ -11744,57 +11765,59 @@ const Viewer = {
       ) {
         Viewer.archiveType = Viewer._ext;
       }
-
-      const isLocalPreview = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
-      console.info('Running on', window.location.hostname, '- Local preview mode:', isLocalPreview);
-      if (!isLocalPreview) return;
-      else {
-        const picker = document.getElementById('example-model-picker');
-        const select = document.getElementById('example-model-select');
-        const themeToggle = document.getElementById('example-theme-toggle');
-        const viewer = document.getElementById('DFG_3DViewer');
-        const THEME_STORAGE_KEY = 'iiif-dark-mode';
-        if (!picker || !select || !themeToggle || !viewer) return;
-
-        const syncPickerTheme = (isDark = window.localStorage.getItem(THEME_STORAGE_KEY) === '1') => {
-          document.body.classList.toggle('iiif-dark', Boolean(isDark));
-          themeToggle.textContent = isDark ? '☀️' : '🌙';
-          themeToggle.setAttribute('aria-pressed', isDark ? 'true' : 'false');
-        };
-
-        const localurl = new URL(window.location.href);
-        const selectedModel =
-          localurl.searchParams.get('model') ||
-          window.localStorage.getItem('dfg3dviewer-test-model') ||
-          viewer.getAttribute('3d') ||
-          './examples/box.stl';
-
-        picker.style.display = 'inline-flex';
-        select.value = selectedModel;
-        viewer.setAttribute('3d', selectedModel);
-        syncPickerTheme();
-
-        themeToggle.addEventListener('click', () => {
-          const nextIsDark = !document.body.classList.contains('iiif-dark');
-          window.localStorage.setItem(THEME_STORAGE_KEY, nextIsDark ? '1' : '0');
-          document.getElementById('form-IIIF')?.classList.toggle('dark', nextIsDark);
-          const iiifThemeToggle = document.getElementById('iiif-toggle-theme');
-          if (iiifThemeToggle) {
-            iiifThemeToggle.textContent = nextIsDark ? '☀️' : '🌙';
-            iiifThemeToggle.setAttribute('aria-pressed', nextIsDark ? 'true' : 'false');
-          }
-          syncPickerTheme(nextIsDark);
-        });
-
-        select.addEventListener('change', () => {
-          const nextModel = select.value;
-          window.localStorage.setItem('dfg3dviewer-test-model', nextModel);
-          localurl.searchParams.set('model', nextModel);
-          window.location.href = localurl.toString();
-        });
-      }
-
+      
       core.autoPath = "";
+
+      if (core.isLocalPreview) {
+        const picker = document.getElementById('example-model-picker');
+        const selectModel = document.getElementById('example-model-select');
+        const themeToggle = document.getElementById('example-theme-toggle');
+        const viewerElement = document.getElementById('DFG_3DViewer');
+        const THEME_STORAGE_KEY = 'iiif-dark-mode';
+        if (picker || selectModel || themeToggle || viewerElement) {
+          const syncPickerTheme = (isDark = window.localStorage.getItem(THEME_STORAGE_KEY) === '1') => {
+            document.body.classList.toggle('iiif-dark', Boolean(isDark));
+            themeToggle.textContent = isDark ? '☀️' : '🌙';
+            themeToggle.setAttribute('aria-pressed', isDark ? 'true' : 'false');
+          };
+
+          const localurl = new URL(window.location.href);
+          let selectedModel = localurl.searchParams.get('model');
+          if (!selectedModel) {
+            selectedModel = localStorage.getItem('dfg3dviewer-example-model');
+          }
+          if (!selectedModel) {
+            selectedModel = viewerElement.getAttribute('3d');
+          }
+          if (!selectedModel) {
+            selectedModel = './examples/box.stl';
+          }
+          core.autoPath = selectedModel;
+          picker.style.display = 'inline-flex';
+          selectModel.value = selectedModel;
+          viewerElement.setAttribute('3d', selectedModel);
+          syncPickerTheme();
+
+          themeToggle.addEventListener('click', () => {
+            const nextIsDark = !document.body.classList.contains('iiif-dark');
+            window.localStorage.setItem(THEME_STORAGE_KEY, nextIsDark ? '1' : '0');
+            document.getElementById('form-IIIF')?.classList.toggle('dark', nextIsDark);
+            const iiifThemeToggle = document.getElementById('iiif-toggle-theme');
+            if (iiifThemeToggle) {
+              iiifThemeToggle.textContent = nextIsDark ? '☀️' : '🌙';
+              iiifThemeToggle.setAttribute('aria-pressed', nextIsDark ? 'true' : 'false');
+            }
+            syncPickerTheme(nextIsDark);
+          });
+
+          selectModel.addEventListener('change', () => {
+            core.autoPath = selectModel.value;
+            window.localStorage.setItem('dfg3dviewer-example-model', selectModel.value);
+            this.resetLoadedModelState();
+            this.mainLoadModelWrapper();
+          });
+        }
+      }
           
       if (window.__E2E__) {
         try {

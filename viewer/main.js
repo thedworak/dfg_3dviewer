@@ -62,7 +62,7 @@ import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
 import Stats from "stats.js";
 import { GUI } from "./js/external_libs/lil-gui.esm.min.js";
 import { objectsConfig, setObjectsConfig } from "./object-settings.js";
-import { lv } from "./spinner/main.js";
+import { lv } from "./js/external_libs/spinner.js";
 
 import { loadIIIFManifest, getAnnotations } from "./IIIF/iiif-api.js";
 
@@ -585,7 +585,7 @@ export const Viewer = {
     this.spinnerElement = document.createElement("div");
     this.spinnerElement.id = "spinner";
     this.spinnerElement.className = "lv-determinate_circle lv-mid md";
-    this.spinnerElement.setAttribute("data-label", "Loading...");
+    this.spinnerElement.setAttribute("data-label", "Loading 3D model...");
     this.spinnerElement.setAttribute("data-percentage", "true");
     this.spinnerContainer.appendChild(this.spinnerElement);
     core.container.appendChild(this.spinnerContainer);
@@ -2216,16 +2216,22 @@ export const Viewer = {
 
     localStorage.setItem("processing_model_id", _id);
 
-    UltraLoader.start([
+    let loadingMap =  [
       "Preparing model",
       "Converting to transmission format",
       "Rendering thumbnails",
       "Saving entity",
-      "Viewer is ready"
-    ]);
+      "Finalizing 3D model",
+      "Initializing viewer"
+    ];
+
+    loadingMap = core.isLocalPreview ? loadingMap.slice(-2) : loadingMap;
+
+    UltraLoader.start(loadingMap);
+    setCore("UltraLoader", UltraLoader);
 
     const poller = new StatusPoller(_id);
-
+    setCore("poller", poller);
     poller.start();
   },
 
@@ -2246,9 +2252,11 @@ export const Viewer = {
       setCore('scene', Viewer.scene);
       setCore('activeScene', Viewer.activeScene);
 
-      if (!core.isLightweight) {
-        Viewer.startModelProcessing();
-      }
+      const isLocalPreview = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+      setCore('isLocalPreview', isLocalPreview);
+      console.info('Running on', window.location.hostname, '- Local preview mode:', core.isLocalPreview);
+
+      Viewer.startModelProcessing();
 
       const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444);
       hemiLight.position.set(0, 200, 0);
@@ -2483,16 +2491,16 @@ export const Viewer = {
       ) {
         Viewer.archiveType = Viewer._ext;
       }
+      
+      core.autoPath = "";
 
-      const isLocalPreview = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
-      console.info('Running on', window.location.hostname, '- Local preview mode:', isLocalPreview);
-      if (isLocalPreview) {
+      if (core.isLocalPreview) {
         const picker = document.getElementById('example-model-picker');
-        const select = document.getElementById('example-model-select');
+        const selectModel = document.getElementById('example-model-select');
         const themeToggle = document.getElementById('example-theme-toggle');
-        const viewer = document.getElementById('DFG_3DViewer');
+        const viewerElement = document.getElementById('DFG_3DViewer');
         const THEME_STORAGE_KEY = 'iiif-dark-mode';
-        if (picker || select || themeToggle || viewer) {
+        if (picker || selectModel || themeToggle || viewerElement) {
           const syncPickerTheme = (isDark = window.localStorage.getItem(THEME_STORAGE_KEY) === '1') => {
             document.body.classList.toggle('iiif-dark', Boolean(isDark));
             themeToggle.textContent = isDark ? '☀️' : '🌙';
@@ -2500,15 +2508,20 @@ export const Viewer = {
           };
 
           const localurl = new URL(window.location.href);
-          const selectedModel =
-            localurl.searchParams.get('model') ||
-            window.localStorage.getItem('dfg3dviewer-test-model') ||
-            viewer.getAttribute('3d') ||
-            './examples/box.stl';
-
+          let selectedModel = localurl.searchParams.get('model');
+          if (!selectedModel) {
+            selectedModel = localStorage.getItem('dfg3dviewer-example-model');
+          }
+          if (!selectedModel) {
+            selectedModel = viewerElement.getAttribute('3d');
+          }
+          if (!selectedModel) {
+            selectedModel = './examples/box.stl';
+          }
+          core.autoPath = selectedModel;
           picker.style.display = 'inline-flex';
-          select.value = selectedModel;
-          viewer.setAttribute('3d', selectedModel);
+          selectModel.value = selectedModel;
+          viewerElement.setAttribute('3d', selectedModel);
           syncPickerTheme();
 
           themeToggle.addEventListener('click', () => {
@@ -2523,16 +2536,14 @@ export const Viewer = {
             syncPickerTheme(nextIsDark);
           });
 
-          select.addEventListener('change', () => {
-            const nextModel = select.value;
-            window.localStorage.setItem('dfg3dviewer-test-model', nextModel);
-            localurl.searchParams.set('model', nextModel);
-            window.location.href = localurl.toString();
+          selectModel.addEventListener('change', () => {
+            core.autoPath = selectModel.value;
+            window.localStorage.setItem('dfg3dviewer-example-model', selectModel.value);
+            this.resetLoadedModelState();
+            this.mainLoadModelWrapper();
           });
         }
       }
-
-      core.autoPath = "";
           
       if (window.__E2E__) {
         try {

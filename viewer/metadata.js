@@ -333,6 +333,9 @@ async function loadMetadataData(metadataUrl) {
   }
 
   try {
+    if (core.isLocalPreview) {
+      return null;
+    }
     const response = await fetch(metadataUrl, { cache: "no-cache" });
 
     if (response.status === 404) {

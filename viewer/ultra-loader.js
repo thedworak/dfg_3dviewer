@@ -48,11 +48,13 @@ export const UltraLoader = {
     this.progress=100;
     this.render();
     this.renderSteps(this.steps.length);
-    setTimeout(()=>{
+    setTimeout(() => {
       this.panel.classList.remove("show");
-      this.bar.style.width="0%";
-      this.progress=0;
-    }, 1500);
+      setTimeout(() => {
+        this.bar.style.width = "0%";
+        this.progress = 0;
+      }, 1500);
+    }, 2500);
 
   },
 

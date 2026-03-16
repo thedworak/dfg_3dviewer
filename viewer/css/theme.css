@@ -61,14 +61,16 @@
   padding: 12px 16px;
   border-radius: 8px;
   box-shadow: 0 6px 18px rgba(0,0,0,.15);
-  font-size: 13px;
+  font-size: 14px;
   opacity: 0;
-  transition: opacity .3s;
+  transition: opacity 2.8s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 99999;
+  pointer-events: none;
 }
 
 #ultra-loader-panel.show {
   opacity: 1;
-  z-index: 999;
+  z-index: 99999;
 }
 
 .ultra-step {

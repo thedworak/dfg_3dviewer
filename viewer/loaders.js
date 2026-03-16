@@ -337,16 +337,7 @@ function reportLoadError(error, context = "") {
             gltfModelPath,
             resolve,
             (xhr) => {
-              if (!core.circle) return;
-              const total = xhr.total || xhr.loaded || 1;
-              const percentComplete = Math.min((xhr.loaded / total) * 100, 100);
-              if (!Number.isFinite(percentComplete)) return;
-              core.circle.show();
-              core.circle.set(percentComplete, 100);
-              if (percentComplete >= 100) {
-                core.circle.hide();
-                showToast("Model " + core.fileObject.filename + " has been loaded.");
-              }
+              progressLoaderHandler(xhr);
             },
             reject
           );
@@ -484,7 +475,6 @@ export const onError = function (_event) {
 };
 
 export const onErrorMTL = async function (_event) {
-  //circle.set(100, 100);
   core.CONFIG.noMTL = true;
   showToast("Error occured while loading attached MTL file.");
   await loadModel();
@@ -506,17 +496,22 @@ export const onErrorGLB = async function (_event, params, loadedTimes) {
 };
 
 export const onProgress = function (xhr) {
+  progressLoaderHandler(xhr);
+};
+
+const progressLoaderHandler = function (xhr) {
   if (!core.circle) return;
   const total = xhr.total || xhr.loaded || 1;
   const percentComplete = Math.min((xhr.loaded / total) * 100, 100);
-
   if (!Number.isFinite(percentComplete)) return;
-
   core.circle.show();
   core.circle.set(percentComplete, 100);
+  core.UltraLoader.set(percentComplete);
   if (percentComplete >= 100) {
     core.circle.hide();
-    showToast("Model has been loaded.");
+    showToast("Model " + core.fileObject.filename + " has been loaded.");
     if (typeof core.EXIT_CODE !== "undefined") core.EXIT_CODE = 0;
+    core.UltraLoader.finish();
+    core.poller.updateSteps(2);
   }
-};
+}
