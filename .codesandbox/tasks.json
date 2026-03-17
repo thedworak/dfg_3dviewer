@@ -2,14 +2,14 @@
   "setupTasks": [
     {
       "name": "Install Dependencies",
-      "command": "pnpm install"
+      "command": "npm install"
     }
   ],
 
   "tasks": {
     "start:test": {
       "name": "Start (TEST mode – Parcel)",
-      "command": "cross-env BUILD_SOURCE=IIIF BUILD=test pnpm start",
+      "command": "npm run dev:test",
       "runAtStart": true,
       "preview": {
         "port": 1234
@@ -18,22 +18,22 @@
 
     "start:prod": {
       "name": "Start (PROD mode – dist viewer)",
-      "command": "cross-env BUILD_SOURCE='' BUILD=prod pnpm run start:dist"
+      "command": "npm run dev:prod"
     },
 
     "build:test": {
       "name": "Build (TEST bundle)",
-      "command": "cross-env BUILD_SOURCE='' BUILD=test pnpm run build:test"
+      "command": "npm run build:test"
     },
 
     "build:dev": {
       "name": "Build (DEV bundle)",
-      "command": "cross-env BUILD_SOURCE='IIIF' BUILD=dev pnpm run build:dev"
+      "command": "npm run build:dev"
     },
 
     "build:prod": {
       "name": "Build (PROD bundle)",
-      "command": "cross-env BUILD_SOURCE='' BUILD=prod pnpm run build:dist"
+      "command": "npm run build:prod"
     }
   }
 }
