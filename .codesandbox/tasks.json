@@ -8,17 +8,22 @@
 
   "tasks": {
     "start:test": {
-      "name": "Start (TEST mode – Parcel)",
-      "command": "npm run dev:test",
+      "name": "Start (TEST mode – dist viewer)",
+      "command": "cd dist/test && npx http-server -p 1234",
       "runAtStart": true,
       "preview": {
         "port": 1234
       }
     },
 
+    "start:dev": {
+      "name": "Start (DEV mode – dist viewer)",
+      "command": "cd dist/dev && npx http-server -p 1234"
+    },
+
     "start:prod": {
       "name": "Start (PROD mode – dist viewer)",
-      "command": "npm run dev:prod"
+      "command": "cd dist/drupal && npx http-server -p 1234"
     },
 
     "build:test": {
