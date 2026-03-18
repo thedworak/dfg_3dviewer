@@ -23,6 +23,7 @@
       "x": "1.0",
       "y": "1.0"
     },
+    "editor": true,
     "gallery": {
       "build": true,
       "container": "block-bootstrap5-content",

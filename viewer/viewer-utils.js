@@ -633,6 +633,10 @@ async function fitCameraToCenteredObject(object, _fit) {
   const finalCameraPos = center.clone().add(dir);
   const finalTarget = center.clone();
 
+  // Store reset position for "Reset camera" action
+  core.cameraCoords = finalCameraPos.clone();
+  core.controlsTarget = finalTarget.clone();
+
   // === animate ===
   animateCameraToPose({
     finalCameraPos,

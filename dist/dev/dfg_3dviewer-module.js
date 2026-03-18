@@ -1786,12 +1786,10 @@ async function handleMetadataResponse(
       if (core.loadedFile !== "") core.fileObject.filename = core.fileObject.filename.replace(core.fileObject.orgExtension, core.fileObject.extension);
 
       core.container.appendChild(core.downloadModel);
-      const scriptUrl = document.currentScript?.src || import.meta.url;
-      let DFG_ASSETS = scriptUrl.replace(/dfg_3dviewer-module\.js.*$/, 'assets/img');
 
       core.downloadModel.innerHTML = `
         <a href="blob:${encodeURI(c_path + core.fileObject.filename)}" download>
-          <img src="${DFG_ASSETS}/download-icon.svg" alt="download" width="28" height="28" title="Download source file"/>`;
+          <img src="${core.DFG_ASSETS}/img/download-icon.svg" alt="download" width="28" height="28" title="Download source file"/>`;
     }
 
     if (core.fetchMetadataXML) {
@@ -1839,11 +1837,9 @@ async function handleMetadataResponse(
       req.send(null);
     }
   } else {
-    const scriptUrl = document.currentScript?.src || import.meta.url;
-    let DFG_ASSETS = scriptUrl.replace(/dfg_3dviewer-module\.js.*$/, 'assets/img/');
 
     core.viewEntity.innerHTML =
-      `<a href='${core.CONFIG.mainUrl}${core.CONFIG.entity.viewEntityPath}${core.CONFIG.entity.id}/view' target='_blank'><img src='${DFG_ASSETS}share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>`;
+      `<a href='${core.CONFIG.mainUrl}${core.CONFIG.entity.viewEntityPath}${core.CONFIG.entity.id}/view' target='_blank'><img src='${core.DFG_ASSETS}/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>`;
   }
   metadataContent +=
       '</div>' +  // #metadata-content
@@ -9369,7 +9365,6 @@ const Viewer = {
   testModelURL: 'https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb',
   fetchMetadataXML: false,
   clock: null,
-  editor: true,
   FULLSCREEN: false,
   mixer: null,
   cameraTween: null,
@@ -9463,9 +9458,9 @@ const Viewer = {
   },
   backgroundType: { "Background Type": "gradient" },
   backgroundOuterFolder: null,
+  pickingMode: false,
   EDITOR: false,
   RULER_MODE: false,
-  lineMaterial: new THREE.LineBasicMaterial({ color: 0x0000ff }),
   linePoints: [],
   gui: null,
   hierarchyFolder: null,
@@ -9772,6 +9767,7 @@ const Viewer = {
             x: 0.85,
             y: 1.4,
           },
+          editor: true,
           gallery: {
             build: true,
             container: "block-bootstrap5-content",
@@ -9791,6 +9787,8 @@ const Viewer = {
     setCore('isLightweight', this.isLightweight);
     console.log(`AIM 3D-Viewer ${this.isLightweight ? '🪶 LIGHTWEIGHT' : '💪 FULL'} mode`);
     console.log(`Powered by Three.js (v${THREE.REVISION})`);
+
+    this.EDITOR = Boolean(core.CONFIG.viewer.editor);
     
     core.CONFIG.entity.metadata.source = SOURCE;
     if (core.CONFIG.entity.metadata.source) console.log(`Metadata source: ${core.CONFIG.entity.metadata.source}`);
@@ -9963,7 +9961,7 @@ const Viewer = {
     const loader = new FontLoader();
 
     loader.load(
-      '.' + core.CONFIG.baseModulePath + "/fonts/helvetiker_regular.typeface.json",
+      `${core.DFG_ASSETS}/fonts/helvetiker_regular.typeface.json`,
       function (font) {
         const textGeo = new TextGeometry(_text, {
           font,
@@ -10018,7 +10016,7 @@ const Viewer = {
     const loader = new FontLoader();
     var textSize = _scale / 10;
     loader.load(
-      '.' + core.CONFIG.baseModulePath + "/fonts/helvetiker_regular.typeface.json",
+      `${core.DFG_ASSETS}/fonts/helvetiker_regular.typeface.json`,
       function (font) {
         const textGeo = new TextGeometry(_text, {
           font: font,
@@ -10407,9 +10405,9 @@ const Viewer = {
   },
 
   buildRuler(_id) {
-    rulerObject = new THREE.Object3D();
+    Viewer.rulerObject = new THREE.Object3D();
     var sphere = new THREE.Mesh(
-      new THREE.SphereGeometry(gridSize / 150, 7, 7),
+      new THREE.SphereGeometry(Viewer.gridSize / 150, 7, 7),
       new THREE.MeshNormalMaterial({
         transparent: true,
         opacity: 0.8,
@@ -10420,11 +10418,12 @@ const Viewer = {
     );
     var newPoint = new THREE.Vector3(_id.point.x, _id.point.y, _id.point.z);
     sphere.position.set(newPoint.x, newPoint.y, newPoint.z);
-    rulerObject.add(sphere);
-    linePoints.push(newPoint);
-    const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
+    Viewer.rulerObject.add(sphere);
+    Viewer.linePoints.push(newPoint);
+    const lineGeometry = new THREE.BufferGeometry().setFromPoints(Viewer.linePoints);
+    const lineMaterial = new THREE.LineBasicMaterial({ color: 0x0000ff });
     const line = new THREE.Line(lineGeometry, lineMaterial);
-    rulerObject.add(line);
+    Viewer.rulerObject.add(line);
     var lineMtr = new THREE.LineBasicMaterial({
       color: 0x0000ff,
       linewidth: 3,
@@ -10433,25 +10432,25 @@ const Viewer = {
       depthTest: false,
       depthWrite: false,
     });
-    if (linePoints.length > 1) {
+    if (Viewer.linePoints.length > 1) {
       var vectorPoints = vectorBetweenPoints(
-        linePoints[linePoints.length - 2],
+        Viewer.linePoints[Viewer.linePoints.length - 2],
         newPoint
       );
       var distancePoints = distanceBetweenPointsVector(vectorPoints);
 
-      //var distancePoints = distanceBetweenPoints(linePoints[linePoints.length-2], newPoint);
+      //var distancePoints = distanceBetweenPoints(Viewer.linePoints[Viewer.linePoints.length-2], newPoint);
       var halfwayPoints = halfwayBetweenPoints(
-        linePoints[linePoints.length - 2],
+        Viewer.linePoints[Viewer.linePoints.length - 2],
         newPoint
       );
-      addTextPoint(distancePoints.toFixed(2), gridSize / 200, halfwayPoints);
+      Viewer.addTextPoint(distancePoints.toFixed(2), Viewer.gridSize / 200, halfwayPoints);
       var rulerI = 0;
-      var measureSize = gridSize / 400;
+      var measureSize = Viewer.gridSize / 400;
       while (rulerI <= distancePoints * 100) {
         const geoSegm = [];
         var interpolatePoints = interpolateDistanceBetweenPoints(
-          linePoints[linePoints.length - 2],
+          Viewer.linePoints[Viewer.linePoints.length - 2],
           vectorPoints,
           distancePoints,
           rulerI / 100
@@ -10472,13 +10471,13 @@ const Viewer = {
         );
         const geometryLine = new THREE.BufferGeometry().setFromPoints(geoSegm);
         var lineSegm = new THREE.Line(geometryLine, lineMtr);
-        rulerObject.add(lineSegm);
+        Viewer.rulerObject.add(lineSegm);
         rulerI += 10;
       }
     }
-    rulerObject.renderOrder = 1;
-    core.scene.add(rulerObject);
-    ruler.push(rulerObject);
+    Viewer.rulerObject.renderOrder = 1;
+    core.scene.add(Viewer.rulerObject);
+    Viewer.ruler.push(Viewer.rulerObject);
   },
 
 
@@ -10500,7 +10499,7 @@ const Viewer = {
         Viewer.mainCanvas.style.width = '100vw';
         Viewer.mainCanvas.style.height = '100vh';
         Viewer.fullscreenMode.style.left = (widthCSS - 40) + 'px';
-        Viewer.fullscreenMode.innerHTML = `<img src="${Viewer.DFG_ASSETS}exit-fullscreen.png" alt="Fullscreen" width=25 height=25 title="Exit fullscreen mode"/>`;
+        Viewer.fullscreenMode.innerHTML = `<img src="${core.DFG_ASSETS}/img/exit-fullscreen.png" alt="Fullscreen" width=25 height=25 title="Exit fullscreen mode"/>`;
         //Viewer.downloadModel?.setAttribute("style", "visibility: none");
     } else {
       scale = {x: Number(core.CONFIG.viewer.scaleContainer?.x || 1), y: Number(core.CONFIG.viewer.scaleContainer?.y || 1)};
@@ -10569,8 +10568,8 @@ const Viewer = {
 
     // UI
     Viewer.fullscreenMode.innerHTML = isFs
-      ? `<img src="${Viewer.DFG_ASSETS}exit-fullscreen.png" width="25" height="25" title="Exit fullscreen mode"/>`
-      : `<img src="${Viewer.DFG_ASSETS}fullscreen.png" width="25" height="25" title="Fullscreen mode"/>`;
+      ? `<img src="${core.DFG_ASSETS}/img/exit-fullscreen.png" width="25" height="25" title="Exit fullscreen mode"/>`
+      : `<img src="${core.DFG_ASSETS}/img/fullscreen.png" width="25" height="25" title="Fullscreen mode"/>`;
 
     // Layout (ESC + klik)
     requestAnimationFrame(() => {
@@ -10753,7 +10752,7 @@ const Viewer = {
         Viewer.raycaster.setFromCamera(Viewer.onUpPosition, core.camera);
         var intersects;
 
-        if (Viewer.EDITOR || Viewer.RULER_MODE) {
+        if (Viewer.pickingMode || Viewer.RULER_MODE) {
           if (core.mainObject.length > 1) {
             for (let ii = 0; ii < core.mainObject.length; ii++) {
               intersects = Viewer.raycaster.intersectObjects(
@@ -10769,7 +10768,7 @@ const Viewer = {
           }
           if (intersects.length > 0) {
             if (Viewer.RULER_MODE) Viewer.buildRuler(intersects[0]);
-            else if (Viewer.EDITOR) Viewer.pickFaces(intersects[0]);
+            else if (Viewer.pickingMode) Viewer.pickFaces(intersects[0]);
           }
         }
       }
@@ -10801,7 +10800,7 @@ const Viewer = {
         );
       }
     } else {
-      if (Viewer.EDITOR) {
+      if (Viewer.pickingMode) {
         Viewer.raycaster.setFromCamera(Viewer.pointer, core.camera);
         var intersects;
         if (core.mainObject.length > 1) {
@@ -11333,10 +11332,57 @@ const Viewer = {
         );
       });
 
-    Viewer.clippingFolder = Viewer.editorFolder.addFolder("Clipping Planes").close();
-    setCore("clippingFolder", Viewer.clippingFolder);
-    core.materialsFolder = Viewer.editorFolder.addFolder("Materials").close();
-    setCore("materialsFolder", core.materialsFolder);
+    if (Viewer.EDITOR) {
+      Viewer.clippingFolder = Viewer.editorFolder.addFolder("Clipping Planes").close();
+      setCore("clippingFolder", Viewer.clippingFolder);
+      core.materialsFolder = Viewer.editorFolder.addFolder("Materials").close();
+      setCore("materialsFolder", core.materialsFolder);
+      Viewer.editorFolder.add(
+        {
+          ["Picking mode"]() {
+            Viewer.pickingMode = !Viewer.pickingMode;
+            var _str;
+            Viewer.pickingMode ? (_str = "enabled") : (_str = "disabled");
+            showToast("Face picking is " + _str);
+            if (!Viewer.pickingMode) ; else {
+              Viewer.RULER_MODE = false;
+            }
+          },
+        },
+        "Picking mode"
+      );
+
+      Viewer.editorFolder.add(
+        {
+          ["Distance Measurement"]() {
+            Viewer.RULER_MODE = !Viewer.RULER_MODE;
+            var _str;
+            Viewer.RULER_MODE ? (_str = "enabled") : (_str = "disabled");
+            showToast("Distance measurement mode is " + _str);
+            if (!Viewer.RULER_MODE) {
+              Viewer.ruler.forEach((r) => {
+                core.scene.remove(r);
+              });
+              Viewer.rulerObject = new THREE.Object3D();
+              Viewer.ruler = [];
+              Viewer.linePoints = [];
+            } else {
+              Viewer.pickingMode = false;
+            }
+          },
+        },
+        "Distance Measurement"
+      );
+
+      Viewer.editorFolder.add(
+        {
+          ["Reset camera position"]() {
+            Viewer.resetCamera();
+          },
+        },
+        "Reset camera position"
+      );
+    }
 
     if (!core.isLightweight) {
       Viewer.propertiesFolder = Viewer.editorFolder.addFolder("Save properties").close();
@@ -11350,7 +11396,7 @@ const Viewer = {
       Viewer.propertiesFolder.add(Viewer.saveProperties, "BackgroundColor");
     }
 
-    if (Viewer.editor && !core.isLightweight) {
+    if (Viewer.EDITOR && !core.isLightweight) {
       Viewer.editorFolder.add(
         {
           ["Save"]() {
@@ -11421,60 +11467,13 @@ const Viewer = {
         },
         "Save"
       );
-      if (!core.isLightweight) {
-        Viewer.editorFolder.add(
-          {
-            ["Picking mode"]() {
-              Viewer.EDITOR = !Viewer.EDITOR;
-              var _str;
-              Viewer.EDITOR ? (_str = "enabled") : (_str = "disabled");
-              showToast("Face picking is " + _str);
-              if (!Viewer.EDITOR) ; else {
-                Viewer.RULER_MODE = false;
-              }
-            },
-          },
-          "Picking mode"
-        );
-      }
       Viewer.editorFolder.add(
         {
-          ["Distance Measurement"]() {
-            Viewer.RULER_MODE = !Viewer.RULER_MODE;
-            var _str;
-            Viewer.RULER_MODE ? (_str = "enabled") : (_str = "disabled");
-            showToast("Distance measurement mode is " + _str);
-            if (!RULER_MODE) {
-              Viewer.ruler.forEach((r) => {
-                core.scene.remove(r);
-              });
-              Viewer.rulerObject = new THREE.Object3D();
-              Viewer.ruler = [];
-              Viewer.linePoints = [];
-            } else {
-              Viewer.EDITOR = false;
-            }
+          ["Render preview"]() {
+            Viewer.takeScreenshot();
           },
         },
-        "Distance Measurement"
-      );
-      if (!core.isLightweight) {
-        Viewer.editorFolder.add(
-          {
-            ["Render preview"]() {
-              Viewer.takeScreenshot();
-            },
-          },
-          "Render preview"
-        );
-      }
-      Viewer.editorFolder.add(
-        {
-          ["Reset camera position"]() {
-            Viewer.resetCamera();
-          },
-        },
-        "Reset camera position"
+        "Render preview"
       );
     }
   },
@@ -11647,9 +11646,10 @@ const Viewer = {
       Viewer.fullscreenMode = document.createElement("div");
       Viewer.fullscreenMode.setAttribute("id", "fullscreenMode");
       const scriptUrl = document.currentScript?.src || import.meta.url;
-      Viewer.DFG_ASSETS = scriptUrl.replace(/dfg_3dviewer-module\.js.*$/, 'assets/img/');
+      Viewer.DFG_ASSETS = scriptUrl.replace(/dfg_3dviewer-module\.js.*$/, 'assets');
+      setCore('DFG_ASSETS', Viewer.DFG_ASSETS);
 
-      Viewer.fullscreenMode.innerHTML = `<img src="${Viewer.DFG_ASSETS}fullscreen.png" alt="Fullscreen" width=25 height=25 title="Fullscreen mode"/>`;
+      Viewer.fullscreenMode.innerHTML = `<img src="${core.DFG_ASSETS}/img/fullscreen.png" alt="Fullscreen" width=25 height=25 title="Fullscreen mode"/>`;
       Viewer.fullscreenMode.setAttribute(
         "style",
         "top:" +
@@ -11664,7 +11664,7 @@ const Viewer = {
       Viewer.downloadModel = document.createElement("div");
       setCore('downloadModel', Viewer.downloadModel);
 
-      Viewer.handHint.innerHTML = `<img src="${Viewer.DFG_ASSETS}hand-hint.png" alt="Fullscreen" width=48 height=48 title="Hand hint animation"/>`;
+      Viewer.handHint.innerHTML = `<img src="${core.DFG_ASSETS}/img/hand-hint.png" alt="Fullscreen" width=48 height=48 title="Hand hint animation"/>`;
       
       Viewer.rect = core.container.getBoundingClientRect();
       core.guiContainer.style.maxHeight = `${Viewer.rect.height - 20}px`;

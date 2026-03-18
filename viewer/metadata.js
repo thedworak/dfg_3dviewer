@@ -225,11 +225,10 @@ export async function handleMetadataResponse(
 
       core.container.appendChild(core.downloadModel);
       const scriptUrl = document.currentScript?.src || import.meta.url;
-      let DFG_ASSETS = scriptUrl.replace(/dfg_3dviewer-module\.js.*$/, 'assets/img');
 
       core.downloadModel.innerHTML = `
         <a href="blob:${encodeURI(c_path + core.fileObject.filename)}" download>
-          <img src="${DFG_ASSETS}/download-icon.svg" alt="download" width="28" height="28" title="Download source file"/>`;
+          <img src="${core.DFG_ASSETS}/img/download-icon.svg" alt="download" width="28" height="28" title="Download source file"/>`;
     }
 
     if (core.fetchMetadataXML) {
@@ -278,10 +277,9 @@ export async function handleMetadataResponse(
     }
   } else {
     const scriptUrl = document.currentScript?.src || import.meta.url;
-    let DFG_ASSETS = scriptUrl.replace(/dfg_3dviewer-module\.js.*$/, 'assets/img/');
 
     core.viewEntity.innerHTML =
-      `<a href='${core.CONFIG.mainUrl}${core.CONFIG.entity.viewEntityPath}${core.CONFIG.entity.id}/view' target='_blank'><img src='${DFG_ASSETS}share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>`;
+      `<a href='${core.CONFIG.mainUrl}${core.CONFIG.entity.viewEntityPath}${core.CONFIG.entity.id}/view' target='_blank'><img src='${core.DFG_ASSETS}/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>`;
   }
   metadataContent +=
       '</div>' +  // #metadata-content

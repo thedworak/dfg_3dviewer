@@ -91,7 +91,6 @@ export const Viewer = {
   testModelURL: 'https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb',
   fetchMetadataXML: false,
   clock: null,
-  editor: true,
   FULLSCREEN: false,
   mixer: null,
   cameraTween: null,
@@ -185,6 +184,7 @@ export const Viewer = {
   },
   backgroundType: { "Background Type": "gradient" },
   backgroundOuterFolder: null,
+  pickingMode: false,
   EDITOR: false,
   RULER_MODE: false,
   linePoints: [],
@@ -493,6 +493,7 @@ export const Viewer = {
             x: 0.85,
             y: 1.4,
           },
+          editor: true,
           gallery: {
             build: true,
             container: "block-bootstrap5-content",
@@ -512,6 +513,8 @@ export const Viewer = {
     setCore('isLightweight', this.isLightweight);
     console.log(`AIM 3D-Viewer ${this.isLightweight ? '🪶 LIGHTWEIGHT' : '💪 FULL'} mode`);
     console.log(`Powered by Three.js (v${THREE.REVISION})`);
+
+    this.EDITOR = Boolean(core.CONFIG.viewer.editor);
     
     core.CONFIG.entity.metadata.source = SOURCE;
     if (core.CONFIG.entity.metadata.source) console.log(`Metadata source: ${core.CONFIG.entity.metadata.source}`);
@@ -652,10 +655,22 @@ export const Viewer = {
     core.fileObject.uri = core.fileObject.path.replace(core.CONFIG.mainUrl + "/", "");
     core.fileObject.relativePath = Viewer.normalizeDrupalFilesPath(core.fileObject.uri);
   },
+
   // Disable interaction hint on first interaction
  disableInteractionHint() {
     Viewer.handHint.hidden = true;
     Viewer.stopGesture();
+
+    // Stop any running camera tweens when user interacts
+    if (core.cameraTween && typeof core.cameraTween.stop === "function") {
+      core.cameraTween.stop();
+      core.cameraTween = null;
+    }
+    if (core.targetTween && typeof core.targetTween.stop === "function") {
+      core.targetTween.stop();
+      core.targetTween = null;
+    }
+
     //Viewer.handHint.classList.remove("hand-drag-animate");
     localStorage.setItem("viewerHintSeen", "1");
   },
@@ -685,7 +700,7 @@ export const Viewer = {
     const loader = new FontLoader();
 
     loader.load(
-      '.' + core.CONFIG.baseModulePath + "/fonts/helvetiker_regular.typeface.json",
+      `${core.DFG_ASSETS}/fonts/helvetiker_regular.typeface.json`,
       function (font) {
         const textGeo = new TextGeometry(_text, {
           font,
@@ -717,7 +732,6 @@ export const Viewer = {
   },
 
   addTextPoint(_text, _scale, _point) {
-    var textGeo;
     var materials = [
       new THREE.MeshStandardMaterial({
         color: 0x0000ff,
@@ -726,34 +740,34 @@ export const Viewer = {
         depthTest: false,
         depthWrite: false,
         transparent: true,
-        opacity: 0.4,
+        opacity: 0.8,
       }), // front
       new THREE.MeshStandardMaterial({
-        color: 0x0000ff,
+        color: 0xffffff,
         flatShading: true,
         side: THREE.DoubleSide,
         depthTest: false,
         depthWrite: false,
         transparent: true,
-        opacity: 0.4,
+        opacity: 0.5,
       }), // side
     ];
     const loader = new FontLoader();
-    var textSize = _scale / 10;
+    const bevelSize = _scale / 10;
     loader.load(
-      '.' + core.CONFIG.baseModulePath + "/fonts/helvetiker_regular.typeface.json",
+      `${core.DFG_ASSETS}/fonts/helvetiker_regular.typeface.json`,
       function (font) {
         const textGeo = new TextGeometry(_text, {
           font: font,
           size: _scale * 3,
-          height: textSize,
+          height: _scale,
           curveSegments: 4,
           bevelEnabled: true,
-          bevelThickness: textSize,
-          bevelSize: textSize,
+          bevelThickness: bevelSize,
+          bevelSize: bevelSize/10,
           bevelOffset: 0,
           bevelSegments: 1,
-          depth: textSize,
+          depth: _scale/10,
         });
         textGeo.computeBoundingBox();
 
@@ -1131,11 +1145,17 @@ export const Viewer = {
 
   buildRuler(_id) {
     Viewer.rulerObject = new THREE.Object3D();
+    const gridSize = Viewer.gridSize || core.gridSize || 1;
+    const sphereRadius = Math.max(gridSize / 150, 0.001);
+    const textScale = Math.max(gridSize / 100, 0.01);
+    const measureSize = Math.max(gridSize / 200, 0.01);
+
     var sphere = new THREE.Mesh(
-      new THREE.SphereGeometry(Viewer.gridSize / 150, 7, 7),
-      new THREE.MeshNormalMaterial({
+      new THREE.SphereGeometry(sphereRadius, 7, 7),
+      new THREE.MeshStandardMaterial({
+        color: 0xff0000,
         transparent: true,
-        opacity: 0.8,
+        opacity: 0.85,
         side: THREE.DoubleSide,
         depthTest: false,
         depthWrite: false,
@@ -1169,9 +1189,9 @@ export const Viewer = {
         Viewer.linePoints[Viewer.linePoints.length - 2],
         newPoint
       );
-      addTextPoint(distancePoints.toFixed(2), Viewer.gridSize / 200, halfwayPoints);
+      Viewer.addTextPoint(distancePoints.toFixed(2), textScale, halfwayPoints);
       var rulerI = 0;
-      var measureSize = Viewer.gridSize / 400;
+      // `measureSize` was already precomputed outside, keep same scale
       while (rulerI <= distancePoints * 100) {
         const geoSegm = [];
         var interpolatePoints = interpolateDistanceBetweenPoints(
@@ -1200,7 +1220,7 @@ export const Viewer = {
         rulerI += 10;
       }
     }
-    Viewer.rulerObject.renderOrder = 1;
+    Viewer.rulerObject.renderOrder = 10;
     core.scene.add(Viewer.rulerObject);
     Viewer.ruler.push(Viewer.rulerObject);
   },
@@ -1224,7 +1244,7 @@ export const Viewer = {
         Viewer.mainCanvas.style.width = '100vw';
         Viewer.mainCanvas.style.height = '100vh';
         Viewer.fullscreenMode.style.left = (widthCSS - 40) + 'px';
-        Viewer.fullscreenMode.innerHTML = `<img src="${Viewer.DFG_ASSETS}exit-fullscreen.png" alt="Fullscreen" width=25 height=25 title="Exit fullscreen mode"/>`;
+        Viewer.fullscreenMode.innerHTML = `<img src="${core.DFG_ASSETS}/img/exit-fullscreen.png" alt="Fullscreen" width=25 height=25 title="Exit fullscreen mode"/>`;
         //Viewer.downloadModel?.setAttribute("style", "visibility: none");
     } else {
       scale = {x: Number(core.CONFIG.viewer.scaleContainer?.x || 1), y: Number(core.CONFIG.viewer.scaleContainer?.y || 1)};
@@ -1293,8 +1313,8 @@ export const Viewer = {
 
     // UI
     Viewer.fullscreenMode.innerHTML = isFs
-      ? `<img src="${Viewer.DFG_ASSETS}exit-fullscreen.png" width="25" height="25" title="Exit fullscreen mode"/>`
-      : `<img src="${Viewer.DFG_ASSETS}fullscreen.png" width="25" height="25" title="Fullscreen mode"/>`;
+      ? `<img src="${core.DFG_ASSETS}/img/exit-fullscreen.png" width="25" height="25" title="Exit fullscreen mode"/>`
+      : `<img src="${core.DFG_ASSETS}/img/fullscreen.png" width="25" height="25" title="Fullscreen mode"/>`;
 
     // Layout (ESC + klik)
     requestAnimationFrame(() => {
@@ -1386,6 +1406,8 @@ export const Viewer = {
 
     g.baseAngle = null;
     g.target = null;
+    core.handHint.hidden = true;
+    core.GESTURE.active = false;
   },
 
   animate: (time) => {
@@ -1419,9 +1441,9 @@ export const Viewer = {
       Viewer.mixer.update(delta);
     }
 
-    if (core.handHint.hidden && !core.GESTURE?.active) {
-      core.cameraTween.update(time);
-      core.targetTween.update(time);
+    if (core.handHint?.hidden && !core.GESTURE?.active) {
+      core.cameraTween?.update(time);
+      core.targetTween?.update(time);
     }
 
     if (!core.GESTURE?.active) {
@@ -1477,7 +1499,7 @@ export const Viewer = {
         Viewer.raycaster.setFromCamera(Viewer.onUpPosition, core.camera);
         var intersects;
 
-        if (Viewer.EDITOR || Viewer.RULER_MODE) {
+        if (Viewer.pickingMode || Viewer.RULER_MODE) {
           if (core.mainObject.length > 1) {
             for (let ii = 0; ii < core.mainObject.length; ii++) {
               intersects = Viewer.raycaster.intersectObjects(
@@ -1493,7 +1515,7 @@ export const Viewer = {
           }
           if (intersects.length > 0) {
             if (Viewer.RULER_MODE) Viewer.buildRuler(intersects[0]);
-            else if (Viewer.EDITOR) Viewer.pickFaces(intersects[0]);
+            else if (Viewer.pickingMode) Viewer.pickFaces(intersects[0]);
           }
         }
       }
@@ -1525,7 +1547,7 @@ export const Viewer = {
         );
       }
     } else {
-      if (Viewer.EDITOR) {
+      if (Viewer.pickingMode) {
         Viewer.raycaster.setFromCamera(Viewer.pointer, core.camera);
         var intersects;
         if (core.mainObject.length > 1) {
@@ -1763,16 +1785,46 @@ export const Viewer = {
   },
 
   resetCamera() {
-    var camPosition = core.camera.position;
-    let _tween = new Tween(camPosition)
-      .to(core.cameraCoords, 1500)
+    const targetCamera = core.cameraCoords || core.camera.position.clone();
+    const targetControls =
+      core.controlsTarget ||
+      core.controls?.target?.clone() ||
+      new THREE.Vector3();
+
+    if (!targetCamera || typeof targetCamera.x !== 'number') {
+      return;
+    }
+
+    const startCam = core.camera.position.clone();
+    const startTarget = core.controls?.target?.clone() || new THREE.Vector3();
+
+    core.cameraTween = new TWEEN.Tween(startCam)
+      .to(targetCamera, 1500)
+      .easing(TWEEN.Easing.Cubic.Out)
       .onUpdate(() => {
-        core.camera.position.set(camPosition.x, camPosition.y, camPosition.z);
-        core.cameraLight.position.set(camPosition.x, camPosition.y, camPosition.z);
+        core.camera.position.copy(startCam);
+        core.cameraLight.position.copy(startCam);
         core.camera.updateProjectionMatrix();
-        core.controls.update();
-      })
-      .start();
+      });
+
+    core.targetTween = new TWEEN.Tween(startTarget)
+      .to(targetControls, 1500)
+      .easing(TWEEN.Easing.Cubic.Out)
+      .onUpdate(() => {
+        core.controls?.target.copy(startTarget);
+        core.controls?.update();
+      });
+
+    core.cameraTween.onComplete(() => {
+      core.camera.position.copy(targetCamera);
+      core.cameraLight.position.copy(targetCamera);
+      core.controls?.target.copy(targetControls);
+      core.controls?.update();
+      core.camera.updateProjectionMatrix();
+    });
+
+    core.cameraTween.start();
+    core.targetTween.start();
   },
 
   pick(save, current, original) {
@@ -2058,10 +2110,58 @@ export const Viewer = {
         );
       });
 
-    Viewer.clippingFolder = Viewer.editorFolder.addFolder("Clipping Planes").close();
-    setCore("clippingFolder", Viewer.clippingFolder);
-    core.materialsFolder = Viewer.editorFolder.addFolder("Materials").close();
-    setCore("materialsFolder", core.materialsFolder);
+    if (Viewer.EDITOR) {
+      Viewer.clippingFolder = Viewer.editorFolder.addFolder("Clipping Planes").close();
+      setCore("clippingFolder", Viewer.clippingFolder);
+      core.materialsFolder = Viewer.editorFolder.addFolder("Materials").close();
+      setCore("materialsFolder", core.materialsFolder);
+      Viewer.editorFolder.add(
+        {
+          ["Picking mode"]() {
+            Viewer.pickingMode = !Viewer.pickingMode;
+            var _str;
+            Viewer.pickingMode ? (_str = "enabled") : (_str = "disabled");
+            showToast("Face picking is " + _str);
+            if (!Viewer.pickingMode) {
+            } else {
+              Viewer.RULER_MODE = false;
+            }
+          },
+        },
+        "Picking mode"
+      );
+
+      Viewer.editorFolder.add(
+        {
+          ["Distance Measurement"]() {
+            Viewer.RULER_MODE = !Viewer.RULER_MODE;
+            var _str;
+            Viewer.RULER_MODE ? (_str = "enabled") : (_str = "disabled");
+            showToast("Distance measurement mode is " + _str);
+            if (!Viewer.RULER_MODE) {
+              Viewer.ruler.forEach((r) => {
+                core.scene.remove(r);
+              });
+              Viewer.rulerObject = new THREE.Object3D();
+              Viewer.ruler = [];
+              Viewer.linePoints = [];
+            } else {
+              Viewer.pickingMode = false;
+            }
+          },
+        },
+        "Distance Measurement"
+      );
+
+      Viewer.editorFolder.add(
+        {
+          ["Reset camera position"]() {
+            Viewer.resetCamera();
+          },
+        },
+        "Reset camera position"
+      );
+    }
 
     if (!core.isLightweight) {
       Viewer.propertiesFolder = Viewer.editorFolder.addFolder("Save properties").close();
@@ -2075,7 +2175,7 @@ export const Viewer = {
       Viewer.propertiesFolder.add(Viewer.saveProperties, "BackgroundColor");
     }
 
-    if (Viewer.editor && !core.isLightweight) {
+    if (Viewer.EDITOR && !core.isLightweight) {
       Viewer.editorFolder.add(
         {
           ["Save"]() {
@@ -2146,61 +2246,13 @@ export const Viewer = {
         },
         "Save"
       );
-      if (!core.isLightweight) {
-        Viewer.editorFolder.add(
-          {
-            ["Picking mode"]() {
-              Viewer.EDITOR = !Viewer.EDITOR;
-              var _str;
-              Viewer.EDITOR ? (_str = "enabled") : (_str = "disabled");
-              showToast("Face picking is " + _str);
-              if (!Viewer.EDITOR) {
-              } else {
-                Viewer.RULER_MODE = false;
-              }
-            },
-          },
-          "Picking mode"
-        );
-      }
       Viewer.editorFolder.add(
         {
-          ["Distance Measurement"]() {
-            Viewer.RULER_MODE = !Viewer.RULER_MODE;
-            var _str;
-            Viewer.RULER_MODE ? (_str = "enabled") : (_str = "disabled");
-            showToast("Distance measurement mode is " + _str);
-            if (!Viewer.RULER_MODE) {
-              Viewer.ruler.forEach((r) => {
-                core.scene.remove(r);
-              });
-              Viewer.rulerObject = new THREE.Object3D();
-              Viewer.ruler = [];
-              Viewer.linePoints = [];
-            } else {
-              Viewer.EDITOR = false;
-            }
+          ["Render preview"]() {
+            Viewer.takeScreenshot();
           },
         },
-        "Distance Measurement"
-      );
-      if (!core.isLightweight) {
-        Viewer.editorFolder.add(
-          {
-            ["Render preview"]() {
-              Viewer.takeScreenshot();
-            },
-          },
-          "Render preview"
-        );
-      }
-      Viewer.editorFolder.add(
-        {
-          ["Reset camera position"]() {
-            Viewer.resetCamera();
-          },
-        },
-        "Reset camera position"
+        "Render preview"
       );
     }
   },
@@ -2373,9 +2425,10 @@ export const Viewer = {
       Viewer.fullscreenMode = document.createElement("div");
       Viewer.fullscreenMode.setAttribute("id", "fullscreenMode");
       const scriptUrl = document.currentScript?.src || import.meta.url;
-      Viewer.DFG_ASSETS = scriptUrl.replace(/dfg_3dviewer-module\.js.*$/, 'assets/img/');
+      Viewer.DFG_ASSETS = scriptUrl.replace(/dfg_3dviewer-module\.js.*$/, 'assets');
+      setCore('DFG_ASSETS', Viewer.DFG_ASSETS);
 
-      Viewer.fullscreenMode.innerHTML = `<img src="${Viewer.DFG_ASSETS}fullscreen.png" alt="Fullscreen" width=25 height=25 title="Fullscreen mode"/>`;
+      Viewer.fullscreenMode.innerHTML = `<img src="${core.DFG_ASSETS}/img/fullscreen.png" alt="Fullscreen" width=25 height=25 title="Fullscreen mode"/>`;
       Viewer.fullscreenMode.setAttribute(
         "style",
         "top:" +
@@ -2390,7 +2443,7 @@ export const Viewer = {
       Viewer.downloadModel = document.createElement("div");
       setCore('downloadModel', Viewer.downloadModel);
 
-      Viewer.handHint.innerHTML = `<img src="${Viewer.DFG_ASSETS}hand-hint.png" alt="Fullscreen" width=48 height=48 title="Hand hint animation"/>`;
+      Viewer.handHint.innerHTML = `<img src="${core.DFG_ASSETS}/img/hand-hint.png" alt="Fullscreen" width=48 height=48 title="Hand hint animation"/>`;
       
       Viewer.rect = core.container.getBoundingClientRect();
       core.guiContainer.style.maxHeight = `${Viewer.rect.height - 20}px`;
