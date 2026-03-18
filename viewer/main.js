@@ -1133,7 +1133,7 @@ export const Viewer = {
   buildRuler(_id) {
     Viewer.rulerObject = new THREE.Object3D();
     var sphere = new THREE.Mesh(
-      new THREE.SphereGeometry(gridSize / 150, 7, 7),
+      new THREE.SphereGeometry(Viewer.gridSize / 150, 7, 7),
       new THREE.MeshNormalMaterial({
         transparent: true,
         opacity: 0.8,
@@ -1169,9 +1169,9 @@ export const Viewer = {
         linePoints[linePoints.length - 2],
         newPoint
       );
-      addTextPoint(distancePoints.toFixed(2), gridSize / 200, halfwayPoints);
+      addTextPoint(distancePoints.toFixed(2), Viewer.gridSize / 200, halfwayPoints);
       var rulerI = 0;
-      var measureSize = gridSize / 400;
+      var measureSize = Viewer.gridSize / 400;
       while (rulerI <= distancePoints * 100) {
         const geoSegm = [];
         var interpolatePoints = interpolateDistanceBetweenPoints(
