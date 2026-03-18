@@ -187,7 +187,6 @@ export const Viewer = {
   backgroundOuterFolder: null,
   EDITOR: false,
   RULER_MODE: false,
-  lineMaterial: new THREE.LineBasicMaterial({ color: 0x0000ff }),
   linePoints: [],
   gui: null,
   hierarchyFolder: null,
@@ -1147,6 +1146,7 @@ export const Viewer = {
     Viewer.rulerObject.add(sphere);
     Viewer.linePoints.push(newPoint);
     const lineGeometry = new THREE.BufferGeometry().setFromPoints(Viewer.linePoints);
+    const lineMaterial = new THREE.LineBasicMaterial({ color: 0x0000ff });
     const line = new THREE.Line(lineGeometry, lineMaterial);
     Viewer.rulerObject.add(line);
     var lineMtr = new THREE.LineBasicMaterial({
