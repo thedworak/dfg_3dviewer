@@ -1145,8 +1145,8 @@ export const Viewer = {
     var newPoint = new THREE.Vector3(_id.point.x, _id.point.y, _id.point.z);
     sphere.position.set(newPoint.x, newPoint.y, newPoint.z);
     Viewer.rulerObject.add(sphere);
-    linePoints.push(newPoint);
-    const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
+    Viewer.linePoints.push(newPoint);
+    const lineGeometry = new THREE.BufferGeometry().setFromPoints(Viewer.linePoints);
     const line = new THREE.Line(lineGeometry, lineMaterial);
     Viewer.rulerObject.add(line);
     var lineMtr = new THREE.LineBasicMaterial({
@@ -1164,9 +1164,9 @@ export const Viewer = {
       );
       var distancePoints = distanceBetweenPointsVector(vectorPoints);
 
-      //var distancePoints = distanceBetweenPoints(linePoints[linePoints.length-2], newPoint);
+      //var distancePoints = distanceBetweenPoints(Viewer.linePoints[Viewer.linePoints.length-2], newPoint);
       var halfwayPoints = halfwayBetweenPoints(
-        linePoints[linePoints.length - 2],
+        Viewer.linePoints[Viewer.linePoints.length - 2],
         newPoint
       );
       addTextPoint(distancePoints.toFixed(2), Viewer.gridSize / 200, halfwayPoints);
@@ -1175,7 +1175,7 @@ export const Viewer = {
       while (rulerI <= distancePoints * 100) {
         const geoSegm = [];
         var interpolatePoints = interpolateDistanceBetweenPoints(
-          linePoints[linePoints.length - 2],
+          Viewer.linePoints[Viewer.linePoints.length - 2],
           vectorPoints,
           distancePoints,
           rulerI / 100
