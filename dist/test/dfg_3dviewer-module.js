@@ -2541,7 +2541,7 @@ const UltraLoader$1 = {
         this.bar.style.width = "0%";
         this.progress = 0;
       }, 1500);
-    }, 3000);
+    }, 2500);
 
   },
 

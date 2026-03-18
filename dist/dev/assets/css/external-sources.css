@@ -203,7 +203,7 @@
   flex: 1;
   min-width: 0;
 
-  padding: 8px 36px 8px 10px; /* 👈 więcej miejsca na strzałkę */
+  padding: 8px 36px 8px 10px;
   font-size: 13px;
 
   border-radius: 6px;
@@ -218,7 +218,7 @@
   background-position:
     calc(100% - 20px) 50%,
     calc(100% - 14px) 50%;
-  background-size: 7px 7px; /* 👈 było 5px */
+  background-size: 7px 7px;
   background-repeat: no-repeat;
 }
 
