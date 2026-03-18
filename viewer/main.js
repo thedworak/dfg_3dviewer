@@ -1157,9 +1157,9 @@ export const Viewer = {
       depthTest: false,
       depthWrite: false,
     });
-    if (linePoints.length > 1) {
+    if (Viewer.linePoints.length > 1) {
       var vectorPoints = vectorBetweenPoints(
-        linePoints[linePoints.length - 2],
+        Viewer.linePoints[Viewer.linePoints.length - 2],
         newPoint
       );
       var distancePoints = distanceBetweenPointsVector(vectorPoints);
