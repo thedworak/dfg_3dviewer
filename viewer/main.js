@@ -1131,7 +1131,7 @@ export const Viewer = {
   },
 
   buildRuler(_id) {
-    rulerObject = new THREE.Object3D();
+    Viewer.rulerObject = new THREE.Object3D();
     var sphere = new THREE.Mesh(
       new THREE.SphereGeometry(gridSize / 150, 7, 7),
       new THREE.MeshNormalMaterial({
@@ -1144,11 +1144,11 @@ export const Viewer = {
     );
     var newPoint = new THREE.Vector3(_id.point.x, _id.point.y, _id.point.z);
     sphere.position.set(newPoint.x, newPoint.y, newPoint.z);
-    rulerObject.add(sphere);
+    Viewer.rulerObject.add(sphere);
     linePoints.push(newPoint);
     const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
     const line = new THREE.Line(lineGeometry, lineMaterial);
-    rulerObject.add(line);
+    Viewer.rulerObject.add(line);
     var lineMtr = new THREE.LineBasicMaterial({
       color: 0x0000ff,
       linewidth: 3,
@@ -1196,13 +1196,13 @@ export const Viewer = {
         );
         const geometryLine = new THREE.BufferGeometry().setFromPoints(geoSegm);
         var lineSegm = new THREE.Line(geometryLine, lineMtr);
-        rulerObject.add(lineSegm);
+        Viewer.rulerObject.add(lineSegm);
         rulerI += 10;
       }
     }
-    rulerObject.renderOrder = 1;
-    core.scene.add(rulerObject);
-    ruler.push(rulerObject);
+    Viewer.rulerObject.renderOrder = 1;
+    core.scene.add(Viewer.rulerObject);
+    Viewer.ruler.push(Viewer.rulerObject);
   },
 
 
@@ -2170,7 +2170,7 @@ export const Viewer = {
             var _str;
             Viewer.RULER_MODE ? (_str = "enabled") : (_str = "disabled");
             showToast("Distance measurement mode is " + _str);
-            if (!RULER_MODE) {
+            if (!Viewer.RULER_MODE) {
               Viewer.ruler.forEach((r) => {
                 core.scene.remove(r);
               });
