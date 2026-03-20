@@ -54,8 +54,9 @@ console.log('[loaders] MODULES_PATH:', MODULES_PATH);
 
 function normalizeWasmPath(path) {
   if (typeof window === 'undefined' || !path) return path;
-  let normalized = path;
+  let normalized = path.trim();
 
+  // Force secure scheme for explicit http resources
   if (normalized.startsWith('http://')) {
     normalized = 'https://' + normalized.slice('http://'.length);
   } else if (normalized.startsWith('//')) {
@@ -64,6 +65,15 @@ function normalizeWasmPath(path) {
     normalized = `${window.location.protocol}//${window.location.host}${normalized}`;
   } else if (!/^[a-zA-Z][\w+-.]*:/.test(normalized)) {
     normalized = new URL(normalized, window.location.href).href;
+  }
+
+  // Normalize duplicate slashes while keeping protocol separator intact
+  try {
+    const url = new URL(normalized);
+    url.pathname = url.pathname.replace(/\/\/{2,}/g, '/');
+    normalized = url.href;
+  } catch (err) {
+    normalized = normalized.replace(/\/\/{2,}/g, '/');
   }
 
   return normalized;
@@ -407,9 +417,11 @@ function reportLoadError(error, context = "") {
         case "ifc": {
           const loader = await createLoader(core.fileObject.extension.toLowerCase());
           const ifcWasmPath = normalizeWasmPath(
-            ENV_BUILD === 'drupal'
-              ? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/${ENV_BUILD}/assets/ifc/`
-              : `/assets/ifc/`
+            normalizePath(
+              ENV_BUILD === 'drupal'
+                ? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/${ENV_BUILD}/assets/ifc/`
+                : `/assets/ifc/`
+            )
           );
           console.log('[loadModel] IFC WASM path:', ifcWasmPath);
           loader.ifcManager.setWasmPath(ifcWasmPath, true);
