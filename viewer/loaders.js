@@ -337,17 +337,23 @@ function reportLoadError(error, context = "") {
       return path.replace(/\/{2,}/g, '/');
     }
 
+    function getModuleAssetBasePath() {
+      let basePath = core.CONFIG?.baseModulePath ? core.CONFIG.baseModulePath.replace(/\/$/, '') : '';
+      if (!basePath) {
+        basePath = ENV_BUILD === 'drupal'
+          ? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/${ENV_BUILD}/assets`
+          : '/assets';
+      }
+      return basePath;
+    }
+
     async function loadGLTFModel() {
       let gltfModelPath = core.fileObject.path + core.fileObject.basename + "." + core.fileObject.extension;
       if (core.CONFIG.entity.proxyPath !== undefined) {
         gltfModelPath = core.getProxyPath(gltfModelPath);
       }
 
-      const dracoBase = normalizePath(
-      ENV_BUILD === 'drupal'
-        ? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/${ENV_BUILD}/assets/draco/gltf/`
-        : `/assets/draco/gltf/`
-      );
+      const dracoBase = normalizePath(normalizeWasmPath(`${getModuleAssetBasePath()}/draco/gltf/`));
 
       const loader = await createLoader(core.fileObject.extension.toLowerCase());
       const DRACOLoader = await loadDRACOLoader();
@@ -416,13 +422,7 @@ function reportLoadError(error, context = "") {
 
         case "ifc": {
           const loader = await createLoader(core.fileObject.extension.toLowerCase());
-          const ifcWasmPath = normalizeWasmPath(
-            normalizePath(
-              ENV_BUILD === 'drupal'
-                ? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/${ENV_BUILD}/assets/ifc/`
-                : `/assets/ifc/`
-            )
-          );
+          const ifcWasmPath = normalizeWasmPath(normalizePath(`${getModuleAssetBasePath()}/ifc/`));
           console.log('[loadModel] IFC WASM path:', ifcWasmPath);
           loader.ifcManager.setWasmPath(ifcWasmPath, true);
           const object = await loadAsync(loader, modelPath, onProgress);
