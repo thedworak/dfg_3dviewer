@@ -411,6 +411,7 @@ function reportLoadError(error, context = "") {
               ? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/${ENV_BUILD}/assets/ifc/`
               : `/assets/ifc/`
           );
+          console.log('[loadModel] IFC WASM path:', ifcWasmPath);
           loader.ifcManager.setWasmPath(ifcWasmPath, true);
           const object = await loadAsync(loader, modelPath, onProgress);
           await afterLoad({ object });
