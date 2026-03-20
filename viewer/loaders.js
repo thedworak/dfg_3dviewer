@@ -52,6 +52,23 @@ const MODULES_PATH = __MODULES_PATH__;
 console.log('[loaders] ENV_BUILD:', ENV_BUILD);
 console.log('[loaders] MODULES_PATH:', MODULES_PATH);
 
+function normalizeWasmPath(path) {
+  if (typeof window === 'undefined' || !path) return path;
+  let normalized = path;
+
+  if (normalized.startsWith('http://')) {
+    normalized = 'https://' + normalized.slice('http://'.length);
+  } else if (normalized.startsWith('//')) {
+    normalized = `${window.location.protocol}${normalized}`;
+  } else if (normalized.startsWith('/')) {
+    normalized = `${window.location.protocol}//${window.location.host}${normalized}`;
+  } else if (!/^[a-zA-Z][\w+-.]*:/.test(normalized)) {
+    normalized = new URL(normalized, window.location.href).href;
+  }
+
+  return normalized;
+}
+
 function prepareOutlineClipping(_object) {
   core.outlineClipping = _object.clone(true);
   var gutsMaterial = new THREE.MeshBasicMaterial({
@@ -389,10 +406,11 @@ function reportLoadError(error, context = "") {
 
         case "ifc": {
           const loader = await createLoader(core.fileObject.extension.toLowerCase());
-          const ifcWasmPath =
+          const ifcWasmPath = normalizeWasmPath(
             ENV_BUILD === 'drupal'
               ? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/${ENV_BUILD}/assets/ifc/`
-              : `/assets/ifc/`;
+              : `/assets/ifc/`
+          );
           loader.ifcManager.setWasmPath(ifcWasmPath, true);
           const object = await loadAsync(loader, modelPath, onProgress);
           await afterLoad({ object });
