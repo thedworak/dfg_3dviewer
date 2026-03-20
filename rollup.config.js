@@ -9,14 +9,16 @@ import fs from 'fs/promises';
 
 const source = process.env.BUILD_SOURCE ?? "IIIF";
 const envBuild = process.env.BUILD ?? "test";
-const customModules = process.env.MODULE_CUSTOM ?? "";
+const customModulesEnv = process.env.MODULE_CUSTOM ?? "";
+let customModules = customModulesEnv;
 const production = process.env.IS_PROD === 'true';
 
-const outDistDir = path.join(
-  'dist',
-  envBuild,
-  customModules.replace(/^\//, '')
-);
+if (customModules && !customModules.startsWith('/')) {
+  customModules = `/${customModules}`;
+}
+
+const envSubdir = customModules ? customModules.replace(/^\//, '') : 'main';
+const outDistDir = path.join('dist', envBuild, envSubdir);
 
 console.log('[rollup] build:', envBuild);
 console.log('[rollup] source:', source);
@@ -30,6 +32,7 @@ const modulesPath = normalizePathSegment(customModules);
 const drupalModulePrefix = modulesPath ? `/modules/${modulesPath}/dfg_3dviewer` : '/modules/dfg_3dviewer';
 
 console.log('[rollup] modulesPath:', modulesPath);
+console.log('[rollup] output subdirectory:', envSubdir);
 
 async function copyDirectory(source, target) {
   await fs.cp(source, target, { recursive: true });
