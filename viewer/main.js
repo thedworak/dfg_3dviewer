@@ -1634,17 +1634,17 @@ export const Viewer = {
     setCore("distanceGeometry", Viewer.distanceGeometry);
     Viewer.planeParams.planeX.constantZ =
       core.clippingFolder.controllers[1]._max =
-      Viewer.clippingPlanes[0].constant =
+      core.clippingPlanes[0].constant =
       _distance.x;
     core.clippingFolder.controllers[1]._min = -core.clippingFolder.controllers[1]._max;
     Viewer.planeParams.planeY.constantY =
       core.clippingFolder.controllers[3]._max =
-      Viewer.clippingPlanes[1].constant =
+      core.clippingPlanes[1].constant =
       _distance.y;
     core.clippingFolder.controllers[3]._min = -core.clippingFolder.controllers[3]._max;
     Viewer.planeParams.planeZ.constantZ =
       core.clippingFolder.controllers[5]._max =
-      Viewer.clippingPlanes[2].constant =
+      core.clippingPlanes[2].constant =
       _distance.z;
     core.clippingFolder.controllers[5]._min = -core.clippingFolder.controllers[5]._max;
     core.clippingFolder.controllers[1].updateDisplay();
@@ -1768,21 +1768,21 @@ export const Viewer = {
     tempClippingControl.setMode("translate");
     tempClippingControl.addEventListener("change", Viewer.render);
     tempClippingControl.addEventListener("objectChange", function (event) {
-      if (event.target === undefined || event.target.children[0] === undefined) {
+      if (event.target === undefined || event.target?.children[0] === undefined) {
         return;
       }
       switch (_number) {
         case 0:
-          Viewer.clippingPlanes[_number].constant =
-            event.target.children[0].pointEnd.x + Viewer.distanceGeometry.x;
+          core.clippingPlanes[_number].constant =
+            event.target.children[0].pointEnd.x + core.distanceGeometry.x;
           break;
         case 1:
-          Viewer.clippingPlanes[_number].constant =
-            event.target.children[0].pointEnd.y + Viewer.distanceGeometry.y;
+          core.clippingPlanes[_number].constant =
+            event.target.children[0].pointEnd.y + core.distanceGeometry.y;
           break;
         case 2:
-          Viewer.clippingPlanes[_number].constant =
-            event.target.children[0].pointEnd.z + Viewer.distanceGeometry.z;
+          core.clippingPlanes[_number].constant =
+            event.target.children[0].pointEnd.z + core.distanceGeometry.z;
           break;
       }
     });
