@@ -51,7 +51,7 @@ class DFG3dViewerConfigForm extends FormBase {
 
     $form['#dfg_3dviewer_settings'] = $settings;
 	
-	$form['#attached']['library'][] = dfg_3dviewer_get_library();
+	dfg_3dviewer_attach_assets($form);
 
 	$form['dfg_3dviewer_main_url'] = [
 		'#default_value' => $default_settings['main_url'],

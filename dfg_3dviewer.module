@@ -1164,3 +1164,49 @@ function dfg_3dviewer_get_library(): string {
 
   return $map[$env] ?? $map['drupal'];
 }
+
+function dfg_3dviewer_get_asset_subdir(): string {
+  $env = dfg_3dviewer_get_local_env();
+  if ($env === '') {
+    $env = (string) Settings::get('dfg_env', '');
+  }
+  if ($env === '') {
+    $env = (string) (\Drupal::config('dfg_3dviewer.settings')->get('dfg_env') ?? '');
+  }
+
+  $env = strtolower(trim($env));
+
+  return match ($env) {
+    'drupal_custom', 'custom' => 'custom',
+    'test' => '../test',
+    default => 'main',
+  };
+}
+
+function dfg_3dviewer_attach_assets(array &$build): void {
+  $module_path = '/' . trim(drupal_get_path('module', 'dfg_3dviewer'), '/');
+  $asset_subdir = dfg_3dviewer_get_asset_subdir();
+
+  if ($asset_subdir === '../test') {
+    $js_path = $module_path . '/dist/test/dfg_3dviewer-module.js';
+    $css_path = $module_path . '/dist/test/assets/css/viewer.css';
+  }
+  else {
+    $js_path = $module_path . '/dist/drupal/' . $asset_subdir . '/dfg_3dviewer-module.js';
+    $css_path = $module_path . '/dist/drupal/' . $asset_subdir . '/assets/css/viewer.css';
+  }
+
+  $build['#attached']['library'][] = 'core/drupal';
+  $build['#attached']['library'][] = 'core/drupalSettings';
+  $build['#attached']['html_head_link'][] = [[
+    'rel' => 'stylesheet',
+    'href' => $css_path,
+  ], 'dfg_3dviewer_css'];
+  $build['#attached']['html_head'][] = [[
+    '#tag' => 'script',
+    '#attributes' => [
+      'type' => 'module',
+      'src' => $js_path,
+    ],
+  ], 'dfg_3dviewer_js'];
+}

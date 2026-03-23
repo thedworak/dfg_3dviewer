@@ -60,7 +60,7 @@ class DFG3DViewerFormatter extends FileFormatterBase {
       if(!empty($derivative_values)) {
         $elements = array();
 
-        $elements['#attached']['library'][] = dfg_3dviewer_get_library();
+        dfg_3dviewer_attach_assets($elements);
 
         foreach($derivative_values as $delta => $derivative_value) {
           $raw_path = (string) ($derivative_value['value'] ?? '');
@@ -80,7 +80,7 @@ class DFG3DViewerFormatter extends FileFormatterBase {
 
         $files = $this->getEntitiesToView($items, $langcode);
 
-        $elements['#attached']['library'][] = dfg_3dviewer_get_library();
+        dfg_3dviewer_attach_assets($elements);
 
         foreach ($files as $delta => $file) {
           $generator = \Drupal::service('file_url_generator');

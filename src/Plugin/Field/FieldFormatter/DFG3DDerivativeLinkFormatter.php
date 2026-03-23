@@ -48,7 +48,7 @@ class DFG3DDerivativeLinkFormatter extends FileFormatterBase {
 
       $files = $this->getEntitiesToView($items, $langcode);
 
-      $elements['#attached']['library'][] = dfg_3dviewer_get_library();
+      dfg_3dviewer_attach_assets($elements);
 
       // get the config
       $cfg = dfg_3dviewer_config();
