@@ -1115,13 +1115,29 @@ function dfg_3dviewer_entity_update(Drupal\Core\Entity\EntityInterface $entity) 
 	dfg_3dviewer_kick_convert_worker();
 }
 function dfg_3dviewer_get_library(): string {
-  $env = Settings::get('dfg_env', 'drupal');
+  // Prefer explicit settings.php override; if not set, use module config.
+  $env = (string) Settings::get('dfg_env', '');
+  if ($env === '') {
+    $env = (string) (\Drupal::config('dfg_3dviewer.settings')->get('dfg_env') ?? '');
+  }
+
+  $env = strtolower(trim($env));
 
   $map = [
     'test'          => 'dfg_3dviewer/dfg_3dviewer.test',
     'drupal_custom' => 'dfg_3dviewer/dfg_3dviewer.drupal_custom',
+    'custom'        => 'dfg_3dviewer/dfg_3dviewer.drupal_custom',
     'drupal'        => 'dfg_3dviewer/dfg_3dviewer.drupal',
+    'prod'          => 'dfg_3dviewer/dfg_3dviewer.drupal',
   ];
+
+  if (!isset($map[$env])) {
+    // Keep default as Drupal mode by default, and log when unknown value is used.
+    \Drupal::logger('dfg_3dviewer')->warning('Unknown dfg_env "@env"; falling back to @fallback.', [
+      '@env' => $env,
+      '@fallback' => 'drupal',
+    ]);
+  }
 
   return $map[$env] ?? $map['drupal'];
 }
