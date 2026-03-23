@@ -339,13 +339,44 @@ function reportLoadError(error, context = "") {
       return path.replace(/\/{2,}/g, '/');
     }
 
+    async function resolveIfcWasmPath(basePath) {
+      const candidates = [
+        normalizePath(basePath.replace(/\/$/, '') + '/ifc/'),
+        normalizePath(basePath.replace(/\/$/, '') + '/ifc'),
+      ];
+
+      for (const candidate of candidates) {
+        const wasmUrl = candidate.replace(/\/$/, '') + '/web-ifc.wasm';
+        try {
+          const res = await fetch(wasmUrl, { method: 'HEAD', cache: 'no-store' });
+          if (res.ok) {
+            return candidate;
+          }
+        } catch (err) {
+          // ignored, try next candidate
+        }
+      }
+      return null;
+    }
+
     function getModuleAssetBasePath() {
       let basePath = core.CONFIG?.baseModulePath ? core.CONFIG.baseModulePath.replace(/\/$/, '') : '';
+
       if (!basePath) {
         basePath = ENV_BUILD === 'drupal'
           ? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/${ENV_SUBDIR}/assets`
           : '/assets';
       }
+
+      // Normalize doubled slashes and switch to a best-guess custom path when env is drupal_custom.
+      basePath = basePath.replace(/\/\/+/g, '/');
+
+      // Rising path mismatch: if we are in drupal custom and config path still has /drupal/main, try custom fallback.
+      if (ENV_BUILD === 'drupal' && ENV_SUBDIR === 'custom' && basePath.includes('/drupal/main')) {
+        basePath = basePath.replace('/drupal/main', '/drupal/custom');
+      }
+
+      console.log('[loaders] resolved ModuleAssetBasePath:', basePath);
       return basePath;
     }
 
@@ -424,9 +455,26 @@ function reportLoadError(error, context = "") {
 
         case "ifc": {
           const loader = await createLoader(core.fileObject.extension.toLowerCase());
-          const ifcWasmPath = normalizeWasmPath(normalizePath(`${getModuleAssetBasePath()}/ifc/`));
-          console.log('[loadModel] IFC WASM path:', ifcWasmPath);
-          loader.ifcManager.setWasmPath(ifcWasmPath, true);
+          const basePath = getModuleAssetBasePath();
+
+          let ifcWasmPath = await resolveIfcWasmPath(basePath);
+
+          if (!ifcWasmPath && ENV_BUILD === 'drupal') {
+            const fallback = basePath.includes('/drupal/main')
+              ? basePath.replace('/drupal/main', '/drupal/custom')
+              : basePath.replace('/drupal/custom', '/drupal/main');
+            ifcWasmPath = await resolveIfcWasmPath(fallback);
+          }
+
+          if (!ifcWasmPath) {
+            const errorMsg = `[loadModel] IFC WASM not found in ${basePath}/ifc or fallback; please verify path and permissions`;
+            console.error(errorMsg);
+            throw new Error(errorMsg);
+          }
+
+          const normalizedIfcWasmPath = normalizeWasmPath(ifcWasmPath);
+          console.log('[loadModel] IFC WASM path:', normalizedIfcWasmPath);
+          loader.ifcManager.setWasmPath(normalizedIfcWasmPath, true);
           const object = await loadAsync(loader, modelPath, onProgress);
           await afterLoad({ object });
           break;
