@@ -17,8 +17,12 @@ if (customModules && !customModules.startsWith('/')) {
   customModules = `/${customModules}`;
 }
 
-const envSubdir = customModules ? customModules.replace(/^\//, '') : 'main';
-const outDistDir = path.join('dist', envBuild, envSubdir);
+const envSubdir = envBuild === 'drupal'
+  ? (customModules ? customModules.replace(/^\//, '') : 'main')
+  : '';
+const outDistDir = envSubdir
+  ? path.join('dist', envBuild, envSubdir)
+  : path.join('dist', envBuild);
 
 console.log('[rollup] build:', envBuild);
 console.log('[rollup] source:', source);

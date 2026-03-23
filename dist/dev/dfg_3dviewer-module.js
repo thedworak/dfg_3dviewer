@@ -1292,6 +1292,10 @@ async function fitCameraToCenteredObject(object, _fit) {
   const finalCameraPos = center.clone().add(dir);
   const finalTarget = center.clone();
 
+  // Store reset position for "Reset camera" action
+  core.cameraCoords = finalCameraPos.clone();
+  core.controlsTarget = finalTarget.clone();
+
   // === animate ===
   animateCameraToPose({
     finalCameraPos,
@@ -2012,7 +2016,7 @@ const loadTDSLoader = async () => (await import('./three.CAlKdkC4.js').then(func
 const loadPCDLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.q; })).PCDLoader;
 const loadGLTFLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.G; })).GLTFLoader;
 const loadDRACOLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.r; })).DRACOLoader;
-const loadIFCLoader = async () => (await import('./IFCLoader.Bvpn-rA6.js')).IFCLoader;
+const loadIFCLoader = async () => (await import('./IFCLoader.Bvw4gkUL.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.R; })).RoomEnvironment;
 
 var outlineClipping;
@@ -2046,8 +2050,37 @@ async function createLoader(ext) {
 
 const ENV_BUILD = "dev";
 const MODULES_PATH = "";
+const ENV_SUBDIR = "";
 console.log('[loaders] ENV_BUILD:', ENV_BUILD);
 console.log('[loaders] MODULES_PATH:', MODULES_PATH);
+console.log('[loaders] ENV_SUBDIR:', ENV_SUBDIR);
+
+function normalizeWasmPath(path) {
+  if (typeof window === 'undefined' || !path) return path;
+  let normalized = path.trim();
+
+  // Force secure scheme for explicit http resources
+  if (normalized.startsWith('http://')) {
+    normalized = 'https://' + normalized.slice('http://'.length);
+  } else if (normalized.startsWith('//')) {
+    normalized = `${window.location.protocol}${normalized}`;
+  } else if (normalized.startsWith('/')) {
+    normalized = `${window.location.protocol}//${window.location.host}${normalized}`;
+  } else if (!/^[a-zA-Z][\w+-.]*:/.test(normalized)) {
+    normalized = new URL(normalized, window.location.href).href;
+  }
+
+  // Normalize duplicate slashes while keeping protocol separator intact
+  try {
+    const url = new URL(normalized);
+    url.pathname = url.pathname.replace(/\/\/{2,}/g, '/');
+    normalized = url.href;
+  } catch (err) {
+    normalized = normalized.replace(/\/\/{2,}/g, '/');
+  }
+
+  return normalized;
+}
 
 function prepareOutlineClipping(_object) {
   core.outlineClipping = _object.clone(true);
@@ -2307,15 +2340,47 @@ function reportLoadError(error, context = "") {
       return path.replace(/\/{2,}/g, '/');
     }
 
+    async function resolveIfcWasmPath(basePath) {
+      const candidates = [
+        normalizePath(basePath.replace(/\/$/, '') + '/ifc/'),
+        normalizePath(basePath.replace(/\/$/, '') + '/ifc'),
+      ];
+
+      for (const candidate of candidates) {
+        const wasmUrl = candidate.replace(/\/$/, '') + '/web-ifc.wasm';
+        try {
+          const res = await fetch(wasmUrl, { method: 'HEAD', cache: 'no-store' });
+          if (res.ok) {
+            return candidate;
+          }
+        } catch (err) {
+          // ignored, try next candidate
+        }
+      }
+      return null;
+    }
+
+    function getModuleAssetBasePath() {
+      let basePath = core.CONFIG?.baseModulePath ? core.CONFIG.baseModulePath.replace(/\/$/, '') : '';
+
+      if (!basePath) {
+        basePath = '/assets';
+      }
+
+      // Normalize doubled slashes and switch to a best-guess custom path when env is drupal_custom.
+      basePath = basePath.replace(/\/\/+/g, '/');
+
+      console.log('[loaders] resolved ModuleAssetBasePath:', basePath);
+      return basePath;
+    }
+
     async function loadGLTFModel() {
       let gltfModelPath = core.fileObject.path + core.fileObject.basename + "." + core.fileObject.extension;
       if (core.CONFIG.entity.proxyPath !== undefined) {
         gltfModelPath = core.getProxyPath(gltfModelPath);
       }
 
-      const dracoBase = normalizePath(
-      `/assets/draco/gltf/`
-      );
+      const dracoBase = normalizePath(normalizeWasmPath(`${getModuleAssetBasePath()}/draco/gltf/`));
 
       const loader = await createLoader(core.fileObject.extension.toLowerCase());
       const DRACOLoader = await loadDRACOLoader();
@@ -2381,9 +2446,19 @@ function reportLoadError(error, context = "") {
 
         case "ifc": {
           const loader = await createLoader(core.fileObject.extension.toLowerCase());
-          const ifcWasmPath =
-            `/assets/ifc/`;
-          loader.ifcManager.setWasmPath(ifcWasmPath, true);
+          const basePath = getModuleAssetBasePath();
+
+          let ifcWasmPath = await resolveIfcWasmPath(basePath);
+
+          if (!ifcWasmPath) {
+            const errorMsg = `[loadModel] IFC WASM not found in ${basePath}/ifc or fallback; please verify path and permissions`;
+            console.error(errorMsg);
+            throw new Error(errorMsg);
+          }
+
+          const normalizedIfcWasmPath = normalizeWasmPath(ifcWasmPath);
+          console.log('[loadModel] IFC WASM path:', normalizedIfcWasmPath);
+          loader.ifcManager.setWasmPath(normalizedIfcWasmPath, true);
           const object = await loadAsync(loader, modelPath, onProgress);
           await afterLoad({ object });
           break;
@@ -9929,10 +10004,22 @@ const Viewer = {
     core.fileObject.uri = core.fileObject.path.replace(core.CONFIG.mainUrl + "/", "");
     core.fileObject.relativePath = Viewer.normalizeDrupalFilesPath(core.fileObject.uri);
   },
+
   // Disable interaction hint on first interaction
  disableInteractionHint() {
     Viewer.handHint.hidden = true;
     Viewer.stopGesture();
+
+    // Stop any running camera tweens when user interacts
+    if (core.cameraTween && typeof core.cameraTween.stop === "function") {
+      core.cameraTween.stop();
+      core.cameraTween = null;
+    }
+    if (core.targetTween && typeof core.targetTween.stop === "function") {
+      core.targetTween.stop();
+      core.targetTween = null;
+    }
+
     //Viewer.handHint.classList.remove("hand-drag-animate");
     localStorage.setItem("viewerHintSeen", "1");
   },
@@ -10001,34 +10088,34 @@ const Viewer = {
         depthTest: false,
         depthWrite: false,
         transparent: true,
-        opacity: 0.4,
+        opacity: 0.8,
       }), // front
       new THREE.MeshStandardMaterial({
-        color: 0x0000ff,
+        color: 0xffffff,
         flatShading: true,
         side: THREE.DoubleSide,
         depthTest: false,
         depthWrite: false,
         transparent: true,
-        opacity: 0.4,
+        opacity: 0.5,
       }), // side
     ];
     const loader = new FontLoader();
-    var textSize = _scale / 10;
+    const bevelSize = _scale / 10;
     loader.load(
       `${core.DFG_ASSETS}/fonts/helvetiker_regular.typeface.json`,
       function (font) {
         const textGeo = new TextGeometry(_text, {
           font: font,
           size: _scale * 3,
-          height: textSize,
+          height: _scale,
           curveSegments: 4,
           bevelEnabled: true,
-          bevelThickness: textSize,
-          bevelSize: textSize,
+          bevelThickness: bevelSize,
+          bevelSize: bevelSize/10,
           bevelOffset: 0,
           bevelSegments: 1,
-          depth: textSize,
+          depth: _scale/10,
         });
         textGeo.computeBoundingBox();
 
@@ -10406,11 +10493,17 @@ const Viewer = {
 
   buildRuler(_id) {
     Viewer.rulerObject = new THREE.Object3D();
+    const gridSize = Viewer.gridSize || core.gridSize || 1;
+    const sphereRadius = Math.max(gridSize / 150, 0.001);
+    const textScale = Math.max(gridSize / 100, 0.01);
+    const measureSize = Math.max(gridSize / 200, 0.01);
+
     var sphere = new THREE.Mesh(
-      new THREE.SphereGeometry(Viewer.gridSize / 150, 7, 7),
-      new THREE.MeshNormalMaterial({
+      new THREE.SphereGeometry(sphereRadius, 7, 7),
+      new THREE.MeshStandardMaterial({
+        color: 0xff0000,
         transparent: true,
-        opacity: 0.8,
+        opacity: 0.85,
         side: THREE.DoubleSide,
         depthTest: false,
         depthWrite: false,
@@ -10444,9 +10537,9 @@ const Viewer = {
         Viewer.linePoints[Viewer.linePoints.length - 2],
         newPoint
       );
-      Viewer.addTextPoint(distancePoints.toFixed(2), Viewer.gridSize / 200, halfwayPoints);
+      Viewer.addTextPoint(distancePoints.toFixed(2), textScale, halfwayPoints);
       var rulerI = 0;
-      var measureSize = Viewer.gridSize / 400;
+      // `measureSize` was already precomputed outside, keep same scale
       while (rulerI <= distancePoints * 100) {
         const geoSegm = [];
         var interpolatePoints = interpolateDistanceBetweenPoints(
@@ -10475,7 +10568,7 @@ const Viewer = {
         rulerI += 10;
       }
     }
-    Viewer.rulerObject.renderOrder = 1;
+    Viewer.rulerObject.renderOrder = 10;
     core.scene.add(Viewer.rulerObject);
     Viewer.ruler.push(Viewer.rulerObject);
   },
@@ -10661,6 +10754,8 @@ const Viewer = {
 
     g.baseAngle = null;
     g.target = null;
+    core.handHint.hidden = true;
+    core.GESTURE.active = false;
   },
 
   animate: (time) => {
@@ -10694,9 +10789,9 @@ const Viewer = {
       Viewer.mixer.update(delta);
     }
 
-    if (core.handHint.hidden && !core.GESTURE?.active) {
-      core.cameraTween.update(time);
-      core.targetTween.update(time);
+    if (core.handHint?.hidden && !core.GESTURE?.active) {
+      core.cameraTween?.update(time);
+      core.targetTween?.update(time);
     }
 
     if (!core.GESTURE?.active) {
@@ -11037,16 +11132,46 @@ const Viewer = {
   },
 
   resetCamera() {
-    var camPosition = core.camera.position;
-    new Tween(camPosition)
-      .to(core.cameraCoords, 1500)
+    const targetCamera = core.cameraCoords || core.camera.position.clone();
+    const targetControls =
+      core.controlsTarget ||
+      core.controls?.target?.clone() ||
+      new THREE.Vector3();
+
+    if (!targetCamera || typeof targetCamera.x !== 'number') {
+      return;
+    }
+
+    const startCam = core.camera.position.clone();
+    const startTarget = core.controls?.target?.clone() || new THREE.Vector3();
+
+    core.cameraTween = new _exports.Tween(startCam)
+      .to(targetCamera, 1500)
+      .easing(_exports.Easing.Cubic.Out)
       .onUpdate(() => {
-        core.camera.position.set(camPosition.x, camPosition.y, camPosition.z);
-        core.cameraLight.position.set(camPosition.x, camPosition.y, camPosition.z);
+        core.camera.position.copy(startCam);
+        core.cameraLight.position.copy(startCam);
         core.camera.updateProjectionMatrix();
-        core.controls.update();
-      })
-      .start();
+      });
+
+    core.targetTween = new _exports.Tween(startTarget)
+      .to(targetControls, 1500)
+      .easing(_exports.Easing.Cubic.Out)
+      .onUpdate(() => {
+        core.controls?.target.copy(startTarget);
+        core.controls?.update();
+      });
+
+    core.cameraTween.onComplete(() => {
+      core.camera.position.copy(targetCamera);
+      core.cameraLight.position.copy(targetCamera);
+      core.controls?.target.copy(targetControls);
+      core.controls?.update();
+      core.camera.updateProjectionMatrix();
+    });
+
+    core.cameraTween.start();
+    core.targetTween.start();
   },
 
   pick(save, current, original) {

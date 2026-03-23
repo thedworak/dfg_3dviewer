@@ -2016,7 +2016,7 @@ const loadTDSLoader = async () => (await import('./three.CAlKdkC4.js').then(func
 const loadPCDLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.q; })).PCDLoader;
 const loadGLTFLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.G; })).GLTFLoader;
 const loadDRACOLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.r; })).DRACOLoader;
-const loadIFCLoader = async () => (await import('./IFCLoader.Bvpn-rA6.js')).IFCLoader;
+const loadIFCLoader = async () => (await import('./IFCLoader.Bvw4gkUL.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.R; })).RoomEnvironment;
 
 var outlineClipping;
@@ -2050,8 +2050,37 @@ async function createLoader(ext) {
 
 const ENV_BUILD = "test";
 const MODULES_PATH = "";
+const ENV_SUBDIR = "";
 console.log('[loaders] ENV_BUILD:', ENV_BUILD);
 console.log('[loaders] MODULES_PATH:', MODULES_PATH);
+console.log('[loaders] ENV_SUBDIR:', ENV_SUBDIR);
+
+function normalizeWasmPath(path) {
+  if (typeof window === 'undefined' || !path) return path;
+  let normalized = path.trim();
+
+  // Force secure scheme for explicit http resources
+  if (normalized.startsWith('http://')) {
+    normalized = 'https://' + normalized.slice('http://'.length);
+  } else if (normalized.startsWith('//')) {
+    normalized = `${window.location.protocol}${normalized}`;
+  } else if (normalized.startsWith('/')) {
+    normalized = `${window.location.protocol}//${window.location.host}${normalized}`;
+  } else if (!/^[a-zA-Z][\w+-.]*:/.test(normalized)) {
+    normalized = new URL(normalized, window.location.href).href;
+  }
+
+  // Normalize duplicate slashes while keeping protocol separator intact
+  try {
+    const url = new URL(normalized);
+    url.pathname = url.pathname.replace(/\/\/{2,}/g, '/');
+    normalized = url.href;
+  } catch (err) {
+    normalized = normalized.replace(/\/\/{2,}/g, '/');
+  }
+
+  return normalized;
+}
 
 function prepareOutlineClipping(_object) {
   core.outlineClipping = _object.clone(true);
@@ -2311,15 +2340,47 @@ function reportLoadError(error, context = "") {
       return path.replace(/\/{2,}/g, '/');
     }
 
+    async function resolveIfcWasmPath(basePath) {
+      const candidates = [
+        normalizePath(basePath.replace(/\/$/, '') + '/ifc/'),
+        normalizePath(basePath.replace(/\/$/, '') + '/ifc'),
+      ];
+
+      for (const candidate of candidates) {
+        const wasmUrl = candidate.replace(/\/$/, '') + '/web-ifc.wasm';
+        try {
+          const res = await fetch(wasmUrl, { method: 'HEAD', cache: 'no-store' });
+          if (res.ok) {
+            return candidate;
+          }
+        } catch (err) {
+          // ignored, try next candidate
+        }
+      }
+      return null;
+    }
+
+    function getModuleAssetBasePath() {
+      let basePath = core.CONFIG?.baseModulePath ? core.CONFIG.baseModulePath.replace(/\/$/, '') : '';
+
+      if (!basePath) {
+        basePath = '/assets';
+      }
+
+      // Normalize doubled slashes and switch to a best-guess custom path when env is drupal_custom.
+      basePath = basePath.replace(/\/\/+/g, '/');
+
+      console.log('[loaders] resolved ModuleAssetBasePath:', basePath);
+      return basePath;
+    }
+
     async function loadGLTFModel() {
       let gltfModelPath = core.fileObject.path + core.fileObject.basename + "." + core.fileObject.extension;
       if (core.CONFIG.entity.proxyPath !== undefined) {
         gltfModelPath = core.getProxyPath(gltfModelPath);
       }
 
-      const dracoBase = normalizePath(
-      `/assets/draco/gltf/`
-      );
+      const dracoBase = normalizePath(normalizeWasmPath(`${getModuleAssetBasePath()}/draco/gltf/`));
 
       const loader = await createLoader(core.fileObject.extension.toLowerCase());
       const DRACOLoader = await loadDRACOLoader();
@@ -2385,9 +2446,19 @@ function reportLoadError(error, context = "") {
 
         case "ifc": {
           const loader = await createLoader(core.fileObject.extension.toLowerCase());
-          const ifcWasmPath =
-            `/assets/ifc/`;
-          loader.ifcManager.setWasmPath(ifcWasmPath, true);
+          const basePath = getModuleAssetBasePath();
+
+          let ifcWasmPath = await resolveIfcWasmPath(basePath);
+
+          if (!ifcWasmPath) {
+            const errorMsg = `[loadModel] IFC WASM not found in ${basePath}/ifc or fallback; please verify path and permissions`;
+            console.error(errorMsg);
+            throw new Error(errorMsg);
+          }
+
+          const normalizedIfcWasmPath = normalizeWasmPath(ifcWasmPath);
+          console.log('[loadModel] IFC WASM path:', normalizedIfcWasmPath);
+          loader.ifcManager.setWasmPath(normalizedIfcWasmPath, true);
           const object = await loadAsync(loader, modelPath, onProgress);
           await afterLoad({ object });
           break;
