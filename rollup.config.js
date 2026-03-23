@@ -68,7 +68,7 @@ function copyBuildAssets() {
       );
       viewerSettings.viewer.lightweight = 1;
       if (envBuild === 'drupal') {
-        viewerSettings.baseModulePath = `${drupalModulePrefix}/dist/${envBuild}/assets`;
+        viewerSettings.baseModulePath = `${drupalModulePrefix}/dist/${envBuild}/${envSubdir}/assets`;
       }
 
       await fs.mkdir(outDistDir, { recursive: true });
