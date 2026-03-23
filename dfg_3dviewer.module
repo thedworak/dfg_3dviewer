@@ -1184,7 +1184,7 @@ function dfg_3dviewer_get_asset_subdir(): string {
 }
 
 function dfg_3dviewer_attach_assets(array &$build): void {
-  $module_path = '/' . trim(drupal_get_path('module', 'dfg_3dviewer'), '/');
+  $module_path = '/' . trim(\Drupal::service('extension.list.module')->getPath('dfg_3dviewer'), '/');
   $asset_subdir = dfg_3dviewer_get_asset_subdir();
 
   if ($asset_subdir === '../test') {
