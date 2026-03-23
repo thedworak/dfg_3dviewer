@@ -1210,3 +1210,18 @@ function dfg_3dviewer_attach_assets(array &$build): void {
     ],
   ], 'dfg_3dviewer_js'];
 }
+
+function dfg_3dviewer_page_attachments_alter(array &$attachments): void {
+  if (empty($attachments['#attached']) || !is_array($attachments['#attached'])) {
+    return;
+  }
+
+  if (!empty($attachments['#attached']['library']) && is_array($attachments['#attached']['library'])) {
+    $attachments['#attached']['library'] = array_values(array_filter(
+      $attachments['#attached']['library'],
+      static fn ($library): bool => !is_string($library) || !str_starts_with($library, 'dfg_3dviewer/')
+    ));
+  }
+
+  dfg_3dviewer_attach_assets($attachments);
+}
