@@ -1768,7 +1768,7 @@ export const Viewer = {
     tempClippingControl.setMode("translate");
     tempClippingControl.addEventListener("change", Viewer.render);
     tempClippingControl.addEventListener("objectChange", function (event) {
-      if (event.target === undefined || event.target?.children[0] === undefined) {
+      if (event.target === undefined || event.target?.children?.[0] === undefined) {
         return;
       }
       switch (_number) {
