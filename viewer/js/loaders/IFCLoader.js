@@ -22,10 +22,10 @@ class IFCModel extends Mesh {
     this.ifcManager = manager;
   }
 
-  setWasmPath(path) {
+  setWasmPath(path, absolute = false) {
     if (this.ifcManager === null)
       throw new Error(nullIfcManagerErrorMessage);
-    this.ifcManager.setWasmPath(path);
+    this.ifcManager.setWasmPath(path, absolute);
   }
 
   close(scene) {
@@ -2384,6 +2384,8 @@ class IFCManager {
     this.state = {
       models: [],
       api: new WebIFC.IfcAPI(),
+      wasmPath: '',
+      wasmAbsolute: false,
       useJSON: false,
       worker: {
         active: false,
@@ -2417,9 +2419,10 @@ class IFCManager {
     return model;
   }
 
-  async setWasmPath(path) {
-    this.state.api.SetWasmPath(path);
+  async setWasmPath(path, absolute = false) {
+    this.state.api.SetWasmPath(path, absolute);
     this.state.wasmPath = path;
+    this.state.wasmAbsolute = absolute;
   }
 
   setupThreeMeshBVH(computeBoundsTree, disposeBoundsTree, acceleratedRaycast) {
@@ -2457,7 +2460,7 @@ class IFCManager {
       await this.initializeWorkers();
       const wasm = this.state.wasmPath;
       if (wasm)
-        await this.setWasmPath(wasm);
+        await this.setWasmPath(wasm, this.state.wasmAbsolute);
     } else {
       this.state.api = new WebIFC.IfcAPI();
     }

@@ -2016,7 +2016,7 @@ const loadTDSLoader = async () => (await import('./three.CAlKdkC4.js').then(func
 const loadPCDLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.q; })).PCDLoader;
 const loadGLTFLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.G; })).GLTFLoader;
 const loadDRACOLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.r; })).DRACOLoader;
-const loadIFCLoader = async () => (await import('./IFCLoader.Bvpn-rA6.js')).IFCLoader;
+const loadIFCLoader = async () => (await import('./IFCLoader.Bvw4gkUL.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.R; })).RoomEnvironment;
 
 var outlineClipping;
