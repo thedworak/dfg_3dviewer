@@ -368,6 +368,11 @@ function reportLoadError(error, context = "") {
           : '/assets';
       }
 
+      // Override for localhost
+      if (core.isLocalPreview) {
+        basePath = '/assets';
+      }
+
       // Normalize doubled slashes and switch to a best-guess custom path when env is drupal_custom.
       basePath = basePath.replace(/\/\/+/g, '/');
 

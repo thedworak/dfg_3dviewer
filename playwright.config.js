@@ -31,8 +31,9 @@ export default defineConfig({
     launchOptions: {
       args: [
         '--use-gl=angle',
-        '--use-angle=gl',
+        '--use-angle=swiftshader',
         '--enable-webgl',
+        '--enable-unsafe-swiftshader',
         '--ignore-gpu-blocklist',
         '--disable-gpu-driver-bug-workarounds',
         '--disable-dev-shm-usage',

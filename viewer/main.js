@@ -1230,6 +1230,10 @@ export const Viewer = {
     const isFullscreen = !!document.fullscreenElement;
     Viewer.FULLSCREEN = isFullscreen;
 
+    if (!Viewer.mainCanvas || !Viewer.fullscreenMode || !core.guiContainer) {
+      return;
+    }
+
     let widthCSS, heightCSS;  // CSS pixels (layout)
     let widthDev, heightDev;  // Device pixels (Three.js)
     let scale = {x: 1, y: 1};
@@ -1248,7 +1252,11 @@ export const Viewer = {
         //Viewer.downloadModel?.setAttribute("style", "visibility: none");
     } else {
       scale = {x: Number(core.CONFIG.viewer.scaleContainer?.x || 1), y: Number(core.CONFIG.viewer.scaleContainer?.y || 1)};
-      rect = Viewer.viewerWrapper.getBoundingClientRect();
+      const wrapper = Viewer.viewerWrapper || core.container;
+      if (!wrapper) {
+        return;
+      }
+      rect = wrapper.getBoundingClientRect();
       widthCSS = (rect.width * scale.x) || 800;
       heightCSS = (rect.height * scale.y) || 600;
 
@@ -1316,7 +1324,7 @@ export const Viewer = {
       ? `<img src="${core.DFG_ASSETS}/img/exit-fullscreen.png" width="25" height="25" title="Exit fullscreen mode"/>`
       : `<img src="${core.DFG_ASSETS}/img/fullscreen.png" width="25" height="25" title="Fullscreen mode"/>`;
 
-    // Layout (ESC + klik)
+    // Layout (ESC + click)
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         Viewer.updateSize();
