@@ -700,7 +700,7 @@ export const Viewer = {
     const loader = new FontLoader();
 
     loader.load(
-      `${core.DFG_ASSETS}/fonts/helvetiker_regular.typeface.json`,
+      `${core.DFG_ASSETS}fonts/helvetiker_regular.typeface.json`,
       function (font) {
         const textGeo = new TextGeometry(_text, {
           font,
@@ -755,7 +755,7 @@ export const Viewer = {
     const loader = new FontLoader();
     const bevelSize = _scale / 10;
     loader.load(
-      `${core.DFG_ASSETS}/fonts/helvetiker_regular.typeface.json`,
+      `${core.DFG_ASSETS}fonts/helvetiker_regular.typeface.json`,
       function (font) {
         const textGeo = new TextGeometry(_text, {
           font: font,
@@ -1248,7 +1248,7 @@ export const Viewer = {
         Viewer.mainCanvas.style.width = '100vw';
         Viewer.mainCanvas.style.height = '100vh';
         Viewer.fullscreenMode.style.left = (widthCSS - 40) + 'px';
-        Viewer.fullscreenMode.innerHTML = `<img src="${core.DFG_ASSETS}/img/exit-fullscreen.png" alt="Fullscreen" width=25 height=25 title="Exit fullscreen mode"/>`;
+        Viewer.fullscreenMode.innerHTML = `<img src="${core.DFG_ASSETS}img/exit-fullscreen.png" alt="Fullscreen" width=25 height=25 title="Exit fullscreen mode"/>`;
         //Viewer.downloadModel?.setAttribute("style", "visibility: none");
     } else {
       scale = {x: Number(core.CONFIG.viewer.scaleContainer?.x || 1), y: Number(core.CONFIG.viewer.scaleContainer?.y || 1)};
@@ -1321,8 +1321,8 @@ export const Viewer = {
 
     // UI
     Viewer.fullscreenMode.innerHTML = isFs
-      ? `<img src="${core.DFG_ASSETS}/img/exit-fullscreen.png" width="25" height="25" title="Exit fullscreen mode"/>`
-      : `<img src="${core.DFG_ASSETS}/img/fullscreen.png" width="25" height="25" title="Fullscreen mode"/>`;
+      ? `<img src="${core.DFG_ASSETS}img/exit-fullscreen.png" width="25" height="25" title="Exit fullscreen mode"/>`
+      : `<img src="${core.DFG_ASSETS}img/fullscreen.png" width="25" height="25" title="Fullscreen mode"/>`;
 
     // Layout (ESC + click)
     requestAnimationFrame(() => {
@@ -2434,10 +2434,10 @@ export const Viewer = {
       Viewer.fullscreenMode = document.createElement("div");
       Viewer.fullscreenMode.setAttribute("id", "fullscreenMode");
       const scriptUrl = document.currentScript?.src || import.meta.url;
-      Viewer.DFG_ASSETS = scriptUrl.replace(/\/[^\/]*$/, 'assets/');
+      Viewer.DFG_ASSETS = scriptUrl.replace(/\/[^\/]*$/, '/assets');
       setCore('DFG_ASSETS', Viewer.DFG_ASSETS);
 
-      Viewer.fullscreenMode.innerHTML = `<img src="${core.DFG_ASSETS}/img/fullscreen.png" alt="Fullscreen" width=25 height=25 title="Fullscreen mode"/>`;
+      Viewer.fullscreenMode.innerHTML = `<img src="${core.DFG_ASSETS}img/fullscreen.png" alt="Fullscreen" width=25 height=25 title="Fullscreen mode"/>`;
       Viewer.fullscreenMode.setAttribute(
         "style",
         "top:" +
@@ -2452,7 +2452,7 @@ export const Viewer = {
       Viewer.downloadModel = document.createElement("div");
       setCore('downloadModel', Viewer.downloadModel);
 
-      Viewer.handHint.innerHTML = `<img src="${core.DFG_ASSETS}/img/hand-hint.png" alt="Fullscreen" width=48 height=48 title="Hand hint animation"/>`;
+      Viewer.handHint.innerHTML = `<img src="${core.DFG_ASSETS}img/hand-hint.png" alt="Fullscreen" width=48 height=48 title="Hand hint animation"/>`;
       
       Viewer.rect = core.container.getBoundingClientRect();
       core.guiContainer.style.maxHeight = `${Viewer.rect.height - 20}px`;
