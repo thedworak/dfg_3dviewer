@@ -2434,7 +2434,7 @@ export const Viewer = {
       Viewer.fullscreenMode = document.createElement("div");
       Viewer.fullscreenMode.setAttribute("id", "fullscreenMode");
       const scriptUrl = document.currentScript?.src || import.meta.url;
-      Viewer.DFG_ASSETS = scriptUrl.replace(/\/[^\/]*$/, '/');
+      Viewer.DFG_ASSETS = scriptUrl.replace(/\/[^\/]*$/, 'assets/');
       setCore('DFG_ASSETS', Viewer.DFG_ASSETS);
 
       Viewer.fullscreenMode.innerHTML = `<img src="${core.DFG_ASSETS}/img/fullscreen.png" alt="Fullscreen" width=25 height=25 title="Fullscreen mode"/>`;
