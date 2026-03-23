@@ -1633,23 +1633,23 @@ export const Viewer = {
     Viewer.distanceGeometry = _distance;
     setCore("distanceGeometry", Viewer.distanceGeometry);
     Viewer.planeParams.planeX.constantZ =
-      Viewer.clippingFolder.controllers[1]._max =
+      core.clippingFolder.controllers[1]._max =
       Viewer.clippingPlanes[0].constant =
       _distance.x;
-    Viewer.clippingFolder.controllers[1]._min = -Viewer.clippingFolder.controllers[1]._max;
+    core.clippingFolder.controllers[1]._min = -core.clippingFolder.controllers[1]._max;
     Viewer.planeParams.planeY.constantY =
-      Viewer.clippingFolder.controllers[3]._max =
+      core.clippingFolder.controllers[3]._max =
       Viewer.clippingPlanes[1].constant =
       _distance.y;
-    Viewer.clippingFolder.controllers[3]._min = -Viewer.clippingFolder.controllers[3]._max;
+    core.clippingFolder.controllers[3]._min = -core.clippingFolder.controllers[3]._max;
     Viewer.planeParams.planeZ.constantZ =
-      Viewer.clippingFolder.controllers[5]._max =
+      core.clippingFolder.controllers[5]._max =
       Viewer.clippingPlanes[2].constant =
       _distance.z;
-    Viewer.clippingFolder.controllers[5]._min = -Viewer.clippingFolder.controllers[5]._max;
-    Viewer.clippingFolder.controllers[1].updateDisplay();
-    Viewer.clippingFolder.controllers[3].updateDisplay();
-    Viewer.clippingFolder.controllers[5].updateDisplay();
+    core.clippingFolder.controllers[5]._min = -core.clippingFolder.controllers[5]._max;
+    core.clippingFolder.controllers[1].updateDisplay();
+    core.clippingFolder.controllers[3].updateDisplay();
+    core.clippingFolder.controllers[5].updateDisplay();
     var _maxDistance = Math.max(_distance.x, _distance.y, _distance.z);
     Viewer.planeHelpers?.forEach(h => h && (h.size = _maxDistance));
   },
@@ -2117,10 +2117,11 @@ export const Viewer = {
           Viewer.colors["BackgroundColorOuter"]
         );
       });
+    setCore("clippingFolder", Viewer.clippingFolder);
 
     if (Viewer.EDITOR) {
-      Viewer.clippingFolder = Viewer.editorFolder.addFolder("Clipping Planes").close();
-      setCore("clippingFolder", Viewer.clippingFolder);
+      core.clippingFolder = Viewer.editorFolder.addFolder("Clipping Planes").close();
+      
       core.materialsFolder = Viewer.editorFolder.addFolder("Materials").close();
       setCore("materialsFolder", core.materialsFolder);
       Viewer.editorFolder.add(

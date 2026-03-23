@@ -75,3 +75,6 @@ dist/**  text eol=lf
 *.sldprt binary
 *.sldasm binary
 *.wasm binary
+*.pcd binary
+*.xyz binary
+*.ifc binary
