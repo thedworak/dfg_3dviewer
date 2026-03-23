@@ -899,7 +899,7 @@ export function invertHexColor(hexTripletColor) {
 }
 
 export function getOrAddGuiController(folder, object, prop) {
-  let controller = folder.controllers.find(c => c._name === prop);
+  let controller = folder?.controllers?.find(c => c._name === prop);
   if (controller) return controller;
 
   for (const subfolder of folder.folders) {
