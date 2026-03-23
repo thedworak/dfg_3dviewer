@@ -49,8 +49,10 @@ async function createLoader(ext) {
 
 const ENV_BUILD = __BUILD__;
 const MODULES_PATH = __MODULES_PATH__;
+const ENV_SUBDIR = __ENV_SUBDIR__;
 console.log('[loaders] ENV_BUILD:', ENV_BUILD);
 console.log('[loaders] MODULES_PATH:', MODULES_PATH);
+console.log('[loaders] ENV_SUBDIR:', ENV_SUBDIR);
 
 function normalizeWasmPath(path) {
   if (typeof window === 'undefined' || !path) return path;
@@ -341,7 +343,7 @@ function reportLoadError(error, context = "") {
       let basePath = core.CONFIG?.baseModulePath ? core.CONFIG.baseModulePath.replace(/\/$/, '') : '';
       if (!basePath) {
         basePath = ENV_BUILD === 'drupal'
-          ? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/${ENV_BUILD}/assets`
+          ? `/modules/${MODULES_PATH}/dfg_3dviewer/dist/${ENV_SUBDIR}/assets`
           : '/assets';
       }
       return basePath;

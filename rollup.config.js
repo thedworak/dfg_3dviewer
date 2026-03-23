@@ -100,6 +100,7 @@ export default {
         __BUILD__: JSON.stringify(envBuild),
         __IS_PROD__: JSON.stringify(production),
         __MODULES_PATH__: JSON.stringify(modulesPath),
+        __ENV_SUBDIR__: JSON.stringify(envSubdir),
       },
     }),
     resolve({
