@@ -1114,9 +1114,32 @@ function dfg_3dviewer_entity_update(Drupal\Core\Entity\EntityInterface $entity) 
 
 	dfg_3dviewer_kick_convert_worker();
 }
+function dfg_3dviewer_get_local_env(): string {
+  static $cached_env = null;
+
+  if ($cached_env !== null) {
+    return $cached_env;
+  }
+
+  $module_settings_file = __DIR__ . '/settings.local.php';
+  if (!is_file($module_settings_file) || !is_readable($module_settings_file)) {
+    $cached_env = '';
+    return $cached_env;
+  }
+
+  $settings = [];
+  include $module_settings_file;
+
+  $cached_env = is_array($settings) ? (string) ($settings['dfg_env'] ?? '') : '';
+  return $cached_env;
+}
+
 function dfg_3dviewer_get_library(): string {
-  // Prefer explicit settings.php override; if not set, use module config.
-  $env = (string) Settings::get('dfg_env', '');
+  // Prefer module-local override first, then site settings, then module config.
+  $env = dfg_3dviewer_get_local_env();
+  if ($env === '') {
+    $env = (string) Settings::get('dfg_env', '');
+  }
   if ($env === '') {
     $env = (string) (\Drupal::config('dfg_3dviewer.settings')->get('dfg_env') ?? '');
   }
