@@ -38,6 +38,16 @@ async function copyDirectory(source, target) {
   await fs.cp(source, target, { recursive: true });
 }
 
+async function writeDrupalLibrariesFile() {
+  if (envBuild !== 'drupal') {
+    return;
+  }
+
+  const template = await fs.readFile('dfg_3dviewer.libraries.tpl.yml', 'utf8');
+  const rendered = template.replaceAll('__DRUPAL_SUBDIR__', envSubdir);
+  await fs.writeFile('dfg_3dviewer.libraries.yml', rendered);
+}
+
 function copyBuildAssets() {
   return {
     name: 'copy-build-assets',
@@ -73,6 +83,7 @@ function copyBuildAssets() {
 
       await fs.mkdir(outDistDir, { recursive: true });
       await Promise.all([
+        writeDrupalLibrariesFile(),
         fs.copyFile('settings.php', settingsPhpTarget),
         fs.copyFile('index.html', indexTarget),
         fs.copyFile('node_modules/toastify-js/src/toastify.css', toastifyTarget),

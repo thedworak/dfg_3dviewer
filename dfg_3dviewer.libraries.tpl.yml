@@ -1,0 +1,44 @@
+dfg_3dviewer.drupal:
+  js:
+    dist/drupal/__DRUPAL_SUBDIR__/dfg_3dviewer-module.js:
+      attributes:
+        type: module
+  css:
+    theme:
+      dist/drupal/__DRUPAL_SUBDIR__/assets/css/viewer.css:
+        weight: 10
+  dependencies:
+    - core/drupal
+    - core/drupalSettings
+
+dfg_3dviewer.test:
+  js:
+    dist/test/dfg_3dviewer-module.js:
+      attributes:
+        type: module
+  css:
+    theme:
+      dist/test/assets/css/viewer.css:
+        weight: 10
+  dependencies:
+    - core/drupal
+    - core/drupalSettings
+
+dfg_3dviewer.drupal_custom:
+  js:
+    dist/drupal/__DRUPAL_SUBDIR__/dfg_3dviewer-module.js:
+      attributes:
+        type: module
+  css:
+    theme:
+      dist/drupal/__DRUPAL_SUBDIR__/assets/css/viewer.css:
+        weight: 10
+  dependencies:
+    - core/drupal
+    - core/drupalSettings
+
+dfg_3dviewer.progress:
+  js:
+    scripts/progress.js: {}
+  dependencies:
+    - core/drupal

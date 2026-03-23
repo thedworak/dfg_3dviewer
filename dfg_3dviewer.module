@@ -1114,32 +1114,9 @@ function dfg_3dviewer_entity_update(Drupal\Core\Entity\EntityInterface $entity) 
 
 	dfg_3dviewer_kick_convert_worker();
 }
-function dfg_3dviewer_get_local_env(): string {
-  static $cached_env = null;
-
-  if ($cached_env !== null) {
-    return $cached_env;
-  }
-
-  $module_settings_file = __DIR__ . '/settings.local.php';
-  if (!is_file($module_settings_file) || !is_readable($module_settings_file)) {
-    $cached_env = '';
-    return $cached_env;
-  }
-
-  $settings = [];
-  include $module_settings_file;
-
-  $cached_env = is_array($settings) ? (string) ($settings['dfg_env'] ?? '') : '';
-  return $cached_env;
-}
-
 function dfg_3dviewer_get_library(): string {
-  // Prefer module-local override first, then site settings, then module config.
-  $env = dfg_3dviewer_get_local_env();
-  if ($env === '') {
-    $env = (string) Settings::get('dfg_env', '');
-  }
+  // Prefer explicit settings.php override; if not set, use module config.
+  $env = (string) Settings::get('dfg_env', '');
   if ($env === '') {
     $env = (string) (\Drupal::config('dfg_3dviewer.settings')->get('dfg_env') ?? '');
   }
@@ -1163,98 +1140,4 @@ function dfg_3dviewer_get_library(): string {
   }
 
   return $map[$env] ?? $map['drupal'];
-}
-
-function dfg_3dviewer_get_asset_subdir(): string {
-  $env = dfg_3dviewer_get_local_env();
-  if ($env === '') {
-    $env = (string) Settings::get('dfg_env', '');
-  }
-  if ($env === '') {
-    $env = (string) (\Drupal::config('dfg_3dviewer.settings')->get('dfg_env') ?? '');
-  }
-
-  $env = strtolower(trim($env));
-
-  return match ($env) {
-    'drupal_custom', 'custom' => 'custom',
-    'test' => '../test',
-    default => 'main',
-  };
-}
-
-function dfg_3dviewer_get_runtime_asset_paths(): array {
-  $module_path = '/' . trim(\Drupal::service('extension.list.module')->getPath('dfg_3dviewer'), '/');
-  $asset_subdir = dfg_3dviewer_get_asset_subdir();
-
-  if ($asset_subdir === '../test') {
-    return [
-      'js' => $module_path . '/dist/test/dfg_3dviewer-module.js',
-      'css' => $module_path . '/dist/test/assets/css/viewer.css',
-    ];
-  }
-
-  return [
-    'js' => $module_path . '/dist/drupal/' . $asset_subdir . '/dfg_3dviewer-module.js',
-    'css' => $module_path . '/dist/drupal/' . $asset_subdir . '/assets/css/viewer.css',
-  ];
-}
-
-function dfg_3dviewer_attach_assets(array &$build): void {
-  $paths = dfg_3dviewer_get_runtime_asset_paths();
-
-  $build['#attached']['library'][] = 'core/drupal';
-  $build['#attached']['library'][] = 'core/drupalSettings';
-  $build['#attached']['html_head_link'][] = [[
-    'rel' => 'stylesheet',
-    'href' => $paths['css'],
-  ], 'dfg_3dviewer_css'];
-  $build['#attached']['html_head'][] = [[
-    '#tag' => 'script',
-    '#attributes' => [
-      'type' => 'module',
-      'src' => $paths['js'],
-    ],
-  ], 'dfg_3dviewer_js'];
-}
-
-function dfg_3dviewer_library_info_alter(array &$libraries, string $extension): void {
-  if ($extension !== 'dfg_3dviewer') {
-    return;
-  }
-
-  $paths = dfg_3dviewer_get_runtime_asset_paths();
-
-  foreach (['dfg_3dviewer.drupal', 'dfg_3dviewer.drupal_custom', 'dfg_3dviewer.test'] as $library_name) {
-    if (empty($libraries[$library_name])) {
-      continue;
-    }
-
-    $libraries[$library_name]['js'] = [
-      ltrim($paths['js'], '/') => [
-        'attributes' => ['type' => 'module'],
-      ],
-    ];
-
-    $libraries[$library_name]['css']['theme'] = [
-      ltrim($paths['css'], '/') => [
-        'weight' => 10,
-      ],
-    ];
-  }
-}
-
-function dfg_3dviewer_page_attachments_alter(array &$attachments): void {
-  if (empty($attachments['#attached']) || !is_array($attachments['#attached'])) {
-    return;
-  }
-
-  if (!empty($attachments['#attached']['library']) && is_array($attachments['#attached']['library'])) {
-    $attachments['#attached']['library'] = array_values(array_filter(
-      $attachments['#attached']['library'],
-      static fn ($library): bool => !is_string($library) || !str_starts_with($library, 'dfg_3dviewer/')
-    ));
-  }
-
-  dfg_3dviewer_attach_assets($attachments);
 }
