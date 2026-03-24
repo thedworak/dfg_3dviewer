@@ -924,14 +924,18 @@ async function setupEmptyCamera(_object) {
   var boundingBox = new THREE.Box3();
   if (Array.isArray(_object)) {
     for (let i = 0; i < _object.length; i++) {
-      boundingBox.setFromObject(_object[i]);
+      boundingBox.setFromObject(_object[i], true);
     }
   } else {
-    boundingBox.setFromObject(_object);
+    boundingBox.setFromObject(_object, true);
   }
   var size = new THREE.Vector3();
   boundingBox.getSize(size);
-  core.camera.position.set(size.x, size.y, size.z);
+  var center = new THREE.Vector3();
+  boundingBox.getCenter(center);
+  // Set camera position at the center level, behind the model
+  const distance = size.length();
+  core.camera.position.set(center.x, center.y, center.z + distance);
   await fitCameraToCenteredObject(_object, true);
 }
 
@@ -1200,8 +1204,8 @@ function animateCameraToPose ({
       const maxDistance =
         endCamPos.distanceTo(boxCenter) + boxSize;
 
-      core.camera.near = maxDistance / 100;
-      core.camera.far  = maxDistance * 5;
+      core.camera.near = Math.max(maxDistance / 1000, 0.001);
+      core.camera.far  = maxDistance * 10;
       core.camera.updateProjectionMatrix();
 
       if (core.controls) {
@@ -1216,11 +1220,11 @@ async function fitCameraToCenteredObject(object, _fit) {
   const boundingBox = new THREE.Box3();
   if (Array.isArray(object)) {
     for (let i = 0; i < object.length; i++) {
-      const box = new THREE.Box3().setFromObject(object[i]);
+      const box = new THREE.Box3().setFromObject(object[i], true);
       boundingBox.union(box);
     }
   } else {
-    boundingBox.setFromObject(object);
+    boundingBox.setFromObject(object, true);
   }
 
   var size = new THREE.Vector3(), center = new THREE.Vector3();
@@ -1282,11 +1286,10 @@ async function fitCameraToCenteredObject(object, _fit) {
     Math.tan(THREE.MathUtils.degToRad(core.camera.fov / 2)) /
     core.camera.aspect;
 
-  const distance = Math.max(fitHeightDistance, fitWidthDistance) * 1.55;
+  const distance = Math.max(fitHeightDistance, fitWidthDistance) * 1.85;
 
   // === target position ===
-  const dir = new THREE.Vector3();
-  core.camera.getWorldDirection(dir);
+  const dir = new THREE.Vector3(-0.5, -1, 1).normalize(); // 45-degree angle perspective
   dir.multiplyScalar(-distance);
 
   const finalCameraPos = center.clone().add(dir);
@@ -1462,9 +1465,10 @@ function setupClippingPlanes(_geom, _size, _distance) {
   core.planeHelpers = core.clippingPlanes.map(
     (p) => new THREE.PlaneHelper(p, _size * 2, invertHexColor(planeColor))
   );
-  core.planeHelpers.forEach((ph) => {
+  core.planeHelpers.forEach((ph, index) => {
     ph.visible = false;
     ph.name = "PlaneHelper";
+    ph.position.copy(core.clippingPlanes[index].normal).multiplyScalar(core.clippingPlanes[index].constant);
     core.scene.add(ph);
   });
 
@@ -1493,7 +1497,10 @@ function setupClippingPlanes(_geom, _size, _distance) {
       .setValue(core.distanceGeometry.x)
       .step(_size / 100)
       .listen()
-      .onChange((d) => (core.clippingPlanes[0].constant = d));
+      .onChange((d) => {
+        core.clippingPlanes[0].constant = d;
+        core.planeHelpers[0].position.copy(core.clippingPlanes[0].normal).multiplyScalar(d);
+      });
 
     displayHelper.y.onChange((v) => {
       core.planeParams.clippingMode.y = core.planeHelpers[1].visible = v;
@@ -1516,7 +1523,10 @@ function setupClippingPlanes(_geom, _size, _distance) {
       .setValue(core.distanceGeometry.y)
       .step(_size / 100)
       .listen()
-      .onChange((d) => (core.clippingPlanes[1].constant = d));
+      .onChange((d) => {
+        core.clippingPlanes[1].constant = d;
+        core.planeHelpers[1].position.copy(core.clippingPlanes[1].normal).multiplyScalar(d);
+      });
   
     displayHelper.z.onChange((v) => {
       core.planeParams.clippingMode.z = core.planeHelpers[2].visible = v;
@@ -1539,7 +1549,10 @@ function setupClippingPlanes(_geom, _size, _distance) {
       .setValue(core.distanceGeometry.z)
       .step(_size / 100)
       .listen()
-      .onChange((d) => (core.clippingPlanes[2].constant = d));
+      .onChange((d) => {
+        core.clippingPlanes[2].constant = d;
+        core.planeHelpers[2].position.copy(core.clippingPlanes[2].normal).multiplyScalar(d);
+      });
 
     displayHelper.outline.onChange((v) => {
       core.outlineClipping.visible = v;
@@ -1558,7 +1571,7 @@ function invertHexColor(hexTripletColor) {
 }
 
 function getOrAddGuiController(folder, object, prop) {
-  let controller = folder.controllers.find(c => c._name === prop);
+  let controller = folder?.controllers?.find(c => c._name === prop);
   if (controller) return controller;
 
   for (const subfolder of folder.folders) {
@@ -1912,7 +1925,10 @@ async function fetchSettings(object) {
   var metadata = { vertices: 0, faces: 0 };
   let metadataUrl = '';
 
-  if (core.CONFIG.metadataUrl && core.fileObject.uri && core.fileObject.filename) {
+  // Skip metadata fetch for blob URLs (drag & drop files)
+  if (core.fileObject.filename.startsWith('blob:')) {
+    console.log("Skipping metadata fetch for local file");
+  } else if (core.CONFIG.metadataUrl && core.fileObject.uri && core.fileObject.filename) {
     metadataUrl = new URL(
       `${core.CONFIG.metadataUrl}/${core.fileObject.uri}metadata/${core.fileObject.filename}_viewer.json`
     ).href;
@@ -1932,14 +1948,16 @@ async function fetchSettings(object) {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);
     await handleMetadataResponse( core.CONFIG.model, metadata, object, hierarchyMain);
   }
-  else if (core.CONFIG.entity.proxyPath !== undefined || core.isLightweight) {
-    metadataUrl = core.getProxyPath(metadataUrl, core.CONFIG);
-    const data = await loadMetadataData(metadataUrl);
-    await handleMetadataResponse(data, metadata, object, hierarchyMain);
-    settingsHandler(object, hierarchyMain, core.CONFIG);
-  } else {
-    const data = await loadMetadataData(metadataUrl);
-    await handleMetadataResponse(data, metadata, object, hierarchyMain);
+  else if (metadataUrl) {
+    if (core.CONFIG.entity.proxyPath !== undefined || core.isLightweight) {
+      metadataUrl = core.getProxyPath(metadataUrl, core.CONFIG);
+      const data = await loadMetadataData(metadataUrl);
+      await handleMetadataResponse(data, metadata, object, hierarchyMain);
+      settingsHandler(object, hierarchyMain, core.CONFIG);
+    } else {
+      const data = await loadMetadataData(metadataUrl);
+      await handleMetadataResponse(data, metadata, object, hierarchyMain);
+    }
   }
   // Add statistics GUI
   let statsMain;
@@ -2256,8 +2274,8 @@ function reportLoadError(error, context = "") {
 }
 
   async function loadModel() {
-    let modelPath = core.fileObject.path + core.fileObject.filename;
-    if (core.CONFIG.entity.proxyPath !== undefined) {
+    let modelPath = core.fileObject.filename.startsWith('blob:') ? core.fileObject.filename : core.fileObject.path + core.fileObject.filename;
+    if (core.CONFIG.entity.proxyPath !== undefined && !core.fileObject.filename.startsWith('blob:')) {
       modelPath = core.getProxyPath(modelPath, core.CONFIG, core.fileObject);
     }
 
@@ -2271,12 +2289,27 @@ function reportLoadError(error, context = "") {
       if (object === null || typeof object === "undefined") {
         throw new Error("Loaded object is null or undefined.");
       }
+      // Reset transform to ensure consistent positioning
+      if (Array.isArray(object)) {
+        object.forEach(obj => {
+          obj.position.set(0, 0, 0);
+          obj.rotation.set(0, 0, 0);
+          obj.scale.set(1, 1, 1);
+          obj.updateMatrixWorld(true);
+        });
+      } else {
+        object.position.set(0, 0, 0);
+        object.rotation.set(0, 0, 0);
+        object.scale.set(1, 1, 1);
+        object.updateMatrixWorld(true);
+      }
       core.handHint.hidden = true;
       window.viewer.modelLoaded = true;
       traverseMesh(object);
       if (core.fileObject.extension.toLowerCase() === "gltf" || core.fileObject.extension.toLowerCase() === "glb") core.fileObject.path = core.fileObject.path.replace("/gltf/", "/");
       else core.fileObject.path = core.fileObject.path.replace("gltf/", "");
       await fetchSettings(object);
+      await setupCamera(object, core.CONFIG);
       core.outlineClipping = prepareOutlineClipping(object);
       if (Array.isArray(object)) {
         object.forEach(o => core.scene.add(o));
@@ -2368,8 +2401,27 @@ function reportLoadError(error, context = "") {
           ;
       }
 
+      // Override for localhost
+      if (core.isLocalPreview) {
+        basePath = '/assets';
+      }
+
       // Normalize doubled slashes and switch to a best-guess custom path when env is drupal_custom.
       basePath = basePath.replace(/\/\/+/g, '/');
+
+      // Fix duplicate host in path for full URLs
+      if (typeof window !== 'undefined' && basePath.startsWith('http')) {
+        try {
+          const url = new URL(basePath);
+          const host = url.host;
+          if (url.pathname.startsWith(`/${host}`)) {
+            url.pathname = url.pathname.replace(`/${host}`, '');
+            basePath = url.href;
+          }
+        } catch (err) {
+          // ignore
+        }
+      }
 
       // Rising path mismatch: if we are in drupal custom and config path still has /drupal/main, try custom fallback.
       if (basePath.includes('/drupal/main')) {
@@ -2381,8 +2433,8 @@ function reportLoadError(error, context = "") {
     }
 
     async function loadGLTFModel() {
-      let gltfModelPath = core.fileObject.path + core.fileObject.basename + "." + core.fileObject.extension;
-      if (core.CONFIG.entity.proxyPath !== undefined) {
+      let gltfModelPath = core.fileObject.filename.startsWith('blob:') ? core.fileObject.filename : core.fileObject.path + core.fileObject.basename + "." + core.fileObject.extension;
+      if (core.CONFIG.entity.proxyPath !== undefined && !core.fileObject.filename.startsWith('blob:')) {
         gltfModelPath = core.getProxyPath(gltfModelPath);
       }
 
@@ -2425,6 +2477,7 @@ function reportLoadError(error, context = "") {
         case "fbx": {
           const loader = await createLoader(core.fileObject.extension.toLowerCase());
           const object = await loadAsync(loader, modelPath, onProgress);
+          object.position.set(0, 0, 0);
           await afterLoad({ object });
           break;
         }
@@ -10594,6 +10647,10 @@ const Viewer = {
     const isFullscreen = !!document.fullscreenElement;
     Viewer.FULLSCREEN = isFullscreen;
 
+    if (!Viewer.mainCanvas || !Viewer.fullscreenMode || !core.guiContainer) {
+      return;
+    }
+
     let widthCSS, heightCSS;  // CSS pixels (layout)
     let widthDev, heightDev;  // Device pixels (Three.js)
     let scale = {x: 1, y: 1};
@@ -10612,7 +10669,11 @@ const Viewer = {
         //Viewer.downloadModel?.setAttribute("style", "visibility: none");
     } else {
       scale = {x: Number(core.CONFIG.viewer.scaleContainer?.x || 1), y: Number(core.CONFIG.viewer.scaleContainer?.y || 1)};
-      rect = Viewer.viewerWrapper.getBoundingClientRect();
+      const wrapper = Viewer.viewerWrapper || core.container;
+      if (!wrapper) {
+        return;
+      }
+      rect = wrapper.getBoundingClientRect();
       widthCSS = (rect.width * scale.x) || 800;
       heightCSS = (rect.height * scale.y) || 600;
 
@@ -10680,7 +10741,7 @@ const Viewer = {
       ? `<img src="${core.DFG_ASSETS}/img/exit-fullscreen.png" width="25" height="25" title="Exit fullscreen mode"/>`
       : `<img src="${core.DFG_ASSETS}/img/fullscreen.png" width="25" height="25" title="Fullscreen mode"/>`;
 
-    // Layout (ESC + klik)
+    // Layout (ESC + click)
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         Viewer.updateSize();
@@ -10936,6 +10997,55 @@ const Viewer = {
     }
   },
 
+  onDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  },
+
+  async onDrop(e) {
+    e.preventDefault();
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      const supportedExtensions = ['obj', 'dae', 'fbx', 'ply', 'ifc', 'stl', 'xyz', 'json', '3ds', 'pcd', 'gltf', 'glb', 'zip', 'rar', 'tar', 'xz', 'gz'];
+      const extension = file.name.split('.').pop().toLowerCase();
+      
+      if (supportedExtensions.includes(extension)) {
+        // Clear existing model
+        if (core.mainObject.length > 0) {
+          core.mainObject.forEach(obj => {
+            core.scene.remove(obj);
+          });
+          core.mainObject = [];
+        }
+        
+        // Set up fileObject for the dropped file
+        const url = URL.createObjectURL(file);
+        core.fileObject.originalPath = url;
+        core.fileObject.filename = url;  // Use URL as filename for blob
+        core.fileObject.basename = file.name.substring(0, file.name.lastIndexOf('.'));
+        core.fileObject.extension = extension;
+        core.fileObject.path = '';  // No path for blob URLs
+        core.fileObject.uri = url;
+        core.fileObject.relativePath = url;
+        
+        Viewer._ext = extension;
+        
+        setCore('fileObject', core.fileObject);
+        
+        // Clear autoPath to prevent overriding with server URL
+        core.autoPath = '';
+        
+        // Load the model
+        await Viewer.mainLoadModel();
+        
+        showToast('Model loaded successfully');
+      } else {
+        showToast('Unsupported file format');
+      }
+    }
+  },
+
   async changeScale() {
     if (core.transformControl.getMode() === "scale") {
       switch (core.transformControl.axis) {
@@ -10988,24 +11098,15 @@ const Viewer = {
     );
     Viewer.distanceGeometry = _distance;
     setCore("distanceGeometry", Viewer.distanceGeometry);
-    Viewer.planeParams.planeX.constantZ =
-      Viewer.clippingFolder.controllers[1]._max =
-      Viewer.clippingPlanes[0].constant =
-      _distance.x;
-    Viewer.clippingFolder.controllers[1]._min = -Viewer.clippingFolder.controllers[1]._max;
-    Viewer.planeParams.planeY.constantY =
-      Viewer.clippingFolder.controllers[3]._max =
-      Viewer.clippingPlanes[1].constant =
-      _distance.y;
-    Viewer.clippingFolder.controllers[3]._min = -Viewer.clippingFolder.controllers[3]._max;
-    Viewer.planeParams.planeZ.constantZ =
-      Viewer.clippingFolder.controllers[5]._max =
-      Viewer.clippingPlanes[2].constant =
-      _distance.z;
-    Viewer.clippingFolder.controllers[5]._min = -Viewer.clippingFolder.controllers[5]._max;
-    Viewer.clippingFolder.controllers[1].updateDisplay();
-    Viewer.clippingFolder.controllers[3].updateDisplay();
-    Viewer.clippingFolder.controllers[5].updateDisplay();
+    Viewer.planeParams.planeX.constantZ = core.clippingFolder.controllers[1]._max = core.clippingPlanes[0].constant = _distance.x;
+    core.clippingFolder.controllers[1]._min = -core.clippingFolder.controllers[1]._max;
+    Viewer.planeParams.planeY.constantY = core.clippingFolder.controllers[3]._max = core.clippingPlanes[1].constant = _distance.y;
+    core.clippingFolder.controllers[3]._min = -core.clippingFolder.controllers[3]._max;
+    Viewer.planeParams.planeZ.constantZ = core.clippingFolder.controllers[5]._max = core.clippingPlanes[2].constant = _distance.z;
+    core.clippingFolder.controllers[5]._min = -core.clippingFolder.controllers[5]._max;
+    core.clippingFolder.controllers[1].updateDisplay();
+    core.clippingFolder.controllers[3].updateDisplay();
+    core.clippingFolder.controllers[5].updateDisplay();
     var _maxDistance = Math.max(_distance.x, _distance.y, _distance.z);
     Viewer.planeHelpers?.forEach(h => h && (h.size = _maxDistance));
   },
@@ -11123,21 +11224,37 @@ const Viewer = {
     tempClippingControl.setMode("translate");
     tempClippingControl.addEventListener("change", Viewer.render);
     tempClippingControl.addEventListener("objectChange", function (event) {
-      if (event.target === undefined || event.target.children[0] === undefined) {
+      if (event.target === undefined || event.target.object === undefined) {
         return;
       }
+      let newConstant;
       switch (_number) {
         case 0:
-          Viewer.clippingPlanes[_number].constant =
-            event.target.children[0].pointEnd.x + Viewer.distanceGeometry.x;
+          newConstant = event.target.worldPositionStart.x + event.target.pointEnd.x;
+          core.clippingPlanes[_number].constant = newConstant;
+          core.planeParams.planeX.constantX = newConstant;
+          if (core.clippingFolder.controllers[1]) {
+            core.clippingFolder.controllers[1].setValue(newConstant);
+          }
+          core.planeHelpers[0].position.copy(core.clippingPlanes[0].normal).multiplyScalar(newConstant);
           break;
         case 1:
-          Viewer.clippingPlanes[_number].constant =
-            event.target.children[0].pointEnd.y + Viewer.distanceGeometry.y;
+          newConstant = event.target.worldPositionStart.y + event.target.pointEnd.y;
+          core.clippingPlanes[_number].constant = newConstant;
+          core.planeParams.planeY.constantY = newConstant;
+          if (core.clippingFolder.controllers[3]) {
+            core.clippingFolder.controllers[3].setValue(newConstant);
+          }
+          core.planeHelpers[1].position.copy(core.clippingPlanes[1].normal).multiplyScalar(newConstant);
           break;
         case 2:
-          Viewer.clippingPlanes[_number].constant =
-            event.target.children[0].pointEnd.z + Viewer.distanceGeometry.z;
+          newConstant = event.target.worldPositionStart.z + event.target.pointEnd.z;
+          core.clippingPlanes[_number].constant = newConstant;
+          core.planeParams.planeZ.constantZ = newConstant;
+          if (core.clippingFolder.controllers[5]) {
+            core.clippingFolder.controllers[5].setValue(newConstant);
+          }
+          core.planeHelpers[2].position.copy(core.clippingPlanes[2].normal).multiplyScalar(newConstant);
           break;
       }
     });
@@ -11472,10 +11589,11 @@ const Viewer = {
           Viewer.colors["BackgroundColorOuter"]
         );
       });
+    setCore("clippingFolder", Viewer.clippingFolder);
 
     if (Viewer.EDITOR) {
-      Viewer.clippingFolder = Viewer.editorFolder.addFolder("Clipping Planes").close();
-      setCore("clippingFolder", Viewer.clippingFolder);
+      core.clippingFolder = Viewer.editorFolder.addFolder("Clipping Planes").close();
+      
       core.materialsFolder = Viewer.editorFolder.addFolder("Materials").close();
       setCore("materialsFolder", core.materialsFolder);
       Viewer.editorFolder.add(
@@ -11724,17 +11842,21 @@ const Viewer = {
         preserveDrawingBuffer: true,
         powerPreference: "high-performance",
         alpha: true,
+        shadowMap: {
+          enabled: true,
+          type: THREE.PCFSoftShadowMap
+        },
+        localClippingEnabled: true,
+        physicallyCorrectLights: true,
+        autoClear: false,
+        setClearColor: (0.0),
+        outputColorSpace: THREE.SRGBColorSpace,
+        toneMapping: THREE.ACESFilmicToneMapping,
+        toneMappingExposure: 0.65
       });
       
-      core.renderer.shadowMap.enabled = true;
       core.renderer.localClippingEnabled = true;
-      core.renderer.physicallyCorrectLights = true; //can be considered as better looking
-      core.renderer.autoClear = false;
-      core.renderer.setClearColor(0x000000, 0.0);
 
-      core.renderer.outputColorSpace = THREE.SRGBColorSpace;
-      core.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      core.renderer.toneMappingExposure = 0.65;
       setCore('renderer', core.renderer);
 
       core.renderer.domElement.id = "MainCanvas";
@@ -11747,6 +11869,12 @@ const Viewer = {
 	      Viewer.bindEventListener(core.renderer.domElement, "pointerdown", Viewer.onPointerDown);
 	      Viewer.bindEventListener(core.renderer.domElement, "pointerup", Viewer.onPointerUp);
 	      Viewer.bindEventListener(core.renderer.domElement, "pointermove", Viewer.onPointerMove);
+
+	      // Add drag and drop support for localhost
+	      if (isLocalPreview) {
+	        Viewer.bindEventListener(core.renderer.domElement, "dragover", Viewer.onDragOver);
+	        Viewer.bindEventListener(core.renderer.domElement, "drop", Viewer.onDrop);
+	      }
 
       const devicePixelRatio = window.devicePixelRatio || 1;
       core.renderer.setSize(core.CONFIG.viewer.canvasDimensions.x, core.CONFIG.viewer.canvasDimensions.y);
@@ -11787,7 +11915,7 @@ const Viewer = {
       Viewer.fullscreenMode = document.createElement("div");
       Viewer.fullscreenMode.setAttribute("id", "fullscreenMode");
       const scriptUrl = document.currentScript?.src || import.meta.url;
-      Viewer.DFG_ASSETS = scriptUrl.replace(/dfg_3dviewer-module\.js.*$/, 'assets');
+      Viewer.DFG_ASSETS = scriptUrl.replace(/\/[^\/]*$/, '/assets');
       setCore('DFG_ASSETS', Viewer.DFG_ASSETS);
 
       Viewer.fullscreenMode.innerHTML = `<img src="${core.DFG_ASSETS}/img/fullscreen.png" alt="Fullscreen" width=25 height=25 title="Fullscreen mode"/>`;

@@ -356,7 +356,10 @@ export async function fetchSettings(object) {
   var metadata = { vertices: 0, faces: 0 };
   let metadataUrl = '';
 
-  if (core.CONFIG.metadataUrl && core.fileObject.uri && core.fileObject.filename) {
+  // Skip metadata fetch for blob URLs (drag & drop files)
+  if (core.fileObject.filename.startsWith('blob:')) {
+    console.log("Skipping metadata fetch for local file");
+  } else if (core.CONFIG.metadataUrl && core.fileObject.uri && core.fileObject.filename) {
     metadataUrl = new URL(
       `${core.CONFIG.metadataUrl}/${core.fileObject.uri}metadata/${core.fileObject.filename}_viewer.json`
     ).href;
@@ -376,14 +379,16 @@ export async function fetchSettings(object) {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);
     await handleMetadataResponse( core.CONFIG.model, metadata, object, hierarchyMain);
   }
-  else if (core.CONFIG.entity.proxyPath !== undefined || core.isLightweight) {
-    metadataUrl = core.getProxyPath(metadataUrl, core.CONFIG);
-    const data = await loadMetadataData(metadataUrl);
-    await handleMetadataResponse(data, metadata, object, hierarchyMain);
-    settingsHandler(object, hierarchyMain, core.CONFIG);
-  } else {
-    const data = await loadMetadataData(metadataUrl);
-    await handleMetadataResponse(data, metadata, object, hierarchyMain);
+  else if (metadataUrl) {
+    if (core.CONFIG.entity.proxyPath !== undefined || core.isLightweight) {
+      metadataUrl = core.getProxyPath(metadataUrl, core.CONFIG);
+      const data = await loadMetadataData(metadataUrl);
+      await handleMetadataResponse(data, metadata, object, hierarchyMain);
+      settingsHandler(object, hierarchyMain, core.CONFIG);
+    } else {
+      const data = await loadMetadataData(metadataUrl);
+      await handleMetadataResponse(data, metadata, object, hierarchyMain);
+    }
   }
   // Add statistics GUI
   let statsMain;

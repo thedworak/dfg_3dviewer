@@ -1580,6 +1580,55 @@ export const Viewer = {
     }
   },
 
+  onDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  },
+
+  async onDrop(e) {
+    e.preventDefault();
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      const supportedExtensions = ['obj', 'dae', 'fbx', 'ply', 'ifc', 'stl', 'xyz', 'json', '3ds', 'pcd', 'gltf', 'glb', 'zip', 'rar', 'tar', 'xz', 'gz'];
+      const extension = file.name.split('.').pop().toLowerCase();
+      
+      if (supportedExtensions.includes(extension)) {
+        // Clear existing model
+        if (core.mainObject.length > 0) {
+          core.mainObject.forEach(obj => {
+            core.scene.remove(obj);
+          });
+          core.mainObject = [];
+        }
+        
+        // Set up fileObject for the dropped file
+        const url = URL.createObjectURL(file);
+        core.fileObject.originalPath = url;
+        core.fileObject.filename = url;  // Use URL as filename for blob
+        core.fileObject.basename = file.name.substring(0, file.name.lastIndexOf('.'));
+        core.fileObject.extension = extension;
+        core.fileObject.path = '';  // No path for blob URLs
+        core.fileObject.uri = url;
+        core.fileObject.relativePath = url;
+        
+        Viewer._ext = extension;
+        
+        setCore('fileObject', core.fileObject);
+        
+        // Clear autoPath to prevent overriding with server URL
+        core.autoPath = '';
+        
+        // Load the model
+        await Viewer.mainLoadModel();
+        
+        showToast('Model loaded successfully', 'success');
+      } else {
+        showToast('Unsupported file format', 'error');
+      }
+    }
+  },
+
   async changeScale() {
     if (core.transformControl.getMode() === "scale") {
       switch (core.transformControl.axis) {
@@ -1632,20 +1681,11 @@ export const Viewer = {
     );
     Viewer.distanceGeometry = _distance;
     setCore("distanceGeometry", Viewer.distanceGeometry);
-    Viewer.planeParams.planeX.constantZ =
-      core.clippingFolder.controllers[1]._max =
-      core.clippingPlanes[0].constant =
-      _distance.x;
+    Viewer.planeParams.planeX.constantZ = core.clippingFolder.controllers[1]._max = core.clippingPlanes[0].constant = _distance.x;
     core.clippingFolder.controllers[1]._min = -core.clippingFolder.controllers[1]._max;
-    Viewer.planeParams.planeY.constantY =
-      core.clippingFolder.controllers[3]._max =
-      core.clippingPlanes[1].constant =
-      _distance.y;
+    Viewer.planeParams.planeY.constantY = core.clippingFolder.controllers[3]._max = core.clippingPlanes[1].constant = _distance.y;
     core.clippingFolder.controllers[3]._min = -core.clippingFolder.controllers[3]._max;
-    Viewer.planeParams.planeZ.constantZ =
-      core.clippingFolder.controllers[5]._max =
-      core.clippingPlanes[2].constant =
-      _distance.z;
+    Viewer.planeParams.planeZ.constantZ = core.clippingFolder.controllers[5]._max = core.clippingPlanes[2].constant = _distance.z;
     core.clippingFolder.controllers[5]._min = -core.clippingFolder.controllers[5]._max;
     core.clippingFolder.controllers[1].updateDisplay();
     core.clippingFolder.controllers[3].updateDisplay();
@@ -1768,21 +1808,37 @@ export const Viewer = {
     tempClippingControl.setMode("translate");
     tempClippingControl.addEventListener("change", Viewer.render);
     tempClippingControl.addEventListener("objectChange", function (event) {
-      if (event.target === undefined || event.target?.children?.[0] === undefined) {
+      if (event.target === undefined || event.target.object === undefined) {
         return;
       }
+      let newConstant;
       switch (_number) {
         case 0:
-          core.clippingPlanes[_number].constant =
-            event.target.children[0].pointEnd.x + core.distanceGeometry.x;
+          newConstant = event.target.worldPositionStart.x + event.target.pointEnd.x;
+          core.clippingPlanes[_number].constant = newConstant;
+          core.planeParams.planeX.constantX = newConstant;
+          if (core.clippingFolder.controllers[1]) {
+            core.clippingFolder.controllers[1].setValue(newConstant);
+          }
+          core.planeHelpers[0].position.copy(core.clippingPlanes[0].normal).multiplyScalar(newConstant);
           break;
         case 1:
-          core.clippingPlanes[_number].constant =
-            event.target.children[0].pointEnd.y + core.distanceGeometry.y;
+          newConstant = event.target.worldPositionStart.y + event.target.pointEnd.y;
+          core.clippingPlanes[_number].constant = newConstant;
+          core.planeParams.planeY.constantY = newConstant;
+          if (core.clippingFolder.controllers[3]) {
+            core.clippingFolder.controllers[3].setValue(newConstant);
+          }
+          core.planeHelpers[1].position.copy(core.clippingPlanes[1].normal).multiplyScalar(newConstant);
           break;
         case 2:
-          core.clippingPlanes[_number].constant =
-            event.target.children[0].pointEnd.z + core.distanceGeometry.z;
+          newConstant = event.target.worldPositionStart.z + event.target.pointEnd.z;
+          core.clippingPlanes[_number].constant = newConstant;
+          core.planeParams.planeZ.constantZ = newConstant;
+          if (core.clippingFolder.controllers[5]) {
+            core.clippingFolder.controllers[5].setValue(newConstant);
+          }
+          core.planeHelpers[2].position.copy(core.clippingPlanes[2].normal).multiplyScalar(newConstant);
           break;
       }
     });
@@ -2371,17 +2427,21 @@ export const Viewer = {
         preserveDrawingBuffer: true,
         powerPreference: "high-performance",
         alpha: true,
+        shadowMap: {
+          enabled: true,
+          type: THREE.PCFSoftShadowMap
+        },
+        localClippingEnabled: true,
+        physicallyCorrectLights: true,
+        autoClear: false,
+        setClearColor: (0x000000, 0.0),
+        outputColorSpace: THREE.SRGBColorSpace,
+        toneMapping: THREE.ACESFilmicToneMapping,
+        toneMappingExposure: 0.65
       });
       
-      core.renderer.shadowMap.enabled = true;
       core.renderer.localClippingEnabled = true;
-      core.renderer.physicallyCorrectLights = true; //can be considered as better looking
-      core.renderer.autoClear = false;
-      core.renderer.setClearColor(0x000000, 0.0);
 
-      core.renderer.outputColorSpace = THREE.SRGBColorSpace;
-      core.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      core.renderer.toneMappingExposure = 0.65;
       setCore('renderer', core.renderer);
 
       core.renderer.domElement.id = "MainCanvas";
@@ -2394,6 +2454,12 @@ export const Viewer = {
 	      Viewer.bindEventListener(core.renderer.domElement, "pointerdown", Viewer.onPointerDown);
 	      Viewer.bindEventListener(core.renderer.domElement, "pointerup", Viewer.onPointerUp);
 	      Viewer.bindEventListener(core.renderer.domElement, "pointermove", Viewer.onPointerMove);
+
+	      // Add drag and drop support for localhost
+	      if (isLocalPreview) {
+	        Viewer.bindEventListener(core.renderer.domElement, "dragover", Viewer.onDragOver);
+	        Viewer.bindEventListener(core.renderer.domElement, "drop", Viewer.onDrop);
+	      }
 
       const devicePixelRatio = window.devicePixelRatio || 1;
       core.renderer.setSize(core.CONFIG.viewer.canvasDimensions.x, core.CONFIG.viewer.canvasDimensions.y);

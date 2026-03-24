@@ -16,7 +16,7 @@ export const loadRoomEnvironment = async () => (await import("three/examples/jsm
 
 import { core } from './core.js';
 import { fetchSettings } from "./metadata.js";
-import { reportViewerError, showToast } from "./viewer-utils.js";
+import { reportViewerError, showToast, setupCamera } from "./viewer-utils.js";
 
 export var outlineClipping;
 let environmentTexturePromise = null;
@@ -255,8 +255,8 @@ function reportLoadError(error, context = "") {
 }
 
   export async function loadModel() {
-    let modelPath = core.fileObject.path + core.fileObject.filename;
-    if (core.CONFIG.entity.proxyPath !== undefined) {
+    let modelPath = core.fileObject.filename.startsWith('blob:') ? core.fileObject.filename : core.fileObject.path + core.fileObject.filename;
+    if (core.CONFIG.entity.proxyPath !== undefined && !core.fileObject.filename.startsWith('blob:')) {
       modelPath = core.getProxyPath(modelPath, core.CONFIG, core.fileObject);
     }
 
@@ -270,12 +270,27 @@ function reportLoadError(error, context = "") {
       if (object === null || typeof object === "undefined") {
         throw new Error("Loaded object is null or undefined.");
       }
+      // Reset transform to ensure consistent positioning
+      if (Array.isArray(object)) {
+        object.forEach(obj => {
+          obj.position.set(0, 0, 0);
+          obj.rotation.set(0, 0, 0);
+          obj.scale.set(1, 1, 1);
+          obj.updateMatrixWorld(true);
+        });
+      } else {
+        object.position.set(0, 0, 0);
+        object.rotation.set(0, 0, 0);
+        object.scale.set(1, 1, 1);
+        object.updateMatrixWorld(true);
+      }
       core.handHint.hidden = true;
       window.viewer.modelLoaded = true;
       traverseMesh(object);
       if (core.fileObject.extension.toLowerCase() === "gltf" || core.fileObject.extension.toLowerCase() === "glb") core.fileObject.path = core.fileObject.path.replace("/gltf/", "/");
       else core.fileObject.path = core.fileObject.path.replace("gltf/", "");
       await fetchSettings(object);
+      await setupCamera(object, core.CONFIG);
       core.outlineClipping = prepareOutlineClipping(object);
       if (Array.isArray(object)) {
         object.forEach(o => core.scene.add(o));
@@ -376,6 +391,20 @@ function reportLoadError(error, context = "") {
       // Normalize doubled slashes and switch to a best-guess custom path when env is drupal_custom.
       basePath = basePath.replace(/\/\/+/g, '/');
 
+      // Fix duplicate host in path for full URLs
+      if (typeof window !== 'undefined' && basePath.startsWith('http')) {
+        try {
+          const url = new URL(basePath);
+          const host = url.host;
+          if (url.pathname.startsWith(`/${host}`)) {
+            url.pathname = url.pathname.replace(`/${host}`, '');
+            basePath = url.href;
+          }
+        } catch (err) {
+          // ignore
+        }
+      }
+
       // Rising path mismatch: if we are in drupal custom and config path still has /drupal/main, try custom fallback.
       if (ENV_BUILD === 'drupal' && ENV_SUBDIR === 'custom' && basePath.includes('/drupal/main')) {
         basePath = basePath.replace('/drupal/main', '/drupal/custom');
@@ -386,8 +415,8 @@ function reportLoadError(error, context = "") {
     }
 
     async function loadGLTFModel() {
-      let gltfModelPath = core.fileObject.path + core.fileObject.basename + "." + core.fileObject.extension;
-      if (core.CONFIG.entity.proxyPath !== undefined) {
+      let gltfModelPath = core.fileObject.filename.startsWith('blob:') ? core.fileObject.filename : core.fileObject.path + core.fileObject.basename + "." + core.fileObject.extension;
+      if (core.CONFIG.entity.proxyPath !== undefined && !core.fileObject.filename.startsWith('blob:')) {
         gltfModelPath = core.getProxyPath(gltfModelPath);
       }
 
@@ -430,6 +459,7 @@ function reportLoadError(error, context = "") {
         case "fbx": {
           const loader = await createLoader(core.fileObject.extension.toLowerCase());
           const object = await loadAsync(loader, modelPath, onProgress);
+          object.position.set(0, 0, 0);
           await afterLoad({ object });
           break;
         }

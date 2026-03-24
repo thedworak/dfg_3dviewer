@@ -254,14 +254,18 @@ async function setupEmptyCamera(_object) {
   var boundingBox = new THREE.Box3();
   if (Array.isArray(_object)) {
     for (let i = 0; i < _object.length; i++) {
-      boundingBox.setFromObject(_object[i]);
+      boundingBox.setFromObject(_object[i], true);
     }
   } else {
-    boundingBox.setFromObject(_object);
+    boundingBox.setFromObject(_object, true);
   }
   var size = new THREE.Vector3();
   boundingBox.getSize(size);
-  core.camera.position.set(size.x, size.y, size.z);
+  var center = new THREE.Vector3();
+  boundingBox.getCenter(center);
+  // Set camera position at the center level, behind the model
+  const distance = size.length();
+  core.camera.position.set(center.x, center.y, center.z + distance);
   await fitCameraToCenteredObject(_object, true);
 }
 
@@ -541,8 +545,8 @@ function animateCameraToPose ({
       const maxDistance =
         endCamPos.distanceTo(boxCenter) + boxSize;
 
-      core.camera.near = maxDistance / 100;
-      core.camera.far  = maxDistance * 5;
+      core.camera.near = Math.max(maxDistance / 1000, 0.001);
+      core.camera.far  = maxDistance * 10;
       core.camera.updateProjectionMatrix();
 
       if (core.controls) {
@@ -557,11 +561,11 @@ async function fitCameraToCenteredObject(object, _fit) {
   const boundingBox = new THREE.Box3();
   if (Array.isArray(object)) {
     for (let i = 0; i < object.length; i++) {
-      const box = new THREE.Box3().setFromObject(object[i]);
+      const box = new THREE.Box3().setFromObject(object[i], true);
       boundingBox.union(box);
     }
   } else {
-    boundingBox.setFromObject(object);
+    boundingBox.setFromObject(object, true);
   }
 
   var size = new THREE.Vector3(), center = new THREE.Vector3();
@@ -623,11 +627,10 @@ async function fitCameraToCenteredObject(object, _fit) {
     Math.tan(THREE.MathUtils.degToRad(core.camera.fov / 2)) /
     core.camera.aspect;
 
-  const distance = Math.max(fitHeightDistance, fitWidthDistance) * 1.55;
+  const distance = Math.max(fitHeightDistance, fitWidthDistance) * 1.85;
 
   // === target position ===
-  const dir = new THREE.Vector3();
-  core.camera.getWorldDirection(dir);
+  const dir = new THREE.Vector3(-0.5, -1, 1).normalize(); // 45-degree angle perspective
   dir.multiplyScalar(-distance);
 
   const finalCameraPos = center.clone().add(dir);
@@ -803,9 +806,10 @@ function setupClippingPlanes(_geom, _size, _distance) {
   core.planeHelpers = core.clippingPlanes.map(
     (p) => new THREE.PlaneHelper(p, _size * 2, invertHexColor(planeColor))
   );
-  core.planeHelpers.forEach((ph) => {
+  core.planeHelpers.forEach((ph, index) => {
     ph.visible = false;
     ph.name = "PlaneHelper";
+    ph.position.copy(core.clippingPlanes[index].normal).multiplyScalar(core.clippingPlanes[index].constant);
     core.scene.add(ph);
   });
 
@@ -834,7 +838,10 @@ function setupClippingPlanes(_geom, _size, _distance) {
       .setValue(core.distanceGeometry.x)
       .step(_size / 100)
       .listen()
-      .onChange((d) => (core.clippingPlanes[0].constant = d));
+      .onChange((d) => {
+        core.clippingPlanes[0].constant = d;
+        core.planeHelpers[0].position.copy(core.clippingPlanes[0].normal).multiplyScalar(d);
+      });
 
     displayHelper.y.onChange((v) => {
       core.planeParams.clippingMode.y = core.planeHelpers[1].visible = v;
@@ -857,7 +864,10 @@ function setupClippingPlanes(_geom, _size, _distance) {
       .setValue(core.distanceGeometry.y)
       .step(_size / 100)
       .listen()
-      .onChange((d) => (core.clippingPlanes[1].constant = d));
+      .onChange((d) => {
+        core.clippingPlanes[1].constant = d;
+        core.planeHelpers[1].position.copy(core.clippingPlanes[1].normal).multiplyScalar(d);
+      });
   
     displayHelper.z.onChange((v) => {
       core.planeParams.clippingMode.z = core.planeHelpers[2].visible = v;
@@ -880,7 +890,10 @@ function setupClippingPlanes(_geom, _size, _distance) {
       .setValue(core.distanceGeometry.z)
       .step(_size / 100)
       .listen()
-      .onChange((d) => (core.clippingPlanes[2].constant = d));
+      .onChange((d) => {
+        core.clippingPlanes[2].constant = d;
+        core.planeHelpers[2].position.copy(core.clippingPlanes[2].normal).multiplyScalar(d);
+      });
 
     displayHelper.outline.onChange((v) => {
       core.outlineClipping.visible = v;

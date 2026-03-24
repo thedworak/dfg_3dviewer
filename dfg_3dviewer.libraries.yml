@@ -1,11 +1,11 @@
 dfg_3dviewer.drupal:
   js:
-    dist/drupal/main/dfg_3dviewer-module.js:
+    dist/drupal/custom/dfg_3dviewer-module.js:
       attributes:
         type: module
   css:
     theme:
-      dist/drupal/main/assets/css/viewer.css:
+      dist/drupal/custom/assets/css/viewer.css:
         weight: 10
   dependencies:
     - core/drupal
@@ -26,12 +26,12 @@ dfg_3dviewer.test:
 
 dfg_3dviewer.drupal_custom:
   js:
-    dist/drupal/main/dfg_3dviewer-module.js:
+    dist/drupal/custom/dfg_3dviewer-module.js:
       attributes:
         type: module
   css:
     theme:
-      dist/drupal/main/assets/css/viewer.css:
+      dist/drupal/custom/assets/css/viewer.css:
         weight: 10
   dependencies:
     - core/drupal
