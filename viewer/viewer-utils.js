@@ -670,7 +670,7 @@ async function fitCameraToCenteredObject(object, _fit) {
       controlsTarget: [core.controls.target.x, core.controls.target.y, core.controls.target.z],
     };
   }
-  setupClippingPlanes(object, core.gridSize, {x: boundingBox.max.x*1.1, y: boundingBox.max.y*1.1, z: boundingBox.max.z*1.1});
+  setupClippingPlanes(object, {x: boundingBox.max.x*1.1, y: boundingBox.max.y*1.1, z: boundingBox.max.z*1.1});
 }
 
 function parseGradient(str) {
@@ -784,7 +784,7 @@ export function changeBackground(_type, _color1, _color2 = _color1) {
   }
 }
 
-function setupClippingPlanes(_geom, _size, _distance) {
+function setupClippingPlanes(_geom, _distance) {
   /*var _geometry;
   if (_geom.isGroup)
     _geometry = _geom.children;
@@ -793,6 +793,7 @@ function setupClippingPlanes(_geom, _size, _distance) {
   core.clippingPlanes[0].constant = _distance.x;
   core.clippingPlanes[1].constant = _distance.y;
   core.clippingPlanes[2].constant = _distance.z;
+  if (core.EDITOR) {
 
   if (core.transformControlClippingPlaneX && core.transformControlClippingPlaneY && core.transformControlClippingPlaneZ) {
     core.scene.add(core.transformControlClippingPlaneX?.getHelper());
@@ -804,7 +805,7 @@ function setupClippingPlanes(_geom, _size, _distance) {
   if (core.scene.background != null) planeColor = core.scene.background.getHexString();
 
   core.planeHelpers = core.clippingPlanes.map(
-    (p) => new THREE.PlaneHelper(p, _size * 2, invertHexColor(planeColor))
+    (p) => new THREE.PlaneHelper(p, core.gridSize * 2, invertHexColor(planeColor))
   );
   core.planeHelpers.forEach((ph, index) => {
     ph.visible = false;
@@ -815,8 +816,8 @@ function setupClippingPlanes(_geom, _size, _distance) {
 
   core.distanceGeometry = _distance;
   scaleXYZ(core.distanceGeometry, 2);
-  let displayHelper = {x: getOrAddGuiController(core.clippingFolder, core.planeParams.planeX, "displayHelperX"), constantX: getOrAddGuiController(core.clippingFolder, core.planeParams.planeX, "constantX"), y: getOrAddGuiController(core.clippingFolder, core.planeParams.planeY, "displayHelperY"), constantY: getOrAddGuiController(core.clippingFolder, core.planeParams.planeY, "constantY"), z: getOrAddGuiController(core.clippingFolder, core.planeParams.planeZ, "displayHelperZ"), constantZ: getOrAddGuiController(core.clippingFolder, core.planeParams.planeZ, "constantZ"), outline: getOrAddGuiController(core.clippingFolder, core.planeParams.outline, "visible")};
-  displayHelper.x.onChange((v) => {
+  let displayHelper = {x: getOrAddGuiController(core.planeParams.planeX, "displayHelperX"), constantX: getOrAddGuiController(core.planeParams.planeX, "constantX"), y: getOrAddGuiController(core.planeParams.planeY, "displayHelperY"), constantY: getOrAddGuiController(core.planeParams.planeY, "constantY"), z: getOrAddGuiController(core.planeParams.planeZ, "displayHelperZ"), constantZ: getOrAddGuiController(core.planeParams.planeZ, "constantZ"), outline: getOrAddGuiController(core.planeParams.outline, "visible")};
+  displayHelper.x?.onChange((v) => {
       core.planeParams.clippingMode.x = core.planeHelpers[0].visible = v;
       if (v) {
         core.transformControlClippingPlaneX.attach(core.planeHelpers[0]);
@@ -832,18 +833,17 @@ function setupClippingPlanes(_geom, _size, _distance) {
       }
     });
 
-    displayHelper.constantX
-      .min(-core.distanceGeometry.x)
+    displayHelper?.constantX.min(-core.distanceGeometry.x)
       .max(core.distanceGeometry.x)
       .setValue(core.distanceGeometry.x)
-      .step(_size / 100)
+      .step(core.gridSize / 100)
       .listen()
       .onChange((d) => {
         core.clippingPlanes[0].constant = d;
         core.planeHelpers[0].position.copy(core.clippingPlanes[0].normal).multiplyScalar(d);
       });
 
-    displayHelper.y.onChange((v) => {
+    displayHelper.y?.onChange((v) => {
       core.planeParams.clippingMode.y = core.planeHelpers[1].visible = v;
       if (v) {
         core.transformControlClippingPlaneY.attach(core.planeHelpers[1]);
@@ -858,18 +858,18 @@ function setupClippingPlanes(_geom, _size, _distance) {
           core.outlineClipping.visible = false;
       }
     });
-    displayHelper.constantY
+    displayHelper?.constantY
       .min(-core.distanceGeometry.y)
       .max(core.distanceGeometry.y)
       .setValue(core.distanceGeometry.y)
-      .step(_size / 100)
+      .step(core.gridSize / 100)
       .listen()
       .onChange((d) => {
         core.clippingPlanes[1].constant = d;
         core.planeHelpers[1].position.copy(core.clippingPlanes[1].normal).multiplyScalar(d);
       });
   
-    displayHelper.z.onChange((v) => {
+    displayHelper.z?.onChange((v) => {
       core.planeParams.clippingMode.z = core.planeHelpers[2].visible = v;
       if (v) {
         core.transformControlClippingPlaneZ.attach(core.planeHelpers[2]);
@@ -884,11 +884,11 @@ function setupClippingPlanes(_geom, _size, _distance) {
           core.outlineClipping.visible = false;
       }
     });
-    displayHelper.constantZ
+    displayHelper?.constantZ
       .min(-core.distanceGeometry.z)
       .max(core.distanceGeometry.z)
       .setValue(core.distanceGeometry.z)
-      .step(_size / 100)
+      .step(core.gridSize / 100)
       .listen()
       .onChange((d) => {
         core.clippingPlanes[2].constant = d;
@@ -898,6 +898,7 @@ function setupClippingPlanes(_geom, _size, _distance) {
     displayHelper.outline.onChange((v) => {
       core.outlineClipping.visible = v;
     });
+  }
 }
 
 
@@ -911,13 +912,14 @@ export function invertHexColor(hexTripletColor) {
   return "#" + color;
 }
 
-export function getOrAddGuiController(folder, object, prop) {
-  let controller = folder?.controllers?.find(c => c._name === prop);
+export function getOrAddGuiController(object, prop) {
+  let controller = core.clippingFolder?.controllers?.find(c => c._name === prop);
   if (controller) return controller;
 
-  for (const subfolder of folder.folders) {
+  //if (!folder) return null;
+  for (const subfolder of core.clippingFolder.folders) {
     const found = getOrAddController(subfolder, object, prop);
     if (found) return found;
   }
-  return folder.add(object, prop);
+  return core.clippingFolder.add(object, prop);
 }

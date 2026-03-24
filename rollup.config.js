@@ -71,31 +71,71 @@ function copyBuildAssets() {
         copyDirectory('viewer/examples', path.join(outDistDir, 'examples')),
       ]);
 
-      const viewerSettingsSource = 'viewer/viewer-settings-example.json';
       const viewerSettingsTarget = path.join(outDistDir, 'viewer-settings.json');
       const settingsPhpTarget = path.join(outDistDir, 'settings.local.php');
       const indexTarget = path.join(outDistDir, 'index.html');
       const toastifyTarget = path.join(outDistDir, 'assets/css/toastify.css');
 
-      const viewerSettings = JSON.parse(
-        await fs.readFile(viewerSettingsSource, 'utf8')
-      );
-      viewerSettings.viewer.lightweight = 1;
-      if (envBuild === 'drupal') {
-        viewerSettings.baseModulePath = `${drupalModulePrefix}/dist/${envBuild}/${envSubdir}/assets`;
+      let viewerSettingsExists = false;
+      try {
+        await fs.access(viewerSettingsTarget);
+        viewerSettingsExists = true;
+      } catch {
+        viewerSettingsExists = false;
       }
 
-      await fs.mkdir(outDistDir, { recursive: true });
-      await Promise.all([
+      const copyPromises = [
         writeDrupalLibrariesFile(),
         fs.copyFile('settings.php', settingsPhpTarget),
         fs.copyFile('index.html', indexTarget),
         fs.copyFile('node_modules/toastify-js/src/toastify.css', toastifyTarget),
-        fs.writeFile(
-          viewerSettingsTarget,
-          JSON.stringify(viewerSettings, null, 2)
-        ),
-      ]);
+      ];
+
+      if (!viewerSettingsExists) {
+        let viewerSettingsSource = 'viewer/viewer-settings-example.json';
+        const viewerSettings = JSON.parse(
+          await fs.readFile(viewerSettingsSource, 'utf8')
+        );
+        viewerSettings.viewer.lightweight = 1;
+        viewerSettingsSource = 'viewer-settings.json';
+        if (envBuild === 'drupal') {
+          viewerSettings.baseModulePath = `${drupalModulePrefix}/dist/${envBuild}/${envSubdir}/assets`;
+          const viewerSettingsMain = JSON.parse(
+            await fs.readFile(viewerSettingsSource, 'utf8')
+          );
+          viewerSettingsMain.entity.metadata.source = "Drupal";
+          copyPromises.push(
+            fs.writeFile(
+              viewerSettingsTarget,
+              JSON.stringify(viewerSettingsMain, null, 2)
+            )
+          );
+        } else if (envBuild === 'test' || envBuild === 'dev') {
+          const viewerSettingsMain = JSON.parse(
+            await fs.readFile(viewerSettingsSource, 'utf8')
+          );
+          viewerSettingsMain.viewer.gallery.build = false;
+          viewerSettingsMain.viewer.editor = true;
+          viewerSettingsMain.viewer.lightweight = true;
+          viewerSettingsMain.mainUrl = 'localhost';
+          copyPromises.push(
+            fs.writeFile(
+              viewerSettingsTarget,
+              JSON.stringify(viewerSettingsMain, null, 2)
+            )
+          );
+        } else {
+          copyPromises.push(
+            fs.writeFile(
+              viewerSettingsTarget,
+              JSON.stringify(viewerSettings, null, 2)
+            )
+          );
+        }
+      }
+
+      await fs.mkdir(outDistDir, { recursive: true });
+      await Promise.all(copyPromises);
     },
   };
 }
@@ -153,8 +193,9 @@ export default {
   output: {
     dir: outDistDir,
     entryFileNames: 'dfg_3dviewer-module.js',
-    chunkFileNames: '[name].[hash].js',
-    assetFileNames: '[name][extname]',
+    chunkFileNames: 'assets/[name].[hash].js',
+    assetFileNames: 'assets/[name][extname]',
+    sourcemapFileNames: 'assets/[name].[hash].js.map',
     format: 'es',
     manualChunks(id) {
       if (id.includes("node_modules/three")) {

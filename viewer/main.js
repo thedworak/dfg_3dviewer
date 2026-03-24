@@ -450,7 +450,7 @@ export const Viewer = {
       if (document.readyState !== 'loading') r();
       else document.addEventListener('DOMContentLoaded', r);
     });
-    const url = new URL('./viewer-settings.json', import.meta.url);
+    const url = new URL('../viewer-settings.json', import.meta.url);
 
     //Setup core variables first to make them available in the loaders and utils
     setCore('viewEntity', this.viewEntity);
@@ -515,6 +515,7 @@ export const Viewer = {
     console.log(`Powered by Three.js (v${THREE.REVISION})`);
 
     this.EDITOR = Boolean(core.CONFIG.viewer.editor);
+    setCore('EDITOR', this.EDITOR);
     
     core.CONFIG.entity.metadata.source = SOURCE;
     if (core.CONFIG.entity.metadata.source) console.log(`Metadata source: ${core.CONFIG.entity.metadata.source}`);
@@ -2175,7 +2176,7 @@ export const Viewer = {
       });
     setCore("clippingFolder", Viewer.clippingFolder);
 
-    if (Viewer.EDITOR) {
+    if (core.EDITOR) {
       core.clippingFolder = Viewer.editorFolder.addFolder("Clipping Planes").close();
       
       core.materialsFolder = Viewer.editorFolder.addFolder("Materials").close();
@@ -2240,7 +2241,7 @@ export const Viewer = {
       Viewer.propertiesFolder.add(Viewer.saveProperties, "BackgroundColor");
     }
 
-    if (Viewer.EDITOR && !core.isLightweight) {
+    if (core.EDITOR && !core.isLightweight) {
       Viewer.editorFolder.add(
         {
           ["Save"]() {
@@ -2500,7 +2501,7 @@ export const Viewer = {
       Viewer.fullscreenMode = document.createElement("div");
       Viewer.fullscreenMode.setAttribute("id", "fullscreenMode");
       const scriptUrl = document.currentScript?.src || import.meta.url;
-      Viewer.DFG_ASSETS = scriptUrl.replace(/\/[^\/]*$/, '/assets');
+      Viewer.DFG_ASSETS = scriptUrl.replace(/\/[^\/]*$/, '');
       setCore('DFG_ASSETS', Viewer.DFG_ASSETS);
 
       Viewer.fullscreenMode.innerHTML = `<img src="${core.DFG_ASSETS}/img/fullscreen.png" alt="Fullscreen" width=25 height=25 title="Fullscreen mode"/>`;
@@ -2681,7 +2682,8 @@ export const Viewer = {
             context: "E2E model load error",
           });
         }
-	      } else if (core.CONFIG.entity.metadata.source === "") {
+	    } else if (core.CONFIG.entity.metadata.source === "") 
+        {
 	        try {
 	          if (core.fetchMetadataXML && !core.isLightweight) {
 	            const response = await fetch(core.CONFIG.viewer.exportPath + core.CONFIG.entity.id, {
@@ -2725,7 +2727,9 @@ export const Viewer = {
 	            context: core.isLightweight ? "Lightweight model load error" : "Metadata load error",
 	          });
 	        }
-	      } else if (core.CONFIG.entity.metadata.source.toLowerCase().substring(0, 4) === "iiif") {
+	      } 
+        else if (core.CONFIG.entity.metadata.source.toLowerCase().substring(0, 4) === "iiif") 
+        {
 	          Viewer.cleanupTransientUI();
 	          const formContainer = document.createElement("div");
             formContainer.id = "form-IIIF";
@@ -2765,166 +2769,170 @@ export const Viewer = {
 
             document.body.appendChild(formContainer);
 
-        async function setupIIIF(newUrlOrJson, type="url") {
-          if (type === "text") {
-            Viewer.iiifConfigURL.url = "";
-          } else {
-            Viewer.iiifConfigURL.url = newUrlOrJson;
-          }
-          const loadedIIIF = await loadIIIFManifest(newUrlOrJson);
-          if (loadedIIIF.modelUrls.length === 0) { // no 3D model found, use example model
-            loadedIIIF.modelUrls.push('https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb');
-            showToast("No 3D model found in IIIF manifest, loading example model.");
-          }
-          // reset scene and release GPU resources from the previous model batch
-          Viewer.resetLoadedModelState();
-          core.axesHelper.visible = false;
-          console.log("TOTAL Annotations: " + loadedIIIF.annotations.length);
-          if (loadedIIIF.annotations.length !== loadedIIIF.modelUrls.length) {
-            //console.warn("Number of annotations does not match number of model URLs, adding testing model...");
-              const diff = loadedIIIF.annotations.length - loadedIIIF.modelUrls.length;
-              if (diff > 0) {
-                // Need more model URLs → push empty strings (or null)
-                for (let i = 0; i < diff; i++) {
-                  loadedIIIF.modelUrls.push(Viewer.testModelURL);
-                  core.objectsConfig.models.push({name: "Test Model", url: Viewer.testModelURL});
+            async function setupIIIF(newUrlOrJson, type="url") {
+              if (type === "text") {
+                Viewer.iiifConfigURL.url = "";
+              } else {
+                Viewer.iiifConfigURL.url = newUrlOrJson;
+              }
+              const loadedIIIF = await loadIIIFManifest(newUrlOrJson);
+              if (loadedIIIF.modelUrls.length === 0) { // no 3D model found, use example model
+                loadedIIIF.modelUrls.push('https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb');
+                showToast("No 3D model found in IIIF manifest, loading example model.");
+              }
+              // reset scene and release GPU resources from the previous model batch
+              Viewer.resetLoadedModelState();
+              core.axesHelper.visible = false;
+              console.log("TOTAL Annotations: " + loadedIIIF.annotations.length);
+              if (loadedIIIF.annotations.length !== loadedIIIF.modelUrls.length) {
+                //console.warn("Number of annotations does not match number of model URLs, adding testing model...");
+                  const diff = loadedIIIF.annotations.length - loadedIIIF.modelUrls.length;
+                  if (diff > 0) {
+                    // Need more model URLs → push empty strings (or null)
+                    for (let i = 0; i < diff; i++) {
+                      loadedIIIF.modelUrls.push(Viewer.testModelURL);
+                      core.objectsConfig.models.push({name: "Test Model", url: Viewer.testModelURL});
+                    }
+                  }
+              }
+              for (const [i, url] of loadedIIIF.modelUrls?.entries()) {
+                core.objectsConfig.index = i;
+                core.fileObject.originalPath = loadedIIIF.modelUrl = url;
+                //fileObject.originalPath = loadedIIIF.modelUrl;
+                Viewer.setModelPaths();
+                await getAnnotations(loadedIIIF, core.objectsConfig);
+                if (loadedIIIF.scenes && loadedIIIF.scenes.length > 0) {
+                  core.objectsConfig.scenes = loadedIIIF.scenes;
                 }
+                Viewer._ext = core.fileObject.extension.toLowerCase();
+                await Viewer.mainLoadModel();
               }
-          }
-          for (const [i, url] of loadedIIIF.modelUrls?.entries()) {
-            core.objectsConfig.index = i;
-            core.fileObject.originalPath = loadedIIIF.modelUrl = url;
-            //fileObject.originalPath = loadedIIIF.modelUrl;
-            Viewer.setModelPaths();
-            await getAnnotations(loadedIIIF, core.objectsConfig);
-            if (loadedIIIF.scenes && loadedIIIF.scenes.length > 0) {
-              core.objectsConfig.scenes = loadedIIIF.scenes;
             }
-            Viewer._ext = core.fileObject.extension.toLowerCase();
-            await Viewer.mainLoadModel();
-          }
-        }
 
-        function isUrlFlexible(string) {
-          try {
-            new URL(string);
-            return true;
-          } catch {
-            return /^(https?:\/\/)?([\w-]+\.)+[\w-]{2,}(\/\S*)?$/i.test(string);
-          }
-        }
-
-        function isValidJsonObject(text) {
-          try {
-            const parsed = JSON.parse(text);
-            return typeof parsed === 'object' && parsed !== null;
-          } catch {
-            return false;
-          }
-        }
-
-        async function loadIIIFURL() {
-          const form = document.getElementById("form-IIIF");
-          const collapseBtn = document.getElementById("iiif-toggle-collapse");
-          const themeBtn = document.getElementById("iiif-toggle-theme");
-          const STORAGE_KEY = "iiif-dark-mode";
-          const syncGlobalTheme = (isDark) => {
-            document.body.classList.toggle("iiif-dark", isDark);
-            themeBtn.textContent = isDark ? "☀️" : "🌙";
-            themeBtn.setAttribute("aria-pressed", isDark ? "true" : "false");
-            const testThemeToggle = document.getElementById("test-theme-toggle");
-            if (testThemeToggle) {
-              testThemeToggle.textContent = isDark ? "☀️" : "🌙";
-              testThemeToggle.setAttribute("aria-pressed", isDark ? "true" : "false");
-            }
-          };
-
-          // restore
-          if (localStorage.getItem(STORAGE_KEY) === "1") {
-            form.classList.add("dark");
-          }
-          syncGlobalTheme(form.classList.contains("dark"));
-
-          Viewer.bindEventListener(themeBtn, "click", () => {
-            const isDark = form.classList.toggle("dark");
-            localStorage.setItem(STORAGE_KEY, isDark ? "1" : "0");
-            syncGlobalTheme(isDark);
-          });
-
-          Viewer.bindEventListener(collapseBtn, "click", () => {
-            form.classList.toggle("collapsed");
-            collapseBtn.textContent = form.classList.contains("collapsed") ? "▸" : "▾";
-          });
-          // create a small dropdown to switch iiif manifests at runtime
-          Viewer.bindEventListener(document.getElementById("iiif-manifest-select"), "change", async (ev) => {
-            try {
-              if (ev.target.value !== Viewer.iiifConfigURL.url) {
-                core.objectsConfig.setupIndex = 0;
-                await setupIIIF(ev.target.value, "url");
+            function isUrlFlexible(string) {
+              try {
+                new URL(string);
+                return true;
+              } catch {
+                return /^(https?:\/\/)?([\w-]+\.)+[\w-]{2,}(\/\S*)?$/i.test(string);
               }
-            } catch (err) {
-              Viewer.reportError(err, {
-                context: "Error loading IIIF manifest",
+            }
+
+            function isValidJsonObject(text) {
+              try {
+                const parsed = JSON.parse(text);
+                return typeof parsed === 'object' && parsed !== null;
+              } catch {
+                return false;
+              }
+            }
+
+            async function loadIIIFURL() {
+              const form = document.getElementById("form-IIIF");
+              const collapseBtn = document.getElementById("iiif-toggle-collapse");
+              const themeBtn = document.getElementById("iiif-toggle-theme");
+              const STORAGE_KEY = "iiif-dark-mode";
+              const syncGlobalTheme = (isDark) => {
+                document.body.classList.toggle("iiif-dark", isDark);
+                themeBtn.textContent = isDark ? "☀️" : "🌙";
+                themeBtn.setAttribute("aria-pressed", isDark ? "true" : "false");
+                const testThemeToggle = document.getElementById("test-theme-toggle");
+                if (testThemeToggle) {
+                  testThemeToggle.textContent = isDark ? "☀️" : "🌙";
+                  testThemeToggle.setAttribute("aria-pressed", isDark ? "true" : "false");
+                }
+              };
+
+              // restore
+              if (localStorage.getItem(STORAGE_KEY) === "1") {
+                form.classList.add("dark");
+              }
+              syncGlobalTheme(form.classList.contains("dark"));
+
+              Viewer.bindEventListener(themeBtn, "click", () => {
+                const isDark = form.classList.toggle("dark");
+                localStorage.setItem(STORAGE_KEY, isDark ? "1" : "0");
+                syncGlobalTheme(isDark);
               });
-            }
-            });
 
-          Viewer.bindEventListener(document.getElementById("load-manifest-from-url"), "click", async (ev) => {
-            try {
-              const inputElement = document.getElementById("manifest-url");
-              if (inputElement.value === "" || !isUrlFlexible(inputElement.value)) {
-              inputElement.style.border = "2px solid red";
-              showToast("Please enter a valid IIIF manifest URL.");
-              return;
-            } else {
-              inputElement.style.border = "2px solid green";
-              core.objectsConfig.setupIndex = 0;
-                console.log("Loading IIIF manifest from URL: " + inputElement.value);
-                await setupIIIF(inputElement.value, "url");
-              }
-            } catch (err) {
-              Viewer.reportError(err, {
-                context: "Error loading IIIF manifest",
+              Viewer.bindEventListener(collapseBtn, "click", () => {
+                form.classList.toggle("collapsed");
+                collapseBtn.textContent = form.classList.contains("collapsed") ? "▸" : "▾";
               });
-            }
-            });
+              // create a small dropdown to switch iiif manifests at runtime
+              Viewer.bindEventListener(document.getElementById("iiif-manifest-select"), "change", async (ev) => {
+                try {
+                  if (ev.target.value !== Viewer.iiifConfigURL.url) {
+                    core.objectsConfig.setupIndex = 0;
+                    await setupIIIF(ev.target.value, "url");
+                  }
+                } catch (err) {
+                  Viewer.reportError(err, {
+                    context: "Error loading IIIF manifest",
+                  });
+                }
+                });
 
-          Viewer.bindEventListener(document.getElementById("load-manifest-from-text"), "click", async (ev) => {
-            try {
-              const inputElement = document.getElementById("manifest-text");
-              if (inputElement.value === "" || !isValidJsonObject(inputElement.value)) {
-              inputElement.style.border = "2px solid red";
-              showToast("Please enter a valid IIIF JSON text.");
-              return;
-            } else {
-              inputElement.style.border = "2px solid green";
-              core.objectsConfig.setupIndex = 0;
-                console.log("Loading IIIF manifest from privided text");
-                await setupIIIF(inputElement.value, "text");
-              }
-            } catch (err) {
-              Viewer.reportError(err, {
-                context: "Error loading IIIF manifest",
+              Viewer.bindEventListener(document.getElementById("load-manifest-from-url"), "click", async (ev) => {
+                try {
+                  const inputElement = document.getElementById("manifest-url");
+                  if (inputElement.value === "" || !isUrlFlexible(inputElement.value)) {
+                  inputElement.style.border = "2px solid red";
+                  showToast("Please enter a valid IIIF manifest URL.");
+                  return;
+                } else {
+                  inputElement.style.border = "2px solid green";
+                  core.objectsConfig.setupIndex = 0;
+                    console.log("Loading IIIF manifest from URL: " + inputElement.value);
+                    await setupIIIF(inputElement.value, "url");
+                  }
+                } catch (err) {
+                  Viewer.reportError(err, {
+                    context: "Error loading IIIF manifest",
+                  });
+                }
+                });
+
+              Viewer.bindEventListener(document.getElementById("load-manifest-from-text"), "click", async (ev) => {
+                try {
+                  const inputElement = document.getElementById("manifest-text");
+                  if (inputElement.value === "" || !isValidJsonObject(inputElement.value)) {
+                  inputElement.style.border = "2px solid red";
+                  showToast("Please enter a valid IIIF JSON text.");
+                  return;
+                } else {
+                  inputElement.style.border = "2px solid green";
+                  core.objectsConfig.setupIndex = 0;
+                    console.log("Loading IIIF manifest from privided text");
+                    await setupIIIF(inputElement.value, "text");
+                  }
+                } catch (err) {
+                  Viewer.reportError(err, {
+                    context: "Error loading IIIF manifest",
+                  });
+                }
               });
-            }
-          });
-        }      
-        console.log("Loading from source: " + core.CONFIG.entity.metadata.source);
-        switch(core.CONFIG.entity.metadata.source.substring(0, 4).toLowerCase()) {
-          case "iiif":
+            }      
+            console.log("Loading from source: " + core.CONFIG.entity.metadata.source);
             if (Viewer.iiifConfigURL.url !== "") {
               createIIIFDropdown(Viewer.iiifConfigURL);
               await loadIIIFURL();
               core.CONFIG.entity.metadata.source = "IIIF";
               await setupIIIF(Viewer.iiifConfigURL.url);
             }
-            break;
-          case "file": //TODO: add more sources
-            break;
-        }
-      } else {
+          } 
+          else {
+            console.warn("Unknown metadata source, loading model directly: " + core.CONFIG.entity.metadata.source);
+            switch(core.CONFIG.entity.metadata.source.substring(0, 6).toLowerCase()) {
+              case "drupal":
+                console.log("Loading from URL: " + core.CONFIG.entity.metadata.source);
+                break;
+              case "file": //TODO: add more sources
+                break;
+            }
       // statements to handle any exceptions
-    }
+           }
+           console.log("Initialization complete, starting render loop", core.CONFIG.entity.metadata.source);
 
 
       core.renderer.setPixelRatio(devicePixelRatio);
