@@ -2698,9 +2698,7 @@ const getModuleAssetBasePath = function() {
 
   console.log('[loaders] resolved ModuleAssetBasePath:', basePath);
   core.CONFIG.baseModulePath = basePath; // Cache for future use
-  if (!core.DFG_ASSETS.includes(core.CONFIG.baseModulePath)) {
-    core.DFG_ASSETS += core.CONFIG.baseModulePath;
-  }
+  core.DFG_ASSETS = basePath;
   return basePath;
 };
 
@@ -10052,7 +10050,7 @@ const Viewer = {
       if (document.readyState !== 'loading') r();
       else document.addEventListener('DOMContentLoaded', r);
     });
-    const url = new URL('../viewer-settings.json', import.meta.url);
+    const url = new URL('./viewer-settings.json', import.meta.url);
 
     //Setup core variables first to make them available in the loaders and utils
     setCore('viewEntity', this.viewEntity);
@@ -12600,4 +12598,4 @@ window.Viewer = Viewer;
 })();
 
 export { Viewer, expectWebGL };
-//# sourceMappingURL=main.D7WzGr4P.js.map
+//# sourceMappingURL=main.DeXqfbG8.js.map

@@ -2681,7 +2681,7 @@ const getModuleAssetBasePath = function() {
   let basePath = core.CONFIG?.baseModulePath ? core.CONFIG.baseModulePath.replace(/\/$/, '') : '';
 
   if (!basePath) {
-    basePath = `/modules/${MODULES_PATH}/dfg_3dviewer/dist/${ENV_SUBDIR}/assets`
+    basePath = `/modules/${`${MODULES_PATH}/` }dfg_3dviewer/dist/${ENV_BUILD}/${ENV_SUBDIR}/assets`
       ;
   }
 
@@ -2714,9 +2714,7 @@ const getModuleAssetBasePath = function() {
 
   console.log('[loaders] resolved ModuleAssetBasePath:', basePath);
   core.CONFIG.baseModulePath = basePath; // Cache for future use
-  if (!core.DFG_ASSETS.includes(core.CONFIG.baseModulePath)) {
-    core.DFG_ASSETS += core.CONFIG.baseModulePath;
-  }
+  core.DFG_ASSETS = basePath;
   return basePath;
 };
 
@@ -12616,4 +12614,4 @@ window.Viewer = Viewer;
 })();
 
 export { Viewer, expectWebGL };
-//# sourceMappingURL=main.DApWC9Ri.js.map
+//# sourceMappingURL=main.Am260Rbe.js.map
