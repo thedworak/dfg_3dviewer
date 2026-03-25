@@ -535,11 +535,7 @@ export const Viewer = {
       if (document.readyState !== 'loading') r();
       else document.addEventListener('DOMContentLoaded', r);
     });
-    let prefix = "";
-    if (IS_PROD) {
-      prefix += `/${envSubDir}`;
-    }
-    const url = new URL(`../viewer-settings.json`, import.meta.url + prefix);
+    const url = new URL('./viewer-settings.json', import.meta.url);
 
     //Setup core variables first to make them available in the loaders and utils
     setCore('viewEntity', this.viewEntity);

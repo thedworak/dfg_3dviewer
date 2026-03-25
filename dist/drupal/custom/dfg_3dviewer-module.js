@@ -10068,8 +10068,7 @@ const Viewer = {
       if (document.readyState !== 'loading') r();
       else document.addEventListener('DOMContentLoaded', r);
     });
-    let prefix = "";
-    const url = new URL(`../viewer-settings.json`, import.meta.url + prefix);
+    const url = new URL('./viewer-settings.json', import.meta.url);
 
     //Setup core variables first to make them available in the loaders and utils
     setCore('viewEntity', this.viewEntity);
@@ -12617,4 +12616,4 @@ window.Viewer = Viewer;
 })();
 
 export { Viewer, expectWebGL };
-//# sourceMappingURL=main.BCIx-WFR.js.map
+//# sourceMappingURL=main.DApWC9Ri.js.map
