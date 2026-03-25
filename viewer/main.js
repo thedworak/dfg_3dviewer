@@ -19,6 +19,7 @@ https://www.gnu.org/licenses/.
 const SOURCE = (typeof __BUILD_SOURCE__ !== 'undefined') ? __BUILD_SOURCE__ : "";
 const IS_PROD = (typeof __IS_PROD__ !== 'undefined') ? __IS_PROD__ === true : false;
 const isE2E = (typeof __IS_PROD__ !== 'undefined') ? window.__E2E__ === true : false;
+const envSubDir = (typeof __ENV_SUBDIR__ !== 'undefined') ? __ENV_SUBDIR__ : "main";
 
 window.viewer = {
   ready: false,
@@ -534,7 +535,11 @@ export const Viewer = {
       if (document.readyState !== 'loading') r();
       else document.addEventListener('DOMContentLoaded', r);
     });
-    const url = new URL('../viewer-settings.json', import.meta.url);
+    let prefix = "";
+    if (IS_PROD) {
+      prefix += `/${envSubDir}`;
+    }
+    const url = new URL(`../viewer-settings.json`, import.meta.url + prefix);
 
     //Setup core variables first to make them available in the loaders and utils
     setCore('viewEntity', this.viewEntity);
