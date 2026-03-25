@@ -43,8 +43,8 @@ import {
 
 import { initClippingPlanes, reportViewerError, showToast, changeBackground } from './viewer-utils.js';
 
-import { loadModel, outlineClipping } from "./loaders.js";
-import { createIIIFDropdown } from "./metadata.js";
+import { loadModel, outlineClipping, getModuleAssetBasePath } from "./loaders.js";
+import { createIIIFDropdown, createIIIFUI } from "./metadata.js";
 import { UltraLoader } from "./ultra-loader.js";
 import { StatusPoller } from "./status-poller.js";
 
@@ -89,7 +89,6 @@ export const Viewer = {
   metadataUrl: null,
   iiifConfigURL: {url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: "Inbuilt"},
   testModelURL: 'https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb',
-  fetchMetadataXML: false,
   clock: null,
   FULLSCREEN: false,
   mixer: null,
@@ -109,6 +108,9 @@ export const Viewer = {
   noMTL: false,
   canvasText: null,
   viewEntity: null,
+  actionMenu: null,
+  actionMenuToggle: null,
+  actionMenuPanel: null,
   fullscreenMode: null,
   downloadModel: null,
   GESTURE: {handPx: 55, period: 5.5, rotate: false, active: false, target: new THREE.Vector3(), startTime: 0, baseAngle: 0, orbitAngle: THREE.MathUtils.degToRad(15), easeInTime: 2.25},
@@ -290,6 +292,88 @@ export const Viewer = {
     this.addCleanup(() => target.removeEventListener(type, handler, options));
   },
 
+  closeActionMenu() {
+    if (this.actionMenuToggle) {
+      this.actionMenuToggle.checked = false;
+    }
+  },
+
+  isEmbedMode() {
+    const params = new URLSearchParams(window.location.search);
+    const embedParam = params.get("embed");
+    return window.location.pathname.endsWith("/embed.html") || embedParam === "1" || embedParam === "true";
+  },
+
+  getEmbedPageUrl() {
+    const embedUrl = new URL("embed.html", import.meta.url);
+    embedUrl.search = "";
+    embedUrl.hash = "";
+    return embedUrl;
+  },
+
+  getSharePayload() {
+    const embedUrl = this.getEmbedPageUrl();
+    const params = new URLSearchParams();
+    const entityId = core.CONFIG?.entity?.id;
+    const modelPath = core.fileObject?.originalPath || core.container?.getAttribute("3d") || "";
+
+    if (entityId) {
+      params.set("id", entityId);
+    } else if (modelPath) {
+      params.set("model", modelPath);
+    }
+
+    embedUrl.search = params.toString();
+
+    return {
+      url: embedUrl.toString(),
+      code: `<iframe src="${embedUrl.toString()}" title="DFG 3D Viewer" loading="lazy" allow="fullscreen; xr-spatial-tracking" referrerpolicy="strict-origin-when-cross-origin" style="width:100%; aspect-ratio: 16 / 9; border: 0;"></iframe>`,
+    };
+  },
+
+  async copyEmbedCode(event) {
+    event?.preventDefault?.();
+    Viewer.closeActionMenu();
+
+    try {
+      const { code } = Viewer.getSharePayload();
+
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(code);
+      } else {
+        const tempInput = document.createElement("textarea");
+        tempInput.value = code;
+        tempInput.setAttribute("readonly", "true");
+        tempInput.style.position = "absolute";
+        tempInput.style.left = "-9999px";
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        document.execCommand("copy");
+        tempInput.remove();
+      }
+
+      showToast("Embed code copied to clipboard");
+    } catch (error) {
+      Viewer.reportError(error, { context: "Copy embed code failed" });
+      showToast("Could not copy embed code");
+    }
+  },
+
+  updateFullscreenButtonIcon() {
+    if (!this.fullscreenMode) return;
+
+    const isFullscreen = !!document.fullscreenElement;
+    const icon = isFullscreen ? "exit-fullscreen.png" : "fullscreen.png";
+    const label = isFullscreen ? "Exit fullscreen mode" : "Fullscreen mode";
+
+    this.fullscreenMode.innerHTML = `
+      <img src="${core.DFG_ASSETS}/img/${icon}" alt="${label}" width="20" height="20"/>
+      <span>${isFullscreen ? "Exit fullscreen" : "Fullscreen"}</span>
+    `;
+    this.fullscreenMode.setAttribute("aria-label", label);
+    this.fullscreenMode.setAttribute("title", label);
+  },
+
   cleanupRuntimeBindings() {
     while (this.cleanupCallbacks.length > 0) {
       const callback = this.cleanupCallbacks.pop();
@@ -460,7 +544,6 @@ export const Viewer = {
     setCore('guiContainer', this.guiContainer);
     setCore('lilGui', this.lilGui);
     setCore('gui', this.gui);
-    setCore('fetchMetadataXML', this.fetchMetadataXML);
 
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -517,12 +600,21 @@ export const Viewer = {
     this.EDITOR = Boolean(core.CONFIG.viewer.editor);
     setCore('EDITOR', this.EDITOR);
     
-    core.CONFIG.entity.metadata.source = SOURCE;
-    if (core.CONFIG.entity.metadata.source) console.log(`Metadata source: ${core.CONFIG.entity.metadata.source}`);
+    if (!core.CONFIG.entity.metadata.sourceType) { 
+      core.CONFIG.entity.metadata.sourceType = SOURCE;
+      console.log(`Metadata source: ${core.CONFIG.entity.metadata.sourceType}`);
+    }
 
     this.container = document.getElementById(core.CONFIG.viewer.container);
     if (!this.container) throw new Error("Container not found");
     setCore('container', this.container);
+    document.body.classList.toggle("viewer-embed-page", this.isEmbedMode());
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const modelFromQuery = urlParams.get("model");
+    if (modelFromQuery) {
+      this.container.setAttribute("3d", modelFromQuery);
+    }
 
     this.scrollTop = window.scrollY || document.documentElement.scrollTop;
     this.rect = core.container.getBoundingClientRect();
@@ -543,15 +635,21 @@ export const Viewer = {
     if (core.isLightweight) {
       core.CONFIG.viewer.lightweight = core.container.getAttribute("proxy");
     }
-    else {
-      var elementsURL = window.location.pathname;
-      elementsURL = elementsURL.match(core.CONFIG.entity.idUri);
-      if (elementsURL !== null) {
-        core.CONFIG.entity.id = elementsURL[1];
-        core.container.setAttribute(core.CONFIG.entity.attributeId, core.CONFIG.entity.id);
-        console.log("Entity ID:", core.CONFIG.entity.id);
+    var elementsURL = window.location.pathname;
+    elementsURL = elementsURL.match(core.CONFIG.entity.idUri);
+    if (elementsURL !== null) {
+      core.CONFIG.entity.id = elementsURL[1];
+    } else {
+      // Fallback: check for ?id= parameter
+      const idFromQuery = urlParams.get('id');
+      if (idFromQuery) {
+        core.CONFIG.entity.id = idFromQuery;
       }
-    }    
+    }
+    if (core.CONFIG.entity.id) {
+      core.container.setAttribute(core.CONFIG.entity.attributeId, core.CONFIG.entity.id);
+      console.log("Entity ID:", core.CONFIG.entity.id);
+    }
     // Initialize clipping planes at startup
     this.core = initClippingPlanes();
     setCore('EXIT_CODE', this.EXIT_CODE);
@@ -1248,9 +1346,6 @@ export const Viewer = {
 
         Viewer.mainCanvas.style.width = '100vw';
         Viewer.mainCanvas.style.height = '100vh';
-        Viewer.fullscreenMode.style.left = (widthCSS - 40) + 'px';
-        Viewer.fullscreenMode.innerHTML = `<img src="${core.DFG_ASSETS}/img/exit-fullscreen.png" alt="Fullscreen" width=25 height=25 title="Exit fullscreen mode"/>`;
-        //Viewer.downloadModel?.setAttribute("style", "visibility: none");
     } else {
       scale = {x: Number(core.CONFIG.viewer.scaleContainer?.x || 1), y: Number(core.CONFIG.viewer.scaleContainer?.y || 1)};
       const wrapper = Viewer.viewerWrapper || core.container;
@@ -1265,15 +1360,13 @@ export const Viewer = {
       heightDev = heightCSS * devicePixelRatio;
       Viewer.mainCanvas.style.width = widthCSS + 'px';
       Viewer.mainCanvas.style.height = heightCSS + 'px';
-      
+
       core.metadataContainer.style.width = '100%';
       core.metadataContainer.style.height = '100%';
-      Viewer.downloadModel?.setAttribute("style", "visibility: visible");
 
       if (Viewer.fileElement && Viewer.fileElement.length > 0) {
         Viewer.fileElement[0].style.height = (heightCSS * 1.1) + 'px';
       }
-      Viewer.fullscreenMode.style.left = (widthCSS - Viewer.fullscreenMode.getBoundingClientRect().width - 15) + 'px';
     }
 
     core.guiContainer.style.left = (widthCSS - core.lilGui[0]?.getBoundingClientRect().width) + 'px';
@@ -1281,14 +1374,14 @@ export const Viewer = {
     Viewer.mainCanvas.width = widthDev;
     Viewer.mainCanvas.height = heightDev;
 
-    Viewer.fullscreenMode.style.top = (heightCSS - 40) + 'px';
-    if (Viewer.downloadModel) {
-      let _offset = (core.isLightweight) ? 130 : 70;
-      Viewer.downloadModel.style.top = (heightCSS - _offset) + 'px';
+    if (Viewer.actionMenu) {
+      const menuMargin = 16;
+      const toggleSize = Viewer.actionMenu.querySelector(".viewer-action-menu__toggle")?.getBoundingClientRect().height || 45;
+      Viewer.actionMenu.style.top = (heightCSS - toggleSize - menuMargin) + "px";
+      Viewer.actionMenu.style.right = menuMargin + "px";
+      Viewer.actionMenu.style.bottom = "auto";
     }
-    if (core.viewEntity) {
-      core.viewEntity.style.right = isFullscreen ? '-95%' : '-75%';
-    }
+
     core.handHint.style.top = (heightCSS - 70) + 'px';
    
     core.renderer.setPixelRatio(devicePixelRatio * scale.x);
@@ -1302,6 +1395,7 @@ export const Viewer = {
     // Three.js renderer needs actual pixel size
 
   async toggleFullscreen() {
+    Viewer.closeActionMenu();
     try {
       if (!document.fullscreenElement) {
         await core.container.requestFullscreen();
@@ -1318,12 +1412,8 @@ export const Viewer = {
   },
 
   onFullscreenChange () {
-    const isFs = !!document.fullscreenElement;
-
-    // UI
-    Viewer.fullscreenMode.innerHTML = isFs
-      ? `<img src="${core.DFG_ASSETS}/img/exit-fullscreen.png" width="25" height="25" title="Exit fullscreen mode"/>`
-      : `<img src="${core.DFG_ASSETS}/img/fullscreen.png" width="25" height="25" title="Fullscreen mode"/>`;
+    Viewer.updateFullscreenButtonIcon();
+    Viewer.closeActionMenu();
 
     // Layout (ESC + click)
     requestAnimationFrame(() => {
@@ -2353,6 +2443,152 @@ export const Viewer = {
     poller.start();
   },
 
+  // IIIF setup and loading
+  async setupIIIF(newUrlOrJson, type="url") {
+    if (type === "text") {
+      Viewer.iiifConfigURL.url = "";
+    } else {
+      Viewer.iiifConfigURL.url = newUrlOrJson;
+    }
+    const loadedIIIF = await loadIIIFManifest(newUrlOrJson);
+    if (loadedIIIF.modelUrls.length === 0) { // no 3D model found, use example model
+      loadedIIIF.modelUrls.push('https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb');
+      showToast("No 3D model found in IIIF manifest, loading example model.");
+    }
+    // reset scene and release GPU resources from the previous model batch
+    Viewer.resetLoadedModelState();
+    core.axesHelper.visible = false;
+    console.log("TOTAL Annotations: " + loadedIIIF.annotations.length);
+    if (loadedIIIF.annotations.length !== loadedIIIF.modelUrls.length) {
+      //console.warn("Number of annotations does not match number of model URLs, adding testing model...");
+        const diff = loadedIIIF.annotations.length - loadedIIIF.modelUrls.length;
+        if (diff > 0) {
+          // Need more model URLs → push empty strings (or null)
+          for (let i = 0; i < diff; i++) {
+            loadedIIIF.modelUrls.push(Viewer.testModelURL);
+            core.objectsConfig.models.push({name: "Test Model", url: Viewer.testModelURL});
+          }
+        }
+    }
+    for (const [i, url] of loadedIIIF.modelUrls?.entries()) {
+      core.objectsConfig.index = i;
+      core.fileObject.originalPath = loadedIIIF.modelUrl = url;
+      //fileObject.originalPath = loadedIIIF.modelUrl;
+      Viewer.setModelPaths();
+      await getAnnotations(loadedIIIF, core.objectsConfig);
+      if (loadedIIIF.scenes && loadedIIIF.scenes.length > 0) {
+        core.objectsConfig.scenes = loadedIIIF.scenes;
+      }
+      Viewer._ext = core.fileObject.extension.toLowerCase();
+      await Viewer.mainLoadModel();
+    }
+  },
+
+  async loadIIIFURL() {
+    const form = document.getElementById("form-IIIF");
+    const collapseBtn = document.getElementById("iiif-toggle-collapse");
+    const themeBtn = document.getElementById("iiif-toggle-theme");
+    const STORAGE_KEY = "iiif-dark-mode";
+    const syncGlobalTheme = (isDark) => {
+      document.body.classList.toggle("iiif-dark", isDark);
+      themeBtn.textContent = isDark ? "☀️" : "🌙";
+      themeBtn.setAttribute("aria-pressed", isDark ? "true" : "false");
+      const testThemeToggle = document.getElementById("test-theme-toggle");
+      if (testThemeToggle) {
+        testThemeToggle.textContent = isDark ? "☀️" : "🌙";
+        testThemeToggle.setAttribute("aria-pressed", isDark ? "true" : "false");
+      }
+    };
+
+    // restore
+    if (localStorage.getItem(STORAGE_KEY) === "1") {
+      form.classList.add("dark");
+    }
+    syncGlobalTheme(form.classList.contains("dark"));
+
+    Viewer.bindEventListener(themeBtn, "click", () => {
+      const isDark = form.classList.toggle("dark");
+      localStorage.setItem(STORAGE_KEY, isDark ? "1" : "0");
+      syncGlobalTheme(isDark);
+    });
+
+    Viewer.bindEventListener(collapseBtn, "click", () => {
+      form.classList.toggle("collapsed");
+      collapseBtn.textContent = form.classList.contains("collapsed") ? "▸" : "▾";
+    });
+    // create a small dropdown to switch iiif manifests at runtime
+    Viewer.bindEventListener(document.getElementById("iiif-manifest-select"), "change", async (ev) => {
+      try {
+        if (ev.target.value !== Viewer.iiifConfigURL.url) {
+          core.objectsConfig.setupIndex = 0;
+          await Viewer.setupIIIF(ev.target.value, "url");
+        }
+      } catch (err) {
+        Viewer.reportError(err, {
+          context: "Error loading IIIF manifest",
+        });
+      }
+      });
+
+    Viewer.bindEventListener(document.getElementById("load-manifest-from-url"), "click", async (ev) => {
+      try {
+        const inputElement = document.getElementById("manifest-url");
+        if (inputElement.value === "" || !Viewer.isUrlFlexible(inputElement.value)) {
+        inputElement.style.border = "2px solid red";
+        showToast("Please enter a valid IIIF manifest URL.");
+        return;
+      } else {
+        inputElement.style.border = "2px solid green";
+        core.objectsConfig.setupIndex = 0;
+          console.log("Loading IIIF manifest from URL: " + inputElement.value);
+          await Viewer.setupIIIF(inputElement.value, "url");
+        }
+      } catch (err) {
+        Viewer.reportError(err, {
+          context: "Error loading IIIF manifest",
+        });
+      }
+      });
+
+    Viewer.bindEventListener(document.getElementById("load-manifest-from-text"), "click", async (ev) => {
+      try {
+        const inputElement = document.getElementById("manifest-text");
+        if (inputElement.value === "" || !Viewer.isValidJsonObject(inputElement.value)) {
+        inputElement.style.border = "2px solid red";
+        showToast("Please enter a valid IIIF JSON text.");
+        return;
+      } else {
+        inputElement.style.border = "2px solid green";
+        core.objectsConfig.setupIndex = 0;
+          console.log("Loading IIIF manifest from privided text");
+          await Viewer.setupIIIF(inputElement.value, "text");
+        }
+      } catch (err) {
+        Viewer.reportError(err, {
+          context: "Error loading IIIF manifest",
+        });
+      }
+    });
+  },
+
+  isUrlFlexible(string) {
+    try {
+      new URL(string);
+      return true;
+    } catch {
+      return /^(https?:\/\/)?([\w-]+\.)+[\w-]{2,}(\/\S*)?$/i.test(string);
+    }
+  },
+
+  isValidJsonObject(text) {
+    try {
+      const parsed = JSON.parse(text);
+      return typeof parsed === 'object' && parsed !== null;
+    } catch {
+      return false;
+    }
+  },
+
   async init() {
     if (!Viewer.renderer) {
       Viewer.camera = new THREE.PerspectiveCamera(
@@ -2498,26 +2734,66 @@ export const Viewer = {
       core.camera.updateProjectionMatrix();
 
       setCore('mainCanvas', Viewer.mainCanvas);
-      Viewer.fullscreenMode = document.createElement("div");
-      Viewer.fullscreenMode.setAttribute("id", "fullscreenMode");
       const scriptUrl = document.currentScript?.src || import.meta.url;
       Viewer.DFG_ASSETS = scriptUrl.replace(/\/[^\/]*$/, '');
+
       setCore('DFG_ASSETS', Viewer.DFG_ASSETS);
+      getModuleAssetBasePath();
 
-      Viewer.fullscreenMode.innerHTML = `<img src="${core.DFG_ASSETS}/img/fullscreen.png" alt="Fullscreen" width=25 height=25 title="Fullscreen mode"/>`;
-      Viewer.fullscreenMode.setAttribute(
-        "style",
-        "top:" +
-        (core.bottomLineGUI + 18) +
-        "px; left: " +
-        (core.CONFIG.viewer.canvasDimensions.x - 40) +
-        "px"
-      );
-      core.container.appendChild(Viewer.fullscreenMode);
-	      Viewer.bindEventListener(document.getElementById("fullscreenMode"), "click", Viewer.toggleFullscreen, false);
+      Viewer.actionMenu = document.createElement("div");
+      Viewer.actionMenu.setAttribute("id", "viewerActionMenu");
+      Viewer.actionMenu.innerHTML = `
+        <input
+          id="viewerActionMenuToggle"
+          class="viewer-action-menu__checkbox"
+          type="checkbox"
+          aria-label="Open viewer actions"
+        />
+        <label
+          for="viewerActionMenuToggle"
+          class="viewer-action-menu__toggle"
+          aria-label="Open viewer actions"
+          title="Viewer actions"
+        >
+          <span></span>
+          <span></span>
+          <span></span>
+        </label>
+        <div class="viewer-action-menu__panel" aria-label="Viewer actions"></div>
+      `;
+      core.container.appendChild(Viewer.actionMenu);
 
-      Viewer.downloadModel = document.createElement("div");
+      Viewer.actionMenuToggle = Viewer.actionMenu.querySelector("#viewerActionMenuToggle");
+      Viewer.actionMenuPanel = Viewer.actionMenu.querySelector(".viewer-action-menu__panel");
+
+      Viewer.viewEntity = document.createElement("button");
+      Viewer.viewEntity.setAttribute("id", "viewEntity");
+      Viewer.viewEntity.setAttribute("type", "button");
+      Viewer.viewEntity.hidden = true;
+
+      Viewer.downloadModel = document.createElement("a");
       setCore('downloadModel', Viewer.downloadModel);
+      Viewer.downloadModel.setAttribute("id", "downloadModel");
+      Viewer.downloadModel.hidden = true;
+
+      Viewer.fullscreenMode = document.createElement("button");
+      Viewer.fullscreenMode.setAttribute("id", "fullscreenMode");
+      Viewer.fullscreenMode.setAttribute("type", "button");
+      Viewer.updateFullscreenButtonIcon();
+
+      Viewer.actionMenuPanel.appendChild(Viewer.viewEntity);
+      Viewer.actionMenuPanel.appendChild(Viewer.downloadModel);
+      Viewer.actionMenuPanel.appendChild(Viewer.fullscreenMode);
+
+      setCore('viewEntity', Viewer.viewEntity);
+	      Viewer.bindEventListener(Viewer.fullscreenMode, "click", Viewer.toggleFullscreen, false);
+      Viewer.bindEventListener(Viewer.viewEntity, "click", Viewer.copyEmbedCode);
+      Viewer.bindEventListener(Viewer.downloadModel, "click", () => Viewer.closeActionMenu());
+      Viewer.bindEventListener(document, "click", (event) => {
+        if (!Viewer.actionMenu?.contains(event.target)) {
+          Viewer.closeActionMenu();
+        }
+      });
 
       Viewer.handHint.innerHTML = `<img src="${core.DFG_ASSETS}/img/hand-hint.png" alt="Fullscreen" width=48 height=48 title="Hand hint animation"/>`;
       
@@ -2629,7 +2905,7 @@ export const Viewer = {
         const themeToggle = document.getElementById('example-theme-toggle');
         const viewerElement = document.getElementById('DFG_3DViewer');
         const THEME_STORAGE_KEY = 'iiif-dark-mode';
-        if (picker || selectModel || themeToggle || viewerElement) {
+        if (picker && selectModel && themeToggle && viewerElement) {
           const syncPickerTheme = (isDark = window.localStorage.getItem(THEME_STORAGE_KEY) === '1') => {
             document.body.classList.toggle('iiif-dark', Boolean(isDark));
             themeToggle.textContent = isDark ? '☀️' : '🌙';
@@ -2673,6 +2949,9 @@ export const Viewer = {
           });
         }
       }
+
+      const sourceType = core.CONFIG.entity.metadata.sourceType.toLowerCase();
+      console.log("Loading from source: " + sourceType);
           
       if (window.__E2E__) {
         try {
@@ -2682,13 +2961,15 @@ export const Viewer = {
             context: "E2E model load error",
           });
         }
-	    } else if (core.CONFIG.entity.metadata.source === "") 
-        {
-	        try {
-	          if (core.fetchMetadataXML && !core.isLightweight) {
-	            const response = await fetch(core.CONFIG.viewer.exportPath + core.CONFIG.entity.id, {
-	              method: 'POST',
-	              headers: {
+	    } 
+      else if (sourceType === "drupal") {
+        try {
+          if (core.CONFIG.entity.metadata.exportUrl && core.CONFIG.entity.metadata.exportUrl !== "") 
+          {
+            const response = await fetch(core.CONFIG.viewer.exportPath + core.CONFIG.entity.id, 
+            {
+              method: 'POST',
+              headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/xml'
               },
@@ -2718,237 +2999,60 @@ export const Viewer = {
               ) {
                 core.autoPath = node.textContent;
                 break;
-	              }
-	            }
-	          }
-	          await Viewer.mainLoadModelWrapper();
-	        } catch (err) {
-	          Viewer.reportError(err, {
-	            context: core.isLightweight ? "Lightweight model load error" : "Metadata load error",
-	          });
-	        }
-	      } 
-        else if (core.CONFIG.entity.metadata.source.toLowerCase().substring(0, 4) === "iiif") 
-        {
-	          Viewer.cleanupTransientUI();
-	          const formContainer = document.createElement("div");
-            formContainer.id = "form-IIIF";
-
-            /* header */
-            const header = document.createElement("div");
-            header.className = "form-IIIF-header";
-            header.innerHTML = `
-              <span class="title">IIIF Loader</span>
-              <div class="tools">
-                <button type="button" id="iiif-toggle-theme" title="Toggle dark mode">🌙</button>
-                <button type="button" id="iiif-toggle-collapse" title="Collapse">▾</button>
-              </div>
-            `;
-
-            formContainer.appendChild(header);
-
-            /* content */
-            const content = document.createElement("div");
-            content.className = "form-IIIF-content";
-            content.id = "form-IIIF-content";
-            content.innerHTML = `
-              <div class="form-IIIF-group">
-                <input type="text" id="manifest-url" placeholder="https://example.org/iiif/manifest.json">
-                <button class="primary" id="load-manifest-from-url">Load from URL</button>
-              </div>
-
-              <div class="form-IIIF-group column">
-                <textarea id="manifest-text" rows="8" placeholder="Paste IIIF manifest JSON here…"></textarea>
-                <div class="actions">
-                  <button class="secondary" id="load-manifest-from-text">Load from Text</button>
-                </div>
-              </div>
-            `;
-
-            formContainer.appendChild(content);
-
-            document.body.appendChild(formContainer);
-
-            async function setupIIIF(newUrlOrJson, type="url") {
-              if (type === "text") {
-                Viewer.iiifConfigURL.url = "";
-              } else {
-                Viewer.iiifConfigURL.url = newUrlOrJson;
-              }
-              const loadedIIIF = await loadIIIFManifest(newUrlOrJson);
-              if (loadedIIIF.modelUrls.length === 0) { // no 3D model found, use example model
-                loadedIIIF.modelUrls.push('https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb');
-                showToast("No 3D model found in IIIF manifest, loading example model.");
-              }
-              // reset scene and release GPU resources from the previous model batch
-              Viewer.resetLoadedModelState();
-              core.axesHelper.visible = false;
-              console.log("TOTAL Annotations: " + loadedIIIF.annotations.length);
-              if (loadedIIIF.annotations.length !== loadedIIIF.modelUrls.length) {
-                //console.warn("Number of annotations does not match number of model URLs, adding testing model...");
-                  const diff = loadedIIIF.annotations.length - loadedIIIF.modelUrls.length;
-                  if (diff > 0) {
-                    // Need more model URLs → push empty strings (or null)
-                    for (let i = 0; i < diff; i++) {
-                      loadedIIIF.modelUrls.push(Viewer.testModelURL);
-                      core.objectsConfig.models.push({name: "Test Model", url: Viewer.testModelURL});
-                    }
-                  }
-              }
-              for (const [i, url] of loadedIIIF.modelUrls?.entries()) {
-                core.objectsConfig.index = i;
-                core.fileObject.originalPath = loadedIIIF.modelUrl = url;
-                //fileObject.originalPath = loadedIIIF.modelUrl;
-                Viewer.setModelPaths();
-                await getAnnotations(loadedIIIF, core.objectsConfig);
-                if (loadedIIIF.scenes && loadedIIIF.scenes.length > 0) {
-                  core.objectsConfig.scenes = loadedIIIF.scenes;
                 }
-                Viewer._ext = core.fileObject.extension.toLowerCase();
-                await Viewer.mainLoadModel();
               }
-            }
+          }
+          await Viewer.mainLoadModelWrapper();
+        } catch (err) {
+          Viewer.reportError(err, {
+            context: core.isLightweight ? "Lightweight model load error" : "Metadata load error",
+          });
+        }
+	    } else if (sourceType === "iiif") {
+        Viewer.cleanupTransientUI();
+        createIIIFUI();
 
-            function isUrlFlexible(string) {
-              try {
-                new URL(string);
-                return true;
-              } catch {
-                return /^(https?:\/\/)?([\w-]+\.)+[\w-]{2,}(\/\S*)?$/i.test(string);
-              }
-            }
+        console.log("Loading from source: " + core.CONFIG.entity.metadata.sourceType);
+        if (Viewer.iiifConfigURL.url !== "") {
+          createIIIFDropdown(Viewer.iiifConfigURL);
+          await Viewer.loadIIIFURL();
+          core.CONFIG.entity.metadata.sourceType = "IIIF";
+          await Viewer.setupIIIF(Viewer.iiifConfigURL.url);
+        }
+      } else {
+        console.log("Custom metadata source:" + core.CONFIG.entity.metadata.sourceType);
+        try {
+          switch(core.CONFIG.entity.metadata.sourceType.substring(0, 6).toLowerCase()) {
+            case "drupal":
+              console.log("Loading from URL: " + core.CONFIG.entity.metadata.url);
 
-            function isValidJsonObject(text) {
-              try {
-                const parsed = JSON.parse(text);
-                return typeof parsed === 'object' && parsed !== null;
-              } catch {
-                return false;
-              }
-            }
-
-            async function loadIIIFURL() {
-              const form = document.getElementById("form-IIIF");
-              const collapseBtn = document.getElementById("iiif-toggle-collapse");
-              const themeBtn = document.getElementById("iiif-toggle-theme");
-              const STORAGE_KEY = "iiif-dark-mode";
-              const syncGlobalTheme = (isDark) => {
-                document.body.classList.toggle("iiif-dark", isDark);
-                themeBtn.textContent = isDark ? "☀️" : "🌙";
-                themeBtn.setAttribute("aria-pressed", isDark ? "true" : "false");
-                const testThemeToggle = document.getElementById("test-theme-toggle");
-                if (testThemeToggle) {
-                  testThemeToggle.textContent = isDark ? "☀️" : "🌙";
-                  testThemeToggle.setAttribute("aria-pressed", isDark ? "true" : "false");
-                }
-              };
-
-              // restore
-              if (localStorage.getItem(STORAGE_KEY) === "1") {
-                form.classList.add("dark");
-              }
-              syncGlobalTheme(form.classList.contains("dark"));
-
-              Viewer.bindEventListener(themeBtn, "click", () => {
-                const isDark = form.classList.toggle("dark");
-                localStorage.setItem(STORAGE_KEY, isDark ? "1" : "0");
-                syncGlobalTheme(isDark);
-              });
-
-              Viewer.bindEventListener(collapseBtn, "click", () => {
-                form.classList.toggle("collapsed");
-                collapseBtn.textContent = form.classList.contains("collapsed") ? "▸" : "▾";
-              });
-              // create a small dropdown to switch iiif manifests at runtime
-              Viewer.bindEventListener(document.getElementById("iiif-manifest-select"), "change", async (ev) => {
-                try {
-                  if (ev.target.value !== Viewer.iiifConfigURL.url) {
-                    core.objectsConfig.setupIndex = 0;
-                    await setupIIIF(ev.target.value, "url");
-                  }
-                } catch (err) {
-                  Viewer.reportError(err, {
-                    context: "Error loading IIIF manifest",
-                  });
-                }
-                });
-
-              Viewer.bindEventListener(document.getElementById("load-manifest-from-url"), "click", async (ev) => {
-                try {
-                  const inputElement = document.getElementById("manifest-url");
-                  if (inputElement.value === "" || !isUrlFlexible(inputElement.value)) {
-                  inputElement.style.border = "2px solid red";
-                  showToast("Please enter a valid IIIF manifest URL.");
-                  return;
-                } else {
-                  inputElement.style.border = "2px solid green";
-                  core.objectsConfig.setupIndex = 0;
-                    console.log("Loading IIIF manifest from URL: " + inputElement.value);
-                    await setupIIIF(inputElement.value, "url");
-                  }
-                } catch (err) {
-                  Viewer.reportError(err, {
-                    context: "Error loading IIIF manifest",
-                  });
-                }
-                });
-
-              Viewer.bindEventListener(document.getElementById("load-manifest-from-text"), "click", async (ev) => {
-                try {
-                  const inputElement = document.getElementById("manifest-text");
-                  if (inputElement.value === "" || !isValidJsonObject(inputElement.value)) {
-                  inputElement.style.border = "2px solid red";
-                  showToast("Please enter a valid IIIF JSON text.");
-                  return;
-                } else {
-                  inputElement.style.border = "2px solid green";
-                  core.objectsConfig.setupIndex = 0;
-                    console.log("Loading IIIF manifest from privided text");
-                    await setupIIIF(inputElement.value, "text");
-                  }
-                } catch (err) {
-                  Viewer.reportError(err, {
-                    context: "Error loading IIIF manifest",
-                  });
-                }
-              });
-            }      
-            console.log("Loading from source: " + core.CONFIG.entity.metadata.source);
-            if (Viewer.iiifConfigURL.url !== "") {
-              createIIIFDropdown(Viewer.iiifConfigURL);
-              await loadIIIFURL();
-              core.CONFIG.entity.metadata.source = "IIIF";
-              await setupIIIF(Viewer.iiifConfigURL.url);
-            }
-          } 
-          else {
-            console.warn("Unknown metadata source, loading model directly: " + core.CONFIG.entity.metadata.source);
-            switch(core.CONFIG.entity.metadata.source.substring(0, 6).toLowerCase()) {
-              case "drupal":
-                console.log("Loading from URL: " + core.CONFIG.entity.metadata.source);
-                break;
-              case "file": //TODO: add more sources
-                break;
-            }
-      // statements to handle any exceptions
-           }
-           console.log("Initialization complete, starting render loop", core.CONFIG.entity.metadata.source);
-
+              break;
+            case "file": //TODO: add more sources
+              break;
+          }
+          // Load model for custom metadata sources
+          await Viewer.mainLoadModelWrapper();
+        } catch (error) {
+          Viewer.reportError(error, {
+            context: core.isLightweight ? "Lightweight model load error" : "Custom metadata load error",
+          });
+        }
+      }
 
       core.renderer.setPixelRatio(devicePixelRatio);
       const update = () => Viewer.updateSize();
 
-	      Viewer.bindEventListener(window, 'resize', update);
+      Viewer.bindEventListener(window, 'resize', update);
 
-	      Viewer.resizeObserver = new ResizeObserver(update);
-	      Viewer.resizeObserver.observe(Viewer.viewerWrapper);
+      Viewer.resizeObserver = new ResizeObserver(update);
+      Viewer.resizeObserver.observe(Viewer.viewerWrapper);
 
 
-	      Viewer.bindEventListener(document, 'fullscreenchange', Viewer.onFullscreenChange);
+      Viewer.bindEventListener(document, 'fullscreenchange', Viewer.onFullscreenChange);
 
-	      const onOrientationChange = () => setTimeout(update, 100);
-	      Viewer.bindEventListener(window, 'orientationchange', onOrientationChange);
-	    }
+      const onOrientationChange = () => setTimeout(update, 100);
+      Viewer.bindEventListener(window, 'orientationchange', onOrientationChange);
+	  }
   },
   render() {
     core.controls?.update();
@@ -2971,6 +3075,8 @@ export async function expectWebGL(page) {
     throw new Error('WebGL context not available');
   }
 }
+
+window.Viewer = Viewer;
 
 (async () => {
   try {

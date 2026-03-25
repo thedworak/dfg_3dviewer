@@ -74,6 +74,7 @@ function copyBuildAssets() {
       const viewerSettingsTarget = path.join(outDistDir, 'viewer-settings.json');
       const settingsPhpTarget = path.join(outDistDir, 'settings.local.php');
       const indexTarget = path.join(outDistDir, 'index.html');
+      const embedTarget = path.join(outDistDir, 'embed.html');
       const toastifyTarget = path.join(outDistDir, 'assets/css/toastify.css');
 
       let viewerSettingsExists = false;
@@ -88,6 +89,7 @@ function copyBuildAssets() {
         writeDrupalLibrariesFile(),
         fs.copyFile('settings.php', settingsPhpTarget),
         fs.copyFile('index.html', indexTarget),
+        fs.copyFile('embed.html', embedTarget),
         fs.copyFile('node_modules/toastify-js/src/toastify.css', toastifyTarget),
       ];
 

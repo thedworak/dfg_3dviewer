@@ -1,4 +1,4 @@
-import { T as THREE, e as _exports, V as Vector3, M as Matrix4, Q as Quaternion, E as Euler, a as MathUtils$1, O as OrbitControls, b as TransformControls, F as FontLoader, c as TextGeometry } from './three.CAlKdkC4.js';
+import { T as THREE, e as _exports, V as Vector3, M as Matrix4, Q as Quaternion, E as Euler, a as MathUtils$1, O as OrbitControls, b as TransformControls, F as FontLoader, c as TextGeometry } from './assets/three.CAlKdkC4.js';
 
 window.THREE = THREE;
 
@@ -1329,7 +1329,7 @@ async function fitCameraToCenteredObject(object, _fit) {
       controlsTarget: [core.controls.target.x, core.controls.target.y, core.controls.target.z],
     };
   }
-  setupClippingPlanes(object, core.gridSize, {x: boundingBox.max.x*1.1, y: boundingBox.max.y*1.1, z: boundingBox.max.z*1.1});
+  setupClippingPlanes(object, {x: boundingBox.max.x*1.1, y: boundingBox.max.y*1.1, z: boundingBox.max.z*1.1});
 }
 
 function parseGradient(str) {
@@ -1443,7 +1443,7 @@ function changeBackground(_type, _color1, _color2 = _color1) {
   }
 }
 
-function setupClippingPlanes(_geom, _size, _distance) {
+function setupClippingPlanes(_geom, _distance) {
   /*var _geometry;
   if (_geom.isGroup)
     _geometry = _geom.children;
@@ -1452,6 +1452,7 @@ function setupClippingPlanes(_geom, _size, _distance) {
   core.clippingPlanes[0].constant = _distance.x;
   core.clippingPlanes[1].constant = _distance.y;
   core.clippingPlanes[2].constant = _distance.z;
+  if (core.EDITOR) {
 
   if (core.transformControlClippingPlaneX && core.transformControlClippingPlaneY && core.transformControlClippingPlaneZ) {
     core.scene.add(core.transformControlClippingPlaneX?.getHelper());
@@ -1463,7 +1464,7 @@ function setupClippingPlanes(_geom, _size, _distance) {
   if (core.scene.background != null) planeColor = core.scene.background.getHexString();
 
   core.planeHelpers = core.clippingPlanes.map(
-    (p) => new THREE.PlaneHelper(p, _size * 2, invertHexColor(planeColor))
+    (p) => new THREE.PlaneHelper(p, core.gridSize * 2, invertHexColor(planeColor))
   );
   core.planeHelpers.forEach((ph, index) => {
     ph.visible = false;
@@ -1474,8 +1475,8 @@ function setupClippingPlanes(_geom, _size, _distance) {
 
   core.distanceGeometry = _distance;
   scaleXYZ(core.distanceGeometry, 2);
-  let displayHelper = {x: getOrAddGuiController(core.clippingFolder, core.planeParams.planeX, "displayHelperX"), constantX: getOrAddGuiController(core.clippingFolder, core.planeParams.planeX, "constantX"), y: getOrAddGuiController(core.clippingFolder, core.planeParams.planeY, "displayHelperY"), constantY: getOrAddGuiController(core.clippingFolder, core.planeParams.planeY, "constantY"), z: getOrAddGuiController(core.clippingFolder, core.planeParams.planeZ, "displayHelperZ"), constantZ: getOrAddGuiController(core.clippingFolder, core.planeParams.planeZ, "constantZ"), outline: getOrAddGuiController(core.clippingFolder, core.planeParams.outline, "visible")};
-  displayHelper.x.onChange((v) => {
+  let displayHelper = {x: getOrAddGuiController(core.planeParams.planeX, "displayHelperX"), constantX: getOrAddGuiController(core.planeParams.planeX, "constantX"), y: getOrAddGuiController(core.planeParams.planeY, "displayHelperY"), constantY: getOrAddGuiController(core.planeParams.planeY, "constantY"), z: getOrAddGuiController(core.planeParams.planeZ, "displayHelperZ"), constantZ: getOrAddGuiController(core.planeParams.planeZ, "constantZ"), outline: getOrAddGuiController(core.planeParams.outline, "visible")};
+  displayHelper.x?.onChange((v) => {
       core.planeParams.clippingMode.x = core.planeHelpers[0].visible = v;
       if (v) {
         core.transformControlClippingPlaneX.attach(core.planeHelpers[0]);
@@ -1491,18 +1492,17 @@ function setupClippingPlanes(_geom, _size, _distance) {
       }
     });
 
-    displayHelper.constantX
-      .min(-core.distanceGeometry.x)
+    displayHelper?.constantX.min(-core.distanceGeometry.x)
       .max(core.distanceGeometry.x)
       .setValue(core.distanceGeometry.x)
-      .step(_size / 100)
+      .step(core.gridSize / 100)
       .listen()
       .onChange((d) => {
         core.clippingPlanes[0].constant = d;
         core.planeHelpers[0].position.copy(core.clippingPlanes[0].normal).multiplyScalar(d);
       });
 
-    displayHelper.y.onChange((v) => {
+    displayHelper.y?.onChange((v) => {
       core.planeParams.clippingMode.y = core.planeHelpers[1].visible = v;
       if (v) {
         core.transformControlClippingPlaneY.attach(core.planeHelpers[1]);
@@ -1517,18 +1517,18 @@ function setupClippingPlanes(_geom, _size, _distance) {
           core.outlineClipping.visible = false;
       }
     });
-    displayHelper.constantY
+    displayHelper?.constantY
       .min(-core.distanceGeometry.y)
       .max(core.distanceGeometry.y)
       .setValue(core.distanceGeometry.y)
-      .step(_size / 100)
+      .step(core.gridSize / 100)
       .listen()
       .onChange((d) => {
         core.clippingPlanes[1].constant = d;
         core.planeHelpers[1].position.copy(core.clippingPlanes[1].normal).multiplyScalar(d);
       });
   
-    displayHelper.z.onChange((v) => {
+    displayHelper.z?.onChange((v) => {
       core.planeParams.clippingMode.z = core.planeHelpers[2].visible = v;
       if (v) {
         core.transformControlClippingPlaneZ.attach(core.planeHelpers[2]);
@@ -1543,11 +1543,11 @@ function setupClippingPlanes(_geom, _size, _distance) {
           core.outlineClipping.visible = false;
       }
     });
-    displayHelper.constantZ
+    displayHelper?.constantZ
       .min(-core.distanceGeometry.z)
       .max(core.distanceGeometry.z)
       .setValue(core.distanceGeometry.z)
-      .step(_size / 100)
+      .step(core.gridSize / 100)
       .listen()
       .onChange((d) => {
         core.clippingPlanes[2].constant = d;
@@ -1557,6 +1557,7 @@ function setupClippingPlanes(_geom, _size, _distance) {
     displayHelper.outline.onChange((v) => {
       core.outlineClipping.visible = v;
     });
+  }
 }
 
 
@@ -1570,15 +1571,16 @@ function invertHexColor(hexTripletColor) {
   return "#" + color;
 }
 
-function getOrAddGuiController(folder, object, prop) {
-  let controller = folder?.controllers?.find(c => c._name === prop);
+function getOrAddGuiController(object, prop) {
+  let controller = core.clippingFolder?.controllers?.find(c => c._name === prop);
   if (controller) return controller;
 
-  for (const subfolder of folder.folders) {
+  //if (!folder) return null;
+  for (const subfolder of core.clippingFolder.folders) {
     const found = getOrAddController(subfolder, object, prop);
     if (found) return found;
   }
-  return folder.add(object, prop);
+  return core.clippingFolder.add(object, prop);
 }
 
 function escapeHtml(value) {
@@ -1590,13 +1592,25 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+function buildMetadataRow(label, value) {
+  if (!label || typeof value === "undefined" || value === null || value === "") {
+    return "";
+  }
+
+  return (
+    '<div class="metadata-row">' +
+      '<span class="metadata-label">' + escapeHtml(label) + ':</span>' +
+      '<span class="metadata-value">' + escapeHtml(value) + '</span>' +
+    '</div>'
+  );
+}
+
 /**
  * Formats WissKI metadata labels and values for display.
  */
 function addWissKIMetadata(label, value) {
   if (typeof label !== "undefined" && typeof value !== "undefined") {
     var _str = "";
-    const safeValue = escapeHtml(value);
     label = label.replace("wisski_path_3d_model__", "");
     switch (label) {
       case "title":
@@ -1611,16 +1625,25 @@ function addWissKIMetadata(label, value) {
       case "license":
         _str = "License";
         break;
+      case "description":
+        _str = "Description";
+        break;
+      case "object_type":
+        _str = "Object type";
+        break;
+      case "reconstruction_authors":
+        _str = "Reconstruction authors";
+        break;
+      case "reconstruction_period":
+        _str = "Reconstruction period";
+        break;
       default:
         _str = "";
         break;
     }
-    if (_str == "period") {
-      return "Reconstruction period: <b>" + safeValue + " - ";
-    } else if (_str == "-") {
-      return safeValue + "</b><br>";
-    } else if (_str !== "") {
-      return _str + ": <b>" + safeValue + "</b><br>";
+
+    if (_str !== "") {
+      return buildMetadataRow(_str, value);
     }
   }
 }
@@ -1653,15 +1676,90 @@ function expandMetadata() {
  * Appends metadata HTML to the DOM.
  */
 function appendMetadata(
-  metadataContent,
-  metadataContentTech
+  metadataContent
 ) {
-  metadataContent += metadataContentTech + "</div>";
-
   core.metadataContainer.innerHTML = metadataContent;
 
   if (!core.container.contains(core.metadataContainer)) {
     core.container.appendChild(core.metadataContainer);
+  }
+}
+
+async function fetchEntityMetadata() {
+  if (!core.CONFIG.entity.metadata.sourceType || core.CONFIG.entity.metadata.url === "") {
+    return "";
+  }
+
+  const metadataUrl = core.CONFIG.entity.metadata.url + encodeURIComponent(core.CONFIG.entity.id);
+
+  try {
+    const response = await fetch(metadataUrl, { cache: "no-cache" });
+
+    if (!response.ok) {
+      console.warn("Metadata request failed with status:", response.status);
+      return "";
+    }
+
+    const responseText = await response.text();
+
+    try {
+      const jsonData = JSON.parse(responseText);
+      const record = Array.isArray(jsonData) ? jsonData[0] : jsonData;
+
+      if (!record || typeof record !== "object") {
+        return "";
+      }
+
+      console.log("Processing JSON metadata:", record);
+
+      const jsonFieldMap = {
+        title: "title",
+        reconstruction_authors: "author_name",
+        reconstruction_authors_affiliation: "author_affiliation",
+        reconstruction_license: "license",
+        reconstruction_time_frame: "reconstruction_period",
+        object_description: "description",
+        object_type: "object_type",
+      };
+
+      let entityMetadataContent = "";
+      for (const [jsonField, metadataLabel] of Object.entries(jsonFieldMap)) {
+        if (record[jsonField]) {
+          const fetchedValue = addWissKIMetadata(metadataLabel, record[jsonField]);
+          if (typeof fetchedValue !== "undefined") {
+            entityMetadataContent += fetchedValue;
+          }
+        }
+      }
+
+      return entityMetadataContent;
+    } catch (_jsonError) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(responseText, "application/xml");
+
+      if (doc.documentElement.tagName === "parsererror") {
+        console.error("XML parsing error:", doc.documentElement.textContent);
+        return "";
+      }
+
+      let entityMetadataContent = "";
+      if (doc.documentElement.childNodes.length > 0) {
+        var data = doc.documentElement.childNodes[0].childNodes;
+        if (data !== undefined) {
+          for (var i = 0; i < data.length; i++) {
+            var fetchedValue = addWissKIMetadata(data[i].tagName, data[i].textContent);
+            if (typeof fetchedValue !== "undefined") {
+              entityMetadataContent += fetchedValue;
+            }
+          }
+        }
+      }
+
+      return entityMetadataContent;
+    }
+  } catch (error) {
+    console.error("Error processing metadata:", error);
+    return "";
   }
 }
 
@@ -1692,12 +1790,10 @@ async function handleMetadataResponse(
 ) {
   var tempArray = [];
   let hierarchyFolder;
-  let metadataContentTech = '';
   if (Array.isArray(object)) {
     setupObject(object[0], data);
     await setupCamera(object[0], data);
-  } else if (object.name === "Scene" || object.children.length > 0 || object.type == "Mesh"
-  ) {
+  } else if (object.name === "Scene" || object.children.length > 0 || object.type == "Mesh") {
     setupObject(object, data);
     object.traverse(function (child) {
       if (child.isMesh) {
@@ -1791,77 +1887,50 @@ async function handleMetadataResponse(
       '<span class="metadata-label">Faces:</span>' +
       '<span class="metadata-value">' + metadata["faces"] + '</span>' +
     '</div>';
-  core.viewEntity = document.createElement("div");
-  core.viewEntity.setAttribute("id", "viewEntity");
+  metadataContent += await fetchEntityMetadata();
 
-  if (!core.isLightweight) {
+  if (core.downloadModel) {
+    core.downloadModel.hidden = true;
+    core.downloadModel.removeAttribute("href");
+  }
 
-    if (core.downloadModel && !document.getElementById("downloadModel")) {
-      core.downloadModel.setAttribute("id", "downloadModel");
+  if (core.viewEntity) {
+    core.viewEntity.hidden = true;
+    core.viewEntity.removeAttribute("data-embed-url");
+  }
 
-      var c_path = core.fileObject.path;
-      if (core.loadedFile !== "") core.fileObject.filename = core.fileObject.filename.replace(core.fileObject.orgExtension, core.fileObject.extension);
-
-      core.container.appendChild(core.downloadModel);
-
-      core.downloadModel.innerHTML = `
-        <a href="blob:${encodeURI(c_path + core.fileObject.filename)}" download>
-          <img src="${core.DFG_ASSETS}/img/download-icon.svg" alt="download" width="28" height="28" title="Download source file"/>`;
+  if (!core.isLightweight && core.downloadModel) {
+    const c_path = core.fileObject.path;
+    if (core.loadedFile !== "") {
+      core.fileObject.filename = core.fileObject.filename.replace(core.fileObject.orgExtension, core.fileObject.extension);
     }
 
-    if (core.fetchMetadataXML) {
-      var req = new XMLHttpRequest();
-      req.open(
-        "GET",
-        core.CONFIG.viewer.exportPath +
-          core.CONFIG.entity.id +
-          "?domain=" + encodeURIComponent(core.CONFIG.metadataUrl),
-        true
-      );
+    core.downloadModel.href = `blob:${encodeURI(c_path + core.fileObject.filename)}`;
+    core.downloadModel.setAttribute("download", core.fileObject.filename);
+    core.downloadModel.innerHTML = `
+      <img src="${core.DFG_ASSETS}/img/download-icon.svg" alt="Download model" width="20" height="20"/>
+      <span>Download</span>
+    `;
+    core.downloadModel.hidden = false;
+  }
 
-      req.onreadystatechange = function () {
-        if (req.readyState !== 4) return;
-          try {
-            if (req.status === 200) {
-              const parser = new DOMParser();
-              const doc = parser.parseFromString(
-                req.responseText,
-                "application/xml"
-              );
-
-              if (doc.documentElement.childNodes.length > 0) {
-                var data = doc.documentElement.childNodes[0].childNodes;
-                if (data !== undefined) {
-                  for (var i = 0; i < data.length; i++) {
-                    var fetchedValue = addWissKIMetadata(
-                      data[i].tagName,
-                      data[i].textContent
-                    );
-                    if (typeof fetchedValue !== "undefined") {
-                      metadataContent += fetchedValue;
-                    }
-                  }
-                }
-              }
-              core.metadataContainer.appendChild(core.viewEntity);
-            } else {
-              showToast("No metadata found for entity " + core.CONFIG.entity.id);
-            }
-          } finally {
-          }
-      };
-
-      req.send(null);
+  if (core.viewEntity && (core.CONFIG?.entity?.id || core.fileObject?.originalPath)) {
+    const sharePayload = window.Viewer?.getSharePayload?.();
+    if (sharePayload?.url) {
+      core.viewEntity.setAttribute("data-embed-url", sharePayload.url);
     }
-  } else {
-
-    core.viewEntity.innerHTML =
-      `<a href='${core.CONFIG.mainUrl}${core.CONFIG.entity.viewEntityPath}${core.CONFIG.entity.id}/view' target='_blank'><img src='${core.DFG_ASSETS}/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>`;
+    core.viewEntity.innerHTML = `
+      <img src="${core.DFG_ASSETS}/img/share.svg" alt="Share view" width="18" height="18"/>
+      <span>Copy embed</span>
+    `;
+    core.viewEntity.setAttribute("aria-label", "Copy embed code");
+    core.viewEntity.setAttribute("title", "Copy embed code");
+    core.viewEntity.hidden = false;
   }
   metadataContent +=
       '</div>' +  // #metadata-content
     '</div>';  
-  appendMetadata( metadataContent, metadataContentTech);
+  appendMetadata(metadataContent);
   if (core.metadataContainer.dataset.boundCollapse !== "true") {
     core.metadataContainer.addEventListener("click", (e) => {
       if (e.target.id === "metadata-collapse") {
@@ -1944,11 +2013,12 @@ async function fetchSettings(object) {
   } else {
     hierarchyMain = existingHierarchy;
   }
-  if (core.CONFIG.entity.metadata.source === "IIIF") {
+  if (core.CONFIG.entity.metadata.sourceType === "IIIF") {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);
     await handleMetadataResponse( core.CONFIG.model, metadata, object, hierarchyMain);
   }
   else if (metadataUrl) {
+    console.log("Loading metadata from URL:", metadataUrl);
     if (core.CONFIG.entity.proxyPath !== undefined || core.isLightweight) {
       metadataUrl = core.getProxyPath(metadataUrl, core.CONFIG);
       const data = await loadMetadataData(metadataUrl);
@@ -1958,6 +2028,8 @@ async function fetchSettings(object) {
       const data = await loadMetadataData(metadataUrl);
       await handleMetadataResponse(data, metadata, object, hierarchyMain);
     }
+  } else {
+    await handleMetadataResponse("", metadata, object, hierarchyMain);
   }
   // Add statistics GUI
   let statsMain;
@@ -2022,20 +2094,60 @@ function createIIIFDropdown(iiifConfigURL) {
 
 }
 
-const loadDDSLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.j; })).DDSLoader;
-const loadMTLLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.k; })).MTLLoader;
-const loadOBJLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.l; })).OBJLoader;
-const loadFBXLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.n; })).FBXLoader;
-const loadPLYLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.P; })).PLYLoader;
-const loadColladaLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.o; })).ColladaLoader;
-const loadSTLLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.S; })).STLLoader;
-const loadXYZLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.X; })).XYZLoader;
-const loadTDSLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.p; })).TDSLoader;
-const loadPCDLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.q; })).PCDLoader;
-const loadGLTFLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.G; })).GLTFLoader;
-const loadDRACOLoader = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.r; })).DRACOLoader;
-const loadIFCLoader = async () => (await import('./IFCLoader.Bvw4gkUL.js')).IFCLoader;
-const loadRoomEnvironment = async () => (await import('./three.CAlKdkC4.js').then(function (n) { return n.R; })).RoomEnvironment;
+function createIIIFUI() {
+  const formContainer = document.createElement("div");
+  formContainer.id = "form-IIIF";
+
+  /* header */
+  const header = document.createElement("div");
+  header.className = "form-IIIF-header";
+  header.innerHTML = `
+    <span class="title">IIIF Loader</span>
+    <div class="tools">
+      <button type="button" id="iiif-toggle-theme" title="Toggle dark mode">🌙</button>
+      <button type="button" id="iiif-toggle-collapse" title="Collapse">▾</button>
+    </div>
+  `;
+
+  formContainer.appendChild(header);
+
+  /* content */
+  const content = document.createElement("div");
+  content.className = "form-IIIF-content";
+  content.id = "form-IIIF-content";
+  content.innerHTML = `
+    <div class="form-IIIF-group">
+      <input type="text" id="manifest-url" placeholder="https://example.org/iiif/manifest.json">
+      <button class="primary" id="load-manifest-from-url">Load from URL</button>
+    </div>
+
+    <div class="form-IIIF-group column">
+      <textarea id="manifest-text" rows="8" placeholder="Paste IIIF manifest JSON here…"></textarea>
+      <div class="actions">
+        <button class="secondary" id="load-manifest-from-text">Load from Text</button>
+      </div>
+    </div>
+  `;
+
+  formContainer.appendChild(content);
+
+  document.body.appendChild(formContainer);
+}
+
+const loadDDSLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.j; })).DDSLoader;
+const loadMTLLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.k; })).MTLLoader;
+const loadOBJLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.l; })).OBJLoader;
+const loadFBXLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.n; })).FBXLoader;
+const loadPLYLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.P; })).PLYLoader;
+const loadColladaLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.o; })).ColladaLoader;
+const loadSTLLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.S; })).STLLoader;
+const loadXYZLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.X; })).XYZLoader;
+const loadTDSLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.p; })).TDSLoader;
+const loadPCDLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.q; })).PCDLoader;
+const loadGLTFLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.G; })).GLTFLoader;
+const loadDRACOLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.r; })).DRACOLoader;
+const loadIFCLoader = async () => (await import('./assets/IFCLoader.Bvw4gkUL.js')).IFCLoader;
+const loadRoomEnvironment = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.R; })).RoomEnvironment;
 
 var outlineClipping;
 let environmentTexturePromise = null;
@@ -2273,336 +2385,340 @@ function reportLoadError(error, context = "") {
   return message;
 }
 
-  async function loadModel() {
-    let modelPath = core.fileObject.filename.startsWith('blob:') ? core.fileObject.filename : core.fileObject.path + core.fileObject.filename;
-    if (core.CONFIG.entity.proxyPath !== undefined && !core.fileObject.filename.startsWith('blob:')) {
-      modelPath = core.getProxyPath(modelPath, core.CONFIG, core.fileObject);
-    }
+async function loadModel() {
+  let modelPath = core.fileObject.filename.startsWith('blob:') ? core.fileObject.filename : core.fileObject.path + core.fileObject.filename;
+  if (core.CONFIG.entity.proxyPath !== undefined && !core.fileObject.filename.startsWith('blob:')) {
+    modelPath = core.getProxyPath(modelPath, core.CONFIG, core.fileObject);
+  }
 
-    function loadAsync(loader, url, progressHandler = onProgress) {
-      return new Promise((resolve, reject) => {
-        loader.load(url, resolve, progressHandler, reject);
+  function loadAsync(loader, url, progressHandler = onProgress) {
+    return new Promise((resolve, reject) => {
+      loader.load(url, resolve, progressHandler, reject);
+    });
+  }
+
+  async function afterLoad({ object }) {
+    if (object === null || typeof object === "undefined") {
+      throw new Error("Loaded object is null or undefined.");
+    }
+    // Reset transform to ensure consistent positioning
+    if (Array.isArray(object)) {
+      object.forEach(obj => {
+        obj.position.set(0, 0, 0);
+        obj.rotation.set(0, 0, 0);
+        obj.scale.set(1, 1, 1);
+        obj.updateMatrixWorld(true);
       });
+    } else {
+      object.position.set(0, 0, 0);
+      object.rotation.set(0, 0, 0);
+      object.scale.set(1, 1, 1);
+      object.updateMatrixWorld(true);
     }
-
-    async function afterLoad({ object }) {
-      if (object === null || typeof object === "undefined") {
-        throw new Error("Loaded object is null or undefined.");
-      }
-      // Reset transform to ensure consistent positioning
-      if (Array.isArray(object)) {
-        object.forEach(obj => {
-          obj.position.set(0, 0, 0);
-          obj.rotation.set(0, 0, 0);
-          obj.scale.set(1, 1, 1);
-          obj.updateMatrixWorld(true);
-        });
-      } else {
-        object.position.set(0, 0, 0);
-        object.rotation.set(0, 0, 0);
-        object.scale.set(1, 1, 1);
-        object.updateMatrixWorld(true);
-      }
-      core.handHint.hidden = true;
-      window.viewer.modelLoaded = true;
-      traverseMesh(object);
-      if (core.fileObject.extension.toLowerCase() === "gltf" || core.fileObject.extension.toLowerCase() === "glb") core.fileObject.path = core.fileObject.path.replace("/gltf/", "/");
-      else core.fileObject.path = core.fileObject.path.replace("gltf/", "");
-      await fetchSettings(object);
-      await setupCamera(object, core.CONFIG);
-      core.outlineClipping = prepareOutlineClipping(object);
-      if (Array.isArray(object)) {
-        object.forEach(o => core.scene.add(o));
-        core.helperObjects.push(object[0]);
-      } else {
-        core.scene.add(object);
-        core.helperObjects.push(object);
-      }
-      core.scene.add(core.outlineClipping);
-      core.mainObject.push(object);
-      core.scene.environment = await getEnvironmentTexture(core.renderer);
+    core.handHint.hidden = true;
+    window.viewer.modelLoaded = true;
+    traverseMesh(object);
+    if (core.fileObject.extension.toLowerCase() === "gltf" || core.fileObject.extension.toLowerCase() === "glb") core.fileObject.path = core.fileObject.path.replace("/gltf/", "/");
+    else core.fileObject.path = core.fileObject.path.replace("gltf/", "");
+    await fetchSettings(object);
+    await setupCamera(object, core.CONFIG);
+    core.outlineClipping = prepareOutlineClipping(object);
+    if (Array.isArray(object)) {
+      object.forEach(o => core.scene.add(o));
+      core.helperObjects.push(object[0]);
+    } else {
+      core.scene.add(object);
+      core.helperObjects.push(object);
     }
+    core.scene.add(core.outlineClipping);
+    core.mainObject.push(object);
+    core.scene.environment = await getEnvironmentTexture(core.renderer);
+  }
 
-    async function loadOBJWithMTL() {
-      const DDSLoader = await loadDDSLoader();
-      const MTLLoader = await loadMTLLoader();
-      const OBJLoader = await loadOBJLoader();
-      const manager = new THREE.LoadingManager();
-      manager.onLoad = () => showToast("OBJ model has been loaded");
-      manager.addHandler(/\.dds$/i, new DDSLoader());
+  async function loadOBJWithMTL() {
+    const DDSLoader = await loadDDSLoader();
+    const MTLLoader = await loadMTLLoader();
+    const OBJLoader = await loadOBJLoader();
+    const manager = new THREE.LoadingManager();
+    manager.onLoad = () => showToast("OBJ model has been loaded");
+    manager.addHandler(/\.dds$/i, new DDSLoader());
 
-      const basename = core.fileObject.filename.replace(/\.[^/.]+$/, "");
-      const filename = core.fileObject.filename;
+    const basename = core.fileObject.filename.replace(/\.[^/.]+$/, "");
+    const filename = core.fileObject.filename;
 
-      if (!core.CONFIG.noMTL) {
-        try {
-          const materials = await new Promise((resolve, reject) => {
-            new MTLLoader(manager)
-            .setPath(core.fileObject.path)
-            .load(basename + ".mtl", resolve, undefined, reject);
-          });
-          materials.preload();
-
-          const obj = await new Promise((resolve, reject) => {
-            new OBJLoader(manager)
-            .setMaterials(materials)
-            .setPath(core.fileObject.path)
-            .load(filename, resolve, onProgress, reject);
-          });
-
-          obj.position.set(0, 0, 0);
-          return obj;
-        } catch (error) {
-          core.CONFIG.noMTL = true;
-          showToast("Error occured while loading attached MTL file.");
-          console.warn("MTL load failed, falling back to OBJ-only load.", error);
-        }
-      }
-
-      const obj = await new Promise((resolve, reject) => {
-        new OBJLoader()
-        .setPath(core.fileObject.path)
-        .load(filename, resolve, onProgress, reject);
-      });
-
-      obj.position.set(0, 0, 0);
-      return obj;
-    }
-
-    function normalizePath(path) {
-      return path.replace(/\/{2,}/g, '/');
-    }
-
-    async function resolveIfcWasmPath(basePath) {
-      const candidates = [
-        normalizePath(basePath.replace(/\/$/, '') + '/ifc/'),
-        normalizePath(basePath.replace(/\/$/, '') + '/ifc'),
-      ];
-
-      for (const candidate of candidates) {
-        const wasmUrl = candidate.replace(/\/$/, '') + '/web-ifc.wasm';
-        try {
-          const res = await fetch(wasmUrl, { method: 'HEAD', cache: 'no-store' });
-          if (res.ok) {
-            return candidate;
-          }
-        } catch (err) {
-          // ignored, try next candidate
-        }
-      }
-      return null;
-    }
-
-    function getModuleAssetBasePath() {
-      let basePath = core.CONFIG?.baseModulePath ? core.CONFIG.baseModulePath.replace(/\/$/, '') : '';
-
-      if (!basePath) {
-        basePath = `/modules/${MODULES_PATH}/dfg_3dviewer/dist/${ENV_SUBDIR}/assets`
-          ;
-      }
-
-      // Override for localhost
-      if (core.isLocalPreview) {
-        basePath = '/assets';
-      }
-
-      // Normalize doubled slashes and switch to a best-guess custom path when env is drupal_custom.
-      basePath = basePath.replace(/\/\/+/g, '/');
-
-      // Fix duplicate host in path for full URLs
-      if (typeof window !== 'undefined' && basePath.startsWith('http')) {
-        try {
-          const url = new URL(basePath);
-          const host = url.host;
-          if (url.pathname.startsWith(`/${host}`)) {
-            url.pathname = url.pathname.replace(`/${host}`, '');
-            basePath = url.href;
-          }
-        } catch (err) {
-          // ignore
-        }
-      }
-
-      // Rising path mismatch: if we are in drupal custom and config path still has /drupal/main, try custom fallback.
-      if (basePath.includes('/drupal/main')) {
-        basePath = basePath.replace('/drupal/main', '/drupal/custom');
-      }
-
-      console.log('[loaders] resolved ModuleAssetBasePath:', basePath);
-      return basePath;
-    }
-
-    async function loadGLTFModel() {
-      let gltfModelPath = core.fileObject.filename.startsWith('blob:') ? core.fileObject.filename : core.fileObject.path + core.fileObject.basename + "." + core.fileObject.extension;
-      if (core.CONFIG.entity.proxyPath !== undefined && !core.fileObject.filename.startsWith('blob:')) {
-        gltfModelPath = core.getProxyPath(gltfModelPath);
-      }
-
-      const dracoBase = normalizePath(normalizeWasmPath(`${getModuleAssetBasePath()}/draco/gltf/`));
-
-      const loader = await createLoader(core.fileObject.extension.toLowerCase());
-      const DRACOLoader = await loadDRACOLoader();
-      const draco = new DRACOLoader();
-      {
-        draco.setDecoderConfig({ type: 'js' });
-      }
-      draco.setDecoderPath(dracoBase);
-      loader.setDRACOLoader(draco);
-
+    if (!core.CONFIG.noMTL) {
       try {
-        const gltf = await new Promise((resolve, reject) => {
-          loader.load(
-            gltfModelPath,
-            resolve,
-            (xhr) => {
-              progressLoaderHandler(xhr);
-            },
-            reject
-          );
+        const materials = await new Promise((resolve, reject) => {
+          new MTLLoader(manager)
+          .setPath(core.fileObject.path)
+          .load(basename + ".mtl", resolve, undefined, reject);
         });
-        return gltf.scene;
-      } finally {
-        draco.dispose();
+        materials.preload();
+
+        const obj = await new Promise((resolve, reject) => {
+          new OBJLoader(manager)
+          .setMaterials(materials)
+          .setPath(core.fileObject.path)
+          .load(filename, resolve, onProgress, reject);
+        });
+
+        obj.position.set(0, 0, 0);
+        return obj;
+      } catch (error) {
+        core.CONFIG.noMTL = true;
+        showToast("Error occured while loading attached MTL file.");
+        console.warn("MTL load failed, falling back to OBJ-only load.", error);
       }
     }
+
+  const obj = await new Promise((resolve, reject) => {
+      new OBJLoader()
+      .setPath(core.fileObject.path)
+      .load(filename, resolve, onProgress, reject);
+    });
+
+    obj.position.set(0, 0, 0);
+    return obj;
+  }
+
+  function normalizePath(path) {
+    return path.replace(/\/{2,}/g, '/');
+  }
+
+  async function resolveIfcWasmPath(basePath) {
+    const candidates = [
+      normalizePath(basePath.replace(/\/$/, '') + '/ifc/'),
+      normalizePath(basePath.replace(/\/$/, '') + '/ifc'),
+    ];
+
+    for (const candidate of candidates) {
+      const wasmUrl = candidate.replace(/\/$/, '') + '/web-ifc.wasm';
+      try {
+        const res = await fetch(wasmUrl, { method: 'HEAD', cache: 'no-store' });
+        if (res.ok) {
+          return candidate;
+        }
+      } catch (err) {
+        // ignored, try next candidate
+      }
+    }
+    return null;
+  }
+
+  async function loadGLTFModel() {
+    let gltfModelPath = core.fileObject.filename.startsWith('blob:') ? core.fileObject.filename : core.fileObject.path + core.fileObject.basename + "." + core.fileObject.extension;
+    if (core.CONFIG.entity.proxyPath !== undefined && !core.fileObject.filename.startsWith('blob:')) {
+      gltfModelPath = core.getProxyPath(gltfModelPath);
+    }
+
+    const dracoBase = normalizePath(normalizeWasmPath(`${getModuleAssetBasePath()}/draco/gltf/`));
+
+    const loader = await createLoader(core.fileObject.extension.toLowerCase());
+    const DRACOLoader = await loadDRACOLoader();
+    const draco = new DRACOLoader();
+    {
+      draco.setDecoderConfig({ type: 'js' });
+    }
+    draco.setDecoderPath(dracoBase);
+    loader.setDRACOLoader(draco);
 
     try {
-      switch (core.fileObject.extension.toLowerCase()) {
-        case "obj": {
-          const object = await loadOBJWithMTL();
-          await afterLoad({ object });
-          break;
-        }
-
-        case "fbx": {
-          const loader = await createLoader(core.fileObject.extension.toLowerCase());
-          const object = await loadAsync(loader, modelPath, onProgress);
-          object.position.set(0, 0, 0);
-          await afterLoad({ object });
-          break;
-        }
-
-        case "ply": {
-          const loader = await createLoader(core.fileObject.extension.toLowerCase());
-          const geometry = await loadAsync(loader, modelPath, onProgress);
-          if (!geometry.getAttribute?.("normal")) {
-            geometry.computeVertexNormals();
-          }
-          const material = new THREE.MeshStandardMaterial({ color: 0x0055ff, flatShading: true });
-          const object = new THREE.Mesh(geometry, material);
-          object.position.set(0, 0, 0);
-          object.castShadow = true;
-          object.receiveShadow = true;
-          await afterLoad({ object });
-          break;
-        }
-
-        case "dae": {
-          const loader = await createLoader(core.fileObject.extension.toLowerCase());
-          const collada = await loadAsync(loader, modelPath, onProgress);
-          const object = collada.scene;
-          object.position.set(0, 0, 0);
-          await afterLoad({ object });
-          break;
-        }
-
-        case "ifc": {
-          const loader = await createLoader(core.fileObject.extension.toLowerCase());
-          const basePath = getModuleAssetBasePath();
-
-          let ifcWasmPath = await resolveIfcWasmPath(basePath);
-
-          if (!ifcWasmPath && ENV_BUILD === 'drupal') {
-            const fallback = basePath.includes('/drupal/main')
-              ? basePath.replace('/drupal/main', '/drupal/custom')
-              : basePath.replace('/drupal/custom', '/drupal/main');
-            ifcWasmPath = await resolveIfcWasmPath(fallback);
-          }
-
-          if (!ifcWasmPath) {
-            const errorMsg = `[loadModel] IFC WASM not found in ${basePath}/ifc or fallback; please verify path and permissions`;
-            console.error(errorMsg);
-            throw new Error(errorMsg);
-          }
-
-          const normalizedIfcWasmPath = normalizeWasmPath(ifcWasmPath);
-          console.log('[loadModel] IFC WASM path:', normalizedIfcWasmPath);
-          loader.ifcManager.setWasmPath(normalizedIfcWasmPath, true);
-          const object = await loadAsync(loader, modelPath, onProgress);
-          await afterLoad({ object });
-          break;
-        }
-
-        case "stl": {
-          const loader = await createLoader(core.fileObject.extension.toLowerCase());
-          const geometry = await loadAsync(loader, modelPath, onProgress);
-          let meshMaterial = new THREE.MeshPhongMaterial({ color: 0xff5533, specular: 0x111111, shininess: 200 });
-          if (geometry.hasColors) {
-            meshMaterial = new THREE.MeshPhongMaterial({ opacity: geometry.alpha, vertexColors: true });
-          }
-          const object = new THREE.Mesh(geometry, meshMaterial);
-          object.position.set(0, 0, 0);
-          object.castShadow = true;
-          object.receiveShadow = true;
-          await afterLoad({ object });
-          break;
-        }
-
-        case "xyz": {
-          const loader = await createLoader(core.fileObject.extension.toLowerCase());
-          const geometry = await loadAsync(loader, modelPath, onProgress);
-          geometry.center();
-          const material = new THREE.PointsMaterial({ size: 0.1, vertexColors: geometry.hasAttribute("color") === true });
-          const object = new THREE.Points(geometry, material);
-          object.position.set(0, 0, 0);
-          await afterLoad({ object });
-          break;
-        }
-
-        case "pcd": {
-          const loader = await createLoader(core.fileObject.extension.toLowerCase());
-          const mesh = await loadAsync(loader, modelPath, onProgress);
-          mesh.geometry?.center?.();
-          if (mesh.material) {
-            mesh.material.size = Math.max(mesh.material.size ?? 0, 0.1);
-          }
-          await afterLoad({ object: mesh });
-          break;
-        }
-
-        case "json": {
-          const loader = new THREE.ObjectLoader();
-          const object = await loadAsync(loader, modelPath, onProgress);
-          object.position.set(0, 0, 0);
-          await afterLoad({ object });
-          break;
-        }
-
-        case "3ds": {
-          const loader = await createLoader(core.fileObject.extension.toLowerCase());
-          loader.setResourcePath(core.fileObject.path);
-          let mp = core.fileObject.path;
-          if (core.CONFIG.entity.proxyPath !== undefined) mp = core.getProxyPath(mp);
-          const object = await loadAsync(loader, mp + core.fileObject.basename + "." + core.fileObject.extension, onProgress);
-          await afterLoad({ object });
-          break;
-        }
-
-        case "glb":
-        case "gltf": {
-          const object = await loadGLTFModel();
-          await afterLoad({ object });
-          break;
-        }
-        default:
-          showToast("Extension not supported yet");
-          return;
-      }
-    } catch (error) {
-      reportLoadError(error, `Failed to load ${core.fileObject.filename}`);
-      throw error;
+      const gltf = await new Promise((resolve, reject) => {
+        loader.load(
+          gltfModelPath,
+          resolve,
+          (xhr) => {
+            progressLoaderHandler(xhr);
+          },
+          reject
+        );
+      });
+      return gltf.scene;
+    } finally {
+      draco.dispose();
     }
+  }
+
+  try {
+    switch (core.fileObject.extension.toLowerCase()) {
+      case "obj": {
+        const object = await loadOBJWithMTL();
+        await afterLoad({ object });
+        break;
+      }
+
+      case "fbx": {
+        const loader = await createLoader(core.fileObject.extension.toLowerCase());
+        const object = await loadAsync(loader, modelPath, onProgress);
+        object.position.set(0, 0, 0);
+        await afterLoad({ object });
+        break;
+      }
+
+      case "ply": {
+        const loader = await createLoader(core.fileObject.extension.toLowerCase());
+        const geometry = await loadAsync(loader, modelPath, onProgress);
+        if (!geometry.getAttribute?.("normal")) {
+          geometry.computeVertexNormals();
+        }
+        const material = new THREE.MeshStandardMaterial({ color: 0x0055ff, flatShading: true });
+        const object = new THREE.Mesh(geometry, material);
+        object.position.set(0, 0, 0);
+        object.castShadow = true;
+        object.receiveShadow = true;
+        await afterLoad({ object });
+        break;
+      }
+
+      case "dae": {
+        const loader = await createLoader(core.fileObject.extension.toLowerCase());
+        const collada = await loadAsync(loader, modelPath, onProgress);
+        const object = collada.scene;
+        object.position.set(0, 0, 0);
+        await afterLoad({ object });
+        break;
+      }
+
+      case "ifc": {
+        const loader = await createLoader(core.fileObject.extension.toLowerCase());
+        const basePath = getModuleAssetBasePath();
+
+        let ifcWasmPath = await resolveIfcWasmPath(basePath);
+
+        if (!ifcWasmPath && ENV_BUILD === 'drupal') {
+          const fallback = basePath.includes('/drupal/main')
+            ? basePath.replace('/drupal/main', '/drupal/custom')
+            : basePath.replace('/drupal/custom', '/drupal/main');
+          ifcWasmPath = await resolveIfcWasmPath(fallback);
+        }
+
+        if (!ifcWasmPath) {
+          const errorMsg = `[loadModel] IFC WASM not found in ${basePath}/ifc or fallback; please verify path and permissions`;
+          console.error(errorMsg);
+          throw new Error(errorMsg);
+        }
+
+        const normalizedIfcWasmPath = normalizeWasmPath(ifcWasmPath);
+        console.log('[loadModel] IFC WASM path:', normalizedIfcWasmPath);
+        loader.ifcManager.setWasmPath(normalizedIfcWasmPath, true);
+        const object = await loadAsync(loader, modelPath, onProgress);
+        await afterLoad({ object });
+        break;
+      }
+
+      case "stl": {
+        const loader = await createLoader(core.fileObject.extension.toLowerCase());
+        const geometry = await loadAsync(loader, modelPath, onProgress);
+        let meshMaterial = new THREE.MeshPhongMaterial({ color: 0xff5533, specular: 0x111111, shininess: 200 });
+        if (geometry.hasColors) {
+          meshMaterial = new THREE.MeshPhongMaterial({ opacity: geometry.alpha, vertexColors: true });
+        }
+        const object = new THREE.Mesh(geometry, meshMaterial);
+        object.position.set(0, 0, 0);
+        object.castShadow = true;
+        object.receiveShadow = true;
+        await afterLoad({ object });
+        break;
+      }
+
+      case "xyz": {
+        const loader = await createLoader(core.fileObject.extension.toLowerCase());
+        const geometry = await loadAsync(loader, modelPath, onProgress);
+        geometry.center();
+        const material = new THREE.PointsMaterial({ size: 0.1, vertexColors: geometry.hasAttribute("color") === true });
+        const object = new THREE.Points(geometry, material);
+        object.position.set(0, 0, 0);
+        await afterLoad({ object });
+        break;
+      }
+
+      case "pcd": {
+        const loader = await createLoader(core.fileObject.extension.toLowerCase());
+        const mesh = await loadAsync(loader, modelPath, onProgress);
+        mesh.geometry?.center?.();
+        if (mesh.material) {
+          mesh.material.size = Math.max(mesh.material.size ?? 0, 0.1);
+        }
+        await afterLoad({ object: mesh });
+        break;
+      }
+
+      case "json": {
+        const loader = new THREE.ObjectLoader();
+        const object = await loadAsync(loader, modelPath, onProgress);
+        object.position.set(0, 0, 0);
+        await afterLoad({ object });
+        break;
+      }
+
+      case "3ds": {
+        const loader = await createLoader(core.fileObject.extension.toLowerCase());
+        loader.setResourcePath(core.fileObject.path);
+        let mp = core.fileObject.path;
+        if (core.CONFIG.entity.proxyPath !== undefined) mp = core.getProxyPath(mp);
+        const object = await loadAsync(loader, mp + core.fileObject.basename + "." + core.fileObject.extension, onProgress);
+        await afterLoad({ object });
+        break;
+      }
+
+      case "glb":
+      case "gltf": {
+        const object = await loadGLTFModel();
+        await afterLoad({ object });
+        break;
+      }
+      default:
+        showToast("Extension not supported yet");
+        return;
+    }
+  } catch (error) {
+    reportLoadError(error, `Failed to load ${core.fileObject.filename}`);
+    throw error;
+  }
 }
+
+const getModuleAssetBasePath = function() {
+  let basePath = core.CONFIG?.baseModulePath ? core.CONFIG.baseModulePath.replace(/\/$/, '') : '';
+
+  if (!basePath) {
+    basePath = `/modules/${MODULES_PATH}/dfg_3dviewer/dist/${ENV_SUBDIR}/assets`
+      ;
+  }
+
+  // Override for localhost
+  if (core.isLocalPreview) {
+    basePath = '/assets';
+  }
+
+  // Normalize doubled slashes and switch to a best-guess custom path when env is drupal_custom.
+  basePath = basePath.replace(/\/\/+/g, '/');
+
+  // Fix duplicate host in path for full URLs
+  if (typeof window !== 'undefined' && basePath.startsWith('http')) {
+    try {
+      const url = new URL(basePath);
+      const host = url.host;
+      if (url.pathname.startsWith(`/${host}`)) {
+        url.pathname = url.pathname.replace(`/${host}`, '');
+        basePath = url.href;
+      }
+    } catch (err) {
+      // ignore
+    }
+  }
+
+  // Rising path mismatch: if we are in drupal custom and config path still has /drupal/main, try custom fallback.
+  if (basePath.includes('/drupal/main')) {
+    basePath = basePath.replace('/drupal/main', '/drupal/custom');
+  }
+
+  console.log('[loaders] resolved ModuleAssetBasePath:', basePath);
+  core.CONFIG.baseModulePath = basePath; // Cache for future use
+  if (!core.DFG_ASSETS.includes(core.CONFIG.baseModulePath)) {
+    core.DFG_ASSETS += core.CONFIG.baseModulePath;
+  }
+  return basePath;
+};
 
 const onProgress = function (xhr) {
   progressLoaderHandler(xhr);
@@ -9507,7 +9623,6 @@ const Viewer = {
   metadataUrl: null,
   iiifConfigURL: {url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: "Inbuilt"},
   testModelURL: 'https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb',
-  fetchMetadataXML: false,
   clock: null,
   FULLSCREEN: false,
   mixer: null,
@@ -9527,6 +9642,9 @@ const Viewer = {
   noMTL: false,
   canvasText: null,
   viewEntity: null,
+  actionMenu: null,
+  actionMenuToggle: null,
+  actionMenuPanel: null,
   fullscreenMode: null,
   downloadModel: null,
   GESTURE: {handPx: 55, period: 5.5, rotate: false, active: false, target: new THREE.Vector3(), startTime: 0, baseAngle: 0, orbitAngle: THREE.MathUtils.degToRad(15), easeInTime: 2.25},
@@ -9708,6 +9826,88 @@ const Viewer = {
     this.addCleanup(() => target.removeEventListener(type, handler, options));
   },
 
+  closeActionMenu() {
+    if (this.actionMenuToggle) {
+      this.actionMenuToggle.checked = false;
+    }
+  },
+
+  isEmbedMode() {
+    const params = new URLSearchParams(window.location.search);
+    const embedParam = params.get("embed");
+    return window.location.pathname.endsWith("/embed.html") || embedParam === "1" || embedParam === "true";
+  },
+
+  getEmbedPageUrl() {
+    const embedUrl = new URL("embed.html", import.meta.url);
+    embedUrl.search = "";
+    embedUrl.hash = "";
+    return embedUrl;
+  },
+
+  getSharePayload() {
+    const embedUrl = this.getEmbedPageUrl();
+    const params = new URLSearchParams();
+    const entityId = core.CONFIG?.entity?.id;
+    const modelPath = core.fileObject?.originalPath || core.container?.getAttribute("3d") || "";
+
+    if (entityId) {
+      params.set("id", entityId);
+    } else if (modelPath) {
+      params.set("model", modelPath);
+    }
+
+    embedUrl.search = params.toString();
+
+    return {
+      url: embedUrl.toString(),
+      code: `<iframe src="${embedUrl.toString()}" title="DFG 3D Viewer" loading="lazy" allow="fullscreen; xr-spatial-tracking" referrerpolicy="strict-origin-when-cross-origin" style="width:100%; aspect-ratio: 16 / 9; border: 0;"></iframe>`,
+    };
+  },
+
+  async copyEmbedCode(event) {
+    event?.preventDefault?.();
+    Viewer.closeActionMenu();
+
+    try {
+      const { code } = Viewer.getSharePayload();
+
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(code);
+      } else {
+        const tempInput = document.createElement("textarea");
+        tempInput.value = code;
+        tempInput.setAttribute("readonly", "true");
+        tempInput.style.position = "absolute";
+        tempInput.style.left = "-9999px";
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        document.execCommand("copy");
+        tempInput.remove();
+      }
+
+      showToast("Embed code copied to clipboard");
+    } catch (error) {
+      Viewer.reportError(error, { context: "Copy embed code failed" });
+      showToast("Could not copy embed code");
+    }
+  },
+
+  updateFullscreenButtonIcon() {
+    if (!this.fullscreenMode) return;
+
+    const isFullscreen = !!document.fullscreenElement;
+    const icon = isFullscreen ? "exit-fullscreen.png" : "fullscreen.png";
+    const label = isFullscreen ? "Exit fullscreen mode" : "Fullscreen mode";
+
+    this.fullscreenMode.innerHTML = `
+      <img src="${core.DFG_ASSETS}/img/${icon}" alt="${label}" width="20" height="20"/>
+      <span>${isFullscreen ? "Exit fullscreen" : "Fullscreen"}</span>
+    `;
+    this.fullscreenMode.setAttribute("aria-label", label);
+    this.fullscreenMode.setAttribute("title", label);
+  },
+
   cleanupRuntimeBindings() {
     while (this.cleanupCallbacks.length > 0) {
       const callback = this.cleanupCallbacks.pop();
@@ -9868,7 +10068,7 @@ const Viewer = {
       if (document.readyState !== 'loading') r();
       else document.addEventListener('DOMContentLoaded', r);
     });
-    const url = new URL('./viewer-settings.json', import.meta.url);
+    const url = new URL('../viewer-settings.json', import.meta.url);
 
     //Setup core variables first to make them available in the loaders and utils
     setCore('viewEntity', this.viewEntity);
@@ -9878,7 +10078,6 @@ const Viewer = {
     setCore('guiContainer', this.guiContainer);
     setCore('lilGui', this.lilGui);
     setCore('gui', this.gui);
-    setCore('fetchMetadataXML', this.fetchMetadataXML);
 
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -9933,13 +10132,23 @@ const Viewer = {
     console.log(`Powered by Three.js (v${THREE.REVISION})`);
 
     this.EDITOR = Boolean(core.CONFIG.viewer.editor);
+    setCore('EDITOR', this.EDITOR);
     
-    core.CONFIG.entity.metadata.source = SOURCE;
-    if (core.CONFIG.entity.metadata.source) console.log(`Metadata source: ${core.CONFIG.entity.metadata.source}`);
+    if (!core.CONFIG.entity.metadata.sourceType) { 
+      core.CONFIG.entity.metadata.sourceType = SOURCE;
+      console.log(`Metadata source: ${core.CONFIG.entity.metadata.sourceType}`);
+    }
 
     this.container = document.getElementById(core.CONFIG.viewer.container);
     if (!this.container) throw new Error("Container not found");
     setCore('container', this.container);
+    document.body.classList.toggle("viewer-embed-page", this.isEmbedMode());
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const modelFromQuery = urlParams.get("model");
+    if (modelFromQuery) {
+      this.container.setAttribute("3d", modelFromQuery);
+    }
 
     this.scrollTop = window.scrollY || document.documentElement.scrollTop;
     this.rect = core.container.getBoundingClientRect();
@@ -9960,15 +10169,21 @@ const Viewer = {
     if (core.isLightweight) {
       core.CONFIG.viewer.lightweight = core.container.getAttribute("proxy");
     }
-    else {
-      var elementsURL = window.location.pathname;
-      elementsURL = elementsURL.match(core.CONFIG.entity.idUri);
-      if (elementsURL !== null) {
-        core.CONFIG.entity.id = elementsURL[1];
-        core.container.setAttribute(core.CONFIG.entity.attributeId, core.CONFIG.entity.id);
-        console.log("Entity ID:", core.CONFIG.entity.id);
+    var elementsURL = window.location.pathname;
+    elementsURL = elementsURL.match(core.CONFIG.entity.idUri);
+    if (elementsURL !== null) {
+      core.CONFIG.entity.id = elementsURL[1];
+    } else {
+      // Fallback: check for ?id= parameter
+      const idFromQuery = urlParams.get('id');
+      if (idFromQuery) {
+        core.CONFIG.entity.id = idFromQuery;
       }
-    }    
+    }
+    if (core.CONFIG.entity.id) {
+      core.container.setAttribute(core.CONFIG.entity.attributeId, core.CONFIG.entity.id);
+      console.log("Entity ID:", core.CONFIG.entity.id);
+    }
     // Initialize clipping planes at startup
     this.core = initClippingPlanes();
     setCore('EXIT_CODE', this.EXIT_CODE);
@@ -10664,9 +10879,6 @@ const Viewer = {
 
         Viewer.mainCanvas.style.width = '100vw';
         Viewer.mainCanvas.style.height = '100vh';
-        Viewer.fullscreenMode.style.left = (widthCSS - 40) + 'px';
-        Viewer.fullscreenMode.innerHTML = `<img src="${core.DFG_ASSETS}/img/exit-fullscreen.png" alt="Fullscreen" width=25 height=25 title="Exit fullscreen mode"/>`;
-        //Viewer.downloadModel?.setAttribute("style", "visibility: none");
     } else {
       scale = {x: Number(core.CONFIG.viewer.scaleContainer?.x || 1), y: Number(core.CONFIG.viewer.scaleContainer?.y || 1)};
       const wrapper = Viewer.viewerWrapper || core.container;
@@ -10681,15 +10893,13 @@ const Viewer = {
       heightDev = heightCSS * devicePixelRatio;
       Viewer.mainCanvas.style.width = widthCSS + 'px';
       Viewer.mainCanvas.style.height = heightCSS + 'px';
-      
+
       core.metadataContainer.style.width = '100%';
       core.metadataContainer.style.height = '100%';
-      Viewer.downloadModel?.setAttribute("style", "visibility: visible");
 
       if (Viewer.fileElement && Viewer.fileElement.length > 0) {
         Viewer.fileElement[0].style.height = (heightCSS * 1.1) + 'px';
       }
-      Viewer.fullscreenMode.style.left = (widthCSS - Viewer.fullscreenMode.getBoundingClientRect().width - 15) + 'px';
     }
 
     core.guiContainer.style.left = (widthCSS - core.lilGui[0]?.getBoundingClientRect().width) + 'px';
@@ -10697,14 +10907,14 @@ const Viewer = {
     Viewer.mainCanvas.width = widthDev;
     Viewer.mainCanvas.height = heightDev;
 
-    Viewer.fullscreenMode.style.top = (heightCSS - 40) + 'px';
-    if (Viewer.downloadModel) {
-      let _offset = (core.isLightweight) ? 130 : 70;
-      Viewer.downloadModel.style.top = (heightCSS - _offset) + 'px';
+    if (Viewer.actionMenu) {
+      const menuMargin = 16;
+      const toggleSize = Viewer.actionMenu.querySelector(".viewer-action-menu__toggle")?.getBoundingClientRect().height || 45;
+      Viewer.actionMenu.style.top = (heightCSS - toggleSize - menuMargin) + "px";
+      Viewer.actionMenu.style.right = menuMargin + "px";
+      Viewer.actionMenu.style.bottom = "auto";
     }
-    if (core.viewEntity) {
-      core.viewEntity.style.right = isFullscreen ? '-95%' : '-75%';
-    }
+
     core.handHint.style.top = (heightCSS - 70) + 'px';
    
     core.renderer.setPixelRatio(devicePixelRatio * scale.x);
@@ -10718,6 +10928,7 @@ const Viewer = {
     // Three.js renderer needs actual pixel size
 
   async toggleFullscreen() {
+    Viewer.closeActionMenu();
     try {
       if (!document.fullscreenElement) {
         await core.container.requestFullscreen();
@@ -10734,12 +10945,8 @@ const Viewer = {
   },
 
   onFullscreenChange () {
-    const isFs = !!document.fullscreenElement;
-
-    // UI
-    Viewer.fullscreenMode.innerHTML = isFs
-      ? `<img src="${core.DFG_ASSETS}/img/exit-fullscreen.png" width="25" height="25" title="Exit fullscreen mode"/>`
-      : `<img src="${core.DFG_ASSETS}/img/fullscreen.png" width="25" height="25" title="Fullscreen mode"/>`;
+    Viewer.updateFullscreenButtonIcon();
+    Viewer.closeActionMenu();
 
     // Layout (ESC + click)
     requestAnimationFrame(() => {
@@ -11591,7 +11798,7 @@ const Viewer = {
       });
     setCore("clippingFolder", Viewer.clippingFolder);
 
-    if (Viewer.EDITOR) {
+    if (core.EDITOR) {
       core.clippingFolder = Viewer.editorFolder.addFolder("Clipping Planes").close();
       
       core.materialsFolder = Viewer.editorFolder.addFolder("Materials").close();
@@ -11655,7 +11862,7 @@ const Viewer = {
       Viewer.propertiesFolder.add(Viewer.saveProperties, "BackgroundColor");
     }
 
-    if (Viewer.EDITOR && !core.isLightweight) {
+    if (core.EDITOR && !core.isLightweight) {
       Viewer.editorFolder.add(
         {
           ["Save"]() {
@@ -11765,6 +11972,152 @@ const Viewer = {
     const poller = new StatusPoller(_id);
     setCore("poller", poller);
     poller.start();
+  },
+
+  // IIIF setup and loading
+  async setupIIIF(newUrlOrJson, type="url") {
+    if (type === "text") {
+      Viewer.iiifConfigURL.url = "";
+    } else {
+      Viewer.iiifConfigURL.url = newUrlOrJson;
+    }
+    const loadedIIIF = await loadIIIFManifest(newUrlOrJson);
+    if (loadedIIIF.modelUrls.length === 0) { // no 3D model found, use example model
+      loadedIIIF.modelUrls.push('https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb');
+      showToast("No 3D model found in IIIF manifest, loading example model.");
+    }
+    // reset scene and release GPU resources from the previous model batch
+    Viewer.resetLoadedModelState();
+    core.axesHelper.visible = false;
+    console.log("TOTAL Annotations: " + loadedIIIF.annotations.length);
+    if (loadedIIIF.annotations.length !== loadedIIIF.modelUrls.length) {
+      //console.warn("Number of annotations does not match number of model URLs, adding testing model...");
+        const diff = loadedIIIF.annotations.length - loadedIIIF.modelUrls.length;
+        if (diff > 0) {
+          // Need more model URLs → push empty strings (or null)
+          for (let i = 0; i < diff; i++) {
+            loadedIIIF.modelUrls.push(Viewer.testModelURL);
+            core.objectsConfig.models.push({name: "Test Model", url: Viewer.testModelURL});
+          }
+        }
+    }
+    for (const [i, url] of loadedIIIF.modelUrls?.entries()) {
+      core.objectsConfig.index = i;
+      core.fileObject.originalPath = loadedIIIF.modelUrl = url;
+      //fileObject.originalPath = loadedIIIF.modelUrl;
+      Viewer.setModelPaths();
+      await getAnnotations(loadedIIIF, core.objectsConfig);
+      if (loadedIIIF.scenes && loadedIIIF.scenes.length > 0) {
+        core.objectsConfig.scenes = loadedIIIF.scenes;
+      }
+      Viewer._ext = core.fileObject.extension.toLowerCase();
+      await Viewer.mainLoadModel();
+    }
+  },
+
+  async loadIIIFURL() {
+    const form = document.getElementById("form-IIIF");
+    const collapseBtn = document.getElementById("iiif-toggle-collapse");
+    const themeBtn = document.getElementById("iiif-toggle-theme");
+    const STORAGE_KEY = "iiif-dark-mode";
+    const syncGlobalTheme = (isDark) => {
+      document.body.classList.toggle("iiif-dark", isDark);
+      themeBtn.textContent = isDark ? "☀️" : "🌙";
+      themeBtn.setAttribute("aria-pressed", isDark ? "true" : "false");
+      const testThemeToggle = document.getElementById("test-theme-toggle");
+      if (testThemeToggle) {
+        testThemeToggle.textContent = isDark ? "☀️" : "🌙";
+        testThemeToggle.setAttribute("aria-pressed", isDark ? "true" : "false");
+      }
+    };
+
+    // restore
+    if (localStorage.getItem(STORAGE_KEY) === "1") {
+      form.classList.add("dark");
+    }
+    syncGlobalTheme(form.classList.contains("dark"));
+
+    Viewer.bindEventListener(themeBtn, "click", () => {
+      const isDark = form.classList.toggle("dark");
+      localStorage.setItem(STORAGE_KEY, isDark ? "1" : "0");
+      syncGlobalTheme(isDark);
+    });
+
+    Viewer.bindEventListener(collapseBtn, "click", () => {
+      form.classList.toggle("collapsed");
+      collapseBtn.textContent = form.classList.contains("collapsed") ? "▸" : "▾";
+    });
+    // create a small dropdown to switch iiif manifests at runtime
+    Viewer.bindEventListener(document.getElementById("iiif-manifest-select"), "change", async (ev) => {
+      try {
+        if (ev.target.value !== Viewer.iiifConfigURL.url) {
+          core.objectsConfig.setupIndex = 0;
+          await Viewer.setupIIIF(ev.target.value, "url");
+        }
+      } catch (err) {
+        Viewer.reportError(err, {
+          context: "Error loading IIIF manifest",
+        });
+      }
+      });
+
+    Viewer.bindEventListener(document.getElementById("load-manifest-from-url"), "click", async (ev) => {
+      try {
+        const inputElement = document.getElementById("manifest-url");
+        if (inputElement.value === "" || !Viewer.isUrlFlexible(inputElement.value)) {
+        inputElement.style.border = "2px solid red";
+        showToast("Please enter a valid IIIF manifest URL.");
+        return;
+      } else {
+        inputElement.style.border = "2px solid green";
+        core.objectsConfig.setupIndex = 0;
+          console.log("Loading IIIF manifest from URL: " + inputElement.value);
+          await Viewer.setupIIIF(inputElement.value, "url");
+        }
+      } catch (err) {
+        Viewer.reportError(err, {
+          context: "Error loading IIIF manifest",
+        });
+      }
+      });
+
+    Viewer.bindEventListener(document.getElementById("load-manifest-from-text"), "click", async (ev) => {
+      try {
+        const inputElement = document.getElementById("manifest-text");
+        if (inputElement.value === "" || !Viewer.isValidJsonObject(inputElement.value)) {
+        inputElement.style.border = "2px solid red";
+        showToast("Please enter a valid IIIF JSON text.");
+        return;
+      } else {
+        inputElement.style.border = "2px solid green";
+        core.objectsConfig.setupIndex = 0;
+          console.log("Loading IIIF manifest from privided text");
+          await Viewer.setupIIIF(inputElement.value, "text");
+        }
+      } catch (err) {
+        Viewer.reportError(err, {
+          context: "Error loading IIIF manifest",
+        });
+      }
+    });
+  },
+
+  isUrlFlexible(string) {
+    try {
+      new URL(string);
+      return true;
+    } catch {
+      return /^(https?:\/\/)?([\w-]+\.)+[\w-]{2,}(\/\S*)?$/i.test(string);
+    }
+  },
+
+  isValidJsonObject(text) {
+    try {
+      const parsed = JSON.parse(text);
+      return typeof parsed === 'object' && parsed !== null;
+    } catch {
+      return false;
+    }
   },
 
   async init() {
@@ -11912,26 +12265,66 @@ const Viewer = {
       core.camera.updateProjectionMatrix();
 
       setCore('mainCanvas', Viewer.mainCanvas);
-      Viewer.fullscreenMode = document.createElement("div");
-      Viewer.fullscreenMode.setAttribute("id", "fullscreenMode");
       const scriptUrl = document.currentScript?.src || import.meta.url;
-      Viewer.DFG_ASSETS = scriptUrl.replace(/\/[^\/]*$/, '/assets');
+      Viewer.DFG_ASSETS = scriptUrl.replace(/\/[^\/]*$/, '');
+
       setCore('DFG_ASSETS', Viewer.DFG_ASSETS);
+      getModuleAssetBasePath();
 
-      Viewer.fullscreenMode.innerHTML = `<img src="${core.DFG_ASSETS}/img/fullscreen.png" alt="Fullscreen" width=25 height=25 title="Fullscreen mode"/>`;
-      Viewer.fullscreenMode.setAttribute(
-        "style",
-        "top:" +
-        (core.bottomLineGUI + 18) +
-        "px; left: " +
-        (core.CONFIG.viewer.canvasDimensions.x - 40) +
-        "px"
-      );
-      core.container.appendChild(Viewer.fullscreenMode);
-	      Viewer.bindEventListener(document.getElementById("fullscreenMode"), "click", Viewer.toggleFullscreen, false);
+      Viewer.actionMenu = document.createElement("div");
+      Viewer.actionMenu.setAttribute("id", "viewerActionMenu");
+      Viewer.actionMenu.innerHTML = `
+        <input
+          id="viewerActionMenuToggle"
+          class="viewer-action-menu__checkbox"
+          type="checkbox"
+          aria-label="Open viewer actions"
+        />
+        <label
+          for="viewerActionMenuToggle"
+          class="viewer-action-menu__toggle"
+          aria-label="Open viewer actions"
+          title="Viewer actions"
+        >
+          <span></span>
+          <span></span>
+          <span></span>
+        </label>
+        <div class="viewer-action-menu__panel" aria-label="Viewer actions"></div>
+      `;
+      core.container.appendChild(Viewer.actionMenu);
 
-      Viewer.downloadModel = document.createElement("div");
+      Viewer.actionMenuToggle = Viewer.actionMenu.querySelector("#viewerActionMenuToggle");
+      Viewer.actionMenuPanel = Viewer.actionMenu.querySelector(".viewer-action-menu__panel");
+
+      Viewer.viewEntity = document.createElement("button");
+      Viewer.viewEntity.setAttribute("id", "viewEntity");
+      Viewer.viewEntity.setAttribute("type", "button");
+      Viewer.viewEntity.hidden = true;
+
+      Viewer.downloadModel = document.createElement("a");
       setCore('downloadModel', Viewer.downloadModel);
+      Viewer.downloadModel.setAttribute("id", "downloadModel");
+      Viewer.downloadModel.hidden = true;
+
+      Viewer.fullscreenMode = document.createElement("button");
+      Viewer.fullscreenMode.setAttribute("id", "fullscreenMode");
+      Viewer.fullscreenMode.setAttribute("type", "button");
+      Viewer.updateFullscreenButtonIcon();
+
+      Viewer.actionMenuPanel.appendChild(Viewer.viewEntity);
+      Viewer.actionMenuPanel.appendChild(Viewer.downloadModel);
+      Viewer.actionMenuPanel.appendChild(Viewer.fullscreenMode);
+
+      setCore('viewEntity', Viewer.viewEntity);
+	      Viewer.bindEventListener(Viewer.fullscreenMode, "click", Viewer.toggleFullscreen, false);
+      Viewer.bindEventListener(Viewer.viewEntity, "click", Viewer.copyEmbedCode);
+      Viewer.bindEventListener(Viewer.downloadModel, "click", () => Viewer.closeActionMenu());
+      Viewer.bindEventListener(document, "click", (event) => {
+        if (!Viewer.actionMenu?.contains(event.target)) {
+          Viewer.closeActionMenu();
+        }
+      });
 
       Viewer.handHint.innerHTML = `<img src="${core.DFG_ASSETS}/img/hand-hint.png" alt="Fullscreen" width=48 height=48 title="Hand hint animation"/>`;
       
@@ -12043,7 +12436,7 @@ const Viewer = {
         const themeToggle = document.getElementById('example-theme-toggle');
         const viewerElement = document.getElementById('DFG_3DViewer');
         const THEME_STORAGE_KEY = 'iiif-dark-mode';
-        if (picker || selectModel || themeToggle || viewerElement) {
+        if (picker && selectModel && themeToggle && viewerElement) {
           const syncPickerTheme = (isDark = window.localStorage.getItem(THEME_STORAGE_KEY) === '1') => {
             document.body.classList.toggle('iiif-dark', Boolean(isDark));
             themeToggle.textContent = isDark ? '☀️' : '🌙';
@@ -12087,6 +12480,9 @@ const Viewer = {
           });
         }
       }
+
+      const sourceType = core.CONFIG.entity.metadata.sourceType.toLowerCase();
+      console.log("Loading from source: " + sourceType);
           
       if (window.__E2E__) {
         try {
@@ -12096,12 +12492,15 @@ const Viewer = {
             context: "E2E model load error",
           });
         }
-	      } else if (core.CONFIG.entity.metadata.source === "") {
-	        try {
-	          if (core.fetchMetadataXML && !core.isLightweight) {
-	            const response = await fetch(core.CONFIG.viewer.exportPath + core.CONFIG.entity.id, {
-	              method: 'POST',
-	              headers: {
+	    } 
+      else if (sourceType === "drupal") {
+        try {
+          if (core.CONFIG.entity.metadata.exportUrl && core.CONFIG.entity.metadata.exportUrl !== "") 
+          {
+            const response = await fetch(core.CONFIG.viewer.exportPath + core.CONFIG.entity.id, 
+            {
+              method: 'POST',
+              headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/xml'
               },
@@ -12131,227 +12530,58 @@ const Viewer = {
               ) {
                 core.autoPath = node.textContent;
                 break;
-	              }
-	            }
-	          }
-	          await Viewer.mainLoadModelWrapper();
-	        } catch (err) {
-	          Viewer.reportError(err, {
-	            context: core.isLightweight ? "Lightweight model load error" : "Metadata load error",
-	          });
-	        }
-	      } else if (core.CONFIG.entity.metadata.source.toLowerCase().substring(0, 4) === "iiif") {
-	          Viewer.cleanupTransientUI();
-	          const formContainer = document.createElement("div");
-            formContainer.id = "form-IIIF";
-
-            /* header */
-            const header = document.createElement("div");
-            header.className = "form-IIIF-header";
-            header.innerHTML = `
-              <span class="title">IIIF Loader</span>
-              <div class="tools">
-                <button type="button" id="iiif-toggle-theme" title="Toggle dark mode">🌙</button>
-                <button type="button" id="iiif-toggle-collapse" title="Collapse">▾</button>
-              </div>
-            `;
-
-            formContainer.appendChild(header);
-
-            /* content */
-            const content = document.createElement("div");
-            content.className = "form-IIIF-content";
-            content.id = "form-IIIF-content";
-            content.innerHTML = `
-              <div class="form-IIIF-group">
-                <input type="text" id="manifest-url" placeholder="https://example.org/iiif/manifest.json">
-                <button class="primary" id="load-manifest-from-url">Load from URL</button>
-              </div>
-
-              <div class="form-IIIF-group column">
-                <textarea id="manifest-text" rows="8" placeholder="Paste IIIF manifest JSON here…"></textarea>
-                <div class="actions">
-                  <button class="secondary" id="load-manifest-from-text">Load from Text</button>
-                </div>
-              </div>
-            `;
-
-            formContainer.appendChild(content);
-
-            document.body.appendChild(formContainer);
-
-        async function setupIIIF(newUrlOrJson, type="url") {
-          if (type === "text") {
-            Viewer.iiifConfigURL.url = "";
-          } else {
-            Viewer.iiifConfigURL.url = newUrlOrJson;
-          }
-          const loadedIIIF = await loadIIIFManifest(newUrlOrJson);
-          if (loadedIIIF.modelUrls.length === 0) { // no 3D model found, use example model
-            loadedIIIF.modelUrls.push('https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb');
-            showToast("No 3D model found in IIIF manifest, loading example model.");
-          }
-          // reset scene and release GPU resources from the previous model batch
-          Viewer.resetLoadedModelState();
-          core.axesHelper.visible = false;
-          console.log("TOTAL Annotations: " + loadedIIIF.annotations.length);
-          if (loadedIIIF.annotations.length !== loadedIIIF.modelUrls.length) {
-            //console.warn("Number of annotations does not match number of model URLs, adding testing model...");
-              const diff = loadedIIIF.annotations.length - loadedIIIF.modelUrls.length;
-              if (diff > 0) {
-                // Need more model URLs → push empty strings (or null)
-                for (let i = 0; i < diff; i++) {
-                  loadedIIIF.modelUrls.push(Viewer.testModelURL);
-                  core.objectsConfig.models.push({name: "Test Model", url: Viewer.testModelURL});
                 }
               }
           }
-          for (const [i, url] of loadedIIIF.modelUrls?.entries()) {
-            core.objectsConfig.index = i;
-            core.fileObject.originalPath = loadedIIIF.modelUrl = url;
-            //fileObject.originalPath = loadedIIIF.modelUrl;
-            Viewer.setModelPaths();
-            await getAnnotations(loadedIIIF, core.objectsConfig);
-            if (loadedIIIF.scenes && loadedIIIF.scenes.length > 0) {
-              core.objectsConfig.scenes = loadedIIIF.scenes;
-            }
-            Viewer._ext = core.fileObject.extension.toLowerCase();
-            await Viewer.mainLoadModel();
-          }
-        }
-
-        function isUrlFlexible(string) {
-          try {
-            new URL(string);
-            return true;
-          } catch {
-            return /^(https?:\/\/)?([\w-]+\.)+[\w-]{2,}(\/\S*)?$/i.test(string);
-          }
-        }
-
-        function isValidJsonObject(text) {
-          try {
-            const parsed = JSON.parse(text);
-            return typeof parsed === 'object' && parsed !== null;
-          } catch {
-            return false;
-          }
-        }
-
-        async function loadIIIFURL() {
-          const form = document.getElementById("form-IIIF");
-          const collapseBtn = document.getElementById("iiif-toggle-collapse");
-          const themeBtn = document.getElementById("iiif-toggle-theme");
-          const STORAGE_KEY = "iiif-dark-mode";
-          const syncGlobalTheme = (isDark) => {
-            document.body.classList.toggle("iiif-dark", isDark);
-            themeBtn.textContent = isDark ? "☀️" : "🌙";
-            themeBtn.setAttribute("aria-pressed", isDark ? "true" : "false");
-            const testThemeToggle = document.getElementById("test-theme-toggle");
-            if (testThemeToggle) {
-              testThemeToggle.textContent = isDark ? "☀️" : "🌙";
-              testThemeToggle.setAttribute("aria-pressed", isDark ? "true" : "false");
-            }
-          };
-
-          // restore
-          if (localStorage.getItem(STORAGE_KEY) === "1") {
-            form.classList.add("dark");
-          }
-          syncGlobalTheme(form.classList.contains("dark"));
-
-          Viewer.bindEventListener(themeBtn, "click", () => {
-            const isDark = form.classList.toggle("dark");
-            localStorage.setItem(STORAGE_KEY, isDark ? "1" : "0");
-            syncGlobalTheme(isDark);
+          await Viewer.mainLoadModelWrapper();
+        } catch (err) {
+          Viewer.reportError(err, {
+            context: core.isLightweight ? "Lightweight model load error" : "Metadata load error",
           });
-
-          Viewer.bindEventListener(collapseBtn, "click", () => {
-            form.classList.toggle("collapsed");
-            collapseBtn.textContent = form.classList.contains("collapsed") ? "▸" : "▾";
-          });
-          // create a small dropdown to switch iiif manifests at runtime
-          Viewer.bindEventListener(document.getElementById("iiif-manifest-select"), "change", async (ev) => {
-            try {
-              if (ev.target.value !== Viewer.iiifConfigURL.url) {
-                core.objectsConfig.setupIndex = 0;
-                await setupIIIF(ev.target.value, "url");
-              }
-            } catch (err) {
-              Viewer.reportError(err, {
-                context: "Error loading IIIF manifest",
-              });
-            }
-            });
-
-          Viewer.bindEventListener(document.getElementById("load-manifest-from-url"), "click", async (ev) => {
-            try {
-              const inputElement = document.getElementById("manifest-url");
-              if (inputElement.value === "" || !isUrlFlexible(inputElement.value)) {
-              inputElement.style.border = "2px solid red";
-              showToast("Please enter a valid IIIF manifest URL.");
-              return;
-            } else {
-              inputElement.style.border = "2px solid green";
-              core.objectsConfig.setupIndex = 0;
-                console.log("Loading IIIF manifest from URL: " + inputElement.value);
-                await setupIIIF(inputElement.value, "url");
-              }
-            } catch (err) {
-              Viewer.reportError(err, {
-                context: "Error loading IIIF manifest",
-              });
-            }
-            });
-
-          Viewer.bindEventListener(document.getElementById("load-manifest-from-text"), "click", async (ev) => {
-            try {
-              const inputElement = document.getElementById("manifest-text");
-              if (inputElement.value === "" || !isValidJsonObject(inputElement.value)) {
-              inputElement.style.border = "2px solid red";
-              showToast("Please enter a valid IIIF JSON text.");
-              return;
-            } else {
-              inputElement.style.border = "2px solid green";
-              core.objectsConfig.setupIndex = 0;
-                console.log("Loading IIIF manifest from privided text");
-                await setupIIIF(inputElement.value, "text");
-              }
-            } catch (err) {
-              Viewer.reportError(err, {
-                context: "Error loading IIIF manifest",
-              });
-            }
-          });
-        }      
-        console.log("Loading from source: " + core.CONFIG.entity.metadata.source);
-        switch(core.CONFIG.entity.metadata.source.substring(0, 4).toLowerCase()) {
-          case "iiif":
-            if (Viewer.iiifConfigURL.url !== "") {
-              createIIIFDropdown(Viewer.iiifConfigURL);
-              await loadIIIFURL();
-              core.CONFIG.entity.metadata.source = "IIIF";
-              await setupIIIF(Viewer.iiifConfigURL.url);
-            }
-            break;
         }
-      } else ;
+	    } else if (sourceType === "iiif") {
+        Viewer.cleanupTransientUI();
+        createIIIFUI();
 
+        console.log("Loading from source: " + core.CONFIG.entity.metadata.sourceType);
+        if (Viewer.iiifConfigURL.url !== "") {
+          createIIIFDropdown(Viewer.iiifConfigURL);
+          await Viewer.loadIIIFURL();
+          core.CONFIG.entity.metadata.sourceType = "IIIF";
+          await Viewer.setupIIIF(Viewer.iiifConfigURL.url);
+        }
+      } else {
+        console.log("Custom metadata source:" + core.CONFIG.entity.metadata.sourceType);
+        try {
+          switch(core.CONFIG.entity.metadata.sourceType.substring(0, 6).toLowerCase()) {
+            case "drupal":
+              console.log("Loading from URL: " + core.CONFIG.entity.metadata.url);
+
+              break;
+          }
+          // Load model for custom metadata sources
+          await Viewer.mainLoadModelWrapper();
+        } catch (error) {
+          Viewer.reportError(error, {
+            context: core.isLightweight ? "Lightweight model load error" : "Custom metadata load error",
+          });
+        }
+      }
 
       core.renderer.setPixelRatio(devicePixelRatio);
       const update = () => Viewer.updateSize();
 
-	      Viewer.bindEventListener(window, 'resize', update);
+      Viewer.bindEventListener(window, 'resize', update);
 
-	      Viewer.resizeObserver = new ResizeObserver(update);
-	      Viewer.resizeObserver.observe(Viewer.viewerWrapper);
+      Viewer.resizeObserver = new ResizeObserver(update);
+      Viewer.resizeObserver.observe(Viewer.viewerWrapper);
 
 
-	      Viewer.bindEventListener(document, 'fullscreenchange', Viewer.onFullscreenChange);
+      Viewer.bindEventListener(document, 'fullscreenchange', Viewer.onFullscreenChange);
 
-	      const onOrientationChange = () => setTimeout(update, 100);
-	      Viewer.bindEventListener(window, 'orientationchange', onOrientationChange);
-	    }
+      const onOrientationChange = () => setTimeout(update, 100);
+      Viewer.bindEventListener(window, 'orientationchange', onOrientationChange);
+	  }
   },
   render() {
     core.controls?.update();
@@ -12375,6 +12605,8 @@ async function expectWebGL(page) {
   }
 }
 
+window.Viewer = Viewer;
+
 (async () => {
   try {
     await Viewer.MainInit();
@@ -12384,4 +12616,4 @@ async function expectWebGL(page) {
 })();
 
 export { Viewer, expectWebGL };
-//# sourceMappingURL=dfg_3dviewer-module.js.map
+//# sourceMappingURL=main.BPcq8JDH.js.map

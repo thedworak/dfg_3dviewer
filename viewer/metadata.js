@@ -11,13 +11,25 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+function buildMetadataRow(label, value) {
+  if (!label || typeof value === "undefined" || value === null || value === "") {
+    return "";
+  }
+
+  return (
+    '<div class="metadata-row">' +
+      '<span class="metadata-label">' + escapeHtml(label) + ':</span>' +
+      '<span class="metadata-value">' + escapeHtml(value) + '</span>' +
+    '</div>'
+  );
+}
+
 /**
  * Formats WissKI metadata labels and values for display.
  */
 export function addWissKIMetadata(label, value) {
   if (typeof label !== "undefined" && typeof value !== "undefined") {
     var _str = "";
-    const safeValue = escapeHtml(value);
     label = label.replace("wisski_path_3d_model__", "");
     switch (label) {
       case "title":
@@ -32,16 +44,25 @@ export function addWissKIMetadata(label, value) {
       case "license":
         _str = "License";
         break;
+      case "description":
+        _str = "Description";
+        break;
+      case "object_type":
+        _str = "Object type";
+        break;
+      case "reconstruction_authors":
+        _str = "Reconstruction authors";
+        break;
+      case "reconstruction_period":
+        _str = "Reconstruction period";
+        break;
       default:
         _str = "";
         break;
     }
-    if (_str == "period") {
-      return "Reconstruction period: <b>" + safeValue + " - ";
-    } else if (_str == "-") {
-      return safeValue + "</b><br>";
-    } else if (_str !== "") {
-      return _str + ": <b>" + safeValue + "</b><br>";
+
+    if (_str !== "") {
+      return buildMetadataRow(_str, value);
     }
   }
 }
@@ -74,15 +95,90 @@ export function expandMetadata() {
  * Appends metadata HTML to the DOM.
  */
 export function appendMetadata(
-  metadataContent,
-  metadataContentTech
+  metadataContent
 ) {
-  metadataContent += metadataContentTech + "</div>";
-
   core.metadataContainer.innerHTML = metadataContent;
 
   if (!core.container.contains(core.metadataContainer)) {
     core.container.appendChild(core.metadataContainer);
+  }
+}
+
+async function fetchEntityMetadata() {
+  if (!core.CONFIG.entity.metadata.sourceType || core.CONFIG.entity.metadata.url === "") {
+    return "";
+  }
+
+  const metadataUrl = core.CONFIG.entity.metadata.url + encodeURIComponent(core.CONFIG.entity.id);
+
+  try {
+    const response = await fetch(metadataUrl, { cache: "no-cache" });
+
+    if (!response.ok) {
+      console.warn("Metadata request failed with status:", response.status);
+      return "";
+    }
+
+    const responseText = await response.text();
+
+    try {
+      const jsonData = JSON.parse(responseText);
+      const record = Array.isArray(jsonData) ? jsonData[0] : jsonData;
+
+      if (!record || typeof record !== "object") {
+        return "";
+      }
+
+      console.log("Processing JSON metadata:", record);
+
+      const jsonFieldMap = {
+        title: "title",
+        reconstruction_authors: "author_name",
+        reconstruction_authors_affiliation: "author_affiliation",
+        reconstruction_license: "license",
+        reconstruction_time_frame: "reconstruction_period",
+        object_description: "description",
+        object_type: "object_type",
+      };
+
+      let entityMetadataContent = "";
+      for (const [jsonField, metadataLabel] of Object.entries(jsonFieldMap)) {
+        if (record[jsonField]) {
+          const fetchedValue = addWissKIMetadata(metadataLabel, record[jsonField]);
+          if (typeof fetchedValue !== "undefined") {
+            entityMetadataContent += fetchedValue;
+          }
+        }
+      }
+
+      return entityMetadataContent;
+    } catch (_jsonError) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(responseText, "application/xml");
+
+      if (doc.documentElement.tagName === "parsererror") {
+        console.error("XML parsing error:", doc.documentElement.textContent);
+        return "";
+      }
+
+      let entityMetadataContent = "";
+      if (doc.documentElement.childNodes.length > 0) {
+        var data = doc.documentElement.childNodes[0].childNodes;
+        if (data !== undefined) {
+          for (var i = 0; i < data.length; i++) {
+            var fetchedValue = addWissKIMetadata(data[i].tagName, data[i].textContent);
+            if (typeof fetchedValue !== "undefined") {
+              entityMetadataContent += fetchedValue;
+            }
+          }
+        }
+      }
+
+      return entityMetadataContent;
+    }
+  } catch (error) {
+    console.error("Error processing metadata:", error);
+    return "";
   }
 }
 
@@ -113,12 +209,10 @@ export async function handleMetadataResponse(
 ) {
   var tempArray = [];
   let hierarchyFolder;
-  let metadataContentTech = '';
   if (Array.isArray(object)) {
     setupObject(object[0], data);
     await setupCamera(object[0], data);
-  } else if (object.name === "Scene" || object.children.length > 0 || object.type == "Mesh"
-  ) {
+  } else if (object.name === "Scene" || object.children.length > 0 || object.type == "Mesh") {
     setupObject(object, data);
     object.traverse(function (child) {
       if (child.isMesh) {
@@ -212,79 +306,50 @@ export async function handleMetadataResponse(
       '<span class="metadata-label">Faces:</span>' +
       '<span class="metadata-value">' + metadata["faces"] + '</span>' +
     '</div>';
-  core.viewEntity = document.createElement("div");
-  core.viewEntity.setAttribute("id", "viewEntity");
+  metadataContent += await fetchEntityMetadata();
 
-  if (!core.isLightweight) {
+  if (core.downloadModel) {
+    core.downloadModel.hidden = true;
+    core.downloadModel.removeAttribute("href");
+  }
 
-    if (core.downloadModel && !document.getElementById("downloadModel")) {
-      core.downloadModel.setAttribute("id", "downloadModel");
+  if (core.viewEntity) {
+    core.viewEntity.hidden = true;
+    core.viewEntity.removeAttribute("data-embed-url");
+  }
 
-      var c_path = core.fileObject.path;
-      if (core.loadedFile !== "") core.fileObject.filename = core.fileObject.filename.replace(core.fileObject.orgExtension, core.fileObject.extension);
-
-      core.container.appendChild(core.downloadModel);
-      const scriptUrl = document.currentScript?.src || import.meta.url;
-
-      core.downloadModel.innerHTML = `
-        <a href="blob:${encodeURI(c_path + core.fileObject.filename)}" download>
-          <img src="${core.DFG_ASSETS}/img/download-icon.svg" alt="download" width="28" height="28" title="Download source file"/>`;
+  if (!core.isLightweight && core.downloadModel) {
+    const c_path = core.fileObject.path;
+    if (core.loadedFile !== "") {
+      core.fileObject.filename = core.fileObject.filename.replace(core.fileObject.orgExtension, core.fileObject.extension);
     }
 
-    if (core.fetchMetadataXML) {
-      var req = new XMLHttpRequest();
-      req.open(
-        "GET",
-        core.CONFIG.viewer.exportPath +
-          core.CONFIG.entity.id +
-          "?domain=" + encodeURIComponent(core.CONFIG.metadataUrl),
-        true
-      );
+    core.downloadModel.href = `blob:${encodeURI(c_path + core.fileObject.filename)}`;
+    core.downloadModel.setAttribute("download", core.fileObject.filename);
+    core.downloadModel.innerHTML = `
+      <img src="${core.DFG_ASSETS}/img/download-icon.svg" alt="Download model" width="20" height="20"/>
+      <span>Download</span>
+    `;
+    core.downloadModel.hidden = false;
+  }
 
-      req.onreadystatechange = function () {
-        if (req.readyState !== 4) return;
-          try {
-            if (req.status === 200) {
-              const parser = new DOMParser();
-              const doc = parser.parseFromString(
-                req.responseText,
-                "application/xml"
-              );
-
-              if (doc.documentElement.childNodes.length > 0) {
-                var data = doc.documentElement.childNodes[0].childNodes;
-                if (data !== undefined) {
-                  for (var i = 0; i < data.length; i++) {
-                    var fetchedValue = addWissKIMetadata(
-                      data[i].tagName,
-                      data[i].textContent
-                    );
-                    if (typeof fetchedValue !== "undefined") {
-                      metadataContent += fetchedValue;
-                    }
-                  }
-                }
-              }
-              core.metadataContainer.appendChild(core.viewEntity);
-            } else {
-              showToast("No metadata found for entity " + core.CONFIG.entity.id);
-            }
-          } finally {
-          }
-      };
-
-      req.send(null);
+  if (core.viewEntity && (core.CONFIG?.entity?.id || core.fileObject?.originalPath)) {
+    const sharePayload = window.Viewer?.getSharePayload?.();
+    if (sharePayload?.url) {
+      core.viewEntity.setAttribute("data-embed-url", sharePayload.url);
     }
-  } else {
-    const scriptUrl = document.currentScript?.src || import.meta.url;
-
-    core.viewEntity.innerHTML =
-      `<a href='${core.CONFIG.mainUrl}${core.CONFIG.entity.viewEntityPath}${core.CONFIG.entity.id}/view' target='_blank'><img src='${core.DFG_ASSETS}/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>`;
+    core.viewEntity.innerHTML = `
+      <img src="${core.DFG_ASSETS}/img/share.svg" alt="Share view" width="18" height="18"/>
+      <span>Copy embed</span>
+    `;
+    core.viewEntity.setAttribute("aria-label", "Copy embed code");
+    core.viewEntity.setAttribute("title", "Copy embed code");
+    core.viewEntity.hidden = false;
   }
   metadataContent +=
       '</div>' +  // #metadata-content
     '</div>';  
-  appendMetadata( metadataContent, metadataContentTech);
+  appendMetadata(metadataContent);
   if (core.metadataContainer.dataset.boundCollapse !== "true") {
     core.metadataContainer.addEventListener("click", (e) => {
       if (e.target.id === "metadata-collapse") {
@@ -375,11 +440,12 @@ export async function fetchSettings(object) {
   } else {
     hierarchyMain = existingHierarchy;
   }
-  if (core.CONFIG.entity.metadata.source === "IIIF") {
+  if (core.CONFIG.entity.metadata.sourceType === "IIIF") {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);
     await handleMetadataResponse( core.CONFIG.model, metadata, object, hierarchyMain);
   }
   else if (metadataUrl) {
+    console.log("Loading metadata from URL:", metadataUrl);
     if (core.CONFIG.entity.proxyPath !== undefined || core.isLightweight) {
       metadataUrl = core.getProxyPath(metadataUrl, core.CONFIG);
       const data = await loadMetadataData(metadataUrl);
@@ -389,6 +455,8 @@ export async function fetchSettings(object) {
       const data = await loadMetadataData(metadataUrl);
       await handleMetadataResponse(data, metadata, object, hierarchyMain);
     }
+  } else {
+    await handleMetadataResponse("", metadata, object, hierarchyMain);
   }
   // Add statistics GUI
   let statsMain;
@@ -451,4 +519,44 @@ export function createIIIFDropdown(iiifConfigURL) {
   // add on the top
   document.querySelector("#form-IIIF-content").prepend(group);
 
+}
+
+export function createIIIFUI() {
+  const formContainer = document.createElement("div");
+  formContainer.id = "form-IIIF";
+
+  /* header */
+  const header = document.createElement("div");
+  header.className = "form-IIIF-header";
+  header.innerHTML = `
+    <span class="title">IIIF Loader</span>
+    <div class="tools">
+      <button type="button" id="iiif-toggle-theme" title="Toggle dark mode">🌙</button>
+      <button type="button" id="iiif-toggle-collapse" title="Collapse">▾</button>
+    </div>
+  `;
+
+  formContainer.appendChild(header);
+
+  /* content */
+  const content = document.createElement("div");
+  content.className = "form-IIIF-content";
+  content.id = "form-IIIF-content";
+  content.innerHTML = `
+    <div class="form-IIIF-group">
+      <input type="text" id="manifest-url" placeholder="https://example.org/iiif/manifest.json">
+      <button class="primary" id="load-manifest-from-url">Load from URL</button>
+    </div>
+
+    <div class="form-IIIF-group column">
+      <textarea id="manifest-text" rows="8" placeholder="Paste IIIF manifest JSON here…"></textarea>
+      <div class="actions">
+        <button class="secondary" id="load-manifest-from-text">Load from Text</button>
+      </div>
+    </div>
+  `;
+
+  formContainer.appendChild(content);
+
+  document.body.appendChild(formContainer);
 }
