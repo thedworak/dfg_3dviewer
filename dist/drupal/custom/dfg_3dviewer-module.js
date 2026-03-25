@@ -2679,6 +2679,7 @@ async function loadModel() {
 
 const getModuleAssetBasePath = function() {
   let basePath = core.CONFIG?.baseModulePath ? core.CONFIG.baseModulePath.replace(/\/$/, '') : '';
+  const scriptBasePath = core.DFG_ASSETS ? core.DFG_ASSETS.replace(/\/$/, '') : '';
 
   if (!basePath) {
     basePath = `/modules/${`${MODULES_PATH}/` }dfg_3dviewer/dist/${ENV_BUILD}/${ENV_SUBDIR}/assets`
@@ -2688,6 +2689,14 @@ const getModuleAssetBasePath = function() {
   // Override for localhost
   if (core.isLocalPreview) {
     basePath = '/assets';
+  }
+
+  // Drupal legacy configs may still point to /modules/.../viewer instead of the built dist assets.
+  if (
+    scriptBasePath &&
+    (/\/viewer$/.test(basePath) || !basePath.includes(`/dist/${ENV_BUILD}/`))
+  ) {
+    basePath = `${scriptBasePath}/assets`;
   }
 
   // Normalize doubled slashes and switch to a best-guess custom path when env is drupal_custom.
@@ -12614,4 +12623,4 @@ window.Viewer = Viewer;
 })();
 
 export { Viewer, expectWebGL };
-//# sourceMappingURL=main.Am260Rbe.js.map
+//# sourceMappingURL=main.Cboybapw.js.map

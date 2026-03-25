@@ -2,7 +2,7 @@
   "baseNamespace": "",
   "mainUrl": "https:\\/\\/your.domain.com",
   "metadataUrl": "",
-  "baseModulePath": "\\/modules\\/dfg_3dviewer\\/viewer",
+  "baseModulePath": "/modules/dfg_3dviewer/dist/drupal/main/assets",
   "entity": {
     "bundle": "bd1220d6ec7f07e726c65fd215d8e493",
     "fieldDf": "field_df",
@@ -10,8 +10,7 @@
     "viewEntityPath": "\\/wisski\\/navigate\\/",
     "attributeId": "wisski_id",
     "metadata": {
-      "url": "https://your.domain.com/metadata",
-      "sourceType": "Drupal"
+      "source": "Drupal"
     }
   },
   "viewer": {

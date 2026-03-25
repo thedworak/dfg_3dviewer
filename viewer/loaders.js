@@ -548,6 +548,7 @@ export async function loadModel() {
 
 export const getModuleAssetBasePath = function() {
   let basePath = core.CONFIG?.baseModulePath ? core.CONFIG.baseModulePath.replace(/\/$/, '') : '';
+  const scriptBasePath = core.DFG_ASSETS ? core.DFG_ASSETS.replace(/\/$/, '') : '';
 
   if (!basePath) {
     basePath = ENV_BUILD === 'drupal'
@@ -558,6 +559,15 @@ export const getModuleAssetBasePath = function() {
   // Override for localhost
   if (core.isLocalPreview) {
     basePath = '/assets';
+  }
+
+  // Drupal legacy configs may still point to /modules/.../viewer instead of the built dist assets.
+  if (
+    ENV_BUILD === 'drupal' &&
+    scriptBasePath &&
+    (/\/viewer$/.test(basePath) || !basePath.includes(`/dist/${ENV_BUILD}/`))
+  ) {
+    basePath = `${scriptBasePath}/assets`;
   }
 
   // Normalize doubled slashes and switch to a best-guess custom path when env is drupal_custom.

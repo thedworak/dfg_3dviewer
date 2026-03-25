@@ -77,14 +77,6 @@ function copyBuildAssets() {
       const embedTarget = path.join(outDistDir, 'embed.html');
       const toastifyTarget = path.join(outDistDir, 'assets/css/toastify.css');
 
-      let viewerSettingsExists = false;
-      try {
-        await fs.access(viewerSettingsTarget);
-        viewerSettingsExists = true;
-      } catch {
-        viewerSettingsExists = false;
-      }
-
       const copyPromises = [
         writeDrupalLibrariesFile(),
         fs.copyFile('settings.php', settingsPhpTarget),
@@ -93,47 +85,45 @@ function copyBuildAssets() {
         fs.copyFile('node_modules/toastify-js/src/toastify.css', toastifyTarget),
       ];
 
-      if (!viewerSettingsExists) {
-        let viewerSettingsSource = 'viewer/viewer-settings-example.json';
-        const viewerSettings = JSON.parse(
+      let viewerSettingsSource = 'viewer/viewer-settings-example.json';
+      const viewerSettings = JSON.parse(
+        await fs.readFile(viewerSettingsSource, 'utf8')
+      );
+      viewerSettings.viewer.lightweight = 1;
+      viewerSettingsSource = 'viewer-settings.json';
+      if (envBuild === 'drupal') {
+        const viewerSettingsMain = JSON.parse(
           await fs.readFile(viewerSettingsSource, 'utf8')
         );
-        viewerSettings.viewer.lightweight = 1;
-        viewerSettingsSource = 'viewer-settings.json';
-        if (envBuild === 'drupal') {
-          viewerSettings.baseModulePath = `${drupalModulePrefix}/dist/${envBuild}/${envSubdir}/assets`;
-          const viewerSettingsMain = JSON.parse(
-            await fs.readFile(viewerSettingsSource, 'utf8')
-          );
-          viewerSettingsMain.entity.metadata.source = "Drupal";
-          copyPromises.push(
-            fs.writeFile(
-              viewerSettingsTarget,
-              JSON.stringify(viewerSettingsMain, null, 2)
-            )
-          );
-        } else if (envBuild === 'test' || envBuild === 'dev') {
-          const viewerSettingsMain = JSON.parse(
-            await fs.readFile(viewerSettingsSource, 'utf8')
-          );
-          viewerSettingsMain.viewer.gallery.build = false;
-          viewerSettingsMain.viewer.editor = true;
-          viewerSettingsMain.viewer.lightweight = true;
-          viewerSettingsMain.mainUrl = 'localhost';
-          copyPromises.push(
-            fs.writeFile(
-              viewerSettingsTarget,
-              JSON.stringify(viewerSettingsMain, null, 2)
-            )
-          );
-        } else {
-          copyPromises.push(
-            fs.writeFile(
-              viewerSettingsTarget,
-              JSON.stringify(viewerSettings, null, 2)
-            )
-          );
-        }
+        viewerSettingsMain.baseModulePath = `${drupalModulePrefix}/dist/${envBuild}/${envSubdir}/assets`;
+        viewerSettingsMain.entity.metadata.source = "Drupal";
+        copyPromises.push(
+          fs.writeFile(
+            viewerSettingsTarget,
+            JSON.stringify(viewerSettingsMain, null, 2)
+          )
+        );
+      } else if (envBuild === 'test' || envBuild === 'dev') {
+        const viewerSettingsMain = JSON.parse(
+          await fs.readFile(viewerSettingsSource, 'utf8')
+        );
+        viewerSettingsMain.viewer.gallery.build = false;
+        viewerSettingsMain.viewer.editor = true;
+        viewerSettingsMain.viewer.lightweight = true;
+        viewerSettingsMain.mainUrl = 'localhost';
+        copyPromises.push(
+          fs.writeFile(
+            viewerSettingsTarget,
+            JSON.stringify(viewerSettingsMain, null, 2)
+          )
+        );
+      } else {
+        copyPromises.push(
+          fs.writeFile(
+            viewerSettingsTarget,
+            JSON.stringify(viewerSettings, null, 2)
+          )
+        );
       }
 
       await fs.mkdir(outDistDir, { recursive: true });
