@@ -48,7 +48,9 @@ async function writeDrupalLibrariesFile() {
   }
 
   const template = await fs.readFile('dfg_3dviewer.libraries.tpl.yml', 'utf8');
-  const rendered = template.replaceAll('__DRUPAL_SUBDIR__', envSubdir);
+  const rendered = template
+    .replaceAll('__DRUPAL_MAIN_SUBDIR__', 'main')
+    .replaceAll('__DRUPAL_CUSTOM_SUBDIR__', 'custom');
   await fs.writeFile('dfg_3dviewer.libraries.yml', rendered);
 }
 
