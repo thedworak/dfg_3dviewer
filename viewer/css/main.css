@@ -468,6 +468,12 @@ canvas {
   pointer-events: none;
 }
 
+#viewerActionMenuToggle.viewer-action-menu_checkbox[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .viewer-action-menu_toggle {
   width: 36px;
   height: 36px;
