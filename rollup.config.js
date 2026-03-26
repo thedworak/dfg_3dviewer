@@ -54,6 +54,15 @@ async function writeDrupalLibrariesFile() {
   await fs.writeFile('dfg_3dviewer.libraries.yml', rendered);
 }
 
+async function renderSettingsLocalPhp() {
+  const template = await fs.readFile('settings.local.php.tpl', 'utf8');
+  const dfgEnv = envBuild === 'drupal'
+    ? (envSubdir === 'custom' ? 'drupal_custom' : 'drupal')
+    : envBuild;
+
+  return template.replaceAll('__DFG_ENV__', dfgEnv);
+}
+
 function copyBuildAssets() {
   return {
     name: 'copy-build-assets',
@@ -81,11 +90,14 @@ function copyBuildAssets() {
 
       const copyPromises = [
         writeDrupalLibrariesFile(),
-        fs.copyFile('settings.php', settingsPhpTarget),
         fs.copyFile('index.html', indexTarget),
         fs.copyFile('embed.html', embedTarget),
         fs.copyFile('node_modules/toastify-js/src/toastify.css', toastifyTarget),
       ];
+
+      copyPromises.push(
+        renderSettingsLocalPhp().then(content => fs.writeFile(settingsPhpTarget, content))
+      );
 
       let viewerSettingsSource = 'viewer/viewer-settings-example.json';
       const viewerSettings = JSON.parse(

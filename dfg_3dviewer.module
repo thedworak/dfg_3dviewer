@@ -1115,13 +1115,7 @@ function dfg_3dviewer_entity_update(Drupal\Core\Entity\EntityInterface $entity) 
 	dfg_3dviewer_kick_convert_worker();
 }
 function dfg_3dviewer_get_library(): string {
-  // Prefer explicit settings.php override; if not set, use module config.
-  $env = (string) Settings::get('dfg_env', '');
-  if ($env === '') {
-    $env = (string) (\Drupal::config('dfg_3dviewer.settings')->get('dfg_env') ?? '');
-  }
-
-  $env = strtolower(trim($env));
+  $env = dfg_3dviewer_get_env();
 
   $map = [
     'test'          => 'dfg_3dviewer/dfg_3dviewer.test',
@@ -1140,4 +1134,21 @@ function dfg_3dviewer_get_library(): string {
   }
 
   return $map[$env] ?? $map['drupal'];
+}
+
+function dfg_3dviewer_get_env(): string {
+  // Prefer Drupal runtime settings.local.php override; if not set, use module config.
+  $env = (string) Settings::get('dfg_env', '');
+  if ($env === '') {
+    $env = (string) (\Drupal::config('dfg_3dviewer.settings')->get('dfg_env') ?? '');
+  }
+
+  $env = strtolower(trim($env));
+
+  return match ($env) {
+    'main', 'drupal_main' => 'drupal',
+    'custom', 'drupal_custom' => 'drupal_custom',
+    'prod', 'production' => 'drupal',
+    default => $env,
+  };
 }
