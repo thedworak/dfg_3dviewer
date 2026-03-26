@@ -81,6 +81,36 @@ function normalizeWasmPath(path) {
   return normalized;
 }
 
+function sanitizeModuleAssetBasePath(input) {
+  if (!input || typeof input !== 'string') {
+    return '';
+  }
+
+  let basePath = input.trim().replace(/\/$/, '');
+
+  if (!basePath) {
+    return '';
+  }
+
+  if (/^[a-zA-Z][\w+-.]*:\/\//.test(basePath)) {
+    try {
+      const url = new URL(basePath);
+      const hostSegment = `/${url.host}`;
+
+      if (url.pathname.startsWith(hostSegment)) {
+        url.pathname = url.pathname.slice(hostSegment.length) || '/';
+      }
+
+      url.pathname = url.pathname.replace(/\/\/{2,}/g, '/');
+      return url.href.replace(/\/$/, '');
+    } catch (_err) {
+      return basePath;
+    }
+  }
+
+  return basePath.replace(/\/\/{2,}/g, '/');
+}
+
 function prepareOutlineClipping(_object) {
   core.outlineClipping = _object.clone(true);
   var gutsMaterial = new THREE.MeshBasicMaterial({
@@ -547,7 +577,7 @@ export async function loadModel() {
 }
 
 export const getModuleAssetBasePath = function() {
-  let basePath = core.CONFIG?.baseModulePath ? core.CONFIG.baseModulePath.replace(/\/$/, '') : '';
+  let basePath = sanitizeModuleAssetBasePath(core.CONFIG?.baseModulePath);
   const scriptBasePath = core.DFG_ASSETS ? core.DFG_ASSETS.replace(/\/$/, '') : '';
 
   if (!basePath) {
@@ -570,22 +600,7 @@ export const getModuleAssetBasePath = function() {
     basePath = `${scriptBasePath}/assets`;
   }
 
-  // Normalize doubled slashes and switch to a best-guess custom path when env is drupal_custom.
-  basePath = basePath.replace(/\/\/+/g, '/');
-
-  // Fix duplicate host in path for full URLs
-  if (typeof window !== 'undefined' && basePath.startsWith('http')) {
-    try {
-      const url = new URL(basePath);
-      const host = url.host;
-      if (url.pathname.startsWith(`/${host}`)) {
-        url.pathname = url.pathname.replace(`/${host}`, '');
-        basePath = url.href;
-      }
-    } catch (err) {
-      // ignore
-    }
-  }
+  basePath = sanitizeModuleAssetBasePath(basePath);
 
   // Rising path mismatch: if we are in drupal custom and config path still has /drupal/main, try custom fallback.
   if (ENV_BUILD === 'drupal' && ENV_SUBDIR === 'custom' && basePath.includes('/drupal/main')) {

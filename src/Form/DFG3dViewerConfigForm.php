@@ -13,6 +13,32 @@ use Drupal\Core\File\FileSystemInterface;
 class DFG3dViewerConfigForm extends FormBase {
 
   /**
+   * Normalizes the viewer module path to a path-first value.
+   */
+  protected function normalizeBaseModulePath(string $value): string {
+    $value = trim($value);
+
+    if ($value === '') {
+      return $value;
+    }
+
+    if (preg_match('@^https?://@i', $value)) {
+      $parts = parse_url($value);
+      if (!empty($parts['path'])) {
+        $value = $parts['path'];
+      }
+    }
+
+    $value = preg_replace('@/{2,}@', '/', $value);
+
+    if ($value !== '' && $value[0] !== '/') {
+      $value = '/' . $value;
+    }
+
+    return rtrim($value, '/');
+  }
+
+  /**
    *
    */
   public function getFormId() {
@@ -280,6 +306,8 @@ class DFG3dViewerConfigForm extends FormBase {
 
     $settings = $form['#dfg_3dviewer_settings'];
     $new_vals = $form_state->getValues();
+    $normalized_base_module_path = $this->normalizeBaseModulePath((string) $new_vals['dfg_3dviewer_base_module_path']);
+
     $settings->set('dfg_3dviewer_basenamespace', $new_vals['dfg_3dviewer_basenamespace']);
     $settings->set('dfg_3dviewer_main_url', $new_vals['dfg_3dviewer_main_url']);
     $settings->set('dfg_3dviewer_metadata_url', $new_vals['dfg_3dviewer_metadata_url']);
@@ -295,7 +323,7 @@ class DFG3dViewerConfigForm extends FormBase {
     $settings->set('dfg_3dviewer_gallery_container', $new_vals['dfg_3dviewer_gallery_container']);
     $settings->set('dfg_3dviewer_gallery_image_class', $new_vals['dfg_3dviewer_gallery_image_class']);
     $settings->set('dfg_3dviewer_gallery_image_id', $new_vals['dfg_3dviewer_gallery_image_id']);
-    $settings->set('dfg_3dviewer_base_module_path', $new_vals['dfg_3dviewer_base_module_path']);
+    $settings->set('dfg_3dviewer_base_module_path', $normalized_base_module_path);
     $settings->set('dfg_3dviewer_entity_id_uri', $new_vals['dfg_3dviewer_entity_id_uri']);
     $settings->set('dfg_3dviewer_view_entity_path', $new_vals['dfg_3dviewer_view_entity_path']);
     $settings->set('dfg_3dviewer_attribute_id', $new_vals['dfg_3dviewer_attribute_id']);
@@ -307,7 +335,7 @@ class DFG3dViewerConfigForm extends FormBase {
 		'baseNamespace' => $new_vals['dfg_3dviewer_basenamespace'],
 		'mainUrl' => $new_vals['dfg_3dviewer_main_url'],
 		'metadataUrl' => $new_vals['dfg_3dviewer_metadata_url'],
-		'baseModulePath' => $new_vals['dfg_3dviewer_base_module_path'],
+		'baseModulePath' => $normalized_base_module_path,
 		'entity' => [
 			'bundle' => $new_vals['dfg_3dviewer_entitybundle'],
 			'fieldDf' => $new_vals['dfg_3dviewer_field_df'],
