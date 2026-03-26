@@ -527,7 +527,7 @@ canvas {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 10px;
+  gap: 4px;
   opacity: 0;
   transform: translateY(10px) scale(0.96);
   transform-origin: bottom right;
@@ -553,8 +553,8 @@ canvas {
   align-items: center;
   justify-content: flex-start;
   gap: 10px;
-  padding: 10px 14px;
-  border-radius: 14px;
+  padding: 6px 8px;
+  border-radius: 6px;
   border: 1px solid rgba(148, 163, 184, 0.28);
   background: rgba(255, 255, 255, 0.94);
   color: #111827;

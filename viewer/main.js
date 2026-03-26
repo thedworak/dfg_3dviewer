@@ -395,7 +395,7 @@ export const Viewer = {
     const label = isFullscreen ? "Exit fullscreen mode" : "Fullscreen mode";
 
     this.fullscreenMode.innerHTML = `
-      <img src="${core.DFG_ASSETS}/img/${icon}" alt="${label}" width="20" height="20"/>
+      <img src="${core.DFG_ASSETS}/img/${icon}" alt="${label}" width="18" height="18"/>
       <span>${isFullscreen ? "Exit fullscreen" : "Fullscreen"}</span>
     `;
     this.fullscreenMode.setAttribute("aria-label", label);
