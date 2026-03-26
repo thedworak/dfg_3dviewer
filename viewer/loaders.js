@@ -122,6 +122,20 @@ function sanitizeModuleAssetBasePath(input) {
     }
   }
 
+  if (/^\/[^\/]+\.[^\/]+\/.+/.test(basePath)) {
+    const parts = basePath.split('/').filter(Boolean);
+    const host = parts.shift();
+    const remainder = `/${parts.join('/')}`.replace(/\/\/{2,}/g, '/');
+
+    if (
+      host &&
+      typeof window !== 'undefined' &&
+      (host === window.location.host || /^\w[\w.-]*\.[a-z]{2,}$/i.test(host))
+    ) {
+      return remainder.replace(/\/$/, '');
+    }
+  }
+
   return basePath.replace(/\/\/{2,}/g, '/');
 }
 
