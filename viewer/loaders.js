@@ -620,6 +620,11 @@ export async function loadModel() {
 export const getModuleAssetBasePath = function() {
   let basePath = sanitizeModuleAssetBasePath(core.CONFIG?.baseModulePath);
   const scriptBasePath = core.DFG_ASSETS ? core.DFG_ASSETS.replace(/\/$/, '') : '';
+  const scriptLooksLikeDrupalAssets = (
+    ENV_BUILD === 'drupal' &&
+    scriptBasePath.includes(`/dist/${ENV_BUILD}/`) &&
+    /\/assets$/.test(scriptBasePath)
+  );
 
   if (!basePath) {
     basePath = ENV_BUILD === 'drupal'
@@ -638,7 +643,22 @@ export const getModuleAssetBasePath = function() {
     scriptBasePath &&
     (/\/viewer$/.test(basePath) || !basePath.includes(`/dist/${ENV_BUILD}/`))
   ) {
-    basePath = `${scriptBasePath}/assets`;
+    basePath = scriptBasePath;
+  }
+
+  // When the loaded Drupal bundle lives in a different module root than config
+  // (for example /modules/custom/... vs /modules/...), trust the bundle path.
+  if (
+    scriptLooksLikeDrupalAssets &&
+    basePath &&
+    basePath !== scriptBasePath &&
+    /\/modules\//.test(basePath)
+  ) {
+    console.warn('[loaders] baseModulePath differs from loaded script path; using script path instead.', {
+      configuredBasePath: basePath,
+      scriptBasePath,
+    });
+    basePath = scriptBasePath;
   }
 
   basePath = sanitizeModuleAssetBasePath(basePath);

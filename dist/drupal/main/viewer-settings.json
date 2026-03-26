@@ -10,8 +10,9 @@
     "viewEntityPath": "\\/wisski\\/navigate\\/",
     "attributeId": "wisski_id",
     "metadata": {
-      "sourceType": "Drupal",
-      "url": ""
+      "sourceType": "",
+      "url": "",
+      "source": "Drupal"
     }
   },
   "viewer": {
