@@ -409,6 +409,20 @@ export async function loadModel() {
   }
 
   function normalizePath(path) {
+    if (!path || typeof path !== 'string') {
+      return path;
+    }
+
+    if (/^[a-zA-Z][\w+-.]*:\/\//.test(path)) {
+      try {
+        const url = new URL(path);
+        url.pathname = url.pathname.replace(/\/{2,}/g, '/');
+        return url.href;
+      } catch (_err) {
+        return path;
+      }
+    }
+
     return path.replace(/\/{2,}/g, '/');
   }
 
