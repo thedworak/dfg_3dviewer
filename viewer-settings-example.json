@@ -2,7 +2,7 @@
   "baseNamespace": "",
   "mainUrl": "https:\\/\\/your.domain.com",
   "metadataUrl": "",
-  "baseModulePath": "/modules/dfg_3dviewer/dist/drupal/main/assets",
+  "baseModulePath": "\\/modules\\/dfg_3dviewer\\/viewer",
   "entity": {
     "bundle": "bd1220d6ec7f07e726c65fd215d8e493",
     "fieldDf": "field_df",
@@ -11,7 +11,7 @@
     "attributeId": "wisski_id",
     "metadata": {
       "sourceType": "Drupal",
-      "url": ""
+      "url": "https://repository.covher.eu/api/digital_reconstruction/record/"
     }
   },
   "viewer": {

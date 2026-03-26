@@ -348,7 +348,6 @@ export async function loadModel() {
     if (core.fileObject.extension.toLowerCase() === "gltf" || core.fileObject.extension.toLowerCase() === "glb") core.fileObject.path = core.fileObject.path.replace("/gltf/", "/");
     else core.fileObject.path = core.fileObject.path.replace("gltf/", "");
     await fetchSettings(object);
-    await setupCamera(object, core.CONFIG);
     core.outlineClipping = prepareOutlineClipping(object);
     if (Array.isArray(object)) {
       object.forEach(o => core.scene.add(o));

@@ -81,6 +81,7 @@ export function lilGUIgetFolder(gui, name) {
 export function expandMetadata() {
   const content = document.getElementById("metadata-content");
   const toggle = document.getElementById("metadata-collapse");
+  const card = document.getElementById("metadata-card");
 
   if (!content || !toggle) return;
 
@@ -89,6 +90,68 @@ export function expandMetadata() {
 
   // accessibility
   toggle.setAttribute("aria-expanded", expanded);
+
+  if (!expanded) {
+    card?.classList.remove("metadata-card-overflowing");
+    content.querySelectorAll(".metadata-row-pinned").forEach((row) => {
+      row.classList.remove("metadata-row-pinned");
+    });
+    return;
+  }
+
+  updateMetadataOverflow();
+}
+
+function updateMetadataOverflow() {
+  const content = document.getElementById("metadata-content");
+  const card = document.getElementById("metadata-card");
+
+  if (!content || !card || !content.classList.contains("expanded")) return;
+
+  const hasOverflow = content.scrollHeight - content.clientHeight > 8;
+  card.classList.toggle("metadata-card-overflowing", hasOverflow);
+
+  content.querySelectorAll(".metadata-row").forEach((row) => {
+    const value = row.querySelector(".metadata-value");
+    if (!value) return;
+
+    const wasPinned = row.classList.contains("metadata-row-pinned");
+    row.classList.remove("metadata-row-pinned", "metadata-row-expandable");
+
+    const isExpandable = value.scrollHeight - value.clientHeight > 4;
+    row.classList.toggle("metadata-row-expandable", isExpandable);
+
+    if (wasPinned && isExpandable) {
+      row.classList.add("metadata-row-pinned");
+    }
+  });
+}
+
+function bindMetadataInteractions() {
+  if (core.metadataContainer.dataset.boundCollapse === "true") return;
+
+  core.metadataContainer.addEventListener("click", (e) => {
+    if (e.target.id === "metadata-collapse") {
+      expandMetadata(e);
+      return;
+    }
+
+    const card = document.getElementById("metadata-card");
+    const content = document.getElementById("metadata-content");
+    if (!card || !content || !content.classList.contains("expanded")) return;
+
+    const row = e.target.closest(".metadata-row");
+    if (!row) return;
+
+    const willPin = !row.classList.contains("metadata-row-pinned");
+    content.querySelectorAll(".metadata-row-pinned").forEach((pinnedRow) => {
+      pinnedRow.classList.remove("metadata-row-pinned");
+    });
+    if (willPin) row.classList.add("metadata-row-pinned");
+  });
+
+  window.addEventListener("resize", updateMetadataOverflow);
+  core.metadataContainer.dataset.boundCollapse = "true";
 }
 
 /**
@@ -350,14 +413,8 @@ export async function handleMetadataResponse(
       '</div>' +  // #metadata-content
     '</div>';  
   appendMetadata(metadataContent);
-  if (core.metadataContainer.dataset.boundCollapse !== "true") {
-    core.metadataContainer.addEventListener("click", (e) => {
-      if (e.target.id === "metadata-collapse") {
-        expandMetadata(e);
-      }
-    });
-    core.metadataContainer.dataset.boundCollapse = "true";
-  }
+  bindMetadataInteractions();
+  requestAnimationFrame(updateMetadataOverflow);
 }
 
 /**

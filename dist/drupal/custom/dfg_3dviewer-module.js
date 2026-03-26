@@ -1023,7 +1023,7 @@ async function setupCamera(_object, _data) {
   } else if (camPos && typeof camPos === "object") {
     core.camera.position.set(camPos.x, camPos.y, camPos.z);
   } else {
-    setupEmptyCamera(_object);
+    await setupEmptyCamera(_object);
   }
 
   // --- CONTROLS TARGET + ZOOM ---
@@ -1662,6 +1662,7 @@ function lilGUIgetFolder(gui, name) {
 function expandMetadata() {
   const content = document.getElementById("metadata-content");
   const toggle = document.getElementById("metadata-collapse");
+  const card = document.getElementById("metadata-card");
 
   if (!content || !toggle) return;
 
@@ -1670,6 +1671,68 @@ function expandMetadata() {
 
   // accessibility
   toggle.setAttribute("aria-expanded", expanded);
+
+  if (!expanded) {
+    card?.classList.remove("metadata-card-overflowing");
+    content.querySelectorAll(".metadata-row-pinned").forEach((row) => {
+      row.classList.remove("metadata-row-pinned");
+    });
+    return;
+  }
+
+  updateMetadataOverflow();
+}
+
+function updateMetadataOverflow() {
+  const content = document.getElementById("metadata-content");
+  const card = document.getElementById("metadata-card");
+
+  if (!content || !card || !content.classList.contains("expanded")) return;
+
+  const hasOverflow = content.scrollHeight - content.clientHeight > 8;
+  card.classList.toggle("metadata-card-overflowing", hasOverflow);
+
+  content.querySelectorAll(".metadata-row").forEach((row) => {
+    const value = row.querySelector(".metadata-value");
+    if (!value) return;
+
+    const wasPinned = row.classList.contains("metadata-row-pinned");
+    row.classList.remove("metadata-row-pinned", "metadata-row-expandable");
+
+    const isExpandable = value.scrollHeight - value.clientHeight > 4;
+    row.classList.toggle("metadata-row-expandable", isExpandable);
+
+    if (wasPinned && isExpandable) {
+      row.classList.add("metadata-row-pinned");
+    }
+  });
+}
+
+function bindMetadataInteractions() {
+  if (core.metadataContainer.dataset.boundCollapse === "true") return;
+
+  core.metadataContainer.addEventListener("click", (e) => {
+    if (e.target.id === "metadata-collapse") {
+      expandMetadata();
+      return;
+    }
+
+    const card = document.getElementById("metadata-card");
+    const content = document.getElementById("metadata-content");
+    if (!card || !content || !content.classList.contains("expanded")) return;
+
+    const row = e.target.closest(".metadata-row");
+    if (!row) return;
+
+    const willPin = !row.classList.contains("metadata-row-pinned");
+    content.querySelectorAll(".metadata-row-pinned").forEach((pinnedRow) => {
+      pinnedRow.classList.remove("metadata-row-pinned");
+    });
+    if (willPin) row.classList.add("metadata-row-pinned");
+  });
+
+  window.addEventListener("resize", updateMetadataOverflow);
+  core.metadataContainer.dataset.boundCollapse = "true";
 }
 
 /**
@@ -1931,14 +1994,8 @@ async function handleMetadataResponse(
       '</div>' +  // #metadata-content
     '</div>';  
   appendMetadata(metadataContent);
-  if (core.metadataContainer.dataset.boundCollapse !== "true") {
-    core.metadataContainer.addEventListener("click", (e) => {
-      if (e.target.id === "metadata-collapse") {
-        expandMetadata();
-      }
-    });
-    core.metadataContainer.dataset.boundCollapse = "true";
-  }
+  bindMetadataInteractions();
+  requestAnimationFrame(updateMetadataOverflow);
 }
 
 /**
@@ -2253,6 +2310,20 @@ function sanitizeModuleAssetBasePath(input) {
     }
   }
 
+  if (/^\/[^\/]+\.[^\/]+\/.+/.test(basePath)) {
+    const parts = basePath.split('/').filter(Boolean);
+    const host = parts.shift();
+    const remainder = `/${parts.join('/')}`.replace(/\/\/{2,}/g, '/');
+
+    if (
+      host &&
+      typeof window !== 'undefined' &&
+      (host === window.location.host || /^\w[\w.-]*\.[a-z]{2,}$/i.test(host))
+    ) {
+      return remainder.replace(/\/$/, '');
+    }
+  }
+
   return basePath.replace(/\/\/{2,}/g, '/');
 }
 
@@ -2465,7 +2536,6 @@ async function loadModel() {
     if (core.fileObject.extension.toLowerCase() === "gltf" || core.fileObject.extension.toLowerCase() === "glb") core.fileObject.path = core.fileObject.path.replace("/gltf/", "/");
     else core.fileObject.path = core.fileObject.path.replace("gltf/", "");
     await fetchSettings(object);
-    await setupCamera(object, core.CONFIG);
     core.outlineClipping = prepareOutlineClipping(object);
     if (Array.isArray(object)) {
       object.forEach(o => core.scene.add(o));
@@ -2526,6 +2596,20 @@ async function loadModel() {
   }
 
   function normalizePath(path) {
+    if (!path || typeof path !== 'string') {
+      return path;
+    }
+
+    if (/^[a-zA-Z][\w+-.]*:\/\//.test(path)) {
+      try {
+        const url = new URL(path);
+        url.pathname = url.pathname.replace(/\/{2,}/g, '/');
+        return url.href;
+      } catch (_err) {
+        return path;
+      }
+    }
+
     return path.replace(/\/{2,}/g, '/');
   }
 
@@ -9725,6 +9809,9 @@ const Viewer = {
   materialsPropertiesText: {
     "Edit material": "select by name",
   },
+  pickingStats: {
+    "Selected faces": 0,
+  },
   colors: {
     DirectionalLight: "0xFFFFFF",
     AmbientLight: "0x404040",
@@ -9799,11 +9886,15 @@ const Viewer = {
   planeObjects: [],
   editorFolder: null,
   materialsFolder: null,
+  pickingModeController: null,
+  distanceMeasurementController: null,
+  clearSelectedFacesController: null,
+  selectedFacesCountController: null,
   textMesh: null,
   textMeshDistance: null,
   ruler: [],
   rulerObject: null,
-  lastPickedFace: { id: "", color: "", object: "" },
+  lastPickedFace: { id: "", object: "", faceIndex: null, overlay: null },
   loadedTimes: 0,
   _ext: '',
   DFG_ASSETS: '',
@@ -9866,6 +9957,26 @@ const Viewer = {
     if (this.actionMenuToggle) {
       this.actionMenuToggle.checked = false;
     }
+  },
+
+  updatePickingModeControllerLabel() {
+    if (!this.pickingModeController?.name) return;
+    this.pickingModeController.name(
+      this.pickingMode ? "Disable picking mode" : "Enable picking mode"
+    );
+  },
+
+  updateDistanceMeasurementControllerLabel() {
+    if (!this.distanceMeasurementController?.name) return;
+    this.distanceMeasurementController.name(
+      this.RULER_MODE ? "Disable distance measurement" : "Enable distance measurement"
+    );
+  },
+
+  updatePickingControlsVisibility() {
+    const method = this.pickingMode ? "show" : "hide";
+    this.clearSelectedFacesController?.[method]?.();
+    this.selectedFacesCountController?.[method]?.();
   },
 
   isEmbedMode() {
@@ -10026,7 +10137,15 @@ const Viewer = {
     Viewer.disposeObjectResources(object);
   },
 
+  disposeFaceOverlay(entry) {
+    if (!entry?.overlay) return;
+    entry.overlay.removeFromParent();
+    Viewer.disposeObjectResources(entry.overlay);
+  },
+
   resetLoadedModelState() {
+    Viewer.restoreLastPickedFace();
+    Viewer.clearSelectedFaces();
     core.transformControl?.detach?.();
     core.transformControlLight?.detach?.();
     core.transformControlLightTarget?.detach?.();
@@ -10059,7 +10178,8 @@ const Viewer = {
     if (Array.isArray(Viewer.helperObjects)) Viewer.helperObjects.length = 0;
     if (Array.isArray(Viewer.selectedObjects)) Viewer.selectedObjects.length = 0;
     if (Array.isArray(Viewer.selectedFaces)) Viewer.selectedFaces.length = 0;
-    Viewer.lastPickedFace = { id: "", color: "", object: "" };
+    Viewer.updateSelectedFacesCount();
+    Viewer.lastPickedFace = { id: "", object: "", faceIndex: null, overlay: null };
   },
 
   renderFatalError(error) {
@@ -10440,6 +10560,7 @@ const Viewer = {
         textGeo.computeBoundingBox();
 
         Viewer.textMeshDistance = new THREE.Mesh(textGeo, materials);
+        Viewer.textMeshDistance.userData.isDistanceLabel = true;
 
         Viewer.textMeshDistance.position.set(_point.x, _point.y, _point.z);
         Viewer.textMeshDistance.renderOrder = 1;
@@ -10776,39 +10897,207 @@ const Viewer = {
     );
   },
 
+  createTriangleGeometry(intersection) {
+    const position = intersection?.object?.geometry?.attributes?.position;
+    const face = intersection?.face;
+
+    if (!position || !face) return null;
+
+    const trianglePositions = new Float32Array([
+      position.getX(face.a), position.getY(face.a), position.getZ(face.a),
+      position.getX(face.b), position.getY(face.b), position.getZ(face.b),
+      position.getX(face.c), position.getY(face.c), position.getZ(face.c),
+    ]);
+
+    const triangleGeometry = new THREE.BufferGeometry();
+    triangleGeometry.setAttribute("position", new THREE.BufferAttribute(trianglePositions, 3));
+    triangleGeometry.computeVertexNormals();
+
+    return triangleGeometry;
+  },
+
+  createPickingFaceOverlay(intersection, options = {}) {
+    const triangleGeometry = Viewer.createTriangleGeometry(intersection);
+    if (!triangleGeometry) return null;
+
+    const fillColor = options.fillColor ?? 0xff0000;
+    const lineColor = options.lineColor ?? 0xffffff;
+    const opacity = options.opacity ?? 0.65;
+
+    const overlayMaterial = new THREE.MeshBasicMaterial({
+      color: fillColor,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity,
+      depthTest: true,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -2,
+      toneMapped: false,
+    });
+
+    const fillMesh = new THREE.Mesh(triangleGeometry, overlayMaterial);
+    fillMesh.renderOrder = 999;
+
+    const lineGeometry = new THREE.EdgesGeometry(triangleGeometry);
+    const lineMaterial = new THREE.LineBasicMaterial({
+      color: lineColor,
+      transparent: true,
+      opacity: Math.min(opacity + 0.2, 1),
+      depthTest: false,
+      depthWrite: false,
+      toneMapped: false,
+    });
+    const lineSegments = new THREE.LineSegments(lineGeometry, lineMaterial);
+    lineSegments.renderOrder = 1000;
+
+    const overlayGroup = new THREE.Group();
+    overlayGroup.name = "picking-face-overlay";
+    overlayGroup.userData.isPickingOverlay = true;
+    fillMesh.userData.isPickingOverlay = true;
+    lineSegments.userData.isPickingOverlay = true;
+    overlayGroup.add(fillMesh);
+    overlayGroup.add(lineSegments);
+
+    return overlayGroup;
+  },
+
+  isPickingOverlayObject(object) {
+    let current = object;
+
+    while (current) {
+      if (current.userData?.isPickingOverlay === true || current.name === "picking-face-overlay") {
+        return true;
+      }
+      current = current.parent;
+    }
+
+    return false;
+  },
+
+  getPrimaryIntersection(intersections) {
+    if (!Array.isArray(intersections) || intersections.length === 0) return null;
+
+    return intersections.find((entry) => !Viewer.isPickingOverlayObject(entry?.object)) ?? null;
+  },
+
+  getFaceSelectionKey(objectId, faceIndex) {
+    if (!objectId || faceIndex === null || faceIndex === undefined) return "";
+    return `${objectId}:${faceIndex}`;
+  },
+
+  findSelectedFaceIndex(objectId, faceIndex) {
+    const key = Viewer.getFaceSelectionKey(objectId, faceIndex);
+    return Viewer.selectedFaces.findIndex((entry) => entry.key === key);
+  },
+
+  updateSelectedFacesCount() {
+    Viewer.pickingStats["Selected faces"] = Array.isArray(Viewer.selectedFaces)
+      ? Viewer.selectedFaces.length
+      : 0;
+  },
+
+  clearSelectedFaces() {
+    if (!Array.isArray(Viewer.selectedFaces) || Viewer.selectedFaces.length === 0) {
+      Viewer.updateSelectedFacesCount();
+      return;
+    }
+
+    Viewer.selectedFaces.forEach((entry) => {
+      Viewer.disposeFaceOverlay(entry);
+    });
+    Viewer.selectedFaces.length = 0;
+    Viewer.updateSelectedFacesCount();
+  },
+
+  restoreLastPickedFace() {
+    if (!Viewer.lastPickedFace.overlay) {
+      Viewer.lastPickedFace = { id: "", object: "", faceIndex: null, overlay: null };
+      return;
+    }
+
+    Viewer.disposeFaceOverlay(Viewer.lastPickedFace);
+
+    Viewer.lastPickedFace = { id: "", object: "", faceIndex: null, overlay: null };
+  },
+
   pickFaces(_id) {
-    let mat, colorHex;
-    if ((Viewer.lastPickedFace.id == "" && _id !== "") || _id != Viewer.lastPickedFace.id) {
-      mat = Array.isArray(_id?.object?.material) ? _id.object.material[0] : _id?.object?.material;
-      colorHex = Viewer.toHexColor(mat?.color);
+    const hoveredObjectId = _id?.object?.id ?? "";
+    const hoveredFaceIndex = _id?.faceIndex ?? null;
+    if (!hoveredObjectId) {
+      Viewer.restoreLastPickedFace();
+      return;
     }
-    if (Viewer.lastPickedFace.id == "" && _id !== "") {
-      Viewer.lastPickedFace = {
-        id: _id,
-        color: colorHex,
-        object: _id.object.id,
-      };
-    } else if (_id == "" && Viewer.lastPickedFace.id !== "") {
-      const previousColor = Viewer.toThreeColor(Viewer.lastPickedFace.color);
-      core.scene
-        .getObjectById(Viewer.lastPickedFace.object)
-        .material.color = previousColor ?? core.scene.getObjectById(Viewer.lastPickedFace.object).material.color;
-      Viewer.lastPickedFace = { id: "", color: "", object: "" };
-    } else if (_id != Viewer.lastPickedFace.id) {
-      const previousColor = Viewer.toThreeColor(Viewer.lastPickedFace.color);
-      core.scene
-        .getObjectById(Viewer.lastPickedFace.object)
-        .material.color = previousColor ?? core.scene.getObjectById(Viewer.lastPickedFace.object).material.color;
-      Viewer.lastPickedFace = {
-        id: _id,
-        color: colorHex,
-        object: _id.object.id,
-      };
+
+    if (
+      Viewer.lastPickedFace.object === hoveredObjectId &&
+      Viewer.lastPickedFace.faceIndex === hoveredFaceIndex
+    ) {
+      return;
     }
-    if (_id !== "") {
-      const pickedColor = Viewer.toThreeColor(0xff0000);
-      if (pickedColor) _id.object.material.color = pickedColor;
+
+    Viewer.restoreLastPickedFace();
+    const overlay = Viewer.createPickingFaceOverlay(_id, {
+      fillColor: 0xff3b30,
+      lineColor: 0xffffff,
+      opacity: 0.4,
+    });
+    if (!overlay) return;
+
+    Viewer.lastPickedFace = {
+      id: hoveredObjectId,
+      object: hoveredObjectId,
+      faceIndex: hoveredFaceIndex,
+      overlay,
+    };
+
+    _id.object.add(overlay);
+  },
+
+  toggleSelectedFace(intersection, options = {}) {
+    const objectId = intersection?.object?.id ?? "";
+    const faceIndex = intersection?.faceIndex ?? null;
+    if (!objectId || faceIndex === null) return;
+
+    const multiSelect = options.multiSelect === true;
+    const selectedFaceIndex = Viewer.findSelectedFaceIndex(objectId, faceIndex);
+
+    if (!multiSelect) {
+      const clickedFaceKey = Viewer.getFaceSelectionKey(objectId, faceIndex);
+      const clickedFaceAlreadySelected =
+        selectedFaceIndex >= 0 && Viewer.selectedFaces.length === 1 &&
+        Viewer.selectedFaces[0]?.key === clickedFaceKey;
+
+      Viewer.clearSelectedFaces();
+
+      if (clickedFaceAlreadySelected) {
+        return;
+      }
     }
+
+    if (selectedFaceIndex >= 0) {
+      const [selectedFace] = Viewer.selectedFaces.splice(selectedFaceIndex, 1);
+      Viewer.disposeFaceOverlay(selectedFace);
+      Viewer.updateSelectedFacesCount();
+      return;
+    }
+
+    const overlay = Viewer.createPickingFaceOverlay(intersection, {
+      fillColor: 0x00c853,
+      lineColor: 0xe8ffe8,
+      opacity: 0.5,
+    });
+    if (!overlay) return;
+
+    intersection.object.add(overlay);
+    Viewer.selectedFaces.push({
+      key: Viewer.getFaceSelectionKey(objectId, faceIndex),
+      object: objectId,
+      faceIndex,
+      overlay,
+    });
+    Viewer.updateSelectedFacesCount();
   },
 
   buildRuler(_id) {
@@ -11122,6 +11411,16 @@ const Viewer = {
       Viewer.textMesh.lookAt(core.camera.position);
     }
 
+    if (Viewer.ruler?.length) {
+      Viewer.ruler.forEach((rulerObject) => {
+        rulerObject?.traverse?.((child) => {
+          if (child?.userData?.isDistanceLabel === true) {
+            child.lookAt(core.camera.position);
+          }
+        });
+      });
+    }
+
     core.renderer.clear();
     core.renderer.render(core.scene, core.camera);
     core.stats.update();
@@ -11165,14 +11464,17 @@ const Viewer = {
         Viewer.onUpPosition.y === Viewer.onDownPosition.y
       ) {
         Viewer.raycaster.setFromCamera(Viewer.onUpPosition, core.camera);
-        var intersects;
+        let intersects = [];
+        let primaryIntersection = null;
 
         if (Viewer.pickingMode || Viewer.RULER_MODE) {
           if (core.mainObject.length > 1) {
             for (let ii = 0; ii < core.mainObject.length; ii++) {
-              intersects = Viewer.raycaster.intersectObjects(
-                core.mainObject[ii].children,
-                true
+              intersects.push(
+                ...Viewer.raycaster.intersectObjects(
+                  core.mainObject[ii].children,
+                  true
+                )
               );
             }
             if (intersects.length <= 0) {
@@ -11181,9 +11483,14 @@ const Viewer = {
           } else {
             intersects = Viewer.raycaster.intersectObject(core.mainObject[0], true);
           }
-          if (intersects.length > 0) {
-            if (Viewer.RULER_MODE) Viewer.buildRuler(intersects[0]);
-            else if (Viewer.pickingMode) Viewer.pickFaces(intersects[0]);
+          primaryIntersection = Viewer.getPrimaryIntersection(intersects);
+          if (primaryIntersection) {
+            if (Viewer.RULER_MODE) Viewer.buildRuler(primaryIntersection);
+            else if (Viewer.pickingMode) {
+              Viewer.toggleSelectedFace(primaryIntersection, {
+                multiSelect: e.shiftKey,
+              });
+            }
           }
         }
       }
@@ -11217,12 +11524,14 @@ const Viewer = {
     } else {
       if (Viewer.pickingMode) {
         Viewer.raycaster.setFromCamera(Viewer.pointer, core.camera);
-        var intersects;
+        let intersects = [];
         if (core.mainObject.length > 1) {
           for (let ii = 0; ii < core.mainObject.length; ii++) {
-            intersects = Viewer.raycaster.intersectObjects(
-              core.mainObject[ii].children,
-              true
+            intersects.push(
+              ...Viewer.raycaster.intersectObjects(
+                core.mainObject[ii].children,
+                true
+              )
             );
           }
           if (intersects.length <= 0) {
@@ -11231,8 +11540,9 @@ const Viewer = {
         } else {
           intersects = Viewer.raycaster.intersectObject(core.mainObject[0], true);
         }
-        if (intersects.length > 0) {
-          Viewer.pickFaces(intersects[0]);
+        const primaryIntersection = Viewer.getPrimaryIntersection(intersects);
+        if (primaryIntersection) {
+          Viewer.pickFaces(primaryIntersection);
         } else {
           Viewer.pickFaces("");
         }
@@ -11839,24 +12149,47 @@ const Viewer = {
       
       core.materialsFolder = Viewer.editorFolder.addFolder("Materials").close();
       setCore("materialsFolder", core.materialsFolder);
-      Viewer.editorFolder.add(
+      Viewer.pickingModeController = Viewer.editorFolder.add(
         {
-          ["Picking mode"]() {
+          togglePickingMode() {
             Viewer.pickingMode = !Viewer.pickingMode;
             var _str;
             Viewer.pickingMode ? (_str = "enabled") : (_str = "disabled");
             showToast("Face picking is " + _str);
-            if (!Viewer.pickingMode) ; else {
+            if (!Viewer.pickingMode) {
+              Viewer.restoreLastPickedFace();
+              Viewer.clearSelectedFaces();
+            } else {
               Viewer.RULER_MODE = false;
+              Viewer.updateDistanceMeasurementControllerLabel();
             }
+            Viewer.updatePickingModeControllerLabel();
+            Viewer.updatePickingControlsVisibility();
           },
         },
-        "Picking mode"
+        "togglePickingMode"
+      );
+      Viewer.updatePickingModeControllerLabel();
+
+      Viewer.clearSelectedFacesController = Viewer.editorFolder.add(
+        {
+          ["Clear selected faces"]() {
+            Viewer.clearSelectedFaces();
+            Viewer.restoreLastPickedFace();
+          },
+        },
+        "Clear selected faces"
       );
 
-      Viewer.editorFolder.add(
+      Viewer.selectedFacesCountController = Viewer.editorFolder
+        .add(Viewer.pickingStats, "Selected faces")
+        .listen();
+      Viewer.selectedFacesCountController.disable();
+      Viewer.updatePickingControlsVisibility();
+
+      Viewer.distanceMeasurementController = Viewer.editorFolder.add(
         {
-          ["Distance Measurement"]() {
+          toggleDistanceMeasurement() {
             Viewer.RULER_MODE = !Viewer.RULER_MODE;
             var _str;
             Viewer.RULER_MODE ? (_str = "enabled") : (_str = "disabled");
@@ -11870,11 +12203,17 @@ const Viewer = {
               Viewer.linePoints = [];
             } else {
               Viewer.pickingMode = false;
+              Viewer.restoreLastPickedFace();
+              Viewer.clearSelectedFaces();
+              Viewer.updatePickingModeControllerLabel();
+              Viewer.updatePickingControlsVisibility();
             }
+            Viewer.updateDistanceMeasurementControllerLabel();
           },
         },
-        "Distance Measurement"
+        "toggleDistanceMeasurement"
       );
+      Viewer.updateDistanceMeasurementControllerLabel();
 
       Viewer.editorFolder.add(
         {
@@ -12312,13 +12651,13 @@ const Viewer = {
       Viewer.actionMenu.innerHTML = `
         <input
           id="viewerActionMenuToggle"
-          class="viewer-action-menu__checkbox"
+          class="viewer-action-menu_checkbox"
           type="checkbox"
           aria-label="Open viewer actions"
         />
         <label
           for="viewerActionMenuToggle"
-          class="viewer-action-menu__toggle"
+          class="viewer-action-menu_toggle"
           aria-label="Open viewer actions"
           title="Viewer actions"
         >
@@ -12326,12 +12665,12 @@ const Viewer = {
           <span></span>
           <span></span>
         </label>
-        <div class="viewer-action-menu__panel" aria-label="Viewer actions"></div>
+        <div class="viewer-action-menu_panel" aria-label="Viewer actions"></div>
       `;
       core.container.appendChild(Viewer.actionMenu);
 
       Viewer.actionMenuToggle = Viewer.actionMenu.querySelector("#viewerActionMenuToggle");
-      Viewer.actionMenuPanel = Viewer.actionMenu.querySelector(".viewer-action-menu__panel");
+      Viewer.actionMenuPanel = Viewer.actionMenu.querySelector(".viewer-action-menu_panel");
 
       Viewer.viewEntity = document.createElement("button");
       Viewer.viewEntity.setAttribute("id", "viewEntity");
@@ -12652,4 +12991,4 @@ window.Viewer = Viewer;
 })();
 
 export { Viewer, expectWebGL };
-//# sourceMappingURL=main.Dc68y6id.js.map
+//# sourceMappingURL=main.DjMhAuW-.js.map

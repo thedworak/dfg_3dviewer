@@ -364,7 +364,7 @@ export async function setupCamera(_object, _data) {
   } else if (camPos && typeof camPos === "object") {
     core.camera.position.set(camPos.x, camPos.y, camPos.z);
   } else {
-    setupEmptyCamera(_object);
+    await setupEmptyCamera(_object);
   }
 
   // --- CONTROLS TARGET + ZOOM ---
