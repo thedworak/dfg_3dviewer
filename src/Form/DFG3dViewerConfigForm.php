@@ -28,6 +28,11 @@ class DFG3dViewerConfigForm extends FormBase {
         $value = $parts['path'];
       }
     }
+    elseif (preg_match('@^[^/]+\.[^/]+/.+@', $value)) {
+      $segments = explode('/', $value);
+      array_shift($segments);
+      $value = '/' . implode('/', $segments);
+    }
 
     $value = preg_replace('@/{2,}@', '/', $value);
 
