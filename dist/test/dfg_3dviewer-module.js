@@ -1668,6 +1668,7 @@ function expandMetadata() {
 
   const expanded = content.classList.toggle("expanded");
   toggle.classList.toggle("metadata-collapsed", !expanded);
+  card?.classList.toggle("metadata-open", expanded);
 
   // accessibility
   toggle.setAttribute("aria-expanded", expanded);
@@ -1712,7 +1713,8 @@ function bindMetadataInteractions() {
   if (core.metadataContainer.dataset.boundCollapse === "true") return;
 
   core.metadataContainer.addEventListener("click", (e) => {
-    if (e.target.id === "metadata-collapse") {
+    const toggle = e.target.closest("#metadata-collapse");
+    if (toggle) {
       expandMetadata();
       return;
     }
@@ -1927,7 +1929,14 @@ async function handleMetadataResponse(
 
   var metadataContent =
     '<div id="metadata-card">' +
-      '<div id="metadata-collapse" class="metadata-collapse">METADATA</div>' +
+      '<button id="metadata-collapse" class="metadata-collapse" type="button" aria-expanded="true" aria-controls="metadata-content">' +
+        '<span class="metadata-toggle-icon" aria-hidden="true"></span>' +
+        '<span class="metadata-toggle-copy">' +
+          '<span class="metadata-toggle-eyebrow">Model details</span>' +
+          '<span class="metadata-toggle-title">Metadata</span>' +
+        '</span>' +
+        '<span class="metadata-toggle-chevron" aria-hidden="true"></span>' +
+      '</button>' +
       '<div id="metadata-content" class="metadata-content expanded">';
   metadataContent +=
     '<div class="metadata-row">' +
@@ -10024,7 +10033,7 @@ const Viewer = {
     const label = isFullscreen ? "Exit fullscreen mode" : "Fullscreen mode";
 
     this.fullscreenMode.innerHTML = `
-      <img src="${core.DFG_ASSETS}/img/${icon}" alt="${label}" width="20" height="20"/>
+      <img src="${core.DFG_ASSETS}/img/${icon}" alt="${label}" width="18" height="18"/>
       <span>${isFullscreen ? "Exit fullscreen" : "Fullscreen"}</span>
     `;
     this.fullscreenMode.setAttribute("aria-label", label);
@@ -12967,4 +12976,4 @@ window.Viewer = Viewer;
 })();
 
 export { Viewer, expectWebGL };
-//# sourceMappingURL=main.CErWotl6.js.map
+//# sourceMappingURL=main.DQrtCCRb.js.map

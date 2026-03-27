@@ -114,8 +114,12 @@ function copyBuildAssets() {
         copyPromises.push(
           fs.writeFile(
             viewerSettingsTarget,
-            JSON.stringify(viewerSettingsMain, null, 2)
-          )
+            JSON.stringify(viewerSettingsMain, null, 2), { flag: 'wx' }
+          ).catch(err => {
+          if (err.code !== 'EEXIST') {
+            throw err;
+          }
+          })
         );
       } else if (envBuild === 'test' || envBuild === 'dev') {
         const viewerSettingsMain = JSON.parse(
@@ -128,15 +132,23 @@ function copyBuildAssets() {
         copyPromises.push(
           fs.writeFile(
             viewerSettingsTarget,
-            JSON.stringify(viewerSettingsMain, null, 2)
-          )
+            JSON.stringify(viewerSettingsMain, null, 2), { flag: 'wx' }
+          ).catch(err => {
+          if (err.code !== 'EEXIST') {
+            throw err;
+          }
+          })
         );
       } else {
         copyPromises.push(
           fs.writeFile(
             viewerSettingsTarget,
-            JSON.stringify(viewerSettings, null, 2)
-          )
+            JSON.stringify(viewerSettings, null, 2), { flag: 'wx' }
+          ).catch(err => {
+          if (err.code !== 'EEXIST') {
+            throw err;
+          }
+          })
         );
       }
 
