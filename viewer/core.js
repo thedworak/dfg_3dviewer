@@ -12,6 +12,8 @@ export const core = {
     ambientLight: null,
     cameraLight: null,
     mainCanvas: null,
+    noticeContainer: null,
+    statusNotice: null,
     gridSize: null,
     dirLightTarget: null,
     lightHelper: null,

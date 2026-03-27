@@ -120,6 +120,10 @@ export const Viewer = {
   spinnerContainer: null,
   spinnerElement: null,
   guiContainer: null,
+  noticeContainer: null,
+  statusNotice: null,
+  statusNoticeTimer: null,
+  pickingHint: null,
   metadataContainer: null,
   spinner: null,
   circle: null,
@@ -320,10 +324,22 @@ export const Viewer = {
     );
   },
 
+  updateSelectedFacesControllerLabel() {
+    if (!this.selectedFacesCountController?.name) return;
+    this.selectedFacesCountController.name("Selected faces");
+  },
+
+  updatePickingHintVisibility() {
+    if (!this.pickingHint) return;
+    const hasSelectedFaces = Array.isArray(this.selectedFaces) && this.selectedFaces.length > 0;
+    this.pickingHint.hidden = !this.pickingMode || hasSelectedFaces;
+  },
+
   updatePickingControlsVisibility() {
     const method = this.pickingMode ? "show" : "hide";
     this.clearSelectedFacesController?.[method]?.();
     this.selectedFacesCountController?.[method]?.();
+    this.updatePickingHintVisibility();
   },
 
   isEmbedMode() {
@@ -717,6 +733,28 @@ export const Viewer = {
     this.handHint.hidden = true;
     core.container.appendChild(this.handHint);
     setCore('handHint', this.handHint);
+
+    this.noticeContainer = document.createElement("div");
+    this.noticeContainer.id = "viewerNoticeContainer";
+    core.container.appendChild(this.noticeContainer);
+    setCore("noticeContainer", this.noticeContainer);
+
+    this.statusNotice = document.createElement("div");
+    this.statusNotice.id = "viewerStatusNotice";
+    this.statusNotice.className = "viewer-notice viewer-notice-status";
+    this.statusNotice.hidden = true;
+    this.statusNotice.setAttribute("role", "status");
+    this.statusNotice.setAttribute("aria-live", "polite");
+    this.noticeContainer.appendChild(this.statusNotice);
+    setCore("statusNotice", this.statusNotice);
+
+    this.pickingHint = document.createElement("div");
+    this.pickingHint.id = "pickingHint";
+    this.pickingHint.className = "viewer-notice viewer-notice-hint";
+    this.pickingHint.textContent = "Shift + click to select multiple faces";
+    this.pickingHint.hidden = true;
+    this.noticeContainer.appendChild(this.pickingHint);
+    setCore("pickingHint", this.pickingHint);
 
     this.spinnerContainer = document.createElement("div");
     this.spinnerContainer.id = "spinnerContainer";
@@ -1344,6 +1382,7 @@ export const Viewer = {
     Viewer.pickingStats["Selected faces"] = Array.isArray(Viewer.selectedFaces)
       ? Viewer.selectedFaces.length
       : 0;
+    Viewer.updatePickingHintVisibility();
   },
 
   clearSelectedFaces() {
@@ -2533,6 +2572,7 @@ export const Viewer = {
       Viewer.selectedFacesCountController = Viewer.editorFolder
         .add(Viewer.pickingStats, "Selected faces")
         .listen();
+      Viewer.updateSelectedFacesControllerLabel();
       Viewer.selectedFacesCountController.disable();
       Viewer.updatePickingControlsVisibility();
 

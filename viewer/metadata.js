@@ -410,10 +410,7 @@ export async function handleMetadataResponse(
     if (sharePayload?.url) {
       core.viewEntity.setAttribute("data-embed-url", sharePayload.url);
     }
-    core.viewEntity.innerHTML = `
-      <img src="${core.DFG_ASSETS}/img/share.svg" alt="Share view" width="18" height="18"/>
-      <span>Copy embed</span>
-    `;
+    core.viewEntity.innerHTML = `<span class="embed-icon"></span><span>Copy embed</span>`;
     core.viewEntity.setAttribute("aria-label", "Copy embed code");
     core.viewEntity.setAttribute("title", "Copy embed code");
     core.viewEntity.hidden = false;

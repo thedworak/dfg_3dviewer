@@ -86,13 +86,11 @@ function copyBuildAssets() {
       const settingsPhpTarget = path.join(outDistDir, 'settings.local.php');
       const indexTarget = path.join(outDistDir, 'index.html');
       const embedTarget = path.join(outDistDir, 'embed.html');
-      const toastifyTarget = path.join(outDistDir, 'assets/css/toastify.css');
 
       const copyPromises = [
         writeDrupalLibrariesFile(),
         fs.copyFile('index.html', indexTarget),
         fs.copyFile('embed.html', embedTarget),
-        fs.copyFile('node_modules/toastify-js/src/toastify.css', toastifyTarget),
       ];
 
       copyPromises.push(

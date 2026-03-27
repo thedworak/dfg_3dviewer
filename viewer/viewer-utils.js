@@ -1,6 +1,5 @@
 // viewer-utils.js
 import THREE from "./init.js";
-import Toastify from "toastify-js";
 import { core, setCore } from './core.js';
 import TWEEN, { add } from "three/examples/jsm/libs/tween.module.js";
 import { normalizeColor, parseCssColor } from './utils.js';
@@ -18,23 +17,65 @@ export const initClippingPlanes = () => {
 const scaleXYZ = (v, s) =>
   ['x', 'y', 'z'].forEach(k => v[k] *= s);
 
-export var toastifyOptions = {
-  duration: 6500,
-  gravity: "bottom",
-  close: true,
-  callback() {
-    Toastify.reposition();
-  },
-};
+const DEFAULT_NOTICE_DURATION = 4200;
 
-export const showToast = (message) => {
-    if (window.__E2E__ && window.viewer) {
-      window.viewer.toasts ??= [];
-      window.viewer.toasts.push(String(message));
-    }
-    var myToast = Toastify(toastifyOptions);
-    myToast.options.text = message;
-    myToast.showToast();
+function normalizeNoticeArgs(toneOrOptions, maybeOptions) {
+  let tone = "info";
+  let options = {};
+
+  if (typeof toneOrOptions === "string") {
+    tone = toneOrOptions;
+    options = maybeOptions ?? {};
+  } else if (toneOrOptions && typeof toneOrOptions === "object") {
+    options = toneOrOptions;
+    tone = toneOrOptions.tone ?? "info";
+  }
+
+  return { tone, options };
+}
+
+export const showToast = (message, toneOrOptions, maybeOptions) => {
+  const { tone, options } = normalizeNoticeArgs(toneOrOptions, maybeOptions);
+  const duration = Number.isFinite(options.duration)
+    ? options.duration
+    : DEFAULT_NOTICE_DURATION;
+  const text = String(message);
+
+  if (window.__E2E__ && window.viewer) {
+    window.viewer.toasts ??= [];
+    window.viewer.toasts.push(text);
+  }
+
+  const statusNotice = core.statusNotice;
+  if (!statusNotice) {
+    console.info(`[viewer:${tone}] ${text}`);
+    return;
+  }
+
+  statusNotice.hidden = false;
+  statusNotice.textContent = text;
+  statusNotice.dataset.tone = tone;
+  statusNotice.classList.remove("is-visible", "is-hiding");
+
+  // Force a reflow so repeated messages retrigger the entrance animation.
+  void statusNotice.offsetWidth;
+  statusNotice.classList.add("is-visible");
+
+  if (core.statusNoticeTimer) {
+    window.clearTimeout(core.statusNoticeTimer);
+  }
+
+  core.statusNoticeTimer = window.setTimeout(() => {
+    statusNotice.classList.remove("is-visible");
+    statusNotice.classList.add("is-hiding");
+
+    window.setTimeout(() => {
+      if (!statusNotice.classList.contains("is-visible")) {
+        statusNotice.hidden = true;
+        statusNotice.classList.remove("is-hiding");
+      }
+    }, 220);
+  }, duration);
 };
 
 export function getErrorMessage(error) {
