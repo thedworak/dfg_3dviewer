@@ -348,7 +348,7 @@ export async function handleMetadataResponse(
 
   var metadataContent =
     '<div id="metadata-card">' +
-      '<button id="metadata-collapse" class="metadata-collapse" type="button" aria-expanded="true" aria-controls="metadata-content">' +
+      '<button id="metadata-collapse" class="metadata-collapse metadata-collapsed" type="button" aria-expanded="false" aria-controls="metadata-content">' +
         '<span class="metadata-toggle-icon" aria-hidden="true"></span>' +
         '<span class="metadata-toggle-copy">' +
           '<span class="metadata-toggle-eyebrow">Model details</span>' +
@@ -356,7 +356,7 @@ export async function handleMetadataResponse(
         '</span>' +
         '<span class="metadata-toggle-chevron" aria-hidden="true"></span>' +
       '</button>' +
-      '<div id="metadata-content" class="metadata-content expanded">';
+      '<div id="metadata-content" class="metadata-content">';
   metadataContent +=
     '<div class="metadata-row">' +
       '<span class="metadata-label">Visualized file:</span>' +
