@@ -1,4 +1,4 @@
-import { T as THREE, e as _exports, V as Vector3, M as Matrix4, Q as Quaternion, E as Euler, a as MathUtils$1, O as OrbitControls, b as TransformControls, F as FontLoader, c as TextGeometry } from './assets/three.CAlKdkC4.js';
+import { T as THREE, e as _exports, V as Vector3, M as Matrix4, Q as Quaternion, E as Euler, a as MathUtils$1, O as OrbitControls, b as TransformControls, F as FontLoader, c as TextGeometry } from './assets/three.CHDe5leP.js';
 
 window.THREE = THREE;
 
@@ -1770,20 +1770,20 @@ function createIIIFUI() {
   document.body.appendChild(formContainer);
 }
 
-const loadDDSLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.j; })).DDSLoader;
-const loadMTLLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.k; })).MTLLoader;
-const loadOBJLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.l; })).OBJLoader;
-const loadFBXLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.n; })).FBXLoader;
-const loadPLYLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.P; })).PLYLoader;
-const loadColladaLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.o; })).ColladaLoader;
-const loadSTLLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.S; })).STLLoader;
-const loadXYZLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.X; })).XYZLoader;
-const loadTDSLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.p; })).TDSLoader;
-const loadPCDLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.q; })).PCDLoader;
-const loadGLTFLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.G; })).GLTFLoader;
-const loadDRACOLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.r; })).DRACOLoader;
-const loadIFCLoader = async () => (await import('./assets/IFCLoader.Bvw4gkUL.js')).IFCLoader;
-const loadRoomEnvironment = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.R; })).RoomEnvironment;
+const loadDDSLoader = async () => (await import('./assets/three.CHDe5leP.js').then(function (n) { return n.j; })).DDSLoader;
+const loadMTLLoader = async () => (await import('./assets/three.CHDe5leP.js').then(function (n) { return n.k; })).MTLLoader;
+const loadOBJLoader = async () => (await import('./assets/three.CHDe5leP.js').then(function (n) { return n.l; })).OBJLoader;
+const loadFBXLoader = async () => (await import('./assets/three.CHDe5leP.js').then(function (n) { return n.n; })).FBXLoader;
+const loadPLYLoader = async () => (await import('./assets/three.CHDe5leP.js').then(function (n) { return n.P; })).PLYLoader;
+const loadColladaLoader = async () => (await import('./assets/three.CHDe5leP.js').then(function (n) { return n.o; })).ColladaLoader;
+const loadSTLLoader = async () => (await import('./assets/three.CHDe5leP.js').then(function (n) { return n.S; })).STLLoader;
+const loadXYZLoader = async () => (await import('./assets/three.CHDe5leP.js').then(function (n) { return n.X; })).XYZLoader;
+const loadTDSLoader = async () => (await import('./assets/three.CHDe5leP.js').then(function (n) { return n.p; })).TDSLoader;
+const loadPCDLoader = async () => (await import('./assets/three.CHDe5leP.js').then(function (n) { return n.q; })).PCDLoader;
+const loadGLTFLoader = async () => (await import('./assets/three.CHDe5leP.js').then(function (n) { return n.G; })).GLTFLoader;
+const loadDRACOLoader = async () => (await import('./assets/three.CHDe5leP.js').then(function (n) { return n.r; })).DRACOLoader;
+const loadIFCLoader = async () => (await import('./assets/IFCLoader.mgxdNaLS.js')).IFCLoader;
+const loadRoomEnvironment = async () => (await import('./assets/three.CHDe5leP.js').then(function (n) { return n.R; })).RoomEnvironment;
 
 var outlineClipping;
 let environmentTexturePromise = null;

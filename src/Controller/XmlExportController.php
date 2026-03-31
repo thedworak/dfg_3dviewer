@@ -12,6 +12,10 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 class XmlExportController extends ControllerBase {
 
   private const XSL_URL = 'https://raw.githubusercontent.com/slub/dfg-viewer/e54305a9fa58951d3f3d1dd7e64554cb2ee881eb/Resources/Public/XSLT/exportSingleToMetsMods.xsl';
+  private const EXPORT_PATHS = [
+    '/wisski/navigate/%d/view',
+    '/export_xml_single/%d',
+  ];
   private const FILE_DIR = 'public://xml_structure';
 
   protected ClientInterface $httpClient;
@@ -50,9 +54,9 @@ class XmlExportController extends ControllerBase {
     }
 
     try {
-      $xml = $this->fetchSourceXmlFromRequest($request);
+      $xml = $this->fetchSourceXml($request, (int) $id, $domain);
       $result = $this->transformXml($xml);
-      $this->saveXml($id, $result);
+      $this->saveXml((string) $id, $result);
 
       return new Response(
         $result,
@@ -68,30 +72,63 @@ class XmlExportController extends ControllerBase {
 
 
   /**
-   * Loading source XML
+   * Load source XML from request body or from the configured domain.
    */
-  protected function fetchSourceXmlFromRequest(Request $request): \SimpleXMLElement {
-    $xmlString = $request->getContent();
-
-    if (empty($xmlString)) {
-      throw new \RuntimeException('Empty XML body');
+  protected function fetchSourceXml(Request $request, int $id, string $domain): \SimpleXMLElement {
+    $xmlString = trim($request->getContent() ?? '');
+    if ($xmlString !== '') {
+      libxml_use_internal_errors(true);
+      $xml = simplexml_load_string($xmlString);
+      if ($xml instanceof \SimpleXMLElement) {
+        return $xml;
+      }
     }
 
-    libxml_use_internal_errors(true);
-    $xml = simplexml_load_string($xmlString);
+    return $this->fetchSourceXmlFromDomain($id, $domain);
+  }
 
-    if (!$xml) {
-      throw new \RuntimeException('Invalid source XML');
+  protected function fetchSourceXmlFromDomain(int $id, string $domain): \SimpleXMLElement {
+    $domain = $this->normalizeDomain($domain);
+    $query = http_build_query(['page' => 0, '_format' => 'xml']);
+
+    foreach (self::EXPORT_PATHS as $pattern) {
+      $url = $domain . sprintf($pattern, $id) . '?' . $query;
+      $response = $this->httpClient->request('GET', $url, ['http_errors' => false]);
+      if ($response->getStatusCode() !== 200) {
+        continue;
+      }
+
+      $xmlString = (string) $response->getBody();
+      if ($xmlString === '') {
+        continue;
+      }
+
+      libxml_use_internal_errors(true);
+      $xml = simplexml_load_string($xmlString);
+      if ($xml instanceof \SimpleXMLElement) {
+        return $xml;
+      }
     }
 
-    return $xml;
+    throw new \RuntimeException('Cannot fetch source XML from domain');
+  }
+
+  protected function normalizeDomain(string $domain): string {
+    $domain = trim($domain);
+    if ($domain === '') {
+      return '';
+    }
+    if (!preg_match('#^https?://#i', $domain)) {
+      $domain = 'https://' . $domain;
+    }
+    return rtrim($domain, '/');
   }
 
   /**
    * Transform XML using XSLT.
    */
   protected function transformXml(\SimpleXMLElement $xml): string {
-    $xsl = simplexml_load_file(self::XSL_URL);
+    $xsl = simplexml_load_string($this->fetchXsl());
     if (!$xsl) {
       throw new \RuntimeException('Cannot load XSL');
     }
@@ -105,6 +142,14 @@ class XmlExportController extends ControllerBase {
     }
 
     return $this->formatXml($result);
+  }
+
+  protected function fetchXsl(): string {
+    $response = $this->httpClient->request('GET', self::XSL_URL, ['http_errors' => false]);
+    if ($response->getStatusCode() !== 200) {
+      throw new \RuntimeException('Cannot fetch XSL: ' . $response->getStatusCode());
+    }
+    return (string) $response->getBody();
   }
 
   /**

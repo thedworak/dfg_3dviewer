@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import archiver from 'archiver';
+import { spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -25,20 +25,27 @@ if (fs.existsSync(indexPath)) {
   console.log('Rewrote asset paths in dist/index.html to use relative paths');
 }
 
-const output = fs.createWriteStream(outFile);
-const archive = archiver('zip', { zlib: { level: 9 } });
+if (fs.existsSync(outFile)) {
+  fs.rmSync(outFile);
+}
 
-output.on('close', () => {
-  console.log(`Created ${outFile} (${archive.pointer()} total bytes)`);
+const zipProcess = spawnSync('zip', ['-rq', outFile, '.'], {
+  cwd: distDir,
+  stdio: 'inherit',
 });
 
-archive.on('warning', (err) => {
-  if (err.code === 'ENOENT') console.warn(err);
-  else throw err;
-});
+if (zipProcess.error) {
+  if (zipProcess.error.code === 'ENOENT') {
+    console.error('`zip` command not found. Install it or use an environment that provides it before running `npm run pack-dist`.');
+    process.exit(1);
+  }
 
-archive.on('error', (err) => { throw err; });
+  throw zipProcess.error;
+}
 
-archive.pipe(output);
-archive.directory(distDir, false);
-archive.finalize();
+if (zipProcess.status !== 0) {
+  process.exit(zipProcess.status ?? 1);
+}
+
+const archiveSize = fs.statSync(outFile).size;
+console.log(`Created ${outFile} (${archiveSize} total bytes)`);

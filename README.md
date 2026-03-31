@@ -583,6 +583,8 @@ npm run pack-dist
 # The resulting archive is `dfg_3dviewer-dist.zip` and `dist/` contains JS and assets
 ```
 
+`npm run pack-dist` uses the system `zip` command, so make sure `zip` is available in the environment where you create the archive.
+
 - Consumer usage (in a plain HTML site): copy `dist/dfg_3dviewer-module.js` and the `dist/assets/` folder to your webroot and include the script:
 
 ```html
