@@ -40,17 +40,27 @@ class XmlExportController extends ControllerBase {
    * Route callback.
    */
   public function export(Request $request, ?string $id = null): Response {
+    $content = trim((string) $request->getContent());
+    $domain = null;
+
     if ($request->isMethod('GET')) {
-      $domain = $request->query->get('domain');
+      $domain = trim((string) $request->query->get('domain', ''));
     }
-    else {
-      $data = json_decode($request->getContent(), true);
+    elseif ($content !== '' && $this->isJson($content)) {
+      $data = json_decode($content, true);
       $id = $id ?? ($data['id'] ?? null);
-      $domain = $data['domain'] ?? null;
+      $domain = trim((string) ($data['domain'] ?? ''));
+      if ($domain === '') {
+        return new Response('Missing domain', 400);
+      }
     }
 
-    if (!$id || !$domain) {
-      return new Response('Missing id or domain', 400);
+    if (!$id) {
+      return new Response('Missing id', 400);
+    }
+
+    if ($request->isMethod('GET') && !$domain) {
+      return new Response('Missing domain', 400);
     }
 
     try {
@@ -68,6 +78,12 @@ class XmlExportController extends ControllerBase {
       \Drupal::logger('dfg_3dviewer')->error($e->getMessage());
       return new Response('XML export failed', 500);
     }
+  }
+
+
+  protected function isJson(string $content): bool {
+    json_decode($content);
+    return json_last_error() === JSON_ERROR_NONE;
   }
 
 
