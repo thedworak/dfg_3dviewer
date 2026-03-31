@@ -66,12 +66,12 @@ class XmlExportController extends ControllerBase {
     try {
       $xml = $this->fetchSourceXml($request, (int) $id, $domain);
       $result = $this->transformXml($xml);
-      $this->saveXml((string) $id, $result);
+      $path = $this->saveXml((string) $id, $result);
 
       return new Response(
-        $result,
+        json_encode(['path' => $path]),
         200,
-        ['Content-Type' => 'application/xml']
+        ['Content-Type' => 'application/json']
       );
     }
     catch (\Throwable $e) {
