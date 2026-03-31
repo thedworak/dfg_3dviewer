@@ -105,17 +105,32 @@ class XmlExportController extends ControllerBase {
 
   protected function fetchSourceXmlFromDomain(int $id, string $domain): \SimpleXMLElement {
     $domain = $this->normalizeDomain($domain);
+    if ($domain === '') {
+      throw new \RuntimeException('Missing domain for XML source fetch');
+    }
+
     $query = http_build_query(['page' => 0, '_format' => 'xml']);
+    $attempts = [];
 
     foreach (self::EXPORT_PATHS as $pattern) {
       $url = $domain . sprintf($pattern, $id) . '?' . $query;
-      $response = $this->httpClient->request('GET', $url, ['http_errors' => false]);
-      if ($response->getStatusCode() !== 200) {
+      try {
+        $response = $this->httpClient->request('GET', $url, ['http_errors' => false]);
+      }
+      catch (\Throwable $e) {
+        $attempts[] = sprintf('%s => exception: %s', $url, $e->getMessage());
+        continue;
+      }
+
+      $status = $response->getStatusCode();
+      $attempts[] = sprintf('%s => %d', $url, $status);
+      if ($status !== 200) {
         continue;
       }
 
       $xmlString = (string) $response->getBody();
       if ($xmlString === '') {
+        $attempts[] = sprintf('%s => empty body', $url);
         continue;
       }
 
@@ -124,8 +139,10 @@ class XmlExportController extends ControllerBase {
       if ($xml instanceof \SimpleXMLElement) {
         return $xml;
       }
+      $attempts[] = sprintf('%s => invalid XML', $url);
     }
 
+    \Drupal::logger('dfg_3dviewer')->error('XML source fetch failed; attempts: @attempts', ['@attempts' => implode('; ', $attempts)]);
     throw new \RuntimeException('Cannot fetch source XML from domain');
   }
 
