@@ -115,6 +115,7 @@ class XmlExportController extends ControllerBase {
     }
 
     $record = $this->fetchJsonRecordFromDomain($id, $domain);
+    $record = $this->enrichJsonRecordFromLocalEntity($record, $id);
     return $this->buildXmlFromJsonRecord($record, $id, $domain);
   }
 
@@ -433,6 +434,139 @@ class XmlExportController extends ControllerBase {
     }
 
     return $dom->saveXML();
+  }
+
+  protected function enrichJsonRecordFromLocalEntity(array $record, int $id): array {
+    $current_model = $this->extractModelUrlFromRecord($record);
+    if ($current_model !== '') {
+      return $record;
+    }
+
+    $cfg = $this->config('dfg_3dviewer.settings');
+    $field_candidates = array_values(array_filter([
+      trim((string) ($cfg->get('dfg_3dviewer_api_3d_file_field') ?? $cfg->get('api_3d_file_field') ?? '')),
+      trim((string) ($cfg->get('dfg_3dviewer_viewer_file_name') ?? $cfg->get('viewer_file_name') ?? '')),
+      trim((string) ($cfg->get('dfg_3dviewer_viewer_file_upload') ?? $cfg->get('viewer_file_upload') ?? '')),
+    ]));
+
+    foreach (['wisski_individual', 'node'] as $entity_type) {
+      try {
+        $entity = \Drupal::entityTypeManager()->getStorage($entity_type)->load($id);
+        if (!$entity) {
+          continue;
+        }
+
+        foreach ($field_candidates as $field_name) {
+          $resolved = $this->resolveEntityFieldToPublicUrl($entity, $field_name);
+          if ($resolved === '') {
+            continue;
+          }
+
+          $record['3D_file'] = $resolved;
+          \Drupal::logger('dfg_3dviewer')->notice(
+            'Filled missing JSON 3D_file for entity @id from local field "@field": @value',
+            [
+              '@id' => (string) $id,
+              '@field' => $field_name,
+              '@value' => $resolved,
+            ]
+          );
+          return $record;
+        }
+      }
+      catch (\Throwable $e) {
+        // Try the next entity type.
+      }
+    }
+
+    return $record;
+  }
+
+  protected function resolveEntityFieldToPublicUrl($entity, string $field_name): string {
+    if ($field_name === '' || !method_exists($entity, 'hasField') || !$entity->hasField($field_name)) {
+      return '';
+    }
+
+    $values = $entity->get($field_name)->getValue();
+    $first = is_array($values[0] ?? null) ? $values[0] : [];
+    if (empty($first)) {
+      return '';
+    }
+
+    if (!empty($first['target_id']) && ctype_digit((string) $first['target_id'])) {
+      $file = \Drupal\file\Entity\File::load((int) $first['target_id']);
+      if ($file) {
+        return $this->fileUriToPublicUrl((string) $file->getFileUri());
+      }
+    }
+
+    foreach (['value', 'uri'] as $key) {
+      $candidate = trim((string) ($first[$key] ?? ''));
+      if ($candidate === '') {
+        continue;
+      }
+      if (preg_match('#^https?://#i', $candidate)) {
+        return $candidate;
+      }
+      if (preg_match('#^[a-z][a-z0-9+.-]*://#i', $candidate)) {
+        return $this->fileUriToPublicUrl($candidate);
+      }
+      if (str_starts_with($candidate, '/sites/default/files/')) {
+        $base = $this->preferredPublicBaseUrl();
+        return $base !== '' ? rtrim($base, '/') . $candidate : $candidate;
+      }
+    }
+
+    return '';
+  }
+
+  protected function fileUriToPublicUrl(string $uri): string {
+    $uri = trim($uri);
+    if ($uri === '') {
+      return '';
+    }
+
+    if (preg_match('#^https?://#i', $uri)) {
+      return $uri;
+    }
+
+    if (str_starts_with($uri, 'public://')) {
+      $relative = '/sites/default/files/' . ltrim(substr($uri, strlen('public://')), '/');
+      $base = $this->preferredPublicBaseUrl();
+      return $base !== '' ? rtrim($base, '/') . $relative : $relative;
+    }
+
+    try {
+      $generated = (string) \Drupal::service('file_url_generator')->generateAbsoluteString($uri);
+      $host = (string) parse_url($generated, PHP_URL_HOST);
+      $path = (string) parse_url($generated, PHP_URL_PATH);
+      if ($host !== '' && (strpos($host, '_') !== false || strtolower($host) === 'default') && $path !== '') {
+        $base = $this->preferredPublicBaseUrl();
+        return $base !== '' ? rtrim($base, '/') . $path : $path;
+      }
+      return $generated;
+    }
+    catch (\Throwable $e) {
+      return '';
+    }
+  }
+
+  protected function preferredPublicBaseUrl(): string {
+    $cfg = $this->config('dfg_3dviewer.settings');
+    $candidates = [
+      trim((string) ($cfg->get('dfg_3dviewer_main_url') ?? $cfg->get('main_url') ?? '')),
+      trim((string) ($cfg->get('dfg_3dviewer_json_export_base_url') ?? $cfg->get('json_export_base_url') ?? '')),
+    ];
+
+    foreach ($candidates as $candidate) {
+      $parts = parse_url($candidate);
+      $host = is_array($parts) ? (string) ($parts['host'] ?? '') : '';
+      if (is_array($parts) && !empty($parts['scheme']) && $host !== '' && strpos($host, '_') === false && strtolower($host) !== 'default') {
+        return rtrim($candidate, '/');
+      }
+    }
+
+    return '';
   }
 
   protected function firstNonEmptyValue(array $record, array $keys): string {
