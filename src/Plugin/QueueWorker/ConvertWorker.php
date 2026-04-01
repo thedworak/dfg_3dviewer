@@ -1692,6 +1692,28 @@ class ConvertWorker extends QueueWorkerBase {
         continue;
       }
 
+      if (array_key_exists('target_id', $row)) {
+        $target_id = trim((string) $row['target_id']);
+        if ($target_id !== '' && ctype_digit($target_id)) {
+          try {
+            $file = File::load((int) $target_id);
+            if ($file) {
+              $uri = trim((string) $file->getFileUri());
+              $url = trim((string) ($this->uriToUrl($uri, '') ?? ''));
+              $url_path = trim((string) parse_url($url, PHP_URL_PATH));
+              foreach ([$uri, $url, $url_path] as $candidate) {
+                if ($candidate !== '' && in_array($candidate, $expected_values, TRUE)) {
+                  return TRUE;
+                }
+              }
+            }
+          }
+          catch (\Throwable $e) {
+            // Continue with raw comparisons below.
+          }
+        }
+      }
+
       foreach ($row as $value) {
         $value = trim((string) $value);
         if ($value !== '' && in_array($value, $expected_values, TRUE)) {
