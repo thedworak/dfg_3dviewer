@@ -12,6 +12,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 class XmlExportController extends ControllerBase {
 
   private const XSL_URL = 'https://raw.githubusercontent.com/slub/dfg-viewer/e54305a9fa58951d3f3d1dd7e64554cb2ee881eb/Resources/Public/XSLT/exportSingleToMetsMods.xsl';
+  private const JSON_EXPORT_PATH = '/api/digital_reconstruction/record/%d';
   private const EXPORT_PATHS = [
     '/wisski/navigate/%d/view',
     '/export_xml_single/%d',
@@ -64,8 +65,7 @@ class XmlExportController extends ControllerBase {
     }
 
     try {
-      $xml = $this->fetchSourceXml($request, (int) $id, $domain);
-      $result = $this->transformXml($xml, $domain);
+      $result = $this->buildExportXml($request, (int) $id, (string) $domain);
       $this->saveXml((string) $id, $result);
 
       return new Response(
@@ -88,19 +88,34 @@ class XmlExportController extends ControllerBase {
 
 
   /**
-   * Load source XML from request body or from the configured domain.
+   * Builds export XML from request body, legacy XML source or JSON API source.
    */
-  protected function fetchSourceXml(Request $request, int $id, string $domain): \SimpleXMLElement {
+  protected function buildExportXml(Request $request, int $id, string $domain): string {
     $xmlString = trim($request->getContent() ?? '');
     if ($xmlString !== '') {
       libxml_use_internal_errors(true);
       $xml = simplexml_load_string($xmlString);
       if ($xml instanceof \SimpleXMLElement) {
-        return $xml;
+        return $this->transformXml($xml, $domain);
       }
     }
 
-    return $this->fetchSourceXmlFromDomain($id, $domain);
+    try {
+      $xml = $this->fetchSourceXmlFromDomain($id, $domain);
+      return $this->transformXml($xml, $domain);
+    }
+    catch (\Throwable $legacyException) {
+      \Drupal::logger('dfg_3dviewer')->warning(
+        'Legacy XML source fetch failed for @id, trying JSON fallback: @msg',
+        [
+          '@id' => (string) $id,
+          '@msg' => $legacyException->getMessage(),
+        ]
+      );
+    }
+
+    $record = $this->fetchJsonRecordFromDomain($id, $domain);
+    return $this->buildXmlFromJsonRecord($record, $id, $domain);
   }
 
   protected function fetchSourceXmlFromDomain(int $id, string $domain): \SimpleXMLElement {
@@ -157,6 +172,31 @@ class XmlExportController extends ControllerBase {
     return rtrim($domain, '/');
   }
 
+  protected function fetchJsonRecordFromDomain(int $id, string $domain): array {
+    $domain = $this->normalizeDomain($domain);
+    if ($domain === '') {
+      throw new \RuntimeException('Missing domain for JSON source fetch');
+    }
+
+    $url = $domain . sprintf(self::JSON_EXPORT_PATH, $id);
+    $response = $this->httpClient->request('GET', $url, ['http_errors' => false]);
+    if ($response->getStatusCode() !== 200) {
+      throw new \RuntimeException('JSON source fetch failed with status ' . $response->getStatusCode());
+    }
+
+    $payload = json_decode((string) $response->getBody(), true);
+    if (!is_array($payload)) {
+      throw new \RuntimeException('JSON source returned invalid payload');
+    }
+
+    $record = $payload[0] ?? $payload;
+    if (!is_array($record) || empty($record)) {
+      throw new \RuntimeException('JSON source returned an empty record');
+    }
+
+    return $record;
+  }
+
   /**
    * Transform XML using XSLT.
    */
@@ -176,6 +216,237 @@ class XmlExportController extends ControllerBase {
 
     $result = $this->normalizeDefaultHostUrls($result, $domain);
     return $this->formatXml($result);
+  }
+
+  protected function buildXmlFromJsonRecord(array $record, int $id, string $domain): string {
+    $domain = $this->normalizeDomain($domain);
+    $title = $this->stringValue($record, 'title', 'Digital reconstruction ' . $id);
+    $converted_file = $this->firstNonEmptyValue($record, ['converted_file', '3D_file', '3d_file', 'model_file']);
+    if ($converted_file === '') {
+      throw new \RuntimeException('JSON record does not contain a 3D file URL');
+    }
+
+    $preview = $this->firstNonEmptyValue($record, ['object_preview', 'preview', 'reconstruction_previews']);
+    $metadata_export = $this->firstNonEmptyValue($record, ['metadata_export']);
+    $object_uri = $this->firstNonEmptyValue($record, ['object_URI', 'URI']);
+    $description = $this->firstNonEmptyValue($record, ['object_description']);
+    $authors = $this->firstNonEmptyValue($record, ['reconstruction_authors']);
+    $authors_affiliation = $this->firstNonEmptyValue($record, ['reconstruction_authors_affiliation']);
+    $license = $this->firstNonEmptyValue($record, ['reconstruction_license']);
+    $time_frame = $this->firstNonEmptyValue($record, ['reconstruction_time_frame']);
+    $edition_date = $this->firstNonEmptyValue($record, ['edition_date']);
+    $object_name = $this->firstNonEmptyValue($record, ['object_name']);
+    $object_type = $this->firstNonEmptyValue($record, ['object_type']);
+    $object_category = $this->firstNonEmptyValue($record, ['object_category']);
+    $project_name = $this->firstNonEmptyValue($record, ['project_name']);
+    $project_acronym = $this->firstNonEmptyValue($record, ['project_acronym']);
+    $custody = $this->firstNonEmptyValue($record, ['reconstruction_custody']);
+    $status = $this->firstNonEmptyValue($record, ['status']);
+
+    $dom = new \DOMDocument('1.0', 'UTF-8');
+    $dom->preserveWhiteSpace = false;
+    $dom->formatOutput = true;
+
+    $mets = $dom->createElementNS('http://www.loc.gov/METS/', 'mets:mets');
+    $mets->setAttribute('OBJID', (string) $id);
+    $mets->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:mods', 'http://www.loc.gov/mods/v3');
+    $mets->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:xlink', 'http://www.w3.org/1999/xlink');
+    $dom->appendChild($mets);
+
+    $metsHdr = $dom->createElement('mets:metsHdr');
+    if ($edition_date !== '') {
+      $metsHdr->setAttribute('LASTMODDATE', $edition_date);
+    }
+    $mets->appendChild($metsHdr);
+
+    $dmdSec = $dom->createElement('mets:dmdSec');
+    $dmdSec->setAttribute('ID', 'DMD1');
+    $mets->appendChild($dmdSec);
+
+    $mdWrap = $dom->createElement('mets:mdWrap');
+    $mdWrap->setAttribute('MDTYPE', 'MODS');
+    $dmdSec->appendChild($mdWrap);
+
+    $xmlData = $dom->createElement('mets:xmlData');
+    $mdWrap->appendChild($xmlData);
+
+    $mods = $dom->createElement('mods:mods');
+    $xmlData->appendChild($mods);
+
+    $titleInfo = $dom->createElement('mods:titleInfo');
+    $mods->appendChild($titleInfo);
+    $titleInfo->appendChild($dom->createElement('mods:title', $title));
+
+    foreach ([
+      'reconstruction_authors' => $authors,
+      'reconstruction_authors_affiliation' => $authors_affiliation,
+      'object_name' => $object_name,
+      'object_type' => $object_type,
+      'object_category' => $object_category,
+      'project_name' => $project_name,
+      'project_acronym' => $project_acronym,
+      'reconstruction_custody' => $custody,
+      'status' => $status,
+      'reconstruction_time_frame' => $time_frame,
+    ] as $label => $value) {
+      if ($value === '') {
+        continue;
+      }
+      $note = $dom->createElement('mods:note', $value);
+      $note->setAttribute('type', $label);
+      $mods->appendChild($note);
+    }
+
+    if ($authors !== '') {
+      $name = $dom->createElement('mods:name');
+      $name->setAttribute('type', 'personal');
+      $mods->appendChild($name);
+      $name->appendChild($dom->createElement('mods:namePart', $authors));
+      $role = $dom->createElement('mods:role');
+      $name->appendChild($role);
+      $role->appendChild($dom->createElement('mods:roleTerm', 'creator'));
+    }
+
+    if ($description !== '') {
+      $mods->appendChild($dom->createElement('mods:abstract', $description));
+    }
+
+    if ($license !== '') {
+      $mods->appendChild($dom->createElement('mods:accessCondition', $license));
+    }
+
+    if ($edition_date !== '') {
+      $originInfo = $dom->createElement('mods:originInfo');
+      $originInfo->appendChild($dom->createElement('mods:dateIssued', $edition_date));
+      $mods->appendChild($originInfo);
+    }
+
+    if ($object_uri !== '' || $metadata_export !== '' || $domain !== '') {
+      $location = $dom->createElement('mods:location');
+      $mods->appendChild($location);
+      if ($object_uri !== '') {
+        $location->appendChild($dom->createElement('mods:url', $object_uri));
+      }
+      if ($metadata_export !== '') {
+        $url = $dom->createElement('mods:url', $metadata_export);
+        $url->setAttribute('usage', 'primary display');
+        $location->appendChild($url);
+      }
+      if ($domain !== '') {
+        $location->appendChild($dom->createElement('mods:physicalLocation', $domain));
+      }
+    }
+
+    $fileSec = $dom->createElement('mets:fileSec');
+    $mets->appendChild($fileSec);
+
+    $modelGroup = $dom->createElement('mets:fileGrp');
+    $modelGroup->setAttribute('USE', 'MODEL');
+    $fileSec->appendChild($modelGroup);
+
+    $modelFile = $dom->createElement('mets:file');
+    $modelFile->setAttribute('ID', 'FILE_MODEL');
+    $modelFile->setAttribute('MIMETYPE', $this->guessMimeTypeFromUrl($converted_file));
+    $modelGroup->appendChild($modelFile);
+
+    $modelFLocat = $dom->createElement('mets:FLocat');
+    $modelFLocat->setAttribute('LOCTYPE', 'URL');
+    $modelFLocat->setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', $converted_file);
+    $modelFile->appendChild($modelFLocat);
+
+    if ($preview !== '') {
+      $thumbGroup = $dom->createElement('mets:fileGrp');
+      $thumbGroup->setAttribute('USE', 'THUMBNAIL');
+      $fileSec->appendChild($thumbGroup);
+
+      $thumbFile = $dom->createElement('mets:file');
+      $thumbFile->setAttribute('ID', 'FILE_PREVIEW');
+      $thumbFile->setAttribute('MIMETYPE', $this->guessMimeTypeFromUrl($preview));
+      $thumbGroup->appendChild($thumbFile);
+
+      $thumbFLocat = $dom->createElement('mets:FLocat');
+      $thumbFLocat->setAttribute('LOCTYPE', 'URL');
+      $thumbFLocat->setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', $preview);
+      $thumbFile->appendChild($thumbFLocat);
+    }
+
+    $structMap = $dom->createElement('mets:structMap');
+    $structMap->setAttribute('TYPE', 'LOGICAL');
+    $mets->appendChild($structMap);
+
+    $div = $dom->createElement('mets:div');
+    $div->setAttribute('TYPE', 'monograph');
+    $div->setAttribute('DMDID', 'DMD1');
+    $div->setAttribute('LABEL', $title);
+    $structMap->appendChild($div);
+
+    $fptr = $dom->createElement('mets:fptr');
+    $fptr->setAttribute('FILEID', 'FILE_MODEL');
+    $div->appendChild($fptr);
+
+    $amdSec = $dom->createElement('mets:amdSec');
+    $mets->appendChild($amdSec);
+    $techMD = $dom->createElement('mets:techMD');
+    $techMD->setAttribute('ID', 'TECH1');
+    $amdSec->appendChild($techMD);
+    $techWrap = $dom->createElement('mets:mdWrap');
+    $techWrap->setAttribute('MDTYPE', 'OTHER');
+    $techWrap->setAttribute('OTHERMDTYPE', 'DFG3D');
+    $techMD->appendChild($techWrap);
+    $techXmlData = $dom->createElement('mets:xmlData');
+    $techWrap->appendChild($techXmlData);
+    $techXmlData->appendChild($dom->createElement('converted_file', $converted_file));
+    if ($preview !== '') {
+      $techXmlData->appendChild($dom->createElement('object_preview', $preview));
+    }
+    if ($metadata_export !== '') {
+      $techXmlData->appendChild($dom->createElement('metadata_export', $metadata_export));
+    }
+
+    return $dom->saveXML();
+  }
+
+  protected function firstNonEmptyValue(array $record, array $keys): string {
+    foreach ($keys as $key) {
+      $value = $this->stringValue($record, $key);
+      if ($value !== '') {
+        return $value;
+      }
+    }
+
+    return '';
+  }
+
+  protected function stringValue(array $record, string $key, string $default = ''): string {
+    if (!array_key_exists($key, $record)) {
+      return $default;
+    }
+
+    $value = $record[$key];
+    if (is_array($value)) {
+      $value = implode(', ', array_filter(array_map('strval', $value)));
+    }
+
+    return trim((string) $value) ?: $default;
+  }
+
+  protected function guessMimeTypeFromUrl(string $url): string {
+    $path = parse_url($url, PHP_URL_PATH);
+    $extension = strtolower(pathinfo((string) $path, PATHINFO_EXTENSION));
+
+    return match ($extension) {
+      'glb' => 'model/gltf-binary',
+      'gltf' => 'model/gltf+json',
+      'fbx' => 'application/octet-stream',
+      'obj' => 'text/plain',
+      'stl' => 'model/stl',
+      'ply' => 'application/octet-stream',
+      'dae' => 'model/vnd.collada+xml',
+      'jpg', 'jpeg' => 'image/jpeg',
+      'png' => 'image/png',
+      'webp' => 'image/webp',
+      default => 'application/octet-stream',
+    };
   }
 
   protected function normalizeDefaultHostUrls(string $xml, string $domain): string {
