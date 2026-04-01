@@ -175,12 +175,12 @@ canvas {
 }
 
 .lil-gui.root>.title {
-  background: rgba(43, 49, 61, 0.9);
+  background: var(--viewer-gui-title-bg);
 }
 
 @media (hover: hover) {
     body:not(.lil-gui-dragging) .lil-gui .title:hover {
-        background: rgba(25, 29, 36, 0.9);
+        background: var(--viewer-gui-title-hover-bg);
         opacity: .95;
     }
 }
@@ -189,9 +189,71 @@ canvas {
   margin: 0;
   max-height: calc(100% - 20px);
   overflow-y: auto;
-
-  background: rgba(43, 49, 61, 0.9);
+  --background-color: var(--viewer-gui-bg);
+  --title-background-color: var(--viewer-gui-title-bg);
+  --title-text-color: var(--viewer-panel-text);
+  --text-color: var(--viewer-panel-text);
+  --widget-color: var(--viewer-gui-widget-bg);
+  --hover-color: var(--viewer-gui-widget-hover-bg);
+  --focus-color: var(--viewer-gui-widget-focus-bg);
+  --number-color: #38bdf8;
+  --string-color: #f59e0b;
+  --color: var(--viewer-panel-text);
+  background: var(--viewer-gui-bg);
   border-radius: 6px;
+}
+
+#guiContainer > .lil-gui.root,
+#guiContainer > .lil-gui.root .title,
+#guiContainer > .lil-gui.root .name,
+#guiContainer > .lil-gui.root .controller,
+#guiContainer > .lil-gui.root .children,
+#guiContainer > .lil-gui.root button,
+#guiContainer > .lil-gui.root input,
+#guiContainer > .lil-gui.root select {
+  color: var(--viewer-panel-text);
+}
+
+#guiContainer > .lil-gui.root button,
+#guiContainer > .lil-gui.root input,
+#guiContainer > .lil-gui.root select,
+#guiContainer > .lil-gui.root .display,
+#guiContainer > .lil-gui.root .slider {
+  background: var(--viewer-gui-widget-bg);
+  color: var(--viewer-panel-text);
+}
+
+#guiContainer > .lil-gui.root button:hover,
+#guiContainer > .lil-gui.root .display:hover,
+#guiContainer > .lil-gui.root .slider:hover,
+#guiContainer > .lil-gui.root input:hover,
+#guiContainer > .lil-gui.root select:hover {
+  background: var(--viewer-gui-widget-hover-bg);
+}
+
+#guiContainer > .lil-gui.root button:active,
+#guiContainer > .lil-gui.root button:focus,
+#guiContainer > .lil-gui.root input:focus,
+#guiContainer > .lil-gui.root select:focus {
+  background: var(--viewer-gui-widget-focus-bg);
+  color: #ffffff;
+}
+
+#guiContainer > .lil-gui.root input[type="checkbox"] {
+  border: 1px solid color-mix(in srgb, var(--viewer-panel-text) 18%, transparent);
+  background: var(--viewer-gui-widget-bg);
+}
+
+#guiContainer > .lil-gui.root input[type="checkbox"]:checked {
+  background: var(--viewer-gui-slider-fill);
+}
+
+#guiContainer > .lil-gui.root input[type="checkbox"]:checked::before {
+  color: var(--viewer-gui-checkbox-tick);
+}
+
+#guiContainer > .lil-gui.root .slider .fill {
+  background: var(--viewer-gui-slider-fill);
 }
 
 #spinnerContainer {
@@ -275,25 +337,88 @@ canvas {
 
 .viewer-wrapper {
   position: relative;
-}
-
-#metadata-container {
-  width: auto;
-  min-width: 0;
-  max-width: 320px;
-  --metadata-surface: rgba(255, 255, 255, 0.06);
-  --metadata-surface-strong: rgba(255, 255, 255, 0.1);
+  --viewer-shell-bg: linear-gradient(180deg, #0f172a 0%, #111827 100%);
+  --viewer-panel-bg: rgba(17, 24, 39, 0.82);
+  --viewer-panel-bg-hover: rgba(17, 24, 39, 0.92);
+  --viewer-panel-border: rgba(255, 255, 255, 0.12);
+  --viewer-panel-shadow: 0 12px 30px rgba(15, 23, 42, 0.28);
+  --viewer-panel-text: rgba(255, 255, 255, 0.94);
+  --viewer-raster-icon-filter: brightness(0) invert(1);
+  --viewer-gui-bg: rgba(43, 49, 61, 0.9);
+  --viewer-gui-title-bg: rgba(43, 49, 61, 0.9);
+  --viewer-gui-title-hover-bg: rgba(25, 29, 36, 0.9);
+  --viewer-gui-widget-bg: rgba(255, 255, 255, 0.14);
+  --viewer-gui-widget-hover-bg: rgba(255, 255, 255, 0.2);
+  --viewer-gui-widget-focus-bg: rgba(76, 110, 245, 0.85);
+  --viewer-gui-slider-fill: rgba(96, 165, 250, 0.9);
+  --viewer-gui-checkbox-tick: rgba(255, 255, 255, 0.96);
   --metadata-border: rgba(255, 255, 255, 0.12);
   --metadata-shadow: 0 12px 30px rgba(15, 23, 42, 0.28);
   --metadata-label-color: rgba(255, 255, 255, 0.62);
   --metadata-value-color: rgba(255, 255, 255, 0.94);
   --metadata-accent: rgba(255, 255, 255, 0.82);
+  --metadata-card-bg: rgba(17, 24, 39, 0.82);
+  --metadata-card-bg-hover: rgba(17, 24, 39, 0.92);
+  --metadata-card-bg-open: rgba(17, 24, 39, 0.88);
+  --metadata-row-bg: rgba(255, 255, 255, 0.12);
+  --metadata-row-bg-hover: rgba(255, 255, 255, 0.18);
+  --metadata-row-bg-first: rgba(255, 255, 255, 0.16);
+  --metadata-row-bg-pinned: rgba(255, 255, 255, 0.2);
+  --metadata-row-border: rgba(148, 163, 184, 0.28);
+  --metadata-row-border-strong: rgba(148, 163, 184, 0.34);
+  --metadata-row-border-pinned: rgba(148, 163, 184, 0.38);
   --metadata-fade: linear-gradient(
     to bottom,
     rgba(17, 24, 39, 0),
     rgba(17, 24, 39, 0.56) 58%,
     rgba(17, 24, 39, 0.82)
   );
+  background: var(--viewer-shell-bg);
+}
+
+.viewer-wrapper[data-viewer-theme="light"] {
+  --viewer-shell-bg: linear-gradient(180deg, #f7f5f1 0%, #ebe7df 100%);
+  --viewer-panel-bg: rgba(252, 250, 246, 0.94);
+  --viewer-panel-bg-hover: rgba(255, 253, 249, 0.98);
+  --viewer-panel-border: rgba(164, 151, 132, 0.28);
+  --viewer-panel-shadow: 0 14px 30px rgba(129, 116, 96, 0.16);
+  --viewer-panel-text: rgba(37, 33, 28, 0.92);
+  --viewer-raster-icon-filter: brightness(0) saturate(100%) invert(10%) sepia(11%) saturate(882%) hue-rotate(346deg) brightness(96%) contrast(90%);
+  --viewer-gui-bg: rgba(249, 246, 240, 0.96);
+  --viewer-gui-title-bg: rgba(243, 238, 230, 0.98);
+  --viewer-gui-title-hover-bg: rgba(236, 230, 220, 0.98);
+  --viewer-gui-widget-bg: rgba(236, 230, 220, 0.9);
+  --viewer-gui-widget-hover-bg: rgba(228, 221, 210, 0.96);
+  --viewer-gui-widget-focus-bg: rgba(91, 124, 250, 0.9);
+  --viewer-gui-slider-fill: rgba(191, 167, 122, 0.92);
+  --viewer-gui-checkbox-tick: rgba(37, 33, 28, 0.92);
+  --metadata-border: rgba(164, 151, 132, 0.24);
+  --metadata-shadow: 0 14px 30px rgba(129, 116, 96, 0.16);
+  --metadata-label-color: rgba(96, 82, 66, 0.82);
+  --metadata-value-color: rgba(37, 33, 28, 0.94);
+  --metadata-accent: rgba(66, 56, 45, 0.74);
+  --metadata-card-bg: rgba(250, 247, 242, 0.94);
+  --metadata-card-bg-hover: rgba(255, 252, 247, 0.98);
+  --metadata-card-bg-open: rgba(252, 249, 244, 0.97);
+  --metadata-row-bg: rgba(245, 241, 234, 0.94);
+  --metadata-row-bg-hover: rgba(241, 236, 228, 0.98);
+  --metadata-row-bg-first: rgba(252, 249, 244, 0.98);
+  --metadata-row-bg-pinned: rgba(255, 252, 247, 1);
+  --metadata-row-border: rgba(164, 151, 132, 0.2);
+  --metadata-row-border-strong: rgba(136, 122, 102, 0.28);
+  --metadata-row-border-pinned: rgba(136, 122, 102, 0.34);
+  --metadata-fade: linear-gradient(
+    to bottom,
+    rgba(250, 247, 242, 0),
+    rgba(244, 239, 231, 0.88) 58%,
+    rgba(236, 230, 220, 0.98)
+  );
+}
+
+#metadata-container {
+  width: auto;
+  min-width: 0;
+  max-width: 320px;
   position: absolute;
   left: 0px;
 
@@ -319,7 +444,7 @@ canvas {
   border-radius: 8px;
   width: min(192px, 18vw);
   max-width: 100%;
-  background: rgba(17, 24, 39, 0.82);
+  background: var(--metadata-card-bg);
   border: 1px solid var(--metadata-border);
   box-shadow: var(--metadata-shadow);
   backdrop-filter: blur(8px);
@@ -334,16 +459,16 @@ canvas {
 }
 
 #metadata-card:hover {
-  background: rgba(17, 24, 39, 0.92);
-  border-color: rgba(255, 255, 255, 0.16);
-  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.34);
+  background: var(--metadata-card-bg-hover);
+  border-color: var(--metadata-row-border-strong);
+  box-shadow: var(--metadata-shadow);
 }
 
 #metadata-card.metadata-open {
   width: min(320px, 30vw);
-  background: rgba(17, 24, 39, 0.88);
-  border-color: rgba(255, 255, 255, 0.16);
-  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.34);
+  background: var(--metadata-card-bg-open);
+  border-color: var(--metadata-row-border-strong);
+  box-shadow: var(--metadata-shadow);
 }
 
 #metadata-content {
@@ -389,21 +514,21 @@ canvas {
   position: relative;
   padding: 4px 10px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: var(--metadata-row-bg);
+  border: 1px solid var(--metadata-row-border);
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
   transition: background 0.2s ease, border-color .2s ease, transform 1.2s ease, box-shadow .2s ease;
 }
 
 .metadata-row:hover {
-  background: rgba(255, 255, 255, 0.18);
-  border-color: rgba(148, 163, 184, 0.34);
+  background: var(--metadata-row-bg-hover);
+  border-color: var(--metadata-row-border-strong);
   box-shadow: 0 10px 22px rgba(15, 23, 42, 0.18);
 }
 
 .metadata-row:first-child {
-  background: rgba(255, 255, 255, 0.16);
-  border-color: rgba(148, 163, 184, 0.32);
+  background: var(--metadata-row-bg-first);
+  border-color: var(--metadata-row-border-strong);
 }
 
 .metadata-row:first-child .metadata-label {
@@ -460,8 +585,8 @@ canvas {
 .metadata-row.metadata-row-pinned {
   z-index: 2;
   transform: none;
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(148, 163, 184, 0.38);
+  background: var(--metadata-row-bg-pinned);
+  border-color: var(--metadata-row-border-pinned);
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.2);
 }
 
@@ -487,7 +612,7 @@ canvas {
   align-items: center;
   gap: 8px;
   padding: 2px 2px 8px;
-  color: rgba(16, 32, 51, 0.88);
+  color: var(--viewer-panel-text);
   cursor: pointer;
   user-select: none;
   pointer-events: auto;
@@ -552,7 +677,7 @@ canvas {
 }
 
 .metadata-toggle-title {
-  color: rgba(255, 255, 255, 0.96);
+  color: var(--metadata-value-color);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -581,46 +706,35 @@ canvas {
   transition: transform .18s ease;
 }
 
+.viewer-wrapper[data-viewer-theme="light"] .metadata-toggle-icon {
+  background: rgba(236, 230, 220, 0.92);
+  border-color: rgba(164, 151, 132, 0.24);
+}
+
+.viewer-wrapper[data-viewer-theme="light"] .metadata-toggle-icon::before,
+.viewer-wrapper[data-viewer-theme="light"] .metadata-toggle-icon::after {
+  background: rgba(66, 56, 45, 0.74);
+}
+
+.viewer-wrapper[data-viewer-theme="light"] .metadata-toggle-chevron::before {
+  border-right-color: rgba(66, 56, 45, 0.74);
+  border-bottom-color: rgba(66, 56, 45, 0.74);
+}
+
+.viewer-wrapper[data-viewer-theme="light"] .embed-icon {
+  background-color: rgba(66, 56, 45, 0.82);
+}
+
 #metadata-collapse.metadata-collapsed .metadata-toggle-chevron::before {
   transform: rotate(-45deg);
 }
 
-#form-IIIF.dark #metadata-container::before {
+.viewer-wrapper[data-viewer-theme="dark"] #metadata-container::before {
   background: linear-gradient(
     to bottom,
     rgba(255,255,255,.4),
     rgba(255,255,255,.15),
     transparent
-  );
-}
-
-#form-IIIF.dark #metadata-collapse {
-  color: rgba(255,255,255,.92);
-}
-
-#form-IIIF.dark .metadata-label {
-  color: rgba(255,255,255,.58);
-}
-
-#form-IIIF.dark .metadata-value {
-  color: rgba(255,255,255,.92);
-}
-
-#form-IIIF.dark .metadata-toggle-eyebrow {
-  color: rgba(255,255,255,.56);
-}
-
-#form-IIIF.dark .metadata-toggle-chevron::before {
-  border-right-color: rgba(255,255,255,.92);
-  border-bottom-color: rgba(255,255,255,.92);
-}
-
-#form-IIIF.dark #metadata-card.metadata-card-overflowing #metadata-content::after {
-  background: linear-gradient(
-    to bottom,
-    rgba(15, 23, 42, 0),
-    rgba(15, 23, 42, 0.24) 58%,
-    rgba(15, 23, 42, 0.36)
   );
 }
 
@@ -723,9 +837,9 @@ canvas {
   gap: 5px !important;
   border-radius: 999px;
   cursor: pointer;
-  background: rgba(17, 24, 39, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.28);
+  background: var(--viewer-panel-bg);
+  border: 1px solid var(--viewer-panel-border);
+  box-shadow: var(--viewer-panel-shadow);
   backdrop-filter: blur(10px);
   transition: transform 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
   padding: 0 !important;
@@ -734,8 +848,8 @@ canvas {
 
 .viewer-action-menu_toggle:hover {
   transform: translateY(-2px);
-  background: rgba(17, 24, 39, 0.92);
-  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.34);
+  background: var(--viewer-panel-bg-hover);
+  box-shadow: var(--viewer-panel-shadow);
 }
 
 .viewer-action-menu_toggle span {
@@ -743,7 +857,7 @@ canvas {
   width: 18px;
   height: 2px;
   border-radius: 999px;
-  background: #fff;
+  background: var(--viewer-panel-text);
   transition: transform 0.25s ease, opacity 0.25s ease;
 }
 
@@ -784,6 +898,7 @@ canvas {
   pointer-events: auto;
 }
 
+#viewerThemeMode,
 #viewEntity,
 #downloadModel,
 #fullscreenMode {
@@ -794,11 +909,11 @@ canvas {
   gap: 10px;
   padding: 6px 8px;
   border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(17, 24, 39, 0.82);
-  color: rgba(255, 255, 255, 0.94);
+  border: 1px solid var(--viewer-panel-border);
+  background: var(--viewer-panel-bg);
+  color: var(--viewer-panel-text);
   text-decoration: none;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.28);
+  box-shadow: var(--viewer-panel-shadow);
   cursor: pointer;
   filter: drop-shadow(0 0 1.5px rgba(0, 0, 0, 0.18));
   opacity: 0;
@@ -807,21 +922,25 @@ canvas {
   padding: 4px 10px;
 }
 
+#viewerThemeMode,
 #viewEntity,
 #fullscreenMode {
   font: inherit;
   appearance: none;
 }
 
+#viewerThemeMode:hover,
 #viewEntity:hover,
 #downloadModel:hover,
 #fullscreenMode:hover {
-  background: rgba(17, 24, 39, 0.92);
+  background: var(--viewer-panel-bg-hover);
 }
 
+#viewerThemeMode img,
 #viewEntity img,
 #downloadModel img,
 #fullscreenMode img,
+#viewerThemeMode > :first-child,
 #viewEntity > :first-child,
 #downloadModel > :first-child,
 #fullscreenMode > :first-child {
@@ -834,12 +953,22 @@ canvas {
   flex: 0 0 auto;
 }
 
+#viewerThemeMode .viewer-theme-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
 #downloadModel img,
 #fullscreenMode img {
   width: 20px !important;
   height: 20px !important;
 }
 
+#fullscreenMode img {
+  filter: var(--viewer-raster-icon-filter);
+}
+
+#viewerThemeMode span,
 #viewEntity span,
 #downloadModel span,
 #fullscreenMode span {
