@@ -23,10 +23,15 @@
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MODULE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 BLENDER_PATH=''
 #BLENDER_PATH='/var/lib/snapd/snap/blender/current/'
 source "$SCRIPT_DIR/.env"
 BLENDER_PATH="$SCRIPT_DIR/$BLENDER_PATH"
+SPATH="${SPATH:-$MODULE_ROOT}"
+if [[ ! -d "$SPATH/scripts" ]]; then
+	SPATH="$MODULE_ROOT"
+fi
 
 #Defaults:
 COMPRESSION=false
@@ -57,8 +62,8 @@ check_blender () {
 }
 
 check_scripts () {
-	if [ ! -d ${SPATH}/scripts ]; then
-		echo "Can't find dependencies directory. Did you change your SPATH value in scripts/.env?"
+	if [ ! -d "${SPATH}/scripts" ]; then
+		echo "Can't find dependencies directory. Resolved SPATH=${SPATH}. SCRIPT_DIR=${SCRIPT_DIR}. MODULE_ROOT=${MODULE_ROOT}. Did you change your SPATH value in scripts/.env?"
 		return 1
 	else
 		return 0
@@ -205,9 +210,9 @@ handle_file () {
 	create_flock "$INPATH" "$FILENAME"
 
 	if [[ "$isOutput" = false ]]; then
-		"$BLENDER_BIN" -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- --input "$INPATH/$FILENAME" --ext "$GLTF" --compression "$COMPRESSION" --compression_level "$COMPRESSION_LEVEL" #> /dev/null 2>&1
+		"$BLENDER_BIN" -b -P "${SPATH}/scripts/2gltf2/2gltf2.py" -- --input "$INPATH/$FILENAME" --ext "$GLTF" --compression "$COMPRESSION" --compression_level "$COMPRESSION_LEVEL" #> /dev/null 2>&1
 	else
-		"$BLENDER_BIN" -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- --input "$INPATH/$FILENAME" --ext "$GLTF" --compression "$COMPRESSION" --compression_level "$COMPRESSION_LEVEL" --output "$OUTPUT$OUTPUTPATH" #> /dev/null 2>&1
+		"$BLENDER_BIN" -b -P "${SPATH}/scripts/2gltf2/2gltf2.py" -- --input "$INPATH/$FILENAME" --ext "$GLTF" --compression "$COMPRESSION" --compression_level "$COMPRESSION_LEVEL" --output "$OUTPUT$OUTPUTPATH" #> /dev/null 2>&1
 	fi
 
 }
