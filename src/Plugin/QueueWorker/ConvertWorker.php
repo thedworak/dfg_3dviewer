@@ -154,6 +154,7 @@ class ConvertWorker extends QueueWorkerBase {
       $this->updateProgress($entity, 100, 'ready', 'Conversion finished');
       $this->saveEntity($entity);
       $this->ensureImageFieldPersisted($entity_type, (string) $entity_id, $viewer_result);
+      $this->ensureModelFieldsPersisted($entity_type, (string) $entity_id, $viewer_result);
       $outcome = 'success';
 
       $status_after = '';
@@ -370,6 +371,7 @@ class ConvertWorker extends QueueWorkerBase {
     $result = [
       'image_field' => (string) ($cfg['image_generation'] ?? ''),
       'image_urls' => [],
+      'model_fields' => [],
       'lang' => 'en',
       'applied_before_save' => 0,
     ];
@@ -571,12 +573,16 @@ class ConvertWorker extends QueueWorkerBase {
         break;
       }
     }
+    $auto_path_url = $auto_path !== ''
+      ? ($this->uriToUrl($auto_path, (string) ($cfg['main_url'] ?? '')) ?? '')
+      : '';
 
     if (!empty($auto_path) && $this->entityHasField($entity, $cfg['viewer_file_name'])) {
       $viewer_field = (string) $cfg['viewer_file_name'];
       if ($this->fieldRequiresTargetId($entity, $viewer_field)) {
         $viewer_values = $this->buildFieldValues($entity, $viewer_field, [$auto_path]);
         $this->applyFieldValues($entity, $viewer_field, $viewer_values, $this->getCurrentLanguageId());
+        $result['model_fields'][$viewer_field] = [$auto_path];
         \Drupal::logger('dfg_3dviewer')->notice(
           'Saved viewer_file_name field "@field" via target_id mapping from "@value".',
           [
@@ -587,6 +593,7 @@ class ConvertWorker extends QueueWorkerBase {
       }
       else {
         $entity->set($viewer_field, $auto_path);
+        $result['model_fields'][$viewer_field] = array_values(array_filter([$auto_path, $auto_path_url]));
         \Drupal::logger('dfg_3dviewer')->notice(
           'Saved viewer_file_name scalar value "@value".',
           [
@@ -610,6 +617,7 @@ class ConvertWorker extends QueueWorkerBase {
       if ($this->fieldRequiresTargetId($entity, $upload_field)) {
         $upload_values = $this->buildFieldValues($entity, $upload_field, [$auto_path]);
         $this->applyFieldValues($entity, $upload_field, $upload_values, $this->getCurrentLanguageId());
+        $result['model_fields'][$upload_field] = [$auto_path];
         \Drupal::logger('dfg_3dviewer')->notice(
           'Updated viewer_file_upload field "@field" to converted file "@value".',
           [
@@ -619,12 +627,14 @@ class ConvertWorker extends QueueWorkerBase {
         );
       }
       else {
-        $entity->set($upload_field, $auto_path);
+        $scalar_value = $auto_path_url !== '' ? $auto_path_url : $auto_path;
+        $entity->set($upload_field, $scalar_value);
+        $result['model_fields'][$upload_field] = array_values(array_filter([$scalar_value, $auto_path]));
         \Drupal::logger('dfg_3dviewer')->notice(
           'Updated viewer_file_upload scalar field "@field" to converted URI "@value".',
           [
             '@field' => $upload_field,
-            '@value' => $auto_path,
+            '@value' => $scalar_value,
           ]
         );
       }
@@ -1464,6 +1474,158 @@ class ConvertWorker extends QueueWorkerBase {
         '@id' => $entity_id,
       ]
     );
+  }
+
+  private function ensureModelFieldsPersisted(string $entity_type, string $entity_id, array $viewer_result): void {
+    $model_fields = $viewer_result['model_fields'] ?? [];
+    if (!is_array($model_fields) || empty($model_fields)) {
+      return;
+    }
+
+    $lang = trim((string) ($viewer_result['lang'] ?? '')) ?: $this->getCurrentLanguageId();
+
+    foreach ($model_fields as $field_name => $expected_values) {
+      $field_name = trim((string) $field_name);
+      $expected_values = array_values(array_filter(
+        (array) $expected_values,
+        static fn($value): bool => is_string($value) && trim($value) !== ''
+      ));
+
+      if ($field_name === '' || empty($expected_values)) {
+        continue;
+      }
+
+      $persisted_values = $this->getPersistedFieldValues($entity_type, $entity_id, $field_name);
+      \Drupal::logger('dfg_3dviewer')->notice(
+        'Model field "@field" persisted snapshot before retry on @type:@id. Expected candidates: @expected. Persisted raw: @persisted',
+        [
+          '@field' => $field_name,
+          '@type' => $entity_type,
+          '@id' => $entity_id,
+          '@expected' => json_encode($expected_values, JSON_UNESCAPED_SLASHES),
+          '@persisted' => json_encode($persisted_values, JSON_UNESCAPED_SLASHES),
+        ]
+      );
+      if ($this->persistedFieldMatchesExpected($persisted_values, $expected_values)) {
+        \Drupal::logger('dfg_3dviewer')->notice(
+          'Persisted model field "@field" on @type:@id already matches expected value.',
+          [
+            '@field' => $field_name,
+            '@type' => $entity_type,
+            '@id' => $entity_id,
+          ]
+        );
+        continue;
+      }
+
+      \Drupal::logger('dfg_3dviewer')->warning(
+        'Model field "@field" on @type:@id did not persist as expected. Starting retry.',
+        [
+          '@field' => $field_name,
+          '@type' => $entity_type,
+          '@id' => $entity_id,
+        ]
+      );
+
+      try {
+        $entity = \Drupal::entityTypeManager()->getStorage($entity_type)->load($entity_id);
+        if (!$entity || !$this->entityHasField($entity, $field_name)) {
+          continue;
+        }
+
+        if ($this->fieldRequiresTargetId($entity, $field_name)) {
+          $rows = $this->buildFieldValues($entity, $field_name, [$expected_values[0]]);
+          $this->applyFieldValues($entity, $field_name, $rows, $lang);
+        }
+        else {
+          $applied = false;
+          foreach ($expected_values as $candidate) {
+            try {
+              $entity->set($field_name, [$candidate]);
+              $applied_now = $entity->get($field_name)->getValue();
+              if ($this->persistedFieldMatchesExpected(is_array($applied_now) ? $applied_now : [], [$candidate])) {
+                $applied = true;
+                break;
+              }
+            }
+            catch (\Throwable $e) {
+              // Try the next candidate representation.
+            }
+          }
+
+          if (!$applied) {
+            $rows = $this->buildFieldValues($entity, $field_name, [$expected_values[0]]);
+            $this->applyFieldValues($entity, $field_name, $rows, $lang);
+          }
+        }
+
+        $this->saveEntity($entity);
+        $persisted_after = $this->getPersistedFieldValues($entity_type, $entity_id, $field_name);
+        \Drupal::logger('dfg_3dviewer')->notice(
+          'Model field "@field" persisted snapshot after retry on @type:@id. Expected candidates: @expected. Persisted raw: @persisted',
+          [
+            '@field' => $field_name,
+            '@type' => $entity_type,
+            '@id' => $entity_id,
+            '@expected' => json_encode($expected_values, JSON_UNESCAPED_SLASHES),
+            '@persisted' => json_encode($persisted_after, JSON_UNESCAPED_SLASHES),
+          ]
+        );
+        if ($this->persistedFieldMatchesExpected($persisted_after, $expected_values)) {
+          \Drupal::logger('dfg_3dviewer')->notice(
+            'Retry persisted expected model value for field "@field" on @type:@id.',
+            [
+              '@field' => $field_name,
+              '@type' => $entity_type,
+              '@id' => $entity_id,
+            ]
+          );
+        }
+        else {
+          \Drupal::logger('dfg_3dviewer')->error(
+            'Could not persist expected model value for field "@field" on @type:@id.',
+            [
+              '@field' => $field_name,
+              '@type' => $entity_type,
+              '@id' => $entity_id,
+            ]
+          );
+        }
+      }
+      catch (\Throwable $e) {
+        \Drupal::logger('dfg_3dviewer')->warning(
+          'Retry failed for model field "@field" on @type:@id: @msg',
+          [
+            '@field' => $field_name,
+            '@type' => $entity_type,
+            '@id' => $entity_id,
+            '@msg' => $e->getMessage(),
+          ]
+        );
+      }
+    }
+  }
+
+  private function persistedFieldMatchesExpected(array $persisted_values, array $expected_values): bool {
+    if (empty($persisted_values) || empty($expected_values)) {
+      return FALSE;
+    }
+
+    $expected_values = array_values(array_unique(array_map('strval', $expected_values)));
+    foreach ($persisted_values as $row) {
+      if (!is_array($row)) {
+        continue;
+      }
+
+      foreach ($row as $value) {
+        $value = trim((string) $value);
+        if ($value !== '' && in_array($value, $expected_values, TRUE)) {
+          return TRUE;
+        }
+      }
+    }
+
+    return FALSE;
   }
 
   private function imageLocationToUri(string $location): ?string {
