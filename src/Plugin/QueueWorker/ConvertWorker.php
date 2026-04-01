@@ -476,7 +476,7 @@ class ConvertWorker extends QueueWorkerBase {
             continue;
           }
 
-          $img_url = $this->uriToUrl($img_uri, (string) ($cfg['main_url'] ?? ''));
+          $img_url = $this->uriToUrl($img_uri, $this->getPreferredPublicBaseUrl($cfg));
           if ($img_url !== NULL) {
             $candidate_images[] = $img_url;
           }
@@ -599,7 +599,7 @@ class ConvertWorker extends QueueWorkerBase {
       }
     }
     $auto_path_url = $auto_path !== ''
-      ? ($this->uriToUrl($auto_path, (string) ($cfg['main_url'] ?? '')) ?? '')
+      ? ($this->uriToUrl($auto_path, $this->getPreferredPublicBaseUrl($cfg)) ?? '')
       : '';
 
     if (!empty($auto_path) && $this->entityHasField($entity, $cfg['viewer_file_name'])) {
@@ -700,7 +700,7 @@ class ConvertWorker extends QueueWorkerBase {
       $legacy_lang = $this->getCurrentLanguageId();
       $normalized_urls = [];
       foreach ($images_paths as $url) {
-        $normalized = $this->normalizePublicImageUrl((string) $url, (string) ($cfg['main_url'] ?? ''));
+        $normalized = $this->normalizePublicImageUrl((string) $url, $this->getPreferredPublicBaseUrl($cfg));
         if ($normalized !== '') {
           $normalized_urls[] = $normalized;
         }
@@ -743,7 +743,7 @@ class ConvertWorker extends QueueWorkerBase {
     try {
       $this->refreshEntityXmlExport($entity_id, $main_url);
       $xml_uri = 'public://xml_structure/' . $entity_id . '.xml';
-      $xml_url = $this->uriToUrl($xml_uri, $main_url);
+      $xml_url = $this->uriToUrl($xml_uri, $this->getPreferredPublicBaseUrl($cfg));
       if ($xml_url === NULL || $xml_url === '') {
         throw new \RuntimeException('Cannot resolve XML public URL.');
       }
@@ -812,6 +812,28 @@ class ConvertWorker extends QueueWorkerBase {
 
   private function entityHasField($entity, string $field_name): bool {
     return is_object($entity) && method_exists($entity, 'hasField') && $entity->hasField($field_name);
+  }
+
+  private function getPreferredPublicBaseUrl(array $cfg): string {
+    $candidates = [
+      trim((string) ($cfg['main_url'] ?? '')),
+      trim((string) ($cfg['json_export_base_url'] ?? '')),
+    ];
+
+    foreach ($candidates as $candidate) {
+      $parts = parse_url($candidate);
+      $host = is_array($parts) ? (string) ($parts['host'] ?? '') : '';
+      $is_safe = is_array($parts)
+        && !empty($parts['scheme'])
+        && $host !== ''
+        && strpos($host, '_') === FALSE
+        && strtolower($host) !== 'default';
+      if ($is_safe) {
+        return rtrim($candidate, '/');
+      }
+    }
+
+    return trim((string) ($cfg['main_url'] ?? ''));
   }
 
   private function uriExists(string $uri): bool {
