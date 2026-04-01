@@ -156,6 +156,8 @@ class ConvertWorker extends QueueWorkerBase {
       $this->saveEntity($entity);
       $this->ensureImageFieldPersisted($entity_type, (string) $entity_id, $viewer_result);
       $this->ensureModelFieldsPersisted($entity_type, (string) $entity_id, $viewer_result);
+      $this->updateLegacyViewerUrlField($entity, $cfg);
+      $this->saveEntity($entity);
       $outcome = 'success';
 
       $status_after = '';
@@ -398,6 +400,7 @@ class ConvertWorker extends QueueWorkerBase {
       'image_field' => (string) ($cfg['image_generation'] ?? ''),
       'image_urls' => [],
       'model_fields' => [],
+      'api_3d_file_field' => trim((string) ($cfg['api_3d_file_field'] ?? '')),
       'lang' => 'en',
       'applied_before_save' => 0,
     ];
@@ -702,8 +705,6 @@ class ConvertWorker extends QueueWorkerBase {
         ]
       );
     }
-
-    $this->updateLegacyViewerUrlField($entity, $cfg);
 
     $legacy_gallery_field = 'fd6a974b7120d422c7b21b5f1f2315d9';
     if (!empty($images_paths) && $this->entityHasField($entity, $legacy_gallery_field)) {
