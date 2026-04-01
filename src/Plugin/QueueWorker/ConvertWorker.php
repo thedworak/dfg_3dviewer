@@ -621,12 +621,13 @@ class ConvertWorker extends QueueWorkerBase {
         );
       }
       else {
-        $entity->set($viewer_field, $auto_path);
-        $result['model_fields'][$viewer_field] = array_values(array_filter([$auto_path, $auto_path_url]));
+        $scalar_value = $auto_path_url !== '' ? $auto_path_url : $auto_path;
+        $entity->set($viewer_field, $scalar_value);
+        $result['model_fields'][$viewer_field] = array_values(array_filter([$scalar_value, $auto_path]));
         \Drupal::logger('dfg_3dviewer')->notice(
           'Saved viewer_file_name scalar value "@value".',
           [
-            '@value' => $auto_path,
+            '@value' => $scalar_value,
           ]
         );
       }
