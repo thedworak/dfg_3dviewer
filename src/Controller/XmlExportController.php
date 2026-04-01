@@ -577,13 +577,14 @@ class XmlExportController extends ControllerBase {
    * Save XML to files directory.
    */
   protected function saveXml(string $id, string $xml): string {
+    $directory = self::FILE_DIR;
     $this->fileSystem->prepareDirectory(
-      self::FILE_DIR,
+      $directory,
       FileSystemInterface::CREATE_DIRECTORY | FileSystemInterface::MODIFY_PERMISSIONS
     );
 
-    $path = self::FILE_DIR . '/' . $id . '.xml';
-    $real_path = $this->fileSystem->realpath(self::FILE_DIR);
+    $path = $directory . '/' . $id . '.xml';
+    $real_path = $this->fileSystem->realpath($directory);
 
     file_put_contents($real_path . '/' . $id . '.xml', $xml);
 
