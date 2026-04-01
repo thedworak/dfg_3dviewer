@@ -324,6 +324,18 @@ class ConvertWorker extends QueueWorkerBase {
         if (($convert_result['exit_code'] ?? 1) !== 0) {
           $exit_code = (int) ($convert_result['exit_code'] ?? 1);
           $error_output = trim((string) ($convert_result['error'] ?? ''));
+          $standard_output = trim((string) ($convert_result['output'] ?? ''));
+          $command = trim((string) ($convert_result['command'] ?? ''));
+          \Drupal::logger('dfg_3dviewer')->error(
+            'Archive conversion failure details for entity @entity_id file @file_id. Command: @command. Stdout: @stdout. Stderr: @stderr',
+            [
+              '@entity_id' => (string) ($entity->id() ?? ''),
+              '@file_id' => (string) $file->id(),
+              '@command' => $command !== '' ? $command : '[unavailable]',
+              '@stdout' => $this->truncateLogText($standard_output),
+              '@stderr' => $this->truncateLogText($error_output),
+            ]
+          );
           $message = 'Conversion failed (exit=' . $exit_code . ').';
           if ($error_output !== '') {
             $message .= ' Error: ' . $error_output;
@@ -351,6 +363,19 @@ class ConvertWorker extends QueueWorkerBase {
         if (($convert_result['exit_code'] ?? 1) !== 0) {
           $exit_code = (int) ($convert_result['exit_code'] ?? 1);
           $error_output = trim((string) ($convert_result['error'] ?? ''));
+          $standard_output = trim((string) ($convert_result['output'] ?? ''));
+          $command = trim((string) ($convert_result['command'] ?? ''));
+          \Drupal::logger('dfg_3dviewer')->error(
+            'Conversion failure details for entity @entity_id file @file_id. Input: @input. Command: @command. Stdout: @stdout. Stderr: @stderr',
+            [
+              '@entity_id' => (string) ($entity->id() ?? ''),
+              '@file_id' => (string) $file->id(),
+              '@input' => (string) $realpath,
+              '@command' => $command !== '' ? $command : '[unavailable]',
+              '@stdout' => $this->truncateLogText($standard_output),
+              '@stderr' => $this->truncateLogText($error_output),
+            ]
+          );
           $message = 'Conversion failed (exit=' . $exit_code . ').';
           if ($error_output !== '') {
             $message .= ' Error: ' . $error_output;
@@ -1727,6 +1752,19 @@ class ConvertWorker extends QueueWorkerBase {
     if (method_exists($entity, 'save')) {
       $entity->save();
     }
+  }
+
+  private function truncateLogText(string $text, int $limit = 4000): string {
+    $text = trim(preg_replace('/\s+/', ' ', $text));
+    if ($text === '') {
+      return '[empty]';
+    }
+
+    if (strlen($text) <= $limit) {
+      return $text;
+    }
+
+    return substr($text, 0, $limit) . '... [truncated]';
   }
 
 }

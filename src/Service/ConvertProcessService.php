@@ -160,6 +160,7 @@ class ConvertProcessService {
             'exit_code' => $exitCode,
             'output' => $output,
             'error' => $error,
+            'command' => $process->getCommandLine(),
             'render' => $renderResult,
         ];
     }
@@ -210,6 +211,7 @@ class ConvertProcessService {
             'exit_code' => $process->getExitCode(),
             'output' => $process->getOutput(),
             'error' => $process->getErrorOutput(),
+            'command' => $process->getCommandLine(),
         ];
     }
 
@@ -252,6 +254,7 @@ class ConvertProcessService {
             'exit_code' => $process->getExitCode(),
             'output' => $process->getOutput(),
             'error' => $process->getErrorOutput(),
+            'command' => $process->getCommandLine(),
         ];
     }
 
