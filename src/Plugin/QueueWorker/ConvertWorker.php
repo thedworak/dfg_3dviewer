@@ -5,7 +5,9 @@ namespace Drupal\dfg_3dviewer\Plugin\QueueWorker;
 use Drupal\Core\Archiver\ArchiverException;
 use Drupal\Core\Archiver\Zip;
 use Drupal\Core\Queue\QueueWorkerBase;
+use Drupal\dfg_3dviewer\Controller\XmlExportController;
 use Drupal\file\Entity\File;
+use Symfony\Component\HttpFoundation\Request;
 
 /**
  * @QueueWorker(
@@ -628,6 +630,8 @@ class ConvertWorker extends QueueWorkerBase {
       }
     }
 
+    $this->updateLegacyViewerUrlField($entity, $cfg);
+
     $legacy_gallery_field = 'fd6a974b7120d422c7b21b5f1f2315d9';
     if (!empty($images_paths) && $this->entityHasField($entity, $legacy_gallery_field)) {
       $legacy_lang = $this->getCurrentLanguageId();
@@ -653,6 +657,80 @@ class ConvertWorker extends QueueWorkerBase {
 
     clearstatcache();
     return $result;
+  }
+
+  private function updateLegacyViewerUrlField($entity, array $cfg): void {
+    $field_df = (string) ($cfg['field_df'] ?? '');
+    $main_url = trim((string) ($cfg['main_url'] ?? ''));
+
+    if ($field_df === '' || $main_url === '' || !$this->entityHasField($entity, $field_df)) {
+      return;
+    }
+
+    $entity_id = '';
+    if (is_object($entity) && method_exists($entity, 'id')) {
+      $entity_id = (string) $entity->id();
+    }
+    if ($entity_id === '') {
+      return;
+    }
+
+    $main_url = rtrim($main_url, '/');
+
+    try {
+      $this->refreshEntityXmlExport($entity_id, $main_url);
+      $xml_uri = 'public://xml_structure/' . $entity_id . '.xml';
+      $xml_url = $this->uriToUrl($xml_uri, $main_url);
+      if ($xml_url === NULL || $xml_url === '') {
+        throw new \RuntimeException('Cannot resolve XML public URL.');
+      }
+
+      $viewer_url = $main_url . '/viewer?tx_dlf[id]=' . rawurlencode($xml_url) . '&no_cache=1&modelviewer=1';
+      $entity->set($field_df, $viewer_url);
+
+      \Drupal::logger('dfg_3dviewer')->notice(
+        'Updated legacy viewer field "@field" with URL "@url".',
+        [
+          '@field' => $field_df,
+          '@url' => $viewer_url,
+        ]
+      );
+    }
+    catch (\Throwable $e) {
+      \Drupal::logger('dfg_3dviewer')->warning(
+        'Cannot update legacy viewer field "@field" for entity @entity_id: @msg',
+        [
+          '@field' => $field_df,
+          '@entity_id' => $entity_id,
+          '@msg' => $e->getMessage(),
+        ]
+      );
+    }
+  }
+
+  private function refreshEntityXmlExport(string $entity_id, string $main_url): void {
+    $payload = json_encode([
+      'id' => $entity_id,
+      'domain' => $main_url,
+    ], JSON_THROW_ON_ERROR);
+    $request = Request::create(
+      '/api/editor/xml-export/' . rawurlencode($entity_id),
+      'POST',
+      [],
+      [],
+      [],
+      [
+        'CONTENT_TYPE' => 'application/json',
+        'HTTP_ACCEPT' => 'application/xml',
+      ],
+      $payload
+    );
+    $controller = XmlExportController::create(\Drupal::getContainer());
+    $response = $controller->export($request, $entity_id);
+
+    if ($response->getStatusCode() !== 200) {
+      throw new \RuntimeException('XML export failed with status ' . $response->getStatusCode() . '.');
+    }
   }
 
   private function updateProgress($entity, int $percent, string $status, string $message = ''): void {
