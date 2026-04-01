@@ -125,12 +125,13 @@ class ConvertWorker extends QueueWorkerBase {
         ]
       );
       \Drupal::logger('dfg_3dviewer')->notice(
-        'Resolved viewer field config: image_generation="@image", field_df="@field_df", viewer_file_name="@viewer_file_name", viewer_file_upload="@viewer_file_upload".',
+        'Resolved viewer field config: image_generation="@image", field_df="@field_df", viewer_file_name="@viewer_file_name", viewer_file_upload="@viewer_file_upload", api_3d_file_field="@api_3d_file_field".',
         [
           '@image' => (string) ($cfg['image_generation'] ?? ''),
           '@field_df' => (string) ($cfg['field_df'] ?? ''),
           '@viewer_file_name' => (string) ($cfg['viewer_file_name'] ?? ''),
           '@viewer_file_upload' => (string) ($cfg['viewer_file_upload'] ?? ''),
+          '@api_3d_file_field' => (string) ($cfg['api_3d_file_field'] ?? ''),
         ]
       );
 
@@ -691,6 +692,15 @@ class ConvertWorker extends QueueWorkerBase {
           ]
         );
       }
+    }
+    elseif ($api_model_field !== '') {
+      \Drupal::logger('dfg_3dviewer')->warning(
+        'Configured API 3D file field "@field" does not exist on entity @entity_id.',
+        [
+          '@field' => $api_model_field,
+          '@entity_id' => (string) ($entity->id() ?? ''),
+        ]
+      );
     }
 
     $this->updateLegacyViewerUrlField($entity, $cfg);
@@ -1570,13 +1580,16 @@ class ConvertWorker extends QueueWorkerBase {
         continue;
       }
 
+      $is_api_field = trim((string) ($viewer_result['api_3d_file_field'] ?? '')) === $field_name;
+
       $persisted_values = $this->getPersistedFieldValues($entity_type, $entity_id, $field_name);
       \Drupal::logger('dfg_3dviewer')->notice(
-        'Model field "@field" persisted snapshot before retry on @type:@id. Expected candidates: @expected. Persisted raw: @persisted',
+        'Model field "@field" persisted snapshot before retry on @type:@id. API field=@api. Expected candidates: @expected. Persisted raw: @persisted',
         [
           '@field' => $field_name,
           '@type' => $entity_type,
           '@id' => $entity_id,
+          '@api' => $is_api_field ? 'yes' : 'no',
           '@expected' => json_encode($expected_values, JSON_UNESCAPED_SLASHES),
           '@persisted' => json_encode($persisted_values, JSON_UNESCAPED_SLASHES),
         ]
@@ -1637,11 +1650,12 @@ class ConvertWorker extends QueueWorkerBase {
         $this->saveEntity($entity);
         $persisted_after = $this->getPersistedFieldValues($entity_type, $entity_id, $field_name);
         \Drupal::logger('dfg_3dviewer')->notice(
-          'Model field "@field" persisted snapshot after retry on @type:@id. Expected candidates: @expected. Persisted raw: @persisted',
+          'Model field "@field" persisted snapshot after retry on @type:@id. API field=@api. Expected candidates: @expected. Persisted raw: @persisted',
           [
             '@field' => $field_name,
             '@type' => $entity_type,
             '@id' => $entity_id,
+            '@api' => $is_api_field ? 'yes' : 'no',
             '@expected' => json_encode($expected_values, JSON_UNESCAPED_SLASHES),
             '@persisted' => json_encode($persisted_after, JSON_UNESCAPED_SLASHES),
           ]
