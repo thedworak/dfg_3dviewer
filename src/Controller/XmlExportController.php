@@ -178,12 +178,12 @@ class XmlExportController extends ControllerBase {
       ?? $this->config('dfg_3dviewer.settings')->get('json_export_base_url')
       ?? ''
     ));
-    $base_url = $this->normalizeDomain($json_base_url !== '' ? $json_base_url : $domain);
-    if ($base_url === '') {
+    $source = trim($json_base_url !== '' ? $json_base_url : $domain);
+    $url = $this->resolveJsonRecordUrl($source, $id);
+    if ($url === '') {
       throw new \RuntimeException('Missing base URL for JSON source fetch');
     }
 
-    $url = $base_url . sprintf(self::JSON_EXPORT_PATH, $id);
     $response = $this->httpClient->request('GET', $url, ['http_errors' => false]);
     if ($response->getStatusCode() !== 200) {
       throw new \RuntimeException('JSON source fetch failed with status ' . $response->getStatusCode());
@@ -200,6 +200,28 @@ class XmlExportController extends ControllerBase {
     }
 
     return $record;
+  }
+
+  protected function resolveJsonRecordUrl(string $source, int $id): string {
+    $source = trim($source);
+    if ($source === '') {
+      return '';
+    }
+
+    if (preg_match('#/api/digital_reconstruction/record/\d+/?$#', $source)) {
+      return rtrim($source, '/');
+    }
+
+    if (preg_match('#/api/digital_reconstruction/record/?$#', $source)) {
+      return rtrim($source, '/') . '/' . $id;
+    }
+
+    $base_url = $this->normalizeDomain($source);
+    if ($base_url === '') {
+      return '';
+    }
+
+    return $base_url . sprintf(self::JSON_EXPORT_PATH, $id);
   }
 
   /**
@@ -226,9 +248,11 @@ class XmlExportController extends ControllerBase {
   protected function buildXmlFromJsonRecord(array $record, int $id, string $domain): string {
     $domain = $this->normalizeDomain($domain);
     $title = $this->stringValue($record, 'title', 'Digital reconstruction ' . $id);
-    $converted_file = $this->firstNonEmptyValue($record, ['converted_file', '3D_file', '3d_file', 'model_file']);
+    $converted_file = $this->extractModelUrlFromRecord($record);
     if ($converted_file === '') {
-      throw new \RuntimeException('JSON record does not contain a 3D file URL');
+      throw new \RuntimeException(
+        'JSON record does not contain a 3D file URL. Available keys: ' . implode(', ', array_keys($record))
+      );
     }
 
     $preview = $this->firstNonEmptyValue($record, ['object_preview', 'preview', 'reconstruction_previews']);
@@ -452,6 +476,58 @@ class XmlExportController extends ControllerBase {
       'webp' => 'image/webp',
       default => 'application/octet-stream',
     };
+  }
+
+  protected function extractModelUrlFromRecord(array $record): string {
+    $candidate = $this->firstNonEmptyValue($record, [
+      'converted_file',
+      '3D_file',
+      '3d_file',
+      'model_file',
+      'model',
+      'file',
+      'viewer_file',
+      'viewer_file_name',
+    ]);
+    if ($this->isModelUrl($candidate)) {
+      return $candidate;
+    }
+
+    foreach ($this->flattenRecordStrings($record) as $value) {
+      if ($this->isModelUrl($value)) {
+        return $value;
+      }
+    }
+
+    return '';
+  }
+
+  protected function flattenRecordStrings(array $record): array {
+    $values = [];
+
+    foreach ($record as $value) {
+      if (is_array($value)) {
+        $values = array_merge($values, $this->flattenRecordStrings($value));
+        continue;
+      }
+
+      if (is_scalar($value) || (is_object($value) && method_exists($value, '__toString'))) {
+        $values[] = trim((string) $value);
+      }
+    }
+
+    return $values;
+  }
+
+  protected function isModelUrl(string $value): bool {
+    if ($value === '' || !preg_match('#^https?://#i', $value)) {
+      return false;
+    }
+
+    $path = (string) parse_url($value, PHP_URL_PATH);
+    $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+
+    return in_array($extension, ['glb', 'gltf', 'fbx', 'obj', 'stl', 'ply', 'dae', '3ds', 'ifc', 'xyz', 'pcd', 'abc'], true);
   }
 
   protected function normalizeDefaultHostUrls(string $xml, string $domain): string {
