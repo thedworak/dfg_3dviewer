@@ -173,12 +173,17 @@ class XmlExportController extends ControllerBase {
   }
 
   protected function fetchJsonRecordFromDomain(int $id, string $domain): array {
-    $domain = $this->normalizeDomain($domain);
-    if ($domain === '') {
-      throw new \RuntimeException('Missing domain for JSON source fetch');
+    $json_base_url = trim((string) (
+      $this->config('dfg_3dviewer.settings')->get('dfg_3dviewer_json_export_base_url')
+      ?? $this->config('dfg_3dviewer.settings')->get('json_export_base_url')
+      ?? ''
+    ));
+    $base_url = $this->normalizeDomain($json_base_url !== '' ? $json_base_url : $domain);
+    if ($base_url === '') {
+      throw new \RuntimeException('Missing base URL for JSON source fetch');
     }
 
-    $url = $domain . sprintf(self::JSON_EXPORT_PATH, $id);
+    $url = $base_url . sprintf(self::JSON_EXPORT_PATH, $id);
     $response = $this->httpClient->request('GET', $url, ['http_errors' => false]);
     if ($response->getStatusCode() !== 200) {
       throw new \RuntimeException('JSON source fetch failed with status ' . $response->getStatusCode());

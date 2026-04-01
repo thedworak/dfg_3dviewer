@@ -23,6 +23,11 @@ function dfg_3dviewer_config(): array {
 		?? $config->get('main_url')
 	)) ?: 'https://3d-repository.hs-mainz.de';
 
+	$json_export_base_url = trim((string) (
+		$config->get('dfg_3dviewer_json_export_base_url')
+		?? $config->get('json_export_base_url')
+	)) ?: $main_url;
+
 	$entity_bundle = trim((string) (
 		$config->get('dfg_3dviewer_entitybundle')
 		?? $config->get('entitybundle')
@@ -62,6 +67,7 @@ function dfg_3dviewer_config(): array {
 
     $cfg = [
       'main_url' => $main_url,
+      'json_export_base_url' => $json_export_base_url,
       'entity_bundle' => $entity_bundle,
       'viewer_file_upload' => $viewer_file_upload,
       'viewer_file_name' => $viewer_file_name,

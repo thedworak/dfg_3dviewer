@@ -1,5 +1,6 @@
 main_url: "https://dfg-repository.wisski.cloud"
 metadata_url: "https://dfg-repository.wisski.cloud"
+json_export_base_url: "https://repository.covher.eu"
 base_namespace: "DFG_3DViewer"
 container: "DFG_3DViewer"
 entity_bundle: "bd3d7baa74856d141bcff7b4193fa128"
