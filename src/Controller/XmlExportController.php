@@ -65,13 +65,13 @@ class XmlExportController extends ControllerBase {
 
     try {
       $xml = $this->fetchSourceXml($request, (int) $id, $domain);
-      $result = $this->transformXml($xml);
-      $path = $this->saveXml((string) $id, $result);
+      $result = $this->transformXml($xml, $domain);
+      $this->saveXml((string) $id, $result);
 
       return new Response(
-        json_encode(['path' => $path]),
+        $result,
         200,
-        ['Content-Type' => 'application/json']
+        ['Content-Type' => 'application/xml; charset=UTF-8']
       );
     }
     catch (\Throwable $e) {
@@ -160,7 +160,7 @@ class XmlExportController extends ControllerBase {
   /**
    * Transform XML using XSLT.
    */
-  protected function transformXml(\SimpleXMLElement $xml): string {
+  protected function transformXml(\SimpleXMLElement $xml, string $domain): string {
     $xsl = simplexml_load_string($this->fetchXsl());
     if (!$xsl) {
       throw new \RuntimeException('Cannot load XSL');
@@ -174,7 +174,31 @@ class XmlExportController extends ControllerBase {
       throw new \RuntimeException('XSLT transformation failed');
     }
 
+    $result = $this->normalizeDefaultHostUrls($result, $domain);
     return $this->formatXml($result);
+  }
+
+  protected function normalizeDefaultHostUrls(string $xml, string $domain): string {
+    $domain = $this->normalizeDomain($domain);
+    if ($domain === '') {
+      return $xml;
+    }
+
+    $normalized = preg_replace('#https?://(default|dfg_3dviewer)(?=/)#i', $domain, $xml);
+    $escaped = preg_quote($domain, '#');
+
+    $normalized = preg_replace(
+      "#{$escaped}/sites/default/files/wisski_original/{$escaped}#i",
+      $domain,
+      $normalized
+    );
+    $normalized = preg_replace(
+      "#https?://[^/]+/sites/default/files/wisski_original/{$escaped}#i",
+      $domain,
+      $normalized
+    );
+
+    return $normalized;
   }
 
   protected function fetchXsl(): string {

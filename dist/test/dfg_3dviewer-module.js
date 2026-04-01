@@ -1499,6 +1499,7 @@ async function handleMetadataResponse(
     core.metadataContainer = document.createElement("div");
     core.metadataContainer.id = "metadata-container";
   }
+  core.metadataContainer.setAttribute("data-viewer-theme", core.container?.closest(".viewer-wrapper")?.getAttribute("data-viewer-theme") || "dark");
 
   var metadataContent =
     '<div id="metadata-card">' +
@@ -1740,7 +1741,6 @@ function createIIIFUI() {
   header.innerHTML = `
     <span class="title">IIIF Loader</span>
     <div class="tools">
-      <button type="button" id="iiif-toggle-theme" title="Toggle dark mode">🌙</button>
       <button type="button" id="iiif-toggle-collapse" title="Collapse">▾</button>
     </div>
   `;
@@ -9327,7 +9327,10 @@ const Viewer = {
   actionMenuToggle: null,
   actionMenuPanel: null,
   fullscreenMode: null,
+  themeMode: null,
   downloadModel: null,
+  currentTheme: "dark",
+  THEME_STORAGE_KEY: "iiif-dark-mode",
   GESTURE: {handPx: 55, period: 5.5, rotate: false, active: false, target: new THREE.Vector3(), startTime: 0, baseAngle: 0, orbitAngle: THREE.MathUtils.degToRad(15), easeInTime: 2.25},
   lastTime: null,
   originalMetadata: [],
@@ -9522,6 +9525,58 @@ const Viewer = {
     if (this.actionMenuToggle) {
       this.actionMenuToggle.checked = false;
     }
+  },
+
+  getStoredTheme() {
+    const storedTheme = window.localStorage.getItem(this.THEME_STORAGE_KEY);
+    return storedTheme === "0" ? "light" : "dark";
+  },
+
+  updateThemeControlLabels() {
+    const isDark = this.currentTheme === "dark";
+
+    if (this.themeMode) {
+      this.themeMode.innerHTML = `
+        <span class="viewer-theme-icon" aria-hidden="true">${isDark ? "☀️" : "🌙"}</span>
+        <span>${isDark ? "Light mode" : "Dark mode"}</span>
+      `;
+      this.themeMode.setAttribute("aria-label", isDark ? "Switch to light mode" : "Switch to dark mode");
+      this.themeMode.setAttribute("title", isDark ? "Switch to light mode" : "Switch to dark mode");
+    }
+
+    const exampleThemeToggle = document.getElementById("example-theme-toggle");
+    if (exampleThemeToggle) {
+      exampleThemeToggle.textContent = isDark ? "☀️" : "🌙";
+      exampleThemeToggle.setAttribute("aria-pressed", isDark ? "true" : "false");
+      exampleThemeToggle.hidden = true;
+    }
+  },
+
+  applyTheme(theme, { persist = true } = {}) {
+    const normalizedTheme = theme === "light" ? "light" : "dark";
+    const isDark = normalizedTheme === "dark";
+
+    this.currentTheme = normalizedTheme;
+    document.documentElement.setAttribute("data-viewer-theme", normalizedTheme);
+    document.body.setAttribute("data-viewer-theme", normalizedTheme);
+    document.body.classList.toggle("iiif-dark", isDark);
+    this.viewerWrapper?.setAttribute("data-viewer-theme", normalizedTheme);
+    this.actionMenu?.setAttribute("data-viewer-theme", normalizedTheme);
+    this.metadataContainer?.setAttribute("data-viewer-theme", normalizedTheme);
+    core.guiContainer?.setAttribute("data-viewer-theme", normalizedTheme);
+    document.getElementById("form-IIIF")?.setAttribute("data-viewer-theme", normalizedTheme);
+    UltraLoader$1.panel?.setAttribute("data-viewer-theme", normalizedTheme);
+
+    if (persist) {
+      window.localStorage.setItem(this.THEME_STORAGE_KEY, isDark ? "1" : "0");
+    }
+
+    this.updateThemeControlLabels();
+  },
+
+  toggleTheme() {
+    this.closeActionMenu();
+    this.applyTheme(this.currentTheme === "dark" ? "light" : "dark");
   },
 
   updatePickingModeControllerLabel() {
@@ -11994,30 +12049,7 @@ const Viewer = {
   async loadIIIFURL() {
     const form = document.getElementById("form-IIIF");
     const collapseBtn = document.getElementById("iiif-toggle-collapse");
-    const themeBtn = document.getElementById("iiif-toggle-theme");
-    const STORAGE_KEY = "iiif-dark-mode";
-    const syncGlobalTheme = (isDark) => {
-      document.body.classList.toggle("iiif-dark", isDark);
-      themeBtn.textContent = isDark ? "☀️" : "🌙";
-      themeBtn.setAttribute("aria-pressed", isDark ? "true" : "false");
-      const testThemeToggle = document.getElementById("test-theme-toggle");
-      if (testThemeToggle) {
-        testThemeToggle.textContent = isDark ? "☀️" : "🌙";
-        testThemeToggle.setAttribute("aria-pressed", isDark ? "true" : "false");
-      }
-    };
-
-    // restore
-    if (localStorage.getItem(STORAGE_KEY) === "1") {
-      form.classList.add("dark");
-    }
-    syncGlobalTheme(form.classList.contains("dark"));
-
-    Viewer.bindEventListener(themeBtn, "click", () => {
-      const isDark = form.classList.toggle("dark");
-      localStorage.setItem(STORAGE_KEY, isDark ? "1" : "0");
-      syncGlobalTheme(isDark);
-    });
+    form?.setAttribute("data-viewer-theme", Viewer.currentTheme);
 
     Viewer.bindEventListener(collapseBtn, "click", () => {
       form.classList.toggle("collapsed");
@@ -12272,6 +12304,7 @@ const Viewer = {
 
       Viewer.actionMenuToggle = Viewer.actionMenu.querySelector("#viewerActionMenuToggle");
       Viewer.actionMenuPanel = Viewer.actionMenu.querySelector(".viewer-action-menu_panel");
+      Viewer.applyTheme(Viewer.getStoredTheme(), { persist: false });
 
       Viewer.viewEntity = document.createElement("button");
       Viewer.viewEntity.setAttribute("id", "viewEntity");
@@ -12288,11 +12321,18 @@ const Viewer = {
       Viewer.fullscreenMode.setAttribute("type", "button");
       Viewer.updateFullscreenButtonIcon();
 
+      Viewer.themeMode = document.createElement("button");
+      Viewer.themeMode.setAttribute("id", "viewerThemeMode");
+      Viewer.themeMode.setAttribute("type", "button");
+      Viewer.updateThemeControlLabels();
+
+      Viewer.actionMenuPanel.appendChild(Viewer.themeMode);
       Viewer.actionMenuPanel.appendChild(Viewer.viewEntity);
       Viewer.actionMenuPanel.appendChild(Viewer.downloadModel);
       Viewer.actionMenuPanel.appendChild(Viewer.fullscreenMode);
 
       setCore('viewEntity', Viewer.viewEntity);
+      Viewer.bindEventListener(Viewer.themeMode, "click", Viewer.toggleTheme.bind(Viewer));
 	      Viewer.bindEventListener(Viewer.fullscreenMode, "click", Viewer.toggleFullscreen, false);
       Viewer.bindEventListener(Viewer.viewEntity, "click", Viewer.copyEmbedCode);
       Viewer.bindEventListener(Viewer.downloadModel, "click", () => Viewer.closeActionMenu());
@@ -12411,14 +12451,7 @@ const Viewer = {
         const selectModel = document.getElementById('example-model-select');
         const themeToggle = document.getElementById('example-theme-toggle');
         const viewerElement = document.getElementById('DFG_3DViewer');
-        const THEME_STORAGE_KEY = 'iiif-dark-mode';
-        if (picker && selectModel && themeToggle && viewerElement) {
-          const syncPickerTheme = (isDark = window.localStorage.getItem(THEME_STORAGE_KEY) === '1') => {
-            document.body.classList.toggle('iiif-dark', Boolean(isDark));
-            themeToggle.textContent = isDark ? '☀️' : '🌙';
-            themeToggle.setAttribute('aria-pressed', isDark ? 'true' : 'false');
-          };
-
+        if (picker && selectModel && viewerElement) {
           const localurl = new URL(window.location.href);
           let selectedModel = localurl.searchParams.get('model');
           if (!selectedModel) {
@@ -12434,19 +12467,9 @@ const Viewer = {
           picker.style.display = 'inline-flex';
           selectModel.value = selectedModel;
           viewerElement.setAttribute('3d', selectedModel);
-          syncPickerTheme();
-
-          themeToggle.addEventListener('click', () => {
-            const nextIsDark = !document.body.classList.contains('iiif-dark');
-            window.localStorage.setItem(THEME_STORAGE_KEY, nextIsDark ? '1' : '0');
-            document.getElementById('form-IIIF')?.classList.toggle('dark', nextIsDark);
-            const iiifThemeToggle = document.getElementById('iiif-toggle-theme');
-            if (iiifThemeToggle) {
-              iiifThemeToggle.textContent = nextIsDark ? '☀️' : '🌙';
-              iiifThemeToggle.setAttribute('aria-pressed', nextIsDark ? 'true' : 'false');
-            }
-            syncPickerTheme(nextIsDark);
-          });
+          if (themeToggle) {
+            themeToggle.hidden = true;
+          }
 
           selectModel.addEventListener('change', () => {
             core.autoPath = selectModel.value;
@@ -12592,4 +12615,4 @@ window.Viewer = Viewer;
 })();
 
 export { Viewer, expectWebGL };
-//# sourceMappingURL=main.Ci0zMz1n.js.map
+//# sourceMappingURL=main.BbVuGNUL.js.map

@@ -345,6 +345,7 @@ export async function handleMetadataResponse(
     core.metadataContainer = document.createElement("div");
     core.metadataContainer.id = "metadata-container";
   }
+  core.metadataContainer.setAttribute("data-viewer-theme", core.container?.closest(".viewer-wrapper")?.getAttribute("data-viewer-theme") || "dark");
 
   var metadataContent =
     '<div id="metadata-card">' +
@@ -594,7 +595,6 @@ export function createIIIFUI() {
   header.innerHTML = `
     <span class="title">IIIF Loader</span>
     <div class="tools">
-      <button type="button" id="iiif-toggle-theme" title="Toggle dark mode">🌙</button>
       <button type="button" id="iiif-toggle-collapse" title="Collapse">▾</button>
     </div>
   `;

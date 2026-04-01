@@ -1,4 +1,4 @@
-import { T as THREE, e as _exports, V as Vector3, M as Matrix4, Q as Quaternion, E as Euler, a as MathUtils$1, O as OrbitControls, b as TransformControls, F as FontLoader, c as TextGeometry } from './assets/three.CAlKdkC4.js';
+import { T as THREE, e as _exports, V as Vector3, M as Matrix4, Q as Quaternion, E as Euler, a as MathUtils$1, O as OrbitControls, b as TransformControls, F as FontLoader, c as TextGeometry } from './assets/three.CHDe5leP.js';
 
 window.THREE = THREE;
 
@@ -13,6 +13,8 @@ const core = {
     ambientLight: null,
     cameraLight: null,
     mainCanvas: null,
+    noticeContainer: null,
+    statusNotice: null,
     gridSize: null,
     dirLightTarget: null,
     lightHelper: null,
@@ -205,474 +207,6 @@ function parseCssColor(str) {
   return null;
 }
 
-var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
-
-function getDefaultExportFromCjs (x) {
-	return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
-}
-
-var toastify$1 = {exports: {}};
-
-/*!
- * Toastify js 1.12.0
- * https://github.com/apvarun/toastify-js
- * @license MIT licensed
- *
- * Copyright (C) 2018 Varun A P
- */
-var toastify = toastify$1.exports;
-
-var hasRequiredToastify;
-
-function requireToastify () {
-	if (hasRequiredToastify) return toastify$1.exports;
-	hasRequiredToastify = 1;
-	(function (module) {
-		(function(root, factory) {
-		  if (module.exports) {
-		    module.exports = factory();
-		  } else {
-		    root.Toastify = factory();
-		  }
-		})(toastify, function(global) {
-		  // Object initialization
-		  var Toastify = function(options) {
-		      // Returning a new init object
-		      return new Toastify.lib.init(options);
-		    },
-		    // Library version
-		    version = "1.12.0";
-
-		  // Set the default global options
-		  Toastify.defaults = {
-		    oldestFirst: true,
-		    text: "Toastify is awesome!",
-		    node: undefined,
-		    duration: 3000,
-		    selector: undefined,
-		    callback: function () {
-		    },
-		    destination: undefined,
-		    newWindow: false,
-		    close: false,
-		    gravity: "toastify-top",
-		    positionLeft: false,
-		    position: '',
-		    backgroundColor: '',
-		    avatar: "",
-		    className: "",
-		    stopOnFocus: true,
-		    onClick: function () {
-		    },
-		    offset: {x: 0, y: 0},
-		    escapeMarkup: true,
-		    ariaLive: 'polite',
-		    style: {background: ''}
-		  };
-
-		  // Defining the prototype of the object
-		  Toastify.lib = Toastify.prototype = {
-		    toastify: version,
-
-		    constructor: Toastify,
-
-		    // Initializing the object with required parameters
-		    init: function(options) {
-		      // Verifying and validating the input object
-		      if (!options) {
-		        options = {};
-		      }
-
-		      // Creating the options object
-		      this.options = {};
-
-		      this.toastElement = null;
-
-		      // Validating the options
-		      this.options.text = options.text || Toastify.defaults.text; // Display message
-		      this.options.node = options.node || Toastify.defaults.node;  // Display content as node
-		      this.options.duration = options.duration === 0 ? 0 : options.duration || Toastify.defaults.duration; // Display duration
-		      this.options.selector = options.selector || Toastify.defaults.selector; // Parent selector
-		      this.options.callback = options.callback || Toastify.defaults.callback; // Callback after display
-		      this.options.destination = options.destination || Toastify.defaults.destination; // On-click destination
-		      this.options.newWindow = options.newWindow || Toastify.defaults.newWindow; // Open destination in new window
-		      this.options.close = options.close || Toastify.defaults.close; // Show toast close icon
-		      this.options.gravity = options.gravity === "bottom" ? "toastify-bottom" : Toastify.defaults.gravity; // toast position - top or bottom
-		      this.options.positionLeft = options.positionLeft || Toastify.defaults.positionLeft; // toast position - left or right
-		      this.options.position = options.position || Toastify.defaults.position; // toast position - left or right
-		      this.options.backgroundColor = options.backgroundColor || Toastify.defaults.backgroundColor; // toast background color
-		      this.options.avatar = options.avatar || Toastify.defaults.avatar; // img element src - url or a path
-		      this.options.className = options.className || Toastify.defaults.className; // additional class names for the toast
-		      this.options.stopOnFocus = options.stopOnFocus === undefined ? Toastify.defaults.stopOnFocus : options.stopOnFocus; // stop timeout on focus
-		      this.options.onClick = options.onClick || Toastify.defaults.onClick; // Callback after click
-		      this.options.offset = options.offset || Toastify.defaults.offset; // toast offset
-		      this.options.escapeMarkup = options.escapeMarkup !== undefined ? options.escapeMarkup : Toastify.defaults.escapeMarkup;
-		      this.options.ariaLive = options.ariaLive || Toastify.defaults.ariaLive;
-		      this.options.style = options.style || Toastify.defaults.style;
-		      if(options.backgroundColor) {
-		        this.options.style.background = options.backgroundColor;
-		      }
-
-		      // Returning the current object for chaining functions
-		      return this;
-		    },
-
-		    // Building the DOM element
-		    buildToast: function() {
-		      // Validating if the options are defined
-		      if (!this.options) {
-		        throw "Toastify is not initialized";
-		      }
-
-		      // Creating the DOM object
-		      var divElement = document.createElement("div");
-		      divElement.className = "toastify on " + this.options.className;
-
-		      // Positioning toast to left or right or center
-		      if (!!this.options.position) {
-		        divElement.className += " toastify-" + this.options.position;
-		      } else {
-		        // To be depreciated in further versions
-		        if (this.options.positionLeft === true) {
-		          divElement.className += " toastify-left";
-		          console.warn('Property `positionLeft` will be depreciated in further versions. Please use `position` instead.');
-		        } else {
-		          // Default position
-		          divElement.className += " toastify-right";
-		        }
-		      }
-
-		      // Assigning gravity of element
-		      divElement.className += " " + this.options.gravity;
-
-		      if (this.options.backgroundColor) {
-		        // This is being deprecated in favor of using the style HTML DOM property
-		        console.warn('DEPRECATION NOTICE: "backgroundColor" is being deprecated. Please use the "style.background" property.');
-		      }
-
-		      // Loop through our style object and apply styles to divElement
-		      for (var property in this.options.style) {
-		        divElement.style[property] = this.options.style[property];
-		      }
-
-		      // Announce the toast to screen readers
-		      if (this.options.ariaLive) {
-		        divElement.setAttribute('aria-live', this.options.ariaLive);
-		      }
-
-		      // Adding the toast message/node
-		      if (this.options.node && this.options.node.nodeType === Node.ELEMENT_NODE) {
-		        // If we have a valid node, we insert it
-		        divElement.appendChild(this.options.node);
-		      } else {
-		        if (this.options.escapeMarkup) {
-		          divElement.innerText = this.options.text;
-		        } else {
-		          divElement.innerHTML = this.options.text;
-		        }
-
-		        if (this.options.avatar !== "") {
-		          var avatarElement = document.createElement("img");
-		          avatarElement.src = this.options.avatar;
-
-		          avatarElement.className = "toastify-avatar";
-
-		          if (this.options.position == "left" || this.options.positionLeft === true) {
-		            // Adding close icon on the left of content
-		            divElement.appendChild(avatarElement);
-		          } else {
-		            // Adding close icon on the right of content
-		            divElement.insertAdjacentElement("afterbegin", avatarElement);
-		          }
-		        }
-		      }
-
-		      // Adding a close icon to the toast
-		      if (this.options.close === true) {
-		        // Create a span for close element
-		        var closeElement = document.createElement("button");
-		        closeElement.type = "button";
-		        closeElement.setAttribute("aria-label", "Close");
-		        closeElement.className = "toast-close";
-		        closeElement.innerHTML = "&#10006;";
-
-		        // Triggering the removal of toast from DOM on close click
-		        closeElement.addEventListener(
-		          "click",
-		          function(event) {
-		            event.stopPropagation();
-		            this.removeElement(this.toastElement);
-		            window.clearTimeout(this.toastElement.timeOutValue);
-		          }.bind(this)
-		        );
-
-		        //Calculating screen width
-		        var width = window.innerWidth > 0 ? window.innerWidth : screen.width;
-
-		        // Adding the close icon to the toast element
-		        // Display on the right if screen width is less than or equal to 360px
-		        if ((this.options.position == "left" || this.options.positionLeft === true) && width > 360) {
-		          // Adding close icon on the left of content
-		          divElement.insertAdjacentElement("afterbegin", closeElement);
-		        } else {
-		          // Adding close icon on the right of content
-		          divElement.appendChild(closeElement);
-		        }
-		      }
-
-		      // Clear timeout while toast is focused
-		      if (this.options.stopOnFocus && this.options.duration > 0) {
-		        var self = this;
-		        // stop countdown
-		        divElement.addEventListener(
-		          "mouseover",
-		          function(event) {
-		            window.clearTimeout(divElement.timeOutValue);
-		          }
-		        );
-		        // add back the timeout
-		        divElement.addEventListener(
-		          "mouseleave",
-		          function() {
-		            divElement.timeOutValue = window.setTimeout(
-		              function() {
-		                // Remove the toast from DOM
-		                self.removeElement(divElement);
-		              },
-		              self.options.duration
-		            );
-		          }
-		        );
-		      }
-
-		      // Adding an on-click destination path
-		      if (typeof this.options.destination !== "undefined") {
-		        divElement.addEventListener(
-		          "click",
-		          function(event) {
-		            event.stopPropagation();
-		            if (this.options.newWindow === true) {
-		              window.open(this.options.destination, "_blank");
-		            } else {
-		              window.location = this.options.destination;
-		            }
-		          }.bind(this)
-		        );
-		      }
-
-		      if (typeof this.options.onClick === "function" && typeof this.options.destination === "undefined") {
-		        divElement.addEventListener(
-		          "click",
-		          function(event) {
-		            event.stopPropagation();
-		            this.options.onClick();
-		          }.bind(this)
-		        );
-		      }
-
-		      // Adding offset
-		      if(typeof this.options.offset === "object") {
-
-		        var x = getAxisOffsetAValue("x", this.options);
-		        var y = getAxisOffsetAValue("y", this.options);
-
-		        var xOffset = this.options.position == "left" ? x : "-" + x;
-		        var yOffset = this.options.gravity == "toastify-top" ? y : "-" + y;
-
-		        divElement.style.transform = "translate(" + xOffset + "," + yOffset + ")";
-
-		      }
-
-		      // Returning the generated element
-		      return divElement;
-		    },
-
-		    // Displaying the toast
-		    showToast: function() {
-		      // Creating the DOM object for the toast
-		      this.toastElement = this.buildToast();
-
-		      // Getting the root element to with the toast needs to be added
-		      var rootElement;
-		      if (typeof this.options.selector === "string") {
-		        rootElement = document.getElementById(this.options.selector);
-		      } else if (this.options.selector instanceof HTMLElement || (typeof ShadowRoot !== 'undefined' && this.options.selector instanceof ShadowRoot)) {
-		        rootElement = this.options.selector;
-		      } else {
-		        rootElement = document.body;
-		      }
-
-		      // Validating if root element is present in DOM
-		      if (!rootElement) {
-		        throw "Root element is not defined";
-		      }
-
-		      // Adding the DOM element
-		      var elementToInsert = Toastify.defaults.oldestFirst ? rootElement.firstChild : rootElement.lastChild;
-		      rootElement.insertBefore(this.toastElement, elementToInsert);
-
-		      // Repositioning the toasts in case multiple toasts are present
-		      Toastify.reposition();
-
-		      if (this.options.duration > 0) {
-		        this.toastElement.timeOutValue = window.setTimeout(
-		          function() {
-		            // Remove the toast from DOM
-		            this.removeElement(this.toastElement);
-		          }.bind(this),
-		          this.options.duration
-		        ); // Binding `this` for function invocation
-		      }
-
-		      // Supporting function chaining
-		      return this;
-		    },
-
-		    hideToast: function() {
-		      if (this.toastElement.timeOutValue) {
-		        clearTimeout(this.toastElement.timeOutValue);
-		      }
-		      this.removeElement(this.toastElement);
-		    },
-
-		    // Removing the element from the DOM
-		    removeElement: function(toastElement) {
-		      // Hiding the element
-		      // toastElement.classList.remove("on");
-		      toastElement.className = toastElement.className.replace(" on", "");
-
-		      // Removing the element from DOM after transition end
-		      window.setTimeout(
-		        function() {
-		          // remove options node if any
-		          if (this.options.node && this.options.node.parentNode) {
-		            this.options.node.parentNode.removeChild(this.options.node);
-		          }
-
-		          // Remove the element from the DOM, only when the parent node was not removed before.
-		          if (toastElement.parentNode) {
-		            toastElement.parentNode.removeChild(toastElement);
-		          }
-
-		          // Calling the callback function
-		          this.options.callback.call(toastElement);
-
-		          // Repositioning the toasts again
-		          Toastify.reposition();
-		        }.bind(this),
-		        400
-		      ); // Binding `this` for function invocation
-		    },
-		  };
-
-		  // Positioning the toasts on the DOM
-		  Toastify.reposition = function() {
-
-		    // Top margins with gravity
-		    var topLeftOffsetSize = {
-		      top: 15,
-		      bottom: 15,
-		    };
-		    var topRightOffsetSize = {
-		      top: 15,
-		      bottom: 15,
-		    };
-		    var offsetSize = {
-		      top: 15,
-		      bottom: 15,
-		    };
-
-		    // Get all toast messages on the DOM
-		    var allToasts = document.getElementsByClassName("toastify");
-
-		    var classUsed;
-
-		    // Modifying the position of each toast element
-		    for (var i = 0; i < allToasts.length; i++) {
-		      // Getting the applied gravity
-		      if (containsClass(allToasts[i], "toastify-top") === true) {
-		        classUsed = "toastify-top";
-		      } else {
-		        classUsed = "toastify-bottom";
-		      }
-
-		      var height = allToasts[i].offsetHeight;
-		      classUsed = classUsed.substr(9, classUsed.length-1);
-		      // Spacing between toasts
-		      var offset = 15;
-
-		      var width = window.innerWidth > 0 ? window.innerWidth : screen.width;
-
-		      // Show toast in center if screen with less than or equal to 360px
-		      if (width <= 360) {
-		        // Setting the position
-		        allToasts[i].style[classUsed] = offsetSize[classUsed] + "px";
-
-		        offsetSize[classUsed] += height + offset;
-		      } else {
-		        if (containsClass(allToasts[i], "toastify-left") === true) {
-		          // Setting the position
-		          allToasts[i].style[classUsed] = topLeftOffsetSize[classUsed] + "px";
-
-		          topLeftOffsetSize[classUsed] += height + offset;
-		        } else {
-		          // Setting the position
-		          allToasts[i].style[classUsed] = topRightOffsetSize[classUsed] + "px";
-
-		          topRightOffsetSize[classUsed] += height + offset;
-		        }
-		      }
-		    }
-
-		    // Supporting function chaining
-		    return this;
-		  };
-
-		  // Helper function to get offset.
-		  function getAxisOffsetAValue(axis, options) {
-
-		    if(options.offset[axis]) {
-		      if(isNaN(options.offset[axis])) {
-		        return options.offset[axis];
-		      }
-		      else {
-		        return options.offset[axis] + 'px';
-		      }
-		    }
-
-		    return '0px';
-
-		  }
-
-		  function containsClass(elem, yourClass) {
-		    if (!elem || typeof yourClass !== "string") {
-		      return false;
-		    } else if (
-		      elem.className &&
-		      elem.className
-		        .trim()
-		        .split(/\s+/gi)
-		        .indexOf(yourClass) > -1
-		    ) {
-		      return true;
-		    } else {
-		      return false;
-		    }
-		  }
-
-		  // Setting up the prototype for the init object
-		  Toastify.lib.init.prototype = Toastify.lib;
-
-		  // Returning the Toastify function to be assigned to the window object/module
-		  return Toastify;
-		}); 
-	} (toastify$1));
-	return toastify$1.exports;
-}
-
-var toastifyExports = /*@__PURE__*/ requireToastify();
-var Toastify = /*@__PURE__*/getDefaultExportFromCjs(toastifyExports);
-
 // viewer-utils.js
 
 const initClippingPlanes = () => {
@@ -688,23 +222,62 @@ const initClippingPlanes = () => {
 const scaleXYZ = (v, s) =>
   ['x', 'y', 'z'].forEach(k => v[k] *= s);
 
-var toastifyOptions = {
-  duration: 6500,
-  gravity: "bottom",
-  close: true,
-  callback() {
-    Toastify.reposition();
-  },
-};
+const DEFAULT_NOTICE_DURATION = 4200;
 
-const showToast = (message) => {
-    if (window.__E2E__ && window.viewer) {
-      window.viewer.toasts ??= [];
-      window.viewer.toasts.push(String(message));
-    }
-    var myToast = Toastify(toastifyOptions);
-    myToast.options.text = message;
-    myToast.showToast();
+function normalizeNoticeArgs(toneOrOptions, maybeOptions) {
+  let tone = "info";
+  let options = {};
+
+  if (typeof toneOrOptions === "string") {
+    tone = toneOrOptions;
+    options = {};
+  } else if (toneOrOptions && typeof toneOrOptions === "object") {
+    options = toneOrOptions;
+    tone = toneOrOptions.tone ?? "info";
+  }
+
+  return { tone, options };
+}
+
+const showToast = (message, toneOrOptions, maybeOptions) => {
+  const { tone, options } = normalizeNoticeArgs(toneOrOptions);
+  const duration = Number.isFinite(options.duration)
+    ? options.duration
+    : DEFAULT_NOTICE_DURATION;
+  const text = String(message);
+
+  if (window.__E2E__ && window.viewer) {
+    window.viewer.toasts ??= [];
+    window.viewer.toasts.push(text);
+  }
+
+  const statusNotice = core.statusNotice;
+  if (!statusNotice) {
+    console.info(`[viewer:${tone}] ${text}`);
+    return;
+  }
+
+  statusNotice.hidden = false;
+  statusNotice.textContent = text;
+  statusNotice.dataset.tone = tone;
+  statusNotice.classList.remove("is-visible", "is-hiding");
+  statusNotice.classList.add("is-visible");
+
+  if (core.statusNoticeTimer) {
+    window.clearTimeout(core.statusNoticeTimer);
+  }
+
+  core.statusNoticeTimer = window.setTimeout(() => {
+    statusNotice.classList.remove("is-visible");
+    statusNotice.classList.add("is-hiding");
+
+    window.setTimeout(() => {
+      if (!statusNotice.classList.contains("is-visible")) {
+        statusNotice.hidden = true;
+        statusNotice.classList.remove("is-hiding");
+      }
+    }, 220);
+  }, duration);
 };
 
 function getErrorMessage(error) {
@@ -1668,6 +1241,7 @@ function expandMetadata() {
 
   const expanded = content.classList.toggle("expanded");
   toggle.classList.toggle("metadata-collapsed", !expanded);
+  card?.classList.toggle("metadata-open", expanded);
 
   // accessibility
   toggle.setAttribute("aria-expanded", expanded);
@@ -1712,7 +1286,8 @@ function bindMetadataInteractions() {
   if (core.metadataContainer.dataset.boundCollapse === "true") return;
 
   core.metadataContainer.addEventListener("click", (e) => {
-    if (e.target.id === "metadata-collapse") {
+    const toggle = e.target.closest("#metadata-collapse");
+    if (toggle) {
       expandMetadata();
       return;
     }
@@ -1924,11 +1499,19 @@ async function handleMetadataResponse(
     core.metadataContainer = document.createElement("div");
     core.metadataContainer.id = "metadata-container";
   }
+  core.metadataContainer.setAttribute("data-viewer-theme", core.container?.closest(".viewer-wrapper")?.getAttribute("data-viewer-theme") || "dark");
 
   var metadataContent =
     '<div id="metadata-card">' +
-      '<div id="metadata-collapse" class="metadata-collapse">METADATA</div>' +
-      '<div id="metadata-content" class="metadata-content expanded">';
+      '<button id="metadata-collapse" class="metadata-collapse metadata-collapsed" type="button" aria-expanded="false" aria-controls="metadata-content">' +
+        '<span class="metadata-toggle-icon" aria-hidden="true"></span>' +
+        '<span class="metadata-toggle-copy">' +
+          '<span class="metadata-toggle-eyebrow">Model details</span>' +
+          '<span class="metadata-toggle-title">Metadata</span>' +
+        '</span>' +
+        '<span class="metadata-toggle-chevron" aria-hidden="true"></span>' +
+      '</button>' +
+      '<div id="metadata-content" class="metadata-content">';
   metadataContent +=
     '<div class="metadata-row">' +
       '<span class="metadata-label">Visualized file:</span>' +
@@ -1982,10 +1565,7 @@ async function handleMetadataResponse(
     if (sharePayload?.url) {
       core.viewEntity.setAttribute("data-embed-url", sharePayload.url);
     }
-    core.viewEntity.innerHTML = `
-      <img src="${core.DFG_ASSETS}/img/share.svg" alt="Share view" width="18" height="18"/>
-      <span>Copy embed</span>
-    `;
+    core.viewEntity.innerHTML = `<span class="embed-icon"></span><span>Copy embed</span>`;
     core.viewEntity.setAttribute("aria-label", "Copy embed code");
     core.viewEntity.setAttribute("title", "Copy embed code");
     core.viewEntity.hidden = false;
@@ -2161,7 +1741,6 @@ function createIIIFUI() {
   header.innerHTML = `
     <span class="title">IIIF Loader</span>
     <div class="tools">
-      <button type="button" id="iiif-toggle-theme" title="Toggle dark mode">🌙</button>
       <button type="button" id="iiif-toggle-collapse" title="Collapse">▾</button>
     </div>
   `;
@@ -2191,20 +1770,20 @@ function createIIIFUI() {
   document.body.appendChild(formContainer);
 }
 
-const loadDDSLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.j; })).DDSLoader;
-const loadMTLLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.k; })).MTLLoader;
-const loadOBJLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.l; })).OBJLoader;
-const loadFBXLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.n; })).FBXLoader;
-const loadPLYLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.P; })).PLYLoader;
-const loadColladaLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.o; })).ColladaLoader;
-const loadSTLLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.S; })).STLLoader;
-const loadXYZLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.X; })).XYZLoader;
-const loadTDSLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.p; })).TDSLoader;
-const loadPCDLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.q; })).PCDLoader;
-const loadGLTFLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.G; })).GLTFLoader;
-const loadDRACOLoader = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.r; })).DRACOLoader;
-const loadIFCLoader = async () => (await import('./assets/IFCLoader.Bvw4gkUL.js')).IFCLoader;
-const loadRoomEnvironment = async () => (await import('./assets/three.CAlKdkC4.js').then(function (n) { return n.R; })).RoomEnvironment;
+const loadDDSLoader = async () => (await import('./assets/three.CHDe5leP.js').then(function (n) { return n.j; })).DDSLoader;
+const loadMTLLoader = async () => (await import('./assets/three.CHDe5leP.js').then(function (n) { return n.k; })).MTLLoader;
+const loadOBJLoader = async () => (await import('./assets/three.CHDe5leP.js').then(function (n) { return n.l; })).OBJLoader;
+const loadFBXLoader = async () => (await import('./assets/three.CHDe5leP.js').then(function (n) { return n.n; })).FBXLoader;
+const loadPLYLoader = async () => (await import('./assets/three.CHDe5leP.js').then(function (n) { return n.P; })).PLYLoader;
+const loadColladaLoader = async () => (await import('./assets/three.CHDe5leP.js').then(function (n) { return n.o; })).ColladaLoader;
+const loadSTLLoader = async () => (await import('./assets/three.CHDe5leP.js').then(function (n) { return n.S; })).STLLoader;
+const loadXYZLoader = async () => (await import('./assets/three.CHDe5leP.js').then(function (n) { return n.X; })).XYZLoader;
+const loadTDSLoader = async () => (await import('./assets/three.CHDe5leP.js').then(function (n) { return n.p; })).TDSLoader;
+const loadPCDLoader = async () => (await import('./assets/three.CHDe5leP.js').then(function (n) { return n.q; })).PCDLoader;
+const loadGLTFLoader = async () => (await import('./assets/three.CHDe5leP.js').then(function (n) { return n.G; })).GLTFLoader;
+const loadDRACOLoader = async () => (await import('./assets/three.CHDe5leP.js').then(function (n) { return n.r; })).DRACOLoader;
+const loadIFCLoader = async () => (await import('./assets/IFCLoader.mgxdNaLS.js')).IFCLoader;
+const loadRoomEnvironment = async () => (await import('./assets/three.CHDe5leP.js').then(function (n) { return n.R; })).RoomEnvironment;
 
 var outlineClipping;
 let environmentTexturePromise = null;
@@ -3038,6 +2617,12 @@ class StatusPoller {
         this.timer=setTimeout(()=>this.tick(),this.interval);
     }
 
+}
+
+var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
+
+function getDefaultExportFromCjs (x) {
+	return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
 }
 
 var stats_min$1 = {exports: {}};
@@ -9742,13 +9327,20 @@ const Viewer = {
   actionMenuToggle: null,
   actionMenuPanel: null,
   fullscreenMode: null,
+  themeMode: null,
   downloadModel: null,
+  currentTheme: "dark",
+  THEME_STORAGE_KEY: "iiif-dark-mode",
   GESTURE: {handPx: 55, period: 5.5, rotate: false, active: false, target: new THREE.Vector3(), startTime: 0, baseAngle: 0, orbitAngle: THREE.MathUtils.degToRad(15), easeInTime: 2.25},
   lastTime: null,
   originalMetadata: [],
   spinnerContainer: null,
   spinnerElement: null,
   guiContainer: null,
+  noticeContainer: null,
+  statusNotice: null,
+  statusNoticeTimer: null,
+  pickingHint: null,
   metadataContainer: null,
   spinner: null,
   circle: null,
@@ -9935,6 +9527,58 @@ const Viewer = {
     }
   },
 
+  getStoredTheme() {
+    const storedTheme = window.localStorage.getItem(this.THEME_STORAGE_KEY);
+    return storedTheme === "0" ? "light" : "dark";
+  },
+
+  updateThemeControlLabels() {
+    const isDark = this.currentTheme === "dark";
+
+    if (this.themeMode) {
+      this.themeMode.innerHTML = `
+        <span class="viewer-theme-icon" aria-hidden="true">${isDark ? "☀️" : "🌙"}</span>
+        <span>${isDark ? "Light mode" : "Dark mode"}</span>
+      `;
+      this.themeMode.setAttribute("aria-label", isDark ? "Switch to light mode" : "Switch to dark mode");
+      this.themeMode.setAttribute("title", isDark ? "Switch to light mode" : "Switch to dark mode");
+    }
+
+    const exampleThemeToggle = document.getElementById("example-theme-toggle");
+    if (exampleThemeToggle) {
+      exampleThemeToggle.textContent = isDark ? "☀️" : "🌙";
+      exampleThemeToggle.setAttribute("aria-pressed", isDark ? "true" : "false");
+      exampleThemeToggle.hidden = true;
+    }
+  },
+
+  applyTheme(theme, { persist = true } = {}) {
+    const normalizedTheme = theme === "light" ? "light" : "dark";
+    const isDark = normalizedTheme === "dark";
+
+    this.currentTheme = normalizedTheme;
+    document.documentElement.setAttribute("data-viewer-theme", normalizedTheme);
+    document.body.setAttribute("data-viewer-theme", normalizedTheme);
+    document.body.classList.toggle("iiif-dark", isDark);
+    this.viewerWrapper?.setAttribute("data-viewer-theme", normalizedTheme);
+    this.actionMenu?.setAttribute("data-viewer-theme", normalizedTheme);
+    this.metadataContainer?.setAttribute("data-viewer-theme", normalizedTheme);
+    core.guiContainer?.setAttribute("data-viewer-theme", normalizedTheme);
+    document.getElementById("form-IIIF")?.setAttribute("data-viewer-theme", normalizedTheme);
+    UltraLoader$1.panel?.setAttribute("data-viewer-theme", normalizedTheme);
+
+    if (persist) {
+      window.localStorage.setItem(this.THEME_STORAGE_KEY, isDark ? "1" : "0");
+    }
+
+    this.updateThemeControlLabels();
+  },
+
+  toggleTheme() {
+    this.closeActionMenu();
+    this.applyTheme(this.currentTheme === "dark" ? "light" : "dark");
+  },
+
   updatePickingModeControllerLabel() {
     if (!this.pickingModeController?.name) return;
     this.pickingModeController.name(
@@ -9949,10 +9593,22 @@ const Viewer = {
     );
   },
 
+  updateSelectedFacesControllerLabel() {
+    if (!this.selectedFacesCountController?.name) return;
+    this.selectedFacesCountController.name("Selected faces");
+  },
+
+  updatePickingHintVisibility() {
+    if (!this.pickingHint) return;
+    const hasSelectedFaces = Array.isArray(this.selectedFaces) && this.selectedFaces.length > 0;
+    this.pickingHint.hidden = !this.pickingMode || hasSelectedFaces;
+  },
+
   updatePickingControlsVisibility() {
     const method = this.pickingMode ? "show" : "hide";
     this.clearSelectedFacesController?.[method]?.();
     this.selectedFacesCountController?.[method]?.();
+    this.updatePickingHintVisibility();
   },
 
   isEmbedMode() {
@@ -10024,7 +9680,7 @@ const Viewer = {
     const label = isFullscreen ? "Exit fullscreen mode" : "Fullscreen mode";
 
     this.fullscreenMode.innerHTML = `
-      <img src="${core.DFG_ASSETS}/img/${icon}" alt="${label}" width="20" height="20"/>
+      <img src="${core.DFG_ASSETS}/img/${icon}" alt="${label}" width="18" height="18"/>
       <span>${isFullscreen ? "Exit fullscreen" : "Fullscreen"}</span>
     `;
     this.fullscreenMode.setAttribute("aria-label", label);
@@ -10346,6 +10002,28 @@ const Viewer = {
     this.handHint.hidden = true;
     core.container.appendChild(this.handHint);
     setCore('handHint', this.handHint);
+
+    this.noticeContainer = document.createElement("div");
+    this.noticeContainer.id = "viewerNoticeContainer";
+    core.container.appendChild(this.noticeContainer);
+    setCore("noticeContainer", this.noticeContainer);
+
+    this.statusNotice = document.createElement("div");
+    this.statusNotice.id = "viewerStatusNotice";
+    this.statusNotice.className = "viewer-notice viewer-notice-status";
+    this.statusNotice.hidden = true;
+    this.statusNotice.setAttribute("role", "status");
+    this.statusNotice.setAttribute("aria-live", "polite");
+    this.noticeContainer.appendChild(this.statusNotice);
+    setCore("statusNotice", this.statusNotice);
+
+    this.pickingHint = document.createElement("div");
+    this.pickingHint.id = "pickingHint";
+    this.pickingHint.className = "viewer-notice viewer-notice-hint";
+    this.pickingHint.textContent = "Shift + click to select multiple faces";
+    this.pickingHint.hidden = true;
+    this.noticeContainer.appendChild(this.pickingHint);
+    setCore("pickingHint", this.pickingHint);
 
     this.spinnerContainer = document.createElement("div");
     this.spinnerContainer.id = "spinnerContainer";
@@ -10972,6 +10650,7 @@ const Viewer = {
     Viewer.pickingStats["Selected faces"] = Array.isArray(Viewer.selectedFaces)
       ? Viewer.selectedFaces.length
       : 0;
+    Viewer.updatePickingHintVisibility();
   },
 
   clearSelectedFaces() {
@@ -11568,9 +11247,9 @@ const Viewer = {
         // Load the model
         await Viewer.mainLoadModel();
         
-        showToast('Model loaded successfully');
+        showToast('Model loaded successfully', 'success');
       } else {
-        showToast('Unsupported file format');
+        showToast('Unsupported file format', 'error');
       }
     }
   },
@@ -12160,6 +11839,7 @@ const Viewer = {
       Viewer.selectedFacesCountController = Viewer.editorFolder
         .add(Viewer.pickingStats, "Selected faces")
         .listen();
+      Viewer.updateSelectedFacesControllerLabel();
       Viewer.selectedFacesCountController.disable();
       Viewer.updatePickingControlsVisibility();
 
@@ -12369,30 +12049,7 @@ const Viewer = {
   async loadIIIFURL() {
     const form = document.getElementById("form-IIIF");
     const collapseBtn = document.getElementById("iiif-toggle-collapse");
-    const themeBtn = document.getElementById("iiif-toggle-theme");
-    const STORAGE_KEY = "iiif-dark-mode";
-    const syncGlobalTheme = (isDark) => {
-      document.body.classList.toggle("iiif-dark", isDark);
-      themeBtn.textContent = isDark ? "☀️" : "🌙";
-      themeBtn.setAttribute("aria-pressed", isDark ? "true" : "false");
-      const testThemeToggle = document.getElementById("test-theme-toggle");
-      if (testThemeToggle) {
-        testThemeToggle.textContent = isDark ? "☀️" : "🌙";
-        testThemeToggle.setAttribute("aria-pressed", isDark ? "true" : "false");
-      }
-    };
-
-    // restore
-    if (localStorage.getItem(STORAGE_KEY) === "1") {
-      form.classList.add("dark");
-    }
-    syncGlobalTheme(form.classList.contains("dark"));
-
-    Viewer.bindEventListener(themeBtn, "click", () => {
-      const isDark = form.classList.toggle("dark");
-      localStorage.setItem(STORAGE_KEY, isDark ? "1" : "0");
-      syncGlobalTheme(isDark);
-    });
+    form?.setAttribute("data-viewer-theme", Viewer.currentTheme);
 
     Viewer.bindEventListener(collapseBtn, "click", () => {
       form.classList.toggle("collapsed");
@@ -12647,6 +12304,7 @@ const Viewer = {
 
       Viewer.actionMenuToggle = Viewer.actionMenu.querySelector("#viewerActionMenuToggle");
       Viewer.actionMenuPanel = Viewer.actionMenu.querySelector(".viewer-action-menu_panel");
+      Viewer.applyTheme(Viewer.getStoredTheme(), { persist: false });
 
       Viewer.viewEntity = document.createElement("button");
       Viewer.viewEntity.setAttribute("id", "viewEntity");
@@ -12663,11 +12321,18 @@ const Viewer = {
       Viewer.fullscreenMode.setAttribute("type", "button");
       Viewer.updateFullscreenButtonIcon();
 
+      Viewer.themeMode = document.createElement("button");
+      Viewer.themeMode.setAttribute("id", "viewerThemeMode");
+      Viewer.themeMode.setAttribute("type", "button");
+      Viewer.updateThemeControlLabels();
+
+      Viewer.actionMenuPanel.appendChild(Viewer.themeMode);
       Viewer.actionMenuPanel.appendChild(Viewer.viewEntity);
       Viewer.actionMenuPanel.appendChild(Viewer.downloadModel);
       Viewer.actionMenuPanel.appendChild(Viewer.fullscreenMode);
 
       setCore('viewEntity', Viewer.viewEntity);
+      Viewer.bindEventListener(Viewer.themeMode, "click", Viewer.toggleTheme.bind(Viewer));
 	      Viewer.bindEventListener(Viewer.fullscreenMode, "click", Viewer.toggleFullscreen, false);
       Viewer.bindEventListener(Viewer.viewEntity, "click", Viewer.copyEmbedCode);
       Viewer.bindEventListener(Viewer.downloadModel, "click", () => Viewer.closeActionMenu());
@@ -12786,14 +12451,7 @@ const Viewer = {
         const selectModel = document.getElementById('example-model-select');
         const themeToggle = document.getElementById('example-theme-toggle');
         const viewerElement = document.getElementById('DFG_3DViewer');
-        const THEME_STORAGE_KEY = 'iiif-dark-mode';
-        if (picker && selectModel && themeToggle && viewerElement) {
-          const syncPickerTheme = (isDark = window.localStorage.getItem(THEME_STORAGE_KEY) === '1') => {
-            document.body.classList.toggle('iiif-dark', Boolean(isDark));
-            themeToggle.textContent = isDark ? '☀️' : '🌙';
-            themeToggle.setAttribute('aria-pressed', isDark ? 'true' : 'false');
-          };
-
+        if (picker && selectModel && viewerElement) {
           const localurl = new URL(window.location.href);
           let selectedModel = localurl.searchParams.get('model');
           if (!selectedModel) {
@@ -12809,19 +12467,9 @@ const Viewer = {
           picker.style.display = 'inline-flex';
           selectModel.value = selectedModel;
           viewerElement.setAttribute('3d', selectedModel);
-          syncPickerTheme();
-
-          themeToggle.addEventListener('click', () => {
-            const nextIsDark = !document.body.classList.contains('iiif-dark');
-            window.localStorage.setItem(THEME_STORAGE_KEY, nextIsDark ? '1' : '0');
-            document.getElementById('form-IIIF')?.classList.toggle('dark', nextIsDark);
-            const iiifThemeToggle = document.getElementById('iiif-toggle-theme');
-            if (iiifThemeToggle) {
-              iiifThemeToggle.textContent = nextIsDark ? '☀️' : '🌙';
-              iiifThemeToggle.setAttribute('aria-pressed', nextIsDark ? 'true' : 'false');
-            }
-            syncPickerTheme(nextIsDark);
-          });
+          if (themeToggle) {
+            themeToggle.hidden = true;
+          }
 
           selectModel.addEventListener('change', () => {
             core.autoPath = selectModel.value;
@@ -12967,4 +12615,4 @@ window.Viewer = Viewer;
 })();
 
 export { Viewer, expectWebGL };
-//# sourceMappingURL=main.fvXGIto2.js.map
+//# sourceMappingURL=main.DCAGZW_4.js.map
