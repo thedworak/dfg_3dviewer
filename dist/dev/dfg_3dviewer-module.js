@@ -1554,7 +1554,7 @@ async function handleMetadataResponse(
     core.downloadModel.href = `blob:${encodeURI(c_path + core.fileObject.filename)}`;
     core.downloadModel.setAttribute("download", core.fileObject.filename);
     core.downloadModel.innerHTML = `
-      <img src="${core.DFG_ASSETS}/img/download-icon.svg" alt="Download model" width="20" height="20"/>
+      <span class="viewer-action-icon download-icon" aria-hidden="true"></span>
       <span>Download</span>
     `;
     core.downloadModel.hidden = false;
@@ -9676,11 +9676,10 @@ const Viewer = {
     if (!this.fullscreenMode) return;
 
     const isFullscreen = !!document.fullscreenElement;
-    const icon = isFullscreen ? "exit-fullscreen.png" : "fullscreen.png";
     const label = isFullscreen ? "Exit fullscreen mode" : "Fullscreen mode";
 
     this.fullscreenMode.innerHTML = `
-      <img src="${core.DFG_ASSETS}/img/${icon}" alt="${label}" width="18" height="18"/>
+      <span class="viewer-action-icon ${isFullscreen ? "fullscreen-exit-icon" : "fullscreen-icon"}" aria-hidden="true"></span>
       <span>${isFullscreen ? "Exit fullscreen" : "Fullscreen"}</span>
     `;
     this.fullscreenMode.setAttribute("aria-label", label);
@@ -12615,4 +12614,4 @@ window.Viewer = Viewer;
 })();
 
 export { Viewer, expectWebGL };
-//# sourceMappingURL=main.DCAGZW_4.js.map
+//# sourceMappingURL=main.C9QG5aig.js.map

@@ -462,11 +462,10 @@ export const Viewer = {
     if (!this.fullscreenMode) return;
 
     const isFullscreen = !!document.fullscreenElement;
-    const icon = isFullscreen ? "exit-fullscreen.png" : "fullscreen.png";
     const label = isFullscreen ? "Exit fullscreen mode" : "Fullscreen mode";
 
     this.fullscreenMode.innerHTML = `
-      <img src="${core.DFG_ASSETS}/img/${icon}" alt="${label}" width="18" height="18"/>
+      <span class="viewer-action-icon ${isFullscreen ? "fullscreen-exit-icon" : "fullscreen-icon"}" aria-hidden="true"></span>
       <span>${isFullscreen ? "Exit fullscreen" : "Fullscreen"}</span>
     `;
     this.fullscreenMode.setAttribute("aria-label", label);

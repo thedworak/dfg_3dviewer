@@ -964,6 +964,7 @@ canvas {
   height: 20px !important;
 }
 
+#downloadModel img,
 #fullscreenMode img {
   filter: var(--viewer-raster-icon-filter);
 }

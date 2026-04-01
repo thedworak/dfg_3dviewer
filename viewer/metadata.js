@@ -400,7 +400,7 @@ export async function handleMetadataResponse(
     core.downloadModel.href = `blob:${encodeURI(c_path + core.fileObject.filename)}`;
     core.downloadModel.setAttribute("download", core.fileObject.filename);
     core.downloadModel.innerHTML = `
-      <img src="${core.DFG_ASSETS}/img/download-icon.svg" alt="Download model" width="20" height="20"/>
+      <span class="viewer-action-icon download-icon" aria-hidden="true"></span>
       <span>Download</span>
     `;
     core.downloadModel.hidden = false;

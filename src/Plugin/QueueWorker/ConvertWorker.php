@@ -640,6 +640,34 @@ class ConvertWorker extends QueueWorkerBase {
       }
     }
 
+    $api_model_field = trim((string) ($cfg['api_3d_file_field'] ?? ''));
+    if (!empty($auto_path) && $api_model_field !== '' && $this->entityHasField($entity, $api_model_field)) {
+      if ($this->fieldRequiresTargetId($entity, $api_model_field)) {
+        $api_values = $this->buildFieldValues($entity, $api_model_field, [$auto_path]);
+        $this->applyFieldValues($entity, $api_model_field, $api_values, $this->getCurrentLanguageId());
+        $result['model_fields'][$api_model_field] = [$auto_path];
+        \Drupal::logger('dfg_3dviewer')->notice(
+          'Updated API 3D file field "@field" via target_id mapping from "@value".',
+          [
+            '@field' => $api_model_field,
+            '@value' => $auto_path,
+          ]
+        );
+      }
+      else {
+        $api_scalar_value = $auto_path_url !== '' ? $auto_path_url : $auto_path;
+        $entity->set($api_model_field, $api_scalar_value);
+        $result['model_fields'][$api_model_field] = array_values(array_filter([$api_scalar_value, $auto_path]));
+        \Drupal::logger('dfg_3dviewer')->notice(
+          'Updated API 3D file scalar field "@field" to "@value".',
+          [
+            '@field' => $api_model_field,
+            '@value' => $api_scalar_value,
+          ]
+        );
+      }
+    }
+
     $this->updateLegacyViewerUrlField($entity, $cfg);
 
     $legacy_gallery_field = 'fd6a974b7120d422c7b21b5f1f2315d9';

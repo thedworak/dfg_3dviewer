@@ -68,6 +68,7 @@ class DFG3dViewerConfigForm extends FormBase {
       'viewer_file_upload' => $default_config->get('dfg_3dviewer_viewer_file_upload'),
       'image_generation' => $default_config->get('dfg_3dviewer_image_generation'),
       'viewer_file_name' => $default_config->get('dfg_3dviewer_viewer_file_name'),
+      'api_3d_file_field' => $default_config->get('dfg_3dviewer_api_3d_file_field') ?? $default_config->get('api_3d_file_field'),
       'field_df' => $default_config->get('dfg_3dviewer_field_df'),
       'main_url' => $default_config->get('dfg_3dviewer_main_url') ?? $default_config->get('main_url'),
       'metadata_url' => $default_config->get('dfg_3dviewer_metadata_url') ?? $default_config->get('metadata_url'),
@@ -159,6 +160,19 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#title' => $this->t('Viewer File Name ID'),
 		'#required' => true,
 		'#description' => '<b>ID</b> of the bundle for the entity given in wisski pathbuilder for viewer_file_name field',
+    ];
+
+	$form['dfg_3dviewer_api_3d_file_field'] = [
+		'#default_value' => $default_settings['api_3d_file_field'],
+		'#type' => 'textfield',
+		'#title' => $this->t('API 3D File Field'),
+		'#required' => false,
+		'#description' => '<b>ID or machine name</b> of the field that should populate API `3D_file`',
+		'#states' => [
+			'visible' => [
+				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
+			]
+		]
     ];
 
 	$form['dfg_3dviewer_image_generation'] = [
@@ -339,6 +353,7 @@ class DFG3dViewerConfigForm extends FormBase {
     $settings->set('dfg_3dviewer_container', $new_vals['dfg_3dviewer_container']);
     $settings->set('dfg_3dviewer_viewer_file_upload', $new_vals['dfg_3dviewer_viewer_file_upload']);
     $settings->set('dfg_3dviewer_viewer_file_name', $new_vals['dfg_3dviewer_viewer_file_name']);
+    $settings->set('dfg_3dviewer_api_3d_file_field', $new_vals['dfg_3dviewer_api_3d_file_field']);
     $settings->set('dfg_3dviewer_image_generation', $new_vals['dfg_3dviewer_image_generation']);
     $settings->set('dfg_3dviewer_field_df', $new_vals['dfg_3dviewer_field_df']);
     $settings->set('dfg_3dviewer_lightweight', $new_vals['dfg_3dviewer_lightweight']);
@@ -372,6 +387,7 @@ class DFG3dViewerConfigForm extends FormBase {
 			'container' => $new_vals['dfg_3dviewer_container'],
 			'fileUpload' => $new_vals['dfg_3dviewer_viewer_file_upload'],
 			'fileName' => $new_vals['dfg_3dviewer_viewer_file_name'],
+			'api3dFileField' => $new_vals['dfg_3dviewer_api_3d_file_field'],
 			'imageGeneration' => $new_vals['dfg_3dviewer_image_generation'],
 			'lightweight' => $new_vals['dfg_3dviewer_lightweight'],
 			'scaleContainer' => [

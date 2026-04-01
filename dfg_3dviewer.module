@@ -43,6 +43,11 @@ function dfg_3dviewer_config(): array {
 		?? $config->get('viewer_file_name')
 	)) ?: 'faa602a0be629324806aef22892cdbe5';
 
+	$api_3d_file_field = trim((string) (
+		$config->get('dfg_3dviewer_api_3d_file_field')
+		?? $config->get('api_3d_file_field')
+	));
+
 	$image_generation = trim((string) (
 		$config->get('dfg_3dviewer_image_generation')
 		?? $config->get('image_generation')
@@ -71,6 +76,7 @@ function dfg_3dviewer_config(): array {
       'entity_bundle' => $entity_bundle,
       'viewer_file_upload' => $viewer_file_upload,
       'viewer_file_name' => $viewer_file_name,
+      'api_3d_file_field' => $api_3d_file_field,
       'image_generation' => $image_generation,
       'field_df' => $field_df,
       'lightweight' => $lightweight,
