@@ -63,6 +63,7 @@
     "jquery": "^3.7.1",
     "lru-cache": "^11.2.2",
     "playwright": "^1.58.2",
+    "pnpm": "^10.33.0",
     "stats.js": "^0.17.0",
     "three": "^0.183.1",
     "toastify-js": "^1.12.0",

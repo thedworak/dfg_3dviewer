@@ -87,6 +87,8 @@ canvas {
 }
 
 #viewerNoticeContainer {
+  bottom: 12px;
+  max-width: calc(100% - 88px);
   position: absolute;
   left: 50%;
   bottom: 14px;
@@ -102,9 +104,9 @@ canvas {
 .viewer-notice {
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(17, 24, 39, 0.58);
+  background: var(--viewer-notice-container-bg);
   border: 1px solid rgba(255, 255, 255, 0.16);
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--viewer-notice-container-text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
   font-size: 12px;
   line-height: 1.2;
@@ -148,7 +150,7 @@ canvas {
 }
 
 .viewer-notice-status[data-tone="info"] {
-  background: rgba(17, 24, 39, 0.7);
+  background: var(--viewer-notice-container-bg);
   border-color: rgba(191, 219, 254, 0.18);
 }
 
@@ -372,6 +374,8 @@ canvas {
     rgba(17, 24, 39, 0.56) 58%,
     rgba(17, 24, 39, 0.82)
   );
+  --viewer-notice-container-bg: rgba(17, 24, 39, 0.9);
+  --viewer-notice-container-text: rgba(255, 255, 255, 0.94);
   background: var(--viewer-shell-bg);
 }
 
@@ -411,6 +415,8 @@ canvas {
     rgba(244, 239, 231, 0.88) 58%,
     rgba(236, 230, 220, 0.98)
   );
+  --viewer-notice-container-bg: rgba(236, 230, 220, 0.9);
+  --viewer-notice-container-text: rgba(17, 24, 39, 0.92);
 }
 
 #metadata-container {
@@ -1084,11 +1090,6 @@ canvas {
   #fullscreenMode {
     min-width: 136px;
     padding: 9px 12px;
-  }
-
-  #viewerNoticeContainer {
-    bottom: 12px;
-    max-width: calc(100% - 88px);
   }
 
   .viewer-notice {
