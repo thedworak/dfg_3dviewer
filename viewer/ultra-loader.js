@@ -35,9 +35,9 @@ export const UltraLoader = {
     this.render();
     },
 
-    set(progress,message) {
-      this.progress=Math.max(this.progress,progress);
-      this.render();
+  set(progress,message) {
+    this.progress=Math.max(this.progress,progress);
+    this.render();
   },
 
   step(index) {
