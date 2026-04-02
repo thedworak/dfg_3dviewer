@@ -87,6 +87,8 @@ canvas {
 }
 
 #viewerNoticeContainer {
+  bottom: 12px;
+  max-width: calc(100% - 88px);
   position: absolute;
   left: 50%;
   bottom: 14px;
@@ -102,9 +104,9 @@ canvas {
 .viewer-notice {
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(17, 24, 39, 0.58);
+  background: var(--viewer-notice-container-bg);
   border: 1px solid rgba(255, 255, 255, 0.16);
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--viewer-notice-container-text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
   font-size: 12px;
   line-height: 1.2;
@@ -148,7 +150,7 @@ canvas {
 }
 
 .viewer-notice-status[data-tone="info"] {
-  background: rgba(17, 24, 39, 0.7);
+  background: var(--viewer-notice-container-bg);
   border-color: rgba(191, 219, 254, 0.18);
 }
 
@@ -343,7 +345,6 @@ canvas {
   --viewer-panel-border: rgba(255, 255, 255, 0.12);
   --viewer-panel-shadow: 0 12px 30px rgba(15, 23, 42, 0.28);
   --viewer-panel-text: rgba(255, 255, 255, 0.94);
-  --viewer-raster-icon-filter: brightness(0) invert(1);
   --viewer-gui-bg: rgba(43, 49, 61, 0.9);
   --viewer-gui-title-bg: rgba(43, 49, 61, 0.9);
   --viewer-gui-title-hover-bg: rgba(25, 29, 36, 0.9);
@@ -373,6 +374,8 @@ canvas {
     rgba(17, 24, 39, 0.56) 58%,
     rgba(17, 24, 39, 0.82)
   );
+  --viewer-notice-container-bg: rgba(17, 24, 39, 0.9);
+  --viewer-notice-container-text: rgba(255, 255, 255, 0.94);
   background: var(--viewer-shell-bg);
 }
 
@@ -383,7 +386,6 @@ canvas {
   --viewer-panel-border: rgba(164, 151, 132, 0.28);
   --viewer-panel-shadow: 0 14px 30px rgba(129, 116, 96, 0.16);
   --viewer-panel-text: rgba(37, 33, 28, 0.92);
-  --viewer-raster-icon-filter: brightness(0) saturate(100%) invert(10%) sepia(11%) saturate(882%) hue-rotate(346deg) brightness(96%) contrast(90%);
   --viewer-gui-bg: rgba(249, 246, 240, 0.96);
   --viewer-gui-title-bg: rgba(243, 238, 230, 0.98);
   --viewer-gui-title-hover-bg: rgba(236, 230, 220, 0.98);
@@ -413,6 +415,8 @@ canvas {
     rgba(244, 239, 231, 0.88) 58%,
     rgba(236, 230, 220, 0.98)
   );
+  --viewer-notice-container-bg: rgba(236, 230, 220, 0.9);
+  --viewer-notice-container-text: rgba(17, 24, 39, 0.92);
 }
 
 #metadata-container {
@@ -936,10 +940,6 @@ canvas {
   background: var(--viewer-panel-bg-hover);
 }
 
-#viewerThemeMode img,
-#viewEntity img,
-#downloadModel img,
-#fullscreenMode img,
 #viewerThemeMode > :first-child,
 #viewEntity > :first-child,
 #downloadModel > :first-child,
@@ -958,17 +958,6 @@ canvas {
   line-height: 1;
 }
 
-#downloadModel img,
-#fullscreenMode img {
-  width: 20px !important;
-  height: 20px !important;
-}
-
-#downloadModel img,
-#fullscreenMode img {
-  filter: var(--viewer-raster-icon-filter);
-}
-
 #viewerThemeMode span,
 #viewEntity span,
 #downloadModel span,
@@ -983,13 +972,43 @@ canvas {
 .embed-icon {
   width: 28px;
   height: 28px;
-  background-color: rgba(255, 255, 255, 0.88);
+  background-color: currentColor;
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M8 9l-3 3 3 3M16 9l3 3-3 3M13 6l-2 12'/%3E%3C/svg%3E");
   -webkit-mask-size: contain;
   -webkit-mask-repeat: no-repeat;
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M8 9l-3 3 3 3M16 9l3 3-3 3M13 6l-2 12'/%3E%3C/svg%3E");
   mask-size: contain;
   mask-repeat: no-repeat;
+}
+
+.viewer-action-icon {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: currentColor;
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+}
+
+.download-icon {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.75'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M12 3v10m0 0 4-4m-4 4-4-4M5 17v1a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.75'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M12 3v10m0 0 4-4m-4 4-4-4M5 17v1a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1'/%3E%3C/svg%3E");
+}
+
+.fullscreen-icon {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.9'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M8 3H5a2 2 0 0 0-2 2v3m16 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M8 21H5a2 2 0 0 1-2-2v-3'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.9'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M8 3H5a2 2 0 0 0-2 2v3m16 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M8 21H5a2 2 0 0 1-2-2v-3'/%3E%3C/svg%3E");
+}
+
+.fullscreen-exit-icon {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.9'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M9 3H5a2 2 0 0 0-2 2v4m14-6h2a2 2 0 0 1 2 2v4m-6 12h4a2 2 0 0 0 2-2v-4m-18 0v4a2 2 0 0 0 2 2h4M9 9 3 3m12 6 6-6M9 15l-6 6m12-6 6 6'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.9'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M9 3H5a2 2 0 0 0-2 2v4m14-6h2a2 2 0 0 1 2 2v4m-6 12h4a2 2 0 0 0 2-2v-4m-18 0v4a2 2 0 0 0 2 2h4M9 9 3 3m12 6 6-6M9 15l-6 6m12-6 6 6'/%3E%3C/svg%3E");
 }
 
 #viewerActionMenuToggle:checked ~ .viewer-action-menu_panel > * {
@@ -1071,11 +1090,6 @@ canvas {
   #fullscreenMode {
     min-width: 136px;
     padding: 9px 12px;
-  }
-
-  #viewerNoticeContainer {
-    bottom: 12px;
-    max-width: calc(100% - 88px);
   }
 
   .viewer-notice {

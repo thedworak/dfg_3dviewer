@@ -86,9 +86,9 @@ export const UltraLoader = {
   error(message="Processing error") {
     this.renderErrorSteps();
     this.panel.innerHTML += `
-    <div id="ultra-loader-error">
-    ERROR: ${message}
-    </div>`;
+      <div id="ultra-loader-error">
+      ERROR: ${message}
+      </div>`;
     this.bar.style.background="#d93025";
   },
 

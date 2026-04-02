@@ -209,9 +209,9 @@ export default {
   output: {
     dir: outDistDir,
     entryFileNames: 'dfg_3dviewer-module.js',
-    chunkFileNames: 'assets/[name].[hash].js',
+    chunkFileNames: 'assets/[name].js',
     assetFileNames: 'assets/[name][extname]',
-    sourcemapFileNames: 'assets/[name].[hash].js.map',
+    sourcemapFileNames: 'assets/[name].js.map',
     format: 'es',
     manualChunks(id) {
       if (id.includes("node_modules/three")) {
