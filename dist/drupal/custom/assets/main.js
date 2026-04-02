@@ -96945,7 +96945,11 @@ const Viewer = {
       if (document.readyState !== 'loading') r();
       else document.addEventListener('DOMContentLoaded', r);
     });
-    const url = new URL('./viewer-settings.json', import.meta.url);
+    const moduleUrl = new URL(import.meta.url);
+    const settingsPath = moduleUrl.pathname.includes('/assets/')
+      ? '../viewer-settings.json'
+      : './viewer-settings.json';
+    const url = new URL(settingsPath, moduleUrl);
 
     //Setup core variables first to make them available in the loaders and utils
     setCore('viewEntity', this.viewEntity);

@@ -196,7 +196,7 @@ export default {
     url({
       include: ['viewer/**/*.{svg,png,jpg,gif}'],
       limit: 0,
-      fileName: 'assets/[name][hash][extname]',
+      fileName: 'assets/[name][extname]',
       publicPath: 'assets/'
     }),
 
