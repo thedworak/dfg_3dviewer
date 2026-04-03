@@ -24,10 +24,8 @@
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODULE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-BLENDER_PATH=''
-#BLENDER_PATH='/var/lib/snapd/snap/blender/current/'
+BLENDER_BIN=${BLENDER_BIN:-blender}
 source "$SCRIPT_DIR/.env"
-BLENDER_PATH="$SCRIPT_DIR/$BLENDER_PATH"
 SPATH="${SPATH:-$MODULE_ROOT}"
 if [[ ! -d "$SPATH/scripts" ]]; then
 	SPATH="$MODULE_ROOT"
@@ -46,16 +44,21 @@ OUTPUT=""
 OUTPUTPATH=""
 
 check_blender () {
-	if [[ -x "$BLENDER_PATH/blender" ]]; then
-	  BLENDER_BIN="$BLENDER_PATH/blender"
-	elif command -v blender &> /dev/null; then
-	  BLENDER_BIN="$(command -v blender)"
-	else
-		echo "Blender doesn't exist, install it by 'apt install blender python3-pip' then 'pip install numpy' or change BLENDER_PATH with your Blender instance"
+	if [[ "$BLENDER_BIN" != /* ]]; then
+		if [[ -x "$SCRIPT_DIR/$BLENDER_BIN" ]]; then
+			BLENDER_BIN="$SCRIPT_DIR/$BLENDER_BIN"
+		elif command -v "$BLENDER_BIN" &> /dev/null; then
+			BLENDER_BIN="$(command -v "$BLENDER_BIN")"
+		else
+			echo "Blender doesn't exist, install it by 'apt install blender python3-pip' then 'pip install numpy' or set BLENDER_BIN in scripts/.env"
+			return 1
+		fi
+	elif [[ ! -x "$BLENDER_BIN" ]]; then
+		echo "Configured BLENDER_BIN is not executable: $BLENDER_BIN"
 		return 1
 	fi
-	
-	if [[ ! -z $BLENDER_BIN ]]; then
+
+	if [[ -n "${BLENDER_BIN:-}" ]]; then
 		echo "Blender exists and be used for next steps..."
 		return 0
 	fi
@@ -253,7 +256,7 @@ handle_blend_file () {
 
 	create_dirs
 
-	sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/convert-blender-to-gltf.py "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
+	"$BLENDER_BIN" -b -P "${SPATH}/scripts/convert-blender-to-gltf.py" -- "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
 }
 
 handle_gml_file () {
@@ -272,7 +275,7 @@ handle_gml_file () {
 	cp -rf $INPATH/$FILENAME $GLB_PATH/
 	python3 ${SPATH}/scripts/CityGML2OBJv2/CityGML2OBJs.py -i "$GLB_PATH" -o "$GLB_PATH" > /dev/null 2>&1
 	create_dirs
-	sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- "$GLB_PATH/${NAME}.obj" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
+	"$BLENDER_BIN" -b -P "${SPATH}/scripts/2gltf2/2gltf2.py" -- "$GLB_PATH/${NAME}.obj" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
 	rm -rf $GLB_PATH
 
 }
