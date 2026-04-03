@@ -111,11 +111,13 @@ class ConvertWorker extends QueueWorkerBase {
       $fs = \Drupal::service('file_system');
       $file_uri = $file->getFileUri();
       $input_realpath = $fs->realpath($file_uri);
+      $picked_at = $this->formatLogTimestamp();
       $this->updateProgress($entity, 5, 'preparing', 'Preparing...');
 
       \Drupal::logger('dfg_3dviewer')->notice(
-        'Worker picked queued file: file_id=@file_id, filename="@filename", uri="@uri", realpath="@realpath", queued_filename="@queued_filename", queued_uri="@queued_uri".',
+        'Worker picked queued file: picked_at="@picked_at", file_id=@file_id, filename="@filename", uri="@uri", realpath="@realpath", queued_filename="@queued_filename", queued_uri="@queued_uri".',
         [
+          '@picked_at' => $picked_at,
           '@file_id' => $file_id,
           '@filename' => $file->getFilename(),
           '@uri' => $file_uri,
@@ -1825,6 +1827,10 @@ class ConvertWorker extends QueueWorkerBase {
     }
 
     return substr($text, 0, $limit) . '... [truncated]';
+  }
+
+  private function formatLogTimestamp(): string {
+    return date('Y-m-d H:i:s');
   }
 
 }
