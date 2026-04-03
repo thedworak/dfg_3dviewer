@@ -879,6 +879,29 @@ export const Viewer = {
       .replace(/\/$/, '');
   },
 
+  normalizeArchiveModelPath(path) {
+    if (!path || typeof path !== "string") {
+      return path;
+    }
+
+    const injectGltfSegment = (pathname) => pathname.replace(
+      /\/([^/]+_(ZIP|RAR|TAR|XZ|GZ))\/([^/]+\.(glb|gltf))$/i,
+      "/$1/gltf/$3"
+    );
+
+    if (/^[a-zA-Z][\w+-.]*:\/\//.test(path)) {
+      try {
+        const url = new URL(path);
+        url.pathname = injectGltfSegment(url.pathname);
+        return url.href;
+      } catch (_err) {
+        return injectGltfSegment(path);
+      }
+    }
+
+    return injectGltfSegment(path);
+  },
+
   setModelPaths() {
     core.fileObject.filename = core.fileObject.originalPath.split("/").pop();
     core.fileObject.basename = core.fileObject.filename.substring(0, core.fileObject.filename.lastIndexOf("."));
@@ -2174,6 +2197,7 @@ export const Viewer = {
 
   async mainLoadModelWrapper() {
     if (core.autoPath !== '') {
+      core.autoPath = Viewer.normalizeArchiveModelPath(core.autoPath);
       core.fileObject.filename = core.autoPath.split('/').pop();
       core.fileObject.basename =
         core.fileObject.filename.substring(
