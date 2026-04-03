@@ -4,6 +4,9 @@ export const UltraLoader = {
   bar:null,
   panel:null,
   steps:[],
+  isFinished:false,
+  hideTimer:null,
+  resetTimer:null,
 
   init() {
     if(this.bar) return;
@@ -25,8 +28,21 @@ export const UltraLoader = {
   start(steps) {
     this.init();
 
+    if (this.hideTimer) {
+      window.clearTimeout(this.hideTimer);
+      this.hideTimer = null;
+    }
+    if (this.resetTimer) {
+      window.clearTimeout(this.resetTimer);
+      this.resetTimer = null;
+    }
+
     this.steps=steps;
     this.progress=5;
+    this.isFinished=false;
+
+    this.bar.style.width = "5%";
+    this.bar.style.background = "";
 
     this.renderSteps(0);
 
@@ -46,13 +62,22 @@ export const UltraLoader = {
 
   finish() {
     this.progress=100;
+    this.isFinished=true;
     this.render();
     this.renderSteps(this.steps.length);
-    setTimeout(() => {
+
+    this.hideTimer = window.setTimeout(() => {
+      if (!this.isFinished) {
+        return;
+      }
+
       this.panel.classList.remove("show");
-      setTimeout(() => {
+      this.hideTimer = null;
+
+      this.resetTimer = window.setTimeout(() => {
         this.bar.style.width = "0%";
         this.progress = 0;
+        this.resetTimer = null;
       }, 1500);
     }, 2500);
 
@@ -84,6 +109,7 @@ export const UltraLoader = {
   },
 
   error(message="Processing error") {
+    this.isFinished = true;
     this.renderErrorSteps();
     this.panel.innerHTML += `
       <div id="ultra-loader-error">

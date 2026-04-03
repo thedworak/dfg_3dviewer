@@ -34,11 +34,16 @@ export class StatusPoller {
         preparing: 1,
         processing: 2,
         converted: 3,
+        updating: 4,
         rendering: 4,
         model_ready: 5,
         viewer_ready: 6,
+        ready: 6,
         failed: 7,
+        error: 7,
     };
+
+    terminalStatuses = new Set(["ready", "viewer_ready", "failed", "error"]);
 
     map = this.fullMap;
 
@@ -74,11 +79,13 @@ export class StatusPoller {
 
             this.updateSteps(data.status);
 
-            if(data.status==="ready" || data.status==="failed") {
-                if (data.status==="ready")
+            if(this.terminalStatuses.has(data.status)) {
+                if (data.status==="ready" || data.status==="viewer_ready") {
                     UltraLoader.finish("3D Viewer is ready");
-                else
+                }
+                else {
                     UltraLoader.finish("Failed processing the model");
+                }
                 this.stop();
                 localStorage.removeItem("processing_model_id");
                 return;

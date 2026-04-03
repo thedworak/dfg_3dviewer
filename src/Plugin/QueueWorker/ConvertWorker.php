@@ -496,6 +496,12 @@ class ConvertWorker extends QueueWorkerBase {
     }
 
     $images_paths = $best_images;
+    $image_storage_values = [];
+    foreach ($images_paths as $image_path) {
+      $image_uri = $this->imageLocationToUri((string) $image_path);
+      $image_storage_values[] = $image_uri ?? (string) $image_path;
+    }
+    $image_storage_values = array_values(array_unique(array_filter($image_storage_values)));
 
     if (!empty($images_paths) && $this->entityHasField($entity, $cfg['image_generation'])) {
       $lang = $this->getCurrentLanguageId();
@@ -511,7 +517,7 @@ class ConvertWorker extends QueueWorkerBase {
           );
         }
         else {
-          $images_field_values = $this->buildFieldValues($entity, $image_field, $images_paths);
+          $images_field_values = $this->buildFieldValues($entity, $image_field, $image_storage_values);
           if (!empty($images_field_values)) {
             $applied_count = $this->applyFieldValues($entity, $image_field, $images_field_values, $lang);
           }
@@ -525,9 +531,9 @@ class ConvertWorker extends QueueWorkerBase {
         }
       }
       else {
-        $applied_count = $this->applyPlainScalarFieldValues($entity, $image_field, $images_paths, $lang);
+        $applied_count = $this->applyPlainScalarFieldValues($entity, $image_field, $image_storage_values, $lang);
         if ($applied_count === 0) {
-          $images_field_values = $this->buildFieldValues($entity, $image_field, $images_paths);
+          $images_field_values = $this->buildFieldValues($entity, $image_field, $image_storage_values);
           $applied_count = $this->applyFieldValues($entity, $image_field, $images_field_values, $lang);
         }
       }
@@ -608,6 +614,7 @@ class ConvertWorker extends QueueWorkerBase {
     $auto_path_url = $auto_path !== ''
       ? ($this->uriToUrl($auto_path, $this->getPreferredPublicBaseUrl($cfg)) ?? '')
       : '';
+    $auto_storage_value = $auto_path !== '' ? $auto_path : $auto_path_url;
 
     if (!empty($auto_path) && $this->entityHasField($entity, $cfg['viewer_file_name'])) {
       $viewer_field = (string) $cfg['viewer_file_name'];
@@ -624,7 +631,7 @@ class ConvertWorker extends QueueWorkerBase {
         );
       }
       else {
-        $scalar_value = $auto_path_url !== '' ? $auto_path_url : $auto_path;
+        $scalar_value = $auto_storage_value;
         $entity->set($viewer_field, $scalar_value);
         $result['model_fields'][$viewer_field] = array_values(array_filter([$scalar_value, $auto_path]));
         \Drupal::logger('dfg_3dviewer')->notice(
@@ -660,7 +667,7 @@ class ConvertWorker extends QueueWorkerBase {
         );
       }
       else {
-        $scalar_value = $auto_path_url !== '' ? $auto_path_url : $auto_path;
+        $scalar_value = $auto_storage_value;
         $entity->set($upload_field, $scalar_value);
         $result['model_fields'][$upload_field] = array_values(array_filter([$scalar_value, $auto_path]));
         \Drupal::logger('dfg_3dviewer')->notice(
@@ -688,7 +695,7 @@ class ConvertWorker extends QueueWorkerBase {
         );
       }
       else {
-        $api_scalar_value = $auto_path_url !== '' ? $auto_path_url : $auto_path;
+        $api_scalar_value = $auto_storage_value;
         $entity->set($api_model_field, $api_scalar_value);
         $result['model_fields'][$api_model_field] = array_values(array_filter([$api_scalar_value, $auto_path]));
         \Drupal::logger('dfg_3dviewer')->notice(
@@ -714,7 +721,7 @@ class ConvertWorker extends QueueWorkerBase {
     if (!empty($images_paths) && $this->entityHasField($entity, $legacy_gallery_field)) {
       $legacy_lang = $this->getCurrentLanguageId();
       $normalized_urls = [];
-      foreach ($images_paths as $url) {
+      foreach ($image_storage_values as $url) {
         $normalized = $this->normalizePublicImageUrl((string) $url, $this->getPreferredPublicBaseUrl($cfg));
         if ($normalized !== '') {
           $normalized_urls[] = $normalized;
