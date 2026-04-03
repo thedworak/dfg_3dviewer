@@ -120,6 +120,73 @@ function dfg_3dviewer_init_constants(): void {
 }
 
 /**
+ * Returns the queue runner log path.
+ */
+function dfg_3dviewer_queue_runner_log_path(): string {
+  return '/opt/drupal/dfg3dworker.log';
+}
+
+/**
+ * Returns the persistent worker PID file path.
+ */
+function dfg_3dviewer_queue_runner_pid_path(): string {
+  return '/opt/drupal/dfg3dworker.pid';
+}
+
+/**
+ * Checks whether a persistent queue worker loop is already running.
+ */
+function dfg_3dviewer_has_persistent_convert_worker(): bool {
+  $pid_file = dfg_3dviewer_queue_runner_pid_path();
+  if (!is_file($pid_file) || !is_readable($pid_file)) {
+    return FALSE;
+  }
+
+  $pid = trim((string) @file_get_contents($pid_file));
+  if ($pid === '' || !ctype_digit($pid)) {
+    @unlink($pid_file);
+    return FALSE;
+  }
+
+  $pid_int = (int) $pid;
+  if ($pid_int <= 0) {
+    @unlink($pid_file);
+    return FALSE;
+  }
+
+  $is_running = FALSE;
+  if (function_exists('posix_kill')) {
+    $is_running = @posix_kill($pid_int, 0);
+  }
+  else {
+    $is_running = is_dir('/proc/' . $pid);
+  }
+
+  if (!$is_running) {
+    @unlink($pid_file);
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
+/**
+ * Builds a detached drush queue runner command with line timestamps.
+ */
+function dfg_3dviewer_build_timestamped_queue_runner_command(array $arguments, string $runner_log): string {
+  $escaped = array_map('escapeshellarg', $arguments);
+  $drush_command = implode(' ', $escaped);
+  $awk_script = "awk '{ print strftime(\"%Y-%m-%d %H:%M:%S\"), \$0; fflush(); }'";
+
+  return sprintf(
+    '{ %s 2>&1 | %s >> %s; } &',
+    $drush_command,
+    $awk_script,
+    escapeshellarg($runner_log)
+  );
+}
+
+/**
  * Starts a background queue runner in a non-blocking way.
  */
 function dfg_3dviewer_kick_convert_worker(): void {
@@ -144,6 +211,14 @@ function dfg_3dviewer_kick_convert_worker(): void {
       ['@size' => (string) $queue_size]
     );
 
+    if (dfg_3dviewer_has_persistent_convert_worker()) {
+      \Drupal::logger('dfg_3dviewer')->notice(
+        'Skip queue runner kick: persistent worker loop is already active (pid file: @pid_file).',
+        ['@pid_file' => dfg_3dviewer_queue_runner_pid_path()]
+      );
+      return;
+    }
+
     $drush = dfg_3dviewer_find_drush_binary();
     if ($drush === '') {
       \Drupal::logger('dfg_3dviewer')->warning('Cannot kick queue runner: drush binary not found.');
@@ -155,9 +230,8 @@ function dfg_3dviewer_kick_convert_worker(): void {
     // Using Process::start() here is unreliable because the Process object
     // is destroyed at the end of this function and may terminate the child.
     // Spawn a detached shell command instead.
-    $escaped = array_map('escapeshellarg', $arguments);
-    $runner_log = '/opt/drupal/dfg3dworker.log';
-    $command = implode(' ', $escaped) . ' >> ' . escapeshellarg($runner_log) . ' 2>&1 &';
+    $runner_log = dfg_3dviewer_queue_runner_log_path();
+    $command = dfg_3dviewer_build_timestamped_queue_runner_command($arguments, $runner_log);
 
     // Drush may fail in web/PHP contexts when HOME is missing.
     $home = (string) getenv('HOME');
