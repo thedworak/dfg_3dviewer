@@ -308,11 +308,7 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 		#echo $OUTPUT
 		OUTFILENAME=${OUTPUT%/*}     # trim everything past the last /
 		OUTFILENAME=${OUTFILENAME##*/}
-		OUTFILENAME=${OUTFILENAME/"_ZIP"/""}
-		OUTFILENAME=${OUTFILENAME/"_RAR"/""}
-		OUTFILENAME=${OUTFILENAME/"_TAR"/""}
-		OUTFILENAME=${OUTFILENAME/"_XZ"/""}
-		OUTFILENAME=${OUTFILENAME/"_GZ"/""}
+		OUTFILENAME=$(printf '%s' "$OUTFILENAME" | sed -E 's/_(ZIP|RAR|TAR|XZ|GZ)$//I')
 		OUTPUTPATH=`echo $OUTFILENAME.$GLTF`
 		OUTPUT=`echo ${OUTPUT}gltf/`
 		isOutput=true

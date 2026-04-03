@@ -29,7 +29,7 @@ class ConvertProcessService {
         if (!empty($options['o'])) {
             $outputBase = $this->normalizePath((string) $options['o']);
             $outputName = basename($outputBase);
-            $outputName = str_replace(['_ZIP', '_RAR', '_TAR', '_XZ', '_GZ'], '', $outputName);
+            $outputName = preg_replace('/_(ZIP|RAR|TAR|XZ|GZ)$/i', '', $outputName) ?? $outputName;
             return $outputBase . '/gltf/' . $outputName . '.' . $outputExt;
         }
 

@@ -243,15 +243,16 @@ class ConvertWorker extends QueueWorkerBase {
 
     $archives = \Drupal::service('dfg_3dviewer.model_format_manager')->getZipFormats();
     $is_archive = in_arrayi($extension, $archives);
+    $archive_suffix = strtoupper($extension);
 
     $new_file = $parts['dirname'] . '/gltf/' . $parts['filename'] . '.glb';
-    $new_dir = $parts['dirname'] . '/' . $parts['filename'] . '_' . $extension . '/gltf/';
+    $new_dir = $parts['dirname'] . '/' . $parts['filename'] . '_' . $archive_suffix . '/gltf/';
 
     if (!file_exists($new_file) && !is_dir($new_dir)) {
       if ($is_archive) {
         $this->updateProgress($entity, 10, 'processing', 'Extracting archive...');
 
-        $extract_path = $parts['dirname'] . '/' . $parts['filename'] . '_' . $extension . '/';
+        $extract_path = $parts['dirname'] . '/' . $parts['filename'] . '_' . $archive_suffix . '/';
         if (!is_dir($extract_path) && !mkdir($extract_path, 0775, TRUE) && !is_dir($extract_path)) {
           throw new \RuntimeException('Cannot create archive extraction directory.');
         }
@@ -270,7 +271,7 @@ class ConvertWorker extends QueueWorkerBase {
           $map = [
             'rar' => 'RAR',
             'tar' => 'TAR',
-            'gz' => 'TAR',
+            'gz' => 'GZ',
             'xz' => 'XZ',
           ];
 
