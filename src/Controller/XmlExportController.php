@@ -433,7 +433,13 @@ class XmlExportController extends ControllerBase {
       $techXmlData->appendChild($dom->createElement('metadata_export', $metadata_export));
     }
 
-    return $dom->saveXML();
+    $xml = $dom->saveXML();
+    if ($xml === false) {
+      throw new \RuntimeException('Cannot build XML from JSON record.');
+    }
+
+    $xml = $this->normalizeDefaultHostUrls($xml, $domain);
+    return $this->formatXml($xml);
   }
 
   protected function enrichJsonRecordFromLocalEntity(array $record, int $id): array {
