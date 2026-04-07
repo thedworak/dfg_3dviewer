@@ -21,6 +21,8 @@ class ConvertWorker extends QueueWorkerBase {
   private const ADDITIONAL_MODEL_MIRROR_FIELDS = [
     'fdc6300213a0d25d4b68069564846363',
   ];
+  private const RECONSTRUCTION_MODELS_FIELD = 'f94cadbe486273b659d4bb3dc220e6d1';
+  private const VIEWER_BUNDLE_ID = 'b3a82072952d2046c19de83ac32aa185';
 
   public function processItem($data) {
     $GLOBALS['dfg_3dviewer_worker_running'] = TRUE;
@@ -717,42 +719,55 @@ class ConvertWorker extends QueueWorkerBase {
       if ($final_model_uri === '') {
         continue;
       }
-      if (!$this->entityHasField($entity, $mirror_field)) {
+      $mirror_target_entity = $entity;
+      if (!$this->entityHasField($mirror_target_entity, $mirror_field)) {
+        $resolved_related = $this->ensureRelated3DViewerEntity($entity);
+        if ($resolved_related) {
+          $mirror_target_entity = $resolved_related;
+        }
+      }
+      if (!$this->entityHasField($mirror_target_entity, $mirror_field)) {
         \Drupal::logger('dfg_3dviewer')->warning(
           'Additional model mirror field "@field" is not directly available on entity @type:@id. Similar fields: @similar. Field debug: @debug',
           [
             '@field' => $mirror_field,
-            '@type' => method_exists($entity, 'getEntityTypeId') ? (string) $entity->getEntityTypeId() : '',
-            '@id' => method_exists($entity, 'id') ? (string) $entity->id() : '',
-            '@similar' => implode(', ', $this->findSimilarFieldNames($entity, ['converted', 'viewer', '3d', 'model', 'url'])),
-            '@debug' => $this->describeFields($entity, $this->findSimilarFieldNames($entity, ['converted', 'viewer', '3d', 'model', 'url'])),
+            '@type' => method_exists($mirror_target_entity, 'getEntityTypeId') ? (string) $mirror_target_entity->getEntityTypeId() : '',
+            '@id' => method_exists($mirror_target_entity, 'id') ? (string) $mirror_target_entity->id() : '',
+            '@similar' => implode(', ', $this->findSimilarFieldNames($mirror_target_entity, ['converted', 'viewer', '3d', 'model', 'url'])),
+            '@debug' => $this->describeFields($mirror_target_entity, $this->findSimilarFieldNames($mirror_target_entity, ['converted', 'viewer', '3d', 'model', 'url'])),
           ]
         );
         continue;
       }
 
-      if ($this->fieldRequiresTargetId($entity, $mirror_field)) {
-        $mirror_values = $this->buildFieldValues($entity, $mirror_field, [$final_model_uri]);
-        $this->applyFieldValues($entity, $mirror_field, $mirror_values, $this->getCurrentLanguageId());
+      if ($this->fieldRequiresTargetId($mirror_target_entity, $mirror_field)) {
+        $mirror_values = $this->buildFieldValues($mirror_target_entity, $mirror_field, [$final_model_uri]);
+        $this->applyFieldValues($mirror_target_entity, $mirror_field, $mirror_values, $this->getCurrentLanguageId());
+        $this->saveEntity($mirror_target_entity);
         $result['model_fields'][$mirror_field] = [$final_model_uri];
         \Drupal::logger('dfg_3dviewer')->notice(
-          'Updated additional model mirror field "@field" via target_id mapping from "@value" (origin="@origin").',
+          'Updated additional model mirror field "@field" via target_id mapping from "@value" (origin="@origin") on entity @type:@id.',
           [
             '@field' => $mirror_field,
             '@value' => $final_model_uri,
             '@origin' => $final_model_origin,
+            '@type' => method_exists($mirror_target_entity, 'getEntityTypeId') ? (string) $mirror_target_entity->getEntityTypeId() : '',
+            '@id' => method_exists($mirror_target_entity, 'id') ? (string) $mirror_target_entity->id() : '',
           ]
         );
       }
       else {
-        $entity->set($mirror_field, $final_model_storage_value);
+        $mirror_target_entity->set($mirror_field, $final_model_storage_value);
+        $this->saveEntity($mirror_target_entity);
         $result['model_fields'][$mirror_field] = array_values(array_filter([$final_model_storage_value, $final_model_uri]));
         \Drupal::logger('dfg_3dviewer')->notice(
-          'Updated additional model mirror field "@field" to "@value" (origin="@origin").',
+          'Updated additional model mirror field "@field" to "@value" (origin="@origin") on entity @type:@id.',
           [
             '@field' => $mirror_field,
             '@value' => $final_model_storage_value,
             '@origin' => $final_model_origin,
+            '@type' => method_exists($mirror_target_entity, 'getEntityTypeId') ? (string) $mirror_target_entity->getEntityTypeId() : '',
+            '@id' => method_exists($mirror_target_entity, 'id') ? (string) $mirror_target_entity->id() : '',
           ]
         );
       }
@@ -867,6 +882,103 @@ class ConvertWorker extends QueueWorkerBase {
     }
 
     return empty($parts) ? 'n/a' : implode(' | ', $parts);
+  }
+
+  private function ensureRelated3DViewerEntity($entity) {
+    if (!$this->entityHasField($entity, self::RECONSTRUCTION_MODELS_FIELD)) {
+      return NULL;
+    }
+
+    try {
+      $values = $entity->get(self::RECONSTRUCTION_MODELS_FIELD)->getValue();
+      $first = is_array($values[0] ?? null) ? $values[0] : [];
+      $target_id = (string) ($first['target_id'] ?? '');
+      if ($target_id !== '' && ctype_digit($target_id)) {
+        $related = \Drupal::entityTypeManager()->getStorage('wisski_individual')->load((int) $target_id);
+        if ($related) {
+          return $related;
+        }
+      }
+    }
+    catch (\Throwable $e) {
+      \Drupal::logger('dfg_3dviewer')->warning(
+        'Cannot inspect relation field "@field" on entity @id: @msg',
+        [
+          '@field' => self::RECONSTRUCTION_MODELS_FIELD,
+          '@id' => method_exists($entity, 'id') ? (string) $entity->id() : '',
+          '@msg' => $e->getMessage(),
+        ]
+      );
+    }
+
+    $created = $this->createWisskiIndividualForBundle(self::VIEWER_BUNDLE_ID);
+    if (!$created) {
+      return NULL;
+    }
+
+    try {
+      $entity->set(self::RECONSTRUCTION_MODELS_FIELD, [['target_id' => $created->id()]]);
+      $this->saveEntity($entity);
+      \Drupal::logger('dfg_3dviewer')->notice(
+        'Created related 3D-Viewer entity @related_id and linked it via field "@field" on entity @entity_id.',
+        [
+          '@related_id' => method_exists($created, 'id') ? (string) $created->id() : '',
+          '@field' => self::RECONSTRUCTION_MODELS_FIELD,
+          '@entity_id' => method_exists($entity, 'id') ? (string) $entity->id() : '',
+        ]
+      );
+      return $created;
+    }
+    catch (\Throwable $e) {
+      \Drupal::logger('dfg_3dviewer')->warning(
+        'Created 3D-Viewer entity but could not link it via field "@field" on entity @entity_id: @msg',
+        [
+          '@field' => self::RECONSTRUCTION_MODELS_FIELD,
+          '@entity_id' => method_exists($entity, 'id') ? (string) $entity->id() : '',
+          '@msg' => $e->getMessage(),
+        ]
+      );
+    }
+
+    return NULL;
+  }
+
+  private function createWisskiIndividualForBundle(string $bundle_id) {
+    $storage = \Drupal::entityTypeManager()->getStorage('wisski_individual');
+    $attempts = [
+      ['bundle' => $bundle_id],
+      ['wisski_bundle' => $bundle_id],
+      ['bundle_id' => $bundle_id],
+      ['type' => $bundle_id],
+      ['vid' => $bundle_id],
+    ];
+
+    foreach ($attempts as $values) {
+      try {
+        $entity = $storage->create($values);
+        if ($entity && method_exists($entity, 'save')) {
+          $entity->save();
+          \Drupal::logger('dfg_3dviewer')->notice(
+            'Created wisski_individual @id for bundle "@bundle" using keys: @keys',
+            [
+              '@id' => method_exists($entity, 'id') ? (string) $entity->id() : '',
+              '@bundle' => $bundle_id,
+              '@keys' => implode(', ', array_keys($values)),
+            ]
+          );
+          return $entity;
+        }
+      }
+      catch (\Throwable $e) {
+      }
+    }
+
+    \Drupal::logger('dfg_3dviewer')->warning(
+      'Unable to create wisski_individual for bundle "@bundle". Tried key variants: bundle, wisski_bundle, bundle_id, type, vid.',
+      ['@bundle' => $bundle_id]
+    );
+
+    return NULL;
   }
 
   private function updateLegacyViewerUrlField($entity, array $cfg): void {
