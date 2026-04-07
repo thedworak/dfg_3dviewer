@@ -734,7 +734,7 @@ export const Viewer = {
       core.container.setAttribute("3d", e2eModel);
     }
 
-    this.fileObject.originalPath = core.container.getAttribute("3d");
+    this.fileObject.originalPath = this.normalizeFileUrl(core.container.getAttribute("3d"));
     setCore('fileObject', this.fileObject)
     core.CONFIG.viewer.canvasDimensions = {
       x: this.rect.width * Number(core.CONFIG.viewer.scaleContainer.x),
@@ -1148,7 +1148,8 @@ export const Viewer = {
       const parsed = new URL(url, window.location.origin);
       const host = parsed.host || "";
       const path = parsed.pathname || "";
-      const hasBadHost = host.includes("_") || host.toLowerCase() === "default";
+      const normalizedHost = host.toLowerCase();
+      const hasBadHost = host.includes("_") || normalizedHost === "default" || normalizedHost === "dfg_3dviewer";
 
       if (path.startsWith("/sites/default/files/")) {
         if (hasBadHost) {
@@ -1161,6 +1162,56 @@ export const Viewer = {
       }
       return parsed.href;
     } catch (e) {
+      if (url.startsWith("/sites/default/files/")) {
+        return `${base}${url}`;
+      }
+      return url;
+    }
+  },
+
+  normalizeFileUrl(rawUrl) {
+    if (!rawUrl || typeof rawUrl !== "string") {
+      return "";
+    }
+
+    let url = rawUrl.trim();
+    if (url === "") {
+      return "";
+    }
+
+    if (/^\/[a-z][\w+.-]*:\/\//i.test(url)) {
+      url = url.replace(/^\/+/, "");
+    }
+
+    if (url.startsWith("public://")) {
+      url = "/sites/default/files/" + url.substring("public://".length);
+    } else if (url.startsWith("sites/default/files/")) {
+      url = "/" + url;
+    }
+
+    const base = (core.CONFIG?.mainUrl || window.location.origin || "").replace(/\/+$/, "");
+
+    try {
+      const parsed = new URL(url, window.location.origin);
+      const host = (parsed.host || "").toLowerCase();
+      const path = parsed.pathname || "";
+      const hasBadHost =
+        host === "default" ||
+        host === "dfg_3dviewer" ||
+        host.includes("_");
+
+      if (path.startsWith("/sites/default/files/")) {
+        if (hasBadHost) {
+          return `${base}${path}`;
+        }
+        if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+          return parsed.href;
+        }
+        return `${base}${path}`;
+      }
+
+      return parsed.href;
+    } catch (_err) {
       if (url.startsWith("/sites/default/files/")) {
         return `${base}${url}`;
       }
@@ -2198,6 +2249,7 @@ export const Viewer = {
 
   async mainLoadModelWrapper() {
     if (core.autoPath !== '') {
+      core.autoPath = Viewer.normalizeFileUrl(core.autoPath);
       core.autoPath = Viewer.normalizeArchiveModelPath(core.autoPath);
       core.fileObject.filename = core.autoPath.split('/').pop();
       core.fileObject.basename =
