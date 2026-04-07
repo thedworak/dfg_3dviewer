@@ -82120,8 +82120,14 @@ async function loadModel() {
     core.handHint.hidden = true;
     window.viewer.modelLoaded = true;
     traverseMesh(object);
-    if (core.fileObject.extension.toLowerCase() === "gltf" || core.fileObject.extension.toLowerCase() === "glb") core.fileObject.path = core.fileObject.path.replace("/gltf/", "/");
-    else core.fileObject.path = core.fileObject.path.replace("gltf/", "");
+    const isArchiveDerivedPath = /\/[^/]+_(ZIP|RAR|TAR|XZ|GZ)\/gltf\/$/i.test(core.fileObject.path);
+    if (!isArchiveDerivedPath) {
+      if (core.fileObject.extension.toLowerCase() === "gltf" || core.fileObject.extension.toLowerCase() === "glb") {
+        core.fileObject.path = core.fileObject.path.replace("/gltf/", "/");
+      } else {
+        core.fileObject.path = core.fileObject.path.replace("gltf/", "");
+      }
+    }
     await fetchSettings(object);
     core.outlineClipping = prepareOutlineClipping(object);
     if (Array.isArray(object)) {
