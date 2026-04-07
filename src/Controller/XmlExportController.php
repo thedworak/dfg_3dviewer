@@ -445,6 +445,9 @@ class XmlExportController extends ControllerBase {
   protected function enrichJsonRecordFromLocalEntity(array $record, int $id): array {
     $current_model = $this->extractModelUrlFromRecord($record);
     if ($current_model !== '') {
+      if ($this->stringValue($record, '3D_file') === '') {
+        $record['3D_file'] = $current_model;
+      }
       return $record;
     }
 
@@ -622,6 +625,8 @@ class XmlExportController extends ControllerBase {
     $candidate = $this->firstNonEmptyValue($record, [
       'converted_file',
       '3D_file',
+      '3d_file_original',
+      '3D_file_original',
       '3d_file',
       'model_file',
       'model',
