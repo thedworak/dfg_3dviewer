@@ -60,6 +60,14 @@ class DFG3DViewerFormatter extends FileFormatterBase {
         $elements = array();
 
         $elements['#attached']['library'][] = dfg_3dviewer_get_library();
+        \Drupal::logger('dfg_3dviewer')->notice(
+          'Viewer formatter uses converted model from field "@field" for entity type "@type" id "@id".',
+          [
+            '@field' => (string) $derivative_field_id,
+            '@type' => method_exists($entity, 'getEntityTypeId') ? (string) $entity->getEntityTypeId() : '',
+            '@id' => method_exists($entity, 'id') ? (string) $entity->id() : '',
+          ]
+        );
 
         foreach($derivative_paths as $delta => $resolved_path) {
           $elements[$delta] = array(
@@ -73,6 +81,14 @@ class DFG3DViewerFormatter extends FileFormatterBase {
         $files = $this->getEntitiesToView($items, $langcode);
 
         $elements['#attached']['library'][] = dfg_3dviewer_get_library();
+        \Drupal::logger('dfg_3dviewer')->notice(
+          'Viewer formatter falls back to original upload field "@field" for entity type "@type" id "@id".',
+          [
+            '@field' => (string) $items->getName(),
+            '@type' => method_exists($entity, 'getEntityTypeId') ? (string) $entity->getEntityTypeId() : '',
+            '@id' => method_exists($entity, 'id') ? (string) $entity->id() : '',
+          ]
+        );
 
         foreach ($files as $delta => $file) {
           $generator = \Drupal::service('file_url_generator');

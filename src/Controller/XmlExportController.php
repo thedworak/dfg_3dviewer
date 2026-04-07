@@ -447,6 +447,15 @@ class XmlExportController extends ControllerBase {
     if ($current_model !== '') {
       if ($this->stringValue($record, '3D_file') === '') {
         $record['3D_file'] = $current_model;
+        $source = $this->detectModelSourceInRecord($record);
+        \Drupal::logger('dfg_3dviewer')->notice(
+          'Filled missing JSON 3D_file for entity @id from existing record source "@source": @value',
+          [
+            '@id' => (string) $id,
+            '@source' => $source,
+            '@value' => $current_model,
+          ]
+        );
       }
       return $record;
     }
@@ -645,6 +654,30 @@ class XmlExportController extends ControllerBase {
     }
 
     return '';
+  }
+
+  protected function detectModelSourceInRecord(array $record): string {
+    $ordered_keys = [
+      'converted_file',
+      '3D_file',
+      '3d_file_original',
+      '3D_file_original',
+      '3d_file',
+      'model_file',
+      'model',
+      'file',
+      'viewer_file',
+      'viewer_file_name',
+    ];
+
+    foreach ($ordered_keys as $key) {
+      $value = $this->stringValue($record, $key);
+      if ($value !== '' && $this->isModelUrl($value)) {
+        return $key;
+      }
+    }
+
+    return 'flattened_record_scan';
   }
 
   protected function flattenRecordStrings(array $record): array {
