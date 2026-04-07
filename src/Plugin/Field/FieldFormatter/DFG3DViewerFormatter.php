@@ -87,14 +87,15 @@ class DFG3DViewerFormatter extends FileFormatterBase {
           $has_safe_base = is_array($base_parts)
             && !empty($base_parts['scheme'])
             && $base_host !== ''
-            && strpos($base_host, '_') === FALSE;
+            && strpos($base_host, '_') === FALSE
+            && strtolower($base_host) !== 'default';
 
           if ($has_safe_base) {
             $override_basenamespace = rtrim($base, '/') . '/' . ltrim($relative_path, '/');
           }
           else {
             $absolute_host = (string) parse_url($absolute_path, PHP_URL_HOST);
-            $override_basenamespace = (strpos($absolute_host, '_') !== FALSE)
+            $override_basenamespace = ((strpos($absolute_host, '_') !== FALSE) || strtolower($absolute_host) === 'default')
               ? $relative_path
               : $absolute_path;
           }
@@ -152,7 +153,11 @@ class DFG3DViewerFormatter extends FileFormatterBase {
       if (preg_match('#^https?://#i', $value)) {
         $host = (string) parse_url($value, PHP_URL_HOST);
         $path = (string) parse_url($value, PHP_URL_PATH);
-        if ($host !== '' && strpos($host, '_') !== FALSE && str_starts_with($path, '/sites/default/files/')) {
+        if (
+          $host !== ''
+          && (strpos($host, '_') !== FALSE || strtolower($host) === 'default')
+          && str_starts_with($path, '/sites/default/files/')
+        ) {
           $cfg = \Drupal::config('dfg_3dviewer.settings');
           $main_url = trim((string) ($cfg->get('dfg_3dviewer_main_url') ?? $cfg->get('main_url') ?? ''));
           $main_parts = parse_url($main_url);
