@@ -465,9 +465,9 @@ class XmlExportController extends ControllerBase {
 
     $cfg = $this->config('dfg_3dviewer.settings');
     $field_candidates = array_values(array_filter(array_unique(array_merge([
-      trim((string) ($cfg->get('dfg_3dviewer_api_3d_file_field') ?? $cfg->get('api_3d_file_field') ?? '')),
       trim((string) ($cfg->get('dfg_3dviewer_viewer_file_name') ?? $cfg->get('viewer_file_name') ?? '')),
       trim((string) ($cfg->get('dfg_3dviewer_viewer_file_upload') ?? $cfg->get('viewer_file_upload') ?? '')),
+      trim((string) ($cfg->get('dfg_3dviewer_api_3d_file_field') ?? $cfg->get('api_3d_file_field') ?? '')),
     ], self::ADDITIONAL_MODEL_FIELD_CANDIDATES))));
 
     foreach (['wisski_individual', 'node'] as $entity_type) {

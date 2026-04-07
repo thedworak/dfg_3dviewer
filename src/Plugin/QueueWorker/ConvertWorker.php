@@ -659,18 +659,6 @@ class ConvertWorker extends QueueWorkerBase {
         );
       }
     }
-    elseif ($this->entityHasField($entity, $cfg['viewer_file_name'])) {
-      $viewer_field = (string) $cfg['viewer_file_name'];
-      $entity->set($viewer_field, []);
-      \Drupal::logger('dfg_3dviewer')->warning(
-        'No converted model found for file "@filename". Cleared viewer_file_name field "@field". Checked: @candidates',
-        [
-          '@filename' => $file_name,
-          '@field' => $viewer_field,
-          '@candidates' => implode(', ', $preferred_uris),
-        ]
-      );
-    }
 
     $api_model_field = trim((string) ($cfg['api_3d_file_field'] ?? ''));
     if ($final_model_uri !== '' && $api_model_field !== '' && $this->entityHasField($entity, $api_model_field)) {

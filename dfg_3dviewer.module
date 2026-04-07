@@ -36,12 +36,12 @@ function dfg_3dviewer_config(): array {
 	$viewer_file_upload = trim((string) (
 		$config->get('dfg_3dviewer_viewer_file_upload')
 		?? $config->get('viewer_file_upload')
-	)) ?: 'fbf95bddee5160d515b982b3fd2e05f7';
+	)) ?: 'fad29437cb2a561b91b26aca5dbb7c42';
 
 	$viewer_file_name = trim((string) (
 		$config->get('dfg_3dviewer_viewer_file_name')
 		?? $config->get('viewer_file_name')
-	)) ?: 'faa602a0be629324806aef22892cdbe5';
+	)) ?: 'fb76901eb219495fee0512b5cdfdaa18';
 
 	$api_3d_file_field = trim((string) (
 		$config->get('dfg_3dviewer_api_3d_file_field')
