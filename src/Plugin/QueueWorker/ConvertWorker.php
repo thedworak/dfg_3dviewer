@@ -643,41 +643,16 @@ class ConvertWorker extends QueueWorkerBase {
       }
     }
     elseif ($this->entityHasField($entity, $cfg['viewer_file_name'])) {
+      $viewer_field = (string) $cfg['viewer_file_name'];
+      $entity->set($viewer_field, []);
       \Drupal::logger('dfg_3dviewer')->warning(
-        'No converted model found for file "@filename". Checked: @candidates',
+        'No converted model found for file "@filename". Cleared viewer_file_name field "@field". Checked: @candidates',
         [
           '@filename' => $file_name,
+          '@field' => $viewer_field,
           '@candidates' => implode(', ', $preferred_uris),
         ]
       );
-    }
-
-    if (!empty($auto_path) && $this->entityHasField($entity, $cfg['viewer_file_upload'])) {
-      $upload_field = (string) $cfg['viewer_file_upload'];
-      if ($this->fieldRequiresTargetId($entity, $upload_field)) {
-        $upload_values = $this->buildFieldValues($entity, $upload_field, [$auto_path]);
-        $this->applyFieldValues($entity, $upload_field, $upload_values, $this->getCurrentLanguageId());
-        $result['model_fields'][$upload_field] = [$auto_path];
-        \Drupal::logger('dfg_3dviewer')->notice(
-          'Updated viewer_file_upload field "@field" to converted file "@value".',
-          [
-            '@field' => $upload_field,
-            '@value' => $auto_path,
-          ]
-        );
-      }
-      else {
-        $scalar_value = $auto_storage_value;
-        $entity->set($upload_field, $scalar_value);
-        $result['model_fields'][$upload_field] = array_values(array_filter([$scalar_value, $auto_path]));
-        \Drupal::logger('dfg_3dviewer')->notice(
-          'Updated viewer_file_upload scalar field "@field" to converted URI "@value".',
-          [
-            '@field' => $upload_field,
-            '@value' => $scalar_value,
-          ]
-        );
-      }
     }
 
     $api_model_field = trim((string) ($cfg['api_3d_file_field'] ?? ''));

@@ -43,33 +43,25 @@ class DFG3DViewerFormatter extends FileFormatterBase {
     public function viewElements(FieldItemListInterface $items, $langcode) {
 //      $elements = parent::viewElements($items, $langcode);    
       $elements = array();
+      $entity = $items->getEntity();
 
       // By Mark:
       // get the derivative field id
       // here must be some handling if this is empty.
       $derivative_field_id = \Drupal::service('config.factory')->getEditable('dfg_3dviewer.settings')->get('dfg_3dviewer_viewer_file_name');
 
-      // store the derivative values to an array.
-      $derivative_values = array();
-      
-      // only act if we have a field id, otherwise it will die.
-      if(!empty($derivative_field_id))
-        $derivative_values = $items->getEntity()->get($derivative_field_id)->getValue();
+      $derivative_paths = array();
+      if (!empty($derivative_field_id) && $entity->hasField($derivative_field_id)) {
+        $derivative_paths = $this->extractViewerPathsFromFieldValues($entity->get($derivative_field_id)->getValue());
+      }
 
       // if we have derivative values, act on that and not on the real values.
-      if(!empty($derivative_values)) {
+      if(!empty($derivative_paths)) {
         $elements = array();
 
         $elements['#attached']['library'][] = dfg_3dviewer_get_library();
 
-        foreach($derivative_values as $delta => $derivative_value) {
-          $raw_path = (string) ($derivative_value['value'] ?? '');
-          if ($raw_path === '') {
-            continue;
-          }
-
-          $resolved_path = $this->resolveViewerPath($raw_path);
-
+        foreach($derivative_paths as $delta => $resolved_path) {
           $elements[$delta] = array(
             '#type' => 'html_tag',
             '#tag' => 'p',
@@ -199,5 +191,54 @@ class DFG3DViewerFormatter extends FileFormatterBase {
       }
 
       return $value;
+    }
+
+    private function extractViewerPathsFromFieldValues(array $values): array {
+      $paths = array();
+
+      foreach ($values as $delta => $row) {
+        if (!is_array($row)) {
+          continue;
+        }
+
+        $resolved = $this->resolveViewerFieldRowPath($row);
+        if ($resolved === '') {
+          continue;
+        }
+
+        $paths[$delta] = $resolved;
+      }
+
+      return $paths;
+    }
+
+    private function resolveViewerFieldRowPath(array $row): string {
+      if (!empty($row['target_id']) && ctype_digit((string) $row['target_id'])) {
+        $file = \Drupal\file\Entity\File::load((int) $row['target_id']);
+        if ($file) {
+          try {
+            $generated = (string) \Drupal::service('file_url_generator')->generateString($file->getFileUri());
+            return $this->resolveViewerPath($generated);
+          }
+          catch (\Throwable $e) {
+            \Drupal::logger('dfg_3dviewer')->warning(
+              'Could not resolve target_id "@target_id" for viewer formatter: @msg',
+              [
+                '@target_id' => (string) $row['target_id'],
+                '@msg' => $e->getMessage(),
+              ]
+            );
+          }
+        }
+      }
+
+      foreach (['value', 'uri'] as $key) {
+        $candidate = trim((string) ($row[$key] ?? ''));
+        if ($candidate !== '') {
+          return $this->resolveViewerPath($candidate);
+        }
+      }
+
+      return '';
     }
   }
