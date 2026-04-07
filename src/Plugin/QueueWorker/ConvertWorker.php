@@ -1830,14 +1830,15 @@ class ConvertWorker extends QueueWorkerBase {
       }
 
       $is_api_field = trim((string) ($viewer_result['api_3d_file_field'] ?? '')) === $field_name;
+      [$target_entity_type, $target_entity_id, $target_entity] = $this->resolvePersistenceTargetEntity($entity_type, $entity_id, $field_name);
 
-      $persisted_values = $this->getPersistedFieldValues($entity_type, $entity_id, $field_name);
+      $persisted_values = $this->getPersistedFieldValues($target_entity_type, $target_entity_id, $field_name);
       \Drupal::logger('dfg_3dviewer')->notice(
         'Model field "@field" persisted snapshot before retry on @type:@id. API field=@api. Expected candidates: @expected. Persisted raw: @persisted',
         [
           '@field' => $field_name,
-          '@type' => $entity_type,
-          '@id' => $entity_id,
+          '@type' => $target_entity_type,
+          '@id' => $target_entity_id,
           '@api' => $is_api_field ? 'yes' : 'no',
           '@expected' => json_encode($expected_values, JSON_UNESCAPED_SLASHES),
           '@persisted' => json_encode($persisted_values, JSON_UNESCAPED_SLASHES),
@@ -1848,8 +1849,8 @@ class ConvertWorker extends QueueWorkerBase {
           'Persisted model field "@field" on @type:@id already matches expected value.',
           [
             '@field' => $field_name,
-            '@type' => $entity_type,
-            '@id' => $entity_id,
+            '@type' => $target_entity_type,
+            '@id' => $target_entity_id,
           ]
         );
         continue;
@@ -1859,13 +1860,13 @@ class ConvertWorker extends QueueWorkerBase {
         'Model field "@field" on @type:@id did not persist as expected. Starting retry.',
         [
           '@field' => $field_name,
-          '@type' => $entity_type,
-          '@id' => $entity_id,
+          '@type' => $target_entity_type,
+          '@id' => $target_entity_id,
         ]
       );
 
       try {
-        $entity = \Drupal::entityTypeManager()->getStorage($entity_type)->load($entity_id);
+        $entity = $target_entity;
         if (!$entity || !$this->entityHasField($entity, $field_name)) {
           continue;
         }
@@ -1897,13 +1898,13 @@ class ConvertWorker extends QueueWorkerBase {
         }
 
         $this->saveEntity($entity);
-        $persisted_after = $this->getPersistedFieldValues($entity_type, $entity_id, $field_name);
+        $persisted_after = $this->getPersistedFieldValues($target_entity_type, $target_entity_id, $field_name);
         \Drupal::logger('dfg_3dviewer')->notice(
           'Model field "@field" persisted snapshot after retry on @type:@id. API field=@api. Expected candidates: @expected. Persisted raw: @persisted',
           [
             '@field' => $field_name,
-            '@type' => $entity_type,
-            '@id' => $entity_id,
+            '@type' => $target_entity_type,
+            '@id' => $target_entity_id,
             '@api' => $is_api_field ? 'yes' : 'no',
             '@expected' => json_encode($expected_values, JSON_UNESCAPED_SLASHES),
             '@persisted' => json_encode($persisted_after, JSON_UNESCAPED_SLASHES),
@@ -1914,8 +1915,8 @@ class ConvertWorker extends QueueWorkerBase {
             'Retry persisted expected model value for field "@field" on @type:@id.',
             [
               '@field' => $field_name,
-              '@type' => $entity_type,
-              '@id' => $entity_id,
+              '@type' => $target_entity_type,
+              '@id' => $target_entity_id,
             ]
           );
         }
@@ -1924,8 +1925,8 @@ class ConvertWorker extends QueueWorkerBase {
             'Could not persist expected model value for field "@field" on @type:@id.',
             [
               '@field' => $field_name,
-              '@type' => $entity_type,
-              '@id' => $entity_id,
+              '@type' => $target_entity_type,
+              '@id' => $target_entity_id,
             ]
           );
         }
@@ -1935,12 +1936,42 @@ class ConvertWorker extends QueueWorkerBase {
           'Retry failed for model field "@field" on @type:@id: @msg',
           [
             '@field' => $field_name,
-            '@type' => $entity_type,
-            '@id' => $entity_id,
+            '@type' => $target_entity_type,
+            '@id' => $target_entity_id,
             '@msg' => $e->getMessage(),
           ]
         );
       }
+    }
+  }
+
+  private function resolvePersistenceTargetEntity(string $entity_type, string $entity_id, string $field_name): array {
+    try {
+      $storage = \Drupal::entityTypeManager()->getStorage($entity_type);
+      $entity = $storage->load($entity_id);
+      if (!$entity) {
+        return [$entity_type, $entity_id, NULL];
+      }
+
+      if ($this->entityHasField($entity, $field_name)) {
+        return [$entity_type, $entity_id, $entity];
+      }
+
+      if (in_array($field_name, self::ADDITIONAL_MODEL_MIRROR_FIELDS, TRUE)) {
+        $related = $this->ensureRelated3DViewerEntity($entity);
+        if ($related && $this->entityHasField($related, $field_name)) {
+          return [
+            method_exists($related, 'getEntityTypeId') ? (string) $related->getEntityTypeId() : $entity_type,
+            method_exists($related, 'id') ? (string) $related->id() : $entity_id,
+            $related,
+          ];
+        }
+      }
+
+      return [$entity_type, $entity_id, $entity];
+    }
+    catch (\Throwable $e) {
+      return [$entity_type, $entity_id, NULL];
     }
   }
 

@@ -82473,6 +82473,9 @@ const UltraLoader$1 = {
   bar:null,
   panel:null,
   steps:[],
+  isFinished:false,
+  hideTimer:null,
+  resetTimer:null,
 
   init() {
     if(this.bar) return;
@@ -82494,8 +82497,21 @@ const UltraLoader$1 = {
   start(steps) {
     this.init();
 
+    if (this.hideTimer) {
+      window.clearTimeout(this.hideTimer);
+      this.hideTimer = null;
+    }
+    if (this.resetTimer) {
+      window.clearTimeout(this.resetTimer);
+      this.resetTimer = null;
+    }
+
     this.steps=steps;
     this.progress=5;
+    this.isFinished=false;
+
+    this.bar.style.width = "5%";
+    this.bar.style.background = "";
 
     this.renderSteps(0);
 
@@ -82504,9 +82520,9 @@ const UltraLoader$1 = {
     this.render();
     },
 
-    set(progress,message) {
-      this.progress=Math.max(this.progress,progress);
-      this.render();
+  set(progress,message) {
+    this.progress=Math.max(this.progress,progress);
+    this.render();
   },
 
   step(index) {
@@ -82515,13 +82531,22 @@ const UltraLoader$1 = {
 
   finish() {
     this.progress=100;
+    this.isFinished=true;
     this.render();
     this.renderSteps(this.steps.length);
-    setTimeout(() => {
+
+    this.hideTimer = window.setTimeout(() => {
+      if (!this.isFinished) {
+        return;
+      }
+
       this.panel.classList.remove("show");
-      setTimeout(() => {
+      this.hideTimer = null;
+
+      this.resetTimer = window.setTimeout(() => {
         this.bar.style.width = "0%";
         this.progress = 0;
+        this.resetTimer = null;
       }, 1500);
     }, 2500);
 
@@ -82553,6 +82578,7 @@ const UltraLoader$1 = {
   },
 
   error(message="Processing error") {
+    this.isFinished = true;
     this.renderErrorSteps();
     this.panel.innerHTML += `
       <div id="ultra-loader-error">
@@ -82609,11 +82635,16 @@ class StatusPoller {
         preparing: 1,
         processing: 2,
         converted: 3,
+        updating: 4,
         rendering: 4,
         model_ready: 5,
         viewer_ready: 6,
+        ready: 6,
         failed: 7,
+        error: 7,
     };
+
+    terminalStatuses = new Set(["ready", "viewer_ready", "failed", "error"]);
 
     map = this.fullMap;
 
@@ -82649,11 +82680,13 @@ class StatusPoller {
 
             this.updateSteps(data.status);
 
-            if(data.status==="ready" || data.status==="failed") {
-                if (data.status==="ready")
+            if(this.terminalStatuses.has(data.status)) {
+                if (data.status==="ready" || data.status==="viewer_ready") {
                     UltraLoader.finish("3D Viewer is ready");
-                else
+                }
+                else {
                     UltraLoader.finish("Failed processing the model");
+                }
                 this.stop();
                 localStorage.removeItem("processing_model_id");
                 return;
@@ -97183,6 +97216,29 @@ const Viewer = {
       .replace(/\/$/, '');
   },
 
+  normalizeArchiveModelPath(path) {
+    if (!path || typeof path !== "string") {
+      return path;
+    }
+
+    const injectGltfSegment = (pathname) => pathname.replace(
+      /\/([^/]+_(ZIP|RAR|TAR|XZ|GZ))\/([^/]+\.(glb|gltf))$/i,
+      "/$1/gltf/$3"
+    );
+
+    if (/^[a-zA-Z][\w+-.]*:\/\//.test(path)) {
+      try {
+        const url = new URL(path);
+        url.pathname = injectGltfSegment(url.pathname);
+        return url.href;
+      } catch (_err) {
+        return injectGltfSegment(path);
+      }
+    }
+
+    return injectGltfSegment(path);
+  },
+
   setModelPaths() {
     core.fileObject.filename = core.fileObject.originalPath.split("/").pop();
     core.fileObject.basename = core.fileObject.filename.substring(0, core.fileObject.filename.lastIndexOf("."));
@@ -97428,9 +97484,10 @@ const Viewer = {
       const parsed = new URL(url, window.location.origin);
       const host = parsed.host || "";
       const path = parsed.pathname || "";
+      const hasBadHost = host.includes("_") || host.toLowerCase() === "default";
 
       if (path.startsWith("/sites/default/files/")) {
-        if (host.includes("_")) {
+        if (hasBadHost) {
           return `${base}${path}`;
         }
         if (parsed.protocol === "http:" || parsed.protocol === "https:") {
@@ -98476,6 +98533,7 @@ const Viewer = {
 
   async mainLoadModelWrapper() {
     if (core.autoPath !== '') {
+      core.autoPath = Viewer.normalizeArchiveModelPath(core.autoPath);
       core.fileObject.filename = core.autoPath.split('/').pop();
       core.fileObject.basename =
         core.fileObject.filename.substring(

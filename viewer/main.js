@@ -1148,9 +1148,10 @@ export const Viewer = {
       const parsed = new URL(url, window.location.origin);
       const host = parsed.host || "";
       const path = parsed.pathname || "";
+      const hasBadHost = host.includes("_") || host.toLowerCase() === "default";
 
       if (path.startsWith("/sites/default/files/")) {
-        if (host.includes("_")) {
+        if (hasBadHost) {
           return `${base}${path}`;
         }
         if (parsed.protocol === "http:" || parsed.protocol === "https:") {
