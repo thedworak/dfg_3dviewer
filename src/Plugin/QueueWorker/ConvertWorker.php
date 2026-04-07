@@ -615,29 +615,40 @@ class ConvertWorker extends QueueWorkerBase {
       ? ($this->uriToUrl($auto_path, $this->getPreferredPublicBaseUrl($cfg)) ?? '')
       : '';
     $auto_storage_value = $auto_path !== '' ? $auto_path : $auto_path_url;
+    $source_model_uri = (string) $file_uri;
+    $source_model_url = $this->uriToUrl($source_model_uri, $this->getPreferredPublicBaseUrl($cfg)) ?? '';
+    $is_source_model_directly_viewable = in_array(strtolower((string) $extension), ['glb', 'gltf'], TRUE);
+    $final_model_uri = $auto_path !== '' ? $auto_path : $source_model_uri;
+    $final_model_url = $auto_path !== '' ? $auto_path_url : $source_model_url;
+    $final_model_storage_value = $final_model_uri !== '' ? $final_model_uri : $final_model_url;
+    $final_model_origin = $auto_path !== ''
+      ? 'converted_output'
+      : ($is_source_model_directly_viewable ? 'source_upload_glb_gltf' : 'source_upload_fallback');
 
-    if (!empty($auto_path) && $this->entityHasField($entity, $cfg['viewer_file_name'])) {
+    if (($auto_path !== '' || $is_source_model_directly_viewable) && $this->entityHasField($entity, $cfg['viewer_file_name'])) {
       $viewer_field = (string) $cfg['viewer_file_name'];
       if ($this->fieldRequiresTargetId($entity, $viewer_field)) {
-        $viewer_values = $this->buildFieldValues($entity, $viewer_field, [$auto_path]);
+        $viewer_values = $this->buildFieldValues($entity, $viewer_field, [$final_model_uri]);
         $this->applyFieldValues($entity, $viewer_field, $viewer_values, $this->getCurrentLanguageId());
-        $result['model_fields'][$viewer_field] = [$auto_path];
+        $result['model_fields'][$viewer_field] = [$final_model_uri];
         \Drupal::logger('dfg_3dviewer')->notice(
-          'Saved viewer_file_name field "@field" via target_id mapping from "@value".',
+          'Saved viewer_file_name field "@field" via target_id mapping from "@value" (origin="@origin").',
           [
             '@field' => $viewer_field,
-            '@value' => $auto_path,
+            '@value' => $final_model_uri,
+            '@origin' => $final_model_origin,
           ]
         );
       }
       else {
-        $scalar_value = $auto_storage_value;
+        $scalar_value = $final_model_storage_value;
         $entity->set($viewer_field, $scalar_value);
-        $result['model_fields'][$viewer_field] = array_values(array_filter([$scalar_value, $auto_path]));
+        $result['model_fields'][$viewer_field] = array_values(array_filter([$scalar_value, $final_model_uri]));
         \Drupal::logger('dfg_3dviewer')->notice(
-          'Saved viewer_file_name scalar value "@value".',
+          'Saved viewer_file_name scalar value "@value" (origin="@origin").',
           [
             '@value' => $scalar_value,
+            '@origin' => $final_model_origin,
           ]
         );
       }
@@ -656,28 +667,30 @@ class ConvertWorker extends QueueWorkerBase {
     }
 
     $api_model_field = trim((string) ($cfg['api_3d_file_field'] ?? ''));
-    if (!empty($auto_path) && $api_model_field !== '' && $this->entityHasField($entity, $api_model_field)) {
+    if ($final_model_uri !== '' && $api_model_field !== '' && $this->entityHasField($entity, $api_model_field)) {
       if ($this->fieldRequiresTargetId($entity, $api_model_field)) {
-        $api_values = $this->buildFieldValues($entity, $api_model_field, [$auto_path]);
+        $api_values = $this->buildFieldValues($entity, $api_model_field, [$final_model_uri]);
         $this->applyFieldValues($entity, $api_model_field, $api_values, $this->getCurrentLanguageId());
-        $result['model_fields'][$api_model_field] = [$auto_path];
+        $result['model_fields'][$api_model_field] = [$final_model_uri];
         \Drupal::logger('dfg_3dviewer')->notice(
-          'Updated API 3D file field "@field" via target_id mapping from "@value".',
+          'Updated API 3D file field "@field" via target_id mapping from "@value" (origin="@origin").',
           [
             '@field' => $api_model_field,
-            '@value' => $auto_path,
+            '@value' => $final_model_uri,
+            '@origin' => $final_model_origin,
           ]
         );
       }
       else {
-        $api_scalar_value = $auto_storage_value;
+        $api_scalar_value = $final_model_storage_value;
         $entity->set($api_model_field, $api_scalar_value);
-        $result['model_fields'][$api_model_field] = array_values(array_filter([$api_scalar_value, $auto_path]));
+        $result['model_fields'][$api_model_field] = array_values(array_filter([$api_scalar_value, $final_model_uri]));
         \Drupal::logger('dfg_3dviewer')->notice(
-          'Updated API 3D file scalar field "@field" to "@value".',
+          'Updated API 3D file scalar field "@field" to "@value" (origin="@origin").',
           [
             '@field' => $api_model_field,
             '@value' => $api_scalar_value,
+            '@origin' => $final_model_origin,
           ]
         );
       }
