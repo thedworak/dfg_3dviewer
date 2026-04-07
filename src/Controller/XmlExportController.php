@@ -13,6 +13,9 @@ class XmlExportController extends ControllerBase {
 
   private const XSL_URL = 'https://raw.githubusercontent.com/slub/dfg-viewer/e54305a9fa58951d3f3d1dd7e64554cb2ee881eb/Resources/Public/XSLT/exportSingleToMetsMods.xsl';
   private const JSON_EXPORT_PATH = '/api/digital_reconstruction/record/%d';
+  private const ADDITIONAL_MODEL_FIELD_CANDIDATES = [
+    'converted_file_6979b4e578b90',
+  ];
   private const EXPORT_PATHS = [
     '/wisski/navigate/%d/view',
     '/export_xml_single/%d',
@@ -461,11 +464,11 @@ class XmlExportController extends ControllerBase {
     }
 
     $cfg = $this->config('dfg_3dviewer.settings');
-    $field_candidates = array_values(array_filter([
+    $field_candidates = array_values(array_filter(array_unique(array_merge([
       trim((string) ($cfg->get('dfg_3dviewer_api_3d_file_field') ?? $cfg->get('api_3d_file_field') ?? '')),
       trim((string) ($cfg->get('dfg_3dviewer_viewer_file_name') ?? $cfg->get('viewer_file_name') ?? '')),
       trim((string) ($cfg->get('dfg_3dviewer_viewer_file_upload') ?? $cfg->get('viewer_file_upload') ?? '')),
-    ]));
+    ], self::ADDITIONAL_MODEL_FIELD_CANDIDATES))));
 
     foreach (['wisski_individual', 'node'] as $entity_type) {
       try {

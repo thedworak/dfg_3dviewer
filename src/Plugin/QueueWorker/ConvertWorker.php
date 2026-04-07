@@ -18,6 +18,10 @@ use Symfony\Component\HttpFoundation\Request;
  */
 class ConvertWorker extends QueueWorkerBase {
 
+  private const ADDITIONAL_MODEL_MIRROR_FIELDS = [
+    'converted_file_6979b4e578b90',
+  ];
+
   public function processItem($data) {
     $GLOBALS['dfg_3dviewer_worker_running'] = TRUE;
     $started_at = microtime(TRUE);
@@ -621,7 +625,7 @@ class ConvertWorker extends QueueWorkerBase {
     $final_model_uri = $auto_path !== '' ? $auto_path : $source_model_uri;
     $final_model_url = $auto_path !== '' ? $auto_path_url : $source_model_url;
     $final_model_storage_value = $final_model_uri !== '' ? $final_model_uri : $final_model_url;
-    $final_model_origin = $auto_path !== ''
+    $final_model_origin = ($auto_path !== '' && $auto_path !== $source_model_uri)
       ? 'converted_output'
       : ($is_source_model_directly_viewable ? 'source_upload_glb_gltf' : 'source_upload_fallback');
 
@@ -703,6 +707,42 @@ class ConvertWorker extends QueueWorkerBase {
           '@entity_id' => (string) ($entity->id() ?? ''),
         ]
       );
+    }
+
+    foreach (self::ADDITIONAL_MODEL_MIRROR_FIELDS as $mirror_field) {
+      $mirror_field = trim((string) $mirror_field);
+      if ($mirror_field === '' || $mirror_field === $api_model_field || $mirror_field === (string) ($cfg['viewer_file_name'] ?? '')) {
+        continue;
+      }
+      if ($final_model_uri === '' || !$this->entityHasField($entity, $mirror_field)) {
+        continue;
+      }
+
+      if ($this->fieldRequiresTargetId($entity, $mirror_field)) {
+        $mirror_values = $this->buildFieldValues($entity, $mirror_field, [$final_model_uri]);
+        $this->applyFieldValues($entity, $mirror_field, $mirror_values, $this->getCurrentLanguageId());
+        $result['model_fields'][$mirror_field] = [$final_model_uri];
+        \Drupal::logger('dfg_3dviewer')->notice(
+          'Updated additional model mirror field "@field" via target_id mapping from "@value" (origin="@origin").',
+          [
+            '@field' => $mirror_field,
+            '@value' => $final_model_uri,
+            '@origin' => $final_model_origin,
+          ]
+        );
+      }
+      else {
+        $entity->set($mirror_field, $final_model_storage_value);
+        $result['model_fields'][$mirror_field] = array_values(array_filter([$final_model_storage_value, $final_model_uri]));
+        \Drupal::logger('dfg_3dviewer')->notice(
+          'Updated additional model mirror field "@field" to "@value" (origin="@origin").',
+          [
+            '@field' => $mirror_field,
+            '@value' => $final_model_storage_value,
+            '@origin' => $final_model_origin,
+          ]
+        );
+      }
     }
 
     $legacy_gallery_field = 'fd6a974b7120d422c7b21b5f1f2315d9';
