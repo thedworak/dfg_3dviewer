@@ -719,12 +719,13 @@ class ConvertWorker extends QueueWorkerBase {
       }
       if (!$this->entityHasField($entity, $mirror_field)) {
         \Drupal::logger('dfg_3dviewer')->warning(
-          'Additional model mirror field "@field" is not directly available on entity @type:@id. Similar fields: @similar',
+          'Additional model mirror field "@field" is not directly available on entity @type:@id. Similar fields: @similar. Field debug: @debug',
           [
             '@field' => $mirror_field,
             '@type' => method_exists($entity, 'getEntityTypeId') ? (string) $entity->getEntityTypeId() : '',
             '@id' => method_exists($entity, 'id') ? (string) $entity->id() : '',
             '@similar' => implode(', ', $this->findSimilarFieldNames($entity, ['converted', 'viewer', '3d', 'model', 'url'])),
+            '@debug' => $this->describeFields($entity, $this->findSimilarFieldNames($entity, ['converted', 'viewer', '3d', 'model', 'url'])),
           ]
         );
         continue;
@@ -804,6 +805,52 @@ class ConvertWorker extends QueueWorkerBase {
 
     sort($matches);
     return array_slice(array_values(array_unique($matches)), 0, 30);
+  }
+
+  private function describeFields($entity, array $field_names): string {
+    if (!is_object($entity) || !method_exists($entity, 'hasField')) {
+      return 'n/a';
+    }
+
+    $parts = [];
+    foreach ($field_names as $field_name) {
+      $field_name = (string) $field_name;
+      if ($field_name === '' || !$entity->hasField($field_name)) {
+        continue;
+      }
+
+      $field_type = 'unknown';
+      try {
+        $definition = $entity->getFieldDefinition($field_name);
+        if ($definition && method_exists($definition, 'getFieldStorageDefinition')) {
+          $storage = $definition->getFieldStorageDefinition();
+          if ($storage && method_exists($storage, 'getType')) {
+            $field_type = (string) $storage->getType();
+          }
+        }
+      }
+      catch (\Throwable $e) {
+      }
+
+      $raw = [];
+      try {
+        $raw = $entity->get($field_name)->getValue();
+      }
+      catch (\Throwable $e) {
+      }
+
+      $encoded = json_encode($raw, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+      if (!is_string($encoded) || $encoded === '') {
+        $encoded = '[]';
+      }
+      if (strlen($encoded) > 220) {
+        $encoded = substr($encoded, 0, 220) . '...';
+      }
+
+      $parts[] = $field_name . ' [' . $field_type . '] ' . $encoded;
+    }
+
+    return empty($parts) ? 'n/a' : implode(' | ', $parts);
   }
 
   private function updateLegacyViewerUrlField($entity, array $cfg): void {
