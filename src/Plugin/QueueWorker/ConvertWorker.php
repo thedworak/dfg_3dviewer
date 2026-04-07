@@ -820,12 +820,20 @@ class ConvertWorker extends QueueWorkerBase {
       }
 
       $field_type = 'unknown';
+      $field_label = '';
+      $target_type = '';
       try {
         $definition = $entity->getFieldDefinition($field_name);
+        if ($definition && method_exists($definition, 'getLabel')) {
+          $field_label = (string) $definition->getLabel();
+        }
         if ($definition && method_exists($definition, 'getFieldStorageDefinition')) {
           $storage = $definition->getFieldStorageDefinition();
           if ($storage && method_exists($storage, 'getType')) {
             $field_type = (string) $storage->getType();
+          }
+          if ($storage && method_exists($storage, 'getSetting')) {
+            $target_type = (string) ($storage->getSetting('target_type') ?? '');
           }
         }
       }
@@ -847,7 +855,15 @@ class ConvertWorker extends QueueWorkerBase {
         $encoded = substr($encoded, 0, 220) . '...';
       }
 
-      $parts[] = $field_name . ' [' . $field_type . '] ' . $encoded;
+      $meta = $field_type;
+      if ($field_label !== '') {
+        $meta .= '; label=' . $field_label;
+      }
+      if ($target_type !== '') {
+        $meta .= '; target_type=' . $target_type;
+      }
+
+      $parts[] = $field_name . ' [' . $meta . '] ' . $encoded;
     }
 
     return empty($parts) ? 'n/a' : implode(' | ', $parts);
