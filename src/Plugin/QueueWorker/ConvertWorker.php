@@ -714,7 +714,19 @@ class ConvertWorker extends QueueWorkerBase {
       if ($mirror_field === '' || $mirror_field === $api_model_field || $mirror_field === (string) ($cfg['viewer_file_name'] ?? '')) {
         continue;
       }
-      if ($final_model_uri === '' || !$this->entityHasField($entity, $mirror_field)) {
+      if ($final_model_uri === '') {
+        continue;
+      }
+      if (!$this->entityHasField($entity, $mirror_field)) {
+        \Drupal::logger('dfg_3dviewer')->warning(
+          'Additional model mirror field "@field" is not directly available on entity @type:@id. Similar fields: @similar',
+          [
+            '@field' => $mirror_field,
+            '@type' => method_exists($entity, 'getEntityTypeId') ? (string) $entity->getEntityTypeId() : '',
+            '@id' => method_exists($entity, 'id') ? (string) $entity->id() : '',
+            '@similar' => implode(', ', $this->findSimilarFieldNames($entity, ['converted', 'viewer', '3d', 'model', 'url'])),
+          ]
+        );
         continue;
       }
 
@@ -770,6 +782,28 @@ class ConvertWorker extends QueueWorkerBase {
 
     clearstatcache();
     return $result;
+  }
+
+  private function findSimilarFieldNames($entity, array $needles): array {
+    if (!is_object($entity) || !method_exists($entity, 'getFields')) {
+      return [];
+    }
+
+    $matches = [];
+    foreach (array_keys($entity->getFields()) as $field_name) {
+      $field_name = (string) $field_name;
+      $haystack = strtolower($field_name);
+      foreach ($needles as $needle) {
+        $needle = strtolower((string) $needle);
+        if ($needle !== '' && str_contains($haystack, $needle)) {
+          $matches[] = $field_name;
+          break;
+        }
+      }
+    }
+
+    sort($matches);
+    return array_slice(array_values(array_unique($matches)), 0, 30);
   }
 
   private function updateLegacyViewerUrlField($entity, array $cfg): void {
