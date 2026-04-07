@@ -19,7 +19,7 @@ use Symfony\Component\HttpFoundation\Request;
 class ConvertWorker extends QueueWorkerBase {
 
   private const ADDITIONAL_MODEL_MIRROR_FIELDS = [
-    'converted_file_6979b4e578b90',
+    'fdc6300213a0d25d4b68069564846363',
   ];
 
   public function processItem($data) {

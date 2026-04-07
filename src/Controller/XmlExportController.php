@@ -14,7 +14,7 @@ class XmlExportController extends ControllerBase {
   private const XSL_URL = 'https://raw.githubusercontent.com/slub/dfg-viewer/e54305a9fa58951d3f3d1dd7e64554cb2ee881eb/Resources/Public/XSLT/exportSingleToMetsMods.xsl';
   private const JSON_EXPORT_PATH = '/api/digital_reconstruction/record/%d';
   private const ADDITIONAL_MODEL_FIELD_CANDIDATES = [
-    'converted_file_6979b4e578b90',
+    'fdc6300213a0d25d4b68069564846363',
   ];
   private const EXPORT_PATHS = [
     '/wisski/navigate/%d/view',
