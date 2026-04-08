@@ -35,6 +35,20 @@
   </head>
   <body class="viewer-embed-page">
     <div id="DFG_3DViewer"></div>
+    <script>
+      (function () {
+        const params = new URLSearchParams(window.location.search);
+        const hasExplicitSource = params.has("model") || params.has("src") || params.has("id");
+        if (hasExplicitSource) return;
+
+        const isLocalPreviewHost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+        if (!isLocalPreviewHost) return;
+
+        const container = document.getElementById("DFG_3DViewer");
+        if (!container || container.hasAttribute("3d")) return;
+        container.setAttribute("3d", "./examples/box.stl");
+      })();
+    </script>
     <script type="module" src="dfg_3dviewer-module.js"></script>
   </body>
 </html>

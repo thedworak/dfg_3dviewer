@@ -894,7 +894,7 @@ export const Viewer = {
     const entityId = core.CONFIG?.entity?.id;
     const modelPath = core.fileObject?.originalPath || core.container?.getAttribute("3d") || "";
     const options = {
-      model: entityId ? null : (modelPath || null),
+      model: modelPath || null,
       id: entityId || null,
       theme: this.currentTheme === "light" ? "light" : null,
       autorotate: core.controls?.autoRotate === true,
@@ -966,10 +966,10 @@ export const Viewer = {
     const embedUrl = this.getEmbedPageUrl();
     const params = new URLSearchParams();
 
-    if (options.id) {
-      params.set("id", options.id);
-    } else if (options.model) {
+    if (options.model) {
       params.set("model", options.model);
+    } else if (options.id) {
+      params.set("id", options.id);
     }
 
     if (options.theme === "light") {
