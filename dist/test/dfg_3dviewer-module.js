@@ -10765,6 +10765,9 @@ const Viewer = {
     if (this.urlOptions.model) {
       this.container.setAttribute("3d", this.urlOptions.model);
     }
+    if (this.shouldIgnoreLegacyEmbedDefaultModel()) {
+      this.container.removeAttribute("3d");
+    }
 
     this.scrollTop = window.scrollY || document.documentElement.scrollTop;
     this.rect = core.container.getBoundingClientRect();
@@ -11270,6 +11273,19 @@ const Viewer = {
       }
       return url;
     }
+  },
+
+  shouldIgnoreLegacyEmbedDefaultModel() {
+    if (!this.isEmbedMode()) return false;
+    if (this.urlOptions?.model || this.urlOptions?.id) return false;
+
+    const sourceType = String(core.CONFIG?.entity?.metadata?.sourceType || "").toLowerCase();
+    if (!sourceType.startsWith("drupal")) return false;
+
+    const currentModelAttr = String(this.container?.getAttribute("3d") || "").trim();
+    if (!currentModelAttr) return false;
+
+    return /^(?:\.{1,2}\/)?examples\/box\.stl(?:\?.*)?$/i.test(currentModelAttr);
   },
 
   handleImages(
