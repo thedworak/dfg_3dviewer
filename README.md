@@ -436,6 +436,42 @@ Two simple usage patterns:
 <div id="DFG_3DViewer" 3d="/path/to/model.glb" style="height:50vh"></div>
 ```
 
+Embed URL params (`embed.html`)
+- `model` (or `src`) - path/URL to the 3D file
+- `id` - entity id (when integrated with backend metadata flow)
+- `theme` - `dark` or `light`
+- `autorotate` - `1/true` or `0/false`
+- `autorotateSpeed` - float value (for example `1.5`)
+- `disableInteraction` - disables orbit controls (`1/true`)
+- `hideUi` - hides action menu (`1/true`)
+- `hideMetadata` - hides metadata panel (`1/true`)
+- `camPos` - camera position as `x,y,z` (for example `camPos=1.2,0.8,2.5`)
+- `camTarget` - orbit target as `x,y,z`
+- `fov` - camera FOV (1-179)
+
+Example:
+```text
+/embed.html?model=/examples/box.glb&theme=light&autorotate=1&autorotateSpeed=1.2&camPos=1.2,0.8,2.5&camTarget=0,0,0&fov=45
+```
+
+Embed generator in UI
+- Select `Embed` from the viewer action menu to open the embed panel (`Exit embed` closes it).
+- In the embed panel you can:
+  - set all embed URL params from a form,
+  - apply current camera (`Use Current Camera`),
+  - reset fields to current viewer state (`Reset From Viewer`),
+  - validate `camPos/camTarget/fov` inline (invalid values are highlighted),
+  - copy ready URL or full iframe code,
+  - preview the resulting embed in-place.
+
+Viewer keyboard controls
+- `Arrow` keys: orbit camera
+- `Shift + Arrow`: faster orbit step
+- `Ctrl/Cmd + Arrow`: pan camera
+- `+` / `-`: zoom in/out
+- `Space`: toggle auto-rotate
+- The canvas shortcuts hint is shown in the main status notice with a cooldown.
+
 Notes:
 - Always serve the files over HTTP(S). Opening `index.html` via `file://` often breaks module imports, WASM loads and XHR/fetch requests (causing errors such as `net::ERR_FAILED`). Use a small static server for local testing (examples below).
 - The `dist/` folder already contains bundled dependencies (three.js, loaders, draco, etc.) so consumers don't need to run the build steps.

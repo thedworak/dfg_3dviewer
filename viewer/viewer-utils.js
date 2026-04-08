@@ -39,6 +39,8 @@ export const showToast = (message, toneOrOptions, maybeOptions) => {
   const duration = Number.isFinite(options.duration)
     ? options.duration
     : DEFAULT_NOTICE_DURATION;
+  const key = String(options.key ?? "");
+  const replace = options.replace === true;
   const text = String(message);
 
   if (window.__E2E__ && window.viewer) {
@@ -47,6 +49,12 @@ export const showToast = (message, toneOrOptions, maybeOptions) => {
   }
 
   const statusNotice = core.statusNotice;
+  const enqueueStatusNotice = core.enqueueStatusNotice;
+  if (typeof enqueueStatusNotice === "function") {
+    enqueueStatusNotice({ message: text, tone, duration, key, replace });
+    return;
+  }
+
   if (!statusNotice) {
     console.info(`[viewer:${tone}] ${text}`);
     return;
@@ -857,6 +865,23 @@ function setupClippingPlanes(_geom, _distance) {
 
   core.distanceGeometry = _distance;
   scaleXYZ(core.distanceGeometry, 2);
+  const showClippingPlaneToast = (axisLabel, enabled) => {
+    showToast(`Clipping plane ${axisLabel} helper ${enabled ? "enabled" : "disabled"}`, {
+      duration: 1400,
+      replace: true,
+      key: "clipping-plane-helper",
+    });
+  };
+  const refreshClippingHint = () => {
+    const update = core.updateClippingHintVisibility;
+    if (typeof update === "function") {
+      update();
+      return;
+    }
+    if (!core.clippingHint || !core.planeParams?.clippingMode) return;
+    const mode = core.planeParams.clippingMode;
+    core.clippingHint.hidden = !(mode.x || mode.y || mode.z);
+  };
   let displayHelper = {x: getOrAddGuiController(core.planeParams.planeX, "displayHelperX"), constantX: getOrAddGuiController(core.planeParams.planeX, "constantX"), y: getOrAddGuiController(core.planeParams.planeY, "displayHelperY"), constantY: getOrAddGuiController(core.planeParams.planeY, "constantY"), z: getOrAddGuiController(core.planeParams.planeZ, "displayHelperZ"), constantZ: getOrAddGuiController(core.planeParams.planeZ, "constantZ"), outline: getOrAddGuiController(core.planeParams.outline, "visible")};
   displayHelper.x?.onChange((v) => {
       core.planeParams.clippingMode.x = core.planeHelpers[0].visible = v;
@@ -872,6 +897,8 @@ function setupClippingPlanes(_geom, _distance) {
         )
           core.outlineClipping.visible = false;
       }
+      showClippingPlaneToast("X", v);
+      refreshClippingHint();
     });
 
     displayHelper?.constantX.min(-core.distanceGeometry.x)
@@ -898,6 +925,8 @@ function setupClippingPlanes(_geom, _distance) {
         )
           core.outlineClipping.visible = false;
       }
+      showClippingPlaneToast("Y", v);
+      refreshClippingHint();
     });
     displayHelper?.constantY
       .min(-core.distanceGeometry.y)
@@ -924,6 +953,8 @@ function setupClippingPlanes(_geom, _distance) {
         )
           core.outlineClipping.visible = false;
       }
+      showClippingPlaneToast("Z", v);
+      refreshClippingHint();
     });
     displayHelper?.constantZ
       .min(-core.distanceGeometry.z)
@@ -939,6 +970,7 @@ function setupClippingPlanes(_geom, _distance) {
     displayHelper.outline.onChange((v) => {
       core.outlineClipping.visible = v;
     });
+    refreshClippingHint();
   }
 }
 

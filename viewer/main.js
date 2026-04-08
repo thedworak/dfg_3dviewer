@@ -115,6 +115,9 @@ export const Viewer = {
   fullscreenMode: null,
   themeMode: null,
   downloadModel: null,
+  embedConfiguratorPanel: null,
+  embedConfigInputs: null,
+  embedConfigPreviewFrame: null,
   currentTheme: "dark",
   THEME_STORAGE_KEY: "iiif-dark-mode",
   GESTURE: {handPx: 55, period: 5.5, rotate: false, active: false, target: new THREE.Vector3(), startTime: 0, baseAngle: 0, orbitAngle: THREE.MathUtils.degToRad(15), easeInTime: 2.25},
@@ -126,7 +129,12 @@ export const Viewer = {
   noticeContainer: null,
   statusNotice: null,
   statusNoticeTimer: null,
+  statusNoticeHideTimer: null,
+  statusNoticeQueue: [],
+  statusNoticeActive: false,
+  statusNoticeCurrent: null,
   pickingHint: null,
+  clippingHint: null,
   metadataContainer: null,
   spinner: null,
   circle: null,
@@ -253,6 +261,30 @@ export const Viewer = {
   _ext: '',
   DFG_ASSETS: '',
   isLightweight: false,
+  urlOptions: {
+    model: null,
+    id: null,
+    theme: null,
+    autoRotate: null,
+    autoRotateSpeed: null,
+    disableInteraction: false,
+    hideUi: false,
+    hideMetadata: false,
+    cameraPosition: null,
+    cameraTarget: null,
+    cameraFov: null,
+  },
+  keyboardStep: {
+    rotate: THREE.MathUtils.degToRad(2.25),
+    rotateFast: THREE.MathUtils.degToRad(6),
+    panFactor: 0.04,
+    zoomFactor: 1.08,
+  },
+  keyboardTweenDurationMs: 150,
+  lastKeyboardHintAt: 0,
+  keyboardHintCooldownMs: 45000,
+  keyboardHintAfterFocusDelayMs: 1800,
+  lastWindowFocusAt: 0,
   cleanupCallbacks: [],
   resizeObserver: null,
 
@@ -313,9 +345,97 @@ export const Viewer = {
     }
   },
 
+  isEmbedModeActive() {
+    return this.embedConfiguratorPanel?.hidden === false;
+  },
+
+  updateEmbedMenuEntryState() {
+    if (!this.viewEntity) return;
+    const isActive = this.isEmbedModeActive();
+    const label = isActive ? "Exit embed" : "Embed";
+    const iconClass = isActive ? "embed-exit-icon" : "embed-icon";
+    this.viewEntity.innerHTML = `<span class="${iconClass}"></span><span>${label}</span>`;
+    this.viewEntity.setAttribute("aria-label", isActive ? "Exit embed mode" : "Open embed options");
+    this.viewEntity.setAttribute("title", isActive ? "Exit embed mode" : "Open embed options");
+  },
+
+  closeEmbedConfigurator() {
+    if (this.embedConfiguratorPanel) {
+      this.embedConfiguratorPanel.hidden = true;
+    }
+    this.updateEmbedMenuEntryState();
+  },
+
+  closeEmbedMode() {
+    this.closeEmbedConfigurator();
+  },
+
   getStoredTheme() {
+    if (this.urlOptions?.theme === "light" || this.urlOptions?.theme === "dark") {
+      return this.urlOptions.theme;
+    }
+
     const storedTheme = window.localStorage.getItem(this.THEME_STORAGE_KEY);
     return storedTheme === "0" ? "light" : "dark";
+  },
+
+  parseBooleanParam(value) {
+    if (value == null) return null;
+    const normalizedValue = String(value).trim().toLowerCase();
+    if (["1", "true", "yes", "on"].includes(normalizedValue)) return true;
+    if (["0", "false", "no", "off"].includes(normalizedValue)) return false;
+    return null;
+  },
+
+  parseFloatParam(value) {
+    if (value == null || value === "") return null;
+    const parsed = Number.parseFloat(String(value));
+    return Number.isFinite(parsed) ? parsed : null;
+  },
+
+  parseVector3Param(value) {
+    if (value == null || value === "") return null;
+    const cleaned = String(value).replace(/[\[\]()]/g, " ").trim();
+    const parts = cleaned.split(/[\s,;|]+/).filter(Boolean);
+    if (parts.length !== 3) return null;
+    const x = Number.parseFloat(parts[0]);
+    const y = Number.parseFloat(parts[1]);
+    const z = Number.parseFloat(parts[2]);
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return null;
+    return new THREE.Vector3(x, y, z);
+  },
+
+  formatVector3Param(vector) {
+    if (!vector || typeof vector !== "object") return null;
+    const x = Number(vector.x);
+    const y = Number(vector.y);
+    const z = Number(vector.z);
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return null;
+    return `${x.toFixed(4)},${y.toFixed(4)},${z.toFixed(4)}`;
+  },
+
+  parseUrlOptions() {
+    const params = new URLSearchParams(window.location.search);
+    const modelFromQuery = params.get("model") || params.get("src");
+    const themeFromQuery = (params.get("theme") || "").trim().toLowerCase();
+    const autoRotateFromQuery = this.parseBooleanParam(params.get("autorotate"));
+    const disableInteractionFromQuery = this.parseBooleanParam(params.get("disableInteraction"));
+    const hideUiFromQuery = this.parseBooleanParam(params.get("hideUi"));
+    const hideMetadataFromQuery = this.parseBooleanParam(params.get("hideMetadata"));
+
+    this.urlOptions = {
+      model: modelFromQuery || null,
+      id: params.get("id") || null,
+      theme: themeFromQuery === "light" || themeFromQuery === "dark" ? themeFromQuery : null,
+      autoRotate: autoRotateFromQuery,
+      autoRotateSpeed: this.parseFloatParam(params.get("autorotateSpeed")),
+      disableInteraction: disableInteractionFromQuery === true,
+      hideUi: hideUiFromQuery === true,
+      hideMetadata: hideMetadataFromQuery === true,
+      cameraPosition: this.parseVector3Param(params.get("camPos") || params.get("cameraPos")),
+      cameraTarget: this.parseVector3Param(params.get("camTarget") || params.get("cameraTarget")),
+      cameraFov: this.parseFloatParam(params.get("fov")),
+    };
   },
 
   updateThemeControlLabels() {
@@ -388,6 +508,15 @@ export const Viewer = {
     if (!this.pickingHint) return;
     const hasSelectedFaces = Array.isArray(this.selectedFaces) && this.selectedFaces.length > 0;
     this.pickingHint.hidden = !this.pickingMode || hasSelectedFaces;
+    this.updateClippingHintVisibility();
+  },
+
+  updateClippingHintVisibility() {
+    if (!this.clippingHint) return;
+    const clippingMode = this.planeParams?.clippingMode || {};
+    const hasActiveClipping = Boolean(clippingMode.x || clippingMode.y || clippingMode.z);
+    const pickingHintVisible = Boolean(this.pickingHint && this.pickingHint.hidden === false);
+    this.clippingHint.hidden = !hasActiveClipping || pickingHintVisible;
   },
 
   updatePickingControlsVisibility() {
@@ -395,6 +524,340 @@ export const Viewer = {
     this.clearSelectedFacesController?.[method]?.();
     this.selectedFacesCountController?.[method]?.();
     this.updatePickingHintVisibility();
+  },
+
+  getKeyboardShortcutsText() {
+    return [
+      "Mouse: drag orbit, wheel zoom, right-drag pan",
+      "Keyboard: Arrows orbit, Shift+Arrows faster, Ctrl/Cmd+Arrows pan, +/- zoom, Space toggle auto-rotate",
+    ].join("\n");
+  },
+
+  showStatusNotice(message, duration = 2600, options = {}) {
+    this.enqueueStatusNotice({ message, duration, tone: "info", ...options });
+  },
+
+  showStatusNoticeNow(notice) {
+    if (!this.statusNotice || !notice) return;
+
+    if (this.statusNoticeHideTimer) {
+      clearTimeout(this.statusNoticeHideTimer);
+      this.statusNoticeHideTimer = null;
+    }
+
+    this.statusNoticeActive = true;
+    this.statusNoticeCurrent = notice;
+    this.statusNotice.hidden = false;
+    this.statusNotice.textContent = notice.message;
+    this.statusNotice.dataset.tone = notice.tone || "info";
+    this.statusNotice.classList.remove("is-hiding");
+    this.statusNotice.classList.add("is-visible");
+
+    if (this.statusNoticeTimer) {
+      clearTimeout(this.statusNoticeTimer);
+      this.statusNoticeTimer = null;
+    }
+
+    this.statusNoticeTimer = setTimeout(() => {
+      if (this.statusNotice) {
+        this.statusNotice.classList.remove("is-visible");
+        this.statusNotice.classList.add("is-hiding");
+      }
+
+      this.statusNoticeHideTimer = setTimeout(() => {
+        if (this.statusNotice) {
+          this.statusNotice.hidden = true;
+          this.statusNotice.classList.remove("is-hiding");
+        }
+        this.statusNoticeActive = false;
+        this.statusNoticeCurrent = null;
+        this.statusNoticeTimer = null;
+        this.statusNoticeHideTimer = null;
+        this.processStatusNoticeQueue();
+      }, 220);
+    }, notice.duration);
+  },
+
+  enqueueStatusNotice({
+    message,
+    duration = 2600,
+    tone = "info",
+    key = "",
+    replace = false,
+  } = {}) {
+    const text = String(message ?? "");
+    if (!text) return;
+
+    const nextNotice = {
+      message: text,
+      tone,
+      duration: Number.isFinite(duration) ? duration : 2600,
+      key: String(key || ""),
+    };
+
+    if (
+      this.statusNoticeActive &&
+      this.statusNotice?.textContent === nextNotice.message &&
+      (this.statusNoticeCurrent?.tone || "info") === nextNotice.tone &&
+      (this.statusNoticeCurrent?.key || "") === nextNotice.key
+    ) {
+      return;
+    }
+
+    if (nextNotice.key) {
+      this.statusNoticeQueue = this.statusNoticeQueue.filter(
+        (entry) => (entry?.key || "") !== nextNotice.key
+      );
+    }
+
+    if (
+      replace &&
+      this.statusNoticeActive &&
+      (!nextNotice.key || (this.statusNoticeCurrent?.key || "") === nextNotice.key)
+    ) {
+      this.showStatusNoticeNow(nextNotice);
+      return;
+    }
+
+    const isDuplicateQueued = this.statusNoticeQueue.some(
+      (entry) =>
+        entry?.message === nextNotice.message &&
+        entry?.tone === nextNotice.tone &&
+        (entry?.key || "") === nextNotice.key
+    );
+    if (isDuplicateQueued) return;
+
+    const priorityMap = {
+      error: 0,
+      warning: 1,
+      info: 2,
+      success: 3,
+    };
+    const nextPriority = priorityMap[nextNotice.tone] ?? 2;
+    const insertAt = this.statusNoticeQueue.findIndex((entry) => {
+      const entryPriority = priorityMap[entry?.tone] ?? 2;
+      return nextPriority < entryPriority;
+    });
+
+    if (insertAt === -1) {
+      this.statusNoticeQueue.push(nextNotice);
+    } else {
+      this.statusNoticeQueue.splice(insertAt, 0, nextNotice);
+    }
+
+    this.processStatusNoticeQueue();
+  },
+
+  processStatusNoticeQueue() {
+    if (this.statusNoticeActive) return;
+    if (!this.statusNotice) return;
+    if (!Array.isArray(this.statusNoticeQueue) || this.statusNoticeQueue.length === 0) return;
+
+    const nextNotice = this.statusNoticeQueue.shift();
+    if (!nextNotice) return;
+    this.showStatusNoticeNow(nextNotice);
+  },
+
+  maybeShowKeyboardHint() {
+    try {
+      if (window.localStorage.getItem("viewerHintSeen") !== "1") return;
+    } catch (_err) {
+      // If storage is unavailable, keep previous behavior.
+    }
+    if (document.visibilityState !== "visible" || !document.hasFocus()) return;
+    const now = Date.now();
+    if (now - this.lastWindowFocusAt < this.keyboardHintAfterFocusDelayMs) return;
+    if (this.pickingMode) return;
+    const clippingMode = this.planeParams?.clippingMode || {};
+    if (clippingMode.x || clippingMode.y || clippingMode.z) return;
+    if (!core.handHint?.hidden || core.GESTURE?.active) return;
+    if (now - this.lastKeyboardHintAt < this.keyboardHintCooldownMs) return;
+    this.lastKeyboardHintAt = now;
+    this.showStatusNotice(this.getKeyboardShortcutsText(), 3400);
+  },
+
+  isInteractiveTextInput(element) {
+    if (!element || typeof element.closest !== "function") return false;
+    return Boolean(
+      element.closest("input, textarea, select, [contenteditable='true'], [contenteditable='']")
+    );
+  },
+
+  isViewerKeyboardActive(event) {
+    if (this.isInteractiveTextInput(event?.target)) return false;
+    if (!core.renderer?.domElement) return false;
+    const active = document.activeElement;
+    return active === core.renderer.domElement || core.renderer.domElement.contains(active);
+  },
+
+  isPointerDirectlyOverCanvas(event) {
+    if (!core.renderer?.domElement || !event) return false;
+    const x = Number(event.clientX);
+    const y = Number(event.clientY);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+    const topElement = document.elementFromPoint(x, y);
+    if (!topElement) return false;
+    return topElement === core.renderer.domElement;
+  },
+
+  animateKeyboardCameraTo(nextCameraPosition, nextTarget) {
+    if (!core.camera || !core.controls || !nextCameraPosition || !nextTarget) return;
+
+    const startCamera = core.camera.position.clone();
+    const startTarget = core.controls.target.clone();
+    const targetCamera = nextCameraPosition.clone();
+    const targetControls = nextTarget.clone();
+    const duration = this.keyboardTweenDurationMs;
+
+    core.cameraTween?.stop?.();
+    core.targetTween?.stop?.();
+
+    core.cameraTween = new TWEEN.Tween(startCamera)
+      .to(targetCamera, duration)
+      .easing(TWEEN.Easing.Quadratic.Out)
+      .onUpdate(() => {
+        core.camera.position.copy(startCamera);
+        core.cameraLight?.position.copy(startCamera);
+        core.camera.updateProjectionMatrix();
+      })
+      .onComplete(() => {
+        core.camera.position.copy(targetCamera);
+        core.cameraLight?.position.copy(targetCamera);
+        core.camera.updateProjectionMatrix();
+      });
+
+    core.targetTween = new TWEEN.Tween(startTarget)
+      .to(targetControls, duration)
+      .easing(TWEEN.Easing.Quadratic.Out)
+      .onUpdate(() => {
+        core.controls.target.copy(startTarget);
+        core.controls.update();
+      })
+      .onComplete(() => {
+        core.controls.target.copy(targetControls);
+        core.controls.update();
+      });
+
+    core.cameraTween.start();
+    core.targetTween.start();
+  },
+
+  rotateCameraByKeyboard(deltaTheta = 0, deltaPhi = 0) {
+    if (!core.camera || !core.controls) return;
+
+    const target = core.controls.target.clone();
+    const offset = core.camera.position.clone().sub(target);
+    if (offset.lengthSq() === 0) return;
+
+    const spherical = new THREE.Spherical().setFromVector3(offset);
+    const minPolar = 0.05;
+    const maxPolar = Math.PI - 0.05;
+    spherical.theta += deltaTheta;
+    spherical.phi = THREE.MathUtils.clamp(spherical.phi + deltaPhi, minPolar, maxPolar);
+
+    offset.setFromSpherical(spherical);
+    const nextCamera = target.clone().add(offset);
+    this.animateKeyboardCameraTo(nextCamera, target);
+  },
+
+  panCameraByKeyboard(directionX = 0, directionY = 0) {
+    if (!core.camera || !core.controls) return;
+    const distance = core.camera.position.distanceTo(core.controls.target) || 1;
+    const panStep = distance * this.keyboardStep.panFactor;
+
+    const forward = core.controls.target.clone().sub(core.camera.position).normalize();
+    const right = new THREE.Vector3().crossVectors(forward, core.camera.up).normalize();
+    const up = core.camera.up.clone().normalize();
+
+    const panOffset = right.multiplyScalar(directionX * panStep).add(up.multiplyScalar(directionY * panStep));
+    const nextCamera = core.camera.position.clone().add(panOffset);
+    const nextTarget = core.controls.target.clone().add(panOffset);
+    this.animateKeyboardCameraTo(nextCamera, nextTarget);
+  },
+
+  zoomCameraByKeyboard(zoomIn = true) {
+    if (!core.camera || !core.controls) return;
+    const factor = zoomIn ? 1 / this.keyboardStep.zoomFactor : this.keyboardStep.zoomFactor;
+    const offset = core.camera.position.clone().sub(core.controls.target);
+    let nextDistance = offset.length() * factor;
+
+    if (Number.isFinite(core.controls.minDistance)) {
+      nextDistance = Math.max(core.controls.minDistance, nextDistance);
+    }
+    if (Number.isFinite(core.controls.maxDistance) && core.controls.maxDistance > 0) {
+      nextDistance = Math.min(core.controls.maxDistance, nextDistance);
+    }
+    if (nextDistance <= 0) return;
+
+    offset.setLength(nextDistance);
+    const nextTarget = core.controls.target.clone();
+    const nextCamera = nextTarget.clone().add(offset);
+    this.animateKeyboardCameraTo(nextCamera, nextTarget);
+  },
+
+  toggleAutoRotateByKeyboard() {
+    if (!core.controls) return;
+    core.controls.autoRotate = !core.controls.autoRotate;
+    this.showStatusNotice(
+      core.controls.autoRotate ? "Auto-rotate enabled" : "Auto-rotate disabled",
+      1400
+    );
+    this.updateEmbedConfiguratorPreview();
+  },
+
+  onViewerKeyDown(event) {
+    if (!Viewer.isViewerKeyboardActive(event)) return;
+
+    const isFast = event.shiftKey;
+    const rotateStep = isFast ? Viewer.keyboardStep.rotateFast : Viewer.keyboardStep.rotate;
+    const isPanMode = event.ctrlKey || event.metaKey;
+    let handled = false;
+
+    switch (event.key) {
+      case "ArrowLeft":
+        if (isPanMode) Viewer.panCameraByKeyboard(-1, 0);
+        else Viewer.rotateCameraByKeyboard(-rotateStep, 0);
+        handled = true;
+        break;
+      case "ArrowRight":
+        if (isPanMode) Viewer.panCameraByKeyboard(1, 0);
+        else Viewer.rotateCameraByKeyboard(rotateStep, 0);
+        handled = true;
+        break;
+      case "ArrowUp":
+        if (isPanMode) Viewer.panCameraByKeyboard(0, 1);
+        else Viewer.rotateCameraByKeyboard(0, -rotateStep);
+        handled = true;
+        break;
+      case "ArrowDown":
+        if (isPanMode) Viewer.panCameraByKeyboard(0, -1);
+        else Viewer.rotateCameraByKeyboard(0, rotateStep);
+        handled = true;
+        break;
+      case "+":
+      case "=":
+        Viewer.zoomCameraByKeyboard(true);
+        handled = true;
+        break;
+      case "-":
+      case "_":
+        Viewer.zoomCameraByKeyboard(false);
+        handled = true;
+        break;
+      case " ":
+      case "Spacebar":
+        Viewer.toggleAutoRotateByKeyboard();
+        handled = true;
+        break;
+      default:
+        break;
+    }
+
+    if (handled) {
+      Viewer.maybeShowKeyboardHint();
+      event.preventDefault();
+      event.stopPropagation();
+    }
   },
 
   isEmbedMode() {
@@ -410,16 +873,133 @@ export const Viewer = {
     return embedUrl;
   },
 
-  getSharePayload() {
-    const embedUrl = this.getEmbedPageUrl();
-    const params = new URLSearchParams();
+  async copyTextToClipboard(value) {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+      return;
+    }
+
+    const tempInput = document.createElement("textarea");
+    tempInput.value = value;
+    tempInput.setAttribute("readonly", "true");
+    tempInput.style.position = "absolute";
+    tempInput.style.left = "-9999px";
+    document.body.appendChild(tempInput);
+    tempInput.select();
+    document.execCommand("copy");
+    tempInput.remove();
+  },
+
+  getCurrentEmbedOptions({ includeCamera = false } = {}) {
     const entityId = core.CONFIG?.entity?.id;
     const modelPath = core.fileObject?.originalPath || core.container?.getAttribute("3d") || "";
+    const options = {
+      model: entityId ? null : (modelPath || null),
+      id: entityId || null,
+      theme: this.currentTheme === "light" ? "light" : null,
+      autorotate: core.controls?.autoRotate === true,
+      autorotateSpeed: Number.isFinite(core.controls?.autoRotateSpeed) ? core.controls.autoRotateSpeed : null,
+      disableInteraction: this.urlOptions?.disableInteraction === true,
+      hideUi: this.urlOptions?.hideUi === true,
+      hideMetadata: this.urlOptions?.hideMetadata === true,
+      cameraPosition: null,
+      cameraTarget: null,
+      fov: null,
+    };
 
-    if (entityId) {
-      params.set("id", entityId);
-    } else if (modelPath) {
-      params.set("model", modelPath);
+    if (includeCamera) {
+      options.cameraPosition = this.formatVector3Param(core.camera?.position);
+      options.cameraTarget = this.formatVector3Param(core.controls?.target);
+      options.fov = Number.isFinite(core.camera?.fov) ? core.camera.fov : null;
+    }
+
+    return options;
+  },
+
+  applyEmbedOptionsToInputs(options = {}) {
+    if (!this.embedConfigInputs) return;
+    this.embedConfigInputs.model.value = options.model ?? "";
+    this.embedConfigInputs.id.value = options.id ?? "";
+    this.embedConfigInputs.theme.value = options.theme === "light" ? "light" : "dark";
+    this.embedConfigInputs.autorotate.checked = options.autorotate === true;
+    this.embedConfigInputs.autorotateSpeed.value = Number.isFinite(options.autorotateSpeed) ? String(options.autorotateSpeed) : "";
+    this.embedConfigInputs.disableInteraction.checked = options.disableInteraction === true;
+    this.embedConfigInputs.hideUi.checked = options.hideUi === true;
+    this.embedConfigInputs.hideMetadata.checked = options.hideMetadata === true;
+    this.embedConfigInputs.camPos.value = options.cameraPosition ?? "";
+    this.embedConfigInputs.camTarget.value = options.cameraTarget ?? "";
+    this.embedConfigInputs.fov.value = Number.isFinite(options.fov) ? String(options.fov) : "";
+  },
+
+  setEmbedInputError(input, hasError, message = "") {
+    if (!input) return;
+    input.classList.toggle("embed-input-invalid", hasError);
+    if (hasError && message) {
+      input.setAttribute("title", message);
+      input.setAttribute("aria-invalid", "true");
+    } else {
+      input.removeAttribute("title");
+      input.removeAttribute("aria-invalid");
+    }
+  },
+
+  validateEmbedInputFields() {
+    if (!this.embedConfigInputs) return true;
+    const { camPos, camTarget, fov } = this.embedConfigInputs;
+    const camPosRaw = camPos.value.trim();
+    const camTargetRaw = camTarget.value.trim();
+    const fovRaw = fov.value.trim();
+
+    const camPosOk = camPosRaw === "" || this.parseVector3Param(camPosRaw) !== null;
+    const camTargetOk = camTargetRaw === "" || this.parseVector3Param(camTargetRaw) !== null;
+    const parsedFov = this.parseFloatParam(fovRaw);
+    const fovOk = fovRaw === "" || (Number.isFinite(parsedFov) && parsedFov >= 1 && parsedFov <= 179);
+
+    this.setEmbedInputError(camPos, !camPosOk, "Use format: x,y,z (for example 1.2,0.8,2.5)");
+    this.setEmbedInputError(camTarget, !camTargetOk, "Use format: x,y,z (for example 0,0,0)");
+    this.setEmbedInputError(fov, !fovOk, "FOV must be a number from 1 to 179");
+
+    return camPosOk && camTargetOk && fovOk;
+  },
+
+  buildEmbedPayload(options = {}) {
+    const embedUrl = this.getEmbedPageUrl();
+    const params = new URLSearchParams();
+
+    if (options.id) {
+      params.set("id", options.id);
+    } else if (options.model) {
+      params.set("model", options.model);
+    }
+
+    if (options.theme === "light") {
+      params.set("theme", options.theme);
+    }
+
+    if (options.autorotate === true) {
+      params.set("autorotate", "1");
+      if (Number.isFinite(options.autorotateSpeed)) {
+        params.set("autorotateSpeed", String(options.autorotateSpeed));
+      }
+    }
+
+    if (options.disableInteraction) {
+      params.set("disableInteraction", "1");
+    }
+    if (options.hideUi) {
+      params.set("hideUi", "1");
+    }
+    if (options.hideMetadata) {
+      params.set("hideMetadata", "1");
+    }
+    if (options.cameraPosition) {
+      params.set("camPos", options.cameraPosition);
+    }
+    if (options.cameraTarget) {
+      params.set("camTarget", options.cameraTarget);
+    }
+    if (Number.isFinite(options.fov)) {
+      params.set("fov", String(options.fov));
     }
 
     embedUrl.search = params.toString();
@@ -430,27 +1010,203 @@ export const Viewer = {
     };
   },
 
+  getSharePayload() {
+    return this.buildEmbedPayload(this.getCurrentEmbedOptions({ includeCamera: true }));
+  },
+
+  collectEmbedConfiguratorOptions() {
+    const inputs = this.embedConfigInputs;
+    if (!inputs) return this.getCurrentEmbedOptions({ includeCamera: true });
+    const parsedCamPos = this.parseVector3Param(inputs.camPos.value);
+    const parsedCamTarget = this.parseVector3Param(inputs.camTarget.value);
+    const parsedFov = this.parseFloatParam(inputs.fov.value);
+    const normalizedFov = Number.isFinite(parsedFov) ? Math.min(179, Math.max(1, parsedFov)) : null;
+    return {
+      model: inputs.model.value.trim() || null,
+      id: inputs.id.value.trim() || null,
+      theme: inputs.theme.value === "light" ? "light" : null,
+      autorotate: inputs.autorotate.checked,
+      autorotateSpeed: this.parseFloatParam(inputs.autorotateSpeed.value),
+      disableInteraction: inputs.disableInteraction.checked,
+      hideUi: inputs.hideUi.checked,
+      hideMetadata: inputs.hideMetadata.checked,
+      cameraPosition: this.formatVector3Param(parsedCamPos),
+      cameraTarget: this.formatVector3Param(parsedCamTarget),
+      fov: normalizedFov,
+    };
+  },
+
+  updateEmbedConfiguratorPreview() {
+    if (!this.embedConfigInputs) return;
+    this.validateEmbedInputFields();
+    const payload = this.buildEmbedPayload(this.collectEmbedConfiguratorOptions());
+    this.embedConfigInputs.url.value = payload.url;
+    this.embedConfigInputs.iframe.value = payload.code;
+    if (this.embedConfigPreviewFrame) {
+      this.embedConfigPreviewFrame.src = payload.url;
+    }
+  },
+
+  fillConfiguratorWithCurrentCamera() {
+    if (!this.embedConfigInputs) return;
+    this.embedConfigInputs.camPos.value = this.formatVector3Param(core.camera?.position) || "";
+    this.embedConfigInputs.camTarget.value = this.formatVector3Param(core.controls?.target) || "";
+    this.embedConfigInputs.fov.value = Number.isFinite(core.camera?.fov) ? String(core.camera.fov) : "";
+    this.updateEmbedConfiguratorPreview();
+  },
+
+  resetEmbedConfiguratorFromViewerState() {
+    if (!this.embedConfigInputs) return;
+    this.applyEmbedOptionsToInputs(this.getCurrentEmbedOptions({ includeCamera: true }));
+    this.updateEmbedConfiguratorPreview();
+  },
+
+  toggleEmbedConfigurator(event) {
+    event?.preventDefault?.();
+    this.closeActionMenu();
+    if (!this.embedConfiguratorPanel) return;
+    const willShow = this.embedConfiguratorPanel.hidden === true;
+    this.embedConfiguratorPanel.hidden = !willShow;
+    if (willShow) {
+      this.updateEmbedConfiguratorPreview();
+    }
+    this.updateEmbedMenuEntryState();
+  },
+
+  openEmbedConfiguratorFromMenu(event) {
+    this.toggleEmbedConfigurator(event);
+  },
+
+  createEmbedConfiguratorPanel() {
+    if (!core.container || this.embedConfiguratorPanel) return;
+
+    const defaults = this.getCurrentEmbedOptions({ includeCamera: true });
+    const panel = document.createElement("div");
+    panel.id = "embedConfiguratorPanel";
+    panel.hidden = true;
+    panel.innerHTML = `
+      <div class="embed-config-header">
+        <span>Embed options</span>
+        <button id="embedClosePanel" type="button" aria-label="Close embed options">Close</button>
+      </div>
+      <div class="embed-config-layout">
+        <div class="embed-config-main">
+          <div class="embed-config-grid">
+            <label>Model URL<input id="embedModelInput" type="text" placeholder="/examples/box.glb" value="${defaults.model ?? ""}" /></label>
+            <label>Entity ID<input id="embedIdInput" type="text" value="${defaults.id ?? ""}" /></label>
+            <label>Theme
+              <select id="embedThemeInput">
+                <option value="dark">Dark</option>
+                <option value="light"${defaults.theme === "light" ? " selected" : ""}>Light</option>
+              </select>
+            </label>
+            <label>Auto-rotate speed<input id="embedAutorotateSpeedInput" type="number" step="0.1" value="${Number.isFinite(defaults.autorotateSpeed) ? defaults.autorotateSpeed : ""}" /></label>
+            <label>Camera position<input id="embedCamPosInput" type="text" placeholder="x,y,z" value="${defaults.cameraPosition ?? ""}" /></label>
+            <label>Camera target<input id="embedCamTargetInput" type="text" placeholder="x,y,z" value="${defaults.cameraTarget ?? ""}" /></label>
+            <label>FOV<input id="embedFovInput" type="number" step="1" min="1" max="179" value="${Number.isFinite(defaults.fov) ? defaults.fov : ""}" /></label>
+          </div>
+          <div class="embed-config-checks">
+            <label><input id="embedAutorotateInput" type="checkbox"${defaults.autorotate ? " checked" : ""} /> Auto-rotate</label>
+            <label><input id="embedDisableInteractionInput" type="checkbox"${defaults.disableInteraction ? " checked" : ""} /> Disable interaction</label>
+            <label><input id="embedHideUiInput" type="checkbox"${defaults.hideUi ? " checked" : ""} /> Hide action menu</label>
+            <label><input id="embedHideMetadataInput" type="checkbox"${defaults.hideMetadata ? " checked" : ""} /> Hide metadata</label>
+          </div>
+          <div class="embed-config-actions">
+            <button id="embedUseCurrentCamera" type="button">Use Current Camera</button>
+            <button id="embedResetFromViewer" type="button">Reset From Viewer</button>
+            <button id="embedCopyUrl" type="button">Copy URL</button>
+            <button id="embedCopyIframe" type="button">Copy Iframe</button>
+          </div>
+          <label class="embed-config-field">Embed URL<textarea id="embedUrlOutput" readonly></textarea></label>
+          <label class="embed-config-field">Iframe code<textarea id="embedIframeOutput" readonly></textarea></label>
+        </div>
+        <div class="embed-config-preview-side">
+          <span>Preview</span>
+          <iframe id="embedPreviewFrame" title="Embed preview" loading="lazy"></iframe>
+        </div>
+      </div>
+    `;
+
+    core.container.appendChild(panel);
+    this.embedConfiguratorPanel = panel;
+    this.embedConfigInputs = {
+      model: panel.querySelector("#embedModelInput"),
+      id: panel.querySelector("#embedIdInput"),
+      theme: panel.querySelector("#embedThemeInput"),
+      autorotate: panel.querySelector("#embedAutorotateInput"),
+      autorotateSpeed: panel.querySelector("#embedAutorotateSpeedInput"),
+      disableInteraction: panel.querySelector("#embedDisableInteractionInput"),
+      hideUi: panel.querySelector("#embedHideUiInput"),
+      hideMetadata: panel.querySelector("#embedHideMetadataInput"),
+      camPos: panel.querySelector("#embedCamPosInput"),
+      camTarget: panel.querySelector("#embedCamTargetInput"),
+      fov: panel.querySelector("#embedFovInput"),
+      url: panel.querySelector("#embedUrlOutput"),
+      iframe: panel.querySelector("#embedIframeOutput"),
+    };
+    this.embedConfigPreviewFrame = panel.querySelector("#embedPreviewFrame");
+
+    const watchedInputs = [
+      this.embedConfigInputs.model,
+      this.embedConfigInputs.id,
+      this.embedConfigInputs.theme,
+      this.embedConfigInputs.autorotate,
+      this.embedConfigInputs.autorotateSpeed,
+      this.embedConfigInputs.disableInteraction,
+      this.embedConfigInputs.hideUi,
+      this.embedConfigInputs.hideMetadata,
+      this.embedConfigInputs.camPos,
+      this.embedConfigInputs.camTarget,
+      this.embedConfigInputs.fov,
+    ];
+    watchedInputs.forEach((input) => {
+      if (!input) return;
+      const eventName = input.type === "checkbox" || input.tagName === "SELECT" ? "change" : "input";
+      this.bindEventListener(input, eventName, () => this.updateEmbedConfiguratorPreview());
+    });
+
+    const useCurrentCameraButton = panel.querySelector("#embedUseCurrentCamera");
+    const resetFromViewerButton = panel.querySelector("#embedResetFromViewer");
+    const copyUrlButton = panel.querySelector("#embedCopyUrl");
+    const copyIframeButton = panel.querySelector("#embedCopyIframe");
+    const closePanelButton = panel.querySelector("#embedClosePanel");
+
+    this.bindEventListener(useCurrentCameraButton, "click", () => this.fillConfiguratorWithCurrentCamera());
+    this.bindEventListener(resetFromViewerButton, "click", () => this.resetEmbedConfiguratorFromViewerState());
+    this.bindEventListener(closePanelButton, "click", () => {
+      this.closeEmbedConfigurator();
+    });
+    this.bindEventListener(copyUrlButton, "click", async () => {
+      try {
+        const payload = this.buildEmbedPayload(this.collectEmbedConfiguratorOptions());
+        await this.copyTextToClipboard(payload.url);
+        showToast("Embed URL copied");
+      } catch (error) {
+        this.reportError(error, { context: "Copy embed URL failed" });
+        showToast("Could not copy embed URL");
+      }
+    });
+    this.bindEventListener(copyIframeButton, "click", async () => {
+      try {
+        const payload = this.buildEmbedPayload(this.collectEmbedConfiguratorOptions());
+        await this.copyTextToClipboard(payload.code);
+        showToast("Embed iframe copied");
+      } catch (error) {
+        this.reportError(error, { context: "Copy embed iframe failed" });
+        showToast("Could not copy embed iframe");
+      }
+    });
+
+    this.updateEmbedConfiguratorPreview();
+  },
+
   async copyEmbedCode(event) {
     event?.preventDefault?.();
     Viewer.closeActionMenu();
 
     try {
       const { code } = Viewer.getSharePayload();
-
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(code);
-      } else {
-        const tempInput = document.createElement("textarea");
-        tempInput.value = code;
-        tempInput.setAttribute("readonly", "true");
-        tempInput.style.position = "absolute";
-        tempInput.style.left = "-9999px";
-        document.body.appendChild(tempInput);
-        tempInput.select();
-        document.execCommand("copy");
-        tempInput.remove();
-      }
-
+      await Viewer.copyTextToClipboard(code);
       showToast("Embed code copied to clipboard");
     } catch (error) {
       Viewer.reportError(error, { context: "Copy embed code failed" });
@@ -655,6 +1411,8 @@ export const Viewer = {
     setCore('guiContainer', this.guiContainer);
     setCore('lilGui', this.lilGui);
     setCore('gui', this.gui);
+    setCore('enqueueStatusNotice', this.enqueueStatusNotice.bind(this));
+    setCore('updateClippingHintVisibility', this.updateClippingHintVisibility.bind(this));
 
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -721,10 +1479,10 @@ export const Viewer = {
     setCore('container', this.container);
     document.body.classList.toggle("viewer-embed-page", this.isEmbedMode());
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const modelFromQuery = urlParams.get("model");
-    if (modelFromQuery) {
-      this.container.setAttribute("3d", modelFromQuery);
+    this.parseUrlOptions();
+
+    if (this.urlOptions.model) {
+      this.container.setAttribute("3d", this.urlOptions.model);
     }
 
     this.scrollTop = window.scrollY || document.documentElement.scrollTop;
@@ -751,10 +1509,8 @@ export const Viewer = {
     if (elementsURL !== null) {
       core.CONFIG.entity.id = elementsURL[1];
     } else {
-      // Fallback: check for ?id= parameter
-      const idFromQuery = urlParams.get('id');
-      if (idFromQuery) {
-        core.CONFIG.entity.id = idFromQuery;
+      if (this.urlOptions.id) {
+        core.CONFIG.entity.id = this.urlOptions.id;
       }
     }
     if (core.CONFIG.entity.id) {
@@ -805,6 +1561,12 @@ export const Viewer = {
     this.statusNotice.setAttribute("aria-live", "polite");
     this.noticeContainer.appendChild(this.statusNotice);
     setCore("statusNotice", this.statusNotice);
+    this.statusNoticeQueue = [];
+    this.statusNoticeActive = false;
+    if (this.statusNoticeTimer) {
+      clearTimeout(this.statusNoticeTimer);
+      this.statusNoticeTimer = null;
+    }
 
     this.pickingHint = document.createElement("div");
     this.pickingHint.id = "pickingHint";
@@ -813,6 +1575,14 @@ export const Viewer = {
     this.pickingHint.hidden = true;
     this.noticeContainer.appendChild(this.pickingHint);
     setCore("pickingHint", this.pickingHint);
+
+    this.clippingHint = document.createElement("div");
+    this.clippingHint.id = "clippingHint";
+    this.clippingHint.className = "viewer-notice viewer-notice-hint";
+    this.clippingHint.textContent = "Drag active clipping plane helper to adjust cut";
+    this.clippingHint.hidden = true;
+    this.noticeContainer.appendChild(this.clippingHint);
+    setCore("clippingHint", this.clippingHint);
 
     this.spinnerContainer = document.createElement("div");
     this.spinnerContainer.id = "spinnerContainer";
@@ -837,6 +1607,9 @@ export const Viewer = {
     this.metadataContainer = document.createElement("div");
     this.metadataContainer.setAttribute("id", "metadata-container");
     this.metadataContainer.style.top = -this.metadataContainer.getBoundingClientRect().top + "px";
+    if (this.urlOptions.hideMetadata) {
+      this.metadataContainer.style.display = "none";
+    }
     setCore('metadataContainer', this.metadataContainer)
 
     this.spinner = new lv();
@@ -913,7 +1686,7 @@ export const Viewer = {
 
   // Disable interaction hint on first interaction
  disableInteractionHint() {
-    Viewer.handHint.hidden = true;
+    core.handHint.hidden = true;
     Viewer.stopGesture();
 
     // Stop any running camera tweens when user interacts
@@ -926,7 +1699,7 @@ export const Viewer = {
       core.targetTween = null;
     }
 
-    //Viewer.handHint.classList.remove("hand-drag-animate");
+    //core.handHint.classList.remove("hand-drag-animate");
     localStorage.setItem("viewerHintSeen", "1");
   },
 
@@ -2292,6 +3065,39 @@ export const Viewer = {
       }
       else await loadModel();
     }
+
+    this.applyCameraOverridesFromUrl();
+  },
+
+  applyCameraOverridesFromUrl() {
+    if (!core.camera) return;
+
+    const cameraPosition = this.urlOptions?.cameraPosition;
+    const cameraTarget = this.urlOptions?.cameraTarget;
+    const cameraFov = this.urlOptions?.cameraFov;
+    const hasPosition = cameraPosition && Number.isFinite(cameraPosition.x) && Number.isFinite(cameraPosition.y) && Number.isFinite(cameraPosition.z);
+    const hasTarget = cameraTarget && Number.isFinite(cameraTarget.x) && Number.isFinite(cameraTarget.y) && Number.isFinite(cameraTarget.z);
+    const hasFov = Number.isFinite(cameraFov);
+    if (!hasPosition && !hasTarget && !hasFov) return;
+
+    if (hasPosition) {
+      core.camera.position.copy(cameraPosition);
+      core.cameraLight?.position.copy(cameraPosition);
+    }
+    if (hasTarget) {
+      core.controls?.target.copy(cameraTarget);
+      core.camera.lookAt(cameraTarget);
+    }
+    if (hasFov) {
+      const normalizedFov = Math.min(179, Math.max(1, Number(cameraFov)));
+      core.camera.fov = normalizedFov;
+      if (this.embedConfigInputs?.fov && this.embedConfigInputs.fov.value === "") {
+        this.embedConfigInputs.fov.value = String(normalizedFov);
+      }
+    }
+
+    core.camera.updateProjectionMatrix();
+    core.controls?.update();
   },
 
   createClippingPlaneAxis(_number) {
@@ -2678,7 +3484,11 @@ export const Viewer = {
             Viewer.pickingMode = !Viewer.pickingMode;
             var _str;
             Viewer.pickingMode ? (_str = "enabled") : (_str = "disabled");
-            showToast("Face picking is " + _str);
+            showToast("Face picking is " + _str, {
+              duration: 1400,
+              replace: true,
+              key: "face-picking-mode",
+            });
             if (!Viewer.pickingMode) {
               Viewer.restoreLastPickedFace();
               Viewer.clearSelectedFaces();
@@ -3097,7 +3907,26 @@ export const Viewer = {
 
 	      Viewer.bindEventListener(core.renderer.domElement, "pointerdown", Viewer.onPointerDown);
 	      Viewer.bindEventListener(core.renderer.domElement, "pointerup", Viewer.onPointerUp);
-	      Viewer.bindEventListener(core.renderer.domElement, "pointermove", Viewer.onPointerMove);
+      Viewer.bindEventListener(core.renderer.domElement, "pointermove", Viewer.onPointerMove);
+        Viewer.bindEventListener(core.renderer.domElement, "mouseenter", (event) => {
+          if (!Viewer.isPointerDirectlyOverCanvas(event)) return;
+          Viewer.maybeShowKeyboardHint();
+        });
+        Viewer.lastWindowFocusAt = Date.now();
+        Viewer.bindEventListener(window, "focus", () => {
+          Viewer.lastWindowFocusAt = Date.now();
+        });
+        Viewer.bindEventListener(document, "visibilitychange", () => {
+          if (document.visibilityState === "visible") {
+            Viewer.lastWindowFocusAt = Date.now();
+          }
+        });
+        core.renderer.domElement.tabIndex = 0;
+        core.renderer.domElement.setAttribute("aria-label", "3D viewer canvas");
+        Viewer.bindEventListener(core.renderer.domElement, "pointerdown", () => {
+          core.renderer.domElement.focus();
+        });
+        Viewer.bindEventListener(core.renderer.domElement, "keydown", Viewer.onViewerKeyDown);
 
 	      // Add drag and drop support for localhost
 	      if (isLocalPreview) {
@@ -3198,14 +4027,22 @@ export const Viewer = {
       Viewer.actionMenuPanel.appendChild(Viewer.viewEntity);
       Viewer.actionMenuPanel.appendChild(Viewer.downloadModel);
       Viewer.actionMenuPanel.appendChild(Viewer.fullscreenMode);
+      if (Viewer.urlOptions.hideUi) {
+        Viewer.actionMenu.hidden = true;
+      }
+      Viewer.createEmbedConfiguratorPanel();
 
       setCore('viewEntity', Viewer.viewEntity);
       Viewer.bindEventListener(Viewer.themeMode, "click", Viewer.toggleTheme.bind(Viewer));
 	      Viewer.bindEventListener(Viewer.fullscreenMode, "click", Viewer.toggleFullscreen, false);
-      Viewer.bindEventListener(Viewer.viewEntity, "click", Viewer.copyEmbedCode);
+      Viewer.bindEventListener(Viewer.viewEntity, "click", Viewer.openEmbedConfiguratorFromMenu.bind(Viewer));
+      Viewer.updateEmbedMenuEntryState();
       Viewer.bindEventListener(Viewer.downloadModel, "click", () => Viewer.closeActionMenu());
       Viewer.bindEventListener(document, "click", (event) => {
-        if (!Viewer.actionMenu?.contains(event.target)) {
+        if (
+          !Viewer.actionMenu?.contains(event.target) &&
+          !Viewer.embedConfiguratorPanel?.contains(event.target)
+        ) {
           Viewer.closeActionMenu();
         }
       });
@@ -3234,6 +4071,18 @@ export const Viewer = {
       Viewer.controls.enableDamping = true;
       Viewer.controls.dampingFactor = 0.05;
       Viewer.controls.enableRotate = true;
+      if (typeof Viewer.urlOptions.autoRotate === "boolean") {
+        Viewer.controls.autoRotate = Viewer.urlOptions.autoRotate;
+      }
+      if (Number.isFinite(Viewer.urlOptions.autoRotateSpeed)) {
+        Viewer.controls.autoRotateSpeed = Viewer.urlOptions.autoRotateSpeed;
+      }
+      if (Viewer.urlOptions.disableInteraction) {
+        Viewer.controls.enabled = false;
+        Viewer.controls.enableRotate = false;
+        Viewer.controls.enablePan = false;
+        Viewer.controls.enableZoom = false;
+      }
       Viewer.controls.update();
       setCore('controls', Viewer.controls);
       setCore('GESTURE', Viewer.GESTURE);
