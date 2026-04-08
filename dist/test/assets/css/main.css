@@ -1148,8 +1148,12 @@ canvas {
 
 .embed-config-field textarea {
   width: 100%;
-  min-height: 52px;
+  min-height: 96px;
   resize: vertical;
+}
+
+#embedIframeOutput {
+  min-height: 140px;
 }
 
 .embed-config-preview-wrap {

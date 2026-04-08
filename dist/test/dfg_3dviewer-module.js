@@ -9401,6 +9401,7 @@ const Viewer = {
   embedConfiguratorPanel: null,
   embedConfigInputs: null,
   embedConfigPreviewFrame: null,
+  embedMissingSourceNotified: false,
   currentTheme: "dark",
   THEME_STORAGE_KEY: "iiif-dark-mode",
   GESTURE: {handPx: 55, period: 5.5, rotate: false, active: false, target: new THREE.Vector3(), startTime: 0, baseAngle: 0, orbitAngle: THREE.MathUtils.degToRad(15), easeInTime: 2.25},
@@ -10317,10 +10318,26 @@ const Viewer = {
     };
   },
 
+  hasEmbedSourceSelection(options = {}) {
+    return Boolean(options.model || options.id);
+  },
+
+  notifyMissingEmbedSource({ force = false } = {}) {
+    if (!force && this.embedMissingSourceNotified) return;
+    showToast("Set Model URL or Entity ID for embed.", "warning");
+    this.embedMissingSourceNotified = true;
+  },
+
   updateEmbedConfiguratorPreview() {
     if (!this.embedConfigInputs) return;
     this.validateEmbedInputFields();
-    const payload = this.buildEmbedPayload(this.collectEmbedConfiguratorOptions());
+    const options = this.collectEmbedConfiguratorOptions();
+    if (!this.hasEmbedSourceSelection(options)) {
+      this.notifyMissingEmbedSource();
+    } else {
+      this.embedMissingSourceNotified = false;
+    }
+    const payload = this.buildEmbedPayload(options);
     this.embedConfigInputs.url.value = payload.url;
     this.embedConfigInputs.iframe.value = payload.code;
     if (this.embedConfigPreviewFrame) {
@@ -10459,7 +10476,12 @@ const Viewer = {
     });
     this.bindEventListener(copyUrlButton, "click", async () => {
       try {
-        const payload = this.buildEmbedPayload(this.collectEmbedConfiguratorOptions());
+        const options = this.collectEmbedConfiguratorOptions();
+        if (!this.hasEmbedSourceSelection(options)) {
+          this.notifyMissingEmbedSource({ force: true });
+          return;
+        }
+        const payload = this.buildEmbedPayload(options);
         await this.copyTextToClipboard(payload.url);
         showToast("Embed URL copied");
       } catch (error) {
@@ -10469,7 +10491,12 @@ const Viewer = {
     });
     this.bindEventListener(copyIframeButton, "click", async () => {
       try {
-        const payload = this.buildEmbedPayload(this.collectEmbedConfiguratorOptions());
+        const options = this.collectEmbedConfiguratorOptions();
+        if (!this.hasEmbedSourceSelection(options)) {
+          this.notifyMissingEmbedSource({ force: true });
+          return;
+        }
+        const payload = this.buildEmbedPayload(options);
         await this.copyTextToClipboard(payload.code);
         showToast("Embed iframe copied");
       } catch (error) {
