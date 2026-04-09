@@ -180,13 +180,19 @@ canvas {
 }
 
 .lil-gui.root>.title {
-  background: var(--viewer-gui-title-bg);
+  background: var(--viewer-gui-title-hover-bg);
+  opacity: 1.0;
+}
+
+#guiContainer > .lil-gui.root > .children > .lil-gui.viewer-gui-main-folder > .title {
+  background: var(--viewer-gui-title-hover-bg);
+  opacity: 1;
 }
 
 @media (hover: hover) {
     body:not(.lil-gui-dragging) .lil-gui .title:hover {
         background: var(--viewer-gui-title-hover-bg);
-        opacity: .95;
+        opacity: 1.0;
     }
 }
 
@@ -1040,6 +1046,158 @@ canvas {
   font-size: 13px;
   line-height: 1.35;
   z-index: 99999;
+}
+
+#annotationDialog[hidden] {
+  display: none !important;
+}
+
+#annotationDialog {
+  position: fixed;
+  inset: auto;
+  width: 0;
+  height: 0;
+  z-index: 999999;
+  overflow: hidden;
+}
+
+.annotation-dialog__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 14, 22, 0.56);
+  backdrop-filter: blur(1.5px);
+}
+
+.annotation-dialog__panel {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(820px, calc(100% - 28px));
+  max-width: calc(100% - 28px);
+  max-height: min(82%, 700px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid var(--viewer-panel-border);
+  background: var(--viewer-panel-embed-bg);
+  color: var(--viewer-panel-text);
+  box-shadow: var(--viewer-panel-shadow);
+  box-sizing: border-box;
+}
+
+.annotation-dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.annotation-dialog__header h3 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.annotation-dialog__close,
+.annotation-dialog__actions button {
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: var(--viewer-panel-bg);
+  color: var(--viewer-panel-text);
+  font: inherit;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.annotation-dialog__close {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  font-size: 24px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.annotation-dialog__close:hover,
+.annotation-dialog__actions button:hover {
+  background: var(--viewer-panel-bg-hover);
+}
+
+.annotation-dialog__form {
+  display: grid;
+  gap: 10px;
+}
+
+.annotation-dialog__form label {
+  display: grid;
+  gap: 5px;
+  font-weight: 600;
+}
+
+.annotation-dialog__form input,
+.annotation-dialog__form textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: var(--viewer-panel-bg);
+  color: var(--viewer-panel-text);
+  font: inherit;
+  padding: 7px 9px;
+}
+
+.annotation-dialog__form textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.annotation-dialog__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+#annotationPOITooltip[hidden] {
+  display: none !important;
+}
+
+#annotationPOITooltip {
+  position: fixed;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, calc(-100% - 14px));
+  z-index: 999998;
+  pointer-events: none;
+}
+
+.annotation-poi-tooltip__panel {
+  position: relative;
+  min-width: 120px;
+  max-width: min(320px, calc(100vw - 32px));
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 8px;
+  background: var(--viewer-panel-embed-bg);
+  color: var(--viewer-panel-text);
+  box-shadow: var(--viewer-panel-shadow);
+  padding: 7px 10px;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+}
+
+.annotation-poi-tooltip__title {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .embed-config-header {

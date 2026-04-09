@@ -120,6 +120,9 @@ Then, basic configuration should be changed:
         "radial-gradient(circle, #ffffff 0%, #999999 100%)",
       performanceMode: {
         Performance: "high-performance",
+      },
+      measurement: {
+        modelUnitInMeters: 1,
       }
     },
   };
@@ -133,6 +136,7 @@ basePath - relative path where this script is placed
 entityIdUri - WissKI side URI that can deliver ID of the entity
 attributeId - the ID name that container will be given
 lightweight - use Viewer as simple version - mostly for usage as a standalone 3D viewer
+measurement.modelUnitInMeters - conversion factor used by distance measurement labels (how many meters equals one model unit, e.g. `1` for meters, `0.01` for centimeters, `0.001` for millimeters)
 ```
 
 **3D DFG Viewer functions overview**

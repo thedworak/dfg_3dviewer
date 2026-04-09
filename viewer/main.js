@@ -160,6 +160,20 @@ export const Viewer = {
   selectedObject: false,
   selectedObjects:[],
   selectedFaces: [],
+  annotationEntries: [],
+  annotationDialog: null,
+  annotationDialogHost: null,
+  annotationDialogTitleInput: null,
+  annotationDialogDescriptionInput: null,
+  annotationTargetFaceKeys: [],
+  annotationBatchGroupId: "",
+  annotationPOIGroup: null,
+  annotationPOIMarkers: [],
+  annotationPOITooltip: null,
+  annotationPOITooltipTitle: null,
+  annotationPOITooltipTarget: null,
+  annotationImportInput: null,
+  pendingAnnotationsXml: "",
   pickingTexture: null,
   windowHalfX: null,
   windowHalfY: null,
@@ -248,11 +262,13 @@ export const Viewer = {
   propertiesFolder: null,
   planeObjects: [],
   editorFolder: null,
+  metadataFolder: null,
   materialsFolder: null,
   pickingModeController: null,
   distanceMeasurementController: null,
   clearSelectedFacesController: null,
   selectedFacesCountController: null,
+  addAnnotationController: null,
   textMesh: null,
   textMeshDistance: null,
   ruler: [],
@@ -500,6 +516,31 @@ export const Viewer = {
     );
   },
 
+  getDistanceMeasurementScaleMeters() {
+    const configuredScale = Number(core.CONFIG?.viewer?.measurement?.modelUnitInMeters);
+    if (Number.isFinite(configuredScale) && configuredScale > 0) return configuredScale;
+    return 1;
+  },
+
+  formatMeasuredDistance(rawDistanceInModelUnits) {
+    const scaleMeters = this.getDistanceMeasurementScaleMeters();
+    const meters = rawDistanceInModelUnits * scaleMeters;
+
+    if (!Number.isFinite(meters)) {
+      return { text: "0 mm", meters: 0, scaleMeters };
+    }
+
+    if (meters >= 1) {
+      return { text: `${meters.toFixed(2)} m`, meters, scaleMeters };
+    }
+
+    if (meters >= 0.01) {
+      return { text: `${(meters * 100).toFixed(1)} cm`, meters, scaleMeters };
+    }
+
+    return { text: `${(meters * 1000).toFixed(0)} mm`, meters, scaleMeters };
+  },
+
   updateSelectedFacesControllerLabel() {
     if (!this.selectedFacesCountController?.name) return;
     this.selectedFacesCountController.name("Selected faces");
@@ -524,7 +565,13 @@ export const Viewer = {
     const method = this.pickingMode ? "show" : "hide";
     this.clearSelectedFacesController?.[method]?.();
     this.selectedFacesCountController?.[method]?.();
+    this.updateAddAnnotationControllerState();
     this.updatePickingHintVisibility();
+  },
+
+  updateAddAnnotationControllerState() {
+    if (!this.addAnnotationController) return;
+    this.addAnnotationController.enable?.();
   },
 
   getKeyboardShortcutsText() {
@@ -1346,6 +1393,10 @@ export const Viewer = {
   resetLoadedModelState() {
     Viewer.restoreLastPickedFace();
     Viewer.clearSelectedFaces();
+    Viewer.closeAnnotationDialog();
+    Viewer.annotationEntries.length = 0;
+    Viewer.pendingAnnotationsXml = "";
+    Viewer.clearAnnotationPOIs();
     core.transformControl?.detach?.();
     core.transformControlLight?.detach?.();
     core.transformControlLightTarget?.detach?.();
@@ -1483,6 +1534,9 @@ export const Viewer = {
             "radial-gradient(circle, #ffffff 0%, #999999 100%)",
           performanceMode: {
             Performance: "high-performance",
+          },
+          measurement: {
+            modelUnitInMeters: 1,
           }
         },
       };
@@ -2317,13 +2371,13 @@ export const Viewer = {
     return intersections.find((entry) => !Viewer.isPickingOverlayObject(entry?.object)) ?? null;
   },
 
-  getFaceSelectionKey(objectId, faceIndex) {
-    if (!objectId || faceIndex === null || faceIndex === undefined) return "";
-    return `${objectId}:${faceIndex}`;
+  getFaceSelectionKey(targetId, faceIndex) {
+    if (!targetId || faceIndex === null || faceIndex === undefined) return "";
+    return `${targetId}:${faceIndex}`;
   },
 
-  findSelectedFaceIndex(objectId, faceIndex) {
-    const key = Viewer.getFaceSelectionKey(objectId, faceIndex);
+  findSelectedFaceIndex(targetId, faceIndex) {
+    const key = Viewer.getFaceSelectionKey(targetId, faceIndex);
     return Viewer.selectedFaces.findIndex((entry) => entry.key === key);
   },
 
@@ -2331,7 +2385,909 @@ export const Viewer = {
     Viewer.pickingStats["Selected faces"] = Array.isArray(Viewer.selectedFaces)
       ? Viewer.selectedFaces.length
       : 0;
+    const selectedFacesCount = Array.isArray(Viewer.selectedFaces) ? Viewer.selectedFaces.length : 0;
+    if (selectedFacesCount < 1 && Viewer.annotationDialog && Viewer.annotationDialog.hidden === false) {
+      Viewer.closeAnnotationDialog();
+    }
+    Viewer.updateAddAnnotationControllerState();
     Viewer.updatePickingHintVisibility();
+  },
+
+  toStableIdToken(value) {
+    const normalized = String(value || "")
+      .trim()
+      .replace(/[^a-zA-Z0-9._-]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+    return normalized || "target";
+  },
+
+  getSelectionRootObject(object) {
+    let current = object;
+    while (current?.parent && current.parent !== core.scene) {
+      current = current.parent;
+    }
+    return current || object;
+  },
+
+  getSelectionRootSlot(rootObject) {
+    if (!rootObject || !Array.isArray(core.mainObject)) return -1;
+    return core.mainObject.findIndex((entry) => {
+      if (entry === rootObject) return true;
+      return Array.isArray(entry) && entry.includes(rootObject);
+    });
+  },
+
+  getObjectHierarchyPath(object, rootObject) {
+    if (!object || !rootObject) return "";
+    const path = [];
+    let current = object;
+    while (current && current !== rootObject) {
+      const parent = current.parent;
+      if (!parent) break;
+      const index = parent.children.indexOf(current);
+      path.push(index >= 0 ? String(index) : "x");
+      current = parent;
+    }
+    return path.reverse().join(".") || "root";
+  },
+
+  resolveFaceTargetId(object) {
+    if (!object) return "";
+
+    const explicitId = object.userData?.annotationTargetId || object.userData?.id;
+    if (explicitId) return String(explicitId);
+
+    const rootObject = Viewer.getSelectionRootObject(object);
+    const rootSlot = Viewer.getSelectionRootSlot(rootObject);
+    const path = Viewer.getObjectHierarchyPath(object, rootObject);
+    let rootTag = rootSlot >= 0 ? `m${rootSlot}` : "m0";
+    if (rootSlot >= 0 && Array.isArray(core.mainObject?.[rootSlot])) {
+      const rootIndex = core.mainObject[rootSlot].indexOf(rootObject);
+      if (rootIndex >= 0) {
+        rootTag = `${rootTag}.${rootIndex}`;
+      }
+    }
+    const targetId = `${rootTag}:${path}`;
+
+    object.userData ??= {};
+    object.userData.annotationTargetId = targetId;
+    return targetId;
+  },
+
+  resolveObjectByTargetId(targetId) {
+    const raw = String(targetId || "").trim();
+    const match = raw.match(/^m(\d+)(?:\.(\d+))?:(.+)$/);
+    if (!match) return null;
+
+    const slot = Number.parseInt(match[1], 10);
+    const rootIndex = Number.parseInt(match[2] || "0", 10);
+    const path = match[3] || "root";
+    if (!Number.isInteger(slot) || slot < 0) return null;
+
+    const entry = core.mainObject?.[slot];
+    if (!entry) return null;
+    let rootObject = Array.isArray(entry) ? entry[rootIndex] : entry;
+    if (!rootObject) return null;
+
+    if (path === "root") return rootObject;
+    const segments = path.split(".").filter(Boolean);
+    for (const segment of segments) {
+      const childIndex = Number.parseInt(segment, 10);
+      if (!Number.isInteger(childIndex) || childIndex < 0) return null;
+      rootObject = rootObject.children?.[childIndex];
+      if (!rootObject) return null;
+    }
+
+    return rootObject;
+  },
+
+  getFaceCentroidWorld(object, faceIndex) {
+    const geometry = object?.geometry;
+    if (!geometry || !geometry.getAttribute) return null;
+    const position = geometry.getAttribute("position");
+    if (!position) return null;
+    const face = Number(faceIndex);
+    if (!Number.isInteger(face) || face < 0) return null;
+
+    let ia = face * 3;
+    let ib = ia + 1;
+    let ic = ia + 2;
+    const index = geometry.getIndex?.() || geometry.index || null;
+    if (index?.array) {
+      const arr = index.array;
+      if (ic >= arr.length) return null;
+      ia = arr[ia];
+      ib = arr[ib];
+      ic = arr[ic];
+    } else if (ic >= position.count) {
+      return null;
+    }
+
+    const va = new THREE.Vector3().fromBufferAttribute(position, ia);
+    const vb = new THREE.Vector3().fromBufferAttribute(position, ib);
+    const vc = new THREE.Vector3().fromBufferAttribute(position, ic);
+    const center = va.add(vb).add(vc).multiplyScalar(1 / 3);
+    object.updateMatrixWorld?.(true);
+    center.applyMatrix4(object.matrixWorld);
+    return center;
+  },
+
+  clearAnnotationPOIs() {
+    this.closeAnnotationPOITooltip();
+    if (!this.annotationPOIGroup) {
+      this.annotationPOIMarkers = [];
+      return;
+    }
+
+    this.annotationPOIGroup.children.slice().forEach((child) => {
+      this.removeAndDisposeFromScene(child);
+    });
+    this.annotationPOIGroup.clear();
+    this.annotationPOIMarkers = [];
+    this.annotationPOIGroup.visible = false;
+  },
+
+  ensureAnnotationPOIGroup() {
+    if (this.annotationPOIGroup) return this.annotationPOIGroup;
+    const group = new THREE.Group();
+    group.name = "annotation-poi-group";
+    group.visible = false;
+    core.scene?.add?.(group);
+    this.annotationPOIGroup = group;
+    return group;
+  },
+
+  createAnnotationPOIMarker(entry, position) {
+    const radius = Math.max((this.gridSize || core.gridSize || 1) / 180, 0.005);
+    const marker = new THREE.Mesh(
+      new THREE.SphereGeometry(radius, 14, 12),
+      new THREE.MeshStandardMaterial({
+        color: 0xffc107,
+        emissive: 0x7a5200,
+        emissiveIntensity: 0.9,
+        roughness: 0.3,
+        metalness: 0.15,
+        depthTest: false,
+      })
+    );
+    marker.position.copy(position);
+    marker.renderOrder = 1200;
+    marker.userData.isAnnotationPOI = true;
+    marker.userData.annotationId = entry.id;
+    marker.userData.groupId = entry.groupId || "";
+    marker.userData.key = entry.key || "";
+    marker.userData.targetId = entry.targetId;
+    marker.userData.faceIndex = entry.faceIndex;
+    marker.userData.title = entry.title || "";
+    return marker;
+  },
+
+  ensureAnnotationPOITooltip() {
+    if (this.annotationPOITooltip) return this.annotationPOITooltip;
+    const tooltip = document.createElement("div");
+    tooltip.id = "annotationPOITooltip";
+    tooltip.className = "annotation-poi-tooltip";
+    tooltip.hidden = true;
+    tooltip.innerHTML = `
+      <div class="annotation-poi-tooltip__panel" role="status" aria-live="polite" aria-atomic="true">
+        <div class="annotation-poi-tooltip__title" id="annotationPOITooltipTitle"></div>
+      </div>
+    `;
+    document.body.appendChild(tooltip);
+    this.annotationPOITooltip = tooltip;
+    this.annotationPOITooltipTitle = tooltip.querySelector("#annotationPOITooltipTitle");
+    return tooltip;
+  },
+
+  openAnnotationPOITooltip(marker) {
+    if (!marker?.userData?.isAnnotationPOI) {
+      this.closeAnnotationPOITooltip();
+      return false;
+    }
+
+    const tooltip = this.ensureAnnotationPOITooltip();
+    if (!tooltip) return false;
+
+    this.annotationPOITooltipTarget = marker;
+    const titleText = String(marker.userData?.title || "").trim();
+    if (this.annotationPOITooltipTitle) {
+      this.annotationPOITooltipTitle.textContent = titleText || "Annotation";
+    }
+
+    tooltip.hidden = false;
+    tooltip.style.visibility = "visible";
+    this.updateAnnotationPOITooltipPosition();
+    return true;
+  },
+
+  getAnnotationEntriesForPOIMarker(marker) {
+    if (!marker?.userData?.isAnnotationPOI) return [];
+    const markerId = String(marker.userData?.annotationId || "").trim();
+    const markerGroupId = String(marker.userData?.groupId || "").trim();
+    const markerKey = String(marker.userData?.key || "").trim();
+
+    let baseEntry = null;
+    if (markerId) {
+      baseEntry = this.annotationEntries.find((entry) => String(entry?.id || "") === markerId) || null;
+    }
+    if (!baseEntry && markerKey) {
+      baseEntry = this.annotationEntries.find((entry) => String(entry?.key || "") === markerKey) || null;
+    }
+
+    const effectiveGroupId = String(baseEntry?.groupId || markerGroupId || "").trim();
+    if (effectiveGroupId) {
+      const groupedEntries = this.annotationEntries.filter(
+        (entry) => String(entry?.groupId || "").trim() === effectiveGroupId
+      );
+      if (groupedEntries.length > 0) return groupedEntries;
+    }
+
+    if (baseEntry) return [baseEntry];
+
+    const fallbackTargetId = String(marker.userData?.targetId || "").trim();
+    const fallbackFaceIndex = Number(marker.userData?.faceIndex);
+    if (!fallbackTargetId || !Number.isInteger(fallbackFaceIndex) || fallbackFaceIndex < 0) return [];
+    return [{
+      id: markerId || "",
+      key: this.getFaceSelectionKey(fallbackTargetId, fallbackFaceIndex),
+      targetId: fallbackTargetId,
+      object: fallbackTargetId,
+      faceIndex: fallbackFaceIndex,
+      title: String(marker.userData?.title || "").trim(),
+      description: "",
+      groupId: effectiveGroupId,
+    }];
+  },
+
+  openAnnotationDialogFromPOIMarker(marker) {
+    const entries = this.getAnnotationEntriesForPOIMarker(marker);
+    if (!entries.length) {
+      showToast("Annotation data not found for this POI.", "warning");
+      return false;
+    }
+
+    this.buildAnnotationDialog();
+    if (!this.annotationDialog) return false;
+
+    const keys = entries
+      .map((entry) => String(entry?.key || "").trim())
+      .filter(Boolean);
+    this.annotationTargetFaceKeys = Array.from(new Set(keys));
+
+    const existingGroupIds = Array.from(
+      new Set(entries.map((entry) => String(entry?.groupId || "").trim()).filter(Boolean))
+    );
+    this.annotationBatchGroupId = existingGroupIds.length === 1
+      ? existingGroupIds[0]
+      : `anno-group-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+    const uniqueTitles = Array.from(
+      new Set(entries.map((entry) => String(entry?.title || "").trim()))
+    );
+    const uniqueDescriptions = Array.from(
+      new Set(entries.map((entry) => String(entry?.description || "").trim()))
+    );
+    this.annotationDialogTitleInput.value = uniqueTitles.length === 1 ? uniqueTitles[0] : "";
+    this.annotationDialogDescriptionInput.value =
+      uniqueDescriptions.length === 1 ? uniqueDescriptions[0] : "";
+
+    this.updateAnnotationDialogBounds();
+    this.annotationDialog.hidden = false;
+    this.closeAnnotationPOITooltip();
+    this.closeActionMenu();
+    this.annotationDialogTitleInput?.focus();
+    this.annotationDialogTitleInput?.select();
+    return true;
+  },
+
+  closeAnnotationPOITooltip() {
+    this.annotationPOITooltipTarget = null;
+    if (!this.annotationPOITooltip) return;
+    this.annotationPOITooltip.hidden = true;
+    this.annotationPOITooltip.style.visibility = "hidden";
+  },
+
+  updateAnnotationPOITooltipPosition() {
+    const tooltip = this.annotationPOITooltip;
+    const marker = this.annotationPOITooltipTarget;
+    if (!tooltip || tooltip.hidden || !marker || !core.camera) return;
+
+    const rect =
+      Viewer.mainCanvas?.getBoundingClientRect?.() ||
+      core.container?.getBoundingClientRect?.();
+    if (!rect || rect.width <= 0 || rect.height <= 0) return;
+
+    const worldPosition = new THREE.Vector3();
+    marker.getWorldPosition(worldPosition);
+    const projected = worldPosition.clone().project(core.camera);
+    const withinDepth = projected.z >= -1 && projected.z <= 1;
+    const screenX = rect.left + ((projected.x + 1) / 2) * rect.width;
+    const screenY = rect.top + ((-projected.y + 1) / 2) * rect.height;
+    const withinHorizontal = screenX >= rect.left && screenX <= rect.right;
+    const withinVertical = screenY >= rect.top && screenY <= rect.bottom;
+    if (!withinDepth || !withinHorizontal || !withinVertical) {
+      tooltip.style.visibility = "hidden";
+      return;
+    }
+
+    tooltip.style.left = `${Math.round(screenX)}px`;
+    tooltip.style.top = `${Math.round(screenY)}px`;
+    tooltip.style.visibility = "visible";
+  },
+
+  refreshAnnotationPOIs() {
+    this.clearAnnotationPOIs();
+    const entries = this.getAnnotationEntriesForPersistence();
+    if (!entries.length) return 0;
+
+    const group = this.ensureAnnotationPOIGroup();
+    let added = 0;
+    entries.forEach((entry) => {
+      const object = this.resolveObjectByTargetId(entry.targetId);
+      if (!object) return;
+      const point = this.getFaceCentroidWorld(object, entry.faceIndex);
+      if (!point) return;
+      const marker = this.createAnnotationPOIMarker(entry, point);
+      group.add(marker);
+      this.annotationPOIMarkers.push(marker);
+      added += 1;
+    });
+
+    group.visible = added > 0;
+    return added;
+  },
+
+  buildAnnotationDialog() {
+    if (!core.container || this.annotationDialog) return;
+
+    const dialog = document.createElement("div");
+    dialog.id = "annotationDialog";
+    dialog.className = "annotation-dialog";
+    dialog.hidden = true;
+    dialog.innerHTML = `
+      <div class="annotation-dialog__backdrop" data-annotation-dismiss="true"></div>
+      <div class="annotation-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="annotationDialogTitle">
+        <div class="annotation-dialog__header">
+          <h3 id="annotationDialogTitle">Add annotation</h3>
+          <button type="button" class="annotation-dialog__close" data-annotation-dismiss="true" aria-label="Close annotation dialog">&times;</button>
+        </div>
+        <form id="annotationDialogForm" class="annotation-dialog__form">
+          <label>
+            <span>Title</span>
+            <input id="annotationTitleInput" name="title" type="text" maxlength="120" required />
+          </label>
+          <label>
+            <span>Description</span>
+            <textarea id="annotationDescriptionInput" name="description" rows="5" maxlength="4000"></textarea>
+          </label>
+          <div class="annotation-dialog__actions">
+            <button type="submit">Save annotation</button>
+            <button type="button" data-annotation-dismiss="true">Cancel</button>
+          </div>
+        </form>
+      </div>
+    `;
+
+    document.body.appendChild(dialog);
+    this.annotationDialog = dialog;
+    this.annotationDialogHost = document.body;
+    this.annotationDialogTitleInput = dialog.querySelector("#annotationTitleInput");
+    this.annotationDialogDescriptionInput = dialog.querySelector("#annotationDescriptionInput");
+    const form = dialog.querySelector("#annotationDialogForm");
+
+    this.bindEventListener(dialog, "click", (event) => {
+      const dismissTrigger = event.target?.closest?.("[data-annotation-dismiss='true']");
+      if (dismissTrigger) {
+        this.closeAnnotationDialog();
+      }
+    });
+
+    this.bindEventListener(document, "keydown", (event) => {
+      if (event.key !== "Escape") return;
+      if (!this.annotationDialog || this.annotationDialog.hidden) return;
+      event.preventDefault();
+      this.closeAnnotationDialog();
+    });
+
+    this.bindEventListener(form, "submit", (event) => {
+      event.preventDefault();
+      this.saveAnnotationFromDialog();
+    });
+
+    this.bindEventListener(window, "resize", () => this.updateAnnotationDialogBounds());
+    this.bindEventListener(window, "scroll", () => this.updateAnnotationDialogBounds(), true);
+    this.bindEventListener(document, "fullscreenchange", () => this.updateAnnotationDialogBounds());
+  },
+
+  updateAnnotationDialogBounds() {
+    if (!this.annotationDialog) return;
+    const targetRect =
+      Viewer.mainCanvas?.getBoundingClientRect?.() ||
+      core.container?.getBoundingClientRect?.();
+    if (!targetRect) return;
+
+    const left = Math.max(0, Math.round(targetRect.left));
+    const top = Math.max(0, Math.round(targetRect.top));
+    const width = Math.max(0, Math.round(targetRect.width));
+    const height = Math.max(0, Math.round(targetRect.height));
+
+    this.annotationDialog.style.left = `${left}px`;
+    this.annotationDialog.style.top = `${top}px`;
+    this.annotationDialog.style.width = `${width}px`;
+    this.annotationDialog.style.height = `${height}px`;
+  },
+
+  openAnnotationDialog() {
+    if (!Array.isArray(this.selectedFaces) || this.selectedFaces.length === 0) {
+      showToast("Select at least one face to add annotation.", "warning");
+      return;
+    }
+
+    this.buildAnnotationDialog();
+    if (!this.annotationDialog) return;
+
+    const selectedKeys = this.selectedFaces
+      .map((entry) => String(entry?.key || "").trim())
+      .filter(Boolean);
+    this.annotationTargetFaceKeys = selectedKeys;
+    const existingGroupIds = Array.from(
+      new Set(
+        selectedKeys
+          .map((key) => this.annotationEntries.find((entry) => entry.key === key)?.groupId || "")
+          .map((value) => String(value).trim())
+          .filter(Boolean)
+      )
+    );
+    this.annotationBatchGroupId = existingGroupIds.length === 1
+      ? existingGroupIds[0]
+      : `anno-group-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+    const existingEntries = selectedKeys
+      .map((key) => this.annotationEntries.find((entry) => entry.key === key))
+      .filter(Boolean);
+    const uniqueTitles = Array.from(
+      new Set(existingEntries.map((entry) => String(entry.title || "").trim()))
+    );
+    const uniqueDescriptions = Array.from(
+      new Set(existingEntries.map((entry) => String(entry.description || "").trim()))
+    );
+    this.annotationDialogTitleInput.value = uniqueTitles.length === 1 ? uniqueTitles[0] : "";
+    this.annotationDialogDescriptionInput.value =
+      uniqueDescriptions.length === 1 ? uniqueDescriptions[0] : "";
+    this.updateAnnotationDialogBounds();
+    this.annotationDialog.hidden = false;
+    this.closeAnnotationPOITooltip();
+    this.closeActionMenu();
+    this.annotationDialogTitleInput?.focus();
+    this.annotationDialogTitleInput?.select();
+  },
+
+  openAnnotationDialogWithAutoPicking() {
+    if (!this.pickingMode) {
+      this.pickingMode = true;
+      this.RULER_MODE = false;
+      this.updateDistanceMeasurementControllerLabel();
+      this.updatePickingModeControllerLabel();
+      this.updatePickingControlsVisibility();
+      showToast("Face picking is enabled", {
+        duration: 1400,
+        replace: true,
+        key: "face-picking-mode",
+      });
+    }
+
+    if (!Array.isArray(this.selectedFaces) || this.selectedFaces.length === 0) {
+      showToast("Select at least one face, then run Add annotations again.", "warning");
+      return;
+    }
+
+    this.openAnnotationDialog();
+  },
+
+  closeAnnotationDialog() {
+    if (!this.annotationDialog) return;
+    this.annotationDialog.hidden = true;
+    this.annotationTargetFaceKeys = [];
+    this.annotationBatchGroupId = "";
+  },
+
+  saveAnnotationFromDialog() {
+    if (!Array.isArray(this.annotationTargetFaceKeys) || this.annotationTargetFaceKeys.length === 0) {
+      showToast("No faces selected for annotation.", "warning");
+      this.closeAnnotationDialog();
+      return;
+    }
+
+    const title = String(this.annotationDialogTitleInput?.value || "").trim();
+    const description = String(this.annotationDialogDescriptionInput?.value || "").trim();
+
+    if (!title) {
+      showToast("Title is required.", "warning");
+      this.annotationDialogTitleInput?.focus();
+      return;
+    }
+
+    const selectedFaces = this.annotationTargetFaceKeys
+      .map((key) => {
+        const selected = this.selectedFaces.find((entry) => entry.key === key);
+        if (selected) return selected;
+        const existingEntry = this.annotationEntries.find((entry) => entry.key === key);
+        if (!existingEntry) return null;
+        return {
+          key: existingEntry.key,
+          targetId: existingEntry.targetId || existingEntry.object || "",
+          object: existingEntry.object || existingEntry.targetId || "",
+          faceIndex: existingEntry.faceIndex,
+        };
+      })
+      .filter(Boolean);
+    if (selectedFaces.length === 0) {
+      showToast("Selected faces are no longer active.", "warning");
+      this.closeAnnotationDialog();
+      return;
+    }
+
+    const nowIso = new Date().toISOString();
+    const groupId = String(this.annotationBatchGroupId || `anno-group-${Date.now()}`);
+    let updatedCount = 0;
+    let addedCount = 0;
+
+    selectedFaces.forEach((selectedFace) => {
+      const faceNumber = Number(selectedFace.faceIndex);
+      const normalizedFaceNumber = Number.isInteger(faceNumber) ? faceNumber : -1;
+      const annotationTargetId = selectedFace.targetId || selectedFace.object || "";
+      const stableTargetToken = Viewer.toStableIdToken(annotationTargetId);
+      const existingIndex = this.annotationEntries.findIndex(
+        (entry) => entry.key === selectedFace.key
+      );
+      if (!annotationTargetId || normalizedFaceNumber < 0) return;
+
+      const annotationPayload = {
+        id: existingIndex >= 0
+          ? this.annotationEntries[existingIndex].id
+          : `anno-${stableTargetToken}-f${normalizedFaceNumber}`,
+        groupId,
+        key: selectedFace.key,
+        object: annotationTargetId,
+        targetId: annotationTargetId,
+        faceIndex: normalizedFaceNumber,
+        faceNumbers: [normalizedFaceNumber],
+        target: {
+          id: annotationTargetId,
+          faces: [normalizedFaceNumber],
+        },
+        title,
+        description,
+        updatedAt: nowIso,
+      };
+
+      if (existingIndex >= 0) {
+        annotationPayload.createdAt = this.annotationEntries[existingIndex].createdAt || nowIso;
+        this.annotationEntries.splice(existingIndex, 1, annotationPayload);
+        updatedCount += 1;
+      } else {
+        annotationPayload.createdAt = nowIso;
+        this.annotationEntries.push(annotationPayload);
+        addedCount += 1;
+      }
+    });
+
+    const totalChanged = updatedCount + addedCount;
+    if (totalChanged > 0) {
+      showToast(`Annotations saved for ${totalChanged} face${totalChanged === 1 ? "" : "s"}.`, {
+        duration: 1800,
+        replace: true,
+        key: "annotation-saved",
+      });
+    }
+
+    this.refreshAnnotationPOIs();
+    this.closeAnnotationDialog();
+  },
+
+  getAnnotationEntriesForPersistence() {
+    if (!Array.isArray(this.annotationEntries)) return [];
+
+    return this.annotationEntries
+      .map((entry, index) => {
+        if (!entry || typeof entry !== "object") return null;
+        const targetId = String(entry.targetId || entry.object || "").trim();
+        const faceNumbersRaw = Array.isArray(entry.faceNumbers)
+          ? entry.faceNumbers
+          : [entry.faceIndex];
+        const faceNumbers = faceNumbersRaw
+          .map((value) => Number(value))
+          .filter((value) => Number.isInteger(value) && value >= 0);
+        const faceIndex = faceNumbers[0] ?? Number(entry.faceIndex);
+        const normalizedFaceIndex = Number.isInteger(faceIndex) && faceIndex >= 0 ? faceIndex : -1;
+        if (!targetId || normalizedFaceIndex < 0) return null;
+
+        const key = this.getFaceSelectionKey(targetId, normalizedFaceIndex);
+        const fallbackId = `anno-${this.toStableIdToken(targetId)}-f${normalizedFaceIndex}`;
+
+        return {
+          id: String(entry.id || fallbackId),
+          groupId: entry.groupId ? String(entry.groupId) : "",
+          key,
+          object: targetId,
+          targetId,
+          faceIndex: normalizedFaceIndex,
+          faceNumbers: faceNumbers.length > 0 ? faceNumbers : [normalizedFaceIndex],
+          target: {
+            id: targetId,
+            faces: faceNumbers.length > 0 ? faceNumbers : [normalizedFaceIndex],
+          },
+          title: String(entry.title || "").trim(),
+          description: String(entry.description || "").trim(),
+          createdAt: entry.createdAt ? String(entry.createdAt) : "",
+          updatedAt: entry.updatedAt ? String(entry.updatedAt) : "",
+        };
+      })
+      .filter(Boolean);
+  },
+
+  exportAnnotationsToIIIFXml() {
+    const entries = this.getAnnotationEntriesForPersistence();
+    const doc = document.implementation.createDocument("", "", null);
+    const root = doc.createElement("iiif:annotations");
+    root.setAttribute("xmlns:iiif", "http://iiif.io/api/presentation/3#");
+    root.setAttribute("version", "3.0");
+    root.setAttribute("generatedAt", new Date().toISOString());
+    doc.appendChild(root);
+
+    entries.forEach((entry) => {
+      const annotation = doc.createElement("iiif:annotation");
+      annotation.setAttribute("id", entry.id);
+      annotation.setAttribute("type", "Annotation");
+      annotation.setAttribute("motivation", "commenting");
+      if (entry.groupId) {
+        annotation.setAttribute("groupId", String(entry.groupId));
+      }
+
+      const body = doc.createElement("iiif:body");
+      body.setAttribute("type", "TextualBody");
+      body.setAttribute("format", "text/plain");
+
+      const titleNode = doc.createElement("iiif:title");
+      titleNode.textContent = entry.title || "";
+      body.appendChild(titleNode);
+
+      const descriptionNode = doc.createElement("iiif:description");
+      descriptionNode.textContent = entry.description || "";
+      body.appendChild(descriptionNode);
+      annotation.appendChild(body);
+
+      const targetNode = doc.createElement("iiif:target");
+      targetNode.setAttribute("id", entry.targetId);
+      targetNode.setAttribute("faces", entry.faceNumbers.join(","));
+      annotation.appendChild(targetNode);
+
+      root.appendChild(annotation);
+    });
+
+    return new XMLSerializer().serializeToString(doc);
+  },
+
+  downloadAnnotationsXmlFile() {
+    const xml = this.exportAnnotationsToIIIFXml();
+    if (!xml) {
+      showToast("No annotations to export.", "warning");
+      return false;
+    }
+
+    const defaultBaseName = core.fileObject?.basename || "annotations";
+    const safeBaseName = String(defaultBaseName).replace(/[^a-zA-Z0-9._-]+/g, "_");
+    const fileName = `${safeBaseName || "annotations"}-iiif-annotations.xml`;
+    const blob = new Blob([xml], { type: "application/xml;charset=utf-8" });
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = fileName;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+    showToast("Annotations XML exported.");
+    return true;
+  },
+
+  ensureAnnotationImportInput() {
+    if (this.annotationImportInput) return this.annotationImportInput;
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".xml,text/xml,application/xml";
+    input.hidden = true;
+    this.bindEventListener(input, "change", async (event) => {
+      const target = event?.target;
+      const file = target?.files?.[0];
+      if (!file) return;
+
+      try {
+        const xmlText = await file.text();
+        const imported = this.importAnnotationsFromIIIFXml(xmlText);
+        if (imported > 0) {
+          showToast(`Imported ${imported} annotation${imported === 1 ? "" : "s"}.`);
+        } else {
+          showToast("No valid annotations found in XML.", "warning");
+        }
+      } catch (error) {
+        console.error(error);
+        showToast("Failed to import annotations XML.", "error");
+      } finally {
+        target.value = "";
+      }
+    });
+    document.body.appendChild(input);
+    this.annotationImportInput = input;
+    return input;
+  },
+
+  triggerAnnotationsXmlImport() {
+    const input = this.ensureAnnotationImportInput();
+    if (!input) return false;
+    input.click();
+    return true;
+  },
+
+  importAnnotationsFromIIIFXml(xmlText) {
+    const xml = String(xmlText || "").trim();
+    if (!xml) {
+      this.annotationEntries = [];
+      return 0;
+    }
+
+    let doc;
+    try {
+      doc = new DOMParser().parseFromString(xml, "application/xml");
+    } catch (_error) {
+      return 0;
+    }
+
+    if (!doc || doc.querySelector("parsererror")) {
+      return 0;
+    }
+
+    const annotations = Array.from(
+      doc.querySelectorAll("annotation, iiif\\:annotation")
+    );
+    const importedEntries = [];
+
+    annotations.forEach((node, index) => {
+      const rawId = node.getAttribute("id") || "";
+      const rawGroupId = node.getAttribute("groupId") || "";
+      const targetNode =
+        node.querySelector("target, iiif\\:target") ||
+        node.getElementsByTagName("target")[0] ||
+        node.getElementsByTagName("iiif:target")[0];
+      const targetId = String(targetNode?.getAttribute?.("id") || "").trim();
+      const facesAttr = String(targetNode?.getAttribute?.("faces") || "").trim();
+      const faceNumbers = facesAttr
+        .split(/[,\s;|]+/)
+        .filter(Boolean)
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value >= 0);
+      const faceIndex = faceNumbers[0];
+      if (!targetId || !Number.isInteger(faceIndex)) return;
+
+      const titleNode =
+        node.querySelector("title, iiif\\:title, label, iiif\\:label") ||
+        node.getElementsByTagName("title")[0] ||
+        node.getElementsByTagName("iiif:title")[0];
+      const descriptionNode =
+        node.querySelector("description, iiif\\:description, value, iiif\\:value") ||
+        node.getElementsByTagName("description")[0] ||
+        node.getElementsByTagName("iiif:description")[0];
+
+      const key = this.getFaceSelectionKey(targetId, faceIndex);
+      importedEntries.push({
+        id: rawId || `anno-${this.toStableIdToken(targetId)}-f${faceIndex}-${index}`,
+        groupId: rawGroupId ? String(rawGroupId) : "",
+        key,
+        object: targetId,
+        targetId,
+        faceIndex,
+        faceNumbers: faceNumbers.length > 0 ? faceNumbers : [faceIndex],
+        target: {
+          id: targetId,
+          faces: faceNumbers.length > 0 ? faceNumbers : [faceIndex],
+        },
+        title: String(titleNode?.textContent || "").trim(),
+        description: String(descriptionNode?.textContent || "").trim(),
+      });
+    });
+
+    this.annotationEntries = importedEntries;
+    this.refreshAnnotationPOIs();
+    return importedEntries.length;
+  },
+
+  hydrateAnnotationsFromMetadataPayload(payload) {
+    if (!payload || typeof payload !== "object") {
+      this.annotationEntries = [];
+      this.refreshAnnotationPOIs();
+      return 0;
+    }
+
+    const xmlCandidate = payload.iiifAnnotationsXml
+      || payload.iiif_annotations_xml
+      || payload.annotationsXml
+      || payload.annotations_xml
+      || "";
+    if (typeof xmlCandidate === "string" && xmlCandidate.trim() !== "") {
+      return this.importAnnotationsFromIIIFXml(xmlCandidate);
+    }
+
+    if (Array.isArray(payload.annotationEntries)) {
+      this.annotationEntries = payload.annotationEntries
+        .map((entry, index) => {
+          const targetId = String(entry?.targetId || entry?.object || entry?.target?.id || "").trim();
+          const faceNumbers = Array.isArray(entry?.faceNumbers)
+            ? entry.faceNumbers
+            : Array.isArray(entry?.target?.faces)
+              ? entry.target.faces
+              : [entry?.faceIndex];
+          const normalizedFaces = faceNumbers
+            .map((value) => Number(value))
+            .filter((value) => Number.isInteger(value) && value >= 0);
+          const faceIndex = normalizedFaces[0];
+          if (!targetId || !Number.isInteger(faceIndex)) return null;
+          return {
+            id: String(entry?.id || `anno-${this.toStableIdToken(targetId)}-f${faceIndex}-${index}`),
+            groupId: entry?.groupId ? String(entry.groupId) : "",
+            key: this.getFaceSelectionKey(targetId, faceIndex),
+            object: targetId,
+            targetId,
+            faceIndex,
+            faceNumbers: normalizedFaces.length > 0 ? normalizedFaces : [faceIndex],
+            target: {
+              id: targetId,
+              faces: normalizedFaces.length > 0 ? normalizedFaces : [faceIndex],
+            },
+            title: String(entry?.title || "").trim(),
+            description: String(entry?.description || "").trim(),
+            createdAt: entry?.createdAt ? String(entry.createdAt) : "",
+            updatedAt: entry?.updatedAt ? String(entry.updatedAt) : "",
+          };
+        })
+        .filter(Boolean);
+      this.refreshAnnotationPOIs();
+      return this.annotationEntries.length;
+    }
+
+    this.annotationEntries = [];
+    this.refreshAnnotationPOIs();
+    return 0;
+  },
+
+  extractAnnotationsXmlFromExportDocument(doc) {
+    if (!doc) return "";
+    const node =
+      doc.querySelector("iiif\\:annotations, annotations, iiif_annotations, iiif_annotations_xml") ||
+      doc.getElementsByTagName("iiif:annotations")[0] ||
+      doc.getElementsByTagName("annotations")[0] ||
+      doc.getElementsByTagName("iiif_annotations")[0] ||
+      doc.getElementsByTagName("iiif_annotations_xml")[0];
+    if (!node) return "";
+
+    if (node.tagName === "iiif_annotations_xml") {
+      return String(node.textContent || "").trim();
+    }
+
+    try {
+      return new XMLSerializer().serializeToString(node);
+    } catch (_error) {
+      return "";
+    }
+  },
+
+  applyPendingAnnotationsIfAny() {
+    const pendingXml = String(this.pendingAnnotationsXml || "").trim();
+    if (!pendingXml) return 0;
+    const imported = this.importAnnotationsFromIIIFXml(pendingXml);
+    this.pendingAnnotationsXml = "";
+    return imported;
   },
 
   clearSelectedFaces() {
@@ -2392,15 +3348,16 @@ export const Viewer = {
   },
 
   toggleSelectedFace(intersection, options = {}) {
-    const objectId = intersection?.object?.id ?? "";
+    const targetId = Viewer.resolveFaceTargetId(intersection?.object);
+    const runtimeObjectId = intersection?.object?.id ?? "";
     const faceIndex = intersection?.faceIndex ?? null;
-    if (!objectId || faceIndex === null) return;
+    if (!targetId || faceIndex === null) return;
 
     const multiSelect = options.multiSelect === true;
-    const selectedFaceIndex = Viewer.findSelectedFaceIndex(objectId, faceIndex);
+    const selectedFaceIndex = Viewer.findSelectedFaceIndex(targetId, faceIndex);
 
     if (!multiSelect) {
-      const clickedFaceKey = Viewer.getFaceSelectionKey(objectId, faceIndex);
+      const clickedFaceKey = Viewer.getFaceSelectionKey(targetId, faceIndex);
       const clickedFaceAlreadySelected =
         selectedFaceIndex >= 0 && Viewer.selectedFaces.length === 1 &&
         Viewer.selectedFaces[0]?.key === clickedFaceKey;
@@ -2428,8 +3385,10 @@ export const Viewer = {
 
     intersection.object.add(overlay);
     Viewer.selectedFaces.push({
-      key: Viewer.getFaceSelectionKey(objectId, faceIndex),
-      object: objectId,
+      key: Viewer.getFaceSelectionKey(targetId, faceIndex),
+      targetId,
+      object: targetId,
+      runtimeObjectId,
       faceIndex,
       overlay,
     });
@@ -2476,13 +3435,14 @@ export const Viewer = {
         newPoint
       );
       var distancePoints = distanceBetweenPointsVector(vectorPoints);
+      const measuredDistance = Viewer.formatMeasuredDistance(distancePoints);
 
       //var distancePoints = distanceBetweenPoints(Viewer.linePoints[Viewer.linePoints.length-2], newPoint);
       var halfwayPoints = halfwayBetweenPoints(
         Viewer.linePoints[Viewer.linePoints.length - 2],
         newPoint
       );
-      Viewer.addTextPoint(distancePoints.toFixed(2), textScale, halfwayPoints);
+      Viewer.addTextPoint(measuredDistance.text, textScale, halfwayPoints);
       var rulerI = 0;
       // `measureSize` was already precomputed outside, keep same scale
       while (rulerI <= distancePoints * 100) {
@@ -2756,6 +3716,7 @@ export const Viewer = {
         });
       });
     }
+    Viewer.updateAnnotationPOITooltipPosition();
 
     core.renderer.clear();
     core.renderer.render(core.scene, core.camera);
@@ -2800,6 +3761,21 @@ export const Viewer = {
         Viewer.onUpPosition.y === Viewer.onDownPosition.y
       ) {
         Viewer.raycaster.setFromCamera(Viewer.onUpPosition, core.camera);
+        if (!Viewer.pickingMode && !Viewer.RULER_MODE) {
+          const poiIntersects = Viewer.raycaster.intersectObjects(
+            Viewer.annotationPOIMarkers || [],
+            true
+          );
+          const poiHit = poiIntersects.find(
+            (entry) => entry?.object?.userData?.isAnnotationPOI === true
+          );
+          if (poiHit?.object) {
+            Viewer.openAnnotationDialogFromPOIMarker(poiHit.object);
+            return;
+          }
+          Viewer.closeAnnotationPOITooltip();
+        }
+
         let intersects = [];
         let primaryIntersection = null;
 
@@ -2848,6 +3824,7 @@ export const Viewer = {
       1;
     if (e.buttons !== 0) {
       Viewer.disableInteractionHint();
+      Viewer.closeAnnotationPOITooltip();
     }
     if (e.buttons == 1) {
       if (Viewer.pointer.x !== Viewer.onDownPosition.x && Viewer.pointer.y !== Viewer.onDownPosition.y) {
@@ -2858,6 +3835,25 @@ export const Viewer = {
         );
       }
     } else {
+      if (!Viewer.pickingMode && !Viewer.RULER_MODE) {
+        if (Viewer.annotationDialog && Viewer.annotationDialog.hidden === false) {
+          Viewer.closeAnnotationPOITooltip();
+        } else {
+          Viewer.raycaster.setFromCamera(Viewer.pointer, core.camera);
+          const poiIntersects = Viewer.raycaster.intersectObjects(
+            Viewer.annotationPOIMarkers || [],
+            true
+          );
+          const poiHit = poiIntersects.find(
+            (entry) => entry?.object?.userData?.isAnnotationPOI === true
+          );
+          if (poiHit?.object) {
+            Viewer.openAnnotationPOITooltip(poiHit.object);
+          } else {
+            Viewer.closeAnnotationPOITooltip();
+          }
+        }
+      }
       if (Viewer.pickingMode) {
         Viewer.raycaster.setFromCamera(Viewer.pointer, core.camera);
         let intersects = [];
@@ -3083,6 +4079,7 @@ export const Viewer = {
     }
 
     await Viewer.mainLoadModel();
+    Viewer.applyPendingAnnotationsIfAny();
   },
 
   async mainLoadModel() {
@@ -3366,6 +4363,10 @@ export const Viewer = {
       M.background = O.background;
     }
 
+    const persistedAnnotations = Viewer.getAnnotationEntriesForPersistence();
+    M.annotationEntries = persistedAnnotations;
+    M.iiifAnnotationsXml = Viewer.exportAnnotationsToIIIFXml();
+
     return M;
   },
 
@@ -3380,6 +4381,8 @@ export const Viewer = {
     Viewer.windowHalfY = core.CONFIG.viewer.canvasDimensions.y / 2;
 
     Viewer.editorFolder = core.gui.addFolder("Editor").close();
+    Viewer.editorFolder.domElement?.classList.add("viewer-gui-main-folder");
+    Viewer.editorFolder.domElement?.setAttribute("data-gui-main-folder", "editor");
     Viewer.editorFolder
       .add(Viewer.transformText, "Transform 3D Object", {
         None: "",
@@ -3562,6 +4565,35 @@ export const Viewer = {
         .listen();
       Viewer.updateSelectedFacesControllerLabel();
       Viewer.selectedFacesCountController.disable();
+
+      Viewer.metadataFolder = core.gui.addFolder("Metadata").close();
+      Viewer.metadataFolder.domElement?.classList.add("viewer-gui-main-folder");
+      Viewer.metadataFolder.domElement?.setAttribute("data-gui-main-folder", "metadata");
+
+      Viewer.addAnnotationController = Viewer.metadataFolder.add(
+        {
+          ["Add annotations"]() {
+            Viewer.openAnnotationDialogWithAutoPicking();
+          },
+        },
+        "Add annotations"
+      );
+      Viewer.metadataFolder.add(
+        {
+          ["Export annotations XML"]() {
+            Viewer.downloadAnnotationsXmlFile();
+          },
+        },
+        "Export annotations XML"
+      );
+      Viewer.metadataFolder.add(
+        {
+          ["Import annotations XML"]() {
+            Viewer.triggerAnnotationsXmlImport();
+          },
+        },
+        "Import annotations XML"
+      );
       Viewer.updatePickingControlsVisibility();
 
       Viewer.distanceMeasurementController = Viewer.editorFolder.add(
@@ -4277,6 +5309,7 @@ export const Viewer = {
 
             const parser = new DOMParser();
             const doc = parser.parseFromString(xmlText, 'application/xml');
+            Viewer.pendingAnnotationsXml = Viewer.extractAnnotationsXmlFromExportDocument(doc);
 
             core.autoPath = '';
 

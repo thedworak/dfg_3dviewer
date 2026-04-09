@@ -499,8 +499,12 @@ export async function fetchSettings(object) {
   const existingHierarchy = lilGUIgetFolder(core.gui, "Hierarchy");
   if (existingHierarchy === null) {
     hierarchyMain = core.gui?.addFolder("Hierarchy").close();
+    hierarchyMain?.domElement?.classList.add("viewer-gui-main-folder");
+    hierarchyMain?.domElement?.setAttribute("data-gui-main-folder", "hierarchy");
   } else {
     hierarchyMain = existingHierarchy;
+    hierarchyMain?.domElement?.classList.add("viewer-gui-main-folder");
+    hierarchyMain?.domElement?.setAttribute("data-gui-main-folder", "hierarchy");
   }
   if (core.CONFIG.entity.metadata.sourceType === "IIIF") {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);
@@ -511,19 +515,24 @@ export async function fetchSettings(object) {
     if (core.CONFIG.entity.proxyPath !== undefined || core.isLightweight) {
       metadataUrl = core.getProxyPath(metadataUrl, core.CONFIG);
       const data = await loadMetadataData(metadataUrl);
+      window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
       await handleMetadataResponse(data, metadata, object, hierarchyMain);
       settingsHandler(object, hierarchyMain, core.CONFIG);
     } else {
       const data = await loadMetadataData(metadataUrl);
+      window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
       await handleMetadataResponse(data, metadata, object, hierarchyMain);
     }
   } else {
+    window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(null);
     await handleMetadataResponse("", metadata, object, hierarchyMain);
   }
   // Add statistics GUI
   let statsMain;
   if (lilGUIgetFolder(core.gui, "Statistics") === null) {
     statsMain = core.gui.addFolder("Statistics").close();
+    statsMain?.domElement?.classList.add("viewer-gui-main-folder");
+    statsMain?.domElement?.setAttribute("data-gui-main-folder", "statistics");
     statsMain
     .add(core.CONFIG.viewer.performanceMode, "Performance", {
       "High-performance": "high-performance",

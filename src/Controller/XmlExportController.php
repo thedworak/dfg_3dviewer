@@ -261,6 +261,15 @@ class XmlExportController extends ControllerBase {
 
     $preview = $this->firstNonEmptyValue($record, ['object_preview', 'preview', 'reconstruction_previews']);
     $metadata_export = $this->firstNonEmptyValue($record, ['metadata_export']);
+    $viewer_metadata = $this->loadViewerMetadataFromModelUrl($converted_file);
+    $iiif_annotations_xml = trim((string) (
+      $viewer_metadata['iiifAnnotationsXml']
+      ?? $viewer_metadata['iiif_annotations_xml']
+      ?? $viewer_metadata['annotationsXml']
+      ?? $viewer_metadata['annotations_xml']
+      ?? ''
+    ));
+    $annotation_entries = $this->extractAnnotationEntriesFromViewerMetadata($viewer_metadata);
     $object_uri = $this->firstNonEmptyValue($record, ['object_URI', 'URI']);
     $description = $this->firstNonEmptyValue($record, ['object_description']);
     $authors = $this->firstNonEmptyValue($record, ['reconstruction_authors']);
@@ -284,6 +293,7 @@ class XmlExportController extends ControllerBase {
     $mets->setAttribute('OBJID', (string) $id);
     $mets->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:mods', 'http://www.loc.gov/mods/v3');
     $mets->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:xlink', 'http://www.w3.org/1999/xlink');
+    $mets->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:iiif', 'http://iiif.io/api/presentation/3#');
     $dom->appendChild($mets);
 
     $metsHdr = $dom->createElement('mets:metsHdr');
@@ -434,6 +444,15 @@ class XmlExportController extends ControllerBase {
     }
     if ($metadata_export !== '') {
       $techXmlData->appendChild($dom->createElement('metadata_export', $metadata_export));
+    }
+    if ($iiif_annotations_xml !== '') {
+      $rawNode = $dom->createElement('iiif_annotations_xml');
+      $rawNode->appendChild($dom->createCDATASection($iiif_annotations_xml));
+      $techXmlData->appendChild($rawNode);
+    }
+    $iiifNode = $this->buildIiifAnnotationsNode($dom, $iiif_annotations_xml, $annotation_entries);
+    if ($iiifNode instanceof \DOMNode) {
+      $techXmlData->appendChild($iiifNode);
     }
 
     $xml = $dom->saveXML();
@@ -709,6 +728,158 @@ class XmlExportController extends ControllerBase {
     $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
 
     return in_array($extension, ['glb', 'gltf', 'fbx', 'obj', 'stl', 'ply', 'dae', '3ds', 'ifc', 'xyz', 'pcd', 'abc'], true);
+  }
+
+  protected function loadViewerMetadataFromModelUrl(string $model_url): array {
+    $path = (string) parse_url($model_url, PHP_URL_PATH);
+    if ($path === '') {
+      return [];
+    }
+
+    $prefix = '/sites/default/files/';
+    $prefix_pos = strpos($path, $prefix);
+    if ($prefix_pos === false) {
+      return [];
+    }
+
+    $relative = ltrim(substr($path, $prefix_pos + strlen($prefix)), '/');
+    if ($relative === '') {
+      return [];
+    }
+
+    $relative = urldecode($relative);
+    $dirname = trim(dirname($relative), '/');
+    $basename = pathinfo($relative, PATHINFO_FILENAME);
+    if ($basename === '' || $basename === '.') {
+      return [];
+    }
+
+    $viewer_uri = 'public://' . ($dirname !== '' ? $dirname . '/' : '') . 'metadata/' . $basename . '_viewer.json';
+    $real_path = $this->fileSystem->realpath($viewer_uri);
+    if ($real_path === false || !is_file($real_path)) {
+      return [];
+    }
+
+    try {
+      $content = file_get_contents($real_path);
+      if ($content === false || trim($content) === '') {
+        return [];
+      }
+      $decoded = json_decode($content, true);
+      return is_array($decoded) ? $decoded : [];
+    }
+    catch (\Throwable $e) {
+      return [];
+    }
+  }
+
+  protected function extractAnnotationEntriesFromViewerMetadata(array $viewer_metadata): array {
+    $entries = $viewer_metadata['annotationEntries'] ?? [];
+    if (!is_array($entries)) {
+      return [];
+    }
+
+    $normalized = [];
+    foreach ($entries as $entry) {
+      if (!is_array($entry)) {
+        continue;
+      }
+
+      $target_id = trim((string) (
+        $entry['targetId']
+        ?? $entry['object']
+        ?? ($entry['target']['id'] ?? '')
+      ));
+      if ($target_id === '') {
+        continue;
+      }
+
+      $faces = [];
+      $raw_faces = $entry['faceNumbers']
+        ?? ($entry['target']['faces'] ?? [$entry['faceIndex'] ?? null]);
+      if (is_array($raw_faces)) {
+        foreach ($raw_faces as $face) {
+          if (is_numeric($face) && (int) $face >= 0) {
+            $faces[] = (int) $face;
+          }
+        }
+      }
+      if (empty($faces)) {
+        continue;
+      }
+
+      $normalized[] = [
+        'id' => trim((string) ($entry['id'] ?? '')),
+        'targetId' => $target_id,
+        'faces' => array_values(array_unique($faces)),
+        'title' => trim((string) ($entry['title'] ?? '')),
+        'description' => trim((string) ($entry['description'] ?? '')),
+      ];
+    }
+
+    return $normalized;
+  }
+
+  protected function buildIiifAnnotationsNode(
+    \DOMDocument $dom,
+    string $iiif_annotations_xml,
+    array $annotation_entries
+  ): ?\DOMNode {
+    $iiif_annotations_xml = trim($iiif_annotations_xml);
+    if ($iiif_annotations_xml !== '') {
+      try {
+        $tmp = new \DOMDocument('1.0', 'UTF-8');
+        $tmp->loadXML($iiif_annotations_xml);
+        if ($tmp->documentElement instanceof \DOMElement) {
+          return $dom->importNode($tmp->documentElement, true);
+        }
+      }
+      catch (\Throwable $e) {
+        // Fallback to normalized entry export below.
+      }
+    }
+
+    if (empty($annotation_entries)) {
+      return null;
+    }
+
+    $root = $dom->createElement('iiif:annotations');
+    $root->setAttribute('version', '3.0');
+
+    foreach ($annotation_entries as $entry) {
+      $target_id = trim((string) ($entry['targetId'] ?? ''));
+      $faces = is_array($entry['faces'] ?? null) ? $entry['faces'] : [];
+      if ($target_id === '' || empty($faces)) {
+        continue;
+      }
+
+      $annotation = $dom->createElement('iiif:annotation');
+      if (!empty($entry['id'])) {
+        $annotation->setAttribute('id', (string) $entry['id']);
+      }
+      $annotation->setAttribute('type', 'Annotation');
+      $annotation->setAttribute('motivation', 'commenting');
+
+      $body = $dom->createElement('iiif:body');
+      $body->setAttribute('type', 'TextualBody');
+      $body->setAttribute('format', 'text/plain');
+      $body->appendChild($dom->createElement('iiif:title', (string) ($entry['title'] ?? '')));
+      $body->appendChild($dom->createElement('iiif:description', (string) ($entry['description'] ?? '')));
+      $annotation->appendChild($body);
+
+      $target = $dom->createElement('iiif:target');
+      $target->setAttribute('id', $target_id);
+      $target->setAttribute('faces', implode(',', array_map('strval', $faces)));
+      $annotation->appendChild($target);
+
+      $root->appendChild($annotation);
+    }
+
+    if (!$root->hasChildNodes()) {
+      return null;
+    }
+
+    return $root;
   }
 
   protected function normalizeDefaultHostUrls(string $xml, string $domain): string {
