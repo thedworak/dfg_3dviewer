@@ -1081,6 +1081,21 @@ canvas {
   margin-right: 4px;
 }
 
+.language-dropdown-item-english::before {
+  content: "🇬🇧 ";
+  margin-right: 4px;
+}
+
+.language-dropdown-item-polish::before {
+  content: "🇵🇱 ";
+  margin-right: 4px;
+}
+
+.language-dropdown-item-german::before {
+  content: "🇩🇪 ";
+  margin-right: 4px;
+}
+
 .embed-icon {
   width: 28px;
   height: 28px;

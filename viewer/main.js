@@ -561,17 +561,17 @@ export const Viewer = {
   updateLanguageControlLabels() {
     if (!this.languageMode) return;
     const languages = [
-      { code: "en", label: "English" },
-      { code: "pl", label: "Polski" },
-      { code: "de", label: "Deutsch" }
+      { code: "en", label: "Language: EN"},
+      { code: "pl", label: "Język: PL"},
+      { code: "de", label: "Sprache: DE"}
     ];
-    const currentLangLabel = languages.find(l => l.code === this.currentLanguage)?.label || "English";
+    const currentLangLabel = languages.find(l => l.code === this.currentLanguage)?.label || "EN";
     this.languageMode.innerHTML = `
       <span class="viewer-action-icon language-icon" aria-hidden="true"></span>
       <span>${currentLangLabel}</span>
     `;
-    this.languageMode.setAttribute("aria-label", this.t("language.label", "Language: English"));
-    this.languageMode.setAttribute("title", this.t("language.label", "Language: English"));
+    this.languageMode.setAttribute("aria-label", this.t("language.label", "Language: EN"));
+    this.languageMode.setAttribute("title", this.t("language.label", "Language: EN"));
     
     if (this.languageModeDropdown) {
       const items = this.languageModeDropdown.querySelectorAll(".language-dropdown-item");
@@ -5520,14 +5520,14 @@ export const Viewer = {
       Viewer.languageModeDropdown.hidden = true;
       
       const languages = [
-        { code: "en", label: "English" },
-        { code: "pl", label: "Polski" },
-        { code: "de", label: "Deutsch" }
+        { code: "en", label: "EN", class: "language-dropdown-item-english" },
+        { code: "pl", label: "PL", class: "language-dropdown-item-polish" },
+        { code: "de", label: "DE", class: "language-dropdown-item-german" }
       ];
       
       languages.forEach(lang => {
         const item = document.createElement("div");
-        item.className = "language-dropdown-item";
+        item.className = `language-dropdown-item ${lang.class}`;
         item.dataset.lang = lang.code;
         item.textContent = lang.label;
         item.setAttribute("role", "option");
