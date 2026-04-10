@@ -219,7 +219,7 @@ function traverseMesh(object) {
     _objectMaterials.push(setupMaterials(child));
     _objectMaterials.side = THREE.DoubleSide;
   });
-  var objectMaterials = ["select by name"];
+  var objectMaterials = ["select by material"];
   _objectMaterials.forEach(function (item, index, array) {
     if (item.length > 1) {
       item.forEach(function (_item, _index, _array) {
@@ -233,11 +233,12 @@ function traverseMesh(object) {
   var _materialGui = null;
   var _uuid = null;
   if (!core.materialsFolder) return;
-  core.materialsFolder
+  core.i18nGui.editMaterialsController =core.materialsFolder
     .add(core.materialsPropertiesText, "Edit material", objectMaterials)
+    .name(window.Viewer?.t?.("gui.editMaterial", "Edit material") ?? "Edit material")
     .onChange(function (value) {
       if (
-        (value === "select by name" || value !== _uuid) &&
+        (value === "select by material" || value !== _uuid) &&
         _material !== null
       ) {
         _materialGui.color.destroy();

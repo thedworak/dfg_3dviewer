@@ -66,6 +66,7 @@ import { objectsConfig, setObjectsConfig } from "./object-settings.js";
 import { lv } from "./js/external_libs/spinner.js";
 
 import { loadIIIFManifest, getAnnotations } from "./IIIF/iiif-api.js";
+import { VIEWER_I18N } from "./i18n.js";
 
 export const Viewer = {
   CONFIG: null,
@@ -114,13 +115,17 @@ export const Viewer = {
   actionMenuPanel: null,
   fullscreenMode: null,
   themeMode: null,
+  languageMode: null,
   downloadModel: null,
   embedConfiguratorPanel: null,
   embedConfigInputs: null,
   embedConfigPreviewFrame: null,
   embedMissingSourceNotified: false,
   currentTheme: "dark",
+  currentLanguage: "en",
   THEME_STORAGE_KEY: "iiif-dark-mode",
+  LANGUAGE_STORAGE_KEY: "viewer-language",
+  I18N: VIEWER_I18N,
   GESTURE: {handPx: 55, period: 5.5, rotate: false, active: false, target: new THREE.Vector3(), startTime: 0, baseAngle: 0, orbitAngle: THREE.MathUtils.degToRad(15), easeInTime: 2.25},
   lastTime: null,
   originalMetadata: [],
@@ -179,12 +184,12 @@ export const Viewer = {
   windowHalfY: null,
   transformType: "",
   transformText: {
-    "Transform 3D Object": "select type",
-    "Transform Light": "select type",
-    "Transform Mode": "Local",
+    "Transform 3D Object": "",
+    "Transform Light": "",
+    "Transform Mode": "local",
   },
   materialsPropertiesText: {
-    "Edit material": "select by name",
+    "Edit material": "select by material",
   },
   pickingStats: {
     "Selected faces": 0,
@@ -282,6 +287,7 @@ export const Viewer = {
     model: null,
     id: null,
     theme: null,
+    language: null,
     autoRotate: null,
     autoRotateSpeed: null,
     disableInteraction: false,
@@ -304,6 +310,7 @@ export const Viewer = {
   lastWindowFocusAt: 0,
   cleanupCallbacks: [],
   resizeObserver: null,
+  i18nGui: null,
 
   getE2EModelOverride() {
     if (!window.__E2E__) return null;
@@ -360,6 +367,9 @@ export const Viewer = {
     if (this.actionMenuToggle) {
       this.actionMenuToggle.checked = false;
     }
+    if (this.languageModeDropdown) {
+      this.languageModeDropdown.hidden = true;
+    }
   },
 
   isEmbedModeActive() {
@@ -369,11 +379,14 @@ export const Viewer = {
   updateEmbedMenuEntryState() {
     if (!this.viewEntity) return;
     const isActive = this.isEmbedModeActive();
-    const label = isActive ? "Exit embed" : "Embed";
+    const label = isActive ? this.t("menu.exitEmbed", "Exit embed") : this.t("menu.embed", "Embed");
     const iconClass = isActive ? "embed-exit-icon" : "embed-icon";
     this.viewEntity.innerHTML = `<span class="${iconClass}"></span><span>${label}</span>`;
-    this.viewEntity.setAttribute("aria-label", isActive ? "Exit embed mode" : "Open embed options");
-    this.viewEntity.setAttribute("title", isActive ? "Exit embed mode" : "Open embed options");
+    const a11yLabel = isActive
+      ? this.t("menu.exitEmbedMode", "Exit embed mode")
+      : this.t("menu.openEmbedOptions", "Open embed options");
+    this.viewEntity.setAttribute("aria-label", a11yLabel);
+    this.viewEntity.setAttribute("title", a11yLabel);
   },
 
   closeEmbedConfigurator() {
@@ -394,6 +407,44 @@ export const Viewer = {
 
     const storedTheme = window.localStorage.getItem(this.THEME_STORAGE_KEY);
     return storedTheme === "0" ? "light" : "dark";
+  },
+
+  normalizeLanguage(value) {
+    if (value == null) return null;
+    const normalizedValue = String(value).trim().toLowerCase();
+    if (normalizedValue.startsWith("pl")) return "pl";
+    if (normalizedValue.startsWith("de")) return "de";
+    if (normalizedValue.startsWith("en")) return "en";
+    return null;
+  },
+
+  getStoredLanguage() {
+    const fromQuery = this.normalizeLanguage(this.urlOptions?.language);
+    if (fromQuery) return fromQuery;
+
+    const storedLanguage = this.normalizeLanguage(window.localStorage.getItem(this.LANGUAGE_STORAGE_KEY));
+    if (storedLanguage) return storedLanguage;
+
+    const browserLanguage = this.normalizeLanguage(navigator?.language || "");
+    return browserLanguage || "en";
+  },
+
+  t(key, fallback = "") {
+    const lang = ["pl", "de"].includes(this.currentLanguage) ? this.currentLanguage : "en";
+    const dictionary = this.I18N[lang] || this.I18N.en;
+    const value = String(key || "")
+      .split(".")
+      .reduce((acc, part) => (acc && typeof acc === "object" ? acc[part] : undefined), dictionary);
+    if (typeof value === "string") return value;
+    return fallback || key;
+  },
+
+  tFormat(key, params = {}, fallback = "") {
+    const template = this.t(key, fallback);
+    return String(template).replace(/\{(\w+)\}/g, (_match, token) => {
+      const replacement = params?.[token];
+      return replacement == null ? "" : String(replacement);
+    });
   },
 
   parseBooleanParam(value) {
@@ -435,6 +486,7 @@ export const Viewer = {
     const params = new URLSearchParams(window.location.search);
     const modelFromQuery = params.get("model") || params.get("src");
     const themeFromQuery = (params.get("theme") || "").trim().toLowerCase();
+    const languageFromQuery = this.normalizeLanguage(params.get("lang") || params.get("language"));
     const autoRotateFromQuery = this.parseBooleanParam(params.get("autorotate"));
     const disableInteractionFromQuery = this.parseBooleanParam(params.get("disableInteraction"));
     const hideUiFromQuery = this.parseBooleanParam(params.get("hideUi"));
@@ -444,6 +496,7 @@ export const Viewer = {
       model: modelFromQuery || null,
       id: params.get("id") || null,
       theme: themeFromQuery === "light" || themeFromQuery === "dark" ? themeFromQuery : null,
+      language: languageFromQuery,
       autoRotate: autoRotateFromQuery,
       autoRotateSpeed: this.parseFloatParam(params.get("autorotateSpeed")),
       disableInteraction: disableInteractionFromQuery === true,
@@ -461,10 +514,13 @@ export const Viewer = {
     if (this.themeMode) {
       this.themeMode.innerHTML = `
         <span class="viewer-theme-icon" aria-hidden="true">${isDark ? "☀️" : "🌙"}</span>
-        <span>${isDark ? "Light mode" : "Dark mode"}</span>
+        <span>${isDark ? this.t("theme.lightMode", "Light mode") : this.t("theme.darkMode", "Dark mode")}</span>
       `;
-      this.themeMode.setAttribute("aria-label", isDark ? "Switch to light mode" : "Switch to dark mode");
-      this.themeMode.setAttribute("title", isDark ? "Switch to light mode" : "Switch to dark mode");
+      const label = isDark
+        ? this.t("theme.switchToLightMode", "Switch to light mode")
+        : this.t("theme.switchToDarkMode", "Switch to dark mode");
+      this.themeMode.setAttribute("aria-label", label);
+      this.themeMode.setAttribute("title", label);
     }
 
     const exampleThemeToggle = document.getElementById("example-theme-toggle");
@@ -502,17 +558,289 @@ export const Viewer = {
     this.applyTheme(this.currentTheme === "dark" ? "light" : "dark");
   },
 
+  updateLanguageControlLabels() {
+    if (!this.languageMode) return;
+    const languages = [
+      { code: "en", label: "English" },
+      { code: "pl", label: "Polski" },
+      { code: "de", label: "Deutsch" }
+    ];
+    const currentLangLabel = languages.find(l => l.code === this.currentLanguage)?.label || "English";
+    this.languageMode.innerHTML = `
+      <span class="viewer-action-icon language-icon" aria-hidden="true"></span>
+      <span>${currentLangLabel}</span>
+    `;
+    this.languageMode.setAttribute("aria-label", this.t("language.label", "Language: English"));
+    this.languageMode.setAttribute("title", this.t("language.label", "Language: English"));
+    
+    if (this.languageModeDropdown) {
+      const items = this.languageModeDropdown.querySelectorAll(".language-dropdown-item");
+      items.forEach(item => {
+        item.classList.toggle("active", item.dataset.lang === this.currentLanguage);
+      });
+    }
+  },
+
+  updateActionMenuLabels() {
+    if (!this.actionMenu) return;
+    const actionMenuLabel = this.t("menu.actions", "Viewer actions");
+    const actionMenuOpenLabel = this.t("menu.openActions", "Open viewer actions");
+
+    this.actionMenu.querySelector("#viewerActionMenuToggle")?.setAttribute("aria-label", actionMenuOpenLabel);
+    const toggle = this.actionMenu.querySelector(".viewer-action-menu_toggle");
+    toggle?.setAttribute("aria-label", actionMenuOpenLabel);
+    toggle?.setAttribute("title", actionMenuLabel);
+    this.actionMenu.querySelector(".viewer-action-menu_panel")?.setAttribute("aria-label", actionMenuLabel);
+  },
+
+  updateDownloadMenuEntryLabel() {
+    if (!this.downloadModel || this.downloadModel.hidden) return;
+    this.downloadModel.innerHTML = `
+      <span class="viewer-action-icon download-icon" aria-hidden="true"></span>
+      <span>${this.t("menu.download", "Download")}</span>
+    `;
+  },
+
+  updateLocalizedUI() {
+    const lang = ["pl", "de"].includes(this.currentLanguage) ? this.currentLanguage : "en";
+    document.documentElement.setAttribute("lang", lang);
+    this.updateActionMenuLabels();
+    this.updateLanguageControlLabels();
+    this.updateThemeControlLabels();
+    this.updateEmbedMenuEntryState();
+    this.updateFullscreenButtonIcon();
+    this.updateDownloadMenuEntryLabel();
+    this.updatePickingModeControllerLabel();
+    this.updateDistanceMeasurementControllerLabel();
+    this.updateSelectedFacesControllerLabel();
+    this.updateLilGuiLabels();
+    this.updateLocalPreviewLabels();
+    this.updateIIIFFormLabels();
+    this.updateMetadataPanelLabels();
+    if (this.pickingHint) this.pickingHint.textContent = this.t("hints.picking", "Shift + click to select multiple faces");
+    if (this.clippingHint) this.clippingHint.textContent = this.t("hints.clipping", "Drag active clipping plane helper to adjust cut");
+  },
+
+  setGuiFolderTitle(folder, title) {
+    if (!folder || !title) return;
+    if (typeof folder.title === "function") {
+      folder.title(title);
+      return;
+    }
+    if (folder.$title) {
+      folder.$title.textContent = title;
+    }
+    folder._title = title;
+  },
+
+  refreshOptionController(controller, optionsMap) {
+    if (!controller || typeof controller.options !== "function") return;
+    const currentValue = typeof controller.getValue === "function" ? controller.getValue() : undefined;
+    controller.options(optionsMap);
+    if (currentValue !== undefined && typeof controller.setValue === "function") {
+      controller.setValue(currentValue);
+    }
+    if (typeof controller.updateDisplay === "function") {
+      controller.updateDisplay();
+    }
+  },
+
+  updateLilGuiLabels() {
+    const g = this.i18nGui;
+    if (!g) return;
+    this.setGuiFolderTitle(core.gui, this.t("gui.controls", "Controls"));
+    this.setGuiFolderTitle(g.editorFolder, this.t("gui.editor", "Editor"));
+    this.setGuiFolderTitle(g.lightFolder, this.t("gui.directionalLight", "Directional Light"));
+    this.setGuiFolderTitle(g.lightFolderAmbient, this.t("gui.ambientLight", "Ambient Light"));
+    this.setGuiFolderTitle(g.lightFolderCamera, this.t("gui.cameraLight", "Camera Light"));
+    this.setGuiFolderTitle(g.backgroundFolder, this.t("gui.backgroundColor", "Background Color"));
+    this.setGuiFolderTitle(g.clippingFolder, this.t("gui.clippingFolder", "Clipping Planes"));
+    this.setGuiFolderTitle(g.materialsFolder, this.t("gui.materials", "Materials"));
+    this.setGuiFolderTitle(g.metadataFolder, this.t("gui.metadata", "Metadata"));
+    this.setGuiFolderTitle(g.propertiesFolder, this.t("gui.saveProperties", "Save properties"));
+    this.setGuiFolderTitle(g.hierarchyFolder, this.t("gui.hierarchy", "Hierarchy"));
+    this.setGuiFolderTitle(g.statisticsFolder, this.t("gui.statistics", "Statistics"));
+
+    // Update clipping controllers
+    if (g.clippingFolder) {
+      g.clippingFolder.controllers.forEach(controller => {
+        switch (controller._name) {
+          case 'displayHelperX':
+            controller.name(this.t('gui.displayHelperX', 'Show X helper'));
+            break;
+          case 'displayHelperY':
+            controller.name(this.t('gui.displayHelperY', 'Show Y helper'));
+            break;
+          case 'displayHelperZ':
+            controller.name(this.t('gui.displayHelperZ', 'Show Z helper'));
+            break;
+          case 'constantX':
+            controller.name(this.t('gui.constantX', 'Constant X'));
+            break;
+          case 'constantY':
+            controller.name(this.t('gui.constantY', 'Constant Y'));
+            break;
+          case 'constantZ':
+            controller.name(this.t('gui.constantZ', 'Constant Z'));
+            break;
+          case 'visible':
+            controller.name(this.t('gui.visible', 'Visible'));
+            break;
+        }
+      });
+    }
+
+    g.clearSelectedFacesController?.name?.(this.t("gui.clearSelectedFaces", "Clear selected faces"));
+    g.transformObjectController?.name?.(this.t("gui.transform3dObject", "Transform 3D Object"));
+    g.transformLightController?.name?.(this.t("gui.transformLight", "Transform Light"));
+    g.transformModeController?.name?.(this.t("gui.transformMode", "Transform Mode"));
+    g.backgroundTypeController?.name?.(this.t("gui.backgroundType", "Background Type"));
+    g.backgroundColorController?.name?.(this.t("gui.backgroundColor", "Background Color"));
+    g.backgroundColorOuterController?.name?.(this.t("gui.backgroundColorOuter", "Background Color Outer"));
+    g.addAnnotationController?.name?.(this.t("gui.addAnnotations", "Add annotations"));
+    g.exportAnnotationsController?.name?.(this.t("gui.exportAnnotationsXml", "Export annotations XML"));
+    g.importAnnotationsController?.name?.(this.t("gui.importAnnotationsXml", "Import annotations XML"));
+    g.resetCameraController?.name?.(this.t("gui.resetCameraPosition", "Reset camera position"));
+    g.saveController?.name?.(this.t("gui.save", "Save"));
+    g.renderPreviewController?.name?.(this.t("gui.renderPreview", "Render preview"));
+    g.performanceController?.name?.(this.t("gui.performance", "Performance"));
+    g.savePropPositionController?.name?.(this.t("gui.position", "Position"));
+    g.savePropRotationController?.name?.(this.t("gui.rotation", "Rotation"));
+    g.savePropScaleController?.name?.(this.t("gui.scale", "Scale"));
+    g.savePropCameraController?.name?.(this.t("gui.camera", "Camera"));
+    g.savePropDirectionalController?.name?.(this.t("gui.directionalLight", "Directional Light"));
+    g.savePropAmbientController?.name?.(this.t("gui.ambientLight", "Ambient Light"));
+    g.savePropCameraLightController?.name?.(this.t("gui.cameraLight", "Camera Light"));
+    g.savePropBackgroundController?.name?.(this.t("gui.backgroundColor", "Background Color"));
+    g.directionalLightColorController?.name?.(this.t("gui.color", "Color"));
+    g.directionalLightIntensityController?.name?.(this.t("gui.intensity", "Intensity"));
+    g.ambientLightColorController?.name?.(this.t("gui.color", "Color"));
+    g.ambientLightIntensityController?.name?.(this.t("gui.intensity", "Intensity"));
+    g.cameraLightColorController?.name?.(this.t("gui.color", "Color"));
+    g.cameraLightIntensityController?.name?.(this.t("gui.intensity", "Intensity"));
+    g.editMaterialsController?.name?.(this.t("gui.editMaterial", "Edit material"));
+
+    this.refreshOptionController(g.transformObjectController, {
+      [this.t("gui.none", "None")]: "",
+      [this.t("gui.move", "Move")]: "translate",
+      [this.t("gui.rotate", "Rotate")]: "rotate",
+      [this.t("gui.scale", "Scale")]: "scale",
+    });
+    this.refreshOptionController(g.transformModeController, {
+      [this.t("gui.local", "Local")]: "local",
+      [this.t("gui.global", "Global")]: "global",
+    });
+    this.refreshOptionController(g.transformLightController, {
+      [this.t("gui.none", "None")]: "",
+      [this.t("gui.move", "Move")]: "translate",
+      [this.t("gui.target", "Target")]: "rotate",
+    });
+    this.refreshOptionController(g.backgroundTypeController, {
+      [this.t("gui.linear", "Linear")]: "linear",
+      [this.t("gui.gradient", "Gradient")]: "gradient",
+    });
+    this.refreshOptionController(g.performanceController, {
+      [this.t("gui.highPerformance", "High-performance")]: "high-performance",
+      [this.t("gui.lowPower", "Low-power")]: "low-power",
+      [this.t("gui.default", "Default")]: "default",
+    });
+    this.refreshOptionController(g.editMaterialsController, {
+      [this.t("gui.selectByMaterial", "select by material")]: "select by material",
+    });
+  },
+
+  updateLocalPreviewLabels() {
+    const label = document.querySelector("#example-model-picker label[for='example-model-select']");
+    if (label) {
+      label.textContent = this.t("localPreview.loadExampleModel", "Load example model");
+    }
+  },
+
+  updateIIIFFormLabels() {
+    const form = document.getElementById("form-IIIF");
+    if (!form) return;
+    const title = form.querySelector(".form-IIIF-header .title");
+    if (title) title.textContent = this.t("iiif.loader", "IIIF Loader");
+    const collapseBtn = document.getElementById("iiif-toggle-collapse");
+    if (collapseBtn) {
+      const isCollapsed = form.classList.contains("collapsed");
+      collapseBtn.title = isCollapsed
+        ? this.t("iiif.expand", "Expand")
+        : this.t("iiif.collapse", "Collapse");
+    }
+    const label = form.querySelector(".form-IIIF-label");
+    if (label) label.textContent = this.t("iiif.manifest", "IIIF manifest");
+    const select = document.getElementById("iiif-manifest-select");
+    if (select) {
+      const optionLabelByUrl = {
+        "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json": this.t("iiif.optionModelPositionScale", "Model Position and Scale"),
+        "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin.json": this.t("iiif.optionModelOrigin", "Model Origin"),
+        "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin_bgcolor.json": this.t("iiif.optionModelOriginBg", "Model Origin with background color"),
+        "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_position.json": this.t("iiif.optionModelPosition", "Model Position"),
+      };
+      Array.from(select.options).forEach((option) => {
+        const labelFromMap = optionLabelByUrl[option.value];
+        if (labelFromMap) option.textContent = labelFromMap;
+      });
+    }
+    const manifestUrl = document.getElementById("manifest-url");
+    if (manifestUrl) manifestUrl.placeholder = this.t("iiif.manifestUrlPlaceholder", "https://example.org/iiif/manifest.json");
+    const manifestText = document.getElementById("manifest-text");
+    if (manifestText) manifestText.placeholder = this.t("iiif.manifestTextPlaceholder", "Paste IIIF manifest JSON here...");
+    const loadFromUrlButton = document.getElementById("load-manifest-from-url");
+    if (loadFromUrlButton) loadFromUrlButton.textContent = this.t("iiif.loadFromUrl", "Load from URL");
+    const loadFromTextButton = document.getElementById("load-manifest-from-text");
+    if (loadFromTextButton) loadFromTextButton.textContent = this.t("iiif.loadFromText", "Load from Text");
+  },
+
+  updateMetadataPanelLabels() {
+    const metadataContainer = document.getElementById("metadata-container");
+    if (!metadataContainer) return;
+    metadataContainer.querySelectorAll("[data-i18n-key]").forEach((node) => {
+      const key = node.getAttribute("data-i18n-key");
+      if (!key) return;
+      const needsColon = node.classList.contains("metadata-label");
+      const text = this.t(key, node.textContent?.replace(/:\s*$/, "") || "");
+      node.textContent = needsColon ? `${text}:` : text;
+    });
+  },
+
+  applyLanguage(language, { persist = true } = {}) {
+    const normalizedLanguage = this.normalizeLanguage(language) || "en";
+    this.currentLanguage = normalizedLanguage;
+    if (persist) {
+      window.localStorage.setItem(this.LANGUAGE_STORAGE_KEY, normalizedLanguage);
+    }
+    this.updateLocalizedUI();
+  },
+
+  toggleLanguage() {
+    if (!this.languageModeDropdown) return;
+    const isVisible = !this.languageModeDropdown.hidden;
+    this.languageModeDropdown.hidden = isVisible;
+  },
+
+  selectLanguage(lang) {
+    this.languageModeDropdown.hidden = true;
+    this.closeActionMenu();
+    this.applyLanguage(lang);
+  },
+
   updatePickingModeControllerLabel() {
     if (!this.pickingModeController?.name) return;
     this.pickingModeController.name(
-      this.pickingMode ? "Disable picking mode" : "Enable picking mode"
+      this.pickingMode
+        ? this.t("controls.disablePickingMode", "Disable picking mode")
+        : this.t("controls.enablePickingMode", "Enable picking mode")
     );
   },
 
   updateDistanceMeasurementControllerLabel() {
     if (!this.distanceMeasurementController?.name) return;
     this.distanceMeasurementController.name(
-      this.RULER_MODE ? "Disable distance measurement" : "Enable distance measurement"
+      this.RULER_MODE
+        ? this.t("controls.disableDistanceMeasurement", "Disable distance measurement")
+        : this.t("controls.enableDistanceMeasurement", "Enable distance measurement")
     );
   },
 
@@ -543,7 +871,7 @@ export const Viewer = {
 
   updateSelectedFacesControllerLabel() {
     if (!this.selectedFacesCountController?.name) return;
-    this.selectedFacesCountController.name("Selected faces");
+    this.selectedFacesCountController.name(this.t("controls.selectedFaces", "Selected faces"));
   },
 
   updatePickingHintVisibility() {
@@ -1292,11 +1620,13 @@ export const Viewer = {
     if (!this.fullscreenMode) return;
 
     const isFullscreen = !!document.fullscreenElement;
-    const label = isFullscreen ? "Exit fullscreen mode" : "Fullscreen mode";
+    const label = isFullscreen
+      ? this.t("fullscreen.exitMode", "Exit fullscreen mode")
+      : this.t("fullscreen.mode", "Fullscreen mode");
 
     this.fullscreenMode.innerHTML = `
       <span class="viewer-action-icon ${isFullscreen ? "fullscreen-exit-icon" : "fullscreen-icon"}" aria-hidden="true"></span>
-      <span>${isFullscreen ? "Exit fullscreen" : "Fullscreen"}</span>
+      <span>${isFullscreen ? this.t("fullscreen.exit", "Exit fullscreen") : this.t("fullscreen.enter", "Fullscreen")}</span>
     `;
     this.fullscreenMode.setAttribute("aria-label", label);
     this.fullscreenMode.setAttribute("title", label);
@@ -1561,6 +1891,7 @@ export const Viewer = {
     document.body.classList.toggle("viewer-embed-page", this.isEmbedMode());
 
     this.parseUrlOptions();
+    this.currentLanguage = this.getStoredLanguage();
 
     if (this.urlOptions.model) {
       this.container.setAttribute("3d", this.urlOptions.model);
@@ -4380,16 +4711,49 @@ export const Viewer = {
     Viewer.windowHalfX = core.CONFIG.viewer.canvasDimensions.x / 2;
     Viewer.windowHalfY = core.CONFIG.viewer.canvasDimensions.y / 2;
 
-    Viewer.editorFolder = core.gui.addFolder("Editor").close();
+    Viewer.editorFolder = core.gui.addFolder(Viewer.t("gui.editor", "Editor")).close();
     Viewer.editorFolder.domElement?.classList.add("viewer-gui-main-folder");
     Viewer.editorFolder.domElement?.setAttribute("data-gui-main-folder", "editor");
-    Viewer.editorFolder
+    Viewer.i18nGui = Viewer.i18nGui || {};
+    setCore("i18nGui", Viewer.i18nGui);
+    Viewer.i18nGui.editorFolder = Viewer.editorFolder;
+    const showTransformHintToast = (mode) => {
+      const hints = {
+        translate: Viewer.t("toasts.transformMove", "Move: drag axis arrows to reposition the object."),
+        rotate: Viewer.t("toasts.transformRotate", "Rotate: drag rotation rings to rotate the object."),
+        scale: Viewer.t("toasts.transformScale", "Scale: drag axis handles to resize the object."),
+      };
+      const message = hints[mode];
+      if (!message) return;
+      showToast(message, {
+        duration: 5200,
+        replace: true,
+        key: "transform-object-hint",
+      });
+    };
+
+    const showTransformLightHintToast = (mode) => {
+      const hints = {
+        translate: Viewer.t("toasts.transformLightMove", "Transform Light - Move: drag axis arrows to move the directional light."),
+        rotate: Viewer.t("toasts.transformLightTarget", "Transform Light - Target: drag axis arrows to reposition the light target."),
+      };
+      const message = hints[mode];
+      if (!message) return;
+      showToast(message, {
+        duration: 5200,
+        replace: true,
+        key: "transform-light-hint",
+      });
+    };
+
+    Viewer.i18nGui.transformObjectController = Viewer.editorFolder
       .add(Viewer.transformText, "Transform 3D Object", {
-        None: "",
-        Move: "translate",
-        Rotate: "rotate",
-        Scale: "scale",
+        [Viewer.t("gui.none", "None")]: "",
+        [Viewer.t("gui.move", "Move")]: "translate",
+        [Viewer.t("gui.rotate", "Rotate")]: "rotate",
+        [Viewer.t("gui.scale", "Scale")]: "scale",
       })
+      .name(Viewer.t("gui.transform3dObject", "Transform 3D Object"))
       .onChange(function (value) {
         if (value === "") {
           core.transformControl.detach();
@@ -4405,24 +4769,28 @@ export const Viewer = {
 
           core.transformControl.setMode(value);
           core.transformControl.attach(object);
+          showTransformHintToast(value);
 
         }
       });
-    Viewer.editorFolder
+    Viewer.i18nGui.transformModeController = Viewer.editorFolder
       .add(Viewer.transformText, "Transform Mode", {
-        Local: "local",
-        Global: "global",
+        [Viewer.t("gui.local", "Local")]: "local",
+        [Viewer.t("gui.global", "Global")]: "global",
       })
+      .name(Viewer.t("gui.transformMode", "Transform Mode"))
       .onChange(function (value) {
         core.transformControl.space = value;
       });
-    const lightFolder = Viewer.editorFolder.addFolder("Directional Light").close();
-    lightFolder
+    const lightFolder = Viewer.editorFolder.addFolder(Viewer.t("gui.directionalLight", "Directional Light")).close();
+    Viewer.i18nGui.lightFolder = lightFolder;
+    Viewer.i18nGui.transformLightController = lightFolder
       .add(Viewer.transformText, "Transform Light", {
-        None: "",
-        Move: "translate",
-        Target: "rotate",
+        [Viewer.t("gui.none", "None")]: "",
+        [Viewer.t("gui.move", "Move")]: "translate",
+        [Viewer.t("gui.target", "Target")]: "rotate",
       })
+      .name(Viewer.t("gui.transformLight", "Transform Light"))
       .onChange(function (value) {
         if (value === "") {
           core.transformControlLight.detach();
@@ -4434,57 +4802,69 @@ export const Viewer = {
             core.transformControlLight.setMode("translate");
             core.transformControlLight.attach(core.dirLight);
             core.transformControlLightTarget.detach();
+            showTransformLightHintToast("translate");
           } else {
             core.transformControlLightTarget.setMode("translate");
             core.transformControlLightTarget.attach(core.dirLightTarget);
             core.transformControlLight.detach();
+            showTransformLightHintToast("rotate");
           }
         }
       });
-    lightFolder
+    Viewer.i18nGui.directionalLightColorController = lightFolder
       .addColor(Viewer.colors, "DirectionalLight")
+      .name(Viewer.t("gui.color", "Color"))
       .onChange(function (value) {
         core.lightObjects[0].color = new THREE.Color(value);
       })
       .listen();
-    lightFolder
+    Viewer.i18nGui.directionalLightIntensityController = lightFolder
       .add(Viewer.intensity, "startIntensityDir", 0, 10)
+      .name(Viewer.t("gui.intensity", "Intensity"))
       .onChange(function (value) {
         core.lightObjects[0].intensity = value;
       })
       .listen();
 
-    const lightFolderAmbient = Viewer.editorFolder.addFolder("Ambient Light").close();
-    lightFolderAmbient
+    const lightFolderAmbient = Viewer.editorFolder.addFolder(Viewer.t("gui.ambientLight", "Ambient Light")).close();
+    Viewer.i18nGui.lightFolderAmbient = lightFolderAmbient;
+    Viewer.i18nGui.ambientLightColorController = lightFolderAmbient
       .addColor(Viewer.colors, "AmbientLight")
+      .name(Viewer.t("gui.color", "Color"))
       .onChange(function (value) {
         Viewer.ambientLight.color = new THREE.Color(value);
       })
       .listen();
-    lightFolderAmbient
+    Viewer.i18nGui.ambientLightIntensityController = lightFolderAmbient
       .add(Viewer.intensity, "startIntensityAmbient", 0, 10)
+      .name(Viewer.t("gui.intensity", "Intensity"))
       .onChange(function (value) {
         Viewer.ambientLight.intensity = value;
       })
       .listen();
 
-    const lightFolderCamera = Viewer.editorFolder.addFolder("Camera Light").close();
-    lightFolderCamera
+    const lightFolderCamera = Viewer.editorFolder.addFolder(Viewer.t("gui.cameraLight", "Camera Light")).close();
+    Viewer.i18nGui.lightFolderCamera = lightFolderCamera;
+    Viewer.i18nGui.cameraLightColorController = lightFolderCamera
       .addColor(Viewer.colors, "CameraLight")
+      .name(Viewer.t("gui.color", "Color"))
       .onChange(function (value) {
         Viewer.cameraLight.color = new THREE.Color(value);
       })
       .listen();
-    lightFolderCamera
+    Viewer.i18nGui.cameraLightIntensityController = lightFolderCamera
       .add(Viewer.intensity, "startIntensityCamera", 0, 10)
+      .name(Viewer.t("gui.intensity", "Intensity"))
       .onChange(function (value) {
         Viewer.cameraLight.intensity = value;
       })
       .listen();
 
-    const backgroundFolder = Viewer.editorFolder.addFolder("Background Color").close();
-    backgroundFolder
+    const backgroundFolder = Viewer.editorFolder.addFolder(Viewer.t("gui.backgroundColor", "Background Color")).close();
+    Viewer.i18nGui.backgroundFolder = backgroundFolder;
+    Viewer.i18nGui.backgroundColorController = backgroundFolder
       .addColor(Viewer.colors, "BackgroundColor")
+      .name(Viewer.t("gui.backgroundColor", "Background Color"))
       .onChange(function (value) {
         changeBackground(
           Viewer.backgroundType["Background Type"],
@@ -4493,8 +4873,9 @@ export const Viewer = {
         );
       })
       .listen();
-    Viewer.backgroundOuterFolder = backgroundFolder
+    Viewer.i18nGui.backgroundColorOuterController = backgroundFolder
       .addColor(Viewer.colors, "BackgroundColorOuter")
+      .name(Viewer.t("gui.backgroundColorOuter", "Background Color Outer"))
       .onChange(function (value) {
         changeBackground(
           Viewer.backgroundType["Background Type"],
@@ -4503,11 +4884,12 @@ export const Viewer = {
         );
       })
       .listen();
-    backgroundFolder
+    Viewer.i18nGui.backgroundTypeController = backgroundFolder
       .add(Viewer.backgroundType, "Background Type", {
-        Linear: "linear",
-        Gradient: "gradient",
+        [Viewer.t("gui.linear", "Linear")]: "linear",
+        [Viewer.t("gui.gradient", "Gradient")]: "gradient",
       })
+      .name(Viewer.t("gui.backgroundType", "Background Type"))
       .onChange(function (value) {
         if (value == "linear") Viewer.backgroundOuterFolder.hide();
         else Viewer.backgroundOuterFolder.show();
@@ -4520,17 +4902,20 @@ export const Viewer = {
     setCore("clippingFolder", Viewer.clippingFolder);
 
     if (core.EDITOR) {
-      core.clippingFolder = Viewer.editorFolder.addFolder("Clipping Planes").close();
+      core.clippingFolder = Viewer.editorFolder.addFolder(Viewer.t("gui.clippingFolder", "Clipping Planes")).close();
+      Viewer.i18nGui.clippingFolder = core.clippingFolder;
       
-      core.materialsFolder = Viewer.editorFolder.addFolder("Materials").close();
+      core.materialsFolder = Viewer.editorFolder.addFolder(Viewer.t("gui.materials", "Materials")).close();
+      Viewer.i18nGui.materialsFolder = core.materialsFolder;
       setCore("materialsFolder", core.materialsFolder);
+
       Viewer.pickingModeController = Viewer.editorFolder.add(
         {
           togglePickingMode() {
             Viewer.pickingMode = !Viewer.pickingMode;
             var _str;
             Viewer.pickingMode ? (_str = "enabled") : (_str = "disabled");
-            showToast("Face picking is " + _str, {
+            showToast(Viewer.t(_str === "enabled" ? "toasts.facePickingEnabled" : "toasts.facePickingDisabled", "Face picking is " + _str), {
               duration: 1400,
               replace: true,
               key: "face-picking-mode",
@@ -4552,13 +4937,14 @@ export const Viewer = {
 
       Viewer.clearSelectedFacesController = Viewer.editorFolder.add(
         {
-          ["Clear selected faces"]() {
+          [Viewer.t("gui.clearSelectedFaces", "Clear selected faces")]() {
             Viewer.clearSelectedFaces();
             Viewer.restoreLastPickedFace();
           },
         },
-        "Clear selected faces"
+        Viewer.t("gui.clearSelectedFaces", "Clear selected faces")
       );
+      Viewer.i18nGui.clearSelectedFacesController = Viewer.clearSelectedFacesController;
 
       Viewer.selectedFacesCountController = Viewer.editorFolder
         .add(Viewer.pickingStats, "Selected faces")
@@ -4566,33 +4952,35 @@ export const Viewer = {
       Viewer.updateSelectedFacesControllerLabel();
       Viewer.selectedFacesCountController.disable();
 
-      Viewer.metadataFolder = core.gui.addFolder("Metadata").close();
+      Viewer.metadataFolder = core.gui.addFolder(Viewer.t("gui.metadata", "Metadata")).close();
       Viewer.metadataFolder.domElement?.classList.add("viewer-gui-main-folder");
       Viewer.metadataFolder.domElement?.setAttribute("data-gui-main-folder", "metadata");
+      Viewer.i18nGui.metadataFolder = Viewer.metadataFolder;
 
       Viewer.addAnnotationController = Viewer.metadataFolder.add(
         {
-          ["Add annotations"]() {
+          [Viewer.t("gui.addAnnotations", "Add annotations")]() {
             Viewer.openAnnotationDialogWithAutoPicking();
           },
         },
-        "Add annotations"
+        Viewer.t("gui.addAnnotations", "Add annotations")
       );
-      Viewer.metadataFolder.add(
+      Viewer.i18nGui.addAnnotationController = Viewer.addAnnotationController;
+      Viewer.i18nGui.exportAnnotationsController = Viewer.metadataFolder.add(
         {
-          ["Export annotations XML"]() {
+          [Viewer.t("gui.exportAnnotationsXml", "Export annotations XML")]() {
             Viewer.downloadAnnotationsXmlFile();
           },
         },
-        "Export annotations XML"
+        Viewer.t("gui.exportAnnotationsXml", "Export annotations XML")
       );
-      Viewer.metadataFolder.add(
+      Viewer.i18nGui.importAnnotationsController = Viewer.metadataFolder.add(
         {
-          ["Import annotations XML"]() {
+          [Viewer.t("gui.importAnnotationsXml", "Import annotations XML")]() {
             Viewer.triggerAnnotationsXmlImport();
           },
         },
-        "Import annotations XML"
+        Viewer.t("gui.importAnnotationsXml", "Import annotations XML")
       );
       Viewer.updatePickingControlsVisibility();
 
@@ -4602,7 +4990,20 @@ export const Viewer = {
             Viewer.RULER_MODE = !Viewer.RULER_MODE;
             var _str;
             Viewer.RULER_MODE ? (_str = "enabled") : (_str = "disabled");
-            showToast("Distance measurement mode is " + _str);
+            if (Viewer.RULER_MODE) {
+              showToast(Viewer.t("toasts.distanceEnabled", "Distance measurement is enabled."), {
+                duration: 2600,
+                replace: true,
+                key: "distance-measurement-status",
+              });
+              showToast(Viewer.t("toasts.distanceHint", "Select a start point and an end point to measure distance."), {
+                duration: 5200,
+                replace: false,
+                key: "distance-measurement-hint",
+              });
+            } else {
+              showToast(Viewer.t(_str === "enabled" ? "toasts.distanceModeEnabled" : "toasts.distanceModeDisabled", "Distance measurement mode is " + _str));
+            }
             if (!Viewer.RULER_MODE) {
               Viewer.ruler.forEach((r) => {
                 core.scene.remove(r);
@@ -4624,32 +5025,33 @@ export const Viewer = {
       );
       Viewer.updateDistanceMeasurementControllerLabel();
 
-      Viewer.editorFolder.add(
+      Viewer.i18nGui.resetCameraController = Viewer.editorFolder.add(
         {
-          ["Reset camera position"]() {
+          [Viewer.t("gui.resetCameraPosition", "Reset camera position")]() {
             Viewer.resetCamera();
           },
         },
-        "Reset camera position"
+        Viewer.t("gui.resetCameraPosition", "Reset camera position")
       );
     }
 
     if (!core.isLightweight) {
-      Viewer.propertiesFolder = Viewer.editorFolder.addFolder("Save properties").close();
-      Viewer.propertiesFolder.add(Viewer.saveProperties, "Position");
-      Viewer.propertiesFolder.add(Viewer.saveProperties, "Rotation");
-      Viewer.propertiesFolder.add(Viewer.saveProperties, "Scale");
-      Viewer.propertiesFolder.add(Viewer.saveProperties, "Camera");
-      Viewer.propertiesFolder.add(Viewer.saveProperties, "DirectionalLight");
-      Viewer.propertiesFolder.add(Viewer.saveProperties, "AmbientLight");
-      Viewer.propertiesFolder.add(Viewer.saveProperties, "CameraLight");
-      Viewer.propertiesFolder.add(Viewer.saveProperties, "BackgroundColor");
+      Viewer.propertiesFolder = Viewer.editorFolder.addFolder(Viewer.t("gui.saveProperties", "Save properties")).close();
+      Viewer.i18nGui.propertiesFolder = Viewer.propertiesFolder;
+      Viewer.i18nGui.savePropPositionController = Viewer.propertiesFolder.add(Viewer.saveProperties, "Position").name(Viewer.t("gui.position", "Position"));
+      Viewer.i18nGui.savePropRotationController = Viewer.propertiesFolder.add(Viewer.saveProperties, "Rotation").name(Viewer.t("gui.rotation", "Rotation"));
+      Viewer.i18nGui.savePropScaleController = Viewer.propertiesFolder.add(Viewer.saveProperties, "Scale").name(Viewer.t("gui.scale", "Scale"));
+      Viewer.i18nGui.savePropCameraController = Viewer.propertiesFolder.add(Viewer.saveProperties, "Camera").name(Viewer.t("gui.camera", "Camera"));
+      Viewer.i18nGui.savePropDirectionalController = Viewer.propertiesFolder.add(Viewer.saveProperties, "DirectionalLight").name(Viewer.t("gui.directionalLight", "Directional Light"));
+      Viewer.i18nGui.savePropAmbientController = Viewer.propertiesFolder.add(Viewer.saveProperties, "AmbientLight").name(Viewer.t("gui.ambientLight", "Ambient Light"));
+      Viewer.i18nGui.savePropCameraLightController = Viewer.propertiesFolder.add(Viewer.saveProperties, "CameraLight").name(Viewer.t("gui.cameraLight", "Camera Light"));
+      Viewer.i18nGui.savePropBackgroundController = Viewer.propertiesFolder.add(Viewer.saveProperties, "BackgroundColor").name(Viewer.t("gui.backgroundColor", "Background Color"));
     }
 
     if (core.EDITOR && !core.isLightweight) {
-      Viewer.editorFolder.add(
+      Viewer.i18nGui.saveController = Viewer.editorFolder.add(
         {
-          ["Save"]() {
+          [Viewer.t("gui.save", "Save")]() {
 
             var rotateMetadata = new THREE.Vector3(
               THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.x),
@@ -4715,17 +5117,19 @@ export const Viewer = {
             })();
           }
         },
-        "Save"
+        Viewer.t("gui.save", "Save")
       );
-      Viewer.editorFolder.add(
+      Viewer.i18nGui.renderPreviewController = Viewer.editorFolder.add(
         {
-          ["Render preview"]() {
+          [Viewer.t("gui.renderPreview", "Render preview")]() {
             Viewer.takeScreenshot();
           },
         },
-        "Render preview"
+        Viewer.t("gui.renderPreview", "Render preview")
       );
     }
+
+    Viewer.updateLocalizedUI();
   },
 
   async startModelProcessing() {
@@ -4768,7 +5172,7 @@ export const Viewer = {
     const loadedIIIF = await loadIIIFManifest(newUrlOrJson);
     if (loadedIIIF.modelUrls.length === 0) { // no 3D model found, use example model
       loadedIIIF.modelUrls.push('https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb');
-      showToast("No 3D model found in IIIF manifest, loading example model.");
+      showToast(Viewer.t("toasts.noIiiifModelFallback", "No 3D model found in IIIF manifest, loading example model."));
     }
     // reset scene and release GPU resources from the previous model batch
     Viewer.resetLoadedModelState();
@@ -4803,10 +5207,14 @@ export const Viewer = {
     const form = document.getElementById("form-IIIF");
     const collapseBtn = document.getElementById("iiif-toggle-collapse");
     form?.setAttribute("data-viewer-theme", Viewer.currentTheme);
+    Viewer.updateIIIFFormLabels();
 
     Viewer.bindEventListener(collapseBtn, "click", () => {
       form.classList.toggle("collapsed");
       collapseBtn.textContent = form.classList.contains("collapsed") ? "▸" : "▾";
+      collapseBtn.title = form.classList.contains("collapsed")
+        ? Viewer.t("iiif.expand", "Expand")
+        : Viewer.t("iiif.collapse", "Collapse");
     });
     // create a small dropdown to switch iiif manifests at runtime
     Viewer.bindEventListener(document.getElementById("iiif-manifest-select"), "change", async (ev) => {
@@ -4827,7 +5235,7 @@ export const Viewer = {
         const inputElement = document.getElementById("manifest-url");
         if (inputElement.value === "" || !Viewer.isUrlFlexible(inputElement.value)) {
         inputElement.style.border = "2px solid red";
-        showToast("Please enter a valid IIIF manifest URL.");
+        showToast(Viewer.t("iiif.invalidUrl", "Please enter a valid IIIF manifest URL."));
         return;
       } else {
         inputElement.style.border = "2px solid green";
@@ -4847,7 +5255,7 @@ export const Viewer = {
         const inputElement = document.getElementById("manifest-text");
         if (inputElement.value === "" || !Viewer.isValidJsonObject(inputElement.value)) {
         inputElement.style.border = "2px solid red";
-        showToast("Please enter a valid IIIF JSON text.");
+        showToast(Viewer.t("iiif.invalidJson", "Please enter a valid IIIF JSON text."));
         return;
       } else {
         inputElement.style.border = "2px solid green";
@@ -5096,8 +5504,45 @@ export const Viewer = {
       Viewer.themeMode = document.createElement("button");
       Viewer.themeMode.setAttribute("id", "viewerThemeMode");
       Viewer.themeMode.setAttribute("type", "button");
+      
+      // Create language mode container and dropdown
+      Viewer.languageModeContainer = document.createElement("div");
+      Viewer.languageModeContainer.setAttribute("id", "viewerLanguageModeContainer");
+      Viewer.languageModeContainer.className = "language-mode-container";
+      
+      Viewer.languageMode = document.createElement("button");
+      Viewer.languageMode.setAttribute("id", "viewerLanguageMode");
+      Viewer.languageMode.setAttribute("type", "button");
+      
+      Viewer.languageModeDropdown = document.createElement("div");
+      Viewer.languageModeDropdown.setAttribute("id", "viewerLanguageModeDropdown");
+      Viewer.languageModeDropdown.className = "language-mode-dropdown";
+      Viewer.languageModeDropdown.hidden = true;
+      
+      const languages = [
+        { code: "en", label: "English" },
+        { code: "pl", label: "Polski" },
+        { code: "de", label: "Deutsch" }
+      ];
+      
+      languages.forEach(lang => {
+        const item = document.createElement("div");
+        item.className = "language-dropdown-item";
+        item.dataset.lang = lang.code;
+        item.textContent = lang.label;
+        item.setAttribute("role", "option");
+        item.setAttribute("aria-selected", Viewer.currentLanguage === lang.code ? "true" : "false");
+        Viewer.bindEventListener(item, "click", () => Viewer.selectLanguage(lang.code));
+        Viewer.languageModeDropdown.appendChild(item);
+      });
+      
+      Viewer.languageModeContainer.appendChild(Viewer.languageMode);
+      Viewer.languageModeContainer.appendChild(Viewer.languageModeDropdown);
+      
       Viewer.updateThemeControlLabels();
+      Viewer.updateLanguageControlLabels();
 
+      Viewer.actionMenuPanel.appendChild(Viewer.languageModeContainer);
       Viewer.actionMenuPanel.appendChild(Viewer.themeMode);
       Viewer.actionMenuPanel.appendChild(Viewer.viewEntity);
       Viewer.actionMenuPanel.appendChild(Viewer.downloadModel);
@@ -5108,10 +5553,12 @@ export const Viewer = {
       Viewer.createEmbedConfiguratorPanel();
 
       setCore('viewEntity', Viewer.viewEntity);
+      Viewer.bindEventListener(Viewer.languageMode, "click", Viewer.toggleLanguage.bind(Viewer));
       Viewer.bindEventListener(Viewer.themeMode, "click", Viewer.toggleTheme.bind(Viewer));
 	      Viewer.bindEventListener(Viewer.fullscreenMode, "click", Viewer.toggleFullscreen, false);
       Viewer.bindEventListener(Viewer.viewEntity, "click", Viewer.openEmbedConfiguratorFromMenu.bind(Viewer));
       Viewer.updateEmbedMenuEntryState();
+      Viewer.applyLanguage(Viewer.currentLanguage, { persist: false });
       Viewer.bindEventListener(Viewer.downloadModel, "click", () => Viewer.closeActionMenu());
       Viewer.bindEventListener(document, "click", (event) => {
         if (
@@ -5244,6 +5691,7 @@ export const Viewer = {
         const themeToggle = document.getElementById('example-theme-toggle');
         const viewerElement = document.getElementById('DFG_3DViewer');
         if (picker && selectModel && viewerElement) {
+          Viewer.updateLocalPreviewLabels();
           const localurl = new URL(window.location.href);
           let selectedModel = localurl.searchParams.get('model');
           if (!selectedModel) {

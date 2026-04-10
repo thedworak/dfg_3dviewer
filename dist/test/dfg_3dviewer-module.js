@@ -1073,7 +1073,15 @@ function setupClippingPlanes(_geom, _distance) {
     const mode = core.planeParams.clippingMode;
     core.clippingHint.hidden = !(mode.x || mode.y || mode.z);
   };
+  const tr = (key, fallback) => window?.Viewer?.t?.(key, fallback) ?? fallback;
   let displayHelper = {x: getOrAddGuiController(core.planeParams.planeX, "displayHelperX"), constantX: getOrAddGuiController(core.planeParams.planeX, "constantX"), y: getOrAddGuiController(core.planeParams.planeY, "displayHelperY"), constantY: getOrAddGuiController(core.planeParams.planeY, "constantY"), z: getOrAddGuiController(core.planeParams.planeZ, "displayHelperZ"), constantZ: getOrAddGuiController(core.planeParams.planeZ, "constantZ"), outline: getOrAddGuiController(core.planeParams.outline, "visible")};
+  displayHelper.x?.name?.(tr("gui.displayHelperX", "Show X helper"));
+  displayHelper.constantX?.name?.(tr("gui.constantX", "Constant X"));
+  displayHelper.y?.name?.(tr("gui.displayHelperY", "Show Y helper"));
+  displayHelper.constantY?.name?.(tr("gui.constantY", "Constant Y"));
+  displayHelper.z?.name?.(tr("gui.displayHelperZ", "Show Z helper"));
+  displayHelper.constantZ?.name?.(tr("gui.constantZ", "Constant Z"));
+  displayHelper.outline?.name?.(tr("gui.visible", "Visible"));
   displayHelper.x?.onChange((v) => {
       core.planeParams.clippingMode.x = core.planeHelpers[0].visible = v;
       if (v) {
@@ -1177,15 +1185,36 @@ function invertHexColor(hexTripletColor) {
 }
 
 function getOrAddGuiController(object, prop) {
-  let controller = core.clippingFolder?.controllers?.find(c => c._name === prop);
+  const findController = (folder) => {
+    if (!folder) return null;
+    const controller = folder.controllers?.find(c => c._name === prop || c.property === prop);
+    if (controller) return controller;
+
+    for (const subfolder of folder.folders || []) {
+      const found = findController(subfolder);
+      if (found) return found;
+    }
+    return null;
+  };
+
+  let controller = findController(core.clippingFolder);
   if (controller) return controller;
 
-  //if (!folder) return null;
-  for (const subfolder of core.clippingFolder.folders) {
-    const found = getOrAddController(subfolder, object, prop);
-    if (found) return found;
-  }
   return core.clippingFolder.add(object, prop);
+}
+
+function tr(key, fallback = "") {
+  return window.Viewer?.t?.(key, fallback) ?? fallback;
+}
+
+function trFormat(key, params = {}, fallback = "") {
+  if (typeof window.Viewer?.tFormat === "function") {
+    return window.Viewer.tFormat(key, params, fallback);
+  }
+  return String(tr(key, fallback)).replace(/\{(\w+)\}/g, (_match, token) => {
+    const replacement = params?.[token];
+    return replacement == null ? "" : String(replacement);
+  });
 }
 
 function escapeHtml(value) {
@@ -1219,28 +1248,28 @@ function addWissKIMetadata(label, value) {
     label = label.replace("wisski_path_3d_model__", "");
     switch (label) {
       case "title":
-        _str = "Title";
+        _str = tr("metadata.title", "Title");
         break;
       case "author_name":
-        _str = "Author";
+        _str = tr("metadata.author", "Author");
         break;
       case "author_affiliation":
-        _str = "Author affiliation";
+        _str = tr("metadata.authorAffiliation", "Author affiliation");
         break;
       case "license":
-        _str = "License";
+        _str = tr("metadata.license", "License");
         break;
       case "description":
-        _str = "Description";
+        _str = tr("metadata.description", "Description");
         break;
       case "object_type":
-        _str = "Object type";
+        _str = tr("metadata.objectType", "Object type");
         break;
       case "reconstruction_authors":
-        _str = "Reconstruction authors";
+        _str = tr("metadata.reconstructionAuthors", "Reconstruction authors");
         break;
       case "reconstruction_period":
-        _str = "Reconstruction period";
+        _str = tr("metadata.reconstructionPeriod", "Reconstruction period");
         break;
       default:
         _str = "";
@@ -1458,6 +1487,10 @@ async function handleMetadataResponse(
   object,
   hierarchyMain,
 ) {
+  const hierarchyLabel = tr("gui.hierarchy", "Hierarchy");
+  const hasHierarchyFolder = () =>
+    lilGUIgetFolder(core.gui, "Hierarchy") !== null ||
+    lilGUIgetFolder(core.gui, hierarchyLabel) !== null;
   var tempArray = [];
   let hierarchyFolder;
   if (Array.isArray(object)) {
@@ -1477,7 +1510,7 @@ async function handleMetadataResponse(
           },
           id: child.id,
         };
-        if (typeof hierarchyMain !== "undefined" && lilGUIgetFolder(core.gui, "Hierarchy") !== null && !lilGUIhasFolder(hierarchyMain, shortChildName)) {
+        if (typeof hierarchyMain !== "undefined" && hasHierarchyFolder() && !lilGUIhasFolder(hierarchyMain, shortChildName)) {
           hierarchyFolder = hierarchyMain.addFolder(shortChildName).close();
           hierarchyFolder.add(tempArray, shortChildName);
           child.traverse(function (children) {
@@ -1518,7 +1551,7 @@ async function handleMetadataResponse(
         id: object.id,
       };
     }
-    if (hierarchyMain && lilGUIgetFolder(core.gui, "Hierarchy") !== null && !lilGUIhasFolder(hierarchyMain, object.name)) {
+    if (hierarchyMain && hasHierarchyFolder() && !lilGUIhasFolder(hierarchyMain, object.name)) {
       hierarchyFolder = hierarchyMain.addFolder(object.name).close();
     }
   }
@@ -1538,15 +1571,15 @@ async function handleMetadataResponse(
       '<button id="metadata-collapse" class="metadata-collapse metadata-collapsed" type="button" aria-expanded="false" aria-controls="metadata-content">' +
         '<span class="metadata-toggle-icon" aria-hidden="true"></span>' +
         '<span class="metadata-toggle-copy">' +
-          '<span class="metadata-toggle-eyebrow">Model details</span>' +
-          '<span class="metadata-toggle-title">Metadata</span>' +
+          '<span class="metadata-toggle-eyebrow" data-i18n-key="metadata.modelDetails">' + escapeHtml(tr("metadata.modelDetails", "Model details")) + '</span>' +
+          '<span class="metadata-toggle-title" data-i18n-key="metadata.metadata">' + escapeHtml(tr("metadata.metadata", "Metadata")) + '</span>' +
         '</span>' +
         '<span class="metadata-toggle-chevron" aria-hidden="true"></span>' +
       '</button>' +
       '<div id="metadata-content" class="metadata-content">';
   metadataContent +=
     '<div class="metadata-row">' +
-      '<span class="metadata-label">Visualized file:</span>' +
+      '<span class="metadata-label" data-i18n-key="metadata.visualizedFile">' + escapeHtml(tr("metadata.visualizedFile", "Visualized file")) + ':</span>' +
       '<span class="metadata-value">' +
         escapeHtml(core.fileObject.basename) + '.' + escapeHtml(core.fileObject.extension) +
       '</span>' +
@@ -1556,13 +1589,13 @@ async function handleMetadataResponse(
 
   metadataContent +=
     '<div class="metadata-row">' +
-      '<span class="metadata-label">Vertices:</span>' +
+      '<span class="metadata-label" data-i18n-key="metadata.vertices">' + escapeHtml(tr("metadata.vertices", "Vertices")) + ':</span>' +
       '<span class="metadata-value">' + metadata["vertices"] + '</span>' +
     '</div>';
 
   metadataContent +=
     '<div class="metadata-row">' +
-      '<span class="metadata-label">Faces:</span>' +
+      '<span class="metadata-label" data-i18n-key="metadata.faces">' + escapeHtml(tr("metadata.faces", "Faces")) + ':</span>' +
       '<span class="metadata-value">' + metadata["faces"] + '</span>' +
     '</div>';
   metadataContent += await fetchEntityMetadata();
@@ -1585,11 +1618,8 @@ async function handleMetadataResponse(
 
     core.downloadModel.href = `blob:${encodeURI(c_path + core.fileObject.filename)}`;
     core.downloadModel.setAttribute("download", core.fileObject.filename);
-    core.downloadModel.innerHTML = `
-      <span class="viewer-action-icon download-icon" aria-hidden="true"></span>
-      <span>Download</span>
-    `;
     core.downloadModel.hidden = false;
+    window.Viewer?.updateDownloadMenuEntryLabel?.();
   }
 
   if (core.viewEntity && (core.CONFIG?.entity?.id || core.fileObject?.originalPath)) {
@@ -1642,14 +1672,14 @@ async function loadMetadataData(metadataUrl) {
     const response = await fetch(metadataUrl, { cache: "no-cache" });
 
     if (response.status === 404) {
-      showToast("No settings " + core.fileObject.filename + "_viewer.json found");
+      showToast(trFormat("toasts.settingsNotFound", { filename: core.fileObject.filename }, "No settings {filename}_viewer.json found"));
       return null;
     }
 
-    showToast("Settings " + core.fileObject.filename + "_viewer.json found");
+    showToast(trFormat("toasts.settingsFound", { filename: core.fileObject.filename }, "Settings {filename}_viewer.json found"));
     return response.json();
   } catch (error) {
-    showToast("Error fetching metadata: " + error.message);
+    showToast(trFormat("toasts.metadataFetchError", { error: error.message }, "Error fetching metadata: {error}"));
     return null;
   }
 }
@@ -1674,15 +1704,22 @@ async function fetchSettings(object) {
   }
 
   let hierarchyMain;
-  const existingHierarchy = lilGUIgetFolder(core.gui, "Hierarchy");
+  const hierarchyLabel = tr("gui.hierarchy", "Hierarchy");
+  const existingHierarchy = lilGUIgetFolder(core.gui, "Hierarchy") || lilGUIgetFolder(core.gui, hierarchyLabel);
   if (existingHierarchy === null) {
-    hierarchyMain = core.gui?.addFolder("Hierarchy").close();
+    hierarchyMain = core.gui?.addFolder(hierarchyLabel).close();
     hierarchyMain?.domElement?.classList.add("viewer-gui-main-folder");
     hierarchyMain?.domElement?.setAttribute("data-gui-main-folder", "hierarchy");
   } else {
     hierarchyMain = existingHierarchy;
+    if (typeof hierarchyMain.title === "function") {
+      hierarchyMain.title(hierarchyLabel);
+    }
     hierarchyMain?.domElement?.classList.add("viewer-gui-main-folder");
     hierarchyMain?.domElement?.setAttribute("data-gui-main-folder", "hierarchy");
+  }
+  if (window.Viewer?.i18nGui) {
+    window.Viewer.i18nGui.hierarchyFolder = hierarchyMain;
   }
   if (core.CONFIG.entity.metadata.sourceType === "IIIF") {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);
@@ -1707,19 +1744,25 @@ async function fetchSettings(object) {
   }
   // Add statistics GUI
   let statsMain;
-  if (lilGUIgetFolder(core.gui, "Statistics") === null) {
-    statsMain = core.gui.addFolder("Statistics").close();
+  const statisticsLabel = tr("gui.statistics", "Statistics");
+  if (lilGUIgetFolder(core.gui, "Statistics") === null && lilGUIgetFolder(core.gui, statisticsLabel) === null) {
+    statsMain = core.gui.addFolder(statisticsLabel).close();
     statsMain?.domElement?.classList.add("viewer-gui-main-folder");
     statsMain?.domElement?.setAttribute("data-gui-main-folder", "statistics");
-    statsMain
+    const performanceController = statsMain
     .add(core.CONFIG.viewer.performanceMode, "Performance", {
-      "High-performance": "high-performance",
-      "Low-power": "low-power",
-      Default: "default",
+      [tr("gui.highPerformance", "High-performance")]: "high-performance",
+      [tr("gui.lowPower", "Low-power")]: "low-power",
+      [tr("gui.default", "Default")]: "default",
     })
+    .name(tr("gui.performance", "Performance"))
     .onChange(function (value) {
       if (typeof core.renderer !== "undefined") core.renderer.powerPreference = value;
     });
+    if (window.Viewer?.i18nGui) {
+      window.Viewer.i18nGui.statisticsFolder = statsMain;
+      window.Viewer.i18nGui.performanceController = performanceController;
+    }
     statsMain.onOpenClose((changedGUI) => {
     if (changedGUI._closed) {
       if (typeof core.stats !== "undefined") core.stats.dom.style.visibility = "hidden";
@@ -1738,17 +1781,17 @@ function createIIIFDropdown(iiifConfigURL) {
   // list of candidate IIIF config URLs (add more as needed)
   const iiifList = [
     { url: iiifConfigURL.url, name: iiifConfigURL.name },
-    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: "Model Position and Scale" },
-    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin.json", name: "Model Origin" },
-    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin_bgcolor.json", name: "Model Origin with background color" },
-    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_position.json", name: "Model Position" },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: tr("iiif.optionModelPositionScale", "Model Position and Scale") },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin.json", name: tr("iiif.optionModelOrigin", "Model Origin") },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin_bgcolor.json", name: tr("iiif.optionModelOriginBg", "Model Origin with background color") },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_position.json", name: tr("iiif.optionModelPosition", "Model Position") },
   ].filter(Boolean);
 
   const group = document.createElement("div");
   group.className = "form-IIIF-group";
 
   const label = document.createElement("label");
-  label.textContent = "IIIF manifest";
+  label.textContent = tr("iiif.manifest", "IIIF manifest");
   label.className = "form-IIIF-label";
 
   const select = document.createElement("select");
@@ -1778,9 +1821,9 @@ function createIIIFUI() {
   const header = document.createElement("div");
   header.className = "form-IIIF-header";
   header.innerHTML = `
-    <span class="title">IIIF Loader</span>
+    <span class="title">${escapeHtml(tr("iiif.loader", "IIIF Loader"))}</span>
     <div class="tools">
-      <button type="button" id="iiif-toggle-collapse" title="Collapse">▾</button>
+      <button type="button" id="iiif-toggle-collapse" title="${escapeHtml(tr("iiif.collapse", "Collapse"))}">▾</button>
     </div>
   `;
 
@@ -1792,14 +1835,14 @@ function createIIIFUI() {
   content.id = "form-IIIF-content";
   content.innerHTML = `
     <div class="form-IIIF-group">
-      <input type="text" id="manifest-url" placeholder="https://example.org/iiif/manifest.json">
-      <button class="primary" id="load-manifest-from-url">Load from URL</button>
+      <input type="text" id="manifest-url" placeholder="${escapeHtml(tr("iiif.manifestUrlPlaceholder", "https://example.org/iiif/manifest.json"))}">
+      <button class="primary" id="load-manifest-from-url">${escapeHtml(tr("iiif.loadFromUrl", "Load from URL"))}</button>
     </div>
 
     <div class="form-IIIF-group column">
-      <textarea id="manifest-text" rows="8" placeholder="Paste IIIF manifest JSON here…"></textarea>
+      <textarea id="manifest-text" rows="8" placeholder="${escapeHtml(tr("iiif.manifestTextPlaceholder", "Paste IIIF manifest JSON here..."))}"></textarea>
       <div class="actions">
-        <button class="secondary" id="load-manifest-from-text">Load from Text</button>
+        <button class="secondary" id="load-manifest-from-text">${escapeHtml(tr("iiif.loadFromText", "Load from Text"))}</button>
       </div>
     </div>
   `;
@@ -2025,7 +2068,7 @@ function traverseMesh(object) {
     _objectMaterials.push(setupMaterials(child));
     _objectMaterials.side = THREE.DoubleSide;
   });
-  var objectMaterials = ["select by name"];
+  var objectMaterials = ["select by material"];
   _objectMaterials.forEach(function (item, index, array) {
     if (item.length > 1) {
       item.forEach(function (_item, _index, _array) {
@@ -2039,11 +2082,12 @@ function traverseMesh(object) {
   var _materialGui = null;
   var _uuid = null;
   if (!core.materialsFolder) return;
-  core.materialsFolder
+  core.i18nGui.editMaterialsController =core.materialsFolder
     .add(core.materialsPropertiesText, "Edit material", objectMaterials)
+    .name(window.Viewer?.t?.("gui.editMaterial", "Edit material") ?? "Edit material")
     .onChange(function (value) {
       if (
-        (value === "select by name" || value !== _uuid) &&
+        (value === "select by material" || value !== _uuid) &&
         _material !== null
       ) {
         _materialGui.color.destroy();
@@ -9328,6 +9372,443 @@ async function getAnnotations(iiifManifest, objectsConfig) {
   return iiifManifest.annotations;
 }
 
+const VIEWER_I18N = {
+  en: {
+    menu: {
+      actions: "Viewer actions",
+      openActions: "Open viewer actions",
+      embed: "Embed",
+      exitEmbed: "Exit embed",
+      openEmbedOptions: "Open embed options",
+      exitEmbedMode: "Exit embed mode",
+      download: "Download",
+    },
+    theme: {
+      lightMode: "Light mode",
+      darkMode: "Dark mode",
+      switchToLightMode: "Switch to light mode",
+      switchToDarkMode: "Switch to dark mode",
+    },
+    fullscreen: {
+      mode: "Fullscreen mode",
+      enter: "Fullscreen",
+      exit: "Exit fullscreen",
+      exitMode: "Exit fullscreen mode",
+    },
+    language: {
+      label: "Language: English",
+      switchToPolish: "Switch to Polish",
+      switchToEnglish: "Switch to English",
+      switchToGerman: "Switch to German",
+    },
+    hints: {
+      picking: "Shift + click to select multiple faces",
+      clipping: "Drag active clipping plane helper to adjust cut",
+    },
+    controls: {
+      enablePickingMode: "Enable picking mode",
+      disablePickingMode: "Disable picking mode",
+      enableDistanceMeasurement: "Enable distance measurement",
+      disableDistanceMeasurement: "Disable distance measurement",
+      selectedFaces: "Selected faces",
+    },
+    gui: {
+      controls: "Controls",
+      editor: "Editor",
+      transform3dObject: "Transform 3D Object",
+      transformLight: "Transform Light",
+      transformMode: "Transform Mode",
+      directionalLight: "Directional Light",
+      ambientLight: "Ambient Light",
+      cameraLight: "Camera Light",
+      backgroundColor: "Background Color",
+      BackgroundColorOuter: "Background Color Outer",
+      backgroundType: "Background Type",
+      clippingPlanes: "Clipping Planes",
+      clippingFolder: "Clipping Planes",
+      displayHelperX: "Show X helper",
+      displayHelperY: "Show Y helper",
+      displayHelperZ: "Show Z helper",
+      constantX: "Constant X",
+      constantY: "Constant Y",
+      constantZ: "Constant Z",
+      visible: "Visible cutting",
+      materials: "Materials",
+      metadata: "Metadata",
+      saveProperties: "Save properties",
+      hierarchy: "Hierarchy",
+      statistics: "Statistics",
+      clearSelectedFaces: "Clear selected faces",
+      addAnnotations: "Add annotations",
+      exportAnnotationsXml: "Export annotations XML",
+      importAnnotationsXml: "Import annotations XML",
+      resetCameraPosition: "Reset camera position",
+      save: "Save",
+      renderPreview: "Render preview",
+      color: "Color",
+      intensity: "Intensity",
+      position: "Position",
+      rotation: "Rotation",
+      camera: "Camera",
+      performance: "Performance",
+      highPerformance: "High-performance",
+      lowPower: "Low-power",
+      default: "Default",
+      none: "None",
+      move: "Move",
+      rotate: "Rotate",
+      scale: "Scale",
+      target: "Target",
+      local: "Local",
+      global: "Global",
+      linear: "Linear",
+      gradient: "Gradient",
+      editMaterial: "Edit material",
+      selectByMaterial: "select by material",
+    },
+    metadata: {
+      modelDetails: "Model details",
+      metadata: "Metadata",
+      visualizedFile: "Visualized file",
+      vertices: "Vertices",
+      faces: "Faces",
+      title: "Title",
+      author: "Author",
+      authorAffiliation: "Author affiliation",
+      license: "License",
+      description: "Description",
+      objectType: "Object type",
+      reconstructionAuthors: "Reconstruction authors",
+      reconstructionPeriod: "Reconstruction period",
+    },
+    iiif: {
+      loader: "IIIF Loader",
+      collapse: "Collapse",
+      expand: "Expand",
+      manifest: "IIIF manifest",
+      loadFromUrl: "Load from URL",
+      loadFromText: "Load from Text",
+      manifestUrlPlaceholder: "https://example.org/iiif/manifest.json",
+      manifestTextPlaceholder: "Paste IIIF manifest JSON here...",
+      invalidUrl: "Please enter a valid IIIF manifest URL.",
+      invalidJson: "Please enter a valid IIIF JSON text.",
+      optionModelPositionScale: "Model Position and Scale",
+      optionModelOrigin: "Model Origin",
+      optionModelOriginBg: "Model Origin with background color",
+      optionModelPosition: "Model Position",
+    },
+    localPreview: {
+      loadExampleModel: "Load example model",
+    },
+    toasts: {
+      transformMove: "Move: drag axis arrows to reposition the object.",
+      transformRotate: "Rotate: drag rotation rings to rotate the object.",
+      transformScale: "Scale: drag axis handles to resize the object.",
+      transformLightMove: "Transform Light - Move: drag axis arrows to move the directional light.",
+      transformLightTarget: "Transform Light - Target: drag axis arrows to reposition the light target.",
+      distanceEnabled: "Distance measurement is enabled.",
+      distanceHint: "Select a start point and an end point to measure distance.",
+      noIiiifModelFallback: "No 3D model found in IIIF manifest, loading example model.",
+      facePickingEnabled: "Face picking is enabled",
+      facePickingDisabled: "Face picking is disabled",
+      distanceModeEnabled: "Distance measurement mode is enabled",
+      distanceModeDisabled: "Distance measurement mode is disabled",
+      settingsFound: "Settings {filename}_viewer.json found",
+      settingsNotFound: "No settings {filename}_viewer.json found",
+      metadataFetchError: "Error fetching metadata: {error}",
+    },
+  },
+  pl: {
+    menu: {
+      actions: "Akcje podglądu",
+      openActions: "Otworz akcje podglądu",
+      embed: "Osadź",
+      exitEmbed: "Wyjdź z osadzania",
+      openEmbedOptions: "Otwórz opcje osadzania",
+      exitEmbedMode: "Wyjdź z trybu osadzania",
+      download: "Pobierz",
+    },
+    theme: {
+      lightMode: "Tryb jasny",
+      darkMode: "Tryb ciemny",
+      switchToLightMode: "Przelącz na tryb jasny",
+      switchToDarkMode: "Przelącz na tryb ciemny",
+    },
+    fullscreen: {
+      mode: "Tryb pełnoekranowy",
+      enter: "Pełny ekran",
+      exit: "Wyjdź z pełnego ekranu",
+      exitMode: "Wyjdź z trybu pełnoekranowego",
+    },
+    language: {
+      label: "Language: Polski",
+      switchToPolish: "Przelącz na język polski",
+      switchToEnglish: "Przelącz na język angielski",
+      switchToGerman: "Przelącz na język niemiecki",
+    },
+    hints: {
+      picking: "Shift + klik, aby wybrać wiele scian",
+      clipping: "Przeciągnij aktywną plaszczyznę przycinania, aby dostosować cięcie",
+    },
+    controls: {
+      enablePickingMode: "Włącz tryb wyboru",
+      disablePickingMode: "Wyłącz tryb wyboru",
+      enableDistanceMeasurement: "Włącz pomiar odległości",
+      disableDistanceMeasurement: "Wyłącz pomiar odległości",
+      selectedFaces: "Wybrane sciany",
+    },
+    gui: {
+      controls: "Sterowanie",
+      editor: "Edytor",
+      transform3dObject: "Transformacja obiektu 3D",
+      transformLight: "Transformacja światła",
+      transformMode: "Tryb transformacji",
+      directionalLight: "Światło kierunkowe",
+      ambientLight: "Światło otaczające",
+      cameraLight: "Światło kamery",
+      backgroundColor: "Kolor tła",
+      backgroundColorOuter: "Kolor tła zewnętrznego",
+      backgroundType: "Typ tła",
+      clippingPlanes: "Płaszczyzny przycinania",
+      clippingFolder: "Płaszczyzny przycinania",
+      displayHelperX: "Pokaż oś X",
+      displayHelperY: "Pokaż oś Y",
+      displayHelperZ: "Pokaż oś Z",
+      constantX: "Stała X",
+      constantY: "Stała Y",
+      constantZ: "Stała Z",
+      visible: "Widoczne cięcie",
+      materials: "Materiały",
+      metadata: "Metadane",
+      saveProperties: "Zapisz właściwości",
+      hierarchy: "Hierarchia",
+      statistics: "Statystyki",
+      clearSelectedFaces: "Wyczyść wybrane ściany",
+      addAnnotations: "Dodaj adnotacje",
+      exportAnnotationsXml: "Eksportuj adnotacje XML",
+      importAnnotationsXml: "Importuj adnotacje XML",
+      resetCameraPosition: "Resetuj pozycję kamery",
+      save: "Zapisz",
+      renderPreview: "Renderuj podgląd",
+      color: "Kolor",
+      intensity: "Intensywność",
+      position: "Pozycja",
+      rotation: "Rotacja",
+      camera: "Kamera",
+      performance: "Wydajność",
+      highPerformance: "Wysoka wydajność",
+      lowPower: "Niski pobór mocy",
+      default: "Domyślny",
+      none: "Brak",
+      move: "Przesuń",
+      rotate: "Obróć",
+      scale: "Skaluj",
+      target: "Cel",
+      local: "Lokalny",
+      global: "Globalny",
+      linear: "Liniowe",
+      gradient: "Gradient",
+      editMaterial: "Edytuj materiał",
+      selectByMaterial: "wybierz według materiału",
+    },
+    metadata: {
+      modelDetails: "Szczegóły modelu",
+      metadata: "Metadane",
+      visualizedFile: "Wizualizowany plik",
+      vertices: "Wierzchołki",
+      faces: "Ściany",
+      title: "Tytuł",
+      author: "Autor",
+      authorAffiliation: "Afiliacja autora",
+      license: "Licencja",
+      description: "Opis",
+      objectType: "Typ obiektu",
+      reconstructionAuthors: "Autorzy rekonstrukcji",
+      reconstructionPeriod: "Okres rekonstrukcji",
+    },
+    iiif: {
+      loader: "Ładowanie IIIF",
+      collapse: "Zwiń",
+      expand: "Rozwiń",
+      manifest: "Manifest IIIF",
+      loadFromUrl: "Wczytaj z URL",
+      loadFromText: "Wczytaj z tekstu",
+      manifestUrlPlaceholder: "https://example.org/iiif/manifest.json",
+      manifestTextPlaceholder: "Wklej tutaj JSON manifestu IIIF...",
+      invalidUrl: "Podaj poprawny URL manifestu IIIF.",
+      invalidJson: "Podaj poprawny tekst JSON IIIF.",
+      optionModelPositionScale: "Pozycja i skala modelu",
+      optionModelOrigin: "Punkt początkowy modelu",
+      optionModelOriginBg: "Punkt początkowy modelu z kolorem tła",
+      optionModelPosition: "Pozycja modelu",
+    },
+    localPreview: {
+      loadExampleModel: "Wczytaj model przykładowy",
+    },
+    toasts: {
+      transformMove: "Przesuwanie: przeciągnij strzalki osi, aby przesunąć obiekt.",
+      transformRotate: "Obracanie: przeciągnij pierscienie obrotu, aby obrócić obiekt.",
+      transformScale: "Skalowanie: przeciągnij uchwyty osi, aby zmienić rozmiar obiektu.",
+      transformLightMove: "Transformacja światła - Przesunięcie: przeciągnij strzalki osi, aby przesunąć światło kierunkowe.",
+      transformLightTarget: "Transformacja światła - Cel: przeciągnij strzałki osi, aby przesunąć punkt celu światła.",
+      distanceEnabled: "Pomiar odległości jest włączony.",
+      distanceHint: "Wybierz punkt początkowy i końcowy, aby zmierzyć odległość.",
+      noIiiifModelFallback: "Nie znaleziono modelu 3D w manifescie IIIF, ładuję model przykładowy.",
+      facePickingEnabled: "Tryb wyboru ścian jest włączony",
+      facePickingDisabled: "Tryb wyboru ścian jest wyłączony",
+      distanceModeEnabled: "Tryb pomiaru odległości jest włączony",
+      distanceModeDisabled: "Tryb pomiaru odległości jest wyłączony",
+      settingsFound: "Znaleziono ustawienia {filename}_viewer.json",
+      settingsNotFound: "Nie znaleziono ustawień {filename}_viewer.json",
+      metadataFetchError: "Błąd pobierania metadanych: {error}",
+    },
+  },
+  de: {
+    menu: {
+      actions: "Viewer-Aktionen",
+      openActions: "Viewer-Aktionen öffnen",
+      embed: "Einbetten",
+      exitEmbed: "Einbettung beenden",
+      openEmbedOptions: "Einbettungsoptionen öffnen",
+      exitEmbedMode: "Einbettungsmodus beenden",
+      download: "Herunterladen",
+    },
+    theme: {
+      lightMode: "Hellmodus",
+      darkMode: "Dunkelmodus",
+      switchToLightMode: "Zu Hellmodus wechseln",
+      switchToDarkMode: "Zu Dunkelmodus wechseln",
+    },
+    fullscreen: {
+      mode: "Vollbildmodus",
+      enter: "Vollbild",
+      exit: "Vollbild beenden",
+      exitMode: "Vollbildmodus beenden",
+    },
+    language: {
+      label: "Sprache: Deutsch",
+      switchToPolish: "Zu Polnisch wechseln",
+      switchToEnglish: "Zu Englisch wechseln",
+    },
+    hints: {
+      picking: "Umschalt + Klick, um mehrere Flächen auszuwählen",
+      clipping: "Ziehen Sie die aktive Schnittebene-Hilfe, um den Schnitt anzupassen",
+    },
+    controls: {
+      enablePickingMode: "Auswahlmodus aktivieren",
+      disablePickingMode: "Auswahlmodus deaktivieren",
+      enableDistanceMeasurement: "Entfernungsmessung aktivieren",
+      disableDistanceMeasurement: "Entfernungsmessung deaktivieren",
+      selectedFaces: "Ausgewählte Flächen",
+    },
+    gui: {
+      controls: "Steuerung",
+      editor: "Editor",
+      transform3dObject: "3D-Objekt transformieren",
+      transformLight: "Licht transformieren",
+      transformMode: "Transformationsmodus",
+      directionalLight: "Gerichtetes Licht",
+      ambientLight: "Umgebungslicht",
+      cameraLight: "Kamera-Licht",
+      backgroundColor: "Hintergrundfarbe",
+      backgroundColorOuter: "Äußere Hintergrundfarbe",
+      backgroundType: "Hintergrundtyp",
+      clippingPlanes: "Schnittebenen",
+      clippingFolder: "Schnittebenen",
+      displayHelperX: "X-Hilfe anzeigen",
+      displayHelperY: "Y-Hilfe anzeigen",
+      displayHelperZ: "Z-Hilfe anzeigen",
+      constantX: "Konstante X",
+      constantY: "Konstante Y",
+      constantZ: "Konstante Z",
+      visible: "Sichtbarer Schnitt",
+      materials: "Materialien",
+      metadata: "Metadaten",
+      saveProperties: "Eigenschaften speichern",
+      hierarchy: "Hierarchie",
+      statistics: "Statistiken",
+      clearSelectedFaces: "Ausgewählte Flächen löschen",
+      addAnnotations: "Anmerkungen hinzufügen",
+      exportAnnotationsXml: "Anmerkungen XML exportieren",
+      importAnnotationsXml: "Anmerkungen XML importieren",
+      resetCameraPosition: "Kameraposition zurücksetzen",
+      save: "Speichern",
+      renderPreview: "Vorschau rendern",
+      color: "Farbe",
+      intensity: "Intensität",
+      position: "Position",
+      rotation: "Rotation",
+      camera: "Kamera",
+      performance: "Leistung",
+      highPerformance: "Hohe Leistung",
+      lowPower: "Niedriger Stromverbrauch",
+      default: "Standard",
+      none: "Keine",
+      move: "Bewegen",
+      rotate: "Drehen",
+      scale: "Skalieren",
+      target: "Ziel",
+      local: "Lokal",
+      global: "Global",
+      linear: "Linear",
+      gradient: "Farbverlauf",
+      editMaterial: "Material bearbeiten",
+      selectByMaterial: "nach Material auswählen",
+    },
+    metadata: {
+      modelDetails: "Modelldetails",
+      metadata: "Metadaten",
+      visualizedFile: "Visualisierte Datei",
+      vertices: "Vertices",
+      faces: "Flächen",
+      title: "Titel",
+      author: "Autor",
+      authorAffiliation: "Autoren-Zugehörigkeit",
+      license: "Lizenz",
+      description: "Beschreibung",
+      objectType: "Objekttyp",
+      reconstructionAuthors: "Rekonstruktionsautoren",
+      reconstructionPeriod: "Rekonstruktionsperiode",
+    },
+    iiif: {
+      loader: "IIIF-Loader",
+      collapse: "Zusammenklappen",
+      expand: "Erweitern",
+      manifest: "IIIF-Manifest",
+      loadFromUrl: "Von URL laden",
+      loadFromText: "Von Text laden",
+      manifestUrlPlaceholder: "https://example.org/iiif/manifest.json",
+      manifestTextPlaceholder: "IIIF-Manifest-JSON hier einfügen...",
+      invalidUrl: "Bitte geben Sie eine gültige IIIF-Manifest-URL ein.",
+      invalidJson: "Bitte geben Sie einen gültigen IIIF-JSON-Text ein.",
+      optionModelPositionScale: "Modellposition und -skalierung",
+      optionModelOrigin: "Modellursprung",
+      optionModelOriginBg: "Modellursprung mit Hintergrundfarbe",
+      optionModelPosition: "Modellposition",
+    },
+    localPreview: {
+      loadExampleModel: "Beispielmodell laden",
+    },
+    toasts: {
+      transformMove: "Bewegen: Ziehen Sie die Achsenpfeile, um das Objekt zu repositionieren.",
+      transformRotate: "Drehen: Ziehen Sie die Rotationsringe, um das Objekt zu drehen.",
+      transformScale: "Skalieren: Ziehen Sie die Achsengriffe, um die Größe des Objekts zu ändern.",
+      transformLightMove: "Licht transformieren - Bewegen: Ziehen Sie die Achsenpfeile, um das gerichtete Licht zu bewegen.",
+      transformLightTarget: "Licht transformieren - Ziel: Ziehen Sie die Achsenpfeile, um das Lichtziel zu repositionieren.",
+      distanceEnabled: "Entfernungsmessung ist aktiviert.",
+      distanceHint: "Wählen Sie einen Startpunkt und einen Endpunkt, um die Entfernung zu messen.",
+      noIiiifModelFallback: "Kein 3D-Modell im IIIF-Manifest gefunden, Beispielmodell wird geladen.",
+      facePickingEnabled: "Flächenauswahl ist aktiviert",
+      facePickingDisabled: "Flächenauswahl ist deaktiviert",
+      distanceModeEnabled: "Entfernungsmessungsmodus ist aktiviert",
+      distanceModeDisabled: "Entfernungsmessungsmodus ist deaktiviert",
+      settingsFound: "Einstellungen {filename}_viewer.json gefunden",
+      settingsNotFound: "Keine Einstellungen {filename}_viewer.json gefunden",
+      metadataFetchError: "Fehler beim Abrufen der Metadaten: {error}",
+    },
+  },
+};
+
 /*
 DFG 3D-Viewer
 Copyright (C) 2025 - Daniel Dworak
@@ -9406,13 +9887,17 @@ const Viewer = {
   actionMenuPanel: null,
   fullscreenMode: null,
   themeMode: null,
+  languageMode: null,
   downloadModel: null,
   embedConfiguratorPanel: null,
   embedConfigInputs: null,
   embedConfigPreviewFrame: null,
   embedMissingSourceNotified: false,
   currentTheme: "dark",
+  currentLanguage: "en",
   THEME_STORAGE_KEY: "iiif-dark-mode",
+  LANGUAGE_STORAGE_KEY: "viewer-language",
+  I18N: VIEWER_I18N,
   GESTURE: {handPx: 55, period: 5.5, rotate: false, active: false, target: new THREE.Vector3(), startTime: 0, baseAngle: 0, orbitAngle: THREE.MathUtils.degToRad(15), easeInTime: 2.25},
   lastTime: null,
   originalMetadata: [],
@@ -9471,12 +9956,12 @@ const Viewer = {
   windowHalfY: null,
   transformType: "",
   transformText: {
-    "Transform 3D Object": "select type",
-    "Transform Light": "select type",
-    "Transform Mode": "Local",
+    "Transform 3D Object": "",
+    "Transform Light": "",
+    "Transform Mode": "local",
   },
   materialsPropertiesText: {
-    "Edit material": "select by name",
+    "Edit material": "select by material",
   },
   pickingStats: {
     "Selected faces": 0,
@@ -9574,6 +10059,7 @@ const Viewer = {
     model: null,
     id: null,
     theme: null,
+    language: null,
     autoRotate: null,
     autoRotateSpeed: null,
     disableInteraction: false,
@@ -9596,6 +10082,7 @@ const Viewer = {
   lastWindowFocusAt: 0,
   cleanupCallbacks: [],
   resizeObserver: null,
+  i18nGui: null,
 
   getE2EModelOverride() {
     if (!window.__E2E__) return null;
@@ -9652,6 +10139,9 @@ const Viewer = {
     if (this.actionMenuToggle) {
       this.actionMenuToggle.checked = false;
     }
+    if (this.languageModeDropdown) {
+      this.languageModeDropdown.hidden = true;
+    }
   },
 
   isEmbedModeActive() {
@@ -9661,11 +10151,14 @@ const Viewer = {
   updateEmbedMenuEntryState() {
     if (!this.viewEntity) return;
     const isActive = this.isEmbedModeActive();
-    const label = isActive ? "Exit embed" : "Embed";
+    const label = isActive ? this.t("menu.exitEmbed", "Exit embed") : this.t("menu.embed", "Embed");
     const iconClass = isActive ? "embed-exit-icon" : "embed-icon";
     this.viewEntity.innerHTML = `<span class="${iconClass}"></span><span>${label}</span>`;
-    this.viewEntity.setAttribute("aria-label", isActive ? "Exit embed mode" : "Open embed options");
-    this.viewEntity.setAttribute("title", isActive ? "Exit embed mode" : "Open embed options");
+    const a11yLabel = isActive
+      ? this.t("menu.exitEmbedMode", "Exit embed mode")
+      : this.t("menu.openEmbedOptions", "Open embed options");
+    this.viewEntity.setAttribute("aria-label", a11yLabel);
+    this.viewEntity.setAttribute("title", a11yLabel);
   },
 
   closeEmbedConfigurator() {
@@ -9686,6 +10179,44 @@ const Viewer = {
 
     const storedTheme = window.localStorage.getItem(this.THEME_STORAGE_KEY);
     return storedTheme === "0" ? "light" : "dark";
+  },
+
+  normalizeLanguage(value) {
+    if (value == null) return null;
+    const normalizedValue = String(value).trim().toLowerCase();
+    if (normalizedValue.startsWith("pl")) return "pl";
+    if (normalizedValue.startsWith("de")) return "de";
+    if (normalizedValue.startsWith("en")) return "en";
+    return null;
+  },
+
+  getStoredLanguage() {
+    const fromQuery = this.normalizeLanguage(this.urlOptions?.language);
+    if (fromQuery) return fromQuery;
+
+    const storedLanguage = this.normalizeLanguage(window.localStorage.getItem(this.LANGUAGE_STORAGE_KEY));
+    if (storedLanguage) return storedLanguage;
+
+    const browserLanguage = this.normalizeLanguage(navigator?.language || "");
+    return browserLanguage || "en";
+  },
+
+  t(key, fallback = "") {
+    const lang = ["pl", "de"].includes(this.currentLanguage) ? this.currentLanguage : "en";
+    const dictionary = this.I18N[lang] || this.I18N.en;
+    const value = String(key || "")
+      .split(".")
+      .reduce((acc, part) => (acc && typeof acc === "object" ? acc[part] : undefined), dictionary);
+    if (typeof value === "string") return value;
+    return fallback || key;
+  },
+
+  tFormat(key, params = {}, fallback = "") {
+    const template = this.t(key, fallback);
+    return String(template).replace(/\{(\w+)\}/g, (_match, token) => {
+      const replacement = params?.[token];
+      return replacement == null ? "" : String(replacement);
+    });
   },
 
   parseBooleanParam(value) {
@@ -9727,6 +10258,7 @@ const Viewer = {
     const params = new URLSearchParams(window.location.search);
     const modelFromQuery = params.get("model") || params.get("src");
     const themeFromQuery = (params.get("theme") || "").trim().toLowerCase();
+    const languageFromQuery = this.normalizeLanguage(params.get("lang") || params.get("language"));
     const autoRotateFromQuery = this.parseBooleanParam(params.get("autorotate"));
     const disableInteractionFromQuery = this.parseBooleanParam(params.get("disableInteraction"));
     const hideUiFromQuery = this.parseBooleanParam(params.get("hideUi"));
@@ -9736,6 +10268,7 @@ const Viewer = {
       model: modelFromQuery || null,
       id: params.get("id") || null,
       theme: themeFromQuery === "light" || themeFromQuery === "dark" ? themeFromQuery : null,
+      language: languageFromQuery,
       autoRotate: autoRotateFromQuery,
       autoRotateSpeed: this.parseFloatParam(params.get("autorotateSpeed")),
       disableInteraction: disableInteractionFromQuery === true,
@@ -9753,10 +10286,13 @@ const Viewer = {
     if (this.themeMode) {
       this.themeMode.innerHTML = `
         <span class="viewer-theme-icon" aria-hidden="true">${isDark ? "☀️" : "🌙"}</span>
-        <span>${isDark ? "Light mode" : "Dark mode"}</span>
+        <span>${isDark ? this.t("theme.lightMode", "Light mode") : this.t("theme.darkMode", "Dark mode")}</span>
       `;
-      this.themeMode.setAttribute("aria-label", isDark ? "Switch to light mode" : "Switch to dark mode");
-      this.themeMode.setAttribute("title", isDark ? "Switch to light mode" : "Switch to dark mode");
+      const label = isDark
+        ? this.t("theme.switchToLightMode", "Switch to light mode")
+        : this.t("theme.switchToDarkMode", "Switch to dark mode");
+      this.themeMode.setAttribute("aria-label", label);
+      this.themeMode.setAttribute("title", label);
     }
 
     const exampleThemeToggle = document.getElementById("example-theme-toggle");
@@ -9794,17 +10330,289 @@ const Viewer = {
     this.applyTheme(this.currentTheme === "dark" ? "light" : "dark");
   },
 
+  updateLanguageControlLabels() {
+    if (!this.languageMode) return;
+    const languages = [
+      { code: "en", label: "English" },
+      { code: "pl", label: "Polski" },
+      { code: "de", label: "Deutsch" }
+    ];
+    const currentLangLabel = languages.find(l => l.code === this.currentLanguage)?.label || "English";
+    this.languageMode.innerHTML = `
+      <span class="viewer-action-icon language-icon" aria-hidden="true"></span>
+      <span>${currentLangLabel}</span>
+    `;
+    this.languageMode.setAttribute("aria-label", this.t("language.label", "Language: English"));
+    this.languageMode.setAttribute("title", this.t("language.label", "Language: English"));
+    
+    if (this.languageModeDropdown) {
+      const items = this.languageModeDropdown.querySelectorAll(".language-dropdown-item");
+      items.forEach(item => {
+        item.classList.toggle("active", item.dataset.lang === this.currentLanguage);
+      });
+    }
+  },
+
+  updateActionMenuLabels() {
+    if (!this.actionMenu) return;
+    const actionMenuLabel = this.t("menu.actions", "Viewer actions");
+    const actionMenuOpenLabel = this.t("menu.openActions", "Open viewer actions");
+
+    this.actionMenu.querySelector("#viewerActionMenuToggle")?.setAttribute("aria-label", actionMenuOpenLabel);
+    const toggle = this.actionMenu.querySelector(".viewer-action-menu_toggle");
+    toggle?.setAttribute("aria-label", actionMenuOpenLabel);
+    toggle?.setAttribute("title", actionMenuLabel);
+    this.actionMenu.querySelector(".viewer-action-menu_panel")?.setAttribute("aria-label", actionMenuLabel);
+  },
+
+  updateDownloadMenuEntryLabel() {
+    if (!this.downloadModel || this.downloadModel.hidden) return;
+    this.downloadModel.innerHTML = `
+      <span class="viewer-action-icon download-icon" aria-hidden="true"></span>
+      <span>${this.t("menu.download", "Download")}</span>
+    `;
+  },
+
+  updateLocalizedUI() {
+    const lang = ["pl", "de"].includes(this.currentLanguage) ? this.currentLanguage : "en";
+    document.documentElement.setAttribute("lang", lang);
+    this.updateActionMenuLabels();
+    this.updateLanguageControlLabels();
+    this.updateThemeControlLabels();
+    this.updateEmbedMenuEntryState();
+    this.updateFullscreenButtonIcon();
+    this.updateDownloadMenuEntryLabel();
+    this.updatePickingModeControllerLabel();
+    this.updateDistanceMeasurementControllerLabel();
+    this.updateSelectedFacesControllerLabel();
+    this.updateLilGuiLabels();
+    this.updateLocalPreviewLabels();
+    this.updateIIIFFormLabels();
+    this.updateMetadataPanelLabels();
+    if (this.pickingHint) this.pickingHint.textContent = this.t("hints.picking", "Shift + click to select multiple faces");
+    if (this.clippingHint) this.clippingHint.textContent = this.t("hints.clipping", "Drag active clipping plane helper to adjust cut");
+  },
+
+  setGuiFolderTitle(folder, title) {
+    if (!folder || !title) return;
+    if (typeof folder.title === "function") {
+      folder.title(title);
+      return;
+    }
+    if (folder.$title) {
+      folder.$title.textContent = title;
+    }
+    folder._title = title;
+  },
+
+  refreshOptionController(controller, optionsMap) {
+    if (!controller || typeof controller.options !== "function") return;
+    const currentValue = typeof controller.getValue === "function" ? controller.getValue() : undefined;
+    controller.options(optionsMap);
+    if (currentValue !== undefined && typeof controller.setValue === "function") {
+      controller.setValue(currentValue);
+    }
+    if (typeof controller.updateDisplay === "function") {
+      controller.updateDisplay();
+    }
+  },
+
+  updateLilGuiLabels() {
+    const g = this.i18nGui;
+    if (!g) return;
+    this.setGuiFolderTitle(core.gui, this.t("gui.controls", "Controls"));
+    this.setGuiFolderTitle(g.editorFolder, this.t("gui.editor", "Editor"));
+    this.setGuiFolderTitle(g.lightFolder, this.t("gui.directionalLight", "Directional Light"));
+    this.setGuiFolderTitle(g.lightFolderAmbient, this.t("gui.ambientLight", "Ambient Light"));
+    this.setGuiFolderTitle(g.lightFolderCamera, this.t("gui.cameraLight", "Camera Light"));
+    this.setGuiFolderTitle(g.backgroundFolder, this.t("gui.backgroundColor", "Background Color"));
+    this.setGuiFolderTitle(g.clippingFolder, this.t("gui.clippingFolder", "Clipping Planes"));
+    this.setGuiFolderTitle(g.materialsFolder, this.t("gui.materials", "Materials"));
+    this.setGuiFolderTitle(g.metadataFolder, this.t("gui.metadata", "Metadata"));
+    this.setGuiFolderTitle(g.propertiesFolder, this.t("gui.saveProperties", "Save properties"));
+    this.setGuiFolderTitle(g.hierarchyFolder, this.t("gui.hierarchy", "Hierarchy"));
+    this.setGuiFolderTitle(g.statisticsFolder, this.t("gui.statistics", "Statistics"));
+
+    // Update clipping controllers
+    if (g.clippingFolder) {
+      g.clippingFolder.controllers.forEach(controller => {
+        switch (controller._name) {
+          case 'displayHelperX':
+            controller.name(this.t('gui.displayHelperX', 'Show X helper'));
+            break;
+          case 'displayHelperY':
+            controller.name(this.t('gui.displayHelperY', 'Show Y helper'));
+            break;
+          case 'displayHelperZ':
+            controller.name(this.t('gui.displayHelperZ', 'Show Z helper'));
+            break;
+          case 'constantX':
+            controller.name(this.t('gui.constantX', 'Constant X'));
+            break;
+          case 'constantY':
+            controller.name(this.t('gui.constantY', 'Constant Y'));
+            break;
+          case 'constantZ':
+            controller.name(this.t('gui.constantZ', 'Constant Z'));
+            break;
+          case 'visible':
+            controller.name(this.t('gui.visible', 'Visible'));
+            break;
+        }
+      });
+    }
+
+    g.clearSelectedFacesController?.name?.(this.t("gui.clearSelectedFaces", "Clear selected faces"));
+    g.transformObjectController?.name?.(this.t("gui.transform3dObject", "Transform 3D Object"));
+    g.transformLightController?.name?.(this.t("gui.transformLight", "Transform Light"));
+    g.transformModeController?.name?.(this.t("gui.transformMode", "Transform Mode"));
+    g.backgroundTypeController?.name?.(this.t("gui.backgroundType", "Background Type"));
+    g.backgroundColorController?.name?.(this.t("gui.backgroundColor", "Background Color"));
+    g.backgroundColorOuterController?.name?.(this.t("gui.backgroundColorOuter", "Background Color Outer"));
+    g.addAnnotationController?.name?.(this.t("gui.addAnnotations", "Add annotations"));
+    g.exportAnnotationsController?.name?.(this.t("gui.exportAnnotationsXml", "Export annotations XML"));
+    g.importAnnotationsController?.name?.(this.t("gui.importAnnotationsXml", "Import annotations XML"));
+    g.resetCameraController?.name?.(this.t("gui.resetCameraPosition", "Reset camera position"));
+    g.saveController?.name?.(this.t("gui.save", "Save"));
+    g.renderPreviewController?.name?.(this.t("gui.renderPreview", "Render preview"));
+    g.performanceController?.name?.(this.t("gui.performance", "Performance"));
+    g.savePropPositionController?.name?.(this.t("gui.position", "Position"));
+    g.savePropRotationController?.name?.(this.t("gui.rotation", "Rotation"));
+    g.savePropScaleController?.name?.(this.t("gui.scale", "Scale"));
+    g.savePropCameraController?.name?.(this.t("gui.camera", "Camera"));
+    g.savePropDirectionalController?.name?.(this.t("gui.directionalLight", "Directional Light"));
+    g.savePropAmbientController?.name?.(this.t("gui.ambientLight", "Ambient Light"));
+    g.savePropCameraLightController?.name?.(this.t("gui.cameraLight", "Camera Light"));
+    g.savePropBackgroundController?.name?.(this.t("gui.backgroundColor", "Background Color"));
+    g.directionalLightColorController?.name?.(this.t("gui.color", "Color"));
+    g.directionalLightIntensityController?.name?.(this.t("gui.intensity", "Intensity"));
+    g.ambientLightColorController?.name?.(this.t("gui.color", "Color"));
+    g.ambientLightIntensityController?.name?.(this.t("gui.intensity", "Intensity"));
+    g.cameraLightColorController?.name?.(this.t("gui.color", "Color"));
+    g.cameraLightIntensityController?.name?.(this.t("gui.intensity", "Intensity"));
+    g.editMaterialsController?.name?.(this.t("gui.editMaterial", "Edit material"));
+
+    this.refreshOptionController(g.transformObjectController, {
+      [this.t("gui.none", "None")]: "",
+      [this.t("gui.move", "Move")]: "translate",
+      [this.t("gui.rotate", "Rotate")]: "rotate",
+      [this.t("gui.scale", "Scale")]: "scale",
+    });
+    this.refreshOptionController(g.transformModeController, {
+      [this.t("gui.local", "Local")]: "local",
+      [this.t("gui.global", "Global")]: "global",
+    });
+    this.refreshOptionController(g.transformLightController, {
+      [this.t("gui.none", "None")]: "",
+      [this.t("gui.move", "Move")]: "translate",
+      [this.t("gui.target", "Target")]: "rotate",
+    });
+    this.refreshOptionController(g.backgroundTypeController, {
+      [this.t("gui.linear", "Linear")]: "linear",
+      [this.t("gui.gradient", "Gradient")]: "gradient",
+    });
+    this.refreshOptionController(g.performanceController, {
+      [this.t("gui.highPerformance", "High-performance")]: "high-performance",
+      [this.t("gui.lowPower", "Low-power")]: "low-power",
+      [this.t("gui.default", "Default")]: "default",
+    });
+    this.refreshOptionController(g.editMaterialsController, {
+      [this.t("gui.selectByMaterial", "select by material")]: "select by material",
+    });
+  },
+
+  updateLocalPreviewLabels() {
+    const label = document.querySelector("#example-model-picker label[for='example-model-select']");
+    if (label) {
+      label.textContent = this.t("localPreview.loadExampleModel", "Load example model");
+    }
+  },
+
+  updateIIIFFormLabels() {
+    const form = document.getElementById("form-IIIF");
+    if (!form) return;
+    const title = form.querySelector(".form-IIIF-header .title");
+    if (title) title.textContent = this.t("iiif.loader", "IIIF Loader");
+    const collapseBtn = document.getElementById("iiif-toggle-collapse");
+    if (collapseBtn) {
+      const isCollapsed = form.classList.contains("collapsed");
+      collapseBtn.title = isCollapsed
+        ? this.t("iiif.expand", "Expand")
+        : this.t("iiif.collapse", "Collapse");
+    }
+    const label = form.querySelector(".form-IIIF-label");
+    if (label) label.textContent = this.t("iiif.manifest", "IIIF manifest");
+    const select = document.getElementById("iiif-manifest-select");
+    if (select) {
+      const optionLabelByUrl = {
+        "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json": this.t("iiif.optionModelPositionScale", "Model Position and Scale"),
+        "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin.json": this.t("iiif.optionModelOrigin", "Model Origin"),
+        "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin_bgcolor.json": this.t("iiif.optionModelOriginBg", "Model Origin with background color"),
+        "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_position.json": this.t("iiif.optionModelPosition", "Model Position"),
+      };
+      Array.from(select.options).forEach((option) => {
+        const labelFromMap = optionLabelByUrl[option.value];
+        if (labelFromMap) option.textContent = labelFromMap;
+      });
+    }
+    const manifestUrl = document.getElementById("manifest-url");
+    if (manifestUrl) manifestUrl.placeholder = this.t("iiif.manifestUrlPlaceholder", "https://example.org/iiif/manifest.json");
+    const manifestText = document.getElementById("manifest-text");
+    if (manifestText) manifestText.placeholder = this.t("iiif.manifestTextPlaceholder", "Paste IIIF manifest JSON here...");
+    const loadFromUrlButton = document.getElementById("load-manifest-from-url");
+    if (loadFromUrlButton) loadFromUrlButton.textContent = this.t("iiif.loadFromUrl", "Load from URL");
+    const loadFromTextButton = document.getElementById("load-manifest-from-text");
+    if (loadFromTextButton) loadFromTextButton.textContent = this.t("iiif.loadFromText", "Load from Text");
+  },
+
+  updateMetadataPanelLabels() {
+    const metadataContainer = document.getElementById("metadata-container");
+    if (!metadataContainer) return;
+    metadataContainer.querySelectorAll("[data-i18n-key]").forEach((node) => {
+      const key = node.getAttribute("data-i18n-key");
+      if (!key) return;
+      const needsColon = node.classList.contains("metadata-label");
+      const text = this.t(key, node.textContent?.replace(/:\s*$/, "") || "");
+      node.textContent = needsColon ? `${text}:` : text;
+    });
+  },
+
+  applyLanguage(language, { persist = true } = {}) {
+    const normalizedLanguage = this.normalizeLanguage(language) || "en";
+    this.currentLanguage = normalizedLanguage;
+    if (persist) {
+      window.localStorage.setItem(this.LANGUAGE_STORAGE_KEY, normalizedLanguage);
+    }
+    this.updateLocalizedUI();
+  },
+
+  toggleLanguage() {
+    if (!this.languageModeDropdown) return;
+    const isVisible = !this.languageModeDropdown.hidden;
+    this.languageModeDropdown.hidden = isVisible;
+  },
+
+  selectLanguage(lang) {
+    this.languageModeDropdown.hidden = true;
+    this.closeActionMenu();
+    this.applyLanguage(lang);
+  },
+
   updatePickingModeControllerLabel() {
     if (!this.pickingModeController?.name) return;
     this.pickingModeController.name(
-      this.pickingMode ? "Disable picking mode" : "Enable picking mode"
+      this.pickingMode
+        ? this.t("controls.disablePickingMode", "Disable picking mode")
+        : this.t("controls.enablePickingMode", "Enable picking mode")
     );
   },
 
   updateDistanceMeasurementControllerLabel() {
     if (!this.distanceMeasurementController?.name) return;
     this.distanceMeasurementController.name(
-      this.RULER_MODE ? "Disable distance measurement" : "Enable distance measurement"
+      this.RULER_MODE
+        ? this.t("controls.disableDistanceMeasurement", "Disable distance measurement")
+        : this.t("controls.enableDistanceMeasurement", "Enable distance measurement")
     );
   },
 
@@ -9835,7 +10643,7 @@ const Viewer = {
 
   updateSelectedFacesControllerLabel() {
     if (!this.selectedFacesCountController?.name) return;
-    this.selectedFacesCountController.name("Selected faces");
+    this.selectedFacesCountController.name(this.t("controls.selectedFaces", "Selected faces"));
   },
 
   updatePickingHintVisibility() {
@@ -10582,11 +11390,13 @@ const Viewer = {
     if (!this.fullscreenMode) return;
 
     const isFullscreen = !!document.fullscreenElement;
-    const label = isFullscreen ? "Exit fullscreen mode" : "Fullscreen mode";
+    const label = isFullscreen
+      ? this.t("fullscreen.exitMode", "Exit fullscreen mode")
+      : this.t("fullscreen.mode", "Fullscreen mode");
 
     this.fullscreenMode.innerHTML = `
       <span class="viewer-action-icon ${isFullscreen ? "fullscreen-exit-icon" : "fullscreen-icon"}" aria-hidden="true"></span>
-      <span>${isFullscreen ? "Exit fullscreen" : "Fullscreen"}</span>
+      <span>${isFullscreen ? this.t("fullscreen.exit", "Exit fullscreen") : this.t("fullscreen.enter", "Fullscreen")}</span>
     `;
     this.fullscreenMode.setAttribute("aria-label", label);
     this.fullscreenMode.setAttribute("title", label);
@@ -10851,6 +11661,7 @@ const Viewer = {
     document.body.classList.toggle("viewer-embed-page", this.isEmbedMode());
 
     this.parseUrlOptions();
+    this.currentLanguage = this.getStoredLanguage();
 
     if (this.urlOptions.model) {
       this.container.setAttribute("3d", this.urlOptions.model);
@@ -13668,16 +14479,49 @@ const Viewer = {
     Viewer.windowHalfX = core.CONFIG.viewer.canvasDimensions.x / 2;
     Viewer.windowHalfY = core.CONFIG.viewer.canvasDimensions.y / 2;
 
-    Viewer.editorFolder = core.gui.addFolder("Editor").close();
+    Viewer.editorFolder = core.gui.addFolder(Viewer.t("gui.editor", "Editor")).close();
     Viewer.editorFolder.domElement?.classList.add("viewer-gui-main-folder");
     Viewer.editorFolder.domElement?.setAttribute("data-gui-main-folder", "editor");
-    Viewer.editorFolder
+    Viewer.i18nGui = Viewer.i18nGui || {};
+    setCore("i18nGui", Viewer.i18nGui);
+    Viewer.i18nGui.editorFolder = Viewer.editorFolder;
+    const showTransformHintToast = (mode) => {
+      const hints = {
+        translate: Viewer.t("toasts.transformMove", "Move: drag axis arrows to reposition the object."),
+        rotate: Viewer.t("toasts.transformRotate", "Rotate: drag rotation rings to rotate the object."),
+        scale: Viewer.t("toasts.transformScale", "Scale: drag axis handles to resize the object."),
+      };
+      const message = hints[mode];
+      if (!message) return;
+      showToast(message, {
+        duration: 5200,
+        replace: true,
+        key: "transform-object-hint",
+      });
+    };
+
+    const showTransformLightHintToast = (mode) => {
+      const hints = {
+        translate: Viewer.t("toasts.transformLightMove", "Transform Light - Move: drag axis arrows to move the directional light."),
+        rotate: Viewer.t("toasts.transformLightTarget", "Transform Light - Target: drag axis arrows to reposition the light target."),
+      };
+      const message = hints[mode];
+      if (!message) return;
+      showToast(message, {
+        duration: 5200,
+        replace: true,
+        key: "transform-light-hint",
+      });
+    };
+
+    Viewer.i18nGui.transformObjectController = Viewer.editorFolder
       .add(Viewer.transformText, "Transform 3D Object", {
-        None: "",
-        Move: "translate",
-        Rotate: "rotate",
-        Scale: "scale",
+        [Viewer.t("gui.none", "None")]: "",
+        [Viewer.t("gui.move", "Move")]: "translate",
+        [Viewer.t("gui.rotate", "Rotate")]: "rotate",
+        [Viewer.t("gui.scale", "Scale")]: "scale",
       })
+      .name(Viewer.t("gui.transform3dObject", "Transform 3D Object"))
       .onChange(function (value) {
         if (value === "") {
           core.transformControl.detach();
@@ -13693,24 +14537,28 @@ const Viewer = {
 
           core.transformControl.setMode(value);
           core.transformControl.attach(object);
+          showTransformHintToast(value);
 
         }
       });
-    Viewer.editorFolder
+    Viewer.i18nGui.transformModeController = Viewer.editorFolder
       .add(Viewer.transformText, "Transform Mode", {
-        Local: "local",
-        Global: "global",
+        [Viewer.t("gui.local", "Local")]: "local",
+        [Viewer.t("gui.global", "Global")]: "global",
       })
+      .name(Viewer.t("gui.transformMode", "Transform Mode"))
       .onChange(function (value) {
         core.transformControl.space = value;
       });
-    const lightFolder = Viewer.editorFolder.addFolder("Directional Light").close();
-    lightFolder
+    const lightFolder = Viewer.editorFolder.addFolder(Viewer.t("gui.directionalLight", "Directional Light")).close();
+    Viewer.i18nGui.lightFolder = lightFolder;
+    Viewer.i18nGui.transformLightController = lightFolder
       .add(Viewer.transformText, "Transform Light", {
-        None: "",
-        Move: "translate",
-        Target: "rotate",
+        [Viewer.t("gui.none", "None")]: "",
+        [Viewer.t("gui.move", "Move")]: "translate",
+        [Viewer.t("gui.target", "Target")]: "rotate",
       })
+      .name(Viewer.t("gui.transformLight", "Transform Light"))
       .onChange(function (value) {
         if (value === "") {
           core.transformControlLight.detach();
@@ -13722,57 +14570,69 @@ const Viewer = {
             core.transformControlLight.setMode("translate");
             core.transformControlLight.attach(core.dirLight);
             core.transformControlLightTarget.detach();
+            showTransformLightHintToast("translate");
           } else {
             core.transformControlLightTarget.setMode("translate");
             core.transformControlLightTarget.attach(core.dirLightTarget);
             core.transformControlLight.detach();
+            showTransformLightHintToast("rotate");
           }
         }
       });
-    lightFolder
+    Viewer.i18nGui.directionalLightColorController = lightFolder
       .addColor(Viewer.colors, "DirectionalLight")
+      .name(Viewer.t("gui.color", "Color"))
       .onChange(function (value) {
         core.lightObjects[0].color = new THREE.Color(value);
       })
       .listen();
-    lightFolder
+    Viewer.i18nGui.directionalLightIntensityController = lightFolder
       .add(Viewer.intensity, "startIntensityDir", 0, 10)
+      .name(Viewer.t("gui.intensity", "Intensity"))
       .onChange(function (value) {
         core.lightObjects[0].intensity = value;
       })
       .listen();
 
-    const lightFolderAmbient = Viewer.editorFolder.addFolder("Ambient Light").close();
-    lightFolderAmbient
+    const lightFolderAmbient = Viewer.editorFolder.addFolder(Viewer.t("gui.ambientLight", "Ambient Light")).close();
+    Viewer.i18nGui.lightFolderAmbient = lightFolderAmbient;
+    Viewer.i18nGui.ambientLightColorController = lightFolderAmbient
       .addColor(Viewer.colors, "AmbientLight")
+      .name(Viewer.t("gui.color", "Color"))
       .onChange(function (value) {
         Viewer.ambientLight.color = new THREE.Color(value);
       })
       .listen();
-    lightFolderAmbient
+    Viewer.i18nGui.ambientLightIntensityController = lightFolderAmbient
       .add(Viewer.intensity, "startIntensityAmbient", 0, 10)
+      .name(Viewer.t("gui.intensity", "Intensity"))
       .onChange(function (value) {
         Viewer.ambientLight.intensity = value;
       })
       .listen();
 
-    const lightFolderCamera = Viewer.editorFolder.addFolder("Camera Light").close();
-    lightFolderCamera
+    const lightFolderCamera = Viewer.editorFolder.addFolder(Viewer.t("gui.cameraLight", "Camera Light")).close();
+    Viewer.i18nGui.lightFolderCamera = lightFolderCamera;
+    Viewer.i18nGui.cameraLightColorController = lightFolderCamera
       .addColor(Viewer.colors, "CameraLight")
+      .name(Viewer.t("gui.color", "Color"))
       .onChange(function (value) {
         Viewer.cameraLight.color = new THREE.Color(value);
       })
       .listen();
-    lightFolderCamera
+    Viewer.i18nGui.cameraLightIntensityController = lightFolderCamera
       .add(Viewer.intensity, "startIntensityCamera", 0, 10)
+      .name(Viewer.t("gui.intensity", "Intensity"))
       .onChange(function (value) {
         Viewer.cameraLight.intensity = value;
       })
       .listen();
 
-    const backgroundFolder = Viewer.editorFolder.addFolder("Background Color").close();
-    backgroundFolder
+    const backgroundFolder = Viewer.editorFolder.addFolder(Viewer.t("gui.backgroundColor", "Background Color")).close();
+    Viewer.i18nGui.backgroundFolder = backgroundFolder;
+    Viewer.i18nGui.backgroundColorController = backgroundFolder
       .addColor(Viewer.colors, "BackgroundColor")
+      .name(Viewer.t("gui.backgroundColor", "Background Color"))
       .onChange(function (value) {
         changeBackground(
           Viewer.backgroundType["Background Type"],
@@ -13781,8 +14641,9 @@ const Viewer = {
         );
       })
       .listen();
-    Viewer.backgroundOuterFolder = backgroundFolder
+    Viewer.i18nGui.backgroundColorOuterController = backgroundFolder
       .addColor(Viewer.colors, "BackgroundColorOuter")
+      .name(Viewer.t("gui.backgroundColorOuter", "Background Color Outer"))
       .onChange(function (value) {
         changeBackground(
           Viewer.backgroundType["Background Type"],
@@ -13791,11 +14652,12 @@ const Viewer = {
         );
       })
       .listen();
-    backgroundFolder
+    Viewer.i18nGui.backgroundTypeController = backgroundFolder
       .add(Viewer.backgroundType, "Background Type", {
-        Linear: "linear",
-        Gradient: "gradient",
+        [Viewer.t("gui.linear", "Linear")]: "linear",
+        [Viewer.t("gui.gradient", "Gradient")]: "gradient",
       })
+      .name(Viewer.t("gui.backgroundType", "Background Type"))
       .onChange(function (value) {
         if (value == "linear") Viewer.backgroundOuterFolder.hide();
         else Viewer.backgroundOuterFolder.show();
@@ -13808,17 +14670,20 @@ const Viewer = {
     setCore("clippingFolder", Viewer.clippingFolder);
 
     if (core.EDITOR) {
-      core.clippingFolder = Viewer.editorFolder.addFolder("Clipping Planes").close();
+      core.clippingFolder = Viewer.editorFolder.addFolder(Viewer.t("gui.clippingFolder", "Clipping Planes")).close();
+      Viewer.i18nGui.clippingFolder = core.clippingFolder;
       
-      core.materialsFolder = Viewer.editorFolder.addFolder("Materials").close();
+      core.materialsFolder = Viewer.editorFolder.addFolder(Viewer.t("gui.materials", "Materials")).close();
+      Viewer.i18nGui.materialsFolder = core.materialsFolder;
       setCore("materialsFolder", core.materialsFolder);
+
       Viewer.pickingModeController = Viewer.editorFolder.add(
         {
           togglePickingMode() {
             Viewer.pickingMode = !Viewer.pickingMode;
             var _str;
             Viewer.pickingMode ? (_str = "enabled") : (_str = "disabled");
-            showToast("Face picking is " + _str, {
+            showToast(Viewer.t(_str === "enabled" ? "toasts.facePickingEnabled" : "toasts.facePickingDisabled", "Face picking is " + _str), {
               duration: 1400,
               replace: true,
               key: "face-picking-mode",
@@ -13840,13 +14705,14 @@ const Viewer = {
 
       Viewer.clearSelectedFacesController = Viewer.editorFolder.add(
         {
-          ["Clear selected faces"]() {
+          [Viewer.t("gui.clearSelectedFaces", "Clear selected faces")]() {
             Viewer.clearSelectedFaces();
             Viewer.restoreLastPickedFace();
           },
         },
-        "Clear selected faces"
+        Viewer.t("gui.clearSelectedFaces", "Clear selected faces")
       );
+      Viewer.i18nGui.clearSelectedFacesController = Viewer.clearSelectedFacesController;
 
       Viewer.selectedFacesCountController = Viewer.editorFolder
         .add(Viewer.pickingStats, "Selected faces")
@@ -13854,33 +14720,35 @@ const Viewer = {
       Viewer.updateSelectedFacesControllerLabel();
       Viewer.selectedFacesCountController.disable();
 
-      Viewer.metadataFolder = core.gui.addFolder("Metadata").close();
+      Viewer.metadataFolder = core.gui.addFolder(Viewer.t("gui.metadata", "Metadata")).close();
       Viewer.metadataFolder.domElement?.classList.add("viewer-gui-main-folder");
       Viewer.metadataFolder.domElement?.setAttribute("data-gui-main-folder", "metadata");
+      Viewer.i18nGui.metadataFolder = Viewer.metadataFolder;
 
       Viewer.addAnnotationController = Viewer.metadataFolder.add(
         {
-          ["Add annotations"]() {
+          [Viewer.t("gui.addAnnotations", "Add annotations")]() {
             Viewer.openAnnotationDialogWithAutoPicking();
           },
         },
-        "Add annotations"
+        Viewer.t("gui.addAnnotations", "Add annotations")
       );
-      Viewer.metadataFolder.add(
+      Viewer.i18nGui.addAnnotationController = Viewer.addAnnotationController;
+      Viewer.i18nGui.exportAnnotationsController = Viewer.metadataFolder.add(
         {
-          ["Export annotations XML"]() {
+          [Viewer.t("gui.exportAnnotationsXml", "Export annotations XML")]() {
             Viewer.downloadAnnotationsXmlFile();
           },
         },
-        "Export annotations XML"
+        Viewer.t("gui.exportAnnotationsXml", "Export annotations XML")
       );
-      Viewer.metadataFolder.add(
+      Viewer.i18nGui.importAnnotationsController = Viewer.metadataFolder.add(
         {
-          ["Import annotations XML"]() {
+          [Viewer.t("gui.importAnnotationsXml", "Import annotations XML")]() {
             Viewer.triggerAnnotationsXmlImport();
           },
         },
-        "Import annotations XML"
+        Viewer.t("gui.importAnnotationsXml", "Import annotations XML")
       );
       Viewer.updatePickingControlsVisibility();
 
@@ -13890,7 +14758,20 @@ const Viewer = {
             Viewer.RULER_MODE = !Viewer.RULER_MODE;
             var _str;
             Viewer.RULER_MODE ? (_str = "enabled") : (_str = "disabled");
-            showToast("Distance measurement mode is " + _str);
+            if (Viewer.RULER_MODE) {
+              showToast(Viewer.t("toasts.distanceEnabled", "Distance measurement is enabled."), {
+                duration: 2600,
+                replace: true,
+                key: "distance-measurement-status",
+              });
+              showToast(Viewer.t("toasts.distanceHint", "Select a start point and an end point to measure distance."), {
+                duration: 5200,
+                replace: false,
+                key: "distance-measurement-hint",
+              });
+            } else {
+              showToast(Viewer.t(_str === "enabled" ? "toasts.distanceModeEnabled" : "toasts.distanceModeDisabled", "Distance measurement mode is " + _str));
+            }
             if (!Viewer.RULER_MODE) {
               Viewer.ruler.forEach((r) => {
                 core.scene.remove(r);
@@ -13912,32 +14793,33 @@ const Viewer = {
       );
       Viewer.updateDistanceMeasurementControllerLabel();
 
-      Viewer.editorFolder.add(
+      Viewer.i18nGui.resetCameraController = Viewer.editorFolder.add(
         {
-          ["Reset camera position"]() {
+          [Viewer.t("gui.resetCameraPosition", "Reset camera position")]() {
             Viewer.resetCamera();
           },
         },
-        "Reset camera position"
+        Viewer.t("gui.resetCameraPosition", "Reset camera position")
       );
     }
 
     if (!core.isLightweight) {
-      Viewer.propertiesFolder = Viewer.editorFolder.addFolder("Save properties").close();
-      Viewer.propertiesFolder.add(Viewer.saveProperties, "Position");
-      Viewer.propertiesFolder.add(Viewer.saveProperties, "Rotation");
-      Viewer.propertiesFolder.add(Viewer.saveProperties, "Scale");
-      Viewer.propertiesFolder.add(Viewer.saveProperties, "Camera");
-      Viewer.propertiesFolder.add(Viewer.saveProperties, "DirectionalLight");
-      Viewer.propertiesFolder.add(Viewer.saveProperties, "AmbientLight");
-      Viewer.propertiesFolder.add(Viewer.saveProperties, "CameraLight");
-      Viewer.propertiesFolder.add(Viewer.saveProperties, "BackgroundColor");
+      Viewer.propertiesFolder = Viewer.editorFolder.addFolder(Viewer.t("gui.saveProperties", "Save properties")).close();
+      Viewer.i18nGui.propertiesFolder = Viewer.propertiesFolder;
+      Viewer.i18nGui.savePropPositionController = Viewer.propertiesFolder.add(Viewer.saveProperties, "Position").name(Viewer.t("gui.position", "Position"));
+      Viewer.i18nGui.savePropRotationController = Viewer.propertiesFolder.add(Viewer.saveProperties, "Rotation").name(Viewer.t("gui.rotation", "Rotation"));
+      Viewer.i18nGui.savePropScaleController = Viewer.propertiesFolder.add(Viewer.saveProperties, "Scale").name(Viewer.t("gui.scale", "Scale"));
+      Viewer.i18nGui.savePropCameraController = Viewer.propertiesFolder.add(Viewer.saveProperties, "Camera").name(Viewer.t("gui.camera", "Camera"));
+      Viewer.i18nGui.savePropDirectionalController = Viewer.propertiesFolder.add(Viewer.saveProperties, "DirectionalLight").name(Viewer.t("gui.directionalLight", "Directional Light"));
+      Viewer.i18nGui.savePropAmbientController = Viewer.propertiesFolder.add(Viewer.saveProperties, "AmbientLight").name(Viewer.t("gui.ambientLight", "Ambient Light"));
+      Viewer.i18nGui.savePropCameraLightController = Viewer.propertiesFolder.add(Viewer.saveProperties, "CameraLight").name(Viewer.t("gui.cameraLight", "Camera Light"));
+      Viewer.i18nGui.savePropBackgroundController = Viewer.propertiesFolder.add(Viewer.saveProperties, "BackgroundColor").name(Viewer.t("gui.backgroundColor", "Background Color"));
     }
 
     if (core.EDITOR && !core.isLightweight) {
-      Viewer.editorFolder.add(
+      Viewer.i18nGui.saveController = Viewer.editorFolder.add(
         {
-          ["Save"]() {
+          [Viewer.t("gui.save", "Save")]() {
 
             var rotateMetadata = new THREE.Vector3(
               THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.x),
@@ -14003,17 +14885,19 @@ const Viewer = {
             })();
           }
         },
-        "Save"
+        Viewer.t("gui.save", "Save")
       );
-      Viewer.editorFolder.add(
+      Viewer.i18nGui.renderPreviewController = Viewer.editorFolder.add(
         {
-          ["Render preview"]() {
+          [Viewer.t("gui.renderPreview", "Render preview")]() {
             Viewer.takeScreenshot();
           },
         },
-        "Render preview"
+        Viewer.t("gui.renderPreview", "Render preview")
       );
     }
+
+    Viewer.updateLocalizedUI();
   },
 
   async startModelProcessing() {
@@ -14056,7 +14940,7 @@ const Viewer = {
     const loadedIIIF = await loadIIIFManifest(newUrlOrJson);
     if (loadedIIIF.modelUrls.length === 0) { // no 3D model found, use example model
       loadedIIIF.modelUrls.push('https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb');
-      showToast("No 3D model found in IIIF manifest, loading example model.");
+      showToast(Viewer.t("toasts.noIiiifModelFallback", "No 3D model found in IIIF manifest, loading example model."));
     }
     // reset scene and release GPU resources from the previous model batch
     Viewer.resetLoadedModelState();
@@ -14091,10 +14975,14 @@ const Viewer = {
     const form = document.getElementById("form-IIIF");
     const collapseBtn = document.getElementById("iiif-toggle-collapse");
     form?.setAttribute("data-viewer-theme", Viewer.currentTheme);
+    Viewer.updateIIIFFormLabels();
 
     Viewer.bindEventListener(collapseBtn, "click", () => {
       form.classList.toggle("collapsed");
       collapseBtn.textContent = form.classList.contains("collapsed") ? "▸" : "▾";
+      collapseBtn.title = form.classList.contains("collapsed")
+        ? Viewer.t("iiif.expand", "Expand")
+        : Viewer.t("iiif.collapse", "Collapse");
     });
     // create a small dropdown to switch iiif manifests at runtime
     Viewer.bindEventListener(document.getElementById("iiif-manifest-select"), "change", async (ev) => {
@@ -14115,7 +15003,7 @@ const Viewer = {
         const inputElement = document.getElementById("manifest-url");
         if (inputElement.value === "" || !Viewer.isUrlFlexible(inputElement.value)) {
         inputElement.style.border = "2px solid red";
-        showToast("Please enter a valid IIIF manifest URL.");
+        showToast(Viewer.t("iiif.invalidUrl", "Please enter a valid IIIF manifest URL."));
         return;
       } else {
         inputElement.style.border = "2px solid green";
@@ -14135,7 +15023,7 @@ const Viewer = {
         const inputElement = document.getElementById("manifest-text");
         if (inputElement.value === "" || !Viewer.isValidJsonObject(inputElement.value)) {
         inputElement.style.border = "2px solid red";
-        showToast("Please enter a valid IIIF JSON text.");
+        showToast(Viewer.t("iiif.invalidJson", "Please enter a valid IIIF JSON text."));
         return;
       } else {
         inputElement.style.border = "2px solid green";
@@ -14384,8 +15272,45 @@ const Viewer = {
       Viewer.themeMode = document.createElement("button");
       Viewer.themeMode.setAttribute("id", "viewerThemeMode");
       Viewer.themeMode.setAttribute("type", "button");
+      
+      // Create language mode container and dropdown
+      Viewer.languageModeContainer = document.createElement("div");
+      Viewer.languageModeContainer.setAttribute("id", "viewerLanguageModeContainer");
+      Viewer.languageModeContainer.className = "language-mode-container";
+      
+      Viewer.languageMode = document.createElement("button");
+      Viewer.languageMode.setAttribute("id", "viewerLanguageMode");
+      Viewer.languageMode.setAttribute("type", "button");
+      
+      Viewer.languageModeDropdown = document.createElement("div");
+      Viewer.languageModeDropdown.setAttribute("id", "viewerLanguageModeDropdown");
+      Viewer.languageModeDropdown.className = "language-mode-dropdown";
+      Viewer.languageModeDropdown.hidden = true;
+      
+      const languages = [
+        { code: "en", label: "English" },
+        { code: "pl", label: "Polski" },
+        { code: "de", label: "Deutsch" }
+      ];
+      
+      languages.forEach(lang => {
+        const item = document.createElement("div");
+        item.className = "language-dropdown-item";
+        item.dataset.lang = lang.code;
+        item.textContent = lang.label;
+        item.setAttribute("role", "option");
+        item.setAttribute("aria-selected", Viewer.currentLanguage === lang.code ? "true" : "false");
+        Viewer.bindEventListener(item, "click", () => Viewer.selectLanguage(lang.code));
+        Viewer.languageModeDropdown.appendChild(item);
+      });
+      
+      Viewer.languageModeContainer.appendChild(Viewer.languageMode);
+      Viewer.languageModeContainer.appendChild(Viewer.languageModeDropdown);
+      
       Viewer.updateThemeControlLabels();
+      Viewer.updateLanguageControlLabels();
 
+      Viewer.actionMenuPanel.appendChild(Viewer.languageModeContainer);
       Viewer.actionMenuPanel.appendChild(Viewer.themeMode);
       Viewer.actionMenuPanel.appendChild(Viewer.viewEntity);
       Viewer.actionMenuPanel.appendChild(Viewer.downloadModel);
@@ -14396,10 +15321,12 @@ const Viewer = {
       Viewer.createEmbedConfiguratorPanel();
 
       setCore('viewEntity', Viewer.viewEntity);
+      Viewer.bindEventListener(Viewer.languageMode, "click", Viewer.toggleLanguage.bind(Viewer));
       Viewer.bindEventListener(Viewer.themeMode, "click", Viewer.toggleTheme.bind(Viewer));
 	      Viewer.bindEventListener(Viewer.fullscreenMode, "click", Viewer.toggleFullscreen, false);
       Viewer.bindEventListener(Viewer.viewEntity, "click", Viewer.openEmbedConfiguratorFromMenu.bind(Viewer));
       Viewer.updateEmbedMenuEntryState();
+      Viewer.applyLanguage(Viewer.currentLanguage, { persist: false });
       Viewer.bindEventListener(Viewer.downloadModel, "click", () => Viewer.closeActionMenu());
       Viewer.bindEventListener(document, "click", (event) => {
         if (
@@ -14532,6 +15459,7 @@ const Viewer = {
         const themeToggle = document.getElementById('example-theme-toggle');
         const viewerElement = document.getElementById('DFG_3DViewer');
         if (picker && selectModel && viewerElement) {
+          Viewer.updateLocalPreviewLabels();
           const localurl = new URL(window.location.href);
           let selectedModel = localurl.searchParams.get('model');
           if (!selectedModel) {

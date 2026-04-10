@@ -882,7 +882,15 @@ function setupClippingPlanes(_geom, _distance) {
     const mode = core.planeParams.clippingMode;
     core.clippingHint.hidden = !(mode.x || mode.y || mode.z);
   };
+  const tr = (key, fallback) => window?.Viewer?.t?.(key, fallback) ?? fallback;
   let displayHelper = {x: getOrAddGuiController(core.planeParams.planeX, "displayHelperX"), constantX: getOrAddGuiController(core.planeParams.planeX, "constantX"), y: getOrAddGuiController(core.planeParams.planeY, "displayHelperY"), constantY: getOrAddGuiController(core.planeParams.planeY, "constantY"), z: getOrAddGuiController(core.planeParams.planeZ, "displayHelperZ"), constantZ: getOrAddGuiController(core.planeParams.planeZ, "constantZ"), outline: getOrAddGuiController(core.planeParams.outline, "visible")};
+  displayHelper.x?.name?.(tr("gui.displayHelperX", "Show X helper"));
+  displayHelper.constantX?.name?.(tr("gui.constantX", "Constant X"));
+  displayHelper.y?.name?.(tr("gui.displayHelperY", "Show Y helper"));
+  displayHelper.constantY?.name?.(tr("gui.constantY", "Constant Y"));
+  displayHelper.z?.name?.(tr("gui.displayHelperZ", "Show Z helper"));
+  displayHelper.constantZ?.name?.(tr("gui.constantZ", "Constant Z"));
+  displayHelper.outline?.name?.(tr("gui.visible", "Visible"));
   displayHelper.x?.onChange((v) => {
       core.planeParams.clippingMode.x = core.planeHelpers[0].visible = v;
       if (v) {
@@ -986,13 +994,20 @@ export function invertHexColor(hexTripletColor) {
 }
 
 export function getOrAddGuiController(object, prop) {
-  let controller = core.clippingFolder?.controllers?.find(c => c._name === prop);
+  const findController = (folder) => {
+    if (!folder) return null;
+    const controller = folder.controllers?.find(c => c._name === prop || c.property === prop);
+    if (controller) return controller;
+
+    for (const subfolder of folder.folders || []) {
+      const found = findController(subfolder);
+      if (found) return found;
+    }
+    return null;
+  };
+
+  let controller = findController(core.clippingFolder);
   if (controller) return controller;
 
-  //if (!folder) return null;
-  for (const subfolder of core.clippingFolder.folders) {
-    const found = getOrAddController(subfolder, object, prop);
-    if (found) return found;
-  }
   return core.clippingFolder.add(object, prop);
 }

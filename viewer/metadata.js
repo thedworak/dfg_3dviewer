@@ -2,6 +2,20 @@ import { truncateString } from "./utils.js";
 import { showToast, setupObject, setupCamera } from './viewer-utils.js';
 import { core } from './core.js';
 
+function tr(key, fallback = "") {
+  return window.Viewer?.t?.(key, fallback) ?? fallback;
+}
+
+function trFormat(key, params = {}, fallback = "") {
+  if (typeof window.Viewer?.tFormat === "function") {
+    return window.Viewer.tFormat(key, params, fallback);
+  }
+  return String(tr(key, fallback)).replace(/\{(\w+)\}/g, (_match, token) => {
+    const replacement = params?.[token];
+    return replacement == null ? "" : String(replacement);
+  });
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -33,28 +47,28 @@ export function addWissKIMetadata(label, value) {
     label = label.replace("wisski_path_3d_model__", "");
     switch (label) {
       case "title":
-        _str = "Title";
+        _str = tr("metadata.title", "Title");
         break;
       case "author_name":
-        _str = "Author";
+        _str = tr("metadata.author", "Author");
         break;
       case "author_affiliation":
-        _str = "Author affiliation";
+        _str = tr("metadata.authorAffiliation", "Author affiliation");
         break;
       case "license":
-        _str = "License";
+        _str = tr("metadata.license", "License");
         break;
       case "description":
-        _str = "Description";
+        _str = tr("metadata.description", "Description");
         break;
       case "object_type":
-        _str = "Object type";
+        _str = tr("metadata.objectType", "Object type");
         break;
       case "reconstruction_authors":
-        _str = "Reconstruction authors";
+        _str = tr("metadata.reconstructionAuthors", "Reconstruction authors");
         break;
       case "reconstruction_period":
-        _str = "Reconstruction period";
+        _str = tr("metadata.reconstructionPeriod", "Reconstruction period");
         break;
       default:
         _str = "";
@@ -272,6 +286,10 @@ export async function handleMetadataResponse(
   object,
   hierarchyMain,
 ) {
+  const hierarchyLabel = tr("gui.hierarchy", "Hierarchy");
+  const hasHierarchyFolder = () =>
+    lilGUIgetFolder(core.gui, "Hierarchy") !== null ||
+    lilGUIgetFolder(core.gui, hierarchyLabel) !== null;
   var tempArray = [];
   let hierarchyFolder;
   if (Array.isArray(object)) {
@@ -291,7 +309,7 @@ export async function handleMetadataResponse(
           },
           id: child.id,
         };
-        if (typeof hierarchyMain !== "undefined" && lilGUIgetFolder(core.gui, "Hierarchy") !== null && !lilGUIhasFolder(hierarchyMain, shortChildName)) {
+        if (typeof hierarchyMain !== "undefined" && hasHierarchyFolder() && !lilGUIhasFolder(hierarchyMain, shortChildName)) {
           hierarchyFolder = hierarchyMain.addFolder(shortChildName).close();
           hierarchyFolder.add(tempArray, shortChildName);
           child.traverse(function (children) {
@@ -332,7 +350,7 @@ export async function handleMetadataResponse(
         id: object.id,
       };
     }
-    if (hierarchyMain && lilGUIgetFolder(core.gui, "Hierarchy") !== null && !lilGUIhasFolder(hierarchyMain, object.name)) {
+    if (hierarchyMain && hasHierarchyFolder() && !lilGUIhasFolder(hierarchyMain, object.name)) {
       hierarchyFolder = hierarchyMain.addFolder(object.name).close();
     }
   }
@@ -352,15 +370,15 @@ export async function handleMetadataResponse(
       '<button id="metadata-collapse" class="metadata-collapse metadata-collapsed" type="button" aria-expanded="false" aria-controls="metadata-content">' +
         '<span class="metadata-toggle-icon" aria-hidden="true"></span>' +
         '<span class="metadata-toggle-copy">' +
-          '<span class="metadata-toggle-eyebrow">Model details</span>' +
-          '<span class="metadata-toggle-title">Metadata</span>' +
+          '<span class="metadata-toggle-eyebrow" data-i18n-key="metadata.modelDetails">' + escapeHtml(tr("metadata.modelDetails", "Model details")) + '</span>' +
+          '<span class="metadata-toggle-title" data-i18n-key="metadata.metadata">' + escapeHtml(tr("metadata.metadata", "Metadata")) + '</span>' +
         '</span>' +
         '<span class="metadata-toggle-chevron" aria-hidden="true"></span>' +
       '</button>' +
       '<div id="metadata-content" class="metadata-content">';
   metadataContent +=
     '<div class="metadata-row">' +
-      '<span class="metadata-label">Visualized file:</span>' +
+      '<span class="metadata-label" data-i18n-key="metadata.visualizedFile">' + escapeHtml(tr("metadata.visualizedFile", "Visualized file")) + ':</span>' +
       '<span class="metadata-value">' +
         escapeHtml(core.fileObject.basename) + '.' + escapeHtml(core.fileObject.extension) +
       '</span>' +
@@ -370,13 +388,13 @@ export async function handleMetadataResponse(
 
   metadataContent +=
     '<div class="metadata-row">' +
-      '<span class="metadata-label">Vertices:</span>' +
+      '<span class="metadata-label" data-i18n-key="metadata.vertices">' + escapeHtml(tr("metadata.vertices", "Vertices")) + ':</span>' +
       '<span class="metadata-value">' + metadata["vertices"] + '</span>' +
     '</div>';
 
   metadataContent +=
     '<div class="metadata-row">' +
-      '<span class="metadata-label">Faces:</span>' +
+      '<span class="metadata-label" data-i18n-key="metadata.faces">' + escapeHtml(tr("metadata.faces", "Faces")) + ':</span>' +
       '<span class="metadata-value">' + metadata["faces"] + '</span>' +
     '</div>';
   metadataContent += await fetchEntityMetadata();
@@ -399,11 +417,8 @@ export async function handleMetadataResponse(
 
     core.downloadModel.href = `blob:${encodeURI(c_path + core.fileObject.filename)}`;
     core.downloadModel.setAttribute("download", core.fileObject.filename);
-    core.downloadModel.innerHTML = `
-      <span class="viewer-action-icon download-icon" aria-hidden="true"></span>
-      <span>Download</span>
-    `;
     core.downloadModel.hidden = false;
+    window.Viewer?.updateDownloadMenuEntryLabel?.();
   }
 
   if (core.viewEntity && (core.CONFIG?.entity?.id || core.fileObject?.originalPath)) {
@@ -464,14 +479,14 @@ async function loadMetadataData(metadataUrl) {
     const response = await fetch(metadataUrl, { cache: "no-cache" });
 
     if (response.status === 404) {
-      showToast("No settings " + core.fileObject.filename + "_viewer.json found");
+      showToast(trFormat("toasts.settingsNotFound", { filename: core.fileObject.filename }, "No settings {filename}_viewer.json found"));
       return null;
     }
 
-    showToast("Settings " + core.fileObject.filename + "_viewer.json found");
+    showToast(trFormat("toasts.settingsFound", { filename: core.fileObject.filename }, "Settings {filename}_viewer.json found"));
     return response.json();
   } catch (error) {
-    showToast("Error fetching metadata: " + error.message);
+    showToast(trFormat("toasts.metadataFetchError", { error: error.message }, "Error fetching metadata: {error}"));
     return null;
   }
 }
@@ -496,15 +511,22 @@ export async function fetchSettings(object) {
   }
 
   let hierarchyMain;
-  const existingHierarchy = lilGUIgetFolder(core.gui, "Hierarchy");
+  const hierarchyLabel = tr("gui.hierarchy", "Hierarchy");
+  const existingHierarchy = lilGUIgetFolder(core.gui, "Hierarchy") || lilGUIgetFolder(core.gui, hierarchyLabel);
   if (existingHierarchy === null) {
-    hierarchyMain = core.gui?.addFolder("Hierarchy").close();
+    hierarchyMain = core.gui?.addFolder(hierarchyLabel).close();
     hierarchyMain?.domElement?.classList.add("viewer-gui-main-folder");
     hierarchyMain?.domElement?.setAttribute("data-gui-main-folder", "hierarchy");
   } else {
     hierarchyMain = existingHierarchy;
+    if (typeof hierarchyMain.title === "function") {
+      hierarchyMain.title(hierarchyLabel);
+    }
     hierarchyMain?.domElement?.classList.add("viewer-gui-main-folder");
     hierarchyMain?.domElement?.setAttribute("data-gui-main-folder", "hierarchy");
+  }
+  if (window.Viewer?.i18nGui) {
+    window.Viewer.i18nGui.hierarchyFolder = hierarchyMain;
   }
   if (core.CONFIG.entity.metadata.sourceType === "IIIF") {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);
@@ -529,19 +551,25 @@ export async function fetchSettings(object) {
   }
   // Add statistics GUI
   let statsMain;
-  if (lilGUIgetFolder(core.gui, "Statistics") === null) {
-    statsMain = core.gui.addFolder("Statistics").close();
+  const statisticsLabel = tr("gui.statistics", "Statistics");
+  if (lilGUIgetFolder(core.gui, "Statistics") === null && lilGUIgetFolder(core.gui, statisticsLabel) === null) {
+    statsMain = core.gui.addFolder(statisticsLabel).close();
     statsMain?.domElement?.classList.add("viewer-gui-main-folder");
     statsMain?.domElement?.setAttribute("data-gui-main-folder", "statistics");
-    statsMain
+    const performanceController = statsMain
     .add(core.CONFIG.viewer.performanceMode, "Performance", {
-      "High-performance": "high-performance",
-      "Low-power": "low-power",
-      Default: "default",
+      [tr("gui.highPerformance", "High-performance")]: "high-performance",
+      [tr("gui.lowPower", "Low-power")]: "low-power",
+      [tr("gui.default", "Default")]: "default",
     })
+    .name(tr("gui.performance", "Performance"))
     .onChange(function (value) {
       if (typeof core.renderer !== "undefined") core.renderer.powerPreference = value;
     });
+    if (window.Viewer?.i18nGui) {
+      window.Viewer.i18nGui.statisticsFolder = statsMain;
+      window.Viewer.i18nGui.performanceController = performanceController;
+    }
     statsMain.onOpenClose((changedGUI) => {
     if (changedGUI._closed) {
       if (typeof core.stats !== "undefined") core.stats.dom.style.visibility = "hidden";
@@ -560,17 +588,17 @@ export function createIIIFDropdown(iiifConfigURL) {
   // list of candidate IIIF config URLs (add more as needed)
   const iiifList = [
     { url: iiifConfigURL.url, name: iiifConfigURL.name },
-    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: "Model Position and Scale" },
-    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin.json", name: "Model Origin" },
-    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin_bgcolor.json", name: "Model Origin with background color" },
-    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_position.json", name: "Model Position" },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: tr("iiif.optionModelPositionScale", "Model Position and Scale") },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin.json", name: tr("iiif.optionModelOrigin", "Model Origin") },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin_bgcolor.json", name: tr("iiif.optionModelOriginBg", "Model Origin with background color") },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_position.json", name: tr("iiif.optionModelPosition", "Model Position") },
   ].filter(Boolean);
 
   const group = document.createElement("div");
   group.className = "form-IIIF-group";
 
   const label = document.createElement("label");
-  label.textContent = "IIIF manifest";
+  label.textContent = tr("iiif.manifest", "IIIF manifest");
   label.className = "form-IIIF-label";
 
   const select = document.createElement("select");
@@ -600,9 +628,9 @@ export function createIIIFUI() {
   const header = document.createElement("div");
   header.className = "form-IIIF-header";
   header.innerHTML = `
-    <span class="title">IIIF Loader</span>
+    <span class="title">${escapeHtml(tr("iiif.loader", "IIIF Loader"))}</span>
     <div class="tools">
-      <button type="button" id="iiif-toggle-collapse" title="Collapse">▾</button>
+      <button type="button" id="iiif-toggle-collapse" title="${escapeHtml(tr("iiif.collapse", "Collapse"))}">▾</button>
     </div>
   `;
 
@@ -614,14 +642,14 @@ export function createIIIFUI() {
   content.id = "form-IIIF-content";
   content.innerHTML = `
     <div class="form-IIIF-group">
-      <input type="text" id="manifest-url" placeholder="https://example.org/iiif/manifest.json">
-      <button class="primary" id="load-manifest-from-url">Load from URL</button>
+      <input type="text" id="manifest-url" placeholder="${escapeHtml(tr("iiif.manifestUrlPlaceholder", "https://example.org/iiif/manifest.json"))}">
+      <button class="primary" id="load-manifest-from-url">${escapeHtml(tr("iiif.loadFromUrl", "Load from URL"))}</button>
     </div>
 
     <div class="form-IIIF-group column">
-      <textarea id="manifest-text" rows="8" placeholder="Paste IIIF manifest JSON here…"></textarea>
+      <textarea id="manifest-text" rows="8" placeholder="${escapeHtml(tr("iiif.manifestTextPlaceholder", "Paste IIIF manifest JSON here..."))}"></textarea>
       <div class="actions">
-        <button class="secondary" id="load-manifest-from-text">Load from Text</button>
+        <button class="secondary" id="load-manifest-from-text">${escapeHtml(tr("iiif.loadFromText", "Load from Text"))}</button>
       </div>
     </div>
   `;
