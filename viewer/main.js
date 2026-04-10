@@ -4530,9 +4530,26 @@ export const Viewer = {
 
     const startCam = core.camera.position.clone();
     const startTarget = core.controls?.target?.clone() || new THREE.Vector3();
+    //const targetDistance = startTarget.distanceTo(targetControls);
+    const startDir = startTarget.clone().sub(startCam).normalize();
+    const endDir = targetControls.clone().sub(targetCamera).normalize();
+
+    const angle = startDir.angleTo(endDir);
+    const rotationFactor = 2.0;
+    const rotationDistance = angle * rotationFactor;
+
+    const linearDistance = Math.max(
+      startCam.distanceTo(targetCamera),
+      startTarget.distanceTo(targetControls)
+    );
+
+    const distance = Math.max(linearDistance, rotationDistance);
+
+    const speed = 1.25;
+    const duration = THREE.MathUtils.clamp((distance / speed) * 1000, 300, 3000);
 
     core.cameraTween = new TWEEN.Tween(startCam)
-      .to(targetCamera, 1500)
+      .to(targetCamera, duration)
       .easing(TWEEN.Easing.Cubic.Out)
       .onUpdate(() => {
         core.camera.position.copy(startCam);
@@ -4541,7 +4558,7 @@ export const Viewer = {
       });
 
     core.targetTween = new TWEEN.Tween(startTarget)
-      .to(targetControls, 1500)
+      .to(targetControls, duration)
       .easing(TWEEN.Easing.Cubic.Out)
       .onUpdate(() => {
         core.controls?.target.copy(startTarget);
