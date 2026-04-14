@@ -2195,24 +2195,29 @@ async function loadModel() {
     core.handHint.hidden = true;
     window.viewer.modelLoaded = true;
     traverseMesh(object);
-    const isArchiveDerivedPath = /\/[^/]+_(ZIP|RAR|TAR|XZ|GZ)\/gltf\/$/i.test(core.fileObject.path);
-    if (!isArchiveDerivedPath) {
-      if (core.fileObject.extension.toLowerCase() === "gltf" || core.fileObject.extension.toLowerCase() === "glb") {
-        core.fileObject.path = core.fileObject.path.replace("/gltf/", "/");
-      } else {
-        core.fileObject.path = core.fileObject.path.replace("gltf/", "");
+    if (!core.presentationMode) {
+      const isArchiveDerivedPath = /\/[^/]+_(ZIP|RAR|TAR|XZ|GZ)\/gltf\/$/i.test(core.fileObject.path);
+      if (!isArchiveDerivedPath) {
+        if (core.fileObject.extension.toLowerCase() === "gltf" || core.fileObject.extension.toLowerCase() === "glb") {
+          core.fileObject.path = core.fileObject.path.replace("/gltf/", "/");
+        } else {
+          core.fileObject.path = core.fileObject.path.replace("gltf/", "");
+        }
       }
+      await fetchSettings(object);
+      core.outlineClipping = prepareOutlineClipping(object);
+      if (Array.isArray(object)) {
+        core.helperObjects.push(object[0]);
+      } else {
+        core.helperObjects.push(object);
+      }
+      core.scene.add(core.outlineClipping);
     }
-    await fetchSettings(object);
-    core.outlineClipping = prepareOutlineClipping(object);
     if (Array.isArray(object)) {
       object.forEach(o => core.scene.add(o));
-      core.helperObjects.push(object[0]);
     } else {
       core.scene.add(object);
-      core.helperObjects.push(object);
     }
-    core.scene.add(core.outlineClipping);
     core.mainObject.push(object);
     core.scene.environment = await getEnvironmentTexture(core.renderer);
   }
@@ -9842,6 +9847,7 @@ window.viewer = {
 
 const Viewer = {
   CONFIG: null,
+  PRESENTATION_MODE: false,
   camera: null,
   scene: null,
   activeScene: 0,
@@ -10068,6 +10074,7 @@ const Viewer = {
     cameraPosition: null,
     cameraTarget: null,
     cameraFov: null,
+    presentationMode: false,
   },
   keyboardStep: {
     rotate: THREE.MathUtils.degToRad(2.25),
@@ -10263,6 +10270,7 @@ const Viewer = {
     const disableInteractionFromQuery = this.parseBooleanParam(params.get("disableInteraction"));
     const hideUiFromQuery = this.parseBooleanParam(params.get("hideUi"));
     const hideMetadataFromQuery = this.parseBooleanParam(params.get("hideMetadata"));
+    core.presentationMode = this.parseBooleanParam(params.get("presentationMode"));
 
     this.urlOptions = {
       model: modelFromQuery || null,
@@ -10277,6 +10285,7 @@ const Viewer = {
       cameraPosition: this.parseVector3Param(params.get("camPos") || params.get("cameraPos")),
       cameraTarget: this.parseVector3Param(params.get("camTarget") || params.get("cameraTarget")),
       cameraFov: this.parseFloatParam(params.get("fov")),
+      presentationMode: core.presentationMode === false,
     };
   },
 
@@ -11618,6 +11627,7 @@ const Viewer = {
           fileUpload: "fbf95bddee5160d515b982b3fd2e05f7",
           fileName: "faa602a0be629324806aef22892cdbe5",
           imageGeneration: "f605dc6b727a1099b9e52b3ccbdf5673",
+          presentationMode: "false",
           lightweight: 0,
           scaleContainer: {
             x: 0.85,
@@ -11644,11 +11654,15 @@ const Viewer = {
 
     this.isLightweight = Boolean(core.CONFIG.viewer.lightweight);
     setCore('isLightweight', this.isLightweight);
-    console.log(`AIM 3D-Viewer ${this.isLightweight ? '🪶 LIGHTWEIGHT' : '💪 FULL'} mode`);
-    console.log(`Powered by Three.js (v${THREE.REVISION})`);
-
+  
     this.EDITOR = Boolean(core.CONFIG.viewer.editor);
     setCore('EDITOR', this.EDITOR);
+
+    this.presentationMode = Boolean(core.CONFIG.viewer.presentationMode);
+    setCore('presentationMode', this.presentationMode);
+
+    console.log(`AIM 3D-Viewer ${this.isLightweight ? '🪶 LIGHTWEIGHT' : '💪 FULL'} mode`);
+    console.log(`Powered by Three.js (v${THREE.REVISION})`);
     
     if (!core.CONFIG.entity.metadata.sourceType) { 
       core.CONFIG.entity.metadata.sourceType = SOURCE;
@@ -11661,6 +11675,7 @@ const Viewer = {
     document.body.classList.toggle("viewer-embed-page", this.isEmbedMode());
 
     this.parseUrlOptions();
+    console.log(`Presentation mode: ${this.presentationMode ? "ON" : "OFF"}`);
     this.currentLanguage = this.getStoredLanguage();
 
     if (this.urlOptions.model) {
@@ -11702,6 +11717,7 @@ const Viewer = {
       core.container.setAttribute(core.CONFIG.entity.attributeId, core.CONFIG.entity.id);
       console.log("Entity ID:", core.CONFIG.entity.id);
     }
+
     // Initialize clipping planes at startup
     this.core = initClippingPlanes();
     setCore('EXIT_CODE', this.EXIT_CODE);
@@ -15173,9 +15189,14 @@ const Viewer = {
         document.body.appendChild(core.renderer.domElement);
       }
 
-	      Viewer.bindEventListener(core.renderer.domElement, "pointerdown", Viewer.onPointerDown);
-	      Viewer.bindEventListener(core.renderer.domElement, "pointerup", Viewer.onPointerUp);
-      Viewer.bindEventListener(core.renderer.domElement, "pointermove", Viewer.onPointerMove);
+      core.renderer.domElement.tabIndex = 0;
+      core.renderer.domElement.setAttribute("aria-label", "3D viewer canvas");
+
+      if (!core.presentationMode) {
+
+        Viewer.bindEventListener(core.renderer.domElement, "pointerdown", Viewer.onPointerDown);
+        Viewer.bindEventListener(core.renderer.domElement, "pointerup", Viewer.onPointerUp);
+        Viewer.bindEventListener(core.renderer.domElement, "pointermove", Viewer.onPointerMove);
         Viewer.bindEventListener(core.renderer.domElement, "mouseenter", (event) => {
           if (!Viewer.isPointerDirectlyOverCanvas(event)) return;
           Viewer.maybeShowKeyboardHint();
@@ -15189,18 +15210,18 @@ const Viewer = {
             Viewer.lastWindowFocusAt = Date.now();
           }
         });
-        core.renderer.domElement.tabIndex = 0;
-        core.renderer.domElement.setAttribute("aria-label", "3D viewer canvas");
+
         Viewer.bindEventListener(core.renderer.domElement, "pointerdown", () => {
           core.renderer.domElement.focus();
         });
         Viewer.bindEventListener(core.renderer.domElement, "keydown", Viewer.onViewerKeyDown);
 
-	      // Add drag and drop support for localhost
-	      if (isLocalPreview) {
-	        Viewer.bindEventListener(core.renderer.domElement, "dragover", Viewer.onDragOver);
-	        Viewer.bindEventListener(core.renderer.domElement, "drop", Viewer.onDrop);
-	      }
+        // Add drag and drop support for localhost
+        if (isLocalPreview) {
+          Viewer.bindEventListener(core.renderer.domElement, "dragover", Viewer.onDragOver);
+          Viewer.bindEventListener(core.renderer.domElement, "drop", Viewer.onDrop);
+        }
+      }
 
       const devicePixelRatio = window.devicePixelRatio || 1;
       core.renderer.setSize(core.CONFIG.viewer.canvasDimensions.x, core.CONFIG.viewer.canvasDimensions.y);
@@ -15238,139 +15259,140 @@ const Viewer = {
       core.camera.updateProjectionMatrix();
 
       setCore('mainCanvas', Viewer.mainCanvas);
-      const scriptUrl = document.currentScript?.src || import.meta.url;
-      Viewer.DFG_ASSETS = scriptUrl.replace(/\/[^\/]*$/, '');
+      if (!core.presentationMode) {
+        const scriptUrl = document.currentScript?.src || import.meta.url;
+        Viewer.DFG_ASSETS = scriptUrl.replace(/\/[^\/]*$/, '');
 
-      setCore('DFG_ASSETS', Viewer.DFG_ASSETS);
-      getModuleAssetBasePath();
+        setCore('DFG_ASSETS', Viewer.DFG_ASSETS);
+        getModuleAssetBasePath();
 
-      Viewer.actionMenu = document.createElement("div");
-      Viewer.actionMenu.setAttribute("id", "viewerActionMenu");
-      Viewer.actionMenu.innerHTML = `
-        <input
-          id="viewerActionMenuToggle"
-          class="viewer-action-menu_checkbox"
-          type="checkbox"
-          aria-label="Open viewer actions"
-        />
-        <label
-          for="viewerActionMenuToggle"
-          class="viewer-action-menu_toggle"
-          aria-label="Open viewer actions"
-          title="Viewer actions"
-        >
-          <span></span>
-          <span></span>
-          <span></span>
-        </label>
-        <div class="viewer-action-menu_panel" aria-label="Viewer actions"></div>
-      `;
-      core.container.appendChild(Viewer.actionMenu);
+        Viewer.actionMenu = document.createElement("div");
+        Viewer.actionMenu.setAttribute("id", "viewerActionMenu");
+        Viewer.actionMenu.innerHTML = `
+          <input
+            id="viewerActionMenuToggle"
+            class="viewer-action-menu_checkbox"
+            type="checkbox"
+            aria-label="Open viewer actions"
+          />
+          <label
+            for="viewerActionMenuToggle"
+            class="viewer-action-menu_toggle"
+            aria-label="Open viewer actions"
+            title="Viewer actions"
+          >
+            <span></span>
+            <span></span>
+            <span></span>
+          </label>
+          <div class="viewer-action-menu_panel" aria-label="Viewer actions"></div>
+        `;
+        core.container.appendChild(Viewer.actionMenu);
 
-      Viewer.actionMenuToggle = Viewer.actionMenu.querySelector("#viewerActionMenuToggle");
-      Viewer.actionMenuPanel = Viewer.actionMenu.querySelector(".viewer-action-menu_panel");
-      Viewer.applyTheme(Viewer.getStoredTheme(), { persist: false });
+        Viewer.actionMenuToggle = Viewer.actionMenu.querySelector("#viewerActionMenuToggle");
+        Viewer.actionMenuPanel = Viewer.actionMenu.querySelector(".viewer-action-menu_panel");
+        Viewer.applyTheme(Viewer.getStoredTheme(), { persist: false });
 
-      Viewer.viewEntity = document.createElement("button");
-      Viewer.viewEntity.setAttribute("id", "viewEntity");
-      Viewer.viewEntity.setAttribute("type", "button");
-      Viewer.viewEntity.hidden = true;
+        Viewer.viewEntity = document.createElement("button");
+        Viewer.viewEntity.setAttribute("id", "viewEntity");
+        Viewer.viewEntity.setAttribute("type", "button");
+        Viewer.viewEntity.hidden = true;
 
-      Viewer.downloadModel = document.createElement("a");
-      setCore('downloadModel', Viewer.downloadModel);
-      Viewer.downloadModel.setAttribute("id", "downloadModel");
-      Viewer.downloadModel.hidden = true;
+        Viewer.downloadModel = document.createElement("a");
+        setCore('downloadModel', Viewer.downloadModel);
+        Viewer.downloadModel.setAttribute("id", "downloadModel");
+        Viewer.downloadModel.hidden = true;
 
-      Viewer.fullscreenMode = document.createElement("button");
-      Viewer.fullscreenMode.setAttribute("id", "fullscreenMode");
-      Viewer.fullscreenMode.setAttribute("type", "button");
-      Viewer.updateFullscreenButtonIcon();
+        Viewer.fullscreenMode = document.createElement("button");
+        Viewer.fullscreenMode.setAttribute("id", "fullscreenMode");
+        Viewer.fullscreenMode.setAttribute("type", "button");
+        Viewer.updateFullscreenButtonIcon();
 
-      Viewer.themeMode = document.createElement("button");
-      Viewer.themeMode.setAttribute("id", "viewerThemeMode");
-      Viewer.themeMode.setAttribute("type", "button");
-      
-      // Create language mode container and dropdown
-      Viewer.languageModeContainer = document.createElement("div");
-      Viewer.languageModeContainer.setAttribute("id", "viewerLanguageModeContainer");
-      Viewer.languageModeContainer.className = "language-mode-container";
-      
-      Viewer.languageMode = document.createElement("button");
-      Viewer.languageMode.setAttribute("id", "viewerLanguageMode");
-      Viewer.languageMode.setAttribute("type", "button");
-      
-      Viewer.languageModeDropdown = document.createElement("div");
-      Viewer.languageModeDropdown.setAttribute("id", "viewerLanguageModeDropdown");
-      Viewer.languageModeDropdown.className = "language-mode-dropdown";
-      Viewer.languageModeDropdown.hidden = true;
-      
-      const languages = [
-        { code: "en", label: "EN", class: "language-dropdown-item-english" },
-        { code: "pl", label: "PL", class: "language-dropdown-item-polish" },
-        { code: "de", label: "DE", class: "language-dropdown-item-german" }
-      ];
-      
-      languages.forEach(lang => {
-        const item = document.createElement("div");
-        item.className = `language-dropdown-item ${lang.class}`;
-        item.dataset.lang = lang.code;
-        item.textContent = lang.label;
-        item.setAttribute("role", "option");
-        item.setAttribute("aria-selected", Viewer.currentLanguage === lang.code ? "true" : "false");
-        Viewer.bindEventListener(item, "click", () => Viewer.selectLanguage(lang.code));
-        Viewer.languageModeDropdown.appendChild(item);
-      });
-      
-      Viewer.languageModeContainer.appendChild(Viewer.languageMode);
-      Viewer.languageModeContainer.appendChild(Viewer.languageModeDropdown);
-      
-      Viewer.updateThemeControlLabels();
-      Viewer.updateLanguageControlLabels();
+        Viewer.themeMode = document.createElement("button");
+        Viewer.themeMode.setAttribute("id", "viewerThemeMode");
+        Viewer.themeMode.setAttribute("type", "button");
+        
+        // Create language mode container and dropdown
+        Viewer.languageModeContainer = document.createElement("div");
+        Viewer.languageModeContainer.setAttribute("id", "viewerLanguageModeContainer");
+        Viewer.languageModeContainer.className = "language-mode-container";
+        
+        Viewer.languageMode = document.createElement("button");
+        Viewer.languageMode.setAttribute("id", "viewerLanguageMode");
+        Viewer.languageMode.setAttribute("type", "button");
+        
+        Viewer.languageModeDropdown = document.createElement("div");
+        Viewer.languageModeDropdown.setAttribute("id", "viewerLanguageModeDropdown");
+        Viewer.languageModeDropdown.className = "language-mode-dropdown";
+        Viewer.languageModeDropdown.hidden = true;
+        
+        const languages = [
+          { code: "en", label: "EN", class: "language-dropdown-item-english" },
+          { code: "pl", label: "PL", class: "language-dropdown-item-polish" },
+          { code: "de", label: "DE", class: "language-dropdown-item-german" }
+        ];
+        
+        languages.forEach(lang => {
+          const item = document.createElement("div");
+          item.className = `language-dropdown-item ${lang.class}`;
+          item.dataset.lang = lang.code;
+          item.textContent = lang.label;
+          item.setAttribute("role", "option");
+          item.setAttribute("aria-selected", Viewer.currentLanguage === lang.code ? "true" : "false");
+          Viewer.bindEventListener(item, "click", () => Viewer.selectLanguage(lang.code));
+          Viewer.languageModeDropdown.appendChild(item);
+        });
+        
+        Viewer.languageModeContainer.appendChild(Viewer.languageMode);
+        Viewer.languageModeContainer.appendChild(Viewer.languageModeDropdown);
+        
+        Viewer.updateThemeControlLabels();
+        Viewer.updateLanguageControlLabels();
 
-      Viewer.actionMenuPanel.appendChild(Viewer.languageModeContainer);
-      Viewer.actionMenuPanel.appendChild(Viewer.themeMode);
-      Viewer.actionMenuPanel.appendChild(Viewer.viewEntity);
-      Viewer.actionMenuPanel.appendChild(Viewer.downloadModel);
-      Viewer.actionMenuPanel.appendChild(Viewer.fullscreenMode);
-      if (Viewer.urlOptions.hideUi) {
-        Viewer.actionMenu.hidden = true;
-      }
-      Viewer.createEmbedConfiguratorPanel();
-
-      setCore('viewEntity', Viewer.viewEntity);
-      Viewer.bindEventListener(Viewer.languageMode, "click", Viewer.toggleLanguage.bind(Viewer));
-      Viewer.bindEventListener(Viewer.themeMode, "click", Viewer.toggleTheme.bind(Viewer));
-	      Viewer.bindEventListener(Viewer.fullscreenMode, "click", Viewer.toggleFullscreen, false);
-      Viewer.bindEventListener(Viewer.viewEntity, "click", Viewer.openEmbedConfiguratorFromMenu.bind(Viewer));
-      Viewer.updateEmbedMenuEntryState();
-      Viewer.applyLanguage(Viewer.currentLanguage, { persist: false });
-      Viewer.bindEventListener(Viewer.downloadModel, "click", () => Viewer.closeActionMenu());
-      Viewer.bindEventListener(document, "click", (event) => {
-        if (
-          !Viewer.actionMenu?.contains(event.target) &&
-          !Viewer.embedConfiguratorPanel?.contains(event.target)
-        ) {
-          Viewer.closeActionMenu();
+        Viewer.actionMenuPanel.appendChild(Viewer.languageModeContainer);
+        Viewer.actionMenuPanel.appendChild(Viewer.themeMode);
+        Viewer.actionMenuPanel.appendChild(Viewer.viewEntity);
+        Viewer.actionMenuPanel.appendChild(Viewer.downloadModel);
+        Viewer.actionMenuPanel.appendChild(Viewer.fullscreenMode);
+        if (Viewer.urlOptions.hideUi) {
+          Viewer.actionMenu.hidden = true;
         }
-      });
+        Viewer.createEmbedConfiguratorPanel();
 
-      Viewer.handHint.innerHTML = `<img src="${core.DFG_ASSETS}/img/hand-hint.png" alt="Fullscreen" width=48 height=48 title="Hand hint animation"/>`;
-      
-      Viewer.rect = core.container.getBoundingClientRect();
-      core.guiContainer.style.maxHeight = `${Viewer.rect.height - 20}px`;
-      core.lilGui = document.getElementsByClassName("lil-gui root");      
+        setCore('viewEntity', Viewer.viewEntity);
+        Viewer.bindEventListener(Viewer.languageMode, "click", Viewer.toggleLanguage.bind(Viewer));
+        Viewer.bindEventListener(Viewer.themeMode, "click", Viewer.toggleTheme.bind(Viewer));
+          Viewer.bindEventListener(Viewer.fullscreenMode, "click", Viewer.toggleFullscreen, false);
+        Viewer.bindEventListener(Viewer.viewEntity, "click", Viewer.openEmbedConfiguratorFromMenu.bind(Viewer));
+        Viewer.updateEmbedMenuEntryState();
+        Viewer.applyLanguage(Viewer.currentLanguage, { persist: false });
+        Viewer.bindEventListener(Viewer.downloadModel, "click", () => Viewer.closeActionMenu());
+        Viewer.bindEventListener(document, "click", (event) => {
+          if (
+            !Viewer.actionMenu?.contains(event.target) &&
+            !Viewer.embedConfiguratorPanel?.contains(event.target)
+          ) {
+            Viewer.closeActionMenu();
+          }
+        });
 
+        Viewer.handHint.innerHTML = `<img src="${core.DFG_ASSETS}/img/hand-hint.png" alt="Fullscreen" width=48 height=48 title="Hand hint animation"/>`;
+        
+        Viewer.rect = core.container.getBoundingClientRect();
+        core.guiContainer.style.maxHeight = `${Viewer.rect.height - 20}px`;
+        core.lilGui = document.getElementsByClassName("lil-gui root");
 
-      Viewer.fileElement = document.getElementsByClassName("field--type-file");
-      if (Viewer.fileElement.length > 0) {
-        Viewer.fileElement[0].style.height = core.CONFIG.viewer.canvasDimensions.y * 1.1 + "px";
-      }
+        Viewer.fileElement = document.getElementsByClassName("field--type-file");
+        if (Viewer.fileElement.length > 0) {
+          Viewer.fileElement[0].style.height = core.CONFIG.viewer.canvasDimensions.y * 1.1 + "px";
+        }
 
-      if (
-        !core.isLightweight || 
-        core.CONFIG.viewer.gallery?.build === true
-      ) {
-        Viewer.buildGallery();
+        if (
+          !core.isLightweight || 
+          core.CONFIG.viewer.gallery?.build === true
+        ) {
+          Viewer.buildGallery();
+        }
       }
 
       Viewer.controls = new OrbitControls(core.camera, core.renderer.domElement);
@@ -15378,13 +15400,13 @@ const Viewer = {
       Viewer.controls.enableDamping = true;
       Viewer.controls.dampingFactor = 0.05;
       Viewer.controls.enableRotate = true;
-      if (typeof Viewer.urlOptions.autoRotate === "boolean") {
+      if (typeof Viewer.urlOptions.autoRotate === "boolean" || core.presentationMode) {
         Viewer.controls.autoRotate = Viewer.urlOptions.autoRotate;
       }
       if (Number.isFinite(Viewer.urlOptions.autoRotateSpeed)) {
         Viewer.controls.autoRotateSpeed = Viewer.urlOptions.autoRotateSpeed;
       }
-      if (Viewer.urlOptions.disableInteraction) {
+      if (Viewer.urlOptions.disableInteraction || core.presentationMode) {
         Viewer.controls.enabled = false;
         Viewer.controls.enableRotate = false;
         Viewer.controls.enablePan = false;
@@ -15394,66 +15416,67 @@ const Viewer = {
       setCore('controls', Viewer.controls);
       setCore('GESTURE', Viewer.GESTURE);
       setCore('lastTime', Viewer.lastTime);
-      //Viewer.changeScale();
       setCore('helperObjects', Viewer.helperObjects);
 
-      Viewer.transformControl = new TransformControls(core.camera, core.renderer.domElement);
-      Viewer.transformControl.rotationSnap = THREE.MathUtils.degToRad(5);
-      Viewer.transformControl.space = "local";
-      Viewer.transformControl.addEventListener("change", Viewer.render);
-      Viewer.transformControl.addEventListener("objectChange", Viewer.changeScale);
-      Viewer.transformControl.addEventListener("mouseUp", Viewer.calculateObjectScale);
-      Viewer.transformControl.addEventListener("dragging-changed", function (event) {
-        core.controls.enabled = !event.value;
-      });
-      core.scene.add(Viewer.transformControl.getHelper());
-      setCore('transformControl', Viewer.transformControl);
-
-      Viewer.transformControlLight = new TransformControls(core.camera, core.renderer.domElement);
-      Viewer.transformControlLight.space = "local";
-      Viewer.transformControlLight.addEventListener("change", Viewer.render);
-      //Viewer.transformControlLight.addEventListener('objectChange', changeLightRotation);
-      Viewer.transformControlLight.addEventListener(
-        "dragging-changed",
-        function (event) {
+      if (!core.presentationMode) {
+        Viewer.transformControl = new TransformControls(core.camera, core.renderer.domElement);
+        Viewer.transformControl.rotationSnap = THREE.MathUtils.degToRad(5);
+        Viewer.transformControl.space = "local";
+        Viewer.transformControl.addEventListener("change", Viewer.render);
+        Viewer.transformControl.addEventListener("objectChange", Viewer.changeScale);
+        Viewer.transformControl.addEventListener("mouseUp", Viewer.calculateObjectScale);
+        Viewer.transformControl.addEventListener("dragging-changed", function (event) {
           core.controls.enabled = !event.value;
-        }
-      );
-      core.scene.add(Viewer.transformControlLight.getHelper());
-      setCore('transformControlLight', Viewer.transformControlLight);
+        });
+        core.scene.add(Viewer.transformControl.getHelper());
+        setCore('transformControl', Viewer.transformControl);
 
-      Viewer.transformControlLightTarget = new TransformControls(
-        core.camera,
-        core.renderer.domElement
-      );
-      Viewer.transformControlLightTarget.space = "global";
-      Viewer.transformControlLightTarget.addEventListener("change", Viewer.render);
-      Viewer.transformControlLightTarget.addEventListener(
-        "objectChange",
-        Viewer.changeLightRotation
-      );
-      Viewer.transformControlLightTarget.addEventListener(
-        "dragging-changed",
-        function (event) {
-          core.controls.enabled = !event.value;
-        }
-      );
-      core.scene.add(Viewer.transformControlLightTarget.getHelper());
-      setCore('transformControlLightTarget', Viewer.transformControlLightTarget);
+        Viewer.transformControlLight = new TransformControls(core.camera, core.renderer.domElement);
+        Viewer.transformControlLight.space = "local";
+        Viewer.transformControlLight.addEventListener("change", Viewer.render);
+        //Viewer.transformControlLight.addEventListener('objectChange', changeLightRotation);
+        Viewer.transformControlLight.addEventListener(
+          "dragging-changed",
+          function (event) {
+            core.controls.enabled = !event.value;
+          }
+        );
+        core.scene.add(Viewer.transformControlLight.getHelper());
+        setCore('transformControlLight', Viewer.transformControlLight);
 
-      Viewer.transformControlClippingPlaneX = Viewer.createClippingPlaneAxis(0, "x");
-      Viewer.transformControlClippingPlaneY = Viewer.createClippingPlaneAxis(1, "y");
-      Viewer.transformControlClippingPlaneZ = Viewer.createClippingPlaneAxis(2, "z");
-      setCore('transformControlClippingPlaneX', Viewer.transformControlClippingPlaneX);
-      setCore('transformControlClippingPlaneY', Viewer.transformControlClippingPlaneY);
-      setCore('transformControlClippingPlaneZ', Viewer.transformControlClippingPlaneZ);
+        Viewer.transformControlLightTarget = new TransformControls(
+          core.camera,
+          core.renderer.domElement
+        );
+        Viewer.transformControlLightTarget.space = "global";
+        Viewer.transformControlLightTarget.addEventListener("change", Viewer.render);
+        Viewer.transformControlLightTarget.addEventListener(
+          "objectChange",
+          Viewer.changeLightRotation
+        );
+        Viewer.transformControlLightTarget.addEventListener(
+          "dragging-changed",
+          function (event) {
+            core.controls.enabled = !event.value;
+          }
+        );
+        core.scene.add(Viewer.transformControlLightTarget.getHelper());
+        setCore('transformControlLightTarget', Viewer.transformControlLightTarget);
 
-      setCore('clippingPlanes', Viewer.clippingPlanes);
-      setCore('selectObjectHierarchy', Viewer.selectObjectHierarchy);
+        Viewer.transformControlClippingPlaneX = Viewer.createClippingPlaneAxis(0, "x");
+        Viewer.transformControlClippingPlaneY = Viewer.createClippingPlaneAxis(1, "y");
+        Viewer.transformControlClippingPlaneZ = Viewer.createClippingPlaneAxis(2, "z");
+        setCore('transformControlClippingPlaneX', Viewer.transformControlClippingPlaneX);
+        setCore('transformControlClippingPlaneY', Viewer.transformControlClippingPlaneY);
+        setCore('transformControlClippingPlaneZ', Viewer.transformControlClippingPlaneZ);
 
-      core.transformControlClippingPlaneX.showX = core.transformControlClippingPlaneX.showY = false;
-      core.transformControlClippingPlaneY.showX = core.transformControlClippingPlaneY.showY = false;
-      core.transformControlClippingPlaneZ.showX = core.transformControlClippingPlaneZ.showY = false;
+        setCore('clippingPlanes', Viewer.clippingPlanes);
+        setCore('selectObjectHierarchy', Viewer.selectObjectHierarchy);
+
+        core.transformControlClippingPlaneX.showX = core.transformControlClippingPlaneX.showY = false;
+        core.transformControlClippingPlaneY.showX = core.transformControlClippingPlaneY.showY = false;
+        core.transformControlClippingPlaneZ.showX = core.transformControlClippingPlaneZ.showY = false;
+      }
 
       Viewer.GESTURE.handPx *= Math.min(window.innerWidth / 1200, 1);
 
@@ -15470,7 +15493,7 @@ const Viewer = {
       
       core.autoPath = "";
 
-      if (core.isLocalPreview) {
+      if (core.isLocalPreview && !core.presentationMode) {
         const picker = document.getElementById('example-model-picker');
         const selectModel = document.getElementById('example-model-select');
         const themeToggle = document.getElementById('example-theme-toggle');
@@ -15505,92 +15528,96 @@ const Viewer = {
         }
       }
 
-      const sourceType = core.CONFIG.entity.metadata.sourceType.toLowerCase();
-      console.log("Loading from source: " + sourceType);
-          
-      if (window.__E2E__) {
-        try {
-          await Viewer.mainLoadModelWrapper();
-        } catch (error) {
-          Viewer.reportError(error, {
-            context: "E2E model load error",
-          });
-        }
-	    } 
-      else if (sourceType === "drupal") {
-        try {
-          if (core.CONFIG.entity.metadata.exportUrl && core.CONFIG.entity.metadata.exportUrl !== "") 
-          {
-            const response = await fetch(core.CONFIG.viewer.exportPath + core.CONFIG.entity.id, 
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/xml'
-              },
-              body: JSON.stringify({
-                id: core.CONFIG.entity.id,
-                domain: core.CONFIG.metadataUrl
-              })
+      if (!core.presentationMode) {
+        const sourceType = core.CONFIG.entity.metadata.sourceType.toLowerCase();
+        console.log("Loading from source: " + sourceType);
+            
+        if (window.__E2E__) {
+          try {
+            await Viewer.mainLoadModelWrapper();
+          } catch (error) {
+            Viewer.reportError(error, {
+              context: "E2E model load error",
             });
-
-            if (!response.ok) {
-              throw new Error(`XML export failed: ${response.status}`);
-            }
-
-            const xmlText = await response.text();
-
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(xmlText, 'application/xml');
-            Viewer.pendingAnnotationsXml = Viewer.extractAnnotationsXmlFromExportDocument(doc);
-
-            core.autoPath = '';
-
-            const nodes = doc.getElementsByTagName('*');
-            for (let i = 0; i < nodes.length; i++) {
-              const node = nodes[i];
-              if (
-                node.tagName?.includes('converted_file') &&
-                node.textContent
-              ) {
-                core.autoPath = node.textContent;
-                break;
-                }
-              }
           }
-          await Viewer.mainLoadModelWrapper();
-        } catch (err) {
-          Viewer.reportError(err, {
-            context: core.isLightweight ? "Lightweight model load error" : "Metadata load error",
-          });
-        }
-	    } else if (sourceType === "iiif") {
-        Viewer.cleanupTransientUI();
-        createIIIFUI();
+        } 
+        else if (sourceType === "drupal") {
+          try {
+            if (core.CONFIG.entity.metadata.exportUrl && core.CONFIG.entity.metadata.exportUrl !== "") 
+            {
+              const response = await fetch(core.CONFIG.viewer.exportPath + core.CONFIG.entity.id, 
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/xml'
+                },
+                body: JSON.stringify({
+                  id: core.CONFIG.entity.id,
+                  domain: core.CONFIG.metadataUrl
+                })
+              });
 
-        console.log("Loading from source: " + core.CONFIG.entity.metadata.sourceType);
-        if (Viewer.iiifConfigURL.url !== "") {
-          createIIIFDropdown(Viewer.iiifConfigURL);
-          await Viewer.loadIIIFURL();
-          core.CONFIG.entity.metadata.sourceType = "IIIF";
-          await Viewer.setupIIIF(Viewer.iiifConfigURL.url);
+              if (!response.ok) {
+                throw new Error(`XML export failed: ${response.status}`);
+              }
+
+              const xmlText = await response.text();
+
+              const parser = new DOMParser();
+              const doc = parser.parseFromString(xmlText, 'application/xml');
+              Viewer.pendingAnnotationsXml = Viewer.extractAnnotationsXmlFromExportDocument(doc);
+
+              core.autoPath = '';
+
+              const nodes = doc.getElementsByTagName('*');
+              for (let i = 0; i < nodes.length; i++) {
+                const node = nodes[i];
+                if (
+                  node.tagName?.includes('converted_file') &&
+                  node.textContent
+                ) {
+                  core.autoPath = node.textContent;
+                  break;
+                  }
+                }
+            }
+            await Viewer.mainLoadModelWrapper();
+          } catch (err) {
+            Viewer.reportError(err, {
+              context: core.isLightweight ? "Lightweight model load error" : "Metadata load error",
+            });
+          }
+        } else if (sourceType === "iiif") {
+          Viewer.cleanupTransientUI();
+          createIIIFUI();
+
+          console.log("Loading from source: " + core.CONFIG.entity.metadata.sourceType);
+          if (Viewer.iiifConfigURL.url !== "") {
+            createIIIFDropdown(Viewer.iiifConfigURL);
+            await Viewer.loadIIIFURL();
+            core.CONFIG.entity.metadata.sourceType = "IIIF";
+            await Viewer.setupIIIF(Viewer.iiifConfigURL.url);
+          }
+        } else {
+          console.log("Custom metadata source:" + core.CONFIG.entity.metadata.sourceType);
+          try {
+            switch(core.CONFIG.entity.metadata.sourceType.substring(0, 6).toLowerCase()) {
+              case "drupal":
+                console.log("Loading from URL: " + core.CONFIG.entity.metadata.url);
+
+                break;
+            }
+            // Load model for custom metadata sources
+            await Viewer.mainLoadModelWrapper();
+          } catch (error) {
+            Viewer.reportError(error, {
+              context: core.isLightweight ? "Lightweight model load error" : "Custom metadata load error",
+            });
+          }
         }
       } else {
-        console.log("Custom metadata source:" + core.CONFIG.entity.metadata.sourceType);
-        try {
-          switch(core.CONFIG.entity.metadata.sourceType.substring(0, 6).toLowerCase()) {
-            case "drupal":
-              console.log("Loading from URL: " + core.CONFIG.entity.metadata.url);
-
-              break;
-          }
-          // Load model for custom metadata sources
-          await Viewer.mainLoadModelWrapper();
-        } catch (error) {
-          Viewer.reportError(error, {
-            context: core.isLightweight ? "Lightweight model load error" : "Custom metadata load error",
-          });
-        }
+        await Viewer.mainLoadModelWrapper();
       }
 
       core.renderer.setPixelRatio(devicePixelRatio);

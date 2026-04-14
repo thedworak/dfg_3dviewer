@@ -346,24 +346,29 @@ export async function loadModel() {
     core.handHint.hidden = true;
     window.viewer.modelLoaded = true;
     traverseMesh(object);
-    const isArchiveDerivedPath = /\/[^/]+_(ZIP|RAR|TAR|XZ|GZ)\/gltf\/$/i.test(core.fileObject.path);
-    if (!isArchiveDerivedPath) {
-      if (core.fileObject.extension.toLowerCase() === "gltf" || core.fileObject.extension.toLowerCase() === "glb") {
-        core.fileObject.path = core.fileObject.path.replace("/gltf/", "/");
-      } else {
-        core.fileObject.path = core.fileObject.path.replace("gltf/", "");
+    if (!core.presentationMode) {
+      const isArchiveDerivedPath = /\/[^/]+_(ZIP|RAR|TAR|XZ|GZ)\/gltf\/$/i.test(core.fileObject.path);
+      if (!isArchiveDerivedPath) {
+        if (core.fileObject.extension.toLowerCase() === "gltf" || core.fileObject.extension.toLowerCase() === "glb") {
+          core.fileObject.path = core.fileObject.path.replace("/gltf/", "/");
+        } else {
+          core.fileObject.path = core.fileObject.path.replace("gltf/", "");
+        }
       }
+      await fetchSettings(object);
+      core.outlineClipping = prepareOutlineClipping(object);
+      if (Array.isArray(object)) {
+        core.helperObjects.push(object[0]);
+      } else {
+        core.helperObjects.push(object);
+      }
+      core.scene.add(core.outlineClipping);
     }
-    await fetchSettings(object);
-    core.outlineClipping = prepareOutlineClipping(object);
     if (Array.isArray(object)) {
       object.forEach(o => core.scene.add(o));
-      core.helperObjects.push(object[0]);
     } else {
       core.scene.add(object);
-      core.helperObjects.push(object);
     }
-    core.scene.add(core.outlineClipping);
     core.mainObject.push(object);
     core.scene.environment = await getEnvironmentTexture(core.renderer);
   }
