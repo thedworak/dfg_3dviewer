@@ -390,6 +390,10 @@ const VIEWER_I18N = {
       featureToggle: "{feature} is {state}.",
       clippingHelperToggle: "Clipping plane {axis} helper {state}.",
     },
+    shortcuts: {
+      mouse: "Mouse: drag orbit, wheel zoom, right-drag pan",
+      keyboard: "Keyboard: Arrows orbit, Shift+Arrows faster, Ctrl/Cmd+Arrows pan, +/- zoom, Space toggle auto-rotate"
+    },
   },
   pl: {
     menu: {
@@ -580,6 +584,10 @@ const VIEWER_I18N = {
       featureToggle: "{feature} jest {state}.",
       clippingHelperToggle: "Pomocnik płaszczyzny przycinania {axis} jest {state}.",
     },
+    shortcuts: {
+      mouse: "Mysz: przeciągnij, aby obracać, rolka - zoom, prawy przycisk - przesuwanie",
+      keyboard: "Klawiatura: strzałki - obrót, Shift+strzałki - szybciej, Ctrl/Cmd+strzałki - przesuwanie, +/- — zoom, Spacja - auto-obrót"
+    },
   },
   de: {
     menu: {
@@ -765,6 +773,10 @@ const VIEWER_I18N = {
       featureToggle: "{feature} ist {state}.",
       clippingHelperToggle: "Clipping-Ebenen-Helfer {axis} ist {state}.",
     },
+    shortcuts: {
+      mouse: "Maus: ziehen zum Drehen, Mausrad - Zoom, Rechtsklick - Verschieben",
+      keyboard: "Tastatur: Pfeile - Drehen, Shift+Pfeile - schneller, Ctrl/Cmd+Pfeile - Verschieben, +/- - Zoom, Leertaste - Auto-Rotation"
+    }
   },
 };
 
@@ -10805,7 +10817,7 @@ const Viewer = {
 
   applyLanguage({ persist = true } = {}) {
     if (persist) {
-      window.localStorage.setItem(this.LANGUAGE_STORAGE_KEY, normalizedLanguage);
+      window.localStorage.setItem(this.LANGUAGE_STORAGE_KEY, core.currentLanguage);
     }
     this.updateLocalizedUI();
   },
@@ -10817,6 +10829,7 @@ const Viewer = {
   },
 
   selectLanguage(lang) {
+    core.currentLanguage = lang;
     this.languageModeDropdown.hidden = true;
     this.closeActionMenu();
     this.applyLanguage();
@@ -10900,8 +10913,8 @@ const Viewer = {
 
   getKeyboardShortcutsText() {
     return [
-      "Mouse: drag orbit, wheel zoom, right-drag pan",
-      "Keyboard: Arrows orbit, Shift+Arrows faster, Ctrl/Cmd+Arrows pan, +/- zoom, Space toggle auto-rotate",
+      t$1("shortcuts.mouse"),
+      t$1("shortcuts.keyboard")
     ].join("\n");
   },
 

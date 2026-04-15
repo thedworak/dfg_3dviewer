@@ -117,7 +117,7 @@ test('reports unsupported format without loading a model', async ({ page }) => {
 
   expect(state.modelLoaded).toBe(false);
   expect(state.errors).toEqual([]);
-  expect(state.toasts).toContain('Extension not supported yet');
+  expect(state.toasts).toContain('File extension is not supported yet.');
 });
 
 test('reports a missing model file instead of hanging', async ({ page }) => {

@@ -802,7 +802,7 @@ export const Viewer = {
 
   applyLanguage({ persist = true } = {}) {
     if (persist) {
-      window.localStorage.setItem(this.LANGUAGE_STORAGE_KEY, normalizedLanguage);
+      window.localStorage.setItem(this.LANGUAGE_STORAGE_KEY, core.currentLanguage);
     }
     this.updateLocalizedUI();
   },
@@ -814,6 +814,7 @@ export const Viewer = {
   },
 
   selectLanguage(lang) {
+    core.currentLanguage = lang;
     this.languageModeDropdown.hidden = true;
     this.closeActionMenu();
     this.applyLanguage();
@@ -897,8 +898,8 @@ export const Viewer = {
 
   getKeyboardShortcutsText() {
     return [
-      "Mouse: drag orbit, wheel zoom, right-drag pan",
-      "Keyboard: Arrows orbit, Shift+Arrows faster, Ctrl/Cmd+Arrows pan, +/- zoom, Space toggle auto-rotate",
+      t("shortcuts.mouse"),
+      t("shortcuts.keyboard")
     ].join("\n");
   },
 
