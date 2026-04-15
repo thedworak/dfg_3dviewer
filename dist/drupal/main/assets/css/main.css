@@ -1206,6 +1206,8 @@ canvas {
   color: var(--viewer-panel-text);
   box-shadow: var(--viewer-panel-shadow);
   box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
+            "Segoe UI", Roboto, Arial, sans-serif;
 }
 
 .annotation-dialog__header {

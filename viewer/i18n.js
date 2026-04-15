@@ -28,6 +28,7 @@ export const VIEWER_I18N = {
       switchToGerman: "Switch to German",
     },
     hints: {
+      pickingSelect: "Select at least one face to add annotation.",
       picking: "Shift + click to select multiple faces",
       clipping: "Drag active clipping plane helper to adjust cut",
     },
@@ -60,7 +61,7 @@ export const VIEWER_I18N = {
       constantZ: "Constant Z",
       visible: "Visible cutting",
       materials: "Materials",
-      metadata: "Metadata",
+      metadata: "Annotations",
       saveProperties: "Save properties",
       hierarchy: "Hierarchy",
       statistics: "Statistics",
@@ -142,6 +143,43 @@ export const VIEWER_I18N = {
       settingsFound: "Settings {filename}_viewer.json found",
       settingsNotFound: "No settings {filename}_viewer.json found",
       metadataFetchError: "Error fetching metadata: {error}",
+
+      presentationModeError: "An error occurred during presentation mode setup.",
+      objLoaded: "OBJ model has been loaded.",
+      mtlLoadError: "Error occurred while loading attached MTL file.",
+      glbLoadError: "Error occurred while loading attached GLB file.",
+      unsupportedExtension: "File extension is not supported yet.",
+      modelLoaded: "Model {filename} has been loaded.",
+      modelLoadedSimple: "Model loaded successfully.",
+      unsupportedFormat: "Unsupported file format.",
+
+      embedSourceMissing: "Set Model URL or Entity ID for embed.",
+      embedUrlCopied: "Embed URL copied.",
+      embedUrlCopyError: "Could not copy embed URL.",
+      embedIframeCopied: "Embed iframe copied.",
+      embedIframeCopyError: "Could not copy embed iframe.",
+      embedCodeCopied: "Embed code copied to clipboard.",
+      embedCodeCopyError: "Could not copy embed code.",
+
+      annotationDataMissing: "Annotation data not found for this POI.",
+      selectFaceRequired: "Select at least one face to add annotation.",
+      selectFaceRequiredAgain: "Select at least one face, then run Add annotations again.",
+      noFacesSelected: "No faces selected for annotation.",
+      titleRequired: "Title is required.",
+      facesInactive: "Selected faces are no longer active.",
+
+      annotationsSaved: "Annotations saved for {count} face{plural}.",
+      annotationsImported: "Imported {count} annotation{plural}.",
+      annotationsExported: "Annotations XML exported.",
+      noAnnotationsToExport: "No annotations to export.",
+      noValidAnnotations: "No valid annotations found in XML.",
+      annotationsImportError: "Failed to import annotations XML.",
+
+      settingsSaved: "Settings have been saved.",
+      settingsSaveError: "Error saving settings.",
+
+      featureToggle: "{feature} is {state}.",
+      clippingHelperToggle: "Clipping plane {axis} helper {state}.",
     },
   },
   pl: {
@@ -205,14 +243,14 @@ export const VIEWER_I18N = {
       constantZ: "Stała Z",
       visible: "Widoczne cięcie",
       materials: "Materiały",
-      metadata: "Metadane",
+      metadata: "Annotacje",
       saveProperties: "Zapisz właściwości",
       hierarchy: "Hierarchia",
       statistics: "Statystyki",
       clearSelectedFaces: "Wyczyść wybrane ściany",
-      addAnnotations: "Dodaj adnotacje",
-      exportAnnotationsXml: "Eksportuj adnotacje XML",
-      importAnnotationsXml: "Importuj adnotacje XML",
+      addAnnotations: "Dodaj annotacje",
+      exportAnnotationsXml: "Eksportuj annotacje XML",
+      importAnnotationsXml: "Importuj annotacje XML",
       resetCameraPosition: "Resetuj pozycję kamery",
       save: "Zapisz",
       renderPreview: "Renderuj podgląd",
@@ -271,6 +309,14 @@ export const VIEWER_I18N = {
     localPreview: {
       loadExampleModel: "Wczytaj model przykładowy",
     },
+    state: {
+      enabled: "Enabled",
+      disabled: "Disabled"
+    },
+    state: {
+      enabled: "włączony",
+      disabled: "wyłączony"
+    },
     toasts: {
       transformMove: "Przesuwanie: przeciągnij strzalki osi, aby przesunąć obiekt.",
       transformRotate: "Obracanie: przeciągnij pierscienie obrotu, aby obrócić obiekt.",
@@ -287,6 +333,43 @@ export const VIEWER_I18N = {
       settingsFound: "Znaleziono ustawienia {filename}_viewer.json",
       settingsNotFound: "Nie znaleziono ustawień {filename}_viewer.json",
       metadataFetchError: "Błąd pobierania metadanych: {error}",
+
+      presentationModeError: "Wystąpił błąd podczas konfiguracji trybu prezentacji.",
+      objLoaded: "Model OBJ został załadowany.",
+      mtlLoadError: "Wystąpił błąd podczas ładowania pliku MTL.",
+      glbLoadError: "Wystąpił błąd podczas ładowania pliku GLB.",
+      unsupportedExtension: "Rozszerzenie pliku nie jest jeszcze obsługiwane.",
+      modelLoaded: "Model {filename} został załadowany.",
+      modelLoadedSimple: "Model został pomyślnie załadowany.",
+      unsupportedFormat: "Nieobsługiwany format pliku.",
+
+      embedSourceMissing: "Ustaw URL modelu lub ID encji do osadzenia.",
+      embedUrlCopied: "Skopiowano URL osadzenia.",
+      embedUrlCopyError: "Nie udało się skopiować URL osadzenia.",
+      embedIframeCopied: "Skopiowano iframe osadzenia.",
+      embedIframeCopyError: "Nie udało się skopiować iframe.",
+      embedCodeCopied: "Kod osadzenia został skopiowany do schowka.",
+      embedCodeCopyError: "Nie udało się skopiować kodu osadzenia.",
+
+      annotationDataMissing: "Nie znaleziono danych adnotacji dla tego punktu.",
+      selectFaceRequired: "Wybierz co najmniej jedną ścianę, aby dodać adnotację.",
+      selectFaceRequiredAgain: "Wybierz co najmniej jedną ścianę, a następnie ponownie dodaj adnotacje.",
+      noFacesSelected: "Nie wybrano ścian do adnotacji.",
+      titleRequired: "Tytuł jest wymagany.",
+      facesInactive: "Wybrane ściany nie są już aktywne.",
+
+      annotationsSaved: "Zapisano adnotacje dla {count} ścian{plural}.",
+      annotationsImported: "Zaimportowano {count} adnotacj{plural}.",
+      annotationsExported: "Wyeksportowano XML adnotacji.",
+      noAnnotationsToExport: "Brak adnotacji do eksportu.",
+      noValidAnnotations: "Nie znaleziono poprawnych adnotacji w XML.",
+      annotationsImportError: "Nie udało się zaimportować XML adnotacji.",
+
+      settingsSaved: "Ustawienia zostały zapisane.",
+      settingsSaveError: "Błąd zapisywania ustawień.",
+
+      featureToggle: "{feature} jest {state}.",
+      clippingHelperToggle: "Pomocnik płaszczyzny przycinania {axis} jest {state}.",
     },
   },
   de: {
@@ -349,7 +432,7 @@ export const VIEWER_I18N = {
       constantZ: "Konstante Z",
       visible: "Sichtbarer Schnitt",
       materials: "Materialien",
-      metadata: "Metadaten",
+      metadata: "Anmerkungen",
       saveProperties: "Eigenschaften speichern",
       hierarchy: "Hierarchie",
       statistics: "Statistiken",
@@ -415,6 +498,10 @@ export const VIEWER_I18N = {
     localPreview: {
       loadExampleModel: "Beispielmodell laden",
     },
+    state: {
+      enabled: "aktiviert",
+      disabled: "deaktiviert"
+    },
     toasts: {
       transformMove: "Bewegen: Ziehen Sie die Achsenpfeile, um das Objekt zu repositionieren.",
       transformRotate: "Drehen: Ziehen Sie die Rotationsringe, um das Objekt zu drehen.",
@@ -431,6 +518,43 @@ export const VIEWER_I18N = {
       settingsFound: "Einstellungen {filename}_viewer.json gefunden",
       settingsNotFound: "Keine Einstellungen {filename}_viewer.json gefunden",
       metadataFetchError: "Fehler beim Abrufen der Metadaten: {error}",
+
+      presentationModeError: "Beim Einrichten des Präsentationsmodus ist ein Fehler aufgetreten.",
+      objLoaded: "OBJ-Modell wurde geladen.",
+      mtlLoadError: "Fehler beim Laden der zugehörigen MTL-Datei.",
+      glbLoadError: "Fehler beim Laden der GLB-Datei.",
+      unsupportedExtension: "Dateierweiterung wird noch nicht unterstützt.",
+      modelLoaded: "Modell {filename} wurde geladen.",
+      modelLoadedSimple: "Modell wurde erfolgreich geladen.",
+      unsupportedFormat: "Nicht unterstütztes Dateiformat.",
+
+      embedSourceMissing: "Model-URL oder Entitäts-ID für die Einbettung festlegen.",
+      embedUrlCopied: "Einbettungs-URL kopiert.",
+      embedUrlCopyError: "Einbettungs-URL konnte nicht kopiert werden.",
+      embedIframeCopied: "Einbettungs-iframe kopiert.",
+      embedIframeCopyError: "Einbettungs-iframe konnte nicht kopiert werden.",
+      embedCodeCopied: "Einbettungscode in die Zwischenablage kopiert.",
+      embedCodeCopyError: "Einbettungscode konnte nicht kopiert werden.",
+
+      annotationDataMissing: "Keine Annotationsdaten für diesen Punkt gefunden.",
+      selectFaceRequired: "Wählen Sie mindestens eine Fläche aus, um eine Annotation hinzuzufügen.",
+      selectFaceRequiredAgain: "Wählen Sie mindestens eine Fläche und führen Sie dann „Annotationen hinzufügen“ erneut aus.",
+      noFacesSelected: "Keine Flächen für Annotation ausgewählt.",
+      titleRequired: "Titel ist erforderlich.",
+      facesInactive: "Ausgewählte Flächen sind nicht mehr aktiv.",
+
+      annotationsSaved: "Annotationen für {count} Fläche{plural} gespeichert.",
+      annotationsImported: "{count} Annotation{plural} importiert.",
+      annotationsExported: "Annotations-XML exportiert.",
+      noAnnotationsToExport: "Keine Annotationen zum Exportieren.",
+      noValidAnnotations: "Keine gültigen Annotationen im XML gefunden.",
+      annotationsImportError: "Import der Annotations-XML fehlgeschlagen.",
+
+      settingsSaved: "Einstellungen wurden gespeichert.",
+      settingsSaveError: "Fehler beim Speichern der Einstellungen.",
+
+      featureToggle: "{feature} ist {state}.",
+      clippingHelperToggle: "Clipping-Ebenen-Helfer {axis} ist {state}.",
     },
   },
 };

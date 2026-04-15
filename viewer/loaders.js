@@ -15,8 +15,8 @@ export const loadIFCLoader = async () => (await import("./js/loaders/IFCLoader.j
 export const loadRoomEnvironment = async () => (await import("three/examples/jsm/environments/RoomEnvironment.js")).RoomEnvironment;
 
 import { core } from './core.js';
-import { fetchSettings } from "./metadata.js";
-import { reportViewerError, showToast, setupCamera } from "./viewer-utils.js";
+import { fetchSettings, presentationMode } from "./metadata.js";
+import { reportViewerError, showToast, toastHelper } from "./viewer-utils.js";
 
 export var outlineClipping;
 let environmentTexturePromise = null;
@@ -363,6 +363,11 @@ export async function loadModel() {
         core.helperObjects.push(object);
       }
       core.scene.add(core.outlineClipping);
+    } else {
+      presentationMode(object, null).catch(error => {
+        reportLoadError(error, "Presentation mode setup failed");
+        showToast("toasts.presentationModeError", "error");
+      });
     }
     if (Array.isArray(object)) {
       object.forEach(o => core.scene.add(o));
@@ -378,7 +383,7 @@ export async function loadModel() {
     const MTLLoader = await loadMTLLoader();
     const OBJLoader = await loadOBJLoader();
     const manager = new THREE.LoadingManager();
-    manager.onLoad = () => showToast("OBJ model has been loaded");
+    manager.onLoad = () => toastHelper("objLoaded", "success");
     manager.addHandler(/\.dds$/i, new DDSLoader());
 
     const basename = core.fileObject.filename.replace(/\.[^/.]+$/, "");
@@ -404,7 +409,7 @@ export async function loadModel() {
         return obj;
       } catch (error) {
         core.CONFIG.noMTL = true;
-        showToast("Error occured while loading attached MTL file.");
+        toastHelper("mtlLoadError", "error");
         console.warn("MTL load failed, falling back to OBJ-only load.", error);
       }
     }
@@ -620,7 +625,7 @@ export async function loadModel() {
         break;
       }
       default:
-        showToast("Extension not supported yet");
+        toastHelper("unsupportedExtension", "warning");
         return;
     }
   } catch (error) {
@@ -692,7 +697,7 @@ export const onError = function (_event) {
 
 export const onErrorMTL = async function (_event) {
   core.CONFIG.noMTL = true;
-  showToast("Error occured while loading attached MTL file.");
+  toastHelper("mtlLoadError", "error");
   await loadModel();
 };
 
@@ -707,7 +712,7 @@ export const onErrorGLB = async function (_event, params, loadedTimes) {
     await loadModel();
     loadedTimes++;
   } else {
-    showToast("Error occured while loading attached GLB file.");
+    toastHelper("glbLoadError", "error");
   }
 };
 
@@ -725,7 +730,9 @@ const progressLoaderHandler = function (xhr) {
   core.UltraLoader.set(percentComplete);
   if (percentComplete >= 100) {
     core.circle.hide();
-    showToast("Model " + core.fileObject.filename + " has been loaded.");
+    toastHelper("modelLoaded", "success", {
+      filename: core.fileObject.filename
+    });
     if (typeof core.EXIT_CODE !== "undefined") core.EXIT_CODE = 0;
     core.UltraLoader.finish();
     core.poller.updateSteps(2);

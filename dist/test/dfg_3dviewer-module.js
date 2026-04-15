@@ -207,6 +207,605 @@ function parseCssColor(str) {
   return null;
 }
 
+const VIEWER_I18N = {
+  en: {
+    menu: {
+      actions: "Viewer actions",
+      openActions: "Open viewer actions",
+      embed: "Embed",
+      exitEmbed: "Exit embed",
+      openEmbedOptions: "Open embed options",
+      exitEmbedMode: "Exit embed mode",
+      download: "Download",
+    },
+    theme: {
+      lightMode: "Light mode",
+      darkMode: "Dark mode",
+      switchToLightMode: "Switch to light mode",
+      switchToDarkMode: "Switch to dark mode",
+    },
+    fullscreen: {
+      mode: "Fullscreen mode",
+      enter: "Fullscreen",
+      exit: "Exit fullscreen",
+      exitMode: "Exit fullscreen mode",
+    },
+    language: {
+      label: "Language: English",
+      switchToPolish: "Switch to Polish",
+      switchToEnglish: "Switch to English",
+      switchToGerman: "Switch to German",
+    },
+    hints: {
+      pickingSelect: "Select at least one face to add annotation.",
+      picking: "Shift + click to select multiple faces",
+      clipping: "Drag active clipping plane helper to adjust cut",
+    },
+    controls: {
+      enablePickingMode: "Enable picking mode",
+      disablePickingMode: "Disable picking mode",
+      enableDistanceMeasurement: "Enable distance measurement",
+      disableDistanceMeasurement: "Disable distance measurement",
+      selectedFaces: "Selected faces",
+    },
+    gui: {
+      controls: "Controls",
+      editor: "Editor",
+      transform3dObject: "Transform 3D Object",
+      transformLight: "Transform Light",
+      transformMode: "Transform Mode",
+      directionalLight: "Directional Light",
+      ambientLight: "Ambient Light",
+      cameraLight: "Camera Light",
+      backgroundColor: "Background Color",
+      BackgroundColorOuter: "Background Color Outer",
+      backgroundType: "Background Type",
+      clippingPlanes: "Clipping Planes",
+      clippingFolder: "Clipping Planes",
+      displayHelperX: "Show X helper",
+      displayHelperY: "Show Y helper",
+      displayHelperZ: "Show Z helper",
+      constantX: "Constant X",
+      constantY: "Constant Y",
+      constantZ: "Constant Z",
+      visible: "Visible cutting",
+      materials: "Materials",
+      metadata: "Annotations",
+      saveProperties: "Save properties",
+      hierarchy: "Hierarchy",
+      statistics: "Statistics",
+      clearSelectedFaces: "Clear selected faces",
+      addAnnotations: "Add annotations",
+      exportAnnotationsXml: "Export annotations XML",
+      importAnnotationsXml: "Import annotations XML",
+      resetCameraPosition: "Reset camera position",
+      save: "Save",
+      renderPreview: "Render preview",
+      color: "Color",
+      intensity: "Intensity",
+      position: "Position",
+      rotation: "Rotation",
+      camera: "Camera",
+      performance: "Performance",
+      highPerformance: "High-performance",
+      lowPower: "Low-power",
+      default: "Default",
+      none: "None",
+      move: "Move",
+      rotate: "Rotate",
+      scale: "Scale",
+      target: "Target",
+      local: "Local",
+      global: "Global",
+      linear: "Linear",
+      gradient: "Gradient",
+      editMaterial: "Edit material",
+      selectByMaterial: "select by material",
+    },
+    metadata: {
+      modelDetails: "Model details",
+      metadata: "Metadata",
+      visualizedFile: "Visualized file",
+      vertices: "Vertices",
+      faces: "Faces",
+      title: "Title",
+      author: "Author",
+      authorAffiliation: "Author affiliation",
+      license: "License",
+      description: "Description",
+      objectType: "Object type",
+      reconstructionAuthors: "Reconstruction authors",
+      reconstructionPeriod: "Reconstruction period",
+    },
+    iiif: {
+      loader: "IIIF Loader",
+      collapse: "Collapse",
+      expand: "Expand",
+      manifest: "IIIF manifest",
+      loadFromUrl: "Load from URL",
+      loadFromText: "Load from Text",
+      manifestUrlPlaceholder: "https://example.org/iiif/manifest.json",
+      manifestTextPlaceholder: "Paste IIIF manifest JSON here...",
+      invalidUrl: "Please enter a valid IIIF manifest URL.",
+      invalidJson: "Please enter a valid IIIF JSON text.",
+      optionModelPositionScale: "Model Position and Scale",
+      optionModelOrigin: "Model Origin",
+      optionModelOriginBg: "Model Origin with background color",
+      optionModelPosition: "Model Position",
+    },
+    localPreview: {
+      loadExampleModel: "Load example model",
+    },
+    toasts: {
+      transformMove: "Move: drag axis arrows to reposition the object.",
+      transformRotate: "Rotate: drag rotation rings to rotate the object.",
+      transformScale: "Scale: drag axis handles to resize the object.",
+      transformLightMove: "Transform Light - Move: drag axis arrows to move the directional light.",
+      transformLightTarget: "Transform Light - Target: drag axis arrows to reposition the light target.",
+      distanceEnabled: "Distance measurement is enabled.",
+      distanceHint: "Select a start point and an end point to measure distance.",
+      noIiiifModelFallback: "No 3D model found in IIIF manifest, loading example model.",
+      facePickingEnabled: "Face picking is enabled",
+      facePickingDisabled: "Face picking is disabled",
+      distanceModeEnabled: "Distance measurement mode is enabled",
+      distanceModeDisabled: "Distance measurement mode is disabled",
+      settingsFound: "Settings {filename}_viewer.json found",
+      settingsNotFound: "No settings {filename}_viewer.json found",
+      metadataFetchError: "Error fetching metadata: {error}",
+
+      presentationModeError: "An error occurred during presentation mode setup.",
+      objLoaded: "OBJ model has been loaded.",
+      mtlLoadError: "Error occurred while loading attached MTL file.",
+      glbLoadError: "Error occurred while loading attached GLB file.",
+      unsupportedExtension: "File extension is not supported yet.",
+      modelLoaded: "Model {filename} has been loaded.",
+      modelLoadedSimple: "Model loaded successfully.",
+      unsupportedFormat: "Unsupported file format.",
+
+      embedSourceMissing: "Set Model URL or Entity ID for embed.",
+      embedUrlCopied: "Embed URL copied.",
+      embedUrlCopyError: "Could not copy embed URL.",
+      embedIframeCopied: "Embed iframe copied.",
+      embedIframeCopyError: "Could not copy embed iframe.",
+      embedCodeCopied: "Embed code copied to clipboard.",
+      embedCodeCopyError: "Could not copy embed code.",
+
+      annotationDataMissing: "Annotation data not found for this POI.",
+      selectFaceRequired: "Select at least one face to add annotation.",
+      selectFaceRequiredAgain: "Select at least one face, then run Add annotations again.",
+      noFacesSelected: "No faces selected for annotation.",
+      titleRequired: "Title is required.",
+      facesInactive: "Selected faces are no longer active.",
+
+      annotationsSaved: "Annotations saved for {count} face{plural}.",
+      annotationsImported: "Imported {count} annotation{plural}.",
+      annotationsExported: "Annotations XML exported.",
+      noAnnotationsToExport: "No annotations to export.",
+      noValidAnnotations: "No valid annotations found in XML.",
+      annotationsImportError: "Failed to import annotations XML.",
+
+      settingsSaved: "Settings have been saved.",
+      settingsSaveError: "Error saving settings.",
+
+      featureToggle: "{feature} is {state}.",
+      clippingHelperToggle: "Clipping plane {axis} helper {state}.",
+    },
+  },
+  pl: {
+    menu: {
+      actions: "Akcje podglądu",
+      openActions: "Otworz akcje podglądu",
+      embed: "Osadź",
+      exitEmbed: "Wyjdź z osadzania",
+      openEmbedOptions: "Otwórz opcje osadzania",
+      exitEmbedMode: "Wyjdź z trybu osadzania",
+      download: "Pobierz",
+    },
+    theme: {
+      lightMode: "Tryb jasny",
+      darkMode: "Tryb ciemny",
+      switchToLightMode: "Przelącz na tryb jasny",
+      switchToDarkMode: "Przelącz na tryb ciemny",
+    },
+    fullscreen: {
+      mode: "Tryb pełnoekranowy",
+      enter: "Pełny ekran",
+      exit: "Wyjdź z pełnego ekranu",
+      exitMode: "Wyjdź z trybu pełnoekranowego",
+    },
+    language: {
+      label: "Language: Polski",
+      switchToPolish: "Przelącz na język polski",
+      switchToEnglish: "Przelącz na język angielski",
+      switchToGerman: "Przelącz na język niemiecki",
+    },
+    hints: {
+      picking: "Shift + klik, aby wybrać wiele scian",
+      clipping: "Przeciągnij aktywną plaszczyznę przycinania, aby dostosować cięcie",
+    },
+    controls: {
+      enablePickingMode: "Włącz tryb wyboru",
+      disablePickingMode: "Wyłącz tryb wyboru",
+      enableDistanceMeasurement: "Włącz pomiar odległości",
+      disableDistanceMeasurement: "Wyłącz pomiar odległości",
+      selectedFaces: "Wybrane sciany",
+    },
+    gui: {
+      controls: "Sterowanie",
+      editor: "Edytor",
+      transform3dObject: "Transformacja obiektu 3D",
+      transformLight: "Transformacja światła",
+      transformMode: "Tryb transformacji",
+      directionalLight: "Światło kierunkowe",
+      ambientLight: "Światło otaczające",
+      cameraLight: "Światło kamery",
+      backgroundColor: "Kolor tła",
+      backgroundColorOuter: "Kolor tła zewnętrznego",
+      backgroundType: "Typ tła",
+      clippingPlanes: "Płaszczyzny przycinania",
+      clippingFolder: "Płaszczyzny przycinania",
+      displayHelperX: "Pokaż oś X",
+      displayHelperY: "Pokaż oś Y",
+      displayHelperZ: "Pokaż oś Z",
+      constantX: "Stała X",
+      constantY: "Stała Y",
+      constantZ: "Stała Z",
+      visible: "Widoczne cięcie",
+      materials: "Materiały",
+      metadata: "Annotacje",
+      saveProperties: "Zapisz właściwości",
+      hierarchy: "Hierarchia",
+      statistics: "Statystyki",
+      clearSelectedFaces: "Wyczyść wybrane ściany",
+      addAnnotations: "Dodaj annotacje",
+      exportAnnotationsXml: "Eksportuj annotacje XML",
+      importAnnotationsXml: "Importuj annotacje XML",
+      resetCameraPosition: "Resetuj pozycję kamery",
+      save: "Zapisz",
+      renderPreview: "Renderuj podgląd",
+      color: "Kolor",
+      intensity: "Intensywność",
+      position: "Pozycja",
+      rotation: "Rotacja",
+      camera: "Kamera",
+      performance: "Wydajność",
+      highPerformance: "Wysoka wydajność",
+      lowPower: "Niski pobór mocy",
+      default: "Domyślny",
+      none: "Brak",
+      move: "Przesuń",
+      rotate: "Obróć",
+      scale: "Skaluj",
+      target: "Cel",
+      local: "Lokalny",
+      global: "Globalny",
+      linear: "Liniowe",
+      gradient: "Gradient",
+      editMaterial: "Edytuj materiał",
+      selectByMaterial: "wybierz według materiału",
+    },
+    metadata: {
+      modelDetails: "Szczegóły modelu",
+      metadata: "Metadane",
+      visualizedFile: "Wizualizowany plik",
+      vertices: "Wierzchołki",
+      faces: "Ściany",
+      title: "Tytuł",
+      author: "Autor",
+      authorAffiliation: "Afiliacja autora",
+      license: "Licencja",
+      description: "Opis",
+      objectType: "Typ obiektu",
+      reconstructionAuthors: "Autorzy rekonstrukcji",
+      reconstructionPeriod: "Okres rekonstrukcji",
+    },
+    iiif: {
+      loader: "Ładowanie IIIF",
+      collapse: "Zwiń",
+      expand: "Rozwiń",
+      manifest: "Manifest IIIF",
+      loadFromUrl: "Wczytaj z URL",
+      loadFromText: "Wczytaj z tekstu",
+      manifestUrlPlaceholder: "https://example.org/iiif/manifest.json",
+      manifestTextPlaceholder: "Wklej tutaj JSON manifestu IIIF...",
+      invalidUrl: "Podaj poprawny URL manifestu IIIF.",
+      invalidJson: "Podaj poprawny tekst JSON IIIF.",
+      optionModelPositionScale: "Pozycja i skala modelu",
+      optionModelOrigin: "Punkt początkowy modelu",
+      optionModelOriginBg: "Punkt początkowy modelu z kolorem tła",
+      optionModelPosition: "Pozycja modelu",
+    },
+    localPreview: {
+      loadExampleModel: "Wczytaj model przykładowy",
+    },
+    state: {
+      enabled: "Enabled",
+      disabled: "Disabled"
+    },
+    state: {
+      enabled: "włączony",
+      disabled: "wyłączony"
+    },
+    toasts: {
+      transformMove: "Przesuwanie: przeciągnij strzalki osi, aby przesunąć obiekt.",
+      transformRotate: "Obracanie: przeciągnij pierscienie obrotu, aby obrócić obiekt.",
+      transformScale: "Skalowanie: przeciągnij uchwyty osi, aby zmienić rozmiar obiektu.",
+      transformLightMove: "Transformacja światła - Przesunięcie: przeciągnij strzalki osi, aby przesunąć światło kierunkowe.",
+      transformLightTarget: "Transformacja światła - Cel: przeciągnij strzałki osi, aby przesunąć punkt celu światła.",
+      distanceEnabled: "Pomiar odległości jest włączony.",
+      distanceHint: "Wybierz punkt początkowy i końcowy, aby zmierzyć odległość.",
+      noIiiifModelFallback: "Nie znaleziono modelu 3D w manifescie IIIF, ładuję model przykładowy.",
+      facePickingEnabled: "Tryb wyboru ścian jest włączony",
+      facePickingDisabled: "Tryb wyboru ścian jest wyłączony",
+      distanceModeEnabled: "Tryb pomiaru odległości jest włączony",
+      distanceModeDisabled: "Tryb pomiaru odległości jest wyłączony",
+      settingsFound: "Znaleziono ustawienia {filename}_viewer.json",
+      settingsNotFound: "Nie znaleziono ustawień {filename}_viewer.json",
+      metadataFetchError: "Błąd pobierania metadanych: {error}",
+
+      presentationModeError: "Wystąpił błąd podczas konfiguracji trybu prezentacji.",
+      objLoaded: "Model OBJ został załadowany.",
+      mtlLoadError: "Wystąpił błąd podczas ładowania pliku MTL.",
+      glbLoadError: "Wystąpił błąd podczas ładowania pliku GLB.",
+      unsupportedExtension: "Rozszerzenie pliku nie jest jeszcze obsługiwane.",
+      modelLoaded: "Model {filename} został załadowany.",
+      modelLoadedSimple: "Model został pomyślnie załadowany.",
+      unsupportedFormat: "Nieobsługiwany format pliku.",
+
+      embedSourceMissing: "Ustaw URL modelu lub ID encji do osadzenia.",
+      embedUrlCopied: "Skopiowano URL osadzenia.",
+      embedUrlCopyError: "Nie udało się skopiować URL osadzenia.",
+      embedIframeCopied: "Skopiowano iframe osadzenia.",
+      embedIframeCopyError: "Nie udało się skopiować iframe.",
+      embedCodeCopied: "Kod osadzenia został skopiowany do schowka.",
+      embedCodeCopyError: "Nie udało się skopiować kodu osadzenia.",
+
+      annotationDataMissing: "Nie znaleziono danych adnotacji dla tego punktu.",
+      selectFaceRequired: "Wybierz co najmniej jedną ścianę, aby dodać adnotację.",
+      selectFaceRequiredAgain: "Wybierz co najmniej jedną ścianę, a następnie ponownie dodaj adnotacje.",
+      noFacesSelected: "Nie wybrano ścian do adnotacji.",
+      titleRequired: "Tytuł jest wymagany.",
+      facesInactive: "Wybrane ściany nie są już aktywne.",
+
+      annotationsSaved: "Zapisano adnotacje dla {count} ścian{plural}.",
+      annotationsImported: "Zaimportowano {count} adnotacj{plural}.",
+      annotationsExported: "Wyeksportowano XML adnotacji.",
+      noAnnotationsToExport: "Brak adnotacji do eksportu.",
+      noValidAnnotations: "Nie znaleziono poprawnych adnotacji w XML.",
+      annotationsImportError: "Nie udało się zaimportować XML adnotacji.",
+
+      settingsSaved: "Ustawienia zostały zapisane.",
+      settingsSaveError: "Błąd zapisywania ustawień.",
+
+      featureToggle: "{feature} jest {state}.",
+      clippingHelperToggle: "Pomocnik płaszczyzny przycinania {axis} jest {state}.",
+    },
+  },
+  de: {
+    menu: {
+      actions: "Viewer-Aktionen",
+      openActions: "Viewer-Aktionen öffnen",
+      embed: "Einbetten",
+      exitEmbed: "Einbettung beenden",
+      openEmbedOptions: "Einbettungsoptionen öffnen",
+      exitEmbedMode: "Einbettungsmodus beenden",
+      download: "Herunterladen",
+    },
+    theme: {
+      lightMode: "Hellmodus",
+      darkMode: "Dunkelmodus",
+      switchToLightMode: "Zu Hellmodus wechseln",
+      switchToDarkMode: "Zu Dunkelmodus wechseln",
+    },
+    fullscreen: {
+      mode: "Vollbildmodus",
+      enter: "Vollbild",
+      exit: "Vollbild beenden",
+      exitMode: "Vollbildmodus beenden",
+    },
+    language: {
+      label: "Sprache: Deutsch",
+      switchToPolish: "Zu Polnisch wechseln",
+      switchToEnglish: "Zu Englisch wechseln",
+    },
+    hints: {
+      picking: "Umschalt + Klick, um mehrere Flächen auszuwählen",
+      clipping: "Ziehen Sie die aktive Schnittebene-Hilfe, um den Schnitt anzupassen",
+    },
+    controls: {
+      enablePickingMode: "Auswahlmodus aktivieren",
+      disablePickingMode: "Auswahlmodus deaktivieren",
+      enableDistanceMeasurement: "Entfernungsmessung aktivieren",
+      disableDistanceMeasurement: "Entfernungsmessung deaktivieren",
+      selectedFaces: "Ausgewählte Flächen",
+    },
+    gui: {
+      controls: "Steuerung",
+      editor: "Editor",
+      transform3dObject: "3D-Objekt transformieren",
+      transformLight: "Licht transformieren",
+      transformMode: "Transformationsmodus",
+      directionalLight: "Gerichtetes Licht",
+      ambientLight: "Umgebungslicht",
+      cameraLight: "Kamera-Licht",
+      backgroundColor: "Hintergrundfarbe",
+      backgroundColorOuter: "Äußere Hintergrundfarbe",
+      backgroundType: "Hintergrundtyp",
+      clippingPlanes: "Schnittebenen",
+      clippingFolder: "Schnittebenen",
+      displayHelperX: "X-Hilfe anzeigen",
+      displayHelperY: "Y-Hilfe anzeigen",
+      displayHelperZ: "Z-Hilfe anzeigen",
+      constantX: "Konstante X",
+      constantY: "Konstante Y",
+      constantZ: "Konstante Z",
+      visible: "Sichtbarer Schnitt",
+      materials: "Materialien",
+      metadata: "Anmerkungen",
+      saveProperties: "Eigenschaften speichern",
+      hierarchy: "Hierarchie",
+      statistics: "Statistiken",
+      clearSelectedFaces: "Ausgewählte Flächen löschen",
+      addAnnotations: "Anmerkungen hinzufügen",
+      exportAnnotationsXml: "Anmerkungen XML exportieren",
+      importAnnotationsXml: "Anmerkungen XML importieren",
+      resetCameraPosition: "Kameraposition zurücksetzen",
+      save: "Speichern",
+      renderPreview: "Vorschau rendern",
+      color: "Farbe",
+      intensity: "Intensität",
+      position: "Position",
+      rotation: "Rotation",
+      camera: "Kamera",
+      performance: "Leistung",
+      highPerformance: "Hohe Leistung",
+      lowPower: "Niedriger Stromverbrauch",
+      default: "Standard",
+      none: "Keine",
+      move: "Bewegen",
+      rotate: "Drehen",
+      scale: "Skalieren",
+      target: "Ziel",
+      local: "Lokal",
+      global: "Global",
+      linear: "Linear",
+      gradient: "Farbverlauf",
+      editMaterial: "Material bearbeiten",
+      selectByMaterial: "nach Material auswählen",
+    },
+    metadata: {
+      modelDetails: "Modelldetails",
+      metadata: "Metadaten",
+      visualizedFile: "Visualisierte Datei",
+      vertices: "Vertices",
+      faces: "Flächen",
+      title: "Titel",
+      author: "Autor",
+      authorAffiliation: "Autoren-Zugehörigkeit",
+      license: "Lizenz",
+      description: "Beschreibung",
+      objectType: "Objekttyp",
+      reconstructionAuthors: "Rekonstruktionsautoren",
+      reconstructionPeriod: "Rekonstruktionsperiode",
+    },
+    iiif: {
+      loader: "IIIF-Loader",
+      collapse: "Zusammenklappen",
+      expand: "Erweitern",
+      manifest: "IIIF-Manifest",
+      loadFromUrl: "Von URL laden",
+      loadFromText: "Von Text laden",
+      manifestUrlPlaceholder: "https://example.org/iiif/manifest.json",
+      manifestTextPlaceholder: "IIIF-Manifest-JSON hier einfügen...",
+      invalidUrl: "Bitte geben Sie eine gültige IIIF-Manifest-URL ein.",
+      invalidJson: "Bitte geben Sie einen gültigen IIIF-JSON-Text ein.",
+      optionModelPositionScale: "Modellposition und -skalierung",
+      optionModelOrigin: "Modellursprung",
+      optionModelOriginBg: "Modellursprung mit Hintergrundfarbe",
+      optionModelPosition: "Modellposition",
+    },
+    localPreview: {
+      loadExampleModel: "Beispielmodell laden",
+    },
+    state: {
+      enabled: "aktiviert",
+      disabled: "deaktiviert"
+    },
+    toasts: {
+      transformMove: "Bewegen: Ziehen Sie die Achsenpfeile, um das Objekt zu repositionieren.",
+      transformRotate: "Drehen: Ziehen Sie die Rotationsringe, um das Objekt zu drehen.",
+      transformScale: "Skalieren: Ziehen Sie die Achsengriffe, um die Größe des Objekts zu ändern.",
+      transformLightMove: "Licht transformieren - Bewegen: Ziehen Sie die Achsenpfeile, um das gerichtete Licht zu bewegen.",
+      transformLightTarget: "Licht transformieren - Ziel: Ziehen Sie die Achsenpfeile, um das Lichtziel zu repositionieren.",
+      distanceEnabled: "Entfernungsmessung ist aktiviert.",
+      distanceHint: "Wählen Sie einen Startpunkt und einen Endpunkt, um die Entfernung zu messen.",
+      noIiiifModelFallback: "Kein 3D-Modell im IIIF-Manifest gefunden, Beispielmodell wird geladen.",
+      facePickingEnabled: "Flächenauswahl ist aktiviert",
+      facePickingDisabled: "Flächenauswahl ist deaktiviert",
+      distanceModeEnabled: "Entfernungsmessungsmodus ist aktiviert",
+      distanceModeDisabled: "Entfernungsmessungsmodus ist deaktiviert",
+      settingsFound: "Einstellungen {filename}_viewer.json gefunden",
+      settingsNotFound: "Keine Einstellungen {filename}_viewer.json gefunden",
+      metadataFetchError: "Fehler beim Abrufen der Metadaten: {error}",
+
+      presentationModeError: "Beim Einrichten des Präsentationsmodus ist ein Fehler aufgetreten.",
+      objLoaded: "OBJ-Modell wurde geladen.",
+      mtlLoadError: "Fehler beim Laden der zugehörigen MTL-Datei.",
+      glbLoadError: "Fehler beim Laden der GLB-Datei.",
+      unsupportedExtension: "Dateierweiterung wird noch nicht unterstützt.",
+      modelLoaded: "Modell {filename} wurde geladen.",
+      modelLoadedSimple: "Modell wurde erfolgreich geladen.",
+      unsupportedFormat: "Nicht unterstütztes Dateiformat.",
+
+      embedSourceMissing: "Model-URL oder Entitäts-ID für die Einbettung festlegen.",
+      embedUrlCopied: "Einbettungs-URL kopiert.",
+      embedUrlCopyError: "Einbettungs-URL konnte nicht kopiert werden.",
+      embedIframeCopied: "Einbettungs-iframe kopiert.",
+      embedIframeCopyError: "Einbettungs-iframe konnte nicht kopiert werden.",
+      embedCodeCopied: "Einbettungscode in die Zwischenablage kopiert.",
+      embedCodeCopyError: "Einbettungscode konnte nicht kopiert werden.",
+
+      annotationDataMissing: "Keine Annotationsdaten für diesen Punkt gefunden.",
+      selectFaceRequired: "Wählen Sie mindestens eine Fläche aus, um eine Annotation hinzuzufügen.",
+      selectFaceRequiredAgain: "Wählen Sie mindestens eine Fläche und führen Sie dann „Annotationen hinzufügen“ erneut aus.",
+      noFacesSelected: "Keine Flächen für Annotation ausgewählt.",
+      titleRequired: "Titel ist erforderlich.",
+      facesInactive: "Ausgewählte Flächen sind nicht mehr aktiv.",
+
+      annotationsSaved: "Annotationen für {count} Fläche{plural} gespeichert.",
+      annotationsImported: "{count} Annotation{plural} importiert.",
+      annotationsExported: "Annotations-XML exportiert.",
+      noAnnotationsToExport: "Keine Annotationen zum Exportieren.",
+      noValidAnnotations: "Keine gültigen Annotationen im XML gefunden.",
+      annotationsImportError: "Import der Annotations-XML fehlgeschlagen.",
+
+      settingsSaved: "Einstellungen wurden gespeichert.",
+      settingsSaveError: "Fehler beim Speichern der Einstellungen.",
+
+      featureToggle: "{feature} ist {state}.",
+      clippingHelperToggle: "Clipping-Ebenen-Helfer {axis} ist {state}.",
+    },
+  },
+};
+
+const t$1=function(key, varsOrFallback = {}, maybeFallback = "") {
+  const lang = ["pl", "de"].includes(core.currentLanguage)
+    ? core.currentLanguage
+    : "en";
+
+  const dictionary = VIEWER_I18N[lang] || VIEWER_I18N.en;
+
+  const value = String(key || "")
+    .split(".")
+    .reduce(
+      (acc, part) =>
+        acc && typeof acc === "object" ? acc[part] : undefined,
+      dictionary
+    );
+
+  let vars = {};
+  let fallback = "";
+
+  if (typeof varsOrFallback === "string") {
+    fallback = varsOrFallback;
+  } else {
+    vars = varsOrFallback || {};
+    fallback = maybeFallback;
+  }
+
+  const template = typeof value === "string" ? value : fallback || key;
+
+  return template.replace(/\{(\w+)\}/g, (_, v) => {
+    let val = vars[v];
+
+    if (typeof val === "boolean") {
+      val = t$1(`state.${val ? "enabled" : "disabled"}`);
+    }
+
+    return val ?? `{${v}}`;
+  });
+};
+
 // viewer-utils.js
 
 const initClippingPlanes = () => {
@@ -230,7 +829,7 @@ function normalizeNoticeArgs(toneOrOptions, maybeOptions) {
 
   if (typeof toneOrOptions === "string") {
     tone = toneOrOptions;
-    options = {};
+    options = maybeOptions ?? {};
   } else if (toneOrOptions && typeof toneOrOptions === "object") {
     options = toneOrOptions;
     tone = toneOrOptions.tone ?? "info";
@@ -239,14 +838,30 @@ function normalizeNoticeArgs(toneOrOptions, maybeOptions) {
   return { tone, options };
 }
 
+const toastHelper$1 = (key, toneOrOptions, maybeOptions) => {
+  return showToast(`toasts.${key}`, toneOrOptions, maybeOptions);
+};
+
 const showToast = (message, toneOrOptions, maybeOptions) => {
-  const { tone, options } = normalizeNoticeArgs(toneOrOptions);
+  const { tone, options } = normalizeNoticeArgs(toneOrOptions, maybeOptions);
+
   const duration = Number.isFinite(options.duration)
     ? options.duration
     : DEFAULT_NOTICE_DURATION;
+
   const key = String(options.key ?? "");
   const replace = options.replace === true;
-  const text = String(message);
+
+  // Resolve i18n key if possible, otherwise use the message as-is (for backward compatibility)
+  let text;
+
+  if (typeof message === "string" && message.includes(".")) {
+    // try to resolve as i18n key with optional variables
+    text = t$1(message, options);
+  } else {
+    // fallback (old way)
+    text = String(message);
+  }
 
   if (window.__E2E__ && window.viewer) {
     window.viewer.toasts ??= [];
@@ -255,6 +870,7 @@ const showToast = (message, toneOrOptions, maybeOptions) => {
 
   const statusNotice = core.statusNotice;
   const enqueueStatusNotice = core.enqueueStatusNotice;
+
   if (typeof enqueueStatusNotice === "function") {
     enqueueStatusNotice({ message: text, tone, duration, key, replace });
     return;
@@ -910,7 +1526,9 @@ async function fitCameraToCenteredObject(object, _fit) {
       controlsTarget: [core.controls.target.x, core.controls.target.y, core.controls.target.z],
     };
   }
-  setupClippingPlanes(object, {x: boundingBox.max.x*1.1, y: boundingBox.max.y*1.1, z: boundingBox.max.z*1.1});
+  if (!core.presentationMode) {
+    setupClippingPlanes(object, {x: boundingBox.max.x*1.1, y: boundingBox.max.y*1.1, z: boundingBox.max.z*1.1});
+  }
 }
 
 function parseGradient(str) {
@@ -1057,10 +1675,9 @@ function setupClippingPlanes(_geom, _distance) {
   core.distanceGeometry = _distance;
   scaleXYZ(core.distanceGeometry, 2);
   const showClippingPlaneToast = (axisLabel, enabled) => {
-    showToast(`Clipping plane ${axisLabel} helper ${enabled ? "enabled" : "disabled"}`, {
-      duration: 1400,
-      replace: true,
-      key: "clipping-plane-helper",
+    toastHelper$1("clippingHelperToggle", "info", {
+      axis: axisLabel,
+      state: enabled
     });
   };
   const refreshClippingHint = () => {
@@ -1203,20 +1820,6 @@ function getOrAddGuiController(object, prop) {
   return core.clippingFolder.add(object, prop);
 }
 
-function tr(key, fallback = "") {
-  return window.Viewer?.t?.(key, fallback) ?? fallback;
-}
-
-function trFormat(key, params = {}, fallback = "") {
-  if (typeof window.Viewer?.tFormat === "function") {
-    return window.Viewer.tFormat(key, params, fallback);
-  }
-  return String(tr(key, fallback)).replace(/\{(\w+)\}/g, (_match, token) => {
-    const replacement = params?.[token];
-    return replacement == null ? "" : String(replacement);
-  });
-}
-
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -1248,28 +1851,28 @@ function addWissKIMetadata(label, value) {
     label = label.replace("wisski_path_3d_model__", "");
     switch (label) {
       case "title":
-        _str = tr("metadata.title", "Title");
+        _str = t$1("metadata.title", "Title");
         break;
       case "author_name":
-        _str = tr("metadata.author", "Author");
+        _str = t$1("metadata.author", "Author");
         break;
       case "author_affiliation":
-        _str = tr("metadata.authorAffiliation", "Author affiliation");
+        _str = t$1("metadata.authorAffiliation", "Author affiliation");
         break;
       case "license":
-        _str = tr("metadata.license", "License");
+        _str = t$1("metadata.license", "License");
         break;
       case "description":
-        _str = tr("metadata.description", "Description");
+        _str = t$1("metadata.description", "Description");
         break;
       case "object_type":
-        _str = tr("metadata.objectType", "Object type");
+        _str = t$1("metadata.objectType", "Object type");
         break;
       case "reconstruction_authors":
-        _str = tr("metadata.reconstructionAuthors", "Reconstruction authors");
+        _str = t$1("metadata.reconstructionAuthors", "Reconstruction authors");
         break;
       case "reconstruction_period":
-        _str = tr("metadata.reconstructionPeriod", "Reconstruction period");
+        _str = t$1("metadata.reconstructionPeriod", "Reconstruction period");
         break;
       default:
         _str = "";
@@ -1487,7 +2090,7 @@ async function handleMetadataResponse(
   object,
   hierarchyMain,
 ) {
-  const hierarchyLabel = tr("gui.hierarchy", "Hierarchy");
+  const hierarchyLabel = t$1("gui.hierarchy", "Hierarchy");
   const hasHierarchyFolder = () =>
     lilGUIgetFolder(core.gui, "Hierarchy") !== null ||
     lilGUIgetFolder(core.gui, hierarchyLabel) !== null;
@@ -1571,15 +2174,15 @@ async function handleMetadataResponse(
       '<button id="metadata-collapse" class="metadata-collapse metadata-collapsed" type="button" aria-expanded="false" aria-controls="metadata-content">' +
         '<span class="metadata-toggle-icon" aria-hidden="true"></span>' +
         '<span class="metadata-toggle-copy">' +
-          '<span class="metadata-toggle-eyebrow" data-i18n-key="metadata.modelDetails">' + escapeHtml(tr("metadata.modelDetails", "Model details")) + '</span>' +
-          '<span class="metadata-toggle-title" data-i18n-key="metadata.metadata">' + escapeHtml(tr("metadata.metadata", "Metadata")) + '</span>' +
+          '<span class="metadata-toggle-eyebrow" data-i18n-key="metadata.modelDetails">' + escapeHtml(t$1("metadata.modelDetails", "Model details")) + '</span>' +
+          '<span class="metadata-toggle-title" data-i18n-key="metadata.metadata">' + escapeHtml(t$1("metadata.metadata", "Metadata")) + '</span>' +
         '</span>' +
         '<span class="metadata-toggle-chevron" aria-hidden="true"></span>' +
       '</button>' +
       '<div id="metadata-content" class="metadata-content">';
   metadataContent +=
     '<div class="metadata-row">' +
-      '<span class="metadata-label" data-i18n-key="metadata.visualizedFile">' + escapeHtml(tr("metadata.visualizedFile", "Visualized file")) + ':</span>' +
+      '<span class="metadata-label" data-i18n-key="metadata.visualizedFile">' + escapeHtml(t$1("metadata.visualizedFile", "Visualized file")) + ':</span>' +
       '<span class="metadata-value">' +
         escapeHtml(core.fileObject.basename) + '.' + escapeHtml(core.fileObject.extension) +
       '</span>' +
@@ -1589,13 +2192,13 @@ async function handleMetadataResponse(
 
   metadataContent +=
     '<div class="metadata-row">' +
-      '<span class="metadata-label" data-i18n-key="metadata.vertices">' + escapeHtml(tr("metadata.vertices", "Vertices")) + ':</span>' +
+      '<span class="metadata-label" data-i18n-key="metadata.vertices">' + escapeHtml(t$1("metadata.vertices", "Vertices")) + ':</span>' +
       '<span class="metadata-value">' + metadata["vertices"] + '</span>' +
     '</div>';
 
   metadataContent +=
     '<div class="metadata-row">' +
-      '<span class="metadata-label" data-i18n-key="metadata.faces">' + escapeHtml(tr("metadata.faces", "Faces")) + ':</span>' +
+      '<span class="metadata-label" data-i18n-key="metadata.faces">' + escapeHtml(t$1("metadata.faces", "Faces")) + ':</span>' +
       '<span class="metadata-value">' + metadata["faces"] + '</span>' +
     '</div>';
   metadataContent += await fetchEntityMetadata();
@@ -1672,16 +2275,29 @@ async function loadMetadataData(metadataUrl) {
     const response = await fetch(metadataUrl, { cache: "no-cache" });
 
     if (response.status === 404) {
-      showToast(trFormat("toasts.settingsNotFound", { filename: core.fileObject.filename }, "No settings {filename}_viewer.json found"));
+      toastHelper("settingsNotFound", "info", {
+        filename: core.fileObject.filename
+      });
       return null;
     }
 
-    showToast(trFormat("toasts.settingsFound", { filename: core.fileObject.filename }, "Settings {filename}_viewer.json found"));
+    toastHelper("settingsFound", "success", {
+      filename: core.fileObject.filename
+    });
     return response.json();
   } catch (error) {
-    showToast(trFormat("toasts.metadataFetchError", { error: error.message }, "Error fetching metadata: {error}"));
+    toastHelper("metadataFetchError", "error", {
+      error: error.message
+    });
     return null;
   }
+}
+
+async function presentationMode (object) {
+  if (core.presentationMode) {
+    setupObject(object, null);
+    await setupCamera(object, null);
+  } else { return; }
 }
 
 /**
@@ -1704,7 +2320,7 @@ async function fetchSettings(object) {
   }
 
   let hierarchyMain;
-  const hierarchyLabel = tr("gui.hierarchy", "Hierarchy");
+  const hierarchyLabel = t$1("gui.hierarchy", "Hierarchy");
   const existingHierarchy = lilGUIgetFolder(core.gui, "Hierarchy") || lilGUIgetFolder(core.gui, hierarchyLabel);
   if (existingHierarchy === null) {
     hierarchyMain = core.gui?.addFolder(hierarchyLabel).close();
@@ -1718,9 +2334,7 @@ async function fetchSettings(object) {
     hierarchyMain?.domElement?.classList.add("viewer-gui-main-folder");
     hierarchyMain?.domElement?.setAttribute("data-gui-main-folder", "hierarchy");
   }
-  if (window.Viewer?.i18nGui) {
-    window.Viewer.i18nGui.hierarchyFolder = hierarchyMain;
-  }
+  core.i18nGui.hierarchyFolder = hierarchyMain;
   if (core.CONFIG.entity.metadata.sourceType === "IIIF") {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);
     await handleMetadataResponse( core.CONFIG.model, metadata, object, hierarchyMain);
@@ -1744,25 +2358,25 @@ async function fetchSettings(object) {
   }
   // Add statistics GUI
   let statsMain;
-  const statisticsLabel = tr("gui.statistics", "Statistics");
+  const statisticsLabel = t$1("gui.statistics", "Statistics");
   if (lilGUIgetFolder(core.gui, "Statistics") === null && lilGUIgetFolder(core.gui, statisticsLabel) === null) {
     statsMain = core.gui.addFolder(statisticsLabel).close();
     statsMain?.domElement?.classList.add("viewer-gui-main-folder");
     statsMain?.domElement?.setAttribute("data-gui-main-folder", "statistics");
     const performanceController = statsMain
     .add(core.CONFIG.viewer.performanceMode, "Performance", {
-      [tr("gui.highPerformance", "High-performance")]: "high-performance",
-      [tr("gui.lowPower", "Low-power")]: "low-power",
-      [tr("gui.default", "Default")]: "default",
+      [t$1("gui.highPerformance", "High-performance")]: "high-performance",
+      [t$1("gui.lowPower", "Low-power")]: "low-power",
+      [t$1("gui.default", "Default")]: "default",
     })
-    .name(tr("gui.performance", "Performance"))
+    .name(t$1("gui.performance", "Performance"))
     .onChange(function (value) {
       if (typeof core.renderer !== "undefined") core.renderer.powerPreference = value;
     });
-    if (window.Viewer?.i18nGui) {
-      window.Viewer.i18nGui.statisticsFolder = statsMain;
-      window.Viewer.i18nGui.performanceController = performanceController;
-    }
+
+    core.i18nGui.statisticsFolder = statsMain;
+    core.i18nGui.performanceController = performanceController;
+
     statsMain.onOpenClose((changedGUI) => {
     if (changedGUI._closed) {
       if (typeof core.stats !== "undefined") core.stats.dom.style.visibility = "hidden";
@@ -1781,17 +2395,17 @@ function createIIIFDropdown(iiifConfigURL) {
   // list of candidate IIIF config URLs (add more as needed)
   const iiifList = [
     { url: iiifConfigURL.url, name: iiifConfigURL.name },
-    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: tr("iiif.optionModelPositionScale", "Model Position and Scale") },
-    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin.json", name: tr("iiif.optionModelOrigin", "Model Origin") },
-    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin_bgcolor.json", name: tr("iiif.optionModelOriginBg", "Model Origin with background color") },
-    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_position.json", name: tr("iiif.optionModelPosition", "Model Position") },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: t$1("iiif.optionModelPositionScale", "Model Position and Scale") },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin.json", name: t$1("iiif.optionModelOrigin", "Model Origin") },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin_bgcolor.json", name: t$1("iiif.optionModelOriginBg", "Model Origin with background color") },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_position.json", name: t$1("iiif.optionModelPosition", "Model Position") },
   ].filter(Boolean);
 
   const group = document.createElement("div");
   group.className = "form-IIIF-group";
 
   const label = document.createElement("label");
-  label.textContent = tr("iiif.manifest", "IIIF manifest");
+  label.textContent = t$1("iiif.manifest", "IIIF manifest");
   label.className = "form-IIIF-label";
 
   const select = document.createElement("select");
@@ -1821,9 +2435,9 @@ function createIIIFUI() {
   const header = document.createElement("div");
   header.className = "form-IIIF-header";
   header.innerHTML = `
-    <span class="title">${escapeHtml(tr("iiif.loader", "IIIF Loader"))}</span>
+    <span class="title">${escapeHtml(t$1("iiif.loader", "IIIF Loader"))}</span>
     <div class="tools">
-      <button type="button" id="iiif-toggle-collapse" title="${escapeHtml(tr("iiif.collapse", "Collapse"))}">▾</button>
+      <button type="button" id="iiif-toggle-collapse" title="${escapeHtml(t$1("iiif.collapse", "Collapse"))}">▾</button>
     </div>
   `;
 
@@ -1835,14 +2449,14 @@ function createIIIFUI() {
   content.id = "form-IIIF-content";
   content.innerHTML = `
     <div class="form-IIIF-group">
-      <input type="text" id="manifest-url" placeholder="${escapeHtml(tr("iiif.manifestUrlPlaceholder", "https://example.org/iiif/manifest.json"))}">
-      <button class="primary" id="load-manifest-from-url">${escapeHtml(tr("iiif.loadFromUrl", "Load from URL"))}</button>
+      <input type="text" id="manifest-url" placeholder="${escapeHtml(t$1("iiif.manifestUrlPlaceholder", "https://example.org/iiif/manifest.json"))}">
+      <button class="primary" id="load-manifest-from-url">${escapeHtml(t$1("iiif.loadFromUrl", "Load from URL"))}</button>
     </div>
 
     <div class="form-IIIF-group column">
-      <textarea id="manifest-text" rows="8" placeholder="${escapeHtml(tr("iiif.manifestTextPlaceholder", "Paste IIIF manifest JSON here..."))}"></textarea>
+      <textarea id="manifest-text" rows="8" placeholder="${escapeHtml(t$1("iiif.manifestTextPlaceholder", "Paste IIIF manifest JSON here..."))}"></textarea>
       <div class="actions">
-        <button class="secondary" id="load-manifest-from-text">${escapeHtml(tr("iiif.loadFromText", "Load from Text"))}</button>
+        <button class="secondary" id="load-manifest-from-text">${escapeHtml(t$1("iiif.loadFromText", "Load from Text"))}</button>
       </div>
     </div>
   `;
@@ -2212,6 +2826,11 @@ async function loadModel() {
         core.helperObjects.push(object);
       }
       core.scene.add(core.outlineClipping);
+    } else {
+      presentationMode(object).catch(error => {
+        reportLoadError(error, "Presentation mode setup failed");
+        showToast("toasts.presentationModeError", "error");
+      });
     }
     if (Array.isArray(object)) {
       object.forEach(o => core.scene.add(o));
@@ -2227,7 +2846,7 @@ async function loadModel() {
     const MTLLoader = await loadMTLLoader();
     const OBJLoader = await loadOBJLoader();
     const manager = new THREE.LoadingManager();
-    manager.onLoad = () => showToast("OBJ model has been loaded");
+    manager.onLoad = () => toastHelper$1("objLoaded", "success");
     manager.addHandler(/\.dds$/i, new DDSLoader());
 
     const basename = core.fileObject.filename.replace(/\.[^/.]+$/, "");
@@ -2253,7 +2872,7 @@ async function loadModel() {
         return obj;
       } catch (error) {
         core.CONFIG.noMTL = true;
-        showToast("Error occured while loading attached MTL file.");
+        toastHelper$1("mtlLoadError", "error");
         console.warn("MTL load failed, falling back to OBJ-only load.", error);
       }
     }
@@ -2459,7 +3078,7 @@ async function loadModel() {
         break;
       }
       default:
-        showToast("Extension not supported yet");
+        toastHelper$1("unsupportedExtension", "warning");
         return;
     }
   } catch (error) {
@@ -2503,7 +3122,9 @@ const progressLoaderHandler = function (xhr) {
   core.UltraLoader.set(percentComplete);
   if (percentComplete >= 100) {
     core.circle.hide();
-    showToast("Model " + core.fileObject.filename + " has been loaded.");
+    toastHelper$1("modelLoaded", "success", {
+      filename: core.fileObject.filename
+    });
     if (typeof core.EXIT_CODE !== "undefined") core.EXIT_CODE = 0;
     core.UltraLoader.finish();
     core.poller.updateSteps(2);
@@ -9377,443 +9998,6 @@ async function getAnnotations(iiifManifest, objectsConfig) {
   return iiifManifest.annotations;
 }
 
-const VIEWER_I18N = {
-  en: {
-    menu: {
-      actions: "Viewer actions",
-      openActions: "Open viewer actions",
-      embed: "Embed",
-      exitEmbed: "Exit embed",
-      openEmbedOptions: "Open embed options",
-      exitEmbedMode: "Exit embed mode",
-      download: "Download",
-    },
-    theme: {
-      lightMode: "Light mode",
-      darkMode: "Dark mode",
-      switchToLightMode: "Switch to light mode",
-      switchToDarkMode: "Switch to dark mode",
-    },
-    fullscreen: {
-      mode: "Fullscreen mode",
-      enter: "Fullscreen",
-      exit: "Exit fullscreen",
-      exitMode: "Exit fullscreen mode",
-    },
-    language: {
-      label: "Language: English",
-      switchToPolish: "Switch to Polish",
-      switchToEnglish: "Switch to English",
-      switchToGerman: "Switch to German",
-    },
-    hints: {
-      picking: "Shift + click to select multiple faces",
-      clipping: "Drag active clipping plane helper to adjust cut",
-    },
-    controls: {
-      enablePickingMode: "Enable picking mode",
-      disablePickingMode: "Disable picking mode",
-      enableDistanceMeasurement: "Enable distance measurement",
-      disableDistanceMeasurement: "Disable distance measurement",
-      selectedFaces: "Selected faces",
-    },
-    gui: {
-      controls: "Controls",
-      editor: "Editor",
-      transform3dObject: "Transform 3D Object",
-      transformLight: "Transform Light",
-      transformMode: "Transform Mode",
-      directionalLight: "Directional Light",
-      ambientLight: "Ambient Light",
-      cameraLight: "Camera Light",
-      backgroundColor: "Background Color",
-      BackgroundColorOuter: "Background Color Outer",
-      backgroundType: "Background Type",
-      clippingPlanes: "Clipping Planes",
-      clippingFolder: "Clipping Planes",
-      displayHelperX: "Show X helper",
-      displayHelperY: "Show Y helper",
-      displayHelperZ: "Show Z helper",
-      constantX: "Constant X",
-      constantY: "Constant Y",
-      constantZ: "Constant Z",
-      visible: "Visible cutting",
-      materials: "Materials",
-      metadata: "Metadata",
-      saveProperties: "Save properties",
-      hierarchy: "Hierarchy",
-      statistics: "Statistics",
-      clearSelectedFaces: "Clear selected faces",
-      addAnnotations: "Add annotations",
-      exportAnnotationsXml: "Export annotations XML",
-      importAnnotationsXml: "Import annotations XML",
-      resetCameraPosition: "Reset camera position",
-      save: "Save",
-      renderPreview: "Render preview",
-      color: "Color",
-      intensity: "Intensity",
-      position: "Position",
-      rotation: "Rotation",
-      camera: "Camera",
-      performance: "Performance",
-      highPerformance: "High-performance",
-      lowPower: "Low-power",
-      default: "Default",
-      none: "None",
-      move: "Move",
-      rotate: "Rotate",
-      scale: "Scale",
-      target: "Target",
-      local: "Local",
-      global: "Global",
-      linear: "Linear",
-      gradient: "Gradient",
-      editMaterial: "Edit material",
-      selectByMaterial: "select by material",
-    },
-    metadata: {
-      modelDetails: "Model details",
-      metadata: "Metadata",
-      visualizedFile: "Visualized file",
-      vertices: "Vertices",
-      faces: "Faces",
-      title: "Title",
-      author: "Author",
-      authorAffiliation: "Author affiliation",
-      license: "License",
-      description: "Description",
-      objectType: "Object type",
-      reconstructionAuthors: "Reconstruction authors",
-      reconstructionPeriod: "Reconstruction period",
-    },
-    iiif: {
-      loader: "IIIF Loader",
-      collapse: "Collapse",
-      expand: "Expand",
-      manifest: "IIIF manifest",
-      loadFromUrl: "Load from URL",
-      loadFromText: "Load from Text",
-      manifestUrlPlaceholder: "https://example.org/iiif/manifest.json",
-      manifestTextPlaceholder: "Paste IIIF manifest JSON here...",
-      invalidUrl: "Please enter a valid IIIF manifest URL.",
-      invalidJson: "Please enter a valid IIIF JSON text.",
-      optionModelPositionScale: "Model Position and Scale",
-      optionModelOrigin: "Model Origin",
-      optionModelOriginBg: "Model Origin with background color",
-      optionModelPosition: "Model Position",
-    },
-    localPreview: {
-      loadExampleModel: "Load example model",
-    },
-    toasts: {
-      transformMove: "Move: drag axis arrows to reposition the object.",
-      transformRotate: "Rotate: drag rotation rings to rotate the object.",
-      transformScale: "Scale: drag axis handles to resize the object.",
-      transformLightMove: "Transform Light - Move: drag axis arrows to move the directional light.",
-      transformLightTarget: "Transform Light - Target: drag axis arrows to reposition the light target.",
-      distanceEnabled: "Distance measurement is enabled.",
-      distanceHint: "Select a start point and an end point to measure distance.",
-      noIiiifModelFallback: "No 3D model found in IIIF manifest, loading example model.",
-      facePickingEnabled: "Face picking is enabled",
-      facePickingDisabled: "Face picking is disabled",
-      distanceModeEnabled: "Distance measurement mode is enabled",
-      distanceModeDisabled: "Distance measurement mode is disabled",
-      settingsFound: "Settings {filename}_viewer.json found",
-      settingsNotFound: "No settings {filename}_viewer.json found",
-      metadataFetchError: "Error fetching metadata: {error}",
-    },
-  },
-  pl: {
-    menu: {
-      actions: "Akcje podglądu",
-      openActions: "Otworz akcje podglądu",
-      embed: "Osadź",
-      exitEmbed: "Wyjdź z osadzania",
-      openEmbedOptions: "Otwórz opcje osadzania",
-      exitEmbedMode: "Wyjdź z trybu osadzania",
-      download: "Pobierz",
-    },
-    theme: {
-      lightMode: "Tryb jasny",
-      darkMode: "Tryb ciemny",
-      switchToLightMode: "Przelącz na tryb jasny",
-      switchToDarkMode: "Przelącz na tryb ciemny",
-    },
-    fullscreen: {
-      mode: "Tryb pełnoekranowy",
-      enter: "Pełny ekran",
-      exit: "Wyjdź z pełnego ekranu",
-      exitMode: "Wyjdź z trybu pełnoekranowego",
-    },
-    language: {
-      label: "Language: Polski",
-      switchToPolish: "Przelącz na język polski",
-      switchToEnglish: "Przelącz na język angielski",
-      switchToGerman: "Przelącz na język niemiecki",
-    },
-    hints: {
-      picking: "Shift + klik, aby wybrać wiele scian",
-      clipping: "Przeciągnij aktywną plaszczyznę przycinania, aby dostosować cięcie",
-    },
-    controls: {
-      enablePickingMode: "Włącz tryb wyboru",
-      disablePickingMode: "Wyłącz tryb wyboru",
-      enableDistanceMeasurement: "Włącz pomiar odległości",
-      disableDistanceMeasurement: "Wyłącz pomiar odległości",
-      selectedFaces: "Wybrane sciany",
-    },
-    gui: {
-      controls: "Sterowanie",
-      editor: "Edytor",
-      transform3dObject: "Transformacja obiektu 3D",
-      transformLight: "Transformacja światła",
-      transformMode: "Tryb transformacji",
-      directionalLight: "Światło kierunkowe",
-      ambientLight: "Światło otaczające",
-      cameraLight: "Światło kamery",
-      backgroundColor: "Kolor tła",
-      backgroundColorOuter: "Kolor tła zewnętrznego",
-      backgroundType: "Typ tła",
-      clippingPlanes: "Płaszczyzny przycinania",
-      clippingFolder: "Płaszczyzny przycinania",
-      displayHelperX: "Pokaż oś X",
-      displayHelperY: "Pokaż oś Y",
-      displayHelperZ: "Pokaż oś Z",
-      constantX: "Stała X",
-      constantY: "Stała Y",
-      constantZ: "Stała Z",
-      visible: "Widoczne cięcie",
-      materials: "Materiały",
-      metadata: "Metadane",
-      saveProperties: "Zapisz właściwości",
-      hierarchy: "Hierarchia",
-      statistics: "Statystyki",
-      clearSelectedFaces: "Wyczyść wybrane ściany",
-      addAnnotations: "Dodaj adnotacje",
-      exportAnnotationsXml: "Eksportuj adnotacje XML",
-      importAnnotationsXml: "Importuj adnotacje XML",
-      resetCameraPosition: "Resetuj pozycję kamery",
-      save: "Zapisz",
-      renderPreview: "Renderuj podgląd",
-      color: "Kolor",
-      intensity: "Intensywność",
-      position: "Pozycja",
-      rotation: "Rotacja",
-      camera: "Kamera",
-      performance: "Wydajność",
-      highPerformance: "Wysoka wydajność",
-      lowPower: "Niski pobór mocy",
-      default: "Domyślny",
-      none: "Brak",
-      move: "Przesuń",
-      rotate: "Obróć",
-      scale: "Skaluj",
-      target: "Cel",
-      local: "Lokalny",
-      global: "Globalny",
-      linear: "Liniowe",
-      gradient: "Gradient",
-      editMaterial: "Edytuj materiał",
-      selectByMaterial: "wybierz według materiału",
-    },
-    metadata: {
-      modelDetails: "Szczegóły modelu",
-      metadata: "Metadane",
-      visualizedFile: "Wizualizowany plik",
-      vertices: "Wierzchołki",
-      faces: "Ściany",
-      title: "Tytuł",
-      author: "Autor",
-      authorAffiliation: "Afiliacja autora",
-      license: "Licencja",
-      description: "Opis",
-      objectType: "Typ obiektu",
-      reconstructionAuthors: "Autorzy rekonstrukcji",
-      reconstructionPeriod: "Okres rekonstrukcji",
-    },
-    iiif: {
-      loader: "Ładowanie IIIF",
-      collapse: "Zwiń",
-      expand: "Rozwiń",
-      manifest: "Manifest IIIF",
-      loadFromUrl: "Wczytaj z URL",
-      loadFromText: "Wczytaj z tekstu",
-      manifestUrlPlaceholder: "https://example.org/iiif/manifest.json",
-      manifestTextPlaceholder: "Wklej tutaj JSON manifestu IIIF...",
-      invalidUrl: "Podaj poprawny URL manifestu IIIF.",
-      invalidJson: "Podaj poprawny tekst JSON IIIF.",
-      optionModelPositionScale: "Pozycja i skala modelu",
-      optionModelOrigin: "Punkt początkowy modelu",
-      optionModelOriginBg: "Punkt początkowy modelu z kolorem tła",
-      optionModelPosition: "Pozycja modelu",
-    },
-    localPreview: {
-      loadExampleModel: "Wczytaj model przykładowy",
-    },
-    toasts: {
-      transformMove: "Przesuwanie: przeciągnij strzalki osi, aby przesunąć obiekt.",
-      transformRotate: "Obracanie: przeciągnij pierscienie obrotu, aby obrócić obiekt.",
-      transformScale: "Skalowanie: przeciągnij uchwyty osi, aby zmienić rozmiar obiektu.",
-      transformLightMove: "Transformacja światła - Przesunięcie: przeciągnij strzalki osi, aby przesunąć światło kierunkowe.",
-      transformLightTarget: "Transformacja światła - Cel: przeciągnij strzałki osi, aby przesunąć punkt celu światła.",
-      distanceEnabled: "Pomiar odległości jest włączony.",
-      distanceHint: "Wybierz punkt początkowy i końcowy, aby zmierzyć odległość.",
-      noIiiifModelFallback: "Nie znaleziono modelu 3D w manifescie IIIF, ładuję model przykładowy.",
-      facePickingEnabled: "Tryb wyboru ścian jest włączony",
-      facePickingDisabled: "Tryb wyboru ścian jest wyłączony",
-      distanceModeEnabled: "Tryb pomiaru odległości jest włączony",
-      distanceModeDisabled: "Tryb pomiaru odległości jest wyłączony",
-      settingsFound: "Znaleziono ustawienia {filename}_viewer.json",
-      settingsNotFound: "Nie znaleziono ustawień {filename}_viewer.json",
-      metadataFetchError: "Błąd pobierania metadanych: {error}",
-    },
-  },
-  de: {
-    menu: {
-      actions: "Viewer-Aktionen",
-      openActions: "Viewer-Aktionen öffnen",
-      embed: "Einbetten",
-      exitEmbed: "Einbettung beenden",
-      openEmbedOptions: "Einbettungsoptionen öffnen",
-      exitEmbedMode: "Einbettungsmodus beenden",
-      download: "Herunterladen",
-    },
-    theme: {
-      lightMode: "Hellmodus",
-      darkMode: "Dunkelmodus",
-      switchToLightMode: "Zu Hellmodus wechseln",
-      switchToDarkMode: "Zu Dunkelmodus wechseln",
-    },
-    fullscreen: {
-      mode: "Vollbildmodus",
-      enter: "Vollbild",
-      exit: "Vollbild beenden",
-      exitMode: "Vollbildmodus beenden",
-    },
-    language: {
-      label: "Sprache: Deutsch",
-      switchToPolish: "Zu Polnisch wechseln",
-      switchToEnglish: "Zu Englisch wechseln",
-    },
-    hints: {
-      picking: "Umschalt + Klick, um mehrere Flächen auszuwählen",
-      clipping: "Ziehen Sie die aktive Schnittebene-Hilfe, um den Schnitt anzupassen",
-    },
-    controls: {
-      enablePickingMode: "Auswahlmodus aktivieren",
-      disablePickingMode: "Auswahlmodus deaktivieren",
-      enableDistanceMeasurement: "Entfernungsmessung aktivieren",
-      disableDistanceMeasurement: "Entfernungsmessung deaktivieren",
-      selectedFaces: "Ausgewählte Flächen",
-    },
-    gui: {
-      controls: "Steuerung",
-      editor: "Editor",
-      transform3dObject: "3D-Objekt transformieren",
-      transformLight: "Licht transformieren",
-      transformMode: "Transformationsmodus",
-      directionalLight: "Gerichtetes Licht",
-      ambientLight: "Umgebungslicht",
-      cameraLight: "Kamera-Licht",
-      backgroundColor: "Hintergrundfarbe",
-      backgroundColorOuter: "Äußere Hintergrundfarbe",
-      backgroundType: "Hintergrundtyp",
-      clippingPlanes: "Schnittebenen",
-      clippingFolder: "Schnittebenen",
-      displayHelperX: "X-Hilfe anzeigen",
-      displayHelperY: "Y-Hilfe anzeigen",
-      displayHelperZ: "Z-Hilfe anzeigen",
-      constantX: "Konstante X",
-      constantY: "Konstante Y",
-      constantZ: "Konstante Z",
-      visible: "Sichtbarer Schnitt",
-      materials: "Materialien",
-      metadata: "Metadaten",
-      saveProperties: "Eigenschaften speichern",
-      hierarchy: "Hierarchie",
-      statistics: "Statistiken",
-      clearSelectedFaces: "Ausgewählte Flächen löschen",
-      addAnnotations: "Anmerkungen hinzufügen",
-      exportAnnotationsXml: "Anmerkungen XML exportieren",
-      importAnnotationsXml: "Anmerkungen XML importieren",
-      resetCameraPosition: "Kameraposition zurücksetzen",
-      save: "Speichern",
-      renderPreview: "Vorschau rendern",
-      color: "Farbe",
-      intensity: "Intensität",
-      position: "Position",
-      rotation: "Rotation",
-      camera: "Kamera",
-      performance: "Leistung",
-      highPerformance: "Hohe Leistung",
-      lowPower: "Niedriger Stromverbrauch",
-      default: "Standard",
-      none: "Keine",
-      move: "Bewegen",
-      rotate: "Drehen",
-      scale: "Skalieren",
-      target: "Ziel",
-      local: "Lokal",
-      global: "Global",
-      linear: "Linear",
-      gradient: "Farbverlauf",
-      editMaterial: "Material bearbeiten",
-      selectByMaterial: "nach Material auswählen",
-    },
-    metadata: {
-      modelDetails: "Modelldetails",
-      metadata: "Metadaten",
-      visualizedFile: "Visualisierte Datei",
-      vertices: "Vertices",
-      faces: "Flächen",
-      title: "Titel",
-      author: "Autor",
-      authorAffiliation: "Autoren-Zugehörigkeit",
-      license: "Lizenz",
-      description: "Beschreibung",
-      objectType: "Objekttyp",
-      reconstructionAuthors: "Rekonstruktionsautoren",
-      reconstructionPeriod: "Rekonstruktionsperiode",
-    },
-    iiif: {
-      loader: "IIIF-Loader",
-      collapse: "Zusammenklappen",
-      expand: "Erweitern",
-      manifest: "IIIF-Manifest",
-      loadFromUrl: "Von URL laden",
-      loadFromText: "Von Text laden",
-      manifestUrlPlaceholder: "https://example.org/iiif/manifest.json",
-      manifestTextPlaceholder: "IIIF-Manifest-JSON hier einfügen...",
-      invalidUrl: "Bitte geben Sie eine gültige IIIF-Manifest-URL ein.",
-      invalidJson: "Bitte geben Sie einen gültigen IIIF-JSON-Text ein.",
-      optionModelPositionScale: "Modellposition und -skalierung",
-      optionModelOrigin: "Modellursprung",
-      optionModelOriginBg: "Modellursprung mit Hintergrundfarbe",
-      optionModelPosition: "Modellposition",
-    },
-    localPreview: {
-      loadExampleModel: "Beispielmodell laden",
-    },
-    toasts: {
-      transformMove: "Bewegen: Ziehen Sie die Achsenpfeile, um das Objekt zu repositionieren.",
-      transformRotate: "Drehen: Ziehen Sie die Rotationsringe, um das Objekt zu drehen.",
-      transformScale: "Skalieren: Ziehen Sie die Achsengriffe, um die Größe des Objekts zu ändern.",
-      transformLightMove: "Licht transformieren - Bewegen: Ziehen Sie die Achsenpfeile, um das gerichtete Licht zu bewegen.",
-      transformLightTarget: "Licht transformieren - Ziel: Ziehen Sie die Achsenpfeile, um das Lichtziel zu repositionieren.",
-      distanceEnabled: "Entfernungsmessung ist aktiviert.",
-      distanceHint: "Wählen Sie einen Startpunkt und einen Endpunkt, um die Entfernung zu messen.",
-      noIiiifModelFallback: "Kein 3D-Modell im IIIF-Manifest gefunden, Beispielmodell wird geladen.",
-      facePickingEnabled: "Flächenauswahl ist aktiviert",
-      facePickingDisabled: "Flächenauswahl ist deaktiviert",
-      distanceModeEnabled: "Entfernungsmessungsmodus ist aktiviert",
-      distanceModeDisabled: "Entfernungsmessungsmodus ist deaktiviert",
-      settingsFound: "Einstellungen {filename}_viewer.json gefunden",
-      settingsNotFound: "Keine Einstellungen {filename}_viewer.json gefunden",
-      metadataFetchError: "Fehler beim Abrufen der Metadaten: {error}",
-    },
-  },
-};
-
 /*
 DFG 3D-Viewer
 Copyright (C) 2025 - Daniel Dworak
@@ -10089,7 +10273,7 @@ const Viewer = {
   lastWindowFocusAt: 0,
   cleanupCallbacks: [],
   resizeObserver: null,
-  i18nGui: null,
+  i18nGui: {},
 
   getE2EModelOverride() {
     if (!window.__E2E__) return null;
@@ -10158,12 +10342,12 @@ const Viewer = {
   updateEmbedMenuEntryState() {
     if (!this.viewEntity) return;
     const isActive = this.isEmbedModeActive();
-    const label = isActive ? this.t("menu.exitEmbed", "Exit embed") : this.t("menu.embed", "Embed");
+    const label = isActive ? t$1("menu.exitEmbed", "Exit embed") : t$1("menu.embed", "Embed");
     const iconClass = isActive ? "embed-exit-icon" : "embed-icon";
     this.viewEntity.innerHTML = `<span class="${iconClass}"></span><span>${label}</span>`;
     const a11yLabel = isActive
-      ? this.t("menu.exitEmbedMode", "Exit embed mode")
-      : this.t("menu.openEmbedOptions", "Open embed options");
+      ? t$1("menu.exitEmbedMode", "Exit embed mode")
+      : t$1("menu.openEmbedOptions", "Open embed options");
     this.viewEntity.setAttribute("aria-label", a11yLabel);
     this.viewEntity.setAttribute("title", a11yLabel);
   },
@@ -10204,22 +10388,12 @@ const Viewer = {
     const storedLanguage = this.normalizeLanguage(window.localStorage.getItem(this.LANGUAGE_STORAGE_KEY));
     if (storedLanguage) return storedLanguage;
 
-    const browserLanguage = this.normalizeLanguage(navigator?.language || "");
+    const browserLanguage = this.normalizeLanguage(navigator?.language || "en");
     return browserLanguage || "en";
   },
 
-  t(key, fallback = "") {
-    const lang = ["pl", "de"].includes(this.currentLanguage) ? this.currentLanguage : "en";
-    const dictionary = this.I18N[lang] || this.I18N.en;
-    const value = String(key || "")
-      .split(".")
-      .reduce((acc, part) => (acc && typeof acc === "object" ? acc[part] : undefined), dictionary);
-    if (typeof value === "string") return value;
-    return fallback || key;
-  },
-
   tFormat(key, params = {}, fallback = "") {
-    const template = this.t(key, fallback);
+    const template = t$1(key, fallback);
     return String(template).replace(/\{(\w+)\}/g, (_match, token) => {
       const replacement = params?.[token];
       return replacement == null ? "" : String(replacement);
@@ -10270,7 +10444,7 @@ const Viewer = {
     const disableInteractionFromQuery = this.parseBooleanParam(params.get("disableInteraction"));
     const hideUiFromQuery = this.parseBooleanParam(params.get("hideUi"));
     const hideMetadataFromQuery = this.parseBooleanParam(params.get("hideMetadata"));
-    core.presentationMode = this.parseBooleanParam(params.get("presentationMode"));
+    core.PRESENTATION_MODE = this.parseBooleanParam(params.get("presentationMode"));
 
     this.urlOptions = {
       model: modelFromQuery || null,
@@ -10285,7 +10459,7 @@ const Viewer = {
       cameraPosition: this.parseVector3Param(params.get("camPos") || params.get("cameraPos")),
       cameraTarget: this.parseVector3Param(params.get("camTarget") || params.get("cameraTarget")),
       cameraFov: this.parseFloatParam(params.get("fov")),
-      presentationMode: core.presentationMode === false,
+      presentationMode: core.PRESENTATION_MODE === false,
     };
   },
 
@@ -10295,11 +10469,11 @@ const Viewer = {
     if (this.themeMode) {
       this.themeMode.innerHTML = `
         <span class="viewer-theme-icon" aria-hidden="true">${isDark ? "☀️" : "🌙"}</span>
-        <span>${isDark ? this.t("theme.lightMode", "Light mode") : this.t("theme.darkMode", "Dark mode")}</span>
+        <span>${isDark ? t$1("theme.lightMode", "Light mode") : t$1("theme.darkMode", "Dark mode")}</span>
       `;
       const label = isDark
-        ? this.t("theme.switchToLightMode", "Switch to light mode")
-        : this.t("theme.switchToDarkMode", "Switch to dark mode");
+        ? t$1("theme.switchToLightMode", "Switch to light mode")
+        : t$1("theme.switchToDarkMode", "Switch to dark mode");
       this.themeMode.setAttribute("aria-label", label);
       this.themeMode.setAttribute("title", label);
     }
@@ -10346,26 +10520,26 @@ const Viewer = {
       { code: "pl", label: "Język: PL"},
       { code: "de", label: "Sprache: DE"}
     ];
-    const currentLangLabel = languages.find(l => l.code === this.currentLanguage)?.label || "EN";
+    const currentLangLabel = languages.find(l => l.code === core.currentLanguage)?.label || "EN";
     this.languageMode.innerHTML = `
       <span class="viewer-action-icon language-icon" aria-hidden="true"></span>
       <span>${currentLangLabel}</span>
     `;
-    this.languageMode.setAttribute("aria-label", this.t("language.label", "Language: EN"));
-    this.languageMode.setAttribute("title", this.t("language.label", "Language: EN"));
+    this.languageMode.setAttribute("aria-label", t$1("language.label", "Language: EN"));
+    this.languageMode.setAttribute("title", t$1("language.label", "Language: EN"));
     
     if (this.languageModeDropdown) {
       const items = this.languageModeDropdown.querySelectorAll(".language-dropdown-item");
       items.forEach(item => {
-        item.classList.toggle("active", item.dataset.lang === this.currentLanguage);
+        item.classList.toggle("active", item.dataset.lang === core.currentLanguage);
       });
     }
   },
 
   updateActionMenuLabels() {
     if (!this.actionMenu) return;
-    const actionMenuLabel = this.t("menu.actions", "Viewer actions");
-    const actionMenuOpenLabel = this.t("menu.openActions", "Open viewer actions");
+    const actionMenuLabel = t$1("menu.actions", "Viewer actions");
+    const actionMenuOpenLabel = t$1("menu.openActions", "Open viewer actions");
 
     this.actionMenu.querySelector("#viewerActionMenuToggle")?.setAttribute("aria-label", actionMenuOpenLabel);
     const toggle = this.actionMenu.querySelector(".viewer-action-menu_toggle");
@@ -10378,12 +10552,12 @@ const Viewer = {
     if (!this.downloadModel || this.downloadModel.hidden) return;
     this.downloadModel.innerHTML = `
       <span class="viewer-action-icon download-icon" aria-hidden="true"></span>
-      <span>${this.t("menu.download", "Download")}</span>
+      <span>${t$1("menu.download", "Download")}</span>
     `;
   },
 
   updateLocalizedUI() {
-    const lang = ["pl", "de"].includes(this.currentLanguage) ? this.currentLanguage : "en";
+    const lang = ["pl", "de"].includes(core.currentLanguage) ? core.currentLanguage : "en";
     document.documentElement.setAttribute("lang", lang);
     this.updateActionMenuLabels();
     this.updateLanguageControlLabels();
@@ -10398,8 +10572,8 @@ const Viewer = {
     this.updateLocalPreviewLabels();
     this.updateIIIFFormLabels();
     this.updateMetadataPanelLabels();
-    if (this.pickingHint) this.pickingHint.textContent = this.t("hints.picking", "Shift + click to select multiple faces");
-    if (this.clippingHint) this.clippingHint.textContent = this.t("hints.clipping", "Drag active clipping plane helper to adjust cut");
+    if (this.pickingHint) this.pickingHint.textContent = t$1("hints.picking", "Shift + click to select multiple faces");
+    if (this.clippingHint) this.clippingHint.textContent = t$1("hints.clipping", "Drag active clipping plane helper to adjust cut");
   },
 
   setGuiFolderTitle(folder, title) {
@@ -10427,113 +10601,113 @@ const Viewer = {
   },
 
   updateLilGuiLabels() {
-    const g = this.i18nGui;
+    const g = core.i18nGui;
     if (!g) return;
-    this.setGuiFolderTitle(core.gui, this.t("gui.controls", "Controls"));
-    this.setGuiFolderTitle(g.editorFolder, this.t("gui.editor", "Editor"));
-    this.setGuiFolderTitle(g.lightFolder, this.t("gui.directionalLight", "Directional Light"));
-    this.setGuiFolderTitle(g.lightFolderAmbient, this.t("gui.ambientLight", "Ambient Light"));
-    this.setGuiFolderTitle(g.lightFolderCamera, this.t("gui.cameraLight", "Camera Light"));
-    this.setGuiFolderTitle(g.backgroundFolder, this.t("gui.backgroundColor", "Background Color"));
-    this.setGuiFolderTitle(g.clippingFolder, this.t("gui.clippingFolder", "Clipping Planes"));
-    this.setGuiFolderTitle(g.materialsFolder, this.t("gui.materials", "Materials"));
-    this.setGuiFolderTitle(g.metadataFolder, this.t("gui.metadata", "Metadata"));
-    this.setGuiFolderTitle(g.propertiesFolder, this.t("gui.saveProperties", "Save properties"));
-    this.setGuiFolderTitle(g.hierarchyFolder, this.t("gui.hierarchy", "Hierarchy"));
-    this.setGuiFolderTitle(g.statisticsFolder, this.t("gui.statistics", "Statistics"));
+    this.setGuiFolderTitle(core.gui, t$1("gui.controls", "Controls"));
+    this.setGuiFolderTitle(g.editorFolder, t$1("gui.editor", "Editor"));
+    this.setGuiFolderTitle(g.lightFolder, t$1("gui.directionalLight", "Directional Light"));
+    this.setGuiFolderTitle(g.lightFolderAmbient, t$1("gui.ambientLight", "Ambient Light"));
+    this.setGuiFolderTitle(g.lightFolderCamera, t$1("gui.cameraLight", "Camera Light"));
+    this.setGuiFolderTitle(g.backgroundFolder, t$1("gui.backgroundColor", "Background Color"));
+    this.setGuiFolderTitle(g.clippingFolder, t$1("gui.clippingFolder", "Clipping Planes"));
+    this.setGuiFolderTitle(g.materialsFolder, t$1("gui.materials", "Materials"));
+    this.setGuiFolderTitle(g.metadataFolder, t$1("gui.metadata", "Metadata"));
+    this.setGuiFolderTitle(g.propertiesFolder, t$1("gui.saveProperties", "Save properties"));
+    this.setGuiFolderTitle(g.hierarchyFolder, t$1("gui.hierarchy", "Hierarchy"));
+    this.setGuiFolderTitle(g.statisticsFolder, t$1("gui.statistics", "Statistics"));
 
     // Update clipping controllers
     if (g.clippingFolder) {
       g.clippingFolder.controllers.forEach(controller => {
         switch (controller._name) {
           case 'displayHelperX':
-            controller.name(this.t('gui.displayHelperX', 'Show X helper'));
+            controller.name(t$1('gui.displayHelperX', 'Show X helper'));
             break;
           case 'displayHelperY':
-            controller.name(this.t('gui.displayHelperY', 'Show Y helper'));
+            controller.name(t$1('gui.displayHelperY', 'Show Y helper'));
             break;
           case 'displayHelperZ':
-            controller.name(this.t('gui.displayHelperZ', 'Show Z helper'));
+            controller.name(t$1('gui.displayHelperZ', 'Show Z helper'));
             break;
           case 'constantX':
-            controller.name(this.t('gui.constantX', 'Constant X'));
+            controller.name(t$1('gui.constantX', 'Constant X'));
             break;
           case 'constantY':
-            controller.name(this.t('gui.constantY', 'Constant Y'));
+            controller.name(t$1('gui.constantY', 'Constant Y'));
             break;
           case 'constantZ':
-            controller.name(this.t('gui.constantZ', 'Constant Z'));
+            controller.name(t$1('gui.constantZ', 'Constant Z'));
             break;
           case 'visible':
-            controller.name(this.t('gui.visible', 'Visible'));
+            controller.name(t$1('gui.visible', 'Visible'));
             break;
         }
       });
     }
 
-    g.clearSelectedFacesController?.name?.(this.t("gui.clearSelectedFaces", "Clear selected faces"));
-    g.transformObjectController?.name?.(this.t("gui.transform3dObject", "Transform 3D Object"));
-    g.transformLightController?.name?.(this.t("gui.transformLight", "Transform Light"));
-    g.transformModeController?.name?.(this.t("gui.transformMode", "Transform Mode"));
-    g.backgroundTypeController?.name?.(this.t("gui.backgroundType", "Background Type"));
-    g.backgroundColorController?.name?.(this.t("gui.backgroundColor", "Background Color"));
-    g.backgroundColorOuterController?.name?.(this.t("gui.backgroundColorOuter", "Background Color Outer"));
-    g.addAnnotationController?.name?.(this.t("gui.addAnnotations", "Add annotations"));
-    g.exportAnnotationsController?.name?.(this.t("gui.exportAnnotationsXml", "Export annotations XML"));
-    g.importAnnotationsController?.name?.(this.t("gui.importAnnotationsXml", "Import annotations XML"));
-    g.resetCameraController?.name?.(this.t("gui.resetCameraPosition", "Reset camera position"));
-    g.saveController?.name?.(this.t("gui.save", "Save"));
-    g.renderPreviewController?.name?.(this.t("gui.renderPreview", "Render preview"));
-    g.performanceController?.name?.(this.t("gui.performance", "Performance"));
-    g.savePropPositionController?.name?.(this.t("gui.position", "Position"));
-    g.savePropRotationController?.name?.(this.t("gui.rotation", "Rotation"));
-    g.savePropScaleController?.name?.(this.t("gui.scale", "Scale"));
-    g.savePropCameraController?.name?.(this.t("gui.camera", "Camera"));
-    g.savePropDirectionalController?.name?.(this.t("gui.directionalLight", "Directional Light"));
-    g.savePropAmbientController?.name?.(this.t("gui.ambientLight", "Ambient Light"));
-    g.savePropCameraLightController?.name?.(this.t("gui.cameraLight", "Camera Light"));
-    g.savePropBackgroundController?.name?.(this.t("gui.backgroundColor", "Background Color"));
-    g.directionalLightColorController?.name?.(this.t("gui.color", "Color"));
-    g.directionalLightIntensityController?.name?.(this.t("gui.intensity", "Intensity"));
-    g.ambientLightColorController?.name?.(this.t("gui.color", "Color"));
-    g.ambientLightIntensityController?.name?.(this.t("gui.intensity", "Intensity"));
-    g.cameraLightColorController?.name?.(this.t("gui.color", "Color"));
-    g.cameraLightIntensityController?.name?.(this.t("gui.intensity", "Intensity"));
-    g.editMaterialsController?.name?.(this.t("gui.editMaterial", "Edit material"));
+    g.clearSelectedFacesController?.name?.(t$1("gui.clearSelectedFaces", "Clear selected faces"));
+    g.transformObjectController?.name?.(t$1("gui.transform3dObject", "Transform 3D Object"));
+    g.transformLightController?.name?.(t$1("gui.transformLight", "Transform Light"));
+    g.transformModeController?.name?.(t$1("gui.transformMode", "Transform Mode"));
+    g.backgroundTypeController?.name?.(t$1("gui.backgroundType", "Background Type"));
+    g.backgroundColorController?.name?.(t$1("gui.backgroundColor", "Background Color"));
+    g.backgroundColorOuterController?.name?.(t$1("gui.backgroundColorOuter", "Background Color Outer"));
+    g.addAnnotationController?.name?.(t$1("gui.addAnnotations", "Add annotations"));
+    g.exportAnnotationsController?.name?.(t$1("gui.exportAnnotationsXml", "Export annotations XML"));
+    g.importAnnotationsController?.name?.(t$1("gui.importAnnotationsXml", "Import annotations XML"));
+    g.resetCameraController?.name?.(t$1("gui.resetCameraPosition", "Reset camera position"));
+    g.saveController?.name?.(t$1("gui.save", "Save"));
+    g.renderPreviewController?.name?.(t$1("gui.renderPreview", "Render preview"));
+    g.performanceController?.name?.(t$1("gui.performance", "Performance"));
+    g.savePropPositionController?.name?.(t$1("gui.position", "Position"));
+    g.savePropRotationController?.name?.(t$1("gui.rotation", "Rotation"));
+    g.savePropScaleController?.name?.(t$1("gui.scale", "Scale"));
+    g.savePropCameraController?.name?.(t$1("gui.camera", "Camera"));
+    g.savePropDirectionalController?.name?.(t$1("gui.directionalLight", "Directional Light"));
+    g.savePropAmbientController?.name?.(t$1("gui.ambientLight", "Ambient Light"));
+    g.savePropCameraLightController?.name?.(t$1("gui.cameraLight", "Camera Light"));
+    g.savePropBackgroundController?.name?.(t$1("gui.backgroundColor", "Background Color"));
+    g.directionalLightColorController?.name?.(t$1("gui.color", "Color"));
+    g.directionalLightIntensityController?.name?.(t$1("gui.intensity", "Intensity"));
+    g.ambientLightColorController?.name?.(t$1("gui.color", "Color"));
+    g.ambientLightIntensityController?.name?.(t$1("gui.intensity", "Intensity"));
+    g.cameraLightColorController?.name?.(t$1("gui.color", "Color"));
+    g.cameraLightIntensityController?.name?.(t$1("gui.intensity", "Intensity"));
+    g.editMaterialsController?.name?.(t$1("gui.editMaterial", "Edit material"));
 
     this.refreshOptionController(g.transformObjectController, {
-      [this.t("gui.none", "None")]: "",
-      [this.t("gui.move", "Move")]: "translate",
-      [this.t("gui.rotate", "Rotate")]: "rotate",
-      [this.t("gui.scale", "Scale")]: "scale",
+      [t$1("gui.none", "None")]: "",
+      [t$1("gui.move", "Move")]: "translate",
+      [t$1("gui.rotate", "Rotate")]: "rotate",
+      [t$1("gui.scale", "Scale")]: "scale",
     });
     this.refreshOptionController(g.transformModeController, {
-      [this.t("gui.local", "Local")]: "local",
-      [this.t("gui.global", "Global")]: "global",
+      [t$1("gui.local", "Local")]: "local",
+      [t$1("gui.global", "Global")]: "global",
     });
     this.refreshOptionController(g.transformLightController, {
-      [this.t("gui.none", "None")]: "",
-      [this.t("gui.move", "Move")]: "translate",
-      [this.t("gui.target", "Target")]: "rotate",
+      [t$1("gui.none", "None")]: "",
+      [t$1("gui.move", "Move")]: "translate",
+      [t$1("gui.target", "Target")]: "rotate",
     });
     this.refreshOptionController(g.backgroundTypeController, {
-      [this.t("gui.linear", "Linear")]: "linear",
-      [this.t("gui.gradient", "Gradient")]: "gradient",
+      [t$1("gui.linear", "Linear")]: "linear",
+      [t$1("gui.gradient", "Gradient")]: "gradient",
     });
     this.refreshOptionController(g.performanceController, {
-      [this.t("gui.highPerformance", "High-performance")]: "high-performance",
-      [this.t("gui.lowPower", "Low-power")]: "low-power",
-      [this.t("gui.default", "Default")]: "default",
+      [t$1("gui.highPerformance", "High-performance")]: "high-performance",
+      [t$1("gui.lowPower", "Low-power")]: "low-power",
+      [t$1("gui.default", "Default")]: "default",
     });
     this.refreshOptionController(g.editMaterialsController, {
-      [this.t("gui.selectByMaterial", "select by material")]: "select by material",
+      [t$1("gui.selectByMaterial", "select by material")]: "select by material",
     });
   },
 
   updateLocalPreviewLabels() {
     const label = document.querySelector("#example-model-picker label[for='example-model-select']");
     if (label) {
-      label.textContent = this.t("localPreview.loadExampleModel", "Load example model");
+      label.textContent = t$1("localPreview.loadExampleModel", "Load example model");
     }
   },
 
@@ -10541,23 +10715,23 @@ const Viewer = {
     const form = document.getElementById("form-IIIF");
     if (!form) return;
     const title = form.querySelector(".form-IIIF-header .title");
-    if (title) title.textContent = this.t("iiif.loader", "IIIF Loader");
+    if (title) title.textContent = t$1("iiif.loader", "IIIF Loader");
     const collapseBtn = document.getElementById("iiif-toggle-collapse");
     if (collapseBtn) {
       const isCollapsed = form.classList.contains("collapsed");
       collapseBtn.title = isCollapsed
-        ? this.t("iiif.expand", "Expand")
-        : this.t("iiif.collapse", "Collapse");
+        ? t$1("iiif.expand", "Expand")
+        : t$1("iiif.collapse", "Collapse");
     }
     const label = form.querySelector(".form-IIIF-label");
-    if (label) label.textContent = this.t("iiif.manifest", "IIIF manifest");
+    if (label) label.textContent = t$1("iiif.manifest", "IIIF manifest");
     const select = document.getElementById("iiif-manifest-select");
     if (select) {
       const optionLabelByUrl = {
-        "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json": this.t("iiif.optionModelPositionScale", "Model Position and Scale"),
-        "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin.json": this.t("iiif.optionModelOrigin", "Model Origin"),
-        "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin_bgcolor.json": this.t("iiif.optionModelOriginBg", "Model Origin with background color"),
-        "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_position.json": this.t("iiif.optionModelPosition", "Model Position"),
+        "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json": t$1("iiif.optionModelPositionScale", "Model Position and Scale"),
+        "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin.json": t$1("iiif.optionModelOrigin", "Model Origin"),
+        "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin_bgcolor.json": t$1("iiif.optionModelOriginBg", "Model Origin with background color"),
+        "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_position.json": t$1("iiif.optionModelPosition", "Model Position"),
       };
       Array.from(select.options).forEach((option) => {
         const labelFromMap = optionLabelByUrl[option.value];
@@ -10565,13 +10739,13 @@ const Viewer = {
       });
     }
     const manifestUrl = document.getElementById("manifest-url");
-    if (manifestUrl) manifestUrl.placeholder = this.t("iiif.manifestUrlPlaceholder", "https://example.org/iiif/manifest.json");
+    if (manifestUrl) manifestUrl.placeholder = t$1("iiif.manifestUrlPlaceholder", "https://example.org/iiif/manifest.json");
     const manifestText = document.getElementById("manifest-text");
-    if (manifestText) manifestText.placeholder = this.t("iiif.manifestTextPlaceholder", "Paste IIIF manifest JSON here...");
+    if (manifestText) manifestText.placeholder = t$1("iiif.manifestTextPlaceholder", "Paste IIIF manifest JSON here...");
     const loadFromUrlButton = document.getElementById("load-manifest-from-url");
-    if (loadFromUrlButton) loadFromUrlButton.textContent = this.t("iiif.loadFromUrl", "Load from URL");
+    if (loadFromUrlButton) loadFromUrlButton.textContent = t$1("iiif.loadFromUrl", "Load from URL");
     const loadFromTextButton = document.getElementById("load-manifest-from-text");
-    if (loadFromTextButton) loadFromTextButton.textContent = this.t("iiif.loadFromText", "Load from Text");
+    if (loadFromTextButton) loadFromTextButton.textContent = t$1("iiif.loadFromText", "Load from Text");
   },
 
   updateMetadataPanelLabels() {
@@ -10581,14 +10755,12 @@ const Viewer = {
       const key = node.getAttribute("data-i18n-key");
       if (!key) return;
       const needsColon = node.classList.contains("metadata-label");
-      const text = this.t(key, node.textContent?.replace(/:\s*$/, "") || "");
+      const text = t$1(key, node.textContent?.replace(/:\s*$/, "") || "");
       node.textContent = needsColon ? `${text}:` : text;
     });
   },
 
-  applyLanguage(language, { persist = true } = {}) {
-    const normalizedLanguage = this.normalizeLanguage(language) || "en";
-    this.currentLanguage = normalizedLanguage;
+  applyLanguage({ persist = true } = {}) {
     if (persist) {
       window.localStorage.setItem(this.LANGUAGE_STORAGE_KEY, normalizedLanguage);
     }
@@ -10604,15 +10776,15 @@ const Viewer = {
   selectLanguage(lang) {
     this.languageModeDropdown.hidden = true;
     this.closeActionMenu();
-    this.applyLanguage(lang);
+    this.applyLanguage();
   },
 
   updatePickingModeControllerLabel() {
     if (!this.pickingModeController?.name) return;
     this.pickingModeController.name(
       this.pickingMode
-        ? this.t("controls.disablePickingMode", "Disable picking mode")
-        : this.t("controls.enablePickingMode", "Enable picking mode")
+        ? t$1("controls.disablePickingMode", "Disable picking mode")
+        : t$1("controls.enablePickingMode", "Enable picking mode")
     );
   },
 
@@ -10620,8 +10792,8 @@ const Viewer = {
     if (!this.distanceMeasurementController?.name) return;
     this.distanceMeasurementController.name(
       this.RULER_MODE
-        ? this.t("controls.disableDistanceMeasurement", "Disable distance measurement")
-        : this.t("controls.enableDistanceMeasurement", "Enable distance measurement")
+        ? t$1("controls.disableDistanceMeasurement", "Disable distance measurement")
+        : t$1("controls.enableDistanceMeasurement", "Enable distance measurement")
     );
   },
 
@@ -10652,7 +10824,7 @@ const Viewer = {
 
   updateSelectedFacesControllerLabel() {
     if (!this.selectedFacesCountController?.name) return;
-    this.selectedFacesCountController.name(this.t("controls.selectedFaces", "Selected faces"));
+    this.selectedFacesCountController.name(t$1("controls.selectedFaces", "Selected faces"));
   },
 
   updatePickingHintVisibility() {
@@ -11197,7 +11369,7 @@ const Viewer = {
 
   notifyMissingEmbedSource({ force = false } = {}) {
     if (!force && this.embedMissingSourceNotified) return;
-    showToast("Set Model URL or Entity ID for embed.", "warning");
+    toastHelper$1("embedSourceMissing", "warning");
     this.embedMissingSourceNotified = true;
   },
 
@@ -11356,10 +11528,10 @@ const Viewer = {
         }
         const payload = this.buildEmbedPayload(options);
         await this.copyTextToClipboard(payload.url);
-        showToast("Embed URL copied");
+        toastHelper$1("embedUrlCopied", "success");
       } catch (error) {
         this.reportError(error, { context: "Copy embed URL failed" });
-        showToast("Could not copy embed URL");
+        toastHelper$1("embedUrlCopyError", "error");
       }
     });
     this.bindEventListener(copyIframeButton, "click", async () => {
@@ -11371,10 +11543,10 @@ const Viewer = {
         }
         const payload = this.buildEmbedPayload(options);
         await this.copyTextToClipboard(payload.code);
-        showToast("Embed iframe copied");
+        toastHelper$1("embedIframeCopied", "success");
       } catch (error) {
         this.reportError(error, { context: "Copy embed iframe failed" });
-        showToast("Could not copy embed iframe");
+        toastHelper$1("embedIframeCopyError", "error");
       }
     });
 
@@ -11388,10 +11560,10 @@ const Viewer = {
     try {
       const { code } = Viewer.getSharePayload();
       await Viewer.copyTextToClipboard(code);
-      showToast("Embed code copied to clipboard");
+      toastHelper$1("embedCodeCopied", "success");
     } catch (error) {
       Viewer.reportError(error, { context: "Copy embed code failed" });
-      showToast("Could not copy embed code");
+      toastHelper$1("embedCodeCopyError", "error");
     }
   },
 
@@ -11400,12 +11572,12 @@ const Viewer = {
 
     const isFullscreen = !!document.fullscreenElement;
     const label = isFullscreen
-      ? this.t("fullscreen.exitMode", "Exit fullscreen mode")
-      : this.t("fullscreen.mode", "Fullscreen mode");
+      ? t$1("fullscreen.exitMode", "Exit fullscreen mode")
+      : t$1("fullscreen.mode", "Fullscreen mode");
 
     this.fullscreenMode.innerHTML = `
       <span class="viewer-action-icon ${isFullscreen ? "fullscreen-exit-icon" : "fullscreen-icon"}" aria-hidden="true"></span>
-      <span>${isFullscreen ? this.t("fullscreen.exit", "Exit fullscreen") : this.t("fullscreen.enter", "Fullscreen")}</span>
+      <span>${isFullscreen ? t$1("fullscreen.exit", "Exit fullscreen") : t$1("fullscreen.enter", "Fullscreen")}</span>
     `;
     this.fullscreenMode.setAttribute("aria-label", label);
     this.fullscreenMode.setAttribute("title", label);
@@ -11598,6 +11770,7 @@ const Viewer = {
     setCore('guiContainer', this.guiContainer);
     setCore('lilGui', this.lilGui);
     setCore('gui', this.gui);
+    setCore('i18nGui', this.i18nGui);
     setCore('enqueueStatusNotice', this.enqueueStatusNotice.bind(this));
     setCore('updateClippingHintVisibility', this.updateClippingHintVisibility.bind(this));
 
@@ -11658,8 +11831,8 @@ const Viewer = {
     this.EDITOR = Boolean(core.CONFIG.viewer.editor);
     setCore('EDITOR', this.EDITOR);
 
-    this.presentationMode = Boolean(core.CONFIG.viewer.presentationMode);
-    setCore('presentationMode', this.presentationMode);
+    this.PRESENTATION_MODE = Boolean(core.CONFIG.viewer.presentationMode);
+    setCore('PRESENTATION_MODE', this.PRESENTATION_MODE);
 
     console.log(`AIM 3D-Viewer ${this.isLightweight ? '🪶 LIGHTWEIGHT' : '💪 FULL'} mode`);
     console.log(`Powered by Three.js (v${THREE.REVISION})`);
@@ -11675,8 +11848,9 @@ const Viewer = {
     document.body.classList.toggle("viewer-embed-page", this.isEmbedMode());
 
     this.parseUrlOptions();
-    console.log(`Presentation mode: ${this.presentationMode ? "ON" : "OFF"}`);
+    console.log(`Presentation mode: ${core.PRESENTATION_MODE ? "ON" : "OFF"}`);
     this.currentLanguage = this.getStoredLanguage();
+    setCore('currentLanguage', this.currentLanguage);
 
     if (this.urlOptions.model) {
       this.container.setAttribute("3d", this.urlOptions.model);
@@ -11769,21 +11943,23 @@ const Viewer = {
       this.statusNoticeTimer = null;
     }
 
-    this.pickingHint = document.createElement("div");
-    this.pickingHint.id = "pickingHint";
-    this.pickingHint.className = "viewer-notice viewer-notice-hint";
-    this.pickingHint.textContent = "Shift + click to select multiple faces";
-    this.pickingHint.hidden = true;
-    this.noticeContainer.appendChild(this.pickingHint);
-    setCore("pickingHint", this.pickingHint);
+    if (!core.PRESENTATION_MODE) {
+      this.pickingHint = document.createElement("div");
+      this.pickingHint.id = "pickingHint";
+      this.pickingHint.className = "viewer-notice viewer-notice-hint";
+      this.pickingHint.textContent = "Shift + click to select multiple faces";
+      this.pickingHint.hidden = true;
+      this.noticeContainer.appendChild(this.pickingHint);
+      setCore("pickingHint", this.pickingHint);
 
-    this.clippingHint = document.createElement("div");
-    this.clippingHint.id = "clippingHint";
-    this.clippingHint.className = "viewer-notice viewer-notice-hint";
-    this.clippingHint.textContent = "Drag active clipping plane helper to adjust cut";
-    this.clippingHint.hidden = true;
-    this.noticeContainer.appendChild(this.clippingHint);
-    setCore("clippingHint", this.clippingHint);
+      this.clippingHint = document.createElement("div");
+      this.clippingHint.id = "clippingHint";
+      this.clippingHint.className = "viewer-notice viewer-notice-hint";
+      this.clippingHint.textContent = "Drag active clipping plane helper to adjust cut";
+      this.clippingHint.hidden = true;
+      this.noticeContainer.appendChild(this.clippingHint);
+      setCore("clippingHint", this.clippingHint);
+    }
 
     this.spinnerContainer = document.createElement("div");
     this.spinnerContainer.id = "spinnerContainer";
@@ -11795,6 +11971,13 @@ const Viewer = {
     this.spinnerContainer.appendChild(this.spinnerElement);
     core.container.appendChild(this.spinnerContainer);
     this.spinnerContainer.style.left = `calc(50% - ${this.spinnerContainer.getBoundingClientRect().width / 2}px)`;
+    this.spinner = new lv();
+    this.spinner.initLoaderAll();
+    this.spinner.startObserving();
+
+    this.circle = lv.create(this.spinnerElement);
+    setCore('circle', this.circle);
+    setCore('spinner', this.spinner);
 
     this.rect = core.container.getBoundingClientRect();
 
@@ -11812,15 +11995,6 @@ const Viewer = {
       this.metadataContainer.style.display = "none";
     }
     setCore('metadataContainer', this.metadataContainer);
-
-    this.spinner = new lv();
-    this.spinner.initLoaderAll();
-    this.spinner.startObserving();
-
-    this.circle = lv.create(this.spinnerElement);
-    setCore('circle', this.circle);
-    setCore('spinner', this.spinner);
-        
     setCore('colors', this.colors);
     setCore("planeHelpers", this.planeHelpers);    
     setCore("planeParams", this.planeParams);
@@ -11960,53 +12134,65 @@ const Viewer = {
   },
 
   addTextPoint(_text, _scale, _point) {
-    var materials = [
-      new THREE.MeshStandardMaterial({
-        color: 0x0000ff,
-        flatShading: true,
-        side: THREE.DoubleSide,
-        depthTest: false,
-        depthWrite: false,
-        transparent: true,
-        opacity: 0.8,
-      }), // front
-      new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        flatShading: true,
-        side: THREE.DoubleSide,
-        depthTest: false,
-        depthWrite: false,
-        transparent: true,
-        opacity: 0.5,
-      }), // side
-    ];
     const loader = new FontLoader();
     const bevelSize = _scale / 10;
-    loader.load(
-      `${core.DFG_ASSETS}/fonts/helvetiker_regular.typeface.json`,
-      function (font) {
-        const textGeo = new TextGeometry(_text, {
-          font: font,
-          size: _scale * 3,
-          height: _scale,
-          curveSegments: 4,
-          bevelEnabled: true,
-          bevelThickness: bevelSize,
-          bevelSize: bevelSize/10,
-          bevelOffset: 0,
-          bevelSegments: 1,
-          depth: _scale/10,
-        });
-        textGeo.computeBoundingBox();
 
-        Viewer.textMeshDistance = new THREE.Mesh(textGeo, materials);
-        Viewer.textMeshDistance.userData.isDistanceLabel = true;
+    loader.load(`${core.DFG_ASSETS}/fonts/helvetiker_regular.typeface.json`, (font) => {
 
-        Viewer.textMeshDistance.position.set(_point.x, _point.y, _point.z);
-        Viewer.textMeshDistance.renderOrder = 1;
-        Viewer.rulerObject.add(Viewer.textMeshDistance);
-      }
-    );
+      const baseOptions = {
+        font: font,
+        size: _scale * 3,
+        height: _scale,
+        curveSegments: 4,
+        bevelEnabled: true,
+        bevelThickness: bevelSize,
+        bevelSize: bevelSize / 10,
+        bevelOffset: 0,
+        bevelSegments: 1,
+        depth: _scale / 10,
+      };
+
+      const textGeo = new TextGeometry(_text, baseOptions);
+      textGeo.computeBoundingBox();
+
+      const centerOffset = new THREE.Vector3();
+      textGeo.boundingBox.getCenter(centerOffset).negate();
+      textGeo.translate(centerOffset.x, centerOffset.y, centerOffset.z);
+
+      const outlineGeo = textGeo.clone();
+      outlineGeo.scale(1.05, 1.08, 1.05);
+
+      const outlineMat = new THREE.MeshBasicMaterial({
+        color: 0x000000,
+        transparent: true,
+        opacity: 0.9,
+        depthTest: false,
+        depthWrite: false,
+      });
+
+      const fillMat = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 1,
+        depthTest: false,
+        depthWrite: false,
+      });
+
+      const outlineMesh = new THREE.Mesh(outlineGeo, outlineMat);
+      outlineMesh.position.z = -_scale * 0.02;
+      const fillMesh = new THREE.Mesh(textGeo, fillMat);
+
+      const group = new THREE.Group();
+      group.add(outlineMesh);
+      group.add(fillMesh);
+
+      group.position.set(_point.x, _point.y, _point.z);
+      group.renderOrder = 999;
+
+      group.userData.isDistanceLabel = true;
+
+      Viewer.rulerObject.add(group);
+    });
   },
 
   selectObjectHierarchy(_id) {
@@ -12654,29 +12840,57 @@ const Viewer = {
     return group;
   },
 
-  createAnnotationPOIMarker(entry, position) {
-    const radius = Math.max((this.gridSize || core.gridSize || 1) / 180, 0.005);
-    const marker = new THREE.Mesh(
-      new THREE.SphereGeometry(radius, 14, 12),
-      new THREE.MeshStandardMaterial({
-        color: 0xffc107,
-        emissive: 0x7a5200,
-        emissiveIntensity: 0.9,
-        roughness: 0.3,
-        metalness: 0.15,
-        depthTest: false,
-      })
-    );
-    marker.position.copy(position);
-    marker.renderOrder = 1200;
-    marker.userData.isAnnotationPOI = true;
-    marker.userData.annotationId = entry.id;
-    marker.userData.groupId = entry.groupId || "";
-    marker.userData.key = entry.key || "";
-    marker.userData.targetId = entry.targetId;
-    marker.userData.faceIndex = entry.faceIndex;
-    marker.userData.title = entry.title || "";
-    return marker;
+  createNumberTexture(text) {
+    const size = 128;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+
+    const ctx = canvas.getContext("2d");
+
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 64px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, size / 2, size / 2);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+
+    return texture;
+  },
+
+  createAnnotationPOIMarker(entry, position, index = 1) {
+    const radius = Math.max((this.gridSize || core.gridSize || 1) / 15, 0.005);
+
+    const texture = Viewer.createNumberTexture(index.toString());
+
+    const spriteMaterial = new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      depthTest: false,
+    });
+
+    const sprite = new THREE.Sprite(spriteMaterial);
+
+    sprite.scale.set(radius, radius, 1);
+
+    sprite.position.copy(position);
+
+    sprite.userData.isAnnotationPOI = true;
+    sprite.userData.annotationId = entry.id;
+    sprite.userData.groupId = entry.groupId || "";
+    sprite.userData.key = entry.key || "";
+    sprite.userData.targetId = entry.targetId;
+    sprite.userData.faceIndex = entry.faceIndex;
+    sprite.userData.title = entry.title || "";
+
+    return sprite;
   },
 
   ensureAnnotationPOITooltip() {
@@ -12759,7 +12973,7 @@ const Viewer = {
   openAnnotationDialogFromPOIMarker(marker) {
     const entries = this.getAnnotationEntriesForPOIMarker(marker);
     if (!entries.length) {
-      showToast("Annotation data not found for this POI.", "warning");
+      toastHelper$1("annotationDataMissing", "warning");
       return false;
     }
 
@@ -12844,7 +13058,7 @@ const Viewer = {
       if (!object) return;
       const point = this.getFaceCentroidWorld(object, entry.faceIndex);
       if (!point) return;
-      const marker = this.createAnnotationPOIMarker(entry, point);
+      const marker = this.createAnnotationPOIMarker(entry, point, entries.indexOf(entry) + 1);
       group.add(marker);
       this.annotationPOIMarkers.push(marker);
       added += 1;
@@ -12936,7 +13150,7 @@ const Viewer = {
 
   openAnnotationDialog() {
     if (!Array.isArray(this.selectedFaces) || this.selectedFaces.length === 0) {
-      showToast("Select at least one face to add annotation.", "warning");
+      toastHelper$1("selectFaceRequired", "warning");
       return;
     }
 
@@ -12986,15 +13200,14 @@ const Viewer = {
       this.updateDistanceMeasurementControllerLabel();
       this.updatePickingModeControllerLabel();
       this.updatePickingControlsVisibility();
-      showToast("Face picking is enabled", {
-        duration: 1400,
-        replace: true,
-        key: "face-picking-mode",
+      toastHelper$1("featureToggle", "info", {
+        feature: "Face picking",
+        state: "enabled"
       });
     }
 
     if (!Array.isArray(this.selectedFaces) || this.selectedFaces.length === 0) {
-      showToast("Select at least one face, then run Add annotations again.", "warning");
+      toastHelper$1("selectFaceRequiredAgain", "warning");
       return;
     }
 
@@ -13010,7 +13223,7 @@ const Viewer = {
 
   saveAnnotationFromDialog() {
     if (!Array.isArray(this.annotationTargetFaceKeys) || this.annotationTargetFaceKeys.length === 0) {
-      showToast("No faces selected for annotation.", "warning");
+      toastHelper$1("noFacesSelected", "warning");
       this.closeAnnotationDialog();
       return;
     }
@@ -13019,7 +13232,7 @@ const Viewer = {
     const description = String(this.annotationDialogDescriptionInput?.value || "").trim();
 
     if (!title) {
-      showToast("Title is required.", "warning");
+      toastHelper$1("titleRequired", "warning");
       this.annotationDialogTitleInput?.focus();
       return;
     }
@@ -13039,7 +13252,7 @@ const Viewer = {
       })
       .filter(Boolean);
     if (selectedFaces.length === 0) {
-      showToast("Selected faces are no longer active.", "warning");
+      toastHelper$1("facesInactive", "warning");
       this.closeAnnotationDialog();
       return;
     }
@@ -13091,10 +13304,9 @@ const Viewer = {
 
     const totalChanged = updatedCount + addedCount;
     if (totalChanged > 0) {
-      showToast(`Annotations saved for ${totalChanged} face${totalChanged === 1 ? "" : "s"}.`, {
-        duration: 1800,
-        replace: true,
-        key: "annotation-saved",
+      toastHelper$1("annotationsSaved", "success", {
+        count: totalChanged,
+        plural: totalChanged === 1 ? "" : "s"
       });
     }
 
@@ -13188,7 +13400,7 @@ const Viewer = {
   downloadAnnotationsXmlFile() {
     const xml = this.exportAnnotationsToIIIFXml();
     if (!xml) {
-      showToast("No annotations to export.", "warning");
+      toastHelper$1("noAnnotationsToExport", "warning");
       return false;
     }
 
@@ -13205,7 +13417,7 @@ const Viewer = {
     link.click();
     document.body.removeChild(link);
     setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
-    showToast("Annotations XML exported.");
+    toastHelper$1("annotationsExported", "success");
     return true;
   },
 
@@ -13224,13 +13436,16 @@ const Viewer = {
         const xmlText = await file.text();
         const imported = this.importAnnotationsFromIIIFXml(xmlText);
         if (imported > 0) {
-          showToast(`Imported ${imported} annotation${imported === 1 ? "" : "s"}.`);
+          toastHelper$1("annotationsImported", "success", {
+            count: imported,
+            plural: imported === 1 ? "" : "s"
+          });
         } else {
-          showToast("No valid annotations found in XML.", "warning");
+          toastHelper$1("noValidAnnotations", "warning");
         }
       } catch (error) {
         console.error(error);
-        showToast("Failed to import annotations XML.", "error");
+        toastHelper$1("annotationsImportError", "error");
       } finally {
         target.value = "";
       }
@@ -14040,9 +14255,9 @@ const Viewer = {
         // Load the model
         await Viewer.mainLoadModel();
         
-        showToast('Model loaded successfully', 'success');
+        toastHelper$1("modelLoadedSimple", "success");
       } else {
-        showToast('Unsupported file format', 'error');
+        toastHelper$1("unsupportedFormat", "error");
       }
     }
   },
@@ -14512,49 +14727,43 @@ const Viewer = {
     Viewer.windowHalfX = core.CONFIG.viewer.canvasDimensions.x / 2;
     Viewer.windowHalfY = core.CONFIG.viewer.canvasDimensions.y / 2;
 
-    Viewer.editorFolder = core.gui.addFolder(Viewer.t("gui.editor", "Editor")).close();
+    Viewer.editorFolder = core.gui.addFolder(t$1("gui.editor", "Editor")).close();
     Viewer.editorFolder.domElement?.classList.add("viewer-gui-main-folder");
     Viewer.editorFolder.domElement?.setAttribute("data-gui-main-folder", "editor");
-    Viewer.i18nGui = Viewer.i18nGui || {};
-    setCore("i18nGui", Viewer.i18nGui);
-    Viewer.i18nGui.editorFolder = Viewer.editorFolder;
+    core.i18nGui.editorFolder = Viewer.editorFolder;
     const showTransformHintToast = (mode) => {
       const hints = {
-        translate: Viewer.t("toasts.transformMove", "Move: drag axis arrows to reposition the object."),
-        rotate: Viewer.t("toasts.transformRotate", "Rotate: drag rotation rings to rotate the object."),
-        scale: Viewer.t("toasts.transformScale", "Scale: drag axis handles to resize the object."),
+        translate: t$1("toasts.transformMove", "Move: drag axis arrows to reposition the object."),
+        rotate: t$1("toasts.transformRotate", "Rotate: drag rotation rings to rotate the object."),
+        scale: t$1("toasts.transformScale", "Scale: drag axis handles to resize the object."),
       };
       const message = hints[mode];
       if (!message) return;
-      showToast(message, {
-        duration: 5200,
-        replace: true,
-        key: "transform-object-hint",
-      });
+        showToast(message, {
+          duration: 5200
+        });
     };
 
     const showTransformLightHintToast = (mode) => {
       const hints = {
-        translate: Viewer.t("toasts.transformLightMove", "Transform Light - Move: drag axis arrows to move the directional light."),
-        rotate: Viewer.t("toasts.transformLightTarget", "Transform Light - Target: drag axis arrows to reposition the light target."),
+        translate: t$1("toasts.transformLightMove", "Transform Light - Move: drag axis arrows to move the directional light."),
+        rotate: t$1("toasts.transformLightTarget", "Transform Light - Target: drag axis arrows to reposition the light target."),
       };
       const message = hints[mode];
       if (!message) return;
-      showToast(message, {
-        duration: 5200,
-        replace: true,
-        key: "transform-light-hint",
-      });
+        showToast(message, {
+          duration: 5200
+        });
     };
 
-    Viewer.i18nGui.transformObjectController = Viewer.editorFolder
+    core.i18nGui.transformObjectController = Viewer.editorFolder
       .add(Viewer.transformText, "Transform 3D Object", {
-        [Viewer.t("gui.none", "None")]: "",
-        [Viewer.t("gui.move", "Move")]: "translate",
-        [Viewer.t("gui.rotate", "Rotate")]: "rotate",
-        [Viewer.t("gui.scale", "Scale")]: "scale",
+        [t$1("gui.none", "None")]: "",
+        [t$1("gui.move", "Move")]: "translate",
+        [t$1("gui.rotate", "Rotate")]: "rotate",
+        [t$1("gui.scale", "Scale")]: "scale",
       })
-      .name(Viewer.t("gui.transform3dObject", "Transform 3D Object"))
+      .name(t$1("gui.transform3dObject", "Transform 3D Object"))
       .onChange(function (value) {
         if (value === "") {
           core.transformControl.detach();
@@ -14574,24 +14783,24 @@ const Viewer = {
 
         }
       });
-    Viewer.i18nGui.transformModeController = Viewer.editorFolder
+    core.i18nGui.transformModeController = Viewer.editorFolder
       .add(Viewer.transformText, "Transform Mode", {
-        [Viewer.t("gui.local", "Local")]: "local",
-        [Viewer.t("gui.global", "Global")]: "global",
+        [t$1("gui.local", "Local")]: "local",
+        [t$1("gui.global", "Global")]: "global",
       })
-      .name(Viewer.t("gui.transformMode", "Transform Mode"))
+      .name(t$1("gui.transformMode", "Transform Mode"))
       .onChange(function (value) {
         core.transformControl.space = value;
       });
-    const lightFolder = Viewer.editorFolder.addFolder(Viewer.t("gui.directionalLight", "Directional Light")).close();
-    Viewer.i18nGui.lightFolder = lightFolder;
-    Viewer.i18nGui.transformLightController = lightFolder
+    const lightFolder = Viewer.editorFolder.addFolder(t$1("gui.directionalLight", "Directional Light")).close();
+    core.i18nGui.lightFolder = lightFolder;
+    core.i18nGui.transformLightController = lightFolder
       .add(Viewer.transformText, "Transform Light", {
-        [Viewer.t("gui.none", "None")]: "",
-        [Viewer.t("gui.move", "Move")]: "translate",
-        [Viewer.t("gui.target", "Target")]: "rotate",
+        [t$1("gui.none", "None")]: "",
+        [t$1("gui.move", "Move")]: "translate",
+        [t$1("gui.target", "Target")]: "rotate",
       })
-      .name(Viewer.t("gui.transformLight", "Transform Light"))
+      .name(t$1("gui.transformLight", "Transform Light"))
       .onChange(function (value) {
         if (value === "") {
           core.transformControlLight.detach();
@@ -14612,60 +14821,60 @@ const Viewer = {
           }
         }
       });
-    Viewer.i18nGui.directionalLightColorController = lightFolder
+    core.i18nGui.directionalLightColorController = lightFolder
       .addColor(Viewer.colors, "DirectionalLight")
-      .name(Viewer.t("gui.color", "Color"))
+      .name(t$1("gui.color", "Color"))
       .onChange(function (value) {
         core.lightObjects[0].color = new THREE.Color(value);
       })
       .listen();
-    Viewer.i18nGui.directionalLightIntensityController = lightFolder
+    core.i18nGui.directionalLightIntensityController = lightFolder
       .add(Viewer.intensity, "startIntensityDir", 0, 10)
-      .name(Viewer.t("gui.intensity", "Intensity"))
+      .name(t$1("gui.intensity", "Intensity"))
       .onChange(function (value) {
         core.lightObjects[0].intensity = value;
       })
       .listen();
 
-    const lightFolderAmbient = Viewer.editorFolder.addFolder(Viewer.t("gui.ambientLight", "Ambient Light")).close();
-    Viewer.i18nGui.lightFolderAmbient = lightFolderAmbient;
-    Viewer.i18nGui.ambientLightColorController = lightFolderAmbient
+    const lightFolderAmbient = Viewer.editorFolder.addFolder(t$1("gui.ambientLight", "Ambient Light")).close();
+    core.i18nGui.lightFolderAmbient = lightFolderAmbient;
+    core.i18nGui.ambientLightColorController = lightFolderAmbient
       .addColor(Viewer.colors, "AmbientLight")
-      .name(Viewer.t("gui.color", "Color"))
+      .name(t$1("gui.color", "Color"))
       .onChange(function (value) {
         Viewer.ambientLight.color = new THREE.Color(value);
       })
       .listen();
-    Viewer.i18nGui.ambientLightIntensityController = lightFolderAmbient
+    core.i18nGui.ambientLightIntensityController = lightFolderAmbient
       .add(Viewer.intensity, "startIntensityAmbient", 0, 10)
-      .name(Viewer.t("gui.intensity", "Intensity"))
+      .name(t$1("gui.intensity", "Intensity"))
       .onChange(function (value) {
         Viewer.ambientLight.intensity = value;
       })
       .listen();
 
-    const lightFolderCamera = Viewer.editorFolder.addFolder(Viewer.t("gui.cameraLight", "Camera Light")).close();
-    Viewer.i18nGui.lightFolderCamera = lightFolderCamera;
-    Viewer.i18nGui.cameraLightColorController = lightFolderCamera
+    const lightFolderCamera = Viewer.editorFolder.addFolder(t$1("gui.cameraLight", "Camera Light")).close();
+    core.i18nGui.lightFolderCamera = lightFolderCamera;
+    core.i18nGui.cameraLightColorController = lightFolderCamera
       .addColor(Viewer.colors, "CameraLight")
-      .name(Viewer.t("gui.color", "Color"))
+      .name(t$1("gui.color", "Color"))
       .onChange(function (value) {
         Viewer.cameraLight.color = new THREE.Color(value);
       })
       .listen();
-    Viewer.i18nGui.cameraLightIntensityController = lightFolderCamera
+    core.i18nGui.cameraLightIntensityController = lightFolderCamera
       .add(Viewer.intensity, "startIntensityCamera", 0, 10)
-      .name(Viewer.t("gui.intensity", "Intensity"))
+      .name(t$1("gui.intensity", "Intensity"))
       .onChange(function (value) {
         Viewer.cameraLight.intensity = value;
       })
       .listen();
 
-    const backgroundFolder = Viewer.editorFolder.addFolder(Viewer.t("gui.backgroundColor", "Background Color")).close();
-    Viewer.i18nGui.backgroundFolder = backgroundFolder;
-    Viewer.i18nGui.backgroundColorController = backgroundFolder
+    const backgroundFolder = Viewer.editorFolder.addFolder(t$1("gui.backgroundColor", "Background Color")).close();
+    core.i18nGui.backgroundFolder = backgroundFolder;
+    core.i18nGui.backgroundColorController = backgroundFolder
       .addColor(Viewer.colors, "BackgroundColor")
-      .name(Viewer.t("gui.backgroundColor", "Background Color"))
+      .name(t$1("gui.backgroundColor", "Background Color"))
       .onChange(function (value) {
         changeBackground(
           Viewer.backgroundType["Background Type"],
@@ -14674,9 +14883,9 @@ const Viewer = {
         );
       })
       .listen();
-    Viewer.i18nGui.backgroundColorOuterController = backgroundFolder
+    core.i18nGui.backgroundColorOuterController = backgroundFolder
       .addColor(Viewer.colors, "BackgroundColorOuter")
-      .name(Viewer.t("gui.backgroundColorOuter", "Background Color Outer"))
+      .name(t$1("gui.backgroundColorOuter", "Background Color Outer"))
       .onChange(function (value) {
         changeBackground(
           Viewer.backgroundType["Background Type"],
@@ -14685,12 +14894,12 @@ const Viewer = {
         );
       })
       .listen();
-    Viewer.i18nGui.backgroundTypeController = backgroundFolder
+    core.i18nGui.backgroundTypeController = backgroundFolder
       .add(Viewer.backgroundType, "Background Type", {
-        [Viewer.t("gui.linear", "Linear")]: "linear",
-        [Viewer.t("gui.gradient", "Gradient")]: "gradient",
+        [t$1("gui.linear", "Linear")]: "linear",
+        [t$1("gui.gradient", "Gradient")]: "gradient",
       })
-      .name(Viewer.t("gui.backgroundType", "Background Type"))
+      .name(t$1("gui.backgroundType", "Background Type"))
       .onChange(function (value) {
         if (value == "linear") Viewer.backgroundOuterFolder.hide();
         else Viewer.backgroundOuterFolder.show();
@@ -14703,23 +14912,19 @@ const Viewer = {
     setCore("clippingFolder", Viewer.clippingFolder);
 
     if (core.EDITOR) {
-      core.clippingFolder = Viewer.editorFolder.addFolder(Viewer.t("gui.clippingFolder", "Clipping Planes")).close();
-      Viewer.i18nGui.clippingFolder = core.clippingFolder;
+      core.clippingFolder = Viewer.editorFolder.addFolder(t$1("gui.clippingFolder", "Clipping Planes")).close();
+      core.i18nGui.clippingFolder = core.clippingFolder;
       
-      core.materialsFolder = Viewer.editorFolder.addFolder(Viewer.t("gui.materials", "Materials")).close();
-      Viewer.i18nGui.materialsFolder = core.materialsFolder;
+      core.materialsFolder = Viewer.editorFolder.addFolder(t$1("gui.materials", "Materials")).close();
+      core.i18nGui.materialsFolder = core.materialsFolder;
       setCore("materialsFolder", core.materialsFolder);
 
       Viewer.pickingModeController = Viewer.editorFolder.add(
         {
           togglePickingMode() {
             Viewer.pickingMode = !Viewer.pickingMode;
-            var _str;
-            Viewer.pickingMode ? (_str = "enabled") : (_str = "disabled");
-            showToast(Viewer.t(_str === "enabled" ? "toasts.facePickingEnabled" : "toasts.facePickingDisabled", "Face picking is " + _str), {
-              duration: 1400,
-              replace: true,
-              key: "face-picking-mode",
+            toastHelper$1(Viewer.pickingMode ? "facePickingEnabled" : "facePickingDisabled", {
+              duration: 1400
             });
             if (!Viewer.pickingMode) {
               Viewer.restoreLastPickedFace();
@@ -14738,14 +14943,14 @@ const Viewer = {
 
       Viewer.clearSelectedFacesController = Viewer.editorFolder.add(
         {
-          [Viewer.t("gui.clearSelectedFaces", "Clear selected faces")]() {
+          [t$1("gui.clearSelectedFaces", "Clear selected faces")]() {
             Viewer.clearSelectedFaces();
             Viewer.restoreLastPickedFace();
           },
         },
-        Viewer.t("gui.clearSelectedFaces", "Clear selected faces")
+        t$1("gui.clearSelectedFaces", "Clear selected faces")
       );
-      Viewer.i18nGui.clearSelectedFacesController = Viewer.clearSelectedFacesController;
+      core.i18nGui.clearSelectedFacesController = Viewer.clearSelectedFacesController;
 
       Viewer.selectedFacesCountController = Viewer.editorFolder
         .add(Viewer.pickingStats, "Selected faces")
@@ -14753,35 +14958,35 @@ const Viewer = {
       Viewer.updateSelectedFacesControllerLabel();
       Viewer.selectedFacesCountController.disable();
 
-      Viewer.metadataFolder = core.gui.addFolder(Viewer.t("gui.metadata", "Metadata")).close();
+      Viewer.metadataFolder = core.gui.addFolder(t$1("gui.metadata", "Metadata")).close();
       Viewer.metadataFolder.domElement?.classList.add("viewer-gui-main-folder");
       Viewer.metadataFolder.domElement?.setAttribute("data-gui-main-folder", "metadata");
-      Viewer.i18nGui.metadataFolder = Viewer.metadataFolder;
+      core.i18nGui.metadataFolder = Viewer.metadataFolder;
 
       Viewer.addAnnotationController = Viewer.metadataFolder.add(
         {
-          [Viewer.t("gui.addAnnotations", "Add annotations")]() {
+          [t$1("gui.addAnnotations", "Add annotations")]() {
             Viewer.openAnnotationDialogWithAutoPicking();
           },
         },
-        Viewer.t("gui.addAnnotations", "Add annotations")
+        t$1("gui.addAnnotations", "Add annotations")
       );
-      Viewer.i18nGui.addAnnotationController = Viewer.addAnnotationController;
-      Viewer.i18nGui.exportAnnotationsController = Viewer.metadataFolder.add(
+      core.i18nGui.addAnnotationController = Viewer.addAnnotationController;
+      core.i18nGui.exportAnnotationsController = Viewer.metadataFolder.add(
         {
-          [Viewer.t("gui.exportAnnotationsXml", "Export annotations XML")]() {
+          [t$1("gui.exportAnnotationsXml", "Export annotations XML")]() {
             Viewer.downloadAnnotationsXmlFile();
           },
         },
-        Viewer.t("gui.exportAnnotationsXml", "Export annotations XML")
+        t$1("gui.exportAnnotationsXml", "Export annotations XML")
       );
-      Viewer.i18nGui.importAnnotationsController = Viewer.metadataFolder.add(
+      core.i18nGui.importAnnotationsController = Viewer.metadataFolder.add(
         {
-          [Viewer.t("gui.importAnnotationsXml", "Import annotations XML")]() {
+          [t$1("gui.importAnnotationsXml", "Import annotations XML")]() {
             Viewer.triggerAnnotationsXmlImport();
           },
         },
-        Viewer.t("gui.importAnnotationsXml", "Import annotations XML")
+        t$1("gui.importAnnotationsXml", "Import annotations XML")
       );
       Viewer.updatePickingControlsVisibility();
 
@@ -14789,21 +14994,15 @@ const Viewer = {
         {
           toggleDistanceMeasurement() {
             Viewer.RULER_MODE = !Viewer.RULER_MODE;
-            var _str;
-            Viewer.RULER_MODE ? (_str = "enabled") : (_str = "disabled");
             if (Viewer.RULER_MODE) {
-              showToast(Viewer.t("toasts.distanceEnabled", "Distance measurement is enabled."), {
-                duration: 2600,
-                replace: true,
-                key: "distance-measurement-status",
+              toastHelper$1("distanceEnabled", {
+                duration: 2600
               });
-              showToast(Viewer.t("toasts.distanceHint", "Select a start point and an end point to measure distance."), {
-                duration: 5200,
-                replace: false,
-                key: "distance-measurement-hint",
+              toastHelper$1("distanceHint", {
+                duration: 5200
               });
             } else {
-              showToast(Viewer.t(_str === "enabled" ? "toasts.distanceModeEnabled" : "toasts.distanceModeDisabled", "Distance measurement mode is " + _str));
+              toastHelper$1(Viewer.RULER_MODE ? "distanceModeEnabled" : "distanceModeDisabled");
             }
             if (!Viewer.RULER_MODE) {
               Viewer.ruler.forEach((r) => {
@@ -14826,33 +15025,33 @@ const Viewer = {
       );
       Viewer.updateDistanceMeasurementControllerLabel();
 
-      Viewer.i18nGui.resetCameraController = Viewer.editorFolder.add(
+      core.i18nGui.resetCameraController = Viewer.editorFolder.add(
         {
-          [Viewer.t("gui.resetCameraPosition", "Reset camera position")]() {
+          [t$1("gui.resetCameraPosition", "Reset camera position")]() {
             Viewer.resetCamera();
           },
         },
-        Viewer.t("gui.resetCameraPosition", "Reset camera position")
+        t$1("gui.resetCameraPosition", "Reset camera position")
       );
     }
 
     if (!core.isLightweight) {
-      Viewer.propertiesFolder = Viewer.editorFolder.addFolder(Viewer.t("gui.saveProperties", "Save properties")).close();
-      Viewer.i18nGui.propertiesFolder = Viewer.propertiesFolder;
-      Viewer.i18nGui.savePropPositionController = Viewer.propertiesFolder.add(Viewer.saveProperties, "Position").name(Viewer.t("gui.position", "Position"));
-      Viewer.i18nGui.savePropRotationController = Viewer.propertiesFolder.add(Viewer.saveProperties, "Rotation").name(Viewer.t("gui.rotation", "Rotation"));
-      Viewer.i18nGui.savePropScaleController = Viewer.propertiesFolder.add(Viewer.saveProperties, "Scale").name(Viewer.t("gui.scale", "Scale"));
-      Viewer.i18nGui.savePropCameraController = Viewer.propertiesFolder.add(Viewer.saveProperties, "Camera").name(Viewer.t("gui.camera", "Camera"));
-      Viewer.i18nGui.savePropDirectionalController = Viewer.propertiesFolder.add(Viewer.saveProperties, "DirectionalLight").name(Viewer.t("gui.directionalLight", "Directional Light"));
-      Viewer.i18nGui.savePropAmbientController = Viewer.propertiesFolder.add(Viewer.saveProperties, "AmbientLight").name(Viewer.t("gui.ambientLight", "Ambient Light"));
-      Viewer.i18nGui.savePropCameraLightController = Viewer.propertiesFolder.add(Viewer.saveProperties, "CameraLight").name(Viewer.t("gui.cameraLight", "Camera Light"));
-      Viewer.i18nGui.savePropBackgroundController = Viewer.propertiesFolder.add(Viewer.saveProperties, "BackgroundColor").name(Viewer.t("gui.backgroundColor", "Background Color"));
+      Viewer.propertiesFolder = Viewer.editorFolder.addFolder(t$1("gui.saveProperties", "Save properties")).close();
+      core.i18nGui.propertiesFolder = Viewer.propertiesFolder;
+      core.i18nGui.savePropPositionController = Viewer.propertiesFolder.add(Viewer.saveProperties, "Position").name(t$1("gui.position", "Position"));
+      core.i18nGui.savePropRotationController = Viewer.propertiesFolder.add(Viewer.saveProperties, "Rotation").name(t$1("gui.rotation", "Rotation"));
+      core.i18nGui.savePropScaleController = Viewer.propertiesFolder.add(Viewer.saveProperties, "Scale").name(t$1("gui.scale", "Scale"));
+      core.i18nGui.savePropCameraController = Viewer.propertiesFolder.add(Viewer.saveProperties, "Camera").name(t$1("gui.camera", "Camera"));
+      core.i18nGui.savePropDirectionalController = Viewer.propertiesFolder.add(Viewer.saveProperties, "DirectionalLight").name(t$1("gui.directionalLight", "Directional Light"));
+      core.i18nGui.savePropAmbientController = Viewer.propertiesFolder.add(Viewer.saveProperties, "AmbientLight").name(t$1("gui.ambientLight", "Ambient Light"));
+      core.i18nGui.savePropCameraLightController = Viewer.propertiesFolder.add(Viewer.saveProperties, "CameraLight").name(t$1("gui.cameraLight", "Camera Light"));
+      core.i18nGui.savePropBackgroundController = Viewer.propertiesFolder.add(Viewer.saveProperties, "BackgroundColor").name(t$1("gui.backgroundColor", "Background Color"));
     }
 
     if (core.EDITOR && !core.isLightweight) {
-      Viewer.i18nGui.saveController = Viewer.editorFolder.add(
+      core.i18nGui.saveController = Viewer.editorFolder.add(
         {
-          [Viewer.t("gui.save", "Save")]() {
+          [t$1("gui.save", "Save")]() {
 
             var rotateMetadata = new THREE.Vector3(
               THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.x),
@@ -14910,23 +15109,23 @@ const Viewer = {
                   })
                 });
 
-                showToast("Settings have been saved.");
+                toastHelper$1("settingsSaved", "success");
               } catch (err) {
                 console.error(err);
-                showToast("Error saving settings");
+                toastHelper$1("settingsSaveError", "error");
               }
             })();
           }
         },
-        Viewer.t("gui.save", "Save")
+        t$1("gui.save", "Save")
       );
-      Viewer.i18nGui.renderPreviewController = Viewer.editorFolder.add(
+      core.i18nGui.renderPreviewController = Viewer.editorFolder.add(
         {
-          [Viewer.t("gui.renderPreview", "Render preview")]() {
+          [t$1("gui.renderPreview", "Render preview")]() {
             Viewer.takeScreenshot();
           },
         },
-        Viewer.t("gui.renderPreview", "Render preview")
+        t$1("gui.renderPreview", "Render preview")
       );
     }
 
@@ -14973,7 +15172,7 @@ const Viewer = {
     const loadedIIIF = await loadIIIFManifest(newUrlOrJson);
     if (loadedIIIF.modelUrls.length === 0) { // no 3D model found, use example model
       loadedIIIF.modelUrls.push('https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb');
-      showToast(Viewer.t("toasts.noIiiifModelFallback", "No 3D model found in IIIF manifest, loading example model."));
+      showToast(t$1("toasts.noIiiifModelFallback", "No 3D model found in IIIF manifest, loading example model."));
     }
     // reset scene and release GPU resources from the previous model batch
     Viewer.resetLoadedModelState();
@@ -15014,8 +15213,8 @@ const Viewer = {
       form.classList.toggle("collapsed");
       collapseBtn.textContent = form.classList.contains("collapsed") ? "▸" : "▾";
       collapseBtn.title = form.classList.contains("collapsed")
-        ? Viewer.t("iiif.expand", "Expand")
-        : Viewer.t("iiif.collapse", "Collapse");
+        ? t$1("iiif.expand", "Expand")
+        : t$1("iiif.collapse", "Collapse");
     });
     // create a small dropdown to switch iiif manifests at runtime
     Viewer.bindEventListener(document.getElementById("iiif-manifest-select"), "change", async (ev) => {
@@ -15036,7 +15235,7 @@ const Viewer = {
         const inputElement = document.getElementById("manifest-url");
         if (inputElement.value === "" || !Viewer.isUrlFlexible(inputElement.value)) {
         inputElement.style.border = "2px solid red";
-        showToast(Viewer.t("iiif.invalidUrl", "Please enter a valid IIIF manifest URL."));
+        showToast("iiif.invalidUrl", "warning");
         return;
       } else {
         inputElement.style.border = "2px solid green";
@@ -15055,8 +15254,8 @@ const Viewer = {
       try {
         const inputElement = document.getElementById("manifest-text");
         if (inputElement.value === "" || !Viewer.isValidJsonObject(inputElement.value)) {
-        inputElement.style.border = "2px solid red";
-        showToast(Viewer.t("iiif.invalidJson", "Please enter a valid IIIF JSON text."));
+          inputElement.style.border = "2px solid red";
+          showToast("iiif.invalidJson", "warning");
         return;
       } else {
         inputElement.style.border = "2px solid green";
@@ -15192,7 +15391,7 @@ const Viewer = {
       core.renderer.domElement.tabIndex = 0;
       core.renderer.domElement.setAttribute("aria-label", "3D viewer canvas");
 
-      if (!core.presentationMode) {
+      if (!core.PRESENTATION_MODE) {
 
         Viewer.bindEventListener(core.renderer.domElement, "pointerdown", Viewer.onPointerDown);
         Viewer.bindEventListener(core.renderer.domElement, "pointerup", Viewer.onPointerUp);
@@ -15259,7 +15458,7 @@ const Viewer = {
       core.camera.updateProjectionMatrix();
 
       setCore('mainCanvas', Viewer.mainCanvas);
-      if (!core.presentationMode) {
+      if (!core.PRESENTATION_MODE) {
         const scriptUrl = document.currentScript?.src || import.meta.url;
         Viewer.DFG_ASSETS = scriptUrl.replace(/\/[^\/]*$/, '');
 
@@ -15338,7 +15537,7 @@ const Viewer = {
           item.dataset.lang = lang.code;
           item.textContent = lang.label;
           item.setAttribute("role", "option");
-          item.setAttribute("aria-selected", Viewer.currentLanguage === lang.code ? "true" : "false");
+          item.setAttribute("aria-selected", core.currentLanguage === lang.code ? "true" : "false");
           Viewer.bindEventListener(item, "click", () => Viewer.selectLanguage(lang.code));
           Viewer.languageModeDropdown.appendChild(item);
         });
@@ -15362,10 +15561,10 @@ const Viewer = {
         setCore('viewEntity', Viewer.viewEntity);
         Viewer.bindEventListener(Viewer.languageMode, "click", Viewer.toggleLanguage.bind(Viewer));
         Viewer.bindEventListener(Viewer.themeMode, "click", Viewer.toggleTheme.bind(Viewer));
-          Viewer.bindEventListener(Viewer.fullscreenMode, "click", Viewer.toggleFullscreen, false);
+        Viewer.bindEventListener(Viewer.fullscreenMode, "click", Viewer.toggleFullscreen, false);
         Viewer.bindEventListener(Viewer.viewEntity, "click", Viewer.openEmbedConfiguratorFromMenu.bind(Viewer));
         Viewer.updateEmbedMenuEntryState();
-        Viewer.applyLanguage(Viewer.currentLanguage, { persist: false });
+        Viewer.applyLanguage({ persist: false });
         Viewer.bindEventListener(Viewer.downloadModel, "click", () => Viewer.closeActionMenu());
         Viewer.bindEventListener(document, "click", (event) => {
           if (
@@ -15400,13 +15599,13 @@ const Viewer = {
       Viewer.controls.enableDamping = true;
       Viewer.controls.dampingFactor = 0.05;
       Viewer.controls.enableRotate = true;
-      if (typeof Viewer.urlOptions.autoRotate === "boolean" || core.presentationMode) {
+      if (typeof Viewer.urlOptions.autoRotate === "boolean" || core.PRESENTATION_MODE) {
         Viewer.controls.autoRotate = Viewer.urlOptions.autoRotate;
       }
       if (Number.isFinite(Viewer.urlOptions.autoRotateSpeed)) {
         Viewer.controls.autoRotateSpeed = Viewer.urlOptions.autoRotateSpeed;
       }
-      if (Viewer.urlOptions.disableInteraction || core.presentationMode) {
+      if (Viewer.urlOptions.disableInteraction || core.PRESENTATION_MODE) {
         Viewer.controls.enabled = false;
         Viewer.controls.enableRotate = false;
         Viewer.controls.enablePan = false;
@@ -15418,7 +15617,7 @@ const Viewer = {
       setCore('lastTime', Viewer.lastTime);
       setCore('helperObjects', Viewer.helperObjects);
 
-      if (!core.presentationMode) {
+      if (!core.PRESENTATION_MODE) {
         Viewer.transformControl = new TransformControls(core.camera, core.renderer.domElement);
         Viewer.transformControl.rotationSnap = THREE.MathUtils.degToRad(5);
         Viewer.transformControl.space = "local";
@@ -15493,7 +15692,7 @@ const Viewer = {
       
       core.autoPath = "";
 
-      if (core.isLocalPreview && !core.presentationMode) {
+      if (core.isLocalPreview && !core.PRESENTATION_MODE) {
         const picker = document.getElementById('example-model-picker');
         const selectModel = document.getElementById('example-model-select');
         const themeToggle = document.getElementById('example-theme-toggle');
@@ -15528,7 +15727,7 @@ const Viewer = {
         }
       }
 
-      if (!core.presentationMode) {
+      if (!core.PRESENTATION_MODE) {
         const sourceType = core.CONFIG.entity.metadata.sourceType.toLowerCase();
         console.log("Loading from source: " + sourceType);
             

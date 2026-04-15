@@ -3,6 +3,7 @@ import THREE from "./init.js";
 import { core, setCore } from './core.js';
 import TWEEN, { add } from "three/examples/jsm/libs/tween.module.js";
 import { normalizeColor, parseCssColor } from './utils.js';
+import { t } from "./i18n-utils.js";
 
 export const initClippingPlanes = () => {
   const clippingPlanes = [
@@ -34,14 +35,30 @@ function normalizeNoticeArgs(toneOrOptions, maybeOptions) {
   return { tone, options };
 }
 
+export const toastHelper = (key, toneOrOptions, maybeOptions) => {
+  return showToast(`toasts.${key}`, toneOrOptions, maybeOptions);
+};
+
 export const showToast = (message, toneOrOptions, maybeOptions) => {
   const { tone, options } = normalizeNoticeArgs(toneOrOptions, maybeOptions);
+
   const duration = Number.isFinite(options.duration)
     ? options.duration
     : DEFAULT_NOTICE_DURATION;
+
   const key = String(options.key ?? "");
   const replace = options.replace === true;
-  const text = String(message);
+
+  // Resolve i18n key if possible, otherwise use the message as-is (for backward compatibility)
+  let text;
+
+  if (typeof message === "string" && message.includes(".")) {
+    // try to resolve as i18n key with optional variables
+    text = t(message, options);
+  } else {
+    // fallback (old way)
+    text = String(message);
+  }
 
   if (window.__E2E__ && window.viewer) {
     window.viewer.toasts ??= [];
@@ -50,6 +67,7 @@ export const showToast = (message, toneOrOptions, maybeOptions) => {
 
   const statusNotice = core.statusNotice;
   const enqueueStatusNotice = core.enqueueStatusNotice;
+
   if (typeof enqueueStatusNotice === "function") {
     enqueueStatusNotice({ message: text, tone, duration, key, replace });
     return;
@@ -65,7 +83,6 @@ export const showToast = (message, toneOrOptions, maybeOptions) => {
   statusNotice.dataset.tone = tone;
   statusNotice.classList.remove("is-visible", "is-hiding");
 
-  // Force a reflow so repeated messages retrigger the entrance animation.
   void statusNotice.offsetWidth;
   statusNotice.classList.add("is-visible");
 
@@ -719,7 +736,9 @@ async function fitCameraToCenteredObject(object, _fit) {
       controlsTarget: [core.controls.target.x, core.controls.target.y, core.controls.target.z],
     };
   }
-  setupClippingPlanes(object, {x: boundingBox.max.x*1.1, y: boundingBox.max.y*1.1, z: boundingBox.max.z*1.1});
+  if (!core.presentationMode) {
+    setupClippingPlanes(object, {x: boundingBox.max.x*1.1, y: boundingBox.max.y*1.1, z: boundingBox.max.z*1.1});
+  }
 }
 
 function parseGradient(str) {
@@ -866,10 +885,9 @@ function setupClippingPlanes(_geom, _distance) {
   core.distanceGeometry = _distance;
   scaleXYZ(core.distanceGeometry, 2);
   const showClippingPlaneToast = (axisLabel, enabled) => {
-    showToast(`Clipping plane ${axisLabel} helper ${enabled ? "enabled" : "disabled"}`, {
-      duration: 1400,
-      replace: true,
-      key: "clipping-plane-helper",
+    toastHelper("clippingHelperToggle", "info", {
+      axis: axisLabel,
+      state: enabled
     });
   };
   const refreshClippingHint = () => {
