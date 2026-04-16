@@ -346,7 +346,7 @@ export async function loadModel() {
     core.handHint.hidden = true;
     window.viewer.modelLoaded = true;
     traverseMesh(object);
-    if (!core.presentationMode) {
+    if (!core.PRESENTATION_MODE) {
       const isArchiveDerivedPath = /\/[^/]+_(ZIP|RAR|TAR|XZ|GZ)\/gltf\/$/i.test(core.fileObject.path);
       if (!isArchiveDerivedPath) {
         if (core.fileObject.extension.toLowerCase() === "gltf" || core.fileObject.extension.toLowerCase() === "glb") {
@@ -727,14 +727,18 @@ const progressLoaderHandler = function (xhr) {
   if (!Number.isFinite(percentComplete)) return;
   core.circle.show();
   core.circle.set(percentComplete, 100);
-  core.UltraLoader.set(percentComplete);
+  core.UltraLoader?.set(percentComplete);
   if (percentComplete >= 100) {
     core.circle.hide();
-    toastHelper("modelLoaded", "success", {
-      filename: core.fileObject.filename
-    });
+    if (!core.PRESENTATION_MODE) {
+      toastHelper("modelLoaded", "success", {
+        filename: core.fileObject.filename
+      });
+    } else {
+      toastHelper("presentationModeReady", "success");
+    }
     if (typeof core.EXIT_CODE !== "undefined") core.EXIT_CODE = 0;
-    core.UltraLoader.finish();
-    core.poller.updateSteps(2);
+    core.UltraLoader?.finish();
+    core.poller?.updateSteps(2);
   }
 }

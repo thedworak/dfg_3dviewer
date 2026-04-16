@@ -263,7 +263,6 @@ export function fetchMetadata(_object, _type) {
       return 0;
   }
 }
-
 /**
  * Handles metadata response and builds the metadata UI.
  */
@@ -476,10 +475,22 @@ async function loadMetadataData(metadataUrl) {
   }
 }
 
-export async function presentationMode (object) {
-  if (core.presentationMode) {
+export async function traverseObject (object) {
+  if (Array.isArray(object)) {
+    setupObject(object[0], null);
+    await setupCamera(object[0], null);
+  } else if (object.name === "Scene" || object.children.length > 0 || object.type == "Mesh") {
     setupObject(object, null);
     await setupCamera(object, null);
+  } else {
+    setupObject(object, null);
+    await setupCamera(object, null);
+  }
+}
+
+export async function presentationMode (object) {
+  if (core.PRESENTATION_MODE) {
+    traverseObject(object);
   } else { return; }
 }
 

@@ -5359,7 +5359,9 @@ export const Viewer = {
       setCore('isLocalPreview', isLocalPreview);
       console.info('Running on', window.location.hostname, '- Local preview mode:', core.isLocalPreview);
 
-      Viewer.startModelProcessing();
+      if (!core.PRESENTATION_MODE) {
+        Viewer.startModelProcessing();
+      }
 
       const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444);
       hemiLight.position.set(0, 200, 0);
@@ -5648,6 +5650,9 @@ export const Viewer = {
       Viewer.controls.enableDamping = true;
       Viewer.controls.dampingFactor = 0.05;
       Viewer.controls.enableRotate = true;
+      if (core.PRESENTATION_MODE) {
+        //TODO
+      }
       if (typeof Viewer.urlOptions.autoRotate === "boolean" || core.PRESENTATION_MODE) {
         Viewer.controls.autoRotate = Viewer.urlOptions.autoRotate;
       }

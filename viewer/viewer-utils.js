@@ -281,9 +281,17 @@ export const setupObject = (_object, _metadata) => {
       boundingBox.setFromObject(_object);
       _object.position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
       _object.updateMatrixWorld();
-    } else {
+    } else if (!core.PRESENTATION_MODE) {
       boundingBox.setFromObject(_object);
       _object.position.set((boundingBox.max.x - boundingBox.min.x ) / 2, (boundingBox.max.y - boundingBox.min.y) / 2, (boundingBox.max.z - boundingBox.min.z ) / 2);
+      _object.updateMatrixWorld();
+      _object.needsUpdate = true;
+      if (typeof _object.geometry !== "undefined") {
+        _object.geometry.computeBoundingBox();
+        _object.geometry.computeBoundingSphere();
+      }
+    } else {
+      _object.position.set(0, 0, 0);
       _object.updateMatrixWorld();
       _object.needsUpdate = true;
       if (typeof _object.geometry !== "undefined") {
@@ -333,17 +341,6 @@ async function setupEmptyCamera(_object) {
   const distance = size.length();
   core.camera.position.set(center.x, center.y, center.z + distance);
   await fitCameraToCenteredObject(_object, true);
-}
-
-function getSceneValue(meta, sceneId, path, fallback) {
-  const scene = meta.scenes?.[sceneId];
-  const global = meta.globals;
-
-  return (
-    path.reduce((o, k) => o?.[k], scene) ??
-    path.reduce((o, k) => o?.[k], global) ??
-    fallback
-  );
 }
 
 function parseColor(v) {
@@ -495,27 +492,32 @@ export async function setupCamera(_object, _data) {
   // --- BACKGROUND ---
   //const sceneBg = fallback?.scene?.background;
 
-  const bg = resolveBackground(fallback, core.activeScene);
+  if (!core.PRESENTATION_MODE) {
+    const bg = resolveBackground(fallback, core.activeScene);
 
-  switch (bg.kind) {
-    case "gradient":
-    case "radial":
-      applyGradientCss(bg.normalizedGradient);
-      break;
+    switch (bg.kind) {
+      case "gradient":
+      case "radial":
+        applyGradientCss(bg.normalizedGradient);
+        break;
 
-    case "color":
-    case "linear":
-      changeBackground("linear", bg.color);
-      break;
+      case "color":
+      case "linear":
+        changeBackground("linear", bg.color);
+        break;
 
-    case "default":
-    case "unknown":
-      changeBackground(
-        "radial",
-        core.colors.BackgroundColor,
-        core.colors.BackgroundColorOuter
-      );
-      break;
+      case "default":
+      case "unknown":
+        changeBackground(
+          "radial",
+          core.colors.BackgroundColor,
+          core.colors.BackgroundColorOuter
+        );
+        break;
+    }
+  } else {
+    const grandient = {type: "radial", colors: [{r: 255, g: 255, b: 255, a: 0}, {r: 255, g: 255, b: 255, a: 0}]};
+    applyGradientCss(grandient);
   }
 
   core.camera.updateProjectionMatrix();
@@ -736,7 +738,7 @@ async function fitCameraToCenteredObject(object, _fit) {
       controlsTarget: [core.controls.target.x, core.controls.target.y, core.controls.target.z],
     };
   }
-  if (!core.presentationMode) {
+  if (!core.PRESENTATION_MODE) {
     setupClippingPlanes(object, {x: boundingBox.max.x*1.1, y: boundingBox.max.y*1.1, z: boundingBox.max.z*1.1});
   }
 }
@@ -797,10 +799,10 @@ function rgbaToCss(c) {
   return `rgba(${c.r}, ${c.g}, ${c.b}, ${c.a})`;
 }
 
-function changeBackgroundHelper(_color1, _color2) {
+function changeBackgroundHelper(_color1, _color2, _alpha = 100) {
   core.mainCanvas.style.setProperty(
     "background",
-    `radial-gradient(circle, ${_color1} 0%, ${_color2} 100%)`
+    `radial-gradient(circle, ${_color1} 0%, ${_color2} ${_alpha}%)`
   );
 }
 
@@ -840,16 +842,17 @@ export function applyGradientCss(gradient) {
   core.mainCanvas.style.setProperty("background", css);
 }
 
-export function changeBackground(_type, _color1, _color2 = _color1) {
+export function changeBackground(_type, _color1, _color2 = _color1, _alpha = 100) {
   switch (_type) {
     case "linear":
-      changeBackgroundHelper(_color1, _color1);
+      changeBackgroundHelper(_color1, _color1, _alpha);
       break;
     case "gradient":
     case "radial":
-      changeBackgroundHelper(_color1, _color2);
+      changeBackgroundHelper(_color1, _color2, _alpha);
       break;
   }
+  console.log("Background changed to", _type, _color1, _color2);
 }
 
 function setupClippingPlanes(_geom, _distance) {

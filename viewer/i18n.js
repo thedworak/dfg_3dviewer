@@ -152,6 +152,8 @@ export const VIEWER_I18N = {
       modelLoaded: "Model {filename} has been loaded.",
       modelLoadedSimple: "Model loaded successfully.",
       unsupportedFormat: "Unsupported file format.",
+      presentationModeReady: "Presentation mode is ready.",
+      presentationModeError: "An error occurred during presentation mode setup.",
 
       embedSourceMissing: "Set Model URL or Entity ID for embed.",
       embedUrlCopied: "Embed URL copied.",
@@ -346,6 +348,8 @@ export const VIEWER_I18N = {
       modelLoaded: "Model {filename} został załadowany.",
       modelLoadedSimple: "Model został pomyślnie załadowany.",
       unsupportedFormat: "Nieobsługiwany format pliku.",
+      presentationModeReady: "Tryb prezentacji jest gotowy.",
+      presentationModeError: "Wystąpił błąd podczas konfiguracji trybu prezentacji.",
 
       embedSourceMissing: "Ustaw URL modelu lub ID encji do osadzenia.",
       embedUrlCopied: "Skopiowano URL osadzenia.",
@@ -535,6 +539,8 @@ export const VIEWER_I18N = {
       modelLoaded: "Modell {filename} wurde geladen.",
       modelLoadedSimple: "Modell wurde erfolgreich geladen.",
       unsupportedFormat: "Nicht unterstütztes Dateiformat.",
+      presentationModeReady: "Präsentationsmodus ist bereit.",
+      presentationModeError: "Beim Einrichten des Präsentationsmodus ist ein Fehler aufgetreten.",
 
       embedSourceMissing: "Model-URL oder Entitäts-ID für die Einbettung festlegen.",
       embedUrlCopied: "Einbettungs-URL kopiert.",

@@ -361,6 +361,8 @@ const VIEWER_I18N = {
       modelLoaded: "Model {filename} has been loaded.",
       modelLoadedSimple: "Model loaded successfully.",
       unsupportedFormat: "Unsupported file format.",
+      presentationModeReady: "Presentation mode is ready.",
+      presentationModeError: "An error occurred during presentation mode setup.",
 
       embedSourceMissing: "Set Model URL or Entity ID for embed.",
       embedUrlCopied: "Embed URL copied.",
@@ -555,6 +557,8 @@ const VIEWER_I18N = {
       modelLoaded: "Model {filename} został załadowany.",
       modelLoadedSimple: "Model został pomyślnie załadowany.",
       unsupportedFormat: "Nieobsługiwany format pliku.",
+      presentationModeReady: "Tryb prezentacji jest gotowy.",
+      presentationModeError: "Wystąpił błąd podczas konfiguracji trybu prezentacji.",
 
       embedSourceMissing: "Ustaw URL modelu lub ID encji do osadzenia.",
       embedUrlCopied: "Skopiowano URL osadzenia.",
@@ -744,6 +748,8 @@ const VIEWER_I18N = {
       modelLoaded: "Modell {filename} wurde geladen.",
       modelLoadedSimple: "Modell wurde erfolgreich geladen.",
       unsupportedFormat: "Nicht unterstütztes Dateiformat.",
+      presentationModeReady: "Präsentationsmodus ist bereit.",
+      presentationModeError: "Beim Einrichten des Präsentationsmodus ist ein Fehler aufgetreten.",
 
       embedSourceMissing: "Model-URL oder Entitäts-ID für die Einbettung festlegen.",
       embedUrlCopied: "Einbettungs-URL kopiert.",
@@ -1094,9 +1100,17 @@ const setupObject = (_object, _metadata) => {
       boundingBox.setFromObject(_object);
       _object.position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
       _object.updateMatrixWorld();
-    } else {
+    } else if (!core.PRESENTATION_MODE) {
       boundingBox.setFromObject(_object);
       _object.position.set((boundingBox.max.x - boundingBox.min.x ) / 2, (boundingBox.max.y - boundingBox.min.y) / 2, (boundingBox.max.z - boundingBox.min.z ) / 2);
+      _object.updateMatrixWorld();
+      _object.needsUpdate = true;
+      if (typeof _object.geometry !== "undefined") {
+        _object.geometry.computeBoundingBox();
+        _object.geometry.computeBoundingSphere();
+      }
+    } else {
+      _object.position.set(0, 0, 0);
       _object.updateMatrixWorld();
       _object.needsUpdate = true;
       if (typeof _object.geometry !== "undefined") {
@@ -1297,27 +1311,32 @@ async function setupCamera(_object, _data) {
   // --- BACKGROUND ---
   //const sceneBg = fallback?.scene?.background;
 
-  const bg = resolveBackground(fallback, core.activeScene);
+  if (!core.PRESENTATION_MODE) {
+    const bg = resolveBackground(fallback, core.activeScene);
 
-  switch (bg.kind) {
-    case "gradient":
-    case "radial":
-      applyGradientCss(bg.normalizedGradient);
-      break;
+    switch (bg.kind) {
+      case "gradient":
+      case "radial":
+        applyGradientCss(bg.normalizedGradient);
+        break;
 
-    case "color":
-    case "linear":
-      changeBackground("linear", bg.color);
-      break;
+      case "color":
+      case "linear":
+        changeBackground("linear", bg.color);
+        break;
 
-    case "default":
-    case "unknown":
-      changeBackground(
-        "radial",
-        core.colors.BackgroundColor,
-        core.colors.BackgroundColorOuter
-      );
-      break;
+      case "default":
+      case "unknown":
+        changeBackground(
+          "radial",
+          core.colors.BackgroundColor,
+          core.colors.BackgroundColorOuter
+        );
+        break;
+    }
+  } else {
+    const grandient = {type: "radial", colors: [{r: 255, g: 255, b: 255, a: 0}, {r: 153, g: 153, b: 153, a: 0}]};
+    applyGradientCss(grandient);
   }
 
   core.camera.updateProjectionMatrix();
@@ -1538,7 +1557,7 @@ async function fitCameraToCenteredObject(object, _fit) {
       controlsTarget: [core.controls.target.x, core.controls.target.y, core.controls.target.z],
     };
   }
-  if (!core.presentationMode) {
+  if (!core.PRESENTATION_MODE) {
     setupClippingPlanes(object, {x: boundingBox.max.x*1.1, y: boundingBox.max.y*1.1, z: boundingBox.max.z*1.1});
   }
 }
@@ -1599,10 +1618,10 @@ function rgbaToCss(c) {
   return `rgba(${c.r}, ${c.g}, ${c.b}, ${c.a})`;
 }
 
-function changeBackgroundHelper(_color1, _color2) {
+function changeBackgroundHelper(_color1, _color2, _alpha = 100) {
   core.mainCanvas.style.setProperty(
     "background",
-    `radial-gradient(circle, ${_color1} 0%, ${_color2} 100%)`
+    `radial-gradient(circle, ${_color1} 0%, ${_color2} ${_alpha}%)`
   );
 }
 
@@ -1642,16 +1661,17 @@ function applyGradientCss(gradient) {
   core.mainCanvas.style.setProperty("background", css);
 }
 
-function changeBackground(_type, _color1, _color2 = _color1) {
+function changeBackground(_type, _color1, _color2 = _color1, _alpha = 100) {
   switch (_type) {
     case "linear":
-      changeBackgroundHelper(_color1, _color1);
+      changeBackgroundHelper(_color1, _color1, _alpha);
       break;
     case "gradient":
     case "radial":
-      changeBackgroundHelper(_color1, _color2);
+      changeBackgroundHelper(_color1, _color2, _alpha);
       break;
   }
+  console.log("Background changed to", _type, _color1, _color2);
 }
 
 function setupClippingPlanes(_geom, _distance) {
@@ -2092,7 +2112,6 @@ function fetchMetadata(_object, _type) {
       return 0;
   }
 }
-
 /**
  * Handles metadata response and builds the metadata UI.
  */
@@ -2305,10 +2324,22 @@ async function loadMetadataData(metadataUrl) {
   }
 }
 
-async function presentationMode (object) {
-  if (core.presentationMode) {
+async function traverseObject (object) {
+  if (Array.isArray(object)) {
+    setupObject(object[0], null);
+    await setupCamera(object[0], null);
+  } else if (object.name === "Scene" || object.children.length > 0 || object.type == "Mesh") {
     setupObject(object, null);
     await setupCamera(object, null);
+  } else {
+    setupObject(object, null);
+    await setupCamera(object, null);
+  }
+}
+
+async function presentationMode (object) {
+  if (core.PRESENTATION_MODE) {
+    traverseObject(object);
   } else { return; }
 }
 
@@ -2821,7 +2852,7 @@ async function loadModel() {
     core.handHint.hidden = true;
     window.viewer.modelLoaded = true;
     traverseMesh(object);
-    if (!core.presentationMode) {
+    if (!core.PRESENTATION_MODE) {
       const isArchiveDerivedPath = /\/[^/]+_(ZIP|RAR|TAR|XZ|GZ)\/gltf\/$/i.test(core.fileObject.path);
       if (!isArchiveDerivedPath) {
         if (core.fileObject.extension.toLowerCase() === "gltf" || core.fileObject.extension.toLowerCase() === "glb") {
@@ -3131,15 +3162,19 @@ const progressLoaderHandler = function (xhr) {
   if (!Number.isFinite(percentComplete)) return;
   core.circle.show();
   core.circle.set(percentComplete, 100);
-  core.UltraLoader.set(percentComplete);
+  core.UltraLoader?.set(percentComplete);
   if (percentComplete >= 100) {
     core.circle.hide();
-    toastHelper$1("modelLoaded", "success", {
-      filename: core.fileObject.filename
-    });
+    if (!core.PRESENTATION_MODE) {
+      toastHelper$1("modelLoaded", "success", {
+        filename: core.fileObject.filename
+      });
+    } else {
+      toastHelper$1("presentationModeReady", "success");
+    }
     if (typeof core.EXIT_CODE !== "undefined") core.EXIT_CODE = 0;
-    core.UltraLoader.finish();
-    core.poller.updateSteps(2);
+    core.UltraLoader?.finish();
+    core.poller?.updateSteps(2);
   }
 };
 
@@ -15323,7 +15358,9 @@ const Viewer = {
       setCore('isLocalPreview', isLocalPreview);
       console.info('Running on', window.location.hostname, '- Local preview mode:', core.isLocalPreview);
 
-      Viewer.startModelProcessing();
+      if (!core.PRESENTATION_MODE) {
+        Viewer.startModelProcessing();
+      }
 
       const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444);
       hemiLight.position.set(0, 200, 0);
