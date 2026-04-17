@@ -336,6 +336,10 @@ const VIEWER_I18N = {
     localPreview: {
       loadExampleModel: "Load example model",
     },
+    state: {
+      enabled: "enabled",
+      disabled: "disabled"
+    },
     toasts: {
       transformMove: "Move: drag axis arrows to reposition the object.",
       transformRotate: "Rotate: drag rotation rings to rotate the object.",
@@ -523,10 +527,6 @@ const VIEWER_I18N = {
     },
     localPreview: {
       loadExampleModel: "Wczytaj model przykładowy",
-    },
-    state: {
-      enabled: "Enabled",
-      disabled: "Disabled"
     },
     state: {
       enabled: "włączony",
@@ -818,6 +818,12 @@ const t$1=function(key, varsOrFallback = {}, maybeFallback = "") {
 
     if (typeof val === "boolean") {
       val = t$1(`state.${val ? "enabled" : "disabled"}`);
+    } else if (typeof val === "string") {
+      if (val === "enabled" || val === "disabled") {
+        val = t$1(`state.${val}`);
+      } else if (val.startsWith("state.")) {
+        val = t$1(val);
+      }
     }
 
     return val ?? `{${v}}`;
