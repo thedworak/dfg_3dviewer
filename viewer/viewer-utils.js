@@ -202,6 +202,17 @@ function setupGeometryHandler (_object) {
   _object.updateMatrixWorld(true);
 }
 
+function centerObjectAtOrigin(_object) {
+  const boundingBox = new THREE.Box3();
+  boundingBox.setFromObject(_object, true);
+  if (boundingBox.isEmpty()) return;
+
+  const center = new THREE.Vector3();
+  boundingBox.getCenter(center);
+  _object.position.sub(center);
+  _object.updateMatrixWorld(true);
+}
+
 function setupCameraHandler(_object, meta) {
   if (!meta) return;
 
@@ -277,27 +288,23 @@ export const setupObject = (_object, _metadata) => {
         _object[i].updateMatrixWorld();
       }
     } else if (_object.isGroup) {
-      //workaround for specific Group case
-      boundingBox.setFromObject(_object);
-      _object.position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
-      _object.updateMatrixWorld();
+      // Keep non-presentation behavior, but center fully in presentation mode.
+      if (core.PRESENTATION_MODE) {
+        centerObjectAtOrigin(_object);
+      } else {
+        //workaround for specific Group case
+        boundingBox.setFromObject(_object);
+        _object.position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
+        _object.updateMatrixWorld();
+      }
     } else if (!core.PRESENTATION_MODE) {
       boundingBox.setFromObject(_object);
       _object.position.set((boundingBox.max.x - boundingBox.min.x ) / 2, (boundingBox.max.y - boundingBox.min.y) / 2, (boundingBox.max.z - boundingBox.min.z ) / 2);
-      _object.updateMatrixWorld();
-      _object.needsUpdate = true;
-      if (typeof _object.geometry !== "undefined") {
-        _object.geometry.computeBoundingBox();
-        _object.geometry.computeBoundingSphere();
-      }
+      setupGeometryHandler(_object);
     } else {
-      _object.position.set(0, 0, 0);
-      _object.updateMatrixWorld();
-      _object.needsUpdate = true;
-      if (typeof _object.geometry !== "undefined") {
-        _object.geometry.computeBoundingBox();
-        _object.geometry.computeBoundingSphere();
-      }
+      // In presentation mode keep local hierarchy transforms and center only the whole object.
+      centerObjectAtOrigin(_object);
+      setupGeometryHandler(_object);
     }
   }
 
@@ -328,7 +335,8 @@ async function setupEmptyCamera(_object) {
   var boundingBox = new THREE.Box3();
   if (Array.isArray(_object)) {
     for (let i = 0; i < _object.length; i++) {
-      boundingBox.setFromObject(_object[i], true);
+      const box = new THREE.Box3().setFromObject(_object[i], true);
+      boundingBox.union(box);
     }
   } else {
     boundingBox.setFromObject(_object, true);
@@ -536,6 +544,7 @@ export async function setupCamera(_object, _data) {
   core.GESTURE.target = boxCenter.clone();
   core.controls.target.copy(core.GESTURE.target);
 
+  if (core.handHint == null) return;
   core.handHint.hidden = false;
   core.handHint.classList.add("hand-drag-animate");
 }
@@ -726,8 +735,9 @@ async function fitCameraToCenteredObject(object, _fit) {
       THREE.MathUtils.radToDeg(core.helperObjects[0]?.rotation.y || 5),
       THREE.MathUtils.radToDeg(core.helperObjects[0]?.rotation.z || 1)
     );
+    const rootObject = Array.isArray(object) ? object[0] : object;
     core.objectsConfig.originalMetadata = {
-      objPosition: [object.position.x, object.position.y, object.position.z],
+      objPosition: [rootObject?.position?.x || 0, rootObject?.position?.y || 0, rootObject?.position?.z || 0],
       objRotation: [rotateMetadata.x, rotateMetadata.y, rotateMetadata.z],
       objScale: [
         core.helperObjects[0]?.scale.x || 1,
@@ -852,7 +862,6 @@ export function changeBackground(_type, _color1, _color2 = _color1, _alpha = 100
       changeBackgroundHelper(_color1, _color2, _alpha);
       break;
   }
-  console.log("Background changed to", _type, _color1, _color2);
 }
 
 function setupClippingPlanes(_geom, _distance) {

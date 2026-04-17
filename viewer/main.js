@@ -1960,12 +1960,6 @@ export const Viewer = {
     core.CONFIG.viewer.exportPath = "/api/editor/xml-export/";    
     this.loadedFile = `${core.fileObject.basename}.${core.fileObject.extension}`;
 
-    this.handHint = document.createElement("div");
-    this.handHint.id = "handHint";
-    this.handHint.hidden = true;
-    core.container.appendChild(this.handHint);
-    setCore('handHint', this.handHint);
-
     this.noticeContainer = document.createElement("div");
     this.noticeContainer.id = "viewerNoticeContainer";
     core.container.appendChild(this.noticeContainer);
@@ -1987,6 +1981,12 @@ export const Viewer = {
     }
 
     if (!core.PRESENTATION_MODE) {
+      this.handHint = document.createElement("div");
+      this.handHint.id = "handHint";
+      this.handHint.hidden = true;
+      core.container.appendChild(this.handHint);
+      setCore('handHint', this.handHint);
+
       this.pickingHint = document.createElement("div");
       this.pickingHint.id = "pickingHint";
       this.pickingHint.className = "viewer-notice viewer-notice-hint";
@@ -2104,6 +2104,7 @@ export const Viewer = {
 
   // Disable interaction hint on first interaction
  disableInteractionHint() {
+    if (core.PRESENTATION_MODE) return;
     core.handHint.hidden = true;
     Viewer.stopGesture();
 
@@ -3911,6 +3912,7 @@ export const Viewer = {
       Viewer.actionMenu.style.bottom = "auto";
     }
 
+    if (core.handHint)
     core.handHint.style.top = (heightCSS - 70) + 'px';
    
     core.renderer.setPixelRatio(devicePixelRatio * scale.x);
@@ -3984,7 +3986,7 @@ export const Viewer = {
     const ease = ei * ei * (3 - 2 * ei); // smoothstep(0..1)
 
     // hand icon
-    core.handHint.style.setProperty(
+    core.handHint?.style.setProperty(
       '--hand-x',
       `${s * core.GESTURE.handPx}px`
     );
@@ -4020,6 +4022,7 @@ export const Viewer = {
   },
 
   stopGesture: () => {
+    if (!core.handHint) return;
     const g = core.GESTURE;
     if (!g) return;
     if (!g.active) return;
@@ -4040,58 +4043,63 @@ export const Viewer = {
 
   animate: (time) => {
     requestAnimationFrame(Viewer.animate);
-
-    // =========================
-    // GESTURE LIFECYCLE
-    // =========================
-    const canGesture =
-      !window.__E2E__ &&
-      !core.handHint.hidden;
-
-    if (canGesture && core.GESTURE?.rotate && !core.GESTURE?.active ) {
-      Viewer.startGesture(time);
-    }
-
-    if (core.GESTURE?.active && (!core.GESTURE?.rotate || !canGesture)) {
-      Viewer.stopGesture();
-    }
-
-    // =========================
-    // GESTURE UPDATE
-    // =========================
-    Viewer.updateHandAnimation(time);
-
-    // =========================
-    // LOOP UPDATE
-    // =========================
     const delta = Viewer.clock.getDelta();
-    if (Viewer.mixer) {
-      Viewer.mixer.update(delta);
+
+    if (!core.PRESENTATION_MODE) {
+
+      // =========================
+      // GESTURE LIFECYCLE
+      // =========================
+      const canGesture =
+        !window.__E2E__ &&
+        !core.handHint?.hidden;
+
+      if (canGesture && core.GESTURE?.rotate && !core.GESTURE?.active ) {
+        Viewer.startGesture(time);
+      }
+
+      if (core.GESTURE?.active && (!core.GESTURE?.rotate || !canGesture)) {
+        Viewer.stopGesture();
+      }
+
+      // =========================
+      // GESTURE UPDATE
+      // =========================
+      Viewer.updateHandAnimation(time);
+
+      core.controls?.update();
+
+      if (Viewer.textMesh !== null) {
+        Viewer.textMesh.lookAt(core.camera.position);
+      }
+
+      if (Viewer.ruler?.length) {
+        Viewer.ruler.forEach((rulerObject) => {
+          rulerObject?.traverse?.((child) => {
+            if (child?.userData?.isDistanceLabel === true) {
+              child.lookAt(core.camera.position);
+            }
+          });
+        });
+      }
+      Viewer.updateAnnotationPOITooltipPosition();
+    }
+    if (!core.GESTURE?.active || core.PRESENTATION_MODE) {
+      core.controls?.update();
     }
 
-    if (core.handHint?.hidden && !core.GESTURE?.active) {
+    if ((core.PRESENTATION_MODE ||core.handHint?.hidden) && !core.GESTURE?.active) {
       core.cameraTween?.update(time);
       core.targetTween?.update(time);
     }
 
-    if (!core.GESTURE?.active) {
-      core.controls?.update();
+    // =========================
+    // LOOP UPDATE
+    // =========================
+    
+    if (Viewer.mixer) {
+      Viewer.mixer.update(delta);
     }
-
-    if (Viewer.textMesh !== null) {
-      Viewer.textMesh.lookAt(core.camera.position);
-    }
-
-    if (Viewer.ruler?.length) {
-      Viewer.ruler.forEach((rulerObject) => {
-        rulerObject?.traverse?.((child) => {
-          if (child?.userData?.isDistanceLabel === true) {
-            child.lookAt(core.camera.position);
-          }
-        });
-      });
-    }
-    Viewer.updateAnnotationPOITooltipPosition();
 
     core.renderer.clear();
     core.renderer.render(core.scene, core.camera);
@@ -5493,10 +5501,6 @@ export const Viewer = {
       core.renderer.domElement.style.display = "block";
       core.container.appendChild(core.renderer.domElement);
       Viewer.mainCanvas.classList.add("mainCanvas");
-      //Viewer.canvasText = document.createElement("div");
-      //Viewer.canvasText.id = "metadata-container";
-      //Viewer.canvasText.width = core.CONFIG.viewer.canvasDimensions.x + "px";
-      //Viewer.canvasText.height = core.CONFIG.viewer.canvasDimensions.y + "px";
 
       Viewer.viewerWrapper = core.container.closest('.viewer-wrapper');
 
@@ -5650,10 +5654,13 @@ export const Viewer = {
       Viewer.controls.enableDamping = true;
       Viewer.controls.dampingFactor = 0.05;
       Viewer.controls.enableRotate = true;
+
       if (core.PRESENTATION_MODE) {
         //TODO
+        Viewer.controls.autoRotate = true;
+        Viewer.controls.autoRotateSpeed = 1.5; // in seconds
       }
-      if (typeof Viewer.urlOptions.autoRotate === "boolean" || core.PRESENTATION_MODE) {
+      if (typeof Viewer.urlOptions.autoRotate === "boolean") {
         Viewer.controls.autoRotate = Viewer.urlOptions.autoRotate;
       }
       if (Number.isFinite(Viewer.urlOptions.autoRotateSpeed)) {
@@ -5665,6 +5672,7 @@ export const Viewer = {
         Viewer.controls.enablePan = false;
         Viewer.controls.enableZoom = false;
       }
+      console.log(Viewer.controls)
       Viewer.controls.update();
       setCore('controls', Viewer.controls);
       setCore('GESTURE', Viewer.GESTURE);

@@ -1021,6 +1021,17 @@ function setupGeometryHandler (_object) {
   _object.updateMatrixWorld(true);
 }
 
+function centerObjectAtOrigin(_object) {
+  const boundingBox = new THREE.Box3();
+  boundingBox.setFromObject(_object, true);
+  if (boundingBox.isEmpty()) return;
+
+  const center = new THREE.Vector3();
+  boundingBox.getCenter(center);
+  _object.position.sub(center);
+  _object.updateMatrixWorld(true);
+}
+
 function setupCameraHandler(_object, meta) {
   if (!meta) return;
 
@@ -1096,27 +1107,23 @@ const setupObject = (_object, _metadata) => {
         _object[i].updateMatrixWorld();
       }
     } else if (_object.isGroup) {
-      //workaround for specific Group case
-      boundingBox.setFromObject(_object);
-      _object.position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
-      _object.updateMatrixWorld();
+      // Keep non-presentation behavior, but center fully in presentation mode.
+      if (core.PRESENTATION_MODE) {
+        centerObjectAtOrigin(_object);
+      } else {
+        //workaround for specific Group case
+        boundingBox.setFromObject(_object);
+        _object.position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
+        _object.updateMatrixWorld();
+      }
     } else if (!core.PRESENTATION_MODE) {
       boundingBox.setFromObject(_object);
       _object.position.set((boundingBox.max.x - boundingBox.min.x ) / 2, (boundingBox.max.y - boundingBox.min.y) / 2, (boundingBox.max.z - boundingBox.min.z ) / 2);
-      _object.updateMatrixWorld();
-      _object.needsUpdate = true;
-      if (typeof _object.geometry !== "undefined") {
-        _object.geometry.computeBoundingBox();
-        _object.geometry.computeBoundingSphere();
-      }
+      setupGeometryHandler(_object);
     } else {
-      _object.position.set(0, 0, 0);
-      _object.updateMatrixWorld();
-      _object.needsUpdate = true;
-      if (typeof _object.geometry !== "undefined") {
-        _object.geometry.computeBoundingBox();
-        _object.geometry.computeBoundingSphere();
-      }
+      // In presentation mode keep local hierarchy transforms and center only the whole object.
+      centerObjectAtOrigin(_object);
+      setupGeometryHandler(_object);
     }
   }
 
@@ -1147,7 +1154,8 @@ async function setupEmptyCamera(_object) {
   var boundingBox = new THREE.Box3();
   if (Array.isArray(_object)) {
     for (let i = 0; i < _object.length; i++) {
-      boundingBox.setFromObject(_object[i], true);
+      const box = new THREE.Box3().setFromObject(_object[i], true);
+      boundingBox.union(box);
     }
   } else {
     boundingBox.setFromObject(_object, true);
@@ -1335,7 +1343,7 @@ async function setupCamera(_object, _data) {
         break;
     }
   } else {
-    const grandient = {type: "radial", colors: [{r: 255, g: 255, b: 255, a: 0}, {r: 153, g: 153, b: 153, a: 0}]};
+    const grandient = {type: "radial", colors: [{r: 255, g: 255, b: 255, a: 0}, {r: 255, g: 255, b: 255, a: 0}]};
     applyGradientCss(grandient);
   }
 
@@ -1355,6 +1363,7 @@ async function setupCamera(_object, _data) {
   core.GESTURE.target = boxCenter.clone();
   core.controls.target.copy(core.GESTURE.target);
 
+  if (core.handHint == null) return;
   core.handHint.hidden = false;
   core.handHint.classList.add("hand-drag-animate");
 }
@@ -1545,8 +1554,9 @@ async function fitCameraToCenteredObject(object, _fit) {
       THREE.MathUtils.radToDeg(core.helperObjects[0]?.rotation.y || 5),
       THREE.MathUtils.radToDeg(core.helperObjects[0]?.rotation.z || 1)
     );
+    const rootObject = Array.isArray(object) ? object[0] : object;
     core.objectsConfig.originalMetadata = {
-      objPosition: [object.position.x, object.position.y, object.position.z],
+      objPosition: [rootObject?.position?.x || 0, rootObject?.position?.y || 0, rootObject?.position?.z || 0],
       objRotation: [rotateMetadata.x, rotateMetadata.y, rotateMetadata.z],
       objScale: [
         core.helperObjects[0]?.scale.x || 1,
@@ -1671,7 +1681,6 @@ function changeBackground(_type, _color1, _color2 = _color1, _alpha = 100) {
       changeBackgroundHelper(_color1, _color2, _alpha);
       break;
   }
-  console.log("Background changed to", _type, _color1, _color2);
 }
 
 function setupClippingPlanes(_geom, _distance) {
@@ -2326,8 +2335,12 @@ async function loadMetadataData(metadataUrl) {
 
 async function traverseObject (object) {
   if (Array.isArray(object)) {
-    setupObject(object[0], null);
-    await setupCamera(object[0], null);
+    // Keep relative transforms between parts; centering each element separately
+    // collapses multi-part models into overlapping geometry.
+    object.forEach((obj) => {
+      obj.updateMatrixWorld(true);
+    });
+    await setupCamera(object, null);
   } else if (object.name === "Scene" || object.children.length > 0 || object.type == "Mesh") {
     setupObject(object, null);
     await setupCamera(object, null);
@@ -2670,10 +2683,9 @@ function setupSingleMaterial(materials, material) {
   }
   material.envMapIntensity = 0.6;
   material.roughness = Math.max(material.roughness * 0.85, 0.05);
-  //material.side = THREE.DoubleSide;
   material.clipShadows = true;
-  material.side = THREE.FrontSide;
-  material.clippingPlanes = core.clippingPlanes;
+  material.side = core.PRESENTATION_MODE ? THREE.DoubleSide : THREE.FrontSide;
+  material.clippingPlanes = core.PRESENTATION_MODE ? [] : core.clippingPlanes;
   //material.clipIntersection = false;
   if (material.name === "") material.name = material.uuid;
   var newMaterial = { name: material.name, uuid: material.uuid };
@@ -2835,21 +2847,25 @@ async function loadModel() {
     if (object === null || typeof object === "undefined") {
       throw new Error("Loaded object is null or undefined.");
     }
-    // Reset transform to ensure consistent positioning
-    if (Array.isArray(object)) {
-      object.forEach(obj => {
-        obj.position.set(0, 0, 0);
-        obj.rotation.set(0, 0, 0);
-        obj.scale.set(1, 1, 1);
-        obj.updateMatrixWorld(true);
-      });
-    } else {
-      object.position.set(0, 0, 0);
-      object.rotation.set(0, 0, 0);
-      object.scale.set(1, 1, 1);
-      object.updateMatrixWorld(true);
+    // Keep authoring transforms in presentation mode to avoid collapsing model parts.
+    if (!core.PRESENTATION_MODE) {
+      // Reset transform to ensure consistent positioning
+      if (Array.isArray(object)) {
+        object.forEach(obj => {
+          obj.position.set(0, 0, 0);
+          obj.rotation.set(0, 0, 0);
+          obj.scale.set(1, 1, 1);
+          obj.updateMatrixWorld(true);
+        });
+      } else {
+        object.position.set(0, 0, 0);
+        object.rotation.set(0, 0, 0);
+        object.scale.set(1, 1, 1);
+        object.updateMatrixWorld(true);
+      }
+      core.handHint.hidden = true;
     }
-    core.handHint.hidden = true;
+    
     window.viewer.modelLoaded = true;
     traverseMesh(object);
     if (!core.PRESENTATION_MODE) {
@@ -11965,12 +11981,6 @@ const Viewer = {
     core.CONFIG.viewer.exportPath = "/api/editor/xml-export/";    
     this.loadedFile = `${core.fileObject.basename}.${core.fileObject.extension}`;
 
-    this.handHint = document.createElement("div");
-    this.handHint.id = "handHint";
-    this.handHint.hidden = true;
-    core.container.appendChild(this.handHint);
-    setCore('handHint', this.handHint);
-
     this.noticeContainer = document.createElement("div");
     this.noticeContainer.id = "viewerNoticeContainer";
     core.container.appendChild(this.noticeContainer);
@@ -11992,6 +12002,12 @@ const Viewer = {
     }
 
     if (!core.PRESENTATION_MODE) {
+      this.handHint = document.createElement("div");
+      this.handHint.id = "handHint";
+      this.handHint.hidden = true;
+      core.container.appendChild(this.handHint);
+      setCore('handHint', this.handHint);
+
       this.pickingHint = document.createElement("div");
       this.pickingHint.id = "pickingHint";
       this.pickingHint.className = "viewer-notice viewer-notice-hint";
@@ -12109,6 +12125,7 @@ const Viewer = {
 
   // Disable interaction hint on first interaction
  disableInteractionHint() {
+    if (core.PRESENTATION_MODE) return;
     core.handHint.hidden = true;
     Viewer.stopGesture();
 
@@ -13915,6 +13932,7 @@ const Viewer = {
       Viewer.actionMenu.style.bottom = "auto";
     }
 
+    if (core.handHint)
     core.handHint.style.top = (heightCSS - 70) + 'px';
    
     core.renderer.setPixelRatio(devicePixelRatio * scale.x);
@@ -13988,7 +14006,7 @@ const Viewer = {
     const ease = ei * ei * (3 - 2 * ei); // smoothstep(0..1)
 
     // hand icon
-    core.handHint.style.setProperty(
+    core.handHint?.style.setProperty(
       '--hand-x',
       `${s * core.GESTURE.handPx}px`
     );
@@ -14024,6 +14042,7 @@ const Viewer = {
   },
 
   stopGesture: () => {
+    if (!core.handHint) return;
     const g = core.GESTURE;
     if (!g) return;
     if (!g.active) return;
@@ -14044,58 +14063,63 @@ const Viewer = {
 
   animate: (time) => {
     requestAnimationFrame(Viewer.animate);
-
-    // =========================
-    // GESTURE LIFECYCLE
-    // =========================
-    const canGesture =
-      !window.__E2E__ &&
-      !core.handHint.hidden;
-
-    if (canGesture && core.GESTURE?.rotate && !core.GESTURE?.active ) {
-      Viewer.startGesture(time);
-    }
-
-    if (core.GESTURE?.active && (!core.GESTURE?.rotate || !canGesture)) {
-      Viewer.stopGesture();
-    }
-
-    // =========================
-    // GESTURE UPDATE
-    // =========================
-    Viewer.updateHandAnimation(time);
-
-    // =========================
-    // LOOP UPDATE
-    // =========================
     const delta = Viewer.clock.getDelta();
-    if (Viewer.mixer) {
-      Viewer.mixer.update(delta);
+
+    if (!core.PRESENTATION_MODE) {
+
+      // =========================
+      // GESTURE LIFECYCLE
+      // =========================
+      const canGesture =
+        !window.__E2E__ &&
+        !core.handHint?.hidden;
+
+      if (canGesture && core.GESTURE?.rotate && !core.GESTURE?.active ) {
+        Viewer.startGesture(time);
+      }
+
+      if (core.GESTURE?.active && (!core.GESTURE?.rotate || !canGesture)) {
+        Viewer.stopGesture();
+      }
+
+      // =========================
+      // GESTURE UPDATE
+      // =========================
+      Viewer.updateHandAnimation(time);
+
+      core.controls?.update();
+
+      if (Viewer.textMesh !== null) {
+        Viewer.textMesh.lookAt(core.camera.position);
+      }
+
+      if (Viewer.ruler?.length) {
+        Viewer.ruler.forEach((rulerObject) => {
+          rulerObject?.traverse?.((child) => {
+            if (child?.userData?.isDistanceLabel === true) {
+              child.lookAt(core.camera.position);
+            }
+          });
+        });
+      }
+      Viewer.updateAnnotationPOITooltipPosition();
+    }
+    if (!core.GESTURE?.active || core.PRESENTATION_MODE) {
+      core.controls?.update();
     }
 
-    if (core.handHint?.hidden && !core.GESTURE?.active) {
+    if ((core.PRESENTATION_MODE ||core.handHint?.hidden) && !core.GESTURE?.active) {
       core.cameraTween?.update(time);
       core.targetTween?.update(time);
     }
 
-    if (!core.GESTURE?.active) {
-      core.controls?.update();
+    // =========================
+    // LOOP UPDATE
+    // =========================
+    
+    if (Viewer.mixer) {
+      Viewer.mixer.update(delta);
     }
-
-    if (Viewer.textMesh !== null) {
-      Viewer.textMesh.lookAt(core.camera.position);
-    }
-
-    if (Viewer.ruler?.length) {
-      Viewer.ruler.forEach((rulerObject) => {
-        rulerObject?.traverse?.((child) => {
-          if (child?.userData?.isDistanceLabel === true) {
-            child.lookAt(core.camera.position);
-          }
-        });
-      });
-    }
-    Viewer.updateAnnotationPOITooltipPosition();
 
     core.renderer.clear();
     core.renderer.render(core.scene, core.camera);
@@ -15492,10 +15516,6 @@ const Viewer = {
       core.renderer.domElement.style.display = "block";
       core.container.appendChild(core.renderer.domElement);
       Viewer.mainCanvas.classList.add("mainCanvas");
-      //Viewer.canvasText = document.createElement("div");
-      //Viewer.canvasText.id = "metadata-container";
-      //Viewer.canvasText.width = core.CONFIG.viewer.canvasDimensions.x + "px";
-      //Viewer.canvasText.height = core.CONFIG.viewer.canvasDimensions.y + "px";
 
       Viewer.viewerWrapper = core.container.closest('.viewer-wrapper');
 
@@ -15649,7 +15669,13 @@ const Viewer = {
       Viewer.controls.enableDamping = true;
       Viewer.controls.dampingFactor = 0.05;
       Viewer.controls.enableRotate = true;
-      if (typeof Viewer.urlOptions.autoRotate === "boolean" || core.PRESENTATION_MODE) {
+
+      if (core.PRESENTATION_MODE) {
+        //TODO
+        Viewer.controls.autoRotate = true;
+        Viewer.controls.autoRotateSpeed = 1.5; // in seconds
+      }
+      if (typeof Viewer.urlOptions.autoRotate === "boolean") {
         Viewer.controls.autoRotate = Viewer.urlOptions.autoRotate;
       }
       if (Number.isFinite(Viewer.urlOptions.autoRotateSpeed)) {
@@ -15661,6 +15687,7 @@ const Viewer = {
         Viewer.controls.enablePan = false;
         Viewer.controls.enableZoom = false;
       }
+      console.log(Viewer.controls);
       Viewer.controls.update();
       setCore('controls', Viewer.controls);
       setCore('GESTURE', Viewer.GESTURE);

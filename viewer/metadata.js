@@ -477,8 +477,12 @@ async function loadMetadataData(metadataUrl) {
 
 export async function traverseObject (object) {
   if (Array.isArray(object)) {
-    setupObject(object[0], null);
-    await setupCamera(object[0], null);
+    // Keep relative transforms between parts; centering each element separately
+    // collapses multi-part models into overlapping geometry.
+    object.forEach((obj) => {
+      obj.updateMatrixWorld(true);
+    });
+    await setupCamera(object, null);
   } else if (object.name === "Scene" || object.children.length > 0 || object.type == "Mesh") {
     setupObject(object, null);
     await setupCamera(object, null);

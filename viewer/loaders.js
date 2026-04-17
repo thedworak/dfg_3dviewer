@@ -164,10 +164,9 @@ function setupSingleMaterial(materials, material) {
   }
   material.envMapIntensity = 0.6;
   material.roughness = Math.max(material.roughness * 0.85, 0.05);
-  //material.side = THREE.DoubleSide;
   material.clipShadows = true;
-  material.side = THREE.FrontSide;
-  material.clippingPlanes = core.clippingPlanes;
+  material.side = core.PRESENTATION_MODE ? THREE.DoubleSide : THREE.FrontSide;
+  material.clippingPlanes = core.PRESENTATION_MODE ? [] : core.clippingPlanes;
   //material.clipIntersection = false;
   if (material.name === "") material.name = material.uuid;
   var newMaterial = { name: material.name, uuid: material.uuid };
@@ -329,21 +328,25 @@ export async function loadModel() {
     if (object === null || typeof object === "undefined") {
       throw new Error("Loaded object is null or undefined.");
     }
-    // Reset transform to ensure consistent positioning
-    if (Array.isArray(object)) {
-      object.forEach(obj => {
-        obj.position.set(0, 0, 0);
-        obj.rotation.set(0, 0, 0);
-        obj.scale.set(1, 1, 1);
-        obj.updateMatrixWorld(true);
-      });
-    } else {
-      object.position.set(0, 0, 0);
-      object.rotation.set(0, 0, 0);
-      object.scale.set(1, 1, 1);
-      object.updateMatrixWorld(true);
+    // Keep authoring transforms in presentation mode to avoid collapsing model parts.
+    if (!core.PRESENTATION_MODE) {
+      // Reset transform to ensure consistent positioning
+      if (Array.isArray(object)) {
+        object.forEach(obj => {
+          obj.position.set(0, 0, 0);
+          obj.rotation.set(0, 0, 0);
+          obj.scale.set(1, 1, 1);
+          obj.updateMatrixWorld(true);
+        });
+      } else {
+        object.position.set(0, 0, 0);
+        object.rotation.set(0, 0, 0);
+        object.scale.set(1, 1, 1);
+        object.updateMatrixWorld(true);
+      }
+      core.handHint.hidden = true;
     }
-    core.handHint.hidden = true;
+    
     window.viewer.modelLoaded = true;
     traverseMesh(object);
     if (!core.PRESENTATION_MODE) {
