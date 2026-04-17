@@ -1692,6 +1692,26 @@ function setupClippingPlanes(_geom, _distance) {
   core.clippingPlanes[0].constant = _distance.x;
   core.clippingPlanes[1].constant = _distance.y;
   core.clippingPlanes[2].constant = _distance.z;
+  let clippingCenterY = 0;
+  if (_geom) {
+    const bounds = new THREE.Box3();
+    if (Array.isArray(_geom)) {
+      for (let i = 0; i < _geom.length; i++) {
+        bounds.union(new THREE.Box3().setFromObject(_geom[i], true));
+      }
+    } else {
+      bounds.setFromObject(_geom, true);
+    }
+    if (!bounds.isEmpty()) {
+      clippingCenterY = bounds.getCenter(new THREE.Vector3()).y;
+    }
+  }
+  const updatePlaneHelperPosition = (index, constantValue) => {
+    const helper = core.planeHelpers?.[index];
+    const plane = core.clippingPlanes?.[index];
+    if (!helper || !plane) return;
+    helper.position.copy(plane.normal).multiplyScalar(-constantValue);
+  };
   if (core.EDITOR) {
 
   if (core.transformControlClippingPlaneX && core.transformControlClippingPlaneY && core.transformControlClippingPlaneZ) {
@@ -1709,8 +1729,27 @@ function setupClippingPlanes(_geom, _distance) {
   core.planeHelpers.forEach((ph, index) => {
     ph.visible = false;
     ph.name = "PlaneHelper";
-    ph.position.copy(core.clippingPlanes[index].normal).multiplyScalar(core.clippingPlanes[index].constant);
-    core.scene.add(ph);
+    updatePlaneHelperPosition(index, core.clippingPlanes[index].constant);
+    if (index === 0 || index === 2) {
+      ph.userData.clippingCenterY = clippingCenterY;
+      const baseUpdateMatrixWorld = ph.updateMatrixWorld.bind(ph);
+      ph.updateMatrixWorld = function updatePlaneHelperMatrix(force) {
+        baseUpdateMatrixWorld(force);
+        this.position.y = this.userData.clippingCenterY || 0;
+        this.updateMatrix();
+        if (this.parent) {
+          this.matrixWorld.multiplyMatrices(this.parent.matrixWorld, this.matrix);
+        } else {
+          this.matrixWorld.copy(this.matrix);
+        }
+        for (let i = 0; i < this.children.length; i++) {
+          this.children[i].updateMatrixWorld(true);
+        }
+      };
+      core.scene.add(ph);
+    } else {
+      core.scene.add(ph);
+    }
   });
 
   core.distanceGeometry = _distance;
@@ -1765,7 +1804,7 @@ function setupClippingPlanes(_geom, _distance) {
       .listen()
       .onChange((d) => {
         core.clippingPlanes[0].constant = d;
-        core.planeHelpers[0].position.copy(core.clippingPlanes[0].normal).multiplyScalar(d);
+        updatePlaneHelperPosition(0, d);
       });
 
     displayHelper.y?.onChange((v) => {
@@ -1793,7 +1832,7 @@ function setupClippingPlanes(_geom, _distance) {
       .listen()
       .onChange((d) => {
         core.clippingPlanes[1].constant = d;
-        core.planeHelpers[1].position.copy(core.clippingPlanes[1].normal).multiplyScalar(d);
+        updatePlaneHelperPosition(1, d);
       });
   
     displayHelper.z?.onChange((v) => {
@@ -1821,7 +1860,7 @@ function setupClippingPlanes(_geom, _distance) {
       .listen()
       .onChange((d) => {
         core.clippingPlanes[2].constant = d;
-        core.planeHelpers[2].position.copy(core.clippingPlanes[2].normal).multiplyScalar(d);
+        updatePlaneHelperPosition(2, d);
       });
 
     displayHelper.outline.onChange((v) => {
@@ -2665,6 +2704,9 @@ function prepareOutlineClipping(_object) {
     side: THREE.BackSide,
     clippingPlanes: core.clippingPlanes,
     clipShadows: true,
+    polygonOffset: true,
+    polygonOffsetFactor: 1,
+    polygonOffsetUnits: 1,
   });
 
   core.outlineClipping.traverse(function (child) {
@@ -11293,6 +11335,7 @@ const Viewer = {
       disableInteraction: this.urlOptions?.disableInteraction === true,
       hideUi: this.urlOptions?.hideUi === true,
       hideMetadata: this.urlOptions?.hideMetadata === true,
+      presentationMode: core.PRESENTATION_MODE === true,
       cameraPosition: null,
       cameraTarget: null,
       fov: null,
@@ -11317,6 +11360,7 @@ const Viewer = {
     this.embedConfigInputs.disableInteraction.checked = options.disableInteraction === true;
     this.embedConfigInputs.hideUi.checked = options.hideUi === true;
     this.embedConfigInputs.hideMetadata.checked = options.hideMetadata === true;
+    this.embedConfigInputs.presentationMode.checked = options.presentationMode === true;
     this.embedConfigInputs.camPos.value = options.cameraPosition ?? "";
     this.embedConfigInputs.camTarget.value = options.cameraTarget ?? "";
     this.embedConfigInputs.fov.value = Number.isFinite(options.fov) ? String(options.fov) : "";
@@ -11383,6 +11427,9 @@ const Viewer = {
     if (options.hideMetadata) {
       params.set("hideMetadata", "1");
     }
+    if (options.presentationMode) {
+      params.set("presentationMode", "1");
+    }
     if (options.cameraPosition) {
       params.set("camPos", options.cameraPosition);
     }
@@ -11421,6 +11468,7 @@ const Viewer = {
       disableInteraction: inputs.disableInteraction.checked,
       hideUi: inputs.hideUi.checked,
       hideMetadata: inputs.hideMetadata.checked,
+      presentationMode: inputs.presentationMode.checked,
       cameraPosition: this.formatVector3Param(parsedCamPos),
       cameraTarget: this.formatVector3Param(parsedCamTarget),
       fov: normalizedFov,
@@ -11494,7 +11542,7 @@ const Viewer = {
     panel.innerHTML = `
       <div class="embed-config-header">
         <span>Embed options</span>
-        <button id="embedClosePanel" type="button" aria-label="Close embed options">Close</button>
+        <button id="embedClosePanel" type="button" aria-label="Close embed options">X</button>
       </div>
       <div class="embed-config-layout">
         <div class="embed-config-main">
@@ -11517,6 +11565,7 @@ const Viewer = {
             <label><input id="embedDisableInteractionInput" type="checkbox"${defaults.disableInteraction ? " checked" : ""} /> Disable interaction</label>
             <label><input id="embedHideUiInput" type="checkbox"${defaults.hideUi ? " checked" : ""} /> Hide action menu</label>
             <label><input id="embedHideMetadataInput" type="checkbox"${defaults.hideMetadata ? " checked" : ""} /> Hide metadata</label>
+            <label><input id="embedPresentationModeInput" type="checkbox"${defaults.presentationMode ? " checked" : ""} /> Presentation mode</label>
           </div>
           <div class="embed-config-actions">
             <button id="embedUseCurrentCamera" type="button">Use Current Camera</button>
@@ -11545,6 +11594,7 @@ const Viewer = {
       disableInteraction: panel.querySelector("#embedDisableInteractionInput"),
       hideUi: panel.querySelector("#embedHideUiInput"),
       hideMetadata: panel.querySelector("#embedHideMetadataInput"),
+      presentationMode: panel.querySelector("#embedPresentationModeInput"),
       camPos: panel.querySelector("#embedCamPosInput"),
       camTarget: panel.querySelector("#embedCamTargetInput"),
       fov: panel.querySelector("#embedFovInput"),
@@ -11562,6 +11612,7 @@ const Viewer = {
       this.embedConfigInputs.disableInteraction,
       this.embedConfigInputs.hideUi,
       this.embedConfigInputs.hideMetadata,
+      this.embedConfigInputs.presentationMode,
       this.embedConfigInputs.camPos,
       this.embedConfigInputs.camTarget,
       this.embedConfigInputs.fov,
@@ -12023,6 +12074,32 @@ const Viewer = {
       this.clippingHint.hidden = true;
       this.noticeContainer.appendChild(this.clippingHint);
       setCore("clippingHint", this.clippingHint);
+
+      core.guiContainer = document.createElement("div");
+      core.guiContainer.id = "guiContainer";
+      core.guiContainer.className = "guiContainer";
+      core.container.appendChild(core.guiContainer);
+
+      core.gui  = new p({ container: core.guiContainer });
+
+      this.metadataContainer = document.createElement("div");
+      this.metadataContainer.setAttribute("id", "metadata-container");
+      this.metadataContainer.style.top = -this.metadataContainer.getBoundingClientRect().top + "px";
+      if (this.urlOptions.hideMetadata) {
+        this.metadataContainer.style.display = "none";
+      }
+      setCore('metadataContainer', this.metadataContainer);
+      setCore('colors', this.colors);
+      setCore("planeHelpers", this.planeHelpers);    
+      setCore("planeParams", this.planeParams);
+      setCore('materialProperties', this.materialProperties);
+      setCore('materialsPropertiesText', this.materialsPropertiesText);
+      setCore('intensity', this.intensity);
+      this.clippingPlanes = this.core;
+      setCore("clippingPlanes", this.clippingPlanes);
+      setCore('helperObjects', this.helperObjects);
+      setCore('lightHelper', this.lightHelper);
+      setCore('selectedObjects', this.selectedObjects);
     }
 
     this.spinnerContainer = document.createElement("div");
@@ -12045,36 +12122,14 @@ const Viewer = {
 
     this.rect = core.container.getBoundingClientRect();
 
-    core.guiContainer = document.createElement("div");
-    core.guiContainer.id = "guiContainer";
-    core.guiContainer.className = "guiContainer";
-    core.container.appendChild(core.guiContainer);
 
-    core.gui  = new p({ container: core.guiContainer });
-
-    this.metadataContainer = document.createElement("div");
-    this.metadataContainer.setAttribute("id", "metadata-container");
-    this.metadataContainer.style.top = -this.metadataContainer.getBoundingClientRect().top + "px";
-    if (this.urlOptions.hideMetadata) {
-      this.metadataContainer.style.display = "none";
-    }
-    setCore('metadataContainer', this.metadataContainer);
-    setCore('colors', this.colors);
-    setCore("planeHelpers", this.planeHelpers);    
-    setCore("planeParams", this.planeParams);
-    setCore('materialProperties', this.materialProperties);
-    setCore('materialsPropertiesText', this.materialsPropertiesText);
-    setCore('intensity', this.intensity);
-    this.clippingPlanes = this.core;
-    setCore("clippingPlanes", this.clippingPlanes);
-    setCore('helperObjects', this.helperObjects);
-    setCore('lightHelper', this.lightHelper);
-    setCore('selectedObjects', this.selectedObjects);
 
     this.clock = new THREE.Timer();
 
     Viewer.init();
-    Viewer.prepareStats();
+    if (!core.PRESENTATION_MODE) {
+      Viewer.prepareStats();
+    }
     localStorage.setItem("viewerHintSeen", "0");
     
     this.updateSize();
@@ -14123,7 +14178,7 @@ const Viewer = {
 
     core.renderer.clear();
     core.renderer.render(core.scene, core.camera);
-    core.stats.update();
+    core.stats?.update();
   },
 
   onPointerDown(e) {
@@ -14365,36 +14420,86 @@ const Viewer = {
     }
   },
 
+  syncOutlineClippingTransform() {
+    const outline = core.outlineClipping;
+    const object = core.helperObjects?.[0];
+    if (!outline || !object) return;
+    outline.position.copy(object.position);
+    outline.quaternion.copy(object.quaternion);
+    outline.scale.copy(object.scale);
+    outline.updateMatrixWorld(true);
+  },
+
   async calculateObjectScale() {
+    if (core.renderer) {
+      core.renderer.localClippingEnabled = true;
+    }
+    Viewer.syncOutlineClippingTransform();
     const boundingBox = new THREE.Box3();
     if (Array.isArray(core.helperObjects[0])) {
       for (let i = 0; i < core.helperObjects[0].length; i++) {
-        boundingBox.setFromObject(Viewer.object[i]);
+        const box = new THREE.Box3().setFromObject(core.helperObjects[0][i], true);
+        boundingBox.union(box);
       }
     } else {
-      boundingBox.setFromObject(core.helperObjects[0]);
+      boundingBox.setFromObject(core.helperObjects[0], true);
     }
 
-    new THREE.Vector3();
-    var size = new THREE.Vector3();
-    boundingBox.getSize(size);
-    // ground
-    var _distance = new THREE.Vector3(
-      Math.abs(boundingBox.max.x - boundingBox.min.x),
-      Math.abs(boundingBox.max.y - boundingBox.min.y),
-      Math.abs(boundingBox.max.z - boundingBox.min.z)
+    if (boundingBox.isEmpty()) return;
+
+    const center = new THREE.Vector3();
+    boundingBox.getCenter(center);
+    const _distance = new THREE.Vector3(
+      Math.max(Math.abs(boundingBox.max.x), Math.abs(boundingBox.min.x)),
+      Math.max(Math.abs(boundingBox.max.y), Math.abs(boundingBox.min.y)),
+      Math.max(Math.abs(boundingBox.max.z), Math.abs(boundingBox.min.z))
     );
+
     Viewer.distanceGeometry = _distance;
     setCore("distanceGeometry", Viewer.distanceGeometry);
-    Viewer.planeParams.planeX.constantZ = core.clippingFolder.controllers[1]._max = core.clippingPlanes[0].constant = _distance.x;
-    core.clippingFolder.controllers[1]._min = -core.clippingFolder.controllers[1]._max;
-    Viewer.planeParams.planeY.constantY = core.clippingFolder.controllers[3]._max = core.clippingPlanes[1].constant = _distance.y;
-    core.clippingFolder.controllers[3]._min = -core.clippingFolder.controllers[3]._max;
-    Viewer.planeParams.planeZ.constantZ = core.clippingFolder.controllers[5]._max = core.clippingPlanes[2].constant = _distance.z;
-    core.clippingFolder.controllers[5]._min = -core.clippingFolder.controllers[5]._max;
-    core.clippingFolder.controllers[1].updateDisplay();
-    core.clippingFolder.controllers[3].updateDisplay();
-    core.clippingFolder.controllers[5].updateDisplay();
+
+    if (core.clippingPlanes?.length >= 3) {
+      core.clippingPlanes[0].constant = _distance.x;
+      core.clippingPlanes[1].constant = _distance.y;
+      core.clippingPlanes[2].constant = _distance.z;
+    }
+
+    Viewer.planeParams.planeX.constantX = _distance.x;
+    Viewer.planeParams.planeY.constantY = _distance.y;
+    Viewer.planeParams.planeZ.constantZ = _distance.z;
+
+    if (core.clippingFolder?.controllers?.[1]) {
+      core.clippingFolder.controllers[1]._max = _distance.x;
+      core.clippingFolder.controllers[1]._min = -_distance.x;
+      core.clippingFolder.controllers[1].setValue(_distance.x);
+      core.clippingFolder.controllers[1].updateDisplay();
+    }
+    if (core.clippingFolder?.controllers?.[3]) {
+      core.clippingFolder.controllers[3]._max = _distance.y;
+      core.clippingFolder.controllers[3]._min = -_distance.y;
+      core.clippingFolder.controllers[3].setValue(_distance.y);
+      core.clippingFolder.controllers[3].updateDisplay();
+    }
+    if (core.clippingFolder?.controllers?.[5]) {
+      core.clippingFolder.controllers[5]._max = _distance.z;
+      core.clippingFolder.controllers[5]._min = -_distance.z;
+      core.clippingFolder.controllers[5].setValue(_distance.z);
+      core.clippingFolder.controllers[5].updateDisplay();
+    }
+
+    if (Viewer.planeHelpers?.length >= 3 && core.clippingPlanes?.length >= 3) {
+      for (let i = 0; i < 3; i++) {
+        const helper = Viewer.planeHelpers[i];
+        const plane = core.clippingPlanes[i];
+        if (!helper || !plane) continue;
+        helper.position.copy(plane.normal).multiplyScalar(-plane.constant);
+        if (i === 0 || i === 2) {
+          helper.userData.clippingCenterY = center.y;
+          helper.updateMatrixWorld(true);
+        }
+      }
+    }
+
     var _maxDistance = Math.max(_distance.x, _distance.y, _distance.z);
     Viewer.planeHelpers?.forEach(h => h && (h.size = _maxDistance));
   },
@@ -14542,10 +14647,13 @@ const Viewer = {
     core.controls?.update();
   },
 
-  createClippingPlaneAxis(_number) {
+  createClippingPlaneAxis(_number, axis = "z") {
     var tempClippingControl = new TransformControls(core.camera, core.renderer.domElement);
-    tempClippingControl.space = "local";
+    tempClippingControl.space = "world";
     tempClippingControl.setMode("translate");
+    tempClippingControl.showX = axis === "x";
+    tempClippingControl.showY = axis === "y";
+    tempClippingControl.showZ = axis === "z";
     tempClippingControl.addEventListener("change", Viewer.render);
     tempClippingControl.addEventListener("objectChange", function (event) {
       if (event.target === undefined || event.target.object === undefined) {
@@ -14560,7 +14668,7 @@ const Viewer = {
           if (core.clippingFolder.controllers[1]) {
             core.clippingFolder.controllers[1].setValue(newConstant);
           }
-          core.planeHelpers[0].position.copy(core.clippingPlanes[0].normal).multiplyScalar(newConstant);
+          core.planeHelpers[0].position.copy(core.clippingPlanes[0].normal).multiplyScalar(-newConstant);
           break;
         case 1:
           newConstant = event.target.worldPositionStart.y + event.target.pointEnd.y;
@@ -14569,7 +14677,7 @@ const Viewer = {
           if (core.clippingFolder.controllers[3]) {
             core.clippingFolder.controllers[3].setValue(newConstant);
           }
-          core.planeHelpers[1].position.copy(core.clippingPlanes[1].normal).multiplyScalar(newConstant);
+          core.planeHelpers[1].position.copy(core.clippingPlanes[1].normal).multiplyScalar(-newConstant);
           break;
         case 2:
           newConstant = event.target.worldPositionStart.z + event.target.pointEnd.z;
@@ -14578,7 +14686,7 @@ const Viewer = {
           if (core.clippingFolder.controllers[5]) {
             core.clippingFolder.controllers[5].setValue(newConstant);
           }
-          core.planeHelpers[2].position.copy(core.clippingPlanes[2].normal).multiplyScalar(newConstant);
+          core.planeHelpers[2].position.copy(core.clippingPlanes[2].normal).multiplyScalar(-newConstant);
           break;
       }
     });
@@ -14840,6 +14948,7 @@ const Viewer = {
         if (value === "") {
           core.transformControl.detach();
           core.axesHelper.visible = false;
+          core.renderer.localClippingEnabled = true;
         } else {
           const object = core.helperObjects?.[0];
 
@@ -14847,7 +14956,7 @@ const Viewer = {
             return;
           }
           core.axesHelper.visible = true;
-          core.renderer.localClippingEnabled = false;
+          core.renderer.localClippingEnabled = true;
 
           core.transformControl.setMode(value);
           core.transformControl.attach(object);
@@ -15687,7 +15796,6 @@ const Viewer = {
         Viewer.controls.enablePan = false;
         Viewer.controls.enableZoom = false;
       }
-      console.log(Viewer.controls);
       Viewer.controls.update();
       setCore('controls', Viewer.controls);
       setCore('GESTURE', Viewer.GESTURE);
@@ -15699,8 +15807,14 @@ const Viewer = {
         Viewer.transformControl.rotationSnap = THREE.MathUtils.degToRad(5);
         Viewer.transformControl.space = "local";
         Viewer.transformControl.addEventListener("change", Viewer.render);
-        Viewer.transformControl.addEventListener("objectChange", Viewer.changeScale);
-        Viewer.transformControl.addEventListener("mouseUp", Viewer.calculateObjectScale);
+        Viewer.transformControl.addEventListener("objectChange", () => {
+          Viewer.changeScale();
+          Viewer.syncOutlineClippingTransform();
+        });
+        Viewer.transformControl.addEventListener("mouseUp", () => {
+          Viewer.syncOutlineClippingTransform();
+          Viewer.calculateObjectScale();
+        });
         Viewer.transformControl.addEventListener("dragging-changed", function (event) {
           core.controls.enabled = !event.value;
         });
@@ -15749,9 +15863,6 @@ const Viewer = {
         setCore('clippingPlanes', Viewer.clippingPlanes);
         setCore('selectObjectHierarchy', Viewer.selectObjectHierarchy);
 
-        core.transformControlClippingPlaneX.showX = core.transformControlClippingPlaneX.showY = false;
-        core.transformControlClippingPlaneY.showX = core.transformControlClippingPlaneY.showY = false;
-        core.transformControlClippingPlaneZ.showX = core.transformControlClippingPlaneZ.showY = false;
       }
 
       Viewer.GESTURE.handPx *= Math.min(window.innerWidth / 1200, 1);

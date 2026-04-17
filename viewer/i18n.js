@@ -127,6 +127,10 @@ export const VIEWER_I18N = {
     localPreview: {
       loadExampleModel: "Load example model",
     },
+    state: {
+      enabled: "enabled",
+      disabled: "disabled"
+    },
     toasts: {
       transformMove: "Move: drag axis arrows to reposition the object.",
       transformRotate: "Rotate: drag rotation rings to rotate the object.",
@@ -314,10 +318,6 @@ export const VIEWER_I18N = {
     },
     localPreview: {
       loadExampleModel: "Wczytaj model przykładowy",
-    },
-    state: {
-      enabled: "Enabled",
-      disabled: "Disabled"
     },
     state: {
       enabled: "włączony",

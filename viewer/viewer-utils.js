@@ -873,6 +873,26 @@ function setupClippingPlanes(_geom, _distance) {
   core.clippingPlanes[0].constant = _distance.x;
   core.clippingPlanes[1].constant = _distance.y;
   core.clippingPlanes[2].constant = _distance.z;
+  let clippingCenterY = 0;
+  if (_geom) {
+    const bounds = new THREE.Box3();
+    if (Array.isArray(_geom)) {
+      for (let i = 0; i < _geom.length; i++) {
+        bounds.union(new THREE.Box3().setFromObject(_geom[i], true));
+      }
+    } else {
+      bounds.setFromObject(_geom, true);
+    }
+    if (!bounds.isEmpty()) {
+      clippingCenterY = bounds.getCenter(new THREE.Vector3()).y;
+    }
+  }
+  const updatePlaneHelperPosition = (index, constantValue) => {
+    const helper = core.planeHelpers?.[index];
+    const plane = core.clippingPlanes?.[index];
+    if (!helper || !plane) return;
+    helper.position.copy(plane.normal).multiplyScalar(-constantValue);
+  };
   if (core.EDITOR) {
 
   if (core.transformControlClippingPlaneX && core.transformControlClippingPlaneY && core.transformControlClippingPlaneZ) {
@@ -890,8 +910,27 @@ function setupClippingPlanes(_geom, _distance) {
   core.planeHelpers.forEach((ph, index) => {
     ph.visible = false;
     ph.name = "PlaneHelper";
-    ph.position.copy(core.clippingPlanes[index].normal).multiplyScalar(core.clippingPlanes[index].constant);
-    core.scene.add(ph);
+    updatePlaneHelperPosition(index, core.clippingPlanes[index].constant);
+    if (index === 0 || index === 2) {
+      ph.userData.clippingCenterY = clippingCenterY;
+      const baseUpdateMatrixWorld = ph.updateMatrixWorld.bind(ph);
+      ph.updateMatrixWorld = function updatePlaneHelperMatrix(force) {
+        baseUpdateMatrixWorld(force);
+        this.position.y = this.userData.clippingCenterY || 0;
+        this.updateMatrix();
+        if (this.parent) {
+          this.matrixWorld.multiplyMatrices(this.parent.matrixWorld, this.matrix);
+        } else {
+          this.matrixWorld.copy(this.matrix);
+        }
+        for (let i = 0; i < this.children.length; i++) {
+          this.children[i].updateMatrixWorld(true);
+        }
+      };
+      core.scene.add(ph);
+    } else {
+      core.scene.add(ph);
+    }
   });
 
   core.distanceGeometry = _distance;
@@ -946,7 +985,7 @@ function setupClippingPlanes(_geom, _distance) {
       .listen()
       .onChange((d) => {
         core.clippingPlanes[0].constant = d;
-        core.planeHelpers[0].position.copy(core.clippingPlanes[0].normal).multiplyScalar(d);
+        updatePlaneHelperPosition(0, d);
       });
 
     displayHelper.y?.onChange((v) => {
@@ -974,7 +1013,7 @@ function setupClippingPlanes(_geom, _distance) {
       .listen()
       .onChange((d) => {
         core.clippingPlanes[1].constant = d;
-        core.planeHelpers[1].position.copy(core.clippingPlanes[1].normal).multiplyScalar(d);
+        updatePlaneHelperPosition(1, d);
       });
   
     displayHelper.z?.onChange((v) => {
@@ -1002,7 +1041,7 @@ function setupClippingPlanes(_geom, _distance) {
       .listen()
       .onChange((d) => {
         core.clippingPlanes[2].constant = d;
-        core.planeHelpers[2].position.copy(core.clippingPlanes[2].normal).multiplyScalar(d);
+        updatePlaneHelperPosition(2, d);
       });
 
     displayHelper.outline.onChange((v) => {

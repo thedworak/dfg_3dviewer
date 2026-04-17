@@ -1152,7 +1152,7 @@ canvas {
 #embedConfiguratorPanel {
   position: absolute;
   left: 50%;
-  bottom: 52px;
+  top: 1%;
   transform: translateX(-50%);
   z-index: 119;
   width: min(980px, calc(100vw - 36px));
@@ -1167,6 +1167,8 @@ canvas {
   font-size: 13px;
   line-height: 1.35;
   z-index: 99999;
+  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
+            "Segoe UI", Roboto, Arial, sans-serif;
 }
 
 #annotationDialog[hidden] {

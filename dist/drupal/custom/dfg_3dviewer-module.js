@@ -336,6 +336,10 @@ const VIEWER_I18N = {
     localPreview: {
       loadExampleModel: "Load example model",
     },
+    state: {
+      enabled: "enabled",
+      disabled: "disabled"
+    },
     toasts: {
       transformMove: "Move: drag axis arrows to reposition the object.",
       transformRotate: "Rotate: drag rotation rings to rotate the object.",
@@ -361,6 +365,8 @@ const VIEWER_I18N = {
       modelLoaded: "Model {filename} has been loaded.",
       modelLoadedSimple: "Model loaded successfully.",
       unsupportedFormat: "Unsupported file format.",
+      presentationModeReady: "Presentation mode is ready.",
+      presentationModeError: "An error occurred during presentation mode setup.",
 
       embedSourceMissing: "Set Model URL or Entity ID for embed.",
       embedUrlCopied: "Embed URL copied.",
@@ -523,10 +529,6 @@ const VIEWER_I18N = {
       loadExampleModel: "Wczytaj model przykładowy",
     },
     state: {
-      enabled: "Enabled",
-      disabled: "Disabled"
-    },
-    state: {
       enabled: "włączony",
       disabled: "wyłączony"
     },
@@ -555,6 +557,8 @@ const VIEWER_I18N = {
       modelLoaded: "Model {filename} został załadowany.",
       modelLoadedSimple: "Model został pomyślnie załadowany.",
       unsupportedFormat: "Nieobsługiwany format pliku.",
+      presentationModeReady: "Tryb prezentacji jest gotowy.",
+      presentationModeError: "Wystąpił błąd podczas konfiguracji trybu prezentacji.",
 
       embedSourceMissing: "Ustaw URL modelu lub ID encji do osadzenia.",
       embedUrlCopied: "Skopiowano URL osadzenia.",
@@ -744,6 +748,8 @@ const VIEWER_I18N = {
       modelLoaded: "Modell {filename} wurde geladen.",
       modelLoadedSimple: "Modell wurde erfolgreich geladen.",
       unsupportedFormat: "Nicht unterstütztes Dateiformat.",
+      presentationModeReady: "Präsentationsmodus ist bereit.",
+      presentationModeError: "Beim Einrichten des Präsentationsmodus ist ein Fehler aufgetreten.",
 
       embedSourceMissing: "Model-URL oder Entitäts-ID für die Einbettung festlegen.",
       embedUrlCopied: "Einbettungs-URL kopiert.",
@@ -812,6 +818,12 @@ const t$1=function(key, varsOrFallback = {}, maybeFallback = "") {
 
     if (typeof val === "boolean") {
       val = t$1(`state.${val ? "enabled" : "disabled"}`);
+    } else if (typeof val === "string") {
+      if (val === "enabled" || val === "disabled") {
+        val = t$1(`state.${val}`);
+      } else if (val.startsWith("state.")) {
+        val = t$1(val);
+      }
     }
 
     return val ?? `{${v}}`;
@@ -1015,6 +1027,17 @@ function setupGeometryHandler (_object) {
   _object.updateMatrixWorld(true);
 }
 
+function centerObjectAtOrigin(_object) {
+  const boundingBox = new THREE.Box3();
+  boundingBox.setFromObject(_object, true);
+  if (boundingBox.isEmpty()) return;
+
+  const center = new THREE.Vector3();
+  boundingBox.getCenter(center);
+  _object.position.sub(center);
+  _object.updateMatrixWorld(true);
+}
+
 function setupCameraHandler(_object, meta) {
   if (!meta) return;
 
@@ -1090,19 +1113,23 @@ const setupObject = (_object, _metadata) => {
         _object[i].updateMatrixWorld();
       }
     } else if (_object.isGroup) {
-      //workaround for specific Group case
-      boundingBox.setFromObject(_object);
-      _object.position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
-      _object.updateMatrixWorld();
-    } else {
+      // Keep non-presentation behavior, but center fully in presentation mode.
+      if (core.PRESENTATION_MODE) {
+        centerObjectAtOrigin(_object);
+      } else {
+        //workaround for specific Group case
+        boundingBox.setFromObject(_object);
+        _object.position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
+        _object.updateMatrixWorld();
+      }
+    } else if (!core.PRESENTATION_MODE) {
       boundingBox.setFromObject(_object);
       _object.position.set((boundingBox.max.x - boundingBox.min.x ) / 2, (boundingBox.max.y - boundingBox.min.y) / 2, (boundingBox.max.z - boundingBox.min.z ) / 2);
-      _object.updateMatrixWorld();
-      _object.needsUpdate = true;
-      if (typeof _object.geometry !== "undefined") {
-        _object.geometry.computeBoundingBox();
-        _object.geometry.computeBoundingSphere();
-      }
+      setupGeometryHandler(_object);
+    } else {
+      // In presentation mode keep local hierarchy transforms and center only the whole object.
+      centerObjectAtOrigin(_object);
+      setupGeometryHandler(_object);
     }
   }
 
@@ -1133,7 +1160,8 @@ async function setupEmptyCamera(_object) {
   var boundingBox = new THREE.Box3();
   if (Array.isArray(_object)) {
     for (let i = 0; i < _object.length; i++) {
-      boundingBox.setFromObject(_object[i], true);
+      const box = new THREE.Box3().setFromObject(_object[i], true);
+      boundingBox.union(box);
     }
   } else {
     boundingBox.setFromObject(_object, true);
@@ -1297,27 +1325,32 @@ async function setupCamera(_object, _data) {
   // --- BACKGROUND ---
   //const sceneBg = fallback?.scene?.background;
 
-  const bg = resolveBackground(fallback, core.activeScene);
+  if (!core.PRESENTATION_MODE) {
+    const bg = resolveBackground(fallback, core.activeScene);
 
-  switch (bg.kind) {
-    case "gradient":
-    case "radial":
-      applyGradientCss(bg.normalizedGradient);
-      break;
+    switch (bg.kind) {
+      case "gradient":
+      case "radial":
+        applyGradientCss(bg.normalizedGradient);
+        break;
 
-    case "color":
-    case "linear":
-      changeBackground("linear", bg.color);
-      break;
+      case "color":
+      case "linear":
+        changeBackground("linear", bg.color);
+        break;
 
-    case "default":
-    case "unknown":
-      changeBackground(
-        "radial",
-        core.colors.BackgroundColor,
-        core.colors.BackgroundColorOuter
-      );
-      break;
+      case "default":
+      case "unknown":
+        changeBackground(
+          "radial",
+          core.colors.BackgroundColor,
+          core.colors.BackgroundColorOuter
+        );
+        break;
+    }
+  } else {
+    const grandient = {type: "radial", colors: [{r: 255, g: 255, b: 255, a: 0}, {r: 255, g: 255, b: 255, a: 0}]};
+    applyGradientCss(grandient);
   }
 
   core.camera.updateProjectionMatrix();
@@ -1336,6 +1369,7 @@ async function setupCamera(_object, _data) {
   core.GESTURE.target = boxCenter.clone();
   core.controls.target.copy(core.GESTURE.target);
 
+  if (core.handHint == null) return;
   core.handHint.hidden = false;
   core.handHint.classList.add("hand-drag-animate");
 }
@@ -1526,8 +1560,9 @@ async function fitCameraToCenteredObject(object, _fit) {
       THREE.MathUtils.radToDeg(core.helperObjects[0]?.rotation.y || 5),
       THREE.MathUtils.radToDeg(core.helperObjects[0]?.rotation.z || 1)
     );
+    const rootObject = Array.isArray(object) ? object[0] : object;
     core.objectsConfig.originalMetadata = {
-      objPosition: [object.position.x, object.position.y, object.position.z],
+      objPosition: [rootObject?.position?.x || 0, rootObject?.position?.y || 0, rootObject?.position?.z || 0],
       objRotation: [rotateMetadata.x, rotateMetadata.y, rotateMetadata.z],
       objScale: [
         core.helperObjects[0]?.scale.x || 1,
@@ -1538,7 +1573,7 @@ async function fitCameraToCenteredObject(object, _fit) {
       controlsTarget: [core.controls.target.x, core.controls.target.y, core.controls.target.z],
     };
   }
-  if (!core.presentationMode) {
+  if (!core.PRESENTATION_MODE) {
     setupClippingPlanes(object, {x: boundingBox.max.x*1.1, y: boundingBox.max.y*1.1, z: boundingBox.max.z*1.1});
   }
 }
@@ -1599,10 +1634,10 @@ function rgbaToCss(c) {
   return `rgba(${c.r}, ${c.g}, ${c.b}, ${c.a})`;
 }
 
-function changeBackgroundHelper(_color1, _color2) {
+function changeBackgroundHelper(_color1, _color2, _alpha = 100) {
   core.mainCanvas.style.setProperty(
     "background",
-    `radial-gradient(circle, ${_color1} 0%, ${_color2} 100%)`
+    `radial-gradient(circle, ${_color1} 0%, ${_color2} ${_alpha}%)`
   );
 }
 
@@ -1642,14 +1677,14 @@ function applyGradientCss(gradient) {
   core.mainCanvas.style.setProperty("background", css);
 }
 
-function changeBackground(_type, _color1, _color2 = _color1) {
+function changeBackground(_type, _color1, _color2 = _color1, _alpha = 100) {
   switch (_type) {
     case "linear":
-      changeBackgroundHelper(_color1, _color1);
+      changeBackgroundHelper(_color1, _color1, _alpha);
       break;
     case "gradient":
     case "radial":
-      changeBackgroundHelper(_color1, _color2);
+      changeBackgroundHelper(_color1, _color2, _alpha);
       break;
   }
 }
@@ -1663,6 +1698,26 @@ function setupClippingPlanes(_geom, _distance) {
   core.clippingPlanes[0].constant = _distance.x;
   core.clippingPlanes[1].constant = _distance.y;
   core.clippingPlanes[2].constant = _distance.z;
+  let clippingCenterY = 0;
+  if (_geom) {
+    const bounds = new THREE.Box3();
+    if (Array.isArray(_geom)) {
+      for (let i = 0; i < _geom.length; i++) {
+        bounds.union(new THREE.Box3().setFromObject(_geom[i], true));
+      }
+    } else {
+      bounds.setFromObject(_geom, true);
+    }
+    if (!bounds.isEmpty()) {
+      clippingCenterY = bounds.getCenter(new THREE.Vector3()).y;
+    }
+  }
+  const updatePlaneHelperPosition = (index, constantValue) => {
+    const helper = core.planeHelpers?.[index];
+    const plane = core.clippingPlanes?.[index];
+    if (!helper || !plane) return;
+    helper.position.copy(plane.normal).multiplyScalar(-constantValue);
+  };
   if (core.EDITOR) {
 
   if (core.transformControlClippingPlaneX && core.transformControlClippingPlaneY && core.transformControlClippingPlaneZ) {
@@ -1680,8 +1735,27 @@ function setupClippingPlanes(_geom, _distance) {
   core.planeHelpers.forEach((ph, index) => {
     ph.visible = false;
     ph.name = "PlaneHelper";
-    ph.position.copy(core.clippingPlanes[index].normal).multiplyScalar(core.clippingPlanes[index].constant);
-    core.scene.add(ph);
+    updatePlaneHelperPosition(index, core.clippingPlanes[index].constant);
+    if (index === 0 || index === 2) {
+      ph.userData.clippingCenterY = clippingCenterY;
+      const baseUpdateMatrixWorld = ph.updateMatrixWorld.bind(ph);
+      ph.updateMatrixWorld = function updatePlaneHelperMatrix(force) {
+        baseUpdateMatrixWorld(force);
+        this.position.y = this.userData.clippingCenterY || 0;
+        this.updateMatrix();
+        if (this.parent) {
+          this.matrixWorld.multiplyMatrices(this.parent.matrixWorld, this.matrix);
+        } else {
+          this.matrixWorld.copy(this.matrix);
+        }
+        for (let i = 0; i < this.children.length; i++) {
+          this.children[i].updateMatrixWorld(true);
+        }
+      };
+      core.scene.add(ph);
+    } else {
+      core.scene.add(ph);
+    }
   });
 
   core.distanceGeometry = _distance;
@@ -1736,7 +1810,7 @@ function setupClippingPlanes(_geom, _distance) {
       .listen()
       .onChange((d) => {
         core.clippingPlanes[0].constant = d;
-        core.planeHelpers[0].position.copy(core.clippingPlanes[0].normal).multiplyScalar(d);
+        updatePlaneHelperPosition(0, d);
       });
 
     displayHelper.y?.onChange((v) => {
@@ -1764,7 +1838,7 @@ function setupClippingPlanes(_geom, _distance) {
       .listen()
       .onChange((d) => {
         core.clippingPlanes[1].constant = d;
-        core.planeHelpers[1].position.copy(core.clippingPlanes[1].normal).multiplyScalar(d);
+        updatePlaneHelperPosition(1, d);
       });
   
     displayHelper.z?.onChange((v) => {
@@ -1792,7 +1866,7 @@ function setupClippingPlanes(_geom, _distance) {
       .listen()
       .onChange((d) => {
         core.clippingPlanes[2].constant = d;
-        core.planeHelpers[2].position.copy(core.clippingPlanes[2].normal).multiplyScalar(d);
+        updatePlaneHelperPosition(2, d);
       });
 
     displayHelper.outline.onChange((v) => {
@@ -2092,7 +2166,6 @@ function fetchMetadata(_object, _type) {
       return 0;
   }
 }
-
 /**
  * Handles metadata response and builds the metadata UI.
  */
@@ -2305,10 +2378,26 @@ async function loadMetadataData(metadataUrl) {
   }
 }
 
-async function presentationMode (object) {
-  if (core.presentationMode) {
+async function traverseObject (object) {
+  if (Array.isArray(object)) {
+    // Keep relative transforms between parts; centering each element separately
+    // collapses multi-part models into overlapping geometry.
+    object.forEach((obj) => {
+      obj.updateMatrixWorld(true);
+    });
+    await setupCamera(object, null);
+  } else if (object.name === "Scene" || object.children.length > 0 || object.type == "Mesh") {
     setupObject(object, null);
     await setupCamera(object, null);
+  } else {
+    setupObject(object, null);
+    await setupCamera(object, null);
+  }
+}
+
+async function presentationMode (object) {
+  if (core.PRESENTATION_MODE) {
+    traverseObject(object);
   } else { return; }
 }
 
@@ -2621,6 +2710,9 @@ function prepareOutlineClipping(_object) {
     side: THREE.BackSide,
     clippingPlanes: core.clippingPlanes,
     clipShadows: true,
+    polygonOffset: true,
+    polygonOffsetFactor: 1,
+    polygonOffsetUnits: 1,
   });
 
   core.outlineClipping.traverse(function (child) {
@@ -2639,10 +2731,9 @@ function setupSingleMaterial(materials, material) {
   }
   material.envMapIntensity = 0.6;
   material.roughness = Math.max(material.roughness * 0.85, 0.05);
-  //material.side = THREE.DoubleSide;
   material.clipShadows = true;
-  material.side = THREE.FrontSide;
-  material.clippingPlanes = core.clippingPlanes;
+  material.side = core.PRESENTATION_MODE ? THREE.DoubleSide : THREE.FrontSide;
+  material.clippingPlanes = core.PRESENTATION_MODE ? [] : core.clippingPlanes;
   //material.clipIntersection = false;
   if (material.name === "") material.name = material.uuid;
   var newMaterial = { name: material.name, uuid: material.uuid };
@@ -2804,24 +2895,28 @@ async function loadModel() {
     if (object === null || typeof object === "undefined") {
       throw new Error("Loaded object is null or undefined.");
     }
-    // Reset transform to ensure consistent positioning
-    if (Array.isArray(object)) {
-      object.forEach(obj => {
-        obj.position.set(0, 0, 0);
-        obj.rotation.set(0, 0, 0);
-        obj.scale.set(1, 1, 1);
-        obj.updateMatrixWorld(true);
-      });
-    } else {
-      object.position.set(0, 0, 0);
-      object.rotation.set(0, 0, 0);
-      object.scale.set(1, 1, 1);
-      object.updateMatrixWorld(true);
+    // Keep authoring transforms in presentation mode to avoid collapsing model parts.
+    if (!core.PRESENTATION_MODE) {
+      // Reset transform to ensure consistent positioning
+      if (Array.isArray(object)) {
+        object.forEach(obj => {
+          obj.position.set(0, 0, 0);
+          obj.rotation.set(0, 0, 0);
+          obj.scale.set(1, 1, 1);
+          obj.updateMatrixWorld(true);
+        });
+      } else {
+        object.position.set(0, 0, 0);
+        object.rotation.set(0, 0, 0);
+        object.scale.set(1, 1, 1);
+        object.updateMatrixWorld(true);
+      }
+      core.handHint.hidden = true;
     }
-    core.handHint.hidden = true;
+    
     window.viewer.modelLoaded = true;
     traverseMesh(object);
-    if (!core.presentationMode) {
+    if (!core.PRESENTATION_MODE) {
       const isArchiveDerivedPath = /\/[^/]+_(ZIP|RAR|TAR|XZ|GZ)\/gltf\/$/i.test(core.fileObject.path);
       if (!isArchiveDerivedPath) {
         if (core.fileObject.extension.toLowerCase() === "gltf" || core.fileObject.extension.toLowerCase() === "glb") {
@@ -3174,15 +3269,19 @@ const progressLoaderHandler = function (xhr) {
   if (!Number.isFinite(percentComplete)) return;
   core.circle.show();
   core.circle.set(percentComplete, 100);
-  core.UltraLoader.set(percentComplete);
+  core.UltraLoader?.set(percentComplete);
   if (percentComplete >= 100) {
     core.circle.hide();
-    toastHelper$1("modelLoaded", "success", {
-      filename: core.fileObject.filename
-    });
+    if (!core.PRESENTATION_MODE) {
+      toastHelper$1("modelLoaded", "success", {
+        filename: core.fileObject.filename
+      });
+    } else {
+      toastHelper$1("presentationModeReady", "success");
+    }
     if (typeof core.EXIT_CODE !== "undefined") core.EXIT_CODE = 0;
-    core.UltraLoader.finish();
-    core.poller.updateSteps(2);
+    core.UltraLoader?.finish();
+    core.poller?.updateSteps(2);
   }
 };
 
@@ -11285,6 +11384,7 @@ const Viewer = {
       disableInteraction: this.urlOptions?.disableInteraction === true,
       hideUi: this.urlOptions?.hideUi === true,
       hideMetadata: this.urlOptions?.hideMetadata === true,
+      presentationMode: core.PRESENTATION_MODE === true,
       cameraPosition: null,
       cameraTarget: null,
       fov: null,
@@ -11309,6 +11409,7 @@ const Viewer = {
     this.embedConfigInputs.disableInteraction.checked = options.disableInteraction === true;
     this.embedConfigInputs.hideUi.checked = options.hideUi === true;
     this.embedConfigInputs.hideMetadata.checked = options.hideMetadata === true;
+    this.embedConfigInputs.presentationMode.checked = options.presentationMode === true;
     this.embedConfigInputs.camPos.value = options.cameraPosition ?? "";
     this.embedConfigInputs.camTarget.value = options.cameraTarget ?? "";
     this.embedConfigInputs.fov.value = Number.isFinite(options.fov) ? String(options.fov) : "";
@@ -11375,6 +11476,9 @@ const Viewer = {
     if (options.hideMetadata) {
       params.set("hideMetadata", "1");
     }
+    if (options.presentationMode) {
+      params.set("presentationMode", "1");
+    }
     if (options.cameraPosition) {
       params.set("camPos", options.cameraPosition);
     }
@@ -11413,6 +11517,7 @@ const Viewer = {
       disableInteraction: inputs.disableInteraction.checked,
       hideUi: inputs.hideUi.checked,
       hideMetadata: inputs.hideMetadata.checked,
+      presentationMode: inputs.presentationMode.checked,
       cameraPosition: this.formatVector3Param(parsedCamPos),
       cameraTarget: this.formatVector3Param(parsedCamTarget),
       fov: normalizedFov,
@@ -11486,7 +11591,7 @@ const Viewer = {
     panel.innerHTML = `
       <div class="embed-config-header">
         <span>Embed options</span>
-        <button id="embedClosePanel" type="button" aria-label="Close embed options">Close</button>
+        <button id="embedClosePanel" type="button" aria-label="Close embed options">X</button>
       </div>
       <div class="embed-config-layout">
         <div class="embed-config-main">
@@ -11509,6 +11614,7 @@ const Viewer = {
             <label><input id="embedDisableInteractionInput" type="checkbox"${defaults.disableInteraction ? " checked" : ""} /> Disable interaction</label>
             <label><input id="embedHideUiInput" type="checkbox"${defaults.hideUi ? " checked" : ""} /> Hide action menu</label>
             <label><input id="embedHideMetadataInput" type="checkbox"${defaults.hideMetadata ? " checked" : ""} /> Hide metadata</label>
+            <label><input id="embedPresentationModeInput" type="checkbox"${defaults.presentationMode ? " checked" : ""} /> Presentation mode</label>
           </div>
           <div class="embed-config-actions">
             <button id="embedUseCurrentCamera" type="button">Use Current Camera</button>
@@ -11537,6 +11643,7 @@ const Viewer = {
       disableInteraction: panel.querySelector("#embedDisableInteractionInput"),
       hideUi: panel.querySelector("#embedHideUiInput"),
       hideMetadata: panel.querySelector("#embedHideMetadataInput"),
+      presentationMode: panel.querySelector("#embedPresentationModeInput"),
       camPos: panel.querySelector("#embedCamPosInput"),
       camTarget: panel.querySelector("#embedCamTargetInput"),
       fov: panel.querySelector("#embedFovInput"),
@@ -11554,6 +11661,7 @@ const Viewer = {
       this.embedConfigInputs.disableInteraction,
       this.embedConfigInputs.hideUi,
       this.embedConfigInputs.hideMetadata,
+      this.embedConfigInputs.presentationMode,
       this.embedConfigInputs.camPos,
       this.embedConfigInputs.camTarget,
       this.embedConfigInputs.fov,
@@ -11973,12 +12081,6 @@ const Viewer = {
     core.CONFIG.viewer.exportPath = "/api/editor/xml-export/";    
     this.loadedFile = `${core.fileObject.basename}.${core.fileObject.extension}`;
 
-    this.handHint = document.createElement("div");
-    this.handHint.id = "handHint";
-    this.handHint.hidden = true;
-    core.container.appendChild(this.handHint);
-    setCore('handHint', this.handHint);
-
     this.noticeContainer = document.createElement("div");
     this.noticeContainer.id = "viewerNoticeContainer";
     core.container.appendChild(this.noticeContainer);
@@ -12000,6 +12102,12 @@ const Viewer = {
     }
 
     if (!core.PRESENTATION_MODE) {
+      this.handHint = document.createElement("div");
+      this.handHint.id = "handHint";
+      this.handHint.hidden = true;
+      core.container.appendChild(this.handHint);
+      setCore('handHint', this.handHint);
+
       this.pickingHint = document.createElement("div");
       this.pickingHint.id = "pickingHint";
       this.pickingHint.className = "viewer-notice viewer-notice-hint";
@@ -12015,6 +12123,32 @@ const Viewer = {
       this.clippingHint.hidden = true;
       this.noticeContainer.appendChild(this.clippingHint);
       setCore("clippingHint", this.clippingHint);
+
+      core.guiContainer = document.createElement("div");
+      core.guiContainer.id = "guiContainer";
+      core.guiContainer.className = "guiContainer";
+      core.container.appendChild(core.guiContainer);
+
+      core.gui  = new p({ container: core.guiContainer });
+
+      this.metadataContainer = document.createElement("div");
+      this.metadataContainer.setAttribute("id", "metadata-container");
+      this.metadataContainer.style.top = -this.metadataContainer.getBoundingClientRect().top + "px";
+      if (this.urlOptions.hideMetadata) {
+        this.metadataContainer.style.display = "none";
+      }
+      setCore('metadataContainer', this.metadataContainer);
+      setCore('colors', this.colors);
+      setCore("planeHelpers", this.planeHelpers);    
+      setCore("planeParams", this.planeParams);
+      setCore('materialProperties', this.materialProperties);
+      setCore('materialsPropertiesText', this.materialsPropertiesText);
+      setCore('intensity', this.intensity);
+      this.clippingPlanes = this.core;
+      setCore("clippingPlanes", this.clippingPlanes);
+      setCore('helperObjects', this.helperObjects);
+      setCore('lightHelper', this.lightHelper);
+      setCore('selectedObjects', this.selectedObjects);
     }
 
     this.spinnerContainer = document.createElement("div");
@@ -12037,36 +12171,14 @@ const Viewer = {
 
     this.rect = core.container.getBoundingClientRect();
 
-    core.guiContainer = document.createElement("div");
-    core.guiContainer.id = "guiContainer";
-    core.guiContainer.className = "guiContainer";
-    core.container.appendChild(core.guiContainer);
 
-    core.gui  = new p({ container: core.guiContainer });
-
-    this.metadataContainer = document.createElement("div");
-    this.metadataContainer.setAttribute("id", "metadata-container");
-    this.metadataContainer.style.top = -this.metadataContainer.getBoundingClientRect().top + "px";
-    if (this.urlOptions.hideMetadata) {
-      this.metadataContainer.style.display = "none";
-    }
-    setCore('metadataContainer', this.metadataContainer);
-    setCore('colors', this.colors);
-    setCore("planeHelpers", this.planeHelpers);    
-    setCore("planeParams", this.planeParams);
-    setCore('materialProperties', this.materialProperties);
-    setCore('materialsPropertiesText', this.materialsPropertiesText);
-    setCore('intensity', this.intensity);
-    this.clippingPlanes = this.core;
-    setCore("clippingPlanes", this.clippingPlanes);
-    setCore('helperObjects', this.helperObjects);
-    setCore('lightHelper', this.lightHelper);
-    setCore('selectedObjects', this.selectedObjects);
 
     this.clock = new THREE.Timer();
 
     Viewer.init();
-    Viewer.prepareStats();
+    if (!core.PRESENTATION_MODE) {
+      Viewer.prepareStats();
+    }
     localStorage.setItem("viewerHintSeen", "0");
     
     this.updateSize();
@@ -12117,6 +12229,7 @@ const Viewer = {
 
   // Disable interaction hint on first interaction
  disableInteractionHint() {
+    if (core.PRESENTATION_MODE) return;
     core.handHint.hidden = true;
     Viewer.stopGesture();
 
@@ -13923,6 +14036,7 @@ const Viewer = {
       Viewer.actionMenu.style.bottom = "auto";
     }
 
+    if (core.handHint)
     core.handHint.style.top = (heightCSS - 70) + 'px';
    
     core.renderer.setPixelRatio(devicePixelRatio * scale.x);
@@ -13996,7 +14110,7 @@ const Viewer = {
     const ease = ei * ei * (3 - 2 * ei); // smoothstep(0..1)
 
     // hand icon
-    core.handHint.style.setProperty(
+    core.handHint?.style.setProperty(
       '--hand-x',
       `${s * core.GESTURE.handPx}px`
     );
@@ -14032,6 +14146,7 @@ const Viewer = {
   },
 
   stopGesture: () => {
+    if (!core.handHint) return;
     const g = core.GESTURE;
     if (!g) return;
     if (!g.active) return;
@@ -14052,62 +14167,67 @@ const Viewer = {
 
   animate: (time) => {
     requestAnimationFrame(Viewer.animate);
-
-    // =========================
-    // GESTURE LIFECYCLE
-    // =========================
-    const canGesture =
-      !window.__E2E__ &&
-      !core.handHint.hidden;
-
-    if (canGesture && core.GESTURE?.rotate && !core.GESTURE?.active ) {
-      Viewer.startGesture(time);
-    }
-
-    if (core.GESTURE?.active && (!core.GESTURE?.rotate || !canGesture)) {
-      Viewer.stopGesture();
-    }
-
-    // =========================
-    // GESTURE UPDATE
-    // =========================
-    Viewer.updateHandAnimation(time);
-
-    // =========================
-    // LOOP UPDATE
-    // =========================
     const delta = Viewer.clock.getDelta();
-    if (Viewer.mixer) {
-      Viewer.mixer.update(delta);
+
+    if (!core.PRESENTATION_MODE) {
+
+      // =========================
+      // GESTURE LIFECYCLE
+      // =========================
+      const canGesture =
+        !window.__E2E__ &&
+        !core.handHint?.hidden;
+
+      if (canGesture && core.GESTURE?.rotate && !core.GESTURE?.active ) {
+        Viewer.startGesture(time);
+      }
+
+      if (core.GESTURE?.active && (!core.GESTURE?.rotate || !canGesture)) {
+        Viewer.stopGesture();
+      }
+
+      // =========================
+      // GESTURE UPDATE
+      // =========================
+      Viewer.updateHandAnimation(time);
+
+      core.controls?.update();
+
+      if (Viewer.textMesh !== null) {
+        Viewer.textMesh.lookAt(core.camera.position);
+      }
+
+      if (Viewer.ruler?.length) {
+        Viewer.ruler.forEach((rulerObject) => {
+          rulerObject?.traverse?.((child) => {
+            if (child?.userData?.isDistanceLabel === true) {
+              child.lookAt(core.camera.position);
+            }
+          });
+        });
+      }
+      Viewer.updateAnnotationPOITooltipPosition();
+    }
+    if (!core.GESTURE?.active || core.PRESENTATION_MODE) {
+      core.controls?.update();
     }
 
-    if (core.handHint?.hidden && !core.GESTURE?.active) {
+    if ((core.PRESENTATION_MODE ||core.handHint?.hidden) && !core.GESTURE?.active) {
       core.cameraTween?.update(time);
       core.targetTween?.update(time);
     }
 
-    if (!core.GESTURE?.active) {
-      core.controls?.update();
+    // =========================
+    // LOOP UPDATE
+    // =========================
+    
+    if (Viewer.mixer) {
+      Viewer.mixer.update(delta);
     }
-
-    if (Viewer.textMesh !== null) {
-      Viewer.textMesh.lookAt(core.camera.position);
-    }
-
-    if (Viewer.ruler?.length) {
-      Viewer.ruler.forEach((rulerObject) => {
-        rulerObject?.traverse?.((child) => {
-          if (child?.userData?.isDistanceLabel === true) {
-            child.lookAt(core.camera.position);
-          }
-        });
-      });
-    }
-    Viewer.updateAnnotationPOITooltipPosition();
 
     core.renderer.clear();
     core.renderer.render(core.scene, core.camera);
-    core.stats.update();
+    core.stats?.update();
   },
 
   onPointerDown(e) {
@@ -14349,36 +14469,86 @@ const Viewer = {
     }
   },
 
+  syncOutlineClippingTransform() {
+    const outline = core.outlineClipping;
+    const object = core.helperObjects?.[0];
+    if (!outline || !object) return;
+    outline.position.copy(object.position);
+    outline.quaternion.copy(object.quaternion);
+    outline.scale.copy(object.scale);
+    outline.updateMatrixWorld(true);
+  },
+
   async calculateObjectScale() {
+    if (core.renderer) {
+      core.renderer.localClippingEnabled = true;
+    }
+    Viewer.syncOutlineClippingTransform();
     const boundingBox = new THREE.Box3();
     if (Array.isArray(core.helperObjects[0])) {
       for (let i = 0; i < core.helperObjects[0].length; i++) {
-        boundingBox.setFromObject(Viewer.object[i]);
+        const box = new THREE.Box3().setFromObject(core.helperObjects[0][i], true);
+        boundingBox.union(box);
       }
     } else {
-      boundingBox.setFromObject(core.helperObjects[0]);
+      boundingBox.setFromObject(core.helperObjects[0], true);
     }
 
-    new THREE.Vector3();
-    var size = new THREE.Vector3();
-    boundingBox.getSize(size);
-    // ground
-    var _distance = new THREE.Vector3(
-      Math.abs(boundingBox.max.x - boundingBox.min.x),
-      Math.abs(boundingBox.max.y - boundingBox.min.y),
-      Math.abs(boundingBox.max.z - boundingBox.min.z)
+    if (boundingBox.isEmpty()) return;
+
+    const center = new THREE.Vector3();
+    boundingBox.getCenter(center);
+    const _distance = new THREE.Vector3(
+      Math.max(Math.abs(boundingBox.max.x), Math.abs(boundingBox.min.x)),
+      Math.max(Math.abs(boundingBox.max.y), Math.abs(boundingBox.min.y)),
+      Math.max(Math.abs(boundingBox.max.z), Math.abs(boundingBox.min.z))
     );
+
     Viewer.distanceGeometry = _distance;
     setCore("distanceGeometry", Viewer.distanceGeometry);
-    Viewer.planeParams.planeX.constantZ = core.clippingFolder.controllers[1]._max = core.clippingPlanes[0].constant = _distance.x;
-    core.clippingFolder.controllers[1]._min = -core.clippingFolder.controllers[1]._max;
-    Viewer.planeParams.planeY.constantY = core.clippingFolder.controllers[3]._max = core.clippingPlanes[1].constant = _distance.y;
-    core.clippingFolder.controllers[3]._min = -core.clippingFolder.controllers[3]._max;
-    Viewer.planeParams.planeZ.constantZ = core.clippingFolder.controllers[5]._max = core.clippingPlanes[2].constant = _distance.z;
-    core.clippingFolder.controllers[5]._min = -core.clippingFolder.controllers[5]._max;
-    core.clippingFolder.controllers[1].updateDisplay();
-    core.clippingFolder.controllers[3].updateDisplay();
-    core.clippingFolder.controllers[5].updateDisplay();
+
+    if (core.clippingPlanes?.length >= 3) {
+      core.clippingPlanes[0].constant = _distance.x;
+      core.clippingPlanes[1].constant = _distance.y;
+      core.clippingPlanes[2].constant = _distance.z;
+    }
+
+    Viewer.planeParams.planeX.constantX = _distance.x;
+    Viewer.planeParams.planeY.constantY = _distance.y;
+    Viewer.planeParams.planeZ.constantZ = _distance.z;
+
+    if (core.clippingFolder?.controllers?.[1]) {
+      core.clippingFolder.controllers[1]._max = _distance.x;
+      core.clippingFolder.controllers[1]._min = -_distance.x;
+      core.clippingFolder.controllers[1].setValue(_distance.x);
+      core.clippingFolder.controllers[1].updateDisplay();
+    }
+    if (core.clippingFolder?.controllers?.[3]) {
+      core.clippingFolder.controllers[3]._max = _distance.y;
+      core.clippingFolder.controllers[3]._min = -_distance.y;
+      core.clippingFolder.controllers[3].setValue(_distance.y);
+      core.clippingFolder.controllers[3].updateDisplay();
+    }
+    if (core.clippingFolder?.controllers?.[5]) {
+      core.clippingFolder.controllers[5]._max = _distance.z;
+      core.clippingFolder.controllers[5]._min = -_distance.z;
+      core.clippingFolder.controllers[5].setValue(_distance.z);
+      core.clippingFolder.controllers[5].updateDisplay();
+    }
+
+    if (Viewer.planeHelpers?.length >= 3 && core.clippingPlanes?.length >= 3) {
+      for (let i = 0; i < 3; i++) {
+        const helper = Viewer.planeHelpers[i];
+        const plane = core.clippingPlanes[i];
+        if (!helper || !plane) continue;
+        helper.position.copy(plane.normal).multiplyScalar(-plane.constant);
+        if (i === 0 || i === 2) {
+          helper.userData.clippingCenterY = center.y;
+          helper.updateMatrixWorld(true);
+        }
+      }
+    }
+
     var _maxDistance = Math.max(_distance.x, _distance.y, _distance.z);
     Viewer.planeHelpers?.forEach(h => h && (h.size = _maxDistance));
   },
@@ -14526,10 +14696,13 @@ const Viewer = {
     core.controls?.update();
   },
 
-  createClippingPlaneAxis(_number) {
+  createClippingPlaneAxis(_number, axis = "z") {
     var tempClippingControl = new TransformControls(core.camera, core.renderer.domElement);
-    tempClippingControl.space = "local";
+    tempClippingControl.space = "world";
     tempClippingControl.setMode("translate");
+    tempClippingControl.showX = axis === "x";
+    tempClippingControl.showY = axis === "y";
+    tempClippingControl.showZ = axis === "z";
     tempClippingControl.addEventListener("change", Viewer.render);
     tempClippingControl.addEventListener("objectChange", function (event) {
       if (event.target === undefined || event.target.object === undefined) {
@@ -14544,7 +14717,7 @@ const Viewer = {
           if (core.clippingFolder.controllers[1]) {
             core.clippingFolder.controllers[1].setValue(newConstant);
           }
-          core.planeHelpers[0].position.copy(core.clippingPlanes[0].normal).multiplyScalar(newConstant);
+          core.planeHelpers[0].position.copy(core.clippingPlanes[0].normal).multiplyScalar(-newConstant);
           break;
         case 1:
           newConstant = event.target.worldPositionStart.y + event.target.pointEnd.y;
@@ -14553,7 +14726,7 @@ const Viewer = {
           if (core.clippingFolder.controllers[3]) {
             core.clippingFolder.controllers[3].setValue(newConstant);
           }
-          core.planeHelpers[1].position.copy(core.clippingPlanes[1].normal).multiplyScalar(newConstant);
+          core.planeHelpers[1].position.copy(core.clippingPlanes[1].normal).multiplyScalar(-newConstant);
           break;
         case 2:
           newConstant = event.target.worldPositionStart.z + event.target.pointEnd.z;
@@ -14562,7 +14735,7 @@ const Viewer = {
           if (core.clippingFolder.controllers[5]) {
             core.clippingFolder.controllers[5].setValue(newConstant);
           }
-          core.planeHelpers[2].position.copy(core.clippingPlanes[2].normal).multiplyScalar(newConstant);
+          core.planeHelpers[2].position.copy(core.clippingPlanes[2].normal).multiplyScalar(-newConstant);
           break;
       }
     });
@@ -14824,6 +14997,7 @@ const Viewer = {
         if (value === "") {
           core.transformControl.detach();
           core.axesHelper.visible = false;
+          core.renderer.localClippingEnabled = true;
         } else {
           const object = core.helperObjects?.[0];
 
@@ -14831,7 +15005,7 @@ const Viewer = {
             return;
           }
           core.axesHelper.visible = true;
-          core.renderer.localClippingEnabled = false;
+          core.renderer.localClippingEnabled = true;
 
           core.transformControl.setMode(value);
           core.transformControl.attach(object);
@@ -15366,7 +15540,9 @@ const Viewer = {
       setCore('isLocalPreview', isLocalPreview);
       console.info('Running on', window.location.hostname, '- Local preview mode:', core.isLocalPreview);
 
-      Viewer.startModelProcessing();
+      if (!core.PRESENTATION_MODE) {
+        Viewer.startModelProcessing();
+      }
 
       const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444);
       hemiLight.position.set(0, 200, 0);
@@ -15498,10 +15674,6 @@ const Viewer = {
       core.renderer.domElement.style.display = "block";
       core.container.appendChild(core.renderer.domElement);
       Viewer.mainCanvas.classList.add("mainCanvas");
-      //Viewer.canvasText = document.createElement("div");
-      //Viewer.canvasText.id = "metadata-container";
-      //Viewer.canvasText.width = core.CONFIG.viewer.canvasDimensions.x + "px";
-      //Viewer.canvasText.height = core.CONFIG.viewer.canvasDimensions.y + "px";
 
       Viewer.viewerWrapper = core.container.closest('.viewer-wrapper');
 
@@ -15655,7 +15827,13 @@ const Viewer = {
       Viewer.controls.enableDamping = true;
       Viewer.controls.dampingFactor = 0.05;
       Viewer.controls.enableRotate = true;
-      if (typeof Viewer.urlOptions.autoRotate === "boolean" || core.PRESENTATION_MODE) {
+
+      if (core.PRESENTATION_MODE) {
+        //TODO
+        Viewer.controls.autoRotate = true;
+        Viewer.controls.autoRotateSpeed = 1.5; // in seconds
+      }
+      if (typeof Viewer.urlOptions.autoRotate === "boolean") {
         Viewer.controls.autoRotate = Viewer.urlOptions.autoRotate;
       }
       if (Number.isFinite(Viewer.urlOptions.autoRotateSpeed)) {
@@ -15678,8 +15856,14 @@ const Viewer = {
         Viewer.transformControl.rotationSnap = THREE.MathUtils.degToRad(5);
         Viewer.transformControl.space = "local";
         Viewer.transformControl.addEventListener("change", Viewer.render);
-        Viewer.transformControl.addEventListener("objectChange", Viewer.changeScale);
-        Viewer.transformControl.addEventListener("mouseUp", Viewer.calculateObjectScale);
+        Viewer.transformControl.addEventListener("objectChange", () => {
+          Viewer.changeScale();
+          Viewer.syncOutlineClippingTransform();
+        });
+        Viewer.transformControl.addEventListener("mouseUp", () => {
+          Viewer.syncOutlineClippingTransform();
+          Viewer.calculateObjectScale();
+        });
         Viewer.transformControl.addEventListener("dragging-changed", function (event) {
           core.controls.enabled = !event.value;
         });
@@ -15728,9 +15912,6 @@ const Viewer = {
         setCore('clippingPlanes', Viewer.clippingPlanes);
         setCore('selectObjectHierarchy', Viewer.selectObjectHierarchy);
 
-        core.transformControlClippingPlaneX.showX = core.transformControlClippingPlaneX.showY = false;
-        core.transformControlClippingPlaneY.showX = core.transformControlClippingPlaneY.showY = false;
-        core.transformControlClippingPlaneZ.showX = core.transformControlClippingPlaneZ.showY = false;
       }
 
       Viewer.GESTURE.handPx *= Math.min(window.innerWidth / 1200, 1);

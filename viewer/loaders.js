@@ -146,6 +146,9 @@ function prepareOutlineClipping(_object) {
     side: THREE.BackSide,
     clippingPlanes: core.clippingPlanes,
     clipShadows: true,
+    polygonOffset: true,
+    polygonOffsetFactor: 1,
+    polygonOffsetUnits: 1,
   });
 
   core.outlineClipping.traverse(function (child) {

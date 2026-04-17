@@ -35,6 +35,12 @@ export const t=function(key, varsOrFallback = {}, maybeFallback = "") {
 
     if (typeof val === "boolean") {
       val = t(`state.${val ? "enabled" : "disabled"}`);
+    } else if (typeof val === "string") {
+      if (val === "enabled" || val === "disabled") {
+        val = t(`state.${val}`);
+      } else if (val.startsWith("state.")) {
+        val = t(val);
+      }
     }
 
     return val ?? `{${v}}`;
