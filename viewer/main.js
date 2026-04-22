@@ -4114,8 +4114,8 @@ export const Viewer = {
       Viewer.mixer.update(delta);
     }
 
-    core.renderer.clear();
-    core.renderer.render(core.scene, core.camera);
+    core.renderer?.clear();
+    core.renderer?.render(core.scene, core.camera);
     core.stats?.update();
   },
 
