@@ -704,10 +704,10 @@ async function fitCameraToCenteredObject(object, _fit) {
     Math.tan(THREE.MathUtils.degToRad(core.camera.fov / 2)) /
     core.camera.aspect;
 
-  const distance = Math.max(fitHeightDistance, fitWidthDistance) * 1.85;
+  const distance = Math.max(fitHeightDistance, fitWidthDistance) * 1.95;
 
   // === target position ===
-  const dir = new THREE.Vector3(-0.5, -1, 1).normalize(); // 45-degree angle perspective
+  const dir = new THREE.Vector3(0.5, -0.25, -1).normalize(); // 45-degree angle perspective
   dir.multiplyScalar(-distance);
 
   const finalCameraPos = center.clone().add(dir);

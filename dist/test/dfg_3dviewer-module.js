@@ -1529,10 +1529,10 @@ async function fitCameraToCenteredObject(object, _fit) {
     Math.tan(THREE.MathUtils.degToRad(core.camera.fov / 2)) /
     core.camera.aspect;
 
-  const distance = Math.max(fitHeightDistance, fitWidthDistance) * 1.85;
+  const distance = Math.max(fitHeightDistance, fitWidthDistance) * 1.95;
 
   // === target position ===
-  const dir = new THREE.Vector3(-0.5, -1, 1).normalize(); // 45-degree angle perspective
+  const dir = new THREE.Vector3(0.5, -0.25, -1).normalize(); // 45-degree angle perspective
   dir.multiplyScalar(-distance);
 
   const finalCameraPos = center.clone().add(dir);
@@ -10525,6 +10525,17 @@ const Viewer = {
     return Number.isFinite(parsed) ? parsed : null;
   },
 
+  parseVector2Param(value) {
+    if  (value == null || value === "") return null;
+    const cleaned = String(value).replace(/[\[\]()]/g, " ").trim();
+    const parts = cleaned.split(/[\s,;|]+/).filter(Boolean);
+    if (parts.length !== 2) return null;
+    const x = Number.parseFloat(parts[0]);
+    const y = Number.parseFloat(parts[1]);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    return new THREE.Vector2(x, y);
+  },
+
   parseVector3Param(value) {
     if (value == null || value === "") return null;
     const cleaned = String(value).replace(/[\[\]()]/g, " ").trim();
@@ -10571,6 +10582,7 @@ const Viewer = {
       cameraTarget: this.parseVector3Param(params.get("camTarget") || params.get("cameraTarget")),
       cameraFov: this.parseFloatParam(params.get("fov")),
       presentationMode: core.PRESENTATION_MODE === false,
+      scale: this.parseVector2Param(params.get("scale")),
     };
   },
 
@@ -11989,6 +12001,10 @@ const Viewer = {
 
     this.fileObject.originalPath = this.normalizeFileUrl(core.container.getAttribute("3d"));
     setCore('fileObject', this.fileObject);
+    if (!this.urlOptions.scale) {
+      core.CONFIG.viewer.scaleContainer.x = this.urlOptions.scale.x;
+      core.CONFIG.viewer.scaleContainer.y = this.urlOptions.scale.y;
+    }
     core.CONFIG.viewer.canvasDimensions = {
       x: this.rect.width * Number(core.CONFIG.viewer.scaleContainer.x),
       y: this.rect.height * Number(core.CONFIG.viewer.scaleContainer.y),
@@ -15764,7 +15780,7 @@ const Viewer = {
           }
         });
 
-        Viewer.handHint.innerHTML = `<img src="${core.DFG_ASSETS}/img/hand-hint.png" alt="Fullscreen" width=48 height=48 title="Hand hint animation"/>`;
+        Viewer.handHint.innerHTML = `<img src="${core.DFG_ASSETS}/img/hand-hint.png" alt="Hand hint" width=48 height=48 title="Hand hint animation"/>`;
         
         Viewer.rect = core.container.getBoundingClientRect();
         core.guiContainer.style.maxHeight = `${Viewer.rect.height - 20}px`;
@@ -15794,6 +15810,7 @@ const Viewer = {
         Viewer.controls.autoRotate = true;
         Viewer.controls.autoRotateSpeed = 1.5; // in seconds
         document.body.classList.add("presentation-mode");
+        document.documentElement.classList.add("presentation-mode");
         core.renderer.setClearColor(0x000000, 0);
       }
       if (typeof Viewer.urlOptions.autoRotate === "boolean") {

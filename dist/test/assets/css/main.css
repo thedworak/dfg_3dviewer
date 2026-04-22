@@ -1688,3 +1688,13 @@ canvas {
 .presentation-mode body {
     background: transparent !important;
 }
+
+body.presentation-mode {
+    margin: 0;
+    overflow: hidden;
+}
+
+html.presentation-mode,
+body.presentation-mode {
+    background: transparent !important;
+}

@@ -454,6 +454,17 @@ export const Viewer = {
     return Number.isFinite(parsed) ? parsed : null;
   },
 
+  parseVector2Param(value) {
+    if  (value == null || value === "") return null;
+    const cleaned = String(value).replace(/[\[\]()]/g, " ").trim();
+    const parts = cleaned.split(/[\s,;|]+/).filter(Boolean);
+    if (parts.length !== 2) return null;
+    const x = Number.parseFloat(parts[0]);
+    const y = Number.parseFloat(parts[1]);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    return new THREE.Vector2(x, y);
+  },
+
   parseVector3Param(value) {
     if (value == null || value === "") return null;
     const cleaned = String(value).replace(/[\[\]()]/g, " ").trim();
@@ -500,6 +511,7 @@ export const Viewer = {
       cameraTarget: this.parseVector3Param(params.get("camTarget") || params.get("cameraTarget")),
       cameraFov: this.parseFloatParam(params.get("fov")),
       presentationMode: core.PRESENTATION_MODE === false,
+      scale: this.parseVector2Param(params.get("scale")),
     };
   },
 
@@ -1919,7 +1931,11 @@ export const Viewer = {
     }
 
     this.fileObject.originalPath = this.normalizeFileUrl(core.container.getAttribute("3d"));
-    setCore('fileObject', this.fileObject)
+    setCore('fileObject', this.fileObject);
+    if (!this.urlOptions.scale) {
+      core.CONFIG.viewer.scaleContainer.x = this.urlOptions.scale.x;
+      core.CONFIG.viewer.scaleContainer.y = this.urlOptions.scale.y;
+    }
     core.CONFIG.viewer.canvasDimensions = {
       x: this.rect.width * Number(core.CONFIG.viewer.scaleContainer.x),
       y: this.rect.height * Number(core.CONFIG.viewer.scaleContainer.y),
@@ -5701,7 +5717,7 @@ export const Viewer = {
           }
         });
 
-        Viewer.handHint.innerHTML = `<img src="${core.DFG_ASSETS}/img/hand-hint.png" alt="Fullscreen" width=48 height=48 title="Hand hint animation"/>`;
+        Viewer.handHint.innerHTML = `<img src="${core.DFG_ASSETS}/img/hand-hint.png" alt="Hand hint" width=48 height=48 title="Hand hint animation"/>`;
         
         Viewer.rect = core.container.getBoundingClientRect();
         core.guiContainer.style.maxHeight = `${Viewer.rect.height - 20}px`;
