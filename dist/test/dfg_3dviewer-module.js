@@ -15497,8 +15497,8 @@ const Viewer = {
       const isLocal = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
       const isLocalNetwork = hostname.startsWith('192.168.') || hostname.startsWith('10.') || hostname.endsWith('.local');
       const isCodeSandbox = hostname.includes('codesandbox.io') || hostname.includes('csb.app');
-      isLocalPreview = isLocal || isLocalNetwork || isCodeSandbox;
-      setCore('isLocalPreview', isLocalPreview);
+      this.isLocalPreview = isLocal || isLocalNetwork || isCodeSandbox;
+      setCore('isLocalPreview', this.isLocalPreview);
       console.info('Running on', window.location.hostname, '- Local preview mode:', core.isLocalPreview);
 
       if (!core.PRESENTATION_MODE) {
@@ -15609,7 +15609,7 @@ const Viewer = {
         Viewer.bindEventListener(core.renderer.domElement, "keydown", Viewer.onViewerKeyDown);
 
         // Add drag and drop support for localhost
-        if (isLocalPreview) {
+        if (core.isLocalPreview) {
           Viewer.bindEventListener(core.renderer.domElement, "dragover", Viewer.onDragOver);
           Viewer.bindEventListener(core.renderer.domElement, "drop", Viewer.onDrop);
         }
