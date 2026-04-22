@@ -15793,6 +15793,9 @@ const Viewer = {
         //TODO
         Viewer.controls.autoRotate = true;
         Viewer.controls.autoRotateSpeed = 1.5; // in seconds
+        document.body.classList.add("presentation-mode");
+        document.documentElement.classList.add("presentation-mode");
+        core.renderer.setClearColor(0x000000, 0);
       }
       if (typeof Viewer.urlOptions.autoRotate === "boolean") {
         Viewer.controls.autoRotate = Viewer.urlOptions.autoRotate;
