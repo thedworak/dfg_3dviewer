@@ -634,3 +634,15 @@ npm run pack-dist
 The current Rollup output is an ES module bundle, not an IIFE, and Drupal libraries load it with `type: module`.
 
 - CI / releases: The included GitHub Actions workflow (`.github/workflows/build-release.yml`) will build the project and attach `dfg_3dviewer-dist.zip` to any tag that matches `v*` (e.g. `v1.0.0`). This lets to distribute ready-to-go archives without committing `dist/` to the repo.
+
+
+## Preparing Tauri for standalone version
+
+To prepare a standalone application, you need to build it with Tauri CLI command `tauri build`. This will create a directory named `src-tauri/target/release` that contains the final executable
+
+## Running Tauri commands
+
+You can use these npm scripts to control your application. They are defined in `package.json` file.
+`npm run tauri:dev`
+`npm run tauri:dev:all`
+`npm run tauri:build`

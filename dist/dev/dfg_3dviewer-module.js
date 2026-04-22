@@ -15493,7 +15493,11 @@ const Viewer = {
       setCore('scene', Viewer.scene);
       setCore('activeScene', Viewer.activeScene);
 
-      const isLocalPreview = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+      const hostname = window.location.hostname;
+      const isLocal = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+      const isLocalNetwork = hostname.startsWith('192.168.') || hostname.startsWith('10.') || hostname.endsWith('.local');
+      const isCodeSandbox = hostname.includes('codesandbox.io') || hostname.includes('csb.app');
+      isLocalPreview = isLocal || isLocalNetwork || isCodeSandbox;
       setCore('isLocalPreview', isLocalPreview);
       console.info('Running on', window.location.hostname, '- Local preview mode:', core.isLocalPreview);
 

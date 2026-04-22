@@ -29,6 +29,7 @@
     "@rollup/plugin-url": "^8.0.2",
     "@types/node": "^25.0.6",
     "buffer": "^6.0.3",
+    "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
     "http-server": "^14.1.1",
     "parcel": "^2.16.1",
@@ -41,8 +42,9 @@
     "serve": "^14.2.6"
   },
   "scripts": {
-    "dev": "pnpm run dev:test",
+    "dev": "pnpm run dev",
     "dev:test": "cross-env BUILD_SOURCE=IIIF BUILD=test parcel index.html --port 1234",
+    "dev:dev": "cross-env BUILD_SOURCE='' BUILD=test parcel index.html --port 1234",
     "dev:prod": "cross-env BUILD_SOURCE='' BUILD=prod parcel index.html --port 1234",
     "build:test": "cross-env BUILD_SOURCE='' BUILD=test rollup -c",
     "build:dev": "cross-env BUILD_SOURCE='IIIF' BUILD=dev rollup -c",
@@ -52,7 +54,11 @@
     "serve:dist": "cross-env BUILD=test serve dist",
     "test:local": "sh ./scripts/run-local-tests.sh",
     "watch": "cross-env BUILD_SOURCE=IIIF BUILD=test rollup -c -w",
-    "pack-dist": "node ./scripts/pack-dist.js"
+    "pack-dist": "node ./scripts/pack-dist.js",
+    "dev:tauri": "npm run build:dev && npx serve ./dist/dev -l 1234",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "tauri:dev:all": "concurrently \"npm run dev:tauri\" \"tauri dev\""
   },
   "files": [
     "dist/**"
@@ -60,6 +66,8 @@
   "dependencies": {
     "@iiif/3d-manifesto-dev": "^0.7.0",
     "@rollup/plugin-alias": "^6.0.0",
+    "@tauri-apps/api": "^2.10.1",
+    "@tauri-apps/cli": "^2.10.1",
     "jquery": "^3.7.1",
     "lru-cache": "^11.2.2",
     "playwright": "^1.58.2",
