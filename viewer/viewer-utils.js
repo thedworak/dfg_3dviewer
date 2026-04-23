@@ -40,6 +40,7 @@ export const toastHelper = (key, toneOrOptions, maybeOptions) => {
 };
 
 export const showToast = (message, toneOrOptions, maybeOptions) => {
+  if (!core.showNotifications) return;
   const { tone, options } = normalizeNoticeArgs(toneOrOptions, maybeOptions);
 
   const duration = Number.isFinite(options.duration)

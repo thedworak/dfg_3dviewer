@@ -867,6 +867,7 @@ const toastHelper$1 = (key, toneOrOptions, maybeOptions) => {
 };
 
 const showToast = (message, toneOrOptions, maybeOptions) => {
+  if (!core.showNotifications) return;
   const { tone, options } = normalizeNoticeArgs(toneOrOptions, maybeOptions);
 
   const duration = Number.isFinite(options.duration)
@@ -10385,6 +10386,7 @@ const Viewer = {
   cleanupCallbacks: [],
   resizeObserver: null,
   i18nGui: {},
+  showNotifications: true,
 
   getE2EModelOverride() {
     if (!window.__E2E__) return null;
@@ -10567,6 +10569,7 @@ const Viewer = {
     const hideUiFromQuery = this.parseBooleanParam(params.get("hideUi"));
     const hideMetadataFromQuery = this.parseBooleanParam(params.get("hideMetadata"));
     core.PRESENTATION_MODE = this.parseBooleanParam(params.get("presentationMode"));
+    const showNotificationsFromQuery = this.parseBooleanParam(params.get("showNotifications"));
 
     this.urlOptions = {
       model: modelFromQuery || null,
@@ -10582,7 +10585,8 @@ const Viewer = {
       cameraTarget: this.parseVector3Param(params.get("camTarget") || params.get("cameraTarget")),
       cameraFov: this.parseFloatParam(params.get("fov")),
       presentationMode: core.PRESENTATION_MODE === false,
-      scale: this.parseVector2Param(params.get("scale")),
+      scale: this.parseVector2Param(params.get("scale")) || new THREE.Vector2(1, 1),
+      showNotifications: showNotificationsFromQuery !== false
     };
   },
 
@@ -11984,6 +11988,8 @@ const Viewer = {
     console.log(`Presentation mode: ${core.PRESENTATION_MODE ? "ON" : "OFF"}`);
     this.currentLanguage = this.getStoredLanguage();
     setCore('currentLanguage', this.currentLanguage);
+    setCore('showNotifications', this.showNotifications);
+    core.showNotifications = this.urlOptions.showNotifications;
 
     if (this.urlOptions.model) {
       this.container.setAttribute("3d", this.urlOptions.model);
@@ -12001,7 +12007,7 @@ const Viewer = {
 
     this.fileObject.originalPath = this.normalizeFileUrl(core.container.getAttribute("3d"));
     setCore('fileObject', this.fileObject);
-    if (!this.urlOptions.scale) {
+    if (this.urlOptions.scale !== undefined && this.urlOptions.scale !== null) {
       core.CONFIG.viewer.scaleContainer.x = this.urlOptions.scale.x;
       core.CONFIG.viewer.scaleContainer.y = this.urlOptions.scale.y;
     }
