@@ -316,6 +316,7 @@ function reportLoadError(error, context = "") {
 }
 
 export async function loadModel() {
+  core.loadingLog?.start?.();
   let modelPath = core.fileObject.filename.startsWith('blob:') ? core.fileObject.filename : core.fileObject.path + core.fileObject.filename;
   if (core.CONFIG.entity.proxyPath !== undefined && !core.fileObject.filename.startsWith('blob:')) {
     modelPath = core.getProxyPath(modelPath, core.CONFIG, core.fileObject);
@@ -632,9 +633,12 @@ export async function loadModel() {
       }
       default:
         toastHelper("unsupportedExtension", "warning");
+        core.loadingLog?.fail?.();
         return;
     }
+    core.loadingLog?.finish?.();
   } catch (error) {
+    core.loadingLog?.fail?.();
     reportLoadError(error, `Failed to load ${core.fileObject.filename}`);
     throw error;
   }
@@ -733,6 +737,7 @@ const progressLoaderHandler = function (xhr) {
   if (!Number.isFinite(percentComplete)) return;
   core.circle.show();
   core.circle.set(percentComplete, 100);
+  core.loadingLog?.update?.(percentComplete);
   core.UltraLoader?.set(percentComplete);
   if (percentComplete >= 100) {
     core.circle.hide();

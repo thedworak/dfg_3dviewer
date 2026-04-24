@@ -2881,6 +2881,7 @@ function reportLoadError(error, context = "") {
 }
 
 async function loadModel() {
+  core.loadingLog?.start?.();
   let modelPath = core.fileObject.filename.startsWith('blob:') ? core.fileObject.filename : core.fileObject.path + core.fileObject.filename;
   if (core.CONFIG.entity.proxyPath !== undefined && !core.fileObject.filename.startsWith('blob:')) {
     modelPath = core.getProxyPath(modelPath, core.CONFIG, core.fileObject);
@@ -3187,9 +3188,12 @@ async function loadModel() {
       }
       default:
         toastHelper$1("unsupportedExtension", "warning");
+        core.loadingLog?.fail?.();
         return;
     }
+    core.loadingLog?.finish?.();
   } catch (error) {
+    core.loadingLog?.fail?.();
     reportLoadError(error, `Failed to load ${core.fileObject.filename}`);
     throw error;
   }
@@ -3227,6 +3231,7 @@ const progressLoaderHandler = function (xhr) {
   if (!Number.isFinite(percentComplete)) return;
   core.circle.show();
   core.circle.set(percentComplete, 100);
+  core.loadingLog?.update?.(percentComplete);
   core.UltraLoader?.set(percentComplete);
   if (percentComplete >= 100) {
     core.circle.hide();
@@ -10197,6 +10202,19 @@ const Viewer = {
   embedMissingSourceNotified: false,
   currentTheme: "dark",
   currentLanguage: "en",
+  loadingLogMessages: [
+    "Loading assets...",
+    "Parsing scene...",
+    "Loading textures...",    
+    "Preparing geometry...",
+    "Setting up lighting...",
+    "Setting up materials...",
+    "Building BVH...",
+    "Compiling shaders...",
+    "Initializing renderer...",
+    "Uploading buffers...",
+    "Fetching metadata...",
+  ],
   THEME_STORAGE_KEY: "iiif-dark-mode",
   LANGUAGE_STORAGE_KEY: "viewer-language",
   I18N: VIEWER_I18N,
@@ -10205,6 +10223,7 @@ const Viewer = {
   originalMetadata: [],
   spinnerContainer: null,
   spinnerElement: null,
+  loadingLog: null,
   guiContainer: null,
   noticeContainer: null,
   statusNotice: null,
@@ -10988,6 +11007,135 @@ const Viewer = {
       t$1("shortcuts.mouse"),
       t$1("shortcuts.keyboard")
     ].join("\n");
+  },
+
+  createLoadingLog() {
+    const shell = document.createElement("div");
+    shell.id = "loading-log";
+    shell.setAttribute("aria-live", "polite");
+    shell.hidden = true;
+
+    const list = document.createElement("div");
+    list.className = "loading-log__messages";
+
+    const progress = document.createElement("div");
+    progress.className = "loading-log__progress";
+    progress.setAttribute("role", "progressbar");
+    progress.setAttribute("aria-valuemin", "0");
+    progress.setAttribute("aria-valuemax", "100");
+    progress.setAttribute("aria-valuenow", "0");
+
+    const progressBar = document.createElement("div");
+    progressBar.className = "loading-log__progress-bar";
+    progress.appendChild(progressBar);
+
+    shell.append(list, progress);
+    core.container.appendChild(shell);
+
+    let timer = null;
+    let messageIndex = 0;
+    let visibleCount = 0;
+    let currentProgress = 0;
+    let startedAt = 0;
+    let hideTimer = null;
+    const minVisibleMs = 900;
+    shell.style.bottom = -shell.getBoundingClientRect().bottom/2 + "px";
+
+    const renderMessages = (allDone = false) => {
+      const messages = this.loadingLogMessages
+        .slice(Math.max(0, messageIndex - visibleCount + 1), messageIndex + 1);
+      list.replaceChildren(...messages.map((message, index) => {
+        const row = document.createElement("div");
+        row.className = "loading-log__message";
+        if (allDone) {
+          row.classList.add("loading-log__message--done");
+        } else if (index === messages.length - 1) {
+          row.classList.add("loading-log__message--active");
+        }
+        row.textContent = message;
+        return row;
+      }));
+    };
+
+    const setProgress = (value) => {
+      currentProgress = Math.max(currentProgress, Math.min(Math.round(value), 100));
+      progressBar.style.width = `${currentProgress}%`;
+      progress.setAttribute("aria-valuenow", String(currentProgress));
+    };
+
+    const tick = () => {
+      visibleCount = Math.min(4, visibleCount + 1);
+      messageIndex = Math.min(this.loadingLogMessages.length - 1, messageIndex + 1);
+      renderMessages();
+      setProgress(Math.min(currentProgress + 9, 92));
+    };
+
+    const stop = () => {
+      if (timer) {
+        window.clearInterval(timer);
+        timer = null;
+      }
+    };
+
+    const clearHideTimer = () => {
+      if (hideTimer) {
+        window.clearTimeout(hideTimer);
+        hideTimer = null;
+      }
+    };
+
+    return {
+      start: () => {
+        stop();
+        clearHideTimer();
+        startedAt = performance.now();
+        shell.hidden = false;
+        shell.classList.remove("loading-log--done", "loading-log--error");
+        messageIndex = 0;
+        visibleCount = 1;
+        currentProgress = 0;
+        renderMessages();
+        setProgress(6);
+        timer = window.setInterval(tick, 520);
+      },
+      update: (value) => {
+        if (shell.hidden) return;
+        const normalized = Number.isFinite(value) ? value : 0;
+        const messageProgress = Math.floor((normalized / 100) * (this.loadingLogMessages.length - 1));
+        messageIndex = Math.max(messageIndex, Math.min(messageProgress, this.loadingLogMessages.length - 1));
+        visibleCount = Math.min(4, Math.max(visibleCount, 2));
+        renderMessages();
+        setProgress(Math.min(normalized, 96));
+      },
+      finish: () => {
+        if (shell.hidden) return;
+        stop();
+        messageIndex = this.loadingLogMessages.length - 1;
+        visibleCount = this.loadingLogMessages.length;
+        renderMessages(true);
+        setProgress(100);
+        shell.classList.add("loading-log--done");
+        const visibleFor = performance.now() - startedAt;
+        const hideDelay = Math.max(700, minVisibleMs - visibleFor);
+        clearHideTimer();
+        hideTimer = window.setTimeout(() => {
+          shell.hidden = true;
+          shell.classList.remove("loading-log--done");
+          hideTimer = null;
+        }, hideDelay);
+      },
+      fail: () => {
+        if (shell.hidden) return;
+        stop();
+        clearHideTimer();
+        shell.classList.add("loading-log--error");
+        hideTimer = window.setTimeout(() => {
+          shell.hidden = true;
+          shell.classList.remove("loading-log--error");
+          hideTimer = null;
+        }, 900);
+      }
+    };
   },
 
   showStatusNotice(message, duration = 2600, options = {}) {
@@ -12147,10 +12295,10 @@ const Viewer = {
     this.circle = lv.create(this.spinnerElement);
     setCore('circle', this.circle);
     setCore('spinner', this.spinner);
+    this.loadingLog = this.createLoadingLog();
+    setCore('loadingLog', this.loadingLog);
 
     this.rect = core.container.getBoundingClientRect();
-
-
 
     this.clock = new THREE.Timer();
 
