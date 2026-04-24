@@ -164,7 +164,7 @@ class ConvertWorker extends QueueWorkerBase {
       $this->saveEntity($entity);
       $this->ensureImageFieldPersisted($entity_type, (string) $entity_id, $viewer_result);
       $this->ensureModelFieldsPersisted($entity_type, (string) $entity_id, $viewer_result);
-      $this->updateLegacyViewerUrlField($entity, $cfg);
+      $this->updateXmlExportField($entity, $cfg);
       $this->saveEntity($entity);
       $outcome = 'success';
 
@@ -969,7 +969,7 @@ class ConvertWorker extends QueueWorkerBase {
     return NULL;
   }
 
-  private function updateLegacyViewerUrlField($entity, array $cfg): void {
+  private function updateXmlExportField($entity, array $cfg): void {
     $field_df = (string) ($cfg['field_df'] ?? '');
     $main_url = trim((string) ($cfg['main_url'] ?? ''));
 
@@ -995,20 +995,19 @@ class ConvertWorker extends QueueWorkerBase {
         throw new \RuntimeException('Cannot resolve XML public URL.');
       }
 
-      $viewer_url = $main_url . '/viewer?tx_dlf[id]=' . rawurlencode($xml_url) . '&no_cache=1&modelviewer=1';
-      $entity->set($field_df, $viewer_url);
+      $entity->set($field_df, $xml_url);
 
       \Drupal::logger('dfg_3dviewer')->notice(
-        'Updated legacy viewer field "@field" with URL "@url".',
+        'Updated XML export field "@field" with URL "@url".',
         [
           '@field' => $field_df,
-          '@url' => $viewer_url,
+          '@url' => $xml_url,
         ]
       );
     }
     catch (\Throwable $e) {
       \Drupal::logger('dfg_3dviewer')->warning(
-        'Cannot update legacy viewer field "@field" for entity @entity_id: @msg',
+        'Cannot update XML export field "@field" for entity @entity_id: @msg',
         [
           '@field' => $field_df,
           '@entity_id' => $entity_id,

@@ -63,10 +63,23 @@ async function renderSettingsLocalPhp() {
   return template.replaceAll('__DFG_ENV__', dfgEnv);
 }
 
+async function writeIfNotExists(filePath, content) {
+  try {
+    await fs.access(filePath);
+    console.log(`[rollup] skip existing: ${filePath}`);
+    return false;
+  } catch {
+    await fs.writeFile(filePath, content);
+    console.log(`[rollup] created: ${filePath}`);
+    return true;
+  }
+}
+
 function copyBuildAssets() {
   return {
     name: 'copy-build-assets',
     async writeBundle() {
+      await fs.mkdir(outDistDir, { recursive: true });
       await Promise.all([
         copyDirectory(
           'node_modules/three/examples/jsm/libs/draco',
@@ -150,7 +163,6 @@ function copyBuildAssets() {
         );
       }
 
-      await fs.mkdir(outDistDir, { recursive: true });
       await Promise.all(copyPromises);
     },
   };
