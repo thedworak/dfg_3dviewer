@@ -20,6 +20,7 @@
     "fileName": "fb76901eb219495fee0512b5cdfdaa18",
     "imageGeneration": "fd6a974b7120d422c7b21b5f1f2315d9",
     "presentationMode": false,
+    "sandboxMode": false,
     "lightweight": true,
     "scaleContainer": {
       "x": "1.0",

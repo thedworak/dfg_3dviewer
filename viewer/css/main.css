@@ -87,7 +87,6 @@ canvas {
 }
 
 #viewerNoticeContainer {
-  bottom: 12px;
   max-width: calc(100% - 88px);
   position: absolute;
   left: 50%;
@@ -99,6 +98,13 @@ canvas {
   align-items: center;
   gap: 8px;
   pointer-events: none;
+}
+
+#viewerNoticeContainer.viewer-notice-container--sandbox {
+  top: 50%;
+  bottom: auto;
+  max-width: min(520px, calc(100% - 32px));
+  transform: translate(-50%, -50%);
 }
 
 .viewer-notice {
@@ -155,6 +161,40 @@ canvas {
 .viewer-notice-status[data-tone="info"] {
   background: var(--viewer-notice-container-bg);
   border-color: rgba(191, 219, 254, 0.18);
+}
+
+.viewer-notice-status[data-variant="sandbox"] {
+  padding: 14px 20px;
+  width: min(380px, calc(100vw - 48px));
+  max-width: 100%;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 450;
+  white-space: normal;
+  background: rgba(17, 24, 39, 0.64);
+  border-color: rgba(255, 255, 255, 0.24);
+  box-shadow: 0 18px 56px rgba(15, 23, 42, 0.28);
+  /* animowany outline */
+  box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.0),
+              0 18px 56px rgba(15, 23, 42, 0.28);
+
+  animation: sandbox-outline 2.4s ease-in-out infinite;
+}
+
+@keyframes sandbox-outline {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.0),
+                0 18px 56px rgba(15, 23, 42, 0.28);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(24, 167, 249, 0.43),
+                0 18px 56px rgba(15, 23, 42, 0.28);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.0),
+                0 18px 56px rgba(15, 23, 42, 0.28);
+  }
 }
 
 @keyframes fadeIn {

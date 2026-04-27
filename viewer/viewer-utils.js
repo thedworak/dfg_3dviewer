@@ -49,6 +49,8 @@ export const showToast = (message, toneOrOptions, maybeOptions) => {
 
   const key = String(options.key ?? "");
   const replace = options.replace === true;
+  const persistent = options.persistent === true;
+  const variant = String(options.variant ?? "");
 
   // Resolve i18n key if possible, otherwise use the message as-is (for backward compatibility)
   let text;
@@ -70,7 +72,7 @@ export const showToast = (message, toneOrOptions, maybeOptions) => {
   const enqueueStatusNotice = core.enqueueStatusNotice;
 
   if (typeof enqueueStatusNotice === "function") {
-    enqueueStatusNotice({ message: text, tone, duration, key, replace });
+    enqueueStatusNotice({ message: text, tone, duration, key, replace, persistent, variant });
     return;
   }
 

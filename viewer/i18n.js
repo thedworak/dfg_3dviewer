@@ -158,6 +158,7 @@ export const VIEWER_I18N = {
       unsupportedFormat: "Unsupported file format.",
       presentationModeReady: "Presentation mode is ready.",
       presentationModeError: "An error occurred during presentation mode setup.",
+      sandboxDropModel: "Drag and drop a 3D model into the viewer.",
 
       embedSourceMissing: "Set Model URL or Entity ID for embed.",
       embedUrlCopied: "Embed URL copied.",
@@ -350,6 +351,7 @@ export const VIEWER_I18N = {
       unsupportedFormat: "Nieobsługiwany format pliku.",
       presentationModeReady: "Tryb prezentacji jest gotowy.",
       presentationModeError: "Wystąpił błąd podczas konfiguracji trybu prezentacji.",
+      sandboxDropModel: "Przeciągnij i upuść model 3D w oknie viewer'a.",
 
       embedSourceMissing: "Ustaw URL modelu lub ID encji do osadzenia.",
       embedUrlCopied: "Skopiowano URL osadzenia.",
@@ -541,6 +543,7 @@ export const VIEWER_I18N = {
       unsupportedFormat: "Nicht unterstütztes Dateiformat.",
       presentationModeReady: "Präsentationsmodus ist bereit.",
       presentationModeError: "Beim Einrichten des Präsentationsmodus ist ein Fehler aufgetreten.",
+      sandboxDropModel: "Ziehen Sie ein 3D-Modell per Drag-and-drop in den Viewer.",
 
       embedSourceMissing: "Model-URL oder Entitäts-ID für die Einbettung festlegen.",
       embedUrlCopied: "Einbettungs-URL kopiert.",

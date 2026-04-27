@@ -24,6 +24,15 @@ async function openViewer(page, modelPath = defaultModel) {
   await page.waitForSelector('#MainCanvas', { state: 'attached' });
 }
 
+async function openSandboxViewer(page) {
+  await page.addInitScript(() => {
+    window.__E2E__ = true;
+  });
+
+  await page.goto('/?sandbox=1');
+  await page.waitForSelector('#MainCanvas', { state: 'attached' });
+}
+
 async function waitForModel(page) {
   await page.waitForFunction(() => window.viewer?.modelLoaded === true, {
     timeout: 15_000,
@@ -52,6 +61,31 @@ test('viewer runs in E2E mode', async ({ page }) => {
 
   expect(hasWebGL).toBe(true);
   await expect.poll(() => page.evaluate(() => window.__E2E__)).toBe(true);
+});
+
+test('sandbox mode starts without loading a model', async ({ page }) => {
+  await openSandboxViewer(page);
+
+  await page.waitForFunction(() =>
+    window.viewer?.toasts?.includes('Drag and drop a 3D model into the viewer.')
+  );
+  await page.waitForTimeout(3_000);
+
+  const state = await page.evaluate(() => ({
+    modelLoaded: window.viewer.modelLoaded,
+    toasts: window.viewer.toasts ?? [],
+    guiHidden: document.querySelector('#guiContainer')?.hidden,
+    sandboxNoticeVisible:
+      document.querySelector('#viewerStatusNotice[data-variant="sandbox"].is-visible')?.hidden === false,
+    noticeContainerCentered:
+      document.querySelector('#viewerNoticeContainer')?.classList.contains('viewer-notice-container--sandbox'),
+  }));
+
+  expect(state.modelLoaded).toBe(false);
+  expect(state.toasts).toContain('Drag and drop a 3D model into the viewer.');
+  expect(state.guiHidden).toBe(true);
+  expect(state.sandboxNoticeVisible).toBe(true);
+  expect(state.noticeContainerCentered).toBe(true);
 });
 
 for (const example of supportedExamples) {

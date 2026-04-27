@@ -367,6 +367,7 @@ const VIEWER_I18N = {
       unsupportedFormat: "Unsupported file format.",
       presentationModeReady: "Presentation mode is ready.",
       presentationModeError: "An error occurred during presentation mode setup.",
+      sandboxDropModel: "Drag and drop a 3D model into the viewer.",
 
       embedSourceMissing: "Set Model URL or Entity ID for embed.",
       embedUrlCopied: "Embed URL copied.",
@@ -559,6 +560,7 @@ const VIEWER_I18N = {
       unsupportedFormat: "Nieobsługiwany format pliku.",
       presentationModeReady: "Tryb prezentacji jest gotowy.",
       presentationModeError: "Wystąpił błąd podczas konfiguracji trybu prezentacji.",
+      sandboxDropModel: "Przeciągnij i upuść model 3D w oknie viewer'a.",
 
       embedSourceMissing: "Ustaw URL modelu lub ID encji do osadzenia.",
       embedUrlCopied: "Skopiowano URL osadzenia.",
@@ -750,6 +752,7 @@ const VIEWER_I18N = {
       unsupportedFormat: "Nicht unterstütztes Dateiformat.",
       presentationModeReady: "Präsentationsmodus ist bereit.",
       presentationModeError: "Beim Einrichten des Präsentationsmodus ist ein Fehler aufgetreten.",
+      sandboxDropModel: "Ziehen Sie ein 3D-Modell per Drag-and-drop in den Viewer.",
 
       embedSourceMissing: "Model-URL oder Entitäts-ID für die Einbettung festlegen.",
       embedUrlCopied: "Einbettungs-URL kopiert.",
@@ -876,6 +879,8 @@ const showToast = (message, toneOrOptions, maybeOptions) => {
 
   const key = String(options.key ?? "");
   const replace = options.replace === true;
+  const persistent = options.persistent === true;
+  const variant = String(options.variant ?? "");
 
   // Resolve i18n key if possible, otherwise use the message as-is (for backward compatibility)
   let text;
@@ -897,7 +902,7 @@ const showToast = (message, toneOrOptions, maybeOptions) => {
   const enqueueStatusNotice = core.enqueueStatusNotice;
 
   if (typeof enqueueStatusNotice === "function") {
-    enqueueStatusNotice({ message: text, tone, duration, key, replace });
+    enqueueStatusNotice({ message: text, tone, duration, key, replace, persistent, variant });
     return;
   }
 
@@ -2881,6 +2886,7 @@ function reportLoadError(error, context = "") {
 }
 
 async function loadModel() {
+  core.loadingLog?.start?.();
   let modelPath = core.fileObject.filename.startsWith('blob:') ? core.fileObject.filename : core.fileObject.path + core.fileObject.filename;
   if (core.CONFIG.entity.proxyPath !== undefined && !core.fileObject.filename.startsWith('blob:')) {
     modelPath = core.getProxyPath(modelPath, core.CONFIG, core.fileObject);
@@ -3197,9 +3203,12 @@ async function loadModel() {
       }
       default:
         toastHelper$1("unsupportedExtension", "warning");
+        core.loadingLog?.fail?.();
         return;
     }
+    core.loadingLog?.finish?.();
   } catch (error) {
+    core.loadingLog?.fail?.();
     reportLoadError(error, `Failed to load ${core.fileObject.filename}`);
     throw error;
   }
@@ -3270,6 +3279,7 @@ const progressLoaderHandler = function (xhr) {
   if (!Number.isFinite(percentComplete)) return;
   core.circle.show();
   core.circle.set(percentComplete, 100);
+  core.loadingLog?.update?.(percentComplete);
   core.UltraLoader?.set(percentComplete);
   if (percentComplete >= 100) {
     core.circle.hide();
@@ -10187,6 +10197,7 @@ window.viewer = {
 const Viewer = {
   CONFIG: null,
   PRESENTATION_MODE: false,
+  SANDBOX_MODE: false,
   camera: null,
   scene: null,
   activeScene: 0,
@@ -10240,6 +10251,19 @@ const Viewer = {
   embedMissingSourceNotified: false,
   currentTheme: "dark",
   currentLanguage: "en",
+  loadingLogMessages: [
+    "Loading assets...",
+    "Parsing scene...",
+    "Loading textures...",    
+    "Preparing geometry...",
+    "Setting up lighting...",
+    "Setting up materials...",
+    "Building BVH...",
+    "Compiling shaders...",
+    "Initializing renderer...",
+    "Uploading buffers...",
+    "Fetching metadata...",
+  ],
   THEME_STORAGE_KEY: "iiif-dark-mode",
   LANGUAGE_STORAGE_KEY: "viewer-language",
   I18N: VIEWER_I18N,
@@ -10248,6 +10272,7 @@ const Viewer = {
   originalMetadata: [],
   spinnerContainer: null,
   spinnerElement: null,
+  loadingLog: null,
   guiContainer: null,
   noticeContainer: null,
   statusNotice: null,
@@ -10414,6 +10439,7 @@ const Viewer = {
     cameraTarget: null,
     cameraFov: null,
     presentationMode: false,
+    sandboxMode: false,
   },
   keyboardStep: {
     rotate: THREE.MathUtils.degToRad(2.25),
@@ -10611,7 +10637,14 @@ const Viewer = {
     const disableInteractionFromQuery = this.parseBooleanParam(params.get("disableInteraction"));
     const hideUiFromQuery = this.parseBooleanParam(params.get("hideUi"));
     const hideMetadataFromQuery = this.parseBooleanParam(params.get("hideMetadata"));
-    core.PRESENTATION_MODE = this.parseBooleanParam(params.get("presentationMode"));
+    const presentationModeFromQuery = this.parseBooleanParam(params.get("presentationMode"));
+    const sandboxModeFromQuery = this.parseBooleanParam(params.get("sandbox"));
+    if (presentationModeFromQuery !== null) {
+      core.PRESENTATION_MODE = presentationModeFromQuery;
+    }
+    if (sandboxModeFromQuery !== null) {
+      core.SANDBOX_MODE = sandboxModeFromQuery;
+    }
     const showNotificationsFromQuery = this.parseBooleanParam(params.get("showNotifications"));
 
     this.urlOptions = {
@@ -10627,7 +10660,8 @@ const Viewer = {
       cameraPosition: this.parseVector3Param(params.get("camPos") || params.get("cameraPos")),
       cameraTarget: this.parseVector3Param(params.get("camTarget") || params.get("cameraTarget")),
       cameraFov: this.parseFloatParam(params.get("fov")),
-      presentationMode: core.PRESENTATION_MODE === false,
+      presentationMode: core.PRESENTATION_MODE === true,
+      sandboxMode: core.SANDBOX_MODE === true,
       scale: this.parseVector2Param(params.get("scale")) || new THREE.Vector2(1, 1),
       showNotifications: showNotificationsFromQuery !== false
     };
@@ -11033,6 +11067,135 @@ const Viewer = {
     ].join("\n");
   },
 
+  createLoadingLog() {
+    const shell = document.createElement("div");
+    shell.id = "loading-log";
+    shell.setAttribute("aria-live", "polite");
+    shell.hidden = true;
+
+    const list = document.createElement("div");
+    list.className = "loading-log__messages";
+
+    const progress = document.createElement("div");
+    progress.className = "loading-log__progress";
+    progress.setAttribute("role", "progressbar");
+    progress.setAttribute("aria-valuemin", "0");
+    progress.setAttribute("aria-valuemax", "100");
+    progress.setAttribute("aria-valuenow", "0");
+
+    const progressBar = document.createElement("div");
+    progressBar.className = "loading-log__progress-bar";
+    progress.appendChild(progressBar);
+
+    shell.append(list, progress);
+    core.container.appendChild(shell);
+
+    let timer = null;
+    let messageIndex = 0;
+    let visibleCount = 0;
+    let currentProgress = 0;
+    let startedAt = 0;
+    let hideTimer = null;
+    const minVisibleMs = 900;
+    shell.style.bottom = -shell.getBoundingClientRect().bottom/2 + "px";
+
+    const renderMessages = (allDone = false) => {
+      const messages = this.loadingLogMessages
+        .slice(Math.max(0, messageIndex - visibleCount + 1), messageIndex + 1);
+      list.replaceChildren(...messages.map((message, index) => {
+        const row = document.createElement("div");
+        row.className = "loading-log__message";
+        if (allDone) {
+          row.classList.add("loading-log__message--done");
+        } else if (index === messages.length - 1) {
+          row.classList.add("loading-log__message--active");
+        }
+        row.textContent = message;
+        return row;
+      }));
+    };
+
+    const setProgress = (value) => {
+      currentProgress = Math.max(currentProgress, Math.min(Math.round(value), 100));
+      progressBar.style.width = `${currentProgress}%`;
+      progress.setAttribute("aria-valuenow", String(currentProgress));
+    };
+
+    const tick = () => {
+      visibleCount = Math.min(4, visibleCount + 1);
+      messageIndex = Math.min(this.loadingLogMessages.length - 1, messageIndex + 1);
+      renderMessages();
+      setProgress(Math.min(currentProgress + 9, 92));
+    };
+
+    const stop = () => {
+      if (timer) {
+        window.clearInterval(timer);
+        timer = null;
+      }
+    };
+
+    const clearHideTimer = () => {
+      if (hideTimer) {
+        window.clearTimeout(hideTimer);
+        hideTimer = null;
+      }
+    };
+
+    return {
+      start: () => {
+        stop();
+        clearHideTimer();
+        startedAt = performance.now();
+        shell.hidden = false;
+        shell.classList.remove("loading-log--done", "loading-log--error");
+        messageIndex = 0;
+        visibleCount = 1;
+        currentProgress = 0;
+        renderMessages();
+        setProgress(6);
+        timer = window.setInterval(tick, 520);
+      },
+      update: (value) => {
+        if (shell.hidden) return;
+        const normalized = Number.isFinite(value) ? value : 0;
+        const messageProgress = Math.floor((normalized / 100) * (this.loadingLogMessages.length - 1));
+        messageIndex = Math.max(messageIndex, Math.min(messageProgress, this.loadingLogMessages.length - 1));
+        visibleCount = Math.min(4, Math.max(visibleCount, 2));
+        renderMessages();
+        setProgress(Math.min(normalized, 96));
+      },
+      finish: () => {
+        if (shell.hidden) return;
+        stop();
+        messageIndex = this.loadingLogMessages.length - 1;
+        visibleCount = this.loadingLogMessages.length;
+        renderMessages(true);
+        setProgress(100);
+        shell.classList.add("loading-log--done");
+        const visibleFor = performance.now() - startedAt;
+        const hideDelay = Math.max(700, minVisibleMs - visibleFor);
+        clearHideTimer();
+        hideTimer = window.setTimeout(() => {
+          shell.hidden = true;
+          shell.classList.remove("loading-log--done");
+          hideTimer = null;
+        }, hideDelay);
+      },
+      fail: () => {
+        if (shell.hidden) return;
+        stop();
+        clearHideTimer();
+        shell.classList.add("loading-log--error");
+        hideTimer = window.setTimeout(() => {
+          shell.hidden = true;
+          shell.classList.remove("loading-log--error");
+          hideTimer = null;
+        }, 900);
+      }
+    };
+  },
+
   showStatusNotice(message, duration = 2600, options = {}) {
     this.enqueueStatusNotice({ message, duration, tone: "info", ...options });
   },
@@ -11050,12 +11213,22 @@ const Viewer = {
     this.statusNotice.hidden = false;
     this.statusNotice.textContent = notice.message;
     this.statusNotice.dataset.tone = notice.tone || "info";
+    if (notice.variant) {
+      this.statusNotice.dataset.variant = notice.variant;
+    } else {
+      delete this.statusNotice.dataset.variant;
+    }
+    this.noticeContainer?.classList.toggle("viewer-notice-container--sandbox", notice.variant === "sandbox");
     this.statusNotice.classList.remove("is-hiding");
     this.statusNotice.classList.add("is-visible");
 
     if (this.statusNoticeTimer) {
       clearTimeout(this.statusNoticeTimer);
       this.statusNoticeTimer = null;
+    }
+
+    if (notice.persistent) {
+      return;
     }
 
     this.statusNoticeTimer = setTimeout(() => {
@@ -11068,7 +11241,9 @@ const Viewer = {
         if (this.statusNotice) {
           this.statusNotice.hidden = true;
           this.statusNotice.classList.remove("is-hiding");
+          delete this.statusNotice.dataset.variant;
         }
+        this.noticeContainer?.classList.remove("viewer-notice-container--sandbox");
         this.statusNoticeActive = false;
         this.statusNoticeCurrent = null;
         this.statusNoticeTimer = null;
@@ -11078,12 +11253,48 @@ const Viewer = {
     }, notice.duration);
   },
 
+  dismissStatusNotice(key = "") {
+    const normalizedKey = String(key || "");
+    this.statusNoticeQueue = this.statusNoticeQueue.filter(
+      (entry) => normalizedKey && (entry?.key || "") !== normalizedKey
+    );
+
+    if (
+      normalizedKey &&
+      (!this.statusNoticeCurrent || (this.statusNoticeCurrent.key || "") !== normalizedKey)
+    ) {
+      return;
+    }
+
+    if (this.statusNoticeTimer) {
+      clearTimeout(this.statusNoticeTimer);
+      this.statusNoticeTimer = null;
+    }
+    if (this.statusNoticeHideTimer) {
+      clearTimeout(this.statusNoticeHideTimer);
+      this.statusNoticeHideTimer = null;
+    }
+
+    if (this.statusNotice) {
+      this.statusNotice.hidden = true;
+      this.statusNotice.classList.remove("is-visible", "is-hiding");
+      delete this.statusNotice.dataset.variant;
+    }
+    this.noticeContainer?.classList.remove("viewer-notice-container--sandbox");
+
+    this.statusNoticeActive = false;
+    this.statusNoticeCurrent = null;
+    this.processStatusNoticeQueue();
+  },
+
   enqueueStatusNotice({
     message,
     duration = 2600,
     tone = "info",
     key = "",
     replace = false,
+    persistent = false,
+    variant = "",
   } = {}) {
     const text = String(message ?? "");
     if (!text) return;
@@ -11093,6 +11304,8 @@ const Viewer = {
       tone,
       duration: Number.isFinite(duration) ? duration : 2600,
       key: String(key || ""),
+      persistent,
+      variant: String(variant || ""),
     };
 
     if (
@@ -11401,6 +11614,7 @@ const Viewer = {
       hideUi: this.urlOptions?.hideUi === true,
       hideMetadata: this.urlOptions?.hideMetadata === true,
       presentationMode: core.PRESENTATION_MODE === true,
+      sandboxMode: core.SANDBOX_MODE === true,
       cameraPosition: null,
       cameraTarget: null,
       fov: null,
@@ -11494,6 +11708,9 @@ const Viewer = {
     }
     if (options.presentationMode) {
       params.set("presentationMode", "1");
+    }
+    if (options.sandboxMode) {
+      params.set("sandbox", "1");
     }
     if (options.cameraPosition) {
       params.set("camPos", options.cameraPosition);
@@ -11952,6 +12169,7 @@ const Viewer = {
     setCore('gui', this.gui);
     setCore('i18nGui', this.i18nGui);
     setCore('enqueueStatusNotice', this.enqueueStatusNotice.bind(this));
+    setCore('dismissStatusNotice', this.dismissStatusNotice.bind(this));
     setCore('updateClippingHintVisibility', this.updateClippingHintVisibility.bind(this));
 
     const res = await fetch(url, { cache: 'no-store' });
@@ -11981,6 +12199,7 @@ const Viewer = {
           fileName: "faa602a0be629324806aef22892cdbe5",
           imageGeneration: "f605dc6b727a1099b9e52b3ccbdf5673",
           presentationMode: "false",
+          sandboxMode: "false",
           lightweight: 0,
           scaleContainer: {
             x: 0.85,
@@ -12011,8 +12230,15 @@ const Viewer = {
     this.EDITOR = Boolean(core.CONFIG.viewer.editor);
     setCore('EDITOR', this.EDITOR);
 
-    this.PRESENTATION_MODE = Boolean(core.CONFIG.viewer.presentationMode);
+    const presentationModeFromConfig = this.parseBooleanParam(core.CONFIG.viewer.presentationMode);
+    this.PRESENTATION_MODE = presentationModeFromConfig ?? Boolean(core.CONFIG.viewer.presentationMode);
     setCore('PRESENTATION_MODE', this.PRESENTATION_MODE);
+
+    const sandboxModeFromConfig = this.parseBooleanParam(core.CONFIG.viewer.sandboxMode);
+    this.SANDBOX_MODE = sandboxModeFromConfig ?? Boolean(core.CONFIG.viewer.sandboxMode);
+    setCore('SANDBOX_MODE', this.SANDBOX_MODE);
+    console.log(`Presentation mode: ${this.PRESENTATION_MODE ? "ON" : "OFF"}`);
+    console.log(`Sandbox mode: ${this.SANDBOX_MODE ? "ON" : "OFF"}`);
 
     console.log(`AIM 3D-Viewer ${this.isLightweight ? '🪶 LIGHTWEIGHT' : '💪 FULL'} mode`);
     console.log(`Powered by Three.js (v${THREE.REVISION})`);
@@ -12029,6 +12255,7 @@ const Viewer = {
 
     this.parseUrlOptions();
     console.log(`Presentation mode: ${core.PRESENTATION_MODE ? "ON" : "OFF"}`);
+    console.log(`Sandbox mode: ${core.SANDBOX_MODE ? "ON" : "OFF"}`);
     this.currentLanguage = this.getStoredLanguage();
     setCore('currentLanguage', this.currentLanguage);
     setCore('showNotifications', this.showNotifications);
@@ -12149,6 +12376,7 @@ const Viewer = {
       core.guiContainer = document.createElement("div");
       core.guiContainer.id = "guiContainer";
       core.guiContainer.className = "guiContainer";
+      core.guiContainer.hidden = core.SANDBOX_MODE === true;
       core.container.appendChild(core.guiContainer);
 
       core.gui  = new p({ container: core.guiContainer });
@@ -12190,10 +12418,10 @@ const Viewer = {
     this.circle = lv.create(this.spinnerElement);
     setCore('circle', this.circle);
     setCore('spinner', this.spinner);
+    this.loadingLog = this.createLoadingLog();
+    setCore('loadingLog', this.loadingLog);
 
     this.rect = core.container.getBoundingClientRect();
-
-
 
     this.clock = new THREE.Timer();
 
@@ -12241,6 +12469,16 @@ const Viewer = {
   },
 
   setModelPaths() {
+    if (!core.fileObject.originalPath) {
+      core.fileObject.filename = "";
+      core.fileObject.basename = "";
+      core.fileObject.extension = "";
+      core.fileObject.path = "";
+      core.fileObject.uri = "";
+      core.fileObject.relativePath = "";
+      return;
+    }
+
     core.fileObject.filename = core.fileObject.originalPath.split("/").pop();
     core.fileObject.basename = core.fileObject.filename.substring(0, core.fileObject.filename.lastIndexOf("."));
     core.fileObject.extension = core.fileObject.filename.substring(core.fileObject.filename.lastIndexOf(".") + 1);
@@ -14045,7 +14283,14 @@ const Viewer = {
       }
     }
 
-    core.guiContainer.style.left = (widthCSS - core.lilGui[0]?.getBoundingClientRect().width) + 'px';
+    if (!core.guiContainer.hidden) {
+      const guiWidth =
+        core.lilGui?.[0]?.getBoundingClientRect().width ||
+        core.guiContainer.getBoundingClientRect().width;
+      if (guiWidth > 0) {
+        core.guiContainer.style.left = (widthCSS - guiWidth) + 'px';
+      }
+    }
 
     Viewer.mainCanvas.width = widthDev;
     Viewer.mainCanvas.height = heightDev;
@@ -14416,6 +14661,20 @@ const Viewer = {
     e.dataTransfer.dropEffect = 'copy';
   },
 
+  showSandboxGuiAfterModelLoad() {
+    if (!core.guiContainer) return;
+
+    core.guiContainer.hidden = false;
+    core.lilGui = document.getElementsByClassName("lil-gui root");
+
+    const updateAfterLayout = () => {
+      Viewer.updateSize();
+      requestAnimationFrame(() => Viewer.updateSize());
+    };
+
+    requestAnimationFrame(updateAfterLayout);
+  },
+
   async onDrop(e) {
     e.preventDefault();
     const files = e.dataTransfer.files;
@@ -14452,6 +14711,10 @@ const Viewer = {
         
         // Load the model
         await Viewer.mainLoadModel();
+        if (core.SANDBOX_MODE) {
+          Viewer.showSandboxGuiAfterModelLoad();
+          Viewer.dismissStatusNotice("sandbox-drop-model");
+        }
         
         toastHelper$1("modelLoadedSimple", "success");
       } else {
@@ -14685,6 +14948,41 @@ const Viewer = {
     }
 
     this.applyCameraOverridesFromUrl();
+  },
+
+  prepareSandboxScene() {
+    if (core.mainObject?.length) {
+      core.mainObject.forEach((obj) => Viewer.removeAndDisposeFromScene(obj));
+      core.mainObject.length = 0;
+    }
+
+    if (core.loadingLog) {
+      core.loadingLog.finish?.();
+    }
+    if (core.circle) {
+      core.circle.set?.(0, 100);
+      core.circle.hide?.();
+    }
+
+    if (core.mainCanvas && core.CONFIG?.viewer?.background) {
+      core.mainCanvas.style.setProperty("background", core.CONFIG.viewer.background);
+    }
+
+    core.camera?.position.set(0, 60, 180);
+    core.controls?.target.set(0, 0, 0);
+    core.controls?.update();
+    this.applyCameraOverridesFromUrl();
+
+    if (window.viewer) {
+      window.viewer.modelLoaded = false;
+    }
+
+    toastHelper$1("sandboxDropModel", "info", {
+      key: "sandbox-drop-model",
+      replace: true,
+      persistent: true,
+      variant: "sandbox",
+    });
   },
 
   applyCameraOverridesFromUrl() {
@@ -15566,7 +15864,7 @@ const Viewer = {
       setCore('isLocalPreview', this.isLocalPreview);
       console.info('Running on', window.location.hostname, '- Local preview mode:', core.isLocalPreview);
 
-      if (!core.PRESENTATION_MODE) {
+      if (!core.PRESENTATION_MODE && !core.SANDBOX_MODE) {
         Viewer.startModelProcessing();
       }
 
@@ -15673,8 +15971,7 @@ const Viewer = {
         });
         Viewer.bindEventListener(core.renderer.domElement, "keydown", Viewer.onViewerKeyDown);
 
-        // Add drag and drop support for localhost
-        if (core.isLocalPreview) {
+        if (core.isLocalPreview || core.SANDBOX_MODE) {
           Viewer.bindEventListener(core.renderer.domElement, "dragover", Viewer.onDragOver);
           Viewer.bindEventListener(core.renderer.domElement, "drop", Viewer.onDrop);
         }
@@ -15958,7 +16255,7 @@ const Viewer = {
       
       core.autoPath = "";
 
-      if (core.isLocalPreview && !core.PRESENTATION_MODE) {
+      if (core.isLocalPreview && !core.PRESENTATION_MODE && !core.SANDBOX_MODE) {
         const picker = document.getElementById('example-model-picker');
         const selectModel = document.getElementById('example-model-select');
         const themeToggle = document.getElementById('example-theme-toggle');
@@ -15993,7 +16290,9 @@ const Viewer = {
         }
       }
 
-      if (!core.PRESENTATION_MODE) {
+      if (core.SANDBOX_MODE) {
+        Viewer.prepareSandboxScene();
+      } else if (!core.PRESENTATION_MODE) {
         const sourceType = core.CONFIG.entity.metadata.sourceType.toLowerCase();
         console.log("Loading from source: " + sourceType);
             
