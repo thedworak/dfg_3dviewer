@@ -399,7 +399,9 @@ const VIEWER_I18N = {
     },
     shortcuts: {
       mouse: "Mouse: drag orbit, wheel zoom, right-drag pan",
-      keyboard: "Keyboard: Arrows orbit, Shift+Arrows faster, Ctrl/Cmd+Arrows pan, +/- zoom, Space toggle auto-rotate"
+      keyboard: "Keyboard: Arrows orbit, Shift+Arrows faster, Ctrl/Cmd+Arrows pan, +/- zoom, Space toggle auto-rotate",
+      touch: "Touch: pinch-to-zoom, drag to orbit, double-tap-and-hold pan",
+      dragAndDrop: "Or drag and drop a 3D model into the viewer",
     },
   },
   pl: {
@@ -592,7 +594,9 @@ const VIEWER_I18N = {
     },
     shortcuts: {
       mouse: "Mysz: przeciągnij, aby obracać, rolka - zoom, prawy przycisk - przesuwanie",
-      keyboard: "Klawiatura: strzałki - obrót, Shift+strzałki - szybciej, Ctrl/Cmd+strzałki - przesuwanie, +/- — zoom, Spacja - auto-obrót"
+      keyboard: "Klawiatura: strzałki - obrót, Shift+strzałki - szybciej, Ctrl/Cmd+strzałki - przesuwanie, +/- — zoom, Spacja - auto-obrót",
+      touch: "Dotyk: szczypanie, aby przybliżyć, przeciągnij, aby obracać, dotknij i przytrzymaj, aby przesunąć",
+      dragAndDrop: "Lub przeciągnij i upuść model 3D w oknie viewer'a",
     },
   },
   de: {
@@ -784,7 +788,9 @@ const VIEWER_I18N = {
     },
     shortcuts: {
       mouse: "Maus: ziehen zum Drehen, Mausrad - Zoom, Rechtsklick - Verschieben",
-      keyboard: "Tastatur: Pfeile - Drehen, Shift+Pfeile - schneller, Ctrl/Cmd+Pfeile - Verschieben, +/- - Zoom, Leertaste - Auto-Rotation"
+      keyboard: "Tastatur: Pfeile - Drehen, Shift+Pfeile - schneller, Ctrl/Cmd+Pfeile - Verschieben, +/- - Zoom, Leertaste - Auto-Rotation",
+      touch: "Touch: Pinch-to-Zoom, ziehen zum Drehen, Doppeltippen und halten zum Verschieben",
+      dragAndDrop: "Oder ziehen Sie ein 3D-Modell per Drag-and-drop in den Viewer",
     }
   },
 };
@@ -10823,7 +10829,7 @@ const Viewer = {
     // Update clipping controllers
     if (g.clippingFolder) {
       g.clippingFolder.controllers.forEach(controller => {
-        switch (controller._name) {
+        switch (controller.property) {
           case 'displayHelperX':
             controller.name(t$1('gui.displayHelperX', 'Show X helper'));
             break;
@@ -11063,7 +11069,9 @@ const Viewer = {
   getKeyboardShortcutsText() {
     return [
       t$1("shortcuts.mouse"),
-      t$1("shortcuts.keyboard")
+      t$1("shortcuts.keyboard"),
+      t$1("shortcuts.touch"),
+      core.CONFIG?.viewer?.enableDragAndDrop === true ? t$1("shortcuts.dragAndDrop") : null
     ].join("\n");
   },
 
@@ -11386,7 +11394,7 @@ const Viewer = {
     if (!core.handHint?.hidden || core.GESTURE?.active) return;
     if (now - this.lastKeyboardHintAt < this.keyboardHintCooldownMs) return;
     this.lastKeyboardHintAt = now;
-    this.showStatusNotice(this.getKeyboardShortcutsText(), 3400);
+    this.showStatusNotice(this.getKeyboardShortcutsText(), 7400);
   },
 
   isInteractiveTextInput(element) {
@@ -12418,8 +12426,10 @@ const Viewer = {
     this.circle = lv.create(this.spinnerElement);
     setCore('circle', this.circle);
     setCore('spinner', this.spinner);
-    this.loadingLog = this.createLoadingLog();
-    setCore('loadingLog', this.loadingLog);
+    if (!core.PRESENTATION_MODE) {
+      this.loadingLog = this.createLoadingLog();
+      setCore('loadingLog', this.loadingLog);
+    }
 
     this.rect = core.container.getBoundingClientRect();
 

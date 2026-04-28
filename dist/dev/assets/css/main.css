@@ -114,7 +114,7 @@ canvas {
   border: 1px solid rgba(255, 255, 255, 0.16);
   color: var(--viewer-notice-container-text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.2;
   letter-spacing: 0.01em;
   white-space: nowrap;
@@ -131,6 +131,11 @@ canvas {
   white-space: pre-line;
   text-align: center;
   border-radius: 14px;
+  line-height: 1.45;
+  letter-spacing: 0.015em;
+  text-wrap: balance;
+  word-break: break-word;
+  font-weight: 350;
 }
 
 .viewer-notice-status.is-visible {

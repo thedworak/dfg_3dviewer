@@ -698,7 +698,7 @@ export const Viewer = {
     // Update clipping controllers
     if (g.clippingFolder) {
       g.clippingFolder.controllers.forEach(controller => {
-        switch (controller._name) {
+        switch (controller.property) {
           case 'displayHelperX':
             controller.name(t('gui.displayHelperX', 'Show X helper'));
             break;
@@ -938,7 +938,9 @@ export const Viewer = {
   getKeyboardShortcutsText() {
     return [
       t("shortcuts.mouse"),
-      t("shortcuts.keyboard")
+      t("shortcuts.keyboard"),
+      t("shortcuts.touch"),
+      core.CONFIG?.viewer?.enableDragAndDrop === true ? t("shortcuts.dragAndDrop") : null
     ].join("\n");
   },
 
@@ -1261,7 +1263,7 @@ export const Viewer = {
     if (!core.handHint?.hidden || core.GESTURE?.active) return;
     if (now - this.lastKeyboardHintAt < this.keyboardHintCooldownMs) return;
     this.lastKeyboardHintAt = now;
-    this.showStatusNotice(this.getKeyboardShortcutsText(), 3400);
+    this.showStatusNotice(this.getKeyboardShortcutsText(), 7400);
   },
 
   isInteractiveTextInput(element) {
@@ -2295,8 +2297,10 @@ export const Viewer = {
     this.circle = lv.create(this.spinnerElement);
     setCore('circle', this.circle);
     setCore('spinner', this.spinner);
-    this.loadingLog = this.createLoadingLog();
-    setCore('loadingLog', this.loadingLog);
+    if (!core.PRESENTATION_MODE) {
+      this.loadingLog = this.createLoadingLog();
+      setCore('loadingLog', this.loadingLog);
+    }
 
     this.rect = core.container.getBoundingClientRect();
 
