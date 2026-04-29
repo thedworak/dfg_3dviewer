@@ -127,6 +127,29 @@ export const VIEWER_I18N = {
     localPreview: {
       loadExampleModel: "Load example model",
     },
+    loadingLog: {
+      title: "Loading process log",
+      loadingAssets: "Loading assets...",
+      parsingScene: "Parsing scene...",
+      loadingTextures: "Loading textures...",
+      preparingGeometry: "Preparing geometry...",
+      settingUpLighting: "Setting up lighting...",
+      settingUpMaterials: "Setting up materials...",
+      buildingBvh: "Building BVH...",
+      compilingShaders: "Compiling shaders...",
+      initializingRenderer: "Initializing renderer...",
+      uploadingBuffers: "Uploading buffers...",
+      fetchingMetadata: "Fetching metadata...",
+    },
+    processingHeader: "Processing progress",
+    processingSteps: {
+      preparingModel: "Preparing model",
+      convertingToTransmissionFormat: "Converting to transmission format",
+      renderingThumbnails: "Rendering thumbnails",
+      savingEntity: "Saving entity",
+      finalizing3dModel: "Finalizing 3D model",
+      initializingViewer: "Initializing viewer",
+    },
     state: {
       enabled: "enabled",
       disabled: "disabled"
@@ -159,6 +182,7 @@ export const VIEWER_I18N = {
       presentationModeReady: "Presentation mode is ready.",
       presentationModeError: "An error occurred during presentation mode setup.",
       sandboxDropModel: "Drag and drop a 3D model into the viewer.",
+      supportedFormats: "Supported formats: {formats}.",
 
       embedSourceMissing: "Set Model URL or Entity ID for embed.",
       embedUrlCopied: "Embed URL copied.",
@@ -322,6 +346,29 @@ export const VIEWER_I18N = {
     localPreview: {
       loadExampleModel: "Wczytaj model przykładowy",
     },
+    loadingLog: {
+      title: "Log procesu ładowania",
+      loadingAssets: "Ładowanie zasobów...",
+      parsingScene: "Analizowanie sceny...",
+      loadingTextures: "Ładowanie tekstur...",
+      preparingGeometry: "Przygotowywanie geometrii...",
+      settingUpLighting: "Konfigurowanie oświetlenia...",
+      settingUpMaterials: "Konfigurowanie materiałów...",
+      buildingBvh: "Budowanie BVH...",
+      compilingShaders: "Kompilowanie shaderów...",
+      initializingRenderer: "Inicjalizowanie renderera...",
+      uploadingBuffers: "Przesyłanie buforów...",
+      fetchingMetadata: "Pobieranie metadanych...",
+    },
+    processingHeader: "Postęp przetwarzania",
+    processingSteps: {
+      preparingModel: "Przygotowywanie modelu",
+      convertingToTransmissionFormat: "Konwersja do formatu docelowego",
+      renderingThumbnails: "Renderowanie miniaturek",
+      savingEntity: "Zapisywanie encji",
+      finalizing3dModel: "Finalizowanie modelu 3D",
+      initializingViewer: "Inicjalizowanie viewera",
+    },
     state: {
       enabled: "włączony",
       disabled: "wyłączony"
@@ -354,6 +401,7 @@ export const VIEWER_I18N = {
       presentationModeReady: "Tryb prezentacji jest gotowy.",
       presentationModeError: "Wystąpił błąd podczas konfiguracji trybu prezentacji.",
       sandboxDropModel: "Przeciągnij i upuść model 3D w oknie viewer'a.",
+      supportedFormats: "Obsługiwane formaty: {formats}.",
 
       embedSourceMissing: "Ustaw URL modelu lub ID encji do osadzenia.",
       embedUrlCopied: "Skopiowano URL osadzenia.",
@@ -516,6 +564,29 @@ export const VIEWER_I18N = {
     localPreview: {
       loadExampleModel: "Beispielmodell laden",
     },
+    loadingLog: {
+      title: "Protokoll des Ladeprozesses",
+      loadingAssets: "Assets werden geladen...",
+      parsingScene: "Szene wird analysiert...",
+      loadingTextures: "Texturen werden geladen...",
+      preparingGeometry: "Geometrie wird vorbereitet...",
+      settingUpLighting: "Beleuchtung wird eingerichtet...",
+      settingUpMaterials: "Materialien werden eingerichtet...",
+      buildingBvh: "BVH wird erstellt...",
+      compilingShaders: "Shader werden kompiliert...",
+      initializingRenderer: "Renderer wird initialisiert...",
+      uploadingBuffers: "Buffer werden hochgeladen...",
+      fetchingMetadata: "Metadaten werden abgerufen...",
+    },
+    processingHeader: "Verarbeitungsschritte",
+    processingSteps: {
+      preparingModel: "Modell wird vorbereitet",
+      convertingToTransmissionFormat: "Konvertierung in das Übertragungsformat",
+      renderingThumbnails: "Vorschaubilder werden gerendert",
+      savingEntity: "Entität wird gespeichert",
+      finalizing3dModel: "3D-Modell wird finalisiert",
+      initializingViewer: "Viewer wird initialisiert",
+    },
     state: {
       enabled: "aktiviert",
       disabled: "deaktiviert"
@@ -548,6 +619,7 @@ export const VIEWER_I18N = {
       presentationModeReady: "Präsentationsmodus ist bereit.",
       presentationModeError: "Beim Einrichten des Präsentationsmodus ist ein Fehler aufgetreten.",
       sandboxDropModel: "Ziehen Sie ein 3D-Modell per Drag-and-drop in den Viewer.",
+      supportedFormats: "Unterstützte Formate: {formats}.",
 
       embedSourceMissing: "Model-URL oder Entitäts-ID für die Einbettung festlegen.",
       embedUrlCopied: "Einbettungs-URL kopiert.",

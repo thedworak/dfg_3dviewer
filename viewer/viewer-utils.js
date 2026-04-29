@@ -51,28 +51,41 @@ export const showToast = (message, toneOrOptions, maybeOptions) => {
   const replace = options.replace === true;
   const persistent = options.persistent === true;
   const variant = String(options.variant ?? "");
+  let i18nKey = "";
+  let i18nVars = {};
+  const detailI18nKey = String(options.detailI18nKey ?? "");
+  const detailI18nVars = options.detailVars && typeof options.detailVars === "object" ? options.detailVars : options;
 
   // Resolve i18n key if possible, otherwise use the message as-is (for backward compatibility)
   let text;
+  let detail = "";
 
   if (typeof message === "string" && message.includes(".")) {
     // try to resolve as i18n key with optional variables
+    i18nKey = message;
+    i18nVars = options;
     text = t(message, options);
   } else {
     // fallback (old way)
     text = String(message);
   }
 
+  if (detailI18nKey) {
+    detail = t(detailI18nKey, detailI18nVars);
+  } else if (options.detail != null) {
+    detail = String(options.detail);
+  }
+
   if (window.__E2E__ && window.viewer) {
     window.viewer.toasts ??= [];
-    window.viewer.toasts.push(text);
+    window.viewer.toasts.push([text, detail].filter(Boolean).join(" "));
   }
 
   const statusNotice = core.statusNotice;
   const enqueueStatusNotice = core.enqueueStatusNotice;
 
   if (typeof enqueueStatusNotice === "function") {
-    enqueueStatusNotice({ message: text, tone, duration, key, replace, persistent, variant });
+    enqueueStatusNotice({ message: text, detail, tone, duration, key, replace, persistent, variant, i18nKey, i18nVars, detailI18nKey, detailI18nVars });
     return;
   }
 
@@ -82,7 +95,7 @@ export const showToast = (message, toneOrOptions, maybeOptions) => {
   }
 
   statusNotice.hidden = false;
-  statusNotice.textContent = text;
+  statusNotice.textContent = [text, detail].filter(Boolean).join(" ");
   statusNotice.dataset.tone = tone;
   statusNotice.classList.remove("is-visible", "is-hiding");
 

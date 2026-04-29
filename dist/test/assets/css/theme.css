@@ -82,6 +82,21 @@ body[data-viewer-theme="light"] #ultra-loader-panel {
   z-index: 99999;
 }
 
+#ultra-loader-header {
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.96);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+body[data-viewer-theme="light"] #ultra-loader-header {
+  border-bottom-color: rgba(164, 151, 132, 0.24);
+  color: rgba(37, 33, 28, 0.94);
+}
+
 .ultra-step {
   margin: 4px 0;
 }

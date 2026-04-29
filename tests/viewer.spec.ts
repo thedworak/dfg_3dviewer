@@ -2,6 +2,10 @@
 import { test, expect } from '@playwright/test';
 
 const defaultModel = '/examples/box.stl';
+const supportedFormatsText = 'OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, GLTF, GLB, ZIP, RAR, TAR, XZ, GZ';
+const sandboxDropMessage = 'Drag and drop a 3D model into the viewer.';
+const sandboxSupportedFormatsNotice = `Supported formats: ${supportedFormatsText}.`;
+const sandboxDropNotice = `${sandboxDropMessage} ${sandboxSupportedFormatsNotice}`;
 const supportedExamples = [
   { format: 'dae', path: '/examples/box.dae' },
   { format: 'stl', path: '/examples/box.stl' },
@@ -66,8 +70,9 @@ test('viewer runs in E2E mode', async ({ page }) => {
 test('sandbox mode starts without loading a model', async ({ page }) => {
   await openSandboxViewer(page);
 
-  await page.waitForFunction(() =>
-    window.viewer?.toasts?.includes('Drag and drop a 3D model into the viewer.')
+  await page.waitForFunction(
+    (expectedNotice) => window.viewer?.toasts?.includes(expectedNotice),
+    sandboxDropNotice
   );
   await page.waitForTimeout(3_000);
 
@@ -82,10 +87,26 @@ test('sandbox mode starts without loading a model', async ({ page }) => {
   }));
 
   expect(state.modelLoaded).toBe(false);
-  expect(state.toasts).toContain('Drag and drop a 3D model into the viewer.');
+  expect(state.toasts).toContain(sandboxDropNotice);
   expect(state.guiHidden).toBe(true);
   expect(state.sandboxNoticeVisible).toBe(true);
   expect(state.noticeContainerCentered).toBe(true);
+});
+
+test('sandbox notice updates after language changes', async ({ page }) => {
+  await openSandboxViewer(page);
+
+  const notice = page.locator('#viewerStatusNotice[data-variant="sandbox"]');
+  await expect(notice.locator('.viewer-notice-message')).toHaveText(sandboxDropMessage);
+  await expect(notice.locator('.viewer-notice-detail')).toHaveText(sandboxSupportedFormatsNotice);
+
+  await page.evaluate(() => {
+    document.querySelector<HTMLElement>('#viewerLanguageMode')?.click();
+    document.querySelector<HTMLElement>('.language-dropdown-item-polish')?.click();
+  });
+
+  await expect(notice.locator('.viewer-notice-message')).toHaveText("Przeciągnij i upuść model 3D w oknie viewer'a.");
+  await expect(notice.locator('.viewer-notice-detail')).toHaveText(`Obsługiwane formaty: ${supportedFormatsText}.`);
 });
 
 for (const example of supportedExamples) {

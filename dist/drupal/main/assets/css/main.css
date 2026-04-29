@@ -136,6 +136,7 @@ canvas {
   text-wrap: balance;
   word-break: break-word;
   font-weight: 350;
+  min-width: 20vh;
 }
 
 .viewer-notice-status.is-visible {
@@ -180,11 +181,23 @@ canvas {
   background: rgba(17, 24, 39, 0.64);
   border-color: rgba(255, 255, 255, 0.24);
   box-shadow: 0 18px 56px rgba(15, 23, 42, 0.28);
-  /* animowany outline */
   box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.0),
               0 18px 56px rgba(15, 23, 42, 0.28);
 
   animation: sandbox-outline 2.4s ease-in-out infinite;
+}
+
+.viewer-notice-status[data-variant="sandbox"] .viewer-notice-message,
+.viewer-notice-status[data-variant="sandbox"] .viewer-notice-detail {
+  display: block;
+}
+
+.viewer-notice-status[data-variant="sandbox"] .viewer-notice-detail {
+  margin-top: 10px;
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 400;
+  opacity: 0.9;
 }
 
 @keyframes sandbox-outline {
@@ -321,12 +334,11 @@ canvas {
 
 #loading-log {
   position: absolute;
-  left: 0px;
   z-index: 90;
   width: min(280px, calc(100% - 36px));
   padding: 10px 12px;
   color: rgba(255, 255, 255, 0.78);
-  font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
   font-size: 11px;
   line-height: 1.35;
   pointer-events: none;
@@ -400,6 +412,13 @@ canvas {
 
 .loading-log--error {
   border-color: rgba(255, 93, 93, 0.35);
+}
+
+.loading-log__header {
+  font-weight: 600;
+  font-size: 12px;
+  margin-bottom: 8px;
+  color: rgba(238, 237, 231, 0.82);
 }
 
 .toastify {

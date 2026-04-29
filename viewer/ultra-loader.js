@@ -1,8 +1,12 @@
+import { t } from "./i18n-utils.js";
+
 export const UltraLoader = {
 
   progress:0,
   bar:null,
   panel:null,
+  header:null,
+  stepsContainer:null,
   steps:[],
   isFinished:false,
   hideTimer:null,
@@ -18,11 +22,22 @@ export const UltraLoader = {
     const panel=document.createElement("div");
     panel.id="ultra-loader-panel";
 
+    const header=document.createElement("div");
+    header.id="ultra-loader-header";
+    header.textContent=t("processingHeader");
+    panel.appendChild(header);
+
+    const stepsContainer=document.createElement("div");
+    stepsContainer.id="ultra-loader-steps";
+    panel.appendChild(stepsContainer);
+
     document.body.appendChild(loader);
     document.body.appendChild(panel);
 
     this.bar=document.getElementById("ultra-loader-bar");
     this.panel=panel;
+    this.header=header;
+    this.stepsContainer=stepsContainer;
   },
 
   start(steps) {
@@ -38,6 +53,7 @@ export const UltraLoader = {
     }
 
     this.steps=steps;
+    this.updateHeader();
     this.progress=5;
     this.isFinished=false;
 
@@ -87,44 +103,54 @@ export const UltraLoader = {
     this.bar.style.width=this.progress+"%";
   },
 
+  updateHeader() {
+    if (this.header) {
+      this.header.textContent=t("processingHeader");
+    }
+  },
+
   renderSteps(active) {
-    this.panel.innerHTML="";
+    this.updateHeader();
+    if (!this.stepsContainer) return;
+    this.stepsContainer.replaceChildren();
     this.steps.forEach((s,i)=>{
       const row=document.createElement("div");
       row.className="ultra-step";
       if(i<active) {
         row.classList.add("done");
-        row.innerHTML="✓ "+s;
+        row.textContent="✓ "+s;
       }
       else if(i===active) {
         row.classList.add("active");
-        row.innerHTML="⏳ "+s;
+        row.textContent="⏳ "+s;
       }
       else {
         row.classList.add("pending");
-        row.innerHTML="□ "+s;
+        row.textContent="□ "+s;
       }
-      this.panel.appendChild(row);
+      this.stepsContainer.appendChild(row);
     });
   },
 
   error(message="Processing error") {
     this.isFinished = true;
     this.renderErrorSteps();
-    this.panel.innerHTML += `
-      <div id="ultra-loader-error">
-      ERROR: ${message}
-      </div>`;
+    const error=document.createElement("div");
+    error.id="ultra-loader-error";
+    error.textContent=`ERROR: ${message}`;
+    this.panel.appendChild(error);
     this.bar.style.background="#d93025";
   },
 
   renderErrorSteps() {
-    this.panel.innerHTML="";
+    this.updateHeader();
+    if (!this.stepsContainer) return;
+    this.stepsContainer.replaceChildren();
     this.steps.forEach((s)=>{
       const row=document.createElement("div");
       row.className="ultra-step error";
-      row.innerHTML="✖ "+s;
-      this.panel.appendChild(row);
+      row.textContent="✖ "+s;
+      this.stepsContainer.appendChild(row);
     });
   }
 

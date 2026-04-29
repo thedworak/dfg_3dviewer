@@ -126,22 +126,31 @@ export const Viewer = {
   embedMissingSourceNotified: false,
   currentTheme: "dark",
   currentLanguage: "en",
-  loadingLogMessages: [
-    "Loading assets...",
-    "Parsing scene...",
-    "Loading textures...",    
-    "Preparing geometry...",
-    "Setting up lighting...",
-    "Setting up materials...",
-    "Building BVH...",
-    "Compiling shaders...",
-    "Initializing renderer...",
-    "Uploading buffers...",
-    "Fetching metadata...",
+  loadingLogMessageKeys: [
+    "loadingLog.loadingAssets",
+    "loadingLog.parsingScene",
+    "loadingLog.loadingTextures",
+    "loadingLog.preparingGeometry",
+    "loadingLog.settingUpLighting",
+    "loadingLog.settingUpMaterials",
+    "loadingLog.buildingBvh",
+    "loadingLog.compilingShaders",
+    "loadingLog.initializingRenderer",
+    "loadingLog.uploadingBuffers",
+    "loadingLog.fetchingMetadata",
+  ],
+  processingLoadingStepKeys: [
+    "processingSteps.preparingModel",
+    "processingSteps.convertingToTransmissionFormat",
+    "processingSteps.renderingThumbnails",
+    "processingSteps.savingEntity",
+    "processingSteps.finalizing3dModel",
+    "processingSteps.initializingViewer",
   ],
   THEME_STORAGE_KEY: "iiif-dark-mode",
   LANGUAGE_STORAGE_KEY: "viewer-language",
   I18N: VIEWER_I18N,
+  SUPPORTED_EXTENSIONS: ['obj', 'dae', 'fbx', 'ply', 'ifc', 'stl', 'xyz', 'json', '3ds', 'pcd', 'gltf', 'glb', 'zip', 'rar', 'tar', 'xz', 'gz'],
   GESTURE: {handPx: 55, period: 5.5, rotate: false, active: false, target: new THREE.Vector3(), startTime: 0, baseAngle: 0, orbitAngle: THREE.MathUtils.degToRad(15), easeInTime: 2.25},
   lastTime: null,
   originalMetadata: [],
@@ -651,8 +660,11 @@ export const Viewer = {
     this.updateLocalPreviewLabels();
     this.updateIIIFFormLabels();
     this.updateMetadataPanelLabels();
+    this.refreshStatusNoticeLanguage();
+    UltraLoader.updateHeader?.();
     if (this.pickingHint) this.pickingHint.textContent = t("hints.picking", "Shift + click to select multiple faces");
     if (this.clippingHint) this.clippingHint.textContent = t("hints.clipping", "Drag active clipping plane helper to adjust cut");
+
   },
 
   setGuiFolderTitle(folder, title) {
@@ -944,11 +956,39 @@ export const Viewer = {
     ].join("\n");
   },
 
+  getSupportedFormatsText() {
+    return this.SUPPORTED_EXTENSIONS.map((extension) => extension.toUpperCase()).join(", ");
+  },
+
+  updateDragAndDropHint() {
+    if (!this.dragAndDropHint) return;
+    if (core.CONFIG?.viewer?.enableDragAndDrop === true) {
+      this.dragAndDropHint.textContent = t("shortcuts.dragAndDrop", "You can also drag and drop a model file here to load it");
+      this.dragAndDropHint.hidden = false;
+    } else {
+      this.dragAndDropHint.hidden = true;
+    }
+
+  },
+
+  getLoadingLogMessages() {
+    return this.loadingLogMessageKeys.map((key) => t(key));
+  },
+
+  getProcessingLoadingSteps() {
+    return this.processingLoadingStepKeys.map((key) => t(key));
+  },
+
   createLoadingLog() {
     const shell = document.createElement("div");
     shell.id = "loading-log";
     shell.setAttribute("aria-live", "polite");
     shell.hidden = true;
+
+    const header = document.createElement("div");
+    header.className = "loading-log__header";
+    header.textContent = t("loadingLog.title", "Loading process log");
+    shell.appendChild(header);
 
     const list = document.createElement("div");
     list.className = "loading-log__messages";
@@ -966,6 +1006,7 @@ export const Viewer = {
 
     shell.append(list, progress);
     core.container.appendChild(shell);
+    shell.style.bottom = `-${shell.getBoundingClientRect().height / 2 - 5}px`;
 
     let timer = null;
     let messageIndex = 0;
@@ -974,10 +1015,10 @@ export const Viewer = {
     let startedAt = 0;
     let hideTimer = null;
     const minVisibleMs = 900;
-    shell.style.bottom = -shell.getBoundingClientRect().bottom/2 + "px";
 
     const renderMessages = (allDone = false) => {
-      const messages = this.loadingLogMessages
+      const allMessages = this.getLoadingLogMessages();
+      const messages = allMessages
         .slice(Math.max(0, messageIndex - visibleCount + 1), messageIndex + 1);
       list.replaceChildren(...messages.map((message, index) => {
         const row = document.createElement("div");
@@ -999,8 +1040,9 @@ export const Viewer = {
     };
 
     const tick = () => {
+      const messageCount = this.getLoadingLogMessages().length;
       visibleCount = Math.min(4, visibleCount + 1);
-      messageIndex = Math.min(this.loadingLogMessages.length - 1, messageIndex + 1);
+      messageIndex = Math.min(messageCount - 1, messageIndex + 1);
       renderMessages();
       setProgress(Math.min(currentProgress + 9, 92));
     };
@@ -1036,8 +1078,9 @@ export const Viewer = {
       update: (value) => {
         if (shell.hidden) return;
         const normalized = Number.isFinite(value) ? value : 0;
-        const messageProgress = Math.floor((normalized / 100) * (this.loadingLogMessages.length - 1));
-        messageIndex = Math.max(messageIndex, Math.min(messageProgress, this.loadingLogMessages.length - 1));
+        const messageCount = this.getLoadingLogMessages().length;
+        const messageProgress = Math.floor((normalized / 100) * (messageCount - 1));
+        messageIndex = Math.max(messageIndex, Math.min(messageProgress, messageCount - 1));
         visibleCount = Math.min(4, Math.max(visibleCount, 2));
         renderMessages();
         setProgress(Math.min(normalized, 96));
@@ -1045,8 +1088,9 @@ export const Viewer = {
       finish: () => {
         if (shell.hidden) return;
         stop();
-        messageIndex = this.loadingLogMessages.length - 1;
-        visibleCount = this.loadingLogMessages.length;
+        const messageCount = this.getLoadingLogMessages().length;
+        messageIndex = messageCount - 1;
+        visibleCount = messageCount;
         renderMessages(true);
         setProgress(100);
         shell.classList.add("loading-log--done");
@@ -1077,8 +1121,54 @@ export const Viewer = {
     this.enqueueStatusNotice({ message, duration, tone: "info", ...options });
   },
 
+  localizeStatusNotice(notice) {
+    if (!notice) return notice;
+    const i18nKey = String(notice.i18nKey || "");
+    const detailI18nKey = String(notice.detailI18nKey || "");
+    return {
+      ...notice,
+      message: i18nKey ? t(i18nKey, notice.i18nVars || {}, notice.message) : notice.message,
+      detail: detailI18nKey ? t(detailI18nKey, notice.detailI18nVars || {}, notice.detail) : notice.detail,
+    };
+  },
+
+  renderStatusNoticeContent(notice) {
+    if (!this.statusNotice || !notice) return;
+    const message = String(notice.message ?? "");
+    const detail = String(notice.detail ?? "");
+
+    this.statusNotice.textContent = "";
+
+    const messageNode = document.createElement("span");
+    messageNode.className = "viewer-notice-message";
+    messageNode.textContent = message;
+    this.statusNotice.appendChild(messageNode);
+
+    if (detail) {
+      const detailNode = document.createElement("span");
+      detailNode.className = "viewer-notice-detail";
+      detailNode.textContent = detail;
+      this.statusNotice.appendChild(detailNode);
+    }
+  },
+
+  getStatusNoticeText(notice) {
+    return [notice?.message, notice?.detail].filter(Boolean).join(" ");
+  },
+
+  refreshStatusNoticeLanguage() {
+    if (Array.isArray(this.statusNoticeQueue)) {
+      this.statusNoticeQueue = this.statusNoticeQueue.map((notice) => this.localizeStatusNotice(notice));
+    }
+
+    if (!this.statusNoticeCurrent) return;
+    this.statusNoticeCurrent = this.localizeStatusNotice(this.statusNoticeCurrent);
+    this.renderStatusNoticeContent(this.statusNoticeCurrent);
+  },
+
   showStatusNoticeNow(notice) {
     if (!this.statusNotice || !notice) return;
+    notice = this.localizeStatusNotice(notice);
 
     if (this.statusNoticeHideTimer) {
       clearTimeout(this.statusNoticeHideTimer);
@@ -1088,7 +1178,7 @@ export const Viewer = {
     this.statusNoticeActive = true;
     this.statusNoticeCurrent = notice;
     this.statusNotice.hidden = false;
-    this.statusNotice.textContent = notice.message;
+    this.renderStatusNoticeContent(notice);
     this.statusNotice.dataset.tone = notice.tone || "info";
     if (notice.variant) {
       this.statusNotice.dataset.variant = notice.variant;
@@ -1172,6 +1262,11 @@ export const Viewer = {
     replace = false,
     persistent = false,
     variant = "",
+    i18nKey = "",
+    i18nVars = {},
+    detail = "",
+    detailI18nKey = "",
+    detailI18nVars = {},
   } = {}) {
     const text = String(message ?? "");
     if (!text) return;
@@ -1183,11 +1278,16 @@ export const Viewer = {
       key: String(key || ""),
       persistent,
       variant: String(variant || ""),
+      i18nKey: String(i18nKey || ""),
+      i18nVars: i18nVars && typeof i18nVars === "object" ? { ...i18nVars } : {},
+      detail: String(detail || ""),
+      detailI18nKey: String(detailI18nKey || ""),
+      detailI18nVars: detailI18nVars && typeof detailI18nVars === "object" ? { ...detailI18nVars } : {},
     };
 
     if (
       this.statusNoticeActive &&
-      this.statusNotice?.textContent === nextNotice.message &&
+      this.getStatusNoticeText(this.statusNoticeCurrent) === this.getStatusNoticeText(nextNotice) &&
       (this.statusNoticeCurrent?.tone || "info") === nextNotice.tone &&
       (this.statusNoticeCurrent?.key || "") === nextNotice.key
     ) {
@@ -1211,7 +1311,7 @@ export const Viewer = {
 
     const isDuplicateQueued = this.statusNoticeQueue.some(
       (entry) =>
-        entry?.message === nextNotice.message &&
+        this.getStatusNoticeText(entry) === this.getStatusNoticeText(nextNotice) &&
         entry?.tone === nextNotice.tone &&
         (entry?.key || "") === nextNotice.key
     );
@@ -4562,10 +4662,9 @@ export const Viewer = {
     const files = e.dataTransfer.files;
     if (files.length > 0) {
       const file = files[0];
-      const supportedExtensions = ['obj', 'dae', 'fbx', 'ply', 'ifc', 'stl', 'xyz', 'json', '3ds', 'pcd', 'gltf', 'glb', 'zip', 'rar', 'tar', 'xz', 'gz'];
       const extension = file.name.split('.').pop().toLowerCase();
       
-      if (supportedExtensions.includes(extension)) {
+      if (Viewer.SUPPORTED_EXTENSIONS.includes(extension)) {
         // Clear existing model
         if (core.mainObject.length > 0) {
           core.mainObject.forEach(obj => {
@@ -4596,8 +4695,7 @@ export const Viewer = {
         if (core.SANDBOX_MODE) {
           Viewer.showSandboxGuiAfterModelLoad();
           Viewer.dismissStatusNotice("sandbox-drop-model");
-        }
-        
+        }        
         toastHelper("modelLoadedSimple", "success");
       } else {
         toastHelper("unsupportedFormat", "error");
@@ -4861,6 +4959,8 @@ export const Viewer = {
     }
 
     toastHelper("sandboxDropModel", "info", {
+      formats: this.getSupportedFormatsText(),
+      detailI18nKey: "toasts.supportedFormats",
       key: "sandbox-drop-model",
       replace: true,
       persistent: true,
@@ -5580,14 +5680,7 @@ export const Viewer = {
 
     localStorage.setItem("processing_model_id", _id);
 
-    let loadingMap =  [
-      "Preparing model",
-      "Converting to transmission format",
-      "Rendering thumbnails",
-      "Saving entity",
-      "Finalizing 3D model",
-      "Initializing viewer"
-    ];
+    let loadingMap = this.getProcessingLoadingSteps();
 
     loadingMap = core.isLocalPreview ? loadingMap.slice(-2) : loadingMap;
 

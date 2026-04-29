@@ -336,6 +336,29 @@ const VIEWER_I18N = {
     localPreview: {
       loadExampleModel: "Load example model",
     },
+    loadingLog: {
+      title: "Loading process log",
+      loadingAssets: "Loading assets...",
+      parsingScene: "Parsing scene...",
+      loadingTextures: "Loading textures...",
+      preparingGeometry: "Preparing geometry...",
+      settingUpLighting: "Setting up lighting...",
+      settingUpMaterials: "Setting up materials...",
+      buildingBvh: "Building BVH...",
+      compilingShaders: "Compiling shaders...",
+      initializingRenderer: "Initializing renderer...",
+      uploadingBuffers: "Uploading buffers...",
+      fetchingMetadata: "Fetching metadata...",
+    },
+    processingHeader: "Processing progress",
+    processingSteps: {
+      preparingModel: "Preparing model",
+      convertingToTransmissionFormat: "Converting to transmission format",
+      renderingThumbnails: "Rendering thumbnails",
+      savingEntity: "Saving entity",
+      finalizing3dModel: "Finalizing 3D model",
+      initializingViewer: "Initializing viewer",
+    },
     state: {
       enabled: "enabled",
       disabled: "disabled"
@@ -368,6 +391,7 @@ const VIEWER_I18N = {
       presentationModeReady: "Presentation mode is ready.",
       presentationModeError: "An error occurred during presentation mode setup.",
       sandboxDropModel: "Drag and drop a 3D model into the viewer.",
+      supportedFormats: "Supported formats: {formats}.",
 
       embedSourceMissing: "Set Model URL or Entity ID for embed.",
       embedUrlCopied: "Embed URL copied.",
@@ -531,6 +555,29 @@ const VIEWER_I18N = {
     localPreview: {
       loadExampleModel: "Wczytaj model przykładowy",
     },
+    loadingLog: {
+      title: "Log procesu ładowania",
+      loadingAssets: "Ładowanie zasobów...",
+      parsingScene: "Analizowanie sceny...",
+      loadingTextures: "Ładowanie tekstur...",
+      preparingGeometry: "Przygotowywanie geometrii...",
+      settingUpLighting: "Konfigurowanie oświetlenia...",
+      settingUpMaterials: "Konfigurowanie materiałów...",
+      buildingBvh: "Budowanie BVH...",
+      compilingShaders: "Kompilowanie shaderów...",
+      initializingRenderer: "Inicjalizowanie renderera...",
+      uploadingBuffers: "Przesyłanie buforów...",
+      fetchingMetadata: "Pobieranie metadanych...",
+    },
+    processingHeader: "Postęp przetwarzania",
+    processingSteps: {
+      preparingModel: "Przygotowywanie modelu",
+      convertingToTransmissionFormat: "Konwersja do formatu docelowego",
+      renderingThumbnails: "Renderowanie miniaturek",
+      savingEntity: "Zapisywanie encji",
+      finalizing3dModel: "Finalizowanie modelu 3D",
+      initializingViewer: "Inicjalizowanie viewera",
+    },
     state: {
       enabled: "włączony",
       disabled: "wyłączony"
@@ -563,6 +610,7 @@ const VIEWER_I18N = {
       presentationModeReady: "Tryb prezentacji jest gotowy.",
       presentationModeError: "Wystąpił błąd podczas konfiguracji trybu prezentacji.",
       sandboxDropModel: "Przeciągnij i upuść model 3D w oknie viewer'a.",
+      supportedFormats: "Obsługiwane formaty: {formats}.",
 
       embedSourceMissing: "Ustaw URL modelu lub ID encji do osadzenia.",
       embedUrlCopied: "Skopiowano URL osadzenia.",
@@ -725,6 +773,29 @@ const VIEWER_I18N = {
     localPreview: {
       loadExampleModel: "Beispielmodell laden",
     },
+    loadingLog: {
+      title: "Protokoll des Ladeprozesses",
+      loadingAssets: "Assets werden geladen...",
+      parsingScene: "Szene wird analysiert...",
+      loadingTextures: "Texturen werden geladen...",
+      preparingGeometry: "Geometrie wird vorbereitet...",
+      settingUpLighting: "Beleuchtung wird eingerichtet...",
+      settingUpMaterials: "Materialien werden eingerichtet...",
+      buildingBvh: "BVH wird erstellt...",
+      compilingShaders: "Shader werden kompiliert...",
+      initializingRenderer: "Renderer wird initialisiert...",
+      uploadingBuffers: "Buffer werden hochgeladen...",
+      fetchingMetadata: "Metadaten werden abgerufen...",
+    },
+    processingHeader: "Verarbeitungsschritte",
+    processingSteps: {
+      preparingModel: "Modell wird vorbereitet",
+      convertingToTransmissionFormat: "Konvertierung in das Übertragungsformat",
+      renderingThumbnails: "Vorschaubilder werden gerendert",
+      savingEntity: "Entität wird gespeichert",
+      finalizing3dModel: "3D-Modell wird finalisiert",
+      initializingViewer: "Viewer wird initialisiert",
+    },
     state: {
       enabled: "aktiviert",
       disabled: "deaktiviert"
@@ -757,6 +828,7 @@ const VIEWER_I18N = {
       presentationModeReady: "Präsentationsmodus ist bereit.",
       presentationModeError: "Beim Einrichten des Präsentationsmodus ist ein Fehler aufgetreten.",
       sandboxDropModel: "Ziehen Sie ein 3D-Modell per Drag-and-drop in den Viewer.",
+      supportedFormats: "Unterstützte Formate: {formats}.",
 
       embedSourceMissing: "Model-URL oder Entitäts-ID für die Einbettung festlegen.",
       embedUrlCopied: "Einbettungs-URL kopiert.",
@@ -887,28 +959,41 @@ const showToast = (message, toneOrOptions, maybeOptions) => {
   const replace = options.replace === true;
   const persistent = options.persistent === true;
   const variant = String(options.variant ?? "");
+  let i18nKey = "";
+  let i18nVars = {};
+  const detailI18nKey = String(options.detailI18nKey ?? "");
+  const detailI18nVars = options.detailVars && typeof options.detailVars === "object" ? options.detailVars : options;
 
   // Resolve i18n key if possible, otherwise use the message as-is (for backward compatibility)
   let text;
+  let detail = "";
 
   if (typeof message === "string" && message.includes(".")) {
     // try to resolve as i18n key with optional variables
+    i18nKey = message;
+    i18nVars = options;
     text = t$1(message, options);
   } else {
     // fallback (old way)
     text = String(message);
   }
 
+  if (detailI18nKey) {
+    detail = t$1(detailI18nKey, detailI18nVars);
+  } else if (options.detail != null) {
+    detail = String(options.detail);
+  }
+
   if (window.__E2E__ && window.viewer) {
     window.viewer.toasts ??= [];
-    window.viewer.toasts.push(text);
+    window.viewer.toasts.push([text, detail].filter(Boolean).join(" "));
   }
 
   const statusNotice = core.statusNotice;
   const enqueueStatusNotice = core.enqueueStatusNotice;
 
   if (typeof enqueueStatusNotice === "function") {
-    enqueueStatusNotice({ message: text, tone, duration, key, replace, persistent, variant });
+    enqueueStatusNotice({ message: text, detail, tone, duration, key, replace, persistent, variant, i18nKey, i18nVars, detailI18nKey, detailI18nVars });
     return;
   }
 
@@ -918,7 +1003,7 @@ const showToast = (message, toneOrOptions, maybeOptions) => {
   }
 
   statusNotice.hidden = false;
-  statusNotice.textContent = text;
+  statusNotice.textContent = [text, detail].filter(Boolean).join(" ");
   statusNotice.dataset.tone = tone;
   statusNotice.classList.remove("is-visible", "is-hiding");
   statusNotice.classList.add("is-visible");
@@ -3307,6 +3392,8 @@ const UltraLoader$1 = {
   progress:0,
   bar:null,
   panel:null,
+  header:null,
+  stepsContainer:null,
   steps:[],
   isFinished:false,
   hideTimer:null,
@@ -3322,11 +3409,22 @@ const UltraLoader$1 = {
     const panel=document.createElement("div");
     panel.id="ultra-loader-panel";
 
+    const header=document.createElement("div");
+    header.id="ultra-loader-header";
+    header.textContent=t$1("processingHeader");
+    panel.appendChild(header);
+
+    const stepsContainer=document.createElement("div");
+    stepsContainer.id="ultra-loader-steps";
+    panel.appendChild(stepsContainer);
+
     document.body.appendChild(loader);
     document.body.appendChild(panel);
 
     this.bar=document.getElementById("ultra-loader-bar");
     this.panel=panel;
+    this.header=header;
+    this.stepsContainer=stepsContainer;
   },
 
   start(steps) {
@@ -3342,6 +3440,7 @@ const UltraLoader$1 = {
     }
 
     this.steps=steps;
+    this.updateHeader();
     this.progress=5;
     this.isFinished=false;
 
@@ -3391,44 +3490,54 @@ const UltraLoader$1 = {
     this.bar.style.width=this.progress+"%";
   },
 
+  updateHeader() {
+    if (this.header) {
+      this.header.textContent=t$1("processingHeader");
+    }
+  },
+
   renderSteps(active) {
-    this.panel.innerHTML="";
+    this.updateHeader();
+    if (!this.stepsContainer) return;
+    this.stepsContainer.replaceChildren();
     this.steps.forEach((s,i)=>{
       const row=document.createElement("div");
       row.className="ultra-step";
       if(i<active) {
         row.classList.add("done");
-        row.innerHTML="✓ "+s;
+        row.textContent="✓ "+s;
       }
       else if(i===active) {
         row.classList.add("active");
-        row.innerHTML="⏳ "+s;
+        row.textContent="⏳ "+s;
       }
       else {
         row.classList.add("pending");
-        row.innerHTML="□ "+s;
+        row.textContent="□ "+s;
       }
-      this.panel.appendChild(row);
+      this.stepsContainer.appendChild(row);
     });
   },
 
   error(message="Processing error") {
     this.isFinished = true;
     this.renderErrorSteps();
-    this.panel.innerHTML += `
-      <div id="ultra-loader-error">
-      ERROR: ${message}
-      </div>`;
+    const error=document.createElement("div");
+    error.id="ultra-loader-error";
+    error.textContent=`ERROR: ${message}`;
+    this.panel.appendChild(error);
     this.bar.style.background="#d93025";
   },
 
   renderErrorSteps() {
-    this.panel.innerHTML="";
+    this.updateHeader();
+    if (!this.stepsContainer) return;
+    this.stepsContainer.replaceChildren();
     this.steps.forEach((s)=>{
       const row=document.createElement("div");
       row.className="ultra-step error";
-      row.innerHTML="✖ "+s;
-      this.panel.appendChild(row);
+      row.textContent="✖ "+s;
+      this.stepsContainer.appendChild(row);
     });
   }
 
@@ -10257,22 +10366,31 @@ const Viewer = {
   embedMissingSourceNotified: false,
   currentTheme: "dark",
   currentLanguage: "en",
-  loadingLogMessages: [
-    "Loading assets...",
-    "Parsing scene...",
-    "Loading textures...",    
-    "Preparing geometry...",
-    "Setting up lighting...",
-    "Setting up materials...",
-    "Building BVH...",
-    "Compiling shaders...",
-    "Initializing renderer...",
-    "Uploading buffers...",
-    "Fetching metadata...",
+  loadingLogMessageKeys: [
+    "loadingLog.loadingAssets",
+    "loadingLog.parsingScene",
+    "loadingLog.loadingTextures",
+    "loadingLog.preparingGeometry",
+    "loadingLog.settingUpLighting",
+    "loadingLog.settingUpMaterials",
+    "loadingLog.buildingBvh",
+    "loadingLog.compilingShaders",
+    "loadingLog.initializingRenderer",
+    "loadingLog.uploadingBuffers",
+    "loadingLog.fetchingMetadata",
+  ],
+  processingLoadingStepKeys: [
+    "processingSteps.preparingModel",
+    "processingSteps.convertingToTransmissionFormat",
+    "processingSteps.renderingThumbnails",
+    "processingSteps.savingEntity",
+    "processingSteps.finalizing3dModel",
+    "processingSteps.initializingViewer",
   ],
   THEME_STORAGE_KEY: "iiif-dark-mode",
   LANGUAGE_STORAGE_KEY: "viewer-language",
   I18N: VIEWER_I18N,
+  SUPPORTED_EXTENSIONS: ['obj', 'dae', 'fbx', 'ply', 'ifc', 'stl', 'xyz', 'json', '3ds', 'pcd', 'gltf', 'glb', 'zip', 'rar', 'tar', 'xz', 'gz'],
   GESTURE: {handPx: 55, period: 5.5, rotate: false, active: false, target: new THREE.Vector3(), startTime: 0, baseAngle: 0, orbitAngle: THREE.MathUtils.degToRad(15), easeInTime: 2.25},
   lastTime: null,
   originalMetadata: [],
@@ -10782,8 +10900,11 @@ const Viewer = {
     this.updateLocalPreviewLabels();
     this.updateIIIFFormLabels();
     this.updateMetadataPanelLabels();
+    this.refreshStatusNoticeLanguage();
+    UltraLoader$1.updateHeader?.();
     if (this.pickingHint) this.pickingHint.textContent = t$1("hints.picking", "Shift + click to select multiple faces");
     if (this.clippingHint) this.clippingHint.textContent = t$1("hints.clipping", "Drag active clipping plane helper to adjust cut");
+
   },
 
   setGuiFolderTitle(folder, title) {
@@ -11075,11 +11196,39 @@ const Viewer = {
     ].join("\n");
   },
 
+  getSupportedFormatsText() {
+    return this.SUPPORTED_EXTENSIONS.map((extension) => extension.toUpperCase()).join(", ");
+  },
+
+  updateDragAndDropHint() {
+    if (!this.dragAndDropHint) return;
+    if (core.CONFIG?.viewer?.enableDragAndDrop === true) {
+      this.dragAndDropHint.textContent = t$1("shortcuts.dragAndDrop", "You can also drag and drop a model file here to load it");
+      this.dragAndDropHint.hidden = false;
+    } else {
+      this.dragAndDropHint.hidden = true;
+    }
+
+  },
+
+  getLoadingLogMessages() {
+    return this.loadingLogMessageKeys.map((key) => t$1(key));
+  },
+
+  getProcessingLoadingSteps() {
+    return this.processingLoadingStepKeys.map((key) => t$1(key));
+  },
+
   createLoadingLog() {
     const shell = document.createElement("div");
     shell.id = "loading-log";
     shell.setAttribute("aria-live", "polite");
     shell.hidden = true;
+
+    const header = document.createElement("div");
+    header.className = "loading-log__header";
+    header.textContent = t$1("loadingLog.title", "Loading process log");
+    shell.appendChild(header);
 
     const list = document.createElement("div");
     list.className = "loading-log__messages";
@@ -11097,6 +11246,7 @@ const Viewer = {
 
     shell.append(list, progress);
     core.container.appendChild(shell);
+    shell.style.bottom = `-${shell.getBoundingClientRect().height / 2 - 5}px`;
 
     let timer = null;
     let messageIndex = 0;
@@ -11105,10 +11255,10 @@ const Viewer = {
     let startedAt = 0;
     let hideTimer = null;
     const minVisibleMs = 900;
-    shell.style.bottom = -shell.getBoundingClientRect().bottom/2 + "px";
 
     const renderMessages = (allDone = false) => {
-      const messages = this.loadingLogMessages
+      const allMessages = this.getLoadingLogMessages();
+      const messages = allMessages
         .slice(Math.max(0, messageIndex - visibleCount + 1), messageIndex + 1);
       list.replaceChildren(...messages.map((message, index) => {
         const row = document.createElement("div");
@@ -11130,8 +11280,9 @@ const Viewer = {
     };
 
     const tick = () => {
+      const messageCount = this.getLoadingLogMessages().length;
       visibleCount = Math.min(4, visibleCount + 1);
-      messageIndex = Math.min(this.loadingLogMessages.length - 1, messageIndex + 1);
+      messageIndex = Math.min(messageCount - 1, messageIndex + 1);
       renderMessages();
       setProgress(Math.min(currentProgress + 9, 92));
     };
@@ -11167,8 +11318,9 @@ const Viewer = {
       update: (value) => {
         if (shell.hidden) return;
         const normalized = Number.isFinite(value) ? value : 0;
-        const messageProgress = Math.floor((normalized / 100) * (this.loadingLogMessages.length - 1));
-        messageIndex = Math.max(messageIndex, Math.min(messageProgress, this.loadingLogMessages.length - 1));
+        const messageCount = this.getLoadingLogMessages().length;
+        const messageProgress = Math.floor((normalized / 100) * (messageCount - 1));
+        messageIndex = Math.max(messageIndex, Math.min(messageProgress, messageCount - 1));
         visibleCount = Math.min(4, Math.max(visibleCount, 2));
         renderMessages();
         setProgress(Math.min(normalized, 96));
@@ -11176,8 +11328,9 @@ const Viewer = {
       finish: () => {
         if (shell.hidden) return;
         stop();
-        messageIndex = this.loadingLogMessages.length - 1;
-        visibleCount = this.loadingLogMessages.length;
+        const messageCount = this.getLoadingLogMessages().length;
+        messageIndex = messageCount - 1;
+        visibleCount = messageCount;
         renderMessages(true);
         setProgress(100);
         shell.classList.add("loading-log--done");
@@ -11208,8 +11361,54 @@ const Viewer = {
     this.enqueueStatusNotice({ message, duration, tone: "info", ...options });
   },
 
+  localizeStatusNotice(notice) {
+    if (!notice) return notice;
+    const i18nKey = String(notice.i18nKey || "");
+    const detailI18nKey = String(notice.detailI18nKey || "");
+    return {
+      ...notice,
+      message: i18nKey ? t$1(i18nKey, notice.i18nVars || {}, notice.message) : notice.message,
+      detail: detailI18nKey ? t$1(detailI18nKey, notice.detailI18nVars || {}, notice.detail) : notice.detail,
+    };
+  },
+
+  renderStatusNoticeContent(notice) {
+    if (!this.statusNotice || !notice) return;
+    const message = String(notice.message ?? "");
+    const detail = String(notice.detail ?? "");
+
+    this.statusNotice.textContent = "";
+
+    const messageNode = document.createElement("span");
+    messageNode.className = "viewer-notice-message";
+    messageNode.textContent = message;
+    this.statusNotice.appendChild(messageNode);
+
+    if (detail) {
+      const detailNode = document.createElement("span");
+      detailNode.className = "viewer-notice-detail";
+      detailNode.textContent = detail;
+      this.statusNotice.appendChild(detailNode);
+    }
+  },
+
+  getStatusNoticeText(notice) {
+    return [notice?.message, notice?.detail].filter(Boolean).join(" ");
+  },
+
+  refreshStatusNoticeLanguage() {
+    if (Array.isArray(this.statusNoticeQueue)) {
+      this.statusNoticeQueue = this.statusNoticeQueue.map((notice) => this.localizeStatusNotice(notice));
+    }
+
+    if (!this.statusNoticeCurrent) return;
+    this.statusNoticeCurrent = this.localizeStatusNotice(this.statusNoticeCurrent);
+    this.renderStatusNoticeContent(this.statusNoticeCurrent);
+  },
+
   showStatusNoticeNow(notice) {
     if (!this.statusNotice || !notice) return;
+    notice = this.localizeStatusNotice(notice);
 
     if (this.statusNoticeHideTimer) {
       clearTimeout(this.statusNoticeHideTimer);
@@ -11219,7 +11418,7 @@ const Viewer = {
     this.statusNoticeActive = true;
     this.statusNoticeCurrent = notice;
     this.statusNotice.hidden = false;
-    this.statusNotice.textContent = notice.message;
+    this.renderStatusNoticeContent(notice);
     this.statusNotice.dataset.tone = notice.tone || "info";
     if (notice.variant) {
       this.statusNotice.dataset.variant = notice.variant;
@@ -11303,6 +11502,11 @@ const Viewer = {
     replace = false,
     persistent = false,
     variant = "",
+    i18nKey = "",
+    i18nVars = {},
+    detail = "",
+    detailI18nKey = "",
+    detailI18nVars = {},
   } = {}) {
     const text = String(message ?? "");
     if (!text) return;
@@ -11314,11 +11518,16 @@ const Viewer = {
       key: String(key || ""),
       persistent,
       variant: String(variant || ""),
+      i18nKey: String(i18nKey || ""),
+      i18nVars: i18nVars && typeof i18nVars === "object" ? { ...i18nVars } : {},
+      detail: String(detail || ""),
+      detailI18nKey: String(detailI18nKey || ""),
+      detailI18nVars: detailI18nVars && typeof detailI18nVars === "object" ? { ...detailI18nVars } : {},
     };
 
     if (
       this.statusNoticeActive &&
-      this.statusNotice?.textContent === nextNotice.message &&
+      this.getStatusNoticeText(this.statusNoticeCurrent) === this.getStatusNoticeText(nextNotice) &&
       (this.statusNoticeCurrent?.tone || "info") === nextNotice.tone &&
       (this.statusNoticeCurrent?.key || "") === nextNotice.key
     ) {
@@ -11342,7 +11551,7 @@ const Viewer = {
 
     const isDuplicateQueued = this.statusNoticeQueue.some(
       (entry) =>
-        entry?.message === nextNotice.message &&
+        this.getStatusNoticeText(entry) === this.getStatusNoticeText(nextNotice) &&
         entry?.tone === nextNotice.tone &&
         (entry?.key || "") === nextNotice.key
     );
@@ -14690,10 +14899,9 @@ const Viewer = {
     const files = e.dataTransfer.files;
     if (files.length > 0) {
       const file = files[0];
-      const supportedExtensions = ['obj', 'dae', 'fbx', 'ply', 'ifc', 'stl', 'xyz', 'json', '3ds', 'pcd', 'gltf', 'glb', 'zip', 'rar', 'tar', 'xz', 'gz'];
       const extension = file.name.split('.').pop().toLowerCase();
       
-      if (supportedExtensions.includes(extension)) {
+      if (Viewer.SUPPORTED_EXTENSIONS.includes(extension)) {
         // Clear existing model
         if (core.mainObject.length > 0) {
           core.mainObject.forEach(obj => {
@@ -14724,8 +14932,7 @@ const Viewer = {
         if (core.SANDBOX_MODE) {
           Viewer.showSandboxGuiAfterModelLoad();
           Viewer.dismissStatusNotice("sandbox-drop-model");
-        }
-        
+        }        
         toastHelper$1("modelLoadedSimple", "success");
       } else {
         toastHelper$1("unsupportedFormat", "error");
@@ -14988,6 +15195,8 @@ const Viewer = {
     }
 
     toastHelper$1("sandboxDropModel", "info", {
+      formats: this.getSupportedFormatsText(),
+      detailI18nKey: "toasts.supportedFormats",
       key: "sandbox-drop-model",
       replace: true,
       persistent: true,
@@ -15703,14 +15912,7 @@ const Viewer = {
 
     localStorage.setItem("processing_model_id", _id);
 
-    let loadingMap =  [
-      "Preparing model",
-      "Converting to transmission format",
-      "Rendering thumbnails",
-      "Saving entity",
-      "Finalizing 3D model",
-      "Initializing viewer"
-    ];
+    let loadingMap = this.getProcessingLoadingSteps();
 
     loadingMap = core.isLocalPreview ? loadingMap.slice(-2) : loadingMap;
 
