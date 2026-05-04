@@ -63,7 +63,6 @@ import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
 import Stats from "stats.js";
 import { GUI } from "./js/external_libs/lil-gui.esm.min.js";
 import { objectsConfig, setObjectsConfig } from "./object-settings.js";
-import { lv } from "./js/external_libs/spinner.js";
 
 import { loadIIIFManifest, getAnnotations } from "./IIIF/iiif-api.js";
 import { VIEWER_I18N } from "./i18n.js";
@@ -977,6 +976,98 @@ export const Viewer = {
 
   getProcessingLoadingSteps() {
     return this.processingLoadingStepKeys.map((key) => t(key));
+  },
+
+  createModelLoadingProgress(shell) {
+    shell.className = "model-loader";
+    shell.hidden = true;
+    shell.setAttribute("role", "status");
+    shell.setAttribute("aria-live", "polite");
+
+    const ring = document.createElement("div");
+    ring.className = "model-loader__ring";
+    ring.setAttribute("aria-hidden", "true");
+
+    const percent = document.createElement("div");
+    percent.className = "model-loader__percent";
+    percent.textContent = "0%";
+    ring.appendChild(percent);
+
+    const content = document.createElement("div");
+    content.className = "model-loader__content";
+
+
+    const phase = document.createElement("div");
+    phase.className = "model-loader__phase";
+    phase.textContent = this.getLoadingLogMessages()[0] ?? t("loadingLog.loadingAssets", "Loading assets");
+
+    const phaseViewport = document.createElement("div");
+    phaseViewport.className = "model-loader__phase-viewport";
+
+    const phaseList = document.createElement("div");
+    phaseList.className = "model-loader__phase-list";
+
+    phaseViewport.appendChild(phaseList);
+    
+    const messages = this.getLoadingLogMessages();
+
+    messages.forEach((msg) => {
+      const item = document.createElement("div");
+      item.className = "model-loader__phase-item";
+      item.textContent = msg;
+      phaseList.appendChild(item);
+    });
+
+    const updatePhase = (normalized) => {
+      const maxIndex = messages.length - 1;
+      const index = Math.round(normalized * maxIndex);
+
+      const itemHeight = phaseList.firstElementChild?.offsetHeight || 24;
+      phaseList.style.transform = `translateY(-${index * itemHeight}px)`;
+    };
+
+    const track = document.createElement("div");
+    track.className = "model-loader__track";
+    track.setAttribute("role", "progressbar");
+    track.setAttribute("aria-valuemin", "0");
+    track.setAttribute("aria-valuemax", "100");
+    track.setAttribute("aria-valuenow", "0");
+    content.append(phaseViewport, track);
+
+    const bar = document.createElement("div");
+    bar.className = "model-loader__bar";
+    track.appendChild(bar);
+
+    shell.replaceChildren(ring, content);
+
+    const set = (value = 0, maxValue = 100) => {
+      const safeMax = Number.isFinite(maxValue) && maxValue > 0 ? maxValue : 100;
+      const normalized = Number.isFinite(value) ? Math.min(Math.max(value / safeMax, 0), 1) : 0;
+      const progress = Math.round(normalized * 100);
+      const messages = this.getLoadingLogMessages();
+      const messageIndex = Math.min(messages.length - 1, Math.floor(normalized * Math.max(messages.length - 1, 0)));
+
+      shell.style.setProperty("--model-loader-progress", String(progress));
+      percent.textContent = `${progress}%`;
+      bar.style.width = `${progress}%`;
+      track.setAttribute("aria-valuenow", String(progress));
+      updatePhase(normalized);
+
+    };
+
+    set(0, 100);
+
+    return {
+      getElement: () => shell,
+      show: () => {
+        shell.hidden = false;
+      },
+      complete: () => {
+        shell.dataset.complete = "true";
+      },
+      set,
+      reset: (maxValue = 100) => set(0, maxValue),
+    };
   },
 
   createLoadingLog() {
@@ -2384,19 +2475,11 @@ export const Viewer = {
     this.spinnerContainer.id = "spinnerContainer";
     this.spinnerElement = document.createElement("div");
     this.spinnerElement.id = "spinner";
-    this.spinnerElement.className = "lv-determinate_circle lv-mid md";
-    this.spinnerElement.setAttribute("data-label", "Loading 3D model...");
-    this.spinnerElement.setAttribute("data-percentage", "true");
     this.spinnerContainer.appendChild(this.spinnerElement);
     core.container.appendChild(this.spinnerContainer);
-    this.spinnerContainer.style.left = `calc(50% - ${this.spinnerContainer.getBoundingClientRect().width / 2}px)`;
-    this.spinner = new lv();
-    this.spinner.initLoaderAll();
-    this.spinner.startObserving();
 
-    this.circle = lv.create(this.spinnerElement);
+    this.circle = this.createModelLoadingProgress(this.spinnerElement);
     setCore('circle', this.circle);
-    setCore('spinner', this.spinner);
     if (!core.PRESENTATION_MODE) {
       this.loadingLog = this.createLoadingLog();
       setCore('loadingLog', this.loadingLog);
@@ -4942,7 +5025,7 @@ export const Viewer = {
     }
     if (core.circle) {
       core.circle.set?.(0, 100);
-      core.circle.hide?.();
+      core.circle.complete();
     }
 
     if (core.mainCanvas && core.CONFIG?.viewer?.background) {

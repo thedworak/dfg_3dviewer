@@ -310,7 +310,8 @@ function reportLoadError(error, context = "") {
     context,
     consoleLabel: "Viewer load error:",
   });
-  core.circle?.hide();
+  if (core.circle)
+  core.circle.complete();
   if (typeof core.EXIT_CODE !== "undefined") core.EXIT_CODE = 1;
   return message;
 }
@@ -740,7 +741,7 @@ const progressLoaderHandler = function (xhr) {
   core.loadingLog?.update?.(percentComplete);
   core.UltraLoader?.set(percentComplete);
   if (percentComplete >= 100) {
-    core.circle.hide();
+    //core.circle.complete();
     if (!core.PRESENTATION_MODE) {
       toastHelper("modelLoaded", "success", {
         filename: core.fileObject.filename
