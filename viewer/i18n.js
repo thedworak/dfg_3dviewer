@@ -129,6 +129,8 @@ export const VIEWER_I18N = {
     },
     loadingLog: {
       title: "Loading process log",
+      loadingModel: "Loading 3D model...",
+      modelLoaded: "Model has been loaded.",
       loadingAssets: "Loading assets...",
       parsingScene: "Parsing scene...",
       loadingTextures: "Loading textures...",
@@ -348,6 +350,8 @@ export const VIEWER_I18N = {
     },
     loadingLog: {
       title: "Log procesu ładowania",
+      loadingModel: "Ładowanie modelu 3D...",
+      modelLoaded: "Model został załadowany.",
       loadingAssets: "Ładowanie zasobów...",
       parsingScene: "Analizowanie sceny...",
       loadingTextures: "Ładowanie tekstur...",
@@ -566,6 +570,8 @@ export const VIEWER_I18N = {
     },
     loadingLog: {
       title: "Protokoll des Ladeprozesses",
+      loadingModel: "3D-Modell wird geladen...",
+      modelLoaded: "Modell wurde geladen.",
       loadingAssets: "Assets werden geladen...",
       parsingScene: "Szene wird analysiert...",
       loadingTextures: "Texturen werden geladen...",

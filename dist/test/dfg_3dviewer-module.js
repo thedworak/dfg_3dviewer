@@ -338,6 +338,8 @@ const VIEWER_I18N = {
     },
     loadingLog: {
       title: "Loading process log",
+      loadingModel: "Loading 3D model...",
+      modelLoaded: "Model has been loaded.",
       loadingAssets: "Loading assets...",
       parsingScene: "Parsing scene...",
       loadingTextures: "Loading textures...",
@@ -557,6 +559,8 @@ const VIEWER_I18N = {
     },
     loadingLog: {
       title: "Log procesu ładowania",
+      loadingModel: "Ładowanie modelu 3D...",
+      modelLoaded: "Model został załadowany.",
       loadingAssets: "Ładowanie zasobów...",
       parsingScene: "Analizowanie sceny...",
       loadingTextures: "Ładowanie tekstur...",
@@ -775,6 +779,8 @@ const VIEWER_I18N = {
     },
     loadingLog: {
       title: "Protokoll des Ladeprozesses",
+      loadingModel: "3D-Modell wird geladen...",
+      modelLoaded: "Modell wurde geladen.",
       loadingAssets: "Assets werden geladen...",
       parsingScene: "Szene wird analysiert...",
       loadingTextures: "Texturen werden geladen...",
@@ -9764,6 +9770,7 @@ const Viewer = {
   currentLanguage: "en",
   loadingLogMessageKeys: [
     "loadingLog.loadingAssets",
+    "loadingLog.loadingModel",
     "loadingLog.parsingScene",
     "loadingLog.loadingTextures",
     "loadingLog.preparingGeometry",
@@ -9774,6 +9781,7 @@ const Viewer = {
     "loadingLog.initializingRenderer",
     "loadingLog.uploadingBuffers",
     "loadingLog.fetchingMetadata",
+    "loadingLog.modelLoaded",
   ],
   processingLoadingStepKeys: [
     "processingSteps.preparingModel",
@@ -10647,6 +10655,9 @@ const Viewer = {
     phaseViewport.appendChild(phaseList);
     
     const messages = this.getLoadingLogMessages();
+    const loadingModelKeyIndex = Math.max(0, this.loadingLogMessageKeys.indexOf("loadingLog.loadingModel"));
+    let showDetailPhases = false;
+    let detailPhaseTimer = null;
 
     messages.forEach((msg) => {
       const item = document.createElement("div");
@@ -10655,12 +10666,34 @@ const Viewer = {
       phaseList.appendChild(item);
     });
 
-    const updatePhase = (normalized) => {
-      const maxIndex = messages.length - 1;
-      const index = Math.round(normalized * maxIndex);
+    const clearDetailPhaseTimer = () => {
+      if (detailPhaseTimer) {
+        window.clearInterval(detailPhaseTimer);
+        detailPhaseTimer = null;
+      }
+    };
 
+    const updatePhase = (index) => {
       const itemHeight = phaseList.firstElementChild?.offsetHeight || 24;
       phaseList.style.transform = `translateY(-${index * itemHeight}px)`;
+      phase.textContent = messages[index] || messages[loadingModelKeyIndex] || phase.textContent;
+    };
+
+    const startDetailPhases = () => {
+      if (showDetailPhases) return;
+      showDetailPhases = true;
+      clearDetailPhaseTimer();
+
+      let index = loadingModelKeyIndex;
+      updatePhase(index);
+      detailPhaseTimer = window.setInterval(() => {
+        if (index >= messages.length - 1) {
+          clearDetailPhaseTimer();
+          return;
+        }
+        index += 1;
+        updatePhase(index);
+      }, 260);
     };
 
     const track = document.createElement("div");
@@ -10681,14 +10714,17 @@ const Viewer = {
       const safeMax = Number.isFinite(maxValue) && maxValue > 0 ? maxValue : 100;
       const normalized = Number.isFinite(value) ? Math.min(Math.max(value / safeMax, 0), 1) : 0;
       const progress = Math.round(normalized * 100);
-      this.getLoadingLogMessages();
 
       shell.style.setProperty("--model-loader-progress", String(progress));
       percent.textContent = `${progress}%`;
       bar.style.width = `${progress}%`;
       track.setAttribute("aria-valuenow", String(progress));
-      updatePhase(normalized);
 
+      if (progress < 98) {
+        updatePhase(loadingModelKeyIndex);
+      } else {
+        startDetailPhases();
+      }
     };
 
     set(0, 100);
@@ -10736,15 +10772,28 @@ const Viewer = {
     shell.style.bottom = `-${shell.getBoundingClientRect().height / 2 - 5}px`;
 
     let timer = null;
+    let postProcessingTimer = null;
     let messageIndex = 0;
     let visibleCount = 0;
     let currentProgress = 0;
     let startedAt = 0;
     let hideTimer = null;
+    let postProcessing = false;
+    let progressUpdated = false;
     const minVisibleMs = 900;
 
+    const getActiveMessages = () =>
+      postProcessing ? this.getProcessingLoadingSteps() : this.getLoadingLogMessages();
+
+    const clearPostProcessingTimer = () => {
+      if (postProcessingTimer) {
+        window.clearInterval(postProcessingTimer);
+        postProcessingTimer = null;
+      }
+    };
+
     const renderMessages = (allDone = false) => {
-      const allMessages = this.getLoadingLogMessages();
+      const allMessages = getActiveMessages();
       const messages = allMessages
         .slice(Math.max(0, messageIndex - visibleCount + 1), messageIndex + 1);
       list.replaceChildren(...messages.map((message, index) => {
@@ -10761,17 +10810,25 @@ const Viewer = {
     };
 
     const setProgress = (value) => {
-      currentProgress = Math.max(currentProgress, Math.min(Math.round(value), 100));
+      const normalizedValue = Number.isFinite(value) ? Math.min(Math.max(value, 0), 100) : 0;
+      if (!postProcessing) {
+        currentProgress = Math.max(currentProgress, Math.round(normalizedValue));
+      } else {
+        currentProgress = 100;
+      }
       progressBar.style.width = `${currentProgress}%`;
       progress.setAttribute("aria-valuenow", String(currentProgress));
     };
 
     const tick = () => {
-      const messageCount = this.getLoadingLogMessages().length;
+      if (postProcessing) return;
+      const messages = getActiveMessages();
       visibleCount = Math.min(4, visibleCount + 1);
-      messageIndex = Math.min(messageCount - 1, messageIndex + 1);
+      if (!progressUpdated) {
+        messageIndex = Math.min(messages.length - 1, messageIndex + 1);
+        setProgress(Math.min(currentProgress + 8, 12));
+      }
       renderMessages();
-      setProgress(Math.min(currentProgress + 9, 92));
     };
 
     const stop = () => {
@@ -10788,10 +10845,48 @@ const Viewer = {
       }
     };
 
+    const hideLog = () => {
+      shell.hidden = true;
+      shell.classList.remove("loading-log--done");
+      shell.classList.remove("loading-log--error");
+      hideTimer = null;
+    };
+
+    const startPostProcessing = () => {
+      stop();
+      clearHideTimer();
+      clearPostProcessingTimer();
+      postProcessing = true;
+      progressUpdated = true;
+      startedAt = performance.now();
+      messageIndex = 0;
+      visibleCount = 1;
+      setProgress(100);
+      shell.classList.remove("loading-log--error");
+      shell.classList.add("loading-log--done");
+      renderMessages();
+      postProcessingTimer = window.setInterval(() => {
+        const messages = getActiveMessages();
+        if (messageIndex < messages.length - 1) {
+          messageIndex += 1;
+          visibleCount = Math.min(4, visibleCount + 1);
+          renderMessages();
+          return;
+        }
+        clearPostProcessingTimer();
+        const visibleFor = performance.now() - startedAt;
+        const hideDelay = Math.max(700, minVisibleMs - visibleFor);
+        hideTimer = window.setTimeout(hideLog, hideDelay);
+      }, 260);
+    };
+
     return {
       start: () => {
         stop();
         clearHideTimer();
+        clearPostProcessingTimer();
+        postProcessing = false;
+        progressUpdated = false;
         startedAt = performance.now();
         shell.hidden = false;
         shell.classList.remove("loading-log--done", "loading-log--error");
@@ -10804,8 +10899,10 @@ const Viewer = {
       },
       update: (value) => {
         if (shell.hidden) return;
+        progressUpdated = true;
         const normalized = Number.isFinite(value) ? value : 0;
-        const messageCount = this.getLoadingLogMessages().length;
+        const messages = getActiveMessages();
+        const messageCount = messages.length;
         const messageProgress = Math.floor((normalized / 100) * (messageCount - 1));
         messageIndex = Math.max(messageIndex, Math.min(messageProgress, messageCount - 1));
         visibleCount = Math.min(4, Math.max(visibleCount, 2));
@@ -10815,6 +10912,11 @@ const Viewer = {
       finish: () => {
         if (shell.hidden) return;
         stop();
+        const processingMessages = this.getProcessingLoadingSteps();
+        if (processingMessages.length > 0) {
+          startPostProcessing();
+          return;
+        }
         const messageCount = this.getLoadingLogMessages().length;
         messageIndex = messageCount - 1;
         visibleCount = messageCount;
@@ -10834,6 +10936,7 @@ const Viewer = {
         if (shell.hidden) return;
         stop();
         clearHideTimer();
+        clearPostProcessingTimer();
         shell.classList.add("loading-log--error");
         hideTimer = window.setTimeout(() => {
           shell.hidden = true;
