@@ -128,15 +128,11 @@ export const Viewer = {
   loadingLogMessageKeys: [
     "loadingLog.loadingAssets",
     "loadingLog.loadingModel",
-    "loadingLog.parsingScene",
     "loadingLog.loadingTextures",
     "loadingLog.preparingGeometry",
     "loadingLog.settingUpLighting",
     "loadingLog.settingUpMaterials",
-    "loadingLog.buildingBvh",
     "loadingLog.compilingShaders",
-    "loadingLog.initializingRenderer",
-    "loadingLog.uploadingBuffers",
     "loadingLog.fetchingMetadata",
     "loadingLog.modelLoaded",
   ],
@@ -1093,6 +1089,11 @@ export const Viewer = {
       },
       complete: () => {
         shell.dataset.complete = "true";
+      },
+      waitAndComplete: () => {
+        setTimeout(() => {
+          shell.dataset.complete = "true";
+        }, 1500);
       },
       set,
       reset: (maxValue = 100) => set(0, maxValue),

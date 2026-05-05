@@ -1,4 +1,4 @@
-import { T as THREE, e as _exports, V as Vector3, M as Matrix4, Q as Quaternion, E as Euler, a as MathUtils$1, O as OrbitControls, b as TransformControls, F as FontLoader, c as TextGeometry } from './assets/three.js';
+import { T as THREE, e as exports$1, V as Vector3, M as Matrix4, Q as Quaternion, E as Euler, a as MathUtils$1, O as OrbitControls, b as TransformControls, F as FontLoader, c as TextGeometry } from './assets/three.js';
 
 window.THREE = THREE;
 
@@ -22,7 +22,7 @@ const core = {
     basicGrid: new THREE.Group(),
     axesHelper: new THREE.AxesHelper(),
     cameraCoords: null,
-    tween: new _exports.Tween(),
+    tween: new exports$1.Tween(),
     controls: null,
     transformControlClippingPlaneY: null,
     transformControlClippingPlaneX: null,
@@ -1482,7 +1482,7 @@ function animateCameraToPose ({
   finalTarget,        // THREE.Vector3 (target)
   boundingBox,        // THREE.Box3 (optional, near/far)
   duration = 3500,
-  easing = _exports.Easing.Cubic.Out,
+  easing = exports$1.Easing.Cubic.Out,
   startOffsetFactor = 0.5, // % of moving back (0.2–0.4 should be good)
   animate = true,
   distanceOffsetFactor = 0,   // additional factor to move closer (0.1 = 10% closer) (optional)
@@ -1520,14 +1520,14 @@ function animateCameraToPose ({
   const camTweenPos = startCamPos.clone();
   const targetTweenPos = startTarget.clone();
 
-  core.cameraTween = new _exports.Tween(camTweenPos)
+  core.cameraTween = new exports$1.Tween(camTweenPos)
     .to(endCamPos, duration)
     .easing(easing)
     .onUpdate(() => {
       core.camera.position.copy(camTweenPos);
     });
 
-  core.targetTween = new _exports.Tween(targetTweenPos)
+  core.targetTween = new exports$1.Tween(targetTweenPos)
     .to(endTarget, duration)
     .easing(easing)
     .onUpdate(() => {
@@ -3337,7 +3337,7 @@ const progressLoaderHandler = function (xhr) {
   core.loadingLog?.update?.(percentComplete);
   core.UltraLoader?.set(percentComplete);
   if (percentComplete >= 100) {
-    //core.circle.complete();
+    core.circle.waitAndComplete();
     if (!core.PRESENTATION_MODE) {
       toastHelper$1("modelLoaded", "success", {
         filename: core.fileObject.filename
@@ -3626,7 +3626,7 @@ var hasRequiredStats_min;
 function requireStats_min () {
 	if (hasRequiredStats_min) return stats_min$1.exports;
 	hasRequiredStats_min = 1;
-	(function (module, exports$1) {
+	(function (module, exports) {
 		// stats.js - http://github.com/mrdoob/stats.js
 		(function(f,e){module.exports=e();})(stats_min,function(){var f=function(){function e(a){c.appendChild(a.dom);return a}function u(a){for(var d=0;d<c.children.length;d++)c.children[d].style.display=d===a?"block":"none";l=a;}var l=0,c=document.createElement("div");c.style.cssText="position:fixed;top:0;left:0;cursor:pointer;opacity:0.9;z-index:10000";c.addEventListener("click",function(a){a.preventDefault();
 		u(++l%c.children.length);},false);var k=(performance||Date).now(),g=k,a=0,r=e(new f.Panel("FPS","#0ff","#002")),h=e(new f.Panel("MS","#0f0","#020"));if(self.performance&&self.performance.memory)var t=e(new f.Panel("MB","#f08","#201"));u(0);return {REVISION:16,dom:c,addPanel:e,showPanel:u,begin:function(){k=(performance||Date).now();},end:function(){a++;var c=(performance||Date).now();h.update(c-k,200);if(c>g+1E3&&(r.update(1E3*a/(c-g),100),g=c,a=0,t)){var d=performance.memory;t.update(d.usedJSHeapSize/
@@ -9771,15 +9771,11 @@ const Viewer = {
   loadingLogMessageKeys: [
     "loadingLog.loadingAssets",
     "loadingLog.loadingModel",
-    "loadingLog.parsingScene",
     "loadingLog.loadingTextures",
     "loadingLog.preparingGeometry",
     "loadingLog.settingUpLighting",
     "loadingLog.settingUpMaterials",
-    "loadingLog.buildingBvh",
     "loadingLog.compilingShaders",
-    "loadingLog.initializingRenderer",
-    "loadingLog.uploadingBuffers",
     "loadingLog.fetchingMetadata",
     "loadingLog.modelLoaded",
   ],
@@ -10737,6 +10733,11 @@ const Viewer = {
       complete: () => {
         shell.dataset.complete = "true";
       },
+      waitAndComplete: () => {
+        setTimeout(() => {
+          shell.dataset.complete = "true";
+        }, 1500);
+      },
       set,
       reset: (maxValue = 100) => set(0, maxValue),
     };
@@ -11232,9 +11233,9 @@ const Viewer = {
     core.cameraTween?.stop?.();
     core.targetTween?.stop?.();
 
-    core.cameraTween = new _exports.Tween(startCamera)
+    core.cameraTween = new exports$1.Tween(startCamera)
       .to(targetCamera, duration)
-      .easing(_exports.Easing.Quadratic.Out)
+      .easing(exports$1.Easing.Quadratic.Out)
       .onUpdate(() => {
         core.camera.position.copy(startCamera);
         core.cameraLight?.position.copy(startCamera);
@@ -11246,9 +11247,9 @@ const Viewer = {
         core.camera.updateProjectionMatrix();
       });
 
-    core.targetTween = new _exports.Tween(startTarget)
+    core.targetTween = new exports$1.Tween(startTarget)
       .to(targetControls, duration)
-      .easing(_exports.Easing.Quadratic.Out)
+      .easing(exports$1.Easing.Quadratic.Out)
       .onUpdate(() => {
         core.controls.target.copy(startTarget);
         core.controls.update();
@@ -12120,10 +12121,10 @@ const Viewer = {
     setCore('outlineClipping', outlineClipping);
     core.objectsConfig.setupIndex = core.objectsConfig.index = 0;
 
-    this.cameraTween = new _exports.Tween();
+    this.cameraTween = new exports$1.Tween();
     setCore('cameraTween', this.cameraTween);
 
-    this.targetTween = new _exports.Tween();
+    this.targetTween = new exports$1.Tween();
     setCore('targetTween', this.targetTween);
 
     core.container.classList.add("mainContainer");
@@ -14897,18 +14898,18 @@ const Viewer = {
     const speed = 1.25;
     const duration = THREE.MathUtils.clamp((distance / speed) * 1000, 300, 3000);
 
-    core.cameraTween = new _exports.Tween(startCam)
+    core.cameraTween = new exports$1.Tween(startCam)
       .to(targetCamera, duration)
-      .easing(_exports.Easing.Cubic.Out)
+      .easing(exports$1.Easing.Cubic.Out)
       .onUpdate(() => {
         core.camera.position.copy(startCam);
         core.cameraLight.position.copy(startCam);
         core.camera.updateProjectionMatrix();
       });
 
-    core.targetTween = new _exports.Tween(startTarget)
+    core.targetTween = new exports$1.Tween(startTarget)
       .to(targetControls, duration)
-      .easing(_exports.Easing.Cubic.Out)
+      .easing(exports$1.Easing.Cubic.Out)
       .onUpdate(() => {
         core.controls?.target.copy(startTarget);
         core.controls?.update();

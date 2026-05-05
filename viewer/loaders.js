@@ -741,7 +741,7 @@ const progressLoaderHandler = function (xhr) {
   core.loadingLog?.update?.(percentComplete);
   core.UltraLoader?.set(percentComplete);
   if (percentComplete >= 100) {
-    //core.circle.complete();
+    core.circle.waitAndComplete();
     if (!core.PRESENTATION_MODE) {
       toastHelper("modelLoaded", "success", {
         filename: core.fileObject.filename
