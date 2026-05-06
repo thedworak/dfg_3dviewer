@@ -1006,11 +1006,16 @@ export const Viewer = {
     phaseList.className = "model-loader__phase-list";
 
     phaseViewport.appendChild(phaseList);
-    
+
     const messages = this.getLoadingLogMessages();
-    const loadingModelKeyIndex = Math.max(0, this.loadingLogMessageKeys.indexOf("loadingLog.loadingModel"));
-    let showDetailPhases = false;
-    let detailPhaseTimer = null;
+    const stageKeyToIndex = new Map(
+      this.loadingLogMessageKeys.map((key, index) => [key, index])
+    );
+    const loadingModelKeyIndex = Math.max(
+      0,
+      stageKeyToIndex.get("loadingLog.loadingModel") ?? 0
+    );
+    let hideTimer = null;
 
     messages.forEach((msg) => {
       const item = document.createElement("div");
@@ -1019,10 +1024,10 @@ export const Viewer = {
       phaseList.appendChild(item);
     });
 
-    const clearDetailPhaseTimer = () => {
-      if (detailPhaseTimer) {
-        window.clearInterval(detailPhaseTimer);
-        detailPhaseTimer = null;
+    const clearHideTimer = () => {
+      if (hideTimer) {
+        window.clearTimeout(hideTimer);
+        hideTimer = null;
       }
     };
 
@@ -1030,23 +1035,10 @@ export const Viewer = {
       const itemHeight = phaseList.firstElementChild?.offsetHeight || 24;
       phaseList.style.transform = `translateY(-${index * itemHeight}px)`;
       phase.textContent = messages[index] || messages[loadingModelKeyIndex] || phase.textContent;
-    };
-
-    const startDetailPhases = () => {
-      if (showDetailPhases) return;
-      showDetailPhases = true;
-      clearDetailPhaseTimer();
-
-      let index = loadingModelKeyIndex;
-      updatePhase(index);
-      detailPhaseTimer = window.setInterval(() => {
-        if (index >= messages.length - 1) {
-          clearDetailPhaseTimer();
-          return;
-        }
-        index += 1;
-        updatePhase(index);
-      }, 260);
+      Array.from(phaseList.children).forEach((item, itemIndex) => {
+        item.toggleAttribute("data-active", itemIndex === index);
+        item.toggleAttribute("data-near", itemIndex === index - 1 || itemIndex === index + 1);
+      });
     };
 
     const track = document.createElement("div");
@@ -1072,12 +1064,7 @@ export const Viewer = {
       percent.textContent = `${progress}%`;
       bar.style.width = `${progress}%`;
       track.setAttribute("aria-valuenow", String(progress));
-
-      if (progress < 98) {
-        updatePhase(loadingModelKeyIndex);
-      } else {
-        startDetailPhases();
-      }
+      updatePhase(loadingModelKeyIndex);
     };
 
     set(0, 100);
@@ -1085,18 +1072,49 @@ export const Viewer = {
     return {
       getElement: () => shell,
       show: () => {
+        clearHideTimer();
         shell.hidden = false;
+        delete shell.dataset.complete;
+        updatePhase(loadingModelKeyIndex);
       },
-      complete: () => {
+      hide: () => {
+        clearHideTimer();
+        shell.hidden = true;
+        delete shell.dataset.complete;
+      },
+      setStage: (stageKey, progressValue = null) => {
+        const index = stageKeyToIndex.get(stageKey);
+        if (typeof index === "number") {
+          updatePhase(index);
+        }
+        if (Number.isFinite(progressValue)) {
+          const normalizedProgress = Math.max(0, Math.min(Math.round(progressValue), 100));
+          shell.style.setProperty("--model-loader-progress", String(normalizedProgress));
+          percent.textContent = `${normalizedProgress}%`;
+          bar.style.width = `${normalizedProgress}%`;
+          track.setAttribute("aria-valuenow", String(normalizedProgress));
+        }
+      },
+      complete: (delayMs = 2400) => {
+        clearHideTimer();
+        updatePhase(stageKeyToIndex.get("loadingLog.modelLoaded") ?? messages.length - 1);
+        shell.style.setProperty("--model-loader-progress", "100");
+        percent.textContent = "100%";
+        bar.style.width = "100%";
+        track.setAttribute("aria-valuenow", "100");
         shell.dataset.complete = "true";
-      },
-      waitAndComplete: () => {
-        setTimeout(() => {
-          shell.dataset.complete = "true";
-        }, 1500);
+        hideTimer = window.setTimeout(() => {
+          hideTimer = null;
+          delete shell.dataset.complete;
+          shell.hidden = true;
+        }, delayMs);
       },
       set,
-      reset: (maxValue = 100) => set(0, maxValue),
+      reset: (maxValue = 100) => {
+        clearHideTimer();
+        delete shell.dataset.complete;
+        set(0, maxValue);
+      },
     };
   },
 
@@ -1105,11 +1123,32 @@ export const Viewer = {
     shell.id = "loading-log";
     shell.setAttribute("aria-live", "polite");
     shell.hidden = true;
+    shell.style.setProperty("bottom", "-55px");
 
-    const header = document.createElement("div");
+    const collapsedToggle = document.createElement("button");
+    collapsedToggle.type = "button";
+    collapsedToggle.className = "loading-log__collapsed-toggle";
+    collapsedToggle.setAttribute("aria-label", t("loadingLog.title", "Loading process log"));
+    collapsedToggle.setAttribute("aria-expanded", "false");
+    shell.appendChild(collapsedToggle);
+
+    const header = document.createElement("button");
+    header.type = "button";
     header.className = "loading-log__header";
-    header.textContent = t("loadingLog.title", "Loading process log");
+    header.setAttribute("aria-expanded", "false");
+
+    const headerTitle = document.createElement("span");
+    headerTitle.className = "loading-log__title";
+    headerTitle.textContent = t("loadingLog.title", "Loading process log");
+
+    const headerSummary = document.createElement("span");
+    headerSummary.className = "loading-log__summary";
+
+    header.append(headerTitle, headerSummary);
     shell.appendChild(header);
+
+    const body = document.createElement("div");
+    body.className = "loading-log__body";
 
     const list = document.createElement("div");
     list.className = "loading-log__messages";
@@ -1125,34 +1164,52 @@ export const Viewer = {
     progressBar.className = "loading-log__progress-bar";
     progress.appendChild(progressBar);
 
-    shell.append(list, progress);
+    body.append(list, progress);
+    shell.appendChild(body);
     core.container.appendChild(shell);
-    shell.style.bottom = `-${shell.getBoundingClientRect().height / 2 - 5}px`;
 
     let timer = null;
-    let postProcessingTimer = null;
     let messageIndex = 0;
     let visibleCount = 0;
     let currentProgress = 0;
     let startedAt = 0;
     let hideTimer = null;
-    let postProcessing = false;
     let progressUpdated = false;
     const minVisibleMs = 900;
+    const loadingMessages = this.getLoadingLogMessages();
+    const loadingStageKeyToIndex = new Map(
+      this.loadingLogMessageKeys.map((key, index) => [key, index])
+    );
+    const loadingModelMessageIndex = Math.max(
+      0,
+      loadingStageKeyToIndex.get("loadingLog.loadingModel") ?? 0
+    );
+    let isExpanded = false;
 
-    const getActiveMessages = () =>
-      postProcessing ? this.getProcessingLoadingSteps() : this.getLoadingLogMessages();
-
-    const clearPostProcessingTimer = () => {
-      if (postProcessingTimer) {
-        window.clearInterval(postProcessingTimer);
-        postProcessingTimer = null;
-      }
+    const setExpanded = (expanded) => {
+      isExpanded = expanded;
+      shell.dataset.expanded = expanded ? "true" : "false";
+      header.setAttribute("aria-expanded", expanded ? "true" : "false");
+      collapsedToggle.setAttribute("aria-expanded", expanded ? "true" : "false");
     };
 
+    const updateSummary = () => {
+      const activeMessage = loadingMessages[messageIndex] || loadingMessages[loadingModelMessageIndex] || "";
+      headerSummary.textContent = `${currentProgress}% • ${activeMessage}`;
+    };
+
+    header.addEventListener("click", () => {
+      if (shell.hidden) return;
+      setExpanded(!isExpanded);
+    });
+
+    collapsedToggle.addEventListener("click", () => {
+      if (shell.hidden) return;
+      setExpanded(!isExpanded);
+    });
+
     const renderMessages = (allDone = false) => {
-      const allMessages = getActiveMessages();
-      const messages = allMessages
+      const messages = loadingMessages
         .slice(Math.max(0, messageIndex - visibleCount + 1), messageIndex + 1);
       list.replaceChildren(...messages.map((message, index) => {
         const row = document.createElement("div");
@@ -1169,21 +1226,16 @@ export const Viewer = {
 
     const setProgress = (value) => {
       const normalizedValue = Number.isFinite(value) ? Math.min(Math.max(value, 0), 100) : 0;
-      if (!postProcessing) {
-        currentProgress = Math.max(currentProgress, Math.round(normalizedValue));
-      } else {
-        currentProgress = 100;
-      }
+      currentProgress = Math.max(currentProgress, Math.round(normalizedValue));
       progressBar.style.width = `${currentProgress}%`;
       progress.setAttribute("aria-valuenow", String(currentProgress));
+      updateSummary();
     };
 
     const tick = () => {
-      if (postProcessing) return;
-      const messages = getActiveMessages();
       visibleCount = Math.min(4, visibleCount + 1);
       if (!progressUpdated) {
-        messageIndex = Math.min(messages.length - 1, messageIndex + 1);
+        messageIndex = loadingModelMessageIndex;
         setProgress(Math.min(currentProgress + 8, 12));
       }
       renderMessages();
@@ -1203,52 +1255,23 @@ export const Viewer = {
       }
     };
 
-    const hideLog = () => {
-      shell.hidden = true;
+    const collapseLog = () => {
       shell.classList.remove("loading-log--done");
       shell.classList.remove("loading-log--error");
+      setExpanded(false);
       hideTimer = null;
-    };
-
-    const startPostProcessing = () => {
-      stop();
-      clearHideTimer();
-      clearPostProcessingTimer();
-      postProcessing = true;
-      progressUpdated = true;
-      startedAt = performance.now();
-      messageIndex = 0;
-      visibleCount = 1;
-      setProgress(100);
-      shell.classList.remove("loading-log--error");
-      shell.classList.add("loading-log--done");
-      renderMessages();
-      postProcessingTimer = window.setInterval(() => {
-        const messages = getActiveMessages();
-        if (messageIndex < messages.length - 1) {
-          messageIndex += 1;
-          visibleCount = Math.min(4, visibleCount + 1);
-          renderMessages();
-          return;
-        }
-        clearPostProcessingTimer();
-        const visibleFor = performance.now() - startedAt;
-        const hideDelay = Math.max(700, minVisibleMs - visibleFor);
-        hideTimer = window.setTimeout(hideLog, hideDelay);
-      }, 260);
     };
 
     return {
       start: () => {
         stop();
         clearHideTimer();
-        clearPostProcessingTimer();
-        postProcessing = false;
         progressUpdated = false;
         startedAt = performance.now();
         shell.hidden = false;
+        setExpanded(false);
         shell.classList.remove("loading-log--done", "loading-log--error");
-        messageIndex = 0;
+        messageIndex = loadingModelMessageIndex;
         visibleCount = 1;
         currentProgress = 0;
         renderMessages();
@@ -1259,48 +1282,52 @@ export const Viewer = {
         if (shell.hidden) return;
         progressUpdated = true;
         const normalized = Number.isFinite(value) ? value : 0;
-        const messages = getActiveMessages();
-        const messageCount = messages.length;
-        const messageProgress = Math.floor((normalized / 100) * (messageCount - 1));
-        messageIndex = Math.max(messageIndex, Math.min(messageProgress, messageCount - 1));
+        messageIndex = loadingModelMessageIndex;
         visibleCount = Math.min(4, Math.max(visibleCount, 2));
         renderMessages();
-        setProgress(Math.min(normalized, 96));
+        setProgress(Math.min(normalized, 99));
+      },
+      setStage: (stageKey, progressValue = null) => {
+        if (shell.hidden) return;
+        const stageIndex = loadingStageKeyToIndex.get(stageKey);
+        if (typeof stageIndex === "number") {
+          messageIndex = stageIndex;
+          visibleCount = Math.min(4, Math.max(visibleCount, 2));
+          renderMessages();
+          updateSummary();
+        }
+        if (Number.isFinite(progressValue)) {
+          setProgress(progressValue);
+        }
       },
       finish: () => {
         if (shell.hidden) return;
         stop();
-        const processingMessages = this.getProcessingLoadingSteps();
-        if (processingMessages.length > 0) {
-          startPostProcessing();
-          return;
-        }
-        const messageCount = this.getLoadingLogMessages().length;
+        const messageCount = loadingMessages.length;
         messageIndex = messageCount - 1;
         visibleCount = messageCount;
         renderMessages(true);
         setProgress(100);
+        updateSummary();
         shell.classList.add("loading-log--done");
         const visibleFor = performance.now() - startedAt;
-        const hideDelay = Math.max(700, minVisibleMs - visibleFor);
+        const hideDelay = Math.max(1200, minVisibleMs - visibleFor + 800);
         clearHideTimer();
         hideTimer = window.setTimeout(() => {
-          shell.hidden = true;
-          shell.classList.remove("loading-log--done");
-          hideTimer = null;
+          collapseLog();
         }, hideDelay);
       },
       fail: () => {
         if (shell.hidden) return;
         stop();
         clearHideTimer();
-        clearPostProcessingTimer();
+        setExpanded(true);
         shell.classList.add("loading-log--error");
         hideTimer = window.setTimeout(() => {
-          shell.hidden = true;
           shell.classList.remove("loading-log--error");
+          setExpanded(false);
           hideTimer = null;
-        }, 900);
+        }, 2000);
       }
     };
   },

@@ -1,4 +1,4 @@
-import { T as THREE, e as _exports, V as Vector3, M as Matrix4, Q as Quaternion, E as Euler, a as MathUtils$1, O as OrbitControls, b as TransformControls, F as FontLoader, c as TextGeometry } from './assets/three.js';
+import { T as THREE, e as exports$1, V as Vector3, M as Matrix4, Q as Quaternion, E as Euler, a as MathUtils$1, O as OrbitControls, b as TransformControls, F as FontLoader, c as TextGeometry } from './assets/three.js';
 
 window.THREE = THREE;
 
@@ -22,7 +22,7 @@ const core = {
     basicGrid: new THREE.Group(),
     axesHelper: new THREE.AxesHelper(),
     cameraCoords: null,
-    tween: new _exports.Tween(),
+    tween: new exports$1.Tween(),
     controls: null,
     transformControlClippingPlaneY: null,
     transformControlClippingPlaneX: null,
@@ -338,6 +338,8 @@ const VIEWER_I18N = {
     },
     loadingLog: {
       title: "Loading process log",
+      loadingModel: "Loading 3D model...",
+      modelLoaded: "Model has been loaded.",
       loadingAssets: "Loading assets...",
       parsingScene: "Parsing scene...",
       loadingTextures: "Loading textures...",
@@ -557,6 +559,8 @@ const VIEWER_I18N = {
     },
     loadingLog: {
       title: "Log procesu ładowania",
+      loadingModel: "Ładowanie modelu 3D...",
+      modelLoaded: "Model został załadowany.",
       loadingAssets: "Ładowanie zasobów...",
       parsingScene: "Analizowanie sceny...",
       loadingTextures: "Ładowanie tekstur...",
@@ -775,6 +779,8 @@ const VIEWER_I18N = {
     },
     loadingLog: {
       title: "Protokoll des Ladeprozesses",
+      loadingModel: "3D-Modell wird geladen...",
+      modelLoaded: "Modell wurde geladen.",
       loadingAssets: "Assets werden geladen...",
       parsingScene: "Szene wird analysiert...",
       loadingTextures: "Texturen werden geladen...",
@@ -1476,7 +1482,7 @@ function animateCameraToPose ({
   finalTarget,        // THREE.Vector3 (target)
   boundingBox,        // THREE.Box3 (optional, near/far)
   duration = 3500,
-  easing = _exports.Easing.Cubic.Out,
+  easing = exports$1.Easing.Cubic.Out,
   startOffsetFactor = 0.5, // % of moving back (0.2–0.4 should be good)
   animate = true,
   distanceOffsetFactor = 0,   // additional factor to move closer (0.1 = 10% closer) (optional)
@@ -1514,14 +1520,14 @@ function animateCameraToPose ({
   const camTweenPos = startCamPos.clone();
   const targetTweenPos = startTarget.clone();
 
-  core.cameraTween = new _exports.Tween(camTweenPos)
+  core.cameraTween = new exports$1.Tween(camTweenPos)
     .to(endCamPos, duration)
     .easing(easing)
     .onUpdate(() => {
       core.camera.position.copy(camTweenPos);
     });
 
-  core.targetTween = new _exports.Tween(targetTweenPos)
+  core.targetTween = new exports$1.Tween(targetTweenPos)
     .to(endTarget, duration)
     .easing(easing)
     .onUpdate(() => {
@@ -2971,7 +2977,7 @@ function reportLoadError(error, context = "") {
     context,
     consoleLabel: "Viewer load error:",
   });
-  core.circle?.hide();
+  core.circle?.complete?.(1200);
   if (typeof core.EXIT_CODE !== "undefined") core.EXIT_CODE = 1;
   return message;
 }
@@ -2989,10 +2995,17 @@ async function loadModel() {
     });
   }
 
+  function updateLoadingStage(stageKey, progressValue = null) {
+    core.circle?.setStage?.(stageKey, progressValue);
+    core.loadingLog?.setStage?.(stageKey, progressValue);
+  }
+
   async function afterLoad({ object }) {
     if (object === null || typeof object === "undefined") {
       throw new Error("Loaded object is null or undefined.");
     }
+    updateLoadingStage("loadingLog.loadingTextures", 99);
+
     // Keep authoring transforms in presentation mode to avoid collapsing model parts.
     if (!core.PRESENTATION_MODE) {
       // Reset transform to ensure consistent positioning
@@ -3011,9 +3024,11 @@ async function loadModel() {
       }
       core.handHint.hidden = true;
     }
-    
+
     window.viewer.modelLoaded = true;
+    updateLoadingStage("loadingLog.preparingGeometry", 99);
     traverseMesh(object);
+
     if (!core.PRESENTATION_MODE) {
       const isArchiveDerivedPath = /\/[^/]+_(ZIP|RAR|TAR|XZ|GZ)\/gltf\/$/i.test(core.fileObject.path);
       if (!isArchiveDerivedPath) {
@@ -3023,7 +3038,10 @@ async function loadModel() {
           core.fileObject.path = core.fileObject.path.replace("gltf/", "");
         }
       }
+      updateLoadingStage("loadingLog.fetchingMetadata", 99);
       await fetchSettings(object);
+
+      updateLoadingStage("loadingLog.settingUpMaterials", 99);
       core.outlineClipping = prepareOutlineClipping(object);
       if (Array.isArray(object)) {
         core.helperObjects.push(object[0]);
@@ -3032,17 +3050,22 @@ async function loadModel() {
       }
       core.scene.add(core.outlineClipping);
     } else {
+      updateLoadingStage("loadingLog.settingUpMaterials", 99);
       presentationMode(object).catch(error => {
         reportLoadError(error, "Presentation mode setup failed");
         showToast("toasts.presentationModeError", "error");
       });
     }
+
+    updateLoadingStage("loadingLog.settingUpLighting", 99);
     if (Array.isArray(object)) {
       object.forEach(o => core.scene.add(o));
     } else {
       core.scene.add(object);
     }
     core.mainObject.push(object);
+
+    updateLoadingStage("loadingLog.compilingShaders", 99);
     core.scene.environment = await getEnvironmentTexture(core.renderer);
   }
 
@@ -3297,7 +3320,20 @@ async function loadModel() {
         core.loadingLog?.fail?.();
         return;
     }
+
+    updateLoadingStage("loadingLog.modelLoaded", 100);
+    core.circle?.complete?.(2600);
     core.loadingLog?.finish?.();
+    if (!core.PRESENTATION_MODE) {
+      toastHelper$1("modelLoaded", "success", {
+        filename: core.fileObject.filename
+      });
+    } else {
+      toastHelper$1("presentationModeReady", "success");
+    }
+    if (typeof core.EXIT_CODE !== "undefined") core.EXIT_CODE = 0;
+    core.UltraLoader?.finish();
+    core.poller?.updateSteps(2);
   } catch (error) {
     core.loadingLog?.fail?.();
     reportLoadError(error, `Failed to load ${core.fileObject.filename}`);
@@ -3366,25 +3402,12 @@ const onProgress = function (xhr) {
 const progressLoaderHandler = function (xhr) {
   if (!core.circle) return;
   const total = xhr.total || xhr.loaded || 1;
-  const percentComplete = Math.min((xhr.loaded / total) * 100, 100);
+  const percentComplete = Math.min((xhr.loaded / total) * 100, 99);
   if (!Number.isFinite(percentComplete)) return;
   core.circle.show();
   core.circle.set(percentComplete, 100);
   core.loadingLog?.update?.(percentComplete);
   core.UltraLoader?.set(percentComplete);
-  if (percentComplete >= 100) {
-    core.circle.hide();
-    if (!core.PRESENTATION_MODE) {
-      toastHelper$1("modelLoaded", "success", {
-        filename: core.fileObject.filename
-      });
-    } else {
-      toastHelper$1("presentationModeReady", "success");
-    }
-    if (typeof core.EXIT_CODE !== "undefined") core.EXIT_CODE = 0;
-    core.UltraLoader?.finish();
-    core.poller?.updateSteps(2);
-  }
 };
 
 const UltraLoader$1 = {
@@ -3662,7 +3685,7 @@ var hasRequiredStats_min;
 function requireStats_min () {
 	if (hasRequiredStats_min) return stats_min$1.exports;
 	hasRequiredStats_min = 1;
-	(function (module, exports$1) {
+	(function (module, exports) {
 		// stats.js - http://github.com/mrdoob/stats.js
 		(function(f,e){module.exports=e();})(stats_min,function(){var f=function(){function e(a){c.appendChild(a.dom);return a}function u(a){for(var d=0;d<c.children.length;d++)c.children[d].style.display=d===a?"block":"none";l=a;}var l=0,c=document.createElement("div");c.style.cssText="position:fixed;top:0;left:0;cursor:pointer;opacity:0.9;z-index:10000";c.addEventListener("click",function(a){a.preventDefault();
 		u(++l%c.children.length);},false);var k=(performance||Date).now(),g=k,a=0,r=e(new f.Panel("FPS","#0ff","#002")),h=e(new f.Panel("MS","#0f0","#020"));if(self.performance&&self.performance.memory)var t=e(new f.Panel("MB","#f08","#201"));u(0);return {REVISION:16,dom:c,addPanel:e,showPanel:u,begin:function(){k=(performance||Date).now();},end:function(){a++;var c=(performance||Date).now();h.update(c-k,200);if(c>g+1E3&&(r.update(1E3*a/(c-g),100),g=c,a=0,t)){var d=performance.memory;t.update(d.usedJSHeapSize/
@@ -3731,568 +3754,6 @@ let objectsConfig = {
     ]
   }
 };
-
-var __extends$q =
-  (undefined && undefined.__extends) ||
-  (function () {
-    var extendStatics = function (d, b) {
-      extendStatics =
-        Object.setPrototypeOf ||
-        ({ __proto__: [] } instanceof Array &&
-          function (d, b) {
-            d.__proto__ = b;
-          }) ||
-        function (d, b) {
-          for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
-        };
-      return extendStatics(d, b);
-    };
-    return function (d, b) {
-      extendStatics(d, b);
-      function __() {
-        this.constructor = d;
-      }
-      d.prototype =
-        b === null
-          ? Object.create(b)
-          : ((__.prototype = b.prototype), new __());
-    };
-  })();
-var lv = /** @class */ (function () {
-  function lv() {
-    this.observer = new MutationObserver(this.callback);
-  }
-  /**
-   * iterates through all elements and calls function create on them
-   */
-  lv.prototype.initLoaderAll = function () {
-    var divs = document.getElementsByTagName("DIV");
-    for (var i = 0; i < divs.length; i++) {
-      if (!divs[i].hasChildNodes()) {
-        lv.create(divs[i]);
-      }
-    }
-  };
-  /**
-   * returns list of non-main classes (every except the one that specifies the element)
-   * @param classList
-   * @param notIncludingClass
-   */
-  lv.getModifyingClasses = function (classList, notIncludingClass) {
-    var modifyingClasses = [];
-    for (var i = 0; i < classList.length; i++) {
-      if (classList[i] != notIncludingClass) {
-        modifyingClasses.push(classList[i]);
-      }
-    }
-    return modifyingClasses;
-  };
-  /**
-   * decides type of passed element and returns its object
-   * @param element - pass existing element or null
-   * @param classString - classes separated with one space that specifies type of element, optional, only when passing null instead of element
-   */
-  lv.create = function (element, classString) {
-    if (element === void 0) {
-      element = null;
-    }
-    var classes = [];
-    if (element != null) {
-      var listOfClasses = element.classList;
-      for (var i = 0; i < listOfClasses.length; i++) {
-        classes.push(listOfClasses[i]);
-      }
-    } else if (classString != null) {
-      classes = classString.split(" ");
-    }
-    for (var i = 0; i < classes.length; i++) {
-      switch (classes[i]) {
-        case "lv-bars":
-          return new lv.Circle(
-            element,
-            lv.CircleType.Bars,
-            lv.getModifyingClasses(classes, "lv-bars")
-          );
-        case "lv-squares":
-          return new lv.Circle(
-            element,
-            lv.CircleType.Squares,
-            lv.getModifyingClasses(classes, "lv-squares")
-          );
-        case "lv-circles":
-          return new lv.Circle(
-            element,
-            lv.CircleType.Circles,
-            lv.getModifyingClasses(classes, "lv-circles")
-          );
-        case "lv-dots":
-          return new lv.Circle(
-            element,
-            lv.CircleType.Dots,
-            lv.getModifyingClasses(classes, "lv-dots")
-          );
-        case "lv-spinner":
-          return new lv.Circle(
-            element,
-            lv.CircleType.Spinner,
-            lv.getModifyingClasses(classes, "lv-spinner")
-          );
-        case "lv-dashed":
-          return new lv.Circle(
-            element,
-            lv.CircleType.Dashed,
-            lv.getModifyingClasses(classes, "lv-dashed")
-          );
-        case "lv-determinate_circle":
-          return new lv.Circle(
-            element,
-            lv.CircleType.DeterminateCircle,
-            lv.getModifyingClasses(classes, "lv-determinate_circle")
-          );
-        case "lv-line":
-          return new lv.Bar(
-            element,
-            lv.BarType.Line,
-            lv.getModifyingClasses(classes, "lv-line")
-          );
-        case "lv-bordered_line":
-          return new lv.Bar(
-            element,
-            lv.BarType.BorderedLine,
-            lv.getModifyingClasses(classes, "lv-bordered_line")
-          );
-        case "lv-determinate_line":
-          return new lv.Bar(
-            element,
-            lv.BarType.DeterminateLine,
-            lv.getModifyingClasses(classes, "lv-determinate_line")
-          );
-        case "lv-determinate_bordered_line":
-          return new lv.Bar(
-            element,
-            lv.BarType.DeterminateBorderedLine,
-            lv.getModifyingClasses(classes, "lv-determinate_bordered_line")
-          );
-      }
-    }
-    return null;
-  };
-  /**
-   * observes for changes in DOM and creates new element's objects
-   * @param mutationList
-   * @param observer
-   */
-  lv.prototype.callback = function (mutationList, observer) {
-    for (var i = 0; i < mutationList.length; i++) {
-      if (mutationList[i].type === "childList") {
-        try {
-          if (mutationList[i].addedNodes[0].classList.length > 0) {
-            // filling the node with divs when it is empty
-            lv.create(mutationList[i].addedNodes[0]);
-          }
-        } catch (error) {}
-      }
-    }
-  };
-  lv.prototype.startObserving = function () {
-    this.observer.observe(document.body, { childList: true, subtree: true });
-  };
-  lv.prototype.stopObserving = function () {
-    this.observer.disconnect();
-  };
-  return lv;
-})();
-(function (lv) {
-  /**
-   * specifies functions same for all elements
-   */
-  var ElementBase = /** @class */ (function () {
-    function ElementBase(element) {
-      this.element = element === null ? document.createElement("div") : element;
-    }
-    ElementBase.prototype.show = function () {
-      this.element.style.display = null;
-    };
-    ElementBase.prototype.hide = function () {
-      this.element.style.display = "none";
-    };
-    ElementBase.prototype.remove = function () {
-      this.element.parentNode.removeChild(this.element);
-    };
-    ElementBase.prototype.setLabel = function (labelText) {
-      this.element.setAttribute("data-label", labelText);
-    };
-    ElementBase.prototype.removeLabel = function () {
-      this.element.removeAttribute("data-label");
-    };
-    ElementBase.prototype.showPercentage = function () {
-      this.element.setAttribute("data-percentage", "true");
-    };
-    ElementBase.prototype.hidePercentage = function () {
-      this.element.removeAttribute("data-percentage");
-    };
-    ElementBase.prototype.setId = function (idText) {
-      this.element.setAttribute("id", idText);
-    };
-    ElementBase.prototype.removeId = function () {
-      this.element.removeAttribute("id");
-    };
-    /**
-     * adds class or classes to element
-     * @param classString - string that contains classes separated with one space
-     */
-    ElementBase.prototype.addClass = function (classString) {
-      var classList = classString.split(" ");
-      for (var i = 0; i < classList.length; i++) {
-        this.element.classList.add(classList[i]);
-      }
-    };
-    /**
-     * if element contains specified class or classes, it/they are removed
-     * @param classString - string that contains classes separated with one space
-     */
-    ElementBase.prototype.removeClass = function (classString) {
-      var classList = classString.split(" ");
-      for (var i = 0; i < classList.length; i++) {
-        if (this.element.classList.contains(classList[i])) {
-          this.element.classList.remove(classList[i]);
-        }
-      }
-    };
-    /**
-     * returns DOM element - needed for placing or removing the element with jquery
-     */
-    ElementBase.prototype.getElement = function () {
-      return this.element;
-    };
-    /**
-     * resets determinate element to 0
-     * @param maxValue
-     */
-    ElementBase.prototype.reset = function (maxValue) {
-      this.update("set", 0, maxValue);
-    };
-    /**
-     * sets determinate element to 100%
-     * @param maxValue
-     */
-    ElementBase.prototype.fill = function (maxValue) {
-      this.update("set", maxValue, maxValue);
-    };
-    /**
-     * adds positive or negative value to a determinate element
-     * @param addValue
-     * @param maxValue
-     */
-    ElementBase.prototype.add = function (addValue, maxValue) {
-      this.update("add", addValue, maxValue);
-    };
-    /**
-     * sets loading bar to passed value
-     * @param value
-     * @param maxValue
-     */
-    ElementBase.prototype.set = function (value, maxValue) {
-      this.update("set", value, maxValue);
-    };
-    /**
-     * initializes an element
-     * @param loaderElement
-     * @param description
-     */
-    ElementBase.prototype.initLoader = function (loaderElement, description) {
-      // manual addition on specified object
-      if (!loaderElement.hasChildNodes()) {
-        this.fillElement(
-          loaderElement,
-          description.className,
-          description.divCount
-        );
-      }
-    };
-    /**
-     * fills element with appropriate number of divs
-     * @param element
-     * @param elementClass
-     * @param divNumber
-     */
-    ElementBase.prototype.fillElement = function (
-      element,
-      elementClass,
-      divNumber
-    ) {
-      for (var i = 0; i < divNumber; i += 1) {
-        element.appendChild(document.createElement("DIV"));
-      }
-      if (
-        elementClass === "lv-determinate_circle" ||
-        elementClass === "lv-determinate_line" ||
-        elementClass === "lv-determinate_bordered_line"
-      ) {
-        element.lastElementChild.innerHTML = "0";
-      }
-      if (!element.classList.contains(elementClass)) {
-        element.classList.add(elementClass);
-      }
-    };
-    return ElementBase;
-  })();
-  lv.ElementBase = ElementBase;
-  /**
-   * class for linear elements
-   */
-  var Bar = /** @class */ (function (_super) {
-    __extends$q(Bar, _super);
-    /**
-     * creates linear element
-     * @param element
-     * @param barType
-     * @param classes
-     */
-    function Bar(element, barType, classes) {
-      if (classes === void 0) {
-        classes = null;
-      }
-      var _this = _super.call(this, element) || this;
-      _this.divCount = {};
-      _this.divCount[BarType.Line] = { className: "lv-line", divCount: 1 };
-      _this.divCount[BarType.BorderedLine] = {
-        className: "lv-bordered_line",
-        divCount: 1,
-      };
-      _this.divCount[BarType.DeterminateLine] = {
-        className: "lv-determinate_line",
-        divCount: 2,
-      };
-      _this.divCount[BarType.DeterminateBorderedLine] = {
-        className: "lv-determinate_bordered_line",
-        divCount: 2,
-      };
-      _this.initLoader(_this.element, _this.divCount[barType]);
-      for (var i = 0; i < classes.length; i++) {
-        _this.element.classList.add(classes[i]);
-      }
-      return _this;
-    }
-    /**
-     * type specific update function for linear element
-     * @param type
-     * @param newValue
-     * @param maxValue
-     */
-    Bar.prototype.update = function (type, newValue, maxValue) {
-      // getting current width of line from the page
-      var line = this.element.firstElementChild;
-      var percentage = this.element.lastElementChild;
-      var currentWidth = parseFloat(line.style.width);
-      // protective condition for empty line
-      if (isNaN(currentWidth)) {
-        currentWidth = 0;
-      }
-      // end point of the animation
-      var goalWidth;
-      if (type === "add") {
-        goalWidth =
-          currentWidth + Math.round((newValue / maxValue) * 1000) / 10;
-      } else if (type === "set") {
-        goalWidth = Math.round((newValue / maxValue) * 1000) / 10;
-      }
-      // prevent overflow from both sides
-      if (goalWidth > 100) {
-        goalWidth = 100.0;
-      }
-      if (goalWidth < 0) {
-        goalWidth = 0;
-      }
-      var animation = setInterval(frame, 5);
-      function frame() {
-        if (currentWidth > goalWidth) {
-          // shortening the line
-          if (currentWidth < goalWidth + 0.01) {
-            clearInterval(animation);
-          } else {
-            currentWidth -= 0.1;
-          }
-        } else {
-          // extending the line
-          if (currentWidth > goalWidth - 0.01) {
-            clearInterval(animation);
-          } else {
-            currentWidth += 0.1;
-          }
-        }
-        line.style.width = currentWidth + "%";
-        // updating the percentage
-        percentage.innerHTML = currentWidth.toFixed(1);
-      }
-    };
-    return Bar;
-  })(ElementBase);
-  lv.Bar = Bar;
-  /**
-   * class for square or circular elements
-   */
-  var Circle = /** @class */ (function (_super) {
-    __extends$q(Circle, _super);
-    /**
-     * creates square or circular element
-     * @param element
-     * @param circleType
-     * @param classes
-     */
-    function Circle(element, circleType, classes) {
-      if (classes === void 0) {
-        classes = null;
-      }
-      var _this = _super.call(this, element) || this;
-      _this.divCount = {};
-      _this.divCount[CircleType.Bars] = { className: "lv-bars", divCount: 8 };
-      _this.divCount[CircleType.Squares] = {
-        className: "lv-squares",
-        divCount: 4,
-      };
-      _this.divCount[CircleType.Circles] = {
-        className: "lv-circles",
-        divCount: 12,
-      };
-      _this.divCount[CircleType.Dots] = { className: "lv-dots", divCount: 4 };
-      _this.divCount[CircleType.DeterminateCircle] = {
-        className: "lv-determinate_circle",
-        divCount: 4,
-      };
-      _this.divCount[CircleType.Spinner] = {
-        className: "lv-spinner",
-        divCount: 1,
-      };
-      _this.divCount[CircleType.Dashed] = {
-        className: "lv-dashed",
-        divCount: 1,
-      };
-      _this.initLoader(_this.element, _this.divCount[circleType]);
-      for (var i = 0; i < classes.length; i++) {
-        _this.element.classList.add(classes[i]);
-      }
-      return _this;
-    }
-    /**
-     * type specific update function for non-linear elements
-     * @param type
-     * @param newValue
-     * @param maxValue
-     */
-    Circle.prototype.update = function (type, newValue, maxValue) {
-      var rotationOffset = -45; // initial rotation of the spinning div in css
-      // separating individual parts of the circle
-      var background = this.element.children[0];
-      var overlay = this.element.children[1];
-      var spinner = this.element.children[2];
-      var percentage = this.element.children[3];
-      // getting the colors defined in css
-      var backgroundColor = window.getComputedStyle(background).borderTopColor;
-      var spinnerColor = window.getComputedStyle(spinner).borderTopColor;
-      // computing current rotation of spinning part of circle using rotation matrix
-      var rotationMatrix = window
-        .getComputedStyle(spinner)
-        .getPropertyValue("transform")
-        .split("(")[1]
-        .split(")")[0]
-        .split(",");
-      var currentAngle =
-        Math.round(
-          Math.atan2(
-            parseFloat(rotationMatrix[1]),
-            parseFloat(rotationMatrix[0])
-          ) *
-            (180 / Math.PI)
-        ) - rotationOffset;
-      // safety conditions for full and empty circle (360 <=> 0 and that caused problems)
-      if (percentage.innerHTML === "100") {
-        currentAngle = 360;
-      }
-      if (currentAngle < 0) {
-        currentAngle += 360;
-      }
-      // end point of the animation
-      var goalAngle;
-      if (type === "add") {
-        goalAngle = currentAngle + Math.round((newValue / maxValue) * 360);
-      } else if (type === "set") {
-        goalAngle = Math.round((newValue / maxValue) * 360);
-      }
-      // prevent overflow to both sides
-      if (goalAngle > 360) {
-        goalAngle = 360;
-      }
-      if (goalAngle < 0) {
-        goalAngle = 0;
-      }
-      var id = setInterval(frame, 3);
-      function frame() {
-        if (currentAngle === goalAngle) {
-          // stopping the animation when end point is reached
-          clearInterval(id);
-        } else {
-          if (currentAngle < goalAngle) {
-            // "filling" the circle
-            if (currentAngle === 90) {
-              background.style.borderRightColor = spinnerColor;
-              overlay.style.borderTopColor = "transparent";
-            } else if (currentAngle === 180) {
-              background.style.borderBottomColor = spinnerColor;
-            } else if (currentAngle === 270) {
-              background.style.borderLeftColor = spinnerColor;
-            }
-            currentAngle += 1;
-          } else {
-            // "emptying the circle"
-            if (currentAngle === 270) {
-              background.style.borderLeftColor = backgroundColor;
-            } else if (currentAngle === 180) {
-              background.style.borderBottomColor = backgroundColor;
-            } else if (currentAngle === 90) {
-              background.style.borderRightColor = backgroundColor;
-              overlay.style.borderTopColor = backgroundColor;
-            }
-            currentAngle -= 1;
-          }
-          // rotating the circle
-          spinner.style.transform =
-            "rotate(" + (rotationOffset + currentAngle).toString() + "deg)";
-          // updating percentage
-          percentage.innerHTML = Math.round(
-            (currentAngle / 360) * 100
-          ).toString();
-        }
-      }
-    };
-    return Circle;
-  })(ElementBase);
-  lv.Circle = Circle;
-  /**
-   * list of linear elements
-   */
-  var BarType;
-  (function (BarType) {
-    BarType[(BarType["Line"] = 0)] = "Line";
-    BarType[(BarType["BorderedLine"] = 1)] = "BorderedLine";
-    BarType[(BarType["DeterminateLine"] = 2)] = "DeterminateLine";
-    BarType[(BarType["DeterminateBorderedLine"] = 3)] =
-      "DeterminateBorderedLine";
-  })((BarType = lv.BarType || (lv.BarType = {})));
-  /**
-   * list of non-linear elements
-   */
-  var CircleType;
-  (function (CircleType) {
-    CircleType[(CircleType["Bars"] = 0)] = "Bars";
-    CircleType[(CircleType["Squares"] = 1)] = "Squares";
-    CircleType[(CircleType["Circles"] = 2)] = "Circles";
-    CircleType[(CircleType["Dots"] = 3)] = "Dots";
-    CircleType[(CircleType["DeterminateCircle"] = 4)] = "DeterminateCircle";
-    CircleType[(CircleType["Spinner"] = 5)] = "Spinner";
-    CircleType[(CircleType["Dashed"] = 6)] = "Dashed";
-  })((CircleType = lv.CircleType || (lv.CircleType = {})));
-})(lv || (lv = {}));
 
 var JSONLDResource = /** @class */ (function () {
     function JSONLDResource(jsonld) {
@@ -10368,16 +9829,14 @@ const Viewer = {
   currentLanguage: "en",
   loadingLogMessageKeys: [
     "loadingLog.loadingAssets",
-    "loadingLog.parsingScene",
+    "loadingLog.loadingModel",
     "loadingLog.loadingTextures",
     "loadingLog.preparingGeometry",
     "loadingLog.settingUpLighting",
     "loadingLog.settingUpMaterials",
-    "loadingLog.buildingBvh",
     "loadingLog.compilingShaders",
-    "loadingLog.initializingRenderer",
-    "loadingLog.uploadingBuffers",
     "loadingLog.fetchingMetadata",
+    "loadingLog.modelLoaded",
   ],
   processingLoadingStepKeys: [
     "processingSteps.preparingModel",
@@ -11219,16 +10678,179 @@ const Viewer = {
     return this.processingLoadingStepKeys.map((key) => t$1(key));
   },
 
+  createModelLoadingProgress(shell) {
+    shell.className = "model-loader";
+    shell.hidden = true;
+    shell.setAttribute("role", "status");
+    shell.setAttribute("aria-live", "polite");
+
+    const ring = document.createElement("div");
+    ring.className = "model-loader__ring";
+    ring.setAttribute("aria-hidden", "true");
+
+    const percent = document.createElement("div");
+    percent.className = "model-loader__percent";
+    percent.textContent = "0%";
+    ring.appendChild(percent);
+
+    const content = document.createElement("div");
+    content.className = "model-loader__content";
+
+
+    const phase = document.createElement("div");
+    phase.className = "model-loader__phase";
+    phase.textContent = this.getLoadingLogMessages()[0] ?? t$1("loadingLog.loadingAssets", "Loading assets");
+
+    const phaseViewport = document.createElement("div");
+    phaseViewport.className = "model-loader__phase-viewport";
+
+    const phaseList = document.createElement("div");
+    phaseList.className = "model-loader__phase-list";
+
+    phaseViewport.appendChild(phaseList);
+
+    const messages = this.getLoadingLogMessages();
+    const stageKeyToIndex = new Map(
+      this.loadingLogMessageKeys.map((key, index) => [key, index])
+    );
+    const loadingModelKeyIndex = Math.max(
+      0,
+      stageKeyToIndex.get("loadingLog.loadingModel") ?? 0
+    );
+    let hideTimer = null;
+
+    messages.forEach((msg) => {
+      const item = document.createElement("div");
+      item.className = "model-loader__phase-item";
+      item.textContent = msg;
+      phaseList.appendChild(item);
+    });
+
+    const clearHideTimer = () => {
+      if (hideTimer) {
+        window.clearTimeout(hideTimer);
+        hideTimer = null;
+      }
+    };
+
+    const updatePhase = (index) => {
+      const itemHeight = phaseList.firstElementChild?.offsetHeight || 24;
+      phaseList.style.transform = `translateY(-${index * itemHeight}px)`;
+      phase.textContent = messages[index] || messages[loadingModelKeyIndex] || phase.textContent;
+      Array.from(phaseList.children).forEach((item, itemIndex) => {
+        item.toggleAttribute("data-active", itemIndex === index);
+        item.toggleAttribute("data-near", itemIndex === index - 1 || itemIndex === index + 1);
+      });
+    };
+
+    const track = document.createElement("div");
+    track.className = "model-loader__track";
+    track.setAttribute("role", "progressbar");
+    track.setAttribute("aria-valuemin", "0");
+    track.setAttribute("aria-valuemax", "100");
+    track.setAttribute("aria-valuenow", "0");
+    content.append(phaseViewport, track);
+
+    const bar = document.createElement("div");
+    bar.className = "model-loader__bar";
+    track.appendChild(bar);
+
+    shell.replaceChildren(ring, content);
+
+    const set = (value = 0, maxValue = 100) => {
+      const safeMax = Number.isFinite(maxValue) && maxValue > 0 ? maxValue : 100;
+      const normalized = Number.isFinite(value) ? Math.min(Math.max(value / safeMax, 0), 1) : 0;
+      const progress = Math.round(normalized * 100);
+
+      shell.style.setProperty("--model-loader-progress", String(progress));
+      percent.textContent = `${progress}%`;
+      bar.style.width = `${progress}%`;
+      track.setAttribute("aria-valuenow", String(progress));
+      updatePhase(loadingModelKeyIndex);
+    };
+
+    set(0, 100);
+
+    return {
+      getElement: () => shell,
+      show: () => {
+        clearHideTimer();
+        shell.hidden = false;
+        delete shell.dataset.complete;
+        updatePhase(loadingModelKeyIndex);
+      },
+      hide: () => {
+        clearHideTimer();
+        shell.hidden = true;
+        delete shell.dataset.complete;
+      },
+      setStage: (stageKey, progressValue = null) => {
+        const index = stageKeyToIndex.get(stageKey);
+        if (typeof index === "number") {
+          updatePhase(index);
+        }
+        if (Number.isFinite(progressValue)) {
+          const normalizedProgress = Math.max(0, Math.min(Math.round(progressValue), 100));
+          shell.style.setProperty("--model-loader-progress", String(normalizedProgress));
+          percent.textContent = `${normalizedProgress}%`;
+          bar.style.width = `${normalizedProgress}%`;
+          track.setAttribute("aria-valuenow", String(normalizedProgress));
+        }
+      },
+      complete: (delayMs = 2400) => {
+        clearHideTimer();
+        updatePhase(stageKeyToIndex.get("loadingLog.modelLoaded") ?? messages.length - 1);
+        shell.style.setProperty("--model-loader-progress", "100");
+        percent.textContent = "100%";
+        bar.style.width = "100%";
+        track.setAttribute("aria-valuenow", "100");
+        shell.dataset.complete = "true";
+        hideTimer = window.setTimeout(() => {
+          hideTimer = null;
+          delete shell.dataset.complete;
+          shell.hidden = true;
+        }, delayMs);
+      },
+      set,
+      reset: (maxValue = 100) => {
+        clearHideTimer();
+        delete shell.dataset.complete;
+        set(0, maxValue);
+      },
+    };
+  },
+
   createLoadingLog() {
     const shell = document.createElement("div");
     shell.id = "loading-log";
     shell.setAttribute("aria-live", "polite");
     shell.hidden = true;
+    shell.style.setProperty("bottom", "-55px");
 
-    const header = document.createElement("div");
+    const collapsedToggle = document.createElement("button");
+    collapsedToggle.type = "button";
+    collapsedToggle.className = "loading-log__collapsed-toggle";
+    collapsedToggle.setAttribute("aria-label", t$1("loadingLog.title", "Loading process log"));
+    collapsedToggle.setAttribute("aria-expanded", "false");
+    shell.appendChild(collapsedToggle);
+
+    const header = document.createElement("button");
+    header.type = "button";
     header.className = "loading-log__header";
-    header.textContent = t$1("loadingLog.title", "Loading process log");
+    header.setAttribute("aria-expanded", "false");
+
+    const headerTitle = document.createElement("span");
+    headerTitle.className = "loading-log__title";
+    headerTitle.textContent = t$1("loadingLog.title", "Loading process log");
+
+    const headerSummary = document.createElement("span");
+    headerSummary.className = "loading-log__summary";
+
+    header.append(headerTitle, headerSummary);
     shell.appendChild(header);
+
+    const body = document.createElement("div");
+    body.className = "loading-log__body";
 
     const list = document.createElement("div");
     list.className = "loading-log__messages";
@@ -11244,9 +10866,9 @@ const Viewer = {
     progressBar.className = "loading-log__progress-bar";
     progress.appendChild(progressBar);
 
-    shell.append(list, progress);
+    body.append(list, progress);
+    shell.appendChild(body);
     core.container.appendChild(shell);
-    shell.style.bottom = `-${shell.getBoundingClientRect().height / 2 - 5}px`;
 
     let timer = null;
     let messageIndex = 0;
@@ -11254,11 +10876,42 @@ const Viewer = {
     let currentProgress = 0;
     let startedAt = 0;
     let hideTimer = null;
+    let progressUpdated = false;
     const minVisibleMs = 900;
+    const loadingMessages = this.getLoadingLogMessages();
+    const loadingStageKeyToIndex = new Map(
+      this.loadingLogMessageKeys.map((key, index) => [key, index])
+    );
+    const loadingModelMessageIndex = Math.max(
+      0,
+      loadingStageKeyToIndex.get("loadingLog.loadingModel") ?? 0
+    );
+    let isExpanded = false;
+
+    const setExpanded = (expanded) => {
+      isExpanded = expanded;
+      shell.dataset.expanded = expanded ? "true" : "false";
+      header.setAttribute("aria-expanded", expanded ? "true" : "false");
+      collapsedToggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+    };
+
+    const updateSummary = () => {
+      const activeMessage = loadingMessages[messageIndex] || loadingMessages[loadingModelMessageIndex] || "";
+      headerSummary.textContent = `${currentProgress}% • ${activeMessage}`;
+    };
+
+    header.addEventListener("click", () => {
+      if (shell.hidden) return;
+      setExpanded(!isExpanded);
+    });
+
+    collapsedToggle.addEventListener("click", () => {
+      if (shell.hidden) return;
+      setExpanded(!isExpanded);
+    });
 
     const renderMessages = (allDone = false) => {
-      const allMessages = this.getLoadingLogMessages();
-      const messages = allMessages
+      const messages = loadingMessages
         .slice(Math.max(0, messageIndex - visibleCount + 1), messageIndex + 1);
       list.replaceChildren(...messages.map((message, index) => {
         const row = document.createElement("div");
@@ -11274,17 +10927,20 @@ const Viewer = {
     };
 
     const setProgress = (value) => {
-      currentProgress = Math.max(currentProgress, Math.min(Math.round(value), 100));
+      const normalizedValue = Number.isFinite(value) ? Math.min(Math.max(value, 0), 100) : 0;
+      currentProgress = Math.max(currentProgress, Math.round(normalizedValue));
       progressBar.style.width = `${currentProgress}%`;
       progress.setAttribute("aria-valuenow", String(currentProgress));
+      updateSummary();
     };
 
     const tick = () => {
-      const messageCount = this.getLoadingLogMessages().length;
       visibleCount = Math.min(4, visibleCount + 1);
-      messageIndex = Math.min(messageCount - 1, messageIndex + 1);
+      if (!progressUpdated) {
+        messageIndex = loadingModelMessageIndex;
+        setProgress(Math.min(currentProgress + 8, 12));
+      }
       renderMessages();
-      setProgress(Math.min(currentProgress + 9, 92));
     };
 
     const stop = () => {
@@ -11301,14 +10957,23 @@ const Viewer = {
       }
     };
 
+    const collapseLog = () => {
+      shell.classList.remove("loading-log--done");
+      shell.classList.remove("loading-log--error");
+      setExpanded(false);
+      hideTimer = null;
+    };
+
     return {
       start: () => {
         stop();
         clearHideTimer();
+        progressUpdated = false;
         startedAt = performance.now();
         shell.hidden = false;
+        setExpanded(false);
         shell.classList.remove("loading-log--done", "loading-log--error");
-        messageIndex = 0;
+        messageIndex = loadingModelMessageIndex;
         visibleCount = 1;
         currentProgress = 0;
         renderMessages();
@@ -11317,42 +10982,54 @@ const Viewer = {
       },
       update: (value) => {
         if (shell.hidden) return;
+        progressUpdated = true;
         const normalized = Number.isFinite(value) ? value : 0;
-        const messageCount = this.getLoadingLogMessages().length;
-        const messageProgress = Math.floor((normalized / 100) * (messageCount - 1));
-        messageIndex = Math.max(messageIndex, Math.min(messageProgress, messageCount - 1));
+        messageIndex = loadingModelMessageIndex;
         visibleCount = Math.min(4, Math.max(visibleCount, 2));
         renderMessages();
-        setProgress(Math.min(normalized, 96));
+        setProgress(Math.min(normalized, 99));
+      },
+      setStage: (stageKey, progressValue = null) => {
+        if (shell.hidden) return;
+        const stageIndex = loadingStageKeyToIndex.get(stageKey);
+        if (typeof stageIndex === "number") {
+          messageIndex = stageIndex;
+          visibleCount = Math.min(4, Math.max(visibleCount, 2));
+          renderMessages();
+          updateSummary();
+        }
+        if (Number.isFinite(progressValue)) {
+          setProgress(progressValue);
+        }
       },
       finish: () => {
         if (shell.hidden) return;
         stop();
-        const messageCount = this.getLoadingLogMessages().length;
+        const messageCount = loadingMessages.length;
         messageIndex = messageCount - 1;
         visibleCount = messageCount;
         renderMessages(true);
         setProgress(100);
+        updateSummary();
         shell.classList.add("loading-log--done");
         const visibleFor = performance.now() - startedAt;
-        const hideDelay = Math.max(700, minVisibleMs - visibleFor);
+        const hideDelay = Math.max(1200, minVisibleMs - visibleFor + 800);
         clearHideTimer();
         hideTimer = window.setTimeout(() => {
-          shell.hidden = true;
-          shell.classList.remove("loading-log--done");
-          hideTimer = null;
+          collapseLog();
         }, hideDelay);
       },
       fail: () => {
         if (shell.hidden) return;
         stop();
         clearHideTimer();
+        setExpanded(true);
         shell.classList.add("loading-log--error");
         hideTimer = window.setTimeout(() => {
-          shell.hidden = true;
           shell.classList.remove("loading-log--error");
+          setExpanded(false);
           hideTimer = null;
-        }, 900);
+        }, 2000);
       }
     };
   },
@@ -11642,9 +11319,9 @@ const Viewer = {
     core.cameraTween?.stop?.();
     core.targetTween?.stop?.();
 
-    core.cameraTween = new _exports.Tween(startCamera)
+    core.cameraTween = new exports$1.Tween(startCamera)
       .to(targetCamera, duration)
-      .easing(_exports.Easing.Quadratic.Out)
+      .easing(exports$1.Easing.Quadratic.Out)
       .onUpdate(() => {
         core.camera.position.copy(startCamera);
         core.cameraLight?.position.copy(startCamera);
@@ -11656,9 +11333,9 @@ const Viewer = {
         core.camera.updateProjectionMatrix();
       });
 
-    core.targetTween = new _exports.Tween(startTarget)
+    core.targetTween = new exports$1.Tween(startTarget)
       .to(targetControls, duration)
-      .easing(_exports.Easing.Quadratic.Out)
+      .easing(exports$1.Easing.Quadratic.Out)
       .onUpdate(() => {
         core.controls.target.copy(startTarget);
         core.controls.update();
@@ -12530,10 +12207,10 @@ const Viewer = {
     setCore('outlineClipping', outlineClipping);
     core.objectsConfig.setupIndex = core.objectsConfig.index = 0;
 
-    this.cameraTween = new _exports.Tween();
+    this.cameraTween = new exports$1.Tween();
     setCore('cameraTween', this.cameraTween);
 
-    this.targetTween = new _exports.Tween();
+    this.targetTween = new exports$1.Tween();
     setCore('targetTween', this.targetTween);
 
     core.container.classList.add("mainContainer");
@@ -12622,19 +12299,11 @@ const Viewer = {
     this.spinnerContainer.id = "spinnerContainer";
     this.spinnerElement = document.createElement("div");
     this.spinnerElement.id = "spinner";
-    this.spinnerElement.className = "lv-determinate_circle lv-mid md";
-    this.spinnerElement.setAttribute("data-label", "Loading 3D model...");
-    this.spinnerElement.setAttribute("data-percentage", "true");
     this.spinnerContainer.appendChild(this.spinnerElement);
     core.container.appendChild(this.spinnerContainer);
-    this.spinnerContainer.style.left = `calc(50% - ${this.spinnerContainer.getBoundingClientRect().width / 2}px)`;
-    this.spinner = new lv();
-    this.spinner.initLoaderAll();
-    this.spinner.startObserving();
 
-    this.circle = lv.create(this.spinnerElement);
+    this.circle = this.createModelLoadingProgress(this.spinnerElement);
     setCore('circle', this.circle);
-    setCore('spinner', this.spinner);
     if (!core.PRESENTATION_MODE) {
       this.loadingLog = this.createLoadingLog();
       setCore('loadingLog', this.loadingLog);
@@ -15178,7 +14847,7 @@ const Viewer = {
     }
     if (core.circle) {
       core.circle.set?.(0, 100);
-      core.circle.hide?.();
+      core.circle.complete();
     }
 
     if (core.mainCanvas && core.CONFIG?.viewer?.background) {
@@ -15315,18 +14984,18 @@ const Viewer = {
     const speed = 1.25;
     const duration = THREE.MathUtils.clamp((distance / speed) * 1000, 300, 3000);
 
-    core.cameraTween = new _exports.Tween(startCam)
+    core.cameraTween = new exports$1.Tween(startCam)
       .to(targetCamera, duration)
-      .easing(_exports.Easing.Cubic.Out)
+      .easing(exports$1.Easing.Cubic.Out)
       .onUpdate(() => {
         core.camera.position.copy(startCam);
         core.cameraLight.position.copy(startCam);
         core.camera.updateProjectionMatrix();
       });
 
-    core.targetTween = new _exports.Tween(startTarget)
+    core.targetTween = new exports$1.Tween(startTarget)
       .to(targetControls, duration)
-      .easing(_exports.Easing.Cubic.Out)
+      .easing(exports$1.Easing.Cubic.Out)
       .onUpdate(() => {
         core.controls?.target.copy(startTarget);
         core.controls?.update();

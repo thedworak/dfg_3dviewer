@@ -310,8 +310,7 @@ function reportLoadError(error, context = "") {
     context,
     consoleLabel: "Viewer load error:",
   });
-  if (core.circle)
-  core.circle.complete();
+  core.circle?.complete?.(1200);
   if (typeof core.EXIT_CODE !== "undefined") core.EXIT_CODE = 1;
   return message;
 }
@@ -329,10 +328,17 @@ export async function loadModel() {
     });
   }
 
+  function updateLoadingStage(stageKey, progressValue = null) {
+    core.circle?.setStage?.(stageKey, progressValue);
+    core.loadingLog?.setStage?.(stageKey, progressValue);
+  }
+
   async function afterLoad({ object }) {
     if (object === null || typeof object === "undefined") {
       throw new Error("Loaded object is null or undefined.");
     }
+    updateLoadingStage("loadingLog.loadingTextures", 99);
+
     // Keep authoring transforms in presentation mode to avoid collapsing model parts.
     if (!core.PRESENTATION_MODE) {
       // Reset transform to ensure consistent positioning
@@ -351,9 +357,11 @@ export async function loadModel() {
       }
       core.handHint.hidden = true;
     }
-    
+
     window.viewer.modelLoaded = true;
+    updateLoadingStage("loadingLog.preparingGeometry", 99);
     traverseMesh(object);
+
     if (!core.PRESENTATION_MODE) {
       const isArchiveDerivedPath = /\/[^/]+_(ZIP|RAR|TAR|XZ|GZ)\/gltf\/$/i.test(core.fileObject.path);
       if (!isArchiveDerivedPath) {
@@ -363,7 +371,10 @@ export async function loadModel() {
           core.fileObject.path = core.fileObject.path.replace("gltf/", "");
         }
       }
+      updateLoadingStage("loadingLog.fetchingMetadata", 99);
       await fetchSettings(object);
+
+      updateLoadingStage("loadingLog.settingUpMaterials", 99);
       core.outlineClipping = prepareOutlineClipping(object);
       if (Array.isArray(object)) {
         core.helperObjects.push(object[0]);
@@ -372,17 +383,22 @@ export async function loadModel() {
       }
       core.scene.add(core.outlineClipping);
     } else {
+      updateLoadingStage("loadingLog.settingUpMaterials", 99);
       presentationMode(object, null).catch(error => {
         reportLoadError(error, "Presentation mode setup failed");
         showToast("toasts.presentationModeError", "error");
       });
     }
+
+    updateLoadingStage("loadingLog.settingUpLighting", 99);
     if (Array.isArray(object)) {
       object.forEach(o => core.scene.add(o));
     } else {
       core.scene.add(object);
     }
     core.mainObject.push(object);
+
+    updateLoadingStage("loadingLog.compilingShaders", 99);
     core.scene.environment = await getEnvironmentTexture(core.renderer);
   }
 
@@ -637,7 +653,20 @@ export async function loadModel() {
         core.loadingLog?.fail?.();
         return;
     }
+
+    updateLoadingStage("loadingLog.modelLoaded", 100);
+    core.circle?.complete?.(2600);
     core.loadingLog?.finish?.();
+    if (!core.PRESENTATION_MODE) {
+      toastHelper("modelLoaded", "success", {
+        filename: core.fileObject.filename
+      });
+    } else {
+      toastHelper("presentationModeReady", "success");
+    }
+    if (typeof core.EXIT_CODE !== "undefined") core.EXIT_CODE = 0;
+    core.UltraLoader?.finish();
+    core.poller?.updateSteps(2);
   } catch (error) {
     core.loadingLog?.fail?.();
     reportLoadError(error, `Failed to load ${core.fileObject.filename}`);
@@ -734,23 +763,10 @@ export const onProgress = function (xhr) {
 const progressLoaderHandler = function (xhr) {
   if (!core.circle) return;
   const total = xhr.total || xhr.loaded || 1;
-  const percentComplete = Math.min((xhr.loaded / total) * 100, 100);
+  const percentComplete = Math.min((xhr.loaded / total) * 100, 99);
   if (!Number.isFinite(percentComplete)) return;
   core.circle.show();
   core.circle.set(percentComplete, 100);
   core.loadingLog?.update?.(percentComplete);
   core.UltraLoader?.set(percentComplete);
-  if (percentComplete >= 100) {
-    core.circle.waitAndComplete();
-    if (!core.PRESENTATION_MODE) {
-      toastHelper("modelLoaded", "success", {
-        filename: core.fileObject.filename
-      });
-    } else {
-      toastHelper("presentationModeReady", "success");
-    }
-    if (typeof core.EXIT_CODE !== "undefined") core.EXIT_CODE = 0;
-    core.UltraLoader?.finish();
-    core.poller?.updateSteps(2);
-  }
 }
