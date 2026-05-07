@@ -450,6 +450,7 @@ export const Viewer = {
     toolbar.id = "viewerEditorToolbar";
     toolbar.setAttribute("role", "toolbar");
     toolbar.setAttribute("aria-label", t("toolbar.editor", "Editor tools"));
+    toolbar.style.translate = "-25% 95%";
 
     const tools = [
       { key: "orbit", icon: "orbit", onClick: () => this.setObjectTransformMode("") },
@@ -2503,6 +2504,13 @@ export const Viewer = {
   },
 
   updateFullscreenButtonIcon() {
+    if (this.editorToolbar) {
+      if (this.fullscreenMode) {
+        this.editorToolbar.classList.add("with-fullscreen");
+      } else {
+        this.editorToolbar.classList.remove("with-fullscreen");
+      }
+    }    
     if (!this.fullscreenMode) return;
 
     const isFullscreen = !!document.fullscreenElement;

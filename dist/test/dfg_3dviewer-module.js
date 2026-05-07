@@ -10109,6 +10109,7 @@ const Viewer = {
     toolbar.id = "viewerEditorToolbar";
     toolbar.setAttribute("role", "toolbar");
     toolbar.setAttribute("aria-label", t$1("toolbar.editor", "Editor tools"));
+    toolbar.style.translate = "-25% 95%";
 
     const tools = [
       { key: "orbit", icon: "orbit", onClick: () => this.setObjectTransformMode("") },
@@ -10186,7 +10187,7 @@ const Viewer = {
       advancedEditor: this.isEditorAdvancedPanelVisible()
         ? t$1("toolbar.hideAdvancedEditor", "Hide advanced editor")
         : t$1("toolbar.showAdvancedEditor", "Show advanced editor"),
-      fullScreen: this.updateFullscreenButtonIcon()
+      fullScreen: this.fullscreenMode
         ? t$1("fullscreen.enter", "Enter fullscreen")
         : t$1("fullscreen.exit", "Exit fullscreen"),
     };
@@ -12160,6 +12161,13 @@ const Viewer = {
   },
 
   updateFullscreenButtonIcon() {
+    if (this.editorToolbar) {
+      if (this.fullscreenMode) {
+        this.editorToolbar.classList.add("with-fullscreen");
+      } else {
+        this.editorToolbar.classList.remove("with-fullscreen");
+      }
+    }    
     if (!this.fullscreenMode) return;
 
     const isFullscreen = !!document.fullscreenElement;

@@ -1304,7 +1304,6 @@ canvas {
   position: absolute;
   left: 50%;
   bottom: 16px;
-  transform: translateX(-50%) translateY(95%);
   z-index: 999998;
   display: flex;
   align-items: center;
@@ -1318,6 +1317,10 @@ canvas {
   box-shadow: var(--viewer-panel-shadow);
   backdrop-filter: blur(14px);
   scrollbar-width: none;
+}
+
+.with-fullscreen #viewerEditorToolbar {
+  bottom: 100px;
 }
 
 #viewerEditorToolbar::-webkit-scrollbar {
