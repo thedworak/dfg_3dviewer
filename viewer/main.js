@@ -115,9 +115,12 @@ export const Viewer = {
   actionMenu: null,
   actionMenuToggle: null,
   actionMenuPanel: null,
+  mainMenuButton: null,
   fullscreenMode: null,
   themeMode: null,
   languageMode: null,
+  editorToolbar: null,
+  editorToolbarButtons: {},
   downloadModel: null,
   embedConfiguratorPanel: null,
   embedConfigInputs: null,
@@ -396,6 +399,344 @@ export const Viewer = {
     if (this.languageModeDropdown) {
       this.languageModeDropdown.hidden = true;
     }
+    this.updateEditorToolbarState();
+  },
+
+  stopHandMode() {
+    const g = core.GESTURE;
+    if (g) {
+      g.rotate = false;
+      g.active = false;
+      g.baseAngle = null;
+      g.target = null;
+    }
+
+    if (core.handHint) {
+      core.handHint.hidden = true;
+      core.handHint.classList.remove("hand-drag-animate");
+    }
+
+    if (core.controls) {
+      core.controls.enabled = true;
+      core.controls.update?.();
+    }
+  },
+
+  getEditorToolbarIcon(icon) {
+    const icons = {
+      orbit: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16.5 2.75 21 3.5l-.75 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.25" fill="currentColor"/></svg>',
+      move: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      rotate: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.5A7.5 7.5 0 1 1 5 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 3.5v3H5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      scale: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8h8v8H8zM5 5h4M5 5v4M19 19h-4M19 19v-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      lightMove: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 13h5l-1 8 7-10h-5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
+      lightTarget: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+      picking: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 3 8 8-4 1 2 5-2.5 1-2-5-3 3Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
+      annotate: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v10H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 9h6M9 12h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+      ruler: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16 8-8 8 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 12 6.5 10.5M11 9l-1.5-1.5M14 12l-1.5-1.5M17 15l-1.5-1.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+      resetCamera: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h4l2-2h4l2 2h4v10H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.25" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+      preview: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m8 14 2.5-3 2.5 2 2-3 3 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      save: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 4v5h8M9 18h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+      mainMenu: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2 2.2 3-.2.8 2.9 2.6 1.4-1 2.8 1 2.8-2.6 1.4-.8 2.9-3-.2L12 21l-2-2.2-3 .2-.8-2.9-2.6-1.4 1-2.8-1-2.8 2.6-1.4.8-2.9 3 .2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+      advancedEditor: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M4 17h16M14 7h6M4 12h6M12 12h8M8 5v4M16 10v4M10 15v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      fullScreen: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5M4 4v5M20 4h-5M20 4v5M4 20h5M4 20v-5M20 20h-5M20 20v-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    };
+    return icons[icon] || icons.advancedEditor;
+  },
+
+  createEditorToolbar() {
+    if (!core.EDITOR || this.urlOptions.hideUi || this.editorToolbar || !core.container) return;
+
+    const toolbar = document.createElement("div");
+    toolbar.id = "viewerEditorToolbar";
+    toolbar.setAttribute("role", "toolbar");
+    toolbar.setAttribute("aria-label", t("toolbar.editor", "Editor tools"));
+
+    const tools = [
+      { key: "orbit", icon: "orbit", onClick: () => this.setObjectTransformMode("") },
+      { key: "move", icon: "move", onClick: () => this.toggleObjectTransformMode("translate"), pressed: true },
+      { key: "rotate", icon: "rotate", onClick: () => this.toggleObjectTransformMode("rotate"), pressed: true },
+      { key: "scale", icon: "scale", onClick: () => this.toggleObjectTransformMode("scale"), pressed: true },
+      { key: "lightMove", icon: "lightMove", onClick: () => this.toggleLightTransformMode("translate"), pressed: true },
+      { key: "lightTarget", icon: "lightTarget", onClick: () => this.toggleLightTransformMode("rotate"), pressed: true },
+      { key: "picking", icon: "picking", onClick: () => this.togglePickingMode(), pressed: true },
+      { key: "annotate", icon: "annotate", onClick: () => this.openAnnotationDialogWithAutoPicking() },
+      { key: "ruler", icon: "ruler", onClick: () => this.toggleDistanceMeasurement(), pressed: true },
+      { key: "resetCamera", icon: "resetCamera", onClick: () => this.resetCamera() },
+      { key: "advancedEditor", icon: "advancedEditor", onClick: () => this.toggleEditorAdvancedPanel(), pressed: true },
+      { key: "fullScreen", icon: "fullScreen", onClick: () => this.toggleFullscreen(), pressed: true },
+    ];
+
+    if (!core.isLightweight) {
+      tools.splice(tools.length - 1, 0,
+        { key: "preview", icon: "preview", onClick: () => this.takeScreenshot() },
+        { key: "save", icon: "save", onClick: () => this.saveEditorMetadata() }
+      );
+    }
+
+    this.editorToolbarButtons = {};
+
+    tools.forEach((tool) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "viewer-editor-tool";
+      button.dataset.tool = tool.key;
+      button.dataset.pressed = tool.pressed ? "true" : "false";
+      button.innerHTML = `
+        <span class="viewer-editor-tool_icon" aria-hidden="true">${this.getEditorToolbarIcon(tool.icon)}</span>
+        <span class="viewer-editor-tool_sr"></span>
+      `;
+      this.bindEventListener(button, "click", () => {
+        this.stopHandMode();
+        tool.onClick();
+      });
+      toolbar.appendChild(button);
+      this.editorToolbarButtons[tool.key] = button;
+    });
+
+    if (this.actionMenu) {
+      this.actionMenu.classList.add("viewer-action-menu_in-toolbar");
+      toolbar.appendChild(this.actionMenu);
+    }
+
+    core.container.appendChild(toolbar);
+    this.editorToolbar = toolbar;
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
+  },
+
+  updateEditorToolbarLabels() {
+    if (!this.editorToolbarButtons) return;
+
+    const labels = {
+      orbit: t("toolbar.orbit", "Navigation mode"),
+      move: t("gui.move", "Move"),
+      rotate: t("gui.rotate", "Rotate"),
+      scale: t("gui.scale", "Scale"),
+      lightMove: t("toolbar.lightMove", "Move light"),
+      lightTarget: t("toolbar.lightTarget", "Light target"),
+      picking: this.pickingMode
+        ? t("controls.disablePickingMode", "Disable picking mode")
+        : t("controls.enablePickingMode", "Enable picking mode"),
+      annotate: t("gui.addAnnotations", "Add annotations"),
+      ruler: this.RULER_MODE
+        ? t("controls.disableDistanceMeasurement", "Disable distance measurement")
+        : t("controls.enableDistanceMeasurement", "Enable distance measurement"),
+      resetCamera: t("gui.resetCameraPosition", "Reset camera position"),
+      preview: t("gui.renderPreview", "Render preview"),
+      save: t("gui.save", "Save"),
+      advancedEditor: this.isEditorAdvancedPanelVisible()
+        ? t("toolbar.hideAdvancedEditor", "Hide advanced editor")
+        : t("toolbar.showAdvancedEditor", "Show advanced editor"),
+      fullScreen: this.fullscreenMode
+        ? t("fullscreen.enter", "Enter fullscreen")
+        : t("fullscreen.exit", "Exit fullscreen"),
+    };
+
+    Object.entries(this.editorToolbarButtons).forEach(([key, button]) => {
+      const label = labels[key] || key;
+      button.setAttribute("title", label);
+      button.setAttribute("aria-label", label);
+      const sr = button.querySelector(".viewer-editor-tool_sr");
+      if (sr) sr.textContent = label;
+    });
+
+    this.editorToolbar?.setAttribute("aria-label", t("toolbar.editor", "Editor tools"));
+  },
+
+  isEditorAdvancedPanelVisible() {
+    if (!this.editorFolder?.domElement) return false;
+    return this.editorFolder.domElement.style.display !== "none";
+  },
+
+  setEditorAdvancedPanelVisible(visible) {
+    if (!this.editorFolder) return;
+    if (visible) this.editorFolder.show?.();
+    else this.editorFolder.hide?.();
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
+  },
+
+  toggleEditorAdvancedPanel() {
+    this.setEditorAdvancedPanelVisible(!this.isEditorAdvancedPanelVisible());
+  },
+
+  toggleMainMenu() {
+    if (!this.actionMenuToggle) return;
+    this.actionMenuToggle.checked = !this.actionMenuToggle.checked;
+    if (!this.actionMenuToggle.checked && this.languageModeDropdown) {
+      this.languageModeDropdown.hidden = true;
+    }
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
+  },
+
+  setObjectTransformMode(mode = "") {
+    const normalizedMode = ["translate", "rotate", "scale"].includes(mode) ? mode : "";
+    if (normalizedMode && !core.helperObjects?.[0]) return;
+
+    if (core.i18nGui.transformObjectController?.setValue) {
+      core.i18nGui.transformObjectController.setValue(normalizedMode);
+    } else {
+      this.transformText["Transform 3D Object"] = normalizedMode;
+    }
+    this.updateEditorToolbarState();
+  },
+
+  toggleObjectTransformMode(mode = "") {
+    const nextMode = this.transformText["Transform 3D Object"] === mode ? "" : mode;
+    this.setObjectTransformMode(nextMode);
+  },
+
+  setLightTransformMode(mode = "") {
+    const normalizedMode = ["translate", "rotate"].includes(mode) ? mode : "";
+
+    if (core.i18nGui.transformLightController?.setValue) {
+      core.i18nGui.transformLightController.setValue(normalizedMode);
+    } else {
+      this.transformText["Transform Light"] = normalizedMode;
+    }
+    this.updateEditorToolbarState();
+  },
+
+  toggleLightTransformMode(mode = "") {
+    const nextMode = this.transformText["Transform Light"] === mode ? "" : mode;
+    this.setLightTransformMode(nextMode);
+  },
+
+  togglePickingMode() {
+    this.pickingMode = !this.pickingMode;
+    toastHelper(this.pickingMode ? "facePickingEnabled" : "facePickingDisabled", {
+      duration: 1400
+    });
+    if (!this.pickingMode) {
+      this.restoreLastPickedFace();
+      this.clearSelectedFaces();
+    } else {
+      this.RULER_MODE = false;
+      this.updateDistanceMeasurementControllerLabel();
+    }
+    this.updatePickingModeControllerLabel();
+    this.updatePickingControlsVisibility();
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
+  },
+
+  toggleDistanceMeasurement() {
+    this.RULER_MODE = !this.RULER_MODE;
+    if (this.RULER_MODE) {
+      toastHelper("distanceEnabled", {
+        duration: 2600
+      });
+      toastHelper("distanceHint", {
+        duration: 5200
+      });
+    } else {
+      toastHelper(this.RULER_MODE ? "distanceModeEnabled" : "distanceModeDisabled");
+    }
+    if (!this.RULER_MODE) {
+      this.ruler.forEach((r) => {
+        core.scene.remove(r);
+      });
+      this.rulerObject = new THREE.Object3D();
+      this.ruler = [];
+      this.linePoints = [];
+    } else {
+      this.pickingMode = false;
+      this.restoreLastPickedFace();
+      this.clearSelectedFaces();
+      this.updatePickingModeControllerLabel();
+      this.updatePickingControlsVisibility();
+    }
+    this.updateDistanceMeasurementControllerLabel();
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
+  },
+
+  async saveEditorMetadata() {
+    if (!core.EDITOR || core.isLightweight || !core.helperObjects?.[0]) return;
+
+    const rotateMetadata = new THREE.Vector3(
+      THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.x),
+      THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.y),
+      THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.z)
+    );
+
+    if (core.CONFIG.entity.proxyPath !== undefined) {
+      core.CONFIG.metadataUrl = core.getProxyPath(core.CONFIG.metadataUrl);
+    }
+
+    let fetchedMetadata = {};
+
+    try {
+      if (core.CONFIG?.metadataUrl) {
+        const response = await fetch(core.CONFIG.metadataUrl, { cache: "no-cache" });
+        if (response.ok) {
+          fetchedMetadata = await response.json();
+        }
+      }
+    } catch (err) {
+      console.warn("Metadata fetch failed, continuing with save", err);
+    }
+
+    this.originalMetadata = {
+      ...this.originalMetadata,
+      ...fetchedMetadata
+    };
+
+    const newMetadata = this.buildMetadata(this, rotateMetadata);
+
+    try {
+      const token = await fetch("/session/token").then((r) => r.text());
+
+      await fetch(core.CONFIG.mainUrl + "/api/editor/save-metadata", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": token
+        },
+        body: JSON.stringify({
+          filename: core.fileObject.filename,
+          path:
+            this.archiveType !== ""
+              ? core.fileObject.relativePath + core.fileObject.basename + core.loadedFile
+              : core.fileObject.relativePath,
+          content: JSON.stringify(newMetadata, null, "\t")
+        })
+      });
+
+      toastHelper("settingsSaved", "success");
+    } catch (err) {
+      console.error(err);
+      toastHelper("settingsSaveError", "error");
+    }
+  },
+
+  updateEditorToolbarState() {
+    if (!this.editorToolbarButtons) return;
+
+    const activeMap = {
+      orbit: this.transformText["Transform 3D Object"] === "",
+      move: this.transformText["Transform 3D Object"] === "translate",
+      rotate: this.transformText["Transform 3D Object"] === "rotate",
+      scale: this.transformText["Transform 3D Object"] === "scale",
+      lightMove: this.transformText["Transform Light"] === "translate",
+      lightTarget: this.transformText["Transform Light"] === "rotate",
+      picking: this.pickingMode === true,
+      ruler: this.RULER_MODE === true,
+      advancedEditor: this.isEditorAdvancedPanelVisible(),
+      fullScreen: this.fullscreenMode === true,
+    };
+
+    Object.entries(this.editorToolbarButtons).forEach(([key, button]) => {
+      const isActive = activeMap[key] === true;
+      button.classList.toggle("is-active", isActive);
+      if (button.dataset.pressed === "true") {
+        button.setAttribute("aria-pressed", isActive ? "true" : "false");
+      } else {
+        button.removeAttribute("aria-pressed");
+      }
+    });
   },
 
   isEmbedModeActive() {
@@ -623,13 +964,12 @@ export const Viewer = {
 
   updateActionMenuLabels() {
     if (!this.actionMenu) return;
-    const actionMenuLabel = t("menu.actions", "Viewer actions");
-    const actionMenuOpenLabel = t("menu.openActions", "Open viewer actions");
+    const actionMenuLabel = t("menu.mainMenu", "Main menu");
 
-    this.actionMenu.querySelector("#viewerActionMenuToggle")?.setAttribute("aria-label", actionMenuOpenLabel);
     const toggle = this.actionMenu.querySelector(".viewer-action-menu_toggle");
-    toggle?.setAttribute("aria-label", actionMenuOpenLabel);
     toggle?.setAttribute("title", actionMenuLabel);
+    const toggleCopy = toggle?.querySelector(".viewer-editor-tool_sr");
+    if (toggleCopy) toggleCopy.textContent = actionMenuLabel;
     this.actionMenu.querySelector(".viewer-action-menu_panel")?.setAttribute("aria-label", actionMenuLabel);
   },
 
@@ -650,6 +990,8 @@ export const Viewer = {
     this.updateEmbedMenuEntryState();
     this.updateFullscreenButtonIcon();
     this.updateDownloadMenuEntryLabel();
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
     this.updatePickingModeControllerLabel();
     this.updateDistanceMeasurementControllerLabel();
     this.updateSelectedFacesControllerLabel();
@@ -937,6 +1279,8 @@ export const Viewer = {
     this.selectedFacesCountController?.[method]?.();
     this.updateAddAnnotationControllerState();
     this.updatePickingHintVisibility();
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
   },
 
   updateAddAnnotationControllerState() {
@@ -2272,6 +2616,12 @@ export const Viewer = {
     core.transformControl?.detach?.();
     core.transformControlLight?.detach?.();
     core.transformControlLightTarget?.detach?.();
+    Viewer.transformText["Transform 3D Object"] = "";
+    Viewer.transformText["Transform Light"] = "";
+    Viewer.pickingMode = false;
+    Viewer.RULER_MODE = false;
+    Viewer.updateEditorToolbarLabels();
+    Viewer.updateEditorToolbarState();
 
     if (core.outlineClipping) {
       Viewer.removeAndDisposeFromScene(core.outlineClipping);
@@ -4485,11 +4835,17 @@ export const Viewer = {
     Viewer.mainCanvas.height = heightDev;
 
     if (Viewer.actionMenu) {
-      const menuMargin = 16;
-      const toggleSize = Viewer.actionMenu.querySelector(".viewer-action-menu__toggle")?.getBoundingClientRect().height || 45;
-      Viewer.actionMenu.style.top = (heightCSS - toggleSize - menuMargin) + "px";
-      Viewer.actionMenu.style.right = menuMargin + "px";
-      Viewer.actionMenu.style.bottom = "auto";
+      if (Viewer.actionMenu.classList.contains("viewer-action-menu_in-toolbar")) {
+        Viewer.actionMenu.style.top = "";
+        Viewer.actionMenu.style.right = "";
+        Viewer.actionMenu.style.bottom = "";
+      } else {
+        const menuMargin = 16;
+        const toggleSize = Viewer.actionMenu.querySelector(".viewer-action-menu_toggle")?.getBoundingClientRect().height || 45;
+        Viewer.actionMenu.style.top = (heightCSS - toggleSize - menuMargin) + "px";
+        Viewer.actionMenu.style.right = menuMargin + "px";
+        Viewer.actionMenu.style.bottom = "auto";
+      }
     }
 
     if (core.handHint)
@@ -5522,6 +5878,7 @@ export const Viewer = {
           showTransformHintToast(value);
 
         }
+        Viewer.updateEditorToolbarState();
       });
     core.i18nGui.transformModeController = Viewer.editorFolder
       .add(Viewer.transformText, "Transform Mode", {
@@ -5531,6 +5888,7 @@ export const Viewer = {
       .name(t("gui.transformMode", "Transform Mode"))
       .onChange(function (value) {
         core.transformControl.space = value;
+        Viewer.updateEditorToolbarState();
       });
     const lightFolder = Viewer.editorFolder.addFolder(t("gui.directionalLight", "Directional Light")).close();
     core.i18nGui.lightFolder = lightFolder;
@@ -5560,6 +5918,7 @@ export const Viewer = {
             showTransformLightHintToast("rotate");
           }
         }
+        Viewer.updateEditorToolbarState();
       });
     core.i18nGui.directionalLightColorController = lightFolder
       .addColor(Viewer.colors, "DirectionalLight")
@@ -5662,21 +6021,7 @@ export const Viewer = {
       Viewer.pickingModeController = Viewer.editorFolder.add(
         {
           togglePickingMode() {
-            Viewer.pickingMode = !Viewer.pickingMode;
-            var _str;
-            Viewer.pickingMode ? (_str = "enabled") : (_str = "disabled");
-            toastHelper(Viewer.pickingMode ? "facePickingEnabled" : "facePickingDisabled", {
-              duration: 1400
-            });
-            if (!Viewer.pickingMode) {
-              Viewer.restoreLastPickedFace();
-              Viewer.clearSelectedFaces();
-            } else {
-              Viewer.RULER_MODE = false;
-              Viewer.updateDistanceMeasurementControllerLabel();
-            }
-            Viewer.updatePickingModeControllerLabel();
-            Viewer.updatePickingControlsVisibility();
+            Viewer.togglePickingMode();
           },
         },
         "togglePickingMode"
@@ -5735,34 +6080,7 @@ export const Viewer = {
       Viewer.distanceMeasurementController = Viewer.editorFolder.add(
         {
           toggleDistanceMeasurement() {
-            Viewer.RULER_MODE = !Viewer.RULER_MODE;
-            var _str;
-            Viewer.RULER_MODE ? (_str = "enabled") : (_str = "disabled");
-            if (Viewer.RULER_MODE) {
-              toastHelper("distanceEnabled", {
-                duration: 2600
-              });
-              toastHelper("distanceHint", {
-                duration: 5200
-              });
-            } else {
-              toastHelper(Viewer.RULER_MODE ? "distanceModeEnabled" : "distanceModeDisabled");
-            }
-            if (!Viewer.RULER_MODE) {
-              Viewer.ruler.forEach((r) => {
-                core.scene.remove(r);
-              });
-              Viewer.rulerObject = new THREE.Object3D();
-              Viewer.ruler = [];
-              Viewer.linePoints = [];
-            } else {
-              Viewer.pickingMode = false;
-              Viewer.restoreLastPickedFace();
-              Viewer.clearSelectedFaces();
-              Viewer.updatePickingModeControllerLabel();
-              Viewer.updatePickingControlsVisibility();
-            }
-            Viewer.updateDistanceMeasurementControllerLabel();
+            Viewer.toggleDistanceMeasurement();
           },
         },
         "toggleDistanceMeasurement"
@@ -5796,69 +6114,7 @@ export const Viewer = {
       core.i18nGui.saveController = Viewer.editorFolder.add(
         {
           [t("gui.save", "Save")]() {
-
-            var rotateMetadata = new THREE.Vector3(
-              THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.x),
-              THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.y),
-              THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.z)
-            );
-
-            //Fetch data from original metadata file anyway before saving any changes
-            if (core.CONFIG.entity.proxyPath !== undefined) {
-              core.CONFIG.metadataUrl = core.getProxyPath(core.CONFIG.metadataUrl);
-            }
-
-            (async () => {
-              let fetchedMetadata = {};
-
-              try {
-                if (core.CONFIG?.metadataUrl) {
-                  const response = await fetch(core.CONFIG.metadataUrl, { cache: "no-cache" });
-
-                  if (response.ok) {
-                    fetchedMetadata = await response.json();
-                  }
-                }
-              } catch (err) {
-                console.warn("Metadata fetch failed, continuing with save", err);
-              }
-
-              // always run
-              Viewer.originalMetadata = {
-                ...Viewer.originalMetadata,
-                ...fetchedMetadata
-              };
-
-              const newMetadata = Viewer.buildMetadata(Viewer, rotateMetadata);
-
-              try {
-                const token = await fetch("/session/token").then(r => r.text());
-
-                await fetch(core.CONFIG.mainUrl + "/api/editor/save-metadata", {
-                  method: "POST",
-                  credentials: "same-origin",
-                  headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRF-Token": token
-                  },
-                  body: JSON.stringify({
-                    filename: core.fileObject.filename,
-                    path:
-                      Viewer.archiveType !== ""
-                        ? core.fileObject.relativePath +
-                          core.fileObject.basename +
-                          core.loadedFile
-                        : core.fileObject.relativePath,
-                    content: JSON.stringify(newMetadata, null, "\t")
-                  })
-                });
-
-                toastHelper("settingsSaved", "success");
-              } catch (err) {
-                console.error(err);
-                toastHelper("settingsSaveError", "error");
-              }
-            })();
+            Viewer.saveEditorMetadata();
           }
         },
         t("gui.save", "Save")
@@ -5871,6 +6127,11 @@ export const Viewer = {
         },
         t("gui.renderPreview", "Render preview")
       );
+    }
+
+    if (core.EDITOR) {
+      Viewer.createEditorToolbar();
+      Viewer.setEditorAdvancedPanelVisible(false);
     }
 
     Viewer.updateLocalizedUI();
@@ -6210,19 +6471,20 @@ export const Viewer = {
             id="viewerActionMenuToggle"
             class="viewer-action-menu_checkbox"
             type="checkbox"
-            aria-label="Open viewer actions"
+            aria-label="Open main menu"
           />
           <label
             for="viewerActionMenuToggle"
             class="viewer-action-menu_toggle"
-            aria-label="Open viewer actions"
-            title="Viewer actions"
+            aria-label="Open main menu"
+            title="Main menu"
           >
-            <span></span>
-            <span></span>
-            <span></span>
+            <span class="viewer-action-menu_settings-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2 2.2 3-.2.8 2.9 2.6 1.4-1 2.8 1 2.8-2.6 1.4-.8 2.9-3-.2L12 21l-2-2.2-3 .2-.8-2.9-2.6-1.4 1-2.8-1-2.8 2.6-1.4.8-2.9 3 .2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+            </span>
+            <b class="viewer-editor-tool_sr">Main menu</b>
           </label>
-          <div class="viewer-action-menu_panel" aria-label="Viewer actions"></div>
+          <div class="viewer-action-menu_panel" aria-label="Main menu"></div>
         `;
         core.container.appendChild(Viewer.actionMenu);
 
