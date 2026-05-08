@@ -213,6 +213,8 @@ export const VIEWER_I18N = {
 
       featureToggle: "{feature} is {state}.",
       clippingHelperToggle: "Clipping plane {axis} helper {state}.",
+
+      clippingPlanes: "Drag active clipping plane helper to adjust cut",
     },
     shortcuts: {
       mouse: "Mouse: drag orbit, wheel zoom, right-drag pan",
@@ -251,6 +253,7 @@ export const VIEWER_I18N = {
     },
     hints: {
       picking: "Shift + klik, aby wybrać wiele scian",
+      pickingSelect: "Wybierz co najmniej jedną ścianę, aby dodać adnotację.",
       clipping: "Przeciągnij aktywną plaszczyznę przycinania, aby dostosować cięcie",
     },
     controls: {
@@ -434,6 +437,8 @@ export const VIEWER_I18N = {
 
       featureToggle: "{feature} jest {state}.",
       clippingHelperToggle: "Pomocnik płaszczyzny przycinania {axis} jest {state}.",
+
+      clippingPlanes: "Przeciągnij aktywną płaszczyznę przycinania, aby dostosować cięcie",
     },
     shortcuts: {
       mouse: "Mysz: przeciągnij, aby obracać, rolka - zoom, prawy przycisk - przesuwanie",
@@ -471,6 +476,7 @@ export const VIEWER_I18N = {
     },
     hints: {
       picking: "Umschalt + Klick, um mehrere Flächen auszuwählen",
+      pickingSelect: "Wählen Sie mindestens eine Fläche aus, um eine Anmerkung hinzuzufügen.",
       clipping: "Ziehen Sie die aktive Schnittebene-Hilfe, um den Schnitt anzupassen",
     },
     controls: {
@@ -654,6 +660,8 @@ export const VIEWER_I18N = {
 
       featureToggle: "{feature} ist {state}.",
       clippingHelperToggle: "Clipping-Ebenen-Helfer {axis} ist {state}.",
+
+      clippingPlanes: "Ziehen Sie die aktive Schnittebene-Hilfe, um den Schnitt anzupassen",
     },
     shortcuts: {
       mouse: "Maus: ziehen zum Drehen, Mausrad - Zoom, Rechtsklick - Verschieben",

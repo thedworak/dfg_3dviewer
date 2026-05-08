@@ -422,6 +422,8 @@ const VIEWER_I18N = {
 
       featureToggle: "{feature} is {state}.",
       clippingHelperToggle: "Clipping plane {axis} helper {state}.",
+
+      clippingPlanes: "Drag active clipping plane helper to adjust cut",
     },
     shortcuts: {
       mouse: "Mouse: drag orbit, wheel zoom, right-drag pan",
@@ -460,6 +462,7 @@ const VIEWER_I18N = {
     },
     hints: {
       picking: "Shift + klik, aby wybrać wiele scian",
+      pickingSelect: "Wybierz co najmniej jedną ścianę, aby dodać adnotację.",
       clipping: "Przeciągnij aktywną plaszczyznę przycinania, aby dostosować cięcie",
     },
     controls: {
@@ -643,6 +646,8 @@ const VIEWER_I18N = {
 
       featureToggle: "{feature} jest {state}.",
       clippingHelperToggle: "Pomocnik płaszczyzny przycinania {axis} jest {state}.",
+
+      clippingPlanes: "Przeciągnij aktywną płaszczyznę przycinania, aby dostosować cięcie",
     },
     shortcuts: {
       mouse: "Mysz: przeciągnij, aby obracać, rolka - zoom, prawy przycisk - przesuwanie",
@@ -680,6 +685,7 @@ const VIEWER_I18N = {
     },
     hints: {
       picking: "Umschalt + Klick, um mehrere Flächen auszuwählen",
+      pickingSelect: "Wählen Sie mindestens eine Fläche aus, um eine Anmerkung hinzuzufügen.",
       clipping: "Ziehen Sie die aktive Schnittebene-Hilfe, um den Schnitt anzupassen",
     },
     controls: {
@@ -863,6 +869,8 @@ const VIEWER_I18N = {
 
       featureToggle: "{feature} ist {state}.",
       clippingHelperToggle: "Clipping-Ebenen-Helfer {axis} ist {state}.",
+
+      clippingPlanes: "Ziehen Sie die aktive Schnittebene-Hilfe, um den Schnitt anzupassen",
     },
     shortcuts: {
       mouse: "Maus: ziehen zum Drehen, Mausrad - Zoom, Rechtsklick - Verschieben",
@@ -10098,6 +10106,7 @@ const Viewer = {
       mainMenu: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2 2.2 3-.2.8 2.9 2.6 1.4-1 2.8 1 2.8-2.6 1.4-.8 2.9-3-.2L12 21l-2-2.2-3 .2-.8-2.9-2.6-1.4 1-2.8-1-2.8 2.6-1.4.8-2.9 3 .2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
       advancedEditor: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M4 17h16M14 7h6M4 12h6M12 12h8M8 5v4M16 10v4M10 15v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       fullScreen: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5M4 4v5M20 4h-5M20 4v5M4 20h5M4 20v-5M20 20h-5M20 20v-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      clippingPlanes: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M5 5l14 14M19 5L5 19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     };
     return icons[icon] || icons.advancedEditor;
   },
@@ -10109,7 +10118,7 @@ const Viewer = {
     toolbar.id = "viewerEditorToolbar";
     toolbar.setAttribute("role", "toolbar");
     toolbar.setAttribute("aria-label", t$1("toolbar.editor", "Editor tools"));
-    toolbar.style.translate = "-25% 95%";
+    toolbar.style.translate = "-50% 95%";
 
     const tools = [
       { key: "orbit", icon: "orbit", onClick: () => this.setObjectTransformMode("") },
@@ -10124,6 +10133,7 @@ const Viewer = {
       { key: "resetCamera", icon: "resetCamera", onClick: () => this.resetCamera() },
       { key: "advancedEditor", icon: "advancedEditor", onClick: () => this.toggleEditorAdvancedPanel(), pressed: true },
       { key: "fullScreen", icon: "fullScreen", onClick: () => this.toggleFullscreen(), pressed: true },
+      { key: "clippingPlanes", icon: "clippingPlanes", onClick: () => this.toggleClippingPlanesPanel(), pressed: true },
     ];
 
     if (!core.isLightweight) {
@@ -10190,6 +10200,9 @@ const Viewer = {
       fullScreen: this.fullscreenMode
         ? t$1("fullscreen.enter", "Enter fullscreen")
         : t$1("fullscreen.exit", "Exit fullscreen"),
+      clippingPlanes: this.clippingMode
+        ? t$1("toolbar.disableClippingPlanesMode", "Disable clipping planes mode")
+        : t$1("toolbar.enableClippingPlanesMode", "Enable clipping planes mode"),
     };
 
     Object.entries(this.editorToolbarButtons).forEach(([key, button]) => {
@@ -10312,6 +10325,44 @@ const Viewer = {
     this.updateEditorToolbarState();
   },
 
+  toggleClippingPlanesPanel() {
+    this.clippingMode = !this.clippingMode;
+    if (this.clippingMode) {
+      toastHelper$1("facePickingEnabled", {
+        duration: 2600
+      });
+      toastHelper$1("clippingPlanes", {
+        duration: 5200
+      });
+    } else {
+      toastHelper$1("facePickingDisabled");
+    }
+    this.updateClippingPlanesControllerLabel();
+    this.updateClippingPlanesControlsVisibility();
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
+  },
+
+  updateClippingPlanesControllerLabel() {
+    if (core.i18nGui.clippingPlanesController?.name) {
+      core.i18nGui.clippingPlanesController.name(this.clippingMode
+        ? t$1("controls.disableClippingPlanesMode", "Disable clipping planes mode")
+        : t$1("controls.enableClippingPlanesMode", "Enable clipping planes mode"));
+    }
+  },
+
+  updateClippingPlanesControlsVisibility() {
+    if (this.transformControlClippingPlaneX) {
+      this.transformControlClippingPlaneX.visible = this.clippingMode;
+    }
+    if (this.transformControlClippingPlaneY) {
+      this.transformControlClippingPlaneY.visible = this.clippingMode;
+    }
+    if (this.transformControlClippingPlaneZ) {
+      this.transformControlClippingPlaneZ.visible = this.clippingMode;
+    }
+  },
+
   async saveEditorMetadata() {
     if (!core.EDITOR || core.isLightweight || !core.helperObjects?.[0]) return;
 
@@ -10384,6 +10435,7 @@ const Viewer = {
       lightTarget: this.transformText["Transform Light"] === "rotate",
       picking: this.pickingMode === true,
       ruler: this.RULER_MODE === true,
+      clippingPlanes: this.clippingMode === true,
       advancedEditor: this.isEditorAdvancedPanelVisible(),
       fullScreen: this.fullscreenMode === true,
     };

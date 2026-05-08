@@ -67,6 +67,7 @@ import { objectsConfig, setObjectsConfig } from "./object-settings.js";
 import { loadIIIFManifest, getAnnotations } from "./IIIF/iiif-api.js";
 import { VIEWER_I18N } from "./i18n.js";
 import { t } from "./i18n-utils.js";
+import { clipping } from 'three/src/nodes/accessors/ClippingNode.js';
 
 export const Viewer = {
   CONFIG: null,
@@ -439,6 +440,7 @@ export const Viewer = {
       mainMenu: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2 2.2 3-.2.8 2.9 2.6 1.4-1 2.8 1 2.8-2.6 1.4-.8 2.9-3-.2L12 21l-2-2.2-3 .2-.8-2.9-2.6-1.4 1-2.8-1-2.8 2.6-1.4.8-2.9 3 .2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
       advancedEditor: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M4 17h16M14 7h6M4 12h6M12 12h8M8 5v4M16 10v4M10 15v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       fullScreen: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5M4 4v5M20 4h-5M20 4v5M4 20h5M4 20v-5M20 20h-5M20 20v-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      clippingPlanes: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M5 5l14 14M19 5L5 19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     };
     return icons[icon] || icons.advancedEditor;
   },
@@ -450,7 +452,7 @@ export const Viewer = {
     toolbar.id = "viewerEditorToolbar";
     toolbar.setAttribute("role", "toolbar");
     toolbar.setAttribute("aria-label", t("toolbar.editor", "Editor tools"));
-    toolbar.style.translate = "-25% 95%";
+    toolbar.style.translate = "-50% 95%";
 
     const tools = [
       { key: "orbit", icon: "orbit", onClick: () => this.setObjectTransformMode("") },
@@ -465,6 +467,7 @@ export const Viewer = {
       { key: "resetCamera", icon: "resetCamera", onClick: () => this.resetCamera() },
       { key: "advancedEditor", icon: "advancedEditor", onClick: () => this.toggleEditorAdvancedPanel(), pressed: true },
       { key: "fullScreen", icon: "fullScreen", onClick: () => this.toggleFullscreen(), pressed: true },
+      { key: "clippingPlanes", icon: "clippingPlanes", onClick: () => this.toggleClippingPlanesPanel(), pressed: true },
     ];
 
     if (!core.isLightweight) {
@@ -531,6 +534,9 @@ export const Viewer = {
       fullScreen: this.fullscreenMode
         ? t("fullscreen.enter", "Enter fullscreen")
         : t("fullscreen.exit", "Exit fullscreen"),
+      clippingPlanes: this.clippingMode
+        ? t("toolbar.disableClippingPlanesMode", "Disable clipping planes mode")
+        : t("toolbar.enableClippingPlanesMode", "Enable clipping planes mode"),
     };
 
     Object.entries(this.editorToolbarButtons).forEach(([key, button]) => {
@@ -653,6 +659,44 @@ export const Viewer = {
     this.updateEditorToolbarState();
   },
 
+  toggleClippingPlanesPanel() {
+    this.clippingMode = !this.clippingMode;
+    if (this.clippingMode) {
+      toastHelper("facePickingEnabled", {
+        duration: 2600
+      });
+      toastHelper("clippingPlanes", {
+        duration: 5200
+      });
+    } else {
+      toastHelper("facePickingDisabled");
+    }
+    this.updateClippingPlanesControllerLabel();
+    this.updateClippingPlanesControlsVisibility();
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
+  },
+
+  updateClippingPlanesControllerLabel() {
+    if (core.i18nGui.clippingPlanesController?.name) {
+      core.i18nGui.clippingPlanesController.name(this.clippingMode
+        ? t("controls.disableClippingPlanesMode", "Disable clipping planes mode")
+        : t("controls.enableClippingPlanesMode", "Enable clipping planes mode"));
+    }
+  },
+
+  updateClippingPlanesControlsVisibility() {
+    if (this.transformControlClippingPlaneX) {
+      this.transformControlClippingPlaneX.visible = this.clippingMode;
+    }
+    if (this.transformControlClippingPlaneY) {
+      this.transformControlClippingPlaneY.visible = this.clippingMode;
+    }
+    if (this.transformControlClippingPlaneZ) {
+      this.transformControlClippingPlaneZ.visible = this.clippingMode;
+    }
+  },
+
   async saveEditorMetadata() {
     if (!core.EDITOR || core.isLightweight || !core.helperObjects?.[0]) return;
 
@@ -725,6 +769,7 @@ export const Viewer = {
       lightTarget: this.transformText["Transform Light"] === "rotate",
       picking: this.pickingMode === true,
       ruler: this.RULER_MODE === true,
+      clippingPlanes: this.clippingMode === true,
       advancedEditor: this.isEditorAdvancedPanelVisible(),
       fullScreen: this.fullscreenMode === true,
     };
