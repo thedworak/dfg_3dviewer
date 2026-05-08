@@ -1319,8 +1319,8 @@ canvas {
   scrollbar-width: none;
 }
 
-.with-fullscreen #viewerEditorToolbar {
-  bottom: 100px;
+#viewerEditorToolbar.with-fullscreen {
+  transform: translate(5%, -55%);
 }
 
 #viewerEditorToolbar::-webkit-scrollbar {
@@ -1347,6 +1347,61 @@ canvas {
   transform: translateY(-1px);
   background: var(--viewer-panel-bg-hover);
   border-color: var(--viewer-panel-border);
+}
+
+.viewer-editor-tool.has-submenu {
+  position: relative;
+}
+
+.viewer-editor-tool_submenu {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 2px);
+  transform: translateX(-50%) translateY(0);
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 14px;
+  background: var(--viewer-panel-bg);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 10;
+  min-width: max-content;
+}
+
+.viewer-editor-tool.has-submenu:hover .viewer-editor-tool_submenu,
+.viewer-editor-tool.has-submenu:focus-within .viewer-editor-tool_submenu,
+.viewer-editor-tool.has-submenu .viewer-editor-tool_submenu:hover {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+
+.viewer-editor-tool_submenu-button {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.viewer-editor-tool_submenu-button:hover {
+  background: var(--viewer-panel-bg-hover);
+  border-color: var(--viewer-panel-border);
+}
+
+.viewer-editor-tool_submenu-button.is-active {
+  background: rgba(92, 185, 255, 0.16);
+  border-color: rgba(92, 185, 255, 0.4);
+  color: #8fd3ff;
 }
 
 .viewer-editor-tool.is-active {

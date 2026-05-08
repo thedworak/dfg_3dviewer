@@ -10106,6 +10106,10 @@ const Viewer = {
       mainMenu: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2 2.2 3-.2.8 2.9 2.6 1.4-1 2.8 1 2.8-2.6 1.4-.8 2.9-3-.2L12 21l-2-2.2-3 .2-.8-2.9-2.6-1.4 1-2.8-1-2.8 2.6-1.4.8-2.9 3 .2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
       advancedEditor: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M4 17h16M14 7h6M4 12h6M12 12h8M8 5v4M16 10v4M10 15v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       fullScreen: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5M4 4v5M20 4h-5M20 4v5M4 20h5M4 20v-5M20 20h-5M20 20v-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      displayHelperX: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8l8 8M16 8 8 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+      displayHelperY: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7 12 13 17 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 13v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+      displayHelperZ: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10M7 17h10M17 7 7 17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+      visible: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
       clippingPlanes: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M5 5l14 14M19 5L5 19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     };
     return icons[icon] || icons.advancedEditor;
@@ -10130,10 +10134,10 @@ const Viewer = {
       { key: "picking", icon: "picking", onClick: () => this.togglePickingMode(), pressed: true },
       { key: "annotate", icon: "annotate", onClick: () => this.openAnnotationDialogWithAutoPicking() },
       { key: "ruler", icon: "ruler", onClick: () => this.toggleDistanceMeasurement(), pressed: true },
-      { key: "resetCamera", icon: "resetCamera", onClick: () => this.resetCamera() },
-      { key: "advancedEditor", icon: "advancedEditor", onClick: () => this.toggleEditorAdvancedPanel(), pressed: true },
       { key: "fullScreen", icon: "fullScreen", onClick: () => this.toggleFullscreen(), pressed: true },
       { key: "clippingPlanes", icon: "clippingPlanes", onClick: () => this.toggleClippingPlanesPanel(), pressed: true },
+      { key: "resetCamera", icon: "resetCamera", onClick: () => this.resetCamera() },
+      { key: "advancedEditor", icon: "advancedEditor", onClick: () => this.toggleEditorAdvancedPanel(), pressed: true },
     ];
 
     if (!core.isLightweight) {
@@ -10155,6 +10159,36 @@ const Viewer = {
         <span class="viewer-editor-tool_icon" aria-hidden="true">${this.getEditorToolbarIcon(tool.icon)}</span>
         <span class="viewer-editor-tool_sr"></span>
       `;
+      if (tool.key === "clippingPlanes") {
+        button.classList.add("has-submenu");
+        const submenu = document.createElement("div");
+        submenu.className = "viewer-editor-tool_submenu";
+        const submenuItems = [
+          { key: "displayHelperX", icon: "displayHelperX", label: t$1("gui.displayHelperX", "Show X helper"), onClick: () => this.toggleClippingPlaneHelper("x") },
+          { key: "displayHelperY", icon: "displayHelperY", label: t$1("gui.displayHelperY", "Show Y helper"), onClick: () => this.toggleClippingPlaneHelper("y") },
+          { key: "displayHelperZ", icon: "displayHelperZ", label: t$1("gui.displayHelperZ", "Show Z helper"), onClick: () => this.toggleClippingPlaneHelper("z") },
+          { key: "visible", icon: "visible", label: t$1("gui.visible", "Visible"), onClick: () => this.toggleClippingPlaneVisible() },
+        ];
+        this.clippingPlaneSubmenuButtons = {};
+        submenuItems.forEach((item) => {
+          const subButton = document.createElement("button");
+          subButton.type = "button";
+          subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+          subButton.dataset.tool = item.key;
+          subButton.innerHTML = `
+            <span class="viewer-editor-tool_icon" aria-hidden="true">${this.getEditorToolbarIcon(item.icon)}</span>
+          `;
+          subButton.setAttribute("title", item.label);
+          subButton.setAttribute("aria-label", item.label);
+          this.bindEventListener(subButton, "click", (event) => {
+            event.stopPropagation();
+            item.onClick();
+          });
+          submenu.appendChild(subButton);
+          this.clippingPlaneSubmenuButtons[item.key] = subButton;
+        });
+        button.appendChild(submenu);
+      }
       this.bindEventListener(button, "click", () => {
         this.stopHandMode();
         tool.onClick();
@@ -10197,7 +10231,7 @@ const Viewer = {
       advancedEditor: this.isEditorAdvancedPanelVisible()
         ? t$1("toolbar.hideAdvancedEditor", "Hide advanced editor")
         : t$1("toolbar.showAdvancedEditor", "Show advanced editor"),
-      fullScreen: this.fullscreenMode
+      fullScreen: this.FULLSCREEN
         ? t$1("fullscreen.enter", "Enter fullscreen")
         : t$1("fullscreen.exit", "Exit fullscreen"),
       clippingPlanes: this.clippingMode
@@ -10336,6 +10370,26 @@ const Viewer = {
       });
     } else {
       toastHelper$1("facePickingDisabled");
+      if (core.planeHelpers?.length >= 3) {
+        core.planeHelpers.forEach((helper) => {
+          if (helper) helper.visible = false;
+        });
+      }
+      core.planeParams.clippingMode.x = false;
+      core.planeParams.clippingMode.y = false;
+      core.planeParams.clippingMode.z = false;
+      if (core.outlineClipping) {
+        core.outlineClipping.visible = false;
+      }
+      if (this.transformControlClippingPlaneX) {
+        this.transformControlClippingPlaneX.detach();
+      }
+      if (this.transformControlClippingPlaneY) {
+        this.transformControlClippingPlaneY.detach();
+      }
+      if (this.transformControlClippingPlaneZ) {
+        this.transformControlClippingPlaneZ.detach();
+      }
     }
     this.updateClippingPlanesControllerLabel();
     this.updateClippingPlanesControlsVisibility();
@@ -10361,6 +10415,75 @@ const Viewer = {
     if (this.transformControlClippingPlaneZ) {
       this.transformControlClippingPlaneZ.visible = this.clippingMode;
     }
+  },
+
+  toggleClippingPlaneHelper(axis) {
+    const axisIndex = { x: 0, y: 1, z: 2 }[axis];
+    const planeHelper = core.planeHelpers?.[axisIndex];
+    const control = this[`transformControlClippingPlane${axis.toUpperCase()}`];
+    if (!planeHelper) return;
+
+    const active = !Boolean(core.planeParams.clippingMode?.[axis]);
+    core.planeParams.clippingMode[axis] = planeHelper.visible = active;
+
+    if (active) {
+      control?.attach?.(planeHelper);
+      if (core.planeParams.outline.visible) core.outlineClipping.visible = true;
+    } else {
+      control?.detach?.();
+      if (
+        !core.planeParams.clippingMode.x &&
+        !core.planeParams.clippingMode.y &&
+        !core.planeParams.clippingMode.z &&
+        !core.planeParams.outline.visible
+      ) {
+        core.outlineClipping.visible = false;
+      }
+    }
+
+    toastHelper$1("clippingHelperToggle", "info", {
+      axis: axis.toUpperCase(),
+      state: active,
+    });
+    this.refreshClippingHintVisibility();
+    this.updateClippingPlanesSubmenuState();
+  },
+
+  toggleClippingPlaneVisible() {
+    const visible = !Boolean(core.planeParams.outline.visible);
+    core.planeParams.outline.visible = visible;
+    if (core.outlineClipping) core.outlineClipping.visible = visible;
+    this.updateClippingPlanesSubmenuState();
+  },
+
+  refreshClippingHintVisibility() {
+    const clippingMode = core.planeParams?.clippingMode || {};
+    if (this.clippingHint) {
+      this.clippingHint.hidden = !(clippingMode.x || clippingMode.y || clippingMode.z);
+    }
+  },
+
+  updateClippingPlanesSubmenuState() {
+    if (!this.clippingPlaneSubmenuButtons) return;
+    const clippingMode = core.planeParams?.clippingMode || {};
+
+    this.clippingPlaneSubmenuButtons.displayHelperX?.classList.toggle(
+      "is-active",
+      Boolean(clippingMode.x)
+    );
+    this.clippingPlaneSubmenuButtons.displayHelperY?.classList.toggle(
+      "is-active",
+      Boolean(clippingMode.y)
+    );
+    this.clippingPlaneSubmenuButtons.displayHelperZ?.classList.toggle(
+      "is-active",
+      Boolean(clippingMode.z)
+    );
+    this.clippingPlaneSubmenuButtons.visible?.classList.toggle(
+      "is-active",
+      Boolean(core.planeParams?.outline?.visible)
+    );
+
   },
 
   async saveEditorMetadata() {
@@ -10437,7 +10560,7 @@ const Viewer = {
       ruler: this.RULER_MODE === true,
       clippingPlanes: this.clippingMode === true,
       advancedEditor: this.isEditorAdvancedPanelVisible(),
-      fullScreen: this.fullscreenMode === true,
+      fullScreen: this.FULLSCREEN === true,
     };
 
     Object.entries(this.editorToolbarButtons).forEach(([key, button]) => {
@@ -10449,6 +10572,8 @@ const Viewer = {
         button.removeAttribute("aria-pressed");
       }
     });
+
+    this.updateClippingPlanesSubmenuState();
   },
 
   isEmbedModeActive() {
@@ -12214,25 +12339,12 @@ const Viewer = {
 
   updateFullscreenButtonIcon() {
     if (this.editorToolbar) {
-      if (this.fullscreenMode) {
+      if (this.FULLSCREEN) {
         this.editorToolbar.classList.add("with-fullscreen");
       } else {
         this.editorToolbar.classList.remove("with-fullscreen");
       }
-    }    
-    if (!this.fullscreenMode) return;
-
-    const isFullscreen = !!document.fullscreenElement;
-    const label = isFullscreen
-      ? t$1("fullscreen.exitMode", "Exit fullscreen mode")
-      : t$1("fullscreen.mode", "Fullscreen mode");
-
-    this.fullscreenMode.innerHTML = `
-      <span class="viewer-action-icon ${isFullscreen ? "fullscreen-exit-icon" : "fullscreen-icon"}" aria-hidden="true"></span>
-      <span>${isFullscreen ? t$1("fullscreen.exit", "Exit fullscreen") : t$1("fullscreen.enter", "Fullscreen")}</span>
-    `;
-    this.fullscreenMode.setAttribute("aria-label", label);
-    this.fullscreenMode.setAttribute("title", label);
+    }
   },
 
   cleanupRuntimeBindings() {
@@ -16218,8 +16330,6 @@ const Viewer = {
         Viewer.downloadModel.hidden = true;
 
         Viewer.fullscreenMode = document.createElement("button");
-        Viewer.fullscreenMode.setAttribute("id", "fullscreenMode");
-        Viewer.fullscreenMode.setAttribute("type", "button");
         Viewer.updateFullscreenButtonIcon();
 
         Viewer.themeMode = document.createElement("button");
@@ -16267,7 +16377,6 @@ const Viewer = {
         Viewer.actionMenuPanel.appendChild(Viewer.themeMode);
         Viewer.actionMenuPanel.appendChild(Viewer.viewEntity);
         Viewer.actionMenuPanel.appendChild(Viewer.downloadModel);
-        Viewer.actionMenuPanel.appendChild(Viewer.fullscreenMode);
         if (Viewer.urlOptions.hideUi) {
           Viewer.actionMenu.hidden = true;
         }
@@ -16276,7 +16385,7 @@ const Viewer = {
         setCore('viewEntity', Viewer.viewEntity);
         Viewer.bindEventListener(Viewer.languageMode, "click", Viewer.toggleLanguage.bind(Viewer));
         Viewer.bindEventListener(Viewer.themeMode, "click", Viewer.toggleTheme.bind(Viewer));
-        Viewer.bindEventListener(Viewer.fullscreenMode, "click", Viewer.toggleFullscreen, false);
+        //Viewer.bindEventListener(Viewer.fullscreenMode, "click", Viewer.toggleFullscreen, false);
         Viewer.bindEventListener(Viewer.viewEntity, "click", Viewer.openEmbedConfiguratorFromMenu.bind(Viewer));
         Viewer.updateEmbedMenuEntryState();
         Viewer.applyLanguage({ persist: false });
