@@ -431,9 +431,13 @@ export const Viewer = {
       scale: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8h8v8H8zM5 5h4M5 5v4M19 19h-4M19 19v-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       lightMove: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 13h5l-1 8 7-10h-5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
       lightTarget: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+      lights: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="10" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v3M12 19v3M4.5 6.5l2.2 2.2M17.3 17.3l2.2 2.2M4.5 17.5l2.2-2.2M17.3 6.7l2.2-2.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M10 22h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+      materials: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 4v8l-8 4-8-4V6l8-4z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 6l8 4M12 6v8M12 14l-8-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+      ambientLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+      cameraLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h3l2-2h4l2 2h3v10H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+      color: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a5 5 0 0 0-5 5c0 2.8 5 9 5 9s5-6.2 5-9a5 5 0 0 0-5-5Z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 14.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z" fill="currentColor"/></svg>',
+      intensity: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
       picking: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 3 8 8-4 1 2 5-2.5 1-2-5-3 3Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
-      annotate: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v10H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 9h6M9 12h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-      ruler: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16 8-8 8 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 12 6.5 10.5M11 9l-1.5-1.5M14 12l-1.5-1.5M17 15l-1.5-1.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
       resetCamera: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h4l2-2h4l2 2h4v10H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.25" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
       preview: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m8 14 2.5-3 2.5 2 2-3 3 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       save: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 4v5h8M9 18h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
@@ -445,6 +449,14 @@ export const Viewer = {
       displayHelperZ: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10M7 17h10M17 7 7 17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
       visible: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
       clippingPlanes: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M5 5l14 14M19 5L5 19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      ruler: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="9" width="16" height="6" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.8"/> <path d="M7 9v2.5 M9.5 9v1.6 M12 9v2.5 M14.5 9v1.6 M17 9v2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+      annotate: `<svg viewBox="0 0 24 24" aria-hidden="true"> <path d="M5 5h14v10H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/> <path d="M9 9h6M9 12h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/> </svg>`,
+
+      annotateAdd: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 8v5M9.5 10.5h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+
+      annotateImport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 6.8v7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.8 12 14l3.2-3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+
+      annotateExport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 14.2V7.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.2 12 7l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     };
     return icons[icon] || icons.advancedEditor;
   },
@@ -463,8 +475,8 @@ export const Viewer = {
       { key: "move", icon: "move", onClick: () => this.toggleObjectTransformMode("translate"), pressed: true },
       { key: "rotate", icon: "rotate", onClick: () => this.toggleObjectTransformMode("rotate"), pressed: true },
       { key: "scale", icon: "scale", onClick: () => this.toggleObjectTransformMode("scale"), pressed: true },
-      { key: "lightMove", icon: "lightMove", onClick: () => this.toggleLightTransformMode("translate"), pressed: true },
-      { key: "lightTarget", icon: "lightTarget", onClick: () => this.toggleLightTransformMode("rotate"), pressed: true },
+      { key: "lights", icon: "lights", onClick: () => {}, pressed: false },
+      //{ key: "materials", icon: "materials", onClick: () => {}, pressed: false },
       { key: "picking", icon: "picking", onClick: () => this.togglePickingMode(), pressed: true },
       { key: "annotate", icon: "annotate", onClick: () => this.openAnnotationDialogWithAutoPicking() },
       { key: "ruler", icon: "ruler", onClick: () => this.toggleDistanceMeasurement(), pressed: true },
@@ -523,6 +535,261 @@ export const Viewer = {
         });
         button.appendChild(submenu);
       }
+      else if (tool.key === "annotate") {
+        button.classList.add("has-submenu");
+        const submenu = document.createElement("div");
+        submenu.className = "viewer-editor-tool_submenu";
+        const submenuItems = [
+          { key: "annotateAdd", icon: "annotateAdd", label: t("gui.annotateAdd", "Add Annotation"), onClick: () => Viewer.openAnnotationDialogWithAutoPicking() },
+          { key: "annotateImport", icon: "annotateImport", label: t("gui.annotateImport", "Import Annotations"), onClick: () => Viewer.downloadAnnotationsXmlFile() },
+          { key: "annotateExport", icon: "annotateExport", label: t("gui.annotateExport", "Export Annotations"), onClick: () => Viewer.triggerAnnotationsXmlImport() },
+        ];
+        this.annotateSubmenuButtons = {};
+        submenuItems.forEach((item) => {
+          const subButton = document.createElement("button");
+          subButton.type = "button";
+          subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+          subButton.dataset.tool = item.key;
+          subButton.innerHTML = `
+            <span class="viewer-editor-tool_icon" aria-hidden="true">${this.getEditorToolbarIcon(item.icon)}</span>
+          `;
+          subButton.setAttribute("title", item.label);
+          subButton.setAttribute("aria-label", item.label);
+          this.bindEventListener(subButton, "click", (event) => {
+            event.stopPropagation();
+            item.onClick();
+          });
+          submenu.appendChild(subButton);
+          this.annotateSubmenuButtons[item.key] = subButton;
+        });
+        button.appendChild(submenu);
+      }
+      else if (tool.key === "lights") {
+        button.classList.add("has-submenu");
+        const submenu = document.createElement("div");
+        submenu.className = "viewer-editor-tool_submenu";
+        this.lightTargetTransformButtons = {};
+
+        const normalizeColorValue = (value) => {
+          if (typeof value !== "string") return "#ffffff";
+          if (value.startsWith("0x")) {
+            return `#${value.slice(2).padStart(6, "0")}`;
+          }
+          return value.startsWith("#") ? value : `#${value}`;
+        };
+
+        const appendSubmenuItems = (items, container) => {
+          items.forEach((item) => {
+            const subButton = document.createElement("button");
+            subButton.type = "button";
+            subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+            subButton.dataset.tool = item.key;
+            subButton.setAttribute("title", item.label);
+            subButton.setAttribute("aria-label", item.label);
+
+            const iconSpan = document.createElement("span");
+            iconSpan.className = "viewer-editor-tool_icon";
+            iconSpan.setAttribute("aria-hidden", "true");
+            iconSpan.innerHTML = this.getEditorToolbarIcon(item.icon);
+            subButton.appendChild(iconSpan);
+
+            if (item.type === "color") {
+              subButton.classList.add("viewer-editor-tool_submenu-control");
+
+              const colorInput = document.createElement("input");
+              colorInput.type = "color";
+              colorInput.value = normalizeColorValue(item.value());
+              colorInput.className = "viewer-editor-tool_submenu-input";
+              colorInput.addEventListener("click", (event) => event.stopPropagation());
+              colorInput.addEventListener("input", (event) => {
+                const value = event.target.value;
+                item.onChange(value);
+                colorInput.value = normalizeColorValue(value);
+              });
+              subButton.appendChild(colorInput);
+            } else if (item.type === "slider") {
+              subButton.classList.add("viewer-editor-tool_submenu-control");
+
+              const slider = document.createElement("input");
+              slider.type = "range";
+              slider.min = item.min ?? 0;
+              slider.max = item.max ?? 10;
+              slider.step = item.step ?? 0.01;
+              slider.value = String(item.value());
+              slider.className = "viewer-editor-tool_submenu-input";
+              slider.addEventListener("click", (event) => event.stopPropagation());
+              slider.addEventListener("input", (event) => {
+                const value = parseFloat(event.target.value);
+                item.onChange(value);
+                valueLabel.textContent = value.toFixed(2);
+              });
+
+              const valueLabel = document.createElement("span");
+              valueLabel.className = "viewer-editor-tool_submenu-value";
+              valueLabel.textContent = Number(item.value()).toFixed(2);
+              valueLabel.setAttribute("aria-hidden", "true");
+
+              subButton.appendChild(slider);
+              subButton.appendChild(valueLabel);
+            } else {
+              if (item.onClick) {
+                this.bindEventListener(subButton, "click", (event) => {
+                  event.stopPropagation();
+                  item.onClick();
+                });
+              }
+            }
+
+            if (item.children) {
+              subButton.classList.add("has-submenu");
+              const nested = document.createElement("div");
+              nested.className = "viewer-editor-tool_submenu";
+              appendSubmenuItems(item.children, nested);
+              subButton.appendChild(nested);
+            }
+
+            if (item.key === "lightTargetTransformMove" || item.key === "lightTargetTransformTarget") {
+              this.lightTargetTransformButtons[item.key] = subButton;
+            }
+            container.appendChild(subButton);
+          });
+        };
+
+        appendSubmenuItems([
+          {
+            key: "lightTarget",
+            icon: "lightTarget",
+            label: t("gui.target", "Target"),
+            children: [
+              {
+                key: "lightTargetColor",
+                icon: "color",
+                label: t("gui.color", "Color"),
+                type: "color",
+                value: () => Viewer.colors.DirectionalLight,
+                onChange: (value) => {
+                  Viewer.colors.DirectionalLight = value;
+                  core.lightObjects[0].color = new THREE.Color(value);
+                },
+              },
+              {
+                key: "lightTargetIntensity",
+                icon: "intensity",
+                label: t("gui.intensity", "Intensity"),
+                type: "slider",
+                min: 0,
+                max: 10,
+                step: 0.01,
+                value: () => Viewer.intensity.startIntensityDir,
+                onChange: (value) => {
+                  Viewer.intensity.startIntensityDir = value;
+                  core.lightObjects[0].intensity = value;
+                },
+              },
+              {
+                key: "lightTargetTransform",
+                icon: "move",
+                label: t("gui.transform", "Transform"),
+                children: [
+                  { key: "lightTargetTransformMove", icon: "move", label: t("gui.move", "Move"), onClick: () => this.toggleLightTransformMode("translate") },
+                  { key: "lightTargetTransformTarget", icon: "lightTarget", label: t("gui.target", "Target"), onClick: () => this.toggleLightTransformMode("rotate") },
+                ],
+              },
+            ],
+          },
+          {
+            key: "lightAmbient",
+            icon: "ambientLight",
+            label: t("gui.ambient", "Ambient"),
+            children: [
+              {
+                key: "lightAmbientColor",
+                icon: "color",
+                label: t("gui.color", "Color"),
+                type: "color",
+                value: () => Viewer.colors.AmbientLight,
+                onChange: (value) => {
+                  Viewer.colors.AmbientLight = value;
+                  Viewer.ambientLight.color = new THREE.Color(value);
+                },
+              },
+              {
+                key: "lightAmbientIntensity",
+                icon: "intensity",
+                label: t("gui.intensity", "Intensity"),
+                type: "slider",
+                min: 0,
+                max: 10,
+                step: 0.01,
+                value: () => Viewer.intensity.startIntensityAmbient,
+                onChange: (value) => {
+                  Viewer.intensity.startIntensityAmbient = value;
+                  Viewer.ambientLight.intensity = value;
+                },
+              },
+            ],
+          },
+          {
+            key: "lightCamera",
+            icon: "cameraLight",
+            label: t("gui.camera", "Camera"),
+            children: [
+              {
+                key: "lightCameraColor",
+                icon: "color",
+                label: t("gui.color", "Color"),
+                type: "color",
+                value: () => Viewer.colors.CameraLight,
+                onChange: (value) => {
+                  Viewer.colors.CameraLight = value;
+                  Viewer.cameraLight.color = new THREE.Color(value);
+                },
+              },
+              {
+                key: "lightCameraIntensity",
+                icon: "intensity",
+                label: t("gui.intensity", "Intensity"),
+                type: "slider",
+                min: 0,
+                max: 10,
+                step: 0.01,
+                value: () => Viewer.intensity.startIntensityCamera,
+                onChange: (value) => {
+                  Viewer.intensity.startIntensityCamera = value;
+                  Viewer.cameraLight.intensity = value;
+                },
+              },
+            ],
+          },
+        ], submenu);
+        button.appendChild(submenu);
+      }
+      else if (tool.key === "materials") {
+        button.classList.add("has-submenu");
+        const submenu = document.createElement("div");
+        submenu.className = "viewer-editor-tool_submenu";
+        const submenuItems = [
+          { key: "materialColor", icon: "color", label: t("gui.color", "Color"), onClick: () => this.openMaterialsFolder() },
+          { key: "materialIntensity", icon: "intensity", label: t("gui.intensity", "Intensity"), onClick: () => this.openMaterialsFolder() },
+        ];
+        submenuItems.forEach((item) => {
+          const subButton = document.createElement("button");
+          subButton.type = "button";
+          subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+          subButton.dataset.tool = item.key;
+          subButton.innerHTML = `
+            <span class="viewer-editor-tool_icon" aria-hidden="true">${this.getEditorToolbarIcon(item.icon)}</span>
+          `;
+          subButton.setAttribute("title", item.label);
+          subButton.setAttribute("aria-label", item.label);
+          this.bindEventListener(subButton, "click", (event) => {
+            event.stopPropagation();
+            item.onClick();
+          });
+          submenu.appendChild(subButton);
+        });
+        button.appendChild(submenu);
+      }
       this.bindEventListener(button, "click", () => {
         this.stopHandMode();
         tool.onClick();
@@ -538,6 +805,7 @@ export const Viewer = {
 
     core.container.appendChild(toolbar);
     this.editorToolbar = toolbar;
+    this.updateFullscreenButtonIcon();
     this.updateEditorToolbarLabels();
     this.updateEditorToolbarState();
   },
@@ -550,8 +818,7 @@ export const Viewer = {
       move: t("gui.move", "Move"),
       rotate: t("gui.rotate", "Rotate"),
       scale: t("gui.scale", "Scale"),
-      lightMove: t("toolbar.lightMove", "Move light"),
-      lightTarget: t("toolbar.lightTarget", "Light target"),
+      lights: t("gui.lights", "Lights"),
       picking: this.pickingMode
         ? t("controls.disablePickingMode", "Disable picking mode")
         : t("controls.enablePickingMode", "Enable picking mode"),
@@ -565,9 +832,9 @@ export const Viewer = {
       advancedEditor: this.isEditorAdvancedPanelVisible()
         ? t("toolbar.hideAdvancedEditor", "Hide advanced editor")
         : t("toolbar.showAdvancedEditor", "Show advanced editor"),
-      fullScreen: this.FULLSCREEN
-        ? t("fullscreen.enter", "Enter fullscreen")
-        : t("fullscreen.exit", "Exit fullscreen"),
+      fullScreen: Viewer.FULLSCREEN
+        ? t("fullscreen.exit", "Exit fullscreen")
+        : t("fullscreen.enter", "Enter fullscreen"),
       clippingPlanes: this.clippingMode
         ? t("toolbar.disableClippingPlanesMode", "Disable clipping planes mode")
         : t("toolbar.enableClippingPlanesMode", "Enable clipping planes mode"),
@@ -580,6 +847,35 @@ export const Viewer = {
       const sr = button.querySelector(".viewer-editor-tool_sr");
       if (sr) sr.textContent = label;
     });
+
+    // Update submenu button labels for clipping planes
+    if (this.clippingPlaneSubmenuButtons) {
+      const clippingPlaneSubmenuLabels = {
+        displayHelperX: t("gui.displayHelperX", "Show X helper"),
+        displayHelperY: t("gui.displayHelperY", "Show Y helper"),
+        displayHelperZ: t("gui.displayHelperZ", "Show Z helper"),
+        visible: t("gui.visible", "Visible"),
+      };
+      Object.entries(this.clippingPlaneSubmenuButtons).forEach(([key, button]) => {
+        const label = clippingPlaneSubmenuLabels[key] || key;
+        button.setAttribute("title", label);
+        button.setAttribute("aria-label", label);
+      });
+    }
+
+    // Update submenu button labels for annotations
+    if (this.annotateSubmenuButtons) {
+      const annotateSubmenuLabels = {
+        annotateAdd: t("gui.addAnnotations", "Add Annotation"),
+        annotateImport: t("gui.importAnnotationsXml", "Import Annotations"),
+        annotateExport: t("gui.exportAnnotationsXml", "Export Annotations"),
+      };
+      Object.entries(this.annotateSubmenuButtons).forEach(([key, button]) => {
+        const label = annotateSubmenuLabels[key] || key;
+        button.setAttribute("title", label);
+        button.setAttribute("aria-label", label);
+      });
+    }
 
     this.editorToolbar?.setAttribute("aria-label", t("toolbar.editor", "Editor tools"));
   },
@@ -642,6 +938,19 @@ export const Viewer = {
   toggleLightTransformMode(mode = "") {
     const nextMode = this.transformText["Transform Light"] === mode ? "" : mode;
     this.setLightTransformMode(nextMode);
+  },
+
+  openLightFolder(name) {
+    const folder = core.i18nGui?.[name];
+    if (folder?.open) {
+      folder.open();
+    }
+  },
+
+  openMaterialsFolder() {
+    if (core.materialsFolder?.open) {
+      core.materialsFolder.open();
+    }
   },
 
   togglePickingMode() {
@@ -817,7 +1126,24 @@ export const Viewer = {
       "is-active",
       Boolean(core.planeParams?.outline?.visible)
     );
+  },
 
+  updateAnnotateSubmenuState() {
+    if (!this.annotateSubmenuButtons) return;
+
+  },
+
+  updateLightsSubmenuState() {
+    if (!this.lightTargetTransformButtons) return;
+    const activeMode = this.transformText["Transform Light"];
+    this.lightTargetTransformButtons.lightTargetTransformMove?.classList.toggle(
+      "is-active",
+      activeMode === "translate"
+    );
+    this.lightTargetTransformButtons.lightTargetTransformTarget?.classList.toggle(
+      "is-active",
+      activeMode === "rotate"
+    );
   },
 
   async saveEditorMetadata() {
@@ -888,13 +1214,11 @@ export const Viewer = {
       move: this.transformText["Transform 3D Object"] === "translate",
       rotate: this.transformText["Transform 3D Object"] === "rotate",
       scale: this.transformText["Transform 3D Object"] === "scale",
-      lightMove: this.transformText["Transform Light"] === "translate",
-      lightTarget: this.transformText["Transform Light"] === "rotate",
       picking: this.pickingMode === true,
       ruler: this.RULER_MODE === true,
       clippingPlanes: this.clippingMode === true,
       advancedEditor: this.isEditorAdvancedPanelVisible(),
-      fullScreen: this.FULLSCREEN === true,
+      fullScreen: Viewer.FULLSCREEN === true,
     };
 
     Object.entries(this.editorToolbarButtons).forEach(([key, button]) => {
@@ -908,6 +1232,7 @@ export const Viewer = {
     });
 
     this.updateClippingPlanesSubmenuState();
+    this.updateLightsSubmenuState();
   },
 
   isEmbedModeActive() {
@@ -2675,7 +3000,7 @@ export const Viewer = {
 
   updateFullscreenButtonIcon() {
     if (this.editorToolbar) {
-      if (this.FULLSCREEN) {
+      if (Viewer.FULLSCREEN) {
         this.editorToolbar.classList.add("with-fullscreen");
       } else {
         this.editorToolbar.classList.remove("with-fullscreen");
@@ -5034,6 +5359,10 @@ export const Viewer = {
       } else {
         await document.exitFullscreen();
       }
+      Viewer.updateSize();
+      Viewer.updateFullscreenButtonIcon();
+      Viewer.updateEditorToolbarLabels();
+      Viewer.updateEditorToolbarState();
     } catch (err) {
       Viewer.reportError(err, {
         context: "Fullscreen error",
@@ -5044,15 +5373,17 @@ export const Viewer = {
   },
 
   onFullscreenChange () {
-    Viewer.updateFullscreenButtonIcon();
-    Viewer.closeActionMenu();
-
     // Layout (ESC + click)
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         Viewer.updateSize();
+        Viewer.updateEditorToolbarLabels();
+        Viewer.updateEditorToolbarState();
       });
     });
+
+    Viewer.updateFullscreenButtonIcon();
+    Viewer.closeActionMenu();
   },
 
   exitFullscreenHandler() {
