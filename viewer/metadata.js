@@ -272,12 +272,9 @@ export async function handleMetadataResponse(
   object,
   hierarchyMain,
 ) {
-  const hierarchyLabel = t("gui.hierarchy", "Hierarchy");
-  const hasHierarchyFolder = () =>
-    lilGUIgetFolder(core.gui, "Hierarchy") !== null ||
-    lilGUIgetFolder(core.gui, hierarchyLabel) !== null;
+  Viewer.clearHierarchySubmenu();
+  
   var tempArray = [];
-  let hierarchyFolder;
   if (Array.isArray(object)) {
     setupObject(object[0], data);
     await setupCamera(object[0], data);
@@ -289,29 +286,16 @@ export async function handleMetadataResponse(
         metadata["faces"] += fetchMetadata(child, "faces");
         if (child.name === "") child.name = "Mesh";
         var shortChildName = truncateString(child.name, 35);
-        tempArray = {
-          [shortChildName]() {
-           core.selectObjectHierarchy(child.id, core.container);
-          },
-          id: child.id,
-        };
-        if (typeof hierarchyMain !== "undefined" && hasHierarchyFolder() && !lilGUIhasFolder(hierarchyMain, shortChildName)) {
-          hierarchyFolder = hierarchyMain.addFolder(shortChildName).close();
-          hierarchyFolder.add(tempArray, shortChildName);
-          child.traverse(function (children) {
-            if (children.isMesh && children.name !== child.name) {
-              if (children.name === "") children.name = "ChildrenMesh";
-              var shortChildrenName = truncateString(children.name, 35);
-              tempArray = {
-                [shortChildrenName]() {
-                  core.selectObjectHierarchy(children.id, core.container);
-                },
-                id: children.id,
-              };
-              hierarchyFolder.add(tempArray, shortChildrenName);
-            }
-          });
-        }
+        
+        Viewer.addHierarchySubmenuItem(shortChildName, child.id);
+        
+        child.traverse(function (children) {
+          if (children.isMesh && children.name !== child.name) {
+            if (children.name === "") children.name = "ChildrenMesh";
+            var shortChildrenName = truncateString(children.name, 35);
+            Viewer.addHierarchySubmenuItem(shortChildrenName, children.id);
+          }
+        });
       }
     });
     await setupCamera(object, data);
@@ -321,28 +305,11 @@ export async function handleMetadataResponse(
     metadata["vertices"] += fetchMetadata(object, "vertices");
     metadata["faces"] += fetchMetadata(object, "faces");
     if (object.name === "") {
-      tempArray = {
-        ["Mesh"]() {
-          core.selectObjectHierarchy(object.id, core.container);
-        },
-        id: object.id,
-      };
+      Viewer.addHierarchySubmenuItem("Mesh", object.id);
       object.name = object.id;
     } else {
-      tempArray = {
-        [object.name]() {
-          core.selectObjectHierarchy(object.id, core.container);
-        },
-        id: object.id,
-      };
+      Viewer.addHierarchySubmenuItem(object.name, object.id);
     }
-    if (hierarchyMain && hasHierarchyFolder() && !lilGUIhasFolder(hierarchyMain, object.name)) {
-      hierarchyFolder = hierarchyMain.addFolder(object.name).close();
-    }
-  }
-
-  if (typeof hierarchyMain !== "undefined") {
-    hierarchyMain.domElement.classList.add("hierarchy");
   }
 
   if (!core.metadataContainer) {
@@ -436,10 +403,7 @@ export async function settingsHandler(object, hierarchyMain, data) {
   } else {
     setupObject(object, data);
     await setupCamera(object, data);
-    if (object.name === "undefined") object.name = "level";
-    if (hierarchyMain && !lilGUIhasFolder(hierarchyMain, object.name)) {
-      hierarchyMain.addFolder(object.name).close();
-    }
+    // Hierarchy is now managed by the editor toolbar submenu
   }
 }
 
@@ -518,21 +482,8 @@ export async function fetchSettings(object) {
   }
 
   let hierarchyMain;
-  const hierarchyLabel = t("gui.hierarchy", "Hierarchy");
-  const existingHierarchy = lilGUIgetFolder(core.gui, "Hierarchy") || lilGUIgetFolder(core.gui, hierarchyLabel);
-  if (existingHierarchy === null) {
-    hierarchyMain = core.gui?.addFolder(hierarchyLabel).close();
-    hierarchyMain?.domElement?.classList.add("viewer-gui-main-folder");
-    hierarchyMain?.domElement?.setAttribute("data-gui-main-folder", "hierarchy");
-  } else {
-    hierarchyMain = existingHierarchy;
-    if (typeof hierarchyMain.title === "function") {
-      hierarchyMain.title(hierarchyLabel);
-    }
-    hierarchyMain?.domElement?.classList.add("viewer-gui-main-folder");
-    hierarchyMain?.domElement?.setAttribute("data-gui-main-folder", "hierarchy");
-  }
-  core.i18nGui.hierarchyFolder = hierarchyMain;
+  // Hierarchy is now managed by the editor toolbar submenu, not lilGUI
+  
   if (core.CONFIG.entity.metadata.sourceType === "IIIF") {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);
     await handleMetadataResponse( core.CONFIG.model, metadata, object, hierarchyMain);
@@ -553,39 +504,6 @@ export async function fetchSettings(object) {
   } else {
     window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(null);
     await handleMetadataResponse("", metadata, object, hierarchyMain);
-  }
-  // Add statistics GUI
-  let statsMain;
-  const statisticsLabel = t("gui.statistics", "Statistics");
-  if (lilGUIgetFolder(core.gui, "Statistics") === null && lilGUIgetFolder(core.gui, statisticsLabel) === null) {
-    statsMain = core.gui.addFolder(statisticsLabel).close();
-    statsMain?.domElement?.classList.add("viewer-gui-main-folder");
-    statsMain?.domElement?.setAttribute("data-gui-main-folder", "statistics");
-    const performanceController = statsMain
-    .add(core.CONFIG.viewer.performanceMode, "Performance", {
-      [t("gui.highPerformance", "High-performance")]: "high-performance",
-      [t("gui.lowPower", "Low-power")]: "low-power",
-      [t("gui.default", "Default")]: "default",
-    })
-    .name(t("gui.performance", "Performance"))
-    .onChange(function (value) {
-      if (typeof core.renderer !== "undefined") core.renderer.powerPreference = value;
-    });
-
-    core.i18nGui.statisticsFolder = statsMain;
-    core.i18nGui.performanceController = performanceController;
-
-    statsMain.onOpenClose((changedGUI) => {
-    if (changedGUI._closed) {
-      if (typeof core.stats !== "undefined") core.stats.dom.style.visibility = "hidden";
-    } else {
-      if (typeof core.stats !== "undefined") core.stats.dom.style.visibility = "visible";
-    }
-    });
-    if (typeof core.guiContainer !== "undefined" && typeof core.stats !== "undefined") {
-      core.guiContainer.appendChild(core.stats.dom);
-      core.stats.dom.style.left = (core.lilGui[0]?.getBoundingClientRect().width - core.stats.domElement.getBoundingClientRect().width + 10) + 'px';
-    }
   }
 }
 

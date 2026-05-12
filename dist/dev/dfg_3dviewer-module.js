@@ -256,6 +256,8 @@ const VIEWER_I18N = {
       transformMode: "Transform Mode",
       directionalLight: "Directional Light",
       ambientLight: "Ambient Light",
+      ambient: "Ambient",
+      lights: "Lights",
       cameraLight: "Camera Light",
       backgroundColor: "Background Color",
       BackgroundColorOuter: "Background Color Outer",
@@ -301,6 +303,12 @@ const VIEWER_I18N = {
       gradient: "Gradient",
       editMaterial: "Edit material",
       selectByMaterial: "select by material",
+      hideAdvancedEditor: "Hide advanced editor",
+      showAdvancedEditor: "Show advanced editor",
+      showLoadingLogs: "Show loading logs",
+      hideLoadingLogs: "Hide loading logs",
+      hierarchy: "Hierarchy",
+      expand: "Expand toolbar",
     },
     metadata: {
       modelDetails: "Model details",
@@ -422,6 +430,8 @@ const VIEWER_I18N = {
 
       featureToggle: "{feature} is {state}.",
       clippingHelperToggle: "Clipping plane {axis} helper {state}.",
+
+      clippingPlanes: "Drag active clipping plane helper to adjust cut",
     },
     shortcuts: {
       mouse: "Mouse: drag orbit, wheel zoom, right-drag pan",
@@ -460,6 +470,7 @@ const VIEWER_I18N = {
     },
     hints: {
       picking: "Shift + klik, aby wybrać wiele scian",
+      pickingSelect: "Wybierz co najmniej jedną ścianę, aby dodać adnotację.",
       clipping: "Przeciągnij aktywną plaszczyznę przycinania, aby dostosować cięcie",
     },
     controls: {
@@ -477,6 +488,8 @@ const VIEWER_I18N = {
       transformMode: "Tryb transformacji",
       directionalLight: "Światło kierunkowe",
       ambientLight: "Światło otaczające",
+      ambient: "Ambient",
+      lights: "Światła",
       cameraLight: "Światło kamery",
       backgroundColor: "Kolor tła",
       backgroundColorOuter: "Kolor tła zewnętrznego",
@@ -522,6 +535,12 @@ const VIEWER_I18N = {
       gradient: "Gradient",
       editMaterial: "Edytuj materiał",
       selectByMaterial: "wybierz według materiału",
+      hideAdvancedEditor: "Ukryj tryb zaawansowany",
+      showAdvancedEditor: "Pokaż tryb zaawansowany",
+      showLoadingLogs: "Pokaż logi ładowania",
+      hideLoadingLogs: "Ukryj logi ładowania",
+      hierarchy: "Hierarchia",
+      expand: "Rozwiń pasek narzędzi",
     },
     metadata: {
       modelDetails: "Szczegóły modelu",
@@ -643,6 +662,8 @@ const VIEWER_I18N = {
 
       featureToggle: "{feature} jest {state}.",
       clippingHelperToggle: "Pomocnik płaszczyzny przycinania {axis} jest {state}.",
+
+      clippingPlanes: "Przeciągnij aktywną płaszczyznę przycinania, aby dostosować cięcie",
     },
     shortcuts: {
       mouse: "Mysz: przeciągnij, aby obracać, rolka - zoom, prawy przycisk - przesuwanie",
@@ -680,6 +701,7 @@ const VIEWER_I18N = {
     },
     hints: {
       picking: "Umschalt + Klick, um mehrere Flächen auszuwählen",
+      pickingSelect: "Wählen Sie mindestens eine Fläche aus, um eine Anmerkung hinzuzufügen.",
       clipping: "Ziehen Sie die aktive Schnittebene-Hilfe, um den Schnitt anzupassen",
     },
     controls: {
@@ -697,6 +719,8 @@ const VIEWER_I18N = {
       transformMode: "Transformationsmodus",
       directionalLight: "Gerichtetes Licht",
       ambientLight: "Umgebungslicht",
+      ambient: "Ambient",
+      lights: "Beleuchtung",
       cameraLight: "Kamera-Licht",
       backgroundColor: "Hintergrundfarbe",
       backgroundColorOuter: "Äußere Hintergrundfarbe",
@@ -742,6 +766,12 @@ const VIEWER_I18N = {
       gradient: "Farbverlauf",
       editMaterial: "Material bearbeiten",
       selectByMaterial: "nach Material auswählen",
+      hideAdvancedEditor: "Erweiterten Editor ausblenden",
+      showAdvancedEditor: "Erweiterten Editor anzeigen",
+      showLoadingLogs: "Ladeprotokolle anzeigen",
+      hideLoadingLogs: "Ladeprotokolle ausblenden",
+      hierarchy: "Hierarchie",
+      expand: "Werkzeugleiste erweitern",
     },
     metadata: {
       modelDetails: "Modelldetails",
@@ -863,6 +893,8 @@ const VIEWER_I18N = {
 
       featureToggle: "{feature} ist {state}.",
       clippingHelperToggle: "Clipping-Ebenen-Helfer {axis} ist {state}.",
+
+      clippingPlanes: "Ziehen Sie die aktive Schnittebene-Hilfe, um den Schnitt anzupassen",
     },
     shortcuts: {
       mouse: "Maus: ziehen zum Drehen, Mausrad - Zoom, Rechtsklick - Verschieben",
@@ -2074,14 +2106,6 @@ function addWissKIMetadata(label, value) {
   }
 }
 
-function lilGUIhasFolder(folder, name) {
-  return folder.folders.some(f => f._title === name);
-}
-
-function lilGUIgetFolder(gui, name) {
-  return gui?.folders?.find(f => f._title === name) || null;
-}
-
 /**
  * Expands/collapses the metadata panel.
  */
@@ -2278,12 +2302,7 @@ async function handleMetadataResponse(
   object,
   hierarchyMain,
 ) {
-  const hierarchyLabel = t$1("gui.hierarchy", "Hierarchy");
-  const hasHierarchyFolder = () =>
-    lilGUIgetFolder(core.gui, "Hierarchy") !== null ||
-    lilGUIgetFolder(core.gui, hierarchyLabel) !== null;
-  var tempArray = [];
-  let hierarchyFolder;
+  Viewer.clearHierarchySubmenu();
   if (Array.isArray(object)) {
     setupObject(object[0], data);
     await setupCamera(object[0], data);
@@ -2295,29 +2314,16 @@ async function handleMetadataResponse(
         metadata["faces"] += fetchMetadata(child, "faces");
         if (child.name === "") child.name = "Mesh";
         var shortChildName = truncateString(child.name, 35);
-        tempArray = {
-          [shortChildName]() {
-           core.selectObjectHierarchy(child.id, core.container);
-          },
-          id: child.id,
-        };
-        if (typeof hierarchyMain !== "undefined" && hasHierarchyFolder() && !lilGUIhasFolder(hierarchyMain, shortChildName)) {
-          hierarchyFolder = hierarchyMain.addFolder(shortChildName).close();
-          hierarchyFolder.add(tempArray, shortChildName);
-          child.traverse(function (children) {
-            if (children.isMesh && children.name !== child.name) {
-              if (children.name === "") children.name = "ChildrenMesh";
-              var shortChildrenName = truncateString(children.name, 35);
-              tempArray = {
-                [shortChildrenName]() {
-                  core.selectObjectHierarchy(children.id, core.container);
-                },
-                id: children.id,
-              };
-              hierarchyFolder.add(tempArray, shortChildrenName);
-            }
-          });
-        }
+        
+        Viewer.addHierarchySubmenuItem(shortChildName, child.id);
+        
+        child.traverse(function (children) {
+          if (children.isMesh && children.name !== child.name) {
+            if (children.name === "") children.name = "ChildrenMesh";
+            var shortChildrenName = truncateString(children.name, 35);
+            Viewer.addHierarchySubmenuItem(shortChildrenName, children.id);
+          }
+        });
       }
     });
     await setupCamera(object, data);
@@ -2327,28 +2333,11 @@ async function handleMetadataResponse(
     metadata["vertices"] += fetchMetadata(object, "vertices");
     metadata["faces"] += fetchMetadata(object, "faces");
     if (object.name === "") {
-      tempArray = {
-        ["Mesh"]() {
-          core.selectObjectHierarchy(object.id, core.container);
-        },
-        id: object.id,
-      };
+      Viewer.addHierarchySubmenuItem("Mesh", object.id);
       object.name = object.id;
     } else {
-      tempArray = {
-        [object.name]() {
-          core.selectObjectHierarchy(object.id, core.container);
-        },
-        id: object.id,
-      };
+      Viewer.addHierarchySubmenuItem(object.name, object.id);
     }
-    if (hierarchyMain && hasHierarchyFolder() && !lilGUIhasFolder(hierarchyMain, object.name)) {
-      hierarchyFolder = hierarchyMain.addFolder(object.name).close();
-    }
-  }
-
-  if (typeof hierarchyMain !== "undefined") {
-    hierarchyMain.domElement.classList.add("hierarchy");
   }
 
   if (!core.metadataContainer) {
@@ -2442,10 +2431,7 @@ async function settingsHandler(object, hierarchyMain, data) {
   } else {
     setupObject(object, data);
     await setupCamera(object, data);
-    if (object.name === "undefined") object.name = "level";
-    if (hierarchyMain && !lilGUIhasFolder(hierarchyMain, object.name)) {
-      hierarchyMain.addFolder(object.name).close();
-    }
+    // Hierarchy is now managed by the editor toolbar submenu
   }
 }
 
@@ -2524,24 +2510,11 @@ async function fetchSettings(object) {
   }
 
   let hierarchyMain;
-  const hierarchyLabel = t$1("gui.hierarchy", "Hierarchy");
-  const existingHierarchy = lilGUIgetFolder(core.gui, "Hierarchy") || lilGUIgetFolder(core.gui, hierarchyLabel);
-  if (existingHierarchy === null) {
-    hierarchyMain = core.gui?.addFolder(hierarchyLabel).close();
-    hierarchyMain?.domElement?.classList.add("viewer-gui-main-folder");
-    hierarchyMain?.domElement?.setAttribute("data-gui-main-folder", "hierarchy");
-  } else {
-    hierarchyMain = existingHierarchy;
-    if (typeof hierarchyMain.title === "function") {
-      hierarchyMain.title(hierarchyLabel);
-    }
-    hierarchyMain?.domElement?.classList.add("viewer-gui-main-folder");
-    hierarchyMain?.domElement?.setAttribute("data-gui-main-folder", "hierarchy");
-  }
-  core.i18nGui.hierarchyFolder = hierarchyMain;
+  // Hierarchy is now managed by the editor toolbar submenu, not lilGUI
+  
   if (core.CONFIG.entity.metadata.sourceType === "IIIF") {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);
-    await handleMetadataResponse( core.CONFIG.model, metadata, object, hierarchyMain);
+    await handleMetadataResponse( core.CONFIG.model, metadata, object);
   }
   else if (metadataUrl) {
     console.log("Loading metadata from URL:", metadataUrl);
@@ -2549,49 +2522,16 @@ async function fetchSettings(object) {
       metadataUrl = core.getProxyPath(metadataUrl, core.CONFIG);
       const data = await loadMetadataData(metadataUrl);
       window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
-      await handleMetadataResponse(data, metadata, object, hierarchyMain);
+      await handleMetadataResponse(data, metadata, object);
       settingsHandler(object, hierarchyMain, core.CONFIG);
     } else {
       const data = await loadMetadataData(metadataUrl);
       window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
-      await handleMetadataResponse(data, metadata, object, hierarchyMain);
+      await handleMetadataResponse(data, metadata, object);
     }
   } else {
     window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(null);
-    await handleMetadataResponse("", metadata, object, hierarchyMain);
-  }
-  // Add statistics GUI
-  let statsMain;
-  const statisticsLabel = t$1("gui.statistics", "Statistics");
-  if (lilGUIgetFolder(core.gui, "Statistics") === null && lilGUIgetFolder(core.gui, statisticsLabel) === null) {
-    statsMain = core.gui.addFolder(statisticsLabel).close();
-    statsMain?.domElement?.classList.add("viewer-gui-main-folder");
-    statsMain?.domElement?.setAttribute("data-gui-main-folder", "statistics");
-    const performanceController = statsMain
-    .add(core.CONFIG.viewer.performanceMode, "Performance", {
-      [t$1("gui.highPerformance", "High-performance")]: "high-performance",
-      [t$1("gui.lowPower", "Low-power")]: "low-power",
-      [t$1("gui.default", "Default")]: "default",
-    })
-    .name(t$1("gui.performance", "Performance"))
-    .onChange(function (value) {
-      if (typeof core.renderer !== "undefined") core.renderer.powerPreference = value;
-    });
-
-    core.i18nGui.statisticsFolder = statsMain;
-    core.i18nGui.performanceController = performanceController;
-
-    statsMain.onOpenClose((changedGUI) => {
-    if (changedGUI._closed) {
-      if (typeof core.stats !== "undefined") core.stats.dom.style.visibility = "hidden";
-    } else {
-      if (typeof core.stats !== "undefined") core.stats.dom.style.visibility = "visible";
-    }
-    });
-    if (typeof core.guiContainer !== "undefined" && typeof core.stats !== "undefined") {
-      core.guiContainer.appendChild(core.stats.dom);
-      core.stats.dom.style.left = (core.lilGui[0]?.getBoundingClientRect().width - core.stats.domElement.getBoundingClientRect().width + 10) + 'px';
-    }
+    await handleMetadataResponse("", metadata, object);
   }
 }
 
@@ -3313,6 +3253,8 @@ async function loadModel() {
 
     updateLoadingStage("loadingLog.modelLoaded", 100);
     core.circle?.complete?.(2600);
+    core.editorToolbar?.classList.remove('editorToolbar-hidden');
+    core.editorToolbar?.classList.add('editorToolbar-visible');
     core.loadingLog?.finish?.();
     if (!core.PRESENTATION_MODE) {
       toastHelper$1("modelLoaded", "success", {
@@ -3363,6 +3305,8 @@ const progressLoaderHandler = function (xhr) {
   if (!Number.isFinite(percentComplete)) return;
   core.circle.show();
   core.circle.set(percentComplete, 100);
+  core.editorToolbar?.classList.remove('editorToolbar-hidden');
+  core.editorToolbar?.classList.add('editorToolbar-visible');
   core.loadingLog?.update?.(percentComplete);
   core.UltraLoader?.set(percentComplete);
 };
@@ -9727,7 +9671,7 @@ window.viewer = {
   controls: null
 };
 
-const Viewer = {
+const Viewer$1 = {
   CONFIG: null,
   PRESENTATION_MODE: false,
   SANDBOX_MODE: false,
@@ -9774,9 +9718,13 @@ const Viewer = {
   actionMenu: null,
   actionMenuToggle: null,
   actionMenuPanel: null,
+  mainMenuButton: null,
   fullscreenMode: null,
   themeMode: null,
   languageMode: null,
+  editorToolbar: null,
+  editorToolbarButtons: {},
+  isToolbarExpanded: false,
   downloadModel: null,
   embedConfiguratorPanel: null,
   embedConfigInputs: null,
@@ -9784,6 +9732,7 @@ const Viewer = {
   embedMissingSourceNotified: false,
   currentTheme: "dark",
   currentLanguage: "en",
+  loadingLog: null,
   loadingLogMessageKeys: [
     "loadingLog.loadingAssets",
     "loadingLog.loadingModel",
@@ -10055,6 +10004,1072 @@ const Viewer = {
     if (this.languageModeDropdown) {
       this.languageModeDropdown.hidden = true;
     }
+    this.updateEditorToolbarState();
+  },
+
+  stopHandMode() {
+    const g = core.GESTURE;
+    if (g) {
+      g.rotate = false;
+      g.active = false;
+      g.baseAngle = null;
+      g.target = null;
+    }
+
+    if (core.handHint) {
+      core.handHint.hidden = true;
+      core.handHint.classList.remove("hand-drag-animate");
+    }
+
+    if (core.controls) {
+      core.controls.enabled = true;
+      core.controls.update?.();
+    }
+  },
+
+  getEditorToolbarIcon(icon) {
+    const icons = {
+      orbit: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16.5 2.75 21 3.5l-.75 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.25" fill="currentColor"/></svg>',
+      move: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      rotate: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.5A7.5 7.5 0 1 1 5 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 3.5v3H5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      scale: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8h8v8H8zM5 5h4M5 5v4M19 19h-4M19 19v-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      lightMove: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 13h5l-1 8 7-10h-5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
+      lightTarget: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+      lights: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="10" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v3M12 19v3M4.5 6.5l2.2 2.2M17.3 17.3l2.2 2.2M4.5 17.5l2.2-2.2M17.3 6.7l2.2-2.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M10 22h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+      materials: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 4v8l-8 4-8-4V6l8-4z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 6l8 4M12 6v8M12 14l-8-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+      ambientLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+      cameraLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h3l2-2h4l2 2h3v10H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+      color: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a5 5 0 0 0-5 5c0 2.8 5 9 5 9s5-6.2 5-9a5 5 0 0 0-5-5Z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 14.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z" fill="currentColor"/></svg>',
+      intensity: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+      picking: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 3 8 8-4 1 2 5-2.5 1-2-5-3 3Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
+      resetCamera: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h4l2-2h4l2 2h4v10H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.25" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+      preview: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m8 14 2.5-3 2.5 2 2-3 3 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      save: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 4v5h8M9 18h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+      mainMenu: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2 2.2 3-.2.8 2.9 2.6 1.4-1 2.8 1 2.8-2.6 1.4-.8 2.9-3-.2L12 21l-2-2.2-3 .2-.8-2.9-2.6-1.4 1-2.8-1-2.8 2.6-1.4.8-2.9 3 .2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+      advancedEditor: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M4 17h16M14 7h6M4 12h6M12 12h8M8 5v4M16 10v4M10 15v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      fullScreen: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5M4 4v5M20 4h-5M20 4v5M4 20h5M4 20v-5M20 20h-5M20 20v-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      displayHelperX: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8l8 8M16 8 8 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+      displayHelperY: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7 12 13 17 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 13v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+      displayHelperZ: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10M7 17h10M17 7 7 17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+      visible: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+      clippingPlanes: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M5 5l14 14M19 5L5 19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      ruler: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="9" width="16" height="6" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.8"/> <path d="M7 9v2.5 M9.5 9v1.6 M12 9v2.5 M14.5 9v1.6 M17 9v2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+      annotate: `<svg viewBox="0 0 24 24" aria-hidden="true"> <path d="M5 5h14v10H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/> <path d="M9 9h6M9 12h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/> </svg>`,
+      annotateAdd: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 8v5M9.5 10.5h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+      annotateImport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 6.8v7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.8 12 14l3.2-3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      annotateExport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 14.2V7.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.2 12 7l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      loadingLogs: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18M3 6h12M3 18h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+      hierarchy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5v5H4zM15 4h5v5h-5zM4 15h5v5H4zM15 15h5v5h-5zM9 6h6M9 17h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      performance: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
+      statistics: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7 14v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 10v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M17 6v12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+      performanceDefault: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
+      performanceHigh: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="#FF4136"/></svg>',
+      performanceLow: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="#2ECC40"/></svg>',
+      expand: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      collapse: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',        
+    };
+    return icons[icon] || icons.advancedEditor;
+  },
+
+  toggleToolbarExpanded() {
+    if (!core.editorToolbar) return;
+    const hiddenTools = core.editorToolbar.querySelectorAll(".viewer-editor-tool");
+    console.log("Toggling toolbar expansion. Hidden tools:", hiddenTools);
+
+    hiddenTools.forEach(tool => {
+      if (tool.dataset.primary === "true") return; // Skip primary tools
+      tool.classList.toggle("viewer-editor-tool-not-primary");
+    });
+    this.isToolbarExpanded = !this.isToolbarExpanded;
+      this.editorToolbarButtons.expand.classList.toggle("expanded-icon", this.isToolbarExpanded);
+  },
+
+  createEditorToolbar() {
+    if (!core.EDITOR || this.urlOptions.hideUi || core.editorToolbar || !core.container) return;
+
+    const toolbar = document.createElement("div");
+    toolbar.id = "viewerEditorToolbar";
+    toolbar.setAttribute("role", "toolbar");
+    toolbar.setAttribute("aria-label", t$1("toolbar.editor", "Editor tools"));
+    toolbar.style.translate = "-50% 95%";
+
+    const tools = [
+      { key: "orbit", icon: "orbit", onClick: () => this.setObjectTransformMode(""), primary: true },
+      { key: "move", icon: "move", onClick: () => this.toggleObjectTransformMode("translate"), pressed: true, primary: true },
+      { key: "rotate", icon: "rotate", onClick: () => this.toggleObjectTransformMode("rotate"), pressed: true, primary: true },
+      { key: "scale", icon: "scale", onClick: () => this.toggleObjectTransformMode("scale"), pressed: true, primary: true },
+      { key: "lights", icon: "lights", onClick: () => {}, pressed: false, primary: false },
+      //{ key: "materials", icon: "materials", onClick: () => {}, pressed: false },
+      { key: "picking", icon: "picking", onClick: () => this.togglePickingMode(), pressed: true, primary: false },
+      { key: "annotate", icon: "annotate", onClick: () => this.openAnnotationDialogWithAutoPicking(), primary: false },
+      { key: "ruler", icon: "ruler", onClick: () => this.toggleDistanceMeasurement(), pressed: true, primary: false },
+      { key: "fullScreen", icon: "fullScreen", onClick: () => this.toggleFullscreen(), pressed: true, primary: true },
+      { key: "clippingPlanes", icon: "clippingPlanes", onClick: () => this.toggleClippingPlanesPanel(), pressed: true, primary: false },
+      { key: "resetCamera", icon: "resetCamera", onClick: () => this.resetCamera(), primary: false },
+      { key: "loadingLogs", icon: "loadingLogs", onClick: () => this.toggleLoadingLogs(), pressed: true, primary: false },
+      { key: "hierarchy", icon: "hierarchy", onClick: () => {}, pressed: true, primary: false },
+      { key: "statistics", icon: "statistics", onClick: () => {}, pressed: true, primary: false },
+      { key: "advancedEditor", icon: "advancedEditor", onClick: () => this.toggleEditorAdvancedPanel(), pressed: true, primary: false },
+    ];
+
+    if (!core.isLightweight) {
+      tools.splice(tools.length - 1, 0,
+        { key: "preview", icon: "preview", onClick: () => this.takeScreenshot() },
+        { key: "save", icon: "save", onClick: () => this.saveEditorMetadata() }
+      );
+    }
+
+    this.editorToolbarButtons = {};
+
+    tools.forEach((tool) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "viewer-editor-tool";
+      if (!tool.primary) {
+        button.classList.add("viewer-editor-tool-not-primary");
+      }
+      button.dataset.tool = tool.key;
+      button.dataset.pressed = tool.pressed ? "true" : "false";
+      button.dataset.primary = tool.primary ? "true" : "false";
+      button.innerHTML = `
+        <span class="viewer-editor-tool_icon" aria-hidden="true">${this.getEditorToolbarIcon(tool.icon)}</span>
+        <span class="viewer-editor-tool_sr"></span>
+      `;
+      if (tool.key === "clippingPlanes") {
+        button.classList.add("has-submenu");
+        const submenu = document.createElement("div");
+        submenu.className = "viewer-editor-tool_submenu";
+        const submenuItems = [
+          { key: "displayHelperX", icon: "displayHelperX", label: t$1("gui.displayHelperX", "Show X helper"), onClick: () => this.toggleClippingPlaneHelper("x") },
+          { key: "displayHelperY", icon: "displayHelperY", label: t$1("gui.displayHelperY", "Show Y helper"), onClick: () => this.toggleClippingPlaneHelper("y") },
+          { key: "displayHelperZ", icon: "displayHelperZ", label: t$1("gui.displayHelperZ", "Show Z helper"), onClick: () => this.toggleClippingPlaneHelper("z") },
+          { key: "visible", icon: "visible", label: t$1("gui.visible", "Visible"), onClick: () => this.toggleClippingPlaneVisible() },
+        ];
+        this.clippingPlaneSubmenuButtons = {};
+        submenuItems.forEach((item) => {
+          const subButton = document.createElement("button");
+          subButton.type = "button";
+          subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+          subButton.dataset.tool = item.key;
+          subButton.innerHTML = `
+            <span class="viewer-editor-tool_icon" aria-hidden="true">${this.getEditorToolbarIcon(item.icon)}</span>
+          `;
+          subButton.setAttribute("title", item.label);
+          subButton.setAttribute("aria-label", item.label);
+          this.bindEventListener(subButton, "click", (event) => {
+            event.stopPropagation();
+            item.onClick();
+          });
+          submenu.appendChild(subButton);
+          this.clippingPlaneSubmenuButtons[item.key] = subButton;
+        });
+        button.appendChild(submenu);
+      }
+      else if (tool.key === "annotate") {
+        button.classList.add("has-submenu");
+        const submenu = document.createElement("div");
+        submenu.className = "viewer-editor-tool_submenu";
+        const submenuItems = [
+          { key: "annotateAdd", icon: "annotateAdd", label: t$1("gui.annotateAdd", "Add Annotation"), onClick: () => Viewer$1.openAnnotationDialogWithAutoPicking() },
+          { key: "annotateImport", icon: "annotateImport", label: t$1("gui.annotateImport", "Import Annotations"), onClick: () => Viewer$1.downloadAnnotationsXmlFile() },
+          { key: "annotateExport", icon: "annotateExport", label: t$1("gui.annotateExport", "Export Annotations"), onClick: () => Viewer$1.triggerAnnotationsXmlImport() },
+        ];
+        this.annotateSubmenuButtons = {};
+        submenuItems.forEach((item) => {
+          const subButton = document.createElement("button");
+          subButton.type = "button";
+          subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+          subButton.dataset.tool = item.key;
+          subButton.innerHTML = `
+            <span class="viewer-editor-tool_icon" aria-hidden="true">${this.getEditorToolbarIcon(item.icon)}</span>
+          `;
+          subButton.setAttribute("title", item.label);
+          subButton.setAttribute("aria-label", item.label);
+          this.bindEventListener(subButton, "click", (event) => {
+            event.stopPropagation();
+            item.onClick();
+          });
+          submenu.appendChild(subButton);
+          this.annotateSubmenuButtons[item.key] = subButton;
+        });
+        button.appendChild(submenu);
+      }
+      else if (tool.key === "hierarchy") {
+        button.classList.add("has-submenu");
+        const submenu = document.createElement("div");
+        submenu.className = "viewer-editor-tool_submenu viewer-editor-hierarchy-submenu";
+        this.hierarchySubmenu = submenu;
+        this.hierarchySubmenuButtons = {};
+        button.appendChild(submenu);
+      }
+      else if (tool.key === "statistics") {
+        button.classList.add("has-submenu");
+        const submenu = document.createElement("div");
+        submenu.className = "viewer-editor-tool_submenu";
+        this.statisticsSubmenuButtons = {};
+
+        const appendStatisticsSubmenuItems = (items, container) => {
+          items.forEach((item) => {
+            const subButton = document.createElement("button");
+            subButton.type = "button";
+            subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+            subButton.dataset.tool = item.key;
+            subButton.setAttribute("title", item.label);
+            subButton.setAttribute("aria-label", item.label);
+
+            const iconSpan = document.createElement("span");
+            iconSpan.className = "viewer-editor-tool_icon";
+            iconSpan.setAttribute("aria-hidden", "true");
+            iconSpan.innerHTML = this.getEditorToolbarIcon(item.icon);
+            subButton.appendChild(iconSpan);
+
+            const srSpan = document.createElement("span");
+            srSpan.className = "viewer-editor-tool_sr";
+            srSpan.textContent = item.label;
+            subButton.appendChild(srSpan);
+
+            if (item.onClick) {
+              this.bindEventListener(subButton, "click", (event) => {
+                event.stopPropagation();
+                item.onClick();
+              });
+            }
+
+            if (item.children) {
+              subButton.classList.add("has-submenu");
+              const nested = document.createElement("div");
+              nested.className = "viewer-editor-tool_submenu";
+              appendStatisticsSubmenuItems(item.children, nested);
+              subButton.appendChild(nested);
+            }
+
+            this.statisticsSubmenuButtons[item.key] = subButton;
+            container.appendChild(subButton);
+          });
+        };
+
+        appendStatisticsSubmenuItems([
+          {
+            key: "toggleStats",
+            icon: "statistics",
+            label: t$1("gui.statistics", "Statistics"),
+            onClick: () => this.toggleStatsVisibility(),
+          },
+          {
+            key: "performance",
+            icon: "performance",
+            label: t$1("gui.performance", "Performance"),
+            children: [
+              {
+                key: "performanceDefault",
+                icon: "statistics",
+                label: t$1("gui.default", "Default"),
+                onClick: () => this.setPerformanceMode("default"),
+                pressed: false,
+              },
+              {
+                key: "performanceHigh",
+                icon: "performanceHigh",
+                label: t$1("gui.highPerformance", "High-performance"),
+                onClick: () => this.setPerformanceMode("high-performance"),
+              },
+              {
+                key: "performanceLow",
+                icon: "performanceLow",
+                label: t$1("gui.lowPower", "Low-power"),
+                onClick: () => this.setPerformanceMode("low-power"),
+              },
+            ],
+          },
+        ], submenu);
+
+        button.appendChild(submenu);
+      }
+      else if (tool.key === "lights") {
+        button.classList.add("has-submenu");
+        const submenu = document.createElement("div");
+        submenu.className = "viewer-editor-tool_submenu";
+        this.lightTargetTransformButtons = {};
+
+        const normalizeColorValue = (value) => {
+          if (typeof value !== "string") return "#ffffff";
+          if (value.startsWith("0x")) {
+            return `#${value.slice(2).padStart(6, "0")}`;
+          }
+          return value.startsWith("#") ? value : `#${value}`;
+        };
+
+        const appendSubmenuItems = (items, container) => {
+          items.forEach((item) => {
+            const subButton = document.createElement("button");
+            subButton.type = "button";
+            subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button ";
+            subButton.dataset.tool = item.key;
+            subButton.setAttribute("title", item.label);
+            subButton.setAttribute("aria-label", item.label);
+
+            const iconSpan = document.createElement("span");
+            iconSpan.className = "viewer-editor-tool_icon";
+            iconSpan.setAttribute("aria-hidden", "true");
+            iconSpan.innerHTML = this.getEditorToolbarIcon(item.icon);
+            subButton.appendChild(iconSpan);
+
+            if (item.type === "color") {
+              subButton.classList.add("viewer-editor-tool_submenu-control");
+
+              const colorInput = document.createElement("input");
+              colorInput.type = "color";
+              colorInput.value = normalizeColorValue(item.value());
+              colorInput.className = "viewer-editor-tool_submenu-input";
+              colorInput.addEventListener("click", (event) => event.stopPropagation());
+              colorInput.addEventListener("input", (event) => {
+                const value = event.target.value;
+                item.onChange(value);
+                colorInput.value = normalizeColorValue(value);
+              });
+              subButton.appendChild(colorInput);
+            } else if (item.type === "slider") {
+              subButton.classList.add("viewer-editor-tool_submenu-control");
+
+              const slider = document.createElement("input");
+              slider.type = "range";
+              slider.min = item.min ?? 0;
+              slider.max = item.max ?? 10;
+              slider.step = item.step ?? 0.01;
+              slider.value = String(item.value());
+              slider.className = "viewer-editor-tool_submenu-input";
+              slider.addEventListener("click", (event) => event.stopPropagation());
+              slider.addEventListener("input", (event) => {
+                const value = parseFloat(event.target.value);
+                item.onChange(value);
+                valueLabel.textContent = value.toFixed(2);
+              });
+
+              const valueLabel = document.createElement("span");
+              valueLabel.className = "viewer-editor-tool_submenu-value";
+              valueLabel.textContent = Number(item.value()).toFixed(2);
+              valueLabel.setAttribute("aria-hidden", "true");
+
+              subButton.appendChild(slider);
+              subButton.appendChild(valueLabel);
+            } else {
+              if (item.onClick) {
+                this.bindEventListener(subButton, "click", (event) => {
+                  event.stopPropagation();
+                  item.onClick();
+                });
+              }
+            }
+
+            if (item.children) {
+              subButton.classList.add("has-submenu");
+              const nested = document.createElement("div");
+              nested.className = "viewer-editor-tool_submenu";
+              appendSubmenuItems(item.children, nested);
+              subButton.appendChild(nested);
+            }
+
+            if (item.key === "lightTargetTransformMove" || item.key === "lightTargetTransformTarget") {
+              this.lightTargetTransformButtons[item.key] = subButton;
+            }
+            container.appendChild(subButton);
+          });
+        };
+
+        appendSubmenuItems([
+          {
+            key: "lightTarget",
+            icon: "lightTarget",
+            label: t$1("gui.target", "Target"),
+            children: [
+              {
+                key: "lightTargetColor",
+                icon: "color",
+                label: t$1("gui.color", "Color"),
+                type: "color",
+                value: () => Viewer$1.colors.DirectionalLight,
+                onChange: (value) => {
+                  Viewer$1.colors.DirectionalLight = value;
+                  core.lightObjects[0].color = new THREE.Color(value);
+                },
+              },
+              {
+                key: "lightTargetIntensity",
+                icon: "intensity",
+                label: t$1("gui.intensity", "Intensity"),
+                type: "slider",
+                min: 0,
+                max: 10,
+                step: 0.01,
+                value: () => Viewer$1.intensity.startIntensityDir,
+                onChange: (value) => {
+                  Viewer$1.intensity.startIntensityDir = value;
+                  core.lightObjects[0].intensity = value;
+                },
+              },
+              {
+                key: "lightTargetTransform",
+                icon: "move",
+                label: t$1("gui.transform", "Transform"),
+                children: [
+                  { key: "lightTargetTransformMove", icon: "move", label: t$1("gui.move", "Move"), onClick: () => this.toggleLightTransformMode("translate") },
+                  { key: "lightTargetTransformTarget", icon: "lightTarget", label: t$1("gui.target", "Target"), onClick: () => this.toggleLightTransformMode("rotate") },
+                ],
+              },
+            ],
+          },
+          {
+            key: "lightAmbient",
+            icon: "ambientLight",
+            label: t$1("gui.ambient", "Ambient"),
+            children: [
+              {
+                key: "lightAmbientColor",
+                icon: "color",
+                label: t$1("gui.color", "Color"),
+                type: "color",
+                value: () => Viewer$1.colors.AmbientLight,
+                onChange: (value) => {
+                  Viewer$1.colors.AmbientLight = value;
+                  Viewer$1.ambientLight.color = new THREE.Color(value);
+                },
+              },
+              {
+                key: "lightAmbientIntensity",
+                icon: "intensity",
+                label: t$1("gui.intensity", "Intensity"),
+                type: "slider",
+                min: 0,
+                max: 10,
+                step: 0.01,
+                value: () => Viewer$1.intensity.startIntensityAmbient,
+                onChange: (value) => {
+                  Viewer$1.intensity.startIntensityAmbient = value;
+                  Viewer$1.ambientLight.intensity = value;
+                },
+              },
+            ],
+          },
+          {
+            key: "lightCamera",
+            icon: "cameraLight",
+            label: t$1("gui.camera", "Camera"),
+            children: [
+              {
+                key: "lightCameraColor",
+                icon: "color",
+                label: t$1("gui.color", "Color"),
+                type: "color",
+                value: () => Viewer$1.colors.CameraLight,
+                onChange: (value) => {
+                  Viewer$1.colors.CameraLight = value;
+                  Viewer$1.cameraLight.color = new THREE.Color(value);
+                },
+              },
+              {
+                key: "lightCameraIntensity",
+                icon: "intensity",
+                label: t$1("gui.intensity", "Intensity"),
+                type: "slider",
+                min: 0,
+                max: 10,
+                step: 0.01,
+                value: () => Viewer$1.intensity.startIntensityCamera,
+                onChange: (value) => {
+                  Viewer$1.intensity.startIntensityCamera = value;
+                  Viewer$1.cameraLight.intensity = value;
+                },
+              },
+            ],
+          },
+        ], submenu);
+        button.appendChild(submenu);
+      }
+      else if (tool.key === "materials") {
+        button.classList.add("has-submenu");
+        const submenu = document.createElement("div");
+        submenu.className = "viewer-editor-tool_submenu";
+        const submenuItems = [
+          { key: "materialColor", icon: "color", label: t$1("gui.color", "Color"), onClick: () => this.openMaterialsFolder() },
+          { key: "materialIntensity", icon: "intensity", label: t$1("gui.intensity", "Intensity"), onClick: () => this.openMaterialsFolder() },
+        ];
+        submenuItems.forEach((item) => {
+          const subButton = document.createElement("button");
+          subButton.type = "button";
+          subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+          subButton.dataset.tool = item.key;
+          subButton.innerHTML = `
+            <span class="viewer-editor-tool_icon" aria-hidden="true">${this.getEditorToolbarIcon(item.icon)}</span>
+          `;
+          subButton.setAttribute("title", item.label);
+          subButton.setAttribute("aria-label", item.label);
+          this.bindEventListener(subButton, "click", (event) => {
+            event.stopPropagation();
+            item.onClick();
+          });
+          submenu.appendChild(subButton);
+        });
+        button.appendChild(submenu);
+      }
+      this.bindEventListener(button, "click", () => {
+        this.stopHandMode();
+        tool.onClick();
+      });
+      toolbar.appendChild(button);
+      this.editorToolbarButtons[tool.key] = button;
+    });
+
+    const expandButton = document.createElement("button");
+    expandButton.type = "button";
+    expandButton.className = "viewer-editor-tool viewer-editor-expand";
+    expandButton.innerHTML = `<span class="viewer-editor-tool_icon" aria-hidden="true">${this.getEditorToolbarIcon("expand")}</span>`;
+    expandButton.dataset.primary = "true";
+    expandButton.setAttribute("title", t$1("gui.expand", "Expand toolbar"));
+    expandButton.setAttribute("aria-label", t$1("gui.expand", "Expand toolbar"));
+    this.bindEventListener(expandButton, "click", () => this.toggleToolbarExpanded());
+    toolbar.appendChild(expandButton);
+    this.editorToolbarButtons.expand = expandButton;
+
+    if (this.actionMenu) {
+      this.actionMenu.classList.add("viewer-action-menu_in-toolbar");
+      toolbar.appendChild(this.actionMenu);
+    }
+
+    core.container.appendChild(toolbar);
+    core.editorToolbar = toolbar;
+    core.editorToolbar.classList.add('editorToolbar-hidden');
+    core.editorToolbar.classList.add('collapsed');
+    this.updateFullscreenButtonIcon();
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
+  },
+
+  updateEditorToolbarLabels() {
+    if (!this.editorToolbarButtons) return;
+
+    const labels = {
+      orbit: t$1("toolbar.orbit", "Navigation mode"),
+      move: t$1("gui.move", "Move"),
+      rotate: t$1("gui.rotate", "Rotate"),
+      scale: t$1("gui.scale", "Scale"),
+      lights: t$1("gui.lights", "Lights"),
+      picking: this.pickingMode
+        ? t$1("controls.disablePickingMode", "Disable picking mode")
+        : t$1("controls.enablePickingMode", "Enable picking mode"),
+      annotate: t$1("gui.addAnnotations", "Add annotations"),
+      ruler: this.RULER_MODE
+        ? t$1("controls.disableDistanceMeasurement", "Disable distance measurement")
+        : t$1("controls.enableDistanceMeasurement", "Enable distance measurement"),
+      resetCamera: t$1("gui.resetCameraPosition", "Reset camera position"),
+      preview: t$1("gui.renderPreview", "Render preview"),
+      save: t$1("gui.save", "Save"),
+      advancedEditor: this.isEditorAdvancedPanelVisible()
+        ? t$1("gui.hideAdvancedEditor", "Hide advanced editor")
+        : t$1("gui.showAdvancedEditor", "Show advanced editor"),
+      fullScreen: Viewer$1.FULLSCREEN
+        ? t$1("fullscreen.exit", "Exit fullscreen")
+        : t$1("fullscreen.enter", "Enter fullscreen"),
+      clippingPlanes: this.clippingMode
+        ? t$1("toolbar.disableClippingPlanesMode", "Disable clipping planes mode")
+        : t$1("toolbar.enableClippingPlanesMode", "Enable clipping planes mode"),
+      loadingLogs: this.showLoadingLogs
+        ? t$1("gui.hideLoadingLogs", "Hide loading logs")
+        : t$1("gui.showLoadingLogs", "Show loading logs"),
+      statistics: t$1("gui.statistics", "Statistics"),
+      expand: t$1("gui.expand", "Expand toolbar"),
+    };
+
+    Object.entries(this.editorToolbarButtons).forEach(([key, button]) => {
+      const label = labels[key] || key;
+      button.setAttribute("title", label);
+      button.setAttribute("aria-label", label);
+      const sr = button.querySelector(".viewer-editor-tool_sr");
+      if (sr) sr.textContent = label;
+    });
+
+    // Update submenu button labels for clipping planes
+    if (this.clippingPlaneSubmenuButtons) {
+      const clippingPlaneSubmenuLabels = {
+        displayHelperX: t$1("gui.displayHelperX", "Show X helper"),
+        displayHelperY: t$1("gui.displayHelperY", "Show Y helper"),
+        displayHelperZ: t$1("gui.displayHelperZ", "Show Z helper"),
+        visible: t$1("gui.visible", "Visible"),
+      };
+      Object.entries(this.clippingPlaneSubmenuButtons).forEach(([key, button]) => {
+        const label = clippingPlaneSubmenuLabels[key] || key;
+        button.setAttribute("title", label);
+        button.setAttribute("aria-label", label);
+      });
+    }
+    // Update submenu button labels for annotations
+    if (this.annotateSubmenuButtons) {
+      const annotateSubmenuLabels = {
+        annotateAdd: t$1("gui.addAnnotations", "Add Annotation"),
+        annotateImport: t$1("gui.importAnnotationsXml", "Import Annotations"),
+        annotateExport: t$1("gui.exportAnnotationsXml", "Export Annotations"),
+      };
+      Object.entries(this.annotateSubmenuButtons).forEach(([key, button]) => {
+        const label = annotateSubmenuLabels[key] || key;
+        button.setAttribute("title", label);
+        button.setAttribute("aria-label", label);
+      });
+    }
+
+    if (this.statisticsSubmenuButtons) {
+      const statisticsSubmenuLabels = {
+        toggleStats: t$1("gui.statistics", "Statistics"),
+        performance: t$1("gui.performance", "Performance"),
+        performanceDefault: t$1("gui.default", "Default"),
+        performanceHigh: t$1("gui.highPerformance", "High-performance"),
+        performanceLow: t$1("gui.lowPower", "Low-power"),
+      };
+      Object.entries(this.statisticsSubmenuButtons).forEach(([key, button]) => {
+        const label = statisticsSubmenuLabels[key] || key;
+        button.setAttribute("title", label);
+        button.setAttribute("aria-label", label);
+      });
+    }
+
+    core.editorToolbar?.setAttribute("aria-label", t$1("toolbar.editor", "Editor tools"));
+    this.editorToolbarButtons.expand?.setAttribute("aria-label", t$1("gui.expand", "Expand"));
+  },
+
+  isEditorAdvancedPanelVisible() {
+    if (!this.editorFolder?.domElement) return false;
+    return this.editorFolder.domElement.style.display !== "none";
+  },
+
+  setEditorAdvancedPanelVisible(visible) {
+    if (!this.editorFolder) return;
+    if (visible) this.editorFolder.show?.();
+    else this.editorFolder.hide?.();
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
+  },
+
+  toggleEditorAdvancedPanel() {
+    this.setEditorAdvancedPanelVisible(!this.isEditorAdvancedPanelVisible());
+  },
+
+  toggleLoadingLogs() {
+    this.showLoadingLogs = !this.showLoadingLogs;
+    if (core.loadingLog.get()) {
+      core.loadingLog.get().classList.toggle("editorToolbar-visible", this.showLoadingLogs);
+    }
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
+  },
+
+  addHierarchySubmenuItem(name, meshId) {
+    if (!this.hierarchySubmenu) return;
+    
+    const subButton = document.createElement("button");
+    subButton.type = "button";
+    subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button viewer-editor-hierarchy-submenu";
+    subButton.dataset.tool = `hierarchy-item-${meshId}`;
+    subButton.innerHTML = `<span class="viewer-editor-tool_sr">${name}</span>`;
+    subButton.setAttribute("title", name);
+    subButton.setAttribute("aria-label", name);
+    
+    const textLabel = document.createElement("span");
+    textLabel.style.marginLeft = "8px";
+    textLabel.style.marginRight = "8px";
+    textLabel.textContent = name;
+    textLabel.style.maxWidth = "120px";
+    textLabel.style.overflow = "hidden";
+    textLabel.style.textOverflow = "ellipsis";
+    textLabel.style.whiteSpace = "nowrap";
+    textLabel.style.display = "inline-block";
+    subButton.appendChild(textLabel);
+    
+    this.bindEventListener(subButton, "click", (event) => {
+      event.stopPropagation();
+      core.selectObjectHierarchy(meshId, core.container);
+    });
+    
+    this.hierarchySubmenu.appendChild(subButton);
+    this.hierarchySubmenuButtons[meshId] = subButton;
+  },
+
+  clearHierarchySubmenu() {
+    if (!this.hierarchySubmenu) return;
+    this.hierarchySubmenu.innerHTML = "";
+    this.hierarchySubmenuButtons = {};
+  },
+
+  toggleStatsVisibility() {
+    if (typeof core.stats === "undefined" || !core.stats?.dom) return;
+    const isVisible = core.stats.dom.style.visibility !== "hidden";
+    core.stats.dom.style.visibility = isVisible ? "hidden" : "visible";
+    this.updateEditorToolbarState();
+  },
+
+  setPerformanceMode(value) {
+    if (typeof core.renderer !== "undefined") {
+      core.renderer.powerPreference = value;
+    }
+    if (!core.CONFIG.viewer) {
+      core.CONFIG.viewer = {};
+    }
+    core.CONFIG.viewer.performanceMode = value;
+    this.updateEditorToolbarState();
+  },
+
+  updateStatisticsSubmenuState() {
+    if (!this.statisticsSubmenuButtons) return;
+    const isVisible = typeof core.stats !== "undefined" && core.stats?.dom?.style?.visibility !== "hidden";
+    this.statisticsSubmenuButtons.toggleStats?.classList.toggle("is-active", isVisible);
+
+    const currentMode = core.renderer?.powerPreference || core.CONFIG.viewer?.performanceMode || "default";
+    const performanceMap = {
+      performanceHigh: "high-performance",
+      performanceLow: "low-power",
+      performanceDefault: "default",
+    };
+    Object.entries(performanceMap).forEach(([key, value]) => {
+      this.statisticsSubmenuButtons[key]?.classList.toggle("is-active", currentMode === value);
+    });
+  },
+
+  toggleMainMenu() {
+    if (!this.actionMenuToggle) return;
+    this.actionMenuToggle.checked = !this.actionMenuToggle.checked;
+    if (!this.actionMenuToggle.checked && this.languageModeDropdown) {
+      this.languageModeDropdown.hidden = true;
+    }
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
+  },
+
+  setObjectTransformMode(mode = "") {
+    const normalizedMode = ["translate", "rotate", "scale"].includes(mode) ? mode : "";
+    if (normalizedMode && !core.helperObjects?.[0]) return;
+
+    if (core.i18nGui.transformObjectController?.setValue) {
+      core.i18nGui.transformObjectController.setValue(normalizedMode);
+    } else {
+      this.transformText["Transform 3D Object"] = normalizedMode;
+    }
+    this.updateEditorToolbarState();
+  },
+
+  toggleObjectTransformMode(mode = "") {
+    const nextMode = this.transformText["Transform 3D Object"] === mode ? "" : mode;
+    this.setObjectTransformMode(nextMode);
+  },
+
+  setLightTransformMode(mode = "") {
+    const normalizedMode = ["translate", "rotate"].includes(mode) ? mode : "";
+
+    if (core.i18nGui.transformLightController?.setValue) {
+      core.i18nGui.transformLightController.setValue(normalizedMode);
+    } else {
+      this.transformText["Transform Light"] = normalizedMode;
+    }
+    this.updateEditorToolbarState();
+  },
+
+  toggleLightTransformMode(mode = "") {
+    const nextMode = this.transformText["Transform Light"] === mode ? "" : mode;
+    this.setLightTransformMode(nextMode);
+  },
+
+  openLightFolder(name) {
+    const folder = core.i18nGui?.[name];
+    if (folder?.open) {
+      folder.open();
+    }
+  },
+
+  openMaterialsFolder() {
+    if (core.materialsFolder?.open) {
+      core.materialsFolder.open();
+    }
+  },
+
+  togglePickingMode() {
+    this.pickingMode = !this.pickingMode;
+    toastHelper$1(this.pickingMode ? "facePickingEnabled" : "facePickingDisabled", {
+      duration: 1400
+    });
+    if (!this.pickingMode) {
+      this.restoreLastPickedFace();
+      this.clearSelectedFaces();
+    } else {
+      this.RULER_MODE = false;
+      this.updateDistanceMeasurementControllerLabel();
+    }
+    this.updatePickingModeControllerLabel();
+    this.updatePickingControlsVisibility();
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
+  },
+
+  toggleDistanceMeasurement() {
+    this.RULER_MODE = !this.RULER_MODE;
+    if (this.RULER_MODE) {
+      toastHelper$1("distanceEnabled", {
+        duration: 2600
+      });
+      toastHelper$1("distanceHint", {
+        duration: 5200
+      });
+    } else {
+      toastHelper$1(this.RULER_MODE ? "distanceModeEnabled" : "distanceModeDisabled");
+    }
+    if (!this.RULER_MODE) {
+      this.ruler.forEach((r) => {
+        core.scene.remove(r);
+      });
+      this.rulerObject = new THREE.Object3D();
+      this.ruler = [];
+      this.linePoints = [];
+    } else {
+      this.pickingMode = false;
+      this.restoreLastPickedFace();
+      this.clearSelectedFaces();
+      this.updatePickingModeControllerLabel();
+      this.updatePickingControlsVisibility();
+    }
+    this.updateDistanceMeasurementControllerLabel();
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
+  },
+
+  toggleClippingPlanesPanel() {
+    this.clippingMode = !this.clippingMode;
+    if (this.clippingMode) {
+      toastHelper$1("facePickingEnabled", {
+        duration: 2600
+      });
+      toastHelper$1("clippingPlanes", {
+        duration: 5200
+      });
+    } else {
+      toastHelper$1("facePickingDisabled");
+      if (core.planeHelpers?.length >= 3) {
+        core.planeHelpers.forEach((helper) => {
+          if (helper) helper.visible = false;
+        });
+      }
+      core.planeParams.clippingMode.x = false;
+      core.planeParams.clippingMode.y = false;
+      core.planeParams.clippingMode.z = false;
+      if (core.outlineClipping) {
+        core.outlineClipping.visible = false;
+      }
+      if (this.transformControlClippingPlaneX) {
+        this.transformControlClippingPlaneX.detach();
+      }
+      if (this.transformControlClippingPlaneY) {
+        this.transformControlClippingPlaneY.detach();
+      }
+      if (this.transformControlClippingPlaneZ) {
+        this.transformControlClippingPlaneZ.detach();
+      }
+    }
+    this.updateClippingPlanesControllerLabel();
+    this.updateClippingPlanesControlsVisibility();
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
+  },
+
+  updateClippingPlanesControllerLabel() {
+    if (core.i18nGui.clippingPlanesController?.name) {
+      core.i18nGui.clippingPlanesController.name(this.clippingMode
+        ? t$1("controls.disableClippingPlanesMode", "Disable clipping planes mode")
+        : t$1("controls.enableClippingPlanesMode", "Enable clipping planes mode"));
+    }
+  },
+
+  updateClippingPlanesControlsVisibility() {
+    if (this.transformControlClippingPlaneX) {
+      this.transformControlClippingPlaneX.visible = this.clippingMode;
+    }
+    if (this.transformControlClippingPlaneY) {
+      this.transformControlClippingPlaneY.visible = this.clippingMode;
+    }
+    if (this.transformControlClippingPlaneZ) {
+      this.transformControlClippingPlaneZ.visible = this.clippingMode;
+    }
+  },
+
+  toggleClippingPlaneHelper(axis) {
+    const axisIndex = { x: 0, y: 1, z: 2 }[axis];
+    const planeHelper = core.planeHelpers?.[axisIndex];
+    const control = this[`transformControlClippingPlane${axis.toUpperCase()}`];
+    if (!planeHelper) return;
+
+    const active = !Boolean(core.planeParams.clippingMode?.[axis]);
+    core.planeParams.clippingMode[axis] = planeHelper.visible = active;
+
+    if (active) {
+      control?.attach?.(planeHelper);
+      if (core.planeParams.outline.visible) core.outlineClipping.visible = true;
+    } else {
+      control?.detach?.();
+      if (
+        !core.planeParams.clippingMode.x &&
+        !core.planeParams.clippingMode.y &&
+        !core.planeParams.clippingMode.z &&
+        !core.planeParams.outline.visible
+      ) {
+        core.outlineClipping.visible = false;
+      }
+    }
+
+    toastHelper$1("clippingHelperToggle", "info", {
+      axis: axis.toUpperCase(),
+      state: active,
+    });
+    this.refreshClippingHintVisibility();
+    this.updateClippingPlanesSubmenuState();
+  },
+
+  toggleClippingPlaneVisible() {
+    const visible = !Boolean(core.planeParams.outline.visible);
+    core.planeParams.outline.visible = visible;
+    if (core.outlineClipping) core.outlineClipping.visible = visible;
+    this.updateClippingPlanesSubmenuState();
+  },
+
+  refreshClippingHintVisibility() {
+    const clippingMode = core.planeParams?.clippingMode || {};
+    if (this.clippingHint) {
+      this.clippingHint.hidden = !(clippingMode.x || clippingMode.y || clippingMode.z);
+    }
+  },
+
+  updateClippingPlanesSubmenuState() {
+    if (!this.clippingPlaneSubmenuButtons) return;
+    const clippingMode = core.planeParams?.clippingMode || {};
+
+    this.clippingPlaneSubmenuButtons.displayHelperX?.classList.toggle(
+      "is-active",
+      Boolean(clippingMode.x)
+    );
+    this.clippingPlaneSubmenuButtons.displayHelperY?.classList.toggle(
+      "is-active",
+      Boolean(clippingMode.y)
+    );
+    this.clippingPlaneSubmenuButtons.displayHelperZ?.classList.toggle(
+      "is-active",
+      Boolean(clippingMode.z)
+    );
+    this.clippingPlaneSubmenuButtons.visible?.classList.toggle(
+      "is-active",
+      Boolean(core.planeParams?.outline?.visible)
+    );
+  },
+
+  updateAnnotateSubmenuState() {
+    if (!this.annotateSubmenuButtons) return;
+
+  },
+
+  updateLightsSubmenuState() {
+    if (!this.lightTargetTransformButtons) return;
+    const activeMode = this.transformText["Transform Light"];
+    this.lightTargetTransformButtons.lightTargetTransformMove?.classList.toggle(
+      "is-active",
+      activeMode === "translate"
+    );
+    this.lightTargetTransformButtons.lightTargetTransformTarget?.classList.toggle(
+      "is-active",
+      activeMode === "rotate"
+    );
+  },
+
+  async saveEditorMetadata() {
+    if (!core.EDITOR || core.isLightweight || !core.helperObjects?.[0]) return;
+
+    const rotateMetadata = new THREE.Vector3(
+      THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.x),
+      THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.y),
+      THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.z)
+    );
+
+    if (core.CONFIG.entity.proxyPath !== undefined) {
+      core.CONFIG.metadataUrl = core.getProxyPath(core.CONFIG.metadataUrl);
+    }
+
+    let fetchedMetadata = {};
+
+    try {
+      if (core.CONFIG?.metadataUrl) {
+        const response = await fetch(core.CONFIG.metadataUrl, { cache: "no-cache" });
+        if (response.ok) {
+          fetchedMetadata = await response.json();
+        }
+      }
+    } catch (err) {
+      console.warn("Metadata fetch failed, continuing with save", err);
+    }
+
+    this.originalMetadata = {
+      ...this.originalMetadata,
+      ...fetchedMetadata
+    };
+
+    const newMetadata = this.buildMetadata(this, rotateMetadata);
+
+    try {
+      const token = await fetch("/session/token").then((r) => r.text());
+
+      await fetch(core.CONFIG.mainUrl + "/api/editor/save-metadata", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": token
+        },
+        body: JSON.stringify({
+          filename: core.fileObject.filename,
+          path:
+            this.archiveType !== ""
+              ? core.fileObject.relativePath + core.fileObject.basename + core.loadedFile
+              : core.fileObject.relativePath,
+          content: JSON.stringify(newMetadata, null, "\t")
+        })
+      });
+
+      toastHelper$1("settingsSaved", "success");
+    } catch (err) {
+      console.error(err);
+      toastHelper$1("settingsSaveError", "error");
+    }
+  },
+
+  updateEditorToolbarState() {
+    if (!this.editorToolbarButtons) return;
+
+    const activeMap = {
+      orbit: this.transformText["Transform 3D Object"] === "",
+      move: this.transformText["Transform 3D Object"] === "translate",
+      rotate: this.transformText["Transform 3D Object"] === "rotate",
+      scale: this.transformText["Transform 3D Object"] === "scale",
+      picking: this.pickingMode === true,
+      ruler: this.RULER_MODE === true,
+      clippingPlanes: this.clippingMode === true,
+      statistics: typeof core.stats !== "undefined" && core.stats?.dom?.style?.visibility !== "hidden",
+      advancedEditor: this.isEditorAdvancedPanelVisible(),
+      fullScreen: Viewer$1.FULLSCREEN === true,
+      loadingLogs: this.showLoadingLogs === true,
+    };
+
+    Object.entries(this.editorToolbarButtons).forEach(([key, button]) => {
+      const isActive = activeMap[key] === true;
+      button.classList.toggle("is-active", isActive);
+      if (button.dataset.pressed === "true") {
+        button.setAttribute("aria-pressed", isActive ? "true" : "false");
+      } else {
+        button.removeAttribute("aria-pressed");
+      }
+    });
+
+    this.updateClippingPlanesSubmenuState();
+    this.updateLightsSubmenuState();
+    this.updateStatisticsSubmenuState();
   },
 
   isEmbedModeActive() {
@@ -10282,13 +11297,12 @@ const Viewer = {
 
   updateActionMenuLabels() {
     if (!this.actionMenu) return;
-    const actionMenuLabel = t$1("menu.actions", "Viewer actions");
-    const actionMenuOpenLabel = t$1("menu.openActions", "Open viewer actions");
+    const actionMenuLabel = t$1("menu.mainMenu", "Main menu");
 
-    this.actionMenu.querySelector("#viewerActionMenuToggle")?.setAttribute("aria-label", actionMenuOpenLabel);
     const toggle = this.actionMenu.querySelector(".viewer-action-menu_toggle");
-    toggle?.setAttribute("aria-label", actionMenuOpenLabel);
     toggle?.setAttribute("title", actionMenuLabel);
+    const toggleCopy = toggle?.querySelector(".viewer-editor-tool_sr");
+    if (toggleCopy) toggleCopy.textContent = actionMenuLabel;
     this.actionMenu.querySelector(".viewer-action-menu_panel")?.setAttribute("aria-label", actionMenuLabel);
   },
 
@@ -10309,6 +11323,8 @@ const Viewer = {
     this.updateEmbedMenuEntryState();
     this.updateFullscreenButtonIcon();
     this.updateDownloadMenuEntryLabel();
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
     this.updatePickingModeControllerLabel();
     this.updateDistanceMeasurementControllerLabel();
     this.updateSelectedFacesControllerLabel();
@@ -10405,7 +11421,6 @@ const Viewer = {
     g.resetCameraController?.name?.(t$1("gui.resetCameraPosition", "Reset camera position"));
     g.saveController?.name?.(t$1("gui.save", "Save"));
     g.renderPreviewController?.name?.(t$1("gui.renderPreview", "Render preview"));
-    g.performanceController?.name?.(t$1("gui.performance", "Performance"));
     g.savePropPositionController?.name?.(t$1("gui.position", "Position"));
     g.savePropRotationController?.name?.(t$1("gui.rotation", "Rotation"));
     g.savePropScaleController?.name?.(t$1("gui.scale", "Scale"));
@@ -10440,11 +11455,6 @@ const Viewer = {
     this.refreshOptionController(g.backgroundTypeController, {
       [t$1("gui.linear", "Linear")]: "linear",
       [t$1("gui.gradient", "Gradient")]: "gradient",
-    });
-    this.refreshOptionController(g.performanceController, {
-      [t$1("gui.highPerformance", "High-performance")]: "high-performance",
-      [t$1("gui.lowPower", "Low-power")]: "low-power",
-      [t$1("gui.default", "Default")]: "default",
     });
     this.refreshOptionController(g.editMaterialsController, {
       [t$1("gui.selectByMaterial", "select by material")]: "select by material",
@@ -10596,6 +11606,8 @@ const Viewer = {
     this.selectedFacesCountController?.[method]?.();
     this.updateAddAnnotationControllerState();
     this.updatePickingHintVisibility();
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
   },
 
   updateAddAnnotationControllerState() {
@@ -10827,6 +11839,8 @@ const Viewer = {
     shell.appendChild(body);
     core.container.appendChild(shell);
 
+    shell.classList.add("editorToolbar-hidden");
+
     let timer = null;
     let messageIndex = 0;
     let visibleCount = 0;
@@ -10987,7 +12001,8 @@ const Viewer = {
           setExpanded(false);
           hideTimer = null;
         }, 2000);
-      }
+      },
+      get: () => shell,
     };
   },
 
@@ -11370,53 +12385,53 @@ const Viewer = {
   },
 
   onViewerKeyDown(event) {
-    if (!Viewer.isViewerKeyboardActive(event)) return;
+    if (!Viewer$1.isViewerKeyboardActive(event)) return;
 
     const isFast = event.shiftKey;
-    const rotateStep = isFast ? Viewer.keyboardStep.rotateFast : Viewer.keyboardStep.rotate;
+    const rotateStep = isFast ? Viewer$1.keyboardStep.rotateFast : Viewer$1.keyboardStep.rotate;
     const isPanMode = event.ctrlKey || event.metaKey;
     let handled = false;
 
     switch (event.key) {
       case "ArrowLeft":
-        if (isPanMode) Viewer.panCameraByKeyboard(-1, 0);
-        else Viewer.rotateCameraByKeyboard(-rotateStep, 0);
+        if (isPanMode) Viewer$1.panCameraByKeyboard(-1, 0);
+        else Viewer$1.rotateCameraByKeyboard(-rotateStep, 0);
         handled = true;
         break;
       case "ArrowRight":
-        if (isPanMode) Viewer.panCameraByKeyboard(1, 0);
-        else Viewer.rotateCameraByKeyboard(rotateStep, 0);
+        if (isPanMode) Viewer$1.panCameraByKeyboard(1, 0);
+        else Viewer$1.rotateCameraByKeyboard(rotateStep, 0);
         handled = true;
         break;
       case "ArrowUp":
-        if (isPanMode) Viewer.panCameraByKeyboard(0, 1);
-        else Viewer.rotateCameraByKeyboard(0, -rotateStep);
+        if (isPanMode) Viewer$1.panCameraByKeyboard(0, 1);
+        else Viewer$1.rotateCameraByKeyboard(0, -rotateStep);
         handled = true;
         break;
       case "ArrowDown":
-        if (isPanMode) Viewer.panCameraByKeyboard(0, -1);
-        else Viewer.rotateCameraByKeyboard(0, rotateStep);
+        if (isPanMode) Viewer$1.panCameraByKeyboard(0, -1);
+        else Viewer$1.rotateCameraByKeyboard(0, rotateStep);
         handled = true;
         break;
       case "+":
       case "=":
-        Viewer.zoomCameraByKeyboard(true);
+        Viewer$1.zoomCameraByKeyboard(true);
         handled = true;
         break;
       case "-":
       case "_":
-        Viewer.zoomCameraByKeyboard(false);
+        Viewer$1.zoomCameraByKeyboard(false);
         handled = true;
         break;
       case " ":
       case "Spacebar":
-        Viewer.toggleAutoRotateByKeyboard();
+        Viewer$1.toggleAutoRotateByKeyboard();
         handled = true;
         break;
     }
 
     if (handled) {
-      Viewer.maybeShowKeyboardHint();
+      Viewer$1.maybeShowKeyboardHint();
       event.preventDefault();
       event.stopPropagation();
     }
@@ -11803,32 +12818,26 @@ const Viewer = {
 
   async copyEmbedCode(event) {
     event?.preventDefault?.();
-    Viewer.closeActionMenu();
+    Viewer$1.closeActionMenu();
 
     try {
-      const { code } = Viewer.getSharePayload();
-      await Viewer.copyTextToClipboard(code);
+      const { code } = Viewer$1.getSharePayload();
+      await Viewer$1.copyTextToClipboard(code);
       toastHelper$1("embedCodeCopied", "success");
     } catch (error) {
-      Viewer.reportError(error, { context: "Copy embed code failed" });
+      Viewer$1.reportError(error, { context: "Copy embed code failed" });
       toastHelper$1("embedCodeCopyError", "error");
     }
   },
 
   updateFullscreenButtonIcon() {
-    if (!this.fullscreenMode) return;
-
-    const isFullscreen = !!document.fullscreenElement;
-    const label = isFullscreen
-      ? t$1("fullscreen.exitMode", "Exit fullscreen mode")
-      : t$1("fullscreen.mode", "Fullscreen mode");
-
-    this.fullscreenMode.innerHTML = `
-      <span class="viewer-action-icon ${isFullscreen ? "fullscreen-exit-icon" : "fullscreen-icon"}" aria-hidden="true"></span>
-      <span>${isFullscreen ? t$1("fullscreen.exit", "Exit fullscreen") : t$1("fullscreen.enter", "Fullscreen")}</span>
-    `;
-    this.fullscreenMode.setAttribute("aria-label", label);
-    this.fullscreenMode.setAttribute("title", label);
+    if (core.editorToolbar) {
+      if (Viewer$1.FULLSCREEN) {
+        core.editorToolbar.classList.add("with-fullscreen");
+      } else {
+        core.editorToolbar.classList.remove("with-fullscreen");
+      }
+    }
   },
 
   cleanupRuntimeBindings() {
@@ -11885,11 +12894,11 @@ const Viewer = {
     const disposeNode = (node) => {
       if (!node || typeof node !== "object") return;
       node.geometry?.dispose?.();
-      Viewer.disposeMaterial(node.material);
+      Viewer$1.disposeMaterial(node.material);
     };
 
     if (Array.isArray(object)) {
-      object.forEach((entry) => Viewer.disposeObjectResources(entry));
+      object.forEach((entry) => Viewer$1.disposeObjectResources(entry));
       return;
     }
 
@@ -11900,7 +12909,7 @@ const Viewer = {
     if (!object) return;
 
     if (Array.isArray(object)) {
-      object.forEach((entry) => Viewer.removeAndDisposeFromScene(entry));
+      object.forEach((entry) => Viewer$1.removeAndDisposeFromScene(entry));
       return;
     }
 
@@ -11910,56 +12919,62 @@ const Viewer = {
       core.scene?.remove?.(object);
     }
 
-    Viewer.disposeObjectResources(object);
+    Viewer$1.disposeObjectResources(object);
   },
 
   disposeFaceOverlay(entry) {
     if (!entry?.overlay) return;
     entry.overlay.removeFromParent();
-    Viewer.disposeObjectResources(entry.overlay);
+    Viewer$1.disposeObjectResources(entry.overlay);
   },
 
   resetLoadedModelState() {
-    Viewer.restoreLastPickedFace();
-    Viewer.clearSelectedFaces();
-    Viewer.closeAnnotationDialog();
-    Viewer.annotationEntries.length = 0;
-    Viewer.pendingAnnotationsXml = "";
-    Viewer.clearAnnotationPOIs();
+    Viewer$1.restoreLastPickedFace();
+    Viewer$1.clearSelectedFaces();
+    Viewer$1.closeAnnotationDialog();
+    Viewer$1.annotationEntries.length = 0;
+    Viewer$1.pendingAnnotationsXml = "";
+    Viewer$1.clearAnnotationPOIs();
     core.transformControl?.detach?.();
     core.transformControlLight?.detach?.();
     core.transformControlLightTarget?.detach?.();
+    Viewer$1.transformText["Transform 3D Object"] = "";
+    Viewer$1.transformText["Transform Light"] = "";
+    Viewer$1.pickingMode = false;
+    Viewer$1.RULER_MODE = false;
+    Viewer$1.updateEditorToolbarLabels();
+    Viewer$1.updateEditorToolbarState();
 
     if (core.outlineClipping) {
-      Viewer.removeAndDisposeFromScene(core.outlineClipping);
+      Viewer$1.removeAndDisposeFromScene(core.outlineClipping);
       core.outlineClipping = null;
       setCore('outlineClipping', null);
     }
 
-    if (Viewer.textMesh) {
-      Viewer.removeAndDisposeFromScene(Viewer.textMesh);
-      Viewer.textMesh = null;
+    if (Viewer$1.textMesh) {
+      Viewer$1.removeAndDisposeFromScene(Viewer$1.textMesh);
+      Viewer$1.textMesh = null;
     }
 
-    if (Viewer.ruler?.length) {
-      Viewer.ruler.forEach((item) => Viewer.removeAndDisposeFromScene(item));
+    if (Viewer$1.ruler?.length) {
+      Viewer$1.ruler.forEach((item) => Viewer$1.removeAndDisposeFromScene(item));
     }
-    Viewer.ruler = [];
-    Viewer.rulerObject = null;
-    Viewer.textMeshDistance = null;
+    Viewer$1.ruler = [];
+    Viewer$1.rulerObject = null;
+    Viewer$1.textMeshDistance = null;
 
     if (core.mainObject?.length) {
-      core.mainObject.forEach((obj) => Viewer.removeAndDisposeFromScene(obj));
+      core.mainObject.forEach((obj) => Viewer$1.removeAndDisposeFromScene(obj));
       core.mainObject.length = 0;
     }
 
     if (Array.isArray(core.helperObjects)) core.helperObjects.length = 0;
     if (Array.isArray(core.selectedObjects)) core.selectedObjects.length = 0;
-    if (Array.isArray(Viewer.helperObjects)) Viewer.helperObjects.length = 0;
-    if (Array.isArray(Viewer.selectedObjects)) Viewer.selectedObjects.length = 0;
-    if (Array.isArray(Viewer.selectedFaces)) Viewer.selectedFaces.length = 0;
-    Viewer.updateSelectedFacesCount();
-    Viewer.lastPickedFace = { id: "", object: "", faceIndex: null, overlay: null };
+    if (Array.isArray(Viewer$1.helperObjects)) Viewer$1.helperObjects.length = 0;
+    if (Array.isArray(Viewer$1.selectedObjects)) Viewer$1.selectedObjects.length = 0;
+    if (Array.isArray(Viewer$1.selectedFaces)) Viewer$1.selectedFaces.length = 0;
+    Viewer$1.updateSelectedFacesCount();
+    Viewer$1.lastPickedFace = { id: "", object: "", faceIndex: null, overlay: null };
   },
 
   renderFatalError(error) {
@@ -12022,6 +13037,7 @@ const Viewer = {
     setCore('enqueueStatusNotice', this.enqueueStatusNotice.bind(this));
     setCore('dismissStatusNotice', this.dismissStatusNotice.bind(this));
     setCore('updateClippingHintVisibility', this.updateClippingHintVisibility.bind(this));
+    setCore('editorToolbar', this.editorToolbar);
 
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -12265,14 +13281,13 @@ const Viewer = {
       this.loadingLog = this.createLoadingLog();
       setCore('loadingLog', this.loadingLog);
     }
-
     this.rect = core.container.getBoundingClientRect();
 
     this.clock = new THREE.Timer();
 
-    Viewer.init();
+    Viewer$1.init();
     if (!core.PRESENTATION_MODE) {
-      Viewer.prepareStats();
+      Viewer$1.prepareStats();
     }
     localStorage.setItem("viewerHintSeen", "0");
     
@@ -12280,7 +13295,7 @@ const Viewer = {
     /*if (core.CONFIG.entity?.metadata?.source != null) {
       await Viewer.mainLoadModel();
     }*/
-    Viewer.animate();
+    Viewer$1.animate();
   },
 
   normalizeDrupalFilesPath(path) {
@@ -12329,14 +13344,14 @@ const Viewer = {
     core.fileObject.extension = core.fileObject.filename.substring(core.fileObject.filename.lastIndexOf(".") + 1);
     core.fileObject.path = core.fileObject.originalPath.substring(0, core.fileObject.originalPath.lastIndexOf(core.fileObject.filename)) || "/";
     core.fileObject.uri = core.fileObject.path.replace(core.CONFIG.mainUrl + "/", "");
-    core.fileObject.relativePath = Viewer.normalizeDrupalFilesPath(core.fileObject.uri);
+    core.fileObject.relativePath = Viewer$1.normalizeDrupalFilesPath(core.fileObject.uri);
   },
 
   // Disable interaction hint on first interaction
  disableInteractionHint() {
     if (core.PRESENTATION_MODE) return;
     core.handHint.hidden = true;
-    Viewer.stopGesture();
+    Viewer$1.stopGesture();
 
     // Stop any running camera tweens when user interacts
     if (core.cameraTween && typeof core.cameraTween.stop === "function") {
@@ -12393,16 +13408,16 @@ const Viewer = {
 
         //const centerOffset = - 0.5 * (textGeo.boundingBox.max.x - textGeo.boundingBox.min.x);
 
-        Viewer.textMesh = new THREE.Mesh(textGeo, materials);
+        Viewer$1.textMesh = new THREE.Mesh(textGeo, materials);
 
-        Viewer.textMesh.rotation.z = Math.PI;
-        Viewer.textMesh.rotation.y = Math.PI;
+        Viewer$1.textMesh.rotation.z = Math.PI;
+        Viewer$1.textMesh.rotation.y = Math.PI;
 
-        Viewer.textMesh.position.x = 0;
-        Viewer.textMesh.position.y = 0;
-        Viewer.textMesh.position.z = 0;
-        Viewer.textMesh.renderOrder = 1;
-        core.scene.add(Viewer.textMesh);
+        Viewer$1.textMesh.position.x = 0;
+        Viewer$1.textMesh.position.y = 0;
+        Viewer$1.textMesh.position.z = 0;
+        Viewer$1.textMesh.renderOrder = 1;
+        core.scene.add(Viewer$1.textMesh);
       }
     );
   },
@@ -12465,7 +13480,7 @@ const Viewer = {
 
       group.userData.isDistanceLabel = true;
 
-      Viewer.rulerObject.add(group);
+      Viewer$1.rulerObject.add(group);
     });
   },
 
@@ -12489,7 +13504,7 @@ const Viewer = {
         originalMaterial: core.scene.getObjectById(_id).material.clone(),
       });
       const tempMaterial = core.scene.getObjectById(_id).material.clone();
-      const selectedColor = Viewer.toThreeColor("0x00FF00");
+      const selectedColor = Viewer$1.toThreeColor("0x00FF00");
       if (selectedColor) {
         tempMaterial.color = selectedColor;
       }
@@ -12543,7 +13558,7 @@ const Viewer = {
         rawUrl = (_image.textContent || _image.innerHTML || "").trim();
       }
 
-      const normalized = Viewer.normalizeGalleryUrl(rawUrl);
+      const normalized = Viewer$1.normalizeGalleryUrl(rawUrl);
       if (!isValidUrl(normalized)) {
         return false;
       }
@@ -12679,13 +13694,13 @@ const Viewer = {
     var modalImage = document.createElement("img");
     modalImage.setAttribute("class", "modalImage");
     modalImage.style.transform = `scale(0.95)`;
-    Viewer.bindEventListener(modalGallery, "wheel", function (e) {
+    Viewer$1.bindEventListener(modalGallery, "wheel", function (e) {
       e.preventDefault();
       e.stopPropagation();
-      if (e.deltaY > 0 && Viewer.zoomImage > 0.15) {
-        modalImage.style.transform = `scale(${(Viewer.zoomImage -= Viewer.ZOOM_SPEED_IMAGE)})`;
-      } else if (e.deltaY < 0 && Viewer.zoomImage < 5) {
-        modalImage.style.transform = `scale(${(Viewer.zoomImage += Viewer.ZOOM_SPEED_IMAGE)})`;
+      if (e.deltaY > 0 && Viewer$1.zoomImage > 0.15) {
+        modalImage.style.transform = `scale(${(Viewer$1.zoomImage -= Viewer$1.ZOOM_SPEED_IMAGE)})`;
+      } else if (e.deltaY < 0 && Viewer$1.zoomImage < 5) {
+        modalImage.style.transform = `scale(${(Viewer$1.zoomImage += Viewer$1.ZOOM_SPEED_IMAGE)})`;
       }
       return false;
     });
@@ -12699,13 +13714,13 @@ const Viewer = {
       modalGallery.style.display = "none";
     };
 
-    Viewer.bindEventListener(document, "click", function (event) {
+    Viewer$1.bindEventListener(document, "click", function (event) {
       if (
         !modalGallery.contains(event.target) &&
         !imageList.contains(event.target)
       ) {
         modalGallery.style.display = "none";
-        Viewer.zoomImage = 1.5;
+        Viewer$1.zoomImage = 1.5;
         modalImage.style.transform = `scale(1.5)`;
       }
     });
@@ -12743,18 +13758,18 @@ const Viewer = {
     if (
       imageList &&
       imageList.childNodes.length > 0 &&
-      Viewer.fileElement &&
-      Viewer.fileElement[0] &&
+      Viewer$1.fileElement &&
+      Viewer$1.fileElement[0] &&
       mainElement
     ) {
-      Viewer.fileElement[0].insertAdjacentElement("beforebegin", modalGallery);
+      Viewer$1.fileElement[0].insertAdjacentElement("beforebegin", modalGallery);
       mainElement.insertAdjacentElement("beforebegin", imageList);
     }
     //mainElement.insertBefore(imageList, fileElement[0]);
   },
 
   buildGallery() {
-    if (Viewer.fileElement && Viewer.fileElement?.length > 0) {
+    if (Viewer$1.fileElement && Viewer$1.fileElement?.length > 0) {
       var mainElement = document.getElementById(core.CONFIG.viewer.gallery.container);
       var imageElements;
       if (core.CONFIG.viewer.gallery.imageClass !== "") {
@@ -12778,13 +13793,13 @@ const Viewer = {
               imageElements[0].getElementsByClassName("field__items")[0]
                 .childNodes
             );
-            imagesList = Viewer.prepareGalleryImages(imagesList);
+            imagesList = Viewer$1.prepareGalleryImages(imagesList);
             //imageElements[0].classList.add("field--type-image");
             imageElements[0].classList.add("field--label-hidden");
             imageElements[0].classList.add("field__items");
-            Viewer.handleImages(mainElement, imagesList, imageElements);
+            Viewer$1.handleImages(mainElement, imagesList, imageElements);
           } else {
-            Viewer.handleImages(mainElement, imageElements);
+            Viewer$1.handleImages(mainElement, imageElements);
           }
         } else if (
           imageElements.childNodes !== undefined &&
@@ -12796,13 +13811,13 @@ const Viewer = {
           ) {
             //handle links and convert to img
             let imagesList = Array.from(imageElements.childNodes);
-            imagesList = Viewer.prepareGalleryImages(imagesList);
+            imagesList = Viewer$1.prepareGalleryImages(imagesList);
             imageElements.classList.add("field--type-image");
             imageElements.classList.add("field--label-hidden");
             imageElements.classList.add("field__items");
-            Viewer.handleImages(mainElement, imagesList, imageElements);
+            Viewer$1.handleImages(mainElement, imagesList, imageElements);
           } else {
-            Viewer.handleImages(mainElement, imageElements);
+            Viewer$1.handleImages(mainElement, imageElements);
           }
         }
       }
@@ -12882,7 +13897,7 @@ const Viewer = {
   },
 
   createPickingFaceOverlay(intersection, options = {}) {
-    const triangleGeometry = Viewer.createTriangleGeometry(intersection);
+    const triangleGeometry = Viewer$1.createTriangleGeometry(intersection);
     if (!triangleGeometry) return null;
 
     const fillColor = options.fillColor ?? 0xff0000;
@@ -12944,7 +13959,7 @@ const Viewer = {
   getPrimaryIntersection(intersections) {
     if (!Array.isArray(intersections) || intersections.length === 0) return null;
 
-    return intersections.find((entry) => !Viewer.isPickingOverlayObject(entry?.object)) ?? null;
+    return intersections.find((entry) => !Viewer$1.isPickingOverlayObject(entry?.object)) ?? null;
   },
 
   getFaceSelectionKey(targetId, faceIndex) {
@@ -12953,20 +13968,20 @@ const Viewer = {
   },
 
   findSelectedFaceIndex(targetId, faceIndex) {
-    const key = Viewer.getFaceSelectionKey(targetId, faceIndex);
-    return Viewer.selectedFaces.findIndex((entry) => entry.key === key);
+    const key = Viewer$1.getFaceSelectionKey(targetId, faceIndex);
+    return Viewer$1.selectedFaces.findIndex((entry) => entry.key === key);
   },
 
   updateSelectedFacesCount() {
-    Viewer.pickingStats["Selected faces"] = Array.isArray(Viewer.selectedFaces)
-      ? Viewer.selectedFaces.length
+    Viewer$1.pickingStats["Selected faces"] = Array.isArray(Viewer$1.selectedFaces)
+      ? Viewer$1.selectedFaces.length
       : 0;
-    const selectedFacesCount = Array.isArray(Viewer.selectedFaces) ? Viewer.selectedFaces.length : 0;
-    if (selectedFacesCount < 1 && Viewer.annotationDialog && Viewer.annotationDialog.hidden === false) {
-      Viewer.closeAnnotationDialog();
+    const selectedFacesCount = Array.isArray(Viewer$1.selectedFaces) ? Viewer$1.selectedFaces.length : 0;
+    if (selectedFacesCount < 1 && Viewer$1.annotationDialog && Viewer$1.annotationDialog.hidden === false) {
+      Viewer$1.closeAnnotationDialog();
     }
-    Viewer.updateAddAnnotationControllerState();
-    Viewer.updatePickingHintVisibility();
+    Viewer$1.updateAddAnnotationControllerState();
+    Viewer$1.updatePickingHintVisibility();
   },
 
   toStableIdToken(value) {
@@ -13014,9 +14029,9 @@ const Viewer = {
     const explicitId = object.userData?.annotationTargetId || object.userData?.id;
     if (explicitId) return String(explicitId);
 
-    const rootObject = Viewer.getSelectionRootObject(object);
-    const rootSlot = Viewer.getSelectionRootSlot(rootObject);
-    const path = Viewer.getObjectHierarchyPath(object, rootObject);
+    const rootObject = Viewer$1.getSelectionRootObject(object);
+    const rootSlot = Viewer$1.getSelectionRootSlot(rootObject);
+    const path = Viewer$1.getObjectHierarchyPath(object, rootObject);
     let rootTag = rootSlot >= 0 ? `m${rootSlot}` : "m0";
     if (rootSlot >= 0 && Array.isArray(core.mainObject?.[rootSlot])) {
       const rootIndex = core.mainObject[rootSlot].indexOf(rootObject);
@@ -13142,7 +14157,7 @@ const Viewer = {
   createAnnotationPOIMarker(entry, position, index = 1) {
     const radius = Math.max((this.gridSize || core.gridSize || 1) / 15, 0.005);
 
-    const texture = Viewer.createNumberTexture(index.toString());
+    const texture = Viewer$1.createNumberTexture(index.toString());
 
     const spriteMaterial = new THREE.SpriteMaterial({
       map: texture,
@@ -13298,7 +14313,7 @@ const Viewer = {
     if (!tooltip || tooltip.hidden || !marker || !core.camera) return;
 
     const rect =
-      Viewer.mainCanvas?.getBoundingClientRect?.() ||
+      Viewer$1.mainCanvas?.getBoundingClientRect?.() ||
       core.container?.getBoundingClientRect?.();
     if (!rect || rect.width <= 0 || rect.height <= 0) return;
 
@@ -13407,7 +14422,7 @@ const Viewer = {
   updateAnnotationDialogBounds() {
     if (!this.annotationDialog) return;
     const targetRect =
-      Viewer.mainCanvas?.getBoundingClientRect?.() ||
+      Viewer$1.mainCanvas?.getBoundingClientRect?.() ||
       core.container?.getBoundingClientRect?.();
     if (!targetRect) return;
 
@@ -13540,7 +14555,7 @@ const Viewer = {
       const faceNumber = Number(selectedFace.faceIndex);
       const normalizedFaceNumber = Number.isInteger(faceNumber) ? faceNumber : -1;
       const annotationTargetId = selectedFace.targetId || selectedFace.object || "";
-      const stableTargetToken = Viewer.toStableIdToken(annotationTargetId);
+      const stableTargetToken = Viewer$1.toStableIdToken(annotationTargetId);
       const existingIndex = this.annotationEntries.findIndex(
         (entry) => entry.key === selectedFace.key
       );
@@ -13896,53 +14911,53 @@ const Viewer = {
   },
 
   clearSelectedFaces() {
-    if (!Array.isArray(Viewer.selectedFaces) || Viewer.selectedFaces.length === 0) {
-      Viewer.updateSelectedFacesCount();
+    if (!Array.isArray(Viewer$1.selectedFaces) || Viewer$1.selectedFaces.length === 0) {
+      Viewer$1.updateSelectedFacesCount();
       return;
     }
 
-    Viewer.selectedFaces.forEach((entry) => {
-      Viewer.disposeFaceOverlay(entry);
+    Viewer$1.selectedFaces.forEach((entry) => {
+      Viewer$1.disposeFaceOverlay(entry);
     });
-    Viewer.selectedFaces.length = 0;
-    Viewer.updateSelectedFacesCount();
+    Viewer$1.selectedFaces.length = 0;
+    Viewer$1.updateSelectedFacesCount();
   },
 
   restoreLastPickedFace() {
-    if (!Viewer.lastPickedFace.overlay) {
-      Viewer.lastPickedFace = { id: "", object: "", faceIndex: null, overlay: null };
+    if (!Viewer$1.lastPickedFace.overlay) {
+      Viewer$1.lastPickedFace = { id: "", object: "", faceIndex: null, overlay: null };
       return;
     }
 
-    Viewer.disposeFaceOverlay(Viewer.lastPickedFace);
+    Viewer$1.disposeFaceOverlay(Viewer$1.lastPickedFace);
 
-    Viewer.lastPickedFace = { id: "", object: "", faceIndex: null, overlay: null };
+    Viewer$1.lastPickedFace = { id: "", object: "", faceIndex: null, overlay: null };
   },
 
   pickFaces(_id) {
     const hoveredObjectId = _id?.object?.id ?? "";
     const hoveredFaceIndex = _id?.faceIndex ?? null;
     if (!hoveredObjectId) {
-      Viewer.restoreLastPickedFace();
+      Viewer$1.restoreLastPickedFace();
       return;
     }
 
     if (
-      Viewer.lastPickedFace.object === hoveredObjectId &&
-      Viewer.lastPickedFace.faceIndex === hoveredFaceIndex
+      Viewer$1.lastPickedFace.object === hoveredObjectId &&
+      Viewer$1.lastPickedFace.faceIndex === hoveredFaceIndex
     ) {
       return;
     }
 
-    Viewer.restoreLastPickedFace();
-    const overlay = Viewer.createPickingFaceOverlay(_id, {
+    Viewer$1.restoreLastPickedFace();
+    const overlay = Viewer$1.createPickingFaceOverlay(_id, {
       fillColor: 0xff3b30,
       lineColor: 0xffffff,
       opacity: 0.4,
     });
     if (!overlay) return;
 
-    Viewer.lastPickedFace = {
+    Viewer$1.lastPickedFace = {
       id: hoveredObjectId,
       object: hoveredObjectId,
       faceIndex: hoveredFaceIndex,
@@ -13953,21 +14968,21 @@ const Viewer = {
   },
 
   toggleSelectedFace(intersection, options = {}) {
-    const targetId = Viewer.resolveFaceTargetId(intersection?.object);
+    const targetId = Viewer$1.resolveFaceTargetId(intersection?.object);
     const runtimeObjectId = intersection?.object?.id ?? "";
     const faceIndex = intersection?.faceIndex ?? null;
     if (!targetId || faceIndex === null) return;
 
     const multiSelect = options.multiSelect === true;
-    const selectedFaceIndex = Viewer.findSelectedFaceIndex(targetId, faceIndex);
+    const selectedFaceIndex = Viewer$1.findSelectedFaceIndex(targetId, faceIndex);
 
     if (!multiSelect) {
-      const clickedFaceKey = Viewer.getFaceSelectionKey(targetId, faceIndex);
+      const clickedFaceKey = Viewer$1.getFaceSelectionKey(targetId, faceIndex);
       const clickedFaceAlreadySelected =
-        selectedFaceIndex >= 0 && Viewer.selectedFaces.length === 1 &&
-        Viewer.selectedFaces[0]?.key === clickedFaceKey;
+        selectedFaceIndex >= 0 && Viewer$1.selectedFaces.length === 1 &&
+        Viewer$1.selectedFaces[0]?.key === clickedFaceKey;
 
-      Viewer.clearSelectedFaces();
+      Viewer$1.clearSelectedFaces();
 
       if (clickedFaceAlreadySelected) {
         return;
@@ -13975,13 +14990,13 @@ const Viewer = {
     }
 
     if (selectedFaceIndex >= 0) {
-      const [selectedFace] = Viewer.selectedFaces.splice(selectedFaceIndex, 1);
-      Viewer.disposeFaceOverlay(selectedFace);
-      Viewer.updateSelectedFacesCount();
+      const [selectedFace] = Viewer$1.selectedFaces.splice(selectedFaceIndex, 1);
+      Viewer$1.disposeFaceOverlay(selectedFace);
+      Viewer$1.updateSelectedFacesCount();
       return;
     }
 
-    const overlay = Viewer.createPickingFaceOverlay(intersection, {
+    const overlay = Viewer$1.createPickingFaceOverlay(intersection, {
       fillColor: 0x00c853,
       lineColor: 0xe8ffe8,
       opacity: 0.5,
@@ -13989,20 +15004,20 @@ const Viewer = {
     if (!overlay) return;
 
     intersection.object.add(overlay);
-    Viewer.selectedFaces.push({
-      key: Viewer.getFaceSelectionKey(targetId, faceIndex),
+    Viewer$1.selectedFaces.push({
+      key: Viewer$1.getFaceSelectionKey(targetId, faceIndex),
       targetId,
       object: targetId,
       runtimeObjectId,
       faceIndex,
       overlay,
     });
-    Viewer.updateSelectedFacesCount();
+    Viewer$1.updateSelectedFacesCount();
   },
 
   buildRuler(_id) {
-    Viewer.rulerObject = new THREE.Object3D();
-    const gridSize = Viewer.gridSize || core.gridSize || 1;
+    Viewer$1.rulerObject = new THREE.Object3D();
+    const gridSize = Viewer$1.gridSize || core.gridSize || 1;
     const sphereRadius = Math.max(gridSize / 150, 0.001);
     const textScale = Math.max(gridSize / 100, 0.01);
     const measureSize = Math.max(gridSize / 200, 0.01);
@@ -14020,12 +15035,12 @@ const Viewer = {
     );
     var newPoint = new THREE.Vector3(_id.point.x, _id.point.y, _id.point.z);
     sphere.position.set(newPoint.x, newPoint.y, newPoint.z);
-    Viewer.rulerObject.add(sphere);
-    Viewer.linePoints.push(newPoint);
-    const lineGeometry = new THREE.BufferGeometry().setFromPoints(Viewer.linePoints);
+    Viewer$1.rulerObject.add(sphere);
+    Viewer$1.linePoints.push(newPoint);
+    const lineGeometry = new THREE.BufferGeometry().setFromPoints(Viewer$1.linePoints);
     const lineMaterial = new THREE.LineBasicMaterial({ color: 0x0000ff });
     const line = new THREE.Line(lineGeometry, lineMaterial);
-    Viewer.rulerObject.add(line);
+    Viewer$1.rulerObject.add(line);
     var lineMtr = new THREE.LineBasicMaterial({
       color: 0x0000ff,
       linewidth: 3,
@@ -14034,26 +15049,26 @@ const Viewer = {
       depthTest: false,
       depthWrite: false,
     });
-    if (Viewer.linePoints.length > 1) {
+    if (Viewer$1.linePoints.length > 1) {
       var vectorPoints = vectorBetweenPoints(
-        Viewer.linePoints[Viewer.linePoints.length - 2],
+        Viewer$1.linePoints[Viewer$1.linePoints.length - 2],
         newPoint
       );
       var distancePoints = distanceBetweenPointsVector(vectorPoints);
-      const measuredDistance = Viewer.formatMeasuredDistance(distancePoints);
+      const measuredDistance = Viewer$1.formatMeasuredDistance(distancePoints);
 
       //var distancePoints = distanceBetweenPoints(Viewer.linePoints[Viewer.linePoints.length-2], newPoint);
       var halfwayPoints = halfwayBetweenPoints(
-        Viewer.linePoints[Viewer.linePoints.length - 2],
+        Viewer$1.linePoints[Viewer$1.linePoints.length - 2],
         newPoint
       );
-      Viewer.addTextPoint(measuredDistance.text, textScale, halfwayPoints);
+      Viewer$1.addTextPoint(measuredDistance.text, textScale, halfwayPoints);
       var rulerI = 0;
       // `measureSize` was already precomputed outside, keep same scale
       while (rulerI <= distancePoints * 100) {
         const geoSegm = [];
         var interpolatePoints = interpolateDistanceBetweenPoints(
-          Viewer.linePoints[Viewer.linePoints.length - 2],
+          Viewer$1.linePoints[Viewer$1.linePoints.length - 2],
           vectorPoints,
           distancePoints,
           rulerI / 100
@@ -14074,21 +15089,21 @@ const Viewer = {
         );
         const geometryLine = new THREE.BufferGeometry().setFromPoints(geoSegm);
         var lineSegm = new THREE.Line(geometryLine, lineMtr);
-        Viewer.rulerObject.add(lineSegm);
+        Viewer$1.rulerObject.add(lineSegm);
         rulerI += 10;
       }
     }
-    Viewer.rulerObject.renderOrder = 10;
-    core.scene.add(Viewer.rulerObject);
-    Viewer.ruler.push(Viewer.rulerObject);
+    Viewer$1.rulerObject.renderOrder = 10;
+    core.scene.add(Viewer$1.rulerObject);
+    Viewer$1.ruler.push(Viewer$1.rulerObject);
   },
 
 
   updateSize() {
     const isFullscreen = !!document.fullscreenElement;
-    Viewer.FULLSCREEN = isFullscreen;
+    Viewer$1.FULLSCREEN = isFullscreen;
 
-    if (!Viewer.mainCanvas || !Viewer.fullscreenMode || !core.guiContainer) {
+    if (!Viewer$1.mainCanvas || !Viewer$1.fullscreenMode || !core.guiContainer) {
       return;
     }
 
@@ -14103,11 +15118,11 @@ const Viewer = {
         widthDev = widthCSS * devicePixelRatio;
         heightDev = heightCSS * devicePixelRatio;
 
-        Viewer.mainCanvas.style.width = '100vw';
-        Viewer.mainCanvas.style.height = '100vh';
+        Viewer$1.mainCanvas.style.width = '100vw';
+        Viewer$1.mainCanvas.style.height = '100vh';
     } else {
       scale = {x: Number(core.CONFIG.viewer.scaleContainer?.x || 1), y: Number(core.CONFIG.viewer.scaleContainer?.y || 1)};
-      const wrapper = Viewer.viewerWrapper || core.container;
+      const wrapper = Viewer$1.viewerWrapper || core.container;
       if (!wrapper) {
         return;
       }
@@ -14117,14 +15132,14 @@ const Viewer = {
 
       widthDev = widthCSS * devicePixelRatio;
       heightDev = heightCSS * devicePixelRatio;
-      Viewer.mainCanvas.style.width = widthCSS + 'px';
-      Viewer.mainCanvas.style.height = heightCSS + 'px';
+      Viewer$1.mainCanvas.style.width = widthCSS + 'px';
+      Viewer$1.mainCanvas.style.height = heightCSS + 'px';
 
       core.metadataContainer.style.width = '100%';
       core.metadataContainer.style.height = '100%';
 
-      if (Viewer.fileElement && Viewer.fileElement.length > 0) {
-        Viewer.fileElement[0].style.height = (heightCSS * 1.1) + 'px';
+      if (Viewer$1.fileElement && Viewer$1.fileElement.length > 0) {
+        Viewer$1.fileElement[0].style.height = (heightCSS * 1.1) + 'px';
       }
     }
 
@@ -14137,19 +15152,25 @@ const Viewer = {
       }
     }
 
-    Viewer.mainCanvas.width = widthDev;
-    Viewer.mainCanvas.height = heightDev;
+    Viewer$1.mainCanvas.width = widthDev;
+    Viewer$1.mainCanvas.height = heightDev;
 
-    if (Viewer.actionMenu) {
-      const menuMargin = 16;
-      const toggleSize = Viewer.actionMenu.querySelector(".viewer-action-menu__toggle")?.getBoundingClientRect().height || 45;
-      Viewer.actionMenu.style.top = (heightCSS - toggleSize - menuMargin) + "px";
-      Viewer.actionMenu.style.right = menuMargin + "px";
-      Viewer.actionMenu.style.bottom = "auto";
+    if (Viewer$1.actionMenu) {
+      if (Viewer$1.actionMenu.classList.contains("viewer-action-menu_in-toolbar")) {
+        Viewer$1.actionMenu.style.top = "";
+        Viewer$1.actionMenu.style.right = "";
+        Viewer$1.actionMenu.style.bottom = "";
+      } else {
+        const menuMargin = 16;
+        const toggleSize = Viewer$1.actionMenu.querySelector(".viewer-action-menu_toggle")?.getBoundingClientRect().height || 45;
+        Viewer$1.actionMenu.style.top = (heightCSS - toggleSize - menuMargin) + "px";
+        Viewer$1.actionMenu.style.right = menuMargin + "px";
+        Viewer$1.actionMenu.style.bottom = "auto";
+      }
     }
 
     if (core.handHint)
-    core.handHint.style.top = (heightCSS - 70) + 'px';
+    core.handHint.style.top = (heightCSS - 150) + 'px';
    
     core.renderer.setPixelRatio(devicePixelRatio * scale.x);
     core.renderer.setSize(widthCSS*scale.x, heightCSS*scale.y, false);
@@ -14162,15 +15183,19 @@ const Viewer = {
     // Three.js renderer needs actual pixel size
 
   async toggleFullscreen() {
-    Viewer.closeActionMenu();
+    Viewer$1.closeActionMenu();
     try {
       if (!document.fullscreenElement) {
         await core.container.requestFullscreen();
       } else {
         await document.exitFullscreen();
       }
+      Viewer$1.updateSize();
+      Viewer$1.updateFullscreenButtonIcon();
+      Viewer$1.updateEditorToolbarLabels();
+      Viewer$1.updateEditorToolbarState();
     } catch (err) {
-      Viewer.reportError(err, {
+      Viewer$1.reportError(err, {
         context: "Fullscreen error",
         toast: false,
         e2e: false,
@@ -14179,15 +15204,17 @@ const Viewer = {
   },
 
   onFullscreenChange () {
-    Viewer.updateFullscreenButtonIcon();
-    Viewer.closeActionMenu();
-
     // Layout (ESC + click)
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        Viewer.updateSize();
+        Viewer$1.updateSize();
+        Viewer$1.updateEditorToolbarLabels();
+        Viewer$1.updateEditorToolbarState();
       });
     });
+
+    Viewer$1.updateFullscreenButtonIcon();
+    Viewer$1.closeActionMenu();
   },
 
   exitFullscreenHandler() {
@@ -14202,7 +15229,7 @@ const Viewer = {
     if (
       !fullscreenElement &&
       typeof (fullscreenElement2 === undefined) &&
-      Viewer.FULLSCREEN
+      Viewer$1.FULLSCREEN
     ) {
       fullscreen();
     }
@@ -14278,8 +15305,8 @@ const Viewer = {
   },
 
   animate: (time) => {
-    requestAnimationFrame(Viewer.animate);
-    const delta = Viewer.clock.getDelta();
+    requestAnimationFrame(Viewer$1.animate);
+    const delta = Viewer$1.clock.getDelta();
 
     if (!core.PRESENTATION_MODE) {
 
@@ -14291,26 +15318,26 @@ const Viewer = {
         !core.handHint?.hidden;
 
       if (canGesture && core.GESTURE?.rotate && !core.GESTURE?.active ) {
-        Viewer.startGesture(time);
+        Viewer$1.startGesture(time);
       }
 
       if (core.GESTURE?.active && (!core.GESTURE?.rotate || !canGesture)) {
-        Viewer.stopGesture();
+        Viewer$1.stopGesture();
       }
 
       // =========================
       // GESTURE UPDATE
       // =========================
-      Viewer.updateHandAnimation(time);
+      Viewer$1.updateHandAnimation(time);
 
       core.controls?.update();
 
-      if (Viewer.textMesh !== null) {
-        Viewer.textMesh.lookAt(core.camera.position);
+      if (Viewer$1.textMesh !== null) {
+        Viewer$1.textMesh.lookAt(core.camera.position);
       }
 
-      if (Viewer.ruler?.length) {
-        Viewer.ruler.forEach((rulerObject) => {
+      if (Viewer$1.ruler?.length) {
+        Viewer$1.ruler.forEach((rulerObject) => {
           rulerObject?.traverse?.((child) => {
             if (child?.userData?.isDistanceLabel === true) {
               child.lookAt(core.camera.position);
@@ -14318,7 +15345,7 @@ const Viewer = {
           });
         });
       }
-      Viewer.updateAnnotationPOITooltipPosition();
+      Viewer$1.updateAnnotationPOITooltipPosition();
     }
     if (!core.GESTURE?.active || core.PRESENTATION_MODE) {
       core.controls?.update();
@@ -14333,8 +15360,8 @@ const Viewer = {
     // LOOP UPDATE
     // =========================
     
-    if (Viewer.mixer) {
-      Viewer.mixer.update(delta);
+    if (Viewer$1.mixer) {
+      Viewer$1.mixer.update(delta);
     }
 
     core.renderer?.clear();
@@ -14343,17 +15370,17 @@ const Viewer = {
   },
 
   onPointerDown(e) {
-    Viewer.disableInteractionHint();
+    Viewer$1.disableInteractionHint();
     e.stopPropagation();
     if (e.button === 0) {
-      Viewer.onDownPosition.x =
-        ((e.clientX - Viewer.mainCanvas.getBoundingClientRect().left) /
+      Viewer$1.onDownPosition.x =
+        ((e.clientX - Viewer$1.mainCanvas.getBoundingClientRect().left) /
           core.renderer.domElement.clientWidth) *
         2 -
         1;
-      Viewer.onDownPosition.y =
+      Viewer$1.onDownPosition.y =
         -(
-          (e.clientY - Viewer.mainCanvas.getBoundingClientRect().top) /
+          (e.clientY - Viewer$1.mainCanvas.getBoundingClientRect().top) /
           core.renderer.domElement.clientHeight
         ) *
         2 +
@@ -14363,62 +15390,62 @@ const Viewer = {
 
   onPointerUp(e) {
     if (e.button == 0) {
-      Viewer.onUpPosition.x =
-        ((e.clientX - Viewer.mainCanvas.getBoundingClientRect().left) /
+      Viewer$1.onUpPosition.x =
+        ((e.clientX - Viewer$1.mainCanvas.getBoundingClientRect().left) /
           core.renderer.domElement.clientWidth) *
         2 -
         1;
-      Viewer.onUpPosition.y =
+      Viewer$1.onUpPosition.y =
         -(
-          (e.clientY - Viewer.mainCanvas.getBoundingClientRect().top) /
+          (e.clientY - Viewer$1.mainCanvas.getBoundingClientRect().top) /
           core.renderer.domElement.clientHeight
         ) *
         2 +
         1;
       if (
-        Viewer.onUpPosition.x === Viewer.onDownPosition.x &&
-        Viewer.onUpPosition.y === Viewer.onDownPosition.y
+        Viewer$1.onUpPosition.x === Viewer$1.onDownPosition.x &&
+        Viewer$1.onUpPosition.y === Viewer$1.onDownPosition.y
       ) {
-        Viewer.raycaster.setFromCamera(Viewer.onUpPosition, core.camera);
-        if (!Viewer.pickingMode && !Viewer.RULER_MODE) {
-          const poiIntersects = Viewer.raycaster.intersectObjects(
-            Viewer.annotationPOIMarkers || [],
+        Viewer$1.raycaster.setFromCamera(Viewer$1.onUpPosition, core.camera);
+        if (!Viewer$1.pickingMode && !Viewer$1.RULER_MODE) {
+          const poiIntersects = Viewer$1.raycaster.intersectObjects(
+            Viewer$1.annotationPOIMarkers || [],
             true
           );
           const poiHit = poiIntersects.find(
             (entry) => entry?.object?.userData?.isAnnotationPOI === true
           );
           if (poiHit?.object) {
-            Viewer.openAnnotationDialogFromPOIMarker(poiHit.object);
+            Viewer$1.openAnnotationDialogFromPOIMarker(poiHit.object);
             return;
           }
-          Viewer.closeAnnotationPOITooltip();
+          Viewer$1.closeAnnotationPOITooltip();
         }
 
         let intersects = [];
         let primaryIntersection = null;
 
-        if (Viewer.pickingMode || Viewer.RULER_MODE) {
+        if (Viewer$1.pickingMode || Viewer$1.RULER_MODE) {
           if (core.mainObject.length > 1) {
             for (let ii = 0; ii < core.mainObject.length; ii++) {
               intersects.push(
-                ...Viewer.raycaster.intersectObjects(
+                ...Viewer$1.raycaster.intersectObjects(
                   core.mainObject[ii].children,
                   true
                 )
               );
             }
             if (intersects.length <= 0) {
-              intersects = Viewer.raycaster.intersectObjects(core.mainObject, true);
+              intersects = Viewer$1.raycaster.intersectObjects(core.mainObject, true);
             }
           } else {
-            intersects = Viewer.raycaster.intersectObject(core.mainObject[0], true);
+            intersects = Viewer$1.raycaster.intersectObject(core.mainObject[0], true);
           }
-          primaryIntersection = Viewer.getPrimaryIntersection(intersects);
+          primaryIntersection = Viewer$1.getPrimaryIntersection(intersects);
           if (primaryIntersection) {
-            if (Viewer.RULER_MODE) Viewer.buildRuler(primaryIntersection);
-            else if (Viewer.pickingMode) {
-              Viewer.toggleSelectedFace(primaryIntersection, {
+            if (Viewer$1.RULER_MODE) Viewer$1.buildRuler(primaryIntersection);
+            else if (Viewer$1.pickingMode) {
+              Viewer$1.toggleSelectedFace(primaryIntersection, {
                 multiSelect: e.shiftKey,
               });
             }
@@ -14429,73 +15456,73 @@ const Viewer = {
   },
 
   onPointerMove(e) {
-    Viewer.pointer.x =
-      ((e.clientX - Viewer.mainCanvas.getBoundingClientRect().left) /
+    Viewer$1.pointer.x =
+      ((e.clientX - Viewer$1.mainCanvas.getBoundingClientRect().left) /
         core.renderer.domElement.clientWidth) *
       2 -
       1;
-    Viewer.pointer.y =
+    Viewer$1.pointer.y =
       -(
-        (e.clientY - Viewer.mainCanvas.getBoundingClientRect().top) /
+        (e.clientY - Viewer$1.mainCanvas.getBoundingClientRect().top) /
         core.renderer.domElement.clientHeight
       ) *
       2 +
       1;
     if (e.buttons !== 0) {
-      Viewer.disableInteractionHint();
-      Viewer.closeAnnotationPOITooltip();
+      Viewer$1.disableInteractionHint();
+      Viewer$1.closeAnnotationPOITooltip();
     }
     if (e.buttons == 1) {
-      if (Viewer.pointer.x !== Viewer.onDownPosition.x && Viewer.pointer.y !== Viewer.onDownPosition.y) {
-        Viewer.cameraLight.position.set(
+      if (Viewer$1.pointer.x !== Viewer$1.onDownPosition.x && Viewer$1.pointer.y !== Viewer$1.onDownPosition.y) {
+        Viewer$1.cameraLight.position.set(
           core.camera.position.x,
           core.camera.position.y,
           core.camera.position.z
         );
       }
     } else {
-      if (!Viewer.pickingMode && !Viewer.RULER_MODE) {
-        if (Viewer.annotationDialog && Viewer.annotationDialog.hidden === false) {
-          Viewer.closeAnnotationPOITooltip();
+      if (!Viewer$1.pickingMode && !Viewer$1.RULER_MODE) {
+        if (Viewer$1.annotationDialog && Viewer$1.annotationDialog.hidden === false) {
+          Viewer$1.closeAnnotationPOITooltip();
         } else {
-          Viewer.raycaster.setFromCamera(Viewer.pointer, core.camera);
-          const poiIntersects = Viewer.raycaster.intersectObjects(
-            Viewer.annotationPOIMarkers || [],
+          Viewer$1.raycaster.setFromCamera(Viewer$1.pointer, core.camera);
+          const poiIntersects = Viewer$1.raycaster.intersectObjects(
+            Viewer$1.annotationPOIMarkers || [],
             true
           );
           const poiHit = poiIntersects.find(
             (entry) => entry?.object?.userData?.isAnnotationPOI === true
           );
           if (poiHit?.object) {
-            Viewer.openAnnotationPOITooltip(poiHit.object);
+            Viewer$1.openAnnotationPOITooltip(poiHit.object);
           } else {
-            Viewer.closeAnnotationPOITooltip();
+            Viewer$1.closeAnnotationPOITooltip();
           }
         }
       }
-      if (Viewer.pickingMode) {
-        Viewer.raycaster.setFromCamera(Viewer.pointer, core.camera);
+      if (Viewer$1.pickingMode) {
+        Viewer$1.raycaster.setFromCamera(Viewer$1.pointer, core.camera);
         let intersects = [];
         if (core.mainObject.length > 1) {
           for (let ii = 0; ii < core.mainObject.length; ii++) {
             intersects.push(
-              ...Viewer.raycaster.intersectObjects(
+              ...Viewer$1.raycaster.intersectObjects(
                 core.mainObject[ii].children,
                 true
               )
             );
           }
           if (intersects.length <= 0) {
-            intersects = Viewer.raycaster.intersectObjects(core.mainObject, true);
+            intersects = Viewer$1.raycaster.intersectObjects(core.mainObject, true);
           }
         } else {
-          intersects = Viewer.raycaster.intersectObject(core.mainObject[0], true);
+          intersects = Viewer$1.raycaster.intersectObject(core.mainObject[0], true);
         }
-        const primaryIntersection = Viewer.getPrimaryIntersection(intersects);
+        const primaryIntersection = Viewer$1.getPrimaryIntersection(intersects);
         if (primaryIntersection) {
-          Viewer.pickFaces(primaryIntersection);
+          Viewer$1.pickFaces(primaryIntersection);
         } else {
-          Viewer.pickFaces("");
+          Viewer$1.pickFaces("");
         }
       }
     }
@@ -14513,8 +15540,8 @@ const Viewer = {
     core.lilGui = document.getElementsByClassName("lil-gui root");
 
     const updateAfterLayout = () => {
-      Viewer.updateSize();
-      requestAnimationFrame(() => Viewer.updateSize());
+      Viewer$1.updateSize();
+      requestAnimationFrame(() => Viewer$1.updateSize());
     };
 
     requestAnimationFrame(updateAfterLayout);
@@ -14527,7 +15554,7 @@ const Viewer = {
       const file = files[0];
       const extension = file.name.split('.').pop().toLowerCase();
       
-      if (Viewer.SUPPORTED_EXTENSIONS.includes(extension)) {
+      if (Viewer$1.SUPPORTED_EXTENSIONS.includes(extension)) {
         // Clear existing model
         if (core.mainObject.length > 0) {
           core.mainObject.forEach(obj => {
@@ -14546,7 +15573,7 @@ const Viewer = {
         core.fileObject.uri = url;
         core.fileObject.relativePath = url;
         
-        Viewer._ext = extension;
+        Viewer$1._ext = extension;
         
         setCore('fileObject', core.fileObject);
         
@@ -14554,10 +15581,10 @@ const Viewer = {
         core.autoPath = '';
         
         // Load the model
-        await Viewer.mainLoadModel();
+        await Viewer$1.mainLoadModel();
         if (core.SANDBOX_MODE) {
-          Viewer.showSandboxGuiAfterModelLoad();
-          Viewer.dismissStatusNotice("sandbox-drop-model");
+          Viewer$1.showSandboxGuiAfterModelLoad();
+          Viewer$1.dismissStatusNotice("sandbox-drop-model");
         }        
         toastHelper$1("modelLoadedSimple", "success");
       } else {
@@ -14611,7 +15638,7 @@ const Viewer = {
     if (core.renderer) {
       core.renderer.localClippingEnabled = true;
     }
-    Viewer.syncOutlineClippingTransform();
+    Viewer$1.syncOutlineClippingTransform();
     const boundingBox = new THREE.Box3();
     if (Array.isArray(core.helperObjects[0])) {
       for (let i = 0; i < core.helperObjects[0].length; i++) {
@@ -14632,8 +15659,8 @@ const Viewer = {
       Math.max(Math.abs(boundingBox.max.z), Math.abs(boundingBox.min.z))
     );
 
-    Viewer.distanceGeometry = _distance;
-    setCore("distanceGeometry", Viewer.distanceGeometry);
+    Viewer$1.distanceGeometry = _distance;
+    setCore("distanceGeometry", Viewer$1.distanceGeometry);
 
     if (core.clippingPlanes?.length >= 3) {
       core.clippingPlanes[0].constant = _distance.x;
@@ -14641,9 +15668,9 @@ const Viewer = {
       core.clippingPlanes[2].constant = _distance.z;
     }
 
-    Viewer.planeParams.planeX.constantX = _distance.x;
-    Viewer.planeParams.planeY.constantY = _distance.y;
-    Viewer.planeParams.planeZ.constantZ = _distance.z;
+    Viewer$1.planeParams.planeX.constantX = _distance.x;
+    Viewer$1.planeParams.planeY.constantY = _distance.y;
+    Viewer$1.planeParams.planeZ.constantZ = _distance.z;
 
     if (core.clippingFolder?.controllers?.[1]) {
       core.clippingFolder.controllers[1]._max = _distance.x;
@@ -14664,9 +15691,9 @@ const Viewer = {
       core.clippingFolder.controllers[5].updateDisplay();
     }
 
-    if (Viewer.planeHelpers?.length >= 3 && core.clippingPlanes?.length >= 3) {
+    if (Viewer$1.planeHelpers?.length >= 3 && core.clippingPlanes?.length >= 3) {
       for (let i = 0; i < 3; i++) {
-        const helper = Viewer.planeHelpers[i];
+        const helper = Viewer$1.planeHelpers[i];
         const plane = core.clippingPlanes[i];
         if (!helper || !plane) continue;
         helper.position.copy(plane.normal).multiplyScalar(-plane.constant);
@@ -14678,7 +15705,7 @@ const Viewer = {
     }
 
     var _maxDistance = Math.max(_distance.x, _distance.y, _distance.z);
-    Viewer.planeHelpers?.forEach(h => h && (h.size = _maxDistance));
+    Viewer$1.planeHelpers?.forEach(h => h && (h.size = _maxDistance));
   },
 
   changeLightRotation() {
@@ -14697,7 +15724,7 @@ const Viewer = {
       core.fileObject.basename + "_" + core.fileObject.archiveType.toUpperCase() + "/";
     }
 
-    Viewer.mainCanvas.toBlob((imgBlob) => {
+    Viewer$1.mainCanvas.toBlob((imgBlob) => {
       if (!imgBlob) {
         console.error("Failed to capture screenshot");
         return;
@@ -14745,8 +15772,8 @@ const Viewer = {
 
   async mainLoadModelWrapper() {
     if (core.autoPath !== '') {
-      core.autoPath = Viewer.normalizeFileUrl(core.autoPath);
-      core.autoPath = Viewer.normalizeArchiveModelPath(core.autoPath);
+      core.autoPath = Viewer$1.normalizeFileUrl(core.autoPath);
+      core.autoPath = Viewer$1.normalizeArchiveModelPath(core.autoPath);
       core.fileObject.filename = core.autoPath.split('/').pop();
       core.fileObject.basename =
         core.fileObject.filename.substring(
@@ -14757,34 +15784,34 @@ const Viewer = {
         core.fileObject.filename.substring(
           core.fileObject.filename.lastIndexOf('.') + 1
         );
-      Viewer._ext = core.fileObject.extension.toLowerCase();
+      Viewer$1._ext = core.fileObject.extension.toLowerCase();
       core.fileObject.path =
         core.autoPath.substring(0, core.autoPath.lastIndexOf(core.fileObject.filename));
     }
 
-    await Viewer.mainLoadModel();
-    Viewer.applyPendingAnnotationsIfAny();
+    await Viewer$1.mainLoadModel();
+    Viewer$1.applyPendingAnnotationsIfAny();
   },
 
   async mainLoadModel() {
     console.log("Loading model:", core.fileObject.basename, ", with extension:", core.fileObject.extension);
-    if (Viewer._ext === "glb" || Viewer._ext === "gltf") {
+    if (Viewer$1._ext === "glb" || Viewer$1._ext === "gltf") {
       await loadModel();
     } else if (
-      Viewer._ext === "zip" ||
-      Viewer._ext === "rar" ||
-      Viewer._ext === "tar" ||
-      Viewer._ext === "xz" ||
-      Viewer._ext === "gz"
+      Viewer$1._ext === "zip" ||
+      Viewer$1._ext === "rar" ||
+      Viewer$1._ext === "tar" ||
+      Viewer$1._ext === "xz" ||
+      Viewer$1._ext === "gz"
     ) {
-      core.loadedFile = "_" + Viewer._ext.toUpperCase() + "/";
+      core.loadedFile = "_" + Viewer$1._ext.toUpperCase() + "/";
       core.fileObject.path = core.fileObject.path + core.fileObject.basename + core.loadedFile;
       core.fileObject.extension = "glb";
-      core.fileObject.newExtension = Viewer._ext;
+      core.fileObject.newExtension = Viewer$1._ext;
       await loadModel();
     } else {
       //core.fileObject.extension = "glb";
-      if (Viewer._ext === "glb") {
+      if (Viewer$1._ext === "glb") {
         await loadModel();
       }
       else await loadModel();
@@ -14795,7 +15822,7 @@ const Viewer = {
 
   prepareSandboxScene() {
     if (core.mainObject?.length) {
-      core.mainObject.forEach((obj) => Viewer.removeAndDisposeFromScene(obj));
+      core.mainObject.forEach((obj) => Viewer$1.removeAndDisposeFromScene(obj));
       core.mainObject.length = 0;
     }
 
@@ -14868,7 +15895,7 @@ const Viewer = {
     tempClippingControl.showX = axis === "x";
     tempClippingControl.showY = axis === "y";
     tempClippingControl.showZ = axis === "z";
-    tempClippingControl.addEventListener("change", Viewer.render);
+    tempClippingControl.addEventListener("change", Viewer$1.render);
     tempClippingControl.addEventListener("objectChange", function (event) {
       if (event.target === undefined || event.target.object === undefined) {
         return;
@@ -15117,14 +16144,18 @@ const Viewer = {
     core.stats.domElement.style.cssText =
       "position:relative;top:0px;" +
       "max-height:120px;max-width:90px;z-index:2;visibility:hidden;";
+    if (typeof core.guiContainer !== "undefined" && core.stats?.dom) {
+      core.guiContainer.appendChild(core.stats.dom);
+      core.stats.dom.style.left = (core.guiContainer.getBoundingClientRect().width - core.stats.domElement.getBoundingClientRect().width + 10) + 'px';
+    }
 
-    Viewer.windowHalfX = core.CONFIG.viewer.canvasDimensions.x / 2;
-    Viewer.windowHalfY = core.CONFIG.viewer.canvasDimensions.y / 2;
+    Viewer$1.windowHalfX = core.CONFIG.viewer.canvasDimensions.x / 2;
+    Viewer$1.windowHalfY = core.CONFIG.viewer.canvasDimensions.y / 2;
 
-    Viewer.editorFolder = core.gui.addFolder(t$1("gui.editor", "Editor")).close();
-    Viewer.editorFolder.domElement?.classList.add("viewer-gui-main-folder");
-    Viewer.editorFolder.domElement?.setAttribute("data-gui-main-folder", "editor");
-    core.i18nGui.editorFolder = Viewer.editorFolder;
+    Viewer$1.editorFolder = core.gui.addFolder(t$1("gui.editor", "Editor")).close();
+    Viewer$1.editorFolder.domElement?.classList.add("viewer-gui-main-folder");
+    Viewer$1.editorFolder.domElement?.setAttribute("data-gui-main-folder", "editor");
+    core.i18nGui.editorFolder = Viewer$1.editorFolder;
     const showTransformHintToast = (mode) => {
       const hints = {
         translate: t$1("toasts.transformMove", "Move: drag axis arrows to reposition the object."),
@@ -15150,8 +16181,8 @@ const Viewer = {
         });
     };
 
-    core.i18nGui.transformObjectController = Viewer.editorFolder
-      .add(Viewer.transformText, "Transform 3D Object", {
+    core.i18nGui.transformObjectController = Viewer$1.editorFolder
+      .add(Viewer$1.transformText, "Transform 3D Object", {
         [t$1("gui.none", "None")]: "",
         [t$1("gui.move", "Move")]: "translate",
         [t$1("gui.rotate", "Rotate")]: "rotate",
@@ -15177,20 +16208,22 @@ const Viewer = {
           showTransformHintToast(value);
 
         }
+        Viewer$1.updateEditorToolbarState();
       });
-    core.i18nGui.transformModeController = Viewer.editorFolder
-      .add(Viewer.transformText, "Transform Mode", {
+    core.i18nGui.transformModeController = Viewer$1.editorFolder
+      .add(Viewer$1.transformText, "Transform Mode", {
         [t$1("gui.local", "Local")]: "local",
         [t$1("gui.global", "Global")]: "global",
       })
       .name(t$1("gui.transformMode", "Transform Mode"))
       .onChange(function (value) {
         core.transformControl.space = value;
+        Viewer$1.updateEditorToolbarState();
       });
-    const lightFolder = Viewer.editorFolder.addFolder(t$1("gui.directionalLight", "Directional Light")).close();
+    const lightFolder = Viewer$1.editorFolder.addFolder(t$1("gui.directionalLight", "Directional Light")).close();
     core.i18nGui.lightFolder = lightFolder;
     core.i18nGui.transformLightController = lightFolder
-      .add(Viewer.transformText, "Transform Light", {
+      .add(Viewer$1.transformText, "Transform Light", {
         [t$1("gui.none", "None")]: "",
         [t$1("gui.move", "Move")]: "translate",
         [t$1("gui.target", "Target")]: "rotate",
@@ -15215,215 +16248,154 @@ const Viewer = {
             showTransformLightHintToast("rotate");
           }
         }
+        Viewer$1.updateEditorToolbarState();
       });
     core.i18nGui.directionalLightColorController = lightFolder
-      .addColor(Viewer.colors, "DirectionalLight")
+      .addColor(Viewer$1.colors, "DirectionalLight")
       .name(t$1("gui.color", "Color"))
       .onChange(function (value) {
         core.lightObjects[0].color = new THREE.Color(value);
       })
       .listen();
     core.i18nGui.directionalLightIntensityController = lightFolder
-      .add(Viewer.intensity, "startIntensityDir", 0, 10)
+      .add(Viewer$1.intensity, "startIntensityDir", 0, 10)
       .name(t$1("gui.intensity", "Intensity"))
       .onChange(function (value) {
         core.lightObjects[0].intensity = value;
       })
       .listen();
 
-    const lightFolderAmbient = Viewer.editorFolder.addFolder(t$1("gui.ambientLight", "Ambient Light")).close();
+    const lightFolderAmbient = Viewer$1.editorFolder.addFolder(t$1("gui.ambientLight", "Ambient Light")).close();
     core.i18nGui.lightFolderAmbient = lightFolderAmbient;
     core.i18nGui.ambientLightColorController = lightFolderAmbient
-      .addColor(Viewer.colors, "AmbientLight")
+      .addColor(Viewer$1.colors, "AmbientLight")
       .name(t$1("gui.color", "Color"))
       .onChange(function (value) {
-        Viewer.ambientLight.color = new THREE.Color(value);
+        Viewer$1.ambientLight.color = new THREE.Color(value);
       })
       .listen();
     core.i18nGui.ambientLightIntensityController = lightFolderAmbient
-      .add(Viewer.intensity, "startIntensityAmbient", 0, 10)
+      .add(Viewer$1.intensity, "startIntensityAmbient", 0, 10)
       .name(t$1("gui.intensity", "Intensity"))
       .onChange(function (value) {
-        Viewer.ambientLight.intensity = value;
+        Viewer$1.ambientLight.intensity = value;
       })
       .listen();
 
-    const lightFolderCamera = Viewer.editorFolder.addFolder(t$1("gui.cameraLight", "Camera Light")).close();
+    const lightFolderCamera = Viewer$1.editorFolder.addFolder(t$1("gui.cameraLight", "Camera Light")).close();
     core.i18nGui.lightFolderCamera = lightFolderCamera;
     core.i18nGui.cameraLightColorController = lightFolderCamera
-      .addColor(Viewer.colors, "CameraLight")
+      .addColor(Viewer$1.colors, "CameraLight")
       .name(t$1("gui.color", "Color"))
       .onChange(function (value) {
-        Viewer.cameraLight.color = new THREE.Color(value);
+        Viewer$1.cameraLight.color = new THREE.Color(value);
       })
       .listen();
     core.i18nGui.cameraLightIntensityController = lightFolderCamera
-      .add(Viewer.intensity, "startIntensityCamera", 0, 10)
+      .add(Viewer$1.intensity, "startIntensityCamera", 0, 10)
       .name(t$1("gui.intensity", "Intensity"))
       .onChange(function (value) {
-        Viewer.cameraLight.intensity = value;
+        Viewer$1.cameraLight.intensity = value;
       })
       .listen();
 
-    const backgroundFolder = Viewer.editorFolder.addFolder(t$1("gui.backgroundColor", "Background Color")).close();
+    const backgroundFolder = Viewer$1.editorFolder.addFolder(t$1("gui.backgroundColor", "Background Color")).close();
     core.i18nGui.backgroundFolder = backgroundFolder;
     core.i18nGui.backgroundColorController = backgroundFolder
-      .addColor(Viewer.colors, "BackgroundColor")
+      .addColor(Viewer$1.colors, "BackgroundColor")
       .name(t$1("gui.backgroundColor", "Background Color"))
       .onChange(function (value) {
         changeBackground(
-          Viewer.backgroundType["Background Type"],
+          Viewer$1.backgroundType["Background Type"],
           value,
-          Viewer.colors["BackgroundColorOuter"]
+          Viewer$1.colors["BackgroundColorOuter"]
         );
       })
       .listen();
     core.i18nGui.backgroundColorOuterController = backgroundFolder
-      .addColor(Viewer.colors, "BackgroundColorOuter")
+      .addColor(Viewer$1.colors, "BackgroundColorOuter")
       .name(t$1("gui.backgroundColorOuter", "Background Color Outer"))
       .onChange(function (value) {
         changeBackground(
-          Viewer.backgroundType["Background Type"],
-          Viewer.colors["BackgroundColor"],
+          Viewer$1.backgroundType["Background Type"],
+          Viewer$1.colors["BackgroundColor"],
           value
         );
       })
       .listen();
     core.i18nGui.backgroundTypeController = backgroundFolder
-      .add(Viewer.backgroundType, "Background Type", {
+      .add(Viewer$1.backgroundType, "Background Type", {
         [t$1("gui.linear", "Linear")]: "linear",
         [t$1("gui.gradient", "Gradient")]: "gradient",
       })
       .name(t$1("gui.backgroundType", "Background Type"))
       .onChange(function (value) {
-        if (value == "linear") Viewer.backgroundOuterFolder.hide();
-        else Viewer.backgroundOuterFolder.show();
+        if (value == "linear") Viewer$1.backgroundOuterFolder.hide();
+        else Viewer$1.backgroundOuterFolder.show();
         changeBackground(
           value,
-          Viewer.colors["BackgroundColor"],
-          Viewer.colors["BackgroundColorOuter"]
+          Viewer$1.colors["BackgroundColor"],
+          Viewer$1.colors["BackgroundColorOuter"]
         );
       });
-    setCore("clippingFolder", Viewer.clippingFolder);
+    setCore("clippingFolder", Viewer$1.clippingFolder);
 
     if (core.EDITOR) {
-      core.clippingFolder = Viewer.editorFolder.addFolder(t$1("gui.clippingFolder", "Clipping Planes")).close();
+      core.clippingFolder = Viewer$1.editorFolder.addFolder(t$1("gui.clippingFolder", "Clipping Planes")).close();
       core.i18nGui.clippingFolder = core.clippingFolder;
       
-      core.materialsFolder = Viewer.editorFolder.addFolder(t$1("gui.materials", "Materials")).close();
+      core.materialsFolder = Viewer$1.editorFolder.addFolder(t$1("gui.materials", "Materials")).close();
       core.i18nGui.materialsFolder = core.materialsFolder;
       setCore("materialsFolder", core.materialsFolder);
 
-      Viewer.pickingModeController = Viewer.editorFolder.add(
+      Viewer$1.pickingModeController = Viewer$1.editorFolder.add(
         {
           togglePickingMode() {
-            Viewer.pickingMode = !Viewer.pickingMode;
-            toastHelper$1(Viewer.pickingMode ? "facePickingEnabled" : "facePickingDisabled", {
-              duration: 1400
-            });
-            if (!Viewer.pickingMode) {
-              Viewer.restoreLastPickedFace();
-              Viewer.clearSelectedFaces();
-            } else {
-              Viewer.RULER_MODE = false;
-              Viewer.updateDistanceMeasurementControllerLabel();
-            }
-            Viewer.updatePickingModeControllerLabel();
-            Viewer.updatePickingControlsVisibility();
+            Viewer$1.togglePickingMode();
           },
         },
         "togglePickingMode"
       );
-      Viewer.updatePickingModeControllerLabel();
+      Viewer$1.updatePickingModeControllerLabel();
 
-      Viewer.clearSelectedFacesController = Viewer.editorFolder.add(
+      Viewer$1.clearSelectedFacesController = Viewer$1.editorFolder.add(
         {
           [t$1("gui.clearSelectedFaces", "Clear selected faces")]() {
-            Viewer.clearSelectedFaces();
-            Viewer.restoreLastPickedFace();
+            Viewer$1.clearSelectedFaces();
+            Viewer$1.restoreLastPickedFace();
           },
         },
         t$1("gui.clearSelectedFaces", "Clear selected faces")
       );
-      core.i18nGui.clearSelectedFacesController = Viewer.clearSelectedFacesController;
+      core.i18nGui.clearSelectedFacesController = Viewer$1.clearSelectedFacesController;
 
-      Viewer.selectedFacesCountController = Viewer.editorFolder
-        .add(Viewer.pickingStats, "Selected faces")
+      Viewer$1.selectedFacesCountController = Viewer$1.editorFolder
+        .add(Viewer$1.pickingStats, "Selected faces")
         .listen();
-      Viewer.updateSelectedFacesControllerLabel();
-      Viewer.selectedFacesCountController.disable();
+      Viewer$1.updateSelectedFacesControllerLabel();
+      Viewer$1.selectedFacesCountController.disable();
 
-      Viewer.metadataFolder = core.gui.addFolder(t$1("gui.metadata", "Metadata")).close();
-      Viewer.metadataFolder.domElement?.classList.add("viewer-gui-main-folder");
-      Viewer.metadataFolder.domElement?.setAttribute("data-gui-main-folder", "metadata");
-      core.i18nGui.metadataFolder = Viewer.metadataFolder;
+      //Viewer.metadataFolder = core.gui.addFolder(t("gui.metadata", "Metadata")).close();
+      //Viewer.metadataFolder.domElement?.classList.add("viewer-gui-main-folder");
+      //Viewer.metadataFolder.domElement?.setAttribute("data-gui-main-folder", "metadata");
+      //core.i18nGui.metadataFolder = Viewer.metadataFolder;
 
-      Viewer.addAnnotationController = Viewer.metadataFolder.add(
-        {
-          [t$1("gui.addAnnotations", "Add annotations")]() {
-            Viewer.openAnnotationDialogWithAutoPicking();
-          },
-        },
-        t$1("gui.addAnnotations", "Add annotations")
-      );
-      core.i18nGui.addAnnotationController = Viewer.addAnnotationController;
-      core.i18nGui.exportAnnotationsController = Viewer.metadataFolder.add(
-        {
-          [t$1("gui.exportAnnotationsXml", "Export annotations XML")]() {
-            Viewer.downloadAnnotationsXmlFile();
-          },
-        },
-        t$1("gui.exportAnnotationsXml", "Export annotations XML")
-      );
-      core.i18nGui.importAnnotationsController = Viewer.metadataFolder.add(
-        {
-          [t$1("gui.importAnnotationsXml", "Import annotations XML")]() {
-            Viewer.triggerAnnotationsXmlImport();
-          },
-        },
-        t$1("gui.importAnnotationsXml", "Import annotations XML")
-      );
-      Viewer.updatePickingControlsVisibility();
+      Viewer$1.updatePickingControlsVisibility();
 
-      Viewer.distanceMeasurementController = Viewer.editorFolder.add(
+      Viewer$1.distanceMeasurementController = Viewer$1.editorFolder.add(
         {
           toggleDistanceMeasurement() {
-            Viewer.RULER_MODE = !Viewer.RULER_MODE;
-            if (Viewer.RULER_MODE) {
-              toastHelper$1("distanceEnabled", {
-                duration: 2600
-              });
-              toastHelper$1("distanceHint", {
-                duration: 5200
-              });
-            } else {
-              toastHelper$1(Viewer.RULER_MODE ? "distanceModeEnabled" : "distanceModeDisabled");
-            }
-            if (!Viewer.RULER_MODE) {
-              Viewer.ruler.forEach((r) => {
-                core.scene.remove(r);
-              });
-              Viewer.rulerObject = new THREE.Object3D();
-              Viewer.ruler = [];
-              Viewer.linePoints = [];
-            } else {
-              Viewer.pickingMode = false;
-              Viewer.restoreLastPickedFace();
-              Viewer.clearSelectedFaces();
-              Viewer.updatePickingModeControllerLabel();
-              Viewer.updatePickingControlsVisibility();
-            }
-            Viewer.updateDistanceMeasurementControllerLabel();
+            Viewer$1.toggleDistanceMeasurement();
           },
         },
         "toggleDistanceMeasurement"
       );
-      Viewer.updateDistanceMeasurementControllerLabel();
+      Viewer$1.updateDistanceMeasurementControllerLabel();
 
-      core.i18nGui.resetCameraController = Viewer.editorFolder.add(
+      core.i18nGui.resetCameraController = Viewer$1.editorFolder.add(
         {
           [t$1("gui.resetCameraPosition", "Reset camera position")]() {
-            Viewer.resetCamera();
+            Viewer$1.resetCamera();
           },
         },
         t$1("gui.resetCameraPosition", "Reset camera position")
@@ -15431,100 +16403,43 @@ const Viewer = {
     }
 
     if (!core.isLightweight) {
-      Viewer.propertiesFolder = Viewer.editorFolder.addFolder(t$1("gui.saveProperties", "Save properties")).close();
-      core.i18nGui.propertiesFolder = Viewer.propertiesFolder;
-      core.i18nGui.savePropPositionController = Viewer.propertiesFolder.add(Viewer.saveProperties, "Position").name(t$1("gui.position", "Position"));
-      core.i18nGui.savePropRotationController = Viewer.propertiesFolder.add(Viewer.saveProperties, "Rotation").name(t$1("gui.rotation", "Rotation"));
-      core.i18nGui.savePropScaleController = Viewer.propertiesFolder.add(Viewer.saveProperties, "Scale").name(t$1("gui.scale", "Scale"));
-      core.i18nGui.savePropCameraController = Viewer.propertiesFolder.add(Viewer.saveProperties, "Camera").name(t$1("gui.camera", "Camera"));
-      core.i18nGui.savePropDirectionalController = Viewer.propertiesFolder.add(Viewer.saveProperties, "DirectionalLight").name(t$1("gui.directionalLight", "Directional Light"));
-      core.i18nGui.savePropAmbientController = Viewer.propertiesFolder.add(Viewer.saveProperties, "AmbientLight").name(t$1("gui.ambientLight", "Ambient Light"));
-      core.i18nGui.savePropCameraLightController = Viewer.propertiesFolder.add(Viewer.saveProperties, "CameraLight").name(t$1("gui.cameraLight", "Camera Light"));
-      core.i18nGui.savePropBackgroundController = Viewer.propertiesFolder.add(Viewer.saveProperties, "BackgroundColor").name(t$1("gui.backgroundColor", "Background Color"));
+      Viewer$1.propertiesFolder = Viewer$1.editorFolder.addFolder(t$1("gui.saveProperties", "Save properties")).close();
+      core.i18nGui.propertiesFolder = Viewer$1.propertiesFolder;
+      core.i18nGui.savePropPositionController = Viewer$1.propertiesFolder.add(Viewer$1.saveProperties, "Position").name(t$1("gui.position", "Position"));
+      core.i18nGui.savePropRotationController = Viewer$1.propertiesFolder.add(Viewer$1.saveProperties, "Rotation").name(t$1("gui.rotation", "Rotation"));
+      core.i18nGui.savePropScaleController = Viewer$1.propertiesFolder.add(Viewer$1.saveProperties, "Scale").name(t$1("gui.scale", "Scale"));
+      core.i18nGui.savePropCameraController = Viewer$1.propertiesFolder.add(Viewer$1.saveProperties, "Camera").name(t$1("gui.camera", "Camera"));
+      core.i18nGui.savePropDirectionalController = Viewer$1.propertiesFolder.add(Viewer$1.saveProperties, "DirectionalLight").name(t$1("gui.directionalLight", "Directional Light"));
+      core.i18nGui.savePropAmbientController = Viewer$1.propertiesFolder.add(Viewer$1.saveProperties, "AmbientLight").name(t$1("gui.ambientLight", "Ambient Light"));
+      core.i18nGui.savePropCameraLightController = Viewer$1.propertiesFolder.add(Viewer$1.saveProperties, "CameraLight").name(t$1("gui.cameraLight", "Camera Light"));
+      core.i18nGui.savePropBackgroundController = Viewer$1.propertiesFolder.add(Viewer$1.saveProperties, "BackgroundColor").name(t$1("gui.backgroundColor", "Background Color"));
     }
 
     if (core.EDITOR && !core.isLightweight) {
-      core.i18nGui.saveController = Viewer.editorFolder.add(
+      core.i18nGui.saveController = Viewer$1.editorFolder.add(
         {
           [t$1("gui.save", "Save")]() {
-
-            var rotateMetadata = new THREE.Vector3(
-              THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.x),
-              THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.y),
-              THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.z)
-            );
-
-            //Fetch data from original metadata file anyway before saving any changes
-            if (core.CONFIG.entity.proxyPath !== undefined) {
-              core.CONFIG.metadataUrl = core.getProxyPath(core.CONFIG.metadataUrl);
-            }
-
-            (async () => {
-              let fetchedMetadata = {};
-
-              try {
-                if (core.CONFIG?.metadataUrl) {
-                  const response = await fetch(core.CONFIG.metadataUrl, { cache: "no-cache" });
-
-                  if (response.ok) {
-                    fetchedMetadata = await response.json();
-                  }
-                }
-              } catch (err) {
-                console.warn("Metadata fetch failed, continuing with save", err);
-              }
-
-              // always run
-              Viewer.originalMetadata = {
-                ...Viewer.originalMetadata,
-                ...fetchedMetadata
-              };
-
-              const newMetadata = Viewer.buildMetadata(Viewer, rotateMetadata);
-
-              try {
-                const token = await fetch("/session/token").then(r => r.text());
-
-                await fetch(core.CONFIG.mainUrl + "/api/editor/save-metadata", {
-                  method: "POST",
-                  credentials: "same-origin",
-                  headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRF-Token": token
-                  },
-                  body: JSON.stringify({
-                    filename: core.fileObject.filename,
-                    path:
-                      Viewer.archiveType !== ""
-                        ? core.fileObject.relativePath +
-                          core.fileObject.basename +
-                          core.loadedFile
-                        : core.fileObject.relativePath,
-                    content: JSON.stringify(newMetadata, null, "\t")
-                  })
-                });
-
-                toastHelper$1("settingsSaved", "success");
-              } catch (err) {
-                console.error(err);
-                toastHelper$1("settingsSaveError", "error");
-              }
-            })();
+            Viewer$1.saveEditorMetadata();
           }
         },
         t$1("gui.save", "Save")
       );
-      core.i18nGui.renderPreviewController = Viewer.editorFolder.add(
+      core.i18nGui.renderPreviewController = Viewer$1.editorFolder.add(
         {
           [t$1("gui.renderPreview", "Render preview")]() {
-            Viewer.takeScreenshot();
+            Viewer$1.takeScreenshot();
           },
         },
         t$1("gui.renderPreview", "Render preview")
       );
     }
 
-    Viewer.updateLocalizedUI();
+    if (core.EDITOR) {
+      Viewer$1.createEditorToolbar();
+      Viewer$1.setEditorAdvancedPanelVisible(false);
+    }
+
+    Viewer$1.updateLocalizedUI();
   },
 
   async startModelProcessing() {
@@ -15553,9 +16468,9 @@ const Viewer = {
   // IIIF setup and loading
   async setupIIIF(newUrlOrJson, type="url") {
     if (type === "text") {
-      Viewer.iiifConfigURL.url = "";
+      Viewer$1.iiifConfigURL.url = "";
     } else {
-      Viewer.iiifConfigURL.url = newUrlOrJson;
+      Viewer$1.iiifConfigURL.url = newUrlOrJson;
     }
     const loadedIIIF = await loadIIIFManifest(newUrlOrJson);
     if (loadedIIIF.modelUrls.length === 0) { // no 3D model found, use example model
@@ -15563,7 +16478,7 @@ const Viewer = {
       showToast(t$1("toasts.noIiiifModelFallback", "No 3D model found in IIIF manifest, loading example model."));
     }
     // reset scene and release GPU resources from the previous model batch
-    Viewer.resetLoadedModelState();
+    Viewer$1.resetLoadedModelState();
     core.axesHelper.visible = false;
     console.log("TOTAL Annotations: " + loadedIIIF.annotations.length);
     if (loadedIIIF.annotations.length !== loadedIIIF.modelUrls.length) {
@@ -15572,8 +16487,8 @@ const Viewer = {
         if (diff > 0) {
           // Need more model URLs → push empty strings (or null)
           for (let i = 0; i < diff; i++) {
-            loadedIIIF.modelUrls.push(Viewer.testModelURL);
-            core.objectsConfig.models.push({name: "Test Model", url: Viewer.testModelURL});
+            loadedIIIF.modelUrls.push(Viewer$1.testModelURL);
+            core.objectsConfig.models.push({name: "Test Model", url: Viewer$1.testModelURL});
           }
         }
     }
@@ -15581,23 +16496,23 @@ const Viewer = {
       core.objectsConfig.index = i;
       core.fileObject.originalPath = loadedIIIF.modelUrl = url;
       //fileObject.originalPath = loadedIIIF.modelUrl;
-      Viewer.setModelPaths();
+      Viewer$1.setModelPaths();
       await getAnnotations(loadedIIIF, core.objectsConfig);
       if (loadedIIIF.scenes && loadedIIIF.scenes.length > 0) {
         core.objectsConfig.scenes = loadedIIIF.scenes;
       }
-      Viewer._ext = core.fileObject.extension.toLowerCase();
-      await Viewer.mainLoadModel();
+      Viewer$1._ext = core.fileObject.extension.toLowerCase();
+      await Viewer$1.mainLoadModel();
     }
   },
 
   async loadIIIFURL() {
     const form = document.getElementById("form-IIIF");
     const collapseBtn = document.getElementById("iiif-toggle-collapse");
-    form?.setAttribute("data-viewer-theme", Viewer.currentTheme);
-    Viewer.updateIIIFFormLabels();
+    form?.setAttribute("data-viewer-theme", Viewer$1.currentTheme);
+    Viewer$1.updateIIIFFormLabels();
 
-    Viewer.bindEventListener(collapseBtn, "click", () => {
+    Viewer$1.bindEventListener(collapseBtn, "click", () => {
       form.classList.toggle("collapsed");
       collapseBtn.textContent = form.classList.contains("collapsed") ? "▸" : "▾";
       collapseBtn.title = form.classList.contains("collapsed")
@@ -15605,23 +16520,23 @@ const Viewer = {
         : t$1("iiif.collapse", "Collapse");
     });
     // create a small dropdown to switch iiif manifests at runtime
-    Viewer.bindEventListener(document.getElementById("iiif-manifest-select"), "change", async (ev) => {
+    Viewer$1.bindEventListener(document.getElementById("iiif-manifest-select"), "change", async (ev) => {
       try {
-        if (ev.target.value !== Viewer.iiifConfigURL.url) {
+        if (ev.target.value !== Viewer$1.iiifConfigURL.url) {
           core.objectsConfig.setupIndex = 0;
-          await Viewer.setupIIIF(ev.target.value, "url");
+          await Viewer$1.setupIIIF(ev.target.value, "url");
         }
       } catch (err) {
-        Viewer.reportError(err, {
+        Viewer$1.reportError(err, {
           context: "Error loading IIIF manifest",
         });
       }
       });
 
-    Viewer.bindEventListener(document.getElementById("load-manifest-from-url"), "click", async (ev) => {
+    Viewer$1.bindEventListener(document.getElementById("load-manifest-from-url"), "click", async (ev) => {
       try {
         const inputElement = document.getElementById("manifest-url");
-        if (inputElement.value === "" || !Viewer.isUrlFlexible(inputElement.value)) {
+        if (inputElement.value === "" || !Viewer$1.isUrlFlexible(inputElement.value)) {
         inputElement.style.border = "2px solid red";
         showToast("iiif.invalidUrl", "warning");
         return;
@@ -15629,19 +16544,19 @@ const Viewer = {
         inputElement.style.border = "2px solid green";
         core.objectsConfig.setupIndex = 0;
           console.log("Loading IIIF manifest from URL: " + inputElement.value);
-          await Viewer.setupIIIF(inputElement.value, "url");
+          await Viewer$1.setupIIIF(inputElement.value, "url");
         }
       } catch (err) {
-        Viewer.reportError(err, {
+        Viewer$1.reportError(err, {
           context: "Error loading IIIF manifest",
         });
       }
       });
 
-    Viewer.bindEventListener(document.getElementById("load-manifest-from-text"), "click", async (ev) => {
+    Viewer$1.bindEventListener(document.getElementById("load-manifest-from-text"), "click", async (ev) => {
       try {
         const inputElement = document.getElementById("manifest-text");
-        if (inputElement.value === "" || !Viewer.isValidJsonObject(inputElement.value)) {
+        if (inputElement.value === "" || !Viewer$1.isValidJsonObject(inputElement.value)) {
           inputElement.style.border = "2px solid red";
           showToast("iiif.invalidJson", "warning");
         return;
@@ -15649,10 +16564,10 @@ const Viewer = {
         inputElement.style.border = "2px solid green";
         core.objectsConfig.setupIndex = 0;
           console.log("Loading IIIF manifest from privided text");
-          await Viewer.setupIIIF(inputElement.value, "text");
+          await Viewer$1.setupIIIF(inputElement.value, "text");
         }
       } catch (err) {
-        Viewer.reportError(err, {
+        Viewer$1.reportError(err, {
           context: "Error loading IIIF manifest",
         });
       }
@@ -15678,21 +16593,21 @@ const Viewer = {
   },
 
   async init() {
-    if (!Viewer.renderer) {
-      Viewer.camera = new THREE.PerspectiveCamera(
+    if (!Viewer$1.renderer) {
+      Viewer$1.camera = new THREE.PerspectiveCamera(
         45,
         core.CONFIG.viewer.canvasDimensions.x / core.CONFIG.viewer.canvasDimensions.y,
         0.001,
         999000000
       );
-      Viewer.camera.position.set(0, 0, 0);
-      setCore('renderer', Viewer.renderer);
-      setCore('camera', Viewer.camera);
-      setCore('mainObject', Viewer.mainObject);
+      Viewer$1.camera.position.set(0, 0, 0);
+      setCore('renderer', Viewer$1.renderer);
+      setCore('camera', Viewer$1.camera);
+      setCore('mainObject', Viewer$1.mainObject);
 
-      Viewer.scene = new THREE.Scene();
-      setCore('scene', Viewer.scene);
-      setCore('activeScene', Viewer.activeScene);
+      Viewer$1.scene = new THREE.Scene();
+      setCore('scene', Viewer$1.scene);
+      setCore('activeScene', Viewer$1.activeScene);
 
       const hostname = window.location.hostname;
       const isLocal = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
@@ -15703,52 +16618,52 @@ const Viewer = {
       console.info('Running on', window.location.hostname, '- Local preview mode:', core.isLocalPreview);
 
       if (!core.PRESENTATION_MODE && !core.SANDBOX_MODE) {
-        Viewer.startModelProcessing();
+        Viewer$1.startModelProcessing();
       }
 
       const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444);
       hemiLight.position.set(0, 200, 0);
       core.scene.add(hemiLight);
 
-      Viewer.ambientLight = new THREE.AmbientLight(0x404040); // soft white light
-      core.scene.add(Viewer.ambientLight);
+      Viewer$1.ambientLight = new THREE.AmbientLight(0x404040); // soft white light
+      core.scene.add(Viewer$1.ambientLight);
 
-      setCore('ambientLight', Viewer.ambientLight);
+      setCore('ambientLight', Viewer$1.ambientLight);
 
-      Viewer.dirLight = new THREE.DirectionalLight(0xffffff);
-      Viewer.dirLight.position.set(0, 100, 50);
-      Viewer.dirLight.castShadow = true;
-      Viewer.dirLight.shadow.camera.top = 180;
-      Viewer.dirLight.shadow.camera.bottom = -100;
-      Viewer.dirLight.shadow.camera.left = -120;
-      Viewer.dirLight.shadow.camera.right = 120;
-      Viewer.dirLight.shadow.bias = -1e-4;
-      Viewer.dirLight.shadow.mapSize.width = 1024 * 4;
-      Viewer.dirLight.shadow.mapSize.height = 1024 * 4;
-      core.scene.add(Viewer.dirLight);
-      Viewer.lightObjects.push(Viewer.dirLight);
-      setCore('dirLight', Viewer.dirLight);
-      setCore('lightObjects', Viewer.lightObjects);
+      Viewer$1.dirLight = new THREE.DirectionalLight(0xffffff);
+      Viewer$1.dirLight.position.set(0, 100, 50);
+      Viewer$1.dirLight.castShadow = true;
+      Viewer$1.dirLight.shadow.camera.top = 180;
+      Viewer$1.dirLight.shadow.camera.bottom = -100;
+      Viewer$1.dirLight.shadow.camera.left = -120;
+      Viewer$1.dirLight.shadow.camera.right = 120;
+      Viewer$1.dirLight.shadow.bias = -1e-4;
+      Viewer$1.dirLight.shadow.mapSize.width = 1024 * 4;
+      Viewer$1.dirLight.shadow.mapSize.height = 1024 * 4;
+      core.scene.add(Viewer$1.dirLight);
+      Viewer$1.lightObjects.push(Viewer$1.dirLight);
+      setCore('dirLight', Viewer$1.dirLight);
+      setCore('lightObjects', Viewer$1.lightObjects);
 
-      Viewer.cameraLightTarget = new THREE.Object3D();
-      Viewer.cameraLightTarget.position.set(
-        Viewer.camera.position.x,
-        Viewer.camera.position.y,
-        Viewer.camera.position.z
+      Viewer$1.cameraLightTarget = new THREE.Object3D();
+      Viewer$1.cameraLightTarget.position.set(
+        Viewer$1.camera.position.x,
+        Viewer$1.camera.position.y,
+        Viewer$1.camera.position.z
       );
-      core.scene.add(Viewer.cameraLightTarget);
+      core.scene.add(Viewer$1.cameraLightTarget);
       // Store in core
-      setCore('cameraLightTarget', Viewer.cameraLightTarget);
+      setCore('cameraLightTarget', Viewer$1.cameraLightTarget);
 
-      Viewer.cameraLight = new THREE.DirectionalLight(0xffffff);
-      Viewer.cameraLight.position.set(core.camera.position);
-      Viewer.cameraLight.castShadow = false;
-      Viewer.cameraLight.intensity = 0.3;
-      core.scene.add(Viewer.cameraLight);
-      Viewer.cameraLight.target = Viewer.cameraLightTarget;
-      Viewer.cameraLight.target.updateMatrixWorld();
+      Viewer$1.cameraLight = new THREE.DirectionalLight(0xffffff);
+      Viewer$1.cameraLight.position.set(core.camera.position);
+      Viewer$1.cameraLight.castShadow = false;
+      Viewer$1.cameraLight.intensity = 0.3;
+      core.scene.add(Viewer$1.cameraLight);
+      Viewer$1.cameraLight.target = Viewer$1.cameraLightTarget;
+      Viewer$1.cameraLight.target.updateMatrixWorld();
       // Store in core
-      setCore('cameraLight', Viewer.cameraLight);      
+      setCore('cameraLight', Viewer$1.cameraLight);      
 
       core.renderer = new THREE.WebGLRenderer({
         antialias: true,
@@ -15776,7 +16691,7 @@ const Viewer = {
       setCore('renderer', core.renderer);
 
       core.renderer.domElement.id = "MainCanvas";
-      Viewer.mainCanvas = document.getElementById("MainCanvas") || core.renderer.domElement;
+      Viewer$1.mainCanvas = document.getElementById("MainCanvas") || core.renderer.domElement;
 
       if (window.__E2E__) {
         document.body.appendChild(core.renderer.domElement);
@@ -15787,31 +16702,31 @@ const Viewer = {
 
       if (!core.PRESENTATION_MODE) {
 
-        Viewer.bindEventListener(core.renderer.domElement, "pointerdown", Viewer.onPointerDown);
-        Viewer.bindEventListener(core.renderer.domElement, "pointerup", Viewer.onPointerUp);
-        Viewer.bindEventListener(core.renderer.domElement, "pointermove", Viewer.onPointerMove);
-        Viewer.bindEventListener(core.renderer.domElement, "mouseenter", (event) => {
-          if (!Viewer.isPointerDirectlyOverCanvas(event)) return;
-          Viewer.maybeShowKeyboardHint();
+        Viewer$1.bindEventListener(core.renderer.domElement, "pointerdown", Viewer$1.onPointerDown);
+        Viewer$1.bindEventListener(core.renderer.domElement, "pointerup", Viewer$1.onPointerUp);
+        Viewer$1.bindEventListener(core.renderer.domElement, "pointermove", Viewer$1.onPointerMove);
+        Viewer$1.bindEventListener(core.renderer.domElement, "mouseenter", (event) => {
+          if (!Viewer$1.isPointerDirectlyOverCanvas(event)) return;
+          Viewer$1.maybeShowKeyboardHint();
         });
-        Viewer.lastWindowFocusAt = Date.now();
-        Viewer.bindEventListener(window, "focus", () => {
-          Viewer.lastWindowFocusAt = Date.now();
+        Viewer$1.lastWindowFocusAt = Date.now();
+        Viewer$1.bindEventListener(window, "focus", () => {
+          Viewer$1.lastWindowFocusAt = Date.now();
         });
-        Viewer.bindEventListener(document, "visibilitychange", () => {
+        Viewer$1.bindEventListener(document, "visibilitychange", () => {
           if (document.visibilityState === "visible") {
-            Viewer.lastWindowFocusAt = Date.now();
+            Viewer$1.lastWindowFocusAt = Date.now();
           }
         });
 
-        Viewer.bindEventListener(core.renderer.domElement, "pointerdown", () => {
+        Viewer$1.bindEventListener(core.renderer.domElement, "pointerdown", () => {
           core.renderer.domElement.focus();
         });
-        Viewer.bindEventListener(core.renderer.domElement, "keydown", Viewer.onViewerKeyDown);
+        Viewer$1.bindEventListener(core.renderer.domElement, "keydown", Viewer$1.onViewerKeyDown);
 
         if (core.isLocalPreview || core.SANDBOX_MODE) {
-          Viewer.bindEventListener(core.renderer.domElement, "dragover", Viewer.onDragOver);
-          Viewer.bindEventListener(core.renderer.domElement, "drop", Viewer.onDrop);
+          Viewer$1.bindEventListener(core.renderer.domElement, "dragover", Viewer$1.onDragOver);
+          Viewer$1.bindEventListener(core.renderer.domElement, "drop", Viewer$1.onDrop);
         }
       }
 
@@ -15834,85 +16749,84 @@ const Viewer = {
 
       core.renderer.domElement.style.display = "block";
       core.container.appendChild(core.renderer.domElement);
-      Viewer.mainCanvas.classList.add("mainCanvas");
+      Viewer$1.mainCanvas.classList.add("mainCanvas");
 
-      Viewer.viewerWrapper = core.container.closest('.viewer-wrapper');
+      Viewer$1.viewerWrapper = core.container.closest('.viewer-wrapper');
 
-      if (!Viewer.viewerWrapper) {
-        Viewer.viewerWrapper = core.container.parentElement;
-        Viewer.viewerWrapper.classList.add('viewer-wrapper');
+      if (!Viewer$1.viewerWrapper) {
+        Viewer$1.viewerWrapper = core.container.parentElement;
+        Viewer$1.viewerWrapper.classList.add('viewer-wrapper');
       }
 
       core.camera.aspect = core.CONFIG.viewer.canvasDimensions.x / core.CONFIG.viewer.canvasDimensions.y;
       core.camera.updateProjectionMatrix();
 
-      setCore('mainCanvas', Viewer.mainCanvas);
+      setCore('mainCanvas', Viewer$1.mainCanvas);
       if (!core.PRESENTATION_MODE) {
         const scriptUrl = document.currentScript?.src || import.meta.url;
-        Viewer.DFG_ASSETS = scriptUrl.replace(/\/[^\/]*$/, '');
+        Viewer$1.DFG_ASSETS = scriptUrl.replace(/\/[^\/]*$/, '');
 
-        setCore('DFG_ASSETS', Viewer.DFG_ASSETS);
+        setCore('DFG_ASSETS', Viewer$1.DFG_ASSETS);
         getModuleAssetBasePath();
 
-        Viewer.actionMenu = document.createElement("div");
-        Viewer.actionMenu.setAttribute("id", "viewerActionMenu");
-        Viewer.actionMenu.innerHTML = `
+        Viewer$1.actionMenu = document.createElement("div");
+        Viewer$1.actionMenu.setAttribute("id", "viewerActionMenu");
+        Viewer$1.actionMenu.innerHTML = `
           <input
             id="viewerActionMenuToggle"
             class="viewer-action-menu_checkbox"
             type="checkbox"
-            aria-label="Open viewer actions"
+            aria-label="Open main menu"
           />
           <label
             for="viewerActionMenuToggle"
             class="viewer-action-menu_toggle"
-            aria-label="Open viewer actions"
-            title="Viewer actions"
+            aria-label="Open main menu"
+            title="Main menu"
           >
-            <span></span>
-            <span></span>
-            <span></span>
+            <span class="viewer-action-menu_settings-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2 2.2 3-.2.8 2.9 2.6 1.4-1 2.8 1 2.8-2.6 1.4-.8 2.9-3-.2L12 21l-2-2.2-3 .2-.8-2.9-2.6-1.4 1-2.8-1-2.8 2.6-1.4.8-2.9 3 .2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+            </span>
+            <b class="viewer-editor-tool_sr">Main menu</b>
           </label>
-          <div class="viewer-action-menu_panel" aria-label="Viewer actions"></div>
+          <div class="viewer-action-menu_panel" aria-label="Main menu"></div>
         `;
-        core.container.appendChild(Viewer.actionMenu);
+        core.container.appendChild(Viewer$1.actionMenu);
 
-        Viewer.actionMenuToggle = Viewer.actionMenu.querySelector("#viewerActionMenuToggle");
-        Viewer.actionMenuPanel = Viewer.actionMenu.querySelector(".viewer-action-menu_panel");
-        Viewer.applyTheme(Viewer.getStoredTheme(), { persist: false });
+        Viewer$1.actionMenuToggle = Viewer$1.actionMenu.querySelector("#viewerActionMenuToggle");
+        Viewer$1.actionMenuPanel = Viewer$1.actionMenu.querySelector(".viewer-action-menu_panel");
+        Viewer$1.applyTheme(Viewer$1.getStoredTheme(), { persist: false });
 
-        Viewer.viewEntity = document.createElement("button");
-        Viewer.viewEntity.setAttribute("id", "viewEntity");
-        Viewer.viewEntity.setAttribute("type", "button");
-        Viewer.viewEntity.hidden = true;
+        Viewer$1.viewEntity = document.createElement("button");
+        Viewer$1.viewEntity.setAttribute("id", "viewEntity");
+        Viewer$1.viewEntity.setAttribute("type", "button");
+        Viewer$1.viewEntity.hidden = true;
 
-        Viewer.downloadModel = document.createElement("a");
-        setCore('downloadModel', Viewer.downloadModel);
-        Viewer.downloadModel.setAttribute("id", "downloadModel");
-        Viewer.downloadModel.hidden = true;
+        Viewer$1.downloadModel = document.createElement("a");
+        setCore('downloadModel', Viewer$1.downloadModel);
+        Viewer$1.downloadModel.setAttribute("id", "downloadModel");
+        Viewer$1.downloadModel.hidden = true;
 
-        Viewer.fullscreenMode = document.createElement("button");
-        Viewer.fullscreenMode.setAttribute("id", "fullscreenMode");
-        Viewer.fullscreenMode.setAttribute("type", "button");
-        Viewer.updateFullscreenButtonIcon();
+        Viewer$1.fullscreenMode = document.createElement("button");
+        Viewer$1.updateFullscreenButtonIcon();
 
-        Viewer.themeMode = document.createElement("button");
-        Viewer.themeMode.setAttribute("id", "viewerThemeMode");
-        Viewer.themeMode.setAttribute("type", "button");
+        Viewer$1.themeMode = document.createElement("button");
+        Viewer$1.themeMode.setAttribute("id", "viewerThemeMode");
+        Viewer$1.themeMode.setAttribute("type", "button");
         
         // Create language mode container and dropdown
-        Viewer.languageModeContainer = document.createElement("div");
-        Viewer.languageModeContainer.setAttribute("id", "viewerLanguageModeContainer");
-        Viewer.languageModeContainer.className = "language-mode-container";
+        Viewer$1.languageModeContainer = document.createElement("div");
+        Viewer$1.languageModeContainer.setAttribute("id", "viewerLanguageModeContainer");
+        Viewer$1.languageModeContainer.className = "language-mode-container";
         
-        Viewer.languageMode = document.createElement("button");
-        Viewer.languageMode.setAttribute("id", "viewerLanguageMode");
-        Viewer.languageMode.setAttribute("type", "button");
+        Viewer$1.languageMode = document.createElement("button");
+        Viewer$1.languageMode.setAttribute("id", "viewerLanguageMode");
+        Viewer$1.languageMode.setAttribute("type", "button");
         
-        Viewer.languageModeDropdown = document.createElement("div");
-        Viewer.languageModeDropdown.setAttribute("id", "viewerLanguageModeDropdown");
-        Viewer.languageModeDropdown.className = "language-mode-dropdown";
-        Viewer.languageModeDropdown.hidden = true;
+        Viewer$1.languageModeDropdown = document.createElement("div");
+        Viewer$1.languageModeDropdown.setAttribute("id", "viewerLanguageModeDropdown");
+        Viewer$1.languageModeDropdown.className = "language-mode-dropdown";
+        Viewer$1.languageModeDropdown.hidden = true;
         
         const languages = [
           { code: "en", label: "EN", class: "language-dropdown-item-english" },
@@ -15927,168 +16841,167 @@ const Viewer = {
           item.textContent = lang.label;
           item.setAttribute("role", "option");
           item.setAttribute("aria-selected", core.currentLanguage === lang.code ? "true" : "false");
-          Viewer.bindEventListener(item, "click", () => Viewer.selectLanguage(lang.code));
-          Viewer.languageModeDropdown.appendChild(item);
+          Viewer$1.bindEventListener(item, "click", () => Viewer$1.selectLanguage(lang.code));
+          Viewer$1.languageModeDropdown.appendChild(item);
         });
         
-        Viewer.languageModeContainer.appendChild(Viewer.languageMode);
-        Viewer.languageModeContainer.appendChild(Viewer.languageModeDropdown);
+        Viewer$1.languageModeContainer.appendChild(Viewer$1.languageMode);
+        Viewer$1.languageModeContainer.appendChild(Viewer$1.languageModeDropdown);
         
-        Viewer.updateThemeControlLabels();
-        Viewer.updateLanguageControlLabels();
+        Viewer$1.updateThemeControlLabels();
+        Viewer$1.updateLanguageControlLabels();
 
-        Viewer.actionMenuPanel.appendChild(Viewer.languageModeContainer);
-        Viewer.actionMenuPanel.appendChild(Viewer.themeMode);
-        Viewer.actionMenuPanel.appendChild(Viewer.viewEntity);
-        Viewer.actionMenuPanel.appendChild(Viewer.downloadModel);
-        Viewer.actionMenuPanel.appendChild(Viewer.fullscreenMode);
-        if (Viewer.urlOptions.hideUi) {
-          Viewer.actionMenu.hidden = true;
+        Viewer$1.actionMenuPanel.appendChild(Viewer$1.languageModeContainer);
+        Viewer$1.actionMenuPanel.appendChild(Viewer$1.themeMode);
+        Viewer$1.actionMenuPanel.appendChild(Viewer$1.viewEntity);
+        Viewer$1.actionMenuPanel.appendChild(Viewer$1.downloadModel);
+        if (Viewer$1.urlOptions.hideUi) {
+          Viewer$1.actionMenu.hidden = true;
         }
-        Viewer.createEmbedConfiguratorPanel();
+        Viewer$1.createEmbedConfiguratorPanel();
 
-        setCore('viewEntity', Viewer.viewEntity);
-        Viewer.bindEventListener(Viewer.languageMode, "click", Viewer.toggleLanguage.bind(Viewer));
-        Viewer.bindEventListener(Viewer.themeMode, "click", Viewer.toggleTheme.bind(Viewer));
-        Viewer.bindEventListener(Viewer.fullscreenMode, "click", Viewer.toggleFullscreen, false);
-        Viewer.bindEventListener(Viewer.viewEntity, "click", Viewer.openEmbedConfiguratorFromMenu.bind(Viewer));
-        Viewer.updateEmbedMenuEntryState();
-        Viewer.applyLanguage({ persist: false });
-        Viewer.bindEventListener(Viewer.downloadModel, "click", () => Viewer.closeActionMenu());
-        Viewer.bindEventListener(document, "click", (event) => {
+        setCore('viewEntity', Viewer$1.viewEntity);
+        Viewer$1.bindEventListener(Viewer$1.languageMode, "click", Viewer$1.toggleLanguage.bind(Viewer$1));
+        Viewer$1.bindEventListener(Viewer$1.themeMode, "click", Viewer$1.toggleTheme.bind(Viewer$1));
+        //Viewer.bindEventListener(Viewer.fullscreenMode, "click", Viewer.toggleFullscreen, false);
+        Viewer$1.bindEventListener(Viewer$1.viewEntity, "click", Viewer$1.openEmbedConfiguratorFromMenu.bind(Viewer$1));
+        Viewer$1.updateEmbedMenuEntryState();
+        Viewer$1.applyLanguage({ persist: false });
+        Viewer$1.bindEventListener(Viewer$1.downloadModel, "click", () => Viewer$1.closeActionMenu());
+        Viewer$1.bindEventListener(document, "click", (event) => {
           if (
-            !Viewer.actionMenu?.contains(event.target) &&
-            !Viewer.embedConfiguratorPanel?.contains(event.target)
+            !Viewer$1.actionMenu?.contains(event.target) &&
+            !Viewer$1.embedConfiguratorPanel?.contains(event.target)
           ) {
-            Viewer.closeActionMenu();
+            Viewer$1.closeActionMenu();
           }
         });
 
-        Viewer.handHint.innerHTML = `<img src="${core.DFG_ASSETS}/img/hand-hint.png" alt="Hand hint" width=48 height=48 title="Hand hint animation"/>`;
+        Viewer$1.handHint.innerHTML = `<img src="${core.DFG_ASSETS}/img/hand-hint.png" alt="Hand hint" width=48 height=48 title="Hand hint animation"/>`;
         
-        Viewer.rect = core.container.getBoundingClientRect();
-        core.guiContainer.style.maxHeight = `${Viewer.rect.height - 20}px`;
-        core.lilGui = document.getElementsByClassName("lil-gui root");
+        Viewer$1.rect = core.container.getBoundingClientRect();
+        core.guiContainer.style.maxHeight = `${Viewer$1.rect.height - 20}px`;
+        //core.lilGui = document.getElementsByClassName("lil-gui root");
 
-        Viewer.fileElement = document.getElementsByClassName("field--type-file");
-        if (Viewer.fileElement.length > 0) {
-          Viewer.fileElement[0].style.height = core.CONFIG.viewer.canvasDimensions.y * 1.1 + "px";
+        Viewer$1.fileElement = document.getElementsByClassName("field--type-file");
+        if (Viewer$1.fileElement.length > 0) {
+          Viewer$1.fileElement[0].style.height = core.CONFIG.viewer.canvasDimensions.y * 1.1 + "px";
         }
 
         if (
           !core.isLightweight || 
           core.CONFIG.viewer.gallery?.build === true
         ) {
-          Viewer.buildGallery();
+          Viewer$1.buildGallery();
         }
       }
 
-      Viewer.controls = new OrbitControls(core.camera, core.renderer.domElement);
-      Viewer.controls.target.set(0, 100, 0);
-      Viewer.controls.enableDamping = true;
-      Viewer.controls.dampingFactor = 0.05;
-      Viewer.controls.enableRotate = true;
+      Viewer$1.controls = new OrbitControls(core.camera, core.renderer.domElement);
+      Viewer$1.controls.target.set(0, 100, 0);
+      Viewer$1.controls.enableDamping = true;
+      Viewer$1.controls.dampingFactor = 0.05;
+      Viewer$1.controls.enableRotate = true;
 
       if (core.PRESENTATION_MODE) {
         //TODO
-        Viewer.controls.autoRotate = true;
-        Viewer.controls.autoRotateSpeed = 1.5; // in seconds
+        Viewer$1.controls.autoRotate = true;
+        Viewer$1.controls.autoRotateSpeed = 1.5; // in seconds
         document.body.classList.add("presentation-mode");
         document.documentElement.classList.add("presentation-mode");
         core.renderer.setClearColor(0x000000, 0);
       }
-      if (typeof Viewer.urlOptions.autoRotate === "boolean") {
-        Viewer.controls.autoRotate = Viewer.urlOptions.autoRotate;
+      if (typeof Viewer$1.urlOptions.autoRotate === "boolean") {
+        Viewer$1.controls.autoRotate = Viewer$1.urlOptions.autoRotate;
       }
-      if (Number.isFinite(Viewer.urlOptions.autoRotateSpeed)) {
-        Viewer.controls.autoRotateSpeed = Viewer.urlOptions.autoRotateSpeed;
+      if (Number.isFinite(Viewer$1.urlOptions.autoRotateSpeed)) {
+        Viewer$1.controls.autoRotateSpeed = Viewer$1.urlOptions.autoRotateSpeed;
       }
-      if (Viewer.urlOptions.disableInteraction || core.PRESENTATION_MODE) {
-        Viewer.controls.enabled = false;
-        Viewer.controls.enableRotate = false;
-        Viewer.controls.enablePan = false;
-        Viewer.controls.enableZoom = false;
+      if (Viewer$1.urlOptions.disableInteraction || core.PRESENTATION_MODE) {
+        Viewer$1.controls.enabled = false;
+        Viewer$1.controls.enableRotate = false;
+        Viewer$1.controls.enablePan = false;
+        Viewer$1.controls.enableZoom = false;
       }
-      Viewer.controls.update();
-      setCore('controls', Viewer.controls);
-      setCore('GESTURE', Viewer.GESTURE);
-      setCore('lastTime', Viewer.lastTime);
-      setCore('helperObjects', Viewer.helperObjects);
+      Viewer$1.controls.update();
+      setCore('controls', Viewer$1.controls);
+      setCore('GESTURE', Viewer$1.GESTURE);
+      setCore('lastTime', Viewer$1.lastTime);
+      setCore('helperObjects', Viewer$1.helperObjects);
 
       if (!core.PRESENTATION_MODE) {
-        Viewer.transformControl = new TransformControls(core.camera, core.renderer.domElement);
-        Viewer.transformControl.rotationSnap = THREE.MathUtils.degToRad(5);
-        Viewer.transformControl.space = "local";
-        Viewer.transformControl.addEventListener("change", Viewer.render);
-        Viewer.transformControl.addEventListener("objectChange", () => {
-          Viewer.changeScale();
-          Viewer.syncOutlineClippingTransform();
+        Viewer$1.transformControl = new TransformControls(core.camera, core.renderer.domElement);
+        Viewer$1.transformControl.rotationSnap = THREE.MathUtils.degToRad(5);
+        Viewer$1.transformControl.space = "local";
+        Viewer$1.transformControl.addEventListener("change", Viewer$1.render);
+        Viewer$1.transformControl.addEventListener("objectChange", () => {
+          Viewer$1.changeScale();
+          Viewer$1.syncOutlineClippingTransform();
         });
-        Viewer.transformControl.addEventListener("mouseUp", () => {
-          Viewer.syncOutlineClippingTransform();
-          Viewer.calculateObjectScale();
+        Viewer$1.transformControl.addEventListener("mouseUp", () => {
+          Viewer$1.syncOutlineClippingTransform();
+          Viewer$1.calculateObjectScale();
         });
-        Viewer.transformControl.addEventListener("dragging-changed", function (event) {
+        Viewer$1.transformControl.addEventListener("dragging-changed", function (event) {
           core.controls.enabled = !event.value;
         });
-        core.scene.add(Viewer.transformControl.getHelper());
-        setCore('transformControl', Viewer.transformControl);
+        core.scene.add(Viewer$1.transformControl.getHelper());
+        setCore('transformControl', Viewer$1.transformControl);
 
-        Viewer.transformControlLight = new TransformControls(core.camera, core.renderer.domElement);
-        Viewer.transformControlLight.space = "local";
-        Viewer.transformControlLight.addEventListener("change", Viewer.render);
+        Viewer$1.transformControlLight = new TransformControls(core.camera, core.renderer.domElement);
+        Viewer$1.transformControlLight.space = "local";
+        Viewer$1.transformControlLight.addEventListener("change", Viewer$1.render);
         //Viewer.transformControlLight.addEventListener('objectChange', changeLightRotation);
-        Viewer.transformControlLight.addEventListener(
+        Viewer$1.transformControlLight.addEventListener(
           "dragging-changed",
           function (event) {
             core.controls.enabled = !event.value;
           }
         );
-        core.scene.add(Viewer.transformControlLight.getHelper());
-        setCore('transformControlLight', Viewer.transformControlLight);
+        core.scene.add(Viewer$1.transformControlLight.getHelper());
+        setCore('transformControlLight', Viewer$1.transformControlLight);
 
-        Viewer.transformControlLightTarget = new TransformControls(
+        Viewer$1.transformControlLightTarget = new TransformControls(
           core.camera,
           core.renderer.domElement
         );
-        Viewer.transformControlLightTarget.space = "global";
-        Viewer.transformControlLightTarget.addEventListener("change", Viewer.render);
-        Viewer.transformControlLightTarget.addEventListener(
+        Viewer$1.transformControlLightTarget.space = "global";
+        Viewer$1.transformControlLightTarget.addEventListener("change", Viewer$1.render);
+        Viewer$1.transformControlLightTarget.addEventListener(
           "objectChange",
-          Viewer.changeLightRotation
+          Viewer$1.changeLightRotation
         );
-        Viewer.transformControlLightTarget.addEventListener(
+        Viewer$1.transformControlLightTarget.addEventListener(
           "dragging-changed",
           function (event) {
             core.controls.enabled = !event.value;
           }
         );
-        core.scene.add(Viewer.transformControlLightTarget.getHelper());
-        setCore('transformControlLightTarget', Viewer.transformControlLightTarget);
+        core.scene.add(Viewer$1.transformControlLightTarget.getHelper());
+        setCore('transformControlLightTarget', Viewer$1.transformControlLightTarget);
 
-        Viewer.transformControlClippingPlaneX = Viewer.createClippingPlaneAxis(0, "x");
-        Viewer.transformControlClippingPlaneY = Viewer.createClippingPlaneAxis(1, "y");
-        Viewer.transformControlClippingPlaneZ = Viewer.createClippingPlaneAxis(2, "z");
-        setCore('transformControlClippingPlaneX', Viewer.transformControlClippingPlaneX);
-        setCore('transformControlClippingPlaneY', Viewer.transformControlClippingPlaneY);
-        setCore('transformControlClippingPlaneZ', Viewer.transformControlClippingPlaneZ);
+        Viewer$1.transformControlClippingPlaneX = Viewer$1.createClippingPlaneAxis(0, "x");
+        Viewer$1.transformControlClippingPlaneY = Viewer$1.createClippingPlaneAxis(1, "y");
+        Viewer$1.transformControlClippingPlaneZ = Viewer$1.createClippingPlaneAxis(2, "z");
+        setCore('transformControlClippingPlaneX', Viewer$1.transformControlClippingPlaneX);
+        setCore('transformControlClippingPlaneY', Viewer$1.transformControlClippingPlaneY);
+        setCore('transformControlClippingPlaneZ', Viewer$1.transformControlClippingPlaneZ);
 
-        setCore('clippingPlanes', Viewer.clippingPlanes);
-        setCore('selectObjectHierarchy', Viewer.selectObjectHierarchy);
+        setCore('clippingPlanes', Viewer$1.clippingPlanes);
+        setCore('selectObjectHierarchy', Viewer$1.selectObjectHierarchy);
 
       }
 
-      Viewer.GESTURE.handPx *= Math.min(window.innerWidth / 1200, 1);
+      Viewer$1.GESTURE.handPx *= Math.min(window.innerWidth / 1200, 1);
 
-      Viewer._ext = core.fileObject.extension.toLowerCase();
+      Viewer$1._ext = core.fileObject.extension.toLowerCase();
       if (
-        Viewer._ext === "zip" ||
-        Viewer._ext === "rar" ||
-        Viewer._ext === "tar" ||
-        Viewer._ext === "xz" ||
-        Viewer._ext === "gz"
+        Viewer$1._ext === "zip" ||
+        Viewer$1._ext === "rar" ||
+        Viewer$1._ext === "tar" ||
+        Viewer$1._ext === "xz" ||
+        Viewer$1._ext === "gz"
       ) {
-        Viewer.archiveType = Viewer._ext;
+        Viewer$1.archiveType = Viewer$1._ext;
       }
       
       core.autoPath = "";
@@ -16099,7 +17012,7 @@ const Viewer = {
         const themeToggle = document.getElementById('example-theme-toggle');
         const viewerElement = document.getElementById('DFG_3DViewer');
         if (picker && selectModel && viewerElement) {
-          Viewer.updateLocalPreviewLabels();
+          Viewer$1.updateLocalPreviewLabels();
           const localurl = new URL(window.location.href);
           let selectedModel = localurl.searchParams.get('model');
           if (!selectedModel) {
@@ -16129,16 +17042,16 @@ const Viewer = {
       }
 
       if (core.SANDBOX_MODE) {
-        Viewer.prepareSandboxScene();
+        Viewer$1.prepareSandboxScene();
       } else if (!core.PRESENTATION_MODE) {
         const sourceType = core.CONFIG.entity.metadata.sourceType.toLowerCase();
         console.log("Loading from source: " + sourceType);
             
         if (window.__E2E__) {
           try {
-            await Viewer.mainLoadModelWrapper();
+            await Viewer$1.mainLoadModelWrapper();
           } catch (error) {
-            Viewer.reportError(error, {
+            Viewer$1.reportError(error, {
               context: "E2E model load error",
             });
           }
@@ -16168,7 +17081,7 @@ const Viewer = {
 
               const parser = new DOMParser();
               const doc = parser.parseFromString(xmlText, 'application/xml');
-              Viewer.pendingAnnotationsXml = Viewer.extractAnnotationsXmlFromExportDocument(doc);
+              Viewer$1.pendingAnnotationsXml = Viewer$1.extractAnnotationsXmlFromExportDocument(doc);
 
               core.autoPath = '';
 
@@ -16184,22 +17097,22 @@ const Viewer = {
                   }
                 }
             }
-            await Viewer.mainLoadModelWrapper();
+            await Viewer$1.mainLoadModelWrapper();
           } catch (err) {
-            Viewer.reportError(err, {
+            Viewer$1.reportError(err, {
               context: core.isLightweight ? "Lightweight model load error" : "Metadata load error",
             });
           }
         } else if (sourceType === "iiif") {
-          Viewer.cleanupTransientUI();
+          Viewer$1.cleanupTransientUI();
           createIIIFUI();
 
           console.log("Loading from source: " + core.CONFIG.entity.metadata.sourceType);
-          if (Viewer.iiifConfigURL.url !== "") {
-            createIIIFDropdown(Viewer.iiifConfigURL);
-            await Viewer.loadIIIFURL();
+          if (Viewer$1.iiifConfigURL.url !== "") {
+            createIIIFDropdown(Viewer$1.iiifConfigURL);
+            await Viewer$1.loadIIIFURL();
             core.CONFIG.entity.metadata.sourceType = "IIIF";
-            await Viewer.setupIIIF(Viewer.iiifConfigURL.url);
+            await Viewer$1.setupIIIF(Viewer$1.iiifConfigURL.url);
           }
         } else {
           console.log("Custom metadata source:" + core.CONFIG.entity.metadata.sourceType);
@@ -16211,30 +17124,30 @@ const Viewer = {
                 break;
             }
             // Load model for custom metadata sources
-            await Viewer.mainLoadModelWrapper();
+            await Viewer$1.mainLoadModelWrapper();
           } catch (error) {
-            Viewer.reportError(error, {
+            Viewer$1.reportError(error, {
               context: core.isLightweight ? "Lightweight model load error" : "Custom metadata load error",
             });
           }
         }
       } else {
-        await Viewer.mainLoadModelWrapper();
+        await Viewer$1.mainLoadModelWrapper();
       }
 
       core.renderer.setPixelRatio(devicePixelRatio);
-      const update = () => Viewer.updateSize();
+      const update = () => Viewer$1.updateSize();
 
-      Viewer.bindEventListener(window, 'resize', update);
+      Viewer$1.bindEventListener(window, 'resize', update);
 
-      Viewer.resizeObserver = new ResizeObserver(update);
-      Viewer.resizeObserver.observe(Viewer.viewerWrapper);
+      Viewer$1.resizeObserver = new ResizeObserver(update);
+      Viewer$1.resizeObserver.observe(Viewer$1.viewerWrapper);
 
 
-      Viewer.bindEventListener(document, 'fullscreenchange', Viewer.onFullscreenChange);
+      Viewer$1.bindEventListener(document, 'fullscreenchange', Viewer$1.onFullscreenChange);
 
       const onOrientationChange = () => setTimeout(update, 100);
-      Viewer.bindEventListener(window, 'orientationchange', onOrientationChange);
+      Viewer$1.bindEventListener(window, 'orientationchange', onOrientationChange);
 	  }
   },
   render() {
@@ -16259,15 +17172,15 @@ async function expectWebGL(page) {
   }
 }
 
-window.Viewer = Viewer;
+window.Viewer = Viewer$1;
 
 (async () => {
   try {
-    await Viewer.MainInit();
+    await Viewer$1.MainInit();
   } catch (error) {
-    Viewer.renderFatalError(error);
+    Viewer$1.renderFatalError(error);
   }
 })();
 
-export { Viewer, expectWebGL };
+export { Viewer$1 as Viewer, expectWebGL };
 //# sourceMappingURL=main.js.map

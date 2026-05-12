@@ -656,6 +656,8 @@ export async function loadModel() {
 
     updateLoadingStage("loadingLog.modelLoaded", 100);
     core.circle?.complete?.(2600);
+    core.editorToolbar?.classList.remove('editorToolbar-hidden');
+    core.editorToolbar?.classList.add('editorToolbar-visible');
     core.loadingLog?.finish?.();
     if (!core.PRESENTATION_MODE) {
       toastHelper("modelLoaded", "success", {
@@ -767,6 +769,8 @@ const progressLoaderHandler = function (xhr) {
   if (!Number.isFinite(percentComplete)) return;
   core.circle.show();
   core.circle.set(percentComplete, 100);
+  core.editorToolbar?.classList.remove('editorToolbar-hidden');
+  core.editorToolbar?.classList.add('editorToolbar-visible');
   core.loadingLog?.update?.(percentComplete);
   core.UltraLoader?.set(percentComplete);
 }

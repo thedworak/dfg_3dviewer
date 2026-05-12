@@ -122,6 +122,7 @@ export const Viewer = {
   languageMode: null,
   editorToolbar: null,
   editorToolbarButtons: {},
+  isToolbarExpanded: false,
   downloadModel: null,
   embedConfiguratorPanel: null,
   embedConfigInputs: null,
@@ -129,6 +130,7 @@ export const Viewer = {
   embedMissingSourceNotified: false,
   currentTheme: "dark",
   currentLanguage: "en",
+  loadingLog: null,
   loadingLogMessageKeys: [
     "loadingLog.loadingAssets",
     "loadingLog.loadingModel",
@@ -451,18 +453,37 @@ export const Viewer = {
       clippingPlanes: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M5 5l14 14M19 5L5 19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       ruler: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="9" width="16" height="6" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.8"/> <path d="M7 9v2.5 M9.5 9v1.6 M12 9v2.5 M14.5 9v1.6 M17 9v2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
       annotate: `<svg viewBox="0 0 24 24" aria-hidden="true"> <path d="M5 5h14v10H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/> <path d="M9 9h6M9 12h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/> </svg>`,
-
       annotateAdd: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 8v5M9.5 10.5h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
-
       annotateImport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 6.8v7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.8 12 14l3.2-3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-
       annotateExport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 14.2V7.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.2 12 7l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      loadingLogs: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18M3 6h12M3 18h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+      hierarchy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5v5H4zM15 4h5v5h-5zM4 15h5v5H4zM15 15h5v5h-5zM9 6h6M9 17h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      performance: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
+      statistics: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7 14v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 10v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M17 6v12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+      performanceDefault: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
+      performanceHigh: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="#FF4136"/></svg>',
+      performanceLow: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="#2ECC40"/></svg>',
+      expand: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      collapse: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',        
     };
     return icons[icon] || icons.advancedEditor;
   },
 
+  toggleToolbarExpanded() {
+    if (!core.editorToolbar) return;
+    const hiddenTools = core.editorToolbar.querySelectorAll(".viewer-editor-tool");
+    console.log("Toggling toolbar expansion. Hidden tools:", hiddenTools);
+
+    hiddenTools.forEach(tool => {
+      if (tool.dataset.primary === "true") return; // Skip primary tools
+      tool.classList.toggle("viewer-editor-tool-not-primary");
+    });
+    this.isToolbarExpanded = !this.isToolbarExpanded;
+      this.editorToolbarButtons.expand.classList.toggle("expanded-icon", this.isToolbarExpanded);
+  },
+
   createEditorToolbar() {
-    if (!core.EDITOR || this.urlOptions.hideUi || this.editorToolbar || !core.container) return;
+    if (!core.EDITOR || this.urlOptions.hideUi || core.editorToolbar || !core.container) return;
 
     const toolbar = document.createElement("div");
     toolbar.id = "viewerEditorToolbar";
@@ -471,19 +492,22 @@ export const Viewer = {
     toolbar.style.translate = "-50% 95%";
 
     const tools = [
-      { key: "orbit", icon: "orbit", onClick: () => this.setObjectTransformMode("") },
-      { key: "move", icon: "move", onClick: () => this.toggleObjectTransformMode("translate"), pressed: true },
-      { key: "rotate", icon: "rotate", onClick: () => this.toggleObjectTransformMode("rotate"), pressed: true },
-      { key: "scale", icon: "scale", onClick: () => this.toggleObjectTransformMode("scale"), pressed: true },
-      { key: "lights", icon: "lights", onClick: () => {}, pressed: false },
+      { key: "orbit", icon: "orbit", onClick: () => this.setObjectTransformMode(""), primary: true },
+      { key: "move", icon: "move", onClick: () => this.toggleObjectTransformMode("translate"), pressed: true, primary: true },
+      { key: "rotate", icon: "rotate", onClick: () => this.toggleObjectTransformMode("rotate"), pressed: true, primary: true },
+      { key: "scale", icon: "scale", onClick: () => this.toggleObjectTransformMode("scale"), pressed: true, primary: true },
+      { key: "lights", icon: "lights", onClick: () => {}, pressed: false, primary: false },
       //{ key: "materials", icon: "materials", onClick: () => {}, pressed: false },
-      { key: "picking", icon: "picking", onClick: () => this.togglePickingMode(), pressed: true },
-      { key: "annotate", icon: "annotate", onClick: () => this.openAnnotationDialogWithAutoPicking() },
-      { key: "ruler", icon: "ruler", onClick: () => this.toggleDistanceMeasurement(), pressed: true },
-      { key: "fullScreen", icon: "fullScreen", onClick: () => this.toggleFullscreen(), pressed: true },
-      { key: "clippingPlanes", icon: "clippingPlanes", onClick: () => this.toggleClippingPlanesPanel(), pressed: true },
-      { key: "resetCamera", icon: "resetCamera", onClick: () => this.resetCamera() },
-      { key: "advancedEditor", icon: "advancedEditor", onClick: () => this.toggleEditorAdvancedPanel(), pressed: true },
+      { key: "picking", icon: "picking", onClick: () => this.togglePickingMode(), pressed: true, primary: false },
+      { key: "annotate", icon: "annotate", onClick: () => this.openAnnotationDialogWithAutoPicking(), primary: false },
+      { key: "ruler", icon: "ruler", onClick: () => this.toggleDistanceMeasurement(), pressed: true, primary: false },
+      { key: "fullScreen", icon: "fullScreen", onClick: () => this.toggleFullscreen(), pressed: true, primary: true },
+      { key: "clippingPlanes", icon: "clippingPlanes", onClick: () => this.toggleClippingPlanesPanel(), pressed: true, primary: false },
+      { key: "resetCamera", icon: "resetCamera", onClick: () => this.resetCamera(), primary: false },
+      { key: "loadingLogs", icon: "loadingLogs", onClick: () => this.toggleLoadingLogs(), pressed: true, primary: false },
+      { key: "hierarchy", icon: "hierarchy", onClick: () => {}, pressed: true, primary: false },
+      { key: "statistics", icon: "statistics", onClick: () => {}, pressed: true, primary: false },
+      { key: "advancedEditor", icon: "advancedEditor", onClick: () => this.toggleEditorAdvancedPanel(), pressed: true, primary: false },
     ];
 
     if (!core.isLightweight) {
@@ -499,8 +523,12 @@ export const Viewer = {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "viewer-editor-tool";
+      if (!tool.primary) {
+        button.classList.add("viewer-editor-tool-not-primary");
+      }
       button.dataset.tool = tool.key;
       button.dataset.pressed = tool.pressed ? "true" : "false";
+      button.dataset.primary = tool.primary ? "true" : "false";
       button.innerHTML = `
         <span class="viewer-editor-tool_icon" aria-hidden="true">${this.getEditorToolbarIcon(tool.icon)}</span>
         <span class="viewer-editor-tool_sr"></span>
@@ -564,6 +592,97 @@ export const Viewer = {
         });
         button.appendChild(submenu);
       }
+      else if (tool.key === "hierarchy") {
+        button.classList.add("has-submenu");
+        const submenu = document.createElement("div");
+        submenu.className = "viewer-editor-tool_submenu viewer-editor-hierarchy-submenu";
+        this.hierarchySubmenu = submenu;
+        this.hierarchySubmenuButtons = {};
+        button.appendChild(submenu);
+      }
+      else if (tool.key === "statistics") {
+        button.classList.add("has-submenu");
+        const submenu = document.createElement("div");
+        submenu.className = "viewer-editor-tool_submenu";
+        this.statisticsSubmenuButtons = {};
+
+        const appendStatisticsSubmenuItems = (items, container) => {
+          items.forEach((item) => {
+            const subButton = document.createElement("button");
+            subButton.type = "button";
+            subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+            subButton.dataset.tool = item.key;
+            subButton.setAttribute("title", item.label);
+            subButton.setAttribute("aria-label", item.label);
+
+            const iconSpan = document.createElement("span");
+            iconSpan.className = "viewer-editor-tool_icon";
+            iconSpan.setAttribute("aria-hidden", "true");
+            iconSpan.innerHTML = this.getEditorToolbarIcon(item.icon);
+            subButton.appendChild(iconSpan);
+
+            const srSpan = document.createElement("span");
+            srSpan.className = "viewer-editor-tool_sr";
+            srSpan.textContent = item.label;
+            subButton.appendChild(srSpan);
+
+            if (item.onClick) {
+              this.bindEventListener(subButton, "click", (event) => {
+                event.stopPropagation();
+                item.onClick();
+              });
+            }
+
+            if (item.children) {
+              subButton.classList.add("has-submenu");
+              const nested = document.createElement("div");
+              nested.className = "viewer-editor-tool_submenu";
+              appendStatisticsSubmenuItems(item.children, nested);
+              subButton.appendChild(nested);
+            }
+
+            this.statisticsSubmenuButtons[item.key] = subButton;
+            container.appendChild(subButton);
+          });
+        };
+
+        appendStatisticsSubmenuItems([
+          {
+            key: "toggleStats",
+            icon: "statistics",
+            label: t("gui.statistics", "Statistics"),
+            onClick: () => this.toggleStatsVisibility(),
+          },
+          {
+            key: "performance",
+            icon: "performance",
+            label: t("gui.performance", "Performance"),
+            children: [
+              {
+                key: "performanceDefault",
+                icon: "statistics",
+                label: t("gui.default", "Default"),
+                onClick: () => this.setPerformanceMode("default"),
+                pressed: false,
+              },
+              {
+                key: "performanceHigh",
+                icon: "performanceHigh",
+                label: t("gui.highPerformance", "High-performance"),
+                onClick: () => this.setPerformanceMode("high-performance"),
+              },
+              {
+                key: "performanceLow",
+                icon: "performanceLow",
+                label: t("gui.lowPower", "Low-power"),
+                onClick: () => this.setPerformanceMode("low-power"),
+              },
+            ],
+          },
+        ], submenu);
+
+        button.appendChild(submenu);
+      }
       else if (tool.key === "lights") {
         button.classList.add("has-submenu");
         const submenu = document.createElement("div");
@@ -582,7 +701,7 @@ export const Viewer = {
           items.forEach((item) => {
             const subButton = document.createElement("button");
             subButton.type = "button";
-            subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+            subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button ";
             subButton.dataset.tool = item.key;
             subButton.setAttribute("title", item.label);
             subButton.setAttribute("aria-label", item.label);
@@ -798,13 +917,26 @@ export const Viewer = {
       this.editorToolbarButtons[tool.key] = button;
     });
 
+    const expandButton = document.createElement("button");
+    expandButton.type = "button";
+    expandButton.className = "viewer-editor-tool viewer-editor-expand";
+    expandButton.innerHTML = `<span class="viewer-editor-tool_icon" aria-hidden="true">${this.getEditorToolbarIcon("expand")}</span>`;
+    expandButton.dataset.primary = "true";
+    expandButton.setAttribute("title", t("gui.expand", "Expand toolbar"));
+    expandButton.setAttribute("aria-label", t("gui.expand", "Expand toolbar"));
+    this.bindEventListener(expandButton, "click", () => this.toggleToolbarExpanded());
+    toolbar.appendChild(expandButton);
+    this.editorToolbarButtons.expand = expandButton;
+
     if (this.actionMenu) {
       this.actionMenu.classList.add("viewer-action-menu_in-toolbar");
       toolbar.appendChild(this.actionMenu);
     }
 
     core.container.appendChild(toolbar);
-    this.editorToolbar = toolbar;
+    core.editorToolbar = toolbar;
+    core.editorToolbar.classList.add('editorToolbar-hidden');
+    core.editorToolbar.classList.add('collapsed');
     this.updateFullscreenButtonIcon();
     this.updateEditorToolbarLabels();
     this.updateEditorToolbarState();
@@ -830,14 +962,19 @@ export const Viewer = {
       preview: t("gui.renderPreview", "Render preview"),
       save: t("gui.save", "Save"),
       advancedEditor: this.isEditorAdvancedPanelVisible()
-        ? t("toolbar.hideAdvancedEditor", "Hide advanced editor")
-        : t("toolbar.showAdvancedEditor", "Show advanced editor"),
+        ? t("gui.hideAdvancedEditor", "Hide advanced editor")
+        : t("gui.showAdvancedEditor", "Show advanced editor"),
       fullScreen: Viewer.FULLSCREEN
         ? t("fullscreen.exit", "Exit fullscreen")
         : t("fullscreen.enter", "Enter fullscreen"),
       clippingPlanes: this.clippingMode
         ? t("toolbar.disableClippingPlanesMode", "Disable clipping planes mode")
         : t("toolbar.enableClippingPlanesMode", "Enable clipping planes mode"),
+      loadingLogs: this.showLoadingLogs
+        ? t("gui.hideLoadingLogs", "Hide loading logs")
+        : t("gui.showLoadingLogs", "Show loading logs"),
+      statistics: t("gui.statistics", "Statistics"),
+      expand: t("gui.expand", "Expand toolbar"),
     };
 
     Object.entries(this.editorToolbarButtons).forEach(([key, button]) => {
@@ -862,7 +999,6 @@ export const Viewer = {
         button.setAttribute("aria-label", label);
       });
     }
-
     // Update submenu button labels for annotations
     if (this.annotateSubmenuButtons) {
       const annotateSubmenuLabels = {
@@ -877,7 +1013,23 @@ export const Viewer = {
       });
     }
 
-    this.editorToolbar?.setAttribute("aria-label", t("toolbar.editor", "Editor tools"));
+    if (this.statisticsSubmenuButtons) {
+      const statisticsSubmenuLabels = {
+        toggleStats: t("gui.statistics", "Statistics"),
+        performance: t("gui.performance", "Performance"),
+        performanceDefault: t("gui.default", "Default"),
+        performanceHigh: t("gui.highPerformance", "High-performance"),
+        performanceLow: t("gui.lowPower", "Low-power"),
+      };
+      Object.entries(this.statisticsSubmenuButtons).forEach(([key, button]) => {
+        const label = statisticsSubmenuLabels[key] || key;
+        button.setAttribute("title", label);
+        button.setAttribute("aria-label", label);
+      });
+    }
+
+    core.editorToolbar?.setAttribute("aria-label", t("toolbar.editor", "Editor tools"));
+    this.editorToolbarButtons.expand?.setAttribute("aria-label", t("gui.expand", "Expand"));
   },
 
   isEditorAdvancedPanelVisible() {
@@ -895,6 +1047,86 @@ export const Viewer = {
 
   toggleEditorAdvancedPanel() {
     this.setEditorAdvancedPanelVisible(!this.isEditorAdvancedPanelVisible());
+  },
+
+  toggleLoadingLogs() {
+    this.showLoadingLogs = !this.showLoadingLogs;
+    if (core.loadingLog.get()) {
+      core.loadingLog.get().classList.toggle("editorToolbar-visible", this.showLoadingLogs);
+    }
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
+  },
+
+  addHierarchySubmenuItem(name, meshId) {
+    if (!this.hierarchySubmenu) return;
+    
+    const subButton = document.createElement("button");
+    subButton.type = "button";
+    subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button viewer-editor-hierarchy-submenu";
+    subButton.dataset.tool = `hierarchy-item-${meshId}`;
+    subButton.innerHTML = `<span class="viewer-editor-tool_sr">${name}</span>`;
+    subButton.setAttribute("title", name);
+    subButton.setAttribute("aria-label", name);
+    
+    const textLabel = document.createElement("span");
+    textLabel.style.marginLeft = "8px";
+    textLabel.style.marginRight = "8px";
+    textLabel.textContent = name;
+    textLabel.style.maxWidth = "120px";
+    textLabel.style.overflow = "hidden";
+    textLabel.style.textOverflow = "ellipsis";
+    textLabel.style.whiteSpace = "nowrap";
+    textLabel.style.display = "inline-block";
+    subButton.appendChild(textLabel);
+    
+    this.bindEventListener(subButton, "click", (event) => {
+      event.stopPropagation();
+      core.selectObjectHierarchy(meshId, core.container);
+    });
+    
+    this.hierarchySubmenu.appendChild(subButton);
+    this.hierarchySubmenuButtons[meshId] = subButton;
+  },
+
+  clearHierarchySubmenu() {
+    if (!this.hierarchySubmenu) return;
+    this.hierarchySubmenu.innerHTML = "";
+    this.hierarchySubmenuButtons = {};
+  },
+
+  toggleStatsVisibility() {
+    if (typeof core.stats === "undefined" || !core.stats?.dom) return;
+    const isVisible = core.stats.dom.style.visibility !== "hidden";
+    core.stats.dom.style.visibility = isVisible ? "hidden" : "visible";
+    this.updateEditorToolbarState();
+  },
+
+  setPerformanceMode(value) {
+    if (typeof core.renderer !== "undefined") {
+      core.renderer.powerPreference = value;
+    }
+    if (!core.CONFIG.viewer) {
+      core.CONFIG.viewer = {};
+    }
+    core.CONFIG.viewer.performanceMode = value;
+    this.updateEditorToolbarState();
+  },
+
+  updateStatisticsSubmenuState() {
+    if (!this.statisticsSubmenuButtons) return;
+    const isVisible = typeof core.stats !== "undefined" && core.stats?.dom?.style?.visibility !== "hidden";
+    this.statisticsSubmenuButtons.toggleStats?.classList.toggle("is-active", isVisible);
+
+    const currentMode = core.renderer?.powerPreference || core.CONFIG.viewer?.performanceMode || "default";
+    const performanceMap = {
+      performanceHigh: "high-performance",
+      performanceLow: "low-power",
+      performanceDefault: "default",
+    };
+    Object.entries(performanceMap).forEach(([key, value]) => {
+      this.statisticsSubmenuButtons[key]?.classList.toggle("is-active", currentMode === value);
+    });
   },
 
   toggleMainMenu() {
@@ -1217,8 +1449,10 @@ export const Viewer = {
       picking: this.pickingMode === true,
       ruler: this.RULER_MODE === true,
       clippingPlanes: this.clippingMode === true,
+      statistics: typeof core.stats !== "undefined" && core.stats?.dom?.style?.visibility !== "hidden",
       advancedEditor: this.isEditorAdvancedPanelVisible(),
       fullScreen: Viewer.FULLSCREEN === true,
+      loadingLogs: this.showLoadingLogs === true,
     };
 
     Object.entries(this.editorToolbarButtons).forEach(([key, button]) => {
@@ -1233,6 +1467,7 @@ export const Viewer = {
 
     this.updateClippingPlanesSubmenuState();
     this.updateLightsSubmenuState();
+    this.updateStatisticsSubmenuState();
   },
 
   isEmbedModeActive() {
@@ -1584,7 +1819,6 @@ export const Viewer = {
     g.resetCameraController?.name?.(t("gui.resetCameraPosition", "Reset camera position"));
     g.saveController?.name?.(t("gui.save", "Save"));
     g.renderPreviewController?.name?.(t("gui.renderPreview", "Render preview"));
-    g.performanceController?.name?.(t("gui.performance", "Performance"));
     g.savePropPositionController?.name?.(t("gui.position", "Position"));
     g.savePropRotationController?.name?.(t("gui.rotation", "Rotation"));
     g.savePropScaleController?.name?.(t("gui.scale", "Scale"));
@@ -1619,11 +1853,6 @@ export const Viewer = {
     this.refreshOptionController(g.backgroundTypeController, {
       [t("gui.linear", "Linear")]: "linear",
       [t("gui.gradient", "Gradient")]: "gradient",
-    });
-    this.refreshOptionController(g.performanceController, {
-      [t("gui.highPerformance", "High-performance")]: "high-performance",
-      [t("gui.lowPower", "Low-power")]: "low-power",
-      [t("gui.default", "Default")]: "default",
     });
     this.refreshOptionController(g.editMaterialsController, {
       [t("gui.selectByMaterial", "select by material")]: "select by material",
@@ -2008,6 +2237,8 @@ export const Viewer = {
     shell.appendChild(body);
     core.container.appendChild(shell);
 
+    shell.classList.add("editorToolbar-hidden");
+
     let timer = null;
     let messageIndex = 0;
     let visibleCount = 0;
@@ -2168,7 +2399,8 @@ export const Viewer = {
           setExpanded(false);
           hideTimer = null;
         }, 2000);
-      }
+      },
+      get: () => shell,
     };
   },
 
@@ -2999,11 +3231,11 @@ export const Viewer = {
   },
 
   updateFullscreenButtonIcon() {
-    if (this.editorToolbar) {
+    if (core.editorToolbar) {
       if (Viewer.FULLSCREEN) {
-        this.editorToolbar.classList.add("with-fullscreen");
+        core.editorToolbar.classList.add("with-fullscreen");
       } else {
-        this.editorToolbar.classList.remove("with-fullscreen");
+        core.editorToolbar.classList.remove("with-fullscreen");
       }
     }
   },
@@ -3205,6 +3437,7 @@ export const Viewer = {
     setCore('enqueueStatusNotice', this.enqueueStatusNotice.bind(this));
     setCore('dismissStatusNotice', this.dismissStatusNotice.bind(this));
     setCore('updateClippingHintVisibility', this.updateClippingHintVisibility.bind(this));
+    setCore('editorToolbar', this.editorToolbar);
 
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -3448,7 +3681,6 @@ export const Viewer = {
       this.loadingLog = this.createLoadingLog();
       setCore('loadingLog', this.loadingLog);
     }
-
     this.rect = core.container.getBoundingClientRect();
 
     this.clock = new THREE.Timer();
@@ -5339,7 +5571,7 @@ export const Viewer = {
     }
 
     if (core.handHint)
-    core.handHint.style.top = (heightCSS - 70) + 'px';
+    core.handHint.style.top = (heightCSS - 150) + 'px';
    
     core.renderer.setPixelRatio(devicePixelRatio * scale.x);
     core.renderer.setSize(widthCSS*scale.x, heightCSS*scale.y, false);
@@ -6314,6 +6546,10 @@ export const Viewer = {
     core.stats.domElement.style.cssText =
       "position:relative;top:0px;" +
       "max-height:120px;max-width:90px;z-index:2;visibility:hidden;";
+    if (typeof core.guiContainer !== "undefined" && core.stats?.dom) {
+      core.guiContainer.appendChild(core.stats.dom);
+      core.stats.dom.style.left = (core.guiContainer.getBoundingClientRect().width - core.stats.domElement.getBoundingClientRect().width + 10) + 'px';
+    }
 
     Viewer.windowHalfX = core.CONFIG.viewer.canvasDimensions.x / 2;
     Viewer.windowHalfY = core.CONFIG.viewer.canvasDimensions.y / 2;
@@ -6541,36 +6777,11 @@ export const Viewer = {
       Viewer.updateSelectedFacesControllerLabel();
       Viewer.selectedFacesCountController.disable();
 
-      Viewer.metadataFolder = core.gui.addFolder(t("gui.metadata", "Metadata")).close();
-      Viewer.metadataFolder.domElement?.classList.add("viewer-gui-main-folder");
-      Viewer.metadataFolder.domElement?.setAttribute("data-gui-main-folder", "metadata");
-      core.i18nGui.metadataFolder = Viewer.metadataFolder;
+      //Viewer.metadataFolder = core.gui.addFolder(t("gui.metadata", "Metadata")).close();
+      //Viewer.metadataFolder.domElement?.classList.add("viewer-gui-main-folder");
+      //Viewer.metadataFolder.domElement?.setAttribute("data-gui-main-folder", "metadata");
+      //core.i18nGui.metadataFolder = Viewer.metadataFolder;
 
-      Viewer.addAnnotationController = Viewer.metadataFolder.add(
-        {
-          [t("gui.addAnnotations", "Add annotations")]() {
-            Viewer.openAnnotationDialogWithAutoPicking();
-          },
-        },
-        t("gui.addAnnotations", "Add annotations")
-      );
-      core.i18nGui.addAnnotationController = Viewer.addAnnotationController;
-      core.i18nGui.exportAnnotationsController = Viewer.metadataFolder.add(
-        {
-          [t("gui.exportAnnotationsXml", "Export annotations XML")]() {
-            Viewer.downloadAnnotationsXmlFile();
-          },
-        },
-        t("gui.exportAnnotationsXml", "Export annotations XML")
-      );
-      core.i18nGui.importAnnotationsController = Viewer.metadataFolder.add(
-        {
-          [t("gui.importAnnotationsXml", "Import annotations XML")]() {
-            Viewer.triggerAnnotationsXmlImport();
-          },
-        },
-        t("gui.importAnnotationsXml", "Import annotations XML")
-      );
       Viewer.updatePickingControlsVisibility();
 
       Viewer.distanceMeasurementController = Viewer.editorFolder.add(
@@ -7072,7 +7283,7 @@ export const Viewer = {
         
         Viewer.rect = core.container.getBoundingClientRect();
         core.guiContainer.style.maxHeight = `${Viewer.rect.height - 20}px`;
-        core.lilGui = document.getElementsByClassName("lil-gui root");
+        //core.lilGui = document.getElementsByClassName("lil-gui root");
 
         Viewer.fileElement = document.getElementsByClassName("field--type-file");
         if (Viewer.fileElement.length > 0) {

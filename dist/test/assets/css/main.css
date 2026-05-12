@@ -1303,7 +1303,7 @@ canvas {
 #viewerEditorToolbar {
   position: absolute;
   left: 50%;
-  bottom: 16px;
+  bottom: 0px;
   z-index: 999998;
   display: flex;
   align-items: center;
@@ -1317,6 +1317,35 @@ canvas {
   box-shadow: var(--viewer-panel-shadow);
   backdrop-filter: blur(14px);
   scrollbar-width: none;
+}
+
+.editorToolbar-hidden {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px) scale(0.98);
+}
+
+.editorToolbar-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(-20%) scale(1);
+
+  transition:
+    opacity 1.25s ease,
+    transform 1.25s ease,
+    visibility 0s;
+}
+
+.viewer-editor-tool-not-primary {
+  display: none !important;
+}
+
+#viewerEditorToolbar-visible.expanded .viewer-editor-tool-not-primary {
+  display: flex;
+}
+
+.expanded-icon {
+  transform: rotateY(180deg);
 }
 
 #viewerEditorToolbar.with-fullscreen {
@@ -1510,6 +1539,10 @@ canvas {
 .viewer-editor-tool:focus-visible {
   outline: 2px solid rgba(92, 185, 255, 0.55);
   outline-offset: 2px;
+}
+
+.viewer-editor-hierarchy-submenu {
+  width: 100px;
 }
 
 .viewer-editor-tool_icon {
