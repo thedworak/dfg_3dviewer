@@ -1336,6 +1336,16 @@ canvas {
     visibility 0s;
 }
 
+.viewer-stats {
+  position: fixed !important;
+  top: 0px !important;
+  left: 97% !important;
+  max-height: 120px;
+  max-width: 90px;
+  z-index: 2;
+  visibility: hidden;
+}
+
 .viewer-editor-tool-not-primary {
   display: none !important;
 }
@@ -1344,8 +1354,8 @@ canvas {
   display: flex;
 }
 
-.expanded-icon {
-  transform: rotateY(180deg);
+.expanded-icon, .expanded-icon:hover {
+  transform: rotateY(180deg) !important;
 }
 
 #viewerEditorToolbar.with-fullscreen {

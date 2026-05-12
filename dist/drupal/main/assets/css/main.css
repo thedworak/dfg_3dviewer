@@ -90,8 +90,8 @@ canvas {
   max-width: calc(100% - 88px);
   position: absolute;
   left: 50%;
-  bottom: 14px;
-  transform: translateX(-50%);
+  bottom: 0;
+  transform: translateX(-50%) translateY(-150%);
   z-index: 110;
   display: flex;
   flex-direction: column;
@@ -1292,6 +1292,295 @@ canvas {
   line-height: 0;
 }
 
+#viewerActionMenu.viewer-action-menu_in-toolbar {
+  position: relative;
+  right: auto;
+  bottom: auto;
+  z-index: auto;
+  flex: 0 0 auto;
+}
+
+#viewerEditorToolbar {
+  position: absolute;
+  left: 50%;
+  bottom: 0px;
+  z-index: 999998;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  max-width: min(calc(100% - 112px), 920px);
+  overflow: visible;
+  border-radius: 18px;
+  border: 1px solid var(--viewer-panel-border);
+  background: color-mix(in srgb, var(--viewer-panel-bg) 92%, transparent);
+  box-shadow: var(--viewer-panel-shadow);
+  backdrop-filter: blur(14px);
+  scrollbar-width: none;
+}
+
+.editorToolbar-hidden {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px) scale(0.98);
+}
+
+.editorToolbar-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(-20%) scale(1);
+
+  transition:
+    opacity 1.25s ease,
+    transform 1.25s ease,
+    visibility 0s;
+}
+
+.viewer-stats {
+  position: fixed !important;
+  top: 0px !important;
+  left: 97% !important;
+  max-height: 120px;
+  max-width: 90px;
+  z-index: 2;
+  visibility: hidden;
+}
+
+.viewer-editor-tool-not-primary {
+  display: none !important;
+}
+
+#viewerEditorToolbar-visible.expanded .viewer-editor-tool-not-primary {
+  display: flex;
+}
+
+.expanded-icon, .expanded-icon:hover {
+  transform: rotateY(180deg) !important;
+}
+
+#viewerEditorToolbar.with-fullscreen {
+  transform: translate(5%, -75%);
+}
+
+#viewerEditorToolbar::-webkit-scrollbar {
+  display: none;
+}
+
+.viewer-editor-tool {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--viewer-panel-text);
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.viewer-editor-tool:hover {
+  transform: translateY(-1px);
+  background: var(--viewer-panel-bg-hover);
+  border-color: var(--viewer-panel-border);
+}
+
+.viewer-editor-tool.has-submenu {
+  position: relative;
+}
+
+.viewer-editor-tool_submenu {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 2px);
+  transform: translateX(-50%) translateY(0);
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 14px;
+  background: var(--viewer-panel-bg);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 10;
+  min-width: max-content;
+}
+
+.viewer-editor-tool.has-submenu:hover > .viewer-editor-tool_submenu,
+.viewer-editor-tool.has-submenu:focus-within > .viewer-editor-tool_submenu,
+.viewer-editor-tool.has-submenu > .viewer-editor-tool_submenu:hover {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+
+.viewer-editor-tool_submenu-button.has-submenu:hover > .viewer-editor-tool_submenu,
+.viewer-editor-tool_submenu-button.has-submenu:focus-within > .viewer-editor-tool_submenu,
+.viewer-editor-tool_submenu-button.has-submenu > .viewer-editor-tool_submenu:hover {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.viewer-editor-tool_submenu-button.has-submenu > .viewer-editor-tool_submenu {
+  left: 100%;
+  top: -125%;
+  bottom: auto;
+  transform: translateX(0) translateY(-125%);
+}
+
+.viewer-editor-tool_submenu-button {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.viewer-editor-tool_submenu-button:hover {
+  background: var(--viewer-panel-bg-hover);
+  border-color: var(--viewer-panel-border);
+}
+
+.viewer-editor-tool_submenu-button {
+  min-width: 34px;
+  min-height: 34px;
+}
+
+.viewer-editor-tool_submenu-button.viewer-editor-tool_submenu-control {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 6px 10px;
+  width: auto !important;
+  min-width: 0;
+  max-width: 220px;
+  border-radius: 12px;
+  white-space: normal;
+  flex-wrap: wrap;
+  border: 1px solid rgba(133, 133, 145, 0.39);
+}
+
+.viewer-editor-tool_submenu-button input[type="color"],
+.viewer-editor-tool_submenu-button input[type="range"] {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.viewer-editor-tool_submenu-button input[type="color"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  transform: translateY(-20%);
+}
+
+.viewer-editor-tool_submenu-button input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.viewer-editor-tool_submenu-button input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: 10px;
+}
+
+.viewer-editor-tool_submenu-button input[type="color"]::-moz-color-swatch {
+  border: none;
+  border-radius: 10px;
+}
+
+.viewer-editor-tool_submenu-button input[type="range"] {
+  width: 80px;
+  margin-left: 5px;
+}
+
+.viewer-editor-tool_submenu-button .viewer-editor-tool_submenu-value {
+  margin-left: 8px;
+  font-size: 0.75rem;
+  color: var(--viewer-text-color);
+  min-width: 32px;
+  text-align: right;
+}
+
+.viewer-editor-tool_submenu-control .viewer-editor-tool_icon {
+  flex-shrink: 0;
+}
+
+.viewer-editor-tool_submenu-button.viewer-editor-tool_submenu-control .viewer-editor-tool_submenu-value {
+  flex-shrink: 0;
+}
+
+.viewer-editor-tool_submenu-button.is-active {
+  background: rgba(92, 185, 255, 0.16);
+  border-color: rgba(92, 185, 255, 0.4);
+  color: #8fd3ff;
+}
+
+.viewer-editor-tool.is-active {
+  background: rgba(92, 185, 255, 0.16);
+  border-color: rgba(92, 185, 255, 0.4);
+  color: #8fd3ff;
+}
+
+.viewer-wrapper[data-viewer-theme="light"] .viewer-editor-tool.is-active {
+  background: rgba(64, 125, 180, 0.12);
+  border-color: rgba(64, 125, 180, 0.3);
+  color: #315f86;
+}
+
+.viewer-editor-tool:focus-visible {
+  outline: 2px solid rgba(92, 185, 255, 0.55);
+  outline-offset: 2px;
+}
+
+.viewer-editor-hierarchy-submenu {
+  width: 100px;
+}
+
+.viewer-editor-tool_icon {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.viewer-editor-tool_icon svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.viewer-editor-tool_sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .viewer-action-menu_checkbox {
   position: absolute;
   opacity: 0;
@@ -1308,16 +1597,15 @@ canvas {
   width: 36px;
   height: 36px;
   display: flex !important;
-  flex-direction: column !important;
   justify-content: center;
   align-items: center;
-  gap: 5px !important;
   border-radius: 999px;
   cursor: pointer;
   background: var(--viewer-panel-bg);
   border: 1px solid var(--viewer-panel-border);
   box-shadow: var(--viewer-panel-shadow);
   backdrop-filter: blur(10px);
+  color: var(--viewer-panel-text);
   transition: transform 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
   padding: 0 !important;
   margin: 0 !important;
@@ -1329,25 +1617,32 @@ canvas {
   box-shadow: var(--viewer-panel-shadow);
 }
 
-.viewer-action-menu_toggle span {
+.viewer-action-menu_settings-icon {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: currentColor;
+  flex: 0 0 auto;
+}
+
+.viewer-action-menu_settings-icon svg {
+  width: 20px;
+  height: 20px;
   display: block;
-  width: 18px;
-  height: 2px;
-  border-radius: 999px;
-  background: var(--viewer-panel-text);
-  transition: transform 0.25s ease, opacity 0.25s ease;
 }
 
-#viewerActionMenuToggle:checked + .viewer-action-menu_toggle span:nth-child(1) {
-  transform: translateY(7px) rotate(45deg);
+#viewerActionMenuToggle:checked + .viewer-action-menu_toggle {
+  background: rgba(92, 185, 255, 0.16);
+  border-color: rgba(92, 185, 255, 0.4);
+  color: #8fd3ff;
 }
 
-#viewerActionMenuToggle:checked + .viewer-action-menu_toggle span:nth-child(2) {
-  opacity: 0;
-}
-
-#viewerActionMenuToggle:checked + .viewer-action-menu_toggle span:nth-child(3) {
-  transform: translateY(-7px) rotate(-45deg);
+.viewer-wrapper[data-viewer-theme="light"] #viewerActionMenuToggle:checked + .viewer-action-menu_toggle {
+  background: rgba(64, 125, 180, 0.12);
+  border-color: rgba(64, 125, 180, 0.3);
+  color: #315f86;
 }
 
 .viewer-action-menu_panel {
@@ -1373,6 +1668,25 @@ canvas {
   opacity: 1;
   transform: translateY(0) scale(1);
   pointer-events: auto;
+}
+
+#viewerActionMenu.viewer-action-menu_in-toolbar .viewer-action-menu_toggle {
+  width: 40px;
+  height: 40px;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 12px;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--viewer-panel-text);
+}
+
+#viewerActionMenu.viewer-action-menu_in-toolbar .viewer-action-menu_toggle:hover {
+  transform: translateY(-1px);
+  background: var(--viewer-panel-bg-hover);
+  border-color: var(--viewer-panel-border);
+  box-shadow: none;
 }
 
 #viewerThemeMode,
@@ -2006,6 +2320,15 @@ canvas {
     bottom: 12px;
     font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
              "Segoe UI", Roboto, Arial, sans-serif;
+  }
+
+  #viewerEditorToolbar {
+    left: 12px;
+    right: 64px;
+    bottom: 12px;
+    transform: none;
+    max-width: none;
+    justify-content: flex-start;
   }
 
   .viewer-action-menu_toggle {

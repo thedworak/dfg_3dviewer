@@ -123,6 +123,7 @@ export const Viewer = {
   editorToolbar: null,
   editorToolbarButtons: {},
   isToolbarExpanded: false,
+  editorSecondaryKeys: [],
   downloadModel: null,
   embedConfiguratorPanel: null,
   embedConfigInputs: null,
@@ -450,7 +451,7 @@ export const Viewer = {
       displayHelperY: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7 12 13 17 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 13v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
       displayHelperZ: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10M7 17h10M17 7 7 17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
       visible: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
-      clippingPlanes: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M5 5l14 14M19 5L5 19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      clippingPlanes: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 6h10v12H7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 5v14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M7 6h5v12H7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.5 2.5" stroke-linejoin="round"/></svg>',
       ruler: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="9" width="16" height="6" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.8"/> <path d="M7 9v2.5 M9.5 9v1.6 M12 9v2.5 M14.5 9v1.6 M17 9v2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
       annotate: `<svg viewBox="0 0 24 24" aria-hidden="true"> <path d="M5 5h14v10H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/> <path d="M9 9h6M9 12h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/> </svg>`,
       annotateAdd: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 8v5M9.5 10.5h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
@@ -471,15 +472,12 @@ export const Viewer = {
 
   toggleToolbarExpanded() {
     if (!core.editorToolbar) return;
-    const hiddenTools = core.editorToolbar.querySelectorAll(".viewer-editor-tool");
-    console.log("Toggling toolbar expansion. Hidden tools:", hiddenTools);
 
-    hiddenTools.forEach(tool => {
-      if (tool.dataset.primary === "true") return; // Skip primary tools
+    this.editorSecondaryKeys.forEach(tool => {
       tool.classList.toggle("viewer-editor-tool-not-primary");
     });
     this.isToolbarExpanded = !this.isToolbarExpanded;
-      this.editorToolbarButtons.expand.classList.toggle("expanded-icon", this.isToolbarExpanded);
+    this.editorToolbarButtons.expand.classList.toggle("expanded-icon", this.isToolbarExpanded);
   },
 
   createEditorToolbar() {
@@ -512,8 +510,8 @@ export const Viewer = {
 
     if (!core.isLightweight) {
       tools.splice(tools.length - 1, 0,
-        { key: "preview", icon: "preview", onClick: () => this.takeScreenshot() },
-        { key: "save", icon: "save", onClick: () => this.saveEditorMetadata() }
+        { key: "preview", icon: "preview", onClick: () => this.takeScreenshot(), primary: false },
+        { key: "save", icon: "save", onClick: () => this.saveEditorMetadata(), primary: false }
       );
     }
 
@@ -915,6 +913,9 @@ export const Viewer = {
       });
       toolbar.appendChild(button);
       this.editorToolbarButtons[tool.key] = button;
+      if (!tool.primary) {
+        this.editorSecondaryKeys.push(button);
+      }
     });
 
     const expandButton = document.createElement("button");
@@ -1097,8 +1098,8 @@ export const Viewer = {
 
   toggleStatsVisibility() {
     if (typeof core.stats === "undefined" || !core.stats?.dom) return;
-    const isVisible = core.stats.dom.style.visibility !== "hidden";
-    core.stats.dom.style.visibility = isVisible ? "hidden" : "visible";
+    const isVisible = core.stats.dom.style.visibility !== "visible";
+    core.stats.dom.style.visibility = isVisible ? "visible" : "hidden";
     this.updateEditorToolbarState();
   },
 
@@ -1726,7 +1727,7 @@ export const Viewer = {
     this.updatePickingModeControllerLabel();
     this.updateDistanceMeasurementControllerLabel();
     this.updateSelectedFacesControllerLabel();
-    this.updateLilGuiLabels();
+    //this.updateLilGuiLabels();
     this.updateLocalPreviewLabels();
     this.updateIIIFFormLabels();
     this.updateMetadataPanelLabels();
@@ -3647,6 +3648,7 @@ export const Viewer = {
       core.container.appendChild(core.guiContainer);
 
       core.gui  = new GUI({ container: core.guiContainer });
+      core.gui.domElement.style.visibility = "hidden";
 
       this.metadataContainer = document.createElement("div");
       this.metadataContainer.setAttribute("id", "metadata-container");
@@ -6543,9 +6545,7 @@ export const Viewer = {
   prepareStats () {
     // stats
     core.stats = new Stats();
-    core.stats.domElement.style.cssText =
-      "position:relative;top:0px;" +
-      "max-height:120px;max-width:90px;z-index:2;visibility:hidden;";
+    core.stats.domElement.classList.add("viewer-stats");
     if (typeof core.guiContainer !== "undefined" && core.stats?.dom) {
       core.guiContainer.appendChild(core.stats.dom);
       core.stats.dom.style.left = (core.guiContainer.getBoundingClientRect().width - core.stats.domElement.getBoundingClientRect().width + 10) + 'px';

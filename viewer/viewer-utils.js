@@ -1094,5 +1094,5 @@ export function getOrAddGuiController(object, prop) {
   let controller = findController(core.clippingFolder);
   if (controller) return controller;
 
-  return core.clippingFolder.add(object, prop);
+  return core.clippingFolder?.add(object, prop);
 }
