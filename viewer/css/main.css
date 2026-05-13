@@ -1599,7 +1599,33 @@ canvas {
 }
 
 .viewer-editor-hierarchy-submenu {
-  width: 100px;
+  flex-direction: column;
+  align-items: stretch;
+  width: max-content;
+  min-width: 160px;
+  max-width: 240px;
+}
+
+.viewer-editor-hierarchy-submenu.viewer-editor-tool_submenu-button {
+  width: 100%;
+  min-width: 160px;
+  min-height: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0 6px;
+  border-radius: 8px;
+}
+
+.viewer-editor-hierarchy-submenu.viewer-editor-tool_submenu-button .viewer-editor-tool_sr,
+.viewer-editor-hierarchy-submenu.viewer-editor-tool_submenu-button span:last-child {
+  line-height: 1.1;
+}
+
+.viewer-editor-hierarchy-submenu-label {
+  display: block;
+  line-height: 1;
 }
 
 .viewer-editor-tool_icon {

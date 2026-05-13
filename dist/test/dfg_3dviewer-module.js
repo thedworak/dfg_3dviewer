@@ -10594,6 +10594,7 @@ const Viewer$1 = {
       loadingLogs: this.showLoadingLogs
         ? t$1("gui.hideLoadingLogs", "Hide loading logs")
         : t$1("gui.showLoadingLogs", "Show loading logs"),
+      hierarchy: t$1("gui.hierarchy", "Hierarchy"),
       statistics: t$1("gui.statistics", "Statistics"),
       expand: this.isToolbarExpanded
         ? t$1("iiif.collapse", "Collapse")
@@ -10693,6 +10694,7 @@ const Viewer$1 = {
     subButton.setAttribute("aria-label", name);
     
     const textLabel = document.createElement("span");
+    textLabel.className = "viewer-editor-hierarchy-submenu-label";
     textLabel.style.marginLeft = "8px";
     textLabel.style.marginRight = "8px";
     textLabel.textContent = name;
