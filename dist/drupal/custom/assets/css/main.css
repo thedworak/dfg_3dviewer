@@ -1604,6 +1604,9 @@ canvas {
   width: max-content;
   min-width: 160px;
   max-width: 240px;
+  max-height: 132px;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .viewer-editor-hierarchy-submenu.viewer-editor-tool_submenu-button {
@@ -1626,6 +1629,15 @@ canvas {
 .viewer-editor-hierarchy-submenu-label {
   display: block;
   line-height: 1;
+}
+
+.viewer-editor-hierarchy-submenu::-webkit-scrollbar {
+  width: 6px;
+}
+
+.viewer-editor-hierarchy-submenu::-webkit-scrollbar-thumb {
+  border-radius: 6px;
+  background-color: rgba(127, 127, 127, 0.65);
 }
 
 .viewer-editor-tool_icon {
