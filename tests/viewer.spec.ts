@@ -204,7 +204,7 @@ test('loads OBJ even when the referenced MTL file is missing', async ({ page }) 
 
   expect(state.modelLoaded).toBe(true);
   expect(state.objectCount).toBeGreaterThan(0);
-  expect(state.toasts).toContain('Error occured while loading attached MTL file.');
+  expect(state.toasts).toContain('Error occurred while loading attached MTL file.');
 });
 
 test('reports a corrupted model file instead of hanging', async ({ page }) => {
