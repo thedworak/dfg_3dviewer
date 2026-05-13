@@ -1301,13 +1301,14 @@ canvas {
 }
 
 #viewerEditorToolbar {
+  --viewer-toolbar-gap: 6px;
   position: absolute;
   left: 50%;
   bottom: 0px;
   z-index: 999998;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 0;
   padding: 8px;
   max-width: min(calc(100% - 112px), 920px);
   overflow: visible;
@@ -1317,6 +1318,56 @@ canvas {
   box-shadow: var(--viewer-panel-shadow);
   backdrop-filter: blur(14px);
   scrollbar-width: none;
+  transition:
+    opacity 1.25s ease,
+    transform 1.25s ease,
+    padding 1.28s ease,
+    box-shadow 1.28s ease,
+    background 1.28s ease;
+}
+
+#viewerEditorToolbar > * {
+  margin-inline-start: var(--viewer-toolbar-gap);
+}
+
+#viewerEditorToolbar > :first-child {
+  margin-inline-start: 0;
+}
+
+.viewer-editor-toolbar_secondary-tray {
+  --viewer-toolbar-secondary-width: 0px;
+  display: flex;
+  align-items: center;
+  gap: var(--viewer-toolbar-gap);
+  max-width: 0;
+  opacity: 0;
+  visibility: hidden;
+  overflow: hidden;
+  pointer-events: none;
+  margin-inline-start: 0;
+  transform: translateX(-8px);
+  transition:
+    max-width 1.0s ease,
+    opacity 1.6s ease,
+    visibility 0s linear 1.5s,
+    margin-inline-start 0.5s ease,
+    transform 0.6s ease;
+}
+
+#viewerEditorToolbar.expanded .viewer-editor-toolbar_secondary-tray {
+  max-width: var(--viewer-toolbar-secondary-width);
+  opacity: 1;
+  visibility: visible;
+  overflow: visible;
+  pointer-events: auto;
+  margin-inline-start: var(--viewer-toolbar-gap);
+  transform: translateX(0);
+  transition:
+    max-width 1.0s ease,
+    opacity 0.8s ease 0.18s,
+    visibility 0s linear 0s,
+    margin-inline-start 0.5s ease,
+    transform 0.6s ease;
 }
 
 .editorToolbar-hidden {
@@ -1347,15 +1398,11 @@ canvas {
 }
 
 .viewer-editor-tool-not-primary {
-  display: none !important;
-}
-
-#viewerEditorToolbar-visible.expanded .viewer-editor-tool-not-primary {
-  display: flex;
+  flex: 0 0 auto;
 }
 
 .expanded-icon, .expanded-icon:hover {
-  transform: rotateY(180deg) !important;
+  transform: rotate(90deg) !important;
 }
 
 #viewerEditorToolbar.with-fullscreen {
@@ -1379,7 +1426,7 @@ canvas {
   background: transparent;
   color: var(--viewer-panel-text);
   cursor: pointer;
-  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  transition: width 0.55s ease, height 0.55s ease, opacity 0.55s ease, transform 0.55s ease, background 0.5s ease, border-color 0.5s ease, color 0.5s ease;
 }
 
 .viewer-editor-tool:hover {
@@ -2324,11 +2371,15 @@ canvas {
 
   #viewerEditorToolbar {
     left: 12px;
-    right: 64px;
     bottom: 12px;
     transform: none;
-    max-width: none;
+    width: max-content;
+    max-width: calc(100vw - 76px);
     justify-content: flex-start;
+  }
+
+  #viewerEditorToolbar.expanded {
+    width: max-content;
   }
 
   .viewer-action-menu_toggle {

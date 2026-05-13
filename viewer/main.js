@@ -473,11 +473,22 @@ export const Viewer = {
   toggleToolbarExpanded() {
     if (!core.editorToolbar) return;
 
-    this.editorSecondaryKeys.forEach(tool => {
-      tool.classList.toggle("viewer-editor-tool-not-primary");
-    });
+    this.syncEditorToolbarSecondaryTrayWidth();
     this.isToolbarExpanded = !this.isToolbarExpanded;
+    core.editorToolbar.classList.toggle("expanded", this.isToolbarExpanded);
     this.editorToolbarButtons.expand.classList.toggle("expanded-icon", this.isToolbarExpanded);
+    this.editorToolbarButtons.expand.setAttribute("aria-expanded", this.isToolbarExpanded ? "true" : "false");
+    const icon = this.editorToolbarButtons.expand.querySelector(".viewer-editor-tool_icon");
+    if (icon) {
+      icon.innerHTML = this.getEditorToolbarIcon(this.isToolbarExpanded ? "collapse" : "expand");
+    }
+
+    this.updateEditorToolbarLabels();
+  },
+
+  syncEditorToolbarSecondaryTrayWidth() {
+    if (!this.editorToolbarSecondaryTray) return;
+    this.editorToolbarSecondaryTray.style.setProperty("--viewer-toolbar-secondary-width", `${this.editorToolbarSecondaryTray.scrollWidth}px`);
   },
 
   createEditorToolbar() {
@@ -516,6 +527,9 @@ export const Viewer = {
     }
 
     this.editorToolbarButtons = {};
+    const secondaryTray = document.createElement("div");
+    secondaryTray.className = "viewer-editor-toolbar_secondary-tray";
+    this.editorToolbarSecondaryTray = secondaryTray;
 
     tools.forEach((tool) => {
       const button = document.createElement("button");
@@ -911,18 +925,20 @@ export const Viewer = {
         this.stopHandMode();
         tool.onClick();
       });
-      toolbar.appendChild(button);
+      if (tool.primary) toolbar.appendChild(button);
+      else secondaryTray.appendChild(button);
       this.editorToolbarButtons[tool.key] = button;
-      if (!tool.primary) {
-        this.editorSecondaryKeys.push(button);
-      }
+      if (!tool.primary) this.editorSecondaryKeys.push(button);
     });
+
+    toolbar.appendChild(secondaryTray);
 
     const expandButton = document.createElement("button");
     expandButton.type = "button";
     expandButton.className = "viewer-editor-tool viewer-editor-expand";
     expandButton.innerHTML = `<span class="viewer-editor-tool_icon" aria-hidden="true">${this.getEditorToolbarIcon("expand")}</span>`;
     expandButton.dataset.primary = "true";
+    expandButton.setAttribute("aria-expanded", "false");
     expandButton.setAttribute("title", t("gui.expand", "Expand toolbar"));
     expandButton.setAttribute("aria-label", t("gui.expand", "Expand toolbar"));
     this.bindEventListener(expandButton, "click", () => this.toggleToolbarExpanded());
@@ -941,6 +957,8 @@ export const Viewer = {
     this.updateFullscreenButtonIcon();
     this.updateEditorToolbarLabels();
     this.updateEditorToolbarState();
+    this.syncEditorToolbarSecondaryTrayWidth();
+    this.bindEventListener(window, "resize", () => this.syncEditorToolbarSecondaryTrayWidth());
   },
 
   updateEditorToolbarLabels() {
@@ -975,7 +993,9 @@ export const Viewer = {
         ? t("gui.hideLoadingLogs", "Hide loading logs")
         : t("gui.showLoadingLogs", "Show loading logs"),
       statistics: t("gui.statistics", "Statistics"),
-      expand: t("gui.expand", "Expand toolbar"),
+      expand: this.isToolbarExpanded
+        ? t("iiif.collapse", "Collapse")
+        : t("gui.expand", "Expand toolbar"),
     };
 
     Object.entries(this.editorToolbarButtons).forEach(([key, button]) => {
@@ -1030,7 +1050,7 @@ export const Viewer = {
     }
 
     core.editorToolbar?.setAttribute("aria-label", t("toolbar.editor", "Editor tools"));
-    this.editorToolbarButtons.expand?.setAttribute("aria-label", t("gui.expand", "Expand"));
+    this.editorToolbarButtons.expand?.setAttribute("aria-expanded", this.isToolbarExpanded ? "true" : "false");
   },
 
   isEditorAdvancedPanelVisible() {
