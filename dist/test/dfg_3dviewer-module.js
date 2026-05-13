@@ -10687,7 +10687,7 @@ const Viewer$1 = {
     
     const subButton = document.createElement("button");
     subButton.type = "button";
-    subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button viewer-editor-hierarchy-submenu";
+    subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button viewer-editor-hierarchy-item";
     subButton.dataset.tool = `hierarchy-item-${meshId}`;
     subButton.innerHTML = `<span class="viewer-editor-tool_sr">${name}</span>`;
     subButton.setAttribute("title", name);
@@ -10707,7 +10707,7 @@ const Viewer$1 = {
     
     this.bindEventListener(subButton, "click", (event) => {
       event.stopPropagation();
-      core.selectObjectHierarchy(meshId, core.container);
+      Viewer$1.selectObjectHierarchy(meshId, core.container);
     });
     
     this.hierarchySubmenu.appendChild(subButton);
@@ -10718,6 +10718,22 @@ const Viewer$1 = {
     if (!this.hierarchySubmenu) return;
     this.hierarchySubmenu.innerHTML = "";
     this.hierarchySubmenuButtons = {};
+  },
+
+  updateHierarchySubmenuState() {
+    if (!this.hierarchySubmenuButtons) return;
+
+    const selectedIds = new Set(
+      (core.selectedObjects || [])
+        .filter((item) => item?.selected === true)
+        .map((item) => String(item.id))
+    );
+
+    Object.entries(this.hierarchySubmenuButtons).forEach(([key, button]) => {
+      const isActive = selectedIds.has(String(key));
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-pressed", isActive ? "true" : "false");
+    });
   },
 
   toggleStatsVisibility() {
@@ -11090,6 +11106,7 @@ const Viewer$1 = {
       }
     });
 
+    this.updateHierarchySubmenuState();
     this.updateClippingPlanesSubmenuState();
     this.updateLightsSubmenuState();
     this.updateStatisticsSubmenuState();
@@ -13535,6 +13552,7 @@ const Viewer$1 = {
       core.scene.getObjectById(_id).material = tempMaterial;
       core.scene.getObjectById(_id).material.needsUpdate = true;
     }
+    Viewer$1.updateHierarchySubmenuState();
   },
 
   recreateBoundingBox(object) {

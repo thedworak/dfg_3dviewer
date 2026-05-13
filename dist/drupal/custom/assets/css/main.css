@@ -1609,7 +1609,7 @@ canvas {
   overflow-y: auto;
 }
 
-.viewer-editor-hierarchy-submenu.viewer-editor-tool_submenu-button {
+.viewer-editor-hierarchy-item {
   width: 100%;
   min-width: 160px;
   min-height: 20px;
@@ -1621,14 +1621,37 @@ canvas {
   border-radius: 8px;
 }
 
-.viewer-editor-hierarchy-submenu.viewer-editor-tool_submenu-button .viewer-editor-tool_sr,
-.viewer-editor-hierarchy-submenu.viewer-editor-tool_submenu-button span:last-child {
+.viewer-editor-hierarchy-item .viewer-editor-tool_sr,
+.viewer-editor-hierarchy-item span:last-child {
   line-height: 1.1;
 }
 
 .viewer-editor-hierarchy-submenu-label {
   display: block;
   line-height: 1;
+  position: relative;
+  padding-left: 8px;
+}
+
+.viewer-editor-hierarchy-submenu-label::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 2px;
+  height: 12px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0;
+  transform: translateY(-50%);
+}
+
+.viewer-editor-hierarchy-item.is-active .viewer-editor-hierarchy-submenu-label {
+  font-weight: 600;
+}
+
+.viewer-editor-hierarchy-item.is-active .viewer-editor-hierarchy-submenu-label::before {
+  opacity: 1;
 }
 
 .viewer-editor-hierarchy-submenu::-webkit-scrollbar {
