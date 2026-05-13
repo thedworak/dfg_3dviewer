@@ -277,6 +277,7 @@ const VIEWER_I18N = {
       hierarchy: "Hierarchy",
       statistics: "Statistics",
       clearSelectedFaces: "Clear selected faces",
+      clearSelectedHierarchy: "Clear selected objects",
       addAnnotations: "Add annotations",
       exportAnnotationsXml: "Export annotations XML",
       importAnnotationsXml: "Import annotations XML",
@@ -509,6 +510,7 @@ const VIEWER_I18N = {
       hierarchy: "Hierarchia",
       statistics: "Statystyki",
       clearSelectedFaces: "Wyczyść wybrane ściany",
+      clearSelectedHierarchy: "Odznacz wybrane obiekty",
       addAnnotations: "Dodaj annotacje",
       exportAnnotationsXml: "Eksportuj annotacje XML",
       importAnnotationsXml: "Importuj annotacje XML",
@@ -740,6 +742,7 @@ const VIEWER_I18N = {
       hierarchy: "Hierarchie",
       statistics: "Statistiken",
       clearSelectedFaces: "Ausgewählte Flächen löschen",
+      clearSelectedHierarchy: "Ausgewählte Objekte abwählen",
       addAnnotations: "Anmerkungen hinzufügen",
       exportAnnotationsXml: "Anmerkungen XML exportieren",
       importAnnotationsXml: "Anmerkungen XML importieren",
@@ -10093,6 +10096,17 @@ const Viewer$1 = {
     this.editorToolbarSecondaryTray.style.setProperty("--viewer-toolbar-secondary-width", `${this.editorToolbarSecondaryTray.scrollWidth}px`);
   },
 
+  getEditorToolbarHost() {
+    return this.viewerWrapper || core.container || null;
+  },
+
+  attachEditorToolbar() {
+    if (!core.editorToolbar) return;
+    const host = this.getEditorToolbarHost();
+    if (!host || core.editorToolbar.parentElement === host) return;
+    host.appendChild(core.editorToolbar);
+  },
+
   createEditorToolbar() {
     if (!core.EDITOR || this.urlOptions.hideUi || core.editorToolbar || !core.container) return;
 
@@ -10100,7 +10114,7 @@ const Viewer$1 = {
     toolbar.id = "viewerEditorToolbar";
     toolbar.setAttribute("role", "toolbar");
     toolbar.setAttribute("aria-label", t$1("toolbar.editor", "Editor tools"));
-    toolbar.style.translate = "-50% 95%";
+    toolbar.style.translate = "-50% 0";
 
     const tools = [
       { key: "orbit", icon: "orbit", onClick: () => this.setObjectTransformMode(""), primary: true },
@@ -10211,7 +10225,20 @@ const Viewer$1 = {
         const submenu = document.createElement("div");
         submenu.className = "viewer-editor-tool_submenu viewer-editor-hierarchy-submenu";
         this.hierarchySubmenu = submenu;
+        const hierarchyList = document.createElement("div");
+        hierarchyList.className = "viewer-editor-hierarchy-submenu-list";
+        this.hierarchySubmenuList = hierarchyList;
+        const clearButton = document.createElement("button");
+        clearButton.type = "button";
+        clearButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button viewer-editor-hierarchy-clear";
+        this.bindEventListener(clearButton, "click", (event) => {
+          event.stopPropagation();
+          Viewer$1.clearHierarchySelection();
+        });
+        this.hierarchyClearButton = clearButton;
         this.hierarchySubmenuButtons = {};
+        submenu.appendChild(hierarchyList);
+        submenu.appendChild(clearButton);
         button.appendChild(submenu);
       }
       else if (tool.key === "statistics") {
@@ -10552,7 +10579,7 @@ const Viewer$1 = {
       toolbar.appendChild(this.actionMenu);
     }
 
-    core.container.appendChild(toolbar);
+    this.getEditorToolbarHost()?.appendChild(toolbar);
     core.editorToolbar = toolbar;
     core.editorToolbar.classList.add('editorToolbar-hidden');
     core.editorToolbar.classList.add('collapsed');
@@ -10594,6 +10621,7 @@ const Viewer$1 = {
       loadingLogs: this.showLoadingLogs
         ? t$1("gui.hideLoadingLogs", "Hide loading logs")
         : t$1("gui.showLoadingLogs", "Show loading logs"),
+      hierarchy: t$1("gui.hierarchy", "Hierarchy"),
       statistics: t$1("gui.statistics", "Statistics"),
       expand: this.isToolbarExpanded
         ? t$1("iiif.collapse", "Collapse")
@@ -10651,6 +10679,13 @@ const Viewer$1 = {
       });
     }
 
+    if (this.hierarchyClearButton) {
+      const label = t$1("gui.clearSelectedHierarchy", "Clear selected objects");
+      this.hierarchyClearButton.setAttribute("title", label);
+      this.hierarchyClearButton.setAttribute("aria-label", label);
+      this.hierarchyClearButton.textContent = label;
+    }
+
     core.editorToolbar?.setAttribute("aria-label", t$1("toolbar.editor", "Editor tools"));
     this.editorToolbarButtons.expand?.setAttribute("aria-expanded", this.isToolbarExpanded ? "true" : "false");
   },
@@ -10686,13 +10721,14 @@ const Viewer$1 = {
     
     const subButton = document.createElement("button");
     subButton.type = "button";
-    subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button viewer-editor-hierarchy-submenu";
+    subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button viewer-editor-hierarchy-item";
     subButton.dataset.tool = `hierarchy-item-${meshId}`;
     subButton.innerHTML = `<span class="viewer-editor-tool_sr">${name}</span>`;
     subButton.setAttribute("title", name);
     subButton.setAttribute("aria-label", name);
     
     const textLabel = document.createElement("span");
+    textLabel.className = "viewer-editor-hierarchy-submenu-label";
     textLabel.style.marginLeft = "8px";
     textLabel.style.marginRight = "8px";
     textLabel.textContent = name;
@@ -10705,17 +10741,54 @@ const Viewer$1 = {
     
     this.bindEventListener(subButton, "click", (event) => {
       event.stopPropagation();
-      core.selectObjectHierarchy(meshId, core.container);
+      Viewer$1.selectObjectHierarchy(meshId, core.container);
     });
     
-    this.hierarchySubmenu.appendChild(subButton);
+    this.hierarchySubmenuList.appendChild(subButton);
     this.hierarchySubmenuButtons[meshId] = subButton;
+    this.updateHierarchySubmenuState();
   },
 
   clearHierarchySubmenu() {
-    if (!this.hierarchySubmenu) return;
-    this.hierarchySubmenu.innerHTML = "";
+    if (!this.hierarchySubmenuList) return;
+    this.hierarchySubmenuList.innerHTML = "";
     this.hierarchySubmenuButtons = {};
+    this.updateHierarchySubmenuState();
+  },
+
+  updateHierarchySubmenuState() {
+    if (!this.hierarchySubmenuButtons) return;
+
+    const selectedIds = new Set(
+      (core.selectedObjects || [])
+        .filter((item) => item?.selected === true)
+        .map((item) => String(item.id))
+    );
+
+    Object.entries(this.hierarchySubmenuButtons).forEach(([key, button]) => {
+      const isActive = selectedIds.has(String(key));
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-pressed", isActive ? "true" : "false");
+    });
+
+    this.hierarchyClearButton?.toggleAttribute("disabled", selectedIds.size === 0);
+  },
+
+  clearHierarchySelection() {
+    if (!Array.isArray(core.selectedObjects) || core.selectedObjects.length === 0) {
+      Viewer$1.updateHierarchySubmenuState();
+      return;
+    }
+
+    core.selectedObjects.forEach((item) => {
+      const object = core.scene?.getObjectById?.(item.id);
+      if (!object || !item?.originalMaterial) return;
+      object.material = item.originalMaterial;
+      object.material.needsUpdate = true;
+    });
+
+    core.selectedObjects.length = 0;
+    Viewer$1.updateHierarchySubmenuState();
   },
 
   toggleStatsVisibility() {
@@ -11088,6 +11161,7 @@ const Viewer$1 = {
       }
     });
 
+    this.updateHierarchySubmenuState();
     this.updateClippingPlanesSubmenuState();
     this.updateLightsSubmenuState();
     this.updateStatisticsSubmenuState();
@@ -13533,6 +13607,7 @@ const Viewer$1 = {
       core.scene.getObjectById(_id).material = tempMaterial;
       core.scene.getObjectById(_id).material.needsUpdate = true;
     }
+    Viewer$1.updateHierarchySubmenuState();
   },
 
   recreateBoundingBox(object) {
@@ -16777,6 +16852,8 @@ const Viewer$1 = {
         Viewer$1.viewerWrapper = core.container.parentElement;
         Viewer$1.viewerWrapper.classList.add('viewer-wrapper');
       }
+
+      Viewer$1.attachEditorToolbar();
 
       core.camera.aspect = core.CONFIG.viewer.canvasDimensions.x / core.CONFIG.viewer.canvasDimensions.y;
       core.camera.updateProjectionMatrix();

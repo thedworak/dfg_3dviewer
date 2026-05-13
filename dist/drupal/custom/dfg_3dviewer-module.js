@@ -10139,6 +10139,17 @@ const Viewer$1 = {
     this.editorToolbarSecondaryTray.style.setProperty("--viewer-toolbar-secondary-width", `${this.editorToolbarSecondaryTray.scrollWidth}px`);
   },
 
+  getEditorToolbarHost() {
+    return this.viewerWrapper || core.container || null;
+  },
+
+  attachEditorToolbar() {
+    if (!core.editorToolbar) return;
+    const host = this.getEditorToolbarHost();
+    if (!host || core.editorToolbar.parentElement === host) return;
+    host.appendChild(core.editorToolbar);
+  },
+
   createEditorToolbar() {
     if (!core.EDITOR || this.urlOptions.hideUi || core.editorToolbar || !core.container) return;
 
@@ -10146,7 +10157,7 @@ const Viewer$1 = {
     toolbar.id = "viewerEditorToolbar";
     toolbar.setAttribute("role", "toolbar");
     toolbar.setAttribute("aria-label", t$1("toolbar.editor", "Editor tools"));
-    toolbar.style.translate = "-50% 95%";
+    toolbar.style.translate = "-50% 0";
 
     const tools = [
       { key: "orbit", icon: "orbit", onClick: () => this.setObjectTransformMode(""), primary: true },
@@ -10611,7 +10622,7 @@ const Viewer$1 = {
       toolbar.appendChild(this.actionMenu);
     }
 
-    core.container.appendChild(toolbar);
+    this.getEditorToolbarHost()?.appendChild(toolbar);
     core.editorToolbar = toolbar;
     core.editorToolbar.classList.add('editorToolbar-hidden');
     core.editorToolbar.classList.add('collapsed');
@@ -16884,6 +16895,8 @@ const Viewer$1 = {
         Viewer$1.viewerWrapper = core.container.parentElement;
         Viewer$1.viewerWrapper.classList.add('viewer-wrapper');
       }
+
+      Viewer$1.attachEditorToolbar();
 
       core.camera.aspect = core.CONFIG.viewer.canvasDimensions.x / core.CONFIG.viewer.canvasDimensions.y;
       core.camera.updateProjectionMatrix();

@@ -1302,9 +1302,11 @@ canvas {
 
 #viewerEditorToolbar {
   --viewer-toolbar-gap: 6px;
+  --viewer-toolbar-height: 58px;
+  --viewer-toolbar-visible-offset: 14px;
   position: absolute;
   left: 50%;
-  bottom: 0px;
+  bottom: calc(var(--viewer-toolbar-visible-offset) - var(--viewer-toolbar-height));
   z-index: 999998;
   display: flex;
   align-items: center;
@@ -1373,13 +1375,13 @@ canvas {
 .editorToolbar-hidden {
   opacity: 0;
   visibility: hidden;
-  transform: translateY(8px) scale(0.98);
+  transform: translateY(6px) scale(0.98);
 }
 
 .editorToolbar-visible {
   opacity: 1;
   visibility: visible;
-  transform: translateY(-20%) scale(1);
+  transform: translateY(0) scale(1);
 
   transition:
     opacity 1.25s ease,
@@ -1406,7 +1408,7 @@ canvas {
 }
 
 #viewerEditorToolbar.with-fullscreen {
-  transform: translate(5%, -75%);
+  transform: translateY(0) scale(1);
 }
 
 #viewerEditorToolbar::-webkit-scrollbar {
@@ -1599,7 +1601,92 @@ canvas {
 }
 
 .viewer-editor-hierarchy-submenu {
-  width: 100px;
+  flex-direction: column;
+  align-items: stretch;
+  width: max-content;
+  min-width: 160px;
+  max-width: 240px;
+  max-height: none;
+  overflow: hidden;
+}
+
+.viewer-editor-hierarchy-submenu-list {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  max-height: 132px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.viewer-editor-hierarchy-item {
+  width: 100%;
+  min-width: 160px;
+  min-height: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0 6px;
+  border-radius: 8px;
+}
+
+.viewer-editor-hierarchy-item .viewer-editor-tool_sr,
+.viewer-editor-hierarchy-item span:last-child {
+  line-height: 1.1;
+}
+
+.viewer-editor-hierarchy-submenu-label {
+  display: block;
+  line-height: 1;
+  position: relative;
+  padding-left: 8px;
+}
+
+.viewer-editor-hierarchy-submenu-label::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 2px;
+  height: 12px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0;
+  transform: translateY(-50%);
+}
+
+.viewer-editor-hierarchy-item.is-active .viewer-editor-hierarchy-submenu-label {
+  font-weight: 600;
+}
+
+.viewer-editor-hierarchy-item.is-active .viewer-editor-hierarchy-submenu-label::before {
+  opacity: 1;
+}
+
+.viewer-editor-hierarchy-clear {
+  width: 100%;
+  min-width: 160px;
+  min-height: 24px;
+  margin-top: 6px;
+  justify-content: center;
+  padding: 0 8px;
+  border-top: 1px solid rgba(133, 133, 145, 0.2);
+  border-radius: 8px;
+}
+
+.viewer-editor-hierarchy-clear[disabled] {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.viewer-editor-hierarchy-submenu-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.viewer-editor-hierarchy-submenu-list::-webkit-scrollbar-thumb {
+  border-radius: 6px;
+  background-color: rgba(127, 127, 127, 0.65);
 }
 
 .viewer-editor-tool_icon {

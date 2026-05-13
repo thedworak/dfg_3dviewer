@@ -1302,9 +1302,11 @@ canvas {
 
 #viewerEditorToolbar {
   --viewer-toolbar-gap: 6px;
+  --viewer-toolbar-height: 58px;
+  --viewer-toolbar-visible-offset: 14px;
   position: absolute;
   left: 50%;
-  bottom: 0px;
+  bottom: calc(var(--viewer-toolbar-visible-offset) - var(--viewer-toolbar-height));
   z-index: 999998;
   display: flex;
   align-items: center;
@@ -1373,13 +1375,13 @@ canvas {
 .editorToolbar-hidden {
   opacity: 0;
   visibility: hidden;
-  transform: translateY(8px) scale(0.98);
+  transform: translateY(6px) scale(0.98);
 }
 
 .editorToolbar-visible {
   opacity: 1;
   visibility: visible;
-  transform: translateY(-20%) scale(1);
+  transform: translateY(0) scale(1);
 
   transition:
     opacity 1.25s ease,
@@ -1406,7 +1408,7 @@ canvas {
 }
 
 #viewerEditorToolbar.with-fullscreen {
-  transform: translate(5%, -75%);
+  transform: translateY(0) scale(1);
 }
 
 #viewerEditorToolbar::-webkit-scrollbar {
