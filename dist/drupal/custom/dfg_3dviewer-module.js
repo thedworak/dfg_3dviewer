@@ -277,6 +277,7 @@ const VIEWER_I18N = {
       hierarchy: "Hierarchy",
       statistics: "Statistics",
       clearSelectedFaces: "Clear selected faces",
+      clearSelectedHierarchy: "Clear selected objects",
       addAnnotations: "Add annotations",
       exportAnnotationsXml: "Export annotations XML",
       importAnnotationsXml: "Import annotations XML",
@@ -509,6 +510,7 @@ const VIEWER_I18N = {
       hierarchy: "Hierarchia",
       statistics: "Statystyki",
       clearSelectedFaces: "Wyczyść wybrane ściany",
+      clearSelectedHierarchy: "Odznacz wybrane obiekty",
       addAnnotations: "Dodaj annotacje",
       exportAnnotationsXml: "Eksportuj annotacje XML",
       importAnnotationsXml: "Importuj annotacje XML",
@@ -740,6 +742,7 @@ const VIEWER_I18N = {
       hierarchy: "Hierarchie",
       statistics: "Statistiken",
       clearSelectedFaces: "Ausgewählte Flächen löschen",
+      clearSelectedHierarchy: "Ausgewählte Objekte abwählen",
       addAnnotations: "Anmerkungen hinzufügen",
       exportAnnotationsXml: "Anmerkungen XML exportieren",
       importAnnotationsXml: "Anmerkungen XML importieren",
@@ -10254,7 +10257,20 @@ const Viewer$1 = {
         const submenu = document.createElement("div");
         submenu.className = "viewer-editor-tool_submenu viewer-editor-hierarchy-submenu";
         this.hierarchySubmenu = submenu;
+        const hierarchyList = document.createElement("div");
+        hierarchyList.className = "viewer-editor-hierarchy-submenu-list";
+        this.hierarchySubmenuList = hierarchyList;
+        const clearButton = document.createElement("button");
+        clearButton.type = "button";
+        clearButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button viewer-editor-hierarchy-clear";
+        this.bindEventListener(clearButton, "click", (event) => {
+          event.stopPropagation();
+          Viewer$1.clearHierarchySelection();
+        });
+        this.hierarchyClearButton = clearButton;
         this.hierarchySubmenuButtons = {};
+        submenu.appendChild(hierarchyList);
+        submenu.appendChild(clearButton);
         button.appendChild(submenu);
       }
       else if (tool.key === "statistics") {
@@ -10695,6 +10711,13 @@ const Viewer$1 = {
       });
     }
 
+    if (this.hierarchyClearButton) {
+      const label = t$1("gui.clearSelectedHierarchy", "Clear selected objects");
+      this.hierarchyClearButton.setAttribute("title", label);
+      this.hierarchyClearButton.setAttribute("aria-label", label);
+      this.hierarchyClearButton.textContent = label;
+    }
+
     core.editorToolbar?.setAttribute("aria-label", t$1("toolbar.editor", "Editor tools"));
     this.editorToolbarButtons.expand?.setAttribute("aria-expanded", this.isToolbarExpanded ? "true" : "false");
   },
@@ -10753,14 +10776,16 @@ const Viewer$1 = {
       Viewer$1.selectObjectHierarchy(meshId, core.container);
     });
     
-    this.hierarchySubmenu.appendChild(subButton);
+    this.hierarchySubmenuList.appendChild(subButton);
     this.hierarchySubmenuButtons[meshId] = subButton;
+    this.updateHierarchySubmenuState();
   },
 
   clearHierarchySubmenu() {
-    if (!this.hierarchySubmenu) return;
-    this.hierarchySubmenu.innerHTML = "";
+    if (!this.hierarchySubmenuList) return;
+    this.hierarchySubmenuList.innerHTML = "";
     this.hierarchySubmenuButtons = {};
+    this.updateHierarchySubmenuState();
   },
 
   updateHierarchySubmenuState() {
@@ -10777,6 +10802,25 @@ const Viewer$1 = {
       button.classList.toggle("is-active", isActive);
       button.setAttribute("aria-pressed", isActive ? "true" : "false");
     });
+
+    this.hierarchyClearButton?.toggleAttribute("disabled", selectedIds.size === 0);
+  },
+
+  clearHierarchySelection() {
+    if (!Array.isArray(core.selectedObjects) || core.selectedObjects.length === 0) {
+      Viewer$1.updateHierarchySubmenuState();
+      return;
+    }
+
+    core.selectedObjects.forEach((item) => {
+      const object = core.scene?.getObjectById?.(item.id);
+      if (!object || !item?.originalMaterial) return;
+      object.material = item.originalMaterial;
+      object.material.needsUpdate = true;
+    });
+
+    core.selectedObjects.length = 0;
+    Viewer$1.updateHierarchySubmenuState();
   },
 
   toggleStatsVisibility() {

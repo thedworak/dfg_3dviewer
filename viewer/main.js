@@ -609,7 +609,20 @@ export const Viewer = {
         const submenu = document.createElement("div");
         submenu.className = "viewer-editor-tool_submenu viewer-editor-hierarchy-submenu";
         this.hierarchySubmenu = submenu;
+        const hierarchyList = document.createElement("div");
+        hierarchyList.className = "viewer-editor-hierarchy-submenu-list";
+        this.hierarchySubmenuList = hierarchyList;
+        const clearButton = document.createElement("button");
+        clearButton.type = "button";
+        clearButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button viewer-editor-hierarchy-clear";
+        this.bindEventListener(clearButton, "click", (event) => {
+          event.stopPropagation();
+          Viewer.clearHierarchySelection();
+        });
+        this.hierarchyClearButton = clearButton;
         this.hierarchySubmenuButtons = {};
+        submenu.appendChild(hierarchyList);
+        submenu.appendChild(clearButton);
         button.appendChild(submenu);
       }
       else if (tool.key === "statistics") {
@@ -1050,6 +1063,13 @@ export const Viewer = {
       });
     }
 
+    if (this.hierarchyClearButton) {
+      const label = t("gui.clearSelectedHierarchy", "Clear selected objects");
+      this.hierarchyClearButton.setAttribute("title", label);
+      this.hierarchyClearButton.setAttribute("aria-label", label);
+      this.hierarchyClearButton.textContent = label;
+    }
+
     core.editorToolbar?.setAttribute("aria-label", t("toolbar.editor", "Editor tools"));
     this.editorToolbarButtons.expand?.setAttribute("aria-expanded", this.isToolbarExpanded ? "true" : "false");
   },
@@ -1108,14 +1128,16 @@ export const Viewer = {
       Viewer.selectObjectHierarchy(meshId, core.container);
     });
     
-    this.hierarchySubmenu.appendChild(subButton);
+    this.hierarchySubmenuList.appendChild(subButton);
     this.hierarchySubmenuButtons[meshId] = subButton;
+    this.updateHierarchySubmenuState();
   },
 
   clearHierarchySubmenu() {
-    if (!this.hierarchySubmenu) return;
-    this.hierarchySubmenu.innerHTML = "";
+    if (!this.hierarchySubmenuList) return;
+    this.hierarchySubmenuList.innerHTML = "";
     this.hierarchySubmenuButtons = {};
+    this.updateHierarchySubmenuState();
   },
 
   updateHierarchySubmenuState() {
@@ -1132,6 +1154,25 @@ export const Viewer = {
       button.classList.toggle("is-active", isActive);
       button.setAttribute("aria-pressed", isActive ? "true" : "false");
     });
+
+    this.hierarchyClearButton?.toggleAttribute("disabled", selectedIds.size === 0);
+  },
+
+  clearHierarchySelection() {
+    if (!Array.isArray(core.selectedObjects) || core.selectedObjects.length === 0) {
+      Viewer.updateHierarchySubmenuState();
+      return;
+    }
+
+    core.selectedObjects.forEach((item) => {
+      const object = core.scene?.getObjectById?.(item.id);
+      if (!object || !item?.originalMaterial) return;
+      object.material = item.originalMaterial;
+      object.material.needsUpdate = true;
+    });
+
+    core.selectedObjects.length = 0;
+    Viewer.updateHierarchySubmenuState();
   },
 
   toggleStatsVisibility() {
