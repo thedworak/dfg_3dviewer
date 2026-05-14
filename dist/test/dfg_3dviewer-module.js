@@ -310,6 +310,11 @@ const VIEWER_I18N = {
       hideLoadingLogs: "Hide loading logs",
       hierarchy: "Hierarchy",
       expand: "Expand toolbar",
+      collapse: "Collapse toolbar",
+      orthographicProjection: "Switch to orthographic projection",
+      perspectiveProjection: "Switch to perspective projection",
+      enableWireframeMode: "Enable wireframe mode",
+      disableWireframeMode: "Disable wireframe mode",
     },
     metadata: {
       modelDetails: "Model details",
@@ -542,7 +547,12 @@ const VIEWER_I18N = {
       showLoadingLogs: "Pokaż logi ładowania",
       hideLoadingLogs: "Ukryj logi ładowania",
       hierarchy: "Hierarchia",
+      collapse: "Zwiń pasek narzędzi",
       expand: "Rozwiń pasek narzędzi",
+      orthographicProjection: "Przełącz na projekcję ortograficzną",
+      perspectiveProjection: "Przełącz na projekcję perspektywiczną",
+      enableWireframeMode: "Włącz tryb siatki",
+      disableWireframeMode: "Wyłącz tryb siatki",
     },
     metadata: {
       modelDetails: "Szczegóły modelu",
@@ -775,6 +785,11 @@ const VIEWER_I18N = {
       hideLoadingLogs: "Ladeprotokolle ausblenden",
       hierarchy: "Hierarchie",
       expand: "Werkzeugleiste erweitern",
+      collapse: "Werkzeugleiste zusammenklappen",
+      orthographicProjection: "Zur orthografischen Projektion wechseln",
+      perspectiveProjection: "Zur perspektivischen Projektion wechseln",
+      enableWireframeMode: "Drahtgittermodus aktivieren",
+      disableWireframeMode: "Drahtgittermodus deaktivieren",
     },
     metadata: {
       modelDetails: "Modelldetails",
@@ -9734,6 +9749,7 @@ const Viewer$1 = {
   embedConfigInputs: null,
   embedConfigPreviewFrame: null,
   embedMissingSourceNotified: false,
+  wireframeMode: false,
   currentTheme: "dark",
   currentLanguage: "en",
   loadingLog: null,
@@ -10039,14 +10055,14 @@ const Viewer$1 = {
       scale: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8h8v8H8zM5 5h4M5 5v4M19 19h-4M19 19v-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       lightMove: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 13h5l-1 8 7-10h-5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
       lightTarget: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-      lights: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="10" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v3M12 19v3M4.5 6.5l2.2 2.2M17.3 17.3l2.2 2.2M4.5 17.5l2.2-2.2M17.3 6.7l2.2-2.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M10 22h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+      lights: `<svg viewBox="0 0 24 24" aria-hidden="true"> <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/> <path d="M12 4V7M12 17v3M4 12h3M17 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/> <path d="M6.5 6.5l2 2M15.5 15.5l2 2M17.5 6.5l-2 2M8.5 15.5l-2 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/> </svg>`,
       materials: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 4v8l-8 4-8-4V6l8-4z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 6l8 4M12 6v8M12 14l-8-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
       ambientLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
       cameraLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h3l2-2h4l2 2h3v10H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
       color: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a5 5 0 0 0-5 5c0 2.8 5 9 5 9s5-6.2 5-9a5 5 0 0 0-5-5Z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 14.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z" fill="currentColor"/></svg>',
       intensity: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
       picking: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 3 8 8-4 1 2 5-2.5 1-2-5-3 3Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
-      resetCamera: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h4l2-2h4l2 2h4v10H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.25" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+      resetCamera: `<svg viewBox="0 0 24 24" aria-hidden="true"> <path d="M9 4H4v5M15 4h5v5M20 15v5h-5M4 15v5h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/> <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/> </svg>`,
       preview: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m8 14 2.5-3 2.5 2 2-3 3 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       save: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 4v5h8M9 18h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
       mainMenu: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2 2.2 3-.2.8 2.9 2.6 1.4-1 2.8 1 2.8-2.6 1.4-.8 2.9-3-.2L12 21l-2-2.2-3 .2-.8-2.9-2.6-1.4 1-2.8-1-2.8 2.6-1.4.8-2.9 3 .2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
@@ -10062,15 +10078,17 @@ const Viewer$1 = {
       annotateAdd: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 8v5M9.5 10.5h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
       annotateImport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 6.8v7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.8 12 14l3.2-3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       annotateExport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 14.2V7.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.2 12 7l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      hierarchy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5v5H4zM15 4h5v5h-5zM4 15h5v5H4zM15 15h5v5h-5zM9 6h6M9 17h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',      
       loadingLogs: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18M3 6h12M3 18h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-      hierarchy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5v5H4zM15 4h5v5h-5zM4 15h5v5H4zM15 15h5v5h-5zM9 6h6M9 17h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       performance: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
       statistics: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7 14v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 10v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M17 6v12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
       performanceDefault: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
       performanceHigh: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="#FF4136"/></svg>',
       performanceLow: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="#2ECC40"/></svg>',
       expand: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-      collapse: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',        
+      collapse: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      projection: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8l5-3h7v14h-7l-5-3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M11 5v14" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6 8v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+      wireframe: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 7v10l-7 4-7-4V7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 3v18M5 7l7 4 7-4M5 17l7-4 7 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
     };
     return icons[icon] || icons.advancedEditor;
   },
@@ -10129,10 +10147,12 @@ const Viewer$1 = {
       { key: "fullScreen", icon: "fullScreen", onClick: () => this.toggleFullscreen(), pressed: true, primary: true },
       { key: "clippingPlanes", icon: "clippingPlanes", onClick: () => this.toggleClippingPlanesPanel(), pressed: true, primary: false },
       { key: "resetCamera", icon: "resetCamera", onClick: () => this.resetCamera(), primary: false },
-      { key: "loadingLogs", icon: "loadingLogs", onClick: () => this.toggleLoadingLogs(), pressed: true, primary: false },
       { key: "hierarchy", icon: "hierarchy", onClick: () => {}, pressed: true, primary: false },
-      { key: "statistics", icon: "statistics", onClick: () => {}, pressed: true, primary: false },
-      { key: "advancedEditor", icon: "advancedEditor", onClick: () => this.toggleEditorAdvancedPanel(), pressed: true, primary: false },
+      { key: "projection", icon: "projection", onClick: () => this.toggleCameraProjection(), pressed: true, primary: false },
+      { key: "wireframe", icon: "wireframe", onClick: () => this.toggleWireframeMode(), pressed: true, primary: false },
+      { key: "loadingLogs", icon: "loadingLogs", onClick: () => this.toggleLoadingLogs(), pressed: true, primary: false },
+      { key: "statistics", icon: "statistics", onClick: () => {}, pressed: false, primary: false },
+      //{ key: "advancedEditor", icon: "advancedEditor", onClick: () => this.toggleEditorAdvancedPanel(), pressed: true, primary: false },
     ];
 
     if (!core.isLightweight) {
@@ -10616,15 +10636,21 @@ const Viewer$1 = {
         ? t$1("fullscreen.exit", "Exit fullscreen")
         : t$1("fullscreen.enter", "Enter fullscreen"),
       clippingPlanes: this.clippingMode
-        ? t$1("toolbar.disableClippingPlanesMode", "Disable clipping planes mode")
-        : t$1("toolbar.enableClippingPlanesMode", "Enable clipping planes mode"),
+        ? t$1("gui.disableClippingPlanesMode", "Disable clipping planes mode")
+        : t$1("gui.enableClippingPlanesMode", "Enable clipping planes mode"),
+      projection: core.camera && core.camera.isPerspectiveCamera
+        ? t$1("gui.orthographicProjection", "Switch to orthographic projection")
+        : t$1("gui.perspectiveProjection", "Switch to perspective projection"),
+      wireframe: this.wireframeMode
+        ? t$1("gui.disableWireframeMode", "Disable wireframe mode")
+        : t$1("gui.enableWireframeMode", "Enable wireframe mode"),
       loadingLogs: this.showLoadingLogs
         ? t$1("gui.hideLoadingLogs", "Hide loading logs")
         : t$1("gui.showLoadingLogs", "Show loading logs"),
       hierarchy: t$1("gui.hierarchy", "Hierarchy"),
       statistics: t$1("gui.statistics", "Statistics"),
       expand: this.isToolbarExpanded
-        ? t$1("iiif.collapse", "Collapse")
+        ? t$1("gui.collapse", "Collapse toolbar")
         : t$1("gui.expand", "Expand toolbar"),
     };
 
@@ -10705,6 +10731,67 @@ const Viewer$1 = {
 
   toggleEditorAdvancedPanel() {
     this.setEditorAdvancedPanelVisible(!this.isEditorAdvancedPanelVisible());
+  },
+
+  toggleCameraProjection () {
+    if (!core.camera) return;
+    const isPerspective = core.camera.isPerspectiveCamera === true;
+    Viewer$1.setCameraProjection(isPerspective ? "orthographic" : "perspective");
+  },
+
+  setCameraProjection (projection) {
+    if (!core.camera) return;
+    const currentProjection = core.camera.isPerspectiveCamera ? "perspective" : "orthographic";
+    if (projection === currentProjection) return;
+
+    const aspect = core.container.clientWidth / core.container.clientHeight;
+    if (projection === "perspective") {
+      const fov = 50;
+      const near = 0.1;
+      const far = 2000;
+      const newCamera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+      newCamera.position.copy(core.camera.position);
+      newCamera.rotation.copy(core.camera.rotation);
+      core.camera = newCamera;
+    } else {
+      const frustumSize = 5;
+      const near = 0.1;
+      const far = 2000;
+      const newCamera = new THREE.OrthographicCamera(
+        (frustumSize * aspect) / -2.5,
+        (frustumSize * aspect) / 2.5,
+        frustumSize / 2.5,
+        frustumSize / -2.5,
+        near,
+        far
+      );
+      newCamera.position.copy(core.camera.position);
+      newCamera.rotation.copy(core.camera.rotation);
+      core.camera = newCamera;
+    }
+    this.updateCamera();
+    this.updateFullscreenButtonIcon();
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
+  },
+
+  updateCamera () {
+    if (!core.camera || !core.controls) return;
+    core.controls.object = core.camera;
+    core.controls.update();
+  },
+
+  toggleWireframeMode() {
+    if (typeof core.scene === "undefined") return;
+    const isEnabled = !core.scene.traverse((child) => {
+      if (child.material) {
+        child.material.wireframe = !child.material.wireframe;
+        child.material.needsUpdate = true;
+      }
+    });
+    this.wireframeMode = isEnabled;
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
   },
 
   toggleLoadingLogs() {
@@ -11149,6 +11236,7 @@ const Viewer$1 = {
       advancedEditor: this.isEditorAdvancedPanelVisible(),
       fullScreen: Viewer$1.FULLSCREEN === true,
       loadingLogs: this.showLoadingLogs === true,
+      wireframe: this.wireframeMode === true,
     };
 
     Object.entries(this.editorToolbarButtons).forEach(([key, button]) => {
