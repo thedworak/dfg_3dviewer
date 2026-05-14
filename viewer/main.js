@@ -469,6 +469,7 @@ export const Viewer = {
       collapse: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       projection: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8l5-3h7v14h-7l-5-3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M11 5v14" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6 8v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
       wireframe: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 7v10l-7 4-7-4V7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 3v18M5 7l7 4 7-4M5 17l7-4 7 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
+      screenshot: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5H5a2 2 0 0 0-2 2v2M17 5h2a2 2 0 0 1 2 2v2M17 19h2a2 2 0 0 0 2-2v-2M7 19H5a2 2 0 0 1-2-2v-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
     };
     return icons[icon] || icons.advancedEditor;
   },
@@ -538,7 +539,7 @@ export const Viewer = {
     if (!core.isLightweight) {
       tools.splice(tools.length - 1, 0,
         { key: "preview", icon: "preview", onClick: () => this.takeScreenshot(), primary: false },
-        { key: "save", icon: "save", onClick: () => this.saveEditorMetadata(), primary: false }
+        { key: "save", icon: "save", onClick: () => {}, primary: false }
       );
     }
 
@@ -639,6 +640,69 @@ export const Viewer = {
         this.hierarchySubmenuButtons = {};
         submenu.appendChild(hierarchyList);
         submenu.appendChild(clearButton);
+        button.appendChild(submenu);
+      }
+      else if (tool.key === "save") {
+        button.classList.add("has-submenu");
+        const submenu = document.createElement("div");
+        submenu.className = "viewer-editor-tool_submenu viewer-editor-save-submenu";
+        this.bindEventListener(submenu, "click", (event) => {
+          event.stopPropagation();
+        });
+        const submenuItems = [
+          { key: "Position", label: t("gui.position", "Position") },
+          { key: "Rotation", label: t("gui.rotation", "Rotation") },
+          { key: "Scale", label: t("gui.scale", "Scale") },
+          { key: "Camera", label: t("gui.camera", "Camera") },
+          { key: "DirectionalLight", label: t("gui.directionalLight", "Directional Light") },
+          { key: "AmbientLight", label: t("gui.ambientLight", "Ambient Light") },
+          { key: "CameraLight", label: t("gui.cameraLight", "Camera Light") },
+          { key: "BackgroundColor", label: t("gui.backgroundColor", "Background Color") },
+        ];
+        this.saveSubmenuCheckboxes = {};
+        submenuItems.forEach((item) => {
+          const row = document.createElement("label");
+          row.className = "viewer-editor-save-option";
+          row.setAttribute("title", item.label);
+          row.setAttribute("aria-label", item.label);
+
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.checked = Boolean(this.saveProperties[item.key]);
+          checkbox.dataset.property = item.key;
+          this.bindEventListener(checkbox, "click", (event) => {
+            event.stopPropagation();
+          });
+          this.bindEventListener(checkbox, "change", (event) => {
+            event.stopPropagation();
+            this.saveProperties[item.key] = event.target.checked;
+          });
+
+          const text = document.createElement("span");
+          text.className = "viewer-editor-save-option_label";
+          text.textContent = item.label;
+
+          row.appendChild(checkbox);
+          row.appendChild(text);
+          submenu.appendChild(row);
+          this.saveSubmenuCheckboxes[item.key] = { row, checkbox, text };
+        });
+
+        const actions = document.createElement("div");
+        actions.className = "viewer-editor-save-actions";
+
+        const saveButton = document.createElement("button");
+        saveButton.type = "button";
+        saveButton.className = "viewer-editor-save-apply";
+        saveButton.textContent = t("gui.saveSettings", "Save settings");
+        this.bindEventListener(saveButton, "click", (event) => {
+          event.stopPropagation();
+          this.saveEditorMetadata();
+        });
+        this.saveSubmenuActionButton = saveButton;
+
+        actions.appendChild(saveButton);
+        submenu.appendChild(actions);
         button.appendChild(submenu);
       }
       else if (tool.key === "statistics") {
@@ -1008,7 +1072,7 @@ export const Viewer = {
         : t("controls.enableDistanceMeasurement", "Enable distance measurement"),
       resetCamera: t("gui.resetCameraPosition", "Reset camera position"),
       preview: t("gui.renderPreview", "Render preview"),
-      save: t("gui.save", "Save"),
+      save: t("gui.saveSettings", "Save settings"),
       advancedEditor: this.isEditorAdvancedPanelVisible()
         ? t("gui.hideAdvancedEditor", "Hide advanced editor")
         : t("gui.showAdvancedEditor", "Show advanced editor"),
@@ -1092,6 +1156,30 @@ export const Viewer = {
       this.hierarchyClearButton.textContent = label;
     }
 
+    if (this.saveSubmenuCheckboxes) {
+      const saveSubmenuLabels = {
+        Position: t("gui.position", "Position"),
+        Rotation: t("gui.rotation", "Rotation"),
+        Scale: t("gui.scale", "Scale"),
+        Camera: t("gui.camera", "Camera"),
+        DirectionalLight: t("gui.directionalLight", "Directional Light"),
+        AmbientLight: t("gui.ambientLight", "Ambient Light"),
+        CameraLight: t("gui.cameraLight", "Camera Light"),
+        BackgroundColor: t("gui.backgroundColor", "Background Color"),
+      };
+      Object.entries(this.saveSubmenuCheckboxes).forEach(([key, elements]) => {
+        const label = saveSubmenuLabels[key] || key;
+        elements.row.setAttribute("title", label);
+        elements.row.setAttribute("aria-label", label);
+        elements.text.textContent = label;
+        elements.checkbox.checked = Boolean(this.saveProperties[key]);
+      });
+    }
+
+    if (this.saveSubmenuActionButton) {
+      this.saveSubmenuActionButton.textContent = t("gui.saveSettings", "Save settings");
+    }
+
     core.editorToolbar?.setAttribute("aria-label", t("toolbar.editor", "Editor tools"));
     this.editorToolbarButtons.expand?.setAttribute("aria-expanded", this.isToolbarExpanded ? "true" : "false");
   },
@@ -1119,36 +1207,61 @@ export const Viewer = {
     Viewer.setCameraProjection(isPerspective ? "orthographic" : "perspective");
   },
 
-  setCameraProjection (projection) {
+  setCameraProjection(projection) {
     if (!core.camera) return;
-    const currentProjection = core.camera.isPerspectiveCamera ? "perspective" : "orthographic";
+
+    const currentProjection = core.camera.isPerspectiveCamera
+      ? "perspective"
+      : "orthographic";
+
     if (projection === currentProjection) return;
 
-    const aspect = core.container.clientWidth / core.container.clientHeight;
-    if (projection === "perspective") {
-      const fov = 50;
-      const near = 0.1;
-      const far = 2000;
-      const newCamera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-      newCamera.position.copy(core.camera.position);
-      newCamera.rotation.copy(core.camera.rotation);
-      core.camera = newCamera;
-    } else {
-      const frustumSize = 5;
-      const near = 0.1;
-      const far = 2000;
-      const newCamera = new THREE.OrthographicCamera(
-        (frustumSize * aspect) / -2.5,
-        (frustumSize * aspect) / 2.5,
-        frustumSize / 2.5,
-        frustumSize / -2.5,
-        near,
-        far
+    const aspect =
+      core.container.clientWidth / core.container.clientHeight;
+
+    const target = core.controls?.target || new THREE.Vector3(0, 0, 0);
+
+    const distance = core.camera.position.distanceTo(target);
+
+    let newCamera;
+
+    if (projection === "orthographic") {
+      const fov = THREE.MathUtils.degToRad(core.camera.fov);
+
+      const viewHeight = 2 * distance * Math.tan(fov / 2);
+      const viewWidth = viewHeight * aspect;
+
+      newCamera = new THREE.OrthographicCamera(
+        -viewWidth / 2,
+        viewWidth / 2,
+        viewHeight / 2,
+        -viewHeight / 2,
+        0.1,
+        2000
       );
-      newCamera.position.copy(core.camera.position);
-      newCamera.rotation.copy(core.camera.rotation);
-      core.camera = newCamera;
+      newCamera.zoom = 1;
+    } else {
+      newCamera = new THREE.PerspectiveCamera(
+        50,
+        aspect,
+        0.1,
+        2000
+      );
     }
+
+    newCamera.position.copy(core.camera.position);
+    newCamera.quaternion.copy(core.camera.quaternion);
+    newCamera.up.copy(core.camera.up);
+
+    newCamera.updateProjectionMatrix();
+
+    core.camera = newCamera;
+
+    if (core.controls) {
+      core.controls.object = core.camera;
+      core.controls.update();
+    }
+
     this.updateCamera();
     this.updateFullscreenButtonIcon();
     this.updateEditorToolbarLabels();

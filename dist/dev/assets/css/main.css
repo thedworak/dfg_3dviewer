@@ -1610,6 +1610,176 @@ canvas {
   overflow: hidden;
 }
 
+.viewer-editor-save-submenu {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 240px;
+  padding: 10px;
+  border: 1px solid rgba(133, 133, 145, 0.22);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
+    var(--viewer-panel-bg);
+  backdrop-filter: blur(16px);
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.viewer-editor-save-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 18px;
+  padding: 5px 7px;
+  border-radius: 12px;
+  border: 1px solid rgba(133, 133, 145, 0.16);
+  color: var(--viewer-panel-text);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.02);
+  transition: background 0.22s ease, border-color 0.22s ease, transform 0.22s ease;
+}
+
+.viewer-editor-save-option:hover {
+  background: rgba(92, 185, 255, 0.08);
+  border-color: rgba(92, 185, 255, 0.24);
+  transform: translateY(-1px);
+}
+
+.viewer-editor-save-option input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+  cursor: pointer;
+  inline-size: 16px;
+  block-size: 16px;
+  flex: 0 0 auto;
+  border-radius: 5px;
+  border: 1px solid rgba(133, 133, 145, 0.45);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
+    rgba(15, 23, 42, 0.18);
+  position: relative;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.viewer-editor-save-option input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid transparent;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) scale(0.85);
+  opacity: 0;
+  transition: opacity 0.18s ease, border-color 0.18s ease;
+}
+
+.viewer-editor-save-option input[type="checkbox"]:checked {
+  border-color: rgba(92, 185, 255, 0.72);
+  background: linear-gradient(180deg, #6ec8ff, #3c98d4);
+  box-shadow: 0 0 0 3px rgba(92, 185, 255, 0.14);
+}
+
+.viewer-editor-save-option input[type="checkbox"]:checked::after {
+  opacity: 1;
+  border-color: #082032;
+}
+
+.viewer-editor-save-option input[type="checkbox"]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(92, 185, 255, 0.22);
+}
+
+.viewer-editor-save-option_label {
+  font-size: 0.9rem;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+}
+
+.viewer-editor-save-actions {
+  display: flex;
+  padding-top: 4px;
+}
+
+.viewer-editor-save-apply {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid rgba(92, 185, 255, 0.28);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(92, 185, 255, 0.24), rgba(58, 140, 197, 0.24));
+  color: var(--viewer-panel-text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: transform 0.22s ease, background 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+}
+
+.viewer-editor-save-apply:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(180deg, rgba(92, 185, 255, 0.3), rgba(58, 140, 197, 0.3));
+  border-color: rgba(92, 185, 255, 0.42);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.viewer-editor-save-apply:focus-visible {
+  outline: 2px solid rgba(92, 185, 255, 0.55);
+  outline-offset: 2px;
+}
+
+.viewer-wrapper[data-viewer-theme="light"] .viewer-editor-save-submenu {
+  border-color: rgba(136, 122, 102, 0.18);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.74)),
+    var(--viewer-panel-bg);
+  box-shadow:
+    0 18px 38px rgba(129, 116, 96, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.viewer-wrapper[data-viewer-theme="light"] .viewer-editor-save-option {
+  background: rgba(255, 255, 255, 0.56);
+  border-color: rgba(164, 151, 132, 0.16);
+}
+
+.viewer-wrapper[data-viewer-theme="light"] .viewer-editor-save-option input[type="checkbox"] {
+  border-color: rgba(136, 122, 102, 0.36);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(241, 236, 228, 0.92)),
+    rgba(255, 255, 255, 0.9);
+}
+
+.viewer-wrapper[data-viewer-theme="light"] .viewer-editor-save-option input[type="checkbox"]:checked {
+  border-color: rgba(64, 125, 180, 0.56);
+  background: linear-gradient(180deg, #77bae4, #4f90bb);
+  box-shadow: 0 0 0 3px rgba(64, 125, 180, 0.12);
+}
+
+.viewer-wrapper[data-viewer-theme="light"] .viewer-editor-save-option input[type="checkbox"]:checked::after {
+  border-color: #ffffff;
+}
+
+.viewer-wrapper[data-viewer-theme="light"] .viewer-editor-save-option:hover {
+  background: rgba(64, 125, 180, 0.08);
+  border-color: rgba(64, 125, 180, 0.2);
+}
+
+.viewer-wrapper[data-viewer-theme="light"] .viewer-editor-save-apply {
+  border-color: rgba(64, 125, 180, 0.22);
+  background: linear-gradient(180deg, rgba(64, 125, 180, 0.18), rgba(64, 125, 180, 0.12));
+  color: #254766;
+}
+
+.viewer-wrapper[data-viewer-theme="light"] .viewer-editor-save-apply:hover {
+  background: linear-gradient(180deg, rgba(64, 125, 180, 0.24), rgba(64, 125, 180, 0.18));
+  border-color: rgba(64, 125, 180, 0.3);
+}
+
 .viewer-editor-hierarchy-submenu-list {
   display: flex;
   flex-direction: column;
