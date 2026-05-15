@@ -350,6 +350,34 @@ const VIEWER_I18N = {
     localPreview: {
       loadExampleModel: "Load example model",
     },
+    embedPanel: {
+      title: "Embed options",
+      closeAria: "Close embed options",
+      modelUrl: "Model URL",
+      modelUrlPlaceholder: "/examples/box.glb",
+      entityId: "Entity ID",
+      theme: "Theme",
+      themeDark: "Dark",
+      themeLight: "Light",
+      autoRotateSpeed: "Auto-rotate speed",
+      cameraPosition: "Camera position",
+      cameraTarget: "Camera target",
+      cameraVectorPlaceholder: "x,y,z",
+      fov: "FOV",
+      autoRotate: "Auto-rotate",
+      disableInteraction: "Disable interaction",
+      hideActionMenu: "Hide action menu",
+      hideMetadata: "Hide metadata",
+      presentationMode: "Presentation mode",
+      useCurrentCamera: "Use Current Camera",
+      resetFromViewer: "Reset From Viewer",
+      copyUrl: "Copy URL",
+      copyIframe: "Copy Iframe",
+      embedUrl: "Embed URL",
+      iframeCode: "Iframe code",
+      preview: "Preview",
+      previewTitle: "Embed preview",
+    },
     loadingLog: {
       title: "Loading process log",
       loadingModel: "Loading 3D model...",
@@ -588,6 +616,34 @@ const VIEWER_I18N = {
     localPreview: {
       loadExampleModel: "Wczytaj model przykładowy",
     },
+    embedPanel: {
+      title: "Opcje osadzania",
+      closeAria: "Zamknij opcje osadzania",
+      modelUrl: "URL modelu",
+      modelUrlPlaceholder: "/examples/box.glb",
+      entityId: "ID encji",
+      theme: "Motyw",
+      themeDark: "Ciemny",
+      themeLight: "Jasny",
+      autoRotateSpeed: "Prędkość auto-obrotu",
+      cameraPosition: "Pozycja kamery",
+      cameraTarget: "Cel kamery",
+      cameraVectorPlaceholder: "x,y,z",
+      fov: "FOV",
+      autoRotate: "Auto-obrót",
+      disableInteraction: "Wyłącz interakcję",
+      hideActionMenu: "Ukryj menu akcji",
+      hideMetadata: "Ukryj metadane",
+      presentationMode: "Tryb prezentacji",
+      useCurrentCamera: "Użyj bieżącej kamery",
+      resetFromViewer: "Przywróć z viewera",
+      copyUrl: "Kopiuj URL",
+      copyIframe: "Kopiuj iframe",
+      embedUrl: "URL osadzenia",
+      iframeCode: "Kod iframe",
+      preview: "Podgląd",
+      previewTitle: "Podgląd osadzenia",
+    },
     loadingLog: {
       title: "Log procesu ładowania",
       loadingModel: "Ładowanie modelu 3D...",
@@ -824,6 +880,34 @@ const VIEWER_I18N = {
     },
     localPreview: {
       loadExampleModel: "Beispielmodell laden",
+    },
+    embedPanel: {
+      title: "Einbettungsoptionen",
+      closeAria: "Einbettungsoptionen schließen",
+      modelUrl: "Modell-URL",
+      modelUrlPlaceholder: "/examples/box.glb",
+      entityId: "Entitäts-ID",
+      theme: "Thema",
+      themeDark: "Dunkel",
+      themeLight: "Hell",
+      autoRotateSpeed: "Geschwindigkeit der Auto-Rotation",
+      cameraPosition: "Kameraposition",
+      cameraTarget: "Kameraziel",
+      cameraVectorPlaceholder: "x,y,z",
+      fov: "FOV",
+      autoRotate: "Auto-Rotation",
+      disableInteraction: "Interaktion deaktivieren",
+      hideActionMenu: "Aktionsmenü ausblenden",
+      hideMetadata: "Metadaten ausblenden",
+      presentationMode: "Präsentationsmodus",
+      useCurrentCamera: "Aktuelle Kamera verwenden",
+      resetFromViewer: "Aus Viewer zurücksetzen",
+      copyUrl: "URL kopieren",
+      copyIframe: "Iframe kopieren",
+      embedUrl: "Einbettungs-URL",
+      iframeCode: "Iframe-Code",
+      preview: "Vorschau",
+      previewTitle: "Einbettungsvorschau",
     },
     loadingLog: {
       title: "Protokoll des Ladeprozesses",
@@ -10176,7 +10260,6 @@ const Viewer$1 = {
     toolbar.id = "viewerEditorToolbar";
     toolbar.setAttribute("role", "toolbar");
     toolbar.setAttribute("aria-label", t$1("toolbar.editor", "Editor tools"));
-    toolbar.style.translate = "-50% 0";
 
     const tools = [
       { key: "orbit", icon: "orbit", onClick: () => this.setObjectTransformMode(""), primary: true },
@@ -10382,6 +10465,7 @@ const Viewer$1 = {
             subButton.dataset.tool = item.key;
             subButton.setAttribute("title", item.label);
             subButton.setAttribute("aria-label", item.label);
+            subButton.setAttribute("aria-pressed", item.pressed);
 
             const iconSpan = document.createElement("span");
             iconSpan.className = "viewer-editor-tool_icon";
@@ -10419,6 +10503,7 @@ const Viewer$1 = {
             key: "toggleStats",
             icon: "statistics",
             label: t$1("gui.statistics", "Statistics"),
+            pressed: false,
             onClick: () => this.toggleStatsVisibility(),
           },
           {
@@ -10431,19 +10516,21 @@ const Viewer$1 = {
                 icon: "statistics",
                 label: t$1("gui.default", "Default"),
                 onClick: () => this.setPerformanceMode("default"),
-                pressed: false,
+                pressed: true,
               },
               {
                 key: "performanceHigh",
                 icon: "performanceHigh",
                 label: t$1("gui.highPerformance", "High-performance"),
                 onClick: () => this.setPerformanceMode("high-performance"),
+                pressed: true,
               },
               {
                 key: "performanceLow",
                 icon: "performanceLow",
                 label: t$1("gui.lowPower", "Low-power"),
                 onClick: () => this.setPerformanceMode("low-power"),
+                pressed: true,
               },
             ],
           },
@@ -11056,6 +11143,7 @@ const Viewer$1 = {
     if (!this.statisticsSubmenuButtons) return;
     const isVisible = typeof core.stats !== "undefined" && core.stats?.dom?.style?.visibility !== "hidden";
     this.statisticsSubmenuButtons.toggleStats?.classList.toggle("is-active", isVisible);
+    this.statisticsSubmenuButtons.toggleStats?.setAttribute("aria-pressed", isVisible ? "true" : "false");
 
     const currentMode = core.renderer?.powerPreference || core.CONFIG.viewer?.performanceMode || "default";
     const performanceMap = {
@@ -11064,7 +11152,9 @@ const Viewer$1 = {
       performanceDefault: "default",
     };
     Object.entries(performanceMap).forEach(([key, value]) => {
-      this.statisticsSubmenuButtons[key]?.classList.toggle("is-active", currentMode === value);
+      const isActive = currentMode === value;
+      this.statisticsSubmenuButtons[key]?.classList.toggle("is-active", isActive);
+      this.statisticsSubmenuButtons[key]?.setAttribute("aria-pressed", isActive ? "true" : "false");
     });
   },
 
@@ -11388,7 +11478,6 @@ const Viewer$1 = {
       picking: this.pickingMode === true,
       ruler: this.RULER_MODE === true,
       clippingPlanes: this.clippingMode === true,
-      statistics: typeof core.stats !== "undefined" && core.stats?.dom?.style?.visibility !== "hidden",
       advancedEditor: this.isEditorAdvancedPanelVisible(),
       fullScreen: Viewer$1.FULLSCREEN === true,
       loadingLogs: this.showLoadingLogs === true,
@@ -13023,49 +13112,77 @@ const Viewer$1 = {
     if (!core.container || this.embedConfiguratorPanel) return;
 
     const defaults = this.getCurrentEmbedOptions({ includeCamera: true });
+    const panelText = {
+      title: t$1("embedPanel.title", "Embed options"),
+      closeAria: t$1("embedPanel.closeAria", "Close embed options"),
+      modelUrl: t$1("embedPanel.modelUrl", "Model URL"),
+      modelUrlPlaceholder: t$1("embedPanel.modelUrlPlaceholder", "/examples/box.glb"),
+      entityId: t$1("embedPanel.entityId", "Entity ID"),
+      theme: t$1("embedPanel.theme", "Theme"),
+      themeDark: t$1("embedPanel.themeDark", "Dark"),
+      themeLight: t$1("embedPanel.themeLight", "Light"),
+      autoRotateSpeed: t$1("embedPanel.autoRotateSpeed", "Auto-rotate speed"),
+      cameraPosition: t$1("embedPanel.cameraPosition", "Camera position"),
+      cameraTarget: t$1("embedPanel.cameraTarget", "Camera target"),
+      cameraVectorPlaceholder: t$1("embedPanel.cameraVectorPlaceholder", "x,y,z"),
+      fov: t$1("embedPanel.fov", "FOV"),
+      autoRotate: t$1("embedPanel.autoRotate", "Auto-rotate"),
+      disableInteraction: t$1("embedPanel.disableInteraction", "Disable interaction"),
+      hideActionMenu: t$1("embedPanel.hideActionMenu", "Hide action menu"),
+      hideMetadata: t$1("embedPanel.hideMetadata", "Hide metadata"),
+      presentationMode: t$1("embedPanel.presentationMode", "Presentation mode"),
+      useCurrentCamera: t$1("embedPanel.useCurrentCamera", "Use Current Camera"),
+      resetFromViewer: t$1("embedPanel.resetFromViewer", "Reset From Viewer"),
+      copyUrl: t$1("embedPanel.copyUrl", "Copy URL"),
+      copyIframe: t$1("embedPanel.copyIframe", "Copy Iframe"),
+      embedUrl: t$1("embedPanel.embedUrl", "Embed URL"),
+      iframeCode: t$1("embedPanel.iframeCode", "Iframe code"),
+      preview: t$1("embedPanel.preview", "Preview"),
+      previewTitle: t$1("embedPanel.previewTitle", "Embed preview"),
+    };
     const panel = document.createElement("div");
     panel.id = "embedConfiguratorPanel";
     panel.hidden = true;
     panel.innerHTML = `
       <div class="embed-config-header">
-        <span>Embed options</span>
-        <button id="embedClosePanel" type="button" aria-label="Close embed options">X</button>
+        <span>${panelText.title}</span>
+        <button id="embedClosePanel" type="button" aria-label="${panelText.closeAria}">X</button>
       </div>
       <div class="embed-config-layout">
         <div class="embed-config-main">
           <div class="embed-config-grid">
-            <label>Model URL<input id="embedModelInput" type="text" placeholder="/examples/box.glb" value="${defaults.model ?? ""}" /></label>
-            <label>Entity ID<input id="embedIdInput" type="text" value="${defaults.id ?? ""}" /></label>
-            <label>Theme
+            <label>${panelText.modelUrl}<input id="embedModelInput" type="text" placeholder="${panelText.modelUrlPlaceholder}" value="${defaults.model ?? ""}" /></label>
+            <label>${panelText.entityId}<input id="embedIdInput" type="text" value="${defaults.id ?? ""}" /></label>
+            <label>${panelText.theme}
               <select id="embedThemeInput">
-                <option value="dark">Dark</option>
-                <option value="light"${defaults.theme === "light" ? " selected" : ""}>Light</option>
+                <option value="dark">${panelText.themeDark}</option>
+                <option value="light"${defaults.theme === "light" ? " selected" : ""}>${panelText.themeLight}</option>
               </select>
             </label>
-            <label>Auto-rotate speed<input id="embedAutorotateSpeedInput" type="number" step="0.1" value="${Number.isFinite(defaults.autorotateSpeed) ? defaults.autorotateSpeed : ""}" /></label>
-            <label>Camera position<input id="embedCamPosInput" type="text" placeholder="x,y,z" value="${defaults.cameraPosition ?? ""}" /></label>
-            <label>Camera target<input id="embedCamTargetInput" type="text" placeholder="x,y,z" value="${defaults.cameraTarget ?? ""}" /></label>
-            <label>FOV<input id="embedFovInput" type="number" step="1" min="1" max="179" value="${Number.isFinite(defaults.fov) ? defaults.fov : ""}" /></label>
+            <label>${panelText.autoRotateSpeed}<input id="embedAutorotateSpeedInput" type="number" step="0.1" value="${Number.isFinite(defaults.autorotateSpeed) ? defaults.autorotateSpeed : ""}" /></label>
+            <label>${panelText.cameraPosition}<input id="embedCamPosInput" type="text" placeholder="${panelText.cameraVectorPlaceholder}" value="${defaults.cameraPosition ?? ""}" /></label>
+            <label>${panelText.cameraTarget}<input id="embedCamTargetInput" type="text" placeholder="${panelText.cameraVectorPlaceholder}" value="${defaults.cameraTarget ?? ""}" /></label>
+            <label>${panelText.fov}<input id="embedFovInput" type="number" step="1" min="1" max="179" value="${Number.isFinite(defaults.fov) ? defaults.fov : ""}" /></label>
           </div>
           <div class="embed-config-checks">
-            <label><input id="embedAutorotateInput" type="checkbox"${defaults.autorotate ? " checked" : ""} /> Auto-rotate</label>
-            <label><input id="embedDisableInteractionInput" type="checkbox"${defaults.disableInteraction ? " checked" : ""} /> Disable interaction</label>
-            <label><input id="embedHideUiInput" type="checkbox"${defaults.hideUi ? " checked" : ""} /> Hide action menu</label>
-            <label><input id="embedHideMetadataInput" type="checkbox"${defaults.hideMetadata ? " checked" : ""} /> Hide metadata</label>
-            <label><input id="embedPresentationModeInput" type="checkbox"${defaults.presentationMode ? " checked" : ""} /> Presentation mode</label>
+            <label><input id="embedAutorotateInput" type="checkbox"${defaults.autorotate ? " checked" : ""} /> ${panelText.autoRotate}</label>
+            <label><input id="embedDisableInteractionInput" type="checkbox"${defaults.disableInteraction ? " checked" : ""} /> ${panelText.disableInteraction}</label>
+            <label><input id="embedHideUiInput" type="checkbox"${defaults.hideUi ? " checked" : ""} /> ${panelText.hideActionMenu}</label>
+            <label><input id="embedHideMetadataInput" type="checkbox"${defaults.hideMetadata ? " checked" : ""} /> ${panelText.hideMetadata}</label>
+            <label><input id="embedPresentationModeInput" type="checkbox"${defaults.presentationMode ? " checked" : ""} /> ${panelText.presentationMode}</label>
           </div>
           <div class="embed-config-actions">
-            <button id="embedUseCurrentCamera" type="button">Use Current Camera</button>
-            <button id="embedResetFromViewer" type="button">Reset From Viewer</button>
-            <button id="embedCopyUrl" type="button">Copy URL</button>
-            <button id="embedCopyIframe" type="button">Copy Iframe</button>
+            <button id="embedUseCurrentCamera" type="button">${panelText.useCurrentCamera}</button>
+            <button id="embedResetFromViewer" type="button">${panelText.resetFromViewer}</button>
+            <button id="embedCopyUrl" type="button">${panelText.copyUrl}</button>
+            <button id="embedCopyIframe" type="button">${panelText.copyIframe}</button>
           </div>
-          <label class="embed-config-field">Embed URL<textarea id="embedUrlOutput" readonly></textarea></label>
-          <label class="embed-config-field">Iframe code<textarea id="embedIframeOutput" readonly></textarea></label>
+          <label class="embed-config-field">${panelText.embedUrl}<textarea id="embedUrlOutput" readonly></textarea></label>
+          <label class="embed-config-field">${panelText.iframeCode}<textarea id="embedIframeOutput" readonly></textarea></label>
         </div>
         <div class="embed-config-preview-side">
-          <span>Preview</span>
-          <iframe id="embedPreviewFrame" title="Embed preview" loading="lazy"></iframe>
+          <span>${panelText.preview}</span>
+          <iframe id="embedPreviewFrame" title="${panelText.previewTitle}" loading="lazy"></iframe>
         </div>
       </div>
     `;
@@ -16486,6 +16603,7 @@ const Viewer$1 = {
     if (typeof core.guiContainer !== "undefined" && core.stats?.dom) {
       core.guiContainer.appendChild(core.stats.dom);
       core.stats.dom.style.left = (core.guiContainer.getBoundingClientRect().width - core.stats.domElement.getBoundingClientRect().width + 10) + 'px';
+      core.stats.dom.style.visibility = 'hidden';
     }
 
     Viewer$1.windowHalfX = core.CONFIG.viewer.canvasDimensions.x / 2;

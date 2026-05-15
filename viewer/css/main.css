@@ -1304,15 +1304,18 @@ canvas {
   --viewer-toolbar-gap: 6px;
   --viewer-toolbar-height: 58px;
   --viewer-toolbar-visible-offset: 14px;
+  --viewer-toolbar-max-width: 920px;
+  --viewer-toolbar-scale: clamp(0.74, calc((100vw - 112px) / var(--viewer-toolbar-max-width)), 1);
   position: absolute;
   left: 50%;
   bottom: calc(var(--viewer-toolbar-visible-offset) - var(--viewer-toolbar-height));
-  z-index: 999998;
+  translate: -50% 0;
+  z-index: 9999;
   display: flex;
   align-items: center;
   gap: 0;
   padding: 8px;
-  max-width: min(calc(100% - 112px), 920px);
+  width: max-content;
   overflow: visible;
   border-radius: 18px;
   border: 1px solid var(--viewer-panel-border);
@@ -1320,9 +1323,12 @@ canvas {
   box-shadow: var(--viewer-panel-shadow);
   backdrop-filter: blur(14px);
   scrollbar-width: none;
+  transform-origin: center bottom;
+  scale: var(--viewer-toolbar-scale);
   transition:
     opacity 1.25s ease,
     transform 1.25s ease,
+    scale 1.25s ease,
     padding 1.28s ease,
     box-shadow 1.28s ease,
     background 1.28s ease;
@@ -2627,12 +2633,12 @@ canvas {
   }
 
   #viewerEditorToolbar {
+    --viewer-toolbar-scale: clamp(0.68, calc((100vw - 76px) / var(--viewer-toolbar-max-width)), 1);
     left: 12px;
-    bottom: 12px;
-    transform: none;
+    translate: 0 0;
     width: max-content;
-    max-width: calc(100vw - 76px);
     justify-content: flex-start;
+    transform-origin: left bottom;
   }
 
   #viewerEditorToolbar.expanded {
