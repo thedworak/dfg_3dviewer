@@ -46,16 +46,41 @@ INPUT=""
 OUTPUT=""
 OUTPUTPATH=""
 
+resolve_blender_bin () {
+	local candidate="$1"
+
+	if [[ -z "$candidate" ]]; then
+		return 1
+	fi
+
+	if [[ "$candidate" == /* ]]; then
+		[[ -f "$candidate" && -x "$candidate" ]] || return 1
+		printf '%s\n' "$candidate"
+		return 0
+	fi
+
+	if [[ -f "$SCRIPT_DIR/$candidate" && -x "$SCRIPT_DIR/$candidate" ]]; then
+		printf '%s\n' "$SCRIPT_DIR/$candidate"
+		return 0
+	fi
+
+	if [[ -f "$SPATH/$candidate" && -x "$SPATH/$candidate" ]]; then
+		printf '%s\n' "$SPATH/$candidate"
+		return 0
+	fi
+
+	if command -v "$candidate" &> /dev/null; then
+		command -v "$candidate"
+		return 0
+	fi
+
+	return 1
+}
+
 check_blender () {
-	if [[ "$BLENDER_BIN" != /* ]]; then
-		if [[ -f "$SCRIPT_DIR/$BLENDER_BIN" && -x "$SCRIPT_DIR/$BLENDER_BIN" ]]; then
-			BLENDER_BIN="$SCRIPT_DIR/$BLENDER_BIN"
-		elif command -v "$BLENDER_BIN" &> /dev/null; then
-			BLENDER_BIN="$(command -v "$BLENDER_BIN")"
-		else
-			echo "Blender doesn't exist, install it by 'apt install blender python3-pip' then 'pip install numpy' or set BLENDER_BIN in scripts/.env"
-			return 1
-		fi
+	if ! BLENDER_BIN="$(resolve_blender_bin "$BLENDER_BIN")"; then
+		echo "Blender doesn't exist, install it by 'apt install blender python3-pip' then 'pip install numpy' or set BLENDER_BIN in scripts/.env"
+		return 1
 	elif [[ ! -x "$BLENDER_BIN" ]]; then
 		echo "Configured BLENDER_BIN is not executable: $BLENDER_BIN"
 		return 1
