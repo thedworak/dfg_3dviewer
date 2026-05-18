@@ -42,6 +42,40 @@ class ConvertProcessService {
         return $dirname . '/gltf/' . $filename . '.' . $outputExt;
     }
 
+    private function resolveThumbnailBasePath(string $inputPath): string {
+        $dirname = $this->normalizePath((string) pathinfo($inputPath, PATHINFO_DIRNAME));
+        $filename = (string) pathinfo($inputPath, PATHINFO_FILENAME);
+        $extension = strtolower((string) pathinfo($inputPath, PATHINFO_EXTENSION));
+
+        return $dirname . '/views/' . $filename . '.' . $extension;
+    }
+
+    private function thumbnailsAlreadyExist(string $inputPath): bool {
+        $basePath = $this->resolveThumbnailBasePath($inputPath);
+        $requiredFiles = [
+            $basePath . '_side45.png',
+            $basePath . '_side90.png',
+            $basePath . '_side135.png',
+            $basePath . '_side180.png',
+            $basePath . '_side225.png',
+            $basePath . '_side270.png',
+            $basePath . '_side315.png',
+            $basePath . '_top.png',
+        ];
+
+        foreach ($requiredFiles as $file) {
+            if (!file_exists($file)) {
+                return FALSE;
+            }
+        }
+
+        if (file_exists($basePath . '_side0.png') || file_exists($basePath . '_RENDER.png')) {
+            return TRUE;
+        }
+
+        return FALSE;
+    }
+
     private function emitProgress(?callable $onProgress, int $percent, string $state, string $message): void {
         if ($onProgress === NULL) {
             return;
@@ -132,26 +166,31 @@ class ConvertProcessService {
         }
 
         if ($success && !filter_var($lightweight, FILTER_VALIDATE_BOOLEAN)) {
-            $this->emitProgress($onProgress, 65, 'rendering', 'Generating thumbnails...');
-            $renderResult = $this->render(
-                $spath,
-                $inputPath,
-                [
-                    'a' => $this->boolToString($options['a'] ?? false),
-                    'g' => $this->resolveConvertedOutputPath($inputPath, $options),
-                    'timeout' => $options['render_timeout'] ?? $options['timeout'] ?? 600,
-                ]
-            );
-
-            $output .= $renderResult['output'] ?? '';
-            $error .= $renderResult['error'] ?? '';
-
-            if (!($renderResult['success'] ?? FALSE)) {
-                $success = FALSE;
-                $exitCode = $renderResult['exit_code'] ?? 1;
+            if ($this->thumbnailsAlreadyExist($inputPath)) {
+                $this->emitProgress($onProgress, 75, 'rendering', 'Skipping thumbnail generation, files already exist.');
             }
             else {
-                $this->emitProgress($onProgress, 75, 'rendering', 'Thumbnails generated.');
+                $this->emitProgress($onProgress, 65, 'rendering', 'Generating thumbnails...');
+                $renderResult = $this->render(
+                    $spath,
+                    $inputPath,
+                    [
+                        'a' => $this->boolToString($options['a'] ?? false),
+                        'g' => $this->resolveConvertedOutputPath($inputPath, $options),
+                        'timeout' => $options['render_timeout'] ?? $options['timeout'] ?? 600,
+                    ]
+                );
+
+                $output .= $renderResult['output'] ?? '';
+                $error .= $renderResult['error'] ?? '';
+
+                if (!($renderResult['success'] ?? FALSE)) {
+                    $success = FALSE;
+                    $exitCode = $renderResult['exit_code'] ?? 1;
+                }
+                else {
+                    $this->emitProgress($onProgress, 75, 'rendering', 'Thumbnails generated.');
+                }
             }
         }
 
