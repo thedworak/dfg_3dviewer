@@ -214,79 +214,15 @@ function getMaterialByID(_object, _uuid) {
 }
 
 function traverseMesh(object) {
-  var _objectMaterials = [];
-  _objectMaterials.push(setupMaterials(object));
+  setupMaterials(object);
 
   object.traverse(function (child) {
-    _objectMaterials.push(setupMaterials(child));
-    _objectMaterials.side = THREE.DoubleSide;
+    setupMaterials(child);
   });
-  var objectMaterials = ["select by material"];
-  _objectMaterials.forEach(function (item, index, array) {
-    if (item.length > 1) {
-      item.forEach(function (_item, _index, _array) {
-        objectMaterials.push(_item.uuid);
-      });
-    } else if (item.length == 1) {
-      objectMaterials.push(item[0].uuid);
-    }
-  });
-  var _material = null;
-  var _materialGui = null;
-  var _uuid = null;
-  if (!core.materialsFolder) return;
-  core.i18nGui.editMaterialsController =core.materialsFolder
-    .add(core.materialsPropertiesText, "Edit material", objectMaterials)
-    .name(window.Viewer?.t?.("gui.editMaterial", "Edit material") ?? "Edit material")
-    .onChange(function (value) {
-      if (
-        (value === "select by material" || value !== _uuid) &&
-        _material !== null
-      ) {
-        _materialGui.color.destroy();
-        _materialGui.emissiveColor.destroy();
-        _materialGui.emissive.destroy();
-        _materialGui.metalness.destroy();
-        _materialGui = null;
-        _material = null;
-      }
-      if (_material === null) {
-        _materialGui = {};
-        _material = getMaterialByID(object, value);
-        //console.log(_material);
-        core.materialProperties.color = _material.color;
-        core.materialProperties.emissiveColor = _material.emissive;
-        core.materialProperties.emissive = _material.emissiveIntensity;
-        core.materialProperties.metalness = _material.metalness;
-        _materialGui.color = core.materialsFolder
-          .addColor(core.materialProperties, "color")
-          .onChange(function (value) {
-            _material.color = new THREE.Color(value);
-          })
-          .listen();
-        _materialGui.emissiveColor = core.materialsFolder
-          .addColor(core.materialProperties, "emissiveColor")
-          .onChange(function (value) {
-            _material.emissive = new THREE.Color(value);
-          })
-          .listen();
-        _materialGui.emissive = core.materialsFolder
-          .add(core.materialProperties, "emissive", 0, 1)
-          .onChange(function (value) {
-            _material.emissiveIntensity = value;
-          })
-          .listen();
-        _materialGui.metalness = core.materialsFolder
-          .add(core.materialProperties, "metalness", 0, 1)
-          .onChange(function (value) {
-            _material.metalness = value;
-          })
-          .listen();
-      }
-      if (_uuid === null || _uuid !== value) {
-        _uuid = value;
-      }
-    });
+
+  if (window.Viewer?.initializeMaterialsEditor) {
+    window.Viewer.initializeMaterialsEditor(object);
+  }
 }
 
 function getEnvironmentTexture(renderer) {

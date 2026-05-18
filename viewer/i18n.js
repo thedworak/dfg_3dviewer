@@ -77,6 +77,7 @@ export const VIEWER_I18N = {
       renderPreview: "Render preview",
       color: "Color",
       intensity: "Intensity",
+      metalness: "Metalness",
       position: "Position",
       rotation: "Rotation",
       camera: "Camera",

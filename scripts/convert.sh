@@ -24,8 +24,11 @@
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODULE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-BLENDER_BIN=${BLENDER_BIN:-blender}
 source "$SCRIPT_DIR/.env"
+BLENDER_BIN="${BLENDER_BIN:-}"
+if [[ -z "$BLENDER_BIN" ]]; then
+	BLENDER_BIN="blender"
+fi
 SPATH="${SPATH:-$MODULE_ROOT}"
 if [[ ! -d "$SPATH/scripts" ]]; then
 	SPATH="$MODULE_ROOT"
@@ -45,7 +48,7 @@ OUTPUTPATH=""
 
 check_blender () {
 	if [[ "$BLENDER_BIN" != /* ]]; then
-		if [[ -x "$SCRIPT_DIR/$BLENDER_BIN" ]]; then
+		if [[ -f "$SCRIPT_DIR/$BLENDER_BIN" && -x "$SCRIPT_DIR/$BLENDER_BIN" ]]; then
 			BLENDER_BIN="$SCRIPT_DIR/$BLENDER_BIN"
 		elif command -v "$BLENDER_BIN" &> /dev/null; then
 			BLENDER_BIN="$(command -v "$BLENDER_BIN")"

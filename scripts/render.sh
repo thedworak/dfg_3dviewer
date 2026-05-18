@@ -2,8 +2,12 @@
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BLENDER_BIN=${BLENDER_BIN:-blender}
 source "${SCRIPT_DIR}/.env"
+BLENDER_BIN="${BLENDER_BIN:-}"
+if [[ -z "$BLENDER_BIN" ]]; then
+  BLENDER_BIN="blender"
+fi
+SPATH="${SPATH:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 
 IS_ARCHIVE=false
 INPUT=""
@@ -19,23 +23,28 @@ bool() {
 }
 
 if [[ "$BLENDER_BIN" != /* ]]; then
-  if [[ -x "$SCRIPT_DIR/$BLENDER_BIN" ]]; then
+  if [[ -f "$SCRIPT_DIR/$BLENDER_BIN" && -x "$SCRIPT_DIR/$BLENDER_BIN" ]]; then
     BLENDER_BIN="$SCRIPT_DIR/$BLENDER_BIN"
-  else
+  elif command -v "$BLENDER_BIN" &> /dev/null; then
     BLENDER_BIN="$(command -v "$BLENDER_BIN")"
+  else
+    BLENDER_BIN=""
   fi
 fi
 
 check_blender() {
   if [[ "$BLENDER_BIN" != /* ]]; then
-    if [[ -x "$SCRIPT_DIR/$BLENDER_BIN" ]]; then
+    if [[ -f "$SCRIPT_DIR/$BLENDER_BIN" && -x "$SCRIPT_DIR/$BLENDER_BIN" ]]; then
       BLENDER_BIN="$SCRIPT_DIR/$BLENDER_BIN"
     elif command -v "$BLENDER_BIN" &> /dev/null; then
       BLENDER_BIN="$(command -v "$BLENDER_BIN")"
     else
-      echo "Blender doesn't exist, install it by 'apt install blender python3-pip' then 'pip install numpy' or change BLENDER_PATH with your Blender instance"
+      echo "Blender doesn't exist, install it by 'apt install blender python3-pip' then 'pip install numpy' or set BLENDER_BIN in scripts/.env"
       return 1
     fi
+  elif [[ ! -f "$BLENDER_BIN" || ! -x "$BLENDER_BIN" ]]; then
+    echo "Configured BLENDER_BIN is not executable: $BLENDER_BIN"
+    return 1
   fi
 
   if [[ -n "${BLENDER_BIN:-}" ]]; then
