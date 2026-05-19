@@ -65,6 +65,20 @@ import { GUI } from "./js/external_libs/lil-gui.esm.min.js";
 import { objectsConfig, setObjectsConfig } from "./object-settings.js";
 
 import { loadIIIFManifest, getAnnotations } from "./IIIF/iiif-api.js";
+import {
+  attachEditorToolbar,
+  createEditorToolbar,
+  getEditorToolbarIcon,
+  getEditorToolbarHost,
+  syncEditorToolbarSecondaryTrayWidth,
+  toggleToolbarExpanded as toggleEditorToolbarExpanded,
+  updateClippingPlanesSubmenuState,
+  updateEditorToolbarLabels as syncEditorToolbarLabels,
+  updateEditorToolbarState as syncEditorToolbarState,
+  updateHierarchySubmenuState,
+  updateLightsSubmenuState,
+  updateStatisticsSubmenuState,
+} from "./editor-toolbar.js";
 import { VIEWER_I18N } from "./i18n.js";
 import { t } from "./i18n-utils.js";
 import { clipping } from 'three/src/nodes/accessors/ClippingNode.js';
@@ -438,776 +452,31 @@ export const Viewer = {
   },
 
   getEditorToolbarIcon(icon) {
-    const icons = {
-      orbit: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16.5 2.75 21 3.5l-.75 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.25" fill="currentColor"/></svg>',
-      move: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-      rotate: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.5A7.5 7.5 0 1 1 5 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 3.5v3H5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-      scale: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8h8v8H8zM5 5h4M5 5v4M19 19h-4M19 19v-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-      lightMove: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 13h5l-1 8 7-10h-5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
-      lightTarget: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-      lights: `<svg viewBox="0 0 24 24" aria-hidden="true"> <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/> <path d="M12 4V7M12 17v3M4 12h3M17 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/> <path d="M6.5 6.5l2 2M15.5 15.5l2 2M17.5 6.5l-2 2M8.5 15.5l-2 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/> </svg>`,
-      materials: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 4v8l-8 4-8-4V6l8-4z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 6l8 4M12 6v8M12 14l-8-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
-      ambientLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-      cameraLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h3l2-2h4l2 2h3v10H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
-      color: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a5 5 0 0 0-5 5c0 2.8 5 9 5 9s5-6.2 5-9a5 5 0 0 0-5-5Z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 14.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z" fill="currentColor"/></svg>',
-      intensity: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-      picking: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 3 8 8-4 1 2 5-2.5 1-2-5-3 3Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
-      resetCamera: `<svg viewBox="0 0 24 24" aria-hidden="true"> <path d="M9 4H4v5M15 4h5v5M20 15v5h-5M4 15v5h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/> <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/> </svg>`,
-      preview: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m8 14 2.5-3 2.5 2 2-3 3 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-      save: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 4v5h8M9 18h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-      mainMenu: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2 2.2 3-.2.8 2.9 2.6 1.4-1 2.8 1 2.8-2.6 1.4-.8 2.9-3-.2L12 21l-2-2.2-3 .2-.8-2.9-2.6-1.4 1-2.8-1-2.8 2.6-1.4.8-2.9 3 .2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
-      advancedEditor: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M4 17h16M14 7h6M4 12h6M12 12h8M8 5v4M16 10v4M10 15v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-      fullScreen: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5M4 4v5M20 4h-5M20 4v5M4 20h5M4 20v-5M20 20h-5M20 20v-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-      displayHelperX: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8l8 8M16 8 8 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-      displayHelperY: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7 12 13 17 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 13v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-      displayHelperZ: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10M7 17h10M17 7 7 17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-      visible: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
-      clippingPlanes: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 6h10v12H7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 5v14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M7 6h5v12H7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.5 2.5" stroke-linejoin="round"/></svg>',
-      ruler: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="9" width="16" height="6" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.8"/> <path d="M7 9v2.5 M9.5 9v1.6 M12 9v2.5 M14.5 9v1.6 M17 9v2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
-      annotate: `<svg viewBox="0 0 24 24" aria-hidden="true"> <path d="M5 5h14v10H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/> <path d="M9 9h6M9 12h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/> </svg>`,
-      annotateAdd: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 8v5M9.5 10.5h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
-      annotateImport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 6.8v7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.8 12 14l3.2-3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-      annotateExport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 14.2V7.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.2 12 7l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-      hierarchy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5v5H4zM15 4h5v5h-5zM4 15h5v5H4zM15 15h5v5h-5zM9 6h6M9 17h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',      
-      loadingLogs: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18M3 6h12M3 18h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-      performance: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
-      statistics: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7 14v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 10v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M17 6v12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-      performanceDefault: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
-      performanceHigh: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="#FF4136"/></svg>',
-      performanceLow: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="#2ECC40"/></svg>',
-      expand: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-      collapse: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-      projection: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8l5-3h7v14h-7l-5-3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M11 5v14" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6 8v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-      wireframe: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 7v10l-7 4-7-4V7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 3v18M5 7l7 4 7-4M5 17l7-4 7 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
-      screenshot: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5H5a2 2 0 0 0-2 2v2M17 5h2a2 2 0 0 1 2 2v2M17 19h2a2 2 0 0 0 2-2v-2M7 19H5a2 2 0 0 1-2-2v-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
-    };
-    return icons[icon] || icons.advancedEditor;
+    return getEditorToolbarIcon(icon);
   },
 
   toggleToolbarExpanded() {
-    if (!core.editorToolbar) return;
-
-    this.syncEditorToolbarSecondaryTrayWidth();
-    this.isToolbarExpanded = !this.isToolbarExpanded;
-    core.editorToolbar.classList.toggle("expanded", this.isToolbarExpanded);
-    this.editorToolbarButtons.expand.classList.toggle("expanded-icon", this.isToolbarExpanded);
-    this.editorToolbarButtons.expand.setAttribute("aria-expanded", this.isToolbarExpanded ? "true" : "false");
-    const icon = this.editorToolbarButtons.expand.querySelector(".viewer-editor-tool_icon");
-    if (icon) {
-      icon.innerHTML = this.getEditorToolbarIcon(this.isToolbarExpanded ? "collapse" : "expand");
-    }
-
-    this.updateEditorToolbarLabels();
+    return toggleEditorToolbarExpanded(this);
   },
 
   syncEditorToolbarSecondaryTrayWidth() {
-    if (!this.editorToolbarSecondaryTray) return;
-    this.editorToolbarSecondaryTray.style.setProperty("--viewer-toolbar-secondary-width", `${this.editorToolbarSecondaryTray.scrollWidth}px`);
+    return syncEditorToolbarSecondaryTrayWidth(this);
   },
 
   getEditorToolbarHost() {
-    return this.viewerWrapper || core.container || null;
+    return getEditorToolbarHost(this);
   },
 
   attachEditorToolbar() {
-    if (!core.editorToolbar) return;
-    const host = this.getEditorToolbarHost();
-    if (!host || core.editorToolbar.parentElement === host) return;
-    host.appendChild(core.editorToolbar);
+    return attachEditorToolbar(this);
   },
 
   createEditorToolbar() {
-    if (!core.EDITOR || this.urlOptions.hideUi || core.editorToolbar || !core.container) return;
-
-    const toolbar = document.createElement("div");
-    toolbar.id = "viewerEditorToolbar";
-    toolbar.setAttribute("role", "toolbar");
-    toolbar.setAttribute("aria-label", t("toolbar.editor", "Editor tools"));
-
-    const tools = [
-      { key: "orbit", icon: "orbit", onClick: () => this.setObjectTransformMode(""), primary: true },
-      { key: "move", icon: "move", onClick: () => this.toggleObjectTransformMode("translate"), pressed: true, primary: true },
-      { key: "rotate", icon: "rotate", onClick: () => this.toggleObjectTransformMode("rotate"), pressed: true, primary: true },
-      { key: "scale", icon: "scale", onClick: () => this.toggleObjectTransformMode("scale"), pressed: true, primary: true },
-      { key: "lights", icon: "lights", onClick: () => {}, pressed: false, primary: false },
-      { key: "materials", icon: "materials", onClick: () => this.openMaterialsFolder(), pressed: false, primary: false },
-      { key: "picking", icon: "picking", onClick: () => this.togglePickingMode(), pressed: true, primary: false },
-      { key: "annotate", icon: "annotate", onClick: () => this.openAnnotationDialogWithAutoPicking(), primary: false },
-      { key: "ruler", icon: "ruler", onClick: () => this.toggleDistanceMeasurement(), pressed: true, primary: false },
-      { key: "fullScreen", icon: "fullScreen", onClick: () => this.toggleFullscreen(), pressed: true, primary: true },
-      { key: "clippingPlanes", icon: "clippingPlanes", onClick: () => this.toggleClippingPlanesPanel(), pressed: true, primary: false },
-      { key: "resetCamera", icon: "resetCamera", onClick: () => this.resetCamera(), primary: false },
-      { key: "hierarchy", icon: "hierarchy", onClick: () => {}, pressed: true, primary: false },
-      { key: "projection", icon: "projection", onClick: () => this.toggleCameraProjection(), pressed: true, primary: false },
-      { key: "wireframe", icon: "wireframe", onClick: () => this.toggleWireframeMode(), pressed: true, primary: false },
-      { key: "loadingLogs", icon: "loadingLogs", onClick: () => this.toggleLoadingLogs(), pressed: true, primary: false },
-      { key: "statistics", icon: "statistics", onClick: () => {}, pressed: false, primary: false },
-      //{ key: "advancedEditor", icon: "advancedEditor", onClick: () => this.toggleEditorAdvancedPanel(), pressed: true, primary: false },
-    ];
-
-    if (!core.isLightweight) {
-      tools.splice(tools.length - 1, 0,
-        { key: "preview", icon: "preview", onClick: () => this.takeScreenshot(), primary: false },
-        { key: "save", icon: "save", onClick: () => {}, primary: false }
-      );
-    }
-
-    this.editorToolbarButtons = {};
-    const secondaryTray = document.createElement("div");
-    secondaryTray.className = "viewer-editor-toolbar_secondary-tray";
-    this.editorToolbarSecondaryTray = secondaryTray;
-
-    tools.forEach((tool) => {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "viewer-editor-tool";
-      if (!tool.primary) {
-        button.classList.add("viewer-editor-tool-not-primary");
-      }
-      button.dataset.tool = tool.key;
-      button.dataset.pressed = tool.pressed ? "true" : "false";
-      button.dataset.primary = tool.primary ? "true" : "false";
-      if (tool.key === "materials") {
-        const label = t("gui.materials", "Materials");
-        button.setAttribute("title", label);
-        button.setAttribute("aria-label", label);
-      }
-      button.innerHTML = `
-        <span class="viewer-editor-tool_icon" aria-hidden="true">${this.getEditorToolbarIcon(tool.icon)}</span>
-        <span class="viewer-editor-tool_sr"></span>
-      `;
-      if (tool.key === "clippingPlanes") {
-        button.classList.add("has-submenu");
-        const submenu = document.createElement("div");
-        submenu.className = "viewer-editor-tool_submenu";
-        const submenuItems = [
-          { key: "displayHelperX", icon: "displayHelperX", label: t("gui.displayHelperX", "Show X helper"), onClick: () => this.toggleClippingPlaneHelper("x") },
-          { key: "displayHelperY", icon: "displayHelperY", label: t("gui.displayHelperY", "Show Y helper"), onClick: () => this.toggleClippingPlaneHelper("y") },
-          { key: "displayHelperZ", icon: "displayHelperZ", label: t("gui.displayHelperZ", "Show Z helper"), onClick: () => this.toggleClippingPlaneHelper("z") },
-          { key: "visible", icon: "visible", label: t("gui.visible", "Visible"), onClick: () => this.toggleClippingPlaneVisible() },
-        ];
-        this.clippingPlaneSubmenuButtons = {};
-        submenuItems.forEach((item) => {
-          const subButton = document.createElement("button");
-          subButton.type = "button";
-          subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
-          subButton.dataset.tool = item.key;
-          subButton.innerHTML = `
-            <span class="viewer-editor-tool_icon" aria-hidden="true">${this.getEditorToolbarIcon(item.icon)}</span>
-          `;
-          subButton.setAttribute("title", item.label);
-          subButton.setAttribute("aria-label", item.label);
-          this.bindEventListener(subButton, "click", (event) => {
-            event.stopPropagation();
-            item.onClick();
-          });
-          submenu.appendChild(subButton);
-          this.clippingPlaneSubmenuButtons[item.key] = subButton;
-        });
-        button.appendChild(submenu);
-      }
-      else if (tool.key === "annotate") {
-        button.classList.add("has-submenu");
-        const submenu = document.createElement("div");
-        submenu.className = "viewer-editor-tool_submenu";
-        const submenuItems = [
-          { key: "annotateAdd", icon: "annotateAdd", label: t("gui.annotateAdd", "Add Annotation"), onClick: () => Viewer.openAnnotationDialogWithAutoPicking() },
-          { key: "annotateImport", icon: "annotateImport", label: t("gui.annotateImport", "Import Annotations"), onClick: () => Viewer.downloadAnnotationsXmlFile() },
-          { key: "annotateExport", icon: "annotateExport", label: t("gui.annotateExport", "Export Annotations"), onClick: () => Viewer.triggerAnnotationsXmlImport() },
-        ];
-        this.annotateSubmenuButtons = {};
-        submenuItems.forEach((item) => {
-          const subButton = document.createElement("button");
-          subButton.type = "button";
-          subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
-          subButton.dataset.tool = item.key;
-          subButton.innerHTML = `
-            <span class="viewer-editor-tool_icon" aria-hidden="true">${this.getEditorToolbarIcon(item.icon)}</span>
-          `;
-          subButton.setAttribute("title", item.label);
-          subButton.setAttribute("aria-label", item.label);
-          this.bindEventListener(subButton, "click", (event) => {
-            event.stopPropagation();
-            item.onClick();
-          });
-          submenu.appendChild(subButton);
-          this.annotateSubmenuButtons[item.key] = subButton;
-        });
-        button.appendChild(submenu);
-      }
-      else if (tool.key === "materials") {
-        button.classList.add("has-submenu");
-        const submenu = document.createElement("div");
-        submenu.className = "viewer-editor-tool_submenu";
-        this.materialsSubmenu = submenu;
-        this.refreshMaterialsToolbarMenu();
-        button.appendChild(submenu);
-      }
-      else if (tool.key === "hierarchy") {
-        button.classList.add("has-submenu");
-        const submenu = document.createElement("div");
-        submenu.className = "viewer-editor-tool_submenu viewer-editor-hierarchy-submenu";
-        this.hierarchySubmenu = submenu;
-        const hierarchyList = document.createElement("div");
-        hierarchyList.className = "viewer-editor-hierarchy-submenu-list";
-        this.hierarchySubmenuList = hierarchyList;
-        const clearButton = document.createElement("button");
-        clearButton.type = "button";
-        clearButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button viewer-editor-hierarchy-clear";
-        this.bindEventListener(clearButton, "click", (event) => {
-          event.stopPropagation();
-          Viewer.clearHierarchySelection();
-        });
-        this.hierarchyClearButton = clearButton;
-        this.hierarchySubmenuButtons = {};
-        submenu.appendChild(hierarchyList);
-        submenu.appendChild(clearButton);
-        button.appendChild(submenu);
-      }
-      else if (tool.key === "save") {
-        button.classList.add("has-submenu");
-        const submenu = document.createElement("div");
-        submenu.className = "viewer-editor-tool_submenu viewer-editor-save-submenu";
-        this.bindEventListener(submenu, "click", (event) => {
-          event.stopPropagation();
-        });
-        const submenuItems = [
-          { key: "Position", label: t("gui.position", "Position") },
-          { key: "Rotation", label: t("gui.rotation", "Rotation") },
-          { key: "Scale", label: t("gui.scale", "Scale") },
-          { key: "Camera", label: t("gui.camera", "Camera") },
-          { key: "DirectionalLight", label: t("gui.directionalLight", "Directional Light") },
-          { key: "AmbientLight", label: t("gui.ambientLight", "Ambient Light") },
-          { key: "CameraLight", label: t("gui.cameraLight", "Camera Light") },
-          { key: "BackgroundColor", label: t("gui.backgroundColor", "Background Color") },
-        ];
-        this.saveSubmenuCheckboxes = {};
-        submenuItems.forEach((item) => {
-          const row = document.createElement("label");
-          row.className = "viewer-editor-save-option";
-          row.setAttribute("title", item.label);
-          row.setAttribute("aria-label", item.label);
-
-          const checkbox = document.createElement("input");
-          checkbox.type = "checkbox";
-          checkbox.checked = Boolean(this.saveProperties[item.key]);
-          checkbox.dataset.property = item.key;
-          this.bindEventListener(checkbox, "click", (event) => {
-            event.stopPropagation();
-          });
-          this.bindEventListener(checkbox, "change", (event) => {
-            event.stopPropagation();
-            this.saveProperties[item.key] = event.target.checked;
-          });
-
-          const text = document.createElement("span");
-          text.className = "viewer-editor-save-option_label";
-          text.textContent = item.label;
-
-          row.appendChild(checkbox);
-          row.appendChild(text);
-          submenu.appendChild(row);
-          this.saveSubmenuCheckboxes[item.key] = { row, checkbox, text };
-        });
-
-        const actions = document.createElement("div");
-        actions.className = "viewer-editor-save-actions";
-
-        const saveButton = document.createElement("button");
-        saveButton.type = "button";
-        saveButton.className = "viewer-editor-save-apply";
-        saveButton.textContent = t("gui.saveSettings", "Save settings");
-        this.bindEventListener(saveButton, "click", (event) => {
-          event.stopPropagation();
-          this.saveEditorMetadata();
-        });
-        this.saveSubmenuActionButton = saveButton;
-
-        actions.appendChild(saveButton);
-        submenu.appendChild(actions);
-        button.appendChild(submenu);
-      }
-      else if (tool.key === "statistics") {
-        button.classList.add("has-submenu");
-        const submenu = document.createElement("div");
-        submenu.className = "viewer-editor-tool_submenu";
-        this.statisticsSubmenuButtons = {};
-
-        const appendStatisticsSubmenuItems = (items, container) => {
-          items.forEach((item) => {
-            const subButton = document.createElement("button");
-            subButton.type = "button";
-            subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
-            subButton.dataset.tool = item.key;
-            subButton.setAttribute("title", item.label);
-            subButton.setAttribute("aria-label", item.label);
-            subButton.setAttribute("aria-pressed", item.pressed);
-
-            const iconSpan = document.createElement("span");
-            iconSpan.className = "viewer-editor-tool_icon";
-            iconSpan.setAttribute("aria-hidden", "true");
-            iconSpan.innerHTML = this.getEditorToolbarIcon(item.icon);
-            subButton.appendChild(iconSpan);
-
-            const srSpan = document.createElement("span");
-            srSpan.className = "viewer-editor-tool_sr";
-            srSpan.textContent = item.label;
-            subButton.appendChild(srSpan);
-
-            if (item.onClick) {
-              this.bindEventListener(subButton, "click", (event) => {
-                event.stopPropagation();
-                item.onClick();
-              });
-            }
-
-            if (item.children) {
-              subButton.classList.add("has-submenu");
-              const nested = document.createElement("div");
-              nested.className = "viewer-editor-tool_submenu";
-              appendStatisticsSubmenuItems(item.children, nested);
-              subButton.appendChild(nested);
-            }
-
-            this.statisticsSubmenuButtons[item.key] = subButton;
-            container.appendChild(subButton);
-          });
-        };
-
-        appendStatisticsSubmenuItems([
-          {
-            key: "toggleStats",
-            icon: "statistics",
-            label: t("gui.statistics", "Statistics"),
-            pressed: false,
-            onClick: () => this.toggleStatsVisibility(),
-          },
-          {
-            key: "performance",
-            icon: "performance",
-            label: t("gui.performance", "Performance"),
-            children: [
-              {
-                key: "performanceDefault",
-                icon: "statistics",
-                label: t("gui.default", "Default"),
-                onClick: () => this.setPerformanceMode("default"),
-                pressed: true,
-              },
-              {
-                key: "performanceHigh",
-                icon: "performanceHigh",
-                label: t("gui.highPerformance", "High-performance"),
-                onClick: () => this.setPerformanceMode("high-performance"),
-                pressed: true,
-              },
-              {
-                key: "performanceLow",
-                icon: "performanceLow",
-                label: t("gui.lowPower", "Low-power"),
-                onClick: () => this.setPerformanceMode("low-power"),
-                pressed: true,
-              },
-            ],
-          },
-        ], submenu);
-
-        button.appendChild(submenu);
-      }
-      else if (tool.key === "lights") {
-        button.classList.add("has-submenu");
-        const submenu = document.createElement("div");
-        submenu.className = "viewer-editor-tool_submenu";
-        this.lightTargetTransformButtons = {};
-
-        const normalizeColorValue = (value) => {
-          if (typeof value !== "string") return "#ffffff";
-          if (value.startsWith("0x")) {
-            return `#${value.slice(2).padStart(6, "0")}`;
-          }
-          return value.startsWith("#") ? value : `#${value}`;
-        };
-
-        const appendSubmenuItems = (items, container) => {
-          items.forEach((item) => {
-            const subButton = document.createElement("button");
-            subButton.type = "button";
-            subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button ";
-            subButton.dataset.tool = item.key;
-            subButton.setAttribute("title", item.label);
-            subButton.setAttribute("aria-label", item.label);
-
-            const iconSpan = document.createElement("span");
-            iconSpan.className = "viewer-editor-tool_icon";
-            iconSpan.setAttribute("aria-hidden", "true");
-            iconSpan.innerHTML = this.getEditorToolbarIcon(item.icon);
-            subButton.appendChild(iconSpan);
-
-            if (item.type === "color") {
-              subButton.classList.add("viewer-editor-tool_submenu-control");
-
-              const colorInput = document.createElement("input");
-              colorInput.type = "color";
-              colorInput.value = normalizeColorValue(item.value());
-              colorInput.className = "viewer-editor-tool_submenu-input";
-              colorInput.addEventListener("click", (event) => event.stopPropagation());
-              colorInput.addEventListener("input", (event) => {
-                const value = event.target.value;
-                item.onChange(value);
-                colorInput.value = normalizeColorValue(value);
-              });
-              subButton.appendChild(colorInput);
-            } else if (item.type === "slider") {
-              subButton.classList.add("viewer-editor-tool_submenu-control");
-
-              const slider = document.createElement("input");
-              slider.type = "range";
-              slider.min = item.min ?? 0;
-              slider.max = item.max ?? 10;
-              slider.step = item.step ?? 0.01;
-              slider.value = String(item.value());
-              slider.className = "viewer-editor-tool_submenu-input";
-              slider.addEventListener("click", (event) => event.stopPropagation());
-              slider.addEventListener("input", (event) => {
-                const value = parseFloat(event.target.value);
-                item.onChange(value);
-                valueLabel.textContent = value.toFixed(2);
-              });
-
-              const valueLabel = document.createElement("span");
-              valueLabel.className = "viewer-editor-tool_submenu-value";
-              valueLabel.textContent = Number(item.value()).toFixed(2);
-              valueLabel.setAttribute("aria-hidden", "true");
-
-              subButton.appendChild(slider);
-              subButton.appendChild(valueLabel);
-            } else {
-              if (item.onClick) {
-                this.bindEventListener(subButton, "click", (event) => {
-                  event.stopPropagation();
-                  item.onClick();
-                });
-              }
-            }
-
-            if (item.children) {
-              subButton.classList.add("has-submenu");
-              const nested = document.createElement("div");
-              nested.className = "viewer-editor-tool_submenu";
-              appendSubmenuItems(item.children, nested);
-              subButton.appendChild(nested);
-            }
-
-            if (item.key === "lightTargetTransformMove" || item.key === "lightTargetTransformTarget") {
-              this.lightTargetTransformButtons[item.key] = subButton;
-            }
-            container.appendChild(subButton);
-          });
-        };
-
-        appendSubmenuItems([
-          {
-            key: "lightTarget",
-            icon: "lightTarget",
-            label: t("gui.target", "Target"),
-            children: [
-              {
-                key: "lightTargetColor",
-                icon: "color",
-                label: t("gui.color", "Color"),
-                type: "color",
-                value: () => Viewer.colors.DirectionalLight,
-                onChange: (value) => {
-                  Viewer.colors.DirectionalLight = value;
-                  core.lightObjects[0].color = new THREE.Color(value);
-                },
-              },
-              {
-                key: "lightTargetIntensity",
-                icon: "intensity",
-                label: t("gui.intensity", "Intensity"),
-                type: "slider",
-                min: 0,
-                max: 10,
-                step: 0.01,
-                value: () => Viewer.intensity.startIntensityDir,
-                onChange: (value) => {
-                  Viewer.intensity.startIntensityDir = value;
-                  core.lightObjects[0].intensity = value;
-                },
-              },
-              {
-                key: "lightTargetTransform",
-                icon: "move",
-                label: t("gui.transform", "Transform"),
-                children: [
-                  { key: "lightTargetTransformMove", icon: "move", label: t("gui.move", "Move"), onClick: () => this.toggleLightTransformMode("translate") },
-                  { key: "lightTargetTransformTarget", icon: "lightTarget", label: t("gui.target", "Target"), onClick: () => this.toggleLightTransformMode("rotate") },
-                ],
-              },
-            ],
-          },
-          {
-            key: "lightAmbient",
-            icon: "ambientLight",
-            label: t("gui.ambient", "Ambient"),
-            children: [
-              {
-                key: "lightAmbientColor",
-                icon: "color",
-                label: t("gui.color", "Color"),
-                type: "color",
-                value: () => Viewer.colors.AmbientLight,
-                onChange: (value) => {
-                  Viewer.colors.AmbientLight = value;
-                  Viewer.ambientLight.color = new THREE.Color(value);
-                },
-              },
-              {
-                key: "lightAmbientIntensity",
-                icon: "intensity",
-                label: t("gui.intensity", "Intensity"),
-                type: "slider",
-                min: 0,
-                max: 10,
-                step: 0.01,
-                value: () => Viewer.intensity.startIntensityAmbient,
-                onChange: (value) => {
-                  Viewer.intensity.startIntensityAmbient = value;
-                  Viewer.ambientLight.intensity = value;
-                },
-              },
-            ],
-          },
-          {
-            key: "lightCamera",
-            icon: "cameraLight",
-            label: t("gui.camera", "Camera"),
-            children: [
-              {
-                key: "lightCameraColor",
-                icon: "color",
-                label: t("gui.color", "Color"),
-                type: "color",
-                value: () => Viewer.colors.CameraLight,
-                onChange: (value) => {
-                  Viewer.colors.CameraLight = value;
-                  Viewer.cameraLight.color = new THREE.Color(value);
-                },
-              },
-              {
-                key: "lightCameraIntensity",
-                icon: "intensity",
-                label: t("gui.intensity", "Intensity"),
-                type: "slider",
-                min: 0,
-                max: 10,
-                step: 0.01,
-                value: () => Viewer.intensity.startIntensityCamera,
-                onChange: (value) => {
-                  Viewer.intensity.startIntensityCamera = value;
-                  Viewer.cameraLight.intensity = value;
-                },
-              },
-            ],
-          },
-        ], submenu);
-        button.appendChild(submenu);
-      }
-      else if (tool.key === "materials") {
-        button.classList.add("has-submenu");
-        const submenu = document.createElement("div");
-        submenu.className = "viewer-editor-tool_submenu";
-        const submenuItems = [
-          { key: "materialColor", icon: "color", label: t("gui.color", "Color"), onClick: () => this.openMaterialsFolder() },
-          { key: "materialIntensity", icon: "intensity", label: t("gui.intensity", "Intensity"), onClick: () => this.openMaterialsFolder() },
-        ];
-        submenuItems.forEach((item) => {
-          const subButton = document.createElement("button");
-          subButton.type = "button";
-          subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
-          subButton.dataset.tool = item.key;
-          subButton.innerHTML = `
-            <span class="viewer-editor-tool_icon" aria-hidden="true">${this.getEditorToolbarIcon(item.icon)}</span>
-          `;
-          subButton.setAttribute("title", item.label);
-          subButton.setAttribute("aria-label", item.label);
-          this.bindEventListener(subButton, "click", (event) => {
-            event.stopPropagation();
-            item.onClick();
-          });
-          submenu.appendChild(subButton);
-        });
-        button.appendChild(submenu);
-      }
-      this.bindEventListener(button, "click", () => {
-        this.stopHandMode();
-        tool.onClick();
-      });
-      if (tool.primary) toolbar.appendChild(button);
-      else secondaryTray.appendChild(button);
-      this.editorToolbarButtons[tool.key] = button;
-      if (!tool.primary) this.editorSecondaryKeys.push(button);
-    });
-
-    toolbar.appendChild(secondaryTray);
-
-    const expandButton = document.createElement("button");
-    expandButton.type = "button";
-    expandButton.className = "viewer-editor-tool viewer-editor-expand";
-    expandButton.innerHTML = `<span class="viewer-editor-tool_icon" aria-hidden="true">${this.getEditorToolbarIcon("expand")}</span>`;
-    expandButton.dataset.primary = "true";
-    expandButton.setAttribute("aria-expanded", "false");
-    expandButton.setAttribute("title", t("gui.expand", "Expand toolbar"));
-    expandButton.setAttribute("aria-label", t("gui.expand", "Expand toolbar"));
-    this.bindEventListener(expandButton, "click", () => this.toggleToolbarExpanded());
-    toolbar.appendChild(expandButton);
-    this.editorToolbarButtons.expand = expandButton;
-
-    if (this.actionMenu) {
-      this.actionMenu.classList.add("viewer-action-menu_in-toolbar");
-      toolbar.appendChild(this.actionMenu);
-    }
-
-    this.getEditorToolbarHost()?.appendChild(toolbar);
-    core.editorToolbar = toolbar;
-    core.editorToolbar.classList.add('editorToolbar-hidden');
-    core.editorToolbar.classList.add('collapsed');
-    this.updateFullscreenButtonIcon();
-    this.updateEditorToolbarLabels();
-    this.updateEditorToolbarState();
-    this.syncEditorToolbarSecondaryTrayWidth();
-    this.bindEventListener(window, "resize", () => this.syncEditorToolbarSecondaryTrayWidth());
+    return createEditorToolbar(this);
   },
 
   updateEditorToolbarLabels() {
-    if (!this.editorToolbarButtons) return;
-
-    const labels = {
-      orbit: t("toolbar.orbit", "Navigation mode"),
-      move: t("gui.move", "Move"),
-      rotate: t("gui.rotate", "Rotate"),
-      scale: t("gui.scale", "Scale"),
-      lights: t("gui.lights", "Lights"),
-      picking: this.pickingMode
-        ? t("controls.disablePickingMode", "Disable picking mode")
-        : t("controls.enablePickingMode", "Enable picking mode"),
-      annotate: t("gui.addAnnotations", "Add annotations"),
-      ruler: this.RULER_MODE
-        ? t("controls.disableDistanceMeasurement", "Disable distance measurement")
-        : t("controls.enableDistanceMeasurement", "Enable distance measurement"),
-      resetCamera: t("gui.resetCameraPosition", "Reset camera position"),
-      preview: t("gui.renderPreview", "Render preview"),
-      save: t("gui.saveSettings", "Save settings"),
-      advancedEditor: this.isEditorAdvancedPanelVisible()
-        ? t("gui.hideAdvancedEditor", "Hide advanced editor")
-        : t("gui.showAdvancedEditor", "Show advanced editor"),
-      fullScreen: Viewer.FULLSCREEN
-        ? t("fullscreen.exit", "Exit fullscreen")
-        : t("fullscreen.enter", "Enter fullscreen"),
-      clippingPlanes: this.clippingMode
-        ? t("gui.disableClippingPlanesMode", "Disable clipping planes mode")
-        : t("gui.enableClippingPlanesMode", "Enable clipping planes mode"),
-      projection: core.camera && core.camera.isPerspectiveCamera
-        ? t("gui.orthographicProjection", "Switch to orthographic projection")
-        : t("gui.perspectiveProjection", "Switch to perspective projection"),
-      wireframe: this.wireframeMode
-        ? t("gui.disableWireframeMode", "Disable wireframe mode")
-        : t("gui.enableWireframeMode", "Enable wireframe mode"),
-      loadingLogs: this.showLoadingLogs
-        ? t("gui.hideLoadingLogs", "Hide loading logs")
-        : t("gui.showLoadingLogs", "Show loading logs"),
-      hierarchy: t("gui.hierarchy", "Hierarchy"),
-      statistics: t("gui.statistics", "Statistics"),
-      expand: this.isToolbarExpanded
-        ? t("gui.collapse", "Collapse toolbar")
-        : t("gui.expand", "Expand toolbar"),
-    };
-
-    Object.entries(this.editorToolbarButtons).forEach(([key, button]) => {
-      const label = labels[key] || key;
-      button.setAttribute("title", label);
-      button.setAttribute("aria-label", label);
-      const sr = button.querySelector(".viewer-editor-tool_sr");
-      if (sr) sr.textContent = label;
-    });
-
-    // Update submenu button labels for clipping planes
-    if (this.clippingPlaneSubmenuButtons) {
-      const clippingPlaneSubmenuLabels = {
-        displayHelperX: t("gui.displayHelperX", "Show X helper"),
-        displayHelperY: t("gui.displayHelperY", "Show Y helper"),
-        displayHelperZ: t("gui.displayHelperZ", "Show Z helper"),
-        visible: t("gui.visible", "Visible"),
-      };
-      Object.entries(this.clippingPlaneSubmenuButtons).forEach(([key, button]) => {
-        const label = clippingPlaneSubmenuLabels[key] || key;
-        button.setAttribute("title", label);
-        button.setAttribute("aria-label", label);
-      });
-    }
-    // Update submenu button labels for annotations
-    if (this.annotateSubmenuButtons) {
-      const annotateSubmenuLabels = {
-        annotateAdd: t("gui.addAnnotations", "Add Annotation"),
-        annotateImport: t("gui.importAnnotationsXml", "Import Annotations"),
-        annotateExport: t("gui.exportAnnotationsXml", "Export Annotations"),
-      };
-      Object.entries(this.annotateSubmenuButtons).forEach(([key, button]) => {
-        const label = annotateSubmenuLabels[key] || key;
-        button.setAttribute("title", label);
-        button.setAttribute("aria-label", label);
-      });
-    }
-
-    if (this.statisticsSubmenuButtons) {
-      const statisticsSubmenuLabels = {
-        toggleStats: t("gui.statistics", "Statistics"),
-        performance: t("gui.performance", "Performance"),
-        performanceDefault: t("gui.default", "Default"),
-        performanceHigh: t("gui.highPerformance", "High-performance"),
-        performanceLow: t("gui.lowPower", "Low-power"),
-      };
-      Object.entries(this.statisticsSubmenuButtons).forEach(([key, button]) => {
-        const label = statisticsSubmenuLabels[key] || key;
-        button.setAttribute("title", label);
-        button.setAttribute("aria-label", label);
-      });
-    }
-
-    if (this.hierarchyClearButton) {
-      const label = t("gui.clearSelectedHierarchy", "Clear selected objects");
-      this.hierarchyClearButton.setAttribute("title", label);
-      this.hierarchyClearButton.setAttribute("aria-label", label);
-      this.hierarchyClearButton.textContent = label;
-    }
-
-    if (this.saveSubmenuCheckboxes) {
-      const saveSubmenuLabels = {
-        Position: t("gui.position", "Position"),
-        Rotation: t("gui.rotation", "Rotation"),
-        Scale: t("gui.scale", "Scale"),
-        Camera: t("gui.camera", "Camera"),
-        DirectionalLight: t("gui.directionalLight", "Directional Light"),
-        AmbientLight: t("gui.ambientLight", "Ambient Light"),
-        CameraLight: t("gui.cameraLight", "Camera Light"),
-        BackgroundColor: t("gui.backgroundColor", "Background Color"),
-      };
-      Object.entries(this.saveSubmenuCheckboxes).forEach(([key, elements]) => {
-        const label = saveSubmenuLabels[key] || key;
-        elements.row.setAttribute("title", label);
-        elements.row.setAttribute("aria-label", label);
-        elements.text.textContent = label;
-        elements.checkbox.checked = Boolean(this.saveProperties[key]);
-      });
-    }
-
-    if (this.saveSubmenuActionButton) {
-      this.saveSubmenuActionButton.textContent = t("gui.saveSettings", "Save settings");
-    }
-
-    core.editorToolbar?.setAttribute("aria-label", t("toolbar.editor", "Editor tools"));
-    this.editorToolbarButtons.expand?.setAttribute("aria-expanded", this.isToolbarExpanded ? "true" : "false");
+    return syncEditorToolbarLabels(this);
   },
 
   isEditorAdvancedPanelVisible() {
@@ -1372,21 +641,7 @@ export const Viewer = {
   },
 
   updateHierarchySubmenuState() {
-    if (!this.hierarchySubmenuButtons) return;
-
-    const selectedIds = new Set(
-      (core.selectedObjects || [])
-        .filter((item) => item?.selected === true)
-        .map((item) => String(item.id))
-    );
-
-    Object.entries(this.hierarchySubmenuButtons).forEach(([key, button]) => {
-      const isActive = selectedIds.has(String(key));
-      button.classList.toggle("is-active", isActive);
-      button.setAttribute("aria-pressed", isActive ? "true" : "false");
-    });
-
-    this.hierarchyClearButton?.toggleAttribute("disabled", selectedIds.size === 0);
+    return updateHierarchySubmenuState(this);
   },
 
   clearHierarchySelection() {
@@ -1425,22 +680,7 @@ export const Viewer = {
   },
 
   updateStatisticsSubmenuState() {
-    if (!this.statisticsSubmenuButtons) return;
-    const isVisible = typeof core.stats !== "undefined" && core.stats?.dom?.style?.visibility !== "hidden";
-    this.statisticsSubmenuButtons.toggleStats?.classList.toggle("is-active", isVisible);
-    this.statisticsSubmenuButtons.toggleStats?.setAttribute("aria-pressed", isVisible ? "true" : "false");
-
-    const currentMode = core.renderer?.powerPreference || core.CONFIG.viewer?.performanceMode || "default";
-    const performanceMap = {
-      performanceHigh: "high-performance",
-      performanceLow: "low-power",
-      performanceDefault: "default",
-    };
-    Object.entries(performanceMap).forEach(([key, value]) => {
-      const isActive = currentMode === value;
-      this.statisticsSubmenuButtons[key]?.classList.toggle("is-active", isActive);
-      this.statisticsSubmenuButtons[key]?.setAttribute("aria-pressed", isActive ? "true" : "false");
-    });
+    return updateStatisticsSubmenuState(this);
   },
 
   toggleMainMenu() {
@@ -1590,6 +830,55 @@ export const Viewer = {
     });
 
     this.materialsDialogSelect.value = currentValue;
+  },
+
+  updateMaterialsDialogLabels() {
+    if (!this.materialsDialog) return;
+
+    const title = this.materialsDialog.querySelector("#materialsDialogTitle");
+    const closeButton = this.materialsDialog.querySelector(".materials-dialog__close");
+    const fieldLabels = Array.from(
+      this.materialsDialog.querySelectorAll(".materials-dialog__field > span")
+    );
+    const hint = this.materialsDialogInputs?.hint;
+    const emptyState = this.materialsDialogInputs?.emptyState;
+
+    if (title) {
+      title.textContent = t("gui.materials", "Materials");
+    }
+    if (closeButton) {
+      closeButton.setAttribute("aria-label", t("gui.materials", "Materials"));
+    }
+
+    if (fieldLabels.length > 0) {
+      fieldLabels[0].textContent = t("gui.editMaterial", "Edit material");
+    }
+    if (fieldLabels.length > 1) {
+      fieldLabels[1].textContent = t("gui.color", "Color");
+    }
+    if (fieldLabels.length > 2) {
+      fieldLabels[2].textContent = t("gui.emissive", "Emissive");
+    }
+    if (fieldLabels.length > 3) {
+      fieldLabels[3].textContent = t("gui.intensity", "Intensity");
+    }
+    if (fieldLabels.length > 4) {
+      fieldLabels[4].textContent = t("gui.metalness", "Metalness");
+    }
+
+    if (this.materialsDialogSelect) {
+      const placeholderOption = this.materialsDialogSelect.querySelector('option[value=""]');
+      if (placeholderOption) {
+        placeholderOption.textContent = t("gui.selectByMaterial", "select by material");
+      }
+    }
+
+    if (hint) {
+      hint.textContent = t("gui.selectByMaterial", "select by material");
+    }
+    if (emptyState) {
+      emptyState.textContent = t("gui.selectByMaterial", "select by material");
+    }
   },
 
   syncMaterialsDialogFields() {
@@ -1795,7 +1084,7 @@ export const Viewer = {
               <input id="materialsDialogColor" type="color" />
             </label>
             <label class="materials-dialog__field">
-              <span>Emissive</span>
+              <span>${t("gui.emissive", "Emissive")}</span>
               <input id="materialsDialogEmissiveColor" type="color" />
             </label>
             <label class="materials-dialog__field">
@@ -2135,25 +1424,7 @@ export const Viewer = {
   },
 
   updateClippingPlanesSubmenuState() {
-    if (!this.clippingPlaneSubmenuButtons) return;
-    const clippingMode = core.planeParams?.clippingMode || {};
-
-    this.clippingPlaneSubmenuButtons.displayHelperX?.classList.toggle(
-      "is-active",
-      Boolean(clippingMode.x)
-    );
-    this.clippingPlaneSubmenuButtons.displayHelperY?.classList.toggle(
-      "is-active",
-      Boolean(clippingMode.y)
-    );
-    this.clippingPlaneSubmenuButtons.displayHelperZ?.classList.toggle(
-      "is-active",
-      Boolean(clippingMode.z)
-    );
-    this.clippingPlaneSubmenuButtons.visible?.classList.toggle(
-      "is-active",
-      Boolean(core.planeParams?.outline?.visible)
-    );
+    return updateClippingPlanesSubmenuState(this);
   },
 
   updateAnnotateSubmenuState() {
@@ -2162,16 +1433,7 @@ export const Viewer = {
   },
 
   updateLightsSubmenuState() {
-    if (!this.lightTargetTransformButtons) return;
-    const activeMode = this.transformText["Transform Light"];
-    this.lightTargetTransformButtons.lightTargetTransformMove?.classList.toggle(
-      "is-active",
-      activeMode === "translate"
-    );
-    this.lightTargetTransformButtons.lightTargetTransformTarget?.classList.toggle(
-      "is-active",
-      activeMode === "rotate"
-    );
+    return updateLightsSubmenuState(this);
   },
 
   async saveEditorMetadata() {
@@ -2235,36 +1497,7 @@ export const Viewer = {
   },
 
   updateEditorToolbarState() {
-    if (!this.editorToolbarButtons) return;
-
-    const activeMap = {
-      orbit: this.transformText["Transform 3D Object"] === "",
-      move: this.transformText["Transform 3D Object"] === "translate",
-      rotate: this.transformText["Transform 3D Object"] === "rotate",
-      scale: this.transformText["Transform 3D Object"] === "scale",
-      picking: this.pickingMode === true,
-      ruler: this.RULER_MODE === true,
-      clippingPlanes: this.clippingMode === true,
-      advancedEditor: this.isEditorAdvancedPanelVisible(),
-      fullScreen: Viewer.FULLSCREEN === true,
-      loadingLogs: this.showLoadingLogs === true,
-      wireframe: this.wireframeMode === true,
-    };
-
-    Object.entries(this.editorToolbarButtons).forEach(([key, button]) => {
-      const isActive = activeMap[key] === true;
-      button.classList.toggle("is-active", isActive);
-      if (button.dataset.pressed === "true") {
-        button.setAttribute("aria-pressed", isActive ? "true" : "false");
-      } else {
-        button.removeAttribute("aria-pressed");
-      }
-    });
-
-    this.updateHierarchySubmenuState();
-    this.updateClippingPlanesSubmenuState();
-    this.updateLightsSubmenuState();
-    this.updateStatisticsSubmenuState();
+    return syncEditorToolbarState(this);
   },
 
   isEmbedModeActive() {
@@ -2527,6 +1760,7 @@ export const Viewer = {
     this.updateLocalPreviewLabels();
     this.updateIIIFFormLabels();
     this.updateMetadataPanelLabels();
+    this.updateMaterialsDialogLabels();
     this.refreshStatusNoticeLanguage();
     UltraLoader.updateHeader?.();
     if (this.pickingHint) this.pickingHint.textContent = t("hints.picking", "Shift + click to select multiple faces");
@@ -2738,6 +1972,15 @@ export const Viewer = {
       this.pickingMode
         ? t("controls.disablePickingMode", "Disable picking mode")
         : t("controls.enablePickingMode", "Enable picking mode")
+    );
+  },
+
+  updateMaterialControllerLabel() {
+    if (!this.materialController?.name) return;
+    this.materialController.name(
+      this.materialMode
+        ? t("controls.disableMaterialMode", "Disable material mode")
+        : t("controls.enableMaterialMode", "Enable material mode")
     );
   },
 
