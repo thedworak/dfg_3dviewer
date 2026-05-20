@@ -12,10 +12,9 @@
   --viewer-toolbar-visible-offset: 14px;
   --viewer-toolbar-max-width: 920px;
   --viewer-toolbar-scale: clamp(0.74, calc((100vw - 112px) / var(--viewer-toolbar-max-width)), 1);
-  position: absolute;
+  position: relative;
   left: 50%;
-  bottom: calc(var(--viewer-toolbar-visible-offset) - var(--viewer-toolbar-height));
-  translate: -50% 0;
+  bottom: 14px;
   z-index: 9999;
   display: flex;
   align-items: center;
@@ -29,8 +28,8 @@
   box-shadow: var(--viewer-panel-shadow);
   backdrop-filter: blur(14px);
   scrollbar-width: none;
+  transform: translateX(-50%) translateY(-115%) scale(var(--viewer-toolbar-scale));
   transform-origin: center bottom;
-  scale: var(--viewer-toolbar-scale);
   transition:
     opacity 1.25s ease,
     transform 1.25s ease,

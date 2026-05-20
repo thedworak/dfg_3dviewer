@@ -11900,11 +11900,14 @@ function syncEditorToolbarSecondaryTrayWidth(viewer) {
 }
 
 function getEditorToolbarHost(viewer) {
-  return viewer.viewerWrapper || core.container || null;
+  return core.container || viewer.viewerWrapper || null;
 }
 
 function attachEditorToolbar(viewer) {
-  if (!core.editorToolbar) return;
+  if (!core.editorToolbar || !core.container) return;
+  if (getComputedStyle(core.container).position === 'static') {
+    core.container.style.position = 'relative';
+  }
   const host = getEditorToolbarHost(viewer);
   if (!host || core.editorToolbar.parentElement === host) return;
   host.appendChild(core.editorToolbar);
@@ -15181,6 +15184,7 @@ const Viewer$1 = {
 
     this.scrollTop = window.scrollY || document.documentElement.scrollTop;
     this.rect = core.container.getBoundingClientRect();
+    this.baseContainerRect = { width: this.rect.width, height: this.rect.height };
     const e2eModel = this.getE2EModelOverride();
     if (e2eModel) {
       core.container.setAttribute("3d", e2eModel);
@@ -16160,39 +16164,43 @@ const Viewer$1 = {
     }
 
     let widthCSS, heightCSS;  // CSS pixels (layout)
-    let widthDev, heightDev;  // Device pixels (Three.js)
     let scale = {x: 1, y: 1};
     let rect = {width: 1, height: 1};
 
     if (isFullscreen) {
         widthCSS = window.innerWidth;
         heightCSS = window.innerHeight;
-        widthDev = widthCSS * devicePixelRatio;
-        heightDev = heightCSS * devicePixelRatio;
 
         Viewer$1.mainCanvas.style.width = '100vw';
         Viewer$1.mainCanvas.style.height = '100vh';
+
+        core.editorToolbar.style.bottom = -heightCSS*0.95 + 'px';
     } else {
-      scale = {x: Number(core.CONFIG.viewer.scaleContainer?.x || 1), y: Number(core.CONFIG.viewer.scaleContainer?.y || 1)};
-      const wrapper = Viewer$1.viewerWrapper || core.container;
-      if (!wrapper) {
-        return;
-      }
-      rect = wrapper.getBoundingClientRect();
-      widthCSS = (rect.width * scale.x) || 800;
-      heightCSS = (rect.height * scale.y) || 600;
+        scale = {x: Number(core.CONFIG.viewer.scaleContainer?.x || 1), y: Number(core.CONFIG.viewer.scaleContainer?.y || 1)};
+        const wrapper = Viewer$1.viewerWrapper || core.container;
+        if (!wrapper) {
+          return;
+        }
+        rect = wrapper.getBoundingClientRect();
+        widthCSS = rect.width || 800;
+        heightCSS = rect.height || 600;
 
-      widthDev = widthCSS * devicePixelRatio;
-      heightDev = heightCSS * devicePixelRatio;
-      Viewer$1.mainCanvas.style.width = widthCSS + 'px';
-      Viewer$1.mainCanvas.style.height = heightCSS + 'px';
+        // Przeskalowane wymiary CSS
+        const widthCSSScaled = widthCSS * scale.x;
+        const heightCSSScaled = heightCSS * scale.y;
 
-      core.metadataContainer.style.width = '100%';
-      core.metadataContainer.style.height = '100%';
+        // Canvas musi mieć przeskalowany rozmiar CSS, żeby renderer się zgadzał
+        Viewer$1.mainCanvas.style.width = widthCSSScaled + 'px';
+        Viewer$1.mainCanvas.style.height = heightCSSScaled + 'px';
 
-      if (Viewer$1.fileElement && Viewer$1.fileElement.length > 0) {
-        Viewer$1.fileElement[0].style.height = (heightCSS * 1.1) + 'px';
-      }
+        core.metadataContainer.style.width = '100%';
+        core.metadataContainer.style.height = '100%';
+
+        core.editorToolbar.style.bottom = -heightCSSScaled + 'px';
+
+        if (Viewer$1.fileElement && Viewer$1.fileElement.length > 0) {
+          Viewer$1.fileElement[0].style.height = (heightCSSScaled * 1.1) + 'px';
+        }
     }
 
     if (!core.guiContainer.hidden) {
@@ -16204,8 +16212,11 @@ const Viewer$1 = {
       }
     }
 
-    Viewer$1.mainCanvas.width = widthDev;
-    Viewer$1.mainCanvas.height = heightDev;
+    const effectiveWidth = widthCSS * scale.x;
+    const effectiveHeight = heightCSS * scale.y;
+
+    Viewer$1.mainCanvas.width = effectiveWidth * devicePixelRatio;
+    Viewer$1.mainCanvas.height = effectiveHeight * devicePixelRatio;
 
     if (Viewer$1.actionMenu) {
       if (Viewer$1.actionMenu.classList.contains("viewer-action-menu_in-toolbar")) {
@@ -16215,24 +16226,23 @@ const Viewer$1 = {
       } else {
         const menuMargin = 16;
         const toggleSize = Viewer$1.actionMenu.querySelector(".viewer-action-menu_toggle")?.getBoundingClientRect().height || 45;
-        Viewer$1.actionMenu.style.top = (heightCSS - toggleSize - menuMargin) + "px";
+        Viewer$1.actionMenu.style.top = (effectiveHeight - toggleSize - menuMargin) + "px";
         Viewer$1.actionMenu.style.right = menuMargin + "px";
         Viewer$1.actionMenu.style.bottom = "auto";
       }
     }
 
     if (core.handHint)
-    core.handHint.style.top = (heightCSS - 150) + 'px';
+    core.handHint.style.top = (effectiveHeight - 150) + 'px';
    
-    core.renderer.setPixelRatio(devicePixelRatio * scale.x);
-    core.renderer.setSize(widthCSS*scale.x, heightCSS*scale.y, false);
-    core.camera.aspect = widthCSS / heightCSS;
+    core.renderer.setPixelRatio(devicePixelRatio);
+    core.renderer.setSize(effectiveWidth, effectiveHeight, false);
+    core.camera.aspect = effectiveWidth / effectiveHeight;
     core.camera.updateProjectionMatrix();
     core.controls?.update();
-    core.CONFIG.viewer.canvasDimensions = { x: widthCSS, y: heightCSS };
+    core.CONFIG.viewer.canvasDimensions = { x: effectiveWidth, y: effectiveHeight };
   },
 
-    // Three.js renderer needs actual pixel size
 
   async toggleFullscreen() {
     Viewer$1.closeActionMenu();
@@ -17933,6 +17943,16 @@ const Viewer$1 = {
         Viewer$1.handHint.innerHTML = `<img src="${core.DFG_ASSETS}/img/hand-hint.png" alt="Hand hint" width=48 height=48 title="Hand hint animation"/>`;
         
         Viewer$1.rect = core.container.getBoundingClientRect();
+        if (Viewer$1.viewerWrapper === core.container && core.CONFIG.viewer?.scaleContainer) {
+          const scale = {
+            x: Number(core.CONFIG.viewer.scaleContainer.x || 1),
+            y: Number(core.CONFIG.viewer.scaleContainer.y || 1),
+          };
+          Viewer$1.baseContainerRect = {
+            width: Viewer$1.rect.width / scale.x,
+            height: Viewer$1.rect.height / scale.y,
+          };
+        }
         core.guiContainer.style.maxHeight = `${Viewer$1.rect.height - 20}px`;
         //core.lilGui = document.getElementsByClassName("lil-gui root");
 

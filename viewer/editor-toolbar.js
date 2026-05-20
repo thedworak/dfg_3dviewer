@@ -57,11 +57,14 @@ export function syncEditorToolbarSecondaryTrayWidth(viewer) {
 }
 
 export function getEditorToolbarHost(viewer) {
-  return viewer.viewerWrapper || core.container || null;
+  return core.container || viewer.viewerWrapper || null;
 }
 
 export function attachEditorToolbar(viewer) {
-  if (!core.editorToolbar) return;
+  if (!core.editorToolbar || !core.container) return;
+  if (getComputedStyle(core.container).position === 'static') {
+    core.container.style.position = 'relative';
+  }
   const host = getEditorToolbarHost(viewer);
   if (!host || core.editorToolbar.parentElement === host) return;
   host.appendChild(core.editorToolbar);

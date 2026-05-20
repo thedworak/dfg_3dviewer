@@ -448,7 +448,16 @@ class ConvertWorker extends QueueWorkerBase {
     if ($upload_base === '') {
       $upload_base = $file_base;
     }
-    $file_base_archive = preg_replace('/_[0-9]+$/', '', $file_base, 1);
+    //$file_base_archive = preg_replace('/_[0-9]+$/', '', $file_base, 1); //temporary disabled
+    $file_base_archive = $file_base;
+
+    \Drupal::logger('dfg_3dviewer')->notice(
+      'Archive path debug: file_base="@base", archive_dir="@dir"',
+      [
+        '@base' => $file_base,
+        '@dir' => $dir_uri . '/' . $file_base . '_' . strtoupper($extension) . '/gltf',
+      ]
+    );
 
     $views_dirs = [];
     if ($is_archive) {
