@@ -84623,82 +84623,6 @@ function createPath( char, scale, offsetX, offsetY, data ) {
 
 }
 
-/**
- * A class for generating text as a single geometry. It is constructed by providing a string of text, and a set of
- * parameters consisting of a loaded font and extrude settings.
- *
- * See the {@link FontLoader} page for additional details.
- *
- * `TextGeometry` uses [typeface.json](http://gero3.github.io/facetype.js/) generated fonts.
- * Some existing fonts can be found located in `/examples/fonts`.
- *
- * ```js
- * const loader = new FontLoader();
- * const font = await loader.loadAsync( 'fonts/helvetiker_regular.typeface.json' );
- * const geometry = new TextGeometry( 'Hello three.js!', {
- * 	font: font,
- * 	size: 80,
- * 	depth: 5,
- * 	curveSegments: 12
- * } );
- * ```
- *
- * @augments ExtrudeGeometry
- * @three_import import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
- */
-class TextGeometry extends ExtrudeGeometry {
-
-	/**
-	 * Constructs a new text geometry.
-	 *
-	 * @param {string} text - The text that should be transformed into a geometry.
-	 * @param {TextGeometry~Options} [parameters] - The text settings.
-	 */
-	constructor( text, parameters = {} ) {
-
-		const font = parameters.font;
-
-		if ( font === undefined ) {
-
-			super(); // generate default extrude geometry
-
-		} else {
-
-			const shapes = font.generateShapes( text, parameters.size, parameters.direction );
-
-			// defaults
-
-			if ( parameters.depth === undefined ) parameters.depth = 50;
-			if ( parameters.bevelThickness === undefined ) parameters.bevelThickness = 10;
-			if ( parameters.bevelSize === undefined ) parameters.bevelSize = 8;
-			if ( parameters.bevelEnabled === undefined ) parameters.bevelEnabled = false;
-
-			super( shapes, parameters );
-
-		}
-
-		this.type = 'TextGeometry';
-
-	}
-
-	toJSON() {
-
-		const data = super.toJSON();
-		return data;
-
-	}
-
-	static fromJSON( data ) {
-
-		const options = data.options;
-
-		options.font = new Font( options.font.data );
-		return new TextGeometry( options.text, options );
-
-	}
-
-}
-
 const _lut$1 = [ '00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '0a', '0b', '0c', '0d', '0e', '0f', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '1a', '1b', '1c', '1d', '1e', '1f', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '2a', '2b', '2c', '2d', '2e', '2f', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '3a', '3b', '3c', '3d', '3e', '3f', '40', '41', '42', '43', '44', '45', '46', '47', '48', '49', '4a', '4b', '4c', '4d', '4e', '4f', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '5a', '5b', '5c', '5d', '5e', '5f', '60', '61', '62', '63', '64', '65', '66', '67', '68', '69', '6a', '6b', '6c', '6d', '6e', '6f', '70', '71', '72', '73', '74', '75', '76', '77', '78', '79', '7a', '7b', '7c', '7d', '7e', '7f', '80', '81', '82', '83', '84', '85', '86', '87', '88', '89', '8a', '8b', '8c', '8d', '8e', '8f', '90', '91', '92', '93', '94', '95', '96', '97', '98', '99', '9a', '9b', '9c', '9d', '9e', '9f', 'a0', 'a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7', 'a8', 'a9', 'aa', 'ab', 'ac', 'ad', 'ae', 'af', 'b0', 'b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8', 'b9', 'ba', 'bb', 'bc', 'bd', 'be', 'bf', 'c0', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'ca', 'cb', 'cc', 'cd', 'ce', 'cf', 'd0', 'd1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8', 'd9', 'da', 'db', 'dc', 'dd', 'de', 'df', 'e0', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'ea', 'eb', 'ec', 'ed', 'ee', 'ef', 'f0', 'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'fa', 'fb', 'fc', 'fd', 'fe', 'ff' ];
 
 let _seed$1 = 1234567;
@@ -132811,5 +132735,5 @@ var RoomEnvironment$1 = /*#__PURE__*/Object.freeze({
 	RoomEnvironment: RoomEnvironment
 });
 
-export { BufferGeometry as B, Color$1 as C, DoubleSide as D, Euler as E, FontLoader as F, GLTFLoader$1 as G, Loader as L, Matrix4$1 as M, OrbitControls as O, PLYLoader$1 as P, Quaternion$1 as Q, RoomEnvironment$1 as R, STLLoader$1 as S, THREE as T, Vector3$1 as V, XYZLoader$1 as X, MathUtils$1 as a, TransformControls as b, TextGeometry as c, FileLoader as d, exports$1 as e, Mesh as f, MeshLambertMaterial as g, Matrix4$2 as h, BufferAttribute$1 as i, DDSLoader$1 as j, MTLLoader$1 as k, OBJLoader$1 as l, mergeGeometries as m, FBXLoader$1 as n, ColladaLoader$1 as o, TDSLoader$1 as p, PCDLoader$1 as q, DRACOLoader$1 as r };
+export { BufferGeometry as B, Color$1 as C, DoubleSide as D, Euler as E, FontLoader as F, GLTFLoader$1 as G, Loader as L, Matrix4$1 as M, OrbitControls as O, PLYLoader$1 as P, Quaternion$1 as Q, RoomEnvironment$1 as R, STLLoader$1 as S, THREE as T, Vector3$1 as V, XYZLoader$1 as X, MathUtils$1 as a, TransformControls as b, FileLoader as c, Mesh as d, exports$1 as e, MeshLambertMaterial as f, Matrix4$2 as g, BufferAttribute$1 as h, DDSLoader$1 as i, MTLLoader$1 as j, OBJLoader$1 as k, FBXLoader$1 as l, mergeGeometries as m, ColladaLoader$1 as n, TDSLoader$1 as o, PCDLoader$1 as p, DRACOLoader$1 as q };
 //# sourceMappingURL=three.js.map

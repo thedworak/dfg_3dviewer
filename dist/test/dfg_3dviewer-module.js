@@ -1,4 +1,4 @@
-import { T as THREE, e as exports$1, V as Vector3, M as Matrix4, Q as Quaternion, E as Euler, a as MathUtils$1, O as OrbitControls, b as TransformControls, F as FontLoader, c as TextGeometry } from './assets/three.js';
+import { T as THREE, e as exports$1, V as Vector3, M as Matrix4, Q as Quaternion, E as Euler, a as MathUtils$1, O as OrbitControls, b as TransformControls, F as FontLoader } from './assets/three.js';
 
 window.THREE = THREE;
 
@@ -2149,6 +2149,2139 @@ function getOrAddGuiController(object, prop) {
   return core.clippingFolder?.add(object, prop);
 }
 
+function attachEmbedConfigurator(Viewer) {
+  Object.assign(Viewer, {
+    isEmbedModeActive() {
+      return this.embedConfiguratorPanel?.hidden === false;
+    },
+
+    isEmbedMode() {
+      const params = new URLSearchParams(window.location.search);
+      const embedParam = params.get("embed");
+      return window.location.pathname.endsWith("/embed.html") || embedParam === "1" || embedParam === "true";
+    },
+
+    getEmbedPageUrl() {
+      const embedUrl = new URL("embed.html", import.meta.url);
+      embedUrl.search = "";
+      embedUrl.hash = "";
+      return embedUrl;
+    },
+
+    async copyTextToClipboard(value) {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+        return;
+      }
+
+      const tempInput = document.createElement("textarea");
+      tempInput.value = value;
+      tempInput.setAttribute("readonly", "true");
+      tempInput.style.position = "absolute";
+      tempInput.style.left = "-9999px";
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      document.execCommand("copy");
+      tempInput.remove();
+    },
+
+    getCurrentEmbedOptions({ includeCamera = false } = {}) {
+      const entityId = core.CONFIG?.entity?.id;
+      const modelPath = core.fileObject?.originalPath || core.container?.getAttribute("3d") || "";
+      const options = {
+        model: modelPath || null,
+        id: entityId || null,
+        theme: this.currentTheme === "light" ? "light" : null,
+        autorotate: core.controls?.autoRotate === true,
+        autorotateSpeed: Number.isFinite(core.controls?.autoRotateSpeed) ? core.controls.autoRotateSpeed : null,
+        disableInteraction: this.urlOptions?.disableInteraction === true,
+        hideUi: this.urlOptions?.hideUi === true,
+        hideMetadata: this.urlOptions?.hideMetadata === true,
+        presentationMode: core.PRESENTATION_MODE === true,
+        sandboxMode: core.SANDBOX_MODE === true,
+        cameraPosition: null,
+        cameraTarget: null,
+        fov: null,
+      };
+
+      if (includeCamera) {
+        options.cameraPosition = this.formatVector3Param(core.camera?.position);
+        options.cameraTarget = this.formatVector3Param(core.controls?.target);
+        options.fov = Number.isFinite(core.camera?.fov) ? core.camera.fov : null;
+      }
+
+      return options;
+    },
+
+    applyEmbedOptionsToInputs(options = {}) {
+      if (!this.embedConfigInputs) return;
+      this.embedConfigInputs.model.value = options.model ?? "";
+      this.embedConfigInputs.id.value = options.id ?? "";
+      this.embedConfigInputs.theme.value = options.theme === "light" ? "light" : "dark";
+      this.embedConfigInputs.autorotate.checked = options.autorotate === true;
+      this.embedConfigInputs.autorotateSpeed.value = Number.isFinite(options.autorotateSpeed) ? String(options.autorotateSpeed) : "";
+      this.embedConfigInputs.disableInteraction.checked = options.disableInteraction === true;
+      this.embedConfigInputs.hideUi.checked = options.hideUi === true;
+      this.embedConfigInputs.hideMetadata.checked = options.hideMetadata === true;
+      this.embedConfigInputs.presentationMode.checked = options.presentationMode === true;
+      this.embedConfigInputs.camPos.value = options.cameraPosition ?? "";
+      this.embedConfigInputs.camTarget.value = options.cameraTarget ?? "";
+      this.embedConfigInputs.fov.value = Number.isFinite(options.fov) ? String(options.fov) : "";
+    },
+
+    setEmbedInputError(input, hasError, message = "") {
+      if (!input) return;
+      input.classList.toggle("embed-input-invalid", hasError);
+      if (hasError && message) {
+        input.setAttribute("title", message);
+        input.setAttribute("aria-invalid", "true");
+      } else {
+        input.removeAttribute("title");
+        input.removeAttribute("aria-invalid");
+      }
+    },
+
+    validateEmbedInputFields() {
+      if (!this.embedConfigInputs) return true;
+      const { camPos, camTarget, fov } = this.embedConfigInputs;
+      const camPosRaw = camPos.value.trim();
+      const camTargetRaw = camTarget.value.trim();
+      const fovRaw = fov.value.trim();
+
+      const camPosOk = camPosRaw === "" || this.parseVector3Param(camPosRaw) !== null;
+      const camTargetOk = camTargetRaw === "" || this.parseVector3Param(camTargetRaw) !== null;
+      const parsedFov = this.parseFloatParam(fovRaw);
+      const fovOk = fovRaw === "" || (Number.isFinite(parsedFov) && parsedFov >= 1 && parsedFov <= 179);
+
+      this.setEmbedInputError(camPos, !camPosOk, "Use format: x,y,z (for example 1.2,0.8,2.5)");
+      this.setEmbedInputError(camTarget, !camTargetOk, "Use format: x,y,z (for example 0,0,0)");
+      this.setEmbedInputError(fov, !fovOk, "FOV must be a number from 1 to 179");
+
+      return camPosOk && camTargetOk && fovOk;
+    },
+
+    buildEmbedPayload(options = {}) {
+      const embedUrl = this.getEmbedPageUrl();
+      const params = new URLSearchParams();
+
+      if (options.model) {
+        params.set("model", options.model);
+      } else if (options.id) {
+        params.set("id", options.id);
+      }
+
+      if (options.theme === "light") {
+        params.set("theme", options.theme);
+      }
+
+      if (options.autorotate === true) {
+        params.set("autorotate", "1");
+        if (Number.isFinite(options.autorotateSpeed)) {
+          params.set("autorotateSpeed", String(options.autorotateSpeed));
+        }
+      }
+
+      if (options.disableInteraction) {
+        params.set("disableInteraction", "1");
+      }
+      if (options.hideUi) {
+        params.set("hideUi", "1");
+      }
+      if (options.hideMetadata) {
+        params.set("hideMetadata", "1");
+      }
+      if (options.presentationMode) {
+        params.set("presentationMode", "1");
+      }
+      if (options.sandboxMode) {
+        params.set("sandbox", "1");
+      }
+      if (options.cameraPosition) {
+        params.set("camPos", options.cameraPosition);
+      }
+      if (options.cameraTarget) {
+        params.set("camTarget", options.cameraTarget);
+      }
+      if (Number.isFinite(options.fov)) {
+        params.set("fov", String(options.fov));
+      }
+
+      embedUrl.search = params.toString();
+
+      return {
+        url: embedUrl.toString(),
+        code: `<iframe src="${embedUrl.toString()}" title="DFG 3D Viewer" loading="lazy" allow="fullscreen; xr-spatial-tracking" referrerpolicy="strict-origin-when-cross-origin" style="width:100%; aspect-ratio: 16 / 9; border: 0;"></iframe>`,
+      };
+    },
+
+    getSharePayload() {
+      return this.buildEmbedPayload(this.getCurrentEmbedOptions({ includeCamera: true }));
+    },
+
+    collectEmbedConfiguratorOptions() {
+      const inputs = this.embedConfigInputs;
+      if (!inputs) return this.getCurrentEmbedOptions({ includeCamera: true });
+      const parsedCamPos = this.parseVector3Param(inputs.camPos.value);
+      const parsedCamTarget = this.parseVector3Param(inputs.camTarget.value);
+      const parsedFov = this.parseFloatParam(inputs.fov.value);
+      const normalizedFov = Number.isFinite(parsedFov) ? Math.min(179, Math.max(1, parsedFov)) : null;
+      return {
+        model: inputs.model.value.trim() || null,
+        id: inputs.id.value.trim() || null,
+        theme: inputs.theme.value === "light" ? "light" : null,
+        autorotate: inputs.autorotate.checked,
+        autorotateSpeed: this.parseFloatParam(inputs.autorotateSpeed.value),
+        disableInteraction: inputs.disableInteraction.checked,
+        hideUi: inputs.hideUi.checked,
+        hideMetadata: inputs.hideMetadata.checked,
+        presentationMode: inputs.presentationMode.checked,
+        cameraPosition: this.formatVector3Param(parsedCamPos),
+        cameraTarget: this.formatVector3Param(parsedCamTarget),
+        fov: normalizedFov,
+      };
+    },
+
+    hasEmbedSourceSelection(options = {}) {
+      return Boolean(options.model || options.id);
+    },
+
+    notifyMissingEmbedSource({ force = false } = {}) {
+      if (!force && this.embedMissingSourceNotified) return;
+      toastHelper$1("embedSourceMissing", "warning");
+      this.embedMissingSourceNotified = true;
+    },
+
+    updateEmbedConfiguratorPreview() {
+      if (!this.embedConfigInputs) return;
+      this.validateEmbedInputFields();
+      const options = this.collectEmbedConfiguratorOptions();
+      if (!this.hasEmbedSourceSelection(options)) {
+        this.notifyMissingEmbedSource();
+      } else {
+        this.embedMissingSourceNotified = false;
+      }
+      const payload = this.buildEmbedPayload(options);
+      this.embedConfigInputs.url.value = payload.url;
+      this.embedConfigInputs.iframe.value = payload.code;
+      if (this.embedConfigPreviewFrame) {
+        this.embedConfigPreviewFrame.src = payload.url;
+      }
+    },
+
+    fillConfiguratorWithCurrentCamera() {
+      if (!this.embedConfigInputs) return;
+      this.embedConfigInputs.camPos.value = this.formatVector3Param(core.camera?.position) || "";
+      this.embedConfigInputs.camTarget.value = this.formatVector3Param(core.controls?.target) || "";
+      this.embedConfigInputs.fov.value = Number.isFinite(core.camera?.fov) ? String(core.camera.fov) : "";
+      this.updateEmbedConfiguratorPreview();
+    },
+
+    resetEmbedConfiguratorFromViewerState() {
+      if (!this.embedConfigInputs) return;
+      this.applyEmbedOptionsToInputs(this.getCurrentEmbedOptions({ includeCamera: true }));
+      this.updateEmbedConfiguratorPreview();
+    },
+
+    toggleEmbedConfigurator(event) {
+      event?.preventDefault?.();
+      this.closeActionMenu();
+      if (!this.embedConfiguratorPanel) return;
+      const willShow = this.embedConfiguratorPanel.hidden === true;
+      this.embedConfiguratorPanel.hidden = !willShow;
+      if (willShow) {
+        this.updateEmbedConfiguratorPreview();
+      }
+      this.updateEmbedMenuEntryState();
+    },
+
+    openEmbedConfiguratorFromMenu(event) {
+      this.toggleEmbedConfigurator(event);
+    },
+
+    createEmbedConfiguratorPanel() {
+      if (!core.container || this.embedConfiguratorPanel) return;
+
+      const defaults = this.getCurrentEmbedOptions({ includeCamera: true });
+      const panelText = {
+        title: t$1("embedPanel.title", "Embed options"),
+        closeAria: t$1("embedPanel.closeAria", "Close embed options"),
+        modelUrl: t$1("embedPanel.modelUrl", "Model URL"),
+        modelUrlPlaceholder: t$1("embedPanel.modelUrlPlaceholder", "/examples/box.glb"),
+        entityId: t$1("embedPanel.entityId", "Entity ID"),
+        theme: t$1("embedPanel.theme", "Theme"),
+        themeDark: t$1("embedPanel.themeDark", "Dark"),
+        themeLight: t$1("embedPanel.themeLight", "Light"),
+        autoRotateSpeed: t$1("embedPanel.autoRotateSpeed", "Auto-rotate speed"),
+        cameraPosition: t$1("embedPanel.cameraPosition", "Camera position"),
+        cameraTarget: t$1("embedPanel.cameraTarget", "Camera target"),
+        cameraVectorPlaceholder: t$1("embedPanel.cameraVectorPlaceholder", "x,y,z"),
+        fov: t$1("embedPanel.fov", "FOV"),
+        autoRotate: t$1("embedPanel.autoRotate", "Auto-rotate"),
+        disableInteraction: t$1("embedPanel.disableInteraction", "Disable interaction"),
+        hideActionMenu: t$1("embedPanel.hideActionMenu", "Hide action menu"),
+        hideMetadata: t$1("embedPanel.hideMetadata", "Hide metadata"),
+        presentationMode: t$1("embedPanel.presentationMode", "Presentation mode"),
+        useCurrentCamera: t$1("embedPanel.useCurrentCamera", "Use Current Camera"),
+        resetFromViewer: t$1("embedPanel.resetFromViewer", "Reset From Viewer"),
+        copyUrl: t$1("embedPanel.copyUrl", "Copy URL"),
+        copyIframe: t$1("embedPanel.copyIframe", "Copy Iframe"),
+        embedUrl: t$1("embedPanel.embedUrl", "Embed URL"),
+        iframeCode: t$1("embedPanel.iframeCode", "Iframe code"),
+        preview: t$1("embedPanel.preview", "Preview"),
+        previewTitle: t$1("embedPanel.previewTitle", "Embed preview"),
+      };
+      const panel = document.createElement("div");
+      panel.id = "embedConfiguratorPanel";
+      panel.hidden = true;
+      panel.innerHTML = `
+      <div class="embed-config-header">
+        <span>${panelText.title}</span>
+        <button id="embedClosePanel" type="button" aria-label="${panelText.closeAria}">X</button>
+      </div>
+      <div class="embed-config-layout">
+        <div class="embed-config-main">
+          <div class="embed-config-grid">
+            <label>${panelText.modelUrl}<input id="embedModelInput" type="text" placeholder="${panelText.modelUrlPlaceholder}" value="${defaults.model ?? ""}" /></label>
+            <label>${panelText.entityId}<input id="embedIdInput" type="text" value="${defaults.id ?? ""}" /></label>
+            <label>${panelText.theme}
+              <select id="embedThemeInput">
+                <option value="dark">${panelText.themeDark}</option>
+                <option value="light"${defaults.theme === "light" ? " selected" : ""}>${panelText.themeLight}</option>
+              </select>
+            </label>
+            <label>${panelText.autoRotateSpeed}<input id="embedAutorotateSpeedInput" type="number" step="0.1" value="${Number.isFinite(defaults.autorotateSpeed) ? defaults.autorotateSpeed : ""}" /></label>
+            <label>${panelText.cameraPosition}<input id="embedCamPosInput" type="text" placeholder="${panelText.cameraVectorPlaceholder}" value="${defaults.cameraPosition ?? ""}" /></label>
+            <label>${panelText.cameraTarget}<input id="embedCamTargetInput" type="text" placeholder="${panelText.cameraVectorPlaceholder}" value="${defaults.cameraTarget ?? ""}" /></label>
+            <label>${panelText.fov}<input id="embedFovInput" type="number" step="1" min="1" max="179" value="${Number.isFinite(defaults.fov) ? defaults.fov : ""}" /></label>
+          </div>
+          <div class="embed-config-checks">
+            <label><input id="embedAutorotateInput" type="checkbox"${defaults.autorotate ? " checked" : ""} /> ${panelText.autoRotate}</label>
+            <label><input id="embedDisableInteractionInput" type="checkbox"${defaults.disableInteraction ? " checked" : ""} /> ${panelText.disableInteraction}</label>
+            <label><input id="embedHideUiInput" type="checkbox"${defaults.hideUi ? " checked" : ""} /> ${panelText.hideActionMenu}</label>
+            <label><input id="embedHideMetadataInput" type="checkbox"${defaults.hideMetadata ? " checked" : ""} /> ${panelText.hideMetadata}</label>
+            <label><input id="embedPresentationModeInput" type="checkbox"${defaults.presentationMode ? " checked" : ""} /> ${panelText.presentationMode}</label>
+          </div>
+          <div class="embed-config-actions">
+            <button id="embedUseCurrentCamera" type="button">${panelText.useCurrentCamera}</button>
+            <button id="embedResetFromViewer" type="button">${panelText.resetFromViewer}</button>
+            <button id="embedCopyUrl" type="button">${panelText.copyUrl}</button>
+            <button id="embedCopyIframe" type="button">${panelText.copyIframe}</button>
+          </div>
+          <label class="embed-config-field">${panelText.embedUrl}<textarea id="embedUrlOutput" readonly></textarea></label>
+          <label class="embed-config-field">${panelText.iframeCode}<textarea id="embedIframeOutput" readonly></textarea></label>
+        </div>
+        <div class="embed-config-preview-side">
+          <span>${panelText.preview}</span>
+          <iframe id="embedPreviewFrame" title="${panelText.previewTitle}" loading="lazy"></iframe>
+        </div>
+      </div>
+    `;
+
+      core.container.appendChild(panel);
+      this.embedConfiguratorPanel = panel;
+      this.embedConfigInputs = {
+        model: panel.querySelector("#embedModelInput"),
+        id: panel.querySelector("#embedIdInput"),
+        theme: panel.querySelector("#embedThemeInput"),
+        autorotate: panel.querySelector("#embedAutorotateInput"),
+        autorotateSpeed: panel.querySelector("#embedAutorotateSpeedInput"),
+        disableInteraction: panel.querySelector("#embedDisableInteractionInput"),
+        hideUi: panel.querySelector("#embedHideUiInput"),
+        hideMetadata: panel.querySelector("#embedHideMetadataInput"),
+        presentationMode: panel.querySelector("#embedPresentationModeInput"),
+        camPos: panel.querySelector("#embedCamPosInput"),
+        camTarget: panel.querySelector("#embedCamTargetInput"),
+        fov: panel.querySelector("#embedFovInput"),
+        url: panel.querySelector("#embedUrlOutput"),
+        iframe: panel.querySelector("#embedIframeOutput"),
+      };
+      this.embedConfigPreviewFrame = panel.querySelector("#embedPreviewFrame");
+
+      const watchedInputs = [
+        this.embedConfigInputs.model,
+        this.embedConfigInputs.id,
+        this.embedConfigInputs.theme,
+        this.embedConfigInputs.autorotate,
+        this.embedConfigInputs.autorotateSpeed,
+        this.embedConfigInputs.disableInteraction,
+        this.embedConfigInputs.hideUi,
+        this.embedConfigInputs.hideMetadata,
+        this.embedConfigInputs.presentationMode,
+        this.embedConfigInputs.camPos,
+        this.embedConfigInputs.camTarget,
+        this.embedConfigInputs.fov,
+      ];
+      watchedInputs.forEach((input) => {
+        if (!input) return;
+        const eventName = input.type === "checkbox" || input.tagName === "SELECT" ? "change" : "input";
+        this.bindEventListener(input, eventName, () => this.updateEmbedConfiguratorPreview());
+      });
+
+      const useCurrentCameraButton = panel.querySelector("#embedUseCurrentCamera");
+      const resetFromViewerButton = panel.querySelector("#embedResetFromViewer");
+      const copyUrlButton = panel.querySelector("#embedCopyUrl");
+      const copyIframeButton = panel.querySelector("#embedCopyIframe");
+      const closePanelButton = panel.querySelector("#embedClosePanel");
+
+      this.bindEventListener(useCurrentCameraButton, "click", () => this.fillConfiguratorWithCurrentCamera());
+      this.bindEventListener(resetFromViewerButton, "click", () => this.resetEmbedConfiguratorFromViewerState());
+      this.bindEventListener(closePanelButton, "click", () => {
+        this.closeEmbedConfigurator();
+      });
+      this.bindEventListener(copyUrlButton, "click", async () => {
+        try {
+          const options = this.collectEmbedConfiguratorOptions();
+          if (!this.hasEmbedSourceSelection(options)) {
+            this.notifyMissingEmbedSource({ force: true });
+            return;
+          }
+          const payload = this.buildEmbedPayload(options);
+          await this.copyTextToClipboard(payload.url);
+          toastHelper$1("embedUrlCopied", "success");
+        } catch (error) {
+          this.reportError(error, { context: "Copy embed URL failed" });
+          toastHelper$1("embedUrlCopyError", "error");
+        }
+      });
+      this.bindEventListener(copyIframeButton, "click", async () => {
+        try {
+          const options = this.collectEmbedConfiguratorOptions();
+          if (!this.hasEmbedSourceSelection(options)) {
+            this.notifyMissingEmbedSource({ force: true });
+            return;
+          }
+          const payload = this.buildEmbedPayload(options);
+          await this.copyTextToClipboard(payload.code);
+          toastHelper$1("embedIframeCopied", "success");
+        } catch (error) {
+          this.reportError(error, { context: "Copy embed iframe failed" });
+          toastHelper$1("embedIframeCopyError", "error");
+        }
+      });
+
+      this.updateEmbedConfiguratorPreview();
+    },
+
+    async copyEmbedCode(event) {
+      event?.preventDefault?.();
+      this.closeActionMenu();
+
+      try {
+        const { code } = this.getSharePayload();
+        await this.copyTextToClipboard(code);
+        toastHelper$1("embedCodeCopied", "success");
+      } catch (error) {
+        this.reportError(error, { context: "Copy embed code failed" });
+        toastHelper$1("embedCodeCopyError", "error");
+      }
+    },
+
+    updateEmbedMenuEntryState() {
+      if (!this.viewEntity) return;
+      const isActive = this.isEmbedModeActive();
+      const label = isActive ? t$1("menu.exitEmbed", "Exit embed") : t$1("menu.embed", "Embed");
+      const iconClass = isActive ? "embed-exit-icon" : "embed-icon";
+      this.viewEntity.innerHTML = `<span class="${iconClass}"></span><span>${label}</span>`;
+      const a11yLabel = isActive
+        ? t$1("menu.exitEmbedMode", "Exit embed mode")
+        : t$1("menu.openEmbedOptions", "Open embed options");
+      this.viewEntity.setAttribute("aria-label", a11yLabel);
+      this.viewEntity.setAttribute("title", a11yLabel);
+    },
+
+    closeEmbedConfigurator() {
+      if (this.embedConfiguratorPanel) {
+        this.embedConfiguratorPanel.hidden = true;
+      }
+      this.updateEmbedMenuEntryState();
+    },
+
+    closeEmbedMode() {
+      this.closeEmbedConfigurator();
+    },
+  });
+}
+
+function attachMaterialsEditor(Viewer) {
+  Object.assign(Viewer, {
+    openMaterialsFolder(materialUuid = null) {
+      this.buildMaterialsDialog();
+      if (!this.materialsDialog) return;
+      if (!this.materialsEditorObject || !this.materialsList?.length) {
+        showToast(t$1("gui.selectByMaterial", "select by material"), "warning");
+        return;
+      }
+
+      const nextUuid =
+        materialUuid && materialUuid !== ""
+          ? materialUuid
+          : this.selectedMaterialUuid || this.materialsList[0]?.uuid || "";
+
+      if (nextUuid) {
+        this.selectMaterialInEditor(this.materialsEditorObject, nextUuid);
+      }
+
+      this.updateMaterialsDialogBounds();
+      this.materialsDialog.hidden = false;
+      this.closeActionMenu();
+      this.materialsDialogSelect?.focus();
+    },
+
+    destroyMaterialGuiControls() {
+      if (this.materialGuiControls) {
+        Object.values(this.materialGuiControls).forEach((controller) => {
+          if (controller?.destroy) {
+            controller.destroy();
+          }
+        });
+        this.materialGuiControls = null;
+      }
+    },
+
+    destroyMaterialSelectionController() {
+      this.materialsEditorObject = null;
+      this.selectedMaterialUuid = null;
+      this.materialsList = [];
+      if (this.materialsDialogSelect) {
+        this.materialsDialogSelect.innerHTML = "";
+      }
+      this.syncMaterialsDialogFields();
+    },
+
+    getMaterialByUuid(object, uuid) {
+      if (!object || !uuid) return null;
+      let found = null;
+      object.traverse((child) => {
+        if (
+          child.isMesh &&
+          child.material
+        ) {
+          const materials = Array.isArray(child.material) ? child.material : [child.material];
+          materials.forEach((material) => {
+            if (material?.isMaterial && material.uuid === uuid) {
+              found = material;
+            }
+          });
+        }
+      });
+      return found;
+    },
+
+    normalizeMaterialColorValue(value, fallback = "#ffffff") {
+      if (!value) return fallback;
+      if (typeof value === "string") {
+        if (value.startsWith("0x")) {
+          return `#${value.slice(2).padStart(6, "0")}`;
+        }
+        return value.startsWith("#") ? value : `#${value}`;
+      }
+      if (typeof value.getHexString === "function") {
+        return `#${value.getHexString()}`;
+      }
+      return fallback;
+    },
+
+    syncMaterialsDialogSelectionOptions() {
+      if (!this.materialsDialogSelect) return;
+
+      const currentValue = this.selectedMaterialUuid || "";
+      this.materialsDialogSelect.innerHTML = "";
+
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = t$1("gui.selectByMaterial", "select by material");
+      this.materialsDialogSelect.appendChild(placeholder);
+
+      this.materialsList.forEach((item) => {
+        const option = document.createElement("option");
+        option.value = item.uuid;
+        option.textContent = item.label;
+        this.materialsDialogSelect.appendChild(option);
+      });
+
+      this.materialsDialogSelect.value = currentValue;
+    },
+
+    updateMaterialsDialogLabels() {
+      if (!this.materialsDialog) return;
+
+      const title = this.materialsDialog.querySelector("#materialsDialogTitle");
+      const closeButton = this.materialsDialog.querySelector(".materials-dialog__close");
+      const fieldLabels = Array.from(
+        this.materialsDialog.querySelectorAll(".materials-dialog__field > span")
+      );
+      const hint = this.materialsDialogInputs?.hint;
+      const emptyState = this.materialsDialogInputs?.emptyState;
+
+      if (title) {
+        title.textContent = t$1("gui.materials", "Materials");
+      }
+      if (closeButton) {
+        closeButton.setAttribute("aria-label", t$1("gui.materials", "Materials"));
+      }
+
+      if (fieldLabels.length > 0) {
+        fieldLabels[0].textContent = t$1("gui.editMaterial", "Edit material");
+      }
+      if (fieldLabels.length > 1) {
+        fieldLabels[1].textContent = t$1("gui.color", "Color");
+      }
+      if (fieldLabels.length > 2) {
+        fieldLabels[2].textContent = t$1("gui.emissive", "Emissive");
+      }
+      if (fieldLabels.length > 3) {
+        fieldLabels[3].textContent = t$1("gui.intensity", "Intensity");
+      }
+      if (fieldLabels.length > 4) {
+        fieldLabels[4].textContent = t$1("gui.metalness", "Metalness");
+      }
+
+      if (this.materialsDialogSelect) {
+        const placeholderOption = this.materialsDialogSelect.querySelector('option[value=""]');
+        if (placeholderOption) {
+          placeholderOption.textContent = t$1("gui.selectByMaterial", "select by material");
+        }
+      }
+
+      if (hint) {
+        hint.textContent = t$1("gui.selectByMaterial", "select by material");
+      }
+      if (emptyState) {
+        emptyState.textContent = t$1("gui.selectByMaterial", "select by material");
+      }
+    },
+
+    syncMaterialsDialogFields() {
+      if (!this.materialsDialogInputs) return;
+
+      const material = this.materialsEditorObject && this.selectedMaterialUuid
+        ? this.getMaterialByUuid(this.materialsEditorObject, this.selectedMaterialUuid)
+        : null;
+      const hasMaterial = Boolean(material);
+      const {
+        color,
+        emissiveColor,
+        emissive,
+        metalness,
+        emptyState,
+        hint,
+      } = this.materialsDialogInputs;
+
+      if (this.materialsDialogSelect) {
+        this.materialsDialogSelect.disabled = this.materialsList.length === 0;
+        this.materialsDialogSelect.value = this.selectedMaterialUuid || "";
+      }
+
+      [color, emissiveColor, emissive, metalness].forEach((input) => {
+        if (input) input.disabled = !hasMaterial;
+      });
+
+      if (!hasMaterial) {
+        if (color) color.value = "#ffffff";
+        if (emissiveColor) emissiveColor.value = "#000000";
+        if (emissive) emissive.value = "0";
+        if (metalness) metalness.value = "0";
+        if (emptyState) emptyState.hidden = this.materialsList.length > 0;
+        if (hint) hint.textContent = t$1("gui.selectByMaterial", "select by material");
+        return;
+      }
+
+      if (color) color.value = this.normalizeMaterialColorValue(material.color, "#ffffff");
+      if (emissiveColor) emissiveColor.value = this.normalizeMaterialColorValue(material.emissive, "#000000");
+      if (emissive) emissive.value = String(material.emissiveIntensity ?? 0);
+      if (metalness) metalness.value = String(material.metalness ?? 0);
+      if (emptyState) emptyState.hidden = true;
+      if (hint) {
+        hint.textContent =
+          this.materialsList.find((item) => item.uuid === material.uuid)?.label || material.uuid;
+      }
+    },
+
+    selectMaterialInEditor(object, value) {
+      if (!object) return;
+      if (!value) {
+        this.destroyMaterialGuiControls();
+        this.selectedMaterialUuid = null;
+        this.refreshMaterialsToolbarMenu();
+        this.syncMaterialsDialogFields();
+        return;
+      }
+
+      if (this.selectedMaterialUuid === value) {
+        return;
+      }
+
+      this.destroyMaterialGuiControls();
+      const material = this.getMaterialByUuid(object, value);
+      if (!material) {
+        this.selectedMaterialUuid = null;
+        this.refreshMaterialsToolbarMenu();
+        this.syncMaterialsDialogFields();
+        return;
+      }
+
+      core.materialProperties.color = this.normalizeMaterialColorValue(material.color, "#ffffff");
+      core.materialProperties.emissiveColor = this.normalizeMaterialColorValue(material.emissive, "#000000");
+      core.materialProperties.emissive = material.emissiveIntensity ?? 0;
+      core.materialProperties.metalness = material.metalness ?? 0;
+      this.selectedMaterialUuid = value;
+      this.refreshMaterialsToolbarMenu();
+      this.syncMaterialsDialogFields();
+    },
+
+    initializeMaterialsEditor(object) {
+      if (!object) return;
+      this.destroyMaterialGuiControls();
+      this.destroyMaterialSelectionController();
+
+      const materials = new Map();
+      const registerMaterial = (material) => {
+        if (!material || !material.isMaterial || !material.uuid) return;
+        if (!materials.has(material.uuid)) {
+          materials.set(material.uuid, material);
+        }
+      };
+
+      const gatherMaterials = (mesh) => {
+        if (!mesh.material) return;
+        if (Array.isArray(mesh.material)) {
+          mesh.material.forEach(registerMaterial);
+        } else {
+          registerMaterial(mesh.material);
+        }
+      };
+
+      if (object.isMesh) {
+        gatherMaterials(object);
+      }
+      object.traverse((child) => {
+        if (child.isMesh) {
+          gatherMaterials(child);
+        }
+      });
+
+      const options = {
+        [t$1("gui.selectByMaterial", "select by material")]: "",
+      };
+      this.materialsList = [];
+
+      materials.forEach((material, uuid) => {
+        const label = material.name?.trim() ? material.name : uuid;
+        options[label] = uuid;
+        this.materialsList.push({ uuid, label });
+      });
+
+      core.materialsPropertiesText["Edit material"] = "";
+      this.materialsEditorObject = object;
+      this.refreshMaterialsToolbarMenu();
+      this.syncMaterialsDialogSelectionOptions();
+      this.syncMaterialsDialogFields();
+    },
+
+    refreshMaterialsToolbarMenu() {
+      if (!this.materialsSubmenu) return;
+      this.materialsSubmenu.innerHTML = "";
+
+      const list = this.materialsList?.length ? this.materialsList : [];
+      if (!list.length) {
+        const emptyButton = document.createElement("button");
+        emptyButton.type = "button";
+        emptyButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button viewer-editor-tool_submenu-control viewer-editor-tool_submenu-materials";
+        emptyButton.disabled = true;
+        const label = t$1("gui.selectByMaterial", "Select by material");
+        const text = document.createElement("span");
+        text.textContent = label;
+        emptyButton.appendChild(text);
+        this.materialsSubmenu.appendChild(emptyButton);
+        return;
+      }
+
+      list.forEach((item) => {
+        const subButton = document.createElement("button");
+        subButton.type = "button";
+        subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button viewer-editor-tool_submenu-control viewer-editor-tool_submenu-materials";
+        if (item.uuid === this.selectedMaterialUuid) {
+          subButton.classList.add("is-active");
+        }
+        subButton.dataset.materialUuid = item.uuid;
+        subButton.setAttribute("title", item.label);
+        subButton.setAttribute("aria-label", item.label);
+
+        const iconSpan = document.createElement("span");
+        iconSpan.className = "viewer-editor-tool_icon";
+        iconSpan.setAttribute("aria-hidden", "true");
+        iconSpan.innerHTML = this.getEditorToolbarIcon("color");
+        subButton.appendChild(iconSpan);
+
+        const labelSpan = document.createElement("span");
+        labelSpan.className = "viewer-editor-tool_label";
+        labelSpan.textContent = item.label;
+        subButton.appendChild(labelSpan);
+
+        this.bindEventListener(subButton, "click", (event) => {
+          event.stopPropagation();
+          this.openMaterialsFolder(item.uuid);
+        });
+
+        this.materialsSubmenu.appendChild(subButton);
+      });
+    },
+
+    buildMaterialsDialog() {
+      if (!core.container || this.materialsDialog) return;
+
+      const dialog = document.createElement("div");
+      dialog.id = "materialsDialog";
+      dialog.className = "materials-dialog";
+      dialog.hidden = true;
+      dialog.innerHTML = `
+        <div class="materials-dialog__backdrop" data-materials-dismiss="true"></div>
+        <div class="materials-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="materialsDialogTitle">
+          <div class="materials-dialog__header">
+            <h3 id="materialsDialogTitle">${t$1("gui.materials", "Materials")}</h3>
+            <button type="button" class="materials-dialog__close" data-materials-dismiss="true" aria-label="${t$1("gui.materials", "Materials")}">&times;</button>
+          </div>
+          <div class="materials-dialog__body">
+            <label class="materials-dialog__field">
+              <span>${t$1("gui.editMaterial", "Edit material")}</span>
+              <select id="materialsDialogSelect"></select>
+            </label>
+            <p id="materialsDialogHint" class="materials-dialog__hint">${t$1("gui.selectByMaterial", "select by material")}</p>
+            <p id="materialsDialogEmpty" class="materials-dialog__empty">${t$1("gui.selectByMaterial", "select by material")}</p>
+            <div class="materials-dialog__grid">
+              <label class="materials-dialog__field">
+                <span>${t$1("gui.color", "Color")}</span>
+                <input id="materialsDialogColor" type="color" />
+              </label>
+              <label class="materials-dialog__field">
+                <span>${t$1("gui.emissive", "Emissive")}</span>
+                <input id="materialsDialogEmissiveColor" type="color" />
+              </label>
+              <label class="materials-dialog__field">
+                <span>${t$1("gui.intensity", "Intensity")}</span>
+                <input id="materialsDialogEmissive" type="range" min="0" max="1" step="0.01" />
+              </label>
+              <label class="materials-dialog__field">
+                <span>${t$1("gui.metalness", "Metalness")}</span>
+                <input id="materialsDialogMetalness" type="range" min="0" max="1" step="0.01" />
+              </label>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(dialog);
+      this.materialsDialog = dialog;
+      this.materialsDialogPosition = null;
+      this.materialsDialogSelect = dialog.querySelector("#materialsDialogSelect");
+      const panel = dialog.querySelector(".materials-dialog__panel");
+      const header = dialog.querySelector(".materials-dialog__header");
+      this.materialsDialogInputs = {
+        color: dialog.querySelector("#materialsDialogColor"),
+        emissiveColor: dialog.querySelector("#materialsDialogEmissiveColor"),
+        emissive: dialog.querySelector("#materialsDialogEmissive"),
+        metalness: dialog.querySelector("#materialsDialogMetalness"),
+        emptyState: dialog.querySelector("#materialsDialogEmpty"),
+        hint: dialog.querySelector("#materialsDialogHint"),
+      };
+
+      this.bindEventListener(dialog, "click", (event) => {
+        const dismissTrigger = event.target?.closest?.("[data-materials-dismiss='true']");
+        if (dismissTrigger) {
+          this.closeMaterialsDialog();
+        }
+      });
+
+      this.bindEventListener(document, "keydown", (event) => {
+        if (event.key !== "Escape") return;
+        if (!this.materialsDialog || this.materialsDialog.hidden) return;
+        event.preventDefault();
+        this.closeMaterialsDialog();
+      });
+
+      this.bindEventListener(this.materialsDialogSelect, "change", (event) => {
+        this.selectMaterialInEditor(this.materialsEditorObject, event.target.value);
+      });
+
+      this.bindEventListener(this.materialsDialogInputs.color, "input", (event) => {
+        const material = this.getMaterialByUuid(this.materialsEditorObject, this.selectedMaterialUuid);
+        if (!material?.color) return;
+        const value = event.target.value;
+        core.materialProperties.color = value;
+        material.color = new THREE.Color(value);
+      });
+
+      this.bindEventListener(this.materialsDialogInputs.emissiveColor, "input", (event) => {
+        const material = this.getMaterialByUuid(this.materialsEditorObject, this.selectedMaterialUuid);
+        if (!material || material.emissive === undefined) return;
+        const value = event.target.value;
+        core.materialProperties.emissiveColor = value;
+        material.emissive = new THREE.Color(value);
+      });
+
+      this.bindEventListener(this.materialsDialogInputs.emissive, "input", (event) => {
+        const material = this.getMaterialByUuid(this.materialsEditorObject, this.selectedMaterialUuid);
+        if (!material) return;
+        const value = parseFloat(event.target.value);
+        core.materialProperties.emissive = value;
+        material.emissiveIntensity = value;
+      });
+
+      this.bindEventListener(this.materialsDialogInputs.metalness, "input", (event) => {
+        const material = this.getMaterialByUuid(this.materialsEditorObject, this.selectedMaterialUuid);
+        if (!material) return;
+        const value = parseFloat(event.target.value);
+        core.materialProperties.metalness = value;
+        material.metalness = value;
+      });
+
+      this.bindEventListener(header, "pointerdown", (event) => {
+        if (event.button !== 0) return;
+        if (event.target?.closest?.(".materials-dialog__close")) return;
+        const targetRect =
+          Viewer.mainCanvas?.getBoundingClientRect?.() ||
+          core.container?.getBoundingClientRect?.();
+        const panelRect = panel?.getBoundingClientRect?.();
+        if (!targetRect || !panelRect) return;
+
+        this.materialsDialogDragging = {
+          offsetX: event.clientX - panelRect.left,
+          offsetY: event.clientY - panelRect.top,
+        };
+        panel.setPointerCapture?.(event.pointerId);
+        panel.classList.add("is-dragging");
+        event.preventDefault();
+      });
+
+      this.bindEventListener(document, "pointermove", (event) => {
+        if (!this.materialsDialogDragging || !this.materialsDialog || this.materialsDialog.hidden) return;
+        const targetRect =
+          Viewer.mainCanvas?.getBoundingClientRect?.() ||
+          core.container?.getBoundingClientRect?.();
+        const panelRect = panel?.getBoundingClientRect?.();
+        if (!targetRect || !panelRect) return;
+
+        const nextLeft = event.clientX - this.materialsDialogDragging.offsetX;
+        const nextTop = event.clientY - this.materialsDialogDragging.offsetY;
+        const minLeft = targetRect.left + 12;
+        const maxLeft = targetRect.right - panelRect.width - 12;
+        const minTop = targetRect.top + 12;
+        const maxTop = targetRect.bottom - panelRect.height - 12;
+
+        this.materialsDialogPosition = {
+          left: Math.min(Math.max(nextLeft, minLeft), Math.max(minLeft, maxLeft)),
+          top: Math.min(Math.max(nextTop, minTop), Math.max(minTop, maxTop)),
+        };
+
+        this.updateMaterialsDialogBounds();
+      });
+
+      const stopMaterialsDialogDrag = () => {
+        this.materialsDialogDragging = false;
+        panel?.classList.remove("is-dragging");
+      };
+
+      this.bindEventListener(document, "pointerup", stopMaterialsDialogDrag);
+      this.bindEventListener(document, "pointercancel", stopMaterialsDialogDrag);
+
+      this.bindEventListener(window, "resize", () => this.updateMaterialsDialogBounds());
+      this.bindEventListener(window, "scroll", () => this.updateMaterialsDialogBounds(), true);
+      this.bindEventListener(document, "fullscreenchange", () => this.updateMaterialsDialogBounds());
+
+      this.syncMaterialsDialogSelectionOptions();
+      this.syncMaterialsDialogFields();
+    },
+
+    updateMaterialsDialogBounds() {
+      if (!this.materialsDialog) return;
+      const targetRect =
+        Viewer.mainCanvas?.getBoundingClientRect?.() ||
+        core.container?.getBoundingClientRect?.();
+      if (!targetRect) return;
+
+      const left = Math.max(0, Math.round(targetRect.left));
+      const top = Math.max(0, Math.round(targetRect.top));
+      const width = Math.max(0, Math.round(targetRect.width));
+      const height = Math.max(0, Math.round(targetRect.height));
+      const panel = this.materialsDialog.querySelector(".materials-dialog__panel");
+      const panelWidth = panel?.offsetWidth || Math.min(360, width - 24);
+      const panelHeight = panel?.offsetHeight || Math.min(520, height - 24);
+
+      if (!this.materialsDialogPosition) {
+        this.materialsDialogPosition = {
+          left: Math.max(left + 12, left + width - panelWidth - 16),
+          top: Math.max(top + 16, top + Math.min(40, Math.max(16, height * 0.08))),
+        };
+      } else {
+        const minLeft = left + 12;
+        const maxLeft = left + width - panelWidth - 12;
+        const minTop = top + 12;
+        const maxTop = top + height - panelHeight - 12;
+        this.materialsDialogPosition = {
+          left: Math.min(Math.max(this.materialsDialogPosition.left, minLeft), Math.max(minLeft, maxLeft)),
+          top: Math.min(Math.max(this.materialsDialogPosition.top, minTop), Math.max(minTop, maxTop)),
+        };
+      }
+
+      this.materialsDialog.style.left = `${left}px`;
+      this.materialsDialog.style.top = `${top}px`;
+      this.materialsDialog.style.width = `${width}px`;
+      this.materialsDialog.style.height = `${height}px`;
+      if (panel) {
+        panel.style.left = `${this.materialsDialogPosition.left - left}px`;
+        panel.style.top = `${this.materialsDialogPosition.top - top}px`;
+        panel.style.right = "auto";
+        panel.style.transform = "none";
+      }
+    },
+
+    closeMaterialsDialog() {
+      if (!this.materialsDialog) return;
+      this.materialsDialog.hidden = true;
+    },
+  });
+}
+
+function attachAnnotations(Viewer) {
+  Object.assign(Viewer, {
+    clearAnnotationPOIs() {
+      this.closeAnnotationPOITooltip();
+      if (!this.annotationPOIGroup) {
+        this.annotationPOIMarkers = [];
+        return;
+      }
+
+      this.annotationPOIGroup.children.slice().forEach((child) => {
+        this.removeAndDisposeFromScene(child);
+      });
+      this.annotationPOIGroup.clear();
+      this.annotationPOIMarkers = [];
+      this.annotationPOIGroup.visible = false;
+    },
+
+    ensureAnnotationPOIGroup() {
+      if (this.annotationPOIGroup) return this.annotationPOIGroup;
+      const group = new THREE.Group();
+      group.name = "annotation-poi-group";
+      group.visible = false;
+      core.scene?.add?.(group);
+      this.annotationPOIGroup = group;
+      return group;
+    },
+
+    createNumberTexture(text) {
+      const size = 128;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+
+      const ctx = canvas.getContext("2d");
+
+      ctx.fillStyle = "rgba(0,0,0,0.6)";
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 64px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(text, size / 2, size / 2);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.needsUpdate = true;
+
+      return texture;
+    },
+
+    createAnnotationPOIMarker(entry, position, index = 1) {
+      const radius = Math.max((this.gridSize || core.gridSize || 1) / 15, 0.005);
+
+      const texture = Viewer.createNumberTexture(index.toString());
+
+      const spriteMaterial = new THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        depthTest: false,
+      });
+
+      const sprite = new THREE.Sprite(spriteMaterial);
+
+      sprite.scale.set(radius, radius, 1);
+
+      sprite.position.copy(position);
+
+      sprite.userData.isAnnotationPOI = true;
+      sprite.userData.annotationId = entry.id;
+      sprite.userData.groupId = entry.groupId || "";
+      sprite.userData.key = entry.key || "";
+      sprite.userData.targetId = entry.targetId;
+      sprite.userData.faceIndex = entry.faceIndex;
+      sprite.userData.title = entry.title || "";
+
+      return sprite;
+    },
+
+    ensureAnnotationPOITooltip() {
+      if (this.annotationPOITooltip) return this.annotationPOITooltip;
+      const tooltip = document.createElement("div");
+      tooltip.id = "annotationPOITooltip";
+      tooltip.className = "annotation-poi-tooltip";
+      tooltip.hidden = true;
+      tooltip.innerHTML = `
+        <div class="annotation-poi-tooltip__panel" role="status" aria-live="polite" aria-atomic="true">
+          <div class="annotation-poi-tooltip__title" id="annotationPOITooltipTitle"></div>
+        </div>
+      `;
+      document.body.appendChild(tooltip);
+      this.annotationPOITooltip = tooltip;
+      this.annotationPOITooltipTitle = tooltip.querySelector("#annotationPOITooltipTitle");
+      return tooltip;
+    },
+
+    openAnnotationPOITooltip(marker) {
+      if (!marker?.userData?.isAnnotationPOI) {
+        this.closeAnnotationPOITooltip();
+        return false;
+      }
+
+      const tooltip = this.ensureAnnotationPOITooltip();
+      if (!tooltip) return false;
+
+      this.annotationPOITooltipTarget = marker;
+      const titleText = String(marker.userData?.title || "").trim();
+      if (this.annotationPOITooltipTitle) {
+        this.annotationPOITooltipTitle.textContent = titleText || "Annotation";
+      }
+
+      tooltip.hidden = false;
+      tooltip.style.visibility = "visible";
+      this.updateAnnotationPOITooltipPosition();
+      return true;
+    },
+
+    getAnnotationEntriesForPOIMarker(marker) {
+      if (!marker?.userData?.isAnnotationPOI) return [];
+      const markerId = String(marker.userData?.annotationId || "").trim();
+      const markerGroupId = String(marker.userData?.groupId || "").trim();
+      const markerKey = String(marker.userData?.key || "").trim();
+
+      let baseEntry = null;
+      if (markerId) {
+        baseEntry = this.annotationEntries.find((entry) => String(entry?.id || "") === markerId) || null;
+      }
+      if (!baseEntry && markerKey) {
+        baseEntry = this.annotationEntries.find((entry) => String(entry?.key || "") === markerKey) || null;
+      }
+
+      const effectiveGroupId = String(baseEntry?.groupId || markerGroupId || "").trim();
+      if (effectiveGroupId) {
+        const groupedEntries = this.annotationEntries.filter(
+          (entry) => String(entry?.groupId || "").trim() === effectiveGroupId
+        );
+        if (groupedEntries.length > 0) return groupedEntries;
+      }
+
+      if (baseEntry) return [baseEntry];
+
+      const fallbackTargetId = String(marker.userData?.targetId || "").trim();
+      const fallbackFaceIndex = Number(marker.userData?.faceIndex);
+      if (!fallbackTargetId || !Number.isInteger(fallbackFaceIndex) || fallbackFaceIndex < 0) return [];
+      return [{
+        id: markerId || "",
+        key: this.getFaceSelectionKey(fallbackTargetId, fallbackFaceIndex),
+        targetId: fallbackTargetId,
+        object: fallbackTargetId,
+        faceIndex: fallbackFaceIndex,
+        title: String(marker.userData?.title || "").trim(),
+        description: "",
+        groupId: effectiveGroupId,
+      }];
+    },
+
+    openAnnotationDialogFromPOIMarker(marker) {
+      const entries = this.getAnnotationEntriesForPOIMarker(marker);
+      if (!entries.length) {
+        toastHelper$1("annotationDataMissing", "warning");
+        return false;
+      }
+
+      this.buildAnnotationDialog();
+      if (!this.annotationDialog) return false;
+
+      const keys = entries
+        .map((entry) => String(entry?.key || "").trim())
+        .filter(Boolean);
+      this.annotationTargetFaceKeys = Array.from(new Set(keys));
+
+      const existingGroupIds = Array.from(
+        new Set(entries.map((entry) => String(entry?.groupId || "").trim()).filter(Boolean))
+      );
+      this.annotationBatchGroupId = existingGroupIds.length === 1
+        ? existingGroupIds[0]
+        : `anno-group-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+      const uniqueTitles = Array.from(
+        new Set(entries.map((entry) => String(entry?.title || "").trim()))
+      );
+      const uniqueDescriptions = Array.from(
+        new Set(entries.map((entry) => String(entry?.description || "").trim()))
+      );
+      this.annotationDialogTitleInput.value = uniqueTitles.length === 1 ? uniqueTitles[0] : "";
+      this.annotationDialogDescriptionInput.value =
+        uniqueDescriptions.length === 1 ? uniqueDescriptions[0] : "";
+
+      this.updateAnnotationDialogBounds();
+      this.annotationDialog.hidden = false;
+      this.closeAnnotationPOITooltip();
+      this.closeActionMenu();
+      this.annotationDialogTitleInput?.focus();
+      this.annotationDialogTitleInput?.select();
+      return true;
+    },
+
+    closeAnnotationPOITooltip() {
+      this.annotationPOITooltipTarget = null;
+      if (!this.annotationPOITooltip) return;
+      this.annotationPOITooltip.hidden = true;
+      this.annotationPOITooltip.style.visibility = "hidden";
+    },
+
+    updateAnnotationPOITooltipPosition() {
+      const tooltip = this.annotationPOITooltip;
+      const marker = this.annotationPOITooltipTarget;
+      if (!tooltip || tooltip.hidden || !marker || !core.camera) return;
+
+      const rect =
+        Viewer.mainCanvas?.getBoundingClientRect?.() ||
+        core.container?.getBoundingClientRect?.();
+      if (!rect || rect.width <= 0 || rect.height <= 0) return;
+
+      const worldPosition = new THREE.Vector3();
+      marker.getWorldPosition(worldPosition);
+      const projected = worldPosition.clone().project(core.camera);
+      const withinDepth = projected.z >= -1 && projected.z <= 1;
+      const screenX = rect.left + ((projected.x + 1) / 2) * rect.width;
+      const screenY = rect.top + ((-projected.y + 1) / 2) * rect.height;
+      const withinHorizontal = screenX >= rect.left && screenX <= rect.right;
+      const withinVertical = screenY >= rect.top && screenY <= rect.bottom;
+      if (!withinDepth || !withinHorizontal || !withinVertical) {
+        tooltip.style.visibility = "hidden";
+        return;
+      }
+
+      tooltip.style.left = `${Math.round(screenX)}px`;
+      tooltip.style.top = `${Math.round(screenY)}px`;
+      tooltip.style.visibility = "visible";
+    },
+
+    refreshAnnotationPOIs() {
+      this.clearAnnotationPOIs();
+      const entries = this.getAnnotationEntriesForPersistence();
+      if (!entries.length) return 0;
+
+      const group = this.ensureAnnotationPOIGroup();
+      let added = 0;
+      entries.forEach((entry) => {
+        const object = this.resolveObjectByTargetId(entry.targetId);
+        if (!object) return;
+        const point = this.getFaceCentroidWorld(object, entry.faceIndex);
+        if (!point) return;
+        const marker = this.createAnnotationPOIMarker(entry, point, entries.indexOf(entry) + 1);
+        group.add(marker);
+        this.annotationPOIMarkers.push(marker);
+        added += 1;
+      });
+
+      group.visible = added > 0;
+      return added;
+    },
+
+    buildAnnotationDialog() {
+      if (!core.container || this.annotationDialog) return;
+
+      const dialog = document.createElement("div");
+      dialog.id = "annotationDialog";
+      dialog.className = "annotation-dialog";
+      dialog.hidden = true;
+      dialog.innerHTML = `
+        <div class="annotation-dialog__backdrop" data-annotation-dismiss="true"></div>
+        <div class="annotation-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="annotationDialogTitle">
+          <div class="annotation-dialog__header">
+            <h3 id="annotationDialogTitle">Add annotation</h3>
+            <button type="button" class="annotation-dialog__close" data-annotation-dismiss="true" aria-label="Close annotation dialog">&times;</button>
+          </div>
+          <form id="annotationDialogForm" class="annotation-dialog__form">
+            <label>
+              <span>Title</span>
+              <input id="annotationTitleInput" name="title" type="text" maxlength="120" required />
+            </label>
+            <label>
+              <span>Description</span>
+              <textarea id="annotationDescriptionInput" name="description" rows="5" maxlength="4000"></textarea>
+            </label>
+            <div class="annotation-dialog__actions">
+              <button type="submit">Save annotation</button>
+              <button type="button" data-annotation-dismiss="true">Cancel</button>
+            </div>
+          </form>
+        </div>
+      `;
+
+      document.body.appendChild(dialog);
+      this.annotationDialog = dialog;
+      this.annotationDialogHost = document.body;
+      this.annotationDialogTitleInput = dialog.querySelector("#annotationTitleInput");
+      this.annotationDialogDescriptionInput = dialog.querySelector("#annotationDescriptionInput");
+      const form = dialog.querySelector("#annotationDialogForm");
+
+      this.bindEventListener(dialog, "click", (event) => {
+        const dismissTrigger = event.target?.closest?.("[data-annotation-dismiss='true']");
+        if (dismissTrigger) {
+          this.closeAnnotationDialog();
+        }
+      });
+
+      this.bindEventListener(document, "keydown", (event) => {
+        if (event.key !== "Escape") return;
+        if (!this.annotationDialog || this.annotationDialog.hidden) return;
+        event.preventDefault();
+        this.closeAnnotationDialog();
+      });
+
+      this.bindEventListener(form, "submit", (event) => {
+        event.preventDefault();
+        this.saveAnnotationFromDialog();
+      });
+
+      this.bindEventListener(window, "resize", () => this.updateAnnotationDialogBounds());
+      this.bindEventListener(window, "scroll", () => this.updateAnnotationDialogBounds(), true);
+      this.bindEventListener(document, "fullscreenchange", () => this.updateAnnotationDialogBounds());
+    },
+
+    updateAnnotationDialogBounds() {
+      if (!this.annotationDialog) return;
+      const targetRect =
+        Viewer.mainCanvas?.getBoundingClientRect?.() ||
+        core.container?.getBoundingClientRect?.();
+      if (!targetRect) return;
+
+      const left = Math.max(0, Math.round(targetRect.left));
+      const top = Math.max(0, Math.round(targetRect.top));
+      const width = Math.max(0, Math.round(targetRect.width));
+      const height = Math.max(0, Math.round(targetRect.height));
+
+      this.annotationDialog.style.left = `${left}px`;
+      this.annotationDialog.style.top = `${top}px`;
+      this.annotationDialog.style.width = `${width}px`;
+      this.annotationDialog.style.height = `${height}px`;
+    },
+
+    openAnnotationDialog() {
+      if (!Array.isArray(this.selectedFaces) || this.selectedFaces.length === 0) {
+        toastHelper$1("selectFaceRequired", "warning");
+        return;
+      }
+
+      this.buildAnnotationDialog();
+      if (!this.annotationDialog) return;
+
+      const selectedKeys = this.selectedFaces
+        .map((entry) => String(entry?.key || "").trim())
+        .filter(Boolean);
+      this.annotationTargetFaceKeys = selectedKeys;
+      const existingGroupIds = Array.from(
+        new Set(
+          selectedKeys
+            .map((key) => this.annotationEntries.find((entry) => entry.key === key)?.groupId || "")
+            .map((value) => String(value).trim())
+            .filter(Boolean)
+        )
+      );
+      this.annotationBatchGroupId = existingGroupIds.length === 1
+        ? existingGroupIds[0]
+        : `anno-group-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+      const existingEntries = selectedKeys
+        .map((key) => this.annotationEntries.find((entry) => entry.key === key))
+        .filter(Boolean);
+      const uniqueTitles = Array.from(
+        new Set(existingEntries.map((entry) => String(entry.title || "").trim()))
+      );
+      const uniqueDescriptions = Array.from(
+        new Set(existingEntries.map((entry) => String(entry.description || "").trim()))
+      );
+      this.annotationDialogTitleInput.value = uniqueTitles.length === 1 ? uniqueTitles[0] : "";
+      this.annotationDialogDescriptionInput.value =
+        uniqueDescriptions.length === 1 ? uniqueDescriptions[0] : "";
+      this.updateAnnotationDialogBounds();
+      this.annotationDialog.hidden = false;
+      this.closeAnnotationPOITooltip();
+      this.closeActionMenu();
+      this.annotationDialogTitleInput?.focus();
+      this.annotationDialogTitleInput?.select();
+    },
+
+    openAnnotationDialogWithAutoPicking() {
+      if (!this.pickingMode) {
+        this.pickingMode = true;
+        this.RULER_MODE = false;
+        this.updateDistanceMeasurementControllerLabel();
+        this.updatePickingModeControllerLabel();
+        this.updatePickingControlsVisibility();
+        toastHelper$1("featureToggle", "info", {
+          feature: "Face picking",
+          state: "enabled"
+        });
+      }
+
+      if (!Array.isArray(this.selectedFaces) || this.selectedFaces.length === 0) {
+        toastHelper$1("selectFaceRequiredAgain", "warning");
+        return;
+      }
+
+      this.openAnnotationDialog();
+    },
+
+    closeAnnotationDialog() {
+      if (!this.annotationDialog) return;
+      this.annotationDialog.hidden = true;
+      this.annotationTargetFaceKeys = [];
+      this.annotationBatchGroupId = "";
+    },
+
+    saveAnnotationFromDialog() {
+      if (!Array.isArray(this.annotationTargetFaceKeys) || this.annotationTargetFaceKeys.length === 0) {
+        toastHelper$1("noFacesSelected", "warning");
+        this.closeAnnotationDialog();
+        return;
+      }
+
+      const title = String(this.annotationDialogTitleInput?.value || "").trim();
+      const description = String(this.annotationDialogDescriptionInput?.value || "").trim();
+
+      if (!title) {
+        toastHelper$1("titleRequired", "warning");
+        this.annotationDialogTitleInput?.focus();
+        return;
+      }
+
+      const selectedFaces = this.annotationTargetFaceKeys
+        .map((key) => {
+          const selected = this.selectedFaces.find((entry) => entry.key === key);
+          if (selected) return selected;
+          const existingEntry = this.annotationEntries.find((entry) => entry.key === key);
+          if (!existingEntry) return null;
+          return {
+            key: existingEntry.key,
+            targetId: existingEntry.targetId || existingEntry.object || "",
+            object: existingEntry.object || existingEntry.targetId || "",
+            faceIndex: existingEntry.faceIndex,
+          };
+        })
+        .filter(Boolean);
+      if (selectedFaces.length === 0) {
+        toastHelper$1("facesInactive", "warning");
+        this.closeAnnotationDialog();
+        return;
+      }
+
+      const nowIso = new Date().toISOString();
+      const groupId = String(this.annotationBatchGroupId || `anno-group-${Date.now()}`);
+      let updatedCount = 0;
+      let addedCount = 0;
+
+      selectedFaces.forEach((selectedFace) => {
+        const faceNumber = Number(selectedFace.faceIndex);
+        const normalizedFaceNumber = Number.isInteger(faceNumber) ? faceNumber : -1;
+        const annotationTargetId = selectedFace.targetId || selectedFace.object || "";
+        const stableTargetToken = Viewer.toStableIdToken(annotationTargetId);
+        const existingIndex = this.annotationEntries.findIndex(
+          (entry) => entry.key === selectedFace.key
+        );
+        if (!annotationTargetId || normalizedFaceNumber < 0) return;
+
+        const annotationPayload = {
+          id: existingIndex >= 0
+            ? this.annotationEntries[existingIndex].id
+            : `anno-${stableTargetToken}-f${normalizedFaceNumber}`,
+          groupId,
+          key: selectedFace.key,
+          object: annotationTargetId,
+          targetId: annotationTargetId,
+          faceIndex: normalizedFaceNumber,
+          faceNumbers: [normalizedFaceNumber],
+          target: {
+            id: annotationTargetId,
+            faces: [normalizedFaceNumber],
+          },
+          title,
+          description,
+          updatedAt: nowIso,
+        };
+
+        if (existingIndex >= 0) {
+          annotationPayload.createdAt = this.annotationEntries[existingIndex].createdAt || nowIso;
+          this.annotationEntries.splice(existingIndex, 1, annotationPayload);
+          updatedCount += 1;
+        } else {
+          annotationPayload.createdAt = nowIso;
+          this.annotationEntries.push(annotationPayload);
+          addedCount += 1;
+        }
+      });
+
+      const totalChanged = updatedCount + addedCount;
+      if (totalChanged > 0) {
+        toastHelper$1("annotationsSaved", "success", {
+          count: totalChanged,
+          plural: totalChanged === 1 ? "" : "s"
+        });
+      }
+
+      this.refreshAnnotationPOIs();
+      this.closeAnnotationDialog();
+    },
+
+    getAnnotationEntriesForPersistence() {
+      if (!Array.isArray(this.annotationEntries)) return [];
+
+      return this.annotationEntries
+        .map((entry, index) => {
+          if (!entry || typeof entry !== "object") return null;
+          const targetId = String(entry.targetId || entry.object || "").trim();
+          const faceNumbersRaw = Array.isArray(entry.faceNumbers)
+            ? entry.faceNumbers
+            : [entry.faceIndex];
+          const faceNumbers = faceNumbersRaw
+            .map((value) => Number(value))
+            .filter((value) => Number.isInteger(value) && value >= 0);
+          const faceIndex = faceNumbers[0] ?? Number(entry.faceIndex);
+          const normalizedFaceIndex = Number.isInteger(faceIndex) && faceIndex >= 0 ? faceIndex : -1;
+          if (!targetId || normalizedFaceIndex < 0) return null;
+
+          const key = this.getFaceSelectionKey(targetId, normalizedFaceIndex);
+          const fallbackId = `anno-${this.toStableIdToken(targetId)}-f${normalizedFaceIndex}`;
+
+          return {
+            id: String(entry.id || fallbackId),
+            groupId: entry.groupId ? String(entry.groupId) : "",
+            key,
+            object: targetId,
+            targetId,
+            faceIndex: normalizedFaceIndex,
+            faceNumbers: faceNumbers.length > 0 ? faceNumbers : [normalizedFaceIndex],
+            target: {
+              id: targetId,
+              faces: faceNumbers.length > 0 ? faceNumbers : [normalizedFaceIndex],
+            },
+            title: String(entry.title || "").trim(),
+            description: String(entry.description || "").trim(),
+            createdAt: entry.createdAt ? String(entry.createdAt) : "",
+            updatedAt: entry.updatedAt ? String(entry.updatedAt) : "",
+          };
+        })
+        .filter(Boolean);
+    },
+
+    exportAnnotationsToIIIFXml() {
+      const entries = this.getAnnotationEntriesForPersistence();
+      const doc = document.implementation.createDocument("", "", null);
+      const root = doc.createElement("iiif:annotations");
+      root.setAttribute("xmlns:iiif", "http://iiif.io/api/presentation/3#");
+      root.setAttribute("version", "3.0");
+      root.setAttribute("generatedAt", new Date().toISOString());
+      doc.appendChild(root);
+
+      entries.forEach((entry) => {
+        const annotation = doc.createElement("iiif:annotation");
+        annotation.setAttribute("id", entry.id);
+        annotation.setAttribute("type", "Annotation");
+        annotation.setAttribute("motivation", "commenting");
+        if (entry.groupId) {
+          annotation.setAttribute("groupId", String(entry.groupId));
+        }
+
+        const body = doc.createElement("iiif:body");
+        body.setAttribute("type", "TextualBody");
+        body.setAttribute("format", "text/plain");
+
+        const titleNode = doc.createElement("iiif:title");
+        titleNode.textContent = entry.title || "";
+        body.appendChild(titleNode);
+
+        const descriptionNode = doc.createElement("iiif:description");
+        descriptionNode.textContent = entry.description || "";
+        body.appendChild(descriptionNode);
+        annotation.appendChild(body);
+
+        const targetNode = doc.createElement("iiif:target");
+        targetNode.setAttribute("id", entry.targetId);
+        targetNode.setAttribute("faces", entry.faceNumbers.join(","));
+        annotation.appendChild(targetNode);
+
+        root.appendChild(annotation);
+      });
+
+      return new XMLSerializer().serializeToString(doc);
+    },
+
+    downloadAnnotationsXmlFile() {
+      const xml = this.exportAnnotationsToIIIFXml();
+      if (!xml) {
+        toastHelper$1("noAnnotationsToExport", "warning");
+        return false;
+      }
+
+      const defaultBaseName = core.fileObject?.basename || "annotations";
+      const safeBaseName = String(defaultBaseName).replace(/[^a-zA-Z0-9._-]+/g, "_");
+      const fileName = `${safeBaseName || "annotations"}-iiif-annotations.xml`;
+      const blob = new Blob([xml], { type: "application/xml;charset=utf-8" });
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = fileName;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+      toastHelper$1("annotationsExported", "success");
+      return true;
+    },
+
+    ensureAnnotationImportInput() {
+      if (this.annotationImportInput) return this.annotationImportInput;
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".xml,text/xml,application/xml";
+      input.hidden = true;
+      this.bindEventListener(input, "change", async (event) => {
+        const target = event?.target;
+        const file = target?.files?.[0];
+        if (!file) return;
+
+        try {
+          const xmlText = await file.text();
+          const imported = this.importAnnotationsFromIIIFXml(xmlText);
+          if (imported > 0) {
+            toastHelper$1("annotationsImported", "success", {
+              count: imported,
+              plural: imported === 1 ? "" : "s"
+            });
+          } else {
+            toastHelper$1("noValidAnnotations", "warning");
+          }
+        } catch (error) {
+          console.error(error);
+          toastHelper$1("annotationsImportError", "error");
+        } finally {
+          target.value = "";
+        }
+      });
+      document.body.appendChild(input);
+      this.annotationImportInput = input;
+      return input;
+    },
+
+    triggerAnnotationsXmlImport() {
+      const input = this.ensureAnnotationImportInput();
+      if (!input) return false;
+      input.click();
+      return true;
+    },
+
+    importAnnotationsFromIIIFXml(xmlText) {
+      const xml = String(xmlText || "").trim();
+      if (!xml) {
+        this.annotationEntries = [];
+        return 0;
+      }
+
+      let doc;
+      try {
+        doc = new DOMParser().parseFromString(xml, "application/xml");
+      } catch (_error) {
+        return 0;
+      }
+
+      if (!doc || doc.querySelector("parsererror")) {
+        return 0;
+      }
+
+      const annotations = Array.from(
+        doc.querySelectorAll("annotation, iiif\\:annotation")
+      );
+      const importedEntries = [];
+
+      annotations.forEach((node, index) => {
+        const rawId = node.getAttribute("id") || "";
+        const rawGroupId = node.getAttribute("groupId") || "";
+        const targetNode =
+          node.querySelector("target, iiif\\:target") ||
+          node.getElementsByTagName("target")[0] ||
+          node.getElementsByTagName("iiif:target")[0];
+        const targetId = String(targetNode?.getAttribute?.("id") || "").trim();
+        const facesAttr = String(targetNode?.getAttribute?.("faces") || "").trim();
+        const faceNumbers = facesAttr
+          .split(/[,\s;|]+/)
+          .filter(Boolean)
+          .map((value) => Number(value))
+          .filter((value) => Number.isInteger(value) && value >= 0);
+        const faceIndex = faceNumbers[0];
+        if (!targetId || !Number.isInteger(faceIndex)) return;
+
+        const titleNode =
+          node.querySelector("title, iiif\\:title, label, iiif\\:label") ||
+          node.getElementsByTagName("title")[0] ||
+          node.getElementsByTagName("iiif:title")[0];
+        const descriptionNode =
+          node.querySelector("description, iiif\\:description, value, iiif\\:value") ||
+          node.getElementsByTagName("description")[0] ||
+          node.getElementsByTagName("iiif:description")[0];
+
+        const key = this.getFaceSelectionKey(targetId, faceIndex);
+        importedEntries.push({
+          id: rawId || `anno-${this.toStableIdToken(targetId)}-f${faceIndex}-${index}`,
+          groupId: rawGroupId ? String(rawGroupId) : "",
+          key,
+          object: targetId,
+          targetId,
+          faceIndex,
+          faceNumbers: faceNumbers.length > 0 ? faceNumbers : [faceIndex],
+          target: {
+            id: targetId,
+            faces: faceNumbers.length > 0 ? faceNumbers : [faceIndex],
+          },
+          title: String(titleNode?.textContent || "").trim(),
+          description: String(descriptionNode?.textContent || "").trim(),
+        });
+      });
+
+      this.annotationEntries = importedEntries;
+      this.refreshAnnotationPOIs();
+      return importedEntries.length;
+    },
+
+    hydrateAnnotationsFromMetadataPayload(payload) {
+      if (!payload || typeof payload !== "object") {
+        this.annotationEntries = [];
+        this.refreshAnnotationPOIs();
+        return 0;
+      }
+
+      const xmlCandidate = payload.iiifAnnotationsXml
+        || payload.iiif_annotations_xml
+        || payload.annotationsXml
+        || payload.annotations_xml
+        || "";
+      if (typeof xmlCandidate === "string" && xmlCandidate.trim() !== "") {
+        return this.importAnnotationsFromIIIFXml(xmlCandidate);
+      }
+
+      if (Array.isArray(payload.annotationEntries)) {
+        this.annotationEntries = payload.annotationEntries
+          .map((entry, index) => {
+            const targetId = String(entry?.targetId || entry?.object || entry?.target?.id || "").trim();
+            const faceNumbers = Array.isArray(entry?.faceNumbers)
+              ? entry.faceNumbers
+              : Array.isArray(entry?.target?.faces)
+                ? entry.target.faces
+                : [entry?.faceIndex];
+            const normalizedFaces = faceNumbers
+              .map((value) => Number(value))
+              .filter((value) => Number.isInteger(value) && value >= 0);
+            const faceIndex = normalizedFaces[0];
+            if (!targetId || !Number.isInteger(faceIndex)) return null;
+            return {
+              id: String(entry?.id || `anno-${this.toStableIdToken(targetId)}-f${faceIndex}-${index}`),
+              groupId: entry?.groupId ? String(entry.groupId) : "",
+              key: this.getFaceSelectionKey(targetId, faceIndex),
+              object: targetId,
+              targetId,
+              faceIndex,
+              faceNumbers: normalizedFaces.length > 0 ? normalizedFaces : [faceIndex],
+              target: {
+                id: targetId,
+                faces: normalizedFaces.length > 0 ? normalizedFaces : [faceIndex],
+              },
+              title: String(entry?.title || "").trim(),
+              description: String(entry?.description || "").trim(),
+              createdAt: entry?.createdAt ? String(entry.createdAt) : "",
+              updatedAt: entry?.updatedAt ? String(entry.updatedAt) : "",
+            };
+          })
+          .filter(Boolean);
+        this.refreshAnnotationPOIs();
+        return this.annotationEntries.length;
+      }
+
+      this.annotationEntries = [];
+      this.refreshAnnotationPOIs();
+      return 0;
+    },
+
+    extractAnnotationsXmlFromExportDocument(doc) {
+      if (!doc) return "";
+      const node =
+        doc.querySelector("iiif\\:annotations, annotations, iiif_annotations, iiif_annotations_xml") ||
+        doc.getElementsByTagName("iiif:annotations")[0] ||
+        doc.getElementsByTagName("annotations")[0] ||
+        doc.getElementsByTagName("iiif_annotations")[0] ||
+        doc.getElementsByTagName("iiif_annotations_xml")[0];
+      if (!node) return "";
+
+      if (node.tagName === "iiif_annotations_xml") {
+        return String(node.textContent || "").trim();
+      }
+
+      try {
+        return new XMLSerializer().serializeToString(node);
+      } catch (_error) {
+        return "";
+      }
+    },
+
+    applyPendingAnnotationsIfAny() {
+      const pendingXml = String(this.pendingAnnotationsXml || "").trim();
+      if (!pendingXml) return 0;
+      const imported = this.importAnnotationsFromIIIFXml(pendingXml);
+      this.pendingAnnotationsXml = "";
+      return imported;
+    },
+  });
+}
+
+function attachMeasurement(Viewer) {
+  Object.assign(Viewer, {
+    createTriangleGeometry(intersection) {
+      const position = intersection?.object?.geometry?.attributes?.position;
+      const face = intersection?.face;
+
+      if (!position || !face) return null;
+
+      const trianglePositions = new Float32Array([
+        position.getX(face.a), position.getY(face.a), position.getZ(face.a),
+        position.getX(face.b), position.getY(face.b), position.getZ(face.b),
+        position.getX(face.c), position.getY(face.c), position.getZ(face.c),
+      ]);
+
+      const triangleGeometry = new THREE.BufferGeometry();
+      triangleGeometry.setAttribute("position", new THREE.BufferAttribute(trianglePositions, 3));
+      triangleGeometry.computeVertexNormals();
+
+      return triangleGeometry;
+    },
+
+    createPickingFaceOverlay(intersection, options = {}) {
+      const triangleGeometry = Viewer.createTriangleGeometry(intersection);
+      if (!triangleGeometry) return null;
+
+      const fillColor = options.fillColor ?? 0xff0000;
+      const lineColor = options.lineColor ?? 0xffffff;
+      const opacity = options.opacity ?? 0.65;
+
+      const overlayMaterial = new THREE.MeshBasicMaterial({
+        color: fillColor,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity,
+        depthTest: true,
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+        polygonOffsetUnits: -2,
+        toneMapped: false,
+      });
+
+      const fillMesh = new THREE.Mesh(triangleGeometry, overlayMaterial);
+      fillMesh.renderOrder = 999;
+
+      const lineGeometry = new THREE.EdgesGeometry(triangleGeometry);
+      const lineMaterial = new THREE.LineBasicMaterial({
+        color: lineColor,
+        transparent: true,
+        opacity: Math.min(opacity + 0.2, 1),
+        depthTest: false,
+        depthWrite: false,
+        toneMapped: false,
+      });
+      const lineSegments = new THREE.LineSegments(lineGeometry, lineMaterial);
+      lineSegments.renderOrder = 1000;
+
+      const overlayGroup = new THREE.Group();
+      overlayGroup.name = "picking-face-overlay";
+      overlayGroup.userData.isPickingOverlay = true;
+      fillMesh.userData.isPickingOverlay = true;
+      lineSegments.userData.isPickingOverlay = true;
+      overlayGroup.add(fillMesh);
+      overlayGroup.add(lineSegments);
+
+      return overlayGroup;
+    },
+
+    isPickingOverlayObject(object) {
+      let current = object;
+
+      while (current) {
+        if (current.userData?.isPickingOverlay === true || current.name === "picking-face-overlay") {
+          return true;
+        }
+        current = current.parent;
+      }
+
+      return false;
+    },
+
+    getPrimaryIntersection(intersections) {
+      if (!Array.isArray(intersections) || intersections.length === 0) return null;
+
+      return intersections.find((entry) => !Viewer.isPickingOverlayObject(entry?.object)) ?? null;
+    },
+
+    getFaceSelectionKey(targetId, faceIndex) {
+      if (!targetId || faceIndex === null || faceIndex === undefined) return "";
+      return `${targetId}:${faceIndex}`;
+    },
+
+    findSelectedFaceIndex(targetId, faceIndex) {
+      const key = Viewer.getFaceSelectionKey(targetId, faceIndex);
+      return Viewer.selectedFaces.findIndex((entry) => entry.key === key);
+    },
+
+    updateSelectedFacesCount() {
+      Viewer.pickingStats["Selected faces"] = Array.isArray(Viewer.selectedFaces)
+        ? Viewer.selectedFaces.length
+        : 0;
+      const selectedFacesCount = Array.isArray(Viewer.selectedFaces) ? Viewer.selectedFaces.length : 0;
+      if (selectedFacesCount < 1 && Viewer.annotationDialog && Viewer.annotationDialog.hidden === false) {
+        Viewer.closeAnnotationDialog();
+      }
+      Viewer.updateAddAnnotationControllerState();
+      Viewer.updatePickingHintVisibility();
+    },
+
+    getFaceCentroidWorld(object, faceIndex) {
+      const geometry = object?.geometry;
+      if (!geometry || !geometry.getAttribute) return null;
+      const position = geometry.getAttribute("position");
+      if (!position) return null;
+      const face = Number(faceIndex);
+      if (!Number.isInteger(face) || face < 0) return null;
+
+      let ia = face * 3;
+      let ib = ia + 1;
+      let ic = ia + 2;
+      const index = geometry.getIndex?.() || geometry.index || null;
+      if (index?.array) {
+        const arr = index.array;
+        if (ic >= arr.length) return null;
+        ia = arr[ia];
+        ib = arr[ib];
+        ic = arr[ic];
+      } else if (ic >= position.count) {
+        return null;
+      }
+
+      const va = new THREE.Vector3().fromBufferAttribute(position, ia);
+      const vb = new THREE.Vector3().fromBufferAttribute(position, ib);
+      const vc = new THREE.Vector3().fromBufferAttribute(position, ic);
+      const center = va.add(vb).add(vc).multiplyScalar(1 / 3);
+      object.updateMatrixWorld?.(true);
+      center.applyMatrix4(object.matrixWorld);
+      return center;
+    },
+
+    clearSelectedFaces() {
+      if (!Array.isArray(Viewer.selectedFaces) || Viewer.selectedFaces.length === 0) {
+        Viewer.updateSelectedFacesCount();
+        return;
+      }
+
+      Viewer.selectedFaces.forEach((entry) => {
+        Viewer.disposeFaceOverlay(entry);
+      });
+      Viewer.selectedFaces.length = 0;
+      Viewer.updateSelectedFacesCount();
+    },
+
+    restoreLastPickedFace() {
+      if (!Viewer.lastPickedFace.overlay) {
+        Viewer.lastPickedFace = { id: "", object: "", faceIndex: null, overlay: null };
+        return;
+      }
+
+      Viewer.disposeFaceOverlay(Viewer.lastPickedFace);
+
+      Viewer.lastPickedFace = { id: "", object: "", faceIndex: null, overlay: null };
+    },
+
+    pickFaces(_id) {
+      const hoveredObjectId = _id?.object?.id ?? "";
+      const hoveredFaceIndex = _id?.faceIndex ?? null;
+      if (!hoveredObjectId) {
+        Viewer.restoreLastPickedFace();
+        return;
+      }
+
+      if (
+        Viewer.lastPickedFace.object === hoveredObjectId &&
+        Viewer.lastPickedFace.faceIndex === hoveredFaceIndex
+      ) {
+        return;
+      }
+
+      Viewer.restoreLastPickedFace();
+      const overlay = Viewer.createPickingFaceOverlay(_id, {
+        fillColor: 0xff3b30,
+        lineColor: 0xffffff,
+        opacity: 0.4,
+      });
+      if (!overlay) return;
+
+      Viewer.lastPickedFace = {
+        id: hoveredObjectId,
+        object: hoveredObjectId,
+        faceIndex: hoveredFaceIndex,
+        overlay,
+      };
+
+      _id.object.add(overlay);
+    },
+
+    toggleSelectedFace(intersection, options = {}) {
+      const targetId = Viewer.resolveFaceTargetId(intersection?.object);
+      const runtimeObjectId = intersection?.object?.id ?? "";
+      const faceIndex = intersection?.faceIndex ?? null;
+      if (!targetId || faceIndex === null) return;
+
+      const multiSelect = options.multiSelect === true;
+      const selectedFaceIndex = Viewer.findSelectedFaceIndex(targetId, faceIndex);
+
+      if (!multiSelect) {
+        const clickedFaceKey = Viewer.getFaceSelectionKey(targetId, faceIndex);
+        const clickedFaceAlreadySelected =
+          selectedFaceIndex >= 0 && Viewer.selectedFaces.length === 1 &&
+          Viewer.selectedFaces[0]?.key === clickedFaceKey;
+
+        Viewer.clearSelectedFaces();
+
+        if (clickedFaceAlreadySelected) {
+          return;
+        }
+      }
+
+      if (selectedFaceIndex >= 0) {
+        const [selectedFace] = Viewer.selectedFaces.splice(selectedFaceIndex, 1);
+        Viewer.disposeFaceOverlay(selectedFace);
+        Viewer.updateSelectedFacesCount();
+        return;
+      }
+
+      const overlay = Viewer.createPickingFaceOverlay(intersection, {
+        fillColor: 0x00c853,
+        lineColor: 0xe8ffe8,
+        opacity: 0.5,
+      });
+      if (!overlay) return;
+
+      intersection.object.add(overlay);
+      Viewer.selectedFaces.push({
+        key: Viewer.getFaceSelectionKey(targetId, faceIndex),
+        targetId,
+        object: targetId,
+        runtimeObjectId,
+        faceIndex,
+        overlay,
+      });
+      Viewer.updateSelectedFacesCount();
+    },
+
+    buildRuler(_id) {
+      Viewer.rulerObject = new THREE.Object3D();
+      const gridSize = Viewer.gridSize || core.gridSize || 1;
+      const sphereRadius = Math.max(gridSize / 150, 0.001);
+      const textScale = Math.max(gridSize / 100, 0.01);
+      const measureSize = Math.max(gridSize / 200, 0.01);
+
+      var sphere = new THREE.Mesh(
+        new THREE.SphereGeometry(sphereRadius, 7, 7),
+        new THREE.MeshStandardMaterial({
+          color: 0xff0000,
+          transparent: true,
+          opacity: 0.85,
+          side: THREE.DoubleSide,
+          depthTest: false,
+          depthWrite: false,
+        })
+      );
+      var newPoint = new THREE.Vector3(_id.point.x, _id.point.y, _id.point.z);
+      sphere.position.set(newPoint.x, newPoint.y, newPoint.z);
+      Viewer.rulerObject.add(sphere);
+      Viewer.linePoints.push(newPoint);
+      const lineGeometry = new THREE.BufferGeometry().setFromPoints(Viewer.linePoints);
+      const lineMaterial = new THREE.LineBasicMaterial({ color: 0x0000ff });
+      const line = new THREE.Line(lineGeometry, lineMaterial);
+      Viewer.rulerObject.add(line);
+      var lineMtr = new THREE.LineBasicMaterial({
+        color: 0x0000ff,
+        linewidth: 3,
+        opacity: 1,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        depthWrite: false,
+      });
+      if (Viewer.linePoints.length > 1) {
+        var vectorPoints = vectorBetweenPoints(
+          Viewer.linePoints[Viewer.linePoints.length - 2],
+          newPoint
+        );
+        var distancePoints = distanceBetweenPointsVector(vectorPoints);
+        const measuredDistance = Viewer.formatMeasuredDistance(distancePoints);
+
+        //var distancePoints = distanceBetweenPoints(Viewer.linePoints[Viewer.linePoints.length-2], newPoint);
+        var halfwayPoints = halfwayBetweenPoints(
+          Viewer.linePoints[Viewer.linePoints.length - 2],
+          newPoint
+        );
+        Viewer.addTextPoint(measuredDistance.text, textScale, halfwayPoints);
+        var rulerI = 0;
+        // `measureSize` was already precomputed outside, keep same scale
+        while (rulerI <= distancePoints * 100) {
+          const geoSegm = [];
+          var interpolatePoints = interpolateDistanceBetweenPoints(
+            Viewer.linePoints[Viewer.linePoints.length - 2],
+            vectorPoints,
+            distancePoints,
+            rulerI / 100
+          );
+          geoSegm.push(
+            new THREE.Vector3(
+              interpolatePoints.x,
+              interpolatePoints.y,
+              interpolatePoints.z
+            )
+          );
+          geoSegm.push(
+            new THREE.Vector3(
+              interpolatePoints.x + measureSize,
+              interpolatePoints.y + measureSize,
+              interpolatePoints.z + measureSize
+            )
+          );
+          const geometryLine = new THREE.BufferGeometry().setFromPoints(geoSegm);
+          var lineSegm = new THREE.Line(geometryLine, lineMtr);
+          Viewer.rulerObject.add(lineSegm);
+          rulerI += 10;
+        }
+      }
+      Viewer.rulerObject.renderOrder = 10;
+      core.scene.add(Viewer.rulerObject);
+      Viewer.ruler.push(Viewer.rulerObject);
+    },
+  });
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -2718,18 +4851,18 @@ function createIIIFUI() {
   document.body.appendChild(formContainer);
 }
 
-const loadDDSLoader = async () => (await import('./assets/three.js').then(function (n) { return n.j; })).DDSLoader;
-const loadMTLLoader = async () => (await import('./assets/three.js').then(function (n) { return n.k; })).MTLLoader;
-const loadOBJLoader = async () => (await import('./assets/three.js').then(function (n) { return n.l; })).OBJLoader;
-const loadFBXLoader = async () => (await import('./assets/three.js').then(function (n) { return n.n; })).FBXLoader;
+const loadDDSLoader = async () => (await import('./assets/three.js').then(function (n) { return n.i; })).DDSLoader;
+const loadMTLLoader = async () => (await import('./assets/three.js').then(function (n) { return n.j; })).MTLLoader;
+const loadOBJLoader = async () => (await import('./assets/three.js').then(function (n) { return n.k; })).OBJLoader;
+const loadFBXLoader = async () => (await import('./assets/three.js').then(function (n) { return n.l; })).FBXLoader;
 const loadPLYLoader = async () => (await import('./assets/three.js').then(function (n) { return n.P; })).PLYLoader;
-const loadColladaLoader = async () => (await import('./assets/three.js').then(function (n) { return n.o; })).ColladaLoader;
+const loadColladaLoader = async () => (await import('./assets/three.js').then(function (n) { return n.n; })).ColladaLoader;
 const loadSTLLoader = async () => (await import('./assets/three.js').then(function (n) { return n.S; })).STLLoader;
 const loadXYZLoader = async () => (await import('./assets/three.js').then(function (n) { return n.X; })).XYZLoader;
-const loadTDSLoader = async () => (await import('./assets/three.js').then(function (n) { return n.p; })).TDSLoader;
-const loadPCDLoader = async () => (await import('./assets/three.js').then(function (n) { return n.q; })).PCDLoader;
+const loadTDSLoader = async () => (await import('./assets/three.js').then(function (n) { return n.o; })).TDSLoader;
+const loadPCDLoader = async () => (await import('./assets/three.js').then(function (n) { return n.p; })).PCDLoader;
 const loadGLTFLoader = async () => (await import('./assets/three.js').then(function (n) { return n.G; })).GLTFLoader;
-const loadDRACOLoader = async () => (await import('./assets/three.js').then(function (n) { return n.r; })).DRACOLoader;
+const loadDRACOLoader = async () => (await import('./assets/three.js').then(function (n) { return n.q; })).DRACOLoader;
 const loadIFCLoader = async () => (await import('./assets/IFCLoader.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./assets/three.js').then(function (n) { return n.R; })).RoomEnvironment;
 
@@ -11220,542 +13353,6 @@ const Viewer$1 = {
     }
   },
 
-  openMaterialsFolder(materialUuid = null) {
-    this.buildMaterialsDialog();
-    if (!this.materialsDialog) return;
-    if (!this.materialsEditorObject || !this.materialsList?.length) {
-      showToast(t$1("gui.selectByMaterial", "select by material"), "warning");
-      return;
-    }
-
-    const nextUuid =
-      materialUuid && materialUuid !== ""
-        ? materialUuid
-        : this.selectedMaterialUuid || this.materialsList[0]?.uuid || "";
-
-    if (nextUuid) {
-      this.selectMaterialInEditor(this.materialsEditorObject, nextUuid);
-    }
-
-    this.updateMaterialsDialogBounds();
-    this.materialsDialog.hidden = false;
-    this.closeActionMenu();
-    this.materialsDialogSelect?.focus();
-  },
-
-  destroyMaterialGuiControls() {
-    if (this.materialGuiControls) {
-      Object.values(this.materialGuiControls).forEach((controller) => {
-        if (controller?.destroy) {
-          controller.destroy();
-        }
-      });
-      this.materialGuiControls = null;
-    }
-  },
-
-  destroyMaterialSelectionController() {
-    this.materialsEditorObject = null;
-    this.selectedMaterialUuid = null;
-    this.materialsList = [];
-    if (this.materialsDialogSelect) {
-      this.materialsDialogSelect.innerHTML = "";
-    }
-    this.syncMaterialsDialogFields();
-  },
-
-  getMaterialByUuid(object, uuid) {
-    if (!object || !uuid) return null;
-    let found = null;
-    object.traverse((child) => {
-      if (
-        child.isMesh &&
-        child.material
-      ) {
-        const materials = Array.isArray(child.material) ? child.material : [child.material];
-        materials.forEach((material) => {
-          if (material?.isMaterial && material.uuid === uuid) {
-            found = material;
-          }
-        });
-      }
-    });
-    return found;
-  },
-
-  normalizeMaterialColorValue(value, fallback = "#ffffff") {
-    if (!value) return fallback;
-    if (typeof value === "string") {
-      if (value.startsWith("0x")) {
-        return `#${value.slice(2).padStart(6, "0")}`;
-      }
-      return value.startsWith("#") ? value : `#${value}`;
-    }
-    if (typeof value.getHexString === "function") {
-      return `#${value.getHexString()}`;
-    }
-    return fallback;
-  },
-
-  syncMaterialsDialogSelectionOptions() {
-    if (!this.materialsDialogSelect) return;
-
-    const currentValue = this.selectedMaterialUuid || "";
-    this.materialsDialogSelect.innerHTML = "";
-
-    const placeholder = document.createElement("option");
-    placeholder.value = "";
-    placeholder.textContent = t$1("gui.selectByMaterial", "select by material");
-    this.materialsDialogSelect.appendChild(placeholder);
-
-    this.materialsList.forEach((item) => {
-      const option = document.createElement("option");
-      option.value = item.uuid;
-      option.textContent = item.label;
-      this.materialsDialogSelect.appendChild(option);
-    });
-
-    this.materialsDialogSelect.value = currentValue;
-  },
-
-  updateMaterialsDialogLabels() {
-    if (!this.materialsDialog) return;
-
-    const title = this.materialsDialog.querySelector("#materialsDialogTitle");
-    const closeButton = this.materialsDialog.querySelector(".materials-dialog__close");
-    const fieldLabels = Array.from(
-      this.materialsDialog.querySelectorAll(".materials-dialog__field > span")
-    );
-    const hint = this.materialsDialogInputs?.hint;
-    const emptyState = this.materialsDialogInputs?.emptyState;
-
-    if (title) {
-      title.textContent = t$1("gui.materials", "Materials");
-    }
-    if (closeButton) {
-      closeButton.setAttribute("aria-label", t$1("gui.materials", "Materials"));
-    }
-
-    if (fieldLabels.length > 0) {
-      fieldLabels[0].textContent = t$1("gui.editMaterial", "Edit material");
-    }
-    if (fieldLabels.length > 1) {
-      fieldLabels[1].textContent = t$1("gui.color", "Color");
-    }
-    if (fieldLabels.length > 2) {
-      fieldLabels[2].textContent = t$1("gui.emissive", "Emissive");
-    }
-    if (fieldLabels.length > 3) {
-      fieldLabels[3].textContent = t$1("gui.intensity", "Intensity");
-    }
-    if (fieldLabels.length > 4) {
-      fieldLabels[4].textContent = t$1("gui.metalness", "Metalness");
-    }
-
-    if (this.materialsDialogSelect) {
-      const placeholderOption = this.materialsDialogSelect.querySelector('option[value=""]');
-      if (placeholderOption) {
-        placeholderOption.textContent = t$1("gui.selectByMaterial", "select by material");
-      }
-    }
-
-    if (hint) {
-      hint.textContent = t$1("gui.selectByMaterial", "select by material");
-    }
-    if (emptyState) {
-      emptyState.textContent = t$1("gui.selectByMaterial", "select by material");
-    }
-  },
-
-  syncMaterialsDialogFields() {
-    if (!this.materialsDialogInputs) return;
-
-    const material = this.materialsEditorObject && this.selectedMaterialUuid
-      ? this.getMaterialByUuid(this.materialsEditorObject, this.selectedMaterialUuid)
-      : null;
-    const hasMaterial = Boolean(material);
-    const {
-      color,
-      emissiveColor,
-      emissive,
-      metalness,
-      emptyState,
-      hint,
-    } = this.materialsDialogInputs;
-
-    if (this.materialsDialogSelect) {
-      this.materialsDialogSelect.disabled = this.materialsList.length === 0;
-      this.materialsDialogSelect.value = this.selectedMaterialUuid || "";
-    }
-
-    [color, emissiveColor, emissive, metalness].forEach((input) => {
-      if (input) input.disabled = !hasMaterial;
-    });
-
-    if (!hasMaterial) {
-      if (color) color.value = "#ffffff";
-      if (emissiveColor) emissiveColor.value = "#000000";
-      if (emissive) emissive.value = "0";
-      if (metalness) metalness.value = "0";
-      if (emptyState) emptyState.hidden = this.materialsList.length > 0;
-      if (hint) hint.textContent = t$1("gui.selectByMaterial", "select by material");
-      return;
-    }
-
-    if (color) color.value = this.normalizeMaterialColorValue(material.color, "#ffffff");
-    if (emissiveColor) emissiveColor.value = this.normalizeMaterialColorValue(material.emissive, "#000000");
-    if (emissive) emissive.value = String(material.emissiveIntensity ?? 0);
-    if (metalness) metalness.value = String(material.metalness ?? 0);
-    if (emptyState) emptyState.hidden = true;
-    if (hint) {
-      hint.textContent =
-        this.materialsList.find((item) => item.uuid === material.uuid)?.label || material.uuid;
-    }
-  },
-
-  selectMaterialInEditor(object, value) {
-    if (!object) return;
-    if (!value) {
-      this.destroyMaterialGuiControls();
-      this.selectedMaterialUuid = null;
-      this.refreshMaterialsToolbarMenu();
-      this.syncMaterialsDialogFields();
-      return;
-    }
-
-    if (this.selectedMaterialUuid === value) {
-      return;
-    }
-
-    this.destroyMaterialGuiControls();
-    const material = this.getMaterialByUuid(object, value);
-    if (!material) {
-      this.selectedMaterialUuid = null;
-      this.refreshMaterialsToolbarMenu();
-      this.syncMaterialsDialogFields();
-      return;
-    }
-
-    core.materialProperties.color = this.normalizeMaterialColorValue(material.color, "#ffffff");
-    core.materialProperties.emissiveColor = this.normalizeMaterialColorValue(material.emissive, "#000000");
-    core.materialProperties.emissive = material.emissiveIntensity ?? 0;
-    core.materialProperties.metalness = material.metalness ?? 0;
-    this.selectedMaterialUuid = value;
-    this.refreshMaterialsToolbarMenu();
-    this.syncMaterialsDialogFields();
-  },
-
-  initializeMaterialsEditor(object) {
-    if (!object) return;
-    this.destroyMaterialGuiControls();
-    this.destroyMaterialSelectionController();
-
-    const materials = new Map();
-    const registerMaterial = (material) => {
-      if (!material || !material.isMaterial || !material.uuid) return;
-      if (!materials.has(material.uuid)) {
-        materials.set(material.uuid, material);
-      }
-    };
-
-    const gatherMaterials = (mesh) => {
-      if (!mesh.material) return;
-      if (Array.isArray(mesh.material)) {
-        mesh.material.forEach(registerMaterial);
-      } else {
-        registerMaterial(mesh.material);
-      }
-    };
-
-    if (object.isMesh) {
-      gatherMaterials(object);
-    }
-    object.traverse((child) => {
-      if (child.isMesh) {
-        gatherMaterials(child);
-      }
-    });
-
-    const options = {
-      [t$1("gui.selectByMaterial", "select by material")]: "",
-    };
-    this.materialsList = [];
-
-    materials.forEach((material, uuid) => {
-      const label = material.name?.trim() ? material.name : uuid;
-      options[label] = uuid;
-      this.materialsList.push({ uuid, label });
-    });
-
-    core.materialsPropertiesText["Edit material"] = "";
-    this.materialsEditorObject = object;
-    this.refreshMaterialsToolbarMenu();
-    this.syncMaterialsDialogSelectionOptions();
-    this.syncMaterialsDialogFields();
-  },
-
-  refreshMaterialsToolbarMenu() {
-    if (!this.materialsSubmenu) return;
-    this.materialsSubmenu.innerHTML = "";
-
-    const list = this.materialsList?.length ? this.materialsList : [];
-    if (!list.length) {
-      const emptyButton = document.createElement("button");
-      emptyButton.type = "button";
-      emptyButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button viewer-editor-tool_submenu-control viewer-editor-tool_submenu-materials";
-      emptyButton.disabled = true;
-      const label = t$1("gui.selectByMaterial", "Select by material");
-      const text = document.createElement("span");
-      text.textContent = label;
-      emptyButton.appendChild(text);
-      this.materialsSubmenu.appendChild(emptyButton);
-      return;
-    }
-
-    list.forEach((item) => {
-      const subButton = document.createElement("button");
-      subButton.type = "button";
-      subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button viewer-editor-tool_submenu-control viewer-editor-tool_submenu-materials";
-      if (item.uuid === this.selectedMaterialUuid) {
-        subButton.classList.add("is-active");
-      }
-      subButton.dataset.materialUuid = item.uuid;
-      subButton.setAttribute("title", item.label);
-      subButton.setAttribute("aria-label", item.label);
-
-      const iconSpan = document.createElement("span");
-      iconSpan.className = "viewer-editor-tool_icon";
-      iconSpan.setAttribute("aria-hidden", "true");
-      iconSpan.innerHTML = this.getEditorToolbarIcon("color");
-      subButton.appendChild(iconSpan);
-
-      const labelSpan = document.createElement("span");
-      labelSpan.className = "viewer-editor-tool_label";
-      labelSpan.textContent = item.label;
-      subButton.appendChild(labelSpan);
-
-      this.bindEventListener(subButton, "click", (event) => {
-        event.stopPropagation();
-        this.openMaterialsFolder(item.uuid);
-      });
-
-      this.materialsSubmenu.appendChild(subButton);
-    });
-  },
-
-  buildMaterialsDialog() {
-    if (!core.container || this.materialsDialog) return;
-
-    const dialog = document.createElement("div");
-    dialog.id = "materialsDialog";
-    dialog.className = "materials-dialog";
-    dialog.hidden = true;
-    dialog.innerHTML = `
-      <div class="materials-dialog__backdrop" data-materials-dismiss="true"></div>
-      <div class="materials-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="materialsDialogTitle">
-        <div class="materials-dialog__header">
-          <h3 id="materialsDialogTitle">${t$1("gui.materials", "Materials")}</h3>
-          <button type="button" class="materials-dialog__close" data-materials-dismiss="true" aria-label="${t$1("gui.materials", "Materials")}">&times;</button>
-        </div>
-        <div class="materials-dialog__body">
-          <label class="materials-dialog__field">
-            <span>${t$1("gui.editMaterial", "Edit material")}</span>
-            <select id="materialsDialogSelect"></select>
-          </label>
-          <p id="materialsDialogHint" class="materials-dialog__hint">${t$1("gui.selectByMaterial", "select by material")}</p>
-          <p id="materialsDialogEmpty" class="materials-dialog__empty">${t$1("gui.selectByMaterial", "select by material")}</p>
-          <div class="materials-dialog__grid">
-            <label class="materials-dialog__field">
-              <span>${t$1("gui.color", "Color")}</span>
-              <input id="materialsDialogColor" type="color" />
-            </label>
-            <label class="materials-dialog__field">
-              <span>${t$1("gui.emissive", "Emissive")}</span>
-              <input id="materialsDialogEmissiveColor" type="color" />
-            </label>
-            <label class="materials-dialog__field">
-              <span>${t$1("gui.intensity", "Intensity")}</span>
-              <input id="materialsDialogEmissive" type="range" min="0" max="1" step="0.01" />
-            </label>
-            <label class="materials-dialog__field">
-              <span>${t$1("gui.metalness", "Metalness")}</span>
-              <input id="materialsDialogMetalness" type="range" min="0" max="1" step="0.01" />
-            </label>
-          </div>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(dialog);
-    this.materialsDialog = dialog;
-    this.materialsDialogPosition = null;
-    this.materialsDialogSelect = dialog.querySelector("#materialsDialogSelect");
-    const panel = dialog.querySelector(".materials-dialog__panel");
-    const header = dialog.querySelector(".materials-dialog__header");
-    this.materialsDialogInputs = {
-      color: dialog.querySelector("#materialsDialogColor"),
-      emissiveColor: dialog.querySelector("#materialsDialogEmissiveColor"),
-      emissive: dialog.querySelector("#materialsDialogEmissive"),
-      metalness: dialog.querySelector("#materialsDialogMetalness"),
-      emptyState: dialog.querySelector("#materialsDialogEmpty"),
-      hint: dialog.querySelector("#materialsDialogHint"),
-    };
-
-    this.bindEventListener(dialog, "click", (event) => {
-      const dismissTrigger = event.target?.closest?.("[data-materials-dismiss='true']");
-      if (dismissTrigger) {
-        this.closeMaterialsDialog();
-      }
-    });
-
-    this.bindEventListener(document, "keydown", (event) => {
-      if (event.key !== "Escape") return;
-      if (!this.materialsDialog || this.materialsDialog.hidden) return;
-      event.preventDefault();
-      this.closeMaterialsDialog();
-    });
-
-    this.bindEventListener(this.materialsDialogSelect, "change", (event) => {
-      this.selectMaterialInEditor(this.materialsEditorObject, event.target.value);
-    });
-
-    this.bindEventListener(this.materialsDialogInputs.color, "input", (event) => {
-      const material = this.getMaterialByUuid(this.materialsEditorObject, this.selectedMaterialUuid);
-      if (!material?.color) return;
-      const value = event.target.value;
-      core.materialProperties.color = value;
-      material.color = new THREE.Color(value);
-    });
-
-    this.bindEventListener(this.materialsDialogInputs.emissiveColor, "input", (event) => {
-      const material = this.getMaterialByUuid(this.materialsEditorObject, this.selectedMaterialUuid);
-      if (!material || material.emissive === undefined) return;
-      const value = event.target.value;
-      core.materialProperties.emissiveColor = value;
-      material.emissive = new THREE.Color(value);
-    });
-
-    this.bindEventListener(this.materialsDialogInputs.emissive, "input", (event) => {
-      const material = this.getMaterialByUuid(this.materialsEditorObject, this.selectedMaterialUuid);
-      if (!material) return;
-      const value = parseFloat(event.target.value);
-      core.materialProperties.emissive = value;
-      material.emissiveIntensity = value;
-    });
-
-    this.bindEventListener(this.materialsDialogInputs.metalness, "input", (event) => {
-      const material = this.getMaterialByUuid(this.materialsEditorObject, this.selectedMaterialUuid);
-      if (!material) return;
-      const value = parseFloat(event.target.value);
-      core.materialProperties.metalness = value;
-      material.metalness = value;
-    });
-
-    this.bindEventListener(header, "pointerdown", (event) => {
-      if (event.button !== 0) return;
-      if (event.target?.closest?.(".materials-dialog__close")) return;
-      const targetRect =
-        Viewer$1.mainCanvas?.getBoundingClientRect?.() ||
-        core.container?.getBoundingClientRect?.();
-      const panelRect = panel?.getBoundingClientRect?.();
-      if (!targetRect || !panelRect) return;
-
-      this.materialsDialogDragging = {
-        offsetX: event.clientX - panelRect.left,
-        offsetY: event.clientY - panelRect.top,
-      };
-      panel.setPointerCapture?.(event.pointerId);
-      panel.classList.add("is-dragging");
-      event.preventDefault();
-    });
-
-    this.bindEventListener(document, "pointermove", (event) => {
-      if (!this.materialsDialogDragging || !this.materialsDialog || this.materialsDialog.hidden) return;
-      const targetRect =
-        Viewer$1.mainCanvas?.getBoundingClientRect?.() ||
-        core.container?.getBoundingClientRect?.();
-      const panelRect = panel?.getBoundingClientRect?.();
-      if (!targetRect || !panelRect) return;
-
-      const nextLeft = event.clientX - this.materialsDialogDragging.offsetX;
-      const nextTop = event.clientY - this.materialsDialogDragging.offsetY;
-      const minLeft = targetRect.left + 12;
-      const maxLeft = targetRect.right - panelRect.width - 12;
-      const minTop = targetRect.top + 12;
-      const maxTop = targetRect.bottom - panelRect.height - 12;
-
-      this.materialsDialogPosition = {
-        left: Math.min(Math.max(nextLeft, minLeft), Math.max(minLeft, maxLeft)),
-        top: Math.min(Math.max(nextTop, minTop), Math.max(minTop, maxTop)),
-      };
-
-      this.updateMaterialsDialogBounds();
-    });
-
-    const stopMaterialsDialogDrag = () => {
-      this.materialsDialogDragging = false;
-      panel?.classList.remove("is-dragging");
-    };
-
-    this.bindEventListener(document, "pointerup", stopMaterialsDialogDrag);
-    this.bindEventListener(document, "pointercancel", stopMaterialsDialogDrag);
-
-    this.bindEventListener(window, "resize", () => this.updateMaterialsDialogBounds());
-    this.bindEventListener(window, "scroll", () => this.updateMaterialsDialogBounds(), true);
-    this.bindEventListener(document, "fullscreenchange", () => this.updateMaterialsDialogBounds());
-
-    this.syncMaterialsDialogSelectionOptions();
-    this.syncMaterialsDialogFields();
-  },
-
-  updateMaterialsDialogBounds() {
-    if (!this.materialsDialog) return;
-    const targetRect =
-      Viewer$1.mainCanvas?.getBoundingClientRect?.() ||
-      core.container?.getBoundingClientRect?.();
-    if (!targetRect) return;
-
-    const left = Math.max(0, Math.round(targetRect.left));
-    const top = Math.max(0, Math.round(targetRect.top));
-    const width = Math.max(0, Math.round(targetRect.width));
-    const height = Math.max(0, Math.round(targetRect.height));
-    const panel = this.materialsDialog.querySelector(".materials-dialog__panel");
-    const panelWidth = panel?.offsetWidth || Math.min(360, width - 24);
-    const panelHeight = panel?.offsetHeight || Math.min(520, height - 24);
-
-    if (!this.materialsDialogPosition) {
-      this.materialsDialogPosition = {
-        left: Math.max(left + 12, left + width - panelWidth - 16),
-        top: Math.max(top + 16, top + Math.min(40, Math.max(16, height * 0.08))),
-      };
-    } else {
-      const minLeft = left + 12;
-      const maxLeft = left + width - panelWidth - 12;
-      const minTop = top + 12;
-      const maxTop = top + height - panelHeight - 12;
-      this.materialsDialogPosition = {
-        left: Math.min(Math.max(this.materialsDialogPosition.left, minLeft), Math.max(minLeft, maxLeft)),
-        top: Math.min(Math.max(this.materialsDialogPosition.top, minTop), Math.max(minTop, maxTop)),
-      };
-    }
-
-    this.materialsDialog.style.left = `${left}px`;
-    this.materialsDialog.style.top = `${top}px`;
-    this.materialsDialog.style.width = `${width}px`;
-    this.materialsDialog.style.height = `${height}px`;
-    if (panel) {
-      panel.style.left = `${this.materialsDialogPosition.left - left}px`;
-      panel.style.top = `${this.materialsDialogPosition.top - top}px`;
-      panel.style.right = "auto";
-      panel.style.transform = "none";
-    }
-  },
-
-  closeMaterialsDialog() {
-    if (!this.materialsDialog) return;
-    this.materialsDialog.hidden = true;
-  },
-
   togglePickingMode() {
     this.pickingMode = !this.pickingMode;
     toastHelper$1(this.pickingMode ? "facePickingEnabled" : "facePickingDisabled", {
@@ -11986,34 +13583,6 @@ const Viewer$1 = {
     return updateEditorToolbarState(this);
   },
 
-  isEmbedModeActive() {
-    return this.embedConfiguratorPanel?.hidden === false;
-  },
-
-  updateEmbedMenuEntryState() {
-    if (!this.viewEntity) return;
-    const isActive = this.isEmbedModeActive();
-    const label = isActive ? t$1("menu.exitEmbed", "Exit embed") : t$1("menu.embed", "Embed");
-    const iconClass = isActive ? "embed-exit-icon" : "embed-icon";
-    this.viewEntity.innerHTML = `<span class="${iconClass}"></span><span>${label}</span>`;
-    const a11yLabel = isActive
-      ? t$1("menu.exitEmbedMode", "Exit embed mode")
-      : t$1("menu.openEmbedOptions", "Open embed options");
-    this.viewEntity.setAttribute("aria-label", a11yLabel);
-    this.viewEntity.setAttribute("title", a11yLabel);
-  },
-
-  closeEmbedConfigurator() {
-    if (this.embedConfiguratorPanel) {
-      this.embedConfiguratorPanel.hidden = true;
-    }
-    this.updateEmbedMenuEntryState();
-  },
-
-  closeEmbedMode() {
-    this.closeEmbedConfigurator();
-  },
-
   getStoredTheme() {
     if (this.urlOptions?.theme === "light" || this.urlOptions?.theme === "dark") {
       return this.urlOptions.theme;
@@ -12131,7 +13700,7 @@ const Viewer$1 = {
       cameraFov: this.parseFloatParam(params.get("fov")),
       presentationMode: core.PRESENTATION_MODE === true,
       sandboxMode: core.SANDBOX_MODE === true,
-      scale: this.parseVector2Param(params.get("scale")) || new THREE.Vector2(1, 1),
+      scale: this.parseVector2Param(params.get("scale")) ?? null,
       showNotifications: showNotificationsFromQuery !== false
     };
   },
@@ -12242,7 +13811,6 @@ const Viewer$1 = {
     this.updatePickingModeControllerLabel();
     this.updateDistanceMeasurementControllerLabel();
     this.updateSelectedFacesControllerLabel();
-    //this.updateLilGuiLabels();
     this.updateLocalPreviewLabels();
     this.updateIIIFFormLabels();
     this.updateMetadataPanelLabels();
@@ -12276,104 +13844,6 @@ const Viewer$1 = {
     if (typeof controller.updateDisplay === "function") {
       controller.updateDisplay();
     }
-  },
-
-  updateLilGuiLabels() {
-    const g = core.i18nGui;
-    if (!g) return;
-    this.setGuiFolderTitle(core.gui, t$1("gui.controls", "Controls"));
-    this.setGuiFolderTitle(g.editorFolder, t$1("gui.editor", "Editor"));
-    this.setGuiFolderTitle(g.lightFolder, t$1("gui.directionalLight", "Directional Light"));
-    this.setGuiFolderTitle(g.lightFolderAmbient, t$1("gui.ambientLight", "Ambient Light"));
-    this.setGuiFolderTitle(g.lightFolderCamera, t$1("gui.cameraLight", "Camera Light"));
-    this.setGuiFolderTitle(g.backgroundFolder, t$1("gui.backgroundColor", "Background Color"));
-    this.setGuiFolderTitle(g.clippingFolder, t$1("gui.clippingFolder", "Clipping Planes"));
-    this.setGuiFolderTitle(g.materialsFolder, t$1("gui.materials", "Materials"));
-    this.setGuiFolderTitle(g.metadataFolder, t$1("gui.metadata", "Metadata"));
-    this.setGuiFolderTitle(g.propertiesFolder, t$1("gui.saveProperties", "Save properties"));
-    this.setGuiFolderTitle(g.hierarchyFolder, t$1("gui.hierarchy", "Hierarchy"));
-    this.setGuiFolderTitle(g.statisticsFolder, t$1("gui.statistics", "Statistics"));
-
-    // Update clipping controllers
-    if (g.clippingFolder) {
-      g.clippingFolder.controllers.forEach(controller => {
-        switch (controller.property) {
-          case 'displayHelperX':
-            controller.name(t$1('gui.displayHelperX', 'Show X helper'));
-            break;
-          case 'displayHelperY':
-            controller.name(t$1('gui.displayHelperY', 'Show Y helper'));
-            break;
-          case 'displayHelperZ':
-            controller.name(t$1('gui.displayHelperZ', 'Show Z helper'));
-            break;
-          case 'constantX':
-            controller.name(t$1('gui.constantX', 'Constant X'));
-            break;
-          case 'constantY':
-            controller.name(t$1('gui.constantY', 'Constant Y'));
-            break;
-          case 'constantZ':
-            controller.name(t$1('gui.constantZ', 'Constant Z'));
-            break;
-          case 'visible':
-            controller.name(t$1('gui.visible', 'Visible'));
-            break;
-        }
-      });
-    }
-
-    g.clearSelectedFacesController?.name?.(t$1("gui.clearSelectedFaces", "Clear selected faces"));
-    g.transformObjectController?.name?.(t$1("gui.transform3dObject", "Transform 3D Object"));
-    g.transformLightController?.name?.(t$1("gui.transformLight", "Transform Light"));
-    g.transformModeController?.name?.(t$1("gui.transformMode", "Transform Mode"));
-    g.backgroundTypeController?.name?.(t$1("gui.backgroundType", "Background Type"));
-    g.backgroundColorController?.name?.(t$1("gui.backgroundColor", "Background Color"));
-    g.backgroundColorOuterController?.name?.(t$1("gui.backgroundColorOuter", "Background Color Outer"));
-    g.addAnnotationController?.name?.(t$1("gui.addAnnotations", "Add annotations"));
-    g.exportAnnotationsController?.name?.(t$1("gui.exportAnnotationsXml", "Export annotations XML"));
-    g.importAnnotationsController?.name?.(t$1("gui.importAnnotationsXml", "Import annotations XML"));
-    g.resetCameraController?.name?.(t$1("gui.resetCameraPosition", "Reset camera position"));
-    g.saveController?.name?.(t$1("gui.save", "Save"));
-    g.renderPreviewController?.name?.(t$1("gui.renderPreview", "Render preview"));
-    g.savePropPositionController?.name?.(t$1("gui.position", "Position"));
-    g.savePropRotationController?.name?.(t$1("gui.rotation", "Rotation"));
-    g.savePropScaleController?.name?.(t$1("gui.scale", "Scale"));
-    g.savePropCameraController?.name?.(t$1("gui.camera", "Camera"));
-    g.savePropDirectionalController?.name?.(t$1("gui.directionalLight", "Directional Light"));
-    g.savePropAmbientController?.name?.(t$1("gui.ambientLight", "Ambient Light"));
-    g.savePropCameraLightController?.name?.(t$1("gui.cameraLight", "Camera Light"));
-    g.savePropBackgroundController?.name?.(t$1("gui.backgroundColor", "Background Color"));
-    g.directionalLightColorController?.name?.(t$1("gui.color", "Color"));
-    g.directionalLightIntensityController?.name?.(t$1("gui.intensity", "Intensity"));
-    g.ambientLightColorController?.name?.(t$1("gui.color", "Color"));
-    g.ambientLightIntensityController?.name?.(t$1("gui.intensity", "Intensity"));
-    g.cameraLightColorController?.name?.(t$1("gui.color", "Color"));
-    g.cameraLightIntensityController?.name?.(t$1("gui.intensity", "Intensity"));
-    g.editMaterialsController?.name?.(t$1("gui.editMaterial", "Edit material"));
-
-    this.refreshOptionController(g.transformObjectController, {
-      [t$1("gui.none", "None")]: "",
-      [t$1("gui.move", "Move")]: "translate",
-      [t$1("gui.rotate", "Rotate")]: "rotate",
-      [t$1("gui.scale", "Scale")]: "scale",
-    });
-    this.refreshOptionController(g.transformModeController, {
-      [t$1("gui.local", "Local")]: "local",
-      [t$1("gui.global", "Global")]: "global",
-    });
-    this.refreshOptionController(g.transformLightController, {
-      [t$1("gui.none", "None")]: "",
-      [t$1("gui.move", "Move")]: "translate",
-      [t$1("gui.target", "Target")]: "rotate",
-    });
-    this.refreshOptionController(g.backgroundTypeController, {
-      [t$1("gui.linear", "Linear")]: "linear",
-      [t$1("gui.gradient", "Gradient")]: "gradient",
-    });
-    this.refreshOptionController(g.editMaterialsController, {
-      [t$1("gui.selectByMaterial", "select by material")]: "select by material",
-    });
   },
 
   updateLocalPreviewLabels() {
@@ -13358,427 +14828,6 @@ const Viewer$1 = {
       Viewer$1.maybeShowKeyboardHint();
       event.preventDefault();
       event.stopPropagation();
-    }
-  },
-
-  isEmbedMode() {
-    const params = new URLSearchParams(window.location.search);
-    const embedParam = params.get("embed");
-    return window.location.pathname.endsWith("/embed.html") || embedParam === "1" || embedParam === "true";
-  },
-
-  getEmbedPageUrl() {
-    const embedUrl = new URL("embed.html", import.meta.url);
-    embedUrl.search = "";
-    embedUrl.hash = "";
-    return embedUrl;
-  },
-
-  async copyTextToClipboard(value) {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(value);
-      return;
-    }
-
-    const tempInput = document.createElement("textarea");
-    tempInput.value = value;
-    tempInput.setAttribute("readonly", "true");
-    tempInput.style.position = "absolute";
-    tempInput.style.left = "-9999px";
-    document.body.appendChild(tempInput);
-    tempInput.select();
-    document.execCommand("copy");
-    tempInput.remove();
-  },
-
-  getCurrentEmbedOptions({ includeCamera = false } = {}) {
-    const entityId = core.CONFIG?.entity?.id;
-    const modelPath = core.fileObject?.originalPath || core.container?.getAttribute("3d") || "";
-    const options = {
-      model: modelPath || null,
-      id: entityId || null,
-      theme: this.currentTheme === "light" ? "light" : null,
-      autorotate: core.controls?.autoRotate === true,
-      autorotateSpeed: Number.isFinite(core.controls?.autoRotateSpeed) ? core.controls.autoRotateSpeed : null,
-      disableInteraction: this.urlOptions?.disableInteraction === true,
-      hideUi: this.urlOptions?.hideUi === true,
-      hideMetadata: this.urlOptions?.hideMetadata === true,
-      presentationMode: core.PRESENTATION_MODE === true,
-      sandboxMode: core.SANDBOX_MODE === true,
-      cameraPosition: null,
-      cameraTarget: null,
-      fov: null,
-    };
-
-    if (includeCamera) {
-      options.cameraPosition = this.formatVector3Param(core.camera?.position);
-      options.cameraTarget = this.formatVector3Param(core.controls?.target);
-      options.fov = Number.isFinite(core.camera?.fov) ? core.camera.fov : null;
-    }
-
-    return options;
-  },
-
-  applyEmbedOptionsToInputs(options = {}) {
-    if (!this.embedConfigInputs) return;
-    this.embedConfigInputs.model.value = options.model ?? "";
-    this.embedConfigInputs.id.value = options.id ?? "";
-    this.embedConfigInputs.theme.value = options.theme === "light" ? "light" : "dark";
-    this.embedConfigInputs.autorotate.checked = options.autorotate === true;
-    this.embedConfigInputs.autorotateSpeed.value = Number.isFinite(options.autorotateSpeed) ? String(options.autorotateSpeed) : "";
-    this.embedConfigInputs.disableInteraction.checked = options.disableInteraction === true;
-    this.embedConfigInputs.hideUi.checked = options.hideUi === true;
-    this.embedConfigInputs.hideMetadata.checked = options.hideMetadata === true;
-    this.embedConfigInputs.presentationMode.checked = options.presentationMode === true;
-    this.embedConfigInputs.camPos.value = options.cameraPosition ?? "";
-    this.embedConfigInputs.camTarget.value = options.cameraTarget ?? "";
-    this.embedConfigInputs.fov.value = Number.isFinite(options.fov) ? String(options.fov) : "";
-  },
-
-  setEmbedInputError(input, hasError, message = "") {
-    if (!input) return;
-    input.classList.toggle("embed-input-invalid", hasError);
-    if (hasError && message) {
-      input.setAttribute("title", message);
-      input.setAttribute("aria-invalid", "true");
-    } else {
-      input.removeAttribute("title");
-      input.removeAttribute("aria-invalid");
-    }
-  },
-
-  validateEmbedInputFields() {
-    if (!this.embedConfigInputs) return true;
-    const { camPos, camTarget, fov } = this.embedConfigInputs;
-    const camPosRaw = camPos.value.trim();
-    const camTargetRaw = camTarget.value.trim();
-    const fovRaw = fov.value.trim();
-
-    const camPosOk = camPosRaw === "" || this.parseVector3Param(camPosRaw) !== null;
-    const camTargetOk = camTargetRaw === "" || this.parseVector3Param(camTargetRaw) !== null;
-    const parsedFov = this.parseFloatParam(fovRaw);
-    const fovOk = fovRaw === "" || (Number.isFinite(parsedFov) && parsedFov >= 1 && parsedFov <= 179);
-
-    this.setEmbedInputError(camPos, !camPosOk, "Use format: x,y,z (for example 1.2,0.8,2.5)");
-    this.setEmbedInputError(camTarget, !camTargetOk, "Use format: x,y,z (for example 0,0,0)");
-    this.setEmbedInputError(fov, !fovOk, "FOV must be a number from 1 to 179");
-
-    return camPosOk && camTargetOk && fovOk;
-  },
-
-  buildEmbedPayload(options = {}) {
-    const embedUrl = this.getEmbedPageUrl();
-    const params = new URLSearchParams();
-
-    if (options.model) {
-      params.set("model", options.model);
-    } else if (options.id) {
-      params.set("id", options.id);
-    }
-
-    if (options.theme === "light") {
-      params.set("theme", options.theme);
-    }
-
-    if (options.autorotate === true) {
-      params.set("autorotate", "1");
-      if (Number.isFinite(options.autorotateSpeed)) {
-        params.set("autorotateSpeed", String(options.autorotateSpeed));
-      }
-    }
-
-    if (options.disableInteraction) {
-      params.set("disableInteraction", "1");
-    }
-    if (options.hideUi) {
-      params.set("hideUi", "1");
-    }
-    if (options.hideMetadata) {
-      params.set("hideMetadata", "1");
-    }
-    if (options.presentationMode) {
-      params.set("presentationMode", "1");
-    }
-    if (options.sandboxMode) {
-      params.set("sandbox", "1");
-    }
-    if (options.cameraPosition) {
-      params.set("camPos", options.cameraPosition);
-    }
-    if (options.cameraTarget) {
-      params.set("camTarget", options.cameraTarget);
-    }
-    if (Number.isFinite(options.fov)) {
-      params.set("fov", String(options.fov));
-    }
-
-    embedUrl.search = params.toString();
-
-    return {
-      url: embedUrl.toString(),
-      code: `<iframe src="${embedUrl.toString()}" title="DFG 3D Viewer" loading="lazy" allow="fullscreen; xr-spatial-tracking" referrerpolicy="strict-origin-when-cross-origin" style="width:100%; aspect-ratio: 16 / 9; border: 0;"></iframe>`,
-    };
-  },
-
-  getSharePayload() {
-    return this.buildEmbedPayload(this.getCurrentEmbedOptions({ includeCamera: true }));
-  },
-
-  collectEmbedConfiguratorOptions() {
-    const inputs = this.embedConfigInputs;
-    if (!inputs) return this.getCurrentEmbedOptions({ includeCamera: true });
-    const parsedCamPos = this.parseVector3Param(inputs.camPos.value);
-    const parsedCamTarget = this.parseVector3Param(inputs.camTarget.value);
-    const parsedFov = this.parseFloatParam(inputs.fov.value);
-    const normalizedFov = Number.isFinite(parsedFov) ? Math.min(179, Math.max(1, parsedFov)) : null;
-    return {
-      model: inputs.model.value.trim() || null,
-      id: inputs.id.value.trim() || null,
-      theme: inputs.theme.value === "light" ? "light" : null,
-      autorotate: inputs.autorotate.checked,
-      autorotateSpeed: this.parseFloatParam(inputs.autorotateSpeed.value),
-      disableInteraction: inputs.disableInteraction.checked,
-      hideUi: inputs.hideUi.checked,
-      hideMetadata: inputs.hideMetadata.checked,
-      presentationMode: inputs.presentationMode.checked,
-      cameraPosition: this.formatVector3Param(parsedCamPos),
-      cameraTarget: this.formatVector3Param(parsedCamTarget),
-      fov: normalizedFov,
-    };
-  },
-
-  hasEmbedSourceSelection(options = {}) {
-    return Boolean(options.model || options.id);
-  },
-
-  notifyMissingEmbedSource({ force = false } = {}) {
-    if (!force && this.embedMissingSourceNotified) return;
-    toastHelper$1("embedSourceMissing", "warning");
-    this.embedMissingSourceNotified = true;
-  },
-
-  updateEmbedConfiguratorPreview() {
-    if (!this.embedConfigInputs) return;
-    this.validateEmbedInputFields();
-    const options = this.collectEmbedConfiguratorOptions();
-    if (!this.hasEmbedSourceSelection(options)) {
-      this.notifyMissingEmbedSource();
-    } else {
-      this.embedMissingSourceNotified = false;
-    }
-    const payload = this.buildEmbedPayload(options);
-    this.embedConfigInputs.url.value = payload.url;
-    this.embedConfigInputs.iframe.value = payload.code;
-    if (this.embedConfigPreviewFrame) {
-      this.embedConfigPreviewFrame.src = payload.url;
-    }
-  },
-
-  fillConfiguratorWithCurrentCamera() {
-    if (!this.embedConfigInputs) return;
-    this.embedConfigInputs.camPos.value = this.formatVector3Param(core.camera?.position) || "";
-    this.embedConfigInputs.camTarget.value = this.formatVector3Param(core.controls?.target) || "";
-    this.embedConfigInputs.fov.value = Number.isFinite(core.camera?.fov) ? String(core.camera.fov) : "";
-    this.updateEmbedConfiguratorPreview();
-  },
-
-  resetEmbedConfiguratorFromViewerState() {
-    if (!this.embedConfigInputs) return;
-    this.applyEmbedOptionsToInputs(this.getCurrentEmbedOptions({ includeCamera: true }));
-    this.updateEmbedConfiguratorPreview();
-  },
-
-  toggleEmbedConfigurator(event) {
-    event?.preventDefault?.();
-    this.closeActionMenu();
-    if (!this.embedConfiguratorPanel) return;
-    const willShow = this.embedConfiguratorPanel.hidden === true;
-    this.embedConfiguratorPanel.hidden = !willShow;
-    if (willShow) {
-      this.updateEmbedConfiguratorPreview();
-    }
-    this.updateEmbedMenuEntryState();
-  },
-
-  openEmbedConfiguratorFromMenu(event) {
-    this.toggleEmbedConfigurator(event);
-  },
-
-  createEmbedConfiguratorPanel() {
-    if (!core.container || this.embedConfiguratorPanel) return;
-
-    const defaults = this.getCurrentEmbedOptions({ includeCamera: true });
-    const panelText = {
-      title: t$1("embedPanel.title", "Embed options"),
-      closeAria: t$1("embedPanel.closeAria", "Close embed options"),
-      modelUrl: t$1("embedPanel.modelUrl", "Model URL"),
-      modelUrlPlaceholder: t$1("embedPanel.modelUrlPlaceholder", "/examples/box.glb"),
-      entityId: t$1("embedPanel.entityId", "Entity ID"),
-      theme: t$1("embedPanel.theme", "Theme"),
-      themeDark: t$1("embedPanel.themeDark", "Dark"),
-      themeLight: t$1("embedPanel.themeLight", "Light"),
-      autoRotateSpeed: t$1("embedPanel.autoRotateSpeed", "Auto-rotate speed"),
-      cameraPosition: t$1("embedPanel.cameraPosition", "Camera position"),
-      cameraTarget: t$1("embedPanel.cameraTarget", "Camera target"),
-      cameraVectorPlaceholder: t$1("embedPanel.cameraVectorPlaceholder", "x,y,z"),
-      fov: t$1("embedPanel.fov", "FOV"),
-      autoRotate: t$1("embedPanel.autoRotate", "Auto-rotate"),
-      disableInteraction: t$1("embedPanel.disableInteraction", "Disable interaction"),
-      hideActionMenu: t$1("embedPanel.hideActionMenu", "Hide action menu"),
-      hideMetadata: t$1("embedPanel.hideMetadata", "Hide metadata"),
-      presentationMode: t$1("embedPanel.presentationMode", "Presentation mode"),
-      useCurrentCamera: t$1("embedPanel.useCurrentCamera", "Use Current Camera"),
-      resetFromViewer: t$1("embedPanel.resetFromViewer", "Reset From Viewer"),
-      copyUrl: t$1("embedPanel.copyUrl", "Copy URL"),
-      copyIframe: t$1("embedPanel.copyIframe", "Copy Iframe"),
-      embedUrl: t$1("embedPanel.embedUrl", "Embed URL"),
-      iframeCode: t$1("embedPanel.iframeCode", "Iframe code"),
-      preview: t$1("embedPanel.preview", "Preview"),
-      previewTitle: t$1("embedPanel.previewTitle", "Embed preview"),
-    };
-    const panel = document.createElement("div");
-    panel.id = "embedConfiguratorPanel";
-    panel.hidden = true;
-    panel.innerHTML = `
-      <div class="embed-config-header">
-        <span>${panelText.title}</span>
-        <button id="embedClosePanel" type="button" aria-label="${panelText.closeAria}">X</button>
-      </div>
-      <div class="embed-config-layout">
-        <div class="embed-config-main">
-          <div class="embed-config-grid">
-            <label>${panelText.modelUrl}<input id="embedModelInput" type="text" placeholder="${panelText.modelUrlPlaceholder}" value="${defaults.model ?? ""}" /></label>
-            <label>${panelText.entityId}<input id="embedIdInput" type="text" value="${defaults.id ?? ""}" /></label>
-            <label>${panelText.theme}
-              <select id="embedThemeInput">
-                <option value="dark">${panelText.themeDark}</option>
-                <option value="light"${defaults.theme === "light" ? " selected" : ""}>${panelText.themeLight}</option>
-              </select>
-            </label>
-            <label>${panelText.autoRotateSpeed}<input id="embedAutorotateSpeedInput" type="number" step="0.1" value="${Number.isFinite(defaults.autorotateSpeed) ? defaults.autorotateSpeed : ""}" /></label>
-            <label>${panelText.cameraPosition}<input id="embedCamPosInput" type="text" placeholder="${panelText.cameraVectorPlaceholder}" value="${defaults.cameraPosition ?? ""}" /></label>
-            <label>${panelText.cameraTarget}<input id="embedCamTargetInput" type="text" placeholder="${panelText.cameraVectorPlaceholder}" value="${defaults.cameraTarget ?? ""}" /></label>
-            <label>${panelText.fov}<input id="embedFovInput" type="number" step="1" min="1" max="179" value="${Number.isFinite(defaults.fov) ? defaults.fov : ""}" /></label>
-          </div>
-          <div class="embed-config-checks">
-            <label><input id="embedAutorotateInput" type="checkbox"${defaults.autorotate ? " checked" : ""} /> ${panelText.autoRotate}</label>
-            <label><input id="embedDisableInteractionInput" type="checkbox"${defaults.disableInteraction ? " checked" : ""} /> ${panelText.disableInteraction}</label>
-            <label><input id="embedHideUiInput" type="checkbox"${defaults.hideUi ? " checked" : ""} /> ${panelText.hideActionMenu}</label>
-            <label><input id="embedHideMetadataInput" type="checkbox"${defaults.hideMetadata ? " checked" : ""} /> ${panelText.hideMetadata}</label>
-            <label><input id="embedPresentationModeInput" type="checkbox"${defaults.presentationMode ? " checked" : ""} /> ${panelText.presentationMode}</label>
-          </div>
-          <div class="embed-config-actions">
-            <button id="embedUseCurrentCamera" type="button">${panelText.useCurrentCamera}</button>
-            <button id="embedResetFromViewer" type="button">${panelText.resetFromViewer}</button>
-            <button id="embedCopyUrl" type="button">${panelText.copyUrl}</button>
-            <button id="embedCopyIframe" type="button">${panelText.copyIframe}</button>
-          </div>
-          <label class="embed-config-field">${panelText.embedUrl}<textarea id="embedUrlOutput" readonly></textarea></label>
-          <label class="embed-config-field">${panelText.iframeCode}<textarea id="embedIframeOutput" readonly></textarea></label>
-        </div>
-        <div class="embed-config-preview-side">
-          <span>${panelText.preview}</span>
-          <iframe id="embedPreviewFrame" title="${panelText.previewTitle}" loading="lazy"></iframe>
-        </div>
-      </div>
-    `;
-
-    core.container.appendChild(panel);
-    this.embedConfiguratorPanel = panel;
-    this.embedConfigInputs = {
-      model: panel.querySelector("#embedModelInput"),
-      id: panel.querySelector("#embedIdInput"),
-      theme: panel.querySelector("#embedThemeInput"),
-      autorotate: panel.querySelector("#embedAutorotateInput"),
-      autorotateSpeed: panel.querySelector("#embedAutorotateSpeedInput"),
-      disableInteraction: panel.querySelector("#embedDisableInteractionInput"),
-      hideUi: panel.querySelector("#embedHideUiInput"),
-      hideMetadata: panel.querySelector("#embedHideMetadataInput"),
-      presentationMode: panel.querySelector("#embedPresentationModeInput"),
-      camPos: panel.querySelector("#embedCamPosInput"),
-      camTarget: panel.querySelector("#embedCamTargetInput"),
-      fov: panel.querySelector("#embedFovInput"),
-      url: panel.querySelector("#embedUrlOutput"),
-      iframe: panel.querySelector("#embedIframeOutput"),
-    };
-    this.embedConfigPreviewFrame = panel.querySelector("#embedPreviewFrame");
-
-    const watchedInputs = [
-      this.embedConfigInputs.model,
-      this.embedConfigInputs.id,
-      this.embedConfigInputs.theme,
-      this.embedConfigInputs.autorotate,
-      this.embedConfigInputs.autorotateSpeed,
-      this.embedConfigInputs.disableInteraction,
-      this.embedConfigInputs.hideUi,
-      this.embedConfigInputs.hideMetadata,
-      this.embedConfigInputs.presentationMode,
-      this.embedConfigInputs.camPos,
-      this.embedConfigInputs.camTarget,
-      this.embedConfigInputs.fov,
-    ];
-    watchedInputs.forEach((input) => {
-      if (!input) return;
-      const eventName = input.type === "checkbox" || input.tagName === "SELECT" ? "change" : "input";
-      this.bindEventListener(input, eventName, () => this.updateEmbedConfiguratorPreview());
-    });
-
-    const useCurrentCameraButton = panel.querySelector("#embedUseCurrentCamera");
-    const resetFromViewerButton = panel.querySelector("#embedResetFromViewer");
-    const copyUrlButton = panel.querySelector("#embedCopyUrl");
-    const copyIframeButton = panel.querySelector("#embedCopyIframe");
-    const closePanelButton = panel.querySelector("#embedClosePanel");
-
-    this.bindEventListener(useCurrentCameraButton, "click", () => this.fillConfiguratorWithCurrentCamera());
-    this.bindEventListener(resetFromViewerButton, "click", () => this.resetEmbedConfiguratorFromViewerState());
-    this.bindEventListener(closePanelButton, "click", () => {
-      this.closeEmbedConfigurator();
-    });
-    this.bindEventListener(copyUrlButton, "click", async () => {
-      try {
-        const options = this.collectEmbedConfiguratorOptions();
-        if (!this.hasEmbedSourceSelection(options)) {
-          this.notifyMissingEmbedSource({ force: true });
-          return;
-        }
-        const payload = this.buildEmbedPayload(options);
-        await this.copyTextToClipboard(payload.url);
-        toastHelper$1("embedUrlCopied", "success");
-      } catch (error) {
-        this.reportError(error, { context: "Copy embed URL failed" });
-        toastHelper$1("embedUrlCopyError", "error");
-      }
-    });
-    this.bindEventListener(copyIframeButton, "click", async () => {
-      try {
-        const options = this.collectEmbedConfiguratorOptions();
-        if (!this.hasEmbedSourceSelection(options)) {
-          this.notifyMissingEmbedSource({ force: true });
-          return;
-        }
-        const payload = this.buildEmbedPayload(options);
-        await this.copyTextToClipboard(payload.code);
-        toastHelper$1("embedIframeCopied", "success");
-      } catch (error) {
-        this.reportError(error, { context: "Copy embed iframe failed" });
-        toastHelper$1("embedIframeCopyError", "error");
-      }
-    });
-
-    this.updateEmbedConfiguratorPreview();
-  },
-
-  async copyEmbedCode(event) {
-    event?.preventDefault?.();
-    Viewer$1.closeActionMenu();
-
-    try {
-      const { code } = Viewer$1.getSharePayload();
-      await Viewer$1.copyTextToClipboard(code);
-      toastHelper$1("embedCodeCopied", "success");
-    } catch (error) {
-      Viewer$1.reportError(error, { context: "Copy embed code failed" });
-      toastHelper$1("embedCodeCopyError", "error");
     }
   },
 
@@ -15057,1001 +16106,7 @@ const Viewer$1 = {
     center.applyMatrix4(object.matrixWorld);
     return center;
   },
-
-  clearAnnotationPOIs() {
-    this.closeAnnotationPOITooltip();
-    if (!this.annotationPOIGroup) {
-      this.annotationPOIMarkers = [];
-      return;
-    }
-
-    this.annotationPOIGroup.children.slice().forEach((child) => {
-      this.removeAndDisposeFromScene(child);
-    });
-    this.annotationPOIGroup.clear();
-    this.annotationPOIMarkers = [];
-    this.annotationPOIGroup.visible = false;
-  },
-
-  ensureAnnotationPOIGroup() {
-    if (this.annotationPOIGroup) return this.annotationPOIGroup;
-    const group = new THREE.Group();
-    group.name = "annotation-poi-group";
-    group.visible = false;
-    core.scene?.add?.(group);
-    this.annotationPOIGroup = group;
-    return group;
-  },
-
-  createNumberTexture(text) {
-    const size = 128;
-    const canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
-
-    const ctx = canvas.getContext("2d");
-
-    ctx.fillStyle = "rgba(0,0,0,0.6)";
-    ctx.beginPath();
-    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#fff";
-    ctx.font = "bold 64px Arial";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(text, size / 2, size / 2);
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.needsUpdate = true;
-
-    return texture;
-  },
-
-  createAnnotationPOIMarker(entry, position, index = 1) {
-    const radius = Math.max((this.gridSize || core.gridSize || 1) / 15, 0.005);
-
-    const texture = Viewer$1.createNumberTexture(index.toString());
-
-    const spriteMaterial = new THREE.SpriteMaterial({
-      map: texture,
-      transparent: true,
-      depthTest: false,
-    });
-
-    const sprite = new THREE.Sprite(spriteMaterial);
-
-    sprite.scale.set(radius, radius, 1);
-
-    sprite.position.copy(position);
-
-    sprite.userData.isAnnotationPOI = true;
-    sprite.userData.annotationId = entry.id;
-    sprite.userData.groupId = entry.groupId || "";
-    sprite.userData.key = entry.key || "";
-    sprite.userData.targetId = entry.targetId;
-    sprite.userData.faceIndex = entry.faceIndex;
-    sprite.userData.title = entry.title || "";
-
-    return sprite;
-  },
-
-  ensureAnnotationPOITooltip() {
-    if (this.annotationPOITooltip) return this.annotationPOITooltip;
-    const tooltip = document.createElement("div");
-    tooltip.id = "annotationPOITooltip";
-    tooltip.className = "annotation-poi-tooltip";
-    tooltip.hidden = true;
-    tooltip.innerHTML = `
-      <div class="annotation-poi-tooltip__panel" role="status" aria-live="polite" aria-atomic="true">
-        <div class="annotation-poi-tooltip__title" id="annotationPOITooltipTitle"></div>
-      </div>
-    `;
-    document.body.appendChild(tooltip);
-    this.annotationPOITooltip = tooltip;
-    this.annotationPOITooltipTitle = tooltip.querySelector("#annotationPOITooltipTitle");
-    return tooltip;
-  },
-
-  openAnnotationPOITooltip(marker) {
-    if (!marker?.userData?.isAnnotationPOI) {
-      this.closeAnnotationPOITooltip();
-      return false;
-    }
-
-    const tooltip = this.ensureAnnotationPOITooltip();
-    if (!tooltip) return false;
-
-    this.annotationPOITooltipTarget = marker;
-    const titleText = String(marker.userData?.title || "").trim();
-    if (this.annotationPOITooltipTitle) {
-      this.annotationPOITooltipTitle.textContent = titleText || "Annotation";
-    }
-
-    tooltip.hidden = false;
-    tooltip.style.visibility = "visible";
-    this.updateAnnotationPOITooltipPosition();
-    return true;
-  },
-
-  getAnnotationEntriesForPOIMarker(marker) {
-    if (!marker?.userData?.isAnnotationPOI) return [];
-    const markerId = String(marker.userData?.annotationId || "").trim();
-    const markerGroupId = String(marker.userData?.groupId || "").trim();
-    const markerKey = String(marker.userData?.key || "").trim();
-
-    let baseEntry = null;
-    if (markerId) {
-      baseEntry = this.annotationEntries.find((entry) => String(entry?.id || "") === markerId) || null;
-    }
-    if (!baseEntry && markerKey) {
-      baseEntry = this.annotationEntries.find((entry) => String(entry?.key || "") === markerKey) || null;
-    }
-
-    const effectiveGroupId = String(baseEntry?.groupId || markerGroupId || "").trim();
-    if (effectiveGroupId) {
-      const groupedEntries = this.annotationEntries.filter(
-        (entry) => String(entry?.groupId || "").trim() === effectiveGroupId
-      );
-      if (groupedEntries.length > 0) return groupedEntries;
-    }
-
-    if (baseEntry) return [baseEntry];
-
-    const fallbackTargetId = String(marker.userData?.targetId || "").trim();
-    const fallbackFaceIndex = Number(marker.userData?.faceIndex);
-    if (!fallbackTargetId || !Number.isInteger(fallbackFaceIndex) || fallbackFaceIndex < 0) return [];
-    return [{
-      id: markerId || "",
-      key: this.getFaceSelectionKey(fallbackTargetId, fallbackFaceIndex),
-      targetId: fallbackTargetId,
-      object: fallbackTargetId,
-      faceIndex: fallbackFaceIndex,
-      title: String(marker.userData?.title || "").trim(),
-      description: "",
-      groupId: effectiveGroupId,
-    }];
-  },
-
-  openAnnotationDialogFromPOIMarker(marker) {
-    const entries = this.getAnnotationEntriesForPOIMarker(marker);
-    if (!entries.length) {
-      toastHelper$1("annotationDataMissing", "warning");
-      return false;
-    }
-
-    this.buildAnnotationDialog();
-    if (!this.annotationDialog) return false;
-
-    const keys = entries
-      .map((entry) => String(entry?.key || "").trim())
-      .filter(Boolean);
-    this.annotationTargetFaceKeys = Array.from(new Set(keys));
-
-    const existingGroupIds = Array.from(
-      new Set(entries.map((entry) => String(entry?.groupId || "").trim()).filter(Boolean))
-    );
-    this.annotationBatchGroupId = existingGroupIds.length === 1
-      ? existingGroupIds[0]
-      : `anno-group-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-
-    const uniqueTitles = Array.from(
-      new Set(entries.map((entry) => String(entry?.title || "").trim()))
-    );
-    const uniqueDescriptions = Array.from(
-      new Set(entries.map((entry) => String(entry?.description || "").trim()))
-    );
-    this.annotationDialogTitleInput.value = uniqueTitles.length === 1 ? uniqueTitles[0] : "";
-    this.annotationDialogDescriptionInput.value =
-      uniqueDescriptions.length === 1 ? uniqueDescriptions[0] : "";
-
-    this.updateAnnotationDialogBounds();
-    this.annotationDialog.hidden = false;
-    this.closeAnnotationPOITooltip();
-    this.closeActionMenu();
-    this.annotationDialogTitleInput?.focus();
-    this.annotationDialogTitleInput?.select();
-    return true;
-  },
-
-  closeAnnotationPOITooltip() {
-    this.annotationPOITooltipTarget = null;
-    if (!this.annotationPOITooltip) return;
-    this.annotationPOITooltip.hidden = true;
-    this.annotationPOITooltip.style.visibility = "hidden";
-  },
-
-  updateAnnotationPOITooltipPosition() {
-    const tooltip = this.annotationPOITooltip;
-    const marker = this.annotationPOITooltipTarget;
-    if (!tooltip || tooltip.hidden || !marker || !core.camera) return;
-
-    const rect =
-      Viewer$1.mainCanvas?.getBoundingClientRect?.() ||
-      core.container?.getBoundingClientRect?.();
-    if (!rect || rect.width <= 0 || rect.height <= 0) return;
-
-    const worldPosition = new THREE.Vector3();
-    marker.getWorldPosition(worldPosition);
-    const projected = worldPosition.clone().project(core.camera);
-    const withinDepth = projected.z >= -1 && projected.z <= 1;
-    const screenX = rect.left + ((projected.x + 1) / 2) * rect.width;
-    const screenY = rect.top + ((-projected.y + 1) / 2) * rect.height;
-    const withinHorizontal = screenX >= rect.left && screenX <= rect.right;
-    const withinVertical = screenY >= rect.top && screenY <= rect.bottom;
-    if (!withinDepth || !withinHorizontal || !withinVertical) {
-      tooltip.style.visibility = "hidden";
-      return;
-    }
-
-    tooltip.style.left = `${Math.round(screenX)}px`;
-    tooltip.style.top = `${Math.round(screenY)}px`;
-    tooltip.style.visibility = "visible";
-  },
-
-  refreshAnnotationPOIs() {
-    this.clearAnnotationPOIs();
-    const entries = this.getAnnotationEntriesForPersistence();
-    if (!entries.length) return 0;
-
-    const group = this.ensureAnnotationPOIGroup();
-    let added = 0;
-    entries.forEach((entry) => {
-      const object = this.resolveObjectByTargetId(entry.targetId);
-      if (!object) return;
-      const point = this.getFaceCentroidWorld(object, entry.faceIndex);
-      if (!point) return;
-      const marker = this.createAnnotationPOIMarker(entry, point, entries.indexOf(entry) + 1);
-      group.add(marker);
-      this.annotationPOIMarkers.push(marker);
-      added += 1;
-    });
-
-    group.visible = added > 0;
-    return added;
-  },
-
-  buildAnnotationDialog() {
-    if (!core.container || this.annotationDialog) return;
-
-    const dialog = document.createElement("div");
-    dialog.id = "annotationDialog";
-    dialog.className = "annotation-dialog";
-    dialog.hidden = true;
-    dialog.innerHTML = `
-      <div class="annotation-dialog__backdrop" data-annotation-dismiss="true"></div>
-      <div class="annotation-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="annotationDialogTitle">
-        <div class="annotation-dialog__header">
-          <h3 id="annotationDialogTitle">Add annotation</h3>
-          <button type="button" class="annotation-dialog__close" data-annotation-dismiss="true" aria-label="Close annotation dialog">&times;</button>
-        </div>
-        <form id="annotationDialogForm" class="annotation-dialog__form">
-          <label>
-            <span>Title</span>
-            <input id="annotationTitleInput" name="title" type="text" maxlength="120" required />
-          </label>
-          <label>
-            <span>Description</span>
-            <textarea id="annotationDescriptionInput" name="description" rows="5" maxlength="4000"></textarea>
-          </label>
-          <div class="annotation-dialog__actions">
-            <button type="submit">Save annotation</button>
-            <button type="button" data-annotation-dismiss="true">Cancel</button>
-          </div>
-        </form>
-      </div>
-    `;
-
-    document.body.appendChild(dialog);
-    this.annotationDialog = dialog;
-    this.annotationDialogHost = document.body;
-    this.annotationDialogTitleInput = dialog.querySelector("#annotationTitleInput");
-    this.annotationDialogDescriptionInput = dialog.querySelector("#annotationDescriptionInput");
-    const form = dialog.querySelector("#annotationDialogForm");
-
-    this.bindEventListener(dialog, "click", (event) => {
-      const dismissTrigger = event.target?.closest?.("[data-annotation-dismiss='true']");
-      if (dismissTrigger) {
-        this.closeAnnotationDialog();
-      }
-    });
-
-    this.bindEventListener(document, "keydown", (event) => {
-      if (event.key !== "Escape") return;
-      if (!this.annotationDialog || this.annotationDialog.hidden) return;
-      event.preventDefault();
-      this.closeAnnotationDialog();
-    });
-
-    this.bindEventListener(form, "submit", (event) => {
-      event.preventDefault();
-      this.saveAnnotationFromDialog();
-    });
-
-    this.bindEventListener(window, "resize", () => this.updateAnnotationDialogBounds());
-    this.bindEventListener(window, "scroll", () => this.updateAnnotationDialogBounds(), true);
-    this.bindEventListener(document, "fullscreenchange", () => this.updateAnnotationDialogBounds());
-  },
-
-  updateAnnotationDialogBounds() {
-    if (!this.annotationDialog) return;
-    const targetRect =
-      Viewer$1.mainCanvas?.getBoundingClientRect?.() ||
-      core.container?.getBoundingClientRect?.();
-    if (!targetRect) return;
-
-    const left = Math.max(0, Math.round(targetRect.left));
-    const top = Math.max(0, Math.round(targetRect.top));
-    const width = Math.max(0, Math.round(targetRect.width));
-    const height = Math.max(0, Math.round(targetRect.height));
-
-    this.annotationDialog.style.left = `${left}px`;
-    this.annotationDialog.style.top = `${top}px`;
-    this.annotationDialog.style.width = `${width}px`;
-    this.annotationDialog.style.height = `${height}px`;
-  },
-
-  openAnnotationDialog() {
-    if (!Array.isArray(this.selectedFaces) || this.selectedFaces.length === 0) {
-      toastHelper$1("selectFaceRequired", "warning");
-      return;
-    }
-
-    this.buildAnnotationDialog();
-    if (!this.annotationDialog) return;
-
-    const selectedKeys = this.selectedFaces
-      .map((entry) => String(entry?.key || "").trim())
-      .filter(Boolean);
-    this.annotationTargetFaceKeys = selectedKeys;
-    const existingGroupIds = Array.from(
-      new Set(
-        selectedKeys
-          .map((key) => this.annotationEntries.find((entry) => entry.key === key)?.groupId || "")
-          .map((value) => String(value).trim())
-          .filter(Boolean)
-      )
-    );
-    this.annotationBatchGroupId = existingGroupIds.length === 1
-      ? existingGroupIds[0]
-      : `anno-group-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-
-    const existingEntries = selectedKeys
-      .map((key) => this.annotationEntries.find((entry) => entry.key === key))
-      .filter(Boolean);
-    const uniqueTitles = Array.from(
-      new Set(existingEntries.map((entry) => String(entry.title || "").trim()))
-    );
-    const uniqueDescriptions = Array.from(
-      new Set(existingEntries.map((entry) => String(entry.description || "").trim()))
-    );
-    this.annotationDialogTitleInput.value = uniqueTitles.length === 1 ? uniqueTitles[0] : "";
-    this.annotationDialogDescriptionInput.value =
-      uniqueDescriptions.length === 1 ? uniqueDescriptions[0] : "";
-    this.updateAnnotationDialogBounds();
-    this.annotationDialog.hidden = false;
-    this.closeAnnotationPOITooltip();
-    this.closeActionMenu();
-    this.annotationDialogTitleInput?.focus();
-    this.annotationDialogTitleInput?.select();
-  },
-
-  openAnnotationDialogWithAutoPicking() {
-    if (!this.pickingMode) {
-      this.pickingMode = true;
-      this.RULER_MODE = false;
-      this.updateDistanceMeasurementControllerLabel();
-      this.updatePickingModeControllerLabel();
-      this.updatePickingControlsVisibility();
-      toastHelper$1("featureToggle", "info", {
-        feature: "Face picking",
-        state: "enabled"
-      });
-    }
-
-    if (!Array.isArray(this.selectedFaces) || this.selectedFaces.length === 0) {
-      toastHelper$1("selectFaceRequiredAgain", "warning");
-      return;
-    }
-
-    this.openAnnotationDialog();
-  },
-
-  closeAnnotationDialog() {
-    if (!this.annotationDialog) return;
-    this.annotationDialog.hidden = true;
-    this.annotationTargetFaceKeys = [];
-    this.annotationBatchGroupId = "";
-  },
-
-  saveAnnotationFromDialog() {
-    if (!Array.isArray(this.annotationTargetFaceKeys) || this.annotationTargetFaceKeys.length === 0) {
-      toastHelper$1("noFacesSelected", "warning");
-      this.closeAnnotationDialog();
-      return;
-    }
-
-    const title = String(this.annotationDialogTitleInput?.value || "").trim();
-    const description = String(this.annotationDialogDescriptionInput?.value || "").trim();
-
-    if (!title) {
-      toastHelper$1("titleRequired", "warning");
-      this.annotationDialogTitleInput?.focus();
-      return;
-    }
-
-    const selectedFaces = this.annotationTargetFaceKeys
-      .map((key) => {
-        const selected = this.selectedFaces.find((entry) => entry.key === key);
-        if (selected) return selected;
-        const existingEntry = this.annotationEntries.find((entry) => entry.key === key);
-        if (!existingEntry) return null;
-        return {
-          key: existingEntry.key,
-          targetId: existingEntry.targetId || existingEntry.object || "",
-          object: existingEntry.object || existingEntry.targetId || "",
-          faceIndex: existingEntry.faceIndex,
-        };
-      })
-      .filter(Boolean);
-    if (selectedFaces.length === 0) {
-      toastHelper$1("facesInactive", "warning");
-      this.closeAnnotationDialog();
-      return;
-    }
-
-    const nowIso = new Date().toISOString();
-    const groupId = String(this.annotationBatchGroupId || `anno-group-${Date.now()}`);
-    let updatedCount = 0;
-    let addedCount = 0;
-
-    selectedFaces.forEach((selectedFace) => {
-      const faceNumber = Number(selectedFace.faceIndex);
-      const normalizedFaceNumber = Number.isInteger(faceNumber) ? faceNumber : -1;
-      const annotationTargetId = selectedFace.targetId || selectedFace.object || "";
-      const stableTargetToken = Viewer$1.toStableIdToken(annotationTargetId);
-      const existingIndex = this.annotationEntries.findIndex(
-        (entry) => entry.key === selectedFace.key
-      );
-      if (!annotationTargetId || normalizedFaceNumber < 0) return;
-
-      const annotationPayload = {
-        id: existingIndex >= 0
-          ? this.annotationEntries[existingIndex].id
-          : `anno-${stableTargetToken}-f${normalizedFaceNumber}`,
-        groupId,
-        key: selectedFace.key,
-        object: annotationTargetId,
-        targetId: annotationTargetId,
-        faceIndex: normalizedFaceNumber,
-        faceNumbers: [normalizedFaceNumber],
-        target: {
-          id: annotationTargetId,
-          faces: [normalizedFaceNumber],
-        },
-        title,
-        description,
-        updatedAt: nowIso,
-      };
-
-      if (existingIndex >= 0) {
-        annotationPayload.createdAt = this.annotationEntries[existingIndex].createdAt || nowIso;
-        this.annotationEntries.splice(existingIndex, 1, annotationPayload);
-        updatedCount += 1;
-      } else {
-        annotationPayload.createdAt = nowIso;
-        this.annotationEntries.push(annotationPayload);
-        addedCount += 1;
-      }
-    });
-
-    const totalChanged = updatedCount + addedCount;
-    if (totalChanged > 0) {
-      toastHelper$1("annotationsSaved", "success", {
-        count: totalChanged,
-        plural: totalChanged === 1 ? "" : "s"
-      });
-    }
-
-    this.refreshAnnotationPOIs();
-    this.closeAnnotationDialog();
-  },
-
-  getAnnotationEntriesForPersistence() {
-    if (!Array.isArray(this.annotationEntries)) return [];
-
-    return this.annotationEntries
-      .map((entry, index) => {
-        if (!entry || typeof entry !== "object") return null;
-        const targetId = String(entry.targetId || entry.object || "").trim();
-        const faceNumbersRaw = Array.isArray(entry.faceNumbers)
-          ? entry.faceNumbers
-          : [entry.faceIndex];
-        const faceNumbers = faceNumbersRaw
-          .map((value) => Number(value))
-          .filter((value) => Number.isInteger(value) && value >= 0);
-        const faceIndex = faceNumbers[0] ?? Number(entry.faceIndex);
-        const normalizedFaceIndex = Number.isInteger(faceIndex) && faceIndex >= 0 ? faceIndex : -1;
-        if (!targetId || normalizedFaceIndex < 0) return null;
-
-        const key = this.getFaceSelectionKey(targetId, normalizedFaceIndex);
-        const fallbackId = `anno-${this.toStableIdToken(targetId)}-f${normalizedFaceIndex}`;
-
-        return {
-          id: String(entry.id || fallbackId),
-          groupId: entry.groupId ? String(entry.groupId) : "",
-          key,
-          object: targetId,
-          targetId,
-          faceIndex: normalizedFaceIndex,
-          faceNumbers: faceNumbers.length > 0 ? faceNumbers : [normalizedFaceIndex],
-          target: {
-            id: targetId,
-            faces: faceNumbers.length > 0 ? faceNumbers : [normalizedFaceIndex],
-          },
-          title: String(entry.title || "").trim(),
-          description: String(entry.description || "").trim(),
-          createdAt: entry.createdAt ? String(entry.createdAt) : "",
-          updatedAt: entry.updatedAt ? String(entry.updatedAt) : "",
-        };
-      })
-      .filter(Boolean);
-  },
-
-  exportAnnotationsToIIIFXml() {
-    const entries = this.getAnnotationEntriesForPersistence();
-    const doc = document.implementation.createDocument("", "", null);
-    const root = doc.createElement("iiif:annotations");
-    root.setAttribute("xmlns:iiif", "http://iiif.io/api/presentation/3#");
-    root.setAttribute("version", "3.0");
-    root.setAttribute("generatedAt", new Date().toISOString());
-    doc.appendChild(root);
-
-    entries.forEach((entry) => {
-      const annotation = doc.createElement("iiif:annotation");
-      annotation.setAttribute("id", entry.id);
-      annotation.setAttribute("type", "Annotation");
-      annotation.setAttribute("motivation", "commenting");
-      if (entry.groupId) {
-        annotation.setAttribute("groupId", String(entry.groupId));
-      }
-
-      const body = doc.createElement("iiif:body");
-      body.setAttribute("type", "TextualBody");
-      body.setAttribute("format", "text/plain");
-
-      const titleNode = doc.createElement("iiif:title");
-      titleNode.textContent = entry.title || "";
-      body.appendChild(titleNode);
-
-      const descriptionNode = doc.createElement("iiif:description");
-      descriptionNode.textContent = entry.description || "";
-      body.appendChild(descriptionNode);
-      annotation.appendChild(body);
-
-      const targetNode = doc.createElement("iiif:target");
-      targetNode.setAttribute("id", entry.targetId);
-      targetNode.setAttribute("faces", entry.faceNumbers.join(","));
-      annotation.appendChild(targetNode);
-
-      root.appendChild(annotation);
-    });
-
-    return new XMLSerializer().serializeToString(doc);
-  },
-
-  downloadAnnotationsXmlFile() {
-    const xml = this.exportAnnotationsToIIIFXml();
-    if (!xml) {
-      toastHelper$1("noAnnotationsToExport", "warning");
-      return false;
-    }
-
-    const defaultBaseName = core.fileObject?.basename || "annotations";
-    const safeBaseName = String(defaultBaseName).replace(/[^a-zA-Z0-9._-]+/g, "_");
-    const fileName = `${safeBaseName || "annotations"}-iiif-annotations.xml`;
-    const blob = new Blob([xml], { type: "application/xml;charset=utf-8" });
-    const objectUrl = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = objectUrl;
-    link.download = fileName;
-    link.style.display = "none";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
-    toastHelper$1("annotationsExported", "success");
-    return true;
-  },
-
-  ensureAnnotationImportInput() {
-    if (this.annotationImportInput) return this.annotationImportInput;
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".xml,text/xml,application/xml";
-    input.hidden = true;
-    this.bindEventListener(input, "change", async (event) => {
-      const target = event?.target;
-      const file = target?.files?.[0];
-      if (!file) return;
-
-      try {
-        const xmlText = await file.text();
-        const imported = this.importAnnotationsFromIIIFXml(xmlText);
-        if (imported > 0) {
-          toastHelper$1("annotationsImported", "success", {
-            count: imported,
-            plural: imported === 1 ? "" : "s"
-          });
-        } else {
-          toastHelper$1("noValidAnnotations", "warning");
-        }
-      } catch (error) {
-        console.error(error);
-        toastHelper$1("annotationsImportError", "error");
-      } finally {
-        target.value = "";
-      }
-    });
-    document.body.appendChild(input);
-    this.annotationImportInput = input;
-    return input;
-  },
-
-  triggerAnnotationsXmlImport() {
-    const input = this.ensureAnnotationImportInput();
-    if (!input) return false;
-    input.click();
-    return true;
-  },
-
-  importAnnotationsFromIIIFXml(xmlText) {
-    const xml = String(xmlText || "").trim();
-    if (!xml) {
-      this.annotationEntries = [];
-      return 0;
-    }
-
-    let doc;
-    try {
-      doc = new DOMParser().parseFromString(xml, "application/xml");
-    } catch (_error) {
-      return 0;
-    }
-
-    if (!doc || doc.querySelector("parsererror")) {
-      return 0;
-    }
-
-    const annotations = Array.from(
-      doc.querySelectorAll("annotation, iiif\\:annotation")
-    );
-    const importedEntries = [];
-
-    annotations.forEach((node, index) => {
-      const rawId = node.getAttribute("id") || "";
-      const rawGroupId = node.getAttribute("groupId") || "";
-      const targetNode =
-        node.querySelector("target, iiif\\:target") ||
-        node.getElementsByTagName("target")[0] ||
-        node.getElementsByTagName("iiif:target")[0];
-      const targetId = String(targetNode?.getAttribute?.("id") || "").trim();
-      const facesAttr = String(targetNode?.getAttribute?.("faces") || "").trim();
-      const faceNumbers = facesAttr
-        .split(/[,\s;|]+/)
-        .filter(Boolean)
-        .map((value) => Number(value))
-        .filter((value) => Number.isInteger(value) && value >= 0);
-      const faceIndex = faceNumbers[0];
-      if (!targetId || !Number.isInteger(faceIndex)) return;
-
-      const titleNode =
-        node.querySelector("title, iiif\\:title, label, iiif\\:label") ||
-        node.getElementsByTagName("title")[0] ||
-        node.getElementsByTagName("iiif:title")[0];
-      const descriptionNode =
-        node.querySelector("description, iiif\\:description, value, iiif\\:value") ||
-        node.getElementsByTagName("description")[0] ||
-        node.getElementsByTagName("iiif:description")[0];
-
-      const key = this.getFaceSelectionKey(targetId, faceIndex);
-      importedEntries.push({
-        id: rawId || `anno-${this.toStableIdToken(targetId)}-f${faceIndex}-${index}`,
-        groupId: rawGroupId ? String(rawGroupId) : "",
-        key,
-        object: targetId,
-        targetId,
-        faceIndex,
-        faceNumbers: faceNumbers.length > 0 ? faceNumbers : [faceIndex],
-        target: {
-          id: targetId,
-          faces: faceNumbers.length > 0 ? faceNumbers : [faceIndex],
-        },
-        title: String(titleNode?.textContent || "").trim(),
-        description: String(descriptionNode?.textContent || "").trim(),
-      });
-    });
-
-    this.annotationEntries = importedEntries;
-    this.refreshAnnotationPOIs();
-    return importedEntries.length;
-  },
-
-  hydrateAnnotationsFromMetadataPayload(payload) {
-    if (!payload || typeof payload !== "object") {
-      this.annotationEntries = [];
-      this.refreshAnnotationPOIs();
-      return 0;
-    }
-
-    const xmlCandidate = payload.iiifAnnotationsXml
-      || payload.iiif_annotations_xml
-      || payload.annotationsXml
-      || payload.annotations_xml
-      || "";
-    if (typeof xmlCandidate === "string" && xmlCandidate.trim() !== "") {
-      return this.importAnnotationsFromIIIFXml(xmlCandidate);
-    }
-
-    if (Array.isArray(payload.annotationEntries)) {
-      this.annotationEntries = payload.annotationEntries
-        .map((entry, index) => {
-          const targetId = String(entry?.targetId || entry?.object || entry?.target?.id || "").trim();
-          const faceNumbers = Array.isArray(entry?.faceNumbers)
-            ? entry.faceNumbers
-            : Array.isArray(entry?.target?.faces)
-              ? entry.target.faces
-              : [entry?.faceIndex];
-          const normalizedFaces = faceNumbers
-            .map((value) => Number(value))
-            .filter((value) => Number.isInteger(value) && value >= 0);
-          const faceIndex = normalizedFaces[0];
-          if (!targetId || !Number.isInteger(faceIndex)) return null;
-          return {
-            id: String(entry?.id || `anno-${this.toStableIdToken(targetId)}-f${faceIndex}-${index}`),
-            groupId: entry?.groupId ? String(entry.groupId) : "",
-            key: this.getFaceSelectionKey(targetId, faceIndex),
-            object: targetId,
-            targetId,
-            faceIndex,
-            faceNumbers: normalizedFaces.length > 0 ? normalizedFaces : [faceIndex],
-            target: {
-              id: targetId,
-              faces: normalizedFaces.length > 0 ? normalizedFaces : [faceIndex],
-            },
-            title: String(entry?.title || "").trim(),
-            description: String(entry?.description || "").trim(),
-            createdAt: entry?.createdAt ? String(entry.createdAt) : "",
-            updatedAt: entry?.updatedAt ? String(entry.updatedAt) : "",
-          };
-        })
-        .filter(Boolean);
-      this.refreshAnnotationPOIs();
-      return this.annotationEntries.length;
-    }
-
-    this.annotationEntries = [];
-    this.refreshAnnotationPOIs();
-    return 0;
-  },
-
-  extractAnnotationsXmlFromExportDocument(doc) {
-    if (!doc) return "";
-    const node =
-      doc.querySelector("iiif\\:annotations, annotations, iiif_annotations, iiif_annotations_xml") ||
-      doc.getElementsByTagName("iiif:annotations")[0] ||
-      doc.getElementsByTagName("annotations")[0] ||
-      doc.getElementsByTagName("iiif_annotations")[0] ||
-      doc.getElementsByTagName("iiif_annotations_xml")[0];
-    if (!node) return "";
-
-    if (node.tagName === "iiif_annotations_xml") {
-      return String(node.textContent || "").trim();
-    }
-
-    try {
-      return new XMLSerializer().serializeToString(node);
-    } catch (_error) {
-      return "";
-    }
-  },
-
-  applyPendingAnnotationsIfAny() {
-    const pendingXml = String(this.pendingAnnotationsXml || "").trim();
-    if (!pendingXml) return 0;
-    const imported = this.importAnnotationsFromIIIFXml(pendingXml);
-    this.pendingAnnotationsXml = "";
-    return imported;
-  },
-
-  clearSelectedFaces() {
-    if (!Array.isArray(Viewer$1.selectedFaces) || Viewer$1.selectedFaces.length === 0) {
-      Viewer$1.updateSelectedFacesCount();
-      return;
-    }
-
-    Viewer$1.selectedFaces.forEach((entry) => {
-      Viewer$1.disposeFaceOverlay(entry);
-    });
-    Viewer$1.selectedFaces.length = 0;
-    Viewer$1.updateSelectedFacesCount();
-  },
-
-  restoreLastPickedFace() {
-    if (!Viewer$1.lastPickedFace.overlay) {
-      Viewer$1.lastPickedFace = { id: "", object: "", faceIndex: null, overlay: null };
-      return;
-    }
-
-    Viewer$1.disposeFaceOverlay(Viewer$1.lastPickedFace);
-
-    Viewer$1.lastPickedFace = { id: "", object: "", faceIndex: null, overlay: null };
-  },
-
-  pickFaces(_id) {
-    const hoveredObjectId = _id?.object?.id ?? "";
-    const hoveredFaceIndex = _id?.faceIndex ?? null;
-    if (!hoveredObjectId) {
-      Viewer$1.restoreLastPickedFace();
-      return;
-    }
-
-    if (
-      Viewer$1.lastPickedFace.object === hoveredObjectId &&
-      Viewer$1.lastPickedFace.faceIndex === hoveredFaceIndex
-    ) {
-      return;
-    }
-
-    Viewer$1.restoreLastPickedFace();
-    const overlay = Viewer$1.createPickingFaceOverlay(_id, {
-      fillColor: 0xff3b30,
-      lineColor: 0xffffff,
-      opacity: 0.4,
-    });
-    if (!overlay) return;
-
-    Viewer$1.lastPickedFace = {
-      id: hoveredObjectId,
-      object: hoveredObjectId,
-      faceIndex: hoveredFaceIndex,
-      overlay,
-    };
-
-    _id.object.add(overlay);
-  },
-
-  toggleSelectedFace(intersection, options = {}) {
-    const targetId = Viewer$1.resolveFaceTargetId(intersection?.object);
-    const runtimeObjectId = intersection?.object?.id ?? "";
-    const faceIndex = intersection?.faceIndex ?? null;
-    if (!targetId || faceIndex === null) return;
-
-    const multiSelect = options.multiSelect === true;
-    const selectedFaceIndex = Viewer$1.findSelectedFaceIndex(targetId, faceIndex);
-
-    if (!multiSelect) {
-      const clickedFaceKey = Viewer$1.getFaceSelectionKey(targetId, faceIndex);
-      const clickedFaceAlreadySelected =
-        selectedFaceIndex >= 0 && Viewer$1.selectedFaces.length === 1 &&
-        Viewer$1.selectedFaces[0]?.key === clickedFaceKey;
-
-      Viewer$1.clearSelectedFaces();
-
-      if (clickedFaceAlreadySelected) {
-        return;
-      }
-    }
-
-    if (selectedFaceIndex >= 0) {
-      const [selectedFace] = Viewer$1.selectedFaces.splice(selectedFaceIndex, 1);
-      Viewer$1.disposeFaceOverlay(selectedFace);
-      Viewer$1.updateSelectedFacesCount();
-      return;
-    }
-
-    const overlay = Viewer$1.createPickingFaceOverlay(intersection, {
-      fillColor: 0x00c853,
-      lineColor: 0xe8ffe8,
-      opacity: 0.5,
-    });
-    if (!overlay) return;
-
-    intersection.object.add(overlay);
-    Viewer$1.selectedFaces.push({
-      key: Viewer$1.getFaceSelectionKey(targetId, faceIndex),
-      targetId,
-      object: targetId,
-      runtimeObjectId,
-      faceIndex,
-      overlay,
-    });
-    Viewer$1.updateSelectedFacesCount();
-  },
-
-  buildRuler(_id) {
-    Viewer$1.rulerObject = new THREE.Object3D();
-    const gridSize = Viewer$1.gridSize || core.gridSize || 1;
-    const sphereRadius = Math.max(gridSize / 150, 0.001);
-    const textScale = Math.max(gridSize / 100, 0.01);
-    const measureSize = Math.max(gridSize / 200, 0.01);
-
-    var sphere = new THREE.Mesh(
-      new THREE.SphereGeometry(sphereRadius, 7, 7),
-      new THREE.MeshStandardMaterial({
-        color: 0xff0000,
-        transparent: true,
-        opacity: 0.85,
-        side: THREE.DoubleSide,
-        depthTest: false,
-        depthWrite: false,
-      })
-    );
-    var newPoint = new THREE.Vector3(_id.point.x, _id.point.y, _id.point.z);
-    sphere.position.set(newPoint.x, newPoint.y, newPoint.z);
-    Viewer$1.rulerObject.add(sphere);
-    Viewer$1.linePoints.push(newPoint);
-    const lineGeometry = new THREE.BufferGeometry().setFromPoints(Viewer$1.linePoints);
-    const lineMaterial = new THREE.LineBasicMaterial({ color: 0x0000ff });
-    const line = new THREE.Line(lineGeometry, lineMaterial);
-    Viewer$1.rulerObject.add(line);
-    var lineMtr = new THREE.LineBasicMaterial({
-      color: 0x0000ff,
-      linewidth: 3,
-      opacity: 1,
-      side: THREE.DoubleSide,
-      depthTest: false,
-      depthWrite: false,
-    });
-    if (Viewer$1.linePoints.length > 1) {
-      var vectorPoints = vectorBetweenPoints(
-        Viewer$1.linePoints[Viewer$1.linePoints.length - 2],
-        newPoint
-      );
-      var distancePoints = distanceBetweenPointsVector(vectorPoints);
-      const measuredDistance = Viewer$1.formatMeasuredDistance(distancePoints);
-
-      //var distancePoints = distanceBetweenPoints(Viewer.linePoints[Viewer.linePoints.length-2], newPoint);
-      var halfwayPoints = halfwayBetweenPoints(
-        Viewer$1.linePoints[Viewer$1.linePoints.length - 2],
-        newPoint
-      );
-      Viewer$1.addTextPoint(measuredDistance.text, textScale, halfwayPoints);
-      var rulerI = 0;
-      // `measureSize` was already precomputed outside, keep same scale
-      while (rulerI <= distancePoints * 100) {
-        const geoSegm = [];
-        var interpolatePoints = interpolateDistanceBetweenPoints(
-          Viewer$1.linePoints[Viewer$1.linePoints.length - 2],
-          vectorPoints,
-          distancePoints,
-          rulerI / 100
-        );
-        geoSegm.push(
-          new THREE.Vector3(
-            interpolatePoints.x,
-            interpolatePoints.y,
-            interpolatePoints.z
-          )
-        );
-        geoSegm.push(
-          new THREE.Vector3(
-            interpolatePoints.x + measureSize,
-            interpolatePoints.y + measureSize,
-            interpolatePoints.z + measureSize
-          )
-        );
-        const geometryLine = new THREE.BufferGeometry().setFromPoints(geoSegm);
-        var lineSegm = new THREE.Line(geometryLine, lineMtr);
-        Viewer$1.rulerObject.add(lineSegm);
-        rulerI += 10;
-      }
-    }
-    Viewer$1.rulerObject.renderOrder = 10;
-    core.scene.add(Viewer$1.rulerObject);
-    Viewer$1.ruler.push(Viewer$1.rulerObject);
-  },
-
+  /* measurement and face-picking moved to viewer/editor/measurement.js */
 
   updateSize() {
     const isFullscreen = !!document.fullscreenElement;
@@ -18111,6 +18166,11 @@ const Viewer$1 = {
   }
   
 };
+
+attachEmbedConfigurator(Viewer$1);
+attachMaterialsEditor(Viewer$1);
+attachAnnotations(Viewer$1);
+attachMeasurement(Viewer$1);
 
 async function expectWebGL(page) {
   const hasWebGL = await page.evaluate(() => {

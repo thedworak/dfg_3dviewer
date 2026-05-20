@@ -235,10 +235,25 @@ class ConvertWorker extends QueueWorkerBase {
 
   private function convertFile($entity, File $file, array $cfg, string $module_path): array {
     $fs = \Drupal::service('file_system');
-    $realpath = $fs->realpath($file->getFileUri());
+    $realpath = NULL;
+
+    for ($i = 0; $i < 10; $i++) {
+      clearstatcache();
+
+      $candidate = $fs->realpath($file->getFileUri());
+
+      if ($candidate && is_file($candidate)) {
+        $realpath = $candidate;
+        break;
+      }
+
+      usleep(500000); // 0.5 sec
+    }
 
     if (!$realpath || !is_file($realpath)) {
-      throw new \RuntimeException('Input file does not exist on filesystem.');
+      throw new \RuntimeException(
+        'Input file does not exist on filesystem after retry wait.'
+      );
     }
 
     $parts = pathinfo($realpath);
@@ -267,7 +282,8 @@ class ConvertWorker extends QueueWorkerBase {
           try {
             $zip = new Zip($realpath);
             $zip->extract($extract_path);
-            $zip->remove($realpath);
+            clearstatcache();
+            //$zip->remove($realpath);
           }
           catch (ArchiverException $e) {
             throw new \RuntimeException('Archive extraction failed: ' . $e->getMessage(), 0, $e);
