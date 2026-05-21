@@ -84,6 +84,8 @@ import {
 } from "./editor-toolbar.js";
 import { VIEWER_I18N } from "./i18n.js";
 import { t } from "./i18n-utils.js";
+import { loadDroppedArchive } from "./extract-helper.js";
+import { loadDroppedModel } from "./sandbox.js";
 import { clipping } from 'three/src/nodes/accessors/ClippingNode.js';
 
 export const Viewer = {
@@ -172,7 +174,8 @@ export const Viewer = {
   THEME_STORAGE_KEY: "iiif-dark-mode",
   LANGUAGE_STORAGE_KEY: "viewer-language",
   I18N: VIEWER_I18N,
-  SUPPORTED_EXTENSIONS: ['obj', 'dae', 'fbx', 'ply', 'ifc', 'stl', 'xyz', 'json', '3ds', 'pcd', 'gltf', 'glb', 'zip', 'rar', 'tar', 'xz', 'gz'],
+  SUPPORTED_EXTENSIONS: ['glb', 'gltf', 'obj', 'dae', 'fbx', 'ply', 'ifc', 'stl', 'xyz', 'json', '3ds', 'pcd'],
+  SUPPORTED_ARCHIVES: ['zip', 'rar', 'tar', 'xz', 'gz'],
   GESTURE: {handPx: 55, period: 5.5, rotate: false, active: false, target: new THREE.Vector3(), startTime: 0, baseAngle: 0, orbitAngle: THREE.MathUtils.degToRad(15), easeInTime: 2.25},
   lastTime: null,
   originalMetadata: [],
@@ -1403,7 +1406,11 @@ export const Viewer = {
   },
 
   getSupportedFormatsText() {
-    return this.SUPPORTED_EXTENSIONS.map((extension) => extension.toUpperCase()).join(", ");
+    return core.SUPPORTED_EXTENSIONS.map((extension) => extension.toUpperCase()).join(", ");
+  },
+
+  getSupportedArchiveFormatsText() {
+    return core.SUPPORTED_ARCHIVES.map((extension) => extension.toUpperCase()).join(", ");
   },
 
   updateDragAndDropHint() {
@@ -1812,10 +1819,13 @@ export const Viewer = {
     this.statusNotice.appendChild(messageNode);
 
     if (detail) {
-      const detailNode = document.createElement("span");
-      detailNode.className = "viewer-notice-detail";
-      detailNode.textContent = detail;
-      this.statusNotice.appendChild(detailNode);
+      const detailLines = detail.split(/\r?\n/);
+      for (const line of detailLines) {
+        const detailNode = document.createElement("span");
+        detailNode.className = "viewer-notice-detail";
+        detailNode.innerHTML = line;
+        this.statusNotice.appendChild(detailNode);
+      }
     }
   },
 
@@ -2421,6 +2431,8 @@ export const Viewer = {
     setCore('lilGui', this.lilGui);
     setCore('gui', this.gui);
     setCore('i18nGui', this.i18nGui);
+    setCore('SUPPORTED_EXTENSIONS', this.SUPPORTED_EXTENSIONS);
+    setCore('SUPPORTED_ARCHIVES', this.SUPPORTED_ARCHIVES);
     setCore('enqueueStatusNotice', this.enqueueStatusNotice.bind(this));
     setCore('dismissStatusNotice', this.dismissStatusNotice.bind(this));
     setCore('updateClippingHintVisibility', this.updateClippingHintVisibility.bind(this));
@@ -2696,13 +2708,18 @@ export const Viewer = {
 
   normalizeArchiveModelPath(path) {
     if (!path || typeof path !== "string") {
-      return path;
+      return "";
     }
 
-    const injectGltfSegment = (pathname) => pathname.replace(
-      /\/([^/]+_(ZIP|RAR|TAR|XZ|GZ))\/([^/]+\.(glb|gltf))$/i,
-      "/$1/gltf/$3"
-    );
+    const injectGltfSegment = (pathname) => {
+      if (!/\/[^/]+_(ZIP|RAR|TAR|XZ|GZ)\//i.test(pathname) || /\/gltf\//i.test(pathname)) {
+        return pathname;
+      }
+      return pathname.replace(
+        /^(.*\/[^/]+_(ZIP|RAR|TAR|XZ|GZ))(\/?)(.*)$/i,
+        "$1/gltf/$4"
+      );
+    };
 
     if (/^[a-zA-Z][\w+-.]*:\/\//.test(path)) {
       try {
@@ -3958,48 +3975,31 @@ export const Viewer = {
 
   async onDrop(e) {
     e.preventDefault();
+
     const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      const file = files[0];
-      const extension = file.name.split('.').pop().toLowerCase();
-      
-      if (Viewer.SUPPORTED_EXTENSIONS.includes(extension)) {
-        // Clear existing model
-        if (core.mainObject.length > 0) {
-          core.mainObject.forEach(obj => {
-            core.scene.remove(obj);
-          });
-          core.mainObject = [];
-        }
-        
-        // Set up fileObject for the dropped file
-        const url = URL.createObjectURL(file);
-        core.fileObject.originalPath = url;
-        core.fileObject.filename = url;  // Use URL as filename for blob
-        core.fileObject.basename = file.name.substring(0, file.name.lastIndexOf('.'));
-        core.fileObject.extension = extension;
-        core.fileObject.path = '';  // No path for blob URLs
-        core.fileObject.uri = url;
-        core.fileObject.relativePath = url;
-        
-        Viewer._ext = extension;
-        
-        setCore('fileObject', core.fileObject);
-        
-        // Clear autoPath to prevent overriding with server URL
-        core.autoPath = '';
-        
-        // Load the model
-        await Viewer.mainLoadModel();
-        if (core.SANDBOX_MODE) {
-          Viewer.showSandboxGuiAfterModelLoad();
-          Viewer.dismissStatusNotice("sandbox-drop-model");
-        }        
-        toastHelper("modelLoadedSimple", "success");
-      } else {
-        toastHelper("unsupportedFormat", "error");
-      }
+
+    if (!files || files.length === 0) {
+      return;
     }
+
+    const file = files[0];
+
+    const extension = file.name
+      .split('.')
+      .pop()
+      .toLowerCase();
+
+    if (core.SUPPORTED_EXTENSIONS.includes(extension)) {
+      await loadDroppedModel(file);
+      return;
+    }
+
+    if (Viewer.SUPPORTED_ARCHIVES.includes(extension)) {
+      await loadDroppedArchive(file);
+      return;
+    }
+
+    toastHelper("unsupportedFormat", "error");
   },
 
   async changeScale() {
@@ -4207,13 +4207,7 @@ export const Viewer = {
     console.log("Loading model:", core.fileObject.basename, ", with extension:", core.fileObject.extension);
     if (Viewer._ext === "glb" || Viewer._ext === "gltf") {
       await loadModel();
-    } else if (
-      Viewer._ext === "zip" ||
-      Viewer._ext === "rar" ||
-      Viewer._ext === "tar" ||
-      Viewer._ext === "xz" ||
-      Viewer._ext === "gz"
-    ) {
+    } else if (Viewer.SUPPORTED_ARCHIVES.includes(Viewer._ext)) {
       core.loadedFile = "_" + Viewer._ext.toUpperCase() + "/";
       core.fileObject.path = core.fileObject.path + core.fileObject.basename + core.loadedFile
       core.fileObject.extension = "glb";
@@ -4259,6 +4253,7 @@ export const Viewer = {
 
     toastHelper("sandboxDropModel", "info", {
       formats: this.getSupportedFormatsText(),
+      archives: this.getSupportedArchiveFormatsText(),
       detailI18nKey: "toasts.supportedFormats",
       key: "sandbox-drop-model",
       replace: true,
@@ -5415,13 +5410,7 @@ export const Viewer = {
       Viewer.GESTURE.handPx *= Math.min(window.innerWidth / 1200, 1);
 
       Viewer._ext = core.fileObject.extension.toLowerCase();
-      if (
-        Viewer._ext === "zip" ||
-        Viewer._ext === "rar" ||
-        Viewer._ext === "tar" ||
-        Viewer._ext === "xz" ||
-        Viewer._ext === "gz"
-      ) {
+      if (Viewer.SUPPORTED_ARCHIVES.includes(Viewer._ext)) {
         Viewer.archiveType = Viewer._ext;
       }
       

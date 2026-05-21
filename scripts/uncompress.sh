@@ -22,7 +22,9 @@ while getopts ":t:o:i:f:n:" flag; do
   esac
 done
 
-source "$SCRIPT_DIR/.env"
+if [[ -f "$SCRIPT_DIR/.env" ]]; then
+  source "$SCRIPT_DIR/.env"
+fi
 
 die() {
   echo "Error: $*" >&2
@@ -43,6 +45,15 @@ TYPE="${TYPE,,}"
 mkdir -p "$OUTPUT"
 
 case "$TYPE" in
+  zip)
+    if command -v unzip >/dev/null 2>&1; then
+      unzip -o "$INPUT" -d "$OUTPUT"
+    elif command -v 7z >/dev/null 2>&1; then
+      7z x -y "-o$OUTPUT" "$INPUT"
+    else
+      die "ZIP extraction requires 'unzip' or '7z'"
+    fi
+    ;;
   rar)
     if command -v unrar >/dev/null 2>&1; then
       unrar x -o+ "$INPUT" "$OUTPUT/"

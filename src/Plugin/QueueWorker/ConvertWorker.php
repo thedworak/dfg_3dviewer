@@ -279,15 +279,39 @@ class ConvertWorker extends QueueWorkerBase {
         }
 
         if ($extension === 'zip') {
-          try {
-            $zip = new Zip($realpath);
-            $zip->extract($extract_path);
-            clearstatcache();
-            //$zip->remove($realpath);
+          if (!class_exists(\ZipArchive::class)) {
+            throw new \RuntimeException('ZipArchive extension is required for zip extraction.');
           }
-          catch (ArchiverException $e) {
-            throw new \RuntimeException('Archive extraction failed: ' . $e->getMessage(), 0, $e);
+
+          $zipArchive = new \ZipArchive();
+          $openResult = $zipArchive->open($realpath);
+          if ($openResult !== TRUE) {
+            throw new \RuntimeException('Cannot open zip archive: error code ' . $openResult);
           }
+
+          for ($i = 0; $i < $zipArchive->numFiles; $i++) {
+            $entryName = $zipArchive->getNameIndex($i);
+            if ($entryName === false) {
+              continue;
+            }
+
+            $normalizedEntry = str_replace('\\', '/', $entryName);
+            if (strpos($normalizedEntry, '..') !== false
+              || preg_match('#(^|/)\.{1,2}(/|$)#', $normalizedEntry)
+              || preg_match('#^([A-Za-z]:|/)#', $normalizedEntry)
+            ) {
+              $zipArchive->close();
+              throw new \RuntimeException('Zip archive contains unsafe path entry: ' . $entryName);
+            }
+          }
+
+          if (!$zipArchive->extractTo($extract_path)) {
+            $zipArchive->close();
+            throw new \RuntimeException('Archive extraction failed during zip extract.');
+          }
+
+          $zipArchive->close();
+          clearstatcache();
         }
         else {
           $map = [
@@ -302,7 +326,16 @@ class ConvertWorker extends QueueWorkerBase {
             ->uncompress($module_path, $type, $realpath, $extract_path, $parts['filename']);
 
           if (!($result['success'] ?? FALSE)) {
-            throw new \RuntimeException('Archive extraction failed.');
+            $error = trim((string) ($result['error'] ?? ''));
+            $output = trim((string) ($result['output'] ?? ''));
+            $details = '';
+            if ($error !== '') {
+              $details .= ' Error: ' . $error;
+            }
+            if ($output !== '') {
+              $details .= ' Output: ' . $output;
+            }
+            throw new \RuntimeException('Archive extraction failed.' . $details);
           }
         }
 

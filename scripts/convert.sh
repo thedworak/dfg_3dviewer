@@ -24,7 +24,9 @@
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODULE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-source "$SCRIPT_DIR/.env"
+if [[ -f "$SCRIPT_DIR/.env" ]]; then
+  source "$SCRIPT_DIR/.env"
+fi
 BLENDER_BIN="${BLENDER_BIN:-}"
 if [[ -z "$BLENDER_BIN" ]]; then
 	BLENDER_BIN="blender"
@@ -138,6 +140,10 @@ bool() {
 
 file_exists() {
   [[ -f "$1" ]] || die "File not found: $1"
+}
+
+require_cmd() {
+  command -v "$1" >/dev/null 2>&1 || die "Required command not found: $1"
 }
 
 ######################################
@@ -297,14 +303,15 @@ handle_gml_file () {
 
 	create_flock "$INPATH" "$FILENAME"
 
+	require_cmd python3
 	GLB_PATH="${INPATH}/${NAME}_GLB"
 	
-	mkdir -p $GLB_PATH
-	cp -rf $INPATH/$FILENAME $GLB_PATH/
-	python3 ${SPATH}/scripts/CityGML2OBJv2/CityGML2OBJs.py -i "$GLB_PATH" -o "$GLB_PATH" > /dev/null 2>&1
+	mkdir -p "$GLB_PATH"
+	cp -rf "$INPATH/$FILENAME" "$GLB_PATH/"
+	python3 "${SPATH}/scripts/CityGML2OBJv2/CityGML2OBJs.py" -i "$GLB_PATH" -o "$GLB_PATH" > /dev/null 2>&1
 	create_dirs
 	"$BLENDER_BIN" -b -P "${SPATH}/scripts/2gltf2/2gltf2.py" -- "$GLB_PATH/${NAME}.obj" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
-	rm -rf $GLB_PATH
+	rm -rf "$GLB_PATH"
 
 }
 

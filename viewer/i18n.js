@@ -228,7 +228,7 @@ export const VIEWER_I18N = {
       presentationModeReady: "Presentation mode is ready.",
       presentationModeError: "An error occurred during presentation mode setup.",
       sandboxDropModel: "Drag and drop a 3D model into the viewer.",
-      supportedFormats: "Supported formats: {formats}.",
+      supportedFormats: "<strong>Supported formats</strong>:\n{formats}\nand <strong>archive formats</strong>: {archives}.",
 
       embedSourceMissing: "Set Model URL or Entity ID for embed.",
       embedUrlCopied: "Embed URL copied.",
@@ -496,7 +496,7 @@ export const VIEWER_I18N = {
       presentationModeReady: "Tryb prezentacji jest gotowy.",
       presentationModeError: "Wystąpił błąd podczas konfiguracji trybu prezentacji.",
       sandboxDropModel: "Przeciągnij i upuść model 3D w oknie viewer'a.",
-      supportedFormats: "Obsługiwane formaty: {formats}.",
+      supportedFormats: "Obsługiwane formaty: {formats}.\nObsługiwane archiwa: {archives}.",
 
       embedSourceMissing: "Ustaw URL modelu lub ID encji do osadzenia.",
       embedUrlCopied: "Skopiowano URL osadzenia.",
@@ -763,7 +763,7 @@ export const VIEWER_I18N = {
       presentationModeReady: "Präsentationsmodus ist bereit.",
       presentationModeError: "Beim Einrichten des Präsentationsmodus ist ein Fehler aufgetreten.",
       sandboxDropModel: "Ziehen Sie ein 3D-Modell per Drag-and-drop in den Viewer.",
-      supportedFormats: "Unterstützte Formate: {formats}.",
+      supportedFormats: "Unterstützte Formate: {formats}.\nUnterstützte Archive: {archives}.",
 
       embedSourceMissing: "Model-URL oder Entitäts-ID für die Einbettung festlegen.",
       embedUrlCopied: "Einbettungs-URL kopiert.",

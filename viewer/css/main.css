@@ -195,8 +195,12 @@ canvas {
   display: block;
 }
 
+.viewer-notice-message {
+  padding-bottom: 10px;
+}
+
 .viewer-notice-status[data-variant="sandbox"] .viewer-notice-detail {
-  margin-top: 10px;
+  margin-top: 4px;
   font-size: 11px;
   line-height: 1.2;
   font-weight: 400;

@@ -2,7 +2,9 @@
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/.env"
+if [[ -f "${SCRIPT_DIR}/.env" ]]; then
+  source "${SCRIPT_DIR}/.env"
+fi
 BLENDER_BIN="${BLENDER_BIN:-}"
 if [[ -z "$BLENDER_BIN" ]]; then
   BLENDER_BIN="blender"
@@ -152,8 +154,7 @@ if [[ -n "$GLB_INPUT" ]]; then
 fi
 
 if [[ ! -f "$INPUT_GLTF_PATH" ]]; then
-  echo "Warning: Render input not found: $INPUT_GLTF_PATH"
-  exit 1
+  die "Render input not found: $INPUT_GLTF_PATH"
 fi
 
 mkdir -p "$INPATH/views"
@@ -167,9 +168,9 @@ flock -n 201 || {
 }
 trap 'flock -u 201 2>/dev/null || true; exec 201>&- 2>/dev/null || true; rm -f "$RENDER_LOCKFILE"' EXIT
 
-check_blender
-check_xvfb_run
-check_scripts
+check_blender || die "Blender validation failed"
+check_xvfb_run || die "xvfb-run validation failed"
+check_scripts || die "Dependency scripts directory not found"
 
 if [[ -z "$RENDER_RESOLUTION" ]]; then
   RENDER_RESOLUTION='1024x1024x16'
