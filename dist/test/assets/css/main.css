@@ -200,7 +200,7 @@ canvas {
 }
 
 .viewer-notice-status[data-variant="sandbox"] .viewer-notice-detail {
-  margin-top: 2px;
+  margin-top: 4px;
   font-size: 11px;
   line-height: 1.2;
   font-weight: 400;
@@ -538,7 +538,7 @@ canvas {
 }
 
 #loading-log {
-  position: absolute;
+  position: fixed;
   left: 0px;
   bottom: 0px;
   z-index: 90;
@@ -555,8 +555,8 @@ canvas {
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
   backdrop-filter: blur(10px);
   opacity: 1;
-  transform: translateY(0);
   transition: opacity 180ms ease, transform 180ms ease, border-color 180ms ease;
+  transform: translateX(8px) translateY(50vh) scale(var(--viewer-toolbar-scale));
 }
 
 #loading-log[hidden] {

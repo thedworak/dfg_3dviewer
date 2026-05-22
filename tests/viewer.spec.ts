@@ -2,10 +2,11 @@
 import { test, expect } from '@playwright/test';
 
 const defaultModel = '/examples/box.stl';
-const supportedFormatsText = 'OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, GLTF, GLB, ZIP, RAR, TAR, XZ, GZ';
+const supportedFormatsText = 'GLB, GLTF, OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD';
 const sandboxDropMessage = 'Drag and drop a 3D model into the viewer.';
-const sandboxSupportedFormatsNotice = `Supported formats: ${supportedFormatsText}.`;
-const sandboxDropNotice = `${sandboxDropMessage} ${sandboxSupportedFormatsNotice}`;
+const sandboxSupportedFormatsNotice = `<strong>Supported formats</strong>: ${supportedFormatsText}\n`;
+const sandboxSupportedArchiveFormatsNotice = 'and <strong>archive formats</strong>: ZIP, RAR, TAR, XZ, GZ.';
+const sandboxDropNotice = `${sandboxDropMessage} ${sandboxSupportedFormatsNotice} ${sandboxSupportedArchiveFormatsNotice}`;
 const supportedExamples = [
   { format: 'dae', path: '/examples/box.dae' },
   { format: 'stl', path: '/examples/box.stl' },
@@ -71,8 +72,8 @@ test('sandbox mode starts without loading a model', async ({ page }) => {
   await openSandboxViewer(page);
 
   await page.waitForFunction(
-    (expectedNotice) => window.viewer?.toasts?.includes(expectedNotice),
-    sandboxDropNotice
+    (msg) => window.viewer?.toasts?.some((t) => t.includes(msg)),
+    sandboxDropMessage
   );
   await page.waitForTimeout(3_000);
 
@@ -87,7 +88,7 @@ test('sandbox mode starts without loading a model', async ({ page }) => {
   }));
 
   expect(state.modelLoaded).toBe(false);
-  expect(state.toasts).toContain(sandboxDropNotice);
+  expect(state.toasts.some((t) => t.includes(sandboxDropMessage))).toBe(true);
   expect(state.guiHidden).toBe(true);
   expect(state.sandboxNoticeVisible).toBe(true);
   expect(state.noticeContainerCentered).toBe(true);
@@ -98,7 +99,10 @@ test('sandbox notice updates after language changes', async ({ page }) => {
 
   const notice = page.locator('#viewerStatusNotice[data-variant="sandbox"]');
   await expect(notice.locator('.viewer-notice-message')).toHaveText(sandboxDropMessage);
-  await expect(notice.locator('.viewer-notice-detail')).toHaveText(sandboxSupportedFormatsNotice);
+  // details are rendered as separate lines/spans: label, formats list, archives
+  await expect(notice.locator('.viewer-notice-detail').nth(0)).toContainText('Supported formats');
+  await expect(notice.locator('.viewer-notice-detail').nth(1)).toHaveText(supportedFormatsText);
+  await expect(notice.locator('.viewer-notice-detail').nth(2)).toContainText('archive formats');
 
   await page.evaluate(() => {
     document.querySelector<HTMLElement>('#viewerLanguageMode')?.click();
@@ -106,7 +110,9 @@ test('sandbox notice updates after language changes', async ({ page }) => {
   });
 
   await expect(notice.locator('.viewer-notice-message')).toHaveText("Przeciągnij i upuść model 3D w oknie viewer'a.");
-  await expect(notice.locator('.viewer-notice-detail')).toHaveText(`Obsługiwane formaty: ${supportedFormatsText}.`);
+  await expect(notice.locator('.viewer-notice-detail').nth(0)).toContainText('formaty');
+  await expect(notice.locator('.viewer-notice-detail').nth(1)).toHaveText(supportedFormatsText);
+  await expect(notice.locator('.viewer-notice-detail').nth(2)).toContainText('archiwa');
 });
 
 for (const example of supportedExamples) {

@@ -705,7 +705,7 @@ const VIEWER_I18N = {
       presentationModeReady: "Tryb prezentacji jest gotowy.",
       presentationModeError: "Wystąpił błąd podczas konfiguracji trybu prezentacji.",
       sandboxDropModel: "Przeciągnij i upuść model 3D w oknie viewer'a.",
-      supportedFormats: "Obsługiwane formaty: {formats}.\nObsługiwane archiwa: {archives}.",
+      supportedFormats: "<strong>Obłsugiwane formaty</strong>:\n{formats}\ni <strong>archiwa</strong>: {archives}.",
 
       embedSourceMissing: "Ustaw URL modelu lub ID encji do osadzenia.",
       embedUrlCopied: "Skopiowano URL osadzenia.",
@@ -972,7 +972,7 @@ const VIEWER_I18N = {
       presentationModeReady: "Präsentationsmodus ist bereit.",
       presentationModeError: "Beim Einrichten des Präsentationsmodus ist ein Fehler aufgetreten.",
       sandboxDropModel: "Ziehen Sie ein 3D-Modell per Drag-and-drop in den Viewer.",
-      supportedFormats: "Unterstützte Formate: {formats}.\nUnterstützte Archive: {archives}.",
+      supportedFormats: "<strong>Unterstützte Formate:</strong> {formats} \n und <strong>Unterstützte Archive:</strong> {archives}.",
 
       embedSourceMissing: "Model-URL oder Entitäts-ID für die Einbettung festlegen.",
       embedUrlCopied: "Einbettungs-URL kopiert.",
@@ -13328,6 +13328,8 @@ const Viewer$1 = {
   CONFIG: null,
   PRESENTATION_MODE: false,
   SANDBOX_MODE: false,
+  SUPPORTED_EXTENSIONS: ['glb', 'gltf', 'obj', 'dae', 'fbx', 'ply', 'ifc', 'stl', 'xyz', 'json', '3ds', 'pcd'],
+  SUPPORTED_ARCHIVES: ['zip', 'rar', 'tar', 'xz', 'gz'],
   camera: null,
   scene: null,
   activeScene: 0,
@@ -13410,8 +13412,6 @@ const Viewer$1 = {
   THEME_STORAGE_KEY: "iiif-dark-mode",
   LANGUAGE_STORAGE_KEY: "viewer-language",
   I18N: VIEWER_I18N,
-  SUPPORTED_EXTENSIONS: ['glb', 'gltf', 'obj', 'dae', 'fbx', 'ply', 'ifc', 'stl', 'xyz', 'json', '3ds', 'pcd'],
-  SUPPORTED_ARCHIVES: ['zip', 'rar', 'tar', 'xz', 'gz'],
   GESTURE: {handPx: 55, period: 5.5, rotate: false, active: false, target: new THREE.Vector3(), startTime: 0, baseAngle: 0, orbitAngle: THREE.MathUtils.degToRad(15), easeInTime: 2.25},
   lastTime: null,
   originalMetadata: [],
@@ -13753,6 +13753,22 @@ const Viewer$1 = {
     Viewer$1.setCameraProjection(isPerspective ? "orthographic" : "perspective");
   },
 
+  updateOrthoFrustum(camera, width, height) {
+    const target = core.controls?.target || new THREE.Vector3(0, 0, 0);
+    const distance = core.camera.position.distanceTo(target);
+    const aspect = width / height;
+
+    const frustumHeight = distance;
+    const frustumWidth = frustumHeight * aspect;
+
+    camera.left = -frustumWidth / 2;
+    camera.right = frustumWidth / 2;
+    camera.top = frustumHeight / 2;
+    camera.bottom = -frustumHeight / 2;
+
+    camera.updateProjectionMatrix();
+  },
+
   setCameraProjection(projection) {
     if (!core.camera) return;
 
@@ -13763,7 +13779,8 @@ const Viewer$1 = {
     if (projection === currentProjection) return;
 
     const aspect =
-      core.container.clientWidth / core.container.clientHeight;
+      core.CONFIG.viewer.canvasDimensions.x /
+      core.CONFIG.viewer.canvasDimensions.y;
 
     const target = core.controls?.target || new THREE.Vector3(0, 0, 0);
 
@@ -14815,7 +14832,6 @@ const Viewer$1 = {
     shell.id = "loading-log";
     shell.setAttribute("aria-live", "polite");
     shell.hidden = true;
-    shell.style.setProperty("bottom", "-55px");
 
     const collapsedToggle = document.createElement("button");
     collapsedToggle.type = "button";
@@ -16801,6 +16817,17 @@ const Viewer$1 = {
       if (guiWidth > 0) {
         core.guiContainer.style.left = (widthCSS - guiWidth) + 'px';
       }
+    }
+
+    if (core.camera.isOrthographicCamera) {
+      this.updateOrthoFrustum(
+        core.camera,
+        widthCSS,
+        heightCSS
+      );
+    } else {
+      core.camera.aspect = widthCSS / heightCSS;
+      core.camera.updateProjectionMatrix();
     }
 
     const effectiveWidth = widthCSS * scale.x;

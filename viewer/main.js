@@ -86,12 +86,13 @@ import { VIEWER_I18N } from "./i18n.js";
 import { t } from "./i18n-utils.js";
 import { loadDroppedArchive } from "./extract-helper.js";
 import { loadDroppedModel } from "./sandbox.js";
-import { clipping } from 'three/src/nodes/accessors/ClippingNode.js';
 
 export const Viewer = {
   CONFIG: null,
   PRESENTATION_MODE: false,
   SANDBOX_MODE: false,
+  SUPPORTED_EXTENSIONS: ['glb', 'gltf', 'obj', 'dae', 'fbx', 'ply', 'ifc', 'stl', 'xyz', 'json', '3ds', 'pcd'],
+  SUPPORTED_ARCHIVES: ['zip', 'rar', 'tar', 'xz', 'gz'],
   camera: null,
   scene: null,
   activeScene: 0,
@@ -174,8 +175,6 @@ export const Viewer = {
   THEME_STORAGE_KEY: "iiif-dark-mode",
   LANGUAGE_STORAGE_KEY: "viewer-language",
   I18N: VIEWER_I18N,
-  SUPPORTED_EXTENSIONS: ['glb', 'gltf', 'obj', 'dae', 'fbx', 'ply', 'ifc', 'stl', 'xyz', 'json', '3ds', 'pcd'],
-  SUPPORTED_ARCHIVES: ['zip', 'rar', 'tar', 'xz', 'gz'],
   GESTURE: {handPx: 55, period: 5.5, rotate: false, active: false, target: new THREE.Vector3(), startTime: 0, baseAngle: 0, orbitAngle: THREE.MathUtils.degToRad(15), easeInTime: 2.25},
   lastTime: null,
   originalMetadata: [],
@@ -517,6 +516,22 @@ export const Viewer = {
     Viewer.setCameraProjection(isPerspective ? "orthographic" : "perspective");
   },
 
+  updateOrthoFrustum(camera, width, height) {
+    const target = core.controls?.target || new THREE.Vector3(0, 0, 0);
+    const distance = core.camera.position.distanceTo(target);
+    const aspect = width / height;
+
+    const frustumHeight = distance;
+    const frustumWidth = frustumHeight * aspect;
+
+    camera.left = -frustumWidth / 2;
+    camera.right = frustumWidth / 2;
+    camera.top = frustumHeight / 2;
+    camera.bottom = -frustumHeight / 2;
+
+    camera.updateProjectionMatrix();
+  },
+
   setCameraProjection(projection) {
     if (!core.camera) return;
 
@@ -527,7 +542,8 @@ export const Viewer = {
     if (projection === currentProjection) return;
 
     const aspect =
-      core.container.clientWidth / core.container.clientHeight;
+      core.CONFIG.viewer.canvasDimensions.x /
+      core.CONFIG.viewer.canvasDimensions.y;
 
     const target = core.controls?.target || new THREE.Vector3(0, 0, 0);
 
@@ -1579,7 +1595,6 @@ export const Viewer = {
     shell.id = "loading-log";
     shell.setAttribute("aria-live", "polite");
     shell.hidden = true;
-    shell.style.setProperty("bottom", "-55px");
 
     const collapsedToggle = document.createElement("button");
     collapsedToggle.type = "button";
@@ -3574,6 +3589,17 @@ export const Viewer = {
       if (guiWidth > 0) {
         core.guiContainer.style.left = (widthCSS - guiWidth) + 'px';
       }
+    }
+
+    if (core.camera.isOrthographicCamera) {
+      this.updateOrthoFrustum(
+        core.camera,
+        widthCSS,
+        heightCSS
+      );
+    } else {
+      core.camera.aspect = widthCSS / heightCSS;
+      core.camera.updateProjectionMatrix();
     }
 
     const effectiveWidth = widthCSS * scale.x;
