@@ -220,7 +220,7 @@ function traverseMesh(object) {
     setupMaterials(child);
   });
 
-  if (window.Viewer?.initializeMaterialsEditor) {
+  if (window.Viewer?.initializeMaterialsEditor && core.PRESENTATION_MODE !== true) {
     window.Viewer.initializeMaterialsEditor(object);
   }
 }

@@ -13,6 +13,8 @@ export function attachMaterialsEditor(Viewer) {
         return;
       }
 
+      this.syncMaterialsDialogSelectionOptions();
+
       const nextUuid =
         materialUuid && materialUuid !== ""
           ? materialUuid
@@ -24,6 +26,7 @@ export function attachMaterialsEditor(Viewer) {
 
       this.updateMaterialsDialogBounds();
       this.materialsDialog.hidden = false;
+      this.syncMaterialsDialogFields();
       this.closeActionMenu();
       this.materialsDialogSelect?.focus();
     },
@@ -208,10 +211,6 @@ export function attachMaterialsEditor(Viewer) {
         return;
       }
 
-      if (this.selectedMaterialUuid === value) {
-        return;
-      }
-
       this.destroyMaterialGuiControls();
       const material = this.getMaterialByUuid(object, value);
       if (!material) {
@@ -226,6 +225,7 @@ export function attachMaterialsEditor(Viewer) {
       core.materialProperties.emissive = material.emissiveIntensity ?? 0;
       core.materialProperties.metalness = material.metalness ?? 0;
       this.selectedMaterialUuid = value;
+      this.syncMaterialsDialogSelectionOptions();
       this.refreshMaterialsToolbarMenu();
       this.syncMaterialsDialogFields();
     },
@@ -400,9 +400,11 @@ export function attachMaterialsEditor(Viewer) {
         this.closeMaterialsDialog();
       });
 
-      this.bindEventListener(this.materialsDialogSelect, "change", (event) => {
+      const handleMaterialSelect = (event) => {
         this.selectMaterialInEditor(this.materialsEditorObject, event.target.value);
-      });
+      };
+      this.bindEventListener(this.materialsDialogSelect, "change", handleMaterialSelect);
+      this.bindEventListener(this.materialsDialogSelect, "input", handleMaterialSelect);
 
       this.bindEventListener(this.materialsDialogInputs.color, "input", (event) => {
         const material = this.getMaterialByUuid(this.materialsEditorObject, this.selectedMaterialUuid);

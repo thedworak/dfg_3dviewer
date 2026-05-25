@@ -87507,6 +87507,82 @@ Euler.DefaultOrder = 'XYZ';
 Euler.RotationOrders = [ 'XYZ', 'YZX', 'ZXY', 'XZY', 'YXZ', 'ZYX' ];
 
 /**
+ * A class for generating text as a single geometry. It is constructed by providing a string of text, and a set of
+ * parameters consisting of a loaded font and extrude settings.
+ *
+ * See the {@link FontLoader} page for additional details.
+ *
+ * `TextGeometry` uses [typeface.json](http://gero3.github.io/facetype.js/) generated fonts.
+ * Some existing fonts can be found located in `/examples/fonts`.
+ *
+ * ```js
+ * const loader = new FontLoader();
+ * const font = await loader.loadAsync( 'fonts/helvetiker_regular.typeface.json' );
+ * const geometry = new TextGeometry( 'Hello three.js!', {
+ * 	font: font,
+ * 	size: 80,
+ * 	depth: 5,
+ * 	curveSegments: 12
+ * } );
+ * ```
+ *
+ * @augments ExtrudeGeometry
+ * @three_import import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+ */
+class TextGeometry extends ExtrudeGeometry {
+
+	/**
+	 * Constructs a new text geometry.
+	 *
+	 * @param {string} text - The text that should be transformed into a geometry.
+	 * @param {TextGeometry~Options} [parameters] - The text settings.
+	 */
+	constructor( text, parameters = {} ) {
+
+		const font = parameters.font;
+
+		if ( font === undefined ) {
+
+			super(); // generate default extrude geometry
+
+		} else {
+
+			const shapes = font.generateShapes( text, parameters.size, parameters.direction );
+
+			// defaults
+
+			if ( parameters.depth === undefined ) parameters.depth = 50;
+			if ( parameters.bevelThickness === undefined ) parameters.bevelThickness = 10;
+			if ( parameters.bevelSize === undefined ) parameters.bevelSize = 8;
+			if ( parameters.bevelEnabled === undefined ) parameters.bevelEnabled = false;
+
+			super( shapes, parameters );
+
+		}
+
+		this.type = 'TextGeometry';
+
+	}
+
+	toJSON() {
+
+		const data = super.toJSON();
+		return data;
+
+	}
+
+	static fromJSON( data ) {
+
+		const options = data.options;
+
+		options.font = new Font( options.font.data );
+		return new TextGeometry( options.text, options );
+
+	}
+
+}
+
+/**
  * A loader for the S3TC texture compression format.
  *
  * ```js
@@ -109652,5 +109728,5 @@ var RoomEnvironment$1 = /*#__PURE__*/Object.freeze({
 	RoomEnvironment: RoomEnvironment
 });
 
-export { BufferGeometry as B, Color as C, DoubleSide as D, Euler as E, FontLoader as F, GLTFLoader$1 as G, Loader as L, Matrix4 as M, OrbitControls as O, PLYLoader$1 as P, Quaternion as Q, RoomEnvironment$1 as R, STLLoader$1 as S, THREE as T, Vector3 as V, XYZLoader$1 as X, MathUtils$1 as a, TransformControls as b, FileLoader as c, Mesh as d, exports$1 as e, MeshLambertMaterial as f, Matrix4$1 as g, BufferAttribute as h, DDSLoader$1 as i, MTLLoader$1 as j, OBJLoader$1 as k, FBXLoader$1 as l, mergeGeometries as m, ColladaLoader$1 as n, TDSLoader$1 as o, PCDLoader$1 as p, DRACOLoader$1 as q };
+export { BufferGeometry as B, Color as C, DoubleSide as D, Euler as E, FontLoader as F, GLTFLoader$1 as G, Loader as L, Matrix4 as M, OrbitControls as O, PLYLoader$1 as P, Quaternion as Q, RoomEnvironment$1 as R, STLLoader$1 as S, THREE as T, Vector3 as V, XYZLoader$1 as X, MathUtils$1 as a, TransformControls as b, TextGeometry as c, FileLoader as d, exports$1 as e, Mesh as f, MeshLambertMaterial as g, Matrix4$1 as h, BufferAttribute as i, DDSLoader$1 as j, MTLLoader$1 as k, OBJLoader$1 as l, mergeGeometries as m, FBXLoader$1 as n, ColladaLoader$1 as o, TDSLoader$1 as p, PCDLoader$1 as q, DRACOLoader$1 as r };
 //# sourceMappingURL=three.js.map

@@ -31,7 +31,9 @@
       "build": true,
       "container": "block-bootstrap5-content",
       "imageClass": "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
-      "imageId": "field--name-fd6a974b7120d422c7b21b5f1f2315d9"
+      "imageId": "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
+      "buildFake": true,
+      "testImages": []
     },
     "background": "radial-gradient(circle, #ffffff 0%, #999999 100%)",
     "performanceMode": {

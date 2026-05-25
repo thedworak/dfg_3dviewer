@@ -1,4 +1,4 @@
-import { T as THREE, e as exports$1, V as Vector3, M as Matrix4, Q as Quaternion, E as Euler, a as MathUtils$1, O as OrbitControls, b as TransformControls, F as FontLoader } from './assets/three.js';
+import { T as THREE, e as exports$1, V as Vector3, M as Matrix4, Q as Quaternion, E as Euler, a as MathUtils$1, O as OrbitControls, b as TransformControls, F as FontLoader, c as TextGeometry } from './assets/three.js';
 
 window.THREE = THREE;
 
@@ -2602,6 +2602,313 @@ function attachEmbedConfigurator(Viewer) {
   });
 }
 
+function getGalleryConfig() {
+  return core.CONFIG?.viewer?.gallery || {};
+}
+
+function getGalleryHost(Viewer, mainElement) {
+  return (
+    Viewer.fileElement?.[0] ||
+    mainElement ||
+    Viewer.container ||
+    core.container ||
+    null
+  );
+}
+
+function removeExistingGalleryDom() {
+  document.getElementById("image-list")?.remove();
+  document.getElementById("modalGallery")?.remove();
+}
+
+function createPlaceholderSvgDataUrl(index, label = "") {
+  const palette = [
+    ["#1f3c88", "#6da3ff"],
+    ["#0f766e", "#6ee7b7"],
+    ["#9a3412", "#fdba74"],
+    ["#5b21b6", "#c4b5fd"],
+  ];
+  const [start, end] = palette[index % palette.length];
+  const title = label || `Preview ${index + 1}`;
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 320">
+      <defs>
+        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="${start}"/>
+          <stop offset="100%" stop-color="${end}"/>
+        </linearGradient>
+      </defs>
+      <rect width="480" height="320" fill="url(#g)"/>
+      <circle cx="92" cy="86" r="34" fill="rgba(255,255,255,0.25)"/>
+      <path d="M48 248l94-98 72 66 66-86 152 118H48z" fill="rgba(255,255,255,0.22)"/>
+      <text x="240" y="164" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#ffffff">${title}</text>
+    </svg>
+  `.trim();
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function getConfiguredTestImages() {
+  const gallery = getGalleryConfig();
+  const configuredImages = Array.isArray(gallery.testImages) ? gallery.testImages : [];
+  const normalizedImages = configuredImages.map((entry, index) => {
+    if (typeof entry === "string") {
+      const src = normalizeGalleryUrl(entry);
+      return src ? { src, alt: `Preview ${index + 1}` } : null;
+    }
+    if (entry && typeof entry === "object") {
+      const src = normalizeGalleryUrl(entry.src || entry.url || "");
+      if (!src) return null;
+      return {
+        src,
+        alt: String(entry.alt || entry.label || `Preview ${index + 1}`),
+      };
+    }
+    return null;
+  }).filter(Boolean);
+
+  if (normalizedImages.length > 0) {
+    return normalizedImages;
+  }
+
+  return [];
+}
+
+function createDefaultTestImages() {
+  return Array.from({ length: 4 }, (_unused, index) => ({
+    src: createPlaceholderSvgDataUrl(index, `Preview ${index + 1}`),
+    alt: `Preview ${index + 1}`,
+  }));
+}
+
+function createFakeGalleryElements(testImages) {
+  return testImages.map((entry) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "field__item";
+    wrapper.innerHTML =
+      `<img loading="lazy" src="${entry.src}" width="200px" height="200px" alt="${entry.alt}" class="img-fluid image-style-wisski-preview">`;
+    return wrapper;
+  });
+}
+
+function prepareGalleryImages(Viewer, imageElementsChildren) {
+  imageElementsChildren = imageElementsChildren.filter(function (_image) {
+    if (!(_image instanceof Element)) return false;
+    let rawUrl = "";
+    const img = _image.querySelector("img");
+    const link = _image.querySelector("a");
+    if (img && img.getAttribute("src")) {
+      rawUrl = img.getAttribute("src");
+    } else if (link && link.getAttribute("href")) {
+      rawUrl = link.getAttribute("href");
+    } else {
+      rawUrl = (_image.textContent || _image.innerHTML || "").trim();
+    }
+
+    const normalized = normalizeGalleryUrl(rawUrl);
+    if (!isValidUrl(normalized)) {
+      return false;
+    }
+    _image.innerHTML = normalized;
+    return !!img;
+  });
+  imageElementsChildren.forEach(function (imgLink) {
+    imgLink.innerHTML =
+      '<img loading="lazy" src="' +
+      imgLink.innerHTML +
+      '" width="200px" height="200px" alt="" class="img-fluid image-style-wisski-preview">';
+  });
+  return imageElementsChildren;
+}
+
+function normalizeGalleryUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== "string") {
+    return "";
+  }
+
+  let url = rawUrl.trim();
+  if (url === "") {
+    return "";
+  }
+
+  if (url.startsWith("public://")) {
+    url = "/sites/default/files/" + url.substring("public://".length);
+  } else if (url.startsWith("sites/default/files/")) {
+    url = "/" + url;
+  }
+
+  const base = (core.CONFIG?.mainUrl || window.location.origin || "").replace(/\/+$/, "");
+
+  try {
+    const parsed = new URL(url, window.location.origin);
+    const host = parsed.host || "";
+    const path = parsed.pathname || "";
+    const normalizedHost = host.toLowerCase();
+    const hasBadHost = host.includes("_") || normalizedHost === "default" || normalizedHost === "dfg_3dviewer";
+
+    if (path.startsWith("/sites/default/files/")) {
+      if (hasBadHost) {
+        return `${base}${path}`;
+      }
+      if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+        return parsed.href;
+      }
+      return `${base}${path}`;
+    }
+    return parsed.href;
+  } catch (_error) {
+    if (url.startsWith("/sites/default/files/")) {
+      return `${base}${url}`;
+    }
+    return url;
+  }
+}
+
+function handleImages(Viewer, mainElement, imageElements, imageElementsChildren) {
+  if (imageElementsChildren === undefined) {
+    imageElementsChildren = imageElements;
+  }
+  removeExistingGalleryDom();
+  var imageList = document.createElement("div");
+  imageList.setAttribute("id", "image-list");
+  var modalGallery = document.createElement("div");
+  var modalImage = document.createElement("img");
+  modalImage.setAttribute("class", "modalImage");
+  modalImage.style.transform = "scale(0.95)";
+  Viewer.bindEventListener(modalGallery, "wheel", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.deltaY > 0 && Viewer.zoomImage > 0.15) {
+      modalImage.style.transform = `scale(${(Viewer.zoomImage -= Viewer.ZOOM_SPEED_IMAGE)})`;
+    } else if (e.deltaY < 0 && Viewer.zoomImage < 5) {
+      modalImage.style.transform = `scale(${(Viewer.zoomImage += Viewer.ZOOM_SPEED_IMAGE)})`;
+    }
+    return false;
+  });
+  var modalClose = document.createElement("span");
+  modalGallery.setAttribute("id", "modalGallery");
+  modalGallery.setAttribute("class", "modalGallery");
+  modalClose.setAttribute("class", "closeGallery");
+  modalClose.setAttribute("title", "Close");
+  modalClose.innerHTML = "&times";
+  modalClose.onclick = function () {
+    modalGallery.style.display = "none";
+  };
+
+  Viewer.bindEventListener(document, "click", function (event) {
+    if (
+      !modalGallery.contains(event.target) &&
+      !imageList.contains(event.target)
+    ) {
+      modalGallery.style.display = "none";
+      Viewer.zoomImage = 1.5;
+      modalImage.style.transform = "scale(1.5)";
+    }
+  });
+
+  modalGallery.appendChild(modalImage);
+  modalGallery.appendChild(modalClose);
+  for (let i = 0; imageElementsChildren.length - i >= 0; i++) {
+    if (
+      imageElementsChildren[i] !== undefined &&
+      imageElementsChildren[i].innerHTML !== undefined
+    ) {
+      var imgList = imageElementsChildren[i].getElementsByTagName("a");
+      for (let j = 0; j < imgList.length; j++) {
+        imgList[j].setAttribute("href", "#");
+        imgList[j].setAttribute("src", imgList[j].firstChild.src);
+        imgList[j].setAttribute("class", "image-list-item");
+      }
+      imgList = imageElementsChildren[i].getElementsByTagName("img");
+      if (imgList.length == 1) {
+        imgList[0].style.maxWidth = "fit-content";
+        imgList[0].style.maxHeight = "180px";
+      }
+      for (let j = 0; j < imgList.length; j++) {
+        imgList[j].onclick = function () {
+          modalGallery.style.display = "block";
+          imageList.style.zIndex = 0;
+          imageList.style.display = "hidden";
+          modalImage.src = this.src;
+        };
+      }
+      imageList.appendChild(imageElementsChildren[i]);
+    }
+  }
+  if (
+    imageList &&
+    imageList.childNodes.length > 0 &&
+    getGalleryHost(Viewer, mainElement)
+  ) {
+    const galleryHost = getGalleryHost(Viewer, mainElement);
+    galleryHost.insertAdjacentElement("beforebegin", modalGallery);
+    galleryHost.insertAdjacentElement("beforebegin", imageList);
+  }
+}
+
+function buildThumbnailGallery(Viewer) {
+  const gallery = getGalleryConfig();
+  var mainElement = gallery.container
+    ? document.getElementById(gallery.container)
+    : null;
+  var imageElements;
+  if (gallery.imageClass !== "") {
+    imageElements = document.getElementsByClassName(
+      gallery.imageClass
+    );
+    if (imageElements.length > 0) {
+      var galleryLabel = document.getElementsByClassName("field__label");
+      if (galleryLabel !== undefined) galleryLabel[0].innerText = "";
+    }
+  } else if (gallery.imageId !== "") {
+    imageElements = document.getElementById(gallery.imageId);
+  }
+
+  if (imageElements != null) {
+    if (imageElements.length > 0) {
+      if (imageElements[0].innerHTML !== undefined) {
+        let imagesList = Array.from(
+          imageElements[0].getElementsByClassName("field__items")[0]
+            .childNodes
+        );
+        imagesList = prepareGalleryImages(Viewer, imagesList);
+        imageElements[0].classList.add("field--label-hidden");
+        imageElements[0].classList.add("field__items");
+        handleImages(Viewer, mainElement, imagesList, imageElements);
+      } else {
+        handleImages(Viewer, mainElement, imageElements);
+      }
+    } else if (
+      imageElements.childNodes !== undefined &&
+      imageElements.childNodes.length > 0
+    ) {
+      if (
+        typeof imageElements.childNodes[0].innerHTML == "string" ||
+        typeof imageElements.childNodes[1].innerHTML == "string"
+      ) {
+        let imagesList = Array.from(imageElements.childNodes);
+        imagesList = prepareGalleryImages(Viewer, imagesList);
+        imageElements.classList.add("field--type-image");
+        imageElements.classList.add("field--label-hidden");
+        imageElements.classList.add("field__items");
+        handleImages(Viewer, mainElement, imagesList, imageElements);
+      } else {
+        handleImages(Viewer, mainElement, imageElements);
+      }
+    }
+  }
+
+  const testImages = getConfiguredTestImages();
+  const fallbackImages = testImages.length > 0 ? testImages : createDefaultTestImages();
+  if (gallery.build === true) {
+    const fakeImages = createFakeGalleryElements(fallbackImages);
+    handleImages(Viewer, mainElement, fakeImages, fakeImages);
+    console.log("Built fallback thumbnail gallery for local testing");
+    return;
+  }
+
+  console.log("No gallery source found");
+}
+
 function attachMaterialsEditor(Viewer) {
   Object.assign(Viewer, {
     openMaterialsFolder(materialUuid = null) {
@@ -2611,6 +2918,8 @@ function attachMaterialsEditor(Viewer) {
         showToast(t$1("gui.selectByMaterial", "select by material"), "warning");
         return;
       }
+
+      this.syncMaterialsDialogSelectionOptions();
 
       const nextUuid =
         materialUuid && materialUuid !== ""
@@ -2623,6 +2932,7 @@ function attachMaterialsEditor(Viewer) {
 
       this.updateMaterialsDialogBounds();
       this.materialsDialog.hidden = false;
+      this.syncMaterialsDialogFields();
       this.closeActionMenu();
       this.materialsDialogSelect?.focus();
     },
@@ -2807,10 +3117,6 @@ function attachMaterialsEditor(Viewer) {
         return;
       }
 
-      if (this.selectedMaterialUuid === value) {
-        return;
-      }
-
       this.destroyMaterialGuiControls();
       const material = this.getMaterialByUuid(object, value);
       if (!material) {
@@ -2825,6 +3131,7 @@ function attachMaterialsEditor(Viewer) {
       core.materialProperties.emissive = material.emissiveIntensity ?? 0;
       core.materialProperties.metalness = material.metalness ?? 0;
       this.selectedMaterialUuid = value;
+      this.syncMaterialsDialogSelectionOptions();
       this.refreshMaterialsToolbarMenu();
       this.syncMaterialsDialogFields();
     },
@@ -2999,9 +3306,11 @@ function attachMaterialsEditor(Viewer) {
         this.closeMaterialsDialog();
       });
 
-      this.bindEventListener(this.materialsDialogSelect, "change", (event) => {
+      const handleMaterialSelect = (event) => {
         this.selectMaterialInEditor(this.materialsEditorObject, event.target.value);
-      });
+      };
+      this.bindEventListener(this.materialsDialogSelect, "change", handleMaterialSelect);
+      this.bindEventListener(this.materialsDialogSelect, "input", handleMaterialSelect);
 
       this.bindEventListener(this.materialsDialogInputs.color, "input", (event) => {
         const material = this.getMaterialByUuid(this.materialsEditorObject, this.selectedMaterialUuid);
@@ -3140,6 +3449,195 @@ function attachMaterialsEditor(Viewer) {
       this.materialsDialog.hidden = true;
     },
   });
+}
+
+function pickMetadataValue(save, current, original) {
+  return save ? current : original;
+}
+
+function buildEditorMetadata(viewer, rotateMetadata) {
+  const originalMetadata = viewer.originalMetadata;
+  const saveProperties = viewer.saveProperties;
+  const metadata = {};
+
+  metadata.objPosition = pickMetadataValue(
+    saveProperties.Position,
+    [
+      core.helperObjects[0].position.x,
+      core.helperObjects[0].position.y,
+      core.helperObjects[0].position.z
+    ],
+    originalMetadata.objPosition
+  );
+
+  metadata.objRotation = pickMetadataValue(
+    saveProperties.Rotation,
+    [rotateMetadata.x, rotateMetadata.y, rotateMetadata.z],
+    originalMetadata.objRotation
+  );
+
+  metadata.objScale = pickMetadataValue(
+    saveProperties.Scale,
+    [
+      core.helperObjects[0].scale.x,
+      core.helperObjects[0].scale.y,
+      core.helperObjects[0].scale.z
+    ],
+    originalMetadata.objScale
+  );
+
+  metadata.cameraPosition = pickMetadataValue(
+    saveProperties.Camera,
+    [
+      core.camera.position.x,
+      core.camera.position.y,
+      core.camera.position.z
+    ],
+    originalMetadata.cameraPosition
+  );
+
+  metadata.controlsTarget = pickMetadataValue(
+    saveProperties.Camera,
+    [
+      core.controls.target.x,
+      core.controls.target.y,
+      core.controls.target.z
+    ],
+    originalMetadata.controlsTarget
+  );
+
+  metadata.controlsZoom = pickMetadataValue(
+    saveProperties.Camera,
+    [
+      core.camera.position.distanceTo(core.controls.target)
+    ],
+    originalMetadata.controlsZoom
+  );
+
+  metadata.lightPosition = pickMetadataValue(
+    saveProperties.DirectionalLight,
+    [
+      core.dirLight.position.x,
+      core.dirLight.position.y,
+      core.dirLight.position.z
+    ],
+    originalMetadata.lightPosition
+  );
+
+  metadata.lightTarget = pickMetadataValue(
+    saveProperties.DirectionalLight,
+    [
+      core.dirLight.rotation._x,
+      core.dirLight.rotation._y,
+      core.dirLight.rotation._z
+    ],
+    originalMetadata.lightTarget
+  );
+
+  metadata.lightColor = pickMetadataValue(
+    saveProperties.DirectionalLight,
+    ["#" + core.dirLight.color.getHexString().toUpperCase()],
+    originalMetadata.lightColor
+  );
+
+  metadata.lightIntensity = pickMetadataValue(
+    saveProperties.DirectionalLight,
+    [core.dirLight.intensity],
+    originalMetadata.lightIntensity
+  );
+
+  metadata.lightAmbientColor = pickMetadataValue(
+    saveProperties.AmbientLight,
+    ["#" + core.ambientLight.color.getHexString().toUpperCase()],
+    originalMetadata.lightAmbientColor
+  );
+
+  metadata.lightAmbientIntensity = pickMetadataValue(
+    saveProperties.AmbientLight,
+    [core.ambientLight.intensity],
+    originalMetadata.lightAmbientIntensity
+  );
+
+  metadata.lightCameraColor = pickMetadataValue(
+    saveProperties.CameraLight,
+    ["#" + core.cameraLight.color.getHexString().toUpperCase()],
+    originalMetadata.lightCameraColor
+  );
+
+  metadata.lightCameraIntensity = pickMetadataValue(
+    saveProperties.CameraLight,
+    [core.cameraLight.intensity],
+    originalMetadata.lightCameraIntensity
+  );
+
+  metadata.background = saveProperties.BackgroundColor
+    ? [window.getComputedStyle(viewer.mainCanvas).background]
+    : originalMetadata.background;
+
+  metadata.annotationEntries = viewer.getAnnotationEntriesForPersistence();
+  metadata.iiifAnnotationsXml = viewer.exportAnnotationsToIIIFXml();
+
+  return metadata;
+}
+
+async function saveEditorMetadata(viewer) {
+  if (!core.EDITOR || core.isLightweight || !core.helperObjects?.[0]) return;
+
+  const rotateMetadata = new THREE.Vector3(
+    THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.x),
+    THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.y),
+    THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.z)
+  );
+
+  if (core.CONFIG.entity.proxyPath !== undefined) {
+    core.CONFIG.metadataUrl = core.getProxyPath(core.CONFIG.metadataUrl);
+  }
+
+  let fetchedMetadata = {};
+
+  try {
+    if (core.CONFIG?.metadataUrl) {
+      const response = await fetch(core.CONFIG.metadataUrl, { cache: "no-cache" });
+      if (response.ok) {
+        fetchedMetadata = await response.json();
+      }
+    }
+  } catch (err) {
+    console.warn("Metadata fetch failed, continuing with save", err);
+  }
+
+  viewer.originalMetadata = {
+    ...viewer.originalMetadata,
+    ...fetchedMetadata
+  };
+
+  const newMetadata = buildEditorMetadata(viewer, rotateMetadata);
+
+  try {
+    const token = await fetch("/session/token").then((response) => response.text());
+
+    await fetch(core.CONFIG.mainUrl + "/api/editor/save-metadata", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-Token": token
+      },
+      body: JSON.stringify({
+        filename: core.fileObject.filename,
+        path:
+          viewer.archiveType !== ""
+            ? core.fileObject.relativePath + core.fileObject.basename + core.loadedFile
+            : core.fileObject.relativePath,
+        content: JSON.stringify(newMetadata, null, "\t")
+      })
+    });
+
+    toastHelper$1("settingsSaved", "success");
+  } catch (err) {
+    console.error(err);
+    toastHelper$1("settingsSaveError", "error");
+  }
 }
 
 function attachAnnotations(Viewer) {
@@ -3954,6 +4452,142 @@ function attachAnnotations(Viewer) {
 
 function attachMeasurement(Viewer) {
   Object.assign(Viewer, {
+    buildRuler(_id) {
+      Viewer.rulerObject = new THREE.Object3D();
+      const gridSize = Viewer.gridSize || core.gridSize || 1;
+      const sphereRadius = Math.max(gridSize / 150, 0.001);
+      const textScale = Math.max(gridSize / 100, 0.01);
+      const measureSize = Math.max(gridSize / 200, 0.01);
+
+      var sphere = new THREE.Mesh(
+        new THREE.SphereGeometry(sphereRadius, 7, 7),
+        new THREE.MeshStandardMaterial({
+          color: 0xff0000,
+          transparent: true,
+          opacity: 0.85,
+          side: THREE.DoubleSide,
+          depthTest: false,
+          depthWrite: false,
+        })
+      );
+      var newPoint = new THREE.Vector3(_id.point.x, _id.point.y, _id.point.z);
+      sphere.position.set(newPoint.x, newPoint.y, newPoint.z);
+      Viewer.rulerObject.add(sphere);
+      Viewer.linePoints.push(newPoint);
+      const lineGeometry = new THREE.BufferGeometry().setFromPoints(Viewer.linePoints);
+      const lineMaterial = new THREE.LineBasicMaterial({ color: 0x0000ff });
+      const line = new THREE.Line(lineGeometry, lineMaterial);
+      Viewer.rulerObject.add(line);
+      var lineMtr = new THREE.LineBasicMaterial({
+        color: 0x0000ff,
+        linewidth: 3,
+        opacity: 1,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        depthWrite: false,
+      });
+      if (Viewer.linePoints.length > 1) {
+        var vectorPoints = vectorBetweenPoints(
+          Viewer.linePoints[Viewer.linePoints.length - 2],
+          newPoint
+        );
+        var distancePoints = distanceBetweenPointsVector(vectorPoints);
+        const measuredDistance = Viewer.formatMeasuredDistance(distancePoints);
+
+        //var distancePoints = distanceBetweenPoints(Viewer.linePoints[Viewer.linePoints.length-2], newPoint);
+        var halfwayPoints = halfwayBetweenPoints(
+          Viewer.linePoints[Viewer.linePoints.length - 2],
+          newPoint
+        );
+        Viewer.addTextPoint(measuredDistance.text, textScale, halfwayPoints);
+        var rulerI = 0;
+        // `measureSize` was already precomputed outside, keep same scale
+        while (rulerI <= distancePoints * 100) {
+          const geoSegm = [];
+          var interpolatePoints = interpolateDistanceBetweenPoints(
+            Viewer.linePoints[Viewer.linePoints.length - 2],
+            vectorPoints,
+            distancePoints,
+            rulerI / 100
+          );
+          geoSegm.push(
+            new THREE.Vector3(
+              interpolatePoints.x,
+              interpolatePoints.y,
+              interpolatePoints.z
+            )
+          );
+          geoSegm.push(
+            new THREE.Vector3(
+              interpolatePoints.x + measureSize,
+              interpolatePoints.y + measureSize,
+              interpolatePoints.z + measureSize
+            )
+          );
+          const geometryLine = new THREE.BufferGeometry().setFromPoints(geoSegm);
+          var lineSegm = new THREE.Line(geometryLine, lineMtr);
+          Viewer.rulerObject.add(lineSegm);
+          rulerI += 10;
+        }
+      }
+      Viewer.rulerObject.renderOrder = 10;
+      core.scene.add(Viewer.rulerObject);
+      Viewer.ruler.push(Viewer.rulerObject);
+    },
+  });
+}
+
+function getNormalizedPointerPosition(Viewer, clientX, clientY, targetVector) {
+  targetVector.x =
+    ((clientX - Viewer.mainCanvas.getBoundingClientRect().left) /
+      core.renderer.domElement.clientWidth) *
+    2 -
+    1;
+  targetVector.y =
+    -(
+      (clientY - Viewer.mainCanvas.getBoundingClientRect().top) /
+      core.renderer.domElement.clientHeight
+    ) *
+    2 +
+    1;
+}
+
+function getPrimaryModelIntersection(Viewer, pointerVector) {
+  Viewer.raycaster.setFromCamera(pointerVector, core.camera);
+  let intersects = [];
+
+  if (core.mainObject.length > 1) {
+    for (let ii = 0; ii < core.mainObject.length; ii++) {
+      intersects.push(
+        ...Viewer.raycaster.intersectObjects(
+          core.mainObject[ii].children,
+          true
+        )
+      );
+    }
+    if (intersects.length <= 0) {
+      intersects = Viewer.raycaster.intersectObjects(core.mainObject, true);
+    }
+  } else if (core.mainObject[0]) {
+    intersects = Viewer.raycaster.intersectObject(core.mainObject[0], true);
+  }
+
+  return Viewer.getPrimaryIntersection(intersects);
+}
+
+function getPoiHit(Viewer, pointerVector) {
+  Viewer.raycaster.setFromCamera(pointerVector, core.camera);
+  const poiIntersects = Viewer.raycaster.intersectObjects(
+    Viewer.annotationPOIMarkers || [],
+    true
+  );
+  return poiIntersects.find(
+    (entry) => entry?.object?.userData?.isAnnotationPOI === true
+  ) || null;
+}
+
+function attachPicking(Viewer) {
+  Object.assign(Viewer, {
     createTriangleGeometry(intersection) {
       const position = intersection?.object?.geometry?.attributes?.position;
       const face = intersection?.face;
@@ -4061,6 +4695,95 @@ function attachMeasurement(Viewer) {
       Viewer.updatePickingHintVisibility();
     },
 
+    toStableIdToken(value) {
+      const normalized = String(value || "")
+        .trim()
+        .replace(/[^a-zA-Z0-9._-]+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
+      return normalized || "target";
+    },
+
+    getSelectionRootObject(object) {
+      let current = object;
+      while (current?.parent && current.parent !== core.scene) {
+        current = current.parent;
+      }
+      return current || object;
+    },
+
+    getSelectionRootSlot(rootObject) {
+      if (!rootObject || !Array.isArray(core.mainObject)) return -1;
+      return core.mainObject.findIndex((entry) => {
+        if (entry === rootObject) return true;
+        return Array.isArray(entry) && entry.includes(rootObject);
+      });
+    },
+
+    getObjectHierarchyPath(object, rootObject) {
+      if (!object || !rootObject) return "";
+      const path = [];
+      let current = object;
+      while (current && current !== rootObject) {
+        const parent = current.parent;
+        if (!parent) break;
+        const index = parent.children.indexOf(current);
+        path.push(index >= 0 ? String(index) : "x");
+        current = parent;
+      }
+      return path.reverse().join(".") || "root";
+    },
+
+    resolveFaceTargetId(object) {
+      if (!object) return "";
+
+      const explicitId = object.userData?.annotationTargetId || object.userData?.id;
+      if (explicitId) return String(explicitId);
+
+      const rootObject = Viewer.getSelectionRootObject(object);
+      const rootSlot = Viewer.getSelectionRootSlot(rootObject);
+      const path = Viewer.getObjectHierarchyPath(object, rootObject);
+      let rootTag = rootSlot >= 0 ? `m${rootSlot}` : "m0";
+      if (rootSlot >= 0 && Array.isArray(core.mainObject?.[rootSlot])) {
+        const rootIndex = core.mainObject[rootSlot].indexOf(rootObject);
+        if (rootIndex >= 0) {
+          rootTag = `${rootTag}.${rootIndex}`;
+        }
+      }
+      const targetId = `${rootTag}:${path}`;
+
+      object.userData ??= {};
+      object.userData.annotationTargetId = targetId;
+      return targetId;
+    },
+
+    resolveObjectByTargetId(targetId) {
+      const raw = String(targetId || "").trim();
+      const match = raw.match(/^m(\d+)(?:\.(\d+))?:(.+)$/);
+      if (!match) return null;
+
+      const slot = Number.parseInt(match[1], 10);
+      const rootIndex = Number.parseInt(match[2] || "0", 10);
+      const path = match[3] || "root";
+      if (!Number.isInteger(slot) || slot < 0) return null;
+
+      const entry = core.mainObject?.[slot];
+      if (!entry) return null;
+      let rootObject = Array.isArray(entry) ? entry[rootIndex] : entry;
+      if (!rootObject) return null;
+
+      if (path === "root") return rootObject;
+      const segments = path.split(".").filter(Boolean);
+      for (const segment of segments) {
+        const childIndex = Number.parseInt(segment, 10);
+        if (!Number.isInteger(childIndex) || childIndex < 0) return null;
+        rootObject = rootObject.children?.[childIndex];
+        if (!rootObject) return null;
+      }
+
+      return rootObject;
+    },
+
     getFaceCentroidWorld(object, faceIndex) {
       const geometry = object?.geometry;
       if (!geometry || !geometry.getAttribute) return null;
@@ -4112,13 +4835,12 @@ function attachMeasurement(Viewer) {
       }
 
       Viewer.disposeFaceOverlay(Viewer.lastPickedFace);
-
       Viewer.lastPickedFace = { id: "", object: "", faceIndex: null, overlay: null };
     },
 
-    pickFaces(_id) {
-      const hoveredObjectId = _id?.object?.id ?? "";
-      const hoveredFaceIndex = _id?.faceIndex ?? null;
+    pickFaces(intersection) {
+      const hoveredObjectId = intersection?.object?.id ?? "";
+      const hoveredFaceIndex = intersection?.faceIndex ?? null;
       if (!hoveredObjectId) {
         Viewer.restoreLastPickedFace();
         return;
@@ -4132,7 +4854,7 @@ function attachMeasurement(Viewer) {
       }
 
       Viewer.restoreLastPickedFace();
-      const overlay = Viewer.createPickingFaceOverlay(_id, {
+      const overlay = Viewer.createPickingFaceOverlay(intersection, {
         fillColor: 0xff3b30,
         lineColor: 0xffffff,
         opacity: 0.4,
@@ -4146,7 +4868,7 @@ function attachMeasurement(Viewer) {
         overlay,
       };
 
-      _id.object.add(overlay);
+      intersection.object.add(overlay);
     },
 
     toggleSelectedFace(intersection, options = {}) {
@@ -4197,87 +4919,86 @@ function attachMeasurement(Viewer) {
       Viewer.updateSelectedFacesCount();
     },
 
-    buildRuler(_id) {
-      Viewer.rulerObject = new THREE.Object3D();
-      const gridSize = Viewer.gridSize || core.gridSize || 1;
-      const sphereRadius = Math.max(gridSize / 150, 0.001);
-      const textScale = Math.max(gridSize / 100, 0.01);
-      const measureSize = Math.max(gridSize / 200, 0.01);
+    onPointerDown(e) {
+      Viewer.disableInteractionHint();
+      e.stopPropagation();
+      if (e.button === 0) {
+        getNormalizedPointerPosition(Viewer, e.clientX, e.clientY, Viewer.onDownPosition);
+      }
+    },
 
-      var sphere = new THREE.Mesh(
-        new THREE.SphereGeometry(sphereRadius, 7, 7),
-        new THREE.MeshStandardMaterial({
-          color: 0xff0000,
-          transparent: true,
-          opacity: 0.85,
-          side: THREE.DoubleSide,
-          depthTest: false,
-          depthWrite: false,
-        })
-      );
-      var newPoint = new THREE.Vector3(_id.point.x, _id.point.y, _id.point.z);
-      sphere.position.set(newPoint.x, newPoint.y, newPoint.z);
-      Viewer.rulerObject.add(sphere);
-      Viewer.linePoints.push(newPoint);
-      const lineGeometry = new THREE.BufferGeometry().setFromPoints(Viewer.linePoints);
-      const lineMaterial = new THREE.LineBasicMaterial({ color: 0x0000ff });
-      const line = new THREE.Line(lineGeometry, lineMaterial);
-      Viewer.rulerObject.add(line);
-      var lineMtr = new THREE.LineBasicMaterial({
-        color: 0x0000ff,
-        linewidth: 3,
-        opacity: 1,
-        side: THREE.DoubleSide,
-        depthTest: false,
-        depthWrite: false,
-      });
-      if (Viewer.linePoints.length > 1) {
-        var vectorPoints = vectorBetweenPoints(
-          Viewer.linePoints[Viewer.linePoints.length - 2],
-          newPoint
-        );
-        var distancePoints = distanceBetweenPointsVector(vectorPoints);
-        const measuredDistance = Viewer.formatMeasuredDistance(distancePoints);
+    onPointerUp(e) {
+      if (e.button !== 0) return;
 
-        //var distancePoints = distanceBetweenPoints(Viewer.linePoints[Viewer.linePoints.length-2], newPoint);
-        var halfwayPoints = halfwayBetweenPoints(
-          Viewer.linePoints[Viewer.linePoints.length - 2],
-          newPoint
-        );
-        Viewer.addTextPoint(measuredDistance.text, textScale, halfwayPoints);
-        var rulerI = 0;
-        // `measureSize` was already precomputed outside, keep same scale
-        while (rulerI <= distancePoints * 100) {
-          const geoSegm = [];
-          var interpolatePoints = interpolateDistanceBetweenPoints(
-            Viewer.linePoints[Viewer.linePoints.length - 2],
-            vectorPoints,
-            distancePoints,
-            rulerI / 100
-          );
-          geoSegm.push(
-            new THREE.Vector3(
-              interpolatePoints.x,
-              interpolatePoints.y,
-              interpolatePoints.z
-            )
-          );
-          geoSegm.push(
-            new THREE.Vector3(
-              interpolatePoints.x + measureSize,
-              interpolatePoints.y + measureSize,
-              interpolatePoints.z + measureSize
-            )
-          );
-          const geometryLine = new THREE.BufferGeometry().setFromPoints(geoSegm);
-          var lineSegm = new THREE.Line(geometryLine, lineMtr);
-          Viewer.rulerObject.add(lineSegm);
-          rulerI += 10;
+      getNormalizedPointerPosition(Viewer, e.clientX, e.clientY, Viewer.onUpPosition);
+      if (
+        Viewer.onUpPosition.x !== Viewer.onDownPosition.x ||
+        Viewer.onUpPosition.y !== Viewer.onDownPosition.y
+      ) {
+        return;
+      }
+
+      if (!Viewer.pickingMode && !Viewer.RULER_MODE) {
+        const poiHit = getPoiHit(Viewer, Viewer.onUpPosition);
+        if (poiHit?.object) {
+          Viewer.openAnnotationDialogFromPOIMarker(poiHit.object);
+          return;
+        }
+        Viewer.closeAnnotationPOITooltip();
+      }
+
+      if (Viewer.pickingMode || Viewer.RULER_MODE) {
+        const primaryIntersection = getPrimaryModelIntersection(Viewer, Viewer.onUpPosition);
+        if (!primaryIntersection) return;
+
+        if (Viewer.RULER_MODE) {
+          Viewer.buildRuler(primaryIntersection);
+        } else if (Viewer.pickingMode) {
+          Viewer.toggleSelectedFace(primaryIntersection, {
+            multiSelect: e.shiftKey,
+          });
         }
       }
-      Viewer.rulerObject.renderOrder = 10;
-      core.scene.add(Viewer.rulerObject);
-      Viewer.ruler.push(Viewer.rulerObject);
+    },
+
+    onPointerMove(e) {
+      getNormalizedPointerPosition(Viewer, e.clientX, e.clientY, Viewer.pointer);
+      if (e.buttons !== 0) {
+        Viewer.disableInteractionHint();
+        Viewer.closeAnnotationPOITooltip();
+      }
+      if (e.buttons == 1) {
+        if (Viewer.pointer.x !== Viewer.onDownPosition.x && Viewer.pointer.y !== Viewer.onDownPosition.y) {
+          Viewer.cameraLight.position.set(
+            core.camera.position.x,
+            core.camera.position.y,
+            core.camera.position.z
+          );
+        }
+        return;
+      }
+
+      if (!Viewer.pickingMode && !Viewer.RULER_MODE) {
+        if (Viewer.annotationDialog && Viewer.annotationDialog.hidden === false) {
+          Viewer.closeAnnotationPOITooltip();
+        } else {
+          const poiHit = getPoiHit(Viewer, Viewer.pointer);
+          if (poiHit?.object) {
+            Viewer.openAnnotationPOITooltip(poiHit.object);
+          } else {
+            Viewer.closeAnnotationPOITooltip();
+          }
+        }
+      }
+
+      if (Viewer.pickingMode) {
+        const primaryIntersection = getPrimaryModelIntersection(Viewer, Viewer.pointer);
+        if (primaryIntersection) {
+          Viewer.pickFaces(primaryIntersection);
+        } else {
+          Viewer.pickFaces("");
+        }
+      }
     },
   });
 }
@@ -4851,18 +5572,18 @@ function createIIIFUI() {
   document.body.appendChild(formContainer);
 }
 
-const loadDDSLoader = async () => (await import('./assets/three.js').then(function (n) { return n.i; })).DDSLoader;
-const loadMTLLoader = async () => (await import('./assets/three.js').then(function (n) { return n.j; })).MTLLoader;
-const loadOBJLoader = async () => (await import('./assets/three.js').then(function (n) { return n.k; })).OBJLoader;
-const loadFBXLoader = async () => (await import('./assets/three.js').then(function (n) { return n.l; })).FBXLoader;
+const loadDDSLoader = async () => (await import('./assets/three.js').then(function (n) { return n.j; })).DDSLoader;
+const loadMTLLoader = async () => (await import('./assets/three.js').then(function (n) { return n.k; })).MTLLoader;
+const loadOBJLoader = async () => (await import('./assets/three.js').then(function (n) { return n.l; })).OBJLoader;
+const loadFBXLoader = async () => (await import('./assets/three.js').then(function (n) { return n.n; })).FBXLoader;
 const loadPLYLoader = async () => (await import('./assets/three.js').then(function (n) { return n.P; })).PLYLoader;
-const loadColladaLoader = async () => (await import('./assets/three.js').then(function (n) { return n.n; })).ColladaLoader;
+const loadColladaLoader = async () => (await import('./assets/three.js').then(function (n) { return n.o; })).ColladaLoader;
 const loadSTLLoader = async () => (await import('./assets/three.js').then(function (n) { return n.S; })).STLLoader;
 const loadXYZLoader = async () => (await import('./assets/three.js').then(function (n) { return n.X; })).XYZLoader;
-const loadTDSLoader = async () => (await import('./assets/three.js').then(function (n) { return n.o; })).TDSLoader;
-const loadPCDLoader = async () => (await import('./assets/three.js').then(function (n) { return n.p; })).PCDLoader;
+const loadTDSLoader = async () => (await import('./assets/three.js').then(function (n) { return n.p; })).TDSLoader;
+const loadPCDLoader = async () => (await import('./assets/three.js').then(function (n) { return n.q; })).PCDLoader;
 const loadGLTFLoader = async () => (await import('./assets/three.js').then(function (n) { return n.G; })).GLTFLoader;
-const loadDRACOLoader = async () => (await import('./assets/three.js').then(function (n) { return n.q; })).DRACOLoader;
+const loadDRACOLoader = async () => (await import('./assets/three.js').then(function (n) { return n.r; })).DRACOLoader;
 const loadIFCLoader = async () => (await import('./assets/IFCLoader.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./assets/three.js').then(function (n) { return n.R; })).RoomEnvironment;
 
@@ -5054,7 +5775,7 @@ function traverseMesh(object) {
     setupMaterials(child);
   });
 
-  if (window.Viewer?.initializeMaterialsEditor) {
+  if (window.Viewer?.initializeMaterialsEditor && core.PRESENTATION_MODE !== true) {
     window.Viewer.initializeMaterialsEditor(object);
   }
 }
@@ -14203,63 +14924,7 @@ const Viewer$1 = {
   },
 
   async saveEditorMetadata() {
-    if (!core.EDITOR || core.isLightweight || !core.helperObjects?.[0]) return;
-
-    const rotateMetadata = new THREE.Vector3(
-      THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.x),
-      THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.y),
-      THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.z)
-    );
-
-    if (core.CONFIG.entity.proxyPath !== undefined) {
-      core.CONFIG.metadataUrl = core.getProxyPath(core.CONFIG.metadataUrl);
-    }
-
-    let fetchedMetadata = {};
-
-    try {
-      if (core.CONFIG?.metadataUrl) {
-        const response = await fetch(core.CONFIG.metadataUrl, { cache: "no-cache" });
-        if (response.ok) {
-          fetchedMetadata = await response.json();
-        }
-      }
-    } catch (err) {
-      console.warn("Metadata fetch failed, continuing with save", err);
-    }
-
-    this.originalMetadata = {
-      ...this.originalMetadata,
-      ...fetchedMetadata
-    };
-
-    const newMetadata = this.buildMetadata(this, rotateMetadata);
-
-    try {
-      const token = await fetch("/session/token").then((r) => r.text());
-
-      await fetch(core.CONFIG.mainUrl + "/api/editor/save-metadata", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-Token": token
-        },
-        body: JSON.stringify({
-          filename: core.fileObject.filename,
-          path:
-            this.archiveType !== ""
-              ? core.fileObject.relativePath + core.fileObject.basename + core.loadedFile
-              : core.fileObject.relativePath,
-          content: JSON.stringify(newMetadata, null, "\t")
-        })
-      });
-
-      toastHelper$1("settingsSaved", "success");
-    } catch (err) {
-      console.error(err);
-      toastHelper$1("settingsSaveError", "error");
-    }
+    return saveEditorMetadata(this);
   },
 
   updateEditorToolbarState() {
@@ -16244,79 +16909,6 @@ const Viewer$1 = {
     return object;
   },
 
-  prepareGalleryImages(imageElementsChildren) {
-    imageElementsChildren = imageElementsChildren.filter(function (_image) {
-      if (!(_image instanceof Element)) return false;
-      let rawUrl = "";
-      const img = _image.querySelector("img");
-      const link = _image.querySelector("a");
-      if (img && img.getAttribute("src")) {
-        rawUrl = img.getAttribute("src");
-      } else if (link && link.getAttribute("href")) {
-        rawUrl = link.getAttribute("href");
-      } else {
-        rawUrl = (_image.textContent || _image.innerHTML || "").trim();
-      }
-
-      const normalized = Viewer$1.normalizeGalleryUrl(rawUrl);
-      if (!isValidUrl(normalized)) {
-        return false;
-      }
-      _image.innerHTML = normalized;
-      return !!img;
-    });
-    imageElementsChildren.forEach(function (imgLink, index) {
-      imgLink.innerHTML =
-        '<img loading="lazy" src="' +
-        imgLink.innerHTML +
-        '" width="200px" height="200px" alt="" class="img-fluid image-style-wisski-preview">';
-    });
-    return imageElementsChildren;
-  },
-
-  normalizeGalleryUrl(rawUrl) {
-    if (!rawUrl || typeof rawUrl !== "string") {
-      return "";
-    }
-
-    let url = rawUrl.trim();
-    if (url === "") {
-      return "";
-    }
-
-    if (url.startsWith("public://")) {
-      url = "/sites/default/files/" + url.substring("public://".length);
-    } else if (url.startsWith("sites/default/files/")) {
-      url = "/" + url;
-    }
-
-    const base = (core.CONFIG?.mainUrl || window.location.origin || "").replace(/\/+$/, "");
-
-    try {
-      const parsed = new URL(url, window.location.origin);
-      const host = parsed.host || "";
-      const path = parsed.pathname || "";
-      const normalizedHost = host.toLowerCase();
-      const hasBadHost = host.includes("_") || normalizedHost === "default" || normalizedHost === "dfg_3dviewer";
-
-      if (path.startsWith("/sites/default/files/")) {
-        if (hasBadHost) {
-          return `${base}${path}`;
-        }
-        if (parsed.protocol === "http:" || parsed.protocol === "https:") {
-          return parsed.href;
-        }
-        return `${base}${path}`;
-      }
-      return parsed.href;
-    } catch (e) {
-      if (url.startsWith("/sites/default/files/")) {
-        return `${base}${url}`;
-      }
-      return url;
-    }
-  },
-
   normalizeFileUrl(rawUrl) {
     if (!rawUrl || typeof rawUrl !== "string") {
       return "";
@@ -16380,148 +16972,8 @@ const Viewer$1 = {
     return /^(?:\.{1,2}\/)?examples\/box\.stl(?:\?.*)?$/i.test(currentModelAttr);
   },
 
-  handleImages(
-    mainElement,
-    imageElements,
-    imageElementsChildren
-  ) {
-    if (typeof (imageElementsChildren == undefined)) {
-      imageElementsChildren = imageElements;
-    }
-    var imageList = document.createElement("div");
-    imageList.setAttribute("id", "image-list");
-    var modalGallery = document.createElement("div");
-    var modalImage = document.createElement("img");
-    modalImage.setAttribute("class", "modalImage");
-    modalImage.style.transform = `scale(0.95)`;
-    Viewer$1.bindEventListener(modalGallery, "wheel", function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (e.deltaY > 0 && Viewer$1.zoomImage > 0.15) {
-        modalImage.style.transform = `scale(${(Viewer$1.zoomImage -= Viewer$1.ZOOM_SPEED_IMAGE)})`;
-      } else if (e.deltaY < 0 && Viewer$1.zoomImage < 5) {
-        modalImage.style.transform = `scale(${(Viewer$1.zoomImage += Viewer$1.ZOOM_SPEED_IMAGE)})`;
-      }
-      return false;
-    });
-    var modalClose = document.createElement("span");
-    modalGallery.setAttribute("id", "modalGallery");
-    modalGallery.setAttribute("class", "modalGallery");
-    modalClose.setAttribute("class", "closeGallery");
-    modalClose.setAttribute("title", "Close");
-    modalClose.innerHTML = "&times";
-    modalClose.onclick = function () {
-      modalGallery.style.display = "none";
-    };
-
-    Viewer$1.bindEventListener(document, "click", function (event) {
-      if (
-        !modalGallery.contains(event.target) &&
-        !imageList.contains(event.target)
-      ) {
-        modalGallery.style.display = "none";
-        Viewer$1.zoomImage = 1.5;
-        modalImage.style.transform = `scale(1.5)`;
-      }
-    });
-
-    modalGallery.appendChild(modalImage);
-    modalGallery.appendChild(modalClose);
-    for (let i = 0; imageElementsChildren.length - i >= 0; i++) {
-      if (
-        imageElementsChildren[i] !== undefined &&
-        imageElementsChildren[i].innerHTML !== undefined
-      ) {
-        var imgList = imageElementsChildren[i].getElementsByTagName("a");
-        for (let j = 0; j < imgList.length; j++) {
-          imgList[j].setAttribute("href", "#");
-          imgList[j].setAttribute("src", imgList[j].firstChild.src);
-          imgList[j].setAttribute("class", "image-list-item");
-        }
-        imgList = imageElementsChildren[i].getElementsByTagName("img");
-        //for single thumbnail
-        if (imgList.length == 1) {
-          imgList[0].style.maxWidth = "fit-content";
-          imgList[0].style.maxHeight = "180px";
-        }
-        for (let j = 0; j < imgList.length; j++) {
-          imgList[j].onclick = function () {
-            modalGallery.style.display = "block";
-            imageList.style.zIndex = 0;
-            imageList.style.display = "hidden";
-            modalImage.src = this.src;
-          };
-        }
-        imageList.appendChild(imageElementsChildren[i]);
-      }
-    }
-    if (
-      imageList &&
-      imageList.childNodes.length > 0 &&
-      Viewer$1.fileElement &&
-      Viewer$1.fileElement[0] &&
-      mainElement
-    ) {
-      Viewer$1.fileElement[0].insertAdjacentElement("beforebegin", modalGallery);
-      mainElement.insertAdjacentElement("beforebegin", imageList);
-    }
-    //mainElement.insertBefore(imageList, fileElement[0]);
-  },
-
   buildGallery() {
-    if (Viewer$1.fileElement && Viewer$1.fileElement?.length > 0) {
-      var mainElement = document.getElementById(core.CONFIG.viewer.gallery.container);
-      var imageElements;
-      if (core.CONFIG.viewer.gallery.imageClass !== "") {
-        imageElements = document.getElementsByClassName(
-          core.CONFIG.viewer.gallery.imageClass
-        );
-        if (imageElements.length > 0) {
-          var galleryLabel = document.getElementsByClassName("field__label");
-          if (galleryLabel !== undefined) galleryLabel[0].innerText = "";
-        }
-      } else if (core.CONFIG.viewer.gallery.imageId !== "") {
-        imageElements = document.getElementById(core.CONFIG.viewer.gallery.imageId);
-      } else {
-        console.log("No gallery created");
-      }
-
-      if (imageElements !== null) {
-        if (imageElements.length > 0) {
-          if (imageElements[0].innerHTML !== undefined) {
-            let imagesList = Array.from(
-              imageElements[0].getElementsByClassName("field__items")[0]
-                .childNodes
-            );
-            imagesList = Viewer$1.prepareGalleryImages(imagesList);
-            //imageElements[0].classList.add("field--type-image");
-            imageElements[0].classList.add("field--label-hidden");
-            imageElements[0].classList.add("field__items");
-            Viewer$1.handleImages(mainElement, imagesList, imageElements);
-          } else {
-            Viewer$1.handleImages(mainElement, imageElements);
-          }
-        } else if (
-          imageElements.childNodes !== undefined &&
-          imageElements.childNodes.length > 0
-        ) {
-          if (
-            typeof imageElements.childNodes[0].innerHTML == "string" ||
-            typeof imageElements.childNodes[1].innerHTML == "string"
-          ) {
-            //handle links and convert to img
-            let imagesList = Array.from(imageElements.childNodes);
-            imagesList = Viewer$1.prepareGalleryImages(imagesList);
-            imageElements.classList.add("field--type-image");
-            imageElements.classList.add("field--label-hidden");
-            imageElements.classList.add("field__items");
-            Viewer$1.handleImages(mainElement, imagesList, imageElements);
-          } else {
-            Viewer$1.handleImages(mainElement, imageElements);
-          }
-        }
-      }
-    }
+    return buildThumbnailGallery(this);
   },
 
   toHexColor(input) {
@@ -16577,233 +17029,7 @@ const Viewer$1 = {
     );
   },
 
-  createTriangleGeometry(intersection) {
-    const position = intersection?.object?.geometry?.attributes?.position;
-    const face = intersection?.face;
-
-    if (!position || !face) return null;
-
-    const trianglePositions = new Float32Array([
-      position.getX(face.a), position.getY(face.a), position.getZ(face.a),
-      position.getX(face.b), position.getY(face.b), position.getZ(face.b),
-      position.getX(face.c), position.getY(face.c), position.getZ(face.c),
-    ]);
-
-    const triangleGeometry = new THREE.BufferGeometry();
-    triangleGeometry.setAttribute("position", new THREE.BufferAttribute(trianglePositions, 3));
-    triangleGeometry.computeVertexNormals();
-
-    return triangleGeometry;
-  },
-
-  createPickingFaceOverlay(intersection, options = {}) {
-    const triangleGeometry = Viewer$1.createTriangleGeometry(intersection);
-    if (!triangleGeometry) return null;
-
-    const fillColor = options.fillColor ?? 0xff0000;
-    const lineColor = options.lineColor ?? 0xffffff;
-    const opacity = options.opacity ?? 0.65;
-
-    const overlayMaterial = new THREE.MeshBasicMaterial({
-      color: fillColor,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity,
-      depthTest: true,
-      depthWrite: false,
-      polygonOffset: true,
-      polygonOffsetFactor: -1,
-      polygonOffsetUnits: -2,
-      toneMapped: false,
-    });
-
-    const fillMesh = new THREE.Mesh(triangleGeometry, overlayMaterial);
-    fillMesh.renderOrder = 999;
-
-    const lineGeometry = new THREE.EdgesGeometry(triangleGeometry);
-    const lineMaterial = new THREE.LineBasicMaterial({
-      color: lineColor,
-      transparent: true,
-      opacity: Math.min(opacity + 0.2, 1),
-      depthTest: false,
-      depthWrite: false,
-      toneMapped: false,
-    });
-    const lineSegments = new THREE.LineSegments(lineGeometry, lineMaterial);
-    lineSegments.renderOrder = 1000;
-
-    const overlayGroup = new THREE.Group();
-    overlayGroup.name = "picking-face-overlay";
-    overlayGroup.userData.isPickingOverlay = true;
-    fillMesh.userData.isPickingOverlay = true;
-    lineSegments.userData.isPickingOverlay = true;
-    overlayGroup.add(fillMesh);
-    overlayGroup.add(lineSegments);
-
-    return overlayGroup;
-  },
-
-  isPickingOverlayObject(object) {
-    let current = object;
-
-    while (current) {
-      if (current.userData?.isPickingOverlay === true || current.name === "picking-face-overlay") {
-        return true;
-      }
-      current = current.parent;
-    }
-
-    return false;
-  },
-
-  getPrimaryIntersection(intersections) {
-    if (!Array.isArray(intersections) || intersections.length === 0) return null;
-
-    return intersections.find((entry) => !Viewer$1.isPickingOverlayObject(entry?.object)) ?? null;
-  },
-
-  getFaceSelectionKey(targetId, faceIndex) {
-    if (!targetId || faceIndex === null || faceIndex === undefined) return "";
-    return `${targetId}:${faceIndex}`;
-  },
-
-  findSelectedFaceIndex(targetId, faceIndex) {
-    const key = Viewer$1.getFaceSelectionKey(targetId, faceIndex);
-    return Viewer$1.selectedFaces.findIndex((entry) => entry.key === key);
-  },
-
-  updateSelectedFacesCount() {
-    Viewer$1.pickingStats["Selected faces"] = Array.isArray(Viewer$1.selectedFaces)
-      ? Viewer$1.selectedFaces.length
-      : 0;
-    const selectedFacesCount = Array.isArray(Viewer$1.selectedFaces) ? Viewer$1.selectedFaces.length : 0;
-    if (selectedFacesCount < 1 && Viewer$1.annotationDialog && Viewer$1.annotationDialog.hidden === false) {
-      Viewer$1.closeAnnotationDialog();
-    }
-    Viewer$1.updateAddAnnotationControllerState();
-    Viewer$1.updatePickingHintVisibility();
-  },
-
-  toStableIdToken(value) {
-    const normalized = String(value || "")
-      .trim()
-      .replace(/[^a-zA-Z0-9._-]+/g, "-")
-      .replace(/-+/g, "-")
-      .replace(/^-|-$/g, "");
-    return normalized || "target";
-  },
-
-  getSelectionRootObject(object) {
-    let current = object;
-    while (current?.parent && current.parent !== core.scene) {
-      current = current.parent;
-    }
-    return current || object;
-  },
-
-  getSelectionRootSlot(rootObject) {
-    if (!rootObject || !Array.isArray(core.mainObject)) return -1;
-    return core.mainObject.findIndex((entry) => {
-      if (entry === rootObject) return true;
-      return Array.isArray(entry) && entry.includes(rootObject);
-    });
-  },
-
-  getObjectHierarchyPath(object, rootObject) {
-    if (!object || !rootObject) return "";
-    const path = [];
-    let current = object;
-    while (current && current !== rootObject) {
-      const parent = current.parent;
-      if (!parent) break;
-      const index = parent.children.indexOf(current);
-      path.push(index >= 0 ? String(index) : "x");
-      current = parent;
-    }
-    return path.reverse().join(".") || "root";
-  },
-
-  resolveFaceTargetId(object) {
-    if (!object) return "";
-
-    const explicitId = object.userData?.annotationTargetId || object.userData?.id;
-    if (explicitId) return String(explicitId);
-
-    const rootObject = Viewer$1.getSelectionRootObject(object);
-    const rootSlot = Viewer$1.getSelectionRootSlot(rootObject);
-    const path = Viewer$1.getObjectHierarchyPath(object, rootObject);
-    let rootTag = rootSlot >= 0 ? `m${rootSlot}` : "m0";
-    if (rootSlot >= 0 && Array.isArray(core.mainObject?.[rootSlot])) {
-      const rootIndex = core.mainObject[rootSlot].indexOf(rootObject);
-      if (rootIndex >= 0) {
-        rootTag = `${rootTag}.${rootIndex}`;
-      }
-    }
-    const targetId = `${rootTag}:${path}`;
-
-    object.userData ??= {};
-    object.userData.annotationTargetId = targetId;
-    return targetId;
-  },
-
-  resolveObjectByTargetId(targetId) {
-    const raw = String(targetId || "").trim();
-    const match = raw.match(/^m(\d+)(?:\.(\d+))?:(.+)$/);
-    if (!match) return null;
-
-    const slot = Number.parseInt(match[1], 10);
-    const rootIndex = Number.parseInt(match[2] || "0", 10);
-    const path = match[3] || "root";
-    if (!Number.isInteger(slot) || slot < 0) return null;
-
-    const entry = core.mainObject?.[slot];
-    if (!entry) return null;
-    let rootObject = Array.isArray(entry) ? entry[rootIndex] : entry;
-    if (!rootObject) return null;
-
-    if (path === "root") return rootObject;
-    const segments = path.split(".").filter(Boolean);
-    for (const segment of segments) {
-      const childIndex = Number.parseInt(segment, 10);
-      if (!Number.isInteger(childIndex) || childIndex < 0) return null;
-      rootObject = rootObject.children?.[childIndex];
-      if (!rootObject) return null;
-    }
-
-    return rootObject;
-  },
-
-  getFaceCentroidWorld(object, faceIndex) {
-    const geometry = object?.geometry;
-    if (!geometry || !geometry.getAttribute) return null;
-    const position = geometry.getAttribute("position");
-    if (!position) return null;
-    const face = Number(faceIndex);
-    if (!Number.isInteger(face) || face < 0) return null;
-
-    let ia = face * 3;
-    let ib = ia + 1;
-    let ic = ia + 2;
-    const index = geometry.getIndex?.() || geometry.index || null;
-    if (index?.array) {
-      const arr = index.array;
-      if (ic >= arr.length) return null;
-      ia = arr[ia];
-      ib = arr[ib];
-      ic = arr[ic];
-    } else if (ic >= position.count) {
-      return null;
-    }
-
-    const va = new THREE.Vector3().fromBufferAttribute(position, ia);
-    const vb = new THREE.Vector3().fromBufferAttribute(position, ib);
-    const vc = new THREE.Vector3().fromBufferAttribute(position, ic);
-    const center = va.add(vb).add(vc).multiplyScalar(1 / 3);
-    object.updateMatrixWorld?.(true);
-    center.applyMatrix4(object.matrixWorld);
-    return center;
-  },
-  /* measurement and face-picking moved to viewer/editor/measurement.js */
+  /* picking and measurement moved to viewer/editor modules */
 
   updateSize() {
     const isFullscreen = !!document.fullscreenElement;
@@ -17090,165 +17316,6 @@ const Viewer$1 = {
     core.renderer?.clear();
     core.renderer?.render(core.scene, core.camera);
     core.stats?.update();
-  },
-
-  onPointerDown(e) {
-    Viewer$1.disableInteractionHint();
-    e.stopPropagation();
-    if (e.button === 0) {
-      Viewer$1.onDownPosition.x =
-        ((e.clientX - Viewer$1.mainCanvas.getBoundingClientRect().left) /
-          core.renderer.domElement.clientWidth) *
-        2 -
-        1;
-      Viewer$1.onDownPosition.y =
-        -(
-          (e.clientY - Viewer$1.mainCanvas.getBoundingClientRect().top) /
-          core.renderer.domElement.clientHeight
-        ) *
-        2 +
-        1;
-    }
-  },
-
-  onPointerUp(e) {
-    if (e.button == 0) {
-      Viewer$1.onUpPosition.x =
-        ((e.clientX - Viewer$1.mainCanvas.getBoundingClientRect().left) /
-          core.renderer.domElement.clientWidth) *
-        2 -
-        1;
-      Viewer$1.onUpPosition.y =
-        -(
-          (e.clientY - Viewer$1.mainCanvas.getBoundingClientRect().top) /
-          core.renderer.domElement.clientHeight
-        ) *
-        2 +
-        1;
-      if (
-        Viewer$1.onUpPosition.x === Viewer$1.onDownPosition.x &&
-        Viewer$1.onUpPosition.y === Viewer$1.onDownPosition.y
-      ) {
-        Viewer$1.raycaster.setFromCamera(Viewer$1.onUpPosition, core.camera);
-        if (!Viewer$1.pickingMode && !Viewer$1.RULER_MODE) {
-          const poiIntersects = Viewer$1.raycaster.intersectObjects(
-            Viewer$1.annotationPOIMarkers || [],
-            true
-          );
-          const poiHit = poiIntersects.find(
-            (entry) => entry?.object?.userData?.isAnnotationPOI === true
-          );
-          if (poiHit?.object) {
-            Viewer$1.openAnnotationDialogFromPOIMarker(poiHit.object);
-            return;
-          }
-          Viewer$1.closeAnnotationPOITooltip();
-        }
-
-        let intersects = [];
-        let primaryIntersection = null;
-
-        if (Viewer$1.pickingMode || Viewer$1.RULER_MODE) {
-          if (core.mainObject.length > 1) {
-            for (let ii = 0; ii < core.mainObject.length; ii++) {
-              intersects.push(
-                ...Viewer$1.raycaster.intersectObjects(
-                  core.mainObject[ii].children,
-                  true
-                )
-              );
-            }
-            if (intersects.length <= 0) {
-              intersects = Viewer$1.raycaster.intersectObjects(core.mainObject, true);
-            }
-          } else {
-            intersects = Viewer$1.raycaster.intersectObject(core.mainObject[0], true);
-          }
-          primaryIntersection = Viewer$1.getPrimaryIntersection(intersects);
-          if (primaryIntersection) {
-            if (Viewer$1.RULER_MODE) Viewer$1.buildRuler(primaryIntersection);
-            else if (Viewer$1.pickingMode) {
-              Viewer$1.toggleSelectedFace(primaryIntersection, {
-                multiSelect: e.shiftKey,
-              });
-            }
-          }
-        }
-      }
-    }
-  },
-
-  onPointerMove(e) {
-    Viewer$1.pointer.x =
-      ((e.clientX - Viewer$1.mainCanvas.getBoundingClientRect().left) /
-        core.renderer.domElement.clientWidth) *
-      2 -
-      1;
-    Viewer$1.pointer.y =
-      -(
-        (e.clientY - Viewer$1.mainCanvas.getBoundingClientRect().top) /
-        core.renderer.domElement.clientHeight
-      ) *
-      2 +
-      1;
-    if (e.buttons !== 0) {
-      Viewer$1.disableInteractionHint();
-      Viewer$1.closeAnnotationPOITooltip();
-    }
-    if (e.buttons == 1) {
-      if (Viewer$1.pointer.x !== Viewer$1.onDownPosition.x && Viewer$1.pointer.y !== Viewer$1.onDownPosition.y) {
-        Viewer$1.cameraLight.position.set(
-          core.camera.position.x,
-          core.camera.position.y,
-          core.camera.position.z
-        );
-      }
-    } else {
-      if (!Viewer$1.pickingMode && !Viewer$1.RULER_MODE) {
-        if (Viewer$1.annotationDialog && Viewer$1.annotationDialog.hidden === false) {
-          Viewer$1.closeAnnotationPOITooltip();
-        } else {
-          Viewer$1.raycaster.setFromCamera(Viewer$1.pointer, core.camera);
-          const poiIntersects = Viewer$1.raycaster.intersectObjects(
-            Viewer$1.annotationPOIMarkers || [],
-            true
-          );
-          const poiHit = poiIntersects.find(
-            (entry) => entry?.object?.userData?.isAnnotationPOI === true
-          );
-          if (poiHit?.object) {
-            Viewer$1.openAnnotationPOITooltip(poiHit.object);
-          } else {
-            Viewer$1.closeAnnotationPOITooltip();
-          }
-        }
-      }
-      if (Viewer$1.pickingMode) {
-        Viewer$1.raycaster.setFromCamera(Viewer$1.pointer, core.camera);
-        let intersects = [];
-        if (core.mainObject.length > 1) {
-          for (let ii = 0; ii < core.mainObject.length; ii++) {
-            intersects.push(
-              ...Viewer$1.raycaster.intersectObjects(
-                core.mainObject[ii].children,
-                true
-              )
-            );
-          }
-          if (intersects.length <= 0) {
-            intersects = Viewer$1.raycaster.intersectObjects(core.mainObject, true);
-          }
-        } else {
-          intersects = Viewer$1.raycaster.intersectObject(core.mainObject[0], true);
-        }
-        const primaryIntersection = Viewer$1.getPrimaryIntersection(intersects);
-        if (primaryIntersection) {
-          Viewer$1.pickFaces(primaryIntersection);
-        } else {
-          Viewer$1.pickFaces("");
-        }
-      }
-    }
   },
 
   onDragOver(e) {
@@ -17698,145 +17765,8 @@ const Viewer$1 = {
     core.targetTween.start();
   },
 
-  pick(save, current, original) {
-    return save ? current : original;
-  },
-
-  buildMetadata(Viewer, rotateMetadata) {
-    const O = Viewer.originalMetadata;
-    const S = Viewer.saveProperties;
-
-    const M = {};
-
-    // --- OBJECT ---
-    M.objPosition = Viewer.pick(
-      S.Position,
-      [
-        core.helperObjects[0].position.x,
-        core.helperObjects[0].position.y,
-        core.helperObjects[0].position.z
-      ],
-      O.objPosition
-    );
-
-    M.objRotation = Viewer.pick(
-      S.Rotation,
-      [rotateMetadata.x, rotateMetadata.y, rotateMetadata.z],
-      O.objRotation
-    );
-
-    M.objScale = Viewer.pick(
-      S.Scale,
-      [
-        core.helperObjects[0].scale.x,
-        core.helperObjects[0].scale.y,
-        core.helperObjects[0].scale.z
-      ],
-      O.objScale
-    );
-
-    // --- CAMERA ---
-    M.cameraPosition = Viewer.pick(
-      S.Camera,
-      [
-        core.camera.position.x,
-        core.camera.position.y,
-        core.camera.position.z
-      ],
-      O.cameraPosition
-    );
-
-    M.controlsTarget = Viewer.pick(
-      S.Camera,
-      [
-        core.controls.target.x,
-        core.controls.target.y,
-        core.controls.target.z
-      ],
-      O.controlsTarget
-    );
-
-    M.controlsZoom = Viewer.pick(
-      S.Camera,
-      [
-        core.camera.position.distanceTo(core.controls.target)
-      ],
-      O.controlsZoom
-    );
-
-    // --- DIRECTIONAL LIGHT ---
-    M.lightPosition = Viewer.pick(
-      S.DirectionalLight,
-      [
-        core.dirLight.position.x,
-        core.dirLight.position.y,
-        core.dirLight.position.z
-      ],
-      O.lightPosition
-    );
-
-    M.lightTarget = Viewer.pick(
-      S.DirectionalLight,
-      [
-        core.dirLight.rotation._x,
-        core.dirLight.rotation._y,
-        core.dirLight.rotation._z
-      ],
-      O.lightTarget
-    );
-
-    M.lightColor = Viewer.pick(
-      S.DirectionalLight,
-      ["#" + core.dirLight.color.getHexString().toUpperCase()],
-      O.lightColor
-    );
-
-    M.lightIntensity = Viewer.pick(
-      S.DirectionalLight,
-      [core.dirLight.intensity],
-      O.lightIntensity
-    );
-
-    // --- AMBIENT LIGHT ---
-    M.lightAmbientColor = Viewer.pick(
-      S.AmbientLight,
-      ["#" + core.ambientLight.color.getHexString().toUpperCase()],
-      O.lightAmbientColor
-    );
-
-    M.lightAmbientIntensity = Viewer.pick(
-      S.AmbientLight,
-      [core.ambientLight.intensity],
-      O.lightAmbientIntensity
-    );
-
-    // --- CAMERA LIGHT ---
-    M.lightCameraColor = Viewer.pick(
-      S.CameraLight,
-      ["#" + core.cameraLight.color.getHexString().toUpperCase()],
-      O.lightCameraColor
-    );
-
-    M.lightCameraIntensity = Viewer.pick(
-      S.CameraLight,
-      [core.cameraLight.intensity],
-      O.lightCameraIntensity
-    );
-
-    // --- BACKGROUND ---
-    if (S.BackgroundColor) {
-      M.background = [
-        window.getComputedStyle(Viewer.mainCanvas).background
-      ];
-    } else {
-      M.background = O.background;
-    }
-
-    const persistedAnnotations = Viewer.getAnnotationEntriesForPersistence();
-    M.annotationEntries = persistedAnnotations;
-    M.iiifAnnotationsXml = Viewer.exportAnnotationsToIIIFXml();
-
-    return M;
+  buildMetadata(rotateMetadata) {
+    return buildEditorMetadata(this, rotateMetadata);
   },
 
   prepareStats () {
@@ -18600,10 +18530,7 @@ const Viewer$1 = {
           Viewer$1.fileElement[0].style.height = core.CONFIG.viewer.canvasDimensions.y * 1.1 + "px";
         }
 
-        if (
-          !core.isLightweight || 
-          core.CONFIG.viewer.gallery?.build === true
-        ) {
+        if (core.CONFIG.viewer.gallery?.build === true) {
           Viewer$1.buildGallery();
         }
       }
@@ -18866,6 +18793,7 @@ const Viewer$1 = {
 attachEmbedConfigurator(Viewer$1);
 attachMaterialsEditor(Viewer$1);
 attachAnnotations(Viewer$1);
+attachPicking(Viewer$1);
 attachMeasurement(Viewer$1);
 
 async function expectWebGL(page) {
