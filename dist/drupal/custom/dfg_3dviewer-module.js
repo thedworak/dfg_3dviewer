@@ -2839,7 +2839,7 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
         };
       }
       if (imageElementsChildren[i] instanceof HTMLElement) {
-        imageElementsChildren[i].style.display = "inline-flex";
+        imageElementsChildren[i].style.display = "block";
         imageElementsChildren[i].style.flex = "0 0 200px";
         imageElementsChildren[i].style.maxWidth = "200px";
         imageElementsChildren[i].style.marginRight = "12px";
@@ -2899,7 +2899,7 @@ function buildThumbnailGallery(Viewer) {
         );
         imagesList = prepareGalleryImages(Viewer, imagesList);
         imageElements[0].classList.add("field--label-hidden");
-        imageElements[0].classList.add("field__items");
+        //imageElements[0].classList.add("field__items");
         handleImages(Viewer, mainElement, imagesList, imageElements);
       } else {
         handleImages(Viewer, mainElement, imageElements);
@@ -2916,7 +2916,7 @@ function buildThumbnailGallery(Viewer) {
         imagesList = prepareGalleryImages(Viewer, imagesList);
         imageElements.classList.add("field--type-image");
         imageElements.classList.add("field--label-hidden");
-        imageElements.classList.add("field__items");
+        //imageElements.classList.add("field__items");
         handleImages(Viewer, mainElement, imagesList, imageElements);
       } else {
         handleImages(Viewer, mainElement, imageElements);
