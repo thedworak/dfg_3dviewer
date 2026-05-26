@@ -61,6 +61,168 @@ export function getEditorToolbarHost(viewer) {
   return core.container || viewer.viewerWrapper || null;
 }
 
+function initializeEditorToolbarDrag(viewer, toolbar, host) {
+  const handle = document.createElement("div");
+
+  handle.className = "viewer-editor-toolbar_handle";
+  handle.tabIndex = 0;
+
+  const dragLabel = t("toolbar.moveToolbar", "Move toolbar");
+
+  handle.setAttribute("aria-label", dragLabel);
+  handle.setAttribute("title", dragLabel);
+
+  handle.innerHTML = `
+    <span class="viewer-editor-tool_icon" aria-hidden="true">
+      ${getEditorToolbarIcon("move")}
+    </span>
+  `;
+
+  let dragState = null;
+
+  // persistent toolbar position
+  let currentX = 0;
+  let currentY = 0;
+
+  const getScale = () => {
+    const style = getComputedStyle(toolbar);
+    const scale = parseFloat(
+      style.getPropertyValue("--viewer-toolbar-scale")
+    );
+
+    return Number.isFinite(scale) ? scale : 1;
+  };
+
+  const BASE_OFFSET_Y = -1.15;
+
+  const clampPosition = (x, y) => {
+    const hostRect = host.getBoundingClientRect();
+
+    return {
+      x: Math.min(
+        Math.max(x, -hostRect.width),
+        hostRect.width
+      ),
+
+      y: Math.min(
+        Math.max(y, -hostRect.height),
+        hostRect.height
+      ),
+    };
+  };
+
+  const applyPosition = () => {
+    toolbar.style.setProperty("--drag-x", `${currentX}px`);
+    toolbar.style.setProperty("--drag-y", `${currentY}px`);
+  };
+
+  const updateToolbarPosition = (event) => {
+    if (!dragState) return;
+
+    const scale = getScale();
+
+    const dx = (event.clientX - dragState.startX) / scale;
+    const dy = (event.clientY - dragState.startY) / scale;
+
+    const pos = clampPosition(
+      dragState.originX + dx,
+      dragState.originY + dy
+    );
+
+    currentX = pos.x;
+    currentY = pos.y;
+
+    applyPosition();
+  };
+
+  const stopToolbarDrag = () => {
+    if (!dragState) return;
+
+    dragState = null;
+
+    toolbar.classList.remove("viewer-editor-toolbar_dragging");
+
+    document.removeEventListener(
+      "pointermove",
+      updateToolbarPosition
+    );
+
+    document.removeEventListener(
+      "pointerup",
+      stopToolbarDrag
+    );
+
+    document.removeEventListener(
+      "pointercancel",
+      stopToolbarDrag
+    );
+
+    requestAnimationFrame(() => {
+      toolbar.style.removeProperty("transition");
+    });
+  };
+
+  const startToolbarDrag = (event) => {
+    if (event.button !== 0) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    dragState = {
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: currentX,
+      originY: currentY,
+    };
+
+    toolbar.classList.add("viewer-editor-toolbar_dragging");
+
+    toolbar.style.transition = "none";
+
+    document.addEventListener(
+      "pointermove",
+      updateToolbarPosition,
+      {passive: true}
+    );
+
+    document.addEventListener(
+      "pointerup",
+      stopToolbarDrag
+    );
+
+    document.addEventListener(
+      "pointercancel",
+      stopToolbarDrag
+    );
+  };
+
+  viewer.bindEventListener(
+    handle,
+    "pointerdown",
+    startToolbarDrag
+  );
+
+  viewer.bindEventListener(handle, "click", (event) => {
+    event.stopPropagation();
+  });
+
+  // keep position valid after resize
+  const resizeObserver = new ResizeObserver(() => {
+    const pos = clampPosition(currentX, currentY);
+
+    currentX = pos.x;
+    currentY = pos.y;
+
+    applyPosition();
+  });
+
+  resizeObserver.observe(host);
+
+  applyPosition();
+
+  toolbar.appendChild(handle);
+}
+
 export function attachEditorToolbar(viewer) {
   if (!core.editorToolbar || !core.container) return;
   if (getComputedStyle(core.container).position === 'static') {
@@ -94,6 +256,8 @@ export function createEditorToolbar(viewer) {
   toolbar.id = "viewerEditorToolbar";
   toolbar.setAttribute("role", "toolbar");
   toolbar.setAttribute("aria-label", t("toolbar.editor", "Editor tools"));
+
+  initializeEditorToolbarDrag(viewer, toolbar, getEditorToolbarHost(viewer) || core.container);
 
   const tools = [
     { key: "orbit", icon: "orbit", onClick: () => viewer.setObjectTransformMode(""), primary: true },
@@ -206,7 +370,7 @@ export function createEditorToolbar(viewer) {
     } else if (tool.key === "materials") {
       button.classList.add("has-submenu");
       const submenu = document.createElement("div");
-      submenu.className = "viewer-editor-tool_submenu";
+      submenu.className = "viewer-editor-tool_submenu viewer-editor-tool_submenu-materials";
       viewer.materialsSubmenu = submenu;
       viewer.refreshMaterialsToolbarMenu();
       button.appendChild(submenu);
@@ -587,7 +751,7 @@ export function createEditorToolbar(viewer) {
     } else if (tool.key === "materials") {
       button.classList.add("has-submenu");
       const submenu = document.createElement("div");
-      submenu.className = "viewer-editor-tool_submenu";
+      submenu.className = "viewer-editor-tool_submenu viewer-editor-tool_submenu-materials";
       const submenuItems = [
         { key: "materialColor", icon: "color", label: t("gui.color", "Color"), onClick: () => viewer.openMaterialsFolder() },
         { key: "materialIntensity", icon: "intensity", label: t("gui.intensity", "Intensity"), onClick: () => viewer.openMaterialsFolder() },
@@ -768,6 +932,7 @@ export function updateEditorToolbarLabels(viewer) {
       ? t("gui.hideLoadingLogs", "Hide loading logs")
       : t("gui.showLoadingLogs", "Show loading logs"),
     hierarchy: t("gui.hierarchy", "Hierarchy"),
+    materials: t("gui.materials", "Materials"),
     statistics: t("gui.statistics", "Statistics"),
     expand: viewer.isToolbarExpanded
       ? t("gui.collapse", "Collapse toolbar")
