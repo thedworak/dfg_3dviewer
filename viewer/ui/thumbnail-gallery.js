@@ -234,6 +234,13 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
           modalImage.src = this.src;
         };
       }
+      if (imageElementsChildren[i] instanceof HTMLElement) {
+        imageElementsChildren[i].style.display = "inline-flex";
+        imageElementsChildren[i].style.flex = "0 0 200px";
+        imageElementsChildren[i].style.maxWidth = "200px";
+        imageElementsChildren[i].style.marginRight = "12px";
+        imageElementsChildren[i].style.marginBottom = "12px";
+      }
       imageList.appendChild(imageElementsChildren[i]);
     }
   }
