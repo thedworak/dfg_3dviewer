@@ -1511,7 +1511,7 @@ canvas {
 }
 
 #image-list .field__items {
-  display: flex;
+  display: flex !important;
   flex-wrap: wrap;
   gap: 16px;
   align-items: center;

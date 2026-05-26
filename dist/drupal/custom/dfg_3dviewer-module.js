@@ -2840,10 +2840,6 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
       }
       if (imageElementsChildren[i] instanceof HTMLElement) {
         imageElementsChildren[i].style.display = "block";
-        imageElementsChildren[i].style.flex = "0 0 200px";
-        imageElementsChildren[i].style.maxWidth = "200px";
-        imageElementsChildren[i].style.marginRight = "12px";
-        imageElementsChildren[i].style.marginBottom = "12px";
       }
       imageList.appendChild(imageElementsChildren[i]);
     }
@@ -2900,7 +2896,7 @@ function buildThumbnailGallery(Viewer) {
         imagesList = prepareGalleryImages(Viewer, imagesList);
         imageElements[0].classList.add("field--label-hidden");
         //imageElements[0].classList.add("field__items");
-        handleImages(Viewer, mainElement, imagesList, imageElements);
+        handleImages(Viewer, mainElement, imagesList, imagesList);
       } else {
         handleImages(Viewer, mainElement, imageElements);
       }
