@@ -6805,8 +6805,8 @@ function setupSingleMaterial(materials, material) {
     material.map.anisotropy = 16;
     material.map.colorSpace = THREE.SRGBColorSpace;
   }
-  material.envMapIntensity = 0.6;
-  material.roughness = Math.max(material.roughness * 0.85, 0.05);
+  material.envMapIntensity = 0.76;
+  material.roughness = Math.min(material.roughness * 1.35, 1);
   material.clipShadows = true;
   material.side = core.PRESENTATION_MODE ? THREE.DoubleSide : THREE.FrontSide;
   material.clippingPlanes = core.PRESENTATION_MODE ? [] : core.clippingPlanes;

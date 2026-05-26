@@ -6805,12 +6805,22 @@ function setupSingleMaterial(materials, material) {
     material.map.anisotropy = 16;
     material.map.colorSpace = THREE.SRGBColorSpace;
   }
-  material.envMapIntensity = 0.6;
-  material.roughness = Math.max(material.roughness * 0.85, 0.05);
+  material.envMapIntensity = 0.76;
+  material.roughness = Math.min(material.roughness * 1.35, 1);
   material.clipShadows = true;
   material.side = core.PRESENTATION_MODE ? THREE.DoubleSide : THREE.FrontSide;
   material.clippingPlanes = core.PRESENTATION_MODE ? [] : core.clippingPlanes;
   //material.clipIntersection = false;
+  material.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      'reflectedLight.directSpecular += directSpecular;',
+      `
+        reflectedLight.directSpecular += directSpecular * 0.15;
+      `
+    );
+  };
+
+  material.needsUpdate = true;
   if (material.name === "") material.name = material.uuid;
   var newMaterial = { name: material.name, uuid: material.uuid };
   if (!materials.some((item) => item.uuid === newMaterial.uuid)) materials.push(newMaterial);
@@ -18847,19 +18857,25 @@ attachAnnotations(Viewer$1);
 attachPicking(Viewer$1);
 attachMeasurement(Viewer$1);
 
-async function expectWebGL(page) {
-  const hasWebGL = await page.evaluate(() => {
-    const canvas = document.querySelector('canvas');
-    if (!canvas) return false;
-    const gl =
-      canvas.getContext('webgl') ||
-      canvas.getContext('webgl2');
-    return !!gl;
-  });
 
-  if (!hasWebGL) {
-    throw new Error('WebGL context not available');
-  }
+async function expectWebGL(page, showToast) {
+  await expect
+    .poll(async () => {
+      return page.evaluate(() => {
+        const canvas = document.querySelector('canvas');
+
+        if (!canvas) return false;
+
+        return !!(
+          canvas.getContext('webgl2') ||
+          canvas.getContext('webgl')
+        );
+      });
+    }, {
+      timeout: 5000,
+      message: 'WebGL context not available',
+    })
+    .toBeTruthy();
 }
 
 window.Viewer = Viewer$1;
