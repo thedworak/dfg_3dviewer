@@ -169,6 +169,10 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
   removeExistingGalleryDom();
   var imageList = document.createElement("div");
   imageList.setAttribute("id", "image-list");
+  imageList.style.display = "flex";
+  imageList.style.flexWrap = "wrap";
+  imageList.style.gap = "16px";
+  imageList.style.alignItems = "center";
   var modalGallery = document.createElement("div");
   var modalImage = document.createElement("img");
   modalImage.setAttribute("class", "modalImage");
