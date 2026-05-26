@@ -1523,7 +1523,8 @@ canvas {
 }
 
 #image-list > div.field__item {
-  width: auto;
+  width: auto !important;
+  min-width: 200px;
 }
 
 #image-list > div.field__item img {
