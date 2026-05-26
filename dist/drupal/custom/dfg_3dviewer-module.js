@@ -2858,9 +2858,22 @@ function buildThumbnailGallery(Viewer) {
     imageElements = document.getElementsByClassName(
       gallery.imageClass
     );
+    if (imageElements.length === 0) {
+      const fallbackFields = document.querySelectorAll(
+        ".field--type-image"
+      );
+      if (fallbackFields.length > 0) {
+        imageElements = fallbackFields;
+        console.warn(
+          "Gallery imageClass not found, falling back to .field--type-image."
+        );
+      }
+    }
     if (imageElements.length > 0) {
       var galleryLabel = document.getElementsByClassName("field__label");
-      if (galleryLabel !== undefined) galleryLabel[0].innerText = "";
+      if (galleryLabel !== undefined && galleryLabel.length > 0) {
+        galleryLabel[0].innerText = "";
+      }
     }
   } else if (gallery.imageId !== "") {
     imageElements = document.getElementById(gallery.imageId);
@@ -17189,11 +17202,9 @@ const Viewer$1 = {
         widthCSS = rect.width || 800;
         heightCSS = rect.height || 600;
 
-        // Przeskalowane wymiary CSS
         const widthCSSScaled = widthCSS * scale.x;
         const heightCSSScaled = heightCSS * scale.y;
 
-        // Canvas musi mieć przeskalowany rozmiar CSS, żeby renderer się zgadzał
         Viewer$1.mainCanvas.style.width = widthCSSScaled + 'px';
         Viewer$1.mainCanvas.style.height = heightCSSScaled + 'px';
 

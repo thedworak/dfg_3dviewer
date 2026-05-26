@@ -2257,14 +2257,12 @@ export const Viewer = {
         widthCSS = rect.width || 800;
         heightCSS = rect.height || 600;
 
-        // Przeskalowane wymiary CSS
         const widthCSSScaled = widthCSS * scale.x;
         const heightCSSScaled = heightCSS * scale.y;
 
         widthDev = widthCSSScaled * devicePixelRatio;
         heightDev = heightCSSScaled * devicePixelRatio;
 
-        // Canvas musi mieć przeskalowany rozmiar CSS, żeby renderer się zgadzał
         Viewer.mainCanvas.style.width = widthCSSScaled + 'px';
         Viewer.mainCanvas.style.height = heightCSSScaled + 'px';
 
