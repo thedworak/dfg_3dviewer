@@ -2900,13 +2900,15 @@ function buildThumbnailGallery(Viewer) {
     }
   }
 
-  const testImages = getConfiguredTestImages();
-  const fallbackImages = testImages.length > 0 ? testImages : createDefaultTestImages();
-  if (gallery.build === true) {
-    const fakeImages = createFakeGalleryElements(fallbackImages);
-    handleImages(Viewer, mainElement, fakeImages, fakeImages);
-    console.log("Built fallback thumbnail gallery for local testing");
-    return;
+  if (core.CONFIG?.viewer?.gallery?.buildFake === true) {
+    const testImages = getConfiguredTestImages();
+    const fallbackImages = testImages.length > 0 ? testImages : createDefaultTestImages();
+    if (gallery.build === true) {
+      const fakeImages = createFakeGalleryElements(fallbackImages);
+      handleImages(Viewer, mainElement, fakeImages, fakeImages);
+      console.log("Built fallback thumbnail gallery for local testing");
+      return;
+    }
   }
 
   console.log("No gallery source found");
@@ -16532,6 +16534,7 @@ const Viewer$1 = {
         entity: {
           bundle: "bd3d7baa74856d141bcff7b4193fa128",
           fieldDf: "field_df",
+          exportViewer: "field_df",
           idUri: "/wisski/navigate/(.*)/view",
           viewEntityPath: "/wisski/navigate/",
           attributeId: "wisski_id",
@@ -16557,6 +16560,8 @@ const Viewer$1 = {
             container: "block-bootstrap5-content",
             imageClass: "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
             imageId: "",
+            buildFake: false,
+            testImages: [],
           },
           background:
             "radial-gradient(circle, #ffffff 0%, #999999 100%)",

@@ -296,13 +296,15 @@ export function buildThumbnailGallery(Viewer) {
     }
   }
 
-  const testImages = getConfiguredTestImages();
-  const fallbackImages = testImages.length > 0 ? testImages : createDefaultTestImages();
-  if (gallery.build === true) {
-    const fakeImages = createFakeGalleryElements(fallbackImages);
-    handleImages(Viewer, mainElement, fakeImages, fakeImages);
-    console.log("Built fallback thumbnail gallery for local testing");
-    return;
+  if (core.CONFIG?.viewer?.gallery?.buildFake === true) {
+    const testImages = getConfiguredTestImages();
+    const fallbackImages = testImages.length > 0 ? testImages : createDefaultTestImages();
+    if (gallery.build === true) {
+      const fakeImages = createFakeGalleryElements(fallbackImages);
+      handleImages(Viewer, mainElement, fakeImages, fakeImages);
+      console.log("Built fallback thumbnail gallery for local testing");
+      return;
+    }
   }
 
   console.log("No gallery source found");

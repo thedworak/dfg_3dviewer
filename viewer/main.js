@@ -1598,6 +1598,7 @@ export const Viewer = {
         entity: {
           bundle: "bd3d7baa74856d141bcff7b4193fa128",
           fieldDf: "field_df",
+          exportViewer: "field_df",
           idUri: "/wisski/navigate/(.*)/view",
           viewEntityPath: "/wisski/navigate/",
           attributeId: "wisski_id",
@@ -1623,6 +1624,8 @@ export const Viewer = {
             container: "block-bootstrap5-content",
             imageClass: "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
             imageId: "",
+            buildFake: false,
+            testImages: [],
           },
           background:
             "radial-gradient(circle, #ffffff 0%, #999999 100%)",
