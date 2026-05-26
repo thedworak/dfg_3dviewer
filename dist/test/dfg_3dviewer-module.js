@@ -2798,7 +2798,7 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
   modalClose.setAttribute("title", "Close");
   modalClose.innerHTML = "&times";
   modalClose.onclick = function () {
-    modalGallery.style.display = "none";
+    modalGallery.classList.remove("is-open");
   };
 
   Viewer.bindEventListener(document, "click", function (event) {
@@ -2806,7 +2806,7 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
       !modalGallery.contains(event.target) &&
       !imageList.contains(event.target)
     ) {
-      modalGallery.style.display = "none";
+      modalGallery.classList.remove("is-open");
       Viewer.zoomImage = 1.5;
       modalImage.style.transform = "scale(1.5)";
     }
@@ -2832,7 +2832,7 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
       }
       for (let j = 0; j < imgList.length; j++) {
         imgList[j].onclick = function () {
-          modalGallery.style.display = "block";
+          modalGallery.classList.add("is-open");
           imageList.style.zIndex = 0;
           imageList.style.display = "hidden";
           modalImage.src = this.src;
@@ -2840,10 +2840,6 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
       }
       if (imageElementsChildren[i] instanceof HTMLElement) {
         imageElementsChildren[i].style.display = "block";
-        imageElementsChildren[i].style.flex = "0 0 200px";
-        imageElementsChildren[i].style.maxWidth = "200px";
-        imageElementsChildren[i].style.marginRight = "12px";
-        imageElementsChildren[i].style.marginBottom = "12px";
       }
       imageList.appendChild(imageElementsChildren[i]);
     }
@@ -2900,7 +2896,7 @@ function buildThumbnailGallery(Viewer) {
         imagesList = prepareGalleryImages(Viewer, imagesList);
         imageElements[0].classList.add("field--label-hidden");
         //imageElements[0].classList.add("field__items");
-        handleImages(Viewer, mainElement, imagesList, imageElements);
+        handleImages(Viewer, mainElement, imagesList, imagesList);
       } else {
         handleImages(Viewer, mainElement, imageElements);
       }

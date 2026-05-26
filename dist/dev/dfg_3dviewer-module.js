@@ -2773,6 +2773,10 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
   removeExistingGalleryDom();
   var imageList = document.createElement("div");
   imageList.setAttribute("id", "image-list");
+  imageList.style.display = "flex";
+  imageList.style.flexWrap = "wrap";
+  imageList.style.gap = "16px";
+  imageList.style.alignItems = "center";
   var modalGallery = document.createElement("div");
   var modalImage = document.createElement("img");
   modalImage.setAttribute("class", "modalImage");
@@ -2794,7 +2798,7 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
   modalClose.setAttribute("title", "Close");
   modalClose.innerHTML = "&times";
   modalClose.onclick = function () {
-    modalGallery.style.display = "none";
+    modalGallery.classList.remove("is-open");
   };
 
   Viewer.bindEventListener(document, "click", function (event) {
@@ -2802,7 +2806,7 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
       !modalGallery.contains(event.target) &&
       !imageList.contains(event.target)
     ) {
-      modalGallery.style.display = "none";
+      modalGallery.classList.remove("is-open");
       Viewer.zoomImage = 1.5;
       modalImage.style.transform = "scale(1.5)";
     }
@@ -2828,11 +2832,14 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
       }
       for (let j = 0; j < imgList.length; j++) {
         imgList[j].onclick = function () {
-          modalGallery.style.display = "block";
+          modalGallery.classList.add("is-open");
           imageList.style.zIndex = 0;
           imageList.style.display = "hidden";
           modalImage.src = this.src;
         };
+      }
+      if (imageElementsChildren[i] instanceof HTMLElement) {
+        imageElementsChildren[i].style.display = "block";
       }
       imageList.appendChild(imageElementsChildren[i]);
     }
@@ -2858,9 +2865,22 @@ function buildThumbnailGallery(Viewer) {
     imageElements = document.getElementsByClassName(
       gallery.imageClass
     );
+    if (imageElements.length === 0) {
+      const fallbackFields = document.querySelectorAll(
+        ".field--type-image"
+      );
+      if (fallbackFields.length > 0) {
+        imageElements = fallbackFields;
+        console.warn(
+          "Gallery imageClass not found, falling back to .field--type-image."
+        );
+      }
+    }
     if (imageElements.length > 0) {
       var galleryLabel = document.getElementsByClassName("field__label");
-      if (galleryLabel !== undefined) galleryLabel[0].innerText = "";
+      if (galleryLabel !== undefined && galleryLabel.length > 0) {
+        galleryLabel[0].innerText = "";
+      }
     }
   } else if (gallery.imageId !== "") {
     imageElements = document.getElementById(gallery.imageId);
@@ -2875,8 +2895,8 @@ function buildThumbnailGallery(Viewer) {
         );
         imagesList = prepareGalleryImages(Viewer, imagesList);
         imageElements[0].classList.add("field--label-hidden");
-        imageElements[0].classList.add("field__items");
-        handleImages(Viewer, mainElement, imagesList, imageElements);
+        //imageElements[0].classList.add("field__items");
+        handleImages(Viewer, mainElement, imagesList, imagesList);
       } else {
         handleImages(Viewer, mainElement, imageElements);
       }
@@ -2892,7 +2912,7 @@ function buildThumbnailGallery(Viewer) {
         imagesList = prepareGalleryImages(Viewer, imagesList);
         imageElements.classList.add("field--type-image");
         imageElements.classList.add("field--label-hidden");
-        imageElements.classList.add("field__items");
+        //imageElements.classList.add("field__items");
         handleImages(Viewer, mainElement, imagesList, imageElements);
       } else {
         handleImages(Viewer, mainElement, imageElements);
@@ -17146,11 +17166,9 @@ const Viewer$1 = {
         widthCSS = rect.width || 800;
         heightCSS = rect.height || 600;
 
-        // Przeskalowane wymiary CSS
         const widthCSSScaled = widthCSS * scale.x;
         const heightCSSScaled = heightCSS * scale.y;
 
-        // Canvas musi mieć przeskalowany rozmiar CSS, żeby renderer się zgadzał
         Viewer$1.mainCanvas.style.width = widthCSSScaled + 'px';
         Viewer$1.mainCanvas.style.height = heightCSSScaled + 'px';
 
