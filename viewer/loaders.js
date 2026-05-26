@@ -175,7 +175,7 @@ function setupSingleMaterial(materials, material) {
     shader.fragmentShader = shader.fragmentShader.replace(
       'reflectedLight.directSpecular += directSpecular;',
       `
-        reflectedLight.directSpecular += directSpecular * 0.55;
+        reflectedLight.directSpecular += directSpecular * 0.15;
       `
     );
   };
