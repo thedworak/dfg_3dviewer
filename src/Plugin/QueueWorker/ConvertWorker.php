@@ -1029,6 +1029,7 @@ class ConvertWorker extends QueueWorkerBase {
 
   private function updateXmlExportField($entity, array $cfg): void {
     $field_df = (string) ($cfg['field_df'] ?? '');
+    $field_export_viewer = trim((string) ($cfg['export_viewer'] ?? 'export_viewer'));
     $main_url = trim((string) ($cfg['main_url'] ?? ''));
 
     if ($field_df === '' || $main_url === '' || !$this->entityHasField($entity, $field_df)) {
@@ -1049,19 +1050,48 @@ class ConvertWorker extends QueueWorkerBase {
       $this->refreshEntityXmlExport($entity_id, $main_url);
       $xml_uri = 'public://xml_structure/' . $entity_id . '.xml';
       $xml_url = $this->uriToUrl($xml_uri, $this->getPreferredPublicBaseUrl($cfg));
+      $field_export_viewer_url = trim((string) ($cfg['export_viewer_url'] ?? ''));
+      if ($field_export_viewer_url === '') {
+        $field_export_viewer_url = 'https://3dtest.dfg-viewer.de/viewer?tx_dlf[id]=@xml_url&tx_dlf[viewer]=';
+      }
+      if (str_contains($field_export_viewer_url, '@xml_url')) {
+        $field_export_viewer_url = str_replace('@xml_url', rawurlencode($xml_url), $field_export_viewer_url);
+      }
+      else {
+        if (!str_contains($field_export_viewer_url, '?')) {
+          $field_export_viewer_url .= '?';
+        }
+        if (!str_ends_with($field_export_viewer_url, '?') && !str_ends_with($field_export_viewer_url, '&')) {
+          $field_export_viewer_url .= '&';
+        }
+        $field_export_viewer_url .= 'tx_dlf[id]=' . rawurlencode($xml_url) . '&tx_dlf[viewer]=';
+      }
+      $export_url = $this->uriToUrl($field_export_viewer_url, $this->getPreferredPublicBaseUrl($cfg));
       if ($xml_url === NULL || $xml_url === '') {
         throw new \RuntimeException('Cannot resolve XML public URL.');
       }
 
       $entity->set($field_df, $xml_url);
-
-      \Drupal::logger('dfg_3dviewer')->notice(
-        'Updated XML export field "@field" with URL "@url".',
-        [
-          '@field' => $field_df,
-          '@url' => $xml_url,
-        ]
-      );
+      if ($field_export_viewer !== '' && $field_export_viewer !== $field_df && $this->entityHasField($entity, $field_export_viewer)) {
+        $entity->set($field_export_viewer, $export_url);
+        \Drupal::logger('dfg_3dviewer')->notice(
+          'Updated XML export field "@field" and export viewer field "@export_field" with URL "@url".',
+          [
+            '@field' => $field_df,
+            '@export_field' => $field_export_viewer,
+            '@url' => $xml_url,
+          ]
+        );
+      }
+      else {
+        \Drupal::logger('dfg_3dviewer')->notice(
+          'Updated XML export field "@field" with URL "@url".',
+          [
+            '@field' => $field_df,
+            '@url' => $xml_url,
+          ]
+        );
+      }
     }
     catch (\Throwable $e) {
       \Drupal::logger('dfg_3dviewer')->warning(

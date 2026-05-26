@@ -58,6 +58,16 @@ function dfg_3dviewer_config(): array {
 		?? $config->get('field_df')
 	)) ?: 'field_df';
 
+	$export_viewer = trim((string) (
+		$config->get('dfg_3dviewer_export_viewer')
+		?? $config->get('export_viewer')
+	)) ?: 'export_viewer';
+
+	$export_viewer_url = trim((string) (
+		$config->get('dfg_3dviewer_export_viewer_url')
+		?? $config->get('export_viewer_url')
+	)) ?: '';
+
 	$lightweight = filter_var(
 	$config->get('dfg_3dviewer_lightweight')
 		?? $config->get('lightweight')
@@ -81,6 +91,8 @@ function dfg_3dviewer_config(): array {
       'field_df' => $field_df,
       'lightweight' => $lightweight,
       'gallery_image_class' => $gallery_image_class,
+	  'export_viewer' => $export_viewer,
+	  'export_viewer_url' => $export_viewer_url,
     ];
   }
   return $cfg;

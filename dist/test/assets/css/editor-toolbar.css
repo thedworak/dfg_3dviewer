@@ -112,6 +112,25 @@
   transform: translateY(0) scale(1);
 }
 
+.viewer-embed-page #viewerEditorToolbar {
+  --viewer-toolbar-scale: clamp(0.62, calc((100vw - 48px) / var(--viewer-toolbar-max-width)), 0.9);
+  left: 12px;
+  bottom: 12px;
+  max-width: calc(100vw - 24px);
+  overflow-x: auto;
+  transform: translateX(0) translateY(0) scale(var(--viewer-toolbar-scale));
+  transform-origin: left bottom;
+}
+
+.viewer-embed-page #viewerEditorToolbar.editorToolbar-visible,
+.viewer-embed-page #viewerEditorToolbar.with-fullscreen {
+  transform: translateX(0) translateY(0) scale(var(--viewer-toolbar-scale));
+}
+
+.viewer-embed-page #viewerEditorToolbar.editorToolbar-hidden {
+  transform: translateX(0) translateY(6px) scale(calc(var(--viewer-toolbar-scale) * 0.98));
+}
+
 #viewerEditorToolbar::-webkit-scrollbar {
   display: none;
 }
@@ -247,7 +266,6 @@
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: transparent;
-  transform: translateY(-20%);
 }
 
 .viewer-editor-tool_submenu-button input[type="color"]::-webkit-color-swatch-wrapper {

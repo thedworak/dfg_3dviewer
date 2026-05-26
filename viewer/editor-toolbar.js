@@ -15,6 +15,7 @@ export function getEditorToolbarIcon(icon) {
     materials: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 4v8l-8 4-8-4V6l8-4z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 6l8 4M12 6v8M12 14l-8-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
     ambientLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     cameraLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h3l2-2h4l2 2h3v10H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+    environmentMap: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 7v10l-7 4-7-4V7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 3v18M5 7l7 4 7-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="18.25" cy="5.75" r="1.25" fill="currentColor"/></svg>',
     color: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a5 5 0 0 0-5 5c0 2.8 5 9 5 9s5-6.2 5-9a5 5 0 0 0-5-5Z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 14.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z" fill="currentColor"/></svg>',
     intensity: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     picking: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 3 8 8-4 1 2 5-2.5 1-2-5-3 3Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
@@ -381,7 +382,7 @@ export function createEditorToolbar(viewer) {
       button.classList.add("has-submenu");
       const submenu = document.createElement("div");
       submenu.className = "viewer-editor-tool_submenu";
-      viewer.lightTargetTransformButtons = {};
+      viewer.lightsSubmenuButtons = {};
 
       const normalizeColorValue = (value) => {
         if (typeof value !== "string") return "#ffffff";
@@ -460,13 +461,22 @@ export function createEditorToolbar(viewer) {
           }
 
           if (item.key === "lightTargetTransformMove" || item.key === "lightTargetTransformTarget") {
-            viewer.lightTargetTransformButtons[item.key] = subButton;
+            viewer.lightsSubmenuButtons[item.key] = subButton;
+          }
+          if (item.key === "environmentMap") {
+            viewer.lightsSubmenuButtons[item.key] = subButton;
           }
           container.appendChild(subButton);
         });
       };
 
       appendSubmenuItems([
+        {
+          key: "environmentMap",
+          icon: "environmentMap",
+          label: t("gui.environmentMap", "Environment map"),
+          onClick: () => viewer.toggleEnvironmentMap(),
+        },
         {
           key: "lightTarget",
           icon: "lightTarget",
@@ -700,13 +710,21 @@ export function updateClippingPlanesSubmenuState(viewer) {
 }
 
 export function updateLightsSubmenuState(viewer) {
-  if (!viewer.lightTargetTransformButtons) return;
+  if (!viewer.lightsSubmenuButtons) return;
   const activeMode = viewer.transformText["Transform Light"];
-  viewer.lightTargetTransformButtons.lightTargetTransformMove?.classList.toggle(
+  viewer.lightsSubmenuButtons.environmentMap?.classList.toggle(
+    "is-active",
+    viewer.environmentMapEnabled !== false
+  );
+  viewer.lightsSubmenuButtons.environmentMap?.setAttribute(
+    "aria-pressed",
+    viewer.environmentMapEnabled !== false ? "true" : "false"
+  );
+  viewer.lightsSubmenuButtons.lightTargetTransformMove?.classList.toggle(
     "is-active",
     activeMode === "translate"
   );
-  viewer.lightTargetTransformButtons.lightTargetTransformTarget?.classList.toggle(
+  viewer.lightsSubmenuButtons.lightTargetTransformTarget?.classList.toggle(
     "is-active",
     activeMode === "rotate"
   );
@@ -801,6 +819,19 @@ export function updateEditorToolbarLabels(viewer) {
     };
     Object.entries(viewer.statisticsSubmenuButtons).forEach(([key, button]) => {
       const label = statisticsSubmenuLabels[key] || key;
+      button.setAttribute("title", label);
+      button.setAttribute("aria-label", label);
+    });
+  }
+
+  if (viewer.lightsSubmenuButtons) {
+    const lightsSubmenuLabels = {
+      environmentMap: t("gui.environmentMap", "Environment map"),
+      lightTargetTransformMove: t("gui.move", "Move"),
+      lightTargetTransformTarget: t("gui.target", "Target"),
+    };
+    Object.entries(viewer.lightsSubmenuButtons).forEach(([key, button]) => {
+      const label = lightsSubmenuLabels[key] || key;
       button.setAttribute("title", label);
       button.setAttribute("aria-label", label);
     });

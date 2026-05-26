@@ -241,6 +241,25 @@ function getEnvironmentTexture(renderer) {
   return environmentTexturePromise;
 }
 
+function markEnvironmentMaterialsDirty(root) {
+  root?.traverse?.((child) => {
+    const materials = child?.material
+      ? (Array.isArray(child.material) ? child.material : [child.material])
+      : [];
+    materials.forEach((material) => {
+      if (material?.isMeshStandardMaterial || material?.isMeshPhysicalMaterial) {
+        material.needsUpdate = true;
+      }
+    });
+  });
+}
+
+export async function syncSceneEnvironment(enabled = true) {
+  if (!core.scene) return;
+  core.scene.environment = enabled ? await getEnvironmentTexture(core.renderer) : null;
+  markEnvironmentMaterialsDirty(core.scene);
+}
+
 function reportLoadError(error, context = "") {
   const message = reportViewerError(error, {
     context,
@@ -335,7 +354,7 @@ export async function loadModel() {
     core.mainObject.push(object);
 
     updateLoadingStage("loadingLog.compilingShaders", 99);
-    core.scene.environment = await getEnvironmentTexture(core.renderer);
+    await syncSceneEnvironment(core.environmentMapEnabled !== false);
   }
 
   async function loadOBJWithMTL() {

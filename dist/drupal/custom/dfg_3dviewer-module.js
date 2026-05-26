@@ -315,6 +315,7 @@ const VIEWER_I18N = {
       collapse: "Collapse toolbar",
       orthographicProjection: "Switch to orthographic projection",
       perspectiveProjection: "Switch to perspective projection",
+      environmentMap: "Environment map",
       enableWireframeMode: "Enable wireframe mode",
       disableWireframeMode: "Disable wireframe mode",
     },
@@ -583,6 +584,7 @@ const VIEWER_I18N = {
       expand: "Rozwiń pasek narzędzi",
       orthographicProjection: "Przełącz na projekcję ortograficzną",
       perspectiveProjection: "Przełącz na projekcję perspektywiczną",
+      environmentMap: "Mapa otoczenia",
       enableWireframeMode: "Włącz tryb siatki",
       disableWireframeMode: "Wyłącz tryb siatki",
     },
@@ -850,6 +852,7 @@ const VIEWER_I18N = {
       collapse: "Werkzeugleiste zusammenklappen",
       orthographicProjection: "Zur orthografischen Projektion wechseln",
       perspectiveProjection: "Zur perspektivischen Projektion wechseln",
+      environmentMap: "Umgebungsmap",
       enableWireframeMode: "Drahtgittermodus aktivieren",
       disableWireframeMode: "Drahtgittermodus deaktivieren",
     },
@@ -2907,6 +2910,1001 @@ function buildThumbnailGallery(Viewer) {
   }
 
   console.log("No gallery source found");
+}
+
+const UltraLoader$1 = {
+
+  progress:0,
+  bar:null,
+  panel:null,
+  header:null,
+  stepsContainer:null,
+  steps:[],
+  isFinished:false,
+  hideTimer:null,
+  resetTimer:null,
+
+  init() {
+    if(this.bar) return;
+
+    const loader=document.createElement("div");
+    loader.id="ultra-loader";
+    loader.innerHTML='<div id="ultra-loader-bar"></div>';
+
+    const panel=document.createElement("div");
+    panel.id="ultra-loader-panel";
+
+    const header=document.createElement("div");
+    header.id="ultra-loader-header";
+    header.textContent=t$1("processingHeader");
+    panel.appendChild(header);
+
+    const stepsContainer=document.createElement("div");
+    stepsContainer.id="ultra-loader-steps";
+    panel.appendChild(stepsContainer);
+
+    document.body.appendChild(loader);
+    document.body.appendChild(panel);
+
+    this.bar=document.getElementById("ultra-loader-bar");
+    this.panel=panel;
+    this.header=header;
+    this.stepsContainer=stepsContainer;
+  },
+
+  start(steps) {
+    this.init();
+
+    if (this.hideTimer) {
+      window.clearTimeout(this.hideTimer);
+      this.hideTimer = null;
+    }
+    if (this.resetTimer) {
+      window.clearTimeout(this.resetTimer);
+      this.resetTimer = null;
+    }
+
+    this.steps=steps;
+    this.updateHeader();
+    this.progress=5;
+    this.isFinished=false;
+
+    this.bar.style.width = "5%";
+    this.bar.style.background = "";
+
+    this.renderSteps(0);
+
+    this.panel.classList.add("show");
+
+    this.render();
+    },
+
+  set(progress,message) {
+    this.progress=Math.max(this.progress,progress);
+    this.render();
+  },
+
+  step(index) {
+    this.renderSteps(index);
+  },
+
+  finish() {
+    this.progress=100;
+    this.isFinished=true;
+    this.render();
+    this.renderSteps(this.steps.length);
+
+    this.hideTimer = window.setTimeout(() => {
+      if (!this.isFinished) {
+        return;
+      }
+
+      this.panel.classList.remove("show");
+      this.hideTimer = null;
+
+      this.resetTimer = window.setTimeout(() => {
+        this.bar.style.width = "0%";
+        this.progress = 0;
+        this.resetTimer = null;
+      }, 1500);
+    }, 2500);
+
+  },
+
+  render() {
+    this.bar.style.width=this.progress+"%";
+  },
+
+  updateHeader() {
+    if (this.header) {
+      this.header.textContent=t$1("processingHeader");
+    }
+  },
+
+  renderSteps(active) {
+    this.updateHeader();
+    if (!this.stepsContainer) return;
+    this.stepsContainer.replaceChildren();
+    this.steps.forEach((s,i)=>{
+      const row=document.createElement("div");
+      row.className="ultra-step";
+      if(i<active) {
+        row.classList.add("done");
+        row.textContent="✓ "+s;
+      }
+      else if(i===active) {
+        row.classList.add("active");
+        row.textContent="⏳ "+s;
+      }
+      else {
+        row.classList.add("pending");
+        row.textContent="□ "+s;
+      }
+      this.stepsContainer.appendChild(row);
+    });
+  },
+
+  error(message="Processing error") {
+    this.isFinished = true;
+    this.renderErrorSteps();
+    const error=document.createElement("div");
+    error.id="ultra-loader-error";
+    error.textContent=`ERROR: ${message}`;
+    this.panel.appendChild(error);
+    this.bar.style.background="#d93025";
+  },
+
+  renderErrorSteps() {
+    this.updateHeader();
+    if (!this.stepsContainer) return;
+    this.stepsContainer.replaceChildren();
+    this.steps.forEach((s)=>{
+      const row=document.createElement("div");
+      row.className="ultra-step error";
+      row.textContent="✖ "+s;
+      this.stepsContainer.appendChild(row);
+    });
+  }
+
+};
+
+window.UltraLoader=UltraLoader$1;
+
+function attachLocalizationTheme(viewer) {
+  Object.assign(viewer, {
+    getStoredTheme() {
+      if (this.urlOptions?.theme === "light" || this.urlOptions?.theme === "dark") {
+        return this.urlOptions.theme;
+      }
+
+      const storedTheme = window.localStorage.getItem(this.THEME_STORAGE_KEY);
+      return storedTheme === "0" ? "light" : "dark";
+    },
+
+    normalizeLanguage(value) {
+      if (value == null) return null;
+      const normalizedValue = String(value).trim().toLowerCase();
+      if (normalizedValue.startsWith("pl")) return "pl";
+      if (normalizedValue.startsWith("de")) return "de";
+      if (normalizedValue.startsWith("en")) return "en";
+      return null;
+    },
+
+    getStoredLanguage() {
+      const fromQuery = this.normalizeLanguage(this.urlOptions?.language);
+      if (fromQuery) return fromQuery;
+
+      const storedLanguage = this.normalizeLanguage(window.localStorage.getItem(this.LANGUAGE_STORAGE_KEY));
+      if (storedLanguage) return storedLanguage;
+
+      const browserLanguage = this.normalizeLanguage(navigator?.language || "en");
+      return browserLanguage || "en";
+    },
+
+    updateThemeControlLabels() {
+      const isDark = this.currentTheme === "dark";
+
+      if (this.themeMode) {
+        this.themeMode.innerHTML = `
+          <span class="viewer-theme-icon" aria-hidden="true">${isDark ? "☀️" : "🌙"}</span>
+          <span>${isDark ? t$1("theme.lightMode", "Light mode") : t$1("theme.darkMode", "Dark mode")}</span>
+        `;
+        const label = isDark
+          ? t$1("theme.switchToLightMode", "Switch to light mode")
+          : t$1("theme.switchToDarkMode", "Switch to dark mode");
+        this.themeMode.setAttribute("aria-label", label);
+        this.themeMode.setAttribute("title", label);
+      }
+
+      const exampleThemeToggle = document.getElementById("example-theme-toggle");
+      if (exampleThemeToggle) {
+        exampleThemeToggle.textContent = isDark ? "☀️" : "🌙";
+        exampleThemeToggle.setAttribute("aria-pressed", isDark ? "true" : "false");
+        exampleThemeToggle.hidden = true;
+      }
+    },
+
+    applyTheme(theme, { persist = true } = {}) {
+      const normalizedTheme = theme === "light" ? "light" : "dark";
+      const isDark = normalizedTheme === "dark";
+
+      this.currentTheme = normalizedTheme;
+      document.documentElement.setAttribute("data-viewer-theme", normalizedTheme);
+      document.body.setAttribute("data-viewer-theme", normalizedTheme);
+      document.body.classList.toggle("iiif-dark", isDark);
+      this.viewerWrapper?.setAttribute("data-viewer-theme", normalizedTheme);
+      this.actionMenu?.setAttribute("data-viewer-theme", normalizedTheme);
+      this.metadataContainer?.setAttribute("data-viewer-theme", normalizedTheme);
+      core.guiContainer?.setAttribute("data-viewer-theme", normalizedTheme);
+      document.getElementById("form-IIIF")?.setAttribute("data-viewer-theme", normalizedTheme);
+      UltraLoader$1.panel?.setAttribute("data-viewer-theme", normalizedTheme);
+
+      if (persist) {
+        window.localStorage.setItem(this.THEME_STORAGE_KEY, isDark ? "1" : "0");
+      }
+
+      this.updateThemeControlLabels();
+    },
+
+    toggleTheme() {
+      this.closeActionMenu();
+      this.applyTheme(this.currentTheme === "dark" ? "light" : "dark");
+    },
+
+    updateLanguageControlLabels() {
+      if (!this.languageMode) return;
+      const languages = [
+        { code: "en", label: "Language: EN"},
+        { code: "pl", label: "Język: PL"},
+        { code: "de", label: "Sprache: DE"}
+      ];
+      const currentLangLabel = languages.find((language) => language.code === core.currentLanguage)?.label || "EN";
+      this.languageMode.innerHTML = `
+        <span class="viewer-action-icon language-icon" aria-hidden="true"></span>
+        <span>${currentLangLabel}</span>
+      `;
+      this.languageMode.setAttribute("aria-label", t$1("language.label", "Language: EN"));
+      this.languageMode.setAttribute("title", t$1("language.label", "Language: EN"));
+
+      if (this.languageModeDropdown) {
+        const items = this.languageModeDropdown.querySelectorAll(".language-dropdown-item");
+        items.forEach((item) => {
+          item.classList.toggle("active", item.dataset.lang === core.currentLanguage);
+        });
+      }
+    },
+
+    updateActionMenuLabels() {
+      if (!this.actionMenu) return;
+      const actionMenuLabel = t$1("menu.mainMenu", "Main menu");
+
+      const toggle = this.actionMenu.querySelector(".viewer-action-menu_toggle");
+      toggle?.setAttribute("title", actionMenuLabel);
+      const toggleCopy = toggle?.querySelector(".viewer-editor-tool_sr");
+      if (toggleCopy) toggleCopy.textContent = actionMenuLabel;
+      this.actionMenu.querySelector(".viewer-action-menu_panel")?.setAttribute("aria-label", actionMenuLabel);
+    },
+
+    updateDownloadMenuEntryLabel() {
+      if (!this.downloadModel || this.downloadModel.hidden) return;
+      this.downloadModel.innerHTML = `
+        <span class="viewer-action-icon download-icon" aria-hidden="true"></span>
+        <span>${t$1("menu.download", "Download")}</span>
+      `;
+    },
+
+    updateLocalizedUI() {
+      const lang = ["pl", "de"].includes(core.currentLanguage) ? core.currentLanguage : "en";
+      document.documentElement.setAttribute("lang", lang);
+      this.updateActionMenuLabels();
+      this.updateLanguageControlLabels();
+      this.updateThemeControlLabels();
+      this.updateEmbedMenuEntryState();
+      this.updateFullscreenButtonIcon();
+      this.updateDownloadMenuEntryLabel();
+      this.updateEditorToolbarLabels();
+      this.updateEditorToolbarState();
+      this.updatePickingModeControllerLabel();
+      this.updateDistanceMeasurementControllerLabel();
+      this.updateSelectedFacesControllerLabel();
+      this.updateLocalPreviewLabels();
+      this.updateIIIFFormLabels();
+      this.updateMetadataPanelLabels();
+      this.updateMaterialsDialogLabels();
+      this.refreshStatusNoticeLanguage();
+      UltraLoader$1.updateHeader?.();
+      if (this.pickingHint) this.pickingHint.textContent = t$1("hints.picking", "Shift + click to select multiple faces");
+      if (this.clippingHint) this.clippingHint.textContent = t$1("hints.clipping", "Drag active clipping plane helper to adjust cut");
+    },
+
+    updateLocalPreviewLabels() {
+      const label = document.querySelector("#example-model-picker label[for='example-model-select']");
+      if (label) {
+        label.textContent = t$1("localPreview.loadExampleModel", "Load example model");
+      }
+    },
+
+    updateIIIFFormLabels() {
+      const form = document.getElementById("form-IIIF");
+      if (!form) return;
+      const title = form.querySelector(".form-IIIF-header .title");
+      if (title) title.textContent = t$1("iiif.loader", "IIIF Loader");
+      const collapseBtn = document.getElementById("iiif-toggle-collapse");
+      if (collapseBtn) {
+        const isCollapsed = form.classList.contains("collapsed");
+        collapseBtn.title = isCollapsed
+          ? t$1("iiif.expand", "Expand")
+          : t$1("iiif.collapse", "Collapse");
+      }
+      const label = form.querySelector(".form-IIIF-label");
+      if (label) label.textContent = t$1("iiif.manifest", "IIIF manifest");
+      const select = document.getElementById("iiif-manifest-select");
+      if (select) {
+        const optionLabelByUrl = {
+          "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json": t$1("iiif.optionModelPositionScale", "Model Position and Scale"),
+          "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin.json": t$1("iiif.optionModelOrigin", "Model Origin"),
+          "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin_bgcolor.json": t$1("iiif.optionModelOriginBg", "Model Origin with background color"),
+          "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_position.json": t$1("iiif.optionModelPosition", "Model Position"),
+        };
+        Array.from(select.options).forEach((option) => {
+          const labelFromMap = optionLabelByUrl[option.value];
+          if (labelFromMap) option.textContent = labelFromMap;
+        });
+      }
+      const manifestUrl = document.getElementById("manifest-url");
+      if (manifestUrl) manifestUrl.placeholder = t$1("iiif.manifestUrlPlaceholder", "https://example.org/iiif/manifest.json");
+      const manifestText = document.getElementById("manifest-text");
+      if (manifestText) manifestText.placeholder = t$1("iiif.manifestTextPlaceholder", "Paste IIIF manifest JSON here...");
+      const loadFromUrlButton = document.getElementById("load-manifest-from-url");
+      if (loadFromUrlButton) loadFromUrlButton.textContent = t$1("iiif.loadFromUrl", "Load from URL");
+      const loadFromTextButton = document.getElementById("load-manifest-from-text");
+      if (loadFromTextButton) loadFromTextButton.textContent = t$1("iiif.loadFromText", "Load from Text");
+    },
+
+    updateMetadataPanelLabels() {
+      const metadataContainer = document.getElementById("metadata-container");
+      if (!metadataContainer) return;
+      metadataContainer.querySelectorAll("[data-i18n-key]").forEach((node) => {
+        const key = node.getAttribute("data-i18n-key");
+        if (!key) return;
+        const needsColon = node.classList.contains("metadata-label");
+        const text = t$1(key, node.textContent?.replace(/:\s*$/, "") || "");
+        node.textContent = needsColon ? `${text}:` : text;
+      });
+    },
+
+    applyLanguage({ persist = true } = {}) {
+      if (persist) {
+        window.localStorage.setItem(this.LANGUAGE_STORAGE_KEY, core.currentLanguage);
+      }
+      this.updateLocalizedUI();
+    },
+
+    toggleLanguage() {
+      if (!this.languageModeDropdown) return;
+      const isVisible = !this.languageModeDropdown.hidden;
+      this.languageModeDropdown.hidden = isVisible;
+    },
+
+    selectLanguage(lang) {
+      core.currentLanguage = lang;
+      this.languageModeDropdown.hidden = true;
+      this.closeActionMenu();
+      this.applyLanguage();
+    },
+  });
+}
+
+function attachLoadingStatus(viewer) {
+  Object.assign(viewer, {
+    toggleLoadingLogs() {
+      this.showLoadingLogs = !this.showLoadingLogs;
+      if (core.loadingLog.get()) {
+        core.loadingLog.get().classList.toggle("editorToolbar-visible", this.showLoadingLogs);
+      }
+      this.updateEditorToolbarLabels();
+      this.updateEditorToolbarState();
+    },
+
+    getLoadingLogMessages() {
+      return this.loadingLogMessageKeys.map((key) => t$1(key));
+    },
+
+    getProcessingLoadingSteps() {
+      return this.processingLoadingStepKeys.map((key) => t$1(key));
+    },
+
+    createModelLoadingProgress(shell) {
+      shell.className = "model-loader";
+      shell.hidden = true;
+      shell.setAttribute("role", "status");
+      shell.setAttribute("aria-live", "polite");
+
+      const ring = document.createElement("div");
+      ring.className = "model-loader__ring";
+      ring.setAttribute("aria-hidden", "true");
+
+      const percent = document.createElement("div");
+      percent.className = "model-loader__percent";
+      percent.textContent = "0%";
+      ring.appendChild(percent);
+
+      const content = document.createElement("div");
+      content.className = "model-loader__content";
+
+      const phase = document.createElement("div");
+      phase.className = "model-loader__phase";
+      phase.textContent = this.getLoadingLogMessages()[0] ?? t$1("loadingLog.loadingAssets", "Loading assets");
+
+      const phaseViewport = document.createElement("div");
+      phaseViewport.className = "model-loader__phase-viewport";
+
+      const phaseList = document.createElement("div");
+      phaseList.className = "model-loader__phase-list";
+
+      phaseViewport.appendChild(phaseList);
+
+      const messages = this.getLoadingLogMessages();
+      const stageKeyToIndex = new Map(
+        this.loadingLogMessageKeys.map((key, index) => [key, index])
+      );
+      const loadingModelKeyIndex = Math.max(
+        0,
+        stageKeyToIndex.get("loadingLog.loadingModel") ?? 0
+      );
+      let hideTimer = null;
+
+      messages.forEach((msg) => {
+        const item = document.createElement("div");
+        item.className = "model-loader__phase-item";
+        item.textContent = msg;
+        phaseList.appendChild(item);
+      });
+
+      const clearHideTimer = () => {
+        if (hideTimer) {
+          window.clearTimeout(hideTimer);
+          hideTimer = null;
+        }
+      };
+
+      const updatePhase = (index) => {
+        const itemHeight = phaseList.firstElementChild?.offsetHeight || 24;
+        phaseList.style.transform = `translateY(-${index * itemHeight}px)`;
+        phase.textContent = messages[index] || messages[loadingModelKeyIndex] || phase.textContent;
+        Array.from(phaseList.children).forEach((item, itemIndex) => {
+          item.toggleAttribute("data-active", itemIndex === index);
+          item.toggleAttribute("data-near", itemIndex === index - 1 || itemIndex === index + 1);
+        });
+      };
+
+      const track = document.createElement("div");
+      track.className = "model-loader__track";
+      track.setAttribute("role", "progressbar");
+      track.setAttribute("aria-valuemin", "0");
+      track.setAttribute("aria-valuemax", "100");
+      track.setAttribute("aria-valuenow", "0");
+      content.append(phaseViewport, track);
+
+      const bar = document.createElement("div");
+      bar.className = "model-loader__bar";
+      track.appendChild(bar);
+
+      shell.replaceChildren(ring, content);
+
+      const set = (value = 0, maxValue = 100) => {
+        const safeMax = Number.isFinite(maxValue) && maxValue > 0 ? maxValue : 100;
+        const normalized = Number.isFinite(value) ? Math.min(Math.max(value / safeMax, 0), 1) : 0;
+        const progress = Math.round(normalized * 100);
+
+        shell.style.setProperty("--model-loader-progress", String(progress));
+        percent.textContent = `${progress}%`;
+        bar.style.width = `${progress}%`;
+        track.setAttribute("aria-valuenow", String(progress));
+        updatePhase(loadingModelKeyIndex);
+      };
+
+      set(0, 100);
+
+      return {
+        getElement: () => shell,
+        show: () => {
+          clearHideTimer();
+          shell.hidden = false;
+          delete shell.dataset.complete;
+          updatePhase(loadingModelKeyIndex);
+        },
+        hide: () => {
+          clearHideTimer();
+          shell.hidden = true;
+          delete shell.dataset.complete;
+        },
+        setStage: (stageKey, progressValue = null) => {
+          const index = stageKeyToIndex.get(stageKey);
+          if (typeof index === "number") {
+            updatePhase(index);
+          }
+          if (Number.isFinite(progressValue)) {
+            const normalizedProgress = Math.max(0, Math.min(Math.round(progressValue), 100));
+            shell.style.setProperty("--model-loader-progress", String(normalizedProgress));
+            percent.textContent = `${normalizedProgress}%`;
+            bar.style.width = `${normalizedProgress}%`;
+            track.setAttribute("aria-valuenow", String(normalizedProgress));
+          }
+        },
+        complete: (delayMs = 2400) => {
+          clearHideTimer();
+          updatePhase(stageKeyToIndex.get("loadingLog.modelLoaded") ?? messages.length - 1);
+          shell.style.setProperty("--model-loader-progress", "100");
+          percent.textContent = "100%";
+          bar.style.width = "100%";
+          track.setAttribute("aria-valuenow", "100");
+          shell.dataset.complete = "true";
+          hideTimer = window.setTimeout(() => {
+            hideTimer = null;
+            delete shell.dataset.complete;
+            shell.hidden = true;
+          }, delayMs);
+        },
+        set,
+        reset: (maxValue = 100) => {
+          clearHideTimer();
+          delete shell.dataset.complete;
+          set(0, maxValue);
+        },
+      };
+    },
+
+    createLoadingLog() {
+      const shell = document.createElement("div");
+      shell.id = "loading-log";
+      shell.setAttribute("aria-live", "polite");
+      shell.hidden = true;
+
+      const collapsedToggle = document.createElement("button");
+      collapsedToggle.type = "button";
+      collapsedToggle.className = "loading-log__collapsed-toggle";
+      collapsedToggle.setAttribute("aria-label", t$1("loadingLog.title", "Loading process log"));
+      collapsedToggle.setAttribute("aria-expanded", "false");
+      shell.appendChild(collapsedToggle);
+
+      const header = document.createElement("button");
+      header.type = "button";
+      header.className = "loading-log__header";
+      header.setAttribute("aria-expanded", "false");
+
+      const headerTitle = document.createElement("span");
+      headerTitle.className = "loading-log__title";
+      headerTitle.textContent = t$1("loadingLog.title", "Loading process log");
+
+      const headerSummary = document.createElement("span");
+      headerSummary.className = "loading-log__summary";
+
+      header.append(headerTitle, headerSummary);
+      shell.appendChild(header);
+
+      const body = document.createElement("div");
+      body.className = "loading-log__body";
+
+      const list = document.createElement("div");
+      list.className = "loading-log__messages";
+
+      const progress = document.createElement("div");
+      progress.className = "loading-log__progress";
+      progress.setAttribute("role", "progressbar");
+      progress.setAttribute("aria-valuemin", "0");
+      progress.setAttribute("aria-valuemax", "100");
+      progress.setAttribute("aria-valuenow", "0");
+
+      const progressBar = document.createElement("div");
+      progressBar.className = "loading-log__progress-bar";
+      progress.appendChild(progressBar);
+
+      body.append(list, progress);
+      shell.appendChild(body);
+      core.container.appendChild(shell);
+
+      shell.classList.add("editorToolbar-hidden");
+
+      let timer = null;
+      let messageIndex = 0;
+      let visibleCount = 0;
+      let currentProgress = 0;
+      let startedAt = 0;
+      let hideTimer = null;
+      let progressUpdated = false;
+      const minVisibleMs = 900;
+      const loadingMessages = this.getLoadingLogMessages();
+      const loadingStageKeyToIndex = new Map(
+        this.loadingLogMessageKeys.map((key, index) => [key, index])
+      );
+      const loadingModelMessageIndex = Math.max(
+        0,
+        loadingStageKeyToIndex.get("loadingLog.loadingModel") ?? 0
+      );
+      let isExpanded = false;
+
+      const setExpanded = (expanded) => {
+        isExpanded = expanded;
+        shell.dataset.expanded = expanded ? "true" : "false";
+        header.setAttribute("aria-expanded", expanded ? "true" : "false");
+        collapsedToggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+      };
+
+      const updateSummary = () => {
+        const activeMessage = loadingMessages[messageIndex] || loadingMessages[loadingModelMessageIndex] || "";
+        headerSummary.textContent = `${currentProgress}% • ${activeMessage}`;
+      };
+
+      header.addEventListener("click", () => {
+        if (shell.hidden) return;
+        setExpanded(!isExpanded);
+      });
+
+      collapsedToggle.addEventListener("click", () => {
+        if (shell.hidden) return;
+        setExpanded(!isExpanded);
+      });
+
+      const renderMessages = (allDone = false) => {
+        const messages = loadingMessages
+          .slice(Math.max(0, messageIndex - visibleCount + 1), messageIndex + 1);
+        list.replaceChildren(...messages.map((message, index) => {
+          const row = document.createElement("div");
+          row.className = "loading-log__message";
+          if (allDone) {
+            row.classList.add("loading-log__message--done");
+          } else if (index === messages.length - 1) {
+            row.classList.add("loading-log__message--active");
+          }
+          row.textContent = message;
+          return row;
+        }));
+      };
+
+      const setProgress = (value) => {
+        const normalizedValue = Number.isFinite(value) ? Math.min(Math.max(value, 0), 100) : 0;
+        currentProgress = Math.max(currentProgress, Math.round(normalizedValue));
+        progressBar.style.width = `${currentProgress}%`;
+        progress.setAttribute("aria-valuenow", String(currentProgress));
+        updateSummary();
+      };
+
+      const tick = () => {
+        visibleCount = Math.min(4, visibleCount + 1);
+        if (!progressUpdated) {
+          messageIndex = loadingModelMessageIndex;
+          setProgress(Math.min(currentProgress + 8, 12));
+        }
+        renderMessages();
+      };
+
+      const stop = () => {
+        if (timer) {
+          window.clearInterval(timer);
+          timer = null;
+        }
+      };
+
+      const clearHideTimer = () => {
+        if (hideTimer) {
+          window.clearTimeout(hideTimer);
+          hideTimer = null;
+        }
+      };
+
+      const collapseLog = () => {
+        shell.classList.remove("loading-log--done");
+        shell.classList.remove("loading-log--error");
+        setExpanded(false);
+        hideTimer = null;
+      };
+
+      return {
+        start: () => {
+          stop();
+          clearHideTimer();
+          progressUpdated = false;
+          startedAt = performance.now();
+          shell.hidden = false;
+          setExpanded(false);
+          shell.classList.remove("loading-log--done", "loading-log--error");
+          messageIndex = loadingModelMessageIndex;
+          visibleCount = 1;
+          currentProgress = 0;
+          renderMessages();
+          setProgress(6);
+          timer = window.setInterval(tick, 520);
+        },
+        update: (value) => {
+          if (shell.hidden) return;
+          progressUpdated = true;
+          const normalized = Number.isFinite(value) ? value : 0;
+          messageIndex = loadingModelMessageIndex;
+          visibleCount = Math.min(4, Math.max(visibleCount, 2));
+          renderMessages();
+          setProgress(Math.min(normalized, 99));
+        },
+        setStage: (stageKey, progressValue = null) => {
+          if (shell.hidden) return;
+          const stageIndex = loadingStageKeyToIndex.get(stageKey);
+          if (typeof stageIndex === "number") {
+            messageIndex = stageIndex;
+            visibleCount = Math.min(4, Math.max(visibleCount, 2));
+            renderMessages();
+            updateSummary();
+          }
+          if (Number.isFinite(progressValue)) {
+            setProgress(progressValue);
+          }
+        },
+        finish: () => {
+          if (shell.hidden) return;
+          stop();
+          const messageCount = loadingMessages.length;
+          messageIndex = messageCount - 1;
+          visibleCount = messageCount;
+          renderMessages(true);
+          setProgress(100);
+          updateSummary();
+          shell.classList.add("loading-log--done");
+          const visibleFor = performance.now() - startedAt;
+          const hideDelay = Math.max(1200, minVisibleMs - visibleFor + 800);
+          clearHideTimer();
+          hideTimer = window.setTimeout(() => {
+            collapseLog();
+          }, hideDelay);
+        },
+        fail: () => {
+          if (shell.hidden) return;
+          stop();
+          clearHideTimer();
+          setExpanded(true);
+          shell.classList.add("loading-log--error");
+          hideTimer = window.setTimeout(() => {
+            shell.classList.remove("loading-log--error");
+            setExpanded(false);
+            hideTimer = null;
+          }, 2000);
+        },
+        get: () => shell,
+      };
+    },
+
+    showStatusNotice(message, duration = 2600, options = {}) {
+      this.enqueueStatusNotice({ message, duration, tone: "info", ...options });
+    },
+
+    localizeStatusNotice(notice) {
+      if (!notice) return notice;
+      const i18nKey = String(notice.i18nKey || "");
+      const detailI18nKey = String(notice.detailI18nKey || "");
+      return {
+        ...notice,
+        message: i18nKey ? t$1(i18nKey, notice.i18nVars || {}, notice.message) : notice.message,
+        detail: detailI18nKey ? t$1(detailI18nKey, notice.detailI18nVars || {}, notice.detail) : notice.detail,
+      };
+    },
+
+    renderStatusNoticeContent(notice) {
+      if (!this.statusNotice || !notice) return;
+      const message = String(notice.message ?? "");
+      const detail = String(notice.detail ?? "");
+
+      this.statusNotice.textContent = "";
+
+      const messageNode = document.createElement("span");
+      messageNode.className = "viewer-notice-message";
+      messageNode.textContent = message;
+      this.statusNotice.appendChild(messageNode);
+
+      if (detail) {
+        const detailLines = detail.split(/\r?\n/);
+        for (const line of detailLines) {
+          const detailNode = document.createElement("span");
+          detailNode.className = "viewer-notice-detail";
+          detailNode.innerHTML = line;
+          this.statusNotice.appendChild(detailNode);
+        }
+      }
+    },
+
+    getStatusNoticeText(notice) {
+      return [notice?.message, notice?.detail].filter(Boolean).join(" ");
+    },
+
+    refreshStatusNoticeLanguage() {
+      if (Array.isArray(this.statusNoticeQueue)) {
+        this.statusNoticeQueue = this.statusNoticeQueue.map((notice) => this.localizeStatusNotice(notice));
+      }
+
+      if (!this.statusNoticeCurrent) return;
+      this.statusNoticeCurrent = this.localizeStatusNotice(this.statusNoticeCurrent);
+      this.renderStatusNoticeContent(this.statusNoticeCurrent);
+    },
+
+    showStatusNoticeNow(notice) {
+      if (!this.statusNotice || !notice) return;
+      notice = this.localizeStatusNotice(notice);
+
+      if (this.statusNoticeHideTimer) {
+        clearTimeout(this.statusNoticeHideTimer);
+        this.statusNoticeHideTimer = null;
+      }
+
+      this.statusNoticeActive = true;
+      this.statusNoticeCurrent = notice;
+      this.statusNotice.hidden = false;
+      this.renderStatusNoticeContent(notice);
+      this.statusNotice.dataset.tone = notice.tone || "info";
+      if (notice.variant) {
+        this.statusNotice.dataset.variant = notice.variant;
+      } else {
+        delete this.statusNotice.dataset.variant;
+      }
+      this.noticeContainer?.classList.toggle("viewer-notice-container--sandbox", notice.variant === "sandbox");
+      this.statusNotice.classList.remove("is-hiding");
+      this.statusNotice.classList.add("is-visible");
+
+      if (this.statusNoticeTimer) {
+        clearTimeout(this.statusNoticeTimer);
+        this.statusNoticeTimer = null;
+      }
+
+      if (notice.persistent) {
+        return;
+      }
+
+      this.statusNoticeTimer = setTimeout(() => {
+        if (this.statusNotice) {
+          this.statusNotice.classList.remove("is-visible");
+          this.statusNotice.classList.add("is-hiding");
+        }
+
+        this.statusNoticeHideTimer = setTimeout(() => {
+          if (this.statusNotice) {
+            this.statusNotice.hidden = true;
+            this.statusNotice.classList.remove("is-hiding");
+            delete this.statusNotice.dataset.variant;
+          }
+          this.noticeContainer?.classList.remove("viewer-notice-container--sandbox");
+          this.statusNoticeActive = false;
+          this.statusNoticeCurrent = null;
+          this.statusNoticeTimer = null;
+          this.statusNoticeHideTimer = null;
+          this.processStatusNoticeQueue();
+        }, 220);
+      }, notice.duration);
+    },
+
+    dismissStatusNotice(key = "") {
+      const normalizedKey = String(key || "");
+      this.statusNoticeQueue = this.statusNoticeQueue.filter(
+        (entry) => normalizedKey && (entry?.key || "") !== normalizedKey
+      );
+
+      if (
+        normalizedKey &&
+        (!this.statusNoticeCurrent || (this.statusNoticeCurrent.key || "") !== normalizedKey)
+      ) {
+        return;
+      }
+
+      if (this.statusNoticeTimer) {
+        clearTimeout(this.statusNoticeTimer);
+        this.statusNoticeTimer = null;
+      }
+      if (this.statusNoticeHideTimer) {
+        clearTimeout(this.statusNoticeHideTimer);
+        this.statusNoticeHideTimer = null;
+      }
+
+      if (this.statusNotice) {
+        this.statusNotice.hidden = true;
+        this.statusNotice.classList.remove("is-visible", "is-hiding");
+        delete this.statusNotice.dataset.variant;
+      }
+      this.noticeContainer?.classList.remove("viewer-notice-container--sandbox");
+
+      this.statusNoticeActive = false;
+      this.statusNoticeCurrent = null;
+      this.processStatusNoticeQueue();
+    },
+
+    enqueueStatusNotice({
+      message,
+      duration = 2600,
+      tone = "info",
+      key = "",
+      replace = false,
+      persistent = false,
+      variant = "",
+      i18nKey = "",
+      i18nVars = {},
+      detail = "",
+      detailI18nKey = "",
+      detailI18nVars = {},
+    } = {}) {
+      const text = String(message ?? "");
+      if (!text) return;
+
+      const nextNotice = {
+        message: text,
+        tone,
+        duration: Number.isFinite(duration) ? duration : 2600,
+        key: String(key || ""),
+        persistent,
+        variant: String(variant || ""),
+        i18nKey: String(i18nKey || ""),
+        i18nVars: i18nVars && typeof i18nVars === "object" ? { ...i18nVars } : {},
+        detail: String(detail || ""),
+        detailI18nKey: String(detailI18nKey || ""),
+        detailI18nVars: detailI18nVars && typeof detailI18nVars === "object" ? { ...detailI18nVars } : {},
+      };
+
+      if (
+        this.statusNoticeActive &&
+        this.getStatusNoticeText(this.statusNoticeCurrent) === this.getStatusNoticeText(nextNotice) &&
+        (this.statusNoticeCurrent?.tone || "info") === nextNotice.tone &&
+        (this.statusNoticeCurrent?.key || "") === nextNotice.key
+      ) {
+        return;
+      }
+
+      if (nextNotice.key) {
+        this.statusNoticeQueue = this.statusNoticeQueue.filter(
+          (entry) => (entry?.key || "") !== nextNotice.key
+        );
+      }
+
+      if (
+        replace &&
+        this.statusNoticeActive &&
+        (!nextNotice.key || (this.statusNoticeCurrent?.key || "") === nextNotice.key)
+      ) {
+        this.showStatusNoticeNow(nextNotice);
+        return;
+      }
+
+      const isDuplicateQueued = this.statusNoticeQueue.some(
+        (entry) =>
+          this.getStatusNoticeText(entry) === this.getStatusNoticeText(nextNotice) &&
+          entry?.tone === nextNotice.tone &&
+          (entry?.key || "") === nextNotice.key
+      );
+      if (isDuplicateQueued) return;
+
+      const priorityMap = {
+        error: 0,
+        warning: 1,
+        info: 2,
+        success: 3,
+      };
+      const nextPriority = priorityMap[nextNotice.tone] ?? 2;
+      const insertAt = this.statusNoticeQueue.findIndex((entry) => {
+        const entryPriority = priorityMap[entry?.tone] ?? 2;
+        return nextPriority < entryPriority;
+      });
+
+      if (insertAt === -1) {
+        this.statusNoticeQueue.push(nextNotice);
+      } else {
+        this.statusNoticeQueue.splice(insertAt, 0, nextNotice);
+      }
+
+      this.processStatusNoticeQueue();
+    },
+
+    processStatusNoticeQueue() {
+      if (this.statusNoticeActive) return;
+      if (!this.statusNotice) return;
+      if (!Array.isArray(this.statusNoticeQueue) || this.statusNoticeQueue.length === 0) return;
+
+      const nextNotice = this.statusNoticeQueue.shift();
+      if (!nextNotice) return;
+      this.showStatusNoticeNow(nextNotice);
+    },
+  });
 }
 
 function attachMaterialsEditor(Viewer) {
@@ -5003,6 +6001,57 @@ function attachPicking(Viewer) {
   });
 }
 
+function captureAndUploadThumbnail(viewer) {
+  core.camera.aspect = 1;
+  core.camera.updateProjectionMatrix();
+  core.renderer.setSize(256, 256);
+  core.renderer.render(core.scene, core.camera);
+
+  viewer.mainCanvas.toBlob((imgBlob) => {
+    if (!imgBlob) {
+      console.error("Failed to capture screenshot");
+      return;
+    }
+
+    if (!(imgBlob instanceof Blob) || imgBlob.size === 0) {
+      console.error("Invalid blob data");
+      return;
+    }
+
+    if (!["image/png", "image/jpeg"].includes(imgBlob.type)) {
+      console.error("Invalid blob type:", imgBlob.type);
+      return;
+    }
+
+    const fileform = new FormData();
+    fileform.append("path", core.fileObject.path);
+    fileform.append("filename", core.fileObject.basename);
+    fileform.append("data", imgBlob, "thumbnail.png");
+    console.log("Uploading thumbnail for entity ID:", core.CONFIG.entity.id);
+    fileform.append("wisski_individual", core.CONFIG.entity.id);
+
+    fetch(core.CONFIG.mainUrl + "/api/editor/upload-thumbnail", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "X-CSRF-Token": window.CSRF_TOKEN
+      },
+      body: fileform
+    })
+    .then(async (res) => {
+      const text = await res.text();
+      const data = text ? JSON.parse(text) : {};
+      if (!res.ok) throw new Error(data.error || "Upload failed");
+      return data;
+    });
+  }, "image/png");
+
+  core.renderer.setPixelRatio(devicePixelRatio);
+  core.camera.aspect = core.CONFIG.viewer.canvasDimensions.x / core.CONFIG.viewer.canvasDimensions.y;
+  core.camera.updateProjectionMatrix();
+  core.renderer.setSize(core.CONFIG.viewer.canvasDimensions.x, core.CONFIG.viewer.canvasDimensions.y);
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -5796,6 +6845,25 @@ function getEnvironmentTexture(renderer) {
   return environmentTexturePromise;
 }
 
+function markEnvironmentMaterialsDirty(root) {
+  root?.traverse?.((child) => {
+    const materials = child?.material
+      ? (Array.isArray(child.material) ? child.material : [child.material])
+      : [];
+    materials.forEach((material) => {
+      if (material?.isMeshStandardMaterial || material?.isMeshPhysicalMaterial) {
+        material.needsUpdate = true;
+      }
+    });
+  });
+}
+
+async function syncSceneEnvironment(enabled = true) {
+  if (!core.scene) return;
+  core.scene.environment = enabled ? await getEnvironmentTexture(core.renderer) : null;
+  markEnvironmentMaterialsDirty(core.scene);
+}
+
 function reportLoadError(error, context = "") {
   const message = reportViewerError(error, {
     context,
@@ -5890,7 +6958,7 @@ async function loadModel() {
     core.mainObject.push(object);
 
     updateLoadingStage("loadingLog.compilingShaders", 99);
-    core.scene.environment = await getEnvironmentTexture(core.renderer);
+    await syncSceneEnvironment(core.environmentMapEnabled !== false);
   }
 
   async function loadOBJWithMTL() {
@@ -6237,164 +7305,6 @@ const progressLoaderHandler = function (xhr) {
   core.loadingLog?.update?.(percentComplete);
   core.UltraLoader?.set(percentComplete);
 };
-
-const UltraLoader$1 = {
-
-  progress:0,
-  bar:null,
-  panel:null,
-  header:null,
-  stepsContainer:null,
-  steps:[],
-  isFinished:false,
-  hideTimer:null,
-  resetTimer:null,
-
-  init() {
-    if(this.bar) return;
-
-    const loader=document.createElement("div");
-    loader.id="ultra-loader";
-    loader.innerHTML='<div id="ultra-loader-bar"></div>';
-
-    const panel=document.createElement("div");
-    panel.id="ultra-loader-panel";
-
-    const header=document.createElement("div");
-    header.id="ultra-loader-header";
-    header.textContent=t$1("processingHeader");
-    panel.appendChild(header);
-
-    const stepsContainer=document.createElement("div");
-    stepsContainer.id="ultra-loader-steps";
-    panel.appendChild(stepsContainer);
-
-    document.body.appendChild(loader);
-    document.body.appendChild(panel);
-
-    this.bar=document.getElementById("ultra-loader-bar");
-    this.panel=panel;
-    this.header=header;
-    this.stepsContainer=stepsContainer;
-  },
-
-  start(steps) {
-    this.init();
-
-    if (this.hideTimer) {
-      window.clearTimeout(this.hideTimer);
-      this.hideTimer = null;
-    }
-    if (this.resetTimer) {
-      window.clearTimeout(this.resetTimer);
-      this.resetTimer = null;
-    }
-
-    this.steps=steps;
-    this.updateHeader();
-    this.progress=5;
-    this.isFinished=false;
-
-    this.bar.style.width = "5%";
-    this.bar.style.background = "";
-
-    this.renderSteps(0);
-
-    this.panel.classList.add("show");
-
-    this.render();
-    },
-
-  set(progress,message) {
-    this.progress=Math.max(this.progress,progress);
-    this.render();
-  },
-
-  step(index) {
-    this.renderSteps(index);
-  },
-
-  finish() {
-    this.progress=100;
-    this.isFinished=true;
-    this.render();
-    this.renderSteps(this.steps.length);
-
-    this.hideTimer = window.setTimeout(() => {
-      if (!this.isFinished) {
-        return;
-      }
-
-      this.panel.classList.remove("show");
-      this.hideTimer = null;
-
-      this.resetTimer = window.setTimeout(() => {
-        this.bar.style.width = "0%";
-        this.progress = 0;
-        this.resetTimer = null;
-      }, 1500);
-    }, 2500);
-
-  },
-
-  render() {
-    this.bar.style.width=this.progress+"%";
-  },
-
-  updateHeader() {
-    if (this.header) {
-      this.header.textContent=t$1("processingHeader");
-    }
-  },
-
-  renderSteps(active) {
-    this.updateHeader();
-    if (!this.stepsContainer) return;
-    this.stepsContainer.replaceChildren();
-    this.steps.forEach((s,i)=>{
-      const row=document.createElement("div");
-      row.className="ultra-step";
-      if(i<active) {
-        row.classList.add("done");
-        row.textContent="✓ "+s;
-      }
-      else if(i===active) {
-        row.classList.add("active");
-        row.textContent="⏳ "+s;
-      }
-      else {
-        row.classList.add("pending");
-        row.textContent="□ "+s;
-      }
-      this.stepsContainer.appendChild(row);
-    });
-  },
-
-  error(message="Processing error") {
-    this.isFinished = true;
-    this.renderErrorSteps();
-    const error=document.createElement("div");
-    error.id="ultra-loader-error";
-    error.textContent=`ERROR: ${message}`;
-    this.panel.appendChild(error);
-    this.bar.style.background="#d93025";
-  },
-
-  renderErrorSteps() {
-    this.updateHeader();
-    if (!this.stepsContainer) return;
-    this.stepsContainer.replaceChildren();
-    this.steps.forEach((s)=>{
-      const row=document.createElement("div");
-      row.className="ultra-step error";
-      row.textContent="✖ "+s;
-      this.stepsContainer.appendChild(row);
-    });
-  }
-
-};
-
-window.UltraLoader=UltraLoader$1;
 
 class StatusPoller {
 
@@ -12579,6 +13489,7 @@ function getEditorToolbarIcon(icon) {
     materials: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 4v8l-8 4-8-4V6l8-4z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 6l8 4M12 6v8M12 14l-8-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
     ambientLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     cameraLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h3l2-2h4l2 2h3v10H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+    environmentMap: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 7v10l-7 4-7-4V7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 3v18M5 7l7 4 7-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="18.25" cy="5.75" r="1.25" fill="currentColor"/></svg>',
     color: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a5 5 0 0 0-5 5c0 2.8 5 9 5 9s5-6.2 5-9a5 5 0 0 0-5-5Z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 14.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z" fill="currentColor"/></svg>',
     intensity: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     picking: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 3 8 8-4 1 2 5-2.5 1-2-5-3 3Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
@@ -12945,7 +13856,7 @@ function createEditorToolbar(viewer) {
       button.classList.add("has-submenu");
       const submenu = document.createElement("div");
       submenu.className = "viewer-editor-tool_submenu";
-      viewer.lightTargetTransformButtons = {};
+      viewer.lightsSubmenuButtons = {};
 
       const normalizeColorValue = (value) => {
         if (typeof value !== "string") return "#ffffff";
@@ -13024,13 +13935,22 @@ function createEditorToolbar(viewer) {
           }
 
           if (item.key === "lightTargetTransformMove" || item.key === "lightTargetTransformTarget") {
-            viewer.lightTargetTransformButtons[item.key] = subButton;
+            viewer.lightsSubmenuButtons[item.key] = subButton;
+          }
+          if (item.key === "environmentMap") {
+            viewer.lightsSubmenuButtons[item.key] = subButton;
           }
           container.appendChild(subButton);
         });
       };
 
       appendSubmenuItems([
+        {
+          key: "environmentMap",
+          icon: "environmentMap",
+          label: t$1("gui.environmentMap", "Environment map"),
+          onClick: () => viewer.toggleEnvironmentMap(),
+        },
         {
           key: "lightTarget",
           icon: "lightTarget",
@@ -13264,13 +14184,21 @@ function updateClippingPlanesSubmenuState(viewer) {
 }
 
 function updateLightsSubmenuState(viewer) {
-  if (!viewer.lightTargetTransformButtons) return;
+  if (!viewer.lightsSubmenuButtons) return;
   const activeMode = viewer.transformText["Transform Light"];
-  viewer.lightTargetTransformButtons.lightTargetTransformMove?.classList.toggle(
+  viewer.lightsSubmenuButtons.environmentMap?.classList.toggle(
+    "is-active",
+    viewer.environmentMapEnabled !== false
+  );
+  viewer.lightsSubmenuButtons.environmentMap?.setAttribute(
+    "aria-pressed",
+    viewer.environmentMapEnabled !== false ? "true" : "false"
+  );
+  viewer.lightsSubmenuButtons.lightTargetTransformMove?.classList.toggle(
     "is-active",
     activeMode === "translate"
   );
-  viewer.lightTargetTransformButtons.lightTargetTransformTarget?.classList.toggle(
+  viewer.lightsSubmenuButtons.lightTargetTransformTarget?.classList.toggle(
     "is-active",
     activeMode === "rotate"
   );
@@ -13365,6 +14293,19 @@ function updateEditorToolbarLabels(viewer) {
     };
     Object.entries(viewer.statisticsSubmenuButtons).forEach(([key, button]) => {
       const label = statisticsSubmenuLabels[key] || key;
+      button.setAttribute("title", label);
+      button.setAttribute("aria-label", label);
+    });
+  }
+
+  if (viewer.lightsSubmenuButtons) {
+    const lightsSubmenuLabels = {
+      environmentMap: t$1("gui.environmentMap", "Environment map"),
+      lightTargetTransformMove: t$1("gui.move", "Move"),
+      lightTargetTransformTarget: t$1("gui.target", "Target"),
+    };
+    Object.entries(viewer.lightsSubmenuButtons).forEach(([key, button]) => {
+      const label = lightsSubmenuLabels[key] || key;
       button.setAttribute("title", label);
       button.setAttribute("aria-label", label);
     });
@@ -14151,6 +15092,7 @@ const Viewer$1 = {
   embedConfigPreviewFrame: null,
   embedMissingSourceNotified: false,
   wireframeMode: false,
+  environmentMapEnabled: true,
   currentTheme: "dark",
   currentLanguage: "en",
   loadingLog: null,
@@ -14614,13 +15556,15 @@ const Viewer$1 = {
     this.updateEditorToolbarState();
   },
 
-  toggleLoadingLogs() {
-    this.showLoadingLogs = !this.showLoadingLogs;
-    if (core.loadingLog.get()) {
-      core.loadingLog.get().classList.toggle("editorToolbar-visible", this.showLoadingLogs);
-    }
-    this.updateEditorToolbarLabels();
+  async setEnvironmentMapEnabled(enabled) {
+    this.environmentMapEnabled = enabled !== false;
+    setCore("environmentMapEnabled", this.environmentMapEnabled);
+    await syncSceneEnvironment(this.environmentMapEnabled);
     this.updateEditorToolbarState();
+  },
+
+  async toggleEnvironmentMap() {
+    await this.setEnvironmentMapEnabled(!this.environmentMapEnabled);
   },
 
   addHierarchySubmenuItem(name, meshId) {
@@ -14931,35 +15875,6 @@ const Viewer$1 = {
     return updateEditorToolbarState(this);
   },
 
-  getStoredTheme() {
-    if (this.urlOptions?.theme === "light" || this.urlOptions?.theme === "dark") {
-      return this.urlOptions.theme;
-    }
-
-    const storedTheme = window.localStorage.getItem(this.THEME_STORAGE_KEY);
-    return storedTheme === "0" ? "light" : "dark";
-  },
-
-  normalizeLanguage(value) {
-    if (value == null) return null;
-    const normalizedValue = String(value).trim().toLowerCase();
-    if (normalizedValue.startsWith("pl")) return "pl";
-    if (normalizedValue.startsWith("de")) return "de";
-    if (normalizedValue.startsWith("en")) return "en";
-    return null;
-  },
-
-  getStoredLanguage() {
-    const fromQuery = this.normalizeLanguage(this.urlOptions?.language);
-    if (fromQuery) return fromQuery;
-
-    const storedLanguage = this.normalizeLanguage(window.localStorage.getItem(this.LANGUAGE_STORAGE_KEY));
-    if (storedLanguage) return storedLanguage;
-
-    const browserLanguage = this.normalizeLanguage(navigator?.language || "en");
-    return browserLanguage || "en";
-  },
-
   tFormat(key, params = {}, fallback = "") {
     const template = t$1(key, fallback);
     return String(template).replace(/\{(\w+)\}/g, (_match, token) => {
@@ -15053,123 +15968,6 @@ const Viewer$1 = {
     };
   },
 
-  updateThemeControlLabels() {
-    const isDark = this.currentTheme === "dark";
-
-    if (this.themeMode) {
-      this.themeMode.innerHTML = `
-        <span class="viewer-theme-icon" aria-hidden="true">${isDark ? "☀️" : "🌙"}</span>
-        <span>${isDark ? t$1("theme.lightMode", "Light mode") : t$1("theme.darkMode", "Dark mode")}</span>
-      `;
-      const label = isDark
-        ? t$1("theme.switchToLightMode", "Switch to light mode")
-        : t$1("theme.switchToDarkMode", "Switch to dark mode");
-      this.themeMode.setAttribute("aria-label", label);
-      this.themeMode.setAttribute("title", label);
-    }
-
-    const exampleThemeToggle = document.getElementById("example-theme-toggle");
-    if (exampleThemeToggle) {
-      exampleThemeToggle.textContent = isDark ? "☀️" : "🌙";
-      exampleThemeToggle.setAttribute("aria-pressed", isDark ? "true" : "false");
-      exampleThemeToggle.hidden = true;
-    }
-  },
-
-  applyTheme(theme, { persist = true } = {}) {
-    const normalizedTheme = theme === "light" ? "light" : "dark";
-    const isDark = normalizedTheme === "dark";
-
-    this.currentTheme = normalizedTheme;
-    document.documentElement.setAttribute("data-viewer-theme", normalizedTheme);
-    document.body.setAttribute("data-viewer-theme", normalizedTheme);
-    document.body.classList.toggle("iiif-dark", isDark);
-    this.viewerWrapper?.setAttribute("data-viewer-theme", normalizedTheme);
-    this.actionMenu?.setAttribute("data-viewer-theme", normalizedTheme);
-    this.metadataContainer?.setAttribute("data-viewer-theme", normalizedTheme);
-    core.guiContainer?.setAttribute("data-viewer-theme", normalizedTheme);
-    document.getElementById("form-IIIF")?.setAttribute("data-viewer-theme", normalizedTheme);
-    UltraLoader$1.panel?.setAttribute("data-viewer-theme", normalizedTheme);
-
-    if (persist) {
-      window.localStorage.setItem(this.THEME_STORAGE_KEY, isDark ? "1" : "0");
-    }
-
-    this.updateThemeControlLabels();
-  },
-
-  toggleTheme() {
-    this.closeActionMenu();
-    this.applyTheme(this.currentTheme === "dark" ? "light" : "dark");
-  },
-
-  updateLanguageControlLabels() {
-    if (!this.languageMode) return;
-    const languages = [
-      { code: "en", label: "Language: EN"},
-      { code: "pl", label: "Język: PL"},
-      { code: "de", label: "Sprache: DE"}
-    ];
-    const currentLangLabel = languages.find(l => l.code === core.currentLanguage)?.label || "EN";
-    this.languageMode.innerHTML = `
-      <span class="viewer-action-icon language-icon" aria-hidden="true"></span>
-      <span>${currentLangLabel}</span>
-    `;
-    this.languageMode.setAttribute("aria-label", t$1("language.label", "Language: EN"));
-    this.languageMode.setAttribute("title", t$1("language.label", "Language: EN"));
-    
-    if (this.languageModeDropdown) {
-      const items = this.languageModeDropdown.querySelectorAll(".language-dropdown-item");
-      items.forEach(item => {
-        item.classList.toggle("active", item.dataset.lang === core.currentLanguage);
-      });
-    }
-  },
-
-  updateActionMenuLabels() {
-    if (!this.actionMenu) return;
-    const actionMenuLabel = t$1("menu.mainMenu", "Main menu");
-
-    const toggle = this.actionMenu.querySelector(".viewer-action-menu_toggle");
-    toggle?.setAttribute("title", actionMenuLabel);
-    const toggleCopy = toggle?.querySelector(".viewer-editor-tool_sr");
-    if (toggleCopy) toggleCopy.textContent = actionMenuLabel;
-    this.actionMenu.querySelector(".viewer-action-menu_panel")?.setAttribute("aria-label", actionMenuLabel);
-  },
-
-  updateDownloadMenuEntryLabel() {
-    if (!this.downloadModel || this.downloadModel.hidden) return;
-    this.downloadModel.innerHTML = `
-      <span class="viewer-action-icon download-icon" aria-hidden="true"></span>
-      <span>${t$1("menu.download", "Download")}</span>
-    `;
-  },
-
-  updateLocalizedUI() {
-    const lang = ["pl", "de"].includes(core.currentLanguage) ? core.currentLanguage : "en";
-    document.documentElement.setAttribute("lang", lang);
-    this.updateActionMenuLabels();
-    this.updateLanguageControlLabels();
-    this.updateThemeControlLabels();
-    this.updateEmbedMenuEntryState();
-    this.updateFullscreenButtonIcon();
-    this.updateDownloadMenuEntryLabel();
-    this.updateEditorToolbarLabels();
-    this.updateEditorToolbarState();
-    this.updatePickingModeControllerLabel();
-    this.updateDistanceMeasurementControllerLabel();
-    this.updateSelectedFacesControllerLabel();
-    this.updateLocalPreviewLabels();
-    this.updateIIIFFormLabels();
-    this.updateMetadataPanelLabels();
-    this.updateMaterialsDialogLabels();
-    this.refreshStatusNoticeLanguage();
-    UltraLoader$1.updateHeader?.();
-    if (this.pickingHint) this.pickingHint.textContent = t$1("hints.picking", "Shift + click to select multiple faces");
-    if (this.clippingHint) this.clippingHint.textContent = t$1("hints.clipping", "Drag active clipping plane helper to adjust cut");
-
-  },
-
   setGuiFolderTitle(folder, title) {
     if (!folder || !title) return;
     if (typeof folder.title === "function") {
@@ -15192,82 +15990,6 @@ const Viewer$1 = {
     if (typeof controller.updateDisplay === "function") {
       controller.updateDisplay();
     }
-  },
-
-  updateLocalPreviewLabels() {
-    const label = document.querySelector("#example-model-picker label[for='example-model-select']");
-    if (label) {
-      label.textContent = t$1("localPreview.loadExampleModel", "Load example model");
-    }
-  },
-
-  updateIIIFFormLabels() {
-    const form = document.getElementById("form-IIIF");
-    if (!form) return;
-    const title = form.querySelector(".form-IIIF-header .title");
-    if (title) title.textContent = t$1("iiif.loader", "IIIF Loader");
-    const collapseBtn = document.getElementById("iiif-toggle-collapse");
-    if (collapseBtn) {
-      const isCollapsed = form.classList.contains("collapsed");
-      collapseBtn.title = isCollapsed
-        ? t$1("iiif.expand", "Expand")
-        : t$1("iiif.collapse", "Collapse");
-    }
-    const label = form.querySelector(".form-IIIF-label");
-    if (label) label.textContent = t$1("iiif.manifest", "IIIF manifest");
-    const select = document.getElementById("iiif-manifest-select");
-    if (select) {
-      const optionLabelByUrl = {
-        "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json": t$1("iiif.optionModelPositionScale", "Model Position and Scale"),
-        "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin.json": t$1("iiif.optionModelOrigin", "Model Origin"),
-        "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin_bgcolor.json": t$1("iiif.optionModelOriginBg", "Model Origin with background color"),
-        "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_position.json": t$1("iiif.optionModelPosition", "Model Position"),
-      };
-      Array.from(select.options).forEach((option) => {
-        const labelFromMap = optionLabelByUrl[option.value];
-        if (labelFromMap) option.textContent = labelFromMap;
-      });
-    }
-    const manifestUrl = document.getElementById("manifest-url");
-    if (manifestUrl) manifestUrl.placeholder = t$1("iiif.manifestUrlPlaceholder", "https://example.org/iiif/manifest.json");
-    const manifestText = document.getElementById("manifest-text");
-    if (manifestText) manifestText.placeholder = t$1("iiif.manifestTextPlaceholder", "Paste IIIF manifest JSON here...");
-    const loadFromUrlButton = document.getElementById("load-manifest-from-url");
-    if (loadFromUrlButton) loadFromUrlButton.textContent = t$1("iiif.loadFromUrl", "Load from URL");
-    const loadFromTextButton = document.getElementById("load-manifest-from-text");
-    if (loadFromTextButton) loadFromTextButton.textContent = t$1("iiif.loadFromText", "Load from Text");
-  },
-
-  updateMetadataPanelLabels() {
-    const metadataContainer = document.getElementById("metadata-container");
-    if (!metadataContainer) return;
-    metadataContainer.querySelectorAll("[data-i18n-key]").forEach((node) => {
-      const key = node.getAttribute("data-i18n-key");
-      if (!key) return;
-      const needsColon = node.classList.contains("metadata-label");
-      const text = t$1(key, node.textContent?.replace(/:\s*$/, "") || "");
-      node.textContent = needsColon ? `${text}:` : text;
-    });
-  },
-
-  applyLanguage({ persist = true } = {}) {
-    if (persist) {
-      window.localStorage.setItem(this.LANGUAGE_STORAGE_KEY, core.currentLanguage);
-    }
-    this.updateLocalizedUI();
-  },
-
-  toggleLanguage() {
-    if (!this.languageModeDropdown) return;
-    const isVisible = !this.languageModeDropdown.hidden;
-    this.languageModeDropdown.hidden = isVisible;
-  },
-
-  selectLanguage(lang) {
-    core.currentLanguage = lang;
-    this.languageModeDropdown.hidden = true;
-    this.closeActionMenu();
-    this.applyLanguage();
   },
 
   updatePickingModeControllerLabel() {
@@ -15383,606 +16105,6 @@ const Viewer$1 = {
       this.dragAndDropHint.hidden = true;
     }
 
-  },
-
-  getLoadingLogMessages() {
-    return this.loadingLogMessageKeys.map((key) => t$1(key));
-  },
-
-  getProcessingLoadingSteps() {
-    return this.processingLoadingStepKeys.map((key) => t$1(key));
-  },
-
-  createModelLoadingProgress(shell) {
-    shell.className = "model-loader";
-    shell.hidden = true;
-    shell.setAttribute("role", "status");
-    shell.setAttribute("aria-live", "polite");
-
-    const ring = document.createElement("div");
-    ring.className = "model-loader__ring";
-    ring.setAttribute("aria-hidden", "true");
-
-    const percent = document.createElement("div");
-    percent.className = "model-loader__percent";
-    percent.textContent = "0%";
-    ring.appendChild(percent);
-
-    const content = document.createElement("div");
-    content.className = "model-loader__content";
-
-
-    const phase = document.createElement("div");
-    phase.className = "model-loader__phase";
-    phase.textContent = this.getLoadingLogMessages()[0] ?? t$1("loadingLog.loadingAssets", "Loading assets");
-
-    const phaseViewport = document.createElement("div");
-    phaseViewport.className = "model-loader__phase-viewport";
-
-    const phaseList = document.createElement("div");
-    phaseList.className = "model-loader__phase-list";
-
-    phaseViewport.appendChild(phaseList);
-
-    const messages = this.getLoadingLogMessages();
-    const stageKeyToIndex = new Map(
-      this.loadingLogMessageKeys.map((key, index) => [key, index])
-    );
-    const loadingModelKeyIndex = Math.max(
-      0,
-      stageKeyToIndex.get("loadingLog.loadingModel") ?? 0
-    );
-    let hideTimer = null;
-
-    messages.forEach((msg) => {
-      const item = document.createElement("div");
-      item.className = "model-loader__phase-item";
-      item.textContent = msg;
-      phaseList.appendChild(item);
-    });
-
-    const clearHideTimer = () => {
-      if (hideTimer) {
-        window.clearTimeout(hideTimer);
-        hideTimer = null;
-      }
-    };
-
-    const updatePhase = (index) => {
-      const itemHeight = phaseList.firstElementChild?.offsetHeight || 24;
-      phaseList.style.transform = `translateY(-${index * itemHeight}px)`;
-      phase.textContent = messages[index] || messages[loadingModelKeyIndex] || phase.textContent;
-      Array.from(phaseList.children).forEach((item, itemIndex) => {
-        item.toggleAttribute("data-active", itemIndex === index);
-        item.toggleAttribute("data-near", itemIndex === index - 1 || itemIndex === index + 1);
-      });
-    };
-
-    const track = document.createElement("div");
-    track.className = "model-loader__track";
-    track.setAttribute("role", "progressbar");
-    track.setAttribute("aria-valuemin", "0");
-    track.setAttribute("aria-valuemax", "100");
-    track.setAttribute("aria-valuenow", "0");
-    content.append(phaseViewport, track);
-
-    const bar = document.createElement("div");
-    bar.className = "model-loader__bar";
-    track.appendChild(bar);
-
-    shell.replaceChildren(ring, content);
-
-    const set = (value = 0, maxValue = 100) => {
-      const safeMax = Number.isFinite(maxValue) && maxValue > 0 ? maxValue : 100;
-      const normalized = Number.isFinite(value) ? Math.min(Math.max(value / safeMax, 0), 1) : 0;
-      const progress = Math.round(normalized * 100);
-
-      shell.style.setProperty("--model-loader-progress", String(progress));
-      percent.textContent = `${progress}%`;
-      bar.style.width = `${progress}%`;
-      track.setAttribute("aria-valuenow", String(progress));
-      updatePhase(loadingModelKeyIndex);
-    };
-
-    set(0, 100);
-
-    return {
-      getElement: () => shell,
-      show: () => {
-        clearHideTimer();
-        shell.hidden = false;
-        delete shell.dataset.complete;
-        updatePhase(loadingModelKeyIndex);
-      },
-      hide: () => {
-        clearHideTimer();
-        shell.hidden = true;
-        delete shell.dataset.complete;
-      },
-      setStage: (stageKey, progressValue = null) => {
-        const index = stageKeyToIndex.get(stageKey);
-        if (typeof index === "number") {
-          updatePhase(index);
-        }
-        if (Number.isFinite(progressValue)) {
-          const normalizedProgress = Math.max(0, Math.min(Math.round(progressValue), 100));
-          shell.style.setProperty("--model-loader-progress", String(normalizedProgress));
-          percent.textContent = `${normalizedProgress}%`;
-          bar.style.width = `${normalizedProgress}%`;
-          track.setAttribute("aria-valuenow", String(normalizedProgress));
-        }
-      },
-      complete: (delayMs = 2400) => {
-        clearHideTimer();
-        updatePhase(stageKeyToIndex.get("loadingLog.modelLoaded") ?? messages.length - 1);
-        shell.style.setProperty("--model-loader-progress", "100");
-        percent.textContent = "100%";
-        bar.style.width = "100%";
-        track.setAttribute("aria-valuenow", "100");
-        shell.dataset.complete = "true";
-        hideTimer = window.setTimeout(() => {
-          hideTimer = null;
-          delete shell.dataset.complete;
-          shell.hidden = true;
-        }, delayMs);
-      },
-      set,
-      reset: (maxValue = 100) => {
-        clearHideTimer();
-        delete shell.dataset.complete;
-        set(0, maxValue);
-      },
-    };
-  },
-
-  createLoadingLog() {
-    const shell = document.createElement("div");
-    shell.id = "loading-log";
-    shell.setAttribute("aria-live", "polite");
-    shell.hidden = true;
-
-    const collapsedToggle = document.createElement("button");
-    collapsedToggle.type = "button";
-    collapsedToggle.className = "loading-log__collapsed-toggle";
-    collapsedToggle.setAttribute("aria-label", t$1("loadingLog.title", "Loading process log"));
-    collapsedToggle.setAttribute("aria-expanded", "false");
-    shell.appendChild(collapsedToggle);
-
-    const header = document.createElement("button");
-    header.type = "button";
-    header.className = "loading-log__header";
-    header.setAttribute("aria-expanded", "false");
-
-    const headerTitle = document.createElement("span");
-    headerTitle.className = "loading-log__title";
-    headerTitle.textContent = t$1("loadingLog.title", "Loading process log");
-
-    const headerSummary = document.createElement("span");
-    headerSummary.className = "loading-log__summary";
-
-    header.append(headerTitle, headerSummary);
-    shell.appendChild(header);
-
-    const body = document.createElement("div");
-    body.className = "loading-log__body";
-
-    const list = document.createElement("div");
-    list.className = "loading-log__messages";
-
-    const progress = document.createElement("div");
-    progress.className = "loading-log__progress";
-    progress.setAttribute("role", "progressbar");
-    progress.setAttribute("aria-valuemin", "0");
-    progress.setAttribute("aria-valuemax", "100");
-    progress.setAttribute("aria-valuenow", "0");
-
-    const progressBar = document.createElement("div");
-    progressBar.className = "loading-log__progress-bar";
-    progress.appendChild(progressBar);
-
-    body.append(list, progress);
-    shell.appendChild(body);
-    core.container.appendChild(shell);
-
-    shell.classList.add("editorToolbar-hidden");
-
-    let timer = null;
-    let messageIndex = 0;
-    let visibleCount = 0;
-    let currentProgress = 0;
-    let startedAt = 0;
-    let hideTimer = null;
-    let progressUpdated = false;
-    const minVisibleMs = 900;
-    const loadingMessages = this.getLoadingLogMessages();
-    const loadingStageKeyToIndex = new Map(
-      this.loadingLogMessageKeys.map((key, index) => [key, index])
-    );
-    const loadingModelMessageIndex = Math.max(
-      0,
-      loadingStageKeyToIndex.get("loadingLog.loadingModel") ?? 0
-    );
-    let isExpanded = false;
-
-    const setExpanded = (expanded) => {
-      isExpanded = expanded;
-      shell.dataset.expanded = expanded ? "true" : "false";
-      header.setAttribute("aria-expanded", expanded ? "true" : "false");
-      collapsedToggle.setAttribute("aria-expanded", expanded ? "true" : "false");
-    };
-
-    const updateSummary = () => {
-      const activeMessage = loadingMessages[messageIndex] || loadingMessages[loadingModelMessageIndex] || "";
-      headerSummary.textContent = `${currentProgress}% • ${activeMessage}`;
-    };
-
-    header.addEventListener("click", () => {
-      if (shell.hidden) return;
-      setExpanded(!isExpanded);
-    });
-
-    collapsedToggle.addEventListener("click", () => {
-      if (shell.hidden) return;
-      setExpanded(!isExpanded);
-    });
-
-    const renderMessages = (allDone = false) => {
-      const messages = loadingMessages
-        .slice(Math.max(0, messageIndex - visibleCount + 1), messageIndex + 1);
-      list.replaceChildren(...messages.map((message, index) => {
-        const row = document.createElement("div");
-        row.className = "loading-log__message";
-        if (allDone) {
-          row.classList.add("loading-log__message--done");
-        } else if (index === messages.length - 1) {
-          row.classList.add("loading-log__message--active");
-        }
-        row.textContent = message;
-        return row;
-      }));
-    };
-
-    const setProgress = (value) => {
-      const normalizedValue = Number.isFinite(value) ? Math.min(Math.max(value, 0), 100) : 0;
-      currentProgress = Math.max(currentProgress, Math.round(normalizedValue));
-      progressBar.style.width = `${currentProgress}%`;
-      progress.setAttribute("aria-valuenow", String(currentProgress));
-      updateSummary();
-    };
-
-    const tick = () => {
-      visibleCount = Math.min(4, visibleCount + 1);
-      if (!progressUpdated) {
-        messageIndex = loadingModelMessageIndex;
-        setProgress(Math.min(currentProgress + 8, 12));
-      }
-      renderMessages();
-    };
-
-    const stop = () => {
-      if (timer) {
-        window.clearInterval(timer);
-        timer = null;
-      }
-    };
-
-    const clearHideTimer = () => {
-      if (hideTimer) {
-        window.clearTimeout(hideTimer);
-        hideTimer = null;
-      }
-    };
-
-    const collapseLog = () => {
-      shell.classList.remove("loading-log--done");
-      shell.classList.remove("loading-log--error");
-      setExpanded(false);
-      hideTimer = null;
-    };
-
-    return {
-      start: () => {
-        stop();
-        clearHideTimer();
-        progressUpdated = false;
-        startedAt = performance.now();
-        shell.hidden = false;
-        setExpanded(false);
-        shell.classList.remove("loading-log--done", "loading-log--error");
-        messageIndex = loadingModelMessageIndex;
-        visibleCount = 1;
-        currentProgress = 0;
-        renderMessages();
-        setProgress(6);
-        timer = window.setInterval(tick, 520);
-      },
-      update: (value) => {
-        if (shell.hidden) return;
-        progressUpdated = true;
-        const normalized = Number.isFinite(value) ? value : 0;
-        messageIndex = loadingModelMessageIndex;
-        visibleCount = Math.min(4, Math.max(visibleCount, 2));
-        renderMessages();
-        setProgress(Math.min(normalized, 99));
-      },
-      setStage: (stageKey, progressValue = null) => {
-        if (shell.hidden) return;
-        const stageIndex = loadingStageKeyToIndex.get(stageKey);
-        if (typeof stageIndex === "number") {
-          messageIndex = stageIndex;
-          visibleCount = Math.min(4, Math.max(visibleCount, 2));
-          renderMessages();
-          updateSummary();
-        }
-        if (Number.isFinite(progressValue)) {
-          setProgress(progressValue);
-        }
-      },
-      finish: () => {
-        if (shell.hidden) return;
-        stop();
-        const messageCount = loadingMessages.length;
-        messageIndex = messageCount - 1;
-        visibleCount = messageCount;
-        renderMessages(true);
-        setProgress(100);
-        updateSummary();
-        shell.classList.add("loading-log--done");
-        const visibleFor = performance.now() - startedAt;
-        const hideDelay = Math.max(1200, minVisibleMs - visibleFor + 800);
-        clearHideTimer();
-        hideTimer = window.setTimeout(() => {
-          collapseLog();
-        }, hideDelay);
-      },
-      fail: () => {
-        if (shell.hidden) return;
-        stop();
-        clearHideTimer();
-        setExpanded(true);
-        shell.classList.add("loading-log--error");
-        hideTimer = window.setTimeout(() => {
-          shell.classList.remove("loading-log--error");
-          setExpanded(false);
-          hideTimer = null;
-        }, 2000);
-      },
-      get: () => shell,
-    };
-  },
-
-  showStatusNotice(message, duration = 2600, options = {}) {
-    this.enqueueStatusNotice({ message, duration, tone: "info", ...options });
-  },
-
-  localizeStatusNotice(notice) {
-    if (!notice) return notice;
-    const i18nKey = String(notice.i18nKey || "");
-    const detailI18nKey = String(notice.detailI18nKey || "");
-    return {
-      ...notice,
-      message: i18nKey ? t$1(i18nKey, notice.i18nVars || {}, notice.message) : notice.message,
-      detail: detailI18nKey ? t$1(detailI18nKey, notice.detailI18nVars || {}, notice.detail) : notice.detail,
-    };
-  },
-
-  renderStatusNoticeContent(notice) {
-    if (!this.statusNotice || !notice) return;
-    const message = String(notice.message ?? "");
-    const detail = String(notice.detail ?? "");
-
-    this.statusNotice.textContent = "";
-
-    const messageNode = document.createElement("span");
-    messageNode.className = "viewer-notice-message";
-    messageNode.textContent = message;
-    this.statusNotice.appendChild(messageNode);
-
-    if (detail) {
-      const detailLines = detail.split(/\r?\n/);
-      for (const line of detailLines) {
-        const detailNode = document.createElement("span");
-        detailNode.className = "viewer-notice-detail";
-        detailNode.innerHTML = line;
-        this.statusNotice.appendChild(detailNode);
-      }
-    }
-  },
-
-  getStatusNoticeText(notice) {
-    return [notice?.message, notice?.detail].filter(Boolean).join(" ");
-  },
-
-  refreshStatusNoticeLanguage() {
-    if (Array.isArray(this.statusNoticeQueue)) {
-      this.statusNoticeQueue = this.statusNoticeQueue.map((notice) => this.localizeStatusNotice(notice));
-    }
-
-    if (!this.statusNoticeCurrent) return;
-    this.statusNoticeCurrent = this.localizeStatusNotice(this.statusNoticeCurrent);
-    this.renderStatusNoticeContent(this.statusNoticeCurrent);
-  },
-
-  showStatusNoticeNow(notice) {
-    if (!this.statusNotice || !notice) return;
-    notice = this.localizeStatusNotice(notice);
-
-    if (this.statusNoticeHideTimer) {
-      clearTimeout(this.statusNoticeHideTimer);
-      this.statusNoticeHideTimer = null;
-    }
-
-    this.statusNoticeActive = true;
-    this.statusNoticeCurrent = notice;
-    this.statusNotice.hidden = false;
-    this.renderStatusNoticeContent(notice);
-    this.statusNotice.dataset.tone = notice.tone || "info";
-    if (notice.variant) {
-      this.statusNotice.dataset.variant = notice.variant;
-    } else {
-      delete this.statusNotice.dataset.variant;
-    }
-    this.noticeContainer?.classList.toggle("viewer-notice-container--sandbox", notice.variant === "sandbox");
-    this.statusNotice.classList.remove("is-hiding");
-    this.statusNotice.classList.add("is-visible");
-
-    if (this.statusNoticeTimer) {
-      clearTimeout(this.statusNoticeTimer);
-      this.statusNoticeTimer = null;
-    }
-
-    if (notice.persistent) {
-      return;
-    }
-
-    this.statusNoticeTimer = setTimeout(() => {
-      if (this.statusNotice) {
-        this.statusNotice.classList.remove("is-visible");
-        this.statusNotice.classList.add("is-hiding");
-      }
-
-      this.statusNoticeHideTimer = setTimeout(() => {
-        if (this.statusNotice) {
-          this.statusNotice.hidden = true;
-          this.statusNotice.classList.remove("is-hiding");
-          delete this.statusNotice.dataset.variant;
-        }
-        this.noticeContainer?.classList.remove("viewer-notice-container--sandbox");
-        this.statusNoticeActive = false;
-        this.statusNoticeCurrent = null;
-        this.statusNoticeTimer = null;
-        this.statusNoticeHideTimer = null;
-        this.processStatusNoticeQueue();
-      }, 220);
-    }, notice.duration);
-  },
-
-  dismissStatusNotice(key = "") {
-    const normalizedKey = String(key || "");
-    this.statusNoticeQueue = this.statusNoticeQueue.filter(
-      (entry) => normalizedKey && (entry?.key || "") !== normalizedKey
-    );
-
-    if (
-      normalizedKey &&
-      (!this.statusNoticeCurrent || (this.statusNoticeCurrent.key || "") !== normalizedKey)
-    ) {
-      return;
-    }
-
-    if (this.statusNoticeTimer) {
-      clearTimeout(this.statusNoticeTimer);
-      this.statusNoticeTimer = null;
-    }
-    if (this.statusNoticeHideTimer) {
-      clearTimeout(this.statusNoticeHideTimer);
-      this.statusNoticeHideTimer = null;
-    }
-
-    if (this.statusNotice) {
-      this.statusNotice.hidden = true;
-      this.statusNotice.classList.remove("is-visible", "is-hiding");
-      delete this.statusNotice.dataset.variant;
-    }
-    this.noticeContainer?.classList.remove("viewer-notice-container--sandbox");
-
-    this.statusNoticeActive = false;
-    this.statusNoticeCurrent = null;
-    this.processStatusNoticeQueue();
-  },
-
-  enqueueStatusNotice({
-    message,
-    duration = 2600,
-    tone = "info",
-    key = "",
-    replace = false,
-    persistent = false,
-    variant = "",
-    i18nKey = "",
-    i18nVars = {},
-    detail = "",
-    detailI18nKey = "",
-    detailI18nVars = {},
-  } = {}) {
-    const text = String(message ?? "");
-    if (!text) return;
-
-    const nextNotice = {
-      message: text,
-      tone,
-      duration: Number.isFinite(duration) ? duration : 2600,
-      key: String(key || ""),
-      persistent,
-      variant: String(variant || ""),
-      i18nKey: String(i18nKey || ""),
-      i18nVars: i18nVars && typeof i18nVars === "object" ? { ...i18nVars } : {},
-      detail: String(detail || ""),
-      detailI18nKey: String(detailI18nKey || ""),
-      detailI18nVars: detailI18nVars && typeof detailI18nVars === "object" ? { ...detailI18nVars } : {},
-    };
-
-    if (
-      this.statusNoticeActive &&
-      this.getStatusNoticeText(this.statusNoticeCurrent) === this.getStatusNoticeText(nextNotice) &&
-      (this.statusNoticeCurrent?.tone || "info") === nextNotice.tone &&
-      (this.statusNoticeCurrent?.key || "") === nextNotice.key
-    ) {
-      return;
-    }
-
-    if (nextNotice.key) {
-      this.statusNoticeQueue = this.statusNoticeQueue.filter(
-        (entry) => (entry?.key || "") !== nextNotice.key
-      );
-    }
-
-    if (
-      replace &&
-      this.statusNoticeActive &&
-      (!nextNotice.key || (this.statusNoticeCurrent?.key || "") === nextNotice.key)
-    ) {
-      this.showStatusNoticeNow(nextNotice);
-      return;
-    }
-
-    const isDuplicateQueued = this.statusNoticeQueue.some(
-      (entry) =>
-        this.getStatusNoticeText(entry) === this.getStatusNoticeText(nextNotice) &&
-        entry?.tone === nextNotice.tone &&
-        (entry?.key || "") === nextNotice.key
-    );
-    if (isDuplicateQueued) return;
-
-    const priorityMap = {
-      error: 0,
-      warning: 1,
-      info: 2,
-      success: 3,
-    };
-    const nextPriority = priorityMap[nextNotice.tone] ?? 2;
-    const insertAt = this.statusNoticeQueue.findIndex((entry) => {
-      const entryPriority = priorityMap[entry?.tone] ?? 2;
-      return nextPriority < entryPriority;
-    });
-
-    if (insertAt === -1) {
-      this.statusNoticeQueue.push(nextNotice);
-    } else {
-      this.statusNoticeQueue.splice(insertAt, 0, nextNotice);
-    }
-
-    this.processStatusNoticeQueue();
-  },
-
-  processStatusNoticeQueue() {
-    if (this.statusNoticeActive) return;
-    if (!this.statusNotice) return;
-    if (!Array.isArray(this.statusNoticeQueue) || this.statusNoticeQueue.length === 0) return;
-
-    const nextNotice = this.statusNoticeQueue.shift();
-    if (!nextNotice) return;
-    this.showStatusNoticeNow(nextNotice);
   },
 
   maybeShowKeyboardHint() {
@@ -16620,6 +16742,7 @@ const Viewer$1 = {
       setCore('materialProperties', this.materialProperties);
       setCore('materialsPropertiesText', this.materialsPropertiesText);
       setCore('intensity', this.intensity);
+      setCore('environmentMapEnabled', this.environmentMapEnabled);
       this.clippingPlanes = this.core;
       setCore("clippingPlanes", this.clippingPlanes);
       setCore('helperObjects', this.helperObjects);
@@ -17486,61 +17609,7 @@ const Viewer$1 = {
   },
 
   takeScreenshot() {
-    /*const messDiv = document.createElement('div');
-    messDiv.classList.add('message');
-    document.body.appendChild(messDiv);*/
-    core.camera.aspect = 1;
-    core.camera.updateProjectionMatrix();
-    core.renderer.setSize(256, 256);
-    core.renderer.render(core.scene, core.camera);
-    if (core.fileObject.archiveType !== "") {
-      core.fileObject.basename + "_" + core.fileObject.archiveType.toUpperCase() + "/";
-    }
-
-    Viewer$1.mainCanvas.toBlob((imgBlob) => {
-      if (!imgBlob) {
-        console.error("Failed to capture screenshot");
-        return;
-      }
-
-      if (!(imgBlob instanceof Blob) || imgBlob.size === 0) {
-        console.error("Invalid blob data");
-        return;
-      }
-
-      if (!["image/png", "image/jpeg"].includes(imgBlob.type)) {
-        console.error("Invalid blob type:", imgBlob.type);
-        return;
-      }
-      const fileform = new FormData();
-      fileform.append("path", core.fileObject.path);
-      fileform.append("filename", core.fileObject.basename);
-      //fileform.append("path", uri + prependName);
-      fileform.append("data", imgBlob, "thumbnail.png");
-      console.log("Uploading thumbnail for entity ID:", core.CONFIG.entity.id);
-      fileform.append("wisski_individual", core.CONFIG.entity.id);
-      fetch(core.CONFIG.mainUrl + "/api/editor/upload-thumbnail", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: {
-          "X-CSRF-Token": window.CSRF_TOKEN
-        },
-        body: fileform
-      })
-      .then(async (res) => {
-        //console.log("HTTP STATUS:", res.status);
-        const text = await res.text();
-        //console.log("RAW RESPONSE:", text);
-        const data = text ? JSON.parse(text) : {};
-        if (!res.ok) throw new Error(data.error || "Upload failed");
-        return data;
-      });
-    }, "image/png");
-
-    core.renderer.setPixelRatio(devicePixelRatio);
-    core.camera.aspect = core.CONFIG.viewer.canvasDimensions.x / core.CONFIG.viewer.canvasDimensions.y;
-    core.camera.updateProjectionMatrix();
-    core.renderer.setSize(core.CONFIG.viewer.canvasDimensions.x, core.CONFIG.viewer.canvasDimensions.y);
+    return captureAndUploadThumbnail(this);
   },
 
   async mainLoadModelWrapper() {
@@ -18530,7 +18599,7 @@ const Viewer$1 = {
           Viewer$1.fileElement[0].style.height = core.CONFIG.viewer.canvasDimensions.y * 1.1 + "px";
         }
 
-        if (core.CONFIG.viewer.gallery?.build === true) {
+        if (core.CONFIG.viewer.gallery?.build === true && !core.SANDBOX_MODE) {
           Viewer$1.buildGallery();
         }
       }
@@ -18791,6 +18860,8 @@ const Viewer$1 = {
 };
 
 attachEmbedConfigurator(Viewer$1);
+attachLocalizationTheme(Viewer$1);
+attachLoadingStatus(Viewer$1);
 attachMaterialsEditor(Viewer$1);
 attachAnnotations(Viewer$1);
 attachPicking(Viewer$1);

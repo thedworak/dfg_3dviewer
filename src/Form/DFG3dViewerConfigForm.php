@@ -85,6 +85,7 @@ class DFG3dViewerConfigForm extends FormBase {
       'entity_id_uri' => $default_config->get('dfg_3dviewer_entity_id_uri'),
       'view_entity_path' => $default_config->get('dfg_3dviewer_view_entity_path'),
       'attribute_id' => $default_config->get('dfg_3dviewer_attribute_id'),
+	  'export_viewer' => $default_config->get('dfg_3dviewer_export_viewer'),
     ];
 
     $form['#dfg_3dviewer_settings'] = $settings;
@@ -193,7 +194,20 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#type' => 'textfield',
 		'#title' => $this->t('Field DF'),
 		'#required' => true,
-		'#description' => 'Name of the field given for <b>image_generation</b>',
+		'#description' => 'Name of the field given for <b>field_df</b>',
+		'#states' => [
+			'visible' => [
+				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
+			]
+		]
+    ];
+
+	$form['dfg_3dviewer_export_viewer'] = [
+		'#default_value' => $default_settings['export_viewer'],
+		'#type' => 'textfield',
+		'#title' => $this->t('Export Viewer Field'),
+		'#required' => true,
+		'#description' => 'Name of the field given for <b>export_viewer</b>',
 		'#states' => [
 			'visible' => [
 				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
@@ -366,6 +380,7 @@ class DFG3dViewerConfigForm extends FormBase {
     $settings->set('dfg_3dviewer_entity_id_uri', $new_vals['dfg_3dviewer_entity_id_uri']);
     $settings->set('dfg_3dviewer_view_entity_path', $new_vals['dfg_3dviewer_view_entity_path']);
     $settings->set('dfg_3dviewer_attribute_id', $new_vals['dfg_3dviewer_attribute_id']);
+	$settings->set('dfg_3dviewer_export_viewer', $new_vals['dfg_3dviewer_export_viewer']);
 
     $settings->save();
 
@@ -382,6 +397,7 @@ class DFG3dViewerConfigForm extends FormBase {
 			'idUri' => $new_vals['dfg_3dviewer_entity_id_uri'],
 			'viewEntityPath' => $new_vals['dfg_3dviewer_view_entity_path'],
 			'attributeId' => $new_vals['dfg_3dviewer_attribute_id'],
+			'exportViewer' => $new_vals['dfg_3dviewer_export_viewer'],
 		],
 		'viewer' => [
 			'container' => $new_vals['dfg_3dviewer_container'],
