@@ -228,12 +228,6 @@ class DFG3dViewerConfigForm extends FormBase {
 			]
 		]
     ];
-		'#states' => [
-			'visible' => [
-				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
-			]
-		]
-    ];
 
 	$form['scale_wrapper'] = [
 		'#type' => 'container',
