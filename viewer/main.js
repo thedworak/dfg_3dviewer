@@ -3943,19 +3943,25 @@ attachAnnotations(Viewer);
 attachPicking(Viewer);
 attachMeasurement(Viewer);
 
-export async function expectWebGL(page) {
-  const hasWebGL = await page.evaluate(() => {
-    const canvas = document.querySelector('canvas');
-    if (!canvas) return false;
-    const gl =
-      canvas.getContext('webgl') ||
-      canvas.getContext('webgl2');
-    return !!gl;
-  });
 
-  if (!hasWebGL) {
-    throw new Error('WebGL context not available');
-  }
+export async function expectWebGL(page, showToast) {
+  await expect
+    .poll(async () => {
+      return page.evaluate(() => {
+        const canvas = document.querySelector('canvas');
+
+        if (!canvas) return false;
+
+        return !!(
+          canvas.getContext('webgl2') ||
+          canvas.getContext('webgl')
+        );
+      });
+    }, {
+      timeout: 5000,
+      message: 'WebGL context not available',
+    })
+    .toBeTruthy();
 }
 
 window.Viewer = Viewer;

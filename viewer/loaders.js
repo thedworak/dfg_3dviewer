@@ -171,6 +171,16 @@ function setupSingleMaterial(materials, material) {
   material.side = core.PRESENTATION_MODE ? THREE.DoubleSide : THREE.FrontSide;
   material.clippingPlanes = core.PRESENTATION_MODE ? [] : core.clippingPlanes;
   //material.clipIntersection = false;
+  material.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      'reflectedLight.directSpecular += directSpecular;',
+      `
+        reflectedLight.directSpecular += directSpecular * 0.55;
+      `
+    );
+  };
+
+  material.needsUpdate = true;
   if (material.name === "") material.name = material.uuid;
   var newMaterial = { name: material.name, uuid: material.uuid };
   if (!materials.some((item) => item.uuid === newMaterial.uuid)) materials.push(newMaterial);
