@@ -1223,7 +1223,6 @@ canvas {
 }
 
 #image-list {
-  display: flex;
   padding: 5px;
 }
 
@@ -1510,13 +1509,6 @@ canvas {
   width: 100%;
   max-width: 100%;
   overflow: hidden;
-}
-
-#image-list .field__items {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  align-items: center;
 }
 
 #image-list .field__item {
