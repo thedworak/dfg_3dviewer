@@ -17396,7 +17396,6 @@ const Viewer$1 = {
       } else {
         const extraHeight = effectiveHeight - heightCSS;
         if (core.editorToolbar) {
-          console.log(`Adjusting editor toolbar position for extra height: ${extraHeight}px`);
           if (extraHeight > 0) {
             core.editorToolbar.style.bottom = `${ -60 - extraHeight  * 2}px`;
           } else {

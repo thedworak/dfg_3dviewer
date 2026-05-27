@@ -17439,7 +17439,11 @@ const Viewer$1 = {
       } else {
         const extraHeight = effectiveHeight - heightCSS;
         if (core.editorToolbar) {
-          core.editorToolbar.style.bottom = `${ -60 - extraHeight  * 2}px`;
+          if (extraHeight > 0) {
+            core.editorToolbar.style.bottom = `${ -60 - extraHeight  * 2}px`;
+          } else {
+            core.editorToolbar.style.bottom = "12px";
+          }
         }
       }
 
