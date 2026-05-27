@@ -40,6 +40,8 @@ export const VIEWER_I18N = {
       selectedFaces: "Selected faces",
     },
     gui: {
+      moveToolbar: "Move toolbar",
+      orbit: "Navigation mode",
       controls: "Controls",
       editor: "Editor",
       transform3dObject: "Transform 3D Object",
@@ -109,6 +111,7 @@ export const VIEWER_I18N = {
       environmentMap: "Environment map",
       enableWireframeMode: "Enable wireframe mode",
       disableWireframeMode: "Disable wireframe mode",
+      download: "Download model",
     },
     metadata: {
       modelDetails: "Model details",
@@ -260,6 +263,9 @@ export const VIEWER_I18N = {
       clippingHelperToggle: "Clipping plane {axis} helper {state}.",
 
       clippingPlanes: "Drag active clipping plane helper to adjust cut",
+
+      downloadSuccess: "Model downloaded successfully.",
+      downloadError: "Failed to download model.",
     },
     shortcuts: {
       mouse: "Mouse: drag orbit, wheel zoom, right-drag pan",
@@ -309,6 +315,8 @@ export const VIEWER_I18N = {
       selectedFaces: "Wybrane sciany",
     },
     gui: {
+      moveToolbar: "Przesuń pasek narzędzi",
+      orbit: "Tryb nawigacji",
       controls: "Sterowanie",
       editor: "Edytor",
       transform3dObject: "Transformacja obiektu 3D",
@@ -378,6 +386,7 @@ export const VIEWER_I18N = {
       environmentMap: "Mapa otoczenia",
       enableWireframeMode: "Włącz tryb siatki",
       disableWireframeMode: "Wyłącz tryb siatki",
+      download: "Pobierz model",
     },
     metadata: {
       modelDetails: "Szczegóły modelu",
@@ -529,6 +538,9 @@ export const VIEWER_I18N = {
       clippingHelperToggle: "Pomocnik płaszczyzny przycinania {axis} jest {state}.",
 
       clippingPlanes: "Przeciągnij aktywną płaszczyznę przycinania, aby dostosować cięcie",
+
+      downloadSuccess: "Model został pomyślnie pobrany.",
+      downloadError: "Nie udało się pobrać modelu.",
     },
     shortcuts: {
       mouse: "Mysz: przeciągnij, aby obracać, rolka - zoom, prawy przycisk - przesuwanie",
@@ -577,6 +589,8 @@ export const VIEWER_I18N = {
       selectedFaces: "Ausgewählte Flächen",
     },
     gui: {
+      moveToolbar: "Werkzeugleiste verschieben",
+      orbit: "Navigationsmodus",
       controls: "Steuerung",
       editor: "Editor",
       transform3dObject: "3D-Objekt transformieren",
@@ -646,6 +660,7 @@ export const VIEWER_I18N = {
       environmentMap: "Umgebungsmap",
       enableWireframeMode: "Drahtgittermodus aktivieren",
       disableWireframeMode: "Drahtgittermodus deaktivieren",
+      download: "Modell herunterladen",
     },
     metadata: {
       modelDetails: "Modelldetails",
@@ -797,6 +812,9 @@ export const VIEWER_I18N = {
       clippingHelperToggle: "Clipping-Ebenen-Helfer {axis} ist {state}.",
 
       clippingPlanes: "Ziehen Sie die aktive Schnittebene-Hilfe, um den Schnitt anzupassen",
+
+      downloadSuccess: "Modell erfolgreich heruntergeladen.",
+      downloadError: "Fehler beim Herunterladen des Modells.",
     },
     shortcuts: {
       mouse: "Maus: ziehen zum Drehen, Mausrad - Zoom, Rechtsklick - Verschieben",

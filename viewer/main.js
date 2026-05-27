@@ -2223,109 +2223,158 @@ export const Viewer = {
   },
 
   /* picking and measurement moved to viewer/editor modules */
+    updateSize() {
+      const isFullscreen = !!document.fullscreenElement;
+      Viewer.FULLSCREEN = isFullscreen;
 
-  updateSize() {
-    const isFullscreen = !!document.fullscreenElement;
-    Viewer.FULLSCREEN = isFullscreen;
+      if (
+        !Viewer.mainCanvas ||
+        !Viewer.fullscreenMode ||
+        !core.guiContainer
+      ) {
+        return;
+      }
 
-    if (!Viewer.mainCanvas || !Viewer.fullscreenMode || !core.guiContainer) {
-      return;
-    }
+      let widthCSS;
+      let heightCSS;
 
-    let widthCSS, heightCSS;  // CSS pixels (layout)
-    let widthDev, heightDev;  // Device pixels (Three.js)
-    let scale = {x: 1, y: 1};
-    let rect = {width: 1, height: 1};
+      let scale = {x: 1, y: 1};
+      const wrapper = Viewer.viewerWrapper || core.container;
 
-    if (isFullscreen) {
+      if (!wrapper) return;
+
+      if (isFullscreen) {
         widthCSS = window.innerWidth;
         heightCSS = window.innerHeight;
-        widthDev = widthCSS * devicePixelRatio;
-        heightDev = heightCSS * devicePixelRatio;
+      } else {
+        scale = {
+          x: Number(
+            core.CONFIG.viewer.scaleContainer?.x || 1
+          ),
+          y: Number(
+            core.CONFIG.viewer.scaleContainer?.y || 1
+          ),
+        };
 
-        Viewer.mainCanvas.style.width = '100vw';
-        Viewer.mainCanvas.style.height = '100vh';
+        const rect = wrapper.getBoundingClientRect();
 
-        core.editorToolbar.style.bottom = -heightCSS*0.95 + 'px';
-    } else {
-        scale = {x: Number(core.CONFIG.viewer.scaleContainer?.x || 1), y: Number(core.CONFIG.viewer.scaleContainer?.y || 1)};
-        const wrapper = Viewer.viewerWrapper || core.container;
-        if (!wrapper) {
-          return;
-        }
-        rect = wrapper.getBoundingClientRect();
         widthCSS = rect.width || 800;
         heightCSS = rect.height || 600;
-
-        const widthCSSScaled = widthCSS * scale.x;
-        const heightCSSScaled = heightCSS * scale.y;
-
-        widthDev = widthCSSScaled * devicePixelRatio;
-        heightDev = heightCSSScaled * devicePixelRatio;
-
-        Viewer.mainCanvas.style.width = widthCSSScaled + 'px';
-        Viewer.mainCanvas.style.height = heightCSSScaled + 'px';
-
-        core.metadataContainer.style.width = '100%';
-        core.metadataContainer.style.height = '100%';
-
-        core.editorToolbar.style.bottom = -heightCSSScaled + 'px';
-
-        if (Viewer.fileElement && Viewer.fileElement.length > 0) {
-          Viewer.fileElement[0].style.height = (heightCSSScaled * 1.1) + 'px';
-        }
-    }
-
-    if (!core.guiContainer.hidden) {
-      const guiWidth =
-        core.lilGui?.[0]?.getBoundingClientRect().width ||
-        core.guiContainer.getBoundingClientRect().width;
-      if (guiWidth > 0) {
-        core.guiContainer.style.left = (widthCSS - guiWidth) + 'px';
       }
-    }
 
-    if (core.camera.isOrthographicCamera) {
-      this.updateOrthoFrustum(
-        core.camera,
-        widthCSS,
-        heightCSS
-      );
-    } else {
-      core.camera.aspect = widthCSS / heightCSS;
-      core.camera.updateProjectionMatrix();
-    }
+      // final visual size
+      const effectiveWidth = widthCSS * scale.x;
 
-    const effectiveWidth = widthCSS * scale.x;
-    const effectiveHeight = heightCSS * scale.y;
+      const effectiveHeight = heightCSS * scale.y;
 
-    Viewer.mainCanvas.width = effectiveWidth * devicePixelRatio;
-    Viewer.mainCanvas.height = effectiveHeight * devicePixelRatio;
+      // CSS size only
+      Viewer.mainCanvas.style.width = `${effectiveWidth}px`;
 
-    if (Viewer.actionMenu) {
-      if (Viewer.actionMenu.classList.contains("viewer-action-menu_in-toolbar")) {
-        Viewer.actionMenu.style.top = "";
-        Viewer.actionMenu.style.right = "";
-        Viewer.actionMenu.style.bottom = "";
+      Viewer.mainCanvas.style.height = `${effectiveHeight}px`;
+
+      if (isFullscreen) {
+        Viewer.mainCanvas.style.width = "100vw";
+        Viewer.mainCanvas.style.height = "100vh";
+        core.editorToolbar.style.bottom = "24px";
       } else {
-        const menuMargin = 16;
-        const toggleSize = Viewer.actionMenu.querySelector(".viewer-action-menu_toggle")?.getBoundingClientRect().height || 45;
-        Viewer.actionMenu.style.top = (effectiveHeight - toggleSize - menuMargin) + "px";
-        Viewer.actionMenu.style.right = menuMargin + "px";
-        Viewer.actionMenu.style.bottom = "auto";
+        const extraHeight = effectiveHeight - heightCSS;
+        if (core.editorToolbar) {
+          core.editorToolbar.style.bottom = `${-60 - extraHeight  * 2}px`;
+        }
       }
-    }
 
-    if (core.handHint)
-    core.handHint.style.top = (effectiveHeight - 150) + 'px';
-   
-    core.renderer.setPixelRatio(devicePixelRatio);
-    core.renderer.setSize(effectiveWidth, effectiveHeight, false);
-    core.camera.aspect = effectiveWidth / effectiveHeight;
-    core.camera.updateProjectionMatrix();
-    core.controls?.update();
-    core.CONFIG.viewer.canvasDimensions = { x: effectiveWidth, y: effectiveHeight };
-  },
+      // metadata overlay
+      if (core.metadataContainer) {
+        core.metadataContainer.style.width = "100%";
+        core.metadataContainer.style.height = "100%";
+      }
+
+      // optional wrapper sync
+      if (
+        Viewer.fileElement &&
+        Viewer.fileElement.length > 0
+      ) {
+        Viewer.fileElement[0].style.height =
+          `${effectiveHeight * 1.1}px`;
+      }
+
+      // GUI position
+      if (!core.guiContainer.hidden) {
+        const guiWidth = core.lilGui?.[0]?.getBoundingClientRect().width || core.guiContainer.getBoundingClientRect().width;
+
+        if (guiWidth > 0) {
+          core.guiContainer.style.left = `${effectiveWidth - guiWidth}px`;
+        }
+      }
+
+      // camera
+      if (core.camera.isOrthographicCamera) {
+        this.updateOrthoFrustum(
+          core.camera,
+          effectiveWidth,
+          effectiveHeight
+        );
+      } else {
+        core.camera.aspect =
+          effectiveWidth / effectiveHeight;
+
+        core.camera.updateProjectionMatrix();
+      }
+
+      // renderer
+      core.renderer.setPixelRatio(
+        window.devicePixelRatio || 1
+      );
+
+      core.renderer.setSize(
+        effectiveWidth,
+        effectiveHeight,
+        false
+      );
+
+      // action menu
+      if (Viewer.actionMenu) {
+        if (
+          Viewer.actionMenu.classList.contains(
+            "viewer-action-menu_in-toolbar"
+          )
+        ) {
+          Viewer.actionMenu.style.top = "";
+          Viewer.actionMenu.style.right = "";
+          Viewer.actionMenu.style.bottom = "";
+        } else {
+          const menuMargin = 16;
+
+          const toggleSize =
+            Viewer.actionMenu
+              .querySelector(
+                ".viewer-action-menu_toggle"
+              )
+              ?.getBoundingClientRect().height || 45;
+
+          Viewer.actionMenu.style.top =
+            `${effectiveHeight - toggleSize - menuMargin}px`;
+
+          Viewer.actionMenu.style.right =
+            `${menuMargin}px`;
+
+          Viewer.actionMenu.style.bottom = "auto";
+        }
+      }
+
+      // hand hint
+      if (core.handHint) {
+        core.handHint.style.top =
+          `${effectiveHeight - 150}px`;
+      }
+
+      core.controls?.update();
+
+      core.CONFIG.viewer.canvasDimensions = {
+        x: effectiveWidth,
+        y: effectiveHeight,
+      };
+    },
 
 
   async toggleFullscreen() {

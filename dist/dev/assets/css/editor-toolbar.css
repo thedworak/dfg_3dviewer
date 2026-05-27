@@ -12,9 +12,18 @@
   --viewer-toolbar-visible-offset: 14px;
   --viewer-toolbar-max-width: 920px;
   --viewer-toolbar-scale: clamp(0.74, calc((100vw - 112px) / var(--viewer-toolbar-max-width)), 1);
-  position: relative;
+
+  position: absolute;
   left: 50%;
   bottom: 14px;
+  transform:
+    translateX(-50%)
+    translate3d(
+      var(--drag-x, 0px),
+      var(--drag-y, 0px),
+      0
+    )
+    scale(var(--viewer-toolbar-scale));
   z-index: 9999;
   display: flex;
   align-items: center;
@@ -28,7 +37,7 @@
   box-shadow: var(--viewer-panel-shadow);
   backdrop-filter: blur(14px);
   scrollbar-width: none;
-  transform: translateX(-50%) translateY(-115%) scale(var(--viewer-toolbar-scale));
+  touch-action: none;
   transform-origin: center bottom;
   transition:
     opacity 1.25s ease,
@@ -37,6 +46,37 @@
     padding 1.28s ease,
     box-shadow 1.28s ease,
     background 1.28s ease;
+}
+
+.viewer-editor-toolbar_handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  margin-inline-end: var(--viewer-toolbar-gap);
+  border-radius: 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--viewer-panel-text);
+  cursor: grab;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.viewer-editor-toolbar_handle:hover,
+.viewer-editor-toolbar_handle:focus-visible {
+  background: var(--viewer-panel-bg-hover);
+  border-color: var(--viewer-panel-border);
+  outline: none;
+}
+
+.viewer-editor-toolbar_handle:active {
+  cursor: grabbing;
+}
+
+#viewerEditorToolbar.viewer-editor-toolbar_dragging {
+  cursor: grabbing;
 }
 
 #viewerEditorToolbar > * {
@@ -305,6 +345,16 @@
 
 .viewer-editor-tool_submenu-button.viewer-editor-tool_submenu-control {
   align-items: center;
+}
+
+.viewer-editor-tool_submenu.viewer-editor-tool_submenu-materials {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.viewer-editor-tool_submenu.viewer-editor-tool_submenu-materials .viewer-editor-tool_submenu-button.viewer-editor-tool_submenu-control {
+  width: 100%;
+  min-width: 0;
 }
 
 .viewer-editor-tool_submenu-materials {

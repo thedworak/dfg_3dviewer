@@ -249,6 +249,8 @@ const VIEWER_I18N = {
       selectedFaces: "Selected faces",
     },
     gui: {
+      moveToolbar: "Move toolbar",
+      orbit: "Navigation mode",
       controls: "Controls",
       editor: "Editor",
       transform3dObject: "Transform 3D Object",
@@ -318,6 +320,7 @@ const VIEWER_I18N = {
       environmentMap: "Environment map",
       enableWireframeMode: "Enable wireframe mode",
       disableWireframeMode: "Disable wireframe mode",
+      download: "Download model",
     },
     metadata: {
       modelDetails: "Model details",
@@ -469,6 +472,9 @@ const VIEWER_I18N = {
       clippingHelperToggle: "Clipping plane {axis} helper {state}.",
 
       clippingPlanes: "Drag active clipping plane helper to adjust cut",
+
+      downloadSuccess: "Model downloaded successfully.",
+      downloadError: "Failed to download model.",
     },
     shortcuts: {
       mouse: "Mouse: drag orbit, wheel zoom, right-drag pan",
@@ -518,6 +524,8 @@ const VIEWER_I18N = {
       selectedFaces: "Wybrane sciany",
     },
     gui: {
+      moveToolbar: "Przesuń pasek narzędzi",
+      orbit: "Tryb nawigacji",
       controls: "Sterowanie",
       editor: "Edytor",
       transform3dObject: "Transformacja obiektu 3D",
@@ -587,6 +595,7 @@ const VIEWER_I18N = {
       environmentMap: "Mapa otoczenia",
       enableWireframeMode: "Włącz tryb siatki",
       disableWireframeMode: "Wyłącz tryb siatki",
+      download: "Pobierz model",
     },
     metadata: {
       modelDetails: "Szczegóły modelu",
@@ -738,6 +747,9 @@ const VIEWER_I18N = {
       clippingHelperToggle: "Pomocnik płaszczyzny przycinania {axis} jest {state}.",
 
       clippingPlanes: "Przeciągnij aktywną płaszczyznę przycinania, aby dostosować cięcie",
+
+      downloadSuccess: "Model został pomyślnie pobrany.",
+      downloadError: "Nie udało się pobrać modelu.",
     },
     shortcuts: {
       mouse: "Mysz: przeciągnij, aby obracać, rolka - zoom, prawy przycisk - przesuwanie",
@@ -786,6 +798,8 @@ const VIEWER_I18N = {
       selectedFaces: "Ausgewählte Flächen",
     },
     gui: {
+      moveToolbar: "Werkzeugleiste verschieben",
+      orbit: "Navigationsmodus",
       controls: "Steuerung",
       editor: "Editor",
       transform3dObject: "3D-Objekt transformieren",
@@ -855,6 +869,7 @@ const VIEWER_I18N = {
       environmentMap: "Umgebungsmap",
       enableWireframeMode: "Drahtgittermodus aktivieren",
       disableWireframeMode: "Drahtgittermodus deaktivieren",
+      download: "Modell herunterladen",
     },
     metadata: {
       modelDetails: "Modelldetails",
@@ -1006,6 +1021,9 @@ const VIEWER_I18N = {
       clippingHelperToggle: "Clipping-Ebenen-Helfer {axis} ist {state}.",
 
       clippingPlanes: "Ziehen Sie die aktive Schnittebene-Hilfe, um den Schnitt anzupassen",
+
+      downloadSuccess: "Modell erfolgreich heruntergeladen.",
+      downloadError: "Fehler beim Herunterladen des Modells.",
     },
     shortcuts: {
       mouse: "Maus: ziehen zum Drehen, Mausrad - Zoom, Rechtsklick - Verschieben",
@@ -13468,6 +13486,7 @@ async function getAnnotations(iiifManifest, objectsConfig) {
 
 function getEditorToolbarIcon(icon) {
   const icons = {
+    moveToolbar: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     orbit: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16.5 2.75 21 3.5l-.75 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.25" fill="currentColor"/></svg>',
     move: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     rotate: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.5A7.5 7.5 0 1 1 5 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 3.5v3H5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -13510,6 +13529,7 @@ function getEditorToolbarIcon(icon) {
     projection: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8l5-3h7v14h-7l-5-3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M11 5v14" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6 8v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     wireframe: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 7v10l-7 4-7-4V7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 3v18M5 7l7 4 7-4M5 17l7-4 7 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
     screenshot: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5H5a2 2 0 0 0-2 2v2M17 5h2a2 2 0 0 1 2 2v2M17 19h2a2 2 0 0 0 2-2v-2M7 19H5a2 2 0 0 1-2-2v-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+    download: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M5 12l7 7 7-7M4 19h16a1 1 0 0 1 1 1v2H3v-2a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   };
 
   return icons[icon] || icons.advancedEditor;
@@ -13522,6 +13542,148 @@ function syncEditorToolbarSecondaryTrayWidth(viewer) {
 
 function getEditorToolbarHost(viewer) {
   return core.container || viewer.viewerWrapper || null;
+}
+
+function initializeEditorToolbarDrag(handle, viewer, toolbar, host) {
+  let dragState = null;
+
+  // persistent toolbar position
+  let currentX = 0;
+  let currentY = 0;
+
+  const getScale = () => {
+    const style = getComputedStyle(toolbar);
+    const scale = parseFloat(
+      style.getPropertyValue("--viewer-toolbar-scale")
+    );
+
+    return Number.isFinite(scale) ? scale : 1;
+  };
+
+  const clampPosition = (x, y) => {
+    const hostRect = host.getBoundingClientRect();
+
+    return {
+      x: Math.min(
+        Math.max(x, -hostRect.width),
+        hostRect.width
+      ),
+
+      y: Math.min(
+        Math.max(y, -hostRect.height),
+        hostRect.height
+      ),
+    };
+  };
+
+  const applyPosition = () => {
+    toolbar.style.setProperty("--drag-x", `${currentX}px`);
+    toolbar.style.setProperty("--drag-y", `${currentY}px`);
+  };
+
+  const updateToolbarPosition = (event) => {
+    if (!dragState) return;
+
+    const scale = getScale();
+
+    const dx = (event.clientX - dragState.startX) / scale;
+    const dy = (event.clientY - dragState.startY) / scale;
+
+    const pos = clampPosition(
+      dragState.originX + dx,
+      dragState.originY + dy
+    );
+
+    currentX = pos.x;
+    currentY = pos.y;
+
+    applyPosition();
+  };
+
+  const stopToolbarDrag = () => {
+    if (!dragState) return;
+
+    dragState = null;
+
+    toolbar.classList.remove("viewer-editor-toolbar_dragging");
+
+    document.removeEventListener(
+      "pointermove",
+      updateToolbarPosition
+    );
+
+    document.removeEventListener(
+      "pointerup",
+      stopToolbarDrag
+    );
+
+    document.removeEventListener(
+      "pointercancel",
+      stopToolbarDrag
+    );
+
+    requestAnimationFrame(() => {
+      toolbar.style.removeProperty("transition");
+    });
+  };
+
+  const startToolbarDrag = (event) => {
+    if (event.button !== 0) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    dragState = {
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: currentX,
+      originY: currentY,
+    };
+
+    toolbar.classList.add("viewer-editor-toolbar_dragging");
+
+    toolbar.style.transition = "none";
+
+    document.addEventListener(
+      "pointermove",
+      updateToolbarPosition,
+      {passive: true}
+    );
+
+    document.addEventListener(
+      "pointerup",
+      stopToolbarDrag
+    );
+
+    document.addEventListener(
+      "pointercancel",
+      stopToolbarDrag
+    );
+  };
+
+  viewer.bindEventListener(
+    handle,
+    "pointerdown",
+    startToolbarDrag
+  );
+
+  viewer.bindEventListener(handle, "click", (event) => {
+    event.stopPropagation();
+  });
+
+  // keep position valid after resize
+  const resizeObserver = new ResizeObserver(() => {
+    const pos = clampPosition(currentX, currentY);
+
+    currentX = pos.x;
+    currentY = pos.y;
+
+    applyPosition();
+  });
+
+  resizeObserver.observe(host);
+
+  applyPosition();
 }
 
 function attachEditorToolbar(viewer) {
@@ -13550,6 +13712,21 @@ function toggleToolbarExpanded(viewer) {
   viewer.updateEditorToolbarLabels();
 }
 
+async function downloadFile(fileName = "model.glb") {
+  if (!core.downloadModel) return;
+
+  const handle = await window.showSaveFilePicker({
+    suggestedName: fileName,
+  });
+
+  const writable = await handle.createWritable();
+
+  await writable.write(core.downloadModel);
+  await writable.close();
+
+  toastHelper("download", "success");
+}
+
 function createEditorToolbar(viewer) {
   if (!core.EDITOR || viewer.urlOptions.hideUi || core.editorToolbar || !core.container) return;
 
@@ -13559,6 +13736,7 @@ function createEditorToolbar(viewer) {
   toolbar.setAttribute("aria-label", t$1("toolbar.editor", "Editor tools"));
 
   const tools = [
+    { key: "moveToolbar", icon: "moveToolbar", onClick: () => {}, pressed:true, primary: true },
     { key: "orbit", icon: "orbit", onClick: () => viewer.setObjectTransformMode(""), primary: true },
     { key: "move", icon: "move", onClick: () => viewer.toggleObjectTransformMode("translate"), pressed: true, primary: true },
     { key: "rotate", icon: "rotate", onClick: () => viewer.toggleObjectTransformMode("rotate"), pressed: true, primary: true },
@@ -13573,13 +13751,15 @@ function createEditorToolbar(viewer) {
     { key: "resetCamera", icon: "resetCamera", onClick: () => viewer.resetCamera(), primary: false },
     { key: "hierarchy", icon: "hierarchy", onClick: () => {}, pressed: true, primary: false },
     { key: "projection", icon: "projection", onClick: () => viewer.toggleCameraProjection(), pressed: true, primary: false },
-    { key: "wireframe", icon: "wireframe", onClick: () => viewer.toggleWireframeMode(), pressed: true, primary: false },
-    { key: "loadingLogs", icon: "loadingLogs", onClick: () => viewer.toggleLoadingLogs(), pressed: true, primary: false },
+    { key: "wireframe", icon: "wireframe", onClick: () => viewer.toggleWireframeMode(), pressed: true, primary: false },    
     { key: "statistics", icon: "statistics", onClick: () => {}, pressed: false, primary: false },
+    
   ];
 
-  if (!core.isLightweight) {
+  if (!core.isLightweight || core.isLocalPreview) {
     tools.splice(tools.length - 1, 0,
+      { key: "loadingLogs", icon: "loadingLogs", onClick: () => viewer.toggleLoadingLogs(), pressed: true, primary: false },
+      { key: "download", icon: "download", onClick: () => downloadFile(core.fileObject.filename), pressed: true, primary: false },
       { key: "preview", icon: "preview", onClick: () => viewer.takeScreenshot(), primary: false },
       { key: "save", icon: "save", onClick: () => {}, primary: false }
     );
@@ -13609,7 +13789,10 @@ function createEditorToolbar(viewer) {
       <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon(tool.icon)}</span>
       <span class="viewer-editor-tool_sr"></span>
     `;
-    if (tool.key === "clippingPlanes") {
+    if (tool.key === "moveToolbar") {
+      initializeEditorToolbarDrag(button, viewer, toolbar, getEditorToolbarHost(viewer));
+    }
+    else if (tool.key === "clippingPlanes") {
       button.classList.add("has-submenu");
       const submenu = document.createElement("div");
       submenu.className = "viewer-editor-tool_submenu";
@@ -13669,7 +13852,7 @@ function createEditorToolbar(viewer) {
     } else if (tool.key === "materials") {
       button.classList.add("has-submenu");
       const submenu = document.createElement("div");
-      submenu.className = "viewer-editor-tool_submenu";
+      submenu.className = "viewer-editor-tool_submenu viewer-editor-tool_submenu-materials";
       viewer.materialsSubmenu = submenu;
       viewer.refreshMaterialsToolbarMenu();
       button.appendChild(submenu);
@@ -14050,7 +14233,7 @@ function createEditorToolbar(viewer) {
     } else if (tool.key === "materials") {
       button.classList.add("has-submenu");
       const submenu = document.createElement("div");
-      submenu.className = "viewer-editor-tool_submenu";
+      submenu.className = "viewer-editor-tool_submenu viewer-editor-tool_submenu-materials";
       const submenuItems = [
         { key: "materialColor", icon: "color", label: t$1("gui.color", "Color"), onClick: () => viewer.openMaterialsFolder() },
         { key: "materialIntensity", icon: "intensity", label: t$1("gui.intensity", "Intensity"), onClick: () => viewer.openMaterialsFolder() },
@@ -14072,6 +14255,13 @@ function createEditorToolbar(viewer) {
         submenu.appendChild(subButton);
       });
       button.appendChild(submenu);
+    } else if (tool.key === "download") {
+      if (!core.isLightweight || core.isLocalPreview) {
+        button.href = core.downloadModel;
+        button.target = "_blank";
+        button.rel = "noopener noreferrer";
+        button.download = core.fileObject.filename;
+      }  
     }
     viewer.bindEventListener(button, "click", () => {
       viewer.stopHandMode();
@@ -14197,7 +14387,8 @@ function updateEditorToolbarLabels(viewer) {
   if (!viewer.editorToolbarButtons) return;
 
   const labels = {
-    orbit: t$1("toolbar.orbit", "Navigation mode"),
+    moveToolbar: t$1("gui.moveToolbar", "Move toolbar"),
+    orbit: t$1("gui.orbit", "Navigation mode"),
     move: t$1("gui.move", "Move"),
     rotate: t$1("gui.rotate", "Rotate"),
     scale: t$1("gui.scale", "Scale"),
@@ -14231,10 +14422,12 @@ function updateEditorToolbarLabels(viewer) {
       ? t$1("gui.hideLoadingLogs", "Hide loading logs")
       : t$1("gui.showLoadingLogs", "Show loading logs"),
     hierarchy: t$1("gui.hierarchy", "Hierarchy"),
+    materials: t$1("gui.materials", "Materials"),
     statistics: t$1("gui.statistics", "Statistics"),
     expand: viewer.isToolbarExpanded
       ? t$1("gui.collapse", "Collapse toolbar")
       : t$1("gui.expand", "Expand toolbar"),
+    download: t$1("gui.download", "Download model"),
   };
 
   Object.entries(viewer.editorToolbarButtons).forEach(([key, button]) => {
@@ -14339,6 +14532,7 @@ function updateEditorToolbarState(viewer) {
   if (!viewer.editorToolbarButtons) return;
 
   const activeMap = {
+    moveToolbar: viewer.transformText["Transform 3D Object"] === "translate" || viewer.transformText["Transform 3D Object"] === "rotate" || viewer.transformText["Transform 3D Object"] === "scale",
     orbit: viewer.transformText["Transform 3D Object"] === "",
     move: viewer.transformText["Transform 3D Object"] === "translate",
     rotate: viewer.transformText["Transform 3D Object"] === "rotate",
@@ -14350,6 +14544,7 @@ function updateEditorToolbarState(viewer) {
     fullScreen: viewer.FULLSCREEN === true,
     loadingLogs: viewer.showLoadingLogs === true,
     wireframe: viewer.wireframeMode === true,
+    download: false,
   };
 
   Object.entries(viewer.editorToolbarButtons).forEach(([key, button]) => {
@@ -17145,103 +17340,158 @@ const Viewer$1 = {
   },
 
   /* picking and measurement moved to viewer/editor modules */
+    updateSize() {
+      const isFullscreen = !!document.fullscreenElement;
+      Viewer$1.FULLSCREEN = isFullscreen;
 
-  updateSize() {
-    const isFullscreen = !!document.fullscreenElement;
-    Viewer$1.FULLSCREEN = isFullscreen;
+      if (
+        !Viewer$1.mainCanvas ||
+        !Viewer$1.fullscreenMode ||
+        !core.guiContainer
+      ) {
+        return;
+      }
 
-    if (!Viewer$1.mainCanvas || !Viewer$1.fullscreenMode || !core.guiContainer) {
-      return;
-    }
+      let widthCSS;
+      let heightCSS;
 
-    let widthCSS, heightCSS;  // CSS pixels (layout)
-    let scale = {x: 1, y: 1};
-    let rect = {width: 1, height: 1};
+      let scale = {x: 1, y: 1};
+      const wrapper = Viewer$1.viewerWrapper || core.container;
 
-    if (isFullscreen) {
+      if (!wrapper) return;
+
+      if (isFullscreen) {
         widthCSS = window.innerWidth;
         heightCSS = window.innerHeight;
+      } else {
+        scale = {
+          x: Number(
+            core.CONFIG.viewer.scaleContainer?.x || 1
+          ),
+          y: Number(
+            core.CONFIG.viewer.scaleContainer?.y || 1
+          ),
+        };
 
-        Viewer$1.mainCanvas.style.width = '100vw';
-        Viewer$1.mainCanvas.style.height = '100vh';
+        const rect = wrapper.getBoundingClientRect();
 
-        core.editorToolbar.style.bottom = -heightCSS*0.95 + 'px';
-    } else {
-        scale = {x: Number(core.CONFIG.viewer.scaleContainer?.x || 1), y: Number(core.CONFIG.viewer.scaleContainer?.y || 1)};
-        const wrapper = Viewer$1.viewerWrapper || core.container;
-        if (!wrapper) {
-          return;
-        }
-        rect = wrapper.getBoundingClientRect();
         widthCSS = rect.width || 800;
         heightCSS = rect.height || 600;
-
-        const widthCSSScaled = widthCSS * scale.x;
-        const heightCSSScaled = heightCSS * scale.y;
-
-        Viewer$1.mainCanvas.style.width = widthCSSScaled + 'px';
-        Viewer$1.mainCanvas.style.height = heightCSSScaled + 'px';
-
-        core.metadataContainer.style.width = '100%';
-        core.metadataContainer.style.height = '100%';
-
-        core.editorToolbar.style.bottom = -heightCSSScaled + 'px';
-
-        if (Viewer$1.fileElement && Viewer$1.fileElement.length > 0) {
-          Viewer$1.fileElement[0].style.height = (heightCSSScaled * 1.1) + 'px';
-        }
-    }
-
-    if (!core.guiContainer.hidden) {
-      const guiWidth =
-        core.lilGui?.[0]?.getBoundingClientRect().width ||
-        core.guiContainer.getBoundingClientRect().width;
-      if (guiWidth > 0) {
-        core.guiContainer.style.left = (widthCSS - guiWidth) + 'px';
       }
-    }
 
-    if (core.camera.isOrthographicCamera) {
-      this.updateOrthoFrustum(
-        core.camera,
-        widthCSS,
-        heightCSS
-      );
-    } else {
-      core.camera.aspect = widthCSS / heightCSS;
-      core.camera.updateProjectionMatrix();
-    }
+      // final visual size
+      const effectiveWidth = widthCSS * scale.x;
 
-    const effectiveWidth = widthCSS * scale.x;
-    const effectiveHeight = heightCSS * scale.y;
+      const effectiveHeight = heightCSS * scale.y;
 
-    Viewer$1.mainCanvas.width = effectiveWidth * devicePixelRatio;
-    Viewer$1.mainCanvas.height = effectiveHeight * devicePixelRatio;
+      // CSS size only
+      Viewer$1.mainCanvas.style.width = `${effectiveWidth}px`;
 
-    if (Viewer$1.actionMenu) {
-      if (Viewer$1.actionMenu.classList.contains("viewer-action-menu_in-toolbar")) {
-        Viewer$1.actionMenu.style.top = "";
-        Viewer$1.actionMenu.style.right = "";
-        Viewer$1.actionMenu.style.bottom = "";
+      Viewer$1.mainCanvas.style.height = `${effectiveHeight}px`;
+
+      if (isFullscreen) {
+        Viewer$1.mainCanvas.style.width = "100vw";
+        Viewer$1.mainCanvas.style.height = "100vh";
+        core.editorToolbar.style.bottom = "24px";
       } else {
-        const menuMargin = 16;
-        const toggleSize = Viewer$1.actionMenu.querySelector(".viewer-action-menu_toggle")?.getBoundingClientRect().height || 45;
-        Viewer$1.actionMenu.style.top = (effectiveHeight - toggleSize - menuMargin) + "px";
-        Viewer$1.actionMenu.style.right = menuMargin + "px";
-        Viewer$1.actionMenu.style.bottom = "auto";
+        const extraHeight = effectiveHeight - heightCSS;
+        if (core.editorToolbar) {
+          core.editorToolbar.style.bottom = `${ -60 - extraHeight  * 2}px`;
+        }
       }
-    }
 
-    if (core.handHint)
-    core.handHint.style.top = (effectiveHeight - 150) + 'px';
-   
-    core.renderer.setPixelRatio(devicePixelRatio);
-    core.renderer.setSize(effectiveWidth, effectiveHeight, false);
-    core.camera.aspect = effectiveWidth / effectiveHeight;
-    core.camera.updateProjectionMatrix();
-    core.controls?.update();
-    core.CONFIG.viewer.canvasDimensions = { x: effectiveWidth, y: effectiveHeight };
-  },
+      // metadata overlay
+      if (core.metadataContainer) {
+        core.metadataContainer.style.width = "100%";
+        core.metadataContainer.style.height = "100%";
+      }
+
+      // optional wrapper sync
+      if (
+        Viewer$1.fileElement &&
+        Viewer$1.fileElement.length > 0
+      ) {
+        Viewer$1.fileElement[0].style.height =
+          `${effectiveHeight * 1.1}px`;
+      }
+
+      // GUI position
+      if (!core.guiContainer.hidden) {
+        const guiWidth = core.lilGui?.[0]?.getBoundingClientRect().width || core.guiContainer.getBoundingClientRect().width;
+
+        if (guiWidth > 0) {
+          core.guiContainer.style.left = `${effectiveWidth - guiWidth}px`;
+        }
+      }
+
+      // camera
+      if (core.camera.isOrthographicCamera) {
+        this.updateOrthoFrustum(
+          core.camera,
+          effectiveWidth,
+          effectiveHeight
+        );
+      } else {
+        core.camera.aspect =
+          effectiveWidth / effectiveHeight;
+
+        core.camera.updateProjectionMatrix();
+      }
+
+      // renderer
+      core.renderer.setPixelRatio(
+        window.devicePixelRatio || 1
+      );
+
+      core.renderer.setSize(
+        effectiveWidth,
+        effectiveHeight,
+        false
+      );
+
+      // action menu
+      if (Viewer$1.actionMenu) {
+        if (
+          Viewer$1.actionMenu.classList.contains(
+            "viewer-action-menu_in-toolbar"
+          )
+        ) {
+          Viewer$1.actionMenu.style.top = "";
+          Viewer$1.actionMenu.style.right = "";
+          Viewer$1.actionMenu.style.bottom = "";
+        } else {
+          const menuMargin = 16;
+
+          const toggleSize =
+            Viewer$1.actionMenu
+              .querySelector(
+                ".viewer-action-menu_toggle"
+              )
+              ?.getBoundingClientRect().height || 45;
+
+          Viewer$1.actionMenu.style.top =
+            `${effectiveHeight - toggleSize - menuMargin}px`;
+
+          Viewer$1.actionMenu.style.right =
+            `${menuMargin}px`;
+
+          Viewer$1.actionMenu.style.bottom = "auto";
+        }
+      }
+
+      // hand hint
+      if (core.handHint) {
+        core.handHint.style.top =
+          `${effectiveHeight - 150}px`;
+      }
+
+      core.controls?.update();
+
+      core.CONFIG.viewer.canvasDimensions = {
+        x: effectiveWidth,
+        y: effectiveHeight,
+      };
+    },
 
 
   async toggleFullscreen() {

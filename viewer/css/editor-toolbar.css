@@ -12,9 +12,18 @@
   --viewer-toolbar-visible-offset: 14px;
   --viewer-toolbar-max-width: 920px;
   --viewer-toolbar-scale: clamp(0.74, calc((100vw - 112px) / var(--viewer-toolbar-max-width)), 1);
-  position: relative;
+
+  position: absolute;
   left: 50%;
   bottom: 14px;
+  transform:
+    translateX(-50%)
+    translate3d(
+      var(--drag-x, 0px),
+      var(--drag-y, 0px),
+      0
+    )
+    scale(var(--viewer-toolbar-scale));
   z-index: 9999;
   display: flex;
   align-items: center;
@@ -29,7 +38,6 @@
   backdrop-filter: blur(14px);
   scrollbar-width: none;
   touch-action: none;
-  transform: translateX(-50%) translateY(-115%) translate3d(var(--drag-x, 0px),var(--drag-y, 0px),0) scale(var(--viewer-toolbar-scale));
   transform-origin: center bottom;
   transition:
     opacity 1.25s ease,

@@ -5,6 +5,7 @@ import { t } from "./i18n-utils.js";
 
 export function getEditorToolbarIcon(icon) {
   const icons = {
+    moveToolbar: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     orbit: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16.5 2.75 21 3.5l-.75 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.25" fill="currentColor"/></svg>',
     move: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     rotate: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.5A7.5 7.5 0 1 1 5 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 3.5v3H5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -47,6 +48,7 @@ export function getEditorToolbarIcon(icon) {
     projection: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8l5-3h7v14h-7l-5-3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M11 5v14" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6 8v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     wireframe: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 7v10l-7 4-7-4V7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 3v18M5 7l7 4 7-4M5 17l7-4 7 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
     screenshot: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5H5a2 2 0 0 0-2 2v2M17 5h2a2 2 0 0 1 2 2v2M17 19h2a2 2 0 0 0 2-2v-2M7 19H5a2 2 0 0 1-2-2v-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+    download: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M5 12l7 7 7-7M4 19h16a1 1 0 0 1 1 1v2H3v-2a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   };
 
   return icons[icon] || icons.advancedEditor;
@@ -61,23 +63,7 @@ export function getEditorToolbarHost(viewer) {
   return core.container || viewer.viewerWrapper || null;
 }
 
-function initializeEditorToolbarDrag(viewer, toolbar, host) {
-  const handle = document.createElement("div");
-
-  handle.className = "viewer-editor-toolbar_handle";
-  handle.tabIndex = 0;
-
-  const dragLabel = t("toolbar.moveToolbar", "Move toolbar");
-
-  handle.setAttribute("aria-label", dragLabel);
-  handle.setAttribute("title", dragLabel);
-
-  handle.innerHTML = `
-    <span class="viewer-editor-tool_icon" aria-hidden="true">
-      ${getEditorToolbarIcon("move")}
-    </span>
-  `;
-
+function initializeEditorToolbarDrag(handle, viewer, toolbar, host) {
   let dragState = null;
 
   // persistent toolbar position
@@ -219,8 +205,6 @@ function initializeEditorToolbarDrag(viewer, toolbar, host) {
   resizeObserver.observe(host);
 
   applyPosition();
-
-  toolbar.appendChild(handle);
 }
 
 export function attachEditorToolbar(viewer) {
@@ -249,6 +233,21 @@ export function toggleToolbarExpanded(viewer) {
   viewer.updateEditorToolbarLabels();
 }
 
+async function downloadFile(fileName = "model.glb") {
+  if (!core.downloadModel) return;
+
+  const handle = await window.showSaveFilePicker({
+    suggestedName: fileName,
+  });
+
+  const writable = await handle.createWritable();
+
+  await writable.write(core.downloadModel);
+  await writable.close();
+
+  toastHelper("download", "success");
+}
+
 export function createEditorToolbar(viewer) {
   if (!core.EDITOR || viewer.urlOptions.hideUi || core.editorToolbar || !core.container) return;
 
@@ -257,9 +256,8 @@ export function createEditorToolbar(viewer) {
   toolbar.setAttribute("role", "toolbar");
   toolbar.setAttribute("aria-label", t("toolbar.editor", "Editor tools"));
 
-  initializeEditorToolbarDrag(viewer, toolbar, getEditorToolbarHost(viewer) || core.container);
-
   const tools = [
+    { key: "moveToolbar", icon: "moveToolbar", onClick: () => {}, pressed:true, primary: true },
     { key: "orbit", icon: "orbit", onClick: () => viewer.setObjectTransformMode(""), primary: true },
     { key: "move", icon: "move", onClick: () => viewer.toggleObjectTransformMode("translate"), pressed: true, primary: true },
     { key: "rotate", icon: "rotate", onClick: () => viewer.toggleObjectTransformMode("rotate"), pressed: true, primary: true },
@@ -274,13 +272,15 @@ export function createEditorToolbar(viewer) {
     { key: "resetCamera", icon: "resetCamera", onClick: () => viewer.resetCamera(), primary: false },
     { key: "hierarchy", icon: "hierarchy", onClick: () => {}, pressed: true, primary: false },
     { key: "projection", icon: "projection", onClick: () => viewer.toggleCameraProjection(), pressed: true, primary: false },
-    { key: "wireframe", icon: "wireframe", onClick: () => viewer.toggleWireframeMode(), pressed: true, primary: false },
-    { key: "loadingLogs", icon: "loadingLogs", onClick: () => viewer.toggleLoadingLogs(), pressed: true, primary: false },
+    { key: "wireframe", icon: "wireframe", onClick: () => viewer.toggleWireframeMode(), pressed: true, primary: false },    
     { key: "statistics", icon: "statistics", onClick: () => {}, pressed: false, primary: false },
+    
   ];
 
-  if (!core.isLightweight) {
+  if (!core.isLightweight || core.isLocalPreview) {
     tools.splice(tools.length - 1, 0,
+      { key: "loadingLogs", icon: "loadingLogs", onClick: () => viewer.toggleLoadingLogs(), pressed: true, primary: false },
+      { key: "download", icon: "download", onClick: () => downloadFile(core.fileObject.filename), pressed: true, primary: false },
       { key: "preview", icon: "preview", onClick: () => viewer.takeScreenshot(), primary: false },
       { key: "save", icon: "save", onClick: () => {}, primary: false }
     );
@@ -310,7 +310,10 @@ export function createEditorToolbar(viewer) {
       <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon(tool.icon)}</span>
       <span class="viewer-editor-tool_sr"></span>
     `;
-    if (tool.key === "clippingPlanes") {
+    if (tool.key === "moveToolbar") {
+      initializeEditorToolbarDrag(button, viewer, toolbar, getEditorToolbarHost(viewer));
+    }
+    else if (tool.key === "clippingPlanes") {
       button.classList.add("has-submenu");
       const submenu = document.createElement("div");
       submenu.className = "viewer-editor-tool_submenu";
@@ -773,6 +776,13 @@ export function createEditorToolbar(viewer) {
         submenu.appendChild(subButton);
       });
       button.appendChild(submenu);
+    } else if (tool.key === "download") {
+      if (!core.isLightweight || core.isLocalPreview) {
+        button.href = core.downloadModel;
+        button.target = "_blank";
+        button.rel = "noopener noreferrer";
+        button.download = core.fileObject.filename;
+      }  
     }
     viewer.bindEventListener(button, "click", () => {
       viewer.stopHandMode();
@@ -898,7 +908,8 @@ export function updateEditorToolbarLabels(viewer) {
   if (!viewer.editorToolbarButtons) return;
 
   const labels = {
-    orbit: t("toolbar.orbit", "Navigation mode"),
+    moveToolbar: t("gui.moveToolbar", "Move toolbar"),
+    orbit: t("gui.orbit", "Navigation mode"),
     move: t("gui.move", "Move"),
     rotate: t("gui.rotate", "Rotate"),
     scale: t("gui.scale", "Scale"),
@@ -937,6 +948,7 @@ export function updateEditorToolbarLabels(viewer) {
     expand: viewer.isToolbarExpanded
       ? t("gui.collapse", "Collapse toolbar")
       : t("gui.expand", "Expand toolbar"),
+    download: t("gui.download", "Download model"),
   };
 
   Object.entries(viewer.editorToolbarButtons).forEach(([key, button]) => {
@@ -1041,6 +1053,7 @@ export function updateEditorToolbarState(viewer) {
   if (!viewer.editorToolbarButtons) return;
 
   const activeMap = {
+    moveToolbar: viewer.transformText["Transform 3D Object"] === "translate" || viewer.transformText["Transform 3D Object"] === "rotate" || viewer.transformText["Transform 3D Object"] === "scale",
     orbit: viewer.transformText["Transform 3D Object"] === "",
     move: viewer.transformText["Transform 3D Object"] === "translate",
     rotate: viewer.transformText["Transform 3D Object"] === "rotate",
@@ -1052,6 +1065,7 @@ export function updateEditorToolbarState(viewer) {
     fullScreen: viewer.FULLSCREEN === true,
     loadingLogs: viewer.showLoadingLogs === true,
     wireframe: viewer.wireframeMode === true,
+    download: false,
   };
 
   Object.entries(viewer.editorToolbarButtons).forEach(([key, button]) => {
