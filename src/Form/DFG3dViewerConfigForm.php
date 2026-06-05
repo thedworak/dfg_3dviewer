@@ -116,6 +116,9 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#states' => [
 			'visible' => [
 				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
+			],
+			'required' => [
+				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
 			]
 		]
     ];
@@ -127,6 +130,9 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#description' => '<b>Base URL</b> of the instance that serves JSON export, e.g. https://repository.covher.eu',
 		'#states' => [
 			'visible' => [
+				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
+			],
+			'required' => [
 				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
 			]
 		]
@@ -173,18 +179,23 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#states' => [
 			'visible' => [
 				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
+			],
+			'required' => [
+				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
 			]
-		]
+		],
     ];
 
 	$form['dfg_3dviewer_image_generation'] = [
 		'#default_value' => $default_settings['image_generation'],
 		'#type' => 'textfield',
 		'#title' => $this->t('Image Generation'),
-		'#required' => true,
 		'#description' => '<b>ID</b> of the bundle for the entity given in wisski pathbuilder for image_generation field',
 		'#states' => [
 			'visible' => [
+				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
+			],
+			'required' => [
 				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
 			]
 		]
@@ -194,12 +205,14 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#default_value' => $default_settings['field_df'],
 		'#type' => 'textfield',
 		'#title' => $this->t('Field DF'),
-		'#required' => true,
 		'#description' => 'Name of the field given for <b>field_df</b>',
 		'#states' => [
 			'visible' => [
 				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
-			]
+			],
+			'required' => [
+				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
+			],
 		]
     ];
 
@@ -207,10 +220,12 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#default_value' => $default_settings['export_viewer'],
 		'#type' => 'textfield',
 		'#title' => $this->t('Export Viewer Field'),
-		'#required' => true,
 		'#description' => 'Name of the field given for <b>export_viewer</b>',
 		'#states' => [
 			'visible' => [
+				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
+			],
+			'required' => [
 				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
 			]
 		]
@@ -220,10 +235,12 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#default_value' => $default_settings['export_viewer_url'],
 		'#type' => 'textfield',
 		'#title' => $this->t('Export Viewer URL'),
-		'#required' => true,
 		'#description' => 'URL for the export viewer',
 		'#states' => [
 			'visible' => [
+				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
+			],
+			'required' => [
 				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
 			]
 		]

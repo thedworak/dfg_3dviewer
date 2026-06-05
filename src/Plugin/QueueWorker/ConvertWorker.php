@@ -159,12 +159,17 @@ class ConvertWorker extends QueueWorkerBase {
 
       $this->updateProgress($entity, 90, 'updating', 'Updating viewer fields...');
       $viewer_result = $this->applyViewerFields($entity, $file, $cfg, $context);
+      $is_lightweight = !empty($cfg['lightweight']);
 
       $this->updateProgress($entity, 100, 'ready', 'Conversion finished');
       $this->saveEntity($entity);
-      $this->ensureImageFieldPersisted($entity_type, (string) $entity_id, $viewer_result);
+      if (!$is_lightweight) {
+        $this->ensureImageFieldPersisted($entity_type, (string) $entity_id, $viewer_result);
+      }
       $this->ensureModelFieldsPersisted($entity_type, (string) $entity_id, $viewer_result);
-      $this->updateXmlExportField($entity, $cfg);
+      if (!$is_lightweight) {
+        $this->updateXmlExportField($entity, $cfg);
+      }
       $this->saveEntity($entity);
       $outcome = 'success';
 
@@ -454,6 +459,7 @@ class ConvertWorker extends QueueWorkerBase {
 
   private function applyViewerFields($entity, File $file, array $cfg, array $context): array {
     clearstatcache();
+    $is_lightweight = !empty($cfg['lightweight']);
     $result = [
       'image_field' => (string) ($cfg['image_generation'] ?? ''),
       'image_urls' => [],
@@ -492,141 +498,151 @@ class ConvertWorker extends QueueWorkerBase {
       ]
     );
 
-    $views_dirs = [];
-    if ($is_archive) {
-      $views_dirs[] = $dir_uri . '/' . $file_base . '_' . $extension . '/views';
-      $views_dirs[] = $dir_uri . '/' . $file_base . '_' . strtoupper($extension) . '/views';
-    }
-    else {
-      $views_dirs[] = $dir_uri . '/views';
-    }
-
-    $suffixes = [
-      '_side45.png',
-      '_side90.png',
-      '_side135.png',
-      '_side180.png',
-      '_side225.png',
-      '_side270.png',
-      '_side315.png',
-      '_top.png',
-      '_RENDER.png',
-    ];
-
-    $name_candidates = [$file_base];
-    if ($file_base_archive !== $file_base) {
-      $name_candidates[] = $file_base_archive;
-    }
-    if ($is_archive) {
-      $name_candidates[] = $file_base . '_' . $extension;
-      $name_candidates[] = $file_base . '_' . strtoupper($extension);
-    }
-
-    $best_images = [];
-    foreach (array_unique($views_dirs) as $views_dir_uri) {
-      $views_real = $fs->realpath($views_dir_uri);
-      if (!$views_real || !is_dir($views_real)) {
-        continue;
+    if (!$is_lightweight) {
+      $views_dirs = [];
+      if ($is_archive) {
+        $views_dirs[] = $dir_uri . '/' . $file_base . '_' . $extension . '/views';
+        $views_dirs[] = $dir_uri . '/' . $file_base . '_' . strtoupper($extension) . '/views';
+      }
+      else {
+        $views_dirs[] = $dir_uri . '/views';
       }
 
-      $dynamic_names = [];
-      $side45_files = glob(rtrim($views_real, '/\\') . '/*_side45.png') ?: [];
-      foreach ($side45_files as $side45_file) {
-        $base_name = preg_replace('/_side45\.png$/', '', basename($side45_file));
-        if (!empty($base_name)) {
-          $dynamic_names[] = $base_name;
+      $suffixes = [
+        '_side45.png',
+        '_side90.png',
+        '_side135.png',
+        '_side180.png',
+        '_side225.png',
+        '_side270.png',
+        '_side315.png',
+        '_top.png',
+        '_RENDER.png',
+      ];
+
+      $name_candidates = [$file_base];
+      if ($file_base_archive !== $file_base) {
+        $name_candidates[] = $file_base_archive;
+      }
+      if ($is_archive) {
+        $name_candidates[] = $file_base . '_' . $extension;
+        $name_candidates[] = $file_base . '_' . strtoupper($extension);
+      }
+
+      $best_images = [];
+      foreach (array_unique($views_dirs) as $views_dir_uri) {
+        $views_real = $fs->realpath($views_dir_uri);
+        if (!$views_real || !is_dir($views_real)) {
+          continue;
         }
-      }
 
-      $all_names = array_unique(array_merge($name_candidates, $dynamic_names));
-      foreach ($all_names as $base_name) {
-        $candidate_images = [];
-        foreach ($suffixes as $suffix) {
-          $img_uri = $views_dir_uri . '/' . $base_name . $suffix;
-          if (!$this->uriExists($img_uri)) {
-            continue;
-          }
-
-          $img_url = $this->uriToUrl($img_uri, $this->getPreferredPublicBaseUrl($cfg));
-          if ($img_url !== NULL) {
-            $candidate_images[] = $img_url;
+        $dynamic_names = [];
+        $side45_files = glob(rtrim($views_real, '/\\') . '/*_side45.png') ?: [];
+        foreach ($side45_files as $side45_file) {
+          $base_name = preg_replace('/_side45\.png$/', '', basename($side45_file));
+          if (!empty($base_name)) {
+            $dynamic_names[] = $base_name;
           }
         }
 
-        if (count($candidate_images) > count($best_images)) {
-          $best_images = $candidate_images;
+        $all_names = array_unique(array_merge($name_candidates, $dynamic_names));
+        foreach ($all_names as $base_name) {
+          $candidate_images = [];
+          foreach ($suffixes as $suffix) {
+            $img_uri = $views_dir_uri . '/' . $base_name . $suffix;
+            if (!$this->uriExists($img_uri)) {
+              continue;
+            }
+
+            $img_url = $this->uriToUrl($img_uri, $this->getPreferredPublicBaseUrl($cfg));
+            if ($img_url !== NULL) {
+              $candidate_images[] = $img_url;
+            }
+          }
+
+          if (count($candidate_images) > count($best_images)) {
+            $best_images = $candidate_images;
+          }
         }
       }
-    }
 
-    $images_paths = $best_images;
-    $image_storage_values = [];
-    foreach ($images_paths as $image_path) {
-      $image_uri = $this->imageLocationToUri((string) $image_path);
-      $image_storage_values[] = $image_uri ?? (string) $image_path;
-    }
-    $image_storage_values = array_values(array_unique(array_filter($image_storage_values)));
+      $images_paths = $best_images;
+      $image_storage_values = [];
+      foreach ($images_paths as $image_path) {
+        $image_uri = $this->imageLocationToUri((string) $image_path);
+        $image_storage_values[] = $image_uri ?? (string) $image_path;
+      }
+      $image_storage_values = array_values(array_unique(array_filter($image_storage_values)));
 
-    if (!empty($images_paths) && $this->entityHasField($entity, $cfg['image_generation'])) {
-      $lang = $this->getCurrentLanguageId();
-      $image_field = (string) $cfg['image_generation'];
-      $requires_target_id = $this->fieldRequiresTargetId($entity, $image_field);
+      if (!empty($images_paths) && $this->entityHasField($entity, $cfg['image_generation'])) {
+        $lang = $this->getCurrentLanguageId();
+        $image_field = (string) $cfg['image_generation'];
+        $requires_target_id = $this->fieldRequiresTargetId($entity, $image_field);
 
-      if ($requires_target_id) {
-        if ($this->hasMalformedTargetIdFieldValues($entity, $image_field)) {
-          $applied_count = 0;
-          \Drupal::logger('dfg_3dviewer')->warning(
-            'Skipped updating target_id image field "@field": malformed existing values detected (non-numeric target IDs).',
-            ['@field' => $image_field]
-          );
-        }
-        else {
-          $images_field_values = $this->buildFieldValues($entity, $image_field, $image_storage_values);
-          if (!empty($images_field_values)) {
-            $applied_count = $this->applyFieldValues($entity, $image_field, $images_field_values, $lang);
-          }
-          else {
+        if ($requires_target_id) {
+          if ($this->hasMalformedTargetIdFieldValues($entity, $image_field)) {
             $applied_count = 0;
             \Drupal::logger('dfg_3dviewer')->warning(
-              'Skipped updating target_id image field "@field": no valid file IDs could be mapped from rendered image paths.',
+              'Skipped updating target_id image field "@field": malformed existing values detected (non-numeric target IDs).',
               ['@field' => $image_field]
             );
           }
+          else {
+            $images_field_values = $this->buildFieldValues($entity, $image_field, $image_storage_values);
+            if (!empty($images_field_values)) {
+              $applied_count = $this->applyFieldValues($entity, $image_field, $images_field_values, $lang);
+            }
+            else {
+              $applied_count = 0;
+              \Drupal::logger('dfg_3dviewer')->warning(
+                'Skipped updating target_id image field "@field": no valid file IDs could be mapped from rendered image paths.',
+                ['@field' => $image_field]
+              );
+            }
+          }
         }
+        else {
+          $applied_count = $this->applyPlainScalarFieldValues($entity, $image_field, $image_storage_values, $lang);
+          if ($applied_count === 0) {
+            $images_field_values = $this->buildFieldValues($entity, $image_field, $image_storage_values);
+            $applied_count = $this->applyFieldValues($entity, $image_field, $images_field_values, $lang);
+          }
+        }
+        $result['image_urls'] = $images_paths;
+        $result['lang'] = $lang;
+        $result['applied_before_save'] = $applied_count;
+        $first_image = $images_paths[0] ?? '';
+        \Drupal::logger('dfg_3dviewer')->notice(
+          'Added @count rendered images to field "@field" for file "@filename" (@uri). Applied count before save: @applied. First image: @first',
+          [
+            '@count' => count($images_paths),
+            '@field' => $cfg['image_generation'],
+            '@filename' => $file_name,
+            '@uri' => $file_uri,
+            '@applied' => $applied_count,
+            '@first' => $first_image,
+          ]
+        );
       }
       else {
-        $applied_count = $this->applyPlainScalarFieldValues($entity, $image_field, $image_storage_values, $lang);
-        if ($applied_count === 0) {
-          $images_field_values = $this->buildFieldValues($entity, $image_field, $image_storage_values);
-          $applied_count = $this->applyFieldValues($entity, $image_field, $images_field_values, $lang);
-        }
+        $views_dirs_text = implode(', ', array_unique($views_dirs));
+        $name_candidates_text = implode(', ', array_unique($name_candidates));
+        \Drupal::logger('dfg_3dviewer')->warning(
+          'No rendered images found for file_uri="@uri" (archive=@archive). Checked views dirs: @dirs. Name candidates: @names',
+          [
+            '@uri' => $file_uri,
+            '@archive' => $is_archive ? 'true' : 'false',
+            '@dirs' => $views_dirs_text,
+            '@names' => $name_candidates_text,
+          ]
+        );
       }
-      $result['image_urls'] = $images_paths;
-      $result['lang'] = $lang;
-      $result['applied_before_save'] = $applied_count;
-      $first_image = $images_paths[0] ?? '';
-      \Drupal::logger('dfg_3dviewer')->notice(
-        'Added @count rendered images to field "@field" for file "@filename" (@uri). Applied count before save: @applied. First image: @first',
-        [
-          '@count' => count($images_paths),
-          '@field' => $cfg['image_generation'],
-          '@filename' => $file_name,
-          '@uri' => $file_uri,
-          '@applied' => $applied_count,
-          '@first' => $first_image,
-        ]
-      );
     }
     else {
-      $views_dirs_text = implode(', ', array_unique($views_dirs));
-      $name_candidates_text = implode(', ', array_unique($name_candidates));
-      \Drupal::logger('dfg_3dviewer')->warning(
-        'No rendered images found for file_uri="@uri" (archive=@archive). Checked views dirs: @dirs. Name candidates: @names',
+      \Drupal::logger('dfg_3dviewer')->notice(
+        'Skipping rendered image discovery and image field updates for file "@filename" because lightweight mode is enabled.',
         [
-          '@uri' => $file_uri,
-          '@archive' => $is_archive ? 'true' : 'false',
-          '@dirs' => $views_dirs_text,
-          '@names' => $name_candidates_text,
+          '@filename' => $file_name,
         ]
       );
     }
@@ -1028,6 +1044,10 @@ class ConvertWorker extends QueueWorkerBase {
   }
 
   private function updateXmlExportField($entity, array $cfg): void {
+    if (!empty($cfg['lightweight'])) {
+      return;
+    }
+
     $field_df = (string) ($cfg['field_df'] ?? '');
     $field_export_viewer = trim((string) ($cfg['export_viewer'] ?? 'export_viewer'));
     $main_url = trim((string) ($cfg['main_url'] ?? ''));
