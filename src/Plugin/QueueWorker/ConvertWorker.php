@@ -89,8 +89,17 @@ class ConvertWorker extends QueueWorkerBase {
       return;
     }
 
+    $request_context_pushed = $this->pushSafeRequestContext($cfg);
+    $this->repairMalformedPublicFileUrls($entity, $cfg);
     $this->updateProgress($entity, 5, 'init', 'Preparing...');
-    $this->saveEntity($entity);
+    try {
+      $this->saveEntity($entity);
+    }
+    catch (\Throwable $e) {
+      $this->popSafeRequestContext($request_context_pushed);
+      unset($GLOBALS['dfg_3dviewer_worker_running']);
+      throw $e;
+    }
 
     $lock = \Drupal::lock();
     $lock_name = 'dfg_3dviewer_convert_' . $entity_type . '_' . $entity_id . '_' . $file_id;
@@ -104,6 +113,7 @@ class ConvertWorker extends QueueWorkerBase {
           '@lock' => $lock_name,
         ]
       );
+      $this->popSafeRequestContext($request_context_pushed);
       unset($GLOBALS['dfg_3dviewer_worker_running']);
       return;
     }
@@ -223,6 +233,7 @@ class ConvertWorker extends QueueWorkerBase {
     }
     finally {
       $lock->release($lock_name);
+      $this->popSafeRequestContext($request_context_pushed);
       $duration_ms = (int) round((microtime(TRUE) - $started_at) * 1000);
       \Drupal::logger('dfg_3dviewer')->notice(
         'Worker finalized for @type:@entity_id file @file_id with outcome="@outcome" in @duration_ms ms.',
@@ -1188,6 +1199,148 @@ class ConvertWorker extends QueueWorkerBase {
     }
 
     return trim((string) ($cfg['main_url'] ?? ''));
+  }
+
+  private function pushSafeRequestContext(array $cfg): bool {
+    $base_url = $this->getPreferredPublicBaseUrl($cfg);
+    $parts = parse_url($base_url);
+    $host = is_array($parts) ? (string) ($parts['host'] ?? '') : '';
+    if (!is_array($parts)
+      || empty($parts['scheme'])
+      || $host === ''
+      || strpos($host, '_') !== FALSE
+      || strtolower($host) === 'default') {
+      return FALSE;
+    }
+
+    try {
+      $request_stack = \Drupal::service('request_stack');
+      $current_request = $request_stack->getCurrentRequest();
+      $current_host = $current_request ? strtolower((string) $current_request->getHost()) : '';
+      if ($current_request && $current_host !== '' && $current_host !== 'default' && strpos($current_host, '_') === FALSE) {
+        return FALSE;
+      }
+
+      $request = Request::create(rtrim($base_url, '/') . '/');
+      $request_stack->push($request);
+      if (\Drupal::hasService('router.request_context')) {
+        \Drupal::service('router.request_context')->fromRequest($request);
+      }
+
+      \Drupal::logger('dfg_3dviewer')->notice(
+        'Worker installed canonical request context "@url" instead of CLI host "@host".',
+        [
+          '@url' => rtrim($base_url, '/'),
+          '@host' => $current_host,
+        ]
+      );
+      return TRUE;
+    }
+    catch (\Throwable $e) {
+      \Drupal::logger('dfg_3dviewer')->warning(
+        'Could not install canonical worker request context from "@url": @msg',
+        [
+          '@url' => $base_url,
+          '@msg' => $e->getMessage(),
+        ]
+      );
+      return FALSE;
+    }
+  }
+
+  private function popSafeRequestContext(bool $pushed): void {
+    if (!$pushed) {
+      return;
+    }
+
+    try {
+      $request_stack = \Drupal::service('request_stack');
+      $request_stack->pop();
+      $request = $request_stack->getCurrentRequest();
+      if ($request && \Drupal::hasService('router.request_context')) {
+        \Drupal::service('router.request_context')->fromRequest($request);
+      }
+    }
+    catch (\Throwable $e) {
+      \Drupal::logger('dfg_3dviewer')->warning(
+        'Could not restore request context after conversion: @msg',
+        ['@msg' => $e->getMessage()]
+      );
+    }
+  }
+
+  private function repairMalformedPublicFileUrls($entity, array $cfg): void {
+    $base_url = rtrim($this->getPreferredPublicBaseUrl($cfg), '/');
+    $base_parts = parse_url($base_url);
+    $base_host = is_array($base_parts) ? strtolower((string) ($base_parts['host'] ?? '')) : '';
+    if (!is_array($base_parts)
+      || empty($base_parts['scheme'])
+      || $base_host === ''
+      || $base_host === 'default'
+      || strpos($base_host, '_') !== FALSE) {
+      $base_url = '';
+    }
+    $fields = array_values(array_filter(array_unique(array_merge([
+      (string) ($cfg['image_generation'] ?? ''),
+      (string) ($cfg['viewer_file_name'] ?? ''),
+      (string) ($cfg['api_3d_file_field'] ?? ''),
+      'fd6a974b7120d422c7b21b5f1f2315d9',
+    ], self::ADDITIONAL_MODEL_MIRROR_FIELDS))));
+
+    foreach ($fields as $field_name) {
+      if (!$this->entityHasField($entity, $field_name)) {
+        continue;
+      }
+
+      try {
+        $values = $entity->get($field_name)->getValue();
+        $changed = FALSE;
+        foreach ($values as &$row) {
+          if (!is_array($row)) {
+            continue;
+          }
+          foreach (['value', 'uri'] as $property) {
+            $value = trim((string) ($row[$property] ?? ''));
+            if ($value === '') {
+              continue;
+            }
+
+            $parts = parse_url(ltrim($value, '/'));
+            $host = is_array($parts) ? strtolower((string) ($parts['host'] ?? '')) : '';
+            $path = is_array($parts) ? (string) ($parts['path'] ?? '') : '';
+            if ($path === ''
+              || !str_starts_with($path, '/sites/default/files/')
+              || ($host !== 'default' && strpos($host, '_') === FALSE)) {
+              continue;
+            }
+
+            $row[$property] = $base_url !== '' ? $base_url . $path : $path;
+            $changed = TRUE;
+          }
+        }
+        unset($row);
+
+        if ($changed) {
+          $entity->set($field_name, $values);
+          \Drupal::logger('dfg_3dviewer')->notice(
+            'Repaired malformed CLI file URLs in field "@field" on entity @id.',
+            [
+              '@field' => $field_name,
+              '@id' => method_exists($entity, 'id') ? (string) $entity->id() : '',
+            ]
+          );
+        }
+      }
+      catch (\Throwable $e) {
+        \Drupal::logger('dfg_3dviewer')->warning(
+          'Could not repair malformed file URLs in field "@field": @msg',
+          [
+            '@field' => $field_name,
+            '@msg' => $e->getMessage(),
+          ]
+        );
+      }
+    }
   }
 
   private function uriExists(string $uri): bool {

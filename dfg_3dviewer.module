@@ -237,7 +237,47 @@ function dfg_3dviewer_kick_convert_worker(): void {
       return;
     }
 
-    $arguments = [$drush, 'queue:run', 'dfg_3dviewer_convert', '--time-limit=30'];
+    $arguments = [$drush];
+    $site_uri = '';
+    $site_uri_candidates = [];
+    try {
+      $request = \Drupal::service('request_stack')->getCurrentRequest();
+      if ($request) {
+        $site_uri_candidates[] = $request->getSchemeAndHttpHost();
+      }
+    }
+    catch (\Throwable $e) {
+      // Fall back to the configured canonical URL below.
+    }
+    $site_uri_candidates[] = trim((string) (dfg_3dviewer_config()['main_url'] ?? ''));
+
+    foreach ($site_uri_candidates as $candidate) {
+      $candidate = trim((string) $candidate);
+      $candidate_parts = parse_url($candidate);
+      $candidate_host = is_array($candidate_parts) ? (string) ($candidate_parts['host'] ?? '') : '';
+      if (is_array($candidate_parts)
+        && !empty($candidate_parts['scheme'])
+        && $candidate_host !== ''
+        && strpos($candidate_host, '_') === FALSE
+        && strtolower($candidate_host) !== 'default') {
+        $site_uri = rtrim($candidate, '/');
+        break;
+      }
+    }
+
+    if ($site_uri !== '') {
+      $arguments[] = '--uri=' . $site_uri;
+    }
+    else {
+      \Drupal::logger('dfg_3dviewer')->warning(
+        'Queue runner starts without --uri because neither the current request nor configured main URL is a safe absolute URL.'
+      );
+    }
+    $arguments = array_merge($arguments, [
+      'queue:run',
+      'dfg_3dviewer_convert',
+      '--time-limit=30',
+    ]);
 
     // Using Process::start() here is unreliable because the Process object
     // is destroyed at the end of this function and may terminate the child.
@@ -1173,6 +1213,17 @@ function dfg_3dviewer_entity_update(Drupal\Core\Entity\EntityInterface $entity) 
 	$uploaded_file = \Drupal\file\Entity\File::load($file_id);
 	$source_filename = $uploaded_file ? $uploaded_file->getFilename() : '';
 	$source_uri = $uploaded_file ? $uploaded_file->getFileUri() : '';
+	$key = $entity->getEntityTypeId() . ':' . $entity_id . ':' . $file_id;
+	if (!empty($GLOBALS['dfg_3dviewer_enqueued_in_presave'][$key])) {
+		\Drupal::logger('dfg_3dviewer')->notice(
+			'entity_update skip: conversion was already queued in presave for entity @entity_id file @file_id.',
+			[
+				'@entity_id' => (string) $entity_id,
+				'@file_id' => (string) $file_id,
+			]
+		);
+		return;
+	}
 
 	try {
 		\Drupal::service('queue')->get('dfg_3dviewer_convert')->createItem([
