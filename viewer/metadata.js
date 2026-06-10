@@ -352,7 +352,7 @@ export async function handleMetadataResponse(
     '</div>';
   metadataContent += await fetchEntityMetadata();
 
-  if (core.downloadModel) {
+  if (!core.downloadModel) {
     core.downloadModel.hidden = true;
     core.downloadModel.removeAttribute("href");
   }

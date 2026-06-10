@@ -79,8 +79,6 @@ function initializeEditorToolbarDrag(handle, viewer, toolbar, host) {
     return Number.isFinite(scale) ? scale : 1;
   };
 
-  const BASE_OFFSET_Y = -1.15;
-
   const clampPosition = (x, y) => {
     const hostRect = host.getBoundingClientRect();
 
@@ -287,6 +285,7 @@ export function createEditorToolbar(viewer) {
   }
 
   viewer.editorToolbarButtons = {};
+  viewer.environmentMapPreset = viewer.environmentMapPreset || "neutral";
   const secondaryTray = document.createElement("div");
   secondaryTray.className = "viewer-editor-toolbar_secondary-tray";
   viewer.editorToolbarSecondaryTray = secondaryTray;
@@ -571,7 +570,7 @@ export function createEditorToolbar(viewer) {
           const iconSpan = document.createElement("span");
           iconSpan.className = "viewer-editor-tool_icon";
           iconSpan.setAttribute("aria-hidden", "true");
-          iconSpan.innerHTML = getEditorToolbarIcon(item.icon);
+          iconSpan.innerHTML = item.iconHtml || getEditorToolbarIcon(item.icon);
           subButton.appendChild(iconSpan);
 
           if (item.type === "color") {
@@ -612,6 +611,30 @@ export function createEditorToolbar(viewer) {
 
             subButton.appendChild(slider);
             subButton.appendChild(valueLabel);
+          } else if (item.type === "toggle") {
+            subButton.classList.add("viewer-editor-tool_submenu-control", "viewer-editor-tool_submenu-toggle");
+            subButton.setAttribute("type", "button");
+
+            const toggleState = document.createElement("span");
+            toggleState.className = "viewer-editor-tool_submenu-toggle-state";
+            const setToggleState = () => {
+              const enabled = Boolean(item.value());
+              toggleState.textContent = enabled ? t("gui.on", "ON") : t("gui.off", "OFF");
+              subButton.setAttribute("aria-pressed", enabled ? "true" : "false");
+              subButton.classList.toggle("is-active", enabled);
+            };
+            setToggleState();
+
+            viewer.bindEventListener(subButton, "click", async (event) => {
+              event.stopPropagation();
+              const nextValue = !Boolean(item.value());
+              if (item.onChange) {
+                await item.onChange(nextValue);
+              }
+              setToggleState();
+            });
+
+            subButton.appendChild(toggleState);
           } else if (item.onClick) {
             viewer.bindEventListener(subButton, "click", (event) => {
               event.stopPropagation();
@@ -627,10 +650,11 @@ export function createEditorToolbar(viewer) {
             subButton.appendChild(nested);
           }
 
-          if (item.key === "lightTargetTransformMove" || item.key === "lightTargetTransformTarget") {
-            viewer.lightsSubmenuButtons[item.key] = subButton;
-          }
-          if (item.key === "environmentMap") {
+          if (
+            item.key === "lightTargetTransformMove" ||
+            item.key === "lightTargetTransformTarget" ||
+            item.key.startsWith("environmentMap")
+          ) {
             viewer.lightsSubmenuButtons[item.key] = subButton;
           }
           container.appendChild(subButton);
@@ -642,7 +666,98 @@ export function createEditorToolbar(viewer) {
           key: "environmentMap",
           icon: "environmentMap",
           label: t("gui.environmentMap", "Environment map"),
-          onClick: () => viewer.toggleEnvironmentMap(),
+          children: [
+            {
+              key: "environmentMapToggle",
+              icon: "environmentMap",
+              label: t("gui.environmentMapToggle", "Environment map"),
+              type: "toggle",
+              value: () => (core.scene?.environmentIntensity ?? 0) > 0,
+              onChange: async (value) => {
+                if (!core.scene) return;
+                if (value) {
+                  core.scene.environmentIntensity = 0.5;
+                } else {
+                  core.scene.environmentIntensity = 0;
+                }
+                core.scene.traverse((child) => {
+                  const materials = child?.material
+                    ? Array.isArray(child.material)
+                      ? child.material
+                      : [child.material]
+                    : [];
+                  materials.forEach((material) => {
+                    if (material?.isMeshStandardMaterial || material?.isMeshPhysicalMaterial) {
+                      material.needsUpdate = true;
+                    }
+                  });
+                });
+                viewer.updateEditorToolbarState();
+              },
+            },
+            {
+              key: "environmentMapIntensity",
+              icon: "intensity",
+              label: t("gui.intensity", "Intensity"),
+              type: "slider",
+              min: 0,
+              max: 1,
+              step: 0.01,
+              value: () => core.scene?.environmentIntensity ?? 0.5,
+              onChange: (value) => {
+                if (!core.scene) return;
+                core.scene.environmentIntensity = value;
+                core.scene.traverse((child) => {
+                  const materials = child?.material
+                    ? Array.isArray(child.material)
+                      ? child.material
+                      : [child.material]
+                    : [];
+                  materials.forEach((material) => {
+                    if (material?.isMeshStandardMaterial || material?.isMeshPhysicalMaterial) {
+                      material.needsUpdate = true;
+                    }
+                  });
+                });
+              },
+            },
+            {
+              key: "environmentMapStyleNeutral",
+              iconHtml: "🌥",
+              label: t("gui.environmentMapNeutral", "Neutral"),
+              onClick: async () => {
+                await viewer.setEnvironmentMapPreset("neutral");
+                viewer.updateLightsSubmenuState();
+              },
+            },
+            {
+              key: "environmentMapStyleSunny",
+              iconHtml: "☀️",
+              label: t("gui.environmentMapSunny", "Sunny"),
+              onClick: async () => {
+                await viewer.setEnvironmentMapPreset("sunny");
+                viewer.updateLightsSubmenuState();
+              },
+            },
+            {
+              key: "environmentMapStyleStudio",
+              iconHtml: "📸",
+              label: t("gui.environmentMapStudio", "Studio"),
+              onClick: async () => {
+                await viewer.setEnvironmentMapPreset("studio");
+                viewer.updateLightsSubmenuState();
+              },
+            },
+            {
+              key: "environmentMapStyleGoldenHour",
+              iconHtml: "🌅",
+              label: t("gui.environmentMapGoldenHour", "Golden Hour"),
+              onClick: async () => {
+                await viewer.setEnvironmentMapPreset("goldenHour");
+                viewer.updateLightsSubmenuState();
+              },
+            },
+          ],
         },
         {
           key: "lightTarget",
@@ -786,7 +901,9 @@ export function createEditorToolbar(viewer) {
     }
     viewer.bindEventListener(button, "click", () => {
       viewer.stopHandMode();
-      tool.onClick();
+      if (tool.onClick) {
+        tool.onClick();
+      }
     });
     if (tool.primary) toolbar.appendChild(button);
     else secondaryTray.appendChild(button);
@@ -894,6 +1011,16 @@ export function updateLightsSubmenuState(viewer) {
     "aria-pressed",
     viewer.environmentMapEnabled !== false ? "true" : "false"
   );
+
+  const environmentMapToggle = viewer.lightsSubmenuButtons.environmentMapToggle;
+  if (environmentMapToggle) {
+    const toggleLabel = environmentMapToggle.querySelector('.viewer-editor-tool_submenu-toggle-state');
+    const isEnabled = (core.scene?.environmentIntensity ?? 0) > 0;
+    if (toggleLabel) toggleLabel.textContent = isEnabled ? t("gui.on", "ON") : t("gui.off", "OFF");
+    environmentMapToggle.setAttribute("aria-pressed", isEnabled ? "true" : "false");
+    environmentMapToggle.classList.toggle("is-active", isEnabled);
+  }
+
   viewer.lightsSubmenuButtons.lightTargetTransformMove?.classList.toggle(
     "is-active",
     activeMode === "translate"
@@ -902,6 +1029,20 @@ export function updateLightsSubmenuState(viewer) {
     "is-active",
     activeMode === "rotate"
   );
+
+  const environmentMapPreset = viewer.environmentMapPreset || "neutral";
+  const environmentMapPresetStates = {
+    environmentMapStyleNeutral: "neutral",
+    environmentMapStyleSunny: "sunny",
+    environmentMapStyleStudio: "studio",
+    environmentMapStyleGoldenHour: "goldenHour",
+  };
+
+  Object.entries(environmentMapPresetStates).forEach(([key, value]) => {
+    const isActive = environmentMapPreset === value;
+    viewer.lightsSubmenuButtons[key]?.classList.toggle("is-active", isActive);
+    viewer.lightsSubmenuButtons[key]?.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
 }
 
 export function updateEditorToolbarLabels(viewer) {
@@ -1006,6 +1147,12 @@ export function updateEditorToolbarLabels(viewer) {
       environmentMap: t("gui.environmentMap", "Environment map"),
       lightTargetTransformMove: t("gui.move", "Move"),
       lightTargetTransformTarget: t("gui.target", "Target"),
+      environmentMapToggle: t("gui.environmentMapToggle", "Environment map"),
+      environmentMapIntensity: t("gui.intensity", "Intensity"),
+      environmentMapStyleNeutral: t("gui.environmentMapNeutral", "Neutral"),
+      environmentMapStyleSunny: t("gui.environmentMapSunny", "Sunny"),
+      environmentMapStyleStudio: t("gui.environmentMapStudio", "Studio"),
+      environmentMapStyleGoldenHour: t("gui.environmentMapGoldenHour", "Golden Hour"),
     };
     Object.entries(viewer.lightsSubmenuButtons).forEach(([key, button]) => {
       const label = lightsSubmenuLabels[key] || key;

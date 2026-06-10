@@ -318,6 +318,12 @@ const VIEWER_I18N = {
       orthographicProjection: "Switch to orthographic projection",
       perspectiveProjection: "Switch to perspective projection",
       environmentMap: "Environment map",
+      environmentMapToggle: "Toggle environment map",
+      environmentMapIntensity: "Environment map intensity",
+      environmentMapStyleNeutral: "Neutral",
+      environmentMapStyleSunny: "Sunny",
+      environmentMapStyleStudio: "Studio",
+      environmentMapStyleGoldenHour: "Golden Hour",
       enableWireframeMode: "Enable wireframe mode",
       disableWireframeMode: "Disable wireframe mode",
       download: "Download model",
@@ -593,6 +599,12 @@ const VIEWER_I18N = {
       orthographicProjection: "Przełącz na projekcję ortograficzną",
       perspectiveProjection: "Przełącz na projekcję perspektywiczną",
       environmentMap: "Mapa otoczenia",
+      environmentMapToggle: "Przełącz mapę otoczenia",
+      environmentMapIntensity: "Intensywność mapy otoczenia",
+      environmentMapStyleNeutral: "Neutralny",
+      environmentMapStyleSunny: "Słoneczny",
+      environmentMapStyleStudio: "Studio",
+      environmentMapStyleGoldenHour: "Złota godzina",
       enableWireframeMode: "Włącz tryb siatki",
       disableWireframeMode: "Wyłącz tryb siatki",
       download: "Pobierz model",
@@ -867,6 +879,12 @@ const VIEWER_I18N = {
       orthographicProjection: "Zur orthografischen Projektion wechseln",
       perspectiveProjection: "Zur perspektivischen Projektion wechseln",
       environmentMap: "Umgebungsmap",
+      environmentMapToggle: "Umgebungsmap wechseln",
+      environmentMapIntensity: "Intensität der Umgebungsmap",
+      environmentMapStyleNeutral: "Neutral",
+      environmentMapStyleSunny: "Sonnig",
+      environmentMapStyleStudio: "Studio",
+      environmentMapStyleGoldenHour: "Goldene Stunde",
       enableWireframeMode: "Drahtgittermodus aktivieren",
       disableWireframeMode: "Drahtgittermodus deaktivieren",
       download: "Modell herunterladen",
@@ -2695,7 +2713,7 @@ function getConfiguredTestImages() {
 }
 
 function createDefaultTestImages() {
-  return Array.from({ length: 4 }, (_unused, index) => ({
+  return Array.from({ length: 9 }, (_unused, index) => ({
     src: createPlaceholderSvgDataUrl(index, `Preview ${index + 1}`),
     alt: `Preview ${index + 1}`,
   }));
@@ -6431,7 +6449,7 @@ async function handleMetadataResponse(
     '</div>';
   metadataContent += await fetchEntityMetadata();
 
-  if (core.downloadModel) {
+  if (!core.downloadModel) {
     core.downloadModel.hidden = true;
     core.downloadModel.removeAttribute("href");
   }
@@ -6675,9 +6693,10 @@ const loadGLTFLoader = async () => (await import('./assets/three.js').then(funct
 const loadDRACOLoader = async () => (await import('./assets/three.js').then(function (n) { return n.r; })).DRACOLoader;
 const loadIFCLoader = async () => (await import('./assets/IFCLoader.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./assets/three.js').then(function (n) { return n.R; })).RoomEnvironment;
+const loadHDRLoader = async () => (await import('./assets/three.js').then(function (n) { return n.H; })).HDRLoader;
 
 var outlineClipping;
-let environmentTexturePromise = null;
+let environmentTextureCache = {};
 
 const loaderMap = {
   gltf: loadGLTFLoader,
@@ -6879,20 +6898,40 @@ function traverseMesh(object) {
   }
 }
 
-function getEnvironmentTexture(renderer) {
+function getEnvironmentTextureForPreset(renderer, preset = "studio") {
   if (!renderer) return Promise.resolve(null);
-  if (!environmentTexturePromise) {
-    environmentTexturePromise = (async () => {
+  
+  // Initialize cache for this preset if not exists
+  if (!environmentTextureCache[preset]) {
+    environmentTextureCache[preset] = (async () => {
       const pmrem = new THREE.PMREMGenerator(renderer);
       try {
-        const TempRoomEnvironment = await loadRoomEnvironment();
-        return pmrem.fromScene(new TempRoomEnvironment()).texture;
+        if (preset === "studio") {
+          // Studio uses RoomEnvironment
+          const TempRoomEnvironment = await loadRoomEnvironment();
+          return pmrem.fromScene(new TempRoomEnvironment()).texture;
+        } else if (preset === "neutral" || preset === "sunny" || preset === "goldenHour") {
+          // Load HDR map for other presets
+          const HDRLoader = await loadHDRLoader();
+          const loader = new HDRLoader();
+          const baseModulePath = core.DFG_ASSETS || core.CONFIG?.baseModulePath || '/assets';
+          const mapFilename = preset === "goldenHour" ? "golden_hour.hdr" : `${preset}.hdr`;
+          const mapUrl = `${baseModulePath.replace(/\/$/, '')}/maps/${mapFilename}`;
+          
+          const texture = await new Promise((resolve, reject) => {
+            loader.load(mapUrl, resolve, undefined, reject);
+          });
+          texture.mapping = THREE.EquirectangularReflectionMapping;
+          return pmrem.fromEquirectangular(texture).texture;
+        }
+        return null;
       } finally {
         pmrem.dispose();
       }
     })();
   }
-  return environmentTexturePromise;
+  
+  return environmentTextureCache[preset];
 }
 
 function markEnvironmentMaterialsDirty(root) {
@@ -6908,9 +6947,22 @@ function markEnvironmentMaterialsDirty(root) {
   });
 }
 
-async function syncSceneEnvironment(enabled = true) {
+async function syncSceneEnvironment(enabled = true, preset = null) {
   if (!core.scene) return;
-  core.scene.environment = enabled ? await getEnvironmentTexture(core.renderer) : null;
+  
+  // Use provided preset or fall back to viewer's preset, then studio
+  const effectivePreset = preset || window.viewer?.environmentMapPreset || "studio";
+  
+  if (enabled) {
+    core.scene.environment = await getEnvironmentTextureForPreset(core.renderer, effectivePreset);
+    if (core.scene.environmentIntensity === 0) {
+      core.scene.environmentIntensity = 0.5;
+    }
+  } else {
+    core.scene.environment = null;
+    core.scene.environmentIntensity = 0;
+  }
+  
   markEnvironmentMaterialsDirty(core.scene);
 }
 
@@ -13766,6 +13818,7 @@ function createEditorToolbar(viewer) {
   }
 
   viewer.editorToolbarButtons = {};
+  viewer.environmentMapPreset = viewer.environmentMapPreset || "neutral";
   const secondaryTray = document.createElement("div");
   secondaryTray.className = "viewer-editor-toolbar_secondary-tray";
   viewer.editorToolbarSecondaryTray = secondaryTray;
@@ -14050,7 +14103,7 @@ function createEditorToolbar(viewer) {
           const iconSpan = document.createElement("span");
           iconSpan.className = "viewer-editor-tool_icon";
           iconSpan.setAttribute("aria-hidden", "true");
-          iconSpan.innerHTML = getEditorToolbarIcon(item.icon);
+          iconSpan.innerHTML = item.iconHtml || getEditorToolbarIcon(item.icon);
           subButton.appendChild(iconSpan);
 
           if (item.type === "color") {
@@ -14091,6 +14144,30 @@ function createEditorToolbar(viewer) {
 
             subButton.appendChild(slider);
             subButton.appendChild(valueLabel);
+          } else if (item.type === "toggle") {
+            subButton.classList.add("viewer-editor-tool_submenu-control", "viewer-editor-tool_submenu-toggle");
+            subButton.setAttribute("type", "button");
+
+            const toggleState = document.createElement("span");
+            toggleState.className = "viewer-editor-tool_submenu-toggle-state";
+            const setToggleState = () => {
+              const enabled = Boolean(item.value());
+              toggleState.textContent = enabled ? t$1("gui.on", "ON") : t$1("gui.off", "OFF");
+              subButton.setAttribute("aria-pressed", enabled ? "true" : "false");
+              subButton.classList.toggle("is-active", enabled);
+            };
+            setToggleState();
+
+            viewer.bindEventListener(subButton, "click", async (event) => {
+              event.stopPropagation();
+              const nextValue = !Boolean(item.value());
+              if (item.onChange) {
+                await item.onChange(nextValue);
+              }
+              setToggleState();
+            });
+
+            subButton.appendChild(toggleState);
           } else if (item.onClick) {
             viewer.bindEventListener(subButton, "click", (event) => {
               event.stopPropagation();
@@ -14106,10 +14183,11 @@ function createEditorToolbar(viewer) {
             subButton.appendChild(nested);
           }
 
-          if (item.key === "lightTargetTransformMove" || item.key === "lightTargetTransformTarget") {
-            viewer.lightsSubmenuButtons[item.key] = subButton;
-          }
-          if (item.key === "environmentMap") {
+          if (
+            item.key === "lightTargetTransformMove" ||
+            item.key === "lightTargetTransformTarget" ||
+            item.key.startsWith("environmentMap")
+          ) {
             viewer.lightsSubmenuButtons[item.key] = subButton;
           }
           container.appendChild(subButton);
@@ -14121,7 +14199,98 @@ function createEditorToolbar(viewer) {
           key: "environmentMap",
           icon: "environmentMap",
           label: t$1("gui.environmentMap", "Environment map"),
-          onClick: () => viewer.toggleEnvironmentMap(),
+          children: [
+            {
+              key: "environmentMapToggle",
+              icon: "environmentMap",
+              label: t$1("gui.environmentMapToggle", "Environment map"),
+              type: "toggle",
+              value: () => (core.scene?.environmentIntensity ?? 0) > 0,
+              onChange: async (value) => {
+                if (!core.scene) return;
+                if (value) {
+                  core.scene.environmentIntensity = 0.5;
+                } else {
+                  core.scene.environmentIntensity = 0;
+                }
+                core.scene.traverse((child) => {
+                  const materials = child?.material
+                    ? Array.isArray(child.material)
+                      ? child.material
+                      : [child.material]
+                    : [];
+                  materials.forEach((material) => {
+                    if (material?.isMeshStandardMaterial || material?.isMeshPhysicalMaterial) {
+                      material.needsUpdate = true;
+                    }
+                  });
+                });
+                viewer.updateEditorToolbarState();
+              },
+            },
+            {
+              key: "environmentMapIntensity",
+              icon: "intensity",
+              label: t$1("gui.intensity", "Intensity"),
+              type: "slider",
+              min: 0,
+              max: 1,
+              step: 0.01,
+              value: () => core.scene?.environmentIntensity ?? 0.5,
+              onChange: (value) => {
+                if (!core.scene) return;
+                core.scene.environmentIntensity = value;
+                core.scene.traverse((child) => {
+                  const materials = child?.material
+                    ? Array.isArray(child.material)
+                      ? child.material
+                      : [child.material]
+                    : [];
+                  materials.forEach((material) => {
+                    if (material?.isMeshStandardMaterial || material?.isMeshPhysicalMaterial) {
+                      material.needsUpdate = true;
+                    }
+                  });
+                });
+              },
+            },
+            {
+              key: "environmentMapStyleNeutral",
+              iconHtml: "🌥",
+              label: t$1("gui.environmentMapNeutral", "Neutral"),
+              onClick: async () => {
+                await viewer.setEnvironmentMapPreset("neutral");
+                viewer.updateLightsSubmenuState();
+              },
+            },
+            {
+              key: "environmentMapStyleSunny",
+              iconHtml: "☀️",
+              label: t$1("gui.environmentMapSunny", "Sunny"),
+              onClick: async () => {
+                await viewer.setEnvironmentMapPreset("sunny");
+                viewer.updateLightsSubmenuState();
+              },
+            },
+            {
+              key: "environmentMapStyleStudio",
+              iconHtml: "📸",
+              label: t$1("gui.environmentMapStudio", "Studio"),
+              onClick: async () => {
+                await viewer.setEnvironmentMapPreset("studio");
+                viewer.updateLightsSubmenuState();
+              },
+            },
+            {
+              key: "environmentMapStyleGoldenHour",
+              iconHtml: "🌅",
+              label: t$1("gui.environmentMapGoldenHour", "Golden Hour"),
+              onClick: async () => {
+                await viewer.setEnvironmentMapPreset("goldenHour");
+                viewer.updateLightsSubmenuState();
+              },
+            },
+          ],
         },
         {
           key: "lightTarget",
@@ -14265,7 +14434,9 @@ function createEditorToolbar(viewer) {
     }
     viewer.bindEventListener(button, "click", () => {
       viewer.stopHandMode();
-      tool.onClick();
+      if (tool.onClick) {
+        tool.onClick();
+      }
     });
     if (tool.primary) toolbar.appendChild(button);
     else secondaryTray.appendChild(button);
@@ -14373,6 +14544,16 @@ function updateLightsSubmenuState(viewer) {
     "aria-pressed",
     viewer.environmentMapEnabled !== false ? "true" : "false"
   );
+
+  const environmentMapToggle = viewer.lightsSubmenuButtons.environmentMapToggle;
+  if (environmentMapToggle) {
+    const toggleLabel = environmentMapToggle.querySelector('.viewer-editor-tool_submenu-toggle-state');
+    const isEnabled = (core.scene?.environmentIntensity ?? 0) > 0;
+    if (toggleLabel) toggleLabel.textContent = isEnabled ? t$1("gui.on", "ON") : t$1("gui.off", "OFF");
+    environmentMapToggle.setAttribute("aria-pressed", isEnabled ? "true" : "false");
+    environmentMapToggle.classList.toggle("is-active", isEnabled);
+  }
+
   viewer.lightsSubmenuButtons.lightTargetTransformMove?.classList.toggle(
     "is-active",
     activeMode === "translate"
@@ -14381,6 +14562,20 @@ function updateLightsSubmenuState(viewer) {
     "is-active",
     activeMode === "rotate"
   );
+
+  const environmentMapPreset = viewer.environmentMapPreset || "neutral";
+  const environmentMapPresetStates = {
+    environmentMapStyleNeutral: "neutral",
+    environmentMapStyleSunny: "sunny",
+    environmentMapStyleStudio: "studio",
+    environmentMapStyleGoldenHour: "goldenHour",
+  };
+
+  Object.entries(environmentMapPresetStates).forEach(([key, value]) => {
+    const isActive = environmentMapPreset === value;
+    viewer.lightsSubmenuButtons[key]?.classList.toggle("is-active", isActive);
+    viewer.lightsSubmenuButtons[key]?.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
 }
 
 function updateEditorToolbarLabels(viewer) {
@@ -14485,6 +14680,12 @@ function updateEditorToolbarLabels(viewer) {
       environmentMap: t$1("gui.environmentMap", "Environment map"),
       lightTargetTransformMove: t$1("gui.move", "Move"),
       lightTargetTransformTarget: t$1("gui.target", "Target"),
+      environmentMapToggle: t$1("gui.environmentMapToggle", "Environment map"),
+      environmentMapIntensity: t$1("gui.intensity", "Intensity"),
+      environmentMapStyleNeutral: t$1("gui.environmentMapNeutral", "Neutral"),
+      environmentMapStyleSunny: t$1("gui.environmentMapSunny", "Sunny"),
+      environmentMapStyleStudio: t$1("gui.environmentMapStudio", "Studio"),
+      environmentMapStyleGoldenHour: t$1("gui.environmentMapGoldenHour", "Golden Hour"),
     };
     Object.entries(viewer.lightsSubmenuButtons).forEach(([key, button]) => {
       const label = lightsSubmenuLabels[key] || key;
@@ -15744,6 +15945,17 @@ const Viewer$1 = {
     this.environmentMapEnabled = enabled !== false;
     setCore("environmentMapEnabled", this.environmentMapEnabled);
     await syncSceneEnvironment(this.environmentMapEnabled);
+    this.updateEditorToolbarState();
+  },
+
+  async setEnvironmentMapPreset(preset) {
+    this.environmentMapPreset = preset || "studio";
+    setCore("environmentMapPreset", this.environmentMapPreset);
+    // If environment is enabled, sync with the new preset
+    const isEnabled = (core.scene?.environmentIntensity ?? 0) > 0;
+    if (isEnabled) {
+      await syncSceneEnvironment(true, this.environmentMapPreset);
+    }
     this.updateEditorToolbarState();
   },
 
@@ -17386,21 +17598,20 @@ const Viewer$1 = {
 
       // CSS size only
       Viewer$1.mainCanvas.style.width = `${effectiveWidth}px`;
-
       Viewer$1.mainCanvas.style.height = `${effectiveHeight}px`;
+
+      const canvasRect = Viewer$1.mainCanvas.getBoundingClientRect();
+      const parentRect = core.container.getBoundingClientRect();
+
+      const bottom = parentRect.bottom - canvasRect.bottom + 12 || 24;
 
       if (isFullscreen) {
         Viewer$1.mainCanvas.style.width = "100vw";
         Viewer$1.mainCanvas.style.height = "100vh";
-        core.editorToolbar.style.bottom = "24px";
+        core.editorToolbar.style.bottom = `${bottom}px`;
       } else {
-        const extraHeight = effectiveHeight - heightCSS;
         if (core.editorToolbar) {
-          if (extraHeight > 0) {
-            core.editorToolbar.style.bottom = `${ -60 - extraHeight  * 2}px`;
-          } else {
-            core.editorToolbar.style.bottom = "12px";
-          }
+          core.editorToolbar.style.bottom = `${bottom}px`;
         }
       }
 

@@ -1541,22 +1541,26 @@ canvas {
 }
 
 #image-list {
-  gap: 16px;
-  align-items: center;
-
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
   width: 100%;
-  max-width: 100%;
-  overflow: hidden;
 }
 
 #image-list .field__item {
-  flex: 0 0 200px;
-  width: 200px;
-  height: 180px;
-
-  position: relative;
+  flex: 1 1 0;
+  min-width: 50px;
+  aspect-ratio: 1 / 1;
   overflow: hidden;
   border-radius: 10%;
+}
+
+#image-list .field__item img {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  object-fit: contain;
 }
 
 .image-style-wisski-preview {
@@ -1580,7 +1584,6 @@ canvas {
   transform: translateZ(0);
   -webkit-font-smoothing: antialiased;
 }
-
 
 #image-list .field__item .image-style-wisski-preview {
   display: block;

@@ -627,6 +627,17 @@ export const Viewer = {
     this.updateEditorToolbarState();
   },
 
+  async setEnvironmentMapPreset(preset) {
+    this.environmentMapPreset = preset || "studio";
+    setCore("environmentMapPreset", this.environmentMapPreset);
+    // If environment is enabled, sync with the new preset
+    const isEnabled = (core.scene?.environmentIntensity ?? 0) > 0;
+    if (isEnabled) {
+      await syncSceneEnvironment(true, this.environmentMapPreset);
+    }
+    this.updateEditorToolbarState();
+  },
+
   async toggleEnvironmentMap() {
     await this.setEnvironmentMapEnabled(!this.environmentMapEnabled);
   },
@@ -2269,21 +2280,21 @@ export const Viewer = {
 
       // CSS size only
       Viewer.mainCanvas.style.width = `${effectiveWidth}px`;
-
       Viewer.mainCanvas.style.height = `${effectiveHeight}px`;
+
+      const canvasRect = Viewer.mainCanvas.getBoundingClientRect();
+      const parentRect = core.container.getBoundingClientRect();
+
+      const bottom = parentRect.bottom - canvasRect.bottom + 12 || 24;
 
       if (isFullscreen) {
         Viewer.mainCanvas.style.width = "100vw";
         Viewer.mainCanvas.style.height = "100vh";
-        core.editorToolbar.style.bottom = "24px";
+        core.editorToolbar.style.bottom = `${bottom}px`;
       } else {
         const extraHeight = effectiveHeight - heightCSS;
         if (core.editorToolbar) {
-          if (extraHeight > 0) {
-            core.editorToolbar.style.bottom = `${-60 - extraHeight  * 2}px`;
-          } else {
-            core.editorToolbar.style.bottom = "12px";
-          }
+          core.editorToolbar.style.bottom = `${bottom}px`;
         }
       }
 

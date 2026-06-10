@@ -279,6 +279,22 @@
   border: 1px solid rgba(133, 133, 145, 0.39);
 }
 
+.viewer-editor-tool_submenu-button.viewer-editor-tool_submenu-toggle {
+  min-width: 48px;
+  min-height: 26px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  gap: 0;
+  justify-content: center;
+  border-color: rgba(133, 133, 145, 0.39);
+}
+
+.viewer-editor-tool_submenu-button.viewer-editor-tool_submenu-toggle .viewer-editor-tool_submenu-toggle-state {
+  font-size: 0.75rem;
+  line-height: 1;
+  letter-spacing: 0.03em;
+}
+
 .viewer-editor-tool_label {
   margin-left: 8px;
   font-size: 0.8rem;

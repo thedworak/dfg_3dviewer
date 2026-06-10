@@ -92,6 +92,7 @@ function copyBuildAssets() {
         copyDirectory('viewer/css', path.join(outDistDir, 'assets/css')),
         copyDirectory('viewer/img', path.join(outDistDir, 'assets/img')),
         copyDirectory('viewer/fonts', path.join(outDistDir, 'assets/fonts')),
+        copyDirectory('viewer/js/maps', path.join(outDistDir, 'assets/maps')),
         copyDirectory('viewer/examples', path.join(outDistDir, 'examples')),
       ]);
 
@@ -206,7 +207,7 @@ export default {
     json(),
 
     url({
-      include: ['viewer/**/*.{svg,png,jpg,gif}'],
+      include: ['viewer/**/*.{svg,png,jpg,gif,hdr}'],
       limit: 0,
       fileName: 'assets/[name][extname]',
       publicPath: 'assets/'

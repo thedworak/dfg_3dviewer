@@ -73,7 +73,7 @@ function getConfiguredTestImages() {
 }
 
 function createDefaultTestImages() {
-  return Array.from({ length: 4 }, (_unused, index) => ({
+  return Array.from({ length: 9 }, (_unused, index) => ({
     src: createPlaceholderSvgDataUrl(index, `Preview ${index + 1}`),
     alt: `Preview ${index + 1}`,
   }));

@@ -684,45 +684,6 @@ function automatic_helper (&$autoPath, $prefix, $filename, $value) {
 	}
 }
 
-function semi_automatic_path ($prefix, $filename, $filenameArchive, &$autoPath, $extension) {
-	$allowedModelFormats = \Drupal::service('dfg_3dviewer.model_format_manager')->getAllowedModelFormats();
-	$zipFormats = \Drupal::service('dfg_3dviewer.model_format_manager')->getZipFormats();
-	$allowedFormats = array_merge($allowedModelFormats, $zipFormats);
-	$SPATH=\Drupal::service('file_system')->realpath(\Drupal::service('module_handler')->getModule('dfg_3dviewer')->getPath());
-	$SPATH = str_replace('/modules/dfg_3dviewer', '', $SPATH);
-	$prefix = $SPATH . $prefix;
-	$autoPath = '';
-	if ($filenameArchive === '') $filenameArchive = $filename;
-	if (in_arrayi($extension, $allowedFormats)) {
-		if(!file_exists($prefix . "/gltf/" . $filename . ".glb")) {
-			if(!file_exists($prefix . "/gltf/" . $filenameArchive . ".glb")) {
-				foreach ($allowedFormats as $value) {
-					automatic_helper ($autoPath, $prefix, $filenameArchive, $value);
-				}
-			}
-			else
-			{
-				$autoPath = $prefix . "/gltf/" . $filenameArchive . ".glb";
-			}
-		}
-		else
-		{
-			$autoPath = $prefix . "/gltf/" . $filename . ".glb";
-		}
-		if ($autoPath === '') {
-			foreach ($allowedFormats as $value) {
-				automatic_helper ($autoPath, $prefix, $filenameArchive, $value);
-			}
-		}
-	}
-	else {
-		automatic_helper ($autoPath, $prefix, $filenameArchive, $extension);
-	}
-	if ($autoPath === '') {
-		automatic_helper ($autoPath, $prefix, $filenameArchive, $extension);
-	}
-}
-
 /**
 * Implements hook_file_validate().
  */

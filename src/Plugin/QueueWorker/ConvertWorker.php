@@ -281,6 +281,7 @@ class ConvertWorker extends QueueWorkerBase {
     $archives = \Drupal::service('dfg_3dviewer.model_format_manager')->getZipFormats();
     $is_archive = in_arrayi($extension, $archives);
     $archive_suffix = strtoupper($extension);
+    $converted_output_uri = '';
 
     $new_file = $parts['dirname'] . '/gltf/' . $parts['filename'] . '.glb';
     $new_dir = $parts['dirname'] . '/' . $parts['filename'] . '_' . $archive_suffix . '/gltf/';
@@ -380,6 +381,11 @@ class ConvertWorker extends QueueWorkerBase {
           throw new \RuntimeException('No supported 3D model found in archive.');
         }
 
+        $source_dir_uri = preg_replace('#/[^/]+$#', '', $file->getFileUri()) ?: '';
+        $converted_output_uri = $source_dir_uri
+          . '/' . $parts['filename'] . '_' . $archive_suffix
+          . '/gltf/' . pathinfo($model_file, PATHINFO_FILENAME) . '.glb';
+
         $convert_result = \Drupal::service('dfg_3dviewer.convert_process')->run(
           $module_path,
           $model_file,
@@ -465,6 +471,7 @@ class ConvertWorker extends QueueWorkerBase {
     return [
       'extension' => $extension,
       'is_archive' => $is_archive,
+      'converted_output_uri' => $converted_output_uri,
     ];
   }
 
@@ -659,6 +666,10 @@ class ConvertWorker extends QueueWorkerBase {
     }
 
     $preferred_uris = [];
+    $converted_output_uri = trim((string) ($context['converted_output_uri'] ?? ''));
+    if ($converted_output_uri !== '') {
+      $preferred_uris[] = $converted_output_uri;
+    }
     $base_names = array_values(array_filter(array_unique([
       $upload_base,
       $file_base,
@@ -677,6 +688,16 @@ class ConvertWorker extends QueueWorkerBase {
         foreach ($base_names as $base_name) {
           foreach ($output_extensions as $output_ext) {
             $preferred_uris[] = rtrim($candidate_dir, '/\\') . '/' . $base_name . '.' . $output_ext;
+          }
+        }
+
+        $candidate_real_dir = $fs->realpath($candidate_dir);
+        if ($candidate_real_dir && is_dir($candidate_real_dir)) {
+          foreach ($output_extensions as $output_ext) {
+            $converted_files = glob(rtrim($candidate_real_dir, '/\\') . '/*.' . $output_ext) ?: [];
+            foreach ($converted_files as $converted_file) {
+              $preferred_uris[] = rtrim($candidate_dir, '/\\') . '/' . basename($converted_file);
+            }
           }
         }
       }

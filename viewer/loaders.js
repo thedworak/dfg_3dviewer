@@ -13,13 +13,14 @@ export const loadGLTFLoader = async () => (await import("three/examples/jsm/load
 export const loadDRACOLoader = async () => (await import("three/examples/jsm/loaders/DRACOLoader.js")).DRACOLoader;
 export const loadIFCLoader = async () => (await import("./js/loaders/IFCLoader.js")).IFCLoader;
 export const loadRoomEnvironment = async () => (await import("three/examples/jsm/environments/RoomEnvironment.js")).RoomEnvironment;
+export const loadHDRLoader = async () => (await import("three/examples/jsm/loaders/HDRLoader.js")).HDRLoader;
 
 import { core } from './core.js';
 import { fetchSettings, presentationMode } from "./metadata.js";
 import { reportViewerError, showToast, toastHelper } from "./viewer-utils.js";
 
 export var outlineClipping;
-let environmentTexturePromise = null;
+let environmentTextureCache = {};
 
 const loaderMap = {
   gltf: loadGLTFLoader,
@@ -235,20 +236,45 @@ function traverseMesh(object) {
   }
 }
 
-function getEnvironmentTexture(renderer) {
+function getEnvironmentTextureForPreset(renderer, preset = "studio") {
   if (!renderer) return Promise.resolve(null);
-  if (!environmentTexturePromise) {
-    environmentTexturePromise = (async () => {
+  
+  // Initialize cache for this preset if not exists
+  if (!environmentTextureCache[preset]) {
+    environmentTextureCache[preset] = (async () => {
       const pmrem = new THREE.PMREMGenerator(renderer);
       try {
-        const TempRoomEnvironment = await loadRoomEnvironment();
-        return pmrem.fromScene(new TempRoomEnvironment()).texture;
+        if (preset === "studio") {
+          // Studio uses RoomEnvironment
+          const TempRoomEnvironment = await loadRoomEnvironment();
+          return pmrem.fromScene(new TempRoomEnvironment()).texture;
+        } else if (preset === "neutral" || preset === "sunny" || preset === "goldenHour") {
+          // Load HDR map for other presets
+          const HDRLoader = await loadHDRLoader();
+          const loader = new HDRLoader();
+          const baseModulePath = core.DFG_ASSETS || core.CONFIG?.baseModulePath || '/assets';
+          const mapFilename = preset === "goldenHour" ? "golden_hour.hdr" : `${preset}.hdr`;
+          const mapUrl = `${baseModulePath.replace(/\/$/, '')}/maps/${mapFilename}`;
+          
+          const texture = await new Promise((resolve, reject) => {
+            loader.load(mapUrl, resolve, undefined, reject);
+          });
+          texture.mapping = THREE.EquirectangularReflectionMapping;
+          return pmrem.fromEquirectangular(texture).texture;
+        }
+        return null;
       } finally {
         pmrem.dispose();
       }
     })();
   }
-  return environmentTexturePromise;
+  
+  return environmentTextureCache[preset];
+}
+
+function getEnvironmentTexture(renderer) {
+  // Legacy function for backwards compatibility
+  return getEnvironmentTextureForPreset(renderer, "studio");
 }
 
 function markEnvironmentMaterialsDirty(root) {
@@ -264,9 +290,22 @@ function markEnvironmentMaterialsDirty(root) {
   });
 }
 
-export async function syncSceneEnvironment(enabled = true) {
+export async function syncSceneEnvironment(enabled = true, preset = null) {
   if (!core.scene) return;
-  core.scene.environment = enabled ? await getEnvironmentTexture(core.renderer) : null;
+  
+  // Use provided preset or fall back to viewer's preset, then studio
+  const effectivePreset = preset || window.viewer?.environmentMapPreset || "studio";
+  
+  if (enabled) {
+    core.scene.environment = await getEnvironmentTextureForPreset(core.renderer, effectivePreset);
+    if (core.scene.environmentIntensity === 0) {
+      core.scene.environmentIntensity = 0.5;
+    }
+  } else {
+    core.scene.environment = null;
+    core.scene.environmentIntensity = 0;
+  }
+  
   markEnvironmentMaterialsDirty(core.scene);
 }
 

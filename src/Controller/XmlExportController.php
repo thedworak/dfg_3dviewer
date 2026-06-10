@@ -252,7 +252,9 @@ class XmlExportController extends ControllerBase {
   protected function buildXmlFromJsonRecord(array $record, int $id, string $domain): string {
     $domain = $this->normalizeDomain($domain);
     $title = $this->stringValue($record, 'title', 'Digital reconstruction ' . $id);
-    $converted_file = $this->extractModelUrlFromRecord($record);
+    $converted_file = $this->normalizeArchiveModelPath(
+      $this->extractModelUrlFromRecord($record)
+    );
     if ($converted_file === '') {
       throw new \RuntimeException(
         'JSON record does not contain a 3D file URL. Available keys: ' . implode(', ', array_keys($record))
@@ -885,7 +887,7 @@ class XmlExportController extends ControllerBase {
   protected function normalizeDefaultHostUrls(string $xml, string $domain): string {
     $domain = $this->normalizeDomain($domain);
     if ($domain === '') {
-      return $xml;
+      return $this->normalizeArchiveModelPath($xml);
     }
 
     $normalized = preg_replace('#https?://(default|dfg_3dviewer)(?=/)#i', $domain, $xml);
@@ -902,7 +904,15 @@ class XmlExportController extends ControllerBase {
       $normalized
     );
 
-    return $normalized;
+    return $this->normalizeArchiveModelPath($normalized);
+  }
+
+  protected function normalizeArchiveModelPath(string $value): string {
+    return preg_replace(
+      '#(/[^/"\'<>\s]+_(?:ZIP|RAR|TAR|XZ|GZ))/([^/"\'<>\s]+\.(?:glb|gltf))#i',
+      '$1/gltf/$2',
+      $value
+    ) ?? $value;
   }
 
   protected function fetchXsl(): string {
