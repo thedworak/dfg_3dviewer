@@ -682,6 +682,10 @@ class ConvertWorker extends QueueWorkerBase {
         $dir_uri . '/' . $file_base . '_' . $extension . '/gltf',
         $dir_uri . '/' . $file_base . '_' . strtoupper($extension) . '/gltf',
         $dir_uri . '/gltf',
+        // Prefer gltf output for archive conversions, but keep top-level archive folder
+        // as fallback if the converter did not create a subdirectory.
+        $dir_uri . '/' . $file_base . '_' . $extension,
+        $dir_uri . '/' . $file_base . '_' . strtoupper($extension),
       ];
 
       foreach (array_unique($archive_dirs) as $candidate_dir) {
