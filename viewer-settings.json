@@ -23,7 +23,7 @@
     "imageGeneration": "fd6a974b7120d422c7b21b5f1f2315d9",
     "presentationMode": false,
     "sandboxMode": false,
-    "lightweight": true,
+    "lightweight": false,
     "scaleContainer": {
       "x": "1.0",
       "y": "1.0"
