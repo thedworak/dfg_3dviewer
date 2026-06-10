@@ -3643,8 +3643,8 @@ export const Viewer = {
 
         Viewer.downloadModel = document.createElement("a");
         setCore('downloadModel', Viewer.downloadModel);
-        Viewer.downloadModel.setAttribute("id", "downloadModel");
-        Viewer.downloadModel.hidden = true;
+        core.downloadModel.setAttribute("id", "downloadModel");
+        core.downloadModel.hidden = true;
 
         Viewer.fullscreenMode = document.createElement("button");
         Viewer.updateFullscreenButtonIcon();
@@ -3702,7 +3702,6 @@ export const Viewer = {
         setCore('viewEntity', Viewer.viewEntity);
         Viewer.bindEventListener(Viewer.languageMode, "click", Viewer.toggleLanguage.bind(Viewer));
         Viewer.bindEventListener(Viewer.themeMode, "click", Viewer.toggleTheme.bind(Viewer));
-        //Viewer.bindEventListener(Viewer.fullscreenMode, "click", Viewer.toggleFullscreen, false);
         Viewer.bindEventListener(Viewer.viewEntity, "click", Viewer.openEmbedConfiguratorFromMenu.bind(Viewer));
         Viewer.updateEmbedMenuEntryState();
         Viewer.applyLanguage({ persist: false });
