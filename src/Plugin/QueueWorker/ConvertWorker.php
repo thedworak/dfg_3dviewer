@@ -386,6 +386,11 @@ class ConvertWorker extends QueueWorkerBase {
           . '/' . $parts['filename'] . '_' . $archive_suffix
           . '/gltf/' . pathinfo($model_file, PATHINFO_FILENAME) . '.glb';
 
+        \Drupal::logger('dfg_3dviewer')->notice(
+          'Archive conversion target path set to gltf output: @uri',
+          ['@uri' => $converted_output_uri]
+        );
+
         $convert_result = \Drupal::service('dfg_3dviewer.convert_process')->run(
           $module_path,
           $model_file,
@@ -727,6 +732,14 @@ class ConvertWorker extends QueueWorkerBase {
         break;
       }
     }
+    \Drupal::logger('dfg_3dviewer')->notice(
+      'Viewer auto_path selection for entity @entity_id: chosen="@chosen" candidates=@count',
+      [
+        '@entity_id' => (string) ($entity->id() ?? ''),
+        '@chosen' => $auto_path,
+        '@count' => count($preferred_uris),
+      ]
+    );
     $auto_path_url = $auto_path !== ''
       ? ($this->uriToUrl($auto_path, $this->getPreferredPublicBaseUrl($cfg)) ?? '')
       : '';
