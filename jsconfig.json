@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "module": "esnext",
+    "target": "es6",
+    "moduleResolution": "node",
+    "jsx": "preserve",
+    "esModuleInterop": true,
+    "allowJs": true,
+    "sourceMap": true,
+    "lib": ["es6", "dom"],
+    "rootDir": "viewer"
+  },
+  "exclude": ["node_modules"]
+}

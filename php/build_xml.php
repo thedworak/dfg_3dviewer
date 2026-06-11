@@ -1,11 +1,14 @@
 <?php
 
-const EXPORT_PATH='/export_xml_single/';
+const EXPORT_PATHS=[
+	'/wisski/navigate/%d/view',
+	'/export_xml_single/%d',
+];
 const MFILEPATH='sites/default/files/xml_structure';
 const XSLURL="https://raw.githubusercontent.com/slub/dfg-viewer/e54305a9fa58951d3f3d1dd7e64554cb2ee881eb/Resources/Public/XSLT/exportSingleToMetsMods.xsl";
 libxml_use_internal_errors(true); // Suppress default XML errors
 
-function file_get_contents_curl( $url ) {
+function file_get_content_curl( $url ) {
 	$ch = curl_init();
 
 	curl_setopt( $ch, CURLOPT_AUTOREFERER, TRUE );
@@ -28,17 +31,73 @@ function file_get_contents_curl( $url ) {
 
 }
 
+function normalize_domain(string $domain): string {
+	$domain = trim($domain);
+	if ($domain === '') {
+		return '';
+	}
+	if (!preg_match('#^https?://#i', $domain)) {
+		$domain = 'https://' . $domain;
+	}
+	return rtrim($domain, '/');
+}
+
+function normalize_default_host_urls(string $xml, string $domain): string {
+	if ($domain === '') {
+		return $xml;
+	}
+
+	$normalized = preg_replace('#https?://(default|dfg_3dviewer)(?=/)#i', $domain, $xml);
+
+	/*
+	  Avoid duplicated host prefixes in malformed paths, e.g.
+	  https://host/sites/default/files/wisski_original/https://host/...
+	*/
+	$escaped = preg_quote($domain, '#');
+	$normalized = preg_replace(
+		"#{$escaped}/sites/default/files/wisski_original/{$escaped}#i",
+		$domain,
+		$normalized
+	);
+	$normalized = preg_replace(
+		"#https?://[^/]+/sites/default/files/wisski_original/{$escaped}#i",
+		$domain,
+		$normalized
+	);
+
+	return $normalized;
+}
+
 function build_xml ($id, $domain) {
 	$id = isset($id) ? $id : $_GET['id'];
 	$domain = isset($domain) ? $domain : $_GET['domain'];
+	$domain = normalize_domain((string) $domain);
 	$FILEPATH=MFILEPATH."/$id.xml";
 
-	$url = $domain . EXPORT_PATH . $id . '?page=0&amp;_format=xml';
+	if ($domain === '') {
+		return;
+	}
 
-	$data = file_get_contents_curl($url);
-	$xml = simplexml_load_string($data);
+	$query = http_build_query(['page' => 0, '_format' => 'xml']);
+	$xml = NULL;
+	$data = '';
 
-	if(!empty($xml) || !(is_object($xml))) return;
+	foreach (EXPORT_PATHS as $pattern) {
+		$url = $domain . sprintf($pattern, (int) $id) . '?' . $query;
+		$data = file_get_content_curl($url);
+		if (!is_string($data) || $data === '') {
+			continue;
+		}
+
+		$xml = simplexml_load_string($data);
+		if (!empty($xml) && is_object($xml)) {
+			break;
+		}
+	}
+
+	if (empty($xml) || !is_object($xml)) {
+		return;
+	}
 
 	$xsl = simplexml_load_file(XSLURL);
 	$xslt = new \XSLTProcessor();
@@ -48,7 +107,11 @@ function build_xml ($id, $domain) {
 	if ($result === false) {
 		echo "XSLT Transformation failed.\n";
 	} else {
+		$result = normalize_default_host_urls($result, $domain);
 		$xmlt = simplexml_load_string($result);
+		if ($xmlt === false) {
+			return;
+		}
 
 		$xmlt->registerXPathNamespace('mets', 'http://www.loc.gov/METS/');
 		$xpathResult = $xmlt->xpath('//mets:mets');

@@ -1,0 +1,194 @@
+#!/bin/bash
+
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "${SCRIPT_DIR}/.env" ]]; then
+  source "${SCRIPT_DIR}/.env"
+fi
+BLENDER_BIN="${BLENDER_BIN:-}"
+if [[ -z "$BLENDER_BIN" ]]; then
+  BLENDER_BIN="blender"
+fi
+SPATH="${SPATH:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+
+IS_ARCHIVE=false
+INPUT=""
+GLB_INPUT=""
+
+die() {
+  echo "Error: $*" >&2
+  exit 1
+}
+
+bool() {
+  [[ "$1" == "true" || "$1" == "false" ]] || die "Value must be true/false (is: $1)"
+}
+
+resolve_blender_bin() {
+  local candidate="$1"
+
+  if [[ -z "$candidate" ]]; then
+    return 1
+  fi
+
+  if [[ "$candidate" == /* ]]; then
+    [[ -f "$candidate" && -x "$candidate" ]] || return 1
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+
+  if [[ -f "$SCRIPT_DIR/$candidate" && -x "$SCRIPT_DIR/$candidate" ]]; then
+    printf '%s\n' "$SCRIPT_DIR/$candidate"
+    return 0
+  fi
+
+  if [[ -f "$SPATH/$candidate" && -x "$SPATH/$candidate" ]]; then
+    printf '%s\n' "$SPATH/$candidate"
+    return 0
+  fi
+
+  if command -v "$candidate" &> /dev/null; then
+    command -v "$candidate"
+    return 0
+  fi
+
+  return 1
+}
+
+if ! BLENDER_BIN="$(resolve_blender_bin "$BLENDER_BIN")"; then
+  BLENDER_BIN=""
+fi
+
+check_blender() {
+  if ! BLENDER_BIN="$(resolve_blender_bin "$BLENDER_BIN")"; then
+    echo "Blender doesn't exist, install it by 'apt install blender python3-pip' then 'pip install numpy' or set BLENDER_BIN in scripts/.env"
+    return 1
+  elif [[ ! -f "$BLENDER_BIN" || ! -x "$BLENDER_BIN" ]]; then
+    echo "Configured BLENDER_BIN is not executable: $BLENDER_BIN"
+    return 1
+  fi
+
+  if [[ -n "${BLENDER_BIN:-}" ]]; then
+    echo "Blender exists and be used for next steps..."
+    return 0
+  fi
+}
+
+check_xvfb_run() {
+  if ! command -v xvfb-run &> /dev/null; then
+    echo "xvfb-run doesn't exist, install it by 'apt install xvfb'"
+    return 1
+  else
+    echo "xvfb-run exists and be used for next steps..."
+    return 0
+  fi
+}
+
+check_scripts() {
+  if [ ! -d "${SPATH}/scripts" ]; then
+    echo "Can't find dependencies directory. Did you change your SPATH value in scripts/.env?"
+    return 1
+  else
+    return 0
+  fi
+}
+
+show_usage() {
+  cat <<EOF
+Usage: render.sh [options]
+
+Options:
+  -i, --input FILE         Original input model path.
+  -g, --glb-input FILE     Optional explicit GLB path.
+  -a, --archive true|false
+  -h, --help
+EOF
+  exit 0
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -i|--input)
+      INPUT="$2"
+      shift 2
+      ;;
+    -g|--glb-input)
+      GLB_INPUT="$2"
+      shift 2
+      ;;
+    -a|--archive)
+      bool "$2"
+      IS_ARCHIVE="$2"
+      shift 2
+      ;;
+    -h|--help)
+      show_usage
+      ;;
+    *)
+      die "Error parsing arguments"
+      ;;
+  esac
+done
+
+[[ -n "$INPUT" ]] || die "No --input argument provided"
+[[ -f "$INPUT" ]] || die "Input file not found: $INPUT"
+
+FILENAME=${INPUT##*/}
+NAME="${FILENAME%.*}"
+EXT=${FILENAME//*.}
+EXT="${EXT,,}"
+INPATH=${INPUT%/*}
+if [[ $FILENAME = $INPATH ]]; then
+  INPATH="."
+fi
+
+INPUT_GLTF_PATH="$INPATH/$NAME.glb"
+ORG_EXT="$EXT"
+
+if [[ "$EXT" != "glb" ]]; then
+  INPUT_GLTF_PATH="$INPATH/gltf/$NAME.glb"
+fi
+
+if [[ -n "$GLB_INPUT" ]]; then
+  INPUT_GLTF_PATH="$GLB_INPUT"
+fi
+
+if [[ ! -f "$INPUT_GLTF_PATH" ]]; then
+  die "Render input not found: $INPUT_GLTF_PATH"
+fi
+
+mkdir -p "$INPATH/views"
+RENDER_LOCKFILE="$INPATH/views/${NAME}.lock"
+
+exec 201>"$RENDER_LOCKFILE" || exit 1
+flock -n 201 || {
+  echo "Render already running for $NAME"
+  exec 201>&- 2>/dev/null || true
+  exit 0
+}
+trap 'flock -u 201 2>/dev/null || true; exec 201>&- 2>/dev/null || true; rm -f "$RENDER_LOCKFILE"' EXIT
+
+check_blender || die "Blender validation failed"
+check_xvfb_run || die "xvfb-run validation failed"
+check_scripts || die "Dependency scripts directory not found"
+
+if [[ -z "$RENDER_RESOLUTION" ]]; then
+  RENDER_RESOLUTION='1024x1024x16'
+fi
+if [[ -z "$RENDER_SAMPLES" ]]; then
+  RENDER_SAMPLES='20'
+fi
+
+echo "Rendering thumbnails..."
+xvfb-run --auto-servernum \
+  --server-args="-screen 0 ${RENDER_RESOLUTION}" \
+  "$BLENDER_BIN" -b -P "$SPATH/scripts/render.py" -- \
+  --input "$INPUT_GLTF_PATH" \
+  --ext glb \
+  --org_ext "$ORG_EXT" \
+  --output "$INPATH/views/" \
+  --is_archive "$IS_ARCHIVE" \
+  --resolution "$RENDER_RESOLUTION" \
+  --samples "$RENDER_SAMPLES" \
+  -E BLENDER_EEVEE -f 1
+echo "Blender exit code: $?"

@@ -1,6 +1,6 @@
 /*
 DFG 3D-Viewer
-Copyright (C) 2022 - Daniel Dworak
+Copyright (C) 2025 - Daniel Dworak
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -16,2588 +16,4023 @@ https://www.gnu.org/licenses/.
 
 //Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF
 
+const SOURCE = (typeof __BUILD_SOURCE__ !== 'undefined') ? __BUILD_SOURCE__ : "";
+const IS_PROD = (typeof __IS_PROD__ !== 'undefined') ? __IS_PROD__ === true : false;
+const isE2E = (typeof __IS_PROD__ !== 'undefined') ? window.__E2E__ === true : false;
+const envSubDir = (typeof __ENV_SUBDIR__ !== 'undefined') ? __ENV_SUBDIR__ : "main";
+
+window.viewer = {
+  ready: false,
+  modelLoaded: false,
+  webglReady: false,
+  camera: null,
+  scene: null,
+  renderer: null,
+  controls: null
+};
+
+import { core, setCore } from './core.js';
+
+import {
+  distanceBetweenPointsVector,
+  vectorBetweenPoints,
+  halfwayBetweenPoints,
+  interpolateDistanceBetweenPoints,
+  normalizeColor,
+} from "./utils.js";
+
+import { initClippingPlanes, reportViewerError, showToast, toastHelper, changeBackground } from './viewer-utils.js';
+import { attachEmbedConfigurator } from "./ui/embed-configurator.js";
+import { buildThumbnailGallery } from "./ui/thumbnail-gallery.js";
+import { attachLocalizationTheme } from "./ui/localization-theme.js";
+import { attachLoadingStatus } from "./ui/loading-status.js";
+import { attachMaterialsEditor } from "./editor/materials-editor.js";
+import { buildEditorMetadata, saveEditorMetadata as persistEditorMetadata } from "./editor/metadata-persistence.js";
+import { attachAnnotations } from "./editor/annotations.js";
+import { attachMeasurement } from "./editor/measurement.js";
+import { attachPicking } from "./editor/picking.js";
+import { captureAndUploadThumbnail } from "./editor/thumbnail-capture.js";
+
+import { loadModel, outlineClipping, getModuleAssetBasePath, syncSceneEnvironment } from "./loaders.js";
+import { createIIIFDropdown, createIIIFUI } from "./metadata.js";
+import { UltraLoader } from "./ultra-loader.js";
+import { StatusPoller } from "./status-poller.js";
 
 //three.js core
-import * as THREE from './build/three.module.js';
-import { TWEEN } from './js/external_libs/tween.module.min.js';
+import THREE from "./init.js";
 
 //three.js components
-import { OrbitControls } from './js/jsm/controls/OrbitControls.js';
-import { TransformControls } from './js/jsm/controls/TransformControls.js';
-import { FBXLoader } from './js/jsm/loaders/FBXLoader.js';
-import { DDSLoader } from './js/jsm/loaders/DDSLoader.js';
-import { MTLLoader } from './js/jsm/loaders/MTLLoader.js';
-import { OBJLoader } from './js/jsm/loaders/OBJLoader.js';
-import { GLTFLoader } from './js/jsm/loaders/GLTFLoader.js';
-import { DRACOLoader } from './js/jsm/loaders/DRACOLoader.js';
-import { KTX2Loader } from './js/jsm/loaders/KTX2Loader.js';
-import { MeshoptDecoder } from './js/jsm/libs/meshopt_decoder.module.js';
-import { IFCLoader } from './js/external_libs/loaders/IFCLoader.js';
-import { IFCSPACE } from './js/external_libs/loaders/ifc/web-ifc-api.js';
-import { PLYLoader } from './js/jsm/loaders/PLYLoader.js';
-import { ColladaLoader } from './js/jsm/loaders/ColladaLoader.js';
-import { STLLoader } from './js/jsm/loaders/STLLoader.js';
-import { XYZLoader } from './js/jsm/loaders/XYZLoader.js'; 
-import { TDSLoader } from './js/jsm/loaders/TDSLoader.js';
-import { PCDLoader } from './js/jsm/loaders/PCDLoader.js';
-import { FontLoader } from './js/jsm/loaders/FontLoader.js';
-import { TextGeometry } from './js/jsm/geometries/TextGeometry.js';
+import TWEEN from "three/examples/jsm/libs/tween.module.js";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { TransformControls } from "three/examples/jsm/controls/TransformControls.js";
+import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
 
 //custom libraries
-import Stats from './js/jsm/libs/stats.module.js';
-import { GUI } from './js/external_libs/lil-gui.esm.min.js';
-import ViewerSettings from "./viewer-settings.json" with { type: "json" };
+import Stats from "stats.js";
+import { GUI } from "./js/external_libs/lil-gui.esm.min.js";
+import { objectsConfig, setObjectsConfig } from "./object-settings.js";
 
-let CONFIG = {};
-if (ViewerSettings !== undefined) {
-	CONFIG = ViewerSettings;
-}
-else {
-	CONFIG = {
-		"mainUrl": "https://dfg-repository.wisski.cloud",
-		"baseNamespace": "https://dfg-repository.wisski.cloud",
-		"metadataUrl": "https://dfg-repository.wisski.cloud",
-		"baseModulePath": "/modules/dfg_3dviewer-main/viewer",
-		"entity": {
-			"bundle": "bd3d7baa74856d141bcff7b4193fa128",
-			"fieldDf": "field_df",
-			"idUri": "/wisski/navigate/(.*)/view",
-			"viewEntityPath": "/wisski/navigate/",
-			"attributeId": "wisski_id"
-		},
-		"viewer": {
-			"container": "DFG_3DViewer",
-			"fileUpload": "fbf95bddee5160d515b982b3fd2e05f7",
-			"fileName": "faa602a0be629324806aef22892cdbe5",
-			"imageGeneration": "f605dc6b727a1099b9e52b3ccbdf5673",
-			"lightweight": 1,
-			"salt": "Z7FYJMmTiEzcGp4lTpuk4LiA",
-			"scaleContainer": {
-				"x": 1,
-				"y": 1.4
-			},
-			"gallery": {
-				"container": "block-bootstrap5-content",
-				"imageClass": "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
-				"imageId": ""
-			},
-			"background": "radial-gradient(circle, rgb(255, 255, 255) 0%, rgb(210, 210, 210) 100%)"
-		},
-		"model": {
-			"position": {
-				"x": 0,
-				"y": 0,	
-				"z": 0
-			},
-			"scale": {
-				"x": 1,
-				"y": 1,
-				"z": 1
-			},
-			"rotation": {
-				"x": 0,
-				"y": 0,
-				"z": 0
-			}
-		},
-		"scene": {
-			"light": {
-				"directional": {
-					"color": "0xffffff",
-					"intensity": 1,
-					"position": {
-						"x": 0,
-						"y": 100,
-						"z": 100
-					},
-					"target": {
-						"x": 0,
-						"y": 0,
-						"z": 0
-					}
-				},
-				"ambient": {
-					"color": "0x404040",
-					"intensity": 1
-				},
-				"camera": {
-					"color": "0xffffff",
-					"intensity": 1,
-					"position": {
-						"x": 0,
-						"y": 100,
-						"z": 100
-					},
-					"target": {
-						"x": 0,
-						"y": 0,
-						"z": 0
-					}
-				}
-			}
-		}
-	};
-}
+import { loadIIIFManifest, getAnnotations } from "./IIIF/iiif-api.js";
+import {
+  attachEditorToolbar,
+  createEditorToolbar,
+  getEditorToolbarIcon,
+  getEditorToolbarHost,
+  syncEditorToolbarSecondaryTrayWidth,
+  toggleToolbarExpanded as toggleEditorToolbarExpanded,
+  updateClippingPlanesSubmenuState,
+  updateEditorToolbarLabels as syncEditorToolbarLabels,
+  updateEditorToolbarState as syncEditorToolbarState,
+  updateHierarchySubmenuState,
+  updateLightsSubmenuState,
+  updateStatisticsSubmenuState,
+} from "./editor-toolbar.js";
+import { VIEWER_I18N } from "./i18n.js";
+import { t } from "./i18n-utils.js";
+import { loadDroppedArchive } from "./extract-helper.js";
+import { loadDroppedModel } from "./sandbox.js";
+import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 
-let camera, scene, renderer, stats, controls, loader, ambientLight, dirLight, dirLightTarget, cameraLight, cameraLightTarget;
-let dirLights = [];
-let imported;
-var mainObject = [];
-var metadataContentTech;
-var mainCanvas;
-var distanceGeometry = new THREE.Vector3();
-let entityID = '';
-var metadataUrl;
+export const Viewer = {
+  CONFIG: null,
+  PRESENTATION_MODE: false,
+  SANDBOX_MODE: false,
+  SUPPORTED_EXTENSIONS: ['glb', 'gltf', 'obj', 'dae', 'fbx', 'ply', 'ifc', 'stl', 'xyz', 'json', '3ds', 'pcd'],
+  SUPPORTED_ARCHIVES: ['zip', 'rar', 'tar', 'xz', 'gz'],
+  camera: null,
+  scene: null,
+  activeScene: 0,
+  renderer: null,
+  stats: null,
+  controls: null,
+  loader: null,
+  ambientLight: null,
+  dirLight: null,
+  dirLightTarget: null,
+  cameraLight: null,
+  cameraLightTarget: null,
+  dirLights: [],
+  imported: null,
+  mainObject: [],
+  metadataContentTech: null,
+  mainCanvas: null,
+  distanceGeometry: new THREE.Vector3(),
+  metadataUrl: null,
+  iiifConfigURL: {url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: "Inbuilt"},
+  testModelURL: 'https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb',
+  clock: null,
+  FULLSCREEN: false,
+  mixer: null,
+  cameraTween: null,
+  targetTween: null,
+  container: null,
+  viewerWrapper: null,
+  scrollTop: null,
+  rect: null,
+  fileObject: { originalPath: '', filename: '', basename: '', extension: '', path: '', uri: '', newExtension: '', relativePath: '', autopath: '' },
+  bottomLineGUI: null,
+  loadedFile: null,    
+  fileElement: null,
+  COPYRIGHTS: false,
+  EXIT_CODE: 1,
+  gridSize: null,
+  noMTL: false,
+  canvasText: null,
+  viewEntity: null,
+  actionMenu: null,
+  actionMenuToggle: null,
+  actionMenuPanel: null,
+  mainMenuButton: null,
+  fullscreenMode: null,
+  themeMode: null,
+  languageMode: null,
+  editorToolbar: null,
+  editorToolbarButtons: {},
+  isToolbarExpanded: false,
+  editorSecondaryKeys: [],
+  downloadModel: null,
+  embedConfiguratorPanel: null,
+  embedConfigInputs: null,
+  embedConfigPreviewFrame: null,
+  embedMissingSourceNotified: false,
+  wireframeMode: false,
+  environmentMapEnabled: true,
+  currentTheme: "dark",
+  currentLanguage: "en",
+  loadingLog: null,
+  loadingLogMessageKeys: [
+    "loadingLog.loadingAssets",
+    "loadingLog.loadingModel",
+    "loadingLog.loadingTextures",
+    "loadingLog.preparingGeometry",
+    "loadingLog.settingUpLighting",
+    "loadingLog.settingUpMaterials",
+    "loadingLog.compilingShaders",
+    "loadingLog.fetchingMetadata",
+    "loadingLog.modelLoaded",
+  ],
+  processingLoadingStepKeys: [
+    "processingSteps.preparingModel",
+    "processingSteps.convertingToTransmissionFormat",
+    "processingSteps.renderingThumbnails",
+    "processingSteps.savingEntity",
+    "processingSteps.finalizing3dModel",
+    "processingSteps.initializingViewer",
+  ],
+  THEME_STORAGE_KEY: "iiif-dark-mode",
+  LANGUAGE_STORAGE_KEY: "viewer-language",
+  I18N: VIEWER_I18N,
+  GESTURE: {handPx: 55, period: 5.5, rotate: false, active: false, target: new THREE.Vector3(), startTime: 0, baseAngle: 0, orbitAngle: THREE.MathUtils.degToRad(15), easeInTime: 2.25},
+  lastTime: null,
+  originalMetadata: [],
+  spinnerContainer: null,
+  spinnerElement: null,
+  loadingLog: null,
+  guiContainer: null,
+  noticeContainer: null,
+  statusNotice: null,
+  statusNoticeTimer: null,
+  statusNoticeHideTimer: null,
+  statusNoticeQueue: [],
+  statusNoticeActive: false,
+  statusNoticeCurrent: null,
+  pickingHint: null,
+  clippingHint: null,
+  metadataContainer: null,
+  spinner: null,
+  circle: null,
+  lilGui: null,
+  raycaster: new THREE.Raycaster(),
+  pointer: new THREE.Vector2(),
+  onUpPosition: new THREE.Vector2(),
+  onDownPosition: new THREE.Vector2(),
+  bottomOffsetFullscreen: 0,
+  geometry: new THREE.BoxGeometry(20, 20, 20),
+  transformControl: null,
+  transformControlLight: null,
+  transformControlLightTarget: null,
+  transformControlClippingPlaneX: null,
+  transformControlClippingPlaneY: null,
+  transformControlClippingPlaneZ: null,
+  cameraCoords: null,
+  helperObjects: [],
+  lightObjects: [],
+  lightHelper: null,
+  lightHelperTarget: null,
+  selectedObject: false,
+  selectedObjects:[],
+  selectedFaces: [],
+  annotationEntries: [],
+  annotationDialog: null,
+  annotationDialogHost: null,
+  annotationDialogTitleInput: null,
+  annotationDialogDescriptionInput: null,
+  materialsDialog: null,
+  materialsDialogSelect: null,
+  materialsDialogInputs: null,
+  materialsDialogPosition: null,
+  materialsDialogDragging: false,
+  annotationTargetFaceKeys: [],
+  annotationBatchGroupId: "",
+  annotationPOIGroup: null,
+  annotationPOIMarkers: [],
+  annotationPOITooltip: null,
+  annotationPOITooltipTitle: null,
+  annotationPOITooltipTarget: null,
+  annotationImportInput: null,
+  pendingAnnotationsXml: "",
+  pickingTexture: null,
+  windowHalfX: null,
+  windowHalfY: null,
+  transformType: "",
+  transformText: {
+    "Transform 3D Object": "",
+    "Transform Light": "",
+    "Transform Mode": "local",
+  },
+  materialsPropertiesText: {
+    "Edit material": "",
+  },
+  materialsEditorObject: null,
+  materialsList: [],
+  selectedMaterialUuid: null,
+  materialSelectionController: null,
+  materialGuiControls: null,
+  pickingStats: {
+    "Selected faces": 0,
+  },
+  colors: {
+    DirectionalLight: "0xFFFFFF",
+    AmbientLight: "0x404040",
+    CameraLight: "0xFFFFFF",
+    BackgroundColor: "#FFFFFF",
+    BackgroundColorOuter: "#999999",
+  },
+  materialProperties: {
+    color: "0xFFFFFF",
+    emissiveColor: "0x404040",
+    emissive: 1,
+    metalness: 0,
+  },
+  intensity: {
+    startIntensityDir: 1,
+    startIntensityAmbient: 1,
+    startIntensityCamera: 1,
+  },
+  saveProperties: {
+    Position: true,
+    Rotation: true,
+    Scale: true,
+    Camera: true,
+    DirectionalLight: true,
+    AmbientLight: true,
+    CameraLight: true,
+    BackgroundColor: true,
+    BackgroundColorOuter: true,
+  },
+  backgroundType: { "Background Type": "gradient" },
+  backgroundOuterFolder: null,
+  pickingMode: false,
+  EDITOR: false,
+  RULER_MODE: false,
+  linePoints: [],
+  gui: null,
+  hierarchyFolder: null,
+  GUILength: 35,
+  zoomImage: 1,
+  ZOOM_SPEED_IMAGE: 0.1,
+  loadedFile: "",
+  archiveType: "",
+  planeParams: {
+    planeX: {
+      constantX: 0,
+      negated: false,
+      displayHelperX: false,
+    },
+    planeY: {
+      constantY: 0,
+      negated: false,
+      displayHelperY: false,
+    },
+    planeZ: {
+      constantZ: 0,
+      negated: false,
+      displayHelperZ: false,
+    },
+    outline: {
+      visible: false,
+    },
+    clippingMode: {
+      x: false,
+      y: false,
+      z: false,
+    },
+  },
+  clippingPlanes: null,    
+  planeHelpers: [],
+  clippingFolder: null,
+  propertiesFolder: null,
+  planeObjects: [],
+  editorFolder: null,
+  metadataFolder: null,
+  materialsFolder: null,
+  pickingModeController: null,
+  distanceMeasurementController: null,
+  clearSelectedFacesController: null,
+  selectedFacesCountController: null,
+  addAnnotationController: null,
+  textMesh: null,
+  textMeshDistance: null,
+  ruler: [],
+  rulerObject: null,
+  lastPickedFace: { id: "", object: "", faceIndex: null, overlay: null },
+  loadedTimes: 0,
+  _ext: '',
+  DFG_ASSETS: '',
+  isLightweight: false,
+  urlOptions: {
+    model: null,
+    id: null,
+    theme: null,
+    language: null,
+    autoRotate: null,
+    autoRotateSpeed: null,
+    disableInteraction: false,
+    hideUi: false,
+    hideMetadata: false,
+    cameraPosition: null,
+    cameraTarget: null,
+    cameraFov: null,
+    presentationMode: false,
+    sandboxMode: false,
+  },
+  keyboardStep: {
+    rotate: THREE.MathUtils.degToRad(2.25),
+    rotateFast: THREE.MathUtils.degToRad(6),
+    panFactor: 0.04,
+    zoomFactor: 1.08,
+  },
+  keyboardTweenDurationMs: 150,
+  lastKeyboardHintAt: 0,
+  keyboardHintCooldownMs: 45000,
+  keyboardHintAfterFocusDelayMs: 1800,
+  lastWindowFocusAt: 0,
+  cleanupCallbacks: [],
+  resizeObserver: null,
+  i18nGui: {},
+  showNotifications: true,
 
-var canvasDimensions, CANVASDIMENSIONS;
+  getE2EModelOverride() {
+    if (!window.__E2E__) return null;
+    const model = new URLSearchParams(window.location.search).get('e2eModel');
+    return model || null;
+  },
 
-const clock = new THREE.Clock();
-const editor = true;
-var FULLSCREEN = false;
+  ensureE2EState() {
+    if (!window.__E2E__) return null;
 
-let mixer;
+    if (!window.viewer || window.viewer.e2eMode !== true) {
+      window.viewer = {
+        e2eMode: true,
+        modelLoaded: false,
+        errors: [],
+        toasts: [],
 
-const container = document.getElementById(CONFIG.viewer.container);
-const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-canvasDimensions = CANVASDIMENSIONS = {x: container.getBoundingClientRect().width*CONFIG.viewer.scaleContainer.x, y: (container.getBoundingClientRect().top + scrollTop)*CONFIG.viewer.scaleContainer.y};
-container.setAttribute("display", "block");
-const originalPath = container.getAttribute("3d");
-const bottomLineGUI = canvasDimensions.y - 70;
+        get camera() {
+          return core.camera;
+        },
 
-if (CONFIG.viewer.lightweight === true) {
-	CONFIG.viewer.lightweight = container.getAttribute("proxy");
-}
-if (CONFIG.viewer.lightweight === null || CONFIG.viewer.lightweight === false) {
-	var elementsURL = window.location.pathname;
-	elementsURL = elementsURL.match(CONFIG.entity.idUri);
-	if (elementsURL !== null) {
-		entityID = elementsURL[1];
-		container.setAttribute(CONFIG.entity.attributeId, entityID);
-	}
-}
-
-if(container.hasAttribute("basePath")) {
-	CONFIG.baseModulePath = container.getAttribute("basePath");
-}
-
-var filename = originalPath.split("/").pop();
-var basename = filename.substring(0, filename.lastIndexOf('.'));
-var extension = filename.substring(filename.lastIndexOf('.') + 1);
-var path = originalPath.substring(0, originalPath.lastIndexOf(filename));
-const uri = path.replace(CONFIG.mainUrl+"/", "");
-const EXPORT_PATH = '/export_xml_single/';
-const loadedFile = basename + "." + extension;
-var fileElement;
-var COPYRIGHTS = false;
-var EXIT_CODE=1;
-var gridSize;
-var noMTL=false;
-
-var canvasText;
-var downloadModel, viewEntity, fullscreenMode;
-var originalMetadata = [];
-
-var spinnerContainer = document.createElement("div");
-spinnerContainer.id = 'spinnerContainer';
-
-var spinnerElement = document.createElement("div");
-spinnerElement.id = 'spinner';
-spinnerElement.className = 'lv-determinate_circle lv-mid md';
-spinnerElement.setAttribute("data-label", "Loading...");
-spinnerElement.setAttribute("data-percentage", "true");
-spinnerContainer.appendChild(spinnerElement);
-container.appendChild(spinnerContainer);
-spinnerContainer.style.left = "50%" - spinnerContainer.getBoundingClientRect().width + "px";
-
-var guiContainer = document.createElement("div");
-guiContainer.id = 'guiContainer';
-guiContainer.className = 'guiContainer';
-container.appendChild(guiContainer);
-
-var metadataContainer = document.createElement("div");
-metadataContainer.setAttribute('id', 'metadata-container');
-
-let spinner = new lv();
-spinner.initLoaderAll();
-spinner.startObserving();
-let circle = lv.create(spinnerElement);
-
-var lilGui;
-
-const raycaster = new THREE.Raycaster();
-const pointer = new THREE.Vector2();
-const onUpPosition = new THREE.Vector2();
-const onDownPosition = new THREE.Vector2();
-
-const geometry = new THREE.BoxGeometry(20, 20, 20);
-let transformControl, transformControlLight, transformControlLightTarget, transformControlClippingPlaneX, transformControlClippingPlaneY, transformControlClippingPlaneZ, outlineClipping;
-var cameraCoords;
-
-const helperObjects = [];
-const lightObjects = [];
-var lightHelper, lightHelperTarget;
-
-var selectedObject = false;
-var selectedObjects = [];
-var selectedFaces = [];
-let pickingTexture;
-
-var windowHalfX, windowHalfY;
-
-var transformType = "";
-
-var transformText =
-{
-    'Transform 3D Object': 'select type',
-    'Transform Light': 'select type',
-    'Transform Mode': 'Local'
-};
-
-var materialsPropertiesText =
-{
-    'Edit material': 'select by name'
-};
-
-const colors = {
-	DirectionalLight: '0xFFFFFF',
-	AmbientLight: '0x404040',
-	CameraLight: '0xFFFFFF',
-	BackgroundColor: '#FFFFFF',
-	BackgroundColorOuter: '#D2D2D2'
-};
-
-const materialProperties = {
-	color: '0xFFFFFF',
-	emissiveColor: '0x404040',
-	emissive: 1,
-	metalness: 0
-};
-
-const intensity = { startIntensityDir: 1 , startIntensityAmbient: 1, startIntensityCamera: 1 };
-
-const saveProperties = {
-	Position: true,
-	Rotation: true,
-	Scale: true,
-	Camera: true,
-	DirectionalLight: true,
-	AmbientLight: true,
-	CameraLight: true,
-	BackgroundColor: true,
-	BackgroundColorOuter: true
-};
-
-const backgroundType = { 'Background Type': 'gradient' };
-let backgroundOuterFolder;
-
-const performanceMode = {
-	Performance: 'high-performance'
-}
-
-var EDITOR = false;
-var RULER_MODE = false;
-const lineMaterial = new THREE.LineBasicMaterial({ color: 0x0000ff });
-var  linePoints = [];
-
-const gui = new GUI({ container: guiContainer });
-
-var hierarchyFolder;
-const GUILength = 35;
-
-let zoomImage = 1;
-const ZOOM_SPEED_IMAGE = 0.1;
-
-var compressedFile = '';
-var archiveType = '';
-
-var options = {
-    duration: 6500,
-	gravity: "bottom",
-	close: true,
-    callback() {
-        this.remove();
-        Toastify.reposition();
+        get scene() {
+          return core.scene;
+        },
+      };
+    } else {
+      window.viewer.errors ??= [];
+      window.viewer.toasts ??= [];
     }
-};
-var myToast = Toastify(options);
 
-const planeParams = {
-	planeX: {
-		constant: 0,
-		negated: false,
-		displayHelperX: false
-	},
-	planeY: {
-		constant: 0,
-		negated: false,
-		displayHelperY: false
-	},
-	planeZ: {
-		constant: 0,
-		negated: false,
-		displayHelperZ: false
-	},
-	outline: {
-		visible: false
-	},
-	clippingMode: {
-		x: false,
-		y: false,
-		z: false
-	}
-};
+    return window.viewer;
+  },
 
-var clippingPlanes = [
-		new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0),
-		new THREE.Plane(new THREE.Vector3(0, -1, 0), 0),
-		new THREE.Plane(new THREE.Vector3(0, 0, -1), 0)
-	];
-var planeHelpers, clippingFolder;
-var propertiesFolder;
-var planeObjects = [];
-var materialsFolder;
+  recordE2EError(error) {
+    if (!window.__E2E__) return;
+    const state = this.ensureE2EState();
+    const message = error instanceof Error ? error.message : String(error);
+    state.errors.push(message);
+  },
 
-var textMesh, textMeshDistance, ruler = [], rulerObject;
-var lastPickedFace = {id: '', color: '', object: ''};
+  addCleanup(callback) {
+    if (typeof callback === "function") {
+      this.cleanupCallbacks.push(callback);
+    }
+  },
 
-var loadedTimes = 0;
+  bindEventListener(target, type, handler, options) {
+    if (!target || typeof target.addEventListener !== "function") return;
+    target.addEventListener(type, handler, options);
+    this.addCleanup(() => target.removeEventListener(type, handler, options));
+  },
 
-function showToast (_str) {
-	var myToast = Toastify(options);
-	myToast.options.text = _str;
-	myToast.showToast();
-}
+  closeActionMenu() {
+    if (this.actionMenuToggle) {
+      this.actionMenuToggle.checked = false;
+    }
+    if (this.languageModeDropdown) {
+      this.languageModeDropdown.hidden = true;
+    }
+    this.updateEditorToolbarState();
+  },
 
-function addTextWatermark (_text, _scale) {
-	var textGeo;
-	var materials = [
-		new THREE.MeshStandardMaterial({ color: 0xffffff, flatShading: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 0.4 }), // front
-		new THREE.MeshStandardMaterial({ color: 0xffffff, flatShading: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 0.4 }) // side
-	];
-	const loader = new FontLoader();
+  stopHandMode() {
+    const g = core.GESTURE;
+    if (g) {
+      g.rotate = false;
+      g.active = false;
+      g.baseAngle = null;
+      g.target = null;
+    }
 
-	loader.load(CONFIG.baseModulePath + '/fonts/helvetiker_regular.typeface.json', function (font) {
+    if (core.handHint) {
+      core.handHint.hidden = true;
+      core.handHint.classList.remove("hand-drag-animate");
+    }
 
-		const textGeo = new TextGeometry(_text, {
-			font,
-			size: _scale*3,
-			height: _scale/10,
-			curveSegments: 5,
-			bevelEnabled: true,
-			bevelThickness: _scale/8,
-			bevelSize: _scale/10,
-			bevelOffset: 0,
-			bevelSegments: 1
-		});
-		textGeo.computeBoundingBox();
+    if (core.controls) {
+      core.controls.enabled = true;
+      core.controls.update?.();
+    }
+  },
 
-		//const centerOffset = - 0.5 * (textGeo.boundingBox.max.x - textGeo.boundingBox.min.x);
+  getEditorToolbarIcon(icon) {
+    return getEditorToolbarIcon(icon);
+  },
 
-		textMesh = new THREE.Mesh(textGeo, materials);
+  toggleToolbarExpanded() {
+    return toggleEditorToolbarExpanded(this);
+  },
 
-		textMesh.rotation.z = Math.PI;
-		textMesh.rotation.y = Math.PI;
-		
-		textMesh.position.x = 0;
-		textMesh.position.y = 0;
-		textMesh.position.z = 0;
-		textMesh.renderOrder = 1;
-		scene.add(textMesh);		
-	});
-}
+  syncEditorToolbarSecondaryTrayWidth() {
+    return syncEditorToolbarSecondaryTrayWidth(this);
+  },
 
-function addTextPoint (_text, _scale, _point) {
-	var textGeo;
-	var materials = [
-		new THREE.MeshStandardMaterial({ color: 0x0000ff, flatShading: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 0.4 }), // front
-		new THREE.MeshStandardMaterial({ color: 0x0000ff, flatShading: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 0.4 }) // side
-	];
-	const loader = new FontLoader();
-	var textSize = _scale/10;
-	loader.load(CONFIG.baseModulePath + '/fonts/helvetiker_regular.typeface.json', function (font) {
+  getEditorToolbarHost() {
+    return getEditorToolbarHost(this);
+  },
 
-		const textGeo = new TextGeometry(_text, {
-			font: font,
-			size: _scale*3,
-			height: textSize,
-			curveSegments: 4,
-			bevelEnabled: true,
-			bevelThickness: textSize,
-			bevelSize: textSize,
-			bevelOffset: 0,
-			bevelSegments: 1,
-			depth: textSize
-		});
-		textGeo.computeBoundingBox();
+  attachEditorToolbar() {
+    return attachEditorToolbar(this);
+  },
 
-		textMeshDistance = new THREE.Mesh(textGeo, materials);
-		
-		textMeshDistance.position.set(_point.x, _point.y, _point.z);
-		textMeshDistance.renderOrder = 1;
-		rulerObject.add(textMeshDistance);
-	});
-}
+  createEditorToolbar() {
+    return createEditorToolbar(this);
+  },
 
-function selectObjectHierarchy (_id) {
-	let search = true;
-	for (let i = 0; i < selectedObjects.length && search === true; i++) {
-		if (selectedObjects[i].id === _id) {
-			search = false;
-			if (selectedObjects[i].selected === true) {
-				scene.getObjectById(_id).material = selectedObjects[i].originalMaterial;
-				scene.getObjectById(_id).material.needsUpdate = true;
-				selectedObjects[i].selected = false;
-				selectedObjects.splice(selectedObjects.indexOf(selectedObjects[i]), 1);		
-			}
-		}
-	}
-	if (search) {
-		selectedObjects.push({id: _id, selected: true, originalMaterial: scene.getObjectById(_id).material.clone()});
-		const tempMaterial = scene.getObjectById(_id).material.clone();
-		tempMaterial.color.setHex("0x00FF00");
-		scene.getObjectById(_id).material = tempMaterial;
-		scene.getObjectById(_id).material.needsUpdate = true;
+  updateEditorToolbarLabels() {
+    return syncEditorToolbarLabels(this);
+  },
 
-	}
-}
+  isEditorAdvancedPanelVisible() {
+    if (!this.editorFolder?.domElement) return false;
+    return this.editorFolder.domElement.style.display !== "none";
+  },
 
-function fetchMetadata (_object, _type) {
-	switch (_type) {
-		case 'vertices':
-			if (typeof (_object.geometry.index) !== "undefined" && _object.geometry.index !== null) {
-				return _object.geometry.index.count;
-			}
-			else if (typeof (_object.attributes) !== "undefined" && _object.attributes !== null) {
-				return _object.attributes.position.count;
-			}
-		break;
-		case 'faces':
-			if (typeof (_object.geometry.index) !== "undefined" && _object.geometry.index !== null) {
-				return _object.geometry.index.count/3;
-			}
-			else if (typeof (_object.attributes) !== "undefined" && _object.attributes !== null) {
-				return _object.attributes.position.count/3;
-			}
-		break;
-	}
-}
-function recreateBoundingBox (object) {
-	var _min = new THREE.Vector3();
-	var _max = new THREE.Vector3();
-	if (object instanceof THREE.Object3D)
-	{
-		object.traverse (function (mesh)
-		{
-			if (mesh instanceof THREE.Mesh)
-			{
-				mesh.geometry.computeBoundingBox ();
-				var bBox = mesh.geometry.boundingBox;
+  setEditorAdvancedPanelVisible(visible) {
+    if (!this.editorFolder) return;
+    if (visible) {
+      if (core.guiContainer) {
+        core.guiContainer.hidden = false;
+      }
+      if (core.gui?.domElement?.style) {
+        core.gui.domElement.style.visibility = "visible";
+      }
+      this.editorFolder.show?.();
+    } else {
+      this.editorFolder.hide?.();
+    }
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
+  },
 
-				// compute overall bbox
-				_min.x = Math.min (_min.x, bBox.min.x + mesh.position.x);
-				_min.y = Math.min (_min.y, bBox.min.y + mesh.position.y);
-				_min.z = Math.min (_min.z, bBox.min.z + mesh.position.z);
-				_max.x = Math.max (_max.x, bBox.max.x + mesh.position.x);
-				_max.y = Math.max (_max.y, bBox.max.y + mesh.position.y);
-				_max.z = Math.max (_max.z, bBox.max.z + mesh.position.z);
-			}
-		});
+  toggleEditorAdvancedPanel() {
+    this.setEditorAdvancedPanelVisible(!this.isEditorAdvancedPanelVisible());
+  },
 
-		var bBox_min = new THREE.Vector3 (_min.x, _min.y, _min.z);
-		var bBox_max = new THREE.Vector3 (_max.x, _max.y, _max.z);
-		var bBox_new = new THREE.Box3 (bBox_min, bBox_max);
-		object.position.set((bBox_new.min.x+bBox_new.max.x)/2, bBox_new.min.y, (bBox_new.min.z+bBox_new.max.z)/2);
-	}
-	return object;
-}
+  toggleCameraProjection () {
+    if (!core.camera) return;
+    const isPerspective = core.camera.isPerspectiveCamera === true;
+    Viewer.setCameraProjection(isPerspective ? "orthographic" : "perspective");
+  },
 
-function setupObject (_object, _light, _data, _controls) {
-	if (typeof (_data) !== "undefined") {
-		if (typeof(_data["objPosition"]) !== "undefined") _object.position.set (_data["objPosition"][0], _data["objPosition"][1], _data["objPosition"][2]);
-		if (typeof(_data["objScale"]) !== "undefined") _object.scale.set (_data["objScale"][0], _data["objScale"][1], _data["objScale"][2]);
-		if (typeof(_data["objRotation"]) !== "undefined") _object.rotation.set (THREE.MathUtils.degToRad(_data["objRotation"][0]), THREE.MathUtils.degToRad(_data["objRotation"][1]), THREE.MathUtils.degToRad(_data["objRotation"][2]));
-		_object.needsUpdate = true;
-		if (typeof (_object.geometry) !== "undefined") {
-			_object.geometry.computeBoundingBox();
-			_object.geometry.computeBoundingSphere();	
-		}
-	}
-	else {
-		var boundingBox = new THREE.Box3();
-		if (Array.isArray(_object)) {
-			for (let i = 0; i < _object.length; i++) {
-				boundingBox.setFromObject(_object[i]);
-				_object[i].position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
-				_object[i].needsUpdate = true;
-				if (typeof (_object[i].geometry) !== "undefined") {
-					_object[i].geometry.computeBoundingBox();
-					_object[i].geometry.computeBoundingSphere();	
-				}			
-			}
-		}
-		else if (_object.isGroup && extension == 'fbx') { //workaround for specific FBX case
-			boundingBox.setFromObject(_object);
-			var _obj = new THREE.Object3D();
-			_obj.attach(_object);
-			//_obj.position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
-			_obj.updateMatrixWorld();
-			_object = _obj;
-		}
-		else {
-			boundingBox.setFromObject(_object);
-			_object.position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
-			//_object.position.set (0, 0, 0);
-			_object.needsUpdate = true;
-			if (typeof (_object.geometry) !== "undefined") {
-				_object.geometry.computeBoundingBox();
-				_object.geometry.computeBoundingSphere();
-			}
-		}
-	}
-	cameraLight.position.set(camera.position.x, camera.position.y, camera.position.z);
-	if (Array.isArray(_object)) {
-		cameraLightTarget.position.set(_object[0].position.x, _object[0].position.y, _object[0].position.z);
-	}
-	else {
-		cameraLightTarget.position.set(_object.position.x, _object.position.y, _object.position.z);
-	}
-	cameraLight.target.updateMatrixWorld();
-	outlineClipping.position.set(_object.position.x, _object.position.y, _object.position.z);
-}
+  updateOrthoFrustum(camera, width, height) {
+    const target = core.controls?.target || new THREE.Vector3(0, 0, 0);
+    const distance = core.camera.position.distanceTo(target);
+    const aspect = width / height;
 
-function invertHexColor(hexTripletColor) {
-	var color = hexTripletColor;
-	color = color.substring(1); // remove #
-	color = parseInt(color, 16); // convert to integer
-	color = 0xFFFFFF ^ color; // invert three bytes
-	color = color.toString(16); // convert to hex
-	color = ("000000" + color).slice(-6); // pad with leading zeros
-	color = "#" + color; // prepend #
-	return color;
-}
+    const frustumHeight = distance;
+    const frustumWidth = frustumHeight * aspect;
 
-function setupClippingPlanes (_geom, _size, _distance) {
-	/*var _geometry;
-	if (_geom.isGroup)
-		_geometry = _geom.children;
-	else
-		_geometry = _geom.geometry.clone();*/
+    camera.left = -frustumWidth / 2;
+    camera.right = frustumWidth / 2;
+    camera.top = frustumHeight / 2;
+    camera.bottom = -frustumHeight / 2;
 
-	clippingPlanes[0].constant = _distance.x;
-	clippingPlanes[1].constant = _distance.y;
-	clippingPlanes[2].constant = _distance.z;
-	
-	scene.add(transformControlClippingPlaneX.getHelper());
-	scene.add(transformControlClippingPlaneY.getHelper());
-	scene.add(transformControlClippingPlaneZ.getHelper());
-	let planeColor = new THREE.Color(0xffffff).getHexString();
-	if (scene.background != null) planeColor = scene.background.getHexString();
-
-	planeHelpers = clippingPlanes.map((p) => new THREE.PlaneHelper(p, _size*2, invertHexColor(planeColor)));
-	planeHelpers.forEach((ph) => {
-		ph.visible = false;
-		ph.name = "PlaneHelper";
-		scene.add(ph);
-	});
-
-	distanceGeometry = _distance;
-	clippingFolder.add(planeParams.planeX, 'displayHelperX').onChange((v) => {
-		planeParams.clippingMode.x = planeHelpers[0].visible = v;
-		if (v) {
-			transformControlClippingPlaneX.attach(planeHelpers[0]);
-			if (planeParams.outline.visible) outlineClipping.visible = true;
-		}
-		else {
-			transformControlClippingPlaneX.detach();
-			if (!planeParams.clippingMode.y && !planeParams.clippingMode.z && !planeParams.outline.visible) outlineClipping.visible = false;
-		}
-	});
-	clippingFolder.add(planeParams.planeX, 'constant').min(-distanceGeometry.x).max(distanceGeometry.x).setValue(distanceGeometry.x).step(_size/100).listen().onChange(d => clippingPlanes[0].constant = d);
-
-
-	clippingFolder.add(planeParams.planeY, 'displayHelperY').onChange((v) => { 
-		planeParams.clippingMode.y = planeHelpers[1].visible = v;
-		if (v) {
-			transformControlClippingPlaneY.attach(planeHelpers[1]);
-			if (planeParams.outline.visible) outlineClipping.visible = true;
-		}
-		else {
-			transformControlClippingPlaneY.detach();
-			if (!planeParams.clippingMode.x && !planeParams.clippingMode.z && !planeParams.outline.visible) outlineClipping.visible = false;
-		}
-	});
-	clippingFolder.add(planeParams.planeY, 'constant').min(-distanceGeometry.y).max(distanceGeometry.y).setValue(distanceGeometry.y).step(_size/100).listen().onChange(d => clippingPlanes[1].constant = d);
-
-
-	clippingFolder.add(planeParams.planeZ, 'displayHelperZ').onChange((v) => { 
-		planeParams.clippingMode.z = planeHelpers[2].visible = v;
-		if (v) {
-			transformControlClippingPlaneZ.attach(planeHelpers[2]);
-			if (planeParams.outline.visible) outlineClipping.visible = true;
-		}
-		else {
-			transformControlClippingPlaneZ.detach();
-			if (!planeParams.clippingMode.x && !planeParams.clippingMode.y && !planeParams.outline.visible) outlineClipping.visible = false;
-		}
-	});
-	clippingFolder.add(planeParams.planeZ, 'constant').min(-distanceGeometry.z).max(distanceGeometry.z).setValue(distanceGeometry.z).step(_size/100).listen().onChange(d => clippingPlanes[2].constant = d);
-
-	clippingFolder.add(planeParams.outline, 'visible').onChange((v) => {
-		outlineClipping.visible = v;
-	});
-}
-
-function fitCameraToCenteredObject (camera, object, add_offset, orbitControls, _fit) {
-	const boundingBox = new THREE.Box3();
-	if (Array.isArray(object)) {
-		for (let i = 0; i < object.length; i++) {			
-			boundingBox.setFromObject(object[i]);
-		}
-	}
-	else {
-		boundingBox.setFromObject(object);
-	}
-
-    var middle = new THREE.Vector3();
-    var size = new THREE.Vector3();
-    boundingBox.getSize(size);
-	// ground
-	var distance = new THREE.Vector3(Math.abs(boundingBox.max.x - boundingBox.min.x), Math.abs(boundingBox.max.y - boundingBox.min.y), Math.abs(boundingBox.max.z - boundingBox.min.z));
-	gridSize = Math.max(distance.x, distance.y, distance.z);
-	
-	dirLightTarget = new THREE.Object3D();
-	dirLightTarget.position.set(0,0,0);
-
-	lightHelper = new THREE.DirectionalLightHelper(dirLight, gridSize);
-	scene.add(lightHelper);
-	lightHelper.visible = false;
-
-	scene.add(dirLightTarget);
-	dirLight.target = dirLightTarget;
-	dirLight.target.updateMatrixWorld();	
-
-	var gridSizeScale = gridSize*1.5;
-	const mesh = new THREE.Mesh(new THREE.PlaneGeometry(gridSizeScale, gridSizeScale), new THREE.MeshPhongMaterial({ color: 0xefefef, depthWrite: false, transparent: true, opacity: 0.65 }));
-	mesh.rotation.x = - Math.PI / 2;
-	mesh.position.set(0, 0, 0);
-	mesh.receiveShadow = true;
-	scene.add(mesh);	
-
-	const axesHelper = new THREE.AxesHelper(gridSize);
-	axesHelper.position.set(0, 0, 0);
-	scene.add(axesHelper);
-	
-	const grid = new THREE.GridHelper(gridSizeScale, 50, 0xaeaeae, 0x000000);
-	grid.material.opacity = 0.1;
-	grid.material.transparent = true;
-	grid.position.set(0, 0, 0);
-	scene.add(grid);
-
-    // How to fit the box in the view:
-    // 1. figure out horizontal FOV (on non-1.0 aspects)
-    // 2. figure out distance from the object in X and Y planes
-    // 3. select the max distance (to fit both sides in)
-    //
-    // The reason is as follows:
-    //
-    // Imagine a bounding box (BB) is centered at (0,0,0).
-    // Camera has vertical FOV (camera.fov) and horizontal FOV
-    // (camera.fov scaled by aspect, see fovh below)
-    //
-    // Therefore if you want to put the entire object into the field of view,
-    // you have to compute the distance as: z/2 (half of Z size of the BB
-    // protruding towards us) plus for both X and Y size of BB you have to
-    // figure out the distance created by the appropriate FOV.
-    //
-    // The FOV is always a triangle:
-    //
-    //  (size/2)
-    // +--------+
-    // |       /
-    // |      /
-    // |     /
-    // | F° /
-    // |   /
-    // |  /
-    // | /
-    // |/
-    //
-    // F° is half of respective FOV, so to compute the distance (the length
-    // of the straight line) one has to: `size/2 / Math.tan(F)`.
-    //
-    // FTR, from https://threejs.org/docs/#api/en/cameras/PerspectiveCamera
-    // the camera.fov is the vertical FOV.
-
-	let cameraZ = camera.position.z;
-	let offset = new THREE.Vector3 (0, 0, 0);
-	let sizeZ = Math.max(size.x, size.y, size.z)/2;
-	let dx, dy;
-	if (_fit) {
-		const fov = camera.fov * (Math.PI / 180);
-		const fovh = Math.atan(Math.tan(fov) * camera.aspect);
-		dx = sizeZ + (size.x / 2 / Math.tan(fovh));
-		dy = sizeZ + (size.y / 2 / Math.tan(fov));
-		cameraZ = Math.max(dx, dy);
-		camera.position.y*=0.65;
-		camera.position.z*=2.5;
-	}
-
-    // offset the camera, if desired (to avoid filling the whole canvas)
-    if(add_offset !== undefined && add_offset !== 0 && _fit) { cameraZ *= add_offset; offset.y = dy/2; offset.z = dx/2;}
-
-	cameraCoords = {x: camera.position.x, y: camera.position.y + offset.y, z: cameraZ*0.75 + offset.z};
-    new TWEEN.Tween(cameraCoords)
-		.to({ z: camera.position.z }, 1500)
-		.onUpdate(() =>
-			{
-				camera.position.set(cameraCoords.x, cameraCoords.y, cameraCoords.z);
-				cameraLight.position.set(cameraCoords.x, cameraCoords.y, cameraCoords.z);
-				camera.updateProjectionMatrix();
-				controls.update();
-			}
-     ).start();
-
-    // set the far plane of the camera so that it easily encompasses the whole object
-    const minZ = boundingBox.min.z;
-    const cameraToFarEdge = (minZ < 0) ? -minZ + cameraZ : cameraZ - minZ;
-
-    //camera.far = cameraToFarEdge * 3;
     camera.updateProjectionMatrix();
-    if (orbitControls !== undefined && _fit) {
-        // set camera to rotate around the center
-        orbitControls.target = new THREE.Vector3(0, offset.y, 0);
+  },
 
-        // prevent camera from zooming out far enough to create far plane cutoff
-        orbitControls.maxDistance = cameraToFarEdge * 2;
+  setCameraProjection(projection) {
+    if (!core.camera) return;
+
+    const currentProjection = core.camera.isPerspectiveCamera
+      ? "perspective"
+      : "orthographic";
+
+    if (projection === currentProjection) return;
+
+    const aspect =
+      core.CONFIG.viewer.canvasDimensions.x /
+      core.CONFIG.viewer.canvasDimensions.y;
+
+    const target = core.controls?.target || new THREE.Vector3(0, 0, 0);
+
+    const distance = core.camera.position.distanceTo(target);
+
+    let newCamera;
+
+    if (projection === "orthographic") {
+      const fov = THREE.MathUtils.degToRad(core.camera.fov);
+
+      const viewHeight = 2 * distance * Math.tan(fov / 2);
+      const viewWidth = viewHeight * aspect;
+
+      newCamera = new THREE.OrthographicCamera(
+        -viewWidth / 2,
+        viewWidth / 2,
+        viewHeight / 2,
+        -viewHeight / 2,
+        0.1,
+        2000
+      );
+      newCamera.zoom = 1;
+    } else {
+      newCamera = new THREE.PerspectiveCamera(
+        50,
+        aspect,
+        0.1,
+        2000
+      );
     }
-	controls.update();
 
-	if  (_fit) {
-		var rotateMetadata = new THREE.Vector3(THREE.MathUtils.radToDeg(helperObjects[0].rotation.x),THREE.MathUtils.radToDeg(helperObjects[0].rotation.y),THREE.MathUtils.radToDeg(helperObjects[0].rotation.z));
-		originalMetadata = {"objPosition": [object.position.x, object.position.y, object.position.z ],
-							"objRotation": [rotateMetadata.x, rotateMetadata.y, rotateMetadata.z],
-							"objScale": [helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z],
-							"cameraPosition": [ camera.position.x, camera.position.y, camera.position.z ],
-							"controlsTarget": [ controls.target.x, controls.target.y, controls.target.z ]
-							};
-	}
-	setupClippingPlanes(object, gridSize, distance);
-	
-}
+    newCamera.position.copy(core.camera.position);
+    newCamera.quaternion.copy(core.camera.quaternion);
+    newCamera.up.copy(core.camera.up);
 
-function isValidUrl (urlString) {
-	var urlPattern = new RegExp('^(https?:\\/\\/)?'+ // validate protocol
-	'((([a-z\\d]([a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|'+ // validate domain name
-	'((\\d{1,3}\\.){3}\\d{1,3}))'+ // validate OR ip (v4) address
-	'(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*'+ // validate port and path
-	'(\\?[;&a-z\\d%_.~+=-]*)?'+ // validate query string
-	'(\\#[-a-z\\d_]*)?$','i'); // validate fragment locator
-  return !!urlPattern.test(urlString);
-}
+    newCamera.updateProjectionMatrix();
 
-function prepareGalleryImages (imageElementsChildren) {
-	imageElementsChildren = imageElementsChildren.filter(function (_image) {
-		return isValidUrl(_image.innerHTML);
-	});
-	imageElementsChildren.forEach(function(imgLink, index) {
-		imgLink.innerHTML = '<img loading="lazy" src="' + imgLink.innerHTML + '" width="200px" height="200px" alt="" class="img-fluid image-style-wisski-preview">';
-	});
-}
+    core.camera = newCamera;
 
-function handleImages (fileElement, mainElement, imageElements, imageElementsChildren) {
-	if (typeof(imageElementsChildren == undefined)) {imageElementsChildren = imageElements}
-	var imageList = document.createElement("div");
-	imageList.setAttribute('id', 'image-list');
-	var modalGallery = document.createElement('div');
-	var modalImage = document.createElement('img');
-	modalImage.setAttribute('class', 'modalImage');
-	modalGallery.addEventListener("wheel", function(e){
-		e.preventDefault();
-		e.stopPropagation();
-		if(e.deltaY > 0 && zoomImage > 0.15) {    
-			modalImage.style.transform = `scale(${zoomImage -= ZOOM_SPEED_IMAGE})`;  
-		}
-		else if (e.deltaY < 0 && zoomImage < 5) {    
-			modalImage.style.transform = `scale(${zoomImage += ZOOM_SPEED_IMAGE})`;
-		}
-		return false;
-	});
-	var modalClose = document.createElement('span');
-	modalGallery.setAttribute('id', 'modalGallery');
-	modalGallery.setAttribute('class', 'modalGallery');
-	modalClose.setAttribute('class', 'closeGallery');
-	modalClose.setAttribute('title', 'Close');
-	modalClose.innerHTML = "&times";
-	modalClose.onclick = function() {
-		modalGallery.style.display = "none";
-	}
+    if (core.controls) {
+      core.controls.object = core.camera;
+      core.controls.update();
+    }
 
-	document.addEventListener('click', function(event) {
-		if (!modalGallery.contains(event.target) && !imageList.contains(event.target)) {
-			modalGallery.style.display = "none";
-			zoomImage = 1.5;
-			modalImage.style.transform = `scale(1.5)`;
-		}
-	});
+    this.updateCamera();
+    this.updateFullscreenButtonIcon();
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
+  },
 
-	modalGallery.appendChild(modalImage);
-	modalGallery.appendChild(modalClose);
-	for (let i = 0; imageElementsChildren.length - i >= 0; i++) {
-		if (imageElementsChildren[i] !== undefined && imageElementsChildren[i].innerHTML !== undefined) {
-			var imgList = imageElementsChildren[i].getElementsByTagName("a");
-			for (let j = 0; j < imgList.length; j++) {
-				imgList[j].setAttribute("href", "#");
-				imgList[j].setAttribute("src", imgList[j].firstChild.src);
-				imgList[j].setAttribute("class", "image-list-item");
-			}
-			imgList = imageElementsChildren[i].getElementsByTagName("img");
-			//for single thumbnail
-			if (imgList.length == 1) {
-				imgList[0].style.maxWidth = "fit-content";
-				imgList[0].style.maxHeight = "180px";
-			}
-			for (let j = 0; j < imgList.length; j++) {
-				imgList[j].onclick = function(){
-					modalGallery.style.display = "block";
-					modalGallery.style.zIndex = 999;
-					imageList.style.zIndex = 0;
-					imageList.style.display = "hidden";
-					modalImage.src = this.src;
-				};
-			}
-			imageList.appendChild(imageElementsChildren[i]);
-		}
-	}
-	fileElement[0].insertAdjacentElement('beforebegin', modalGallery);
-	mainElement.insertAdjacentElement('beforebegin', imageList);
-	//mainElement.insertBefore(imageList, fileElement[0]);
-}
+  updateCamera () {
+    if (!core.camera || !core.controls) return;
+    core.controls.object = core.camera;
+    core.controls.update();
+  },
 
-function buildGallery() {
-	if (fileElement.length > 0) {
-		var mainElement = document.getElementById(CONFIG.viewer.gallery.container);
-		var imageElements;
-		if (CONFIG.viewer.gallery.imageClass !== '') {
-			imageElements = document.getElementsByClassName(CONFIG.viewer.gallery.imageClass);
-			if (imageElements.length > 0) {
-				var galleryLabel = document.getElementsByClassName("field__label");
-				if (galleryLabel !== undefined) galleryLabel[0].innerText = '';
-			}
-		}
-		else if (CONFIG.viewer.gallery.imageId !== '') {
-			imageElements = document.getElementById(CONFIG.viewer.gallery.imageId);
-		}
-		else {
-			console.log('No gallery created');
-		}
+  toggleWireframeMode() {
+    if (typeof core.scene === "undefined") return;
+    const isEnabled = !core.scene.traverse((child) => {
+      if (child.material) {
+        child.material.wireframe = !child.material.wireframe;
+        child.material.needsUpdate = true;
+      }
+    });
+    this.wireframeMode = isEnabled;
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
+  },
 
-		if (imageElements !== null) {
-			
-			if (imageElements.length > 0) {
-				if (imageElements[0].innerHTML !== undefined) {
-					let imagesList = Array.from(imageElements[0].getElementsByClassName("field__items")[0].childNodes);
-					prepareGalleryImages(imagesList);
-					//imageElements[0].classList.add("field--type-image");
-					imageElements[0].classList.add("field--label-hidden");
-					imageElements[0].classList.add("field__items");
-					handleImages(fileElement, mainElement, imagesList, imageElements);
-				}
-				else {
-					handleImages(fileElement, mainElement, imageElements);
-				}
-			}
-			else if (imageElements.childNodes !== undefined && imageElements.childNodes.length > 0) {
-				if (typeof (imageElements.childNodes[0].innerHTML) == 'string' || typeof (imageElements.childNodes[1].innerHTML) == 'string') { //handle links and convert to img
-					let imagesList = Array.from(imageElements.childNodes);
-					prepareGalleryImages(imagesList);
-					imageElements.classList.add("field--type-image");
-					imageElements.classList.add("field--label-hidden");
-					imageElements.classList.add("field__items");
-					handleImages(fileElement, mainElement, imagesList, imageElements);
-				}
-				else {
-					handleImages(fileElement, mainElement, imageElements);
-				}
-				
-			}
-		}
-	}
-}
+  async setEnvironmentMapEnabled(enabled) {
+    this.environmentMapEnabled = enabled !== false;
+    setCore("environmentMapEnabled", this.environmentMapEnabled);
+    await syncSceneEnvironment(this.environmentMapEnabled);
+    this.updateEditorToolbarState();
+  },
 
-function render() {
-	controls.update();
-	renderer.render(scene, camera);
-}
+  async setEnvironmentMapPreset(preset) {
+    this.environmentMapPreset = preset || "studio";
+    setCore("environmentMapPreset", this.environmentMapPreset);
+    // If environment is enabled, sync with the new preset
+    const isEnabled = (core.scene?.environmentIntensity ?? 0) > 0;
+    if (isEnabled) {
+      await syncSceneEnvironment(true, this.environmentMapPreset);
+    }
+    this.updateEditorToolbarState();
+  },
 
-function setupCamera (_object, _camera, _light, _data, _controls) {
-	if (typeof (_data) != "undefined") {
-		if (typeof (_data["cameraPosition"]) != "undefined") {
-			_camera.position.set (_data["cameraPosition"][0], _data["cameraPosition"][1], _data["cameraPosition"][2]);
-		}
-		if (typeof (_data["controlsTarget"]) != "undefined") {
-			_controls.target.set (_data["controlsTarget"][0], _data["controlsTarget"][1], _data["controlsTarget"][2]);
-		}
-		if (typeof (_data["lightPosition"]) != "undefined") {
-			_light.position.set(_data["lightPosition"][0], _data["lightPosition"][1], _data["lightPosition"][2]);
-		}
-		if (typeof (_data["lightTarget"]) != "undefined") {
-			_light.rotation.set(_data["lightTarget"][0], _data["lightTarget"][1], _data["lightTarget"][2]);
-		}
-		if (typeof (_data["lightColor"]) != "undefined") {
-			_light.color = new THREE.Color(_data["lightColor"][0]);
-			colors['DirectionalLight'] = _data["lightColor"][0];
-		}
-		if (typeof (_data["lightIntensity"]) != "undefined") {
-			_light.intensity = _data["lightIntensity"][0];
-			intensity.startIntensityDir = _data["lightIntensity"][0];
-		}
-		if (typeof (_data["lightAmbientColor"]) != "undefined") {
-			ambientLight.color = new THREE.Color(_data["lightAmbientColor"][0]);
-			colors['AmbientLight'] = _data["lightAmbientColor"][0];
-		}
-		if (typeof (_data["lightAmbientIntensity"]) != "undefined") {
-			ambientLight.intensity = _data["lightAmbientIntensity"][0];
-			intensity.startIntensityAmbient = _data["lightAmbientIntensity"][0];
-		}
-		if (typeof (_data["lightCameraColor"]) != "undefined") {
-			cameraLight.color = new THREE.Color(_data["lightCameraColor"][0]);
-			colors['CameraLight'] = _data["lightCameraColor"][0];
-		}
-		if (typeof (_data["lightCameraIntensity"]) != "undefined") {
-			cameraLight.intensity = _data["lightCameraIntensity"][0];
-			intensity.startIntensityCamera = _data["lightCameraIntensity"][0];
-		}
-		if (typeof (_data["background"]) != "undefined") {
-			mainCanvas.style.setProperty("background", _data["background"][0]);
-		}
-		_camera.updateProjectionMatrix();
-		_controls.update();
-		fitCameraToCenteredObject (_camera, _object, 2.3, _controls, false);
-	}
-	else {
-		var boundingBox = new THREE.Box3();
-		if (Array.isArray(_object)) {
-			for (let i = 0; i < _object.length; i++) {
-				boundingBox.setFromObject(_object[i]);
-			}
-		}
-		else {
-			boundingBox.setFromObject(_object);
-		}
-		var size = new THREE.Vector3();
-		boundingBox.getSize(size);
-		camera.position.set(size.x, size.y, size.z);
-		fitCameraToCenteredObject (_camera, _object, 1.2, _controls, true);
-	}
-}
+  async toggleEnvironmentMap() {
+    await this.setEnvironmentMapEnabled(!this.environmentMapEnabled);
+  },
 
-function distanceBetweenPoints(pointA, pointB) {
-	return Math.sqrt(Math.pow(pointB.x - pointA.x, 2) + Math.pow(pointB.y - pointA.y, 2) + Math.pow(pointB.z - pointA.z, 2) ,2);
-}
+  addHierarchySubmenuItem(name, meshId) {
+    if (!this.hierarchySubmenu) return;
+    
+    const subButton = document.createElement("button");
+    subButton.type = "button";
+    subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button viewer-editor-hierarchy-item";
+    subButton.dataset.tool = `hierarchy-item-${meshId}`;
+    subButton.innerHTML = `<span class="viewer-editor-tool_sr">${name}</span>`;
+    subButton.setAttribute("title", name);
+    subButton.setAttribute("aria-label", name);
+    
+    const textLabel = document.createElement("span");
+    textLabel.className = "viewer-editor-hierarchy-submenu-label";
+    textLabel.style.marginLeft = "8px";
+    textLabel.style.marginRight = "8px";
+    textLabel.textContent = name;
+    textLabel.style.maxWidth = "120px";
+    textLabel.style.overflow = "hidden";
+    textLabel.style.textOverflow = "ellipsis";
+    textLabel.style.whiteSpace = "nowrap";
+    textLabel.style.display = "inline-block";
+    subButton.appendChild(textLabel);
+    
+    this.bindEventListener(subButton, "click", (event) => {
+      event.stopPropagation();
+      Viewer.selectObjectHierarchy(meshId, core.container);
+    });
+    
+    this.hierarchySubmenuList.appendChild(subButton);
+    this.hierarchySubmenuButtons[meshId] = subButton;
+    this.updateHierarchySubmenuState();
+  },
 
-function distanceBetweenPointsVector(vector) {
-	return Math.sqrt(Math.pow(vector.x, 2) + Math.pow(vector.y, 2) + Math.pow(vector.z, 2) ,2);
-}
+  clearHierarchySubmenu() {
+    if (!this.hierarchySubmenuList) return;
+    this.hierarchySubmenuList.innerHTML = "";
+    this.hierarchySubmenuButtons = {};
+    this.updateHierarchySubmenuState();
+  },
 
-function vectorBetweenPoints (pointA, pointB) {
-	return new THREE.Vector3(pointB.x - pointA.x, pointB.y - pointA.y, pointB.z - pointA.z);
-}
+  updateHierarchySubmenuState() {
+    return updateHierarchySubmenuState(this);
+  },
 
-function halfwayBetweenPoints(pointA, pointB) {
-	return new THREE.Vector3((pointB.x + pointA.x)/2, (pointB.y + pointA.y)/2, (pointB.z + pointA.z)/2);
-}
+  clearHierarchySelection() {
+    if (!Array.isArray(core.selectedObjects) || core.selectedObjects.length === 0) {
+      Viewer.updateHierarchySubmenuState();
+      return;
+    }
 
-function interpolateDistanceBetweenPoints(pointA, vector, length, scalar) {
-	var _x = pointA.x + (scalar/Math.abs(length)) * vector.x;
-	var _y = pointA.y + (scalar/Math.abs(length)) * vector.y;
-	var _z = pointA.z + (scalar/Math.abs(length)) * vector.z;
-	return new THREE.Vector3(_x, _y, _z);
-}
+    core.selectedObjects.forEach((item) => {
+      const object = core.scene?.getObjectById?.(item.id);
+      if (!object || !item?.originalMaterial) return;
+      object.material = item.originalMaterial;
+      object.material.needsUpdate = true;
+    });
 
-function pickFaces(_id) {
-	if (lastPickedFace.id == '' && _id !== '') {
-		lastPickedFace = {id: _id, color: _id.object.material.color.getHex(), object: _id.object.id};
-	}
-	else if (_id == '' && lastPickedFace.id !== '') {
-		scene.getObjectById(lastPickedFace.object).material.color.setHex(lastPickedFace.color);
-		lastPickedFace = {id: '', color: '', object: ''};
-	}
-	else if (_id != lastPickedFace.id) {
-		scene.getObjectById(lastPickedFace.object).material.color.setHex(lastPickedFace.color);
-		lastPickedFace = {id: _id, color: _id.object.material.color.getHex(), object: _id.object.id};		
-	}
-	if (_id !== '')
-		_id.object.material.color.setHex(0xFF0000);
-}
+    core.selectedObjects.length = 0;
+    Viewer.updateHierarchySubmenuState();
+  },
 
-function buildRuler(_id) {
-	rulerObject = new THREE.Object3D();
-	var sphere = new THREE.Mesh(new THREE.SphereGeometry(gridSize/150, 7, 7), new THREE.MeshNormalMaterial({
-				transparent : true,
-				opacity : 0.8,
-				side: THREE.DoubleSide, depthTest: false, depthWrite: false
-			}));
-	var newPoint = new THREE.Vector3(_id.point.x, _id.point.y, _id.point.z);
-	sphere.position.set(newPoint.x, newPoint.y, newPoint.z	);
-	rulerObject.add(sphere);
-	linePoints.push(newPoint);
-	const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
-	const line = new THREE.Line(lineGeometry, lineMaterial);
-	rulerObject.add(line);
-	var lineMtr = new THREE.LineBasicMaterial({ color: 0x0000FF, linewidth: 3, opacity: 1, side: THREE.DoubleSide, depthTest: false, depthWrite: false });
-	if (linePoints.length > 1) {
-		var vectorPoints = vectorBetweenPoints(linePoints[linePoints.length-2], newPoint);
-		var distancePoints = distanceBetweenPointsVector(vectorPoints);
-		
-		//var distancePoints = distanceBetweenPoints(linePoints[linePoints.length-2], newPoint);
-		var halfwayPoints = halfwayBetweenPoints(linePoints[linePoints.length-2], newPoint);
-		addTextPoint(distancePoints.toFixed(2), gridSize/200, halfwayPoints);
-		var rulerI = 0;
-		var measureSize = gridSize/400;
-        while (rulerI <= distancePoints*100) {
-            const geoSegm = [];
-			var interpolatePoints = interpolateDistanceBetweenPoints(linePoints[linePoints.length-2], vectorPoints, distancePoints, rulerI/100);
-            geoSegm.push(new THREE.Vector3(interpolatePoints.x, interpolatePoints.y, interpolatePoints.z));
-			geoSegm.push(new THREE.Vector3(interpolatePoints.x+measureSize, interpolatePoints.y+measureSize, interpolatePoints.z+measureSize));
-			const geometryLine = new THREE.BufferGeometry().setFromPoints(geoSegm);
-            var lineSegm = new THREE.Line(geometryLine, lineMtr);
-			rulerObject.add(lineSegm);
-            rulerI+=10;
+  toggleStatsVisibility() {
+    if (typeof core.stats === "undefined" || !core.stats?.dom) return;
+    const isVisible = core.stats.dom.style.visibility !== "visible";
+    core.stats.dom.style.visibility = isVisible ? "visible" : "hidden";
+    this.updateEditorToolbarState();
+  },
+
+  setPerformanceMode(value) {
+    if (typeof core.renderer !== "undefined") {
+      core.renderer.powerPreference = value;
+    }
+    if (!core.CONFIG.viewer) {
+      core.CONFIG.viewer = {};
+    }
+    core.CONFIG.viewer.performanceMode = value;
+    this.updateEditorToolbarState();
+  },
+
+  updateStatisticsSubmenuState() {
+    return updateStatisticsSubmenuState(this);
+  },
+
+  toggleMainMenu() {
+    if (!this.actionMenuToggle) return;
+    this.actionMenuToggle.checked = !this.actionMenuToggle.checked;
+    if (!this.actionMenuToggle.checked && this.languageModeDropdown) {
+      this.languageModeDropdown.hidden = true;
+    }
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
+  },
+
+  setObjectTransformMode(mode = "") {
+    const normalizedMode = ["translate", "rotate", "scale"].includes(mode) ? mode : "";
+    if (normalizedMode && !core.helperObjects?.[0]) return;
+
+    if (core.i18nGui.transformObjectController?.setValue) {
+      core.i18nGui.transformObjectController.setValue(normalizedMode);
+    } else {
+      this.transformText["Transform 3D Object"] = normalizedMode;
+    }
+    this.updateEditorToolbarState();
+  },
+
+  toggleObjectTransformMode(mode = "") {
+    const nextMode = this.transformText["Transform 3D Object"] === mode ? "" : mode;
+    this.setObjectTransformMode(nextMode);
+  },
+
+  setLightTransformMode(mode = "") {
+    const normalizedMode = ["translate", "rotate"].includes(mode) ? mode : "";
+
+    if (core.i18nGui.transformLightController?.setValue) {
+      core.i18nGui.transformLightController.setValue(normalizedMode);
+    } else {
+      this.transformText["Transform Light"] = normalizedMode;
+    }
+    this.updateEditorToolbarState();
+  },
+
+  toggleLightTransformMode(mode = "") {
+    const nextMode = this.transformText["Transform Light"] === mode ? "" : mode;
+    this.setLightTransformMode(nextMode);
+  },
+
+  openLightFolder(name) {
+    this.setEditorAdvancedPanelVisible(true);
+    const folder = core.i18nGui?.[name];
+    if (folder?.open) {
+      folder.open();
+    }
+  },
+
+  togglePickingMode() {
+    this.pickingMode = !this.pickingMode;
+    toastHelper(this.pickingMode ? "facePickingEnabled" : "facePickingDisabled", {
+      duration: 1400
+    });
+    if (!this.pickingMode) {
+      this.restoreLastPickedFace();
+      this.clearSelectedFaces();
+    } else {
+      this.RULER_MODE = false;
+      this.updateDistanceMeasurementControllerLabel();
+    }
+    this.updatePickingModeControllerLabel();
+    this.updatePickingControlsVisibility();
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
+  },
+
+  toggleDistanceMeasurement() {
+    this.RULER_MODE = !this.RULER_MODE;
+    if (this.RULER_MODE) {
+      toastHelper("distanceEnabled", {
+        duration: 2600
+      });
+      toastHelper("distanceHint", {
+        duration: 5200
+      });
+    } else {
+      toastHelper(this.RULER_MODE ? "distanceModeEnabled" : "distanceModeDisabled");
+    }
+    if (!this.RULER_MODE) {
+      this.ruler.forEach((r) => {
+        core.scene.remove(r);
+      });
+      this.rulerObject = new THREE.Object3D();
+      this.ruler = [];
+      this.linePoints = [];
+    } else {
+      this.pickingMode = false;
+      this.restoreLastPickedFace();
+      this.clearSelectedFaces();
+      this.updatePickingModeControllerLabel();
+      this.updatePickingControlsVisibility();
+    }
+    this.updateDistanceMeasurementControllerLabel();
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
+  },
+
+  toggleClippingPlanesPanel() {
+    this.clippingMode = !this.clippingMode;
+    if (this.clippingMode) {
+      toastHelper("facePickingEnabled", {
+        duration: 2600
+      });
+      toastHelper("clippingPlanes", {
+        duration: 5200
+      });
+    } else {
+      toastHelper("facePickingDisabled");
+      if (core.planeHelpers?.length >= 3) {
+        core.planeHelpers.forEach((helper) => {
+          if (helper) helper.visible = false;
+        });
+      }
+      core.planeParams.clippingMode.x = false;
+      core.planeParams.clippingMode.y = false;
+      core.planeParams.clippingMode.z = false;
+      if (core.outlineClipping) {
+        core.outlineClipping.visible = false;
+      }
+      if (this.transformControlClippingPlaneX) {
+        this.transformControlClippingPlaneX.detach();
+      }
+      if (this.transformControlClippingPlaneY) {
+        this.transformControlClippingPlaneY.detach();
+      }
+      if (this.transformControlClippingPlaneZ) {
+        this.transformControlClippingPlaneZ.detach();
+      }
+    }
+    this.updateClippingPlanesControllerLabel();
+    this.updateClippingPlanesControlsVisibility();
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
+  },
+
+  updateClippingPlanesControllerLabel() {
+    if (core.i18nGui.clippingPlanesController?.name) {
+      core.i18nGui.clippingPlanesController.name(this.clippingMode
+        ? t("controls.disableClippingPlanesMode", "Disable clipping planes mode")
+        : t("controls.enableClippingPlanesMode", "Enable clipping planes mode"));
+    }
+  },
+
+  updateClippingPlanesControlsVisibility() {
+    if (this.transformControlClippingPlaneX) {
+      this.transformControlClippingPlaneX.visible = this.clippingMode;
+    }
+    if (this.transformControlClippingPlaneY) {
+      this.transformControlClippingPlaneY.visible = this.clippingMode;
+    }
+    if (this.transformControlClippingPlaneZ) {
+      this.transformControlClippingPlaneZ.visible = this.clippingMode;
+    }
+  },
+
+  toggleClippingPlaneHelper(axis) {
+    const axisIndex = { x: 0, y: 1, z: 2 }[axis];
+    const planeHelper = core.planeHelpers?.[axisIndex];
+    const control = this[`transformControlClippingPlane${axis.toUpperCase()}`];
+    if (!planeHelper) return;
+
+    const active = !Boolean(core.planeParams.clippingMode?.[axis]);
+    core.planeParams.clippingMode[axis] = planeHelper.visible = active;
+
+    if (active) {
+      control?.attach?.(planeHelper);
+      if (core.planeParams.outline.visible) core.outlineClipping.visible = true;
+    } else {
+      control?.detach?.();
+      if (
+        !core.planeParams.clippingMode.x &&
+        !core.planeParams.clippingMode.y &&
+        !core.planeParams.clippingMode.z &&
+        !core.planeParams.outline.visible
+      ) {
+        core.outlineClipping.visible = false;
+      }
+    }
+
+    toastHelper("clippingHelperToggle", "info", {
+      axis: axis.toUpperCase(),
+      state: active,
+    });
+    this.refreshClippingHintVisibility();
+    this.updateClippingPlanesSubmenuState();
+  },
+
+  toggleClippingPlaneVisible() {
+    const visible = !Boolean(core.planeParams.outline.visible);
+    core.planeParams.outline.visible = visible;
+    if (core.outlineClipping) core.outlineClipping.visible = visible;
+    this.updateClippingPlanesSubmenuState();
+  },
+
+  refreshClippingHintVisibility() {
+    const clippingMode = core.planeParams?.clippingMode || {};
+    if (this.clippingHint) {
+      this.clippingHint.hidden = !(clippingMode.x || clippingMode.y || clippingMode.z);
+    }
+  },
+
+  updateClippingPlanesSubmenuState() {
+    return updateClippingPlanesSubmenuState(this);
+  },
+
+  updateAnnotateSubmenuState() {
+    if (!this.annotateSubmenuButtons) return;
+
+  },
+
+  updateLightsSubmenuState() {
+    return updateLightsSubmenuState(this);
+  },
+
+  async saveEditorMetadata() {
+    return persistEditorMetadata(this);
+  },
+
+  updateEditorToolbarState() {
+    return syncEditorToolbarState(this);
+  },
+
+  tFormat(key, params = {}, fallback = "") {
+    const template = t(key, fallback);
+    return String(template).replace(/\{(\w+)\}/g, (_match, token) => {
+      const replacement = params?.[token];
+      return replacement == null ? "" : String(replacement);
+    });
+  },
+
+  parseBooleanParam(value) {
+    if (value == null) return null;
+    const normalizedValue = String(value).trim().toLowerCase();
+    if (["1", "true", "yes", "on"].includes(normalizedValue)) return true;
+    if (["0", "false", "no", "off"].includes(normalizedValue)) return false;
+    return null;
+  },
+
+  parseFloatParam(value) {
+    if (value == null || value === "") return null;
+    const parsed = Number.parseFloat(String(value));
+    return Number.isFinite(parsed) ? parsed : null;
+  },
+
+  parseVector2Param(value) {
+    if  (value == null || value === "") return null;
+    const cleaned = String(value).replace(/[\[\]()]/g, " ").trim();
+    const parts = cleaned.split(/[\s,;|]+/).filter(Boolean);
+    if (parts.length !== 2) return null;
+    const x = Number.parseFloat(parts[0]);
+    const y = Number.parseFloat(parts[1]);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    return new THREE.Vector2(x, y);
+  },
+
+  parseVector3Param(value) {
+    if (value == null || value === "") return null;
+    const cleaned = String(value).replace(/[\[\]()]/g, " ").trim();
+    const parts = cleaned.split(/[\s,;|]+/).filter(Boolean);
+    if (parts.length !== 3) return null;
+    const x = Number.parseFloat(parts[0]);
+    const y = Number.parseFloat(parts[1]);
+    const z = Number.parseFloat(parts[2]);
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return null;
+    return new THREE.Vector3(x, y, z);
+  },
+
+  formatVector3Param(vector) {
+    if (!vector || typeof vector !== "object") return null;
+    const x = Number(vector.x);
+    const y = Number(vector.y);
+    const z = Number(vector.z);
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return null;
+    return `${x.toFixed(4)},${y.toFixed(4)},${z.toFixed(4)}`;
+  },
+
+  parseUrlOptions() {
+    const params = new URLSearchParams(window.location.search);
+    const modelFromQuery = params.get("model") || params.get("src");
+    const themeFromQuery = (params.get("theme") || "").trim().toLowerCase();
+    const languageFromQuery = this.normalizeLanguage(params.get("lang") || params.get("language"));
+    const autoRotateFromQuery = this.parseBooleanParam(params.get("autorotate"));
+    const disableInteractionFromQuery = this.parseBooleanParam(params.get("disableInteraction"));
+    const hideUiFromQuery = this.parseBooleanParam(params.get("hideUi"));
+    const hideMetadataFromQuery = this.parseBooleanParam(params.get("hideMetadata"));
+    const presentationModeFromQuery = this.parseBooleanParam(params.get("presentationMode"));
+    const sandboxModeFromQuery = this.parseBooleanParam(params.get("sandbox"));
+    if (presentationModeFromQuery !== null) {
+      core.PRESENTATION_MODE = presentationModeFromQuery;
+    }
+    if (sandboxModeFromQuery !== null) {
+      core.SANDBOX_MODE = sandboxModeFromQuery;
+    }
+    const showNotificationsFromQuery = this.parseBooleanParam(params.get("showNotifications"));
+
+    this.urlOptions = {
+      model: modelFromQuery || null,
+      id: params.get("id") || null,
+      theme: themeFromQuery === "light" || themeFromQuery === "dark" ? themeFromQuery : null,
+      language: languageFromQuery,
+      autoRotate: autoRotateFromQuery,
+      autoRotateSpeed: this.parseFloatParam(params.get("autorotateSpeed")),
+      disableInteraction: disableInteractionFromQuery === true,
+      hideUi: hideUiFromQuery === true,
+      hideMetadata: hideMetadataFromQuery === true,
+      cameraPosition: this.parseVector3Param(params.get("camPos") || params.get("cameraPos")),
+      cameraTarget: this.parseVector3Param(params.get("camTarget") || params.get("cameraTarget")),
+      cameraFov: this.parseFloatParam(params.get("fov")),
+      presentationMode: core.PRESENTATION_MODE === true,
+      sandboxMode: core.SANDBOX_MODE === true,
+      scale: this.parseVector2Param(params.get("scale")) ?? null,
+      showNotifications: showNotificationsFromQuery !== false
+    };
+  },
+
+  setGuiFolderTitle(folder, title) {
+    if (!folder || !title) return;
+    if (typeof folder.title === "function") {
+      folder.title(title);
+      return;
+    }
+    if (folder.$title) {
+      folder.$title.textContent = title;
+    }
+    folder._title = title;
+  },
+
+  refreshOptionController(controller, optionsMap) {
+    if (!controller || typeof controller.options !== "function") return;
+    const currentValue = typeof controller.getValue === "function" ? controller.getValue() : undefined;
+    controller.options(optionsMap);
+    if (currentValue !== undefined && typeof controller.setValue === "function") {
+      controller.setValue(currentValue);
+    }
+    if (typeof controller.updateDisplay === "function") {
+      controller.updateDisplay();
+    }
+  },
+
+  updatePickingModeControllerLabel() {
+    if (!this.pickingModeController?.name) return;
+    this.pickingModeController.name(
+      this.pickingMode
+        ? t("controls.disablePickingMode", "Disable picking mode")
+        : t("controls.enablePickingMode", "Enable picking mode")
+    );
+  },
+
+  updateMaterialControllerLabel() {
+    if (!this.materialController?.name) return;
+    this.materialController.name(
+      this.materialMode
+        ? t("controls.disableMaterialMode", "Disable material mode")
+        : t("controls.enableMaterialMode", "Enable material mode")
+    );
+  },
+
+  updateDistanceMeasurementControllerLabel() {
+    if (!this.distanceMeasurementController?.name) return;
+    this.distanceMeasurementController.name(
+      this.RULER_MODE
+        ? t("controls.disableDistanceMeasurement", "Disable distance measurement")
+        : t("controls.enableDistanceMeasurement", "Enable distance measurement")
+    );
+  },
+
+  getDistanceMeasurementScaleMeters() {
+    const configuredScale = Number(core.CONFIG?.viewer?.measurement?.modelUnitInMeters);
+    if (Number.isFinite(configuredScale) && configuredScale > 0) return configuredScale;
+    return 1;
+  },
+
+  formatMeasuredDistance(rawDistanceInModelUnits) {
+    const scaleMeters = this.getDistanceMeasurementScaleMeters();
+    const meters = rawDistanceInModelUnits * scaleMeters;
+
+    if (!Number.isFinite(meters)) {
+      return { text: "0 mm", meters: 0, scaleMeters };
+    }
+
+    if (meters >= 1) {
+      return { text: `${meters.toFixed(2)} m`, meters, scaleMeters };
+    }
+
+    if (meters >= 0.01) {
+      return { text: `${(meters * 100).toFixed(1)} cm`, meters, scaleMeters };
+    }
+
+    return { text: `${(meters * 1000).toFixed(0)} mm`, meters, scaleMeters };
+  },
+
+  updateSelectedFacesControllerLabel() {
+    if (!this.selectedFacesCountController?.name) return;
+    this.selectedFacesCountController.name(t("controls.selectedFaces", "Selected faces"));
+  },
+
+  updatePickingHintVisibility() {
+    if (!this.pickingHint) return;
+    const hasSelectedFaces = Array.isArray(this.selectedFaces) && this.selectedFaces.length > 0;
+    this.pickingHint.hidden = !this.pickingMode || hasSelectedFaces;
+    this.updateClippingHintVisibility();
+  },
+
+  updateClippingHintVisibility() {
+    if (!this.clippingHint) return;
+    const clippingMode = this.planeParams?.clippingMode || {};
+    const hasActiveClipping = Boolean(clippingMode.x || clippingMode.y || clippingMode.z);
+    const pickingHintVisible = Boolean(this.pickingHint && this.pickingHint.hidden === false);
+    this.clippingHint.hidden = !hasActiveClipping || pickingHintVisible;
+  },
+
+  updatePickingControlsVisibility() {
+    const method = this.pickingMode ? "show" : "hide";
+    this.clearSelectedFacesController?.[method]?.();
+    this.selectedFacesCountController?.[method]?.();
+    this.updateAddAnnotationControllerState();
+    this.updatePickingHintVisibility();
+    this.updateEditorToolbarLabels();
+    this.updateEditorToolbarState();
+  },
+
+  updateAddAnnotationControllerState() {
+    if (!this.addAnnotationController) return;
+    this.addAnnotationController.enable?.();
+  },
+
+  getKeyboardShortcutsText() {
+    return [
+      t("shortcuts.mouse"),
+      t("shortcuts.keyboard"),
+      t("shortcuts.touch"),
+      core.CONFIG?.viewer?.enableDragAndDrop === true ? t("shortcuts.dragAndDrop") : null
+    ].join("\n");
+  },
+
+  getSupportedFormatsText() {
+    return core.SUPPORTED_EXTENSIONS.map((extension) => extension.toUpperCase()).join(", ");
+  },
+
+  getSupportedArchiveFormatsText() {
+    return core.SUPPORTED_ARCHIVES.map((extension) => extension.toUpperCase()).join(", ");
+  },
+
+  updateDragAndDropHint() {
+    if (!this.dragAndDropHint) return;
+    if (core.CONFIG?.viewer?.enableDragAndDrop === true) {
+      this.dragAndDropHint.textContent = t("shortcuts.dragAndDrop", "You can also drag and drop a model file here to load it");
+      this.dragAndDropHint.hidden = false;
+    } else {
+      this.dragAndDropHint.hidden = true;
+    }
+
+  },
+
+  maybeShowKeyboardHint() {
+    try {
+      if (window.localStorage.getItem("viewerHintSeen") !== "1") return;
+    } catch (_err) {
+      // If storage is unavailable, keep previous behavior.
+    }
+    if (document.visibilityState !== "visible" || !document.hasFocus()) return;
+    const now = Date.now();
+    if (now - this.lastWindowFocusAt < this.keyboardHintAfterFocusDelayMs) return;
+    if (this.pickingMode) return;
+    const clippingMode = this.planeParams?.clippingMode || {};
+    if (clippingMode.x || clippingMode.y || clippingMode.z) return;
+    if (!core.handHint?.hidden || core.GESTURE?.active) return;
+    if (now - this.lastKeyboardHintAt < this.keyboardHintCooldownMs) return;
+    this.lastKeyboardHintAt = now;
+    this.showStatusNotice(this.getKeyboardShortcutsText(), 7400);
+  },
+
+  isInteractiveTextInput(element) {
+    if (!element || typeof element.closest !== "function") return false;
+    return Boolean(
+      element.closest("input, textarea, select, [contenteditable='true'], [contenteditable='']")
+    );
+  },
+
+  isViewerKeyboardActive(event) {
+    if (this.isInteractiveTextInput(event?.target)) return false;
+    if (!core.renderer?.domElement) return false;
+    const active = document.activeElement;
+    return active === core.renderer.domElement || core.renderer.domElement.contains(active);
+  },
+
+  isPointerDirectlyOverCanvas(event) {
+    if (!core.renderer?.domElement || !event) return false;
+    const x = Number(event.clientX);
+    const y = Number(event.clientY);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+    const topElement = document.elementFromPoint(x, y);
+    if (!topElement) return false;
+    return topElement === core.renderer.domElement;
+  },
+
+  animateKeyboardCameraTo(nextCameraPosition, nextTarget) {
+    if (!core.camera || !core.controls || !nextCameraPosition || !nextTarget) return;
+
+    const startCamera = core.camera.position.clone();
+    const startTarget = core.controls.target.clone();
+    const targetCamera = nextCameraPosition.clone();
+    const targetControls = nextTarget.clone();
+    const duration = this.keyboardTweenDurationMs;
+
+    core.cameraTween?.stop?.();
+    core.targetTween?.stop?.();
+
+    core.cameraTween = new TWEEN.Tween(startCamera)
+      .to(targetCamera, duration)
+      .easing(TWEEN.Easing.Quadratic.Out)
+      .onUpdate(() => {
+        core.camera.position.copy(startCamera);
+        core.cameraLight?.position.copy(startCamera);
+        core.camera.updateProjectionMatrix();
+      })
+      .onComplete(() => {
+        core.camera.position.copy(targetCamera);
+        core.cameraLight?.position.copy(targetCamera);
+        core.camera.updateProjectionMatrix();
+      });
+
+    core.targetTween = new TWEEN.Tween(startTarget)
+      .to(targetControls, duration)
+      .easing(TWEEN.Easing.Quadratic.Out)
+      .onUpdate(() => {
+        core.controls.target.copy(startTarget);
+        core.controls.update();
+      })
+      .onComplete(() => {
+        core.controls.target.copy(targetControls);
+        core.controls.update();
+      });
+
+    core.cameraTween.start();
+    core.targetTween.start();
+  },
+
+  rotateCameraByKeyboard(deltaTheta = 0, deltaPhi = 0) {
+    if (!core.camera || !core.controls) return;
+
+    const target = core.controls.target.clone();
+    const offset = core.camera.position.clone().sub(target);
+    if (offset.lengthSq() === 0) return;
+
+    const spherical = new THREE.Spherical().setFromVector3(offset);
+    const minPolar = 0.05;
+    const maxPolar = Math.PI - 0.05;
+    spherical.theta += deltaTheta;
+    spherical.phi = THREE.MathUtils.clamp(spherical.phi + deltaPhi, minPolar, maxPolar);
+
+    offset.setFromSpherical(spherical);
+    const nextCamera = target.clone().add(offset);
+    this.animateKeyboardCameraTo(nextCamera, target);
+  },
+
+  panCameraByKeyboard(directionX = 0, directionY = 0) {
+    if (!core.camera || !core.controls) return;
+    const distance = core.camera.position.distanceTo(core.controls.target) || 1;
+    const panStep = distance * this.keyboardStep.panFactor;
+
+    const forward = core.controls.target.clone().sub(core.camera.position).normalize();
+    const right = new THREE.Vector3().crossVectors(forward, core.camera.up).normalize();
+    const up = core.camera.up.clone().normalize();
+
+    const panOffset = right.multiplyScalar(directionX * panStep).add(up.multiplyScalar(directionY * panStep));
+    const nextCamera = core.camera.position.clone().add(panOffset);
+    const nextTarget = core.controls.target.clone().add(panOffset);
+    this.animateKeyboardCameraTo(nextCamera, nextTarget);
+  },
+
+  zoomCameraByKeyboard(zoomIn = true) {
+    if (!core.camera || !core.controls) return;
+    const factor = zoomIn ? 1 / this.keyboardStep.zoomFactor : this.keyboardStep.zoomFactor;
+    const offset = core.camera.position.clone().sub(core.controls.target);
+    let nextDistance = offset.length() * factor;
+
+    if (Number.isFinite(core.controls.minDistance)) {
+      nextDistance = Math.max(core.controls.minDistance, nextDistance);
+    }
+    if (Number.isFinite(core.controls.maxDistance) && core.controls.maxDistance > 0) {
+      nextDistance = Math.min(core.controls.maxDistance, nextDistance);
+    }
+    if (nextDistance <= 0) return;
+
+    offset.setLength(nextDistance);
+    const nextTarget = core.controls.target.clone();
+    const nextCamera = nextTarget.clone().add(offset);
+    this.animateKeyboardCameraTo(nextCamera, nextTarget);
+  },
+
+  toggleAutoRotateByKeyboard() {
+    if (!core.controls) return;
+    core.controls.autoRotate = !core.controls.autoRotate;
+    this.showStatusNotice(
+      core.controls.autoRotate ? "Auto-rotate enabled" : "Auto-rotate disabled",
+      1400
+    );
+    this.updateEmbedConfiguratorPreview();
+  },
+
+  onViewerKeyDown(event) {
+    if (!Viewer.isViewerKeyboardActive(event)) return;
+
+    const isFast = event.shiftKey;
+    const rotateStep = isFast ? Viewer.keyboardStep.rotateFast : Viewer.keyboardStep.rotate;
+    const isPanMode = event.ctrlKey || event.metaKey;
+    let handled = false;
+
+    switch (event.key) {
+      case "ArrowLeft":
+        if (isPanMode) Viewer.panCameraByKeyboard(-1, 0);
+        else Viewer.rotateCameraByKeyboard(-rotateStep, 0);
+        handled = true;
+        break;
+      case "ArrowRight":
+        if (isPanMode) Viewer.panCameraByKeyboard(1, 0);
+        else Viewer.rotateCameraByKeyboard(rotateStep, 0);
+        handled = true;
+        break;
+      case "ArrowUp":
+        if (isPanMode) Viewer.panCameraByKeyboard(0, 1);
+        else Viewer.rotateCameraByKeyboard(0, -rotateStep);
+        handled = true;
+        break;
+      case "ArrowDown":
+        if (isPanMode) Viewer.panCameraByKeyboard(0, -1);
+        else Viewer.rotateCameraByKeyboard(0, rotateStep);
+        handled = true;
+        break;
+      case "+":
+      case "=":
+        Viewer.zoomCameraByKeyboard(true);
+        handled = true;
+        break;
+      case "-":
+      case "_":
+        Viewer.zoomCameraByKeyboard(false);
+        handled = true;
+        break;
+      case " ":
+      case "Spacebar":
+        Viewer.toggleAutoRotateByKeyboard();
+        handled = true;
+        break;
+      default:
+        break;
+    }
+
+    if (handled) {
+      Viewer.maybeShowKeyboardHint();
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  },
+
+  updateFullscreenButtonIcon() {
+    if (core.editorToolbar) {
+      if (Viewer.FULLSCREEN) {
+        core.editorToolbar.classList.add("with-fullscreen");
+      } else {
+        core.editorToolbar.classList.remove("with-fullscreen");
+      }
+    }
+  },
+
+  cleanupRuntimeBindings() {
+    while (this.cleanupCallbacks.length > 0) {
+      const callback = this.cleanupCallbacks.pop();
+      try {
+        callback();
+      } catch (error) {
+        console.warn("Viewer cleanup callback failed:", error);
+      }
+    }
+
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    }
+  },
+
+  cleanupTransientUI() {
+    const iiifForm = document.getElementById("form-IIIF");
+    if (iiifForm) {
+      iiifForm.remove();
+    }
+  },
+
+  reportError(error, options = {}) {
+    return reportViewerError(error, {
+      consoleLabel: "Viewer error:",
+      ...options,
+    });
+  },
+
+  disposeMaterial(material) {
+    if (!material) return;
+
+    const materials = Array.isArray(material) ? material : [material];
+
+    materials.forEach((entry) => {
+      if (!entry || typeof entry !== "object") return;
+
+      Object.values(entry).forEach((value) => {
+        if (value && typeof value === "object" && value.isTexture === true) {
+          value.dispose();
         }
-	}
-	rulerObject.renderOrder = 1;
-	scene.add(rulerObject);
-	ruler.push(rulerObject);
-}
+      });
 
-function onWindowResize() {
-	var rightOffsetEntity = -65;
-	var rightOffsetFullscreen = canvasDimensions.x * 0.45;
-	var bottomOffsetFullscreen = -canvasDimensions.y * 0.97 + 20;
-	if (FULLSCREEN) {
-		canvasDimensions = {x: window.innerWidth, y: window.innerHeight};
-		rightOffsetEntity = -95;
-		bottomOffsetFullscreen = -canvasDimensions.y * 0.96 + 20;
-		downloadModel.setAttribute('style', 'visibility: hidden');
-		mainCanvas.style.width = "100vw !important";
-		mainCanvas.style.height = "100vh !important";
-		metadataContainer.style.width = "10%";
-		metadataContainer.style.height = "10%";
-	}
-	else {
-		canvasDimensions = {x: container.getBoundingClientRect().width*CONFIG.viewer.scaleContainer.x, y: container.getBoundingClientRect().bottom*(CONFIG.viewer.scaleContainer.y+0.3)};
-		bottomOffsetFullscreen = Math.round(-canvasDimensions.y) + 36;
-		mainCanvas.style.width = "100% !imporant";
-		mainCanvas.style.height = "100% !important";
-		metadataContainer.style.width = "100%";
-		metadataContainer.style.height = "100%";
+      entry.dispose?.();
+    });
+  },
 
-		if (CONFIG.viewer.lightweight === false) {
-			downloadModel.setAttribute('style', 'visibility: visible');
-			downloadModel.setAttribute('style', 'top:' + (canvasDimensions.y - 60) + 'px;');
-		}
-	}
-	mainCanvas.style.width = canvasDimensions.x+"px;";
-	mainCanvas.style.height = canvasDimensions.y +"px;";
-	//mainCanvas.setAttribute("style", "width:" + canvasDimensions.x+"px;" + "height:" + canvasDimensions.y +"px;" );
+  disposeObjectResources(object) {
+    if (!object) return;
 
-	guiContainer.setAttribute("style", "width:" + canvasDimensions.x + "px; left: " + canvasDimensions.x - lilGui[0].getBoundingClientRect().width + 'px');
-	lilGui[0].style.left = canvasDimensions.x - lilGui[0].getBoundingClientRect().width - 10 + 'px';
+    const disposeNode = (node) => {
+      if (!node || typeof node !== "object") return;
+      node.geometry?.dispose?.();
+      Viewer.disposeMaterial(node.material);
+    };
 
-	renderer.setSize(canvasDimensions.x, canvasDimensions.y);
-	renderer.setPixelRatio(window.devicePixelRatio);
-	camera.aspect = canvasDimensions.x / canvasDimensions.y;
-	camera.updateProjectionMatrix();
-	renderer.setSize(canvasDimensions.x, canvasDimensions.y);
+    if (Array.isArray(object)) {
+      object.forEach((entry) => Viewer.disposeObjectResources(entry));
+      return;
+    }
 
-	viewEntity.setAttribute('style', 'right: ' + rightOffsetEntity +'%');
-	fullscreenMode.setAttribute('style', 'top:' + (canvasDimensions.y - 50) + 'px; left: ' + (canvasDimensions.x - 36) + 'px;');
-	//fullscreenMode.style.top = (bottomLineGUI) + 'px;';
+    object.traverse?.((child) => disposeNode(child));
+  },
 
-	controls.update();
-	render();
-}
+  removeAndDisposeFromScene(object) {
+    if (!object) return;
 
-function addWissKIMetadata(label, value) {
-	if ((typeof (label) !== "undefined") && (typeof (value) !== "undefined")) {
-		var _str = "";
-		label = label.replace("wisski_path_3d_model__", "");
-		switch (label) {
-			case "title":
-				_str = "Title";
-			break;
-			case "author_name":
-				_str = "Author";
-			break;
-			/*case "reconstructed_period_start":
-				_str = "period";
-			break;
-			case "reconstructed_period_end":
-				_str = "-";
-			break;*/
-			case "author_affiliation":
-				_str = "Author affiliation";
-			break;
-			case "license":
-				_str = "License";
-				switch (value) {
-					case "CC0 1.0":
-					case "CC-BY Attribution":
-					case "CC-BY-SA Attribution-ShareAlike":
-					case "CC-BY-ND Attribution-NoDerivs":
-					case "CC-BY-NC Attribution-NonCommercial":
-					case "CC-BY-NC-SA Attribution-NonCommercial-ShareAlike":
-					case "CC BY-NC-ND Attribution-NonCommercial-NoDerivs":
-						//addTextWatermark("©", gridSize/10);
-					break;
-				}
-			break;
-			default:
-				_str = ""
-			break;
-		}
-		if (_str == "period") {
-			return "Reconstruction period: <b>"+value+" - ";
-		}
-		else if (_str == "-") {
-			return value+"</b><br>";
-		}
-		else if (_str !== "") {
-			return _str+": <b>"+value+"</b><br>";
-		}
-	}
-}
+    if (Array.isArray(object)) {
+      object.forEach((entry) => Viewer.removeAndDisposeFromScene(entry));
+      return;
+    }
 
-function truncateString(str, n) {
-	if (str.length === 0) {return str;}
-	else if (str.length > n) {
-		return str.substring(0, n) + "...";
-	} else {
-		return str;
-	}
-}
+    if (object.parent) {
+      object.parent.remove(object);
+    } else {
+      core.scene?.remove?.(object);
+    }
 
-function getProxyPath(url) {
-	var tempPath = decodeURIComponent(CONFIG.mainUrl);
-	return tempPath.replace(originalPath, encodeURIComponent(url));
-}
+    Viewer.disposeObjectResources(object);
+  },
 
-function expandMetadata () {
-   const el = document.getElementById("metadata-content");
-   el.classList.toggle('expanded');
-   const elm = document.getElementById("metadata-collapse");
-   elm.classList.toggle('metadata-collapsed');
-}
+  disposeFaceOverlay(entry) {
+    if (!entry?.overlay) return;
+    entry.overlay.removeFromParent();
+    Viewer.disposeObjectResources(entry.overlay);
+  },
 
-function fullscreen() {
-	FULLSCREEN=!FULLSCREEN;
-	if (FULLSCREEN) {
-		if (container.requestFullscreen) {
-			//mainCanvas.requestFullscreen();
-			container.requestFullscreen();
-		} 
-		else if (container.webkitRequestFullscreen) { /* Safari */
-			container.webkitRequestFullscreen();
-		}
-		else if (container.msRequestFullscreen) { /* IE11 */
-			container.msRequestFullscreen();
-		}
-		else if (container.mozRequestFullScreen) { /* Mozilla */
-			container.mozRequestFullScreen();
-		}
-	}
-	else
-	{
-		if (document.exitFullscreen) {
-			document.exitFullscreen();
-		}
-		else if (document.webkitExitFullscreen) { /* Safari */
-			document.webkitExitFullscreen();
-		}
-		else if (document.msExitFullscreen) { /* IE11 */
-			document.msExitFullscreen();
-		}
-	}
-	onWindowResize();
-}
+  resetLoadedModelState() {
+    Viewer.restoreLastPickedFace();
+    Viewer.clearSelectedFaces();
+    Viewer.closeAnnotationDialog();
+    Viewer.annotationEntries.length = 0;
+    Viewer.pendingAnnotationsXml = "";
+    Viewer.clearAnnotationPOIs();
+    core.transformControl?.detach?.();
+    core.transformControlLight?.detach?.();
+    core.transformControlLightTarget?.detach?.();
+    Viewer.transformText["Transform 3D Object"] = "";
+    Viewer.transformText["Transform Light"] = "";
+    Viewer.pickingMode = false;
+    Viewer.RULER_MODE = false;
+    Viewer.updateEditorToolbarLabels();
+    Viewer.updateEditorToolbarState();
 
-function exitFullscreenHandler() {
-	var fullscreenElement = document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement;
-	var fullscreenElement2 = document.webkitIsFullScreen && document.mozFullScreen && document.msFullscreenElement;
-	if (!fullscreenElement && typeof(fullscreenElement2 === undefined) && FULLSCREEN) {
-		fullscreen();
-	}
-}
+    if (core.outlineClipping) {
+      Viewer.removeAndDisposeFromScene(core.outlineClipping);
+      core.outlineClipping = null;
+      setCore('outlineClipping', null);
+    }
 
-function appendMetadata (metadataContent, canvasText, metadataContainer, container) {
-	metadataContent += metadataContentTech + '</div>';
-	canvasText.innerHTML = metadataContent;
-	metadataContainer.appendChild(canvasText);
-	container.appendChild(metadataContainer);
-}
+    if (Viewer.textMesh) {
+      Viewer.removeAndDisposeFromScene(Viewer.textMesh);
+      Viewer.textMesh = null;
+    }
 
-function handleMetadataResponse(data, metadata, path, basename, filename, object, camera, light, controls, orgExtension, extension, hierarchyMain) {
-	var tempArray = [];
-	if (Array.isArray(object)) {
-		setupObject(object[0], light, data, controls);
-		setupCamera (object[0], camera, light, data, controls);
-	}
-	else if (object.name === "Scene" || object.children.length > 0 || object.type == "Mesh") {
-		setupObject(object, light, data, controls);
-		object.traverse(function (child) {
-			if (child.isMesh) {
-				metadata['vertices'] += fetchMetadata (child, 'vertices');
-				metadata['faces'] += fetchMetadata (child, 'faces');
-				if (child.name === '') child.name = 'Mesh'
-				var shortChildName = truncateString(child.name, GUILength);
-				tempArray = { [shortChildName]() {selectObjectHierarchy(child.id)}, 'id': child.id};
-				hierarchyFolder = hierarchyMain.addFolder(shortChildName).close();
-				hierarchyFolder.add(tempArray, shortChildName);
-				//if (object.type == "Mesh")
-					//clippingGeometry.push(child.mesh.geometry);
-				//else {
-					//clippingGeometry.push(child.geometry);
-					child.traverse(function (children) {
-						if (children.isMesh &&  children.name !== child.name) {
-							if (children.name === '') children.name = 'ChildrenMesh';
-							var shortChildrenName = truncateString(children.name, GUILength);
-							tempArray = { [shortChildrenName] (){selectObjectHierarchy(children.id)}, 'id': children.id};
-							//clippingGeometry.push(children.geometry);
-							hierarchyFolder.add(tempArray, shortChildrenName);
-						}
-					});
-				//}
-			}
-		});
-		setupCamera (object, camera, light, data, controls);
-	}
-	else {
-		setupObject(object, light, data, controls);
-		setupCamera (object, camera, light, data, controls);
-		metadata['vertices'] += fetchMetadata (object, 'vertices');
-		metadata['faces'] += fetchMetadata (object, 'faces');
-		if (object.name === '') {
-			tempArray = {["Mesh"] (){selectObjectHierarchy(object.id)}, 'id': object.id};
-			object.name = object.id;
-		}
-		else {
-			tempArray = {[object.name] (){selectObjectHierarchy(object.id)}, 'id': object.id};
-		}
-		//hierarchy.push(tempArray);
-		if (object.name === "undefined") object.name = "level";
-		//clippingGeometry.push(object.geometry);
-		hierarchyFolder = hierarchyMain.addFolder(object.name).close();
-	}
+    if (Viewer.ruler?.length) {
+      Viewer.ruler.forEach((item) => Viewer.removeAndDisposeFromScene(item));
+    }
+    Viewer.ruler = [];
+    Viewer.rulerObject = null;
+    Viewer.textMeshDistance = null;
 
-	hierarchyMain.domElement.classList.add("hierarchy");
+    if (core.mainObject?.length) {
+      core.mainObject.forEach((obj) => Viewer.removeAndDisposeFromScene(obj));
+      core.mainObject.length = 0;
+    }
 
-	var metadataContent = '<div id="metadata-collapse" class="metadata-collapse metadata-collapsed">METADATA </div><div id="metadata-content" class="metadata-content expanded">';
-	metadataContentTech = '<hr class="metadataSeparator">';
-	metadataContentTech += 'Visualized file: <b>' + basename + "." + orgExtension + '</b><br>';
-	//metadataContentTech += 'Loaded format: <b>' + extension + '</b><br>';
-	metadataContentTech += 'Vertices: <b>' + metadata['vertices'] + '</b><br>';
-	metadataContentTech += 'Faces: <b>' + metadata['faces'] + '</b><br>';
-	viewEntity = document.createElement('div');
-	viewEntity.setAttribute('id', 'viewEntity');
-	
-	if (CONFIG.viewer.lightweight !== true && CONFIG.viewer.lightweight !== null) {
-		var req = new XMLHttpRequest();
-		req.responseType = '';
-		req.open('GET', CONFIG.metadataUrl + EXPORT_PATH + entityID + '?page=0&amp;_format=xml', true);
-		req.onreadystatechange = function (aEvt) {
-			if (req.readyState == 4) {
-				if(req.status == 200) {
-					const parser = new DOMParser();
-					const doc = parser.parseFromString(req.responseText, "application/xml");
-					if (doc.documentElement.childNodes > 0) {
-						var data = doc.documentElement.childNodes[0].childNodes;
-						if (typeof (data) !== undefined) {
-							for(var i = 0; i < data.length; i++) {
-								var fetchedValue = addWissKIMetadata(data[i].tagName, data[i].textContent);
-								if (typeof(fetchedValue) !== "undefined") {
-									metadataContent += fetchedValue;
-								}
-							}
-						}
-					}
+    if (Array.isArray(core.helperObjects)) core.helperObjects.length = 0;
+    if (Array.isArray(core.selectedObjects)) core.selectedObjects.length = 0;
+    if (Array.isArray(Viewer.helperObjects)) Viewer.helperObjects.length = 0;
+    if (Array.isArray(Viewer.selectedObjects)) Viewer.selectedObjects.length = 0;
+    if (Array.isArray(Viewer.selectedFaces)) Viewer.selectedFaces.length = 0;
+    Viewer.updateSelectedFacesCount();
+    Viewer.lastPickedFace = { id: "", object: "", faceIndex: null, overlay: null };
+  },
 
-					downloadModel = document.createElement('div');
-					downloadModel.setAttribute('id', 'downloadModel');
+  renderFatalError(error) {
+    const message = this.reportError(error, {
+      context: "Viewer initialization failed",
+      toast: false,
+      consoleLabel: "Viewer initialization error:",
+    });
+    const container =
+      this.container ||
+      document.getElementById(core.CONFIG?.viewer?.container || "DFG_3DViewer") ||
+      document.body;
 
-					var c_path = path;
-					if (compressedFile !== '') { filename = filename.replace(orgExtension, extension); }
-					downloadModel.innerHTML = "<a href='blob:" + c_path + filename + "' download><img src='" + CONFIG.baseModulePath + "/img/cloud-arrow-down.svg' alt='download' width=25 height=25 title='Download source file'/></a>";
-					downloadModel.style.top = bottomLineGUI + 'px';
-					container.appendChild(downloadModel);
+    if (!container) return;
 
-					metadataContainer.appendChild(viewEntity);
-					appendMetadata (metadataContent, canvasText, metadataContainer, container);
-					
-					document.getElementById ("metadata-collapse").addEventListener ("click", expandMetadata, false);
-				}
-				else
-					showToast("Error during loading metadata content");
-				}
-		};
-		req.send(null);
-	}
-	else
-	{
-		viewEntity.innerHTML = "<a href='" + CONFIG.mainUrl + CONFIG.entity.viewEntityPath + entityID + "/view' target='_blank'><img src='" + CONFIG.baseModulePath + "/img/share.svg' alt='View Entity' width=22 height=22 title='View Entity'/></a>";
-		appendMetadata (metadataContent, canvasText, metadataContainer, container);
-	}
+    let errorBox = document.getElementById("viewer-fatal-error");
+    if (!errorBox) {
+      errorBox = document.createElement("div");
+      errorBox.id = "viewer-fatal-error";
+      errorBox.style.padding = "16px";
+      errorBox.style.margin = "12px 0";
+      errorBox.style.border = "1px solid #b91c1c";
+      errorBox.style.background = "#fef2f2";
+      errorBox.style.color = "#7f1d1d";
+      errorBox.style.fontFamily = "sans-serif";
+      container.prepend(errorBox);
+    }
 
-	//hierarchyFolder.add(hierarchyText, 'Faces');
-}
+    errorBox.textContent = message;
+  },
 
-function fetchSettings (path, basename, filename, object, camera, light, controls, orgExtension, extension) {
-	var metadata = {'vertices': 0, 'faces': 0};
-	var hierarchy = [];
-	var geometry;
-	metadataUrl = path + "metadata/" + filename + "_viewer";
-	if (Array.isArray(object)) {
-		helperObjects.push (object[0]);
-	}
-	else {
-		helperObjects.push (object);
-	}
-	const hierarchyMain = gui.addFolder('Hierarchy').close();
-	if (CONFIG.entity.proxyPath !== undefined) {
-		metadataUrl = getProxyPath(metadataUrl);
-		if (Array.isArray(object)) {
-			setupObject(object[0], light, undefined, controls);
-			setupCamera (object[0], camera, light, undefined, controls);
-		}
-		else if (object.name === "Scene" || object.children.length > 0) {
-			setupObject(object, light, undefined, controls);
-			setupCamera (object, camera, light, undefined, controls);
-		}
-		else {
-			setupObject(object, light, undefined, controls);
-			setupCamera (object, camera, light, undefined, controls);
-			//hierarchy.push(tempArray);
-			if (object.name === "undefined") object.name = "level";
-			hierarchyFolder = hierarchyMain.addFolder(object.name).close();
-		}
-	}
-	else {
-		fetch(metadataUrl, {cache: "no-cache"})
-		.then((response) => {
-			if (response['status'] !== 404) {
-				showToast("Settings " + filename + "_viewer found");
-				return response.json();
-			}
-			else if (response['status'] === 404) {
-				showToast("No settings " + filename + "_viewer found");
-			}
-			})
-		.then(data => {
-			handleMetadataResponse(data, metadata, path, basename, filename, object, camera, light, controls, orgExtension, extension, hierarchyMain);
-		});
-	}
+  async MainInit() {
+    if (window.__E2E__) {
+      this.ensureE2EState();
+    }
 
-	//addTextWatermark("©", object.scale.x);
-	//lightObjects.push (object);
-	const statsMain = gui.addFolder('Statistics').close();
-	statsMain.add(performanceMode, 'Performance', { 'High-performance': 'high-performance', 'Low-power': 'low-power', 'Default': 'default' }).onChange(function (value)	{ 
-		renderer.powerPreference = value;
-	});
-	statsMain.onOpenClose( changedGUI => {
-		if (changedGUI._closed) {
-			stats.dom.style.visibility = "hidden";
-		}
-		else {
-			stats.dom.style.visibility = "visible";
-		}
-	} );
-	guiContainer.appendChild(stats.dom);
-	//guiContainer.appendChild(statsContainer);
-}
+    this.cleanupRuntimeBindings();
+    this.cleanupTransientUI();
+    this.resetLoadedModelState();
 
-const onError = function (_event) {
-	//circle.set(100, 100);
-	console.log("Loader error: " + _event);
-	circle.hide();
-	EXIT_CODE=1;
+    await new Promise(r => {
+      if (document.readyState !== 'loading') r();
+      else document.addEventListener('DOMContentLoaded', r);
+    });
+    const moduleUrl = new URL(import.meta.url);
+    const settingsPath = moduleUrl.pathname.includes('/assets/')
+      ? '../viewer-settings.json'
+      : './viewer-settings.json';
+    const url = new URL(settingsPath, moduleUrl);
+
+    //Setup core variables first to make them available in the loaders and utils
+    setCore('viewEntity', this.viewEntity);
+    setCore('CONFIG', this.CONFIG);
+    setCore('loadedFile', this.loadedFile);
+    setCore('stats', this.stats);
+    setCore('guiContainer', this.guiContainer);
+    setCore('lilGui', this.lilGui);
+    setCore('gui', this.gui);
+    setCore('i18nGui', this.i18nGui);
+    setCore('SUPPORTED_EXTENSIONS', this.SUPPORTED_EXTENSIONS);
+    setCore('SUPPORTED_ARCHIVES', this.SUPPORTED_ARCHIVES);
+    setCore('enqueueStatusNotice', this.enqueueStatusNotice.bind(this));
+    setCore('dismissStatusNotice', this.dismissStatusNotice.bind(this));
+    setCore('updateClippingHintVisibility', this.updateClippingHintVisibility.bind(this));
+    setCore('editorToolbar', this.editorToolbar);
+
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    core.CONFIG = await res.json();
+    console.log("Loaded viewer-settings.json", core.CONFIG.viewer);
+
+    if (Object.keys(core.CONFIG).length === 0) {
+      core.CONFIG = {
+        mainUrl: "https://dfg-repository.wisski.cloud",
+        baseNamespace: "https://dfg-repository.wisski.cloud",
+        metadataUrl: "https://dfg-repository.wisski.cloud",
+        baseModulePath: "/modules/dfg_3dviewer-main/viewer",
+        entity: {
+          bundle: "bd3d7baa74856d141bcff7b4193fa128",
+          fieldDf: "field_df",
+          exportViewer: "field_df",
+          idUri: "/wisski/navigate/(.*)/view",
+          viewEntityPath: "/wisski/navigate/",
+          attributeId: "wisski_id",
+          metadata: {
+            source: "IIIF",
+          },
+        },
+        viewer: {
+          container: "DFG_3DViewer",
+          fileUpload: "fbf95bddee5160d515b982b3fd2e05f7",
+          fileName: "faa602a0be629324806aef22892cdbe5",
+          imageGeneration: "f605dc6b727a1099b9e52b3ccbdf5673",
+          presentationMode: "false",
+          sandboxMode: "false",
+          lightweight: 0,
+          scaleContainer: {
+            x: 0.85,
+            y: 1.4,
+          },
+          editor: true,
+          gallery: {
+            build: true,
+            container: "block-bootstrap5-content",
+            imageClass: "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
+            imageId: "",
+            buildFake: false,
+            testImages: [],
+          },
+          background:
+            "radial-gradient(circle, #ffffff 0%, #999999 100%)",
+          performanceMode: {
+            Performance: "high-performance",
+          },
+          measurement: {
+            modelUnitInMeters: 1,
+          }
+        },
+      };
+    }
+
+    this.isLightweight = Boolean(core.CONFIG.viewer.lightweight);
+    setCore('isLightweight', this.isLightweight);
+  
+    this.EDITOR = Boolean(core.CONFIG.viewer.editor);
+    setCore('EDITOR', this.EDITOR);
+
+    const presentationModeFromConfig = this.parseBooleanParam(core.CONFIG.viewer.presentationMode);
+    this.PRESENTATION_MODE = presentationModeFromConfig ?? Boolean(core.CONFIG.viewer.presentationMode);
+    setCore('PRESENTATION_MODE', this.PRESENTATION_MODE);
+
+    const sandboxModeFromConfig = this.parseBooleanParam(core.CONFIG.viewer.sandboxMode);
+    this.SANDBOX_MODE = sandboxModeFromConfig ?? Boolean(core.CONFIG.viewer.sandboxMode);
+    setCore('SANDBOX_MODE', this.SANDBOX_MODE);
+    console.log(`Presentation mode: ${this.PRESENTATION_MODE ? "ON" : "OFF"}`);
+    console.log(`Sandbox mode: ${this.SANDBOX_MODE ? "ON" : "OFF"}`);
+
+    console.log(`AIM 3D-Viewer ${this.isLightweight ? '🪶 LIGHTWEIGHT' : '💪 FULL'} mode`);
+    console.log(`Powered by Three.js (v${THREE.REVISION})`);
+    
+    if (!core.CONFIG.entity.metadata.sourceType) { 
+      core.CONFIG.entity.metadata.sourceType = SOURCE;
+      console.log(`Metadata source: ${core.CONFIG.entity.metadata.sourceType}`);
+    }
+
+    this.container = document.getElementById(core.CONFIG.viewer.container);
+    if (!this.container) throw new Error("Container not found");
+    setCore('container', this.container);
+    document.body.classList.toggle("viewer-embed-page", this.isEmbedMode());
+
+    this.parseUrlOptions();
+    console.log(`Presentation mode: ${core.PRESENTATION_MODE ? "ON" : "OFF"}`);
+    console.log(`Sandbox mode: ${core.SANDBOX_MODE ? "ON" : "OFF"}`);
+    this.currentLanguage = this.getStoredLanguage();
+    setCore('currentLanguage', this.currentLanguage);
+    setCore('showNotifications', this.showNotifications);
+    core.showNotifications = this.urlOptions.showNotifications;
+
+    if (this.urlOptions.model) {
+      this.container.setAttribute("3d", this.urlOptions.model);
+    }
+    if (this.shouldIgnoreLegacyEmbedDefaultModel()) {
+      this.container.removeAttribute("3d");
+    }
+
+    this.scrollTop = window.scrollY || document.documentElement.scrollTop;
+    this.rect = core.container.getBoundingClientRect();
+    this.baseContainerRect = { width: this.rect.width, height: this.rect.height };
+    const e2eModel = this.getE2EModelOverride();
+    if (e2eModel) {
+      core.container.setAttribute("3d", e2eModel);
+    }
+
+    this.fileObject.originalPath = this.normalizeFileUrl(core.container.getAttribute("3d"));
+    setCore('fileObject', this.fileObject);
+    if (this.urlOptions.scale !== undefined && this.urlOptions.scale !== null) {
+      core.CONFIG.viewer.scaleContainer.x = this.urlOptions.scale.x;
+      core.CONFIG.viewer.scaleContainer.y = this.urlOptions.scale.y;
+    }
+    core.CONFIG.viewer.canvasDimensions = {
+      x: this.rect.width * Number(core.CONFIG.viewer.scaleContainer.x),
+      y: this.rect.height * Number(core.CONFIG.viewer.scaleContainer.y),
+    };
+    this.bottomLineGUI = core.CONFIG.viewer.canvasDimensions.y - 85;
+    setCore('bottomLineGUI', this.bottomLineGUI);
+
+    if (core.isLightweight) {
+      core.CONFIG.viewer.lightweight = core.container.getAttribute("proxy");
+    }
+    var elementsURL = window.location.pathname;
+    elementsURL = elementsURL.match(core.CONFIG.entity.idUri);
+    if (elementsURL !== null) {
+      core.CONFIG.entity.id = elementsURL[1];
+    } else {
+      if (this.urlOptions.id) {
+        core.CONFIG.entity.id = this.urlOptions.id;
+      }
+    }
+    if (core.CONFIG.entity.id) {
+      core.container.setAttribute(core.CONFIG.entity.attributeId, core.CONFIG.entity.id);
+      console.log("Entity ID:", core.CONFIG.entity.id);
+    }
+
+    // Initialize clipping planes at startup
+    this.core = initClippingPlanes();
+    setCore('EXIT_CODE', this.EXIT_CODE);
+    // Initialize objectsConfig in core
+    setCore('objectsConfig', objectsConfig);
+    setCore('outlineClipping', outlineClipping);
+    core.objectsConfig.setupIndex = core.objectsConfig.index = 0;
+
+    this.cameraTween = new TWEEN.Tween();
+    setCore('cameraTween', this.cameraTween);
+
+    this.targetTween = new TWEEN.Tween();
+    setCore('targetTween', this.targetTween);
+
+    core.container.classList.add("mainContainer");
+
+    if (core.container.hasAttribute("basePath")) {
+      core.CONFIG.baseModulePath = core.container.getAttribute("basePath");
+    }
+
+    this.setModelPaths();
+
+    core.CONFIG.viewer.exportPath = "/api/editor/xml-export/";    
+    this.loadedFile = `${core.fileObject.basename}.${core.fileObject.extension}`;
+
+    this.noticeContainer = document.createElement("div");
+    this.noticeContainer.id = "viewerNoticeContainer";
+    core.container.appendChild(this.noticeContainer);
+    setCore("noticeContainer", this.noticeContainer);
+
+    this.statusNotice = document.createElement("div");
+    this.statusNotice.id = "viewerStatusNotice";
+    this.statusNotice.className = "viewer-notice viewer-notice-status";
+    this.statusNotice.hidden = true;
+    this.statusNotice.setAttribute("role", "status");
+    this.statusNotice.setAttribute("aria-live", "polite");
+    this.noticeContainer.appendChild(this.statusNotice);
+    setCore("statusNotice", this.statusNotice);
+    this.statusNoticeQueue = [];
+    this.statusNoticeActive = false;
+    if (this.statusNoticeTimer) {
+      clearTimeout(this.statusNoticeTimer);
+      this.statusNoticeTimer = null;
+    }
+
+    if (!core.PRESENTATION_MODE) {
+      this.handHint = document.createElement("div");
+      this.handHint.id = "handHint";
+      this.handHint.hidden = true;
+      core.container.appendChild(this.handHint);
+      setCore('handHint', this.handHint);
+
+      this.pickingHint = document.createElement("div");
+      this.pickingHint.id = "pickingHint";
+      this.pickingHint.className = "viewer-notice viewer-notice-hint";
+      this.pickingHint.textContent = "Shift + click to select multiple faces";
+      this.pickingHint.hidden = true;
+      this.noticeContainer.appendChild(this.pickingHint);
+      setCore("pickingHint", this.pickingHint);
+
+      this.clippingHint = document.createElement("div");
+      this.clippingHint.id = "clippingHint";
+      this.clippingHint.className = "viewer-notice viewer-notice-hint";
+      this.clippingHint.textContent = "Drag active clipping plane helper to adjust cut";
+      this.clippingHint.hidden = true;
+      this.noticeContainer.appendChild(this.clippingHint);
+      setCore("clippingHint", this.clippingHint);
+
+      core.guiContainer = document.createElement("div");
+      core.guiContainer.id = "guiContainer";
+      core.guiContainer.className = "guiContainer";
+      core.guiContainer.hidden = core.SANDBOX_MODE === true;
+      core.container.appendChild(core.guiContainer);
+
+      core.gui  = new GUI({ container: core.guiContainer });
+      core.gui.domElement.style.visibility = "hidden";
+
+      this.metadataContainer = document.createElement("div");
+      this.metadataContainer.setAttribute("id", "metadata-container");
+      this.metadataContainer.style.top = -this.metadataContainer.getBoundingClientRect().top + "px";
+      if (this.urlOptions.hideMetadata) {
+        this.metadataContainer.style.display = "none";
+      }
+      setCore('metadataContainer', this.metadataContainer);
+      setCore('colors', this.colors);
+      setCore("planeHelpers", this.planeHelpers);    
+      setCore("planeParams", this.planeParams);
+      setCore('materialProperties', this.materialProperties);
+      setCore('materialsPropertiesText', this.materialsPropertiesText);
+      setCore('intensity', this.intensity);
+      setCore('environmentMapEnabled', this.environmentMapEnabled);
+      this.clippingPlanes = this.core;
+      setCore("clippingPlanes", this.clippingPlanes);
+      setCore('helperObjects', this.helperObjects);
+      setCore('lightHelper', this.lightHelper);
+      setCore('selectedObjects', this.selectedObjects);
+    }
+
+    this.spinnerContainer = document.createElement("div");
+    this.spinnerContainer.id = "spinnerContainer";
+    this.spinnerElement = document.createElement("div");
+    this.spinnerElement.id = "spinner";
+    this.spinnerContainer.appendChild(this.spinnerElement);
+    core.container.appendChild(this.spinnerContainer);
+
+    this.circle = this.createModelLoadingProgress(this.spinnerElement);
+    setCore('circle', this.circle);
+    if (!core.PRESENTATION_MODE) {
+      this.loadingLog = this.createLoadingLog();
+      setCore('loadingLog', this.loadingLog);
+    }
+    this.rect = core.container.getBoundingClientRect();
+
+    this.clock = new THREE.Timer();
+
+    Viewer.init();
+    if (!core.PRESENTATION_MODE) {
+      Viewer.prepareStats();
+    }
+    localStorage.setItem("viewerHintSeen", "0");
+    
+    this.updateSize();
+    /*if (core.CONFIG.entity?.metadata?.source != null) {
+      await Viewer.mainLoadModel();
+    }*/
+    Viewer.animate();
+  },
+
+  normalizeDrupalFilesPath(path) {
+    return path
+      .replace(/^\/?sites\/default\/files\/?/, '')
+      .replace(/\/+/g, '/')
+      .replace(/\/$/, '');
+  },
+
+  normalizeArchiveModelPath(path) {
+    if (!path || typeof path !== "string") {
+      return "";
+    }
+
+    const injectGltfSegment = (pathname) => {
+      if (!/\/[^/]+_(ZIP|RAR|TAR|XZ|GZ)\//i.test(pathname) || /\/gltf\//i.test(pathname)) {
+        return pathname;
+      }
+      return pathname.replace(
+        /^(.*\/[^/]+_(ZIP|RAR|TAR|XZ|GZ))(\/?)(.*)$/i,
+        "$1/gltf/$4"
+      );
+    };
+
+    if (/^[a-zA-Z][\w+-.]*:\/\//.test(path)) {
+      try {
+        const url = new URL(path);
+        url.pathname = injectGltfSegment(url.pathname);
+        return url.href;
+      } catch (_err) {
+        return injectGltfSegment(path);
+      }
+    }
+
+    return injectGltfSegment(path);
+  },
+
+  setModelPaths() {
+    if (!core.fileObject.originalPath) {
+      core.fileObject.filename = "";
+      core.fileObject.basename = "";
+      core.fileObject.extension = "";
+      core.fileObject.path = "";
+      core.fileObject.uri = "";
+      core.fileObject.relativePath = "";
+      return;
+    }
+
+    core.fileObject.filename = core.fileObject.originalPath.split("/").pop();
+    core.fileObject.basename = core.fileObject.filename.substring(0, core.fileObject.filename.lastIndexOf("."));
+    core.fileObject.extension = core.fileObject.filename.substring(core.fileObject.filename.lastIndexOf(".") + 1);
+    core.fileObject.path = core.fileObject.originalPath.substring(0, core.fileObject.originalPath.lastIndexOf(core.fileObject.filename)) || "/";
+    core.fileObject.uri = core.fileObject.path.replace(core.CONFIG.mainUrl + "/", "");
+    core.fileObject.relativePath = Viewer.normalizeDrupalFilesPath(core.fileObject.uri);
+  },
+
+  // Disable interaction hint on first interaction
+ disableInteractionHint() {
+    if (core.PRESENTATION_MODE) return;
+    core.handHint.hidden = true;
+    Viewer.stopGesture();
+
+    // Stop any running camera tweens when user interacts
+    if (core.cameraTween && typeof core.cameraTween.stop === "function") {
+      core.cameraTween.stop();
+      core.cameraTween = null;
+    }
+    if (core.targetTween && typeof core.targetTween.stop === "function") {
+      core.targetTween.stop();
+      core.targetTween = null;
+    }
+
+    //core.handHint.classList.remove("hand-drag-animate");
+    localStorage.setItem("viewerHintSeen", "1");
+  },
+
+  addTextWatermark(_text, _scale) {
+    var textGeo;
+    var materials = [
+      new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        flatShading: true,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        depthWrite: false,
+        transparent: true,
+        opacity: 0.4,
+      }), // front
+      new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        flatShading: true,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        depthWrite: false,
+        transparent: true,
+        opacity: 0.4,
+      }), // side
+    ];
+    const loader = new FontLoader();
+
+    loader.load(
+      `${core.DFG_ASSETS}/fonts/helvetiker_regular.typeface.json`,
+      function (font) {
+        const textGeo = new TextGeometry(_text, {
+          font,
+          size: _scale * 3,
+          height: _scale / 10,
+          curveSegments: 5,
+          bevelEnabled: true,
+          bevelThickness: _scale / 8,
+          bevelSize: _scale / 10,
+          bevelOffset: 0,
+          bevelSegments: 1,
+        });
+        textGeo.computeBoundingBox();
+
+        //const centerOffset = - 0.5 * (textGeo.boundingBox.max.x - textGeo.boundingBox.min.x);
+
+        Viewer.textMesh = new THREE.Mesh(textGeo, materials);
+
+        Viewer.textMesh.rotation.z = Math.PI;
+        Viewer.textMesh.rotation.y = Math.PI;
+
+        Viewer.textMesh.position.x = 0;
+        Viewer.textMesh.position.y = 0;
+        Viewer.textMesh.position.z = 0;
+        Viewer.textMesh.renderOrder = 1;
+        core.scene.add(Viewer.textMesh);
+      }
+    );
+  },
+
+  addTextPoint(_text, _scale, _point) {
+    const loader = new FontLoader();
+    const bevelSize = _scale / 10;
+
+    loader.load(`${core.DFG_ASSETS}/fonts/helvetiker_regular.typeface.json`, (font) => {
+
+      const baseOptions = {
+        font: font,
+        size: _scale * 3,
+        height: _scale,
+        curveSegments: 4,
+        bevelEnabled: true,
+        bevelThickness: bevelSize,
+        bevelSize: bevelSize / 10,
+        bevelOffset: 0,
+        bevelSegments: 1,
+        depth: _scale / 10,
+      };
+
+      const textGeo = new TextGeometry(_text, baseOptions);
+      textGeo.computeBoundingBox();
+
+      const centerOffset = new THREE.Vector3();
+      textGeo.boundingBox.getCenter(centerOffset).negate();
+      textGeo.translate(centerOffset.x, centerOffset.y, centerOffset.z);
+
+      const outlineGeo = textGeo.clone();
+      outlineGeo.scale(1.05, 1.08, 1.05);
+
+      const outlineMat = new THREE.MeshBasicMaterial({
+        color: 0x000000,
+        transparent: true,
+        opacity: 0.9,
+        depthTest: false,
+        depthWrite: false,
+      });
+
+      const fillMat = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 1,
+        depthTest: false,
+        depthWrite: false,
+      });
+
+      const outlineMesh = new THREE.Mesh(outlineGeo, outlineMat);
+      outlineMesh.position.z = -_scale * 0.02;
+      const fillMesh = new THREE.Mesh(textGeo, fillMat);
+
+      const group = new THREE.Group();
+      group.add(outlineMesh);
+      group.add(fillMesh);
+
+      group.position.set(_point.x, _point.y, _point.z);
+      group.renderOrder = 999;
+
+      group.userData.isDistanceLabel = true;
+
+      Viewer.rulerObject.add(group);
+    });
+  },
+
+  selectObjectHierarchy(_id) {
+    let search = true;
+    for (let i = 0; i < core.selectedObjects.length && search === true; i++) {
+      if (core.selectedObjects[i].id === _id) {
+        search = false;
+        if (core.selectedObjects[i].selected === true) {
+          core.scene.getObjectById(_id).material = core.selectedObjects[i].originalMaterial;
+          core.scene.getObjectById(_id).material.needsUpdate = true;
+          core.selectedObjects[i].selected = false;
+          core.selectedObjects.splice(core.selectedObjects.indexOf(core.selectedObjects[i]), 1);
+        }
+      }
+    }
+    if (search) {
+      core.selectedObjects.push({
+        id: _id,
+        selected: true,
+        originalMaterial: core.scene.getObjectById(_id).material.clone(),
+      });
+      const tempMaterial = core.scene.getObjectById(_id).material.clone();
+      const selectedColor = Viewer.toThreeColor("0x00FF00");
+      if (selectedColor) {
+        tempMaterial.color = selectedColor;
+      }
+      core.scene.getObjectById(_id).material = tempMaterial;
+      core.scene.getObjectById(_id).material.needsUpdate = true;
+    }
+    Viewer.updateHierarchySubmenuState();
+  },
+
+  recreateBoundingBox(object) {
+    var _min = new THREE.Vector3();
+    var _max = new THREE.Vector3();
+    if (object instanceof THREE.Object3D) {
+      object.traverse(function (mesh) {
+        if (mesh instanceof THREE.Mesh) {
+          mesh.geometry.computeBoundingBox();
+          var bBox = mesh.geometry.boundingBox;
+
+          // compute overall bbox
+          _min.x = Math.min(_min.x, bBox.min.x + mesh.position.x);
+          _min.y = Math.min(_min.y, bBox.min.y + mesh.position.y);
+          _min.z = Math.min(_min.z, bBox.min.z + mesh.position.z);
+          _max.x = Math.max(_max.x, bBox.max.x + mesh.position.x);
+          _max.y = Math.max(_max.y, bBox.max.y + mesh.position.y);
+          _max.z = Math.max(_max.z, bBox.max.z + mesh.position.z);
+        }
+      });
+
+      var bBox_min = new THREE.Vector3(_min.x, _min.y, _min.z);
+      var bBox_max = new THREE.Vector3(_max.x, _max.y, _max.z);
+      var bBox_new = new THREE.Box3(bBox_min, bBox_max);
+      object.position.set(
+        (bBox_new.min.x + bBox_new.max.x) / 2,
+        bBox_new.min.y,
+        (bBox_new.min.z + bBox_new.max.z) / 2
+      );
+    }
+    return object;
+  },
+
+  normalizeFileUrl(rawUrl) {
+    if (!rawUrl || typeof rawUrl !== "string") {
+      return "";
+    }
+
+    let url = rawUrl.trim();
+    if (url === "") {
+      return "";
+    }
+
+    if (/^\/[a-z][\w+.-]*:\/\//i.test(url)) {
+      url = url.replace(/^\/+/, "");
+    }
+
+    if (url.startsWith("public://")) {
+      url = "/sites/default/files/" + url.substring("public://".length);
+    } else if (url.startsWith("sites/default/files/")) {
+      url = "/" + url;
+    }
+
+    const base = (core.CONFIG?.mainUrl || window.location.origin || "").replace(/\/+$/, "");
+
+    try {
+      const parsed = new URL(url, window.location.origin);
+      const host = (parsed.host || "").toLowerCase();
+      const path = parsed.pathname || "";
+      const hasBadHost =
+        host === "default" ||
+        host === "dfg_3dviewer" ||
+        host.includes("_");
+
+      if (path.startsWith("/sites/default/files/")) {
+        if (hasBadHost) {
+          return `${base}${path}`;
+        }
+        if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+          return parsed.href;
+        }
+        return `${base}${path}`;
+      }
+
+      return parsed.href;
+    } catch (_err) {
+      if (url.startsWith("/sites/default/files/")) {
+        return `${base}${url}`;
+      }
+      return url;
+    }
+  },
+
+  shouldIgnoreLegacyEmbedDefaultModel() {
+    if (!this.isEmbedMode()) return false;
+    if (this.urlOptions?.model || this.urlOptions?.id) return false;
+
+    const sourceType = String(core.CONFIG?.entity?.metadata?.sourceType || "").toLowerCase();
+    if (!sourceType.startsWith("drupal")) return false;
+
+    const currentModelAttr = String(this.container?.getAttribute("3d") || "").trim();
+    if (!currentModelAttr) return false;
+
+    return /^(?:\.{1,2}\/)?examples\/box\.stl(?:\?.*)?$/i.test(currentModelAttr);
+  },
+
+  buildGallery() {
+    return buildThumbnailGallery(this);
+  },
+
+  toHexColor(input) {
+    if (!input) return null;
+
+    // THREE.Color
+    if (typeof input.getHex === "function") {
+      return input.getHex();
+    }
+
+    // hex number
+    if (typeof input === "number") {
+      return input >>> 0;
+    }
+
+    // hex string: "#ff00aa" / "ff00aa"
+    if (typeof input === "string") {
+      const s = input.replace("#", "");
+      if (/^[0-9a-fA-F]{6}$/.test(s)) return parseInt(s, 16);
+      return null;
+    }
+
+    // array [r,g,b] / [r,g,b,a]
+    if (Array.isArray(input)) {
+      const [r, g, b] = input;
+      if ([r, g, b].every(v => typeof v === "number")) {
+        const rr = r <= 1 ? Math.round(r * 255) : r;
+        const gg = g <= 1 ? Math.round(g * 255) : g;
+        const bb = b <= 1 ? Math.round(b * 255) : b;
+        return ((rr & 255) << 16) | ((gg & 255) << 8) | (bb & 255);
+      }
+      return null;
+    }
+
+    // object { r, g, b, a? }
+    if (typeof input === "object" && "r" in input && "g" in input && "b" in input) {
+      const rr = input.r <= 1 ? Math.round(input.r * 255) : input.r;
+      const gg = input.g <= 1 ? Math.round(input.g * 255) : input.g;
+      const bb = input.b <= 1 ? Math.round(input.b * 255) : input.b;
+      return ((rr & 255) << 16) | ((gg & 255) << 8) | (bb & 255);
+    }
+
+    return null;
+  },
+
+  toThreeColor(input) {
+    const normalized = normalizeColor(input);
+    if (!normalized) return null;
+    return new THREE.Color(
+      normalized.r / 255,
+      normalized.g / 255,
+      normalized.b / 255
+    );
+  },
+
+  /* picking and measurement moved to viewer/editor modules */
+    updateSize() {
+      const isFullscreen = !!document.fullscreenElement;
+      Viewer.FULLSCREEN = isFullscreen;
+
+      if (
+        !Viewer.mainCanvas ||
+        !Viewer.fullscreenMode ||
+        !core.guiContainer
+      ) {
+        return;
+      }
+
+      let widthCSS;
+      let heightCSS;
+
+      let scale = {x: 1, y: 1};
+      const wrapper = Viewer.viewerWrapper || core.container;
+
+      if (!wrapper) return;
+
+      if (isFullscreen) {
+        widthCSS = window.innerWidth;
+        heightCSS = window.innerHeight;
+      } else {
+        scale = {
+          x: Number(
+            core.CONFIG.viewer.scaleContainer?.x || 1
+          ),
+          y: Number(
+            core.CONFIG.viewer.scaleContainer?.y || 1
+          ),
+        };
+
+        const rect = wrapper.getBoundingClientRect();
+
+        widthCSS = rect.width || 800;
+        heightCSS = rect.height || 600;
+      }
+
+      // final visual size
+      const effectiveWidth = widthCSS * scale.x;
+
+      const effectiveHeight = heightCSS * scale.y;
+
+      // CSS size only
+      Viewer.mainCanvas.style.width = `${effectiveWidth}px`;
+      Viewer.mainCanvas.style.height = `${effectiveHeight}px`;
+
+      const canvasRect = Viewer.mainCanvas.getBoundingClientRect();
+      const parentRect = core.container.getBoundingClientRect();
+
+      const bottom = parentRect.bottom - canvasRect.bottom + 12 || 24;
+
+      if (isFullscreen) {
+        Viewer.mainCanvas.style.width = "100vw";
+        Viewer.mainCanvas.style.height = "100vh";
+        core.editorToolbar.style.bottom = `${bottom}px`;
+      } else {
+        const extraHeight = effectiveHeight - heightCSS;
+        if (core.editorToolbar) {
+          core.editorToolbar.style.bottom = `${bottom}px`;
+        }
+      }
+
+      // metadata overlay
+      if (core.metadataContainer) {
+        core.metadataContainer.style.width = "100%";
+        core.metadataContainer.style.height = "100%";
+      }
+
+      // optional wrapper sync
+      if (
+        Viewer.fileElement &&
+        Viewer.fileElement.length > 0
+      ) {
+        Viewer.fileElement[0].style.height =
+          `${effectiveHeight * 1.1}px`;
+      }
+
+      // GUI position
+      if (!core.guiContainer.hidden) {
+        const guiWidth = core.lilGui?.[0]?.getBoundingClientRect().width || core.guiContainer.getBoundingClientRect().width;
+
+        if (guiWidth > 0) {
+          core.guiContainer.style.left = `${effectiveWidth - guiWidth}px`;
+        }
+      }
+
+      // camera
+      if (core.camera.isOrthographicCamera) {
+        this.updateOrthoFrustum(
+          core.camera,
+          effectiveWidth,
+          effectiveHeight
+        );
+      } else {
+        core.camera.aspect =
+          effectiveWidth / effectiveHeight;
+
+        core.camera.updateProjectionMatrix();
+      }
+
+      // renderer
+      core.renderer.setPixelRatio(
+        window.devicePixelRatio || 1
+      );
+
+      core.renderer.setSize(
+        effectiveWidth,
+        effectiveHeight,
+        false
+      );
+
+      // action menu
+      if (Viewer.actionMenu) {
+        if (
+          Viewer.actionMenu.classList.contains(
+            "viewer-action-menu_in-toolbar"
+          )
+        ) {
+          Viewer.actionMenu.style.top = "";
+          Viewer.actionMenu.style.right = "";
+          Viewer.actionMenu.style.bottom = "";
+        } else {
+          const menuMargin = 16;
+
+          const toggleSize =
+            Viewer.actionMenu
+              .querySelector(
+                ".viewer-action-menu_toggle"
+              )
+              ?.getBoundingClientRect().height || 45;
+
+          Viewer.actionMenu.style.top =
+            `${effectiveHeight - toggleSize - menuMargin}px`;
+
+          Viewer.actionMenu.style.right =
+            `${menuMargin}px`;
+
+          Viewer.actionMenu.style.bottom = "auto";
+        }
+      }
+
+      // hand hint
+      if (core.handHint) {
+        core.handHint.style.top =
+          `${effectiveHeight - 150}px`;
+      }
+
+      core.controls?.update();
+
+      core.CONFIG.viewer.canvasDimensions = {
+        x: effectiveWidth,
+        y: effectiveHeight,
+      };
+    },
+
+
+  async toggleFullscreen() {
+    Viewer.closeActionMenu();
+    try {
+      if (!document.fullscreenElement) {
+        await core.container.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+      Viewer.updateSize();
+      Viewer.updateFullscreenButtonIcon();
+      Viewer.updateEditorToolbarLabels();
+      Viewer.updateEditorToolbarState();
+    } catch (err) {
+      Viewer.reportError(err, {
+        context: "Fullscreen error",
+        toast: false,
+        e2e: false,
+      });
+    }
+  },
+
+  onFullscreenChange () {
+    // Layout (ESC + click)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        Viewer.updateSize();
+        Viewer.updateEditorToolbarLabels();
+        Viewer.updateEditorToolbarState();
+      });
+    });
+
+    Viewer.updateFullscreenButtonIcon();
+    Viewer.closeActionMenu();
+  },
+
+  exitFullscreenHandler() {
+    var fullscreenElement =
+      document.fullscreenElement ||
+      document.mozFullScreenElement ||
+      document.webkitFullscreenElement;
+    var fullscreenElement2 =
+      document.webkitIsFullScreen &&
+      document.mozFullScreen &&
+      document.msFullscreenElement;
+    if (
+      !fullscreenElement &&
+      typeof (fullscreenElement2 === undefined) &&
+      Viewer.FULLSCREEN
+    ) {
+      fullscreen();
+    }
+  },
+
+  updateHandAnimation: (time) => {
+    const g = core.GESTURE;
+    if (!g) return;
+  
+    if (!g.active || !g.baseAngle || !g.target) return;
+
+    const t = (time - g.startTime) / 1000;
+    const s = Math.sin((t / core.GESTURE.period) * Math.PI * 2);
+
+    // EASE-IN (smoothstep)
+    const ei = Math.min(t / g.easeInTime, 1);
+    const ease = ei * ei * (3 - 2 * ei); // smoothstep(0..1)
+
+    // hand icon
+    core.handHint?.style.setProperty(
+      '--hand-x',
+      `${s * core.GESTURE.handPx}px`
+    );
+
+    // camera - orbit
+    const sph = g.baseAngle.clone();
+    sph.theta = g.baseAngle.theta + s * core.GESTURE.orbitAngle * ease;
+
+
+    core.camera.position
+      .setFromSpherical(sph)
+      .add(g.target);
+
+    core.camera.lookAt(g.target);
+  },
+
+  startGesture: (time) => {
+    const g = core.GESTURE;
+    if (!g) return;
+    if (g.active) return;
+
+    g.rotate = true;
+    g.startTime = time;
+    g.active = true;
+
+    g.target = core.controls.target.clone();
+
+    g.baseAngle = new THREE.Spherical().setFromVector3(
+      core.camera.position.clone().sub(g.target)
+    );
+
+    core.controls.enabled = false;
+  },
+
+  stopGesture: () => {
+    if (!core.handHint) return;
+    const g = core.GESTURE;
+    if (!g) return;
+    if (!g.active) return;
+    g.rotate = false;
+    g.active = false;
+
+    core.controls.target.copy(g.target);
+
+    core.controls.object.position.copy(core.camera.position);
+    core.controls.update();
+    core.controls.enabled = true;
+
+    g.baseAngle = null;
+    g.target = null;
+    core.handHint.hidden = true;
+    core.GESTURE.active = false;
+  },
+
+  animate: (time) => {
+    requestAnimationFrame(Viewer.animate);
+    const delta = Viewer.clock.getDelta();
+
+    if (!core.PRESENTATION_MODE) {
+
+      // =========================
+      // GESTURE LIFECYCLE
+      // =========================
+      const canGesture =
+        !window.__E2E__ &&
+        !core.handHint?.hidden;
+
+      if (canGesture && core.GESTURE?.rotate && !core.GESTURE?.active ) {
+        Viewer.startGesture(time);
+      }
+
+      if (core.GESTURE?.active && (!core.GESTURE?.rotate || !canGesture)) {
+        Viewer.stopGesture();
+      }
+
+      // =========================
+      // GESTURE UPDATE
+      // =========================
+      Viewer.updateHandAnimation(time);
+
+      core.controls?.update();
+
+      if (Viewer.textMesh !== null) {
+        Viewer.textMesh.lookAt(core.camera.position);
+      }
+
+      if (Viewer.ruler?.length) {
+        Viewer.ruler.forEach((rulerObject) => {
+          rulerObject?.traverse?.((child) => {
+            if (child?.userData?.isDistanceLabel === true) {
+              child.lookAt(core.camera.position);
+            }
+          });
+        });
+      }
+      Viewer.updateAnnotationPOITooltipPosition();
+    }
+    if (!core.GESTURE?.active || core.PRESENTATION_MODE) {
+      core.controls?.update();
+    }
+
+    if ((core.PRESENTATION_MODE ||core.handHint?.hidden) && !core.GESTURE?.active) {
+      core.cameraTween?.update(time);
+      core.targetTween?.update(time);
+    }
+
+    // =========================
+    // LOOP UPDATE
+    // =========================
+    
+    if (Viewer.mixer) {
+      Viewer.mixer.update(delta);
+    }
+
+    core.renderer?.clear();
+    core.renderer?.render(core.scene, core.camera);
+    core.stats?.update();
+  },
+
+  onDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  },
+
+  showSandboxGuiAfterModelLoad() {
+    if (!core.guiContainer) return;
+
+    core.guiContainer.hidden = false;
+    core.lilGui = document.getElementsByClassName("lil-gui root");
+
+    const updateAfterLayout = () => {
+      Viewer.updateSize();
+      requestAnimationFrame(() => Viewer.updateSize());
+    };
+
+    requestAnimationFrame(updateAfterLayout);
+  },
+
+  async onDrop(e) {
+    e.preventDefault();
+
+    const files = e.dataTransfer.files;
+
+    if (!files || files.length === 0) {
+      return;
+    }
+
+    const file = files[0];
+
+    const extension = file.name
+      .split('.')
+      .pop()
+      .toLowerCase();
+
+    if (core.SUPPORTED_EXTENSIONS.includes(extension)) {
+      await loadDroppedModel(file);
+      return;
+    }
+
+    if (Viewer.SUPPORTED_ARCHIVES.includes(extension)) {
+      await loadDroppedArchive(file);
+      return;
+    }
+
+    toastHelper("unsupportedFormat", "error");
+  },
+
+  async changeScale() {
+    if (core.transformControl.getMode() === "scale") {
+      switch (core.transformControl.axis) {
+        case "X":
+        case "XY":
+          core.helperObjects[0].scale.set(
+            core.helperObjects[0].scale.x,
+            core.helperObjects[0].scale.x,
+            core.helperObjects[0].scale.x
+          );
+          break;
+        case "Y":
+        case "YZ":
+          core.helperObjects[0].scale.set(
+            core.helperObjects[0].scale.y,
+            core.helperObjects[0].scale.y,
+            core.helperObjects[0].scale.y
+          );
+          break;
+        case "Z":
+        case "XZ":
+          core.helperObjects[0].scale.set(
+            core.helperObjects[0].scale.x,
+            core.helperObjects[0].scale.x,
+            core.helperObjects[0].scale.x
+          );
+          break;
+      }
+    }
+  },
+
+  syncOutlineClippingTransform() {
+    const outline = core.outlineClipping;
+    const object = core.helperObjects?.[0];
+    if (!outline || !object) return;
+    outline.position.copy(object.position);
+    outline.quaternion.copy(object.quaternion);
+    outline.scale.copy(object.scale);
+    outline.updateMatrixWorld(true);
+  },
+
+  async calculateObjectScale() {
+    if (core.renderer) {
+      core.renderer.localClippingEnabled = true;
+    }
+    Viewer.syncOutlineClippingTransform();
+    const boundingBox = new THREE.Box3();
+    if (Array.isArray(core.helperObjects[0])) {
+      for (let i = 0; i < core.helperObjects[0].length; i++) {
+        const box = new THREE.Box3().setFromObject(core.helperObjects[0][i], true);
+        boundingBox.union(box);
+      }
+    } else {
+      boundingBox.setFromObject(core.helperObjects[0], true);
+    }
+
+    if (boundingBox.isEmpty()) return;
+
+    const center = new THREE.Vector3();
+    boundingBox.getCenter(center);
+    const _distance = new THREE.Vector3(
+      Math.max(Math.abs(boundingBox.max.x), Math.abs(boundingBox.min.x)),
+      Math.max(Math.abs(boundingBox.max.y), Math.abs(boundingBox.min.y)),
+      Math.max(Math.abs(boundingBox.max.z), Math.abs(boundingBox.min.z))
+    );
+
+    Viewer.distanceGeometry = _distance;
+    setCore("distanceGeometry", Viewer.distanceGeometry);
+
+    if (core.clippingPlanes?.length >= 3) {
+      core.clippingPlanes[0].constant = _distance.x;
+      core.clippingPlanes[1].constant = _distance.y;
+      core.clippingPlanes[2].constant = _distance.z;
+    }
+
+    Viewer.planeParams.planeX.constantX = _distance.x;
+    Viewer.planeParams.planeY.constantY = _distance.y;
+    Viewer.planeParams.planeZ.constantZ = _distance.z;
+
+    if (core.clippingFolder?.controllers?.[1]) {
+      core.clippingFolder.controllers[1]._max = _distance.x;
+      core.clippingFolder.controllers[1]._min = -_distance.x;
+      core.clippingFolder.controllers[1].setValue(_distance.x);
+      core.clippingFolder.controllers[1].updateDisplay();
+    }
+    if (core.clippingFolder?.controllers?.[3]) {
+      core.clippingFolder.controllers[3]._max = _distance.y;
+      core.clippingFolder.controllers[3]._min = -_distance.y;
+      core.clippingFolder.controllers[3].setValue(_distance.y);
+      core.clippingFolder.controllers[3].updateDisplay();
+    }
+    if (core.clippingFolder?.controllers?.[5]) {
+      core.clippingFolder.controllers[5]._max = _distance.z;
+      core.clippingFolder.controllers[5]._min = -_distance.z;
+      core.clippingFolder.controllers[5].setValue(_distance.z);
+      core.clippingFolder.controllers[5].updateDisplay();
+    }
+
+    if (Viewer.planeHelpers?.length >= 3 && core.clippingPlanes?.length >= 3) {
+      for (let i = 0; i < 3; i++) {
+        const helper = Viewer.planeHelpers[i];
+        const plane = core.clippingPlanes[i];
+        if (!helper || !plane) continue;
+        helper.position.copy(plane.normal).multiplyScalar(-plane.constant);
+        if (i === 0 || i === 2) {
+          helper.userData.clippingCenterY = center.y;
+          helper.updateMatrixWorld(true);
+        }
+      }
+    }
+
+    var _maxDistance = Math.max(_distance.x, _distance.y, _distance.z);
+    Viewer.planeHelpers?.forEach(h => h && (h.size = _maxDistance));
+  },
+
+  changeLightRotation() {
+    core.lightHelper.update();
+  },
+
+  takeScreenshot() {
+    return captureAndUploadThumbnail(this);
+  },
+
+  async mainLoadModelWrapper() {
+    if (core.autoPath !== '') {
+      core.autoPath = Viewer.normalizeFileUrl(core.autoPath);
+      core.autoPath = Viewer.normalizeArchiveModelPath(core.autoPath);
+      core.fileObject.filename = core.autoPath.split('/').pop();
+      core.fileObject.basename =
+        core.fileObject.filename.substring(
+          0,
+          core.fileObject.filename.lastIndexOf('.')
+        );
+      core.fileObject.extension =
+        core.fileObject.filename.substring(
+          core.fileObject.filename.lastIndexOf('.') + 1
+        );
+      Viewer._ext = core.fileObject.extension.toLowerCase();
+      core.fileObject.path =
+        core.autoPath.substring(0, core.autoPath.lastIndexOf(core.fileObject.filename));
+    }
+
+    await Viewer.mainLoadModel();
+    Viewer.applyPendingAnnotationsIfAny();
+  },
+
+  async mainLoadModel() {
+    console.log("Loading model:", core.fileObject.basename, ", with extension:", core.fileObject.extension);
+    if (Viewer._ext === "glb" || Viewer._ext === "gltf") {
+      await loadModel();
+    } else if (Viewer.SUPPORTED_ARCHIVES.includes(Viewer._ext)) {
+      core.loadedFile = "_" + Viewer._ext.toUpperCase() + "/";
+      core.fileObject.path = core.fileObject.path + core.fileObject.basename + core.loadedFile
+      core.fileObject.extension = "glb";
+      core.fileObject.newExtension = Viewer._ext;
+      await loadModel();
+    } else {
+      //core.fileObject.extension = "glb";
+      if (Viewer._ext === "glb") {
+        await loadModel();
+      }
+      else await loadModel();
+    }
+
+    this.applyCameraOverridesFromUrl();
+  },
+
+  prepareSandboxScene() {
+    if (core.mainObject?.length) {
+      core.mainObject.forEach((obj) => Viewer.removeAndDisposeFromScene(obj));
+      core.mainObject.length = 0;
+    }
+
+    if (core.loadingLog) {
+      core.loadingLog.finish?.();
+    }
+    if (core.circle) {
+      core.circle.set?.(0, 100);
+      core.circle.complete();
+    }
+
+    if (core.mainCanvas && core.CONFIG?.viewer?.background) {
+      core.mainCanvas.style.setProperty("background", core.CONFIG.viewer.background);
+    }
+
+    core.camera?.position.set(0, 60, 180);
+    core.controls?.target.set(0, 0, 0);
+    core.controls?.update();
+    this.applyCameraOverridesFromUrl();
+
+    if (window.viewer) {
+      window.viewer.modelLoaded = false;
+    }
+
+    toastHelper("sandboxDropModel", "info", {
+      formats: this.getSupportedFormatsText(),
+      archives: this.getSupportedArchiveFormatsText(),
+      detailI18nKey: "toasts.supportedFormats",
+      key: "sandbox-drop-model",
+      replace: true,
+      persistent: true,
+      variant: "sandbox",
+    });
+  },
+
+  applyCameraOverridesFromUrl() {
+    if (!core.camera) return;
+
+    const cameraPosition = this.urlOptions?.cameraPosition;
+    const cameraTarget = this.urlOptions?.cameraTarget;
+    const cameraFov = this.urlOptions?.cameraFov;
+    const hasPosition = cameraPosition && Number.isFinite(cameraPosition.x) && Number.isFinite(cameraPosition.y) && Number.isFinite(cameraPosition.z);
+    const hasTarget = cameraTarget && Number.isFinite(cameraTarget.x) && Number.isFinite(cameraTarget.y) && Number.isFinite(cameraTarget.z);
+    const hasFov = Number.isFinite(cameraFov);
+    if (!hasPosition && !hasTarget && !hasFov) return;
+
+    if (hasPosition) {
+      core.camera.position.copy(cameraPosition);
+      core.cameraLight?.position.copy(cameraPosition);
+    }
+    if (hasTarget) {
+      core.controls?.target.copy(cameraTarget);
+      core.camera.lookAt(cameraTarget);
+    }
+    if (hasFov) {
+      const normalizedFov = Math.min(179, Math.max(1, Number(cameraFov)));
+      core.camera.fov = normalizedFov;
+      if (this.embedConfigInputs?.fov && this.embedConfigInputs.fov.value === "") {
+        this.embedConfigInputs.fov.value = String(normalizedFov);
+      }
+    }
+
+    core.camera.updateProjectionMatrix();
+    core.controls?.update();
+  },
+
+  createClippingPlaneAxis(_number, axis = "z") {
+    var tempClippingControl = new TransformControls(core.camera, core.renderer.domElement);
+    tempClippingControl.space = "world";
+    tempClippingControl.setMode("translate");
+    tempClippingControl.showX = axis === "x";
+    tempClippingControl.showY = axis === "y";
+    tempClippingControl.showZ = axis === "z";
+    tempClippingControl.addEventListener("change", Viewer.render);
+    tempClippingControl.addEventListener("objectChange", function (event) {
+      if (event.target === undefined || event.target.object === undefined) {
+        return;
+      }
+      let newConstant;
+      switch (_number) {
+        case 0:
+          newConstant = event.target.worldPositionStart.x + event.target.pointEnd.x;
+          core.clippingPlanes[_number].constant = newConstant;
+          core.planeParams.planeX.constantX = newConstant;
+          if (core.clippingFolder.controllers[1]) {
+            core.clippingFolder.controllers[1].setValue(newConstant);
+          }
+          core.planeHelpers[0].position.copy(core.clippingPlanes[0].normal).multiplyScalar(-newConstant);
+          break;
+        case 1:
+          newConstant = event.target.worldPositionStart.y + event.target.pointEnd.y;
+          core.clippingPlanes[_number].constant = newConstant;
+          core.planeParams.planeY.constantY = newConstant;
+          if (core.clippingFolder.controllers[3]) {
+            core.clippingFolder.controllers[3].setValue(newConstant);
+          }
+          core.planeHelpers[1].position.copy(core.clippingPlanes[1].normal).multiplyScalar(-newConstant);
+          break;
+        case 2:
+          newConstant = event.target.worldPositionStart.z + event.target.pointEnd.z;
+          core.clippingPlanes[_number].constant = newConstant;
+          core.planeParams.planeZ.constantZ = newConstant;
+          if (core.clippingFolder.controllers[5]) {
+            core.clippingFolder.controllers[5].setValue(newConstant);
+          }
+          core.planeHelpers[2].position.copy(core.clippingPlanes[2].normal).multiplyScalar(-newConstant);
+          break;
+      }
+    });
+    tempClippingControl.addEventListener("dragging-changed", function (event) {
+      core.controls.enabled = !event.value;
+    });
+    return tempClippingControl;
+  },
+
+  resetCamera() {
+    const targetCamera = core.cameraCoords || core.camera.position.clone();
+    const targetControls =
+      core.controlsTarget ||
+      core.controls?.target?.clone() ||
+      new THREE.Vector3();
+
+    if (!targetCamera || typeof targetCamera.x !== 'number') {
+      return;
+    }
+
+    const startCam = core.camera.position.clone();
+    const startTarget = core.controls?.target?.clone() || new THREE.Vector3();
+    //const targetDistance = startTarget.distanceTo(targetControls);
+    const startDir = startTarget.clone().sub(startCam).normalize();
+    const endDir = targetControls.clone().sub(targetCamera).normalize();
+
+    const angle = startDir.angleTo(endDir);
+    const rotationFactor = 2.0;
+    const rotationDistance = angle * rotationFactor;
+
+    const linearDistance = Math.max(
+      startCam.distanceTo(targetCamera),
+      startTarget.distanceTo(targetControls)
+    );
+
+    const distance = Math.max(linearDistance, rotationDistance);
+
+    const speed = 1.25;
+    const duration = THREE.MathUtils.clamp((distance / speed) * 1000, 300, 3000);
+
+    core.cameraTween = new TWEEN.Tween(startCam)
+      .to(targetCamera, duration)
+      .easing(TWEEN.Easing.Cubic.Out)
+      .onUpdate(() => {
+        core.camera.position.copy(startCam);
+        core.cameraLight.position.copy(startCam);
+        core.camera.updateProjectionMatrix();
+      });
+
+    core.targetTween = new TWEEN.Tween(startTarget)
+      .to(targetControls, duration)
+      .easing(TWEEN.Easing.Cubic.Out)
+      .onUpdate(() => {
+        core.controls?.target.copy(startTarget);
+        core.controls?.update();
+      });
+
+    core.cameraTween.onComplete(() => {
+      core.camera.position.copy(targetCamera);
+      core.cameraLight.position.copy(targetCamera);
+      core.controls?.target.copy(targetControls);
+      core.controls?.update();
+      core.camera.updateProjectionMatrix();
+    });
+
+    core.cameraTween.start();
+    core.targetTween.start();
+  },
+
+  buildMetadata(rotateMetadata) {
+    return buildEditorMetadata(this, rotateMetadata);
+  },
+
+  prepareStats () {
+    // stats
+    core.stats = new Stats();
+    core.stats.domElement.classList.add("viewer-stats");
+    if (typeof core.guiContainer !== "undefined" && core.stats?.dom) {
+      core.guiContainer.appendChild(core.stats.dom);
+      core.stats.dom.style.left = (core.guiContainer.getBoundingClientRect().width - core.stats.domElement.getBoundingClientRect().width + 10) + 'px';
+      core.stats.dom.style.visibility = 'hidden';
+    }
+
+    Viewer.windowHalfX = core.CONFIG.viewer.canvasDimensions.x / 2;
+    Viewer.windowHalfY = core.CONFIG.viewer.canvasDimensions.y / 2;
+
+    Viewer.editorFolder = core.gui.addFolder(t("gui.editor", "Editor")).close();
+    Viewer.editorFolder.domElement?.classList.add("viewer-gui-main-folder");
+    Viewer.editorFolder.domElement?.setAttribute("data-gui-main-folder", "editor");
+    core.i18nGui.editorFolder = Viewer.editorFolder;
+    const showTransformHintToast = (mode) => {
+      const hints = {
+        translate: t("toasts.transformMove", "Move: drag axis arrows to reposition the object."),
+        rotate: t("toasts.transformRotate", "Rotate: drag rotation rings to rotate the object."),
+        scale: t("toasts.transformScale", "Scale: drag axis handles to resize the object."),
+      };
+      const message = hints[mode];
+      if (!message) return;
+        showToast(message, {
+          duration: 5200
+        });
+    };
+
+    const showTransformLightHintToast = (mode) => {
+      const hints = {
+        translate: t("toasts.transformLightMove", "Transform Light - Move: drag axis arrows to move the directional light."),
+        rotate: t("toasts.transformLightTarget", "Transform Light - Target: drag axis arrows to reposition the light target."),
+      };
+      const message = hints[mode];
+      if (!message) return;
+        showToast(message, {
+          duration: 5200
+        });
+    };
+
+    core.i18nGui.transformObjectController = Viewer.editorFolder
+      .add(Viewer.transformText, "Transform 3D Object", {
+        [t("gui.none", "None")]: "",
+        [t("gui.move", "Move")]: "translate",
+        [t("gui.rotate", "Rotate")]: "rotate",
+        [t("gui.scale", "Scale")]: "scale",
+      })
+      .name(t("gui.transform3dObject", "Transform 3D Object"))
+      .onChange(function (value) {
+        if (value === "") {
+          core.transformControl.detach();
+          core.axesHelper.visible = false;
+          core.renderer.localClippingEnabled = true;
+        } else {
+          const object = core.helperObjects?.[0];
+
+          if (!object) {
+            return;
+          }
+          core.axesHelper.visible = true;
+          core.renderer.localClippingEnabled = true;
+
+          core.transformControl.setMode(value);
+          core.transformControl.attach(object);
+          showTransformHintToast(value);
+
+        }
+        Viewer.updateEditorToolbarState();
+      });
+    core.i18nGui.transformModeController = Viewer.editorFolder
+      .add(Viewer.transformText, "Transform Mode", {
+        [t("gui.local", "Local")]: "local",
+        [t("gui.global", "Global")]: "global",
+      })
+      .name(t("gui.transformMode", "Transform Mode"))
+      .onChange(function (value) {
+        core.transformControl.space = value;
+        Viewer.updateEditorToolbarState();
+      });
+    const lightFolder = Viewer.editorFolder.addFolder(t("gui.directionalLight", "Directional Light")).close();
+    core.i18nGui.lightFolder = lightFolder;
+    core.i18nGui.transformLightController = lightFolder
+      .add(Viewer.transformText, "Transform Light", {
+        [t("gui.none", "None")]: "",
+        [t("gui.move", "Move")]: "translate",
+        [t("gui.target", "Target")]: "rotate",
+      })
+      .name(t("gui.transformLight", "Transform Light"))
+      .onChange(function (value) {
+        if (value === "") {
+          core.transformControlLight.detach();
+          core.transformControlLightTarget.detach();
+          core.lightHelper.visible = false;
+        } else {
+          core.lightHelper.visible = true;
+          if (value === "translate") {
+            core.transformControlLight.setMode("translate");
+            core.transformControlLight.attach(core.dirLight);
+            core.transformControlLightTarget.detach();
+            showTransformLightHintToast("translate");
+          } else {
+            core.transformControlLightTarget.setMode("translate");
+            core.transformControlLightTarget.attach(core.dirLightTarget);
+            core.transformControlLight.detach();
+            showTransformLightHintToast("rotate");
+          }
+        }
+        Viewer.updateEditorToolbarState();
+      });
+    core.i18nGui.directionalLightColorController = lightFolder
+      .addColor(Viewer.colors, "DirectionalLight")
+      .name(t("gui.color", "Color"))
+      .onChange(function (value) {
+        core.lightObjects[0].color = new THREE.Color(value);
+      })
+      .listen();
+    core.i18nGui.directionalLightIntensityController = lightFolder
+      .add(Viewer.intensity, "startIntensityDir", 0, 10)
+      .name(t("gui.intensity", "Intensity"))
+      .onChange(function (value) {
+        core.lightObjects[0].intensity = value;
+      })
+      .listen();
+
+    const lightFolderAmbient = Viewer.editorFolder.addFolder(t("gui.ambientLight", "Ambient Light")).close();
+    core.i18nGui.lightFolderAmbient = lightFolderAmbient;
+    core.i18nGui.ambientLightColorController = lightFolderAmbient
+      .addColor(Viewer.colors, "AmbientLight")
+      .name(t("gui.color", "Color"))
+      .onChange(function (value) {
+        Viewer.ambientLight.color = new THREE.Color(value);
+      })
+      .listen();
+    core.i18nGui.ambientLightIntensityController = lightFolderAmbient
+      .add(Viewer.intensity, "startIntensityAmbient", 0, 10)
+      .name(t("gui.intensity", "Intensity"))
+      .onChange(function (value) {
+        Viewer.ambientLight.intensity = value;
+      })
+      .listen();
+
+    const lightFolderCamera = Viewer.editorFolder.addFolder(t("gui.cameraLight", "Camera Light")).close();
+    core.i18nGui.lightFolderCamera = lightFolderCamera;
+    core.i18nGui.cameraLightColorController = lightFolderCamera
+      .addColor(Viewer.colors, "CameraLight")
+      .name(t("gui.color", "Color"))
+      .onChange(function (value) {
+        Viewer.cameraLight.color = new THREE.Color(value);
+      })
+      .listen();
+    core.i18nGui.cameraLightIntensityController = lightFolderCamera
+      .add(Viewer.intensity, "startIntensityCamera", 0, 10)
+      .name(t("gui.intensity", "Intensity"))
+      .onChange(function (value) {
+        Viewer.cameraLight.intensity = value;
+      })
+      .listen();
+
+    const backgroundFolder = Viewer.editorFolder.addFolder(t("gui.backgroundColor", "Background Color")).close();
+    core.i18nGui.backgroundFolder = backgroundFolder;
+    core.i18nGui.backgroundColorController = backgroundFolder
+      .addColor(Viewer.colors, "BackgroundColor")
+      .name(t("gui.backgroundColor", "Background Color"))
+      .onChange(function (value) {
+        changeBackground(
+          Viewer.backgroundType["Background Type"],
+          value,
+          Viewer.colors["BackgroundColorOuter"]
+        );
+      })
+      .listen();
+    core.i18nGui.backgroundColorOuterController = backgroundFolder
+      .addColor(Viewer.colors, "BackgroundColorOuter")
+      .name(t("gui.backgroundColorOuter", "Background Color Outer"))
+      .onChange(function (value) {
+        changeBackground(
+          Viewer.backgroundType["Background Type"],
+          Viewer.colors["BackgroundColor"],
+          value
+        );
+      })
+      .listen();
+    core.i18nGui.backgroundTypeController = backgroundFolder
+      .add(Viewer.backgroundType, "Background Type", {
+        [t("gui.linear", "Linear")]: "linear",
+        [t("gui.gradient", "Gradient")]: "gradient",
+      })
+      .name(t("gui.backgroundType", "Background Type"))
+      .onChange(function (value) {
+        if (value == "linear") Viewer.backgroundOuterFolder.hide();
+        else Viewer.backgroundOuterFolder.show();
+        changeBackground(
+          value,
+          Viewer.colors["BackgroundColor"],
+          Viewer.colors["BackgroundColorOuter"]
+        );
+      });
+    setCore("clippingFolder", Viewer.clippingFolder);
+
+    if (core.EDITOR) {
+      core.clippingFolder = Viewer.editorFolder.addFolder(t("gui.clippingFolder", "Clipping Planes")).close();
+      core.i18nGui.clippingFolder = core.clippingFolder;
+      
+      core.materialsFolder = Viewer.editorFolder.addFolder(t("gui.materials", "Materials")).close();
+      core.i18nGui.materialsFolder = core.materialsFolder;
+      setCore("materialsFolder", core.materialsFolder);
+
+      Viewer.pickingModeController = Viewer.editorFolder.add(
+        {
+          togglePickingMode() {
+            Viewer.togglePickingMode();
+          },
+        },
+        "togglePickingMode"
+      );
+      Viewer.updatePickingModeControllerLabel();
+
+      Viewer.clearSelectedFacesController = Viewer.editorFolder.add(
+        {
+          [t("gui.clearSelectedFaces", "Clear selected faces")]() {
+            Viewer.clearSelectedFaces();
+            Viewer.restoreLastPickedFace();
+          },
+        },
+        t("gui.clearSelectedFaces", "Clear selected faces")
+      );
+      core.i18nGui.clearSelectedFacesController = Viewer.clearSelectedFacesController;
+
+      Viewer.selectedFacesCountController = Viewer.editorFolder
+        .add(Viewer.pickingStats, "Selected faces")
+        .listen();
+      Viewer.updateSelectedFacesControllerLabel();
+      Viewer.selectedFacesCountController.disable();
+
+      //Viewer.metadataFolder = core.gui.addFolder(t("gui.metadata", "Metadata")).close();
+      //Viewer.metadataFolder.domElement?.classList.add("viewer-gui-main-folder");
+      //Viewer.metadataFolder.domElement?.setAttribute("data-gui-main-folder", "metadata");
+      //core.i18nGui.metadataFolder = Viewer.metadataFolder;
+
+      Viewer.updatePickingControlsVisibility();
+
+      Viewer.distanceMeasurementController = Viewer.editorFolder.add(
+        {
+          toggleDistanceMeasurement() {
+            Viewer.toggleDistanceMeasurement();
+          },
+        },
+        "toggleDistanceMeasurement"
+      );
+      Viewer.updateDistanceMeasurementControllerLabel();
+
+      core.i18nGui.resetCameraController = Viewer.editorFolder.add(
+        {
+          [t("gui.resetCameraPosition", "Reset camera position")]() {
+            Viewer.resetCamera();
+          },
+        },
+        t("gui.resetCameraPosition", "Reset camera position")
+      );
+    }
+
+    if (!core.isLightweight) {
+      Viewer.propertiesFolder = Viewer.editorFolder.addFolder(t("gui.saveProperties", "Save properties")).close();
+      core.i18nGui.propertiesFolder = Viewer.propertiesFolder;
+      core.i18nGui.savePropPositionController = Viewer.propertiesFolder.add(Viewer.saveProperties, "Position").name(t("gui.position", "Position"));
+      core.i18nGui.savePropRotationController = Viewer.propertiesFolder.add(Viewer.saveProperties, "Rotation").name(t("gui.rotation", "Rotation"));
+      core.i18nGui.savePropScaleController = Viewer.propertiesFolder.add(Viewer.saveProperties, "Scale").name(t("gui.scale", "Scale"));
+      core.i18nGui.savePropCameraController = Viewer.propertiesFolder.add(Viewer.saveProperties, "Camera").name(t("gui.camera", "Camera"));
+      core.i18nGui.savePropDirectionalController = Viewer.propertiesFolder.add(Viewer.saveProperties, "DirectionalLight").name(t("gui.directionalLight", "Directional Light"));
+      core.i18nGui.savePropAmbientController = Viewer.propertiesFolder.add(Viewer.saveProperties, "AmbientLight").name(t("gui.ambientLight", "Ambient Light"));
+      core.i18nGui.savePropCameraLightController = Viewer.propertiesFolder.add(Viewer.saveProperties, "CameraLight").name(t("gui.cameraLight", "Camera Light"));
+      core.i18nGui.savePropBackgroundController = Viewer.propertiesFolder.add(Viewer.saveProperties, "BackgroundColor").name(t("gui.backgroundColor", "Background Color"));
+    }
+
+    if (core.EDITOR && !core.isLightweight) {
+      core.i18nGui.saveController = Viewer.editorFolder.add(
+        {
+          [t("gui.save", "Save")]() {
+            Viewer.saveEditorMetadata();
+          }
+        },
+        t("gui.save", "Save")
+      );
+      core.i18nGui.renderPreviewController = Viewer.editorFolder.add(
+        {
+          [t("gui.renderPreview", "Render preview")]() {
+            Viewer.takeScreenshot();
+          },
+        },
+        t("gui.renderPreview", "Render preview")
+      );
+    }
+
+    if (core.EDITOR) {
+      Viewer.createEditorToolbar();
+      Viewer.setEditorAdvancedPanelVisible(false);
+    }
+
+    Viewer.updateLocalizedUI();
+  },
+
+  async startModelProcessing() {
+    /*const r = await fetch("/api/model/create", {method:"POST" });
+
+    const data = await r.json();
+
+    const id = data.entity_id;*/
+
+    const _id = core.CONFIG.entity.id;
+
+    localStorage.setItem("processing_model_id", _id);
+
+    let loadingMap = this.getProcessingLoadingSteps();
+
+    loadingMap = core.isLocalPreview ? loadingMap.slice(-2) : loadingMap;
+
+    UltraLoader.start(loadingMap);
+    setCore("UltraLoader", UltraLoader);
+
+    const poller = new StatusPoller(_id);
+    setCore("poller", poller);
+    poller.start();
+  },
+
+  // IIIF setup and loading
+  async setupIIIF(newUrlOrJson, type="url") {
+    if (type === "text") {
+      Viewer.iiifConfigURL.url = "";
+    } else {
+      Viewer.iiifConfigURL.url = newUrlOrJson;
+    }
+    const loadedIIIF = await loadIIIFManifest(newUrlOrJson);
+    if (loadedIIIF.modelUrls.length === 0) { // no 3D model found, use example model
+      loadedIIIF.modelUrls.push('https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb');
+      showToast(t("toasts.noIiiifModelFallback", "No 3D model found in IIIF manifest, loading example model."));
+    }
+    // reset scene and release GPU resources from the previous model batch
+    Viewer.resetLoadedModelState();
+    core.axesHelper.visible = false;
+    console.log("TOTAL Annotations: " + loadedIIIF.annotations.length);
+    if (loadedIIIF.annotations.length !== loadedIIIF.modelUrls.length) {
+      //console.warn("Number of annotations does not match number of model URLs, adding testing model...");
+        const diff = loadedIIIF.annotations.length - loadedIIIF.modelUrls.length;
+        if (diff > 0) {
+          // Need more model URLs → push empty strings (or null)
+          for (let i = 0; i < diff; i++) {
+            loadedIIIF.modelUrls.push(Viewer.testModelURL);
+            core.objectsConfig.models.push({name: "Test Model", url: Viewer.testModelURL});
+          }
+        }
+    }
+    for (const [i, url] of loadedIIIF.modelUrls?.entries()) {
+      core.objectsConfig.index = i;
+      core.fileObject.originalPath = loadedIIIF.modelUrl = url;
+      //fileObject.originalPath = loadedIIIF.modelUrl;
+      Viewer.setModelPaths();
+      await getAnnotations(loadedIIIF, core.objectsConfig);
+      if (loadedIIIF.scenes && loadedIIIF.scenes.length > 0) {
+        core.objectsConfig.scenes = loadedIIIF.scenes;
+      }
+      Viewer._ext = core.fileObject.extension.toLowerCase();
+      await Viewer.mainLoadModel();
+    }
+  },
+
+  async loadIIIFURL() {
+    const form = document.getElementById("form-IIIF");
+    const collapseBtn = document.getElementById("iiif-toggle-collapse");
+    form?.setAttribute("data-viewer-theme", Viewer.currentTheme);
+    Viewer.updateIIIFFormLabels();
+
+    Viewer.bindEventListener(collapseBtn, "click", () => {
+      form.classList.toggle("collapsed");
+      collapseBtn.textContent = form.classList.contains("collapsed") ? "▸" : "▾";
+      collapseBtn.title = form.classList.contains("collapsed")
+        ? t("iiif.expand", "Expand")
+        : t("iiif.collapse", "Collapse");
+    });
+    // create a small dropdown to switch iiif manifests at runtime
+    Viewer.bindEventListener(document.getElementById("iiif-manifest-select"), "change", async (ev) => {
+      try {
+        if (ev.target.value !== Viewer.iiifConfigURL.url) {
+          core.objectsConfig.setupIndex = 0;
+          await Viewer.setupIIIF(ev.target.value, "url");
+        }
+      } catch (err) {
+        Viewer.reportError(err, {
+          context: "Error loading IIIF manifest",
+        });
+      }
+      });
+
+    Viewer.bindEventListener(document.getElementById("load-manifest-from-url"), "click", async (ev) => {
+      try {
+        const inputElement = document.getElementById("manifest-url");
+        if (inputElement.value === "" || !Viewer.isUrlFlexible(inputElement.value)) {
+        inputElement.style.border = "2px solid red";
+        showToast("iiif.invalidUrl", "warning");
+        return;
+      } else {
+        inputElement.style.border = "2px solid green";
+        core.objectsConfig.setupIndex = 0;
+          console.log("Loading IIIF manifest from URL: " + inputElement.value);
+          await Viewer.setupIIIF(inputElement.value, "url");
+        }
+      } catch (err) {
+        Viewer.reportError(err, {
+          context: "Error loading IIIF manifest",
+        });
+      }
+      });
+
+    Viewer.bindEventListener(document.getElementById("load-manifest-from-text"), "click", async (ev) => {
+      try {
+        const inputElement = document.getElementById("manifest-text");
+        if (inputElement.value === "" || !Viewer.isValidJsonObject(inputElement.value)) {
+          inputElement.style.border = "2px solid red";
+          showToast("iiif.invalidJson", "warning");
+        return;
+      } else {
+        inputElement.style.border = "2px solid green";
+        core.objectsConfig.setupIndex = 0;
+          console.log("Loading IIIF manifest from privided text");
+          await Viewer.setupIIIF(inputElement.value, "text");
+        }
+      } catch (err) {
+        Viewer.reportError(err, {
+          context: "Error loading IIIF manifest",
+        });
+      }
+    });
+  },
+
+  isUrlFlexible(string) {
+    try {
+      new URL(string);
+      return true;
+    } catch {
+      return /^(https?:\/\/)?([\w-]+\.)+[\w-]{2,}(\/\S*)?$/i.test(string);
+    }
+  },
+
+  isValidJsonObject(text) {
+    try {
+      const parsed = JSON.parse(text);
+      return typeof parsed === 'object' && parsed !== null;
+    } catch {
+      return false;
+    }
+  },
+
+  async init() {
+    if (!Viewer.renderer) {
+      Viewer.camera = new THREE.PerspectiveCamera(
+        45,
+        core.CONFIG.viewer.canvasDimensions.x / core.CONFIG.viewer.canvasDimensions.y,
+        0.001,
+        999000000
+      );
+      Viewer.camera.position.set(0, 0, 0);
+      setCore('renderer', Viewer.renderer);
+      setCore('camera', Viewer.camera);
+      setCore('mainObject', Viewer.mainObject);
+
+      Viewer.scene = new THREE.Scene();
+      setCore('scene', Viewer.scene);
+      setCore('activeScene', Viewer.activeScene);
+
+      const hostname = window.location.hostname;
+      const isLocal = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+      const isLocalNetwork = hostname.startsWith('192.168.') || hostname.startsWith('10.') || hostname.endsWith('.local');
+      const isCodeSandbox = hostname.includes('codesandbox.io') || hostname.includes('csb.app');
+      this.isLocalPreview = isLocal || isLocalNetwork || isCodeSandbox;
+      setCore('isLocalPreview', this.isLocalPreview);
+      console.info('Running on', window.location.hostname, '- Local preview mode:', core.isLocalPreview);
+
+      if (!core.PRESENTATION_MODE && !core.SANDBOX_MODE) {
+        Viewer.startModelProcessing();
+      }
+
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444);
+      hemiLight.position.set(0, 200, 0);
+      core.scene.add(hemiLight);
+
+      Viewer.ambientLight = new THREE.AmbientLight(0x404040); // soft white light
+      core.scene.add(Viewer.ambientLight);
+
+      setCore('ambientLight', Viewer.ambientLight);
+
+      Viewer.dirLight = new THREE.DirectionalLight(0xffffff);
+      Viewer.dirLight.position.set(0, 100, 50);
+      Viewer.dirLight.castShadow = true;
+      Viewer.dirLight.shadow.camera.top = 180;
+      Viewer.dirLight.shadow.camera.bottom = -100;
+      Viewer.dirLight.shadow.camera.left = -120;
+      Viewer.dirLight.shadow.camera.right = 120;
+      Viewer.dirLight.shadow.bias = -0.0001;
+      Viewer.dirLight.shadow.mapSize.width = 1024 * 4;
+      Viewer.dirLight.shadow.mapSize.height = 1024 * 4;
+      core.scene.add(Viewer.dirLight);
+      Viewer.lightObjects.push(Viewer.dirLight);
+      setCore('dirLight', Viewer.dirLight);
+      setCore('lightObjects', Viewer.lightObjects);
+
+      Viewer.cameraLightTarget = new THREE.Object3D();
+      Viewer.cameraLightTarget.position.set(
+        Viewer.camera.position.x,
+        Viewer.camera.position.y,
+        Viewer.camera.position.z
+      );
+      core.scene.add(Viewer.cameraLightTarget);
+      // Store in core
+      setCore('cameraLightTarget', Viewer.cameraLightTarget);
+
+      Viewer.cameraLight = new THREE.DirectionalLight(0xffffff);
+      Viewer.cameraLight.position.set(core.camera.position);
+      Viewer.cameraLight.castShadow = false;
+      Viewer.cameraLight.intensity = 0.3;
+      core.scene.add(Viewer.cameraLight);
+      Viewer.cameraLight.target = Viewer.cameraLightTarget;
+      Viewer.cameraLight.target.updateMatrixWorld();
+      // Store in core
+      setCore('cameraLight', Viewer.cameraLight);      
+
+      core.renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        logarithmicDepthBuffer: true,
+        colorManagement: true,
+        sortObjects: true,
+        preserveDrawingBuffer: true,
+        powerPreference: "high-performance",
+        alpha: true,
+        shadowMap: {
+          enabled: true,
+          type: THREE.PCFSoftShadowMap
+        },
+        localClippingEnabled: true,
+        physicallyCorrectLights: true,
+        autoClear: false,
+        setClearColor: (0x000000, 0.0),
+        outputColorSpace: THREE.SRGBColorSpace,
+        toneMapping: THREE.ACESFilmicToneMapping,
+        toneMappingExposure: 0.65
+      });
+      
+      core.renderer.localClippingEnabled = true;
+
+      setCore('renderer', core.renderer);
+
+      core.renderer.domElement.id = "MainCanvas";
+      Viewer.mainCanvas = document.getElementById("MainCanvas") || core.renderer.domElement;
+
+      if (window.__E2E__) {
+        document.body.appendChild(core.renderer.domElement);
+      }
+
+      core.renderer.domElement.tabIndex = 0;
+      core.renderer.domElement.setAttribute("aria-label", "3D viewer canvas");
+
+      if (!core.PRESENTATION_MODE) {
+
+        Viewer.bindEventListener(core.renderer.domElement, "pointerdown", Viewer.onPointerDown);
+        Viewer.bindEventListener(core.renderer.domElement, "pointerup", Viewer.onPointerUp);
+        Viewer.bindEventListener(core.renderer.domElement, "pointermove", Viewer.onPointerMove);
+        Viewer.bindEventListener(core.renderer.domElement, "mouseenter", (event) => {
+          if (!Viewer.isPointerDirectlyOverCanvas(event)) return;
+          Viewer.maybeShowKeyboardHint();
+        });
+        Viewer.lastWindowFocusAt = Date.now();
+        Viewer.bindEventListener(window, "focus", () => {
+          Viewer.lastWindowFocusAt = Date.now();
+        });
+        Viewer.bindEventListener(document, "visibilitychange", () => {
+          if (document.visibilityState === "visible") {
+            Viewer.lastWindowFocusAt = Date.now();
+          }
+        });
+
+        Viewer.bindEventListener(core.renderer.domElement, "pointerdown", () => {
+          core.renderer.domElement.focus();
+        });
+        Viewer.bindEventListener(core.renderer.domElement, "keydown", Viewer.onViewerKeyDown);
+
+        if (core.isLocalPreview || core.SANDBOX_MODE) {
+          Viewer.bindEventListener(core.renderer.domElement, "dragover", Viewer.onDragOver);
+          Viewer.bindEventListener(core.renderer.domElement, "drop", Viewer.onDrop);
+        }
+      }
+
+      const devicePixelRatio = window.devicePixelRatio || 1;
+      core.renderer.setSize(core.CONFIG.viewer.canvasDimensions.x, core.CONFIG.viewer.canvasDimensions.y);
+
+      if (isE2E) {
+        console.info('E2E MODE ENABLED');
+        core.renderer.setPixelRatio(1);
+        core.renderer.toneMappingExposure = 1;
+        if (typeof disablePostProcessing === 'function') {
+          disablePostProcessing();
+        }
+        this.ensureE2EState();
+      } else {
+            core.renderer.setPixelRatio(devicePixelRatio);
+      }
+      core.renderer.domElement.style.width = core.CONFIG.viewer.canvasDimensions.x + "px";
+      core.renderer.domElement.style.height = core.CONFIG.viewer.canvasDimensions.y + "px";
+
+      core.renderer.domElement.style.display = "block";
+      core.container.appendChild(core.renderer.domElement);
+      Viewer.mainCanvas.classList.add("mainCanvas");
+
+      Viewer.viewerWrapper = core.container.closest('.viewer-wrapper');
+
+      if (!Viewer.viewerWrapper) {
+        Viewer.viewerWrapper = core.container.parentElement;
+        Viewer.viewerWrapper.classList.add('viewer-wrapper');
+      }
+
+      Viewer.attachEditorToolbar();
+
+      core.camera.aspect = core.CONFIG.viewer.canvasDimensions.x / core.CONFIG.viewer.canvasDimensions.y;
+      core.camera.updateProjectionMatrix();
+
+      setCore('mainCanvas', Viewer.mainCanvas);
+      if (!core.PRESENTATION_MODE) {
+        const scriptUrl = document.currentScript?.src || import.meta.url;
+        Viewer.DFG_ASSETS = scriptUrl.replace(/\/[^\/]*$/, '');
+
+        setCore('DFG_ASSETS', Viewer.DFG_ASSETS);
+        getModuleAssetBasePath();
+
+        Viewer.actionMenu = document.createElement("div");
+        Viewer.actionMenu.setAttribute("id", "viewerActionMenu");
+        Viewer.actionMenu.innerHTML = `
+          <input
+            id="viewerActionMenuToggle"
+            class="viewer-action-menu_checkbox"
+            type="checkbox"
+            aria-label="Open main menu"
+          />
+          <label
+            for="viewerActionMenuToggle"
+            class="viewer-action-menu_toggle"
+            aria-label="Open main menu"
+            title="Main menu"
+          >
+            <span class="viewer-action-menu_settings-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2 2.2 3-.2.8 2.9 2.6 1.4-1 2.8 1 2.8-2.6 1.4-.8 2.9-3-.2L12 21l-2-2.2-3 .2-.8-2.9-2.6-1.4 1-2.8-1-2.8 2.6-1.4.8-2.9 3 .2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+            </span>
+            <b class="viewer-editor-tool_sr">Main menu</b>
+          </label>
+          <div class="viewer-action-menu_panel" aria-label="Main menu"></div>
+        `;
+        core.container.appendChild(Viewer.actionMenu);
+
+        Viewer.actionMenuToggle = Viewer.actionMenu.querySelector("#viewerActionMenuToggle");
+        Viewer.actionMenuPanel = Viewer.actionMenu.querySelector(".viewer-action-menu_panel");
+        Viewer.applyTheme(Viewer.getStoredTheme(), { persist: false });
+
+        Viewer.viewEntity = document.createElement("button");
+        Viewer.viewEntity.setAttribute("id", "viewEntity");
+        Viewer.viewEntity.setAttribute("type", "button");
+        Viewer.viewEntity.hidden = true;
+
+        Viewer.downloadModel = document.createElement("a");
+        setCore('downloadModel', Viewer.downloadModel);
+        core.downloadModel.setAttribute("id", "downloadModel");
+        core.downloadModel.hidden = true;
+
+        Viewer.fullscreenMode = document.createElement("button");
+        Viewer.updateFullscreenButtonIcon();
+
+        Viewer.themeMode = document.createElement("button");
+        Viewer.themeMode.setAttribute("id", "viewerThemeMode");
+        Viewer.themeMode.setAttribute("type", "button");
+        
+        // Create language mode container and dropdown
+        Viewer.languageModeContainer = document.createElement("div");
+        Viewer.languageModeContainer.setAttribute("id", "viewerLanguageModeContainer");
+        Viewer.languageModeContainer.className = "language-mode-container";
+        
+        Viewer.languageMode = document.createElement("button");
+        Viewer.languageMode.setAttribute("id", "viewerLanguageMode");
+        Viewer.languageMode.setAttribute("type", "button");
+        
+        Viewer.languageModeDropdown = document.createElement("div");
+        Viewer.languageModeDropdown.setAttribute("id", "viewerLanguageModeDropdown");
+        Viewer.languageModeDropdown.className = "language-mode-dropdown";
+        Viewer.languageModeDropdown.hidden = true;
+        
+        const languages = [
+          { code: "en", label: "EN", class: "language-dropdown-item-english" },
+          { code: "pl", label: "PL", class: "language-dropdown-item-polish" },
+          { code: "de", label: "DE", class: "language-dropdown-item-german" }
+        ];
+        
+        languages.forEach(lang => {
+          const item = document.createElement("div");
+          item.className = `language-dropdown-item ${lang.class}`;
+          item.dataset.lang = lang.code;
+          item.textContent = lang.label;
+          item.setAttribute("role", "option");
+          item.setAttribute("aria-selected", core.currentLanguage === lang.code ? "true" : "false");
+          Viewer.bindEventListener(item, "click", () => Viewer.selectLanguage(lang.code));
+          Viewer.languageModeDropdown.appendChild(item);
+        });
+        
+        Viewer.languageModeContainer.appendChild(Viewer.languageMode);
+        Viewer.languageModeContainer.appendChild(Viewer.languageModeDropdown);
+        
+        Viewer.updateThemeControlLabels();
+        Viewer.updateLanguageControlLabels();
+
+        Viewer.actionMenuPanel.appendChild(Viewer.languageModeContainer);
+        Viewer.actionMenuPanel.appendChild(Viewer.themeMode);
+        Viewer.actionMenuPanel.appendChild(Viewer.viewEntity);
+        Viewer.actionMenuPanel.appendChild(Viewer.downloadModel);
+        if (Viewer.urlOptions.hideUi) {
+          Viewer.actionMenu.hidden = true;
+        }
+        Viewer.createEmbedConfiguratorPanel();
+
+        setCore('viewEntity', Viewer.viewEntity);
+        Viewer.bindEventListener(Viewer.languageMode, "click", Viewer.toggleLanguage.bind(Viewer));
+        Viewer.bindEventListener(Viewer.themeMode, "click", Viewer.toggleTheme.bind(Viewer));
+        Viewer.bindEventListener(Viewer.viewEntity, "click", Viewer.openEmbedConfiguratorFromMenu.bind(Viewer));
+        Viewer.updateEmbedMenuEntryState();
+        Viewer.applyLanguage({ persist: false });
+        Viewer.bindEventListener(Viewer.downloadModel, "click", () => Viewer.closeActionMenu());
+        Viewer.bindEventListener(document, "click", (event) => {
+          if (
+            !Viewer.actionMenu?.contains(event.target) &&
+            !Viewer.embedConfiguratorPanel?.contains(event.target)
+          ) {
+            Viewer.closeActionMenu();
+          }
+        });
+
+        Viewer.handHint.innerHTML = `<img src="${core.DFG_ASSETS}/img/hand-hint.png" alt="Hand hint" width=48 height=48 title="Hand hint animation"/>`;
+        
+        Viewer.rect = core.container.getBoundingClientRect();
+        if (Viewer.viewerWrapper === core.container && core.CONFIG.viewer?.scaleContainer) {
+          const scale = {
+            x: Number(core.CONFIG.viewer.scaleContainer.x || 1),
+            y: Number(core.CONFIG.viewer.scaleContainer.y || 1),
+          };
+          Viewer.baseContainerRect = {
+            width: Viewer.rect.width / scale.x,
+            height: Viewer.rect.height / scale.y,
+          };
+        }
+        core.guiContainer.style.maxHeight = `${Viewer.rect.height - 20}px`;
+        //core.lilGui = document.getElementsByClassName("lil-gui root");
+
+        Viewer.fileElement = document.getElementsByClassName("field--type-file");
+        if (Viewer.fileElement.length > 0) {
+          Viewer.fileElement[0].style.height = core.CONFIG.viewer.canvasDimensions.y * 1.1 + "px";
+        }
+
+        if (core.CONFIG.viewer.gallery?.build === true && !core.SANDBOX_MODE) {
+          Viewer.buildGallery();
+        }
+      }
+
+      Viewer.controls = new OrbitControls(core.camera, core.renderer.domElement);
+      Viewer.controls.target.set(0, 100, 0);
+      Viewer.controls.enableDamping = true;
+      Viewer.controls.dampingFactor = 0.05;
+      Viewer.controls.enableRotate = true;
+
+      if (core.PRESENTATION_MODE) {
+        //TODO
+        Viewer.controls.autoRotate = true;
+        Viewer.controls.autoRotateSpeed = 1.5; // in seconds
+        document.body.classList.add("presentation-mode");
+        document.documentElement.classList.add("presentation-mode");
+        core.renderer.setClearColor(0x000000, 0);
+      }
+      if (typeof Viewer.urlOptions.autoRotate === "boolean") {
+        Viewer.controls.autoRotate = Viewer.urlOptions.autoRotate;
+      }
+      if (Number.isFinite(Viewer.urlOptions.autoRotateSpeed)) {
+        Viewer.controls.autoRotateSpeed = Viewer.urlOptions.autoRotateSpeed;
+      }
+      if (Viewer.urlOptions.disableInteraction || core.PRESENTATION_MODE) {
+        Viewer.controls.enabled = false;
+        Viewer.controls.enableRotate = false;
+        Viewer.controls.enablePan = false;
+        Viewer.controls.enableZoom = false;
+      }
+      Viewer.controls.update();
+      setCore('controls', Viewer.controls);
+      setCore('GESTURE', Viewer.GESTURE);
+      setCore('lastTime', Viewer.lastTime);
+      setCore('helperObjects', Viewer.helperObjects);
+
+      if (!core.PRESENTATION_MODE) {
+        Viewer.transformControl = new TransformControls(core.camera, core.renderer.domElement);
+        Viewer.transformControl.rotationSnap = THREE.MathUtils.degToRad(5);
+        Viewer.transformControl.space = "local";
+        Viewer.transformControl.addEventListener("change", Viewer.render);
+        Viewer.transformControl.addEventListener("objectChange", () => {
+          Viewer.changeScale();
+          Viewer.syncOutlineClippingTransform();
+        });
+        Viewer.transformControl.addEventListener("mouseUp", () => {
+          Viewer.syncOutlineClippingTransform();
+          Viewer.calculateObjectScale();
+        });
+        Viewer.transformControl.addEventListener("dragging-changed", function (event) {
+          core.controls.enabled = !event.value;
+        });
+        core.scene.add(Viewer.transformControl.getHelper());
+        setCore('transformControl', Viewer.transformControl);
+
+        Viewer.transformControlLight = new TransformControls(core.camera, core.renderer.domElement);
+        Viewer.transformControlLight.space = "local";
+        Viewer.transformControlLight.addEventListener("change", Viewer.render);
+        //Viewer.transformControlLight.addEventListener('objectChange', changeLightRotation);
+        Viewer.transformControlLight.addEventListener(
+          "dragging-changed",
+          function (event) {
+            core.controls.enabled = !event.value;
+          }
+        );
+        core.scene.add(Viewer.transformControlLight.getHelper());
+        setCore('transformControlLight', Viewer.transformControlLight);
+
+        Viewer.transformControlLightTarget = new TransformControls(
+          core.camera,
+          core.renderer.domElement
+        );
+        Viewer.transformControlLightTarget.space = "global";
+        Viewer.transformControlLightTarget.addEventListener("change", Viewer.render);
+        Viewer.transformControlLightTarget.addEventListener(
+          "objectChange",
+          Viewer.changeLightRotation
+        );
+        Viewer.transformControlLightTarget.addEventListener(
+          "dragging-changed",
+          function (event) {
+            core.controls.enabled = !event.value;
+          }
+        );
+        core.scene.add(Viewer.transformControlLightTarget.getHelper());
+        setCore('transformControlLightTarget', Viewer.transformControlLightTarget);
+
+        Viewer.transformControlClippingPlaneX = Viewer.createClippingPlaneAxis(0, "x");
+        Viewer.transformControlClippingPlaneY = Viewer.createClippingPlaneAxis(1, "y");
+        Viewer.transformControlClippingPlaneZ = Viewer.createClippingPlaneAxis(2, "z");
+        setCore('transformControlClippingPlaneX', Viewer.transformControlClippingPlaneX);
+        setCore('transformControlClippingPlaneY', Viewer.transformControlClippingPlaneY);
+        setCore('transformControlClippingPlaneZ', Viewer.transformControlClippingPlaneZ);
+
+        setCore('clippingPlanes', Viewer.clippingPlanes);
+        setCore('selectObjectHierarchy', Viewer.selectObjectHierarchy);
+
+      }
+
+      Viewer.GESTURE.handPx *= Math.min(window.innerWidth / 1200, 1);
+
+      Viewer._ext = core.fileObject.extension.toLowerCase();
+      if (Viewer.SUPPORTED_ARCHIVES.includes(Viewer._ext)) {
+        Viewer.archiveType = Viewer._ext;
+      }
+      
+      core.autoPath = "";
+
+      if (core.isLocalPreview && !core.PRESENTATION_MODE && !core.SANDBOX_MODE) {
+        const picker = document.getElementById('example-model-picker');
+        const selectModel = document.getElementById('example-model-select');
+        const themeToggle = document.getElementById('example-theme-toggle');
+        const viewerElement = document.getElementById('DFG_3DViewer');
+        if (picker && selectModel && viewerElement) {
+          Viewer.updateLocalPreviewLabels();
+          const localurl = new URL(window.location.href);
+          let selectedModel = localurl.searchParams.get('model');
+          if (!selectedModel) {
+            selectedModel = localStorage.getItem('dfg3dviewer-example-model');
+          }
+          if (!selectedModel) {
+            selectedModel = viewerElement.getAttribute('3d');
+          }
+          if (!selectedModel) {
+            selectedModel = './examples/box.stl';
+          }
+          core.autoPath = selectedModel;
+          picker.style.display = 'inline-flex';
+          selectModel.value = selectedModel;
+          viewerElement.setAttribute('3d', selectedModel);
+          if (themeToggle) {
+            themeToggle.hidden = true;
+          }
+
+          selectModel.addEventListener('change', () => {
+            core.autoPath = selectModel.value;
+            window.localStorage.setItem('dfg3dviewer-example-model', selectModel.value);
+            this.resetLoadedModelState();
+            this.mainLoadModelWrapper();
+          });
+        }
+      }
+
+      if (core.SANDBOX_MODE) {
+        Viewer.prepareSandboxScene();
+      } else if (!core.PRESENTATION_MODE) {
+        const sourceType = core.CONFIG.entity.metadata.sourceType.toLowerCase();
+        console.log("Loading from source: " + sourceType);
+            
+        if (window.__E2E__) {
+          try {
+            await Viewer.mainLoadModelWrapper();
+          } catch (error) {
+            Viewer.reportError(error, {
+              context: "E2E model load error",
+            });
+          }
+        } 
+        else if (sourceType === "drupal") {
+          try {
+            if (core.CONFIG.entity.metadata.exportUrl && core.CONFIG.entity.metadata.exportUrl !== "") 
+            {
+              const response = await fetch(core.CONFIG.viewer.exportPath + core.CONFIG.entity.id, 
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/xml'
+                },
+                body: JSON.stringify({
+                  id: core.CONFIG.entity.id,
+                  domain: core.CONFIG.metadataUrl
+                })
+              });
+
+              if (!response.ok) {
+                throw new Error(`XML export failed: ${response.status}`);
+              }
+
+              const xmlText = await response.text();
+
+              const parser = new DOMParser();
+              const doc = parser.parseFromString(xmlText, 'application/xml');
+              Viewer.pendingAnnotationsXml = Viewer.extractAnnotationsXmlFromExportDocument(doc);
+
+              core.autoPath = '';
+
+              const nodes = doc.getElementsByTagName('*');
+              for (let i = 0; i < nodes.length; i++) {
+                const node = nodes[i];
+                if (
+                  node.tagName?.includes('converted_file') &&
+                  node.textContent
+                ) {
+                  core.autoPath = node.textContent;
+                  break;
+                  }
+                }
+            }
+            await Viewer.mainLoadModelWrapper();
+          } catch (err) {
+            Viewer.reportError(err, {
+              context: core.isLightweight ? "Lightweight model load error" : "Metadata load error",
+            });
+          }
+        } else if (sourceType === "iiif") {
+          Viewer.cleanupTransientUI();
+          createIIIFUI();
+
+          console.log("Loading from source: " + core.CONFIG.entity.metadata.sourceType);
+          if (Viewer.iiifConfigURL.url !== "") {
+            createIIIFDropdown(Viewer.iiifConfigURL);
+            await Viewer.loadIIIFURL();
+            core.CONFIG.entity.metadata.sourceType = "IIIF";
+            await Viewer.setupIIIF(Viewer.iiifConfigURL.url);
+          }
+        } else {
+          console.log("Custom metadata source:" + core.CONFIG.entity.metadata.sourceType);
+          try {
+            switch(core.CONFIG.entity.metadata.sourceType.substring(0, 6).toLowerCase()) {
+              case "drupal":
+                console.log("Loading from URL: " + core.CONFIG.entity.metadata.url);
+
+                break;
+              case "file": //TODO: add more sources
+                break;
+            }
+            // Load model for custom metadata sources
+            await Viewer.mainLoadModelWrapper();
+          } catch (error) {
+            Viewer.reportError(error, {
+              context: core.isLightweight ? "Lightweight model load error" : "Custom metadata load error",
+            });
+          }
+        }
+      } else {
+        await Viewer.mainLoadModelWrapper();
+      }
+
+      core.renderer.setPixelRatio(devicePixelRatio);
+      const update = () => Viewer.updateSize();
+
+      Viewer.bindEventListener(window, 'resize', update);
+
+      Viewer.resizeObserver = new ResizeObserver(update);
+      Viewer.resizeObserver.observe(Viewer.viewerWrapper);
+
+
+      Viewer.bindEventListener(document, 'fullscreenchange', Viewer.onFullscreenChange);
+
+      const onOrientationChange = () => setTimeout(update, 100);
+      Viewer.bindEventListener(window, 'orientationchange', onOrientationChange);
+	  }
+  },
+  render() {
+    core.controls?.update();
+    core.renderer?.render(core.scene, core.camera);
+  }
+  
 };
 
-const onErrorMTL = function (_event) {
-	//circle.set(100, 100);
-	noMTL = true;
-	showToast("Error occured while loading attached MTL file.");
-	loadModel (path, basename, filename, 'obj', extension);
-};
+attachEmbedConfigurator(Viewer);
+attachLocalizationTheme(Viewer);
+attachLoadingStatus(Viewer);
+attachMaterialsEditor(Viewer);
+attachAnnotations(Viewer);
+attachPicking(Viewer);
+attachMeasurement(Viewer);
 
-const onErrorGLB = function (_event) {
-	if (typeof(_event) !== undefined && loadedTimes <= 1) {
-		console.log(path+basename+compressedFile, basename, filename,  "glb", extension);
-		loadModel (path+basename+compressedFile+"gltf/", basename, filename, 'glb', extension);
-		loadedTimes++;
-	}
-	else {
-		showToast("Error occured while loading attached GLB file.");
-	}
-	
-};
 
-const onProgress = function (xhr) {
-	var percentComplete = xhr.loaded / xhr.total * 100;
-	circle.show();
-	circle.set(percentComplete, 100);
-	if (percentComplete >= 100) {
-		circle.hide();
-		showToast("Model has been loaded.");
-		EXIT_CODE=0;
-	}
-};
+export async function expectWebGL(page, showToast) {
+  await expect
+    .poll(async () => {
+      return page.evaluate(() => {
+        const canvas = document.querySelector('canvas');
 
-function setupSingleMaterial (materials, material) {
-	if(material.map) { material.map.anisotropy = 16 };
-	//material.side = THREE.DoubleSide;
-	material.clipShadows = true;
-	material.side = THREE.FrontSide;
-	material.clippingPlanes = clippingPlanes;
-	//material.clipIntersection = false;
-	if (material.name === '') material.name = material.uuid;
-	var newMaterial = {'name': material.name, 'uuid': material.uuid};
-	if (!materials.includes(newMaterial))
-		materials.push(newMaterial);
+        if (!canvas) return false;
+
+        return !!(
+          canvas.getContext('webgl2') ||
+          canvas.getContext('webgl')
+        );
+      });
+    }, {
+      timeout: 5000,
+      message: 'WebGL context not available',
+    })
+    .toBeTruthy();
 }
 
-function setupMaterials (_object) {
-	var materials = [];
-	if (_object.isMesh) {
-		_object.castShadow = true;
-		_object.receiveShadow = true;
-		_object.geometry.computeVertexNormals();
-		if (_object.material.isMaterial) {
-			setupSingleMaterial(materials, _object.material);
-		}
-		else if (Array.isArray(_object.material)) {
-			_object.material.forEach((material) => setupSingleMaterial(materials, material));
-		}
-	}
-	return materials;
-}
-
-function getMaterialByID (_object, _uuid) {
-	var _material;
-	_object.traverse(function (child) {
-		if (child.isMesh && child.material.isMaterial && child.material.uuid === _uuid) {
-			_material = child.material;
-		}
-	});
-	return _material;
-}
-
-function traverseMesh (object) {
-	var _objectMaterials = [];
-	_objectMaterials.push(setupMaterials(object));
-
-	object.traverse(function (child) {
-		_objectMaterials.push(setupMaterials(child));
-	});
-	var objectMaterials = ['select by name'];
-	_objectMaterials.forEach (function (item, index, array) {
-		if (item.length > 1) {
-			item.forEach (function (_item, _index, _array) {
-				objectMaterials.push(_item.uuid);
-			});
-		}
-		else if (item.length == 1) {
-			objectMaterials.push(item[0].uuid);
-		}
-	});
-	var _material = null;
-	var _materialGui = null;
-	var _uuid = null;
-	materialsFolder.add(materialsPropertiesText, 'Edit material',  objectMaterials).onChange(function (value)
-	{
-		if ((value === 'select by name' || value !== _uuid) && _material !== null) {
-			_materialGui.color.destroy();
-			_materialGui.emissiveColor.destroy();
-			_materialGui.emissive.destroy();
-			_materialGui.metalness.destroy();
-			_materialGui = null;
-			_material = null;
-		} 
-		if (_material === null) {
-			_materialGui = {};
-			_material = getMaterialByID(object, value);
-			console.log(_material);
-			materialProperties.color = _material.color;
-			materialProperties.emissiveColor = _material.emissive;
-			materialProperties.emissive = _material.emissiveIntensity;
-			materialProperties.metalness = _material.metalness;
-			_materialGui.color = materialsFolder.addColor (materialProperties, 'color').onChange(function (value) {
-				_material.color = new THREE.Color(value);
-			}).listen();
-			_materialGui.emissiveColor = materialsFolder.addColor (materialProperties, 'emissiveColor').onChange(function (value) {
-				_material.emissive = new THREE.Color(value);
-			}).listen();
-			_materialGui.emissive = materialsFolder.add(materialProperties, 'emissive', 0, 1).onChange(function (value) {
-				_material.emissiveIntensity = value;
-			}).listen();
-			_materialGui.metalness = materialsFolder.add(materialProperties, 'metalness', 0, 1).onChange(function (value) {
-				_material.metalness = value;
-			}).listen();
-		}
-		if (_uuid === null || _uuid !== value) {
-			_uuid = value;
-		}
-	});
-}
-
-function prepareOutlineClipping (_object) {
-	var outlineClipping = _object.clone(true);
-	var gutsMaterial = new THREE.MeshBasicMaterial({color: 'crimson', side: THREE.BackSide, clippingPlanes: clippingPlanes, clipShadows: true});
-		
-	outlineClipping.traverse(function (child)
-	{
-		if( child.type=='Mesh' || child.type=='Object3D' )
-		{
-			child.material = gutsMaterial;
-		}
-	} );
-	outlineClipping.visible = false;
-	return outlineClipping;
-}
-
-function loadModel (path, basename, filename, extension, orgExtension) {
-	if (!imported) {
-		circle.show();
-		circle.set(0, 100);
-		var modelPath = path + filename;
-		if (CONFIG.entity.proxyPath !== undefined) {
-			modelPath = getProxyPath(modelPath);
-		}
-		switch(extension.toLowerCase()) {
-			case 'obj':
-				if (!noMTL) {
-					const manager = new THREE.LoadingManager();
-					manager.onLoad = function () { showToast ("OBJ model has been loaded"); };
-					manager.addHandler(/\.dds$/i, new DDSLoader());
-					// manager.addHandler(/\.tga$/i, new TGALoader());
-					new MTLLoader(manager)
-						.setPath(path)
-						.load(basename + '.mtl', function (materials) {
-							materials.preload();
-							new OBJLoader(manager)
-								.setMaterials(materials)
-								.setPath(path)
-								.load(filename, function (object) {
-									object.position.set (0, 0, 0);
-									traverseMesh(object);
-
-									fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
-
-									outlineClipping = prepareOutlineClipping(object);
-									scene.add(object, outlineClipping);
-									scene.add(object);
-
-									mainObject.push(object);
-								}, onProgress, onError);
-						}, function (){}, onErrorMTL);
-				}
-				else {
-					const loader = new OBJLoader();
-					loader.setPath(path)
-						.load(filename, function (object) {
-						object.position.set (0, 0, 0);
-						traverseMesh(object);
-						fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
-
-						outlineClipping = prepareOutlineClipping(object);
-						scene.add(object, outlineClipping);
-						scene.add(object);
-
-						mainObject.push(object);
-					}, onProgress, onError);
-				}
-			break;
-			
-			case 'fbx':
-				var FBXloader = new FBXLoader();
-				FBXloader.load(modelPath, function (object) {
-					traverseMesh (object);
-					object.position.set (0, 0, 0);
-
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object.children, camera, lightObjects[0], controls, orgExtension, extension);
-
-					outlineClipping = prepareOutlineClipping(object);
-					scene.add(object, outlineClipping);
-					scene.add(object);
-
-					mainObject.push(object);
-				}, onProgress, onError);
-			break;
-			
-			case 'ply':
-				loader = new PLYLoader();
-				loader.load(modelPath, function (geometry) {
-					geometry.computeVertexNormals();
-					const material = new THREE.MeshStandardMaterial({ color: 0x0055ff, flatShading: true });
-					const object = new THREE.Mesh(geometry, material);
-					object.position.set (0, 0, 0);
-					object.castShadow = true;
-					object.receiveShadow = true;
-					traverseMesh(object);
-
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
-					mainObject.push(object);
-
-					outlineClipping = prepareOutlineClipping(object);
-					scene.add(object, outlineClipping);
-					scene.add(object);
-
-				}, onProgress, onError);
-			break;
-			
-			case 'dae':
-				const loadingManager = new THREE.LoadingManager(function () {
-					scene.add(object);
-				});
-				loader = new ColladaLoader(loadingManager);
-				loader.load(modelPath, function (object) {
-					object = object.scene;
-					object.position.set (0, 0, 0);
-					traverseMesh(object);
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
-					mainObject.push(object);
-
-					outlineClipping = prepareOutlineClipping(object);
-					scene.add(object, outlineClipping);
-					scene.add(object);
-
-				}, onProgress, onError);
-			break;
-			
-			case 'ifc':
-				const ifcLoader = new IFCLoader();
-				const ifcPath = CONFIG.baseModulePath + '/js/external_libs/loaders/ifc/';
-				ifcLoader.ifcManager.setWasmPath(ifcPath, true);
-				ifcLoader.load(modelPath, function (object) {
-					traverseMesh(object);
-					
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
-					
-					outlineClipping = prepareOutlineClipping(object);
-					scene.add(object, outlineClipping);
-					scene.add(object);
-					
-					mainObject.push(object);
-				}, onProgress, onError);
-			break;
-			
-			case 'stl':
-				loader = new STLLoader();
-				loader.load(modelPath, function (geometry) {
-					let meshMaterial = new THREE.MeshPhongMaterial({ color: 0xff5533, specular: 0x111111, shininess: 200 });
-					if (geometry.hasColors) {
-						meshMaterial = new THREE.MeshPhongMaterial({ opacity: geometry.alpha, vertexColors: true });
-					}
-					const object = new THREE.Mesh(geometry, meshMaterial);
-					object.position.set (0, 0, 0);
-					traverseMesh(object);
-					object.castShadow = true;
-					object.receiveShadow = true;
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
-					
-					outlineClipping = prepareOutlineClipping(object);
-					scene.add(object, outlineClipping);
-					scene.add(object);
-
-					mainObject.push(object);
-				}, onProgress, onError);
-			break;
-
-			case 'xyz':
-				loader = new XYZLoader();
-				loader.load(modelPath, function (geometry) {
-					geometry.center();
-					const vertexColors = (geometry.hasAttribute('color') === true);
-					const material = new THREE.PointsMaterial({ size: 0.1, vertexColors: vertexColors });
-					const object = new THREE.Points(geometry, material);
-					traverseMesh(object);
-					object.position.set (0, 0, 0);
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
-					
-					outlineClipping = prepareOutlineClipping(object);
-					scene.add(object, outlineClipping);
-					scene.add(object);
-					
-					mainObject.push(object);
-				}, onProgress, onError);
-			break;
-
-			case 'pcd':
-				loader = new PCDLoader();
-				loader.load(modelPath, function (mesh) {
-					traverseMesh(mesh);
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
-					mainObject.push(object);
-			
-					outlineClipping = prepareOutlineClipping(mesh);
-					scene.add(mesh, outlineClipping);
-					scene.add(mesh);
-
-				}, onProgress, onError);
-			break;
-
-			case 'json':
-				loader = new THREE.ObjectLoader();
-				loader.load(
-					modelPath, function (object) {
-						object.position.set (0, 0, 0);
-						traverseMesh(object);
-
-						fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
-		
-						outlineClipping = prepareOutlineClipping(object);
-						scene.add(object, outlineClipping);
-						scene.add(object);
-
-						mainObject.push(object);
-					}, onProgress, onError);
-			break;
-
-			case '3ds':
-				loader = new TDSLoader();
-				loader.setResourcePath(path);
-				modelPath = path;
-				if (CONFIG.entity.proxyPath !== undefined) {
-					modelPath = getProxyPath(modelPath);
-				}
-				loader.load(modelPath + basename + "." + extension, function (object) {
-					traverseMesh(object);				
-
-					fetchSettings (path.replace("gltf/", ""), basename, filename, object, camera, lightObjects[0], controls, orgExtension, extension);
-					mainObject.push(object);
-			
-					outlineClipping = prepareOutlineClipping(object);
-					scene.add(object, outlineClipping);
-					scene.add(object);
-					
-				}, onProgress, onError);
-			break;
-
-			case 'zip':
-			case 'rar':
-			case 'tar':
-			case 'gz':
-			case 'xz':
-				showToast("Model is being loaded from compressed archive.");
-			break;
-			
-			case 'glb':
-			case 'gltf':
-				const dracoLoader = new DRACOLoader();
-				dracoLoader.setDecoderPath(CONFIG.baseModulePath + '/js/jsm/libs/draco/');
-				dracoLoader.preload();
-				const gltf = new GLTFLoader();
-				gltf.setDRACOLoader(dracoLoader);
-				showToast("Model has being loaded from " + extension + " representation.");
-
-				modelPath = path + basename + "." + extension;
-
-				if (CONFIG.entity.proxyPath !== undefined) {
-					modelPath = getProxyPath(modelPath);
-				}
-				gltf.load(modelPath, function(gltf) {
-					traverseMesh(gltf.scene);
-					fetchSettings (path.replace("/gltf/", "/"), basename, filename, gltf.scene, camera, lightObjects[0], controls, orgExtension, extension);
-					outlineClipping = prepareOutlineClipping(gltf.scene);
-					scene.add(gltf.scene, outlineClipping);
-					scene.add(gltf.scene);
-					mainObject.push(gltf.scene);
-					//mainObject.push(guts.scene);
-				
-				},
-					function (xhr) {
-						var percentComplete = xhr.loaded / xhr.total * 100;
-						if (percentComplete !== Infinity) {
-							circle.show();
-							circle.set(percentComplete, 100);
-							if (percentComplete >= 100) {
-								circle.hide();
-								showToast("Model " + filename + " has been loaded.");
-							}
-						}
-					}, onErrorGLB
-				);
-			break;
-			default:
-				showToast("Extension not supported yet");
-		}
-	}
-	else {
-		showToast("File " + path + basename + " not found.");
-	}
-	
-	scene.updateMatrixWorld();
-}
-
-//
-
-function animate() {
-	requestAnimationFrame(animate);
-	const delta = clock.getDelta();
-	if (mixer) { mixer.update(delta); }
-	TWEEN.update();
-
-	if (textMesh !== undefined) { textMesh.lookAt(camera.position); }
-	renderer.clear();
-	renderer.render(scene, camera);
-	stats.update();
-}
-
-function updateObject () {
-}
-
-function onPointerDown(e) {
-	//onDownPosition.x = event.clientX;
-	//onDownPosition.y = event.clientY;
-	if (e.button === 0) {
-		onDownPosition.x = ((e.clientX - mainCanvas.getBoundingClientRect().left)/ renderer.domElement.clientWidth) * 2 - 1;
-		onDownPosition.y = - ((e.clientY - mainCanvas.getBoundingClientRect().top) / renderer.domElement.clientHeight) * 2 + 1;
-	}
-}
-
-function onPointerUp(e) {
-	if (e.button == 0) {
-		onUpPosition.x = ((e.clientX - mainCanvas.getBoundingClientRect().left)/ renderer.domElement.clientWidth) * 2 - 1;
-		onUpPosition.y = - ((e.clientY - mainCanvas.getBoundingClientRect().top) / renderer.domElement.clientHeight) * 2 + 1;
-		
-		if (onUpPosition.x === onDownPosition.x && onUpPosition.y === onDownPosition.y) {
-			raycaster.setFromCamera(onUpPosition, camera);
-			var intersects;
-			
-			if (EDITOR || RULER_MODE) {
-				if (mainObject.length > 1) {
-					for (let ii = 0; ii < mainObject.length; ii++) {
-						intersects = raycaster.intersectObjects(mainObject[ii].children, true);
-					}
-					if (intersects.length <= 0) {
-						intersects = raycaster.intersectObjects(mainObject, true);
-					}
-				}
-				else {
-					intersects = raycaster.intersectObject(mainObject[0], true);
-				}
-				if (intersects.length > 0) {
-					if (RULER_MODE) buildRuler(intersects[0]);
-					else if (EDITOR) pickFaces(intersects[0]);
-				}
-			}
-		}
-	}
-}
-
-function onPointerMove(e) {
-	pointer.x = ((e.clientX - mainCanvas.getBoundingClientRect().left)/ renderer.domElement.clientWidth) * 2 - 1;
-	pointer.y = - ((e.clientY - mainCanvas.getBoundingClientRect().top) / renderer.domElement.clientHeight) * 2 + 1;
-
-	if (e.buttons == 1) {
-		if (pointer.x !== onDownPosition.x && pointer.y !== onDownPosition.y) {
-			cameraLight.position.set(camera.position.x, camera.position.y, camera.position.z);
-		}
-	}
-	if (e.buttons != 1) {
-		if (EDITOR) {
-			raycaster.setFromCamera(pointer, camera);
-			var intersects;
-			if (mainObject.length > 1) {
-				for (let ii = 0; ii < mainObject.length; ii++) {
-					intersects = raycaster.intersectObjects(mainObject[ii].children, true);
-				}
-				if (intersects.length <= 0) {
-					intersects = raycaster.intersectObjects(mainObject, true);
-				}
-			}
-			else {
-				intersects = raycaster.intersectObject(mainObject[0], true);
-			}
-			if (intersects.length > 0) {
-				pickFaces(intersects[0]);
-			}
-			else {
-				pickFaces("");
-			}
-		}
-	}
-}
-
-function changeScale () {
-	if (transformControl.getMode() === "scale") {
-		switch (transformControl.axis) {
-			case 'X':
-			case 'XY':
-				helperObjects[0].scale.set(helperObjects[0].scale.x,helperObjects[0].scale.x,helperObjects[0].scale.x);
-			break;
-			case 'Y':
-			case 'YZ':
-				helperObjects[0].scale.set(helperObjects[0].scale.y,helperObjects[0].scale.y,helperObjects[0].scale.y);
-			break;
-			case 'Z':
-			case 'XZ':
-				helperObjects[0].scale.set(helperObjects[0].scale.x,helperObjects[0].scale.x,helperObjects[0].scale.x);
-			break;
-		}
-	}
-}
-
-function calculateObjectScale () {
-	const boundingBox = new THREE.Box3();
-	if (Array.isArray(helperObjects[0])) {
-		for (let i = 0; i < helperObjects[0].length; i++) {			
-			boundingBox.setFromObject(object[i]);
-		}
-	}
-	else {
-		boundingBox.setFromObject(helperObjects[0]);
-	}
-
-    var middle = new THREE.Vector3();
-    var size = new THREE.Vector3();
-    boundingBox.getSize(size);
-	// ground
-	var _distance = new THREE.Vector3(Math.abs(boundingBox.max.x - boundingBox.min.x), Math.abs(boundingBox.max.y - boundingBox.min.y), Math.abs(boundingBox.max.z - boundingBox.min.z));
-	distanceGeometry = _distance;
-	planeParams.planeX.constant = clippingFolder.controllers[1]._max = clippingPlanes[ 0 ].constant = _distance.x;
-	clippingFolder.controllers[1]._min = -clippingFolder.controllers[1]._max;
-	planeParams.planeY.constant = clippingFolder.controllers[3]._max = clippingPlanes[ 1 ].constant = _distance.y;
-	clippingFolder.controllers[3]._min = -clippingFolder.controllers[3]._max;
-	planeParams.planeZ.constant = clippingFolder.controllers[5]._max = clippingPlanes[ 2 ].constant = _distance.z;
-	clippingFolder.controllers[5]._min = -clippingFolder.controllers[5]._max;
-	clippingFolder.controllers[1].updateDisplay();
-	clippingFolder.controllers[3].updateDisplay();
-	clippingFolder.controllers[5].updateDisplay();
-	var _maxDistance = Math.max(_distance.x, _distance.y, _distance.z);
-	planeHelpers[0].size = planeHelpers[1].size = planeHelpers[2].size = _maxDistance;
-}
-
-function changeLightRotation () {
-	lightHelper.update();
-}
-
-function takeScreenshot() {
-	/*const messDiv = document.createElement('div');
-	messDiv.classList.add('message');
-	document.body.appendChild(messDiv);*/
-	camera.aspect = 1;
-	camera.updateProjectionMatrix();
-	renderer.setSize(256, 256);
-    renderer.render(scene, camera);
-	var prependName = '';
-	if (archiveType !== '') {
-		prependName = basename+"_"+archiveType.toUpperCase()+"/";
-	}
-
-    mainCanvas.toBlob(imgBlob => {
-		const fileform = new FormData();
-		fileform.append('domain', CONFIG.mainUrl);
-		fileform.append('filename', basename);
-		fileform.append('path', uri+prependName);
-		fileform.append('data', imgBlob);
-		fileform.append('wisski_individual', entityID);
-		fetch(CONFIG.mainUrl + '/thumbnail_upload.php', {
-			method: 'POST',
-			body: fileform,
-		})
-		.then(response => {
-			console.log(response);
-			return response;
-		})
-		.then(data => {
-			if (data.error) { //Show server errors
-				showToast(data.error);
-			} else { //Show success message
-				showToast("Rendering saved successfully");
-			}
-		})
-		.catch(err => { //Handle js errors
-			showToast(err.message);
-		});
-	}, 'image/png');
-	renderer.setPixelRatio(window.devicePixelRatio);
-	camera.aspect = canvasDimensions.x / canvasDimensions.y;
-	camera.updateProjectionMatrix();
-	renderer.setSize(canvasDimensions.x, canvasDimensions.y);
-}
-
-function mainLoadModel (_ext) {
-	if (_ext === "glb" || _ext === "gltf") {
-		loadModel (path, basename, filename, extension, _ext);
-	}
-	else if  (_ext === "zip" || _ext === "rar" || _ext === "tar" || _ext === "xz" || _ext === "gz") {
-		compressedFile = "_" + _ext.toUpperCase() + "/";
-		loadModel (path+basename+compressedFile, basename, filename,  "glb", _ext);
-		//loadModel (path+basename+compressedFile+"gltf/", basename, filename,  "glb", _ext);
-	}
-	else {
-		if (_ext === "glb")
-			loadModel (path, basename, filename, "glb", extension);
-		else
-			loadModel (path, basename, filename, _ext, extension);
-	}
-}
-
-function createClippingPlaneAxis (_number) {
-	var tempClippingControl = new TransformControls(camera, renderer.domElement);
-	tempClippingControl.space = "local";
-	tempClippingControl.mode = "translate";
-	tempClippingControl.addEventListener('change', render);
-	tempClippingControl.addEventListener('objectChange', function (event) {
-		switch (_number) {
-			case 0:
-				clippingPlanes[_number].constant = event.target.children[0].pointEnd.x + distanceGeometry.x;
-			break;
-			case 1:
-				clippingPlanes[_number].constant = event.target.children[0].pointEnd.y + distanceGeometry.y;
-			break;
-			case 2:
-				clippingPlanes[_number].constant = event.target.children[0].pointEnd.z + distanceGeometry.z;
-			break;
-		}
-		
-	});
-	tempClippingControl.addEventListener('dragging-changed', function (event) {
-		controls.enabled = ! event.value;
-	});
-	return tempClippingControl;
-}
-
-function resetCamera() {
-	var camPosition = camera.position;
-    new TWEEN.Tween(camPosition)
-		.to(cameraCoords, 1500)
-		.onUpdate(() =>
-			{
-				camera.position.set(camPosition.x, camPosition.y, camPosition.z);
-				cameraLight.position.set(camPosition.x, camPosition.y, camPosition.z);
-				camera.updateProjectionMatrix();
-				controls.update();
-			}
-     ).start();	
-}
-
-function detectColorFormat(color) {
-	const hexRegex = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
-	const rgbRegex = /^rgb\((\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})\)$/;
-
-	if (hexRegex.test(color)) {
-		return "hex";
-	} else if (rgbRegex.test(color)) {
-		return "rgb";
-	} else {
-		return "unknown";
-	}
-}
-
-function hexToRgb(hex) {
-	// Remove the '#' if it exists
-	hex = hex.replace(/^#/, '');
-
-	// Handle shorthand hex (e.g., #FFF -> #FFFFFF)
-	if (hex.length === 3) {
-		hex = hex.split('').map(char => char + char).join('');
-	}
-
-	// Parse the hex into RGB components
-	const bigint = parseInt(hex, 16);
-	const r = (bigint >> 16) & 255;
-	const g = (bigint >> 8) & 255;
-	const b = bigint & 255;
-
-	return `rgb(${r}, ${g}, ${b})`;
-}
-
-function changeBackgroundHelper (_color1, _color2) {
-	mainCanvas.style.setProperty("background", "-moz-radial-gradient(circle, " + _color1 + " 0%, " + _color2 + " 100%)");
-	mainCanvas.style.setProperty("background", "-webkit-radial-gradient(circle, " + _color1 + " 0%, " + _color2 + " 100%)");
-	mainCanvas.style.setProperty("background", "radial-gradient(circle, " + _color1 + " 0%, " + _color2 + " 100%)");	
-}
-
-function changeBackground (_type, _color1, _color2) {
-	switch (_type) {
-		case 'linear':
-			changeBackgroundHelper(_color1, _color1);
-		break;
-		case 'gradient':
-			changeBackgroundHelper(_color1, _color2);
-		break;
-	}	
-}
-
-function init() {
-	camera = new THREE.PerspectiveCamera(45, canvasDimensions.x / canvasDimensions.y, 0.001, 999000000);
-	camera.position.set(0, 0, 0);
-
-	scene = new THREE.Scene();
-
-	const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444);
-	hemiLight.position.set(0, 200, 0);
-	scene.add(hemiLight);
-	
-	ambientLight = new THREE.AmbientLight(0x404040); // soft white light
-	scene.add(ambientLight);
-
-	dirLight = new THREE.DirectionalLight(0xffffff);
-	dirLight.position.set(0, 100, 50);
-	dirLight.castShadow = true;
-	dirLight.shadow.camera.top = 180;
-	dirLight.shadow.camera.bottom = - 100;
-	dirLight.shadow.camera.left = - 120;
-	dirLight.shadow.camera.right = 120;
-	dirLight.shadow.bias = -0.0001;
-	dirLight.shadow.mapSize.width = 1024*4;
-	dirLight.shadow.mapSize.height = 1024*4;
-	scene.add(dirLight);
-	lightObjects.push(dirLight);
-	
-	cameraLightTarget = new THREE.Object3D();
-	cameraLightTarget.position.set(camera.position.x, camera.position.y, camera.position.z);
-	scene.add(cameraLightTarget);
-
-	cameraLight = new THREE.DirectionalLight(0xffffff);
-	cameraLight.position.set(camera.position);
-	cameraLight.castShadow = false;
-	cameraLight.intensity = 0.3;
-	scene.add(cameraLight);
-	cameraLight.target = cameraLightTarget;
-	cameraLight.target.updateMatrixWorld();
-
-	renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true, colorManagement: true, sortObjects: true, preserveDrawingBuffer: true, powerPreference: "high-performance", alpha: true });
-	renderer.setPixelRatio(window.devicePixelRatio);
-	renderer.setSize(canvasDimensions.x, canvasDimensions.y);
-	renderer.shadowMap.enabled = true;
-	renderer.localClippingEnabled = true;
-	renderer.physicallyCorrectLights = true; //can be considered as better looking
-	renderer.autoClear = false;
-	renderer.setClearColor(0x000000, 0.0);
-	renderer.domElement.id = 'MainCanvas';
-	container.appendChild(renderer.domElement);
-
-	mainCanvas = document.getElementById("MainCanvas");
-	mainCanvas.setAttribute("style", "width:" + canvasDimensions.x+"px;" + " height:" + canvasDimensions.y+"px;" + " display: flex;");
-
-	canvasText = document.createElement('div');
-	canvasText.id = "TextCanvas";
-	canvasText.width = canvasDimensions.x;
-	canvasText.height = canvasDimensions.y;
-	
-	guiContainer.style.width = canvasDimensions.x;
-	guiContainer.style.left = container.offsetLeft + 'px';
-	lilGui = document.getElementsByClassName("lil-gui root");
-	lilGui[0].style.left = canvasDimensions.x - lilGui[0].getBoundingClientRect().width - 10 + 'px';
-	
-	fileElement = document.getElementsByClassName("field--type-file");
-	if (fileElement.length > 0) {
-		fileElement[0].style.height = canvasDimensions.y*1.1 + "px";
-	}
-
-	if (CONFIG.viewer.lightweight === 0 || CONFIG.viewer.lightweight === false) {
-		buildGallery();
-	}
-
-	controls = new OrbitControls(camera, renderer.domElement);
-	controls.target.set(0, 100, 0);
-	controls.update();
-	
-	transformControl = new TransformControls(camera, renderer.domElement);
-	transformControl.rotationSnap = THREE.MathUtils.degToRad(5);
-	transformControl.space = "local";
-	transformControl.addEventListener('change', render);
-	transformControl.addEventListener('objectChange', changeScale);
-	transformControl.addEventListener('mouseUp', calculateObjectScale);
-	transformControl.addEventListener('dragging-changed', function (event) {
-		controls.enabled = ! event.value
-	});
-	scene.add(transformControl.getHelper());
-	
-	transformControlLight = new TransformControls(camera, renderer.domElement);
-	transformControlLight.space = "local";
-	transformControlLight.addEventListener('change', render);
-	//transformControlLight.addEventListener('objectChange', changeLightRotation);
-	transformControlLight.addEventListener('dragging-changed', function (event) {
-		controls.enabled = ! event.value;
-	});
-	scene.add(transformControlLight.getHelper());
-
-	transformControlLightTarget = new TransformControls(camera, renderer.domElement);
-	transformControlLightTarget.space = "global";
-	transformControlLightTarget.addEventListener('change', render);
-	transformControlLightTarget.addEventListener('objectChange', changeLightRotation);
-	transformControlLightTarget.addEventListener('dragging-changed', function (event) {
-		controls.enabled = ! event.value;
-	});
-	scene.add(transformControlLightTarget.getHelper());
-
-	transformControlClippingPlaneX = createClippingPlaneAxis (0, 'x');
-	transformControlClippingPlaneY = createClippingPlaneAxis (1, 'y');
-	transformControlClippingPlaneZ = createClippingPlaneAxis (2, 'z');
-	
-	transformControlClippingPlaneX.showX = transformControlClippingPlaneX.showY = false;
-	transformControlClippingPlaneY.showX = transformControlClippingPlaneY.showY = false;
-	transformControlClippingPlaneZ.showX = transformControlClippingPlaneZ.showY = false;
-	
-	var _ext = extension.toLowerCase();
-	if  (_ext === "zip" || _ext === "rar" || _ext === "tar" || _ext === "xz" || _ext === "gz") {
-		archiveType = _ext;
-	}
-
-	var _autoPath='';
-	var req = new XMLHttpRequest();
-	req.responseType = '';
-	req.open('GET', CONFIG.metadataUrl + EXPORT_PATH + entityID + '?page=0&amp;_format=xml', true);
-	req.onreadystatechange = function (aEvt) {
-		if (req.readyState == 4) {
-			if(req.status == 200) {
-				const parser = new DOMParser();
-				const doc = parser.parseFromString(req.responseText, "application/xml");
-				if (doc.documentElement.childNodes > 0) {
-					var data = doc.documentElement.childNodes[0].childNodes;
-					if (typeof (data) !== undefined) {
-						var _found = false;
-						for(var i = 0; i < data.length && !_found; i++) {
-							if ((typeof (data[i].tagName) !== "undefined") && (typeof (data[i].textContent) !== "undefined")) {							
-								var _label = data[i].tagName.replace("wisski_path_3d_model__", "");
-								if (typeof(_label) !== "undefined" && _label === "converted_file") {
-									_found = true;
-									_autoPath = data[i].textContent;
-									console.log(_autoPath);
-								}
-							}
-						}
-					}
-				}
-				//check wheter semo-automatic path found
-				if (_autoPath !== '') {
-					filename = _autoPath.split("/").pop();
-					basename = filename.substring(0, filename.lastIndexOf('.'));
-					extension = filename.substring(filename.lastIndexOf('.') + 1);
-					_ext = extension.toLowerCase();
-					path = _autoPath.substring(0, _autoPath.lastIndexOf(filename));
-				}
-				mainLoadModel(_ext);
-			}
-			else {
-				console.log("Error during loading metadata content\n");
-				mainLoadModel (_ext);
-			}
-		}
-	};
-	req.send(null);
-	/*try {
-
-	} catch (e) {
-		// statements to handle any exceptions
-		loadModel(path, basename, filename, extension);
-	}*/
-
-
-	container.addEventListener('pointerdown', onPointerDown);
-	container.addEventListener('pointerup', onPointerUp);
-	container.addEventListener('pointermove', onPointerMove);
-	window.addEventListener('resize', onWindowResize);
-
-	fullscreenMode = document.createElement('div');
-	fullscreenMode.setAttribute('id', 'fullscreenMode');
-	fullscreenMode.innerHTML = "<img src='" + CONFIG.baseModulePath + "/img/fullscreen.png' alt='Fullscreen' width=20 height=20 title='Fullscreen mode'/>";
-	fullscreenMode.setAttribute('style', 'top:' + (bottomLineGUI + 20) + 'px; left: ' + (canvasDimensions.x - 36) + 'px');
-	container.appendChild(fullscreenMode);
-	document.getElementById ("fullscreenMode").addEventListener ("click", fullscreen, false);
-	if (document.addEventListener) {
-		document.addEventListener('webkitfullscreenchange', exitFullscreenHandler, false);
-		document.addEventListener('mozfullscreenchange', exitFullscreenHandler, false);
-		document.addEventListener('fullscreenchange', exitFullscreenHandler, false);
-		document.addEventListener('MSFullscreenChange', exitFullscreenHandler, false);
-	}
-
-	// stats
-	stats = new Stats();
-	stats.domElement.style.cssText = 'position:relative;top:0px;left:' + (canvasDimensions.x - 90) +'px;max-height:120px;max-width:90px;z-index:2;visibility:hidden;';
-	
-	windowHalfX = canvasDimensions.x / 2;
-	windowHalfY = canvasDimensions.y / 2;
-	
-	const editorFolder = gui.addFolder('Editor').close();
-	editorFolder.add(transformText, 'Transform 3D Object', { None: '', Move: 'translate', Rotate: 'rotate', Scale: 'scale' }).onChange(function (value)
-	{ 
-		if (value === '') { transformControl.detach(); } 
-		else {
-			renderer.localClippingEnabled = false;
-			transformControl.mode = value;
-			transformControl.attach(helperObjects[0]);
-		}
-	});
-	editorFolder.add(transformText, 'Transform Mode', { Local: 'local', Global: 'global' }).onChange(function (value)
-	{ 
-		transformControl.space = value;
-	});
-	const lightFolder = editorFolder.addFolder('Directional Light').close();
-	lightFolder.add(transformText, 'Transform Light', { None: '', Move: 'translate', Target: 'rotate' }).onChange(function (value)
-	{ 
-		if (value === '') { transformControlLight.detach(); transformControlLightTarget.detach(); lightHelper.visible = false; } else {
-			if (value === "translate") {
-				transformControlLight.mode = "translate";
-				transformControlLight.attach(dirLight);
-				lightHelper.visible = true;
-				transformControlLightTarget.detach();
-			}
-			else {
-				transformControlLightTarget.mode = "translate";
-				transformControlLightTarget.attach(dirLightTarget);
-				lightHelper.visible = true;
-				transformControlLight.detach();
-			}
-		}
-	});
-	lightFolder.addColor (colors, 'DirectionalLight').onChange(function (value) {
-		lightObjects[0].color = new THREE.Color(value);
-	}).listen();
-	lightFolder.add(intensity, 'startIntensityDir', 0, 10).onChange(function (value) {
-		lightObjects[0].intensity = value;
-	}).listen();
-
-	const lightFolderAmbient = editorFolder.addFolder('Ambient Light').close();
-	lightFolderAmbient.addColor (colors, 'AmbientLight').onChange(function (value) {
-		ambientLight.color = new THREE.Color(value);
-	}).listen();
-	lightFolderAmbient.add(intensity, 'startIntensityAmbient', 0, 10).onChange(function (value) {
-		ambientLight.intensity = value;
-	}).listen();
-
-	const lightFolderCamera = editorFolder.addFolder('Camera Light').close();
-	lightFolderCamera.addColor (colors, 'CameraLight').onChange(function (value) {
-		cameraLight.color = new THREE.Color(value);
-	}).listen();
-	lightFolderCamera.add(intensity, 'startIntensityCamera', 0, 10).onChange(function (value) {
-		cameraLight.intensity = value;
-	}).listen();
-
-	const backgroundFolder = editorFolder.addFolder('Background Color').close();
-	backgroundFolder.addColor (colors, 'BackgroundColor').onChange(function (value) {
-		changeBackground(backgroundType['Background Type'], value, colors['BackgroundColorOuter']);
-	}).listen();
-	backgroundOuterFolder = backgroundFolder.addColor (colors, 'BackgroundColorOuter').onChange(function (value) {
-		changeBackground(backgroundType['Background Type'], colors['BackgroundColor'], value);
-	}).listen();
-	backgroundFolder.add(backgroundType, 'Background Type', { 'Linear': 'linear', 'Gradient': 'gradient' }).onChange(function (value)
-	{
-		if (value == "linear")
-			backgroundOuterFolder.hide();
-		else
-			backgroundOuterFolder.show();
-		changeBackground(value, colors['BackgroundColor'], colors['BackgroundColorOuter']);
-	});
-	
-	clippingFolder = editorFolder.addFolder('Clipping Planes').close();
-	materialsFolder = editorFolder.addFolder('Materials').close();
-
-	if (!CONFIG.viewer.lightweight) {
-		propertiesFolder = editorFolder.addFolder('Save properties').close();
-		propertiesFolder.add(saveProperties, 'Position');
-		propertiesFolder.add(saveProperties, 'Rotation');
-		propertiesFolder.add(saveProperties, 'Scale');
-		propertiesFolder.add(saveProperties, 'Camera');
-		propertiesFolder.add(saveProperties, 'DirectionalLight');
-		propertiesFolder.add(saveProperties, 'AmbientLight');
-		propertiesFolder.add(saveProperties, 'CameraLight');
-		propertiesFolder.add(saveProperties, 'BackgroundColor');
-	}
-
-	if (editor && !CONFIG.viewer.lightweight) {
-		editorFolder.add({["Save"] () {
-			var xhr = new XMLHttpRequest(),
-			jsonArr,
-			method = "POST",
-			jsonRequestURL = CONFIG.mainUrl + "/editor.php";
-
-			xhr.open(method, jsonRequestURL, true);
-			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-			var params;
-			var rotateMetadata = new THREE.Vector3(THREE.MathUtils.radToDeg(helperObjects[0].rotation.x),THREE.MathUtils.radToDeg(helperObjects[0].rotation.y),THREE.MathUtils.radToDeg(helperObjects[0].rotation.z));
-			var newMetadata = new Object();
-
-			//Fetch data from original metadata file anyway before saving any changes
-			//var originalMetadata = [];
-			//var metadataUrl = path.replace("gltf/", "") + "metadata/" + filename + "_viewer";
-			if (CONFIG.entity.proxyPath !== undefined) {
-				metadataUrl = getProxyPath(metadataUrl);
-			}
-
-			fetch(metadataUrl, {cache: "no-cache"})
-			.then((response) => {
-				if (response['status'] !== 404) {
-					return response.json();
-				}
-				else {
-					return response = {};
-				}
-			})
-			.then(_data => {
-				if (typeof (_data) !== "undefined") {
-					if (typeof (_data["objPosition"]) !== "undefined") originalMetadata["objPosition"] = _data["objPosition"];
-					if (typeof (_data["objRotation"]) !== "undefined") originalMetadata["objRotation"] = _data["objRotation"];
-					if (typeof (_data["objScale"]) !== "undefined") originalMetadata["objScale"] = _data["objScale"];
-					if (typeof (_data["cameraPosition"]) !== "undefined") originalMetadata["cameraPosition"] = _data["cameraPosition"];
-					if (typeof (_data["controlsTarget"]) !== "undefined") originalMetadata["controlsTarget"] = _data["controlsTarget"];
-					if (typeof (_data["lightPosition"]) !== "undefined") originalMetadata["lightPosition"] = _data["lightPosition"];
-					if (typeof (_data["lightTarget"]) !== "undefined") originalMetadata["lightTarget"] = _data["lightTarget"];
-					if (typeof (_data["lightColor"]) !== "undefined") originalMetadata["lightColor"] = _data["lightColor"];
-					if (typeof (_data["lightIntensity"]) !== "undefined") originalMetadata["lightIntensity"] = _data["lightIntensity"];
-					if (typeof (_data["lightAmbientColor"]) !== "undefined") originalMetadata["lightAmbientColor"] = _data["lightAmbientColor"];
-					if (typeof (_data["lightAmbientIntensity"]) !== "undefined") originalMetadata["lightAmbientIntensity"] = _data["lightAmbientIntensity"];
-					if (typeof (_data["lightCameraColor"]) !== "undefined") originalMetadata["lightCameraColor"] = _data["lightCameraColor"];
-					if (typeof (_data["lightCameraIntensity"]) !== "undefined") originalMetadata["lightCameraIntensity"] = _data["lightCameraIntensity"];
-					if (typeof (_data["background"]) !== "undefined") originalMetadata["background"] = _data["background"];
-
-					if (saveProperties.Position) {
-						newMetadata = Object.assign(newMetadata, {"objPosition": [ helperObjects[0].position.x, helperObjects[0].position.y, helperObjects[0].position.z ]});
-					}
-					else {
-						newMetadata = Object.assign(newMetadata, {"objPosition": [ originalMetadata["objPosition"][0], originalMetadata["objPosition"][1], originalMetadata["objPosition"][2] ]});
-					}
-					
-					if (saveProperties.Rotation) {
-						newMetadata = Object.assign(newMetadata, {"objRotation": [ rotateMetadata.x, rotateMetadata.y, rotateMetadata.z ]});
-					}
-					else {
-						newMetadata = Object.assign(newMetadata, {"objRotation": [ originalMetadata["objRotation"][0], originalMetadata["objRotation"][1], originalMetadata["objRotation"][2] ]});
-					}
-					
-					if (saveProperties.Scale) {
-						newMetadata = Object.assign(newMetadata, {"objScale": [ helperObjects[0].scale.x, helperObjects[0].scale.y, helperObjects[0].scale.z ]});
-					}
-					else {
-						newMetadata = Object.assign(newMetadata, {"objScale": [ originalMetadata["objScale"][0], originalMetadata["objScale"][1], originalMetadata["objScale"][2] ]});
-					}
-					
-					if (saveProperties.Camera) {
-						newMetadata = Object.assign(newMetadata, {
-							"cameraPosition": [ camera.position.x, camera.position.y, camera.position.z ],
-							"controlsTarget": [ controls.target.x, controls.target.y, controls.target.z ]
-						});
-					}
-					else {
-						newMetadata = Object.assign(newMetadata, {
-							"cameraPosition": [ originalMetadata["cameraPosition"][0], originalMetadata["cameraPosition"][1], originalMetadata["cameraPosition"][2] ],
-							"controlsTarget": [ originalMetadata["controlsTarget"][0], originalMetadata["controlsTarget"][1], originalMetadata["controlsTarget"][2] ]
-						});
-					}
-					
-					if (saveProperties.DirectionalLight) {
-						newMetadata = Object.assign(newMetadata, {
-							"lightPosition": [ dirLight.position.x, dirLight.position.y, dirLight.position.z ],
-							"lightTarget": [ dirLight.rotation._x, dirLight.rotation._y, dirLight.rotation._z ],
-							"lightColor": [ "#" + (dirLight.color.getHexString()).toUpperCase() ],
-							"lightIntensity": [ dirLight.intensity ]
-						});
-					}
-					else {
-						newMetadata = Object.assign(newMetadata, {
-							"lightPosition": [ originalMetadata["lightPosition"][0], originalMetadata["lightPosition"][1], originalMetadata["lightPosition"][2] ], 
-							"lightTarget": [ originalMetadata["lightTarget"][0], originalMetadata["lightTarget"][1], originalMetadata["lightTarget"][2] ],
-							"lightColor": [ originalMetadata["lightColor"][0] ],
-							"lightIntensity": [ originalMetadata["lightIntensity"][0] ]
-						});
-					}
-
-					if (saveProperties.AmbientLight) {
-						newMetadata = Object.assign(newMetadata, {
-							"lightAmbientColor": [ "#" + (ambientLight.color.getHexString()).toUpperCase() ],
-							"lightAmbientIntensity": [ ambientLight.intensity ]
-						});
-					}
-					else {
-						newMetadata = Object.assign(newMetadata, {
-							"lightAmbientColor": [ originalMetadata["lightAmbientColor"][0] ],
-							"lightAmbientIntensity": [ originalMetadata["lightAmbientIntensity"][0] ],
-						});
-					}
-
-					if (saveProperties.CameraLight) {
-						newMetadata = Object.assign(newMetadata, {
-							"lightCameraColor": [ "#" + (cameraLight.color.getHexString()).toUpperCase() ],
-							"lightCameraIntensity": [ cameraLight.intensity ]
-						});
-					}
-					else {
-						newMetadata = Object.assign(newMetadata, {
-							"lightCameraColor": [ originalMetadata["lightCameraColor"][0] ],
-							"lightCameraIntensity": [ originalMetadata["lightCameraIntensity"][0] ],
-						});
-					}
-					
-					if (saveProperties.BackgroundColor) {
-							newMetadata = Object.assign(newMetadata, {"background": [ window.getComputedStyle(mainCanvas).background ] });
-					}
-					
-					if (archiveType !== '') {
-						if (!compressedFile.includes(archiveType.toUpperCase())) compressedFile+="_" + archiveType.toUpperCase();
-						params = CONFIG.viewer.salt+"="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+basename+compressedFile + "/"+"&filename="+filename;
-					}
-					else { params = CONFIG.viewer.salt+"="+JSON.stringify(newMetadata, null, '\t')+"&path="+uri+"&filename="+filename; }
-					xhr.onreadystatechange = function()
-					{
-						if(xhr.readyState === XMLHttpRequest.DONE) {
-							var status = xhr.status;
-							if (status === 0 || (status >= 200 && status < 400)) {
-								showToast ("Settings have been saved.");
-							}
-						}
-					};
-					xhr.send(params);
-				}
-			})
-			.catch((error) => console.log(error));
-
-		}}, 'Save');
-		if (!CONFIG.viewer.lightweight) {
-			editorFolder.add({["Picking mode"] () {
-				EDITOR=!EDITOR;
-				var _str;
-				EDITOR ? _str = "enabled" : _str = "disabled";
-				showToast ("Face picking is " + _str);
-				if (!EDITOR) {
-
-				}
-				else {
-					RULER_MODE = false;
-				}
-			}}, 'Picking mode');
-		}
-		editorFolder.add({["Distance Measurement"] () {
-			RULER_MODE=!RULER_MODE;
-			var _str;
-			RULER_MODE ? _str = "enabled" : _str = "disabled";
-			showToast ("Distance measurement mode is " + _str);
-			if (!RULER_MODE) {
-				
-				ruler.forEach((r) => {
-					scene.remove(r);
-				});
-				rulerObject = new THREE.Object3D();
-				ruler = [];
-				linePoints = [];
-			}
-			else {
-				EDITOR = false;
-			}
-		}}, 'Distance Measurement');
-		if (!CONFIG.viewer.lightweight) {
-			editorFolder.add({["Render preview"] () {
-				takeScreenshot();
-			}}, 'Render preview');
-		}
-		editorFolder.add({["Reset camera position"] () {
-			resetCamera();
-		}}, 'Reset camera position');
-	}
-}
-
-(function() {
-	init();
-	animate();
+window.Viewer = Viewer;
+
+(async () => {
+  try {
+    await Viewer.MainInit();
+  } catch (error) {
+    Viewer.renderFatalError(error);
+  }
 })();

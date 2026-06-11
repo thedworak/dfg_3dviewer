@@ -1,16 +1,44 @@
-dfg_3dviewer:
+dfg_3dviewer.drupal:
   js:
-    #viewer/importmap.js: { attributes: { type: importmap } }
-    viewer/main.js: { attributes: { type: module } }
-    viewer/toastify.js: { }
-    viewer/spinner/main.js: { }
+    dist/drupal/main/dfg_3dviewer-module.js:
+      attributes:
+        type: module
   css:
     theme:
-      viewer/css/main.css: {}
-      viewer/css/spinner.css: {}
-      css/theme.css: {}
+      dist/drupal/main/assets/css/viewer.css:
+        weight: 10
   dependencies:
-    - core/jquery
-    - core/jquery.once
     - core/drupal
     - core/drupalSettings
+
+dfg_3dviewer.test:
+  js:
+    dist/test/dfg_3dviewer-module.js:
+      attributes:
+        type: module
+  css:
+    theme:
+      dist/test/assets/css/viewer.css:
+        weight: 10
+  dependencies:
+    - core/drupal
+    - core/drupalSettings
+
+dfg_3dviewer.drupal_custom:
+  js:
+    dist/drupal/custom/dfg_3dviewer-module.js:
+      attributes:
+        type: module
+  css:
+    theme:
+      dist/drupal/custom/assets/css/viewer.css:
+        weight: 10
+  dependencies:
+    - core/drupal
+    - core/drupalSettings
+
+dfg_3dviewer.progress:
+  js:
+    scripts/progress.js: {}
+  dependencies:
+    - core/drupal

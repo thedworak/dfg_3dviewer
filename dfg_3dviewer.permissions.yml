@@ -3,3 +3,5 @@ access dfg3dmodels:
 administer dfg_3dviewer:
   title: 'Administer DFG 3D Viewer settings'
   restrict access: TRUE
+access dfg_3dviewer editor:
+  title: 'Access 3D Viewer metadata editor'

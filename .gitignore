@@ -1,5 +1,33 @@
+# editor backups
 *.yml~
 *.module~
 *.php~
-./main/config.json
-./scripts/.env
+*.mdb~
+
+# config
+/main/config.json
+scripts/.env
+settings.local.php
+
+# node
+node_modules/
+
+# build
+/.parcel-cache
+!/dist/.gitkeep
+
+# viewer config
+/viewer/viewer-settings.json
+/dist/*/viewer-settings.json
+/dist/drupal/viewer-settings.json
+/dist/test/viewer-settings.json
+viewer-settings.json
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+
+.codex

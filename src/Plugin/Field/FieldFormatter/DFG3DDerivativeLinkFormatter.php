@@ -42,169 +42,132 @@ class DFG3DDerivativeLinkFormatter extends FileFormatterBase {
      */
     public function viewElements(FieldItemListInterface $items, $langcode) {
 
-#      dpm(serialize($items), "items");
 
-
-//      $elements = parent::viewElements($items, $langcode);    
+//      $elements = parent::viewElements($items, $langcode);
       $elements = array();
 
       $files = $this->getEntitiesToView($items, $langcode);
 
-      $elements['#attached']['library'][] = 'dfg_3dviewer/dfg_3dviewer';
+      $elements['#attached']['library'][] = dfg_3dviewer_get_library();
+
+      // get the config
+      $cfg = dfg_3dviewer_config();
 
       foreach ($files as $delta => $file) {
 
-//        if(strtolower(substr($file->getFilename(), -4)) == ".pdf") {
-
-#          dpm(serialize($file), "file");
-/*
-          $elements[$delta] = array(
-            '#type' => 'link',
-            '#title' => $file->getFilename(),
-            '#url' => Url::fromUri(file_create_url($file->getFileUri())),
-          );
-*/
-
           // get the filename
           $filename = $file->getFilename();
-          
+
           // get pathinfo
           $pathinfo = pathinfo($file->getFilename());
-          
+
           // pathinfo without the first extension so bla.tar.gz goes to bla.tar
           $local_filename = $pathinfo['filename'];
-          
+
           // bla.tar.gz -> gz
           $extension = $pathinfo['extension'];
-          
+
           // thats something like public://2022-01/bla.tar.gz
           $local_fileuri = $file->getFileUri();
-          
+
           // we do a switch for compressed file formats because they are handled otherwise.
           if($extension == "tar" || $extension == "zip" || $extension == "gz" || $extension == "xz" || $extension == "rar") {
             $local_fileuri = str_replace("." . $extension, "_" . strtoupper($extension), $local_fileuri);
-            
-            $local_fileuri = $local_fileuri . "/gltf/" . $local_filename . ".glb"; 
- 
+
+            $local_fileuri = $local_fileuri . "/gltf/" . $local_filename . ".glb";
+
            } if($extension == "glb" || $extension == "gltf") {
              // do nothing - just party :D
-             
+
            } else {
              $local_fileuri = str_replace($filename, "gltf/" . $filename . ".glb", $local_fileuri);
            }
-                    
-          $file_link = file_create_url($local_fileuri);
-                    
+
+          $file_link = $this->uriToUrl($local_fileuri, (string) ($cfg['main_url'] ?? ''));
+
           $url =  Url::fromUri($file_link);
-          
+
 
 
           $elements[$delta] = array(
             '#type' => 'link',
             '#title' => $file_link, //$file->getFilename(),
             '#url' => $url,
-//            '#tag' => 'p',
-//            '#attributes' => array('id' => 'DFG_3DViewer', '3d' => file_create_url($file->getFileUri())),
-            //'#value' => file_create_url($file->getFileUri()), //$file->getFilename(),
           );
 
 //        }
       }
-/*      
-      $elements['#attached']['library'][] = 'wisski_iip_image/iipmooviewer';
-      $elements['#attached']['library'][] = 'wisski_iip_image/iip_integration';
-      $elements['#attached']['drupalSettings']['wisski']['iip']['config'] = \Drupal::config('wisski_iip_image.config')->get();
 
-      $files = $this->getEntitiesToView($items, $langcode);
-
-#      dpm($files, "files");
-
-      // Early opt-out if the field is empty.
-      if (empty($files)) {
-        return $elements;
-      }
-      
-      $service = \Drupal::service('image.toolkit.manager');
-      $toolkit = $service->getDefaultToolkit();
-#      dpm($toolkit);
-#      $config = $this->configFactory->getEditable('imagemagick.settings');
-      
-      if(empty($toolkit) || $toolkit->getPluginId() !== "imagemagick") {
-        $this->messenger()->addError('Your default toolkit is not imagemagick. Please use imagemagick for this module.');
-        return $elements;
-      }
-      
-      $config = \Drupal::service('config.factory')->getEditable('imagemagick.settings');
-      
-      $formats = $config->get('image_formats');
-      
-      if(!isset($formats["PTIF"])) {
-        $this->messenger()->addStatus("PTIF was not a valid image format. We enabled it for you. Make sure it is supported by your imagemagick configuration.");
-        $formats["PTIF"] = array('mime_type' => "image/tiff", "enabled" => TRUE);
-        $config->set('image_formats', $formats);
-        $config->save();
-      }
-      
-
-      $image_style_name = 'wisski_pyramid';
-
-      if(! $image_style = ImageStyle::load($image_style_name)) {
-        $values = array('name'=>$image_style_name,'label'=>'Wisski Pyramid Style');
-        $image_style = ImageStyle::create($values);
-        $image_style->addImageEffect(array('id' => 'WisskiPyramidalTiffImageEffect'));
-        $image_style->save();
-      }
-
-      foreach ($files as $delta => $file) {
-
-        if(strtolower(substr($file->getFilename(), -4)) == ".pdf") {
-
-#          dpm(serialize($file), "file");
-
-          $elements[$delta] = array(
-            '#type' => 'link',
-            '#title' => $file->getFilename(),
-            '#url' => Url::fromUri(file_create_url($file->getFileUri())),
-          );
-        }
-
-        // in case of prerendered files - use these paths.        
-        $prerendered_paths = \Drupal::config('wisski_iip_image.settings')->get('wisski_iip_image_prerendered_path');
-
-        // if there are paths
-        if(!empty($prerendered_paths)) {
-          $mainbreak = FALSE;
-
-          // try if any of them has files
-          foreach($prerendered_paths as $prerendered_path) {
-            $image_uri = $prerendered_path . $file->getFilename();
-
-            // if we find anything break here
-            if(file_exists($image_uri)) {
-              $mainbreak = TRUE;
-            }
-          }
-          // continue with next image
-          if($mainbreak)
-            continue;
-          // if we did not find anything we generate a derivative
-        }
-
-        $image_uri = ImageStyle::load('wisski_pyramid')->buildUri($file->getFileUri());
-
-        if(!file_exists($image_uri))
-          $image_style->createDerivative($file->getFileUri(),$image_uri);
-
-#        $url = Url::fromUri(file_create_url($image_uri));     
-
-      }
-#      dpm($elements);
-
-#      dpm(serialize($elements), "ele");
-*/
       return $elements;
 
     }
+
+    private function uriToUrl(string $uri, string $public_base_url = ''): ?string {
+    if ($uri === '') {
+      return NULL;
+    }
+
+    try {
+      $public_base_url = trim($public_base_url);
+      $base_parts = parse_url($public_base_url);
+      $base_host = is_array($base_parts) ? (string) ($base_parts['host'] ?? '') : '';
+      $has_safe_base = is_array($base_parts)
+        && !empty($base_parts['scheme'])
+        && $base_host !== ''
+        && strpos($base_host, '_') === FALSE
+        && strtolower($base_host) !== 'default';
+
+      // Keep storage deterministic in CLI contexts (e.g. drush) where request
+      // host may resolve to container aliases like "dfg_3dviewer".
+      if (str_starts_with($uri, 'public://')) {
+        $relative_public = '/sites/default/files/' . ltrim(substr($uri, strlen('public://')), '/');
+        return $has_safe_base ? rtrim($public_base_url, '/') . $relative_public : $relative_public;
+      }
+
+      $generator = \Drupal::service('file_url_generator');
+      $relative = (string) $generator->generateString($uri);
+      $relative_parts = parse_url($relative);
+      $relative_host = is_array($relative_parts) ? (string) ($relative_parts['host'] ?? '') : '';
+      $relative_path = is_array($relative_parts) ? (string) ($relative_parts['path'] ?? '') : '';
+      $relative_is_absolute = is_array($relative_parts) && !empty($relative_parts['scheme']) && $relative_host !== '';
+      $relative_has_bad_host = $relative_is_absolute && strpos($relative_host, '_') !== FALSE;
+      if (($relative_has_bad_host || strtolower($relative_host) === 'default')
+        && str_starts_with($relative_path, '/sites/default/files/')) {
+        $relative = $relative_path;
+      }
+      if (!$relative_is_absolute && str_starts_with($relative, 'sites/default/files/')) {
+        $relative = '/' . ltrim($relative, '/');
+      }
+
+      if ($public_base_url !== '' && $has_safe_base) {
+        if ($relative_is_absolute) {
+          if ($relative_path !== '' && str_starts_with($relative_path, '/sites/default/files/')) {
+            return rtrim($public_base_url, '/') . $relative_path;
+          }
+          return $relative;
+        }
+        return rtrim($public_base_url, '/') . '/' . ltrim($relative, '/');
+      }
+
+      $absolute = $generator->generateAbsoluteString($uri);
+      $host = parse_url($absolute, PHP_URL_HOST);
+      if (is_string($host) && (strpos($host, '_') !== FALSE || strtolower($host) === 'default')) {
+        return $relative;
+      }
+
+      return $absolute;
+    }
+    catch (\Throwable $e) {
+      \Drupal::logger('dfg_3dviewer')->warning(
+        'Cannot build URL for URI "@uri": @msg',
+        [
+          '@uri' => $uri,
+          '@msg' => $e->getMessage(),
+        ]
+      );
+      return NULL;
+    }
+  }
 
     /**
      * {@inheritdoc}
@@ -220,13 +183,6 @@ class DFG3DDerivativeLinkFormatter extends FileFormatterBase {
      */
     public function settingsForm(array $form, FormStateInterface $form_state) {
 
-/*      $element['wisski_inline'] = [
-        '#type' => 'checkbox',
-        '#title' => $this->t('Inline mode for IIP'),
-        '#default_value' => $this->getSetting('wisski_inline'),
-      ];
- */     
- //     $element = $element + parent::settingsForm($form, $form_state);
       $element = parent::settingsForm($form, $form_state);
       return $element;
     }

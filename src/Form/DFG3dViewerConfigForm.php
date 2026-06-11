@@ -13,6 +13,42 @@ use Drupal\Core\File\FileSystemInterface;
 class DFG3dViewerConfigForm extends FormBase {
 
   /**
+   * Normalizes the viewer module path to a path-first value.
+   */
+  protected function normalizeBaseModulePath(string $value): string {
+    $value = trim($value);
+
+    if ($value === '') {
+      return $value;
+    }
+
+    if (preg_match('@^https?://@i', $value)) {
+      $parts = parse_url($value);
+      if (!empty($parts['path'])) {
+        $value = $parts['path'];
+      }
+    }
+    elseif (preg_match('@^/[^/]+\.[^/]+/.+@', $value)) {
+      $segments = array_values(array_filter(explode('/', $value), 'strlen'));
+      array_shift($segments);
+      $value = '/' . implode('/', $segments);
+    }
+    elseif (preg_match('@^[^/]+\.[^/]+/.+@', $value)) {
+      $segments = explode('/', $value);
+      array_shift($segments);
+      $value = '/' . implode('/', $segments);
+    }
+
+    $value = preg_replace('@/{2,}@', '/', $value);
+
+    if ($value !== '' && $value[0] !== '/') {
+      $value = '/' . $value;
+    }
+
+    return rtrim($value, '/');
+  }
+
+  /**
    *
    */
   public function getFormId() {
@@ -32,13 +68,14 @@ class DFG3dViewerConfigForm extends FormBase {
       'viewer_file_upload' => $default_config->get('dfg_3dviewer_viewer_file_upload'),
       'image_generation' => $default_config->get('dfg_3dviewer_image_generation'),
       'viewer_file_name' => $default_config->get('dfg_3dviewer_viewer_file_name'),
+      'api_3d_file_field' => $default_config->get('dfg_3dviewer_api_3d_file_field') ?? $default_config->get('api_3d_file_field'),
       'field_df' => $default_config->get('dfg_3dviewer_field_df'),
-      'main_url' => $default_config->get('dfg_3dviewer_main_url'),
-      'metadata_url' => $default_config->get('dfg_3dviewer_metadata_url'),
+      'main_url' => $default_config->get('dfg_3dviewer_main_url') ?? $default_config->get('main_url'),
+      'metadata_url' => $default_config->get('dfg_3dviewer_metadata_url') ?? $default_config->get('metadata_url'),
+      'json_export_base_url' => $default_config->get('dfg_3dviewer_json_export_base_url') ?? $default_config->get('json_export_base_url'),
       'basenamespace' => $default_config->get('dfg_3dviewer_basenamespace'),
       'container' => $default_config->get('dfg_3dviewer_container'),
       'lightweight' => $default_config->get('dfg_3dviewer_lightweight'),
-      'salt' => $default_config->get('dfg_3dviewer_salt'),
       'scale_container_x' => $default_config->get('dfg_3dviewer_scale_container_x'),
       'scale_container_y' => $default_config->get('dfg_3dviewer_scale_container_y'),
       'gallery_container' => $default_config->get('dfg_3dviewer_gallery_container'),
@@ -48,11 +85,13 @@ class DFG3dViewerConfigForm extends FormBase {
       'entity_id_uri' => $default_config->get('dfg_3dviewer_entity_id_uri'),
       'view_entity_path' => $default_config->get('dfg_3dviewer_view_entity_path'),
       'attribute_id' => $default_config->get('dfg_3dviewer_attribute_id'),
+	  'export_viewer' => $default_config->get('dfg_3dviewer_export_viewer'),
+	  'export_viewer_url' => $default_config->get('dfg_3dviewer_export_viewer_url'),
     ];
 
     $form['#dfg_3dviewer_settings'] = $settings;
 	
-	$form['#attached']['library'][] = 'dfg_3dviewer/dfg_3dviewer';
+	$form['#attached']['library'][] = dfg_3dviewer_get_library();
 
 	$form['dfg_3dviewer_main_url'] = [
 		'#default_value' => $default_settings['main_url'],
@@ -76,6 +115,24 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#description' => '<b>URL</b> of the instance that serves metadata content',
 		'#states' => [
 			'visible' => [
+				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
+			],
+			'required' => [
+				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
+			]
+		]
+    ];
+
+	$form['dfg_3dviewer_json_export_base_url'] = [
+		'#default_value' => $default_settings['json_export_base_url'],
+		'#type' => 'textfield',
+		'#title' => $this->t('JSON Export Base URL'),
+		'#description' => '<b>Base URL</b> of the instance that serves JSON export, e.g. https://repository.covher.eu',
+		'#states' => [
+			'visible' => [
+				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
+			],
+			'required' => [
 				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
 			]
 		]
@@ -113,14 +170,32 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#description' => '<b>ID</b> of the bundle for the entity given in wisski pathbuilder for viewer_file_name field',
     ];
 
+	$form['dfg_3dviewer_api_3d_file_field'] = [
+		'#default_value' => $default_settings['api_3d_file_field'],
+		'#type' => 'textfield',
+		'#title' => $this->t('API 3D File Field'),
+		'#required' => false,
+		'#description' => '<b>ID or machine name</b> of the field that should populate API `3D_file`',
+		'#states' => [
+			'visible' => [
+				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
+			],
+			'required' => [
+				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
+			]
+		],
+    ];
+
 	$form['dfg_3dviewer_image_generation'] = [
 		'#default_value' => $default_settings['image_generation'],
 		'#type' => 'textfield',
 		'#title' => $this->t('Image Generation'),
-		'#required' => true,
 		'#description' => '<b>ID</b> of the bundle for the entity given in wisski pathbuilder for image_generation field',
 		'#states' => [
 			'visible' => [
+				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
+			],
+			'required' => [
 				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
 			]
 		]
@@ -130,10 +205,42 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#default_value' => $default_settings['field_df'],
 		'#type' => 'textfield',
 		'#title' => $this->t('Field DF'),
-		'#required' => true,
-		'#description' => 'Name of the field given for <b>image_generation</b>',
+		'#description' => 'Name of the field given for <b>field_df</b>',
 		'#states' => [
 			'visible' => [
+				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
+			],
+			'required' => [
+				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
+			],
+		]
+    ];
+
+	$form['dfg_3dviewer_export_viewer'] = [
+		'#default_value' => $default_settings['export_viewer'],
+		'#type' => 'textfield',
+		'#title' => $this->t('Export Viewer Field'),
+		'#description' => 'Name of the field given for <b>export_viewer</b>',
+		'#states' => [
+			'visible' => [
+				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
+			],
+			'required' => [
+				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
+			]
+		]
+    ];
+
+	$form['dfg_3dviewer_export_viewer_url'] = [
+		'#default_value' => $default_settings['export_viewer_url'],
+		'#type' => 'textfield',
+		'#title' => $this->t('Export Viewer URL'),
+		'#description' => 'URL for the export viewer',
+		'#states' => [
+			'visible' => [
+				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
+			],
+			'required' => [
 				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
 			]
 		]
@@ -166,14 +273,6 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#attributes' => [
 			'class' => ['half-width'],
 		],
-    ];
-
-	$form['dfg_3dviewer_salt'] = [
-		'#default_value' => $default_settings['salt'],
-		'#type' => 'textfield',
-		'#title' => $this->t('Salt'),
-		'#required' => true,
-		'#description' => 'Random <b>salt</b> string used with server scripts for security reasons. Change it after installation.',
     ];
 
 	$form['gallery_wrapper'] = [
@@ -289,26 +388,31 @@ class DFG3dViewerConfigForm extends FormBase {
 
     $settings = $form['#dfg_3dviewer_settings'];
     $new_vals = $form_state->getValues();
+    $normalized_base_module_path = $this->normalizeBaseModulePath((string) $new_vals['dfg_3dviewer_base_module_path']);
+
     $settings->set('dfg_3dviewer_basenamespace', $new_vals['dfg_3dviewer_basenamespace']);
     $settings->set('dfg_3dviewer_main_url', $new_vals['dfg_3dviewer_main_url']);
     $settings->set('dfg_3dviewer_metadata_url', $new_vals['dfg_3dviewer_metadata_url']);
+    $settings->set('dfg_3dviewer_json_export_base_url', $new_vals['dfg_3dviewer_json_export_base_url']);
     $settings->set('dfg_3dviewer_entitybundle', $new_vals['dfg_3dviewer_entitybundle']);
     $settings->set('dfg_3dviewer_container', $new_vals['dfg_3dviewer_container']);
     $settings->set('dfg_3dviewer_viewer_file_upload', $new_vals['dfg_3dviewer_viewer_file_upload']);
     $settings->set('dfg_3dviewer_viewer_file_name', $new_vals['dfg_3dviewer_viewer_file_name']);
+    $settings->set('dfg_3dviewer_api_3d_file_field', $new_vals['dfg_3dviewer_api_3d_file_field']);
     $settings->set('dfg_3dviewer_image_generation', $new_vals['dfg_3dviewer_image_generation']);
     $settings->set('dfg_3dviewer_field_df', $new_vals['dfg_3dviewer_field_df']);
     $settings->set('dfg_3dviewer_lightweight', $new_vals['dfg_3dviewer_lightweight']);
-    $settings->set('dfg_3dviewer_salt', $new_vals['dfg_3dviewer_salt']);
     $settings->set('dfg_3dviewer_scale_container_x', $new_vals['dfg_3dviewer_scale_container_x']);
     $settings->set('dfg_3dviewer_scale_container_y', $new_vals['dfg_3dviewer_scale_container_y']);
     $settings->set('dfg_3dviewer_gallery_container', $new_vals['dfg_3dviewer_gallery_container']);
     $settings->set('dfg_3dviewer_gallery_image_class', $new_vals['dfg_3dviewer_gallery_image_class']);
     $settings->set('dfg_3dviewer_gallery_image_id', $new_vals['dfg_3dviewer_gallery_image_id']);
-    $settings->set('dfg_3dviewer_base_module_path', $new_vals['dfg_3dviewer_base_module_path']);
+    $settings->set('dfg_3dviewer_base_module_path', $normalized_base_module_path);
     $settings->set('dfg_3dviewer_entity_id_uri', $new_vals['dfg_3dviewer_entity_id_uri']);
     $settings->set('dfg_3dviewer_view_entity_path', $new_vals['dfg_3dviewer_view_entity_path']);
     $settings->set('dfg_3dviewer_attribute_id', $new_vals['dfg_3dviewer_attribute_id']);
+	$settings->set('dfg_3dviewer_export_viewer', $new_vals['dfg_3dviewer_export_viewer']);
+	$settings->set('dfg_3dviewer_export_viewer_url', $new_vals['dfg_3dviewer_export_viewer_url']);
 
     $settings->save();
 
@@ -317,21 +421,24 @@ class DFG3dViewerConfigForm extends FormBase {
 		'baseNamespace' => $new_vals['dfg_3dviewer_basenamespace'],
 		'mainUrl' => $new_vals['dfg_3dviewer_main_url'],
 		'metadataUrl' => $new_vals['dfg_3dviewer_metadata_url'],
-		'baseModulePath' => $new_vals['dfg_3dviewer_base_module_path'],
+		'jsonExportBaseUrl' => $new_vals['dfg_3dviewer_json_export_base_url'],
+		'baseModulePath' => $normalized_base_module_path,
 		'entity' => [
 			'bundle' => $new_vals['dfg_3dviewer_entitybundle'],
 			'fieldDf' => $new_vals['dfg_3dviewer_field_df'],
 			'idUri' => $new_vals['dfg_3dviewer_entity_id_uri'],
 			'viewEntityPath' => $new_vals['dfg_3dviewer_view_entity_path'],
 			'attributeId' => $new_vals['dfg_3dviewer_attribute_id'],
+			'exportViewer' => $new_vals['dfg_3dviewer_export_viewer'],
+			'exportViewerUrl' => $new_vals['dfg_3dviewer_export_viewer_url'],
 		],
 		'viewer' => [
 			'container' => $new_vals['dfg_3dviewer_container'],
 			'fileUpload' => $new_vals['dfg_3dviewer_viewer_file_upload'],
 			'fileName' => $new_vals['dfg_3dviewer_viewer_file_name'],
+			'api3dFileField' => $new_vals['dfg_3dviewer_api_3d_file_field'],
 			'imageGeneration' => $new_vals['dfg_3dviewer_image_generation'],
 			'lightweight' => $new_vals['dfg_3dviewer_lightweight'],
-			'salt' => $new_vals['dfg_3dviewer_salt'],
 			'scaleContainer' => [
 				'x' => $new_vals['dfg_3dviewer_scale_container_x'],
 				'y' => $new_vals['dfg_3dviewer_scale_container_y']

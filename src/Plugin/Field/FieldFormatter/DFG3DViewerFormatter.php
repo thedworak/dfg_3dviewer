@@ -43,44 +43,78 @@ class DFG3DViewerFormatter extends FileFormatterBase {
     public function viewElements(FieldItemListInterface $items, $langcode) {
 //      $elements = parent::viewElements($items, $langcode);    
       $elements = array();
+      $entity = $items->getEntity();
 
       // By Mark:
       // get the derivative field id
       // here must be some handling if this is empty.
       $derivative_field_id = \Drupal::service('config.factory')->getEditable('dfg_3dviewer.settings')->get('dfg_3dviewer_viewer_file_name');
 
-      // store the derivative values to an array.
-      $derivative_values = array();
-      
-      // only act if we have a field id, otherwise it will die.
-      if(!empty($derivative_field_id))
-        $derivative_values = $items->getEntity()->get($derivative_field_id)->getValue();
+      $derivative_paths = array();
+      if (!empty($derivative_field_id) && $entity->hasField($derivative_field_id)) {
+        $derivative_paths = $this->extractViewerPathsFromFieldValues($entity->get($derivative_field_id)->getValue());
+      }
 
       // if we have derivative values, act on that and not on the real values.
-      if(!empty($derivative_values)) {
+      if(!empty($derivative_paths)) {
         $elements = array();
 
-        $elements['#attached']['library'][] = 'dfg_3dviewer/dfg_3dviewer';
+        $elements['#attached']['library'][] = dfg_3dviewer_get_library();
+        \Drupal::logger('dfg_3dviewer')->notice(
+          'Viewer formatter uses converted model from field "@field" for entity type "@type" id "@id".',
+          [
+            '@field' => (string) $derivative_field_id,
+            '@type' => method_exists($entity, 'getEntityTypeId') ? (string) $entity->getEntityTypeId() : '',
+            '@id' => method_exists($entity, 'id') ? (string) $entity->id() : '',
+          ]
+        );
 
-        foreach($derivative_values as $delta => $derivative_value) {
-          
-          // here you probably still have to check if $derivative_value['value'] is still existing          
+        foreach($derivative_paths as $delta => $resolved_path) {
           $elements[$delta] = array(
             '#type' => 'html_tag',
             '#tag' => 'p',
-            '#attributes' => array('id' => 'DFG_3DViewer', '3d' => $derivative_value['value']),
+            '#attributes' => array('id' => 'DFG_3DViewer', '3d' => $resolved_path),
           );        
         }
       } else {
 
         $files = $this->getEntitiesToView($items, $langcode);
 
-        $elements['#attached']['library'][] = 'dfg_3dviewer/dfg_3dviewer';
+        $elements['#attached']['library'][] = dfg_3dviewer_get_library();
+        \Drupal::logger('dfg_3dviewer')->notice(
+          'Viewer formatter falls back to original upload field "@field" for entity type "@type" id "@id".',
+          [
+            '@field' => (string) $items->getName(),
+            '@type' => method_exists($entity, 'getEntityTypeId') ? (string) $entity->getEntityTypeId() : '',
+            '@id' => method_exists($entity, 'id') ? (string) $entity->id() : '',
+          ]
+        );
 
         foreach ($files as $delta => $file) {
-          $override_basenamespace = \Drupal::service('config.factory')->getEditable('dfg_3dviewer.settings')->get('dfg_3dviewer_basenamespace') . \Drupal::service('file_url_generator')->generateString($file->getFileUri());
+          $generator = \Drupal::service('file_url_generator');
+          $relative_path = (string) $generator->generateString($file->getFileUri());
+          $absolute_path = (string) $generator->generateAbsoluteString($file->getFileUri());
 
-          if (is_null($override_basenamespace)) $override_basenamespace = \Drupal::service('file_url_generator')->generateAbsoluteString($file->getFileUri());
+          $base = trim((string) \Drupal::service('config.factory')
+            ->getEditable('dfg_3dviewer.settings')
+            ->get('dfg_3dviewer_basenamespace'));
+          $base_parts = parse_url($base);
+          $base_host = is_array($base_parts) ? (string) ($base_parts['host'] ?? '') : '';
+          $has_safe_base = is_array($base_parts)
+            && !empty($base_parts['scheme'])
+            && $base_host !== ''
+            && strpos($base_host, '_') === FALSE
+            && strtolower($base_host) !== 'default';
+
+          if ($has_safe_base) {
+            $override_basenamespace = rtrim($base, '/') . '/' . ltrim($relative_path, '/');
+          }
+          else {
+            $absolute_host = (string) parse_url($absolute_path, PHP_URL_HOST);
+            $override_basenamespace = ((strpos($absolute_host, '_') !== FALSE) || strtolower($absolute_host) === 'default')
+              ? $relative_path
+              : $absolute_path;
+          }
 
           $elements[$delta] = array(
             '#type' => 'html_tag',
@@ -124,5 +158,108 @@ class DFG3DViewerFormatter extends FileFormatterBase {
      */
     public function settingsSummary() {
       return parent::settingsSummary();
+    }
+
+    private function resolveViewerPath(string $value): string {
+      $value = trim($value);
+      if ($value === '') {
+        return $value;
+      }
+
+      if (preg_match('#^https?://#i', $value)) {
+        $host = (string) parse_url($value, PHP_URL_HOST);
+        $path = (string) parse_url($value, PHP_URL_PATH);
+        if (
+          $host !== ''
+          && (strpos($host, '_') !== FALSE || strtolower($host) === 'default')
+          && str_starts_with($path, '/sites/default/files/')
+        ) {
+          $cfg = \Drupal::config('dfg_3dviewer.settings');
+          $main_url = trim((string) ($cfg->get('dfg_3dviewer_main_url') ?? $cfg->get('main_url') ?? ''));
+          $main_parts = parse_url($main_url);
+          $main_host = is_array($main_parts) ? (string) ($main_parts['host'] ?? '') : '';
+          $has_safe_main = is_array($main_parts)
+            && !empty($main_parts['scheme'])
+            && $main_host !== ''
+            && strpos($main_host, '_') === FALSE;
+          return $has_safe_main ? rtrim($main_url, '/') . $path : $path;
+        }
+        return $value;
+      }
+
+      if (str_starts_with($value, '/')) {
+        return $value;
+      }
+
+      if (preg_match('#^[a-z][a-z0-9+.-]*://#i', $value)) {
+        try {
+          return \Drupal::service('file_url_generator')->generateString($value);
+        }
+        catch (\Throwable $e) {
+          \Drupal::logger('dfg_3dviewer')->warning(
+            'Could not resolve stream wrapper URI "@value" for viewer path: @msg',
+            [
+              '@value' => $value,
+              '@msg' => $e->getMessage(),
+            ]
+          );
+          return $value;
+        }
+      }
+
+      if (str_starts_with($value, 'sites/default/files/')) {
+        return '/' . ltrim($value, '/');
+      }
+
+      return $value;
+    }
+
+    private function extractViewerPathsFromFieldValues(array $values): array {
+      $paths = array();
+
+      foreach ($values as $delta => $row) {
+        if (!is_array($row)) {
+          continue;
+        }
+
+        $resolved = $this->resolveViewerFieldRowPath($row);
+        if ($resolved === '') {
+          continue;
+        }
+
+        $paths[$delta] = $resolved;
+      }
+
+      return $paths;
+    }
+
+    private function resolveViewerFieldRowPath(array $row): string {
+      if (!empty($row['target_id']) && ctype_digit((string) $row['target_id'])) {
+        $file = \Drupal\file\Entity\File::load((int) $row['target_id']);
+        if ($file) {
+          try {
+            $generated = (string) \Drupal::service('file_url_generator')->generateString($file->getFileUri());
+            return $this->resolveViewerPath($generated);
+          }
+          catch (\Throwable $e) {
+            \Drupal::logger('dfg_3dviewer')->warning(
+              'Could not resolve target_id "@target_id" for viewer formatter: @msg',
+              [
+                '@target_id' => (string) $row['target_id'],
+                '@msg' => $e->getMessage(),
+              ]
+            );
+          }
+        }
+      }
+
+      foreach (['value', 'uri'] as $key) {
+        $candidate = trim((string) ($row[$key] ?? ''));
+        if ($candidate !== '') {
+          return $this->resolveViewerPath($candidate);
+        }
+      }
+
+      return '';
     }
   }

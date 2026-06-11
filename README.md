@@ -1,12 +1,25 @@
+# DLF AIM 3D Viewer
 
-# 3D DFG Viewer
-
-
+A modern 3D viewer for web and Drupal integration built on three.js. This repo contains the viewer source code, build tooling, server-side helpers, and Drupal integration support.
 The module was primarily created for viewing 3D data as a Drupal extension for a WissKI based repository. During development it became also possible to use as a standalone version to be integrated with more environments.
 The Viewer is written in JavaScript, based on the three.js library for viewing 3D models and uses PHP/bash scripts for server-side operations.
-Supported 3D file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, glTF. There is also a pre-configured complete workflow to handle more file formats and allow to render thumbnails for entries. If an uploaded file is saved in one of the compression-supported formats (obj, fbx, ply, dae, abc, blend, stl, wrl, x3d, glb, gltf), it is compressed on-the-fly and converted into GLB format and triggers automatic rendering (based on Blender utility).
 
 
+## What this repo contains
+
+- `viewer/` — viewer runtime source, loaders, utilities, metadata handling, and UI
+- `index.html` / `embed.html` — local demo and embed pages
+- `rollup.config.js` — build configuration for production and Drupal output
+- `package.json` — npm scripts and dependencies
+- `viewer/viewer-settings-example.json` — runtime viewer settings template
+- `scripts/` and `php/` — helpers for model conversion, Blender rendering, and Drupal workflow
+- `dist/` — generated build output (not committed in source)
+
+## Supported 3D formats
+
+- OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, GLB, glTF
+
+There is also a pre-configured complete workflow to handle more file formats and allow to render thumbnails for entries. If an uploaded file is saved in one of the compression-supported formats, it is compressed on-the-fly and converted into GLB format and triggers automatic rendering (based on Blender utility).
 
 ## Minimal Requirements
 
@@ -15,6 +28,271 @@ Supported 3D file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, glTF. T
     - no national characters such as symbols or spaces
     - uploaded archive should be named the same as input file and content should be placed directly in the archive (without subdirectories)
 - upload all the sources needed for rendering. For example OBJ needs MTL files (if any) and textures uploaded too. If you want to do this, please place them inside a single archive.
+
+## Tech Stack
+
+**Client:** JavaScript, three.js, CSS, HTML, PHP, Drupal
+
+**Server:** PHP, Drupal, bash, blender
+
+## Minimal local setup
+
+1. Install Node dependencies:
+
+```bash
+npm install
+```
+
+2. Create the runtime settings file:
+
+```bash
+cp viewer/viewer-settings-example.json viewer/viewer-settings.json
+```
+
+3. Start the dev server:
+
+```bash
+npm run dev:test
+```
+
+4. Open the demo at:
+
+```text
+http://localhost:1234
+```
+
+> `viewer/viewer-settings.json` is required at runtime when running from source. Use the example file as the starting point.
+
+## Build and serve locally
+
+To create a static dist bundle and preview it locally:
+
+```bash
+npm run build:test
+npm run serve:dist
+```
+
+This writes build output into `dist/test/` and serves it with a small HTTP server.
+
+## Main npm scripts
+
+- `npm run dev:test` — start Parcel dev server with `BUILD_SOURCE=IIIF`, `BUILD=test`
+- `npm run dev:dev` — start Parcel dev server with `BUILD_SOURCE=''`, `BUILD=test`
+- `npm run dev:prod` — start Parcel dev server with `BUILD=prod`
+- `npm run build:test` — Rollup build for `dist/test`
+- `npm run build:dev` — Rollup build for `dist/dev`
+- `npm run build:prod` — Rollup build for `dist/prod`
+- `npm run build:drupal` — Drupal-specific build using `scripts/build-drupal.js`
+- `npm run build:drupal:custom` — custom Drupal build with module prefix
+- `npm run watch` — Rollup watch mode for live rebuilds
+- `npm run serve:dist` — serve the current `dist` folder with `serve`
+- `npm run pack-dist` — package `dist/` into `dfg_3dviewer-dist.zip`
+- `npm run dev:tauri` — build dev bundle and serve for Tauri development
+- `npm run tauri:dev` — run Tauri in dev mode
+- `npm run tauri:build` — build the Tauri desktop app
+
+## Runtime entry points
+
+- `viewer/main.js` — current viewer runtime entry point in source mode
+- `index.html` — demo page used by local builds and `dist` preview
+- `embed.html` — viewer embed page with URL controls
+
+In built output, the generated bundle is exposed through the module entry `dfg_3dviewer-module.js`.
+
+## Viewer function reference
+
+A separate reference file documents the main exported runtime functions and helpers used by the viewer.
+- `viewer/FUNCTIONS.md` — function descriptions for `Viewer`, loader helpers, metadata handlers, utilities, and build/runtime helpers.
+
+## `viewer-settings.json` explained
+
+The viewer loads configuration from `viewer-settings.json` at runtime.
+
+The example template is located at `viewer/viewer-settings-example.json`.
+
+### Main settings
+
+- `mainUrl` — base backend URL used by viewer metadata and resource requests
+- `metadataUrl` — metadata service URL
+- `baseNamespace` — namespace used for entity routing and metadata
+- `baseModulePath` — path to viewer assets/module when deployed
+
+### Entity integration
+
+- `entity.bundle` — Drupal/WissKI entity bundle identifier
+- `entity.fieldDf` — field name used for 3D file references
+- `entity.exportViewer` — export field name for viewer settings
+- `entity.exportViewerUrl` — metadata URL used by export/viewer integration
+- `entity.idUri` — pattern to extract entity IDs from path
+- `entity.viewEntityPath` — base path for entity views
+- `entity.attributeId` — identifier used for viewer container attribute
+- `entity.metadata.source` — metadata source label, e.g. `Drupal` or `IIIF`
+
+### Viewer settings
+
+- `viewer.container` — target container ID for WebGL viewer
+- `viewer.fileUpload` — Drupal upload field ID
+- `viewer.fileName` — Drupal file name field ID
+- `viewer.imageGeneration` — Drupal field ID for image generation
+- `viewer.lightweight` — enable lightweight viewer mode when `true`
+- `viewer.editor` — show editor controls
+- `viewer.gallery.build` — enable gallery generation from metadata/gallery sources
+- `viewer.gallery.container` — DOM container for generated gallery thumbnails
+- `viewer.gallery.imageClass` — class used to locate gallery images
+- `viewer.gallery.imageId` — optional gallery image ID selector
+- `viewer.background` — CSS background string for viewer canvas
+- `viewer.performanceMode` — performance mode config object
+- `viewer.measurement.modelUnitInMeters` — conversion ratio from model units to meters
+- `viewer.scaleContainer` — scale adjustments for the viewer container
+
+### Built output behavior
+
+- `rollup.config.js` copies `viewer-settings.json` into `dist/<target>/`
+- For `test` and `dev` builds, the generated `viewer-settings.json` is modified to:
+  - set `mainUrl = 'localhost'`
+  - disable gallery build
+  - enable editor mode
+  - set `viewer.lightweight = true`
+- For `drupal` builds, `baseModulePath` is rewritten to the Drupal assets path and `entity.metadata.source` is set to `Drupal`
+
+## Using the viewer
+
+Example embed markup:
+
+```html
+<div id="DFG_3DViewer" 3d="./examples/box.stl" style="height: 50vh"></div>
+<script type="module" src="dfg_3dviewer-module.js"></script>
+```
+
+This is the current built runtime entry pattern. The viewer reads the `3d` attribute from the container and loads the model.
+
+## `embed.html` parameters
+
+`embed.html` supports these query parameters:
+
+- `model` / `src`
+- `id`
+- `theme`
+- `autorotate`
+- `autorotateSpeed`
+- `disableInteraction`
+- `hideUi`
+- `hideMetadata`
+- `camPos`
+- `camTarget`
+- `fov`
+
+Example:
+
+```text
+/embed.html?model=/examples/box.glb&theme=light&autorotate=1&autorotateSpeed=1.2&camPos=1.2,0.8,2.5&camTarget=0,0,0&fov=45
+```
+
+## Features
+
+- 3D file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, glTF;
+- compression and rendering on-the-fly: OBJ, FBX, STL, DAE, PLY, ABC, BLEND, STL, WRL, X3D, GLB, GLTF;
+- 3D viewer with orbit controls, zoom, and basic editor tools
+- IIIF comliant metadata handling;
+- metadata fetching and display integration
+- saving/loading custom object's position, scale, rotation, lights, camera
+- gallery generation and embedded preview UI
+- face picking, ruler measurement, clipping planes, and material editing
+- view object's hierarchy and select groups by name
+- fullscreen support and screenshot/thumbnail generation
+- Drupal/WissKI integration hooks
+- adding watermark
+
+## Server-side conversion and rendering
+
+Main workflow is divided into two automatic parts:
+- pre-processing - uploaded model is uncompressed (if so) and converted into glTF (glb) format
+- automatic rendering - Blender side rendering of 3D model’s thumbnails
+
+The conversion pipeline lives in `scripts/` and `php/`.
+
+After uploading 3D model into repository there are triggered following steps:
+- uncompressing 3D models - it is done on Drupal side module script inside ```dfg_3dviewer_entity_presave``` and supports following archive formats: zip, rar, tar, xz, gz. According to the format, the bash script is triggered with following arguments: 
+```/scripts/uncompress.sh archiveType -i inputPath -o extractPath -n fileName```
+- automatic conversion into glTF (glb) format for the following supported formats:
+    - abc, dae, fbx, obj, ply, stl, wrl, x3d - function ```handle_file```
+    - ifc - function ```handle_ifc_file```
+    - blend (in progress) - function ```handle_blend_file```
+    - glb - triggers next step - function ```render_preview```
+
+This step is performed inside ```scripts/convert.sh``` bash script, which is the primary helper for converting files to glTF/GLB and rendering preview images with Blender.
+Defaults .env variables should be adjusted due to your needs:
+
+```
+BLENDER_BIN=''
+# Optional override. If empty, scripts auto-detect the module root from this file location.
+SPATH=
+BACKUP_SETTINGS_PATH=/var/www/data/project/web/sites/default/settings.php
+RENDER_RESOLUTION='1024x1024x16'
+RENDER_SAMPLES='20'
+```
+
+The script uses Blender to convert the file into glTF format and then renders a preview image with it using blender's built-in cycles engine. The result is saved in a set of pictures with different view angles. 
+This step needs some steps to be performed before rendering:
+- create scene containing loaded 3D model
+- calculate bounding box (for camera and lights settlement)
+- scale scene according to bounding box
+- setup basic properties for rendering engine, output quality, lights, camera
+- prepare rendering from camera placed in 9 different positions (left, left top, front, front top, right, right top, back, back top, top)
+- write rendering outputs into png files with consecutive naming
+
+
+![Backend overview|500](https://i.postimg.cc/7fw9zs6n/image3.png)
+
+### Supported conversion inputs
+
+- abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, xyz, pcd, json, 3ds, glb, gltf
+
+### Minimal conversion examples
+
+Convert an OBJ to GLB and render previews:
+
+```bash
+./scripts/convert.sh -c true -l 3 -i '/path/to/input.obj' -b true
+```
+
+Convert an IFC with IfcConvert:
+
+```bash
+./scripts/convert.sh -i '/path/to/building.ifc'
+```
+
+Run lightweight conversion without xvfb checks:
+
+```bash
+./scripts/convert.sh -t true -c false -i '/path/to/input.obj'
+```
+
+### Script flags
+
+- `-c` — compression true/false
+- `-l` — compression level 0-6
+- `-i` — input file path
+- `-o` — output folder (optional)
+- `-b` — binary output true/false (GLB vs glTF)
+- `-t` — lightweight true/false
+- `-f` — force overwrite
+
+### Environment variables in `scripts/.env`
+
+- `BLENDER_PATH` — path to the Blender binary
+- `SPATH` — repository or module base path used by scripts
+- `COMPRESSION` — whether glTF compression is enabled
+- `COMPRESSION_LEVEL` — compression level
+- `GLTF` — target `gltf` or `glb`
+- `FORCE` — overwrite existing outputs
+- `IS_ARCHIVE` — if input is an archive
+- `LIGHTWEIGHT` — skip heavyweight checks and rendering steps
+
+## Packaging and releases
+
+- `npm run pack-dist` packages the distribution into `dfg_3dviewer-dist.zip`
+- the repo also contains a GitHub Actions workflow for building release artifacts on tags
 
 ## Screenshots
 
@@ -29,221 +307,24 @@ Supported 3D file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, glTF. T
 ![Gallery Preview Element 2](https://i.postimg.cc/TKPc7Kny/image6.png)
 
 
+## Tauri standalone app (testing)
 
-## Tech Stack
+This repo also includes a Tauri desktop wrapper in `src-tauri/`.
 
-**Client:** JavaScript, three.js, CSS, HTML, PHP, Drupal
+- `npm run tauri:dev` — run the app in Tauri dev mode
+- `npm run tauri:build` — build the standalone desktop executable
 
-**Server:** PHP, Drupal, bash, blender
+## Notes
 
-The main part is located in the ```viewer``` directory and the ```main.js``` is responsible for delivering 3D content.
-The viewer at first imports all necessary three.js components:
-```bash
-import * as THREE from './build/three.module.js';
-import { TWEEN } from './js/jsm/libs/tween.module.min.js';
+- Always serve the viewer over HTTP(S). `file://` mode usually fails because of module import and fetch restrictions.
+- For local preview use `npm run serve:dist` or `npm run dev:test`.
+- If you use `pack-dist`, make sure `zip` is installed on your system.
+- Drupal builds use `npm run build:drupal` or `npm run build:drupal:custom`.
 
-import Stats from './js/jsm/libs/stats.module.js';
+## More information
 
-import { OrbitControls } from './js/jsm/controls/OrbitControls.js';
-import { TransformControls } from './js/jsm/controls/TransformControls.js';
-import { GUI } from './js/jsm/libs/lil-gui.module.min.js';
-import { FBXLoader } from './js/jsm/loaders/FBXLoader.js';
-import { DDSLoader } from './js/jsm/loaders/DDSLoader.js';
-import { MTLLoader } from './js/jsm/loaders/MTLLoader.js';
-import { OBJLoader } from './js/jsm/loaders/OBJLoader.js';
-import { GLTFLoader } from './js/jsm/loaders/GLTFLoader.js';
-import { DRACOLoader } from './js/jsm/loaders/DRACOLoader.js';
-import { KTX2Loader } from './js/jsm/loaders/KTX2Loader.js';
-import { MeshoptDecoder } from './js/jsm/libs/meshopt_decoder.module.js';
-import { IFCLoader } from './js/jsm/loaders/IFCLoader.js';
-import { PLYLoader } from './js/jsm/loaders/PLYLoader.js';
-import { ColladaLoader } from './js/jsm/loaders/ColladaLoader.js';
-import { STLLoader } from './js/jsm/loaders/STLLoader.js';
-import { XYZLoader } from './js/jsm/loaders/XYZLoader.js'; 
-import { TDSLoader } from './js/jsm/loaders/TDSLoader.js';
-import { PCDLoader } from './js/jsm/loaders/PCDLoader.js';
-import { FontLoader } from './js/jsm/loaders/FontLoader.js';
-import { TextGeometry } from './js/jsm/geometries/TextGeometry.js';
-```
-
-**Basic Viewer configuration**
-
-Then, basic configuration should be changed:
-
-```bash
-const CONFIG = {
-	"domain": "https://3d-repository.hs-mainz.de",
-	"metadataDomain": "https://3d-repository.hs-mainz.de",
-	"container": "DFG_3DViewer",
-	"galleryContainer": "block-bootstrap5-content",
-	"galleryImageClass": "field--type-image",
-	"basePath": "/modules/dfg_3dviewer/viewer",
-	"entityIdUri": "/wisski/navigate/(.*)/view",
-	"viewEntityPath": "/wisski/navigate/",
-	"attributeId": "wisski_id",
-	"lightweight": false
-};
-
-domain, metadataDomain - domains that deliver 3D content and metadata content respectively
-container - container to attach to and will contain 3D content
-galleryContainer - container with generated thumbnails
-galleryImageClass - class for gallery 
-basePath - relative path where this script is placed
-entityIdUri - WissKI side URI that can deliver ID of the entity
-attributeId - the ID name that container will be given
-lightweight - use Viewer as simple version - mostly for usage as a standalone 3D viewer
-```
-
-**3D DFG Viewer functions overview**
-
-```bash
-createClippingPlaneGroup(geometry, plane, renderOrder) - creates group of planes for clipping 3D (available via GUI controller)
-showToast (_str) - shows information about current operations
-addTextWatermark (_text, _scale) - adds watermark
-addTextPoint (_text, _scale, _point) - adds text at given point
-selectObjectHierarchy (_id) - selects object from hierarchy
-fetchMetadata (_object, _type) - fetches metadata about object
-recreateBoundingBox (object) - creates new bounding box
-setupObject (_object, _light, _data, _controls) - setups basic properties for object, lights, camera and controls
-invertHexColor(hexTripletColor) - inverts color in hex
-setupClippingPlanes (_geometry, _size, _distance) - setups clipping planes for given geometry
-fitCameraToCenteredObject (camera, object, offset, orbitControls, _fit)- setups camera view centered to given object
-buildGallery() - builds gallery of thumbnails
-render() - main function for rendering
-setupCamera (_object, _camera, _light, _data, _controls) - setups camera according to object properties
-distanceBetweenPoints(pointA, pointB) - calculates distance between two given points
-distanceBetweenPointsVector(vector) - calculates distance of given vector
-vectorBetweenPoints (pointA, pointB) - creates vector between two given points
-halfwayBetweenPoints(pointA, pointB) - calculates halfway between two given points
-interpolateDistanceBetweenPoints(pointA, vector, length, scalar) - calculates distance from given point, with vector and it’s length
-pickFaces(_id) - picks face with given id
-
-buildRuler(_id) - creates ruler for measurement geometry
-onWindowResize() - handler for window resize
-addWissKIMetadata(label, value) - adds metadata fetched from WissKI repository
-truncateString(str, n) - truncates given string with n length
-getProxyPath(url) - gets proxy path from given url
-expandMetadata () - expands metadata
-fullscreen() - handler for fullscreen mode
-exitFullscreenHandler() - handler for fullscreen exit
-appendMetadata (metadataContent, canvasText, metadataContainer, container) - appends metadata to given container
-fetchSettings (path, basename, filename, object, camera, light, controls, orgExtension, extension) - fetches settings for object
-onError = function (_event) - error loading handler
-onErrorMTL = function (_event) - MTL error loading handler
-onProgress = function (xhr) - loading progress handler
-setupMaterials (_object) - setups materials of an object
-getMaterialByID (_object, _uuid) - gets material with given ID
-traverseMesh (object) - traverses mesh to get more detailed info
-loadModel (path, basename, filename, extension, orgExtension) - main function for loading object
-animate() - main animation funcion
-onPointerDown(e) - mouse down click handler
-onPointerUp(e)- mouse up click handler
-onPointerMove(e)- mouse move handler
-changeScale()- changes scale of an object (available via GUI controller)
-calculateObjectScale() - calculates object scale
-changeLightRotation() - changes light rotation (available via GUI controller)
-takeScreenshot()- takes screenshot for thumbnail rendering\
-mainLoadModel (_ext)- main function for loading objects
-init() - main function that inits workflow
-```
-
-![Viewer overview](https://i.postimg.cc/VdgRWq0Q/image5.png)
-
-## Server side scripts
-
-![Backend overview|500](https://i.postimg.cc/7fw9zs6n/image3.png)
-
-Main workflow is divided into two automatic parts:
-- pre-processing - uploaded model is uncompressed (if so) and converted into glTF (glb) format
-- automatic rendering - Blender side rendering of 3D model’s thumbnails
-
-Scripts needed there are placed under ```scripts``` and ```php``` directory.
-
-After uploading 3D model into repository there are triggered following steps:
-- uncompressing 3D models - it is done on Drupal side module script inside ```dfg_3dviewer_entity_presave``` and supports following archive formats: zip, rar, tar, xz, gz. According to the format, the bash script is triggered with following arguments: 
-```/scripts/uncompress.sh archiveType -i inputPath -o extractPath -n fileName```
-- automatic conversion into glTF (glb) format for the following supported formats:
-    - abc, dae, fbx, obj, ply, stl, wrl, x3d - function ```handle_file```
-    - ifc - function ```handle_ifc_file```
-    - blend (in progress) - function ```handle_blend_file```
-    - glb - triggers next step - function ```render_preview```
-
-
-This step is performed inside ```scripts/convert.sh``` bash script.
-Script defaults (need to be changed if used in different environment):
-```bash
-BLENDER_PATH=''
-
-#Defaults:
-COMPRESSION=false
-COMPRESSION_LEVEL=3
-GLTF="gltf"
-FORCE="false"
-isOutput=false
-IS_ARCHIVE=false
-SPATH="/var/www/html/3drepository/modules/dfg_3dviewer"
-```
-
-Functions used during this step:
-- ```handle_file``` - uses python script (downloaded and modified version of https://github.com/ux3d/2gltf2/tree/master) triggered by blender 
-```${BLENDER_PATH}blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- "$INPATH/$FILENAME" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" "$OUTPUT$OUTPUTPATH"```
-- ```handle_ifc_file``` - uses IfcConvert script (available at https://ifcopenshell.sourceforge.net/ifcconvert.html)
-```${SPATH}/scripts/IfcConvert "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb"```
-- ```handle_blend_file``` - (not fully tested yet) uses python script triggered by blender
-```${BLENDER_PATH}blender -b -P ${SPATH}/scripts/convert-blender-to-gltf.py "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb"```
-
-- automatic rendering of 3D model for thumbnails - function ```render_preview```, which uses wrapper for triggering virtual environment (xvfb-run) for blender and it’s python script
-```xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/render.py -- "$INPATH/$NAME.glb" "glb" $1 "$INPATH/views/" $IS_ARCHIVE -E BLENDER_EEVEE -f 1```
-This step needs some steps to be performed before rendering:
-- create scene containing loaded 3D model
-- calculate bounding box (for camera and lights settlement)
-- scale scene according to bounding box
-- setup basic properties for rendering engine, output quality, lights, camera
-- prepare rendering from camera placed in 9 different positions (left, left top, front, front top, right, right top, back, back top, top)
-- write rendering outputs into png files with consecutive naming
-
-## Minimal effort setup for 3D DFG Viewer
-
-
-```html
-<!doctype html>
-<html>
-    <head>
-    	<title>Three.js 3D-DFG-Viewer</title>
-    	<link rel="stylesheet" href="./3D-DFG-Viewer/css/spinner.css">
-    	<link rel="stylesheet" href="./3D-DFG-Viewer/css/main.css">
-    </head>
-    <body>
-    	<script type="module" src="./3D-DFG-Viewer/main/jquery-3.6.0.min.js"></script>
-    	<script src="./3D-DFG-Viewer/main/toastify.js"></script>
-    	<script src="./3D-DFG-Viewer/main/spinner/main.js"></script>
-    	<script type="module" src="./3D-DFG-Viewer/main/main.js"></script>
-    	<div id="DFG_3DViewer" 3d="your_model_name"></div>
-    </body>
-</html>
-
-```
-    
-## Documentation
-
-
-
-[Documentation](https://docs.google.com/document/d/10Qw37DwgMXHsuZqCol3xEf68S29eaj0Q-rOOAe3XhXE)
-
-
-## Features
-
-- 3D file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, glTF
-- compression and rendering on-the-fly: obj, fbx, ply, dae, abc, blend, stl, wrl, x3d, glb, gltf
-- basic interaction (rotate, scale, translate, zoom)
-- metadata displaying
-- saving/loading custom object's position, scale, rotation, lights, camera
-- view object's hierarchy and select groups by name
-- distance measurement
-- face picking
-- clipping planes
-- manage materials
-- fullscreen mode
-- cross platform
-- add watermark
-
+- `viewer/viewer-settings-example.json` — runtime configuration template
+- `viewer/viewer-settings.js` — runtime settings loader used by built/source bundles
+- `rollup.config.js` — build output and asset copy configuration
+- `scripts/convert.sh` — conversion and Blender rendering helper
+- `dfg_3dviewer.libraries.tpl.yml` — Drupal libraries template used in Drupal build

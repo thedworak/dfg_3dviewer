@@ -1,0 +1,44 @@
+{
+  "setupTasks": [
+    {
+      "name": "Install Dependencies",
+      "command": "npm install"
+    }
+  ],
+
+  "tasks": {
+    "start:test": {
+      "name": "Start (TEST mode – dist viewer)",
+      "command": "cd dist/test && npx http-server -p 1234",
+      "runAtStart": true,
+      "preview": {
+        "port": 1234
+      }
+    },
+
+    "start:dev": {
+      "name": "Start (DEV mode – dist viewer)",
+      "command": "cd dist/dev && npx http-server -p 1234"
+    },
+
+    "start:prod": {
+      "name": "Start (PROD mode – dist viewer)",
+      "command": "cd dist/drupal && npx http-server -p 1234"
+    },
+
+    "build:test": {
+      "name": "Build (TEST bundle)",
+      "command": "npm run build:test"
+    },
+
+    "build:dev": {
+      "name": "Build (DEV bundle)",
+      "command": "npm run build:dev"
+    },
+
+    "build:prod": {
+      "name": "Build (PROD bundle)",
+      "command": "npm run build:prod"
+    }
+  }
+}

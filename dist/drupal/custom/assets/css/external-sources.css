@@ -1,0 +1,335 @@
+#form-IIIF {
+  position: fixed;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(640px, 95vw);
+
+  background: rgba(250, 247, 242, 0.94);
+  backdrop-filter: blur(8px);
+
+  border-radius: 10px;
+  border: 1px solid rgba(164, 151, 132, 0.22);
+  box-shadow: 0 14px 30px rgba(129, 116, 96, 0.14);
+
+  padding: 14px;
+  font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+  z-index: 1;
+}
+
+#form-IIIF * {
+  box-sizing: border-box;
+}
+
+.form-IIIF-group {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+  min-width: 0;
+}
+
+.form-IIIF-group.column {
+  flex-direction: column;
+}
+
+#form-IIIF textarea {
+  min-width: 0;
+}
+
+#form-IIIF input,
+#form-IIIF textarea {
+  padding: 8px 10px;
+  font-size: 14px;
+
+  border-radius: 6px;
+  border: 1px solid rgba(164, 151, 132, 0.22);
+  background: rgba(255, 252, 247, 0.96);
+
+  transition: border-color .15s, box-shadow .15s;
+}
+
+#form-IIIF textarea {
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+/* focus */
+#form-IIIF input:focus,
+#form-IIIF textarea:focus {
+  outline: none;
+  border-color: #4c6ef5;
+  box-shadow: 0 0 0 2px rgba(76,110,245,.2);
+}
+
+#form-IIIF button {
+  white-space: nowrap;
+  padding: 8px 14px;
+  font-size: 13px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+
+  transition: background .15s, transform .05s;
+}
+
+#form-IIIF button:active {
+  transform: translateY(1px);
+}
+
+/* primary */
+#form-IIIF button.primary {
+  background: #4c6ef5;
+  color: #fff;
+}
+
+#form-IIIF button.primary:hover {
+  background: #3b5bdb;
+}
+
+/* secondary */
+#form-IIIF button.secondary {
+  background: #e9ecef;
+  color: #333;
+}
+
+#form-IIIF button.secondary:hover {
+  background: #dee2e6;
+}
+
+/* Text area actions */
+#form-IIIF .actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.form-IIIF-label {
+  font-size: 13px;
+  color: #605242;
+  white-space: nowrap;
+  align-self: center;
+}
+
+#form-IIIF select {
+  flex: 1;
+  min-width: 0;
+
+  padding: 8px 10px;
+  font-size: 13px;
+
+  border-radius: 6px;
+  border: 1px solid rgba(164, 151, 132, 0.22);
+  background-color: rgba(255, 252, 247, 0.96);
+
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #666 50%),
+    linear-gradient(135deg, #666 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) 50%,
+    calc(100% - 11px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+
+  transition: border-color .15s, box-shadow .15s;
+}
+
+#form-IIIF select:focus {
+  outline: none;
+  border-color: #4c6ef5;
+  box-shadow: 0 0 0 2px rgba(76,110,245,.2);
+}
+
+.form-IIIF-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.form-IIIF-header .title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #25211c;
+}
+
+.form-IIIF-header .tools {
+  display: flex;
+  gap: 6px;
+}
+
+.form-IIIF-header button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.form-IIIF-header button:hover {
+  background: rgba(96, 82, 66, .08);
+}
+
+#form-IIIF.collapsed .form-IIIF-group {
+  display: none;
+}
+
+#form-IIIF.collapsed {
+  padding-bottom: 8px;
+}
+
+#form-IIIF[data-viewer-theme="dark"] {
+  background: rgba(30, 32, 36, 0.95);
+  color: #eee;
+}
+
+#form-IIIF[data-viewer-theme="dark"] .form-IIIF-header .title {
+  color: #eee;
+}
+
+#form-IIIF[data-viewer-theme="dark"] .form-IIIF-label {
+  color: #cfd3d9;
+}
+
+/* inputs */
+#form-IIIF[data-viewer-theme="dark"] input,
+#form-IIIF[data-viewer-theme="dark"] textarea,
+#form-IIIF[data-viewer-theme="dark"] select {
+  background: #1e2024;
+  color: #eee;
+  border-color: #444;
+}
+
+#form-IIIF select {
+  flex: 1;
+  min-width: 0;
+
+  padding: 8px 36px 8px 10px;
+  font-size: 13px;
+
+  border-radius: 6px;
+  border: 1px solid #cfd3d9;
+  background-color: #fff;
+
+  appearance: none;
+
+  background-image:
+    linear-gradient(45deg, transparent 50%, #666 50%),
+    linear-gradient(135deg, #666 50%, transparent 50%);
+  background-position:
+    calc(100% - 20px) 50%,
+    calc(100% - 14px) 50%;
+  background-size: 7px 7px;
+  background-repeat: no-repeat;
+}
+
+#form-IIIF[data-viewer-theme="dark"] select {
+  appearance: auto;
+  background-image: none;
+}
+
+#form-IIIF[data-viewer-theme="dark"] input::placeholder,
+#form-IIIF[data-viewer-theme="dark"] textarea::placeholder {
+  color: #888;
+}
+
+/* buttons */
+#form-IIIF[data-viewer-theme="dark"] button.primary {
+  background: #5c7cfa;
+}
+
+#form-IIIF[data-viewer-theme="dark"] button.secondary {
+  background: #343a40;
+  color: #eee;
+}
+
+#form-IIIF[data-viewer-theme="dark"] .form-IIIF-header button:hover {
+  background: rgba(255,255,255,.12);
+}
+
+#example-model-picker {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  margin: 5px 0px;
+  padding: 4px 10px;
+  border: 1px solid rgba(164, 151, 132, 0.24);
+  border-radius: 10px;
+  background: rgba(250, 247, 242, 0.94);
+  box-shadow: 0 12px 24px rgba(129, 116, 96, 0.12);
+  font:
+    12px/1.2 "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  color: #111827;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    color 0.2s ease;
+}
+
+#example-model-picker label {
+  font-weight: 600;
+  color: #42382d;
+}
+
+#example-model-picker .example-model-picker-spacer {
+  flex: 1 1 auto;
+}
+
+#example-model-picker select {
+  min-width: 220px;
+  padding: 8px 10px;
+  border: 1px solid rgba(164, 151, 132, 0.24);
+  border-radius: 8px;
+  background: rgba(255, 252, 247, 0.96);
+  color: #25211c;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+#example-theme-toggle {
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(164, 151, 132, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 252, 247, 0.96);
+  color: #25211c;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+  display: none;
+}
+
+#example-theme-toggle:hover {
+  transform: translateY(-1px);
+}
+
+body[data-viewer-theme="dark"] #example-model-picker {
+  border-color: #444;
+  background: rgba(30, 32, 36, 0.95);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  color: #eee;
+}
+
+body[data-viewer-theme="dark"] #example-model-picker label {
+  color: #eee;
+}
+
+body[data-viewer-theme="dark"] #example-model-picker select {
+  border-color: #444;
+  background: #1e2024;
+  color: #eee;
+}
+
+body[data-viewer-theme="dark"] #example-theme-toggle {
+  border-color: #444;
+  background: #1e2024;
+  color: #eee;
+}

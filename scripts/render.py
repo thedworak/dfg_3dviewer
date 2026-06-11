@@ -35,6 +35,7 @@ from mathutils import Matrix, Vector
 import itertools
 from math import radians
 import argparse
+import time
 
 if '--' in sys.argv:
     argv = sys.argv[sys.argv.index('--') + 1:]
@@ -160,6 +161,9 @@ if args.samples:
 #
 current_directory = os.getcwd()
 
+extension = "glb"
+original_extension = "glb"
+
 if args.ext:
     extension = args.ext
 if extension == "gltf":
@@ -168,7 +172,7 @@ else:
    format = "GLB"
 
 if args.org_ext:
-	original_extension = args.ext
+	original_extension = args.org_ext
 
 is_archive = args.is_archive
 
@@ -210,87 +214,71 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 
 	scene = bpy.context.scene
 	context = bpy.context
-	render = bpy.context.scene.render
-	bounds = scale_scene()
+	render = scene.render
 
-	item='MESH'
-	bpy.ops.object.select_all(action='DESELECT')
-	bpy.ops.object.select_by_type(type=item)
+	# --------------------------------------------------
+	# UTILS
+	# --------------------------------------------------
 
-	# multiply 3d coord list by matrix
-	def np_matmul_coords(coords, matrix, space=None):
-		M = (space @ matrix @ space.inverted()
-			 if space else matrix).transposed()
+	def np_matmul_coords(coords, matrix):
+		M = matrix.transposed()
 		ones = np.ones((coords.shape[0], 1))
 		coords4d = np.hstack((coords, ones))
-		
-		return np.dot(coords4d, M)[:,:-1]
-		return coords4d[:,:-1]
+		return np.dot(coords4d, M)[:, :-1]
 
-	# get the global coordinates of all object bounding box corners    
-	coords = np.vstack(
-		tuple(np_matmul_coords(np.array(o.bound_box), o.matrix_world.copy())
-			 for o in  
-				bpy.context.scene.objects
-				if o.type == 'MESH'
-				)
+
+	def get_scene_bounds():
+		coords = np.vstack(
+			tuple(
+				np_matmul_coords(np.array(o.bound_box), o.matrix_world.copy())
+				for o in scene.objects if o.type == 'MESH'
 			)
-	# bottom front left (all the mins)
-	bfl = coords.min(axis=0)
-	# top back right
-	tbr = coords.max(axis=0)
-	G  = np.array((bfl, tbr)).T
-	# bound box coords ie the 8 combinations of bfl tbr.
-	bbc = [i for i in itertools.product(*G)]
-	bb_sides = get_min(bbc) - get_max(bbc)
-	bb_sides = (abs(bb_sides[0]), abs(bb_sides[1]), abs(bb_sides[2]))
-	
-	group = bpy.data.collections.new("MainGroup")
-	bpy.context.scene.collection.children.link(group)
-	#for ob in context.selected_objects: # or whichever list of objects desired
-	#	group.objects.link(ob)
-	#print("Moving objects into origin (0, 0, 0)")
-	#group.location = (0, 0, 0)
-	#for obj in context.selected_objects:
-	#	obj.location = (0, 0, 0)
-	render.engine = "CYCLES"
-	render.film_transparent = True
-	scene.cycles.device = "CPU"
-	scene.cycles.samples = 128 # default 128
-	scene.cycles.use_adaptive_sampling = True
-	scene.cycles.adaptive_threshold = 0.1
-	scene.cycles.adaptive_min_samples = 1
-	scene.cycles.use_denoising = True
-	scene.cycles.seed = 0 # default
-	scene.cycles.use_animated_seed = True
-	scene.cycles.min_light_bounces = 0 # default
-	scene.cycles.min_transparent_bounces = 0 # default
-	scene.cycles.light_sampling_threshold = 0.01 # default
-	scene.cycles.max_bounces = 5
-	scene.cycles.sample_clamp_direct = 0 # default
-	scene.cycles.sample_clamp_indirect = 10 # default
-	scene.cycles.blur_glossy = 1 # default
-	scene.cycles.caustics_reflective = False
-	scene.cycles.caustics_refractive = False
-	
-	#render.engine = 'BLENDER_EEVEE'
-	#render.engine = 'CYCLES'
-	#render.engine = 'BLENDER_WORKBENCH'
-	render.image_settings.color_mode = 'RGBA'
-	render.image_settings.color_depth = '16' 
-	render.image_settings.file_format = 'PNG'
-	render.resolution_x = int(resolution[0])
-	render.resolution_y = int(resolution[1])
-	render.resolution_percentage = 100
-	render.film_transparent = True
-	#scene.render.engine = 'CYCLES'
-	scene.render.use_freestyle = False
-	scene.use_nodes = True
-	context.window.view_layer.use_pass_normal = True
-	context.window.view_layer.use_pass_diffuse_color = True
-	context.window.view_layer.use_pass_object_index = True
+		)
+		bfl = coords.min(axis=0)
+		tbr = coords.max(axis=0)
+		size = Vector(tbr - bfl)
+		center = Vector((bfl + tbr) * 0.5)
+		return center, size
 
-	#
+
+	def fit_camera_to_bounds(cam, center, size, margin=1.2):
+		# aspect ratio of render
+		render = bpy.context.scene.render
+		aspect = render.resolution_x / render.resolution_y
+
+		ratio = size.x / size.z
+		print(f"Camera fit ratio: {ratio:.2f}")
+
+		if ratio > 6.0:
+			cam.data.type = 'ORTHO'
+
+			# ORTHO: skala = wysokość kadru
+			ortho_height = size.z * 1.2
+			ortho_width = size.x * 1.2 / aspect
+
+			cam.data.ortho_scale = max(ortho_height, ortho_width)
+
+			# clipping – MUST HAVE
+			cam.data.clip_start = 0.01
+			cam.data.clip_end = max(size) * 10
+
+		else:
+			cam.data.type = 'PERSP'
+			cam.data.clip_start = 0.01
+			cam.data.clip_end = max(size) * 10
+
+		# FOV vertical and horizontal
+		fov_x = cam_data.angle
+		fov_y = 2 * math.atan(math.tan(fov_x / 2) / aspect)
+
+		# required distance to fit bounds in view
+		dist_x = (size.x * 0.5) / math.tan(fov_x * 0.5)
+		dist_z = (size.z * 0.5) / math.tan(fov_y * 0.5)
+
+		distance = max(dist_x, dist_z) * margin
+
+		cam.location = center + Vector((0, -distance, 0))
+
 	if args.output:
 		export_file = args.output
 	else:
@@ -302,88 +290,150 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	else:
 		mainfilepath=export_file+current_basename+"."+original_extension
 
-	#target_obj = bpy.context.selected_objects[0]
-	#target_origin = target_obj.location
-	# get bounding box side lengths
-	#bb_sides = get_min(target_obj.bound_box) - get_max(target_obj.bound_box)
-	(dist_x, dist_y, dist_z) = tuple([abs(c) for c in bb_sides])
-	originated_dist_y = .5 * dist_y
-	radius = 0.5 * max(dist_x, dist_z)
-	max_size = max(dist_x, dist_y, dist_z)	
+	# --------------------------------------------------
+	# RENDER / CYCLES
+	# --------------------------------------------------
 
-	light_data = bpy.data.lights.new('light', type='AREA')
-	sun = bpy.data.objects.new('light', light_data)
-	sun.data.energy=max_size*5000.0
-	sun.data.size = max_size*5
-	sun.data.size_y = max_size*5
-	#sun.location = (3, 4, -5)
-	#sun.location = (dist_x*1.4, dist_y*1.4, dist_z*1.4)
-	sun.location = (0,0,0)
-	bpy.context.collection.objects.link(sun)
-	#sun_bottom = bpy.data.objects.new('light_bottom', light_data)
-	#sun_bottom.data.energy=max_size*5000.0
-	#sun_bottom.data.size = max_size*2
-	#sun_bottom.location = (-dist_x*1.4, dist_y*1.4, dist_z*1.4)
-	#sun_bottom.location = (0, 0, dist_z/8)
-	#sun_bottom.rotation_euler = (2, 0.3, 0.3)
-	#bpy.context.collection.objects.link(sun_bottom)
-	
-	scene.render.image_settings.file_format='PNG'
-	
-	scene.render.filepath=mainfilepath+".png"
-	print("Rendering: " + scene.render.filepath + " (" + str(render.resolution_x) + "x" + str(render.resolution_y) + ")")
-	cam_data = bpy.data.cameras.new('camera')
-	cam = bpy.data.objects.new('camera', cam_data)
-	cam.data.lens = 35
-	cam.data.sensor_width = 32
-	cam_constraint = cam.constraints.new(type='TRACK_TO')
-	cam_constraint.track_axis = 'TRACK_NEGATIVE_Z'
-	cam_constraint.up_axis = 'UP_Y'
-	cam_empty = bpy.data.objects.new("Empty", None)
-	#cam_empty.location = (0, 0, 0)
-	cam_empty.location = (0, 0, 0)
+	render.engine = 'CYCLES'
+	render.film_transparent = True
+	render.resolution_x = int(resolution[0])
+	render.resolution_y = int(resolution[1])
+	render.resolution_percentage = 100
+
+	render.image_settings.file_format = 'PNG'
+	render.image_settings.color_mode = 'RGBA'
+	render.image_settings.color_depth = '16'
+	render.image_settings.color_management = 'FOLLOW_SCENE'
+	render.image_settings.view_settings.view_transform = 'Standard'
+
+	scene.render.use_compositing = True
+
+	scene.cycles.device = 'CPU'
+	scene.cycles.samples = 256
+	scene.cycles.use_adaptive_sampling = True
+	scene.cycles.adaptive_threshold = 0.03
+	scene.cycles.adaptive_min_samples = 16
+
+	scene.cycles.use_denoising = True
+	scene.cycles.denoiser = 'OPENIMAGEDENOISE'
+	scene.cycles.denoising_input_passes = 'RGB_ALBEDO_NORMAL'
+	scene.cycles.denoising_prefilter = 'ACCURATE'
+
+	scene.cycles.max_bounces = 6
+	scene.cycles.diffuse_bounces = 3
+	scene.cycles.glossy_bounces = 3
+	scene.cycles.transparent_max_bounces = 4
+	scene.cycles.transmission_bounces = 4
+
+	scene.cycles.sample_clamp_indirect = 20
+	scene.cycles.light_sampling_threshold = 0.03
+
+	scene.view_settings.exposure = 1.0
+	scene.view_settings.gamma = 1.0
+
+	# CUDA OFF (no warnings)
+	prefs = bpy.context.preferences
+	prefs.addons['cycles'].preferences.compute_device_type = 'NONE'
+
+	# --------------------------------------------------
+	# VIEW LAYER PASSES (CLI SAFE)
+	# --------------------------------------------------
+
+	view_layer = scene.view_layers["ViewLayer"]
+	view_layer.use_pass_normal = True
+	view_layer.use_pass_diffuse_color = True
+	view_layer.use_pass_object_index = True
+
+	# --------------------------------------------------
+	# CAMERA
+	# --------------------------------------------------
+
+	center, size = get_scene_bounds()
+	cam_data = bpy.data.cameras.new("Camera")
+	cam_data.lens = 50	# product look
+	cam_data.sensor_width = 36
+
+	cam = bpy.data.objects.new("Camera", cam_data)
+	scene.collection.objects.link(cam)
+	scene.camera = cam
+
+	cam_empty = bpy.data.objects.new("CamTarget", None)
+	cam_empty.location = center 
+	scene.collection.objects.link(cam_empty)
+
 	cam.parent = cam_empty
 
-	scene.collection.objects.link(cam_empty)
-	context.view_layer.objects.active = cam_empty
-	cam_constraint.target = cam_empty
-	
-	print(dist_x, dist_y, dist_z)
-	#cam.location=Vector((dist_x, dist_y, dist_z))
-	bpy.context.collection.objects.link(cam)
-	
-	scene.camera=cam
-	cam.location = (0, dist_y*2.5, 0)
-	sun.location = (0, dist_y*2.5, dist_z*1.7)
+	constraint = cam.constraints.new(type='TRACK_TO')
+	constraint.target = cam_empty
+	constraint.track_axis = 'TRACK_NEGATIVE_Z'
+	constraint.up_axis = 'UP_Y'
+	constraint.owner_space = 'WORLD'
+	constraint.target_space = 'WORLD'
 
-	for angle in range(0, 360, 90):
-		#sun_bottom.location = rotate(sun_bottom.location, 80, axis=(0, 0, 1))
-		scene.render.filepath=mainfilepath+'_side'+str(angle)+'.png'
-		bpy.ops.render.render(write_still=True)
-		cam.location = rotate(cam.location, 90, axis=(0, 0, 1))
-		sun.location = rotate(sun.location, 90, axis=(0, 0, 1))
+	# --------------------------------------------------
+	# BASE CAMERA FIT
+	# --------------------------------------------------
 
-	cam.location = (0, dist_y*2.9, dist_z*1.7)
-	cam.location = rotate(cam.location, 45, axis=(0, 0, 1))
-	sun.location = (0, dist_y*2.9, dist_z*1.7)
-	sun.location = rotate(cam.location, 45, axis=(0, 0, 1))
-	for angle in range(45, 360, 90):
-		#sun_bottom.location = rotate(sun_bottom.location, 80, axis=(0, 0, 1))
-		scene.render.filepath=mainfilepath+'_side'+str(angle)+'.png'
-		bpy.ops.render.render(write_still=True)
-		cam.location = rotate(cam.location, 90, axis=(0, 0, 1))
-		sun.location = rotate(sun.location, 90, axis=(0, 0, 1))
-		
+	fit_camera_to_bounds(cam, center, size, margin=1.45)
+
+
+	# --------------------------------------------------
+	# LIGHT
+	# --------------------------------------------------
+
+	max_size = max(size)
+
+	sun_data = bpy.data.lights.new('SunMain', type='SUN')
+	sun_data.energy = 5.0   # 4.0–6.0 sweet spot
+
+	sun = bpy.data.objects.new('SunMain', sun_data)
+	scene.collection.objects.link(sun)
+
+	sun.rotation_euler = (
+		math.radians(50),
+		0.0,
+		math.radians(30)
+	)
+
+	fill_data = bpy.data.lights.new('SunFill', type='SUN')
+	fill_data.energy = 0.5   # 10% głównego
+
+	fill = bpy.data.objects.new('SunFill', fill_data)
+	scene.collection.objects.link(fill)
+
+	fill.rotation_euler = (
+		math.radians(75),
+		0.0,
+		math.radians(-120)
+	)
+
+	# --------------------------------------------------
+	# RENDERS
+	# --------------------------------------------------
+	t0 = time.perf_counter()
 	
-	#top
-	cam.location=Vector((0, 0, dist_z*5))
-	sun.location = cam.location
-	scene.render.filepath=mainfilepath+'_top.png'
+	print("Starting rendering...")
+	def render_angle(angle_deg, suffix):
+		print(f"Rendering angle {angle_deg}")
+		cam_empty.rotation_euler = (0, 0, math.radians(angle_deg))
+		scene.render.filepath = f"{mainfilepath}_{suffix}.png"
+		bpy.ops.render.render(write_still=True)
+
+	# sides
+	for a in [0, 90, 180, 270]:
+		render_angle(a, f"side{a}")
+
+	# hero angles
+	for a in [45, 135, 225, 315]:
+		render_angle(a, f"side{a}")
+
+	# top
+	cam.location = center + Vector((0, 0, max(size.x, size.y) * 1.3))
+	cam.rotation_euler = (0, 0, 0)
+	scene.render.filepath = f"{mainfilepath}_top.png"
 	bpy.ops.render.render(write_still=True)
-	
-	#bottom
-	#cam.location=Vector((0, 0, -dist_z*5))
-	#sun.location = cam.location
-	#scene.render.filepath=export_file+current_basename+'_bottom.png'
-	#bpy.ops.render.render(write_still=True)
-	print("Rendering done")
+
+	t1 = time.perf_counter()
+
+	print(f"Rendering done (took: {t1 - t0:.3f} s)")
+	# --------------------------------------------------

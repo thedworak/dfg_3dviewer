@@ -17,3 +17,38 @@ dfg_3dviewer.menu:
     _title: 'DFG 3D Viewer'
   requirements:
     _permission: 'administer dfg_3dviewer'
+dfg_3dviewer.save_metadata:
+  path: '/api/editor/save-metadata'
+  defaults:
+    _controller: '\Drupal\dfg_3dviewer\Controller\SaveMetadataController::save'
+  methods: [POST]
+  requirements:
+    _permission: 'access dfg 3dviewer editor'
+dfg_3dviewer.thumbnail_upload:
+  path: '/api/editor/upload-thumbnail'
+  defaults:
+    _controller: '\Drupal\dfg_3dviewer\Controller\ThumbnailUploadController::upload'
+  methods: [POST]
+  requirements:
+    _permission: 'access dfg 3dviewer editor'
+dfg_3dviewer.xml_export:
+  path: '/api/editor/xml-export/{id}'
+  defaults:
+    _controller: '\Drupal\dfg_3dviewer\Controller\XmlExportController::export'
+  methods: [GET, POST]
+  requirements:
+    _permission: 'access dfg 3dviewer editor'
+dfg_3dviewer.status:
+  path: '/api/model/status/{id}'
+  defaults:
+    _controller: '\Drupal\dfg_3dviewer\Controller\ModelController::status'
+  methods: [GET]
+  requirements:
+    _permission: 'access content'
+dfg_3dviewer.create:
+  path: '/api/model/create'
+  defaults:
+    _controller: '\Drupal\dfg_3dviewer\Controller\ModelController::create'
+  methods: [POST]
+  requirements:
+    _permission: 'access content'
