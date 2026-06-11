@@ -223,3 +223,14 @@ It is intended as a quick reference for the current `viewer/` module exports and
 - `loadSettings()`
   - Load `viewer-settings.json` relative to the current module path.
   - Used by source-mode development and runtime config loading.
+
+## scripts/convert.sh
+- ```handle_file``` - uses python script (downloaded and modified version of https://github.com/ux3d/2gltf2/tree/master) triggered by blender 
+```${BLENDER_PATH}blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- "$INPATH/$FILENAME" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" "$OUTPUT$OUTPUTPATH"```
+- ```handle_ifc_file``` - uses IfcConvert script (available at https://ifcopenshell.sourceforge.net/ifcconvert.html)
+```${SPATH}/scripts/IfcConvert "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb"```
+- ```handle_blend_file``` - uses python script triggered by blender
+```${BLENDER_PATH}blender -b -P ${SPATH}/scripts/convert-blender-to-gltf.py "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb"```
+
+- automatic rendering of 3D model for thumbnails - function ```render_preview```, which uses wrapper for triggering virtual environment (xvfb-run) for blender and it’s python script
+```xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/render.py -- "$INPATH/$NAME.glb" "glb" $1 "$INPATH/views/" $IS_ARCHIVE -E BLENDER_EEVEE -f 1```

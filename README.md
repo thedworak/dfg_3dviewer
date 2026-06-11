@@ -1,6 +1,9 @@
 # DLF AIM 3D Viewer
 
 A modern 3D viewer for web and Drupal integration built on three.js. This repo contains the viewer source code, build tooling, server-side helpers, and Drupal integration support.
+The module was primarily created for viewing 3D data as a Drupal extension for a WissKI based repository. During development it became also possible to use as a standalone version to be integrated with more environments.
+The Viewer is written in JavaScript, based on the three.js library for viewing 3D models and uses PHP/bash scripts for server-side operations.
+
 
 ## What this repo contains
 
@@ -15,6 +18,22 @@ A modern 3D viewer for web and Drupal integration built on three.js. This repo c
 ## Supported 3D formats
 
 - OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, GLB, glTF
+
+There is also a pre-configured complete workflow to handle more file formats and allow to render thumbnails for entries. If an uploaded file is saved in one of the compression-supported formats, it is compressed on-the-fly and converted into GLB format and triggers automatic rendering (based on Blender utility).
+
+## Minimal Requirements
+
+- uploaded files (3D models, textures, other sources) should be named like:
+    - hyphens or underscores instead of spaces
+    - no national characters such as symbols or spaces
+    - uploaded archive should be named the same as input file and content should be placed directly in the archive (without subdirectories)
+- upload all the sources needed for rendering. For example OBJ needs MTL files (if any) and textures uploaded too. If you want to do this, please place them inside a single archive.
+
+## Tech Stack
+
+**Client:** JavaScript, three.js, CSS, HTML, PHP, Drupal
+
+**Server:** PHP, Drupal, bash, blender
 
 ## Minimal local setup
 
@@ -171,19 +190,59 @@ Example:
 
 ## Features
 
+- 3D file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, glTF;
+- compression and rendering on-the-fly: OBJ, FBX, STL, DAE, PLY, ABC, BLEND, STL, WRL, X3D, GLB, GLTF;
 - 3D viewer with orbit controls, zoom, and basic editor tools
-- support for many file formats and GLB/glTF model loading
+- IIIF comliant metadata handling;
 - metadata fetching and display integration
+- saving/loading custom object's position, scale, rotation, lights, camera
 - gallery generation and embedded preview UI
 - face picking, ruler measurement, clipping planes, and material editing
+- view object's hierarchy and select groups by name
 - fullscreen support and screenshot/thumbnail generation
 - Drupal/WissKI integration hooks
+- adding watermark
 
 ## Server-side conversion and rendering
 
+Main workflow is divided into two automatic parts:
+- pre-processing - uploaded model is uncompressed (if so) and converted into glTF (glb) format
+- automatic rendering - Blender side rendering of 3D model’s thumbnails
+
 The conversion pipeline lives in `scripts/` and `php/`.
 
-`./scripts/convert.sh` is the primary helper for converting files to glTF/GLB and rendering preview images with Blender.
+After uploading 3D model into repository there are triggered following steps:
+- uncompressing 3D models - it is done on Drupal side module script inside ```dfg_3dviewer_entity_presave``` and supports following archive formats: zip, rar, tar, xz, gz. According to the format, the bash script is triggered with following arguments: 
+```/scripts/uncompress.sh archiveType -i inputPath -o extractPath -n fileName```
+- automatic conversion into glTF (glb) format for the following supported formats:
+    - abc, dae, fbx, obj, ply, stl, wrl, x3d - function ```handle_file```
+    - ifc - function ```handle_ifc_file```
+    - blend (in progress) - function ```handle_blend_file```
+    - glb - triggers next step - function ```render_preview```
+
+This step is performed inside ```scripts/convert.sh``` bash script, which is the primary helper for converting files to glTF/GLB and rendering preview images with Blender.
+Defaults .env variables should be adjusted due to your needs:
+
+```
+BLENDER_BIN=''
+# Optional override. If empty, scripts auto-detect the module root from this file location.
+SPATH=
+BACKUP_SETTINGS_PATH=/var/www/data/project/web/sites/default/settings.php
+RENDER_RESOLUTION='1024x1024x16'
+RENDER_SAMPLES='20'
+```
+
+The script uses Blender to convert the file into glTF format and then renders a preview image with it using blender's built-in cycles engine. The result is saved in a set of pictures with different view angles. 
+This step needs some steps to be performed before rendering:
+- create scene containing loaded 3D model
+- calculate bounding box (for camera and lights settlement)
+- scale scene according to bounding box
+- setup basic properties for rendering engine, output quality, lights, camera
+- prepare rendering from camera placed in 9 different positions (left, left top, front, front top, right, right top, back, back top, top)
+- write rendering outputs into png files with consecutive naming
+
+
+![Backend overview|500](https://i.postimg.cc/7fw9zs6n/image3.png)
 
 ### Supported conversion inputs
 
@@ -235,7 +294,20 @@ Run lightweight conversion without xvfb checks:
 - `npm run pack-dist` packages the distribution into `dfg_3dviewer-dist.zip`
 - the repo also contains a GitHub Actions workflow for building release artifacts on tags
 
-## Tauri standalone app
+## Screenshots
+
+![Functions and other features](https://i.postimg.cc/zHSkMWdh/image2.png)
+
+![Main view](https://i.postimg.cc/qthxrWb4/image4.png)
+
+![Gallery Set](https://i.postimg.cc/R3yGnv6W/image7.png)
+
+![Gallery Preview Element](https://i.postimg.cc/xXF3W9P6/image1.png) 
+
+![Gallery Preview Element 2](https://i.postimg.cc/TKPc7Kny/image6.png)
+
+
+## Tauri standalone app (testing)
 
 This repo also includes a Tauri desktop wrapper in `src-tauri/`.
 
