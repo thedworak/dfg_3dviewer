@@ -192,7 +192,9 @@ Example:
 
 - 3D file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, glTF;
 - compression and rendering on-the-fly: OBJ, FBX, STL, DAE, PLY, ABC, BLEND, STL, WRL, X3D, GLB, GLTF;
-- 3D viewer with orbit controls, zoom, and basic editor tools
+- 3D viewer with orbit controls, zoom, and basic editor tools;
+- changing lights properties and environment maps;
+- standalone version | embeddable version | presentation mode | lightweight or full mode;
 - IIIF comliant metadata handling;
 - metadata fetching and display integration
 - saving/loading custom object's position, scale, rotation, lights, camera
