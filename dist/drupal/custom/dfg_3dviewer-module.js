@@ -1644,9 +1644,7 @@ async function setupCamera(_object, _data) {
     (Array.isArray(cfg?.controlsZoom) && cfg.controlsZoom.length > 0)
   );
 
-  if (!hasCameraMetadata) {
-    await fitCameraToCenteredObject(_object, false);
-  }
+    await fitCameraToCenteredObject(_object, !hasCameraMetadata);
 }
 
   // Show interaction hint on first load
