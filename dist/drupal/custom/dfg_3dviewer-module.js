@@ -1128,7 +1128,7 @@ function normalizeNoticeArgs(toneOrOptions, maybeOptions) {
   return { tone, options };
 }
 
-const toastHelper$1 = (key, toneOrOptions, maybeOptions) => {
+const toastHelper = (key, toneOrOptions, maybeOptions) => {
   return showToast(`toasts.${key}`, toneOrOptions, maybeOptions);
 };
 
@@ -2043,7 +2043,7 @@ function setupClippingPlanes(_geom, _distance) {
   core.distanceGeometry = _distance;
   scaleXYZ(core.distanceGeometry, 2);
   const showClippingPlaneToast = (axisLabel, enabled) => {
-    toastHelper$1("clippingHelperToggle", "info", {
+    toastHelper("clippingHelperToggle", "info", {
       axis: axisLabel,
       state: enabled
     });
@@ -2386,7 +2386,7 @@ function attachEmbedConfigurator(Viewer) {
 
     notifyMissingEmbedSource({ force = false } = {}) {
       if (!force && this.embedMissingSourceNotified) return;
-      toastHelper$1("embedSourceMissing", "warning");
+      toastHelper("embedSourceMissing", "warning");
       this.embedMissingSourceNotified = true;
     },
 
@@ -2576,10 +2576,10 @@ function attachEmbedConfigurator(Viewer) {
           }
           const payload = this.buildEmbedPayload(options);
           await this.copyTextToClipboard(payload.url);
-          toastHelper$1("embedUrlCopied", "success");
+          toastHelper("embedUrlCopied", "success");
         } catch (error) {
           this.reportError(error, { context: "Copy embed URL failed" });
-          toastHelper$1("embedUrlCopyError", "error");
+          toastHelper("embedUrlCopyError", "error");
         }
       });
       this.bindEventListener(copyIframeButton, "click", async () => {
@@ -2591,10 +2591,10 @@ function attachEmbedConfigurator(Viewer) {
           }
           const payload = this.buildEmbedPayload(options);
           await this.copyTextToClipboard(payload.code);
-          toastHelper$1("embedIframeCopied", "success");
+          toastHelper("embedIframeCopied", "success");
         } catch (error) {
           this.reportError(error, { context: "Copy embed iframe failed" });
-          toastHelper$1("embedIframeCopyError", "error");
+          toastHelper("embedIframeCopyError", "error");
         }
       });
 
@@ -2608,10 +2608,10 @@ function attachEmbedConfigurator(Viewer) {
       try {
         const { code } = this.getSharePayload();
         await this.copyTextToClipboard(code);
-        toastHelper$1("embedCodeCopied", "success");
+        toastHelper("embedCodeCopied", "success");
       } catch (error) {
         this.reportError(error, { context: "Copy embed code failed" });
-        toastHelper$1("embedCodeCopyError", "error");
+        toastHelper("embedCodeCopyError", "error");
       }
     },
 
@@ -4689,10 +4689,10 @@ async function saveEditorMetadata(viewer) {
       })
     });
 
-    toastHelper$1("settingsSaved", "success");
+    toastHelper("settingsSaved", "success");
   } catch (err) {
     console.error(err);
-    toastHelper$1("settingsSaveError", "error");
+    toastHelper("settingsSaveError", "error");
   }
 }
 
@@ -4856,7 +4856,7 @@ function attachAnnotations(Viewer) {
     openAnnotationDialogFromPOIMarker(marker) {
       const entries = this.getAnnotationEntriesForPOIMarker(marker);
       if (!entries.length) {
-        toastHelper$1("annotationDataMissing", "warning");
+        toastHelper("annotationDataMissing", "warning");
         return false;
       }
 
@@ -5033,7 +5033,7 @@ function attachAnnotations(Viewer) {
 
     openAnnotationDialog() {
       if (!Array.isArray(this.selectedFaces) || this.selectedFaces.length === 0) {
-        toastHelper$1("selectFaceRequired", "warning");
+        toastHelper("selectFaceRequired", "warning");
         return;
       }
 
@@ -5083,14 +5083,14 @@ function attachAnnotations(Viewer) {
         this.updateDistanceMeasurementControllerLabel();
         this.updatePickingModeControllerLabel();
         this.updatePickingControlsVisibility();
-        toastHelper$1("featureToggle", "info", {
+        toastHelper("featureToggle", "info", {
           feature: "Face picking",
           state: "enabled"
         });
       }
 
       if (!Array.isArray(this.selectedFaces) || this.selectedFaces.length === 0) {
-        toastHelper$1("selectFaceRequiredAgain", "warning");
+        toastHelper("selectFaceRequiredAgain", "warning");
         return;
       }
 
@@ -5106,7 +5106,7 @@ function attachAnnotations(Viewer) {
 
     saveAnnotationFromDialog() {
       if (!Array.isArray(this.annotationTargetFaceKeys) || this.annotationTargetFaceKeys.length === 0) {
-        toastHelper$1("noFacesSelected", "warning");
+        toastHelper("noFacesSelected", "warning");
         this.closeAnnotationDialog();
         return;
       }
@@ -5115,7 +5115,7 @@ function attachAnnotations(Viewer) {
       const description = String(this.annotationDialogDescriptionInput?.value || "").trim();
 
       if (!title) {
-        toastHelper$1("titleRequired", "warning");
+        toastHelper("titleRequired", "warning");
         this.annotationDialogTitleInput?.focus();
         return;
       }
@@ -5135,7 +5135,7 @@ function attachAnnotations(Viewer) {
         })
         .filter(Boolean);
       if (selectedFaces.length === 0) {
-        toastHelper$1("facesInactive", "warning");
+        toastHelper("facesInactive", "warning");
         this.closeAnnotationDialog();
         return;
       }
@@ -5187,7 +5187,7 @@ function attachAnnotations(Viewer) {
 
       const totalChanged = updatedCount + addedCount;
       if (totalChanged > 0) {
-        toastHelper$1("annotationsSaved", "success", {
+        toastHelper("annotationsSaved", "success", {
           count: totalChanged,
           plural: totalChanged === 1 ? "" : "s"
         });
@@ -5283,7 +5283,7 @@ function attachAnnotations(Viewer) {
     downloadAnnotationsXmlFile() {
       const xml = this.exportAnnotationsToIIIFXml();
       if (!xml) {
-        toastHelper$1("noAnnotationsToExport", "warning");
+        toastHelper("noAnnotationsToExport", "warning");
         return false;
       }
 
@@ -5300,7 +5300,7 @@ function attachAnnotations(Viewer) {
       link.click();
       document.body.removeChild(link);
       setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
-      toastHelper$1("annotationsExported", "success");
+      toastHelper("annotationsExported", "success");
       return true;
     },
 
@@ -5319,16 +5319,16 @@ function attachAnnotations(Viewer) {
           const xmlText = await file.text();
           const imported = this.importAnnotationsFromIIIFXml(xmlText);
           if (imported > 0) {
-            toastHelper$1("annotationsImported", "success", {
+            toastHelper("annotationsImported", "success", {
               count: imported,
               plural: imported === 1 ? "" : "s"
             });
           } else {
-            toastHelper$1("noValidAnnotations", "warning");
+            toastHelper("noValidAnnotations", "warning");
           }
         } catch (error) {
           console.error(error);
-          toastHelper$1("annotationsImportError", "error");
+          toastHelper("annotationsImportError", "error");
         } finally {
           target.value = "";
         }
@@ -7068,7 +7068,7 @@ async function loadModel() {
     const MTLLoader = await loadMTLLoader();
     const OBJLoader = await loadOBJLoader();
     const manager = new THREE.LoadingManager();
-    manager.onLoad = () => toastHelper$1("objLoaded", "success");
+    manager.onLoad = () => toastHelper("objLoaded", "success");
     manager.addHandler(/\.dds$/i, new DDSLoader());
 
     const basename = core.fileObject.filename.replace(/\.[^/.]+$/, "");
@@ -7094,7 +7094,7 @@ async function loadModel() {
         return obj;
       } catch (error) {
         core.CONFIG.noMTL = true;
-        toastHelper$1("mtlLoadError", "error");
+        toastHelper("mtlLoadError", "error");
         console.warn("MTL load failed, falling back to OBJ-only load.", error);
       }
     }
@@ -7310,7 +7310,7 @@ async function loadModel() {
         break;
       }
       default:
-        toastHelper$1("unsupportedExtension", "warning");
+        toastHelper("unsupportedExtension", "warning");
         core.loadingLog?.fail?.();
         return;
     }
@@ -7321,11 +7321,11 @@ async function loadModel() {
     core.editorToolbar?.classList.add('editorToolbar-visible');
     core.loadingLog?.finish?.();
     if (!core.PRESENTATION_MODE) {
-      toastHelper$1("modelLoaded", "success", {
+      toastHelper("modelLoaded", "success", {
         filename: core.fileObject.filename
       });
     } else {
-      toastHelper$1("presentationModeReady", "success");
+      toastHelper("presentationModeReady", "success");
     }
     if (typeof core.EXIT_CODE !== "undefined") core.EXIT_CODE = 0;
     core.UltraLoader?.finish();
@@ -15315,7 +15315,7 @@ async function loadDroppedModel (file) {
     Viewer.dismissStatusNotice("sandbox-drop-model");
   }
 
-  toastHelper$1("modelLoadedSimple", "success");
+  toastHelper("modelLoadedSimple", "success");
 }
 function clearCurrentModel () {
   if (!core.mainObject || core.mainObject.length === 0) {
@@ -15406,7 +15406,7 @@ async function loadDroppedArchive (archiveFile) {
   } catch (err) {
     console.error(err);
 
-    toastHelper$1("unsupportedFormat", "error");
+    toastHelper("unsupportedFormat", "error");
   }
 }
 function findMainModelFile (files) {
@@ -16142,7 +16142,7 @@ const Viewer$1 = {
 
   togglePickingMode() {
     this.pickingMode = !this.pickingMode;
-    toastHelper$1(this.pickingMode ? "facePickingEnabled" : "facePickingDisabled", {
+    toastHelper(this.pickingMode ? "facePickingEnabled" : "facePickingDisabled", {
       duration: 1400
     });
     if (!this.pickingMode) {
@@ -16161,14 +16161,14 @@ const Viewer$1 = {
   toggleDistanceMeasurement() {
     this.RULER_MODE = !this.RULER_MODE;
     if (this.RULER_MODE) {
-      toastHelper$1("distanceEnabled", {
+      toastHelper("distanceEnabled", {
         duration: 2600
       });
-      toastHelper$1("distanceHint", {
+      toastHelper("distanceHint", {
         duration: 5200
       });
     } else {
-      toastHelper$1(this.RULER_MODE ? "distanceModeEnabled" : "distanceModeDisabled");
+      toastHelper(this.RULER_MODE ? "distanceModeEnabled" : "distanceModeDisabled");
     }
     if (!this.RULER_MODE) {
       this.ruler.forEach((r) => {
@@ -16192,14 +16192,14 @@ const Viewer$1 = {
   toggleClippingPlanesPanel() {
     this.clippingMode = !this.clippingMode;
     if (this.clippingMode) {
-      toastHelper$1("facePickingEnabled", {
+      toastHelper("facePickingEnabled", {
         duration: 2600
       });
-      toastHelper$1("clippingPlanes", {
+      toastHelper("clippingPlanes", {
         duration: 5200
       });
     } else {
-      toastHelper$1("facePickingDisabled");
+      toastHelper("facePickingDisabled");
       if (core.planeHelpers?.length >= 3) {
         core.planeHelpers.forEach((helper) => {
           if (helper) helper.visible = false;
@@ -16271,7 +16271,7 @@ const Viewer$1 = {
       }
     }
 
-    toastHelper$1("clippingHelperToggle", "info", {
+    toastHelper("clippingHelperToggle", "info", {
       axis: axis.toUpperCase(),
       state: active,
     });
@@ -17990,7 +17990,7 @@ const Viewer$1 = {
       return;
     }
 
-    toastHelper$1("unsupportedFormat", "error");
+    toastHelper("unsupportedFormat", "error");
   },
 
   async changeScale() {
@@ -18187,7 +18187,7 @@ const Viewer$1 = {
       window.viewer.modelLoaded = false;
     }
 
-    toastHelper$1("sandboxDropModel", "info", {
+    toastHelper("sandboxDropModel", "info", {
       formats: this.getSupportedFormatsText(),
       archives: this.getSupportedArchiveFormatsText(),
       detailI18nKey: "toasts.supportedFormats",

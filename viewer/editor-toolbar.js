@@ -2,6 +2,7 @@ import THREE from "./init.js";
 
 import { core } from "./core.js";
 import { t } from "./i18n-utils.js";
+import { toastHelper } from './viewer-utils.js';
 
 export function getEditorToolbarIcon(icon) {
   const icons = {

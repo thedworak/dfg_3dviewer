@@ -1,5 +1,5 @@
 import { truncateString } from "./utils.js";
-import { setupObject, setupCamera } from './viewer-utils.js';
+import { setupObject, setupCamera, toastHelper } from './viewer-utils.js';
 import { core } from './core.js';
 import { t } from "./i18n-utils.js";
 
