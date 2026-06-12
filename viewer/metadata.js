@@ -473,8 +473,8 @@ export async function fetchSettings(object) {
   if (core.fileObject.filename.startsWith('blob:')) {
     console.log("Skipping metadata fetch for local file");
   } else if (core.CONFIG.metadataUrl && core.fileObject.uri && core.fileObject.filename) {
-    const metadataPrefix = core.CONFIG.metadataUrl.replace(/\/+$/, '');
-    let normalizedUri = core.fileObject.uri;
+    const metadataPrefix = new URL(core.CONFIG.metadataUrl).href.replace(/\/+$/, '');
+    let normalizedUri = new URL(core.fileObject.uri).href.replace(/\/+$/, '');
 
     if (normalizedUri.startsWith(metadataPrefix)) {
       normalizedUri = normalizedUri.slice(metadataPrefix.length);
