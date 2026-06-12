@@ -8,15 +8,20 @@ if (!isset($_SESSION['admin'])) { header('Location: login.php'); exit; }
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>HDRI</title>
-  <style>body{font-family:Arial;padding:1rem} li{margin:.3rem 0}</style>
+  <link rel="stylesheet" href="style.css">
+  <style>li{margin:.3rem 0}</style>
 </head>
 <body>
-  <h1>HDRI</h1>
-  <form id="upload" enctype="multipart/form-data">
-    <input type="file" name="file"> <button>Upload</button>
-  </form>
-  <ul id="list"></ul>
-  <p><a href="index.php">Wróć</a></p>
+  <div class="wrap">
+    <header class="site"><h1>HDRI</h1><nav class="admin-links"><a href="index.php">Wróć</a></nav></header>
+    <div class="card">
+      <form id="upload" enctype="multipart/form-data">
+        <input type="file" name="file"> <button>Upload</button>
+      </form>
+      <ul id="list"></ul>
+    </div>
+    <p class="footer">Manage HDRI files used by the viewer.</p>
+  </div>
 
   <script>
   async function load(){

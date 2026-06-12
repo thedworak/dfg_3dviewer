@@ -9,34 +9,39 @@ if (!isset($_SESSION['admin'])) { header('Location: login.php'); exit; }
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Viewer Settings</title>
   <link href="https://cdn.jsdelivr.net/npm/jsoneditor@9.9.0/dist/jsoneditor.min.css" rel="stylesheet">
-  <style>body{font-family:Arial;padding:1rem} #editor{height:60vh;border:1px solid #ddd}</style>
+  <link rel="stylesheet" href="style.css">
+  <style>#editor{height:60vh;border:1px solid #ddd}</style>
 </head>
 <body>
-  <h1>Viewer Settings</h1>
-  <div style="margin-bottom:.5rem">
-    <button id="viewTree">Tree View</button>
-    <button id="viewForm">Form View</button>
-  </div>
-  <div id="editor"></div>
-  <div style="margin-top:1rem">
-    <button id="save">Zapisz</button>
-    <button id="reload">Wczytaj</button>
-    <a href="index.php">Wróć</a>
-  </div>
-  <hr>
-  <h3>Schema management</h3>
-  <form id="uploadSchema" enctype="multipart/form-data">
-    <input type="file" name="file" accept="application/json"> <input type="hidden" name="target" value="settings"> <button>Upload Schema</button>
-  </form>
-  <button id="deleteSchema">Delete Schema</button>
-  <div id="schemaMsg" style="margin-top:.5rem;color:green"></div>
-  <h3>Backups</h3>
-  <div id="backupsList">Loading backups...</div>
-  <div id="backupMsg" style="margin-top:.5rem;color:green"></div>
+  <div class="wrap">
+    <header class="site"><h1>Viewer Settings</h1><nav class="admin-links"><a href="index.php">Wróć</a></nav></header>
+    <div class="card">
+      <div style="margin-bottom:.5rem">
+        <button id="viewTree">Tree View</button>
+        <button id="viewForm">Form View</button>
+      </div>
+      <div id="editor"></div>
+      <div style="margin-top:1rem">
+        <button id="save">Zapisz</button>
+        <button id="reload">Wczytaj</button>
+        <a href="index.php">Wróć</a>
+      </div>
+      <hr>
+      <h3>Schema management</h3>
+      <form id="uploadSchema" enctype="multipart/form-data">
+        <input type="file" name="file" accept="application/json"> <input type="hidden" name="target" value="settings"> <button>Upload Schema</button>
+      </form>
+      <button id="deleteSchema">Delete Schema</button>
+      <div id="schemaMsg" style="margin-top:.5rem;color:green"></div>
+      <h3>Backups</h3>
+      <div id="backupsList">Loading backups...</div>
+      <div id="backupMsg" style="margin-top:.5rem;color:green"></div>
+    </div>
 
   <script src="https://cdn.jsdelivr.net/npm/jsoneditor@9.9.0/dist/jsoneditor.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/ajv@8.12.0/dist/ajv7.min.js"></script>
   <script>
+  (async ()=>{
   const container = document.getElementById('editor');
   let editor = null;
   let schema = null;
@@ -107,6 +112,8 @@ if (!isset($_SESSION['admin'])) { header('Location: login.php'); exit; }
     });
   }
   loadBackups();
+  })();
   </script>
+    </div> <!-- .wrap -->
 </body>
 </html>

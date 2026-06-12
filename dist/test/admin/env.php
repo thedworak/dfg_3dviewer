@@ -8,22 +8,26 @@ if (!isset($_SESSION['admin'])) { header('Location: login.php'); exit; }
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Environment</title>
-  <style>body{font-family:Arial;padding:1rem} table{border-collapse:collapse} td,th{padding:.3rem;border:1px solid #ddd}</style>
+  <link rel="stylesheet" href="style.css">
+  <style>table{border-collapse:collapse} td,th{padding:.3rem;border:1px solid #ddd}</style>
 </head>
 <body>
-  <h1>Environment (.env)</h1>
-  <table id="tbl"><thead><tr><th>Key</th><th>Value</th><th></th></tr></thead><tbody></tbody></table>
-  <div style="margin-top:.5rem"><button id="add">Dodaj</button> <button id="save">Zapisz</button> <a href="index.php">Wróć</a></div>
-  <hr>
-  <h3>Env Schema</h3>
-  <form id="uploadEnvSchema" enctype="multipart/form-data">
-    <input type="file" name="file" accept="application/json"> <input type="hidden" name="target" value="env"> <button>Upload Env Schema</button>
-  </form>
-  <button id="deleteEnvSchema">Delete Env Schema</button>
-  <div id="envSchemaMsg" style="margin-top:.5rem;color:green"></div>
-  <h3>Backups</h3>
-  <div id="envBackups">Loading backups...</div>
-  <div id="envBackupMsg" style="margin-top:.5rem;color:green"></div>
+  <div class="wrap">
+    <header class="site"><h1>Environment (.env)</h1><nav class="admin-links"><a href="index.php">Wróć</a></nav></header>
+    <div class="card">
+      <table id="tbl"><thead><tr><th>Key</th><th>Value</th><th></th></tr></thead><tbody></tbody></table>
+      <div style="margin-top:.5rem"><button id="add">Dodaj</button> <button id="save">Zapisz</button> <a href="index.php">Wróć</a></div>
+      <hr>
+      <h3>Env Schema</h3>
+      <form id="uploadEnvSchema" enctype="multipart/form-data">
+        <input type="file" name="file" accept="application/json"> <input type="hidden" name="target" value="env"> <button>Upload Env Schema</button>
+      </form>
+      <button id="deleteEnvSchema">Delete Env Schema</button>
+      <div id="envSchemaMsg" style="margin-top:.5rem;color:green"></div>
+      <h3>Backups</h3>
+      <div id="envBackups">Loading backups...</div>
+      <div id="envBackupMsg" style="margin-top:.5rem;color:green"></div>
+    </div>
 
   <script src="https://cdn.jsdelivr.net/npm/ajv@8.12.0/dist/ajv7.min.js"></script>
   <script>
@@ -68,6 +72,7 @@ if (!isset($_SESSION['admin'])) { header('Location: login.php'); exit; }
     const j = await res.json(); alert(JSON.stringify(j));
   });
 
+  (async ()=>{
   await loadSchema();
   load();
   document.getElementById('uploadEnvSchema').addEventListener('submit', async (e)=>{
@@ -88,6 +93,8 @@ if (!isset($_SESSION['admin'])) { header('Location: login.php'); exit; }
     });
   }
   loadEnvBackups();
+  })();
   </script>
+    </div> <!-- .wrap -->
 </body>
 </html>

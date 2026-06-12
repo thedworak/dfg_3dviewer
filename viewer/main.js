@@ -1861,7 +1861,13 @@ export const Viewer = {
   },
 
   normalizeDrupalFilesPath(path) {
+    if (!path || typeof path !== 'string') {
+      return '';
+    }
+
     return path
+      .replace(/^https?:\/{1,2}[^/]+\/?/, '')
+      .replace(/^public:\/\//, '')
       .replace(/^\/?sites\/default\/files\/?/, '')
       .replace(/\/+/g, '/')
       .replace(/\/$/, '');

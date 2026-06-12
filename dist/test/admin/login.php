@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: index.php');
         exit;
     }
-    $error = 'Nieprawidłowe dane logowania';
+    $error = 'Invalid login credentials. Please try again.';
 }
 ?>
 <!doctype html>
@@ -26,15 +26,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Admin Login</title>
-  <style>body{font-family:Arial,Helvetica,sans-serif;padding:2rem} form{max-width:320px}</style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Panel Admin</h1>
-  <?php if ($error): ?><p style="color:red"><?php echo htmlentities($error) ?></p><?php endif ?>
-  <form method="post">
-    <div><label>Użytkownik<br><input name="username" required></label></div>
-    <div><label>Hasło<br><input name="password" type="password" required></label></div>
-    <div style="margin-top:1rem"><button type="submit">Zaloguj</button></div>
-  </form>
+  <div class="wrap">
+    <header class="site"><h1>Panel Admin</h1></header>
+    <div class="card">
+      <?php if ($error): ?><div class="msg err"><?php echo htmlentities($error) ?></div><?php endif ?>
+      <form method="post" class="login-form">
+        <label>Username<input name="username" required></label>
+        <label>Password<input name="password" type="password" required></label>
+        <div style="margin-top:1rem"><button type="submit">Login</button></div>
+      </form>
+    </div>
+    <div class="footer">If you don't have an account, run <code>php viewer/admin/create_admin.php &lt;user&gt; &lt;pass&gt;</code></div>
+  </div>
 </body>
 </html>

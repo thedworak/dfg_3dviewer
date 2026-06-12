@@ -11,17 +11,20 @@ if (!isset($_SESSION['admin'])) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Admin Panel</title>
-  <style>body{font-family:Arial,Helvetica,sans-serif;padding:1rem}</style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Panel Admin</h1>
-  <p>Zalogowany jako <strong><?php echo htmlentities($_SESSION['admin']) ?></strong></p>
-  <ul>
-    <li><a href="settings.php">Viewer Settings</a> (coming)</li>
-    <li><a href="env.php">Environment</a> (coming)</li>
-    <li><a href="hdri.php">HDRI</a> (coming)</li>
-    <li><a href="actions.php">Maintenance</a> (coming)</li>
-  </ul>
-  <p><a href="logout.php">Wyloguj</a></p>
+  <div class="wrap">
+    <header class="site"><h1>Admin Panel</h1><nav class="admin-links"><a href="logout.php">Logout</a></nav></header>
+    <div class="card">
+      <p>Logged in as <strong><?php echo htmlentities($_SESSION['admin']) ?></strong></p>
+      <div class="flex">
+        <a class="small" href="settings.php">Viewer Settings</a>
+        <a class="small" href="env.php">Environment</a>
+        <a class="small" href="hdri.php">HDRI</a>
+        <a class="small" href="actions.php">Maintenance</a>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
