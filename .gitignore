@@ -31,3 +31,5 @@ viewer-settings.json
 /playwright/.auth/
 
 .codex
+
+/viewer/admin/admin.sqlite
