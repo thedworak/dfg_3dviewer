@@ -505,8 +505,10 @@ export async function fetchSettings(object) {
       settingsHandler(object, hierarchyMain, data);
     } else {
       const data = await loadMetadataData(metadataUrl);
+      console.log("Metadata data:", data);
       window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
       await handleMetadataResponse(data, metadata, object, hierarchyMain);
+      settingsHandler(object, hierarchyMain, data);
     }
   } else {
     window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(null);
