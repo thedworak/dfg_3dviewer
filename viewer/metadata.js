@@ -408,10 +408,9 @@ export async function settingsHandler(object, hierarchyMain, data) {
 }
 
 async function loadMetadataData(metadataUrl) {
-  // proxy / non-lightweight
-  if (core.CONFIG.entity.proxyPath !== undefined || metadataUrl === null || metadataUrl === '') {
-    console.log("No metadata found due to proxy or null URL", core.CONFIG.entity.proxyPath);
-    return null; // no data → proxy
+  if (metadataUrl === null || metadataUrl === '') {
+    console.log("No metadata found due to null or empty metadata URL", metadataUrl);
+    return null;
   }
 
   try {
@@ -503,7 +502,7 @@ export async function fetchSettings(object) {
       const data = await loadMetadataData(metadataUrl);
       window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
       await handleMetadataResponse(data, metadata, object, hierarchyMain);
-      settingsHandler(object, hierarchyMain, core.CONFIG);
+      settingsHandler(object, hierarchyMain, data);
     } else {
       const data = await loadMetadataData(metadataUrl);
       window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
