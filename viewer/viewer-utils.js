@@ -547,13 +547,7 @@ export async function setupCamera(_object, _data) {
   core.camera.updateProjectionMatrix();
   core.controls?.update();
 
-  const hasCameraMetadata = Boolean(
-    cfg?.cameraPosition ||
-    cfg?.controlsTarget ||
-    (Array.isArray(cfg?.controlsZoom) && cfg.controlsZoom.length > 0)
-  );
-
-    await fitCameraToCenteredObject(_object, !hasCameraMetadata);
+  await fitCameraToCenteredObject(_object, false, cfg);
 }
 
   // Show interaction hint on first load
@@ -657,7 +651,7 @@ function animateCameraToPose ({
   });
 }
 
-async function fitCameraToCenteredObject(object, _fit) {
+async function fitCameraToCenteredObject(object, _fit, cfg) {
   const boundingBox = new THREE.Box3();
   if (Array.isArray(object)) {
     for (let i = 0; i < object.length; i++) {
@@ -735,6 +729,23 @@ async function fitCameraToCenteredObject(object, _fit) {
 
   const finalCameraPos = center.clone().add(dir);
   const finalTarget = center.clone();
+
+  // === override from config if available ===
+  if (cfg?.cameraPosition?.length === 3) {
+    finalCameraPos.set(
+      cfg.cameraPosition[0],
+      cfg.cameraPosition[1],
+      cfg.cameraPosition[2]
+    );
+  }
+
+  if (cfg?.controlsTarget?.length === 3) {
+    finalTarget.set(
+      cfg.controlsTarget[0],
+      cfg.controlsTarget[1],
+      cfg.controlsTarget[2]
+    );
+  }
 
   // Store reset position for "Reset camera" action
   core.cameraCoords = finalCameraPos.clone();
