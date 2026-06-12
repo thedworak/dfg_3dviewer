@@ -1637,7 +1637,8 @@ async function setupCamera(_object, _data) {
 
   core.camera.updateProjectionMatrix();
   core.controls?.update();
-  fitCameraToCenteredObject(_object, false);
+
+  await fitCameraToCenteredObject(_object, false, cfg);
 }
 
   // Show interaction hint on first load
@@ -1741,7 +1742,7 @@ function animateCameraToPose ({
   });
 }
 
-async function fitCameraToCenteredObject(object, _fit) {
+async function fitCameraToCenteredObject(object, _fit, cfg) {
   const boundingBox = new THREE.Box3();
   if (Array.isArray(object)) {
     for (let i = 0; i < object.length; i++) {
@@ -1819,6 +1820,23 @@ async function fitCameraToCenteredObject(object, _fit) {
 
   const finalCameraPos = center.clone().add(dir);
   const finalTarget = center.clone();
+
+  // === override from config if available ===
+  if (cfg?.cameraPosition?.length === 3) {
+    finalCameraPos.set(
+      cfg.cameraPosition[0],
+      cfg.cameraPosition[1],
+      cfg.cameraPosition[2]
+    );
+  }
+
+  if (cfg?.controlsTarget?.length === 3) {
+    finalTarget.set(
+      cfg.controlsTarget[0],
+      cfg.controlsTarget[1],
+      cfg.controlsTarget[2]
+    );
+  }
 
   // Store reset position for "Reset camera" action
   core.cameraCoords = finalCameraPos.clone();
@@ -6369,7 +6387,6 @@ async function handleMetadataResponse(
   data,
   metadata,
   object,
-  hierarchyMain,
 ) {
   Viewer.clearHierarchySubmenu();
   if (Array.isArray(object)) {
@@ -6505,10 +6522,9 @@ async function settingsHandler(object, hierarchyMain, data) {
 }
 
 async function loadMetadataData(metadataUrl) {
-  // proxy / non-lightweight
-  if (core.CONFIG.entity.proxyPath !== undefined || metadataUrl === null || metadataUrl === '') {
-    console.log("No metadata found due to proxy or null URL", core.CONFIG.entity.proxyPath);
-    return null; // no data → proxy
+  if (metadataUrl === null || metadataUrl === '') {
+    console.log("No metadata found due to null or empty metadata URL", metadataUrl);
+    return null;
   }
 
   try {
@@ -6600,11 +6616,12 @@ async function fetchSettings(object) {
       const data = await loadMetadataData(metadataUrl);
       window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
       await handleMetadataResponse(data, metadata, object);
-      settingsHandler(object, hierarchyMain, core.CONFIG);
+      settingsHandler(object, hierarchyMain, data);
     } else {
       const data = await loadMetadataData(metadataUrl);
       window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
       await handleMetadataResponse(data, metadata, object);
+      settingsHandler(object, hierarchyMain, data);
     }
   } else {
     window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(null);
