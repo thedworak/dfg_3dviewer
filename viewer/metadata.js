@@ -482,7 +482,7 @@ export async function fetchSettings(object) {
 
     normalizedUri = normalizedUri.replace(/^\/+/, '');
     metadataUrl = new URL(
-      `${metadataPrefix}/${normalizedUri}metadata/${core.fileObject.filename}_viewer.json`
+      `${metadataPrefix}/${normalizedUri}/metadata/${core.fileObject.filename}_viewer.json`
     ).href;
     console.log("Fetched metadata from:", metadataUrl);
   } else {
