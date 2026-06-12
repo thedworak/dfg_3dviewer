@@ -546,7 +546,16 @@ export async function setupCamera(_object, _data) {
 
   core.camera.updateProjectionMatrix();
   core.controls?.update();
-  fitCameraToCenteredObject(_object, false);
+
+  const hasCameraMetadata = Boolean(
+    cfg?.cameraPosition ||
+    cfg?.controlsTarget ||
+    (Array.isArray(cfg?.controlsZoom) && cfg.controlsZoom.length > 0)
+  );
+
+  if (!hasCameraMetadata) {
+    await fitCameraToCenteredObject(_object, false);
+  }
 }
 
   // Show interaction hint on first load

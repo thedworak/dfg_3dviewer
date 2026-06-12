@@ -1637,7 +1637,16 @@ async function setupCamera(_object, _data) {
 
   core.camera.updateProjectionMatrix();
   core.controls?.update();
-  fitCameraToCenteredObject(_object, false);
+
+  const hasCameraMetadata = Boolean(
+    cfg?.cameraPosition ||
+    cfg?.controlsTarget ||
+    (Array.isArray(cfg?.controlsZoom) && cfg.controlsZoom.length > 0)
+  );
+
+  if (!hasCameraMetadata) {
+    await fitCameraToCenteredObject(_object, false);
+  }
 }
 
   // Show interaction hint on first load
@@ -6369,7 +6378,6 @@ async function handleMetadataResponse(
   data,
   metadata,
   object,
-  hierarchyMain,
 ) {
   Viewer.clearHierarchySubmenu();
   if (Array.isArray(object)) {
@@ -6602,7 +6610,6 @@ async function fetchSettings(object) {
       settingsHandler(object, hierarchyMain, data);
     } else {
       const data = await loadMetadataData(metadataUrl);
-      console.log("Metadata data:", data);
       window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
       await handleMetadataResponse(data, metadata, object);
       settingsHandler(object, hierarchyMain, data);

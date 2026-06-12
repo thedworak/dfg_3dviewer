@@ -270,7 +270,6 @@ export async function handleMetadataResponse(
   data,
   metadata,
   object,
-  hierarchyMain,
 ) {
   Viewer.clearHierarchySubmenu();
   
@@ -493,7 +492,7 @@ export async function fetchSettings(object) {
   
   if (core.CONFIG.entity.metadata.sourceType === "IIIF") {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);
-    await handleMetadataResponse( core.CONFIG.model, metadata, object, hierarchyMain);
+    await handleMetadataResponse( core.CONFIG.model, metadata, object);
   }
   else if (metadataUrl) {
     console.log("Loading metadata from URL:", metadataUrl);
@@ -501,18 +500,17 @@ export async function fetchSettings(object) {
       metadataUrl = core.getProxyPath(metadataUrl, core.CONFIG);
       const data = await loadMetadataData(metadataUrl);
       window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
-      await handleMetadataResponse(data, metadata, object, hierarchyMain);
+      await handleMetadataResponse(data, metadata, object);
       settingsHandler(object, hierarchyMain, data);
     } else {
       const data = await loadMetadataData(metadataUrl);
-      console.log("Metadata data:", data);
       window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
-      await handleMetadataResponse(data, metadata, object, hierarchyMain);
+      await handleMetadataResponse(data, metadata, object);
       settingsHandler(object, hierarchyMain, data);
     }
   } else {
     window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(null);
-    await handleMetadataResponse("", metadata, object, hierarchyMain);
+    await handleMetadataResponse("", metadata, object);
   }
 }
 
