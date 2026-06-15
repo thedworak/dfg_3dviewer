@@ -1,5 +1,5 @@
 import { truncateString } from "./utils.js";
-import { setupObject, setupCamera } from './viewer-utils.js';
+import { setupObject, setupCamera, toastHelper } from './viewer-utils.js';
 import { core } from './core.js';
 import { t } from "./i18n-utils.js";
 
@@ -270,7 +270,6 @@ export async function handleMetadataResponse(
   data,
   metadata,
   object,
-  hierarchyMain,
 ) {
   Viewer.clearHierarchySubmenu();
   
@@ -408,10 +407,9 @@ export async function settingsHandler(object, hierarchyMain, data) {
 }
 
 async function loadMetadataData(metadataUrl) {
-  // proxy / non-lightweight
-  if (core.CONFIG.entity.proxyPath !== undefined || metadataUrl === null || metadataUrl === '') {
-    console.log("No metadata found due to proxy or null URL", core.CONFIG.entity.proxyPath);
-    return null; // no data → proxy
+  if (metadataUrl === null || metadataUrl === '') {
+    console.log("No metadata found due to null or empty metadata URL", metadataUrl);
+    return null;
   }
 
   try {
@@ -473,8 +471,16 @@ export async function fetchSettings(object) {
   if (core.fileObject.filename.startsWith('blob:')) {
     console.log("Skipping metadata fetch for local file");
   } else if (core.CONFIG.metadataUrl && core.fileObject.uri && core.fileObject.filename) {
+    const metadataPrefix = new URL(core.CONFIG.metadataUrl).href.replace(/\/+$/, '');
+    let normalizedUri = new URL(core.fileObject.uri).href.replace(/\/+$/, '');
+
+    if (normalizedUri.startsWith(metadataPrefix)) {
+      normalizedUri = normalizedUri.slice(metadataPrefix.length);
+    }
+
+    normalizedUri = normalizedUri.replace(/^\/+/, '');
     metadataUrl = new URL(
-      `${core.CONFIG.metadataUrl}/${core.fileObject.uri}metadata/${core.fileObject.filename}_viewer.json`
+      `${metadataPrefix}/${normalizedUri}/metadata/${core.fileObject.filename}_viewer.json`
     ).href;
     console.log("Fetched metadata from:", metadataUrl);
   } else {
@@ -486,7 +492,7 @@ export async function fetchSettings(object) {
   
   if (core.CONFIG.entity.metadata.sourceType === "IIIF") {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);
-    await handleMetadataResponse( core.CONFIG.model, metadata, object, hierarchyMain);
+    await handleMetadataResponse( core.CONFIG.model, metadata, object);
   }
   else if (metadataUrl) {
     console.log("Loading metadata from URL:", metadataUrl);
@@ -494,16 +500,17 @@ export async function fetchSettings(object) {
       metadataUrl = core.getProxyPath(metadataUrl, core.CONFIG);
       const data = await loadMetadataData(metadataUrl);
       window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
-      await handleMetadataResponse(data, metadata, object, hierarchyMain);
-      settingsHandler(object, hierarchyMain, core.CONFIG);
+      await handleMetadataResponse(data, metadata, object);
+      settingsHandler(object, hierarchyMain, data);
     } else {
       const data = await loadMetadataData(metadataUrl);
       window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
-      await handleMetadataResponse(data, metadata, object, hierarchyMain);
+      await handleMetadataResponse(data, metadata, object);
+      settingsHandler(object, hierarchyMain, data);
     }
   } else {
     window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(null);
-    await handleMetadataResponse("", metadata, object, hierarchyMain);
+    await handleMetadataResponse("", metadata, object);
   }
 }
 

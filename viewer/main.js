@@ -609,13 +609,13 @@ export const Viewer = {
 
   toggleWireframeMode() {
     if (typeof core.scene === "undefined") return;
-    const isEnabled = !core.scene.traverse((child) => {
+    this.wireframeMode = !this.wireframeMode;
+    core.scene.traverse((child) => {
       if (child.material) {
-        child.material.wireframe = !child.material.wireframe;
+        child.material.wireframe = this.wireframeMode;
         child.material.needsUpdate = true;
       }
-    });
-    this.wireframeMode = isEnabled;
+    });    
     this.updateEditorToolbarLabels();
     this.updateEditorToolbarState();
   },
@@ -1861,7 +1861,13 @@ export const Viewer = {
   },
 
   normalizeDrupalFilesPath(path) {
+    if (!path || typeof path !== 'string') {
+      return '';
+    }
+
     return path
+      .replace(/^https?:\/{1,2}[^/]+\/?/, '')
+      .replace(/^public:\/\//, '')
       .replace(/^\/?sites\/default\/files\/?/, '')
       .replace(/\/+/g, '/')
       .replace(/\/$/, '');

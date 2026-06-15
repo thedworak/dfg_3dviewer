@@ -236,7 +236,7 @@ function traverseMesh(object) {
   }
 }
 
-function getEnvironmentTextureForPreset(renderer, preset = "studio") {
+function getEnvironmentTextureForPreset(renderer, preset = "neutral") {
   if (!renderer) return Promise.resolve(null);
   
   // Initialize cache for this preset if not exists
@@ -274,7 +274,7 @@ function getEnvironmentTextureForPreset(renderer, preset = "studio") {
 
 function getEnvironmentTexture(renderer) {
   // Legacy function for backwards compatibility
-  return getEnvironmentTextureForPreset(renderer, "studio");
+  return getEnvironmentTextureForPreset(renderer, "neutral");
 }
 
 function markEnvironmentMaterialsDirty(root) {
@@ -293,8 +293,8 @@ function markEnvironmentMaterialsDirty(root) {
 export async function syncSceneEnvironment(enabled = true, preset = null) {
   if (!core.scene) return;
   
-  // Use provided preset or fall back to viewer's preset, then studio
-  const effectivePreset = preset || window.viewer?.environmentMapPreset || "studio";
+  // Use provided preset or fall back to viewer's preset, then neutral
+  const effectivePreset = preset || window.viewer?.environmentMapPreset || "neutral";
   
   if (enabled) {
     core.scene.environment = await getEnvironmentTextureForPreset(core.renderer, effectivePreset);

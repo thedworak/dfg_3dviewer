@@ -7,11 +7,11 @@
 }
 
 #viewerEditorToolbar {
-  --viewer-toolbar-gap: 6px;
+  --viewer-toolbar-gap: 2px;
   --viewer-toolbar-height: 58px;
   --viewer-toolbar-visible-offset: 14px;
-  --viewer-toolbar-max-width: 920px;
-  --viewer-toolbar-scale: clamp(0.74, calc((100vw - 112px) / var(--viewer-toolbar-max-width)), 1);
+  --viewer-toolbar-max-width: 1080px;
+  --viewer-toolbar-scale: clamp(0.75, calc((98vw) / var(--viewer-toolbar-max-width)), 1);
 
   position: absolute;
   left: 50%;
@@ -29,7 +29,9 @@
   align-items: center;
   gap: 0;
   padding: 8px;
-  width: max-content;
+  width: fit-content;
+  overflow-x: hidden;
+  overflow-y: visible;
   overflow: visible;
   border-radius: 18px;
   border: 1px solid var(--viewer-panel-border);
@@ -93,6 +95,7 @@
   align-items: center;
   gap: var(--viewer-toolbar-gap);
   max-width: 0;
+  min-width: 0;
   opacity: 0;
   visibility: hidden;
   overflow: hidden;
@@ -204,7 +207,7 @@
 .viewer-editor-tool_submenu {
   position: absolute;
   left: 50%;
-  bottom: calc(100% + 2px);
+  bottom: 100%;
   transform: translateX(-50%) translateY(0);
   display: flex;
   gap: 6px;
@@ -247,8 +250,8 @@
 .viewer-editor-tool_submenu-button {
   width: 34px;
   height: 34px;
-  min-width: 34px;
-  min-height: 34px;
+  min-width: 30px;
+  min-height: 30px;
   padding: 0;
   border-radius: 10px;
   background: transparent;
@@ -366,11 +369,35 @@
 .viewer-editor-tool_submenu.viewer-editor-tool_submenu-materials {
   flex-direction: column;
   align-items: stretch;
+  max-height: 45vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 255, 255, 0.5) transparent;
 }
 
 .viewer-editor-tool_submenu.viewer-editor-tool_submenu-materials .viewer-editor-tool_submenu-button.viewer-editor-tool_submenu-control {
   width: 100%;
   min-width: 0;
+}
+
+.viewer-editor-tool_submenu.viewer-editor-tool_submenu-materials::-webkit-scrollbar {
+  width: 6px;
+}
+
+.viewer-editor-tool_submenu.viewer-editor-tool_submenu-materials::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.viewer-editor-tool_submenu.viewer-editor-tool_submenu-materials::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 255, 0.35);
+  border-radius: 999px;
+  box-shadow:
+    0 0 6px rgba(0, 255, 255, 0.4),
+    0 0 12px rgba(0, 255, 255, 0.2);
+}
+
+.viewer-editor-tool_submenu.viewer-editor-tool_submenu-materials::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 255, 0.6);
 }
 
 .viewer-editor-tool_submenu-materials {
@@ -658,6 +685,26 @@
 .viewer-editor-hierarchy-submenu-list::-webkit-scrollbar-thumb {
   border-radius: 6px;
   background-color: rgba(127, 127, 127, 0.65);
+}
+
+.viewer-editor-hierarchy-submenu-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.viewer-editor-hierarchy-submenu-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.viewer-editor-hierarchy-submenu-list::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 255, 0.35);
+  border-radius: 999px;
+  box-shadow:
+    0 0 6px rgba(0, 255, 255, 0.4),
+    0 0 12px rgba(0, 255, 255, 0.2);
+}
+
+.viewer-editor-hierarchy-submenu-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 255, 0.6);
 }
 
 .viewer-editor-tool_icon {
@@ -1174,6 +1221,7 @@
   transition-delay: 0.12s;
 }
 
+
 @media (max-width: 640px) {
   .materials-dialog__grid {
     grid-template-columns: 1fr;
@@ -1186,16 +1234,11 @@
   }
 
   #viewerEditorToolbar {
-    --viewer-toolbar-scale: clamp(0.68, calc((100vw - 76px) / var(--viewer-toolbar-max-width)), 1);
-    left: 12px;
-    translate: 0 0;
-    width: max-content;
-    justify-content: flex-start;
-    transform-origin: left bottom;
+    overflow-x: auto;
   }
 
   #viewerEditorToolbar.expanded {
-    width: max-content;
+    overflow-x: auto;
   }
 
   .viewer-action-menu_toggle {

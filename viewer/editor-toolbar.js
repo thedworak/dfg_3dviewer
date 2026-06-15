@@ -2,6 +2,7 @@ import THREE from "./init.js";
 
 import { core } from "./core.js";
 import { t } from "./i18n-utils.js";
+import { toastHelper } from './viewer-utils.js';
 
 export function getEditorToolbarIcon(icon) {
   const icons = {
@@ -56,7 +57,19 @@ export function getEditorToolbarIcon(icon) {
 
 export function syncEditorToolbarSecondaryTrayWidth(viewer) {
   if (!viewer.editorToolbarSecondaryTray) return;
-  viewer.editorToolbarSecondaryTray.style.setProperty("--viewer-toolbar-secondary-width", `${viewer.editorToolbarSecondaryTray.scrollWidth}px`);
+
+const width =
+  Array.from(
+    viewer.editorToolbarSecondaryTray.children
+  ).reduce(
+    (sum, el) => sum + el.getBoundingClientRect().width + 10,
+    0
+  );
+
+viewer.editorToolbarSecondaryTray.style.setProperty(
+  "--viewer-toolbar-secondary-width",
+  `${Math.ceil(width)}px`
+);
 }
 
 export function getEditorToolbarHost(viewer) {
@@ -286,6 +299,7 @@ export function createEditorToolbar(viewer) {
 
   viewer.editorToolbarButtons = {};
   viewer.environmentMapPreset = viewer.environmentMapPreset || "neutral";
+
   const secondaryTray = document.createElement("div");
   secondaryTray.className = "viewer-editor-toolbar_secondary-tray";
   viewer.editorToolbarSecondaryTray = secondaryTray;
@@ -675,11 +689,6 @@ export function createEditorToolbar(viewer) {
               value: () => (core.scene?.environmentIntensity ?? 0) > 0,
               onChange: async (value) => {
                 if (!core.scene) return;
-                if (value) {
-                  core.scene.environmentIntensity = 0.5;
-                } else {
-                  core.scene.environmentIntensity = 0;
-                }
                 core.scene.traverse((child) => {
                   const materials = child?.material
                     ? Array.isArray(child.material)

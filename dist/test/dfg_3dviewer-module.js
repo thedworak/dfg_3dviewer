@@ -1128,7 +1128,7 @@ function normalizeNoticeArgs(toneOrOptions, maybeOptions) {
   return { tone, options };
 }
 
-const toastHelper$1 = (key, toneOrOptions, maybeOptions) => {
+const toastHelper = (key, toneOrOptions, maybeOptions) => {
   return showToast(`toasts.${key}`, toneOrOptions, maybeOptions);
 };
 
@@ -1637,7 +1637,8 @@ async function setupCamera(_object, _data) {
 
   core.camera.updateProjectionMatrix();
   core.controls?.update();
-  fitCameraToCenteredObject(_object, false);
+
+  await fitCameraToCenteredObject(_object, false, cfg);
 }
 
   // Show interaction hint on first load
@@ -1741,7 +1742,7 @@ function animateCameraToPose ({
   });
 }
 
-async function fitCameraToCenteredObject(object, _fit) {
+async function fitCameraToCenteredObject(object, _fit, cfg) {
   const boundingBox = new THREE.Box3();
   if (Array.isArray(object)) {
     for (let i = 0; i < object.length; i++) {
@@ -1819,6 +1820,23 @@ async function fitCameraToCenteredObject(object, _fit) {
 
   const finalCameraPos = center.clone().add(dir);
   const finalTarget = center.clone();
+
+  // === override from config if available ===
+  if (cfg?.cameraPosition?.length === 3) {
+    finalCameraPos.set(
+      cfg.cameraPosition[0],
+      cfg.cameraPosition[1],
+      cfg.cameraPosition[2]
+    );
+  }
+
+  if (cfg?.controlsTarget?.length === 3) {
+    finalTarget.set(
+      cfg.controlsTarget[0],
+      cfg.controlsTarget[1],
+      cfg.controlsTarget[2]
+    );
+  }
 
   // Store reset position for "Reset camera" action
   core.cameraCoords = finalCameraPos.clone();
@@ -2043,7 +2061,7 @@ function setupClippingPlanes(_geom, _distance) {
   core.distanceGeometry = _distance;
   scaleXYZ(core.distanceGeometry, 2);
   const showClippingPlaneToast = (axisLabel, enabled) => {
-    toastHelper$1("clippingHelperToggle", "info", {
+    toastHelper("clippingHelperToggle", "info", {
       axis: axisLabel,
       state: enabled
     });
@@ -2386,7 +2404,7 @@ function attachEmbedConfigurator(Viewer) {
 
     notifyMissingEmbedSource({ force = false } = {}) {
       if (!force && this.embedMissingSourceNotified) return;
-      toastHelper$1("embedSourceMissing", "warning");
+      toastHelper("embedSourceMissing", "warning");
       this.embedMissingSourceNotified = true;
     },
 
@@ -2576,10 +2594,10 @@ function attachEmbedConfigurator(Viewer) {
           }
           const payload = this.buildEmbedPayload(options);
           await this.copyTextToClipboard(payload.url);
-          toastHelper$1("embedUrlCopied", "success");
+          toastHelper("embedUrlCopied", "success");
         } catch (error) {
           this.reportError(error, { context: "Copy embed URL failed" });
-          toastHelper$1("embedUrlCopyError", "error");
+          toastHelper("embedUrlCopyError", "error");
         }
       });
       this.bindEventListener(copyIframeButton, "click", async () => {
@@ -2591,10 +2609,10 @@ function attachEmbedConfigurator(Viewer) {
           }
           const payload = this.buildEmbedPayload(options);
           await this.copyTextToClipboard(payload.code);
-          toastHelper$1("embedIframeCopied", "success");
+          toastHelper("embedIframeCopied", "success");
         } catch (error) {
           this.reportError(error, { context: "Copy embed iframe failed" });
-          toastHelper$1("embedIframeCopyError", "error");
+          toastHelper("embedIframeCopyError", "error");
         }
       });
 
@@ -2608,10 +2626,10 @@ function attachEmbedConfigurator(Viewer) {
       try {
         const { code } = this.getSharePayload();
         await this.copyTextToClipboard(code);
-        toastHelper$1("embedCodeCopied", "success");
+        toastHelper("embedCodeCopied", "success");
       } catch (error) {
         this.reportError(error, { context: "Copy embed code failed" });
-        toastHelper$1("embedCodeCopyError", "error");
+        toastHelper("embedCodeCopyError", "error");
       }
     },
 
@@ -4689,10 +4707,10 @@ async function saveEditorMetadata(viewer) {
       })
     });
 
-    toastHelper$1("settingsSaved", "success");
+    toastHelper("settingsSaved", "success");
   } catch (err) {
     console.error(err);
-    toastHelper$1("settingsSaveError", "error");
+    toastHelper("settingsSaveError", "error");
   }
 }
 
@@ -4856,7 +4874,7 @@ function attachAnnotations(Viewer) {
     openAnnotationDialogFromPOIMarker(marker) {
       const entries = this.getAnnotationEntriesForPOIMarker(marker);
       if (!entries.length) {
-        toastHelper$1("annotationDataMissing", "warning");
+        toastHelper("annotationDataMissing", "warning");
         return false;
       }
 
@@ -5033,7 +5051,7 @@ function attachAnnotations(Viewer) {
 
     openAnnotationDialog() {
       if (!Array.isArray(this.selectedFaces) || this.selectedFaces.length === 0) {
-        toastHelper$1("selectFaceRequired", "warning");
+        toastHelper("selectFaceRequired", "warning");
         return;
       }
 
@@ -5083,14 +5101,14 @@ function attachAnnotations(Viewer) {
         this.updateDistanceMeasurementControllerLabel();
         this.updatePickingModeControllerLabel();
         this.updatePickingControlsVisibility();
-        toastHelper$1("featureToggle", "info", {
+        toastHelper("featureToggle", "info", {
           feature: "Face picking",
           state: "enabled"
         });
       }
 
       if (!Array.isArray(this.selectedFaces) || this.selectedFaces.length === 0) {
-        toastHelper$1("selectFaceRequiredAgain", "warning");
+        toastHelper("selectFaceRequiredAgain", "warning");
         return;
       }
 
@@ -5106,7 +5124,7 @@ function attachAnnotations(Viewer) {
 
     saveAnnotationFromDialog() {
       if (!Array.isArray(this.annotationTargetFaceKeys) || this.annotationTargetFaceKeys.length === 0) {
-        toastHelper$1("noFacesSelected", "warning");
+        toastHelper("noFacesSelected", "warning");
         this.closeAnnotationDialog();
         return;
       }
@@ -5115,7 +5133,7 @@ function attachAnnotations(Viewer) {
       const description = String(this.annotationDialogDescriptionInput?.value || "").trim();
 
       if (!title) {
-        toastHelper$1("titleRequired", "warning");
+        toastHelper("titleRequired", "warning");
         this.annotationDialogTitleInput?.focus();
         return;
       }
@@ -5135,7 +5153,7 @@ function attachAnnotations(Viewer) {
         })
         .filter(Boolean);
       if (selectedFaces.length === 0) {
-        toastHelper$1("facesInactive", "warning");
+        toastHelper("facesInactive", "warning");
         this.closeAnnotationDialog();
         return;
       }
@@ -5187,7 +5205,7 @@ function attachAnnotations(Viewer) {
 
       const totalChanged = updatedCount + addedCount;
       if (totalChanged > 0) {
-        toastHelper$1("annotationsSaved", "success", {
+        toastHelper("annotationsSaved", "success", {
           count: totalChanged,
           plural: totalChanged === 1 ? "" : "s"
         });
@@ -5283,7 +5301,7 @@ function attachAnnotations(Viewer) {
     downloadAnnotationsXmlFile() {
       const xml = this.exportAnnotationsToIIIFXml();
       if (!xml) {
-        toastHelper$1("noAnnotationsToExport", "warning");
+        toastHelper("noAnnotationsToExport", "warning");
         return false;
       }
 
@@ -5300,7 +5318,7 @@ function attachAnnotations(Viewer) {
       link.click();
       document.body.removeChild(link);
       setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
-      toastHelper$1("annotationsExported", "success");
+      toastHelper("annotationsExported", "success");
       return true;
     },
 
@@ -5319,16 +5337,16 @@ function attachAnnotations(Viewer) {
           const xmlText = await file.text();
           const imported = this.importAnnotationsFromIIIFXml(xmlText);
           if (imported > 0) {
-            toastHelper$1("annotationsImported", "success", {
+            toastHelper("annotationsImported", "success", {
               count: imported,
               plural: imported === 1 ? "" : "s"
             });
           } else {
-            toastHelper$1("noValidAnnotations", "warning");
+            toastHelper("noValidAnnotations", "warning");
           }
         } catch (error) {
           console.error(error);
-          toastHelper$1("annotationsImportError", "error");
+          toastHelper("annotationsImportError", "error");
         } finally {
           target.value = "";
         }
@@ -6369,7 +6387,6 @@ async function handleMetadataResponse(
   data,
   metadata,
   object,
-  hierarchyMain,
 ) {
   Viewer.clearHierarchySubmenu();
   if (Array.isArray(object)) {
@@ -6505,10 +6522,9 @@ async function settingsHandler(object, hierarchyMain, data) {
 }
 
 async function loadMetadataData(metadataUrl) {
-  // proxy / non-lightweight
-  if (core.CONFIG.entity.proxyPath !== undefined || metadataUrl === null || metadataUrl === '') {
-    console.log("No metadata found due to proxy or null URL", core.CONFIG.entity.proxyPath);
-    return null; // no data → proxy
+  if (metadataUrl === null || metadataUrl === '') {
+    console.log("No metadata found due to null or empty metadata URL", metadataUrl);
+    return null;
   }
 
   try {
@@ -6570,8 +6586,16 @@ async function fetchSettings(object) {
   if (core.fileObject.filename.startsWith('blob:')) {
     console.log("Skipping metadata fetch for local file");
   } else if (core.CONFIG.metadataUrl && core.fileObject.uri && core.fileObject.filename) {
+    const metadataPrefix = new URL(core.CONFIG.metadataUrl).href.replace(/\/+$/, '');
+    let normalizedUri = new URL(core.fileObject.uri).href.replace(/\/+$/, '');
+
+    if (normalizedUri.startsWith(metadataPrefix)) {
+      normalizedUri = normalizedUri.slice(metadataPrefix.length);
+    }
+
+    normalizedUri = normalizedUri.replace(/^\/+/, '');
     metadataUrl = new URL(
-      `${core.CONFIG.metadataUrl}/${core.fileObject.uri}metadata/${core.fileObject.filename}_viewer.json`
+      `${metadataPrefix}/${normalizedUri}/metadata/${core.fileObject.filename}_viewer.json`
     ).href;
     console.log("Fetched metadata from:", metadataUrl);
   } else {
@@ -6592,11 +6616,12 @@ async function fetchSettings(object) {
       const data = await loadMetadataData(metadataUrl);
       window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
       await handleMetadataResponse(data, metadata, object);
-      settingsHandler(object, hierarchyMain, core.CONFIG);
+      settingsHandler(object, hierarchyMain, data);
     } else {
       const data = await loadMetadataData(metadataUrl);
       window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
       await handleMetadataResponse(data, metadata, object);
+      settingsHandler(object, hierarchyMain, data);
     }
   } else {
     window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(null);
@@ -6898,7 +6923,7 @@ function traverseMesh(object) {
   }
 }
 
-function getEnvironmentTextureForPreset(renderer, preset = "studio") {
+function getEnvironmentTextureForPreset(renderer, preset = "neutral") {
   if (!renderer) return Promise.resolve(null);
   
   // Initialize cache for this preset if not exists
@@ -6950,8 +6975,8 @@ function markEnvironmentMaterialsDirty(root) {
 async function syncSceneEnvironment(enabled = true, preset = null) {
   if (!core.scene) return;
   
-  // Use provided preset or fall back to viewer's preset, then studio
-  const effectivePreset = preset || window.viewer?.environmentMapPreset || "studio";
+  // Use provided preset or fall back to viewer's preset, then neutral
+  const effectivePreset = preset || window.viewer?.environmentMapPreset || "neutral";
   
   if (enabled) {
     core.scene.environment = await getEnvironmentTextureForPreset(core.renderer, effectivePreset);
@@ -7068,7 +7093,7 @@ async function loadModel() {
     const MTLLoader = await loadMTLLoader();
     const OBJLoader = await loadOBJLoader();
     const manager = new THREE.LoadingManager();
-    manager.onLoad = () => toastHelper$1("objLoaded", "success");
+    manager.onLoad = () => toastHelper("objLoaded", "success");
     manager.addHandler(/\.dds$/i, new DDSLoader());
 
     const basename = core.fileObject.filename.replace(/\.[^/.]+$/, "");
@@ -7094,7 +7119,7 @@ async function loadModel() {
         return obj;
       } catch (error) {
         core.CONFIG.noMTL = true;
-        toastHelper$1("mtlLoadError", "error");
+        toastHelper("mtlLoadError", "error");
         console.warn("MTL load failed, falling back to OBJ-only load.", error);
       }
     }
@@ -7300,7 +7325,7 @@ async function loadModel() {
         break;
       }
       default:
-        toastHelper$1("unsupportedExtension", "warning");
+        toastHelper("unsupportedExtension", "warning");
         core.loadingLog?.fail?.();
         return;
     }
@@ -7311,11 +7336,11 @@ async function loadModel() {
     core.editorToolbar?.classList.add('editorToolbar-visible');
     core.loadingLog?.finish?.();
     if (!core.PRESENTATION_MODE) {
-      toastHelper$1("modelLoaded", "success", {
+      toastHelper("modelLoaded", "success", {
         filename: core.fileObject.filename
       });
     } else {
-      toastHelper$1("presentationModeReady", "success");
+      toastHelper("presentationModeReady", "success");
     }
     if (typeof core.EXIT_CODE !== "undefined") core.EXIT_CODE = 0;
     core.UltraLoader?.finish();
@@ -13589,7 +13614,19 @@ function getEditorToolbarIcon(icon) {
 
 function syncEditorToolbarSecondaryTrayWidth(viewer) {
   if (!viewer.editorToolbarSecondaryTray) return;
-  viewer.editorToolbarSecondaryTray.style.setProperty("--viewer-toolbar-secondary-width", `${viewer.editorToolbarSecondaryTray.scrollWidth}px`);
+
+const width =
+  Array.from(
+    viewer.editorToolbarSecondaryTray.children
+  ).reduce(
+    (sum, el) => sum + el.getBoundingClientRect().width + 10,
+    0
+  );
+
+viewer.editorToolbarSecondaryTray.style.setProperty(
+  "--viewer-toolbar-secondary-width",
+  `${Math.ceil(width)}px`
+);
 }
 
 function getEditorToolbarHost(viewer) {
@@ -13819,6 +13856,7 @@ function createEditorToolbar(viewer) {
 
   viewer.editorToolbarButtons = {};
   viewer.environmentMapPreset = viewer.environmentMapPreset || "neutral";
+
   const secondaryTray = document.createElement("div");
   secondaryTray.className = "viewer-editor-toolbar_secondary-tray";
   viewer.editorToolbarSecondaryTray = secondaryTray;
@@ -14208,11 +14246,6 @@ function createEditorToolbar(viewer) {
               value: () => (core.scene?.environmentIntensity ?? 0) > 0,
               onChange: async (value) => {
                 if (!core.scene) return;
-                if (value) {
-                  core.scene.environmentIntensity = 0.5;
-                } else {
-                  core.scene.environmentIntensity = 0;
-                }
                 core.scene.traverse((child) => {
                   const materials = child?.material
                     ? Array.isArray(child.material)
@@ -15272,7 +15305,7 @@ async function loadDroppedModel (file) {
     Viewer.dismissStatusNotice("sandbox-drop-model");
   }
 
-  toastHelper$1("modelLoadedSimple", "success");
+  toastHelper("modelLoadedSimple", "success");
 }
 function clearCurrentModel () {
   if (!core.mainObject || core.mainObject.length === 0) {
@@ -15363,7 +15396,7 @@ async function loadDroppedArchive (archiveFile) {
   } catch (err) {
     console.error(err);
 
-    toastHelper$1("unsupportedFormat", "error");
+    toastHelper("unsupportedFormat", "error");
   }
 }
 function findMainModelFile (files) {
@@ -15930,13 +15963,13 @@ const Viewer$1 = {
 
   toggleWireframeMode() {
     if (typeof core.scene === "undefined") return;
-    const isEnabled = !core.scene.traverse((child) => {
+    this.wireframeMode = !this.wireframeMode;
+    core.scene.traverse((child) => {
       if (child.material) {
-        child.material.wireframe = !child.material.wireframe;
+        child.material.wireframe = this.wireframeMode;
         child.material.needsUpdate = true;
       }
-    });
-    this.wireframeMode = isEnabled;
+    });    
     this.updateEditorToolbarLabels();
     this.updateEditorToolbarState();
   },
@@ -16099,7 +16132,7 @@ const Viewer$1 = {
 
   togglePickingMode() {
     this.pickingMode = !this.pickingMode;
-    toastHelper$1(this.pickingMode ? "facePickingEnabled" : "facePickingDisabled", {
+    toastHelper(this.pickingMode ? "facePickingEnabled" : "facePickingDisabled", {
       duration: 1400
     });
     if (!this.pickingMode) {
@@ -16118,14 +16151,14 @@ const Viewer$1 = {
   toggleDistanceMeasurement() {
     this.RULER_MODE = !this.RULER_MODE;
     if (this.RULER_MODE) {
-      toastHelper$1("distanceEnabled", {
+      toastHelper("distanceEnabled", {
         duration: 2600
       });
-      toastHelper$1("distanceHint", {
+      toastHelper("distanceHint", {
         duration: 5200
       });
     } else {
-      toastHelper$1(this.RULER_MODE ? "distanceModeEnabled" : "distanceModeDisabled");
+      toastHelper(this.RULER_MODE ? "distanceModeEnabled" : "distanceModeDisabled");
     }
     if (!this.RULER_MODE) {
       this.ruler.forEach((r) => {
@@ -16149,14 +16182,14 @@ const Viewer$1 = {
   toggleClippingPlanesPanel() {
     this.clippingMode = !this.clippingMode;
     if (this.clippingMode) {
-      toastHelper$1("facePickingEnabled", {
+      toastHelper("facePickingEnabled", {
         duration: 2600
       });
-      toastHelper$1("clippingPlanes", {
+      toastHelper("clippingPlanes", {
         duration: 5200
       });
     } else {
-      toastHelper$1("facePickingDisabled");
+      toastHelper("facePickingDisabled");
       if (core.planeHelpers?.length >= 3) {
         core.planeHelpers.forEach((helper) => {
           if (helper) helper.visible = false;
@@ -16228,7 +16261,7 @@ const Viewer$1 = {
       }
     }
 
-    toastHelper$1("clippingHelperToggle", "info", {
+    toastHelper("clippingHelperToggle", "info", {
       axis: axis.toUpperCase(),
       state: active,
     });
@@ -17180,7 +17213,13 @@ const Viewer$1 = {
   },
 
   normalizeDrupalFilesPath(path) {
+    if (!path || typeof path !== 'string') {
+      return '';
+    }
+
     return path
+      .replace(/^https?:\/{1,2}[^/]+\/?/, '')
+      .replace(/^public:\/\//, '')
       .replace(/^\/?sites\/default\/files\/?/, '')
       .replace(/\/+/g, '/')
       .replace(/\/$/, '');
@@ -17941,7 +17980,7 @@ const Viewer$1 = {
       return;
     }
 
-    toastHelper$1("unsupportedFormat", "error");
+    toastHelper("unsupportedFormat", "error");
   },
 
   async changeScale() {
@@ -18138,7 +18177,7 @@ const Viewer$1 = {
       window.viewer.modelLoaded = false;
     }
 
-    toastHelper$1("sandboxDropModel", "info", {
+    toastHelper("sandboxDropModel", "info", {
       formats: this.getSupportedFormatsText(),
       archives: this.getSupportedArchiveFormatsText(),
       detailI18nKey: "toasts.supportedFormats",

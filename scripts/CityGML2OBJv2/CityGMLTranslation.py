@@ -35,7 +35,6 @@ import numpy as np
 # Setting the precision of Decimal
 getcontext().prec = 28
 
-
 def performStableAddition(number1, number2):
     # Input: string number1, string number 2, output: string sum
     # Determine the number of positions after the comma.
@@ -205,15 +204,17 @@ def getTranslationParameters(envelopes, ns_gml):
 def splitAndApplyTrafo(coordString, transParam):
     # Splitting the coordinate string by empty spaces
     split = coordString.split(" ")
+    alalala = len(split)
     # Apply the Trafo
+    if split[0] == '':
+        split.pop(0)
+    if split[-1] == "":
+        split.pop(-1)
     counter = 0
     length = int(len(split))
     length_new = int(length / 3)
     for i in range(length_new):
-        # split[counter] = (Decimal(split[counter])) + transParam[1]
-        # split[counter + 1] = (Decimal(split[counter + 1])) + transParam[0]
-        # split[counter + 2] = (Decimal(split[counter + 2])) - transParam[2]
-        #
+
 
         # print("y")
         split[counter] = performStableAddition(split[counter], str(transParam[1]))
@@ -236,7 +237,7 @@ def splitAndApplyTrafo(coordString, transParam):
 # This code is used in order to find all the coordinates that are defined in the CityGML-File
 # Please Notice: the search for coordinates here has the same limitations as the search for coordinates that
 # is used in the "CityGML2OBJ" functionality!
-def appyTranslationToCityGML(CITYGML, root, transParam, ns_citygml, ns_gml, ns_frn, ns_veg, filename):
+def applyTranslationToCityGML(CITYGML, root, transParam, ns_citygml, ns_gml, ns_frn, ns_veg, filename):
     # Iterate over all the cityObjectMembers
     for obj in root.getiterator('{%s}cityObjectMember' % ns_citygml):
         # Iterate over all the children of cityObject Member
@@ -253,7 +254,8 @@ def appyTranslationToCityGML(CITYGML, root, transParam, ns_citygml, ns_gml, ns_f
                     for e in exter:
                         # find all the coordinates that are stored as a "posList"
                         if len(e.findall('.//{%s}posList' % ns_gml)) > 0:
-                            points = e.findall('.//{%s}posList' % ns_gml)[0].text
+                            points_tmp = e.findall('.//{%s}posList' % ns_gml)[0].text
+                            points = points_tmp.replace('\n', ' ')
                             translated = splitAndApplyTrafo(points, transParam)
                             # print("Before: ", e.findall('.//{%s}posList' % ns_gml)[0].text)
                             e.findall('.//{%s}posList' % ns_gml)[0].text = translated
@@ -270,7 +272,8 @@ def appyTranslationToCityGML(CITYGML, root, transParam, ns_citygml, ns_gml, ns_f
                     for i in inter:
                         # find all the coordinates that are stored as a "posList"
                         if len(i.findall('.//{%s}posList' % ns_gml)) > 0:
-                            points = i.findall('.//{%s}posList' % ns_gml)[0].text
+                            points_tmp = i.findall('.//{%s}posList' % ns_gml)[0].text
+                            points = points_tmp.replace('\n', ' ')
                             translated = splitAndApplyTrafo(points, transParam)
                             i.findall('.//{%s}posList' % ns_gml)[0].text = translated
                         # find all the coordinates that are stored as "pos"
@@ -286,7 +289,8 @@ def appyTranslationToCityGML(CITYGML, root, transParam, ns_citygml, ns_gml, ns_f
                 # Step 1: find all the reference points:
                 referencePoints = child.findall('.//{%s}referencePoint' % ns_citygml)
                 for referencePoint in referencePoints:
-                    points = referencePoint.findall('.//{%s}pos' % ns_gml)
+                    points_tmp = referencePoint.findall('.//{%s}pos' % ns_gml)
+                    points = points_tmp.replace('\n', ' ')
                     counter = 0
                     for l in points:
                         translated = splitAndApplyTrafo(l.text, transParam)
@@ -331,5 +335,5 @@ def translateToLocalCRS(CITYGML, file, root, ns_bldg, ns_gml, ns_citygml, ns_frn
     transParam.append(applyHeight)
     if write2file == True:
         writeTransparam2File(file, directory, transParam)
-    appyTranslationToCityGML(CITYGML, root, transParam, ns_citygml, ns_gml, ns_frn, ns_veg, file)
+    applyTranslationToCityGML(CITYGML, root, transParam, ns_citygml, ns_gml, ns_frn, ns_veg, file)
     return 0

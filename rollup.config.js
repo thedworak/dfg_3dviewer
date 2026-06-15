@@ -94,6 +94,8 @@ function copyBuildAssets() {
         copyDirectory('viewer/fonts', path.join(outDistDir, 'assets/fonts')),
         copyDirectory('viewer/js/maps', path.join(outDistDir, 'assets/maps')),
         copyDirectory('viewer/examples', path.join(outDistDir, 'examples')),
+        // copy admin panel (but we'll remove any local sqlite DB afterwards)
+        copyDirectory('viewer/admin', path.join(outDistDir, 'admin')),
       ]);
 
       const viewerSettingsTarget = path.join(outDistDir, 'viewer-settings.json');
@@ -165,6 +167,13 @@ function copyBuildAssets() {
       }
 
       await Promise.all(copyPromises);
+      // ensure we don't accidentally publish a local admin sqlite DB
+      try {
+        const adminDbDest = path.join(outDistDir, 'admin', 'admin.sqlite');
+        await fs.rm(adminDbDest, { force: true });
+      } catch (e) {
+        // ignore
+      }
     },
   };
 }
