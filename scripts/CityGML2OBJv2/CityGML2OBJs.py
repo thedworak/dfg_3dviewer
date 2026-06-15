@@ -1,6 +1,6 @@
 ##!/usr/bin/python
 # -*- coding: utf-8 -*-
-
+import config
 # The MIT License (MIT)
 
 # This code is part of the CityGML2OBJs package
@@ -30,6 +30,7 @@
 
 import markup3dmodule
 import polygon3dmodule
+import componentseparationmodule as csm
 from lxml import etree
 import os
 import argparse
@@ -39,6 +40,8 @@ import itertools
 import matplotlib.pyplot as plt
 import CityGMLTranslation as cgt
 from decimal import Decimal
+from config import setVersion
+import time
 
 # -- ARGUMENTS
 # -i -- input directory (it will read and convert ALL CityGML files in a directory)
@@ -103,7 +106,7 @@ def poly_to_obj(poly, cl, material=None):
     e, i = markup3dmodule.polydecomposer(poly)
     # -- Points forming the exterior LinearRing
     epoints = markup3dmodule.GMLpoints(e[0])
-
+    # print(epoints)
     # -- Clean recurring points, except the last one
     last_ep = epoints[-1]
     epoints_clean = list(remove_reccuring(epoints))
@@ -172,8 +175,8 @@ def poly_to_obj(poly, cl, material=None):
             if SKIPTRI:
                 t = [epoints_clean[:-1]]
             else:
-
                 t = polygon3dmodule.triangulation(epoints_clean, irings)
+
 
         except:
 
@@ -219,6 +222,31 @@ PARSER.add_argument('-tC', '--translateCityGML',
 
 PARSER.add_argument('-tCw', '--translateCityGMLwrite',
                     help='Perform a Translation of the CityGML Dataset into a local CRS before further processing. The translation parameters are stored in a designated .txt file. No Translation is default ',
+                    required=False)
+
+PARSER.add_argument('-sepC', '--separateComponents',
+                    help='Save each building component into an individual file with the filename serving as an identifier.',
+                    required=False)
+
+PARSER.add_argument('-appW', '--approximateWindows',
+                    help='Approximate windows by their convex hulls to save some processing time.',
+                    required=False)
+
+PARSER.add_argument('-addBB', '--addBoundingBox',
+                    help='Add small triangles defining the bounding box to each of the components.',
+                    required=False)
+
+# Todo: Neue funktion muss noch fertig implementiert werden
+PARSER.add_argument('-importBB', '--importBoundingBox',
+                    help='Add small triangles defining an imported bounding box to each of the components.',
+                    required=False)
+
+PARSER.add_argument('-addBBJSON', '--addBoundingBoxJSON',
+                    help='The bounding box of the building is additionally saved in a designated json-file',
+                    required=False)
+
+PARSER.add_argument('-tbw', '--translateBuildingWise', # todo: implementation yet to be completed
+                    help='Translate into a local coordinate system building-wise.',
                     required=False)
 
 # End of changes by Th_Fr
@@ -299,9 +327,55 @@ elif TRANSLATECGMLW == '0':
 else:
     TRANSLATECGMLW = False
 
+SEPARATERCOMPONENTS = ARGS['separateComponents']
+if SEPARATERCOMPONENTS == '1':
+    SEPARATERCOMPONENTS = True
+elif SEPARATERCOMPONENTS == '0':
+    SEPARATERCOMPONENTS = False
+else:
+    SEPARATERCOMPONENTS = False
+
+APPROXIMATEWINDOWS = ARGS['approximateWindows']
+if APPROXIMATEWINDOWS == '1':
+    APPROXIMATEWINDOWS = True
+elif APPROXIMATEWINDOWS == '0':
+    APPROXIMATEWINDOWS = False
+else:
+    APPROXIMATEWINDOWS = False
+
+ADDBOUNDINGBOX = ARGS['addBoundingBox']
+if ADDBOUNDINGBOX == '1':
+    ADDBOUNDINGBOX = True
+elif ADDBOUNDINGBOX == '0':
+    ADDBOUNDINGBOX = False
+else:
+    ADDBOUNDINGBOX = False
+
+
+IMPORTBOUNDINGBOX = ARGS['importBoundingBox']
+if ADDBOUNDINGBOX == True:
+    IMPORTBOUNDINGBOX = None
+
+ADDBOUNDINGBOXJSON = ARGS['addBoundingBoxJSON']
+if ADDBOUNDINGBOXJSON == '1':
+    ADDBOUNDINGBOXJSON = True
+elif ADDBOUNDINGBOXJSON == '0' and IMPORTBOUNDINGBOX is not None:
+    ADDBOUNDINGBOXJSON = False
+else:
+    ADDBOUNDINGBOXJSON = False
+
+if IMPORTBOUNDINGBOX is not None:
+    ADDBOUNDINGBOXJSON = True
+
+TRANSLATEBUILDINGS = ARGS['translateBuildingWise']  # todo: muss noch implementiert werden
+if TRANSLATEBUILDINGS == '1':
+    TRANSLATEBUILDINGS = True
+elif TRANSLATEBUILDINGS == '0':
+    TRANSLATEBUILDINGS = False
+else:
+    TRANSLATEBUILDINGS = False
+
 # End of Changes by Th_Fr
-
-
 # -----------------------------------------------------------------
 # -- Attribute stuff
 
@@ -338,10 +412,11 @@ def mtl(att, min_value, max_value, res):
 
 
 # -----------------------------------------------------------------
-
+# Start time
+start_time = time.time()
 # -- Start of the program
 print("CityGML2OBJ. Searching for CityGML files...")
-
+global _VERSION
 # -- Find all CityGML files in the directory
 os.chdir(DIRECTORY)
 # -- Supported extensions
@@ -361,6 +436,8 @@ for f in files_found:
     # -- Determine CityGML version
     # If 1.0
     if root.tag == "{http://www.opengis.net/citygml/1.0}CityModel":
+        print("CityGML 1.0")
+        config.setVersion(1)
         # -- Name spaces
         ns_citygml = "http://www.opengis.net/citygml/1.0"
         ns_gml = "http://www.opengis.net/gml"
@@ -378,8 +455,38 @@ for f in files_found:
         ns_brid = "http://www.opengis.net/citygml/bridge/1.0"
         ns_app = "http://www.opengis.net/citygml/appearance/1.0"
 
+    # added by Th_Fr
+    elif root.tag == "{http://www.opengis.net/citygml/3.0}CityModel":
+        print("CityGML 3.0")
+        config.setVersion(3)
+        ns_citygml = "http://www.opengis.net/citygml/3.0"
+        ns_con = "http://www.opengis.net/citygml/construction/3.0"
+        ns_xlink = "http://www.w3.org/1999/xlink"
+        ns_gml = "http://www.opengis.net/gml/3.2"
+        ns_bldg = "http://www.opengis.net/citygml/building/3.0"
+        ns_app = "http://www.opengis.net/citygml/appearance/3.0"
+        ns_pcl = "http://www.opengis.net/citygml/pointcloud/3.0"
+        ns_gen = "http://www.opengis.net/citygml/generics/3.0"
+        ns_gss = "http://www.isotc211.org/2005/gss"
+        na_pfx0 = "urn:oasis:names:tc:ciq:xsdschema:xAL:2.0"
+        ns_gsr = "http://www.isotc211.org/2005/gsr"
+        ns_xsi = "http://www.w3.org/2001/XMLSchema-instance"
+        ns_gco = "http://www.isotc211.org/2005/gco"
+        ns_tran = "http://www.opengis.net/citygml/transportation/3.0"
+        ns_gmd = "http://www.isotc211.org/2005/gmd"
+        ns_gts = "http://www.isotc211.org/2005/gts"
+        ns_veg = "http://www.opengis.net/citygml/vegetation/3.0"
+        ns_xAL = "urn:oasis:names:tc:ciq:xal:3"
+        ns_dem = "http://www.opengis.net/citygml/relief/3.0"
+        ns_brid = "http://www.opengis.net/citygml/bridge/3.0"
+        ns_frn = "http://www.opengis.net/citygml/cityfurniture/3.0"
+        ns_tun = "http://www.opengis.net/citygml/tunnel/3.0"
+        ns_wtr = "http://www.opengis.net/citygml/waterbody/3.0"
+
     # -- Else probably means 2.0
     else:
+        print("CityGML 2.0")
+        config.setVersion(2)
         # -- Name spaces
         ns_citygml = "http://www.opengis.net/citygml/2.0"
 
@@ -420,16 +527,14 @@ for f in files_found:
 
     if TRANSLATECGML:
         cgt.translateToLocalCRS(CITYGML, FILENAME, root, ns_bldg, ns_gml, ns_citygml, ns_frn, ns_veg, RESULT,
-                                 write2file=False, applyHeight=Decimal("0"))  # Todo: by TH_Fr: Diese Funktion ist noch nicht fertig
+                                write2file=False,
+                                applyHeight=Decimal("0"))  # Todo: by TH_Fr: Diese Funktion ist noch nicht fertig
 
     if TRANSLATECGMLW:
         cgt.translateToLocalCRS(CITYGML, FILENAME, root, ns_bldg, ns_gml, ns_citygml, ns_frn, ns_veg, RESULT,
                                 write2file=True, applyHeight=Decimal("0"))
 
-
     # End of changes by Th_FR
-
-
 
     # -- Empty lists for cityobjects and buildings
     cityObjects = []
@@ -448,8 +553,6 @@ for f in files_found:
         output['All'].append("mtllib colormap.mtl\n")
     vertices_output['All'] = []
     face_output['All'] = []
-
-
 
     # -- If the semantic option was invoked, this part adds additional dictionaries.
     if SEMANTICS:
@@ -475,7 +578,6 @@ for f in files_found:
     vertices['Other'] = []
     face_output['Other'] = []
     output['Other'] = []
-
 
     # -- Find all instances of cityObjectMember and put them in a list
     for obj in root.getiterator('{%s}cityObjectMember' % ns_citygml):
@@ -508,8 +610,23 @@ for f in files_found:
         print(" There are ", b_total, " buildings in the dataset")
 
         # -- Do each building separately
-
         for b in buildings:
+            # addd by th_fr
+            if SEPARATERCOMPONENTS:
+                json_filepath = RESULT + "index.json"
+                # todo: mus snoch implementiert werde
+
+                csm.addCRSToJSON(root, json_filepath)
+                csm.separateComponents(b, RESULT, APPROXIMATEWINDOWS=APPROXIMATEWINDOWS,
+                                       ADDBOUNDINGBOX=ADDBOUNDINGBOX, ADDBOUNDINGBOXJSON=ADDBOUNDINGBOXJSON,
+                                       TRANSLATEBUILDINGS=TRANSLATEBUILDINGS, IMPORTBOUNDINGBOX=IMPORTBOUNDINGBOX, b_counter=b_counter)
+                # End time
+                end_time = time.time()
+                # Calculate elapsed time
+                elapsed_time = end_time - start_time
+                print(f"Elapsed time: {elapsed_time:.2f} seconds")
+                b_counter += 1
+                continue
 
             # -- Build the local list of vertices to speed up the indexing
             local_vertices = {}
@@ -521,7 +638,6 @@ for f in files_found:
 
             # -- Increment the building counter
             b_counter += 1
-
             # -- If the object option is on, get the name for each building or create one
             if OBJECTS:
                 ob = b.xpath("@g:id", namespaces={'g': ns_gml})
@@ -576,11 +692,15 @@ for f in files_found:
                 # -- Process each opening
                 for o in openings:
                     for child in o.getiterator():
+                        unique_identifier = child.xpath("@g:id", namespaces={'g': ns_gml})
                         if child.tag == '{%s}Window' % ns_bldg or child.tag == '{%s}Door' % ns_bldg:
+                            # print(unique_identifier)
                             if child.tag == '{%s}Window' % ns_bldg:
                                 t = 'Window'
+                                # print(t)
                             else:
                                 t = 'Door'
+                                # print(t)
                             polys = markup3dmodule.polygonFinder(o)
                             for poly in polys:
                                 poly_to_obj(poly, t)
@@ -595,13 +715,20 @@ for f in files_found:
                     firstF = True
                     for feature in cls:
                         # -- If it is the first feature, print the object identifier
+                        unique_identifier = feature.xpath("@g:id", namespaces={
+                            'g': ns_gml})
                         if OBJECTS and firstF:
-                            face_output[cl].append('o ' + str(ob) + '\n')
+                            face_output[cl].append('o ' + str(ob) + "_" + str(unique_identifier) + '\n')
+
                             firstF = False
                         # -- This is not supposed to happen, but just to be sure...
                         if feature.tag == '{%s}Window' % ns_bldg or feature.tag == '{%s}Door' % ns_bldg:
                             continue
+
+                        # print(f"unigue identifier: {str(ob) + str(unique_identifier)}")
+
                         # -- Find all polygons in this semantic boundary hierarchy
+
                         for p in feature.findall('.//{%s}Polygon' % ns_gml):
                             if ATTRIBUTE == 1 or ATTRIBUTE == 2:
                                 # -- Flush the previous value
@@ -702,3 +829,9 @@ for f in files_found:
     else:
         print(
             "\tThere is a problem with this file: no cityObjects have been found. Please check if the file complies to CityGML.")
+
+# End time
+end_time = time.time()
+# Calculate elapsed time
+elapsed_time = end_time - start_time
+print(f"Elapsed time: {elapsed_time:.2f} seconds")
