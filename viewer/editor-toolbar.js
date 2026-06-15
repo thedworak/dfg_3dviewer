@@ -689,11 +689,6 @@ export function createEditorToolbar(viewer) {
               value: () => (core.scene?.environmentIntensity ?? 0) > 0,
               onChange: async (value) => {
                 if (!core.scene) return;
-                if (value) {
-                  core.scene.environmentIntensity = 0.5;
-                } else {
-                  core.scene.environmentIntensity = 0;
-                }
                 core.scene.traverse((child) => {
                   const materials = child?.material
                     ? Array.isArray(child.material)
