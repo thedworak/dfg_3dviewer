@@ -13657,7 +13657,19 @@ function getEditorToolbarIcon(icon) {
 
 function syncEditorToolbarSecondaryTrayWidth(viewer) {
   if (!viewer.editorToolbarSecondaryTray) return;
-  viewer.editorToolbarSecondaryTray.style.setProperty("--viewer-toolbar-secondary-width", `${viewer.editorToolbarSecondaryTray.scrollWidth}px`);
+
+const width =
+  Array.from(
+    viewer.editorToolbarSecondaryTray.children
+  ).reduce(
+    (sum, el) => sum + el.getBoundingClientRect().width + 10,
+    0
+  );
+
+viewer.editorToolbarSecondaryTray.style.setProperty(
+  "--viewer-toolbar-secondary-width",
+  `${Math.ceil(width)}px`
+);
 }
 
 function getEditorToolbarHost(viewer) {
@@ -13887,6 +13899,7 @@ function createEditorToolbar(viewer) {
 
   viewer.editorToolbarButtons = {};
   viewer.environmentMapPreset = viewer.environmentMapPreset || "neutral";
+
   const secondaryTray = document.createElement("div");
   secondaryTray.className = "viewer-editor-toolbar_secondary-tray";
   viewer.editorToolbarSecondaryTray = secondaryTray;
@@ -15998,13 +16011,13 @@ const Viewer$1 = {
 
   toggleWireframeMode() {
     if (typeof core.scene === "undefined") return;
-    const isEnabled = !core.scene.traverse((child) => {
+    this.wireframeMode = !this.wireframeMode;
+    core.scene.traverse((child) => {
       if (child.material) {
-        child.material.wireframe = !child.material.wireframe;
+        child.material.wireframe = this.wireframeMode;
         child.material.needsUpdate = true;
       }
-    });
-    this.wireframeMode = isEnabled;
+    });    
     this.updateEditorToolbarLabels();
     this.updateEditorToolbarState();
   },

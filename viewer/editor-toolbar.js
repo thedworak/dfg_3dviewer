@@ -57,7 +57,19 @@ export function getEditorToolbarIcon(icon) {
 
 export function syncEditorToolbarSecondaryTrayWidth(viewer) {
   if (!viewer.editorToolbarSecondaryTray) return;
-  viewer.editorToolbarSecondaryTray.style.setProperty("--viewer-toolbar-secondary-width", `${viewer.editorToolbarSecondaryTray.scrollWidth}px`);
+
+const width =
+  Array.from(
+    viewer.editorToolbarSecondaryTray.children
+  ).reduce(
+    (sum, el) => sum + el.getBoundingClientRect().width + 10,
+    0
+  );
+
+viewer.editorToolbarSecondaryTray.style.setProperty(
+  "--viewer-toolbar-secondary-width",
+  `${Math.ceil(width)}px`
+);
 }
 
 export function getEditorToolbarHost(viewer) {
@@ -287,6 +299,7 @@ export function createEditorToolbar(viewer) {
 
   viewer.editorToolbarButtons = {};
   viewer.environmentMapPreset = viewer.environmentMapPreset || "neutral";
+
   const secondaryTray = document.createElement("div");
   secondaryTray.className = "viewer-editor-toolbar_secondary-tray";
   viewer.editorToolbarSecondaryTray = secondaryTray;
