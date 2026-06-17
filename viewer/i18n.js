@@ -74,6 +74,7 @@ export const VIEWER_I18N = {
       addAnnotations: "Add annotations",
       exportAnnotationsXml: "Export annotations XML",
       importAnnotationsXml: "Import annotations XML",
+      IIIFexport: "Export IIIF",
       resetCameraPosition: "Reset camera position",
       saveSettings: "Save settings",
       renderPreview: "Render preview",
@@ -272,6 +273,9 @@ export const VIEWER_I18N = {
 
       downloadSuccess: "Model downloaded successfully.",
       downloadError: "Failed to download model.",
+
+      iiifManifestGenerated: "IIIF manifest has been generated.",
+      iiifManifestGenerationError: "Error generating IIIF manifest.",
     },
     shortcuts: {
       mouse: "Mouse: drag orbit, wheel zoom, right-drag pan",
@@ -355,6 +359,7 @@ export const VIEWER_I18N = {
       addAnnotations: "Dodaj annotacje",
       exportAnnotationsXml: "Eksportuj annotacje XML",
       importAnnotationsXml: "Importuj annotacje XML",
+      IIIFexport: "Eksportuj do IIIF",
       resetCameraPosition: "Resetuj pozycję kamery",
       saveSettings: "Zapisz ustawienia",
       renderPreview: "Renderuj podgląd",
@@ -553,6 +558,9 @@ export const VIEWER_I18N = {
 
       downloadSuccess: "Model został pomyślnie pobrany.",
       downloadError: "Nie udało się pobrać modelu.",
+
+      iiifManifestGenerated: "Manifest IIIF został wygenerowany.",
+      iiifManifestGenerationError: "Błąd podczas generowania manifestu IIIF.",
     },
     shortcuts: {
       mouse: "Mysz: przeciągnij, aby obracać, rolka - zoom, prawy przycisk - przesuwanie",
@@ -635,6 +643,7 @@ export const VIEWER_I18N = {
       addAnnotations: "Anmerkungen hinzufügen",
       exportAnnotationsXml: "Anmerkungen XML exportieren",
       importAnnotationsXml: "Anmerkungen XML importieren",
+      IIIFexport: "IIIF exportieren",
       resetCameraPosition: "Kameraposition zurücksetzen",
       saveSettings: "Einstellungen speichern",
       renderPreview: "Vorschau rendern",
@@ -833,6 +842,9 @@ export const VIEWER_I18N = {
 
       downloadSuccess: "Modell erfolgreich heruntergeladen.",
       downloadError: "Fehler beim Herunterladen des Modells.",
+
+      iiifManifestGenerated: "IIIF-Manifest wurde generiert.",
+      iiifManifestGenerationError: "Fehler beim Generieren des IIIF-Manifests.",
     },
     shortcuts: {
       mouse: "Maus: ziehen zum Drehen, Mausrad - Zoom, Rechtsklick - Verschieben",

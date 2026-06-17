@@ -283,6 +283,7 @@ const VIEWER_I18N = {
       addAnnotations: "Add annotations",
       exportAnnotationsXml: "Export annotations XML",
       importAnnotationsXml: "Import annotations XML",
+      IIIFexport: "Export IIIF",
       resetCameraPosition: "Reset camera position",
       saveSettings: "Save settings",
       renderPreview: "Render preview",
@@ -481,6 +482,9 @@ const VIEWER_I18N = {
 
       downloadSuccess: "Model downloaded successfully.",
       downloadError: "Failed to download model.",
+
+      iiifManifestGenerated: "IIIF manifest has been generated.",
+      iiifManifestGenerationError: "Error generating IIIF manifest.",
     },
     shortcuts: {
       mouse: "Mouse: drag orbit, wheel zoom, right-drag pan",
@@ -564,6 +568,7 @@ const VIEWER_I18N = {
       addAnnotations: "Dodaj annotacje",
       exportAnnotationsXml: "Eksportuj annotacje XML",
       importAnnotationsXml: "Importuj annotacje XML",
+      IIIFexport: "Eksportuj do IIIF",
       resetCameraPosition: "Resetuj pozycję kamery",
       saveSettings: "Zapisz ustawienia",
       renderPreview: "Renderuj podgląd",
@@ -762,6 +767,9 @@ const VIEWER_I18N = {
 
       downloadSuccess: "Model został pomyślnie pobrany.",
       downloadError: "Nie udało się pobrać modelu.",
+
+      iiifManifestGenerated: "Manifest IIIF został wygenerowany.",
+      iiifManifestGenerationError: "Błąd podczas generowania manifestu IIIF.",
     },
     shortcuts: {
       mouse: "Mysz: przeciągnij, aby obracać, rolka - zoom, prawy przycisk - przesuwanie",
@@ -844,6 +852,7 @@ const VIEWER_I18N = {
       addAnnotations: "Anmerkungen hinzufügen",
       exportAnnotationsXml: "Anmerkungen XML exportieren",
       importAnnotationsXml: "Anmerkungen XML importieren",
+      IIIFexport: "IIIF exportieren",
       resetCameraPosition: "Kameraposition zurücksetzen",
       saveSettings: "Einstellungen speichern",
       renderPreview: "Vorschau rendern",
@@ -1042,6 +1051,9 @@ const VIEWER_I18N = {
 
       downloadSuccess: "Modell erfolgreich heruntergeladen.",
       downloadError: "Fehler beim Herunterladen des Modells.",
+
+      iiifManifestGenerated: "IIIF-Manifest wurde generiert.",
+      iiifManifestGenerationError: "Fehler beim Generieren des IIIF-Manifests.",
     },
     shortcuts: {
       mouse: "Maus: ziehen zum Drehen, Mausrad - Zoom, Rechtsklick - Verschieben",
@@ -4871,6 +4883,35 @@ function attachAnnotations(Viewer) {
       }];
     },
 
+    selectAnnotationEntriesFaces(entries) {
+      if (!Array.isArray(entries) || entries.length === 0) {
+        return;
+      }
+      this.clearSelectedFaces();
+      entries.forEach((entry) => {
+        const object = this.resolveObjectByTargetId(entry.targetId);
+        if (!object) return;
+
+        const faces = Array.isArray(entry.faceNumbers)
+          ? entry.faceNumbers
+          : [entry.faceIndex];
+
+        faces.forEach((faceIndex) => {
+          this.toggleSelectedFace(
+            {
+              object,
+              faceIndex,
+            },
+            {
+              multiSelect: true,
+            }
+          );
+        });
+      });
+
+      this.updateSelectedFacesCount();
+    },
+
     openAnnotationDialogFromPOIMarker(marker) {
       const entries = this.getAnnotationEntriesForPOIMarker(marker);
       if (!entries.length) {
@@ -4878,6 +4919,7 @@ function attachAnnotations(Viewer) {
         return false;
       }
 
+      this.selectAnnotationEntriesFaces(entries);
       this.buildAnnotationDialog();
       if (!this.annotationDialog) return false;
 
@@ -4957,9 +4999,13 @@ function attachAnnotations(Viewer) {
       entries.forEach((entry) => {
         const object = this.resolveObjectByTargetId(entry.targetId);
         if (!object) return;
-        const point = this.getFaceCentroidWorld(object, entry.faceIndex);
-        if (!point) return;
-        const marker = this.createAnnotationPOIMarker(entry, point, entries.indexOf(entry) + 1);
+        const center = new THREE.Vector3();
+        entry.faceNumbers.forEach(faceIndex => {
+          const point = this.getFaceCentroidWorld(object, faceIndex);
+          if (point) center.add(point);
+        });
+        center.divideScalar(entry.faceNumbers.length);
+        const marker = this.createAnnotationPOIMarker(entry, center, entries.indexOf(entry) + 1);
         group.add(marker);
         this.annotationPOIMarkers.push(marker);
         added += 1;
@@ -4967,6 +5013,34 @@ function attachAnnotations(Viewer) {
 
       group.visible = added > 0;
       return added;
+    },
+
+    findAnnotationByFaceKey(key) {
+      if (!key) return null;
+
+      return this.annotationEntries.find((annotation) => {
+        const targetId = String(
+          annotation.targetId ||
+          annotation.object ||
+          annotation.target?.id ||
+          ""
+        ).trim();
+
+        if (!targetId) return false;
+
+        const faceNumbers = Array.isArray(annotation.faceNumbers)
+          ? annotation.faceNumbers
+          : [annotation.faceIndex];
+
+        return faceNumbers.some((faceIndex) => {
+          const annotationKey = this.getFaceSelectionKey(
+            targetId,
+            Number(faceIndex)
+          );
+
+          return annotationKey === key;
+        });
+      }) || null;
     },
 
     buildAnnotationDialog() {
@@ -5142,7 +5216,7 @@ function attachAnnotations(Viewer) {
         .map((key) => {
           const selected = this.selectedFaces.find((entry) => entry.key === key);
           if (selected) return selected;
-          const existingEntry = this.annotationEntries.find((entry) => entry.key === key);
+          const existingEntry = this.findAnnotationByFaceKey(key);
           if (!existingEntry) return null;
           return {
             key: existingEntry.key,
@@ -5159,49 +5233,50 @@ function attachAnnotations(Viewer) {
       }
 
       const nowIso = new Date().toISOString();
-      const groupId = String(this.annotationBatchGroupId || `anno-group-${Date.now()}`);
+      //const groupId = String(this.annotationBatchGroupId || `anno-group-${Date.now()}`);
       let updatedCount = 0;
       let addedCount = 0;
 
-      selectedFaces.forEach((selectedFace) => {
-        const faceNumber = Number(selectedFace.faceIndex);
-        const normalizedFaceNumber = Number.isInteger(faceNumber) ? faceNumber : -1;
-        const annotationTargetId = selectedFace.targetId || selectedFace.object || "";
-        const stableTargetToken = Viewer.toStableIdToken(annotationTargetId);
-        const existingIndex = this.annotationEntries.findIndex(
-          (entry) => entry.key === selectedFace.key
+      const targetId = selectedFaces[0].targetId;
+
+      const faceNumbers = selectedFaces
+        .map(f => Number(f.faceIndex))
+        .filter(Number.isInteger);
+
+      const annotationPayload = {
+        id: this.annotationBatchGroupId || `anno-${Date.now()}`,
+        targetId,
+        object: targetId,
+
+        faceNumbers,
+        faceIndex: faceNumbers[0],
+
+        target: {
+          id: targetId,
+          faces: faceNumbers
+        },
+
+        title,
+        description,
+        updatedAt: nowIso,
+        createdAt: nowIso
+      };
+
+      const existingIndex = this.annotationEntries.findIndex(
+        entry => entry.id === annotationPayload.id
+      );
+
+      if (existingIndex >= 0) {
+        this.annotationEntries.splice(
+          existingIndex,
+          1,
+          annotationPayload
         );
-        if (!annotationTargetId || normalizedFaceNumber < 0) return;
-
-        const annotationPayload = {
-          id: existingIndex >= 0
-            ? this.annotationEntries[existingIndex].id
-            : `anno-${stableTargetToken}-f${normalizedFaceNumber}`,
-          groupId,
-          key: selectedFace.key,
-          object: annotationTargetId,
-          targetId: annotationTargetId,
-          faceIndex: normalizedFaceNumber,
-          faceNumbers: [normalizedFaceNumber],
-          target: {
-            id: annotationTargetId,
-            faces: [normalizedFaceNumber],
-          },
-          title,
-          description,
-          updatedAt: nowIso,
-        };
-
-        if (existingIndex >= 0) {
-          annotationPayload.createdAt = this.annotationEntries[existingIndex].createdAt || nowIso;
-          this.annotationEntries.splice(existingIndex, 1, annotationPayload);
-          updatedCount += 1;
-        } else {
-          annotationPayload.createdAt = nowIso;
-          this.annotationEntries.push(annotationPayload);
-          addedCount += 1;
-        }
-      });
+        updatedCount++;
+      } else {
+        this.annotationEntries.push(annotationPayload);
+        addedCount++;
+      }
 
       const totalChanged = updatedCount + addedCount;
       if (totalChanged > 0) {
@@ -5258,6 +5333,21 @@ function attachAnnotations(Viewer) {
 
     exportAnnotationsToIIIFXml() {
       const entries = this.getAnnotationEntriesForPersistence();
+      const groups = new Map();
+
+      entries.forEach((entry) => {
+        const key = entry.groupId || entry.id;
+
+        if (!groups.has(key)) {
+          groups.set(key, {
+            ...entry,
+            faceNumbers: [],
+          });
+        }
+
+        groups.get(key).faceNumbers.push(...entry.faceNumbers);
+      });
+
       const doc = document.implementation.createDocument("", "", null);
       const root = doc.createElement("iiif:annotations");
       root.setAttribute("xmlns:iiif", "http://iiif.io/api/presentation/3#");
@@ -5265,7 +5355,7 @@ function attachAnnotations(Viewer) {
       root.setAttribute("generatedAt", new Date().toISOString());
       doc.appendChild(root);
 
-      entries.forEach((entry) => {
+      groups.forEach((entry) => {
         const annotation = doc.createElement("iiif:annotation");
         annotation.setAttribute("id", entry.id);
         annotation.setAttribute("type", "Annotation");
@@ -5322,38 +5412,187 @@ function attachAnnotations(Viewer) {
       return true;
     },
 
-    ensureAnnotationImportInput() {
-      if (this.annotationImportInput) return this.annotationImportInput;
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = ".xml,text/xml,application/xml";
-      input.hidden = true;
-      this.bindEventListener(input, "change", async (event) => {
-        const target = event?.target;
-        const file = target?.files?.[0];
-        if (!file) return;
+    exportIIIFManifest() { // Added a new method to export the IIIF manifest
+      const iiifUrl = core.fileObject?.originalPath || ""; 
+      if (!iiifUrl) {
+        toastHelper("iiifUrlMissing", "warning");
+        return false;
+      }
+      // Generate the IIIF manifest and log it to the console 
+      const sceneId = `${iiifUrl}/scene`;
 
-        try {
-          const xmlText = await file.text();
-          const imported = this.importAnnotationsFromIIIFXml(xmlText);
-          if (imported > 0) {
-            toastHelper("annotationsImported", "success", {
-              count: imported,
-              plural: imported === 1 ? "" : "s"
-            });
-          } else {
-            toastHelper("noValidAnnotations", "warning");
+      const manifest = {
+        "@context": "http://iiif.io/api/presentation/4/context.json",
+
+        id: `${iiifUrl}/manifest.json`,
+        type: "Manifest",
+
+        label: {
+          en: [core.fileObject?.basename || "Model"]
+        },
+
+        items: [
+          {
+            id: sceneId,
+            type: "Scene",
+
+            label: {
+              en: [core.fileObject?.basename || "Model"]
+            },
+
+            backgroundColor: core.scene?.background
+              ? `#${core.scene.background.getHexString()}`
+              : "#000000",
+
+            items: [
+              {
+                id: `${sceneId}/page/model`,
+                type: "AnnotationPage",
+
+                items: [
+                  {
+                    id: `${sceneId}/annotation/model`,
+                    type: "Annotation",
+
+                    motivation: ["painting"],
+
+                    body: {
+                      id: core.fileObject.originalPath,
+                      type: "Model",
+                      format: core.fileObject.mimeType || undefined
+                    },
+
+                    target: {
+                      id: sceneId,
+                      type: "Scene"
+                    }
+                  }
+                ]
+              }
+            ],
+
+            annotations: [
+              {
+                id: `${sceneId}/page/annotations`,
+                type: "AnnotationPage",
+
+                items: this.getAnnotationEntriesForPersistence().map((entry) => ({
+                  id: String(entry.id),
+                  type: "Annotation",
+
+                  motivation: ["commenting"],
+
+                  label: {
+                    en: [String(entry.title || "").trim()]
+                  },
+
+                  created: entry.createdAt || undefined,
+                  modified: entry.updatedAt || undefined,
+
+                  target: {
+                    source: core.fileObject.originalPath,
+
+                    selector: {
+                      type: "JsonSelector",
+
+                      value: {
+                        targetId: entry.targetId,
+                        faceIndex: entry.faceIndex,
+                        faceNumbers: entry.faceNumbers || [],
+                        selectorId: entry.selectorId
+                      }
+                    }
+                  },
+
+                  body: {
+                    type: "TextualBody",
+                    value: String(entry.description || "").trim()
+                  },
+
+                  AIM3DViewer: {
+                    groupId: entry.groupId || "",
+                    key: entry.key || "",
+                    object: entry.object || ""
+                  }
+                }))
+              }
+            ]
           }
-        } catch (error) {
-          console.error(error);
-          toastHelper("annotationsImportError", "error");
-        } finally {
-          target.value = "";
+        ],
+
+        AIM3DViewer: {
+          version: "1.0",
+
+          camera: {
+            position: core.camera.position.toArray(),
+            target: core.controls?.target
+              ? core.controls.target.toArray()
+              : [0, 0, 0],
+            up: core.camera.up.toArray(),
+            fov: core.camera.fov
+          },
+
+          environment: {
+            backgroundColor: core.scene?.background
+              ? `#${core.scene.background.getHexString()}`
+              : "#000000",
+
+            backgroundColorAlpha:
+              typeof core.scene?.background?.opacity === "number"
+                ? core.scene.background.opacity
+                : 1
+          },
+
+          lights: (core.scene?.children || [])
+            .filter((child) =>
+              [
+                "DirectionalLight",
+                "SpotLight",
+                "PointLight",
+                "AmbientLight"
+              ].includes(child.type)
+            )
+            .map((light) => ({
+              type: light.type,
+              position: light.position?.toArray?.() || [0, 0, 0],
+              color: `#${light.color.getHexString()}`,
+              intensity: light.intensity
+            })),
+
+          modelTransform: {
+            position: core.mainObject?.position?.toArray?.() || [0, 0, 0],
+            rotation: core.mainObject?.rotation
+              ? [
+                  core.mainObject.rotation.x,
+                  core.mainObject.rotation.y,
+                  core.mainObject.rotation.z
+                ]
+              : [0, 0, 0],
+            scale: core.mainObject?.scale?.toArray?.() || [1, 1, 1]
+          }
         }
-      });
-      document.body.appendChild(input);
-      this.annotationImportInput = input;
-      return input;
+      };
+
+      manifest.modified = new Date().toISOString();
+
+      manifest.AIM3DViewer.generatedAt = new Date().toISOString();
+      core.fileObject?.iiifUrl && (manifest.id = `${core.fileObject?.basename}_manifest.json`);
+      const defaultBaseName = core.fileObject?.basename || "manifest";
+      const safeBaseName = String(defaultBaseName).replace(/[^a-zA-Z0-9._-]+/g, "_");
+      const fileName = `${safeBaseName || "manifest"}-iiif-manifest.json`;
+      const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: "application/json;charset=utf-8" });
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = fileName;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+      
+      toastHelper("iiifManifestGenerated", "success");
+      return true;
     },
 
     triggerAnnotationsXmlImport() {
@@ -13637,6 +13876,7 @@ function getEditorToolbarIcon(icon) {
     annotateAdd: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 8v5M9.5 10.5h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
     annotateImport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 6.8v7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.8 12 14l3.2-3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     annotateExport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 14.2V7.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.2 12 7l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    IIIFexport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 14.2V7.2M8.8 10.2 12 7l3.2 3.2M5 19h14M12 16v6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     hierarchy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5v5H4zM15 4h5v5h-5zM4 15h5v5H4zM15 15h5v5h-5zM9 6h6M9 17h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     loadingLogs: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18M3 6h12M3 18h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     performance: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
@@ -13961,8 +14201,9 @@ function createEditorToolbar(viewer) {
       submenu.className = "viewer-editor-tool_submenu";
       const submenuItems = [
         { key: "annotateAdd", icon: "annotateAdd", label: t$1("gui.annotateAdd", "Add Annotation"), onClick: () => viewer.openAnnotationDialogWithAutoPicking() },
-        { key: "annotateImport", icon: "annotateImport", label: t$1("gui.annotateImport", "Import Annotations"), onClick: () => viewer.downloadAnnotationsXmlFile() },
-        { key: "annotateExport", icon: "annotateExport", label: t$1("gui.annotateExport", "Export Annotations"), onClick: () => viewer.triggerAnnotationsXmlImport() },
+        { key: "annotateImport", icon: "annotateImport", label: t$1("gui.annotateImport", "Import Annotations"), onClick: () => viewer.triggerAnnotationsXmlImport() },
+        { key: "annotateExport", icon: "annotateExport", label: t$1("gui.annotateExport", "Export Annotations"), onClick: () => viewer.downloadAnnotationsXmlFile() },
+        { key: "IIIFexport", icon: "IIIFexport", label: t$1("gui.IIIFexport", "Export IIIF"), onClick: () => viewer.exportIIIFManifest() },
       ];
       viewer.annotateSubmenuButtons = {};
       submenuItems.forEach((item) => {
@@ -14728,6 +14969,7 @@ function updateEditorToolbarLabels(viewer) {
       annotateAdd: t$1("gui.addAnnotations", "Add Annotation"),
       annotateImport: t$1("gui.importAnnotationsXml", "Import Annotations"),
       annotateExport: t$1("gui.exportAnnotationsXml", "Export Annotations"),
+      IIIFexport: t$1("gui.IIIFexport", "Export to IIIF"),
     };
     Object.entries(viewer.annotateSubmenuButtons).forEach(([key, button]) => {
       const label = annotateSubmenuLabels[key] || key;

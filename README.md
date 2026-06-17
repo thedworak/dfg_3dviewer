@@ -55,6 +55,16 @@ cp viewer/viewer-settings-example.json viewer/viewer-settings.json
 npm run dev:test
 ```
 
+or using http-server:
+```bash
+http-server -c-1
+```
+
+or using PHP:
+```bash
+php -S 127.0.0.1:8000 -t ../../viewer
+```
+
 4. Open the demo at:
 
 ```text
@@ -88,7 +98,7 @@ After installing the PHP extension, restart your webserver/PHP-FPM:
 
 ```bash
 sudo systemctl restart apache2        # or nginx + php-fpm
-sudo systemctl restart php8.1-fpm     # adjust version as needed
+sudo systemctl restart php8.4-fpm     # adjust version as needed
 ```
 
 Verify installation:
