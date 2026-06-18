@@ -801,24 +801,33 @@ export function attachAnnotations(Viewer) {
         AIM3DViewer: {
           version: "1.0",
 
+          generatedAt: new Date().toISOString(),
+
           camera: {
             position: core.camera.position.toArray(),
+
             target: core.controls?.target
               ? core.controls.target.toArray()
               : [0, 0, 0],
+
             up: core.camera.up.toArray(),
-            fov: core.camera.fov
+
+            fov: core.camera.fov,
+
+            zoom:
+              typeof core.controls?.zoom === "number"
+                ? core.controls.zoom
+                : undefined,
+            distance:
+              core.camera.position.distanceTo(
+                core.controls.target
+              )
           },
 
           environment: {
-            backgroundColor: core.scene?.background
+            backgroundColor: core.scene?.background?.isColor
               ? `#${core.scene.background.getHexString()}`
-              : "#000000",
-
-            backgroundColorAlpha:
-              typeof core.scene?.background?.opacity === "number"
-                ? core.scene.background.opacity
-                : 1
+              : undefined
           },
 
           lights: (core.scene?.children || [])
@@ -832,26 +841,43 @@ export function attachAnnotations(Viewer) {
             )
             .map((light) => ({
               type: light.type,
+
               position: light.position?.toArray?.() || [0, 0, 0],
+
+              target:
+                light.target?.position?.toArray?.() || undefined,
+
               color: `#${light.color.getHexString()}`,
+
               intensity: light.intensity
             })),
 
           modelTransform: {
-            position: core.mainObject?.position?.toArray?.() || [0, 0, 0],
-            rotation: core.mainObject?.rotation
-              ? [
-                  core.mainObject.rotation.x,
-                  core.mainObject.rotation.y,
-                  core.mainObject.rotation.z
-                ]
-              : [0, 0, 0],
-            scale: core.mainObject?.scale?.toArray?.() || [1, 1, 1]
-          }
-        }
-      };
+            position:
+              core.mainObject?.position?.toArray?.() ||
+              [0, 0, 0],
 
-      manifest.modified = new Date().toISOString();
+            rotation: core.mainObject?.rotation
+              ? {
+                  x: core.mainObject.rotation.x,
+                  y: core.mainObject.rotation.y,
+                  z: core.mainObject.rotation.z,
+                  order: core.mainObject.rotation.order
+                }
+              : {
+                  x: 0,
+                  y: 0,
+                  z: 0,
+                  order: "XYZ"
+                },
+
+            scale:
+              core.mainObject?.scale?.toArray?.() ||
+              [1, 1, 1]
+          }
+        },
+        modified: new Date().toISOString(),
+      };
 
       manifest.AIM3DViewer.generatedAt = new Date().toISOString();
       core.fileObject?.iiifUrl && (manifest.id = `${core.fileObject?.basename}_manifest.json`);
