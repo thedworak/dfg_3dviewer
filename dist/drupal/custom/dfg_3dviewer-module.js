@@ -5543,13 +5543,53 @@ function attachAnnotations(Viewer) {
             distance:
               core.camera.position.distanceTo(
                 core.controls.target
-              )
+              ),
+            perspectiveMode: core.camera.isPerspectiveCamera ? "orthographic" : "perspective",
           },
 
-          environment: {
+          viewer: {
+            container: core.CONFIG?.viewer?.container || "DFG_3DViewer",
+            mailUrl: core.CONFIG.mainUrl || "https://localhost",
+            baseNamespace: "https://localhost",
+            metadataUrl: "https://localhost",
+
             backgroundColor: core.scene?.background?.isColor
               ? `#${core.scene.background.getHexString()}`
-              : undefined
+              : undefined,
+            environmentMap: {
+              intensity: core.envirnmentMapIntensity || 1.0,
+              preset: core.environmentMapPreset || "neutral",
+              enabled: core.enviromentMapEnabled || true
+            },
+            presentationMode: core.PRESENTATION_MODE || false,
+            sandbox: core.SANDBOX_MODE || false,
+            scale: core.CONFIG.viewer.scaleContainer || new Vector2(1,1),
+            performance: core.CONFIG.viewer.performanceMode || "high-performance",
+            units: core.CONFIG?.viewer?.measurement?.modelUnitInMeters,
+            gallery: {
+              build: core.CONFIG.viewer.gallery?.build || false,
+              container: core.CONFIG.viewer.gallery?.container || "AIM3DViewerContainer",
+              imageClass: core.CONFIG.viewer.gallery?.imageClass || "AIM3DViewerGalleryImage",
+              imageId: core.CONFIG.viewer.gallery?.imageId || "AIM3DViewerGalleryImage",
+              buildFake: true,
+              testImages: [undefined],
+            }
+          },
+
+          integration: {
+            type: core.CONFIG.entity ? "drupal" : "none",
+            bundle: core.CONFIG.entity?.bundle || "bd3d7baa74856d141bcff7b4193fa128",
+            fieldDf: core.CONFIG.entity?.fieldDf || "field_df",
+            exportViewer: core.CONFIG.entity?.exportViewer || "field_df",
+            idUri: core.CONFIG.entity?.idUri || "/wisski/navigate/(.*)/view",
+            viewEntityPath: core.CONFIG.entity?.viewEntityPath || "/wisski/navigate/",
+            attributeId: core.CONFIG.entity?.attributeId || "wisski_id",
+            metadata: {
+              source: core.CONFIG.entity?.metadata?.source || "",
+            },
+            fileUpload: core.CONFIG.viewer.fileUpload || "fbf95bddee5160d515b982b3fd2e05f7",
+            fileName: core.CONFIG.viewer.fileName || "faa602a0be629324806aef22892cdbe5",
+            imageGeneration: core.CONFIG.viewer.imageGeneration || "f605dc6b727a1099b9e52b3ccbdf5673",
           },
 
           lights: (core.scene?.children || [])
@@ -5595,7 +5635,9 @@ function attachAnnotations(Viewer) {
 
             scale:
               core.mainObject?.scale?.toArray?.() ||
-              [1, 1, 1]
+              [1, 1, 1],
+            
+            wireframe: core.wireframeMode || false,
           }
         },
         modified: new Date().toISOString(),
@@ -16273,10 +16315,10 @@ const Viewer$1 = {
 
   toggleWireframeMode() {
     if (typeof core.scene === "undefined") return;
-    this.wireframeMode = !this.wireframeMode;
+    this.wireframeMode = !core.wireframeMode;
     core.scene.traverse((child) => {
       if (child.material) {
-        child.material.wireframe = this.wireframeMode;
+        child.material.wireframe = core.wireframeMode;
         child.material.needsUpdate = true;
       }
     });    
@@ -17256,6 +17298,7 @@ const Viewer$1 = {
     setCore('dismissStatusNotice', this.dismissStatusNotice.bind(this));
     setCore('updateClippingHintVisibility', this.updateClippingHintVisibility.bind(this));
     setCore('editorToolbar', this.editorToolbar);
+    setCore('wireframeMode', this.wireframeMode);
 
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -17485,6 +17528,8 @@ const Viewer$1 = {
       setCore('materialsPropertiesText', this.materialsPropertiesText);
       setCore('intensity', this.intensity);
       setCore('environmentMapEnabled', this.environmentMapEnabled);
+      setCore('environmentMapIntensity', this.environmentMapIntensity);
+      setCore('environmentMapPreset', this.environmentMapPreset);
       this.clippingPlanes = this.core;
       setCore("clippingPlanes", this.clippingPlanes);
       setCore('helperObjects', this.helperObjects);

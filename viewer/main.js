@@ -609,10 +609,10 @@ export const Viewer = {
 
   toggleWireframeMode() {
     if (typeof core.scene === "undefined") return;
-    this.wireframeMode = !this.wireframeMode;
+    this.wireframeMode = !core.wireframeMode;
     core.scene.traverse((child) => {
       if (child.material) {
-        child.material.wireframe = this.wireframeMode;
+        child.material.wireframe = core.wireframeMode;
         child.material.needsUpdate = true;
       }
     });    
@@ -1594,6 +1594,7 @@ export const Viewer = {
     setCore('dismissStatusNotice', this.dismissStatusNotice.bind(this));
     setCore('updateClippingHintVisibility', this.updateClippingHintVisibility.bind(this));
     setCore('editorToolbar', this.editorToolbar);
+    setCore('wireframeMode', this.wireframeMode);
 
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1823,6 +1824,8 @@ export const Viewer = {
       setCore('materialsPropertiesText', this.materialsPropertiesText);
       setCore('intensity', this.intensity);
       setCore('environmentMapEnabled', this.environmentMapEnabled);
+      setCore('environmentMapIntensity', this.environmentMapIntensity);
+      setCore('environmentMapPreset', this.environmentMapPreset);
       this.clippingPlanes = this.core;
       setCore("clippingPlanes", this.clippingPlanes);
       setCore('helperObjects', this.helperObjects);
