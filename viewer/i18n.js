@@ -135,6 +135,10 @@ export const VIEWER_I18N = {
       reconstructionAuthors: "Reconstruction authors",
       reconstructionPeriod: "Reconstruction period",
     },
+    manifesto: {
+      invalidUrl: "Please enter a valid manifesto URL.",
+      invalidJson: "Please enter a valid manifesto JSON text.",
+    },
     iiif: {
       loader: "IIIF Loader",
       collapse: "Collapse",
@@ -420,6 +424,10 @@ export const VIEWER_I18N = {
       reconstructionAuthors: "Autorzy rekonstrukcji",
       reconstructionPeriod: "Okres rekonstrukcji",
     },
+    manifesto: {
+      invalidUrl: "Podaj poprawny URL manifestu.",
+      invalidJson: "Podaj poprawny tekst JSON.",
+    },
     iiif: {
       loader: "Ładowanie IIIF",
       collapse: "Zwiń",
@@ -703,6 +711,10 @@ export const VIEWER_I18N = {
       objectType: "Objekttyp",
       reconstructionAuthors: "Rekonstruktionsautoren",
       reconstructionPeriod: "Rekonstruktionsperiode",
+    },
+    manifesto: {
+      invalidUrl: "Bitte geben Sie eine gültige Manifest-URL ein.",
+      invalidJson: "Bitte geben Sie einen gültigen Manifest-JSON-Text ein.",
     },
     iiif: {
       loader: "IIIF-Loader",

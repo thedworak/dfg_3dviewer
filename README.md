@@ -392,6 +392,8 @@ Run lightweight conversion without xvfb checks:
 
 ![Gallery Preview Element 2](https://i.postimg.cc/TKPc7Kny/image6.png)
 
+![IIIF-AIM3D Data Flow.png](https://i.postimg.cc/htwXZNCh/IIIF-AIM3D-flow.png)
+
 
 ## Tauri standalone app (testing)
 
