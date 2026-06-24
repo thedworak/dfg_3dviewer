@@ -835,9 +835,9 @@ export function attachAnnotations(Viewer) {
               ? `#${core.scene.background.getHexString()}`
               : undefined,
             environmentMap: {
-              intensity: core.envirnmentMapIntensity || 1.0,
+              intensity: core.environmentMapIntensity || 0.5,
               preset: core.environmentMapPreset || "neutral",
-              enabled: core.enviromentMapEnabled || true
+              enabled: core.environmentMapEnabled || true
             },
             presentationMode: core.PRESENTATION_MODE || false,
             sandbox: core.SANDBOX_MODE || false,
@@ -939,6 +939,40 @@ export function attachAnnotations(Viewer) {
       
       toastHelper("iiifManifestGenerated", "success");
       return true;
+    },
+
+    ensureAnnotationImportInput() {
+      if (this.annotationImportInput) return this.annotationImportInput;
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".xml,text/xml,application/xml";
+      input.hidden = true;
+      this.bindEventListener(input, "change", async (event) => {
+        const target = event?.target;
+        const file = target?.files?.[0];
+        if (!file) return;
+
+        try {
+          const xmlText = await file.text();
+          const imported = this.importAnnotationsFromIIIFXml(xmlText);
+          if (imported > 0) {
+            toastHelper("annotationsImported", "success", {
+              count: imported,
+              plural: imported === 1 ? "" : "s"
+            });
+          } else {
+            toastHelper("noValidAnnotations", "warning");
+          }
+        } catch (error) {
+          console.error(error);
+          toastHelper("annotationsImportError", "error");
+        } finally {
+          target.value = "";
+        }
+      });
+      document.body.appendChild(input);
+      this.annotationImportInput = input;
+      return input;
     },
 
     triggerAnnotationsXmlImport() {

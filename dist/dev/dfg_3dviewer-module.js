@@ -489,6 +489,10 @@ const VIEWER_I18N = {
 
       iiifManifestGenerated: "IIIF manifest has been generated.",
       iiifManifestGenerationError: "Error generating IIIF manifest.",
+
+      containerNotFound: "Container element not found. Please check the Viewer configuration.",
+      missingFiles: "Missing required files for the Viewer. Please check the Viewer configuration.",
+      unsupportedFileFormat: "Unsupported file format.",
     },
     shortcuts: {
       mouse: "Mouse: drag orbit, wheel zoom, right-drag pan",
@@ -778,6 +782,10 @@ const VIEWER_I18N = {
 
       iiifManifestGenerated: "Manifest IIIF został wygenerowany.",
       iiifManifestGenerationError: "Błąd podczas generowania manifestu IIIF.",
+
+      containerNotFound: "Element kontenera nie został znaleziony. Proszę sprawdzić konfigurację Viewera.",
+      missingFiles: "Brak wymaganych plików dla Viewera. Proszę sprawdzić konfigurację Viewera.",
+      unsupportedFileFormat: "Nieobsługiwany format pliku.",
     },
     shortcuts: {
       mouse: "Mysz: przeciągnij, aby obracać, rolka - zoom, prawy przycisk - przesuwanie",
@@ -1066,6 +1074,10 @@ const VIEWER_I18N = {
 
       iiifManifestGenerated: "IIIF-Manifest wurde generiert.",
       iiifManifestGenerationError: "Fehler beim Generieren des IIIF-Manifests.",
+
+      containerNotFound: "Container-Element nicht gefunden. Bitte überprüfen Sie die Viewer-Konfiguration.",
+      missingFiles: "Fehlende erforderliche Dateien für den Viewer. Bitte überprüfen Sie die Viewer-Konfiguration.",
+      unsupportedFileFormat: "Nicht unterstütztes Dateiformat.",
     },
     shortcuts: {
       mouse: "Maus: ziehen zum Drehen, Mausrad - Zoom, Rechtsklick - Verschieben",
@@ -5569,9 +5581,9 @@ function attachAnnotations(Viewer) {
               ? `#${core.scene.background.getHexString()}`
               : undefined,
             environmentMap: {
-              intensity: core.envirnmentMapIntensity || 1.0,
+              intensity: core.environmentMapIntensity || 0.5,
               preset: core.environmentMapPreset || "neutral",
-              enabled: core.enviromentMapEnabled || true
+              enabled: core.environmentMapEnabled || true
             },
             presentationMode: core.PRESENTATION_MODE || false,
             sandbox: core.SANDBOX_MODE || false,
@@ -5673,6 +5685,40 @@ function attachAnnotations(Viewer) {
       
       toastHelper("iiifManifestGenerated", "success");
       return true;
+    },
+
+    ensureAnnotationImportInput() {
+      if (this.annotationImportInput) return this.annotationImportInput;
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".xml,text/xml,application/xml";
+      input.hidden = true;
+      this.bindEventListener(input, "change", async (event) => {
+        const target = event?.target;
+        const file = target?.files?.[0];
+        if (!file) return;
+
+        try {
+          const xmlText = await file.text();
+          const imported = this.importAnnotationsFromIIIFXml(xmlText);
+          if (imported > 0) {
+            toastHelper("annotationsImported", "success", {
+              count: imported,
+              plural: imported === 1 ? "" : "s"
+            });
+          } else {
+            toastHelper("noValidAnnotations", "warning");
+          }
+        } catch (error) {
+          console.error(error);
+          toastHelper("annotationsImportError", "error");
+        } finally {
+          target.value = "";
+        }
+      });
+      document.body.appendChild(input);
+      this.annotationImportInput = input;
+      return input;
     },
 
     triggerAnnotationsXmlImport() {
@@ -5873,7 +5919,7 @@ function attachMeasurement(Viewer) {
       Viewer.rulerObject.add(line);
       var lineMtr = new THREE.LineBasicMaterial({
         color: 0x0000ff,
-        linewidth: 3,
+        linewidth: 1,
         opacity: 1,
         side: THREE.DoubleSide,
         depthTest: false,
@@ -6456,62 +6502,6 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
-function buildMetadataRow(label, value) {
-  if (!label || typeof value === "undefined" || value === null || value === "") {
-    return "";
-  }
-
-  return (
-    '<div class="metadata-row">' +
-      '<span class="metadata-label">' + escapeHtml(label) + ':</span>' +
-      '<span class="metadata-value">' + escapeHtml(value) + '</span>' +
-    '</div>'
-  );
-}
-
-/**
- * Formats WissKI metadata labels and values for display.
- */
-function addWissKIMetadata(label, value) {
-  if (typeof label !== "undefined" && typeof value !== "undefined") {
-    var _str = "";
-    label = label.replace("wisski_path_3d_model__", "");
-    switch (label) {
-      case "title":
-        _str = t$1("metadata.title", "Title");
-        break;
-      case "author_name":
-        _str = t$1("metadata.author", "Author");
-        break;
-      case "author_affiliation":
-        _str = t$1("metadata.authorAffiliation", "Author affiliation");
-        break;
-      case "license":
-        _str = t$1("metadata.license", "License");
-        break;
-      case "description":
-        _str = t$1("metadata.description", "Description");
-        break;
-      case "object_type":
-        _str = t$1("metadata.objectType", "Object type");
-        break;
-      case "reconstruction_authors":
-        _str = t$1("metadata.reconstructionAuthors", "Reconstruction authors");
-        break;
-      case "reconstruction_period":
-        _str = t$1("metadata.reconstructionPeriod", "Reconstruction period");
-        break;
-      default:
-        _str = "";
-        break;
-    }
-
-    if (_str !== "") {
-      return buildMetadataRow(_str, value);
-    }
-  }
-}
-
 /**
  * Expands/collapses the metadata panel.
  */
@@ -6610,77 +6600,8 @@ async function fetchEntityMetadata() {
   if (!core.CONFIG.entity.metadata.sourceType || core.CONFIG.entity.metadata.url === "") {
     return "";
   }
-
-  const entityComponent = encodeURIComponent(core.CONFIG.entity.id) ?? core.CONFIG.entity.id ?? typeof core.CONFIG.entity.id ===  "undefined" ? "" : "";
-  const metadataUrl = core.CONFIG.entity.metadata.url + entityComponent;
-
-  try {
-    const response = await fetch(metadataUrl, { cache: "no-cache" });
-
-    if (!response.ok) {
-      console.warn("Metadata request failed with status:", response.status);
-      return "";
-    }
-
-    const responseText = await response.text();
-
-    try {
-      const jsonData = JSON.parse(responseText);
-      const record = Array.isArray(jsonData) ? jsonData[0] : jsonData;
-
-      if (!record || typeof record !== "object") {
-        return "";
-      }
-
-      console.log("Processing JSON metadata:", record);
-
-      const jsonFieldMap = {
-        title: "title",
-        reconstruction_authors: "author_name",
-        reconstruction_authors_affiliation: "author_affiliation",
-        reconstruction_license: "license",
-        reconstruction_time_frame: "reconstruction_period",
-        object_description: "description",
-        object_type: "object_type",
-      };
-
-      let entityMetadataContent = "";
-      for (const [jsonField, metadataLabel] of Object.entries(jsonFieldMap)) {
-        if (record[jsonField]) {
-          const fetchedValue = addWissKIMetadata(metadataLabel, record[jsonField]);
-          if (typeof fetchedValue !== "undefined") {
-            entityMetadataContent += fetchedValue;
-          }
-        }
-      }
-
-      return entityMetadataContent;
-    } catch (_jsonError) {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(responseText, "application/xml");
-
-      if (doc.documentElement.tagName === "parsererror") {
-        console.error("XML parsing error:", doc.documentElement.textContent);
-        return "";
-      }
-
-      let entityMetadataContent = "";
-      if (doc.documentElement.childNodes.length > 0) {
-        var data = doc.documentElement.childNodes[0].childNodes;
-        if (data !== undefined) {
-          for (var i = 0; i < data.length; i++) {
-            var fetchedValue = addWissKIMetadata(data[i].tagName, data[i].textContent);
-            if (typeof fetchedValue !== "undefined") {
-              entityMetadataContent += fetchedValue;
-            }
-          }
-        }
-      }
-
-      return entityMetadataContent;
-    }
-  } catch (error) {
-    console.error("Error processing metadata:", error);
+  {
+    console.warn("Entity ID is missing or invalid. Skipping metadata fetch.");
     return "";
   }
 }
@@ -7285,6 +7206,8 @@ function traverseMesh(object) {
 
 function getEnvironmentTextureForPreset(renderer, preset = "neutral") {
   if (!renderer) return Promise.resolve(null);
+
+  core.scene.environmentIntensity = core.environmentMapIntensity || 0.5;
   
   // Initialize cache for this preset if not exists
   if (!environmentTextureCache[preset]) {
@@ -14748,7 +14671,7 @@ function createEditorToolbar(viewer) {
               min: 0,
               max: 1,
               step: 0.01,
-              value: () => core.scene?.environmentIntensity ?? 0.5,
+              value: () => core.environmentMapIntensity ?? 0.5,
               onChange: (value) => {
                 if (!core.scene) return;
                 core.scene.environmentIntensity = value;
@@ -15991,6 +15914,8 @@ const Viewer$1 = {
   embedMissingSourceNotified: false,
   wireframeMode: false,
   environmentMapEnabled: true,
+  environmentMapPreset: "neutral",
+  environmentMapIntensity: 0.5,
   currentTheme: "dark",
   currentLanguage: "en",
   loadingLog: null,
@@ -16443,11 +16368,12 @@ const Viewer$1 = {
 
   toggleWireframeMode() {
     if (typeof core.scene === "undefined") return;
-    this.wireframeMode = !core.wireframeMode;
+    core.wireframeMode = !core.wireframeMode;
     core.scene.traverse((child) => {
       if (child.material) {
         child.material.wireframe = core.wireframeMode;
         child.material.needsUpdate = true;
+        child.material.wireframeLinewidth = 1;
       }
     });    
     this.updateEditorToolbarLabels();
@@ -17364,7 +17290,7 @@ const Viewer$1 = {
   },
 
   renderFatalError(error) {
-    const message = this.reportError(error, {
+    this.reportError(error, {
       context: "Viewer initialization failed",
       toast: false,
       consoleLabel: "Viewer initialization error:",
@@ -17374,22 +17300,12 @@ const Viewer$1 = {
       document.getElementById(core.CONFIG?.viewer?.container || "DFG_3DViewer") ||
       document.body;
 
-    if (!container) return;
-
-    let errorBox = document.getElementById("viewer-fatal-error");
-    if (!errorBox) {
-      errorBox = document.createElement("div");
-      errorBox.id = "viewer-fatal-error";
-      errorBox.style.padding = "16px";
-      errorBox.style.margin = "12px 0";
-      errorBox.style.border = "1px solid #b91c1c";
-      errorBox.style.background = "#fef2f2";
-      errorBox.style.color = "#7f1d1d";
-      errorBox.style.fontFamily = "sans-serif";
-      container.prepend(errorBox);
+    if (!container) {
+      showToast("toasts.containerNotFound", "error", { duration: 5000 });
+      return;
     }
 
-    errorBox.textContent = message;
+    showToast("toasts.missingFiles", "error", { duration: 5000 });
   },
 
   async MainInit() {
@@ -17508,7 +17424,10 @@ const Viewer$1 = {
     }
 
     this.container = document.getElementById(core.CONFIG.viewer.container);
-    if (!this.container) throw new Error("Container not found");
+    if (!this.container) {
+      showToast("toasts.containerNotFound", "error", { duration: 5000 });
+      return;
+    }
     setCore('container', this.container);
     document.body.classList.toggle("viewer-embed-page", this.isEmbedMode());
 

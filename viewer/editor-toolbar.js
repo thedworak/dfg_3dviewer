@@ -713,7 +713,7 @@ export function createEditorToolbar(viewer) {
               min: 0,
               max: 1,
               step: 0.01,
-              value: () => core.scene?.environmentIntensity ?? 0.5,
+              value: () => core.environmentMapIntensity ?? 0.5,
               onChange: (value) => {
                 if (!core.scene) return;
                 core.scene.environmentIntensity = value;

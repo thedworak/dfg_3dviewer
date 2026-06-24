@@ -280,6 +280,10 @@ export const VIEWER_I18N = {
 
       iiifManifestGenerated: "IIIF manifest has been generated.",
       iiifManifestGenerationError: "Error generating IIIF manifest.",
+
+      containerNotFound: "Container element not found. Please check the Viewer configuration.",
+      missingFiles: "Missing required files for the Viewer. Please check the Viewer configuration.",
+      unsupportedFileFormat: "Unsupported file format.",
     },
     shortcuts: {
       mouse: "Mouse: drag orbit, wheel zoom, right-drag pan",
@@ -569,6 +573,10 @@ export const VIEWER_I18N = {
 
       iiifManifestGenerated: "Manifest IIIF został wygenerowany.",
       iiifManifestGenerationError: "Błąd podczas generowania manifestu IIIF.",
+
+      containerNotFound: "Element kontenera nie został znaleziony. Proszę sprawdzić konfigurację Viewera.",
+      missingFiles: "Brak wymaganych plików dla Viewera. Proszę sprawdzić konfigurację Viewera.",
+      unsupportedFileFormat: "Nieobsługiwany format pliku.",
     },
     shortcuts: {
       mouse: "Mysz: przeciągnij, aby obracać, rolka - zoom, prawy przycisk - przesuwanie",
@@ -857,6 +865,10 @@ export const VIEWER_I18N = {
 
       iiifManifestGenerated: "IIIF-Manifest wurde generiert.",
       iiifManifestGenerationError: "Fehler beim Generieren des IIIF-Manifests.",
+
+      containerNotFound: "Container-Element nicht gefunden. Bitte überprüfen Sie die Viewer-Konfiguration.",
+      missingFiles: "Fehlende erforderliche Dateien für den Viewer. Bitte überprüfen Sie die Viewer-Konfiguration.",
+      unsupportedFileFormat: "Nicht unterstütztes Dateiformat.",
     },
     shortcuts: {
       mouse: "Maus: ziehen zum Drehen, Mausrad - Zoom, Rechtsklick - Verschieben",

@@ -158,6 +158,8 @@ export const Viewer = {
   embedMissingSourceNotified: false,
   wireframeMode: false,
   environmentMapEnabled: true,
+  environmentMapPreset: "neutral",
+  environmentMapIntensity: 0.5,
   currentTheme: "dark",
   currentLanguage: "en",
   loadingLog: null,
@@ -610,11 +612,12 @@ export const Viewer = {
 
   toggleWireframeMode() {
     if (typeof core.scene === "undefined") return;
-    this.wireframeMode = !core.wireframeMode;
+    core.wireframeMode = !core.wireframeMode;
     core.scene.traverse((child) => {
       if (child.material) {
         child.material.wireframe = core.wireframeMode;
         child.material.needsUpdate = true;
+        child.material.wireframeLinewidth = 1;
       }
     });    
     this.updateEditorToolbarLabels();
@@ -1543,22 +1546,12 @@ export const Viewer = {
       document.getElementById(core.CONFIG?.viewer?.container || "DFG_3DViewer") ||
       document.body;
 
-    if (!container) return;
-
-    let errorBox = document.getElementById("viewer-fatal-error");
-    if (!errorBox) {
-      errorBox = document.createElement("div");
-      errorBox.id = "viewer-fatal-error";
-      errorBox.style.padding = "16px";
-      errorBox.style.margin = "12px 0";
-      errorBox.style.border = "1px solid #b91c1c";
-      errorBox.style.background = "#fef2f2";
-      errorBox.style.color = "#7f1d1d";
-      errorBox.style.fontFamily = "sans-serif";
-      container.prepend(errorBox);
+    if (!container) {
+      showToast("toasts.containerNotFound", "error", { duration: 5000 });
+      return;
     }
 
-    errorBox.textContent = message;
+    showToast("toasts.missingFiles", "error", { duration: 5000 });
   },
 
   async MainInit() {
@@ -1677,7 +1670,10 @@ export const Viewer = {
     }
 
     this.container = document.getElementById(core.CONFIG.viewer.container);
-    if (!this.container) throw new Error("Container not found");
+    if (!this.container) {
+      showToast("toasts.containerNotFound", "error", { duration: 5000 });
+      return;
+    }
     setCore('container', this.container);
     document.body.classList.toggle("viewer-embed-page", this.isEmbedMode());
 

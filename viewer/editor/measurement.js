@@ -32,7 +32,7 @@ export function attachMeasurement(Viewer) {
       Viewer.rulerObject.add(line);
       var lineMtr = new THREE.LineBasicMaterial({
         color: 0x0000ff,
-        linewidth: 3,
+        linewidth: 1,
         opacity: 1,
         side: THREE.DoubleSide,
         depthTest: false,

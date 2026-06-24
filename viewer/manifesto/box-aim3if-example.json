@@ -1,0 +1,183 @@
+{
+  "@context": "http://iiif.io/api/presentation/4/context.json",
+  "id": "http://127.0.0.1:8080/examples/box.stl/manifest.json",
+  "type": "Manifest",
+  "label": {
+    "en": [
+      "box"
+    ]
+  },
+  "items": [
+    {
+      "id": "http://127.0.0.1:8080/examples/box.stl/scene",
+      "type": "Scene",
+      "label": {
+        "en": [
+          "box"
+        ]
+      },
+      "backgroundColor": "#000000",
+      "items": [
+        {
+          "id": "http://127.0.0.1:8080/examples/box.stl/scene/page/model",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "http://127.0.0.1:8080/examples/box.stl/scene/annotation/model",
+              "type": "Annotation",
+              "motivation": [
+                "painting"
+              ],
+              "body": {
+                "id": "http://127.0.0.1:8080/examples/box.stl",
+                "type": "Model"
+              },
+              "target": {
+                "id": "http://127.0.0.1:8080/examples/box.stl/scene",
+                "type": "Scene"
+              }
+            }
+          ]
+        }
+      ],
+      "annotations": [
+        {
+          "id": "http://127.0.0.1:8080/examples/box.stl/scene/page/annotations",
+          "type": "AnnotationPage",
+          "items": []
+        }
+      ]
+    }
+  ],
+  "AIM3DViewer": {
+    "version": "1.0",
+    "generatedAt": "2026-06-19T09:34:04.459Z",
+    "camera": {
+      "position": [
+        -1.6694479537305902,
+        1.8347239768652952,
+        3.3388959074611804
+      ],
+      "target": [
+        0,
+        1,
+        0
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fov": 45,
+      "distance": 3.825185808379782,
+      "perspectiveMode": "orthographic"
+    },
+    "viewer": {
+      "container": "DFG_3DViewer",
+      "mailUrl": "localhost",
+      "baseNamespace": "https://localhost",
+      "metadataUrl": "https://localhost",
+      "environmentMap": {
+        "intensity": 1,
+        "preset": "neutral",
+        "enabled": true
+      },
+      "presentationMode": false,
+      "sandbox": false,
+      "scale": {
+        "x": "1.0",
+        "y": "1.0"
+      },
+      "performance": {
+        "Performance": "high-performance"
+      },
+      "gallery": {
+        "build": true,
+        "container": "block-bootstrap5-content",
+        "imageClass": "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
+        "imageId": "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
+        "buildFake": true,
+        "testImages": [
+          null
+        ]
+      }
+    },
+    "integration": {
+      "type": "drupal",
+      "bundle": "bd1220d6ec7f07e726c65fd215d8e493",
+      "fieldDf": "field_df",
+      "exportViewer": "field_df",
+      "idUri": "\\/wisski\\/navigate\\/(.*)\\/view",
+      "viewEntityPath": "\\/wisski\\/navigate\\/",
+      "attributeId": "wisski_id",
+      "metadata": {
+        "source": ""
+      },
+      "fileUpload": "fad29437cb2a561b91b26aca5dbb7c42",
+      "fileName": "fb76901eb219495fee0512b5cdfdaa18",
+      "imageGeneration": "fd6a974b7120d422c7b21b5f1f2315d9"
+    },
+    "lights": [
+      {
+        "type": "AmbientLight",
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "color": "#404040",
+        "intensity": 1
+      },
+      {
+        "type": "DirectionalLight",
+        "position": [
+          0,
+          100,
+          50
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "color": "#ffffff",
+        "intensity": 1
+      },
+      {
+        "type": "DirectionalLight",
+        "position": [
+          0,
+          5.000799774279585e-11,
+          0.00010000444491510899
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "color": "#ffffff",
+        "intensity": 0.3
+      }
+    ],
+    "modelTransform": {
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "order": "XYZ"
+      },
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "wireframe": false
+    }
+  },
+  "modified": "2026-06-19T09:34:04.459Z"
+}

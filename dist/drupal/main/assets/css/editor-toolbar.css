@@ -14,10 +14,12 @@
   --viewer-toolbar-scale: clamp(0.75, calc((98vw) / var(--viewer-toolbar-max-width)), 1);
 
   position: absolute;
-  left: 50%;
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  width: max-content;
   bottom: 14px;
   transform:
-    translateX(-50%)
     translate3d(
       var(--drag-x, 0px),
       var(--drag-y, 0px),

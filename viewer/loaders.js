@@ -238,6 +238,8 @@ function traverseMesh(object) {
 
 function getEnvironmentTextureForPreset(renderer, preset = "neutral") {
   if (!renderer) return Promise.resolve(null);
+
+  core.scene.environmentIntensity = core.environmentMapIntensity || 0.5;
   
   // Initialize cache for this preset if not exists
   if (!environmentTextureCache[preset]) {
