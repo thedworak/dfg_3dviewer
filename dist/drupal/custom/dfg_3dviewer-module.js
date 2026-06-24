@@ -2307,6 +2307,7 @@ function attachEmbedConfigurator(Viewer) {
     },
 
     applyEmbedOptionsToInputs(options = {}) {
+      console.log(this.embedConfigInputs);
       if (!this.embedConfigInputs) return;
       this.embedConfigInputs.model.value = options.model ?? "";
       this.embedConfigInputs.id.value = options.id ?? "";
@@ -2320,6 +2321,10 @@ function attachEmbedConfigurator(Viewer) {
       this.embedConfigInputs.camPos.value = options.cameraPosition ?? "";
       this.embedConfigInputs.camTarget.value = options.cameraTarget ?? "";
       this.embedConfigInputs.fov.value = Number.isFinite(options.fov) ? String(options.fov) : "";
+      console.log(
+  "fillConfiguratorWithCurrentCamera",
+  this.embedConfigInputs.camPos.value
+);
     },
 
     setEmbedInputError(input, hasError, message = "") {
@@ -2412,6 +2417,7 @@ function attachEmbedConfigurator(Viewer) {
     },
 
     collectEmbedConfiguratorOptions() {
+      console.trace("collectEmbedConfiguratorOptions");
       const inputs = this.embedConfigInputs;
       if (!inputs) return this.getCurrentEmbedOptions({ includeCamera: true });
       const parsedCamPos = this.parseVector3Param(inputs.camPos.value);
@@ -2446,6 +2452,7 @@ function attachEmbedConfigurator(Viewer) {
 
     updateEmbedConfiguratorPreview() {
       if (!this.embedConfigInputs) return;
+      if (this.updatingEmbedFields) return;
       this.validateEmbedInputFields();
       const options = this.collectEmbedConfiguratorOptions();
       if (!this.hasEmbedSourceSelection(options)) {
@@ -2463,9 +2470,13 @@ function attachEmbedConfigurator(Viewer) {
 
     fillConfiguratorWithCurrentCamera() {
       if (!this.embedConfigInputs) return;
+
+      this.updatingEmbedFields = true;
+
       this.embedConfigInputs.camPos.value = this.formatVector3Param(core.camera?.position) || "";
       this.embedConfigInputs.camTarget.value = this.formatVector3Param(core.controls?.target) || "";
       this.embedConfigInputs.fov.value = Number.isFinite(core.camera?.fov) ? String(core.camera.fov) : "";
+      this.updatingEmbedFields = false;
       this.updateEmbedConfiguratorPreview();
     },
 
@@ -2493,7 +2504,6 @@ function attachEmbedConfigurator(Viewer) {
 
     createEmbedConfiguratorPanel() {
       if (!core.container || this.embedConfiguratorPanel) return;
-
       const defaults = this.getCurrentEmbedOptions({ includeCamera: true });
       const panelText = {
         title: t$1("embedPanel.title", "Embed options"),
@@ -16824,7 +16834,6 @@ const Viewer$1 = {
     if (sandboxModeFromQuery !== null) {
       core.SANDBOX_MODE = sandboxModeFromQuery;
     }
-    const showNotificationsFromQuery = this.parseBooleanParam(params.get("showNotifications"));
 
     this.urlOptions = {
       model: modelFromQuery || null,
@@ -16842,7 +16851,7 @@ const Viewer$1 = {
       presentationMode: core.PRESENTATION_MODE === true,
       sandboxMode: core.SANDBOX_MODE === true,
       scale: this.parseVector2Param(params.get("scale")) ?? null,
-      showNotifications: showNotificationsFromQuery !== false
+      showNotifications: this.parseBooleanParam(params.get("showNotifications")),
     };
   },
 
@@ -17342,7 +17351,8 @@ const Viewer$1 = {
       this.container ||
       document.getElementById(core.CONFIG?.viewer?.container || "DFG_3DViewer") ||
       document.body;
-
+    
+    this.noticeContainer.style.bottom = "50%";
     if (!container) {
       showToast("toasts.containerNotFound", "error", { duration: 5000 });
       return;
@@ -17467,20 +17477,46 @@ const Viewer$1 = {
     }
 
     this.container = document.getElementById(core.CONFIG.viewer.container);
+    this.noticeContainer = document.createElement("div");
+    this.noticeContainer.id = "viewerNoticeContainer";
+    this.statusNotice = document.createElement("div");
+    this.statusNotice.id = "viewerStatusNotice";
+    this.statusNotice.className = "viewer-notice viewer-notice-status";
+    this.statusNotice.hidden = true;
+    this.statusNotice.setAttribute("role", "status");
+    this.statusNotice.setAttribute("aria-live", "polite");
+    this.noticeContainer.appendChild(this.statusNotice);
+    setCore("statusNotice", this.statusNotice);
+    this.statusNoticeQueue = [];
+    this.statusNoticeActive = false;
+    if (this.statusNoticeTimer) {
+      clearTimeout(this.statusNoticeTimer);
+      this.statusNoticeTimer = null;
+    }
+
+    this.parseUrlOptions();
+
+    setCore('showNotifications', this.showNotifications);
+    if (this.urlOptions.showNotifications !== undefined && this.urlOptions.showNotifications !== null) {
+      core.showNotifications = this.urlOptions.showNotifications;
+    }
+
     if (!this.container) {
+      document.body.appendChild(this.noticeContainer);
+      this.noticeContainer.style.bottom = "50%";
       showToast("toasts.containerNotFound", "error", { duration: 5000 });
       return;
     }
     setCore('container', this.container);
     document.body.classList.toggle("viewer-embed-page", this.isEmbedMode());
 
-    this.parseUrlOptions();
+    core.container?.appendChild(this.noticeContainer);
+    setCore("noticeContainer", this.noticeContainer);
+    
     console.log(`Presentation mode: ${core.PRESENTATION_MODE ? "ON" : "OFF"}`);
     console.log(`Sandbox mode: ${core.SANDBOX_MODE ? "ON" : "OFF"}`);
     this.currentLanguage = this.getStoredLanguage();
     setCore('currentLanguage', this.currentLanguage);
-    setCore('showNotifications', this.showNotifications);
-    core.showNotifications = this.urlOptions.showNotifications;
 
     if (this.urlOptions.model) {
       this.container.setAttribute("3d", this.urlOptions.model);
@@ -17552,26 +17588,6 @@ const Viewer$1 = {
     core.CONFIG.viewer.exportPath = "/api/editor/xml-export/";    
     this.loadedFile = `${core.fileObject.basename}.${core.fileObject.extension}`;
 
-    this.noticeContainer = document.createElement("div");
-    this.noticeContainer.id = "viewerNoticeContainer";
-    core.container.appendChild(this.noticeContainer);
-    setCore("noticeContainer", this.noticeContainer);
-
-    this.statusNotice = document.createElement("div");
-    this.statusNotice.id = "viewerStatusNotice";
-    this.statusNotice.className = "viewer-notice viewer-notice-status";
-    this.statusNotice.hidden = true;
-    this.statusNotice.setAttribute("role", "status");
-    this.statusNotice.setAttribute("aria-live", "polite");
-    this.noticeContainer.appendChild(this.statusNotice);
-    setCore("statusNotice", this.statusNotice);
-    this.statusNoticeQueue = [];
-    this.statusNoticeActive = false;
-    if (this.statusNoticeTimer) {
-      clearTimeout(this.statusNoticeTimer);
-      this.statusNoticeTimer = null;
-    }
-
     if (!core.PRESENTATION_MODE) {
       this.handHint = document.createElement("div");
       this.handHint.id = "handHint";
@@ -17625,6 +17641,7 @@ const Viewer$1 = {
       setCore('helperObjects', this.helperObjects);
       setCore('lightHelper', this.lightHelper);
       setCore('selectedObjects', this.selectedObjects);
+      core.showNotifications = true;
     }
 
     this.spinnerContainer = document.createElement("div");
@@ -19502,7 +19519,7 @@ const Viewer$1 = {
         if (Viewer$1.urlOptions.hideUi) {
           Viewer$1.actionMenu.hidden = true;
         }
-        Viewer$1.createEmbedConfiguratorPanel();
+        this.createEmbedConfiguratorPanel();
 
         setCore('viewEntity', Viewer$1.viewEntity);
         Viewer$1.bindEventListener(Viewer$1.languageMode, "click", Viewer$1.toggleLanguage.bind(Viewer$1));
@@ -19810,16 +19827,15 @@ const Viewer$1 = {
     core.controls?.update();
     core.renderer?.render(core.scene, core.camera);
   }
-  
 };
 
-attachEmbedConfigurator(Viewer$1);
 attachLocalizationTheme(Viewer$1);
 attachLoadingStatus(Viewer$1);
 attachMaterialsEditor(Viewer$1);
 attachAnnotations(Viewer$1);
 attachPicking(Viewer$1);
 attachMeasurement(Viewer$1);
+attachEmbedConfigurator(Viewer$1);
 
 
 async function expectWebGL(page, showToast) {

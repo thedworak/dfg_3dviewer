@@ -34,10 +34,6 @@ window.viewer = {
 import { core, setCore } from './core.js';
 
 import {
-  distanceBetweenPointsVector,
-  vectorBetweenPoints,
-  halfwayBetweenPoints,
-  interpolateDistanceBetweenPoints,
   normalizeColor,
 } from "./utils.js";
 
@@ -1025,7 +1021,6 @@ export const Viewer = {
     if (sandboxModeFromQuery !== null) {
       core.SANDBOX_MODE = sandboxModeFromQuery;
     }
-    const showNotificationsFromQuery = this.parseBooleanParam(params.get("showNotifications"));
 
     this.urlOptions = {
       model: modelFromQuery || null,
@@ -1043,7 +1038,7 @@ export const Viewer = {
       presentationMode: core.PRESENTATION_MODE === true,
       sandboxMode: core.SANDBOX_MODE === true,
       scale: this.parseVector2Param(params.get("scale")) ?? null,
-      showNotifications: showNotificationsFromQuery !== false
+      showNotifications: this.parseBooleanParam(params.get("showNotifications")),
     };
   },
 
@@ -1545,7 +1540,8 @@ export const Viewer = {
       this.container ||
       document.getElementById(core.CONFIG?.viewer?.container || "DFG_3DViewer") ||
       document.body;
-
+    
+    this.noticeContainer.style.bottom = "50%";
     if (!container) {
       showToast("toasts.containerNotFound", "error", { duration: 5000 });
       return;
@@ -1670,20 +1666,46 @@ export const Viewer = {
     }
 
     this.container = document.getElementById(core.CONFIG.viewer.container);
+    this.noticeContainer = document.createElement("div");
+    this.noticeContainer.id = "viewerNoticeContainer";
+    this.statusNotice = document.createElement("div");
+    this.statusNotice.id = "viewerStatusNotice";
+    this.statusNotice.className = "viewer-notice viewer-notice-status";
+    this.statusNotice.hidden = true;
+    this.statusNotice.setAttribute("role", "status");
+    this.statusNotice.setAttribute("aria-live", "polite");
+    this.noticeContainer.appendChild(this.statusNotice);
+    setCore("statusNotice", this.statusNotice);
+    this.statusNoticeQueue = [];
+    this.statusNoticeActive = false;
+    if (this.statusNoticeTimer) {
+      clearTimeout(this.statusNoticeTimer);
+      this.statusNoticeTimer = null;
+    }
+
+    this.parseUrlOptions();
+
+    setCore('showNotifications', this.showNotifications);
+    if (this.urlOptions.showNotifications !== undefined && this.urlOptions.showNotifications !== null) {
+      core.showNotifications = this.urlOptions.showNotifications;
+    }
+
     if (!this.container) {
+      document.body.appendChild(this.noticeContainer);
+      this.noticeContainer.style.bottom = "50%";
       showToast("toasts.containerNotFound", "error", { duration: 5000 });
       return;
     }
     setCore('container', this.container);
     document.body.classList.toggle("viewer-embed-page", this.isEmbedMode());
 
-    this.parseUrlOptions();
+    core.container?.appendChild(this.noticeContainer);
+    setCore("noticeContainer", this.noticeContainer);
+    
     console.log(`Presentation mode: ${core.PRESENTATION_MODE ? "ON" : "OFF"}`);
     console.log(`Sandbox mode: ${core.SANDBOX_MODE ? "ON" : "OFF"}`);
     this.currentLanguage = this.getStoredLanguage();
     setCore('currentLanguage', this.currentLanguage);
-    setCore('showNotifications', this.showNotifications);
-    core.showNotifications = this.urlOptions.showNotifications;
 
     if (this.urlOptions.model) {
       this.container.setAttribute("3d", this.urlOptions.model);
@@ -1755,26 +1777,6 @@ export const Viewer = {
     core.CONFIG.viewer.exportPath = "/api/editor/xml-export/";    
     this.loadedFile = `${core.fileObject.basename}.${core.fileObject.extension}`;
 
-    this.noticeContainer = document.createElement("div");
-    this.noticeContainer.id = "viewerNoticeContainer";
-    core.container.appendChild(this.noticeContainer);
-    setCore("noticeContainer", this.noticeContainer);
-
-    this.statusNotice = document.createElement("div");
-    this.statusNotice.id = "viewerStatusNotice";
-    this.statusNotice.className = "viewer-notice viewer-notice-status";
-    this.statusNotice.hidden = true;
-    this.statusNotice.setAttribute("role", "status");
-    this.statusNotice.setAttribute("aria-live", "polite");
-    this.noticeContainer.appendChild(this.statusNotice);
-    setCore("statusNotice", this.statusNotice);
-    this.statusNoticeQueue = [];
-    this.statusNoticeActive = false;
-    if (this.statusNoticeTimer) {
-      clearTimeout(this.statusNoticeTimer);
-      this.statusNoticeTimer = null;
-    }
-
     if (!core.PRESENTATION_MODE) {
       this.handHint = document.createElement("div");
       this.handHint.id = "handHint";
@@ -1828,6 +1830,7 @@ export const Viewer = {
       setCore('helperObjects', this.helperObjects);
       setCore('lightHelper', this.lightHelper);
       setCore('selectedObjects', this.selectedObjects);
+      core.showNotifications = true;
     }
 
     this.spinnerContainer = document.createElement("div");
@@ -3710,7 +3713,7 @@ export const Viewer = {
         if (Viewer.urlOptions.hideUi) {
           Viewer.actionMenu.hidden = true;
         }
-        Viewer.createEmbedConfiguratorPanel();
+        this.createEmbedConfiguratorPanel();
 
         setCore('viewEntity', Viewer.viewEntity);
         Viewer.bindEventListener(Viewer.languageMode, "click", Viewer.toggleLanguage.bind(Viewer));
@@ -4020,16 +4023,15 @@ export const Viewer = {
     core.controls?.update();
     core.renderer?.render(core.scene, core.camera);
   }
-  
 };
 
-attachEmbedConfigurator(Viewer);
 attachLocalizationTheme(Viewer);
 attachLoadingStatus(Viewer);
 attachMaterialsEditor(Viewer);
 attachAnnotations(Viewer);
 attachPicking(Viewer);
 attachMeasurement(Viewer);
+attachEmbedConfigurator(Viewer);
 
 
 export async function expectWebGL(page, showToast) {

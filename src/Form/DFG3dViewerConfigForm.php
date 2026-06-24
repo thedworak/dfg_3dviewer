@@ -112,30 +112,14 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#default_value' => $default_settings['metadata_url'],
 		'#type' => 'textfield',
 		'#title' => $this->t('Metadata URL'),
-		'#description' => '<b>URL</b> of the instance that serves metadata content',
-		'#states' => [
-			'visible' => [
-				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
-			],
-			'required' => [
-				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
-			]
-		]
+		'#description' => '<b>URL</b> of the instance that serves metadata content'
     ];
 
 	$form['dfg_3dviewer_json_export_base_url'] = [
 		'#default_value' => $default_settings['json_export_base_url'],
 		'#type' => 'textfield',
 		'#title' => $this->t('JSON Export Base URL'),
-		'#description' => '<b>Base URL</b> of the instance that serves JSON export, e.g. https://repository.covher.eu',
-		'#states' => [
-			'visible' => [
-				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
-			],
-			'required' => [
-				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
-			]
-		]
+		'#description' => '<b>Base URL</b> of the instance that serves JSON export, e.g. https://repository.covher.eu'
     ];
 
 	$form['dfg_3dviewer_container'] = [
@@ -175,45 +159,21 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#type' => 'textfield',
 		'#title' => $this->t('API 3D File Field'),
 		'#required' => false,
-		'#description' => '<b>ID or machine name</b> of the field that should populate API `3D_file`',
-		'#states' => [
-			'visible' => [
-				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
-			],
-			'required' => [
-				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
-			]
-		],
+		'#description' => '<b>ID or machine name</b> of the field that should populate API `3D_file`'
     ];
 
 	$form['dfg_3dviewer_image_generation'] = [
 		'#default_value' => $default_settings['image_generation'],
 		'#type' => 'textfield',
 		'#title' => $this->t('Image Generation'),
-		'#description' => '<b>ID</b> of the bundle for the entity given in wisski pathbuilder for image_generation field',
-		'#states' => [
-			'visible' => [
-				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
-			],
-			'required' => [
-				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
-			]
-		]
+		'#description' => '<b>ID</b> of the bundle for the entity given in wisski pathbuilder for image_generation field'
     ];
 
 	$form['dfg_3dviewer_field_df'] = [
 		'#default_value' => $default_settings['field_df'],
 		'#type' => 'textfield',
 		'#title' => $this->t('Field DF'),
-		'#description' => 'Name of the field given for <b>field_df</b>',
-		'#states' => [
-			'visible' => [
-				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
-			],
-			'required' => [
-				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
-			],
-		]
+		'#description' => 'Name of the field given for <b>field_df</b>'
     ];
 
 	$form['dfg_3dviewer_export_viewer'] = [
@@ -221,14 +181,6 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#type' => 'textfield',
 		'#title' => $this->t('Export Viewer Field'),
 		'#description' => 'Name of the field given for <b>export_viewer</b>',
-		'#states' => [
-			'visible' => [
-				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
-			],
-			'required' => [
-				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
-			]
-		]
     ];
 
 	$form['dfg_3dviewer_export_viewer_url'] = [
@@ -236,14 +188,6 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#type' => 'textfield',
 		'#title' => $this->t('Export Viewer URL'),
 		'#description' => 'URL for the export viewer',
-		'#states' => [
-			'visible' => [
-				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
-			],
-			'required' => [
-				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
-			]
-		]
     ];
 
 	$form['scale_wrapper'] = [
@@ -261,7 +205,7 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#description' => '<b>Width</b> scale of the container',
 		'#attributes' => [
 			'class' => ['half-width'],
-		],
+		]
     ];
 
 	$form['scale_wrapper']['dfg_3dviewer_scale_container_y'] = [
@@ -279,11 +223,6 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#type' => 'container',
 		'#attributes' => [
 			'class' => ['gallery-fields-wrapper', 'gallery-container'],
-		],
-		'#states' => [
-			'visible' => [
-				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
-			]
 		]
 	];
 
@@ -293,14 +232,6 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#title' => $this->t('Gallery container element name'),
 		'#required' => false,
 		'#description' => '<b>Name</b> of the element with gallery URLs',
-		'#states' => [
-			'visible' => [
-				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
-			],
-			'required' => [
-				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
-			]
-		]
     ];
 
 	$form['gallery_wrapper']['dfg_3dviewer_gallery_image_class'] = [
@@ -309,14 +240,6 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#title' => $this->t('Gallery class name for images'),
 		'#required' => false,
 		'#description' => '<b>Class</b> name for gallery images',
-		'#states' => [
-			'visible' => [
-				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
-			],
-			'required' => [
-				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
-			]
-		]
     ];
 
 	$form['gallery_wrapper']['dfg_3dviewer_gallery_image_id'] = [
@@ -325,14 +248,6 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#title' => $this->t('Gallery ID name for images'),
 		'#required' => false,
 		'#description' => '<b>ID</b> name for gallery images',
-		'#states' => [
-			'visible' => [
-				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
-			],
-			'required' => [
-				':input[name="dfg_3dviewer_lightweight"]' => ['checked' => FALSE],
-			]
-		]
     ];
 
 	$form['dfg_3dviewer_base_module_path'] = [
@@ -380,6 +295,27 @@ class DFG3dViewerConfigForm extends FormBase {
     ];
     return $form;
   }
+
+	public function validateForm(array &$form, FormStateInterface $form_state) {
+		if ($form_state->getValue('dfg_3dviewer_lightweight')) {
+			$optional_fields = [
+				'dfg_3dviewer_metadata_url',
+				'dfg_3dviewer_json_export_base_url',
+				'dfg_3dviewer_api_3d_file_field',
+				'dfg_3dviewer_image_generation',
+				'dfg_3dviewer_field_df',
+				'dfg_3dviewer_export_viewer',
+				'dfg_3dviewer_export_viewer_url',
+				'dfg_3dviewer_gallery_container',
+				'dfg_3dviewer_gallery_image_class',
+				'dfg_3dviewer_gallery_image_id',
+			];
+
+			foreach ($optional_fields as $field) {
+				$form_state->setValue($field, '');
+			}
+		}
+	}
 
   /**
    *
