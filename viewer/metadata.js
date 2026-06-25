@@ -174,8 +174,12 @@ async function fetchEntityMetadata() {
   if (!core.CONFIG.entity.metadata.sourceType || core.CONFIG.entity.metadata.url === "") {
     return "";
   }
-
-  const metadataUrl = core.CONFIG.entity.metadata.url + encodeURIComponent(core.CONFIG.entity.id);
+  const entityComponent = encodeURIComponent(core.CONFIG.entity.id) ?? core.CONFIG.entity.id ?? typeof core.CONFIG.entity.id ===  "undefined" ? "" : "";
+  if (!entityComponent) {
+    console.warn("Entity ID is missing or invalid. Skipping metadata fetch.");
+    return "";
+  }
+  const metadataUrl = core.CONFIG.entity.metadata.url + entityComponent;
 
   try {
     const response = await fetch(metadataUrl, { cache: "no-cache" });
@@ -525,15 +529,15 @@ export function createIIIFDropdown(iiifConfigURL) {
   ].filter(Boolean);
 
   const group = document.createElement("div");
-  group.className = "form-IIIF-group";
+  group.className = "form-manifesto-group";
 
   const label = document.createElement("label");
   label.textContent = t("iiif.manifest", "IIIF manifest");
-  label.className = "form-IIIF-label";
+  label.className = "form-manifesto-label";
 
   const select = document.createElement("select");
-  select.id = "iiif-manifest-select";
-  select.name = "iiif-manifest-select";
+  select.id = "manifesto-manifest-select";
+  select.name = "manifesto-manifest-select";
 
   iiifList.forEach(item => {
     const opt = document.createElement("option");
@@ -546,21 +550,61 @@ export function createIIIFDropdown(iiifConfigURL) {
   group.appendChild(select);
 
   // add on the top
-  document.querySelector("#form-IIIF-content").prepend(group);
+  document.querySelector("#form-manifesto-content").prepend(group);
 
 }
 
-export function createIIIFUI() {
+export function createAIM3IFDropdown(url) {
+  const group = document.createElement("div");
+  group.className = "form-manifesto-group";
+
+  const aim3ifList = [
+    { url: url, name: t("aim3if.optionDefault", "Default configuration") },
+    { url: "https://viewer.thedworak.com/manifests/box.json", name: t("aim3if.optionBox", "Box configuration") },
+    // Add more AIM3IF configurations here as needed
+  ].filter(Boolean);
+
+  const label = document.createElement("label");
+  label.textContent = t("aim3if.modelConfig", "Model configuration");
+  label.className = "form-manifesto-label";
+
+  const select = document.createElement("select");
+  select.id = "manifesto-config-select";
+  select.name = "manifesto-config-select";
+
+  aim3ifList.forEach(item => {
+    const opt = document.createElement("option");
+    opt.value = item.url;
+    opt.textContent = item.name;
+    select.appendChild(opt);
+  });
+  group.appendChild(label);
+
+  const optDefault = document.createElement("option");
+  optDefault.value = url;
+  optDefault.textContent = t("aim3if.optionDefault", "Default configuration");
+  select.appendChild(optDefault);
+
+  group.appendChild(label);
+  group.appendChild(select);
+
+  // add on the top
+  document.querySelector("#form-manifesto-content").prepend(group);
+}
+
+export function createManifestUI(type = "iiif") {
   const formContainer = document.createElement("div");
-  formContainer.id = "form-IIIF";
+  const className = type === "iiif" ? "IIIF" : "AIM3IF";
+  const titleKey = type === "iiif" ? "iiif" : "aim3if";
+  formContainer.id = `form-manifesto`;
 
   /* header */
   const header = document.createElement("div");
-  header.className = "form-IIIF-header";
+  header.className = `form-manifesto-header`;
   header.innerHTML = `
-    <span class="title">${escapeHtml(t("iiif.loader", "IIIF Loader"))}</span>
+    <span class="title">${escapeHtml(t(`${titleKey}.loader`, `${className} Loader`))}</span>
     <div class="tools">
-      <button type="button" id="iiif-toggle-collapse" title="${escapeHtml(t("iiif.collapse", "Collapse"))}">▾</button>
+      <button type="button" id="manifesto-toggle-collapse" title="${escapeHtml(t(`${titleKey}.collapse`, `Collapse`))}">▾</button>
     </div>
   `;
 
@@ -568,18 +612,18 @@ export function createIIIFUI() {
 
   /* content */
   const content = document.createElement("div");
-  content.className = "form-IIIF-content";
-  content.id = "form-IIIF-content";
+  content.className = `form-manifesto-content`;
+  content.id = `form-manifesto-content`;
   content.innerHTML = `
-    <div class="form-IIIF-group">
-      <input type="text" id="manifest-url" placeholder="${escapeHtml(t("iiif.manifestUrlPlaceholder", "https://example.org/iiif/manifest.json"))}">
-      <button class="primary" id="load-manifest-from-url">${escapeHtml(t("iiif.loadFromUrl", "Load from URL"))}</button>
+    <div class="form-manifesto-group">
+      <input type="text" id="manifesto-manifest-url" placeholder="${escapeHtml(t(`${titleKey}.manifestUrlPlaceholder`, `https://example.org/manifesto/manifest.json`))}">
+      <button class="primary" id="load-manifesto-from-url">${escapeHtml(t(`${titleKey}.loadFromUrl`, `Load from URL`))}</button>
     </div>
 
-    <div class="form-IIIF-group column">
-      <textarea id="manifest-text" rows="8" placeholder="${escapeHtml(t("iiif.manifestTextPlaceholder", "Paste IIIF manifest JSON here..."))}"></textarea>
+    <div class="form-manifesto-group column">
+      <textarea id="manifesto-manifest-text" rows="8" placeholder="${escapeHtml(t(`${titleKey}.manifestTextPlaceholder`, `Paste ${className} manifest JSON here...`))}"></textarea>
       <div class="actions">
-        <button class="secondary" id="load-manifest-from-text">${escapeHtml(t("iiif.loadFromText", "Load from Text"))}</button>
+        <button class="secondary" id="load-manifesto-from-text">${escapeHtml(t(`${titleKey}.loadFromText`, `Load from Text`))}</button>
       </div>
     </div>
   `;

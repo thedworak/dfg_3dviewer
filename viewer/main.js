@@ -34,10 +34,6 @@ window.viewer = {
 import { core, setCore } from './core.js';
 
 import {
-  distanceBetweenPointsVector,
-  vectorBetweenPoints,
-  halfwayBetweenPoints,
-  interpolateDistanceBetweenPoints,
   normalizeColor,
 } from "./utils.js";
 
@@ -54,7 +50,7 @@ import { attachPicking } from "./editor/picking.js";
 import { captureAndUploadThumbnail } from "./editor/thumbnail-capture.js";
 
 import { loadModel, outlineClipping, getModuleAssetBasePath, syncSceneEnvironment } from "./loaders.js";
-import { createIIIFDropdown, createIIIFUI } from "./metadata.js";
+import { createIIIFDropdown, createManifestUI, createAIM3IFDropdown } from "./metadata.js";
 import { UltraLoader } from "./ultra-loader.js";
 import { StatusPoller } from "./status-poller.js";
 
@@ -73,6 +69,7 @@ import { GUI } from "./js/external_libs/lil-gui.esm.min.js";
 import { objectsConfig, setObjectsConfig } from "./object-settings.js";
 
 import { loadIIIFManifest, getAnnotations } from "./IIIF/iiif-api.js";
+import { loadAIM3IFManifest, applyManifestConfig } from "./manifesto/manifesto-api.js";
 import {
   attachEditorToolbar,
   createEditorToolbar,
@@ -157,6 +154,8 @@ export const Viewer = {
   embedMissingSourceNotified: false,
   wireframeMode: false,
   environmentMapEnabled: true,
+  environmentMapPreset: "neutral",
+  environmentMapIntensity: 0.5,
   currentTheme: "dark",
   currentLanguage: "en",
   loadingLog: null,
@@ -179,7 +178,7 @@ export const Viewer = {
     "processingSteps.finalizing3dModel",
     "processingSteps.initializingViewer",
   ],
-  THEME_STORAGE_KEY: "iiif-dark-mode",
+  THEME_STORAGE_KEY: "manifesto-dark-mode",
   LANGUAGE_STORAGE_KEY: "viewer-language",
   I18N: VIEWER_I18N,
   GESTURE: {handPx: 55, period: 5.5, rotate: false, active: false, target: new THREE.Vector3(), startTime: 0, baseAngle: 0, orbitAngle: THREE.MathUtils.degToRad(15), easeInTime: 2.25},
@@ -609,11 +608,12 @@ export const Viewer = {
 
   toggleWireframeMode() {
     if (typeof core.scene === "undefined") return;
-    this.wireframeMode = !this.wireframeMode;
+    core.wireframeMode = !core.wireframeMode;
     core.scene.traverse((child) => {
       if (child.material) {
-        child.material.wireframe = this.wireframeMode;
+        child.material.wireframe = core.wireframeMode;
         child.material.needsUpdate = true;
+        child.material.wireframeLinewidth = 1;
       }
     });    
     this.updateEditorToolbarLabels();
@@ -1021,7 +1021,6 @@ export const Viewer = {
     if (sandboxModeFromQuery !== null) {
       core.SANDBOX_MODE = sandboxModeFromQuery;
     }
-    const showNotificationsFromQuery = this.parseBooleanParam(params.get("showNotifications"));
 
     this.urlOptions = {
       model: modelFromQuery || null,
@@ -1039,7 +1038,7 @@ export const Viewer = {
       presentationMode: core.PRESENTATION_MODE === true,
       sandboxMode: core.SANDBOX_MODE === true,
       scale: this.parseVector2Param(params.get("scale")) ?? null,
-      showNotifications: showNotificationsFromQuery !== false
+      showNotifications: this.parseBooleanParam(params.get("showNotifications")),
     };
   },
 
@@ -1411,9 +1410,9 @@ export const Viewer = {
   },
 
   cleanupTransientUI() {
-    const iiifForm = document.getElementById("form-IIIF");
-    if (iiifForm) {
-      iiifForm.remove();
+    const manifestoForm = document.getElementById("form-manifesto");
+    if (manifestoForm) {
+      manifestoForm.remove();
     }
   },
 
@@ -1541,23 +1540,14 @@ export const Viewer = {
       this.container ||
       document.getElementById(core.CONFIG?.viewer?.container || "DFG_3DViewer") ||
       document.body;
-
-    if (!container) return;
-
-    let errorBox = document.getElementById("viewer-fatal-error");
-    if (!errorBox) {
-      errorBox = document.createElement("div");
-      errorBox.id = "viewer-fatal-error";
-      errorBox.style.padding = "16px";
-      errorBox.style.margin = "12px 0";
-      errorBox.style.border = "1px solid #b91c1c";
-      errorBox.style.background = "#fef2f2";
-      errorBox.style.color = "#7f1d1d";
-      errorBox.style.fontFamily = "sans-serif";
-      container.prepend(errorBox);
+    
+    this.noticeContainer.style.bottom = "50%";
+    if (!container) {
+      showToast("toasts.containerNotFound", "error", { duration: 5000 });
+      return;
     }
 
-    errorBox.textContent = message;
+    showToast("toasts.missingFiles", "error", { duration: 5000 });
   },
 
   async MainInit() {
@@ -1594,6 +1584,7 @@ export const Viewer = {
     setCore('dismissStatusNotice', this.dismissStatusNotice.bind(this));
     setCore('updateClippingHintVisibility', this.updateClippingHintVisibility.bind(this));
     setCore('editorToolbar', this.editorToolbar);
+    setCore('wireframeMode', this.wireframeMode);
 
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1675,17 +1666,46 @@ export const Viewer = {
     }
 
     this.container = document.getElementById(core.CONFIG.viewer.container);
-    if (!this.container) throw new Error("Container not found");
+    this.noticeContainer = document.createElement("div");
+    this.noticeContainer.id = "viewerNoticeContainer";
+    this.statusNotice = document.createElement("div");
+    this.statusNotice.id = "viewerStatusNotice";
+    this.statusNotice.className = "viewer-notice viewer-notice-status";
+    this.statusNotice.hidden = true;
+    this.statusNotice.setAttribute("role", "status");
+    this.statusNotice.setAttribute("aria-live", "polite");
+    this.noticeContainer.appendChild(this.statusNotice);
+    setCore("statusNotice", this.statusNotice);
+    this.statusNoticeQueue = [];
+    this.statusNoticeActive = false;
+    if (this.statusNoticeTimer) {
+      clearTimeout(this.statusNoticeTimer);
+      this.statusNoticeTimer = null;
+    }
+
+    this.parseUrlOptions();
+
+    setCore('showNotifications', this.showNotifications);
+    if (this.urlOptions.showNotifications !== undefined && this.urlOptions.showNotifications !== null) {
+      core.showNotifications = this.urlOptions.showNotifications;
+    }
+
+    if (!this.container) {
+      document.body.appendChild(this.noticeContainer);
+      this.noticeContainer.style.bottom = "50%";
+      showToast("toasts.containerNotFound", "error", { duration: 5000 });
+      return;
+    }
     setCore('container', this.container);
     document.body.classList.toggle("viewer-embed-page", this.isEmbedMode());
 
-    this.parseUrlOptions();
+    core.container?.appendChild(this.noticeContainer);
+    setCore("noticeContainer", this.noticeContainer);
+    
     console.log(`Presentation mode: ${core.PRESENTATION_MODE ? "ON" : "OFF"}`);
     console.log(`Sandbox mode: ${core.SANDBOX_MODE ? "ON" : "OFF"}`);
     this.currentLanguage = this.getStoredLanguage();
     setCore('currentLanguage', this.currentLanguage);
-    setCore('showNotifications', this.showNotifications);
-    core.showNotifications = this.urlOptions.showNotifications;
 
     if (this.urlOptions.model) {
       this.container.setAttribute("3d", this.urlOptions.model);
@@ -1757,26 +1777,6 @@ export const Viewer = {
     core.CONFIG.viewer.exportPath = "/api/editor/xml-export/";    
     this.loadedFile = `${core.fileObject.basename}.${core.fileObject.extension}`;
 
-    this.noticeContainer = document.createElement("div");
-    this.noticeContainer.id = "viewerNoticeContainer";
-    core.container.appendChild(this.noticeContainer);
-    setCore("noticeContainer", this.noticeContainer);
-
-    this.statusNotice = document.createElement("div");
-    this.statusNotice.id = "viewerStatusNotice";
-    this.statusNotice.className = "viewer-notice viewer-notice-status";
-    this.statusNotice.hidden = true;
-    this.statusNotice.setAttribute("role", "status");
-    this.statusNotice.setAttribute("aria-live", "polite");
-    this.noticeContainer.appendChild(this.statusNotice);
-    setCore("statusNotice", this.statusNotice);
-    this.statusNoticeQueue = [];
-    this.statusNoticeActive = false;
-    if (this.statusNoticeTimer) {
-      clearTimeout(this.statusNoticeTimer);
-      this.statusNoticeTimer = null;
-    }
-
     if (!core.PRESENTATION_MODE) {
       this.handHint = document.createElement("div");
       this.handHint.id = "handHint";
@@ -1823,11 +1823,14 @@ export const Viewer = {
       setCore('materialsPropertiesText', this.materialsPropertiesText);
       setCore('intensity', this.intensity);
       setCore('environmentMapEnabled', this.environmentMapEnabled);
+      setCore('environmentMapIntensity', this.environmentMapIntensity);
+      setCore('environmentMapPreset', this.environmentMapPreset);
       this.clippingPlanes = this.core;
       setCore("clippingPlanes", this.clippingPlanes);
       setCore('helperObjects', this.helperObjects);
       setCore('lightHelper', this.lightHelper);
       setCore('selectedObjects', this.selectedObjects);
+      core.showNotifications = true;
     }
 
     this.spinnerContainer = document.createElement("div");
@@ -3309,49 +3312,52 @@ export const Viewer = {
   },
 
   // IIIF setup and loading
-  async setupIIIF(newUrlOrJson, type="url") {
+  async setupManifesto(newUrlOrJson, type="url", manifestType = "iiif") {
     if (type === "text") {
       Viewer.iiifConfigURL.url = "";
     } else {
       Viewer.iiifConfigURL.url = newUrlOrJson;
     }
-    const loadedIIIF = await loadIIIFManifest(newUrlOrJson);
-    if (loadedIIIF.modelUrls.length === 0) { // no 3D model found, use example model
-      loadedIIIF.modelUrls.push('https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb');
+    const loadedManifest = manifestType === "iiif" ? await loadIIIFManifest(newUrlOrJson) : await loadAIM3IFManifest(newUrlOrJson);
+    if (loadedManifest.modelUrls.length === 0) { // no 3D model found, use example model
+      loadedManifest.modelUrls.push('https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb');
       showToast(t("toasts.noIiiifModelFallback", "No 3D model found in IIIF manifest, loading example model."));
     }
     // reset scene and release GPU resources from the previous model batch
     Viewer.resetLoadedModelState();
     core.axesHelper.visible = false;
-    console.log("TOTAL Annotations: " + loadedIIIF.annotations.length);
-    if (loadedIIIF.annotations.length !== loadedIIIF.modelUrls.length) {
+    console.log("TOTAL Annotations: " + loadedManifest.annotations.length);
+    if (loadedManifest.annotations.length !== loadedManifest.modelUrls.length) {
       //console.warn("Number of annotations does not match number of model URLs, adding testing model...");
-        const diff = loadedIIIF.annotations.length - loadedIIIF.modelUrls.length;
+        const diff = loadedManifest.annotations.length - loadedManifest.modelUrls.length;
         if (diff > 0) {
           // Need more model URLs → push empty strings (or null)
           for (let i = 0; i < diff; i++) {
-            loadedIIIF.modelUrls.push(Viewer.testModelURL);
+            loadedManifest.modelUrls.push(Viewer.testModelURL);
             core.objectsConfig.models.push({name: "Test Model", url: Viewer.testModelURL});
           }
         }
     }
-    for (const [i, url] of loadedIIIF.modelUrls?.entries()) {
+    for (const [i, url] of loadedManifest.modelUrls?.entries()) {
       core.objectsConfig.index = i;
-      core.fileObject.originalPath = loadedIIIF.modelUrl = url;
-      //fileObject.originalPath = loadedIIIF.modelUrl;
+      core.fileObject.originalPath = loadedManifest.modelUrl = url;
+      //fileObject.originalPath = loadedManifest.modelUrl;
       Viewer.setModelPaths();
-      await getAnnotations(loadedIIIF, core.objectsConfig);
-      if (loadedIIIF.scenes && loadedIIIF.scenes.length > 0) {
-        core.objectsConfig.scenes = loadedIIIF.scenes;
+      manifestType === "iiif" ? await getAnnotations(loadedManifest, core.objectsConfig) : await applyManifestConfig(loadedManifest, core.objectsConfig);
+      if (loadedManifest.scenes && loadedManifest.scenes.length > 0) {
+        core.objectsConfig.scenes = loadedManifest.scenes;
       }
       Viewer._ext = core.fileObject.extension.toLowerCase();
       await Viewer.mainLoadModel();
     }
   },
 
-  async loadIIIFURL() {
-    const form = document.getElementById("form-IIIF");
-    const collapseBtn = document.getElementById("iiif-toggle-collapse");
+  async loadManifestoURL(type = "iiif") {
+    // Load IIIF URL
+    const className = type === "iiif" ? "IIIF" : "AIM3IF";
+    const titleKey = type === "iiif" ? "iiif" : "aim3if";
+    const form = document.getElementById("form-manifesto");
+    const collapseBtn = document.getElementById("manifesto-toggle-collapse");
     form?.setAttribute("data-viewer-theme", Viewer.currentTheme);
     Viewer.updateIIIFFormLabels();
 
@@ -3359,59 +3365,63 @@ export const Viewer = {
       form.classList.toggle("collapsed");
       collapseBtn.textContent = form.classList.contains("collapsed") ? "▸" : "▾";
       collapseBtn.title = form.classList.contains("collapsed")
-        ? t("iiif.expand", "Expand")
-        : t("iiif.collapse", "Collapse");
+        ? t("${titleKey}.expand", "Expand")
+        : t("${titleKey}.collapse", "Collapse");
     });
     // create a small dropdown to switch iiif manifests at runtime
-    Viewer.bindEventListener(document.getElementById("iiif-manifest-select"), "change", async (ev) => {
+    Viewer.bindEventListener(document.getElementById("manifesto-manifest-select"), "change", async (ev) => {
       try {
         if (ev.target.value !== Viewer.iiifConfigURL.url) {
           core.objectsConfig.setupIndex = 0;
-          await Viewer.setupIIIF(ev.target.value, "url");
+          await Viewer.setupManifesto(ev.target.value, "url", type);
         }
       } catch (err) {
         Viewer.reportError(err, {
-          context: "Error loading IIIF manifest",
+          context: "Error loading ${className} manifest",
         });
       }
       });
 
-    Viewer.bindEventListener(document.getElementById("load-manifest-from-url"), "click", async (ev) => {
+    Viewer.bindEventListener(document.getElementById("load-manifesto-from-url"), "click", async (ev) => {
       try {
-        const inputElement = document.getElementById("manifest-url");
+        const inputElement = document.getElementById("manifesto-manifest-url");
         if (inputElement.value === "" || !Viewer.isUrlFlexible(inputElement.value)) {
         inputElement.style.border = "2px solid red";
-        showToast("iiif.invalidUrl", "warning");
+        showToast("manifesto.invalidUrl", "warning");
         return;
       } else {
         inputElement.style.border = "2px solid green";
         core.objectsConfig.setupIndex = 0;
-          console.log("Loading IIIF manifest from URL: " + inputElement.value);
-          await Viewer.setupIIIF(inputElement.value, "url");
+          console.log("Loading ${className} manifest from URL: " + inputElement.value);
+          await Viewer.setupManifesto(inputElement.value, "url", type);
         }
       } catch (err) {
         Viewer.reportError(err, {
-          context: "Error loading IIIF manifest",
+          context: "Error loading ${className} manifest",
         });
       }
       });
 
-    Viewer.bindEventListener(document.getElementById("load-manifest-from-text"), "click", async (ev) => {
+    Viewer.bindEventListener(document.getElementById("load-manifesto-from-text"), "click", async (ev) => {
       try {
-        const inputElement = document.getElementById("manifest-text");
+        const inputElement = document.getElementById("manifesto-manifest-text");
         if (inputElement.value === "" || !Viewer.isValidJsonObject(inputElement.value)) {
           inputElement.style.border = "2px solid red";
-          showToast("iiif.invalidJson", "warning");
+          showToast("manifesto.invalidJson", "warning");
         return;
       } else {
         inputElement.style.border = "2px solid green";
         core.objectsConfig.setupIndex = 0;
-          console.log("Loading IIIF manifest from privided text");
-          await Viewer.setupIIIF(inputElement.value, "text");
+          console.log("Loading ${className} manifest from privided text");
+          if (type === "iiif") {
+            await Viewer.setupManifesto(inputElement.value, "text", type);
+          } else {
+            await Viewer.setupManifesto(inputElement.value, "text", type);
+          }
         }
       } catch (err) {
         Viewer.reportError(err, {
-          context: "Error loading IIIF manifest",
+          context: "Error loading ${className} manifest",
         });
       }
     });
@@ -3703,7 +3713,7 @@ export const Viewer = {
         if (Viewer.urlOptions.hideUi) {
           Viewer.actionMenu.hidden = true;
         }
-        Viewer.createEmbedConfiguratorPanel();
+        this.createEmbedConfiguratorPanel();
 
         setCore('viewEntity', Viewer.viewEntity);
         Viewer.bindEventListener(Viewer.languageMode, "click", Viewer.toggleLanguage.bind(Viewer));
@@ -3950,14 +3960,26 @@ export const Viewer = {
           }
         } else if (sourceType === "iiif") {
           Viewer.cleanupTransientUI();
-          createIIIFUI();
+          createManifestUI("iiif");
 
           console.log("Loading from source: " + core.CONFIG.entity.metadata.sourceType);
           if (Viewer.iiifConfigURL.url !== "") {
             createIIIFDropdown(Viewer.iiifConfigURL);
-            await Viewer.loadIIIFURL();
+            await Viewer.loadManifestoURL();
             core.CONFIG.entity.metadata.sourceType = "IIIF";
-            await Viewer.setupIIIF(Viewer.iiifConfigURL.url);
+            await Viewer.setupManifesto(Viewer.iiifConfigURL.url);
+          }
+        }
+        else if (sourceType === "aim3if") {
+          Viewer.cleanupTransientUI();
+          createManifestUI("aim3if");
+
+          console.log("Loading from source: " + core.CONFIG.entity.metadata.sourceType);
+          if (core.CONFIG.entity.metadata.url) {
+            createAIM3IFDropdown(core.CONFIG.entity.metadata.url);
+            await Viewer.loadManifestoURL("aim3if");
+            core.CONFIG.entity.metadata.sourceType = "AIM3IF";
+            await Viewer.setupManifesto(core.CONFIG.entity.metadata.url, "url", "aim3if");
           }
         } else {
           console.log("Custom metadata source:" + core.CONFIG.entity.metadata.sourceType);
@@ -4001,16 +4023,15 @@ export const Viewer = {
     core.controls?.update();
     core.renderer?.render(core.scene, core.camera);
   }
-  
 };
 
-attachEmbedConfigurator(Viewer);
 attachLocalizationTheme(Viewer);
 attachLoadingStatus(Viewer);
 attachMaterialsEditor(Viewer);
 attachAnnotations(Viewer);
 attachPicking(Viewer);
 attachMeasurement(Viewer);
+attachEmbedConfigurator(Viewer);
 
 
 export async function expectWebGL(page, showToast) {

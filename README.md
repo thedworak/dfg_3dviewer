@@ -55,6 +55,16 @@ cp viewer/viewer-settings-example.json viewer/viewer-settings.json
 npm run dev:test
 ```
 
+or using http-server:
+```bash
+http-server -c-1
+```
+
+or using PHP:
+```bash
+php -S 127.0.0.1:8000 -t ../../viewer
+```
+
 4. Open the demo at:
 
 ```text
@@ -88,7 +98,7 @@ After installing the PHP extension, restart your webserver/PHP-FPM:
 
 ```bash
 sudo systemctl restart apache2        # or nginx + php-fpm
-sudo systemctl restart php8.1-fpm     # adjust version as needed
+sudo systemctl restart php8.4-fpm     # adjust version as needed
 ```
 
 Verify installation:
@@ -381,6 +391,8 @@ Run lightweight conversion without xvfb checks:
 ![Gallery Preview Element](https://i.postimg.cc/xXF3W9P6/image1.png) 
 
 ![Gallery Preview Element 2](https://i.postimg.cc/TKPc7Kny/image6.png)
+
+![IIIF-AIM3D Data Flow.png](https://i.postimg.cc/htwXZNCh/IIIF-AIM3D-flow.png)
 
 
 ## Tauri standalone app (testing)

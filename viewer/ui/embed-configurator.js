@@ -67,6 +67,7 @@ export function attachEmbedConfigurator(Viewer) {
     },
 
     applyEmbedOptionsToInputs(options = {}) {
+      console.log(this.embedConfigInputs);
       if (!this.embedConfigInputs) return;
       this.embedConfigInputs.model.value = options.model ?? "";
       this.embedConfigInputs.id.value = options.id ?? "";
@@ -80,6 +81,10 @@ export function attachEmbedConfigurator(Viewer) {
       this.embedConfigInputs.camPos.value = options.cameraPosition ?? "";
       this.embedConfigInputs.camTarget.value = options.cameraTarget ?? "";
       this.embedConfigInputs.fov.value = Number.isFinite(options.fov) ? String(options.fov) : "";
+      console.log(
+  "fillConfiguratorWithCurrentCamera",
+  this.embedConfigInputs.camPos.value
+);
     },
 
     setEmbedInputError(input, hasError, message = "") {
@@ -172,6 +177,7 @@ export function attachEmbedConfigurator(Viewer) {
     },
 
     collectEmbedConfiguratorOptions() {
+      console.trace("collectEmbedConfiguratorOptions");
       const inputs = this.embedConfigInputs;
       if (!inputs) return this.getCurrentEmbedOptions({ includeCamera: true });
       const parsedCamPos = this.parseVector3Param(inputs.camPos.value);
@@ -206,6 +212,7 @@ export function attachEmbedConfigurator(Viewer) {
 
     updateEmbedConfiguratorPreview() {
       if (!this.embedConfigInputs) return;
+      if (this.updatingEmbedFields) return;
       this.validateEmbedInputFields();
       const options = this.collectEmbedConfiguratorOptions();
       if (!this.hasEmbedSourceSelection(options)) {
@@ -223,9 +230,13 @@ export function attachEmbedConfigurator(Viewer) {
 
     fillConfiguratorWithCurrentCamera() {
       if (!this.embedConfigInputs) return;
+
+      this.updatingEmbedFields = true;
+
       this.embedConfigInputs.camPos.value = this.formatVector3Param(core.camera?.position) || "";
       this.embedConfigInputs.camTarget.value = this.formatVector3Param(core.controls?.target) || "";
       this.embedConfigInputs.fov.value = Number.isFinite(core.camera?.fov) ? String(core.camera.fov) : "";
+      this.updatingEmbedFields = false;
       this.updateEmbedConfiguratorPreview();
     },
 
@@ -253,7 +264,6 @@ export function attachEmbedConfigurator(Viewer) {
 
     createEmbedConfiguratorPanel() {
       if (!core.container || this.embedConfiguratorPanel) return;
-
       const defaults = this.getCurrentEmbedOptions({ includeCamera: true });
       const panelText = {
         title: t("embedPanel.title", "Embed options"),

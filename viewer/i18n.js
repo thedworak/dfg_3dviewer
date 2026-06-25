@@ -74,6 +74,7 @@ export const VIEWER_I18N = {
       addAnnotations: "Add annotations",
       exportAnnotationsXml: "Export annotations XML",
       importAnnotationsXml: "Import annotations XML",
+      IIIFexport: "Export IIIF",
       resetCameraPosition: "Reset camera position",
       saveSettings: "Save settings",
       renderPreview: "Render preview",
@@ -133,6 +134,10 @@ export const VIEWER_I18N = {
       objectType: "Object type",
       reconstructionAuthors: "Reconstruction authors",
       reconstructionPeriod: "Reconstruction period",
+    },
+    manifesto: {
+      invalidUrl: "Please enter a valid manifesto URL.",
+      invalidJson: "Please enter a valid manifesto JSON text.",
     },
     iiif: {
       loader: "IIIF Loader",
@@ -272,6 +277,13 @@ export const VIEWER_I18N = {
 
       downloadSuccess: "Model downloaded successfully.",
       downloadError: "Failed to download model.",
+
+      iiifManifestGenerated: "IIIF manifest has been generated.",
+      iiifManifestGenerationError: "Error generating IIIF manifest.",
+
+      containerNotFound: "Container element not found. Please check the Viewer configuration.",
+      missingFiles: "Missing required files for the Viewer. Please check the Viewer configuration.",
+      unsupportedFileFormat: "Unsupported file format.",
     },
     shortcuts: {
       mouse: "Mouse: drag orbit, wheel zoom, right-drag pan",
@@ -355,6 +367,7 @@ export const VIEWER_I18N = {
       addAnnotations: "Dodaj annotacje",
       exportAnnotationsXml: "Eksportuj annotacje XML",
       importAnnotationsXml: "Importuj annotacje XML",
+      IIIFexport: "Eksportuj do IIIF",
       resetCameraPosition: "Resetuj pozycję kamery",
       saveSettings: "Zapisz ustawienia",
       renderPreview: "Renderuj podgląd",
@@ -414,6 +427,10 @@ export const VIEWER_I18N = {
       objectType: "Typ obiektu",
       reconstructionAuthors: "Autorzy rekonstrukcji",
       reconstructionPeriod: "Okres rekonstrukcji",
+    },
+    manifesto: {
+      invalidUrl: "Podaj poprawny URL manifestu.",
+      invalidJson: "Podaj poprawny tekst JSON.",
     },
     iiif: {
       loader: "Ładowanie IIIF",
@@ -553,6 +570,13 @@ export const VIEWER_I18N = {
 
       downloadSuccess: "Model został pomyślnie pobrany.",
       downloadError: "Nie udało się pobrać modelu.",
+
+      iiifManifestGenerated: "Manifest IIIF został wygenerowany.",
+      iiifManifestGenerationError: "Błąd podczas generowania manifestu IIIF.",
+
+      containerNotFound: "Element kontenera nie został znaleziony. Proszę sprawdzić konfigurację Viewera.",
+      missingFiles: "Brak wymaganych plików dla Viewera. Proszę sprawdzić konfigurację Viewera.",
+      unsupportedFileFormat: "Nieobsługiwany format pliku.",
     },
     shortcuts: {
       mouse: "Mysz: przeciągnij, aby obracać, rolka - zoom, prawy przycisk - przesuwanie",
@@ -635,6 +659,7 @@ export const VIEWER_I18N = {
       addAnnotations: "Anmerkungen hinzufügen",
       exportAnnotationsXml: "Anmerkungen XML exportieren",
       importAnnotationsXml: "Anmerkungen XML importieren",
+      IIIFexport: "IIIF exportieren",
       resetCameraPosition: "Kameraposition zurücksetzen",
       saveSettings: "Einstellungen speichern",
       renderPreview: "Vorschau rendern",
@@ -694,6 +719,10 @@ export const VIEWER_I18N = {
       objectType: "Objekttyp",
       reconstructionAuthors: "Rekonstruktionsautoren",
       reconstructionPeriod: "Rekonstruktionsperiode",
+    },
+    manifesto: {
+      invalidUrl: "Bitte geben Sie eine gültige Manifest-URL ein.",
+      invalidJson: "Bitte geben Sie einen gültigen Manifest-JSON-Text ein.",
     },
     iiif: {
       loader: "IIIF-Loader",
@@ -833,6 +862,13 @@ export const VIEWER_I18N = {
 
       downloadSuccess: "Modell erfolgreich heruntergeladen.",
       downloadError: "Fehler beim Herunterladen des Modells.",
+
+      iiifManifestGenerated: "IIIF-Manifest wurde generiert.",
+      iiifManifestGenerationError: "Fehler beim Generieren des IIIF-Manifests.",
+
+      containerNotFound: "Container-Element nicht gefunden. Bitte überprüfen Sie die Viewer-Konfiguration.",
+      missingFiles: "Fehlende erforderliche Dateien für den Viewer. Bitte überprüfen Sie die Viewer-Konfiguration.",
+      unsupportedFileFormat: "Nicht unterstütztes Dateiformat.",
     },
     shortcuts: {
       mouse: "Maus: ziehen zum Drehen, Mausrad - Zoom, Rechtsklick - Verschieben",

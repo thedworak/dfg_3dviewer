@@ -283,6 +283,7 @@ const VIEWER_I18N = {
       addAnnotations: "Add annotations",
       exportAnnotationsXml: "Export annotations XML",
       importAnnotationsXml: "Import annotations XML",
+      IIIFexport: "Export IIIF",
       resetCameraPosition: "Reset camera position",
       saveSettings: "Save settings",
       renderPreview: "Render preview",
@@ -342,6 +343,10 @@ const VIEWER_I18N = {
       objectType: "Object type",
       reconstructionAuthors: "Reconstruction authors",
       reconstructionPeriod: "Reconstruction period",
+    },
+    manifesto: {
+      invalidUrl: "Please enter a valid manifesto URL.",
+      invalidJson: "Please enter a valid manifesto JSON text.",
     },
     iiif: {
       loader: "IIIF Loader",
@@ -481,6 +486,13 @@ const VIEWER_I18N = {
 
       downloadSuccess: "Model downloaded successfully.",
       downloadError: "Failed to download model.",
+
+      iiifManifestGenerated: "IIIF manifest has been generated.",
+      iiifManifestGenerationError: "Error generating IIIF manifest.",
+
+      containerNotFound: "Container element not found. Please check the Viewer configuration.",
+      missingFiles: "Missing required files for the Viewer. Please check the Viewer configuration.",
+      unsupportedFileFormat: "Unsupported file format.",
     },
     shortcuts: {
       mouse: "Mouse: drag orbit, wheel zoom, right-drag pan",
@@ -564,6 +576,7 @@ const VIEWER_I18N = {
       addAnnotations: "Dodaj annotacje",
       exportAnnotationsXml: "Eksportuj annotacje XML",
       importAnnotationsXml: "Importuj annotacje XML",
+      IIIFexport: "Eksportuj do IIIF",
       resetCameraPosition: "Resetuj pozycję kamery",
       saveSettings: "Zapisz ustawienia",
       renderPreview: "Renderuj podgląd",
@@ -623,6 +636,10 @@ const VIEWER_I18N = {
       objectType: "Typ obiektu",
       reconstructionAuthors: "Autorzy rekonstrukcji",
       reconstructionPeriod: "Okres rekonstrukcji",
+    },
+    manifesto: {
+      invalidUrl: "Podaj poprawny URL manifestu.",
+      invalidJson: "Podaj poprawny tekst JSON.",
     },
     iiif: {
       loader: "Ładowanie IIIF",
@@ -762,6 +779,13 @@ const VIEWER_I18N = {
 
       downloadSuccess: "Model został pomyślnie pobrany.",
       downloadError: "Nie udało się pobrać modelu.",
+
+      iiifManifestGenerated: "Manifest IIIF został wygenerowany.",
+      iiifManifestGenerationError: "Błąd podczas generowania manifestu IIIF.",
+
+      containerNotFound: "Element kontenera nie został znaleziony. Proszę sprawdzić konfigurację Viewera.",
+      missingFiles: "Brak wymaganych plików dla Viewera. Proszę sprawdzić konfigurację Viewera.",
+      unsupportedFileFormat: "Nieobsługiwany format pliku.",
     },
     shortcuts: {
       mouse: "Mysz: przeciągnij, aby obracać, rolka - zoom, prawy przycisk - przesuwanie",
@@ -844,6 +868,7 @@ const VIEWER_I18N = {
       addAnnotations: "Anmerkungen hinzufügen",
       exportAnnotationsXml: "Anmerkungen XML exportieren",
       importAnnotationsXml: "Anmerkungen XML importieren",
+      IIIFexport: "IIIF exportieren",
       resetCameraPosition: "Kameraposition zurücksetzen",
       saveSettings: "Einstellungen speichern",
       renderPreview: "Vorschau rendern",
@@ -903,6 +928,10 @@ const VIEWER_I18N = {
       objectType: "Objekttyp",
       reconstructionAuthors: "Rekonstruktionsautoren",
       reconstructionPeriod: "Rekonstruktionsperiode",
+    },
+    manifesto: {
+      invalidUrl: "Bitte geben Sie eine gültige Manifest-URL ein.",
+      invalidJson: "Bitte geben Sie einen gültigen Manifest-JSON-Text ein.",
     },
     iiif: {
       loader: "IIIF-Loader",
@@ -1042,6 +1071,13 @@ const VIEWER_I18N = {
 
       downloadSuccess: "Modell erfolgreich heruntergeladen.",
       downloadError: "Fehler beim Herunterladen des Modells.",
+
+      iiifManifestGenerated: "IIIF-Manifest wurde generiert.",
+      iiifManifestGenerationError: "Fehler beim Generieren des IIIF-Manifests.",
+
+      containerNotFound: "Container-Element nicht gefunden. Bitte überprüfen Sie die Viewer-Konfiguration.",
+      missingFiles: "Fehlende erforderliche Dateien für den Viewer. Bitte überprüfen Sie die Viewer-Konfiguration.",
+      unsupportedFileFormat: "Nicht unterstütztes Dateiformat.",
     },
     shortcuts: {
       mouse: "Maus: ziehen zum Drehen, Mausrad - Zoom, Rechtsklick - Verschieben",
@@ -4871,6 +4907,35 @@ function attachAnnotations(Viewer) {
       }];
     },
 
+    selectAnnotationEntriesFaces(entries) {
+      if (!Array.isArray(entries) || entries.length === 0) {
+        return;
+      }
+      this.clearSelectedFaces();
+      entries.forEach((entry) => {
+        const object = this.resolveObjectByTargetId(entry.targetId);
+        if (!object) return;
+
+        const faces = Array.isArray(entry.faceNumbers)
+          ? entry.faceNumbers
+          : [entry.faceIndex];
+
+        faces.forEach((faceIndex) => {
+          this.toggleSelectedFace(
+            {
+              object,
+              faceIndex,
+            },
+            {
+              multiSelect: true,
+            }
+          );
+        });
+      });
+
+      this.updateSelectedFacesCount();
+    },
+
     openAnnotationDialogFromPOIMarker(marker) {
       const entries = this.getAnnotationEntriesForPOIMarker(marker);
       if (!entries.length) {
@@ -4878,6 +4943,7 @@ function attachAnnotations(Viewer) {
         return false;
       }
 
+      this.selectAnnotationEntriesFaces(entries);
       this.buildAnnotationDialog();
       if (!this.annotationDialog) return false;
 
@@ -4957,9 +5023,13 @@ function attachAnnotations(Viewer) {
       entries.forEach((entry) => {
         const object = this.resolveObjectByTargetId(entry.targetId);
         if (!object) return;
-        const point = this.getFaceCentroidWorld(object, entry.faceIndex);
-        if (!point) return;
-        const marker = this.createAnnotationPOIMarker(entry, point, entries.indexOf(entry) + 1);
+        const center = new THREE.Vector3();
+        entry.faceNumbers.forEach(faceIndex => {
+          const point = this.getFaceCentroidWorld(object, faceIndex);
+          if (point) center.add(point);
+        });
+        center.divideScalar(entry.faceNumbers.length);
+        const marker = this.createAnnotationPOIMarker(entry, center, entries.indexOf(entry) + 1);
         group.add(marker);
         this.annotationPOIMarkers.push(marker);
         added += 1;
@@ -4967,6 +5037,34 @@ function attachAnnotations(Viewer) {
 
       group.visible = added > 0;
       return added;
+    },
+
+    findAnnotationByFaceKey(key) {
+      if (!key) return null;
+
+      return this.annotationEntries.find((annotation) => {
+        const targetId = String(
+          annotation.targetId ||
+          annotation.object ||
+          annotation.target?.id ||
+          ""
+        ).trim();
+
+        if (!targetId) return false;
+
+        const faceNumbers = Array.isArray(annotation.faceNumbers)
+          ? annotation.faceNumbers
+          : [annotation.faceIndex];
+
+        return faceNumbers.some((faceIndex) => {
+          const annotationKey = this.getFaceSelectionKey(
+            targetId,
+            Number(faceIndex)
+          );
+
+          return annotationKey === key;
+        });
+      }) || null;
     },
 
     buildAnnotationDialog() {
@@ -5142,7 +5240,7 @@ function attachAnnotations(Viewer) {
         .map((key) => {
           const selected = this.selectedFaces.find((entry) => entry.key === key);
           if (selected) return selected;
-          const existingEntry = this.annotationEntries.find((entry) => entry.key === key);
+          const existingEntry = this.findAnnotationByFaceKey(key);
           if (!existingEntry) return null;
           return {
             key: existingEntry.key,
@@ -5159,49 +5257,50 @@ function attachAnnotations(Viewer) {
       }
 
       const nowIso = new Date().toISOString();
-      const groupId = String(this.annotationBatchGroupId || `anno-group-${Date.now()}`);
+      //const groupId = String(this.annotationBatchGroupId || `anno-group-${Date.now()}`);
       let updatedCount = 0;
       let addedCount = 0;
 
-      selectedFaces.forEach((selectedFace) => {
-        const faceNumber = Number(selectedFace.faceIndex);
-        const normalizedFaceNumber = Number.isInteger(faceNumber) ? faceNumber : -1;
-        const annotationTargetId = selectedFace.targetId || selectedFace.object || "";
-        const stableTargetToken = Viewer.toStableIdToken(annotationTargetId);
-        const existingIndex = this.annotationEntries.findIndex(
-          (entry) => entry.key === selectedFace.key
+      const targetId = selectedFaces[0].targetId;
+
+      const faceNumbers = selectedFaces
+        .map(f => Number(f.faceIndex))
+        .filter(Number.isInteger);
+
+      const annotationPayload = {
+        id: this.annotationBatchGroupId || `anno-${Date.now()}`,
+        targetId,
+        object: targetId,
+
+        faceNumbers,
+        faceIndex: faceNumbers[0],
+
+        target: {
+          id: targetId,
+          faces: faceNumbers
+        },
+
+        title,
+        description,
+        updatedAt: nowIso,
+        createdAt: nowIso
+      };
+
+      const existingIndex = this.annotationEntries.findIndex(
+        entry => entry.id === annotationPayload.id
+      );
+
+      if (existingIndex >= 0) {
+        this.annotationEntries.splice(
+          existingIndex,
+          1,
+          annotationPayload
         );
-        if (!annotationTargetId || normalizedFaceNumber < 0) return;
-
-        const annotationPayload = {
-          id: existingIndex >= 0
-            ? this.annotationEntries[existingIndex].id
-            : `anno-${stableTargetToken}-f${normalizedFaceNumber}`,
-          groupId,
-          key: selectedFace.key,
-          object: annotationTargetId,
-          targetId: annotationTargetId,
-          faceIndex: normalizedFaceNumber,
-          faceNumbers: [normalizedFaceNumber],
-          target: {
-            id: annotationTargetId,
-            faces: [normalizedFaceNumber],
-          },
-          title,
-          description,
-          updatedAt: nowIso,
-        };
-
-        if (existingIndex >= 0) {
-          annotationPayload.createdAt = this.annotationEntries[existingIndex].createdAt || nowIso;
-          this.annotationEntries.splice(existingIndex, 1, annotationPayload);
-          updatedCount += 1;
-        } else {
-          annotationPayload.createdAt = nowIso;
-          this.annotationEntries.push(annotationPayload);
-          addedCount += 1;
-        }
-      });
+        updatedCount++;
+      } else {
+        this.annotationEntries.push(annotationPayload);
+        addedCount++;
+      }
 
       const totalChanged = updatedCount + addedCount;
       if (totalChanged > 0) {
@@ -5258,6 +5357,21 @@ function attachAnnotations(Viewer) {
 
     exportAnnotationsToIIIFXml() {
       const entries = this.getAnnotationEntriesForPersistence();
+      const groups = new Map();
+
+      entries.forEach((entry) => {
+        const key = entry.groupId || entry.id;
+
+        if (!groups.has(key)) {
+          groups.set(key, {
+            ...entry,
+            faceNumbers: [],
+          });
+        }
+
+        groups.get(key).faceNumbers.push(...entry.faceNumbers);
+      });
+
       const doc = document.implementation.createDocument("", "", null);
       const root = doc.createElement("iiif:annotations");
       root.setAttribute("xmlns:iiif", "http://iiif.io/api/presentation/3#");
@@ -5265,7 +5379,7 @@ function attachAnnotations(Viewer) {
       root.setAttribute("generatedAt", new Date().toISOString());
       doc.appendChild(root);
 
-      entries.forEach((entry) => {
+      groups.forEach((entry) => {
         const annotation = doc.createElement("iiif:annotation");
         annotation.setAttribute("id", entry.id);
         annotation.setAttribute("type", "Annotation");
@@ -5319,6 +5433,257 @@ function attachAnnotations(Viewer) {
       document.body.removeChild(link);
       setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
       toastHelper("annotationsExported", "success");
+      return true;
+    },
+
+    exportIIIFManifest() { // Added a new method to export the IIIF manifest
+      const iiifUrl = core.fileObject?.originalPath || ""; 
+      if (!iiifUrl) {
+        toastHelper("iiifUrlMissing", "warning");
+        return false;
+      }
+      // Generate the IIIF manifest and log it to the console 
+      const sceneId = `${iiifUrl}/scene`;
+
+      const manifest = {
+        "@context": "http://iiif.io/api/presentation/4/context.json",
+
+        id: `${iiifUrl}/manifest.json`,
+        type: "Manifest",
+
+        label: {
+          en: [core.fileObject?.basename || "Model"]
+        },
+
+        items: [
+          {
+            id: sceneId,
+            type: "Scene",
+
+            label: {
+              en: [core.fileObject?.basename || "Model"]
+            },
+
+            backgroundColor: core.scene?.background
+              ? `#${core.scene.background.getHexString()}`
+              : "#000000",
+
+            items: [
+              {
+                id: `${sceneId}/page/model`,
+                type: "AnnotationPage",
+
+                items: [
+                  {
+                    id: `${sceneId}/annotation/model`,
+                    type: "Annotation",
+
+                    motivation: ["painting"],
+
+                    body: {
+                      id: core.fileObject.originalPath,
+                      type: "Model",
+                      format: core.fileObject.mimeType || undefined
+                    },
+
+                    target: {
+                      id: sceneId,
+                      type: "Scene"
+                    }
+                  }
+                ]
+              }
+            ],
+
+            annotations: [
+              {
+                id: `${sceneId}/page/annotations`,
+                type: "AnnotationPage",
+
+                items: this.getAnnotationEntriesForPersistence().map((entry) => ({
+                  id: String(entry.id),
+                  type: "Annotation",
+
+                  motivation: ["commenting"],
+
+                  label: {
+                    en: [String(entry.title || "").trim()]
+                  },
+
+                  created: entry.createdAt || undefined,
+                  modified: entry.updatedAt || undefined,
+
+                  target: {
+                    source: core.fileObject.originalPath,
+
+                    selector: {
+                      type: "JsonSelector",
+
+                      value: {
+                        targetId: entry.targetId,
+                        faceIndex: entry.faceIndex,
+                        faceNumbers: entry.faceNumbers || [],
+                        selectorId: entry.selectorId
+                      }
+                    }
+                  },
+
+                  body: {
+                    type: "TextualBody",
+                    value: String(entry.description || "").trim()
+                  },
+
+                  AIM3DViewer: {
+                    groupId: entry.groupId || "",
+                    key: entry.key || "",
+                    object: entry.object || ""
+                  }
+                }))
+              }
+            ]
+          }
+        ],
+
+        AIM3DViewer: {
+          version: "1.0",
+
+          generatedAt: new Date().toISOString(),
+
+          camera: {
+            position: core.camera.position.toArray(),
+
+            target: core.controls?.target
+              ? core.controls.target.toArray()
+              : [0, 0, 0],
+
+            up: core.camera.up.toArray(),
+
+            fov: core.camera.fov,
+
+            zoom:
+              typeof core.controls?.zoom === "number"
+                ? core.controls.zoom
+                : undefined,
+            distance:
+              core.camera.position.distanceTo(
+                core.controls.target
+              ),
+            perspectiveMode: core.camera.isPerspectiveCamera ? "orthographic" : "perspective",
+          },
+
+          viewer: {
+            container: core.CONFIG?.viewer?.container || "DFG_3DViewer",
+            mailUrl: core.CONFIG.mainUrl || "https://localhost",
+            baseNamespace: "https://localhost",
+            metadataUrl: "https://localhost",
+
+            backgroundColor: core.scene?.background?.isColor
+              ? `#${core.scene.background.getHexString()}`
+              : undefined,
+            environmentMap: {
+              intensity: core.environmentMapIntensity || 0.5,
+              preset: core.environmentMapPreset || "neutral",
+              enabled: core.environmentMapEnabled || true
+            },
+            presentationMode: core.PRESENTATION_MODE || false,
+            sandbox: core.SANDBOX_MODE || false,
+            scale: core.CONFIG.viewer.scaleContainer || new Vector2(1,1),
+            performance: core.CONFIG.viewer.performanceMode || "high-performance",
+            units: core.CONFIG?.viewer?.measurement?.modelUnitInMeters,
+            gallery: {
+              build: core.CONFIG.viewer.gallery?.build || false,
+              container: core.CONFIG.viewer.gallery?.container || "AIM3DViewerContainer",
+              imageClass: core.CONFIG.viewer.gallery?.imageClass || "AIM3DViewerGalleryImage",
+              imageId: core.CONFIG.viewer.gallery?.imageId || "AIM3DViewerGalleryImage",
+              buildFake: true,
+              testImages: [undefined],
+            }
+          },
+
+          integration: {
+            type: core.CONFIG.entity ? "drupal" : "none",
+            bundle: core.CONFIG.entity?.bundle || "bd3d7baa74856d141bcff7b4193fa128",
+            fieldDf: core.CONFIG.entity?.fieldDf || "field_df",
+            exportViewer: core.CONFIG.entity?.exportViewer || "field_df",
+            idUri: core.CONFIG.entity?.idUri || "/wisski/navigate/(.*)/view",
+            viewEntityPath: core.CONFIG.entity?.viewEntityPath || "/wisski/navigate/",
+            attributeId: core.CONFIG.entity?.attributeId || "wisski_id",
+            metadata: {
+              source: core.CONFIG.entity?.metadata?.source || "",
+            },
+            fileUpload: core.CONFIG.viewer.fileUpload || "fbf95bddee5160d515b982b3fd2e05f7",
+            fileName: core.CONFIG.viewer.fileName || "faa602a0be629324806aef22892cdbe5",
+            imageGeneration: core.CONFIG.viewer.imageGeneration || "f605dc6b727a1099b9e52b3ccbdf5673",
+          },
+
+          lights: (core.scene?.children || [])
+            .filter((child) =>
+              [
+                "DirectionalLight",
+                "SpotLight",
+                "PointLight",
+                "AmbientLight"
+              ].includes(child.type)
+            )
+            .map((light) => ({
+              type: light.type,
+
+              position: light.position?.toArray?.() || [0, 0, 0],
+
+              target:
+                light.target?.position?.toArray?.() || undefined,
+
+              color: `#${light.color.getHexString()}`,
+
+              intensity: light.intensity
+            })),
+
+          modelTransform: {
+            position:
+              core.mainObject?.position?.toArray?.() ||
+              [0, 0, 0],
+
+            rotation: core.mainObject?.rotation
+              ? {
+                  x: core.mainObject.rotation.x,
+                  y: core.mainObject.rotation.y,
+                  z: core.mainObject.rotation.z,
+                  order: core.mainObject.rotation.order
+                }
+              : {
+                  x: 0,
+                  y: 0,
+                  z: 0,
+                  order: "XYZ"
+                },
+
+            scale:
+              core.mainObject?.scale?.toArray?.() ||
+              [1, 1, 1],
+            
+            wireframe: core.wireframeMode || false,
+          }
+        },
+        modified: new Date().toISOString(),
+      };
+
+      manifest.AIM3DViewer.generatedAt = new Date().toISOString();
+      core.fileObject?.iiifUrl && (manifest.id = `${core.fileObject?.basename}_manifest.json`);
+      const defaultBaseName = core.fileObject?.basename || "manifest";
+      const safeBaseName = String(defaultBaseName).replace(/[^a-zA-Z0-9._-]+/g, "_");
+      const fileName = `${safeBaseName || "manifest"}-iiif-manifest.json`;
+      const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: "application/json;charset=utf-8" });
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = fileName;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+      
+      toastHelper("iiifManifestGenerated", "success");
       return true;
     },
 
@@ -5554,7 +5919,7 @@ function attachMeasurement(Viewer) {
       Viewer.rulerObject.add(line);
       var lineMtr = new THREE.LineBasicMaterial({
         color: 0x0000ff,
-        linewidth: 3,
+        linewidth: 1,
         opacity: 1,
         side: THREE.DoubleSide,
         depthTest: false,
@@ -6137,62 +6502,6 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
-function buildMetadataRow(label, value) {
-  if (!label || typeof value === "undefined" || value === null || value === "") {
-    return "";
-  }
-
-  return (
-    '<div class="metadata-row">' +
-      '<span class="metadata-label">' + escapeHtml(label) + ':</span>' +
-      '<span class="metadata-value">' + escapeHtml(value) + '</span>' +
-    '</div>'
-  );
-}
-
-/**
- * Formats WissKI metadata labels and values for display.
- */
-function addWissKIMetadata(label, value) {
-  if (typeof label !== "undefined" && typeof value !== "undefined") {
-    var _str = "";
-    label = label.replace("wisski_path_3d_model__", "");
-    switch (label) {
-      case "title":
-        _str = t$1("metadata.title", "Title");
-        break;
-      case "author_name":
-        _str = t$1("metadata.author", "Author");
-        break;
-      case "author_affiliation":
-        _str = t$1("metadata.authorAffiliation", "Author affiliation");
-        break;
-      case "license":
-        _str = t$1("metadata.license", "License");
-        break;
-      case "description":
-        _str = t$1("metadata.description", "Description");
-        break;
-      case "object_type":
-        _str = t$1("metadata.objectType", "Object type");
-        break;
-      case "reconstruction_authors":
-        _str = t$1("metadata.reconstructionAuthors", "Reconstruction authors");
-        break;
-      case "reconstruction_period":
-        _str = t$1("metadata.reconstructionPeriod", "Reconstruction period");
-        break;
-      default:
-        _str = "";
-        break;
-    }
-
-    if (_str !== "") {
-      return buildMetadataRow(_str, value);
-    }
-  }
-}
-
 /**
  * Expands/collapses the metadata panel.
  */
@@ -6291,76 +6600,8 @@ async function fetchEntityMetadata() {
   if (!core.CONFIG.entity.metadata.sourceType || core.CONFIG.entity.metadata.url === "") {
     return "";
   }
-
-  const metadataUrl = core.CONFIG.entity.metadata.url + encodeURIComponent(core.CONFIG.entity.id);
-
-  try {
-    const response = await fetch(metadataUrl, { cache: "no-cache" });
-
-    if (!response.ok) {
-      console.warn("Metadata request failed with status:", response.status);
-      return "";
-    }
-
-    const responseText = await response.text();
-
-    try {
-      const jsonData = JSON.parse(responseText);
-      const record = Array.isArray(jsonData) ? jsonData[0] : jsonData;
-
-      if (!record || typeof record !== "object") {
-        return "";
-      }
-
-      console.log("Processing JSON metadata:", record);
-
-      const jsonFieldMap = {
-        title: "title",
-        reconstruction_authors: "author_name",
-        reconstruction_authors_affiliation: "author_affiliation",
-        reconstruction_license: "license",
-        reconstruction_time_frame: "reconstruction_period",
-        object_description: "description",
-        object_type: "object_type",
-      };
-
-      let entityMetadataContent = "";
-      for (const [jsonField, metadataLabel] of Object.entries(jsonFieldMap)) {
-        if (record[jsonField]) {
-          const fetchedValue = addWissKIMetadata(metadataLabel, record[jsonField]);
-          if (typeof fetchedValue !== "undefined") {
-            entityMetadataContent += fetchedValue;
-          }
-        }
-      }
-
-      return entityMetadataContent;
-    } catch (_jsonError) {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(responseText, "application/xml");
-
-      if (doc.documentElement.tagName === "parsererror") {
-        console.error("XML parsing error:", doc.documentElement.textContent);
-        return "";
-      }
-
-      let entityMetadataContent = "";
-      if (doc.documentElement.childNodes.length > 0) {
-        var data = doc.documentElement.childNodes[0].childNodes;
-        if (data !== undefined) {
-          for (var i = 0; i < data.length; i++) {
-            var fetchedValue = addWissKIMetadata(data[i].tagName, data[i].textContent);
-            if (typeof fetchedValue !== "undefined") {
-              entityMetadataContent += fetchedValue;
-            }
-          }
-        }
-      }
-
-      return entityMetadataContent;
-    }
-  } catch (error) {
-    console.error("Error processing metadata:", error);
+  {
+    console.warn("Entity ID is missing or invalid. Skipping metadata fetch.");
     return "";
   }
 }
@@ -6640,15 +6881,15 @@ function createIIIFDropdown(iiifConfigURL) {
   ].filter(Boolean);
 
   const group = document.createElement("div");
-  group.className = "form-IIIF-group";
+  group.className = "form-manifesto-group";
 
   const label = document.createElement("label");
   label.textContent = t$1("iiif.manifest", "IIIF manifest");
-  label.className = "form-IIIF-label";
+  label.className = "form-manifesto-label";
 
   const select = document.createElement("select");
-  select.id = "iiif-manifest-select";
-  select.name = "iiif-manifest-select";
+  select.id = "manifesto-manifest-select";
+  select.name = "manifesto-manifest-select";
 
   iiifList.forEach(item => {
     const opt = document.createElement("option");
@@ -6661,21 +6902,61 @@ function createIIIFDropdown(iiifConfigURL) {
   group.appendChild(select);
 
   // add on the top
-  document.querySelector("#form-IIIF-content").prepend(group);
+  document.querySelector("#form-manifesto-content").prepend(group);
 
 }
 
-function createIIIFUI() {
+function createAIM3IFDropdown(url) {
+  const group = document.createElement("div");
+  group.className = "form-manifesto-group";
+
+  const aim3ifList = [
+    { url: url, name: t$1("aim3if.optionDefault", "Default configuration") },
+    { url: "https://viewer.thedworak.com/manifests/box.json", name: t$1("aim3if.optionBox", "Box configuration") },
+    // Add more AIM3IF configurations here as needed
+  ].filter(Boolean);
+
+  const label = document.createElement("label");
+  label.textContent = t$1("aim3if.modelConfig", "Model configuration");
+  label.className = "form-manifesto-label";
+
+  const select = document.createElement("select");
+  select.id = "manifesto-config-select";
+  select.name = "manifesto-config-select";
+
+  aim3ifList.forEach(item => {
+    const opt = document.createElement("option");
+    opt.value = item.url;
+    opt.textContent = item.name;
+    select.appendChild(opt);
+  });
+  group.appendChild(label);
+
+  const optDefault = document.createElement("option");
+  optDefault.value = url;
+  optDefault.textContent = t$1("aim3if.optionDefault", "Default configuration");
+  select.appendChild(optDefault);
+
+  group.appendChild(label);
+  group.appendChild(select);
+
+  // add on the top
+  document.querySelector("#form-manifesto-content").prepend(group);
+}
+
+function createManifestUI(type = "iiif") {
   const formContainer = document.createElement("div");
-  formContainer.id = "form-IIIF";
+  const className = type === "iiif" ? "IIIF" : "AIM3IF";
+  const titleKey = type === "iiif" ? "iiif" : "aim3if";
+  formContainer.id = `form-manifesto`;
 
   /* header */
   const header = document.createElement("div");
-  header.className = "form-IIIF-header";
+  header.className = `form-manifesto-header`;
   header.innerHTML = `
-    <span class="title">${escapeHtml(t$1("iiif.loader", "IIIF Loader"))}</span>
+    <span class="title">${escapeHtml(t$1(`${titleKey}.loader`, `${className} Loader`))}</span>
     <div class="tools">
-      <button type="button" id="iiif-toggle-collapse" title="${escapeHtml(t$1("iiif.collapse", "Collapse"))}">▾</button>
+      <button type="button" id="manifesto-toggle-collapse" title="${escapeHtml(t$1(`${titleKey}.collapse`, `Collapse`))}">▾</button>
     </div>
   `;
 
@@ -6683,18 +6964,18 @@ function createIIIFUI() {
 
   /* content */
   const content = document.createElement("div");
-  content.className = "form-IIIF-content";
-  content.id = "form-IIIF-content";
+  content.className = `form-manifesto-content`;
+  content.id = `form-manifesto-content`;
   content.innerHTML = `
-    <div class="form-IIIF-group">
-      <input type="text" id="manifest-url" placeholder="${escapeHtml(t$1("iiif.manifestUrlPlaceholder", "https://example.org/iiif/manifest.json"))}">
-      <button class="primary" id="load-manifest-from-url">${escapeHtml(t$1("iiif.loadFromUrl", "Load from URL"))}</button>
+    <div class="form-manifesto-group">
+      <input type="text" id="manifesto-manifest-url" placeholder="${escapeHtml(t$1(`${titleKey}.manifestUrlPlaceholder`, `https://example.org/manifesto/manifest.json`))}">
+      <button class="primary" id="load-manifesto-from-url">${escapeHtml(t$1(`${titleKey}.loadFromUrl`, `Load from URL`))}</button>
     </div>
 
-    <div class="form-IIIF-group column">
-      <textarea id="manifest-text" rows="8" placeholder="${escapeHtml(t$1("iiif.manifestTextPlaceholder", "Paste IIIF manifest JSON here..."))}"></textarea>
+    <div class="form-manifesto-group column">
+      <textarea id="manifesto-manifest-text" rows="8" placeholder="${escapeHtml(t$1(`${titleKey}.manifestTextPlaceholder`, `Paste ${className} manifest JSON here...`))}"></textarea>
       <div class="actions">
-        <button class="secondary" id="load-manifest-from-text">${escapeHtml(t$1("iiif.loadFromText", "Load from Text"))}</button>
+        <button class="secondary" id="load-manifesto-from-text">${escapeHtml(t$1(`${titleKey}.loadFromText`, `Load from Text`))}</button>
       </div>
     </div>
   `;
@@ -6925,6 +7206,8 @@ function traverseMesh(object) {
 
 function getEnvironmentTextureForPreset(renderer, preset = "neutral") {
   if (!renderer) return Promise.resolve(null);
+
+  core.scene.environmentIntensity = core.environmentMapIntensity || 0.5;
   
   // Initialize cache for this preset if not exists
   if (!environmentTextureCache[preset]) {
@@ -13561,6 +13844,124 @@ async function getAnnotations(iiifManifest, objectsConfig) {
   return iiifManifest.annotations;
 }
 
+class AIM3DManifest {
+  constructor(manifest) {
+    if (typeof manifest === "string" && manifest.trim().startsWith("{")) {
+      this.manifestJson = JSON.parse(manifest);
+      this.manifestUrl = null;
+    } else if (typeof manifest === "object") {
+      this.manifestJson = manifest;
+      this.manifestUrl = null;
+    } else {
+      this.manifestUrl = manifest;
+      this.manifestJson = null;
+    }
+  }
+
+  async loadManifest() {
+    if (this.manifestUrl) {
+      const response = await fetch(this.manifestUrl);
+      this.manifestJson = await response.json();
+    }
+
+    this.manifest = this.manifestJson;
+
+    this.scenes = this.manifest?.items?.filter(
+      item => item.type === "Scene"
+    ) || [];
+  }
+
+  annotationsFromScene(scene) {
+    const result = [];
+
+    for (const page of scene?.items || []) {
+      if (page.type !== "AnnotationPage") continue;
+
+      for (const annotation of page.items || []) {
+        result.push(annotation);
+      }
+    }
+
+    return result;
+  }
+}
+
+async function loadAIM3IFManifest(manifestUrlOrJson) {
+  const aim3dManifest = new AIM3DManifest(manifestUrlOrJson);
+
+  await aim3dManifest.loadManifest();
+
+  const modelUrls = [];
+  let modelTarget = null;
+  let filteredAnnos = [];
+
+  for (const scene of aim3dManifest.scenes) {
+    scene.background =
+      scene.backgroundColor ||
+      "#000000";
+
+    const annos = aim3dManifest.annotationsFromScene(scene);
+
+    filteredAnnos = annos.filter(
+      anno =>
+        anno.motivation?.includes("painting") &&
+        anno.body?.type === "Model"
+    );
+
+    for (const anno of filteredAnnos) {
+      const modelUrl = anno.body?.id;
+
+      if (modelUrl) {
+        modelUrls.push(modelUrl);
+      }
+
+      modelTarget = anno.target;
+    }
+  }
+
+  aim3dManifest.modelUrls = modelUrls;
+  aim3dManifest.modelTarget = modelTarget;
+
+  return {
+    manifest: aim3dManifest.manifest,
+    scenes: aim3dManifest.scenes,
+    annotations: filteredAnnos,
+    modelUrls,
+    modelTarget
+  };
+}
+
+
+function applyManifestConfig(manifest, objectsConfig) {
+  const transform =
+    manifest.AIM3DViewer?.modelTransform;
+
+  if (!transform) return;
+
+  const model = objectsConfig.models[0];
+
+  model.position = {
+    x: transform.position?.[0] ?? 0,
+    y: transform.position?.[1] ?? 0,
+    z: transform.position?.[2] ?? 0
+  };
+
+  model.rotation = {
+    x: transform.rotation?.x ?? 0,
+    y: transform.rotation?.y ?? 0,
+    z: transform.rotation?.z ?? 0
+  };
+
+  model.scale = {
+    x: transform.scale?.[0] ?? 1,
+    y: transform.scale?.[1] ?? 1,
+    z: transform.scale?.[2] ?? 1
+  };
+
+  model.wireframe =
+    transform.wireframe ?? false;
+}
+
 function getEditorToolbarIcon(icon) {
   const icons = {
     moveToolbar: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -13594,7 +13995,7 @@ function getEditorToolbarIcon(icon) {
     annotateAdd: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 8v5M9.5 10.5h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
     annotateImport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 6.8v7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.8 12 14l3.2-3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     annotateExport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 14.2V7.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.2 12 7l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    hierarchy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5v5H4zM15 4h5v5h-5zM4 15h5v5H4zM15 15h5v5h-5zM9 6h6M9 17h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  IIIFexport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v12H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 3v3h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 18V9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 12.2L12 9l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',    hierarchy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5v5H4zM15 4h5v5h-5zM4 15h5v5H4zM15 15h5v5h-5zM9 6h6M9 17h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     loadingLogs: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18M3 6h12M3 18h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     performance: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
     statistics: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7 14v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 10v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M17 6v12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
@@ -13918,8 +14319,9 @@ function createEditorToolbar(viewer) {
       submenu.className = "viewer-editor-tool_submenu";
       const submenuItems = [
         { key: "annotateAdd", icon: "annotateAdd", label: t$1("gui.annotateAdd", "Add Annotation"), onClick: () => viewer.openAnnotationDialogWithAutoPicking() },
-        { key: "annotateImport", icon: "annotateImport", label: t$1("gui.annotateImport", "Import Annotations"), onClick: () => viewer.downloadAnnotationsXmlFile() },
-        { key: "annotateExport", icon: "annotateExport", label: t$1("gui.annotateExport", "Export Annotations"), onClick: () => viewer.triggerAnnotationsXmlImport() },
+        { key: "annotateImport", icon: "annotateImport", label: t$1("gui.annotateImport", "Import Annotations"), onClick: () => viewer.triggerAnnotationsXmlImport() },
+        { key: "annotateExport", icon: "annotateExport", label: t$1("gui.annotateExport", "Export Annotations"), onClick: () => viewer.downloadAnnotationsXmlFile() },
+        { key: "IIIFexport", icon: "IIIFexport", label: t$1("gui.IIIFexport", "Export to IIIF"), onClick: () => viewer.exportIIIFManifest() },
       ];
       viewer.annotateSubmenuButtons = {};
       submenuItems.forEach((item) => {
@@ -14269,7 +14671,7 @@ function createEditorToolbar(viewer) {
               min: 0,
               max: 1,
               step: 0.01,
-              value: () => core.scene?.environmentIntensity ?? 0.5,
+              value: () => core.environmentMapIntensity ?? 0.5,
               onChange: (value) => {
                 if (!core.scene) return;
                 core.scene.environmentIntensity = value;
@@ -14685,6 +15087,7 @@ function updateEditorToolbarLabels(viewer) {
       annotateAdd: t$1("gui.addAnnotations", "Add Annotation"),
       annotateImport: t$1("gui.importAnnotationsXml", "Import Annotations"),
       annotateExport: t$1("gui.exportAnnotationsXml", "Export Annotations"),
+      IIIFexport: t$1("gui.IIIFexport", "Export to IIIF"),
     };
     Object.entries(viewer.annotateSubmenuButtons).forEach(([key, button]) => {
       const label = annotateSubmenuLabels[key] || key;
@@ -15511,6 +15914,8 @@ const Viewer$1 = {
   embedMissingSourceNotified: false,
   wireframeMode: false,
   environmentMapEnabled: true,
+  environmentMapPreset: "neutral",
+  environmentMapIntensity: 0.5,
   currentTheme: "dark",
   currentLanguage: "en",
   loadingLog: null,
@@ -15533,7 +15938,7 @@ const Viewer$1 = {
     "processingSteps.finalizing3dModel",
     "processingSteps.initializingViewer",
   ],
-  THEME_STORAGE_KEY: "iiif-dark-mode",
+  THEME_STORAGE_KEY: "manifesto-dark-mode",
   LANGUAGE_STORAGE_KEY: "viewer-language",
   I18N: VIEWER_I18N,
   GESTURE: {handPx: 55, period: 5.5, rotate: false, active: false, target: new THREE.Vector3(), startTime: 0, baseAngle: 0, orbitAngle: THREE.MathUtils.degToRad(15), easeInTime: 2.25},
@@ -15963,11 +16368,12 @@ const Viewer$1 = {
 
   toggleWireframeMode() {
     if (typeof core.scene === "undefined") return;
-    this.wireframeMode = !this.wireframeMode;
+    core.wireframeMode = !core.wireframeMode;
     core.scene.traverse((child) => {
       if (child.material) {
-        child.material.wireframe = this.wireframeMode;
+        child.material.wireframe = core.wireframeMode;
         child.material.needsUpdate = true;
+        child.material.wireframeLinewidth = 1;
       }
     });    
     this.updateEditorToolbarLabels();
@@ -16763,9 +17169,9 @@ const Viewer$1 = {
   },
 
   cleanupTransientUI() {
-    const iiifForm = document.getElementById("form-IIIF");
-    if (iiifForm) {
-      iiifForm.remove();
+    const manifestoForm = document.getElementById("form-manifesto");
+    if (manifestoForm) {
+      manifestoForm.remove();
     }
   },
 
@@ -16884,7 +17290,7 @@ const Viewer$1 = {
   },
 
   renderFatalError(error) {
-    const message = this.reportError(error, {
+    this.reportError(error, {
       context: "Viewer initialization failed",
       toast: false,
       consoleLabel: "Viewer initialization error:",
@@ -16894,22 +17300,12 @@ const Viewer$1 = {
       document.getElementById(core.CONFIG?.viewer?.container || "DFG_3DViewer") ||
       document.body;
 
-    if (!container) return;
-
-    let errorBox = document.getElementById("viewer-fatal-error");
-    if (!errorBox) {
-      errorBox = document.createElement("div");
-      errorBox.id = "viewer-fatal-error";
-      errorBox.style.padding = "16px";
-      errorBox.style.margin = "12px 0";
-      errorBox.style.border = "1px solid #b91c1c";
-      errorBox.style.background = "#fef2f2";
-      errorBox.style.color = "#7f1d1d";
-      errorBox.style.fontFamily = "sans-serif";
-      container.prepend(errorBox);
+    if (!container) {
+      showToast("toasts.containerNotFound", "error", { duration: 5000 });
+      return;
     }
 
-    errorBox.textContent = message;
+    showToast("toasts.missingFiles", "error", { duration: 5000 });
   },
 
   async MainInit() {
@@ -16946,6 +17342,7 @@ const Viewer$1 = {
     setCore('dismissStatusNotice', this.dismissStatusNotice.bind(this));
     setCore('updateClippingHintVisibility', this.updateClippingHintVisibility.bind(this));
     setCore('editorToolbar', this.editorToolbar);
+    setCore('wireframeMode', this.wireframeMode);
 
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -17027,7 +17424,10 @@ const Viewer$1 = {
     }
 
     this.container = document.getElementById(core.CONFIG.viewer.container);
-    if (!this.container) throw new Error("Container not found");
+    if (!this.container) {
+      showToast("toasts.containerNotFound", "error", { duration: 5000 });
+      return;
+    }
     setCore('container', this.container);
     document.body.classList.toggle("viewer-embed-page", this.isEmbedMode());
 
@@ -17175,6 +17575,8 @@ const Viewer$1 = {
       setCore('materialsPropertiesText', this.materialsPropertiesText);
       setCore('intensity', this.intensity);
       setCore('environmentMapEnabled', this.environmentMapEnabled);
+      setCore('environmentMapIntensity', this.environmentMapIntensity);
+      setCore('environmentMapPreset', this.environmentMapPreset);
       this.clippingPlanes = this.core;
       setCore("clippingPlanes", this.clippingPlanes);
       setCore('helperObjects', this.helperObjects);
@@ -18659,49 +19061,49 @@ const Viewer$1 = {
   },
 
   // IIIF setup and loading
-  async setupIIIF(newUrlOrJson, type="url") {
+  async setupManifesto(newUrlOrJson, type="url", manifestType = "iiif") {
     if (type === "text") {
       Viewer$1.iiifConfigURL.url = "";
     } else {
       Viewer$1.iiifConfigURL.url = newUrlOrJson;
     }
-    const loadedIIIF = await loadIIIFManifest(newUrlOrJson);
-    if (loadedIIIF.modelUrls.length === 0) { // no 3D model found, use example model
-      loadedIIIF.modelUrls.push('https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb');
+    const loadedManifest = manifestType === "iiif" ? await loadIIIFManifest(newUrlOrJson) : await loadAIM3IFManifest(newUrlOrJson);
+    if (loadedManifest.modelUrls.length === 0) { // no 3D model found, use example model
+      loadedManifest.modelUrls.push('https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb');
       showToast(t$1("toasts.noIiiifModelFallback", "No 3D model found in IIIF manifest, loading example model."));
     }
     // reset scene and release GPU resources from the previous model batch
     Viewer$1.resetLoadedModelState();
     core.axesHelper.visible = false;
-    console.log("TOTAL Annotations: " + loadedIIIF.annotations.length);
-    if (loadedIIIF.annotations.length !== loadedIIIF.modelUrls.length) {
+    console.log("TOTAL Annotations: " + loadedManifest.annotations.length);
+    if (loadedManifest.annotations.length !== loadedManifest.modelUrls.length) {
       //console.warn("Number of annotations does not match number of model URLs, adding testing model...");
-        const diff = loadedIIIF.annotations.length - loadedIIIF.modelUrls.length;
+        const diff = loadedManifest.annotations.length - loadedManifest.modelUrls.length;
         if (diff > 0) {
           // Need more model URLs → push empty strings (or null)
           for (let i = 0; i < diff; i++) {
-            loadedIIIF.modelUrls.push(Viewer$1.testModelURL);
+            loadedManifest.modelUrls.push(Viewer$1.testModelURL);
             core.objectsConfig.models.push({name: "Test Model", url: Viewer$1.testModelURL});
           }
         }
     }
-    for (const [i, url] of loadedIIIF.modelUrls?.entries()) {
+    for (const [i, url] of loadedManifest.modelUrls?.entries()) {
       core.objectsConfig.index = i;
-      core.fileObject.originalPath = loadedIIIF.modelUrl = url;
-      //fileObject.originalPath = loadedIIIF.modelUrl;
+      core.fileObject.originalPath = loadedManifest.modelUrl = url;
+      //fileObject.originalPath = loadedManifest.modelUrl;
       Viewer$1.setModelPaths();
-      await getAnnotations(loadedIIIF, core.objectsConfig);
-      if (loadedIIIF.scenes && loadedIIIF.scenes.length > 0) {
-        core.objectsConfig.scenes = loadedIIIF.scenes;
+      manifestType === "iiif" ? await getAnnotations(loadedManifest, core.objectsConfig) : await applyManifestConfig(loadedManifest, core.objectsConfig);
+      if (loadedManifest.scenes && loadedManifest.scenes.length > 0) {
+        core.objectsConfig.scenes = loadedManifest.scenes;
       }
       Viewer$1._ext = core.fileObject.extension.toLowerCase();
       await Viewer$1.mainLoadModel();
     }
   },
 
-  async loadIIIFURL() {
-    const form = document.getElementById("form-IIIF");
-    const collapseBtn = document.getElementById("iiif-toggle-collapse");
+  async loadManifestoURL(type = "iiif") {
+    const form = document.getElementById("form-manifesto");
+    const collapseBtn = document.getElementById("manifesto-toggle-collapse");
     form?.setAttribute("data-viewer-theme", Viewer$1.currentTheme);
     Viewer$1.updateIIIFFormLabels();
 
@@ -18709,59 +19111,63 @@ const Viewer$1 = {
       form.classList.toggle("collapsed");
       collapseBtn.textContent = form.classList.contains("collapsed") ? "▸" : "▾";
       collapseBtn.title = form.classList.contains("collapsed")
-        ? t$1("iiif.expand", "Expand")
-        : t$1("iiif.collapse", "Collapse");
+        ? t$1("${titleKey}.expand", "Expand")
+        : t$1("${titleKey}.collapse", "Collapse");
     });
     // create a small dropdown to switch iiif manifests at runtime
-    Viewer$1.bindEventListener(document.getElementById("iiif-manifest-select"), "change", async (ev) => {
+    Viewer$1.bindEventListener(document.getElementById("manifesto-manifest-select"), "change", async (ev) => {
       try {
         if (ev.target.value !== Viewer$1.iiifConfigURL.url) {
           core.objectsConfig.setupIndex = 0;
-          await Viewer$1.setupIIIF(ev.target.value, "url");
+          await Viewer$1.setupManifesto(ev.target.value, "url", type);
         }
       } catch (err) {
         Viewer$1.reportError(err, {
-          context: "Error loading IIIF manifest",
+          context: "Error loading ${className} manifest",
         });
       }
       });
 
-    Viewer$1.bindEventListener(document.getElementById("load-manifest-from-url"), "click", async (ev) => {
+    Viewer$1.bindEventListener(document.getElementById("load-manifesto-from-url"), "click", async (ev) => {
       try {
-        const inputElement = document.getElementById("manifest-url");
+        const inputElement = document.getElementById("manifesto-manifest-url");
         if (inputElement.value === "" || !Viewer$1.isUrlFlexible(inputElement.value)) {
         inputElement.style.border = "2px solid red";
-        showToast("iiif.invalidUrl", "warning");
+        showToast("manifesto.invalidUrl", "warning");
         return;
       } else {
         inputElement.style.border = "2px solid green";
         core.objectsConfig.setupIndex = 0;
-          console.log("Loading IIIF manifest from URL: " + inputElement.value);
-          await Viewer$1.setupIIIF(inputElement.value, "url");
+          console.log("Loading ${className} manifest from URL: " + inputElement.value);
+          await Viewer$1.setupManifesto(inputElement.value, "url", type);
         }
       } catch (err) {
         Viewer$1.reportError(err, {
-          context: "Error loading IIIF manifest",
+          context: "Error loading ${className} manifest",
         });
       }
       });
 
-    Viewer$1.bindEventListener(document.getElementById("load-manifest-from-text"), "click", async (ev) => {
+    Viewer$1.bindEventListener(document.getElementById("load-manifesto-from-text"), "click", async (ev) => {
       try {
-        const inputElement = document.getElementById("manifest-text");
+        const inputElement = document.getElementById("manifesto-manifest-text");
         if (inputElement.value === "" || !Viewer$1.isValidJsonObject(inputElement.value)) {
           inputElement.style.border = "2px solid red";
-          showToast("iiif.invalidJson", "warning");
+          showToast("manifesto.invalidJson", "warning");
         return;
       } else {
         inputElement.style.border = "2px solid green";
         core.objectsConfig.setupIndex = 0;
-          console.log("Loading IIIF manifest from privided text");
-          await Viewer$1.setupIIIF(inputElement.value, "text");
+          console.log("Loading ${className} manifest from privided text");
+          if (type === "iiif") {
+            await Viewer$1.setupManifesto(inputElement.value, "text", type);
+          } else {
+            await Viewer$1.setupManifesto(inputElement.value, "text", type);
+          }
         }
       } catch (err) {
         Viewer$1.reportError(err, {
-          context: "Error loading IIIF manifest",
+          context: "Error loading ${className} manifest",
         });
       }
     });
@@ -19300,14 +19706,26 @@ const Viewer$1 = {
           }
         } else if (sourceType === "iiif") {
           Viewer$1.cleanupTransientUI();
-          createIIIFUI();
+          createManifestUI("iiif");
 
           console.log("Loading from source: " + core.CONFIG.entity.metadata.sourceType);
           if (Viewer$1.iiifConfigURL.url !== "") {
             createIIIFDropdown(Viewer$1.iiifConfigURL);
-            await Viewer$1.loadIIIFURL();
+            await Viewer$1.loadManifestoURL();
             core.CONFIG.entity.metadata.sourceType = "IIIF";
-            await Viewer$1.setupIIIF(Viewer$1.iiifConfigURL.url);
+            await Viewer$1.setupManifesto(Viewer$1.iiifConfigURL.url);
+          }
+        }
+        else if (sourceType === "aim3if") {
+          Viewer$1.cleanupTransientUI();
+          createManifestUI("aim3if");
+
+          console.log("Loading from source: " + core.CONFIG.entity.metadata.sourceType);
+          if (core.CONFIG.entity.metadata.url) {
+            createAIM3IFDropdown(core.CONFIG.entity.metadata.url);
+            await Viewer$1.loadManifestoURL("aim3if");
+            core.CONFIG.entity.metadata.sourceType = "AIM3IF";
+            await Viewer$1.setupManifesto(core.CONFIG.entity.metadata.url, "url", "aim3if");
           }
         } else {
           console.log("Custom metadata source:" + core.CONFIG.entity.metadata.sourceType);

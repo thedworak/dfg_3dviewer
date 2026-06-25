@@ -1,4 +1,4 @@
-#form-IIIF {
+#form-manifesto {
   position: fixed;
   bottom: 12px;
   left: 50%;
@@ -17,27 +17,27 @@
   z-index: 1;
 }
 
-#form-IIIF * {
+#form-manifesto * {
   box-sizing: border-box;
 }
 
-.form-IIIF-group {
+.form-manifesto-group {
   display: flex;
   gap: 10px;
   margin-bottom: 12px;
   min-width: 0;
 }
 
-.form-IIIF-group.column {
+.form-manifesto-group.column {
   flex-direction: column;
 }
 
-#form-IIIF textarea {
+#form-manifesto textarea {
   min-width: 0;
 }
 
-#form-IIIF input,
-#form-IIIF textarea {
+#form-manifesto input,
+#form-manifesto textarea {
   padding: 8px 10px;
   font-size: 14px;
 
@@ -48,20 +48,20 @@
   transition: border-color .15s, box-shadow .15s;
 }
 
-#form-IIIF textarea {
+#form-manifesto textarea {
   resize: vertical;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 
 /* focus */
-#form-IIIF input:focus,
-#form-IIIF textarea:focus {
+#form-manifesto input:focus,
+#form-manifesto textarea:focus {
   outline: none;
   border-color: #4c6ef5;
   box-shadow: 0 0 0 2px rgba(76,110,245,.2);
 }
 
-#form-IIIF button {
+#form-manifesto button {
   white-space: nowrap;
   padding: 8px 14px;
   font-size: 13px;
@@ -72,44 +72,44 @@
   transition: background .15s, transform .05s;
 }
 
-#form-IIIF button:active {
+#form-manifesto button:active {
   transform: translateY(1px);
 }
 
 /* primary */
-#form-IIIF button.primary {
+#form-manifesto button.primary {
   background: #4c6ef5;
   color: #fff;
 }
 
-#form-IIIF button.primary:hover {
+#form-manifesto button.primary:hover {
   background: #3b5bdb;
 }
 
 /* secondary */
-#form-IIIF button.secondary {
+#form-manifesto button.secondary {
   background: #e9ecef;
   color: #333;
 }
 
-#form-IIIF button.secondary:hover {
+#form-manifesto button.secondary:hover {
   background: #dee2e6;
 }
 
 /* Text area actions */
-#form-IIIF .actions {
+#form-manifesto .actions {
   display: flex;
   justify-content: flex-end;
 }
 
-.form-IIIF-label {
+.form-manifesto-label {
   font-size: 13px;
   color: #605242;
   white-space: nowrap;
   align-self: center;
 }
 
-#form-IIIF select {
+#form-manifesto select {
   flex: 1;
   min-width: 0;
 
@@ -133,31 +133,31 @@
   transition: border-color .15s, box-shadow .15s;
 }
 
-#form-IIIF select:focus {
+#form-manifesto select:focus {
   outline: none;
   border-color: #4c6ef5;
   box-shadow: 0 0 0 2px rgba(76,110,245,.2);
 }
 
-.form-IIIF-header {
+.form-manifesto-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 10px;
 }
 
-.form-IIIF-header .title {
+.form-manifesto-header .title {
   font-size: 13px;
   font-weight: 600;
   color: #25211c;
 }
 
-.form-IIIF-header .tools {
+.form-manifesto-header .tools {
   display: flex;
   gap: 6px;
 }
 
-.form-IIIF-header button {
+.form-manifesto-header button {
   background: transparent;
   border: none;
   cursor: pointer;
@@ -166,41 +166,41 @@
   border-radius: 4px;
 }
 
-.form-IIIF-header button:hover {
+.form-manifesto-header button:hover {
   background: rgba(96, 82, 66, .08);
 }
 
-#form-IIIF.collapsed .form-IIIF-group {
+#form-manifesto.collapsed .form-manifesto-group {
   display: none;
 }
 
-#form-IIIF.collapsed {
+#form-manifesto.collapsed {
   padding-bottom: 8px;
 }
 
-#form-IIIF[data-viewer-theme="dark"] {
+#form-manifesto[data-viewer-theme="dark"] {
   background: rgba(30, 32, 36, 0.95);
   color: #eee;
 }
 
-#form-IIIF[data-viewer-theme="dark"] .form-IIIF-header .title {
+#form-manifesto[data-viewer-theme="dark"] .form-manifesto-header .title {
   color: #eee;
 }
 
-#form-IIIF[data-viewer-theme="dark"] .form-IIIF-label {
+#form-manifesto[data-viewer-theme="dark"] .form-manifesto-label {
   color: #cfd3d9;
 }
 
 /* inputs */
-#form-IIIF[data-viewer-theme="dark"] input,
-#form-IIIF[data-viewer-theme="dark"] textarea,
-#form-IIIF[data-viewer-theme="dark"] select {
+#form-manifesto[data-viewer-theme="dark"] input,
+#form-manifesto[data-viewer-theme="dark"] textarea,
+#form-manifesto[data-viewer-theme="dark"] select {
   background: #1e2024;
   color: #eee;
   border-color: #444;
 }
 
-#form-IIIF select {
+#form-manifesto select {
   flex: 1;
   min-width: 0;
 
@@ -223,27 +223,27 @@
   background-repeat: no-repeat;
 }
 
-#form-IIIF[data-viewer-theme="dark"] select {
+#form-manifesto[data-viewer-theme="dark"] select {
   appearance: auto;
   background-image: none;
 }
 
-#form-IIIF[data-viewer-theme="dark"] input::placeholder,
-#form-IIIF[data-viewer-theme="dark"] textarea::placeholder {
+#form-manifesto[data-viewer-theme="dark"] input::placeholder,
+#form-manifesto[data-viewer-theme="dark"] textarea::placeholder {
   color: #888;
 }
 
 /* buttons */
-#form-IIIF[data-viewer-theme="dark"] button.primary {
+#form-manifesto[data-viewer-theme="dark"] button.primary {
   background: #5c7cfa;
 }
 
-#form-IIIF[data-viewer-theme="dark"] button.secondary {
+#form-manifesto[data-viewer-theme="dark"] button.secondary {
   background: #343a40;
   color: #eee;
 }
 
-#form-IIIF[data-viewer-theme="dark"] .form-IIIF-header button:hover {
+#form-manifesto[data-viewer-theme="dark"] .form-manifesto-header button:hover {
   background: rgba(255,255,255,.12);
 }
 

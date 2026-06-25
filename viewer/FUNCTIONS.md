@@ -151,8 +151,11 @@ It is intended as a quick reference for the current `viewer/` module exports and
 - `createIIIFDropdown(iiifConfigURL)`
   - Render a dropdown for selectable IIIF manifests.
 
-- `createIIIFUI()`
-  - Create the IIIF manifest loader UI panel.
+- `createAIM3IFDropdown()`
+  - Render a dropdown for selectable AIM³IF manifests.
+
+- `createManifestUI()`
+  - Create the IIIF/AIM³IF manifest loader UI panel.
 
 
 ## `viewer/viewer-utils.js`
