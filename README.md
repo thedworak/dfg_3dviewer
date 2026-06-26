@@ -1,62 +1,51 @@
 # DLF AIM 3D Viewer — JavaScript Library
 
-Three.js-based 3D viewer. Builds standalone HTML demos and a minified Drupal bundle.
+A [three.js](https://threejs.org/)-based 3D viewer. This repository holds the viewer runtime
+source, the Rollup build tooling, an optional PHP admin panel, demo/embed pages and Playwright
+tests. It builds standalone HTML demos, a minified Drupal bundle and an unminified customizable
+Drupal variant.
 
-**Drupal integration** is provided by the separate [`dlf_aim_3d_viewer`](https://gitlab.nasarek.dev/rnsrk/dlf_aim_3d_viewer_drupal_module) module.
+**Drupal integration** (PHP/YAML glue plus the server-side conversion/rendering pipeline) lives
+in the separate [`dlf_aim_3d_viewer`](https://gitlab.nasarek.dev/rnsrk/dlf_aim_3d_viewer_drupal_module)
+module. This library renders supported formats directly in the browser; conversion to GLB and
+Blender-based thumbnail rendering are handled server-side by that module.
 
-## Build targets
+Supported formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, GLB, glTF.
+
+## Quickstart
+
+Requires **Node.js 24+** and a WebGL-capable browser.
 
 ```bash
 npm install
-npm run build:dev            # dist/dev    — standalone + PHP admin panel
-npm run build:test           # dist/test   — standalone + PHP admin panel
-npm run build:prod           # dist/prod   — standalone, no admin
-npm run build:drupal         # dist/drupal/main   — minified Drupal bundle, no admin/examples/settings
-npm run build:drupal:custom  # dist/drupal/custom — unminified, fully-featured Drupal variant for customization
-```
-
-| Target | Output | admin | examples + HTML | viewer-settings.json | minified |
-|---|---|:--:|:--:|:--:|:--:|
-| `dev` / `test` | `dist/dev`, `dist/test` | ✅ | ✅ | ✅ (localhost) | ❌ |
-| `prod` | `dist/prod` | ❌ | ✅ | ✅ | ✅ |
-| `drupal` | `dist/drupal/main` | ❌ | ❌ | ❌ (Drupal-managed) | ✅ |
-| `drupal:custom` | `dist/drupal/custom` | ✅ | ✅ | ✅ (Drupal paths) | ❌ |
-
-Releases ship the whole repo with the built `dist/` inside — there is no separate library zip.
-
-## Local development
-
-```bash
 cp viewer/viewer-settings-example.json viewer-settings.json
 npm run dev:test
 # http://localhost:1234
 ```
 
-## Install on Drupal
+Build a static bundle instead (see all targets in the docs):
 
-1. Place this repo (with its built `dist/`) at `web/libraries/dlf_aim_3d_viewer/`. The Drupal module loads assets from `web/libraries/dlf_aim_3d_viewer/dist/drupal/main/`.
+```bash
+npm run build:test   # dist/test — standalone bundle
+npm run serve:dist   # preview it locally
+```
 
-   ```bash
-   git clone https://gitlab.nasarek.dev/rnsrk/dlf_aim_3d_viewer_js_library.git web/libraries/dlf_aim_3d_viewer
-   cd web/libraries/dlf_aim_3d_viewer && npm install && npm run build:drupal
-   ```
-
-   Run from your Drupal project root (e.g. `/opt/drupal`).
-
-2. Enable the `dlf_aim_3d_viewer` Drupal module and configure at `/admin/config/dlf_aim_3d_viewer`
-
-## Standalone embed
+Embed the built viewer:
 
 ```html
-<div id="DLF_AIM_3DViewer" 3d="./examples/box.stl"></div>
+<div id="DLF_AIM_3DViewer" 3d="./examples/box.stl" style="height: 50vh"></div>
 <script type="module" src="./dlf_aim_3d_viewer-module.js"></script>
 ```
 
-Or pass config in code: `await Viewer.MainInit({ ... })`.
+## Documentation
 
-## Repository layout
+Full docs live in [`docs/`](docs/) (run `mkdocs serve` to preview):
 
-- `viewer/` — source (incl. `viewer/admin/` PHP panel)
-- `dist/` — build output (gitignored in source; built for releases)
-- `rollup.config.js` — build configuration
-- `tests/` — Playwright E2E
+- [Getting started](docs/getting-started.md) — install, dev server, settings
+- [Build targets](docs/build-targets.md) — every output target and what it contains
+- [npm scripts](docs/npm-scripts.md) — full script reference
+- [viewer-settings.json](docs/viewer-settings.md) — runtime configuration
+- [Embedding](docs/embedding.md) — `embed.html` and URL parameters
+- [Admin panel](docs/admin-panel.md) — optional PHP/SQLite settings UI
+- [Architecture](docs/architecture.md) — repository layout, build pipeline, how dependencies are wired
+- [Function reference](docs/function-reference.md) · [Testing](docs/testing.md)
