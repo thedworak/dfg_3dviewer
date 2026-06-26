@@ -11,19 +11,33 @@ const source = process.env.BUILD_SOURCE ?? "IIIF";
 const envBuild = process.env.BUILD ?? "test";
 const production = process.env.IS_PROD === 'true';
 const isDrupalBuild = envBuild === 'drupal';
-const includeAdmin = envBuild === 'dev' || envBuild === 'test';
+// The Drupal build has two variants: `main` is the minified bundle Drupal loads
+// in production (dist/drupal/main); `custom` is an unminified, fully-featured
+// drop (admin panel, demo pages, examples, viewer-settings.json) at
+// dist/drupal/custom for site-specific customization.
+const drupalVariant = isDrupalBuild ? (process.env.DRUPAL_VARIANT ?? 'main') : '';
+const isDrupalCustom = isDrupalBuild && drupalVariant === 'custom';
+const includeAdmin = envBuild === 'dev' || envBuild === 'test' || isDrupalCustom;
 
-// The Drupal build is shipped inside the released repo at dist/drupal/main and is
-// always minified. Standalone builds (dev, test, prod) keep their own dist folder.
-const minify = production || isDrupalBuild;
+// Standalone (dev/test/prod) and the customizable Drupal variant ship the demo
+// pages, examples and a viewer-settings.json; the minified Drupal `main` bundle
+// omits them because Drupal renders its own markup and config.
+const includeStandaloneAssets = !isDrupalBuild || isDrupalCustom;
+
+// Only explicit prod builds and the minified Drupal `main` bundle are minified;
+// the Drupal `custom` variant ships unminified for easier overriding.
+const minify = production || (isDrupalBuild && !isDrupalCustom);
 const outDistDir = isDrupalBuild
-  ? path.join('dist', 'drupal', 'main')
+  ? path.join('dist', 'drupal', drupalVariant)
   : path.join('dist', envBuild);
-const entryFileName = isDrupalBuild
+const entryFileName = isDrupalBuild && !isDrupalCustom
   ? 'dfg_3dviewer.min.js'
   : 'dfg_3dviewer-module.js';
 
 console.log('[rollup] build:', envBuild);
+if (isDrupalBuild) {
+  console.log('[rollup] drupal variant:', drupalVariant);
+}
 console.log('[rollup] outDir:', outDistDir);
 console.log('[rollup] entry:', entryFileName);
 console.log('[rollup] admin panel:', includeAdmin);
@@ -47,9 +61,10 @@ function copyBuildAssets() {
         copyDirectory('viewer/js/maps', path.join(outDistDir, 'assets/maps')),
       ];
 
-      // Standalone bundles ship the demo pages and example models; the Drupal
-      // build omits them because Drupal renders its own markup.
-      if (!isDrupalBuild) {
+      // Standalone bundles and the Drupal `custom` variant ship the demo pages
+      // and example models; the minified Drupal `main` build omits them because
+      // Drupal renders its own markup.
+      if (includeStandaloneAssets) {
         assetCopyTasks.push(
           copyDirectory('viewer/examples', path.join(outDistDir, 'examples')),
           fs.copyFile('index.html', path.join(outDistDir, 'index.html')),
@@ -69,9 +84,10 @@ function copyBuildAssets() {
         await fs.rm(path.join(outDistDir, 'admin', 'admin.sqlite'), { force: true });
       }
 
-      // The Drupal build reads its configuration from Drupal (drupalSettings),
-      // so it intentionally ships no viewer-settings.json.
-      if (isDrupalBuild) {
+      // The minified Drupal `main` build reads its configuration from Drupal
+      // (drupalSettings), so it intentionally ships no viewer-settings.json.
+      // The `custom` variant ships one so it can run customized/standalone.
+      if (isDrupalBuild && !isDrupalCustom) {
         return;
       }
 
@@ -95,6 +111,13 @@ function copyBuildAssets() {
         viewerSettingsMain.mainUrl = 'localhost';
       }
 
+      if (isDrupalCustom) {
+        viewerSettingsMain.baseModulePath = '/libraries/dfg-3dviewer/dist/drupal/custom/assets';
+        viewerSettingsMain.entity = viewerSettingsMain.entity || {};
+        viewerSettingsMain.entity.metadata = viewerSettingsMain.entity.metadata || {};
+        viewerSettingsMain.entity.metadata.source = 'Drupal';
+      }
+
       await fs.writeFile(viewerSettingsTarget, JSON.stringify(viewerSettingsMain, null, 2), { flag: 'wx' })
         .catch(err => {
           if (err.code !== 'EEXIST') {
@@ -105,8 +128,22 @@ function copyBuildAssets() {
   };
 }
 
+// The @iiif/3d-manifesto-dev dependency ships TypeScript helper boilerplate
+// (__awaiter/__extends) and internal cross-imports that trigger THIS_IS_UNDEFINED
+// and CIRCULAR_DEPENDENCY warnings. These are harmless and out of our control, so
+// silence them for node_modules while keeping all warnings for our own sources.
+function onwarn(warning, warn) {
+  const noisyDependencyWarnings = ['THIS_IS_UNDEFINED', 'CIRCULAR_DEPENDENCY'];
+  const location = warning.id || warning.ids?.[0] || warning.loc?.file || '';
+  if (noisyDependencyWarnings.includes(warning.code) && location.includes('node_modules')) {
+    return;
+  }
+  warn(warning);
+}
+
 export default {
   input: 'viewer/main.js',
+  onwarn,
   treeshake: {
     moduleSideEffects: false,
     propertyReadSideEffects: false,
@@ -120,7 +157,7 @@ export default {
         __BUILD__: JSON.stringify(envBuild),
         __IS_PROD__: JSON.stringify(production),
         __MODULES_PATH__: JSON.stringify(''),
-        __ENV_SUBDIR__: JSON.stringify(''),
+        __ENV_SUBDIR__: JSON.stringify(isDrupalBuild ? drupalVariant : ''),
       },
     }),
     resolve({

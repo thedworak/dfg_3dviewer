@@ -8,17 +8,19 @@ Three.js-based 3D viewer. Builds standalone HTML demos and a minified Drupal bun
 
 ```bash
 npm install
-npm run build:dev      # dist/dev    — standalone + PHP admin panel
-npm run build:test     # dist/test   — standalone + PHP admin panel
-npm run build:prod     # dist/prod   — standalone, no admin
-npm run build:drupal   # dist/drupal/main — minified Drupal bundle, no admin/examples/settings
+npm run build:dev            # dist/dev    — standalone + PHP admin panel
+npm run build:test           # dist/test   — standalone + PHP admin panel
+npm run build:prod           # dist/prod   — standalone, no admin
+npm run build:drupal         # dist/drupal/main   — minified Drupal bundle, no admin/examples/settings
+npm run build:drupal:custom  # dist/drupal/custom — unminified, fully-featured Drupal variant for customization
 ```
 
-| Target | Output | admin | examples + HTML | viewer-settings.json |
-|---|---|:--:|:--:|:--:|
-| `dev` / `test` | `dist/dev`, `dist/test` | ✅ | ✅ | ✅ (localhost) |
-| `prod` | `dist/prod` | ❌ | ✅ | ✅ |
-| `drupal` | `dist/drupal/main` | ❌ | ❌ | ❌ (Drupal-managed) |
+| Target | Output | admin | examples + HTML | viewer-settings.json | minified |
+|---|---|:--:|:--:|:--:|:--:|
+| `dev` / `test` | `dist/dev`, `dist/test` | ✅ | ✅ | ✅ (localhost) | ❌ |
+| `prod` | `dist/prod` | ❌ | ✅ | ✅ | ✅ |
+| `drupal` | `dist/drupal/main` | ❌ | ❌ | ❌ (Drupal-managed) | ✅ |
+| `drupal:custom` | `dist/drupal/custom` | ✅ | ✅ | ✅ (Drupal paths) | ❌ |
 
 Releases ship the whole repo with the built `dist/` inside — there is no separate library zip.
 

@@ -10,7 +10,8 @@
     "build:dev": "cross-env BUILD_SOURCE='IIIF' BUILD=dev rollup -c",
     "build:prod": "cross-env BUILD_SOURCE='' BUILD=prod rollup -c",
     "build:drupal": "cross-env BUILD_SOURCE='' BUILD=drupal IS_PROD=true rollup -c",
-    "build:all": "concurrently -n test,dev,prod,drupal \"npm:build:test\" \"npm:build:dev\" \"npm:build:prod\" \"npm:build:drupal\"",
+    "build:drupal:custom": "cross-env BUILD_SOURCE='' BUILD=drupal DRUPAL_VARIANT=custom rollup -c",
+    "build:all": "concurrently -n test,dev,prod,drupal,drupal-custom \"npm:build:test\" \"npm:build:dev\" \"npm:build:prod\" \"npm:build:drupal\" \"npm:build:drupal:custom\"",
     "serve:dist": "cross-env BUILD=test serve dist",
     "test:local": "sh ./scripts/run-local-tests.sh",
     "watch": "cross-env BUILD_SOURCE=IIIF BUILD=test rollup -c -w"
