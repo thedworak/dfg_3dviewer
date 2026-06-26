@@ -10,12 +10,10 @@
     "build:dev": "cross-env BUILD_SOURCE='IIIF' BUILD=dev rollup -c",
     "build:prod": "cross-env BUILD_SOURCE='' BUILD=prod rollup -c",
     "build:drupal": "cross-env BUILD_SOURCE='' BUILD=drupal IS_PROD=true rollup -c",
+    "build:all": "concurrently -n test,dev,prod,drupal \"npm:build:test\" \"npm:build:dev\" \"npm:build:prod\" \"npm:build:drupal\"",
     "serve:dist": "cross-env BUILD=test serve dist",
     "test:local": "sh ./scripts/run-local-tests.sh",
-    "watch": "cross-env BUILD_SOURCE=IIIF BUILD=test rollup -c -w",
-    "dev:tauri": "npm run build:dev && npx serve ./dist/dev -l 1234",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "watch": "cross-env BUILD_SOURCE=IIIF BUILD=test rollup -c -w"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
@@ -35,8 +33,6 @@
   "dependencies": {
     "@iiif/3d-manifesto-dev": "^0.7.0",
     "@rollup/plugin-alias": "^6.0.0",
-    "@tauri-apps/api": "^2.11.0",
-    "@tauri-apps/cli": "^2.11.1",
     "fflate": "^0.8.3",
     "jquery": "^4.0.0",
     "lru-cache": "^11.3.6",
