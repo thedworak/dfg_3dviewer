@@ -11,9 +11,6 @@
 *.twig   text eol=lf
 *.json   text eol=lf
 
-# BUILD
-dist/**  text eol=lf
-
 # Binary files
 *.png   binary
 *.jpg   binary

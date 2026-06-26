@@ -1,27 +1,18 @@
 # editor backups
 *.yml~
-*.module~
-*.php~
-*.mdb~
+*.js~
 
 # config
-/main/config.json
-scripts/.env
-settings.local.php
+viewer/viewer-settings.json
+viewer-settings.json
 
 # node
 node_modules/
-
-# build
 /.parcel-cache
-!/dist/.gitkeep
+.pnpm-store/
 
-# viewer config
-/viewer/viewer-settings.json
-/dist/*/viewer-settings.json
-/dist/drupal/viewer-settings.json
-/dist/test/viewer-settings.json
-viewer-settings.json
+# build output (produced by rollup; CI builds on release)
+/dist/
 
 # Playwright
 /test-results/
@@ -29,7 +20,5 @@ viewer-settings.json
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
-
-.codex
 
 /viewer/admin/admin.sqlite

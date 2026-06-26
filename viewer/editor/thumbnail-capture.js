@@ -33,7 +33,7 @@ export function captureAndUploadThumbnail(viewer) {
       method: "POST",
       credentials: "same-origin",
       headers: {
-        "X-CSRF-Token": window.CSRF_TOKEN
+        "X-CSRF-Token": window.CSRF_TOKEN || window.drupalSettings?.dfg_3dviewer?.csrfToken
       },
       body: fileform
     })

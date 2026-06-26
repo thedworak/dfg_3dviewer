@@ -1550,7 +1550,96 @@ export const Viewer = {
     showToast("toasts.missingFiles", "error", { duration: 5000 });
   },
 
-  async MainInit() {
+  getDefaultConfig() {
+    return {
+      mainUrl: "https://dfg-repository.wisski.cloud",
+      baseNamespace: "https://dfg-repository.wisski.cloud",
+      metadataUrl: "https://dfg-repository.wisski.cloud",
+      baseModulePath: "/libraries/dfg-3dviewer/assets",
+      entity: {
+        bundle: "bd3d7baa74856d141bcff7b4193fa128",
+        fieldDf: "field_df",
+        exportViewer: "field_df",
+        idUri: "/wisski/navigate/(.*)/view",
+        viewEntityPath: "/wisski/navigate/",
+        attributeId: "wisski_id",
+        metadata: {
+          source: "IIIF",
+        },
+      },
+      viewer: {
+        container: "DFG_3DViewer",
+        fileUpload: "fbf95bddee5160d515b982b3fd2e05f7",
+        fileName: "faa602a0be629324806aef22892cdbe5",
+        imageGeneration: "f605dc6b727a1099b9e52b3ccbdf5673",
+        presentationMode: "false",
+        sandboxMode: "false",
+        lightweight: 0,
+        scaleContainer: {
+          x: 0.85,
+          y: 1.4,
+        },
+        editor: true,
+        gallery: {
+          build: true,
+          container: "block-bootstrap5-content",
+          imageClass: "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
+          imageId: "",
+          buildFake: false,
+          testImages: [],
+        },
+        background:
+          "radial-gradient(circle, #ffffff 0%, #999999 100%)",
+        performanceMode: {
+          Performance: "high-performance",
+        },
+        measurement: {
+          modelUnitInMeters: 1,
+        }
+      },
+    };
+  },
+
+  resolveBundleAssetBasePath(moduleUrl) {
+    const pathname = moduleUrl.pathname;
+    if (pathname.includes('/assets/')) {
+      return new URL('../assets/', moduleUrl).pathname.replace(/\/$/, '');
+    }
+    return new URL('./assets/', moduleUrl).pathname.replace(/\/$/, '');
+  },
+
+  async loadViewerConfig(moduleUrl, explicitConfig = null) {
+    if (explicitConfig && Object.keys(explicitConfig).length > 0) {
+      return explicitConfig;
+    }
+
+    const drupalCfg = typeof window !== 'undefined' ? window.drupalSettings?.dfg_3dviewer : null;
+    if (drupalCfg && typeof drupalCfg === 'object' && Object.keys(drupalCfg).length > 0) {
+      const { csrfToken, ...config } = drupalCfg;
+      if (csrfToken && typeof window !== 'undefined') {
+        window.CSRF_TOKEN = csrfToken;
+      }
+      console.log("Loaded viewer settings from drupalSettings", config.viewer);
+      if (typeof window !== 'undefined' && window.__E2E__) {
+        window.viewer = window.viewer || {};
+        window.viewer.configFromDrupal = true;
+        window.viewer.configBundle = config.entity?.bundle;
+      }
+      return config;
+    }
+
+    const settingsPath = moduleUrl.pathname.includes('/assets/')
+      ? '../viewer-settings.json'
+      : './viewer-settings.json';
+    const url = new URL(settingsPath, moduleUrl);
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const config = await res.json();
+    console.log("Loaded viewer-settings.json", config.viewer);
+    return config;
+  },
+
+  async MainInit(explicitConfig = null) {
     if (window.__E2E__) {
       this.ensureE2EState();
     }
@@ -1564,10 +1653,7 @@ export const Viewer = {
       else document.addEventListener('DOMContentLoaded', r);
     });
     const moduleUrl = new URL(import.meta.url);
-    const settingsPath = moduleUrl.pathname.includes('/assets/')
-      ? '../viewer-settings.json'
-      : './viewer-settings.json';
-    const url = new URL(settingsPath, moduleUrl);
+    const bundleAssetBase = this.resolveBundleAssetBasePath(moduleUrl);
 
     //Setup core variables first to make them available in the loaders and utils
     setCore('viewEntity', this.viewEntity);
@@ -1585,61 +1671,19 @@ export const Viewer = {
     setCore('updateClippingHintVisibility', this.updateClippingHintVisibility.bind(this));
     setCore('editorToolbar', this.editorToolbar);
     setCore('wireframeMode', this.wireframeMode);
+    setCore('DFG_ASSETS', bundleAssetBase);
 
-    const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    core.CONFIG = await res.json();
-    console.log("Loaded viewer-settings.json", core.CONFIG.viewer);
+    core.CONFIG = await this.loadViewerConfig(moduleUrl, explicitConfig);
 
     if (Object.keys(core.CONFIG).length === 0) {
-      core.CONFIG = {
-        mainUrl: "https://dfg-repository.wisski.cloud",
-        baseNamespace: "https://dfg-repository.wisski.cloud",
-        metadataUrl: "https://dfg-repository.wisski.cloud",
-        baseModulePath: "/modules/dfg_3dviewer-main/viewer",
-        entity: {
-          bundle: "bd3d7baa74856d141bcff7b4193fa128",
-          fieldDf: "field_df",
-          exportViewer: "field_df",
-          idUri: "/wisski/navigate/(.*)/view",
-          viewEntityPath: "/wisski/navigate/",
-          attributeId: "wisski_id",
-          metadata: {
-            source: "IIIF",
-          },
-        },
-        viewer: {
-          container: "DFG_3DViewer",
-          fileUpload: "fbf95bddee5160d515b982b3fd2e05f7",
-          fileName: "faa602a0be629324806aef22892cdbe5",
-          imageGeneration: "f605dc6b727a1099b9e52b3ccbdf5673",
-          presentationMode: "false",
-          sandboxMode: "false",
-          lightweight: 0,
-          scaleContainer: {
-            x: 0.85,
-            y: 1.4,
-          },
-          editor: true,
-          gallery: {
-            build: true,
-            container: "block-bootstrap5-content",
-            imageClass: "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
-            imageId: "",
-            buildFake: false,
-            testImages: [],
-          },
-          background:
-            "radial-gradient(circle, #ffffff 0%, #999999 100%)",
-          performanceMode: {
-            Performance: "high-performance",
-          },
-          measurement: {
-            modelUnitInMeters: 1,
-          }
-        },
-      };
+      core.CONFIG = this.getDefaultConfig();
     }
+
+    core.CONFIG.entity ??= {};
+    core.CONFIG.entity.metadata ??= {};
+    core.CONFIG.viewer ??= {};
+    core.CONFIG.viewer.gallery ??= {};
+    core.CONFIG.viewer.scaleContainer ??= { x: 1, y: 1 };
 
     this.isLightweight = Boolean(core.CONFIG.viewer.lightweight);
     setCore('isLightweight', this.isLightweight);
@@ -3618,10 +3662,6 @@ export const Viewer = {
 
       setCore('mainCanvas', Viewer.mainCanvas);
       if (!core.PRESENTATION_MODE) {
-        const scriptUrl = document.currentScript?.src || import.meta.url;
-        Viewer.DFG_ASSETS = scriptUrl.replace(/\/[^\/]*$/, '');
-
-        setCore('DFG_ASSETS', Viewer.DFG_ASSETS);
         getModuleAssetBasePath();
 
         Viewer.actionMenu = document.createElement("div");
