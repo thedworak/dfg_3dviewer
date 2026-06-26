@@ -254,7 +254,7 @@ function getEnvironmentTextureForPreset(renderer, preset = "neutral") {
           // Load HDR map for other presets
           const HDRLoader = await loadHDRLoader();
           const loader = new HDRLoader();
-          const baseModulePath = core.CONFIG?.baseModulePath || core.DFG_ASSETS || '/assets';
+          const baseModulePath = core.CONFIG?.baseModulePath || core.DLF_ASSETS || '/assets';
           const mapFilename = preset === "goldenHour" ? "golden_hour.hdr" : `${preset}.hdr`;
           const mapUrl = `${baseModulePath.replace(/\/$/, '')}/maps/${mapFilename}`;
           
@@ -677,7 +677,7 @@ export async function loadModel() {
 
 export const getModuleAssetBasePath = function() {
   const configuredPath = sanitizeModuleAssetBasePath(core.CONFIG?.baseModulePath);
-  let basePath = configuredPath || sanitizeModuleAssetBasePath(core.DFG_ASSETS);
+  let basePath = configuredPath || sanitizeModuleAssetBasePath(core.DLF_ASSETS);
   if (!basePath && typeof import.meta !== 'undefined' && import.meta.url) {
     const moduleUrl = new URL(import.meta.url);
     basePath = moduleUrl.pathname.includes('/assets/')
@@ -694,7 +694,7 @@ export const getModuleAssetBasePath = function() {
   basePath = sanitizeModuleAssetBasePath(basePath);
   console.log('[loaders] resolved ModuleAssetBasePath:', basePath);
   core.CONFIG.baseModulePath = basePath;
-  core.DFG_ASSETS = basePath;
+  core.DLF_ASSETS = basePath;
   return basePath;
 };
 

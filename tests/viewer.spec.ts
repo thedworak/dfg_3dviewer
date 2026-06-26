@@ -231,7 +231,7 @@ test('loads config from drupalSettings when present', async ({ page }) => {
   await page.addInitScript(() => {
     window.__E2E__ = true;
     window.drupalSettings = {
-      dfg_3dviewer: {
+      dlf_aim_3d_viewer: {
         mainUrl: 'http://localhost',
         baseNamespace: 'http://localhost',
         metadataUrl: 'http://localhost',
@@ -247,7 +247,7 @@ test('loads config from drupalSettings when present', async ({ page }) => {
           metadata: { source: 'Drupal', sourceType: '', url: '' },
         },
         viewer: {
-          container: 'DFG_3DViewer',
+          container: 'DLF_AIM_3DViewer',
           fileUpload: 'upload',
           fileName: 'name',
           imageGeneration: 'image',

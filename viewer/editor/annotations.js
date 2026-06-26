@@ -826,7 +826,7 @@ export function attachAnnotations(Viewer) {
           },
 
           viewer: {
-            container: core.CONFIG?.viewer?.container || "DFG_3DViewer",
+            container: core.CONFIG?.viewer?.container || "DLF_AIM_3DViewer",
             mailUrl: core.CONFIG.mainUrl || "https://localhost",
             baseNamespace: "https://localhost",
             metadataUrl: "https://localhost",

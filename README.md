@@ -1,8 +1,8 @@
-# DFG 3D Viewer — JavaScript Library
+# DLF AIM 3D Viewer — JavaScript Library
 
 Three.js-based 3D viewer. Builds standalone HTML demos and a minified Drupal bundle.
 
-**Drupal integration** is provided by the separate [`dfg_3dviewer`](https://gitlab.nasarek.dev/rnsrk/dfg_3dviewer_drupal_module) module.
+**Drupal integration** is provided by the separate [`dlf_aim_3d_viewer`](https://gitlab.nasarek.dev/rnsrk/dlf_aim_3d_viewer_drupal_module) module.
 
 ## Build targets
 
@@ -34,22 +34,22 @@ npm run dev:test
 
 ## Install on Drupal
 
-1. Place this repo (with its built `dist/`) at `web/libraries/dfg-3dviewer/`. The Drupal module loads assets from `web/libraries/dfg-3dviewer/dist/drupal/main/`.
+1. Place this repo (with its built `dist/`) at `web/libraries/dlf_aim_3d_viewer/`. The Drupal module loads assets from `web/libraries/dlf_aim_3d_viewer/dist/drupal/main/`.
 
    ```bash
-   git clone https://gitlab.nasarek.dev/rnsrk/dfg_3dviewer_js_library.git web/libraries/dfg-3dviewer
-   cd web/libraries/dfg-3dviewer && npm install && npm run build:drupal
+   git clone https://gitlab.nasarek.dev/rnsrk/dlf_aim_3d_viewer_js_library.git web/libraries/dlf_aim_3d_viewer
+   cd web/libraries/dlf_aim_3d_viewer && npm install && npm run build:drupal
    ```
 
    Run from your Drupal project root (e.g. `/opt/drupal`).
 
-2. Enable the `dfg_3dviewer` Drupal module and configure at `/admin/config/dfg_3dviewer`
+2. Enable the `dlf_aim_3d_viewer` Drupal module and configure at `/admin/config/dlf_aim_3d_viewer`
 
 ## Standalone embed
 
 ```html
-<div id="DFG_3DViewer" 3d="./examples/box.stl"></div>
-<script type="module" src="./dfg_3dviewer-module.js"></script>
+<div id="DLF_AIM_3DViewer" 3d="./examples/box.stl"></div>
+<script type="module" src="./dlf_aim_3d_viewer-module.js"></script>
 ```
 
 Or pass config in code: `await Viewer.MainInit({ ... })`.

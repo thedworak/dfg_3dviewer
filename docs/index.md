@@ -1,4 +1,4 @@
-# DFG 3D Viewer — JavaScript Library
+# DLF AIM 3D Viewer — JavaScript Library
 
 A modern 3D viewer for the web, built on [three.js](https://threejs.org/). This repository
 holds the **viewer runtime source**, the **Rollup build tooling**, an optional **PHP admin
@@ -12,11 +12,11 @@ and later generalised so it can also run standalone or be embedded in other envi
 
     - **JS library (this repo)** — the viewer runtime, build tooling, admin panel, demo/embed
       pages and Playwright tests. Published as
-      [`dfg_3dviewer_js_library`](https://gitlab.nasarek.dev/rnsrk/dfg_3dviewer_js_library).
+      [`dlf_aim_3d_viewer_js_library`](https://gitlab.nasarek.dev/rnsrk/dlf_aim_3d_viewer_js_library).
     - **Drupal module** — PHP/YAML integration plus the server-side model
       conversion/rendering scripts (`convert.sh`, `render.sh`, Blender helpers, …).
       Published as the separate
-      [`dfg_3dviewer`](https://gitlab.nasarek.dev/rnsrk/dfg_3dviewer_drupal_module) module.
+      [`dlf_aim_3d_viewer`](https://gitlab.nasarek.dev/rnsrk/dlf_aim_3d_viewer_drupal_module) module.
 
     The server-side conversion pipeline (Blender, IfcConvert, archive extraction, thumbnail
     rendering) **no longer lives in this repo** — it moved to the Drupal module. See that

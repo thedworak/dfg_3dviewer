@@ -17,10 +17,10 @@ npm run build:all            # all of the above in parallel
 
 | Target | Output dir | Entry file | admin | examples + HTML | viewer-settings.json | minified |
 |---|---|---|:--:|:--:|:--:|:--:|
-| `dev` / `test` | `dist/dev`, `dist/test` | `dfg_3dviewer-module.js` | ✅ | ✅ | ✅ (localhost) | ❌ |
-| `prod` | `dist/prod` | `dfg_3dviewer-module.js` | ❌ | ✅ | ✅ | ✅ |
-| `drupal` (main) | `dist/drupal/main` | `dfg_3dviewer.min.js` | ❌ | ❌ | ❌ (Drupal-managed) | ✅ |
-| `drupal:custom` | `dist/drupal/custom` | `dfg_3dviewer-module.js` | ✅ | ✅ | ✅ (Drupal paths) | ❌ |
+| `dev` / `test` | `dist/dev`, `dist/test` | `dlf_aim_3d_viewer-module.js` | ✅ | ✅ | ✅ (localhost) | ❌ |
+| `prod` | `dist/prod` | `dlf_aim_3d_viewer-module.js` | ❌ | ✅ | ✅ | ✅ |
+| `drupal` (main) | `dist/drupal/main` | `dlf_aim_3d_viewer.min.js` | ❌ | ❌ | ❌ (Drupal-managed) | ✅ |
+| `drupal:custom` | `dist/drupal/custom` | `dlf_aim_3d_viewer-module.js` | ✅ | ✅ | ✅ (Drupal paths) | ❌ |
 
 !!! note "Two Drupal variants"
     `build:drupal` produces the `main` variant — the minified bundle Drupal loads in production
@@ -54,7 +54,7 @@ the output so a developer database is never published.
   `mainUrl = 'localhost'`, gallery build disabled, editor mode enabled,
   `viewer.lightweight = true`.
 - For the Drupal `custom` variant, `baseModulePath` is rewritten to
-  `/libraries/dfg-3dviewer/dist/drupal/custom/assets` and `entity.metadata.source` is set to
+  `/libraries/dlf_aim_3d_viewer/dist/drupal/custom/assets` and `entity.metadata.source` is set to
   `Drupal`.
 
 See [viewer-settings.json](viewer-settings.md) for the field reference.
@@ -63,4 +63,4 @@ See [viewer-settings.json](viewer-settings.md) for the field reference.
 
 Releases ship the **whole repository with a built `dist/` committed inside** — there is no
 separate library zip. A Drupal site clones this repository into
-`web/libraries/dfg-3dviewer/` and loads assets from `dist/drupal/main/`.
+`web/libraries/dlf_aim_3d_viewer/` and loads assets from `dist/drupal/main/`.

@@ -3,7 +3,7 @@
 ## Repository layout
 
 ```text
-dfg_3dviewer/
+dlf_aim_3d_viewer/
 ├── index.html                     # demo page with model picker
 ├── embed.html                     # embeddable viewer (URL-parameter driven)
 ├── rollup.config.js               # build configuration (all targets)
@@ -38,8 +38,8 @@ dfg_3dviewer/
 - **`index.html`** — demo page used by local builds and the `dist` preview.
 - **`embed.html`** — embeddable viewer page with URL controls (see [Embedding](embedding.md)).
 
-In built output, the generated bundle is exposed as `dfg_3dviewer-module.js` (or
-`dfg_3dviewer.min.js` for the Drupal `main` build).
+In built output, the generated bundle is exposed as `dlf_aim_3d_viewer-module.js` (or
+`dlf_aim_3d_viewer.min.js` for the Drupal `main` build).
 
 ## Build pipeline
 
@@ -71,5 +71,5 @@ Build/dev tooling: `rollup` (+ plugins), `parcel`, `serve`, `cross-env`, `concur
 This library produces the browser runtime. A separate Drupal module provides PHP/YAML
 integration **and** the server-side conversion/rendering pipeline (Blender, IfcConvert, archive
 extraction, thumbnail rendering). A Drupal site installs this library at
-`web/libraries/dfg-3dviewer/` and loads `dist/drupal/main/`. See the Drupal module's
+`web/libraries/dlf_aim_3d_viewer/` and loads `dist/drupal/main/`. See the Drupal module's
 documentation for the server side.

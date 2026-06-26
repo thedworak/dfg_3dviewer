@@ -1,7 +1,7 @@
 {
-  "name": "dfg-3dviewer",
+  "name": "dlf_aim_3d_viewer",
   "version": "1.0.2",
-  "description": "DFG 3D Viewer — three.js library for web and Drupal",
+  "description": "DLF AIM 3D Viewer — three.js library for web and Drupal",
   "type": "module",
   "scripts": {
     "dev:test": "cross-env BUILD_SOURCE=IIIF BUILD=test parcel index.html --port 1234",

@@ -1,7 +1,7 @@
 # Function reference
 
 The viewer's exported runtime functions are documented in detail in
-[`viewer/FUNCTIONS.md`](https://gitlab.nasarek.dev/rnsrk/dfg_3dviewer_js_library/-/blob/standalone/viewer/FUNCTIONS.md)
+[`viewer/FUNCTIONS.md`](https://gitlab.nasarek.dev/rnsrk/dlf_aim_3d_viewer_js_library/-/blob/standalone/viewer/FUNCTIONS.md)
 inside the repository. This page summarises what lives where.
 
 ## `viewer/main.js` — the `Viewer` object

@@ -6,8 +6,8 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
-    <title>DFG 3D Viewer Embed</title>
-    <link rel="shortcut icon" href="assets/img/dfgviewerFavicon.png" type="image/png">
+    <title>DLF AIM 3D Viewer Embed</title>
+    <link rel="shortcut icon" href="assets/img/dlf_aim_3d_viewer_favicon.png" type="image/png">
     <link href="assets/css/main.css" rel="stylesheet" />
     <link href="assets/css/spinner.css" rel="stylesheet" />
     <link href="assets/css/theme.css" rel="stylesheet" />
@@ -26,7 +26,7 @@
         min-height: 100dvh;
       }
 
-      #DFG_3DViewer {
+      #DLF_AIM_3DViewer {
         width: 100%;
         height: 100dvh;
         min-height: 240px;
@@ -34,7 +34,7 @@
     </style>
   </head>
   <body class="viewer-embed-page">
-    <div id="DFG_3DViewer"></div>
+    <div id="DLF_AIM_3DViewer"></div>
     <script>
       (function () {
         const params = new URLSearchParams(window.location.search);
@@ -44,11 +44,11 @@
         const isLocalPreviewHost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
         if (!isLocalPreviewHost) return;
 
-        const container = document.getElementById("DFG_3DViewer");
+        const container = document.getElementById("DLF_AIM_3DViewer");
         if (!container || container.hasAttribute("3d")) return;
         container.setAttribute("3d", "./examples/box.stl");
       })();
     </script>
-    <script type="module" src="dfg_3dviewer-module.js"></script>
+    <script type="module" src="dlf_aim_3d_viewer-module.js"></script>
   </body>
 </html>

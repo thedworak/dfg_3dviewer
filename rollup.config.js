@@ -31,8 +31,8 @@ const outDistDir = isDrupalBuild
   ? path.join('dist', 'drupal', drupalVariant)
   : path.join('dist', envBuild);
 const entryFileName = isDrupalBuild && !isDrupalCustom
-  ? 'dfg_3dviewer.min.js'
-  : 'dfg_3dviewer-module.js';
+  ? 'dlf_aim_3d_viewer.min.js'
+  : 'dlf_aim_3d_viewer-module.js';
 
 console.log('[rollup] build:', envBuild);
 if (isDrupalBuild) {
@@ -112,7 +112,7 @@ function copyBuildAssets() {
       }
 
       if (isDrupalCustom) {
-        viewerSettingsMain.baseModulePath = '/libraries/dfg-3dviewer/dist/drupal/custom/assets';
+        viewerSettingsMain.baseModulePath = '/libraries/dlf_aim_3d_viewer/dist/drupal/custom/assets';
         viewerSettingsMain.entity = viewerSettingsMain.entity || {};
         viewerSettingsMain.entity.metadata = viewerSettingsMain.entity.metadata || {};
         viewerSettingsMain.entity.metadata.source = 'Drupal';

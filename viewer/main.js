@@ -1,5 +1,5 @@
 /*
-DFG 3D-Viewer
+DLF AIM 3D Viewer
 Copyright (C) 2025 - Daniel Dworak
 
 This program is free software: you can redistribute it and/or modify
@@ -347,7 +347,7 @@ export const Viewer = {
   lastPickedFace: { id: "", object: "", faceIndex: null, overlay: null },
   loadedTimes: 0,
   _ext: '',
-  DFG_ASSETS: '',
+  DLF_ASSETS: '',
   isLightweight: false,
   urlOptions: {
     model: null,
@@ -1538,7 +1538,7 @@ export const Viewer = {
     });
     const container =
       this.container ||
-      document.getElementById(core.CONFIG?.viewer?.container || "DFG_3DViewer") ||
+      document.getElementById(core.CONFIG?.viewer?.container || "DLF_AIM_3DViewer") ||
       document.body;
     
     this.noticeContainer.style.bottom = "50%";
@@ -1555,7 +1555,7 @@ export const Viewer = {
       mainUrl: "https://dfg-repository.wisski.cloud",
       baseNamespace: "https://dfg-repository.wisski.cloud",
       metadataUrl: "https://dfg-repository.wisski.cloud",
-      baseModulePath: "/libraries/dfg-3dviewer/assets",
+      baseModulePath: "/libraries/dlf_aim_3d_viewer/assets",
       entity: {
         bundle: "bd3d7baa74856d141bcff7b4193fa128",
         fieldDf: "field_df",
@@ -1568,7 +1568,7 @@ export const Viewer = {
         },
       },
       viewer: {
-        container: "DFG_3DViewer",
+        container: "DLF_AIM_3DViewer",
         fileUpload: "fbf95bddee5160d515b982b3fd2e05f7",
         fileName: "faa602a0be629324806aef22892cdbe5",
         imageGeneration: "f605dc6b727a1099b9e52b3ccbdf5673",
@@ -1613,7 +1613,7 @@ export const Viewer = {
       return explicitConfig;
     }
 
-    const drupalCfg = typeof window !== 'undefined' ? window.drupalSettings?.dfg_3dviewer : null;
+    const drupalCfg = typeof window !== 'undefined' ? window.drupalSettings?.dlf_aim_3d_viewer : null;
     if (drupalCfg && typeof drupalCfg === 'object' && Object.keys(drupalCfg).length > 0) {
       const { csrfToken, ...config } = drupalCfg;
       if (csrfToken && typeof window !== 'undefined') {
@@ -1671,7 +1671,7 @@ export const Viewer = {
     setCore('updateClippingHintVisibility', this.updateClippingHintVisibility.bind(this));
     setCore('editorToolbar', this.editorToolbar);
     setCore('wireframeMode', this.wireframeMode);
-    setCore('DFG_ASSETS', bundleAssetBase);
+    setCore('DLF_ASSETS', bundleAssetBase);
 
     core.CONFIG = await this.loadViewerConfig(moduleUrl, explicitConfig);
 
@@ -2012,7 +2012,7 @@ export const Viewer = {
     const loader = new FontLoader();
 
     loader.load(
-      `${core.DFG_ASSETS}/fonts/helvetiker_regular.typeface.json`,
+      `${core.DLF_ASSETS}/fonts/helvetiker_regular.typeface.json`,
       function (font) {
         const textGeo = new TextGeometry(_text, {
           font,
@@ -2047,7 +2047,7 @@ export const Viewer = {
     const loader = new FontLoader();
     const bevelSize = _scale / 10;
 
-    loader.load(`${core.DFG_ASSETS}/fonts/helvetiker_regular.typeface.json`, (font) => {
+    loader.load(`${core.DLF_ASSETS}/fonts/helvetiker_regular.typeface.json`, (font) => {
 
       const baseOptions = {
         font: font,
@@ -2194,7 +2194,7 @@ export const Viewer = {
       const path = parsed.pathname || "";
       const hasBadHost =
         host === "default" ||
-        host === "dfg_3dviewer" ||
+        host === "dlf_aim_3d_viewer" ||
         host.includes("_");
 
       if (path.startsWith("/sites/default/files/")) {
@@ -3771,7 +3771,7 @@ export const Viewer = {
           }
         });
 
-        Viewer.handHint.innerHTML = `<img src="${core.DFG_ASSETS}/img/hand-hint.png" alt="Hand hint" width=48 height=48 title="Hand hint animation"/>`;
+        Viewer.handHint.innerHTML = `<img src="${core.DLF_ASSETS}/img/hand-hint.png" alt="Hand hint" width=48 height=48 title="Hand hint animation"/>`;
         
         Viewer.rect = core.container.getBoundingClientRect();
         if (Viewer.viewerWrapper === core.container && core.CONFIG.viewer?.scaleContainer) {
@@ -3905,13 +3905,13 @@ export const Viewer = {
         const picker = document.getElementById('example-model-picker');
         const selectModel = document.getElementById('example-model-select');
         const themeToggle = document.getElementById('example-theme-toggle');
-        const viewerElement = document.getElementById('DFG_3DViewer');
+        const viewerElement = document.getElementById('DLF_AIM_3DViewer');
         if (picker && selectModel && viewerElement) {
           Viewer.updateLocalPreviewLabels();
           const localurl = new URL(window.location.href);
           let selectedModel = localurl.searchParams.get('model');
           if (!selectedModel) {
-            selectedModel = localStorage.getItem('dfg3dviewer-example-model');
+            selectedModel = localStorage.getItem('dlf_aim_3d_viewer-example-model');
           }
           if (!selectedModel) {
             selectedModel = viewerElement.getAttribute('3d');
@@ -3929,7 +3929,7 @@ export const Viewer = {
 
           selectModel.addEventListener('change', () => {
             core.autoPath = selectModel.value;
-            window.localStorage.setItem('dfg3dviewer-example-model', selectModel.value);
+            window.localStorage.setItem('dlf_aim_3d_viewer-example-model', selectModel.value);
             this.resetLoadedModelState();
             this.mainLoadModelWrapper();
           });

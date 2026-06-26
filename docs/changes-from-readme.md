@@ -1,7 +1,7 @@
 # Changes from the original README
 
 These docs describe the **current reality** of the standalone JS library. The original combined
-README (the monorepo at `github.com/thedworak/dfg_3dviewer`) described a single project before it
+README (the monorepo at `github.com/thedworak/dlf_aim_3d_viewer`) described a single project before it
 was split into a JS library and a Drupal module. The notes below flag where the old README is no
 longer accurate for this repository.
 
@@ -21,7 +21,7 @@ longer accurate for this repository.
 | Old README claim | Current reality |
 |------------------|-----------------|
 | `npm run dev:prod` | Removed — there is no `dev:prod`. Use `build:prod` for a prod bundle. |
-| `npm run pack-dist` (packages `dfg_3dviewer-dist.zip`) | Removed — releases ship the whole repo with `dist/` committed inside; there is no library zip. |
+| `npm run pack-dist` (packages `dlf_aim_3d_viewer-dist.zip`) | Removed — releases ship the whole repo with `dist/` committed inside; there is no library zip. |
 | `npm run dev:tauri`, `tauri:dev`, `tauri:build` | Removed — there is no Tauri wrapper (`src-tauri/`) in this repo. |
 | `build:drupal:custom` "custom Drupal build with module prefix" | Exists and produces an unminified, fully-featured variant at `dist/drupal/custom`. |
 | `watch`, `serve:dist`, `build:all` | Present. |

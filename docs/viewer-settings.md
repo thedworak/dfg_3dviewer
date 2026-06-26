@@ -5,7 +5,7 @@ mode). The example template lives at `viewer/viewer-settings-example.json` (a co
 at the repository root as `viewer-settings-example.json`).
 
 In Drupal `main` builds there is **no** `viewer-settings.json`; configuration is provided by
-Drupal through `drupalSettings.dfg_3dviewer`.
+Drupal through `drupalSettings.dlf_aim_3d_viewer`.
 
 ## Example
 
@@ -14,7 +14,7 @@ Drupal through `drupalSettings.dfg_3dviewer`.
   "baseNamespace": "",
   "mainUrl": "https://your.domain.com",
   "metadataUrl": "",
-  "baseModulePath": "/modules/dfg_3dviewer/viewer",
+  "baseModulePath": "/modules/dlf_aim_3d_viewer/viewer",
   "entity": {
     "bundle": "bd1220d6ec7f07e726c65fd215d8e493",
     "fieldDf": "field_df",
@@ -29,7 +29,7 @@ Drupal through `drupalSettings.dfg_3dviewer`.
     }
   },
   "viewer": {
-    "container": "DFG_3DViewer",
+    "container": "DLF_AIM_3DViewer",
     "fileUpload": "fad29437cb2a561b91b26aca5dbb7c42",
     "fileName": "fb76901eb219495fee0512b5cdfdaa18",
     "imageGeneration": "fd6a974b7120d422c7b21b5f1f2315d9",
@@ -105,7 +105,7 @@ with a root `viewer-settings.json`:
 
 - **`test` / `dev`** — `mainUrl = 'localhost'`, gallery build disabled, editor enabled,
   `viewer.lightweight = true`.
-- **`drupal:custom`** — `baseModulePath = '/libraries/dfg-3dviewer/dist/drupal/custom/assets'`,
+- **`drupal:custom`** — `baseModulePath = '/libraries/dlf_aim_3d_viewer/dist/drupal/custom/assets'`,
   `entity.metadata.source = 'Drupal'`.
 - **`drupal` (main)** — no settings file is written.
 

@@ -6,16 +6,16 @@ The simplest way to embed the viewer is a container element with a `3d` attribut
 a model, plus the module script:
 
 ```html
-<div id="DFG_3DViewer" 3d="./examples/box.stl" style="height: 50vh"></div>
-<script type="module" src="dfg_3dviewer-module.js"></script>
+<div id="DLF_AIM_3DViewer" 3d="./examples/box.stl" style="height: 50vh"></div>
+<script type="module" src="dlf_aim_3d_viewer-module.js"></script>
 ```
 
-The viewer reads the `3d` attribute from the container (default container id `DFG_3DViewer`)
+The viewer reads the `3d` attribute from the container (default container id `DLF_AIM_3DViewer`)
 and loads the model. This is the entry pattern used by `index.html`.
 
 !!! note "Built entry file name"
     In standalone/dev/test/`drupal:custom` builds the runtime entry is
-    `dfg_3dviewer-module.js`. In the minified Drupal `main` build it is `dfg_3dviewer.min.js`.
+    `dlf_aim_3d_viewer-module.js`. In the minified Drupal `main` build it is `dlf_aim_3d_viewer.min.js`.
 
 You can also drive everything from code instead of the attribute:
 

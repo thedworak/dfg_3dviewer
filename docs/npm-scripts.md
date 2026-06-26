@@ -1,6 +1,6 @@
 # npm scripts
 
-These are the scripts defined in `package.json` (`dfg-3dviewer`, version `1.0.2`).
+These are the scripts defined in `package.json` (`dlf_aim_3d_viewer`, version `1.0.2`).
 
 ## Development
 

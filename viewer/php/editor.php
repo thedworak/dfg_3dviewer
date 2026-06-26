@@ -1,6 +1,6 @@
 <?php
 
-$configFile = 'modules/dfg_3dviewer/viewer/config.json';
+$configFile = 'modules/dlf_aim_3d_viewer/viewer/config.json';
 
 if (!file_exists($configFile)) {
 	die("Error: Config file not found.");
