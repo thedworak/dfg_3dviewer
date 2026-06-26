@@ -1,7 +1,7 @@
 site_name: DLF AIM 3D Viewer — JavaScript Library
 site_description: three.js-based 3D viewer that builds standalone HTML demos and a minified Drupal bundle.
 site_author: DLF AIM 3D Viewer maintainers
-repo_url: https://gitlab.nasarek.dev/rnsrk/dlf_aim_3d_viewer_js_library
+repo_url: https://github.com/thedworak/dfg_3dviewer
 docs_dir: docs
 
 theme:

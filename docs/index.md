@@ -12,7 +12,7 @@ and later generalised so it can also run standalone or be embedded in other envi
 
     - **JS library (this repo)** — the viewer runtime, build tooling, admin panel, demo/embed
       pages and Playwright tests. Published as
-      [`dlf_aim_3d_viewer_js_library`](https://gitlab.nasarek.dev/rnsrk/dlf_aim_3d_viewer_js_library).
+      [`dfg_3dviewer`](https://github.com/thedworak/dfg_3dviewer/tree/standalone).
     - **Drupal module** — PHP/YAML integration plus the server-side model
       conversion/rendering scripts (`convert.sh`, `render.sh`, Blender helpers, …).
       Published as the separate
