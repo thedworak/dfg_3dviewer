@@ -11,9 +11,6 @@ node_modules/
 /.parcel-cache
 .pnpm-store/
 
-# build output (produced by rollup; CI builds on release)
-/dist/
-
 # Playwright
 /test-results/
 /playwright-report/
