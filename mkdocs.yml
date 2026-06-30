@@ -1,0 +1,53 @@
+site_name: DLF AIM 3D Viewer — JavaScript Library
+site_description: three.js-based 3D viewer that builds standalone HTML demos and a minified Drupal bundle.
+site_author: DLF AIM 3D Viewer maintainers
+repo_url: https://github.com/thedworak/dfg_3dviewer
+docs_dir: docs
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - toc.follow
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.details
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Build targets: build-targets.md
+  - npm scripts: npm-scripts.md
+  - viewer-settings.json: viewer-settings.md
+  - Embedding: embedding.md
+  - Admin panel: admin-panel.md
+  - Architecture: architecture.md
+  - Function reference: function-reference.md
+  - Testing: testing.md
+  - Changes from the original README: changes-from-readme.md

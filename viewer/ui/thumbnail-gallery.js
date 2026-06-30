@@ -142,7 +142,7 @@ function normalizeGalleryUrl(rawUrl) {
     const host = parsed.host || "";
     const path = parsed.pathname || "";
     const normalizedHost = host.toLowerCase();
-    const hasBadHost = host.includes("_") || normalizedHost === "default" || normalizedHost === "dfg_3dviewer";
+    const hasBadHost = host.includes("_") || normalizedHost === "default" || normalizedHost === "dlf_aim_3d_viewer";
 
     if (path.startsWith("/sites/default/files/")) {
       if (hasBadHost) {

@@ -226,3 +226,51 @@ test('reports a corrupted model file instead of hanging', async ({ page }) => {
   expect(state.modelLoaded).toBe(false);
   expect(state.errors.length).toBeGreaterThan(0);
 });
+
+test('loads config from drupalSettings when present', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__E2E__ = true;
+    window.drupalSettings = {
+      dlf_aim_3d_viewer: {
+        mainUrl: 'http://localhost',
+        baseNamespace: 'http://localhost',
+        metadataUrl: 'http://localhost',
+        baseModulePath: '/assets',
+        entity: {
+          bundle: 'test-bundle',
+          fieldDf: 'field_df',
+          idUri: '/wisski/navigate/(.*)/view',
+          viewEntityPath: '/wisski/navigate/',
+          attributeId: 'wisski_id',
+          exportViewer: 'field_df',
+          exportViewerUrl: '',
+          metadata: { source: 'Drupal', sourceType: '', url: '' },
+        },
+        viewer: {
+          container: 'DLF_AIM_3DViewer',
+          fileUpload: 'upload',
+          fileName: 'name',
+          imageGeneration: 'image',
+          lightweight: true,
+          editor: false,
+          scaleContainer: { x: '1', y: '1' },
+          gallery: { container: '', imageClass: '', imageId: '', build: false },
+        },
+      },
+    };
+  });
+
+  await page.goto(`/?e2eModel=${encodeURIComponent(defaultModel)}`);
+  await page.waitForSelector('#MainCanvas', { state: 'attached' });
+
+  const configSource = await page.evaluate(() => ({
+    bundle: window.viewer?.configBundle,
+    fromDrupal: window.viewer?.configFromDrupal,
+  }));
+
+  await page.waitForFunction(() => window.viewer?.configFromDrupal === true, {
+    timeout: 10_000,
+  });
+
+  expect(configSource.bundle).toBe('test-bundle');
+});

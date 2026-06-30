@@ -9,70 +9,41 @@ import fs from 'fs/promises';
 
 const source = process.env.BUILD_SOURCE ?? "IIIF";
 const envBuild = process.env.BUILD ?? "test";
-const customModulesEnv = process.env.MODULE_CUSTOM ?? "";
-let customModules = customModulesEnv;
 const production = process.env.IS_PROD === 'true';
+const isDrupalBuild = envBuild === 'drupal';
+// The Drupal build has two variants: `main` is the minified bundle Drupal loads
+// in production (dist/drupal/main); `custom` is an unminified, fully-featured
+// drop (admin panel, demo pages, examples, viewer-settings.json) at
+// dist/drupal/custom for site-specific customization.
+const drupalVariant = isDrupalBuild ? (process.env.DRUPAL_VARIANT ?? 'main') : '';
+const isDrupalCustom = isDrupalBuild && drupalVariant === 'custom';
+const includeAdmin = envBuild === 'dev' || envBuild === 'test' || isDrupalCustom;
 
-if (customModules && !customModules.startsWith('/')) {
-  customModules = `/${customModules}`;
-}
+// Standalone (dev/test/prod) and the customizable Drupal variant ship the demo
+// pages, examples and a viewer-settings.json; the minified Drupal `main` bundle
+// omits them because Drupal renders its own markup and config.
+const includeStandaloneAssets = !isDrupalBuild || isDrupalCustom;
 
-const envSubdir = envBuild === 'drupal'
-  ? (customModules ? customModules.replace(/^\//, '') : 'main')
-  : '';
-const outDistDir = envSubdir
-  ? path.join('dist', envBuild, envSubdir)
+// Only explicit prod builds and the minified Drupal `main` bundle are minified;
+// the Drupal `custom` variant ships unminified for easier overriding.
+const minify = production || (isDrupalBuild && !isDrupalCustom);
+const outDistDir = isDrupalBuild
+  ? path.join('dist', 'drupal', drupalVariant)
   : path.join('dist', envBuild);
+const entryFileName = isDrupalBuild && !isDrupalCustom
+  ? 'dlf_aim_3d_viewer.min.js'
+  : 'dlf_aim_3d_viewer-module.js';
 
 console.log('[rollup] build:', envBuild);
-console.log('[rollup] source:', source);
+if (isDrupalBuild) {
+  console.log('[rollup] drupal variant:', drupalVariant);
+}
 console.log('[rollup] outDir:', outDistDir);
+console.log('[rollup] entry:', entryFileName);
+console.log('[rollup] admin panel:', includeAdmin);
 
-function normalizePathSegment(seg = '') {
-  return seg.replace(/^\/+|\/+$/g, '');
-}
-
-const modulesPath = normalizePathSegment(customModules);
-const drupalModulePrefix = modulesPath ? `/modules/${modulesPath}/dfg_3dviewer` : '/modules/dfg_3dviewer';
-
-console.log('[rollup] modulesPath:', modulesPath);
-console.log('[rollup] output subdirectory:', envSubdir);
-
-async function copyDirectory(source, target) {
-  await fs.cp(source, target, { recursive: true });
-}
-
-async function writeDrupalLibrariesFile() {
-  if (envBuild !== 'drupal') {
-    return;
-  }
-
-  const template = await fs.readFile('dfg_3dviewer.libraries.tpl.yml', 'utf8');
-  const rendered = template
-    .replaceAll('__DRUPAL_MAIN_SUBDIR__', 'main')
-    .replaceAll('__DRUPAL_CUSTOM_SUBDIR__', 'custom');
-  await fs.writeFile('dfg_3dviewer.libraries.yml', rendered);
-}
-
-async function renderSettingsLocalPhp() {
-  const template = await fs.readFile('settings.local.php.tpl', 'utf8');
-  const dfgEnv = envBuild === 'drupal'
-    ? (envSubdir === 'custom' ? 'drupal_custom' : 'drupal')
-    : envBuild;
-
-  return template.replaceAll('__DFG_ENV__', dfgEnv);
-}
-
-async function writeIfNotExists(filePath, content) {
-  try {
-    await fs.access(filePath);
-    console.log(`[rollup] skip existing: ${filePath}`);
-    return false;
-  } catch {
-    await fs.writeFile(filePath, content);
-    console.log(`[rollup] created: ${filePath}`);
-    return true;
-  }
+async function copyDirectory(sourceDir, target) {
+  await fs.cp(sourceDir, target, { recursive: true });
 }
 
 function copyBuildAssets() {
@@ -80,110 +51,103 @@ function copyBuildAssets() {
     name: 'copy-build-assets',
     async writeBundle() {
       await fs.mkdir(outDistDir, { recursive: true });
-      await Promise.all([
-        copyDirectory(
-          'node_modules/three/examples/jsm/libs/draco',
-          path.join(outDistDir, 'assets/draco')
-        ),
-        copyDirectory(
-          'node_modules/web-ifc',
-          path.join(outDistDir, 'assets/ifc')
-        ),
+
+      const assetCopyTasks = [
+        copyDirectory('node_modules/three/examples/jsm/libs/draco', path.join(outDistDir, 'assets/draco')),
+        copyDirectory('node_modules/web-ifc', path.join(outDistDir, 'assets/ifc')),
         copyDirectory('viewer/css', path.join(outDistDir, 'assets/css')),
         copyDirectory('viewer/img', path.join(outDistDir, 'assets/img')),
         copyDirectory('viewer/fonts', path.join(outDistDir, 'assets/fonts')),
         copyDirectory('viewer/js/maps', path.join(outDistDir, 'assets/maps')),
-        copyDirectory('viewer/examples', path.join(outDistDir, 'examples')),
-        // copy admin panel (but we'll remove any local sqlite DB afterwards)
-        copyDirectory('viewer/admin', path.join(outDistDir, 'admin')),
-      ]);
-
-      const viewerSettingsTarget = path.join(outDistDir, 'viewer-settings.json');
-      const settingsPhpTarget = path.join(outDistDir, 'settings.local.php');
-      const indexTarget = path.join(outDistDir, 'index.html');
-      const embedTarget = path.join(outDistDir, 'embed.html');
-
-      const copyPromises = [
-        writeDrupalLibrariesFile(),
-        fs.copyFile('index.html', indexTarget),
-        fs.copyFile('embed.html', embedTarget),
       ];
 
-      copyPromises.push(
-        renderSettingsLocalPhp().then(content => fs.writeFile(settingsPhpTarget, content))
-      );
+      // Standalone bundles and the Drupal `custom` variant ship the demo pages
+      // and example models; the minified Drupal `main` build omits them because
+      // Drupal renders its own markup.
+      if (includeStandaloneAssets) {
+        assetCopyTasks.push(
+          copyDirectory('viewer/examples', path.join(outDistDir, 'examples')),
+          fs.copyFile('index.html', path.join(outDistDir, 'index.html')),
+          fs.copyFile('embed.html', path.join(outDistDir, 'embed.html')),
+        );
+      }
 
-      let viewerSettingsSource = 'viewer/viewer-settings-example.json';
+      // The PHP admin panel is only useful for the self-hosted dev/test builds.
+      if (includeAdmin) {
+        assetCopyTasks.push(copyDirectory('viewer/admin', path.join(outDistDir, 'admin')));
+      }
+
+      await Promise.all(assetCopyTasks);
+
+      // Never publish a developer's local admin database.
+      if (includeAdmin) {
+        await fs.rm(path.join(outDistDir, 'admin', 'admin.sqlite'), { force: true });
+      }
+
+      // The minified Drupal `main` build reads its configuration from Drupal
+      // (drupalSettings), so it intentionally ships no viewer-settings.json.
+      // The `custom` variant ships one so it can run customized/standalone.
+      if (isDrupalBuild && !isDrupalCustom) {
+        return;
+      }
+
+      const viewerSettingsTarget = path.join(outDistDir, 'viewer-settings.json');
       const viewerSettings = JSON.parse(
-        await fs.readFile(viewerSettingsSource, 'utf8')
+        await fs.readFile('viewer/viewer-settings-example.json', 'utf8')
       );
       viewerSettings.viewer.lightweight = 1;
-      viewerSettingsSource = 'viewer-settings.json';
-      if (envBuild === 'drupal') {
-        const viewerSettingsMain = JSON.parse(
-          await fs.readFile(viewerSettingsSource, 'utf8')
-        );
-        viewerSettingsMain.baseModulePath = `${drupalModulePrefix}/dist/${envBuild}/${envSubdir}/assets`;
-        viewerSettingsMain.entity.metadata.source = "Drupal";
-        copyPromises.push(
-          fs.writeFile(
-            viewerSettingsTarget,
-            JSON.stringify(viewerSettingsMain, null, 2), { flag: 'wx' }
-          ).catch(err => {
-          if (err.code !== 'EEXIST') {
-            throw err;
-          }
-          })
-        );
-      } else if (envBuild === 'test' || envBuild === 'dev') {
-        const viewerSettingsMain = JSON.parse(
-          await fs.readFile(viewerSettingsSource, 'utf8')
-        );
+
+      let viewerSettingsMain;
+      try {
+        viewerSettingsMain = JSON.parse(await fs.readFile('viewer-settings.json', 'utf8'));
+      } catch {
+        viewerSettingsMain = { ...viewerSettings };
+      }
+
+      if (envBuild === 'test' || envBuild === 'dev') {
         viewerSettingsMain.viewer.gallery.build = false;
         viewerSettingsMain.viewer.editor = true;
         viewerSettingsMain.viewer.lightweight = true;
         viewerSettingsMain.mainUrl = 'localhost';
-        copyPromises.push(
-          fs.writeFile(
-            viewerSettingsTarget,
-            JSON.stringify(viewerSettingsMain, null, 2), { flag: 'wx' }
-          ).catch(err => {
-          if (err.code !== 'EEXIST') {
-            throw err;
-          }
-          })
-        );
-      } else {
-        copyPromises.push(
-          fs.writeFile(
-            viewerSettingsTarget,
-            JSON.stringify(viewerSettings, null, 2), { flag: 'wx' }
-          ).catch(err => {
-          if (err.code !== 'EEXIST') {
-            throw err;
-          }
-          })
-        );
       }
 
-      await Promise.all(copyPromises);
-      // ensure we don't accidentally publish a local admin sqlite DB
-      try {
-        const adminDbDest = path.join(outDistDir, 'admin', 'admin.sqlite');
-        await fs.rm(adminDbDest, { force: true });
-      } catch (e) {
-        // ignore
+      if (isDrupalCustom) {
+        viewerSettingsMain.baseModulePath = '/libraries/dlf_aim_3d_viewer/dist/drupal/custom/assets';
+        viewerSettingsMain.entity = viewerSettingsMain.entity || {};
+        viewerSettingsMain.entity.metadata = viewerSettingsMain.entity.metadata || {};
+        viewerSettingsMain.entity.metadata.source = 'Drupal';
       }
+
+      await fs.writeFile(viewerSettingsTarget, JSON.stringify(viewerSettingsMain, null, 2), { flag: 'wx' })
+        .catch(err => {
+          if (err.code !== 'EEXIST') {
+            throw err;
+          }
+        });
     },
   };
 }
 
+// The @iiif/3d-manifesto-dev dependency ships TypeScript helper boilerplate
+// (__awaiter/__extends) and internal cross-imports that trigger THIS_IS_UNDEFINED
+// and CIRCULAR_DEPENDENCY warnings. These are harmless and out of our control, so
+// silence them for node_modules while keeping all warnings for our own sources.
+function onwarn(warning, warn) {
+  const noisyDependencyWarnings = ['THIS_IS_UNDEFINED', 'CIRCULAR_DEPENDENCY'];
+  const location = warning.id || warning.ids?.[0] || warning.loc?.file || '';
+  if (noisyDependencyWarnings.includes(warning.code) && location.includes('node_modules')) {
+    return;
+  }
+  warn(warning);
+}
+
 export default {
   input: 'viewer/main.js',
+  onwarn,
   treeshake: {
     moduleSideEffects: false,
     propertyReadSideEffects: false,
-    tryCatchDeoptimization: false
+    tryCatchDeoptimization: false,
   },
   plugins: [
     replace({
@@ -192,8 +156,8 @@ export default {
         __BUILD_SOURCE__: JSON.stringify(source),
         __BUILD__: JSON.stringify(envBuild),
         __IS_PROD__: JSON.stringify(production),
-        __MODULES_PATH__: JSON.stringify(modulesPath),
-        __ENV_SUBDIR__: JSON.stringify(envSubdir),
+        __MODULES_PATH__: JSON.stringify(''),
+        __ENV_SUBDIR__: JSON.stringify(isDrupalBuild ? drupalVariant : ''),
       },
     }),
     resolve({
@@ -203,41 +167,35 @@ export default {
       extensions: ['.js'],
       dedupe: ['three'],
       preserveSymlinks: false,
-      exportConditions: ['module']
+      exportConditions: ['module'],
     }),
-
     commonjs({
       include: [/node_modules/],
       exclude: ['node_modules/three/**'],
       transformMixedEsModules: true,
       ignoreDynamicRequires: true,
-      requireReturnsDefault: 'auto'
+      requireReturnsDefault: 'auto',
     }),
     json(),
-
     url({
       include: ['viewer/**/*.{svg,png,jpg,gif,hdr}'],
       limit: 0,
       fileName: 'assets/[name][extname]',
-      publicPath: 'assets/'
+      publicPath: 'assets/',
     }),
-
     copyBuildAssets(),
-
-    production && terser(),
-
+    minify && terser(),
   ].filter(Boolean),
-
   output: {
     dir: outDistDir,
-    entryFileNames: 'dfg_3dviewer-module.js',
+    entryFileNames: entryFileName,
     chunkFileNames: 'assets/[name].js',
     assetFileNames: 'assets/[name][extname]',
     sourcemapFileNames: 'assets/[name].js.map',
     format: 'es',
     manualChunks(id) {
-      if (id.includes("node_modules/three")) {
-        return "three";
+      if (id.includes('node_modules/three')) {
+        return 'three';
       }
     },
     sourcemap: true,

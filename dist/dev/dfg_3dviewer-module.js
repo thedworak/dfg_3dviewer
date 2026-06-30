@@ -2307,6 +2307,7 @@ function attachEmbedConfigurator(Viewer) {
     },
 
     applyEmbedOptionsToInputs(options = {}) {
+      console.log(this.embedConfigInputs);
       if (!this.embedConfigInputs) return;
       this.embedConfigInputs.model.value = options.model ?? "";
       this.embedConfigInputs.id.value = options.id ?? "";
@@ -2320,6 +2321,10 @@ function attachEmbedConfigurator(Viewer) {
       this.embedConfigInputs.camPos.value = options.cameraPosition ?? "";
       this.embedConfigInputs.camTarget.value = options.cameraTarget ?? "";
       this.embedConfigInputs.fov.value = Number.isFinite(options.fov) ? String(options.fov) : "";
+      console.log(
+  "fillConfiguratorWithCurrentCamera",
+  this.embedConfigInputs.camPos.value
+);
     },
 
     setEmbedInputError(input, hasError, message = "") {
@@ -2412,6 +2417,7 @@ function attachEmbedConfigurator(Viewer) {
     },
 
     collectEmbedConfiguratorOptions() {
+      console.trace("collectEmbedConfiguratorOptions");
       const inputs = this.embedConfigInputs;
       if (!inputs) return this.getCurrentEmbedOptions({ includeCamera: true });
       const parsedCamPos = this.parseVector3Param(inputs.camPos.value);
@@ -2446,6 +2452,7 @@ function attachEmbedConfigurator(Viewer) {
 
     updateEmbedConfiguratorPreview() {
       if (!this.embedConfigInputs) return;
+      if (this.updatingEmbedFields) return;
       this.validateEmbedInputFields();
       const options = this.collectEmbedConfiguratorOptions();
       if (!this.hasEmbedSourceSelection(options)) {
@@ -2463,9 +2470,13 @@ function attachEmbedConfigurator(Viewer) {
 
     fillConfiguratorWithCurrentCamera() {
       if (!this.embedConfigInputs) return;
+
+      this.updatingEmbedFields = true;
+
       this.embedConfigInputs.camPos.value = this.formatVector3Param(core.camera?.position) || "";
       this.embedConfigInputs.camTarget.value = this.formatVector3Param(core.controls?.target) || "";
       this.embedConfigInputs.fov.value = Number.isFinite(core.camera?.fov) ? String(core.camera.fov) : "";
+      this.updatingEmbedFields = false;
       this.updateEmbedConfiguratorPreview();
     },
 
@@ -2493,7 +2504,6 @@ function attachEmbedConfigurator(Viewer) {
 
     createEmbedConfiguratorPanel() {
       if (!core.container || this.embedConfiguratorPanel) return;
-
       const defaults = this.getCurrentEmbedOptions({ includeCamera: true });
       const panelText = {
         title: t$1("embedPanel.title", "Embed options"),
@@ -6475,7 +6485,7 @@ function captureAndUploadThumbnail(viewer) {
       method: "POST",
       credentials: "same-origin",
       headers: {
-        "X-CSRF-Token": window.CSRF_TOKEN
+        "X-CSRF-Token": window.CSRF_TOKEN || window.drupalSettings?.dfg_3dviewer?.csrfToken
       },
       body: fileform
     })
@@ -7222,7 +7232,7 @@ function getEnvironmentTextureForPreset(renderer, preset = "neutral") {
           // Load HDR map for other presets
           const HDRLoader = await loadHDRLoader();
           const loader = new HDRLoader();
-          const baseModulePath = core.DFG_ASSETS || core.CONFIG?.baseModulePath || '/assets';
+          const baseModulePath = core.CONFIG?.baseModulePath || core.DFG_ASSETS || '/assets';
           const mapFilename = preset === "goldenHour" ? "golden_hour.hdr" : `${preset}.hdr`;
           const mapUrl = `${baseModulePath.replace(/\/$/, '')}/maps/${mapFilename}`;
           
@@ -7533,7 +7543,7 @@ async function loadModel() {
         let ifcWasmPath = await resolveIfcWasmPath(basePath);
 
         if (!ifcWasmPath) {
-          const errorMsg = `[loadModel] IFC WASM not found in ${basePath}/ifc or fallback; please verify path and permissions`;
+          const errorMsg = `[loadModel] IFC WASM not found in ${basePath}/ifc; please verify path and permissions`;
           console.error(errorMsg);
           throw new Error(errorMsg);
         }
@@ -7636,22 +7646,24 @@ async function loadModel() {
 }
 
 const getModuleAssetBasePath = function() {
-  let basePath = sanitizeModuleAssetBasePath(core.CONFIG?.baseModulePath);
-  core.DFG_ASSETS ? core.DFG_ASSETS.replace(/\/$/, '') : '';
-
+  const configuredPath = sanitizeModuleAssetBasePath(core.CONFIG?.baseModulePath);
+  let basePath = configuredPath || sanitizeModuleAssetBasePath(core.DFG_ASSETS);
+  if (!basePath && typeof import.meta !== 'undefined' && import.meta.url) {
+    const moduleUrl = new URL(import.meta.url);
+    basePath = moduleUrl.pathname.includes('/assets/')
+      ? new URL('../assets/', moduleUrl).pathname.replace(/\/$/, '')
+      : new URL('./assets/', moduleUrl).pathname.replace(/\/$/, '');
+  }
   if (!basePath) {
     basePath = '/assets';
   }
-
-  // Override for localhost
-  if (core.isLocalPreview) {
+  // Standalone local dev servers expose assets at /assets; embedded hosts provide baseModulePath.
+  if (core.isLocalPreview && !configuredPath) {
     basePath = '/assets';
   }
-
   basePath = sanitizeModuleAssetBasePath(basePath);
-
   console.log('[loaders] resolved ModuleAssetBasePath:', basePath);
-  core.CONFIG.baseModulePath = basePath; // Cache for future use
+  core.CONFIG.baseModulePath = basePath;
   core.DFG_ASSETS = basePath;
   return basePath;
 };
@@ -16781,7 +16793,6 @@ const Viewer$1 = {
     if (sandboxModeFromQuery !== null) {
       core.SANDBOX_MODE = sandboxModeFromQuery;
     }
-    const showNotificationsFromQuery = this.parseBooleanParam(params.get("showNotifications"));
 
     this.urlOptions = {
       model: modelFromQuery || null,
@@ -16799,7 +16810,7 @@ const Viewer$1 = {
       presentationMode: core.PRESENTATION_MODE === true,
       sandboxMode: core.SANDBOX_MODE === true,
       scale: this.parseVector2Param(params.get("scale")) ?? null,
-      showNotifications: showNotificationsFromQuery !== false
+      showNotifications: this.parseBooleanParam(params.get("showNotifications")),
     };
   },
 
@@ -17299,7 +17310,8 @@ const Viewer$1 = {
       this.container ||
       document.getElementById(core.CONFIG?.viewer?.container || "DFG_3DViewer") ||
       document.body;
-
+    
+    this.noticeContainer.style.bottom = "50%";
     if (!container) {
       showToast("toasts.containerNotFound", "error", { duration: 5000 });
       return;
@@ -17308,7 +17320,96 @@ const Viewer$1 = {
     showToast("toasts.missingFiles", "error", { duration: 5000 });
   },
 
-  async MainInit() {
+  getDefaultConfig() {
+    return {
+      mainUrl: "https://dfg-repository.wisski.cloud",
+      baseNamespace: "https://dfg-repository.wisski.cloud",
+      metadataUrl: "https://dfg-repository.wisski.cloud",
+      baseModulePath: "/libraries/dfg-3dviewer/assets",
+      entity: {
+        bundle: "bd3d7baa74856d141bcff7b4193fa128",
+        fieldDf: "field_df",
+        exportViewer: "field_df",
+        idUri: "/wisski/navigate/(.*)/view",
+        viewEntityPath: "/wisski/navigate/",
+        attributeId: "wisski_id",
+        metadata: {
+          source: "IIIF",
+        },
+      },
+      viewer: {
+        container: "DFG_3DViewer",
+        fileUpload: "fbf95bddee5160d515b982b3fd2e05f7",
+        fileName: "faa602a0be629324806aef22892cdbe5",
+        imageGeneration: "f605dc6b727a1099b9e52b3ccbdf5673",
+        presentationMode: "false",
+        sandboxMode: "false",
+        lightweight: 0,
+        scaleContainer: {
+          x: 0.85,
+          y: 1.4,
+        },
+        editor: true,
+        gallery: {
+          build: true,
+          container: "block-bootstrap5-content",
+          imageClass: "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
+          imageId: "",
+          buildFake: false,
+          testImages: [],
+        },
+        background:
+          "radial-gradient(circle, #ffffff 0%, #999999 100%)",
+        performanceMode: {
+          Performance: "high-performance",
+        },
+        measurement: {
+          modelUnitInMeters: 1,
+        }
+      },
+    };
+  },
+
+  resolveBundleAssetBasePath(moduleUrl) {
+    const pathname = moduleUrl.pathname;
+    if (pathname.includes('/assets/')) {
+      return new URL('../assets/', moduleUrl).pathname.replace(/\/$/, '');
+    }
+    return new URL('./assets/', moduleUrl).pathname.replace(/\/$/, '');
+  },
+
+  async loadViewerConfig(moduleUrl, explicitConfig = null) {
+    if (explicitConfig && Object.keys(explicitConfig).length > 0) {
+      return explicitConfig;
+    }
+
+    const drupalCfg = typeof window !== 'undefined' ? window.drupalSettings?.dfg_3dviewer : null;
+    if (drupalCfg && typeof drupalCfg === 'object' && Object.keys(drupalCfg).length > 0) {
+      const { csrfToken, ...config } = drupalCfg;
+      if (csrfToken && typeof window !== 'undefined') {
+        window.CSRF_TOKEN = csrfToken;
+      }
+      console.log("Loaded viewer settings from drupalSettings", config.viewer);
+      if (typeof window !== 'undefined' && window.__E2E__) {
+        window.viewer = window.viewer || {};
+        window.viewer.configFromDrupal = true;
+        window.viewer.configBundle = config.entity?.bundle;
+      }
+      return config;
+    }
+
+    const settingsPath = moduleUrl.pathname.includes('/assets/')
+      ? '../viewer-settings.json'
+      : './viewer-settings.json';
+    const url = new URL(settingsPath, moduleUrl);
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const config = await res.json();
+    console.log("Loaded viewer-settings.json", config.viewer);
+    return config;
+  },
+
+  async MainInit(explicitConfig = null) {
     if (window.__E2E__) {
       this.ensureE2EState();
     }
@@ -17322,10 +17423,7 @@ const Viewer$1 = {
       else document.addEventListener('DOMContentLoaded', r);
     });
     const moduleUrl = new URL(import.meta.url);
-    const settingsPath = moduleUrl.pathname.includes('/assets/')
-      ? '../viewer-settings.json'
-      : './viewer-settings.json';
-    const url = new URL(settingsPath, moduleUrl);
+    const bundleAssetBase = this.resolveBundleAssetBasePath(moduleUrl);
 
     //Setup core variables first to make them available in the loaders and utils
     setCore('viewEntity', this.viewEntity);
@@ -17343,61 +17441,19 @@ const Viewer$1 = {
     setCore('updateClippingHintVisibility', this.updateClippingHintVisibility.bind(this));
     setCore('editorToolbar', this.editorToolbar);
     setCore('wireframeMode', this.wireframeMode);
+    setCore('DFG_ASSETS', bundleAssetBase);
 
-    const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    core.CONFIG = await res.json();
-    console.log("Loaded viewer-settings.json", core.CONFIG.viewer);
+    core.CONFIG = await this.loadViewerConfig(moduleUrl, explicitConfig);
 
     if (Object.keys(core.CONFIG).length === 0) {
-      core.CONFIG = {
-        mainUrl: "https://dfg-repository.wisski.cloud",
-        baseNamespace: "https://dfg-repository.wisski.cloud",
-        metadataUrl: "https://dfg-repository.wisski.cloud",
-        baseModulePath: "/modules/dfg_3dviewer-main/viewer",
-        entity: {
-          bundle: "bd3d7baa74856d141bcff7b4193fa128",
-          fieldDf: "field_df",
-          exportViewer: "field_df",
-          idUri: "/wisski/navigate/(.*)/view",
-          viewEntityPath: "/wisski/navigate/",
-          attributeId: "wisski_id",
-          metadata: {
-            source: "IIIF",
-          },
-        },
-        viewer: {
-          container: "DFG_3DViewer",
-          fileUpload: "fbf95bddee5160d515b982b3fd2e05f7",
-          fileName: "faa602a0be629324806aef22892cdbe5",
-          imageGeneration: "f605dc6b727a1099b9e52b3ccbdf5673",
-          presentationMode: "false",
-          sandboxMode: "false",
-          lightweight: 0,
-          scaleContainer: {
-            x: 0.85,
-            y: 1.4,
-          },
-          editor: true,
-          gallery: {
-            build: true,
-            container: "block-bootstrap5-content",
-            imageClass: "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
-            imageId: "",
-            buildFake: false,
-            testImages: [],
-          },
-          background:
-            "radial-gradient(circle, #ffffff 0%, #999999 100%)",
-          performanceMode: {
-            Performance: "high-performance",
-          },
-          measurement: {
-            modelUnitInMeters: 1,
-          }
-        },
-      };
+      core.CONFIG = this.getDefaultConfig();
     }
+
+    core.CONFIG.entity ??= {};
+    core.CONFIG.entity.metadata ??= {};
+    core.CONFIG.viewer ??= {};
+    core.CONFIG.viewer.gallery ??= {};
+    core.CONFIG.viewer.scaleContainer ??= { x: 1, y: 1 };
 
     this.isLightweight = Boolean(core.CONFIG.viewer.lightweight);
     setCore('isLightweight', this.isLightweight);
@@ -17424,20 +17480,46 @@ const Viewer$1 = {
     }
 
     this.container = document.getElementById(core.CONFIG.viewer.container);
+    this.noticeContainer = document.createElement("div");
+    this.noticeContainer.id = "viewerNoticeContainer";
+    this.statusNotice = document.createElement("div");
+    this.statusNotice.id = "viewerStatusNotice";
+    this.statusNotice.className = "viewer-notice viewer-notice-status";
+    this.statusNotice.hidden = true;
+    this.statusNotice.setAttribute("role", "status");
+    this.statusNotice.setAttribute("aria-live", "polite");
+    this.noticeContainer.appendChild(this.statusNotice);
+    setCore("statusNotice", this.statusNotice);
+    this.statusNoticeQueue = [];
+    this.statusNoticeActive = false;
+    if (this.statusNoticeTimer) {
+      clearTimeout(this.statusNoticeTimer);
+      this.statusNoticeTimer = null;
+    }
+
+    this.parseUrlOptions();
+
+    setCore('showNotifications', this.showNotifications);
+    if (this.urlOptions.showNotifications !== undefined && this.urlOptions.showNotifications !== null) {
+      core.showNotifications = this.urlOptions.showNotifications;
+    }
+
     if (!this.container) {
+      document.body.appendChild(this.noticeContainer);
+      this.noticeContainer.style.bottom = "50%";
       showToast("toasts.containerNotFound", "error", { duration: 5000 });
       return;
     }
     setCore('container', this.container);
     document.body.classList.toggle("viewer-embed-page", this.isEmbedMode());
 
-    this.parseUrlOptions();
+    core.container?.appendChild(this.noticeContainer);
+    setCore("noticeContainer", this.noticeContainer);
+    
     console.log(`Presentation mode: ${core.PRESENTATION_MODE ? "ON" : "OFF"}`);
     console.log(`Sandbox mode: ${core.SANDBOX_MODE ? "ON" : "OFF"}`);
     this.currentLanguage = this.getStoredLanguage();
     setCore('currentLanguage', this.currentLanguage);
-    setCore('showNotifications', this.showNotifications);
-    core.showNotifications = this.urlOptions.showNotifications;
 
     if (this.urlOptions.model) {
       this.container.setAttribute("3d", this.urlOptions.model);
@@ -17509,26 +17591,6 @@ const Viewer$1 = {
     core.CONFIG.viewer.exportPath = "/api/editor/xml-export/";    
     this.loadedFile = `${core.fileObject.basename}.${core.fileObject.extension}`;
 
-    this.noticeContainer = document.createElement("div");
-    this.noticeContainer.id = "viewerNoticeContainer";
-    core.container.appendChild(this.noticeContainer);
-    setCore("noticeContainer", this.noticeContainer);
-
-    this.statusNotice = document.createElement("div");
-    this.statusNotice.id = "viewerStatusNotice";
-    this.statusNotice.className = "viewer-notice viewer-notice-status";
-    this.statusNotice.hidden = true;
-    this.statusNotice.setAttribute("role", "status");
-    this.statusNotice.setAttribute("aria-live", "polite");
-    this.noticeContainer.appendChild(this.statusNotice);
-    setCore("statusNotice", this.statusNotice);
-    this.statusNoticeQueue = [];
-    this.statusNoticeActive = false;
-    if (this.statusNoticeTimer) {
-      clearTimeout(this.statusNoticeTimer);
-      this.statusNoticeTimer = null;
-    }
-
     if (!core.PRESENTATION_MODE) {
       this.handHint = document.createElement("div");
       this.handHint.id = "handHint";
@@ -17582,6 +17644,7 @@ const Viewer$1 = {
       setCore('helperObjects', this.helperObjects);
       setCore('lightHelper', this.lightHelper);
       setCore('selectedObjects', this.selectedObjects);
+      core.showNotifications = true;
     }
 
     this.spinnerContainer = document.createElement("div");
@@ -19364,10 +19427,6 @@ const Viewer$1 = {
 
       setCore('mainCanvas', Viewer$1.mainCanvas);
       if (!core.PRESENTATION_MODE) {
-        const scriptUrl = document.currentScript?.src || import.meta.url;
-        Viewer$1.DFG_ASSETS = scriptUrl.replace(/\/[^\/]*$/, '');
-
-        setCore('DFG_ASSETS', Viewer$1.DFG_ASSETS);
         getModuleAssetBasePath();
 
         Viewer$1.actionMenu = document.createElement("div");
@@ -19459,7 +19518,7 @@ const Viewer$1 = {
         if (Viewer$1.urlOptions.hideUi) {
           Viewer$1.actionMenu.hidden = true;
         }
-        Viewer$1.createEmbedConfiguratorPanel();
+        this.createEmbedConfiguratorPanel();
 
         setCore('viewEntity', Viewer$1.viewEntity);
         Viewer$1.bindEventListener(Viewer$1.languageMode, "click", Viewer$1.toggleLanguage.bind(Viewer$1));
@@ -19767,16 +19826,15 @@ const Viewer$1 = {
     core.controls?.update();
     core.renderer?.render(core.scene, core.camera);
   }
-  
 };
 
-attachEmbedConfigurator(Viewer$1);
 attachLocalizationTheme(Viewer$1);
 attachLoadingStatus(Viewer$1);
 attachMaterialsEditor(Viewer$1);
 attachAnnotations(Viewer$1);
 attachPicking(Viewer$1);
 attachMeasurement(Viewer$1);
+attachEmbedConfigurator(Viewer$1);
 
 
 async function expectWebGL(page, showToast) {

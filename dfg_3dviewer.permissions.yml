@@ -1,7 +1,0 @@
-access dfg3dmodels:
-  title: 'Access 3D Models via DFG Viewer'
-administer dfg_3dviewer:
-  title: 'Administer DFG 3D Viewer settings'
-  restrict access: TRUE
-access dfg_3dviewer editor:
-  title: 'Access 3D Viewer metadata editor'

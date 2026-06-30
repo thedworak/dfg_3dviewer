@@ -168,7 +168,7 @@ export function attachEmbedConfigurator(Viewer) {
 
       return {
         url: embedUrl.toString(),
-        code: `<iframe src="${embedUrl.toString()}" title="DFG 3D Viewer" loading="lazy" allow="fullscreen; xr-spatial-tracking" referrerpolicy="strict-origin-when-cross-origin" style="width:100%; aspect-ratio: 16 / 9; border: 0;"></iframe>`,
+        code: `<iframe src="${embedUrl.toString()}" title="DLF AIM 3D Viewer" loading="lazy" allow="fullscreen; xr-spatial-tracking" referrerpolicy="strict-origin-when-cross-origin" style="width:100%; aspect-ratio: 16 / 9; border: 0;"></iframe>`,
       };
     },
 

@@ -1,5 +1,5 @@
 /*
-DFG 3D-Viewer
+DLF AIM 3D Viewer
 Copyright (C) 2025 - Daniel Dworak
 
 This program is free software: you can redistribute it and/or modify
@@ -347,7 +347,7 @@ export const Viewer = {
   lastPickedFace: { id: "", object: "", faceIndex: null, overlay: null },
   loadedTimes: 0,
   _ext: '',
-  DFG_ASSETS: '',
+  DLF_ASSETS: '',
   isLightweight: false,
   urlOptions: {
     model: null,
@@ -1538,7 +1538,7 @@ export const Viewer = {
     });
     const container =
       this.container ||
-      document.getElementById(core.CONFIG?.viewer?.container || "DFG_3DViewer") ||
+      document.getElementById(core.CONFIG?.viewer?.container || "DLF_AIM_3DViewer") ||
       document.body;
     
     this.noticeContainer.style.bottom = "50%";
@@ -1550,7 +1550,96 @@ export const Viewer = {
     showToast("toasts.missingFiles", "error", { duration: 5000 });
   },
 
-  async MainInit() {
+  getDefaultConfig() {
+    return {
+      mainUrl: "https://dfg-repository.wisski.cloud",
+      baseNamespace: "https://dfg-repository.wisski.cloud",
+      metadataUrl: "https://dfg-repository.wisski.cloud",
+      baseModulePath: "/libraries/dlf_aim_3d_viewer/assets",
+      entity: {
+        bundle: "bd3d7baa74856d141bcff7b4193fa128",
+        fieldDf: "field_df",
+        exportViewer: "field_df",
+        idUri: "/wisski/navigate/(.*)/view",
+        viewEntityPath: "/wisski/navigate/",
+        attributeId: "wisski_id",
+        metadata: {
+          source: "IIIF",
+        },
+      },
+      viewer: {
+        container: "DLF_AIM_3DViewer",
+        fileUpload: "fbf95bddee5160d515b982b3fd2e05f7",
+        fileName: "faa602a0be629324806aef22892cdbe5",
+        imageGeneration: "f605dc6b727a1099b9e52b3ccbdf5673",
+        presentationMode: "false",
+        sandboxMode: "false",
+        lightweight: 0,
+        scaleContainer: {
+          x: 0.85,
+          y: 1.4,
+        },
+        editor: true,
+        gallery: {
+          build: true,
+          container: "block-bootstrap5-content",
+          imageClass: "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
+          imageId: "",
+          buildFake: false,
+          testImages: [],
+        },
+        background:
+          "radial-gradient(circle, #ffffff 0%, #999999 100%)",
+        performanceMode: {
+          Performance: "high-performance",
+        },
+        measurement: {
+          modelUnitInMeters: 1,
+        }
+      },
+    };
+  },
+
+  resolveBundleAssetBasePath(moduleUrl) {
+    const pathname = moduleUrl.pathname;
+    if (pathname.includes('/assets/')) {
+      return new URL('../assets/', moduleUrl).pathname.replace(/\/$/, '');
+    }
+    return new URL('./assets/', moduleUrl).pathname.replace(/\/$/, '');
+  },
+
+  async loadViewerConfig(moduleUrl, explicitConfig = null) {
+    if (explicitConfig && Object.keys(explicitConfig).length > 0) {
+      return explicitConfig;
+    }
+
+    const drupalCfg = typeof window !== 'undefined' ? window.drupalSettings?.dlf_aim_3d_viewer : null;
+    if (drupalCfg && typeof drupalCfg === 'object' && Object.keys(drupalCfg).length > 0) {
+      const { csrfToken, ...config } = drupalCfg;
+      if (csrfToken && typeof window !== 'undefined') {
+        window.CSRF_TOKEN = csrfToken;
+      }
+      console.log("Loaded viewer settings from drupalSettings", config.viewer);
+      if (typeof window !== 'undefined' && window.__E2E__) {
+        window.viewer = window.viewer || {};
+        window.viewer.configFromDrupal = true;
+        window.viewer.configBundle = config.entity?.bundle;
+      }
+      return config;
+    }
+
+    const settingsPath = moduleUrl.pathname.includes('/assets/')
+      ? '../viewer-settings.json'
+      : './viewer-settings.json';
+    const url = new URL(settingsPath, moduleUrl);
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const config = await res.json();
+    console.log("Loaded viewer-settings.json", config.viewer);
+    return config;
+  },
+
+  async MainInit(explicitConfig = null) {
     if (window.__E2E__) {
       this.ensureE2EState();
     }
@@ -1564,10 +1653,7 @@ export const Viewer = {
       else document.addEventListener('DOMContentLoaded', r);
     });
     const moduleUrl = new URL(import.meta.url);
-    const settingsPath = moduleUrl.pathname.includes('/assets/')
-      ? '../viewer-settings.json'
-      : './viewer-settings.json';
-    const url = new URL(settingsPath, moduleUrl);
+    const bundleAssetBase = this.resolveBundleAssetBasePath(moduleUrl);
 
     //Setup core variables first to make them available in the loaders and utils
     setCore('viewEntity', this.viewEntity);
@@ -1585,61 +1671,19 @@ export const Viewer = {
     setCore('updateClippingHintVisibility', this.updateClippingHintVisibility.bind(this));
     setCore('editorToolbar', this.editorToolbar);
     setCore('wireframeMode', this.wireframeMode);
+    setCore('DLF_ASSETS', bundleAssetBase);
 
-    const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    core.CONFIG = await res.json();
-    console.log("Loaded viewer-settings.json", core.CONFIG.viewer);
+    core.CONFIG = await this.loadViewerConfig(moduleUrl, explicitConfig);
 
     if (Object.keys(core.CONFIG).length === 0) {
-      core.CONFIG = {
-        mainUrl: "https://dfg-repository.wisski.cloud",
-        baseNamespace: "https://dfg-repository.wisski.cloud",
-        metadataUrl: "https://dfg-repository.wisski.cloud",
-        baseModulePath: "/modules/dfg_3dviewer-main/viewer",
-        entity: {
-          bundle: "bd3d7baa74856d141bcff7b4193fa128",
-          fieldDf: "field_df",
-          exportViewer: "field_df",
-          idUri: "/wisski/navigate/(.*)/view",
-          viewEntityPath: "/wisski/navigate/",
-          attributeId: "wisski_id",
-          metadata: {
-            source: "IIIF",
-          },
-        },
-        viewer: {
-          container: "DFG_3DViewer",
-          fileUpload: "fbf95bddee5160d515b982b3fd2e05f7",
-          fileName: "faa602a0be629324806aef22892cdbe5",
-          imageGeneration: "f605dc6b727a1099b9e52b3ccbdf5673",
-          presentationMode: "false",
-          sandboxMode: "false",
-          lightweight: 0,
-          scaleContainer: {
-            x: 0.85,
-            y: 1.4,
-          },
-          editor: true,
-          gallery: {
-            build: true,
-            container: "block-bootstrap5-content",
-            imageClass: "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
-            imageId: "",
-            buildFake: false,
-            testImages: [],
-          },
-          background:
-            "radial-gradient(circle, #ffffff 0%, #999999 100%)",
-          performanceMode: {
-            Performance: "high-performance",
-          },
-          measurement: {
-            modelUnitInMeters: 1,
-          }
-        },
-      };
+      core.CONFIG = this.getDefaultConfig();
     }
+
+    core.CONFIG.entity ??= {};
+    core.CONFIG.entity.metadata ??= {};
+    core.CONFIG.viewer ??= {};
+    core.CONFIG.viewer.gallery ??= {};
+    core.CONFIG.viewer.scaleContainer ??= { x: 1, y: 1 };
 
     this.isLightweight = Boolean(core.CONFIG.viewer.lightweight);
     setCore('isLightweight', this.isLightweight);
@@ -1691,9 +1735,6 @@ export const Viewer = {
     }
 
     if (!this.container) {
-      document.body.appendChild(this.noticeContainer);
-      this.noticeContainer.style.bottom = "50%";
-      showToast("toasts.containerNotFound", "error", { duration: 5000 });
       return;
     }
     setCore('container', this.container);
@@ -1968,7 +2009,7 @@ export const Viewer = {
     const loader = new FontLoader();
 
     loader.load(
-      `${core.DFG_ASSETS}/fonts/helvetiker_regular.typeface.json`,
+      `${core.DLF_ASSETS}/fonts/helvetiker_regular.typeface.json`,
       function (font) {
         const textGeo = new TextGeometry(_text, {
           font,
@@ -2003,7 +2044,7 @@ export const Viewer = {
     const loader = new FontLoader();
     const bevelSize = _scale / 10;
 
-    loader.load(`${core.DFG_ASSETS}/fonts/helvetiker_regular.typeface.json`, (font) => {
+    loader.load(`${core.DLF_ASSETS}/fonts/helvetiker_regular.typeface.json`, (font) => {
 
       const baseOptions = {
         font: font,
@@ -2150,7 +2191,7 @@ export const Viewer = {
       const path = parsed.pathname || "";
       const hasBadHost =
         host === "default" ||
-        host === "dfg_3dviewer" ||
+        host === "dlf_aim_3d_viewer" ||
         host.includes("_");
 
       if (path.startsWith("/sites/default/files/")) {
@@ -3618,10 +3659,6 @@ export const Viewer = {
 
       setCore('mainCanvas', Viewer.mainCanvas);
       if (!core.PRESENTATION_MODE) {
-        const scriptUrl = document.currentScript?.src || import.meta.url;
-        Viewer.DFG_ASSETS = scriptUrl.replace(/\/[^\/]*$/, '');
-
-        setCore('DFG_ASSETS', Viewer.DFG_ASSETS);
         getModuleAssetBasePath();
 
         Viewer.actionMenu = document.createElement("div");
@@ -3731,7 +3768,7 @@ export const Viewer = {
           }
         });
 
-        Viewer.handHint.innerHTML = `<img src="${core.DFG_ASSETS}/img/hand-hint.png" alt="Hand hint" width=48 height=48 title="Hand hint animation"/>`;
+        Viewer.handHint.innerHTML = `<img src="${core.DLF_ASSETS}/img/hand-hint.png" alt="Hand hint" width=48 height=48 title="Hand hint animation"/>`;
         
         Viewer.rect = core.container.getBoundingClientRect();
         if (Viewer.viewerWrapper === core.container && core.CONFIG.viewer?.scaleContainer) {
@@ -3865,13 +3902,13 @@ export const Viewer = {
         const picker = document.getElementById('example-model-picker');
         const selectModel = document.getElementById('example-model-select');
         const themeToggle = document.getElementById('example-theme-toggle');
-        const viewerElement = document.getElementById('DFG_3DViewer');
+        const viewerElement = document.getElementById('DLF_AIM_3DViewer');
         if (picker && selectModel && viewerElement) {
           Viewer.updateLocalPreviewLabels();
           const localurl = new URL(window.location.href);
           let selectedModel = localurl.searchParams.get('model');
           if (!selectedModel) {
-            selectedModel = localStorage.getItem('dfg3dviewer-example-model');
+            selectedModel = localStorage.getItem('dlf_aim_3d_viewer-example-model');
           }
           if (!selectedModel) {
             selectedModel = viewerElement.getAttribute('3d');
@@ -3889,7 +3926,7 @@ export const Viewer = {
 
           selectModel.addEventListener('change', () => {
             core.autoPath = selectModel.value;
-            window.localStorage.setItem('dfg3dviewer-example-model', selectModel.value);
+            window.localStorage.setItem('dlf_aim_3d_viewer-example-model', selectModel.value);
             this.resetLoadedModelState();
             this.mainLoadModelWrapper();
           });

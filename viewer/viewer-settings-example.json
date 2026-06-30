@@ -2,7 +2,7 @@
   "baseNamespace": "",
   "mainUrl": "https:\\/\\/your.domain.com",
   "metadataUrl": "",
-  "baseModulePath": "\\/modules\\/dfg_3dviewer\\/viewer",
+  "baseModulePath": "\\/modules\\/dlf_aim_3d_viewer\\/viewer",
   "entity": {
     "bundle": "bd1220d6ec7f07e726c65fd215d8e493",
     "fieldDf": "field_df",
@@ -16,7 +16,7 @@
     }
   },
   "viewer": {
-    "container": "DFG_3DViewer",
+    "container": "DLF_AIM_3DViewer",
     "fileUpload": "fad29437cb2a561b91b26aca5dbb7c42",
     "fileName": "fb76901eb219495fee0512b5cdfdaa18",
     "imageGeneration": "fd6a974b7120d422c7b21b5f1f2315d9",

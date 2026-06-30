@@ -254,7 +254,7 @@ function getEnvironmentTextureForPreset(renderer, preset = "neutral") {
           // Load HDR map for other presets
           const HDRLoader = await loadHDRLoader();
           const loader = new HDRLoader();
-          const baseModulePath = core.DFG_ASSETS || core.CONFIG?.baseModulePath || '/assets';
+          const baseModulePath = core.CONFIG?.baseModulePath || core.DLF_ASSETS || '/assets';
           const mapFilename = preset === "goldenHour" ? "golden_hour.hdr" : `${preset}.hdr`;
           const mapUrl = `${baseModulePath.replace(/\/$/, '')}/maps/${mapFilename}`;
           
@@ -503,7 +503,7 @@ export async function loadModel() {
     const loader = await createLoader(core.fileObject.extension.toLowerCase());
     const DRACOLoader = await loadDRACOLoader();
     const draco = new DRACOLoader();
-    if (ENV_BUILD === 'drupal') {
+    if (ENV_BUILD !== 'test' && ENV_BUILD !== 'dev') {
       draco.setDecoderConfig({ type: 'js' });
     }
     draco.setDecoderPath(dracoBase);
@@ -572,15 +572,8 @@ export async function loadModel() {
 
         let ifcWasmPath = await resolveIfcWasmPath(basePath);
 
-        if (!ifcWasmPath && ENV_BUILD === 'drupal') {
-          const fallback = basePath.includes('/drupal/main')
-            ? basePath.replace('/drupal/main', '/drupal/custom')
-            : basePath.replace('/drupal/custom', '/drupal/main');
-          ifcWasmPath = await resolveIfcWasmPath(fallback);
-        }
-
         if (!ifcWasmPath) {
-          const errorMsg = `[loadModel] IFC WASM not found in ${basePath}/ifc or fallback; please verify path and permissions`;
+          const errorMsg = `[loadModel] IFC WASM not found in ${basePath}/ifc; please verify path and permissions`;
           console.error(errorMsg);
           throw new Error(errorMsg);
         }
@@ -683,59 +676,25 @@ export async function loadModel() {
 }
 
 export const getModuleAssetBasePath = function() {
-  let basePath = sanitizeModuleAssetBasePath(core.CONFIG?.baseModulePath);
-  const scriptBasePath = core.DFG_ASSETS ? core.DFG_ASSETS.replace(/\/$/, '') : '';
-  const scriptLooksLikeDrupalAssets = (
-    ENV_BUILD === 'drupal' &&
-    scriptBasePath.includes(`/dist/${ENV_BUILD}/`) &&
-    /\/assets$/.test(scriptBasePath)
-  );
-
-  if (!basePath) {
-    basePath = ENV_BUILD === 'drupal'
-      ? `/modules/${MODULES_PATH ? `${MODULES_PATH}/` : ''}dfg_3dviewer/dist/${ENV_BUILD}/${ENV_SUBDIR}/assets`
-      : '/assets';
+  const configuredPath = sanitizeModuleAssetBasePath(core.CONFIG?.baseModulePath);
+  let basePath = configuredPath || sanitizeModuleAssetBasePath(core.DLF_ASSETS);
+  if (!basePath && typeof import.meta !== 'undefined' && import.meta.url) {
+    const moduleUrl = new URL(import.meta.url);
+    basePath = moduleUrl.pathname.includes('/assets/')
+      ? new URL('../assets/', moduleUrl).pathname.replace(/\/$/, '')
+      : new URL('./assets/', moduleUrl).pathname.replace(/\/$/, '');
   }
-
-  // Override for localhost
-  if (core.isLocalPreview) {
+  if (!basePath) {
     basePath = '/assets';
   }
-
-  // Drupal legacy configs may still point to /modules/.../viewer instead of the built dist assets.
-  if (
-    ENV_BUILD === 'drupal' &&
-    scriptBasePath &&
-    (/\/viewer$/.test(basePath) || !basePath.includes(`/dist/${ENV_BUILD}/`))
-  ) {
-    basePath = scriptBasePath;
+  // Standalone local dev servers expose assets at /assets; embedded hosts provide baseModulePath.
+  if (core.isLocalPreview && !configuredPath) {
+    basePath = '/assets';
   }
-
-  // When the loaded Drupal bundle lives in a different module root than config
-  // (for example /modules/custom/... vs /modules/...), trust the bundle path.
-  if (
-    scriptLooksLikeDrupalAssets &&
-    basePath &&
-    basePath !== scriptBasePath &&
-    /\/modules\//.test(basePath)
-  ) {
-    console.warn('[loaders] baseModulePath differs from loaded script path; using script path instead.', {
-      configuredBasePath: basePath,
-      scriptBasePath,
-    });
-    basePath = scriptBasePath;
-  }
-
   basePath = sanitizeModuleAssetBasePath(basePath);
-
-  // Rising path mismatch: if we are in drupal custom and config path still has /drupal/main, try custom fallback.
-  if (ENV_BUILD === 'drupal' && ENV_SUBDIR === 'custom' && basePath.includes('/drupal/main')) {
-    basePath = basePath.replace('/drupal/main', '/drupal/custom');
-  }
-
   console.log('[loaders] resolved ModuleAssetBasePath:', basePath);
-  core.CONFIG.baseModulePath = basePath; // Cache for future use
-  core.DFG_ASSETS = basePath;
+  core.CONFIG.baseModulePath = basePath;
+  core.DLF_ASSETS = basePath;
   return basePath;
 };
 

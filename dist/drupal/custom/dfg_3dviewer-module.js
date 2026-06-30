@@ -6485,7 +6485,7 @@ function captureAndUploadThumbnail(viewer) {
       method: "POST",
       credentials: "same-origin",
       headers: {
-        "X-CSRF-Token": window.CSRF_TOKEN
+        "X-CSRF-Token": window.CSRF_TOKEN || window.drupalSettings?.dfg_3dviewer?.csrfToken
       },
       body: fileform
     })
@@ -7041,7 +7041,7 @@ async function createLoader(ext) {
 }
 
 const ENV_BUILD = "drupal";
-const MODULES_PATH = "custom";
+const MODULES_PATH = "";
 const ENV_SUBDIR = "custom";
 console.log('[loaders] ENV_BUILD:', ENV_BUILD);
 console.log('[loaders] MODULES_PATH:', MODULES_PATH);
@@ -7232,7 +7232,7 @@ function getEnvironmentTextureForPreset(renderer, preset = "neutral") {
           // Load HDR map for other presets
           const HDRLoader = await loadHDRLoader();
           const loader = new HDRLoader();
-          const baseModulePath = core.DFG_ASSETS || core.CONFIG?.baseModulePath || '/assets';
+          const baseModulePath = core.CONFIG?.baseModulePath || core.DFG_ASSETS || '/assets';
           const mapFilename = preset === "goldenHour" ? "golden_hour.hdr" : `${preset}.hdr`;
           const mapUrl = `${baseModulePath.replace(/\/$/, '')}/maps/${mapFilename}`;
           
@@ -7545,15 +7545,8 @@ async function loadModel() {
 
         let ifcWasmPath = await resolveIfcWasmPath(basePath);
 
-        if (!ifcWasmPath && ENV_BUILD === 'drupal') {
-          const fallback = basePath.includes('/drupal/main')
-            ? basePath.replace('/drupal/main', '/drupal/custom')
-            : basePath.replace('/drupal/custom', '/drupal/main');
-          ifcWasmPath = await resolveIfcWasmPath(fallback);
-        }
-
         if (!ifcWasmPath) {
-          const errorMsg = `[loadModel] IFC WASM not found in ${basePath}/ifc or fallback; please verify path and permissions`;
+          const errorMsg = `[loadModel] IFC WASM not found in ${basePath}/ifc; please verify path and permissions`;
           console.error(errorMsg);
           throw new Error(errorMsg);
         }
@@ -7656,55 +7649,24 @@ async function loadModel() {
 }
 
 const getModuleAssetBasePath = function() {
-  let basePath = sanitizeModuleAssetBasePath(core.CONFIG?.baseModulePath);
-  const scriptBasePath = core.DFG_ASSETS ? core.DFG_ASSETS.replace(/\/$/, '') : '';
-  const scriptLooksLikeDrupalAssets = (
-    scriptBasePath.includes(`/dist/${ENV_BUILD}/`) &&
-    /\/assets$/.test(scriptBasePath)
-  );
-
-  if (!basePath) {
-    basePath = `/modules/${`${MODULES_PATH}/` }dfg_3dviewer/dist/${ENV_BUILD}/${ENV_SUBDIR}/assets`
-      ;
+  const configuredPath = sanitizeModuleAssetBasePath(core.CONFIG?.baseModulePath);
+  let basePath = configuredPath || sanitizeModuleAssetBasePath(core.DFG_ASSETS);
+  if (!basePath && typeof import.meta !== 'undefined' && import.meta.url) {
+    const moduleUrl = new URL(import.meta.url);
+    basePath = moduleUrl.pathname.includes('/assets/')
+      ? new URL('../assets/', moduleUrl).pathname.replace(/\/$/, '')
+      : new URL('./assets/', moduleUrl).pathname.replace(/\/$/, '');
   }
-
-  // Override for localhost
-  if (core.isLocalPreview) {
+  if (!basePath) {
     basePath = '/assets';
   }
-
-  // Drupal legacy configs may still point to /modules/.../viewer instead of the built dist assets.
-  if (
-    scriptBasePath &&
-    (/\/viewer$/.test(basePath) || !basePath.includes(`/dist/${ENV_BUILD}/`))
-  ) {
-    basePath = scriptBasePath;
+  // Standalone local dev servers expose assets at /assets; embedded hosts provide baseModulePath.
+  if (core.isLocalPreview && !configuredPath) {
+    basePath = '/assets';
   }
-
-  // When the loaded Drupal bundle lives in a different module root than config
-  // (for example /modules/custom/... vs /modules/...), trust the bundle path.
-  if (
-    scriptLooksLikeDrupalAssets &&
-    basePath &&
-    basePath !== scriptBasePath &&
-    /\/modules\//.test(basePath)
-  ) {
-    console.warn('[loaders] baseModulePath differs from loaded script path; using script path instead.', {
-      configuredBasePath: basePath,
-      scriptBasePath,
-    });
-    basePath = scriptBasePath;
-  }
-
   basePath = sanitizeModuleAssetBasePath(basePath);
-
-  // Rising path mismatch: if we are in drupal custom and config path still has /drupal/main, try custom fallback.
-  if (basePath.includes('/drupal/main')) {
-    basePath = basePath.replace('/drupal/main', '/drupal/custom');
-  }
-
   console.log('[loaders] resolved ModuleAssetBasePath:', basePath);
-  core.CONFIG.baseModulePath = basePath; // Cache for future use
+  core.CONFIG.baseModulePath = basePath;
   core.DFG_ASSETS = basePath;
   return basePath;
 };
@@ -17361,7 +17323,96 @@ const Viewer$1 = {
     showToast("toasts.missingFiles", "error", { duration: 5000 });
   },
 
-  async MainInit() {
+  getDefaultConfig() {
+    return {
+      mainUrl: "https://dfg-repository.wisski.cloud",
+      baseNamespace: "https://dfg-repository.wisski.cloud",
+      metadataUrl: "https://dfg-repository.wisski.cloud",
+      baseModulePath: "/libraries/dfg-3dviewer/assets",
+      entity: {
+        bundle: "bd3d7baa74856d141bcff7b4193fa128",
+        fieldDf: "field_df",
+        exportViewer: "field_df",
+        idUri: "/wisski/navigate/(.*)/view",
+        viewEntityPath: "/wisski/navigate/",
+        attributeId: "wisski_id",
+        metadata: {
+          source: "IIIF",
+        },
+      },
+      viewer: {
+        container: "DFG_3DViewer",
+        fileUpload: "fbf95bddee5160d515b982b3fd2e05f7",
+        fileName: "faa602a0be629324806aef22892cdbe5",
+        imageGeneration: "f605dc6b727a1099b9e52b3ccbdf5673",
+        presentationMode: "false",
+        sandboxMode: "false",
+        lightweight: 0,
+        scaleContainer: {
+          x: 0.85,
+          y: 1.4,
+        },
+        editor: true,
+        gallery: {
+          build: true,
+          container: "block-bootstrap5-content",
+          imageClass: "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
+          imageId: "",
+          buildFake: false,
+          testImages: [],
+        },
+        background:
+          "radial-gradient(circle, #ffffff 0%, #999999 100%)",
+        performanceMode: {
+          Performance: "high-performance",
+        },
+        measurement: {
+          modelUnitInMeters: 1,
+        }
+      },
+    };
+  },
+
+  resolveBundleAssetBasePath(moduleUrl) {
+    const pathname = moduleUrl.pathname;
+    if (pathname.includes('/assets/')) {
+      return new URL('../assets/', moduleUrl).pathname.replace(/\/$/, '');
+    }
+    return new URL('./assets/', moduleUrl).pathname.replace(/\/$/, '');
+  },
+
+  async loadViewerConfig(moduleUrl, explicitConfig = null) {
+    if (explicitConfig && Object.keys(explicitConfig).length > 0) {
+      return explicitConfig;
+    }
+
+    const drupalCfg = typeof window !== 'undefined' ? window.drupalSettings?.dfg_3dviewer : null;
+    if (drupalCfg && typeof drupalCfg === 'object' && Object.keys(drupalCfg).length > 0) {
+      const { csrfToken, ...config } = drupalCfg;
+      if (csrfToken && typeof window !== 'undefined') {
+        window.CSRF_TOKEN = csrfToken;
+      }
+      console.log("Loaded viewer settings from drupalSettings", config.viewer);
+      if (typeof window !== 'undefined' && window.__E2E__) {
+        window.viewer = window.viewer || {};
+        window.viewer.configFromDrupal = true;
+        window.viewer.configBundle = config.entity?.bundle;
+      }
+      return config;
+    }
+
+    const settingsPath = moduleUrl.pathname.includes('/assets/')
+      ? '../viewer-settings.json'
+      : './viewer-settings.json';
+    const url = new URL(settingsPath, moduleUrl);
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const config = await res.json();
+    console.log("Loaded viewer-settings.json", config.viewer);
+    return config;
+  },
+
+  async MainInit(explicitConfig = null) {
     if (window.__E2E__) {
       this.ensureE2EState();
     }
@@ -17375,10 +17426,7 @@ const Viewer$1 = {
       else document.addEventListener('DOMContentLoaded', r);
     });
     const moduleUrl = new URL(import.meta.url);
-    const settingsPath = moduleUrl.pathname.includes('/assets/')
-      ? '../viewer-settings.json'
-      : './viewer-settings.json';
-    const url = new URL(settingsPath, moduleUrl);
+    const bundleAssetBase = this.resolveBundleAssetBasePath(moduleUrl);
 
     //Setup core variables first to make them available in the loaders and utils
     setCore('viewEntity', this.viewEntity);
@@ -17396,61 +17444,19 @@ const Viewer$1 = {
     setCore('updateClippingHintVisibility', this.updateClippingHintVisibility.bind(this));
     setCore('editorToolbar', this.editorToolbar);
     setCore('wireframeMode', this.wireframeMode);
+    setCore('DFG_ASSETS', bundleAssetBase);
 
-    const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    core.CONFIG = await res.json();
-    console.log("Loaded viewer-settings.json", core.CONFIG.viewer);
+    core.CONFIG = await this.loadViewerConfig(moduleUrl, explicitConfig);
 
     if (Object.keys(core.CONFIG).length === 0) {
-      core.CONFIG = {
-        mainUrl: "https://dfg-repository.wisski.cloud",
-        baseNamespace: "https://dfg-repository.wisski.cloud",
-        metadataUrl: "https://dfg-repository.wisski.cloud",
-        baseModulePath: "/modules/dfg_3dviewer-main/viewer",
-        entity: {
-          bundle: "bd3d7baa74856d141bcff7b4193fa128",
-          fieldDf: "field_df",
-          exportViewer: "field_df",
-          idUri: "/wisski/navigate/(.*)/view",
-          viewEntityPath: "/wisski/navigate/",
-          attributeId: "wisski_id",
-          metadata: {
-            source: "IIIF",
-          },
-        },
-        viewer: {
-          container: "DFG_3DViewer",
-          fileUpload: "fbf95bddee5160d515b982b3fd2e05f7",
-          fileName: "faa602a0be629324806aef22892cdbe5",
-          imageGeneration: "f605dc6b727a1099b9e52b3ccbdf5673",
-          presentationMode: "false",
-          sandboxMode: "false",
-          lightweight: 0,
-          scaleContainer: {
-            x: 0.85,
-            y: 1.4,
-          },
-          editor: true,
-          gallery: {
-            build: true,
-            container: "block-bootstrap5-content",
-            imageClass: "field--name-fd6a974b7120d422c7b21b5f1f2315d9",
-            imageId: "",
-            buildFake: false,
-            testImages: [],
-          },
-          background:
-            "radial-gradient(circle, #ffffff 0%, #999999 100%)",
-          performanceMode: {
-            Performance: "high-performance",
-          },
-          measurement: {
-            modelUnitInMeters: 1,
-          }
-        },
-      };
+      core.CONFIG = this.getDefaultConfig();
     }
+
+    core.CONFIG.entity ??= {};
+    core.CONFIG.entity.metadata ??= {};
+    core.CONFIG.viewer ??= {};
+    core.CONFIG.viewer.gallery ??= {};
+    core.CONFIG.viewer.scaleContainer ??= { x: 1, y: 1 };
 
     this.isLightweight = Boolean(core.CONFIG.viewer.lightweight);
     setCore('isLightweight', this.isLightweight);
@@ -19424,10 +19430,6 @@ const Viewer$1 = {
 
       setCore('mainCanvas', Viewer$1.mainCanvas);
       if (!core.PRESENTATION_MODE) {
-        const scriptUrl = document.currentScript?.src || import.meta.url;
-        Viewer$1.DFG_ASSETS = scriptUrl.replace(/\/[^\/]*$/, '');
-
-        setCore('DFG_ASSETS', Viewer$1.DFG_ASSETS);
         getModuleAssetBasePath();
 
         Viewer$1.actionMenu = document.createElement("div");
