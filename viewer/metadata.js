@@ -505,12 +505,10 @@ export async function fetchSettings(object) {
       const data = await loadMetadataData(metadataUrl);
       window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
       await handleMetadataResponse(data, metadata, object);
-      settingsHandler(object, hierarchyMain, data);
     } else {
       const data = await loadMetadataData(metadataUrl);
       window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
       await handleMetadataResponse(data, metadata, object);
-      settingsHandler(object, hierarchyMain, data);
     }
   } else {
     window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(null);

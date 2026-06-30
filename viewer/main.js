@@ -97,11 +97,13 @@ export const Viewer = {
   SUPPORTED_EXTENSIONS: ['glb', 'gltf', 'obj', 'dae', 'fbx', 'ply', 'ifc', 'stl', 'xyz', 'json', '3ds', 'pcd'],
   SUPPORTED_ARCHIVES: ['zip', 'rar', 'tar', 'xz', 'gz'],
   camera: null,
+  embedCamera: null,
   scene: null,
   activeScene: 0,
   renderer: null,
   stats: null,
   controls: null,
+  embedControls: null,
   loader: null,
   ambientLight: null,
   dirLight: null,
@@ -2248,7 +2250,7 @@ export const Viewer = {
       Viewer.FULLSCREEN = isFullscreen;
 
       if (
-        !Viewer.mainCanvas ||
+        !core.mainCanvas ||
         !Viewer.fullscreenMode ||
         !core.guiContainer
       ) {
@@ -2284,24 +2286,22 @@ export const Viewer = {
 
       // final visual size
       const effectiveWidth = widthCSS * scale.x;
-
       const effectiveHeight = heightCSS * scale.y;
 
       // CSS size only
-      Viewer.mainCanvas.style.width = `${effectiveWidth}px`;
-      Viewer.mainCanvas.style.height = `${effectiveHeight}px`;
+      core.mainCanvas.style.width = `${effectiveWidth}px`;
+      core.mainCanvas.style.height = `${effectiveHeight}px`;
 
-      const canvasRect = Viewer.mainCanvas.getBoundingClientRect();
+      const canvasRect = core.mainCanvas.getBoundingClientRect();
       const parentRect = core.container.getBoundingClientRect();
 
       const bottom = parentRect.bottom - canvasRect.bottom + 12 || 24;
 
       if (isFullscreen) {
-        Viewer.mainCanvas.style.width = "100vw";
-        Viewer.mainCanvas.style.height = "100vh";
+        core.mainCanvas.style.width = "100vw";
+        core.mainCanvas.style.height = "100vh";
         core.editorToolbar.style.bottom = `${bottom}px`;
       } else {
-        const extraHeight = effectiveHeight - heightCSS;
         if (core.editorToolbar) {
           core.editorToolbar.style.bottom = `${bottom}px`;
         }
@@ -2320,15 +2320,6 @@ export const Viewer = {
       ) {
         Viewer.fileElement[0].style.height =
           `${effectiveHeight * 1.1}px`;
-      }
-
-      // GUI position
-      if (!core.guiContainer.hidden) {
-        const guiWidth = core.lilGui?.[0]?.getBoundingClientRect().width || core.guiContainer.getBoundingClientRect().width;
-
-        if (guiWidth > 0) {
-          core.guiContainer.style.left = `${effectiveWidth - guiWidth}px`;
-        }
       }
 
       // camera
@@ -2851,7 +2842,12 @@ export const Viewer = {
     const hasTarget = cameraTarget && Number.isFinite(cameraTarget.x) && Number.isFinite(cameraTarget.y) && Number.isFinite(cameraTarget.z);
     const hasFov = Number.isFinite(cameraFov);
     if (!hasPosition && !hasTarget && !hasFov) return;
-
+    const cameraPositionVector = new THREE.Vector3(cameraPosition.x, cameraPosition.y, cameraPosition.z);
+    const cameraTargetVector = new THREE.Vector3(cameraTarget.x, cameraTarget.y, cameraTarget.z);
+    if (!hasPosition) cameraPositionVector.copy(core.camera.position);
+    if (!hasTarget) cameraTargetVector.copy(core.controls.target); // Use the current target if no target is provided
+    if (!hasFov) core.camera.fov = 45; // Default field of view
+  
     if (hasPosition) {
       core.camera.position.copy(cameraPosition);
       core.cameraLight?.position.copy(cameraPosition);
@@ -2869,7 +2865,11 @@ export const Viewer = {
     }
 
     core.camera.updateProjectionMatrix();
+    if (hasPosition) {
+      core.controls?.object?.position.copy(core.camera.position);
+    }
     core.controls?.update();
+
   },
 
   createClippingPlaneAxis(_number, axis = "z") {
@@ -3456,6 +3456,7 @@ export const Viewer = {
       Viewer.camera.position.set(0, 0, 0);
       setCore('renderer', Viewer.renderer);
       setCore('camera', Viewer.camera);
+      setCore('embedCamera', Viewer.embedCamera);
       setCore('mainObject', Viewer.mainObject);
 
       Viewer.scene = new THREE.Scene();
@@ -3545,6 +3546,7 @@ export const Viewer = {
 
       core.renderer.domElement.id = "MainCanvas";
       Viewer.mainCanvas = document.getElementById("MainCanvas") || core.renderer.domElement;
+      setCore('mainCanvas', Viewer.mainCanvas);
 
       if (window.__E2E__) {
         document.body.appendChild(core.renderer.domElement);
@@ -3602,7 +3604,7 @@ export const Viewer = {
 
       core.renderer.domElement.style.display = "block";
       core.container.appendChild(core.renderer.domElement);
-      Viewer.mainCanvas.classList.add("mainCanvas");
+      core.mainCanvas.classList.add("mainCanvas");
 
       Viewer.viewerWrapper = core.container.closest('.viewer-wrapper');
 
@@ -3616,7 +3618,6 @@ export const Viewer = {
       core.camera.aspect = core.CONFIG.viewer.canvasDimensions.x / core.CONFIG.viewer.canvasDimensions.y;
       core.camera.updateProjectionMatrix();
 
-      setCore('mainCanvas', Viewer.mainCanvas);
       if (!core.PRESENTATION_MODE) {
         const scriptUrl = document.currentScript?.src || import.meta.url;
         Viewer.DFG_ASSETS = scriptUrl.replace(/\/[^\/]*$/, '');
@@ -3713,7 +3714,6 @@ export const Viewer = {
         if (Viewer.urlOptions.hideUi) {
           Viewer.actionMenu.hidden = true;
         }
-        this.createEmbedConfiguratorPanel();
 
         setCore('viewEntity', Viewer.viewEntity);
         Viewer.bindEventListener(Viewer.languageMode, "click", Viewer.toggleLanguage.bind(Viewer));
@@ -3752,7 +3752,7 @@ export const Viewer = {
           Viewer.fileElement[0].style.height = core.CONFIG.viewer.canvasDimensions.y * 1.1 + "px";
         }
 
-        if (core.CONFIG.viewer.gallery?.build === true && !core.SANDBOX_MODE) {
+        if (core.CONFIG.viewer.gallery?.build === true && !core.SANDBOX_MODE && !this.isEmbedMode()) {
           Viewer.buildGallery();
         }
       }

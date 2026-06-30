@@ -22,6 +22,7 @@ const core = {
     basicGrid: new THREE.Group(),
     axesHelper: new THREE.AxesHelper(),
     cameraCoords: null,
+    cameraTweenToken: 0,
     tween: new exports$1.Tween(),
     controls: null,
     transformControlClippingPlaneY: null,
@@ -1569,9 +1570,28 @@ async function setupCamera(_object, _data) {
   const _light = core.lightObjects[0];
   const cfg = _data ?? core.CONFIG ?? null;
   const fallback = _data ?? core.objectsConfig ?? null;
+  const urlCameraPosition = normalizeVec3(window.Viewer?.urlOptions?.cameraPosition);
+  const urlCameraTarget = normalizeVec3(window.Viewer?.urlOptions?.cameraTarget);
+  const urlCameraFov = Number.isFinite(window.Viewer?.urlOptions?.cameraFov)
+    ? window.Viewer.urlOptions.cameraFov
+    : null;
+  const toVec3Array = (value) => {
+    const normalized = normalizeVec3(value);
+    return normalized ? [normalized.x, normalized.y, normalized.z] : null;
+  };
+
+  if (window.Viewer?.isEmbedMode?.() && (urlCameraPosition || urlCameraTarget || urlCameraFov !== null)) {
+    console.info("[embed-camera] setupCamera input", {
+      urlCameraPosition,
+      urlCameraTarget,
+      urlCameraFov,
+      configCameraPosition: normalizeVec3(cfg?.cameraPosition ?? fallback?.camera?.position),
+      configCameraTarget: normalizeVec3(cfg?.controlsTarget ?? fallback?.camera?.target),
+    });
+  }
 
   // --- CAMERA POSITION ---
-  const camPos = cfg?.cameraPosition ?? fallback?.camera?.position;
+  const camPos = urlCameraPosition ?? cfg?.cameraPosition ?? fallback?.camera?.position;
 
   if (Array.isArray(camPos)) {
     core.camera.position.set(camPos[0], camPos[1], camPos[2]);
@@ -1582,7 +1602,7 @@ async function setupCamera(_object, _data) {
   }
 
   // --- CONTROLS TARGET + ZOOM ---
-  const target = cfg?.controlsTarget ?? fallback?.camera?.target;
+  const target = urlCameraTarget ?? cfg?.controlsTarget ?? fallback?.camera?.target;
 
   if (Array.isArray(target)) {
     core.controls.target.set(target[0], target[1], target[2]);
@@ -1601,6 +1621,10 @@ async function setupCamera(_object, _data) {
     core.camera.position
     .copy(core.controls?.target || new THREE.Vector3())
     .add(dir.multiplyScalar(customZoom));
+  }
+
+  if (urlCameraFov !== null) {
+    core.camera.fov = Math.min(179, Math.max(1, Number(urlCameraFov)));
   }
 
   // --- LIGHTS ---
@@ -1673,13 +1697,24 @@ async function setupCamera(_object, _data) {
 
   core.camera.updateProjectionMatrix();
   core.controls?.update();
+  const fitConfig = cfg && typeof cfg === "object" ? { ...cfg } : {};
+  const fitCameraPosition = toVec3Array(camPos);
+  const fitControlsTarget = toVec3Array(target);
+  if (fitCameraPosition) {
+    fitConfig.cameraPosition = fitCameraPosition;
+  }
+  if (fitControlsTarget) {
+    fitConfig.controlsTarget = fitControlsTarget;
+  }
 
-  await fitCameraToCenteredObject(_object, false, cfg);
+  await fitCameraToCenteredObject(_object, false, fitConfig);
 }
 
   // Show interaction hint on first load
   function showInteractionHint(boxCenter) {
   if (window.__E2E__) return;
+  if (window.Viewer?.isEmbedMode?.()) return;
+  if (window.Viewer?.urlOptions?.cameraPosition || window.Viewer?.urlOptions?.cameraTarget) return;
   //if (localStorage.getItem("viewerHintSeen")) return;
 
   if (core.GESTURE == null) return;
@@ -1704,6 +1739,8 @@ function animateCameraToPose ({
   distanceOffsetFactor = 0,   // additional factor to move closer (0.1 = 10% closer) (optional)
   distanceOffsetUnits  = 0,   // additional world units to move closer (optional)
 }) {
+  const tweenToken = (core.cameraTweenToken ?? 0) + 1;
+  core.cameraTweenToken = tweenToken;
 
   const endCamPos = finalCameraPos.clone();
   const endTarget = finalTarget.clone();
@@ -1740,6 +1777,7 @@ function animateCameraToPose ({
     .to(endCamPos, duration)
     .easing(easing)
     .onUpdate(() => {
+      if (core.cameraTweenToken !== tweenToken) return;
       core.camera.position.copy(camTweenPos);
     });
 
@@ -1747,6 +1785,7 @@ function animateCameraToPose ({
     .to(endTarget, duration)
     .easing(easing)
     .onUpdate(() => {
+      if (core.cameraTweenToken !== tweenToken) return;
       core.controls?.target.copy(targetTweenPos);
       core.controls?.update();
     });
@@ -1756,6 +1795,7 @@ function animateCameraToPose ({
 
   // === (near / far / limits) ===
   core.cameraTween.onComplete(() => {
+    if (core.cameraTweenToken !== tweenToken) return;
     core.camera.position.copy(endCamPos);
     core.controls?.target.copy(endTarget);
     core.controls?.update();
@@ -1774,6 +1814,13 @@ function animateCameraToPose ({
         core.controls.maxDistance = maxDistance * 2;
       }
     }
+
+    if (window.Viewer?.urlOptions?.cameraPosition || window.Viewer?.urlOptions?.cameraTarget || Number.isFinite(window.Viewer?.urlOptions?.cameraFov)) {
+      window.Viewer?.applyCameraOverridesFromUrl?.();
+      core.controls?.saveState?.();
+      return;
+    }
+
     showInteractionHint(boxCenter);
   });
 }
@@ -1858,19 +1905,21 @@ async function fitCameraToCenteredObject(object, _fit, cfg) {
   const finalTarget = center.clone();
 
   // === override from config if available ===
-  if (cfg?.cameraPosition?.length === 3) {
+  const overrideCameraPosition = normalizeVec3(cfg?.cameraPosition);
+  if (overrideCameraPosition) {
     finalCameraPos.set(
-      cfg.cameraPosition[0],
-      cfg.cameraPosition[1],
-      cfg.cameraPosition[2]
+      overrideCameraPosition.x,
+      overrideCameraPosition.y,
+      overrideCameraPosition.z
     );
   }
 
-  if (cfg?.controlsTarget?.length === 3) {
+  const overrideControlsTarget = normalizeVec3(cfg?.controlsTarget);
+  if (overrideControlsTarget) {
     finalTarget.set(
-      cfg.controlsTarget[0],
-      cfg.controlsTarget[1],
-      cfg.controlsTarget[2]
+      overrideControlsTarget.x,
+      overrideControlsTarget.y,
+      overrideControlsTarget.z
     );
   }
 
@@ -2298,6 +2347,7 @@ function attachEmbedConfigurator(Viewer) {
       };
 
       if (includeCamera) {
+        if (!this.viewerInstance && !this.iframeWindow) {this.iframeWindow = this.embedConfigPreviewFrame?.contentWindow; this.viewerInstance = this.iframeWindow?.Viewer; }
         options.cameraPosition = this.formatVector3Param(core.camera?.position);
         options.cameraTarget = this.formatVector3Param(core.controls?.target);
         options.fov = Number.isFinite(core.camera?.fov) ? core.camera.fov : null;
@@ -2307,7 +2357,6 @@ function attachEmbedConfigurator(Viewer) {
     },
 
     applyEmbedOptionsToInputs(options = {}) {
-      console.log(this.embedConfigInputs);
       if (!this.embedConfigInputs) return;
       this.embedConfigInputs.model.value = options.model ?? "";
       this.embedConfigInputs.id.value = options.id ?? "";
@@ -2321,10 +2370,6 @@ function attachEmbedConfigurator(Viewer) {
       this.embedConfigInputs.camPos.value = options.cameraPosition ?? "";
       this.embedConfigInputs.camTarget.value = options.cameraTarget ?? "";
       this.embedConfigInputs.fov.value = Number.isFinite(options.fov) ? String(options.fov) : "";
-      console.log(
-  "fillConfiguratorWithCurrentCamera",
-  this.embedConfigInputs.camPos.value
-);
     },
 
     setEmbedInputError(input, hasError, message = "") {
@@ -2417,7 +2462,6 @@ function attachEmbedConfigurator(Viewer) {
     },
 
     collectEmbedConfiguratorOptions() {
-      console.trace("collectEmbedConfiguratorOptions");
       const inputs = this.embedConfigInputs;
       if (!inputs) return this.getCurrentEmbedOptions({ includeCamera: true });
       const parsedCamPos = this.parseVector3Param(inputs.camPos.value);
@@ -2473,11 +2517,14 @@ function attachEmbedConfigurator(Viewer) {
 
       this.updatingEmbedFields = true;
 
-      this.embedConfigInputs.camPos.value = this.formatVector3Param(core.camera?.position) || "";
-      this.embedConfigInputs.camTarget.value = this.formatVector3Param(core.controls?.target) || "";
-      this.embedConfigInputs.fov.value = Number.isFinite(core.camera?.fov) ? String(core.camera.fov) : "";
+      if (!this.viewerInstance) {this.iframeWindow = this.embedConfigPreviewFrame.contentWindow; this.viewerInstance = this.iframeWindow.Viewer; }
+
+      this.embedConfigInputs.camPos.value = this.formatVector3Param(this.viewerInstance.camera.position) || "";
+      this.embedConfigInputs.camTarget.value = this.formatVector3Param(this.viewerInstance.controls.target) || "";
+      this.embedConfigInputs.fov.value = Number.isFinite(this.viewerInstance.camera.fov) ? String(this.viewerInstance.camera.fov) : "";
+
       this.updatingEmbedFields = false;
-      this.updateEmbedConfiguratorPreview();
+      //this.updateEmbedConfiguratorPreview();
     },
 
     resetEmbedConfiguratorFromViewerState() {
@@ -2493,17 +2540,18 @@ function attachEmbedConfigurator(Viewer) {
       const willShow = this.embedConfiguratorPanel.hidden === true;
       this.embedConfiguratorPanel.hidden = !willShow;
       if (willShow) {
-        this.updateEmbedConfiguratorPreview();
+        this.resetEmbedConfiguratorFromViewerState();
       }
       this.updateEmbedMenuEntryState();
     },
 
     openEmbedConfiguratorFromMenu(event) {
+      this.createEmbedConfiguratorPanel();
       this.toggleEmbedConfigurator(event);
     },
 
     createEmbedConfiguratorPanel() {
-      if (!core.container || this.embedConfiguratorPanel) return;
+      if (!core.container || this.embedConfiguratorPanel || this.isEmbedMode()) return;
       const defaults = this.getCurrentEmbedOptions({ includeCamera: true });
       const panelText = {
         title: t$1("embedPanel.title", "Embed options"),
@@ -2533,6 +2581,7 @@ function attachEmbedConfigurator(Viewer) {
         preview: t$1("embedPanel.preview", "Preview"),
         previewTitle: t$1("embedPanel.previewTitle", "Embed preview"),
       };
+
       const panel = document.createElement("div");
       panel.id = "embedConfiguratorPanel";
       panel.hidden = true;
@@ -2580,6 +2629,7 @@ function attachEmbedConfigurator(Viewer) {
       </div>
     `;
 
+      panel.style.height = core.mainCanvas.style.height;
       core.container.appendChild(panel);
       this.embedConfiguratorPanel = panel;
       this.embedConfigInputs = {
@@ -2599,6 +2649,9 @@ function attachEmbedConfigurator(Viewer) {
         iframe: panel.querySelector("#embedIframeOutput"),
       };
       this.embedConfigPreviewFrame = panel.querySelector("#embedPreviewFrame");
+
+      const iframeWindow = this.embedConfigPreviewFrame.contentWindow;
+      this.viewerInstance = iframeWindow.Viewer;
 
       const watchedInputs = [
         this.embedConfigInputs.model,
@@ -6755,23 +6808,6 @@ async function handleMetadataResponse(
   requestAnimationFrame(updateMetadataOverflow);
 }
 
-/**
- * Handles settings for the loaded object and camera.
- */
-async function settingsHandler(object, hierarchyMain, data) {
-  if (Array.isArray(object)) {
-    setupObject(object[0], data);
-    await setupCamera(object[0], data);
-  } else if (object.name === "Scene" || object.children.length > 0) {
-    setupObject(object, data);
-    await setupCamera(object, data);
-  } else {
-    setupObject(object, data);
-    await setupCamera(object, data);
-    // Hierarchy is now managed by the editor toolbar submenu
-  }
-}
-
 async function loadMetadataData(metadataUrl) {
   if (metadataUrl === null || metadataUrl === '') {
     console.log("No metadata found due to null or empty metadata URL", metadataUrl);
@@ -6852,8 +6888,6 @@ async function fetchSettings(object) {
   } else {
     console.warn("Metadata URL or file information is missing. Skipping metadata fetch.");
   }
-
-  let hierarchyMain;
   // Hierarchy is now managed by the editor toolbar submenu, not lilGUI
   
   if (core.CONFIG.entity.metadata.sourceType === "IIIF") {
@@ -6867,12 +6901,10 @@ async function fetchSettings(object) {
       const data = await loadMetadataData(metadataUrl);
       window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
       await handleMetadataResponse(data, metadata, object);
-      settingsHandler(object, hierarchyMain, data);
     } else {
       const data = await loadMetadataData(metadataUrl);
       window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
       await handleMetadataResponse(data, metadata, object);
-      settingsHandler(object, hierarchyMain, data);
     }
   } else {
     window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(null);
@@ -15867,11 +15899,13 @@ const Viewer$1 = {
   SUPPORTED_EXTENSIONS: ['glb', 'gltf', 'obj', 'dae', 'fbx', 'ply', 'ifc', 'stl', 'xyz', 'json', '3ds', 'pcd'],
   SUPPORTED_ARCHIVES: ['zip', 'rar', 'tar', 'xz', 'gz'],
   camera: null,
+  embedCamera: null,
   scene: null,
   activeScene: 0,
   renderer: null,
   stats: null,
   controls: null,
+  embedControls: null,
   loader: null,
   ambientLight: null,
   dirLight: null,
@@ -18015,7 +18049,7 @@ const Viewer$1 = {
       Viewer$1.FULLSCREEN = isFullscreen;
 
       if (
-        !Viewer$1.mainCanvas ||
+        !core.mainCanvas ||
         !Viewer$1.fullscreenMode ||
         !core.guiContainer
       ) {
@@ -18051,21 +18085,20 @@ const Viewer$1 = {
 
       // final visual size
       const effectiveWidth = widthCSS * scale.x;
-
       const effectiveHeight = heightCSS * scale.y;
 
       // CSS size only
-      Viewer$1.mainCanvas.style.width = `${effectiveWidth}px`;
-      Viewer$1.mainCanvas.style.height = `${effectiveHeight}px`;
+      core.mainCanvas.style.width = `${effectiveWidth}px`;
+      core.mainCanvas.style.height = `${effectiveHeight}px`;
 
-      const canvasRect = Viewer$1.mainCanvas.getBoundingClientRect();
+      const canvasRect = core.mainCanvas.getBoundingClientRect();
       const parentRect = core.container.getBoundingClientRect();
 
       const bottom = parentRect.bottom - canvasRect.bottom + 12 || 24;
 
       if (isFullscreen) {
-        Viewer$1.mainCanvas.style.width = "100vw";
-        Viewer$1.mainCanvas.style.height = "100vh";
+        core.mainCanvas.style.width = "100vw";
+        core.mainCanvas.style.height = "100vh";
         core.editorToolbar.style.bottom = `${bottom}px`;
       } else {
         if (core.editorToolbar) {
@@ -18086,15 +18119,6 @@ const Viewer$1 = {
       ) {
         Viewer$1.fileElement[0].style.height =
           `${effectiveHeight * 1.1}px`;
-      }
-
-      // GUI position
-      if (!core.guiContainer.hidden) {
-        const guiWidth = core.lilGui?.[0]?.getBoundingClientRect().width || core.guiContainer.getBoundingClientRect().width;
-
-        if (guiWidth > 0) {
-          core.guiContainer.style.left = `${effectiveWidth - guiWidth}px`;
-        }
       }
 
       // camera
@@ -18617,7 +18641,12 @@ const Viewer$1 = {
     const hasTarget = cameraTarget && Number.isFinite(cameraTarget.x) && Number.isFinite(cameraTarget.y) && Number.isFinite(cameraTarget.z);
     const hasFov = Number.isFinite(cameraFov);
     if (!hasPosition && !hasTarget && !hasFov) return;
-
+    const cameraPositionVector = new THREE.Vector3(cameraPosition.x, cameraPosition.y, cameraPosition.z);
+    const cameraTargetVector = new THREE.Vector3(cameraTarget.x, cameraTarget.y, cameraTarget.z);
+    if (!hasPosition) cameraPositionVector.copy(core.camera.position);
+    if (!hasTarget) cameraTargetVector.copy(core.controls.target); // Use the current target if no target is provided
+    if (!hasFov) core.camera.fov = 45; // Default field of view
+  
     if (hasPosition) {
       core.camera.position.copy(cameraPosition);
       core.cameraLight?.position.copy(cameraPosition);
@@ -18635,7 +18664,11 @@ const Viewer$1 = {
     }
 
     core.camera.updateProjectionMatrix();
+    if (hasPosition) {
+      core.controls?.object?.position.copy(core.camera.position);
+    }
     core.controls?.update();
+
   },
 
   createClippingPlaneAxis(_number, axis = "z") {
@@ -19219,6 +19252,7 @@ const Viewer$1 = {
       Viewer$1.camera.position.set(0, 0, 0);
       setCore('renderer', Viewer$1.renderer);
       setCore('camera', Viewer$1.camera);
+      setCore('embedCamera', Viewer$1.embedCamera);
       setCore('mainObject', Viewer$1.mainObject);
 
       Viewer$1.scene = new THREE.Scene();
@@ -19308,6 +19342,7 @@ const Viewer$1 = {
 
       core.renderer.domElement.id = "MainCanvas";
       Viewer$1.mainCanvas = document.getElementById("MainCanvas") || core.renderer.domElement;
+      setCore('mainCanvas', Viewer$1.mainCanvas);
 
       if (window.__E2E__) {
         document.body.appendChild(core.renderer.domElement);
@@ -19365,7 +19400,7 @@ const Viewer$1 = {
 
       core.renderer.domElement.style.display = "block";
       core.container.appendChild(core.renderer.domElement);
-      Viewer$1.mainCanvas.classList.add("mainCanvas");
+      core.mainCanvas.classList.add("mainCanvas");
 
       Viewer$1.viewerWrapper = core.container.closest('.viewer-wrapper');
 
@@ -19379,7 +19414,6 @@ const Viewer$1 = {
       core.camera.aspect = core.CONFIG.viewer.canvasDimensions.x / core.CONFIG.viewer.canvasDimensions.y;
       core.camera.updateProjectionMatrix();
 
-      setCore('mainCanvas', Viewer$1.mainCanvas);
       if (!core.PRESENTATION_MODE) {
         const scriptUrl = document.currentScript?.src || import.meta.url;
         Viewer$1.DFG_ASSETS = scriptUrl.replace(/\/[^\/]*$/, '');
@@ -19476,7 +19510,6 @@ const Viewer$1 = {
         if (Viewer$1.urlOptions.hideUi) {
           Viewer$1.actionMenu.hidden = true;
         }
-        this.createEmbedConfiguratorPanel();
 
         setCore('viewEntity', Viewer$1.viewEntity);
         Viewer$1.bindEventListener(Viewer$1.languageMode, "click", Viewer$1.toggleLanguage.bind(Viewer$1));
@@ -19515,7 +19548,7 @@ const Viewer$1 = {
           Viewer$1.fileElement[0].style.height = core.CONFIG.viewer.canvasDimensions.y * 1.1 + "px";
         }
 
-        if (core.CONFIG.viewer.gallery?.build === true && !core.SANDBOX_MODE) {
+        if (core.CONFIG.viewer.gallery?.build === true && !core.SANDBOX_MODE && !this.isEmbedMode()) {
           Viewer$1.buildGallery();
         }
       }

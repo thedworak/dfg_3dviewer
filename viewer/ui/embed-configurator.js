@@ -58,6 +58,7 @@ export function attachEmbedConfigurator(Viewer) {
       };
 
       if (includeCamera) {
+        if (!this.viewerInstance && !this.iframeWindow) {this.iframeWindow = this.embedConfigPreviewFrame?.contentWindow; this.viewerInstance = this.iframeWindow?.Viewer; }
         options.cameraPosition = this.formatVector3Param(core.camera?.position);
         options.cameraTarget = this.formatVector3Param(core.controls?.target);
         options.fov = Number.isFinite(core.camera?.fov) ? core.camera.fov : null;
@@ -67,7 +68,6 @@ export function attachEmbedConfigurator(Viewer) {
     },
 
     applyEmbedOptionsToInputs(options = {}) {
-      console.log(this.embedConfigInputs);
       if (!this.embedConfigInputs) return;
       this.embedConfigInputs.model.value = options.model ?? "";
       this.embedConfigInputs.id.value = options.id ?? "";
@@ -81,10 +81,6 @@ export function attachEmbedConfigurator(Viewer) {
       this.embedConfigInputs.camPos.value = options.cameraPosition ?? "";
       this.embedConfigInputs.camTarget.value = options.cameraTarget ?? "";
       this.embedConfigInputs.fov.value = Number.isFinite(options.fov) ? String(options.fov) : "";
-      console.log(
-  "fillConfiguratorWithCurrentCamera",
-  this.embedConfigInputs.camPos.value
-);
     },
 
     setEmbedInputError(input, hasError, message = "") {
@@ -177,7 +173,6 @@ export function attachEmbedConfigurator(Viewer) {
     },
 
     collectEmbedConfiguratorOptions() {
-      console.trace("collectEmbedConfiguratorOptions");
       const inputs = this.embedConfigInputs;
       if (!inputs) return this.getCurrentEmbedOptions({ includeCamera: true });
       const parsedCamPos = this.parseVector3Param(inputs.camPos.value);
@@ -233,11 +228,14 @@ export function attachEmbedConfigurator(Viewer) {
 
       this.updatingEmbedFields = true;
 
-      this.embedConfigInputs.camPos.value = this.formatVector3Param(core.camera?.position) || "";
-      this.embedConfigInputs.camTarget.value = this.formatVector3Param(core.controls?.target) || "";
-      this.embedConfigInputs.fov.value = Number.isFinite(core.camera?.fov) ? String(core.camera.fov) : "";
+      if (!this.viewerInstance) {this.iframeWindow = this.embedConfigPreviewFrame.contentWindow; this.viewerInstance = this.iframeWindow.Viewer; }
+
+      this.embedConfigInputs.camPos.value = this.formatVector3Param(this.viewerInstance.camera.position) || "";
+      this.embedConfigInputs.camTarget.value = this.formatVector3Param(this.viewerInstance.controls.target) || "";
+      this.embedConfigInputs.fov.value = Number.isFinite(this.viewerInstance.camera.fov) ? String(this.viewerInstance.camera.fov) : "";
+
       this.updatingEmbedFields = false;
-      this.updateEmbedConfiguratorPreview();
+      //this.updateEmbedConfiguratorPreview();
     },
 
     resetEmbedConfiguratorFromViewerState() {
@@ -253,17 +251,18 @@ export function attachEmbedConfigurator(Viewer) {
       const willShow = this.embedConfiguratorPanel.hidden === true;
       this.embedConfiguratorPanel.hidden = !willShow;
       if (willShow) {
-        this.updateEmbedConfiguratorPreview();
+        this.resetEmbedConfiguratorFromViewerState();
       }
       this.updateEmbedMenuEntryState();
     },
 
     openEmbedConfiguratorFromMenu(event) {
+      this.createEmbedConfiguratorPanel();
       this.toggleEmbedConfigurator(event);
     },
 
     createEmbedConfiguratorPanel() {
-      if (!core.container || this.embedConfiguratorPanel) return;
+      if (!core.container || this.embedConfiguratorPanel || this.isEmbedMode()) return;
       const defaults = this.getCurrentEmbedOptions({ includeCamera: true });
       const panelText = {
         title: t("embedPanel.title", "Embed options"),
@@ -293,6 +292,7 @@ export function attachEmbedConfigurator(Viewer) {
         preview: t("embedPanel.preview", "Preview"),
         previewTitle: t("embedPanel.previewTitle", "Embed preview"),
       };
+
       const panel = document.createElement("div");
       panel.id = "embedConfiguratorPanel";
       panel.hidden = true;
@@ -340,6 +340,7 @@ export function attachEmbedConfigurator(Viewer) {
       </div>
     `;
 
+      panel.style.height = core.mainCanvas.style.height;
       core.container.appendChild(panel);
       this.embedConfiguratorPanel = panel;
       this.embedConfigInputs = {
@@ -359,6 +360,9 @@ export function attachEmbedConfigurator(Viewer) {
         iframe: panel.querySelector("#embedIframeOutput"),
       };
       this.embedConfigPreviewFrame = panel.querySelector("#embedPreviewFrame");
+
+      const iframeWindow = this.embedConfigPreviewFrame.contentWindow;
+      this.viewerInstance = iframeWindow.Viewer;
 
       const watchedInputs = [
         this.embedConfigInputs.model,

@@ -21,6 +21,7 @@ export const core = {
     basicGrid: new THREE.Group(),
     axesHelper: new THREE.AxesHelper(),
     cameraCoords: null,
+    cameraTweenToken: 0,
     tween: new TWEEN.Tween(),
     controls: null,
     transformControlClippingPlaneY: null,

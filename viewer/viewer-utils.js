@@ -442,9 +442,28 @@ export async function setupCamera(_object, _data) {
   const _light = core.lightObjects[0];
   const cfg = _data ?? core.CONFIG ?? null;
   const fallback = _data ?? core.objectsConfig ?? null;
+  const urlCameraPosition = normalizeVec3(window.Viewer?.urlOptions?.cameraPosition);
+  const urlCameraTarget = normalizeVec3(window.Viewer?.urlOptions?.cameraTarget);
+  const urlCameraFov = Number.isFinite(window.Viewer?.urlOptions?.cameraFov)
+    ? window.Viewer.urlOptions.cameraFov
+    : null;
+  const toVec3Array = (value) => {
+    const normalized = normalizeVec3(value);
+    return normalized ? [normalized.x, normalized.y, normalized.z] : null;
+  };
+
+  if (window.Viewer?.isEmbedMode?.() && (urlCameraPosition || urlCameraTarget || urlCameraFov !== null)) {
+    console.info("[embed-camera] setupCamera input", {
+      urlCameraPosition,
+      urlCameraTarget,
+      urlCameraFov,
+      configCameraPosition: normalizeVec3(cfg?.cameraPosition ?? fallback?.camera?.position),
+      configCameraTarget: normalizeVec3(cfg?.controlsTarget ?? fallback?.camera?.target),
+    });
+  }
 
   // --- CAMERA POSITION ---
-  const camPos = cfg?.cameraPosition ?? fallback?.camera?.position;
+  const camPos = urlCameraPosition ?? cfg?.cameraPosition ?? fallback?.camera?.position;
 
   if (Array.isArray(camPos)) {
     core.camera.position.set(camPos[0], camPos[1], camPos[2]);
@@ -455,7 +474,7 @@ export async function setupCamera(_object, _data) {
   }
 
   // --- CONTROLS TARGET + ZOOM ---
-  const target = cfg?.controlsTarget ?? fallback?.camera?.target;
+  const target = urlCameraTarget ?? cfg?.controlsTarget ?? fallback?.camera?.target;
 
   if (Array.isArray(target)) {
     core.controls.target.set(target[0], target[1], target[2]);
@@ -474,6 +493,10 @@ export async function setupCamera(_object, _data) {
     core.camera.position
     .copy(core.controls?.target || new THREE.Vector3())
     .add(dir.multiplyScalar(customZoom));
+  }
+
+  if (urlCameraFov !== null) {
+    core.camera.fov = Math.min(179, Math.max(1, Number(urlCameraFov)));
   }
 
   // --- LIGHTS ---
@@ -546,13 +569,24 @@ export async function setupCamera(_object, _data) {
 
   core.camera.updateProjectionMatrix();
   core.controls?.update();
+  const fitConfig = cfg && typeof cfg === "object" ? { ...cfg } : {};
+  const fitCameraPosition = toVec3Array(camPos);
+  const fitControlsTarget = toVec3Array(target);
+  if (fitCameraPosition) {
+    fitConfig.cameraPosition = fitCameraPosition;
+  }
+  if (fitControlsTarget) {
+    fitConfig.controlsTarget = fitControlsTarget;
+  }
 
-  await fitCameraToCenteredObject(_object, false, cfg);
+  await fitCameraToCenteredObject(_object, false, fitConfig);
 }
 
   // Show interaction hint on first load
   function showInteractionHint(boxCenter) {
   if (window.__E2E__) return;
+  if (window.Viewer?.isEmbedMode?.()) return;
+  if (window.Viewer?.urlOptions?.cameraPosition || window.Viewer?.urlOptions?.cameraTarget) return;
   //if (localStorage.getItem("viewerHintSeen")) return;
 
   if (core.GESTURE == null) return;
@@ -577,6 +611,8 @@ function animateCameraToPose ({
   distanceOffsetFactor = 0,   // additional factor to move closer (0.1 = 10% closer) (optional)
   distanceOffsetUnits  = 0,   // additional world units to move closer (optional)
 }) {
+  const tweenToken = (core.cameraTweenToken ?? 0) + 1;
+  core.cameraTweenToken = tweenToken;
 
   const endCamPos = finalCameraPos.clone();
   const endTarget = finalTarget.clone();
@@ -613,6 +649,7 @@ function animateCameraToPose ({
     .to(endCamPos, duration)
     .easing(easing)
     .onUpdate(() => {
+      if (core.cameraTweenToken !== tweenToken) return;
       core.camera.position.copy(camTweenPos);
     });
 
@@ -620,6 +657,7 @@ function animateCameraToPose ({
     .to(endTarget, duration)
     .easing(easing)
     .onUpdate(() => {
+      if (core.cameraTweenToken !== tweenToken) return;
       core.controls?.target.copy(targetTweenPos);
       core.controls?.update();
     });
@@ -629,6 +667,7 @@ function animateCameraToPose ({
 
   // === (near / far / limits) ===
   core.cameraTween.onComplete(() => {
+    if (core.cameraTweenToken !== tweenToken) return;
     core.camera.position.copy(endCamPos);
     core.controls?.target.copy(endTarget);
     core.controls?.update();
@@ -647,6 +686,13 @@ function animateCameraToPose ({
         core.controls.maxDistance = maxDistance * 2;
       }
     }
+
+    if (window.Viewer?.urlOptions?.cameraPosition || window.Viewer?.urlOptions?.cameraTarget || Number.isFinite(window.Viewer?.urlOptions?.cameraFov)) {
+      window.Viewer?.applyCameraOverridesFromUrl?.();
+      core.controls?.saveState?.();
+      return;
+    }
+
     showInteractionHint(boxCenter);
   });
 }
@@ -731,19 +777,21 @@ async function fitCameraToCenteredObject(object, _fit, cfg) {
   const finalTarget = center.clone();
 
   // === override from config if available ===
-  if (cfg?.cameraPosition?.length === 3) {
+  const overrideCameraPosition = normalizeVec3(cfg?.cameraPosition);
+  if (overrideCameraPosition) {
     finalCameraPos.set(
-      cfg.cameraPosition[0],
-      cfg.cameraPosition[1],
-      cfg.cameraPosition[2]
+      overrideCameraPosition.x,
+      overrideCameraPosition.y,
+      overrideCameraPosition.z
     );
   }
 
-  if (cfg?.controlsTarget?.length === 3) {
+  const overrideControlsTarget = normalizeVec3(cfg?.controlsTarget);
+  if (overrideControlsTarget) {
     finalTarget.set(
-      cfg.controlsTarget[0],
-      cfg.controlsTarget[1],
-      cfg.controlsTarget[2]
+      overrideControlsTarget.x,
+      overrideControlsTarget.y,
+      overrideControlsTarget.z
     );
   }
 

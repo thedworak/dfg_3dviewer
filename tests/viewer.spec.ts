@@ -166,6 +166,35 @@ test('camera rotates on mouse drag', async ({ page }) => {
     .not.toEqual(before);
 });
 
+test('embed configurator uses the current camera for preview url', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+  await page.waitForFunction(() => window.Viewer?.camera && window.Viewer?.controls);
+
+  await page.evaluate(() => {
+    const camera = window.Viewer?.camera;
+    const controls = window.Viewer?.controls;
+    if (!camera || !controls) {
+      throw new Error('Viewer camera is unavailable');
+    }
+
+    camera.position.set(-1.8352523027, 1.8888667447, 3.6705046054);
+    controls.target.set(0, 1, 0);
+    camera.fov = 45;
+    camera.updateProjectionMatrix();
+    controls.update();
+  });
+
+  await page.click('#viewEntity');
+  await expect(page.locator('#embedConfiguratorPanel')).toBeVisible();
+  await page.click('#embedUseCurrentCamera');
+
+  await expect(page.locator('#embedCamPosInput')).toHaveValue('-1.8353,1.8889,3.6705');
+  await expect(page.locator('#embedCamTargetInput')).toHaveValue('0.0000,1.0000,0.0000');
+  await expect(page.locator('#embedUrlOutput')).toContainText('camPos=-1.8353%2C1.8889%2C3.6705');
+  await expect(page.locator('#embedUrlOutput')).toContainText('camTarget=0.0000%2C1.0000%2C0.0000');
+});
+
 test('reports unsupported format without loading a model', async ({ page }) => {
   await openViewer(page, '/examples/box.txt');
   await waitForViewerIssue(page);
