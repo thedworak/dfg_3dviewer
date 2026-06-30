@@ -1735,9 +1735,6 @@ export const Viewer = {
     }
 
     if (!this.container) {
-      document.body.appendChild(this.noticeContainer);
-      this.noticeContainer.style.bottom = "50%";
-      showToast("toasts.containerNotFound", "error", { duration: 5000 });
       return;
     }
     setCore('container', this.container);
