@@ -1,4 +1,4 @@
-import { T as THREE, e as exports$1, V as Vector3, M as Matrix4, Q as Quaternion, E as Euler, a as MathUtils$1, O as OrbitControls, b as TransformControls, F as FontLoader, c as TextGeometry } from './assets/three.js';
+import { T as THREE, e as exports$1, V as Vector3$1, M as Matrix4, Q as Quaternion, E as Euler, a as MathUtils$1, O as OrbitControls, b as TransformControls, F as FontLoader, c as TextGeometry } from './assets/three.js';
 
 window.THREE = THREE;
 
@@ -1581,14 +1581,13 @@ async function setupCamera(_object, _data) {
   };
 
   // --- CAMERA POSITION ---
-  console.log("Setting up camera with urlCameraPosition", urlCameraPosition, "with config", cfg?.cameraPosition, "and fallback", fallback?.camera?.position);
   const camPos = urlCameraPosition ?? cfg?.cameraPosition ?? fallback?.camera?.position;
 
   if (Array.isArray(camPos)) {
     core.camera.position.set(camPos[0], camPos[1], camPos[2]);
   } else if (camPos && typeof camPos === "object") {
     core.camera.position.set(camPos.x, camPos.y, camPos.z);
-  } else {
+  } else if (camPos === null || camPos === undefined || camPos === new Vector3(0,0,0)) {
     await setupEmptyCamera(_object);
   }
   console.log(camPos);
@@ -6687,7 +6686,6 @@ async function handleMetadataResponse(
   object,
 ) {
   Viewer.clearHierarchySubmenu();
-  console.log(data);
   if (Array.isArray(object)) {
     setupObject(object[0], data);
     await setupCamera(object[0], data);
@@ -6892,11 +6890,11 @@ async function fetchSettings(object) {
     if (core.CONFIG.entity.proxyPath !== undefined || core.isLightweight) {
       metadataUrl = core.getProxyPath(metadataUrl, core.CONFIG);
       const data = await loadMetadataData(metadataUrl);
-      window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
+      if (data !== null) window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
       await handleMetadataResponse(data, metadata, object);
     } else {
       const data = await loadMetadataData(metadataUrl);
-      window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
+      if (data !== null) window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
       await handleMetadataResponse(data, metadata, object);
     }
   } else {
@@ -7909,7 +7907,7 @@ let objectsConfig = {
   ],
 
   camera: {
-    position: { x: 0, y: 5, z: 10 },
+    position: { x: 0, y: 0, z: 0 },
     target:   { x: 0, y: 0, z: 0 }
   },
 
@@ -9457,7 +9455,7 @@ var Annotation = /** @class */ (function (_super) {
             if (target.isSpecificResource && ((_a = target.getSelector()) === null || _a === void 0 ? void 0 : _a.isPointSelector))
                 return target.getSelector().getLocation();
             else
-                return new Vector3(0.0, 0.0, 0.0);
+                return new Vector3$1(0.0, 0.0, 0.0);
         },
         enumerable: false,
         configurable: true
@@ -12053,7 +12051,7 @@ var PointSelector = /** @class */ (function (_super) {
     @returns the 3D coordinates of the point as a Vector3 instance.
     **/
     PointSelector.prototype.getLocation = function () {
-        return new Vector3(this.__jsonld.x, this.__jsonld.y, this.__jsonld.z);
+        return new Vector3$1(this.__jsonld.x, this.__jsonld.y, this.__jsonld.z);
     };
     Object.defineProperty(PointSelector.prototype, "Location", {
         /**
@@ -13683,14 +13681,14 @@ function combineTransformsToMatrix(transforms) {
     return matrix;
 }
 function combineTransformsToTRS(transforms) {
-    var translation = new Vector3();
+    var translation = new Vector3$1();
     var rotation = new Euler();
-    var scale = new Vector3(1, 1, 1);
+    var scale = new Vector3$1(1, 1, 1);
     for (var _i = 0, transforms_2 = transforms; _i < transforms_2.length; _i++) {
         var transform = transforms_2[_i];
         if (transform.isTranslateTransform) {
             var translationTransform = transform.getTranslation();
-            translation.add(new Vector3(translationTransform.x, translationTransform.y, translationTransform.z));
+            translation.add(new Vector3$1(translationTransform.x, translationTransform.y, translationTransform.z));
         }
         else if (transform.isRotateTransform) {
             var euler = eulerFromRotateTransform(transform);
@@ -13702,7 +13700,7 @@ function combineTransformsToTRS(transforms) {
         }
         else if (transform.isScaleTransform) {
             var scaleTransform = transform.getScale();
-            var newScale = new Vector3(scaleTransform.x, scaleTransform.y, scaleTransform.z);
+            var newScale = new Vector3$1(scaleTransform.x, scaleTransform.y, scaleTransform.z);
             scale.multiply(newScale);
             translation.multiply(newScale);
         }

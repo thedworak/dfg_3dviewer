@@ -17,7 +17,7 @@ export let objectsConfig = {
   ],
 
   camera: {
-    position: { x: 0, y: 5, z: 10 },
+    position: { x: 0, y: 0, z: 0 },
     target:   { x: 0, y: 0, z: 0 }
   },
 

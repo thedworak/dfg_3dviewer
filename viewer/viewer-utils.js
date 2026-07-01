@@ -453,14 +453,13 @@ export async function setupCamera(_object, _data) {
   };
 
   // --- CAMERA POSITION ---
-  console.log("Setting up camera with urlCameraPosition", urlCameraPosition, "with config", cfg?.cameraPosition, "and fallback", fallback?.camera?.position);
   const camPos = urlCameraPosition ?? cfg?.cameraPosition ?? fallback?.camera?.position;
 
   if (Array.isArray(camPos)) {
     core.camera.position.set(camPos[0], camPos[1], camPos[2]);
   } else if (camPos && typeof camPos === "object") {
     core.camera.position.set(camPos.x, camPos.y, camPos.z);
-  } else {
+  } else if (camPos === null || camPos === undefined || camPos === new Vector3(0,0,0)) {
     await setupEmptyCamera(_object);
   }
   console.log(camPos);

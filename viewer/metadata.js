@@ -276,7 +276,6 @@ export async function handleMetadataResponse(
   object,
 ) {
   Viewer.clearHierarchySubmenu();
-  console.log(data);
   var tempArray = [];
   if (Array.isArray(object)) {
     setupObject(object[0], data);
@@ -501,11 +500,11 @@ export async function fetchSettings(object) {
     if (core.CONFIG.entity.proxyPath !== undefined || core.isLightweight) {
       metadataUrl = core.getProxyPath(metadataUrl, core.CONFIG);
       const data = await loadMetadataData(metadataUrl);
-      window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
+      if (data !== null) window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
       await handleMetadataResponse(data, metadata, object);
     } else {
       const data = await loadMetadataData(metadataUrl);
-      window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
+      if (data !== null) window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
       await handleMetadataResponse(data, metadata, object);
     }
   } else {
