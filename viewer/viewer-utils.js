@@ -459,7 +459,7 @@ export async function setupCamera(_object, _data) {
     core.camera.position.set(camPos[0], camPos[1], camPos[2]);
   } else if (camPos && typeof camPos === "object") {
     core.camera.position.set(camPos.x, camPos.y, camPos.z);
-  } else if (camPos === null || camPos === undefined || camPos === new Vector3(0,0,0)) {
+  } else if (camPos === null || camPos === undefined || camPos.equals(new THREE.Vector3(0, 0, 0))) {
     await setupEmptyCamera(_object);
   }
   console.log(camPos);
