@@ -348,6 +348,7 @@ export const setupObject = (_object, _metadata) => {
 
 async function setupEmptyCamera(_object) {
   console.log("Setting up empty camera");
+  _object.updateWorldMatrix(true, true);
   var boundingBox = new THREE.Box3();
   if (Array.isArray(_object)) {
     for (let i = 0; i < _object.length; i++) {
