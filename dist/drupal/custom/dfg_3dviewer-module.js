@@ -1919,6 +1919,8 @@ async function fitCameraToCenteredObject(object, _fit, cfg) {
   core.cameraCoords = finalCameraPos.clone();
   core.controlsTarget = finalTarget.clone();
 
+  console.log(finalCameraPos);
+
   // === animate ===
   animateCameraToPose({
     finalCameraPos,
