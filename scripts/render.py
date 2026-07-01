@@ -252,7 +252,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 		if ratio > 6.0:
 			cam.data.type = 'ORTHO'
 
-			# ORTHO: skala = wysokość kadru
+			# ORTHO: scale
 			ortho_height = size.z * 1.2
 			ortho_width = size.x * 1.2 / aspect
 

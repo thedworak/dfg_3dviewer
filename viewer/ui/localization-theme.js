@@ -118,8 +118,8 @@ export function attachLocalizationTheme(viewer) {
     },
 
     updateDownloadMenuEntryLabel() {
-      if (!this.downloadModel || this.downloadModel.hidden) return;
-      this.downloadModel.innerHTML = `
+      if (!this.downloadModelElement || this.downloadModelElement.hidden) return;
+      this.downloadModelElement.innerHTML = `
         <span class="viewer-action-icon download-icon" aria-hidden="true"></span>
         <span>${t("menu.download", "Download")}</span>
       `;

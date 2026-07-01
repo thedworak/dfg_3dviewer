@@ -253,10 +253,17 @@ async function downloadFile(fileName = "model.glb") {
 
   const writable = await handle.createWritable();
 
-  await writable.write(core.downloadModel);
+  const response = await fetch(core.downloadModelElement.href);
+  const blob = await response.blob();
+  if (!blob) {
+    toastHelper("downloadError", "error");
+    return;
+  }
+
+  await writable.write(blob);
   await writable.close();
 
-  toastHelper("download", "success");
+  toastHelper("downloadSuccess", "success");
 }
 
 export function createEditorToolbar(viewer) {
@@ -903,7 +910,7 @@ export function createEditorToolbar(viewer) {
       button.appendChild(submenu);
     } else if (tool.key === "download") {
       if (!core.isLightweight || core.isLocalPreview) {
-        button.href = core.downloadModel;
+        button.href = core.downloadModelElement;
         button.target = "_blank";
         button.rel = "noopener noreferrer";
         button.download = core.fileObject.filename;

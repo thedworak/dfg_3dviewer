@@ -113,6 +113,7 @@ export const Viewer = {
   dirLights: [],
   imported: null,
   mainObject: [],
+  boundingSphere: null,
   metadataContentTech: null,
   mainCanvas: null,
   distanceGeometry: new THREE.Vector3(),
@@ -149,7 +150,7 @@ export const Viewer = {
   editorToolbarButtons: {},
   isToolbarExpanded: false,
   editorSecondaryKeys: [],
-  downloadModel: null,
+  downloadModel: true,
   embedConfiguratorPanel: null,
   embedConfigInputs: null,
   embedConfigPreviewFrame: null,
@@ -559,27 +560,31 @@ export const Viewer = {
 
     let newCamera;
 
-    if (projection === "orthographic") {
-      const fov = THREE.MathUtils.degToRad(core.camera.fov);
+    const size = core.boundingSphere ? core.boundingSphere.radius : core.camera.position.distanceTo(core.controls?.target) || 100;
+    const near = Math.max(size / 1000, 0.01);
+    const far = distance + size * 100;
+    const fovDeg = core.camera.fov;
+    const fovRad = THREE.MathUtils.degToRad(fovDeg);
 
-      const viewHeight = 2 * distance * Math.tan(fov / 2);
-      const viewWidth = viewHeight * aspect;
+    if (projection === "orthographic") {
+      const visibleHeight = 2 * distance * Math.tan(fovRad / 2);
 
       newCamera = new THREE.OrthographicCamera(
-        -viewWidth / 2,
-        viewWidth / 2,
-        viewHeight / 2,
-        -viewHeight / 2,
-        0.1,
-        2000
+          -visibleHeight * aspect / 2,
+          visibleHeight * aspect / 2,
+          visibleHeight / 2,
+          -visibleHeight / 2,
+          near,
+          far
       );
+
       newCamera.zoom = 1;
     } else {
       newCamera = new THREE.PerspectiveCamera(
-        50,
+        fovDeg,
         aspect,
-        0.1,
-        2000
+        near,
+        far
       );
     }
 
@@ -1587,6 +1592,7 @@ export const Viewer = {
     setCore('updateClippingHintVisibility', this.updateClippingHintVisibility.bind(this));
     setCore('editorToolbar', this.editorToolbar);
     setCore('wireframeMode', this.wireframeMode);
+    setCore('boundingBox', this.boundingBox);
 
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -2740,6 +2746,9 @@ export const Viewer = {
 
     var _maxDistance = Math.max(_distance.x, _distance.y, _distance.z);
     Viewer.planeHelpers?.forEach(h => h && (h.size = _maxDistance));
+
+    core.boundingSphere = new THREE.Sphere(center, _maxDistance);
+    core.boundingSphere.center.copy(center);
   },
 
   changeLightRotation() {
@@ -3658,10 +3667,11 @@ export const Viewer = {
         Viewer.viewEntity.setAttribute("type", "button");
         Viewer.viewEntity.hidden = true;
 
-        Viewer.downloadModel = document.createElement("a");
+        Viewer.downloadModelElement = document.createElement("a");
         setCore('downloadModel', Viewer.downloadModel);
-        core.downloadModel.setAttribute("id", "downloadModel");
-        core.downloadModel.hidden = true;
+        setCore('downloadModelElement', Viewer.downloadModelElement);
+        core.downloadModelElement.setAttribute("id", "downloadModel");
+        core.downloadModelElement.hidden = true;
 
         Viewer.fullscreenMode = document.createElement("button");
         Viewer.updateFullscreenButtonIcon();
@@ -3710,7 +3720,7 @@ export const Viewer = {
         Viewer.actionMenuPanel.appendChild(Viewer.languageModeContainer);
         Viewer.actionMenuPanel.appendChild(Viewer.themeMode);
         Viewer.actionMenuPanel.appendChild(Viewer.viewEntity);
-        Viewer.actionMenuPanel.appendChild(Viewer.downloadModel);
+        Viewer.actionMenuPanel.appendChild(Viewer.downloadModelElement);
         if (Viewer.urlOptions.hideUi) {
           Viewer.actionMenu.hidden = true;
         }
@@ -3721,7 +3731,7 @@ export const Viewer = {
         Viewer.bindEventListener(Viewer.viewEntity, "click", Viewer.openEmbedConfiguratorFromMenu.bind(Viewer));
         Viewer.updateEmbedMenuEntryState();
         Viewer.applyLanguage({ persist: false });
-        Viewer.bindEventListener(Viewer.downloadModel, "click", () => Viewer.closeActionMenu());
+        Viewer.bindEventListener(Viewer.downloadModelElement, "click", () => Viewer.closeActionMenu());
         Viewer.bindEventListener(document, "click", (event) => {
           if (
             !Viewer.actionMenu?.contains(event.target) &&

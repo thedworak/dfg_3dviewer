@@ -356,25 +356,23 @@ export async function handleMetadataResponse(
   metadataContent += await fetchEntityMetadata();
 
   if (!core.downloadModel) {
-    core.downloadModel.hidden = true;
-    core.downloadModel.removeAttribute("href");
-  }
-
-  if (core.viewEntity) {
-    core.viewEntity.hidden = true;
-    core.viewEntity.removeAttribute("data-embed-url");
-  }
-
-  if (!core.isLightweight && core.downloadModel) {
+    core.downloadModelElement.hidden = true;
+    core.downloadModelElement.removeAttribute("href");
+  } else {
     const c_path = core.fileObject.path;
     if (core.loadedFile !== "") {
       core.fileObject.filename = core.fileObject.filename.replace(core.fileObject.orgExtension, core.fileObject.extension);
     }
 
-    core.downloadModel.href = `blob:${encodeURI(c_path + core.fileObject.filename)}`;
-    core.downloadModel.setAttribute("download", core.fileObject.filename);
-    core.downloadModel.hidden = false;
-    window.Viewer?.updateDownloadMenuEntryLabel?.();
+    core.downloadModelElement.href = `${encodeURI(c_path + core.fileObject.filename)}`;
+    core.downloadModelElement.setAttribute("download", core.fileObject.filename);
+    core.downloadModelElement.hidden = false;
+    window.Viewer?.updateDownloadMenuEntryLabel?.();    
+  }
+
+  if (core.viewEntity) {
+    core.viewEntity.hidden = true;
+    core.viewEntity.removeAttribute("data-embed-url");
   }
 
   if (core.viewEntity && (core.CONFIG?.entity?.id || core.fileObject?.originalPath)) {

@@ -3361,8 +3361,8 @@ function attachLocalizationTheme(viewer) {
     },
 
     updateDownloadMenuEntryLabel() {
-      if (!this.downloadModel || this.downloadModel.hidden) return;
-      this.downloadModel.innerHTML = `
+      if (!this.downloadModelElement || this.downloadModelElement.hidden) return;
+      this.downloadModelElement.innerHTML = `
         <span class="viewer-action-icon download-icon" aria-hidden="true"></span>
         <span>${t$1("menu.download", "Download")}</span>
       `;
@@ -6508,7 +6508,7 @@ function attachPicking(Viewer) {
 function captureAndUploadThumbnail(viewer) {
   core.camera.aspect = 1;
   core.camera.updateProjectionMatrix();
-  core.renderer.setSize(256, 256);
+  core.renderer.setSize(1024, 1024);
   core.renderer.render(core.scene, core.camera);
 
   viewer.mainCanvas.toBlob((imgBlob) => {
@@ -6533,8 +6533,10 @@ function captureAndUploadThumbnail(viewer) {
     fileform.append("data", imgBlob, "thumbnail.png");
     console.log("Uploading thumbnail for entity ID:", core.CONFIG.entity.id);
     fileform.append("wisski_individual", core.CONFIG.entity.id);
+    const callUrl = core.CONFIG.mainUrl + "/api/editor/upload-thumbnail";
+    console.log("Preparing call for ", callUrl);
 
-    fetch(core.CONFIG.mainUrl + "/api/editor/upload-thumbnail", {
+    fetch(callUrl, {
       method: "POST",
       credentials: "same-origin",
       headers: {
@@ -6771,25 +6773,23 @@ async function handleMetadataResponse(
   metadataContent += await fetchEntityMetadata();
 
   if (!core.downloadModel) {
-    core.downloadModel.hidden = true;
-    core.downloadModel.removeAttribute("href");
-  }
-
-  if (core.viewEntity) {
-    core.viewEntity.hidden = true;
-    core.viewEntity.removeAttribute("data-embed-url");
-  }
-
-  if (!core.isLightweight && core.downloadModel) {
+    core.downloadModelElement.hidden = true;
+    core.downloadModelElement.removeAttribute("href");
+  } else {
     const c_path = core.fileObject.path;
     if (core.loadedFile !== "") {
       core.fileObject.filename = core.fileObject.filename.replace(core.fileObject.orgExtension, core.fileObject.extension);
     }
 
-    core.downloadModel.href = `blob:${encodeURI(c_path + core.fileObject.filename)}`;
-    core.downloadModel.setAttribute("download", core.fileObject.filename);
-    core.downloadModel.hidden = false;
-    window.Viewer?.updateDownloadMenuEntryLabel?.();
+    core.downloadModelElement.href = `${encodeURI(c_path + core.fileObject.filename)}`;
+    core.downloadModelElement.setAttribute("download", core.fileObject.filename);
+    core.downloadModelElement.hidden = false;
+    window.Viewer?.updateDownloadMenuEntryLabel?.();    
+  }
+
+  if (core.viewEntity) {
+    core.viewEntity.hidden = true;
+    core.viewEntity.removeAttribute("data-embed-url");
   }
 
   if (core.viewEntity && (core.CONFIG?.entity?.id || core.fileObject?.originalPath)) {
@@ -14296,10 +14296,17 @@ async function downloadFile(fileName = "model.glb") {
 
   const writable = await handle.createWritable();
 
-  await writable.write(core.downloadModel);
+  const response = await fetch(core.downloadModelElement.href);
+  const blob = await response.blob();
+  if (!blob) {
+    toastHelper("downloadError", "error");
+    return;
+  }
+
+  await writable.write(blob);
   await writable.close();
 
-  toastHelper("download", "success");
+  toastHelper("downloadSuccess", "success");
 }
 
 function createEditorToolbar(viewer) {
@@ -14946,7 +14953,7 @@ function createEditorToolbar(viewer) {
       button.appendChild(submenu);
     } else if (tool.key === "download") {
       if (!core.isLightweight || core.isLocalPreview) {
-        button.href = core.downloadModel;
+        button.href = core.downloadModelElement;
         button.target = "_blank";
         button.rel = "noopener noreferrer";
         button.download = core.fileObject.filename;
@@ -15958,6 +15965,7 @@ const Viewer$1 = {
   dirLights: [],
   imported: null,
   mainObject: [],
+  boundingSphere: null,
   metadataContentTech: null,
   mainCanvas: null,
   distanceGeometry: new THREE.Vector3(),
@@ -15994,7 +16002,7 @@ const Viewer$1 = {
   editorToolbarButtons: {},
   isToolbarExpanded: false,
   editorSecondaryKeys: [],
-  downloadModel: null,
+  downloadModel: true,
   embedConfiguratorPanel: null,
   embedConfigInputs: null,
   embedConfigPreviewFrame: null,
@@ -16404,27 +16412,31 @@ const Viewer$1 = {
 
     let newCamera;
 
-    if (projection === "orthographic") {
-      const fov = THREE.MathUtils.degToRad(core.camera.fov);
+    const size = core.boundingSphere ? core.boundingSphere.radius : core.camera.position.distanceTo(core.controls?.target) || 100;
+    const near = Math.max(size / 1000, 0.01);
+    const far = distance + size * 100;
+    const fovDeg = core.camera.fov;
+    const fovRad = THREE.MathUtils.degToRad(fovDeg);
 
-      const viewHeight = 2 * distance * Math.tan(fov / 2);
-      const viewWidth = viewHeight * aspect;
+    if (projection === "orthographic") {
+      const visibleHeight = 2 * distance * Math.tan(fovRad / 2);
 
       newCamera = new THREE.OrthographicCamera(
-        -viewWidth / 2,
-        viewWidth / 2,
-        viewHeight / 2,
-        -viewHeight / 2,
-        0.1,
-        2000
+          -visibleHeight * aspect / 2,
+          visibleHeight * aspect / 2,
+          visibleHeight / 2,
+          -visibleHeight / 2,
+          near,
+          far
       );
+
       newCamera.zoom = 1;
     } else {
       newCamera = new THREE.PerspectiveCamera(
-        50,
+        fovDeg,
         aspect,
-        0.1,
-        2000
+        near,
+        far
       );
     }
 
@@ -17430,6 +17442,7 @@ const Viewer$1 = {
     setCore('updateClippingHintVisibility', this.updateClippingHintVisibility.bind(this));
     setCore('editorToolbar', this.editorToolbar);
     setCore('wireframeMode', this.wireframeMode);
+    setCore('boundingBox', this.boundingBox);
 
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -18582,6 +18595,9 @@ const Viewer$1 = {
 
     var _maxDistance = Math.max(_distance.x, _distance.y, _distance.z);
     Viewer$1.planeHelpers?.forEach(h => h && (h.size = _maxDistance));
+
+    core.boundingSphere = new THREE.Sphere(center, _maxDistance);
+    core.boundingSphere.center.copy(center);
   },
 
   changeLightRotation() {
@@ -19497,10 +19513,11 @@ const Viewer$1 = {
         Viewer$1.viewEntity.setAttribute("type", "button");
         Viewer$1.viewEntity.hidden = true;
 
-        Viewer$1.downloadModel = document.createElement("a");
+        Viewer$1.downloadModelElement = document.createElement("a");
         setCore('downloadModel', Viewer$1.downloadModel);
-        core.downloadModel.setAttribute("id", "downloadModel");
-        core.downloadModel.hidden = true;
+        setCore('downloadModelElement', Viewer$1.downloadModelElement);
+        core.downloadModelElement.setAttribute("id", "downloadModel");
+        core.downloadModelElement.hidden = true;
 
         Viewer$1.fullscreenMode = document.createElement("button");
         Viewer$1.updateFullscreenButtonIcon();
@@ -19549,7 +19566,7 @@ const Viewer$1 = {
         Viewer$1.actionMenuPanel.appendChild(Viewer$1.languageModeContainer);
         Viewer$1.actionMenuPanel.appendChild(Viewer$1.themeMode);
         Viewer$1.actionMenuPanel.appendChild(Viewer$1.viewEntity);
-        Viewer$1.actionMenuPanel.appendChild(Viewer$1.downloadModel);
+        Viewer$1.actionMenuPanel.appendChild(Viewer$1.downloadModelElement);
         if (Viewer$1.urlOptions.hideUi) {
           Viewer$1.actionMenu.hidden = true;
         }
@@ -19560,7 +19577,7 @@ const Viewer$1 = {
         Viewer$1.bindEventListener(Viewer$1.viewEntity, "click", Viewer$1.openEmbedConfiguratorFromMenu.bind(Viewer$1));
         Viewer$1.updateEmbedMenuEntryState();
         Viewer$1.applyLanguage({ persist: false });
-        Viewer$1.bindEventListener(Viewer$1.downloadModel, "click", () => Viewer$1.closeActionMenu());
+        Viewer$1.bindEventListener(Viewer$1.downloadModelElement, "click", () => Viewer$1.closeActionMenu());
         Viewer$1.bindEventListener(document, "click", (event) => {
           if (
             !Viewer$1.actionMenu?.contains(event.target) &&
