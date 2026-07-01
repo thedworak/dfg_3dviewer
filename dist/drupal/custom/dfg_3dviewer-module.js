@@ -1583,14 +1583,15 @@ async function setupCamera(_object, _data) {
   // --- CAMERA POSITION ---
   const camPos = urlCameraPosition ?? cfg?.cameraPosition ?? fallback?.camera?.position;
 
-  if (Array.isArray(camPos)) {
+  if (camPos === null || camPos === undefined || (camPos.x === 0 && camPos.y === 0 && camPos.z === 0)) {
+    await setupEmptyCamera(_object);
+  } else if (Array.isArray(camPos)) {
     core.camera.position.set(camPos[0], camPos[1], camPos[2]);
   } else if (camPos && typeof camPos === "object") {
     core.camera.position.set(camPos.x, camPos.y, camPos.z);
-  } else if (camPos === null || camPos === undefined || camPos.equals(new THREE.Vector3(0, 0, 0))) {
+  } else {
     await setupEmptyCamera(_object);
   }
-  console.log(camPos);
 
   // --- CONTROLS TARGET + ZOOM ---
   const target = urlCameraTarget ?? cfg?.controlsTarget ?? fallback?.camera?.target;
