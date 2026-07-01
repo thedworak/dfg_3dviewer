@@ -1492,7 +1492,7 @@ async function setupEmptyCamera(_object) {
   // Set camera position at the center level, behind the model
   const distance = size.length();
   core.camera.position.set(center.x, center.y, center.z + distance);
-  await fitCameraToCenteredObject(_object, true);
+  await fitCameraToCenteredObject(_object, false, null);
 }
 
 function parseColor(v) {
@@ -1929,27 +1929,6 @@ async function fitCameraToCenteredObject(object, _fit, cfg) {
     distanceOffsetFactor: -0.5, // 0.1 = 10% closer
     distanceOffsetUnits: 0, // +0.5 world units
   });
-
-  if (_fit) {
-    var rotateMetadata = new THREE.Vector3();
-    rotateMetadata = new THREE.Vector3(
-      THREE.MathUtils.radToDeg(core.helperObjects[0]?.rotation.x || 1),
-      THREE.MathUtils.radToDeg(core.helperObjects[0]?.rotation.y || 5),
-      THREE.MathUtils.radToDeg(core.helperObjects[0]?.rotation.z || 1)
-    );
-    const rootObject = Array.isArray(object) ? object[0] : object;
-    core.objectsConfig.originalMetadata = {
-      objPosition: [rootObject?.position?.x || 0, rootObject?.position?.y || 0, rootObject?.position?.z || 0],
-      objRotation: [rotateMetadata.x, rotateMetadata.y, rotateMetadata.z],
-      objScale: [
-        core.helperObjects[0]?.scale.x || 1,
-        core.helperObjects[0]?.scale.y || 5,
-        core.helperObjects[0]?.scale.z || 1,
-      ],
-      cameraPosition: [core.camera.position.x, core.camera.position.y, core.camera.position.z],
-      controlsTarget: [core.controls.target.x, core.controls.target.y, core.controls.target.z],
-    };
-  }
   if (!core.PRESENTATION_MODE) {
     setupClippingPlanes(object, {x: boundingBox.max.x*1.1, y: boundingBox.max.y*1.1, z: boundingBox.max.z*1.1});
   }

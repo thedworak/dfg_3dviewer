@@ -364,7 +364,7 @@ async function setupEmptyCamera(_object) {
   // Set camera position at the center level, behind the model
   const distance = size.length();
   core.camera.position.set(center.x, center.y, center.z + distance);
-  await fitCameraToCenteredObject(_object, true);
+  await fitCameraToCenteredObject(_object, false, null);
 }
 
 function parseColor(v) {
