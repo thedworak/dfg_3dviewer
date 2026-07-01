@@ -360,10 +360,6 @@ async function setupEmptyCamera(_object) {
   }
   var size = new THREE.Vector3();
   boundingBox.getSize(size);
-  console.log("min", boundingBox.min);
-console.log("max", boundingBox.max);
-console.log("center", center);
-console.log("size", size);
   var center = new THREE.Vector3();
   boundingBox.getCenter(center);
   // Set camera position at the center level, behind the model
@@ -696,7 +692,6 @@ function animateCameraToPose ({
 }
 
 async function fitCameraToCenteredObject(object, _fit, cfg) {
-  console.log(cfg);
   const boundingBox = new THREE.Box3();
   if (Array.isArray(object)) {
     for (let i = 0; i < object.length; i++) {
@@ -834,6 +829,8 @@ async function fitCameraToCenteredObject(object, _fit, cfg) {
   if (!core.PRESENTATION_MODE) {
     setupClippingPlanes(object, {x: boundingBox.max.x*1.1, y: boundingBox.max.y*1.1, z: boundingBox.max.z*1.1});
   }
+  console.log("camera", core.camera.position);
+console.log("target", core.controls.target);
 }
 
 function parseGradient(str) {
