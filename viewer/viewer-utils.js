@@ -821,7 +821,7 @@ async function fitCameraToCenteredObject(object, _fit, cfg) {
         core.helperObjects[0]?.scale.y || 5,
         core.helperObjects[0]?.scale.z || 1,
       ],
-      cameraPosition: [core.camera.position.x, core.camera.position.y, core.camera.position.z],
+      cameraPosition: [core.cameraCoords.x, core.cameraCoords.y, core.cameraCoords.z],
       controlsTarget: [core.controls.target.x, core.controls.target.y, core.controls.target.z],
     };
   }
