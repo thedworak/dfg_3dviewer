@@ -594,7 +594,7 @@ export async function setupCamera(_object, _data) {
   core.handHint.classList.add("hand-drag-animate");
 }
 
-function animateCameraToPose ({
+async function animateCameraToPose ({
   finalCameraPos,     // THREE.Vector3 (target camera position)
   finalTarget,        // THREE.Vector3 (target)
   boundingBox,        // THREE.Box3 (optional, near/far)
@@ -796,7 +796,7 @@ async function fitCameraToCenteredObject(object, _fit, cfg) {
   console.log(finalCameraPos);
 
   // === animate ===
-  animateCameraToPose({
+  await animateCameraToPose({
     finalCameraPos,
     finalTarget,
     boundingBox,
