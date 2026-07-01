@@ -443,7 +443,7 @@ function resolveBackground(meta, sceneId) {
 export async function setupCamera(_object, _data) {
   const _light = core.lightObjects[0];
   const cfg = _data ?? core.CONFIG ?? null;
-  const fallback = _data ?? core.objectsConfig ?? null;
+  const fallback = _data ?? null;
   const urlCameraPosition = normalizeVec3(window.Viewer?.urlOptions?.cameraPosition);
   const urlCameraTarget = normalizeVec3(window.Viewer?.urlOptions?.cameraTarget);
   const urlCameraFov = Number.isFinite(window.Viewer?.urlOptions?.cameraFov)
