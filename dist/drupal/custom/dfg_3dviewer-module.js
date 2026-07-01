@@ -1581,6 +1581,7 @@ async function setupCamera(_object, _data) {
   };
 
   // --- CAMERA POSITION ---
+  console.log("Setting up camera with urlCameraPosition", urlCameraPosition, "with config", cfg?.cameraPosition, "and fallback", fallback?.camera?.position);
   const camPos = urlCameraPosition ?? cfg?.cameraPosition ?? fallback?.camera?.position;
 
   if (Array.isArray(camPos)) {
