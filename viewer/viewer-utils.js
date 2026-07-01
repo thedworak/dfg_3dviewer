@@ -452,16 +452,6 @@ export async function setupCamera(_object, _data) {
     return normalized ? [normalized.x, normalized.y, normalized.z] : null;
   };
 
-  if (window.Viewer?.isEmbedMode?.() && (urlCameraPosition || urlCameraTarget || urlCameraFov !== null)) {
-    console.info("[embed-camera] setupCamera input", {
-      urlCameraPosition,
-      urlCameraTarget,
-      urlCameraFov,
-      configCameraPosition: normalizeVec3(cfg?.cameraPosition ?? fallback?.camera?.position),
-      configCameraTarget: normalizeVec3(cfg?.controlsTarget ?? fallback?.camera?.target),
-    });
-  }
-
   // --- CAMERA POSITION ---
   const camPos = urlCameraPosition ?? cfg?.cameraPosition ?? fallback?.camera?.position;
 
@@ -472,6 +462,7 @@ export async function setupCamera(_object, _data) {
   } else {
     await setupEmptyCamera(_object);
   }
+  console.log(camPos);
 
   // --- CONTROLS TARGET + ZOOM ---
   const target = urlCameraTarget ?? cfg?.controlsTarget ?? fallback?.camera?.target;
