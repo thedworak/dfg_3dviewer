@@ -364,7 +364,6 @@ async function setupEmptyCamera(_object) {
   // Set camera position at the center level, behind the model
   const distance = size.length();
   core.camera.position.set(center.x, center.y, center.z + distance);
-  console.log(core.camera.position);
   await fitCameraToCenteredObject(_object, true, null);
 }
 
@@ -691,6 +690,7 @@ function animateCameraToPose ({
 }
 
 async function fitCameraToCenteredObject(object, _fit, cfg) {
+  console.log(cfg);
   const boundingBox = new THREE.Box3();
   if (Array.isArray(object)) {
     for (let i = 0; i < object.length; i++) {
