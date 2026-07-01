@@ -363,6 +363,7 @@ async function setupEmptyCamera(_object) {
   boundingBox.getCenter(center);
   // Set camera position at the center level, behind the model
   const distance = size.length();
+  console.log(center);
   core.camera.position.set(center.x, center.y, center.z + distance);
   await fitCameraToCenteredObject(_object, true, null);
 }
@@ -821,7 +822,7 @@ async function fitCameraToCenteredObject(object, _fit, cfg) {
         core.helperObjects[0]?.scale.y || 5,
         core.helperObjects[0]?.scale.z || 1,
       ],
-      cameraPosition: [core.cameraCoords.x, core.cameraCoords.y, core.cameraCoords.z],
+      cameraPosition: [core.camera.position.x, core.camera.position.y, core.camera.position.z],
       controlsTarget: [core.controls.target.x, core.controls.target.y, core.controls.target.z],
     };
   }
