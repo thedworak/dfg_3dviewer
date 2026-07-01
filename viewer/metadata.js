@@ -276,7 +276,7 @@ export async function handleMetadataResponse(
   object,
 ) {
   Viewer.clearHierarchySubmenu();
-  
+  console.log(data);
   var tempArray = [];
   if (Array.isArray(object)) {
     setupObject(object[0], data);
