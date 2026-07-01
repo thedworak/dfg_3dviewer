@@ -411,9 +411,9 @@ function parseGradientArray(arr) {
 
 function resolveBackground(meta, sceneId) {
   const raw =
-    meta.scenes?.[sceneId]?.background ??
-    meta.scene?.background ??
-    meta.globals?.background ??
+    meta?.scenes?.[sceneId]?.background ??
+    meta?.scene?.background ??
+    meta?.globals?.background ??
     null;
 
   if (!raw) return { kind: "default" };
