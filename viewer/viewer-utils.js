@@ -360,6 +360,10 @@ async function setupEmptyCamera(_object) {
   }
   var size = new THREE.Vector3();
   boundingBox.getSize(size);
+  console.log("min", boundingBox.min);
+console.log("max", boundingBox.max);
+console.log("center", center);
+console.log("size", size);
   var center = new THREE.Vector3();
   boundingBox.getCenter(center);
   // Set camera position at the center level, behind the model
