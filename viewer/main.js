@@ -87,7 +87,7 @@ import {
 import { VIEWER_I18N } from "./i18n.js";
 import { t } from "./i18n-utils.js";
 import { loadDroppedArchive } from "./extract-helper.js";
-import { loadDroppedModel } from "./sandbox.js";
+import { loadDroppedModel, createCreditsElement } from "./sandbox.js";
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 
 export const Viewer = {
@@ -127,6 +127,7 @@ export const Viewer = {
   targetTween: null,
   container: null,
   viewerWrapper: null,
+  creditsWrapper: null,
   scrollTop: null,
   rect: null,
   fileObject: { originalPath: '', filename: '', basename: '', extension: '', path: '', uri: '', newExtension: '', relativePath: '', autopath: '' },
@@ -2311,6 +2312,11 @@ export const Viewer = {
         if (core.editorToolbar) {
           core.editorToolbar.style.bottom = `${bottom}px`;
         }
+        if (Viewer.creditsWrapper) {
+          Viewer.creditsWrapper.style.width = `${effectiveWidth - 64}px`;
+          Viewer.creditsWrapper.style.left = `${canvasRect.left + 8}px`;
+          Viewer.creditsWrapper.style.bottom = `${bottom - Viewer.creditsWrapper.getBoundingClientRect().height - 24}px`;
+        }
       }
 
       // metadata overlay
@@ -3905,7 +3911,12 @@ export const Viewer = {
           });
         }
       }
-
+      if ((core.isLocalPreview || core.SANDBOX_MODE) && !core.PRESENTATION_MODE) {
+        Viewer.creditsWrapper = await createCreditsElement();
+        if (Viewer.creditsWrapper) {
+          core.container.appendChild(Viewer.creditsWrapper);
+        }
+      }
       if (core.SANDBOX_MODE) {
         Viewer.prepareSandboxScene();
       } else if (!core.PRESENTATION_MODE) {

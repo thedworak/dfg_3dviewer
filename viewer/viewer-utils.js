@@ -364,7 +364,6 @@ async function setupEmptyCamera(_object) {
   boundingBox.getCenter(center);
   // Set camera position at the center level, behind the model
   const distance = size.length();
-  console.log(center);
   core.camera.position.set(center.x, center.y, center.z + distance);
   await fitCameraToCenteredObject(_object, true, null);
 }
@@ -793,8 +792,6 @@ async function fitCameraToCenteredObject(object, _fit, cfg) {
   core.cameraCoords = finalCameraPos.clone();
   core.controlsTarget = finalTarget.clone();
 
-  console.log(finalCameraPos);
-
   // === animate ===
   await animateCameraToPose({
     finalCameraPos,
@@ -829,8 +826,7 @@ async function fitCameraToCenteredObject(object, _fit, cfg) {
   if (!core.PRESENTATION_MODE) {
     setupClippingPlanes(object, {x: boundingBox.max.x*1.1, y: boundingBox.max.y*1.1, z: boundingBox.max.z*1.1});
   }
-  console.log("camera", core.camera.position);
-console.log("target", core.controls.target);
+
 }
 
 function parseGradient(str) {

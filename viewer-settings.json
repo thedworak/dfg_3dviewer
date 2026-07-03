@@ -43,6 +43,42 @@
     },
     "measurement": {
       "modelUnitInMeters": 1
+    },
+    "credits": {
+      "visible": true,
+      "logo": {
+        "src": "assets/logo.svg",
+        "url": "https://your-domain.com"
+      },
+      "items": [
+        {
+          "label": "Created by",
+          "text": "Daniel Dworak",
+          "logo": {
+            "src": "assets/logo.svg",
+            "url": "https://thedworak.com"
+          },
+          "url": "https://thedworak.com"
+        },
+        {
+          "label": "Funded by",
+          "text": "Deutsche Forschungsgemeinschaft (DFG)",
+          "logo": {
+            "src": "assets/logo.svg",
+            "url": "https://www.dfg.de"
+          },
+          "url": "https://www.dfg.de"
+        },
+        {
+          "label": "Copyright",
+          "text": "© 2026 Daniel Dworak",
+          "logo": {
+            "src": "assets/logo.svg",
+            "url": "https://thedworak.com"
+          },
+          "url": "https://thedworak.com"
+        }
+      ]
     }
   }
 }

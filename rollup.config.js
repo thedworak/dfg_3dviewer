@@ -39,7 +39,11 @@ console.log('[rollup] modulesPath:', modulesPath);
 console.log('[rollup] output subdirectory:', envSubdir);
 
 async function copyDirectory(source, target) {
-  await fs.cp(source, target, { recursive: true });
+  await fs.rm(target, { recursive: true, force: true });
+  await fs.cp(source, target, {
+    recursive: true,
+    dereference: true,
+  });
 }
 
 async function writeDrupalLibrariesFile() {

@@ -1476,6 +1476,7 @@ const setupObject = (_object, _metadata) => {
 
 async function setupEmptyCamera(_object) {
   console.log("Setting up empty camera");
+  _object.updateWorldMatrix(true, true);
   var boundingBox = new THREE.Box3();
   if (Array.isArray(_object)) {
     for (let i = 0; i < _object.length; i++) {
@@ -1492,7 +1493,7 @@ async function setupEmptyCamera(_object) {
   // Set camera position at the center level, behind the model
   const distance = size.length();
   core.camera.position.set(center.x, center.y, center.z + distance);
-  await fitCameraToCenteredObject(_object, true);
+  await fitCameraToCenteredObject(_object, true, null);
 }
 
 function parseColor(v) {
@@ -1537,9 +1538,9 @@ function parseGradientArray(arr) {
 
 function resolveBackground(meta, sceneId) {
   const raw =
-    meta.scenes?.[sceneId]?.background ??
-    meta.scene?.background ??
-    meta.globals?.background ??
+    meta?.scenes?.[sceneId]?.background ??
+    meta?.scene?.background ??
+    meta?.globals?.background ??
     null;
 
   if (!raw) return { kind: "default" };
@@ -1569,7 +1570,7 @@ function resolveBackground(meta, sceneId) {
 async function setupCamera(_object, _data) {
   const _light = core.lightObjects[0];
   const cfg = _data ?? core.CONFIG ?? null;
-  const fallback = _data ?? core.objectsConfig ?? null;
+  const fallback = _data ?? null;
   const urlCameraPosition = normalizeVec3(window.Viewer?.urlOptions?.cameraPosition);
   const urlCameraTarget = normalizeVec3(window.Viewer?.urlOptions?.cameraTarget);
   const urlCameraFov = Number.isFinite(window.Viewer?.urlOptions?.cameraFov)
@@ -1580,20 +1581,12 @@ async function setupCamera(_object, _data) {
     return normalized ? [normalized.x, normalized.y, normalized.z] : null;
   };
 
-  if (window.Viewer?.isEmbedMode?.() && (urlCameraPosition || urlCameraTarget || urlCameraFov !== null)) {
-    console.info("[embed-camera] setupCamera input", {
-      urlCameraPosition,
-      urlCameraTarget,
-      urlCameraFov,
-      configCameraPosition: normalizeVec3(cfg?.cameraPosition ?? fallback?.camera?.position),
-      configCameraTarget: normalizeVec3(cfg?.controlsTarget ?? fallback?.camera?.target),
-    });
-  }
-
   // --- CAMERA POSITION ---
   const camPos = urlCameraPosition ?? cfg?.cameraPosition ?? fallback?.camera?.position;
 
-  if (Array.isArray(camPos)) {
+  if (camPos === null || camPos === undefined || (camPos.x === 0 && camPos.y === 0 && camPos.z === 0)) {
+    await setupEmptyCamera(_object);
+  } else if (Array.isArray(camPos)) {
     core.camera.position.set(camPos[0], camPos[1], camPos[2]);
   } else if (camPos && typeof camPos === "object") {
     core.camera.position.set(camPos.x, camPos.y, camPos.z);
@@ -1707,7 +1700,7 @@ async function setupCamera(_object, _data) {
     fitConfig.controlsTarget = fitControlsTarget;
   }
 
-  await fitCameraToCenteredObject(_object, false, fitConfig);
+  await fitCameraToCenteredObject(_object, true, fitConfig);
 }
 
   // Show interaction hint on first load
@@ -1728,7 +1721,7 @@ async function setupCamera(_object, _data) {
   core.handHint.classList.add("hand-drag-animate");
 }
 
-function animateCameraToPose ({
+async function animateCameraToPose ({
   finalCameraPos,     // THREE.Vector3 (target camera position)
   finalTarget,        // THREE.Vector3 (target)
   boundingBox,        // THREE.Box3 (optional, near/far)
@@ -1928,7 +1921,7 @@ async function fitCameraToCenteredObject(object, _fit, cfg) {
   core.controlsTarget = finalTarget.clone();
 
   // === animate ===
-  animateCameraToPose({
+  await animateCameraToPose({
     finalCameraPos,
     finalTarget,
     boundingBox,
@@ -1938,7 +1931,7 @@ async function fitCameraToCenteredObject(object, _fit, cfg) {
     distanceOffsetUnits: 0, // +0.5 world units
   });
 
-  if (_fit) {
+  {
     var rotateMetadata = new THREE.Vector3();
     rotateMetadata = new THREE.Vector3(
       THREE.MathUtils.radToDeg(core.helperObjects[0]?.rotation.x || 1),
@@ -1961,6 +1954,7 @@ async function fitCameraToCenteredObject(object, _fit, cfg) {
   if (!core.PRESENTATION_MODE) {
     setupClippingPlanes(object, {x: boundingBox.max.x*1.1, y: boundingBox.max.y*1.1, z: boundingBox.max.z*1.1});
   }
+
 }
 
 function parseGradient(str) {
@@ -6508,7 +6502,7 @@ function attachPicking(Viewer) {
 function captureAndUploadThumbnail(viewer) {
   core.camera.aspect = 1;
   core.camera.updateProjectionMatrix();
-  core.renderer.setSize(256, 256);
+  core.renderer.setSize(1024, 1024);
   core.renderer.render(core.scene, core.camera);
 
   viewer.mainCanvas.toBlob((imgBlob) => {
@@ -6533,8 +6527,10 @@ function captureAndUploadThumbnail(viewer) {
     fileform.append("data", imgBlob, "thumbnail.png");
     console.log("Uploading thumbnail for entity ID:", core.CONFIG.entity.id);
     fileform.append("wisski_individual", core.CONFIG.entity.id);
+    const callUrl = core.CONFIG.mainUrl + "/api/editor/upload-thumbnail";
+    console.log("Preparing call for ", callUrl);
 
-    fetch(core.CONFIG.mainUrl + "/api/editor/upload-thumbnail", {
+    fetch(callUrl, {
       method: "POST",
       credentials: "same-origin",
       headers: {
@@ -6897,11 +6893,11 @@ async function fetchSettings(object) {
     if (core.CONFIG.entity.proxyPath !== undefined || core.isLightweight) {
       metadataUrl = core.getProxyPath(metadataUrl, core.CONFIG);
       const data = await loadMetadataData(metadataUrl);
-      window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
+      if (data !== null) window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
       await handleMetadataResponse(data, metadata, object);
     } else {
       const data = await loadMetadataData(metadataUrl);
-      window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
+      if (data !== null) window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
       await handleMetadataResponse(data, metadata, object);
     }
   } else {
@@ -7871,7 +7867,7 @@ let objectsConfig = {
   ],
 
   camera: {
-    position: { x: 0, y: 5, z: 10 },
+    position: { x: 0, y: 0, z: 0 },
     target:   { x: 0, y: 0, z: 0 }
   },
 
@@ -15727,6 +15723,67 @@ function unzipSync(data, opts) {
     return files;
 }
 
+async function createCreditsElement() {
+  const credits = core.CONFIG?.viewer?.credits;
+
+  if (!credits?.visible) {
+    return null;
+  }
+
+  const creditsDiv = document.createElement("div");
+  creditsDiv.id = "credits";
+
+  let html = "";
+
+  if (credits.logo?.src) {
+    html += `
+      <div class="credits-header">
+        ${credits.logo.url ? `<a href="${credits.logo.url}" target="_blank" rel="noopener noreferrer">` : ""}
+          <img src="${credits.logo.src}" class="credits-main-logo" alt="Logo">
+        ${credits.logo.url ? "</a>" : ""}
+      </div>
+    `;
+  }
+
+  html += `<div class="credits-items">`;
+
+  for (const item of credits.items ?? []) {
+    html += `
+      <div class="credits-item">
+
+        <div class="credits-label">
+          ${item.label}
+        </div>
+
+        ${
+          item.logo?.src
+            ? `
+              <div class="credits-logo-wrapper">
+                ${item.logo.url ? `<a href="${item.logo.url}" target="_blank" rel="noopener noreferrer">` : ""}
+                  <img class="credits-logo" src="${item.logo.src}" alt="">
+                ${item.logo.url ? "</a>" : ""}
+              </div>
+            `
+            : ""
+        }
+
+        ${
+          item.url
+            ? `<a href="${item.url}" target="_blank" rel="noopener noreferrer" class="credits-link">${item.text}</a>`
+            : `<div class="credits-text">${item.text}</div>`
+        }
+
+      </div>
+    `;
+  }
+
+  html += `</div>`;
+
+  creditsDiv.innerHTML = html;
+
+  return creditsDiv;
+}
+
 async function loadDroppedModel (file) {
   const extension = file.name.split('.').pop().toLowerCase();
 
@@ -15934,6 +15991,7 @@ const Viewer$1 = {
   targetTween: null,
   container: null,
   viewerWrapper: null,
+  creditsWrapper: null,
   scrollTop: null,
   rect: null,
   fileObject: { originalPath: '', filename: '', basename: '', extension: '', path: '', uri: '', newExtension: '', relativePath: '', autopath: '' },
@@ -18115,6 +18173,11 @@ const Viewer$1 = {
         if (core.editorToolbar) {
           core.editorToolbar.style.bottom = `${bottom}px`;
         }
+        if (Viewer$1.creditsWrapper) {
+          Viewer$1.creditsWrapper.style.width = `${effectiveWidth - 64}px`;
+          Viewer$1.creditsWrapper.style.left = `${canvasRect.left + 8}px`;
+          Viewer$1.creditsWrapper.style.bottom = `${bottom - Viewer$1.creditsWrapper.getBoundingClientRect().height - 24}px`;
+        }
       }
 
       // metadata overlay
@@ -19706,7 +19769,12 @@ const Viewer$1 = {
           });
         }
       }
-
+      if ((core.isLocalPreview || core.SANDBOX_MODE) && !core.PRESENTATION_MODE) {
+        Viewer$1.creditsWrapper = await createCreditsElement();
+        if (Viewer$1.creditsWrapper) {
+          core.container.appendChild(Viewer$1.creditsWrapper);
+        }
+      }
       if (core.SANDBOX_MODE) {
         Viewer$1.prepareSandboxScene();
       } else if (!core.PRESENTATION_MODE) {

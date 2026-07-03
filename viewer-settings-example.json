@@ -43,6 +43,42 @@
     },
     "measurement": {
       "modelUnitInMeters": 1
+    },
+    "credits": {
+      "visible": true,
+      "logo": {
+        "src": "assets/logo.svg",
+        "url": "https://your-domain.com"
+      },
+      "items": [
+        {
+          "label": "Created by",
+          "text": "Author",
+          "logo": {
+            "src": "assets/logo.svg",
+            "url": "https://your-domain.com"
+          },
+          "url": "https://your-domain.com"
+        },
+        {
+          "label": "Funded by",
+          "text": "XYZ Foundation",
+          "logo": {
+            "src": "assets/logo.svg",
+            "url": "https://www.xyzfoundation.org"
+          },
+          "url": "https://www.xyzfoundation.org"
+        },
+        {
+          "label": "Copyright",
+          "text": "© 2026 Author",
+          "logo": {
+            "src": "assets/logo.svg",
+            "url": "https://your-domain.com"
+          },
+          "url": "https://your-domain.com"
+        }
+      ]
     }
   }
 }
