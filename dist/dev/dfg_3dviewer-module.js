@@ -441,6 +441,8 @@ const VIEWER_I18N = {
       settingsFound: "Settings {filename}_viewer.json found",
       settingsNotFound: "No settings {filename}_viewer.json found",
       metadataFetchError: "Error fetching metadata: {error}",
+      invalidJSON: "Invalid JSON: {error}",
+      missingJsonSettings: "Required configuration file is missing: {url} (HTTP {status})\nThe viewer cannot start without \"viewer-settings.json\".\nPlease verify that the file was copied during the build/deployment.",
 
       presentationModeError: "An error occurred during presentation mode setup.",
       objLoaded: "OBJ model has been loaded.",
@@ -734,6 +736,8 @@ const VIEWER_I18N = {
       settingsFound: "Znaleziono ustawienia {filename}_viewer.json",
       settingsNotFound: "Nie znaleziono ustawień {filename}_viewer.json",
       metadataFetchError: "Błąd pobierania metadanych: {error}",
+      invalidJSON: "Nieprawidłowy JSON: {error}",
+      missingJsonSettings: "Brak wymaganego pliku konfiguracyjnego: {url} (HTTP {status})\nViewer nie może się uruchomić bez \"viewer-settings.json\".\nProszę sprawdzić, czy plik został skopiowany podczas budowania/deploymentu.",
 
       presentationModeError: "Wystąpił błąd podczas konfiguracji trybu prezentacji.",
       objLoaded: "Model OBJ został załadowany.",
@@ -1026,6 +1030,8 @@ const VIEWER_I18N = {
       settingsFound: "Einstellungen {filename}_viewer.json gefunden",
       settingsNotFound: "Keine Einstellungen {filename}_viewer.json gefunden",
       metadataFetchError: "Fehler beim Abrufen der Metadaten: {error}",
+      invalidJSON: "Ungültiges JSON: {error}",
+      missingJsonSettings: "Erforderliche Konfigurationsdatei fehlt: {url} (HTTP {status})\nDer Viewer kann ohne \"viewer-settings.json\" nicht gestartet werden.\nBitte überprüfen Sie, ob die Datei während des Build/Deployments kopiert wurde.",
 
       presentationModeError: "Beim Einrichten des Präsentationsmodus ist ein Fehler aufgetreten.",
       objLoaded: "OBJ-Modell wurde geladen.",
@@ -2926,6 +2932,10 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
   imageList.style.alignItems = "center";
   var modalGallery = document.createElement("div");
   var modalImage = document.createElement("img");
+  var modalPrev = document.createElement("button");
+  var modalNext = document.createElement("button");
+  const galleryImageSources = [];
+  let currentGalleryIndex = -1;
   modalImage.setAttribute("class", "modalImage");
   modalImage.style.transform = "scale(0.95)";
   Viewer.bindEventListener(modalGallery, "wheel", function (e) {
@@ -2944,22 +2954,92 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
   modalClose.setAttribute("class", "closeGallery");
   modalClose.setAttribute("title", "Close");
   modalClose.innerHTML = "&times";
-  modalClose.onclick = function () {
-    modalGallery.classList.remove("is-open");
+  modalPrev.setAttribute("type", "button");
+  modalPrev.setAttribute("class", "galleryNav galleryNavPrev");
+  modalPrev.setAttribute("title", "Previous image");
+  modalPrev.setAttribute("aria-label", "Previous image");
+  modalPrev.innerHTML =
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 5.3a1 1 0 0 1 0 1.4L9.41 12l5.3 5.3a1 1 0 1 1-1.42 1.4l-6-6a1 1 0 0 1 0-1.4l6-6a1 1 0 0 1 1.41 0Z"/></svg>';
+  modalNext.setAttribute("type", "button");
+  modalNext.setAttribute("class", "galleryNav galleryNavNext");
+  modalNext.setAttribute("title", "Next image");
+  modalNext.setAttribute("aria-label", "Next image");
+  modalNext.innerHTML =
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.3 18.7a1 1 0 0 1 0-1.4l5.29-5.3-5.3-5.3a1 1 0 1 1 1.42-1.4l6 6a1 1 0 0 1 0 1.4l-6 6a1 1 0 0 1-1.41 0Z"/></svg>';
+
+  const showGalleryImageAtIndex = function (index) {
+    if (galleryImageSources.length === 0) {
+      return;
+    }
+    const normalizedIndex =
+      (index + galleryImageSources.length) % galleryImageSources.length;
+    currentGalleryIndex = normalizedIndex;
+    modalImage.src = galleryImageSources[normalizedIndex];
   };
+
+  const openModalGalleryAtIndex = function (index) {
+    showGalleryImageAtIndex(index);
+    modalGallery.classList.add("is-open");
+    imageList.style.zIndex = 0;
+    imageList.style.display = "hidden";
+  };
+
+  const closeModalGallery = function () {
+    modalGallery.classList.remove("is-open");
+    Viewer.zoomImage = 1.5;
+    modalImage.style.transform = "scale(1.5)";
+  };
+
+  modalClose.onclick = function () {
+    closeModalGallery();
+  };
+
+  modalPrev.onclick = function (event) {
+    event.preventDefault();
+    event.stopPropagation();
+    showGalleryImageAtIndex(currentGalleryIndex - 1);
+  };
+
+  modalNext.onclick = function (event) {
+    event.preventDefault();
+    event.stopPropagation();
+    showGalleryImageAtIndex(currentGalleryIndex + 1);
+  };
+
+  Viewer.bindEventListener(modalGallery, "click", function (event) {
+    if (event.target === modalGallery) {
+      closeModalGallery();
+    }
+  });
 
   Viewer.bindEventListener(document, "click", function (event) {
     if (
       !modalGallery.contains(event.target) &&
       !imageList.contains(event.target)
     ) {
-      modalGallery.classList.remove("is-open");
-      Viewer.zoomImage = 1.5;
-      modalImage.style.transform = "scale(1.5)";
+      closeModalGallery();
     }
   });
 
+  Viewer.bindEventListener(document, "keydown", function (event) {
+    if (!modalGallery.classList.contains("is-open")) {
+      return;
+    }
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      showGalleryImageAtIndex(currentGalleryIndex - 1);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      showGalleryImageAtIndex(currentGalleryIndex + 1);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      closeModalGallery();
+    }
+  });
+
+  modalGallery.appendChild(modalPrev);
   modalGallery.appendChild(modalImage);
+  modalGallery.appendChild(modalNext);
   modalGallery.appendChild(modalClose);
   for (let i = 0; imageElementsChildren.length - i >= 0; i++) {
     if (
@@ -2978,11 +3058,9 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
         imgList[0].style.maxHeight = "180px";
       }
       for (let j = 0; j < imgList.length; j++) {
+        const nextIndex = galleryImageSources.push(imgList[j].src) - 1;
         imgList[j].onclick = function () {
-          modalGallery.classList.add("is-open");
-          imageList.style.zIndex = 0;
-          imageList.style.display = "hidden";
-          modalImage.src = this.src;
+          openModalGalleryAtIndex(nextIndex);
         };
       }
       if (imageElementsChildren[i] instanceof HTMLElement) {
@@ -4060,7 +4138,6 @@ function attachLoadingStatus(viewer) {
       } else {
         this.statusNoticeQueue.splice(insertAt, 0, nextNotice);
       }
-
       this.processStatusNoticeQueue();
     },
 
@@ -6882,7 +6959,7 @@ async function fetchSettings(object) {
   } else {
     console.warn("Metadata URL or file information is missing. Skipping metadata fetch.");
   }
-  // Hierarchy is now managed by the editor toolbar submenu, not lilGUI
+
   
   if (core.CONFIG.entity.metadata.sourceType === "IIIF") {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);
@@ -16068,7 +16145,6 @@ const Viewer$1 = {
   metadataContainer: null,
   spinner: null,
   circle: null,
-  lilGui: null,
   raycaster: new THREE.Raycaster(),
   pointer: new THREE.Vector2(),
   onUpPosition: new THREE.Vector2(),
@@ -17420,6 +17496,32 @@ const Viewer$1 = {
     showToast("toasts.missingFiles", "error", { duration: 5000 });
   },
 
+  async loadRequiredJson(url) {
+    let response;
+
+    try {
+      response = await fetch(url, { cache: "no-store" });
+    } catch (err) {
+      throw new Error(
+        `Cannot access required file "${url.href}". ${err.message}`
+      );
+    }
+
+    if (!response.ok) {
+      toastHelper("missingJsonSettings", "error", { duration: 5000, url: url.href, status: response.status });
+      //throw new Error(errorText);
+    }
+
+    try {
+      return await response.json();
+    } catch (err) {
+      toastHelper("invalidJSON", "error", { duration: 5000, error: err.message });
+      throw new Error(
+        `File "${url.href}" contains invalid JSON. ${err.message}`
+      );
+    }
+  },
+
   async MainInit() {
     if (window.__E2E__) {
       this.ensureE2EState();
@@ -17437,7 +17539,6 @@ const Viewer$1 = {
     const settingsPath = moduleUrl.pathname.includes('/assets/')
       ? '../viewer-settings.json'
       : './viewer-settings.json';
-    const url = new URL(settingsPath, moduleUrl);
 
     //Setup core variables first to make them available in the loaders and utils
     setCore('viewEntity', this.viewEntity);
@@ -17445,7 +17546,6 @@ const Viewer$1 = {
     setCore('loadedFile', this.loadedFile);
     setCore('stats', this.stats);
     setCore('guiContainer', this.guiContainer);
-    setCore('lilGui', this.lilGui);
     setCore('gui', this.gui);
     setCore('i18nGui', this.i18nGui);
     setCore('SUPPORTED_EXTENSIONS', this.SUPPORTED_EXTENSIONS);
@@ -17456,10 +17556,34 @@ const Viewer$1 = {
     setCore('editorToolbar', this.editorToolbar);
     setCore('wireframeMode', this.wireframeMode);
     setCore('boundingBox', this.boundingBox);
+    this.noticeContainer = document.createElement("div");
+    this.noticeContainer.id = "viewerNoticeContainer";
+    this.statusNotice = document.createElement("div");
+    this.statusNotice.id = "viewerStatusNotice";
+    this.statusNotice.className = "viewer-notice viewer-notice-status";
+    this.statusNotice.hidden = true;
+    this.statusNotice.setAttribute("role", "status");
+    this.statusNotice.setAttribute("aria-live", "polite");
+    this.noticeContainer.appendChild(this.statusNotice);
+    // Mount early so startup errors can be shown before viewer container is resolved.
+    if (!this.noticeContainer.parentNode) {
+      document.body.appendChild(this.noticeContainer);
+    }
+    setCore("statusNotice", this.statusNotice);
+    this.parseUrlOptions();
+    setCore('showNotifications', this.showNotifications);
+  
+    this.statusNoticeQueue = [];
+    this.statusNoticeActive = false;
+    if (this.statusNoticeTimer) {
+      clearTimeout(this.statusNoticeTimer);
+      this.statusNoticeTimer = null;
+    }
+    if (this.urlOptions.showNotifications !== undefined && this.urlOptions.showNotifications !== null) {
+      core.showNotifications = this.urlOptions.showNotifications;
+    }
 
-    const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    core.CONFIG = await res.json();
+    core.CONFIG = await this.loadRequiredJson(new URL(settingsPath, moduleUrl));
     console.log("Loaded viewer-settings.json", core.CONFIG.viewer);
 
     if (Object.keys(core.CONFIG).length === 0) {
@@ -17537,29 +17661,6 @@ const Viewer$1 = {
     }
 
     this.container = document.getElementById(core.CONFIG.viewer.container);
-    this.noticeContainer = document.createElement("div");
-    this.noticeContainer.id = "viewerNoticeContainer";
-    this.statusNotice = document.createElement("div");
-    this.statusNotice.id = "viewerStatusNotice";
-    this.statusNotice.className = "viewer-notice viewer-notice-status";
-    this.statusNotice.hidden = true;
-    this.statusNotice.setAttribute("role", "status");
-    this.statusNotice.setAttribute("aria-live", "polite");
-    this.noticeContainer.appendChild(this.statusNotice);
-    setCore("statusNotice", this.statusNotice);
-    this.statusNoticeQueue = [];
-    this.statusNoticeActive = false;
-    if (this.statusNoticeTimer) {
-      clearTimeout(this.statusNoticeTimer);
-      this.statusNoticeTimer = null;
-    }
-
-    this.parseUrlOptions();
-
-    setCore('showNotifications', this.showNotifications);
-    if (this.urlOptions.showNotifications !== undefined && this.urlOptions.showNotifications !== null) {
-      core.showNotifications = this.urlOptions.showNotifications;
-    }
 
     if (!this.container) {
       document.body.appendChild(this.noticeContainer);
@@ -18461,7 +18562,6 @@ const Viewer$1 = {
     if (!core.guiContainer) return;
 
     core.guiContainer.hidden = false;
-    core.lilGui = document.getElementsByClassName("lil-gui root");
 
     const updateAfterLayout = () => {
       Viewer$1.updateSize();
@@ -19619,7 +19719,6 @@ const Viewer$1 = {
           };
         }
         core.guiContainer.style.maxHeight = `${Viewer$1.rect.height - 20}px`;
-        //core.lilGui = document.getElementsByClassName("lil-gui root");
 
         Viewer$1.fileElement = document.getElementsByClassName("field--type-file");
         if (Viewer$1.fileElement.length > 0) {

@@ -68,14 +68,6 @@ export function addWissKIMetadata(label, value) {
   }
 }
 
-export function lilGUIhasFolder(folder, name) {
-  return folder.folders.some(f => f._title === name);
-}
-
-export function lilGUIgetFolder(gui, name) {
-  return gui?.folders?.find(f => f._title === name) || null;
-}
-
 /**
  * Expands/collapses the metadata panel.
  */
@@ -393,7 +385,7 @@ export async function handleMetadataResponse(
 /**
  * Handles settings for the loaded object and camera.
  */
-export async function settingsHandler(object, hierarchyMain, data) {
+export async function settingsHandler(object, data) {
   if (Array.isArray(object)) {
     setupObject(object[0], data);
     await setupCamera(object[0], data);
@@ -488,8 +480,6 @@ export async function fetchSettings(object) {
     console.warn("Metadata URL or file information is missing. Skipping metadata fetch.");
   }
 
-  let hierarchyMain;
-  // Hierarchy is now managed by the editor toolbar submenu, not lilGUI
   
   if (core.CONFIG.entity.metadata.sourceType === "IIIF") {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);

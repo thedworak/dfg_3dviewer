@@ -204,7 +204,6 @@ export const Viewer = {
   metadataContainer: null,
   spinner: null,
   circle: null,
-  lilGui: null,
   raycaster: new THREE.Raycaster(),
   pointer: new THREE.Vector2(),
   onUpPosition: new THREE.Vector2(),
@@ -1558,6 +1557,37 @@ export const Viewer = {
     showToast("toasts.missingFiles", "error", { duration: 5000 });
   },
 
+  async loadRequiredJson(url) {
+    let response;
+
+    try {
+      response = await fetch(url, { cache: "no-store" });
+    } catch (err) {
+      throw new Error(
+        `Cannot access required file "${url.href}". ${err.message}`
+      );
+    }
+
+    if (!response.ok) {
+      const errorText = [
+        `Required configuration file is missing: ${url.href} (HTTP ${response.status})`,
+        'The viewer cannot start without "viewer-settings.json".',
+        'Please verify that the file was copied during the build/deployment.'
+      ].join('\n');
+      toastHelper("missingJsonSettings", "error", { duration: 5000, url: url.href, status: response.status });
+      //throw new Error(errorText);
+    }
+
+    try {
+      return await response.json();
+    } catch (err) {
+      toastHelper("invalidJSON", "error", { duration: 5000, error: err.message });
+      throw new Error(
+        `File "${url.href}" contains invalid JSON. ${err.message}`
+      );
+    }
+  },
+
   async MainInit() {
     if (window.__E2E__) {
       this.ensureE2EState();
@@ -1575,7 +1605,6 @@ export const Viewer = {
     const settingsPath = moduleUrl.pathname.includes('/assets/')
       ? '../viewer-settings.json'
       : './viewer-settings.json';
-    const url = new URL(settingsPath, moduleUrl);
 
     //Setup core variables first to make them available in the loaders and utils
     setCore('viewEntity', this.viewEntity);
@@ -1583,7 +1612,6 @@ export const Viewer = {
     setCore('loadedFile', this.loadedFile);
     setCore('stats', this.stats);
     setCore('guiContainer', this.guiContainer);
-    setCore('lilGui', this.lilGui);
     setCore('gui', this.gui);
     setCore('i18nGui', this.i18nGui);
     setCore('SUPPORTED_EXTENSIONS', this.SUPPORTED_EXTENSIONS);
@@ -1594,10 +1622,34 @@ export const Viewer = {
     setCore('editorToolbar', this.editorToolbar);
     setCore('wireframeMode', this.wireframeMode);
     setCore('boundingBox', this.boundingBox);
+    this.noticeContainer = document.createElement("div");
+    this.noticeContainer.id = "viewerNoticeContainer";
+    this.statusNotice = document.createElement("div");
+    this.statusNotice.id = "viewerStatusNotice";
+    this.statusNotice.className = "viewer-notice viewer-notice-status";
+    this.statusNotice.hidden = true;
+    this.statusNotice.setAttribute("role", "status");
+    this.statusNotice.setAttribute("aria-live", "polite");
+    this.noticeContainer.appendChild(this.statusNotice);
+    // Mount early so startup errors can be shown before viewer container is resolved.
+    if (!this.noticeContainer.parentNode) {
+      document.body.appendChild(this.noticeContainer);
+    }
+    setCore("statusNotice", this.statusNotice);
+    this.parseUrlOptions();
+    setCore('showNotifications', this.showNotifications);
+  
+    this.statusNoticeQueue = [];
+    this.statusNoticeActive = false;
+    if (this.statusNoticeTimer) {
+      clearTimeout(this.statusNoticeTimer);
+      this.statusNoticeTimer = null;
+    }
+    if (this.urlOptions.showNotifications !== undefined && this.urlOptions.showNotifications !== null) {
+      core.showNotifications = this.urlOptions.showNotifications;
+    }
 
-    const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    core.CONFIG = await res.json();
+    core.CONFIG = await this.loadRequiredJson(new URL(settingsPath, moduleUrl));
     console.log("Loaded viewer-settings.json", core.CONFIG.viewer);
 
     if (Object.keys(core.CONFIG).length === 0) {
@@ -1675,29 +1727,6 @@ export const Viewer = {
     }
 
     this.container = document.getElementById(core.CONFIG.viewer.container);
-    this.noticeContainer = document.createElement("div");
-    this.noticeContainer.id = "viewerNoticeContainer";
-    this.statusNotice = document.createElement("div");
-    this.statusNotice.id = "viewerStatusNotice";
-    this.statusNotice.className = "viewer-notice viewer-notice-status";
-    this.statusNotice.hidden = true;
-    this.statusNotice.setAttribute("role", "status");
-    this.statusNotice.setAttribute("aria-live", "polite");
-    this.noticeContainer.appendChild(this.statusNotice);
-    setCore("statusNotice", this.statusNotice);
-    this.statusNoticeQueue = [];
-    this.statusNoticeActive = false;
-    if (this.statusNoticeTimer) {
-      clearTimeout(this.statusNoticeTimer);
-      this.statusNoticeTimer = null;
-    }
-
-    this.parseUrlOptions();
-
-    setCore('showNotifications', this.showNotifications);
-    if (this.urlOptions.showNotifications !== undefined && this.urlOptions.showNotifications !== null) {
-      core.showNotifications = this.urlOptions.showNotifications;
-    }
 
     if (!this.container) {
       document.body.appendChild(this.noticeContainer);
@@ -2600,7 +2629,6 @@ export const Viewer = {
     if (!core.guiContainer) return;
 
     core.guiContainer.hidden = false;
-    core.lilGui = document.getElementsByClassName("lil-gui root");
 
     const updateAfterLayout = () => {
       Viewer.updateSize();
@@ -3761,7 +3789,6 @@ export const Viewer = {
           };
         }
         core.guiContainer.style.maxHeight = `${Viewer.rect.height - 20}px`;
-        //core.lilGui = document.getElementsByClassName("lil-gui root");
 
         Viewer.fileElement = document.getElementsByClassName("field--type-file");
         if (Viewer.fileElement.length > 0) {

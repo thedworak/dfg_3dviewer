@@ -597,7 +597,6 @@ export function attachLoadingStatus(viewer) {
       } else {
         this.statusNoticeQueue.splice(insertAt, 0, nextNotice);
       }
-
       this.processStatusNoticeQueue();
     },
 

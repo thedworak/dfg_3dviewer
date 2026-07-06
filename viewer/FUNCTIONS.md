@@ -121,9 +121,6 @@ It is intended as a quick reference for the current `viewer/` module exports and
 - `addWissKIMetadata(label, value)`
   - Map WissKI field names to localized metadata display labels.
 
-- `lilGUIhasFolder(folder, name)` / `lilGUIgetFolder(gui, name)`
-  - Find lil-gui folders by title.
-
 - `expandMetadata()`
   - Toggle the metadata panel open/closed.
 
@@ -136,7 +133,7 @@ It is intended as a quick reference for the current `viewer/` module exports and
 - `handleMetadataResponse(data, metadata, object, hierarchyMain)`
   - Build the metadata panel and edit/hierarchy UI after loading a model.
 
-- `settingsHandler(object, hierarchyMain, data)`
+- `settingsHandler(object, data)`
   - Apply object and camera settings after metadata has been loaded.
 
 - `traverseObject(object)`

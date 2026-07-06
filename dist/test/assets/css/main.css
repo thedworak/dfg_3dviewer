@@ -1292,6 +1292,70 @@ canvas {
   opacity: 1;
 }
 
+.galleryNav {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+
+  width: 56px;
+  height: 56px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 999px;
+  background:
+    linear-gradient(145deg,
+      rgba(255,255,255,.2),
+      rgba(255,255,255,.04));
+  color: rgba(255,255,255,.95);
+
+  cursor: pointer;
+  user-select: none;
+
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+
+  transform: translateY(-50%);
+
+  transition:
+    transform .2s ease,
+    background .2s ease,
+    border-color .2s ease,
+    box-shadow .2s ease;
+}
+
+.galleryNav svg {
+  width: 28px;
+  height: 28px;
+  fill: currentColor;
+}
+
+.galleryNav:hover {
+  transform: translateY(-50%) scale(1.06);
+  border-color: rgba(255,255,255,.35);
+  background:
+    linear-gradient(145deg,
+      rgba(255,255,255,.28),
+      rgba(255,255,255,.08));
+  box-shadow: 0 12px 28px rgba(0,0,0,.3);
+}
+
+.galleryNav:focus-visible {
+  outline: 2px solid rgba(255,255,255,.85);
+  outline-offset: 2px;
+}
+
+.galleryNavPrev {
+  left: 28px;
+}
+
+.galleryNavNext {
+  right: 28px;
+}
+
 .closeGallery {
   position: absolute;
   top: 24px;
@@ -1327,6 +1391,26 @@ canvas {
 .closeGallery:hover {
   transform: scale(1.08);
   background: rgba(255,255,255,.16);
+}
+
+@media (max-width: 900px) {
+  .galleryNav {
+    width: 46px;
+    height: 46px;
+  }
+
+  .galleryNav svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .galleryNavPrev {
+    left: 12px;
+  }
+
+  .galleryNavNext {
+    right: 12px;
+  }
 }
 
 #viewerActionMenu {

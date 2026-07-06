@@ -231,6 +231,8 @@ export const VIEWER_I18N = {
       settingsFound: "Settings {filename}_viewer.json found",
       settingsNotFound: "No settings {filename}_viewer.json found",
       metadataFetchError: "Error fetching metadata: {error}",
+      invalidJSON: "Invalid JSON: {error}",
+      missingJsonSettings: "Required configuration file is missing: {url} (HTTP {status})\nThe viewer cannot start without \"viewer-settings.json\".\nPlease verify that the file was copied during the build/deployment.",
 
       presentationModeError: "An error occurred during presentation mode setup.",
       objLoaded: "OBJ model has been loaded.",
@@ -524,6 +526,8 @@ export const VIEWER_I18N = {
       settingsFound: "Znaleziono ustawienia {filename}_viewer.json",
       settingsNotFound: "Nie znaleziono ustawień {filename}_viewer.json",
       metadataFetchError: "Błąd pobierania metadanych: {error}",
+      invalidJSON: "Nieprawidłowy JSON: {error}",
+      missingJsonSettings: "Brak wymaganego pliku konfiguracyjnego: {url} (HTTP {status})\nViewer nie może się uruchomić bez \"viewer-settings.json\".\nProszę sprawdzić, czy plik został skopiowany podczas budowania/deploymentu.",
 
       presentationModeError: "Wystąpił błąd podczas konfiguracji trybu prezentacji.",
       objLoaded: "Model OBJ został załadowany.",
@@ -816,6 +820,8 @@ export const VIEWER_I18N = {
       settingsFound: "Einstellungen {filename}_viewer.json gefunden",
       settingsNotFound: "Keine Einstellungen {filename}_viewer.json gefunden",
       metadataFetchError: "Fehler beim Abrufen der Metadaten: {error}",
+      invalidJSON: "Ungültiges JSON: {error}",
+      missingJsonSettings: "Erforderliche Konfigurationsdatei fehlt: {url} (HTTP {status})\nDer Viewer kann ohne \"viewer-settings.json\" nicht gestartet werden.\nBitte überprüfen Sie, ob die Datei während des Build/Deployments kopiert wurde.",
 
       presentationModeError: "Beim Einrichten des Präsentationsmodus ist ein Fehler aufgetreten.",
       objLoaded: "OBJ-Modell wurde geladen.",
