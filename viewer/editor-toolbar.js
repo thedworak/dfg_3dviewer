@@ -37,7 +37,9 @@ export function getEditorToolbarIcon(icon) {
     annotateAdd: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 8v5M9.5 10.5h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
     annotateImport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 6.8v7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.8 12 14l3.2-3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     annotateExport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 14.2V7.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.2 12 7l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  IIIFexport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v12H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 3v3h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 18V9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 12.2L12 9l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',    hierarchy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5v5H4zM15 4h5v5h-5zM4 15h5v5H4zM15 15h5v5h-5zM9 6h6M9 17h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  IIIFexport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v12H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 3v3h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 18V9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 12.2L12 9l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+  IIIFimport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v12H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 3v3h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 9v9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 14.8 12 18l3.2-3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+    hierarchy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5v5H4zM15 4h5v5h-5zM4 15h5v5H4zM15 15h5v5h-5zM9 6h6M9 17h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     loadingLogs: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18M3 6h12M3 18h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     performance: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
     statistics: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7 14v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 10v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M17 6v12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
@@ -73,15 +75,42 @@ viewer.editorToolbarSecondaryTray.style.setProperty(
 }
 
 export function getEditorToolbarHost(viewer) {
-  return core.container || viewer.viewerWrapper || null;
+  return core.viewerWrapper || core.container || null;
+}
+
+function getEditorToolbarConfig(viewer) {
+  return core.CONFIG?.viewer?.editorToolbar || viewer?.CONFIG?.viewer?.editorToolbar || {};
+}
+
+function isEditorToolbarEnabled(viewer) {
+  const enabled = getEditorToolbarConfig(viewer).enabled;
+  const parsedEnabled = viewer.parseBooleanParam?.(enabled);
+
+  if (parsedEnabled != null) {
+    return parsedEnabled;
+  }
+
+  return enabled !== false;
+}
+
+function getInitialToolbarPosition(viewer) {
+  const position = getEditorToolbarConfig(viewer).position || {};
+  const parsedX = viewer.parseFloatParam?.(position.x);
+  const parsedY = viewer.parseFloatParam?.(position.y);
+
+  return {
+    x: parsedX ?? 0,
+    y: parsedY ?? 0,
+  };
 }
 
 function initializeEditorToolbarDrag(handle, viewer, toolbar, host) {
   let dragState = null;
 
   // persistent toolbar position
-  let currentX = 0;
-  let currentY = 0;
+  const initialPosition = getInitialToolbarPosition(viewer);
+  let currentX = initialPosition.x;
+  let currentY = initialPosition.y;
 
   const getScale = () => {
     const style = getComputedStyle(toolbar);
@@ -267,7 +296,7 @@ async function downloadFile(fileName = "model.glb") {
 }
 
 export function createEditorToolbar(viewer) {
-  if (!core.EDITOR || viewer.urlOptions.hideUi || core.editorToolbar || !core.container) return;
+  if (!core.EDITOR || viewer.urlOptions.hideUi || core.editorToolbar || !core.container || !isEditorToolbarEnabled(viewer)) return;
 
   const toolbar = document.createElement("div");
   toolbar.id = "viewerEditorToolbar";
@@ -370,7 +399,8 @@ export function createEditorToolbar(viewer) {
         { key: "annotateAdd", icon: "annotateAdd", label: t("gui.annotateAdd", "Add Annotation"), onClick: () => viewer.openAnnotationDialogWithAutoPicking() },
         { key: "annotateImport", icon: "annotateImport", label: t("gui.annotateImport", "Import Annotations"), onClick: () => viewer.triggerAnnotationsXmlImport() },
         { key: "annotateExport", icon: "annotateExport", label: t("gui.annotateExport", "Export Annotations"), onClick: () => viewer.downloadAnnotationsXmlFile() },
-        { key: "IIIFexport", icon: "IIIFexport", label: t("gui.IIIFexport", "Export to IIIF"), onClick: () => viewer.exportIIIFManifest() },
+        { key: "IIIFimport", icon: "IIIFimport", label: t("gui.IIIFimport", "Import 3IF"), onClick: () => viewer.trigger3IFManifestImport() },
+        { key: "IIIFexport", icon: "IIIFexport", label: t("gui.IIIFexport", "Export to IIIF"), onClick: () => viewer.export3IFManifest() },
       ];
       viewer.annotateSubmenuButtons = {};
       submenuItems.forEach((item) => {
@@ -1136,6 +1166,7 @@ export function updateEditorToolbarLabels(viewer) {
       annotateAdd: t("gui.addAnnotations", "Add Annotation"),
       annotateImport: t("gui.importAnnotationsXml", "Import Annotations"),
       annotateExport: t("gui.exportAnnotationsXml", "Export Annotations"),
+      IIIFimport: t("gui.IIIFimport", "Import 3IF"),
       IIIFexport: t("gui.IIIFexport", "Export to IIIF"),
     };
     Object.entries(viewer.annotateSubmenuButtons).forEach(([key, button]) => {

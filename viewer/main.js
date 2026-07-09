@@ -1695,6 +1695,13 @@ export const Viewer = {
           performanceMode: {
             Performance: "high-performance",
           },
+          editorToolbar: {
+            enabled: true,
+            position: {
+              x: 0,
+              y: 0
+            }
+          },
           measurement: {
             modelUnitInMeters: 1,
           }
@@ -2280,157 +2287,153 @@ export const Viewer = {
     );
   },
 
+  getWrapperSize() {
+    const wrapper = core.viewerWrapper || core.container;
+    if (!wrapper) return { width: 0, height: 0 };
+    const rect = wrapper.getBoundingClientRect();
+    return { width: rect.width, height: rect.height };
+  },
+
   /* picking and measurement moved to viewer/editor modules */
-    updateSize() {
-      const isFullscreen = !!document.fullscreenElement;
-      Viewer.FULLSCREEN = isFullscreen;
+  updateSize() {
+    const isFullscreen = !!document.fullscreenElement;
+    Viewer.FULLSCREEN = isFullscreen;
 
-      if (
-        !core.mainCanvas ||
-        !Viewer.fullscreenMode ||
-        !core.guiContainer
-      ) {
-        return;
-      }
+    if (
+      !core.mainCanvas ||
+      !Viewer.fullscreenMode ||
+      !core.guiContainer
+    ) {
+      return;
+    }
 
-      let widthCSS;
-      let heightCSS;
+    let widthCSS;
+    let heightCSS;
 
-      let scale = {x: 1, y: 1};
-      const wrapper = Viewer.viewerWrapper || core.container;
+    let scale = { x: 1, y: 1 };
 
-      if (!wrapper) return;
+    const rect = Viewer.getWrapperSize();
 
-      if (isFullscreen) {
-        widthCSS = window.innerWidth;
-        heightCSS = window.innerHeight;
-      } else {
-        scale = {
-          x: Number(
-            core.CONFIG.viewer.scaleContainer?.x || 1
-          ),
-          y: Number(
-            core.CONFIG.viewer.scaleContainer?.y || 1
-          ),
-        };
+    if (isFullscreen) {
+      widthCSS = window.innerWidth;
+      heightCSS = window.innerHeight;
+    } else {
+      scale = {
+        x: Number(
+          core.CONFIG.viewer.scaleContainer?.x || 1
+        ),
+        y: Number(
+          core.CONFIG.viewer.scaleContainer?.y || 1
+        ),
+      };      
 
-        const rect = wrapper.getBoundingClientRect();
+      widthCSS = rect.width || 800;
+      heightCSS = rect.height || 600;
+    }
 
-        widthCSS = rect.width || 800;
-        heightCSS = rect.height || 600;
-      }
+    // final visual size
+    const effectiveWidth = widthCSS * scale.x;
+    const effectiveHeight = heightCSS * scale.y;
 
-      // final visual size
-      const effectiveWidth = widthCSS * scale.x;
-      const effectiveHeight = heightCSS * scale.y;
+    // CSS size only
+    core.mainCanvas.style.width = `${effectiveWidth}px`;
+    core.mainCanvas.style.height = `${effectiveHeight}px`;
 
-      // CSS size only
-      core.mainCanvas.style.width = `${effectiveWidth}px`;
-      core.mainCanvas.style.height = `${effectiveHeight}px`;
+    const canvasRect = core.mainCanvas.getBoundingClientRect();
+    const parentRect = core.container.getBoundingClientRect();
 
-      const canvasRect = core.mainCanvas.getBoundingClientRect();
-      const parentRect = core.container.getBoundingClientRect();
+    const bottom = parentRect.bottom - canvasRect.bottom + 12 || 24;
 
-      const bottom = parentRect.bottom - canvasRect.bottom + 12 || 24;
-
-      if (isFullscreen) {
-        core.mainCanvas.style.width = "100vw";
-        core.mainCanvas.style.height = "100vh";
+    if (isFullscreen) {
+      core.mainCanvas.style.width = "100vw";
+      core.mainCanvas.style.height = "100vh";
+      core.editorToolbar.style.bottom = `${bottom}px`;
+    } else {
+      if (core.editorToolbar) {
         core.editorToolbar.style.bottom = `${bottom}px`;
-      } else {
-        if (core.editorToolbar) {
-          core.editorToolbar.style.bottom = `${bottom}px`;
-        }
-        if (Viewer.creditsWrapper) {
-          Viewer.creditsWrapper.style.width = `${effectiveWidth - 64}px`;
-          Viewer.creditsWrapper.style.left = `${canvasRect.left + 8}px`;
-          Viewer.creditsWrapper.style.bottom = `${bottom - Viewer.creditsWrapper.getBoundingClientRect().height - 24}px`;
-        }
       }
-
-      // metadata overlay
-      if (core.metadataContainer) {
-        core.metadataContainer.style.width = "100%";
-        core.metadataContainer.style.height = "100%";
+      if (Viewer.creditsWrapper) {
+        Viewer.creditsWrapper.style.width = `${effectiveWidth - 64}px`;
+        Viewer.creditsWrapper.style.left = `${canvasRect.left + 8}px`;
+        Viewer.creditsWrapper.style.bottom = `${bottom - Viewer.creditsWrapper.getBoundingClientRect().height - 24}px`;
       }
+    }
 
-      // optional wrapper sync
-      if (
-        Viewer.fileElement &&
-        Viewer.fileElement.length > 0
-      ) {
-        Viewer.fileElement[0].style.height =
-          `${effectiveHeight * 1.1}px`;
-      }
+    // metadata overlay
+    if (core.metadataContainer) {
+      core.metadataContainer.style.width = "100%";
+      core.metadataContainer.style.height = "100%";
+    }
 
-      // camera
-      if (core.camera.isOrthographicCamera) {
-        this.updateOrthoFrustum(
-          core.camera,
-          effectiveWidth,
-          effectiveHeight
-        );
-      } else {
-        core.camera.aspect =
-          effectiveWidth / effectiveHeight;
+    // optional wrapper sync
+    if (
+      Viewer.fileElement && Viewer.fileElement.length > 0
+    ) {
+      Viewer.fileElement[0].style.height = `${effectiveHeight * 1.1}px`;
+    }
 
-        core.camera.updateProjectionMatrix();
-      }
-
-      // renderer
-      core.renderer.setPixelRatio(
-        window.devicePixelRatio || 1
-      );
-
-      core.renderer.setSize(
+    // camera
+    if (core.camera.isOrthographicCamera) {
+      this.updateOrthoFrustum(
+        core.camera,
         effectiveWidth,
-        effectiveHeight,
-        false
+        effectiveHeight
       );
+    } else {
+      core.camera.aspect =
+        effectiveWidth / effectiveHeight;
 
-      // action menu
-      if (Viewer.actionMenu) {
-        if (
-          Viewer.actionMenu.classList.contains(
-            "viewer-action-menu_in-toolbar"
-          )
-        ) {
-          Viewer.actionMenu.style.top = "";
-          Viewer.actionMenu.style.right = "";
-          Viewer.actionMenu.style.bottom = "";
-        } else {
-          const menuMargin = 16;
+      core.camera.updateProjectionMatrix();
+    }
 
-          const toggleSize =
-            Viewer.actionMenu
-              .querySelector(
-                ".viewer-action-menu_toggle"
-              )
-              ?.getBoundingClientRect().height || 45;
+    // renderer
+    core.renderer.setPixelRatio(window.devicePixelRatio || 1);
 
-          Viewer.actionMenu.style.top =
-            `${effectiveHeight - toggleSize - menuMargin}px`;
+    core.renderer.setSize( effectiveWidth, effectiveHeight, false);
 
-          Viewer.actionMenu.style.right =
-            `${menuMargin}px`;
+    // action menu
+    if (Viewer.actionMenu) {
+      if (
+        Viewer.actionMenu.classList.contains(
+          "viewer-action-menu_in-toolbar"
+        )
+      ) {
+        Viewer.actionMenu.style.top = "";
+        Viewer.actionMenu.style.right = "";
+        Viewer.actionMenu.style.bottom = "";
+      } else {
+        const menuMargin = 16;
 
-          Viewer.actionMenu.style.bottom = "auto";
-        }
+        const toggleSize =
+          Viewer.actionMenu
+            .querySelector(
+              ".viewer-action-menu_toggle"
+            )
+            ?.getBoundingClientRect().height || 45;
+
+        Viewer.actionMenu.style.top =
+          `${effectiveHeight - toggleSize - menuMargin}px`;
+
+        Viewer.actionMenu.style.right =
+          `${menuMargin}px`;
+
+        Viewer.actionMenu.style.bottom = "auto";
       }
+    }
 
-      // hand hint
-      if (core.handHint) {
-        core.handHint.style.top =
-          `${effectiveHeight - 150}px`;
-      }
+    // hand hint
+    if (core.handHint) {
+      core.handHint.style.top =
+        `${effectiveHeight - 150}px`;
+    }
 
-      core.controls?.update();
+    core.controls?.update();
 
-      core.CONFIG.viewer.canvasDimensions = {
-        x: effectiveWidth,
-        y: effectiveHeight,
-      };
-    },
+    core.CONFIG.viewer.canvasDimensions = {
+      x: effectiveWidth,
+      y: effectiveHeight,
+    };
+  },
 
 
   async toggleFullscreen() {
@@ -3356,6 +3359,7 @@ export const Viewer = {
 
   // IIIF setup and loading
   async setupManifesto(newUrlOrJson, type="url", manifestType = "iiif") {
+    const isAim3ifManifest = manifestType !== "iiif";
     if (type === "text") {
       Viewer.iiifConfigURL.url = "";
     } else {
@@ -3392,6 +3396,10 @@ export const Viewer = {
       }
       Viewer._ext = core.fileObject.extension.toLowerCase();
       await Viewer.mainLoadModel();
+
+      if (isAim3ifManifest && i === loadedManifest.modelUrls.length - 1) {
+        Viewer.import3IFManifest?.(loadedManifest.manifest);
+      }
     }
   },
 
@@ -3650,10 +3658,11 @@ export const Viewer = {
       core.mainCanvas.classList.add("mainCanvas");
 
       Viewer.viewerWrapper = core.container.closest('.viewer-wrapper');
+      setCore('viewerWrapper', Viewer.viewerWrapper);
 
-      if (!Viewer.viewerWrapper) {
-        Viewer.viewerWrapper = core.container.parentElement;
-        Viewer.viewerWrapper.classList.add('viewer-wrapper');
+      if (!core.viewerWrapper) {
+        core.viewerWrapper = core.container.parentElement;
+        core.viewerWrapper.classList.add('viewer-wrapper');
       }
 
       Viewer.attachEditorToolbar();
@@ -3778,7 +3787,7 @@ export const Viewer = {
         Viewer.handHint.innerHTML = `<img src="${core.DFG_ASSETS}/img/hand-hint.png" alt="Hand hint" width=48 height=48 title="Hand hint animation"/>`;
         
         Viewer.rect = core.container.getBoundingClientRect();
-        if (Viewer.viewerWrapper === core.container && core.CONFIG.viewer?.scaleContainer) {
+        if (core.viewerWrapper === core.container && core.CONFIG.viewer?.scaleContainer) {
           const scale = {
             x: Number(core.CONFIG.viewer.scaleContainer.x || 1),
             y: Number(core.CONFIG.viewer.scaleContainer.y || 1),
@@ -4058,7 +4067,7 @@ export const Viewer = {
       Viewer.bindEventListener(window, 'resize', update);
 
       Viewer.resizeObserver = new ResizeObserver(update);
-      Viewer.resizeObserver.observe(Viewer.viewerWrapper);
+      Viewer.resizeObserver.observe(core.viewerWrapper);
 
 
       Viewer.bindEventListener(document, 'fullscreenchange', Viewer.onFullscreenChange);

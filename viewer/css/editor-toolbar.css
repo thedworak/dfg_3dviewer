@@ -131,13 +131,25 @@
 .editorToolbar-hidden {
   opacity: 0;
   visibility: hidden;
-  transform: translateY(6px) scale(0.98);
+  transform:
+    translate3d(
+      var(--drag-x, 0px),
+      calc(var(--drag-y, 0px) + 6px),
+      0
+    )
+    scale(calc(var(--viewer-toolbar-scale) * 0.98));
 }
 
 .editorToolbar-visible {
   opacity: 1;
   visibility: visible;
-  transform: translateY(0) scale(1);
+  transform:
+    translate3d(
+      var(--drag-x, 0px),
+      var(--drag-y, 0px),
+      0
+    )
+    scale(var(--viewer-toolbar-scale));
   transition:
     opacity 1.25s ease,
     transform 1.25s ease,
@@ -154,7 +166,13 @@
 }
 
 #viewerEditorToolbar.with-fullscreen {
-  transform: translateY(0) scale(1);
+  transform:
+    translate3d(
+      var(--drag-x, 0px),
+      var(--drag-y, 0px),
+      0
+    )
+    scale(var(--viewer-toolbar-scale));
 }
 
 .viewer-embed-page #viewerEditorToolbar {
@@ -163,17 +181,35 @@
   bottom: 12px;
   max-width: calc(100vw - 24px);
   overflow-x: auto;
-  transform: translateX(0) translateY(0) scale(var(--viewer-toolbar-scale));
+  transform:
+    translate3d(
+      var(--drag-x, 0px),
+      var(--drag-y, 0px),
+      0
+    )
+    scale(var(--viewer-toolbar-scale));
   transform-origin: left bottom;
 }
 
 .viewer-embed-page #viewerEditorToolbar.editorToolbar-visible,
 .viewer-embed-page #viewerEditorToolbar.with-fullscreen {
-  transform: translateX(0) translateY(0) scale(var(--viewer-toolbar-scale));
+  transform:
+    translate3d(
+      var(--drag-x, 0px),
+      var(--drag-y, 0px),
+      0
+    )
+    scale(var(--viewer-toolbar-scale));
 }
 
 .viewer-embed-page #viewerEditorToolbar.editorToolbar-hidden {
-  transform: translateX(0) translateY(6px) scale(calc(var(--viewer-toolbar-scale) * 0.98));
+  transform:
+    translate3d(
+      var(--drag-x, 0px),
+      calc(var(--drag-y, 0px) + 6px),
+      0
+    )
+    scale(calc(var(--viewer-toolbar-scale) * 0.98));
 }
 
 #viewerEditorToolbar::-webkit-scrollbar {

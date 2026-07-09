@@ -44,7 +44,7 @@
 .credits-item {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    margin-left: 10px;
 }
 
 .credits-label {

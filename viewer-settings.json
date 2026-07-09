@@ -41,6 +41,13 @@
     "performanceMode": {
       "Performance": "high-performance"
     },
+    "editorToolbar": {
+      "enabled": true,
+      "position": {
+        "x": 10,
+        "y": 10
+      }
+    },
     "measurement": {
       "modelUnitInMeters": 1
     },

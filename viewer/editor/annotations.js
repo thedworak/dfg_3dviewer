@@ -690,12 +690,16 @@ export function attachAnnotations(Viewer) {
       return true;
     },
 
-    exportIIIFManifest() { // Added a new method to export the IIIF manifest
+    export3IFManifest() { // Added a new method to export the 3IF Manifest - combination of IIIF manifest and AIM3DViewer metadata
       const iiifUrl = core.fileObject?.originalPath || ""; 
       if (!iiifUrl) {
         toastHelper("iiifUrlMissing", "warning");
         return false;
       }
+      const primaryModelObject =
+        (Array.isArray(core.mainObject) ? core.mainObject.find((item) => item?.isObject3D) : null)
+        || (core.mainObject?.isObject3D ? core.mainObject : null)
+        || (Array.isArray(core.helperObjects) ? core.helperObjects.find((item) => item?.isObject3D) : null);
       // Generate the IIIF manifest and log it to the console 
       const sceneId = `${iiifUrl}/scene`;
 
@@ -822,7 +826,7 @@ export function attachAnnotations(Viewer) {
               core.camera.position.distanceTo(
                 core.controls.target
               ),
-            perspectiveMode: core.camera.isPerspectiveCamera ? "orthographic" : "perspective",
+            perspectiveMode: core.camera.isPerspectiveCamera ? "perspective" : "orthographic",
           },
 
           viewer: {
@@ -841,7 +845,7 @@ export function attachAnnotations(Viewer) {
             },
             presentationMode: core.PRESENTATION_MODE || false,
             sandbox: core.SANDBOX_MODE || false,
-            scale: core.CONFIG.viewer.scaleContainer || new Vector2(1,1),
+            scale: core.CONFIG.viewer.scaleContainer || { x: 1, y: 1 },
             performance: core.CONFIG.viewer.performanceMode || "high-performance",
             units: core.CONFIG?.viewer?.measurement?.modelUnitInMeters,
             gallery: {
@@ -851,6 +855,10 @@ export function attachAnnotations(Viewer) {
               imageId: core.CONFIG.viewer.gallery?.imageId || "AIM3DViewerGalleryImage",
               buildFake: true,
               testImages: [undefined],
+            },
+            menuToolbar: {
+              enabled: core.CONFIG.viewer.menuToolbar?.enabled || true,
+              position: core.CONFIG.viewer.menuToolbar?.position || { x: 0, y: 0 },
             }
           },
 
@@ -894,15 +902,15 @@ export function attachAnnotations(Viewer) {
 
           modelTransform: {
             position:
-              core.mainObject?.position?.toArray?.() ||
+              primaryModelObject?.position?.toArray?.() ||
               [0, 0, 0],
 
-            rotation: core.mainObject?.rotation
+            rotation: primaryModelObject?.rotation
               ? {
-                  x: core.mainObject.rotation.x,
-                  y: core.mainObject.rotation.y,
-                  z: core.mainObject.rotation.z,
-                  order: core.mainObject.rotation.order
+                  x: primaryModelObject.rotation.x,
+                  y: primaryModelObject.rotation.y,
+                  z: primaryModelObject.rotation.z,
+                  order: primaryModelObject.rotation.order
                 }
               : {
                   x: 0,
@@ -912,7 +920,7 @@ export function attachAnnotations(Viewer) {
                 },
 
             scale:
-              core.mainObject?.scale?.toArray?.() ||
+              primaryModelObject?.scale?.toArray?.() ||
               [1, 1, 1],
             
             wireframe: core.wireframeMode || false,
@@ -938,6 +946,442 @@ export function attachAnnotations(Viewer) {
       setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
       
       toastHelper("iiifManifestGenerated", "success");
+      return true;
+    },
+
+    parse3IFManifestVector(value, fallback = null, expectedLength = 3) {
+      if (Array.isArray(value) && value.length >= expectedLength) {
+        const normalized = value.slice(0, expectedLength).map((item) => Number(item));
+        if (normalized.every(Number.isFinite)) return normalized;
+      }
+
+      if (value && typeof value === "object") {
+        const keys = expectedLength === 2 ? ["x", "y"] : ["x", "y", "z"];
+        const normalized = keys.map((key) => Number(value[key]));
+        if (normalized.every(Number.isFinite)) return normalized;
+      }
+
+      return fallback;
+    },
+
+    apply3IFManifestCamera(cameraConfig) {
+      if (!cameraConfig || typeof cameraConfig !== "object") return false;
+      if (!core.camera) return false;
+
+      const position = this.parse3IFManifestVector(cameraConfig.position, null, 3);
+      const target = this.parse3IFManifestVector(cameraConfig.target, null, 3);
+      const up = this.parse3IFManifestVector(cameraConfig.up, null, 3);
+
+      const projectionMode = String(cameraConfig.perspectiveMode || "").toLowerCase();
+      if (projectionMode === "perspective" || projectionMode === "orthographic") {
+        this.setCameraProjection?.(projectionMode);
+      }
+
+      if (position) {
+        core.camera.position.set(position[0], position[1], position[2]);
+        core.cameraLight?.position?.set?.(position[0], position[1], position[2]);
+      }
+
+      if (target) {
+        core.controls?.target?.set?.(target[0], target[1], target[2]);
+        core.camera.lookAt(new THREE.Vector3(target[0], target[1], target[2]));
+      }
+
+      if (up) {
+        core.camera.up.set(up[0], up[1], up[2]);
+      }
+
+      const fov = Number(cameraConfig.fov);
+      if (Number.isFinite(fov) && core.camera.isPerspectiveCamera) {
+        core.camera.fov = Math.max(1, Math.min(179, fov));
+      }
+
+      const zoom = Number(cameraConfig.zoom);
+      if (Number.isFinite(zoom) && typeof core.camera.zoom === "number") {
+        core.camera.zoom = zoom;
+      }
+
+      core.camera.updateProjectionMatrix();
+      core.controls?.update?.();
+      this.updateCamera?.();
+      return true;
+    },
+
+    apply3IFManifestViewerConfig(viewerConfig) {
+      if (!viewerConfig || typeof viewerConfig !== "object") return false;
+
+      core.CONFIG ??= {};
+      core.CONFIG.viewer ??= {};
+
+      if (typeof viewerConfig.container === "string" && viewerConfig.container.trim() !== "") {
+        core.CONFIG.viewer.container = viewerConfig.container;
+      }
+      if (typeof viewerConfig.mailUrl === "string" && viewerConfig.mailUrl.trim() !== "") {
+        core.CONFIG.mainUrl = viewerConfig.mailUrl;
+      }
+      if (typeof viewerConfig.baseNamespace === "string" && viewerConfig.baseNamespace.trim() !== "") {
+        core.CONFIG.baseNamespace = viewerConfig.baseNamespace;
+      }
+      if (typeof viewerConfig.metadataUrl === "string" && viewerConfig.metadataUrl.trim() !== "") {
+        core.CONFIG.metadataUrl = viewerConfig.metadataUrl;
+      }
+
+      if (viewerConfig.environmentMap && typeof viewerConfig.environmentMap === "object") {
+        const environmentMap = viewerConfig.environmentMap;
+        const intensity = Number(environmentMap.intensity);
+        if (Number.isFinite(intensity)) {
+          core.environmentMapIntensity = intensity;
+          core.scene && (core.scene.environmentIntensity = intensity);
+        }
+        if (typeof environmentMap.preset === "string" && environmentMap.preset.trim() !== "") {
+          this.environmentMapPreset = environmentMap.preset;
+          core.environmentMapPreset = environmentMap.preset;
+        }
+        if (typeof environmentMap.enabled === "boolean") {
+          this.environmentMapEnabled = environmentMap.enabled;
+          core.environmentMapEnabled = environmentMap.enabled;
+          if (core.scene) {
+            core.scene.environmentIntensity = environmentMap.enabled
+              ? (Number.isFinite(Number(environmentMap.intensity)) ? Number(environmentMap.intensity) : (core.environmentMapIntensity ?? 0.5))
+              : 0;
+          }
+        }
+
+        if (typeof this.setEnvironmentMapPreset === "function") {
+          this.setEnvironmentMapPreset(this.environmentMapPreset).catch((error) => console.error(error));
+        }
+        if (typeof this.setEnvironmentMapEnabled === "function" && typeof environmentMap.enabled === "boolean") {
+          this.setEnvironmentMapEnabled(environmentMap.enabled).catch((error) => console.error(error));
+        }
+      }
+
+      const backgroundColor = String(viewerConfig.backgroundColor || "").trim();
+      if (backgroundColor && core.scene) {
+        try {
+          core.scene.background = new THREE.Color(backgroundColor);
+        } catch (_error) {
+          // Ignore malformed color in imported manifest.
+        }
+      }
+
+      if (typeof viewerConfig.presentationMode === "boolean") {
+        this.PRESENTATION_MODE = viewerConfig.presentationMode;
+        core.PRESENTATION_MODE = viewerConfig.presentationMode;
+        core.CONFIG.viewer.presentationMode = viewerConfig.presentationMode;
+      }
+      if (typeof viewerConfig.sandbox === "boolean") {
+        this.SANDBOX_MODE = viewerConfig.sandbox;
+        core.SANDBOX_MODE = viewerConfig.sandbox;
+        core.CONFIG.viewer.sandboxMode = viewerConfig.sandbox;
+      }
+
+      const scale = this.parse3IFManifestVector(viewerConfig.scale, null, 2);
+      if (scale) {
+        core.CONFIG.viewer.scaleContainer = { x: scale[0], y: scale[1] };
+      }
+
+      if (typeof viewerConfig.performance === "string" && viewerConfig.performance.trim() !== "") {
+        core.CONFIG.viewer.performanceMode = viewerConfig.performance;
+        this.setPerformanceMode?.(viewerConfig.performance);
+      }
+
+      if (viewerConfig.units !== undefined) {
+        core.CONFIG.viewer.measurement ??= {};
+        core.CONFIG.viewer.measurement.modelUnitInMeters = viewerConfig.units;
+      }
+
+      if (viewerConfig.gallery && typeof viewerConfig.gallery === "object") {
+        core.CONFIG.viewer.gallery ??= {};
+        Object.assign(core.CONFIG.viewer.gallery, viewerConfig.gallery);
+      }
+
+      if (viewerConfig.menuToolbar && typeof viewerConfig.menuToolbar === "object") {
+        core.CONFIG.viewer.menuToolbar ??= {};
+        Object.assign(core.CONFIG.viewer.menuToolbar, viewerConfig.menuToolbar);
+        const menuPosition = this.parse3IFManifestVector(viewerConfig.menuToolbar.position, null, 2);
+        if (menuPosition) {
+          core.CONFIG.viewer.menuToolbar.position = { x: menuPosition[0], y: menuPosition[1] };
+        }
+      }
+
+      return true;
+    },
+
+    apply3IFManifestIntegrationConfig(integrationConfig) {
+      if (!integrationConfig || typeof integrationConfig !== "object") return false;
+
+      core.CONFIG ??= {};
+      core.CONFIG.entity ??= {};
+      core.CONFIG.viewer ??= {};
+
+      if (typeof integrationConfig.type === "string" && integrationConfig.type.trim() !== "") {
+        core.CONFIG.entity.type = integrationConfig.type;
+      }
+      if (typeof integrationConfig.bundle === "string") core.CONFIG.entity.bundle = integrationConfig.bundle;
+      if (typeof integrationConfig.fieldDf === "string") core.CONFIG.entity.fieldDf = integrationConfig.fieldDf;
+      if (typeof integrationConfig.exportViewer === "string") core.CONFIG.entity.exportViewer = integrationConfig.exportViewer;
+      if (typeof integrationConfig.idUri === "string") core.CONFIG.entity.idUri = integrationConfig.idUri;
+      if (typeof integrationConfig.viewEntityPath === "string") core.CONFIG.entity.viewEntityPath = integrationConfig.viewEntityPath;
+      if (typeof integrationConfig.attributeId === "string") core.CONFIG.entity.attributeId = integrationConfig.attributeId;
+
+      if (integrationConfig.metadata && typeof integrationConfig.metadata === "object") {
+        core.CONFIG.entity.metadata ??= {};
+        Object.assign(core.CONFIG.entity.metadata, integrationConfig.metadata);
+      }
+
+      if (typeof integrationConfig.fileUpload === "string") core.CONFIG.viewer.fileUpload = integrationConfig.fileUpload;
+      if (typeof integrationConfig.fileName === "string") core.CONFIG.viewer.fileName = integrationConfig.fileName;
+      if (typeof integrationConfig.imageGeneration === "string") core.CONFIG.viewer.imageGeneration = integrationConfig.imageGeneration;
+
+      return true;
+    },
+
+    apply3IFManifestLights(lightsConfig) {
+      if (!Array.isArray(lightsConfig) || lightsConfig.length === 0) return false;
+
+      const directionalLights = lightsConfig.filter((light) => String(light?.type || "") === "DirectionalLight");
+      const ambientLights = lightsConfig.filter((light) => String(light?.type || "") === "AmbientLight");
+      const pointLights = lightsConfig.filter((light) => String(light?.type || "") === "PointLight");
+      const spotLights = lightsConfig.filter((light) => String(light?.type || "") === "SpotLight");
+
+      const applyLight = (target, data) => {
+        if (!target || !data) return;
+        const position = this.parse3IFManifestVector(data.position, null, 3);
+        const targetPosition = this.parse3IFManifestVector(data.target, null, 3);
+        const intensity = Number(data.intensity);
+        const color = String(data.color || "").trim();
+
+        if (position) target.position?.set?.(position[0], position[1], position[2]);
+        if (targetPosition && target.target?.position) {
+          target.target.position.set(targetPosition[0], targetPosition[1], targetPosition[2]);
+          target.target.updateMatrixWorld?.();
+        }
+        if (Number.isFinite(intensity)) target.intensity = intensity;
+        if (color) {
+          try {
+            target.color?.set?.(color);
+          } catch (_error) {
+            // Ignore malformed color in imported manifest.
+          }
+        }
+      };
+
+      if (core.dirLight && directionalLights.length > 0) {
+        applyLight(core.dirLight, directionalLights[0]);
+      }
+      if (core.cameraLight && directionalLights.length > 1) {
+        applyLight(core.cameraLight, directionalLights[1]);
+      }
+      if (core.ambientLight && ambientLights.length > 0) {
+        applyLight(core.ambientLight, ambientLights[0]);
+      }
+
+      const ensureExtraLight = (lightData) => {
+        const type = String(lightData?.type || "");
+        if (type !== "PointLight" && type !== "SpotLight") return null;
+        const Constructor = type === "PointLight" ? THREE.PointLight : THREE.SpotLight;
+        const light = new Constructor(0xffffff, 1);
+        core.scene?.add?.(light);
+        return light;
+      };
+
+      pointLights.forEach((lightData) => {
+        const light = ensureExtraLight(lightData);
+        applyLight(light, lightData);
+      });
+      spotLights.forEach((lightData) => {
+        const light = ensureExtraLight(lightData);
+        applyLight(light, lightData);
+      });
+
+      this.updateLightsSubmenuState?.();
+      return true;
+    },
+
+    apply3IFManifestModelTransform(modelTransform) {
+      if (!modelTransform || typeof modelTransform !== "object") return false;
+
+      const modelObject =
+        (Array.isArray(core.mainObject) ? core.mainObject.find((item) => item?.isObject3D) : null)
+        || (core.mainObject?.isObject3D ? core.mainObject : null)
+        || (Array.isArray(core.helperObjects) ? core.helperObjects.find((item) => item?.isObject3D) : null);
+
+      if (modelObject) {
+        const position = this.parse3IFManifestVector(modelTransform.position, null, 3);
+        const scale = this.parse3IFManifestVector(modelTransform.scale, null, 3);
+        const rotation = modelTransform.rotation && typeof modelTransform.rotation === "object"
+          ? {
+              x: Number(modelTransform.rotation.x),
+              y: Number(modelTransform.rotation.y),
+              z: Number(modelTransform.rotation.z),
+              order: String(modelTransform.rotation.order || "XYZ"),
+            }
+          : null;
+
+        if (position) modelObject.position.set(position[0], position[1], position[2]);
+        if (scale) modelObject.scale.set(scale[0], scale[1], scale[2]);
+        if (rotation && Number.isFinite(rotation.x) && Number.isFinite(rotation.y) && Number.isFinite(rotation.z)) {
+          modelObject.rotation.set(rotation.x, rotation.y, rotation.z, rotation.order);
+        }
+        modelObject.updateMatrixWorld?.(true);
+      }
+
+      if (typeof modelTransform.wireframe === "boolean") {
+        core.wireframeMode = modelTransform.wireframe;
+        core.scene?.traverse?.((child) => {
+          if (!child?.material) return;
+          child.material.wireframe = core.wireframeMode;
+          child.material.needsUpdate = true;
+        });
+      }
+
+      this.updateEditorToolbarState?.();
+      this.updateEditorToolbarLabels?.();
+      return true;
+    },
+
+    import3IFManifest(manifestJson) {
+      if (!manifestJson || typeof manifestJson !== "object") {
+        toastHelper("invalidManifest", "error");
+        return false;
+      }
+
+      const aim3dConfig = manifestJson.AIM3DViewer;
+      let appliedAIM3DConfig = false;
+      if (aim3dConfig && typeof aim3dConfig === "object") {
+        const appliedCamera = this.apply3IFManifestCamera(aim3dConfig.camera);
+        const appliedViewer = this.apply3IFManifestViewerConfig(aim3dConfig.viewer);
+        const appliedIntegration = this.apply3IFManifestIntegrationConfig(aim3dConfig.integration);
+        const appliedLights = this.apply3IFManifestLights(aim3dConfig.lights);
+        const appliedModelTransform = this.apply3IFManifestModelTransform(aim3dConfig.modelTransform);
+
+        appliedAIM3DConfig = [
+          appliedCamera,
+          appliedViewer,
+          appliedIntegration,
+          appliedLights,
+          appliedModelTransform,
+        ].some(Boolean);
+      }
+
+      const annotationPages = (manifestJson?.items || [])
+        .flatMap((scene) => Array.isArray(scene?.annotations) ? scene.annotations : [])
+        .filter((page) => Array.isArray(page?.items));
+
+      if (annotationPages.length === 0) {
+        toastHelper(
+          appliedAIM3DConfig
+            ? "manifestImportedWithoutAnnotations"
+            : "noValidAnnotationsInManifest",
+          appliedAIM3DConfig ? "success" : "warning"
+        );
+        return true;
+      }
+
+      const allAnnotations = annotationPages.flatMap((page) => page.items || []);
+
+      const importedEntries = allAnnotations.map((annotation, index) => {
+        const selectorValue = annotation?.target?.selector?.value || {};
+        const targetId = String(
+          selectorValue?.targetId
+          || annotation?.AIM3DViewer?.object
+          || annotation?.target?.source
+          || ""
+        ).trim();
+
+        const faceNumbers = Array.isArray(selectorValue?.faceNumbers)
+          ? selectorValue.faceNumbers
+          : [selectorValue?.faceIndex];
+        const normalizedFaceNumbers = faceNumbers
+          .map((value) => Number(value))
+          .filter((value) => Number.isInteger(value) && value >= 0);
+        const faceIndex = normalizedFaceNumbers[0];
+
+        if (!targetId || !Number.isInteger(faceIndex)) return null;
+
+        const title = String(
+          annotation?.label?.en?.[0]
+          || annotation?.body?.label?.en?.[0]
+          || ""
+        ).trim();
+
+        const description = String(
+          annotation?.body?.value
+          || annotation?.body?.en?.[0]
+          || ""
+        ).trim();
+
+        const key = String(annotation?.AIM3DViewer?.key || "").trim() || this.getFaceSelectionKey(targetId, faceIndex);
+
+        return {
+          id: String(annotation.id || `anno-${this.toStableIdToken(targetId)}-f${faceIndex}-${index}`),
+          groupId: String(annotation.AIM3DViewer?.groupId || ""),
+          key,
+          object: targetId,
+          targetId,
+          faceIndex,
+          faceNumbers: normalizedFaceNumbers.length > 0 ? normalizedFaceNumbers : [faceIndex],
+          target: {
+            id: targetId,
+            faces: normalizedFaceNumbers.length > 0 ? normalizedFaceNumbers : [faceIndex],
+          },
+          title,
+          description,
+          createdAt: annotation?.created ? String(annotation.created) : "",
+          updatedAt: annotation?.modified ? String(annotation.modified) : "",
+        };
+      }).filter(Boolean);
+
+      if (importedEntries.length === 0) {
+        toastHelper(
+          appliedAIM3DConfig
+            ? "manifestImportedWithoutAnnotations"
+            : "noValidAnnotationsInManifest",
+          appliedAIM3DConfig ? "success" : "warning"
+        );
+        return true;
+      }
+
+      this.annotationEntries = importedEntries;
+      this.refreshAnnotationPOIs();
+      toastHelper("annotationsImportedFromManifest", "success", {
+        count: importedEntries.length,
+        plural: importedEntries.length === 1 ? "" : "s"
+      });
+      return true;
+    },
+
+    ensure3IFManifestImportInput() {
+      if (this.annotation3IFImportInput) return this.annotation3IFImportInput;
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".json,application/json,text/json";
+      input.hidden = true;
+      this.bindEventListener(input, "change", async (event) => {
+        const target = event?.target;
+        const file = target?.files?.[0];
+        if (!file) return;
+
+        try {
+          const manifestText = await file.text();
+          const manifestJson = JSON.parse(manifestText);
+          this.import3IFManifest(manifestJson);
+        } catch (error) {
+          console.error(error);
+          toastHelper("invalidManifest", "error");
+        } finally {
+          target.value = "";
+        }
+      });
+      document.body.appendChild(input);
+      this.annotation3IFImportInput = input;
+      return input;
+    },
+
+    trigger3IFManifestImport() {
+      const input = this.ensure3IFManifestImportInput();
+      if (!input) return false;
+      input.click();
       return true;
     },
 
