@@ -2526,14 +2526,15 @@ function attachEmbedConfigurator(Viewer) {
 
       this.updatingEmbedFields = true;
 
-      if (!this.viewerInstance) {this.iframeWindow = this.embedConfigPreviewFrame.contentWindow; this.viewerInstance = this.iframeWindow.Viewer; }
+      const activeCamera = core.camera;
+      const activeControls = core.controls;
 
-      this.embedConfigInputs.camPos.value = this.formatVector3Param(this.viewerInstance.camera.position) || "";
-      this.embedConfigInputs.camTarget.value = this.formatVector3Param(this.viewerInstance.controls.target) || "";
-      this.embedConfigInputs.fov.value = Number.isFinite(this.viewerInstance.camera.fov) ? String(this.viewerInstance.camera.fov) : "";
+      this.embedConfigInputs.camPos.value = this.formatVector3Param(activeCamera?.position) || "";
+      this.embedConfigInputs.camTarget.value = this.formatVector3Param(activeControls?.target) || "";
+      this.embedConfigInputs.fov.value = Number.isFinite(activeCamera?.fov) ? String(activeCamera.fov) : "";
 
       this.updatingEmbedFields = false;
-      //this.updateEmbedConfiguratorPreview();
+      this.updateEmbedConfiguratorPreview();
     },
 
     resetEmbedConfiguratorFromViewerState() {
@@ -7057,7 +7058,17 @@ function captureAndUploadThumbnail(viewer) {
     fileform.append("data", imgBlob, "thumbnail.png");
     console.log("Uploading thumbnail for entity ID:", core.CONFIG.entity.id);
     fileform.append("wisski_individual", core.CONFIG.entity.id);
-    const callUrl = core.CONFIG.mainUrl + "/api/editor/upload-thumbnail";
+    const base = (core.CONFIG?.mainUrl || window.location.origin || "").replace(/\/+$/, "");
+    const defaultEndpoint = "/api/editor/upload-thumbnail";
+    const configuredEndpoint = String(core.CONFIG?.api?.thumbnailUploadEndpoint || defaultEndpoint).trim();
+    let callUrl = `${base}${defaultEndpoint}`;
+
+    try {
+      callUrl = new URL(configuredEndpoint || defaultEndpoint, `${base}/`).toString();
+    } catch (_error) {
+      console.warn("Invalid api.thumbnailUploadEndpoint, using default", configuredEndpoint);
+    }
+
     console.log("Preparing call for ", callUrl);
 
     fetch(callUrl, {
@@ -18065,6 +18076,9 @@ const Viewer$1 = {
         mainUrl: "https://dfg-repository.wisski.cloud",
         baseNamespace: "https://dfg-repository.wisski.cloud",
         metadataUrl: "https://dfg-repository.wisski.cloud",
+        api: {
+          thumbnailUploadEndpoint: "/api/editor/upload-thumbnail",
+        },
         baseModulePath: "/modules/dfg_3dviewer-main/viewer",
         entity: {
           bundle: "bd3d7baa74856d141bcff7b4193fa128",

@@ -32,6 +32,20 @@ class ThumbnailUploadController extends ControllerBase {
     return rtrim($base, '/');
   }
 
+  private function buildWisskiSavePreviewUrl(string $wisskiId): string {
+    $base = $this->getConfiguredBaseUrl();
+    $basePath = (string) parse_url($base, PHP_URL_PATH);
+
+    // Support both config styles:
+    // 1) host only: https://example.org
+    // 2) prefixed:  https://example.org/wisski/dfg_3dviewer
+    if (str_ends_with($basePath, '/wisski/dfg_3dviewer')) {
+      return $base . '/' . $wisskiId . '/savePreview';
+    }
+
+    return $base . '/wisski/dfg_3dviewer/' . $wisskiId . '/savePreview';
+  }
+
   public function upload(Request $request): JsonResponse {
 
     /* =========================
@@ -136,8 +150,7 @@ class ThumbnailUploadController extends ControllerBase {
        WissKI call
     ========================= */
 
-    $wisskiBaseUrl = $this->getConfiguredBaseUrl();
-    $url = $wisskiBaseUrl . '/wisski/dfg_3dviewer/' . $wisskiId . '/savePreview';
+    $url = $this->buildWisskiSavePreviewUrl($wisskiId);
 
     $client = \Drupal::httpClient();
 

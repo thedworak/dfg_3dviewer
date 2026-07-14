@@ -28,7 +28,17 @@ export function captureAndUploadThumbnail(viewer) {
     fileform.append("data", imgBlob, "thumbnail.png");
     console.log("Uploading thumbnail for entity ID:", core.CONFIG.entity.id);
     fileform.append("wisski_individual", core.CONFIG.entity.id);
-    const callUrl = core.CONFIG.mainUrl + "/api/editor/upload-thumbnail";
+    const base = (core.CONFIG?.mainUrl || window.location.origin || "").replace(/\/+$/, "");
+    const defaultEndpoint = "/api/editor/upload-thumbnail";
+    const configuredEndpoint = String(core.CONFIG?.api?.thumbnailUploadEndpoint || defaultEndpoint).trim();
+    let callUrl = `${base}${defaultEndpoint}`;
+
+    try {
+      callUrl = new URL(configuredEndpoint || defaultEndpoint, `${base}/`).toString();
+    } catch (_error) {
+      console.warn("Invalid api.thumbnailUploadEndpoint, using default", configuredEndpoint);
+    }
+
     console.log("Preparing call for ", callUrl);
 
     fetch(callUrl, {

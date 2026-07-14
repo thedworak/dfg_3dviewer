@@ -1657,6 +1657,9 @@ export const Viewer = {
         mainUrl: "https://dfg-repository.wisski.cloud",
         baseNamespace: "https://dfg-repository.wisski.cloud",
         metadataUrl: "https://dfg-repository.wisski.cloud",
+        api: {
+          thumbnailUploadEndpoint: "/api/editor/upload-thumbnail",
+        },
         baseModulePath: "/modules/dfg_3dviewer-main/viewer",
         entity: {
           bundle: "bd3d7baa74856d141bcff7b4193fa128",

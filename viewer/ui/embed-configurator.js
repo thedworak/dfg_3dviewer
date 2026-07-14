@@ -228,14 +228,15 @@ export function attachEmbedConfigurator(Viewer) {
 
       this.updatingEmbedFields = true;
 
-      if (!this.viewerInstance) {this.iframeWindow = this.embedConfigPreviewFrame.contentWindow; this.viewerInstance = this.iframeWindow.Viewer; }
+      const activeCamera = core.camera;
+      const activeControls = core.controls;
 
-      this.embedConfigInputs.camPos.value = this.formatVector3Param(this.viewerInstance.camera.position) || "";
-      this.embedConfigInputs.camTarget.value = this.formatVector3Param(this.viewerInstance.controls.target) || "";
-      this.embedConfigInputs.fov.value = Number.isFinite(this.viewerInstance.camera.fov) ? String(this.viewerInstance.camera.fov) : "";
+      this.embedConfigInputs.camPos.value = this.formatVector3Param(activeCamera?.position) || "";
+      this.embedConfigInputs.camTarget.value = this.formatVector3Param(activeControls?.target) || "";
+      this.embedConfigInputs.fov.value = Number.isFinite(activeCamera?.fov) ? String(activeCamera.fov) : "";
 
       this.updatingEmbedFields = false;
-      //this.updateEmbedConfiguratorPreview();
+      this.updateEmbedConfiguratorPreview();
     },
 
     resetEmbedConfiguratorFromViewerState() {

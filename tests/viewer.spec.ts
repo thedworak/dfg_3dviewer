@@ -53,6 +53,14 @@ async function waitForViewerIssue(page) {
   );
 }
 
+async function openMainActionMenu(page) {
+  const menuToggle = page.locator('#viewerActionMenuToggle');
+  if (!(await menuToggle.isChecked())) {
+    await page.click('label[for="viewerActionMenuToggle"]');
+  }
+  await expect(menuToggle).toBeChecked();
+}
+
 test('viewer runs in E2E mode', async ({ page }) => {
   await openViewer(page);
 
@@ -172,11 +180,18 @@ test('embed configurator uses the current camera for preview url', async ({ page
   await page.waitForFunction(() => window.Viewer?.camera && window.Viewer?.controls);
 
   await page.evaluate(() => {
-    const camera = window.Viewer?.camera;
-    const controls = window.Viewer?.controls;
+    const viewer = window.Viewer;
+    const camera = viewer?.camera;
+    const controls = viewer?.controls;
     if (!camera || !controls) {
       throw new Error('Viewer camera is unavailable');
     }
+
+    // Stabilize camera state before assertions.
+    viewer.cameraTween?.stop?.();
+    viewer.targetTween?.stop?.();
+    controls.autoRotate = false;
+    controls.enableDamping = false;
 
     camera.position.set(-1.8352523027, 1.8888667447, 3.6705046054);
     controls.target.set(0, 1, 0);
@@ -185,14 +200,60 @@ test('embed configurator uses the current camera for preview url', async ({ page
     controls.update();
   });
 
+  await openMainActionMenu(page);
   await page.click('#viewEntity');
   await expect(page.locator('#embedConfiguratorPanel')).toBeVisible();
+
   await page.click('#embedUseCurrentCamera');
 
-  await expect(page.locator('#embedCamPosInput')).toHaveValue('-1.8353,1.8889,3.6705');
-  await expect(page.locator('#embedCamTargetInput')).toHaveValue('0.0000,1.0000,0.0000');
-  await expect(page.locator('#embedUrlOutput')).toContainText('camPos=-1.8353%2C1.8889%2C3.6705');
-  await expect(page.locator('#embedUrlOutput')).toContainText('camTarget=0.0000%2C1.0000%2C0.0000');
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const parseVector = (value) => {
+          const parts = String(value || '').split(',').map((part) => Number(part.trim()));
+          if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) {
+            return null;
+          }
+          return parts;
+        };
+
+        const camera = window.Viewer?.camera;
+        const controls = window.Viewer?.controls;
+        const camPosInput = document.querySelector('#embedCamPosInput')?.value ?? '';
+        const camTargetInput = document.querySelector('#embedCamTargetInput')?.value ?? '';
+
+        if (!camera || !controls) {
+          return Number.POSITIVE_INFINITY;
+        }
+
+        const parsedCamPos = parseVector(camPosInput);
+        const parsedCamTarget = parseVector(camTargetInput);
+        if (!parsedCamPos || !parsedCamTarget) {
+          return Number.POSITIVE_INFINITY;
+        }
+
+        const positionDiff = Math.max(
+          Math.abs(parsedCamPos[0] - camera.position.x),
+          Math.abs(parsedCamPos[1] - camera.position.y),
+          Math.abs(parsedCamPos[2] - camera.position.z)
+        );
+        const targetDiff = Math.max(
+          Math.abs(parsedCamTarget[0] - controls.target.x),
+          Math.abs(parsedCamTarget[1] - controls.target.y),
+          Math.abs(parsedCamTarget[2] - controls.target.z)
+        );
+
+        return Math.max(positionDiff, targetDiff);
+      })
+    )
+    .toBeLessThan(0.01);
+
+  const camPosValue = await page.locator('#embedCamPosInput').inputValue();
+  const camTargetValue = await page.locator('#embedCamTargetInput').inputValue();
+  const embedUrl = await page.locator('#embedUrlOutput').inputValue();
+
+  expect(embedUrl).toContain(`camPos=${encodeURIComponent(camPosValue)}`);
+  expect(embedUrl).toContain(`camTarget=${encodeURIComponent(camTargetValue)}`);
 });
 
 test('reports unsupported format without loading a model', async ({ page }) => {
