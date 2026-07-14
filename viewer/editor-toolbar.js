@@ -726,20 +726,10 @@ export function createEditorToolbar(viewer) {
               type: "toggle",
               value: () => (core.scene?.environmentIntensity ?? 0) > 0,
               onChange: async (value) => {
+                await viewer.setEnvironmentMapEnabled(value);
                 if (!core.scene) return;
-                core.scene.traverse((child) => {
-                  const materials = child?.material
-                    ? Array.isArray(child.material)
-                      ? child.material
-                      : [child.material]
-                    : [];
-                  materials.forEach((material) => {
-                    if (material?.isMeshStandardMaterial || material?.isMeshPhysicalMaterial) {
-                      material.needsUpdate = true;
-                    }
-                  });
-                });
                 viewer.updateEditorToolbarState();
+                viewer.updateLightsSubmenuState();
               },
             },
             {

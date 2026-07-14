@@ -7,6 +7,15 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
     <title>DFG 3D Viewer Embed</title>
+    <script>
+      (function () {
+        const value = new URLSearchParams(window.location.search).get("presentationMode");
+        const isPresentationMode = ["1", "true", "yes", "on"].includes(String(value).toLowerCase());
+        if (isPresentationMode) {
+          document.documentElement.classList.add("presentation-mode");
+        }
+      })();
+    </script>
     <link rel="shortcut icon" href="assets/img/dfgviewerFavicon.png" type="image/png">
     <link href="assets/css/main.css" rel="stylesheet" />
     <link href="assets/css/spinner.css" rel="stylesheet" />

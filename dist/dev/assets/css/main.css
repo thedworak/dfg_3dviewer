@@ -1719,9 +1719,16 @@ canvas {
 }
 
 
+
+html.presentation-mode,
+html.presentation-mode body,
+html.presentation-mode #DFG_3DViewer,
+html.presentation-mode .mainContainer,
+html.presentation-mode .mainCanvas,
+html.presentation-mode canvas,
 .presentation-mode,
 .presentation-mode body {
-    background: transparent !important;
+  background: transparent !important;
 }
 
 body.presentation-mode {

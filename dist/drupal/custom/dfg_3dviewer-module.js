@@ -2462,7 +2462,7 @@ function attachEmbedConfigurator(Viewer) {
 
       return {
         url: embedUrl.toString(),
-        code: `<iframe src="${embedUrl.toString()}" title="DFG 3D Viewer" loading="lazy" allow="fullscreen; xr-spatial-tracking" referrerpolicy="strict-origin-when-cross-origin" style="width:100%; aspect-ratio: 16 / 9; border: 0;"></iframe>`,
+        code: `<iframe src="${embedUrl.toString()}" title="DFG 3D Viewer" loading="lazy" allow="fullscreen; xr-spatial-tracking" referrerpolicy="strict-origin-when-cross-origin" style="width:100%; aspect-ratio: 16 / 9; border: 0; background: transparent;"></iframe>`,
       };
     },
 
@@ -7788,7 +7788,7 @@ function getEnvironmentTextureForPreset(renderer, preset = "neutral") {
           // Load HDR map for other presets
           const HDRLoader = await loadHDRLoader();
           const loader = new HDRLoader();
-          const baseModulePath = core.DFG_ASSETS || core.CONFIG?.baseModulePath || '/assets';
+          const baseModulePath = getModuleAssetBasePath() || '/assets';
           const mapFilename = preset === "goldenHour" ? "golden_hour.hdr" : `${preset}.hdr`;
           const mapUrl = `${baseModulePath.replace(/\/$/, '')}/maps/${mapFilename}`;
           
@@ -15293,20 +15293,10 @@ function createEditorToolbar(viewer) {
               type: "toggle",
               value: () => (core.scene?.environmentIntensity ?? 0) > 0,
               onChange: async (value) => {
+                await viewer.setEnvironmentMapEnabled(value);
                 if (!core.scene) return;
-                core.scene.traverse((child) => {
-                  const materials = child?.material
-                    ? Array.isArray(child.material)
-                      ? child.material
-                      : [child.material]
-                    : [];
-                  materials.forEach((material) => {
-                    if (material?.isMeshStandardMaterial || material?.isMeshPhysicalMaterial) {
-                      material.needsUpdate = true;
-                    }
-                  });
-                });
                 viewer.updateEditorToolbarState();
+                viewer.updateLightsSubmenuState();
               },
             },
             {
@@ -18177,11 +18167,17 @@ const Viewer$1 = {
     setCore('EDITOR', this.EDITOR);
 
     const presentationModeFromConfig = this.parseBooleanParam(core.CONFIG.viewer.presentationMode);
-    this.PRESENTATION_MODE = presentationModeFromConfig ?? Boolean(core.CONFIG.viewer.presentationMode);
+    const presentationModeFromUrl = this.urlOptions?.presentationMode;
+    this.PRESENTATION_MODE = typeof presentationModeFromUrl === "boolean"
+      ? presentationModeFromUrl
+      : (presentationModeFromConfig ?? Boolean(core.CONFIG.viewer.presentationMode));
     setCore('PRESENTATION_MODE', this.PRESENTATION_MODE);
 
     const sandboxModeFromConfig = this.parseBooleanParam(core.CONFIG.viewer.sandboxMode);
-    this.SANDBOX_MODE = sandboxModeFromConfig ?? Boolean(core.CONFIG.viewer.sandboxMode);
+    const sandboxModeFromUrl = this.urlOptions?.sandboxMode;
+    this.SANDBOX_MODE = typeof sandboxModeFromUrl === "boolean"
+      ? sandboxModeFromUrl
+      : (sandboxModeFromConfig ?? Boolean(core.CONFIG.viewer.sandboxMode));
     setCore('SANDBOX_MODE', this.SANDBOX_MODE);
     console.log(`Presentation mode: ${this.PRESENTATION_MODE ? "ON" : "OFF"}`);
     console.log(`Sandbox mode: ${this.SANDBOX_MODE ? "ON" : "OFF"}`);
