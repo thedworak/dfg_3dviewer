@@ -1,6 +1,6 @@
 /*
 DFG 3D-Viewer
-Copyright (C) 2025 - Daniel Dworak
+Copyright (C) 2026 - Daniel Dworak
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
