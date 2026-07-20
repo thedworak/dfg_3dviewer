@@ -12,7 +12,59 @@ export const initClippingPlanes = () => {
     new THREE.Plane(new THREE.Vector3(0, 0, -1), 0),
   ];
   setCore('clippingPlanes', clippingPlanes);
+  if (!core.activeClippingPlanes) {
+    const activeClippingPlanes = [];
+    setCore('activeClippingPlanes', activeClippingPlanes);
+  }
+  setCore('updateActiveClippingPlanes', updateActiveClippingPlanes);
   return clippingPlanes;
+};
+
+export const updateActiveClippingPlanes = () => {
+  if (core.PRESENTATION_MODE) {
+    if (core.activeClippingPlanes) {
+      core.activeClippingPlanes.length = 0;
+    }
+    return;
+  }
+  if (!core.activeClippingPlanes) {
+    const activeClippingPlanes = [];
+    setCore('activeClippingPlanes', activeClippingPlanes);
+  }
+  const mode = core.planeParams?.clippingMode || {};
+  const activePlanes = [];
+  if (mode.x && core.clippingPlanes?.[0]) activePlanes.push(core.clippingPlanes[0]);
+  if (mode.y && core.clippingPlanes?.[1]) activePlanes.push(core.clippingPlanes[1]);
+  if (mode.z && core.clippingPlanes?.[2]) activePlanes.push(core.clippingPlanes[2]);
+
+  core.activeClippingPlanes.length = 0;
+  core.activeClippingPlanes.push(...activePlanes);
+
+  const updateMat = (mat) => {
+    if (!mat || typeof mat !== 'object') return;
+    const mats = Array.isArray(mat) ? mat : [mat];
+    mats.forEach((m) => {
+      if (m && typeof m === 'object' && ('clippingPlanes' in m || m.isMaterial)) {
+        m.clippingPlanes = core.activeClippingPlanes;
+        m.needsUpdate = true;
+      }
+    });
+  };
+
+  if (core.scene) {
+    core.scene.traverse((child) => {
+      if (child.material) {
+        updateMat(child.material);
+      }
+    });
+  }
+  if (core.outlineClipping) {
+    core.outlineClipping.traverse?.((child) => {
+      if (child.material) {
+        updateMat(child.material);
+      }
+    });
+  }
 };
 
 const scaleXYZ = (v, s) =>
@@ -1052,6 +1104,7 @@ function setupClippingPlanes(_geom, _distance) {
       }
       showClippingPlaneToast("X", v);
       refreshClippingHint();
+      updateActiveClippingPlanes();
     });
 
     displayHelper?.constantX.min(-core.distanceGeometry.x)
@@ -1080,6 +1133,7 @@ function setupClippingPlanes(_geom, _distance) {
       }
       showClippingPlaneToast("Y", v);
       refreshClippingHint();
+      updateActiveClippingPlanes();
     });
     displayHelper?.constantY
       .min(-core.distanceGeometry.y)
@@ -1108,6 +1162,7 @@ function setupClippingPlanes(_geom, _distance) {
       }
       showClippingPlaneToast("Z", v);
       refreshClippingHint();
+      updateActiveClippingPlanes();
     });
     displayHelper?.constantZ
       .min(-core.distanceGeometry.z)
@@ -1124,6 +1179,7 @@ function setupClippingPlanes(_geom, _distance) {
       core.outlineClipping.visible = v;
     });
     refreshClippingHint();
+    updateActiveClippingPlanes();
   }
 }
 

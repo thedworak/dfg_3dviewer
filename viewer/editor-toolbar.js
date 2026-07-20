@@ -2,11 +2,11 @@ import THREE from "./init.js";
 
 import { core } from "./core.js";
 import { t } from "./i18n-utils.js";
-import { toastHelper } from './viewer-utils.js';
+import { changeBackground, toastHelper } from './viewer-utils.js';
 
 export function getEditorToolbarIcon(icon) {
   const icons = {
-    moveToolbar: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    moveToolbar: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="7" r="1.4" fill="currentColor"/><circle cx="16" cy="7" r="1.4" fill="currentColor"/><circle cx="8" cy="12" r="1.4" fill="currentColor"/><circle cx="16" cy="12" r="1.4" fill="currentColor"/><circle cx="8" cy="17" r="1.4" fill="currentColor"/><circle cx="16" cy="17" r="1.4" fill="currentColor"/></svg>',
     orbit: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16.5 2.75 21 3.5l-.75 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.25" fill="currentColor"/></svg>',
     move: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     rotate: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.5A7.5 7.5 0 1 1 5 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 3.5v3H5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -16,12 +16,13 @@ export function getEditorToolbarIcon(icon) {
     lights: '<svg viewBox="0 0 24 24" aria-hidden="true"> <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/> <path d="M12 4V7M12 17v3M4 12h3M17 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/> <path d="M6.5 6.5l2 2M15.5 15.5l2 2M17.5 6.5l-2 2M8.5 15.5l-2 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/> </svg>',
     materials: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 4v8l-8 4-8-4V6l8-4z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 6l8 4M12 6v8M12 14l-8-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
     ambientLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-    cameraLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h3l2-2h4l2 2h3v10H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+    //cameraLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h3l2-2h4l2 2h3v10H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
     environmentMap: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 7v10l-7 4-7-4V7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 3v18M5 7l7 4 7-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="18.25" cy="5.75" r="1.25" fill="currentColor"/></svg>',
     color: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a5 5 0 0 0-5 5c0 2.8 5 9 5 9s5-6.2 5-9a5 5 0 0 0-5-5Z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 14.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z" fill="currentColor"/></svg>',
     intensity: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     picking: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 3 8 8-4 1 2 5-2.5 1-2-5-3 3Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
     resetCamera: '<svg viewBox="0 0 24 24" aria-hidden="true"> <path d="M9 4H4v5M15 4h5v5M20 15v5h-5M4 15v5h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/> <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/> </svg>',
+    resetSettings: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7.5A8 8 0 1 1 4 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M5 3.5v4h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8v4l2.5 1.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     preview: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m8 14 2.5-3 2.5 2 2-3 3 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     save: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 4v5h8M9 18h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     mainMenu: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2 2.2 3-.2.8 2.9 2.6 1.4-1 2.8 1 2.8-2.6 1.4-.8 2.9-3-.2L12 21l-2-2.2-3 .2-.8-2.9-2.6-1.4 1-2.8-1-2.8 2.6-1.4.8-2.9 3 .2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
@@ -37,8 +38,8 @@ export function getEditorToolbarIcon(icon) {
     annotateAdd: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 8v5M9.5 10.5h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
     annotateImport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 6.8v7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.8 12 14l3.2-3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     annotateExport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 14.2V7.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.2 12 7l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  IIIFexport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v12H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 3v3h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 18V9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 12.2L12 9l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
-  IIIFimport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v12H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 3v3h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 9v9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 14.8 12 18l3.2-3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+    IIIFexport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v12H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 3v3h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 18V9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 12.2L12 9l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+    IIIFimport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v12H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 3v3h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 9v9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 14.8 12 18l3.2-3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
     hierarchy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5v5H4zM15 4h5v5h-5zM4 15h5v5H4zM15 15h5v5h-5zM9 6h6M9 17h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     loadingLogs: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18M3 6h12M3 18h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     performance: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
@@ -52,6 +53,11 @@ export function getEditorToolbarIcon(icon) {
     wireframe: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 7v10l-7 4-7-4V7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 3v18M5 7l7 4 7-4M5 17l7-4 7 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
     screenshot: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5H5a2 2 0 0 0-2 2v2M17 5h2a2 2 0 0 1 2 2v2M17 19h2a2 2 0 0 0 2-2v-2M7 19H5a2 2 0 0 1-2-2v-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
     download: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M5 12l7 7 7-7M4 19h16a1 1 0 0 1 1 1v2H3v-2a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    background: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>',
+    backgroundLinear: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/></svg>',
+    backgroundGradient: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="5.7" fill="currentColor" fill-opacity="0.18"/><circle cx="12" cy="12" r="3.1" fill="currentColor" fill-opacity="0.56"/><circle cx="12" cy="12" r="1.1" fill="currentColor"/></svg>',
+    backgroundInner: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="5" fill="currentColor"/></svg>',
+    backgroundOuter: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h18v18H3zM12 7.5a4.5 4.5 0 1 0 0 9a4.5 4.5 0 0 0 0-9z"/><circle cx="12" cy="12" r="5.25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.2 1.6"/></svg>',
   };
 
   return icons[icon] || icons.advancedEditor;
@@ -309,18 +315,20 @@ export function createEditorToolbar(viewer) {
     { key: "move", icon: "move", onClick: () => viewer.toggleObjectTransformMode("translate"), pressed: true, primary: true },
     { key: "rotate", icon: "rotate", onClick: () => viewer.toggleObjectTransformMode("rotate"), pressed: true, primary: true },
     { key: "scale", icon: "scale", onClick: () => viewer.toggleObjectTransformMode("scale"), pressed: true, primary: true },
-    { key: "lights", icon: "lights", onClick: () => {}, pressed: false, primary: false },
+    { key: "lights", icon: "lights", onClick: () => {}, pressed: false, primary: false },    
     { key: "materials", icon: "materials", onClick: () => viewer.openMaterialsFolder(), pressed: false, primary: false },
     { key: "picking", icon: "picking", onClick: () => viewer.togglePickingMode(), pressed: true, primary: false },
+    { key: "hierarchy", icon: "hierarchy", onClick: () => {}, pressed: true, primary: false },
     { key: "annotate", icon: "annotate", onClick: () => viewer.openAnnotationDialogWithAutoPicking(), primary: false },
     { key: "ruler", icon: "ruler", onClick: () => viewer.toggleDistanceMeasurement(), pressed: true, primary: false },
     { key: "fullScreen", icon: "fullScreen", onClick: () => viewer.toggleFullscreen(), pressed: true, primary: true },
     { key: "clippingPlanes", icon: "clippingPlanes", onClick: () => viewer.toggleClippingPlanesPanel(), pressed: true, primary: false },
     { key: "resetCamera", icon: "resetCamera", onClick: () => viewer.resetCamera(), primary: false },
-    { key: "hierarchy", icon: "hierarchy", onClick: () => {}, pressed: true, primary: false },
+    { key: "resetSettings", icon: "resetSettings", onClick: () => viewer.resetModelSettings(), primary: false },
     { key: "projection", icon: "projection", onClick: () => viewer.toggleCameraProjection(), pressed: true, primary: false },
     { key: "wireframe", icon: "wireframe", onClick: () => viewer.toggleWireframeMode(), pressed: true, primary: false },    
     { key: "statistics", icon: "statistics", onClick: () => {}, pressed: false, primary: false },
+    { key: "background", icon: "background", onClick: () => {}, pressed: false, primary: false },
     
   ];
 
@@ -462,7 +470,7 @@ export function createEditorToolbar(viewer) {
         { key: "Camera", label: t("gui.camera", "Camera") },
         { key: "DirectionalLight", label: t("gui.directionalLight", "Directional Light") },
         { key: "AmbientLight", label: t("gui.ambientLight", "Ambient Light") },
-        { key: "CameraLight", label: t("gui.cameraLight", "Camera Light") },
+        /*{ key: "CameraLight", label: t("gui.cameraLight", "Camera Light") },*/
         { key: "BackgroundColor", label: t("gui.backgroundColor", "Background Color") },
       ];
       viewer.saveSubmenuCheckboxes = {};
@@ -627,6 +635,9 @@ export function createEditorToolbar(viewer) {
 
           if (item.type === "color") {
             subButton.classList.add("viewer-editor-tool_submenu-control");
+            if (item.compactPicker === true) {
+              subButton.classList.add("viewer-editor-tool_submenu-control-picker-compact");
+            }
 
             const colorInput = document.createElement("input");
             colorInput.type = "color";
@@ -869,7 +880,7 @@ export function createEditorToolbar(viewer) {
             },
           ],
         },
-        {
+        /*{
           key: "lightCamera",
           icon: "cameraLight",
           label: t("gui.camera", "Camera"),
@@ -900,8 +911,136 @@ export function createEditorToolbar(viewer) {
               },
             },
           ],
+        },*/
+      ], submenu);
+      button.appendChild(submenu);
+    } else if (tool.key === "background") {
+      button.classList.add("has-submenu");
+      const submenu = document.createElement("div");
+      submenu.className = "viewer-editor-tool_submenu";
+      viewer.backgroundSubmenuButtons = {};
+
+      const normalizeColorValue = (value) => {
+        if (typeof value !== "string") return "#ffffff";
+        if (value.startsWith("0x")) {
+          return `#${value.slice(2).padStart(6, "0")}`;
+        }
+        return value.startsWith("#") ? value : `#${value}`;
+      };
+
+      const appendSubmenuItems = (items, container) => {
+        items.forEach((item) => {
+          const subButton = document.createElement("button");
+          subButton.type = "button";
+          subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+          subButton.dataset.tool = item.key;
+          subButton.setAttribute("title", item.label);
+          subButton.setAttribute("aria-label", item.label);
+
+          if (item.hideIcon !== true) {
+            const iconSpan = document.createElement("span");
+            iconSpan.className = "viewer-editor-tool_icon";
+            iconSpan.setAttribute("aria-hidden", "true");
+            iconSpan.innerHTML = getEditorToolbarIcon(item.icon);
+            subButton.appendChild(iconSpan);
+          }
+
+          if (item.type === "color") {
+            subButton.classList.add("viewer-editor-tool_submenu-control");
+            if (item.compactPicker === true) {
+              subButton.classList.add("viewer-editor-tool_submenu-control-picker-compact");
+            }
+            if (item.hideIcon === true) {
+              subButton.classList.add("viewer-editor-tool_submenu-control-no-icon");
+            }
+
+            const colorInput = document.createElement("input");
+            colorInput.type = "color";
+            colorInput.value = normalizeColorValue(item.value());
+            colorInput.className = "viewer-editor-tool_submenu-input";
+            colorInput.addEventListener("click", (event) => event.stopPropagation());
+            colorInput.addEventListener("input", (event) => {
+              const value = event.target.value;
+              item.onChange(value);
+              colorInput.value = normalizeColorValue(value);
+            });
+            subButton.appendChild(colorInput);
+            subButton._colorInput = colorInput;
+          } else if (item.onClick) {
+            viewer.bindEventListener(subButton, "click", (event) => {
+              event.stopPropagation();
+              item.onClick();
+            });
+          }
+
+          viewer.backgroundSubmenuButtons[item.key] = subButton;
+          container.appendChild(subButton);
+        });
+      };
+
+      appendSubmenuItems([
+        {
+          key: "backgroundTypeLinear",
+          icon: "backgroundLinear",
+          label: t("gui.linear", "Linear"),
+          onClick: () => {
+            viewer.backgroundType["Background Type"] = "linear";
+            changeBackground(
+              "linear",
+              viewer.colors.BackgroundColor,
+              viewer.colors.BackgroundColorOuter
+            );
+            viewer.updateEditorToolbarState();
+          },
+        },
+        {
+          key: "backgroundTypeGradient",
+          icon: "backgroundGradient",
+          label: t("gui.gradient", "Gradient"),
+          onClick: () => {
+            viewer.backgroundType["Background Type"] = "gradient";
+            changeBackground(
+              "gradient",
+              viewer.colors.BackgroundColor,
+              viewer.colors.BackgroundColorOuter
+            );
+            viewer.updateEditorToolbarState();
+          },
+        },
+        {
+          key: "backgroundColor",
+          icon: "backgroundInner",
+          label: t("gui.backgroundColor", "Background Color"),
+          type: "color",
+          compactPicker: true,
+          value: () => viewer.colors.BackgroundColor,
+          onChange: (value) => {
+            viewer.colors.BackgroundColor = value;
+            changeBackground(
+              viewer.backgroundType["Background Type"],
+              viewer.colors.BackgroundColor,
+              viewer.colors.BackgroundColorOuter
+            );
+          },
+        },
+        {
+          key: "backgroundColorOuter",
+          icon: "backgroundOuter",
+          label: t("gui.backgroundColorOuter", "Background Color Outer"),
+          type: "color",
+          compactPicker: true,
+          value: () => viewer.colors.BackgroundColorOuter,
+          onChange: (value) => {
+            viewer.colors.BackgroundColorOuter = value;
+            changeBackground(
+              viewer.backgroundType["Background Type"],
+              viewer.colors.BackgroundColor,
+              viewer.colors.BackgroundColorOuter
+            );
+          },
         },
       ], submenu);
+
       button.appendChild(submenu);
     } else if (tool.key === "materials") {
       button.classList.add("has-submenu");
@@ -934,7 +1073,7 @@ export function createEditorToolbar(viewer) {
         button.target = "_blank";
         button.rel = "noopener noreferrer";
         button.download = core.fileObject.filename;
-      }  
+      }
     }
     viewer.bindEventListener(button, "click", () => {
       viewer.stopHandMode();
@@ -1082,6 +1221,49 @@ export function updateLightsSubmenuState(viewer) {
   });
 }
 
+export function updateBackgroundSubmenuState(viewer) {
+  if (!viewer.backgroundSubmenuButtons) return;
+
+  const backgroundType = viewer.backgroundType?.["Background Type"] === "linear"
+    ? "linear"
+    : "gradient";
+  const isLinear = backgroundType === "linear";
+
+  viewer.backgroundSubmenuButtons.backgroundTypeLinear?.classList.toggle(
+    "is-active",
+    isLinear
+  );
+  viewer.backgroundSubmenuButtons.backgroundTypeLinear?.setAttribute(
+    "aria-pressed",
+    isLinear ? "true" : "false"
+  );
+
+  viewer.backgroundSubmenuButtons.backgroundTypeGradient?.classList.toggle(
+    "is-active",
+    !isLinear
+  );
+  viewer.backgroundSubmenuButtons.backgroundTypeGradient?.setAttribute(
+    "aria-pressed",
+    !isLinear ? "true" : "false"
+  );
+
+  const backgroundColorInput = viewer.backgroundSubmenuButtons.backgroundColor?._colorInput;
+  const backgroundColorOuterInput = viewer.backgroundSubmenuButtons.backgroundColorOuter?._colorInput;
+
+  if (backgroundColorInput) {
+    backgroundColorInput.value = String(viewer.colors?.BackgroundColor || "#ffffff");
+  }
+  if (backgroundColorOuterInput) {
+    backgroundColorOuterInput.value = String(viewer.colors?.BackgroundColorOuter || "#999999");
+    backgroundColorOuterInput.disabled = isLinear;
+  }
+
+  viewer.backgroundSubmenuButtons.backgroundColorOuter?.classList.toggle(
+    "is-disabled",
+    isLinear
+  );
+}
+
 export function updateEditorToolbarLabels(viewer) {
   if (!viewer.editorToolbarButtons) return;
 
@@ -1100,6 +1282,7 @@ export function updateEditorToolbarLabels(viewer) {
       ? t("controls.disableDistanceMeasurement", "Disable distance measurement")
       : t("controls.enableDistanceMeasurement", "Enable distance measurement"),
     resetCamera: t("gui.resetCameraPosition", "Reset camera position"),
+    resetSettings: t("gui.resetSettings", "Reset settings"),
     preview: t("gui.renderPreview", "Render preview"),
     save: t("gui.saveSettings", "Save settings"),
     advancedEditor: viewer.isEditorAdvancedPanelVisible()
@@ -1122,6 +1305,7 @@ export function updateEditorToolbarLabels(viewer) {
       : t("gui.showLoadingLogs", "Show loading logs"),
     hierarchy: t("gui.hierarchy", "Hierarchy"),
     materials: t("gui.materials", "Materials"),
+    background: t("gui.backgroundColor", "Background Color"),
     statistics: t("gui.statistics", "Statistics"),
     expand: viewer.isToolbarExpanded
       ? t("gui.collapse", "Collapse toolbar")
@@ -1200,6 +1384,20 @@ export function updateEditorToolbarLabels(viewer) {
     });
   }
 
+  if (viewer.backgroundSubmenuButtons) {
+    const backgroundSubmenuLabels = {
+      backgroundTypeLinear: t("gui.linear", "Linear"),
+      backgroundTypeGradient: t("gui.gradient", "Gradient"),
+      backgroundColor: t("gui.backgroundColor", "Background Color"),
+      backgroundColorOuter: t("gui.backgroundColorOuter", "Background Color Outer"),
+    };
+    Object.entries(viewer.backgroundSubmenuButtons).forEach(([key, button]) => {
+      const label = backgroundSubmenuLabels[key] || key;
+      button.setAttribute("title", label);
+      button.setAttribute("aria-label", label);
+    });
+  }
+
   if (viewer.hierarchyClearButton) {
     const label = t("gui.clearSelectedHierarchy", "Clear selected objects");
     viewer.hierarchyClearButton.setAttribute("title", label);
@@ -1215,7 +1413,7 @@ export function updateEditorToolbarLabels(viewer) {
       Camera: t("gui.camera", "Camera"),
       DirectionalLight: t("gui.directionalLight", "Directional Light"),
       AmbientLight: t("gui.ambientLight", "Ambient Light"),
-      CameraLight: t("gui.cameraLight", "Camera Light"),
+      /*CameraLight: t("gui.cameraLight", "Camera Light"),*/
       BackgroundColor: t("gui.backgroundColor", "Background Color"),
     };
     Object.entries(viewer.saveSubmenuCheckboxes).forEach(([key, elements]) => {
@@ -1267,5 +1465,6 @@ export function updateEditorToolbarState(viewer) {
   updateHierarchySubmenuState(viewer);
   updateClippingPlanesSubmenuState(viewer);
   updateLightsSubmenuState(viewer);
+  updateBackgroundSubmenuState(viewer);
   updateStatisticsSubmenuState(viewer);
 }

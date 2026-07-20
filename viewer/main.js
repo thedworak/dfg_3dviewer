@@ -37,7 +37,7 @@ import {
   normalizeColor,
 } from "./utils.js";
 
-import { initClippingPlanes, reportViewerError, showToast, toastHelper, changeBackground } from './viewer-utils.js';
+import { initClippingPlanes, updateActiveClippingPlanes, reportViewerError, showToast, toastHelper, changeBackground } from './viewer-utils.js';
 import { attachEmbedConfigurator } from "./ui/embed-configurator.js";
 import { buildThumbnailGallery } from "./ui/thumbnail-gallery.js";
 import { attachLocalizationTheme } from "./ui/localization-theme.js";
@@ -50,7 +50,7 @@ import { attachPicking } from "./editor/picking.js";
 import { captureAndUploadThumbnail } from "./editor/thumbnail-capture.js";
 
 import { loadModel, outlineClipping, getModuleAssetBasePath, syncSceneEnvironment } from "./loaders.js";
-import { createIIIFDropdown, createManifestUI, createAIM3IFDropdown } from "./metadata.js";
+import { createIIIFDropdown, createManifestUI, createAIM3IFDropdown, resetModelSettings } from "./metadata.js";
 import { UltraLoader } from "./ultra-loader.js";
 import { StatusPoller } from "./status-poller.js";
 
@@ -374,6 +374,11 @@ export const Viewer = {
     panFactor: 0.04,
     zoomFactor: 1.08,
   },
+  transformSnap: {
+    rotate: THREE.MathUtils.degToRad(5),
+    scale: 0.1,
+  },
+  shiftSnapActive: false,
   keyboardTweenDurationMs: 150,
   lastKeyboardHintAt: 0,
   keyboardHintCooldownMs: 45000,
@@ -725,6 +730,7 @@ export const Viewer = {
       core.CONFIG.viewer = {};
     }
     core.CONFIG.viewer.performanceMode = value;
+    showToast("toasts.performanceModeSet", { mode: value }, 2000);
     this.updateEditorToolbarState();
   },
 
@@ -868,6 +874,7 @@ export const Viewer = {
     this.updateClippingPlanesControlsVisibility();
     this.updateEditorToolbarLabels();
     this.updateEditorToolbarState();
+    updateActiveClippingPlanes();
   },
 
   updateClippingPlanesControllerLabel() {
@@ -920,6 +927,7 @@ export const Viewer = {
     });
     this.refreshClippingHintVisibility();
     this.updateClippingPlanesSubmenuState();
+    updateActiveClippingPlanes();
   },
 
   toggleClippingPlaneVisible() {
@@ -1335,6 +1343,37 @@ export const Viewer = {
     this.updateEmbedConfiguratorPreview();
   },
 
+  applyTransformSnapFromShift() {
+    const control = core.transformControl;
+    if (!control) return;
+
+    const mode = control.getMode?.() || "";
+    const useSnap = Viewer.shiftSnapActive === true;
+
+    control.rotationSnap = useSnap && mode === "rotate" ? Viewer.transformSnap.rotate : null;
+    control.scaleSnap = useSnap && mode === "scale" ? Viewer.transformSnap.scale : null;
+  },
+
+  onTransformSnapKeyDown(event) {
+    if (event?.key !== "Shift") return;
+    if (Viewer.shiftSnapActive) return;
+    Viewer.shiftSnapActive = true;
+    Viewer.applyTransformSnapFromShift();
+  },
+
+  onTransformSnapKeyUp(event) {
+    if (event?.key !== "Shift") return;
+    if (!Viewer.shiftSnapActive) return;
+    Viewer.shiftSnapActive = false;
+    Viewer.applyTransformSnapFromShift();
+  },
+
+  onTransformSnapBlur() {
+    if (!Viewer.shiftSnapActive) return;
+    Viewer.shiftSnapActive = false;
+    Viewer.applyTransformSnapFromShift();
+  },
+
   onViewerKeyDown(event) {
     if (!Viewer.isViewerKeyboardActive(event)) return;
 
@@ -1502,6 +1541,13 @@ export const Viewer = {
     Viewer.transformText["Transform Light"] = "";
     Viewer.pickingMode = false;
     Viewer.RULER_MODE = false;
+    this.clippingMode = false;
+    if (core.planeParams?.clippingMode) {
+      core.planeParams.clippingMode.x = false;
+      core.planeParams.clippingMode.y = false;
+      core.planeParams.clippingMode.z = false;
+    }
+    updateActiveClippingPlanes();
     Viewer.updateEditorToolbarLabels();
     Viewer.updateEditorToolbarState();
 
@@ -1860,7 +1906,7 @@ export const Viewer = {
       core.guiContainer.hidden = core.SANDBOX_MODE === true;
       core.container.appendChild(core.guiContainer);
 
-      core.gui  = new GUI({ container: core.guiContainer });
+      core.gui  = new GUI({ container: core.guiContainer, width: 300, autoPlace: false, injectStyles: true });
       core.gui.domElement.style.visibility = "hidden";
 
       this.metadataContainer = document.createElement("div");
@@ -2368,6 +2414,8 @@ export const Viewer = {
       }
     }
 
+    core.guiContainer.style.right = (-core.guiContainer.getBoundingClientRect().width + 10) + 'px !important';
+
     // metadata overlay
     if (core.metadataContainer) {
       core.metadataContainer.style.width = "100%";
@@ -2795,6 +2843,9 @@ export const Viewer = {
 
     core.boundingSphere = new THREE.Sphere(center, _maxDistance);
     core.boundingSphere.center.copy(center);
+    if (typeof core.updateActiveClippingPlanes === "function") {
+      core.updateActiveClippingPlanes();
+    }
   },
 
   changeLightRotation() {
@@ -3036,6 +3087,10 @@ export const Viewer = {
     core.targetTween.start();
   },
 
+  async resetModelSettings() {
+    await resetModelSettings();
+  },
+
   buildMetadata(rotateMetadata) {
     return buildEditorMetadata(this, rotateMetadata);
   },
@@ -3046,7 +3101,7 @@ export const Viewer = {
     core.stats.domElement.classList.add("viewer-stats");
     if (typeof core.guiContainer !== "undefined" && core.stats?.dom) {
       core.guiContainer.appendChild(core.stats.dom);
-      core.stats.dom.style.left = (core.guiContainer.getBoundingClientRect().width - core.stats.domElement.getBoundingClientRect().width + 10) + 'px';
+      core.guiContainer.style.right = (-core.guiContainer.getBoundingClientRect().width) + 'px !important';
       core.stats.dom.style.visibility = 'hidden';
     }
 
@@ -3060,8 +3115,8 @@ export const Viewer = {
     const showTransformHintToast = (mode) => {
       const hints = {
         translate: t("toasts.transformMove", "Move: drag axis arrows to reposition the object."),
-        rotate: t("toasts.transformRotate", "Rotate: drag rotation rings to rotate the object."),
-        scale: t("toasts.transformScale", "Scale: drag axis handles to resize the object."),
+        rotate: t("toasts.transformRotate", "Rotate: drag rotation rings to rotate the object. Hold Shift to snap angle."),
+        scale: t("toasts.transformScale", "Scale: drag axis handles to resize the object. Hold Shift to snap scale."),
       };
       const message = hints[mode];
       if (!message) return;
@@ -3105,6 +3160,7 @@ export const Viewer = {
           core.renderer.localClippingEnabled = true;
 
           core.transformControl.setMode(value);
+          Viewer.applyTransformSnapFromShift();
           core.transformControl.attach(object);
           showTransformHintToast(value);
 
@@ -3183,7 +3239,7 @@ export const Viewer = {
       })
       .listen();
 
-    const lightFolderCamera = Viewer.editorFolder.addFolder(t("gui.cameraLight", "Camera Light")).close();
+    /*const lightFolderCamera = Viewer.editorFolder.addFolder(t("gui.cameraLight", "Camera Light")).close();
     core.i18nGui.lightFolderCamera = lightFolderCamera;
     core.i18nGui.cameraLightColorController = lightFolderCamera
       .addColor(Viewer.colors, "CameraLight")
@@ -3198,47 +3254,8 @@ export const Viewer = {
       .onChange(function (value) {
         Viewer.cameraLight.intensity = value;
       })
-      .listen();
+      .listen();*/
 
-    const backgroundFolder = Viewer.editorFolder.addFolder(t("gui.backgroundColor", "Background Color")).close();
-    core.i18nGui.backgroundFolder = backgroundFolder;
-    core.i18nGui.backgroundColorController = backgroundFolder
-      .addColor(Viewer.colors, "BackgroundColor")
-      .name(t("gui.backgroundColor", "Background Color"))
-      .onChange(function (value) {
-        changeBackground(
-          Viewer.backgroundType["Background Type"],
-          value,
-          Viewer.colors["BackgroundColorOuter"]
-        );
-      })
-      .listen();
-    core.i18nGui.backgroundColorOuterController = backgroundFolder
-      .addColor(Viewer.colors, "BackgroundColorOuter")
-      .name(t("gui.backgroundColorOuter", "Background Color Outer"))
-      .onChange(function (value) {
-        changeBackground(
-          Viewer.backgroundType["Background Type"],
-          Viewer.colors["BackgroundColor"],
-          value
-        );
-      })
-      .listen();
-    core.i18nGui.backgroundTypeController = backgroundFolder
-      .add(Viewer.backgroundType, "Background Type", {
-        [t("gui.linear", "Linear")]: "linear",
-        [t("gui.gradient", "Gradient")]: "gradient",
-      })
-      .name(t("gui.backgroundType", "Background Type"))
-      .onChange(function (value) {
-        if (value == "linear") Viewer.backgroundOuterFolder.hide();
-        else Viewer.backgroundOuterFolder.show();
-        changeBackground(
-          value,
-          Viewer.colors["BackgroundColor"],
-          Viewer.colors["BackgroundColorOuter"]
-        );
-      });
     setCore("clippingFolder", Viewer.clippingFolder);
 
     if (core.EDITOR) {
@@ -3638,6 +3655,9 @@ export const Viewer = {
           core.renderer.domElement.focus();
         });
         Viewer.bindEventListener(core.renderer.domElement, "keydown", Viewer.onViewerKeyDown);
+        Viewer.bindEventListener(window, "keydown", Viewer.onTransformSnapKeyDown);
+        Viewer.bindEventListener(window, "keyup", Viewer.onTransformSnapKeyUp);
+        Viewer.bindEventListener(window, "blur", Viewer.onTransformSnapBlur);
 
         if (core.isLocalPreview || core.SANDBOX_MODE) {
           Viewer.bindEventListener(core.renderer.domElement, "dragover", Viewer.onDragOver);
@@ -3772,7 +3792,7 @@ export const Viewer = {
         Viewer.actionMenuPanel.appendChild(Viewer.languageModeContainer);
         Viewer.actionMenuPanel.appendChild(Viewer.themeMode);
         Viewer.actionMenuPanel.appendChild(Viewer.viewEntity);
-        Viewer.actionMenuPanel.appendChild(Viewer.downloadModelElement);
+        //Viewer.actionMenuPanel.appendChild(Viewer.downloadModelElement);
         if (Viewer.urlOptions.hideUi) {
           Viewer.actionMenu.hidden = true;
         }
@@ -3783,7 +3803,7 @@ export const Viewer = {
         Viewer.bindEventListener(Viewer.viewEntity, "click", Viewer.openEmbedConfiguratorFromMenu.bind(Viewer));
         Viewer.updateEmbedMenuEntryState();
         Viewer.applyLanguage({ persist: false });
-        Viewer.bindEventListener(Viewer.downloadModelElement, "click", () => Viewer.closeActionMenu());
+        //Viewer.bindEventListener(Viewer.downloadModelElement, "click", () => Viewer.closeActionMenu());
         Viewer.bindEventListener(document, "click", (event) => {
           if (
             !Viewer.actionMenu?.contains(event.target) &&
@@ -3852,12 +3872,14 @@ export const Viewer = {
 
       if (!core.PRESENTATION_MODE) {
         Viewer.transformControl = new TransformControls(core.camera, core.renderer.domElement);
-        Viewer.transformControl.rotationSnap = THREE.MathUtils.degToRad(5);
+        Viewer.transformControl.rotationSnap = null;
+        Viewer.transformControl.scaleSnap = null;
         Viewer.transformControl.space = "local";
         Viewer.transformControl.addEventListener("change", Viewer.render);
         Viewer.transformControl.addEventListener("objectChange", () => {
           Viewer.changeScale();
           Viewer.syncOutlineClippingTransform();
+          Viewer.calculateObjectScale();
         });
         Viewer.transformControl.addEventListener("mouseUp", () => {
           Viewer.syncOutlineClippingTransform();

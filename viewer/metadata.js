@@ -3,6 +3,41 @@ import { setupObject, setupCamera, toastHelper } from './viewer-utils.js';
 import { core } from './core.js';
 import { t } from "./i18n-utils.js";
 
+let modelSettingsResetState = null;
+
+function captureModelSettingsResetState(object) {
+  const objects = Array.isArray(object) ? object : [object];
+
+  modelSettingsResetState = {
+    object,
+    setupIndex: core.objectsConfig?.setupIndex,
+    transforms: objects.map((model) => ({
+      model,
+      position: model.position.clone(),
+      rotation: model.rotation.clone(),
+      scale: model.scale.clone(),
+    })),
+  };
+}
+
+export async function resetModelSettings() {
+  if (!modelSettingsResetState?.object) return;
+
+  modelSettingsResetState.transforms.forEach(({ model, position, rotation, scale }) => {
+    model.position.copy(position);
+    model.rotation.copy(rotation);
+    model.scale.copy(scale);
+    model.updateMatrixWorld(true);
+  });
+
+  if (typeof modelSettingsResetState.setupIndex !== "undefined" && core.objectsConfig) {
+    core.objectsConfig.setupIndex = modelSettingsResetState.setupIndex;
+  }
+
+  window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(null);
+  await handleMetadataResponse(null, { vertices: 0, faces: 0 }, modelSettingsResetState.object);
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -347,17 +382,21 @@ export async function handleMetadataResponse(
   metadataContent += await fetchEntityMetadata();
 
   if (!core.downloadModel) {
-    core.downloadModelElement.hidden = true;
-    core.downloadModelElement.removeAttribute("href");
+    if (core.downloadModelElement) {
+      core.downloadModelElement.hidden = true;
+      core.downloadModelElement.removeAttribute("href");
+    }
   } else {
     const c_path = core.fileObject.path;
     if (core.loadedFile !== "") {
       core.fileObject.filename = core.fileObject.filename.replace(core.fileObject.orgExtension, core.fileObject.extension);
     }
 
-    core.downloadModelElement.href = `${encodeURI(c_path + core.fileObject.filename)}`;
-    core.downloadModelElement.setAttribute("download", core.fileObject.filename);
-    core.downloadModelElement.hidden = false;
+    if (core.downloadModelElement) {
+      core.downloadModelElement.href = `${encodeURI(c_path + core.fileObject.filename)}`;
+      core.downloadModelElement.setAttribute("download", core.fileObject.filename);
+      core.downloadModelElement.hidden = true;
+    }
     window.Viewer?.updateDownloadMenuEntryLabel?.();    
   }
 
@@ -459,6 +498,8 @@ export async function presentationMode (object) {
 export async function fetchSettings(object) {
   var metadata = { vertices: 0, faces: 0 };
   let metadataUrl = '';
+
+  captureModelSettingsResetState(object);
 
   // Skip metadata fetch for blob URLs (drag & drop files)
   if (core.fileObject.filename.startsWith('blob:')) {

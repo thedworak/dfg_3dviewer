@@ -287,6 +287,7 @@ const VIEWER_I18N = {
       IIIFimport: "Import 3IF",
       IIIFexport: "Export IIIF",
       resetCameraPosition: "Reset camera position",
+      resetSettings: "Reset settings",
       saveSettings: "Save settings",
       renderPreview: "Render preview",
       color: "Color",
@@ -428,8 +429,8 @@ const VIEWER_I18N = {
     },
     toasts: {
       transformMove: "Move: drag axis arrows to reposition the object.",
-      transformRotate: "Rotate: drag rotation rings to rotate the object.",
-      transformScale: "Scale: drag axis handles to resize the object.",
+      transformRotate: "Rotate: drag rotation rings to rotate the object. Hold Shift for snapping.",
+      transformScale: "Scale: drag axis handles to resize the object. Hold Shift for snapping.",
       transformLightMove: "Transform Light - Move: drag axis arrows to move the directional light.",
       transformLightTarget: "Transform Light - Target: drag axis arrows to reposition the light target.",
       distanceEnabled: "Distance measurement is enabled.",
@@ -499,6 +500,8 @@ const VIEWER_I18N = {
       containerNotFound: "Container element not found. Please check the Viewer configuration.",
       missingFiles: "Missing required files for the Viewer. Please check the Viewer configuration.",
       unsupportedFileFormat: "Unsupported file format.",
+
+      performanceModeSet: "Performance mode set to {mode}.",
     },
     shortcuts: {
       mouse: "Mouse: drag orbit, wheel zoom, right-drag pan",
@@ -585,6 +588,7 @@ const VIEWER_I18N = {
       IIIFimport: "Importuj 3IF",
       IIIFexport: "Eksportuj do IIIF",
       resetCameraPosition: "Resetuj pozycję kamery",
+      resetSettings: "Resetuj ustawienia",
       saveSettings: "Zapisz ustawienia",
       renderPreview: "Renderuj podgląd",
       color: "Kolor",
@@ -726,8 +730,8 @@ const VIEWER_I18N = {
     },
     toasts: {
       transformMove: "Przesuwanie: przeciągnij strzalki osi, aby przesunąć obiekt.",
-      transformRotate: "Obracanie: przeciągnij pierscienie obrotu, aby obrócić obiekt.",
-      transformScale: "Skalowanie: przeciągnij uchwyty osi, aby zmienić rozmiar obiektu.",
+      transformRotate: "Obracanie: przeciągnij pierscienie obrotu, aby obrócić obiekt. Przytrzymaj Shift, aby włączyć przyciąganie.",
+      transformScale: "Skalowanie: przeciągnij uchwyty osi, aby zmienić rozmiar obiektu. Przytrzymaj Shift, aby włączyć przyciąganie.",
       transformLightMove: "Transformacja światła - Przesunięcie: przeciągnij strzalki osi, aby przesunąć światło kierunkowe.",
       transformLightTarget: "Transformacja światła - Cel: przeciągnij strzałki osi, aby przesunąć punkt celu światła.",
       distanceEnabled: "Pomiar odległości jest włączony.",
@@ -797,6 +801,8 @@ const VIEWER_I18N = {
       containerNotFound: "Element kontenera nie został znaleziony. Proszę sprawdzić konfigurację Viewera.",
       missingFiles: "Brak wymaganych plików dla Viewera. Proszę sprawdzić konfigurację Viewera.",
       unsupportedFileFormat: "Nieobsługiwany format pliku.",
+
+      performanceModeSet: "Tryb wydajności ustawiony na {mode}.",
     },
     shortcuts: {
       mouse: "Mysz: przeciągnij, aby obracać, rolka - zoom, prawy przycisk - przesuwanie",
@@ -882,6 +888,7 @@ const VIEWER_I18N = {
       IIIFimport: "3IF importieren",
       IIIFexport: "IIIF exportieren",
       resetCameraPosition: "Kameraposition zurücksetzen",
+      resetSettings: "Einstellungen zurücksetzen",
       saveSettings: "Einstellungen speichern",
       renderPreview: "Vorschau rendern",
       color: "Farbe",
@@ -1023,8 +1030,8 @@ const VIEWER_I18N = {
     },
     toasts: {
       transformMove: "Bewegen: Ziehen Sie die Achsenpfeile, um das Objekt zu repositionieren.",
-      transformRotate: "Drehen: Ziehen Sie die Rotationsringe, um das Objekt zu drehen.",
-      transformScale: "Skalieren: Ziehen Sie die Achsengriffe, um die Größe des Objekts zu ändern.",
+      transformRotate: "Drehen: Ziehen Sie die Rotationsringe, um das Objekt zu drehen. Halten Sie die Umschalttaste gedrückt, um das Einrasten zu aktivieren.",
+      transformScale: "Skalieren: Ziehen Sie die Achsengriffe, um die Größe des Objekts zu ändern. Halten Sie die Umschalttaste gedrückt, um das Einrasten zu aktivieren.",
       transformLightMove: "Licht transformieren - Bewegen: Ziehen Sie die Achsenpfeile, um das gerichtete Licht zu bewegen.",
       transformLightTarget: "Licht transformieren - Ziel: Ziehen Sie die Achsenpfeile, um das Lichtziel zu repositionieren.",
       distanceEnabled: "Entfernungsmessung ist aktiviert.",
@@ -1094,6 +1101,8 @@ const VIEWER_I18N = {
       containerNotFound: "Container-Element nicht gefunden. Bitte überprüfen Sie die Viewer-Konfiguration.",
       missingFiles: "Fehlende erforderliche Dateien für den Viewer. Bitte überprüfen Sie die Viewer-Konfiguration.",
       unsupportedFileFormat: "Nicht unterstütztes Dateiformat.",
+
+      performanceModeSet: "Leistungsmodus auf {mode} gesetzt.",
     },
     shortcuts: {
       mouse: "Maus: ziehen zum Drehen, Mausrad - Zoom, Rechtsklick - Verschieben",
@@ -1157,7 +1166,59 @@ const initClippingPlanes = () => {
     new THREE.Plane(new THREE.Vector3(0, 0, -1), 0),
   ];
   setCore('clippingPlanes', clippingPlanes);
+  if (!core.activeClippingPlanes) {
+    const activeClippingPlanes = [];
+    setCore('activeClippingPlanes', activeClippingPlanes);
+  }
+  setCore('updateActiveClippingPlanes', updateActiveClippingPlanes);
   return clippingPlanes;
+};
+
+const updateActiveClippingPlanes = () => {
+  if (core.PRESENTATION_MODE) {
+    if (core.activeClippingPlanes) {
+      core.activeClippingPlanes.length = 0;
+    }
+    return;
+  }
+  if (!core.activeClippingPlanes) {
+    const activeClippingPlanes = [];
+    setCore('activeClippingPlanes', activeClippingPlanes);
+  }
+  const mode = core.planeParams?.clippingMode || {};
+  const activePlanes = [];
+  if (mode.x && core.clippingPlanes?.[0]) activePlanes.push(core.clippingPlanes[0]);
+  if (mode.y && core.clippingPlanes?.[1]) activePlanes.push(core.clippingPlanes[1]);
+  if (mode.z && core.clippingPlanes?.[2]) activePlanes.push(core.clippingPlanes[2]);
+
+  core.activeClippingPlanes.length = 0;
+  core.activeClippingPlanes.push(...activePlanes);
+
+  const updateMat = (mat) => {
+    if (!mat || typeof mat !== 'object') return;
+    const mats = Array.isArray(mat) ? mat : [mat];
+    mats.forEach((m) => {
+      if (m && typeof m === 'object' && ('clippingPlanes' in m || m.isMaterial)) {
+        m.clippingPlanes = core.activeClippingPlanes;
+        m.needsUpdate = true;
+      }
+    });
+  };
+
+  if (core.scene) {
+    core.scene.traverse((child) => {
+      if (child.material) {
+        updateMat(child.material);
+      }
+    });
+  }
+  if (core.outlineClipping) {
+    core.outlineClipping.traverse?.((child) => {
+      if (child.material) {
+        updateMat(child.material);
+      }
+    });
+  }
 };
 
 const scaleXYZ = (v, s) =>
@@ -2195,6 +2256,7 @@ function setupClippingPlanes(_geom, _distance) {
       }
       showClippingPlaneToast("X", v);
       refreshClippingHint();
+      updateActiveClippingPlanes();
     });
 
     displayHelper?.constantX.min(-core.distanceGeometry.x)
@@ -2223,6 +2285,7 @@ function setupClippingPlanes(_geom, _distance) {
       }
       showClippingPlaneToast("Y", v);
       refreshClippingHint();
+      updateActiveClippingPlanes();
     });
     displayHelper?.constantY
       .min(-core.distanceGeometry.y)
@@ -2251,6 +2314,7 @@ function setupClippingPlanes(_geom, _distance) {
       }
       showClippingPlaneToast("Z", v);
       refreshClippingHint();
+      updateActiveClippingPlanes();
     });
     displayHelper?.constantZ
       .min(-core.distanceGeometry.z)
@@ -2267,6 +2331,7 @@ function setupClippingPlanes(_geom, _distance) {
       core.outlineClipping.visible = v;
     });
     refreshClippingHint();
+    updateActiveClippingPlanes();
   }
 }
 
@@ -7093,6 +7158,41 @@ function captureAndUploadThumbnail(viewer) {
   core.renderer.setSize(core.CONFIG.viewer.canvasDimensions.x, core.CONFIG.viewer.canvasDimensions.y);
 }
 
+let modelSettingsResetState = null;
+
+function captureModelSettingsResetState(object) {
+  const objects = Array.isArray(object) ? object : [object];
+
+  modelSettingsResetState = {
+    object,
+    setupIndex: core.objectsConfig?.setupIndex,
+    transforms: objects.map((model) => ({
+      model,
+      position: model.position.clone(),
+      rotation: model.rotation.clone(),
+      scale: model.scale.clone(),
+    })),
+  };
+}
+
+async function resetModelSettings() {
+  if (!modelSettingsResetState?.object) return;
+
+  modelSettingsResetState.transforms.forEach(({ model, position, rotation, scale }) => {
+    model.position.copy(position);
+    model.rotation.copy(rotation);
+    model.scale.copy(scale);
+    model.updateMatrixWorld(true);
+  });
+
+  if (typeof modelSettingsResetState.setupIndex !== "undefined" && core.objectsConfig) {
+    core.objectsConfig.setupIndex = modelSettingsResetState.setupIndex;
+  }
+
+  window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(null);
+  await handleMetadataResponse(null, { vertices: 0, faces: 0 }, modelSettingsResetState.object);
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -7308,17 +7408,21 @@ async function handleMetadataResponse(
   metadataContent += await fetchEntityMetadata();
 
   if (!core.downloadModel) {
-    core.downloadModelElement.hidden = true;
-    core.downloadModelElement.removeAttribute("href");
+    if (core.downloadModelElement) {
+      core.downloadModelElement.hidden = true;
+      core.downloadModelElement.removeAttribute("href");
+    }
   } else {
     const c_path = core.fileObject.path;
     if (core.loadedFile !== "") {
       core.fileObject.filename = core.fileObject.filename.replace(core.fileObject.orgExtension, core.fileObject.extension);
     }
 
-    core.downloadModelElement.href = `${encodeURI(c_path + core.fileObject.filename)}`;
-    core.downloadModelElement.setAttribute("download", core.fileObject.filename);
-    core.downloadModelElement.hidden = false;
+    if (core.downloadModelElement) {
+      core.downloadModelElement.href = `${encodeURI(c_path + core.fileObject.filename)}`;
+      core.downloadModelElement.setAttribute("download", core.fileObject.filename);
+      core.downloadModelElement.hidden = true;
+    }
     window.Viewer?.updateDownloadMenuEntryLabel?.();    
   }
 
@@ -7403,6 +7507,8 @@ async function presentationMode (object) {
 async function fetchSettings(object) {
   var metadata = { vertices: 0, faces: 0 };
   let metadataUrl = '';
+
+  captureModelSettingsResetState(object);
 
   // Skip metadata fetch for blob URLs (drag & drop files)
   if (core.fileObject.filename.startsWith('blob:')) {
@@ -7704,7 +7810,7 @@ function prepareOutlineClipping(_object) {
   var gutsMaterial = new THREE.MeshBasicMaterial({
     color: "crimson",
     side: THREE.BackSide,
-    clippingPlanes: core.clippingPlanes,
+    clippingPlanes: core.PRESENTATION_MODE ? [] : (core.activeClippingPlanes || []),
     clipShadows: true,
     polygonOffset: true,
     polygonOffsetFactor: 1,
@@ -7729,7 +7835,7 @@ function setupSingleMaterial(materials, material) {
   material.roughness = Math.min(material.roughness * 1.35, 1);
   material.clipShadows = true;
   material.side = core.PRESENTATION_MODE ? THREE.DoubleSide : THREE.FrontSide;
-  material.clippingPlanes = core.PRESENTATION_MODE ? [] : core.clippingPlanes;
+  material.clippingPlanes = core.PRESENTATION_MODE ? [] : (core.activeClippingPlanes || []);
   //material.clipIntersection = false;
   material.onBeforeCompile = (shader) => {
     shader.fragmentShader = shader.fragmentShader.replace(
@@ -14541,7 +14647,7 @@ function applyManifestConfig(manifest, objectsConfig) {
 
 function getEditorToolbarIcon(icon) {
   const icons = {
-    moveToolbar: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    moveToolbar: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="7" r="1.4" fill="currentColor"/><circle cx="16" cy="7" r="1.4" fill="currentColor"/><circle cx="8" cy="12" r="1.4" fill="currentColor"/><circle cx="16" cy="12" r="1.4" fill="currentColor"/><circle cx="8" cy="17" r="1.4" fill="currentColor"/><circle cx="16" cy="17" r="1.4" fill="currentColor"/></svg>',
     orbit: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16.5 2.75 21 3.5l-.75 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.25" fill="currentColor"/></svg>',
     move: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     rotate: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.5A7.5 7.5 0 1 1 5 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 3.5v3H5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -14551,12 +14657,13 @@ function getEditorToolbarIcon(icon) {
     lights: '<svg viewBox="0 0 24 24" aria-hidden="true"> <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/> <path d="M12 4V7M12 17v3M4 12h3M17 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/> <path d="M6.5 6.5l2 2M15.5 15.5l2 2M17.5 6.5l-2 2M8.5 15.5l-2 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/> </svg>',
     materials: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 4v8l-8 4-8-4V6l8-4z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 6l8 4M12 6v8M12 14l-8-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
     ambientLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-    cameraLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h3l2-2h4l2 2h3v10H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+    //cameraLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h3l2-2h4l2 2h3v10H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
     environmentMap: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 7v10l-7 4-7-4V7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 3v18M5 7l7 4 7-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="18.25" cy="5.75" r="1.25" fill="currentColor"/></svg>',
     color: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a5 5 0 0 0-5 5c0 2.8 5 9 5 9s5-6.2 5-9a5 5 0 0 0-5-5Z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 14.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z" fill="currentColor"/></svg>',
     intensity: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     picking: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 3 8 8-4 1 2 5-2.5 1-2-5-3 3Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
     resetCamera: '<svg viewBox="0 0 24 24" aria-hidden="true"> <path d="M9 4H4v5M15 4h5v5M20 15v5h-5M4 15v5h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/> <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/> </svg>',
+    resetSettings: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7.5A8 8 0 1 1 4 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M5 3.5v4h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8v4l2.5 1.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     preview: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m8 14 2.5-3 2.5 2 2-3 3 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     save: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 4v5h8M9 18h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     mainMenu: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2 2.2 3-.2.8 2.9 2.6 1.4-1 2.8 1 2.8-2.6 1.4-.8 2.9-3-.2L12 21l-2-2.2-3 .2-.8-2.9-2.6-1.4 1-2.8-1-2.8 2.6-1.4.8-2.9 3 .2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
@@ -14572,8 +14679,8 @@ function getEditorToolbarIcon(icon) {
     annotateAdd: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 8v5M9.5 10.5h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
     annotateImport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 6.8v7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.8 12 14l3.2-3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     annotateExport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 14.2V7.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.2 12 7l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  IIIFexport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v12H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 3v3h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 18V9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 12.2L12 9l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
-  IIIFimport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v12H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 3v3h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 9v9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 14.8 12 18l3.2-3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+    IIIFexport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v12H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 3v3h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 18V9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 12.2L12 9l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+    IIIFimport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v12H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 3v3h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 9v9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 14.8 12 18l3.2-3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
     hierarchy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5v5H4zM15 4h5v5h-5zM4 15h5v5H4zM15 15h5v5h-5zM9 6h6M9 17h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     loadingLogs: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18M3 6h12M3 18h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     performance: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
@@ -14587,6 +14694,11 @@ function getEditorToolbarIcon(icon) {
     wireframe: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 7v10l-7 4-7-4V7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 3v18M5 7l7 4 7-4M5 17l7-4 7 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
     screenshot: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5H5a2 2 0 0 0-2 2v2M17 5h2a2 2 0 0 1 2 2v2M17 19h2a2 2 0 0 0 2-2v-2M7 19H5a2 2 0 0 1-2-2v-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
     download: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M5 12l7 7 7-7M4 19h16a1 1 0 0 1 1 1v2H3v-2a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    background: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>',
+    backgroundLinear: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/></svg>',
+    backgroundGradient: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="5.7" fill="currentColor" fill-opacity="0.18"/><circle cx="12" cy="12" r="3.1" fill="currentColor" fill-opacity="0.56"/><circle cx="12" cy="12" r="1.1" fill="currentColor"/></svg>',
+    backgroundInner: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="5" fill="currentColor"/></svg>',
+    backgroundOuter: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h18v18H3zM12 7.5a4.5 4.5 0 1 0 0 9a4.5 4.5 0 0 0 0-9z"/><circle cx="12" cy="12" r="5.25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.2 1.6"/></svg>',
   };
 
   return icons[icon] || icons.advancedEditor;
@@ -14844,18 +14956,20 @@ function createEditorToolbar(viewer) {
     { key: "move", icon: "move", onClick: () => viewer.toggleObjectTransformMode("translate"), pressed: true, primary: true },
     { key: "rotate", icon: "rotate", onClick: () => viewer.toggleObjectTransformMode("rotate"), pressed: true, primary: true },
     { key: "scale", icon: "scale", onClick: () => viewer.toggleObjectTransformMode("scale"), pressed: true, primary: true },
-    { key: "lights", icon: "lights", onClick: () => {}, pressed: false, primary: false },
+    { key: "lights", icon: "lights", onClick: () => {}, pressed: false, primary: false },    
     { key: "materials", icon: "materials", onClick: () => viewer.openMaterialsFolder(), pressed: false, primary: false },
     { key: "picking", icon: "picking", onClick: () => viewer.togglePickingMode(), pressed: true, primary: false },
+    { key: "hierarchy", icon: "hierarchy", onClick: () => {}, pressed: true, primary: false },
     { key: "annotate", icon: "annotate", onClick: () => viewer.openAnnotationDialogWithAutoPicking(), primary: false },
     { key: "ruler", icon: "ruler", onClick: () => viewer.toggleDistanceMeasurement(), pressed: true, primary: false },
     { key: "fullScreen", icon: "fullScreen", onClick: () => viewer.toggleFullscreen(), pressed: true, primary: true },
     { key: "clippingPlanes", icon: "clippingPlanes", onClick: () => viewer.toggleClippingPlanesPanel(), pressed: true, primary: false },
     { key: "resetCamera", icon: "resetCamera", onClick: () => viewer.resetCamera(), primary: false },
-    { key: "hierarchy", icon: "hierarchy", onClick: () => {}, pressed: true, primary: false },
+    { key: "resetSettings", icon: "resetSettings", onClick: () => viewer.resetModelSettings(), primary: false },
     { key: "projection", icon: "projection", onClick: () => viewer.toggleCameraProjection(), pressed: true, primary: false },
     { key: "wireframe", icon: "wireframe", onClick: () => viewer.toggleWireframeMode(), pressed: true, primary: false },    
     { key: "statistics", icon: "statistics", onClick: () => {}, pressed: false, primary: false },
+    { key: "background", icon: "background", onClick: () => {}, pressed: false, primary: false },
     
   ];
 
@@ -14997,7 +15111,7 @@ function createEditorToolbar(viewer) {
         { key: "Camera", label: t$1("gui.camera", "Camera") },
         { key: "DirectionalLight", label: t$1("gui.directionalLight", "Directional Light") },
         { key: "AmbientLight", label: t$1("gui.ambientLight", "Ambient Light") },
-        { key: "CameraLight", label: t$1("gui.cameraLight", "Camera Light") },
+        /*{ key: "CameraLight", label: t("gui.cameraLight", "Camera Light") },*/
         { key: "BackgroundColor", label: t$1("gui.backgroundColor", "Background Color") },
       ];
       viewer.saveSubmenuCheckboxes = {};
@@ -15162,6 +15276,9 @@ function createEditorToolbar(viewer) {
 
           if (item.type === "color") {
             subButton.classList.add("viewer-editor-tool_submenu-control");
+            if (item.compactPicker === true) {
+              subButton.classList.add("viewer-editor-tool_submenu-control-picker-compact");
+            }
 
             const colorInput = document.createElement("input");
             colorInput.type = "color";
@@ -15404,15 +15521,15 @@ function createEditorToolbar(viewer) {
             },
           ],
         },
-        {
+        /*{
           key: "lightCamera",
           icon: "cameraLight",
-          label: t$1("gui.camera", "Camera"),
+          label: t("gui.camera", "Camera"),
           children: [
             {
               key: "lightCameraColor",
               icon: "color",
-              label: t$1("gui.color", "Color"),
+              label: t("gui.color", "Color"),
               type: "color",
               value: () => viewer.colors.CameraLight,
               onChange: (value) => {
@@ -15423,7 +15540,7 @@ function createEditorToolbar(viewer) {
             {
               key: "lightCameraIntensity",
               icon: "intensity",
-              label: t$1("gui.intensity", "Intensity"),
+              label: t("gui.intensity", "Intensity"),
               type: "slider",
               min: 0,
               max: 10,
@@ -15435,8 +15552,136 @@ function createEditorToolbar(viewer) {
               },
             },
           ],
+        },*/
+      ], submenu);
+      button.appendChild(submenu);
+    } else if (tool.key === "background") {
+      button.classList.add("has-submenu");
+      const submenu = document.createElement("div");
+      submenu.className = "viewer-editor-tool_submenu";
+      viewer.backgroundSubmenuButtons = {};
+
+      const normalizeColorValue = (value) => {
+        if (typeof value !== "string") return "#ffffff";
+        if (value.startsWith("0x")) {
+          return `#${value.slice(2).padStart(6, "0")}`;
+        }
+        return value.startsWith("#") ? value : `#${value}`;
+      };
+
+      const appendSubmenuItems = (items, container) => {
+        items.forEach((item) => {
+          const subButton = document.createElement("button");
+          subButton.type = "button";
+          subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+          subButton.dataset.tool = item.key;
+          subButton.setAttribute("title", item.label);
+          subButton.setAttribute("aria-label", item.label);
+
+          if (item.hideIcon !== true) {
+            const iconSpan = document.createElement("span");
+            iconSpan.className = "viewer-editor-tool_icon";
+            iconSpan.setAttribute("aria-hidden", "true");
+            iconSpan.innerHTML = getEditorToolbarIcon(item.icon);
+            subButton.appendChild(iconSpan);
+          }
+
+          if (item.type === "color") {
+            subButton.classList.add("viewer-editor-tool_submenu-control");
+            if (item.compactPicker === true) {
+              subButton.classList.add("viewer-editor-tool_submenu-control-picker-compact");
+            }
+            if (item.hideIcon === true) {
+              subButton.classList.add("viewer-editor-tool_submenu-control-no-icon");
+            }
+
+            const colorInput = document.createElement("input");
+            colorInput.type = "color";
+            colorInput.value = normalizeColorValue(item.value());
+            colorInput.className = "viewer-editor-tool_submenu-input";
+            colorInput.addEventListener("click", (event) => event.stopPropagation());
+            colorInput.addEventListener("input", (event) => {
+              const value = event.target.value;
+              item.onChange(value);
+              colorInput.value = normalizeColorValue(value);
+            });
+            subButton.appendChild(colorInput);
+            subButton._colorInput = colorInput;
+          } else if (item.onClick) {
+            viewer.bindEventListener(subButton, "click", (event) => {
+              event.stopPropagation();
+              item.onClick();
+            });
+          }
+
+          viewer.backgroundSubmenuButtons[item.key] = subButton;
+          container.appendChild(subButton);
+        });
+      };
+
+      appendSubmenuItems([
+        {
+          key: "backgroundTypeLinear",
+          icon: "backgroundLinear",
+          label: t$1("gui.linear", "Linear"),
+          onClick: () => {
+            viewer.backgroundType["Background Type"] = "linear";
+            changeBackground(
+              "linear",
+              viewer.colors.BackgroundColor,
+              viewer.colors.BackgroundColorOuter
+            );
+            viewer.updateEditorToolbarState();
+          },
+        },
+        {
+          key: "backgroundTypeGradient",
+          icon: "backgroundGradient",
+          label: t$1("gui.gradient", "Gradient"),
+          onClick: () => {
+            viewer.backgroundType["Background Type"] = "gradient";
+            changeBackground(
+              "gradient",
+              viewer.colors.BackgroundColor,
+              viewer.colors.BackgroundColorOuter
+            );
+            viewer.updateEditorToolbarState();
+          },
+        },
+        {
+          key: "backgroundColor",
+          icon: "backgroundInner",
+          label: t$1("gui.backgroundColor", "Background Color"),
+          type: "color",
+          compactPicker: true,
+          value: () => viewer.colors.BackgroundColor,
+          onChange: (value) => {
+            viewer.colors.BackgroundColor = value;
+            changeBackground(
+              viewer.backgroundType["Background Type"],
+              viewer.colors.BackgroundColor,
+              viewer.colors.BackgroundColorOuter
+            );
+          },
+        },
+        {
+          key: "backgroundColorOuter",
+          icon: "backgroundOuter",
+          label: t$1("gui.backgroundColorOuter", "Background Color Outer"),
+          type: "color",
+          compactPicker: true,
+          value: () => viewer.colors.BackgroundColorOuter,
+          onChange: (value) => {
+            viewer.colors.BackgroundColorOuter = value;
+            changeBackground(
+              viewer.backgroundType["Background Type"],
+              viewer.colors.BackgroundColor,
+              viewer.colors.BackgroundColorOuter
+            );
+          },
         },
       ], submenu);
+
       button.appendChild(submenu);
     } else if (tool.key === "materials") {
       button.classList.add("has-submenu");
@@ -15469,7 +15714,7 @@ function createEditorToolbar(viewer) {
         button.target = "_blank";
         button.rel = "noopener noreferrer";
         button.download = core.fileObject.filename;
-      }  
+      }
     }
     viewer.bindEventListener(button, "click", () => {
       viewer.stopHandMode();
@@ -15617,6 +15862,49 @@ function updateLightsSubmenuState(viewer) {
   });
 }
 
+function updateBackgroundSubmenuState(viewer) {
+  if (!viewer.backgroundSubmenuButtons) return;
+
+  const backgroundType = viewer.backgroundType?.["Background Type"] === "linear"
+    ? "linear"
+    : "gradient";
+  const isLinear = backgroundType === "linear";
+
+  viewer.backgroundSubmenuButtons.backgroundTypeLinear?.classList.toggle(
+    "is-active",
+    isLinear
+  );
+  viewer.backgroundSubmenuButtons.backgroundTypeLinear?.setAttribute(
+    "aria-pressed",
+    isLinear ? "true" : "false"
+  );
+
+  viewer.backgroundSubmenuButtons.backgroundTypeGradient?.classList.toggle(
+    "is-active",
+    !isLinear
+  );
+  viewer.backgroundSubmenuButtons.backgroundTypeGradient?.setAttribute(
+    "aria-pressed",
+    !isLinear ? "true" : "false"
+  );
+
+  const backgroundColorInput = viewer.backgroundSubmenuButtons.backgroundColor?._colorInput;
+  const backgroundColorOuterInput = viewer.backgroundSubmenuButtons.backgroundColorOuter?._colorInput;
+
+  if (backgroundColorInput) {
+    backgroundColorInput.value = String(viewer.colors?.BackgroundColor || "#ffffff");
+  }
+  if (backgroundColorOuterInput) {
+    backgroundColorOuterInput.value = String(viewer.colors?.BackgroundColorOuter || "#999999");
+    backgroundColorOuterInput.disabled = isLinear;
+  }
+
+  viewer.backgroundSubmenuButtons.backgroundColorOuter?.classList.toggle(
+    "is-disabled",
+    isLinear
+  );
+}
+
 function updateEditorToolbarLabels(viewer) {
   if (!viewer.editorToolbarButtons) return;
 
@@ -15635,6 +15923,7 @@ function updateEditorToolbarLabels(viewer) {
       ? t$1("controls.disableDistanceMeasurement", "Disable distance measurement")
       : t$1("controls.enableDistanceMeasurement", "Enable distance measurement"),
     resetCamera: t$1("gui.resetCameraPosition", "Reset camera position"),
+    resetSettings: t$1("gui.resetSettings", "Reset settings"),
     preview: t$1("gui.renderPreview", "Render preview"),
     save: t$1("gui.saveSettings", "Save settings"),
     advancedEditor: viewer.isEditorAdvancedPanelVisible()
@@ -15657,6 +15946,7 @@ function updateEditorToolbarLabels(viewer) {
       : t$1("gui.showLoadingLogs", "Show loading logs"),
     hierarchy: t$1("gui.hierarchy", "Hierarchy"),
     materials: t$1("gui.materials", "Materials"),
+    background: t$1("gui.backgroundColor", "Background Color"),
     statistics: t$1("gui.statistics", "Statistics"),
     expand: viewer.isToolbarExpanded
       ? t$1("gui.collapse", "Collapse toolbar")
@@ -15735,6 +16025,20 @@ function updateEditorToolbarLabels(viewer) {
     });
   }
 
+  if (viewer.backgroundSubmenuButtons) {
+    const backgroundSubmenuLabels = {
+      backgroundTypeLinear: t$1("gui.linear", "Linear"),
+      backgroundTypeGradient: t$1("gui.gradient", "Gradient"),
+      backgroundColor: t$1("gui.backgroundColor", "Background Color"),
+      backgroundColorOuter: t$1("gui.backgroundColorOuter", "Background Color Outer"),
+    };
+    Object.entries(viewer.backgroundSubmenuButtons).forEach(([key, button]) => {
+      const label = backgroundSubmenuLabels[key] || key;
+      button.setAttribute("title", label);
+      button.setAttribute("aria-label", label);
+    });
+  }
+
   if (viewer.hierarchyClearButton) {
     const label = t$1("gui.clearSelectedHierarchy", "Clear selected objects");
     viewer.hierarchyClearButton.setAttribute("title", label);
@@ -15750,7 +16054,7 @@ function updateEditorToolbarLabels(viewer) {
       Camera: t$1("gui.camera", "Camera"),
       DirectionalLight: t$1("gui.directionalLight", "Directional Light"),
       AmbientLight: t$1("gui.ambientLight", "Ambient Light"),
-      CameraLight: t$1("gui.cameraLight", "Camera Light"),
+      /*CameraLight: t("gui.cameraLight", "Camera Light"),*/
       BackgroundColor: t$1("gui.backgroundColor", "Background Color"),
     };
     Object.entries(viewer.saveSubmenuCheckboxes).forEach(([key, elements]) => {
@@ -15802,6 +16106,7 @@ function updateEditorToolbarState(viewer) {
   updateHierarchySubmenuState(viewer);
   updateClippingPlanesSubmenuState(viewer);
   updateLightsSubmenuState(viewer);
+  updateBackgroundSubmenuState(viewer);
   updateStatisticsSubmenuState(viewer);
 }
 
@@ -16487,7 +16792,7 @@ function findMainModelFile (files) {
 
 /*
 DFG 3D-Viewer
-Copyright (C) 2025 - Daniel Dworak
+Copyright (C) 2026 - Daniel Dworak
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -16800,6 +17105,11 @@ const Viewer$1 = {
     panFactor: 0.04,
     zoomFactor: 1.08,
   },
+  transformSnap: {
+    rotate: THREE.MathUtils.degToRad(5),
+    scale: 0.1,
+  },
+  shiftSnapActive: false,
   keyboardTweenDurationMs: 150,
   lastKeyboardHintAt: 0,
   keyboardHintCooldownMs: 45000,
@@ -17151,6 +17461,7 @@ const Viewer$1 = {
       core.CONFIG.viewer = {};
     }
     core.CONFIG.viewer.performanceMode = value;
+    showToast("toasts.performanceModeSet", { mode: value }, 2000);
     this.updateEditorToolbarState();
   },
 
@@ -17294,6 +17605,7 @@ const Viewer$1 = {
     this.updateClippingPlanesControlsVisibility();
     this.updateEditorToolbarLabels();
     this.updateEditorToolbarState();
+    updateActiveClippingPlanes();
   },
 
   updateClippingPlanesControllerLabel() {
@@ -17346,6 +17658,7 @@ const Viewer$1 = {
     });
     this.refreshClippingHintVisibility();
     this.updateClippingPlanesSubmenuState();
+    updateActiveClippingPlanes();
   },
 
   toggleClippingPlaneVisible() {
@@ -17761,6 +18074,37 @@ const Viewer$1 = {
     this.updateEmbedConfiguratorPreview();
   },
 
+  applyTransformSnapFromShift() {
+    const control = core.transformControl;
+    if (!control) return;
+
+    const mode = control.getMode?.() || "";
+    const useSnap = Viewer$1.shiftSnapActive === true;
+
+    control.rotationSnap = useSnap && mode === "rotate" ? Viewer$1.transformSnap.rotate : null;
+    control.scaleSnap = useSnap && mode === "scale" ? Viewer$1.transformSnap.scale : null;
+  },
+
+  onTransformSnapKeyDown(event) {
+    if (event?.key !== "Shift") return;
+    if (Viewer$1.shiftSnapActive) return;
+    Viewer$1.shiftSnapActive = true;
+    Viewer$1.applyTransformSnapFromShift();
+  },
+
+  onTransformSnapKeyUp(event) {
+    if (event?.key !== "Shift") return;
+    if (!Viewer$1.shiftSnapActive) return;
+    Viewer$1.shiftSnapActive = false;
+    Viewer$1.applyTransformSnapFromShift();
+  },
+
+  onTransformSnapBlur() {
+    if (!Viewer$1.shiftSnapActive) return;
+    Viewer$1.shiftSnapActive = false;
+    Viewer$1.applyTransformSnapFromShift();
+  },
+
   onViewerKeyDown(event) {
     if (!Viewer$1.isViewerKeyboardActive(event)) return;
 
@@ -17926,6 +18270,13 @@ const Viewer$1 = {
     Viewer$1.transformText["Transform Light"] = "";
     Viewer$1.pickingMode = false;
     Viewer$1.RULER_MODE = false;
+    this.clippingMode = false;
+    if (core.planeParams?.clippingMode) {
+      core.planeParams.clippingMode.x = false;
+      core.planeParams.clippingMode.y = false;
+      core.planeParams.clippingMode.z = false;
+    }
+    updateActiveClippingPlanes();
     Viewer$1.updateEditorToolbarLabels();
     Viewer$1.updateEditorToolbarState();
 
@@ -18279,7 +18630,7 @@ const Viewer$1 = {
       core.guiContainer.hidden = core.SANDBOX_MODE === true;
       core.container.appendChild(core.guiContainer);
 
-      core.gui  = new p({ container: core.guiContainer });
+      core.gui  = new p({ container: core.guiContainer, width: 300, autoPlace: false, injectStyles: true });
       core.gui.domElement.style.visibility = "hidden";
 
       this.metadataContainer = document.createElement("div");
@@ -18786,6 +19137,8 @@ const Viewer$1 = {
       }
     }
 
+    core.guiContainer.style.right = (-core.guiContainer.getBoundingClientRect().width + 10) + 'px !important';
+
     // metadata overlay
     if (core.metadataContainer) {
       core.metadataContainer.style.width = "100%";
@@ -19213,6 +19566,9 @@ const Viewer$1 = {
 
     core.boundingSphere = new THREE.Sphere(center, _maxDistance);
     core.boundingSphere.center.copy(center);
+    if (typeof core.updateActiveClippingPlanes === "function") {
+      core.updateActiveClippingPlanes();
+    }
   },
 
   changeLightRotation() {
@@ -19454,6 +19810,10 @@ const Viewer$1 = {
     core.targetTween.start();
   },
 
+  async resetModelSettings() {
+    await resetModelSettings();
+  },
+
   buildMetadata(rotateMetadata) {
     return buildEditorMetadata(this, rotateMetadata);
   },
@@ -19464,7 +19824,7 @@ const Viewer$1 = {
     core.stats.domElement.classList.add("viewer-stats");
     if (typeof core.guiContainer !== "undefined" && core.stats?.dom) {
       core.guiContainer.appendChild(core.stats.dom);
-      core.stats.dom.style.left = (core.guiContainer.getBoundingClientRect().width - core.stats.domElement.getBoundingClientRect().width + 10) + 'px';
+      core.guiContainer.style.right = (-core.guiContainer.getBoundingClientRect().width) + 'px !important';
       core.stats.dom.style.visibility = 'hidden';
     }
 
@@ -19478,8 +19838,8 @@ const Viewer$1 = {
     const showTransformHintToast = (mode) => {
       const hints = {
         translate: t$1("toasts.transformMove", "Move: drag axis arrows to reposition the object."),
-        rotate: t$1("toasts.transformRotate", "Rotate: drag rotation rings to rotate the object."),
-        scale: t$1("toasts.transformScale", "Scale: drag axis handles to resize the object."),
+        rotate: t$1("toasts.transformRotate", "Rotate: drag rotation rings to rotate the object. Hold Shift to snap angle."),
+        scale: t$1("toasts.transformScale", "Scale: drag axis handles to resize the object. Hold Shift to snap scale."),
       };
       const message = hints[mode];
       if (!message) return;
@@ -19523,6 +19883,7 @@ const Viewer$1 = {
           core.renderer.localClippingEnabled = true;
 
           core.transformControl.setMode(value);
+          Viewer$1.applyTransformSnapFromShift();
           core.transformControl.attach(object);
           showTransformHintToast(value);
 
@@ -19601,62 +19962,23 @@ const Viewer$1 = {
       })
       .listen();
 
-    const lightFolderCamera = Viewer$1.editorFolder.addFolder(t$1("gui.cameraLight", "Camera Light")).close();
+    /*const lightFolderCamera = Viewer.editorFolder.addFolder(t("gui.cameraLight", "Camera Light")).close();
     core.i18nGui.lightFolderCamera = lightFolderCamera;
     core.i18nGui.cameraLightColorController = lightFolderCamera
-      .addColor(Viewer$1.colors, "CameraLight")
-      .name(t$1("gui.color", "Color"))
+      .addColor(Viewer.colors, "CameraLight")
+      .name(t("gui.color", "Color"))
       .onChange(function (value) {
-        Viewer$1.cameraLight.color = new THREE.Color(value);
+        Viewer.cameraLight.color = new THREE.Color(value);
       })
       .listen();
     core.i18nGui.cameraLightIntensityController = lightFolderCamera
-      .add(Viewer$1.intensity, "startIntensityCamera", 0, 10)
-      .name(t$1("gui.intensity", "Intensity"))
+      .add(Viewer.intensity, "startIntensityCamera", 0, 10)
+      .name(t("gui.intensity", "Intensity"))
       .onChange(function (value) {
-        Viewer$1.cameraLight.intensity = value;
+        Viewer.cameraLight.intensity = value;
       })
-      .listen();
+      .listen();*/
 
-    const backgroundFolder = Viewer$1.editorFolder.addFolder(t$1("gui.backgroundColor", "Background Color")).close();
-    core.i18nGui.backgroundFolder = backgroundFolder;
-    core.i18nGui.backgroundColorController = backgroundFolder
-      .addColor(Viewer$1.colors, "BackgroundColor")
-      .name(t$1("gui.backgroundColor", "Background Color"))
-      .onChange(function (value) {
-        changeBackground(
-          Viewer$1.backgroundType["Background Type"],
-          value,
-          Viewer$1.colors["BackgroundColorOuter"]
-        );
-      })
-      .listen();
-    core.i18nGui.backgroundColorOuterController = backgroundFolder
-      .addColor(Viewer$1.colors, "BackgroundColorOuter")
-      .name(t$1("gui.backgroundColorOuter", "Background Color Outer"))
-      .onChange(function (value) {
-        changeBackground(
-          Viewer$1.backgroundType["Background Type"],
-          Viewer$1.colors["BackgroundColor"],
-          value
-        );
-      })
-      .listen();
-    core.i18nGui.backgroundTypeController = backgroundFolder
-      .add(Viewer$1.backgroundType, "Background Type", {
-        [t$1("gui.linear", "Linear")]: "linear",
-        [t$1("gui.gradient", "Gradient")]: "gradient",
-      })
-      .name(t$1("gui.backgroundType", "Background Type"))
-      .onChange(function (value) {
-        if (value == "linear") Viewer$1.backgroundOuterFolder.hide();
-        else Viewer$1.backgroundOuterFolder.show();
-        changeBackground(
-          value,
-          Viewer$1.colors["BackgroundColor"],
-          Viewer$1.colors["BackgroundColorOuter"]
-        );
-      });
     setCore("clippingFolder", Viewer$1.clippingFolder);
 
     if (core.EDITOR) {
@@ -20053,6 +20375,9 @@ const Viewer$1 = {
           core.renderer.domElement.focus();
         });
         Viewer$1.bindEventListener(core.renderer.domElement, "keydown", Viewer$1.onViewerKeyDown);
+        Viewer$1.bindEventListener(window, "keydown", Viewer$1.onTransformSnapKeyDown);
+        Viewer$1.bindEventListener(window, "keyup", Viewer$1.onTransformSnapKeyUp);
+        Viewer$1.bindEventListener(window, "blur", Viewer$1.onTransformSnapBlur);
 
         if (core.isLocalPreview || core.SANDBOX_MODE) {
           Viewer$1.bindEventListener(core.renderer.domElement, "dragover", Viewer$1.onDragOver);
@@ -20187,7 +20512,7 @@ const Viewer$1 = {
         Viewer$1.actionMenuPanel.appendChild(Viewer$1.languageModeContainer);
         Viewer$1.actionMenuPanel.appendChild(Viewer$1.themeMode);
         Viewer$1.actionMenuPanel.appendChild(Viewer$1.viewEntity);
-        Viewer$1.actionMenuPanel.appendChild(Viewer$1.downloadModelElement);
+        //Viewer.actionMenuPanel.appendChild(Viewer.downloadModelElement);
         if (Viewer$1.urlOptions.hideUi) {
           Viewer$1.actionMenu.hidden = true;
         }
@@ -20198,7 +20523,7 @@ const Viewer$1 = {
         Viewer$1.bindEventListener(Viewer$1.viewEntity, "click", Viewer$1.openEmbedConfiguratorFromMenu.bind(Viewer$1));
         Viewer$1.updateEmbedMenuEntryState();
         Viewer$1.applyLanguage({ persist: false });
-        Viewer$1.bindEventListener(Viewer$1.downloadModelElement, "click", () => Viewer$1.closeActionMenu());
+        //Viewer.bindEventListener(Viewer.downloadModelElement, "click", () => Viewer.closeActionMenu());
         Viewer$1.bindEventListener(document, "click", (event) => {
           if (
             !Viewer$1.actionMenu?.contains(event.target) &&
@@ -20267,12 +20592,14 @@ const Viewer$1 = {
 
       if (!core.PRESENTATION_MODE) {
         Viewer$1.transformControl = new TransformControls(core.camera, core.renderer.domElement);
-        Viewer$1.transformControl.rotationSnap = THREE.MathUtils.degToRad(5);
+        Viewer$1.transformControl.rotationSnap = null;
+        Viewer$1.transformControl.scaleSnap = null;
         Viewer$1.transformControl.space = "local";
         Viewer$1.transformControl.addEventListener("change", Viewer$1.render);
         Viewer$1.transformControl.addEventListener("objectChange", () => {
           Viewer$1.changeScale();
           Viewer$1.syncOutlineClippingTransform();
+          Viewer$1.calculateObjectScale();
         });
         Viewer$1.transformControl.addEventListener("mouseUp", () => {
           Viewer$1.syncOutlineClippingTransform();

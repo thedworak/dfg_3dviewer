@@ -77,6 +77,7 @@ export const VIEWER_I18N = {
       IIIFimport: "Import 3IF",
       IIIFexport: "Export IIIF",
       resetCameraPosition: "Reset camera position",
+      resetSettings: "Reset settings",
       saveSettings: "Save settings",
       renderPreview: "Render preview",
       color: "Color",
@@ -218,8 +219,8 @@ export const VIEWER_I18N = {
     },
     toasts: {
       transformMove: "Move: drag axis arrows to reposition the object.",
-      transformRotate: "Rotate: drag rotation rings to rotate the object.",
-      transformScale: "Scale: drag axis handles to resize the object.",
+      transformRotate: "Rotate: drag rotation rings to rotate the object. Hold Shift for snapping.",
+      transformScale: "Scale: drag axis handles to resize the object. Hold Shift for snapping.",
       transformLightMove: "Transform Light - Move: drag axis arrows to move the directional light.",
       transformLightTarget: "Transform Light - Target: drag axis arrows to reposition the light target.",
       distanceEnabled: "Distance measurement is enabled.",
@@ -289,6 +290,8 @@ export const VIEWER_I18N = {
       containerNotFound: "Container element not found. Please check the Viewer configuration.",
       missingFiles: "Missing required files for the Viewer. Please check the Viewer configuration.",
       unsupportedFileFormat: "Unsupported file format.",
+
+      performanceModeSet: "Performance mode set to {mode}.",
     },
     shortcuts: {
       mouse: "Mouse: drag orbit, wheel zoom, right-drag pan",
@@ -375,6 +378,7 @@ export const VIEWER_I18N = {
       IIIFimport: "Importuj 3IF",
       IIIFexport: "Eksportuj do IIIF",
       resetCameraPosition: "Resetuj pozycję kamery",
+      resetSettings: "Resetuj ustawienia",
       saveSettings: "Zapisz ustawienia",
       renderPreview: "Renderuj podgląd",
       color: "Kolor",
@@ -516,8 +520,8 @@ export const VIEWER_I18N = {
     },
     toasts: {
       transformMove: "Przesuwanie: przeciągnij strzalki osi, aby przesunąć obiekt.",
-      transformRotate: "Obracanie: przeciągnij pierscienie obrotu, aby obrócić obiekt.",
-      transformScale: "Skalowanie: przeciągnij uchwyty osi, aby zmienić rozmiar obiektu.",
+      transformRotate: "Obracanie: przeciągnij pierscienie obrotu, aby obrócić obiekt. Przytrzymaj Shift, aby włączyć przyciąganie.",
+      transformScale: "Skalowanie: przeciągnij uchwyty osi, aby zmienić rozmiar obiektu. Przytrzymaj Shift, aby włączyć przyciąganie.",
       transformLightMove: "Transformacja światła - Przesunięcie: przeciągnij strzalki osi, aby przesunąć światło kierunkowe.",
       transformLightTarget: "Transformacja światła - Cel: przeciągnij strzałki osi, aby przesunąć punkt celu światła.",
       distanceEnabled: "Pomiar odległości jest włączony.",
@@ -587,6 +591,8 @@ export const VIEWER_I18N = {
       containerNotFound: "Element kontenera nie został znaleziony. Proszę sprawdzić konfigurację Viewera.",
       missingFiles: "Brak wymaganych plików dla Viewera. Proszę sprawdzić konfigurację Viewera.",
       unsupportedFileFormat: "Nieobsługiwany format pliku.",
+
+      performanceModeSet: "Tryb wydajności ustawiony na {mode}.",
     },
     shortcuts: {
       mouse: "Mysz: przeciągnij, aby obracać, rolka - zoom, prawy przycisk - przesuwanie",
@@ -672,6 +678,7 @@ export const VIEWER_I18N = {
       IIIFimport: "3IF importieren",
       IIIFexport: "IIIF exportieren",
       resetCameraPosition: "Kameraposition zurücksetzen",
+      resetSettings: "Einstellungen zurücksetzen",
       saveSettings: "Einstellungen speichern",
       renderPreview: "Vorschau rendern",
       color: "Farbe",
@@ -813,8 +820,8 @@ export const VIEWER_I18N = {
     },
     toasts: {
       transformMove: "Bewegen: Ziehen Sie die Achsenpfeile, um das Objekt zu repositionieren.",
-      transformRotate: "Drehen: Ziehen Sie die Rotationsringe, um das Objekt zu drehen.",
-      transformScale: "Skalieren: Ziehen Sie die Achsengriffe, um die Größe des Objekts zu ändern.",
+      transformRotate: "Drehen: Ziehen Sie die Rotationsringe, um das Objekt zu drehen. Halten Sie die Umschalttaste gedrückt, um das Einrasten zu aktivieren.",
+      transformScale: "Skalieren: Ziehen Sie die Achsengriffe, um die Größe des Objekts zu ändern. Halten Sie die Umschalttaste gedrückt, um das Einrasten zu aktivieren.",
       transformLightMove: "Licht transformieren - Bewegen: Ziehen Sie die Achsenpfeile, um das gerichtete Licht zu bewegen.",
       transformLightTarget: "Licht transformieren - Ziel: Ziehen Sie die Achsenpfeile, um das Lichtziel zu repositionieren.",
       distanceEnabled: "Entfernungsmessung ist aktiviert.",
@@ -884,6 +891,8 @@ export const VIEWER_I18N = {
       containerNotFound: "Container-Element nicht gefunden. Bitte überprüfen Sie die Viewer-Konfiguration.",
       missingFiles: "Fehlende erforderliche Dateien für den Viewer. Bitte überprüfen Sie die Viewer-Konfiguration.",
       unsupportedFileFormat: "Nicht unterstütztes Dateiformat.",
+
+      performanceModeSet: "Leistungsmodus auf {mode} gesetzt.",
     },
     shortcuts: {
       mouse: "Maus: ziehen zum Drehen, Mausrad - Zoom, Rechtsklick - Verschieben",

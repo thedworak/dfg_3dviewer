@@ -238,7 +238,6 @@ canvas {
   position: absolute;
   top: 0px;
   left: auto;
-  right: 0px;
   z-index: 100;
   pointer-events: auto;
   transition: opacity 0.3s ease;
@@ -1422,9 +1421,9 @@ canvas {
 }
 
 .viewer-stats {
-  position: fixed !important;
+  position: absolute !important;
   top: 0px !important;
-  left: 97% !important;
+  right: -90px !important;
   max-height: 120px;
   max-width: 90px;
   z-index: 2;

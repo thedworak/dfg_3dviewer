@@ -174,6 +174,35 @@ test('camera rotates on mouse drag', async ({ page }) => {
     .not.toEqual(before);
 });
 
+test('reset settings restores the model state used without a _viewer.json file', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+
+  const resetButton = page.locator('button[data-tool="resetSettings"]');
+  await expect(resetButton).toHaveAttribute('aria-label', 'Reset settings');
+
+  await page.evaluate(() => {
+    const object = window.Viewer?.mainObject?.[0];
+    const model = Array.isArray(object) ? object[0] : object;
+    if (!model) throw new Error('Loaded model is unavailable');
+
+    model.position.set(123, 456, 789);
+    model.rotation.set(1, 2, 3);
+    model.scale.set(2, 3, 4);
+    model.updateMatrixWorld(true);
+  });
+
+  await resetButton.click({ force: true });
+
+  await expect.poll(() => page.evaluate(() => {
+    const object = window.Viewer?.mainObject?.[0];
+    const model = Array.isArray(object) ? object[0] : object;
+    if (!model) return false;
+
+    return model.position.x !== 123 && model.scale.x !== 2;
+  })).toBe(true);
+});
+
 test('embed configurator uses the current camera for preview url', async ({ page }) => {
   await openViewer(page);
   await waitForModel(page);
