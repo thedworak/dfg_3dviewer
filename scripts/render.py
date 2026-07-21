@@ -396,7 +396,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	)
 
 	fill_data = bpy.data.lights.new('SunFill', type='SUN')
-	fill_data.energy = 0.5   # 10% głównego
+	fill_data.energy = 1.05
 
 	fill = bpy.data.objects.new('SunFill', fill_data)
 	scene.collection.objects.link(fill)
@@ -406,6 +406,18 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 		0.0,
 		math.radians(-120)
 	)
+
+	cam_light_data = bpy.data.lights.new("CameraFill", type='AREA')
+	cam_light_data.energy = 250
+	cam_light_data.shape = 'DISK'
+	cam_light_data.size = max(size) * 0.8
+
+	cam_light = bpy.data.objects.new("CameraFill", cam_light_data)
+	scene.collection.objects.link(cam_light)
+
+	cam_light.parent = cam
+	cam_light.location = (0, 0, 0)
+	cam_light.rotation_euler = (0, 0, 0)
 
 	# --------------------------------------------------
 	# RENDERS
