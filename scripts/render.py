@@ -559,22 +559,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 		fill_data.spread = math.radians(140)
 		rim_data.spread = math.radians(160)
 
-	# --------------------------------------------------
-	# COMPOSITING (FIX 5): dodatkowy delikatny boost ekspozycji
-	# w compositorze, tani sposób na odratowanie cieni bez przepalania świateł
-	# --------------------------------------------------
-
-	scene.use_nodes = True
-	comp_tree = scene.node_tree
-	comp_tree.nodes.clear()
-
-	rl_node = comp_tree.nodes.new('CompositorNodeRLayers')
-	exposure_node = comp_tree.nodes.new('CompositorNodeExposure')
-	exposure_node.inputs[1].default_value = 0.5
-	composite_node = comp_tree.nodes.new('CompositorNodeComposite')
-
-	comp_tree.links.new(rl_node.outputs['Image'], exposure_node.inputs['Image'])
-	comp_tree.links.new(exposure_node.outputs['Image'], composite_node.inputs['Image'])
+	scene.view_settings.exposure = 1.2
 
 	# --------------------------------------------------
 	# RENDERS
