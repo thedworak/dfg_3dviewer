@@ -426,7 +426,6 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 
 	world = bpy.data.worlds.new("World")
 	scene.world = world
-	world.use_nodes = True
 
 	w_nodes = world.node_tree.nodes
 	w_links = world.node_tree.links
@@ -452,28 +451,23 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 		try:
 			env.image.colorspace_settings.name = 'Linear Rec.709'
 		except TypeError:
-			# nazwa colorspace zależy od wersji Blendera / OCIO configu
 			pass
 
 		w_links.new(texcoord.outputs["Generated"], hdri_mapping.inputs["Vector"])
 		w_links.new(hdri_mapping.outputs["Vector"], env.inputs["Vector"])
 		w_links.new(env.outputs["Color"], w_bg.inputs["Color"])
 
-		w_bg.inputs["Strength"].default_value = 1.2
+		w_bg.inputs["Strength"].default_value = 0.8
 
-		# HDRI nie renderuje się wprost w kamerze (bo i tak mamy
-		# film_transparent = True), ale nadal oświetla i daje odbicia
 		world.cycles_visibility.camera = False
 	else:
-		print(f"HDRI nie znaleziony pod '{hdri_path}', fallback na płaskie białe tło.")
+		print(f"HDRI nie znaleziony pod '{hdri_path}', fallback on white background.")
 		w_bg.inputs["Color"].default_value = (1.0, 1.0, 1.0, 1.0)
-		w_bg.inputs["Strength"].default_value = 1.2
+		w_bg.inputs["Strength"].default_value = 1.5
 
-	# Standard zamiast AgX (AgX mocno przyciemnia i "gasi" kontrast),
-	# oraz podniesiona ekspozycja
 	scene.view_settings.view_transform = "Standard"
 	scene.view_settings.look = "None"
-	scene.view_settings.exposure = 1.6
+	scene.view_settings.exposure = 1.2
 	scene.view_settings.gamma = 1.0
 
 	# --------------------------------------------------
