@@ -108,7 +108,7 @@ export function attachLocalizationTheme(viewer) {
 
     updateActionMenuLabels() {
       if (!this.actionMenu) return;
-      const actionMenuLabel = t("menu.mainMenu", "Main menu");
+      const actionMenuLabel = t("gui.mainMenu", "Main menu");
 
       const toggle = this.actionMenu.querySelector(".viewer-action-menu_toggle");
       toggle?.setAttribute("title", actionMenuLabel);

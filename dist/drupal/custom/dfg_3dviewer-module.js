@@ -7202,6 +7202,62 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+function buildMetadataRow(label, value) {
+  if (!label || typeof value === "undefined" || value === null || value === "") {
+    return "";
+  }
+
+  return (
+    '<div class="metadata-row">' +
+      '<span class="metadata-label">' + escapeHtml(label) + ':</span>' +
+      '<span class="metadata-value">' + escapeHtml(value) + '</span>' +
+    '</div>'
+  );
+}
+
+/**
+ * Formats WissKI metadata labels and values for display.
+ */
+function addWissKIMetadata(label, value) {
+  if (typeof label !== "undefined" && typeof value !== "undefined") {
+    var _str = "";
+    label = label.replace("wisski_path_3d_model__", "");
+    switch (label) {
+      case "title":
+        _str = t$1("metadata.title", "Title");
+        break;
+      case "author_name":
+        _str = t$1("metadata.author", "Author");
+        break;
+      case "author_affiliation":
+        _str = t$1("metadata.authorAffiliation", "Author affiliation");
+        break;
+      case "license":
+        _str = t$1("metadata.license", "License");
+        break;
+      case "description":
+        _str = t$1("metadata.description", "Description");
+        break;
+      case "object_type":
+        _str = t$1("metadata.objectType", "Object type");
+        break;
+      case "reconstruction_authors":
+        _str = t$1("metadata.reconstructionAuthors", "Reconstruction authors");
+        break;
+      case "reconstruction_period":
+        _str = t$1("metadata.reconstructionPeriod", "Reconstruction period");
+        break;
+      default:
+        _str = "";
+        break;
+    }
+
+    if (_str !== "") {
+      return buildMetadataRow(_str, value);
+    }
+  }
+}
+
 /**
  * Expands/collapses the metadata panel.
  */
@@ -7300,8 +7356,82 @@ async function fetchEntityMetadata() {
   if (!core.CONFIG.entity.metadata.sourceType || core.CONFIG.entity.metadata.url === "") {
     return "";
   }
-  {
+
+  const entityComponent = core.CONFIG.entity.id == null ? "" : encodeURIComponent(core.CONFIG.entity.id);
+  console.log("Fetching entity metadata for ID:", entityComponent);
+  if (!entityComponent) {
     console.warn("Entity ID is missing or invalid. Skipping metadata fetch.");
+    return "";
+  }
+  const metadataUrl = core.CONFIG.entity.metadata.url.replace(/\/$/, "") + "/" + entityComponent;
+
+  try {
+    const response = await fetch(metadataUrl, { cache: "no-cache" });
+
+    if (!response.ok) {
+      console.warn("Metadata request failed with status:", response.status);
+      return "";
+    }
+
+    const responseText = await response.text();
+
+    try {
+      const jsonData = JSON.parse(responseText);
+      const record = Array.isArray(jsonData) ? jsonData[0] : jsonData;
+
+      if (!record || typeof record !== "object") {
+        return "";
+      }
+
+      console.log("Processing JSON metadata:", record);
+
+      const jsonFieldMap = {
+        title: "title",
+        reconstruction_authors: "author_name",
+        reconstruction_authors_affiliation: "author_affiliation",
+        reconstruction_license: "license",
+        reconstruction_time_frame: "reconstruction_period",
+        object_description: "description",
+        object_type: "object_type",
+      };
+
+      let entityMetadataContent = "";
+      for (const [jsonField, metadataLabel] of Object.entries(jsonFieldMap)) {
+        if (record[jsonField]) {
+          const fetchedValue = addWissKIMetadata(metadataLabel, record[jsonField]);
+          if (typeof fetchedValue !== "undefined") {
+            entityMetadataContent += fetchedValue;
+          }
+        }
+      }
+
+      return entityMetadataContent;
+    } catch (_jsonError) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(responseText, "application/xml");
+
+      if (doc.documentElement.tagName === "parsererror") {
+        console.error("XML parsing error:", doc.documentElement.textContent);
+        return "";
+      }
+
+      let entityMetadataContent = "";
+      if (doc.documentElement.childNodes.length > 0) {
+        var data = doc.documentElement.childNodes[0].childNodes;
+        if (data !== undefined) {
+          for (var i = 0; i < data.length; i++) {
+            var fetchedValue = addWissKIMetadata(data[i].tagName, data[i].textContent);
+            if (typeof fetchedValue !== "undefined") {
+              entityMetadataContent += fetchedValue;
+            }
+          }
+        }
+      }
+
+      return entityMetadataContent;
+    }
+  } catch (error) {
+    console.error("Error processing metadata:", error);
     return "";
   }
 }

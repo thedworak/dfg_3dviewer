@@ -16,7 +16,8 @@
     "attributeId": "wisski_id",
     "metadata": {
       "sourceType": "Drupal",
-      "url": "https://repository.covher.eu/api/digital_reconstruction/record/"
+      "url": "https://repository.covher.eu/api/digital_reconstruction/record/",
+      "source": "Drupal"
     }
   },
   "viewer": {

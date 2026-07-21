@@ -40,6 +40,7 @@ export const VIEWER_I18N = {
       selectedFaces: "Selected faces",
     },
     gui: {
+      mainMenu: "Main menu",
       moveToolbar: "Move toolbar",
       orbit: "Navigation mode",
       controls: "Controls",
@@ -341,6 +342,7 @@ export const VIEWER_I18N = {
       selectedFaces: "Wybrane sciany",
     },
     gui: {
+      mainMenu: "Główne menu",
       moveToolbar: "Przesuń pasek narzędzi",
       orbit: "Tryb nawigacji",
       controls: "Sterowanie",
@@ -641,6 +643,7 @@ export const VIEWER_I18N = {
       selectedFaces: "Ausgewählte Flächen",
     },
     gui: {
+      mainMenu: "Hauptmenü",
       moveToolbar: "Werkzeugleiste verschieben",
       orbit: "Navigationsmodus",
       controls: "Steuerung",

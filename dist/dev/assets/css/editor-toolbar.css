@@ -12,6 +12,7 @@
   --viewer-toolbar-visible-offset: 14px;
   --viewer-toolbar-max-width: 1080px;
   --viewer-toolbar-scale: clamp(0.75, calc((98vw) / var(--viewer-toolbar-max-width)), 1);
+  --viewer-toolbar-picker-control-min-width: 118px;
 
   position: absolute;
   left: 0;
@@ -154,6 +155,11 @@
     opacity 1.25s ease,
     transform 1.25s ease,
     visibility 0s;
+}
+
+.viewer-editor-tool[data-tool="moveToolbar"] {
+  cursor: grab;
+  -webkit-user-drag: none;
 }
 
 .viewer-editor-tool-not-primary {
@@ -318,6 +324,16 @@
   white-space: nowrap;
   flex-wrap: nowrap;
   border: 1px solid rgba(133, 133, 145, 0.39);
+}
+
+.viewer-editor-tool_submenu-button.viewer-editor-tool_submenu-control.viewer-editor-tool_submenu-control-picker-compact {
+  min-width: var(--viewer-toolbar-picker-control-min-width);
+}
+
+.viewer-editor-tool_submenu-button.viewer-editor-tool_submenu-control.viewer-editor-tool_submenu-control-no-icon {
+  justify-content: center;
+  padding: 6px 8px;
+  gap: 0;
 }
 
 .viewer-editor-tool_submenu-button.viewer-editor-tool_submenu-toggle {

@@ -201,12 +201,14 @@ async function fetchEntityMetadata() {
   if (!core.CONFIG.entity.metadata.sourceType || core.CONFIG.entity.metadata.url === "") {
     return "";
   }
-  const entityComponent = encodeURIComponent(core.CONFIG.entity.id) ?? core.CONFIG.entity.id ?? typeof core.CONFIG.entity.id ===  "undefined" ? "" : "";
+
+  const entityComponent = core.CONFIG.entity.id == null ? "" : encodeURIComponent(core.CONFIG.entity.id);
+  console.log("Fetching entity metadata for ID:", entityComponent);
   if (!entityComponent) {
     console.warn("Entity ID is missing or invalid. Skipping metadata fetch.");
     return "";
   }
-  const metadataUrl = core.CONFIG.entity.metadata.url + entityComponent;
+  const metadataUrl = core.CONFIG.entity.metadata.url.replace(/\/$/, "") + "/" + entityComponent;
 
   try {
     const response = await fetch(metadataUrl, { cache: "no-cache" });

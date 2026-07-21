@@ -157,6 +157,11 @@
     visibility 0s;
 }
 
+.viewer-editor-tool[data-tool="moveToolbar"] {
+  cursor: grab;
+  -webkit-user-drag: none;
+}
+
 .viewer-editor-tool-not-primary {
   flex: 0 0 auto;
 }
