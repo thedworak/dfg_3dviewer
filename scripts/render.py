@@ -47,6 +47,9 @@ if '--' in sys.argv:
     parser.add_argument("--is_archive", help="Importing archive flag")
     parser.add_argument("--resolution", help="Resolution preview images")
     parser.add_argument("--samples", help="Samples rendering quality")
+    parser.add_argument("--hdri", help="Path to HDRI (.exr/.hdr) environment file")
+    parser.add_argument("--no-hdri-lights", dest="no_hdri_lights", action="store_true",
+                         help="Skip the 3-point light rig and rely on HDRI only")
     args = parser.parse_known_args(argv)[0]
 
 def rotation_matrix(axis, theta):
@@ -304,7 +307,6 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	render.image_settings.color_mode = 'RGBA'
 	render.image_settings.color_depth = '16'
 	render.image_settings.color_management = 'FOLLOW_SCENE'
-	render.image_settings.view_settings.view_transform = 'Filmic'
 
 	scene.render.use_compositing = True
 
@@ -327,9 +329,6 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 
 	scene.cycles.sample_clamp_indirect = 20
 	scene.cycles.light_sampling_threshold = 0.03
-
-	scene.view_settings.exposure = 1.0
-	scene.view_settings.gamma = 1.0
 
 	# CUDA OFF (no warnings)
 	prefs = bpy.context.preferences
@@ -378,12 +377,15 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 
 
 	# --------------------------------------------------
-	# LIGHT
-	# --------------------------------------------------
-
-	# --------------------------------------------------
 	# MATERIAL FIXUP
 	# --------------------------------------------------
+
+	# FIX 4: brightness boost for very dark, unlinked Base Color materials
+	# (roughness/specular tweaks are kept as before; on top of that we lift
+	# base colors that are close to black so they don't stay near-invisible
+	# even under a well-lit scene)
+	DARK_THRESHOLD = 0.15
+	BRIGHTEN_FACTOR = 1.6
 
 	for mat in bpy.data.materials:
 		if not mat.use_nodes:
@@ -406,92 +408,173 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 					if node.inputs["Metallic"].default_value < 0.01:
 						node.inputs["Metallic"].default_value = 0.0
 
+				# FIX 4: rozjaśnienie bardzo ciemnych, niepodłączonych Base Color
+				base_color_input = node.inputs.get("Base Color")
+				if base_color_input is not None and not base_color_input.is_linked:
+					col = base_color_input.default_value
+					if max(col[0], col[1], col[2]) < DARK_THRESHOLD:
+						base_color_input.default_value = (
+							min(col[0] * BRIGHTEN_FACTOR, 1.0),
+							min(col[1] * BRIGHTEN_FACTOR, 1.0),
+							min(col[2] * BRIGHTEN_FACTOR, 1.0),
+							col[3],
+						)
+
 	# --------------------------------------------------
-	# WORLD
+	# WORLD (HDRI environment)
 	# --------------------------------------------------
 
-	world = bpy.data.worlds.new("ThumbnailWorld")
+	world = bpy.data.worlds.new("World")
 	scene.world = world
 	world.use_nodes = True
 
-	bg = world.node_tree.nodes["Background"]
-	bg.inputs[0].default_value = (1.0, 1.0, 1.0, 1.0)
-	bg.inputs[1].default_value = 0.18
+	w_nodes = world.node_tree.nodes
+	w_links = world.node_tree.links
+	w_nodes.clear()
 
-	scene.view_settings.view_transform = "AgX"
+	w_output = w_nodes.new("ShaderNodeOutputWorld")
+	w_bg = w_nodes.new("ShaderNodeBackground")
+	w_links.new(w_bg.outputs["Background"], w_output.inputs["Surface"])
+
+	default_hdri = os.path.join(
+		os.path.dirname(os.path.abspath(__file__)), "maps", "default.exr"
+	)
+	hdri_path = args.hdri if getattr(args, "hdri", None) else default_hdri
+
+	hdri_mapping = None  # used later to sync rotation with camera angle
+
+	if os.path.isfile(hdri_path):
+		texcoord = w_nodes.new("ShaderNodeTexCoord")
+		hdri_mapping = w_nodes.new("ShaderNodeMapping")
+		env = w_nodes.new("ShaderNodeTexEnvironment")
+
+		env.image = bpy.data.images.load(hdri_path)
+		try:
+			env.image.colorspace_settings.name = 'Linear Rec.709'
+		except TypeError:
+			# nazwa colorspace zależy od wersji Blendera / OCIO configu
+			pass
+
+		w_links.new(texcoord.outputs["Generated"], hdri_mapping.inputs["Vector"])
+		w_links.new(hdri_mapping.outputs["Vector"], env.inputs["Vector"])
+		w_links.new(env.outputs["Color"], w_bg.inputs["Color"])
+
+		w_bg.inputs["Strength"].default_value = 1.2
+
+		# HDRI nie renderuje się wprost w kamerze (bo i tak mamy
+		# film_transparent = True), ale nadal oświetla i daje odbicia
+		world.cycles_visibility.camera = False
+	else:
+		print(f"HDRI nie znaleziony pod '{hdri_path}', fallback na płaskie białe tło.")
+		w_bg.inputs["Color"].default_value = (1.0, 1.0, 1.0, 1.0)
+		w_bg.inputs["Strength"].default_value = 1.2
+
+	# Standard zamiast AgX (AgX mocno przyciemnia i "gasi" kontrast),
+	# oraz podniesiona ekspozycja
+	scene.view_settings.view_transform = "Standard"
 	scene.view_settings.look = "None"
-	scene.view_settings.exposure = 0.7
+	scene.view_settings.exposure = 1.6
 	scene.view_settings.gamma = 1.0
 
 	# --------------------------------------------------
 	# LIGHTS
 	# --------------------------------------------------
+	# Przy dobrym studyjnym HDRI dodatkowy rig 3-punktowy zwykle jest zbędny
+	# (HDRI samo daje kierunkowe światło + odbicia) i może dawać sprzeczne
+	# cienie / przepalone highlighty. Domyślnie więc pomijamy światła, gdy
+	# HDRI zostało poprawnie wczytane. Można to wymusić flagą
+	# --no-hdri-lights.
 
 	max_size = max(size)
+	use_hdri_only = os.path.isfile(hdri_path) or getattr(args, "no_hdri_lights", False)
 
-	light_rig = bpy.data.objects.new("LightRig", None)
-	light_rig.location = center
-	scene.collection.objects.link(light_rig)
+	light_rig = None
 
-	#
-	# KEY
-	#
+	if not use_hdri_only:
+		light_rig = bpy.data.objects.new("LightRig", None)
+		light_rig.location = center
+		scene.collection.objects.link(light_rig)
 
-	key_data = bpy.data.lights.new("Key", "AREA")
-	key_data.energy = 4500
-	key_data.shape = 'RECTANGLE'
-	key_data.size = max_size * 2.5
+		#
+		# KEY
+		#
 
-	key = bpy.data.objects.new("Key", key_data)
-	scene.collection.objects.link(key)
+		key_data = bpy.data.lights.new("Key", "AREA")
+		key_data.energy = 10000
+		key_data.shape = 'RECTANGLE'
+		key_data.size = max_size * 2.5
 
-	key.parent = light_rig
-	key.location = Vector((8, -8, 8))
-	key.rotation_euler = (
-		math.radians(55),
-		0,
-		math.radians(45)
-	)
+		key = bpy.data.objects.new("Key", key_data)
+		scene.collection.objects.link(key)
 
-	#
-	# FILL
-	#
+		key.parent = light_rig
+		key.location = Vector((5, -5, 4))
+		key.rotation_euler = (
+			math.radians(55),
+			0,
+			math.radians(45)
+		)
 
-	fill_data = bpy.data.lights.new("Fill", "AREA")
-	fill_data.energy = 1800
-	fill_data.shape = 'RECTANGLE'
-	fill_data.size = max_size * 3.0
+		#
+		# FILL
+		#
 
-	fill = bpy.data.objects.new("Fill", fill_data)
-	scene.collection.objects.link(fill)
+		fill_data = bpy.data.lights.new("Fill", "AREA")
+		fill_data.energy = 5500
+		fill_data.shape = 'RECTANGLE'
+		fill_data.size = max_size * 3.0
 
-	fill.parent = light_rig
-	fill.location = Vector((-8, -6, 5))
-	fill.rotation_euler = (
-		math.radians(65),
-		0,
-		math.radians(-40)
-	)
+		fill = bpy.data.objects.new("Fill", fill_data)
+		scene.collection.objects.link(fill)
 
-	#
-	# RIM
-	#
+		fill.parent = light_rig
+		fill.location = Vector((-5, -4, 3))
+		fill.rotation_euler = (
+			math.radians(65),
+			0,
+			math.radians(-40)
+		)
 
-	rim_data = bpy.data.lights.new("Rim", "AREA")
-	rim_data.energy = 1000
-	rim_data.shape = 'RECTANGLE'
-	rim_data.size = max_size * 2.0
+		#
+		# RIM
+		#
 
-	rim = bpy.data.objects.new("Rim", rim_data)
-	scene.collection.objects.link(rim)
+		rim_data = bpy.data.lights.new("Rim", "AREA")
+		rim_data.energy = 3000
+		rim_data.shape = 'RECTANGLE'
+		rim_data.size = max_size * 2.0
 
-	rim.parent = light_rig
-	rim.location = Vector((0, 8, 6))
-	rim.rotation_euler = (
-		math.radians(120),
-		0,
-		math.radians(180)
-	)
+		rim = bpy.data.objects.new("Rim", rim_data)
+		scene.collection.objects.link(rim)
+
+		rim.parent = light_rig
+		rim.location = Vector((0, 6, 5))
+		rim.rotation_euler = (
+			math.radians(120),
+			0,
+			math.radians(180)
+		)
+
+		key_data.spread = math.radians(120)
+		fill_data.spread = math.radians(140)
+		rim_data.spread = math.radians(160)
+
+	# --------------------------------------------------
+	# COMPOSITING (FIX 5): dodatkowy delikatny boost ekspozycji
+	# w compositorze, tani sposób na odratowanie cieni bez przepalania świateł
+	# --------------------------------------------------
+
+	scene.use_nodes = True
+	comp_tree = scene.node_tree
+	comp_tree.nodes.clear()
+
+	rl_node = comp_tree.nodes.new('CompositorNodeRLayers')
+	exposure_node = comp_tree.nodes.new('CompositorNodeExposure')
+	exposure_node.inputs[1].default_value = 0.5
+	composite_node = comp_tree.nodes.new('CompositorNodeComposite')
+
+	comp_tree.links.new(rl_node.outputs['Image'], exposure_node.inputs['Image'])
+	comp_tree.links.new(exposure_node.outputs['Image'], composite_node.inputs['Image'])
 
 	# --------------------------------------------------
 	# RENDERS
@@ -502,7 +585,15 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	def render_angle(angle_deg, suffix):
 		print(f"Rendering angle {angle_deg}")
 		cam_empty.rotation_euler = (0, 0, math.radians(angle_deg))
-		light_rig.rotation_euler = (0, 0, math.radians(angle_deg))
+
+		if light_rig is not None:
+			# klasyczny rig świateł nadal obraca się razem z kamerą
+			light_rig.rotation_euler = (0, 0, math.radians(angle_deg))
+		if hdri_mapping is not None:
+			# HDRI-only: obracamy środowisko, żeby "słońce" z HDRI
+			# podążało za kątem kamery tak samo jak wcześniej light_rig
+			hdri_mapping.inputs["Rotation"].default_value = (0, 0, math.radians(angle_deg))
+
 		scene.render.filepath = f"{mainfilepath}_{suffix}.png"
 		bpy.ops.render.render(write_still=True)
 

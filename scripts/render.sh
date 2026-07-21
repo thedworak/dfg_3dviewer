@@ -190,5 +190,6 @@ xvfb-run --auto-servernum \
   --is_archive "$IS_ARCHIVE" \
   --resolution "$RENDER_RESOLUTION" \
   --samples "$RENDER_SAMPLES" \
+  --hdri "$SPATH/scripts/maps/default.exr" \
   -E BLENDER_EEVEE -f 1
 echo "Blender exit code: $?"
