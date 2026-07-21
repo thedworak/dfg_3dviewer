@@ -304,6 +304,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	render.image_settings.color_mode = 'RGBA'
 	render.image_settings.color_depth = '16'
 	render.image_settings.color_management = 'FOLLOW_SCENE'
+	render.image_settings.view_settings.view_transform = 'Filmic'
 
 	scene.render.use_compositing = True
 
@@ -326,6 +327,9 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 
 	scene.cycles.sample_clamp_indirect = 20
 	scene.cycles.light_sampling_threshold = 0.03
+
+	scene.view_settings.exposure = 1.0
+	scene.view_settings.gamma = 1.0
 
 	# CUDA OFF (no warnings)
 	prefs = bpy.context.preferences
@@ -374,15 +378,12 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 
 
 	# --------------------------------------------------
-	# MATERIAL FIXUP
+	# LIGHT
 	# --------------------------------------------------
 
-	# FIX 4: brightness boost for very dark, unlinked Base Color materials
-	# (roughness/specular tweaks are kept as before; on top of that we lift
-	# base colors that are close to black so they don't stay near-invisible
-	# even under a well-lit scene)
-	DARK_THRESHOLD = 0.15
-	BRIGHTEN_FACTOR = 1.6
+	# --------------------------------------------------
+	# MATERIAL FIXUP
+	# --------------------------------------------------
 
 	for mat in bpy.data.materials:
 		if not mat.use_nodes:
@@ -405,18 +406,6 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 					if node.inputs["Metallic"].default_value < 0.01:
 						node.inputs["Metallic"].default_value = 0.0
 
-				# FIX 4: rozjaśnienie bardzo ciemnych, niepodłączonych Base Color
-				base_color_input = node.inputs.get("Base Color")
-				if base_color_input is not None and not base_color_input.is_linked:
-					col = base_color_input.default_value
-					if max(col[0], col[1], col[2]) < DARK_THRESHOLD:
-						base_color_input.default_value = (
-							min(col[0] * BRIGHTEN_FACTOR, 1.0),
-							min(col[1] * BRIGHTEN_FACTOR, 1.0),
-							min(col[2] * BRIGHTEN_FACTOR, 1.0),
-							col[3],
-						)
-
 	# --------------------------------------------------
 	# WORLD
 	# --------------------------------------------------
@@ -426,17 +415,12 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	world.use_nodes = True
 
 	bg = world.node_tree.nodes["Background"]
-	bg.inputs[0].default_value = (1.0, 1.0, 1.0, 1.0)
-	# FIX 1: World strength podniesiony z 0.35 -> 1.2, żeby dać więcej
-	# światła wypełniającego / odbić na obiekcie (tło i tak jest przezroczyste
-	# dzięki film_transparent = True)
-	bg.inputs[1].default_value = 1.2
+	bg.inputs[0].default_value = (0.05, 0.05, 0.05, 1)
+	bg.inputs[1].default_value = 0.35
 
-	# FIX 2: Standard zamiast AgX (AgX mocno przyciemnia i "gasi" kontrast),
-	# oraz podniesiona ekspozycja
-	scene.view_settings.view_transform = "Standard"
+	scene.view_settings.view_transform = "AgX"
 	scene.view_settings.look = "None"
-	scene.view_settings.exposure = 1.6
+	scene.view_settings.exposure = 1.2
 	scene.view_settings.gamma = 1.0
 
 	# --------------------------------------------------
@@ -454,10 +438,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	#
 
 	key_data = bpy.data.lights.new("Key", "AREA")
-	# FIX 3: podniesiona energia świateł (area lights skalują się z rozmiarem
-	# sceny, więc przy dużych modelach światło "rozjeżdża się" na dużej
-	# powierzchni i realnie doświetla mniej)
-	key_data.energy = 10000
+	key_data.energy = 6500
 	key_data.shape = 'RECTANGLE'
 	key_data.size = max_size * 2.5
 
@@ -477,7 +458,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	#
 
 	fill_data = bpy.data.lights.new("Fill", "AREA")
-	fill_data.energy = 5500
+	fill_data.energy = 3500
 	fill_data.shape = 'RECTANGLE'
 	fill_data.size = max_size * 3.0
 
@@ -497,7 +478,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	#
 
 	rim_data = bpy.data.lights.new("Rim", "AREA")
-	rim_data.energy = 3000
+	rim_data.energy = 1800
 	rim_data.shape = 'RECTANGLE'
 	rim_data.size = max_size * 2.0
 
@@ -515,23 +496,6 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	key_data.spread = math.radians(120)
 	fill_data.spread = math.radians(140)
 	rim_data.spread = math.radians(160)
-
-	# --------------------------------------------------
-	# COMPOSITING (FIX 5): dodatkowy delikatny boost ekspozycji
-	# w compositorze, tani sposób na odratowanie cieni bez przepalania świateł
-	# --------------------------------------------------
-
-	scene.use_nodes = True
-	comp_tree = scene.node_tree
-	comp_tree.nodes.clear()
-
-	rl_node = comp_tree.nodes.new('CompositorNodeRLayers')
-	exposure_node = comp_tree.nodes.new('CompositorNodeExposure')
-	exposure_node.inputs[1].default_value = 0.5
-	composite_node = comp_tree.nodes.new('CompositorNodeComposite')
-
-	comp_tree.links.new(rl_node.outputs['Image'], exposure_node.inputs['Image'])
-	comp_tree.links.new(exposure_node.outputs['Image'], composite_node.inputs['Image'])
 
 	# --------------------------------------------------
 	# RENDERS
