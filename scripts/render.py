@@ -415,12 +415,12 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	world.use_nodes = True
 
 	bg = world.node_tree.nodes["Background"]
-	bg.inputs[0].default_value = (1.0, 1.0, 1.0, 1.0)
-	bg.inputs[1].default_value = 0.18
+	bg.inputs[0].default_value = (0.05, 0.05, 0.05, 1)
+	bg.inputs[1].default_value = 0.35
 
 	scene.view_settings.view_transform = "AgX"
 	scene.view_settings.look = "None"
-	scene.view_settings.exposure = 0.7
+	scene.view_settings.exposure = 1.2
 	scene.view_settings.gamma = 1.0
 
 	# --------------------------------------------------
@@ -438,7 +438,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	#
 
 	key_data = bpy.data.lights.new("Key", "AREA")
-	key_data.energy = 4500
+	key_data.energy = 6500
 	key_data.shape = 'RECTANGLE'
 	key_data.size = max_size * 2.5
 
@@ -446,7 +446,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	scene.collection.objects.link(key)
 
 	key.parent = light_rig
-	key.location = Vector((8, -8, 8))
+	key.location = Vector((5, -5, 4))
 	key.rotation_euler = (
 		math.radians(55),
 		0,
@@ -458,7 +458,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	#
 
 	fill_data = bpy.data.lights.new("Fill", "AREA")
-	fill_data.energy = 1800
+	fill_data.energy = 3500
 	fill_data.shape = 'RECTANGLE'
 	fill_data.size = max_size * 3.0
 
@@ -466,7 +466,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	scene.collection.objects.link(fill)
 
 	fill.parent = light_rig
-	fill.location = Vector((-8, -6, 5))
+	fill.location = Vector((-5, -4, 3))
 	fill.rotation_euler = (
 		math.radians(65),
 		0,
@@ -478,7 +478,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	#
 
 	rim_data = bpy.data.lights.new("Rim", "AREA")
-	rim_data.energy = 1000
+	rim_data.energy = 1800
 	rim_data.shape = 'RECTANGLE'
 	rim_data.size = max_size * 2.0
 
@@ -486,12 +486,16 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	scene.collection.objects.link(rim)
 
 	rim.parent = light_rig
-	rim.location = Vector((0, 8, 6))
+	rim.location = Vector((0, 6, 5))
 	rim.rotation_euler = (
 		math.radians(120),
 		0,
 		math.radians(180)
 	)
+
+	key_data.spread = math.radians(120)
+	fill_data.spread = math.radians(140)
+	rim_data.spread = math.radians(160)
 
 	# --------------------------------------------------
 	# RENDERS
