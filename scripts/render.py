@@ -381,41 +381,117 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	# LIGHT
 	# --------------------------------------------------
 
+	# --------------------------------------------------
+	# MATERIAL FIXUP
+	# --------------------------------------------------
+
+	for mat in bpy.data.materials:
+		if not mat.use_nodes:
+			continue
+
+		for node in mat.node_tree.nodes:
+			if node.type == 'BSDF_PRINCIPLED':
+
+				# Bardziej naturalne materiały
+				if "Roughness" in node.inputs:
+					node.inputs["Roughness"].default_value = max(
+						node.inputs["Roughness"].default_value,
+						0.45
+					)
+
+				if "Specular IOR Level" in node.inputs:
+					node.inputs["Specular IOR Level"].default_value = 0.5
+
+				if "Metallic" in node.inputs:
+					if node.inputs["Metallic"].default_value < 0.01:
+						node.inputs["Metallic"].default_value = 0.0
+
+	# --------------------------------------------------
+	# WORLD
+	# --------------------------------------------------
+
+	world = bpy.data.worlds.new("ThumbnailWorld")
+	scene.world = world
+	world.use_nodes = True
+
+	bg = world.node_tree.nodes["Background"]
+	bg.inputs[0].default_value = (1.0, 1.0, 1.0, 1.0)
+	bg.inputs[1].default_value = 0.18
+
+	scene.view_settings.view_transform = "AgX"
+	scene.view_settings.look = "None"
+	scene.view_settings.exposure = 0.7
+	scene.view_settings.gamma = 1.0
+
+	# --------------------------------------------------
+	# LIGHTS
+	# --------------------------------------------------
+
 	max_size = max(size)
 
-	sun_data = bpy.data.lights.new('SunMain', type='SUN')
-	sun_data.energy = 5.0   # 4.0–6.0 sweet spot
+	light_rig = bpy.data.objects.new("LightRig", None)
+	light_rig.location = center
+	scene.collection.objects.link(light_rig)
 
-	sun = bpy.data.objects.new('SunMain', sun_data)
-	scene.collection.objects.link(sun)
+	#
+	# KEY
+	#
 
-	sun.rotation_euler = (
-		math.radians(50),
-		0.0,
-		math.radians(30)
+	key_data = bpy.data.lights.new("Key", "AREA")
+	key_data.energy = 4500
+	key_data.shape = 'RECTANGLE'
+	key_data.size = max_size * 2.5
+
+	key = bpy.data.objects.new("Key", key_data)
+	scene.collection.objects.link(key)
+
+	key.parent = light_rig
+	key.location = Vector((8, -8, 8))
+	key.rotation_euler = (
+		math.radians(55),
+		0,
+		math.radians(45)
 	)
 
-	fill_data = bpy.data.lights.new('SunFill', type='SUN')
-	fill_data.energy = 1.05
+	#
+	# FILL
+	#
 
-	fill = bpy.data.objects.new('SunFill', fill_data)
+	fill_data = bpy.data.lights.new("Fill", "AREA")
+	fill_data.energy = 1800
+	fill_data.shape = 'RECTANGLE'
+	fill_data.size = max_size * 3.0
+
+	fill = bpy.data.objects.new("Fill", fill_data)
 	scene.collection.objects.link(fill)
 
+	fill.parent = light_rig
+	fill.location = Vector((-8, -6, 5))
 	fill.rotation_euler = (
-		math.radians(75),
-		0.0,
-		math.radians(-120)
+		math.radians(65),
+		0,
+		math.radians(-40)
 	)
 
-	cam_light_data = bpy.data.lights.new("CameraFill", type='POINT')
-	cam_light_data.energy = 1500
-	cam_light_data.shadow_soft_size = max(size) * 0.2
+	#
+	# RIM
+	#
 
-	cam_light = bpy.data.objects.new("CameraFill", cam_light_data)
-	scene.collection.objects.link(cam_light)
+	rim_data = bpy.data.lights.new("Rim", "AREA")
+	rim_data.energy = 1000
+	rim_data.shape = 'RECTANGLE'
+	rim_data.size = max_size * 2.0
 
-	cam_light.parent = cam
-	cam_light.location = (0, 0, 0)
+	rim = bpy.data.objects.new("Rim", rim_data)
+	scene.collection.objects.link(rim)
+
+	rim.parent = light_rig
+	rim.location = Vector((0, 8, 6))
+	rim.rotation_euler = (
+		math.radians(120),
+		0,
+		math.radians(180)
+	)
 
 	# --------------------------------------------------
 	# RENDERS
@@ -426,6 +502,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	def render_angle(angle_deg, suffix):
 		print(f"Rendering angle {angle_deg}")
 		cam_empty.rotation_euler = (0, 0, math.radians(angle_deg))
+		light_rig.rotation_euler = (0, 0, math.radians(angle_deg))
 		scene.render.filepath = f"{mainfilepath}_{suffix}.png"
 		bpy.ops.render.render(write_still=True)
 
