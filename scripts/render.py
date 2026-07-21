@@ -349,6 +349,8 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	# --------------------------------------------------
 
 	center, size = get_scene_bounds()
+	diag = size.length
+	distance = diag * 1.2
 	cam_data = bpy.data.cameras.new("Camera")
 	cam_data.lens = 50	# product look
 	cam_data.sensor_width = 36
@@ -433,20 +435,24 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	light_rig.location = center
 	scene.collection.objects.link(light_rig)
 
+	radius = max(size) * 1.6
+	factor = (diag / 10.0) ** 2
+
 	#
 	# KEY
 	#
 
 	key_data = bpy.data.lights.new("Key", "AREA")
-	key_data.energy = 6500
+	key_data.energy = 6000 * factor
 	key_data.shape = 'RECTANGLE'
-	key_data.size = max_size * 2.5
+	key_data.size = diag * 0.7
 
 	key = bpy.data.objects.new("Key", key_data)
 	scene.collection.objects.link(key)
 
 	key.parent = light_rig
-	key.location = Vector((5, -5, 4))
+
+	key.location = Vector(( distance, -distance, distance))
 	key.rotation_euler = (
 		math.radians(55),
 		0,
@@ -458,15 +464,15 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	#
 
 	fill_data = bpy.data.lights.new("Fill", "AREA")
-	fill_data.energy = 3500
+	fill_data.energy = 3000 * factor
 	fill_data.shape = 'RECTANGLE'
-	fill_data.size = max_size * 3.0
+	fill_data.size = diag * 0.9
 
 	fill = bpy.data.objects.new("Fill", fill_data)
 	scene.collection.objects.link(fill)
 
 	fill.parent = light_rig
-	fill.location = Vector((-5, -4, 3))
+	fill.location = Vector((-distance, -distance*0.6, distance*0.7))
 	fill.rotation_euler = (
 		math.radians(65),
 		0,
@@ -478,15 +484,16 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	#
 
 	rim_data = bpy.data.lights.new("Rim", "AREA")
-	rim_data.energy = 1800
+	rim_data.energy = 1500 * factor
 	rim_data.shape = 'RECTANGLE'
-	rim_data.size = max_size * 2.0
+	rim_data.size = diag * 0.6
 
 	rim = bpy.data.objects.new("Rim", rim_data)
 	scene.collection.objects.link(rim)
 
 	rim.parent = light_rig
-	rim.location = Vector((0, 6, 5))
+
+	rim.location = Vector((0, distance, distance))
 	rim.rotation_euler = (
 		math.radians(120),
 		0,
