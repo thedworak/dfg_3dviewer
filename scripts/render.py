@@ -304,7 +304,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	render.image_settings.color_mode = 'RGBA'
 	render.image_settings.color_depth = '16'
 	render.image_settings.color_management = 'FOLLOW_SCENE'
-	render.image_settings.view_settings.view_transform = 'Standard'
+	render.image_settings.view_settings.view_transform = 'Filmic'
 
 	scene.render.use_compositing = True
 
@@ -407,17 +407,15 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 		math.radians(-120)
 	)
 
-	cam_light_data = bpy.data.lights.new("CameraFill", type='AREA')
-	cam_light_data.energy = 250
-	cam_light_data.shape = 'DISK'
-	cam_light_data.size = max(size) * 0.8
+	cam_light_data = bpy.data.lights.new("CameraFill", type='POINT')
+	cam_light_data.energy = 1500
+	cam_light_data.shadow_soft_size = max(size) * 0.2
 
 	cam_light = bpy.data.objects.new("CameraFill", cam_light_data)
 	scene.collection.objects.link(cam_light)
 
 	cam_light.parent = cam
 	cam_light.location = (0, 0, 0)
-	cam_light.rotation_euler = (0, 0, 0)
 
 	# --------------------------------------------------
 	# RENDERS
