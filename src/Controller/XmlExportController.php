@@ -18,7 +18,7 @@ class XmlExportController extends ControllerBase {
   ];
   private const EXPORT_PATHS = [
     '/wisski/navigate/%d/view',
-    '/api/editor/xml-export/%d',
+    '/export_xml_single/%d',
   ];
   private const FILE_DIR = 'public://xml_structure';
 
@@ -128,7 +128,7 @@ class XmlExportController extends ControllerBase {
       throw new \RuntimeException('Missing domain for XML source fetch');
     }
 
-    $query = http_build_query(['page' => 0, '_format' => 'xml']);
+    $query = http_build_query(['page' => 0, '_format' => 'xml', 'domain' => $domain]);
     $attempts = [];
 
     foreach (self::EXPORT_PATHS as $pattern) {
