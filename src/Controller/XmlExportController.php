@@ -11,14 +11,14 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 
 class XmlExportController extends ControllerBase {
 
-  private const XSL_URL = 'https://raw.githubusercontent.com/igorbajena/wisski-3d-repository/main/covher-to-dfg3d-mets.xsl';
+  private string $xslUrl;
   private const JSON_EXPORT_PATH = '/api/digital_reconstruction/record/%d';
   private const ADDITIONAL_MODEL_FIELD_CANDIDATES = [
     'fdc6300213a0d25d4b68069564846363',
   ];
   private const EXPORT_PATHS = [
     '/wisski/navigate/%d/view',
-    '/export_xml_single/%d',
+    '/api/editor/xml-export/%d',
   ];
   private const FILE_DIR = 'public://xml_structure';
 
@@ -916,7 +916,11 @@ class XmlExportController extends ControllerBase {
   }
 
   protected function fetchXsl(): string {
-    $response = $this->httpClient->request('GET', self::XSL_URL, ['http_errors' => false]);
+    $this->xslUrl = Settings::get(
+        'XSLT_URL',
+        'https://raw.githubusercontent.com/igorbajena/wisski-3d-repository/main/covher-to-dfg3d-mets.xsl'
+    );
+    $response = $this->httpClient->request('GET', $this->xslUrl, ['http_errors' => false]);
     if ($response->getStatusCode() !== 200) {
       throw new \RuntimeException('Cannot fetch XSL: ' . $response->getStatusCode());
     }
