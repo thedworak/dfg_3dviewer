@@ -11,7 +11,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 
 class XmlExportController extends ControllerBase {
 
-  private const XSL_URL = 'https://raw.githubusercontent.com/slub/dfg-viewer/e54305a9fa58951d3f3d1dd7e64554cb2ee881eb/Resources/Public/XSLT/exportSingleToMetsMods.xsl';
+  private const XSL_URL = 'https://raw.githubusercontent.com/igorbajena/wisski-3d-repository/main/covher-to-dfg3d-mets.xsl';
   private const JSON_EXPORT_PATH = '/api/digital_reconstruction/record/%d';
   private const ADDITIONAL_MODEL_FIELD_CANDIDATES = [
     'fdc6300213a0d25d4b68069564846363',
