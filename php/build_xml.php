@@ -5,7 +5,7 @@ const EXPORT_PATHS=[
 	'/export_xml_single/%d',
 ];
 const MFILEPATH='sites/default/files/xml_structure';
-const XSLURL="https://raw.githubusercontent.com/slub/dfg-viewer/e54305a9fa58951d3f3d1dd7e64554cb2ee881eb/Resources/Public/XSLT/exportSingleToMetsMods.xsl";
+const XSLURL="https://raw.githubusercontent.com/igorbajena/wisski-3d-repository/main/covher-to-dfg3d-mets.xsl";
 libxml_use_internal_errors(true); // Suppress default XML errors
 
 function file_get_content_curl( $url ) {
