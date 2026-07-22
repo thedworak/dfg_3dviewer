@@ -37,7 +37,7 @@ dfg_3dviewer.xml_export:
     _controller: '\Drupal\dfg_3dviewer\Controller\XmlExportController::export'
   methods: [GET, POST]
   requirements:
-    _permission: 'access dfg 3dviewer editor'
+    _access: 'TRUE'
 dfg_3dviewer.status:
   path: '/api/model/status/{id}'
   defaults:
