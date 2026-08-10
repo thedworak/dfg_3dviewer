@@ -217,6 +217,8 @@ const VIEWER_I18N = {
       exitEmbed: "Exit embed",
       openEmbedOptions: "Open embed options",
       exitEmbedMode: "Exit embed mode",
+      shareView: "Share view",
+      copyShareView: "Copy share view link",
       download: "Download",
     },
     theme: {
@@ -467,6 +469,8 @@ const VIEWER_I18N = {
       embedIframeCopyError: "Could not copy embed iframe.",
       embedCodeCopied: "Embed code copied to clipboard.",
       embedCodeCopyError: "Could not copy embed code.",
+      shareUrlCopied: "Share view URL copied.",
+      shareUrlCopyError: "Could not copy share view URL.",
 
       annotationDataMissing: "Annotation data not found for this POI.",
       selectFaceRequired: "Select at least one face to add annotation.",
@@ -519,6 +523,8 @@ const VIEWER_I18N = {
       exitEmbed: "Wyjdź z osadzania",
       openEmbedOptions: "Otwórz opcje osadzania",
       exitEmbedMode: "Wyjdź z trybu osadzania",
+      shareView: "Udostępnij widok",
+      copyShareView: "Skopiuj link udostępniania widoku",
       download: "Pobierz",
     },
     theme: {
@@ -769,6 +775,8 @@ const VIEWER_I18N = {
       embedIframeCopyError: "Nie udało się skopiować iframe.",
       embedCodeCopied: "Kod osadzenia został skopiowany do schowka.",
       embedCodeCopyError: "Nie udało się skopiować kodu osadzenia.",
+      shareUrlCopied: "Skopiowano link udostępniania widoku.",
+      shareUrlCopyError: "Nie udało się skopiować linku udostępniania widoku.",
 
       annotationDataMissing: "Nie znaleziono danych adnotacji dla tego punktu.",
       selectFaceRequired: "Wybierz co najmniej jedną ścianę, aby dodać adnotację.",
@@ -821,6 +829,8 @@ const VIEWER_I18N = {
       exitEmbed: "Einbettung beenden",
       openEmbedOptions: "Einbettungsoptionen öffnen",
       exitEmbedMode: "Einbettungsmodus beenden",
+      shareView: "Ansicht teilen",
+      copyShareView: "Link zur geteilten Ansicht kopieren",
       download: "Herunterladen",
     },
     theme: {
@@ -1070,6 +1080,8 @@ const VIEWER_I18N = {
       embedIframeCopyError: "Einbettungs-iframe konnte nicht kopiert werden.",
       embedCodeCopied: "Einbettungscode in die Zwischenablage kopiert.",
       embedCodeCopyError: "Einbettungscode konnte nicht kopiert werden.",
+      shareUrlCopied: "URL der geteilten Ansicht kopiert.",
+      shareUrlCopyError: "URL der geteilten Ansicht konnte nicht kopiert werden.",
 
       annotationDataMissing: "Keine Annotationsdaten für diesen Punkt gefunden.",
       selectFaceRequired: "Wählen Sie mindestens eine Fläche aus, um eine Annotation hinzuzufügen.",
@@ -2387,6 +2399,18 @@ function attachEmbedConfigurator(Viewer) {
       return embedUrl;
     },
 
+    getViewerPageUrl() {
+      const viewerUrl = new URL(window.location.href);
+      viewerUrl.search = "";
+      viewerUrl.hash = "";
+
+      if (viewerUrl.pathname.endsWith("/embed.html")) {
+        viewerUrl.pathname = viewerUrl.pathname.replace(/\/embed\.html$/, "/index.html");
+      }
+
+      return viewerUrl;
+    },
+
     async copyTextToClipboard(value) {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(value);
@@ -2421,6 +2445,11 @@ function attachEmbedConfigurator(Viewer) {
         cameraPosition: null,
         cameraTarget: null,
         fov: null,
+        cameraProjection: null,
+        cameraZoom: null,
+        clippingMode: null,
+        clippingConstants: null,
+        clippingOutline: null,
       };
 
       if (includeCamera) {
@@ -2428,6 +2457,17 @@ function attachEmbedConfigurator(Viewer) {
         options.cameraPosition = this.formatVector3Param(core.camera?.position);
         options.cameraTarget = this.formatVector3Param(core.controls?.target);
         options.fov = Number.isFinite(core.camera?.fov) ? core.camera.fov : null;
+        options.cameraProjection = core.camera?.isOrthographicCamera ? "orthographic" : "perspective";
+        options.cameraZoom = Number.isFinite(core.camera?.zoom) ? core.camera.zoom : null;
+        options.clippingMode = this.formatClippingModeParam(core.planeParams?.clippingMode);
+
+        const clipX = Number(core.clippingPlanes?.[0]?.constant);
+        const clipY = Number(core.clippingPlanes?.[1]?.constant);
+        const clipZ = Number(core.clippingPlanes?.[2]?.constant);
+        if (Number.isFinite(clipX) && Number.isFinite(clipY) && Number.isFinite(clipZ)) {
+          options.clippingConstants = this.formatVector3Param({ x: clipX, y: clipY, z: clipZ });
+        }
+        options.clippingOutline = core.planeParams?.outline?.visible === true;
       }
 
       return options;
@@ -2480,8 +2520,7 @@ function attachEmbedConfigurator(Viewer) {
       return camPosOk && camTargetOk && fovOk;
     },
 
-    buildEmbedPayload(options = {}) {
-      const embedUrl = this.getEmbedPageUrl();
+    buildViewerParams(options = {}) {
       const params = new URLSearchParams();
 
       if (options.model) {
@@ -2525,7 +2564,28 @@ function attachEmbedConfigurator(Viewer) {
       if (Number.isFinite(options.fov)) {
         params.set("fov", String(options.fov));
       }
+      if (options.cameraProjection === "orthographic" || options.cameraProjection === "perspective") {
+        params.set("projection", options.cameraProjection);
+      }
+      if (Number.isFinite(options.cameraZoom) && options.cameraProjection === "orthographic") {
+        params.set("zoom", String(options.cameraZoom));
+      }
+      if (options.clippingMode) {
+        params.set("clip", options.clippingMode);
+      }
+      if (options.clippingConstants) {
+        params.set("clipConst", options.clippingConstants);
+      }
+      if (typeof options.clippingOutline === "boolean") {
+        params.set("clipOutline", options.clippingOutline ? "1" : "0");
+      }
 
+      return params;
+    },
+
+    buildEmbedPayload(options = {}) {
+      const embedUrl = this.getEmbedPageUrl();
+      const params = this.buildViewerParams(options);
       embedUrl.search = params.toString();
 
       return {
@@ -2534,13 +2594,25 @@ function attachEmbedConfigurator(Viewer) {
       };
     },
 
-    getSharePayload() {
+    buildViewerPayload(options = {}) {
+      const viewerUrl = this.getViewerPageUrl();
+      const params = this.buildViewerParams(options);
+      viewerUrl.search = params.toString();
+      return { url: viewerUrl.toString() };
+    },
+
+    getEmbedPayload() {
       return this.buildEmbedPayload(this.getCurrentEmbedOptions({ includeCamera: true }));
+    },
+
+    getSharePayload() {
+      return this.buildViewerPayload(this.getCurrentEmbedOptions({ includeCamera: true }));
     },
 
     collectEmbedConfiguratorOptions() {
       const inputs = this.embedConfigInputs;
       if (!inputs) return this.getCurrentEmbedOptions({ includeCamera: true });
+      const currentViewState = this.getCurrentEmbedOptions({ includeCamera: true });
       const parsedCamPos = this.parseVector3Param(inputs.camPos.value);
       const parsedCamTarget = this.parseVector3Param(inputs.camTarget.value);
       const parsedFov = this.parseFloatParam(inputs.fov.value);
@@ -2558,6 +2630,11 @@ function attachEmbedConfigurator(Viewer) {
         cameraPosition: this.formatVector3Param(parsedCamPos),
         cameraTarget: this.formatVector3Param(parsedCamTarget),
         fov: normalizedFov,
+        cameraProjection: currentViewState.cameraProjection,
+        cameraZoom: currentViewState.cameraZoom,
+        clippingMode: currentViewState.clippingMode,
+        clippingConstants: currentViewState.clippingConstants,
+        clippingOutline: currentViewState.clippingOutline,
       };
     },
 
@@ -2801,13 +2878,40 @@ function attachEmbedConfigurator(Viewer) {
       this.closeActionMenu();
 
       try {
-        const { code } = this.getSharePayload();
+        const { code } = this.getEmbedPayload();
         await this.copyTextToClipboard(code);
         toastHelper("embedCodeCopied", "success");
       } catch (error) {
         this.reportError(error, { context: "Copy embed code failed" });
         toastHelper("embedCodeCopyError", "error");
       }
+    },
+
+    async copyShareViewUrl(event) {
+      event?.preventDefault?.();
+      this.closeActionMenu();
+
+      try {
+        const { url } = this.getSharePayload();
+        if (!url) {
+          toastHelper("embedSourceMissing", "warning");
+          return;
+        }
+        await this.copyTextToClipboard(url);
+        toastHelper("shareUrlCopied", "success");
+      } catch (error) {
+        this.reportError(error, { context: "Copy share URL failed" });
+        toastHelper("shareUrlCopyError", "error");
+      }
+    },
+
+    updateShareMenuEntryState() {
+      if (!this.shareView) return;
+      const label = t$1("menu.shareView", "Share view");
+      this.shareView.innerHTML = `<span class="share-view-icon" aria-hidden="true"></span><span>${label}</span>`;
+      const a11yLabel = t$1("menu.copyShareView", "Copy share view link");
+      this.shareView.setAttribute("aria-label", a11yLabel);
+      this.shareView.setAttribute("title", a11yLabel);
     },
 
     updateEmbedMenuEntryState() {
@@ -3524,6 +3628,7 @@ function attachLocalizationTheme(viewer) {
       this.updateActionMenuLabels();
       this.updateLanguageControlLabels();
       this.updateThemeControlLabels();
+      this.updateShareMenuEntryState?.();
       this.updateEmbedMenuEntryState();
       this.updateFullscreenButtonIcon();
       this.updateDownloadMenuEntryLabel();
@@ -7563,12 +7668,21 @@ async function handleMetadataResponse(
     core.viewEntity.hidden = true;
     core.viewEntity.removeAttribute("data-embed-url");
   }
+  if (window.Viewer?.shareView) {
+    window.Viewer.shareView.hidden = true;
+    window.Viewer.shareView.removeAttribute("data-share-url");
+  }
 
   if (core.viewEntity && (core.CONFIG?.entity?.id || core.fileObject?.originalPath)) {
     const sharePayload = window.Viewer?.getSharePayload?.();
     if (sharePayload?.url) {
       core.viewEntity.setAttribute("data-embed-url", sharePayload.url);
+      window.Viewer?.shareView?.setAttribute("data-share-url", sharePayload.url);
+      if (window.Viewer?.shareView) {
+        window.Viewer.shareView.hidden = false;
+      }
     }
+    window.Viewer?.updateShareMenuEntryState?.();
     window.Viewer?.updateEmbedMenuEntryState?.();
     core.viewEntity.hidden = false;
   }
@@ -17054,6 +17168,7 @@ const Viewer$1 = {
   fullscreenMode: null,
   themeMode: null,
   languageMode: null,
+  shareView: null,
   editorToolbar: null,
   editorToolbarButtons: {},
   isToolbarExpanded: false,
@@ -17272,6 +17387,11 @@ const Viewer$1 = {
     cameraPosition: null,
     cameraTarget: null,
     cameraFov: null,
+    cameraProjection: null,
+    cameraZoom: null,
+    clippingMode: null,
+    clippingConstants: null,
+    clippingOutline: null,
     presentationMode: false,
     sandboxMode: false,
   },
@@ -17926,6 +18046,31 @@ const Viewer$1 = {
     return `${x.toFixed(4)},${y.toFixed(4)},${z.toFixed(4)}`;
   },
 
+  parseProjectionParam(value) {
+    if (value == null) return null;
+    const normalizedValue = String(value).trim().toLowerCase();
+    if (["perspective", "persp", "p"].includes(normalizedValue)) return "perspective";
+    if (["orthographic", "ortho", "o"].includes(normalizedValue)) return "orthographic";
+    return null;
+  },
+
+  parseClippingModeParam(value) {
+    if (value == null) return null;
+    const normalizedValue = String(value).trim().toLowerCase().replace(/[^xyz]/g, "");
+    if (normalizedValue === "") return null;
+    return {
+      x: normalizedValue.includes("x"),
+      y: normalizedValue.includes("y"),
+      z: normalizedValue.includes("z"),
+    };
+  },
+
+  formatClippingModeParam(mode) {
+    if (!mode || typeof mode !== "object") return null;
+    const value = [mode.x ? "x" : "", mode.y ? "y" : "", mode.z ? "z" : ""].join("");
+    return value || null;
+  },
+
   parseUrlOptions() {
     const params = new URLSearchParams(window.location.search);
     const modelFromQuery = params.get("model") || params.get("src");
@@ -17957,11 +18102,90 @@ const Viewer$1 = {
       cameraPosition: this.parseVector3Param(params.get("camPos") || params.get("cameraPos")),
       cameraTarget: this.parseVector3Param(params.get("camTarget") || params.get("cameraTarget")),
       cameraFov: this.parseFloatParam(params.get("fov")),
+      cameraProjection: this.parseProjectionParam(params.get("projection") || params.get("cameraProjection") || params.get("proj")),
+      cameraZoom: this.parseFloatParam(params.get("zoom") || params.get("cameraZoom")),
+      clippingMode: this.parseClippingModeParam(params.get("clip") || params.get("clippingMode")),
+      clippingConstants: this.parseVector3Param(params.get("clipConst") || params.get("clipConstants")),
+      clippingOutline: this.parseBooleanParam(params.get("clipOutline")),
       presentationMode: core.PRESENTATION_MODE === true,
       sandboxMode: core.SANDBOX_MODE === true,
       scale: this.parseVector2Param(params.get("scale")) ?? null,
       showNotifications: this.parseBooleanParam(params.get("showNotifications")),
     };
+  },
+
+  applyClippingOverridesFromUrl() {
+    const clippingMode = this.urlOptions?.clippingMode;
+    const clippingConstants = this.urlOptions?.clippingConstants;
+    const clippingOutline = this.urlOptions?.clippingOutline;
+
+    const hasMode = clippingMode && ["x", "y", "z"].every((axis) => typeof clippingMode[axis] === "boolean");
+    const hasConstants = clippingConstants && Number.isFinite(clippingConstants.x) && Number.isFinite(clippingConstants.y) && Number.isFinite(clippingConstants.z);
+    const hasOutline = typeof clippingOutline === "boolean";
+
+    if (!hasMode && !hasConstants && !hasOutline) return;
+
+    if (hasConstants && core.clippingPlanes?.length >= 3) {
+      const constants = [clippingConstants.x, clippingConstants.y, clippingConstants.z];
+      core.clippingPlanes[0].constant = constants[0];
+      core.clippingPlanes[1].constant = constants[1];
+      core.clippingPlanes[2].constant = constants[2];
+
+      core.planeParams.planeX.constantX = constants[0];
+      core.planeParams.planeY.constantY = constants[1];
+      core.planeParams.planeZ.constantZ = constants[2];
+
+      if (core.clippingFolder?.controllers?.[1]) {
+        core.clippingFolder.controllers[1].setValue(constants[0]);
+      }
+      if (core.clippingFolder?.controllers?.[3]) {
+        core.clippingFolder.controllers[3].setValue(constants[1]);
+      }
+      if (core.clippingFolder?.controllers?.[5]) {
+        core.clippingFolder.controllers[5].setValue(constants[2]);
+      }
+
+      if (core.planeHelpers?.length >= 3) {
+        for (let i = 0; i < 3; i += 1) {
+          const helper = core.planeHelpers[i];
+          const plane = core.clippingPlanes[i];
+          if (!helper || !plane) continue;
+          helper.position.copy(plane.normal).multiplyScalar(-plane.constant);
+          helper.updateMatrixWorld?.(true);
+        }
+      }
+    }
+
+    if (hasMode) {
+      core.planeParams.clippingMode.x = clippingMode.x;
+      core.planeParams.clippingMode.y = clippingMode.y;
+      core.planeParams.clippingMode.z = clippingMode.z;
+
+      if (core.planeHelpers?.[0]) core.planeHelpers[0].visible = clippingMode.x;
+      if (core.planeHelpers?.[1]) core.planeHelpers[1].visible = clippingMode.y;
+      if (core.planeHelpers?.[2]) core.planeHelpers[2].visible = clippingMode.z;
+
+      this.clippingMode = clippingMode.x || clippingMode.y || clippingMode.z;
+    }
+
+    if (hasOutline) {
+      core.planeParams.outline.visible = clippingOutline;
+    }
+
+    if (core.outlineClipping) {
+      const hasActiveClipping = Boolean(
+        core.planeParams?.clippingMode?.x ||
+        core.planeParams?.clippingMode?.y ||
+        core.planeParams?.clippingMode?.z
+      );
+      core.outlineClipping.visible = hasOutline ? clippingOutline : hasActiveClipping;
+    }
+
+    this.updateClippingPlanesControllerLabel();
+    this.updateClippingPlanesControlsVisibility();
+    this.updateClippingPlanesSubmenuState();
+    this.refreshClippingHintVisibility();
+    updateActiveClippingPlanes();
   },
 
   setGuiFolderTitle(folder, title) {
@@ -19840,18 +20064,19 @@ const Viewer$1 = {
   applyCameraOverridesFromUrl() {
     if (!core.camera) return;
 
+    const requestedProjection = this.urlOptions?.cameraProjection;
+    if (requestedProjection === "orthographic" || requestedProjection === "perspective") {
+      this.setCameraProjection(requestedProjection);
+    }
+
     const cameraPosition = this.urlOptions?.cameraPosition;
     const cameraTarget = this.urlOptions?.cameraTarget;
     const cameraFov = this.urlOptions?.cameraFov;
+    const cameraZoom = this.urlOptions?.cameraZoom;
     const hasPosition = cameraPosition && Number.isFinite(cameraPosition.x) && Number.isFinite(cameraPosition.y) && Number.isFinite(cameraPosition.z);
     const hasTarget = cameraTarget && Number.isFinite(cameraTarget.x) && Number.isFinite(cameraTarget.y) && Number.isFinite(cameraTarget.z);
-    const hasFov = Number.isFinite(cameraFov);
-    if (!hasPosition && !hasTarget && !hasFov) return;
-    const cameraPositionVector = new THREE.Vector3(cameraPosition.x, cameraPosition.y, cameraPosition.z);
-    const cameraTargetVector = new THREE.Vector3(cameraTarget.x, cameraTarget.y, cameraTarget.z);
-    if (!hasPosition) cameraPositionVector.copy(core.camera.position);
-    if (!hasTarget) cameraTargetVector.copy(core.controls.target); // Use the current target if no target is provided
-    if (!hasFov) core.camera.fov = 45; // Default field of view
+    const hasFov = Number.isFinite(cameraFov) && core.camera.isPerspectiveCamera === true;
+    const hasZoom = Number.isFinite(cameraZoom) && core.camera.isOrthographicCamera === true;
   
     if (hasPosition) {
       core.camera.position.copy(cameraPosition);
@@ -19868,12 +20093,17 @@ const Viewer$1 = {
         this.embedConfigInputs.fov.value = String(normalizedFov);
       }
     }
+    if (hasZoom) {
+      core.camera.zoom = Math.max(0.001, Number(cameraZoom));
+    }
 
     core.camera.updateProjectionMatrix();
     if (hasPosition) {
       core.controls?.object?.position.copy(core.camera.position);
     }
     core.controls?.update();
+
+    this.applyClippingOverridesFromUrl();
 
   },
 
@@ -20635,6 +20865,11 @@ const Viewer$1 = {
         Viewer$1.viewEntity.setAttribute("type", "button");
         Viewer$1.viewEntity.hidden = true;
 
+        Viewer$1.shareView = document.createElement("button");
+        Viewer$1.shareView.setAttribute("id", "shareView");
+        Viewer$1.shareView.setAttribute("type", "button");
+        Viewer$1.shareView.hidden = true;
+
         Viewer$1.downloadModelElement = document.createElement("a");
         setCore('downloadModel', Viewer$1.downloadModel);
         setCore('downloadModelElement', Viewer$1.downloadModelElement);
@@ -20687,6 +20922,7 @@ const Viewer$1 = {
 
         Viewer$1.actionMenuPanel.appendChild(Viewer$1.languageModeContainer);
         Viewer$1.actionMenuPanel.appendChild(Viewer$1.themeMode);
+        Viewer$1.actionMenuPanel.appendChild(Viewer$1.shareView);
         Viewer$1.actionMenuPanel.appendChild(Viewer$1.viewEntity);
         //Viewer.actionMenuPanel.appendChild(Viewer.downloadModelElement);
         if (Viewer$1.urlOptions.hideUi) {
@@ -20696,7 +20932,9 @@ const Viewer$1 = {
         setCore('viewEntity', Viewer$1.viewEntity);
         Viewer$1.bindEventListener(Viewer$1.languageMode, "click", Viewer$1.toggleLanguage.bind(Viewer$1));
         Viewer$1.bindEventListener(Viewer$1.themeMode, "click", Viewer$1.toggleTheme.bind(Viewer$1));
+        Viewer$1.bindEventListener(Viewer$1.shareView, "click", Viewer$1.copyShareViewUrl.bind(Viewer$1));
         Viewer$1.bindEventListener(Viewer$1.viewEntity, "click", Viewer$1.openEmbedConfiguratorFromMenu.bind(Viewer$1));
+        Viewer$1.updateShareMenuEntryState();
         Viewer$1.updateEmbedMenuEntryState();
         Viewer$1.applyLanguage({ persist: false });
         //Viewer.bindEventListener(Viewer.downloadModelElement, "click", () => Viewer.closeActionMenu());

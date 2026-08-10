@@ -911,6 +911,7 @@
 }
 
 #viewerThemeMode,
+#shareView,
 #viewEntity,
 #downloadModel,
 #fullscreenMode {
@@ -934,6 +935,7 @@
 }
 
 #viewerThemeMode,
+#shareView,
 #viewEntity,
 #fullscreenMode {
   font: inherit;
@@ -941,6 +943,7 @@
 }
 
 #viewerThemeMode:hover,
+#shareView:hover,
 #viewEntity:hover,
 #downloadModel:hover,
 #fullscreenMode:hover {
@@ -948,6 +951,7 @@
 }
 
 #viewerThemeMode > :first-child,
+#shareView > :first-child,
 #viewEntity > :first-child,
 #downloadModel > :first-child,
 #fullscreenMode > :first-child {
@@ -966,6 +970,7 @@
 }
 
 #viewerThemeMode span,
+#shareView span,
 #viewEntity span,
 #downloadModel span,
 #fullscreenMode span {
@@ -1258,6 +1263,18 @@
   mask-repeat: no-repeat;
 }
 
+.share-view-icon {
+  width: 28px;
+  height: 28px;
+  background-color: currentColor;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8'%3E%3Ccircle cx='18' cy='5' r='2.5'/%3E%3Ccircle cx='6' cy='12' r='2.5'/%3E%3Ccircle cx='18' cy='19' r='2.5'/%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M8.1 10.9l7.8-4.6M8.1 13.1l7.8 4.6'/%3E%3C/svg%3E");
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8'%3E%3Ccircle cx='18' cy='5' r='2.5'/%3E%3Ccircle cx='6' cy='12' r='2.5'/%3E%3Ccircle cx='18' cy='19' r='2.5'/%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M8.1 10.9l7.8-4.6M8.1 13.1l7.8 4.6'/%3E%3C/svg%3E");
+  mask-size: contain;
+  mask-repeat: no-repeat;
+}
+
 #viewerActionMenuToggle:checked ~ .viewer-action-menu_panel > * {
   opacity: 1;
   transform: translateY(0);
@@ -1273,6 +1290,10 @@
 
 #viewerActionMenuToggle:checked ~ .viewer-action-menu_panel > *:nth-child(3) {
   transition-delay: 0.12s;
+}
+
+#viewerActionMenuToggle:checked ~ .viewer-action-menu_panel > *:nth-child(4) {
+  transition-delay: 0.16s;
 }
 
 
@@ -1301,6 +1322,7 @@
   }
 
   #viewerLanguageMode,
+  #shareView,
   #viewEntity,
   #downloadModel,
   #fullscreenMode {

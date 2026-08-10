@@ -406,12 +406,21 @@ export async function handleMetadataResponse(
     core.viewEntity.hidden = true;
     core.viewEntity.removeAttribute("data-embed-url");
   }
+  if (window.Viewer?.shareView) {
+    window.Viewer.shareView.hidden = true;
+    window.Viewer.shareView.removeAttribute("data-share-url");
+  }
 
   if (core.viewEntity && (core.CONFIG?.entity?.id || core.fileObject?.originalPath)) {
     const sharePayload = window.Viewer?.getSharePayload?.();
     if (sharePayload?.url) {
       core.viewEntity.setAttribute("data-embed-url", sharePayload.url);
+      window.Viewer?.shareView?.setAttribute("data-share-url", sharePayload.url);
+      if (window.Viewer?.shareView) {
+        window.Viewer.shareView.hidden = false;
+      }
     }
+    window.Viewer?.updateShareMenuEntryState?.();
     window.Viewer?.updateEmbedMenuEntryState?.();
     core.viewEntity.hidden = false;
   }

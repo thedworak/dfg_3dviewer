@@ -7,6 +7,8 @@ export const VIEWER_I18N = {
       exitEmbed: "Exit embed",
       openEmbedOptions: "Open embed options",
       exitEmbedMode: "Exit embed mode",
+      shareView: "Share view",
+      copyShareView: "Copy share view link",
       download: "Download",
     },
     theme: {
@@ -257,6 +259,8 @@ export const VIEWER_I18N = {
       embedIframeCopyError: "Could not copy embed iframe.",
       embedCodeCopied: "Embed code copied to clipboard.",
       embedCodeCopyError: "Could not copy embed code.",
+      shareUrlCopied: "Share view URL copied.",
+      shareUrlCopyError: "Could not copy share view URL.",
 
       annotationDataMissing: "Annotation data not found for this POI.",
       selectFaceRequired: "Select at least one face to add annotation.",
@@ -309,6 +313,8 @@ export const VIEWER_I18N = {
       exitEmbed: "Wyjdź z osadzania",
       openEmbedOptions: "Otwórz opcje osadzania",
       exitEmbedMode: "Wyjdź z trybu osadzania",
+      shareView: "Udostępnij widok",
+      copyShareView: "Skopiuj link udostępniania widoku",
       download: "Pobierz",
     },
     theme: {
@@ -559,6 +565,8 @@ export const VIEWER_I18N = {
       embedIframeCopyError: "Nie udało się skopiować iframe.",
       embedCodeCopied: "Kod osadzenia został skopiowany do schowka.",
       embedCodeCopyError: "Nie udało się skopiować kodu osadzenia.",
+      shareUrlCopied: "Skopiowano link udostępniania widoku.",
+      shareUrlCopyError: "Nie udało się skopiować linku udostępniania widoku.",
 
       annotationDataMissing: "Nie znaleziono danych adnotacji dla tego punktu.",
       selectFaceRequired: "Wybierz co najmniej jedną ścianę, aby dodać adnotację.",
@@ -611,6 +619,8 @@ export const VIEWER_I18N = {
       exitEmbed: "Einbettung beenden",
       openEmbedOptions: "Einbettungsoptionen öffnen",
       exitEmbedMode: "Einbettungsmodus beenden",
+      shareView: "Ansicht teilen",
+      copyShareView: "Link zur geteilten Ansicht kopieren",
       download: "Herunterladen",
     },
     theme: {
@@ -860,6 +870,8 @@ export const VIEWER_I18N = {
       embedIframeCopyError: "Einbettungs-iframe konnte nicht kopiert werden.",
       embedCodeCopied: "Einbettungscode in die Zwischenablage kopiert.",
       embedCodeCopyError: "Einbettungscode konnte nicht kopiert werden.",
+      shareUrlCopied: "URL der geteilten Ansicht kopiert.",
+      shareUrlCopyError: "URL der geteilten Ansicht konnte nicht kopiert werden.",
 
       annotationDataMissing: "Keine Annotationsdaten für diesen Punkt gefunden.",
       selectFaceRequired: "Wählen Sie mindestens eine Fläche aus, um eine Annotation hinzuzufügen.",

@@ -147,6 +147,7 @@ export const Viewer = {
   fullscreenMode: null,
   themeMode: null,
   languageMode: null,
+  shareView: null,
   editorToolbar: null,
   editorToolbarButtons: {},
   isToolbarExpanded: false,
@@ -365,6 +366,11 @@ export const Viewer = {
     cameraPosition: null,
     cameraTarget: null,
     cameraFov: null,
+    cameraProjection: null,
+    cameraZoom: null,
+    clippingMode: null,
+    clippingConstants: null,
+    clippingOutline: null,
     presentationMode: false,
     sandboxMode: false,
   },
@@ -1019,6 +1025,31 @@ export const Viewer = {
     return `${x.toFixed(4)},${y.toFixed(4)},${z.toFixed(4)}`;
   },
 
+  parseProjectionParam(value) {
+    if (value == null) return null;
+    const normalizedValue = String(value).trim().toLowerCase();
+    if (["perspective", "persp", "p"].includes(normalizedValue)) return "perspective";
+    if (["orthographic", "ortho", "o"].includes(normalizedValue)) return "orthographic";
+    return null;
+  },
+
+  parseClippingModeParam(value) {
+    if (value == null) return null;
+    const normalizedValue = String(value).trim().toLowerCase().replace(/[^xyz]/g, "");
+    if (normalizedValue === "") return null;
+    return {
+      x: normalizedValue.includes("x"),
+      y: normalizedValue.includes("y"),
+      z: normalizedValue.includes("z"),
+    };
+  },
+
+  formatClippingModeParam(mode) {
+    if (!mode || typeof mode !== "object") return null;
+    const value = [mode.x ? "x" : "", mode.y ? "y" : "", mode.z ? "z" : ""].join("");
+    return value || null;
+  },
+
   parseUrlOptions() {
     const params = new URLSearchParams(window.location.search);
     const modelFromQuery = params.get("model") || params.get("src");
@@ -1050,11 +1081,90 @@ export const Viewer = {
       cameraPosition: this.parseVector3Param(params.get("camPos") || params.get("cameraPos")),
       cameraTarget: this.parseVector3Param(params.get("camTarget") || params.get("cameraTarget")),
       cameraFov: this.parseFloatParam(params.get("fov")),
+      cameraProjection: this.parseProjectionParam(params.get("projection") || params.get("cameraProjection") || params.get("proj")),
+      cameraZoom: this.parseFloatParam(params.get("zoom") || params.get("cameraZoom")),
+      clippingMode: this.parseClippingModeParam(params.get("clip") || params.get("clippingMode")),
+      clippingConstants: this.parseVector3Param(params.get("clipConst") || params.get("clipConstants")),
+      clippingOutline: this.parseBooleanParam(params.get("clipOutline")),
       presentationMode: core.PRESENTATION_MODE === true,
       sandboxMode: core.SANDBOX_MODE === true,
       scale: this.parseVector2Param(params.get("scale")) ?? null,
       showNotifications: this.parseBooleanParam(params.get("showNotifications")),
     };
+  },
+
+  applyClippingOverridesFromUrl() {
+    const clippingMode = this.urlOptions?.clippingMode;
+    const clippingConstants = this.urlOptions?.clippingConstants;
+    const clippingOutline = this.urlOptions?.clippingOutline;
+
+    const hasMode = clippingMode && ["x", "y", "z"].every((axis) => typeof clippingMode[axis] === "boolean");
+    const hasConstants = clippingConstants && Number.isFinite(clippingConstants.x) && Number.isFinite(clippingConstants.y) && Number.isFinite(clippingConstants.z);
+    const hasOutline = typeof clippingOutline === "boolean";
+
+    if (!hasMode && !hasConstants && !hasOutline) return;
+
+    if (hasConstants && core.clippingPlanes?.length >= 3) {
+      const constants = [clippingConstants.x, clippingConstants.y, clippingConstants.z];
+      core.clippingPlanes[0].constant = constants[0];
+      core.clippingPlanes[1].constant = constants[1];
+      core.clippingPlanes[2].constant = constants[2];
+
+      core.planeParams.planeX.constantX = constants[0];
+      core.planeParams.planeY.constantY = constants[1];
+      core.planeParams.planeZ.constantZ = constants[2];
+
+      if (core.clippingFolder?.controllers?.[1]) {
+        core.clippingFolder.controllers[1].setValue(constants[0]);
+      }
+      if (core.clippingFolder?.controllers?.[3]) {
+        core.clippingFolder.controllers[3].setValue(constants[1]);
+      }
+      if (core.clippingFolder?.controllers?.[5]) {
+        core.clippingFolder.controllers[5].setValue(constants[2]);
+      }
+
+      if (core.planeHelpers?.length >= 3) {
+        for (let i = 0; i < 3; i += 1) {
+          const helper = core.planeHelpers[i];
+          const plane = core.clippingPlanes[i];
+          if (!helper || !plane) continue;
+          helper.position.copy(plane.normal).multiplyScalar(-plane.constant);
+          helper.updateMatrixWorld?.(true);
+        }
+      }
+    }
+
+    if (hasMode) {
+      core.planeParams.clippingMode.x = clippingMode.x;
+      core.planeParams.clippingMode.y = clippingMode.y;
+      core.planeParams.clippingMode.z = clippingMode.z;
+
+      if (core.planeHelpers?.[0]) core.planeHelpers[0].visible = clippingMode.x;
+      if (core.planeHelpers?.[1]) core.planeHelpers[1].visible = clippingMode.y;
+      if (core.planeHelpers?.[2]) core.planeHelpers[2].visible = clippingMode.z;
+
+      this.clippingMode = clippingMode.x || clippingMode.y || clippingMode.z;
+    }
+
+    if (hasOutline) {
+      core.planeParams.outline.visible = clippingOutline;
+    }
+
+    if (core.outlineClipping) {
+      const hasActiveClipping = Boolean(
+        core.planeParams?.clippingMode?.x ||
+        core.planeParams?.clippingMode?.y ||
+        core.planeParams?.clippingMode?.z
+      );
+      core.outlineClipping.visible = hasOutline ? clippingOutline : hasActiveClipping;
+    }
+
+    this.updateClippingPlanesControllerLabel();
+    this.updateClippingPlanesControlsVisibility();
+    this.updateClippingPlanesSubmenuState();
+    this.refreshClippingHintVisibility();
+    updateActiveClippingPlanes();
   },
 
   setGuiFolderTitle(folder, title) {
@@ -2941,18 +3051,19 @@ export const Viewer = {
   applyCameraOverridesFromUrl() {
     if (!core.camera) return;
 
+    const requestedProjection = this.urlOptions?.cameraProjection;
+    if (requestedProjection === "orthographic" || requestedProjection === "perspective") {
+      this.setCameraProjection(requestedProjection);
+    }
+
     const cameraPosition = this.urlOptions?.cameraPosition;
     const cameraTarget = this.urlOptions?.cameraTarget;
     const cameraFov = this.urlOptions?.cameraFov;
+    const cameraZoom = this.urlOptions?.cameraZoom;
     const hasPosition = cameraPosition && Number.isFinite(cameraPosition.x) && Number.isFinite(cameraPosition.y) && Number.isFinite(cameraPosition.z);
     const hasTarget = cameraTarget && Number.isFinite(cameraTarget.x) && Number.isFinite(cameraTarget.y) && Number.isFinite(cameraTarget.z);
-    const hasFov = Number.isFinite(cameraFov);
-    if (!hasPosition && !hasTarget && !hasFov) return;
-    const cameraPositionVector = new THREE.Vector3(cameraPosition.x, cameraPosition.y, cameraPosition.z);
-    const cameraTargetVector = new THREE.Vector3(cameraTarget.x, cameraTarget.y, cameraTarget.z);
-    if (!hasPosition) cameraPositionVector.copy(core.camera.position);
-    if (!hasTarget) cameraTargetVector.copy(core.controls.target); // Use the current target if no target is provided
-    if (!hasFov) core.camera.fov = 45; // Default field of view
+    const hasFov = Number.isFinite(cameraFov) && core.camera.isPerspectiveCamera === true;
+    const hasZoom = Number.isFinite(cameraZoom) && core.camera.isOrthographicCamera === true;
   
     if (hasPosition) {
       core.camera.position.copy(cameraPosition);
@@ -2969,12 +3080,17 @@ export const Viewer = {
         this.embedConfigInputs.fov.value = String(normalizedFov);
       }
     }
+    if (hasZoom) {
+      core.camera.zoom = Math.max(0.001, Number(cameraZoom));
+    }
 
     core.camera.updateProjectionMatrix();
     if (hasPosition) {
       core.controls?.object?.position.copy(core.camera.position);
     }
     core.controls?.update();
+
+    this.applyClippingOverridesFromUrl();
 
   },
 
@@ -3739,6 +3855,11 @@ export const Viewer = {
         Viewer.viewEntity.setAttribute("type", "button");
         Viewer.viewEntity.hidden = true;
 
+        Viewer.shareView = document.createElement("button");
+        Viewer.shareView.setAttribute("id", "shareView");
+        Viewer.shareView.setAttribute("type", "button");
+        Viewer.shareView.hidden = true;
+
         Viewer.downloadModelElement = document.createElement("a");
         setCore('downloadModel', Viewer.downloadModel);
         setCore('downloadModelElement', Viewer.downloadModelElement);
@@ -3791,6 +3912,7 @@ export const Viewer = {
 
         Viewer.actionMenuPanel.appendChild(Viewer.languageModeContainer);
         Viewer.actionMenuPanel.appendChild(Viewer.themeMode);
+        Viewer.actionMenuPanel.appendChild(Viewer.shareView);
         Viewer.actionMenuPanel.appendChild(Viewer.viewEntity);
         //Viewer.actionMenuPanel.appendChild(Viewer.downloadModelElement);
         if (Viewer.urlOptions.hideUi) {
@@ -3800,7 +3922,9 @@ export const Viewer = {
         setCore('viewEntity', Viewer.viewEntity);
         Viewer.bindEventListener(Viewer.languageMode, "click", Viewer.toggleLanguage.bind(Viewer));
         Viewer.bindEventListener(Viewer.themeMode, "click", Viewer.toggleTheme.bind(Viewer));
+        Viewer.bindEventListener(Viewer.shareView, "click", Viewer.copyShareViewUrl.bind(Viewer));
         Viewer.bindEventListener(Viewer.viewEntity, "click", Viewer.openEmbedConfiguratorFromMenu.bind(Viewer));
+        Viewer.updateShareMenuEntryState();
         Viewer.updateEmbedMenuEntryState();
         Viewer.applyLanguage({ persist: false });
         //Viewer.bindEventListener(Viewer.downloadModelElement, "click", () => Viewer.closeActionMenu());

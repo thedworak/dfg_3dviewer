@@ -1208,6 +1208,10 @@ canvas {
   background-color: rgba(66, 56, 45, 0.82);
 }
 
+.viewer-wrapper[data-viewer-theme="light"] .share-view-icon {
+  background-color: rgba(66, 56, 45, 0.82);
+}
+
 #metadata-collapse.metadata-collapsed .metadata-toggle-chevron::before {
   transform: rotate(-45deg);
 }
