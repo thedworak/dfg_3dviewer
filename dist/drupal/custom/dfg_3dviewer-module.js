@@ -250,6 +250,7 @@ const VIEWER_I18N = {
       selectedFaces: "Selected faces",
     },
     gui: {
+      mainMenu: "Main menu",
       moveToolbar: "Move toolbar",
       orbit: "Navigation mode",
       controls: "Controls",
@@ -551,6 +552,7 @@ const VIEWER_I18N = {
       selectedFaces: "Wybrane sciany",
     },
     gui: {
+      mainMenu: "Główne menu",
       moveToolbar: "Przesuń pasek narzędzi",
       orbit: "Tryb nawigacji",
       controls: "Sterowanie",
@@ -851,6 +853,7 @@ const VIEWER_I18N = {
       selectedFaces: "Ausgewählte Flächen",
     },
     gui: {
+      mainMenu: "Hauptmenü",
       moveToolbar: "Werkzeugleiste verschieben",
       orbit: "Navigationsmodus",
       controls: "Steuerung",
@@ -3498,7 +3501,7 @@ function attachLocalizationTheme(viewer) {
 
     updateActionMenuLabels() {
       if (!this.actionMenu) return;
-      const actionMenuLabel = t$1("menu.mainMenu", "Main menu");
+      const actionMenuLabel = t$1("gui.mainMenu", "Main menu");
 
       const toggle = this.actionMenu.querySelector(".viewer-action-menu_toggle");
       toggle?.setAttribute("title", actionMenuLabel);
