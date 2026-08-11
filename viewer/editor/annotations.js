@@ -3,6 +3,7 @@ import { toastHelper, showToast } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import THREE from "../init.js";
 import { EnvironmentNode } from "three/src/nodes/Nodes.js";
+import { formatAIM3DManifestValidationErrors, validateAIM3DManifest } from "../manifesto/aim3dviewer-validation.js";
 
 export function attachAnnotations(Viewer) {
   Object.assign(Viewer, {
@@ -819,8 +820,8 @@ export function attachAnnotations(Viewer) {
             fov: core.camera.fov,
 
             zoom:
-              typeof core.controls?.zoom === "number"
-                ? core.controls.zoom
+              typeof core.camera?.zoom === "number"
+                ? core.camera.zoom
                 : undefined,
             distance:
               core.camera.position.distanceTo(
@@ -834,6 +835,8 @@ export function attachAnnotations(Viewer) {
             mailUrl: core.CONFIG.mainUrl || "https://localhost",
             baseNamespace: "https://localhost",
             metadataUrl: "https://localhost",
+            theme: this.currentTheme === "light" ? "light" : "dark",
+            language: core.currentLanguage || this.currentLanguage || "en",
 
             backgroundColor: core.scene?.background?.isColor
               ? `#${core.scene.background.getHexString()}`
@@ -845,6 +848,23 @@ export function attachAnnotations(Viewer) {
             },
             presentationMode: core.PRESENTATION_MODE || false,
             sandbox: core.SANDBOX_MODE || false,
+            autorotate: core.controls?.autoRotate === true,
+            autorotateSpeed: Number.isFinite(core.controls?.autoRotateSpeed)
+              ? core.controls.autoRotateSpeed
+              : undefined,
+            disableInteraction:
+              this.urlOptions?.disableInteraction === true || (
+                core.PRESENTATION_MODE !== true
+                && core.controls?.enabled === false
+                && core.controls?.enableRotate === false
+                && core.controls?.enablePan === false
+                && core.controls?.enableZoom === false
+              ),
+            hideUi: this.urlOptions?.hideUi === true || this.actionMenu?.hidden === true,
+            hideMetadata:
+              this.urlOptions?.hideMetadata === true
+              || this.metadataContainer?.style?.display === "none",
+            showNotifications: core.showNotifications !== false,
             scale: core.CONFIG.viewer.scaleContainer || { x: 1, y: 1 },
             performance: core.CONFIG.viewer.performanceMode || "high-performance",
             units: core.CONFIG?.viewer?.measurement?.modelUnitInMeters,
@@ -856,9 +876,23 @@ export function attachAnnotations(Viewer) {
               buildFake: true,
               testImages: [undefined],
             },
+            editorToolbar: this.getCurrentEditorToolbarState?.(),
             menuToolbar: {
               enabled: core.CONFIG.viewer.menuToolbar?.enabled || true,
               position: core.CONFIG.viewer.menuToolbar?.position || { x: 0, y: 0 },
+            },
+            clipping: {
+              mode: {
+                x: core.planeParams?.clippingMode?.x === true,
+                y: core.planeParams?.clippingMode?.y === true,
+                z: core.planeParams?.clippingMode?.z === true,
+              },
+              constants: [
+                Number(core.clippingPlanes?.[0]?.constant ?? core.planeParams?.planeX?.constantX ?? 0),
+                Number(core.clippingPlanes?.[1]?.constant ?? core.planeParams?.planeY?.constantY ?? 0),
+                Number(core.clippingPlanes?.[2]?.constant ?? core.planeParams?.planeZ?.constantZ ?? 0),
+              ],
+              outlineVisible: core.planeParams?.outline?.visible === true,
             }
           },
 
@@ -929,6 +963,14 @@ export function attachAnnotations(Viewer) {
         modified: new Date().toISOString(),
       };
 
+      const exportValidation = validateAIM3DManifest(manifest, { requireCustomBlock: true });
+      if (!exportValidation.valid) {
+        const detail = formatAIM3DManifestValidationErrors(exportValidation.errors);
+        console.error("AIM3D manifest export validation failed", exportValidation.errors);
+        toastHelper("manifestValidationFailed", "error", { detail, duration: 9000 });
+        return false;
+      }
+
       manifest.AIM3DViewer.generatedAt = new Date().toISOString();
       core.fileObject?.iiifUrl && (manifest.id = `${core.fileObject?.basename}_manifest.json`);
       const defaultBaseName = core.fileObject?.basename || "manifest";
@@ -962,6 +1004,42 @@ export function attachAnnotations(Viewer) {
       }
 
       return fallback;
+    },
+
+    apply3IFManifestClipping(clippingConfig) {
+      if (!clippingConfig || typeof clippingConfig !== "object") return false;
+
+      const constants = this.parse3IFManifestVector(clippingConfig.constants, null, 3);
+      const mode = clippingConfig.mode && typeof clippingConfig.mode === "object"
+        ? {
+            x: clippingConfig.mode.x === true,
+            y: clippingConfig.mode.y === true,
+            z: clippingConfig.mode.z === true,
+          }
+        : null;
+      const outlineVisible = typeof clippingConfig.outlineVisible === "boolean"
+        ? clippingConfig.outlineVisible
+        : (typeof clippingConfig.outline === "boolean" ? clippingConfig.outline : null);
+
+      if (!constants && !mode && typeof outlineVisible !== "boolean") return false;
+
+      const previousUrlOptions = this.urlOptions;
+      this.urlOptions = {
+        ...(previousUrlOptions || {}),
+        clippingMode: mode,
+        clippingConstants: constants
+          ? new THREE.Vector3(constants[0], constants[1], constants[2])
+          : null,
+        clippingOutline: outlineVisible,
+      };
+
+      try {
+        this.applyClippingOverridesFromUrl?.();
+      } finally {
+        this.urlOptions = previousUrlOptions;
+      }
+
+      return true;
     },
 
     apply3IFManifestCamera(cameraConfig) {
@@ -1026,6 +1104,25 @@ export function attachAnnotations(Viewer) {
         core.CONFIG.metadataUrl = viewerConfig.metadataUrl;
       }
 
+      if (typeof viewerConfig.theme === "string") {
+        const normalizedTheme = viewerConfig.theme.trim().toLowerCase() === "light" ? "light" : "dark";
+        this.currentTheme = normalizedTheme;
+        this.urlOptions ??= {};
+        this.urlOptions.theme = normalizedTheme;
+        this.applyTheme?.(normalizedTheme, { persist: false });
+      }
+
+      if (typeof viewerConfig.language === "string") {
+        const normalizedLanguage = this.normalizeLanguage?.(viewerConfig.language);
+        if (normalizedLanguage) {
+          core.currentLanguage = normalizedLanguage;
+          this.currentLanguage = normalizedLanguage;
+          this.urlOptions ??= {};
+          this.urlOptions.language = normalizedLanguage;
+          this.applyLanguage?.({ persist: false });
+        }
+      }
+
       if (viewerConfig.environmentMap && typeof viewerConfig.environmentMap === "object") {
         const environmentMap = viewerConfig.environmentMap;
         const intensity = Number(environmentMap.intensity);
@@ -1075,6 +1172,57 @@ export function attachAnnotations(Viewer) {
         core.CONFIG.viewer.sandboxMode = viewerConfig.sandbox;
       }
 
+      if (typeof viewerConfig.autorotate === "boolean" && core.controls) {
+        core.controls.autoRotate = viewerConfig.autorotate;
+        this.urlOptions ??= {};
+        this.urlOptions.autoRotate = viewerConfig.autorotate;
+      }
+
+      if (Number.isFinite(Number(viewerConfig.autorotateSpeed)) && core.controls) {
+        core.controls.autoRotateSpeed = Number(viewerConfig.autorotateSpeed);
+        this.urlOptions ??= {};
+        this.urlOptions.autoRotateSpeed = Number(viewerConfig.autorotateSpeed);
+      }
+
+      if (typeof viewerConfig.disableInteraction === "boolean" && core.controls) {
+        const shouldDisableInteraction = viewerConfig.disableInteraction === true || core.PRESENTATION_MODE === true;
+        core.controls.enabled = !shouldDisableInteraction;
+        core.controls.enableRotate = !shouldDisableInteraction;
+        core.controls.enablePan = !shouldDisableInteraction;
+        core.controls.enableZoom = !shouldDisableInteraction;
+        this.urlOptions ??= {};
+        this.urlOptions.disableInteraction = viewerConfig.disableInteraction === true;
+      }
+
+      if (typeof viewerConfig.hideUi === "boolean") {
+        this.urlOptions ??= {};
+        this.urlOptions.hideUi = viewerConfig.hideUi;
+        if (this.actionMenu) {
+          this.actionMenu.hidden = viewerConfig.hideUi;
+        }
+        if (core.editorToolbar) {
+          core.editorToolbar.classList.toggle("editorToolbar-hidden", viewerConfig.hideUi === true);
+        } else if (viewerConfig.hideUi !== true) {
+          this.createEditorToolbar?.();
+          this.attachEditorToolbar?.();
+        }
+      }
+
+      if (typeof viewerConfig.hideMetadata === "boolean") {
+        this.urlOptions ??= {};
+        this.urlOptions.hideMetadata = viewerConfig.hideMetadata;
+        if (this.metadataContainer?.style) {
+          this.metadataContainer.style.display = viewerConfig.hideMetadata ? "none" : "";
+        }
+      }
+
+      if (typeof viewerConfig.showNotifications === "boolean") {
+        this.showNotifications = viewerConfig.showNotifications;
+        core.showNotifications = viewerConfig.showNotifications;
+        this.urlOptions ??= {};
+        this.urlOptions.showNotifications = viewerConfig.showNotifications;
+      }
+
       const scale = this.parse3IFManifestVector(viewerConfig.scale, null, 2);
       if (scale) {
         core.CONFIG.viewer.scaleContainer = { x: scale[0], y: scale[1] };
@@ -1095,6 +1243,12 @@ export function attachAnnotations(Viewer) {
         Object.assign(core.CONFIG.viewer.gallery, viewerConfig.gallery);
       }
 
+      if (viewerConfig.editorToolbar && typeof viewerConfig.editorToolbar === "object") {
+        core.CONFIG.viewer.editorToolbar ??= {};
+        Object.assign(core.CONFIG.viewer.editorToolbar, viewerConfig.editorToolbar);
+        this.applyEditorToolbarConfig?.(this, viewerConfig.editorToolbar);
+      }
+
       if (viewerConfig.menuToolbar && typeof viewerConfig.menuToolbar === "object") {
         core.CONFIG.viewer.menuToolbar ??= {};
         Object.assign(core.CONFIG.viewer.menuToolbar, viewerConfig.menuToolbar);
@@ -1102,7 +1256,18 @@ export function attachAnnotations(Viewer) {
         if (menuPosition) {
           core.CONFIG.viewer.menuToolbar.position = { x: menuPosition[0], y: menuPosition[1] };
         }
+        if (!viewerConfig.editorToolbar) {
+          this.applyEditorToolbarConfig?.(this, {
+            enabled: viewerConfig.menuToolbar.enabled,
+            position: core.CONFIG.viewer.menuToolbar.position,
+          });
+        }
       }
+
+      this.apply3IFManifestClipping(viewerConfig.clipping);
+      this.updateShareMenuEntryState?.();
+      this.updateEmbedMenuEntryState?.();
+      this.updateEditorToolbarState?.();
 
       return true;
     },
@@ -1246,11 +1411,20 @@ export function attachAnnotations(Viewer) {
         return false;
       }
 
+      const importValidation = validateAIM3DManifest(manifestJson);
+      if (!importValidation.valid) {
+        const detail = formatAIM3DManifestValidationErrors(importValidation.errors);
+        console.error("AIM3D manifest import validation failed", importValidation.errors);
+        toastHelper("invalidManifest", "error", { detail, duration: 9000 });
+        return false;
+      }
+
       const aim3dConfig = manifestJson.AIM3DViewer;
       let appliedAIM3DConfig = false;
       if (aim3dConfig && typeof aim3dConfig === "object") {
         const appliedCamera = this.apply3IFManifestCamera(aim3dConfig.camera);
         const appliedViewer = this.apply3IFManifestViewerConfig(aim3dConfig.viewer);
+        const appliedClipping = this.apply3IFManifestClipping(aim3dConfig.clipping);
         const appliedIntegration = this.apply3IFManifestIntegrationConfig(aim3dConfig.integration);
         const appliedLights = this.apply3IFManifestLights(aim3dConfig.lights);
         const appliedModelTransform = this.apply3IFManifestModelTransform(aim3dConfig.modelTransform);
@@ -1258,6 +1432,7 @@ export function attachAnnotations(Viewer) {
         appliedAIM3DConfig = [
           appliedCamera,
           appliedViewer,
+          appliedClipping,
           appliedIntegration,
           appliedLights,
           appliedModelTransform,

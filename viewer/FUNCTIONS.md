@@ -118,6 +118,23 @@ It is intended as a quick reference for the current `viewer/` module exports and
 
 `viewer/metadata.js` handles metadata fetching, metadata panel rendering, and IIIF support.
 
+
+## AIM3D / AIM3IF Manifest
+
+- `Viewer.export3IFManifest()` in [editor/annotations.js](./editor/annotations.js)
+  - Export a combined IIIF + `AIM3DViewer` manifest.
+  - Includes annotations, camera pose, projection mode, orthographic zoom, clipping state, viewer runtime options, lights, and model transform.
+
+- `Viewer.import3IFManifest(manifestJson)` in [editor/annotations.js](./editor/annotations.js)
+  - Import annotations and `AIM3DViewer` runtime settings from a manifest JSON object.
+
+- `loadAIM3IFManifest(manifestUrlOrJson)` in [manifesto/manifesto-api.js](./manifesto/manifesto-api.js)
+  - Load an AIM3IF manifest from URL or inline JSON and collect model annotations and scene entries.
+
+- Schema reference:
+  - [manifesto/AIM3DViewer-schema.md](./manifesto/AIM3DViewer-schema.md)
+  - Example manifest: [manifesto/box-aim3if-example.json](./manifesto/box-aim3if-example.json)
+
 - `addWissKIMetadata(label, value)`
   - Map WissKI field names to localized metadata display labels.
 

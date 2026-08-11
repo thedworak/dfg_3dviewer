@@ -16,8 +16,8 @@
 
   position: absolute;
   left: 0;
-  right: 0;
-  margin-inline: auto;
+  right: auto;
+  margin-inline: 0;
   width: max-content;
   bottom: 14px;
   transform:
@@ -43,7 +43,7 @@
   backdrop-filter: blur(14px);
   scrollbar-width: none;
   touch-action: none;
-  transform-origin: center bottom;
+  transform-origin: left bottom;
   transition:
     opacity 1.25s ease,
     transform 1.25s ease,

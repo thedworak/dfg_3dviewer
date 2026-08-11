@@ -261,6 +261,8 @@ export const VIEWER_I18N = {
       embedCodeCopyError: "Could not copy embed code.",
       shareUrlCopied: "Share view URL copied.",
       shareUrlCopyError: "Could not copy share view URL.",
+      invalidManifest: "Invalid AIM3D manifest.",
+      manifestValidationFailed: "AIM3D manifest validation failed.",
 
       annotationDataMissing: "Annotation data not found for this POI.",
       selectFaceRequired: "Select at least one face to add annotation.",
@@ -567,6 +569,8 @@ export const VIEWER_I18N = {
       embedCodeCopyError: "Nie udało się skopiować kodu osadzenia.",
       shareUrlCopied: "Skopiowano link udostępniania widoku.",
       shareUrlCopyError: "Nie udało się skopiować linku udostępniania widoku.",
+      invalidManifest: "Nieprawidłowy manifest AIM3D.",
+      manifestValidationFailed: "Walidacja manifestu AIM3D nie powiodła się.",
 
       annotationDataMissing: "Nie znaleziono danych adnotacji dla tego punktu.",
       selectFaceRequired: "Wybierz co najmniej jedną ścianę, aby dodać adnotację.",
@@ -872,6 +876,8 @@ export const VIEWER_I18N = {
       embedCodeCopyError: "Einbettungscode konnte nicht kopiert werden.",
       shareUrlCopied: "URL der geteilten Ansicht kopiert.",
       shareUrlCopyError: "URL der geteilten Ansicht konnte nicht kopiert werden.",
+      invalidManifest: "Ungültiges AIM3D-Manifest.",
+      manifestValidationFailed: "AIM3D-Manifestvalidierung fehlgeschlagen.",
 
       annotationDataMissing: "Keine Annotationsdaten für diesen Punkt gefunden.",
       selectFaceRequired: "Wählen Sie mindestens eine Fläche aus, um eine Annotation hinzuzufügen.",

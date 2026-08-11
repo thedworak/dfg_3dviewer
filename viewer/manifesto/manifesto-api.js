@@ -1,9 +1,16 @@
 import { AIM3DManifest } from "./manifesto";
+import { formatAIM3DManifestValidationErrors, validateAIM3DManifest } from "./aim3dviewer-validation.js";
 
 export async function loadAIM3IFManifest(manifestUrlOrJson) {
   const aim3dManifest = new AIM3DManifest(manifestUrlOrJson);
 
   await aim3dManifest.loadManifest();
+
+  const validation = validateAIM3DManifest(aim3dManifest.manifest);
+  if (!validation.valid) {
+    const detail = formatAIM3DManifestValidationErrors(validation.errors);
+    throw new Error(`Invalid AIM3D manifest.\n${detail}`);
+  }
 
   const modelUrls = [];
   let modelTarget = null;

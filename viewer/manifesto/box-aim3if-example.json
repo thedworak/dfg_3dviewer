@@ -69,6 +69,7 @@
         0
       ],
       "fov": 45,
+      "zoom": 1,
       "distance": 3.825185808379782,
       "perspectiveMode": "orthographic"
     },
@@ -77,6 +78,8 @@
       "mailUrl": "localhost",
       "baseNamespace": "https://localhost",
       "metadataUrl": "https://localhost",
+      "theme": "dark",
+      "language": "en",
       "environmentMap": {
         "intensity": 1,
         "preset": "neutral",
@@ -84,13 +87,17 @@
       },
       "presentationMode": false,
       "sandbox": false,
+      "autorotate": false,
+      "autorotateSpeed": 1.5,
+      "disableInteraction": false,
+      "hideUi": false,
+      "hideMetadata": false,
+      "showNotifications": true,
       "scale": {
-        "x": "1.0",
-        "y": "1.0"
+        "x": 1,
+        "y": 1
       },
-      "performance": {
-        "Performance": "high-performance"
-      },
+      "performance": "high-performance",
       "gallery": {
         "build": true,
         "container": "block-bootstrap5-content",
@@ -100,6 +107,35 @@
         "testImages": [
           null
         ]
+      },
+      "editorToolbar": {
+        "enabled": true,
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "expanded": false,
+        "visible": true
+      },
+      "menuToolbar": {
+        "enabled": true,
+        "position": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "clipping": {
+        "mode": {
+          "x": false,
+          "y": false,
+          "z": false
+        },
+        "constants": [
+          1,
+          1,
+          1
+        ],
+        "outlineVisible": false
       }
     },
     "integration": {

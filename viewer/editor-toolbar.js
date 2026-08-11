@@ -99,24 +99,149 @@ function isEditorToolbarEnabled(viewer) {
   return enabled !== false;
 }
 
-function getInitialToolbarPosition(viewer) {
+function getToolbarBaseLeft(toolbar) {
+  if (!toolbar) return 0;
+  const computedLeft = Number.parseFloat(getComputedStyle(toolbar).left);
+  return Number.isFinite(computedLeft) ? computedLeft : 0;
+}
+
+function hasConfiguredToolbarPosition(viewer) {
+  if (viewer?.editorToolbarPositionExplicit === true) return true;
+  const position = getEditorToolbarConfig(viewer).position || {};
+  const parsedX = viewer.parseFloatParam?.(position.x);
+  const parsedY = viewer.parseFloatParam?.(position.y);
+  if (parsedX == null && parsedY == null) return false;
+  return Boolean((parsedX ?? 0) !== 0 || (parsedY ?? 0) !== 0);
+}
+
+function getInitialToolbarPosition(viewer, toolbar = null, host = null) {
   const position = getEditorToolbarConfig(viewer).position || {};
   const parsedX = viewer.parseFloatParam?.(position.x);
   const parsedY = viewer.parseFloatParam?.(position.y);
 
+  if (parsedX != null || parsedY != null) {
+    return {
+      x: parsedX ?? 0,
+      y: parsedY ?? 0,
+    };
+  }
+
+  if (toolbar && host) {
+    const hostRect = host.getBoundingClientRect();
+    const baseLeft = getToolbarBaseLeft(toolbar);
+    const centeredX = Math.max((hostRect.width - toolbar.offsetWidth) / 2 - baseLeft, 0);
+
+    return {
+      x: centeredX,
+      y: 0,
+    };
+  }
+
   return {
-    x: parsedX ?? 0,
-    y: parsedY ?? 0,
+    x: 0,
+    y: 0,
   };
+}
+
+function setStoredToolbarPosition(viewer, x, y, options = {}) {
+  const {
+    explicit = true,
+  } = options;
+  const nextPosition = {
+    x: Number.isFinite(x) ? x : 0,
+    y: Number.isFinite(y) ? y : 0,
+  };
+
+  viewer.editorToolbarPosition = nextPosition;
+  viewer.editorToolbarPositionExplicit = explicit === true;
+
+  core.CONFIG ??= {};
+  core.CONFIG.viewer ??= {};
+  core.CONFIG.viewer.editorToolbar ??= {};
+  core.CONFIG.viewer.editorToolbar.position = nextPosition;
+}
+
+export function getCurrentEditorToolbarState(viewer) {
+  const position = viewer?.editorToolbarPosition || getInitialToolbarPosition(viewer);
+
+  return {
+    enabled: isEditorToolbarEnabled(viewer),
+    position: {
+      x: Number(position.x) || 0,
+      y: Number(position.y) || 0,
+    },
+    expanded: viewer?.isToolbarExpanded === true,
+    visible: Boolean(
+      core.editorToolbar
+      && !core.editorToolbar.classList.contains("editorToolbar-hidden")
+      && core.editorToolbar.style.display !== "none"
+    ),
+  };
+}
+
+export function applyEditorToolbarConfig(viewer, toolbarConfig = {}) {
+  if (!toolbarConfig || typeof toolbarConfig !== "object") return false;
+
+  core.CONFIG ??= {};
+  core.CONFIG.viewer ??= {};
+  core.CONFIG.viewer.editorToolbar ??= {};
+
+  const parsedEnabled = viewer.parseBooleanParam?.(toolbarConfig.enabled);
+  const enabled = parsedEnabled != null ? parsedEnabled : toolbarConfig.enabled !== false;
+  core.CONFIG.viewer.editorToolbar.enabled = enabled;
+
+  const position = toolbarConfig.position || {};
+  const nextPosition = {
+    x: viewer.parseFloatParam?.(position.x) ?? 0,
+    y: viewer.parseFloatParam?.(position.y) ?? 0,
+  };
+  setStoredToolbarPosition(viewer, nextPosition.x, nextPosition.y, { explicit: true });
+
+  if (!core.editorToolbar && enabled && viewer.urlOptions?.hideUi !== true) {
+    createEditorToolbar(viewer);
+    attachEditorToolbar(viewer);
+  }
+
+  if (!core.editorToolbar) {
+    viewer.isToolbarExpanded = toolbarConfig.expanded === true;
+    return true;
+  }
+
+  core.editorToolbar.style.setProperty("--drag-x", `${nextPosition.x}px`);
+  core.editorToolbar.style.setProperty("--drag-y", `${nextPosition.y}px`);
+  core.editorToolbar.style.display = enabled ? "" : "none";
+
+  if (typeof toolbarConfig.visible === "boolean") {
+    core.editorToolbar.classList.toggle("editorToolbar-hidden", toolbarConfig.visible !== true);
+    core.editorToolbar.classList.toggle("editorToolbar-visible", toolbarConfig.visible === true);
+  }
+
+  const expanded = toolbarConfig.expanded === true;
+  viewer.isToolbarExpanded = expanded;
+  core.editorToolbar.classList.toggle("expanded", expanded);
+  core.editorToolbar.classList.toggle("collapsed", !expanded);
+  viewer.editorToolbarButtons.expand?.classList.toggle("expanded-icon", expanded);
+  viewer.editorToolbarButtons.expand?.setAttribute("aria-expanded", expanded ? "true" : "false");
+  const icon = viewer.editorToolbarButtons.expand?.querySelector(".viewer-editor-tool_icon");
+  if (icon) {
+    icon.innerHTML = getEditorToolbarIcon(expanded ? "collapse" : "expand");
+  }
+
+  syncEditorToolbarSecondaryTrayWidth(viewer);
+  viewer.updateEditorToolbarLabels?.();
+  viewer.updateEditorToolbarState?.();
+  return true;
 }
 
 function initializeEditorToolbarDrag(handle, viewer, toolbar, host) {
   let dragState = null;
+  let positionIsExplicit = hasConfiguredToolbarPosition(viewer);
 
   // persistent toolbar position
-  const initialPosition = getInitialToolbarPosition(viewer);
+  const initialPosition = getInitialToolbarPosition(viewer, toolbar, host);
   let currentX = initialPosition.x;
   let currentY = initialPosition.y;
+  setStoredToolbarPosition(viewer, currentX, currentY, { explicit: positionIsExplicit });
 
   const getScale = () => {
     const style = getComputedStyle(toolbar);
@@ -146,6 +271,16 @@ function initializeEditorToolbarDrag(handle, viewer, toolbar, host) {
   const applyPosition = () => {
     toolbar.style.setProperty("--drag-x", `${currentX}px`);
     toolbar.style.setProperty("--drag-y", `${currentY}px`);
+    setStoredToolbarPosition(viewer, currentX, currentY, { explicit: positionIsExplicit });
+  };
+
+  toolbar.__setViewerToolbarPosition = (x, y, options = {}) => {
+    if (Number.isFinite(x)) currentX = x;
+    if (Number.isFinite(y)) currentY = y;
+    if (typeof options.explicit === "boolean") {
+      positionIsExplicit = options.explicit;
+    }
+    applyPosition();
   };
 
   const updateToolbarPosition = (event) => {
@@ -199,6 +334,7 @@ function initializeEditorToolbarDrag(handle, viewer, toolbar, host) {
 
     event.preventDefault();
     event.stopPropagation();
+    positionIsExplicit = true;
 
     dragState = {
       startX: event.clientX,
@@ -266,15 +402,39 @@ export function attachEditorToolbar(viewer) {
 export function toggleToolbarExpanded(viewer) {
   if (!core.editorToolbar) return;
 
+  const host = getEditorToolbarHost(viewer);
+  const previousRect = core.editorToolbar.getBoundingClientRect();
+  const previousLeft = previousRect.left;
+
   syncEditorToolbarSecondaryTrayWidth(viewer);
   viewer.isToolbarExpanded = !viewer.isToolbarExpanded;
   core.editorToolbar.classList.toggle("expanded", viewer.isToolbarExpanded);
+  core.editorToolbar.classList.toggle("collapsed", !viewer.isToolbarExpanded);
   viewer.editorToolbarButtons.expand.classList.toggle("expanded-icon", viewer.isToolbarExpanded);
   viewer.editorToolbarButtons.expand.setAttribute("aria-expanded", viewer.isToolbarExpanded ? "true" : "false");
   const icon = viewer.editorToolbarButtons.expand.querySelector(".viewer-editor-tool_icon");
   if (icon) {
     icon.innerHTML = getEditorToolbarIcon(viewer.isToolbarExpanded ? "collapse" : "expand");
   }
+
+  requestAnimationFrame(() => {
+    if (!core.editorToolbar || !host) return;
+
+    const nextRect = core.editorToolbar.getBoundingClientRect();
+    const scale = (() => {
+      const style = getComputedStyle(core.editorToolbar);
+      const value = Number.parseFloat(style.getPropertyValue("--viewer-toolbar-scale"));
+      return Number.isFinite(value) && value > 0 ? value : 1;
+    })();
+
+    const deltaLeft = nextRect.left - previousLeft;
+    if (Math.abs(deltaLeft) > 0.5) {
+      const currentPosition = viewer.editorToolbarPosition || getInitialToolbarPosition(viewer);
+      const nextX = currentPosition.x - (deltaLeft / scale);
+      setStoredToolbarPosition(viewer, nextX, currentPosition.y, { explicit: true });
+      core.editorToolbar.style.setProperty("--drag-x", `${nextX}px`);
+    }
+  });
 
   viewer.updateEditorToolbarLabels();
 }
@@ -1110,6 +1270,24 @@ export function createEditorToolbar(viewer) {
   core.editorToolbar = toolbar;
   core.editorToolbar.classList.add("editorToolbar-hidden");
   core.editorToolbar.classList.add("collapsed");
+
+  if (!hasConfiguredToolbarPosition(viewer)) {
+    requestAnimationFrame(() => {
+      if (!core.editorToolbar) return;
+      const host = getEditorToolbarHost(viewer);
+      if (!host) return;
+
+      const hostRect = host.getBoundingClientRect();
+      const baseLeft = getToolbarBaseLeft(core.editorToolbar);
+      const centeredX = Math.max((hostRect.width - core.editorToolbar.offsetWidth) / 2 - baseLeft, 0);
+      core.editorToolbar.__setViewerToolbarPosition?.(
+        centeredX,
+        viewer.editorToolbarPosition?.y ?? 0,
+        { explicit: false }
+      );
+    });
+  }
+
   viewer.updateFullscreenButtonIcon();
   viewer.updateEditorToolbarLabels();
   viewer.updateEditorToolbarState();
