@@ -84,316 +84,41 @@ import {
   updateLightsSubmenuState,
   updateStatisticsSubmenuState,
 } from "./editor-toolbar.js";
-import { VIEWER_I18N } from "./i18n.js";
+import { VIEWER_DEFAULTS } from "./viewer-defaults.js";
+import {
+  parseBooleanParam,
+  parseFloatParam,
+  parseVector2Param,
+  parseVector3Param,
+  formatVector3Param,
+  parseProjectionParam,
+  parseClippingModeParam,
+  formatClippingModeParam,
+  normalizeLanguage,
+} from "./viewer-param-utils.js";
+import {
+  normalizeDrupalFilesPath,
+  normalizeArchiveModelPath,
+  setModelPaths,
+  disableInteractionHint,
+  addTextWatermark,
+  addTextPoint,
+  selectObjectHierarchy,
+  recreateBoundingBox,
+  normalizeFileUrl,
+  shouldIgnoreLegacyEmbedDefaultModel,
+  buildGallery,
+  toHexColor,
+  toThreeColor,
+  getWrapperSize,
+} from "./viewer-helpers.js";
 import { t } from "./i18n-utils.js";
 import { loadDroppedArchive } from "./extract-helper.js";
 import { loadDroppedModel, createCreditsElement } from "./sandbox.js";
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 
 export const Viewer = {
-  CONFIG: null,
-  PRESENTATION_MODE: false,
-  SANDBOX_MODE: false,
-  SUPPORTED_EXTENSIONS: ['glb', 'gltf', 'obj', 'dae', 'fbx', 'ply', 'ifc', 'stl', 'xyz', 'json', '3ds', 'pcd'],
-  SUPPORTED_ARCHIVES: ['zip', 'rar', 'tar', 'xz', 'gz'],
-  camera: null,
-  embedCamera: null,
-  scene: null,
-  activeScene: 0,
-  renderer: null,
-  stats: null,
-  controls: null,
-  embedControls: null,
-  loader: null,
-  ambientLight: null,
-  dirLight: null,
-  dirLightTarget: null,
-  cameraLight: null,
-  cameraLightTarget: null,
-  dirLights: [],
-  imported: null,
-  mainObject: [],
-  boundingSphere: null,
-  metadataContentTech: null,
-  mainCanvas: null,
-  distanceGeometry: new THREE.Vector3(),
-  metadataUrl: null,
-  iiifConfigURL: {url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: "Inbuilt"},
-  testModelURL: 'https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb',
-  clock: null,
-  FULLSCREEN: false,
-  mixer: null,
-  cameraTween: null,
-  targetTween: null,
-  container: null,
-  viewerWrapper: null,
-  creditsWrapper: null,
-  scrollTop: null,
-  rect: null,
-  fileObject: { originalPath: '', filename: '', basename: '', extension: '', path: '', uri: '', newExtension: '', relativePath: '', autopath: '' },
-  bottomLineGUI: null,
-  loadedFile: null,    
-  fileElement: null,
-  COPYRIGHTS: false,
-  EXIT_CODE: 1,
-  gridSize: null,
-  noMTL: false,
-  canvasText: null,
-  viewEntity: null,
-  actionMenu: null,
-  actionMenuToggle: null,
-  actionMenuPanel: null,
-  mainMenuButton: null,
-  fullscreenMode: null,
-  themeMode: null,
-  languageMode: null,
-  shareView: null,
-  editorToolbar: null,
-  editorToolbarButtons: {},
-  isToolbarExpanded: false,
-  editorSecondaryKeys: [],
-  downloadModel: true,
-  embedConfiguratorPanel: null,
-  embedConfigInputs: null,
-  embedConfigPreviewFrame: null,
-  embedMissingSourceNotified: false,
-  wireframeMode: false,
-  environmentMapEnabled: true,
-  environmentMapPreset: "neutral",
-  environmentMapIntensity: 0.5,
-  currentTheme: "dark",
-  currentLanguage: "en",
-  loadingLog: null,
-  loadingLogMessageKeys: [
-    "loadingLog.loadingAssets",
-    "loadingLog.loadingModel",
-    "loadingLog.loadingTextures",
-    "loadingLog.preparingGeometry",
-    "loadingLog.settingUpLighting",
-    "loadingLog.settingUpMaterials",
-    "loadingLog.compilingShaders",
-    "loadingLog.fetchingMetadata",
-    "loadingLog.modelLoaded",
-  ],
-  processingLoadingStepKeys: [
-    "processingSteps.preparingModel",
-    "processingSteps.convertingToTransmissionFormat",
-    "processingSteps.renderingThumbnails",
-    "processingSteps.savingEntity",
-    "processingSteps.finalizing3dModel",
-    "processingSteps.initializingViewer",
-  ],
-  THEME_STORAGE_KEY: "manifesto-dark-mode",
-  LANGUAGE_STORAGE_KEY: "viewer-language",
-  I18N: VIEWER_I18N,
-  GESTURE: {handPx: 55, period: 5.5, rotate: false, active: false, target: new THREE.Vector3(), startTime: 0, baseAngle: 0, orbitAngle: THREE.MathUtils.degToRad(15), easeInTime: 2.25},
-  lastTime: null,
-  originalMetadata: [],
-  spinnerContainer: null,
-  spinnerElement: null,
-  loadingLog: null,
-  guiContainer: null,
-  noticeContainer: null,
-  statusNotice: null,
-  statusNoticeTimer: null,
-  statusNoticeHideTimer: null,
-  statusNoticeQueue: [],
-  statusNoticeActive: false,
-  statusNoticeCurrent: null,
-  pickingHint: null,
-  clippingHint: null,
-  metadataContainer: null,
-  spinner: null,
-  circle: null,
-  raycaster: new THREE.Raycaster(),
-  pointer: new THREE.Vector2(),
-  onUpPosition: new THREE.Vector2(),
-  onDownPosition: new THREE.Vector2(),
-  bottomOffsetFullscreen: 0,
-  geometry: new THREE.BoxGeometry(20, 20, 20),
-  transformControl: null,
-  transformControlLight: null,
-  transformControlLightTarget: null,
-  transformControlClippingPlaneX: null,
-  transformControlClippingPlaneY: null,
-  transformControlClippingPlaneZ: null,
-  cameraCoords: null,
-  helperObjects: [],
-  lightObjects: [],
-  lightHelper: null,
-  lightHelperTarget: null,
-  selectedObject: false,
-  selectedObjects:[],
-  selectedFaces: [],
-  annotationEntries: [],
-  annotationDialog: null,
-  annotationDialogHost: null,
-  annotationDialogTitleInput: null,
-  annotationDialogDescriptionInput: null,
-  materialsDialog: null,
-  materialsDialogSelect: null,
-  materialsDialogInputs: null,
-  materialsDialogPosition: null,
-  materialsDialogDragging: false,
-  annotationTargetFaceKeys: [],
-  annotationBatchGroupId: "",
-  annotationPOIGroup: null,
-  annotationPOIMarkers: [],
-  annotationPOITooltip: null,
-  annotationPOITooltipTitle: null,
-  annotationPOITooltipTarget: null,
-  annotationImportInput: null,
-  pendingAnnotationsXml: "",
-  pickingTexture: null,
-  windowHalfX: null,
-  windowHalfY: null,
-  transformType: "",
-  transformText: {
-    "Transform 3D Object": "",
-    "Transform Light": "",
-    "Transform Mode": "local",
-  },
-  materialsPropertiesText: {
-    "Edit material": "",
-  },
-  materialsEditorObject: null,
-  materialsList: [],
-  selectedMaterialUuid: null,
-  materialSelectionController: null,
-  materialGuiControls: null,
-  pickingStats: {
-    "Selected faces": 0,
-  },
-  colors: {
-    DirectionalLight: "0xFFFFFF",
-    AmbientLight: "0x404040",
-    CameraLight: "0xFFFFFF",
-    BackgroundColor: "#FFFFFF",
-    BackgroundColorOuter: "#999999",
-  },
-  materialProperties: {
-    color: "0xFFFFFF",
-    emissiveColor: "0x404040",
-    emissive: 1,
-    metalness: 0,
-  },
-  intensity: {
-    startIntensityDir: 1,
-    startIntensityAmbient: 1,
-    startIntensityCamera: 1,
-  },
-  saveProperties: {
-    Position: true,
-    Rotation: true,
-    Scale: true,
-    Camera: true,
-    DirectionalLight: true,
-    AmbientLight: true,
-    CameraLight: true,
-    BackgroundColor: true,
-    BackgroundColorOuter: true,
-  },
-  backgroundType: { "Background Type": "gradient" },
-  backgroundOuterFolder: null,
-  pickingMode: false,
-  EDITOR: false,
-  RULER_MODE: false,
-  linePoints: [],
-  gui: null,
-  hierarchyFolder: null,
-  GUILength: 35,
-  zoomImage: 1,
-  ZOOM_SPEED_IMAGE: 0.1,
-  loadedFile: "",
-  archiveType: "",
-  planeParams: {
-    planeX: {
-      constantX: 0,
-      negated: false,
-      displayHelperX: false,
-    },
-    planeY: {
-      constantY: 0,
-      negated: false,
-      displayHelperY: false,
-    },
-    planeZ: {
-      constantZ: 0,
-      negated: false,
-      displayHelperZ: false,
-    },
-    outline: {
-      visible: false,
-    },
-    clippingMode: {
-      x: false,
-      y: false,
-      z: false,
-    },
-  },
-  clippingPlanes: null,    
-  planeHelpers: [],
-  clippingFolder: null,
-  propertiesFolder: null,
-  planeObjects: [],
-  editorFolder: null,
-  metadataFolder: null,
-  materialsFolder: null,
-  pickingModeController: null,
-  distanceMeasurementController: null,
-  clearSelectedFacesController: null,
-  selectedFacesCountController: null,
-  addAnnotationController: null,
-  textMesh: null,
-  textMeshDistance: null,
-  ruler: [],
-  rulerObject: null,
-  lastPickedFace: { id: "", object: "", faceIndex: null, overlay: null },
-  loadedTimes: 0,
-  _ext: '',
-  DFG_ASSETS: '',
-  isLightweight: false,
-  urlOptions: {
-    model: null,
-    id: null,
-    theme: null,
-    language: null,
-    autoRotate: null,
-    autoRotateSpeed: null,
-    disableInteraction: false,
-    hideUi: false,
-    hideMetadata: false,
-    cameraPosition: null,
-    cameraTarget: null,
-    cameraFov: null,
-    cameraProjection: null,
-    cameraZoom: null,
-    clippingMode: null,
-    clippingConstants: null,
-    clippingOutline: null,
-    presentationMode: false,
-    sandboxMode: false,
-  },
-  keyboardStep: {
-    rotate: THREE.MathUtils.degToRad(2.25),
-    rotateFast: THREE.MathUtils.degToRad(6),
-    panFactor: 0.04,
-    zoomFactor: 1.08,
-  },
-  transformSnap: {
-    rotate: THREE.MathUtils.degToRad(5),
-    scale: 0.1,
-  },
-  shiftSnapActive: false,
-  keyboardTweenDurationMs: 150,
-  lastKeyboardHintAt: 0,
-  keyboardHintCooldownMs: 45000,
-  keyboardHintAfterFocusDelayMs: 1800,
-  lastWindowFocusAt: 0,
-  cleanupCallbacks: [],
-  resizeObserver: null,
-  i18nGui: {},
-  showNotifications: true,
+  ...VIEWER_DEFAULTS,
 
   getE2EModelOverride() {
     if (!window.__E2E__) return null;
@@ -980,74 +705,39 @@ export const Viewer = {
   },
 
   parseBooleanParam(value) {
-    if (value == null) return null;
-    const normalizedValue = String(value).trim().toLowerCase();
-    if (["1", "true", "yes", "on"].includes(normalizedValue)) return true;
-    if (["0", "false", "no", "off"].includes(normalizedValue)) return false;
-    return null;
+    return parseBooleanParam(value);
   },
 
   parseFloatParam(value) {
-    if (value == null || value === "") return null;
-    const parsed = Number.parseFloat(String(value));
-    return Number.isFinite(parsed) ? parsed : null;
+    return parseFloatParam(value);
   },
 
   parseVector2Param(value) {
-    if  (value == null || value === "") return null;
-    const cleaned = String(value).replace(/[\[\]()]/g, " ").trim();
-    const parts = cleaned.split(/[\s,;|]+/).filter(Boolean);
-    if (parts.length !== 2) return null;
-    const x = Number.parseFloat(parts[0]);
-    const y = Number.parseFloat(parts[1]);
-    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
-    return new THREE.Vector2(x, y);
+    return parseVector2Param(value);
   },
 
   parseVector3Param(value) {
-    if (value == null || value === "") return null;
-    const cleaned = String(value).replace(/[\[\]()]/g, " ").trim();
-    const parts = cleaned.split(/[\s,;|]+/).filter(Boolean);
-    if (parts.length !== 3) return null;
-    const x = Number.parseFloat(parts[0]);
-    const y = Number.parseFloat(parts[1]);
-    const z = Number.parseFloat(parts[2]);
-    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return null;
-    return new THREE.Vector3(x, y, z);
+    return parseVector3Param(value);
   },
 
   formatVector3Param(vector) {
-    if (!vector || typeof vector !== "object") return null;
-    const x = Number(vector.x);
-    const y = Number(vector.y);
-    const z = Number(vector.z);
-    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return null;
-    return `${x.toFixed(4)},${y.toFixed(4)},${z.toFixed(4)}`;
+    return formatVector3Param(vector);
   },
 
   parseProjectionParam(value) {
-    if (value == null) return null;
-    const normalizedValue = String(value).trim().toLowerCase();
-    if (["perspective", "persp", "p"].includes(normalizedValue)) return "perspective";
-    if (["orthographic", "ortho", "o"].includes(normalizedValue)) return "orthographic";
-    return null;
+    return parseProjectionParam(value);
   },
 
   parseClippingModeParam(value) {
-    if (value == null) return null;
-    const normalizedValue = String(value).trim().toLowerCase().replace(/[^xyz]/g, "");
-    if (normalizedValue === "") return null;
-    return {
-      x: normalizedValue.includes("x"),
-      y: normalizedValue.includes("y"),
-      z: normalizedValue.includes("z"),
-    };
+    return parseClippingModeParam(value);
   },
 
   formatClippingModeParam(mode) {
-    if (!mode || typeof mode !== "object") return null;
-    const value = [mode.x ? "x" : "", mode.y ? "y" : "", mode.z ? "z" : ""].join("");
-    return value || null;
+    return formatClippingModeParam(mode);
+  },
+
+  normalizeLanguage(value) {
+    return normalizeLanguage(value);
   },
 
   parseUrlOptions() {
@@ -2074,389 +1764,59 @@ export const Viewer = {
   },
 
   normalizeDrupalFilesPath(path) {
-    if (!path || typeof path !== 'string') {
-      return '';
-    }
-
-    return path
-      .replace(/^https?:\/{1,2}[^/]+\/?/, '')
-      .replace(/^public:\/\//, '')
-      .replace(/^\/?sites\/default\/files\/?/, '')
-      .replace(/\/+/g, '/')
-      .replace(/\/$/, '');
+    return normalizeDrupalFilesPath(path);
   },
 
   normalizeArchiveModelPath(path) {
-    if (!path || typeof path !== "string") {
-      return "";
-    }
-
-    const injectGltfSegment = (pathname) => {
-      if (!/\/[^/]+_(ZIP|RAR|TAR|XZ|GZ)\//i.test(pathname) || /\/gltf\//i.test(pathname)) {
-        return pathname;
-      }
-      return pathname.replace(
-        /^(.*\/[^/]+_(ZIP|RAR|TAR|XZ|GZ))(\/?)(.*)$/i,
-        "$1/gltf/$4"
-      );
-    };
-
-    if (/^[a-zA-Z][\w+-.]*:\/\//.test(path)) {
-      try {
-        const url = new URL(path);
-        url.pathname = injectGltfSegment(url.pathname);
-        return url.href;
-      } catch (_err) {
-        return injectGltfSegment(path);
-      }
-    }
-
-    return injectGltfSegment(path);
+    return normalizeArchiveModelPath(path);
   },
 
   setModelPaths() {
-    if (!core.fileObject.originalPath) {
-      core.fileObject.filename = "";
-      core.fileObject.basename = "";
-      core.fileObject.extension = "";
-      core.fileObject.path = "";
-      core.fileObject.uri = "";
-      core.fileObject.relativePath = "";
-      return;
-    }
-
-    core.fileObject.filename = core.fileObject.originalPath.split("/").pop();
-    core.fileObject.basename = core.fileObject.filename.substring(0, core.fileObject.filename.lastIndexOf("."));
-    core.fileObject.extension = core.fileObject.filename.substring(core.fileObject.filename.lastIndexOf(".") + 1);
-    core.fileObject.path = core.fileObject.originalPath.substring(0, core.fileObject.originalPath.lastIndexOf(core.fileObject.filename)) || "/";
-    core.fileObject.uri = core.fileObject.path.replace(core.CONFIG.mainUrl + "/", "");
-    core.fileObject.relativePath = Viewer.normalizeDrupalFilesPath(core.fileObject.uri);
+    return setModelPaths(this);
   },
 
-  // Disable interaction hint on first interaction
- disableInteractionHint() {
-    if (core.PRESENTATION_MODE) return;
-    core.handHint.hidden = true;
-    Viewer.stopGesture();
-
-    // Stop any running camera tweens when user interacts
-    if (core.cameraTween && typeof core.cameraTween.stop === "function") {
-      core.cameraTween.stop();
-      core.cameraTween = null;
-    }
-    if (core.targetTween && typeof core.targetTween.stop === "function") {
-      core.targetTween.stop();
-      core.targetTween = null;
-    }
-
-    //core.handHint.classList.remove("hand-drag-animate");
-    localStorage.setItem("viewerHintSeen", "1");
+  disableInteractionHint() {
+    return disableInteractionHint(this);
   },
 
   addTextWatermark(_text, _scale) {
-    var textGeo;
-    var materials = [
-      new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        flatShading: true,
-        side: THREE.DoubleSide,
-        depthTest: false,
-        depthWrite: false,
-        transparent: true,
-        opacity: 0.4,
-      }), // front
-      new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        flatShading: true,
-        side: THREE.DoubleSide,
-        depthTest: false,
-        depthWrite: false,
-        transparent: true,
-        opacity: 0.4,
-      }), // side
-    ];
-    const loader = new FontLoader();
-
-    loader.load(
-      `${core.DFG_ASSETS}/fonts/helvetiker_regular.typeface.json`,
-      function (font) {
-        const textGeo = new TextGeometry(_text, {
-          font,
-          size: _scale * 3,
-          height: _scale / 10,
-          curveSegments: 5,
-          bevelEnabled: true,
-          bevelThickness: _scale / 8,
-          bevelSize: _scale / 10,
-          bevelOffset: 0,
-          bevelSegments: 1,
-        });
-        textGeo.computeBoundingBox();
-
-        //const centerOffset = - 0.5 * (textGeo.boundingBox.max.x - textGeo.boundingBox.min.x);
-
-        Viewer.textMesh = new THREE.Mesh(textGeo, materials);
-
-        Viewer.textMesh.rotation.z = Math.PI;
-        Viewer.textMesh.rotation.y = Math.PI;
-
-        Viewer.textMesh.position.x = 0;
-        Viewer.textMesh.position.y = 0;
-        Viewer.textMesh.position.z = 0;
-        Viewer.textMesh.renderOrder = 1;
-        core.scene.add(Viewer.textMesh);
-      }
-    );
+    return addTextWatermark(this, _text, _scale);
   },
 
   addTextPoint(_text, _scale, _point) {
-    const loader = new FontLoader();
-    const bevelSize = _scale / 10;
-
-    loader.load(`${core.DFG_ASSETS}/fonts/helvetiker_regular.typeface.json`, (font) => {
-
-      const baseOptions = {
-        font: font,
-        size: _scale * 3,
-        height: _scale,
-        curveSegments: 4,
-        bevelEnabled: true,
-        bevelThickness: bevelSize,
-        bevelSize: bevelSize / 10,
-        bevelOffset: 0,
-        bevelSegments: 1,
-        depth: _scale / 10,
-      };
-
-      const textGeo = new TextGeometry(_text, baseOptions);
-      textGeo.computeBoundingBox();
-
-      const centerOffset = new THREE.Vector3();
-      textGeo.boundingBox.getCenter(centerOffset).negate();
-      textGeo.translate(centerOffset.x, centerOffset.y, centerOffset.z);
-
-      const outlineGeo = textGeo.clone();
-      outlineGeo.scale(1.05, 1.08, 1.05);
-
-      const outlineMat = new THREE.MeshBasicMaterial({
-        color: 0x000000,
-        transparent: true,
-        opacity: 0.9,
-        depthTest: false,
-        depthWrite: false,
-      });
-
-      const fillMat = new THREE.MeshBasicMaterial({
-        color: 0xffffff,
-        transparent: true,
-        opacity: 1,
-        depthTest: false,
-        depthWrite: false,
-      });
-
-      const outlineMesh = new THREE.Mesh(outlineGeo, outlineMat);
-      outlineMesh.position.z = -_scale * 0.02;
-      const fillMesh = new THREE.Mesh(textGeo, fillMat);
-
-      const group = new THREE.Group();
-      group.add(outlineMesh);
-      group.add(fillMesh);
-
-      group.position.set(_point.x, _point.y, _point.z);
-      group.renderOrder = 999;
-
-      group.userData.isDistanceLabel = true;
-
-      Viewer.rulerObject.add(group);
-    });
+    return addTextPoint(this, _text, _scale, _point);
   },
 
   selectObjectHierarchy(_id) {
-    let search = true;
-    for (let i = 0; i < core.selectedObjects.length && search === true; i++) {
-      if (core.selectedObjects[i].id === _id) {
-        search = false;
-        if (core.selectedObjects[i].selected === true) {
-          core.scene.getObjectById(_id).material = core.selectedObjects[i].originalMaterial;
-          core.scene.getObjectById(_id).material.needsUpdate = true;
-          core.selectedObjects[i].selected = false;
-          core.selectedObjects.splice(core.selectedObjects.indexOf(core.selectedObjects[i]), 1);
-        }
-      }
-    }
-    if (search) {
-      core.selectedObjects.push({
-        id: _id,
-        selected: true,
-        originalMaterial: core.scene.getObjectById(_id).material.clone(),
-      });
-      const tempMaterial = core.scene.getObjectById(_id).material.clone();
-      const selectedColor = Viewer.toThreeColor("0x00FF00");
-      if (selectedColor) {
-        tempMaterial.color = selectedColor;
-      }
-      core.scene.getObjectById(_id).material = tempMaterial;
-      core.scene.getObjectById(_id).material.needsUpdate = true;
-    }
-    Viewer.updateHierarchySubmenuState();
+    return selectObjectHierarchy(this, _id);
   },
 
   recreateBoundingBox(object) {
-    var _min = new THREE.Vector3();
-    var _max = new THREE.Vector3();
-    if (object instanceof THREE.Object3D) {
-      object.traverse(function (mesh) {
-        if (mesh instanceof THREE.Mesh) {
-          mesh.geometry.computeBoundingBox();
-          var bBox = mesh.geometry.boundingBox;
-
-          // compute overall bbox
-          _min.x = Math.min(_min.x, bBox.min.x + mesh.position.x);
-          _min.y = Math.min(_min.y, bBox.min.y + mesh.position.y);
-          _min.z = Math.min(_min.z, bBox.min.z + mesh.position.z);
-          _max.x = Math.max(_max.x, bBox.max.x + mesh.position.x);
-          _max.y = Math.max(_max.y, bBox.max.y + mesh.position.y);
-          _max.z = Math.max(_max.z, bBox.max.z + mesh.position.z);
-        }
-      });
-
-      var bBox_min = new THREE.Vector3(_min.x, _min.y, _min.z);
-      var bBox_max = new THREE.Vector3(_max.x, _max.y, _max.z);
-      var bBox_new = new THREE.Box3(bBox_min, bBox_max);
-      object.position.set(
-        (bBox_new.min.x + bBox_new.max.x) / 2,
-        bBox_new.min.y,
-        (bBox_new.min.z + bBox_new.max.z) / 2
-      );
-    }
-    return object;
+    return recreateBoundingBox(object);
   },
 
   normalizeFileUrl(rawUrl) {
-    if (!rawUrl || typeof rawUrl !== "string") {
-      return "";
-    }
-
-    let url = rawUrl.trim();
-    if (url === "") {
-      return "";
-    }
-
-    if (/^\/[a-z][\w+.-]*:\/\//i.test(url)) {
-      url = url.replace(/^\/+/, "");
-    }
-
-    if (url.startsWith("public://")) {
-      url = "/sites/default/files/" + url.substring("public://".length);
-    } else if (url.startsWith("sites/default/files/")) {
-      url = "/" + url;
-    }
-
-    const base = (core.CONFIG?.mainUrl || window.location.origin || "").replace(/\/+$/, "");
-
-    try {
-      const parsed = new URL(url, window.location.origin);
-      const host = (parsed.host || "").toLowerCase();
-      const path = parsed.pathname || "";
-      const hasBadHost =
-        host === "default" ||
-        host === "dfg_3dviewer" ||
-        host.includes("_");
-
-      if (path.startsWith("/sites/default/files/")) {
-        if (hasBadHost) {
-          return `${base}${path}`;
-        }
-        if (parsed.protocol === "http:" || parsed.protocol === "https:") {
-          return parsed.href;
-        }
-        return `${base}${path}`;
-      }
-
-      return parsed.href;
-    } catch (_err) {
-      if (url.startsWith("/sites/default/files/")) {
-        return `${base}${url}`;
-      }
-      return url;
-    }
+    return normalizeFileUrl(this, rawUrl);
   },
 
   shouldIgnoreLegacyEmbedDefaultModel() {
-    if (!this.isEmbedMode()) return false;
-    if (this.urlOptions?.model || this.urlOptions?.id) return false;
-
-    const sourceType = String(core.CONFIG?.entity?.metadata?.sourceType || "").toLowerCase();
-    if (!sourceType.startsWith("drupal")) return false;
-
-    const currentModelAttr = String(this.container?.getAttribute("3d") || "").trim();
-    if (!currentModelAttr) return false;
-
-    return /^(?:\.{1,2}\/)?examples\/box\.stl(?:\?.*)?$/i.test(currentModelAttr);
+    return shouldIgnoreLegacyEmbedDefaultModel(this);
   },
 
   buildGallery() {
-    return buildThumbnailGallery(this);
+    return buildGallery(this);
   },
 
   toHexColor(input) {
-    if (!input) return null;
-
-    // THREE.Color
-    if (typeof input.getHex === "function") {
-      return input.getHex();
-    }
-
-    // hex number
-    if (typeof input === "number") {
-      return input >>> 0;
-    }
-
-    // hex string: "#ff00aa" / "ff00aa"
-    if (typeof input === "string") {
-      const s = input.replace("#", "");
-      if (/^[0-9a-fA-F]{6}$/.test(s)) return parseInt(s, 16);
-      return null;
-    }
-
-    // array [r,g,b] / [r,g,b,a]
-    if (Array.isArray(input)) {
-      const [r, g, b] = input;
-      if ([r, g, b].every(v => typeof v === "number")) {
-        const rr = r <= 1 ? Math.round(r * 255) : r;
-        const gg = g <= 1 ? Math.round(g * 255) : g;
-        const bb = b <= 1 ? Math.round(b * 255) : b;
-        return ((rr & 255) << 16) | ((gg & 255) << 8) | (bb & 255);
-      }
-      return null;
-    }
-
-    // object { r, g, b, a? }
-    if (typeof input === "object" && "r" in input && "g" in input && "b" in input) {
-      const rr = input.r <= 1 ? Math.round(input.r * 255) : input.r;
-      const gg = input.g <= 1 ? Math.round(input.g * 255) : input.g;
-      const bb = input.b <= 1 ? Math.round(input.b * 255) : input.b;
-      return ((rr & 255) << 16) | ((gg & 255) << 8) | (bb & 255);
-    }
-
-    return null;
+    return toHexColor(input);
   },
 
   toThreeColor(input) {
-    const normalized = normalizeColor(input);
-    if (!normalized) return null;
-    return new THREE.Color(
-      normalized.r / 255,
-      normalized.g / 255,
-      normalized.b / 255
-    );
+    return toThreeColor(input);
   },
 
   getWrapperSize() {
-    const wrapper = core.viewerWrapper || core.container;
-    if (!wrapper) return { width: 0, height: 0 };
-    const rect = wrapper.getBoundingClientRect();
-    return { width: rect.width, height: rect.height };
+    return getWrapperSize(this);
   },
 
   /* picking and measurement moved to viewer/editor modules */

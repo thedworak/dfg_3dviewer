@@ -1,6 +1,7 @@
 import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { UltraLoader } from "../ultra-loader.js";
+import { normalizeLanguage } from "../viewer-param-utils.js";
 
 export function attachLocalizationTheme(viewer) {
   Object.assign(viewer, {
@@ -13,14 +14,7 @@ export function attachLocalizationTheme(viewer) {
       return storedTheme === "0" ? "light" : "dark";
     },
 
-    normalizeLanguage(value) {
-      if (value == null) return null;
-      const normalizedValue = String(value).trim().toLowerCase();
-      if (normalizedValue.startsWith("pl")) return "pl";
-      if (normalizedValue.startsWith("de")) return "de";
-      if (normalizedValue.startsWith("en")) return "en";
-      return null;
-    },
+    normalizeLanguage,
 
     getStoredLanguage() {
       const fromQuery = this.normalizeLanguage(this.urlOptions?.language);

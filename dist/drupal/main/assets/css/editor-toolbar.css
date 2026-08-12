@@ -13,6 +13,7 @@
   --viewer-toolbar-max-width: 1080px;
   --viewer-toolbar-scale: clamp(0.75, calc((98vw) / var(--viewer-toolbar-max-width)), 1);
   --viewer-toolbar-picker-control-min-width: 118px;
+  --viewer-toolbar-expand-shift: 0px;
 
   position: absolute;
   left: 0;
@@ -22,7 +23,7 @@
   bottom: 14px;
   transform:
     translate3d(
-      var(--drag-x, 0px),
+      calc(var(--drag-x, 0px) + var(--viewer-toolbar-expand-shift, 0px)),
       var(--drag-y, 0px),
       0
     )
@@ -51,6 +52,14 @@
     padding 1.28s ease,
     box-shadow 1.28s ease,
     background 1.28s ease;
+}
+
+#viewerEditorToolbar.viewer-editor-toolbar_anchor-center {
+  transform-origin: center bottom;
+}
+
+#viewerEditorToolbar.viewer-editor-toolbar_anchor-left {
+  transform-origin: left bottom;
 }
 
 .viewer-editor-toolbar_handle {
@@ -134,7 +143,7 @@
   visibility: hidden;
   transform:
     translate3d(
-      var(--drag-x, 0px),
+      calc(var(--drag-x, 0px) + var(--viewer-toolbar-expand-shift, 0px)),
       calc(var(--drag-y, 0px) + 6px),
       0
     )
@@ -146,7 +155,7 @@
   visibility: visible;
   transform:
     translate3d(
-      var(--drag-x, 0px),
+      calc(var(--drag-x, 0px) + var(--viewer-toolbar-expand-shift, 0px)),
       var(--drag-y, 0px),
       0
     )
@@ -174,7 +183,7 @@
 #viewerEditorToolbar.with-fullscreen {
   transform:
     translate3d(
-      var(--drag-x, 0px),
+      calc(var(--drag-x, 0px) + var(--viewer-toolbar-expand-shift, 0px)),
       var(--drag-y, 0px),
       0
     )
@@ -189,7 +198,7 @@
   overflow-x: auto;
   transform:
     translate3d(
-      var(--drag-x, 0px),
+      calc(var(--drag-x, 0px) + var(--viewer-toolbar-expand-shift, 0px)),
       var(--drag-y, 0px),
       0
     )
@@ -197,11 +206,19 @@
   transform-origin: left bottom;
 }
 
+.viewer-embed-page #viewerEditorToolbar.viewer-editor-toolbar_anchor-center {
+  transform-origin: center bottom;
+}
+
+.viewer-embed-page #viewerEditorToolbar.viewer-editor-toolbar_anchor-left {
+  transform-origin: left bottom;
+}
+
 .viewer-embed-page #viewerEditorToolbar.editorToolbar-visible,
 .viewer-embed-page #viewerEditorToolbar.with-fullscreen {
   transform:
     translate3d(
-      var(--drag-x, 0px),
+      calc(var(--drag-x, 0px) + var(--viewer-toolbar-expand-shift, 0px)),
       var(--drag-y, 0px),
       0
     )
@@ -211,7 +228,7 @@
 .viewer-embed-page #viewerEditorToolbar.editorToolbar-hidden {
   transform:
     translate3d(
-      var(--drag-x, 0px),
+      calc(var(--drag-x, 0px) + var(--viewer-toolbar-expand-shift, 0px)),
       calc(var(--drag-y, 0px) + 6px),
       0
     )
