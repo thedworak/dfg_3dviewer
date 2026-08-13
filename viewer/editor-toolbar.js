@@ -90,6 +90,9 @@ export function syncEditorToolbarSecondaryTrayWidth(viewer) {
 }
 
 export function getEditorToolbarHost(viewer) {
+  if (core.container?.classList.contains("viewer-window-controls-enabled")) {
+    return core.container;
+  }
   return core.viewerWrapper || core.container || null;
 }
 
@@ -424,7 +427,11 @@ function initializeEditorToolbarDrag(handle, viewer, toolbar, host) {
 
   // keep position valid after resize
   const resizeObserver = new ResizeObserver(() => {
-    const pos = clampPosition(currentX, currentY);
+    const hostRect = host.getBoundingClientRect();
+    const nextX = positionIsExplicit
+      ? currentX
+      : Math.max((hostRect.width - toolbar.offsetWidth) / 2 - getToolbarBaseLeft(toolbar), 0);
+    const pos = clampPosition(nextX, currentY);
 
     currentX = pos.x;
     currentY = pos.y;
@@ -442,7 +449,9 @@ export function attachEditorToolbar(viewer) {
   if (getComputedStyle(core.container).position === 'static') {
     core.container.style.position = 'relative';
   }
-  const host = getEditorToolbarHost(viewer);
+  const host = core.container.classList.contains("viewer-window-controls-enabled")
+    ? core.container
+    : getEditorToolbarHost(viewer);
   if (!host || core.editorToolbar.parentElement === host) return;
   host.appendChild(core.editorToolbar);
 }

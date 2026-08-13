@@ -48,6 +48,7 @@ import { attachAnnotations } from "./editor/annotations.js";
 import { attachMeasurement } from "./editor/measurement.js";
 import { attachPicking } from "./editor/picking.js";
 import { captureAndUploadThumbnail } from "./editor/thumbnail-capture.js";
+import { attachWindowControls } from "./ui/window-controls.js";
 
 import { loadModel, outlineClipping, getModuleAssetBasePath, syncSceneEnvironment } from "./loaders.js";
 import { createIIIFDropdown, createManifestUI, createAIM3IFDropdown, resetModelSettings } from "./metadata.js";
@@ -69,7 +70,7 @@ import { GUI } from "./js/external_libs/lil-gui.esm.min.js";
 import { objectsConfig, setObjectsConfig } from "./object-settings.js";
 
 import { loadIIIFManifest, getAnnotations } from "./IIIF/iiif-api.js";
-import { loadAIM3IFManifest, applyManifestConfig } from "./manifesto/manifesto-api.js";
+import { loadAIM3IFManifest, applyManifestConfig, getManifestWindowState } from "./manifesto/manifesto-api.js";
 import {
   attachEditorToolbar,
   createEditorToolbar,
@@ -1679,6 +1680,7 @@ export const Viewer = {
     setCore('targetTween', this.targetTween);
 
     core.container.classList.add("mainContainer");
+    Viewer.setupWindowControls(core.container);
 
     if (core.container.hasAttribute("basePath")) {
       core.CONFIG.baseModulePath = core.container.getAttribute("basePath");
@@ -1847,22 +1849,27 @@ export const Viewer = {
     let widthCSS;
     let heightCSS;
 
+    const hasWindowControls = core.container.classList.contains("viewer-window-controls-enabled");
     let scale = { x: 1, y: 1 };
 
-    const rect = Viewer.getWrapperSize();
+    const rect = hasWindowControls
+      ? core.container.getBoundingClientRect()
+      : Viewer.getWrapperSize();
 
     if (isFullscreen) {
       widthCSS = window.innerWidth;
       heightCSS = window.innerHeight;
     } else {
-      scale = {
-        x: Number(
-          core.CONFIG.viewer.scaleContainer?.x || 1
-        ),
-        y: Number(
-          core.CONFIG.viewer.scaleContainer?.y || 1
-        ),
-      };      
+      if (!hasWindowControls) {
+        scale = {
+          x: Number(
+            core.CONFIG.viewer.scaleContainer?.x || 1
+          ),
+          y: Number(
+            core.CONFIG.viewer.scaleContainer?.y || 1
+          ),
+        };
+      }
 
       widthCSS = rect.width || 800;
       heightCSS = rect.height || 600;
@@ -2883,6 +2890,9 @@ export const Viewer = {
       Viewer.iiifConfigURL.url = newUrlOrJson;
     }
     const loadedManifest = manifestType === "iiif" ? await loadIIIFManifest(newUrlOrJson) : await loadAIM3IFManifest(newUrlOrJson);
+    if (isAim3ifManifest) {
+      Viewer.applyWindowState?.(getManifestWindowState(loadedManifest.manifest));
+    }
     if (loadedManifest.modelUrls.length === 0) { // no 3D model found, use example model
       loadedManifest.modelUrls.push('https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb');
       showToast(t("toasts.noIiiifModelFallback", "No 3D model found in IIIF manifest, loading example model."));
@@ -3619,6 +3629,7 @@ attachAnnotations(Viewer);
 attachPicking(Viewer);
 attachMeasurement(Viewer);
 attachEmbedConfigurator(Viewer);
+attachWindowControls(Viewer);
 
 
 export async function expectWebGL(page, showToast) {

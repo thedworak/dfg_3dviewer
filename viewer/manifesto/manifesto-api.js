@@ -82,3 +82,17 @@ export function applyManifestConfig(manifest, objectsConfig) {
   model.wireframe =
     transform.wireframe ?? false;
 }
+
+export function getManifestWindowState(manifest) {
+  const windowState = manifest?.AIM3DViewer?.viewer?.window;
+  if (!windowState) return null;
+
+  const position = Array.isArray(windowState.position)
+    ? { x: windowState.position[0], y: windowState.position[1] }
+    : windowState.position;
+
+  return {
+    position,
+    size: windowState.size,
+  };
+}

@@ -866,6 +866,7 @@ export function attachAnnotations(Viewer) {
               || this.metadataContainer?.style?.display === "none",
             showNotifications: core.showNotifications !== false,
             scale: core.CONFIG.viewer.scaleContainer || { x: 1, y: 1 },
+            window: this.getWindowState?.(),
             performance: core.CONFIG.viewer.performanceMode || "high-performance",
             units: core.CONFIG?.viewer?.measurement?.modelUnitInMeters,
             gallery: {

@@ -52,6 +52,52 @@ a.wisski-inline-iip > div#wisski-iip-cont > img {
   height: 100dvh;
   z-index: 9999;
 }
+.viewer-window-controls {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+}
+.viewer-window-drag-handle {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 96px;
+  height: 24px;
+  transform: translateX(-50%);
+  cursor: move;
+  pointer-events: auto;
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+.viewer-window-drag-handle::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  width: 24px;
+  height: 8px;
+  transform: translateX(-50%);
+  background: radial-gradient(circle, rgba(255, 255, 255, .82) 1.5px, transparent 2px) 0 0 / 8px 8px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .55));
+}
+.viewer-window-controls-enabled:hover .viewer-window-drag-handle,
+.viewer-window-drag-handle:hover {
+  opacity: .72;
+}
+.viewer-window-resize-handle {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  pointer-events: auto;
+}
+.viewer-window-resize-top-left { top: 0; left: 0; cursor: nwse-resize; }
+.viewer-window-resize-top-right { top: 0; right: 0; cursor: nesw-resize; }
+.viewer-window-resize-bottom-left { bottom: 0; left: 0; cursor: nesw-resize; }
+.viewer-window-resize-bottom-right { bottom: 0; right: 0; cursor: nwse-resize; }
+.mainContainer.fullscreen .viewer-window-controls {
+  display: none;
+}
 
 .mainCanvas {
   display: block;

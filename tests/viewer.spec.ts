@@ -122,6 +122,42 @@ test('fullscreen includes the editor toolbar', async ({ page }) => {
   expect(state.toolbarParentIsWrapperAfterExit).toBe(true);
 });
 
+test('viewer window can be resized and moved from its controls', async ({ page }) => {
+  await openViewer(page);
+  const container = page.locator('#DFG_3DViewer');
+  await expect(container.locator('.viewer-window-drag-handle')).toBeAttached();
+  await expect(container.locator('.viewer-window-resize-bottom-right')).toBeAttached();
+
+  const before = await container.boundingBox();
+  if (!before) throw new Error('Viewer container bounding box is unavailable');
+
+  const resizeHandle = container.locator('.viewer-window-resize-bottom-right');
+  const resizeBox = await resizeHandle.boundingBox();
+  if (!resizeBox) throw new Error('Viewer resize handle bounding box is unavailable');
+  await page.mouse.move(resizeBox.x + 4, resizeBox.y + 4);
+  await page.mouse.down();
+  await page.mouse.move(resizeBox.x + 44, resizeBox.y + 34);
+  await page.mouse.up();
+
+  const afterResize = await container.boundingBox();
+  if (!afterResize) throw new Error('Viewer container bounding box after resize is unavailable');
+  expect(afterResize.width).toBeGreaterThan(before.width + 20);
+  expect(afterResize.height).toBeGreaterThan(before.height + 15);
+
+  const dragHandle = container.locator('.viewer-window-drag-handle');
+  const dragBox = await dragHandle.boundingBox();
+  if (!dragBox) throw new Error('Viewer drag handle bounding box is unavailable');
+  await page.mouse.move(dragBox.x + dragBox.width / 2, dragBox.y + dragBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(dragBox.x + 30, dragBox.y + 25);
+  await page.mouse.up();
+
+  const afterMove = await container.boundingBox();
+  if (!afterMove) throw new Error('Viewer container bounding box after move is unavailable');
+  expect(afterMove.x).toBeGreaterThan(afterResize.x + 15);
+  expect(afterMove.y).toBeGreaterThan(afterResize.y + 10);
+});
+
 test('sandbox mode starts without loading a model', async ({ page }) => {
   await openSandboxViewer(page);
 

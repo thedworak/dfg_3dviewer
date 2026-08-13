@@ -144,6 +144,23 @@ function validateViewer(viewer, path, errors) {
   });
   if (viewer.autorotateSpeed !== undefined) validateNumber(viewer.autorotateSpeed, `${path}.autorotateSpeed`, errors);
   if (viewer.scale !== undefined) validateVector(viewer.scale, `${path}.scale`, errors, 2);
+  if (viewer.window !== undefined) {
+    if (!isPlainObject(viewer.window)) {
+      pushError(errors, `${path}.window`, "must be an object");
+    } else {
+      if (viewer.window.position !== undefined) {
+        validateVector(viewer.window.position, `${path}.window.position`, errors, 2);
+      }
+      if (viewer.window.size !== undefined) {
+        if (!isPlainObject(viewer.window.size)) {
+          pushError(errors, `${path}.window.size`, "must be an object");
+        } else {
+          if (viewer.window.size.width !== undefined) validateNumber(viewer.window.size.width, `${path}.window.size.width`, errors);
+          if (viewer.window.size.height !== undefined) validateNumber(viewer.window.size.height, `${path}.window.size.height`, errors);
+        }
+      }
+    }
+  }
   if (viewer.performance !== undefined) validateString(viewer.performance, `${path}.performance`, errors);
   if (viewer.units !== undefined && !(isFiniteNumber(viewer.units) || isString(viewer.units))) {
     pushError(errors, `${path}.units`, "must be a finite number or string");
