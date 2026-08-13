@@ -71,6 +71,10 @@ Stores runtime viewer options.
   "hideMetadata": false,
   "showNotifications": true,
   "scale": { "x": 1, "y": 1 },
+  "window": {
+    "position": { "x": 120, "y": 80 },
+    "size": { "width": 900, "height": 600 }
+  },
   "performance": "high-performance",
   "units": 1,
   "gallery": {},
@@ -105,8 +109,15 @@ Notes:
 - `hideUi` hides the action menu and editor toolbar
 - `hideMetadata` hides the metadata panel
 - `showNotifications` controls toast/status notices
+- `window` stores the movable viewer host geometry in viewport pixels
 - `editorToolbar` is the canonical editor toolbar runtime state used by the current viewer
 - `viewer.clipping` is the canonical location for clipping state
+
+`window` fields:
+
+- `position`: top-left viewer offset as `{ x, y }` pixels
+- `size`: viewer host dimensions as `{ width, height }` pixels
+- The importer clamps the geometry to the current browser viewport; when `window` is absent, the default host layout is preserved.
 
 `editorToolbar` fields:
 

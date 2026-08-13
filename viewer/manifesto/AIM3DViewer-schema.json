@@ -74,6 +74,21 @@
             "hideMetadata": { "type": "boolean" },
             "showNotifications": { "type": "boolean" },
             "scale": { "$ref": "#/$defs/vector2orObject" },
+            "window": {
+              "type": "object",
+              "properties": {
+                "position": { "$ref": "#/$defs/vector2orObject" },
+                "size": {
+                  "type": "object",
+                  "properties": {
+                    "width": { "type": "number", "minimum": 0 },
+                    "height": { "type": "number", "minimum": 0 }
+                  },
+                  "additionalProperties": true
+                }
+              },
+              "additionalProperties": true
+            },
             "performance": { "type": "string" },
             "units": { "type": ["number", "string"] },
             "gallery": { "type": "object" },
