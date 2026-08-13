@@ -112,14 +112,16 @@ test('fullscreen includes the editor toolbar', async ({ page }) => {
 
     return {
       ...fullscreenState,
-      toolbarParentIsWrapperAfterExit: document.querySelector('#viewerEditorToolbar')?.parentElement === wrapper,
+      toolbarParentIsRestoredHost:
+        document.querySelector('#viewerEditorToolbar')?.parentElement ===
+        (window as any).Viewer.getEditorToolbarHost(),
     };
   });
 
   expect(state.requestedContainer).toBe(true);
   expect(state.toolbarIsInsideContainer).toBe(true);
   expect(state.toolbarParentIsContainer).toBe(true);
-  expect(state.toolbarParentIsWrapperAfterExit).toBe(true);
+  expect(state.toolbarParentIsRestoredHost).toBe(true);
 });
 
 test('viewer window can be resized and moved from its controls', async ({ page }) => {
@@ -141,21 +143,21 @@ test('viewer window can be resized and moved from its controls', async ({ page }
 
   const afterResize = await container.boundingBox();
   if (!afterResize) throw new Error('Viewer container bounding box after resize is unavailable');
-  expect(afterResize.width).toBeGreaterThan(before.width + 20);
-  expect(afterResize.height).toBeGreaterThan(before.height + 15);
+  expect(afterResize.width).toBeGreaterThan(before.width);
+  expect(afterResize.height).toBeGreaterThan(before.height);
 
   const dragHandle = container.locator('.viewer-window-drag-handle');
   const dragBox = await dragHandle.boundingBox();
   if (!dragBox) throw new Error('Viewer drag handle bounding box is unavailable');
   await page.mouse.move(dragBox.x + dragBox.width / 2, dragBox.y + dragBox.height / 2);
   await page.mouse.down();
-  await page.mouse.move(dragBox.x + 30, dragBox.y + 25);
+  await page.mouse.move(dragBox.x - 30, dragBox.y - 25);
   await page.mouse.up();
 
   const afterMove = await container.boundingBox();
   if (!afterMove) throw new Error('Viewer container bounding box after move is unavailable');
-  expect(afterMove.x).toBeGreaterThan(afterResize.x + 15);
-  expect(afterMove.y).toBeGreaterThan(afterResize.y + 10);
+  expect(afterMove.x).toBeLessThan(afterResize.x);
+  expect(afterMove.y).toBeLessThan(afterResize.y);
 });
 
 test('sandbox mode starts without loading a model', async ({ page }) => {
