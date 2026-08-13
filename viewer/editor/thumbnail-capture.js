@@ -3,7 +3,7 @@ import { core } from "../core.js";
 export function captureAndUploadThumbnail(viewer) {
   core.camera.aspect = 1;
   core.camera.updateProjectionMatrix();
-  core.renderer.setSize(256, 256);
+  core.renderer.setSize(1024, 1024);
   core.renderer.render(core.scene, core.camera);
 
   viewer.mainCanvas.toBlob((imgBlob) => {
@@ -28,8 +28,20 @@ export function captureAndUploadThumbnail(viewer) {
     fileform.append("data", imgBlob, "thumbnail.png");
     console.log("Uploading thumbnail for entity ID:", core.CONFIG.entity.id);
     fileform.append("wisski_individual", core.CONFIG.entity.id);
+    const base = (core.CONFIG?.mainUrl || window.location.origin || "").replace(/\/+$/, "");
+    const defaultEndpoint = "/api/editor/upload-thumbnail";
+    const configuredEndpoint = String(core.CONFIG?.api?.thumbnailUploadEndpoint || defaultEndpoint).trim();
+    let callUrl = `${base}${defaultEndpoint}`;
 
-    fetch(core.CONFIG.mainUrl + "/api/editor/upload-thumbnail", {
+    try {
+      callUrl = new URL(configuredEndpoint || defaultEndpoint, `${base}/`).toString();
+    } catch (_error) {
+      console.warn("Invalid api.thumbnailUploadEndpoint, using default", configuredEndpoint);
+    }
+
+    console.log("Preparing call for ", callUrl);
+
+    fetch(callUrl, {
       method: "POST",
       credentials: "same-origin",
       headers: {

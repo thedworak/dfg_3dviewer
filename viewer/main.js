@@ -1,6 +1,6 @@
 /*
 DFG 3D-Viewer
-Copyright (C) 2025 - Daniel Dworak
+Copyright (C) 2026 - Daniel Dworak
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -37,7 +37,7 @@ import {
   normalizeColor,
 } from "./utils.js";
 
-import { initClippingPlanes, reportViewerError, showToast, toastHelper, changeBackground } from './viewer-utils.js';
+import { initClippingPlanes, updateActiveClippingPlanes, reportViewerError, showToast, toastHelper, changeBackground } from './viewer-utils.js';
 import { attachEmbedConfigurator } from "./ui/embed-configurator.js";
 import { buildThumbnailGallery } from "./ui/thumbnail-gallery.js";
 import { attachLocalizationTheme } from "./ui/localization-theme.js";
@@ -48,9 +48,10 @@ import { attachAnnotations } from "./editor/annotations.js";
 import { attachMeasurement } from "./editor/measurement.js";
 import { attachPicking } from "./editor/picking.js";
 import { captureAndUploadThumbnail } from "./editor/thumbnail-capture.js";
+import { attachWindowControls } from "./ui/window-controls.js";
 
 import { loadModel, outlineClipping, getModuleAssetBasePath, syncSceneEnvironment } from "./loaders.js";
-import { createIIIFDropdown, createManifestUI, createAIM3IFDropdown } from "./metadata.js";
+import { createIIIFDropdown, createManifestUI, createAIM3IFDropdown, resetModelSettings } from "./metadata.js";
 import { UltraLoader } from "./ultra-loader.js";
 import { StatusPoller } from "./status-poller.js";
 
@@ -69,7 +70,7 @@ import { GUI } from "./js/external_libs/lil-gui.esm.min.js";
 import { objectsConfig, setObjectsConfig } from "./object-settings.js";
 
 import { loadIIIFManifest, getAnnotations } from "./IIIF/iiif-api.js";
-import { loadAIM3IFManifest, applyManifestConfig } from "./manifesto/manifesto-api.js";
+import { loadAIM3IFManifest, applyManifestConfig, getManifestWindowState } from "./manifesto/manifesto-api.js";
 import {
   attachEditorToolbar,
   createEditorToolbar,
@@ -84,302 +85,41 @@ import {
   updateLightsSubmenuState,
   updateStatisticsSubmenuState,
 } from "./editor-toolbar.js";
-import { VIEWER_I18N } from "./i18n.js";
+import { VIEWER_DEFAULTS } from "./viewer-defaults.js";
+import {
+  parseBooleanParam,
+  parseFloatParam,
+  parseVector2Param,
+  parseVector3Param,
+  formatVector3Param,
+  parseProjectionParam,
+  parseClippingModeParam,
+  formatClippingModeParam,
+  normalizeLanguage,
+} from "./viewer-param-utils.js";
+import {
+  normalizeDrupalFilesPath,
+  normalizeArchiveModelPath,
+  setModelPaths,
+  disableInteractionHint,
+  addTextWatermark,
+  addTextPoint,
+  selectObjectHierarchy,
+  recreateBoundingBox,
+  normalizeFileUrl,
+  shouldIgnoreLegacyEmbedDefaultModel,
+  buildGallery,
+  toHexColor,
+  toThreeColor,
+  getWrapperSize,
+} from "./viewer-helpers.js";
 import { t } from "./i18n-utils.js";
 import { loadDroppedArchive } from "./extract-helper.js";
-import { loadDroppedModel } from "./sandbox.js";
+import { loadDroppedModel, createCreditsElement } from "./sandbox.js";
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 
 export const Viewer = {
-  CONFIG: null,
-  PRESENTATION_MODE: false,
-  SANDBOX_MODE: false,
-  SUPPORTED_EXTENSIONS: ['glb', 'gltf', 'obj', 'dae', 'fbx', 'ply', 'ifc', 'stl', 'xyz', 'json', '3ds', 'pcd'],
-  SUPPORTED_ARCHIVES: ['zip', 'rar', 'tar', 'xz', 'gz'],
-  camera: null,
-  scene: null,
-  activeScene: 0,
-  renderer: null,
-  stats: null,
-  controls: null,
-  loader: null,
-  ambientLight: null,
-  dirLight: null,
-  dirLightTarget: null,
-  cameraLight: null,
-  cameraLightTarget: null,
-  dirLights: [],
-  imported: null,
-  mainObject: [],
-  metadataContentTech: null,
-  mainCanvas: null,
-  distanceGeometry: new THREE.Vector3(),
-  metadataUrl: null,
-  iiifConfigURL: {url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: "Inbuilt"},
-  testModelURL: 'https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb',
-  clock: null,
-  FULLSCREEN: false,
-  mixer: null,
-  cameraTween: null,
-  targetTween: null,
-  container: null,
-  viewerWrapper: null,
-  scrollTop: null,
-  rect: null,
-  fileObject: { originalPath: '', filename: '', basename: '', extension: '', path: '', uri: '', newExtension: '', relativePath: '', autopath: '' },
-  bottomLineGUI: null,
-  loadedFile: null,    
-  fileElement: null,
-  COPYRIGHTS: false,
-  EXIT_CODE: 1,
-  gridSize: null,
-  noMTL: false,
-  canvasText: null,
-  viewEntity: null,
-  actionMenu: null,
-  actionMenuToggle: null,
-  actionMenuPanel: null,
-  mainMenuButton: null,
-  fullscreenMode: null,
-  themeMode: null,
-  languageMode: null,
-  editorToolbar: null,
-  editorToolbarButtons: {},
-  isToolbarExpanded: false,
-  editorSecondaryKeys: [],
-  downloadModel: null,
-  embedConfiguratorPanel: null,
-  embedConfigInputs: null,
-  embedConfigPreviewFrame: null,
-  embedMissingSourceNotified: false,
-  wireframeMode: false,
-  environmentMapEnabled: true,
-  environmentMapPreset: "neutral",
-  environmentMapIntensity: 0.5,
-  currentTheme: "dark",
-  currentLanguage: "en",
-  loadingLog: null,
-  loadingLogMessageKeys: [
-    "loadingLog.loadingAssets",
-    "loadingLog.loadingModel",
-    "loadingLog.loadingTextures",
-    "loadingLog.preparingGeometry",
-    "loadingLog.settingUpLighting",
-    "loadingLog.settingUpMaterials",
-    "loadingLog.compilingShaders",
-    "loadingLog.fetchingMetadata",
-    "loadingLog.modelLoaded",
-  ],
-  processingLoadingStepKeys: [
-    "processingSteps.preparingModel",
-    "processingSteps.convertingToTransmissionFormat",
-    "processingSteps.renderingThumbnails",
-    "processingSteps.savingEntity",
-    "processingSteps.finalizing3dModel",
-    "processingSteps.initializingViewer",
-  ],
-  THEME_STORAGE_KEY: "manifesto-dark-mode",
-  LANGUAGE_STORAGE_KEY: "viewer-language",
-  I18N: VIEWER_I18N,
-  GESTURE: {handPx: 55, period: 5.5, rotate: false, active: false, target: new THREE.Vector3(), startTime: 0, baseAngle: 0, orbitAngle: THREE.MathUtils.degToRad(15), easeInTime: 2.25},
-  lastTime: null,
-  originalMetadata: [],
-  spinnerContainer: null,
-  spinnerElement: null,
-  loadingLog: null,
-  guiContainer: null,
-  noticeContainer: null,
-  statusNotice: null,
-  statusNoticeTimer: null,
-  statusNoticeHideTimer: null,
-  statusNoticeQueue: [],
-  statusNoticeActive: false,
-  statusNoticeCurrent: null,
-  pickingHint: null,
-  clippingHint: null,
-  metadataContainer: null,
-  spinner: null,
-  circle: null,
-  lilGui: null,
-  raycaster: new THREE.Raycaster(),
-  pointer: new THREE.Vector2(),
-  onUpPosition: new THREE.Vector2(),
-  onDownPosition: new THREE.Vector2(),
-  bottomOffsetFullscreen: 0,
-  geometry: new THREE.BoxGeometry(20, 20, 20),
-  transformControl: null,
-  transformControlLight: null,
-  transformControlLightTarget: null,
-  transformControlClippingPlaneX: null,
-  transformControlClippingPlaneY: null,
-  transformControlClippingPlaneZ: null,
-  cameraCoords: null,
-  helperObjects: [],
-  lightObjects: [],
-  lightHelper: null,
-  lightHelperTarget: null,
-  selectedObject: false,
-  selectedObjects:[],
-  selectedFaces: [],
-  annotationEntries: [],
-  annotationDialog: null,
-  annotationDialogHost: null,
-  annotationDialogTitleInput: null,
-  annotationDialogDescriptionInput: null,
-  materialsDialog: null,
-  materialsDialogSelect: null,
-  materialsDialogInputs: null,
-  materialsDialogPosition: null,
-  materialsDialogDragging: false,
-  annotationTargetFaceKeys: [],
-  annotationBatchGroupId: "",
-  annotationPOIGroup: null,
-  annotationPOIMarkers: [],
-  annotationPOITooltip: null,
-  annotationPOITooltipTitle: null,
-  annotationPOITooltipTarget: null,
-  annotationImportInput: null,
-  pendingAnnotationsXml: "",
-  pickingTexture: null,
-  windowHalfX: null,
-  windowHalfY: null,
-  transformType: "",
-  transformText: {
-    "Transform 3D Object": "",
-    "Transform Light": "",
-    "Transform Mode": "local",
-  },
-  materialsPropertiesText: {
-    "Edit material": "",
-  },
-  materialsEditorObject: null,
-  materialsList: [],
-  selectedMaterialUuid: null,
-  materialSelectionController: null,
-  materialGuiControls: null,
-  pickingStats: {
-    "Selected faces": 0,
-  },
-  colors: {
-    DirectionalLight: "0xFFFFFF",
-    AmbientLight: "0x404040",
-    CameraLight: "0xFFFFFF",
-    BackgroundColor: "#FFFFFF",
-    BackgroundColorOuter: "#999999",
-  },
-  materialProperties: {
-    color: "0xFFFFFF",
-    emissiveColor: "0x404040",
-    emissive: 1,
-    metalness: 0,
-  },
-  intensity: {
-    startIntensityDir: 1,
-    startIntensityAmbient: 1,
-    startIntensityCamera: 1,
-  },
-  saveProperties: {
-    Position: true,
-    Rotation: true,
-    Scale: true,
-    Camera: true,
-    DirectionalLight: true,
-    AmbientLight: true,
-    CameraLight: true,
-    BackgroundColor: true,
-    BackgroundColorOuter: true,
-  },
-  backgroundType: { "Background Type": "gradient" },
-  backgroundOuterFolder: null,
-  pickingMode: false,
-  EDITOR: false,
-  RULER_MODE: false,
-  linePoints: [],
-  gui: null,
-  hierarchyFolder: null,
-  GUILength: 35,
-  zoomImage: 1,
-  ZOOM_SPEED_IMAGE: 0.1,
-  loadedFile: "",
-  archiveType: "",
-  planeParams: {
-    planeX: {
-      constantX: 0,
-      negated: false,
-      displayHelperX: false,
-    },
-    planeY: {
-      constantY: 0,
-      negated: false,
-      displayHelperY: false,
-    },
-    planeZ: {
-      constantZ: 0,
-      negated: false,
-      displayHelperZ: false,
-    },
-    outline: {
-      visible: false,
-    },
-    clippingMode: {
-      x: false,
-      y: false,
-      z: false,
-    },
-  },
-  clippingPlanes: null,    
-  planeHelpers: [],
-  clippingFolder: null,
-  propertiesFolder: null,
-  planeObjects: [],
-  editorFolder: null,
-  metadataFolder: null,
-  materialsFolder: null,
-  pickingModeController: null,
-  distanceMeasurementController: null,
-  clearSelectedFacesController: null,
-  selectedFacesCountController: null,
-  addAnnotationController: null,
-  textMesh: null,
-  textMeshDistance: null,
-  ruler: [],
-  rulerObject: null,
-  lastPickedFace: { id: "", object: "", faceIndex: null, overlay: null },
-  loadedTimes: 0,
-  _ext: '',
-  DFG_ASSETS: '',
-  isLightweight: false,
-  urlOptions: {
-    model: null,
-    id: null,
-    theme: null,
-    language: null,
-    autoRotate: null,
-    autoRotateSpeed: null,
-    disableInteraction: false,
-    hideUi: false,
-    hideMetadata: false,
-    cameraPosition: null,
-    cameraTarget: null,
-    cameraFov: null,
-    presentationMode: false,
-    sandboxMode: false,
-  },
-  keyboardStep: {
-    rotate: THREE.MathUtils.degToRad(2.25),
-    rotateFast: THREE.MathUtils.degToRad(6),
-    panFactor: 0.04,
-    zoomFactor: 1.08,
-  },
-  keyboardTweenDurationMs: 150,
-  lastKeyboardHintAt: 0,
-  keyboardHintCooldownMs: 45000,
-  keyboardHintAfterFocusDelayMs: 1800,
-  lastWindowFocusAt: 0,
-  cleanupCallbacks: [],
-  resizeObserver: null,
-  i18nGui: {},
-  showNotifications: true,
+  ...VIEWER_DEFAULTS,
 
   getE2EModelOverride() {
     if (!window.__E2E__) return null;
@@ -482,6 +222,18 @@ export const Viewer = {
     return attachEditorToolbar(this);
   },
 
+  syncEditorToolbarFullscreenHost() {
+    if (!core.editorToolbar || !core.container) return;
+
+    const host = document.fullscreenElement === core.container
+      ? core.container
+      : this.getEditorToolbarHost();
+
+    if (host && core.editorToolbar.parentElement !== host) {
+      host.appendChild(core.editorToolbar);
+    }
+  },
+
   createEditorToolbar() {
     return createEditorToolbar(this);
   },
@@ -557,27 +309,31 @@ export const Viewer = {
 
     let newCamera;
 
-    if (projection === "orthographic") {
-      const fov = THREE.MathUtils.degToRad(core.camera.fov);
+    const size = core.boundingSphere ? core.boundingSphere.radius : core.camera.position.distanceTo(core.controls?.target) || 100;
+    const near = Math.max(size / 1000, 0.01);
+    const far = distance + size * 100;
+    const fovDeg = core.camera.fov;
+    const fovRad = THREE.MathUtils.degToRad(fovDeg);
 
-      const viewHeight = 2 * distance * Math.tan(fov / 2);
-      const viewWidth = viewHeight * aspect;
+    if (projection === "orthographic") {
+      const visibleHeight = 2 * distance * Math.tan(fovRad / 2);
 
       newCamera = new THREE.OrthographicCamera(
-        -viewWidth / 2,
-        viewWidth / 2,
-        viewHeight / 2,
-        -viewHeight / 2,
-        0.1,
-        2000
+          -visibleHeight * aspect / 2,
+          visibleHeight * aspect / 2,
+          visibleHeight / 2,
+          -visibleHeight / 2,
+          near,
+          far
       );
+
       newCamera.zoom = 1;
     } else {
       newCamera = new THREE.PerspectiveCamera(
-        50,
+        fovDeg,
         aspect,
-        0.1,
-        2000
+        near,
+        far
       );
     }
 
@@ -718,6 +474,7 @@ export const Viewer = {
       core.CONFIG.viewer = {};
     }
     core.CONFIG.viewer.performanceMode = value;
+    showToast("toasts.performanceModeSet", { mode: value }, 2000);
     this.updateEditorToolbarState();
   },
 
@@ -861,6 +618,7 @@ export const Viewer = {
     this.updateClippingPlanesControlsVisibility();
     this.updateEditorToolbarLabels();
     this.updateEditorToolbarState();
+    updateActiveClippingPlanes();
   },
 
   updateClippingPlanesControllerLabel() {
@@ -913,6 +671,7 @@ export const Viewer = {
     });
     this.refreshClippingHintVisibility();
     this.updateClippingPlanesSubmenuState();
+    updateActiveClippingPlanes();
   },
 
   toggleClippingPlaneVisible() {
@@ -959,49 +718,39 @@ export const Viewer = {
   },
 
   parseBooleanParam(value) {
-    if (value == null) return null;
-    const normalizedValue = String(value).trim().toLowerCase();
-    if (["1", "true", "yes", "on"].includes(normalizedValue)) return true;
-    if (["0", "false", "no", "off"].includes(normalizedValue)) return false;
-    return null;
+    return parseBooleanParam(value);
   },
 
   parseFloatParam(value) {
-    if (value == null || value === "") return null;
-    const parsed = Number.parseFloat(String(value));
-    return Number.isFinite(parsed) ? parsed : null;
+    return parseFloatParam(value);
   },
 
   parseVector2Param(value) {
-    if  (value == null || value === "") return null;
-    const cleaned = String(value).replace(/[\[\]()]/g, " ").trim();
-    const parts = cleaned.split(/[\s,;|]+/).filter(Boolean);
-    if (parts.length !== 2) return null;
-    const x = Number.parseFloat(parts[0]);
-    const y = Number.parseFloat(parts[1]);
-    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
-    return new THREE.Vector2(x, y);
+    return parseVector2Param(value);
   },
 
   parseVector3Param(value) {
-    if (value == null || value === "") return null;
-    const cleaned = String(value).replace(/[\[\]()]/g, " ").trim();
-    const parts = cleaned.split(/[\s,;|]+/).filter(Boolean);
-    if (parts.length !== 3) return null;
-    const x = Number.parseFloat(parts[0]);
-    const y = Number.parseFloat(parts[1]);
-    const z = Number.parseFloat(parts[2]);
-    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return null;
-    return new THREE.Vector3(x, y, z);
+    return parseVector3Param(value);
   },
 
   formatVector3Param(vector) {
-    if (!vector || typeof vector !== "object") return null;
-    const x = Number(vector.x);
-    const y = Number(vector.y);
-    const z = Number(vector.z);
-    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return null;
-    return `${x.toFixed(4)},${y.toFixed(4)},${z.toFixed(4)}`;
+    return formatVector3Param(vector);
+  },
+
+  parseProjectionParam(value) {
+    return parseProjectionParam(value);
+  },
+
+  parseClippingModeParam(value) {
+    return parseClippingModeParam(value);
+  },
+
+  formatClippingModeParam(mode) {
+    return formatClippingModeParam(mode);
+  },
+
+  normalizeLanguage(value) {
+    return normalizeLanguage(value);
   },
 
   parseUrlOptions() {
@@ -1035,11 +784,90 @@ export const Viewer = {
       cameraPosition: this.parseVector3Param(params.get("camPos") || params.get("cameraPos")),
       cameraTarget: this.parseVector3Param(params.get("camTarget") || params.get("cameraTarget")),
       cameraFov: this.parseFloatParam(params.get("fov")),
+      cameraProjection: this.parseProjectionParam(params.get("projection") || params.get("cameraProjection") || params.get("proj")),
+      cameraZoom: this.parseFloatParam(params.get("zoom") || params.get("cameraZoom")),
+      clippingMode: this.parseClippingModeParam(params.get("clip") || params.get("clippingMode")),
+      clippingConstants: this.parseVector3Param(params.get("clipConst") || params.get("clipConstants")),
+      clippingOutline: this.parseBooleanParam(params.get("clipOutline")),
       presentationMode: core.PRESENTATION_MODE === true,
       sandboxMode: core.SANDBOX_MODE === true,
       scale: this.parseVector2Param(params.get("scale")) ?? null,
       showNotifications: this.parseBooleanParam(params.get("showNotifications")),
     };
+  },
+
+  applyClippingOverridesFromUrl() {
+    const clippingMode = this.urlOptions?.clippingMode;
+    const clippingConstants = this.urlOptions?.clippingConstants;
+    const clippingOutline = this.urlOptions?.clippingOutline;
+
+    const hasMode = clippingMode && ["x", "y", "z"].every((axis) => typeof clippingMode[axis] === "boolean");
+    const hasConstants = clippingConstants && Number.isFinite(clippingConstants.x) && Number.isFinite(clippingConstants.y) && Number.isFinite(clippingConstants.z);
+    const hasOutline = typeof clippingOutline === "boolean";
+
+    if (!hasMode && !hasConstants && !hasOutline) return;
+
+    if (hasConstants && core.clippingPlanes?.length >= 3) {
+      const constants = [clippingConstants.x, clippingConstants.y, clippingConstants.z];
+      core.clippingPlanes[0].constant = constants[0];
+      core.clippingPlanes[1].constant = constants[1];
+      core.clippingPlanes[2].constant = constants[2];
+
+      core.planeParams.planeX.constantX = constants[0];
+      core.planeParams.planeY.constantY = constants[1];
+      core.planeParams.planeZ.constantZ = constants[2];
+
+      if (core.clippingFolder?.controllers?.[1]) {
+        core.clippingFolder.controllers[1].setValue(constants[0]);
+      }
+      if (core.clippingFolder?.controllers?.[3]) {
+        core.clippingFolder.controllers[3].setValue(constants[1]);
+      }
+      if (core.clippingFolder?.controllers?.[5]) {
+        core.clippingFolder.controllers[5].setValue(constants[2]);
+      }
+
+      if (core.planeHelpers?.length >= 3) {
+        for (let i = 0; i < 3; i += 1) {
+          const helper = core.planeHelpers[i];
+          const plane = core.clippingPlanes[i];
+          if (!helper || !plane) continue;
+          helper.position.copy(plane.normal).multiplyScalar(-plane.constant);
+          helper.updateMatrixWorld?.(true);
+        }
+      }
+    }
+
+    if (hasMode) {
+      core.planeParams.clippingMode.x = clippingMode.x;
+      core.planeParams.clippingMode.y = clippingMode.y;
+      core.planeParams.clippingMode.z = clippingMode.z;
+
+      if (core.planeHelpers?.[0]) core.planeHelpers[0].visible = clippingMode.x;
+      if (core.planeHelpers?.[1]) core.planeHelpers[1].visible = clippingMode.y;
+      if (core.planeHelpers?.[2]) core.planeHelpers[2].visible = clippingMode.z;
+
+      this.clippingMode = clippingMode.x || clippingMode.y || clippingMode.z;
+    }
+
+    if (hasOutline) {
+      core.planeParams.outline.visible = clippingOutline;
+    }
+
+    if (core.outlineClipping) {
+      const hasActiveClipping = Boolean(
+        core.planeParams?.clippingMode?.x ||
+        core.planeParams?.clippingMode?.y ||
+        core.planeParams?.clippingMode?.z
+      );
+      core.outlineClipping.visible = hasOutline ? clippingOutline : hasActiveClipping;
+    }
+
+    this.updateClippingPlanesControllerLabel();
+    this.updateClippingPlanesControlsVisibility();
+    this.updateClippingPlanesSubmenuState();
+    this.refreshClippingHintVisibility();
+    updateActiveClippingPlanes();
   },
 
   setGuiFolderTitle(folder, title) {
@@ -1328,6 +1156,37 @@ export const Viewer = {
     this.updateEmbedConfiguratorPreview();
   },
 
+  applyTransformSnapFromShift() {
+    const control = core.transformControl;
+    if (!control) return;
+
+    const mode = control.getMode?.() || "";
+    const useSnap = Viewer.shiftSnapActive === true;
+
+    control.rotationSnap = useSnap && mode === "rotate" ? Viewer.transformSnap.rotate : null;
+    control.scaleSnap = useSnap && mode === "scale" ? Viewer.transformSnap.scale : null;
+  },
+
+  onTransformSnapKeyDown(event) {
+    if (event?.key !== "Shift") return;
+    if (Viewer.shiftSnapActive) return;
+    Viewer.shiftSnapActive = true;
+    Viewer.applyTransformSnapFromShift();
+  },
+
+  onTransformSnapKeyUp(event) {
+    if (event?.key !== "Shift") return;
+    if (!Viewer.shiftSnapActive) return;
+    Viewer.shiftSnapActive = false;
+    Viewer.applyTransformSnapFromShift();
+  },
+
+  onTransformSnapBlur() {
+    if (!Viewer.shiftSnapActive) return;
+    Viewer.shiftSnapActive = false;
+    Viewer.applyTransformSnapFromShift();
+  },
+
   onViewerKeyDown(event) {
     if (!Viewer.isViewerKeyboardActive(event)) return;
 
@@ -1495,6 +1354,13 @@ export const Viewer = {
     Viewer.transformText["Transform Light"] = "";
     Viewer.pickingMode = false;
     Viewer.RULER_MODE = false;
+    this.clippingMode = false;
+    if (core.planeParams?.clippingMode) {
+      core.planeParams.clippingMode.x = false;
+      core.planeParams.clippingMode.y = false;
+      core.planeParams.clippingMode.z = false;
+    }
+    updateActiveClippingPlanes();
     Viewer.updateEditorToolbarLabels();
     Viewer.updateEditorToolbarState();
 
@@ -1550,6 +1416,37 @@ export const Viewer = {
     showToast("toasts.missingFiles", "error", { duration: 5000 });
   },
 
+  async loadRequiredJson(url) {
+    let response;
+
+    try {
+      response = await fetch(url, { cache: "no-store" });
+    } catch (err) {
+      throw new Error(
+        `Cannot access required file "${url.href}". ${err.message}`
+      );
+    }
+
+    if (!response.ok) {
+      const errorText = [
+        `Required configuration file is missing: ${url.href} (HTTP ${response.status})`,
+        'The viewer cannot start without "viewer-settings.json".',
+        'Please verify that the file was copied during the build/deployment.'
+      ].join('\n');
+      toastHelper("missingJsonSettings", "error", { duration: 5000, url: url.href, status: response.status });
+      //throw new Error(errorText);
+    }
+
+    try {
+      return await response.json();
+    } catch (err) {
+      toastHelper("invalidJSON", "error", { duration: 5000, error: err.message });
+      throw new Error(
+        `File "${url.href}" contains invalid JSON. ${err.message}`
+      );
+    }
+  },
+
   async MainInit() {
     if (window.__E2E__) {
       this.ensureE2EState();
@@ -1567,7 +1464,6 @@ export const Viewer = {
     const settingsPath = moduleUrl.pathname.includes('/assets/')
       ? '../viewer-settings.json'
       : './viewer-settings.json';
-    const url = new URL(settingsPath, moduleUrl);
 
     //Setup core variables first to make them available in the loaders and utils
     setCore('viewEntity', this.viewEntity);
@@ -1575,7 +1471,6 @@ export const Viewer = {
     setCore('loadedFile', this.loadedFile);
     setCore('stats', this.stats);
     setCore('guiContainer', this.guiContainer);
-    setCore('lilGui', this.lilGui);
     setCore('gui', this.gui);
     setCore('i18nGui', this.i18nGui);
     setCore('SUPPORTED_EXTENSIONS', this.SUPPORTED_EXTENSIONS);
@@ -1585,10 +1480,35 @@ export const Viewer = {
     setCore('updateClippingHintVisibility', this.updateClippingHintVisibility.bind(this));
     setCore('editorToolbar', this.editorToolbar);
     setCore('wireframeMode', this.wireframeMode);
+    setCore('boundingBox', this.boundingBox);
+    this.noticeContainer = document.createElement("div");
+    this.noticeContainer.id = "viewerNoticeContainer";
+    this.statusNotice = document.createElement("div");
+    this.statusNotice.id = "viewerStatusNotice";
+    this.statusNotice.className = "viewer-notice viewer-notice-status";
+    this.statusNotice.hidden = true;
+    this.statusNotice.setAttribute("role", "status");
+    this.statusNotice.setAttribute("aria-live", "polite");
+    this.noticeContainer.appendChild(this.statusNotice);
+    // Mount early so startup errors can be shown before viewer container is resolved.
+    if (!this.noticeContainer.parentNode) {
+      document.body.appendChild(this.noticeContainer);
+    }
+    setCore("statusNotice", this.statusNotice);
+    this.parseUrlOptions();
+    setCore('showNotifications', this.showNotifications);
+  
+    this.statusNoticeQueue = [];
+    this.statusNoticeActive = false;
+    if (this.statusNoticeTimer) {
+      clearTimeout(this.statusNoticeTimer);
+      this.statusNoticeTimer = null;
+    }
+    if (this.urlOptions.showNotifications !== undefined && this.urlOptions.showNotifications !== null) {
+      core.showNotifications = this.urlOptions.showNotifications;
+    }
 
-    const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    core.CONFIG = await res.json();
+    core.CONFIG = await this.loadRequiredJson(new URL(settingsPath, moduleUrl));
     console.log("Loaded viewer-settings.json", core.CONFIG.viewer);
 
     if (Object.keys(core.CONFIG).length === 0) {
@@ -1596,6 +1516,9 @@ export const Viewer = {
         mainUrl: "https://dfg-repository.wisski.cloud",
         baseNamespace: "https://dfg-repository.wisski.cloud",
         metadataUrl: "https://dfg-repository.wisski.cloud",
+        api: {
+          thumbnailUploadEndpoint: "/api/editor/upload-thumbnail",
+        },
         baseModulePath: "/modules/dfg_3dviewer-main/viewer",
         entity: {
           bundle: "bd3d7baa74856d141bcff7b4193fa128",
@@ -1634,6 +1557,13 @@ export const Viewer = {
           performanceMode: {
             Performance: "high-performance",
           },
+          editorToolbar: {
+            enabled: true,
+            position: {
+              x: 0,
+              y: 0
+            }
+          },
           measurement: {
             modelUnitInMeters: 1,
           }
@@ -1648,11 +1578,17 @@ export const Viewer = {
     setCore('EDITOR', this.EDITOR);
 
     const presentationModeFromConfig = this.parseBooleanParam(core.CONFIG.viewer.presentationMode);
-    this.PRESENTATION_MODE = presentationModeFromConfig ?? Boolean(core.CONFIG.viewer.presentationMode);
+    const presentationModeFromUrl = this.urlOptions?.presentationMode;
+    this.PRESENTATION_MODE = typeof presentationModeFromUrl === "boolean"
+      ? presentationModeFromUrl
+      : (presentationModeFromConfig ?? Boolean(core.CONFIG.viewer.presentationMode));
     setCore('PRESENTATION_MODE', this.PRESENTATION_MODE);
 
     const sandboxModeFromConfig = this.parseBooleanParam(core.CONFIG.viewer.sandboxMode);
-    this.SANDBOX_MODE = sandboxModeFromConfig ?? Boolean(core.CONFIG.viewer.sandboxMode);
+    const sandboxModeFromUrl = this.urlOptions?.sandboxMode;
+    this.SANDBOX_MODE = typeof sandboxModeFromUrl === "boolean"
+      ? sandboxModeFromUrl
+      : (sandboxModeFromConfig ?? Boolean(core.CONFIG.viewer.sandboxMode));
     setCore('SANDBOX_MODE', this.SANDBOX_MODE);
     console.log(`Presentation mode: ${this.PRESENTATION_MODE ? "ON" : "OFF"}`);
     console.log(`Sandbox mode: ${this.SANDBOX_MODE ? "ON" : "OFF"}`);
@@ -1666,29 +1602,6 @@ export const Viewer = {
     }
 
     this.container = document.getElementById(core.CONFIG.viewer.container);
-    this.noticeContainer = document.createElement("div");
-    this.noticeContainer.id = "viewerNoticeContainer";
-    this.statusNotice = document.createElement("div");
-    this.statusNotice.id = "viewerStatusNotice";
-    this.statusNotice.className = "viewer-notice viewer-notice-status";
-    this.statusNotice.hidden = true;
-    this.statusNotice.setAttribute("role", "status");
-    this.statusNotice.setAttribute("aria-live", "polite");
-    this.noticeContainer.appendChild(this.statusNotice);
-    setCore("statusNotice", this.statusNotice);
-    this.statusNoticeQueue = [];
-    this.statusNoticeActive = false;
-    if (this.statusNoticeTimer) {
-      clearTimeout(this.statusNoticeTimer);
-      this.statusNoticeTimer = null;
-    }
-
-    this.parseUrlOptions();
-
-    setCore('showNotifications', this.showNotifications);
-    if (this.urlOptions.showNotifications !== undefined && this.urlOptions.showNotifications !== null) {
-      core.showNotifications = this.urlOptions.showNotifications;
-    }
 
     if (!this.container) {
       document.body.appendChild(this.noticeContainer);
@@ -1767,6 +1680,7 @@ export const Viewer = {
     setCore('targetTween', this.targetTween);
 
     core.container.classList.add("mainContainer");
+    Viewer.setupWindowControls(core.container);
 
     if (core.container.hasAttribute("basePath")) {
       core.CONFIG.baseModulePath = core.container.getAttribute("basePath");
@@ -1806,7 +1720,7 @@ export const Viewer = {
       core.guiContainer.hidden = core.SANDBOX_MODE === true;
       core.container.appendChild(core.guiContainer);
 
-      core.gui  = new GUI({ container: core.guiContainer });
+      core.gui  = new GUI({ container: core.guiContainer, width: 300, autoPlace: false, injectStyles: true });
       core.gui.domElement.style.visibility = "hidden";
 
       this.metadataContainer = document.createElement("div");
@@ -1864,409 +1778,89 @@ export const Viewer = {
   },
 
   normalizeDrupalFilesPath(path) {
-    if (!path || typeof path !== 'string') {
-      return '';
-    }
-
-    return path
-      .replace(/^https?:\/{1,2}[^/]+\/?/, '')
-      .replace(/^public:\/\//, '')
-      .replace(/^\/?sites\/default\/files\/?/, '')
-      .replace(/\/+/g, '/')
-      .replace(/\/$/, '');
+    return normalizeDrupalFilesPath(path);
   },
 
   normalizeArchiveModelPath(path) {
-    if (!path || typeof path !== "string") {
-      return "";
-    }
-
-    const injectGltfSegment = (pathname) => {
-      if (!/\/[^/]+_(ZIP|RAR|TAR|XZ|GZ)\//i.test(pathname) || /\/gltf\//i.test(pathname)) {
-        return pathname;
-      }
-      return pathname.replace(
-        /^(.*\/[^/]+_(ZIP|RAR|TAR|XZ|GZ))(\/?)(.*)$/i,
-        "$1/gltf/$4"
-      );
-    };
-
-    if (/^[a-zA-Z][\w+-.]*:\/\//.test(path)) {
-      try {
-        const url = new URL(path);
-        url.pathname = injectGltfSegment(url.pathname);
-        return url.href;
-      } catch (_err) {
-        return injectGltfSegment(path);
-      }
-    }
-
-    return injectGltfSegment(path);
+    return normalizeArchiveModelPath(path);
   },
 
   setModelPaths() {
-    if (!core.fileObject.originalPath) {
-      core.fileObject.filename = "";
-      core.fileObject.basename = "";
-      core.fileObject.extension = "";
-      core.fileObject.path = "";
-      core.fileObject.uri = "";
-      core.fileObject.relativePath = "";
-      return;
-    }
-
-    core.fileObject.filename = core.fileObject.originalPath.split("/").pop();
-    core.fileObject.basename = core.fileObject.filename.substring(0, core.fileObject.filename.lastIndexOf("."));
-    core.fileObject.extension = core.fileObject.filename.substring(core.fileObject.filename.lastIndexOf(".") + 1);
-    core.fileObject.path = core.fileObject.originalPath.substring(0, core.fileObject.originalPath.lastIndexOf(core.fileObject.filename)) || "/";
-    core.fileObject.uri = core.fileObject.path.replace(core.CONFIG.mainUrl + "/", "");
-    core.fileObject.relativePath = Viewer.normalizeDrupalFilesPath(core.fileObject.uri);
+    return setModelPaths(this);
   },
 
-  // Disable interaction hint on first interaction
- disableInteractionHint() {
-    if (core.PRESENTATION_MODE) return;
-    core.handHint.hidden = true;
-    Viewer.stopGesture();
-
-    // Stop any running camera tweens when user interacts
-    if (core.cameraTween && typeof core.cameraTween.stop === "function") {
-      core.cameraTween.stop();
-      core.cameraTween = null;
-    }
-    if (core.targetTween && typeof core.targetTween.stop === "function") {
-      core.targetTween.stop();
-      core.targetTween = null;
-    }
-
-    //core.handHint.classList.remove("hand-drag-animate");
-    localStorage.setItem("viewerHintSeen", "1");
+  disableInteractionHint() {
+    return disableInteractionHint(this);
   },
 
   addTextWatermark(_text, _scale) {
-    var textGeo;
-    var materials = [
-      new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        flatShading: true,
-        side: THREE.DoubleSide,
-        depthTest: false,
-        depthWrite: false,
-        transparent: true,
-        opacity: 0.4,
-      }), // front
-      new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        flatShading: true,
-        side: THREE.DoubleSide,
-        depthTest: false,
-        depthWrite: false,
-        transparent: true,
-        opacity: 0.4,
-      }), // side
-    ];
-    const loader = new FontLoader();
-
-    loader.load(
-      `${core.DFG_ASSETS}/fonts/helvetiker_regular.typeface.json`,
-      function (font) {
-        const textGeo = new TextGeometry(_text, {
-          font,
-          size: _scale * 3,
-          height: _scale / 10,
-          curveSegments: 5,
-          bevelEnabled: true,
-          bevelThickness: _scale / 8,
-          bevelSize: _scale / 10,
-          bevelOffset: 0,
-          bevelSegments: 1,
-        });
-        textGeo.computeBoundingBox();
-
-        //const centerOffset = - 0.5 * (textGeo.boundingBox.max.x - textGeo.boundingBox.min.x);
-
-        Viewer.textMesh = new THREE.Mesh(textGeo, materials);
-
-        Viewer.textMesh.rotation.z = Math.PI;
-        Viewer.textMesh.rotation.y = Math.PI;
-
-        Viewer.textMesh.position.x = 0;
-        Viewer.textMesh.position.y = 0;
-        Viewer.textMesh.position.z = 0;
-        Viewer.textMesh.renderOrder = 1;
-        core.scene.add(Viewer.textMesh);
-      }
-    );
+    return addTextWatermark(this, _text, _scale);
   },
 
   addTextPoint(_text, _scale, _point) {
-    const loader = new FontLoader();
-    const bevelSize = _scale / 10;
-
-    loader.load(`${core.DFG_ASSETS}/fonts/helvetiker_regular.typeface.json`, (font) => {
-
-      const baseOptions = {
-        font: font,
-        size: _scale * 3,
-        height: _scale,
-        curveSegments: 4,
-        bevelEnabled: true,
-        bevelThickness: bevelSize,
-        bevelSize: bevelSize / 10,
-        bevelOffset: 0,
-        bevelSegments: 1,
-        depth: _scale / 10,
-      };
-
-      const textGeo = new TextGeometry(_text, baseOptions);
-      textGeo.computeBoundingBox();
-
-      const centerOffset = new THREE.Vector3();
-      textGeo.boundingBox.getCenter(centerOffset).negate();
-      textGeo.translate(centerOffset.x, centerOffset.y, centerOffset.z);
-
-      const outlineGeo = textGeo.clone();
-      outlineGeo.scale(1.05, 1.08, 1.05);
-
-      const outlineMat = new THREE.MeshBasicMaterial({
-        color: 0x000000,
-        transparent: true,
-        opacity: 0.9,
-        depthTest: false,
-        depthWrite: false,
-      });
-
-      const fillMat = new THREE.MeshBasicMaterial({
-        color: 0xffffff,
-        transparent: true,
-        opacity: 1,
-        depthTest: false,
-        depthWrite: false,
-      });
-
-      const outlineMesh = new THREE.Mesh(outlineGeo, outlineMat);
-      outlineMesh.position.z = -_scale * 0.02;
-      const fillMesh = new THREE.Mesh(textGeo, fillMat);
-
-      const group = new THREE.Group();
-      group.add(outlineMesh);
-      group.add(fillMesh);
-
-      group.position.set(_point.x, _point.y, _point.z);
-      group.renderOrder = 999;
-
-      group.userData.isDistanceLabel = true;
-
-      Viewer.rulerObject.add(group);
-    });
+    return addTextPoint(this, _text, _scale, _point);
   },
 
   selectObjectHierarchy(_id) {
-    let search = true;
-    for (let i = 0; i < core.selectedObjects.length && search === true; i++) {
-      if (core.selectedObjects[i].id === _id) {
-        search = false;
-        if (core.selectedObjects[i].selected === true) {
-          core.scene.getObjectById(_id).material = core.selectedObjects[i].originalMaterial;
-          core.scene.getObjectById(_id).material.needsUpdate = true;
-          core.selectedObjects[i].selected = false;
-          core.selectedObjects.splice(core.selectedObjects.indexOf(core.selectedObjects[i]), 1);
-        }
-      }
-    }
-    if (search) {
-      core.selectedObjects.push({
-        id: _id,
-        selected: true,
-        originalMaterial: core.scene.getObjectById(_id).material.clone(),
-      });
-      const tempMaterial = core.scene.getObjectById(_id).material.clone();
-      const selectedColor = Viewer.toThreeColor("0x00FF00");
-      if (selectedColor) {
-        tempMaterial.color = selectedColor;
-      }
-      core.scene.getObjectById(_id).material = tempMaterial;
-      core.scene.getObjectById(_id).material.needsUpdate = true;
-    }
-    Viewer.updateHierarchySubmenuState();
+    return selectObjectHierarchy(this, _id);
   },
 
   recreateBoundingBox(object) {
-    var _min = new THREE.Vector3();
-    var _max = new THREE.Vector3();
-    if (object instanceof THREE.Object3D) {
-      object.traverse(function (mesh) {
-        if (mesh instanceof THREE.Mesh) {
-          mesh.geometry.computeBoundingBox();
-          var bBox = mesh.geometry.boundingBox;
-
-          // compute overall bbox
-          _min.x = Math.min(_min.x, bBox.min.x + mesh.position.x);
-          _min.y = Math.min(_min.y, bBox.min.y + mesh.position.y);
-          _min.z = Math.min(_min.z, bBox.min.z + mesh.position.z);
-          _max.x = Math.max(_max.x, bBox.max.x + mesh.position.x);
-          _max.y = Math.max(_max.y, bBox.max.y + mesh.position.y);
-          _max.z = Math.max(_max.z, bBox.max.z + mesh.position.z);
-        }
-      });
-
-      var bBox_min = new THREE.Vector3(_min.x, _min.y, _min.z);
-      var bBox_max = new THREE.Vector3(_max.x, _max.y, _max.z);
-      var bBox_new = new THREE.Box3(bBox_min, bBox_max);
-      object.position.set(
-        (bBox_new.min.x + bBox_new.max.x) / 2,
-        bBox_new.min.y,
-        (bBox_new.min.z + bBox_new.max.z) / 2
-      );
-    }
-    return object;
+    return recreateBoundingBox(object);
   },
 
   normalizeFileUrl(rawUrl) {
-    if (!rawUrl || typeof rawUrl !== "string") {
-      return "";
-    }
-
-    let url = rawUrl.trim();
-    if (url === "") {
-      return "";
-    }
-
-    if (/^\/[a-z][\w+.-]*:\/\//i.test(url)) {
-      url = url.replace(/^\/+/, "");
-    }
-
-    if (url.startsWith("public://")) {
-      url = "/sites/default/files/" + url.substring("public://".length);
-    } else if (url.startsWith("sites/default/files/")) {
-      url = "/" + url;
-    }
-
-    const base = (core.CONFIG?.mainUrl || window.location.origin || "").replace(/\/+$/, "");
-
-    try {
-      const parsed = new URL(url, window.location.origin);
-      const host = (parsed.host || "").toLowerCase();
-      const path = parsed.pathname || "";
-      const hasBadHost =
-        host === "default" ||
-        host === "dfg_3dviewer" ||
-        host.includes("_");
-
-      if (path.startsWith("/sites/default/files/")) {
-        if (hasBadHost) {
-          return `${base}${path}`;
-        }
-        if (parsed.protocol === "http:" || parsed.protocol === "https:") {
-          return parsed.href;
-        }
-        return `${base}${path}`;
-      }
-
-      return parsed.href;
-    } catch (_err) {
-      if (url.startsWith("/sites/default/files/")) {
-        return `${base}${url}`;
-      }
-      return url;
-    }
+    return normalizeFileUrl(this, rawUrl);
   },
 
   shouldIgnoreLegacyEmbedDefaultModel() {
-    if (!this.isEmbedMode()) return false;
-    if (this.urlOptions?.model || this.urlOptions?.id) return false;
-
-    const sourceType = String(core.CONFIG?.entity?.metadata?.sourceType || "").toLowerCase();
-    if (!sourceType.startsWith("drupal")) return false;
-
-    const currentModelAttr = String(this.container?.getAttribute("3d") || "").trim();
-    if (!currentModelAttr) return false;
-
-    return /^(?:\.{1,2}\/)?examples\/box\.stl(?:\?.*)?$/i.test(currentModelAttr);
+    return shouldIgnoreLegacyEmbedDefaultModel(this);
   },
 
   buildGallery() {
-    return buildThumbnailGallery(this);
+    return buildGallery(this);
   },
 
   toHexColor(input) {
-    if (!input) return null;
-
-    // THREE.Color
-    if (typeof input.getHex === "function") {
-      return input.getHex();
-    }
-
-    // hex number
-    if (typeof input === "number") {
-      return input >>> 0;
-    }
-
-    // hex string: "#ff00aa" / "ff00aa"
-    if (typeof input === "string") {
-      const s = input.replace("#", "");
-      if (/^[0-9a-fA-F]{6}$/.test(s)) return parseInt(s, 16);
-      return null;
-    }
-
-    // array [r,g,b] / [r,g,b,a]
-    if (Array.isArray(input)) {
-      const [r, g, b] = input;
-      if ([r, g, b].every(v => typeof v === "number")) {
-        const rr = r <= 1 ? Math.round(r * 255) : r;
-        const gg = g <= 1 ? Math.round(g * 255) : g;
-        const bb = b <= 1 ? Math.round(b * 255) : b;
-        return ((rr & 255) << 16) | ((gg & 255) << 8) | (bb & 255);
-      }
-      return null;
-    }
-
-    // object { r, g, b, a? }
-    if (typeof input === "object" && "r" in input && "g" in input && "b" in input) {
-      const rr = input.r <= 1 ? Math.round(input.r * 255) : input.r;
-      const gg = input.g <= 1 ? Math.round(input.g * 255) : input.g;
-      const bb = input.b <= 1 ? Math.round(input.b * 255) : input.b;
-      return ((rr & 255) << 16) | ((gg & 255) << 8) | (bb & 255);
-    }
-
-    return null;
+    return toHexColor(input);
   },
 
   toThreeColor(input) {
-    const normalized = normalizeColor(input);
-    if (!normalized) return null;
-    return new THREE.Color(
-      normalized.r / 255,
-      normalized.g / 255,
-      normalized.b / 255
-    );
+    return toThreeColor(input);
+  },
+
+  getWrapperSize() {
+    return getWrapperSize(this);
   },
 
   /* picking and measurement moved to viewer/editor modules */
-    updateSize() {
-      const isFullscreen = !!document.fullscreenElement;
-      Viewer.FULLSCREEN = isFullscreen;
+  updateSize() {
+    const isFullscreen = !!document.fullscreenElement;
+    Viewer.FULLSCREEN = isFullscreen;
 
-      if (
-        !Viewer.mainCanvas ||
-        !Viewer.fullscreenMode ||
-        !core.guiContainer
-      ) {
-        return;
-      }
+    if (
+      !core.mainCanvas ||
+      !Viewer.fullscreenMode ||
+      !core.guiContainer
+    ) {
+      return;
+    }
 
-      let widthCSS;
-      let heightCSS;
+    let widthCSS;
+    let heightCSS;
 
-      let scale = {x: 1, y: 1};
-      const wrapper = Viewer.viewerWrapper || core.container;
+    const hasWindowControls = core.container.classList.contains("viewer-window-controls-enabled");
+    let scale = { x: 1, y: 1 };
 
-      if (!wrapper) return;
+    const rect = hasWindowControls
+      ? core.container.getBoundingClientRect()
+      : Viewer.getWrapperSize();
 
-      if (isFullscreen) {
-        widthCSS = window.innerWidth;
-        heightCSS = window.innerHeight;
-      } else {
+    if (isFullscreen) {
+      widthCSS = window.innerWidth;
+      heightCSS = window.innerHeight;
+    } else {
+      if (!hasWindowControls) {
         scale = {
           x: Number(
             core.CONFIG.viewer.scaleContainer?.x || 1
@@ -2275,130 +1869,117 @@ export const Viewer = {
             core.CONFIG.viewer.scaleContainer?.y || 1
           ),
         };
-
-        const rect = wrapper.getBoundingClientRect();
-
-        widthCSS = rect.width || 800;
-        heightCSS = rect.height || 600;
       }
 
-      // final visual size
-      const effectiveWidth = widthCSS * scale.x;
+      widthCSS = rect.width || 800;
+      heightCSS = rect.height || 600;
+    }
 
-      const effectiveHeight = heightCSS * scale.y;
+    // final visual size
+    const effectiveWidth = widthCSS * scale.x;
+    const effectiveHeight = heightCSS * scale.y;
 
-      // CSS size only
-      Viewer.mainCanvas.style.width = `${effectiveWidth}px`;
-      Viewer.mainCanvas.style.height = `${effectiveHeight}px`;
+    // CSS size only
+    core.mainCanvas.style.width = `${effectiveWidth}px`;
+    core.mainCanvas.style.height = `${effectiveHeight}px`;
 
-      const canvasRect = Viewer.mainCanvas.getBoundingClientRect();
-      const parentRect = core.container.getBoundingClientRect();
+    const canvasRect = core.mainCanvas.getBoundingClientRect();
+    const parentRect = core.container.getBoundingClientRect();
 
-      const bottom = parentRect.bottom - canvasRect.bottom + 12 || 24;
+    const bottom = parentRect.bottom - canvasRect.bottom + 12 || 24;
 
-      if (isFullscreen) {
-        Viewer.mainCanvas.style.width = "100vw";
-        Viewer.mainCanvas.style.height = "100vh";
+    if (isFullscreen) {
+      core.mainCanvas.style.width = "100vw";
+      core.mainCanvas.style.height = "100vh";
+      core.editorToolbar.style.bottom = `${bottom}px`;
+    } else {
+      if (core.editorToolbar) {
         core.editorToolbar.style.bottom = `${bottom}px`;
-      } else {
-        const extraHeight = effectiveHeight - heightCSS;
-        if (core.editorToolbar) {
-          core.editorToolbar.style.bottom = `${bottom}px`;
-        }
       }
-
-      // metadata overlay
-      if (core.metadataContainer) {
-        core.metadataContainer.style.width = "100%";
-        core.metadataContainer.style.height = "100%";
+      if (Viewer.creditsWrapper) {
+        Viewer.creditsWrapper.style.width = `${effectiveWidth - 64}px`;
+        Viewer.creditsWrapper.style.left = `${canvasRect.left + 8}px`;
+        Viewer.creditsWrapper.style.bottom = `${bottom - Viewer.creditsWrapper.getBoundingClientRect().height - 24}px`;
       }
+    }
 
-      // optional wrapper sync
-      if (
-        Viewer.fileElement &&
-        Viewer.fileElement.length > 0
-      ) {
-        Viewer.fileElement[0].style.height =
-          `${effectiveHeight * 1.1}px`;
-      }
+    core.guiContainer.style.right = (-core.guiContainer.getBoundingClientRect().width + 10) + 'px !important';
 
-      // GUI position
-      if (!core.guiContainer.hidden) {
-        const guiWidth = core.lilGui?.[0]?.getBoundingClientRect().width || core.guiContainer.getBoundingClientRect().width;
+    // metadata overlay
+    if (core.metadataContainer) {
+      core.metadataContainer.style.width = "100%";
+      core.metadataContainer.style.height = "100%";
+    }
 
-        if (guiWidth > 0) {
-          core.guiContainer.style.left = `${effectiveWidth - guiWidth}px`;
-        }
-      }
+    // optional wrapper sync
+    if (
+      Viewer.fileElement && Viewer.fileElement.length > 0
+    ) {
+      Viewer.fileElement[0].style.height = `${effectiveHeight * 1.1}px`;
+    }
 
-      // camera
-      if (core.camera.isOrthographicCamera) {
-        this.updateOrthoFrustum(
-          core.camera,
-          effectiveWidth,
-          effectiveHeight
-        );
-      } else {
-        core.camera.aspect =
-          effectiveWidth / effectiveHeight;
-
-        core.camera.updateProjectionMatrix();
-      }
-
-      // renderer
-      core.renderer.setPixelRatio(
-        window.devicePixelRatio || 1
-      );
-
-      core.renderer.setSize(
+    // camera
+    if (core.camera.isOrthographicCamera) {
+      this.updateOrthoFrustum(
+        core.camera,
         effectiveWidth,
-        effectiveHeight,
-        false
+        effectiveHeight
       );
+    } else {
+      core.camera.aspect =
+        effectiveWidth / effectiveHeight;
 
-      // action menu
-      if (Viewer.actionMenu) {
-        if (
-          Viewer.actionMenu.classList.contains(
-            "viewer-action-menu_in-toolbar"
-          )
-        ) {
-          Viewer.actionMenu.style.top = "";
-          Viewer.actionMenu.style.right = "";
-          Viewer.actionMenu.style.bottom = "";
-        } else {
-          const menuMargin = 16;
+      core.camera.updateProjectionMatrix();
+    }
 
-          const toggleSize =
-            Viewer.actionMenu
-              .querySelector(
-                ".viewer-action-menu_toggle"
-              )
-              ?.getBoundingClientRect().height || 45;
+    // renderer
+    core.renderer.setPixelRatio(window.devicePixelRatio || 1);
 
-          Viewer.actionMenu.style.top =
-            `${effectiveHeight - toggleSize - menuMargin}px`;
+    core.renderer.setSize( effectiveWidth, effectiveHeight, false);
 
-          Viewer.actionMenu.style.right =
-            `${menuMargin}px`;
+    // action menu
+    if (Viewer.actionMenu) {
+      if (
+        Viewer.actionMenu.classList.contains(
+          "viewer-action-menu_in-toolbar"
+        )
+      ) {
+        Viewer.actionMenu.style.top = "";
+        Viewer.actionMenu.style.right = "";
+        Viewer.actionMenu.style.bottom = "";
+      } else {
+        const menuMargin = 16;
 
-          Viewer.actionMenu.style.bottom = "auto";
-        }
+        const toggleSize =
+          Viewer.actionMenu
+            .querySelector(
+              ".viewer-action-menu_toggle"
+            )
+            ?.getBoundingClientRect().height || 45;
+
+        Viewer.actionMenu.style.top =
+          `${effectiveHeight - toggleSize - menuMargin}px`;
+
+        Viewer.actionMenu.style.right =
+          `${menuMargin}px`;
+
+        Viewer.actionMenu.style.bottom = "auto";
       }
+    }
 
-      // hand hint
-      if (core.handHint) {
-        core.handHint.style.top =
-          `${effectiveHeight - 150}px`;
-      }
+    // hand hint
+    if (core.handHint) {
+      core.handHint.style.top =
+        `${effectiveHeight - 150}px`;
+    }
 
-      core.controls?.update();
+    core.controls?.update();
 
-      core.CONFIG.viewer.canvasDimensions = {
-        x: effectiveWidth,
-        y: effectiveHeight,
-      };
-    },
+    core.CONFIG.viewer.canvasDimensions = {
+      x: effectiveWidth,
+      y: effectiveHeight,
+    };
+  },
 
 
   async toggleFullscreen() {
@@ -2409,6 +1990,7 @@ export const Viewer = {
       } else {
         await document.exitFullscreen();
       }
+      Viewer.syncEditorToolbarFullscreenHost();
       Viewer.updateSize();
       Viewer.updateFullscreenButtonIcon();
       Viewer.updateEditorToolbarLabels();
@@ -2423,6 +2005,8 @@ export const Viewer = {
   },
 
   onFullscreenChange () {
+    Viewer.syncEditorToolbarFullscreenHost();
+
     // Layout (ESC + click)
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -2597,7 +2181,6 @@ export const Viewer = {
     if (!core.guiContainer) return;
 
     core.guiContainer.hidden = false;
-    core.lilGui = document.getElementsByClassName("lil-gui root");
 
     const updateAfterLayout = () => {
       Viewer.updateSize();
@@ -2749,6 +2332,12 @@ export const Viewer = {
 
     var _maxDistance = Math.max(_distance.x, _distance.y, _distance.z);
     Viewer.planeHelpers?.forEach(h => h && (h.size = _maxDistance));
+
+    core.boundingSphere = new THREE.Sphere(center, _maxDistance);
+    core.boundingSphere.center.copy(center);
+    if (typeof core.updateActiveClippingPlanes === "function") {
+      core.updateActiveClippingPlanes();
+    }
   },
 
   changeLightRotation() {
@@ -2844,14 +2433,20 @@ export const Viewer = {
   applyCameraOverridesFromUrl() {
     if (!core.camera) return;
 
+    const requestedProjection = this.urlOptions?.cameraProjection;
+    if (requestedProjection === "orthographic" || requestedProjection === "perspective") {
+      this.setCameraProjection(requestedProjection);
+    }
+
     const cameraPosition = this.urlOptions?.cameraPosition;
     const cameraTarget = this.urlOptions?.cameraTarget;
     const cameraFov = this.urlOptions?.cameraFov;
+    const cameraZoom = this.urlOptions?.cameraZoom;
     const hasPosition = cameraPosition && Number.isFinite(cameraPosition.x) && Number.isFinite(cameraPosition.y) && Number.isFinite(cameraPosition.z);
     const hasTarget = cameraTarget && Number.isFinite(cameraTarget.x) && Number.isFinite(cameraTarget.y) && Number.isFinite(cameraTarget.z);
-    const hasFov = Number.isFinite(cameraFov);
-    if (!hasPosition && !hasTarget && !hasFov) return;
-
+    const hasFov = Number.isFinite(cameraFov) && core.camera.isPerspectiveCamera === true;
+    const hasZoom = Number.isFinite(cameraZoom) && core.camera.isOrthographicCamera === true;
+  
     if (hasPosition) {
       core.camera.position.copy(cameraPosition);
       core.cameraLight?.position.copy(cameraPosition);
@@ -2867,9 +2462,18 @@ export const Viewer = {
         this.embedConfigInputs.fov.value = String(normalizedFov);
       }
     }
+    if (hasZoom) {
+      core.camera.zoom = Math.max(0.001, Number(cameraZoom));
+    }
 
     core.camera.updateProjectionMatrix();
+    if (hasPosition) {
+      core.controls?.object?.position.copy(core.camera.position);
+    }
     core.controls?.update();
+
+    this.applyClippingOverridesFromUrl();
+
   },
 
   createClippingPlaneAxis(_number, axis = "z") {
@@ -2981,6 +2585,10 @@ export const Viewer = {
     core.targetTween.start();
   },
 
+  async resetModelSettings() {
+    await resetModelSettings();
+  },
+
   buildMetadata(rotateMetadata) {
     return buildEditorMetadata(this, rotateMetadata);
   },
@@ -2991,7 +2599,7 @@ export const Viewer = {
     core.stats.domElement.classList.add("viewer-stats");
     if (typeof core.guiContainer !== "undefined" && core.stats?.dom) {
       core.guiContainer.appendChild(core.stats.dom);
-      core.stats.dom.style.left = (core.guiContainer.getBoundingClientRect().width - core.stats.domElement.getBoundingClientRect().width + 10) + 'px';
+      core.guiContainer.style.right = (-core.guiContainer.getBoundingClientRect().width) + 'px !important';
       core.stats.dom.style.visibility = 'hidden';
     }
 
@@ -3005,8 +2613,8 @@ export const Viewer = {
     const showTransformHintToast = (mode) => {
       const hints = {
         translate: t("toasts.transformMove", "Move: drag axis arrows to reposition the object."),
-        rotate: t("toasts.transformRotate", "Rotate: drag rotation rings to rotate the object."),
-        scale: t("toasts.transformScale", "Scale: drag axis handles to resize the object."),
+        rotate: t("toasts.transformRotate", "Rotate: drag rotation rings to rotate the object. Hold Shift to snap angle."),
+        scale: t("toasts.transformScale", "Scale: drag axis handles to resize the object. Hold Shift to snap scale."),
       };
       const message = hints[mode];
       if (!message) return;
@@ -3050,6 +2658,7 @@ export const Viewer = {
           core.renderer.localClippingEnabled = true;
 
           core.transformControl.setMode(value);
+          Viewer.applyTransformSnapFromShift();
           core.transformControl.attach(object);
           showTransformHintToast(value);
 
@@ -3128,7 +2737,7 @@ export const Viewer = {
       })
       .listen();
 
-    const lightFolderCamera = Viewer.editorFolder.addFolder(t("gui.cameraLight", "Camera Light")).close();
+    /*const lightFolderCamera = Viewer.editorFolder.addFolder(t("gui.cameraLight", "Camera Light")).close();
     core.i18nGui.lightFolderCamera = lightFolderCamera;
     core.i18nGui.cameraLightColorController = lightFolderCamera
       .addColor(Viewer.colors, "CameraLight")
@@ -3143,47 +2752,8 @@ export const Viewer = {
       .onChange(function (value) {
         Viewer.cameraLight.intensity = value;
       })
-      .listen();
+      .listen();*/
 
-    const backgroundFolder = Viewer.editorFolder.addFolder(t("gui.backgroundColor", "Background Color")).close();
-    core.i18nGui.backgroundFolder = backgroundFolder;
-    core.i18nGui.backgroundColorController = backgroundFolder
-      .addColor(Viewer.colors, "BackgroundColor")
-      .name(t("gui.backgroundColor", "Background Color"))
-      .onChange(function (value) {
-        changeBackground(
-          Viewer.backgroundType["Background Type"],
-          value,
-          Viewer.colors["BackgroundColorOuter"]
-        );
-      })
-      .listen();
-    core.i18nGui.backgroundColorOuterController = backgroundFolder
-      .addColor(Viewer.colors, "BackgroundColorOuter")
-      .name(t("gui.backgroundColorOuter", "Background Color Outer"))
-      .onChange(function (value) {
-        changeBackground(
-          Viewer.backgroundType["Background Type"],
-          Viewer.colors["BackgroundColor"],
-          value
-        );
-      })
-      .listen();
-    core.i18nGui.backgroundTypeController = backgroundFolder
-      .add(Viewer.backgroundType, "Background Type", {
-        [t("gui.linear", "Linear")]: "linear",
-        [t("gui.gradient", "Gradient")]: "gradient",
-      })
-      .name(t("gui.backgroundType", "Background Type"))
-      .onChange(function (value) {
-        if (value == "linear") Viewer.backgroundOuterFolder.hide();
-        else Viewer.backgroundOuterFolder.show();
-        changeBackground(
-          value,
-          Viewer.colors["BackgroundColor"],
-          Viewer.colors["BackgroundColorOuter"]
-        );
-      });
     setCore("clippingFolder", Viewer.clippingFolder);
 
     if (core.EDITOR) {
@@ -3313,12 +2883,16 @@ export const Viewer = {
 
   // IIIF setup and loading
   async setupManifesto(newUrlOrJson, type="url", manifestType = "iiif") {
+    const isAim3ifManifest = manifestType !== "iiif";
     if (type === "text") {
       Viewer.iiifConfigURL.url = "";
     } else {
       Viewer.iiifConfigURL.url = newUrlOrJson;
     }
     const loadedManifest = manifestType === "iiif" ? await loadIIIFManifest(newUrlOrJson) : await loadAIM3IFManifest(newUrlOrJson);
+    if (isAim3ifManifest) {
+      Viewer.applyWindowState?.(getManifestWindowState(loadedManifest.manifest));
+    }
     if (loadedManifest.modelUrls.length === 0) { // no 3D model found, use example model
       loadedManifest.modelUrls.push('https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb');
       showToast(t("toasts.noIiiifModelFallback", "No 3D model found in IIIF manifest, loading example model."));
@@ -3349,6 +2923,10 @@ export const Viewer = {
       }
       Viewer._ext = core.fileObject.extension.toLowerCase();
       await Viewer.mainLoadModel();
+
+      if (isAim3ifManifest && i === loadedManifest.modelUrls.length - 1) {
+        Viewer.import3IFManifest?.(loadedManifest.manifest);
+      }
     }
   },
 
@@ -3456,6 +3034,7 @@ export const Viewer = {
       Viewer.camera.position.set(0, 0, 0);
       setCore('renderer', Viewer.renderer);
       setCore('camera', Viewer.camera);
+      setCore('embedCamera', Viewer.embedCamera);
       setCore('mainObject', Viewer.mainObject);
 
       Viewer.scene = new THREE.Scene();
@@ -3545,6 +3124,7 @@ export const Viewer = {
 
       core.renderer.domElement.id = "MainCanvas";
       Viewer.mainCanvas = document.getElementById("MainCanvas") || core.renderer.domElement;
+      setCore('mainCanvas', Viewer.mainCanvas);
 
       if (window.__E2E__) {
         document.body.appendChild(core.renderer.domElement);
@@ -3576,6 +3156,9 @@ export const Viewer = {
           core.renderer.domElement.focus();
         });
         Viewer.bindEventListener(core.renderer.domElement, "keydown", Viewer.onViewerKeyDown);
+        Viewer.bindEventListener(window, "keydown", Viewer.onTransformSnapKeyDown);
+        Viewer.bindEventListener(window, "keyup", Viewer.onTransformSnapKeyUp);
+        Viewer.bindEventListener(window, "blur", Viewer.onTransformSnapBlur);
 
         if (core.isLocalPreview || core.SANDBOX_MODE) {
           Viewer.bindEventListener(core.renderer.domElement, "dragover", Viewer.onDragOver);
@@ -3602,13 +3185,14 @@ export const Viewer = {
 
       core.renderer.domElement.style.display = "block";
       core.container.appendChild(core.renderer.domElement);
-      Viewer.mainCanvas.classList.add("mainCanvas");
+      core.mainCanvas.classList.add("mainCanvas");
 
       Viewer.viewerWrapper = core.container.closest('.viewer-wrapper');
+      setCore('viewerWrapper', Viewer.viewerWrapper);
 
-      if (!Viewer.viewerWrapper) {
-        Viewer.viewerWrapper = core.container.parentElement;
-        Viewer.viewerWrapper.classList.add('viewer-wrapper');
+      if (!core.viewerWrapper) {
+        core.viewerWrapper = core.container.parentElement;
+        core.viewerWrapper.classList.add('viewer-wrapper');
       }
 
       Viewer.attachEditorToolbar();
@@ -3616,7 +3200,6 @@ export const Viewer = {
       core.camera.aspect = core.CONFIG.viewer.canvasDimensions.x / core.CONFIG.viewer.canvasDimensions.y;
       core.camera.updateProjectionMatrix();
 
-      setCore('mainCanvas', Viewer.mainCanvas);
       if (!core.PRESENTATION_MODE) {
         const scriptUrl = document.currentScript?.src || import.meta.url;
         Viewer.DFG_ASSETS = scriptUrl.replace(/\/[^\/]*$/, '');
@@ -3657,10 +3240,16 @@ export const Viewer = {
         Viewer.viewEntity.setAttribute("type", "button");
         Viewer.viewEntity.hidden = true;
 
-        Viewer.downloadModel = document.createElement("a");
+        Viewer.shareView = document.createElement("button");
+        Viewer.shareView.setAttribute("id", "shareView");
+        Viewer.shareView.setAttribute("type", "button");
+        Viewer.shareView.hidden = true;
+
+        Viewer.downloadModelElement = document.createElement("a");
         setCore('downloadModel', Viewer.downloadModel);
-        core.downloadModel.setAttribute("id", "downloadModel");
-        core.downloadModel.hidden = true;
+        setCore('downloadModelElement', Viewer.downloadModelElement);
+        core.downloadModelElement.setAttribute("id", "downloadModel");
+        core.downloadModelElement.hidden = true;
 
         Viewer.fullscreenMode = document.createElement("button");
         Viewer.updateFullscreenButtonIcon();
@@ -3708,20 +3297,22 @@ export const Viewer = {
 
         Viewer.actionMenuPanel.appendChild(Viewer.languageModeContainer);
         Viewer.actionMenuPanel.appendChild(Viewer.themeMode);
+        Viewer.actionMenuPanel.appendChild(Viewer.shareView);
         Viewer.actionMenuPanel.appendChild(Viewer.viewEntity);
-        Viewer.actionMenuPanel.appendChild(Viewer.downloadModel);
+        //Viewer.actionMenuPanel.appendChild(Viewer.downloadModelElement);
         if (Viewer.urlOptions.hideUi) {
           Viewer.actionMenu.hidden = true;
         }
-        this.createEmbedConfiguratorPanel();
 
         setCore('viewEntity', Viewer.viewEntity);
         Viewer.bindEventListener(Viewer.languageMode, "click", Viewer.toggleLanguage.bind(Viewer));
         Viewer.bindEventListener(Viewer.themeMode, "click", Viewer.toggleTheme.bind(Viewer));
+        Viewer.bindEventListener(Viewer.shareView, "click", Viewer.copyShareViewUrl.bind(Viewer));
         Viewer.bindEventListener(Viewer.viewEntity, "click", Viewer.openEmbedConfiguratorFromMenu.bind(Viewer));
+        Viewer.updateShareMenuEntryState();
         Viewer.updateEmbedMenuEntryState();
         Viewer.applyLanguage({ persist: false });
-        Viewer.bindEventListener(Viewer.downloadModel, "click", () => Viewer.closeActionMenu());
+        //Viewer.bindEventListener(Viewer.downloadModelElement, "click", () => Viewer.closeActionMenu());
         Viewer.bindEventListener(document, "click", (event) => {
           if (
             !Viewer.actionMenu?.contains(event.target) &&
@@ -3734,7 +3325,7 @@ export const Viewer = {
         Viewer.handHint.innerHTML = `<img src="${core.DFG_ASSETS}/img/hand-hint.png" alt="Hand hint" width=48 height=48 title="Hand hint animation"/>`;
         
         Viewer.rect = core.container.getBoundingClientRect();
-        if (Viewer.viewerWrapper === core.container && core.CONFIG.viewer?.scaleContainer) {
+        if (core.viewerWrapper === core.container && core.CONFIG.viewer?.scaleContainer) {
           const scale = {
             x: Number(core.CONFIG.viewer.scaleContainer.x || 1),
             y: Number(core.CONFIG.viewer.scaleContainer.y || 1),
@@ -3745,14 +3336,13 @@ export const Viewer = {
           };
         }
         core.guiContainer.style.maxHeight = `${Viewer.rect.height - 20}px`;
-        //core.lilGui = document.getElementsByClassName("lil-gui root");
 
         Viewer.fileElement = document.getElementsByClassName("field--type-file");
         if (Viewer.fileElement.length > 0) {
           Viewer.fileElement[0].style.height = core.CONFIG.viewer.canvasDimensions.y * 1.1 + "px";
         }
 
-        if (core.CONFIG.viewer.gallery?.build === true && !core.SANDBOX_MODE) {
+        if (core.CONFIG.viewer.gallery?.build === true && !core.SANDBOX_MODE && !this.isEmbedMode()) {
           Viewer.buildGallery();
         }
       }
@@ -3791,12 +3381,14 @@ export const Viewer = {
 
       if (!core.PRESENTATION_MODE) {
         Viewer.transformControl = new TransformControls(core.camera, core.renderer.domElement);
-        Viewer.transformControl.rotationSnap = THREE.MathUtils.degToRad(5);
+        Viewer.transformControl.rotationSnap = null;
+        Viewer.transformControl.scaleSnap = null;
         Viewer.transformControl.space = "local";
         Viewer.transformControl.addEventListener("change", Viewer.render);
         Viewer.transformControl.addEventListener("objectChange", () => {
           Viewer.changeScale();
           Viewer.syncOutlineClippingTransform();
+          Viewer.calculateObjectScale();
         });
         Viewer.transformControl.addEventListener("mouseUp", () => {
           Viewer.syncOutlineClippingTransform();
@@ -3895,7 +3487,12 @@ export const Viewer = {
           });
         }
       }
-
+      if ((core.isLocalPreview || core.SANDBOX_MODE) && !core.PRESENTATION_MODE) {
+        Viewer.creditsWrapper = await createCreditsElement();
+        if (Viewer.creditsWrapper) {
+          core.container.appendChild(Viewer.creditsWrapper);
+        }
+      }
       if (core.SANDBOX_MODE) {
         Viewer.prepareSandboxScene();
       } else if (!core.PRESENTATION_MODE) {
@@ -4010,7 +3607,7 @@ export const Viewer = {
       Viewer.bindEventListener(window, 'resize', update);
 
       Viewer.resizeObserver = new ResizeObserver(update);
-      Viewer.resizeObserver.observe(Viewer.viewerWrapper);
+      Viewer.resizeObserver.observe(core.viewerWrapper);
 
 
       Viewer.bindEventListener(document, 'fullscreenchange', Viewer.onFullscreenChange);
@@ -4032,6 +3629,7 @@ attachAnnotations(Viewer);
 attachPicking(Viewer);
 attachMeasurement(Viewer);
 attachEmbedConfigurator(Viewer);
+attachWindowControls(Viewer);
 
 
 export async function expectWebGL(page, showToast) {

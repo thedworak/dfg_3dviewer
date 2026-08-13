@@ -1,9 +1,16 @@
 import { AIM3DManifest } from "./manifesto";
+import { formatAIM3DManifestValidationErrors, validateAIM3DManifest } from "./aim3dviewer-validation.js";
 
 export async function loadAIM3IFManifest(manifestUrlOrJson) {
   const aim3dManifest = new AIM3DManifest(manifestUrlOrJson);
 
   await aim3dManifest.loadManifest();
+
+  const validation = validateAIM3DManifest(aim3dManifest.manifest);
+  if (!validation.valid) {
+    const detail = formatAIM3DManifestValidationErrors(validation.errors);
+    throw new Error(`Invalid AIM3D manifest.\n${detail}`);
+  }
 
   const modelUrls = [];
   let modelTarget = null;
@@ -74,4 +81,18 @@ export function applyManifestConfig(manifest, objectsConfig) {
 
   model.wireframe =
     transform.wireframe ?? false;
+}
+
+export function getManifestWindowState(manifest) {
+  const windowState = manifest?.AIM3DViewer?.viewer?.window;
+  if (!windowState) return null;
+
+  const position = Array.isArray(windowState.position)
+    ? { x: windowState.position[0], y: windowState.position[1] }
+    : windowState.position;
+
+  return {
+    position,
+    size: windowState.size,
+  };
 }

@@ -1321,7 +1321,21 @@ class ConvertWorker extends QueueWorkerBase {
       'fd6a974b7120d422c7b21b5f1f2315d9',
     ], self::ADDITIONAL_MODEL_MIRROR_FIELDS))));
 
-    foreach ($fields as $field_name) {
+    $all_field_names = [];
+    if (is_object($entity) && method_exists($entity, 'getFields')) {
+      $all_field_names = array_keys($entity->getFields());
+    }
+
+    $checked_fields = [];
+    $unchecked_fields = $all_field_names;
+
+    foreach (array_merge($fields, $unchecked_fields) as $field_name) {
+      $field_name = (string) $field_name;
+      if ($field_name === '' || isset($checked_fields[$field_name])) {
+        continue;
+      }
+      $checked_fields[$field_name] = TRUE;
+
       if (!$this->entityHasField($entity, $field_name)) {
         continue;
       }

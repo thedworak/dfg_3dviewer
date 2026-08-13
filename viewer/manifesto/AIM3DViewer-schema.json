@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://viewer.thedworak.com/schema/AIM3DViewer-schema.json",
+  "title": "AIM3DViewer Manifest",
+  "type": "object",
+  "required": ["@context", "id", "type", "items"],
+  "properties": {
+    "@context": {
+      "anyOf": [
+        { "type": "string" },
+        { "type": "array", "items": { "type": ["string", "object"] } }
+      ]
+    },
+    "id": { "type": "string" },
+    "type": { "type": "string", "const": "Manifest" },
+    "label": { "type": "object" },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type"],
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "type": "string" },
+          "items": { "type": "array" },
+          "annotations": { "type": "array" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "AIM3DViewer": {
+      "type": "object",
+      "properties": {
+        "version": { "type": "string" },
+        "generatedAt": { "type": "string" },
+        "camera": {
+          "type": "object",
+          "properties": {
+            "position": { "$ref": "#/$defs/vector3" },
+            "target": { "$ref": "#/$defs/vector3" },
+            "up": { "$ref": "#/$defs/vector3" },
+            "fov": { "type": "number" },
+            "zoom": { "type": "number" },
+            "distance": { "type": "number" },
+            "perspectiveMode": { "enum": ["perspective", "orthographic"] }
+          },
+          "additionalProperties": true
+        },
+        "viewer": {
+          "type": "object",
+          "properties": {
+            "container": { "type": "string" },
+            "mailUrl": { "type": "string" },
+            "baseNamespace": { "type": "string" },
+            "metadataUrl": { "type": "string" },
+            "theme": { "enum": ["light", "dark"] },
+            "language": { "enum": ["en", "pl", "de"] },
+            "backgroundColor": { "type": "string" },
+            "environmentMap": {
+              "type": "object",
+              "properties": {
+                "intensity": { "type": "number" },
+                "preset": { "type": "string" },
+                "enabled": { "type": "boolean" }
+              },
+              "additionalProperties": true
+            },
+            "presentationMode": { "type": "boolean" },
+            "sandbox": { "type": "boolean" },
+            "autorotate": { "type": "boolean" },
+            "autorotateSpeed": { "type": "number" },
+            "disableInteraction": { "type": "boolean" },
+            "hideUi": { "type": "boolean" },
+            "hideMetadata": { "type": "boolean" },
+            "showNotifications": { "type": "boolean" },
+            "scale": { "$ref": "#/$defs/vector2orObject" },
+            "window": {
+              "type": "object",
+              "properties": {
+                "position": { "$ref": "#/$defs/vector2orObject" },
+                "size": {
+                  "type": "object",
+                  "properties": {
+                    "width": { "type": "number", "minimum": 0 },
+                    "height": { "type": "number", "minimum": 0 }
+                  },
+                  "additionalProperties": true
+                }
+              },
+              "additionalProperties": true
+            },
+            "performance": { "type": "string" },
+            "units": { "type": ["number", "string"] },
+            "gallery": { "type": "object" },
+            "editorToolbar": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "position": { "$ref": "#/$defs/vector2orObject" },
+                "expanded": { "type": "boolean" },
+                "visible": { "type": "boolean" }
+              },
+              "additionalProperties": true
+            },
+            "menuToolbar": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "position": { "$ref": "#/$defs/vector2orObject" }
+              },
+              "additionalProperties": true
+            },
+            "clipping": {
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "type": "object",
+                  "properties": {
+                    "x": { "type": "boolean" },
+                    "y": { "type": "boolean" },
+                    "z": { "type": "boolean" }
+                  },
+                  "additionalProperties": true
+                },
+                "constants": { "$ref": "#/$defs/vector3" },
+                "outlineVisible": { "type": "boolean" }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        },
+        "integration": { "type": "object" },
+        "lights": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string" },
+              "position": { "$ref": "#/$defs/vector3" },
+              "target": { "$ref": "#/$defs/vector3" },
+              "color": { "type": "string" },
+              "intensity": { "type": "number" }
+            },
+            "additionalProperties": true
+          }
+        },
+        "modelTransform": {
+          "type": "object",
+          "properties": {
+            "position": { "$ref": "#/$defs/vector3" },
+            "rotation": {
+              "type": "object",
+              "properties": {
+                "x": { "type": "number" },
+                "y": { "type": "number" },
+                "z": { "type": "number" },
+                "order": { "type": "string" }
+              },
+              "additionalProperties": true
+            },
+            "scale": { "$ref": "#/$defs/vector3" },
+            "wireframe": { "type": "boolean" }
+          },
+          "additionalProperties": true
+        },
+        "clipping": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "object",
+              "properties": {
+                "x": { "type": "boolean" },
+                "y": { "type": "boolean" },
+                "z": { "type": "boolean" }
+              },
+              "additionalProperties": true
+            },
+            "constants": { "$ref": "#/$defs/vector3" },
+            "outlineVisible": { "type": "boolean" }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "modified": { "type": "string" }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "vector3": {
+      "anyOf": [
+        {
+          "type": "array",
+          "minItems": 3,
+          "items": { "type": "number" }
+        },
+        {
+          "type": "object",
+          "required": ["x", "y", "z"],
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" },
+            "z": { "type": "number" }
+          },
+          "additionalProperties": true
+        }
+      ]
+    },
+    "vector2orObject": {
+      "anyOf": [
+        {
+          "type": "array",
+          "minItems": 2,
+          "items": { "type": "number" }
+        },
+        {
+          "type": "object",
+          "required": ["x", "y"],
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" }
+          },
+          "additionalProperties": true
+        }
+      ]
+    }
+  }
+}

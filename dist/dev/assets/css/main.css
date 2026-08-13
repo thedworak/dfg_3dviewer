@@ -52,6 +52,52 @@ a.wisski-inline-iip > div#wisski-iip-cont > img {
   height: 100dvh;
   z-index: 9999;
 }
+.viewer-window-controls {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+}
+.viewer-window-drag-handle {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 96px;
+  height: 24px;
+  transform: translateX(-50%);
+  cursor: move;
+  pointer-events: auto;
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+.viewer-window-drag-handle::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  width: 24px;
+  height: 8px;
+  transform: translateX(-50%);
+  background: radial-gradient(circle, rgba(255, 255, 255, .82) 1.5px, transparent 2px) 0 0 / 8px 8px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .55));
+}
+.viewer-window-controls-enabled:hover .viewer-window-drag-handle,
+.viewer-window-drag-handle:hover {
+  opacity: .72;
+}
+.viewer-window-resize-handle {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  pointer-events: auto;
+}
+.viewer-window-resize-top-left { top: 0; left: 0; cursor: nwse-resize; }
+.viewer-window-resize-top-right { top: 0; right: 0; cursor: nesw-resize; }
+.viewer-window-resize-bottom-left { bottom: 0; left: 0; cursor: nesw-resize; }
+.viewer-window-resize-bottom-right { bottom: 0; right: 0; cursor: nwse-resize; }
+.mainContainer.fullscreen .viewer-window-controls {
+  display: none;
+}
 
 .mainCanvas {
   display: block;
@@ -238,7 +284,6 @@ canvas {
   position: absolute;
   top: 0px;
   left: auto;
-  right: 0px;
   z-index: 100;
   pointer-events: auto;
   transition: opacity 0.3s ease;
@@ -1209,6 +1254,10 @@ canvas {
   background-color: rgba(66, 56, 45, 0.82);
 }
 
+.viewer-wrapper[data-viewer-theme="light"] .share-view-icon {
+  background-color: rgba(66, 56, 45, 0.82);
+}
+
 #metadata-collapse.metadata-collapsed .metadata-toggle-chevron::before {
   transform: rotate(-45deg);
 }
@@ -1292,6 +1341,70 @@ canvas {
   opacity: 1;
 }
 
+.galleryNav {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+
+  width: 56px;
+  height: 56px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 999px;
+  background:
+    linear-gradient(145deg,
+      rgba(255,255,255,.2),
+      rgba(255,255,255,.04));
+  color: rgba(255,255,255,.95);
+
+  cursor: pointer;
+  user-select: none;
+
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+
+  transform: translateY(-50%);
+
+  transition:
+    transform .2s ease,
+    background .2s ease,
+    border-color .2s ease,
+    box-shadow .2s ease;
+}
+
+.galleryNav svg {
+  width: 28px;
+  height: 28px;
+  fill: currentColor;
+}
+
+.galleryNav:hover {
+  transform: translateY(-50%) scale(1.06);
+  border-color: rgba(255,255,255,.35);
+  background:
+    linear-gradient(145deg,
+      rgba(255,255,255,.28),
+      rgba(255,255,255,.08));
+  box-shadow: 0 12px 28px rgba(0,0,0,.3);
+}
+
+.galleryNav:focus-visible {
+  outline: 2px solid rgba(255,255,255,.85);
+  outline-offset: 2px;
+}
+
+.galleryNavPrev {
+  left: 28px;
+}
+
+.galleryNavNext {
+  right: 28px;
+}
+
 .closeGallery {
   position: absolute;
   top: 24px;
@@ -1329,6 +1442,26 @@ canvas {
   background: rgba(255,255,255,.16);
 }
 
+@media (max-width: 900px) {
+  .galleryNav {
+    width: 46px;
+    height: 46px;
+  }
+
+  .galleryNav svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .galleryNavPrev {
+    left: 12px;
+  }
+
+  .galleryNavNext {
+    right: 12px;
+  }
+}
+
 #viewerActionMenu {
   position: absolute;
   right: 16px;
@@ -1338,9 +1471,9 @@ canvas {
 }
 
 .viewer-stats {
-  position: fixed !important;
+  position: absolute !important;
   top: 0px !important;
-  left: 97% !important;
+  right: -90px !important;
   max-height: 120px;
   max-width: 90px;
   z-index: 2;
@@ -1635,9 +1768,16 @@ canvas {
 }
 
 
+
+html.presentation-mode,
+html.presentation-mode body,
+html.presentation-mode #DFG_3DViewer,
+html.presentation-mode .mainContainer,
+html.presentation-mode .mainCanvas,
+html.presentation-mode canvas,
 .presentation-mode,
 .presentation-mode body {
-    background: transparent !important;
+  background: transparent !important;
 }
 
 body.presentation-mode {

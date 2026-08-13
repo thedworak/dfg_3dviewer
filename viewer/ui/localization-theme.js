@@ -1,6 +1,7 @@
 import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { UltraLoader } from "../ultra-loader.js";
+import { normalizeLanguage } from "../viewer-param-utils.js";
 
 export function attachLocalizationTheme(viewer) {
   Object.assign(viewer, {
@@ -13,14 +14,7 @@ export function attachLocalizationTheme(viewer) {
       return storedTheme === "0" ? "light" : "dark";
     },
 
-    normalizeLanguage(value) {
-      if (value == null) return null;
-      const normalizedValue = String(value).trim().toLowerCase();
-      if (normalizedValue.startsWith("pl")) return "pl";
-      if (normalizedValue.startsWith("de")) return "de";
-      if (normalizedValue.startsWith("en")) return "en";
-      return null;
-    },
+    normalizeLanguage,
 
     getStoredLanguage() {
       const fromQuery = this.normalizeLanguage(this.urlOptions?.language);
@@ -108,7 +102,7 @@ export function attachLocalizationTheme(viewer) {
 
     updateActionMenuLabels() {
       if (!this.actionMenu) return;
-      const actionMenuLabel = t("menu.mainMenu", "Main menu");
+      const actionMenuLabel = t("gui.mainMenu", "Main menu");
 
       const toggle = this.actionMenu.querySelector(".viewer-action-menu_toggle");
       toggle?.setAttribute("title", actionMenuLabel);
@@ -118,8 +112,8 @@ export function attachLocalizationTheme(viewer) {
     },
 
     updateDownloadMenuEntryLabel() {
-      if (!this.downloadModel || this.downloadModel.hidden) return;
-      this.downloadModel.innerHTML = `
+      if (!this.downloadModelElement || this.downloadModelElement.hidden) return;
+      this.downloadModelElement.innerHTML = `
         <span class="viewer-action-icon download-icon" aria-hidden="true"></span>
         <span>${t("menu.download", "Download")}</span>
       `;
@@ -131,6 +125,7 @@ export function attachLocalizationTheme(viewer) {
       this.updateActionMenuLabels();
       this.updateLanguageControlLabels();
       this.updateThemeControlLabels();
+      this.updateShareMenuEntryState?.();
       this.updateEmbedMenuEntryState();
       this.updateFullscreenButtonIcon();
       this.updateDownloadMenuEntryLabel();

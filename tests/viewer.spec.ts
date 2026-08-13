@@ -53,6 +53,14 @@ async function waitForViewerIssue(page) {
   );
 }
 
+async function openMainActionMenu(page) {
+  const menuToggle = page.locator('#viewerActionMenuToggle');
+  if (!(await menuToggle.isChecked())) {
+    await page.click('label[for="viewerActionMenuToggle"]');
+  }
+  await expect(menuToggle).toBeChecked();
+}
+
 test('viewer runs in E2E mode', async ({ page }) => {
   await openViewer(page);
 
@@ -66,6 +74,88 @@ test('viewer runs in E2E mode', async ({ page }) => {
 
   expect(hasWebGL).toBe(true);
   await expect.poll(() => page.evaluate(() => window.__E2E__)).toBe(true);
+});
+
+test('fullscreen includes the editor toolbar', async ({ page }) => {
+  await openViewer(page);
+  await expect(page.locator('#viewerEditorToolbar')).toBeVisible();
+
+  const state = await page.evaluate(async () => {
+    const container = document.querySelector<HTMLElement>('#DFG_3DViewer');
+    const wrapper = container?.closest<HTMLElement>('.viewer-wrapper');
+    if (!container || !wrapper) throw new Error('Viewer wrapper is unavailable');
+
+    let fullscreenElement: Element | null = null;
+    Object.defineProperty(document, 'fullscreenElement', {
+      configurable: true,
+      get: () => fullscreenElement,
+    });
+
+    let fullscreenHost: Element | null = null;
+    container.requestFullscreen = async () => {
+      fullscreenHost = container;
+      fullscreenElement = container;
+    };
+
+    await (window as any).Viewer.toggleFullscreen();
+
+    const fullscreenState = {
+      requestedContainer: fullscreenHost === container,
+      toolbarIsInsideContainer: container.contains(document.querySelector('#viewerEditorToolbar')),
+      toolbarParentIsContainer: document.querySelector('#viewerEditorToolbar')?.parentElement === container,
+    };
+
+    document.exitFullscreen = async () => {
+      fullscreenElement = null;
+    };
+    await (window as any).Viewer.toggleFullscreen();
+
+    return {
+      ...fullscreenState,
+      toolbarParentIsWrapperAfterExit: document.querySelector('#viewerEditorToolbar')?.parentElement === wrapper,
+    };
+  });
+
+  expect(state.requestedContainer).toBe(true);
+  expect(state.toolbarIsInsideContainer).toBe(true);
+  expect(state.toolbarParentIsContainer).toBe(true);
+  expect(state.toolbarParentIsWrapperAfterExit).toBe(true);
+});
+
+test('viewer window can be resized and moved from its controls', async ({ page }) => {
+  await openViewer(page);
+  const container = page.locator('#DFG_3DViewer');
+  await expect(container.locator('.viewer-window-drag-handle')).toBeAttached();
+  await expect(container.locator('.viewer-window-resize-bottom-right')).toBeAttached();
+
+  const before = await container.boundingBox();
+  if (!before) throw new Error('Viewer container bounding box is unavailable');
+
+  const resizeHandle = container.locator('.viewer-window-resize-bottom-right');
+  const resizeBox = await resizeHandle.boundingBox();
+  if (!resizeBox) throw new Error('Viewer resize handle bounding box is unavailable');
+  await page.mouse.move(resizeBox.x + 4, resizeBox.y + 4);
+  await page.mouse.down();
+  await page.mouse.move(resizeBox.x + 44, resizeBox.y + 34);
+  await page.mouse.up();
+
+  const afterResize = await container.boundingBox();
+  if (!afterResize) throw new Error('Viewer container bounding box after resize is unavailable');
+  expect(afterResize.width).toBeGreaterThan(before.width + 20);
+  expect(afterResize.height).toBeGreaterThan(before.height + 15);
+
+  const dragHandle = container.locator('.viewer-window-drag-handle');
+  const dragBox = await dragHandle.boundingBox();
+  if (!dragBox) throw new Error('Viewer drag handle bounding box is unavailable');
+  await page.mouse.move(dragBox.x + dragBox.width / 2, dragBox.y + dragBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(dragBox.x + 30, dragBox.y + 25);
+  await page.mouse.up();
+
+  const afterMove = await container.boundingBox();
+  if (!afterMove) throw new Error('Viewer container bounding box after move is unavailable');
+  expect(afterMove.x).toBeGreaterThan(afterResize.x + 15);
+  expect(afterMove.y).toBeGreaterThan(afterResize.y + 10);
 });
 
 test('sandbox mode starts without loading a model', async ({ page }) => {
@@ -164,6 +254,143 @@ test('camera rotates on mouse drag', async ({ page }) => {
       }))
     )
     .not.toEqual(before);
+});
+
+/*test('reset settings restores the model state used without a _viewer.json file', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+
+  const resetButton = page.locator('button[data-tool="resetSettings"]');
+  await expect(resetButton).toHaveAttribute('aria-label', 'Reset settings');
+
+  const initialState = await page.evaluate(() => {
+    const object = window.Viewer?.mainObject?.[0];
+    const model = Array.isArray(object) ? object[0] : object;
+    if (!model) throw new Error('Loaded model is unavailable');
+
+    return {
+      position: model.position.toArray(),
+      rotation: [
+        model.rotation.x,
+        model.rotation.y,
+        model.rotation.z,
+      ],
+      scale: model.scale.toArray(),
+    };
+  });
+
+  await page.evaluate(() => {
+    const object = window.Viewer?.mainObject?.[0];
+    const model = Array.isArray(object) ? object[0] : object;
+    if (!model) throw new Error('Loaded model is unavailable');
+
+    model.position.set(123, 456, 789);
+    model.rotation.set(1, 2, 3);
+    model.scale.set(2, 3, 4);
+    model.updateMatrixWorld(true);
+  });
+
+  await resetButton.click({ force: true });
+
+  await expect.poll(async () => {
+    return page.evaluate(() => {
+      const object = window.Viewer?.mainObject?.[0];
+      const model = Array.isArray(object) ? object[0] : object;
+      if (!model) return null;
+
+      return {
+        position: model.position.toArray(),
+        rotation: [
+          model.rotation.x,
+          model.rotation.y,
+          model.rotation.z,
+        ],
+        scale: model.scale.toArray(),
+      };
+    });
+  }).toEqual(initialState);
+});*/
+
+test('embed configurator uses the current camera for preview url', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+  await page.waitForFunction(() => window.Viewer?.camera && window.Viewer?.controls);
+
+  await page.evaluate(() => {
+    const viewer = window.Viewer;
+    const camera = viewer?.camera;
+    const controls = viewer?.controls;
+    if (!camera || !controls) {
+      throw new Error('Viewer camera is unavailable');
+    }
+
+    // Stabilize camera state before assertions.
+    viewer.cameraTween?.stop?.();
+    viewer.targetTween?.stop?.();
+    controls.autoRotate = false;
+    controls.enableDamping = false;
+
+    camera.position.set(-1.8352523027, 1.8888667447, 3.6705046054);
+    controls.target.set(0, 1, 0);
+    camera.fov = 45;
+    camera.updateProjectionMatrix();
+    controls.update();
+  });
+
+  await openMainActionMenu(page);
+  await page.click('#viewEntity');
+  await expect(page.locator('#embedConfiguratorPanel')).toBeVisible();
+
+  await page.click('#embedUseCurrentCamera');
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const parseVector = (value) => {
+          const parts = String(value || '').split(',').map((part) => Number(part.trim()));
+          if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) {
+            return null;
+          }
+          return parts;
+        };
+
+        const camera = window.Viewer?.camera;
+        const controls = window.Viewer?.controls;
+        const camPosInput = document.querySelector('#embedCamPosInput')?.value ?? '';
+        const camTargetInput = document.querySelector('#embedCamTargetInput')?.value ?? '';
+
+        if (!camera || !controls) {
+          return Number.POSITIVE_INFINITY;
+        }
+
+        const parsedCamPos = parseVector(camPosInput);
+        const parsedCamTarget = parseVector(camTargetInput);
+        if (!parsedCamPos || !parsedCamTarget) {
+          return Number.POSITIVE_INFINITY;
+        }
+
+        const positionDiff = Math.max(
+          Math.abs(parsedCamPos[0] - camera.position.x),
+          Math.abs(parsedCamPos[1] - camera.position.y),
+          Math.abs(parsedCamPos[2] - camera.position.z)
+        );
+        const targetDiff = Math.max(
+          Math.abs(parsedCamTarget[0] - controls.target.x),
+          Math.abs(parsedCamTarget[1] - controls.target.y),
+          Math.abs(parsedCamTarget[2] - controls.target.z)
+        );
+
+        return Math.max(positionDiff, targetDiff);
+      })
+    )
+    .toBeLessThan(0.01);
+
+  const camPosValue = await page.locator('#embedCamPosInput').inputValue();
+  const camTargetValue = await page.locator('#embedCamTargetInput').inputValue();
+  const embedUrl = await page.locator('#embedUrlOutput').inputValue();
+
+  expect(embedUrl).toContain(`camPos=${encodeURIComponent(camPosValue)}`);
+  expect(embedUrl).toContain(`camTarget=${encodeURIComponent(camTargetValue)}`);
 });
 
 test('reports unsupported format without loading a model', async ({ page }) => {

@@ -21,6 +21,18 @@ export function attachEmbedConfigurator(Viewer) {
       return embedUrl;
     },
 
+    getViewerPageUrl() {
+      const viewerUrl = new URL(window.location.href);
+      viewerUrl.search = "";
+      viewerUrl.hash = "";
+
+      if (viewerUrl.pathname.endsWith("/embed.html")) {
+        viewerUrl.pathname = viewerUrl.pathname.replace(/\/embed\.html$/, "/index.html");
+      }
+
+      return viewerUrl;
+    },
+
     async copyTextToClipboard(value) {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(value);
@@ -55,19 +67,35 @@ export function attachEmbedConfigurator(Viewer) {
         cameraPosition: null,
         cameraTarget: null,
         fov: null,
+        cameraProjection: null,
+        cameraZoom: null,
+        clippingMode: null,
+        clippingConstants: null,
+        clippingOutline: null,
       };
 
       if (includeCamera) {
+        if (!this.viewerInstance && !this.iframeWindow) {this.iframeWindow = this.embedConfigPreviewFrame?.contentWindow; this.viewerInstance = this.iframeWindow?.Viewer; }
         options.cameraPosition = this.formatVector3Param(core.camera?.position);
         options.cameraTarget = this.formatVector3Param(core.controls?.target);
         options.fov = Number.isFinite(core.camera?.fov) ? core.camera.fov : null;
+        options.cameraProjection = core.camera?.isOrthographicCamera ? "orthographic" : "perspective";
+        options.cameraZoom = Number.isFinite(core.camera?.zoom) ? core.camera.zoom : null;
+        options.clippingMode = this.formatClippingModeParam(core.planeParams?.clippingMode);
+
+        const clipX = Number(core.clippingPlanes?.[0]?.constant);
+        const clipY = Number(core.clippingPlanes?.[1]?.constant);
+        const clipZ = Number(core.clippingPlanes?.[2]?.constant);
+        if (Number.isFinite(clipX) && Number.isFinite(clipY) && Number.isFinite(clipZ)) {
+          options.clippingConstants = this.formatVector3Param({ x: clipX, y: clipY, z: clipZ });
+        }
+        options.clippingOutline = core.planeParams?.outline?.visible === true;
       }
 
       return options;
     },
 
     applyEmbedOptionsToInputs(options = {}) {
-      console.log(this.embedConfigInputs);
       if (!this.embedConfigInputs) return;
       this.embedConfigInputs.model.value = options.model ?? "";
       this.embedConfigInputs.id.value = options.id ?? "";
@@ -81,10 +109,6 @@ export function attachEmbedConfigurator(Viewer) {
       this.embedConfigInputs.camPos.value = options.cameraPosition ?? "";
       this.embedConfigInputs.camTarget.value = options.cameraTarget ?? "";
       this.embedConfigInputs.fov.value = Number.isFinite(options.fov) ? String(options.fov) : "";
-      console.log(
-  "fillConfiguratorWithCurrentCamera",
-  this.embedConfigInputs.camPos.value
-);
     },
 
     setEmbedInputError(input, hasError, message = "") {
@@ -118,8 +142,7 @@ export function attachEmbedConfigurator(Viewer) {
       return camPosOk && camTargetOk && fovOk;
     },
 
-    buildEmbedPayload(options = {}) {
-      const embedUrl = this.getEmbedPageUrl();
+    buildViewerParams(options = {}) {
       const params = new URLSearchParams();
 
       if (options.model) {
@@ -163,23 +186,55 @@ export function attachEmbedConfigurator(Viewer) {
       if (Number.isFinite(options.fov)) {
         params.set("fov", String(options.fov));
       }
+      if (options.cameraProjection === "orthographic" || options.cameraProjection === "perspective") {
+        params.set("projection", options.cameraProjection);
+      }
+      if (Number.isFinite(options.cameraZoom) && options.cameraProjection === "orthographic") {
+        params.set("zoom", String(options.cameraZoom));
+      }
+      if (options.clippingMode) {
+        params.set("clip", options.clippingMode);
+      }
+      if (options.clippingConstants) {
+        params.set("clipConst", options.clippingConstants);
+      }
+      if (typeof options.clippingOutline === "boolean") {
+        params.set("clipOutline", options.clippingOutline ? "1" : "0");
+      }
 
+      return params;
+    },
+
+    buildEmbedPayload(options = {}) {
+      const embedUrl = this.getEmbedPageUrl();
+      const params = this.buildViewerParams(options);
       embedUrl.search = params.toString();
 
       return {
         url: embedUrl.toString(),
-        code: `<iframe src="${embedUrl.toString()}" title="DFG 3D Viewer" loading="lazy" allow="fullscreen; xr-spatial-tracking" referrerpolicy="strict-origin-when-cross-origin" style="width:100%; aspect-ratio: 16 / 9; border: 0;"></iframe>`,
+        code: `<iframe src="${embedUrl.toString()}" title="DFG 3D Viewer" loading="lazy" allow="fullscreen; xr-spatial-tracking" referrerpolicy="strict-origin-when-cross-origin" style="width:100%; aspect-ratio: 16 / 9; border: 0; background: transparent;"></iframe>`,
       };
     },
 
-    getSharePayload() {
+    buildViewerPayload(options = {}) {
+      const viewerUrl = this.getViewerPageUrl();
+      const params = this.buildViewerParams(options);
+      viewerUrl.search = params.toString();
+      return { url: viewerUrl.toString() };
+    },
+
+    getEmbedPayload() {
       return this.buildEmbedPayload(this.getCurrentEmbedOptions({ includeCamera: true }));
     },
 
+    getSharePayload() {
+      return this.buildViewerPayload(this.getCurrentEmbedOptions({ includeCamera: true }));
+    },
+
     collectEmbedConfiguratorOptions() {
-      console.trace("collectEmbedConfiguratorOptions");
       const inputs = this.embedConfigInputs;
       if (!inputs) return this.getCurrentEmbedOptions({ includeCamera: true });
+      const currentViewState = this.getCurrentEmbedOptions({ includeCamera: true });
       const parsedCamPos = this.parseVector3Param(inputs.camPos.value);
       const parsedCamTarget = this.parseVector3Param(inputs.camTarget.value);
       const parsedFov = this.parseFloatParam(inputs.fov.value);
@@ -197,6 +252,11 @@ export function attachEmbedConfigurator(Viewer) {
         cameraPosition: this.formatVector3Param(parsedCamPos),
         cameraTarget: this.formatVector3Param(parsedCamTarget),
         fov: normalizedFov,
+        cameraProjection: currentViewState.cameraProjection,
+        cameraZoom: currentViewState.cameraZoom,
+        clippingMode: currentViewState.clippingMode,
+        clippingConstants: currentViewState.clippingConstants,
+        clippingOutline: currentViewState.clippingOutline,
       };
     },
 
@@ -233,9 +293,13 @@ export function attachEmbedConfigurator(Viewer) {
 
       this.updatingEmbedFields = true;
 
-      this.embedConfigInputs.camPos.value = this.formatVector3Param(core.camera?.position) || "";
-      this.embedConfigInputs.camTarget.value = this.formatVector3Param(core.controls?.target) || "";
-      this.embedConfigInputs.fov.value = Number.isFinite(core.camera?.fov) ? String(core.camera.fov) : "";
+      const activeCamera = core.camera;
+      const activeControls = core.controls;
+
+      this.embedConfigInputs.camPos.value = this.formatVector3Param(activeCamera?.position) || "";
+      this.embedConfigInputs.camTarget.value = this.formatVector3Param(activeControls?.target) || "";
+      this.embedConfigInputs.fov.value = Number.isFinite(activeCamera?.fov) ? String(activeCamera.fov) : "";
+
       this.updatingEmbedFields = false;
       this.updateEmbedConfiguratorPreview();
     },
@@ -253,17 +317,18 @@ export function attachEmbedConfigurator(Viewer) {
       const willShow = this.embedConfiguratorPanel.hidden === true;
       this.embedConfiguratorPanel.hidden = !willShow;
       if (willShow) {
-        this.updateEmbedConfiguratorPreview();
+        this.resetEmbedConfiguratorFromViewerState();
       }
       this.updateEmbedMenuEntryState();
     },
 
     openEmbedConfiguratorFromMenu(event) {
+      this.createEmbedConfiguratorPanel();
       this.toggleEmbedConfigurator(event);
     },
 
     createEmbedConfiguratorPanel() {
-      if (!core.container || this.embedConfiguratorPanel) return;
+      if (!core.container || this.embedConfiguratorPanel || this.isEmbedMode()) return;
       const defaults = this.getCurrentEmbedOptions({ includeCamera: true });
       const panelText = {
         title: t("embedPanel.title", "Embed options"),
@@ -293,6 +358,7 @@ export function attachEmbedConfigurator(Viewer) {
         preview: t("embedPanel.preview", "Preview"),
         previewTitle: t("embedPanel.previewTitle", "Embed preview"),
       };
+
       const panel = document.createElement("div");
       panel.id = "embedConfiguratorPanel";
       panel.hidden = true;
@@ -340,6 +406,7 @@ export function attachEmbedConfigurator(Viewer) {
       </div>
     `;
 
+      panel.style.height = core.mainCanvas.style.height;
       core.container.appendChild(panel);
       this.embedConfiguratorPanel = panel;
       this.embedConfigInputs = {
@@ -359,6 +426,9 @@ export function attachEmbedConfigurator(Viewer) {
         iframe: panel.querySelector("#embedIframeOutput"),
       };
       this.embedConfigPreviewFrame = panel.querySelector("#embedPreviewFrame");
+
+      const iframeWindow = this.embedConfigPreviewFrame.contentWindow;
+      this.viewerInstance = iframeWindow.Viewer;
 
       const watchedInputs = [
         this.embedConfigInputs.model,
@@ -430,13 +500,40 @@ export function attachEmbedConfigurator(Viewer) {
       this.closeActionMenu();
 
       try {
-        const { code } = this.getSharePayload();
+        const { code } = this.getEmbedPayload();
         await this.copyTextToClipboard(code);
         toastHelper("embedCodeCopied", "success");
       } catch (error) {
         this.reportError(error, { context: "Copy embed code failed" });
         toastHelper("embedCodeCopyError", "error");
       }
+    },
+
+    async copyShareViewUrl(event) {
+      event?.preventDefault?.();
+      this.closeActionMenu();
+
+      try {
+        const { url } = this.getSharePayload();
+        if (!url) {
+          toastHelper("embedSourceMissing", "warning");
+          return;
+        }
+        await this.copyTextToClipboard(url);
+        toastHelper("shareUrlCopied", "success");
+      } catch (error) {
+        this.reportError(error, { context: "Copy share URL failed" });
+        toastHelper("shareUrlCopyError", "error");
+      }
+    },
+
+    updateShareMenuEntryState() {
+      if (!this.shareView) return;
+      const label = t("menu.shareView", "Share view");
+      this.shareView.innerHTML = `<span class="share-view-icon" aria-hidden="true"></span><span>${label}</span>`;
+      const a11yLabel = t("menu.copyShareView", "Copy share view link");
+      this.shareView.setAttribute("aria-label", a11yLabel);
+      this.shareView.setAttribute("title", a11yLabel);
     },
 
     updateEmbedMenuEntryState() {

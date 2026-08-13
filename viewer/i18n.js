@@ -7,6 +7,8 @@ export const VIEWER_I18N = {
       exitEmbed: "Exit embed",
       openEmbedOptions: "Open embed options",
       exitEmbedMode: "Exit embed mode",
+      shareView: "Share view",
+      copyShareView: "Copy share view link",
       download: "Download",
     },
     theme: {
@@ -40,6 +42,7 @@ export const VIEWER_I18N = {
       selectedFaces: "Selected faces",
     },
     gui: {
+      mainMenu: "Main menu",
       moveToolbar: "Move toolbar",
       orbit: "Navigation mode",
       controls: "Controls",
@@ -74,8 +77,10 @@ export const VIEWER_I18N = {
       addAnnotations: "Add annotations",
       exportAnnotationsXml: "Export annotations XML",
       importAnnotationsXml: "Import annotations XML",
+      IIIFimport: "Import 3IF",
       IIIFexport: "Export IIIF",
       resetCameraPosition: "Reset camera position",
+      resetSettings: "Reset settings",
       saveSettings: "Save settings",
       renderPreview: "Render preview",
       color: "Color",
@@ -217,8 +222,8 @@ export const VIEWER_I18N = {
     },
     toasts: {
       transformMove: "Move: drag axis arrows to reposition the object.",
-      transformRotate: "Rotate: drag rotation rings to rotate the object.",
-      transformScale: "Scale: drag axis handles to resize the object.",
+      transformRotate: "Rotate: drag rotation rings to rotate the object. Hold Shift for snapping.",
+      transformScale: "Scale: drag axis handles to resize the object. Hold Shift for snapping.",
       transformLightMove: "Transform Light - Move: drag axis arrows to move the directional light.",
       transformLightTarget: "Transform Light - Target: drag axis arrows to reposition the light target.",
       distanceEnabled: "Distance measurement is enabled.",
@@ -231,6 +236,8 @@ export const VIEWER_I18N = {
       settingsFound: "Settings {filename}_viewer.json found",
       settingsNotFound: "No settings {filename}_viewer.json found",
       metadataFetchError: "Error fetching metadata: {error}",
+      invalidJSON: "Invalid JSON: {error}",
+      missingJsonSettings: "Required configuration file is missing: {url} (HTTP {status})\nThe viewer cannot start without \"viewer-settings.json\".\nPlease verify that the file was copied during the build/deployment.",
 
       presentationModeError: "An error occurred during presentation mode setup.",
       objLoaded: "OBJ model has been loaded.",
@@ -252,6 +259,10 @@ export const VIEWER_I18N = {
       embedIframeCopyError: "Could not copy embed iframe.",
       embedCodeCopied: "Embed code copied to clipboard.",
       embedCodeCopyError: "Could not copy embed code.",
+      shareUrlCopied: "Share view URL copied.",
+      shareUrlCopyError: "Could not copy share view URL.",
+      invalidManifest: "Invalid AIM3D manifest.",
+      manifestValidationFailed: "AIM3D manifest validation failed.",
 
       annotationDataMissing: "Annotation data not found for this POI.",
       selectFaceRequired: "Select at least one face to add annotation.",
@@ -266,6 +277,8 @@ export const VIEWER_I18N = {
       noAnnotationsToExport: "No annotations to export.",
       noValidAnnotations: "No valid annotations found in XML.",
       annotationsImportError: "Failed to import annotations XML.",
+      noValidAnnotationsInManifest: "No valid annotations found in AIM3IF manifest.",
+      manifestImportedWithoutAnnotations: "AIM3IF manifest imported. Viewer settings were applied (no annotations in manifest).",
 
       settingsSaved: "Settings have been saved.",
       settingsSaveError: "Error saving settings.",
@@ -284,6 +297,8 @@ export const VIEWER_I18N = {
       containerNotFound: "Container element not found. Please check the Viewer configuration.",
       missingFiles: "Missing required files for the Viewer. Please check the Viewer configuration.",
       unsupportedFileFormat: "Unsupported file format.",
+
+      performanceModeSet: "Performance mode set to {mode}.",
     },
     shortcuts: {
       mouse: "Mouse: drag orbit, wheel zoom, right-drag pan",
@@ -300,6 +315,8 @@ export const VIEWER_I18N = {
       exitEmbed: "Wyjdź z osadzania",
       openEmbedOptions: "Otwórz opcje osadzania",
       exitEmbedMode: "Wyjdź z trybu osadzania",
+      shareView: "Udostępnij widok",
+      copyShareView: "Skopiuj link udostępniania widoku",
       download: "Pobierz",
     },
     theme: {
@@ -333,6 +350,7 @@ export const VIEWER_I18N = {
       selectedFaces: "Wybrane sciany",
     },
     gui: {
+      mainMenu: "Główne menu",
       moveToolbar: "Przesuń pasek narzędzi",
       orbit: "Tryb nawigacji",
       controls: "Sterowanie",
@@ -367,8 +385,10 @@ export const VIEWER_I18N = {
       addAnnotations: "Dodaj annotacje",
       exportAnnotationsXml: "Eksportuj annotacje XML",
       importAnnotationsXml: "Importuj annotacje XML",
+      IIIFimport: "Importuj 3IF",
       IIIFexport: "Eksportuj do IIIF",
       resetCameraPosition: "Resetuj pozycję kamery",
+      resetSettings: "Resetuj ustawienia",
       saveSettings: "Zapisz ustawienia",
       renderPreview: "Renderuj podgląd",
       color: "Kolor",
@@ -510,8 +530,8 @@ export const VIEWER_I18N = {
     },
     toasts: {
       transformMove: "Przesuwanie: przeciągnij strzalki osi, aby przesunąć obiekt.",
-      transformRotate: "Obracanie: przeciągnij pierscienie obrotu, aby obrócić obiekt.",
-      transformScale: "Skalowanie: przeciągnij uchwyty osi, aby zmienić rozmiar obiektu.",
+      transformRotate: "Obracanie: przeciągnij pierscienie obrotu, aby obrócić obiekt. Przytrzymaj Shift, aby włączyć przyciąganie.",
+      transformScale: "Skalowanie: przeciągnij uchwyty osi, aby zmienić rozmiar obiektu. Przytrzymaj Shift, aby włączyć przyciąganie.",
       transformLightMove: "Transformacja światła - Przesunięcie: przeciągnij strzalki osi, aby przesunąć światło kierunkowe.",
       transformLightTarget: "Transformacja światła - Cel: przeciągnij strzałki osi, aby przesunąć punkt celu światła.",
       distanceEnabled: "Pomiar odległości jest włączony.",
@@ -524,6 +544,8 @@ export const VIEWER_I18N = {
       settingsFound: "Znaleziono ustawienia {filename}_viewer.json",
       settingsNotFound: "Nie znaleziono ustawień {filename}_viewer.json",
       metadataFetchError: "Błąd pobierania metadanych: {error}",
+      invalidJSON: "Nieprawidłowy JSON: {error}",
+      missingJsonSettings: "Brak wymaganego pliku konfiguracyjnego: {url} (HTTP {status})\nViewer nie może się uruchomić bez \"viewer-settings.json\".\nProszę sprawdzić, czy plik został skopiowany podczas budowania/deploymentu.",
 
       presentationModeError: "Wystąpił błąd podczas konfiguracji trybu prezentacji.",
       objLoaded: "Model OBJ został załadowany.",
@@ -545,6 +567,10 @@ export const VIEWER_I18N = {
       embedIframeCopyError: "Nie udało się skopiować iframe.",
       embedCodeCopied: "Kod osadzenia został skopiowany do schowka.",
       embedCodeCopyError: "Nie udało się skopiować kodu osadzenia.",
+      shareUrlCopied: "Skopiowano link udostępniania widoku.",
+      shareUrlCopyError: "Nie udało się skopiować linku udostępniania widoku.",
+      invalidManifest: "Nieprawidłowy manifest AIM3D.",
+      manifestValidationFailed: "Walidacja manifestu AIM3D nie powiodła się.",
 
       annotationDataMissing: "Nie znaleziono danych adnotacji dla tego punktu.",
       selectFaceRequired: "Wybierz co najmniej jedną ścianę, aby dodać adnotację.",
@@ -559,6 +585,8 @@ export const VIEWER_I18N = {
       noAnnotationsToExport: "Brak adnotacji do eksportu.",
       noValidAnnotations: "Nie znaleziono poprawnych adnotacji w XML.",
       annotationsImportError: "Nie udało się zaimportować XML adnotacji.",
+      noValidAnnotationsInManifest: "Nie znaleziono poprawnych adnotacji w manifeście AIM3IF.",
+      manifestImportedWithoutAnnotations: "Zaimportowano manifest AIM3IF. Ustawienia viewer'a zostały zastosowane (brak adnotacji w manifeście).",
 
       settingsSaved: "Ustawienia zostały zapisane.",
       settingsSaveError: "Błąd zapisywania ustawień.",
@@ -577,6 +605,8 @@ export const VIEWER_I18N = {
       containerNotFound: "Element kontenera nie został znaleziony. Proszę sprawdzić konfigurację Viewera.",
       missingFiles: "Brak wymaganych plików dla Viewera. Proszę sprawdzić konfigurację Viewera.",
       unsupportedFileFormat: "Nieobsługiwany format pliku.",
+
+      performanceModeSet: "Tryb wydajności ustawiony na {mode}.",
     },
     shortcuts: {
       mouse: "Mysz: przeciągnij, aby obracać, rolka - zoom, prawy przycisk - przesuwanie",
@@ -593,6 +623,8 @@ export const VIEWER_I18N = {
       exitEmbed: "Einbettung beenden",
       openEmbedOptions: "Einbettungsoptionen öffnen",
       exitEmbedMode: "Einbettungsmodus beenden",
+      shareView: "Ansicht teilen",
+      copyShareView: "Link zur geteilten Ansicht kopieren",
       download: "Herunterladen",
     },
     theme: {
@@ -625,6 +657,7 @@ export const VIEWER_I18N = {
       selectedFaces: "Ausgewählte Flächen",
     },
     gui: {
+      mainMenu: "Hauptmenü",
       moveToolbar: "Werkzeugleiste verschieben",
       orbit: "Navigationsmodus",
       controls: "Steuerung",
@@ -659,8 +692,10 @@ export const VIEWER_I18N = {
       addAnnotations: "Anmerkungen hinzufügen",
       exportAnnotationsXml: "Anmerkungen XML exportieren",
       importAnnotationsXml: "Anmerkungen XML importieren",
+      IIIFimport: "3IF importieren",
       IIIFexport: "IIIF exportieren",
       resetCameraPosition: "Kameraposition zurücksetzen",
+      resetSettings: "Einstellungen zurücksetzen",
       saveSettings: "Einstellungen speichern",
       renderPreview: "Vorschau rendern",
       color: "Farbe",
@@ -802,8 +837,8 @@ export const VIEWER_I18N = {
     },
     toasts: {
       transformMove: "Bewegen: Ziehen Sie die Achsenpfeile, um das Objekt zu repositionieren.",
-      transformRotate: "Drehen: Ziehen Sie die Rotationsringe, um das Objekt zu drehen.",
-      transformScale: "Skalieren: Ziehen Sie die Achsengriffe, um die Größe des Objekts zu ändern.",
+      transformRotate: "Drehen: Ziehen Sie die Rotationsringe, um das Objekt zu drehen. Halten Sie die Umschalttaste gedrückt, um das Einrasten zu aktivieren.",
+      transformScale: "Skalieren: Ziehen Sie die Achsengriffe, um die Größe des Objekts zu ändern. Halten Sie die Umschalttaste gedrückt, um das Einrasten zu aktivieren.",
       transformLightMove: "Licht transformieren - Bewegen: Ziehen Sie die Achsenpfeile, um das gerichtete Licht zu bewegen.",
       transformLightTarget: "Licht transformieren - Ziel: Ziehen Sie die Achsenpfeile, um das Lichtziel zu repositionieren.",
       distanceEnabled: "Entfernungsmessung ist aktiviert.",
@@ -816,6 +851,8 @@ export const VIEWER_I18N = {
       settingsFound: "Einstellungen {filename}_viewer.json gefunden",
       settingsNotFound: "Keine Einstellungen {filename}_viewer.json gefunden",
       metadataFetchError: "Fehler beim Abrufen der Metadaten: {error}",
+      invalidJSON: "Ungültiges JSON: {error}",
+      missingJsonSettings: "Erforderliche Konfigurationsdatei fehlt: {url} (HTTP {status})\nDer Viewer kann ohne \"viewer-settings.json\" nicht gestartet werden.\nBitte überprüfen Sie, ob die Datei während des Build/Deployments kopiert wurde.",
 
       presentationModeError: "Beim Einrichten des Präsentationsmodus ist ein Fehler aufgetreten.",
       objLoaded: "OBJ-Modell wurde geladen.",
@@ -837,6 +874,10 @@ export const VIEWER_I18N = {
       embedIframeCopyError: "Einbettungs-iframe konnte nicht kopiert werden.",
       embedCodeCopied: "Einbettungscode in die Zwischenablage kopiert.",
       embedCodeCopyError: "Einbettungscode konnte nicht kopiert werden.",
+      shareUrlCopied: "URL der geteilten Ansicht kopiert.",
+      shareUrlCopyError: "URL der geteilten Ansicht konnte nicht kopiert werden.",
+      invalidManifest: "Ungültiges AIM3D-Manifest.",
+      manifestValidationFailed: "AIM3D-Manifestvalidierung fehlgeschlagen.",
 
       annotationDataMissing: "Keine Annotationsdaten für diesen Punkt gefunden.",
       selectFaceRequired: "Wählen Sie mindestens eine Fläche aus, um eine Annotation hinzuzufügen.",
@@ -851,6 +892,8 @@ export const VIEWER_I18N = {
       noAnnotationsToExport: "Keine Annotationen zum Exportieren.",
       noValidAnnotations: "Keine gültigen Annotationen im XML gefunden.",
       annotationsImportError: "Import der Annotations-XML fehlgeschlagen.",
+      noValidAnnotationsInManifest: "Keine gültigen Annotationen im AIM3IF-Manifest gefunden.",
+      manifestImportedWithoutAnnotations: "AIM3IF-Manifest importiert. Viewer-Einstellungen wurden angewendet (keine Annotationen im Manifest).",
 
       settingsSaved: "Einstellungen wurden gespeichert.",
       settingsSaveError: "Fehler beim Speichern der Einstellungen.",
@@ -869,6 +912,8 @@ export const VIEWER_I18N = {
       containerNotFound: "Container-Element nicht gefunden. Bitte überprüfen Sie die Viewer-Konfiguration.",
       missingFiles: "Fehlende erforderliche Dateien für den Viewer. Bitte überprüfen Sie die Viewer-Konfiguration.",
       unsupportedFileFormat: "Nicht unterstütztes Dateiformat.",
+
+      performanceModeSet: "Leistungsmodus auf {mode} gesetzt.",
     },
     shortcuts: {
       mouse: "Maus: ziehen zum Drehen, Mausrad - Zoom, Rechtsklick - Verschieben",

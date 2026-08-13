@@ -12,16 +12,18 @@
   --viewer-toolbar-visible-offset: 14px;
   --viewer-toolbar-max-width: 1080px;
   --viewer-toolbar-scale: clamp(0.75, calc((98vw) / var(--viewer-toolbar-max-width)), 1);
+  --viewer-toolbar-picker-control-min-width: 118px;
+  --viewer-toolbar-expand-shift: 0px;
 
   position: absolute;
   left: 0;
-  right: 0;
-  margin-inline: auto;
+  right: auto;
+  margin-inline: 0;
   width: max-content;
   bottom: 14px;
   transform:
     translate3d(
-      var(--drag-x, 0px),
+      calc(var(--drag-x, 0px) + var(--viewer-toolbar-expand-shift, 0px)),
       var(--drag-y, 0px),
       0
     )
@@ -42,7 +44,7 @@
   backdrop-filter: blur(14px);
   scrollbar-width: none;
   touch-action: none;
-  transform-origin: center bottom;
+  transform-origin: left bottom;
   transition:
     opacity 1.25s ease,
     transform 1.25s ease,
@@ -50,6 +52,14 @@
     padding 1.28s ease,
     box-shadow 1.28s ease,
     background 1.28s ease;
+}
+
+#viewerEditorToolbar.viewer-editor-toolbar_anchor-center {
+  transform-origin: center bottom;
+}
+
+#viewerEditorToolbar.viewer-editor-toolbar_anchor-left {
+  transform-origin: left bottom;
 }
 
 .viewer-editor-toolbar_handle {
@@ -131,17 +141,34 @@
 .editorToolbar-hidden {
   opacity: 0;
   visibility: hidden;
-  transform: translateY(6px) scale(0.98);
+  transform:
+    translate3d(
+      calc(var(--drag-x, 0px) + var(--viewer-toolbar-expand-shift, 0px)),
+      calc(var(--drag-y, 0px) + 6px),
+      0
+    )
+    scale(calc(var(--viewer-toolbar-scale) * 0.98));
 }
 
 .editorToolbar-visible {
   opacity: 1;
   visibility: visible;
-  transform: translateY(0) scale(1);
+  transform:
+    translate3d(
+      calc(var(--drag-x, 0px) + var(--viewer-toolbar-expand-shift, 0px)),
+      var(--drag-y, 0px),
+      0
+    )
+    scale(var(--viewer-toolbar-scale));
   transition:
     opacity 1.25s ease,
     transform 1.25s ease,
     visibility 0s;
+}
+
+.viewer-editor-tool[data-tool="moveToolbar"] {
+  cursor: grab;
+  -webkit-user-drag: none;
 }
 
 .viewer-editor-tool-not-primary {
@@ -154,7 +181,13 @@
 }
 
 #viewerEditorToolbar.with-fullscreen {
-  transform: translateY(0) scale(1);
+  transform:
+    translate3d(
+      calc(var(--drag-x, 0px) + var(--viewer-toolbar-expand-shift, 0px)),
+      var(--drag-y, 0px),
+      0
+    )
+    scale(var(--viewer-toolbar-scale));
 }
 
 .viewer-embed-page #viewerEditorToolbar {
@@ -163,17 +196,43 @@
   bottom: 12px;
   max-width: calc(100vw - 24px);
   overflow-x: auto;
-  transform: translateX(0) translateY(0) scale(var(--viewer-toolbar-scale));
+  transform:
+    translate3d(
+      calc(var(--drag-x, 0px) + var(--viewer-toolbar-expand-shift, 0px)),
+      var(--drag-y, 0px),
+      0
+    )
+    scale(var(--viewer-toolbar-scale));
+  transform-origin: left bottom;
+}
+
+.viewer-embed-page #viewerEditorToolbar.viewer-editor-toolbar_anchor-center {
+  transform-origin: center bottom;
+}
+
+.viewer-embed-page #viewerEditorToolbar.viewer-editor-toolbar_anchor-left {
   transform-origin: left bottom;
 }
 
 .viewer-embed-page #viewerEditorToolbar.editorToolbar-visible,
 .viewer-embed-page #viewerEditorToolbar.with-fullscreen {
-  transform: translateX(0) translateY(0) scale(var(--viewer-toolbar-scale));
+  transform:
+    translate3d(
+      calc(var(--drag-x, 0px) + var(--viewer-toolbar-expand-shift, 0px)),
+      var(--drag-y, 0px),
+      0
+    )
+    scale(var(--viewer-toolbar-scale));
 }
 
 .viewer-embed-page #viewerEditorToolbar.editorToolbar-hidden {
-  transform: translateX(0) translateY(6px) scale(calc(var(--viewer-toolbar-scale) * 0.98));
+  transform:
+    translate3d(
+      calc(var(--drag-x, 0px) + var(--viewer-toolbar-expand-shift, 0px)),
+      calc(var(--drag-y, 0px) + 6px),
+      0
+    )
+    scale(calc(var(--viewer-toolbar-scale) * 0.98));
 }
 
 #viewerEditorToolbar::-webkit-scrollbar {
@@ -282,6 +341,16 @@
   white-space: nowrap;
   flex-wrap: nowrap;
   border: 1px solid rgba(133, 133, 145, 0.39);
+}
+
+.viewer-editor-tool_submenu-button.viewer-editor-tool_submenu-control.viewer-editor-tool_submenu-control-picker-compact {
+  min-width: var(--viewer-toolbar-picker-control-min-width);
+}
+
+.viewer-editor-tool_submenu-button.viewer-editor-tool_submenu-control.viewer-editor-tool_submenu-control-no-icon {
+  justify-content: center;
+  padding: 6px 8px;
+  gap: 0;
 }
 
 .viewer-editor-tool_submenu-button.viewer-editor-tool_submenu-toggle {
@@ -859,6 +928,7 @@
 }
 
 #viewerThemeMode,
+#shareView,
 #viewEntity,
 #downloadModel,
 #fullscreenMode {
@@ -882,6 +952,7 @@
 }
 
 #viewerThemeMode,
+#shareView,
 #viewEntity,
 #fullscreenMode {
   font: inherit;
@@ -889,6 +960,7 @@
 }
 
 #viewerThemeMode:hover,
+#shareView:hover,
 #viewEntity:hover,
 #downloadModel:hover,
 #fullscreenMode:hover {
@@ -896,6 +968,7 @@
 }
 
 #viewerThemeMode > :first-child,
+#shareView > :first-child,
 #viewEntity > :first-child,
 #downloadModel > :first-child,
 #fullscreenMode > :first-child {
@@ -914,6 +987,7 @@
 }
 
 #viewerThemeMode span,
+#shareView span,
 #viewEntity span,
 #downloadModel span,
 #fullscreenMode span {
@@ -1206,6 +1280,18 @@
   mask-repeat: no-repeat;
 }
 
+.share-view-icon {
+  width: 28px;
+  height: 28px;
+  background-color: currentColor;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8'%3E%3Ccircle cx='18' cy='5' r='2.5'/%3E%3Ccircle cx='6' cy='12' r='2.5'/%3E%3Ccircle cx='18' cy='19' r='2.5'/%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M8.1 10.9l7.8-4.6M8.1 13.1l7.8 4.6'/%3E%3C/svg%3E");
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8'%3E%3Ccircle cx='18' cy='5' r='2.5'/%3E%3Ccircle cx='6' cy='12' r='2.5'/%3E%3Ccircle cx='18' cy='19' r='2.5'/%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M8.1 10.9l7.8-4.6M8.1 13.1l7.8 4.6'/%3E%3C/svg%3E");
+  mask-size: contain;
+  mask-repeat: no-repeat;
+}
+
 #viewerActionMenuToggle:checked ~ .viewer-action-menu_panel > * {
   opacity: 1;
   transform: translateY(0);
@@ -1221,6 +1307,10 @@
 
 #viewerActionMenuToggle:checked ~ .viewer-action-menu_panel > *:nth-child(3) {
   transition-delay: 0.12s;
+}
+
+#viewerActionMenuToggle:checked ~ .viewer-action-menu_panel > *:nth-child(4) {
+  transition-delay: 0.16s;
 }
 
 
@@ -1249,6 +1339,7 @@
   }
 
   #viewerLanguageMode,
+  #shareView,
   #viewEntity,
   #downloadModel,
   #fullscreenMode {

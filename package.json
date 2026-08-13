@@ -19,23 +19,23 @@
   "packages": {},
   "devDependencies": {
     "@jsxtools/rollup-plugin-copy": "^0.3.2",
-    "@playwright/test": "^1.60.0",
-    "@rollup/plugin-commonjs": "^29.0.2",
+    "@playwright/test": "^1.61.1",
+    "@rollup/plugin-commonjs": "^29.0.3",
     "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-replace": "^6.0.3",
     "@rollup/plugin-terser": "^1.0.0",
     "@rollup/plugin-typescript": "^12.3.0",
     "@rollup/plugin-url": "^8.0.2",
-    "@types/node": "^25.7.0",
+    "@types/node": "^25.9.4",
     "buffer": "^6.0.3",
     "concurrently": "^10.0.3",
     "cross-env": "^10.1.0",
     "http-server": "^14.1.1",
     "parcel": "^2.16.4",
-    "postcss": "^8.5.14",
+    "postcss": "^8.5.16",
     "process": "^0.11.10",
-    "rollup": "^4.60.3",
+    "rollup": "^4.62.2",
     "rollup-plugin-dts": "^6.4.1",
     "rollup-plugin-ignore": "^1.0.10",
     "rollup-plugin-lightningcss": "^1.0.0",
@@ -54,11 +54,7 @@
     "serve:dist": "cross-env BUILD=test serve dist",
     "test:local": "sh ./scripts/run-local-tests.sh",
     "watch": "cross-env BUILD_SOURCE=IIIF BUILD=test rollup -c -w",
-    "pack-dist": "node ./scripts/pack-dist.js",
-    "dev:tauri": "npm run build:dev && npx serve ./dist/dev -l 1234",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build",
-    "tauri:dev:all": "concurrently \"npm run dev:tauri\" \"tauri dev\""
+    "pack-dist": "node ./scripts/pack-dist.js"
   },
   "files": [
     "dist/**"
@@ -66,16 +62,15 @@
   "dependencies": {
     "@iiif/3d-manifesto-dev": "^0.7.0",
     "@rollup/plugin-alias": "^6.0.0",
-    "@tauri-apps/api": "^2.11.0",
-    "@tauri-apps/cli": "^2.11.1",
     "fflate": "^0.8.3",
     "jquery": "^4.0.0",
-    "lru-cache": "^11.3.6",
-    "playwright": "^1.60.0",
-    "pnpm": "^11.1.2",
+    "lru-cache": "^11.5.1",
+    "playwright": "^1.61.1",
+    "pnpm": "^11.9.0",
     "stats.js": "^0.17.0",
     "three": "^0.184.0",
     "toastify-js": "^1.12.0",
     "web-ifc": "^0.0.77"
-  }
+  },
+  "packageManager": "pnpm@11.21.0+sha512.521705bce689924eac72f5a3587122f362689ef6571e55ba80076fd637c11132ecffada26fad4ea79c485bfddbfd3d5a2a5b05805a77e893de71ec8a6cca3bb1"
 }

@@ -12,7 +12,59 @@ export const initClippingPlanes = () => {
     new THREE.Plane(new THREE.Vector3(0, 0, -1), 0),
   ];
   setCore('clippingPlanes', clippingPlanes);
+  if (!core.activeClippingPlanes) {
+    const activeClippingPlanes = [];
+    setCore('activeClippingPlanes', activeClippingPlanes);
+  }
+  setCore('updateActiveClippingPlanes', updateActiveClippingPlanes);
   return clippingPlanes;
+};
+
+export const updateActiveClippingPlanes = () => {
+  if (core.PRESENTATION_MODE) {
+    if (core.activeClippingPlanes) {
+      core.activeClippingPlanes.length = 0;
+    }
+    return;
+  }
+  if (!core.activeClippingPlanes) {
+    const activeClippingPlanes = [];
+    setCore('activeClippingPlanes', activeClippingPlanes);
+  }
+  const mode = core.planeParams?.clippingMode || {};
+  const activePlanes = [];
+  if (mode.x && core.clippingPlanes?.[0]) activePlanes.push(core.clippingPlanes[0]);
+  if (mode.y && core.clippingPlanes?.[1]) activePlanes.push(core.clippingPlanes[1]);
+  if (mode.z && core.clippingPlanes?.[2]) activePlanes.push(core.clippingPlanes[2]);
+
+  core.activeClippingPlanes.length = 0;
+  core.activeClippingPlanes.push(...activePlanes);
+
+  const updateMat = (mat) => {
+    if (!mat || typeof mat !== 'object') return;
+    const mats = Array.isArray(mat) ? mat : [mat];
+    mats.forEach((m) => {
+      if (m && typeof m === 'object' && ('clippingPlanes' in m || m.isMaterial)) {
+        m.clippingPlanes = core.activeClippingPlanes;
+        m.needsUpdate = true;
+      }
+    });
+  };
+
+  if (core.scene) {
+    core.scene.traverse((child) => {
+      if (child.material) {
+        updateMat(child.material);
+      }
+    });
+  }
+  if (core.outlineClipping) {
+    core.outlineClipping.traverse?.((child) => {
+      if (child.material) {
+        updateMat(child.material);
+      }
+    });
+  }
 };
 
 const scaleXYZ = (v, s) =>
@@ -348,6 +400,7 @@ export const setupObject = (_object, _metadata) => {
 
 async function setupEmptyCamera(_object) {
   console.log("Setting up empty camera");
+  _object.updateWorldMatrix(true, true);
   var boundingBox = new THREE.Box3();
   if (Array.isArray(_object)) {
     for (let i = 0; i < _object.length; i++) {
@@ -364,7 +417,7 @@ async function setupEmptyCamera(_object) {
   // Set camera position at the center level, behind the model
   const distance = size.length();
   core.camera.position.set(center.x, center.y, center.z + distance);
-  await fitCameraToCenteredObject(_object, true);
+  await fitCameraToCenteredObject(_object, true, null);
 }
 
 function parseColor(v) {
@@ -409,9 +462,9 @@ function parseGradientArray(arr) {
 
 function resolveBackground(meta, sceneId) {
   const raw =
-    meta.scenes?.[sceneId]?.background ??
-    meta.scene?.background ??
-    meta.globals?.background ??
+    meta?.scenes?.[sceneId]?.background ??
+    meta?.scene?.background ??
+    meta?.globals?.background ??
     null;
 
   if (!raw) return { kind: "default" };
@@ -441,12 +494,23 @@ function resolveBackground(meta, sceneId) {
 export async function setupCamera(_object, _data) {
   const _light = core.lightObjects[0];
   const cfg = _data ?? core.CONFIG ?? null;
-  const fallback = _data ?? core.objectsConfig ?? null;
+  const fallback = _data ?? null;
+  const urlCameraPosition = normalizeVec3(window.Viewer?.urlOptions?.cameraPosition);
+  const urlCameraTarget = normalizeVec3(window.Viewer?.urlOptions?.cameraTarget);
+  const urlCameraFov = Number.isFinite(window.Viewer?.urlOptions?.cameraFov)
+    ? window.Viewer.urlOptions.cameraFov
+    : null;
+  const toVec3Array = (value) => {
+    const normalized = normalizeVec3(value);
+    return normalized ? [normalized.x, normalized.y, normalized.z] : null;
+  };
 
   // --- CAMERA POSITION ---
-  const camPos = cfg?.cameraPosition ?? fallback?.camera?.position;
+  const camPos = urlCameraPosition ?? cfg?.cameraPosition ?? fallback?.camera?.position;
 
-  if (Array.isArray(camPos)) {
+  if (camPos === null || camPos === undefined || (camPos.x === 0 && camPos.y === 0 && camPos.z === 0)) {
+    await setupEmptyCamera(_object);
+  } else if (Array.isArray(camPos)) {
     core.camera.position.set(camPos[0], camPos[1], camPos[2]);
   } else if (camPos && typeof camPos === "object") {
     core.camera.position.set(camPos.x, camPos.y, camPos.z);
@@ -455,7 +519,7 @@ export async function setupCamera(_object, _data) {
   }
 
   // --- CONTROLS TARGET + ZOOM ---
-  const target = cfg?.controlsTarget ?? fallback?.camera?.target;
+  const target = urlCameraTarget ?? cfg?.controlsTarget ?? fallback?.camera?.target;
 
   if (Array.isArray(target)) {
     core.controls.target.set(target[0], target[1], target[2]);
@@ -474,6 +538,10 @@ export async function setupCamera(_object, _data) {
     core.camera.position
     .copy(core.controls?.target || new THREE.Vector3())
     .add(dir.multiplyScalar(customZoom));
+  }
+
+  if (urlCameraFov !== null) {
+    core.camera.fov = Math.min(179, Math.max(1, Number(urlCameraFov)));
   }
 
   // --- LIGHTS ---
@@ -546,13 +614,24 @@ export async function setupCamera(_object, _data) {
 
   core.camera.updateProjectionMatrix();
   core.controls?.update();
+  const fitConfig = cfg && typeof cfg === "object" ? { ...cfg } : {};
+  const fitCameraPosition = toVec3Array(camPos);
+  const fitControlsTarget = toVec3Array(target);
+  if (fitCameraPosition) {
+    fitConfig.cameraPosition = fitCameraPosition;
+  }
+  if (fitControlsTarget) {
+    fitConfig.controlsTarget = fitControlsTarget;
+  }
 
-  await fitCameraToCenteredObject(_object, false, cfg);
+  await fitCameraToCenteredObject(_object, true, fitConfig);
 }
 
   // Show interaction hint on first load
   function showInteractionHint(boxCenter) {
   if (window.__E2E__) return;
+  if (window.Viewer?.isEmbedMode?.()) return;
+  if (window.Viewer?.urlOptions?.cameraPosition || window.Viewer?.urlOptions?.cameraTarget) return;
   //if (localStorage.getItem("viewerHintSeen")) return;
 
   if (core.GESTURE == null) return;
@@ -566,7 +645,7 @@ export async function setupCamera(_object, _data) {
   core.handHint.classList.add("hand-drag-animate");
 }
 
-function animateCameraToPose ({
+async function animateCameraToPose ({
   finalCameraPos,     // THREE.Vector3 (target camera position)
   finalTarget,        // THREE.Vector3 (target)
   boundingBox,        // THREE.Box3 (optional, near/far)
@@ -577,6 +656,8 @@ function animateCameraToPose ({
   distanceOffsetFactor = 0,   // additional factor to move closer (0.1 = 10% closer) (optional)
   distanceOffsetUnits  = 0,   // additional world units to move closer (optional)
 }) {
+  const tweenToken = (core.cameraTweenToken ?? 0) + 1;
+  core.cameraTweenToken = tweenToken;
 
   const endCamPos = finalCameraPos.clone();
   const endTarget = finalTarget.clone();
@@ -613,6 +694,7 @@ function animateCameraToPose ({
     .to(endCamPos, duration)
     .easing(easing)
     .onUpdate(() => {
+      if (core.cameraTweenToken !== tweenToken) return;
       core.camera.position.copy(camTweenPos);
     });
 
@@ -620,6 +702,7 @@ function animateCameraToPose ({
     .to(endTarget, duration)
     .easing(easing)
     .onUpdate(() => {
+      if (core.cameraTweenToken !== tweenToken) return;
       core.controls?.target.copy(targetTweenPos);
       core.controls?.update();
     });
@@ -629,6 +712,7 @@ function animateCameraToPose ({
 
   // === (near / far / limits) ===
   core.cameraTween.onComplete(() => {
+    if (core.cameraTweenToken !== tweenToken) return;
     core.camera.position.copy(endCamPos);
     core.controls?.target.copy(endTarget);
     core.controls?.update();
@@ -647,6 +731,13 @@ function animateCameraToPose ({
         core.controls.maxDistance = maxDistance * 2;
       }
     }
+
+    if (window.Viewer?.urlOptions?.cameraPosition || window.Viewer?.urlOptions?.cameraTarget || Number.isFinite(window.Viewer?.urlOptions?.cameraFov)) {
+      window.Viewer?.applyCameraOverridesFromUrl?.();
+      core.controls?.saveState?.();
+      return;
+    }
+
     showInteractionHint(boxCenter);
   });
 }
@@ -731,19 +822,21 @@ async function fitCameraToCenteredObject(object, _fit, cfg) {
   const finalTarget = center.clone();
 
   // === override from config if available ===
-  if (cfg?.cameraPosition?.length === 3) {
+  const overrideCameraPosition = normalizeVec3(cfg?.cameraPosition);
+  if (overrideCameraPosition) {
     finalCameraPos.set(
-      cfg.cameraPosition[0],
-      cfg.cameraPosition[1],
-      cfg.cameraPosition[2]
+      overrideCameraPosition.x,
+      overrideCameraPosition.y,
+      overrideCameraPosition.z
     );
   }
 
-  if (cfg?.controlsTarget?.length === 3) {
+  const overrideControlsTarget = normalizeVec3(cfg?.controlsTarget);
+  if (overrideControlsTarget) {
     finalTarget.set(
-      cfg.controlsTarget[0],
-      cfg.controlsTarget[1],
-      cfg.controlsTarget[2]
+      overrideControlsTarget.x,
+      overrideControlsTarget.y,
+      overrideControlsTarget.z
     );
   }
 
@@ -752,7 +845,7 @@ async function fitCameraToCenteredObject(object, _fit, cfg) {
   core.controlsTarget = finalTarget.clone();
 
   // === animate ===
-  animateCameraToPose({
+  await animateCameraToPose({
     finalCameraPos,
     finalTarget,
     boundingBox,
@@ -785,6 +878,7 @@ async function fitCameraToCenteredObject(object, _fit, cfg) {
   if (!core.PRESENTATION_MODE) {
     setupClippingPlanes(object, {x: boundingBox.max.x*1.1, y: boundingBox.max.y*1.1, z: boundingBox.max.z*1.1});
   }
+
 }
 
 function parseGradient(str) {
@@ -1010,6 +1104,7 @@ function setupClippingPlanes(_geom, _distance) {
       }
       showClippingPlaneToast("X", v);
       refreshClippingHint();
+      updateActiveClippingPlanes();
     });
 
     displayHelper?.constantX.min(-core.distanceGeometry.x)
@@ -1038,6 +1133,7 @@ function setupClippingPlanes(_geom, _distance) {
       }
       showClippingPlaneToast("Y", v);
       refreshClippingHint();
+      updateActiveClippingPlanes();
     });
     displayHelper?.constantY
       .min(-core.distanceGeometry.y)
@@ -1066,6 +1162,7 @@ function setupClippingPlanes(_geom, _distance) {
       }
       showClippingPlaneToast("Z", v);
       refreshClippingHint();
+      updateActiveClippingPlanes();
     });
     displayHelper?.constantZ
       .min(-core.distanceGeometry.z)
@@ -1082,6 +1179,7 @@ function setupClippingPlanes(_geom, _distance) {
       core.outlineClipping.visible = v;
     });
     refreshClippingHint();
+    updateActiveClippingPlanes();
   }
 }
 

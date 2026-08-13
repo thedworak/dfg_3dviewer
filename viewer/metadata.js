@@ -3,6 +3,41 @@ import { setupObject, setupCamera, toastHelper } from './viewer-utils.js';
 import { core } from './core.js';
 import { t } from "./i18n-utils.js";
 
+let modelSettingsResetState = null;
+
+function captureModelSettingsResetState(object) {
+  const objects = Array.isArray(object) ? object : [object];
+
+  modelSettingsResetState = {
+    object,
+    setupIndex: core.objectsConfig?.setupIndex,
+    transforms: objects.map((model) => ({
+      model,
+      position: model.position.clone(),
+      rotation: model.rotation.clone(),
+      scale: model.scale.clone(),
+    })),
+  };
+}
+
+export async function resetModelSettings() {
+  if (!modelSettingsResetState?.object) return;
+
+  modelSettingsResetState.transforms.forEach(({ model, position, rotation, scale }) => {
+    model.position.copy(position);
+    model.rotation.copy(rotation);
+    model.scale.copy(scale);
+    model.updateMatrixWorld(true);
+  });
+
+  if (typeof modelSettingsResetState.setupIndex !== "undefined" && core.objectsConfig) {
+    core.objectsConfig.setupIndex = modelSettingsResetState.setupIndex;
+  }
+
+  window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(null);
+  await handleMetadataResponse(null, { vertices: 0, faces: 0 }, modelSettingsResetState.object);
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -66,14 +101,6 @@ export function addWissKIMetadata(label, value) {
       return buildMetadataRow(_str, value);
     }
   }
-}
-
-export function lilGUIhasFolder(folder, name) {
-  return folder.folders.some(f => f._title === name);
-}
-
-export function lilGUIgetFolder(gui, name) {
-  return gui?.folders?.find(f => f._title === name) || null;
 }
 
 /**
@@ -174,12 +201,14 @@ async function fetchEntityMetadata() {
   if (!core.CONFIG.entity.metadata.sourceType || core.CONFIG.entity.metadata.url === "") {
     return "";
   }
-  const entityComponent = encodeURIComponent(core.CONFIG.entity.id) ?? core.CONFIG.entity.id ?? typeof core.CONFIG.entity.id ===  "undefined" ? "" : "";
+
+  const entityComponent = core.CONFIG.entity.id == null ? "" : encodeURIComponent(core.CONFIG.entity.id);
+  console.log("Fetching entity metadata for ID:", entityComponent);
   if (!entityComponent) {
     console.warn("Entity ID is missing or invalid. Skipping metadata fetch.");
     return "";
   }
-  const metadataUrl = core.CONFIG.entity.metadata.url + entityComponent;
+  const metadataUrl = core.CONFIG.entity.metadata.url.replace(/\/$/, "") + "/" + entityComponent;
 
   try {
     const response = await fetch(metadataUrl, { cache: "no-cache" });
@@ -276,7 +305,6 @@ export async function handleMetadataResponse(
   object,
 ) {
   Viewer.clearHierarchySubmenu();
-  
   var tempArray = [];
   if (Array.isArray(object)) {
     setupObject(object[0], data);
@@ -356,32 +384,43 @@ export async function handleMetadataResponse(
   metadataContent += await fetchEntityMetadata();
 
   if (!core.downloadModel) {
-    core.downloadModel.hidden = true;
-    core.downloadModel.removeAttribute("href");
+    if (core.downloadModelElement) {
+      core.downloadModelElement.hidden = true;
+      core.downloadModelElement.removeAttribute("href");
+    }
+  } else {
+    const c_path = core.fileObject.path;
+    if (core.loadedFile !== "") {
+      core.fileObject.filename = core.fileObject.filename.replace(core.fileObject.orgExtension, core.fileObject.extension);
+    }
+
+    if (core.downloadModelElement) {
+      core.downloadModelElement.href = `${encodeURI(c_path + core.fileObject.filename)}`;
+      core.downloadModelElement.setAttribute("download", core.fileObject.filename);
+      core.downloadModelElement.hidden = true;
+    }
+    window.Viewer?.updateDownloadMenuEntryLabel?.();    
   }
 
   if (core.viewEntity) {
     core.viewEntity.hidden = true;
     core.viewEntity.removeAttribute("data-embed-url");
   }
-
-  if (!core.isLightweight && core.downloadModel) {
-    const c_path = core.fileObject.path;
-    if (core.loadedFile !== "") {
-      core.fileObject.filename = core.fileObject.filename.replace(core.fileObject.orgExtension, core.fileObject.extension);
-    }
-
-    core.downloadModel.href = `blob:${encodeURI(c_path + core.fileObject.filename)}`;
-    core.downloadModel.setAttribute("download", core.fileObject.filename);
-    core.downloadModel.hidden = false;
-    window.Viewer?.updateDownloadMenuEntryLabel?.();
+  if (window.Viewer?.shareView) {
+    window.Viewer.shareView.hidden = true;
+    window.Viewer.shareView.removeAttribute("data-share-url");
   }
 
   if (core.viewEntity && (core.CONFIG?.entity?.id || core.fileObject?.originalPath)) {
     const sharePayload = window.Viewer?.getSharePayload?.();
     if (sharePayload?.url) {
       core.viewEntity.setAttribute("data-embed-url", sharePayload.url);
+      window.Viewer?.shareView?.setAttribute("data-share-url", sharePayload.url);
+      if (window.Viewer?.shareView) {
+        window.Viewer.shareView.hidden = false;
+      }
     }
+    window.Viewer?.updateShareMenuEntryState?.();
     window.Viewer?.updateEmbedMenuEntryState?.();
     core.viewEntity.hidden = false;
   }
@@ -396,7 +435,7 @@ export async function handleMetadataResponse(
 /**
  * Handles settings for the loaded object and camera.
  */
-export async function settingsHandler(object, hierarchyMain, data) {
+export async function settingsHandler(object, data) {
   if (Array.isArray(object)) {
     setupObject(object[0], data);
     await setupCamera(object[0], data);
@@ -471,6 +510,8 @@ export async function fetchSettings(object) {
   var metadata = { vertices: 0, faces: 0 };
   let metadataUrl = '';
 
+  captureModelSettingsResetState(object);
+
   // Skip metadata fetch for blob URLs (drag & drop files)
   if (core.fileObject.filename.startsWith('blob:')) {
     console.log("Skipping metadata fetch for local file");
@@ -491,8 +532,6 @@ export async function fetchSettings(object) {
     console.warn("Metadata URL or file information is missing. Skipping metadata fetch.");
   }
 
-  let hierarchyMain;
-  // Hierarchy is now managed by the editor toolbar submenu, not lilGUI
   
   if (core.CONFIG.entity.metadata.sourceType === "IIIF") {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);
@@ -503,14 +542,12 @@ export async function fetchSettings(object) {
     if (core.CONFIG.entity.proxyPath !== undefined || core.isLightweight) {
       metadataUrl = core.getProxyPath(metadataUrl, core.CONFIG);
       const data = await loadMetadataData(metadataUrl);
-      window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
+      if (data !== null) window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
       await handleMetadataResponse(data, metadata, object);
-      settingsHandler(object, hierarchyMain, data);
     } else {
       const data = await loadMetadataData(metadataUrl);
-      window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
+      if (data !== null) window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
       await handleMetadataResponse(data, metadata, object);
-      settingsHandler(object, hierarchyMain, data);
     }
   } else {
     window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(null);

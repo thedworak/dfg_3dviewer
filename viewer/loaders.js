@@ -145,7 +145,7 @@ function prepareOutlineClipping(_object) {
   var gutsMaterial = new THREE.MeshBasicMaterial({
     color: "crimson",
     side: THREE.BackSide,
-    clippingPlanes: core.clippingPlanes,
+    clippingPlanes: core.PRESENTATION_MODE ? [] : (core.activeClippingPlanes || []),
     clipShadows: true,
     polygonOffset: true,
     polygonOffsetFactor: 1,
@@ -170,7 +170,7 @@ function setupSingleMaterial(materials, material) {
   material.roughness = Math.min(material.roughness * 1.35, 1);
   material.clipShadows = true;
   material.side = core.PRESENTATION_MODE ? THREE.DoubleSide : THREE.FrontSide;
-  material.clippingPlanes = core.PRESENTATION_MODE ? [] : core.clippingPlanes;
+  material.clippingPlanes = core.PRESENTATION_MODE ? [] : (core.activeClippingPlanes || []);
   //material.clipIntersection = false;
   material.onBeforeCompile = (shader) => {
     shader.fragmentShader = shader.fragmentShader.replace(
@@ -254,7 +254,7 @@ function getEnvironmentTextureForPreset(renderer, preset = "neutral") {
           // Load HDR map for other presets
           const HDRLoader = await loadHDRLoader();
           const loader = new HDRLoader();
-          const baseModulePath = core.DFG_ASSETS || core.CONFIG?.baseModulePath || '/assets';
+          const baseModulePath = getModuleAssetBasePath() || '/assets';
           const mapFilename = preset === "goldenHour" ? "golden_hour.hdr" : `${preset}.hdr`;
           const mapUrl = `${baseModulePath.replace(/\/$/, '')}/maps/${mapFilename}`;
           

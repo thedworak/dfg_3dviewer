@@ -2,6 +2,9 @@
   "baseNamespace": "",
   "mainUrl": "https:\\/\\/your.domain.com",
   "metadataUrl": "",
+  "api": {
+    "thumbnailUploadEndpoint": "/api/editor/upload-thumbnail"
+  },
   "baseModulePath": "\\/modules\\/dfg_3dviewer\\/viewer",
   "entity": {
     "bundle": "bd1220d6ec7f07e726c65fd215d8e493",
@@ -13,7 +16,8 @@
     "attributeId": "wisski_id",
     "metadata": {
       "sourceType": "",
-      "url": ""
+      "url": "",
+      "source": ""
     }
   },
   "viewer": {
@@ -41,8 +45,51 @@
     "performanceMode": {
       "Performance": "high-performance"
     },
+    "editorToolbar": {
+      "enabled": true,
+      "position": {
+        "x": 10,
+        "y": 10
+      }
+    },
     "measurement": {
       "modelUnitInMeters": 1
+    },
+    "credits": {
+      "visible": true,
+      "logo": {
+        "src": "assets/logo.svg",
+        "url": "https://your-domain.com"
+      },
+      "items": [
+        {
+          "label": "Created by",
+          "text": "Daniel Dworak",
+          "logo": {
+            "src": "assets/logo.svg",
+            "url": "https://thedworak.com"
+          },
+          "url": "https://thedworak.com"
+        },
+        {
+          "label": "Funded by",
+          "text": "Deutsche Forschungsgemeinschaft (DFG)",
+          "logo": {
+            "src": "assets/logo.svg",
+            "url": "https://www.dfg.de"
+          },
+          "url": "https://www.dfg.de"
+        },
+        {
+          "label": "Copyright",
+          "text": "© 2026 Daniel Dworak",
+          "logo": {
+            "src": "assets/logo.svg",
+            "url": "https://thedworak.com"
+          },
+          "url": "https://thedworak.com"
+        }
+      ]
     }
   }
 }
