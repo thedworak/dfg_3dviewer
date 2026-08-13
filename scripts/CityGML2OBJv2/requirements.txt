@@ -43,7 +43,7 @@ numpy==2.2.6
 open3d==0.19.0
 packaging==26.0
 parso==0.8.6
-pillow==12.2.0
+pillow==12.3.0
 platformdirs==4.9.2
 plotly==6.5.2
 prompt_toolkit==3.0.52
