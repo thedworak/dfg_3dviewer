@@ -18519,6 +18519,18 @@ const Viewer$1 = {
     return attachEditorToolbar();
   },
 
+  syncEditorToolbarFullscreenHost() {
+    if (!core.editorToolbar || !core.container) return;
+
+    const host = document.fullscreenElement === core.container
+      ? core.container
+      : this.getEditorToolbarHost();
+
+    if (host && core.editorToolbar.parentElement !== host) {
+      host.appendChild(core.editorToolbar);
+    }
+  },
+
   createEditorToolbar() {
     return createEditorToolbar(this);
   },
@@ -20262,6 +20274,7 @@ const Viewer$1 = {
       } else {
         await document.exitFullscreen();
       }
+      Viewer$1.syncEditorToolbarFullscreenHost();
       Viewer$1.updateSize();
       Viewer$1.updateFullscreenButtonIcon();
       Viewer$1.updateEditorToolbarLabels();
@@ -20276,6 +20289,8 @@ const Viewer$1 = {
   },
 
   onFullscreenChange () {
+    Viewer$1.syncEditorToolbarFullscreenHost();
+
     // Layout (ESC + click)
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {

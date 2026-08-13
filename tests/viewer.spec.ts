@@ -76,6 +76,52 @@ test('viewer runs in E2E mode', async ({ page }) => {
   await expect.poll(() => page.evaluate(() => window.__E2E__)).toBe(true);
 });
 
+test('fullscreen includes the editor toolbar', async ({ page }) => {
+  await openViewer(page);
+  await expect(page.locator('#viewerEditorToolbar')).toBeVisible();
+
+  const state = await page.evaluate(async () => {
+    const container = document.querySelector<HTMLElement>('#DFG_3DViewer');
+    const wrapper = container?.closest<HTMLElement>('.viewer-wrapper');
+    if (!container || !wrapper) throw new Error('Viewer wrapper is unavailable');
+
+    let fullscreenElement: Element | null = null;
+    Object.defineProperty(document, 'fullscreenElement', {
+      configurable: true,
+      get: () => fullscreenElement,
+    });
+
+    let fullscreenHost: Element | null = null;
+    container.requestFullscreen = async () => {
+      fullscreenHost = container;
+      fullscreenElement = container;
+    };
+
+    await (window as any).Viewer.toggleFullscreen();
+
+    const fullscreenState = {
+      requestedContainer: fullscreenHost === container,
+      toolbarIsInsideContainer: container.contains(document.querySelector('#viewerEditorToolbar')),
+      toolbarParentIsContainer: document.querySelector('#viewerEditorToolbar')?.parentElement === container,
+    };
+
+    document.exitFullscreen = async () => {
+      fullscreenElement = null;
+    };
+    await (window as any).Viewer.toggleFullscreen();
+
+    return {
+      ...fullscreenState,
+      toolbarParentIsWrapperAfterExit: document.querySelector('#viewerEditorToolbar')?.parentElement === wrapper,
+    };
+  });
+
+  expect(state.requestedContainer).toBe(true);
+  expect(state.toolbarIsInsideContainer).toBe(true);
+  expect(state.toolbarParentIsContainer).toBe(true);
+  expect(state.toolbarParentIsWrapperAfterExit).toBe(true);
+});
+
 test('sandbox mode starts without loading a model', async ({ page }) => {
   await openSandboxViewer(page);
 

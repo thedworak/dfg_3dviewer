@@ -221,6 +221,18 @@ export const Viewer = {
     return attachEditorToolbar(this);
   },
 
+  syncEditorToolbarFullscreenHost() {
+    if (!core.editorToolbar || !core.container) return;
+
+    const host = document.fullscreenElement === core.container
+      ? core.container
+      : this.getEditorToolbarHost();
+
+    if (host && core.editorToolbar.parentElement !== host) {
+      host.appendChild(core.editorToolbar);
+    }
+  },
+
   createEditorToolbar() {
     return createEditorToolbar(this);
   },
@@ -1971,6 +1983,7 @@ export const Viewer = {
       } else {
         await document.exitFullscreen();
       }
+      Viewer.syncEditorToolbarFullscreenHost();
       Viewer.updateSize();
       Viewer.updateFullscreenButtonIcon();
       Viewer.updateEditorToolbarLabels();
@@ -1985,6 +1998,8 @@ export const Viewer = {
   },
 
   onFullscreenChange () {
+    Viewer.syncEditorToolbarFullscreenHost();
+
     // Layout (ESC + click)
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
