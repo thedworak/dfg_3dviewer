@@ -16848,6 +16848,21 @@ function createEditorToolbar(viewer) {
     if (!tool.primary) viewer.editorSecondaryKeys.push(button);
   });
 
+  const actionMenuToolKeys = ["statistics", "background", "preview", "save", "loadingLogs"];
+  if (viewer.actionMenuPanel) {
+    actionMenuToolKeys.forEach((key) => {
+      const button = viewer.editorToolbarButtons[key];
+      if (!button) return;
+
+      button.classList.add("viewer-action-menu_editor-tool");
+      const label = document.createElement("span");
+      label.className = "viewer-action-menu_editor-tool-label";
+      label.textContent = button.getAttribute("aria-label") || key;
+      button.appendChild(label);
+      viewer.actionMenuPanel.appendChild(button);
+    });
+  }
+
   toolbar.appendChild(secondaryTray);
 
   const expandButton = document.createElement("button");
@@ -17100,6 +17115,8 @@ function updateEditorToolbarLabels(viewer) {
     button.setAttribute("aria-label", label);
     const sr = button.querySelector(".viewer-editor-tool_sr");
     if (sr) sr.textContent = label;
+    const actionMenuLabel = button.querySelector(".viewer-action-menu_editor-tool-label");
+    if (actionMenuLabel) actionMenuLabel.textContent = label;
   });
 
   if (viewer.clippingPlaneSubmenuButtons) {
