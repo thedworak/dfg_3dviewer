@@ -2,6 +2,42 @@ function isPlainObject(value) {
   return value != null && typeof value === "object" && Array.isArray(value) === false;
 }
 
+export function isAIM3DManifest(manifest) {
+  return isPlainObject(manifest) && Object.hasOwn(manifest, "AIM3DViewer");
+}
+
+function parseFiniteNumber(value) {
+  if (isFiniteNumber(value)) return value;
+  if (typeof value !== "string" || value.trim() === "") return null;
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+// Older viewer exports kept values from viewer-settings.json verbatim. Normalize
+// those compatible values before validating the canonical AIM3D representation.
+export function normalizeAIM3DManifest(manifest) {
+  const viewer = manifest?.AIM3DViewer?.viewer;
+  if (!isPlainObject(viewer)) return manifest;
+
+  if (Array.isArray(viewer.scale)) {
+    viewer.scale = viewer.scale.map((value) => parseFiniteNumber(value) ?? value);
+  } else if (isPlainObject(viewer.scale)) {
+    ["x", "y"].forEach((axis) => {
+      viewer.scale[axis] = parseFiniteNumber(viewer.scale[axis]) ?? viewer.scale[axis];
+    });
+  }
+
+  if (isPlainObject(viewer.performance)) {
+    const mode = viewer.performance.Performance ?? viewer.performance.performance;
+    if (typeof mode === "string" && mode.trim() !== "") {
+      viewer.performance = mode;
+    }
+  }
+
+  return manifest;
+}
+
 function isFiniteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
 }

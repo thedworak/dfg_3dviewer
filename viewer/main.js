@@ -17,6 +17,7 @@ https://www.gnu.org/licenses/.
 //Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF
 
 const SOURCE = (typeof __BUILD_SOURCE__ !== 'undefined') ? __BUILD_SOURCE__ : "";
+const BUILD = (typeof __BUILD__ !== 'undefined') ? __BUILD__ : "";
 const IS_PROD = (typeof __IS_PROD__ !== 'undefined') ? __IS_PROD__ === true : false;
 const isE2E = (typeof __IS_PROD__ !== 'undefined') ? window.__E2E__ === true : false;
 const envSubDir = (typeof __ENV_SUBDIR__ !== 'undefined') ? __ENV_SUBDIR__ : "main";
@@ -51,7 +52,7 @@ import { captureAndUploadThumbnail } from "./editor/thumbnail-capture.js";
 import { attachWindowControls } from "./ui/window-controls.js";
 
 import { loadModel, outlineClipping, getModuleAssetBasePath, syncSceneEnvironment } from "./loaders.js";
-import { createIIIFDropdown, createManifestUI, createAIM3IFDropdown, resetModelSettings } from "./metadata.js";
+import { createIIIFDropdown, createManifestUI, createManifestSourceSwitch, createAIM3IFDropdown, resetModelSettings } from "./metadata.js";
 import { UltraLoader } from "./ultra-loader.js";
 import { StatusPoller } from "./status-poller.js";
 
@@ -71,6 +72,7 @@ import { objectsConfig, setObjectsConfig } from "./object-settings.js";
 
 import { loadIIIFManifest, getAnnotations } from "./IIIF/iiif-api.js";
 import { loadAIM3IFManifest, applyManifestConfig, getManifestWindowState } from "./manifesto/manifesto-api.js";
+import { isAIM3DManifest } from "./manifesto/aim3dviewer-validation.js";
 import {
   attachEditorToolbar,
   createEditorToolbar,
@@ -1596,7 +1598,10 @@ export const Viewer = {
     console.log(`AIM 3D-Viewer ${this.isLightweight ? '🪶 LIGHTWEIGHT' : '💪 FULL'} mode`);
     console.log(`Powered by Three.js (v${THREE.REVISION})`);
     
-    if (!core.CONFIG.entity.metadata.sourceType) { 
+    if (BUILD === "dev" && SOURCE) {
+      core.CONFIG.entity.metadata.sourceType = SOURCE;
+      console.log(`Dev build manifest source: ${core.CONFIG.entity.metadata.sourceType}`);
+    } else if (!core.CONFIG.entity.metadata.sourceType) {
       core.CONFIG.entity.metadata.sourceType = SOURCE;
       console.log(`Metadata source: ${core.CONFIG.entity.metadata.sourceType}`);
     }
@@ -2867,6 +2872,11 @@ export const Viewer = {
 
     const _id = core.CONFIG.entity.id;
 
+    if (!_id) {
+      console.info("Skipping model-status polling: no entity ID is available.");
+      return;
+    }
+
     localStorage.setItem("processing_model_id", _id);
 
     let loadingMap = this.getProcessingLoadingSteps();
@@ -2883,13 +2893,26 @@ export const Viewer = {
 
   // IIIF setup and loading
   async setupManifesto(newUrlOrJson, type="url", manifestType = "iiif") {
-    const isAim3ifManifest = manifestType !== "iiif";
-    if (type === "text") {
+    const manifestJson = await Viewer.getManifestJson(newUrlOrJson, type);
+    const resolvedManifestType = isAIM3DManifest(manifestJson) ? "aim3if" : "iiif";
+    const isAim3ifManifest = resolvedManifestType === "aim3if";
+
+    if (resolvedManifestType !== manifestType) {
+      console.info(`Detected ${isAim3ifManifest ? "AIM3D" : "IIIF"} manifest; using its matching loader.`);
+    }
+
+    if (isAim3ifManifest) {
+      if (type !== "text") {
+        core.CONFIG.entity.metadata.url = newUrlOrJson;
+      }
+    } else if (type === "text") {
       Viewer.iiifConfigURL.url = "";
     } else {
       Viewer.iiifConfigURL.url = newUrlOrJson;
     }
-    const loadedManifest = manifestType === "iiif" ? await loadIIIFManifest(newUrlOrJson) : await loadAIM3IFManifest(newUrlOrJson);
+    const loadedManifest = isAim3ifManifest
+      ? await loadAIM3IFManifest(manifestJson)
+      : await loadIIIFManifest(manifestJson);
     if (isAim3ifManifest) {
       Viewer.applyWindowState?.(getManifestWindowState(loadedManifest.manifest));
     }
@@ -2899,6 +2922,7 @@ export const Viewer = {
     }
     // reset scene and release GPU resources from the previous model batch
     Viewer.resetLoadedModelState();
+    core.objectsConfig.setupIndex = 0;
     core.axesHelper.visible = false;
     console.log("TOTAL Annotations: " + loadedManifest.annotations.length);
     if (loadedManifest.annotations.length !== loadedManifest.modelUrls.length) {
@@ -2912,12 +2936,24 @@ export const Viewer = {
           }
         }
     }
+
     for (const [i, url] of loadedManifest.modelUrls?.entries()) {
       core.objectsConfig.index = i;
+      const modelConfig = core.objectsConfig.models[i] ??= {
+        name: `Manifest model ${i + 1}`,
+      };
+      // A previous AIM3D manifest may have supplied a transform. Do not let
+      // it carry over to a newly selected IIIF model.
+      modelConfig.url = url;
+      modelConfig.position = { x: 0, y: 0, z: 0 };
+      modelConfig.rotation = { x: 0, y: 0, z: 0 };
+      modelConfig.scale = { x: 1, y: 1, z: 1 };
       core.fileObject.originalPath = loadedManifest.modelUrl = url;
       //fileObject.originalPath = loadedManifest.modelUrl;
       Viewer.setModelPaths();
-      manifestType === "iiif" ? await getAnnotations(loadedManifest, core.objectsConfig) : await applyManifestConfig(loadedManifest, core.objectsConfig);
+      isAim3ifManifest
+        ? await applyManifestConfig(loadedManifest, core.objectsConfig)
+        : await getAnnotations(loadedManifest, core.objectsConfig);
       if (loadedManifest.scenes && loadedManifest.scenes.length > 0) {
         core.objectsConfig.scenes = loadedManifest.scenes;
       }
@@ -2930,14 +2966,66 @@ export const Viewer = {
     }
   },
 
+  async getManifestJson(manifestUrlOrJson, type) {
+    if (type === "text") {
+      return JSON.parse(manifestUrlOrJson);
+    }
+
+    if (manifestUrlOrJson && typeof manifestUrlOrJson === "object") {
+      return manifestUrlOrJson;
+    }
+
+    const response = await fetch(manifestUrlOrJson);
+    if (!response.ok) {
+      throw new Error(`Unable to load manifest: ${response.status} ${response.statusText}`);
+    }
+
+    return response.json();
+  },
+
+  async setupManifestSource(type, { loadInitialManifest = true } = {}) {
+    const manifestType = type === "aim3if" ? "aim3if" : "iiif";
+    const metadata = core.CONFIG.entity.metadata;
+
+    Viewer.cleanupTransientUI();
+    createManifestUI(manifestType);
+    createManifestSourceSwitch(manifestType);
+
+    if (manifestType === "iiif") {
+      createIIIFDropdown(Viewer.iiifConfigURL);
+    } else {
+      createAIM3IFDropdown(metadata.url);
+    }
+
+    await Viewer.loadManifestoURL(manifestType);
+    metadata.sourceType = manifestType === "iiif" ? "IIIF" : "AIM3IF";
+
+    const initialUrl = manifestType === "iiif" ? Viewer.iiifConfigURL.url : metadata.url;
+    if (loadInitialManifest && initialUrl) {
+      await Viewer.setupManifesto(initialUrl, "url", manifestType);
+    }
+  },
+
   async loadManifestoURL(type = "iiif") {
     // Load IIIF URL
     const className = type === "iiif" ? "IIIF" : "AIM3IF";
     const titleKey = type === "iiif" ? "iiif" : "aim3if";
     const form = document.getElementById("form-manifesto");
     const collapseBtn = document.getElementById("manifesto-toggle-collapse");
+    const sourceSwitch = document.getElementById("manifesto-source-switch");
     form?.setAttribute("data-viewer-theme", Viewer.currentTheme);
     Viewer.updateIIIFFormLabels();
+
+    sourceSwitch?.addEventListener("change", async (ev) => {
+      const nextType = ev.target.checked ? "aim3if" : "iiif";
+      if (nextType === type) return;
+
+      try {
+        await Viewer.setupManifestSource(nextType);
+      } catch (err) {
+        Viewer.reportError(err, { context: "Error switching manifest source" });
+      }
+    });
 
     Viewer.bindEventListener(collapseBtn, "click", () => {
       form.classList.toggle("collapsed");
@@ -3555,29 +3643,9 @@ export const Viewer = {
               context: core.isLightweight ? "Lightweight model load error" : "Metadata load error",
             });
           }
-        } else if (sourceType === "iiif") {
-          Viewer.cleanupTransientUI();
-          createManifestUI("iiif");
-
+        } else if (sourceType === "iiif" || sourceType === "aim3if") {
           console.log("Loading from source: " + core.CONFIG.entity.metadata.sourceType);
-          if (Viewer.iiifConfigURL.url !== "") {
-            createIIIFDropdown(Viewer.iiifConfigURL);
-            await Viewer.loadManifestoURL();
-            core.CONFIG.entity.metadata.sourceType = "IIIF";
-            await Viewer.setupManifesto(Viewer.iiifConfigURL.url);
-          }
-        }
-        else if (sourceType === "aim3if") {
-          Viewer.cleanupTransientUI();
-          createManifestUI("aim3if");
-
-          console.log("Loading from source: " + core.CONFIG.entity.metadata.sourceType);
-          if (core.CONFIG.entity.metadata.url) {
-            createAIM3IFDropdown(core.CONFIG.entity.metadata.url);
-            await Viewer.loadManifestoURL("aim3if");
-            core.CONFIG.entity.metadata.sourceType = "AIM3IF";
-            await Viewer.setupManifesto(core.CONFIG.entity.metadata.url, "url", "aim3if");
-          }
+          await Viewer.setupManifestSource(sourceType);
         } else {
           console.log("Custom metadata source:" + core.CONFIG.entity.metadata.sourceType);
           try {

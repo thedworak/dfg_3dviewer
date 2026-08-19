@@ -141,6 +141,7 @@ export const VIEWER_I18N = {
       reconstructionPeriod: "Reconstruction period",
     },
     manifesto: {
+      source: "Manifest type",
       invalidUrl: "Please enter a valid manifesto URL.",
       invalidJson: "Please enter a valid manifesto JSON text.",
     },
@@ -449,6 +450,7 @@ export const VIEWER_I18N = {
       reconstructionPeriod: "Okres rekonstrukcji",
     },
     manifesto: {
+      source: "Typ manifestu",
       invalidUrl: "Podaj poprawny URL manifestu.",
       invalidJson: "Podaj poprawny tekst JSON.",
     },
@@ -756,6 +758,7 @@ export const VIEWER_I18N = {
       reconstructionPeriod: "Rekonstruktionsperiode",
     },
     manifesto: {
+      source: "Manifesttyp",
       invalidUrl: "Bitte geben Sie eine gültige Manifest-URL ein.",
       invalidJson: "Bitte geben Sie einen gültigen Manifest-JSON-Text ein.",
     },

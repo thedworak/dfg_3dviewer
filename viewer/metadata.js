@@ -516,7 +516,7 @@ export async function fetchSettings(object) {
   if (core.fileObject.filename.startsWith('blob:')) {
     console.log("Skipping metadata fetch for local file");
   } else if (core.CONFIG.metadataUrl && core.fileObject.uri && core.fileObject.filename) {
-    const metadataPrefix = new URL(core.CONFIG.metadataUrl).href.replace(/\/+$/, '');
+    const metadataPrefix = new URL(core.CONFIG.metadataUrl).href.replace(/\/+$/, '') || '';
     let normalizedUri = new URL(core.fileObject.uri).href.replace(/\/+$/, '');
 
     if (normalizedUri.startsWith(metadataPrefix)) {
@@ -591,6 +591,34 @@ export function createIIIFDropdown(iiifConfigURL) {
 
 }
 
+export function createManifestSourceSwitch(activeType = "iiif") {
+  const group = document.createElement("div");
+  group.className = "form-manifesto-group manifesto-source-group";
+
+  const label = document.createElement("label");
+  label.className = "form-manifesto-label";
+  label.textContent = t("manifesto.source", "Manifest type");
+
+  const switchLabel = document.createElement("label");
+  switchLabel.className = "manifesto-source-switch";
+  switchLabel.htmlFor = "manifesto-source-switch";
+  switchLabel.innerHTML = `
+    <span>IIIF</span>
+    <input
+      id="manifesto-source-switch"
+      type="checkbox"
+      role="switch"
+      aria-label="${escapeHtml(t("manifesto.source", "Manifest type"))}"
+      ${activeType === "aim3if" ? "checked" : ""}
+    >
+    <span class="manifesto-source-track" aria-hidden="true"></span>
+    <span>AIM3D</span>
+  `;
+
+  group.append(label, switchLabel);
+  document.querySelector("#form-manifesto-content")?.prepend(group);
+}
+
 export function createAIM3IFDropdown(url) {
   const group = document.createElement("div");
   group.className = "form-manifesto-group";
@@ -599,15 +627,15 @@ export function createAIM3IFDropdown(url) {
     { url: url, name: t("aim3if.optionDefault", "Default configuration") },
     { url: "https://viewer.thedworak.com/manifests/box.json", name: t("aim3if.optionBox", "Box configuration") },
     // Add more AIM3IF configurations here as needed
-  ].filter(Boolean);
+  ].filter(item => item?.url);
 
   const label = document.createElement("label");
   label.textContent = t("aim3if.modelConfig", "Model configuration");
   label.className = "form-manifesto-label";
 
   const select = document.createElement("select");
-  select.id = "manifesto-config-select";
-  select.name = "manifesto-config-select";
+  select.id = "manifesto-manifest-select";
+  select.name = "manifesto-manifest-select";
 
   aim3ifList.forEach(item => {
     const opt = document.createElement("option");
@@ -615,13 +643,6 @@ export function createAIM3IFDropdown(url) {
     opt.textContent = item.name;
     select.appendChild(opt);
   });
-  group.appendChild(label);
-
-  const optDefault = document.createElement("option");
-  optDefault.value = url;
-  optDefault.textContent = t("aim3if.optionDefault", "Default configuration");
-  select.appendChild(optDefault);
-
   group.appendChild(label);
   group.appendChild(select);
 

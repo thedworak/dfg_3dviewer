@@ -702,6 +702,22 @@ export const getModuleAssetBasePath = function() {
     basePath = '/assets';
   }
 
+  // Standalone dev builds used to inherit /modules/.../viewer from the Drupal
+  // settings template. Assets are emitted beside the loaded bundle instead.
+  if (
+    scriptBasePath &&
+    /\/viewer$/.test(basePath)
+  ) {
+    const bundleAssetPath = /\/assets$/.test(scriptBasePath)
+      ? scriptBasePath
+      : `${scriptBasePath}/assets`;
+    console.warn('[loaders] legacy baseModulePath points to viewer source; using bundle asset path instead.', {
+      configuredBasePath: basePath,
+      scriptBasePath: bundleAssetPath,
+    });
+    basePath = bundleAssetPath;
+  }
+
   // Drupal legacy configs may still point to /modules/.../viewer instead of the built dist assets.
   if (
     ENV_BUILD === 'drupal' &&
