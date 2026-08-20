@@ -8523,15 +8523,20 @@ async function fetchSettings(object) {
     }
 
     normalizedUri = normalizedUri.replace(/^\/+/, '');
+    const metadataBase = new URL(core.CONFIG.metadataUrl);
+    const fileUri = new URL(core.fileObject.uri);
+
+    const filePath = fileUri.pathname.replace(/^\/+|\/+$/g, '');
+
     metadataUrl = new URL(
-      `${metadataPrefix}/${normalizedUri}/metadata/${core.fileObject.filename}_viewer.json`
+      `/${filePath}/metadata/${core.fileObject.filename}_viewer.json`,
+      metadataBase
     ).href;
     console.log("Fetched metadata from:", metadataUrl);
   } else {
     console.warn("Metadata URL or file information is missing. Skipping metadata fetch.");
   }
 
-  
   if (core.CONFIG.entity.metadata.sourceType === "IIIF") {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);
     await handleMetadataResponse( core.CONFIG.model, metadata, object);

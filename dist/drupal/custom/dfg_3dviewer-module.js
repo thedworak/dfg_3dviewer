@@ -6316,13 +6316,18 @@ function attachAnnotations(Viewer) {
               || this.metadataContainer?.style?.display === "none",
             showNotifications: core.showNotifications !== false,
             scale: {
-              x: Number(core.CONFIG.viewer.scaleContainer?.x) || 1,
-              y: Number(core.CONFIG.viewer.scaleContainer?.y) || 1,
+              x: Number.isFinite(Number(core.CONFIG?.viewer?.scaleContainer?.x))
+                ? Number(core.CONFIG.viewer.scaleContainer.x)
+                : 1,
+              y: Number.isFinite(Number(core.CONFIG?.viewer?.scaleContainer?.y))
+                ? Number(core.CONFIG.viewer.scaleContainer.y)
+                : 1,
             },
             window: this.getWindowState?.(),
-            performance: typeof core.CONFIG.viewer.performanceMode === "string"
-              ? core.CONFIG.viewer.performanceMode
-              : core.CONFIG.viewer.performanceMode?.Performance || "high-performance",
+            performance:
+              typeof core.CONFIG?.viewer?.performanceMode === "string"
+                ? core.CONFIG.viewer.performanceMode
+                : core.CONFIG?.viewer?.performanceMode?.Performance || "high-performance",
             units: core.CONFIG?.viewer?.measurement?.modelUnitInMeters,
             gallery: {
               build: core.CONFIG.viewer.gallery?.build || false,
@@ -8518,15 +8523,20 @@ async function fetchSettings(object) {
     }
 
     normalizedUri = normalizedUri.replace(/^\/+/, '');
+    const metadataBase = new URL(core.CONFIG.metadataUrl);
+    const fileUri = new URL(core.fileObject.uri);
+
+    const filePath = fileUri.pathname.replace(/^\/+|\/+$/g, '');
+
     metadataUrl = new URL(
-      `${metadataPrefix}/${normalizedUri}/metadata/${core.fileObject.filename}_viewer.json`
+      `/${filePath}/metadata/${core.fileObject.filename}_viewer.json`,
+      metadataBase
     ).href;
     console.log("Fetched metadata from:", metadataUrl);
   } else {
     console.warn("Metadata URL or file information is missing. Skipping metadata fetch.");
   }
 
-  
   if (core.CONFIG.entity.metadata.sourceType === "IIIF") {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);
     await handleMetadataResponse( core.CONFIG.model, metadata, object);
