@@ -4,10 +4,12 @@ import * as manifesto from "@iiif/3d-manifesto-dev/dist-esmodule";
 export class IIIFManifest {
   constructor(manifest) {
     // Is manifest JSON or URL?
-    if (isJsonString(manifest)) {
+    if (isPlainObject(manifest)) {
       this.manifestJson = manifest;
       this.manifestUrl = null;
-      this.manifest = manifesto.parseManifest(manifest);
+    } else if (isJsonString(manifest)) {
+      this.manifestJson = manifest;
+      this.manifestUrl = null;
     } else {
       this.manifestJson = null;
       this.manifestUrl = manifest;
@@ -31,10 +33,16 @@ export class IIIFManifest {
 }
 
 function isJsonString(str) {
+  if (typeof str !== "string") return false;
+
   try {
     JSON.parse(str);
   } catch (e) {
     return false;
   }
   return true;
+}
+
+function isPlainObject(value) {
+  return value != null && typeof value === "object" && !Array.isArray(value);
 }

@@ -3,7 +3,11 @@ import { toastHelper, showToast } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import THREE from "../init.js";
 import { EnvironmentNode } from "three/src/nodes/Nodes.js";
-import { formatAIM3DManifestValidationErrors, validateAIM3DManifest } from "../manifesto/aim3dviewer-validation.js";
+import {
+  formatAIM3DManifestValidationErrors,
+  normalizeAIM3DManifest,
+  validateAIM3DManifest,
+} from "../manifesto/aim3dviewer-validation.js";
 
 export function attachAnnotations(Viewer) {
   Object.assign(Viewer, {
@@ -1062,7 +1066,9 @@ export function attachAnnotations(Viewer) {
       const up = this.parse3IFManifestVector(cameraConfig.up, null, 3);
 
       const projectionMode = String(cameraConfig.perspectiveMode || "").toLowerCase();
+      console.log("[apply3IFManifestCamera] perspectiveMode z manifestu:", projectionMode);
       if (projectionMode === "perspective" || projectionMode === "orthographic") {
+        console.log("[apply3IFManifestCamera] ustawiam projectionMode:", projectionMode);
         this.setCameraProjection?.(projectionMode);
       }
 
@@ -1422,6 +1428,9 @@ export function attachAnnotations(Viewer) {
         return false;
       }
 
+      console.log("[import3IFManifest] Otrzymany manifest:", manifestJson);
+      console.log("[import3IFManifest] perspectiveMode:", manifestJson.AIM3DViewer?.camera?.perspectiveMode);
+      normalizeAIM3DManifest(manifestJson);
       const importValidation = validateAIM3DManifest(manifestJson);
       if (!importValidation.valid) {
         const detail = formatAIM3DManifestValidationErrors(importValidation.errors);

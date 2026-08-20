@@ -147,6 +147,10 @@ function copyBuildAssets() {
         viewerSettingsMain.viewer.editor = true;
         viewerSettingsMain.viewer.lightweight = true;
         viewerSettingsMain.mainUrl = 'localhost';
+        viewerSettingsMain.baseModulePath = `${drupalModulePrefix}/dist/${envBuild}/assets`;
+        if (envBuild === 'dev') {
+          viewerSettingsMain.entity.metadata.sourceType = 'IIIF';
+        }
         copyPromises.push(
           fs.writeFile(
             viewerSettingsTarget,

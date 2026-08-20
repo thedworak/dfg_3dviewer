@@ -71,7 +71,7 @@
       "fov": 45,
       "zoom": 1,
       "distance": 3.825185808379782,
-      "perspectiveMode": "orthographic"
+      "perspectiveMode": "perspective"
     },
     "viewer": {
       "container": "DFG_3DViewer",
