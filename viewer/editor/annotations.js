@@ -865,9 +865,19 @@ export function attachAnnotations(Viewer) {
               this.urlOptions?.hideMetadata === true
               || this.metadataContainer?.style?.display === "none",
             showNotifications: core.showNotifications !== false,
-            scale: core.CONFIG.viewer.scaleContainer || { x: 1, y: 1 },
+            scale: {
+              x: Number.isFinite(Number(core.CONFIG?.viewer?.scaleContainer?.x))
+                ? Number(core.CONFIG.viewer.scaleContainer.x)
+                : 1,
+              y: Number.isFinite(Number(core.CONFIG?.viewer?.scaleContainer?.y))
+                ? Number(core.CONFIG.viewer.scaleContainer.y)
+                : 1,
+            },
             window: this.getWindowState?.(),
-            performance: core.CONFIG.viewer.performanceMode || "high-performance",
+            performance:
+              typeof core.CONFIG?.viewer?.performanceMode === "string"
+                ? core.CONFIG.viewer.performanceMode
+                : core.CONFIG?.viewer?.performanceMode?.Performance || "high-performance",
             units: core.CONFIG?.viewer?.measurement?.modelUnitInMeters,
             gallery: {
               build: core.CONFIG.viewer.gallery?.build || false,
