@@ -1641,6 +1641,7 @@ function resolveBackground(meta, sceneId) {
     meta?.scenes?.[sceneId]?.background ??
     meta?.scene?.background ??
     meta?.globals?.background ??
+    core.objectsConfig?.scenes?.[sceneId]?.background ??
     null;
 
   if (!raw) return { kind: "default" };
@@ -1909,7 +1910,11 @@ async function animateCameraToPose ({
     }
 
     if (window.Viewer?.urlOptions?.cameraPosition || window.Viewer?.urlOptions?.cameraTarget || Number.isFinite(window.Viewer?.urlOptions?.cameraFov)) {
-      window.Viewer?.applyCameraOverridesFromUrl?.();
+      // Only reassert position/target/fov here - projection was already resolved
+      // by the initial applyCameraOverridesFromUrl() call (or overridden by a
+      // manifest's own perspectiveMode since). Re-applying it this late would
+      // silently undo a manifest's camera choice made in between.
+      window.Viewer?.applyCameraOverridesFromUrl?.({ skipProjection: true });
       core.controls?.saveState?.();
       return;
     }
@@ -1980,13 +1985,18 @@ async function fitCameraToCenteredObject(object, _fit, cfg) {
   const halfHeight = size.y / 2;
   const halfWidth  = size.x / 2;
 
+  // core.camera.fov/aspect are undefined on an OrthographicCamera; fall back
+  // to sane defaults so fitting never produces a NaN camera pose.
+  const fitFov = Number.isFinite(core.camera.fov) ? core.camera.fov : 45;
+  const fitAspect = Number.isFinite(core.camera.aspect) ? core.camera.aspect : 1;
+
   const fitHeightDistance =
-    halfHeight / Math.tan(THREE.MathUtils.degToRad(core.camera.fov / 2));
+    halfHeight / Math.tan(THREE.MathUtils.degToRad(fitFov / 2));
 
   const fitWidthDistance =
     halfWidth /
-    Math.tan(THREE.MathUtils.degToRad(core.camera.fov / 2)) /
-    core.camera.aspect;
+    Math.tan(THREE.MathUtils.degToRad(fitFov / 2)) /
+    fitAspect;
 
   const distance = Math.max(fitHeightDistance, fitWidthDistance) * 1.95;
 
@@ -6511,13 +6521,9 @@ function attachAnnotations(Viewer) {
       const target = this.parse3IFManifestVector(cameraConfig.target, null, 3);
       const up = this.parse3IFManifestVector(cameraConfig.up, null, 3);
 
-      const projectionMode = String(cameraConfig.perspectiveMode || "").toLowerCase();
-      console.log("[apply3IFManifestCamera] perspectiveMode z manifestu:", projectionMode);
-      if (projectionMode === "perspective" || projectionMode === "orthographic") {
-        console.log("[apply3IFManifestCamera] ustawiam projectionMode:", projectionMode);
-        this.setCameraProjection?.(projectionMode);
-      }
-
+      // Apply position/target/up before switching projection so that the
+      // orthographic frustum (sized from camera<->target distance) is computed
+      // from the manifest's own camera pose rather than a stale one.
       if (position) {
         core.camera.position.set(position[0], position[1], position[2]);
         core.cameraLight?.position?.set?.(position[0], position[1], position[2]);
@@ -6530,6 +6536,11 @@ function attachAnnotations(Viewer) {
 
       if (up) {
         core.camera.up.set(up[0], up[1], up[2]);
+      }
+
+      const projectionMode = String(cameraConfig.perspectiveMode || "").toLowerCase();
+      if (projectionMode === "perspective" || projectionMode === "orthographic") {
+        this.setCameraProjection?.(projectionMode);
       }
 
       const fov = Number(cameraConfig.fov);
@@ -6874,8 +6885,6 @@ function attachAnnotations(Viewer) {
         return false;
       }
 
-      console.log("[import3IFManifest] Otrzymany manifest:", manifestJson);
-      console.log("[import3IFManifest] perspectiveMode:", manifestJson.AIM3DViewer?.camera?.perspectiveMode);
       normalizeAIM3DManifest(manifestJson);
       const importValidation = validateAIM3DManifest(manifestJson);
       if (!importValidation.valid) {
@@ -8516,7 +8525,10 @@ async function fetchSettings(object) {
     console.log("Skipping metadata fetch for local file");
   } else if (core.CONFIG.metadataUrl && core.fileObject.uri && core.fileObject.filename) {
     const metadataPrefix = new URL(core.CONFIG.metadataUrl).href.replace(/\/+$/, '') || '';
-    let normalizedUri = new URL(core.fileObject.uri).href.replace(/\/+$/, '');
+    // core.fileObject.uri can be a relative path (e.g. a manifest's own model
+    // URL resolved against the current page) - resolve it against the page
+    // instead of assuming it's already absolute, or this throws.
+    let normalizedUri = new URL(core.fileObject.uri, document.baseURI).href.replace(/\/+$/, '');
 
     if (normalizedUri.startsWith(metadataPrefix)) {
       normalizedUri = normalizedUri.slice(metadataPrefix.length);
@@ -8625,6 +8637,8 @@ function createAIM3IFDropdown(url) {
   const aim3ifList = [
     { url: url, name: t$1("aim3if.optionDefault", "Default configuration") },
     { url: "https://viewer.thedworak.com/manifests/box.json", name: t$1("aim3if.optionBox", "Box configuration") },
+    { url: "./manifests/box-aim3d-local.json", name: t$1("aim3if.optionBoxLocal", "Box (localhost)") },
+    { url: "./manifests/wolpa-synagogue-aim3d-local.json", name: t$1("aim3if.optionWolpaLocal", "Wolpa Synagogue (localhost)") },
     // Add more AIM3IF configurations here as needed
   ].filter(item => item?.url);
 
@@ -15422,10 +15436,23 @@ function isPlainObject(value) {
   return value != null && typeof value === "object" && !Array.isArray(value);
 }
 
+// Annotation bodies are always parsed as plain AnnotationBody instances, where
+// isSpecificResource is an inherited METHOD (checking the JSON "type"), even when
+// the body's own JSON shape is "SpecificResource" wrapping a Model/Light/Camera.
+// Annotation TARGETS shaped as SpecificResource, on the other hand, are parsed as
+// actual SpecificResource instances, which shadow it with a boolean `true` OWN
+// property instead. Reading `.isSpecificResource` without calling it would  be
+// truthy in both cases regardless of the real answer, so this checks both shapes.
+function resolvesToSpecificResource(value) {
+  if (typeof value?.isSpecificResource === "function") return value.isSpecificResource();
+  return value?.isSpecificResource === true;
+}
+
 async function loadIIIFManifest(manifestUrlOrJson) {
   let iiifManifest = new IIIFManifest(manifestUrlOrJson);
   await iiifManifest.loadManifest();
   let modelTarget;
+  const modelTargets = [];
   let filteredAnnos;
   iiifManifest.modelUrls = new Array();
 
@@ -15435,8 +15462,10 @@ async function loadIIIFManifest(manifestUrlOrJson) {
       // Root scene
       const manifestScene = iiifManifest.scenes[i];
 
-      // Add scene BG color
-      iiifManifest.scenes[i].background = await manifestScene.getBackgroundColor();
+      // Add scene BG color (getBackgroundColor() returns a Color instance;
+      // downstream code expects a plain CSS hex string, same as the AIM3D loader)
+      const backgroundColor = await manifestScene.getBackgroundColor();
+      iiifManifest.scenes[i].background = backgroundColor?.CSS ?? null;
 
       // Load individual model annotations
       const annos = iiifManifest.annotationsFromScene(manifestScene);
@@ -15445,13 +15474,13 @@ async function loadIIIFManifest(manifestUrlOrJson) {
         const body = anno.getBody()[0];
         return (
           anno.getMotivation()?.[0] === "painting" &&
-          (body.isSpecificResource || body?.getType() === "model")
+          (resolvesToSpecificResource(body) || body?.getType() === "model")
         );
       });
 
       filteredAnnos.forEach((modelAnnotation) => {
         let modelUrl;
-        if (modelAnnotation.getBody()[0].isSpecificResource) {
+        if (resolvesToSpecificResource(modelAnnotation.getBody()[0])) {
           modelUrl = modelAnnotation.getBody()[0].getSource()?.id;
         } else {
           modelUrl = modelAnnotation.getBody()[0].id;
@@ -15459,6 +15488,7 @@ async function loadIIIFManifest(manifestUrlOrJson) {
         modelTarget = modelAnnotation.getTarget();
         if (modelUrl && modelTarget) {
           iiifManifest.modelUrls.push(modelUrl);
+          modelTargets.push(modelTarget);
         }
       });
     }
@@ -15468,7 +15498,10 @@ async function loadIIIFManifest(manifestUrlOrJson) {
     scenes: iiifManifest.scenes,
     annotations: filteredAnnos,
     modelUrls: iiifManifest.modelUrls,
-    modelTarget: modelTarget
+    modelTarget: modelTarget,
+    // One target per entry in modelUrls/annotations - a manifest can place
+    // several models in the same scene, each with its own position selector.
+    modelTargets,
   };
 }
 
@@ -15489,7 +15522,7 @@ async function getAnnotations(iiifManifest, objectsConfig) {
 
   await Promise.all(
     items.map(async (modelAnnotation) => {       
-        if (modelAnnotation.getBody()[0].isSpecificResource) {
+        if (resolvesToSpecificResource(modelAnnotation.getBody()[0])) {
           let transforms = new Array();
 
           try {
@@ -15556,9 +15589,12 @@ async function getAnnotations(iiifManifest, objectsConfig) {
           }
         }
 
-        // Position model within target scene if position selector present
-        if (iiifManifest.modelTarget.isSpecificResource == true) {
-          const selector = iiifManifest.modelTarget.getSelector();
+        // Position model within target scene if position selector present.
+        // Each model annotation carries its own target, so index into
+        // modelTargets rather than reusing whichever one loaded last.
+        const currentTarget = iiifManifest.modelTargets?.[ind] ?? iiifManifest.modelTarget;
+        if (resolvesToSpecificResource(currentTarget)) {
+          const selector = currentTarget.getSelector();
           if (selector && selector.isPointSelector) {
             const position = selector.getLocation();
             if (position) {
@@ -15633,9 +15669,10 @@ async function loadAIM3IFManifest(manifestUrlOrJson) {
   let filteredAnnos = [];
 
   for (const scene of aim3dManifest.scenes) {
-    scene.background =
-      scene.backgroundColor ||
-      "#000000";
+    // Leave background unset (rather than defaulting to black) when the
+    // manifest doesn't specify one, so the viewer's own default background
+    // applies - matching how the IIIF loader handles a missing color.
+    scene.background = scene.backgroundColor || null;
 
     const annos = aim3dManifest.annotationsFromScene(scene);
 
@@ -18944,7 +18981,8 @@ const Viewer$1 = {
     const size = core.boundingSphere ? core.boundingSphere.radius : core.camera.position.distanceTo(core.controls?.target) || 100;
     const near = Math.max(size / 1000, 0.01);
     const far = distance + size * 100;
-    const fovDeg = core.camera.fov;
+    // core.camera.fov is undefined on an OrthographicCamera, so fall back to a sane default
+    const fovDeg = Number.isFinite(core.camera.fov) ? core.camera.fov : 45;
     const fovRad = THREE.MathUtils.degToRad(fovDeg);
 
     if (projection === "orthographic") {
@@ -21055,11 +21093,11 @@ const Viewer$1 = {
     });
   },
 
-  applyCameraOverridesFromUrl() {
+  applyCameraOverridesFromUrl({ skipProjection = false } = {}) {
     if (!core.camera) return;
 
     const requestedProjection = this.urlOptions?.cameraProjection;
-    if (requestedProjection === "orthographic" || requestedProjection === "perspective") {
+    if (!skipProjection && (requestedProjection === "orthographic" || requestedProjection === "perspective")) {
       this.setCameraProjection(requestedProjection);
     }
 
@@ -21521,6 +21559,12 @@ const Viewer$1 = {
       console.info(`Detected ${isAim3ifManifest ? "AIM3D" : "IIIF"} manifest; using its matching loader.`);
     }
 
+    // fetchSettings() only applies the loaded model's position/rotation/scale
+    // (and other per-model config) when sourceType reads "IIIF" - keep it in
+    // sync with what actually got loaded, regardless of how setupManifesto
+    // was invoked, so it doesn't silently lag behind the UI's source switch.
+    core.CONFIG.entity.metadata.sourceType = isAim3ifManifest ? "AIM3IF" : "IIIF";
+
     if (isAim3ifManifest) {
       if (type !== "text") {
         core.CONFIG.entity.metadata.url = newUrlOrJson;
@@ -21542,6 +21586,14 @@ const Viewer$1 = {
     }
     // reset scene and release GPU resources from the previous model batch
     Viewer$1.resetLoadedModelState();
+    // A previous AIM3D manifest may have left the camera in orthographic mode.
+    // Always start from perspective; AIM3D's own camera config (applied below)
+    // switches back to orthographic only if it explicitly asks for it.
+    Viewer$1.setCameraProjection("perspective");
+    // A previous manifest's viewer.backgroundColor sets an opaque THREE.Color
+    // on the scene, which is never cleared - it would otherwise paint over
+    // this manifest's own (possibly unset) background on every future load.
+    if (core.scene) core.scene.background = null;
     core.objectsConfig.setupIndex = 0;
     core.axesHelper.visible = false;
     console.log("TOTAL Annotations: " + loadedManifest.annotations.length);

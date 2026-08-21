@@ -314,7 +314,8 @@ export const Viewer = {
     const size = core.boundingSphere ? core.boundingSphere.radius : core.camera.position.distanceTo(core.controls?.target) || 100;
     const near = Math.max(size / 1000, 0.01);
     const far = distance + size * 100;
-    const fovDeg = core.camera.fov;
+    // core.camera.fov is undefined on an OrthographicCamera, so fall back to a sane default
+    const fovDeg = Number.isFinite(core.camera.fov) ? core.camera.fov : 45;
     const fovRad = THREE.MathUtils.degToRad(fovDeg);
 
     if (projection === "orthographic") {
@@ -2435,11 +2436,11 @@ export const Viewer = {
     });
   },
 
-  applyCameraOverridesFromUrl() {
+  applyCameraOverridesFromUrl({ skipProjection = false } = {}) {
     if (!core.camera) return;
 
     const requestedProjection = this.urlOptions?.cameraProjection;
-    if (requestedProjection === "orthographic" || requestedProjection === "perspective") {
+    if (!skipProjection && (requestedProjection === "orthographic" || requestedProjection === "perspective")) {
       this.setCameraProjection(requestedProjection);
     }
 
@@ -2901,6 +2902,12 @@ export const Viewer = {
       console.info(`Detected ${isAim3ifManifest ? "AIM3D" : "IIIF"} manifest; using its matching loader.`);
     }
 
+    // fetchSettings() only applies the loaded model's position/rotation/scale
+    // (and other per-model config) when sourceType reads "IIIF" - keep it in
+    // sync with what actually got loaded, regardless of how setupManifesto
+    // was invoked, so it doesn't silently lag behind the UI's source switch.
+    core.CONFIG.entity.metadata.sourceType = isAim3ifManifest ? "AIM3IF" : "IIIF";
+
     if (isAim3ifManifest) {
       if (type !== "text") {
         core.CONFIG.entity.metadata.url = newUrlOrJson;
@@ -2922,6 +2929,14 @@ export const Viewer = {
     }
     // reset scene and release GPU resources from the previous model batch
     Viewer.resetLoadedModelState();
+    // A previous AIM3D manifest may have left the camera in orthographic mode.
+    // Always start from perspective; AIM3D's own camera config (applied below)
+    // switches back to orthographic only if it explicitly asks for it.
+    Viewer.setCameraProjection("perspective");
+    // A previous manifest's viewer.backgroundColor sets an opaque THREE.Color
+    // on the scene, which is never cleared - it would otherwise paint over
+    // this manifest's own (possibly unset) background on every future load.
+    if (core.scene) core.scene.background = null;
     core.objectsConfig.setupIndex = 0;
     core.axesHelper.visible = false;
     console.log("TOTAL Annotations: " + loadedManifest.annotations.length);

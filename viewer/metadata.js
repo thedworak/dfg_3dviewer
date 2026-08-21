@@ -517,7 +517,10 @@ export async function fetchSettings(object) {
     console.log("Skipping metadata fetch for local file");
   } else if (core.CONFIG.metadataUrl && core.fileObject.uri && core.fileObject.filename) {
     const metadataPrefix = new URL(core.CONFIG.metadataUrl).href.replace(/\/+$/, '') || '';
-    let normalizedUri = new URL(core.fileObject.uri).href.replace(/\/+$/, '');
+    // core.fileObject.uri can be a relative path (e.g. a manifest's own model
+    // URL resolved against the current page) - resolve it against the page
+    // instead of assuming it's already absolute, or this throws.
+    let normalizedUri = new URL(core.fileObject.uri, document.baseURI).href.replace(/\/+$/, '');
 
     if (normalizedUri.startsWith(metadataPrefix)) {
       normalizedUri = normalizedUri.slice(metadataPrefix.length);
@@ -626,6 +629,8 @@ export function createAIM3IFDropdown(url) {
   const aim3ifList = [
     { url: url, name: t("aim3if.optionDefault", "Default configuration") },
     { url: "https://viewer.thedworak.com/manifests/box.json", name: t("aim3if.optionBox", "Box configuration") },
+    { url: "./manifests/box-aim3d-local.json", name: t("aim3if.optionBoxLocal", "Box (localhost)") },
+    { url: "./manifests/wolpa-synagogue-aim3d-local.json", name: t("aim3if.optionWolpaLocal", "Wolpa Synagogue (localhost)") },
     // Add more AIM3IF configurations here as needed
   ].filter(item => item?.url);
 

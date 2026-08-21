@@ -98,6 +98,7 @@ function copyBuildAssets() {
         copyDirectory('viewer/fonts', path.join(outDistDir, 'assets/fonts')),
         copyDirectory('viewer/js/maps', path.join(outDistDir, 'assets/maps')),
         copyDirectory('viewer/examples', path.join(outDistDir, 'examples')),
+        copyDirectory('viewer/manifesto/examples', path.join(outDistDir, 'manifests')),
         // copy admin panel (but we'll remove any local sqlite DB afterwards)
         copyDirectory('viewer/admin', path.join(outDistDir, 'admin')),
       ]);
