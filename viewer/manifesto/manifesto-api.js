@@ -23,9 +23,10 @@ export async function loadAIM3IFManifest(manifestUrlOrJson) {
   let filteredAnnos = [];
 
   for (const scene of aim3dManifest.scenes) {
-    scene.background =
-      scene.backgroundColor ||
-      "#000000";
+    // Leave background unset (rather than defaulting to black) when the
+    // manifest doesn't specify one, so the viewer's own default background
+    // applies - matching how the IIIF loader handles a missing color.
+    scene.background = scene.backgroundColor || null;
 
     const annos = aim3dManifest.annotationsFromScene(scene);
 

@@ -1,10 +1,23 @@
 import {} from "@iiif/3d-manifesto-dev";
 import { IIIFManifest } from "./iiif";
 
+// Annotation bodies are always parsed as plain AnnotationBody instances, where
+// isSpecificResource is an inherited METHOD (checking the JSON "type"), even when
+// the body's own JSON shape is "SpecificResource" wrapping a Model/Light/Camera.
+// Annotation TARGETS shaped as SpecificResource, on the other hand, are parsed as
+// actual SpecificResource instances, which shadow it with a boolean `true` OWN
+// property instead. Reading `.isSpecificResource` without calling it would  be
+// truthy in both cases regardless of the real answer, so this checks both shapes.
+function resolvesToSpecificResource(value) {
+  if (typeof value?.isSpecificResource === "function") return value.isSpecificResource();
+  return value?.isSpecificResource === true;
+}
+
 export async function loadIIIFManifest(manifestUrlOrJson) {
   let iiifManifest = new IIIFManifest(manifestUrlOrJson);
   await iiifManifest.loadManifest();
   let modelTarget;
+  const modelTargets = [];
   let filteredAnnos;
   let i = 0;
   iiifManifest.modelUrls = new Array();
@@ -15,8 +28,10 @@ export async function loadIIIFManifest(manifestUrlOrJson) {
       // Root scene
       const manifestScene = iiifManifest.scenes[i];
 
-      // Add scene BG color
-      iiifManifest.scenes[i].background = await manifestScene.getBackgroundColor();
+      // Add scene BG color (getBackgroundColor() returns a Color instance;
+      // downstream code expects a plain CSS hex string, same as the AIM3D loader)
+      const backgroundColor = await manifestScene.getBackgroundColor();
+      iiifManifest.scenes[i].background = backgroundColor?.CSS ?? null;
 
       // Load individual model annotations
       const annos = iiifManifest.annotationsFromScene(manifestScene);
@@ -25,13 +40,13 @@ export async function loadIIIFManifest(manifestUrlOrJson) {
         const body = anno.getBody()[0];
         return (
           anno.getMotivation()?.[0] === "painting" &&
-          (body.isSpecificResource || body?.getType() === "model")
+          (resolvesToSpecificResource(body) || body?.getType() === "model")
         );
       });
 
       filteredAnnos.forEach((modelAnnotation) => {
         let modelUrl;
-        if (modelAnnotation.getBody()[0].isSpecificResource) {
+        if (resolvesToSpecificResource(modelAnnotation.getBody()[0])) {
           modelUrl = modelAnnotation.getBody()[0].getSource()?.id;
         } else {
           modelUrl = modelAnnotation.getBody()[0].id;
@@ -39,6 +54,7 @@ export async function loadIIIFManifest(manifestUrlOrJson) {
         modelTarget = modelAnnotation.getTarget();
         if (modelUrl && modelTarget) {
           iiifManifest.modelUrls.push(modelUrl);
+          modelTargets.push(modelTarget);
         }
       });
     }
@@ -48,7 +64,10 @@ export async function loadIIIFManifest(manifestUrlOrJson) {
     scenes: iiifManifest.scenes,
     annotations: filteredAnnos,
     modelUrls: iiifManifest.modelUrls,
-    modelTarget: modelTarget
+    modelTarget: modelTarget,
+    // One target per entry in modelUrls/annotations - a manifest can place
+    // several models in the same scene, each with its own position selector.
+    modelTargets,
   };
 }
 
@@ -69,7 +88,7 @@ export async function getAnnotations(iiifManifest, objectsConfig) {
 
   await Promise.all(
     items.map(async (modelAnnotation) => {       
-        if (modelAnnotation.getBody()[0].isSpecificResource) {
+        if (resolvesToSpecificResource(modelAnnotation.getBody()[0])) {
           let transforms = new Array();
 
           try {
@@ -136,9 +155,12 @@ export async function getAnnotations(iiifManifest, objectsConfig) {
           }
         }
 
-        // Position model within target scene if position selector present
-        if (iiifManifest.modelTarget.isSpecificResource == true) {
-          const selector = iiifManifest.modelTarget.getSelector();
+        // Position model within target scene if position selector present.
+        // Each model annotation carries its own target, so index into
+        // modelTargets rather than reusing whichever one loaded last.
+        const currentTarget = iiifManifest.modelTargets?.[ind] ?? iiifManifest.modelTarget;
+        if (resolvesToSpecificResource(currentTarget)) {
+          const selector = currentTarget.getSelector();
           if (selector && selector.isPointSelector) {
             const position = selector.getLocation();
             if (position) {

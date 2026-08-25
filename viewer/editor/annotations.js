@@ -1065,13 +1065,9 @@ export function attachAnnotations(Viewer) {
       const target = this.parse3IFManifestVector(cameraConfig.target, null, 3);
       const up = this.parse3IFManifestVector(cameraConfig.up, null, 3);
 
-      const projectionMode = String(cameraConfig.perspectiveMode || "").toLowerCase();
-      console.log("[apply3IFManifestCamera] perspectiveMode z manifestu:", projectionMode);
-      if (projectionMode === "perspective" || projectionMode === "orthographic") {
-        console.log("[apply3IFManifestCamera] ustawiam projectionMode:", projectionMode);
-        this.setCameraProjection?.(projectionMode);
-      }
-
+      // Apply position/target/up before switching projection so that the
+      // orthographic frustum (sized from camera<->target distance) is computed
+      // from the manifest's own camera pose rather than a stale one.
       if (position) {
         core.camera.position.set(position[0], position[1], position[2]);
         core.cameraLight?.position?.set?.(position[0], position[1], position[2]);
@@ -1084,6 +1080,11 @@ export function attachAnnotations(Viewer) {
 
       if (up) {
         core.camera.up.set(up[0], up[1], up[2]);
+      }
+
+      const projectionMode = String(cameraConfig.perspectiveMode || "").toLowerCase();
+      if (projectionMode === "perspective" || projectionMode === "orthographic") {
+        this.setCameraProjection?.(projectionMode);
       }
 
       const fov = Number(cameraConfig.fov);
@@ -1428,8 +1429,6 @@ export function attachAnnotations(Viewer) {
         return false;
       }
 
-      console.log("[import3IFManifest] Otrzymany manifest:", manifestJson);
-      console.log("[import3IFManifest] perspectiveMode:", manifestJson.AIM3DViewer?.camera?.perspectiveMode);
       normalizeAIM3DManifest(manifestJson);
       const importValidation = validateAIM3DManifest(manifestJson);
       if (!importValidation.valid) {
