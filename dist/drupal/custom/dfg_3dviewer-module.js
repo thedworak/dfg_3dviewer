@@ -11256,36 +11256,6 @@ var AnnotationPage = /** @class */ (function (_super) {
     return AnnotationPage;
 }(ManifestResource));
 
-/**
- * Appends the elements of `values` to `array`.
- *
- * @private
- * @param {Array} array The array to modify.
- * @param {Array} values The values to append.
- * @returns {Array} Returns `array`.
- */
-
-var _arrayPush;
-var hasRequired_arrayPush;
-
-function require_arrayPush () {
-	if (hasRequired_arrayPush) return _arrayPush;
-	hasRequired_arrayPush = 1;
-	function arrayPush(array, values) {
-	  var index = -1,
-	      length = values.length,
-	      offset = array.length;
-
-	  while (++index < length) {
-	    array[offset + index] = values[index];
-	  }
-	  return array;
-	}
-
-	_arrayPush = arrayPush;
-	return _arrayPush;
-}
-
 /** Detect free variable `global` from Node.js. */
 
 var _freeGlobal;
@@ -11639,8 +11609,7 @@ var hasRequired_baseFlatten;
 function require_baseFlatten () {
 	if (hasRequired_baseFlatten) return _baseFlatten;
 	hasRequired_baseFlatten = 1;
-	var arrayPush = /*@__PURE__*/ require_arrayPush(),
-	    isFlattenable = /*@__PURE__*/ require_isFlattenable();
+	var isFlattenable = /*@__PURE__*/ require_isFlattenable();
 
 	/**
 	 * The base implementation of `_.flatten` with support for restricting flattening.
@@ -11666,8 +11635,6 @@ function require_baseFlatten () {
 	      if (depth > 1) {
 	        // Recursively flatten arrays (susceptible to call stack limits).
 	        baseFlatten(value, depth - 1, predicate, isStrict, result);
-	      } else {
-	        arrayPush(result, value);
 	      }
 	    } else if (!isStrict) {
 	      result[result.length] = value;
