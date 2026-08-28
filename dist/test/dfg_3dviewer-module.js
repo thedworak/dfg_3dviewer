@@ -351,6 +351,7 @@ const VIEWER_I18N = {
       reconstructionPeriod: "Reconstruction period",
     },
     manifesto: {
+      source: "Manifest type",
       invalidUrl: "Please enter a valid manifesto URL.",
       invalidJson: "Please enter a valid manifesto JSON text.",
     },
@@ -659,6 +660,7 @@ const VIEWER_I18N = {
       reconstructionPeriod: "Okres rekonstrukcji",
     },
     manifesto: {
+      source: "Typ manifestu",
       invalidUrl: "Podaj poprawny URL manifestu.",
       invalidJson: "Podaj poprawny tekst JSON.",
     },
@@ -966,6 +968,7 @@ const VIEWER_I18N = {
       reconstructionPeriod: "Rekonstruktionsperiode",
     },
     manifesto: {
+      source: "Manifesttyp",
       invalidUrl: "Bitte geben Sie eine gültige Manifest-URL ein.",
       invalidJson: "Bitte geben Sie einen gültigen Manifest-JSON-Text ein.",
     },
@@ -1638,6 +1641,7 @@ function resolveBackground(meta, sceneId) {
     meta?.scenes?.[sceneId]?.background ??
     meta?.scene?.background ??
     meta?.globals?.background ??
+    core.objectsConfig?.scenes?.[sceneId]?.background ??
     null;
 
   if (!raw) return { kind: "default" };
@@ -1906,7 +1910,11 @@ async function animateCameraToPose ({
     }
 
     if (window.Viewer?.urlOptions?.cameraPosition || window.Viewer?.urlOptions?.cameraTarget || Number.isFinite(window.Viewer?.urlOptions?.cameraFov)) {
-      window.Viewer?.applyCameraOverridesFromUrl?.();
+      // Only reassert position/target/fov here - projection was already resolved
+      // by the initial applyCameraOverridesFromUrl() call (or overridden by a
+      // manifest's own perspectiveMode since). Re-applying it this late would
+      // silently undo a manifest's camera choice made in between.
+      window.Viewer?.applyCameraOverridesFromUrl?.({ skipProjection: true });
       core.controls?.saveState?.();
       return;
     }
@@ -1977,13 +1985,18 @@ async function fitCameraToCenteredObject(object, _fit, cfg) {
   const halfHeight = size.y / 2;
   const halfWidth  = size.x / 2;
 
+  // core.camera.fov/aspect are undefined on an OrthographicCamera; fall back
+  // to sane defaults so fitting never produces a NaN camera pose.
+  const fitFov = Number.isFinite(core.camera.fov) ? core.camera.fov : 45;
+  const fitAspect = Number.isFinite(core.camera.aspect) ? core.camera.aspect : 1;
+
   const fitHeightDistance =
-    halfHeight / Math.tan(THREE.MathUtils.degToRad(core.camera.fov / 2));
+    halfHeight / Math.tan(THREE.MathUtils.degToRad(fitFov / 2));
 
   const fitWidthDistance =
     halfWidth /
-    Math.tan(THREE.MathUtils.degToRad(core.camera.fov / 2)) /
-    core.camera.aspect;
+    Math.tan(THREE.MathUtils.degToRad(fitFov / 2)) /
+    fitAspect;
 
   const distance = Math.max(fitHeightDistance, fitWidthDistance) * 1.95;
 
@@ -5146,8 +5159,44 @@ async function saveEditorMetadata(viewer) {
   }
 }
 
-function isPlainObject(value) {
+function isPlainObject$1(value) {
   return value != null && typeof value === "object" && Array.isArray(value) === false;
+}
+
+function isAIM3DManifest(manifest) {
+  return isPlainObject$1(manifest) && Object.hasOwn(manifest, "AIM3DViewer");
+}
+
+function parseFiniteNumber(value) {
+  if (isFiniteNumber(value)) return value;
+  if (typeof value !== "string" || value.trim() === "") return null;
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+// Older viewer exports kept values from viewer-settings.json verbatim. Normalize
+// those compatible values before validating the canonical AIM3D representation.
+function normalizeAIM3DManifest(manifest) {
+  const viewer = manifest?.AIM3DViewer?.viewer;
+  if (!isPlainObject$1(viewer)) return manifest;
+
+  if (Array.isArray(viewer.scale)) {
+    viewer.scale = viewer.scale.map((value) => parseFiniteNumber(value) ?? value);
+  } else if (isPlainObject$1(viewer.scale)) {
+    ["x", "y"].forEach((axis) => {
+      viewer.scale[axis] = parseFiniteNumber(viewer.scale[axis]) ?? viewer.scale[axis];
+    });
+  }
+
+  if (isPlainObject$1(viewer.performance)) {
+    const mode = viewer.performance.Performance ?? viewer.performance.performance;
+    if (typeof mode === "string" && mode.trim() !== "") {
+      viewer.performance = mode;
+    }
+  }
+
+  return manifest;
 }
 
 function isFiniteNumber(value) {
@@ -5176,7 +5225,7 @@ function validateVector(value, path, errors, expectedLength = 3) {
     return;
   }
 
-  if (isPlainObject(value)) {
+  if (isPlainObject$1(value)) {
     const keys = expectedLength === 2 ? ["x", "y"] : ["x", "y", "z"];
     keys.forEach((key) => {
       if (!isFiniteNumber(value[key])) {
@@ -5214,7 +5263,7 @@ function validateEnum(value, allowedValues, path, errors) {
 }
 
 function validateLight(light, path, errors) {
-  if (!isPlainObject(light)) {
+  if (!isPlainObject$1(light)) {
     pushError(errors, path, "must be an object");
     return;
   }
@@ -5226,12 +5275,12 @@ function validateLight(light, path, errors) {
 }
 
 function validateClipping(clipping, path, errors) {
-  if (!isPlainObject(clipping)) {
+  if (!isPlainObject$1(clipping)) {
     pushError(errors, path, "must be an object");
     return;
   }
   if (clipping.mode !== undefined) {
-    if (!isPlainObject(clipping.mode)) {
+    if (!isPlainObject$1(clipping.mode)) {
       pushError(errors, `${path}.mode`, "must be an object");
     } else {
       ["x", "y", "z"].forEach((axis) => {
@@ -5245,7 +5294,7 @@ function validateClipping(clipping, path, errors) {
 }
 
 function validateCamera(camera, path, errors) {
-  if (!isPlainObject(camera)) {
+  if (!isPlainObject$1(camera)) {
     pushError(errors, path, "must be an object");
     return;
   }
@@ -5259,7 +5308,7 @@ function validateCamera(camera, path, errors) {
 }
 
 function validateViewer(viewer, path, errors) {
-  if (!isPlainObject(viewer)) {
+  if (!isPlainObject$1(viewer)) {
     pushError(errors, path, "must be an object");
     return;
   }
@@ -5271,7 +5320,7 @@ function validateViewer(viewer, path, errors) {
   if (viewer.language !== undefined) validateEnum(viewer.language, ["en", "pl", "de"], `${path}.language`, errors);
   if (viewer.backgroundColor !== undefined) validateString(viewer.backgroundColor, `${path}.backgroundColor`, errors);
   if (viewer.environmentMap !== undefined) {
-    if (!isPlainObject(viewer.environmentMap)) {
+    if (!isPlainObject$1(viewer.environmentMap)) {
       pushError(errors, `${path}.environmentMap`, "must be an object");
     } else {
       if (viewer.environmentMap.intensity !== undefined) validateNumber(viewer.environmentMap.intensity, `${path}.environmentMap.intensity`, errors);
@@ -5293,14 +5342,14 @@ function validateViewer(viewer, path, errors) {
   if (viewer.autorotateSpeed !== undefined) validateNumber(viewer.autorotateSpeed, `${path}.autorotateSpeed`, errors);
   if (viewer.scale !== undefined) validateVector(viewer.scale, `${path}.scale`, errors, 2);
   if (viewer.window !== undefined) {
-    if (!isPlainObject(viewer.window)) {
+    if (!isPlainObject$1(viewer.window)) {
       pushError(errors, `${path}.window`, "must be an object");
     } else {
       if (viewer.window.position !== undefined) {
         validateVector(viewer.window.position, `${path}.window.position`, errors, 2);
       }
       if (viewer.window.size !== undefined) {
-        if (!isPlainObject(viewer.window.size)) {
+        if (!isPlainObject$1(viewer.window.size)) {
           pushError(errors, `${path}.window.size`, "must be an object");
         } else {
           if (viewer.window.size.width !== undefined) validateNumber(viewer.window.size.width, `${path}.window.size.width`, errors);
@@ -5313,9 +5362,9 @@ function validateViewer(viewer, path, errors) {
   if (viewer.units !== undefined && !(isFiniteNumber(viewer.units) || isString(viewer.units))) {
     pushError(errors, `${path}.units`, "must be a finite number or string");
   }
-  if (viewer.gallery !== undefined && !isPlainObject(viewer.gallery)) pushError(errors, `${path}.gallery`, "must be an object");
+  if (viewer.gallery !== undefined && !isPlainObject$1(viewer.gallery)) pushError(errors, `${path}.gallery`, "must be an object");
   if (viewer.editorToolbar !== undefined) {
-    if (!isPlainObject(viewer.editorToolbar)) {
+    if (!isPlainObject$1(viewer.editorToolbar)) {
       pushError(errors, `${path}.editorToolbar`, "must be an object");
     } else {
       if (viewer.editorToolbar.enabled !== undefined) validateBoolean(viewer.editorToolbar.enabled, `${path}.editorToolbar.enabled`, errors);
@@ -5325,7 +5374,7 @@ function validateViewer(viewer, path, errors) {
     }
   }
   if (viewer.menuToolbar !== undefined) {
-    if (!isPlainObject(viewer.menuToolbar)) {
+    if (!isPlainObject$1(viewer.menuToolbar)) {
       pushError(errors, `${path}.menuToolbar`, "must be an object");
     } else {
       if (viewer.menuToolbar.enabled !== undefined) validateBoolean(viewer.menuToolbar.enabled, `${path}.menuToolbar.enabled`, errors);
@@ -5336,14 +5385,14 @@ function validateViewer(viewer, path, errors) {
 }
 
 function validateModelTransform(modelTransform, path, errors) {
-  if (!isPlainObject(modelTransform)) {
+  if (!isPlainObject$1(modelTransform)) {
     pushError(errors, path, "must be an object");
     return;
   }
   if (modelTransform.position !== undefined) validateVector(modelTransform.position, `${path}.position`, errors, 3);
   if (modelTransform.scale !== undefined) validateVector(modelTransform.scale, `${path}.scale`, errors, 3);
   if (modelTransform.rotation !== undefined) {
-    if (!isPlainObject(modelTransform.rotation)) {
+    if (!isPlainObject$1(modelTransform.rotation)) {
       pushError(errors, `${path}.rotation`, "must be an object");
     } else {
       ["x", "y", "z"].forEach((key) => {
@@ -5356,7 +5405,7 @@ function validateModelTransform(modelTransform, path, errors) {
 }
 
 function validateAIM3DViewerBlock(block, path, errors) {
-  if (!isPlainObject(block)) {
+  if (!isPlainObject$1(block)) {
     pushError(errors, path, "must be an object");
     return;
   }
@@ -5364,7 +5413,7 @@ function validateAIM3DViewerBlock(block, path, errors) {
   if (block.generatedAt !== undefined) validateString(block.generatedAt, `${path}.generatedAt`, errors);
   if (block.camera !== undefined) validateCamera(block.camera, `${path}.camera`, errors);
   if (block.viewer !== undefined) validateViewer(block.viewer, `${path}.viewer`, errors);
-  if (block.integration !== undefined && !isPlainObject(block.integration)) pushError(errors, `${path}.integration`, "must be an object");
+  if (block.integration !== undefined && !isPlainObject$1(block.integration)) pushError(errors, `${path}.integration`, "must be an object");
   if (block.lights !== undefined) {
     if (!Array.isArray(block.lights)) {
       pushError(errors, `${path}.lights`, "must be an array");
@@ -5380,7 +5429,7 @@ function validateAIM3DManifest(manifest, options = {}) {
   const { requireCustomBlock = false } = options;
   const errors = [];
 
-  if (!isPlainObject(manifest)) {
+  if (!isPlainObject$1(manifest)) {
     pushError(errors, "$", "must be an object");
     return { valid: false, errors };
   }
@@ -5393,7 +5442,7 @@ function validateAIM3DManifest(manifest, options = {}) {
   if (manifest.items !== undefined && !Array.isArray(manifest.items)) {
     pushError(errors, "$.items", "must be an array");
   }
-  if (requireCustomBlock && !isPlainObject(manifest.AIM3DViewer)) {
+  if (requireCustomBlock && !isPlainObject$1(manifest.AIM3DViewer)) {
     pushError(errors, "$.AIM3DViewer", "is required and must be an object");
   }
   if (manifest.AIM3DViewer !== undefined) {
@@ -6276,9 +6325,19 @@ function attachAnnotations(Viewer) {
               this.urlOptions?.hideMetadata === true
               || this.metadataContainer?.style?.display === "none",
             showNotifications: core.showNotifications !== false,
-            scale: core.CONFIG.viewer.scaleContainer || { x: 1, y: 1 },
+            scale: {
+              x: Number.isFinite(Number(core.CONFIG?.viewer?.scaleContainer?.x))
+                ? Number(core.CONFIG.viewer.scaleContainer.x)
+                : 1,
+              y: Number.isFinite(Number(core.CONFIG?.viewer?.scaleContainer?.y))
+                ? Number(core.CONFIG.viewer.scaleContainer.y)
+                : 1,
+            },
             window: this.getWindowState?.(),
-            performance: core.CONFIG.viewer.performanceMode || "high-performance",
+            performance:
+              typeof core.CONFIG?.viewer?.performanceMode === "string"
+                ? core.CONFIG.viewer.performanceMode
+                : core.CONFIG?.viewer?.performanceMode?.Performance || "high-performance",
             units: core.CONFIG?.viewer?.measurement?.modelUnitInMeters,
             gallery: {
               build: core.CONFIG.viewer.gallery?.build || false,
@@ -6462,11 +6521,9 @@ function attachAnnotations(Viewer) {
       const target = this.parse3IFManifestVector(cameraConfig.target, null, 3);
       const up = this.parse3IFManifestVector(cameraConfig.up, null, 3);
 
-      const projectionMode = String(cameraConfig.perspectiveMode || "").toLowerCase();
-      if (projectionMode === "perspective" || projectionMode === "orthographic") {
-        this.setCameraProjection?.(projectionMode);
-      }
-
+      // Apply position/target/up before switching projection so that the
+      // orthographic frustum (sized from camera<->target distance) is computed
+      // from the manifest's own camera pose rather than a stale one.
       if (position) {
         core.camera.position.set(position[0], position[1], position[2]);
         core.cameraLight?.position?.set?.(position[0], position[1], position[2]);
@@ -6479,6 +6536,11 @@ function attachAnnotations(Viewer) {
 
       if (up) {
         core.camera.up.set(up[0], up[1], up[2]);
+      }
+
+      const projectionMode = String(cameraConfig.perspectiveMode || "").toLowerCase();
+      if (projectionMode === "perspective" || projectionMode === "orthographic") {
+        this.setCameraProjection?.(projectionMode);
       }
 
       const fov = Number(cameraConfig.fov);
@@ -6823,6 +6885,7 @@ function attachAnnotations(Viewer) {
         return false;
       }
 
+      normalizeAIM3DManifest(manifestJson);
       const importValidation = validateAIM3DManifest(manifestJson);
       if (!importValidation.valid) {
         const detail = formatAIM3DManifestValidationErrors(importValidation.errors);
@@ -8461,23 +8524,31 @@ async function fetchSettings(object) {
   if (core.fileObject.filename.startsWith('blob:')) {
     console.log("Skipping metadata fetch for local file");
   } else if (core.CONFIG.metadataUrl && core.fileObject.uri && core.fileObject.filename) {
-    const metadataPrefix = new URL(core.CONFIG.metadataUrl).href.replace(/\/+$/, '');
-    let normalizedUri = new URL(core.fileObject.uri).href.replace(/\/+$/, '');
+    const metadataPrefix = new URL(core.CONFIG.metadataUrl).href.replace(/\/+$/, '') || '';
+    // core.fileObject.uri can be a relative path (e.g. a manifest's own model
+    // URL resolved against the current page) - resolve it against the page
+    // instead of assuming it's already absolute, or this throws.
+    let normalizedUri = new URL(core.fileObject.uri, document.baseURI).href.replace(/\/+$/, '');
 
     if (normalizedUri.startsWith(metadataPrefix)) {
       normalizedUri = normalizedUri.slice(metadataPrefix.length);
     }
 
     normalizedUri = normalizedUri.replace(/^\/+/, '');
+    const metadataBase = new URL(core.CONFIG.metadataUrl);
+    const fileUri = new URL(core.fileObject.uri);
+
+    const filePath = fileUri.pathname.replace(/^\/+|\/+$/g, '');
+
     metadataUrl = new URL(
-      `${metadataPrefix}/${normalizedUri}/metadata/${core.fileObject.filename}_viewer.json`
+      `/${filePath}/metadata/${core.fileObject.filename}_viewer.json`,
+      metadataBase
     ).href;
     console.log("Fetched metadata from:", metadataUrl);
   } else {
     console.warn("Metadata URL or file information is missing. Skipping metadata fetch.");
   }
 
-  
   if (core.CONFIG.entity.metadata.sourceType === "IIIF") {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);
     await handleMetadataResponse( core.CONFIG.model, metadata, object);
@@ -8536,6 +8607,34 @@ function createIIIFDropdown(iiifConfigURL) {
 
 }
 
+function createManifestSourceSwitch(activeType = "iiif") {
+  const group = document.createElement("div");
+  group.className = "form-manifesto-group manifesto-source-group";
+
+  const label = document.createElement("label");
+  label.className = "form-manifesto-label";
+  label.textContent = t$1("manifesto.source", "Manifest type");
+
+  const switchLabel = document.createElement("label");
+  switchLabel.className = "manifesto-source-switch";
+  switchLabel.htmlFor = "manifesto-source-switch";
+  switchLabel.innerHTML = `
+    <span>IIIF</span>
+    <input
+      id="manifesto-source-switch"
+      type="checkbox"
+      role="switch"
+      aria-label="${escapeHtml(t$1("manifesto.source", "Manifest type"))}"
+      ${activeType === "aim3if" ? "checked" : ""}
+    >
+    <span class="manifesto-source-track" aria-hidden="true"></span>
+    <span>AIM3D</span>
+  `;
+
+  group.append(label, switchLabel);
+  document.querySelector("#form-manifesto-content")?.prepend(group);
+}
+
 function createAIM3IFDropdown(url) {
   const group = document.createElement("div");
   group.className = "form-manifesto-group";
@@ -8543,16 +8642,18 @@ function createAIM3IFDropdown(url) {
   const aim3ifList = [
     { url: url, name: t$1("aim3if.optionDefault", "Default configuration") },
     { url: "https://viewer.thedworak.com/manifests/box.json", name: t$1("aim3if.optionBox", "Box configuration") },
+    { url: "./manifests/box-aim3d-local.json", name: t$1("aim3if.optionBoxLocal", "Box (localhost)") },
+    { url: "./manifests/wolpa-synagogue-aim3d-local.json", name: t$1("aim3if.optionWolpaLocal", "Wolpa Synagogue (localhost)") },
     // Add more AIM3IF configurations here as needed
-  ].filter(Boolean);
+  ].filter(item => item?.url);
 
   const label = document.createElement("label");
   label.textContent = t$1("aim3if.modelConfig", "Model configuration");
   label.className = "form-manifesto-label";
 
   const select = document.createElement("select");
-  select.id = "manifesto-config-select";
-  select.name = "manifesto-config-select";
+  select.id = "manifesto-manifest-select";
+  select.name = "manifesto-manifest-select";
 
   aim3ifList.forEach(item => {
     const opt = document.createElement("option");
@@ -8560,13 +8661,6 @@ function createAIM3IFDropdown(url) {
     opt.textContent = item.name;
     select.appendChild(opt);
   });
-  group.appendChild(label);
-
-  const optDefault = document.createElement("option");
-  optDefault.value = url;
-  optDefault.textContent = t$1("aim3if.optionDefault", "Default configuration");
-  select.appendChild(optDefault);
-
   group.appendChild(label);
   group.appendChild(select);
 
@@ -9267,7 +9361,7 @@ async function loadModel() {
 
 const getModuleAssetBasePath = function() {
   let basePath = sanitizeModuleAssetBasePath(core.CONFIG?.baseModulePath);
-  core.DFG_ASSETS ? core.DFG_ASSETS.replace(/\/$/, '') : '';
+  const scriptBasePath = core.DFG_ASSETS ? core.DFG_ASSETS.replace(/\/$/, '') : '';
 
   if (!basePath) {
     basePath = '/assets';
@@ -9276,6 +9370,22 @@ const getModuleAssetBasePath = function() {
   // Override for localhost
   if (core.isLocalPreview) {
     basePath = '/assets';
+  }
+
+  // Standalone dev builds used to inherit /modules/.../viewer from the Drupal
+  // settings template. Assets are emitted beside the loaded bundle instead.
+  if (
+    scriptBasePath &&
+    /\/viewer$/.test(basePath)
+  ) {
+    const bundleAssetPath = /\/assets$/.test(scriptBasePath)
+      ? scriptBasePath
+      : `${scriptBasePath}/assets`;
+    console.warn('[loaders] legacy baseModulePath points to viewer source; using bundle asset path instead.', {
+      configuredBasePath: basePath,
+      scriptBasePath: bundleAssetPath,
+    });
+    basePath = bundleAssetPath;
   }
 
   basePath = sanitizeModuleAssetBasePath(basePath);
@@ -11103,36 +11213,6 @@ var AnnotationPage = /** @class */ (function (_super) {
     return AnnotationPage;
 }(ManifestResource));
 
-/**
- * Appends the elements of `values` to `array`.
- *
- * @private
- * @param {Array} array The array to modify.
- * @param {Array} values The values to append.
- * @returns {Array} Returns `array`.
- */
-
-var _arrayPush;
-var hasRequired_arrayPush;
-
-function require_arrayPush () {
-	if (hasRequired_arrayPush) return _arrayPush;
-	hasRequired_arrayPush = 1;
-	function arrayPush(array, values) {
-	  var index = -1,
-	      length = values.length,
-	      offset = array.length;
-
-	  while (++index < length) {
-	    array[offset + index] = values[index];
-	  }
-	  return array;
-	}
-
-	_arrayPush = arrayPush;
-	return _arrayPush;
-}
-
 /** Detect free variable `global` from Node.js. */
 
 var _freeGlobal;
@@ -11486,8 +11566,7 @@ var hasRequired_baseFlatten;
 function require_baseFlatten () {
 	if (hasRequired_baseFlatten) return _baseFlatten;
 	hasRequired_baseFlatten = 1;
-	var arrayPush = /*@__PURE__*/ require_arrayPush(),
-	    isFlattenable = /*@__PURE__*/ require_isFlattenable();
+	var isFlattenable = /*@__PURE__*/ require_isFlattenable();
 
 	/**
 	 * The base implementation of `_.flatten` with support for restricting flattening.
@@ -11513,8 +11592,6 @@ function require_baseFlatten () {
 	      if (depth > 1) {
 	        // Recursively flatten arrays (susceptible to call stack limits).
 	        baseFlatten(value, depth - 1, predicate, isStrict, result);
-	      } else {
-	        arrayPush(result, value);
 	      }
 	    } else if (!isStrict) {
 	      result[result.length] = value;
@@ -15288,10 +15365,12 @@ var parseManifest = function (manifest, options) {
 class IIIFManifest {
   constructor(manifest) {
     // Is manifest JSON or URL?
-    if (isJsonString(manifest)) {
+    if (isPlainObject(manifest)) {
       this.manifestJson = manifest;
       this.manifestUrl = null;
-      this.manifest = parseManifest(manifest);
+    } else if (isJsonString(manifest)) {
+      this.manifestJson = manifest;
+      this.manifestUrl = null;
     } else {
       this.manifestJson = null;
       this.manifestUrl = manifest;
@@ -15315,6 +15394,8 @@ class IIIFManifest {
 }
 
 function isJsonString(str) {
+  if (typeof str !== "string") return false;
+
   try {
     JSON.parse(str);
   } catch (e) {
@@ -15323,10 +15404,27 @@ function isJsonString(str) {
   return true;
 }
 
+function isPlainObject(value) {
+  return value != null && typeof value === "object" && !Array.isArray(value);
+}
+
+// Annotation bodies are always parsed as plain AnnotationBody instances, where
+// isSpecificResource is an inherited METHOD (checking the JSON "type"), even when
+// the body's own JSON shape is "SpecificResource" wrapping a Model/Light/Camera.
+// Annotation TARGETS shaped as SpecificResource, on the other hand, are parsed as
+// actual SpecificResource instances, which shadow it with a boolean `true` OWN
+// property instead. Reading `.isSpecificResource` without calling it would  be
+// truthy in both cases regardless of the real answer, so this checks both shapes.
+function resolvesToSpecificResource(value) {
+  if (typeof value?.isSpecificResource === "function") return value.isSpecificResource();
+  return value?.isSpecificResource === true;
+}
+
 async function loadIIIFManifest(manifestUrlOrJson) {
   let iiifManifest = new IIIFManifest(manifestUrlOrJson);
   await iiifManifest.loadManifest();
   let modelTarget;
+  const modelTargets = [];
   let filteredAnnos;
   iiifManifest.modelUrls = new Array();
 
@@ -15336,8 +15434,10 @@ async function loadIIIFManifest(manifestUrlOrJson) {
       // Root scene
       const manifestScene = iiifManifest.scenes[i];
 
-      // Add scene BG color
-      iiifManifest.scenes[i].background = await manifestScene.getBackgroundColor();
+      // Add scene BG color (getBackgroundColor() returns a Color instance;
+      // downstream code expects a plain CSS hex string, same as the AIM3D loader)
+      const backgroundColor = await manifestScene.getBackgroundColor();
+      iiifManifest.scenes[i].background = backgroundColor?.CSS ?? null;
 
       // Load individual model annotations
       const annos = iiifManifest.annotationsFromScene(manifestScene);
@@ -15346,13 +15446,13 @@ async function loadIIIFManifest(manifestUrlOrJson) {
         const body = anno.getBody()[0];
         return (
           anno.getMotivation()?.[0] === "painting" &&
-          (body.isSpecificResource || body?.getType() === "model")
+          (resolvesToSpecificResource(body) || body?.getType() === "model")
         );
       });
 
       filteredAnnos.forEach((modelAnnotation) => {
         let modelUrl;
-        if (modelAnnotation.getBody()[0].isSpecificResource) {
+        if (resolvesToSpecificResource(modelAnnotation.getBody()[0])) {
           modelUrl = modelAnnotation.getBody()[0].getSource()?.id;
         } else {
           modelUrl = modelAnnotation.getBody()[0].id;
@@ -15360,6 +15460,7 @@ async function loadIIIFManifest(manifestUrlOrJson) {
         modelTarget = modelAnnotation.getTarget();
         if (modelUrl && modelTarget) {
           iiifManifest.modelUrls.push(modelUrl);
+          modelTargets.push(modelTarget);
         }
       });
     }
@@ -15369,7 +15470,10 @@ async function loadIIIFManifest(manifestUrlOrJson) {
     scenes: iiifManifest.scenes,
     annotations: filteredAnnos,
     modelUrls: iiifManifest.modelUrls,
-    modelTarget: modelTarget
+    modelTarget: modelTarget,
+    // One target per entry in modelUrls/annotations - a manifest can place
+    // several models in the same scene, each with its own position selector.
+    modelTargets,
   };
 }
 
@@ -15390,7 +15494,7 @@ async function getAnnotations(iiifManifest, objectsConfig) {
 
   await Promise.all(
     items.map(async (modelAnnotation) => {       
-        if (modelAnnotation.getBody()[0].isSpecificResource) {
+        if (resolvesToSpecificResource(modelAnnotation.getBody()[0])) {
           let transforms = new Array();
 
           try {
@@ -15457,9 +15561,12 @@ async function getAnnotations(iiifManifest, objectsConfig) {
           }
         }
 
-        // Position model within target scene if position selector present
-        if (iiifManifest.modelTarget.isSpecificResource == true) {
-          const selector = iiifManifest.modelTarget.getSelector();
+        // Position model within target scene if position selector present.
+        // Each model annotation carries its own target, so index into
+        // modelTargets rather than reusing whichever one loaded last.
+        const currentTarget = iiifManifest.modelTargets?.[ind] ?? iiifManifest.modelTarget;
+        if (resolvesToSpecificResource(currentTarget)) {
+          const selector = currentTarget.getSelector();
           if (selector && selector.isPointSelector) {
             const position = selector.getLocation();
             if (position) {
@@ -15521,6 +15628,8 @@ async function loadAIM3IFManifest(manifestUrlOrJson) {
 
   await aim3dManifest.loadManifest();
 
+  normalizeAIM3DManifest(aim3dManifest.manifest);
+
   const validation = validateAIM3DManifest(aim3dManifest.manifest);
   if (!validation.valid) {
     const detail = formatAIM3DManifestValidationErrors(validation.errors);
@@ -15532,9 +15641,10 @@ async function loadAIM3IFManifest(manifestUrlOrJson) {
   let filteredAnnos = [];
 
   for (const scene of aim3dManifest.scenes) {
-    scene.background =
-      scene.backgroundColor ||
-      "#000000";
+    // Leave background unset (rather than defaulting to black) when the
+    // manifest doesn't specify one, so the viewer's own default background
+    // applies - matching how the IIIF loader handles a missing color.
+    scene.background = scene.backgroundColor || null;
 
     const annos = aim3dManifest.annotationsFromScene(scene);
 
@@ -16848,6 +16958,21 @@ function createEditorToolbar(viewer) {
     if (!tool.primary) viewer.editorSecondaryKeys.push(button);
   });
 
+  const actionMenuToolKeys = ["statistics", "background", "preview", "save", "loadingLogs"];
+  if (viewer.actionMenuPanel) {
+    actionMenuToolKeys.forEach((key) => {
+      const button = viewer.editorToolbarButtons[key];
+      if (!button) return;
+
+      button.classList.add("viewer-action-menu_editor-tool");
+      const label = document.createElement("span");
+      label.className = "viewer-action-menu_editor-tool-label";
+      label.textContent = button.getAttribute("aria-label") || key;
+      button.appendChild(label);
+      viewer.actionMenuPanel.appendChild(button);
+    });
+  }
+
   toolbar.appendChild(secondaryTray);
 
   const expandButton = document.createElement("button");
@@ -17100,6 +17225,8 @@ function updateEditorToolbarLabels(viewer) {
     button.setAttribute("aria-label", label);
     const sr = button.querySelector(".viewer-editor-tool_sr");
     if (sr) sr.textContent = label;
+    const actionMenuLabel = button.querySelector(".viewer-action-menu_editor-tool-label");
+    if (actionMenuLabel) actionMenuLabel.textContent = label;
   });
 
   if (viewer.clippingPlaneSubmenuButtons) {
@@ -18826,7 +18953,8 @@ const Viewer$1 = {
     const size = core.boundingSphere ? core.boundingSphere.radius : core.camera.position.distanceTo(core.controls?.target) || 100;
     const near = Math.max(size / 1000, 0.01);
     const far = distance + size * 100;
-    const fovDeg = core.camera.fov;
+    // core.camera.fov is undefined on an OrthographicCamera, so fall back to a sane default
+    const fovDeg = Number.isFinite(core.camera.fov) ? core.camera.fov : 45;
     const fovRad = THREE.MathUtils.degToRad(fovDeg);
 
     if (projection === "orthographic") {
@@ -20103,7 +20231,7 @@ const Viewer$1 = {
     console.log(`AIM 3D-Viewer ${this.isLightweight ? '🪶 LIGHTWEIGHT' : '💪 FULL'} mode`);
     console.log(`Powered by Three.js (v${THREE.REVISION})`);
     
-    if (!core.CONFIG.entity.metadata.sourceType) { 
+    if (!core.CONFIG.entity.metadata.sourceType) {
       core.CONFIG.entity.metadata.sourceType = SOURCE;
       console.log(`Metadata source: ${core.CONFIG.entity.metadata.sourceType}`);
     }
@@ -20937,11 +21065,11 @@ const Viewer$1 = {
     });
   },
 
-  applyCameraOverridesFromUrl() {
+  applyCameraOverridesFromUrl({ skipProjection = false } = {}) {
     if (!core.camera) return;
 
     const requestedProjection = this.urlOptions?.cameraProjection;
-    if (requestedProjection === "orthographic" || requestedProjection === "perspective") {
+    if (!skipProjection && (requestedProjection === "orthographic" || requestedProjection === "perspective")) {
       this.setCameraProjection(requestedProjection);
     }
 
@@ -21374,6 +21502,11 @@ const Viewer$1 = {
 
     const _id = core.CONFIG.entity.id;
 
+    if (!_id) {
+      console.info("Skipping model-status polling: no entity ID is available.");
+      return;
+    }
+
     localStorage.setItem("processing_model_id", _id);
 
     let loadingMap = this.getProcessingLoadingSteps();
@@ -21390,13 +21523,32 @@ const Viewer$1 = {
 
   // IIIF setup and loading
   async setupManifesto(newUrlOrJson, type="url", manifestType = "iiif") {
-    const isAim3ifManifest = manifestType !== "iiif";
-    if (type === "text") {
+    const manifestJson = await Viewer$1.getManifestJson(newUrlOrJson, type);
+    const resolvedManifestType = isAIM3DManifest(manifestJson) ? "aim3if" : "iiif";
+    const isAim3ifManifest = resolvedManifestType === "aim3if";
+
+    if (resolvedManifestType !== manifestType) {
+      console.info(`Detected ${isAim3ifManifest ? "AIM3D" : "IIIF"} manifest; using its matching loader.`);
+    }
+
+    // fetchSettings() only applies the loaded model's position/rotation/scale
+    // (and other per-model config) when sourceType reads "IIIF" - keep it in
+    // sync with what actually got loaded, regardless of how setupManifesto
+    // was invoked, so it doesn't silently lag behind the UI's source switch.
+    core.CONFIG.entity.metadata.sourceType = isAim3ifManifest ? "AIM3IF" : "IIIF";
+
+    if (isAim3ifManifest) {
+      if (type !== "text") {
+        core.CONFIG.entity.metadata.url = newUrlOrJson;
+      }
+    } else if (type === "text") {
       Viewer$1.iiifConfigURL.url = "";
     } else {
       Viewer$1.iiifConfigURL.url = newUrlOrJson;
     }
-    const loadedManifest = manifestType === "iiif" ? await loadIIIFManifest(newUrlOrJson) : await loadAIM3IFManifest(newUrlOrJson);
+    const loadedManifest = isAim3ifManifest
+      ? await loadAIM3IFManifest(manifestJson)
+      : await loadIIIFManifest(manifestJson);
     if (isAim3ifManifest) {
       Viewer$1.applyWindowState?.(getManifestWindowState(loadedManifest.manifest));
     }
@@ -21406,6 +21558,15 @@ const Viewer$1 = {
     }
     // reset scene and release GPU resources from the previous model batch
     Viewer$1.resetLoadedModelState();
+    // A previous AIM3D manifest may have left the camera in orthographic mode.
+    // Always start from perspective; AIM3D's own camera config (applied below)
+    // switches back to orthographic only if it explicitly asks for it.
+    Viewer$1.setCameraProjection("perspective");
+    // A previous manifest's viewer.backgroundColor sets an opaque THREE.Color
+    // on the scene, which is never cleared - it would otherwise paint over
+    // this manifest's own (possibly unset) background on every future load.
+    if (core.scene) core.scene.background = null;
+    core.objectsConfig.setupIndex = 0;
     core.axesHelper.visible = false;
     console.log("TOTAL Annotations: " + loadedManifest.annotations.length);
     if (loadedManifest.annotations.length !== loadedManifest.modelUrls.length) {
@@ -21419,12 +21580,24 @@ const Viewer$1 = {
           }
         }
     }
+
     for (const [i, url] of loadedManifest.modelUrls?.entries()) {
       core.objectsConfig.index = i;
+      const modelConfig = core.objectsConfig.models[i] ??= {
+        name: `Manifest model ${i + 1}`,
+      };
+      // A previous AIM3D manifest may have supplied a transform. Do not let
+      // it carry over to a newly selected IIIF model.
+      modelConfig.url = url;
+      modelConfig.position = { x: 0, y: 0, z: 0 };
+      modelConfig.rotation = { x: 0, y: 0, z: 0 };
+      modelConfig.scale = { x: 1, y: 1, z: 1 };
       core.fileObject.originalPath = loadedManifest.modelUrl = url;
       //fileObject.originalPath = loadedManifest.modelUrl;
       Viewer$1.setModelPaths();
-      manifestType === "iiif" ? await getAnnotations(loadedManifest, core.objectsConfig) : await applyManifestConfig(loadedManifest, core.objectsConfig);
+      isAim3ifManifest
+        ? await applyManifestConfig(loadedManifest, core.objectsConfig)
+        : await getAnnotations(loadedManifest, core.objectsConfig);
       if (loadedManifest.scenes && loadedManifest.scenes.length > 0) {
         core.objectsConfig.scenes = loadedManifest.scenes;
       }
@@ -21437,11 +21610,63 @@ const Viewer$1 = {
     }
   },
 
+  async getManifestJson(manifestUrlOrJson, type) {
+    if (type === "text") {
+      return JSON.parse(manifestUrlOrJson);
+    }
+
+    if (manifestUrlOrJson && typeof manifestUrlOrJson === "object") {
+      return manifestUrlOrJson;
+    }
+
+    const response = await fetch(manifestUrlOrJson);
+    if (!response.ok) {
+      throw new Error(`Unable to load manifest: ${response.status} ${response.statusText}`);
+    }
+
+    return response.json();
+  },
+
+  async setupManifestSource(type, { loadInitialManifest = true } = {}) {
+    const manifestType = type === "aim3if" ? "aim3if" : "iiif";
+    const metadata = core.CONFIG.entity.metadata;
+
+    Viewer$1.cleanupTransientUI();
+    createManifestUI(manifestType);
+    createManifestSourceSwitch(manifestType);
+
+    if (manifestType === "iiif") {
+      createIIIFDropdown(Viewer$1.iiifConfigURL);
+    } else {
+      createAIM3IFDropdown(metadata.url);
+    }
+
+    await Viewer$1.loadManifestoURL(manifestType);
+    metadata.sourceType = manifestType === "iiif" ? "IIIF" : "AIM3IF";
+
+    const initialUrl = manifestType === "iiif" ? Viewer$1.iiifConfigURL.url : metadata.url;
+    if (loadInitialManifest && initialUrl) {
+      await Viewer$1.setupManifesto(initialUrl, "url", manifestType);
+    }
+  },
+
   async loadManifestoURL(type = "iiif") {
     const form = document.getElementById("form-manifesto");
     const collapseBtn = document.getElementById("manifesto-toggle-collapse");
+    const sourceSwitch = document.getElementById("manifesto-source-switch");
     form?.setAttribute("data-viewer-theme", Viewer$1.currentTheme);
     Viewer$1.updateIIIFFormLabels();
+
+    sourceSwitch?.addEventListener("change", async (ev) => {
+      const nextType = ev.target.checked ? "aim3if" : "iiif";
+      if (nextType === type) return;
+
+      try {
+        await Viewer$1.setupManifestSource(nextType);
+      } catch (err) {
+        Viewer$1.reportError(err, { context: "Error switching manifest source" });
+      }
+    });
 
     Viewer$1.bindEventListener(collapseBtn, "click", () => {
       form.classList.toggle("collapsed");
@@ -22059,29 +22284,9 @@ const Viewer$1 = {
               context: core.isLightweight ? "Lightweight model load error" : "Metadata load error",
             });
           }
-        } else if (sourceType === "iiif") {
-          Viewer$1.cleanupTransientUI();
-          createManifestUI("iiif");
-
+        } else if (sourceType === "iiif" || sourceType === "aim3if") {
           console.log("Loading from source: " + core.CONFIG.entity.metadata.sourceType);
-          if (Viewer$1.iiifConfigURL.url !== "") {
-            createIIIFDropdown(Viewer$1.iiifConfigURL);
-            await Viewer$1.loadManifestoURL();
-            core.CONFIG.entity.metadata.sourceType = "IIIF";
-            await Viewer$1.setupManifesto(Viewer$1.iiifConfigURL.url);
-          }
-        }
-        else if (sourceType === "aim3if") {
-          Viewer$1.cleanupTransientUI();
-          createManifestUI("aim3if");
-
-          console.log("Loading from source: " + core.CONFIG.entity.metadata.sourceType);
-          if (core.CONFIG.entity.metadata.url) {
-            createAIM3IFDropdown(core.CONFIG.entity.metadata.url);
-            await Viewer$1.loadManifestoURL("aim3if");
-            core.CONFIG.entity.metadata.sourceType = "AIM3IF";
-            await Viewer$1.setupManifesto(core.CONFIG.entity.metadata.url, "url", "aim3if");
-          }
+          await Viewer$1.setupManifestSource(sourceType);
         } else {
           console.log("Custom metadata source:" + core.CONFIG.entity.metadata.sourceType);
           try {

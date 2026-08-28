@@ -3,7 +3,11 @@ import { toastHelper, showToast } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import THREE from "../init.js";
 import { EnvironmentNode } from "three/src/nodes/Nodes.js";
-import { formatAIM3DManifestValidationErrors, validateAIM3DManifest } from "../manifesto/aim3dviewer-validation.js";
+import {
+  formatAIM3DManifestValidationErrors,
+  normalizeAIM3DManifest,
+  validateAIM3DManifest,
+} from "../manifesto/aim3dviewer-validation.js";
 
 export function attachAnnotations(Viewer) {
   Object.assign(Viewer, {
@@ -865,9 +869,19 @@ export function attachAnnotations(Viewer) {
               this.urlOptions?.hideMetadata === true
               || this.metadataContainer?.style?.display === "none",
             showNotifications: core.showNotifications !== false,
-            scale: core.CONFIG.viewer.scaleContainer || { x: 1, y: 1 },
+            scale: {
+              x: Number.isFinite(Number(core.CONFIG?.viewer?.scaleContainer?.x))
+                ? Number(core.CONFIG.viewer.scaleContainer.x)
+                : 1,
+              y: Number.isFinite(Number(core.CONFIG?.viewer?.scaleContainer?.y))
+                ? Number(core.CONFIG.viewer.scaleContainer.y)
+                : 1,
+            },
             window: this.getWindowState?.(),
-            performance: core.CONFIG.viewer.performanceMode || "high-performance",
+            performance:
+              typeof core.CONFIG?.viewer?.performanceMode === "string"
+                ? core.CONFIG.viewer.performanceMode
+                : core.CONFIG?.viewer?.performanceMode?.Performance || "high-performance",
             units: core.CONFIG?.viewer?.measurement?.modelUnitInMeters,
             gallery: {
               build: core.CONFIG.viewer.gallery?.build || false,
@@ -1051,11 +1065,9 @@ export function attachAnnotations(Viewer) {
       const target = this.parse3IFManifestVector(cameraConfig.target, null, 3);
       const up = this.parse3IFManifestVector(cameraConfig.up, null, 3);
 
-      const projectionMode = String(cameraConfig.perspectiveMode || "").toLowerCase();
-      if (projectionMode === "perspective" || projectionMode === "orthographic") {
-        this.setCameraProjection?.(projectionMode);
-      }
-
+      // Apply position/target/up before switching projection so that the
+      // orthographic frustum (sized from camera<->target distance) is computed
+      // from the manifest's own camera pose rather than a stale one.
       if (position) {
         core.camera.position.set(position[0], position[1], position[2]);
         core.cameraLight?.position?.set?.(position[0], position[1], position[2]);
@@ -1068,6 +1080,11 @@ export function attachAnnotations(Viewer) {
 
       if (up) {
         core.camera.up.set(up[0], up[1], up[2]);
+      }
+
+      const projectionMode = String(cameraConfig.perspectiveMode || "").toLowerCase();
+      if (projectionMode === "perspective" || projectionMode === "orthographic") {
+        this.setCameraProjection?.(projectionMode);
       }
 
       const fov = Number(cameraConfig.fov);
@@ -1412,6 +1429,7 @@ export function attachAnnotations(Viewer) {
         return false;
       }
 
+      normalizeAIM3DManifest(manifestJson);
       const importValidation = validateAIM3DManifest(manifestJson);
       if (!importValidation.valid) {
         const detail = formatAIM3DManifestValidationErrors(importValidation.errors);

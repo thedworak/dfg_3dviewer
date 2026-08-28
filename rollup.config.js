@@ -98,6 +98,7 @@ function copyBuildAssets() {
         copyDirectory('viewer/fonts', path.join(outDistDir, 'assets/fonts')),
         copyDirectory('viewer/js/maps', path.join(outDistDir, 'assets/maps')),
         copyDirectory('viewer/examples', path.join(outDistDir, 'examples')),
+        copyDirectory('viewer/manifesto/examples', path.join(outDistDir, 'manifests')),
         // copy admin panel (but we'll remove any local sqlite DB afterwards)
         copyDirectory('viewer/admin', path.join(outDistDir, 'admin')),
       ]);
@@ -147,6 +148,10 @@ function copyBuildAssets() {
         viewerSettingsMain.viewer.editor = true;
         viewerSettingsMain.viewer.lightweight = true;
         viewerSettingsMain.mainUrl = 'localhost';
+        viewerSettingsMain.baseModulePath = `${drupalModulePrefix}/dist/${envBuild}/assets`;
+        if (envBuild === 'dev') {
+          viewerSettingsMain.entity.metadata.sourceType = 'IIIF';
+        }
         copyPromises.push(
           fs.writeFile(
             viewerSettingsTarget,

@@ -1,10 +1,16 @@
 import { AIM3DManifest } from "./manifesto";
-import { formatAIM3DManifestValidationErrors, validateAIM3DManifest } from "./aim3dviewer-validation.js";
+import {
+  formatAIM3DManifestValidationErrors,
+  normalizeAIM3DManifest,
+  validateAIM3DManifest,
+} from "./aim3dviewer-validation.js";
 
 export async function loadAIM3IFManifest(manifestUrlOrJson) {
   const aim3dManifest = new AIM3DManifest(manifestUrlOrJson);
 
   await aim3dManifest.loadManifest();
+
+  normalizeAIM3DManifest(aim3dManifest.manifest);
 
   const validation = validateAIM3DManifest(aim3dManifest.manifest);
   if (!validation.valid) {
@@ -17,9 +23,10 @@ export async function loadAIM3IFManifest(manifestUrlOrJson) {
   let filteredAnnos = [];
 
   for (const scene of aim3dManifest.scenes) {
-    scene.background =
-      scene.backgroundColor ||
-      "#000000";
+    // Leave background unset (rather than defaulting to black) when the
+    // manifest doesn't specify one, so the viewer's own default background
+    // applies - matching how the IIIF loader handles a missing color.
+    scene.background = scene.backgroundColor || null;
 
     const annos = aim3dManifest.annotationsFromScene(scene);
 

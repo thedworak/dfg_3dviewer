@@ -1,0 +1,80 @@
+{
+  "@context": "http://iiif.io/api/presentation/4/context.json",
+  "id": "./examples/WolpaSynagogue.glb/manifest.json",
+  "type": "Manifest",
+  "label": {
+    "en": ["Wolpa Synagogue (AIM3D, localhost)"]
+  },
+  "items": [
+    {
+      "id": "./examples/WolpaSynagogue.glb/scene",
+      "type": "Scene",
+      "label": {
+        "en": ["Wolpa Synagogue"]
+      },
+      "items": [
+        {
+          "id": "./examples/WolpaSynagogue.glb/scene/page/model",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "./examples/WolpaSynagogue.glb/scene/annotation/model",
+              "type": "Annotation",
+              "motivation": ["painting"],
+              "body": {
+                "id": "./examples/WolpaSynagogue.glb",
+                "type": "Model"
+              },
+              "target": {
+                "id": "./examples/WolpaSynagogue.glb/scene",
+                "type": "Scene"
+              }
+            }
+          ]
+        }
+      ],
+      "annotations": [
+        {
+          "id": "./examples/WolpaSynagogue.glb/scene/page/annotations",
+          "type": "AnnotationPage",
+          "items": []
+        }
+      ]
+    }
+  ],
+  "AIM3DViewer": {
+    "version": "1.0",
+    "generatedAt": "2026-08-21T00:00:00.000Z",
+    "camera": {
+      "position": [3235.1, 2379.7, 3833.8],
+      "target": [-47.9, 737.7, -106.2],
+      "up": [0, 1, 0],
+      "fov": 45,
+      "zoom": 1,
+      "distance": 5384,
+      "perspectiveMode": "perspective"
+    },
+    "viewer": {
+      "container": "DFG_3DViewer",
+      "theme": "dark",
+      "language": "en",
+      "environmentMap": {
+        "intensity": 1,
+        "preset": "neutral",
+        "enabled": true
+      },
+      "performance": "high-performance"
+    },
+    "lights": [
+      { "type": "AmbientLight", "position": [0, 0, 0], "color": "#404040", "intensity": 1 },
+      { "type": "DirectionalLight", "position": [0, 3000, 1500], "target": [-47.9, 737.7, -106.2], "color": "#ffffff", "intensity": 1 }
+    ],
+    "modelTransform": {
+      "position": [0, 0, 0],
+      "rotation": { "x": 0, "y": 0, "z": 0, "order": "XYZ" },
+      "scale": [1, 1, 1],
+      "wireframe": false
+    }
+  },
+  "modified": "2026-08-21T00:00:00.000Z"
+}

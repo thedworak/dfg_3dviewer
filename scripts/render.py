@@ -280,7 +280,12 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 
 		distance = max(dist_x, dist_z) * margin
 
-		cam.location = center + Vector((0, -distance, 0))
+		# `cam` is parented to `cam_empty`, which already sits at `center` —
+		# so this is a *local* offset. Adding `center` again here used to
+		# double-count it (rotated into the orbit by cam_empty's rotation),
+		# pushing the whole turntable ~40% of the model's height too high
+		# and off-center.
+		cam.location = Vector((0, -distance, 0))
 
 	if args.output:
 		export_file = args.output
@@ -309,9 +314,15 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	render.image_settings.color_management = 'FOLLOW_SCENE'
 
 	scene.render.use_compositing = True
+	# reuse geometry/BVH across the 9 sequential renders below instead of
+	# rebuilding it for every angle
+	scene.render.use_persistent_data = True
 
 	scene.cycles.device = 'CPU'
-	scene.cycles.samples = 256
+	# respect --samples when the caller passed one; otherwise fall back to
+	# the higher-quality default (previously this was always hard-reset to
+	# 256, silently ignoring --samples/render.sh's RENDER_SAMPLES)
+	scene.cycles.samples = int(args.samples) if args.samples else 256
 	scene.cycles.use_adaptive_sampling = True
 	scene.cycles.adaptive_threshold = 0.03
 	scene.cycles.adaptive_min_samples = 16
@@ -327,7 +338,11 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	scene.cycles.transparent_max_bounces = 4
 	scene.cycles.transmission_bounces = 4
 
-	scene.cycles.sample_clamp_indirect = 20
+	# clamp both direct and indirect light so a single hot specular sample
+	# (e.g. a sun/area light reflecting straight off a glossy material)
+	# can't blow a pixel out to white / show up as a firefly
+	scene.cycles.sample_clamp_direct = 10.0
+	scene.cycles.sample_clamp_indirect = 4.0
 	scene.cycles.light_sampling_threshold = 0.03
 
 	# CUDA OFF (no warnings)
@@ -425,6 +440,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	# --------------------------------------------------
 
 	world = bpy.data.worlds.new("World")
+	world.use_nodes = True
 	scene.world = world
 
 	w_nodes = world.node_tree.nodes
@@ -433,7 +449,21 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 
 	w_output = w_nodes.new("ShaderNodeOutputWorld")
 	w_bg = w_nodes.new("ShaderNodeBackground")
-	w_links.new(w_bg.outputs["Background"], w_output.inputs["Surface"])
+
+	# Flat, non-rotating ambient floor added on top of the directional HDRI
+	# below. Without it, whichever side currently faces away from the (single,
+	# camera-relative) HDRI key light goes almost black — measured ~0.025 vs
+	# ~0.20 mean luminance between adjacent turntable angles on a building
+	# model, an 8x swing purely from self-shadowing. This fill is a World
+	# shader, so unlike point/area lights its contribution doesn't fall off
+	# with the model's real-world scale.
+	w_bg_fill = w_nodes.new("ShaderNodeBackground")
+	w_bg_fill.inputs["Color"].default_value = (1.0, 1.0, 1.0, 1.0)
+	w_bg_fill.inputs["Strength"].default_value = 1.5
+	w_add = w_nodes.new("ShaderNodeAddShader")
+	w_links.new(w_bg.outputs["Background"], w_add.inputs[0])
+	w_links.new(w_bg_fill.outputs["Background"], w_add.inputs[1])
+	w_links.new(w_add.outputs["Shader"], w_output.inputs["Surface"])
 
 	default_hdri = os.path.join(
 		os.path.dirname(os.path.abspath(__file__)), "maps", "default.exr"
@@ -457,17 +487,24 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 		w_links.new(hdri_mapping.outputs["Vector"], env.inputs["Vector"])
 		w_links.new(env.outputs["Color"], w_bg.inputs["Color"])
 
-		w_bg.inputs["Strength"].default_value = 0.8
+		w_bg.inputs["Strength"].default_value = 0.35
 
 		world.cycles_visibility.camera = False
 	else:
 		print(f"HDRI nie znaleziony pod '{hdri_path}', fallback on white background.")
 		w_bg.inputs["Color"].default_value = (1.0, 1.0, 1.0, 1.0)
-		w_bg.inputs["Strength"].default_value = 1.5
+		# already uniform in every direction, so it doesn't need w_bg_fill's
+		# help — keep the combined total in line with the HDRI branch above
+		w_bg.inputs["Strength"].default_value = 0.5
 
+	# NOTE: 'Standard' has no highlight rolloff, so any positive exposure
+	# here pushes bright materials straight into clipping (measured ~40% of
+	# visible pixels fully blown out at exposure=1.2 on a textured model,
+	# and near-total blowout on light-colored materials). Keep this at 0.0
+	# unless HDRI/light strengths above are lowered to compensate.
 	scene.view_settings.view_transform = "Standard"
 	scene.view_settings.look = "None"
-	scene.view_settings.exposure = 1.2
+	scene.view_settings.exposure = 0.0
 	scene.view_settings.gamma = 1.0
 
 	# --------------------------------------------------
@@ -553,8 +590,6 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 		fill_data.spread = math.radians(140)
 		rim_data.spread = math.radians(160)
 
-	scene.view_settings.exposure = 1.2
-
 	# --------------------------------------------------
 	# RENDERS
 	# --------------------------------------------------
@@ -585,7 +620,8 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 		render_angle(a, f"side{a}")
 
 	# top
-	cam.location = center + Vector((0, 0, max(size.x, size.y) * 1.3))
+	cam_empty.rotation_euler = (0, 0, 0)
+	cam.location = Vector((0, 0, max(size.x, size.y) * 1.3))  # local offset, see fit_camera_to_bounds
 	cam.rotation_euler = (0, 0, 0)
 	scene.render.filepath = f"{mainfilepath}_top.png"
 	bpy.ops.render.render(write_still=True)

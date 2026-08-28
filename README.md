@@ -55,9 +55,9 @@ cp viewer/viewer-settings-example.json viewer/viewer-settings.json
 npm run dev:test
 ```
 
-or using http-server:
+or using serve:
 ```bash
-http-server -c-1
+npx serve -n
 ```
 
 or using PHP:

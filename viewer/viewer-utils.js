@@ -465,6 +465,7 @@ function resolveBackground(meta, sceneId) {
     meta?.scenes?.[sceneId]?.background ??
     meta?.scene?.background ??
     meta?.globals?.background ??
+    core.objectsConfig?.scenes?.[sceneId]?.background ??
     null;
 
   if (!raw) return { kind: "default" };
@@ -733,7 +734,11 @@ async function animateCameraToPose ({
     }
 
     if (window.Viewer?.urlOptions?.cameraPosition || window.Viewer?.urlOptions?.cameraTarget || Number.isFinite(window.Viewer?.urlOptions?.cameraFov)) {
-      window.Viewer?.applyCameraOverridesFromUrl?.();
+      // Only reassert position/target/fov here - projection was already resolved
+      // by the initial applyCameraOverridesFromUrl() call (or overridden by a
+      // manifest's own perspectiveMode since). Re-applying it this late would
+      // silently undo a manifest's camera choice made in between.
+      window.Viewer?.applyCameraOverridesFromUrl?.({ skipProjection: true });
       core.controls?.saveState?.();
       return;
     }
@@ -804,13 +809,18 @@ async function fitCameraToCenteredObject(object, _fit, cfg) {
   const halfHeight = size.y / 2;
   const halfWidth  = size.x / 2;
 
+  // core.camera.fov/aspect are undefined on an OrthographicCamera; fall back
+  // to sane defaults so fitting never produces a NaN camera pose.
+  const fitFov = Number.isFinite(core.camera.fov) ? core.camera.fov : 45;
+  const fitAspect = Number.isFinite(core.camera.aspect) ? core.camera.aspect : 1;
+
   const fitHeightDistance =
-    halfHeight / Math.tan(THREE.MathUtils.degToRad(core.camera.fov / 2));
+    halfHeight / Math.tan(THREE.MathUtils.degToRad(fitFov / 2));
 
   const fitWidthDistance =
     halfWidth /
-    Math.tan(THREE.MathUtils.degToRad(core.camera.fov / 2)) /
-    core.camera.aspect;
+    Math.tan(THREE.MathUtils.degToRad(fitFov / 2)) /
+    fitAspect;
 
   const distance = Math.max(fitHeightDistance, fitWidthDistance) * 1.95;
 
