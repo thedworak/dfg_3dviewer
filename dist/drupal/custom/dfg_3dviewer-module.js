@@ -7898,6 +7898,7 @@ function attachWindowControls(Viewer) {
       container.style.right = 'auto';
       container.style.bottom = 'auto';
       container.classList.add('viewer-window-controls-enabled');
+      this.manuallyResized = true;
       this.updateSize?.();
       return true;
     },
@@ -7978,6 +7979,7 @@ function attachWindowControls(Viewer) {
         if (document.fullscreenElement === container) return;
         event.preventDefault();
         event.stopPropagation();
+        Viewer.manuallyResized = true;
         makeFixed();
         const rect = container.getBoundingClientRect();
         const start = {
@@ -20528,6 +20530,7 @@ const Viewer$1 = {
     let heightCSS;
 
     const hasWindowControls = core.container.classList.contains("viewer-window-controls-enabled");
+    const isManuallyResized = !!Viewer$1.manuallyResized;
     let scale = { x: 1, y: 1 };
 
     const rect = hasWindowControls
@@ -20538,7 +20541,7 @@ const Viewer$1 = {
       widthCSS = window.innerWidth;
       heightCSS = window.innerHeight;
     } else {
-      if (!hasWindowControls) {
+      if (!isManuallyResized) {
         scale = {
           x: Number(
             core.CONFIG.viewer.scaleContainer?.x || 1

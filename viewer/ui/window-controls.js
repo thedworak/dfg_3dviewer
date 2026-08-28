@@ -43,6 +43,7 @@ export function attachWindowControls(Viewer) {
       container.style.right = 'auto';
       container.style.bottom = 'auto';
       container.classList.add('viewer-window-controls-enabled');
+      this.manuallyResized = true;
       this.updateSize?.();
       return true;
     },
@@ -123,6 +124,7 @@ export function attachWindowControls(Viewer) {
         if (document.fullscreenElement === container) return;
         event.preventDefault();
         event.stopPropagation();
+        Viewer.manuallyResized = true;
         makeFixed();
         const rect = container.getBoundingClientRect();
         const start = {

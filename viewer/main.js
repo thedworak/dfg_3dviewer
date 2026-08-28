@@ -1856,6 +1856,7 @@ export const Viewer = {
     let heightCSS;
 
     const hasWindowControls = core.container.classList.contains("viewer-window-controls-enabled");
+    const isManuallyResized = !!Viewer.manuallyResized;
     let scale = { x: 1, y: 1 };
 
     const rect = hasWindowControls
@@ -1866,7 +1867,7 @@ export const Viewer = {
       widthCSS = window.innerWidth;
       heightCSS = window.innerHeight;
     } else {
-      if (!hasWindowControls) {
+      if (!isManuallyResized) {
         scale = {
           x: Number(
             core.CONFIG.viewer.scaleContainer?.x || 1
