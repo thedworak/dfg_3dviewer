@@ -79,6 +79,43 @@ function createDefaultTestImages() {
   }));
 }
 
+const GALLERY_RENDER_ANGLES = ["0", "45", "90", "135", "180", "225", "270", "315"];
+
+// scripts/render.py writes a 9-shot turntable per source file into
+// viewer/examples/gallery/<filename>/<basename>_side<angle>.png (+ _top.png),
+// named after that same file's own filename/basename - see core.fileObject,
+// set from the currently loaded model's path in main.js. Deriving the path
+// this way means a freshly rendered example picks up its own thumbnails
+// automatically, with no config file to keep in sync per model.
+function getPerModelGalleryImages() {
+  const filename = core.fileObject?.filename;
+  const basename = core.fileObject?.basename;
+  if (!filename || !basename) return [];
+
+  const images = GALLERY_RENDER_ANGLES.map((angle) => ({
+    src: normalizeGalleryUrl(`examples/gallery/${filename}/${basename}_side${angle}.png`),
+    alt: `${basename} - ${angle}°`,
+  }));
+  images.push({
+    src: normalizeGalleryUrl(`examples/gallery/${filename}/${basename}_top.png`),
+    alt: `${basename} - top`,
+  });
+  return images.filter((img) => img.src);
+}
+
+function probeImageExists(src) {
+  return new Promise((resolve) => {
+    if (!src) {
+      resolve(false);
+      return;
+    }
+    const probe = new Image();
+    probe.onload = () => resolve(true);
+    probe.onerror = () => resolve(false);
+    probe.src = src;
+  });
+}
+
 function createFakeGalleryElements(testImages) {
   return testImages.map((entry) => {
     const wrapper = document.createElement("div");
@@ -323,7 +360,15 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
   }
 }
 
+// Bumped on every buildThumbnailGallery() call so a stale probeImageExists()
+// resolution from an earlier, since-superseded model switch can't overwrite
+// the gallery for whichever model is actually selected now (a fast switch
+// could otherwise let an older, slower-to-resolve probe win the race and
+// leave mismatched thumbnails on screen).
+let galleryBuildGeneration = 0;
+
 export function buildThumbnailGallery(Viewer) {
+  const buildGeneration = ++galleryBuildGeneration;
   const gallery = getGalleryConfig();
   var mainElement = gallery.container
     ? document.getElementById(gallery.container)
@@ -389,14 +434,35 @@ export function buildThumbnailGallery(Viewer) {
   }
 
   if (core.CONFIG?.viewer?.gallery?.buildFake === true) {
-    const testImages = getConfiguredTestImages();
-    const fallbackImages = testImages.length > 0 ? testImages : createDefaultTestImages();
-    if (gallery.build === true) {
-      const fakeImages = createFakeGalleryElements(fallbackImages);
+    // buildFake is the dedicated opt-in for this fallback, so it doesn't
+    // also gate on gallery.build: that flag is forced to false for the
+    // test/dev rollup targets (see rollup.config.js) to disable the real
+    // Drupal-field-based gallery there, which would otherwise silently
+    // disable this fallback too even though it's the one thing meant to
+    // work in those environments.
+    const renderFake = (images) => {
+      const fakeImages = createFakeGalleryElements(images);
       handleImages(Viewer, mainElement, fakeImages, fakeImages);
       console.log("Built fallback thumbnail gallery for local testing");
-      return;
+    };
+
+    const testImages = getConfiguredTestImages();
+    const staticFallback = testImages.length > 0 ? testImages : createDefaultTestImages();
+
+    // Prefer thumbnails rendered for the currently loaded example (see
+    // core.fileObject, refreshed on every model switch) over the static
+    // testImages config, so picking a different example model actually
+    // swaps the gallery instead of always showing the same fixed set.
+    const perModelImages = getPerModelGalleryImages();
+    if (perModelImages.length > 0) {
+      probeImageExists(perModelImages[0].src).then((exists) => {
+        if (buildGeneration !== galleryBuildGeneration) return;
+        renderFake(exists ? perModelImages : staticFallback);
+      });
+    } else {
+      renderFake(staticFallback);
     }
+    return;
   }
 
   console.log("No gallery source found");

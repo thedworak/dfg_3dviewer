@@ -10,6 +10,12 @@ export async function createCreditsElement() {
 
   const creditsDiv = document.createElement("div");
   creditsDiv.id = "credits";
+  // #credits has no default left/bottom in CSS (only position: absolute) -
+  // updateSize() is what sets those, and it doesn't run correctly until
+  // layout is settled (typically once a model has loaded). Staying hidden
+  // until then avoids a visible flash at the wrong spot followed by a jump
+  // to the right one; updateSize() reveals it once it applies real coords.
+  creditsDiv.style.visibility = "hidden";
 
   let html = "";
 

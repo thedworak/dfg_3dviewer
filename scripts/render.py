@@ -395,12 +395,46 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	# MATERIAL FIXUP
 	# --------------------------------------------------
 
+	# Formats without material data (plain STL/PLY, OBJ without an MTL) import
+	# with no material slots at all, which Cycles then renders blown-out white
+	# instead of falling back to a neutral shaded look. Give those a default
+	# material matching the same per-extension fallback color the live viewer
+	# itself uses when a model has no material (see viewer/loaders.js's "stl"
+	# and "ply" cases, and THREE's bare `new MeshPhongMaterial()` for OBJ
+	# without an MTL, which defaults to white) - otherwise the gallery
+	# thumbnail shows a different color than what actually loads on screen.
+	# FIX 5 below still tones down whichever of these is too bright to avoid
+	# blowing out under this scene's lighting.
+	DEFAULT_MATERIAL_COLOR_BY_EXT = {
+		"stl": (1.0, 0.333, 0.2, 1.0),  # viewer/loaders.js STL fallback: 0xff5533
+		"ply": (0.0, 0.333, 1.0, 1.0),  # viewer/loaders.js PLY fallback: 0x0055ff
+		"obj": (1.0, 1.0, 1.0, 1.0),    # THREE MeshPhongMaterial() default: white
+	}
+	default_mat = None
+	for obj in scene.objects:
+		if obj.type != 'MESH':
+			continue
+		if len(obj.data.materials) == 0:
+			if default_mat is None:
+				default_mat = bpy.data.materials.new("DefaultPreviewMaterial")
+				default_mat.use_nodes = True
+				bsdf = default_mat.node_tree.nodes.get("Principled BSDF")
+				if bsdf:
+					color = DEFAULT_MATERIAL_COLOR_BY_EXT.get(
+						original_extension.lower(), (0.22, 0.22, 0.25, 1.0)
+					)
+					bsdf.inputs["Base Color"].default_value = color
+					bsdf.inputs["Roughness"].default_value = 0.5
+			obj.data.materials.append(default_mat)
+
 	# FIX 4: brightness boost for very dark, unlinked Base Color materials
 	# (roughness/specular tweaks are kept as before; on top of that we lift
 	# base colors that are close to black so they don't stay near-invisible
 	# even under a well-lit scene)
 	DARK_THRESHOLD = 0.15
 	BRIGHTEN_FACTOR = 1.6
+	BRIGHT_LUMINANCE_THRESHOLD = 0.4
+	TARGET_BRIGHT_LUMINANCE = 0.35
 
 	for mat in bpy.data.materials:
 		if not mat.use_nodes:
@@ -434,6 +468,25 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 							min(col[2] * BRIGHTEN_FACTOR, 1.0),
 							col[3],
 						)
+					else:
+						# FIX 5: przyciemnienie zbyt jasnych, niepodłączonych
+						# Base Color. Ta scena (HDRI + fill, Standard view
+						# transform, exposure 0.0) nie ma highlight rolloff,
+						# więc materiały o wysokiej luminancji (np. jednolity
+						# szary 0.6-0.7) prześwietlają się na biało - w
+						# odróżnieniu od nasyconych kolorów o podobnej
+						# wartości pojedynczego kanału (np. niebieski (0,0,0.8),
+						# którego luminancja jest niska), dlatego skalujemy po
+						# luminancji, a nie po pojedynczym kanale.
+						luminance = 0.2126 * col[0] + 0.7152 * col[1] + 0.0722 * col[2]
+						if luminance > BRIGHT_LUMINANCE_THRESHOLD:
+							scale = TARGET_BRIGHT_LUMINANCE / luminance
+							base_color_input.default_value = (
+								col[0] * scale,
+								col[1] * scale,
+								col[2] * scale,
+								col[3],
+							)
 
 	# --------------------------------------------------
 	# WORLD (HDRI environment)

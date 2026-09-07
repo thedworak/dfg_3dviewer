@@ -4004,10 +4004,12 @@ var require_web_ifc_mt = __commonJS({
           };
           stream_ops.mmap = (stream, length, position, prot, flags) => {
             FS.forceLoadFile(node);
-            mmapAlloc();
-            {
+            var ptr = mmapAlloc();
+            if (!ptr) {
               throw new FS.ErrnoError(48);
             }
+            writeChunks(stream, (growMemViews(), HEAP8), ptr, length, position);
+            return { ptr, allocated: true };
           };
           node.stream_ops = stream_ops;
           return node;
@@ -8250,10 +8252,12 @@ Originally allocated`);
           };
           stream_ops.mmap = (stream, length, position, prot, flags) => {
             FS.forceLoadFile(node);
-            mmapAlloc();
-            {
+            var ptr = mmapAlloc();
+            if (!ptr) {
               throw new FS.ErrnoError(48);
             }
+            writeChunks(stream, HEAP8, ptr, length, position);
+            return { ptr, allocated: true };
           };
           node.stream_ops = stream_ops;
           return node;

@@ -1892,7 +1892,6 @@ async function animateCameraToPose ({
     if (core.cameraTweenToken !== tweenToken) return;
     core.camera.position.copy(endCamPos);
     core.controls?.target.copy(endTarget);
-    core.controls?.update();
     const boxCenter = boundingBox ? boundingBox.getCenter(new THREE.Vector3()) : new THREE.Vector3();
     if (boundingBox) {
       const boxSize = boundingBox.getSize(new THREE.Vector3()).length();
@@ -1904,10 +1903,19 @@ async function animateCameraToPose ({
       core.camera.far  = maxDistance * 10;
       core.camera.updateProjectionMatrix();
 
+      // OrbitControls.update() (below) clamps the camera's distance from
+      // the target to [minDistance, maxDistance] on every call - it has to
+      // run after maxDistance is widened for this model, not before. Doing
+      // it in the other order (as this used to) meant switching from a
+      // small model to a much bigger one called update() while maxDistance
+      // still held the small model's limit, yanking the freshly-fitted,
+      // correctly-distant camera back in until it landed inside the new
+      // (much larger) geometry.
       if (core.controls) {
         core.controls.maxDistance = maxDistance * 2;
       }
     }
+    core.controls?.update();
 
     if (window.Viewer?.urlOptions?.cameraPosition || window.Viewer?.urlOptions?.cameraTarget || Number.isFinite(window.Viewer?.urlOptions?.cameraFov)) {
       // Only reassert position/target/fov here - projection was already resolved
@@ -2412,7 +2420,13 @@ function attachEmbedConfigurator(Viewer) {
     },
 
     getEmbedPageUrl() {
-      const embedUrl = new URL("embed.html", import.meta.url);
+      // "embed.html" is kept out of the literal `new URL(...)` call on purpose:
+      // bundlers (Parcel in particular) statically resolve a literal first
+      // argument as a build-time asset relative to this source file, but
+      // embed.html only ever lives next to the built module at runtime
+      // (dist/<target>/embed.html), not next to viewer/ui/ in source.
+      const embedFileName = "embed.html";
+      const embedUrl = new URL(embedFileName, import.meta.url);
       embedUrl.search = "";
       embedUrl.hash = "";
       return embedUrl;
@@ -3037,6 +3051,43 @@ function createDefaultTestImages() {
   }));
 }
 
+const GALLERY_RENDER_ANGLES = ["0", "45", "90", "135", "180", "225", "270", "315"];
+
+// scripts/render.py writes a 9-shot turntable per source file into
+// viewer/examples/gallery/<filename>/<basename>_side<angle>.png (+ _top.png),
+// named after that same file's own filename/basename - see core.fileObject,
+// set from the currently loaded model's path in main.js. Deriving the path
+// this way means a freshly rendered example picks up its own thumbnails
+// automatically, with no config file to keep in sync per model.
+function getPerModelGalleryImages() {
+  const filename = core.fileObject?.filename;
+  const basename = core.fileObject?.basename;
+  if (!filename || !basename) return [];
+
+  const images = GALLERY_RENDER_ANGLES.map((angle) => ({
+    src: normalizeGalleryUrl(`examples/gallery/${filename}/${basename}_side${angle}.png`),
+    alt: `${basename} - ${angle}°`,
+  }));
+  images.push({
+    src: normalizeGalleryUrl(`examples/gallery/${filename}/${basename}_top.png`),
+    alt: `${basename} - top`,
+  });
+  return images.filter((img) => img.src);
+}
+
+function probeImageExists(src) {
+  return new Promise((resolve) => {
+    if (!src) {
+      resolve(false);
+      return;
+    }
+    const probe = new Image();
+    probe.onload = () => resolve(true);
+    probe.onerror = () => resolve(false);
+    probe.src = src;
+  });
+}
+
 function createFakeGalleryElements(testImages) {
   return testImages.map((entry) => {
     const wrapper = document.createElement("div");
@@ -3281,7 +3332,15 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
   }
 }
 
+// Bumped on every buildThumbnailGallery() call so a stale probeImageExists()
+// resolution from an earlier, since-superseded model switch can't overwrite
+// the gallery for whichever model is actually selected now (a fast switch
+// could otherwise let an older, slower-to-resolve probe win the race and
+// leave mismatched thumbnails on screen).
+let galleryBuildGeneration = 0;
+
 function buildThumbnailGallery(Viewer) {
+  const buildGeneration = ++galleryBuildGeneration;
   const gallery = getGalleryConfig();
   var mainElement = gallery.container
     ? document.getElementById(gallery.container)
@@ -3347,14 +3406,35 @@ function buildThumbnailGallery(Viewer) {
   }
 
   if (core.CONFIG?.viewer?.gallery?.buildFake === true) {
-    const testImages = getConfiguredTestImages();
-    const fallbackImages = testImages.length > 0 ? testImages : createDefaultTestImages();
-    if (gallery.build === true) {
-      const fakeImages = createFakeGalleryElements(fallbackImages);
+    // buildFake is the dedicated opt-in for this fallback, so it doesn't
+    // also gate on gallery.build: that flag is forced to false for the
+    // test/dev rollup targets (see rollup.config.js) to disable the real
+    // Drupal-field-based gallery there, which would otherwise silently
+    // disable this fallback too even though it's the one thing meant to
+    // work in those environments.
+    const renderFake = (images) => {
+      const fakeImages = createFakeGalleryElements(images);
       handleImages(Viewer, mainElement, fakeImages, fakeImages);
       console.log("Built fallback thumbnail gallery for local testing");
-      return;
+    };
+
+    const testImages = getConfiguredTestImages();
+    const staticFallback = testImages.length > 0 ? testImages : createDefaultTestImages();
+
+    // Prefer thumbnails rendered for the currently loaded example (see
+    // core.fileObject, refreshed on every model switch) over the static
+    // testImages config, so picking a different example model actually
+    // swaps the gallery instead of always showing the same fixed set.
+    const perModelImages = getPerModelGalleryImages();
+    if (perModelImages.length > 0) {
+      probeImageExists(perModelImages[0].src).then((exists) => {
+        if (buildGeneration !== galleryBuildGeneration) return;
+        renderFake(exists ? perModelImages : staticFallback);
+      });
+    } else {
+      renderFake(staticFallback);
     }
+    return;
   }
 
   console.log("No gallery source found");
@@ -11258,6 +11338,36 @@ var AnnotationPage = /** @class */ (function (_super) {
     return AnnotationPage;
 }(ManifestResource));
 
+/**
+ * Appends the elements of `values` to `array`.
+ *
+ * @private
+ * @param {Array} array The array to modify.
+ * @param {Array} values The values to append.
+ * @returns {Array} Returns `array`.
+ */
+
+var _arrayPush;
+var hasRequired_arrayPush;
+
+function require_arrayPush () {
+	if (hasRequired_arrayPush) return _arrayPush;
+	hasRequired_arrayPush = 1;
+	function arrayPush(array, values) {
+	  var index = -1,
+	      length = values.length,
+	      offset = array.length;
+
+	  while (++index < length) {
+	    array[offset + index] = values[index];
+	  }
+	  return array;
+	}
+
+	_arrayPush = arrayPush;
+	return _arrayPush;
+}
+
 /** Detect free variable `global` from Node.js. */
 
 var _freeGlobal;
@@ -11611,7 +11721,8 @@ var hasRequired_baseFlatten;
 function require_baseFlatten () {
 	if (hasRequired_baseFlatten) return _baseFlatten;
 	hasRequired_baseFlatten = 1;
-	var isFlattenable = /*@__PURE__*/ require_isFlattenable();
+	var arrayPush = /*@__PURE__*/ require_arrayPush(),
+	    isFlattenable = /*@__PURE__*/ require_isFlattenable();
 
 	/**
 	 * The base implementation of `_.flatten` with support for restricting flattening.
@@ -11637,6 +11748,8 @@ function require_baseFlatten () {
 	      if (depth > 1) {
 	        // Recursively flatten arrays (susceptible to call stack limits).
 	        baseFlatten(value, depth - 1, predicate, isStrict, result);
+	      } else {
+	        arrayPush(result, value);
 	      }
 	    } else if (!isStrict) {
 	      result[result.length] = value;
@@ -18582,6 +18695,12 @@ async function createCreditsElement() {
 
   const creditsDiv = document.createElement("div");
   creditsDiv.id = "credits";
+  // #credits has no default left/bottom in CSS (only position: absolute) -
+  // updateSize() is what sets those, and it doesn't run correctly until
+  // layout is settled (typically once a model has loaded). Staying hidden
+  // until then avoids a visible flash at the wrong spot followed by a jump
+  // to the right one; updateSize() reveals it once it applies real coords.
+  creditsDiv.style.visibility = "hidden";
 
   let html = "";
 
@@ -20140,7 +20259,18 @@ const Viewer$1 = {
       if (document.readyState !== 'loading') r();
       else document.addEventListener('DOMContentLoaded', r);
     });
-    const moduleUrl = new URL(import.meta.url);
+    let moduleUrl = new URL(import.meta.url);
+    if (moduleUrl.protocol !== 'http:' && moduleUrl.protocol !== 'https:') {
+      // Some dev bundlers (Parcel's dev server, at least as of 2.16) don't
+      // resolve import.meta.url to the module's real served URL when it's
+      // used for a dynamically-constructed path like this one - they hand
+      // back a non-fetchable placeholder (e.g. a "file:" URL) instead. Fall
+      // back to the page's own URL so viewer-settings.json still resolves
+      // relative to the site root, matching where every built target
+      // (dist/test, dist/dev, dist/prod, dist/drupal) co-locates it with the
+      // bundled module.
+      moduleUrl = new URL(window.location.href);
+    }
     const settingsPath = moduleUrl.pathname.includes('/assets/')
       ? '../viewer-settings.json'
       : './viewer-settings.json';
@@ -20581,6 +20711,10 @@ const Viewer$1 = {
         Viewer$1.creditsWrapper.style.width = `${effectiveWidth - 64}px`;
         Viewer$1.creditsWrapper.style.left = `${canvasRect.left + 8}px`;
         Viewer$1.creditsWrapper.style.bottom = `${bottom - Viewer$1.creditsWrapper.getBoundingClientRect().height - 24}px`;
+        // Created hidden (see createCreditsElement in sandbox.js) so it
+        // doesn't flash at its unstyled position before this runs; reveal
+        // it now that real coordinates are applied.
+        Viewer$1.creditsWrapper.style.visibility = "visible";
       }
     }
 
@@ -22117,9 +22251,15 @@ const Viewer$1 = {
           Viewer$1.fileElement[0].style.height = core.CONFIG.viewer.canvasDimensions.y * 1.1 + "px";
         }
 
-        if (core.CONFIG.viewer.gallery?.build === true && !core.SANDBOX_MODE && !this.isEmbedMode()) {
-          Viewer$1.buildGallery();
-        }
+        // Gallery is (re)built once the initial model load below has
+        // actually finished - see the buildGallery() call after that
+        // if/else chain. Building it here instead would run before
+        // core.fileObject holds anything (it's still the empty default
+        // from viewer-defaults.js at this point), so the per-model
+        // thumbnails in thumbnail-gallery.js would resolve against the
+        // wrong - empty - model and show mismatched/dummy content on the
+        // very first page load, never getting corrected afterwards since
+        // nothing else called buildGallery() again.
       }
 
       Viewer$1.controls = new OrbitControls(core.camera, core.renderer.domElement);
@@ -22254,11 +22394,30 @@ const Viewer$1 = {
             themeToggle.hidden = true;
           }
 
-          selectModel.addEventListener('change', () => {
+          selectModel.addEventListener('change', async () => {
+            // core.fileObject is a single shared, mutable object: a second
+            // switch mutates it synchronously (at the top of
+            // mainLoadModelWrapper) before this first switch's own load
+            // finishes awaiting. Without this token, the first switch's
+            // slower-to-resolve buildGallery() call could run after the
+            // second switch's, reading fileObject values that no longer
+            // match the model actually on screen - stamp+check a generation
+            // number so a superseded switch skips rebuilding the gallery.
+            const switchGeneration = (this.exampleModelSwitchGeneration ?? 0) + 1;
+            this.exampleModelSwitchGeneration = switchGeneration;
             core.autoPath = selectModel.value;
             window.localStorage.setItem('dfg3dviewer-example-model', selectModel.value);
             this.resetLoadedModelState();
-            this.mainLoadModelWrapper();
+            await this.mainLoadModelWrapper();
+            if (switchGeneration !== this.exampleModelSwitchGeneration) return;
+            // Rebuild the gallery after the switch so it picks up the newly
+            // loaded model's own thumbnails (see thumbnail-gallery.js) -
+            // otherwise it keeps showing whatever was built for the example
+            // loaded at page startup until a manual refresh.
+            const galleryCfg = core.CONFIG.viewer?.gallery;
+            if ((galleryCfg?.build === true || galleryCfg?.buildFake === true) && !core.SANDBOX_MODE && !this.isEmbedMode()) {
+              this.buildGallery();
+            }
           });
         }
       }
@@ -22352,6 +22511,20 @@ const Viewer$1 = {
         }
       } else {
         await Viewer$1.mainLoadModelWrapper();
+      }
+
+      // gallery.build gates the real Drupal-field-based gallery; it's
+      // forced false for the test/dev rollup targets since there's no
+      // Drupal DOM to scrape there (see rollup.config.js). buildFake is
+      // the separate, dedicated opt-in for the local-testing fallback
+      // (see thumbnail-gallery.js), so it must still reach buildGallery()
+      // even when the real gallery is switched off. This runs here, after
+      // the initial load above has settled core.fileObject, so the very
+      // first page load shows thumbnails matching whatever actually ended
+      // up on screen instead of momentarily-correct-then-stale content.
+      const initialGalleryCfg = core.CONFIG.viewer.gallery;
+      if ((initialGalleryCfg?.build === true || initialGalleryCfg?.buildFake === true) && !core.SANDBOX_MODE && !this.isEmbedMode()) {
+        Viewer$1.buildGallery();
       }
 
       core.renderer.setPixelRatio(devicePixelRatio);

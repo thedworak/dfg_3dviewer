@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>DLF DFG 3D Viewer testing environment</title>
+    <link rel="shortcut icon" href="viewer/img/icon.png" type="image/png">
+    <link href="viewer/css/main.css" rel="stylesheet" />
+    <link href="viewer/css/spinner.css" rel="stylesheet" />
+    <link href="viewer/css/theme.css" rel="stylesheet" />
+    <link href="viewer/css/external-sources.css" rel="stylesheet"/>
+    <link href="viewer/css/credits.css" rel="stylesheet"/>
+  </head>
+  <body>
+    <script type="module">
+      // viewer/main.js and friends reference these as bare globals, normally
+      // inlined at build time by rollup's replace() plugin (see
+      // rollup.config.js). Parcel doesn't run that plugin, so this dev entry
+      // sets the same globals by reading the identical BUILD_SOURCE/BUILD env
+      // vars the dev:* npm scripts already pass via cross-env - Parcel
+      // statically substitutes process.env.* references at bundle time.
+      globalThis.__BUILD_SOURCE__ = process.env.BUILD_SOURCE || "IIIF";
+      globalThis.__BUILD__ = process.env.BUILD || "test";
+      globalThis.__IS_PROD__ = process.env.IS_PROD === "true";
+      globalThis.__MODULES_PATH__ = "";
+      globalThis.__ENV_SUBDIR__ = "";
+    </script>
+    <div id="example-model-picker">
+      <label for="example-model-select">Load example model</label>
+      <select id="example-model-select">
+        <option value="./viewer/examples/box.dae">DAE</option>
+        <option value="./viewer/examples/box.stl" selected>STL</option>
+        <option value="./viewer/examples/box.ply">PLY</option>
+        <option value="./viewer/examples/box.obj">OBJ</option>
+        <option value="./viewer/examples/box.xyz">XYZ</option>
+        <option value="./viewer/examples/box.pcd">PCD</option>
+        <option value="./viewer/examples/box.3ds">3DS</option>
+        <option value="./viewer/examples/box.ifc">IFC</option>
+        <option value="./viewer/examples/box.fbx">FBX</option>
+        <option value="./viewer/examples/box.glb">GLB</option>
+        <option value="./viewer/examples/box-missing-mtl.obj">OBJ (missing MTL)</option>
+        <option value="./viewer/examples/broken.glb">Broken GLB</option>
+        <option value="./viewer/examples/WolpaSynagogue.glb">Wolpa Synagogue</option>
+      </select>
+      <button type="button" id="example-theme-toggle" title="Toggle dark mode">🌙</button>
+    </div>
+    <!--This is the raw-source dev entry point (used by `pnpm run dev*`, served
+        directly by Parcel so edits to viewer/*.js hot-reload). It mirrors
+        index.html, which instead targets the built dist/ output and must not
+        be used for `parcel dev` directly - see index.html's own paths, which
+        only resolve after a rollup build (build:test/build:dev/build:prod).
+    For in-built examples use one of the following 3d="./viewer/examples/box.obj"
+        OR
+        USE external samples:
+    3d="https://3d-repository.hs-mainz.de/sites/default/files/2024-01/gltf/test2.glb"
+    3d="https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb"-->
+    <div
+      id="DFG_3DViewer"
+      3d="./viewer/examples/box.stl"
+      style="height: 50vh"
+    >
+  </div>
+    <script type="module" src="viewer/main.js"></script>
+  </body>
+</html>

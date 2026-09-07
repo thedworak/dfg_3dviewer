@@ -1463,7 +1463,18 @@ export const Viewer = {
       if (document.readyState !== 'loading') r();
       else document.addEventListener('DOMContentLoaded', r);
     });
-    const moduleUrl = new URL(import.meta.url);
+    let moduleUrl = new URL(import.meta.url);
+    if (moduleUrl.protocol !== 'http:' && moduleUrl.protocol !== 'https:') {
+      // Some dev bundlers (Parcel's dev server, at least as of 2.16) don't
+      // resolve import.meta.url to the module's real served URL when it's
+      // used for a dynamically-constructed path like this one - they hand
+      // back a non-fetchable placeholder (e.g. a "file:" URL) instead. Fall
+      // back to the page's own URL so viewer-settings.json still resolves
+      // relative to the site root, matching where every built target
+      // (dist/test, dist/dev, dist/prod, dist/drupal) co-locates it with the
+      // bundled module.
+      moduleUrl = new URL(window.location.href);
+    }
     const settingsPath = moduleUrl.pathname.includes('/assets/')
       ? '../viewer-settings.json'
       : './viewer-settings.json';
@@ -1907,6 +1918,10 @@ export const Viewer = {
         Viewer.creditsWrapper.style.width = `${effectiveWidth - 64}px`;
         Viewer.creditsWrapper.style.left = `${canvasRect.left + 8}px`;
         Viewer.creditsWrapper.style.bottom = `${bottom - Viewer.creditsWrapper.getBoundingClientRect().height - 24}px`;
+        // Created hidden (see createCreditsElement in sandbox.js) so it
+        // doesn't flash at its unstyled position before this runs; reveal
+        // it now that real coordinates are applied.
+        Viewer.creditsWrapper.style.visibility = "visible";
       }
     }
 
@@ -3446,9 +3461,15 @@ export const Viewer = {
           Viewer.fileElement[0].style.height = core.CONFIG.viewer.canvasDimensions.y * 1.1 + "px";
         }
 
-        if (core.CONFIG.viewer.gallery?.build === true && !core.SANDBOX_MODE && !this.isEmbedMode()) {
-          Viewer.buildGallery();
-        }
+        // Gallery is (re)built once the initial model load below has
+        // actually finished - see the buildGallery() call after that
+        // if/else chain. Building it here instead would run before
+        // core.fileObject holds anything (it's still the empty default
+        // from viewer-defaults.js at this point), so the per-model
+        // thumbnails in thumbnail-gallery.js would resolve against the
+        // wrong - empty - model and show mismatched/dummy content on the
+        // very first page load, never getting corrected afterwards since
+        // nothing else called buildGallery() again.
       }
 
       Viewer.controls = new OrbitControls(core.camera, core.renderer.domElement);
@@ -3583,11 +3604,30 @@ export const Viewer = {
             themeToggle.hidden = true;
           }
 
-          selectModel.addEventListener('change', () => {
+          selectModel.addEventListener('change', async () => {
+            // core.fileObject is a single shared, mutable object: a second
+            // switch mutates it synchronously (at the top of
+            // mainLoadModelWrapper) before this first switch's own load
+            // finishes awaiting. Without this token, the first switch's
+            // slower-to-resolve buildGallery() call could run after the
+            // second switch's, reading fileObject values that no longer
+            // match the model actually on screen - stamp+check a generation
+            // number so a superseded switch skips rebuilding the gallery.
+            const switchGeneration = (this.exampleModelSwitchGeneration ?? 0) + 1;
+            this.exampleModelSwitchGeneration = switchGeneration;
             core.autoPath = selectModel.value;
             window.localStorage.setItem('dfg3dviewer-example-model', selectModel.value);
             this.resetLoadedModelState();
-            this.mainLoadModelWrapper();
+            await this.mainLoadModelWrapper();
+            if (switchGeneration !== this.exampleModelSwitchGeneration) return;
+            // Rebuild the gallery after the switch so it picks up the newly
+            // loaded model's own thumbnails (see thumbnail-gallery.js) -
+            // otherwise it keeps showing whatever was built for the example
+            // loaded at page startup until a manual refresh.
+            const galleryCfg = core.CONFIG.viewer?.gallery;
+            if ((galleryCfg?.build === true || galleryCfg?.buildFake === true) && !core.SANDBOX_MODE && !this.isEmbedMode()) {
+              this.buildGallery();
+            }
           });
         }
       }
@@ -3683,6 +3723,20 @@ export const Viewer = {
         }
       } else {
         await Viewer.mainLoadModelWrapper();
+      }
+
+      // gallery.build gates the real Drupal-field-based gallery; it's
+      // forced false for the test/dev rollup targets since there's no
+      // Drupal DOM to scrape there (see rollup.config.js). buildFake is
+      // the separate, dedicated opt-in for the local-testing fallback
+      // (see thumbnail-gallery.js), so it must still reach buildGallery()
+      // even when the real gallery is switched off. This runs here, after
+      // the initial load above has settled core.fileObject, so the very
+      // first page load shows thumbnails matching whatever actually ended
+      // up on screen instead of momentarily-correct-then-stale content.
+      const initialGalleryCfg = core.CONFIG.viewer.gallery;
+      if ((initialGalleryCfg?.build === true || initialGalleryCfg?.buildFake === true) && !core.SANDBOX_MODE && !this.isEmbedMode()) {
+        Viewer.buildGallery();
       }
 
       core.renderer.setPixelRatio(devicePixelRatio);
