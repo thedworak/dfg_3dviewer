@@ -3164,7 +3164,17 @@ export const Viewer = {
       const isLocal = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
       const isLocalNetwork = hostname.startsWith('192.168.') || hostname.startsWith('10.') || hostname.endsWith('.local');
       const isCodeSandbox = hostname.includes('codesandbox.io') || hostname.includes('csb.app');
-      this.isLocalPreview = isLocal || isLocalNetwork || isCodeSandbox;
+      const autoDetectedLocalPreview = isLocal || isLocalNetwork || isCodeSandbox;
+      // viewer.forceLocalPreview lets a real deployment opt into the local-
+      // preview UI (example-model picker, credits placement, etc.) even
+      // though its hostname is never localhost/LAN/CodeSandbox - or opt out
+      // of it on a machine that would otherwise auto-detect as local. Only
+      // an explicit boolean overrides the hostname check; anything else
+      // (unset, non-boolean) keeps the previous auto-detection behavior.
+      const localPreviewOverride = core.CONFIG?.viewer?.forceLocalPreview;
+      this.isLocalPreview = typeof localPreviewOverride === 'boolean'
+        ? localPreviewOverride
+        : autoDetectedLocalPreview;
       setCore('isLocalPreview', this.isLocalPreview);
       console.info('Running on', window.location.hostname, '- Local preview mode:', core.isLocalPreview);
 
