@@ -1,0 +1,73 @@
+#credits {
+  backdrop-filter: blur(14px);
+  color: #fff;
+  z-index: 10;
+  background: #191919c7;
+  border-radius: 5px;
+  max-width: calc(100vw - 32px);
+  padding: 14px;
+  font-size: 13px;
+  line-height: 1.35;
+  position: absolute;
+  box-shadow: 0 6px 25px #00000059;
+}
+
+#credits:hover {
+  background: #232323e0;
+}
+
+.credits-header {
+  justify-content: center;
+  margin-bottom: 14px;
+  display: flex;
+}
+
+.credits-main-logo {
+  max-width: 180px;
+  max-height: 48px;
+  display: block;
+}
+
+.credits-items {
+  flex-direction: column;
+  gap: 18px;
+  display: flex;
+}
+
+.credits-item {
+  flex-direction: column;
+  margin-left: 10px;
+  display: flex;
+}
+
+.credits-label {
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  color: #ffffff8c;
+  font-size: 11px;
+}
+
+.credits-logo-wrapper {
+  align-items: center;
+  display: flex;
+}
+
+.credits-logo {
+  object-fit: contain;
+  width: auto;
+  max-width: 180px;
+  max-height: 42px;
+  display: block;
+}
+
+.credits-text, .credits-link {
+  color: #fff;
+  font-size: 15px;
+  line-height: 1.4;
+  text-decoration: none;
+}
+
+.credits-link:hover {
+  text-decoration: underline;
+}
+/*# sourceMappingURL=dev.8eedbb98.css.map */

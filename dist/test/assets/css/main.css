@@ -1332,12 +1332,29 @@ canvas {
   visibility: visible;
 }
 
-.modalImage {
-  max-width: min(92vw, 1600px);
-  max-height: 88vh;
+.modalImageWrap {
+  display: inline-flex;
 
-  width: auto;
-  height: auto;
+  transform: translateY(10px);
+  opacity: 0;
+
+  transition:
+    transform 420ms cubic-bezier(.22,1,.36,1),
+    opacity 320ms ease;
+}
+
+.modalGallery.is-open .modalImageWrap {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.modalImage {
+  /* Explicit width/height (rather than max-width/max-height + auto) so the
+     image is scaled UP to fill this box too, not just shrunk down when it's
+     already bigger - otherwise a source image smaller than the viewport
+     would render at its native size instead of "fit to window". */
+  width: min(92vw, 1600px);
+  height: 88vh;
 
   border-radius: 18px;
 
@@ -1347,17 +1364,35 @@ canvas {
     0 30px 80px rgba(0,0,0,.45),
     0 10px 30px rgba(0,0,0,.35);
 
-  transform: scale(.94) translateY(10px);
-  opacity: 0;
-
-  transition:
-    transform 420ms cubic-bezier(.22,1,.36,1),
-    opacity 320ms ease;
+  /* transform here is driven by JS (scroll-to-zoom); kept snappy so it
+     doesn't fight the wheel handler, but smoothed enough to not feel abrupt. */
+  transition: transform 120ms ease-out;
 }
 
-.modalGallery.is-open .modalImage {
-  transform: scale(1) translateY(0);
-  opacity: 1;
+.galleryCounter {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+
+  padding: 6px 16px;
+  border-radius: 999px;
+
+  background:
+    linear-gradient(145deg,
+      rgba(255,255,255,.18),
+      rgba(255,255,255,.05));
+  border: 1px solid rgba(255,255,255,.18);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+
+  color: rgba(255,255,255,.92);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .02em;
+
+  pointer-events: none;
 }
 
 .galleryNav {
@@ -1700,11 +1735,25 @@ canvas {
 }
 
 #image-list .field__item {
+  position: relative;
+
   flex: 1 1 0;
   min-width: 50px;
   aspect-ratio: 1 / 1;
   overflow: hidden;
   border-radius: 10%;
+
+  background: linear-gradient(100deg,
+    rgba(255,255,255,.05) 30%,
+    rgba(255,255,255,.11) 50%,
+    rgba(255,255,255,.05) 70%);
+  background-size: 200% 100%;
+  animation: thumbShimmer 1.4s ease-in-out infinite;
+}
+
+#image-list .field__item.is-loaded {
+  background: none;
+  animation: none;
 }
 
 #image-list .field__item img {
@@ -1713,6 +1762,23 @@ canvas {
   max-width: none !important;
   max-height: none !important;
   object-fit: contain;
+
+  opacity: 0;
+}
+
+#image-list .field__item img.is-loaded {
+  opacity: 1;
+}
+
+@keyframes thumbShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+#image-list .field__item.is-active-thumb {
+  outline: 2px solid rgba(125, 173, 255, .95);
+  outline-offset: 2px;
+  box-shadow: 0 0 16px 2px rgba(125, 173, 255, .35);
 }
 
 .image-style-wisski-preview {
@@ -1739,7 +1805,7 @@ canvas {
 
 #image-list .field__item .image-style-wisski-preview {
   display: block;
-  transition: transform .25s ease, box-shadow .25s ease;
+  transition: transform .25s ease, box-shadow .25s ease, opacity .35s ease;
 }
 
 #image-list .field__item:hover img.image-style-wisski-preview {

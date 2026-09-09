@@ -1838,6 +1838,52 @@ export const Viewer = {
     return buildGallery(this);
   },
 
+  // Mirrors the static #example-model-picker markup in this repo's own
+  // index.html, for pages (Drupal/WissKI, etc.) that embed the viewer
+  // without that markup - see the forceLocalPreview handling above.
+  createExampleModelPicker() {
+    const picker = document.createElement("div");
+    picker.id = "example-model-picker";
+
+    const label = document.createElement("label");
+    label.setAttribute("for", "example-model-select");
+    label.textContent = "Load example model";
+    picker.appendChild(label);
+
+    const select = document.createElement("select");
+    select.id = "example-model-select";
+    [
+      ["./examples/box.dae", "DAE"],
+      ["./examples/box.stl", "STL"],
+      ["./examples/box.ply", "PLY"],
+      ["./examples/box.obj", "OBJ"],
+      ["./examples/box.xyz", "XYZ"],
+      ["./examples/box.pcd", "PCD"],
+      ["./examples/box.3ds", "3DS"],
+      ["./examples/box.ifc", "IFC"],
+      ["./examples/box.fbx", "FBX"],
+      ["./examples/box.glb", "GLB"],
+      ["./examples/box-missing-mtl.obj", "OBJ (missing MTL)"],
+      ["./examples/broken.glb", "Broken GLB"],
+      ["./examples/WolpaSynagogue.glb", "Wolpa Synagogue"],
+    ].forEach(([value, text]) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = text;
+      select.appendChild(option);
+    });
+    picker.appendChild(select);
+
+    const themeToggle = document.createElement("button");
+    themeToggle.type = "button";
+    themeToggle.id = "example-theme-toggle";
+    themeToggle.title = "Toggle dark mode";
+    themeToggle.textContent = "🌙";
+    picker.appendChild(themeToggle);
+
+    return picker;
+  },
+
   toHexColor(input) {
     return toHexColor(input);
   },
@@ -1991,8 +2037,44 @@ export const Viewer = {
 
     // hand hint
     if (core.handHint) {
+      // handHint is appended to core.container and positioned relative to it,
+      // so its offset must be measured against core.container's own rect
+      // (parentRect) - NOT effectiveHeight, which is the canvas's logical
+      // render size and can differ from the container's actual box (e.g. via
+      // scaleContainer or letterboxing), leading to a wrongly placed hint.
+      const containerHeight = parentRect.height || effectiveHeight;
+
+      // Default vertical offset from the container bottom, but pushed further
+      // up when the editor toolbar is visible and would otherwise sit under
+      // it - the toolbar's height/position vary (drag position, embed scale),
+      // so this is measured live rather than assumed.
+      let handHintOffset = 150;
+      if (
+        core.editorToolbar &&
+        !core.editorToolbar.classList.contains("editorToolbar-hidden")
+      ) {
+        const toolbarRect = core.editorToolbar.getBoundingClientRect();
+        const toolbarTopFromContainerTop = toolbarRect.top - parentRect.top;
+        const handHintHeight =
+          core.handHint.getBoundingClientRect().height || 48;
+        const clearanceMargin = 16;
+        const requiredOffset =
+          containerHeight -
+          toolbarTopFromContainerTop +
+          handHintHeight +
+          clearanceMargin;
+        handHintOffset = Math.max(handHintOffset, requiredOffset);
+      }
+      // #handHint's base CSS is `inset: 0; margin: auto;` (for default
+      // centering). Setting only `top` here leaves `bottom: 0` from that
+      // `inset` in place too, over-constraining the vertical position: with
+      // top/height/bottom all non-auto and auto margins, the spec splits the
+      // leftover space evenly between the margins instead of honoring `top`
+      // as-is, so the element renders noticeably off from the intended spot.
+      // Clearing `bottom` removes that over-constraint.
+      core.handHint.style.bottom = "auto";
       core.handHint.style.top =
-        `${effectiveHeight - 150}px`;
+        `${containerHeight - handHintOffset}px`;
     }
 
     core.controls?.update();
@@ -3589,10 +3671,23 @@ export const Viewer = {
       core.autoPath = "";
 
       if (core.isLocalPreview && !core.PRESENTATION_MODE && !core.SANDBOX_MODE) {
-        const picker = document.getElementById('example-model-picker');
-        const selectModel = document.getElementById('example-model-select');
-        const themeToggle = document.getElementById('example-theme-toggle');
         const viewerElement = document.getElementById('DFG_3DViewer');
+        // #example-model-picker/#example-model-select only exist as static
+        // markup in this repo's own index.html. A real deployment (Drupal/
+        // WissKI) renders its own page template, which never includes them -
+        // so on forceLocalPreview:true there, document.getElementById found
+        // nothing and this whole block silently no-opped. Build the same
+        // markup on the fly when it's missing, so local-preview mode works
+        // regardless of which page embeds the viewer.
+        let picker = document.getElementById('example-model-picker');
+        let selectModel = document.getElementById('example-model-select');
+        let themeToggle = document.getElementById('example-theme-toggle');
+        if (!picker && !selectModel && viewerElement) {
+          picker = Viewer.createExampleModelPicker();
+          selectModel = picker.querySelector('#example-model-select');
+          themeToggle = picker.querySelector('#example-theme-toggle');
+          viewerElement.parentNode.insertBefore(picker, viewerElement);
+        }
         if (picker && selectModel && viewerElement) {
           Viewer.updateLocalPreviewLabels();
           const localurl = new URL(window.location.href);

@@ -199,6 +199,24 @@ function normalizeGalleryUrl(rawUrl) {
   }
 }
 
+// Swaps the thumbnail shimmer placeholder for the real image once it has
+// finished loading (or failed), covering both the still-loading case and
+// images that are already cached and complete by the time this runs.
+function markThumbnailLoaded(img, container) {
+  const markLoaded = () => {
+    img.classList.add("is-loaded");
+    if (container instanceof HTMLElement) {
+      container.classList.add("is-loaded");
+    }
+  };
+  if (img.complete && img.naturalWidth > 0) {
+    markLoaded();
+  } else {
+    img.addEventListener("load", markLoaded, { once: true });
+    img.addEventListener("error", markLoaded, { once: true });
+  }
+}
+
 function handleImages(Viewer, mainElement, imageElements, imageElementsChildren) {
   if (imageElementsChildren === undefined) {
     imageElementsChildren = imageElements;
@@ -211,13 +229,21 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
   imageList.style.gap = "16px";
   imageList.style.alignItems = "center";
   var modalGallery = document.createElement("div");
+  var modalImageWrap = document.createElement("div");
   var modalImage = document.createElement("img");
   var modalPrev = document.createElement("button");
   var modalNext = document.createElement("button");
+  var modalCounter = document.createElement("span");
   const galleryImageSources = [];
+  const galleryThumbEls = [];
   let currentGalleryIndex = -1;
+  modalImageWrap.setAttribute("class", "modalImageWrap");
+  modalCounter.setAttribute("class", "galleryCounter");
   modalImage.setAttribute("class", "modalImage");
-  modalImage.style.transform = "scale(0.95)";
+  // Start from whatever zoom the user last left the gallery at (Viewer.zoomImage
+  // persists on the Viewer instance across images and across open/close), so a
+  // fresh build still reflects the remembered zoom instead of always resetting.
+  modalImage.style.transform = `scale(${Viewer.zoomImage})`;
   Viewer.bindEventListener(modalGallery, "wheel", function (e) {
     e.preventDefault();
     e.stopPropagation();
@@ -253,8 +279,15 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
     }
     const normalizedIndex =
       (index + galleryImageSources.length) % galleryImageSources.length;
+    if (galleryThumbEls[currentGalleryIndex]) {
+      galleryThumbEls[currentGalleryIndex].classList.remove("is-active-thumb");
+    }
     currentGalleryIndex = normalizedIndex;
     modalImage.src = galleryImageSources[normalizedIndex];
+    modalCounter.textContent = `${normalizedIndex + 1} / ${galleryImageSources.length}`;
+    if (galleryThumbEls[normalizedIndex]) {
+      galleryThumbEls[normalizedIndex].classList.add("is-active-thumb");
+    }
   };
 
   const openModalGalleryAtIndex = function (index) {
@@ -266,8 +299,12 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
 
   const closeModalGallery = function () {
     modalGallery.classList.remove("is-open");
-    Viewer.zoomImage = 1.5;
-    modalImage.style.transform = "scale(1.5)";
+    if (galleryThumbEls[currentGalleryIndex]) {
+      galleryThumbEls[currentGalleryIndex].classList.remove("is-active-thumb");
+    }
+    // Intentionally leave Viewer.zoomImage / modalImage's transform as-is so the
+    // zoom level the user scrolled to carries over to the next image and the
+    // next time the gallery is opened, instead of snapping back to a default.
   };
 
   modalClose.onclick = function () {
@@ -317,9 +354,11 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
     }
   });
 
+  modalImageWrap.appendChild(modalImage);
   modalGallery.appendChild(modalPrev);
-  modalGallery.appendChild(modalImage);
+  modalGallery.appendChild(modalImageWrap);
   modalGallery.appendChild(modalNext);
+  modalGallery.appendChild(modalCounter);
   modalGallery.appendChild(modalClose);
   for (let i = 0; imageElementsChildren.length - i >= 0; i++) {
     if (
@@ -339,9 +378,13 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
       }
       for (let j = 0; j < imgList.length; j++) {
         const nextIndex = galleryImageSources.push(imgList[j].src) - 1;
+        const thumbContainer =
+          imgList[j].closest(".field__item") || imageElementsChildren[i];
+        galleryThumbEls[nextIndex] = thumbContainer;
         imgList[j].onclick = function () {
           openModalGalleryAtIndex(nextIndex);
         };
+        markThumbnailLoaded(imgList[j], thumbContainer);
       }
       if (imageElementsChildren[i] instanceof HTMLElement) {
         imageElementsChildren[i].style.display = "block";
