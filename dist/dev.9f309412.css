@@ -324,6 +324,29 @@
   transform: translateY(-1px);
 }
 
+#uploadModel {
+  color: #25211c;
+  cursor: pointer;
+  background: #fffcf7f5;
+  border: 1px solid #a497843d;
+  border-radius: 999px;
+  justify-content: center;
+  align-items: center;
+  width: 30px;
+  height: 30px;
+  transition: background-color .2s, border-color .2s, color .2s, transform .2s;
+  display: flex;
+}
+
+#uploadModel:hover {
+  transform: translateY(-1px);
+}
+
+#uploadModel .upload-model-icon {
+  width: 18px;
+  height: 18px;
+}
+
 body[data-viewer-theme="dark"] #example-model-picker {
   color: #eee;
   background: #1e2024f2;
@@ -335,7 +358,7 @@ body[data-viewer-theme="dark"] #example-model-picker label {
   color: #eee;
 }
 
-body[data-viewer-theme="dark"] #example-model-picker select, body[data-viewer-theme="dark"] #example-theme-toggle {
+body[data-viewer-theme="dark"] #example-model-picker select, body[data-viewer-theme="dark"] #example-theme-toggle, body[data-viewer-theme="dark"] #uploadModel {
   color: #eee;
   background: #1e2024;
   border-color: #444;

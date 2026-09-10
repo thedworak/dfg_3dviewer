@@ -10,6 +10,8 @@ export const VIEWER_I18N = {
       shareView: "Share view",
       copyShareView: "Copy share view link",
       download: "Download",
+      uploadModel: "Upload & convert",
+      openUploadPanel: "Upload a 3D model for conversion",
     },
     theme: {
       lightMode: "Light mode",
@@ -192,6 +194,16 @@ export const VIEWER_I18N = {
       preview: "Preview",
       previewTitle: "Embed preview",
     },
+    uploadPanel: {
+      title: "Upload & convert model",
+      closeAria: "Close upload panel",
+      fileLabel: "3D model file",
+      formatsHint: "Supported: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, or a .zip archive containing one of these.",
+      submit: "Upload & convert",
+      uploading: "Uploading...",
+      unsupportedFormat: "Unsupported file format: .{ext}",
+      uploadError: "Upload failed. Please try again.",
+    },
     loadingLog: {
       title: "Loading process log",
       loadingModel: "Loading 3D model...",
@@ -265,6 +277,10 @@ export const VIEWER_I18N = {
       invalidManifest: "Invalid AIM3D manifest.",
       manifestValidationFailed: "AIM3D manifest validation failed.",
 
+      uploadStarted: "Upload received - converting model...",
+      uploadReady: "Converted model is ready.",
+      uploadError: "Model upload or conversion failed.",
+
       annotationDataMissing: "Annotation data not found for this POI.",
       selectFaceRequired: "Select at least one face to add annotation.",
       selectFaceRequiredAgain: "Select at least one face, then run Add annotations again.",
@@ -319,6 +335,8 @@ export const VIEWER_I18N = {
       shareView: "Udostępnij widok",
       copyShareView: "Skopiuj link udostępniania widoku",
       download: "Pobierz",
+      uploadModel: "Prześlij i skonwertuj",
+      openUploadPanel: "Prześlij model 3D do konwersji",
     },
     theme: {
       lightMode: "Tryb jasny",
@@ -501,6 +519,16 @@ export const VIEWER_I18N = {
       preview: "Podgląd",
       previewTitle: "Podgląd osadzenia",
     },
+    uploadPanel: {
+      title: "Prześlij i skonwertuj model",
+      closeAria: "Zamknij panel przesyłania",
+      fileLabel: "Plik modelu 3D",
+      formatsHint: "Obsługiwane formaty: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, lub archiwum .zip zawierające jeden z nich.",
+      submit: "Prześlij i skonwertuj",
+      uploading: "Przesyłanie...",
+      unsupportedFormat: "Nieobsługiwany format pliku: .{ext}",
+      uploadError: "Przesyłanie lub konwersja nie powiodła się. Spróbuj ponownie.",
+    },
     loadingLog: {
       title: "Log procesu ładowania",
       loadingModel: "Ładowanie modelu 3D...",
@@ -574,6 +602,10 @@ export const VIEWER_I18N = {
       invalidManifest: "Nieprawidłowy manifest AIM3D.",
       manifestValidationFailed: "Walidacja manifestu AIM3D nie powiodła się.",
 
+      uploadStarted: "Przesłano plik - konwertowanie modelu...",
+      uploadReady: "Skonwertowany model jest gotowy.",
+      uploadError: "Przesyłanie lub konwersja modelu nie powiodła się.",
+
       annotationDataMissing: "Nie znaleziono danych adnotacji dla tego punktu.",
       selectFaceRequired: "Wybierz co najmniej jedną ścianę, aby dodać adnotację.",
       selectFaceRequiredAgain: "Wybierz co najmniej jedną ścianę, a następnie ponownie dodaj adnotacje.",
@@ -628,6 +660,8 @@ export const VIEWER_I18N = {
       shareView: "Ansicht teilen",
       copyShareView: "Link zur geteilten Ansicht kopieren",
       download: "Herunterladen",
+      uploadModel: "Hochladen & konvertieren",
+      openUploadPanel: "3D-Modell zur Konvertierung hochladen",
     },
     theme: {
       lightMode: "Hellmodus",
@@ -809,6 +843,16 @@ export const VIEWER_I18N = {
       preview: "Vorschau",
       previewTitle: "Einbettungsvorschau",
     },
+    uploadPanel: {
+      title: "Modell hochladen & konvertieren",
+      closeAria: "Upload-Panel schließen",
+      fileLabel: "3D-Modelldatei",
+      formatsHint: "Unterstützt: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, oder ein .zip-Archiv mit einer dieser Dateien.",
+      submit: "Hochladen & konvertieren",
+      uploading: "Wird hochgeladen...",
+      unsupportedFormat: "Nicht unterstütztes Dateiformat: .{ext}",
+      uploadError: "Upload oder Konvertierung fehlgeschlagen. Bitte erneut versuchen.",
+    },
     loadingLog: {
       title: "Protokoll des Ladeprozesses",
       loadingModel: "3D-Modell wird geladen...",
@@ -881,6 +925,10 @@ export const VIEWER_I18N = {
       shareUrlCopyError: "URL der geteilten Ansicht konnte nicht kopiert werden.",
       invalidManifest: "Ungültiges AIM3D-Manifest.",
       manifestValidationFailed: "AIM3D-Manifestvalidierung fehlgeschlagen.",
+
+      uploadStarted: "Datei empfangen - Modell wird konvertiert...",
+      uploadReady: "Konvertiertes Modell ist bereit.",
+      uploadError: "Upload oder Konvertierung des Modells fehlgeschlagen.",
 
       annotationDataMissing: "Keine Annotationsdaten für diesen Punkt gefunden.",
       selectFaceRequired: "Wählen Sie mindestens eine Fläche aus, um eine Annotation hinzuzufügen.",

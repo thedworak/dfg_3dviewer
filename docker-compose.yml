@@ -1,0 +1,37 @@
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - worker-jobs:/data/jobs
+    environment:
+      # CPU (default), GPU, or AUTO - see worker/README.md. GPU/AUTO also
+      # need the reservation block below uncommented, plus
+      # nvidia-container-toolkit installed on the host.
+      - WORKER_RENDER_DEVICE=AUTO
+    # Uncomment to pass an NVIDIA GPU through to the worker (requires
+    # nvidia-container-toolkit on the host - see worker/README.md):
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  viewer:
+    build:
+      context: .
+      dockerfile: Dockerfile.viewer
+    ports:
+      - "3000:3000"
+    depends_on:
+      - worker
+    restart: unless-stopped
+
+volumes:
+  worker-jobs:

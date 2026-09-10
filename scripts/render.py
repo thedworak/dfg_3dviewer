@@ -50,7 +50,38 @@ if '--' in sys.argv:
     parser.add_argument("--hdri", help="Path to HDRI (.exr/.hdr) environment file")
     parser.add_argument("--no-hdri-lights", dest="no_hdri_lights", action="store_true",
                          help="Skip the 3-point light rig and rely on HDRI only")
+    parser.add_argument("--device", default="CPU",
+                         help="Render device: CPU (default), GPU, or AUTO (try GPU, fall back to CPU silently)")
     args = parser.parse_known_args(argv)[0]
+
+def try_enable_gpu(preferred_backend=None):
+    """
+    Tries each Cycles GPU backend in turn (OptiX/CUDA first, since they're
+    NVIDIA-only and fastest, then HIP/oneAPI/Metal for AMD/Intel/Apple) and
+    enables every device found for the first one that has any. Returns the
+    backend name on success, or None if no GPU device was found - the caller
+    is expected to fall back to CPU rendering in that case rather than treat
+    this as an error, since "no GPU in this environment" is an expected,
+    common outcome (e.g. scripts/render.sh's default CPU-only behavior).
+    """
+    cycles_prefs = bpy.context.preferences.addons['cycles'].preferences
+    backends = ['OPTIX', 'CUDA', 'HIP', 'ONEAPI', 'METAL']
+    if preferred_backend in backends:
+        backends = [preferred_backend] + [b for b in backends if b != preferred_backend]
+
+    for backend in backends:
+        try:
+            cycles_prefs.compute_device_type = backend
+        except TypeError:
+            continue
+        gpu_devices = [d for d in cycles_prefs.get_devices_for_type(backend) if d.type == backend]
+        if not gpu_devices:
+            continue
+        for device in cycles_prefs.devices:
+            device.use = device.type == backend
+        return backend
+
+    return None
 
 def rotation_matrix(axis, theta):
     """
@@ -318,7 +349,6 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	# rebuilding it for every angle
 	scene.render.use_persistent_data = True
 
-	scene.cycles.device = 'CPU'
 	# respect --samples when the caller passed one; otherwise fall back to
 	# the higher-quality default (previously this was always hard-reset to
 	# 256, silently ignoring --samples/render.sh's RENDER_SAMPLES)
@@ -345,9 +375,21 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	scene.cycles.sample_clamp_indirect = 4.0
 	scene.cycles.light_sampling_threshold = 0.03
 
-	# CUDA OFF (no warnings)
-	prefs = bpy.context.preferences
-	prefs.addons['cycles'].preferences.compute_device_type = 'NONE'
+	# --device CPU (default) preserves the exact previous behavior; GPU/AUTO
+	# opt in to trying a GPU backend, falling back to CPU silently if none is
+	# found (e.g. AUTO on a host with no GPU, or GPU requested but none
+	# passed through to the container).
+	device_request = (args.device or 'CPU').upper()
+	gpu_backend = try_enable_gpu() if device_request in ('GPU', 'AUTO') else None
+	if gpu_backend:
+		scene.cycles.device = 'GPU'
+		print(f"Rendering with GPU backend: {gpu_backend}")
+	else:
+		scene.cycles.device = 'CPU'
+		prefs = bpy.context.preferences
+		prefs.addons['cycles'].preferences.compute_device_type = 'NONE'
+		if device_request == 'GPU':
+			print("Requested GPU rendering but no GPU device was found - falling back to CPU.")
 
 	# --------------------------------------------------
 	# VIEW LAYER PASSES (CLI SAFE)

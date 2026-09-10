@@ -73,6 +73,16 @@ http://localhost:1234
 
 > `viewer/viewer-settings.json` is required at runtime when running from source. Use the example file as the starting point.
 
+## Standalone Docker setup
+
+The conversion pipeline (Blender + Python + `scripts/convert.sh`/`scripts/render.sh`) can also run without Drupal, as a small HTTP worker, alongside a static build of the viewer:
+
+```bash
+docker compose up --build
+```
+
+This starts the viewer on `:3000` and the conversion API on `:8080` (also reachable from the viewer itself via a same-origin reverse proxy — see [`worker/README.md`](worker/README.md) for the API contract and configuration). The viewer's main menu gets an "Upload & convert" button in this mode, driving the same pipeline through the browser. This is additive — the existing Drupal-integrated pipeline (`ConvertWorker` queue plugin, `scripts/worker.sh`, `drush`) is untouched and keeps working as-is for the current instance.
+
 ## Admin panel setup
 
 The repository includes a minimal admin panel at `viewer/admin/` for editing `viewer-settings.json`, `scripts/.env`, managing HDRI and running maintenance tasks.

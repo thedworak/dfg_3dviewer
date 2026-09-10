@@ -372,6 +372,33 @@
   transform: translateY(-1px);
 }
 
+#uploadModel {
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(164, 151, 132, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 252, 247, 0.96);
+  color: #25211c;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+#uploadModel:hover {
+  transform: translateY(-1px);
+}
+
+#uploadModel .upload-model-icon {
+  width: 18px;
+  height: 18px;
+}
+
 body[data-viewer-theme="dark"] #example-model-picker {
   border-color: #444;
   background: rgba(30, 32, 36, 0.95);
@@ -390,6 +417,12 @@ body[data-viewer-theme="dark"] #example-model-picker select {
 }
 
 body[data-viewer-theme="dark"] #example-theme-toggle {
+  border-color: #444;
+  background: #1e2024;
+  color: #eee;
+}
+
+body[data-viewer-theme="dark"] #uploadModel {
   border-color: #444;
   background: #1e2024;
   color: #eee;

@@ -127,6 +127,7 @@ export function attachLocalizationTheme(viewer) {
       this.updateThemeControlLabels();
       this.updateShareMenuEntryState?.();
       this.updateEmbedMenuEntryState();
+      this.updateUploadMenuEntryState?.();
       this.updateFullscreenButtonIcon();
       this.updateDownloadMenuEntryLabel();
       this.updateEditorToolbarLabels();
