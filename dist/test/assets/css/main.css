@@ -1,5 +1,6 @@
 @import "./editor-toolbar.css";
 @import "./embed-configurator.css";
+@import "./upload-panel.css";
 
 #cboxLoadedContent.iipmooviewer {
   position: absolute;

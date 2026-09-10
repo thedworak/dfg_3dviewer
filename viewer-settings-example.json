@@ -49,8 +49,8 @@
     "editorToolbar": {
       "enabled": true,
       "position": {
-        "x": 10,
-        "y": 10
+        "x": 0,
+        "y": 0
       }
     },
     "measurement": {
@@ -67,7 +67,7 @@
           "label": "Created by",
           "text": "Author",
           "logo": {
-            "src": "assets/logo.svg",
+            "src": "assets/img/logo/logo.svg",
             "url": "https://your-domain.com"
           },
           "url": "https://your-domain.com"
@@ -76,7 +76,7 @@
           "label": "Funded by",
           "text": "XYZ Foundation",
           "logo": {
-            "src": "assets/logo.svg",
+            "src": "assets/img/logo/logo.svg",
             "url": "https://www.xyzfoundation.org"
           },
           "url": "https://www.xyzfoundation.org"
@@ -85,7 +85,7 @@
           "label": "Copyright",
           "text": "© 2026 Author",
           "logo": {
-            "src": "assets/logo.svg",
+            "src": "assets/img/logo/logo.svg",
             "url": "https://your-domain.com"
           },
           "url": "https://your-domain.com"

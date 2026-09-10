@@ -220,6 +220,8 @@ const VIEWER_I18N = {
       shareView: "Share view",
       copyShareView: "Copy share view link",
       download: "Download",
+      uploadModel: "Upload & convert",
+      openUploadPanel: "Upload a 3D model for conversion",
     },
     theme: {
       lightMode: "Light mode",
@@ -402,6 +404,16 @@ const VIEWER_I18N = {
       preview: "Preview",
       previewTitle: "Embed preview",
     },
+    uploadPanel: {
+      title: "Upload & convert model",
+      closeAria: "Close upload panel",
+      fileLabel: "3D model file",
+      formatsHint: "Supported: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, or a .zip archive containing one of these.",
+      submit: "Upload & convert",
+      uploading: "Uploading...",
+      unsupportedFormat: "Unsupported file format: .{ext}",
+      uploadError: "Upload failed. Please try again.",
+    },
     loadingLog: {
       title: "Loading process log",
       loadingModel: "Loading 3D model...",
@@ -475,6 +487,10 @@ const VIEWER_I18N = {
       invalidManifest: "Invalid AIM3D manifest.",
       manifestValidationFailed: "AIM3D manifest validation failed.",
 
+      uploadStarted: "Upload received - converting model...",
+      uploadReady: "Converted model is ready.",
+      uploadError: "Model upload or conversion failed.",
+
       annotationDataMissing: "Annotation data not found for this POI.",
       selectFaceRequired: "Select at least one face to add annotation.",
       selectFaceRequiredAgain: "Select at least one face, then run Add annotations again.",
@@ -529,6 +545,8 @@ const VIEWER_I18N = {
       shareView: "Udostępnij widok",
       copyShareView: "Skopiuj link udostępniania widoku",
       download: "Pobierz",
+      uploadModel: "Prześlij i skonwertuj",
+      openUploadPanel: "Prześlij model 3D do konwersji",
     },
     theme: {
       lightMode: "Tryb jasny",
@@ -711,6 +729,16 @@ const VIEWER_I18N = {
       preview: "Podgląd",
       previewTitle: "Podgląd osadzenia",
     },
+    uploadPanel: {
+      title: "Prześlij i skonwertuj model",
+      closeAria: "Zamknij panel przesyłania",
+      fileLabel: "Plik modelu 3D",
+      formatsHint: "Obsługiwane formaty: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, lub archiwum .zip zawierające jeden z nich.",
+      submit: "Prześlij i skonwertuj",
+      uploading: "Przesyłanie...",
+      unsupportedFormat: "Nieobsługiwany format pliku: .{ext}",
+      uploadError: "Przesyłanie lub konwersja nie powiodła się. Spróbuj ponownie.",
+    },
     loadingLog: {
       title: "Log procesu ładowania",
       loadingModel: "Ładowanie modelu 3D...",
@@ -784,6 +812,10 @@ const VIEWER_I18N = {
       invalidManifest: "Nieprawidłowy manifest AIM3D.",
       manifestValidationFailed: "Walidacja manifestu AIM3D nie powiodła się.",
 
+      uploadStarted: "Przesłano plik - konwertowanie modelu...",
+      uploadReady: "Skonwertowany model jest gotowy.",
+      uploadError: "Przesyłanie lub konwersja modelu nie powiodła się.",
+
       annotationDataMissing: "Nie znaleziono danych adnotacji dla tego punktu.",
       selectFaceRequired: "Wybierz co najmniej jedną ścianę, aby dodać adnotację.",
       selectFaceRequiredAgain: "Wybierz co najmniej jedną ścianę, a następnie ponownie dodaj adnotacje.",
@@ -838,6 +870,8 @@ const VIEWER_I18N = {
       shareView: "Ansicht teilen",
       copyShareView: "Link zur geteilten Ansicht kopieren",
       download: "Herunterladen",
+      uploadModel: "Hochladen & konvertieren",
+      openUploadPanel: "3D-Modell zur Konvertierung hochladen",
     },
     theme: {
       lightMode: "Hellmodus",
@@ -1019,6 +1053,16 @@ const VIEWER_I18N = {
       preview: "Vorschau",
       previewTitle: "Einbettungsvorschau",
     },
+    uploadPanel: {
+      title: "Modell hochladen & konvertieren",
+      closeAria: "Upload-Panel schließen",
+      fileLabel: "3D-Modelldatei",
+      formatsHint: "Unterstützt: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, oder ein .zip-Archiv mit einer dieser Dateien.",
+      submit: "Hochladen & konvertieren",
+      uploading: "Wird hochgeladen...",
+      unsupportedFormat: "Nicht unterstütztes Dateiformat: .{ext}",
+      uploadError: "Upload oder Konvertierung fehlgeschlagen. Bitte erneut versuchen.",
+    },
     loadingLog: {
       title: "Protokoll des Ladeprozesses",
       loadingModel: "3D-Modell wird geladen...",
@@ -1091,6 +1135,10 @@ const VIEWER_I18N = {
       shareUrlCopyError: "URL der geteilten Ansicht konnte nicht kopiert werden.",
       invalidManifest: "Ungültiges AIM3D-Manifest.",
       manifestValidationFailed: "AIM3D-Manifestvalidierung fehlgeschlagen.",
+
+      uploadStarted: "Datei empfangen - Modell wird konvertiert...",
+      uploadReady: "Konvertiertes Modell ist bereit.",
+      uploadError: "Upload oder Konvertierung des Modells fehlgeschlagen.",
 
       annotationDataMissing: "Keine Annotationsdaten für diesen Punkt gefunden.",
       selectFaceRequired: "Wählen Sie mindestens eine Fläche aus, um eine Annotation hinzuzufügen.",
@@ -2973,6 +3021,461 @@ function attachEmbedConfigurator(Viewer) {
   });
 }
 
+class StatusPoller {
+
+    constructor(id, { forcePoll = false, onUpdate = null } = {}) {
+        this.id=id;
+        this.interval=2000;
+        this.timer=null;
+        this.running=false;
+        // core.isLocalPreview auto-detects true on localhost/LAN hostnames
+        // (see main.js), which is exactly where a standalone worker
+        // deployment is reached - forcePoll lets a caller with a real
+        // backend (no Drupal entity involved) opt out of the "no real API
+        // to poll" assumption baked into isLocalPreview elsewhere below.
+        this.forcePoll = forcePoll === true;
+        this.onUpdate = typeof onUpdate === "function" ? onUpdate : null;
+    }
+
+    async start() {
+        if(this.running) return;
+        this.running=true;
+        if (!core.isLocalPreview || this.forcePoll)
+            await this.tick();
+        else {
+            this.map = core.isLocalPreview
+                ? Object.fromEntries(
+                    Object.entries(this.fullMap)
+                        .slice(-3)      // Only keep the last 2 steps for local preview
+                        .map(([k], i) => [k, i])
+                    )
+                : this.fullMap;
+        }
+    }
+
+    stop() {
+        this.running=false;
+        if(this.timer) clearTimeout(this.timer);
+    }
+    fullMap = {
+        init: 0,
+        preparing: 1,
+        processing: 2,
+        converted: 3,
+        updating: 4,
+        rendering: 4,
+        model_ready: 5,
+        viewer_ready: 6,
+        ready: 6,
+        failed: 7,
+        error: 7,
+    };
+
+    terminalStatuses = new Set(["ready", "viewer_ready", "failed", "error"]);
+
+    map = this.fullMap;
+
+    updateSteps(status) {
+        if(this.map[status]!==undefined) {
+            UltraLoader.step(this.map[status]);
+        }
+
+    }
+
+    async tick() {
+        if(!this.running || (core.isLocalPreview && !this.forcePoll)) return;
+
+        try {
+            const r=await fetch(`/api/model/status/${this.id}`, {
+                cache:"no-store"
+            });
+
+            if(!r.ok){
+                throw new Error("API error");
+            }
+
+            const data=await r.json();
+            this.onUpdate?.(data);
+
+            if(data.status==="error") {
+                UltraLoader.error(data.message || "Processing failed");
+                this.stop();
+                localStorage.removeItem("processing_model_id");
+                return;
+            }
+
+            UltraLoader.set(data.progress);
+
+            this.updateSteps(data.status);
+
+            if(this.terminalStatuses.has(data.status)) {
+                if (data.status==="ready" || data.status==="viewer_ready") {
+                    UltraLoader.finish("3D Viewer is ready");
+                }
+                else {
+                    UltraLoader.finish("Failed processing the model");
+                }
+                this.stop();
+                localStorage.removeItem("processing_model_id");
+                return;
+            }
+        }
+        catch(e){
+            if (!core.isLocalPreview || this.forcePoll) {
+                UltraLoader.error("Connection error");
+                this.stop();
+            }
+        }
+        this.timer=setTimeout(()=>this.tick(),this.interval);
+    }
+
+}
+
+const UltraLoader$1 = {
+
+  progress:0,
+  bar:null,
+  panel:null,
+  header:null,
+  stepsContainer:null,
+  steps:[],
+  isFinished:false,
+  hideTimer:null,
+  resetTimer:null,
+
+  init() {
+    if(this.bar) return;
+
+    const loader=document.createElement("div");
+    loader.id="ultra-loader";
+    loader.innerHTML='<div id="ultra-loader-bar"></div>';
+
+    const panel=document.createElement("div");
+    panel.id="ultra-loader-panel";
+
+    const header=document.createElement("div");
+    header.id="ultra-loader-header";
+    header.textContent=t$1("processingHeader");
+    panel.appendChild(header);
+
+    const stepsContainer=document.createElement("div");
+    stepsContainer.id="ultra-loader-steps";
+    panel.appendChild(stepsContainer);
+
+    document.body.appendChild(loader);
+    document.body.appendChild(panel);
+
+    this.bar=document.getElementById("ultra-loader-bar");
+    this.panel=panel;
+    this.header=header;
+    this.stepsContainer=stepsContainer;
+  },
+
+  start(steps) {
+    this.init();
+
+    if (this.hideTimer) {
+      window.clearTimeout(this.hideTimer);
+      this.hideTimer = null;
+    }
+    if (this.resetTimer) {
+      window.clearTimeout(this.resetTimer);
+      this.resetTimer = null;
+    }
+
+    this.steps=steps;
+    this.updateHeader();
+    this.progress=5;
+    this.isFinished=false;
+
+    this.bar.style.width = "5%";
+    this.bar.style.background = "";
+
+    this.renderSteps(0);
+
+    this.panel.classList.add("show");
+
+    this.render();
+    },
+
+  set(progress,message) {
+    this.progress=Math.max(this.progress,progress);
+    this.render();
+  },
+
+  step(index) {
+    this.renderSteps(index);
+  },
+
+  finish() {
+    this.progress=100;
+    this.isFinished=true;
+    this.render();
+    this.renderSteps(this.steps.length);
+
+    this.hideTimer = window.setTimeout(() => {
+      if (!this.isFinished) {
+        return;
+      }
+
+      this.panel.classList.remove("show");
+      this.hideTimer = null;
+
+      this.resetTimer = window.setTimeout(() => {
+        this.bar.style.width = "0%";
+        this.progress = 0;
+        this.resetTimer = null;
+      }, 1500);
+    }, 2500);
+
+  },
+
+  render() {
+    this.bar.style.width=this.progress+"%";
+  },
+
+  updateHeader() {
+    if (this.header) {
+      this.header.textContent=t$1("processingHeader");
+    }
+  },
+
+  renderSteps(active) {
+    this.updateHeader();
+    if (!this.stepsContainer) return;
+    this.stepsContainer.replaceChildren();
+    this.steps.forEach((s,i)=>{
+      const row=document.createElement("div");
+      row.className="ultra-step";
+      if(i<active) {
+        row.classList.add("done");
+        row.textContent="✓ "+s;
+      }
+      else if(i===active) {
+        row.classList.add("active");
+        row.textContent="⏳ "+s;
+      }
+      else {
+        row.classList.add("pending");
+        row.textContent="□ "+s;
+      }
+      this.stepsContainer.appendChild(row);
+    });
+  },
+
+  error(message="Processing error") {
+    this.isFinished = true;
+    this.renderErrorSteps();
+    const error=document.createElement("div");
+    error.id="ultra-loader-error";
+    error.textContent=`ERROR: ${message}`;
+    this.panel.appendChild(error);
+    this.bar.style.background="#d93025";
+  },
+
+  renderErrorSteps() {
+    this.updateHeader();
+    if (!this.stepsContainer) return;
+    this.stepsContainer.replaceChildren();
+    this.steps.forEach((s)=>{
+      const row=document.createElement("div");
+      row.className="ultra-step error";
+      row.textContent="✖ "+s;
+      this.stepsContainer.appendChild(row);
+    });
+  }
+
+};
+
+window.UltraLoader=UltraLoader$1;
+
+// Mirrors the case-branches scripts/convert.sh actually handles, plus the
+// .zip archive support the standalone worker (worker/server.py) adds on top
+// of it - see worker/README.md.
+const SUPPORTED_EXTENSIONS = ["abc", "dae", "fbx", "obj", "ply", "stl", "wrl", "x3d", "ifc", "blend", "gml", "glb", "zip"];
+
+function attachUploadPanel(Viewer) {
+  Object.assign(Viewer, {
+    isUploadPanelOpen() {
+      return this.uploadPanel?.hidden === false;
+    },
+
+    updateUploadMenuEntryState() {
+      if (!this.uploadModel) return;
+      // Icon-only, matching #example-theme-toggle's compact footprint next
+      // to the model picker - the full label lives in aria-label/title
+      // instead of visible text.
+      this.uploadModel.innerHTML = `<span class="upload-model-icon" aria-hidden="true"></span>`;
+      const a11yLabel = t$1("menu.openUploadPanel", "Upload a 3D model for conversion");
+      this.uploadModel.setAttribute("aria-label", a11yLabel);
+      this.uploadModel.setAttribute("title", a11yLabel);
+    },
+
+    openUploadPanel(event) {
+      this.createUploadPanel();
+      this.toggleUploadPanel(event);
+    },
+
+    toggleUploadPanel(event) {
+      event?.preventDefault?.();
+      this.closeActionMenu();
+      if (!this.uploadPanel) return;
+      const willShow = this.uploadPanel.hidden === true;
+      this.uploadPanel.hidden = !willShow;
+      if (willShow) {
+        this.resetUploadPanelState();
+      }
+    },
+
+    closeUploadPanel() {
+      if (this.uploadPanel) {
+        this.uploadPanel.hidden = true;
+      }
+    },
+
+    resetUploadPanelState() {
+      if (!this.uploadInputs) return;
+      this.uploadInputs.file.value = "";
+      this.uploadInputs.submit.disabled = false;
+      this.setUploadStatusText("");
+    },
+
+    setUploadStatusText(message, tone = "info") {
+      if (!this.uploadInputs?.status) return;
+      this.uploadInputs.status.textContent = message;
+      this.uploadInputs.status.dataset.tone = tone;
+    },
+
+    createUploadPanel() {
+      if (!core.container || this.uploadPanel) return;
+
+      const panelText = {
+        title: t$1("uploadPanel.title", "Upload & convert model"),
+        closeAria: t$1("uploadPanel.closeAria", "Close upload panel"),
+        fileLabel: t$1("uploadPanel.fileLabel", "3D model file"),
+        formatsHint: t$1(
+          "uploadPanel.formatsHint",
+          "Supported: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, or a .zip archive containing one of these."
+        ),
+        submit: t$1("uploadPanel.submit", "Upload & convert"),
+      };
+
+      const panel = document.createElement("div");
+      panel.id = "uploadModelPanel";
+      panel.hidden = true;
+      panel.innerHTML = `
+        <div class="upload-panel-header">
+          <span>${panelText.title}</span>
+          <button id="uploadPanelClose" type="button" aria-label="${panelText.closeAria}">X</button>
+        </div>
+        <form id="uploadPanelForm" class="upload-panel-body">
+          <label class="upload-panel-field">${panelText.fileLabel}
+            <input id="uploadPanelFileInput" type="file" accept=".abc,.dae,.fbx,.obj,.ply,.stl,.wrl,.x3d,.ifc,.blend,.gml,.glb,.zip" required />
+          </label>
+          <p class="upload-panel-hint">${panelText.formatsHint}</p>
+          <div class="upload-panel-actions">
+            <button id="uploadPanelSubmit" type="submit">${panelText.submit}</button>
+          </div>
+          <p id="uploadPanelStatus" class="upload-panel-status" role="status" aria-live="polite"></p>
+        </form>
+      `;
+
+      core.container.appendChild(panel);
+      this.uploadPanel = panel;
+      this.uploadInputs = {
+        file: panel.querySelector("#uploadPanelFileInput"),
+        submit: panel.querySelector("#uploadPanelSubmit"),
+        status: panel.querySelector("#uploadPanelStatus"),
+      };
+
+      const form = panel.querySelector("#uploadPanelForm");
+      const closeButton = panel.querySelector("#uploadPanelClose");
+
+      this.bindEventListener(form, "submit", (event) => this.handleUploadSubmit(event));
+      this.bindEventListener(closeButton, "click", () => this.closeUploadPanel());
+    },
+
+    async handleUploadSubmit(event) {
+      event.preventDefault();
+      const file = this.uploadInputs?.file?.files?.[0];
+      if (!file) return;
+
+      const extension = (file.name.split(".").pop() || "").toLowerCase();
+      if (!SUPPORTED_EXTENSIONS.includes(extension)) {
+        this.setUploadStatusText(
+          t$1("uploadPanel.unsupportedFormat", { ext: extension }, "Unsupported file format: .{ext}"),
+          "error"
+        );
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      this.uploadInputs.submit.disabled = true;
+      this.setUploadStatusText(t$1("uploadPanel.uploading", "Uploading..."), "info");
+
+      try {
+        const response = await fetch("/api/model/create", { method: "POST", body: formData });
+        if (!response.ok) {
+          throw new Error(`Upload failed (HTTP ${response.status})`);
+        }
+        const data = await response.json();
+        const jobId = data.entity_id;
+        if (!jobId) {
+          throw new Error("No job id returned by the conversion service.");
+        }
+
+        this.closeUploadPanel();
+        toastHelper("uploadStarted", "info");
+
+        UltraLoader$1.start(this.getProcessingLoadingSteps());
+        const poller = new StatusPoller(jobId, {
+          forcePoll: true,
+          onUpdate: (statusData) => this.handleUploadStatusUpdate(statusData),
+        });
+        poller.start();
+      } catch (error) {
+        this.reportError(error, { context: "Model upload failed" });
+        this.setUploadStatusText(t$1("uploadPanel.uploadError", "Upload failed. Please try again."), "error");
+        toastHelper("uploadError", "error");
+      } finally {
+        if (this.uploadInputs?.submit) {
+          this.uploadInputs.submit.disabled = false;
+        }
+      }
+    },
+
+    async handleUploadStatusUpdate(data) {
+      if (!data) return;
+      if (data.status === "ready" && data.modelUrl) {
+        toastHelper("uploadReady", "success");
+        core.autoPath = data.modelUrl;
+        this.resetLoadedModelState();
+        await this.mainLoadModelWrapper();
+
+        // Mirrors the same gate the example-model switch uses before
+        // rebuilding the gallery (see main.js) - the worker's own thumbnails
+        // (imageUrls) are the correct source here regardless of build vs
+        // buildFake, since there is no Drupal field markup to read in a
+        // standalone deployment.
+        const galleryCfg = core.CONFIG.viewer?.gallery;
+        if (
+          Array.isArray(data.imageUrls) &&
+          data.imageUrls.length > 0 &&
+          (galleryCfg?.build === true || galleryCfg?.buildFake === true) &&
+          !core.SANDBOX_MODE &&
+          !this.isEmbedMode()
+        ) {
+          this.renderModelGalleryImages(data.imageUrls);
+        }
+      } else if (data.status === "failed" || data.status === "error") {
+        toastHelper("uploadError", "error");
+      }
+    },
+  });
+}
+
 function getGalleryConfig() {
   return core.CONFIG?.viewer?.gallery || {};
 }
@@ -3375,6 +3878,24 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
   }
 }
 
+// getPerModelGalleryImages() only knows how to guess paths for the built-in
+// viewer/examples/gallery/<filename>/... fixtures - a model just converted by
+// the standalone worker (worker/server.py) lives at whatever /files/<job id>/
+// views/... URLs its status response actually returned, so that convention
+// can't find it. This renders a gallery directly from an explicit URL list
+// instead of guessing one, reusing the same thumbnail/lightbox DOM as the
+// buildFake fallback below.
+function renderModelGalleryImages$1(Viewer, imageUrls = []) {
+  const gallery = getGalleryConfig();
+  const mainElement = gallery.container ? document.getElementById(gallery.container) : null;
+  const images = imageUrls
+    .map((src, index) => ({ src: normalizeGalleryUrl(src), alt: `Preview ${index + 1}` }))
+    .filter((img) => img.src);
+  if (images.length === 0) return;
+  const elements = createFakeGalleryElements(images);
+  handleImages(Viewer, mainElement, elements, elements);
+}
+
 // Bumped on every buildThumbnailGallery() call so a stale probeImageExists()
 // resolution from an earlier, since-superseded model switch can't overwrite
 // the gallery for whichever model is actually selected now (a fast switch
@@ -3482,164 +4003,6 @@ function buildThumbnailGallery(Viewer) {
 
   console.log("No gallery source found");
 }
-
-const UltraLoader$1 = {
-
-  progress:0,
-  bar:null,
-  panel:null,
-  header:null,
-  stepsContainer:null,
-  steps:[],
-  isFinished:false,
-  hideTimer:null,
-  resetTimer:null,
-
-  init() {
-    if(this.bar) return;
-
-    const loader=document.createElement("div");
-    loader.id="ultra-loader";
-    loader.innerHTML='<div id="ultra-loader-bar"></div>';
-
-    const panel=document.createElement("div");
-    panel.id="ultra-loader-panel";
-
-    const header=document.createElement("div");
-    header.id="ultra-loader-header";
-    header.textContent=t$1("processingHeader");
-    panel.appendChild(header);
-
-    const stepsContainer=document.createElement("div");
-    stepsContainer.id="ultra-loader-steps";
-    panel.appendChild(stepsContainer);
-
-    document.body.appendChild(loader);
-    document.body.appendChild(panel);
-
-    this.bar=document.getElementById("ultra-loader-bar");
-    this.panel=panel;
-    this.header=header;
-    this.stepsContainer=stepsContainer;
-  },
-
-  start(steps) {
-    this.init();
-
-    if (this.hideTimer) {
-      window.clearTimeout(this.hideTimer);
-      this.hideTimer = null;
-    }
-    if (this.resetTimer) {
-      window.clearTimeout(this.resetTimer);
-      this.resetTimer = null;
-    }
-
-    this.steps=steps;
-    this.updateHeader();
-    this.progress=5;
-    this.isFinished=false;
-
-    this.bar.style.width = "5%";
-    this.bar.style.background = "";
-
-    this.renderSteps(0);
-
-    this.panel.classList.add("show");
-
-    this.render();
-    },
-
-  set(progress,message) {
-    this.progress=Math.max(this.progress,progress);
-    this.render();
-  },
-
-  step(index) {
-    this.renderSteps(index);
-  },
-
-  finish() {
-    this.progress=100;
-    this.isFinished=true;
-    this.render();
-    this.renderSteps(this.steps.length);
-
-    this.hideTimer = window.setTimeout(() => {
-      if (!this.isFinished) {
-        return;
-      }
-
-      this.panel.classList.remove("show");
-      this.hideTimer = null;
-
-      this.resetTimer = window.setTimeout(() => {
-        this.bar.style.width = "0%";
-        this.progress = 0;
-        this.resetTimer = null;
-      }, 1500);
-    }, 2500);
-
-  },
-
-  render() {
-    this.bar.style.width=this.progress+"%";
-  },
-
-  updateHeader() {
-    if (this.header) {
-      this.header.textContent=t$1("processingHeader");
-    }
-  },
-
-  renderSteps(active) {
-    this.updateHeader();
-    if (!this.stepsContainer) return;
-    this.stepsContainer.replaceChildren();
-    this.steps.forEach((s,i)=>{
-      const row=document.createElement("div");
-      row.className="ultra-step";
-      if(i<active) {
-        row.classList.add("done");
-        row.textContent="✓ "+s;
-      }
-      else if(i===active) {
-        row.classList.add("active");
-        row.textContent="⏳ "+s;
-      }
-      else {
-        row.classList.add("pending");
-        row.textContent="□ "+s;
-      }
-      this.stepsContainer.appendChild(row);
-    });
-  },
-
-  error(message="Processing error") {
-    this.isFinished = true;
-    this.renderErrorSteps();
-    const error=document.createElement("div");
-    error.id="ultra-loader-error";
-    error.textContent=`ERROR: ${message}`;
-    this.panel.appendChild(error);
-    this.bar.style.background="#d93025";
-  },
-
-  renderErrorSteps() {
-    this.updateHeader();
-    if (!this.stepsContainer) return;
-    this.stepsContainer.replaceChildren();
-    this.steps.forEach((s)=>{
-      const row=document.createElement("div");
-      row.className="ultra-step error";
-      row.textContent="✖ "+s;
-      this.stepsContainer.appendChild(row);
-    });
-  }
-
-};
-
-window.UltraLoader=UltraLoader$1;
 
 function normalizeLanguage(value) {
   if (value == null) return null;
@@ -3845,6 +4208,7 @@ function attachLocalizationTheme(viewer) {
       this.updateThemeControlLabels();
       this.updateShareMenuEntryState?.();
       this.updateEmbedMenuEntryState();
+      this.updateUploadMenuEntryState?.();
       this.updateFullscreenButtonIcon();
       this.updateDownloadMenuEntryLabel();
       this.updateEditorToolbarLabels();
@@ -9580,108 +9944,6 @@ const progressLoaderHandler = function (xhr) {
   core.loadingLog?.update?.(percentComplete);
   core.UltraLoader?.set(percentComplete);
 };
-
-class StatusPoller {
-
-    constructor(id) {
-        this.id=id;
-        this.interval=2000;
-        this.timer=null;
-        this.running=false;
-    }
-
-    async start() {
-        if(this.running) return;
-        this.running=true;
-        if (!core.isLocalPreview)
-            await this.tick();
-        else {
-            this.map = core.isLocalPreview
-                ? Object.fromEntries(
-                    Object.entries(this.fullMap)
-                        .slice(-3)      // Only keep the last 2 steps for local preview
-                        .map(([k], i) => [k, i])
-                    )
-                : this.fullMap;
-        }
-    }
-
-    stop() {
-        this.running=false;
-        if(this.timer) clearTimeout(this.timer);
-    }
-    fullMap = {
-        init: 0,
-        preparing: 1,
-        processing: 2,
-        converted: 3,
-        updating: 4,
-        rendering: 4,
-        model_ready: 5,
-        viewer_ready: 6,
-        ready: 6,
-        failed: 7,
-        error: 7,
-    };
-
-    terminalStatuses = new Set(["ready", "viewer_ready", "failed", "error"]);
-
-    map = this.fullMap;
-
-    updateSteps(status) {
-        if(this.map[status]!==undefined) {
-            UltraLoader.step(this.map[status]);
-        }
-
-    }
-
-    async tick() {
-        if(!this.running || core.isLocalPreview) return;
-
-        try {
-            const r=await fetch(`/api/model/status/${this.id}`, {
-                cache:"no-store"
-            });
-
-            if(!r.ok){
-                throw new Error("API error");
-            }
-
-            const data=await r.json();
-
-            if(data.status==="error") {
-                UltraLoader.error(data.message || "Processing failed");
-                this.stop();
-                localStorage.removeItem("processing_model_id");
-                return;
-            }
-
-            UltraLoader.set(data.progress);
-
-            this.updateSteps(data.status);
-
-            if(this.terminalStatuses.has(data.status)) {
-                if (data.status==="ready" || data.status==="viewer_ready") {
-                    UltraLoader.finish("3D Viewer is ready");
-                }
-                else {
-                    UltraLoader.finish("Failed processing the model");
-                }
-                this.stop();
-                localStorage.removeItem("processing_model_id");
-                return;
-            }
-        }
-        catch(e){
-            if (!core.isLocalPreview) {
-                UltraLoader.error("Connection error");
-                this.stop();
-            }
-        }
-        this.timer=setTimeout(()=>this.tick(),this.interval);
-    }
-
-}
 
 var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
@@ -18194,6 +18456,10 @@ function buildGallery(viewer) {
   return buildThumbnailGallery(viewer);
 }
 
+function renderModelGalleryImages(viewer, imageUrls) {
+  return renderModelGalleryImages$1(viewer, imageUrls);
+}
+
 function toHexColor(input) {
   if (!input) return null;
 
@@ -20674,6 +20940,10 @@ const Viewer$1 = {
     return buildGallery(this);
   },
 
+  renderModelGalleryImages(imageUrls) {
+    return renderModelGalleryImages(this, imageUrls);
+  },
+
   // Mirrors the static #example-model-picker markup in this repo's own
   // index.html, for pages (Drupal/WissKI, etc.) that embed the viewer
   // without that markup - see the forceLocalPreview handling above.
@@ -20716,6 +20986,11 @@ const Viewer$1 = {
     themeToggle.title = "Toggle dark mode";
     themeToggle.textContent = "🌙";
     picker.appendChild(themeToggle);
+
+    const uploadModel = document.createElement("button");
+    uploadModel.type = "button";
+    uploadModel.id = "uploadModel";
+    picker.appendChild(uploadModel);
 
     return picker;
   },
@@ -22515,11 +22790,18 @@ const Viewer$1 = {
         let picker = document.getElementById('example-model-picker');
         let selectModel = document.getElementById('example-model-select');
         let themeToggle = document.getElementById('example-theme-toggle');
+        let uploadModelButton = document.getElementById('uploadModel');
         if (!picker && !selectModel && viewerElement) {
           picker = Viewer$1.createExampleModelPicker();
           selectModel = picker.querySelector('#example-model-select');
           themeToggle = picker.querySelector('#example-theme-toggle');
+          uploadModelButton = picker.querySelector('#uploadModel');
           viewerElement.parentNode.insertBefore(picker, viewerElement);
+        }
+        if (uploadModelButton) {
+          Viewer$1.uploadModel = uploadModelButton;
+          Viewer$1.updateUploadMenuEntryState();
+          Viewer$1.bindEventListener(uploadModelButton, "click", Viewer$1.openUploadPanel.bind(Viewer$1));
         }
         if (picker && selectModel && viewerElement) {
           Viewer$1.updateLocalPreviewLabels();
@@ -22703,6 +22985,7 @@ attachAnnotations(Viewer$1);
 attachPicking(Viewer$1);
 attachMeasurement(Viewer$1);
 attachEmbedConfigurator(Viewer$1);
+attachUploadPanel(Viewer$1);
 attachWindowControls(Viewer$1);
 
 

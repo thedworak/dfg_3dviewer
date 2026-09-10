@@ -737,6 +737,7 @@ var _coreJs = require("./core.js");
 var _utilsJs = require("./utils.js");
 var _viewerUtilsJs = require("./viewer-utils.js");
 var _embedConfiguratorJs = require("./ui/embed-configurator.js");
+var _uploadPanelJs = require("./ui/upload-panel.js");
 var _thumbnailGalleryJs = require("./ui/thumbnail-gallery.js");
 var _localizationThemeJs = require("./ui/localization-theme.js");
 var _loadingStatusJs = require("./ui/loading-status.js");
@@ -2126,6 +2127,9 @@ const Viewer = {
     buildGallery () {
         return (0, _viewerHelpersJs.buildGallery)(this);
     },
+    renderModelGalleryImages (imageUrls) {
+        return (0, _viewerHelpersJs.renderModelGalleryImages)(this, imageUrls);
+    },
     // Mirrors the static #example-model-picker markup in this repo's own
     // index.html, for pages (Drupal/WissKI, etc.) that embed the viewer
     // without that markup - see the forceLocalPreview handling above.
@@ -2204,6 +2208,10 @@ const Viewer = {
         themeToggle.title = "Toggle dark mode";
         themeToggle.textContent = "\uD83C\uDF19";
         picker.appendChild(themeToggle);
+        const uploadModel = document.createElement("button");
+        uploadModel.type = "button";
+        uploadModel.id = "uploadModel";
+        picker.appendChild(uploadModel);
         return picker;
     },
     toHexColor (input) {
@@ -2296,7 +2304,36 @@ const Viewer = {
             }
         }
         // hand hint
-        if ((0, _coreJs.core).handHint) (0, _coreJs.core).handHint.style.top = `${effectiveHeight - 150}px`;
+        if ((0, _coreJs.core).handHint) {
+            // handHint is appended to core.container and positioned relative to it,
+            // so its offset must be measured against core.container's own rect
+            // (parentRect) - NOT effectiveHeight, which is the canvas's logical
+            // render size and can differ from the container's actual box (e.g. via
+            // scaleContainer or letterboxing), leading to a wrongly placed hint.
+            const containerHeight = parentRect.height || effectiveHeight;
+            // Default vertical offset from the container bottom, but pushed further
+            // up when the editor toolbar is visible and would otherwise sit under
+            // it - the toolbar's height/position vary (drag position, embed scale),
+            // so this is measured live rather than assumed.
+            let handHintOffset = 150;
+            if ((0, _coreJs.core).editorToolbar && !(0, _coreJs.core).editorToolbar.classList.contains("editorToolbar-hidden")) {
+                const toolbarRect = (0, _coreJs.core).editorToolbar.getBoundingClientRect();
+                const toolbarTopFromContainerTop = toolbarRect.top - parentRect.top;
+                const handHintHeight = (0, _coreJs.core).handHint.getBoundingClientRect().height || 48;
+                const clearanceMargin = 16;
+                const requiredOffset = containerHeight - toolbarTopFromContainerTop + handHintHeight + clearanceMargin;
+                handHintOffset = Math.max(handHintOffset, requiredOffset);
+            }
+            // #handHint's base CSS is `inset: 0; margin: auto;` (for default
+            // centering). Setting only `top` here leaves `bottom: 0` from that
+            // `inset` in place too, over-constraining the vertical position: with
+            // top/height/bottom all non-auto and auto margins, the spec splits the
+            // leftover space evenly between the margins instead of honoring `top`
+            // as-is, so the element renders noticeably off from the intended spot.
+            // Clearing `bottom` removes that over-constraint.
+            (0, _coreJs.core).handHint.style.bottom = "auto";
+            (0, _coreJs.core).handHint.style.top = `${containerHeight - handHintOffset}px`;
+        }
         (0, _coreJs.core).controls?.update();
         (0, _coreJs.core).CONFIG.viewer.canvasDimensions = {
             x: effectiveWidth,
@@ -3476,11 +3513,18 @@ const Viewer = {
                 let picker = document.getElementById('example-model-picker');
                 let selectModel = document.getElementById('example-model-select');
                 let themeToggle = document.getElementById('example-theme-toggle');
+                let uploadModelButton = document.getElementById('uploadModel');
                 if (!picker && !selectModel && viewerElement) {
                     picker = Viewer.createExampleModelPicker();
                     selectModel = picker.querySelector('#example-model-select');
                     themeToggle = picker.querySelector('#example-theme-toggle');
+                    uploadModelButton = picker.querySelector('#uploadModel');
                     viewerElement.parentNode.insertBefore(picker, viewerElement);
+                }
+                if (uploadModelButton) {
+                    Viewer.uploadModel = uploadModelButton;
+                    Viewer.updateUploadMenuEntryState();
+                    Viewer.bindEventListener(uploadModelButton, "click", Viewer.openUploadPanel.bind(Viewer));
                 }
                 if (picker && selectModel && viewerElement) {
                     Viewer.updateLocalPreviewLabels();
@@ -3623,6 +3667,7 @@ const Viewer = {
 (0, _pickingJs.attachPicking)(Viewer);
 (0, _measurementJs.attachMeasurement)(Viewer);
 (0, _embedConfiguratorJs.attachEmbedConfigurator)(Viewer);
+(0, _uploadPanelJs.attachUploadPanel)(Viewer);
 (0, _windowControlsJs.attachWindowControls)(Viewer);
 async function expectWebGL(page, showToast) {
     await expect.poll(async ()=>{
@@ -3645,7 +3690,7 @@ window.Viewer = Viewer;
     }
 })();
 
-},{"./core.js":"1fEas","./utils.js":"jZczM","./viewer-utils.js":"aZ3yt","./ui/embed-configurator.js":"fJ19m","./ui/thumbnail-gallery.js":"h3GZU","./ui/localization-theme.js":"hYeap","./ui/loading-status.js":"goszS","./editor/materials-editor.js":"2uy9u","./editor/metadata-persistence.js":"2dYIx","./editor/annotations.js":"bQ8dL","./editor/measurement.js":"acqYI","./editor/picking.js":"i7NbK","./editor/thumbnail-capture.js":"kOVNa","./ui/window-controls.js":"b0Jl8","./loaders.js":"5MUYx","./metadata.js":"4eKqp","./ultra-loader.js":"8P3cZ","./status-poller.js":"bJJok","./init.js":"hyhZi","three/examples/jsm/libs/tween.module.js":"aaX6l","three/examples/jsm/controls/OrbitControls.js":"cCMIh","three/examples/jsm/controls/TransformControls.js":"hqQXh","three/examples/jsm/loaders/FontLoader.js":"b2nAY","stats.js":"3mrZ8","./js/external_libs/lil-gui.esm.min.js":"cWEJz","./object-settings.js":"kB65H","./IIIF/iiif-api.js":"yjLHd","./manifesto/manifesto-api.js":"9F01h","./manifesto/aim3dviewer-validation.js":"43JSH","./editor-toolbar.js":"9V4Zy","./viewer-defaults.js":"banH3","./viewer-param-utils.js":"dFW5L","./viewer-helpers.js":"k6V94","./i18n-utils.js":"1QHhT","./extract-helper.js":"jZRTQ","./sandbox.js":"91Ipp","three/examples/jsm/geometries/TextGeometry.js":"jB3t9","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"1fEas":[function(require,module,exports,__globalThis) {
+},{"./core.js":"1fEas","./utils.js":"jZczM","./viewer-utils.js":"aZ3yt","./ui/embed-configurator.js":"fJ19m","./ui/thumbnail-gallery.js":"h3GZU","./ui/localization-theme.js":"hYeap","./ui/loading-status.js":"goszS","./editor/materials-editor.js":"2uy9u","./editor/metadata-persistence.js":"2dYIx","./editor/annotations.js":"bQ8dL","./editor/measurement.js":"acqYI","./editor/picking.js":"i7NbK","./editor/thumbnail-capture.js":"kOVNa","./ui/window-controls.js":"b0Jl8","./loaders.js":"5MUYx","./metadata.js":"4eKqp","./ultra-loader.js":"8P3cZ","./status-poller.js":"bJJok","./init.js":"hyhZi","three/examples/jsm/libs/tween.module.js":"aaX6l","three/examples/jsm/controls/OrbitControls.js":"cCMIh","three/examples/jsm/controls/TransformControls.js":"hqQXh","three/examples/jsm/loaders/FontLoader.js":"b2nAY","stats.js":"3mrZ8","./js/external_libs/lil-gui.esm.min.js":"cWEJz","./object-settings.js":"kB65H","./IIIF/iiif-api.js":"yjLHd","./manifesto/manifesto-api.js":"9F01h","./manifesto/aim3dviewer-validation.js":"43JSH","./editor-toolbar.js":"9V4Zy","./viewer-defaults.js":"banH3","./viewer-param-utils.js":"dFW5L","./viewer-helpers.js":"k6V94","./i18n-utils.js":"1QHhT","./extract-helper.js":"jZRTQ","./sandbox.js":"91Ipp","three/examples/jsm/geometries/TextGeometry.js":"jB3t9","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT","./ui/upload-panel.js":"8YjjB"}],"1fEas":[function(require,module,exports,__globalThis) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "core", ()=>core);
@@ -58393,7 +58438,9 @@ const VIEWER_I18N = {
             exitEmbedMode: "Exit embed mode",
             shareView: "Share view",
             copyShareView: "Copy share view link",
-            download: "Download"
+            download: "Download",
+            uploadModel: "Upload & convert",
+            openUploadPanel: "Upload a 3D model for conversion"
         },
         theme: {
             lightMode: "Light mode",
@@ -58576,6 +58623,16 @@ const VIEWER_I18N = {
             preview: "Preview",
             previewTitle: "Embed preview"
         },
+        uploadPanel: {
+            title: "Upload & convert model",
+            closeAria: "Close upload panel",
+            fileLabel: "3D model file",
+            formatsHint: "Supported: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, or a .zip archive containing one of these.",
+            submit: "Upload & convert",
+            uploading: "Uploading...",
+            unsupportedFormat: "Unsupported file format: .{ext}",
+            uploadError: "Upload failed. Please try again."
+        },
         loadingLog: {
             title: "Loading process log",
             loadingModel: "Loading 3D model...",
@@ -58646,6 +58703,9 @@ const VIEWER_I18N = {
             shareUrlCopyError: "Could not copy share view URL.",
             invalidManifest: "Invalid AIM3D manifest.",
             manifestValidationFailed: "AIM3D manifest validation failed.",
+            uploadStarted: "Upload received - converting model...",
+            uploadReady: "Converted model is ready.",
+            uploadError: "Model upload or conversion failed.",
             annotationDataMissing: "Annotation data not found for this POI.",
             selectFaceRequired: "Select at least one face to add annotation.",
             selectFaceRequiredAgain: "Select at least one face, then run Add annotations again.",
@@ -58691,7 +58751,9 @@ const VIEWER_I18N = {
             exitEmbedMode: "Wyjd\u017A z trybu osadzania",
             shareView: "Udost\u0119pnij widok",
             copyShareView: "Skopiuj link udost\u0119pniania widoku",
-            download: "Pobierz"
+            download: "Pobierz",
+            uploadModel: "Prze\u015Blij i skonwertuj",
+            openUploadPanel: "Prze\u015Blij model 3D do konwersji"
         },
         theme: {
             lightMode: "Tryb jasny",
@@ -58874,6 +58936,16 @@ const VIEWER_I18N = {
             preview: "Podgl\u0105d",
             previewTitle: "Podgl\u0105d osadzenia"
         },
+        uploadPanel: {
+            title: "Prze\u015Blij i skonwertuj model",
+            closeAria: "Zamknij panel przesy\u0142ania",
+            fileLabel: "Plik modelu 3D",
+            formatsHint: "Obs\u0142ugiwane formaty: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, lub archiwum .zip zawieraj\u0105ce jeden z nich.",
+            submit: "Prze\u015Blij i skonwertuj",
+            uploading: "Przesy\u0142anie...",
+            unsupportedFormat: "Nieobs\u0142ugiwany format pliku: .{ext}",
+            uploadError: "Przesy\u0142anie lub konwersja nie powiod\u0142a si\u0119. Spr\xf3buj ponownie."
+        },
         loadingLog: {
             title: "Log procesu \u0142adowania",
             loadingModel: "\u0141adowanie modelu 3D...",
@@ -58944,6 +59016,9 @@ const VIEWER_I18N = {
             shareUrlCopyError: "Nie uda\u0142o si\u0119 skopiowa\u0107 linku udost\u0119pniania widoku.",
             invalidManifest: "Nieprawid\u0142owy manifest AIM3D.",
             manifestValidationFailed: "Walidacja manifestu AIM3D nie powiod\u0142a si\u0119.",
+            uploadStarted: "Przes\u0142ano plik - konwertowanie modelu...",
+            uploadReady: "Skonwertowany model jest gotowy.",
+            uploadError: "Przesy\u0142anie lub konwersja modelu nie powiod\u0142a si\u0119.",
             annotationDataMissing: "Nie znaleziono danych adnotacji dla tego punktu.",
             selectFaceRequired: "Wybierz co najmniej jedn\u0105 \u015Bcian\u0119, aby doda\u0107 adnotacj\u0119.",
             selectFaceRequiredAgain: "Wybierz co najmniej jedn\u0105 \u015Bcian\u0119, a nast\u0119pnie ponownie dodaj adnotacje.",
@@ -58989,7 +59064,9 @@ const VIEWER_I18N = {
             exitEmbedMode: "Einbettungsmodus beenden",
             shareView: "Ansicht teilen",
             copyShareView: "Link zur geteilten Ansicht kopieren",
-            download: "Herunterladen"
+            download: "Herunterladen",
+            uploadModel: "Hochladen & konvertieren",
+            openUploadPanel: "3D-Modell zur Konvertierung hochladen"
         },
         theme: {
             lightMode: "Hellmodus",
@@ -59171,6 +59248,16 @@ const VIEWER_I18N = {
             preview: "Vorschau",
             previewTitle: "Einbettungsvorschau"
         },
+        uploadPanel: {
+            title: "Modell hochladen & konvertieren",
+            closeAria: "Upload-Panel schlie\xdfen",
+            fileLabel: "3D-Modelldatei",
+            formatsHint: "Unterst\xfctzt: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, oder ein .zip-Archiv mit einer dieser Dateien.",
+            submit: "Hochladen & konvertieren",
+            uploading: "Wird hochgeladen...",
+            unsupportedFormat: "Nicht unterst\xfctztes Dateiformat: .{ext}",
+            uploadError: "Upload oder Konvertierung fehlgeschlagen. Bitte erneut versuchen."
+        },
         loadingLog: {
             title: "Protokoll des Ladeprozesses",
             loadingModel: "3D-Modell wird geladen...",
@@ -59241,6 +59328,9 @@ const VIEWER_I18N = {
             shareUrlCopyError: "URL der geteilten Ansicht konnte nicht kopiert werden.",
             invalidManifest: "Ung\xfcltiges AIM3D-Manifest.",
             manifestValidationFailed: "AIM3D-Manifestvalidierung fehlgeschlagen.",
+            uploadStarted: "Datei empfangen - Modell wird konvertiert...",
+            uploadReady: "Konvertiertes Modell ist bereit.",
+            uploadError: "Upload oder Konvertierung des Modells fehlgeschlagen.",
             annotationDataMissing: "Keine Annotationsdaten f\xfcr diesen Punkt gefunden.",
             selectFaceRequired: "W\xe4hlen Sie mindestens eine Fl\xe4che aus, um eine Annotation hinzuzuf\xfcgen.",
             selectFaceRequiredAgain: "W\xe4hlen Sie mindestens eine Fl\xe4che und f\xfchren Sie dann \u201EAnnotationen hinzuf\xfcgen\u201C erneut aus.",
@@ -59783,6 +59873,14 @@ function attachEmbedConfigurator(Viewer) {
 },{"../core.js":"1fEas","../viewer-utils.js":"aZ3yt","../i18n-utils.js":"1QHhT","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"h3GZU":[function(require,module,exports,__globalThis) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
+// getPerModelGalleryImages() only knows how to guess paths for the built-in
+// viewer/examples/gallery/<filename>/... fixtures - a model just converted by
+// the standalone worker (worker/server.py) lives at whatever /files/<job id>/
+// views/... URLs its status response actually returned, so that convention
+// can't find it. This renders a gallery directly from an explicit URL list
+// instead of guessing one, reusing the same thumbnail/lightbox DOM as the
+// buildFake fallback below.
+parcelHelpers.export(exports, "renderModelGalleryImages", ()=>renderModelGalleryImages);
 parcelHelpers.export(exports, "buildThumbnailGallery", ()=>buildThumbnailGallery);
 var _coreJs = require("../core.js");
 var _utilsJs = require("../utils.js");
@@ -60041,6 +60139,7 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
     };
     const closeModalGallery = function() {
         modalGallery.classList.remove("is-open");
+        if (galleryThumbEls[currentGalleryIndex]) galleryThumbEls[currentGalleryIndex].classList.remove("is-active-thumb");
     // Intentionally leave Viewer.zoomImage / modalImage's transform as-is so the
     // zoom level the user scrolled to carries over to the next image and the
     // next time the gallery is opened, instead of snapping back to a default.
@@ -60112,6 +60211,17 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
         galleryHost.insertAdjacentElement("beforebegin", modalGallery);
         galleryHost.insertAdjacentElement("beforebegin", imageList);
     }
+}
+function renderModelGalleryImages(Viewer, imageUrls = []) {
+    const gallery = getGalleryConfig();
+    const mainElement = gallery.container ? document.getElementById(gallery.container) : null;
+    const images = imageUrls.map((src, index)=>({
+            src: normalizeGalleryUrl(src),
+            alt: `Preview ${index + 1}`
+        })).filter((img)=>img.src);
+    if (images.length === 0) return;
+    const elements = createFakeGalleryElements(images);
+    handleImages(Viewer, mainElement, elements, elements);
 }
 // Bumped on every buildThumbnailGallery() call so a stale probeImageExists()
 // resolution from an earlier, since-superseded model switch can't overwrite
@@ -60306,6 +60416,7 @@ function attachLocalizationTheme(viewer) {
             this.updateThemeControlLabels();
             this.updateShareMenuEntryState?.();
             this.updateEmbedMenuEntryState();
+            this.updateUploadMenuEntryState?.();
             this.updateFullscreenButtonIcon();
             this.updateDownloadMenuEntryLabel();
             this.updateEditorToolbarLabels();
@@ -109028,16 +109139,23 @@ parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "StatusPoller", ()=>StatusPoller);
 var _coreJs = require("./core.js");
 class StatusPoller {
-    constructor(id){
+    constructor(id, { forcePoll = false, onUpdate = null } = {}){
         this.id = id;
         this.interval = 2000;
         this.timer = null;
         this.running = false;
+        // core.isLocalPreview auto-detects true on localhost/LAN hostnames
+        // (see main.js), which is exactly where a standalone worker
+        // deployment is reached - forcePoll lets a caller with a real
+        // backend (no Drupal entity involved) opt out of the "no real API
+        // to poll" assumption baked into isLocalPreview elsewhere below.
+        this.forcePoll = forcePoll === true;
+        this.onUpdate = typeof onUpdate === "function" ? onUpdate : null;
     }
     async start() {
         if (this.running) return;
         this.running = true;
-        if (!(0, _coreJs.core).isLocalPreview) await this.tick();
+        if (!(0, _coreJs.core).isLocalPreview || this.forcePoll) await this.tick();
         else this.map = (0, _coreJs.core).isLocalPreview ? Object.fromEntries(Object.entries(this.fullMap).slice(-3) // Only keep the last 2 steps for local preview
         .map(([k], i)=>[
                 k,
@@ -109072,13 +109190,14 @@ class StatusPoller {
         if (this.map[status] !== undefined) UltraLoader.step(this.map[status]);
     }
     async tick() {
-        if (!this.running || (0, _coreJs.core).isLocalPreview) return;
+        if (!this.running || (0, _coreJs.core).isLocalPreview && !this.forcePoll) return;
         try {
             const r = await fetch(`/api/model/status/${this.id}`, {
                 cache: "no-store"
             });
             if (!r.ok) throw new Error("API error");
             const data = await r.json();
+            this.onUpdate?.(data);
             if (data.status === "error") {
                 UltraLoader.error(data.message || "Processing failed");
                 this.stop();
@@ -109095,7 +109214,7 @@ class StatusPoller {
                 return;
             }
         } catch (e) {
-            if (!(0, _coreJs.core).isLocalPreview) {
+            if (!(0, _coreJs.core).isLocalPreview || this.forcePoll) {
                 UltraLoader.error("Connection error");
                 this.stop();
             }
@@ -126592,6 +126711,7 @@ parcelHelpers.export(exports, "recreateBoundingBox", ()=>recreateBoundingBox);
 parcelHelpers.export(exports, "normalizeFileUrl", ()=>normalizeFileUrl);
 parcelHelpers.export(exports, "shouldIgnoreLegacyEmbedDefaultModel", ()=>shouldIgnoreLegacyEmbedDefaultModel);
 parcelHelpers.export(exports, "buildGallery", ()=>buildGallery);
+parcelHelpers.export(exports, "renderModelGalleryImages", ()=>renderModelGalleryImages);
 parcelHelpers.export(exports, "toHexColor", ()=>toHexColor);
 parcelHelpers.export(exports, "toThreeColor", ()=>toThreeColor);
 parcelHelpers.export(exports, "getWrapperSize", ()=>getWrapperSize);
@@ -126829,6 +126949,9 @@ function shouldIgnoreLegacyEmbedDefaultModel(viewer) {
 }
 function buildGallery(viewer) {
     return (0, _thumbnailGalleryJs.buildThumbnailGallery)(viewer);
+}
+function renderModelGalleryImages(viewer, imageUrls) {
+    return (0, _thumbnailGalleryJs.renderModelGalleryImages)(viewer, imageUrls);
 }
 function toHexColor(input) {
     if (!input) return null;
@@ -129863,6 +129986,175 @@ function clearCurrentModel() {
     (0, _coreJs.core).mainObject = [];
 }
 
-},{"./core.js":"1fEas","./viewer-utils.js":"aZ3yt","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}]},["2CsLN","7qSnJ"], "7qSnJ", "parcelRequire6840", {})
+},{"./core.js":"1fEas","./viewer-utils.js":"aZ3yt","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"8YjjB":[function(require,module,exports,__globalThis) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "attachUploadPanel", ()=>attachUploadPanel);
+var _coreJs = require("../core.js");
+var _viewerUtilsJs = require("../viewer-utils.js");
+var _i18NUtilsJs = require("../i18n-utils.js");
+var _statusPollerJs = require("../status-poller.js");
+var _ultraLoaderJs = require("../ultra-loader.js");
+// Mirrors the case-branches scripts/convert.sh actually handles, plus the
+// .zip archive support the standalone worker (worker/server.py) adds on top
+// of it - see worker/README.md.
+const SUPPORTED_EXTENSIONS = [
+    "abc",
+    "dae",
+    "fbx",
+    "obj",
+    "ply",
+    "stl",
+    "wrl",
+    "x3d",
+    "ifc",
+    "blend",
+    "gml",
+    "glb",
+    "zip"
+];
+function attachUploadPanel(Viewer) {
+    Object.assign(Viewer, {
+        isUploadPanelOpen () {
+            return this.uploadPanel?.hidden === false;
+        },
+        updateUploadMenuEntryState () {
+            if (!this.uploadModel) return;
+            // Icon-only, matching #example-theme-toggle's compact footprint next
+            // to the model picker - the full label lives in aria-label/title
+            // instead of visible text.
+            this.uploadModel.innerHTML = `<span class="upload-model-icon" aria-hidden="true"></span>`;
+            const a11yLabel = (0, _i18NUtilsJs.t)("menu.openUploadPanel", "Upload a 3D model for conversion");
+            this.uploadModel.setAttribute("aria-label", a11yLabel);
+            this.uploadModel.setAttribute("title", a11yLabel);
+        },
+        openUploadPanel (event) {
+            this.createUploadPanel();
+            this.toggleUploadPanel(event);
+        },
+        toggleUploadPanel (event) {
+            event?.preventDefault?.();
+            this.closeActionMenu();
+            if (!this.uploadPanel) return;
+            const willShow = this.uploadPanel.hidden === true;
+            this.uploadPanel.hidden = !willShow;
+            if (willShow) this.resetUploadPanelState();
+        },
+        closeUploadPanel () {
+            if (this.uploadPanel) this.uploadPanel.hidden = true;
+        },
+        resetUploadPanelState () {
+            if (!this.uploadInputs) return;
+            this.uploadInputs.file.value = "";
+            this.uploadInputs.submit.disabled = false;
+            this.setUploadStatusText("");
+        },
+        setUploadStatusText (message, tone = "info") {
+            if (!this.uploadInputs?.status) return;
+            this.uploadInputs.status.textContent = message;
+            this.uploadInputs.status.dataset.tone = tone;
+        },
+        createUploadPanel () {
+            if (!(0, _coreJs.core).container || this.uploadPanel) return;
+            const panelText = {
+                title: (0, _i18NUtilsJs.t)("uploadPanel.title", "Upload & convert model"),
+                closeAria: (0, _i18NUtilsJs.t)("uploadPanel.closeAria", "Close upload panel"),
+                fileLabel: (0, _i18NUtilsJs.t)("uploadPanel.fileLabel", "3D model file"),
+                formatsHint: (0, _i18NUtilsJs.t)("uploadPanel.formatsHint", "Supported: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, or a .zip archive containing one of these."),
+                submit: (0, _i18NUtilsJs.t)("uploadPanel.submit", "Upload & convert")
+            };
+            const panel = document.createElement("div");
+            panel.id = "uploadModelPanel";
+            panel.hidden = true;
+            panel.innerHTML = `
+        <div class="upload-panel-header">
+          <span>${panelText.title}</span>
+          <button id="uploadPanelClose" type="button" aria-label="${panelText.closeAria}">X</button>
+        </div>
+        <form id="uploadPanelForm" class="upload-panel-body">
+          <label class="upload-panel-field">${panelText.fileLabel}
+            <input id="uploadPanelFileInput" type="file" accept=".abc,.dae,.fbx,.obj,.ply,.stl,.wrl,.x3d,.ifc,.blend,.gml,.glb,.zip" required />
+          </label>
+          <p class="upload-panel-hint">${panelText.formatsHint}</p>
+          <div class="upload-panel-actions">
+            <button id="uploadPanelSubmit" type="submit">${panelText.submit}</button>
+          </div>
+          <p id="uploadPanelStatus" class="upload-panel-status" role="status" aria-live="polite"></p>
+        </form>
+      `;
+            (0, _coreJs.core).container.appendChild(panel);
+            this.uploadPanel = panel;
+            this.uploadInputs = {
+                file: panel.querySelector("#uploadPanelFileInput"),
+                submit: panel.querySelector("#uploadPanelSubmit"),
+                status: panel.querySelector("#uploadPanelStatus")
+            };
+            const form = panel.querySelector("#uploadPanelForm");
+            const closeButton = panel.querySelector("#uploadPanelClose");
+            this.bindEventListener(form, "submit", (event)=>this.handleUploadSubmit(event));
+            this.bindEventListener(closeButton, "click", ()=>this.closeUploadPanel());
+        },
+        async handleUploadSubmit (event) {
+            event.preventDefault();
+            const file = this.uploadInputs?.file?.files?.[0];
+            if (!file) return;
+            const extension = (file.name.split(".").pop() || "").toLowerCase();
+            if (!SUPPORTED_EXTENSIONS.includes(extension)) {
+                this.setUploadStatusText((0, _i18NUtilsJs.t)("uploadPanel.unsupportedFormat", {
+                    ext: extension
+                }, "Unsupported file format: .{ext}"), "error");
+                return;
+            }
+            const formData = new FormData();
+            formData.append("file", file);
+            this.uploadInputs.submit.disabled = true;
+            this.setUploadStatusText((0, _i18NUtilsJs.t)("uploadPanel.uploading", "Uploading..."), "info");
+            try {
+                const response = await fetch("/api/model/create", {
+                    method: "POST",
+                    body: formData
+                });
+                if (!response.ok) throw new Error(`Upload failed (HTTP ${response.status})`);
+                const data = await response.json();
+                const jobId = data.entity_id;
+                if (!jobId) throw new Error("No job id returned by the conversion service.");
+                this.closeUploadPanel();
+                (0, _viewerUtilsJs.toastHelper)("uploadStarted", "info");
+                (0, _ultraLoaderJs.UltraLoader).start(this.getProcessingLoadingSteps());
+                const poller = new (0, _statusPollerJs.StatusPoller)(jobId, {
+                    forcePoll: true,
+                    onUpdate: (statusData)=>this.handleUploadStatusUpdate(statusData)
+                });
+                poller.start();
+            } catch (error) {
+                this.reportError(error, {
+                    context: "Model upload failed"
+                });
+                this.setUploadStatusText((0, _i18NUtilsJs.t)("uploadPanel.uploadError", "Upload failed. Please try again."), "error");
+                (0, _viewerUtilsJs.toastHelper)("uploadError", "error");
+            } finally{
+                if (this.uploadInputs?.submit) this.uploadInputs.submit.disabled = false;
+            }
+        },
+        async handleUploadStatusUpdate (data) {
+            if (!data) return;
+            if (data.status === "ready" && data.modelUrl) {
+                (0, _viewerUtilsJs.toastHelper)("uploadReady", "success");
+                (0, _coreJs.core).autoPath = data.modelUrl;
+                this.resetLoadedModelState();
+                await this.mainLoadModelWrapper();
+                // Mirrors the same gate the example-model switch uses before
+                // rebuilding the gallery (see main.js) - the worker's own thumbnails
+                // (imageUrls) are the correct source here regardless of build vs
+                // buildFake, since there is no Drupal field markup to read in a
+                // standalone deployment.
+                const galleryCfg = (0, _coreJs.core).CONFIG.viewer?.gallery;
+                if (Array.isArray(data.imageUrls) && data.imageUrls.length > 0 && (galleryCfg?.build === true || galleryCfg?.buildFake === true) && !(0, _coreJs.core).SANDBOX_MODE && !this.isEmbedMode()) this.renderModelGalleryImages(data.imageUrls);
+            } else if (data.status === "failed" || data.status === "error") (0, _viewerUtilsJs.toastHelper)("uploadError", "error");
+        }
+    });
+}
+
+},{"../core.js":"1fEas","../viewer-utils.js":"aZ3yt","../i18n-utils.js":"1QHhT","../status-poller.js":"bJJok","../ultra-loader.js":"8P3cZ","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}]},["2CsLN","7qSnJ"], "7qSnJ", "parcelRequire6840", {})
 
 //# sourceMappingURL=dev.655b092e.js.map

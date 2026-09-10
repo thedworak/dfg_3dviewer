@@ -40,6 +40,7 @@ import {
 
 import { initClippingPlanes, updateActiveClippingPlanes, reportViewerError, showToast, toastHelper, changeBackground } from './viewer-utils.js';
 import { attachEmbedConfigurator } from "./ui/embed-configurator.js";
+import { attachUploadPanel } from "./ui/upload-panel.js";
 import { buildThumbnailGallery } from "./ui/thumbnail-gallery.js";
 import { attachLocalizationTheme } from "./ui/localization-theme.js";
 import { attachLoadingStatus } from "./ui/loading-status.js";
@@ -111,6 +112,7 @@ import {
   normalizeFileUrl,
   shouldIgnoreLegacyEmbedDefaultModel,
   buildGallery,
+  renderModelGalleryImages,
   toHexColor,
   toThreeColor,
   getWrapperSize,
@@ -1838,6 +1840,10 @@ export const Viewer = {
     return buildGallery(this);
   },
 
+  renderModelGalleryImages(imageUrls) {
+    return renderModelGalleryImages(this, imageUrls);
+  },
+
   // Mirrors the static #example-model-picker markup in this repo's own
   // index.html, for pages (Drupal/WissKI, etc.) that embed the viewer
   // without that markup - see the forceLocalPreview handling above.
@@ -1880,6 +1886,11 @@ export const Viewer = {
     themeToggle.title = "Toggle dark mode";
     themeToggle.textContent = "🌙";
     picker.appendChild(themeToggle);
+
+    const uploadModel = document.createElement("button");
+    uploadModel.type = "button";
+    uploadModel.id = "uploadModel";
+    picker.appendChild(uploadModel);
 
     return picker;
   },
@@ -3682,11 +3693,18 @@ export const Viewer = {
         let picker = document.getElementById('example-model-picker');
         let selectModel = document.getElementById('example-model-select');
         let themeToggle = document.getElementById('example-theme-toggle');
+        let uploadModelButton = document.getElementById('uploadModel');
         if (!picker && !selectModel && viewerElement) {
           picker = Viewer.createExampleModelPicker();
           selectModel = picker.querySelector('#example-model-select');
           themeToggle = picker.querySelector('#example-theme-toggle');
+          uploadModelButton = picker.querySelector('#uploadModel');
           viewerElement.parentNode.insertBefore(picker, viewerElement);
+        }
+        if (uploadModelButton) {
+          Viewer.uploadModel = uploadModelButton;
+          Viewer.updateUploadMenuEntryState();
+          Viewer.bindEventListener(uploadModelButton, "click", Viewer.openUploadPanel.bind(Viewer));
         }
         if (picker && selectModel && viewerElement) {
           Viewer.updateLocalPreviewLabels();
@@ -3872,6 +3890,7 @@ attachAnnotations(Viewer);
 attachPicking(Viewer);
 attachMeasurement(Viewer);
 attachEmbedConfigurator(Viewer);
+attachUploadPanel(Viewer);
 attachWindowControls(Viewer);
 
 

@@ -403,6 +403,24 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
   }
 }
 
+// getPerModelGalleryImages() only knows how to guess paths for the built-in
+// viewer/examples/gallery/<filename>/... fixtures - a model just converted by
+// the standalone worker (worker/server.py) lives at whatever /files/<job id>/
+// views/... URLs its status response actually returned, so that convention
+// can't find it. This renders a gallery directly from an explicit URL list
+// instead of guessing one, reusing the same thumbnail/lightbox DOM as the
+// buildFake fallback below.
+export function renderModelGalleryImages(Viewer, imageUrls = []) {
+  const gallery = getGalleryConfig();
+  const mainElement = gallery.container ? document.getElementById(gallery.container) : null;
+  const images = imageUrls
+    .map((src, index) => ({ src: normalizeGalleryUrl(src), alt: `Preview ${index + 1}` }))
+    .filter((img) => img.src);
+  if (images.length === 0) return;
+  const elements = createFakeGalleryElements(images);
+  handleImages(Viewer, mainElement, elements, elements);
+}
+
 // Bumped on every buildThumbnailGallery() call so a stale probeImageExists()
 // resolution from an earlier, since-superseded model switch can't overwrite
 // the gallery for whichever model is actually selected now (a fast switch

@@ -1,0 +1,128 @@
+#uploadModelPanel[hidden] {
+  display: none !important;
+}
+
+#uploadModelPanel {
+  position: absolute;
+  left: 50%;
+  top: 18%;
+  transform: translateX(-50%);
+  width: min(320px, calc(100vw - 36px));
+  max-height: min(60vh, 480px);
+  overflow: auto;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--viewer-panel-border);
+  background: var(--viewer-panel-embed-bg);
+  color: var(--viewer-panel-text);
+  box-shadow: var(--viewer-panel-shadow);
+  font-size: 13px;
+  line-height: 1.4;
+  z-index: 99999;
+  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
+            "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+.upload-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.upload-panel-header button {
+  border: none;
+  background: none;
+  color: var(--viewer-panel-text);
+  opacity: 0.6;
+  font: inherit;
+  line-height: 1;
+  padding: 2px 4px;
+  cursor: pointer;
+}
+
+.upload-panel-header button:hover {
+  opacity: 1;
+}
+
+.upload-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.upload-panel-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-weight: 600;
+}
+
+.upload-panel-field input[type="file"] {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: var(--viewer-panel-bg);
+  color: var(--viewer-panel-text);
+  font: inherit;
+  font-size: 12px;
+  padding: 6px 8px;
+}
+
+.upload-panel-hint {
+  margin: -2px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--viewer-panel-text) 65%, transparent);
+}
+
+.upload-panel-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.upload-panel-actions button {
+  border: none;
+  border-radius: 6px;
+  background: var(--viewer-panel-text);
+  color: var(--viewer-panel-embed-bg);
+  font: inherit;
+  font-weight: 600;
+  padding: 7px 16px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.upload-panel-actions button:hover {
+  opacity: 0.85;
+}
+
+.upload-panel-actions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.upload-panel-status {
+  margin: 0;
+  min-height: 1.2em;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.upload-panel-status[data-tone="error"] {
+  color: #d54646;
+}
+
+.upload-panel-status[data-tone="success"] {
+  color: #3caa5b;
+}
+
+@media (max-width: 640px) {
+  #uploadModelPanel {
+    width: calc(100vw - 36px);
+  }
+}
