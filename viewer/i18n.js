@@ -203,6 +203,11 @@ export const VIEWER_I18N = {
       uploading: "Uploading...",
       unsupportedFormat: "Unsupported file format: .{ext}",
       uploadError: "Upload failed. Please try again.",
+      previousTitle: "Previously generated models",
+      previousEmpty: "No previously generated models yet.",
+      previousLoadError: "Could not load previous models.",
+      previousDeleteAria: "Delete {name}",
+      previousDeleteConfirm: 'Delete "{name}"? This permanently removes the converted model and its renders.',
     },
     loadingLog: {
       title: "Loading process log",
@@ -280,6 +285,8 @@ export const VIEWER_I18N = {
       uploadStarted: "Upload received - converting model...",
       uploadReady: "Converted model is ready.",
       uploadError: "Model upload or conversion failed.",
+      modelDeleted: "Model deleted.",
+      modelDeleteError: "Failed to delete the model.",
 
       annotationDataMissing: "Annotation data not found for this POI.",
       selectFaceRequired: "Select at least one face to add annotation.",
@@ -318,10 +325,13 @@ export const VIEWER_I18N = {
       performanceModeSet: "Performance mode set to {mode}.",
     },
     shortcuts: {
+      title: "Controls",
       mouse: "Mouse: drag orbit, wheel zoom, right-drag pan",
       keyboard: "Keyboard: Arrows orbit, Shift+Arrows faster, Ctrl/Cmd+Arrows pan, +/- zoom, Space toggle auto-rotate",
       touch: "Touch: pinch-to-zoom, drag to orbit, double-tap-and-hold pan",
       dragAndDrop: "Or drag and drop a 3D model into the viewer",
+      helpButtonAria: "Show usage hints",
+      closeAria: "Close",
     },
   },
   pl: {
@@ -528,6 +538,11 @@ export const VIEWER_I18N = {
       uploading: "Przesyłanie...",
       unsupportedFormat: "Nieobsługiwany format pliku: .{ext}",
       uploadError: "Przesyłanie lub konwersja nie powiodła się. Spróbuj ponownie.",
+      previousTitle: "Wcześniej wygenerowane modele",
+      previousEmpty: "Brak wcześniej wygenerowanych modeli.",
+      previousLoadError: "Nie udało się wczytać listy poprzednich modeli.",
+      previousDeleteAria: "Usuń {name}",
+      previousDeleteConfirm: 'Usunąć "{name}"? Spowoduje to trwałe usunięcie przekonwertowanego modelu i jego renderów.',
     },
     loadingLog: {
       title: "Log procesu ładowania",
@@ -605,6 +620,8 @@ export const VIEWER_I18N = {
       uploadStarted: "Przesłano plik - konwertowanie modelu...",
       uploadReady: "Skonwertowany model jest gotowy.",
       uploadError: "Przesyłanie lub konwersja modelu nie powiodła się.",
+      modelDeleted: "Model został usunięty.",
+      modelDeleteError: "Nie udało się usunąć modelu.",
 
       annotationDataMissing: "Nie znaleziono danych adnotacji dla tego punktu.",
       selectFaceRequired: "Wybierz co najmniej jedną ścianę, aby dodać adnotację.",
@@ -643,10 +660,13 @@ export const VIEWER_I18N = {
       performanceModeSet: "Tryb wydajności ustawiony na {mode}.",
     },
     shortcuts: {
+      title: "Sterowanie",
       mouse: "Mysz: przeciągnij, aby obracać, rolka - zoom, prawy przycisk - przesuwanie",
       keyboard: "Klawiatura: strzałki - obrót, Shift+strzałki - szybciej, Ctrl/Cmd+strzałki - przesuwanie, +/- — zoom, Spacja - auto-obrót",
       touch: "Dotyk: szczypanie, aby przybliżyć, przeciągnij, aby obracać, dotknij i przytrzymaj, aby przesunąć",
       dragAndDrop: "Lub przeciągnij i upuść model 3D w oknie viewer'a",
+      helpButtonAria: "Pokaż podpowiedzi dotyczące obsługi",
+      closeAria: "Zamknij",
     },
   },
   de: {
@@ -852,6 +872,11 @@ export const VIEWER_I18N = {
       uploading: "Wird hochgeladen...",
       unsupportedFormat: "Nicht unterstütztes Dateiformat: .{ext}",
       uploadError: "Upload oder Konvertierung fehlgeschlagen. Bitte erneut versuchen.",
+      previousTitle: "Zuvor generierte Modelle",
+      previousEmpty: "Noch keine zuvor generierten Modelle.",
+      previousLoadError: "Vorherige Modelle konnten nicht geladen werden.",
+      previousDeleteAria: "{name} löschen",
+      previousDeleteConfirm: '"{name}" löschen? Dadurch werden das konvertierte Modell und seine Renderings dauerhaft entfernt.',
     },
     loadingLog: {
       title: "Protokoll des Ladeprozesses",
@@ -929,6 +954,8 @@ export const VIEWER_I18N = {
       uploadStarted: "Datei empfangen - Modell wird konvertiert...",
       uploadReady: "Konvertiertes Modell ist bereit.",
       uploadError: "Upload oder Konvertierung des Modells fehlgeschlagen.",
+      modelDeleted: "Modell wurde gelöscht.",
+      modelDeleteError: "Modell konnte nicht gelöscht werden.",
 
       annotationDataMissing: "Keine Annotationsdaten für diesen Punkt gefunden.",
       selectFaceRequired: "Wählen Sie mindestens eine Fläche aus, um eine Annotation hinzuzufügen.",
@@ -967,10 +994,13 @@ export const VIEWER_I18N = {
       performanceModeSet: "Leistungsmodus auf {mode} gesetzt.",
     },
     shortcuts: {
+      title: "Steuerung",
       mouse: "Maus: ziehen zum Drehen, Mausrad - Zoom, Rechtsklick - Verschieben",
       keyboard: "Tastatur: Pfeile - Drehen, Shift+Pfeile - schneller, Ctrl/Cmd+Pfeile - Verschieben, +/- - Zoom, Leertaste - Auto-Rotation",
       touch: "Touch: Pinch-to-Zoom, ziehen zum Drehen, Doppeltippen und halten zum Verschieben",
       dragAndDrop: "Oder ziehen Sie ein 3D-Modell per Drag-and-drop in den Viewer",
+      helpButtonAria: "Bedienungshinweise anzeigen",
+      closeAria: "Schließen",
     }
   },
 };

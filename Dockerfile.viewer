@@ -26,4 +26,10 @@ RUN pnpm run build:test
 FROM nginx:alpine
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist/test /usr/share/nginx/html
+# Symlinks viewer-settings.json to the viewer-settings volume (see
+# docker-compose.yml) on every container start - runs automatically because
+# nginx:alpine's own entrypoint executes every *.sh in /docker-entrypoint.d/
+# before starting nginx.
+COPY docker/viewer-entrypoint.d/10-persist-viewer-settings.sh /docker-entrypoint.d/10-persist-viewer-settings.sh
+RUN chmod +x /docker-entrypoint.d/10-persist-viewer-settings.sh
 EXPOSE 3000
