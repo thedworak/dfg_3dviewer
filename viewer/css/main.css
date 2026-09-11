@@ -176,6 +176,15 @@ canvas {
   transform: translate(-50%, -50%);
 }
 
+#viewerNoticeContainer.viewer-notice-container--shortcuts {
+  left: auto;
+  right: 16px;
+  bottom: auto;
+  top: 50%;
+  max-width: min(380px, calc(100% - 32px));
+  transform: translateY(-50%);
+}
+
 .viewer-notice {
   padding: 6px 10px;
   border-radius: 999px;

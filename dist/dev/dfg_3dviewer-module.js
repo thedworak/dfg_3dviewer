@@ -9199,7 +9199,7 @@ async function fetchSettings(object) {
 
     normalizedUri = normalizedUri.replace(/^\/+/, '');
     const metadataBase = new URL(core.CONFIG.metadataUrl);
-    const fileUri = new URL(core.fileObject.uri);
+    const fileUri = new URL(core.fileObject.uri, document.baseURI);
 
     const filePath = fileUri.pathname.replace(/^\/+|\/+$/g, '');
 
@@ -9307,6 +9307,7 @@ function createAIM3IFDropdown(url) {
     { url: "https://viewer.thedworak.com/manifests/box.json", name: t$1("aim3if.optionBox", "Box configuration") },
     { url: "./manifests/box-aim3d-local.json", name: t$1("aim3if.optionBoxLocal", "Box (localhost)") },
     { url: "./manifests/wolpa-synagogue-aim3d-local.json", name: t$1("aim3if.optionWolpaLocal", "Wolpa Synagogue (localhost)") },
+    { url: "./manifests/wolpa-synagogue-aim3d-local-ceiling.json", name: t$1("aim3if.optionWolpaLocalCeiling", "Wolpa Synagogue - ceiling view (localhost)") },
     // Add more AIM3IF configurations here as needed
   ].filter(item => item?.url);
 

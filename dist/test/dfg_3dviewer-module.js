@@ -4924,6 +4924,7 @@ function attachLoadingStatus(viewer) {
         delete this.statusNotice.dataset.variant;
       }
       this.noticeContainer?.classList.toggle("viewer-notice-container--sandbox", notice.variant === "sandbox");
+      this.noticeContainer?.classList.toggle("viewer-notice-container--shortcuts", notice.variant === "shortcuts");
       this.statusNotice.classList.remove("is-hiding");
       this.statusNotice.classList.add("is-visible");
 
@@ -4948,7 +4949,7 @@ function attachLoadingStatus(viewer) {
             this.statusNotice.classList.remove("is-hiding");
             delete this.statusNotice.dataset.variant;
           }
-          this.noticeContainer?.classList.remove("viewer-notice-container--sandbox");
+          this.noticeContainer?.classList.remove("viewer-notice-container--sandbox", "viewer-notice-container--shortcuts");
           this.statusNoticeActive = false;
           this.statusNoticeCurrent = null;
           this.statusNoticeTimer = null;
@@ -4985,7 +4986,7 @@ function attachLoadingStatus(viewer) {
         this.statusNotice.classList.remove("is-visible", "is-hiding");
         delete this.statusNotice.dataset.variant;
       }
-      this.noticeContainer?.classList.remove("viewer-notice-container--sandbox");
+      this.noticeContainer?.classList.remove("viewer-notice-container--sandbox", "viewer-notice-container--shortcuts");
 
       this.statusNoticeActive = false;
       this.statusNoticeCurrent = null;
@@ -9199,7 +9200,7 @@ async function fetchSettings(object) {
 
     normalizedUri = normalizedUri.replace(/^\/+/, '');
     const metadataBase = new URL(core.CONFIG.metadataUrl);
-    const fileUri = new URL(core.fileObject.uri);
+    const fileUri = new URL(core.fileObject.uri, document.baseURI);
 
     const filePath = fileUri.pathname.replace(/^\/+|\/+$/g, '');
 
@@ -9307,6 +9308,7 @@ function createAIM3IFDropdown(url) {
     { url: "https://viewer.thedworak.com/manifests/box.json", name: t$1("aim3if.optionBox", "Box configuration") },
     { url: "./manifests/box-aim3d-local.json", name: t$1("aim3if.optionBoxLocal", "Box (localhost)") },
     { url: "./manifests/wolpa-synagogue-aim3d-local.json", name: t$1("aim3if.optionWolpaLocal", "Wolpa Synagogue (localhost)") },
+    { url: "./manifests/wolpa-synagogue-aim3d-local-ceiling.json", name: t$1("aim3if.optionWolpaLocalCeiling", "Wolpa Synagogue - ceiling view (localhost)") },
     // Add more AIM3IF configurations here as needed
   ].filter(item => item?.url);
 
@@ -22813,6 +22815,12 @@ const Viewer$1 = {
           ) {
             Viewer$1.closeActionMenu();
           }
+        });
+        Viewer$1.bindEventListener(document, "click", (event) => {
+          if (Viewer$1.statusNoticeCurrent?.key !== "keyboard-shortcuts-hint") return;
+          if (Viewer$1.statusNotice?.contains(event.target)) return;
+          if (Viewer$1.editorToolbarButtons?.help?.contains(event.target)) return;
+          Viewer$1.dismissStatusNotice("keyboard-shortcuts-hint");
         });
 
         Viewer$1.handHint.innerHTML = `<img src="${core.DFG_ASSETS}/img/hand-hint.png" alt="Hand hint" width=48 height=48 title="Hand hint animation"/>`;

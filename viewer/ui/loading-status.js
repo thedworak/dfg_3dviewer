@@ -464,6 +464,7 @@ export function attachLoadingStatus(viewer) {
         delete this.statusNotice.dataset.variant;
       }
       this.noticeContainer?.classList.toggle("viewer-notice-container--sandbox", notice.variant === "sandbox");
+      this.noticeContainer?.classList.toggle("viewer-notice-container--shortcuts", notice.variant === "shortcuts");
       this.statusNotice.classList.remove("is-hiding");
       this.statusNotice.classList.add("is-visible");
 
@@ -488,7 +489,7 @@ export function attachLoadingStatus(viewer) {
             this.statusNotice.classList.remove("is-hiding");
             delete this.statusNotice.dataset.variant;
           }
-          this.noticeContainer?.classList.remove("viewer-notice-container--sandbox");
+          this.noticeContainer?.classList.remove("viewer-notice-container--sandbox", "viewer-notice-container--shortcuts");
           this.statusNoticeActive = false;
           this.statusNoticeCurrent = null;
           this.statusNoticeTimer = null;
@@ -525,7 +526,7 @@ export function attachLoadingStatus(viewer) {
         this.statusNotice.classList.remove("is-visible", "is-hiding");
         delete this.statusNotice.dataset.variant;
       }
-      this.noticeContainer?.classList.remove("viewer-notice-container--sandbox");
+      this.noticeContainer?.classList.remove("viewer-notice-container--sandbox", "viewer-notice-container--shortcuts");
 
       this.statusNoticeActive = false;
       this.statusNoticeCurrent = null;

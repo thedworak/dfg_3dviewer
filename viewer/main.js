@@ -3580,6 +3580,12 @@ export const Viewer = {
             Viewer.closeActionMenu();
           }
         });
+        Viewer.bindEventListener(document, "click", (event) => {
+          if (Viewer.statusNoticeCurrent?.key !== "keyboard-shortcuts-hint") return;
+          if (Viewer.statusNotice?.contains(event.target)) return;
+          if (Viewer.editorToolbarButtons?.help?.contains(event.target)) return;
+          Viewer.dismissStatusNotice("keyboard-shortcuts-hint");
+        });
 
         Viewer.handHint.innerHTML = `<img src="${core.DFG_ASSETS}/img/hand-hint.png" alt="Hand hint" width=48 height=48 title="Hand hint animation"/>`;
         
