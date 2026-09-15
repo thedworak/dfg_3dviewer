@@ -45,6 +45,7 @@ import { buildThumbnailGallery } from "./ui/thumbnail-gallery.js";
 import { attachLocalizationTheme } from "./ui/localization-theme.js";
 import { attachLoadingStatus } from "./ui/loading-status.js";
 import { attachMaterialsEditor } from "./editor/materials-editor.js";
+import { attachShadingEditor } from "./editor/shading.js";
 import { buildEditorMetadata, saveEditorMetadata as persistEditorMetadata } from "./editor/metadata-persistence.js";
 import { attachAnnotations } from "./editor/annotations.js";
 import { attachMeasurement } from "./editor/measurement.js";
@@ -86,6 +87,7 @@ import {
   updateEditorToolbarState as syncEditorToolbarState,
   updateHierarchySubmenuState,
   updateLightsSubmenuState,
+  updateShadingSubmenuState,
   updateStatisticsSubmenuState,
 } from "./editor-toolbar.js";
 import { VIEWER_DEFAULTS } from "./viewer-defaults.js";
@@ -704,6 +706,10 @@ export const Viewer = {
 
   updateLightsSubmenuState() {
     return updateLightsSubmenuState(this);
+  },
+
+  updateShadingSubmenuState() {
+    return updateShadingSubmenuState(this);
   },
 
   async saveEditorMetadata() {
@@ -3886,6 +3892,7 @@ export const Viewer = {
 attachLocalizationTheme(Viewer);
 attachLoadingStatus(Viewer);
 attachMaterialsEditor(Viewer);
+attachShadingEditor(Viewer);
 attachAnnotations(Viewer);
 attachPicking(Viewer);
 attachMeasurement(Viewer);

@@ -126,6 +126,16 @@ export const VIEWER_I18N = {
       enableWireframeMode: "Enable wireframe mode",
       disableWireframeMode: "Disable wireframe mode",
       download: "Download model",
+      shading: "Shading",
+      shadingStandard: "Standard (PBR)",
+      shadingPhong: "Phong",
+      shadingLambert: "Lambert",
+      shadingToon: "Toon / Flat",
+      shadingCustom: "Custom shader",
+      shadingCustomVertex: "Vertex shader",
+      shadingCustomFragment: "Fragment shader",
+      shadingCustomApply: "Apply",
+      shadingCustomReset: "Reset to default",
     },
     metadata: {
       modelDetails: "Model details",
@@ -316,6 +326,7 @@ export const VIEWER_I18N = {
       unsupportedFileFormat: "Unsupported file format.",
 
       performanceModeSet: "Performance mode set to {mode}.",
+      shadingModeApplied: "Shading mode set to {mode}.",
     },
     shortcuts: {
       mouse: "Mouse: drag orbit, wheel zoom, right-drag pan",
@@ -451,6 +462,16 @@ export const VIEWER_I18N = {
       enableWireframeMode: "Włącz tryb siatki",
       disableWireframeMode: "Wyłącz tryb siatki",
       download: "Pobierz model",
+      shading: "Cieniowanie",
+      shadingStandard: "Standardowy (PBR)",
+      shadingPhong: "Phong",
+      shadingLambert: "Lambert",
+      shadingToon: "Toon / Płaski",
+      shadingCustom: "Własny shader",
+      shadingCustomVertex: "Vertex shader",
+      shadingCustomFragment: "Fragment shader",
+      shadingCustomApply: "Zastosuj",
+      shadingCustomReset: "Przywróć domyślny",
     },
     metadata: {
       modelDetails: "Szczegóły modelu",
@@ -641,6 +662,7 @@ export const VIEWER_I18N = {
       unsupportedFileFormat: "Nieobsługiwany format pliku.",
 
       performanceModeSet: "Tryb wydajności ustawiony na {mode}.",
+      shadingModeApplied: "Ustawiono tryb cieniowania: {mode}.",
     },
     shortcuts: {
       mouse: "Mysz: przeciągnij, aby obracać, rolka - zoom, prawy przycisk - przesuwanie",
@@ -775,6 +797,16 @@ export const VIEWER_I18N = {
       enableWireframeMode: "Drahtgittermodus aktivieren",
       disableWireframeMode: "Drahtgittermodus deaktivieren",
       download: "Modell herunterladen",
+      shading: "Schattierung",
+      shadingStandard: "Standard (PBR)",
+      shadingPhong: "Phong",
+      shadingLambert: "Lambert",
+      shadingToon: "Toon / Flach",
+      shadingCustom: "Eigener Shader",
+      shadingCustomVertex: "Vertex-Shader",
+      shadingCustomFragment: "Fragment-Shader",
+      shadingCustomApply: "Anwenden",
+      shadingCustomReset: "Auf Standard zurücksetzen",
     },
     metadata: {
       modelDetails: "Modelldetails",
@@ -965,6 +997,7 @@ export const VIEWER_I18N = {
       unsupportedFileFormat: "Nicht unterstütztes Dateiformat.",
 
       performanceModeSet: "Leistungsmodus auf {mode} gesetzt.",
+      shadingModeApplied: "Schattierungsmodus auf {mode} gesetzt.",
     },
     shortcuts: {
       mouse: "Maus: ziehen zum Drehen, Mausrad - Zoom, Rechtsklick - Verschieben",

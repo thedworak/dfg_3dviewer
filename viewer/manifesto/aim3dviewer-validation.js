@@ -241,6 +241,21 @@ function validateModelTransform(modelTransform, path, errors) {
     }
   }
   if (modelTransform.wireframe !== undefined) validateBoolean(modelTransform.wireframe, `${path}.wireframe`, errors);
+  if (modelTransform.shadingMode !== undefined) {
+    validateEnum(modelTransform.shadingMode, ["standard", "phong", "lambert", "toon", "custom"], `${path}.shadingMode`, errors);
+  }
+  if (modelTransform.customShader !== undefined) {
+    if (!isPlainObject(modelTransform.customShader)) {
+      pushError(errors, `${path}.customShader`, "must be an object");
+    } else {
+      if (modelTransform.customShader.vertexShader !== undefined) {
+        validateString(modelTransform.customShader.vertexShader, `${path}.customShader.vertexShader`, errors);
+      }
+      if (modelTransform.customShader.fragmentShader !== undefined) {
+        validateString(modelTransform.customShader.fragmentShader, `${path}.customShader.fragmentShader`, errors);
+      }
+    }
+  }
 }
 
 function validateAIM3DViewerBlock(block, path, errors) {

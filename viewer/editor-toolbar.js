@@ -15,6 +15,12 @@ export function getEditorToolbarIcon(icon) {
     lightTarget: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     lights: '<svg viewBox="0 0 24 24" aria-hidden="true"> <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/> <path d="M12 4V7M12 17v3M4 12h3M17 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/> <path d="M6.5 6.5l2 2M15.5 15.5l2 2M17.5 6.5l-2 2M8.5 15.5l-2 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/> </svg>',
     materials: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 4v8l-8 4-8-4V6l8-4z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 6l8 4M12 6v8M12 14l-8-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+    shading: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+    shadingStandard: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.15"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="9" r="2" fill="currentColor" opacity="0.6"/></svg>',
+    shadingPhong: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="9" r="2.2" fill="currentColor"/></svg>',
+    shadingLambert: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.25"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+    shadingToon: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6 9a6.5 6.5 0 0 1 9-3M6.5 15a6.5 6.5 0 0 0 8 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+    shadingCustom: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 8-5 4 5 4M15 8l5 4-5 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     ambientLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     //cameraLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h3l2-2h4l2 2h3v10H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
     environmentMap: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 7v10l-7 4-7-4V7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 3v18M5 7l7 4 7-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="18.25" cy="5.75" r="1.25" fill="currentColor"/></svg>',
@@ -543,6 +549,7 @@ export function createEditorToolbar(viewer) {
     { key: "scale", icon: "scale", onClick: () => viewer.toggleObjectTransformMode("scale"), pressed: true, primary: true },
     { key: "lights", icon: "lights", onClick: () => {}, pressed: false, primary: false },    
     { key: "materials", icon: "materials", onClick: () => viewer.openMaterialsFolder(), pressed: false, primary: false },
+    { key: "shading", icon: "shading", onClick: () => {}, pressed: false, primary: false },
     { key: "picking", icon: "picking", onClick: () => viewer.togglePickingMode(), pressed: true, primary: false },
     { key: "hierarchy", icon: "hierarchy", onClick: () => {}, pressed: true, primary: false },
     { key: "annotate", icon: "annotate", onClick: () => viewer.openAnnotationDialogWithAutoPicking(), primary: false },
@@ -569,6 +576,7 @@ export function createEditorToolbar(viewer) {
 
   viewer.editorToolbarButtons = {};
   viewer.environmentMapPreset = viewer.environmentMapPreset || "neutral";
+  viewer.shadingMode = viewer.shadingMode || "standard";
 
   const secondaryTray = document.createElement("div");
   secondaryTray.className = "viewer-editor-toolbar_secondary-tray";
@@ -586,6 +594,11 @@ export function createEditorToolbar(viewer) {
     button.dataset.primary = tool.primary ? "true" : "false";
     if (tool.key === "materials") {
       const label = t("gui.materials", "Materials");
+      button.setAttribute("title", label);
+      button.setAttribute("aria-label", label);
+    }
+    if (tool.key === "shading") {
+      const label = t("gui.shading", "Shading");
       button.setAttribute("title", label);
       button.setAttribute("aria-label", label);
     }
@@ -1293,6 +1306,55 @@ export function createEditorToolbar(viewer) {
         submenu.appendChild(subButton);
       });
       button.appendChild(submenu);
+    } else if (tool.key === "shading") {
+      button.classList.add("has-submenu");
+      const submenu = document.createElement("div");
+      submenu.className = "viewer-editor-tool_submenu";
+      viewer.shadingSubmenuButtons = {};
+
+      const shadingModes = [
+        { key: "standard", icon: "shadingStandard", label: t("gui.shadingStandard", "Standard (PBR)") },
+        { key: "phong", icon: "shadingPhong", label: t("gui.shadingPhong", "Phong") },
+        { key: "lambert", icon: "shadingLambert", label: t("gui.shadingLambert", "Lambert") },
+        { key: "toon", icon: "shadingToon", label: t("gui.shadingToon", "Toon / Flat") },
+      ];
+
+      shadingModes.forEach((item) => {
+        const subButton = document.createElement("button");
+        subButton.type = "button";
+        subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+        subButton.dataset.tool = `shading-${item.key}`;
+        subButton.setAttribute("title", item.label);
+        subButton.setAttribute("aria-label", item.label);
+        subButton.innerHTML = `
+          <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon(item.icon)}</span>
+        `;
+        viewer.bindEventListener(subButton, "click", (event) => {
+          event.stopPropagation();
+          viewer.setShadingMode(item.key);
+        });
+        viewer.shadingSubmenuButtons[item.key] = subButton;
+        submenu.appendChild(subButton);
+      });
+
+      const customButton = document.createElement("button");
+      customButton.type = "button";
+      customButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+      customButton.dataset.tool = "shading-custom";
+      const customLabel = t("gui.shadingCustom", "Custom shader");
+      customButton.setAttribute("title", customLabel);
+      customButton.setAttribute("aria-label", customLabel);
+      customButton.innerHTML = `
+        <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon("shadingCustom")}</span>
+      `;
+      viewer.bindEventListener(customButton, "click", (event) => {
+        event.stopPropagation();
+        viewer.openCustomShaderDialog();
+      });
+      viewer.shadingSubmenuButtons.custom = customButton;
+      submenu.appendChild(customButton);
+
+      button.appendChild(submenu);
     } else if (tool.key === "download") {
       if (!core.isLightweight || core.isLocalPreview) {
         button.href = core.downloadModelElement;
@@ -1435,6 +1497,14 @@ export function updateClippingPlanesSubmenuState(viewer) {
     "is-active",
     Boolean(core.planeParams?.outline?.visible)
   );
+}
+
+export function updateShadingSubmenuState(viewer) {
+  if (!viewer.shadingSubmenuButtons) return;
+  const activeMode = viewer.shadingMode || "standard";
+  Object.entries(viewer.shadingSubmenuButtons).forEach(([key, button]) => {
+    button?.classList.toggle("is-active", key === activeMode);
+  });
 }
 
 export function updateLightsSubmenuState(viewer) {
@@ -1730,4 +1800,5 @@ export function updateEditorToolbarState(viewer) {
   updateLightsSubmenuState(viewer);
   updateBackgroundSubmenuState(viewer);
   updateStatisticsSubmenuState(viewer);
+  updateShadingSubmenuState(viewer);
 }

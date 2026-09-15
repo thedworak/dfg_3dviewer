@@ -1296,6 +1296,77 @@
   display: none !important;
 }
 
+#shadingDialog[hidden] {
+  display: none !important;
+}
+
+#shadingDialog {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  z-index: 999999;
+  overflow: hidden;
+}
+
+#shadingDialog .materials-dialog__panel {
+  width: min(420px, 92vw);
+}
+
+.shading-dialog__textarea {
+  width: 100%;
+  min-height: 120px;
+  box-sizing: border-box;
+  resize: vertical;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: var(--viewer-panel-bg);
+  color: var(--viewer-panel-text);
+  padding: 8px;
+}
+
+.shading-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.shading-dialog__button {
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: var(--viewer-panel-bg);
+  color: var(--viewer-panel-text);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.2;
+  width: auto;
+  height: auto;
+  white-space: nowrap;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.shading-dialog__button:hover {
+  background: var(--viewer-panel-bg-hover);
+}
+
+.shading-dialog__button-primary {
+  background: var(--viewer-gui-widget-focus-bg);
+  border-color: var(--viewer-gui-widget-focus-bg);
+  color: #fff;
+}
+
+.shading-dialog__button-primary:hover {
+  filter: brightness(1.08);
+  background: var(--viewer-gui-widget-focus-bg);
+}
+
 .embed-icon {
   width: 28px;
   height: 28px;

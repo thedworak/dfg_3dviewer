@@ -971,8 +971,19 @@ export function attachAnnotations(Viewer) {
             scale:
               primaryModelObject?.scale?.toArray?.() ||
               [1, 1, 1],
-            
+
             wireframe: core.wireframeMode || false,
+
+            shadingMode: this.shadingMode || "standard",
+
+            ...(this.shadingMode === "custom"
+              ? {
+                  customShader: {
+                    vertexShader: this.customVertexShader || "",
+                    fragmentShader: this.customFragmentShader || "",
+                  },
+                }
+              : {}),
           }
         },
         modified: new Date().toISOString(),
@@ -1415,6 +1426,14 @@ export function attachAnnotations(Viewer) {
           if (!child?.material) return;
           child.material.wireframe = core.wireframeMode;
           child.material.needsUpdate = true;
+        });
+      }
+
+      if (typeof modelTransform.shadingMode === "string") {
+        this.setShadingMode?.(modelTransform.shadingMode, {
+          vertexShader: modelTransform.customShader?.vertexShader,
+          fragmentShader: modelTransform.customShader?.fragmentShader,
+          silent: true,
         });
       }
 

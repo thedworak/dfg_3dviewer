@@ -88,6 +88,12 @@ export function applyManifestConfig(manifest, objectsConfig) {
 
   model.wireframe =
     transform.wireframe ?? false;
+
+  model.shadingMode =
+    transform.shadingMode ?? "standard";
+
+  model.customShader =
+    transform.customShader ?? null;
 }
 
 export function getManifestWindowState(manifest) {

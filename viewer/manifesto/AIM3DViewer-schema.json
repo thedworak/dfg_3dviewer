@@ -160,7 +160,19 @@
               "additionalProperties": true
             },
             "scale": { "$ref": "#/$defs/vector3" },
-            "wireframe": { "type": "boolean" }
+            "wireframe": { "type": "boolean" },
+            "shadingMode": {
+              "type": "string",
+              "enum": ["standard", "phong", "lambert", "toon", "custom"]
+            },
+            "customShader": {
+              "type": "object",
+              "properties": {
+                "vertexShader": { "type": "string" },
+                "fragmentShader": { "type": "string" }
+              },
+              "additionalProperties": true
+            }
           },
           "additionalProperties": true
         },
