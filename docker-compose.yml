@@ -29,9 +29,17 @@ services:
       dockerfile: Dockerfile.viewer
     ports:
       - "3000:3000"
+    volumes:
+      # Named volumes can only be mounted as directories, not onto a single
+      # file - docker/viewer-entrypoint.d/10-persist-viewer-settings.sh
+      # seeds this directory from the image's built-in viewer-settings.json
+      # on first run, then symlinks viewer-settings.json to it on every
+      # start, so edits survive `docker compose up --build`.
+      - viewer-settings:/data/viewer-config
     depends_on:
       - worker
     restart: unless-stopped
 
 volumes:
   worker-jobs:
+  viewer-settings:

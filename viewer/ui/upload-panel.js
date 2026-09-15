@@ -39,6 +39,7 @@ export function attachUploadPanel(Viewer) {
       this.uploadPanel.hidden = !willShow;
       if (willShow) {
         this.resetUploadPanelState();
+        this.loadPreviousModelsList();
       }
     },
 
@@ -73,6 +74,7 @@ export function attachUploadPanel(Viewer) {
           "Supported: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, or a .zip archive containing one of these."
         ),
         submit: t("uploadPanel.submit", "Upload & convert"),
+        previousTitle: t("uploadPanel.previousTitle", "Previously generated models"),
       };
 
       const panel = document.createElement("div");
@@ -93,6 +95,10 @@ export function attachUploadPanel(Viewer) {
           </div>
           <p id="uploadPanelStatus" class="upload-panel-status" role="status" aria-live="polite"></p>
         </form>
+        <div class="upload-panel-previous">
+          <div class="upload-panel-previous-title">${panelText.previousTitle}</div>
+          <ul id="uploadPanelPreviousList" class="upload-panel-previous-list"></ul>
+        </div>
       `;
 
       core.container.appendChild(panel);
@@ -102,12 +108,133 @@ export function attachUploadPanel(Viewer) {
         submit: panel.querySelector("#uploadPanelSubmit"),
         status: panel.querySelector("#uploadPanelStatus"),
       };
+      this.uploadPreviousList = panel.querySelector("#uploadPanelPreviousList");
 
       const form = panel.querySelector("#uploadPanelForm");
       const closeButton = panel.querySelector("#uploadPanelClose");
 
       this.bindEventListener(form, "submit", (event) => this.handleUploadSubmit(event));
       this.bindEventListener(closeButton, "click", () => this.closeUploadPanel());
+    },
+
+    async loadPreviousModelsList() {
+      if (!this.uploadPreviousList) return;
+      const list = this.uploadPreviousList;
+      list.textContent = "";
+
+      let jobs = [];
+      try {
+        const response = await fetch("/api/jobs");
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        jobs = Array.isArray(data.jobs) ? data.jobs : [];
+      } catch (error) {
+        this.reportError(error, { context: "Failed to load previous models list" });
+        const errorItem = document.createElement("li");
+        errorItem.className = "upload-panel-previous-empty";
+        errorItem.textContent = t("uploadPanel.previousLoadError", "Could not load previous models.");
+        list.appendChild(errorItem);
+        return;
+      }
+
+      if (jobs.length === 0) {
+        const emptyItem = document.createElement("li");
+        emptyItem.className = "upload-panel-previous-empty";
+        emptyItem.textContent = t("uploadPanel.previousEmpty", "No previously generated models yet.");
+        list.appendChild(emptyItem);
+        return;
+      }
+
+      jobs.forEach((job) => {
+        const name = job.name || job.id;
+        const item = document.createElement("li");
+        item.className = "upload-panel-previous-row";
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "upload-panel-previous-item";
+        button.title = name;
+
+        if (job.imageUrls?.[0]) {
+          const thumb = document.createElement("img");
+          thumb.src = job.imageUrls[0];
+          thumb.alt = "";
+          thumb.loading = "lazy";
+          button.appendChild(thumb);
+        }
+
+        const label = document.createElement("span");
+        label.textContent = name;
+        button.appendChild(label);
+
+        this.bindEventListener(button, "click", () => this.loadPreviousModel(job));
+        item.appendChild(button);
+
+        const deleteButton = document.createElement("button");
+        deleteButton.type = "button";
+        deleteButton.className = "upload-panel-previous-delete";
+        deleteButton.textContent = "✕";
+        const deleteAria = t("uploadPanel.previousDeleteAria", { name }, "Delete {name}");
+        deleteButton.setAttribute("aria-label", deleteAria);
+        deleteButton.title = deleteAria;
+        this.bindEventListener(deleteButton, "click", (event) => {
+          event.stopPropagation();
+          this.deletePreviousModel(job, item);
+        });
+        item.appendChild(deleteButton);
+
+        list.appendChild(item);
+      });
+    },
+
+    async deletePreviousModel(job, item) {
+      if (!job?.id) return;
+      const name = job.name || job.id;
+      const confirmed = window.confirm(
+        t(
+          "uploadPanel.previousDeleteConfirm",
+          { name },
+          'Delete "{name}"? This permanently removes the converted model and its renders.'
+        )
+      );
+      if (!confirmed) return;
+
+      try {
+        const response = await fetch(`/api/jobs/${encodeURIComponent(job.id)}`, { method: "DELETE" });
+        if (!response.ok && response.status !== 404) {
+          throw new Error(`Delete failed (HTTP ${response.status})`);
+        }
+        item.remove();
+        if (this.uploadPreviousList && this.uploadPreviousList.children.length === 0) {
+          const emptyItem = document.createElement("li");
+          emptyItem.className = "upload-panel-previous-empty";
+          emptyItem.textContent = t("uploadPanel.previousEmpty", "No previously generated models yet.");
+          this.uploadPreviousList.appendChild(emptyItem);
+        }
+        toastHelper("modelDeleted", "info");
+      } catch (error) {
+        this.reportError(error, { context: "Failed to delete previous model" });
+        toastHelper("modelDeleteError", "error");
+      }
+    },
+
+    async loadPreviousModel(job) {
+      if (!job?.modelUrl) return;
+      this.closeUploadPanel();
+      core.autoPath = job.modelUrl;
+      this.resetLoadedModelState();
+      await this.mainLoadModelWrapper();
+
+      const galleryCfg = core.CONFIG.viewer?.gallery;
+      if (
+        Array.isArray(job.imageUrls) &&
+        job.imageUrls.length > 0 &&
+        (galleryCfg?.build === true || galleryCfg?.buildFake === true) &&
+        !core.SANDBOX_MODE &&
+        !this.isEmbedMode()
+      ) {
+        this.renderModelGalleryImages(job.imageUrls);
+      }
     },
 
     async handleUploadSubmit(event) {

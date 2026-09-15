@@ -124,6 +124,17 @@ import { loadDroppedArchive } from "./extract-helper.js";
 import { loadDroppedModel, createCreditsElement } from "./sandbox.js";
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 
+// Small inline icons for the keyboard-shortcuts hint (see
+// getKeyboardShortcutsDetailHtml() below) - inline SVG rather than image
+// assets so they pick up the notice's `currentColor` in both themes without
+// separate light/dark files.
+const SHORTCUT_ICONS = {
+  mouse: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="19" rx="6"/><line x1="12" y1="2" x2="12" y2="10"/><circle cx="12" cy="6" r="1" fill="currentColor" stroke="none"/></svg>',
+  keyboard: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><rect x="5" y="9.5" width="1.6" height="1.6" fill="currentColor" stroke="none"/><rect x="9.2" y="9.5" width="1.6" height="1.6" fill="currentColor" stroke="none"/><rect x="13.4" y="9.5" width="1.6" height="1.6" fill="currentColor" stroke="none"/><rect x="17.4" y="9.5" width="1.6" height="1.6" fill="currentColor" stroke="none"/><rect x="6" y="13.2" width="12" height="1.6" fill="currentColor" stroke="none"/></svg>',
+  touch: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="7" stroke-dasharray="1.5 3"/></svg>',
+  dragAndDrop: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="3" x2="12" y2="13"/><polyline points="8 9 12 13 16 9"/><line x1="4" y1="19" x2="20" y2="19"/></svg>',
+};
+
 export const Viewer = {
   ...VIEWER_DEFAULTS,
 
@@ -992,13 +1003,40 @@ export const Viewer = {
     this.addAnnotationController.enable?.();
   },
 
-  getKeyboardShortcutsText() {
-    return [
-      t("shortcuts.mouse"),
-      t("shortcuts.keyboard"),
-      t("shortcuts.touch"),
-      core.CONFIG?.viewer?.enableDragAndDrop === true ? t("shortcuts.dragAndDrop") : null
-    ].join("\n");
+  getKeyboardShortcutsRows() {
+    const rows = [
+      { icon: "mouse", text: t("shortcuts.mouse") },
+      { icon: "keyboard", text: t("shortcuts.keyboard") },
+      { icon: "touch", text: t("shortcuts.touch") },
+    ];
+    if (core.CONFIG?.viewer?.enableDragAndDrop === true) {
+      rows.push({ icon: "dragAndDrop", text: t("shortcuts.dragAndDrop") });
+    }
+    return rows;
+  },
+
+  // One <span class="viewer-notice-detail"> per row (see
+  // renderStatusNoticeContent() in ui/loading-status.js, which splits the
+  // `detail` option on newlines and inserts each line via innerHTML) - lets
+  // every shortcut line carry its own icon instead of one dense text block.
+  getKeyboardShortcutsDetailHtml() {
+    return this.getKeyboardShortcutsRows()
+      .map(({ icon, text }) => `<span class="viewer-shortcut-row">${SHORTCUT_ICONS[icon]}<span>${text}</span></span>`)
+      .join("\n");
+  },
+
+  showKeyboardShortcutsHint({ manual = false } = {}) {
+    const duration = manual || !this.keyboardHintShownOnce
+      ? this.keyboardHintFirstDurationMs
+      : this.keyboardHintDurationMs;
+    this.keyboardHintShownOnce = true;
+    this.lastKeyboardHintAt = Date.now();
+    this.showStatusNotice(t("shortcuts.title", "Controls"), duration, {
+      detail: this.getKeyboardShortcutsDetailHtml(),
+      variant: "shortcuts",
+      key: "keyboard-shortcuts-hint",
+      dismissible: true,
+    });
   },
 
   getSupportedFormatsText() {
@@ -1034,8 +1072,7 @@ export const Viewer = {
     if (clippingMode.x || clippingMode.y || clippingMode.z) return;
     if (!core.handHint?.hidden || core.GESTURE?.active) return;
     if (now - this.lastKeyboardHintAt < this.keyboardHintCooldownMs) return;
-    this.lastKeyboardHintAt = now;
-    this.showStatusNotice(this.getKeyboardShortcutsText(), 7400);
+    this.showKeyboardShortcutsHint();
   },
 
   isInteractiveTextInput(element) {
@@ -3548,6 +3585,12 @@ export const Viewer = {
           ) {
             Viewer.closeActionMenu();
           }
+        });
+        Viewer.bindEventListener(document, "click", (event) => {
+          if (Viewer.statusNoticeCurrent?.key !== "keyboard-shortcuts-hint") return;
+          if (Viewer.statusNotice?.contains(event.target)) return;
+          if (Viewer.editorToolbarButtons?.help?.contains(event.target)) return;
+          Viewer.dismissStatusNotice("keyboard-shortcuts-hint");
         });
 
         Viewer.handHint.innerHTML = `<img src="${core.DFG_ASSETS}/img/hand-hint.png" alt="Hand hint" width=48 height=48 title="Hand hint animation"/>`;

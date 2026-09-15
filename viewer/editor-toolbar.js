@@ -64,6 +64,7 @@ export function getEditorToolbarIcon(icon) {
     backgroundGradient: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="5.7" fill="currentColor" fill-opacity="0.18"/><circle cx="12" cy="12" r="3.1" fill="currentColor" fill-opacity="0.56"/><circle cx="12" cy="12" r="1.1" fill="currentColor"/></svg>',
     backgroundInner: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="5" fill="currentColor"/></svg>',
     backgroundOuter: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h18v18H3zM12 7.5a4.5 4.5 0 1 0 0 9a4.5 4.5 0 0 0 0-9z"/><circle cx="12" cy="12" r="5.25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.2 1.6"/></svg>',
+    help: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.9.4-1.5 1-1.5 2.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>',
   };
 
   return icons[icon] || icons.advancedEditor;
@@ -562,7 +563,8 @@ export function createEditorToolbar(viewer) {
     { key: "wireframe", icon: "wireframe", onClick: () => viewer.toggleWireframeMode(), pressed: true, primary: false },    
     { key: "statistics", icon: "statistics", onClick: () => {}, pressed: false, primary: false },
     { key: "background", icon: "background", onClick: () => {}, pressed: false, primary: false },
-    
+    { key: "help", icon: "help", onClick: () => viewer.showKeyboardShortcutsHint({ manual: true }), primary: false },
+
   ];
 
   if (!core.isLightweight || core.isLocalPreview) {
@@ -1642,6 +1644,7 @@ export function updateEditorToolbarLabels(viewer) {
       ? t("gui.collapse", "Collapse toolbar")
       : t("gui.expand", "Expand toolbar"),
     download: t("gui.download", "Download model"),
+    help: t("shortcuts.helpButtonAria", "Show usage hints"),
   };
 
   Object.entries(viewer.editorToolbarButtons).forEach(([key, button]) => {

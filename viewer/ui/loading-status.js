@@ -413,6 +413,21 @@ export function attachLoadingStatus(viewer) {
           this.statusNotice.appendChild(detailNode);
         }
       }
+
+      if (notice.dismissible) {
+        const closeButton = document.createElement("button");
+        closeButton.type = "button";
+        closeButton.className = "viewer-notice-close";
+        closeButton.textContent = "×";
+        const closeLabel = t("shortcuts.closeAria", "Close");
+        closeButton.setAttribute("aria-label", closeLabel);
+        closeButton.title = closeLabel;
+        this.bindEventListener(closeButton, "click", (event) => {
+          event.stopPropagation();
+          this.dismissStatusNotice(notice.key);
+        });
+        this.statusNotice.appendChild(closeButton);
+      }
     },
 
     getStatusNoticeText(notice) {
@@ -449,6 +464,7 @@ export function attachLoadingStatus(viewer) {
         delete this.statusNotice.dataset.variant;
       }
       this.noticeContainer?.classList.toggle("viewer-notice-container--sandbox", notice.variant === "sandbox");
+      this.noticeContainer?.classList.toggle("viewer-notice-container--shortcuts", notice.variant === "shortcuts");
       this.statusNotice.classList.remove("is-hiding");
       this.statusNotice.classList.add("is-visible");
 
@@ -473,7 +489,7 @@ export function attachLoadingStatus(viewer) {
             this.statusNotice.classList.remove("is-hiding");
             delete this.statusNotice.dataset.variant;
           }
-          this.noticeContainer?.classList.remove("viewer-notice-container--sandbox");
+          this.noticeContainer?.classList.remove("viewer-notice-container--sandbox", "viewer-notice-container--shortcuts");
           this.statusNoticeActive = false;
           this.statusNoticeCurrent = null;
           this.statusNoticeTimer = null;
@@ -510,7 +526,7 @@ export function attachLoadingStatus(viewer) {
         this.statusNotice.classList.remove("is-visible", "is-hiding");
         delete this.statusNotice.dataset.variant;
       }
-      this.noticeContainer?.classList.remove("viewer-notice-container--sandbox");
+      this.noticeContainer?.classList.remove("viewer-notice-container--sandbox", "viewer-notice-container--shortcuts");
 
       this.statusNoticeActive = false;
       this.statusNoticeCurrent = null;
@@ -524,6 +540,7 @@ export function attachLoadingStatus(viewer) {
       key = "",
       replace = false,
       persistent = false,
+      dismissible = false,
       variant = "",
       i18nKey = "",
       i18nVars = {},
@@ -540,6 +557,7 @@ export function attachLoadingStatus(viewer) {
         duration: Number.isFinite(duration) ? duration : 2600,
         key: String(key || ""),
         persistent,
+        dismissible,
         variant: String(variant || ""),
         i18nKey: String(i18nKey || ""),
         i18nVars: i18nVars && typeof i18nVars === "object" ? { ...i18nVars } : {},

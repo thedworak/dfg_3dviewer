@@ -21,6 +21,28 @@
   z-index: 99999;
   font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
             "Segoe UI", Roboto, Arial, sans-serif;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--viewer-panel-text) 45%, transparent) transparent;
+}
+
+#uploadModelPanel::-webkit-scrollbar {
+  width: 8px;
+}
+
+#uploadModelPanel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#uploadModelPanel::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--viewer-panel-text) 45%, transparent);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+#uploadModelPanel::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--viewer-panel-text) 65%, transparent);
+  background-clip: padding-box;
 }
 
 .upload-panel-header {
@@ -119,6 +141,94 @@
 
 .upload-panel-status[data-tone="success"] {
   color: #3caa5b;
+}
+
+.upload-panel-previous {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--viewer-panel-border);
+}
+
+.upload-panel-previous-title {
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.upload-panel-previous-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.upload-panel-previous-empty {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.upload-panel-previous-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.upload-panel-previous-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: var(--viewer-panel-bg);
+  color: var(--viewer-panel-text);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  padding: 5px 8px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.upload-panel-previous-item:hover {
+  opacity: 0.8;
+}
+
+.upload-panel-previous-item img {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex: none;
+}
+
+.upload-panel-previous-delete {
+  flex: none;
+  width: 28px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: var(--viewer-panel-bg);
+  color: #d54646;
+  font: inherit;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.upload-panel-previous-delete:hover {
+  background: #d54646;
+  color: #fff;
+}
+
+.upload-panel-previous-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (max-width: 640px) {

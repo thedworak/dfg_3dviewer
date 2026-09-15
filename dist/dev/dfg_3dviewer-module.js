@@ -413,6 +413,11 @@ const VIEWER_I18N = {
       uploading: "Uploading...",
       unsupportedFormat: "Unsupported file format: .{ext}",
       uploadError: "Upload failed. Please try again.",
+      previousTitle: "Previously generated models",
+      previousEmpty: "No previously generated models yet.",
+      previousLoadError: "Could not load previous models.",
+      previousDeleteAria: "Delete {name}",
+      previousDeleteConfirm: 'Delete "{name}"? This permanently removes the converted model and its renders.',
     },
     loadingLog: {
       title: "Loading process log",
@@ -490,6 +495,8 @@ const VIEWER_I18N = {
       uploadStarted: "Upload received - converting model...",
       uploadReady: "Converted model is ready.",
       uploadError: "Model upload or conversion failed.",
+      modelDeleted: "Model deleted.",
+      modelDeleteError: "Failed to delete the model.",
 
       annotationDataMissing: "Annotation data not found for this POI.",
       selectFaceRequired: "Select at least one face to add annotation.",
@@ -528,10 +535,13 @@ const VIEWER_I18N = {
       performanceModeSet: "Performance mode set to {mode}.",
     },
     shortcuts: {
+      title: "Controls",
       mouse: "Mouse: drag orbit, wheel zoom, right-drag pan",
       keyboard: "Keyboard: Arrows orbit, Shift+Arrows faster, Ctrl/Cmd+Arrows pan, +/- zoom, Space toggle auto-rotate",
       touch: "Touch: pinch-to-zoom, drag to orbit, double-tap-and-hold pan",
       dragAndDrop: "Or drag and drop a 3D model into the viewer",
+      helpButtonAria: "Show usage hints",
+      closeAria: "Close",
     },
   },
   pl: {
@@ -738,6 +748,11 @@ const VIEWER_I18N = {
       uploading: "Przesyłanie...",
       unsupportedFormat: "Nieobsługiwany format pliku: .{ext}",
       uploadError: "Przesyłanie lub konwersja nie powiodła się. Spróbuj ponownie.",
+      previousTitle: "Wcześniej wygenerowane modele",
+      previousEmpty: "Brak wcześniej wygenerowanych modeli.",
+      previousLoadError: "Nie udało się wczytać listy poprzednich modeli.",
+      previousDeleteAria: "Usuń {name}",
+      previousDeleteConfirm: 'Usunąć "{name}"? Spowoduje to trwałe usunięcie przekonwertowanego modelu i jego renderów.',
     },
     loadingLog: {
       title: "Log procesu ładowania",
@@ -815,6 +830,8 @@ const VIEWER_I18N = {
       uploadStarted: "Przesłano plik - konwertowanie modelu...",
       uploadReady: "Skonwertowany model jest gotowy.",
       uploadError: "Przesyłanie lub konwersja modelu nie powiodła się.",
+      modelDeleted: "Model został usunięty.",
+      modelDeleteError: "Nie udało się usunąć modelu.",
 
       annotationDataMissing: "Nie znaleziono danych adnotacji dla tego punktu.",
       selectFaceRequired: "Wybierz co najmniej jedną ścianę, aby dodać adnotację.",
@@ -853,10 +870,13 @@ const VIEWER_I18N = {
       performanceModeSet: "Tryb wydajności ustawiony na {mode}.",
     },
     shortcuts: {
+      title: "Sterowanie",
       mouse: "Mysz: przeciągnij, aby obracać, rolka - zoom, prawy przycisk - przesuwanie",
       keyboard: "Klawiatura: strzałki - obrót, Shift+strzałki - szybciej, Ctrl/Cmd+strzałki - przesuwanie, +/- — zoom, Spacja - auto-obrót",
       touch: "Dotyk: szczypanie, aby przybliżyć, przeciągnij, aby obracać, dotknij i przytrzymaj, aby przesunąć",
       dragAndDrop: "Lub przeciągnij i upuść model 3D w oknie viewer'a",
+      helpButtonAria: "Pokaż podpowiedzi dotyczące obsługi",
+      closeAria: "Zamknij",
     },
   },
   de: {
@@ -1062,6 +1082,11 @@ const VIEWER_I18N = {
       uploading: "Wird hochgeladen...",
       unsupportedFormat: "Nicht unterstütztes Dateiformat: .{ext}",
       uploadError: "Upload oder Konvertierung fehlgeschlagen. Bitte erneut versuchen.",
+      previousTitle: "Zuvor generierte Modelle",
+      previousEmpty: "Noch keine zuvor generierten Modelle.",
+      previousLoadError: "Vorherige Modelle konnten nicht geladen werden.",
+      previousDeleteAria: "{name} löschen",
+      previousDeleteConfirm: '"{name}" löschen? Dadurch werden das konvertierte Modell und seine Renderings dauerhaft entfernt.',
     },
     loadingLog: {
       title: "Protokoll des Ladeprozesses",
@@ -1139,6 +1164,8 @@ const VIEWER_I18N = {
       uploadStarted: "Datei empfangen - Modell wird konvertiert...",
       uploadReady: "Konvertiertes Modell ist bereit.",
       uploadError: "Upload oder Konvertierung des Modells fehlgeschlagen.",
+      modelDeleted: "Modell wurde gelöscht.",
+      modelDeleteError: "Modell konnte nicht gelöscht werden.",
 
       annotationDataMissing: "Keine Annotationsdaten für diesen Punkt gefunden.",
       selectFaceRequired: "Wählen Sie mindestens eine Fläche aus, um eine Annotation hinzuzufügen.",
@@ -1177,10 +1204,13 @@ const VIEWER_I18N = {
       performanceModeSet: "Leistungsmodus auf {mode} gesetzt.",
     },
     shortcuts: {
+      title: "Steuerung",
       mouse: "Maus: ziehen zum Drehen, Mausrad - Zoom, Rechtsklick - Verschieben",
       keyboard: "Tastatur: Pfeile - Drehen, Shift+Pfeile - schneller, Ctrl/Cmd+Pfeile - Verschieben, +/- - Zoom, Leertaste - Auto-Rotation",
       touch: "Touch: Pinch-to-Zoom, ziehen zum Drehen, Doppeltippen und halten zum Verschieben",
       dragAndDrop: "Oder ziehen Sie ein 3D-Modell per Drag-and-drop in den Viewer",
+      helpButtonAria: "Bedienungshinweise anzeigen",
+      closeAria: "Schließen",
     }
   },
 };
@@ -3324,6 +3354,7 @@ function attachUploadPanel(Viewer) {
       this.uploadPanel.hidden = !willShow;
       if (willShow) {
         this.resetUploadPanelState();
+        this.loadPreviousModelsList();
       }
     },
 
@@ -3358,6 +3389,7 @@ function attachUploadPanel(Viewer) {
           "Supported: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, or a .zip archive containing one of these."
         ),
         submit: t$1("uploadPanel.submit", "Upload & convert"),
+        previousTitle: t$1("uploadPanel.previousTitle", "Previously generated models"),
       };
 
       const panel = document.createElement("div");
@@ -3378,6 +3410,10 @@ function attachUploadPanel(Viewer) {
           </div>
           <p id="uploadPanelStatus" class="upload-panel-status" role="status" aria-live="polite"></p>
         </form>
+        <div class="upload-panel-previous">
+          <div class="upload-panel-previous-title">${panelText.previousTitle}</div>
+          <ul id="uploadPanelPreviousList" class="upload-panel-previous-list"></ul>
+        </div>
       `;
 
       core.container.appendChild(panel);
@@ -3387,12 +3423,133 @@ function attachUploadPanel(Viewer) {
         submit: panel.querySelector("#uploadPanelSubmit"),
         status: panel.querySelector("#uploadPanelStatus"),
       };
+      this.uploadPreviousList = panel.querySelector("#uploadPanelPreviousList");
 
       const form = panel.querySelector("#uploadPanelForm");
       const closeButton = panel.querySelector("#uploadPanelClose");
 
       this.bindEventListener(form, "submit", (event) => this.handleUploadSubmit(event));
       this.bindEventListener(closeButton, "click", () => this.closeUploadPanel());
+    },
+
+    async loadPreviousModelsList() {
+      if (!this.uploadPreviousList) return;
+      const list = this.uploadPreviousList;
+      list.textContent = "";
+
+      let jobs = [];
+      try {
+        const response = await fetch("/api/jobs");
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        jobs = Array.isArray(data.jobs) ? data.jobs : [];
+      } catch (error) {
+        this.reportError(error, { context: "Failed to load previous models list" });
+        const errorItem = document.createElement("li");
+        errorItem.className = "upload-panel-previous-empty";
+        errorItem.textContent = t$1("uploadPanel.previousLoadError", "Could not load previous models.");
+        list.appendChild(errorItem);
+        return;
+      }
+
+      if (jobs.length === 0) {
+        const emptyItem = document.createElement("li");
+        emptyItem.className = "upload-panel-previous-empty";
+        emptyItem.textContent = t$1("uploadPanel.previousEmpty", "No previously generated models yet.");
+        list.appendChild(emptyItem);
+        return;
+      }
+
+      jobs.forEach((job) => {
+        const name = job.name || job.id;
+        const item = document.createElement("li");
+        item.className = "upload-panel-previous-row";
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "upload-panel-previous-item";
+        button.title = name;
+
+        if (job.imageUrls?.[0]) {
+          const thumb = document.createElement("img");
+          thumb.src = job.imageUrls[0];
+          thumb.alt = "";
+          thumb.loading = "lazy";
+          button.appendChild(thumb);
+        }
+
+        const label = document.createElement("span");
+        label.textContent = name;
+        button.appendChild(label);
+
+        this.bindEventListener(button, "click", () => this.loadPreviousModel(job));
+        item.appendChild(button);
+
+        const deleteButton = document.createElement("button");
+        deleteButton.type = "button";
+        deleteButton.className = "upload-panel-previous-delete";
+        deleteButton.textContent = "✕";
+        const deleteAria = t$1("uploadPanel.previousDeleteAria", { name }, "Delete {name}");
+        deleteButton.setAttribute("aria-label", deleteAria);
+        deleteButton.title = deleteAria;
+        this.bindEventListener(deleteButton, "click", (event) => {
+          event.stopPropagation();
+          this.deletePreviousModel(job, item);
+        });
+        item.appendChild(deleteButton);
+
+        list.appendChild(item);
+      });
+    },
+
+    async deletePreviousModel(job, item) {
+      if (!job?.id) return;
+      const name = job.name || job.id;
+      const confirmed = window.confirm(
+        t$1(
+          "uploadPanel.previousDeleteConfirm",
+          { name },
+          'Delete "{name}"? This permanently removes the converted model and its renders.'
+        )
+      );
+      if (!confirmed) return;
+
+      try {
+        const response = await fetch(`/api/jobs/${encodeURIComponent(job.id)}`, { method: "DELETE" });
+        if (!response.ok && response.status !== 404) {
+          throw new Error(`Delete failed (HTTP ${response.status})`);
+        }
+        item.remove();
+        if (this.uploadPreviousList && this.uploadPreviousList.children.length === 0) {
+          const emptyItem = document.createElement("li");
+          emptyItem.className = "upload-panel-previous-empty";
+          emptyItem.textContent = t$1("uploadPanel.previousEmpty", "No previously generated models yet.");
+          this.uploadPreviousList.appendChild(emptyItem);
+        }
+        toastHelper("modelDeleted", "info");
+      } catch (error) {
+        this.reportError(error, { context: "Failed to delete previous model" });
+        toastHelper("modelDeleteError", "error");
+      }
+    },
+
+    async loadPreviousModel(job) {
+      if (!job?.modelUrl) return;
+      this.closeUploadPanel();
+      core.autoPath = job.modelUrl;
+      this.resetLoadedModelState();
+      await this.mainLoadModelWrapper();
+
+      const galleryCfg = core.CONFIG.viewer?.gallery;
+      if (
+        Array.isArray(job.imageUrls) &&
+        job.imageUrls.length > 0 &&
+        (galleryCfg?.build === true || galleryCfg?.buildFake === true) &&
+        !core.SANDBOX_MODE &&
+        !this.isEmbedMode()
+      ) {
+        this.renderModelGalleryImages(job.imageUrls);
+      }
     },
 
     async handleUploadSubmit(event) {
@@ -4716,6 +4873,21 @@ function attachLoadingStatus(viewer) {
           this.statusNotice.appendChild(detailNode);
         }
       }
+
+      if (notice.dismissible) {
+        const closeButton = document.createElement("button");
+        closeButton.type = "button";
+        closeButton.className = "viewer-notice-close";
+        closeButton.textContent = "×";
+        const closeLabel = t$1("shortcuts.closeAria", "Close");
+        closeButton.setAttribute("aria-label", closeLabel);
+        closeButton.title = closeLabel;
+        this.bindEventListener(closeButton, "click", (event) => {
+          event.stopPropagation();
+          this.dismissStatusNotice(notice.key);
+        });
+        this.statusNotice.appendChild(closeButton);
+      }
     },
 
     getStatusNoticeText(notice) {
@@ -4827,6 +4999,7 @@ function attachLoadingStatus(viewer) {
       key = "",
       replace = false,
       persistent = false,
+      dismissible = false,
       variant = "",
       i18nKey = "",
       i18nVars = {},
@@ -4843,6 +5016,7 @@ function attachLoadingStatus(viewer) {
         duration: Number.isFinite(duration) ? duration : 2600,
         key: String(key || ""),
         persistent,
+        dismissible,
         variant: String(variant || ""),
         i18nKey: String(i18nKey || ""),
         i18nVars: i18nVars && typeof i18nVars === "object" ? { ...i18nVars } : {},
@@ -9025,7 +9199,7 @@ async function fetchSettings(object) {
 
     normalizedUri = normalizedUri.replace(/^\/+/, '');
     const metadataBase = new URL(core.CONFIG.metadataUrl);
-    const fileUri = new URL(core.fileObject.uri);
+    const fileUri = new URL(core.fileObject.uri, document.baseURI);
 
     const filePath = fileUri.pathname.replace(/^\/+|\/+$/g, '');
 
@@ -9133,6 +9307,7 @@ function createAIM3IFDropdown(url) {
     { url: "https://viewer.thedworak.com/manifests/box.json", name: t$1("aim3if.optionBox", "Box configuration") },
     { url: "./manifests/box-aim3d-local.json", name: t$1("aim3if.optionBoxLocal", "Box (localhost)") },
     { url: "./manifests/wolpa-synagogue-aim3d-local.json", name: t$1("aim3if.optionWolpaLocal", "Wolpa Synagogue (localhost)") },
+    { url: "./manifests/wolpa-synagogue-aim3d-local-ceiling.json", name: t$1("aim3if.optionWolpaLocalCeiling", "Wolpa Synagogue - ceiling view (localhost)") },
     // Add more AIM3IF configurations here as needed
   ].filter(item => item?.url);
 
@@ -16196,6 +16371,7 @@ function getEditorToolbarIcon(icon) {
     backgroundGradient: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="5.7" fill="currentColor" fill-opacity="0.18"/><circle cx="12" cy="12" r="3.1" fill="currentColor" fill-opacity="0.56"/><circle cx="12" cy="12" r="1.1" fill="currentColor"/></svg>',
     backgroundInner: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="5" fill="currentColor"/></svg>',
     backgroundOuter: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h18v18H3zM12 7.5a4.5 4.5 0 1 0 0 9a4.5 4.5 0 0 0 0-9z"/><circle cx="12" cy="12" r="5.25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.2 1.6"/></svg>',
+    help: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.9.4-1.5 1-1.5 2.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>',
   };
 
   return icons[icon] || icons.advancedEditor;
@@ -16620,7 +16796,8 @@ function createEditorToolbar(viewer) {
     { key: "wireframe", icon: "wireframe", onClick: () => viewer.toggleWireframeMode(), pressed: true, primary: false },    
     { key: "statistics", icon: "statistics", onClick: () => {}, pressed: false, primary: false },
     { key: "background", icon: "background", onClick: () => {}, pressed: false, primary: false },
-    
+    { key: "help", icon: "help", onClick: () => viewer.showKeyboardShortcutsHint({ manual: true }), primary: false },
+
   ];
 
   if (!core.isLightweight || core.isLocalPreview) {
@@ -17637,6 +17814,7 @@ function updateEditorToolbarLabels(viewer) {
       ? t$1("gui.collapse", "Collapse toolbar")
       : t$1("gui.expand", "Expand toolbar"),
     download: t$1("gui.download", "Download model"),
+    help: t$1("shortcuts.helpButtonAria", "Show usage hints"),
   };
 
   Object.entries(viewer.editorToolbarButtons).forEach(([key, button]) => {
@@ -18096,6 +18274,9 @@ const VIEWER_DEFAULTS = {
   lastKeyboardHintAt: 0,
   keyboardHintCooldownMs: 45000,
   keyboardHintAfterFocusDelayMs: 1800,
+  keyboardHintShownOnce: false,
+  keyboardHintFirstDurationMs: 14000,
+  keyboardHintDurationMs: 7400,
   lastWindowFocusAt: 0,
   cleanupCallbacks: [],
   resizeObserver: null,
@@ -19189,6 +19370,17 @@ window.viewer = {
   controls: null
 };
 
+// Small inline icons for the keyboard-shortcuts hint (see
+// getKeyboardShortcutsDetailHtml() below) - inline SVG rather than image
+// assets so they pick up the notice's `currentColor` in both themes without
+// separate light/dark files.
+const SHORTCUT_ICONS = {
+  mouse: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="19" rx="6"/><line x1="12" y1="2" x2="12" y2="10"/><circle cx="12" cy="6" r="1" fill="currentColor" stroke="none"/></svg>',
+  keyboard: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><rect x="5" y="9.5" width="1.6" height="1.6" fill="currentColor" stroke="none"/><rect x="9.2" y="9.5" width="1.6" height="1.6" fill="currentColor" stroke="none"/><rect x="13.4" y="9.5" width="1.6" height="1.6" fill="currentColor" stroke="none"/><rect x="17.4" y="9.5" width="1.6" height="1.6" fill="currentColor" stroke="none"/><rect x="6" y="13.2" width="12" height="1.6" fill="currentColor" stroke="none"/></svg>',
+  touch: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="7" stroke-dasharray="1.5 3"/></svg>',
+  dragAndDrop: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="3" x2="12" y2="13"/><polyline points="8 9 12 13 16 9"/><line x1="4" y1="19" x2="20" y2="19"/></svg>',
+};
+
 const Viewer$1 = {
   ...VIEWER_DEFAULTS,
 
@@ -20053,13 +20245,40 @@ const Viewer$1 = {
     this.addAnnotationController.enable?.();
   },
 
-  getKeyboardShortcutsText() {
-    return [
-      t$1("shortcuts.mouse"),
-      t$1("shortcuts.keyboard"),
-      t$1("shortcuts.touch"),
-      core.CONFIG?.viewer?.enableDragAndDrop === true ? t$1("shortcuts.dragAndDrop") : null
-    ].join("\n");
+  getKeyboardShortcutsRows() {
+    const rows = [
+      { icon: "mouse", text: t$1("shortcuts.mouse") },
+      { icon: "keyboard", text: t$1("shortcuts.keyboard") },
+      { icon: "touch", text: t$1("shortcuts.touch") },
+    ];
+    if (core.CONFIG?.viewer?.enableDragAndDrop === true) {
+      rows.push({ icon: "dragAndDrop", text: t$1("shortcuts.dragAndDrop") });
+    }
+    return rows;
+  },
+
+  // One <span class="viewer-notice-detail"> per row (see
+  // renderStatusNoticeContent() in ui/loading-status.js, which splits the
+  // `detail` option on newlines and inserts each line via innerHTML) - lets
+  // every shortcut line carry its own icon instead of one dense text block.
+  getKeyboardShortcutsDetailHtml() {
+    return this.getKeyboardShortcutsRows()
+      .map(({ icon, text }) => `<span class="viewer-shortcut-row">${SHORTCUT_ICONS[icon]}<span>${text}</span></span>`)
+      .join("\n");
+  },
+
+  showKeyboardShortcutsHint({ manual = false } = {}) {
+    const duration = manual || !this.keyboardHintShownOnce
+      ? this.keyboardHintFirstDurationMs
+      : this.keyboardHintDurationMs;
+    this.keyboardHintShownOnce = true;
+    this.lastKeyboardHintAt = Date.now();
+    this.showStatusNotice(t$1("shortcuts.title", "Controls"), duration, {
+      detail: this.getKeyboardShortcutsDetailHtml(),
+      variant: "shortcuts",
+      key: "keyboard-shortcuts-hint",
+      dismissible: true,
+    });
   },
 
   getSupportedFormatsText() {
@@ -20095,8 +20314,7 @@ const Viewer$1 = {
     if (clippingMode.x || clippingMode.y || clippingMode.z) return;
     if (!core.handHint?.hidden || core.GESTURE?.active) return;
     if (now - this.lastKeyboardHintAt < this.keyboardHintCooldownMs) return;
-    this.lastKeyboardHintAt = now;
-    this.showStatusNotice(this.getKeyboardShortcutsText(), 7400);
+    this.showKeyboardShortcutsHint();
   },
 
   isInteractiveTextInput(element) {

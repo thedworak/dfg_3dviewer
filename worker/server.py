@@ -9,18 +9,24 @@ could talk to either backend interchangeably:
 
   POST /api/model/create        multipart file upload -> {entity_id, status}
   GET  /api/model/status/<id>   -> {progress, status, message, ...}
+  GET  /api/jobs                -> {jobs: [...]} previously converted models
+  DELETE /api/jobs/<id>         delete a job's input/converted/render files
   GET  /files/<id>/<path>       static access to converted output
   GET  /healthz                 liveness check
 
-This process is single-node and keeps job state in memory only (lost on
-restart) - it is meant for "download it and run it" use, not as a
-high-throughput production queue.
+This process is single-node and keeps in-flight job state (progress/status
+messages) in memory only, so that is lost on restart - it is meant for
+"download it and run it" use, not as a high-throughput production queue.
+Finished jobs are still discoverable afterwards via GET /api/jobs, which
+reconstructs their result from JOBS_DIR (a persistent volume in
+docker-compose.yml) rather than from the in-memory JOBS dict.
 """
 
 import json
 import mimetypes
 import os
 import re
+import shutil
 import subprocess
 import sys
 import threading
@@ -96,6 +102,69 @@ def find_model_file(root: Path):
         if path.is_file() and path.suffix.lower().lstrip(".") in SUPPORTED_FORMATS:
             return path
     return None
+
+
+JOB_ID_RE = re.compile(r"[A-Za-z0-9_-]+")
+
+
+def scan_job(job_id: str, job_dir: Path):
+    """Reconstruct a finished job's result straight from JOBS_DIR, the same
+    way run_pipeline() would have reported it - used to make jobs from
+    before a worker restart show up in GET /api/jobs, since JOBS (the
+    in-memory progress registry) does not survive one but the files on the
+    persistent volume do."""
+    job_root = job_dir / "input"
+    if not job_root.is_dir():
+        return None
+
+    glb_candidates = sorted(job_root.rglob("*.glb"))
+    if not glb_candidates:
+        return None
+    # A file under a "gltf" folder is convert.sh's own output and is
+    # preferred; otherwise fall back to whatever .glb is there (e.g. a
+    # passthrough upload that skipped conversion entirely).
+    glb_path = next(
+        (p for p in glb_candidates if "gltf" in p.relative_to(job_root).parts),
+        glb_candidates[0],
+    )
+
+    image_urls = []
+    views_dirs = sorted(job_root.rglob("views"))
+    if views_dirs:
+        image_urls = [
+            f"/files/{job_id}/{img.relative_to(job_root)}"
+            for img in sorted(views_dirs[0].glob("*.png"))
+        ]
+
+    original_name = next(
+        (p.name for p in sorted(job_root.iterdir()) if p.is_file()), None
+    )
+
+    return {
+        "id": job_id,
+        "name": original_name or job_id,
+        "status": "ready",
+        "modelUrl": f"/files/{job_id}/{glb_path.relative_to(job_root)}",
+        "imageUrls": image_urls,
+        "createdAt": int(glb_path.stat().st_mtime),
+    }
+
+
+def list_jobs():
+    jobs = []
+    if not JOBS_DIR.is_dir():
+        return jobs
+    for job_dir in JOBS_DIR.iterdir():
+        if not job_dir.is_dir() or not JOB_ID_RE.fullmatch(job_dir.name):
+            continue
+        try:
+            job = scan_job(job_dir.name, job_dir)
+        except OSError:
+            continue
+        if job is not None:
+            jobs.append(job)
+    jobs.sort(key=lambda job: job["createdAt"], reverse=True)
+    return jobs
 
 
 def run_pipeline(job_id: str, input_path: Path, original_ext: str) -> None:
@@ -239,7 +308,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self) -> None:
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
 
@@ -265,6 +334,10 @@ class Handler(BaseHTTPRequestHandler):
             })
             return
 
+        if path == "/api/jobs":
+            self._send_json(200, {"jobs": list_jobs()})
+            return
+
         match = re.match(r"/files/([A-Za-z0-9_-]+)/(.+)", path)
         if match:
             self._serve_file(match.group(1), match.group(2))
@@ -278,6 +351,24 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_create()
             return
         self._send_json(404, {"error": "not found"})
+
+    def do_DELETE(self) -> None:
+        path = unquote(urlparse(self.path).path)
+        match = re.fullmatch(r"/api/jobs/([A-Za-z0-9_-]+)", path)
+        if match:
+            self._handle_delete(match.group(1))
+            return
+        self._send_json(404, {"error": "not found"})
+
+    def _handle_delete(self, job_id: str) -> None:
+        job_dir = JOBS_DIR / job_id
+        if not job_dir.is_dir():
+            self._send_json(404, {"error": "not found"})
+            return
+        shutil.rmtree(job_dir)
+        with JOBS_LOCK:
+            JOBS.pop(job_id, None)
+        self._send_json(200, {"status": "deleted"})
 
     def _handle_create(self) -> None:
         try:
