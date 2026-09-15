@@ -317,8 +317,8 @@ export function attachShadingEditor(Viewer) {
       const width = Math.max(0, Math.round(targetRect.width));
       const height = Math.max(0, Math.round(targetRect.height));
       const panel = this.shadingDialog.querySelector(".materials-dialog__panel");
-      const panelWidth = panel?.offsetWidth || Math.min(420, width - 24);
-      const panelHeight = panel?.offsetHeight || Math.min(560, height - 24);
+      const panelWidth = panel?.offsetWidth || Math.min(640, width - 24);
+      const panelHeight = panel?.offsetHeight || Math.min(700, height * 0.88);
 
       if (!this.shadingDialogPosition) {
         this.shadingDialogPosition = {

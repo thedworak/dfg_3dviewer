@@ -1311,14 +1311,36 @@
 }
 
 #shadingDialog .materials-dialog__panel {
-  width: min(420px, 92vw);
+  width: min(640px, calc(100% - 24px));
+  max-height: min(88%, 760px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#shadingDialog .materials-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#shadingDialog .materials-dialog__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .shading-dialog__textarea {
   width: 100%;
-  min-height: 120px;
+  flex: 1 1 auto;
+  min-height: 140px;
   box-sizing: border-box;
-  resize: vertical;
+  resize: none;
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 12px;
   line-height: 1.4;
@@ -1335,6 +1357,7 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
+  flex: 0 0 auto;
 }
 
 .shading-dialog__button {

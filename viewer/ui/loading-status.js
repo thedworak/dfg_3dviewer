@@ -455,6 +455,7 @@ export function attachLoadingStatus(viewer) {
 
       this.statusNoticeActive = true;
       this.statusNoticeCurrent = notice;
+      this.updateEditorToolbarState?.();
       this.statusNotice.hidden = false;
       this.renderStatusNoticeContent(notice);
       this.statusNotice.dataset.tone = notice.tone || "info";
@@ -492,6 +493,7 @@ export function attachLoadingStatus(viewer) {
           this.noticeContainer?.classList.remove("viewer-notice-container--sandbox", "viewer-notice-container--shortcuts");
           this.statusNoticeActive = false;
           this.statusNoticeCurrent = null;
+          this.updateEditorToolbarState?.();
           this.statusNoticeTimer = null;
           this.statusNoticeHideTimer = null;
           this.processStatusNoticeQueue();
@@ -530,6 +532,7 @@ export function attachLoadingStatus(viewer) {
 
       this.statusNoticeActive = false;
       this.statusNoticeCurrent = null;
+      this.updateEditorToolbarState?.();
       this.processStatusNoticeQueue();
     },
 

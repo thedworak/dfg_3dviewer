@@ -1026,6 +1026,13 @@ export const Viewer = {
   },
 
   showKeyboardShortcutsHint({ manual = false } = {}) {
+    const isHintCurrentlyShown =
+      this.statusNoticeActive === true && this.statusNoticeCurrent?.key === "keyboard-shortcuts-hint";
+    if (manual && isHintCurrentlyShown) {
+      this.dismissStatusNotice("keyboard-shortcuts-hint");
+      return;
+    }
+
     const duration = manual || !this.keyboardHintShownOnce
       ? this.keyboardHintFirstDurationMs
       : this.keyboardHintDurationMs;
