@@ -12,15 +12,19 @@ services:
       # need the reservation block below uncommented, plus
       # nvidia-container-toolkit installed on the host.
       - WORKER_RENDER_DEVICE=AUTO
-    # Uncomment to pass an NVIDIA GPU through to the worker (requires
-    # nvidia-container-toolkit on the host - see worker/README.md):
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+    # Requesting this reservation without nvidia-container-toolkit on the
+    # host makes `docker compose up` fail outright ("could not select
+    # device driver \"nvidia\"") before the container ever starts, so it
+    # stays commented out here - enable it per-machine via
+    # docker-compose.override.yml instead (see
+    # docker-compose.override.example.yml) rather than editing this file.
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
     restart: unless-stopped
 
   # Three viewer services, one per npm build target you'd otherwise run

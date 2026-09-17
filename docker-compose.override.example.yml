@@ -1,0 +1,42 @@
+# Local overrides for docker-compose.yml - copy this file to
+# docker-compose.override.yml (that name is gitignored) and edit it there.
+# `docker compose up`/`docker compose build` automatically read and merge
+# docker-compose.override.yml on top of docker-compose.yml with no extra
+# flags needed - see https://docs.docker.com/compose/how-tos/multiple-compose-files/merge/
+#
+# Only list the services/keys you actually want to change; everything you
+# omit here keeps whatever docker-compose.yml already sets, and future
+# changes to docker-compose.yml (new services, etc.) keep applying normally
+# since that file itself stays untouched.
+#
+#   cp docker-compose.override.example.yml docker-compose.override.yml
+
+services:
+  # Example: host port 3000 already taken by something else - remap just
+  # this one service's published port (left side only; the container still
+  # listens on :3000 internally, see docker/nginx.conf). The "!override" tag
+  # is required here - Compose's default merge behavior for list-valued keys
+  # like "ports" is to concatenate the base file's list with this one's, so
+  # without it you'd end up with the service published on BOTH :3000 and
+  # :3010 instead of just :3010. See
+  # https://docs.docker.com/reference/compose-file/merge/#override-a-value-instead-of-merging-1
+  # viewer-test:
+  #   ports: !override
+  #     - "3010:3000"
+
+  # Example: enable NVIDIA GPU passthrough for Blender thumbnail rendering.
+  # Requires nvidia-container-toolkit installed on this host first - see
+  # worker/README.md's "GPU rendering" section. Without the toolkit,
+  # `docker compose up` fails immediately with
+  # `could not select device driver "nvidia"`, which is exactly why this
+  # isn't enabled by default in docker-compose.yml.
+  # worker:
+  #   environment:
+  #     - WORKER_RENDER_DEVICE=GPU
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
