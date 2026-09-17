@@ -811,8 +811,13 @@ export const Viewer = {
       clippingMode: this.parseClippingModeParam(params.get("clip") || params.get("clippingMode")),
       clippingConstants: this.parseVector3Param(params.get("clipConst") || params.get("clipConstants")),
       clippingOutline: this.parseBooleanParam(params.get("clipOutline")),
-      presentationMode: core.PRESENTATION_MODE === true,
-      sandboxMode: core.SANDBOX_MODE === true,
+      // Keep these null when the query param is absent (parseBooleanParam's
+      // own "not specified" value) rather than coercing to a hard boolean -
+      // the config-driven fallback below (`sandboxModeFromConfig ?? ...`)
+      // only runs when this is not itself a boolean, so a coerced `false`
+      // here would permanently shadow viewer-settings.json's own value.
+      presentationMode: presentationModeFromQuery,
+      sandboxMode: sandboxModeFromQuery,
       scale: this.parseVector2Param(params.get("scale")) ?? null,
       showNotifications: this.parseBooleanParam(params.get("showNotifications")),
     };
@@ -2022,12 +2027,12 @@ export const Viewer = {
         core.editorToolbar.style.bottom = `${bottom}px`;
       }
       if (Viewer.creditsWrapper) {
-        Viewer.creditsWrapper.style.width = `${effectiveWidth - 64}px`;
-        Viewer.creditsWrapper.style.left = `${canvasRect.left + 8}px`;
-        Viewer.creditsWrapper.style.bottom = `${bottom - Viewer.creditsWrapper.getBoundingClientRect().height - 24}px`;
-        // Created hidden (see createCreditsElement in sandbox.js) so it
-        // doesn't flash at its unstyled position before this runs; reveal
-        // it now that real coordinates are applied.
+        // #credits is a normal-flow block below core.container (see
+        // viewer/css/credits.css and the appendChild call in this file) -
+        // no position/left/right/bottom math needed, it's simply the next
+        // thing in the document after the viewer. Just reveal it - it was
+        // created hidden (see createCreditsElement in sandbox.js) only to
+        // avoid a flash of unstyled content while its own fonts/logo load.
         Viewer.creditsWrapper.style.visibility = "visible";
       }
     }
@@ -3813,7 +3818,15 @@ export const Viewer = {
       if ((core.isLocalPreview || core.SANDBOX_MODE) && !core.PRESENTATION_MODE) {
         Viewer.creditsWrapper = await createCreditsElement();
         if (Viewer.creditsWrapper) {
-          core.container.appendChild(Viewer.creditsWrapper);
+          // Appended as the last child of the wrapper, after core.container
+          // - #credits is normal-flow (see viewer/css/credits.css), so this
+          // renders it as its own block directly below the viewer rather
+          // than overlapping it. core.container is also the fullscreen
+          // target (.mainContainer.fullscreen gets z-index: 9999 - see
+          // viewer/css/main.css); living outside it here means credits
+          // (like core.editorToolbar - see getEditorToolbarHost() in
+          // editor-toolbar.js) isn't part of that fullscreen overlay.
+          (core.viewerWrapper || core.container).appendChild(Viewer.creditsWrapper);
         }
       }
       if (core.SANDBOX_MODE) {

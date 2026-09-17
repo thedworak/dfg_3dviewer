@@ -286,8 +286,67 @@ class ConvertWorker extends QueueWorkerBase {
     $new_file = $parts['dirname'] . '/gltf/' . $parts['filename'] . '.glb';
     $new_dir = $parts['dirname'] . '/' . $parts['filename'] . '_' . $archive_suffix . '/gltf/';
 
+    $backend_config = \Drupal::service('dfg_3dviewer.convert_process')->getBackendConfig();
+    $use_worker_for_archive = $is_archive && $backend_config['backend'] === 'docker' && $backend_config['worker_url'] !== '';
+
     if (!file_exists($new_file) && !is_dir($new_dir)) {
-      if ($is_archive) {
+      if ($use_worker_for_archive) {
+        // The worker container extracts the archive, finds the model inside
+        // it, converts and renders it in a single job - no local ZipArchive
+        // or scripts/uncompress.sh dependency needed on the Drupal host.
+        // See worker/README.md and ConvertProcessService::runViaWorker().
+        $this->updateProgress($entity, 10, 'processing', 'Uploading archive to conversion worker...');
+
+        $extract_path = $parts['dirname'] . '/' . $parts['filename'] . '_' . $archive_suffix . '/';
+        if (!is_dir($extract_path) && !mkdir($extract_path, 0775, TRUE) && !is_dir($extract_path)) {
+          throw new \RuntimeException('Cannot create archive extraction directory.');
+        }
+
+        $convert_result = \Drupal::service('dfg_3dviewer.convert_process')->run(
+          $module_path,
+          $realpath,
+          (int) $cfg['lightweight'],
+          [
+            'c' => TRUE,
+            'l' => '3',
+            'b' => TRUE,
+            'o' => $extract_path,
+            'f' => TRUE,
+            'a' => 'false',
+          ],
+          function (int $percent, string $state, string $message) use ($entity): void {
+            $this->updateProgress($entity, $percent, $state, $message);
+            $this->saveEntity($entity);
+          }
+        );
+
+        if (($convert_result['exit_code'] ?? 1) !== 0) {
+          $exit_code = (int) ($convert_result['exit_code'] ?? 1);
+          $error_output = trim((string) ($convert_result['error'] ?? ''));
+          $standard_output = trim((string) ($convert_result['output'] ?? ''));
+          $command = trim((string) ($convert_result['command'] ?? ''));
+          \Drupal::logger('dfg_3dviewer')->error(
+            'Archive conversion (worker) failure details for entity @entity_id file @file_id. Command: @command. Stdout: @stdout. Stderr: @stderr',
+            [
+              '@entity_id' => (string) ($entity->id() ?? ''),
+              '@file_id' => (string) $file->id(),
+              '@command' => $command !== '' ? $command : '[unavailable]',
+              '@stdout' => $this->truncateLogText($standard_output),
+              '@stderr' => $this->truncateLogText($error_output),
+            ]
+          );
+          $message = 'Conversion failed (exit=' . $exit_code . ').';
+          if ($error_output !== '') {
+            $message .= ' Error: ' . $error_output;
+          }
+          throw new \RuntimeException($message);
+        }
+        // $converted_output_uri stays '' here - applyViewerFields() already
+        // discovers the worker's output via glob() inside $extract_path,
+        // since the exact model filename inside the archive isn't known
+        // on the Drupal side without extracting it locally.
+      }
+      elseif ($is_archive) {
         $this->updateProgress($entity, 10, 'processing', 'Extracting archive...');
 
         $extract_path = $parts['dirname'] . '/' . $parts['filename'] . '_' . $archive_suffix . '/';

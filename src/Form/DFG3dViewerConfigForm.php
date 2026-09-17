@@ -87,6 +87,8 @@ class DFG3dViewerConfigForm extends FormBase {
       'attribute_id' => $default_config->get('dfg_3dviewer_attribute_id'),
 	  'export_viewer' => $default_config->get('dfg_3dviewer_export_viewer'),
 	  'export_viewer_url' => $default_config->get('dfg_3dviewer_export_viewer_url'),
+	  'conversion_backend' => $default_config->get('dfg_3dviewer_conversion_backend') ?? $default_config->get('conversion_backend') ?? 'local',
+	  'worker_url' => $default_config->get('dfg_3dviewer_worker_url') ?? $default_config->get('worker_url'),
     ];
 
     $form['#dfg_3dviewer_settings'] = $settings;
@@ -289,6 +291,35 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#required' => false
     ];
 
+	$form['backend_wrapper'] = [
+		'#type' => 'fieldset',
+		'#title' => $this->t('Conversion backend'),
+	];
+
+	$form['backend_wrapper']['dfg_3dviewer_conversion_backend'] = [
+		'#default_value' => $default_settings['conversion_backend'],
+		'#type' => 'select',
+		'#options' => [
+			'local' => $this->t('Local scripts (scripts/convert.sh + render.sh, requires Blender on this host)'),
+			'docker' => $this->t('Standalone worker container (Docker)'),
+		],
+		'#title' => $this->t('Conversion backend'),
+		'#description' => $this->t('Choose whether conversion/rendering runs via the local scripts (default, unchanged behaviour) or is delegated to the standalone worker container over HTTP. See worker/README.md.'),
+    ];
+
+	$form['backend_wrapper']['dfg_3dviewer_worker_url'] = [
+		'#default_value' => $default_settings['worker_url'],
+		'#type' => 'textfield',
+		'#title' => $this->t('Worker container URL'),
+		'#required' => false,
+		'#description' => $this->t('Base URL of the standalone worker container, e.g. http://worker:8080 (same Docker network) or a remote https URL. Only used when the backend above is set to Docker.'),
+		'#states' => [
+			'visible' => [
+				':input[name="dfg_3dviewer_conversion_backend"]' => ['value' => 'docker'],
+			],
+		],
+    ];
+
     $form['submit'] = [
 		'#type' => 'submit',
 		'#value' => $this->t('Submit'),
@@ -349,6 +380,8 @@ class DFG3dViewerConfigForm extends FormBase {
     $settings->set('dfg_3dviewer_attribute_id', $new_vals['dfg_3dviewer_attribute_id']);
 	$settings->set('dfg_3dviewer_export_viewer', $new_vals['dfg_3dviewer_export_viewer']);
 	$settings->set('dfg_3dviewer_export_viewer_url', $new_vals['dfg_3dviewer_export_viewer_url']);
+	$settings->set('dfg_3dviewer_conversion_backend', $new_vals['dfg_3dviewer_conversion_backend']);
+	$settings->set('dfg_3dviewer_worker_url', rtrim((string) $new_vals['dfg_3dviewer_worker_url'], '/'));
 
     $settings->save();
 

@@ -81,7 +81,17 @@ The conversion pipeline (Blender + Python + `scripts/convert.sh`/`scripts/render
 docker compose up --build
 ```
 
-This starts the viewer on `:3000` and the conversion API on `:8080` (also reachable from the viewer itself via a same-origin reverse proxy — see [`worker/README.md`](worker/README.md) for the API contract and configuration). The viewer's main menu gets an "Upload & convert" button in this mode, driving the same pipeline through the browser. This is additive — the existing Drupal-integrated pipeline (`ConvertWorker` queue plugin, `scripts/worker.sh`, `drush`) is untouched and keeps working as-is for the current instance.
+This starts one shared conversion API on `:8080`, plus three viewer endpoints — each a static build fronted by nginx, reverse-proxying to that same worker (same-origin, no CORS/config needed):
+
+| Service          | Port   | Build          | Notes |
+|------------------|--------|----------------|-------|
+| `viewer-test`    | `:3000`| `dist/test`    | `npm run build:test` |
+| `viewer-dev`     | `:3001`| `dist/dev`     | `npm run build:dev` |
+| `viewer-sandbox` | `:3002`| `dist/test`    | same build as `viewer-test`, but opens straight into drag-and-drop upload mode (`viewer/sandbox.js`) — normally reached via `?sandbox=1` on any build, baked on here by default |
+
+See [`worker/README.md`](worker/README.md) for the worker's API contract/configuration, and how to add a fourth `dist/prod` service the same way. Each viewer's main menu gets an "Upload & convert" button in this mode, driving the same pipeline through the browser. This is additive — the existing Drupal-integrated pipeline (`ConvertWorker` queue plugin, `scripts/worker.sh`, `drush`) is untouched and keeps working as-is for the current instance.
+
+The Drupal module can also optionally be pointed at the `worker` container instead of running Blender locally — set the module's "Conversion backend" to Docker and give it the worker's URL — without changing anything else about the module's own upload/queue/field workflow. See "Using this worker from the Drupal module" in [`worker/README.md`](worker/README.md).
 
 ## Admin panel setup
 

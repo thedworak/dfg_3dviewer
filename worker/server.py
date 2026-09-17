@@ -40,6 +40,7 @@ APP_DIR = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = Path(os.environ.get("WORKER_SCRIPTS_DIR", str(APP_DIR / "scripts")))
 CONVERT_SCRIPT = SCRIPTS_DIR / "convert.sh"
 RENDER_SCRIPT = SCRIPTS_DIR / "render.sh"
+UNCOMPRESS_SCRIPT = SCRIPTS_DIR / "uncompress.sh"
 JOBS_DIR = Path(os.environ.get("WORKER_JOBS_DIR", "/data/jobs"))
 PORT = int(os.environ.get("WORKER_PORT", "8080"))
 SKIP_RENDER = os.environ.get("WORKER_SKIP_RENDER", "false").lower() == "true"
@@ -57,7 +58,12 @@ DIRECT_FORMATS = {"abc", "dae", "fbx", "obj", "ply", "stl", "wrl", "x3d"}
 SPECIAL_FORMATS = {"ifc", "blend", "gml"}
 PASSTHROUGH_FORMATS = {"glb"}
 SUPPORTED_FORMATS = DIRECT_FORMATS | SPECIAL_FORMATS | PASSTHROUGH_FORMATS
-ARCHIVE_FORMATS = {"zip"}
+# Mirrors ModelFormatManager::getZipFormats() on the Drupal side. "zip" is
+# extracted in-process (safe_extract_zip); the rest shell out to the same
+# scripts/uncompress.sh the Drupal module itself uses locally, so behavior
+# (including its "unrar/7z/tar" dependency requirements) stays identical
+# between the docker and non-docker paths - just moved into this container.
+ARCHIVE_FORMATS = {"zip", "rar", "tar", "gz", "xz"}
 
 JOBS = {}
 JOBS_LOCK = threading.Lock()
@@ -95,6 +101,33 @@ def safe_extract_zip(zip_path: Path, dest: Path) -> None:
             if normalized.startswith("/") or ".." in normalized.split("/"):
                 raise ValueError(f"Unsafe path entry in archive: {name}")
         zf.extractall(dest)
+
+
+def extract_archive(archive_path: Path, dest: Path, archive_type: str) -> None:
+    """Extracts archive_path (of archive_type, one of ARCHIVE_FORMATS) into
+    dest. "zip" is handled in-process; everything else shells out to
+    scripts/uncompress.sh (already present in this image - see
+    worker/Dockerfile), the same script ConvertProcessService::uncompress()
+    calls on the Drupal side for the non-docker backend."""
+    if archive_type == "zip":
+        safe_extract_zip(archive_path, dest)
+        return
+
+    if not UNCOMPRESS_SCRIPT.is_file():
+        raise RuntimeError(f"uncompress.sh not found at {UNCOMPRESS_SCRIPT}")
+
+    dest.mkdir(parents=True, exist_ok=True)
+    # uncompress.sh's legacy auto-convert loop globs "$OUTPUT"* and expects a
+    # trailing slash on -o to treat it as a directory prefix, not a filename
+    # prefix - see scripts/uncompress.sh.
+    output_arg = str(dest) + "/"
+    result = subprocess.run(
+        [str(UNCOMPRESS_SCRIPT), "-t", archive_type, "-i", str(archive_path), "-o", output_arg, "-n", archive_path.stem, "-f", "true"],
+        capture_output=True, text=True, timeout=CONVERT_TIMEOUT,
+    )
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip()
+        raise RuntimeError(f"uncompress.sh failed (exit={result.returncode}): {detail}")
 
 
 def find_model_file(root: Path):
@@ -178,7 +211,7 @@ def run_pipeline(job_id: str, input_path: Path, original_ext: str) -> None:
         if is_archive:
             set_job(job_id, status="processing", progress=10, message="Extracting archive...")
             extract_dir = job_root / "extracted"
-            safe_extract_zip(input_path, extract_dir)
+            extract_archive(input_path, extract_dir, original_ext)
             model_file = find_model_file(extract_dir)
             if model_file is None:
                 raise RuntimeError("No supported 3D model found in archive.")

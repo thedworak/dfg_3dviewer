@@ -23,10 +23,17 @@ services:
               capabilities: [gpu]
     restart: unless-stopped
 
-  viewer:
+  # Three viewer services, one per npm build target you'd otherwise run
+  # locally via `npm run dev:test` / `dev:dev` / `dev:prod` - see "Standalone
+  # Docker setup" in README.md. All three reverse-proxy /api/ and /files/ to
+  # the same `worker` service (see docker/nginx.conf), so any of them can
+  # drive the "Upload & convert" panel identically.
+  viewer-test:
     build:
       context: .
       dockerfile: Dockerfile.viewer
+      args:
+        BUILD_TARGET: test
     ports:
       - "3000:3000"
     volumes:
@@ -35,11 +42,46 @@ services:
       # seeds this directory from the image's built-in viewer-settings.json
       # on first run, then symlinks viewer-settings.json to it on every
       # start, so edits survive `docker compose up --build`.
-      - viewer-settings:/data/viewer-config
+      - viewer-test-settings:/data/viewer-config
+    depends_on:
+      - worker
+    restart: unless-stopped
+
+  viewer-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.viewer
+      args:
+        BUILD_TARGET: dev
+    ports:
+      - "3001:3000"
+    volumes:
+      - viewer-dev-settings:/data/viewer-config
+    depends_on:
+      - worker
+    restart: unless-stopped
+
+  # Same "test" build as viewer-test, but with viewer.sandboxMode baked into
+  # its default viewer-settings.json (drag-and-drop model upload, see
+  # viewer/sandbox.js) so opening this one's root URL lands in sandbox mode
+  # without needing to append ?sandbox=1 by hand.
+  viewer-sandbox:
+    build:
+      context: .
+      dockerfile: Dockerfile.viewer
+      args:
+        BUILD_TARGET: test
+        SANDBOX_MODE: "true"
+    ports:
+      - "3002:3000"
+    volumes:
+      - viewer-sandbox-settings:/data/viewer-config
     depends_on:
       - worker
     restart: unless-stopped
 
 volumes:
   worker-jobs:
-  viewer-settings:
+  viewer-test-settings:
+  viewer-dev-settings:
+  viewer-sandbox-settings:

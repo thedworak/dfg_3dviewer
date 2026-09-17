@@ -9,6 +9,37 @@ This is additive: the Drupal-integrated path (`ConvertWorker` queue plugin →
 exactly as before for the existing instance. This worker is a second, generic
 front door onto the same conversion scripts.
 
+### Using this worker from the Drupal module
+
+`ConvertProcessService` (used by the `ConvertWorker` queue plugin) can
+optionally delegate conversion/rendering to this worker container instead of
+running `scripts/convert.sh`/`render.sh` directly on the Drupal host — useful
+when you don't want Blender installed next to Drupal. This is opt-in and
+fully backward compatible:
+
+- Default (`conversion_backend` unset or `local`): behaviour is unchanged —
+  `ConvertProcessService` runs the local scripts exactly as before.
+- Set `dfg_3dviewer_conversion_backend` to `docker` and
+  `dfg_3dviewer_worker_url` to this worker's base URL (e.g. `http://worker:8080`
+  on the same Docker network, or a remote `https://` URL) in the module's
+  admin form (`/admin/config/.../dfg-3dviewer`, "Conversion backend" section)
+  to have Drupal upload files to `POST /api/model/create`, poll
+  `GET /api/model/status/<id>`, and download the resulting model/thumbnails
+  back onto the Drupal filesystem at the same paths the local scripts would
+  have produced. `ConvertWorker.php` and the entity field logic are
+  unmodified either way — only where the actual Blender/Python work happens
+  changes.
+- With the `docker` backend, archive extraction (`zip`/`rar`/`tar`/`gz`/`xz`)
+  also happens inside the worker container — Drupal uploads the raw archive
+  as-is and never runs `ZipArchive` or `scripts/uncompress.sh` locally, so no
+  archive-tool dependencies (`unzip`, `unrar`, `7z`, `tar`) need to be
+  installed next to Drupal. With the `local` backend, extraction still runs
+  on the Drupal host exactly as before.
+- This worker's pipeline always attempts thumbnail rendering (controlled
+  server-side by `WORKER_SKIP_RENDER`, not per-request), so the "Lightweight"
+  module setting simply causes Drupal to skip downloading/using the
+  thumbnails rather than telling the worker not to render them.
+
 ## Run it
 
 ```bash
@@ -16,13 +47,24 @@ docker compose up --build
 ```
 
 This starts:
-- `worker` on `:8080` - the conversion API described below.
-- `viewer` on `:3000` - a static build of the viewer (`dist/test`) fronted by
-  nginx, which reverse-proxies `/api/` and `/files/` to `worker` (see
-  `docker/nginx.conf`). This keeps the viewer and the API on the same origin,
-  so `viewer/status-poller.js` and the "Upload & convert" panel
-  (`viewer/ui/upload-panel.js`) can use plain relative `fetch()` calls -
-  exactly like the existing Drupal integration does.
+- `worker` on `:8080` - the conversion API described below. Shared by all
+  three viewer services below - there is only ever one worker.
+- `viewer-test` on `:3000` - static `dist/test` build (`npm run build:test`).
+- `viewer-dev` on `:3001` - static `dist/dev` build (`npm run build:dev`).
+- `viewer-sandbox` on `:3002` - the same `dist/test` build as `viewer-test`,
+  but with `viewer.sandboxMode` baked into its `viewer-settings.json` (see
+  `Dockerfile.viewer`'s `SANDBOX_MODE` build arg), so it opens straight into
+  the drag-and-drop upload mode (`viewer/sandbox.js`, normally reached via
+  `?sandbox=1` on any build) without needing the query param.
+
+Each viewer service is nginx fronting its static build, reverse-proxying
+`/api/` and `/files/` to `worker` (see `docker/nginx.conf`). This keeps each
+viewer and the API on the same origin, so `viewer/status-poller.js` and the
+"Upload & convert" panel (`viewer/ui/upload-panel.js`) can use plain relative
+`fetch()` calls - exactly like the existing Drupal integration does. To build
+a `dist/prod` variant the same way, add a fourth service in
+`docker-compose.yml` copying one of the existing `viewer-*` blocks with
+`BUILD_TARGET: prod` and a free host port.
 
 The worker's `:8080` port is still published directly too, for calling the
 API from outside the viewer (curl, scripts, etc).
@@ -115,10 +157,12 @@ container, which is what the toolkit above provides.
 - Job state lives in memory only; restarting the container loses in-flight
   and completed job records (the output files on the `worker-jobs` volume
   survive, only the status lookup by id is lost).
-- Archive support is `.zip` only for now - `scripts/convert.sh` itself has no
-  built-in archive handling (that logic currently lives in
-  `ConvertWorker.php` on the Drupal side), so this worker reimplements just
-  enough of it (safe extraction + first-supported-file detection) to be
-  useful standalone.
+- Archive support covers `zip`, `rar`, `tar`, `gz`, `xz` (`zip` via an
+  in-process, path-traversal-checked extractor; the rest by shelling out to
+  `scripts/uncompress.sh`, already baked into this image - `unrar-free` and
+  `tar` are installed in `worker/Dockerfile` for this). `scripts/convert.sh`
+  itself has no built-in archive handling; that logic normally lives in
+  `ConvertWorker.php` on the Drupal side, so this worker reimplements
+  first-supported-file detection after extraction to be useful standalone.
 - Uploads are buffered fully in memory before being written to disk; fine for
   the sizes this pipeline already deals with, but not streaming.

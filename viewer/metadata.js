@@ -2,6 +2,7 @@ import { truncateString } from "./utils.js";
 import { setupObject, setupCamera, toastHelper } from './viewer-utils.js';
 import { core } from './core.js';
 import { t } from "./i18n-utils.js";
+import { parseFloatParam } from "./viewer-param-utils.js";
 
 let modelSettingsResetState = null;
 
@@ -661,16 +662,166 @@ export function createAIM3IFDropdown(url) {
   document.querySelector("#form-manifesto-content").prepend(group);
 }
 
+function getManifestoFormConfig() {
+  return core.CONFIG?.viewer?.manifestoForm || {};
+}
+
+function getInitialManifestoPosition() {
+  const position = getManifestoFormConfig().position || {};
+  return {
+    x: parseFloatParam(position.x) ?? 0,
+    y: parseFloatParam(position.y) ?? 0,
+  };
+}
+
+function setStoredManifestoPosition(x, y) {
+  core.CONFIG ??= {};
+  core.CONFIG.viewer ??= {};
+  core.CONFIG.viewer.manifestoForm ??= {};
+  core.CONFIG.viewer.manifestoForm.position = {
+    x: Number.isFinite(x) ? x : 0,
+    y: Number.isFinite(y) ? y : 0,
+  };
+}
+
+function setStoredManifestoSize(width, height) {
+  core.CONFIG ??= {};
+  core.CONFIG.viewer ??= {};
+  core.CONFIG.viewer.manifestoForm ??= {};
+  core.CONFIG.viewer.manifestoForm.size = {
+    width: Number.isFinite(width) ? width : null,
+    height: Number.isFinite(height) ? height : null,
+  };
+}
+
+// Makes #form-manifesto draggable (via its header) and resizable, and keeps
+// both in sync with core.CONFIG.viewer.manifestoForm - mirrors the pattern
+// core.editorToolbar already uses for its own position (see
+// initializeEditorToolbarDrag() in editor-toolbar.js), adapted for a
+// normal-flow panel instead of an absolutely-positioned one.
+function initializeManifestoFormDrag(formContainer, handle) {
+  const host = core.viewerWrapper || core.container || formContainer.parentElement;
+
+  const initialPosition = getInitialManifestoPosition();
+  let currentX = initialPosition.x;
+  let currentY = initialPosition.y;
+
+  const applyPosition = () => {
+    formContainer.style.transform = (currentX || currentY)
+      ? `translate3d(${currentX}px, ${currentY}px, 0)`
+      : "";
+    setStoredManifestoPosition(currentX, currentY);
+  };
+  applyPosition();
+
+  const clampPosition = (x, y) => {
+    const hostRect = host?.getBoundingClientRect();
+    // The panel starts horizontally centered (CSS "margin: auto"), so x=0
+    // is that centered rest position - moving left needs a *negative* x,
+    // not just a small positive one. maxX is the slack on either side
+    // (half of the leftover host width) before an edge of the panel would
+    // reach the corresponding edge of the host.
+    const maxX = hostRect
+      ? Math.max((hostRect.width - formContainer.offsetWidth) / 2, 0)
+      : Infinity;
+
+    return {
+      x: Math.min(Math.max(x, -maxX), maxX),
+      // Never move above its natural in-flow position (y < 0) - it already
+      // sits directly below the viewer (see the appendChild call below),
+      // so this alone guarantees dragging can never put it back over the
+      // model, regardless of how the panel is later resized.
+      y: Math.max(y, 0),
+    };
+  };
+
+  let dragState = null;
+
+  const onPointerMove = (event) => {
+    if (!dragState) return;
+    const dx = event.clientX - dragState.startX;
+    const dy = event.clientY - dragState.startY;
+    const next = clampPosition(dragState.originX + dx, dragState.originY + dy);
+    currentX = next.x;
+    currentY = next.y;
+    applyPosition();
+  };
+
+  const stopDrag = () => {
+    if (!dragState) return;
+    dragState = null;
+    formContainer.classList.remove("form-manifesto-dragging");
+    document.removeEventListener("pointermove", onPointerMove);
+    document.removeEventListener("pointerup", stopDrag);
+  };
+
+  handle.addEventListener("pointerdown", (event) => {
+    if (event.target.closest("button")) return; // don't hijack the collapse button
+    dragState = {
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: currentX,
+      originY: currentY,
+    };
+    formContainer.classList.add("form-manifesto-dragging");
+    document.addEventListener("pointermove", onPointerMove);
+    document.addEventListener("pointerup", stopDrag);
+  });
+
+  // Resizing itself is native CSS (see "#form-manifesto { resize: both }"
+  // in viewer/css/external-sources.css) - no custom handle needed. A
+  // ResizeObserver still fires for a user dragging that native handle, so
+  // it's enough to persist the result into config.
+  const initialSize = getManifestoFormConfig().size || {};
+  const initialWidth = parseFloatParam(initialSize.width);
+  const initialHeight = parseFloatParam(initialSize.height);
+  if (initialWidth != null) formContainer.style.width = `${initialWidth}px`;
+  if (initialHeight != null) formContainer.style.height = `${initialHeight}px`;
+
+  let isFirstResizeObservation = true;
+  const resizeObserver = new ResizeObserver((entries) => {
+    // Skip the observer's own initial firing (on observe()) so it doesn't
+    // immediately overwrite a configured size with the pre-resize default.
+    if (isFirstResizeObservation) {
+      isFirstResizeObservation = false;
+      return;
+    }
+    const entry = entries[0];
+    if (!entry) return;
+    setStoredManifestoSize(
+      Math.round(entry.contentRect.width),
+      Math.round(entry.contentRect.height)
+    );
+  });
+  resizeObserver.observe(formContainer);
+}
+
 export function createManifestUI(type = "iiif") {
   const formContainer = document.createElement("div");
   const className = type === "iiif" ? "IIIF" : "AIM3IF";
   const titleKey = type === "iiif" ? "iiif" : "aim3if";
   formContainer.id = `form-manifesto`;
+  // Expanded by default - collapsing is still available via the toggle
+  // button below (a user choice to save is worth keeping), but it no longer
+  // needs to default to collapsed just to stay out of the model's way: see
+  // the appendChild call at the bottom of this function, which now places
+  // this in normal document flow below the viewer instead of as a
+  // position: fixed overlay on top of it.
 
   /* header */
   const header = document.createElement("div");
   header.className = `form-manifesto-header`;
   header.innerHTML = `
+    <span class="form-manifesto-drag-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="14" height="14" focusable="false">
+        <circle cx="9" cy="6" r="1.6" fill="currentColor"/>
+        <circle cx="15" cy="6" r="1.6" fill="currentColor"/>
+        <circle cx="9" cy="12" r="1.6" fill="currentColor"/>
+        <circle cx="15" cy="12" r="1.6" fill="currentColor"/>
+        <circle cx="9" cy="18" r="1.6" fill="currentColor"/>
+        <circle cx="15" cy="18" r="1.6" fill="currentColor"/>
+      </svg>
+    </span>
     <span class="title">${escapeHtml(t(`${titleKey}.loader`, `${className} Loader`))}</span>
     <div class="tools">
       <button type="button" id="manifesto-toggle-collapse" title="${escapeHtml(t(`${titleKey}.collapse`, `Collapse`))}">▾</button>
@@ -699,5 +850,13 @@ export function createManifestUI(type = "iiif") {
 
   formContainer.appendChild(content);
 
-  document.body.appendChild(formContainer);
+  // Appended into the viewer's own wrapper (same host core.editorToolbar
+  // and #credits already use - see getEditorToolbarHost() in
+  // editor-toolbar.js and the appendChild call in main.js), not
+  // document.body: #form-manifesto is normal-flow now (see
+  // viewer/css/external-sources.css), so this renders it as a block below
+  // the viewer instead of a position: fixed overlay on top of it.
+  (core.viewerWrapper || core.container || document.body).appendChild(formContainer);
+
+  initializeManifestoFormDrag(formContainer, header);
 }
