@@ -69,6 +69,38 @@ a `dist/prod` variant the same way, add a fourth service in
 The worker's `:8080` port is still published directly too, for calling the
 API from outside the viewer (curl, scripts, etc).
 
+### Exposing this on a real domain
+
+`docker-compose.yml` only publishes plain host ports (`:3000`/`:3001`/`:3002`/`:8080`).
+For a real deployment, put a host-level nginx (running directly on the
+server, outside Docker - not the same file as `docker/nginx.conf` above,
+which runs *inside* each viewer container) in front of it to terminate
+HTTPS and route real (sub)domains to those ports, plus Drupal itself if it
+runs on the same server. See
+[`docker/host-nginx.example.conf`](../docker/host-nginx.example.conf) for a
+ready-to-adjust template (separate `test.`/`dev.`/`sandbox.` subdomains,
+Let's Encrypt/certbot-shaped HTTPS blocks, and a standard Drupal + PHP-FPM
+block) - it has placeholders (`<MAIN_DOMAIN>`, the Drupal docroot, the
+PHP-FPM socket) that need filling in for your actual server, and hasn't
+been syntax-checked against a real nginx install (`nginx -t` before
+reloading).
+
+That template deliberately leaves the worker's `:8080` API off the public
+domains - each viewer's own `docker/nginx.conf` already reverse-proxies
+`/api/` and `/files/` to it, which is all a browser needs. Docker still
+publishes `:8080` directly on the host's network interface either way
+(`"8080:8080"` in `docker-compose.yml`), so it stays reachable from the
+public internet on that raw port unless you also bind it to loopback via
+`docker-compose.override.yml` (see
+[`docker-compose.override.example.yml`](../docker-compose.override.example.yml)):
+
+```yaml
+services:
+  worker:
+    ports: !override
+      - "127.0.0.1:8080:8080"
+```
+
 ### Local overrides (ports, GPU, etc.)
 
 For machine-specific tweaks - a different host port because `:3000` is

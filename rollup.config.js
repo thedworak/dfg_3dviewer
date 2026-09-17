@@ -147,7 +147,24 @@ function copyBuildAssets() {
         viewerSettingsMain.viewer.gallery.build = false;
         viewerSettingsMain.viewer.editor = true;
         viewerSettingsMain.viewer.lightweight = true;
-        viewerSettingsMain.mainUrl = 'localhost';
+        // Empty (falsy), not the literal string "localhost" - several
+        // runtime call sites do `core.CONFIG?.mainUrl || window.location.origin`
+        // (viewer-helpers.js, thumbnail-capture.js, thumbnail-gallery.js),
+        // and metadata-persistence.js does
+        // `core.CONFIG.mainUrl + "/api/editor/save-metadata"` unconditionally.
+        // A truthy "localhost" (no scheme) wins over those origin fallbacks
+        // and gets treated as a *relative* path segment by fetch()/URL
+        // resolution, producing broken same-origin requests like
+        // "/localhost/api/editor/save-metadata" instead of
+        // "/api/editor/save-metadata" on any real (non-localhost) domain -
+        // e.g. the test-viewer/dev-viewer/sandbox-viewer Docker services
+        // (see docker-compose.yml), each reachable under its own real
+        // hostname. Empty string is falsy, so those call sites correctly
+        // fall back to the page's actual origin instead - on a plain local
+        // `npm run dev:test` that's already `http://localhost:1234`, so
+        // this doesn't change local-dev behavior at all, only fixes it for
+        // any other hostname.
+        viewerSettingsMain.mainUrl = '';
         viewerSettingsMain.baseModulePath = `${drupalModulePrefix}/dist/${envBuild}/assets`;
         if (envBuild === 'dev') {
           viewerSettingsMain.entity.metadata.sourceType = 'IIIF';

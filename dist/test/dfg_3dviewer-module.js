@@ -336,6 +336,16 @@ const VIEWER_I18N = {
       enableWireframeMode: "Enable wireframe mode",
       disableWireframeMode: "Disable wireframe mode",
       download: "Download model",
+      shading: "Shading",
+      shadingStandard: "Standard (PBR)",
+      shadingPhong: "Phong",
+      shadingLambert: "Lambert",
+      shadingToon: "Toon / Flat",
+      shadingCustom: "Custom shader",
+      shadingCustomVertex: "Vertex shader",
+      shadingCustomFragment: "Fragment shader",
+      shadingCustomApply: "Apply",
+      shadingCustomReset: "Reset to default",
     },
     metadata: {
       modelDetails: "Model details",
@@ -533,6 +543,7 @@ const VIEWER_I18N = {
       unsupportedFileFormat: "Unsupported file format.",
 
       performanceModeSet: "Performance mode set to {mode}.",
+      shadingModeApplied: "Shading mode set to {mode}.",
     },
     shortcuts: {
       title: "Controls",
@@ -671,6 +682,16 @@ const VIEWER_I18N = {
       enableWireframeMode: "Włącz tryb siatki",
       disableWireframeMode: "Wyłącz tryb siatki",
       download: "Pobierz model",
+      shading: "Cieniowanie",
+      shadingStandard: "Standardowy (PBR)",
+      shadingPhong: "Phong",
+      shadingLambert: "Lambert",
+      shadingToon: "Toon / Płaski",
+      shadingCustom: "Własny shader",
+      shadingCustomVertex: "Vertex shader",
+      shadingCustomFragment: "Fragment shader",
+      shadingCustomApply: "Zastosuj",
+      shadingCustomReset: "Przywróć domyślny",
     },
     metadata: {
       modelDetails: "Szczegóły modelu",
@@ -868,6 +889,7 @@ const VIEWER_I18N = {
       unsupportedFileFormat: "Nieobsługiwany format pliku.",
 
       performanceModeSet: "Tryb wydajności ustawiony na {mode}.",
+      shadingModeApplied: "Ustawiono tryb cieniowania: {mode}.",
     },
     shortcuts: {
       title: "Sterowanie",
@@ -1005,6 +1027,16 @@ const VIEWER_I18N = {
       enableWireframeMode: "Drahtgittermodus aktivieren",
       disableWireframeMode: "Drahtgittermodus deaktivieren",
       download: "Modell herunterladen",
+      shading: "Schattierung",
+      shadingStandard: "Standard (PBR)",
+      shadingPhong: "Phong",
+      shadingLambert: "Lambert",
+      shadingToon: "Toon / Flach",
+      shadingCustom: "Eigener Shader",
+      shadingCustomVertex: "Vertex-Shader",
+      shadingCustomFragment: "Fragment-Shader",
+      shadingCustomApply: "Anwenden",
+      shadingCustomReset: "Auf Standard zurücksetzen",
     },
     metadata: {
       modelDetails: "Modelldetails",
@@ -1202,6 +1234,7 @@ const VIEWER_I18N = {
       unsupportedFileFormat: "Nicht unterstütztes Dateiformat.",
 
       performanceModeSet: "Leistungsmodus auf {mode} gesetzt.",
+      shadingModeApplied: "Schattierungsmodus auf {mode} gesetzt.",
     },
     shortcuts: {
       title: "Steuerung",
@@ -4915,6 +4948,7 @@ function attachLoadingStatus(viewer) {
 
       this.statusNoticeActive = true;
       this.statusNoticeCurrent = notice;
+      this.updateEditorToolbarState?.();
       this.statusNotice.hidden = false;
       this.renderStatusNoticeContent(notice);
       this.statusNotice.dataset.tone = notice.tone || "info";
@@ -4952,6 +4986,7 @@ function attachLoadingStatus(viewer) {
           this.noticeContainer?.classList.remove("viewer-notice-container--sandbox", "viewer-notice-container--shortcuts");
           this.statusNoticeActive = false;
           this.statusNoticeCurrent = null;
+          this.updateEditorToolbarState?.();
           this.statusNoticeTimer = null;
           this.statusNoticeHideTimer = null;
           this.processStatusNoticeQueue();
@@ -4990,6 +5025,7 @@ function attachLoadingStatus(viewer) {
 
       this.statusNoticeActive = false;
       this.statusNoticeCurrent = null;
+      this.updateEditorToolbarState?.();
       this.processStatusNoticeQueue();
     },
 
@@ -5632,6 +5668,353 @@ function attachMaterialsEditor(Viewer) {
   });
 }
 
+const SHADING_MODES = ["standard", "phong", "lambert", "toon", "custom"];
+
+const DEFAULT_CUSTOM_VERTEX_SHADER = `varying vec3 vNormal;
+varying vec2 vUv;
+
+void main() {
+  vNormal = normalize(normalMatrix * normal);
+  vUv = uv;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
+`;
+
+const DEFAULT_CUSTOM_FRAGMENT_SHADER = `uniform vec3 uColor;
+uniform sampler2D uMap;
+uniform bool uHasMap;
+varying vec3 vNormal;
+varying vec2 vUv;
+
+void main() {
+  vec3 base = uHasMap ? texture2D(uMap, vUv).rgb * uColor : uColor;
+  // Simple rim-light effect: brighten edges facing away from the camera.
+  float rim = 1.0 - max(dot(normalize(vNormal), vec3(0.0, 0.0, 1.0)), 0.0);
+  vec3 color = base + rim * rim * 0.6;
+  gl_FragColor = vec4(color, 1.0);
+}
+`;
+
+function copyCommonMaterialProperties(target, base) {
+  target.name = base.name;
+  target.side = base.side;
+  target.transparent = base.transparent;
+  target.opacity = base.opacity;
+  target.alphaTest = base.alphaTest;
+  target.wireframe = core.wireframeMode || false;
+  target.clippingPlanes = base.clippingPlanes || null;
+  target.clipShadows = base.clipShadows || false;
+  target.vertexColors = base.vertexColors;
+  if (base.map) target.map = base.map;
+  if (base.alphaMap) target.alphaMap = base.alphaMap;
+  if ("normalMap" in target && base.normalMap) {
+    target.normalMap = base.normalMap;
+    if (base.normalScale) target.normalScale = base.normalScale.clone();
+  }
+  if ("aoMap" in target && base.aoMap) {
+    target.aoMap = base.aoMap;
+    target.aoMapIntensity = base.aoMapIntensity ?? 1;
+  }
+  if ("emissive" in target) {
+    target.emissive = base.emissive ? base.emissive.clone() : new THREE.Color(0x000000);
+    if (base.emissiveMap) target.emissiveMap = base.emissiveMap;
+    target.emissiveIntensity = base.emissiveIntensity ?? 1;
+  }
+}
+
+function buildMaterialForMode(baseMaterial, mode, customShader) {
+  const color = baseMaterial.color ? baseMaterial.color.clone() : new THREE.Color(0xffffff);
+
+  switch (mode) {
+    case "phong": {
+      const material = new THREE.MeshPhongMaterial({ color, shininess: 30, specular: 0x111111 });
+      copyCommonMaterialProperties(material, baseMaterial);
+      return material;
+    }
+    case "lambert": {
+      const material = new THREE.MeshLambertMaterial({ color });
+      copyCommonMaterialProperties(material, baseMaterial);
+      return material;
+    }
+    case "toon": {
+      const material = new THREE.MeshToonMaterial({ color });
+      copyCommonMaterialProperties(material, baseMaterial);
+      return material;
+    }
+    case "custom": {
+      const hasMap = Boolean(baseMaterial.map);
+      const material = new THREE.ShaderMaterial({
+        uniforms: {
+          uColor: { value: color },
+          uMap: { value: baseMaterial.map || null },
+          uHasMap: { value: hasMap },
+        },
+        vertexShader: customShader?.vertexShader || DEFAULT_CUSTOM_VERTEX_SHADER,
+        fragmentShader: customShader?.fragmentShader || DEFAULT_CUSTOM_FRAGMENT_SHADER,
+        side: baseMaterial.side,
+        transparent: baseMaterial.transparent,
+        wireframe: core.wireframeMode || false,
+        clipping: true,
+      });
+      material.clippingPlanes = baseMaterial.clippingPlanes || null;
+      material.name = baseMaterial.name;
+      return material;
+    }
+    case "standard":
+    default: {
+      const material = new THREE.MeshStandardMaterial({
+        color,
+        metalness: baseMaterial.metalness ?? 0,
+        roughness: baseMaterial.roughness ?? 1,
+      });
+      material.envMapIntensity = baseMaterial.envMapIntensity ?? 1;
+      copyCommonMaterialProperties(material, baseMaterial);
+      return material;
+    }
+  }
+}
+
+function attachShadingEditor(Viewer) {
+  Object.assign(Viewer, {
+    getShadingRootObjects() {
+      return Array.isArray(core.mainObject) ? core.mainObject.filter((item) => item?.isObject3D) : [];
+    },
+
+    applyShadingMode() {
+      const roots = this.getShadingRootObjects();
+      if (!roots.length) return;
+
+      const mode = SHADING_MODES.includes(this.shadingMode) ? this.shadingMode : "standard";
+      const customShader = mode === "custom"
+        ? { vertexShader: this.customVertexShader, fragmentShader: this.customFragmentShader }
+        : null;
+
+      roots.forEach((root) => {
+        root.traverse((child) => {
+          if (!child.isMesh || !child.material) return;
+
+          // Snapshot the mesh's original (loader-provided) materials once, on the
+          // first shading-mode switch, so every later switch derives from the same
+          // source instead of compounding lossy conversions between material types.
+          if (!child.userData.__shadingBaseMaterials) {
+            child.userData.__shadingBaseMaterials = Array.isArray(child.material)
+              ? child.material.slice()
+              : [child.material];
+          }
+
+          const nextMaterials = child.userData.__shadingBaseMaterials.map((baseMaterial) => {
+            const newMaterial = buildMaterialForMode(baseMaterial, mode, customShader);
+            newMaterial.needsUpdate = true;
+            return newMaterial;
+          });
+
+          child.material = Array.isArray(child.material) ? nextMaterials : nextMaterials[0];
+        });
+      });
+    },
+
+    setShadingMode(mode, options = {}) {
+      if (!SHADING_MODES.includes(mode)) return;
+
+      this.shadingMode = mode;
+      if (mode === "custom") {
+        this.customVertexShader = options.vertexShader || this.customVertexShader || DEFAULT_CUSTOM_VERTEX_SHADER;
+        this.customFragmentShader = options.fragmentShader || this.customFragmentShader || DEFAULT_CUSTOM_FRAGMENT_SHADER;
+      }
+
+      this.applyShadingMode();
+      this.updateEditorToolbarState?.();
+      this.updateShadingSubmenuState?.();
+
+      if (options.silent !== true) {
+        toastHelper("shadingModeApplied", "success", { mode: t$1(`gui.shading${mode.charAt(0).toUpperCase()}${mode.slice(1)}`, mode) });
+      }
+    },
+
+    openCustomShaderDialog() {
+      this.buildShadingDialog();
+      if (!this.shadingDialog) return;
+
+      if (this.shadingDialogInputs) {
+        this.shadingDialogInputs.vertex.value = this.customVertexShader || DEFAULT_CUSTOM_VERTEX_SHADER;
+        this.shadingDialogInputs.fragment.value = this.customFragmentShader || DEFAULT_CUSTOM_FRAGMENT_SHADER;
+      }
+
+      this.updateShadingDialogBounds();
+      this.shadingDialog.hidden = false;
+      this.closeActionMenu?.();
+    },
+
+    closeShadingDialog() {
+      if (!this.shadingDialog) return;
+      this.shadingDialog.hidden = true;
+    },
+
+    buildShadingDialog() {
+      if (!core.container || this.shadingDialog) return;
+
+      const dialog = document.createElement("div");
+      dialog.id = "shadingDialog";
+      dialog.className = "materials-dialog";
+      dialog.hidden = true;
+      dialog.innerHTML = `
+        <div class="materials-dialog__backdrop" data-shading-dismiss="true"></div>
+        <div class="materials-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="shadingDialogTitle">
+          <div class="materials-dialog__header">
+            <h3 id="shadingDialogTitle">${t$1("gui.shadingCustom", "Custom shader")}</h3>
+            <button type="button" class="materials-dialog__close" data-shading-dismiss="true" aria-label="${t$1("gui.shadingCustom", "Custom shader")}">&times;</button>
+          </div>
+          <div class="materials-dialog__body">
+            <label class="materials-dialog__field">
+              <span>${t$1("gui.shadingCustomVertex", "Vertex shader")}</span>
+              <textarea id="shadingDialogVertex" class="shading-dialog__textarea" spellcheck="false"></textarea>
+            </label>
+            <label class="materials-dialog__field">
+              <span>${t$1("gui.shadingCustomFragment", "Fragment shader")}</span>
+              <textarea id="shadingDialogFragment" class="shading-dialog__textarea" spellcheck="false"></textarea>
+            </label>
+            <div class="shading-dialog__actions">
+              <button type="button" id="shadingDialogReset" class="shading-dialog__button">${t$1("gui.shadingCustomReset", "Reset to default")}</button>
+              <button type="button" id="shadingDialogApply" class="shading-dialog__button shading-dialog__button-primary">${t$1("gui.shadingCustomApply", "Apply")}</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(dialog);
+      this.shadingDialog = dialog;
+      this.shadingDialogPosition = null;
+      const panel = dialog.querySelector(".materials-dialog__panel");
+      const header = dialog.querySelector(".materials-dialog__header");
+      this.shadingDialogInputs = {
+        vertex: dialog.querySelector("#shadingDialogVertex"),
+        fragment: dialog.querySelector("#shadingDialogFragment"),
+      };
+
+      this.bindEventListener(dialog, "click", (event) => {
+        const dismissTrigger = event.target?.closest?.("[data-shading-dismiss='true']");
+        if (dismissTrigger) {
+          this.closeShadingDialog();
+        }
+      });
+
+      this.bindEventListener(document, "keydown", (event) => {
+        if (event.key !== "Escape") return;
+        if (!this.shadingDialog || this.shadingDialog.hidden) return;
+        event.preventDefault();
+        this.closeShadingDialog();
+      });
+
+      this.bindEventListener(dialog.querySelector("#shadingDialogReset"), "click", () => {
+        this.shadingDialogInputs.vertex.value = DEFAULT_CUSTOM_VERTEX_SHADER;
+        this.shadingDialogInputs.fragment.value = DEFAULT_CUSTOM_FRAGMENT_SHADER;
+      });
+
+      this.bindEventListener(dialog.querySelector("#shadingDialogApply"), "click", () => {
+        const vertexShader = this.shadingDialogInputs.vertex.value;
+        const fragmentShader = this.shadingDialogInputs.fragment.value;
+        this.setShadingMode("custom", { vertexShader, fragmentShader });
+      });
+
+      this.bindEventListener(header, "pointerdown", (event) => {
+        if (event.button !== 0) return;
+        if (event.target?.closest?.(".materials-dialog__close")) return;
+        const targetRect =
+          Viewer.mainCanvas?.getBoundingClientRect?.() ||
+          core.container?.getBoundingClientRect?.();
+        const panelRect = panel?.getBoundingClientRect?.();
+        if (!targetRect || !panelRect) return;
+
+        this.shadingDialogDragging = {
+          offsetX: event.clientX - panelRect.left,
+          offsetY: event.clientY - panelRect.top,
+        };
+        panel.setPointerCapture?.(event.pointerId);
+        panel.classList.add("is-dragging");
+        event.preventDefault();
+      });
+
+      this.bindEventListener(document, "pointermove", (event) => {
+        if (!this.shadingDialogDragging || !this.shadingDialog || this.shadingDialog.hidden) return;
+        const targetRect =
+          Viewer.mainCanvas?.getBoundingClientRect?.() ||
+          core.container?.getBoundingClientRect?.();
+        const panelRect = panel?.getBoundingClientRect?.();
+        if (!targetRect || !panelRect) return;
+
+        const nextLeft = event.clientX - this.shadingDialogDragging.offsetX;
+        const nextTop = event.clientY - this.shadingDialogDragging.offsetY;
+        const minLeft = targetRect.left + 12;
+        const maxLeft = targetRect.right - panelRect.width - 12;
+        const minTop = targetRect.top + 12;
+        const maxTop = targetRect.bottom - panelRect.height - 12;
+
+        this.shadingDialogPosition = {
+          left: Math.min(Math.max(nextLeft, minLeft), Math.max(minLeft, maxLeft)),
+          top: Math.min(Math.max(nextTop, minTop), Math.max(minTop, maxTop)),
+        };
+
+        this.updateShadingDialogBounds();
+      });
+
+      const stopShadingDialogDrag = () => {
+        this.shadingDialogDragging = false;
+        panel?.classList.remove("is-dragging");
+      };
+
+      this.bindEventListener(document, "pointerup", stopShadingDialogDrag);
+      this.bindEventListener(document, "pointercancel", stopShadingDialogDrag);
+
+      this.bindEventListener(window, "resize", () => this.updateShadingDialogBounds());
+      this.bindEventListener(window, "scroll", () => this.updateShadingDialogBounds(), true);
+      this.bindEventListener(document, "fullscreenchange", () => this.updateShadingDialogBounds());
+    },
+
+    updateShadingDialogBounds() {
+      if (!this.shadingDialog) return;
+      const targetRect =
+        Viewer.mainCanvas?.getBoundingClientRect?.() ||
+        core.container?.getBoundingClientRect?.();
+      if (!targetRect) return;
+
+      const left = Math.max(0, Math.round(targetRect.left));
+      const top = Math.max(0, Math.round(targetRect.top));
+      const width = Math.max(0, Math.round(targetRect.width));
+      const height = Math.max(0, Math.round(targetRect.height));
+      const panel = this.shadingDialog.querySelector(".materials-dialog__panel");
+      const panelWidth = panel?.offsetWidth || Math.min(640, width - 24);
+      const panelHeight = panel?.offsetHeight || Math.min(700, height * 0.88);
+
+      if (!this.shadingDialogPosition) {
+        this.shadingDialogPosition = {
+          left: Math.max(left + 12, left + width - panelWidth - 16),
+          top: Math.max(top + 16, top + Math.min(40, Math.max(16, height * 0.08))),
+        };
+      } else {
+        const minLeft = left + 12;
+        const maxLeft = left + width - panelWidth - 12;
+        const minTop = top + 12;
+        const maxTop = top + height - panelHeight - 12;
+        this.shadingDialogPosition = {
+          left: Math.min(Math.max(this.shadingDialogPosition.left, minLeft), Math.max(minLeft, maxLeft)),
+          top: Math.min(Math.max(this.shadingDialogPosition.top, minTop), Math.max(minTop, maxTop)),
+        };
+      }
+
+      this.shadingDialog.style.left = `${left}px`;
+      this.shadingDialog.style.top = `${top}px`;
+      this.shadingDialog.style.width = `${width}px`;
+      this.shadingDialog.style.height = `${height}px`;
+      if (panel) {
+        panel.style.left = `${this.shadingDialogPosition.left - left}px`;
+        panel.style.top = `${this.shadingDialogPosition.top - top}px`;
+        panel.style.right = "auto";
+        panel.style.transform = "none";
+      }
+    },
+  });
+}
+
 function pickMetadataValue(save, current, original) {
   return save ? current : original;
 }
@@ -6064,6 +6447,21 @@ function validateModelTransform(modelTransform, path, errors) {
     }
   }
   if (modelTransform.wireframe !== undefined) validateBoolean(modelTransform.wireframe, `${path}.wireframe`, errors);
+  if (modelTransform.shadingMode !== undefined) {
+    validateEnum(modelTransform.shadingMode, ["standard", "phong", "lambert", "toon", "custom"], `${path}.shadingMode`, errors);
+  }
+  if (modelTransform.customShader !== undefined) {
+    if (!isPlainObject$1(modelTransform.customShader)) {
+      pushError(errors, `${path}.customShader`, "must be an object");
+    } else {
+      if (modelTransform.customShader.vertexShader !== undefined) {
+        validateString(modelTransform.customShader.vertexShader, `${path}.customShader.vertexShader`, errors);
+      }
+      if (modelTransform.customShader.fragmentShader !== undefined) {
+        validateString(modelTransform.customShader.fragmentShader, `${path}.customShader.fragmentShader`, errors);
+      }
+    }
+  }
 }
 
 function validateAIM3DViewerBlock(block, path, errors) {
@@ -7089,8 +7487,19 @@ function attachAnnotations(Viewer) {
             scale:
               primaryModelObject?.scale?.toArray?.() ||
               [1, 1, 1],
-            
+
             wireframe: core.wireframeMode || false,
+
+            shadingMode: this.shadingMode || "standard",
+
+            ...(this.shadingMode === "custom"
+              ? {
+                  customShader: {
+                    vertexShader: this.customVertexShader || "",
+                    fragmentShader: this.customFragmentShader || "",
+                  },
+                }
+              : {}),
           }
         },
         modified: new Date().toISOString(),
@@ -7533,6 +7942,14 @@ function attachAnnotations(Viewer) {
           if (!child?.material) return;
           child.material.wireframe = core.wireframeMode;
           child.material.needsUpdate = true;
+        });
+      }
+
+      if (typeof modelTransform.shadingMode === "string") {
+        this.setShadingMode?.(modelTransform.shadingMode, {
+          vertexShader: modelTransform.customShader?.vertexShader,
+          fragmentShader: modelTransform.customShader?.fragmentShader,
+          silent: true,
         });
       }
 
@@ -9333,16 +9750,166 @@ function createAIM3IFDropdown(url) {
   document.querySelector("#form-manifesto-content").prepend(group);
 }
 
+function getManifestoFormConfig() {
+  return core.CONFIG?.viewer?.manifestoForm || {};
+}
+
+function getInitialManifestoPosition() {
+  const position = getManifestoFormConfig().position || {};
+  return {
+    x: parseFloatParam(position.x) ?? 0,
+    y: parseFloatParam(position.y) ?? 0,
+  };
+}
+
+function setStoredManifestoPosition(x, y) {
+  core.CONFIG ??= {};
+  core.CONFIG.viewer ??= {};
+  core.CONFIG.viewer.manifestoForm ??= {};
+  core.CONFIG.viewer.manifestoForm.position = {
+    x: Number.isFinite(x) ? x : 0,
+    y: Number.isFinite(y) ? y : 0,
+  };
+}
+
+function setStoredManifestoSize(width, height) {
+  core.CONFIG ??= {};
+  core.CONFIG.viewer ??= {};
+  core.CONFIG.viewer.manifestoForm ??= {};
+  core.CONFIG.viewer.manifestoForm.size = {
+    width: Number.isFinite(width) ? width : null,
+    height: Number.isFinite(height) ? height : null,
+  };
+}
+
+// Makes #form-manifesto draggable (via its header) and resizable, and keeps
+// both in sync with core.CONFIG.viewer.manifestoForm - mirrors the pattern
+// core.editorToolbar already uses for its own position (see
+// initializeEditorToolbarDrag() in editor-toolbar.js), adapted for a
+// normal-flow panel instead of an absolutely-positioned one.
+function initializeManifestoFormDrag(formContainer, handle) {
+  const host = core.viewerWrapper || core.container || formContainer.parentElement;
+
+  const initialPosition = getInitialManifestoPosition();
+  let currentX = initialPosition.x;
+  let currentY = initialPosition.y;
+
+  const applyPosition = () => {
+    formContainer.style.transform = (currentX || currentY)
+      ? `translate3d(${currentX}px, ${currentY}px, 0)`
+      : "";
+    setStoredManifestoPosition(currentX, currentY);
+  };
+  applyPosition();
+
+  const clampPosition = (x, y) => {
+    const hostRect = host?.getBoundingClientRect();
+    // The panel starts horizontally centered (CSS "margin: auto"), so x=0
+    // is that centered rest position - moving left needs a *negative* x,
+    // not just a small positive one. maxX is the slack on either side
+    // (half of the leftover host width) before an edge of the panel would
+    // reach the corresponding edge of the host.
+    const maxX = hostRect
+      ? Math.max((hostRect.width - formContainer.offsetWidth) / 2, 0)
+      : Infinity;
+
+    return {
+      x: Math.min(Math.max(x, -maxX), maxX),
+      // Never move above its natural in-flow position (y < 0) - it already
+      // sits directly below the viewer (see the appendChild call below),
+      // so this alone guarantees dragging can never put it back over the
+      // model, regardless of how the panel is later resized.
+      y: Math.max(y, 0),
+    };
+  };
+
+  let dragState = null;
+
+  const onPointerMove = (event) => {
+    if (!dragState) return;
+    const dx = event.clientX - dragState.startX;
+    const dy = event.clientY - dragState.startY;
+    const next = clampPosition(dragState.originX + dx, dragState.originY + dy);
+    currentX = next.x;
+    currentY = next.y;
+    applyPosition();
+  };
+
+  const stopDrag = () => {
+    if (!dragState) return;
+    dragState = null;
+    formContainer.classList.remove("form-manifesto-dragging");
+    document.removeEventListener("pointermove", onPointerMove);
+    document.removeEventListener("pointerup", stopDrag);
+  };
+
+  handle.addEventListener("pointerdown", (event) => {
+    if (event.target.closest("button")) return; // don't hijack the collapse button
+    dragState = {
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: currentX,
+      originY: currentY,
+    };
+    formContainer.classList.add("form-manifesto-dragging");
+    document.addEventListener("pointermove", onPointerMove);
+    document.addEventListener("pointerup", stopDrag);
+  });
+
+  // Resizing itself is native CSS (see "#form-manifesto { resize: both }"
+  // in viewer/css/external-sources.css) - no custom handle needed. A
+  // ResizeObserver still fires for a user dragging that native handle, so
+  // it's enough to persist the result into config.
+  const initialSize = getManifestoFormConfig().size || {};
+  const initialWidth = parseFloatParam(initialSize.width);
+  const initialHeight = parseFloatParam(initialSize.height);
+  if (initialWidth != null) formContainer.style.width = `${initialWidth}px`;
+  if (initialHeight != null) formContainer.style.height = `${initialHeight}px`;
+
+  let isFirstResizeObservation = true;
+  const resizeObserver = new ResizeObserver((entries) => {
+    // Skip the observer's own initial firing (on observe()) so it doesn't
+    // immediately overwrite a configured size with the pre-resize default.
+    if (isFirstResizeObservation) {
+      isFirstResizeObservation = false;
+      return;
+    }
+    const entry = entries[0];
+    if (!entry) return;
+    setStoredManifestoSize(
+      Math.round(entry.contentRect.width),
+      Math.round(entry.contentRect.height)
+    );
+  });
+  resizeObserver.observe(formContainer);
+}
+
 function createManifestUI(type = "iiif") {
   const formContainer = document.createElement("div");
   const className = type === "iiif" ? "IIIF" : "AIM3IF";
   const titleKey = type === "iiif" ? "iiif" : "aim3if";
   formContainer.id = `form-manifesto`;
+  // Expanded by default - collapsing is still available via the toggle
+  // button below (a user choice to save is worth keeping), but it no longer
+  // needs to default to collapsed just to stay out of the model's way: see
+  // the appendChild call at the bottom of this function, which now places
+  // this in normal document flow below the viewer instead of as a
+  // position: fixed overlay on top of it.
 
   /* header */
   const header = document.createElement("div");
   header.className = `form-manifesto-header`;
   header.innerHTML = `
+    <span class="form-manifesto-drag-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="14" height="14" focusable="false">
+        <circle cx="9" cy="6" r="1.6" fill="currentColor"/>
+        <circle cx="15" cy="6" r="1.6" fill="currentColor"/>
+        <circle cx="9" cy="12" r="1.6" fill="currentColor"/>
+        <circle cx="15" cy="12" r="1.6" fill="currentColor"/>
+        <circle cx="9" cy="18" r="1.6" fill="currentColor"/>
+        <circle cx="15" cy="18" r="1.6" fill="currentColor"/>
+      </svg>
+    </span>
     <span class="title">${escapeHtml(t$1(`${titleKey}.loader`, `${className} Loader`))}</span>
     <div class="tools">
       <button type="button" id="manifesto-toggle-collapse" title="${escapeHtml(t$1(`${titleKey}.collapse`, `Collapse`))}">▾</button>
@@ -9371,7 +9938,15 @@ function createManifestUI(type = "iiif") {
 
   formContainer.appendChild(content);
 
-  document.body.appendChild(formContainer);
+  // Appended into the viewer's own wrapper (same host core.editorToolbar
+  // and #credits already use - see getEditorToolbarHost() in
+  // editor-toolbar.js and the appendChild call in main.js), not
+  // document.body: #form-manifesto is normal-flow now (see
+  // viewer/css/external-sources.css), so this renders it as a block below
+  // the viewer instead of a position: fixed overlay on top of it.
+  (core.viewerWrapper || core.container || document.body).appendChild(formContainer);
+
+  initializeManifestoFormDrag(formContainer, header);
 }
 
 const loadDDSLoader = async () => (await import('./assets/three.js').then(function (n) { return n.j; })).DDSLoader;
@@ -16302,6 +16877,12 @@ function applyManifestConfig(manifest, objectsConfig) {
 
   model.wireframe =
     transform.wireframe ?? false;
+
+  model.shadingMode =
+    transform.shadingMode ?? "standard";
+
+  model.customShader =
+    transform.customShader ?? null;
 }
 
 function getManifestWindowState(manifest) {
@@ -16329,6 +16910,12 @@ function getEditorToolbarIcon(icon) {
     lightTarget: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     lights: '<svg viewBox="0 0 24 24" aria-hidden="true"> <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/> <path d="M12 4V7M12 17v3M4 12h3M17 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/> <path d="M6.5 6.5l2 2M15.5 15.5l2 2M17.5 6.5l-2 2M8.5 15.5l-2 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/> </svg>',
     materials: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 4v8l-8 4-8-4V6l8-4z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 6l8 4M12 6v8M12 14l-8-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+    shading: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+    shadingStandard: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.15"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="9" r="2" fill="currentColor" opacity="0.6"/></svg>',
+    shadingPhong: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="9" r="2.2" fill="currentColor"/></svg>',
+    shadingLambert: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.25"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+    shadingToon: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6 9a6.5 6.5 0 0 1 9-3M6.5 15a6.5 6.5 0 0 0 8 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+    shadingCustom: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 8-5 4 5 4M15 8l5 4-5 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     ambientLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     //cameraLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h3l2-2h4l2 2h3v10H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
     environmentMap: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 7v10l-7 4-7-4V7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 3v18M5 7l7 4 7-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="18.25" cy="5.75" r="1.25" fill="currentColor"/></svg>',
@@ -16785,6 +17372,7 @@ function createEditorToolbar(viewer) {
     { key: "scale", icon: "scale", onClick: () => viewer.toggleObjectTransformMode("scale"), pressed: true, primary: true },
     { key: "lights", icon: "lights", onClick: () => {}, pressed: false, primary: false },    
     { key: "materials", icon: "materials", onClick: () => viewer.openMaterialsFolder(), pressed: false, primary: false },
+    { key: "shading", icon: "shading", onClick: () => {}, pressed: false, primary: false },
     { key: "picking", icon: "picking", onClick: () => viewer.togglePickingMode(), pressed: true, primary: false },
     { key: "hierarchy", icon: "hierarchy", onClick: () => {}, pressed: true, primary: false },
     { key: "annotate", icon: "annotate", onClick: () => viewer.openAnnotationDialogWithAutoPicking(), primary: false },
@@ -16797,7 +17385,7 @@ function createEditorToolbar(viewer) {
     { key: "wireframe", icon: "wireframe", onClick: () => viewer.toggleWireframeMode(), pressed: true, primary: false },    
     { key: "statistics", icon: "statistics", onClick: () => {}, pressed: false, primary: false },
     { key: "background", icon: "background", onClick: () => {}, pressed: false, primary: false },
-    { key: "help", icon: "help", onClick: () => viewer.showKeyboardShortcutsHint({ manual: true }), primary: false },
+    { key: "help", icon: "help", onClick: () => viewer.showKeyboardShortcutsHint({ manual: true }), pressed: true, primary: false },
 
   ];
 
@@ -16812,6 +17400,7 @@ function createEditorToolbar(viewer) {
 
   viewer.editorToolbarButtons = {};
   viewer.environmentMapPreset = viewer.environmentMapPreset || "neutral";
+  viewer.shadingMode = viewer.shadingMode || "standard";
 
   const secondaryTray = document.createElement("div");
   secondaryTray.className = "viewer-editor-toolbar_secondary-tray";
@@ -16829,6 +17418,11 @@ function createEditorToolbar(viewer) {
     button.dataset.primary = tool.primary ? "true" : "false";
     if (tool.key === "materials") {
       const label = t$1("gui.materials", "Materials");
+      button.setAttribute("title", label);
+      button.setAttribute("aria-label", label);
+    }
+    if (tool.key === "shading") {
+      const label = t$1("gui.shading", "Shading");
       button.setAttribute("title", label);
       button.setAttribute("aria-label", label);
     }
@@ -17536,6 +18130,55 @@ function createEditorToolbar(viewer) {
         submenu.appendChild(subButton);
       });
       button.appendChild(submenu);
+    } else if (tool.key === "shading") {
+      button.classList.add("has-submenu");
+      const submenu = document.createElement("div");
+      submenu.className = "viewer-editor-tool_submenu";
+      viewer.shadingSubmenuButtons = {};
+
+      const shadingModes = [
+        { key: "standard", icon: "shadingStandard", label: t$1("gui.shadingStandard", "Standard (PBR)") },
+        { key: "phong", icon: "shadingPhong", label: t$1("gui.shadingPhong", "Phong") },
+        { key: "lambert", icon: "shadingLambert", label: t$1("gui.shadingLambert", "Lambert") },
+        { key: "toon", icon: "shadingToon", label: t$1("gui.shadingToon", "Toon / Flat") },
+      ];
+
+      shadingModes.forEach((item) => {
+        const subButton = document.createElement("button");
+        subButton.type = "button";
+        subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+        subButton.dataset.tool = `shading-${item.key}`;
+        subButton.setAttribute("title", item.label);
+        subButton.setAttribute("aria-label", item.label);
+        subButton.innerHTML = `
+          <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon(item.icon)}</span>
+        `;
+        viewer.bindEventListener(subButton, "click", (event) => {
+          event.stopPropagation();
+          viewer.setShadingMode(item.key);
+        });
+        viewer.shadingSubmenuButtons[item.key] = subButton;
+        submenu.appendChild(subButton);
+      });
+
+      const customButton = document.createElement("button");
+      customButton.type = "button";
+      customButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+      customButton.dataset.tool = "shading-custom";
+      const customLabel = t$1("gui.shadingCustom", "Custom shader");
+      customButton.setAttribute("title", customLabel);
+      customButton.setAttribute("aria-label", customLabel);
+      customButton.innerHTML = `
+        <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon("shadingCustom")}</span>
+      `;
+      viewer.bindEventListener(customButton, "click", (event) => {
+        event.stopPropagation();
+        viewer.openCustomShaderDialog();
+      });
+      viewer.shadingSubmenuButtons.custom = customButton;
+      submenu.appendChild(customButton);
+
+      button.appendChild(submenu);
     } else if (tool.key === "download") {
       if (!core.isLightweight || core.isLocalPreview) {
         button.href = core.downloadModelElement;
@@ -17678,6 +18321,14 @@ function updateClippingPlanesSubmenuState(viewer) {
     "is-active",
     Boolean(core.planeParams?.outline?.visible)
   );
+}
+
+function updateShadingSubmenuState(viewer) {
+  if (!viewer.shadingSubmenuButtons) return;
+  const activeMode = viewer.shadingMode || "standard";
+  Object.entries(viewer.shadingSubmenuButtons).forEach(([key, button]) => {
+    button?.classList.toggle("is-active", key === activeMode);
+  });
 }
 
 function updateLightsSubmenuState(viewer) {
@@ -17957,6 +18608,7 @@ function updateEditorToolbarState(viewer) {
     loadingLogs: viewer.showLoadingLogs === true,
     wireframe: viewer.wireframeMode === true,
     download: false,
+    help: viewer.statusNoticeActive === true && viewer.statusNoticeCurrent?.key === "keyboard-shortcuts-hint",
   };
 
   Object.entries(viewer.editorToolbarButtons).forEach(([key, button]) => {
@@ -17974,6 +18626,7 @@ function updateEditorToolbarState(viewer) {
   updateLightsSubmenuState(viewer);
   updateBackgroundSubmenuState(viewer);
   updateStatisticsSubmenuState(viewer);
+  updateShadingSubmenuState(viewer);
 }
 
 const VIEWER_DEFAULTS = {
@@ -19150,51 +19803,38 @@ async function createCreditsElement() {
   // to the right one; updateSize() reveals it once it applies real coords.
   creditsDiv.style.visibility = "hidden";
 
+  // Single line, spanning the full viewer width (see viewer/css/credits.css)
+  // now that this renders below the viewer instead of overlaying it: logo +
+  // item values separated by a middot, rather than stacked labeled
+  // sections. Item labels (e.g. "CREATED BY") are dropped on purpose -
+  // there's no room for them next to the separators on one line.
   let html = "";
 
   if (credits.logo?.src) {
-    html += `
-      <div class="credits-header">
-        ${credits.logo.url ? `<a href="${credits.logo.url}" target="_blank" rel="noopener noreferrer">` : ""}
-          <img src="${credits.logo.src}" class="credits-main-logo" alt="Logo">
-        ${credits.logo.url ? "</a>" : ""}
-      </div>
-    `;
+    const logoImg = `<img src="${credits.logo.src}" class="credits-main-logo" alt="Logo">`;
+    html += credits.logo.url
+      ? `<a href="${credits.logo.url}" target="_blank" rel="noopener noreferrer" class="credits-main-logo-link">${logoImg}</a>`
+      : logoImg;
   }
 
-  html += `<div class="credits-items">`;
+  const itemsHtml = (credits.items ?? [])
+    .map((item) => {
+      const logoHtml = item.logo?.src
+        ? (() => {
+            const itemLogoImg = `<img class="credits-logo" src="${item.logo.src}" alt="">`;
+            return item.logo.url
+              ? `<a href="${item.logo.url}" target="_blank" rel="noopener noreferrer">${itemLogoImg}</a>`
+              : itemLogoImg;
+          })()
+        : "";
+      const textHtml = item.url
+        ? `<a href="${item.url}" target="_blank" rel="noopener noreferrer" class="credits-link">${item.text}</a>`
+        : `<span class="credits-text">${item.text}</span>`;
+      return `<span class="credits-item">${logoHtml}${textHtml}</span>`;
+    })
+    .join(`<span class="credits-sep" aria-hidden="true">&middot;</span>`);
 
-  for (const item of credits.items ?? []) {
-    html += `
-      <div class="credits-item">
-
-        <div class="credits-label">
-          ${item.label}
-        </div>
-
-        ${
-          item.logo?.src
-            ? `
-              <div class="credits-logo-wrapper">
-                ${item.logo.url ? `<a href="${item.logo.url}" target="_blank" rel="noopener noreferrer">` : ""}
-                  <img class="credits-logo" src="${item.logo.src}" alt="">
-                ${item.logo.url ? "</a>" : ""}
-              </div>
-            `
-            : ""
-        }
-
-        ${
-          item.url
-            ? `<a href="${item.url}" target="_blank" rel="noopener noreferrer" class="credits-link">${item.text}</a>`
-            : `<div class="credits-text">${item.text}</div>`
-        }
-
-      </div>
-    `;
-  }
-
-  html += `</div>`;
+  html += `<span class="credits-items">${itemsHtml}</span>`;
 
   creditsDiv.innerHTML = html;
 
@@ -19966,6 +20606,10 @@ const Viewer$1 = {
     return updateLightsSubmenuState(this);
   },
 
+  updateShadingSubmenuState() {
+    return updateShadingSubmenuState(this);
+  },
+
   async saveEditorMetadata() {
     return saveEditorMetadata(this);
   },
@@ -20054,8 +20698,13 @@ const Viewer$1 = {
       clippingMode: this.parseClippingModeParam(params.get("clip") || params.get("clippingMode")),
       clippingConstants: this.parseVector3Param(params.get("clipConst") || params.get("clipConstants")),
       clippingOutline: this.parseBooleanParam(params.get("clipOutline")),
-      presentationMode: core.PRESENTATION_MODE === true,
-      sandboxMode: core.SANDBOX_MODE === true,
+      // Keep these null when the query param is absent (parseBooleanParam's
+      // own "not specified" value) rather than coercing to a hard boolean -
+      // the config-driven fallback below (`sandboxModeFromConfig ?? ...`)
+      // only runs when this is not itself a boolean, so a coerced `false`
+      // here would permanently shadow viewer-settings.json's own value.
+      presentationMode: presentationModeFromQuery,
+      sandboxMode: sandboxModeFromQuery,
       scale: this.parseVector2Param(params.get("scale")) ?? null,
       showNotifications: this.parseBooleanParam(params.get("showNotifications")),
     };
@@ -20269,6 +20918,13 @@ const Viewer$1 = {
   },
 
   showKeyboardShortcutsHint({ manual = false } = {}) {
+    const isHintCurrentlyShown =
+      this.statusNoticeActive === true && this.statusNoticeCurrent?.key === "keyboard-shortcuts-hint";
+    if (manual && isHintCurrentlyShown) {
+      this.dismissStatusNotice("keyboard-shortcuts-hint");
+      return;
+    }
+
     const duration = manual || !this.keyboardHintShownOnce
       ? this.keyboardHintFirstDurationMs
       : this.keyboardHintDurationMs;
@@ -21248,12 +21904,12 @@ const Viewer$1 = {
         core.editorToolbar.style.bottom = `${bottom}px`;
       }
       if (Viewer$1.creditsWrapper) {
-        Viewer$1.creditsWrapper.style.width = `${effectiveWidth - 64}px`;
-        Viewer$1.creditsWrapper.style.left = `${canvasRect.left + 8}px`;
-        Viewer$1.creditsWrapper.style.bottom = `${bottom - Viewer$1.creditsWrapper.getBoundingClientRect().height - 24}px`;
-        // Created hidden (see createCreditsElement in sandbox.js) so it
-        // doesn't flash at its unstyled position before this runs; reveal
-        // it now that real coordinates are applied.
+        // #credits is a normal-flow block below core.container (see
+        // viewer/css/credits.css and the appendChild call in this file) -
+        // no position/left/right/bottom math needed, it's simply the next
+        // thing in the document after the viewer. Just reveal it - it was
+        // created hidden (see createCreditsElement in sandbox.js) only to
+        // avoid a flash of unstyled content while its own fonts/logo load.
         Viewer$1.creditsWrapper.style.visibility = "visible";
       }
     }
@@ -23036,7 +23692,15 @@ const Viewer$1 = {
       if ((core.isLocalPreview || core.SANDBOX_MODE) && !core.PRESENTATION_MODE) {
         Viewer$1.creditsWrapper = await createCreditsElement();
         if (Viewer$1.creditsWrapper) {
-          core.container.appendChild(Viewer$1.creditsWrapper);
+          // Appended as the last child of the wrapper, after core.container
+          // - #credits is normal-flow (see viewer/css/credits.css), so this
+          // renders it as its own block directly below the viewer rather
+          // than overlapping it. core.container is also the fullscreen
+          // target (.mainContainer.fullscreen gets z-index: 9999 - see
+          // viewer/css/main.css); living outside it here means credits
+          // (like core.editorToolbar - see getEditorToolbarHost() in
+          // editor-toolbar.js) isn't part of that fullscreen overlay.
+          (core.viewerWrapper || core.container).appendChild(Viewer$1.creditsWrapper);
         }
       }
       if (core.SANDBOX_MODE) {
@@ -23163,6 +23827,7 @@ const Viewer$1 = {
 attachLocalizationTheme(Viewer$1);
 attachLoadingStatus(Viewer$1);
 attachMaterialsEditor(Viewer$1);
+attachShadingEditor(Viewer$1);
 attachAnnotations(Viewer$1);
 attachPicking(Viewer$1);
 attachMeasurement(Viewer$1);

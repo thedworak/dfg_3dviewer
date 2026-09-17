@@ -1,9 +1,17 @@
 #form-manifesto {
-  position: fixed;
-  bottom: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(640px, 95vw);
+  /* Normal document flow, appended into the viewer's own wrapper (see
+     createManifestUI() in metadata.js) instead of position: fixed on
+     document.body - it needs to render as its own block below the viewer,
+     not as a viewport-anchored overlay on top of the model. */
+  display: block;
+  width: min(640px, 100%);
+  min-width: 280px;
+  min-height: 120px;
+  box-sizing: border-box;
+  margin: 10px auto 0;
+  /* Draggable via .form-manifesto-header (see initializeManifestoFormDrag()
+     in metadata.js), so moving it is instant instead of animated. */
+  transition: none;
 
   background: rgba(250, 247, 242, 0.94);
   backdrop-filter: blur(8px);
@@ -14,7 +22,17 @@
 
   padding: 14px;
   font-family: system-ui, -apple-system, Segoe UI, sans-serif;
-  z-index: 11;
+
+  /* Native resize handle (bottom-right corner) - resize requires overflow
+     other than visible; a ResizeObserver in metadata.js persists the
+     result into core.CONFIG.viewer.manifestoForm.size. */
+  overflow: auto;
+  resize: both;
+}
+
+#form-manifesto.form-manifesto-dragging {
+  cursor: grabbing;
+  user-select: none;
 }
 
 #form-manifesto * {
@@ -199,17 +217,31 @@
 .form-manifesto-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   margin-bottom: 10px;
+  /* Drag handle - see initializeManifestoFormDrag() in metadata.js. The
+     collapse button inside keeps its own "cursor: pointer" (see the
+     ".form-manifesto-header button" rule below) since it's excluded from
+     the drag itself in metadata.js. */
+  cursor: grab;
+  touch-action: none;
+}
+
+.form-manifesto-drag-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: rgba(37, 33, 28, 0.45);
 }
 
 .form-manifesto-header .title {
+  flex: 1 1 auto;
   font-size: 13px;
   font-weight: 600;
   color: #25211c;
 }
 
 .form-manifesto-header .tools {
+  margin-left: auto;
   display: flex;
   gap: 6px;
 }
@@ -242,6 +274,10 @@
 
 #form-manifesto[data-viewer-theme="dark"] .form-manifesto-header .title {
   color: #eee;
+}
+
+#form-manifesto[data-viewer-theme="dark"] .form-manifesto-drag-icon {
+  color: rgba(238, 238, 238, 0.45);
 }
 
 #form-manifesto[data-viewer-theme="dark"] .form-manifesto-label {
