@@ -69,6 +69,46 @@ a `dist/prod` variant the same way, add a fourth service in
 The worker's `:8080` port is still published directly too, for calling the
 API from outside the viewer (curl, scripts, etc).
 
+### Local overrides (ports, GPU, etc.)
+
+For machine-specific tweaks - a different host port because `:3000` is
+already taken, enabling GPU passthrough, or similar - don't edit
+`docker-compose.yml` itself. Copy `docker-compose.override.example.yml` to
+`docker-compose.override.yml` (gitignored) and uncomment/edit only the keys
+you need:
+
+```bash
+cp docker-compose.override.example.yml docker-compose.override.yml
+```
+
+The example file is entirely commented out, so copying it as-is is a safe
+no-op - `docker compose config` will just show the unchanged base file. To
+actually override something, uncomment **both** the `services:` line and
+the specific example block underneath it; a `services:` key left with
+nothing but comments under it parses as empty/null, which Compose rejects
+with `services must be a mapping` (a real error message you'll get if you
+uncomment an example without also uncommenting the `services:` line above
+it - easy to hit if only skimming the file).
+
+`docker compose up`/`docker compose build` read and merge
+`docker-compose.override.yml` on top of `docker-compose.yml` automatically,
+no extra flags needed. This keeps `docker-compose.yml` itself untouched, so
+pulling in upstream changes (new services, etc.) never conflicts with local
+setup - only the specific keys you actually overrode in your local file
+differ from the tracked one.
+
+One gotcha worth knowing if you add your own overrides beyond the provided
+examples: Compose's default merge behavior for list-valued keys (`ports`,
+`volumes`, ...) is to **concatenate** the base file's list with the
+override's, not replace it - overriding `ports: ["3010:3000"]` without
+anything else would leave the service published on both `:3000` (from
+`docker-compose.yml`) and `:3010`. Use the `!override` tag to replace
+instead of merge (see the port-remap example in
+`docker-compose.override.example.yml`) - this doesn't apply to
+`environment`, which Compose treats as a key-value map even when written as
+a list, so a repeated variable name there already overrides cleanly without
+needing the tag.
+
 ## API
 
 - `POST /api/model/create` - multipart upload, one file field (any name,
