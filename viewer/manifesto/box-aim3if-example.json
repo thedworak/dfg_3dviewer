@@ -87,6 +87,7 @@
       },
       "presentationMode": false,
       "sandbox": false,
+      "forceLocalPreview": false,
       "autorotate": false,
       "autorotateSpeed": 1.5,
       "disableInteraction": false,

@@ -67,6 +67,7 @@
             },
             "presentationMode": { "type": "boolean" },
             "sandbox": { "type": "boolean" },
+            "forceLocalPreview": { "type": "boolean" },
             "autorotate": { "type": "boolean" },
             "autorotateSpeed": { "type": "number" },
             "disableInteraction": { "type": "boolean" },
