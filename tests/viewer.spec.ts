@@ -38,9 +38,9 @@ async function openSandboxViewer(page) {
   await page.waitForSelector('#MainCanvas', { state: 'attached' });
 }
 
-async function waitForModel(page) {
+async function waitForModel(page, timeout = 15_000) {
   await page.waitForFunction(() => window.viewer?.modelLoaded === true, {
-    timeout: 15_000,
+    timeout,
   });
 }
 
@@ -209,8 +209,16 @@ test('sandbox notice updates after language changes', async ({ page }) => {
 
 for (const example of supportedExamples) {
   test(`loads ${example.format.toUpperCase()} example into scene`, async ({ page }) => {
+    // web-ifc ships a ~1.3MB WASM binary plus a multi-MB JS API module -
+    // far heavier than any other loader here - so fetching and compiling it
+    // can occasionally run past the default budget on a cold/slow CI
+    // runner even though it loads in ~1-2s locally.
+    const isIfc = example.format === 'ifc';
+    if (isIfc) {
+      test.setTimeout(60_000);
+    }
     await openViewer(page, example.path);
-    await waitForModel(page);
+    await waitForModel(page, isIfc ? 45_000 : 15_000);
 
     const state = await page.evaluate(() => ({
       modelLoaded: window.viewer.modelLoaded,
