@@ -4,6 +4,20 @@ import { core } from './core.js';
 import { t } from "./i18n-utils.js";
 import { parseFloatParam } from "./viewer-param-utils.js";
 
+// Below this distance (px) from its default glued corner, drag movement is
+// absorbed rather than moved - the panel only actually detaches from the
+// viewer frame's edge past a deliberate drag, instead of on the first pixel.
+const METADATA_GLUE_THRESHOLD = 28;
+
+// How close to the card's bottom-right corner a pointerdown has to land to
+// count as grabbing the native resize grip (see isPointerInResizeCorner()).
+const METADATA_RESIZE_HOTSPOT = 18;
+
+let metadataResizeObserver = null;
+let metadataHostResizeObserver = null;
+let metadataNativeResizeActive = false;
+let metadataNativeResizeReleaseTimer = null;
+
 let modelSettingsResetState = null;
 
 function captureModelSettingsResetState(object) {
@@ -121,6 +135,23 @@ export function expandMetadata() {
   // accessibility
   toggle.setAttribute("aria-expanded", expanded);
 
+  // A manual resize (see observeMetadataResize()) sets an explicit inline
+  // width/height on the card. Left alone, that inline size would keep the
+  // collapsed card just as big as when it was expanded, with the content
+  // hidden inside empty space instead of the card actually shrinking back
+  // to the compact pill - so swap it out for the collapsed default here,
+  // and restore the stored manual size when expanding again.
+  if (card?.classList.contains("metadata-card-resized")) {
+    if (expanded) {
+      const { width, height } = getInitialMetadataSize();
+      if (width != null) card.style.width = `${width}px`;
+      if (height != null) card.style.height = `${height}px`;
+    } else {
+      card.style.width = "";
+      card.style.height = "";
+    }
+  }
+
   if (!expanded) {
     card?.classList.remove("metadata-card-overflowing");
     content.querySelectorAll(".metadata-row-pinned").forEach((row) => {
@@ -181,8 +212,252 @@ function bindMetadataInteractions() {
     if (willPin) row.classList.add("metadata-row-pinned");
   });
 
+  // The card is rebuilt (innerHTML) on every handleMetadataResponse() call,
+  // so its own drag handle is a fresh element each time - delegate from the
+  // container (which persists) instead of binding it directly.
+  core.metadataContainer.addEventListener("pointerdown", (e) => {
+    if (e.target.closest(".metadata-drag-handle")) {
+      startMetadataDrag(e);
+      return;
+    }
+
+    const card = e.target.closest("#metadata-card");
+    if (card && isPointerInResizeCorner(card, e.clientX, e.clientY)) {
+      beginNativeResizeTracking();
+    }
+  });
+
   window.addEventListener("resize", updateMetadataOverflow);
   core.metadataContainer.dataset.boundCollapse = "true";
+}
+
+function getMetadataContainerConfig() {
+  return core.CONFIG?.viewer?.metadataContainer || {};
+}
+
+function getInitialMetadataPosition() {
+  const position = getMetadataContainerConfig().position || {};
+  return {
+    x: parseFloatParam(position.x) ?? 0,
+    y: parseFloatParam(position.y) ?? 0,
+  };
+}
+
+function setStoredMetadataPosition(x, y) {
+  core.CONFIG ??= {};
+  core.CONFIG.viewer ??= {};
+  core.CONFIG.viewer.metadataContainer ??= {};
+  core.CONFIG.viewer.metadataContainer.position = {
+    x: Number.isFinite(x) ? x : 0,
+    y: Number.isFinite(y) ? y : 0,
+  };
+}
+
+function getInitialMetadataSize() {
+  const size = getMetadataContainerConfig().size || {};
+  return {
+    width: parseFloatParam(size.width),
+    height: parseFloatParam(size.height),
+  };
+}
+
+function setStoredMetadataSize(width, height) {
+  core.CONFIG ??= {};
+  core.CONFIG.viewer ??= {};
+  core.CONFIG.viewer.metadataContainer ??= {};
+  core.CONFIG.viewer.metadataContainer.size = {
+    width: Number.isFinite(width) ? width : null,
+    height: Number.isFinite(height) ? height : null,
+  };
+}
+
+function getMetadataDragHost() {
+  // Unlike editorToolbar/manifestoForm (which prefer the wrapper, since one
+  // can render outside the 3D canvas), the metadata panel is an overlay ON
+  // the model - it should stay confined to the actual viewer viewport, not
+  // the taller wrapper that can also contain e.g. the manifesto form below it.
+  return core.container || core.viewerWrapper || null;
+}
+
+function clampMetadataPosition(card, x, y) {
+  const host = getMetadataDragHost();
+  const hostRect = host?.getBoundingClientRect();
+  if (!hostRect) return { x, y };
+
+  // The card's untransformed rest position is the host's top-left corner
+  // (see #metadata-container { left: 0 } in main.css), so a translate of 0
+  // to (hostWidth - cardWidth)/(hostHeight - cardHeight) keeps it fully
+  // inside the viewer, unlike editorToolbar's looser +-hostSize clamp.
+  const maxX = Math.max(hostRect.width - card.offsetWidth, 0);
+  const maxY = Math.max(hostRect.height - card.offsetHeight, 0);
+
+  return {
+    x: Math.min(Math.max(x, 0), maxX),
+    y: Math.min(Math.max(y, 0), maxY),
+  };
+}
+
+function applyMetadataPosition(card, x, y) {
+  card.style.setProperty("--drag-x", `${x}px`);
+  card.style.setProperty("--drag-y", `${y}px`);
+  setStoredMetadataPosition(x, y);
+}
+
+function startMetadataDrag(event) {
+  if (event.button !== 0) return;
+  const card = document.getElementById("metadata-card");
+  if (!card) return;
+
+  event.preventDefault();
+
+  const origin = getInitialMetadataPosition();
+  // Only glued (resisting small drags) when still sitting exactly at the
+  // default corner position - once the user has deliberately moved it away,
+  // further drags follow the pointer 1:1 like editorToolbar's.
+  const glued = origin.x === 0 && origin.y === 0;
+  const startX = event.clientX;
+  const startY = event.clientY;
+
+  card.classList.add("metadata-dragging");
+
+  const onPointerMove = (moveEvent) => {
+    const rawDx = moveEvent.clientX - startX;
+    const rawDy = moveEvent.clientY - startY;
+
+    const dx = glued ? Math.sign(rawDx) * Math.max(Math.abs(rawDx) - METADATA_GLUE_THRESHOLD, 0) : rawDx;
+    const dy = glued ? Math.sign(rawDy) * Math.max(Math.abs(rawDy) - METADATA_GLUE_THRESHOLD, 0) : rawDy;
+
+    const next = clampMetadataPosition(card, origin.x + dx, origin.y + dy);
+    applyMetadataPosition(card, next.x, next.y);
+  };
+
+  const stopDrag = () => {
+    card.classList.remove("metadata-dragging");
+    document.removeEventListener("pointermove", onPointerMove);
+    document.removeEventListener("pointerup", stopDrag);
+    document.removeEventListener("pointercancel", stopDrag);
+  };
+
+  document.addEventListener("pointermove", onPointerMove);
+  document.addEventListener("pointerup", stopDrag);
+  document.addEventListener("pointercancel", stopDrag);
+}
+
+// The card's own width/height also change from expanding/collapsing (an
+// animated CSS transition, not a resize) and from the host ResizeObserver
+// re-clamping it - neither is a user resize. Only trust a ResizeObserver
+// firing as one while the user is actually holding the native grip down.
+function isPointerInResizeCorner(card, clientX, clientY) {
+  const rect = card.getBoundingClientRect();
+  return (
+    clientX >= rect.right - METADATA_RESIZE_HOTSPOT && clientX <= rect.right + 4 &&
+    clientY >= rect.bottom - METADATA_RESIZE_HOTSPOT && clientY <= rect.bottom + 4
+  );
+}
+
+function beginNativeResizeTracking() {
+  metadataNativeResizeActive = true;
+  clearTimeout(metadataNativeResizeReleaseTimer);
+
+  const release = () => {
+    // A short grace period so the ResizeObserver entry for the drag's final
+    // frame (delivered asynchronously after pointerup) still lands while
+    // tracking is considered active.
+    metadataNativeResizeReleaseTimer = setTimeout(() => {
+      metadataNativeResizeActive = false;
+    }, 100);
+    document.removeEventListener("pointerup", release);
+    document.removeEventListener("pointercancel", release);
+  };
+  document.addEventListener("pointerup", release);
+  document.addEventListener("pointercancel", release);
+}
+
+// Resize itself is native CSS (see "#metadata-card.metadata-open { resize:
+// both }" in main.css, enabled only while expanded) - a ResizeObserver just
+// persists the result and keeps it from growing past the viewer's edge,
+// mirroring initializeManifestoFormDrag()'s resize handling below.
+function observeMetadataResize(card) {
+  metadataResizeObserver?.disconnect();
+
+  let isFirstObservation = true;
+  metadataResizeObserver = new ResizeObserver((entries) => {
+    if (isFirstObservation) {
+      isFirstObservation = false;
+      return;
+    }
+    if (!metadataNativeResizeActive) return;
+
+    const entry = entries[0];
+    if (!entry) return;
+
+    const host = getMetadataDragHost();
+    const hostRect = host?.getBoundingClientRect();
+    const { x, y } = getInitialMetadataPosition();
+
+    let width = entry.contentRect.width;
+    let height = entry.contentRect.height;
+
+    if (hostRect) {
+      const maxWidth = Math.max(hostRect.width - x, 160);
+      const maxHeight = Math.max(hostRect.height - y, 60);
+      if (width > maxWidth) {
+        width = maxWidth;
+        card.style.width = `${width}px`;
+      }
+      if (height > maxHeight) {
+        height = maxHeight;
+        card.style.height = `${height}px`;
+      }
+    }
+
+    card.classList.add("metadata-card-resized");
+    setStoredMetadataSize(Math.round(width), Math.round(height));
+  });
+  metadataResizeObserver.observe(card);
+}
+
+// Keep the stored position valid if the viewer itself is resized, mirroring
+// initializeEditorToolbarDrag()'s own host ResizeObserver in editor-toolbar.js.
+function observeMetadataHost(card) {
+  const host = getMetadataDragHost();
+  metadataHostResizeObserver?.disconnect();
+  if (!host) return;
+
+  metadataHostResizeObserver = new ResizeObserver(() => {
+    const { x, y } = getInitialMetadataPosition();
+    const next = clampMetadataPosition(card, x, y);
+    applyMetadataPosition(card, next.x, next.y);
+  });
+  metadataHostResizeObserver.observe(host);
+}
+
+function initializeMetadataDragAndResize() {
+  const card = document.getElementById("metadata-card");
+  if (!card) return;
+
+  if (core.container && getComputedStyle(core.container).position === "static") {
+    core.container.style.position = "relative";
+  }
+
+  const { x, y } = getInitialMetadataPosition();
+  applyMetadataPosition(card, x, y);
+
+  const { width, height } = getInitialMetadataSize();
+  const hasStoredSize = width != null || height != null;
+  card.classList.toggle("metadata-card-resized", hasStoredSize);
+  // The card is always (re)built collapsed (see the HTML template in
+  // handleMetadataResponse()) - only apply a previously stored manual size
+  // once it's actually expanded again (see expandMetadata()), or a freshly
+  // rebuilt card would immediately show a large collapsed box with its
+  // content hidden inside empty space.
+  if (hasStoredSize && card.classList.contains("metadata-open")) {
+    if (width != null) card.style.width = `${width}px`;
+    if (height != null) card.style.height = `${height}px`;
+  }
+
+  observeMetadataResize(card);
+  observeMetadataHost(card);
 }
 
 /**
@@ -352,6 +627,7 @@ export async function handleMetadataResponse(
 
   var metadataContent =
     '<div id="metadata-card">' +
+      '<div class="metadata-drag-handle" title="' + escapeHtml(t("metadata.move", "Move")) + '"></div>' +
       '<button id="metadata-collapse" class="metadata-collapse metadata-collapsed" type="button" aria-expanded="false" aria-controls="metadata-content">' +
         '<span class="metadata-toggle-icon" aria-hidden="true"></span>' +
         '<span class="metadata-toggle-copy">' +
@@ -430,6 +706,7 @@ export async function handleMetadataResponse(
     '</div>';  
   appendMetadata(metadataContent);
   bindMetadataInteractions();
+  initializeMetadataDragAndResize();
   requestAnimationFrame(updateMetadataOverflow);
 }
 

@@ -151,6 +151,7 @@ export const VIEWER_I18N = {
       objectType: "Object type",
       reconstructionAuthors: "Reconstruction authors",
       reconstructionPeriod: "Reconstruction period",
+      move: "Move",
     },
     manifesto: {
       source: "Manifest type",
@@ -497,6 +498,7 @@ export const VIEWER_I18N = {
       objectType: "Typ obiektu",
       reconstructionAuthors: "Autorzy rekonstrukcji",
       reconstructionPeriod: "Okres rekonstrukcji",
+      move: "Przesuń",
     },
     manifesto: {
       source: "Typ manifestu",
@@ -842,6 +844,7 @@ export const VIEWER_I18N = {
       objectType: "Objekttyp",
       reconstructionAuthors: "Rekonstruktionsautoren",
       reconstructionPeriod: "Rekonstruktionsperiode",
+      move: "Verschieben",
     },
     manifesto: {
       source: "Manifesttyp",

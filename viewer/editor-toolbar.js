@@ -1638,6 +1638,7 @@ export function updateEditorToolbarLabels(viewer) {
       : t("gui.showLoadingLogs", "Show loading logs"),
     hierarchy: t("gui.hierarchy", "Hierarchy"),
     materials: t("gui.materials", "Materials"),
+    shading: t("gui.shading", "Shading"),
     background: t("gui.backgroundColor", "Background Color"),
     statistics: t("gui.statistics", "Statistics"),
     expand: viewer.isToolbarExpanded
