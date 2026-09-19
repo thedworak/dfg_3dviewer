@@ -11,6 +11,14 @@ export const loadTDSLoader = async () => (await import("three/examples/jsm/loade
 export const loadPCDLoader = async () => (await import("three/examples/jsm/loaders/PCDLoader.js")).PCDLoader;
 export const loadGLTFLoader = async () => (await import("three/examples/jsm/loaders/GLTFLoader.js")).GLTFLoader;
 export const loadDRACOLoader = async () => (await import("three/examples/jsm/loaders/DRACOLoader.js")).DRACOLoader;
+export const loadUSDLoader = async () => (await import("three/examples/jsm/loaders/USDLoader.js")).USDLoader;
+export const loadThreeMFLoader = async () => (await import("three/examples/jsm/loaders/3MFLoader.js")).ThreeMFLoader;
+export const loadAMFLoader = async () => (await import("three/examples/jsm/loaders/AMFLoader.js")).AMFLoader;
+export const loadVRMLLoader = async () => (await import("three/examples/jsm/loaders/VRMLLoader.js")).VRMLLoader;
+export const loadKMZLoader = async () => (await import("three/examples/jsm/loaders/KMZLoader.js")).KMZLoader;
+export const loadVOXLoader = async () => (await import("three/examples/jsm/loaders/VOXLoader.js")).VOXLoader;
+export const loadVOXBuildMesh = async () => (await import("three/examples/jsm/loaders/VOXLoader.js")).buildMesh;
+export const loadLWOLoader = async () => (await import("three/examples/jsm/loaders/LWOLoader.js")).LWOLoader;
 export const loadIFCLoader = async () => (await import("./js/loaders/IFCLoader.js")).IFCLoader;
 export const loadRoomEnvironment = async () => (await import("three/examples/jsm/environments/RoomEnvironment.js")).RoomEnvironment;
 export const loadHDRLoader = async () => (await import("three/examples/jsm/loaders/HDRLoader.js")).HDRLoader;
@@ -33,6 +41,16 @@ const loaderMap = {
   xyz: loadXYZLoader,
   '3ds': loadTDSLoader,
   pcd: loadPCDLoader,
+  usd: loadUSDLoader,
+  usda: loadUSDLoader,
+  usdc: loadUSDLoader,
+  usdz: loadUSDLoader,
+  '3mf': loadThreeMFLoader,
+  amf: loadAMFLoader,
+  wrl: loadVRMLLoader,
+  kmz: loadKMZLoader,
+  vox: loadVOXLoader,
+  lwo: loadLWOLoader,
   ifc: loadIFCLoader
 };
 
@@ -644,6 +662,51 @@ export async function loadModel() {
         let mp = core.fileObject.path;
         if (core.CONFIG.entity.proxyPath !== undefined) mp = core.getProxyPath(mp);
         const object = await loadAsync(loader, mp + core.fileObject.basename + "." + core.fileObject.extension, onProgress);
+        await afterLoad({ object });
+        break;
+      }
+
+      // Formats whose three.js loader returns a ready-to-add object/group.
+      case "usd":
+      case "usda":
+      case "usdc":
+      case "usdz":
+      case "3mf":
+      case "amf":
+      case "wrl": {
+        const loader = await createLoader(core.fileObject.extension.toLowerCase());
+        const object = await loadAsync(loader, modelPath, onProgress);
+        object.position.set(0, 0, 0);
+        await afterLoad({ object });
+        break;
+      }
+
+      case "kmz": {
+        const loader = await createLoader("kmz");
+        const kmz = await loadAsync(loader, modelPath, onProgress);
+        await afterLoad({ object: kmz.scene });
+        break;
+      }
+
+      case "vox": {
+        const loader = await createLoader("vox");
+        const buildMesh = await loadVOXBuildMesh();
+        const vox = await loadAsync(loader, modelPath, onProgress);
+        // Files with a scene graph come back assembled in vox.scene; plain
+        // ones only carry their chunks.
+        const object = vox.scene ?? new THREE.Group();
+        if (!vox.scene) {
+          vox.chunks.forEach((chunk) => object.add(buildMesh(chunk)));
+        }
+        await afterLoad({ object });
+        break;
+      }
+
+      case "lwo": {
+        const loader = await createLoader("lwo");
+        const lwo = await loadAsync(loader, modelPath, onProgress);
+        const object = new THREE.Group();
+        (lwo.meshes || []).forEach((mesh) => object.add(mesh));
         await afterLoad({ object });
         break;
       }

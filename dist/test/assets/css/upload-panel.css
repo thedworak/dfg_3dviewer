@@ -236,3 +236,42 @@
     width: calc(100vw - 36px);
   }
 }
+
+.upload-panel-auth {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--viewer-panel-border);
+}
+
+.upload-panel-auth[hidden] {
+  display: none;
+}
+
+.upload-panel-auth input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: var(--viewer-panel-bg);
+  color: var(--viewer-panel-text);
+  font: inherit;
+  font-size: 12px;
+  padding: 6px 8px;
+}
+
+.upload-panel-auth button {
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: none;
+  color: var(--viewer-panel-text);
+  font: inherit;
+  font-weight: 600;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.upload-panel-auth button:hover {
+  opacity: 0.8;
+}

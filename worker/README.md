@@ -144,9 +144,12 @@ needing the tag.
 ## API
 
 - `POST /api/model/create` - multipart upload, one file field (any name,
-  first file part wins). Accepts the formats `scripts/convert.sh` already
-  understands (`abc dae fbx obj ply stl wrl x3d ifc blend gml glb`) plus
-  `.zip` archives containing one of those. Returns:
+  first file part wins). Accepts, plus `.zip` archives containing one of them:
+  - Blender importers via `scripts/convert.sh`: `abc dae fbx obj ply stl wrl x3d usd usda usdc usdz ifc blend gml glb`
+  - converted without Blender by `scripts/convert_mesh.py` (needs `cascadio`, `trimesh`, `networkx`, installed in the image): `step stp iges igs 3mf`
+  - kept as uploaded and served as-is, no GLB and no thumbnails (the viewer loads them itself): `gltf 3ds pcd xyz amf kmz vox lwo`
+
+  Returns:
   ```json
   { "entity_id": "<job id>", "status": "started" }
   ```
@@ -177,13 +180,37 @@ Set via environment variables on the `worker` container (see
 | `WORKER_PORT`              | `8080`         | HTTP listen port                          |
 | `WORKER_JOBS_DIR`          | `/data/jobs`   | Where uploads/outputs are stored          |
 | `WORKER_SKIP_RENDER`       | `false`        | Skip Blender thumbnail rendering          |
-| `WORKER_MAX_UPLOAD_BYTES`  | `524288000`    | Upload size cap (500 MB)                  |
+| `WORKER_MAX_UPLOAD_BYTES`  | `104857600`    | Upload size cap (100 MB); larger uploads get HTTP 413 |
+| `WORKER_AUTH_MODE`         | `off`          | `off` (open, as before) or `required` (upload/delete need a login) |
+| `WORKER_AUTH_REGISTRATION` | `approval`     | `open` (instantly active), `approval` (admin must approve), `closed` |
+| `WORKER_ADMIN_USER` / `WORKER_ADMIN_PASSWORD` | unset | Creates/resets an admin account on start (password >= 8 chars) |
+| `WORKER_AUTH_SECRET`       | generated      | Session-signing key; otherwise generated once into the volume |
+| `WORKER_AUTH_SESSION_TTL`  | `604800`       | Login lifetime in seconds (7 days)        |
 | `WORKER_CONVERT_TIMEOUT`   | `1800`         | Seconds before a convert.sh call is killed|
 | `WORKER_RENDER_TIMEOUT`    | `900`          | Seconds before a render.sh call is killed |
 | `WORKER_RENDER_DEVICE`     | `CPU`          | `CPU`, `GPU`, or `AUTO` - see below       |
 
 `SPATH` and `BLENDER_BIN` are set in the image itself (`/app`, `blender`) -
 you don't need `scripts/.env` inside the container.
+
+### Accounts (optional)
+
+With `WORKER_AUTH_MODE=required`, uploading and deleting need a logged-in account, so you can see who uploads what. Browsing and serving finished models (`/api/jobs`, `/files/...`) stays public, so shared links keep working.
+
+- Set the variables in a `.env` next to `docker-compose.yml` (e.g. `WORKER_AUTH_MODE=required`, `WORKER_ADMIN_USER=you`, `WORKER_ADMIN_PASSWORD=...`), then recreate the worker.
+- Visitors register in the viewer's upload panel. With the default `approval` registration, new accounts stay *pending* until you approve them.
+- Endpoints: `GET /api/auth/config`, `GET /api/auth/me`, `POST /api/auth/register|login|logout` (JSON `{username, password}`; the session is an HttpOnly, SameSite=Lax cookie, `Secure` when the proxy sends `X-Forwarded-Proto: https`). Five failed logins lock a username for five minutes.
+- Every upload records its account, original filename and size in `<job>/owner.json`. Users can delete only their own uploads; admins can delete any. Jobs from before accounts were enabled are admin-only.
+- Supervise from the command line (there is deliberately no admin HTTP API):
+
+```bash
+docker compose exec worker python3 /app/worker/server.py admin users
+docker compose exec worker python3 /app/worker/server.py admin uploads
+docker compose exec worker python3 /app/worker/server.py admin approve alice
+# also: disable <user>, promote <user>, demote <user>, delete-user <user>
+```
+
+The viewer-side switch lives in the AIM3D manifest (`AIM3DViewer.viewer.auth`, see `viewer/manifesto/AIM3DViewer-schema.md`), but that only controls whether the login UI is shown - **the worker setting is what actually enforces access**, because a manifest is client-side data.
 
 ### GPU rendering
 

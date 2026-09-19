@@ -837,6 +837,12 @@ export function attachAnnotations(Viewer) {
           viewer: {
             container: core.CONFIG?.viewer?.container || "DFG_3DViewer",
             mailUrl: core.CONFIG.mainUrl || "https://localhost",
+            mainUrl: core.CONFIG.mainUrl || undefined,
+            baseModulePath: core.CONFIG.baseModulePath || undefined,
+            background: core.CONFIG.viewer?.background || undefined,
+            credits: core.CONFIG.viewer?.credits || undefined,
+            manifestoForm: core.CONFIG.viewer?.manifestoForm || undefined,
+            metadataContainer: core.CONFIG.viewer?.metadataContainer || undefined,
             baseNamespace: "https://localhost",
             metadataUrl: "https://localhost",
             theme: this.currentTheme === "light" ? "light" : "dark",
@@ -922,6 +928,10 @@ export function attachAnnotations(Viewer) {
             metadata: {
               source: core.CONFIG.entity?.metadata?.source || "",
             },
+            exportViewerUrl: core.CONFIG.entity?.exportViewerUrl || undefined,
+            api: core.CONFIG.api?.thumbnailUploadEndpoint
+              ? { thumbnailUploadEndpoint: core.CONFIG.api.thumbnailUploadEndpoint }
+              : undefined,
             fileUpload: core.CONFIG.viewer.fileUpload || "fbf95bddee5160d515b982b3fd2e05f7",
             fileName: core.CONFIG.viewer.fileName || "faa602a0be629324806aef22892cdbe5",
             imageGeneration: core.CONFIG.viewer.imageGeneration || "f605dc6b727a1099b9e52b3ccbdf5673",

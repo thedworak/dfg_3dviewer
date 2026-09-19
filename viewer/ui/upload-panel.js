@@ -4,13 +4,153 @@ import { t } from "../i18n-utils.js";
 import { StatusPoller } from "../status-poller.js";
 import { UltraLoader } from "../ultra-loader.js";
 
-// Mirrors the case-branches scripts/convert.sh actually handles, plus the
-// .zip archive support the standalone worker (worker/server.py) adds on top
-// of it - see worker/README.md.
-const SUPPORTED_EXTENSIONS = ["abc", "dae", "fbx", "obj", "ply", "stl", "wrl", "x3d", "ifc", "blend", "gml", "glb", "zip"];
+// Mirrors worker/server.py's SUPPORTED_FORMATS: Blender importers, STEP/IGES/3MF
+// converted without Blender, and formats the viewer reads directly (kept as
+// uploaded, no thumbnails), plus the .zip archive support the standalone
+// worker adds on top - see worker/README.md.
+const SUPPORTED_EXTENSIONS = [
+  "abc", "dae", "fbx", "obj", "ply", "stl", "wrl", "x3d", "ifc", "blend", "gml", "glb",
+  "usd", "usda", "usdc", "usdz",
+  "step", "stp", "iges", "igs", "3mf",
+  "gltf", "3ds", "pcd", "xyz", "amf", "kmz", "vox", "lwo",
+  "zip",
+];
+
+// Same-origin worker endpoints (see worker/auth.py). Cookies travel by default
+// for same-origin requests, so no credentials option is needed.
+async function authRequest(path, body) {
+  const response = await fetch(`/api/auth/${path}`, {
+    method: body ? "POST" : "GET",
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let data = {};
+  try {
+    data = await response.json();
+  } catch (_error) {
+    // Non-JSON error page (e.g. from a proxy) - fall through with the status.
+  }
+  if (!response.ok) {
+    const error = new Error(data.error || `HTTP ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  return data;
+}
 
 export function attachUploadPanel(Viewer) {
   Object.assign(Viewer, {
+    // Accounts are enforced by the worker (WORKER_AUTH_MODE); the manifest's
+    // AIM3DViewer.viewer.auth only tunes the UI: enabled:false hides it,
+    // allowRegistration:false hides the register button.
+    async refreshAuthState() {
+      const uiConfig = core.CONFIG?.viewer?.auth || {};
+      const state = { required: false, registration: false, user: null, maxUploadBytes: 0 };
+      // The upload limit is reported by the same endpoint, so query it even
+      // when the manifest hides the login UI.
+      try {
+        const serverConfig = await authRequest("config");
+        state.maxUploadBytes = Number(serverConfig.maxUploadBytes) || 0;
+        if (uiConfig.enabled !== false) {
+          state.required = serverConfig.mode === "required";
+          state.registration =
+            serverConfig.registration !== "closed" && uiConfig.allowRegistration !== false;
+          if (state.required) {
+            state.user = (await authRequest("me")).user || null;
+          }
+        }
+      } catch (_error) {
+        // Older worker without /api/auth/*: behaves as accounts off.
+      }
+      this.authState = state;
+      this.renderUploadHint();
+      this.renderAuthSection();
+      return state;
+    },
+
+    renderUploadHint() {
+      const hint = this.uploadInputs?.hint;
+      if (!hint) return;
+      const maxBytes = this.authState?.maxUploadBytes;
+      const limit = maxBytes
+        ? " " + t("uploadPanel.maxSize", { size: Math.round(maxBytes / 1048576) }, "Maximum upload size: {size} MB.")
+        : "";
+      hint.textContent = this.uploadInputs.hintBase + limit;
+    },
+
+    renderAuthSection() {
+      const section = this.uploadInputs?.auth;
+      if (!section) return;
+      const state = this.authState || { required: false };
+      section.hidden = !state.required;
+      section.textContent = "";
+      const canUpload = !state.required || Boolean(state.user);
+      if (this.uploadInputs.submit) this.uploadInputs.submit.disabled = !canUpload;
+      if (!state.required) return;
+
+      if (state.user) {
+        const label = document.createElement("span");
+        label.textContent = t("uploadPanel.signedInAs", { user: state.user }, "Signed in as {user}");
+        const logout = document.createElement("button");
+        logout.type = "button";
+        logout.textContent = t("uploadPanel.logout", "Log out");
+        this.bindEventListener(logout, "click", () => this.handleAuthAction("logout"));
+        section.append(label, logout);
+        return;
+      }
+
+      const hint = document.createElement("p");
+      hint.className = "upload-panel-hint";
+      hint.textContent = t("uploadPanel.loginRequired", "Log in to upload models.");
+      const username = document.createElement("input");
+      username.type = "text";
+      username.autocomplete = "username";
+      username.placeholder = t("uploadPanel.username", "Username");
+      username.setAttribute("aria-label", username.placeholder);
+      const password = document.createElement("input");
+      password.type = "password";
+      password.autocomplete = "current-password";
+      password.placeholder = t("uploadPanel.password", "Password");
+      password.setAttribute("aria-label", password.placeholder);
+      const login = document.createElement("button");
+      login.type = "button";
+      login.textContent = t("uploadPanel.login", "Log in");
+      this.bindEventListener(login, "click", () =>
+        this.handleAuthAction("login", { username: username.value.trim(), password: password.value })
+      );
+      section.append(hint, username, password, login);
+      if (state.registration) {
+        const register = document.createElement("button");
+        register.type = "button";
+        register.textContent = t("uploadPanel.register", "Register");
+        this.bindEventListener(register, "click", () =>
+          this.handleAuthAction("register", { username: username.value.trim(), password: password.value })
+        );
+        section.appendChild(register);
+      }
+    },
+
+    async handleAuthAction(action, credentials) {
+      try {
+        if (action === "register") {
+          const result = await authRequest("register", credentials);
+          this.setUploadStatusText(
+            result.status === "pending"
+              ? t("uploadPanel.registeredPending", "Account created. It must be approved before you can upload.")
+              : t("uploadPanel.registeredActive", "Account created. You can log in now."),
+            "success"
+          );
+          return;
+        }
+        await authRequest(action, credentials || {});
+        this.setUploadStatusText("");
+        await this.refreshAuthState();
+        this.loadPreviousModelsList();
+      } catch (error) {
+        this.setUploadStatusText(error.message, "error");
+      }
+    },
+
     isUploadPanelOpen() {
       return this.uploadPanel?.hidden === false;
     },
@@ -39,7 +179,7 @@ export function attachUploadPanel(Viewer) {
       this.uploadPanel.hidden = !willShow;
       if (willShow) {
         this.resetUploadPanelState();
-        this.loadPreviousModelsList();
+        this.refreshAuthState().then(() => this.loadPreviousModelsList());
       }
     },
 
@@ -52,7 +192,8 @@ export function attachUploadPanel(Viewer) {
     resetUploadPanelState() {
       if (!this.uploadInputs) return;
       this.uploadInputs.file.value = "";
-      this.uploadInputs.submit.disabled = false;
+      const state = this.authState;
+      this.uploadInputs.submit.disabled = Boolean(state?.required && !state.user);
       this.setUploadStatusText("");
     },
 
@@ -86,10 +227,11 @@ export function attachUploadPanel(Viewer) {
           <button id="uploadPanelClose" type="button" aria-label="${panelText.closeAria}">X</button>
         </div>
         <form id="uploadPanelForm" class="upload-panel-body">
+          <div id="uploadPanelAuth" class="upload-panel-auth" hidden></div>
           <label class="upload-panel-field">${panelText.fileLabel}
-            <input id="uploadPanelFileInput" type="file" accept=".abc,.dae,.fbx,.obj,.ply,.stl,.wrl,.x3d,.ifc,.blend,.gml,.glb,.zip" required />
+            <input id="uploadPanelFileInput" type="file" accept="${SUPPORTED_EXTENSIONS.map((ext) => `.${ext}`).join(",")}" required />
           </label>
-          <p class="upload-panel-hint">${panelText.formatsHint}</p>
+          <p id="uploadPanelHint" class="upload-panel-hint">${panelText.formatsHint}</p>
           <div class="upload-panel-actions">
             <button id="uploadPanelSubmit" type="submit">${panelText.submit}</button>
           </div>
@@ -107,6 +249,9 @@ export function attachUploadPanel(Viewer) {
         file: panel.querySelector("#uploadPanelFileInput"),
         submit: panel.querySelector("#uploadPanelSubmit"),
         status: panel.querySelector("#uploadPanelStatus"),
+        auth: panel.querySelector("#uploadPanelAuth"),
+        hint: panel.querySelector("#uploadPanelHint"),
+        hintBase: panelText.formatsHint,
       };
       this.uploadPreviousList = panel.querySelector("#uploadPanelPreviousList");
 
@@ -169,6 +314,13 @@ export function attachUploadPanel(Viewer) {
 
         this.bindEventListener(button, "click", () => this.loadPreviousModel(job));
         item.appendChild(button);
+
+        // canDelete is computed by the worker (own uploads, or admin, or
+        // accounts off); older workers omit it and allow deleting as before.
+        if (job.canDelete === false) {
+          list.appendChild(item);
+          return;
+        }
 
         const deleteButton = document.createElement("button");
         deleteButton.type = "button";
@@ -251,6 +403,15 @@ export function attachUploadPanel(Viewer) {
         return;
       }
 
+      const maxBytes = this.authState?.maxUploadBytes;
+      if (maxBytes && file.size > maxBytes) {
+        this.setUploadStatusText(
+          t("uploadPanel.tooLargeLimit", { size: Math.round(maxBytes / 1048576) }, "That file is larger than the {size} MB upload limit."),
+          "error"
+        );
+        return;
+      }
+
       const formData = new FormData();
       formData.append("file", file);
 
@@ -259,6 +420,15 @@ export function attachUploadPanel(Viewer) {
 
       try {
         const response = await fetch("/api/model/create", { method: "POST", body: formData });
+        if (response.status === 401) {
+          await this.refreshAuthState();
+          this.setUploadStatusText(t("uploadPanel.loginRequired", "Log in to upload models."), "error");
+          return;
+        }
+        if (response.status === 413) {
+          this.setUploadStatusText(t("uploadPanel.tooLarge", "That file is too large to upload."), "error");
+          return;
+        }
         if (!response.ok) {
           throw new Error(`Upload failed (HTTP ${response.status})`);
         }
@@ -283,7 +453,8 @@ export function attachUploadPanel(Viewer) {
         toastHelper("uploadError", "error");
       } finally {
         if (this.uploadInputs?.submit) {
-          this.uploadInputs.submit.disabled = false;
+          const state = this.authState;
+          this.uploadInputs.submit.disabled = Boolean(state?.required && !state.user);
         }
       }
     },

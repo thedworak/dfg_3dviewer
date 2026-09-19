@@ -40,6 +40,12 @@ dist/**  text eol=lf
 *.obj   binary
 *.mtl   binary
 *.3ds   binary
+*.3mf   binary
+*.usdz  binary
+*.usdc  binary
+*.kmz   binary
+*.vox   binary
+*.lwo   binary
 *.fbx   binary
 *.dae   binary
 *.stl   binary

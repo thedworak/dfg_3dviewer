@@ -11,8 +11,17 @@ could talk to either backend interchangeably:
   GET  /api/model/status/<id>   -> {progress, status, message, ...}
   GET  /api/jobs                -> {jobs: [...]} previously converted models
   DELETE /api/jobs/<id>         delete a job's input/converted/render files
+  GET  /api/auth/config         -> {mode, registration}   (optional accounts,
+  GET  /api/auth/me                 POST /api/auth/register|login|logout -
+  POST /api/auth/...                see worker/auth.py and worker/README.md)
   GET  /files/<id>/<path>       static access to converted output
   GET  /healthz                 liveness check
+
+Accepted uploads (see the *_FORMATS sets below): Blender importers via
+scripts/convert.sh (abc dae fbx obj ply stl wrl x3d usd usda usdc usdz ifc blend
+gml glb), STEP/IGES/3MF via scripts/convert_mesh.py (step stp iges igs 3mf), and
+formats the viewer reads itself, stored as uploaded without thumbnails (gltf 3ds
+pcd xyz amf kmz vox lwo), plus .zip/.rar/.tar/.xz/.gz archives of any of these.
 
 This process is single-node and keeps in-flight job state (progress/status
 messages) in memory only, so that is lost on restart - it is meant for
@@ -30,11 +39,14 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 import uuid
 import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
+
+from auth import AuthError, AuthStore
 
 APP_DIR = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = Path(os.environ.get("WORKER_SCRIPTS_DIR", str(APP_DIR / "scripts")))
@@ -49,15 +61,37 @@ SKIP_RENDER = os.environ.get("WORKER_SKIP_RENDER", "false").lower() == "true"
 # `deploy.resources.reservations.devices`, and nvidia-container-toolkit on
 # the host) - see docker-compose.yml and worker/README.md.
 RENDER_DEVICE = os.environ.get("WORKER_RENDER_DEVICE", "CPU").upper()
-MAX_UPLOAD_BYTES = int(os.environ.get("WORKER_MAX_UPLOAD_BYTES", str(500 * 1024 * 1024)))
+MAX_UPLOAD_BYTES = int(os.environ.get("WORKER_MAX_UPLOAD_BYTES", str(100 * 1024 * 1024)))
+# Optional accounts (off by default) - see worker/auth.py. Stored on the same
+# persistent volume as the jobs, in a dot-directory the job listing skips.
+AUTH = AuthStore(
+    JOBS_DIR / ".auth",
+    mode=os.environ.get("WORKER_AUTH_MODE", "off").lower(),
+    registration=os.environ.get("WORKER_AUTH_REGISTRATION", "approval").lower(),
+    secret=os.environ.get("WORKER_AUTH_SECRET", ""),
+)
 CONVERT_TIMEOUT = int(os.environ.get("WORKER_CONVERT_TIMEOUT", "1800"))
 RENDER_TIMEOUT = int(os.environ.get("WORKER_RENDER_TIMEOUT", "900"))
 
-# Extensions scripts/convert.sh actually has a case-branch for.
-DIRECT_FORMATS = {"abc", "dae", "fbx", "obj", "ply", "stl", "wrl", "x3d"}
+CONVERT_MESH_SCRIPT = SCRIPTS_DIR / "convert_mesh.py"
+
+# Extensions scripts/convert.sh actually has a case-branch for (Blender
+# importers; the usd* ones need a Blender build with USD support - the
+# official release this image installs has it).
+DIRECT_FORMATS = {"abc", "dae", "fbx", "obj", "ply", "stl", "wrl", "x3d", "usd", "usda", "usdc", "usdz"}
 SPECIAL_FORMATS = {"ifc", "blend", "gml"}
 PASSTHROUGH_FORMATS = {"glb"}
-SUPPORTED_FORMATS = DIRECT_FORMATS | SPECIAL_FORMATS | PASSTHROUGH_FORMATS
+# Converted to GLB by scripts/convert_mesh.py (OpenCASCADE / trimesh), not
+# Blender.
+MESH_CONVERT_FORMATS = {"step", "stp", "iges", "igs", "3mf"}
+# Formats the viewer loads directly (three.js loaders): kept as uploaded and
+# served as-is. No GLB is produced and, since thumbnails are rendered from a
+# GLB by Blender, no thumbnails either. ("gltf" is only useful inside a .zip
+# together with its .bin/textures, which stay next to it in the job folder.)
+VIEWER_NATIVE_FORMATS = {"gltf", "3ds", "pcd", "xyz", "amf", "kmz", "vox", "lwo"}
+SUPPORTED_FORMATS = (
+    DIRECT_FORMATS | SPECIAL_FORMATS | PASSTHROUGH_FORMATS | MESH_CONVERT_FORMATS | VIEWER_NATIVE_FORMATS
+)
 # Mirrors ModelFormatManager::getZipFormats() on the Drupal side. "zip" is
 # extracted in-process (safe_extract_zip); the rest shell out to the same
 # scripts/uncompress.sh the Drupal module itself uses locally, so behavior
@@ -151,15 +185,23 @@ def scan_job(job_id: str, job_dir: Path):
         return None
 
     glb_candidates = sorted(job_root.rglob("*.glb"))
-    if not glb_candidates:
-        return None
-    # A file under a "gltf" folder is convert.sh's own output and is
-    # preferred; otherwise fall back to whatever .glb is there (e.g. a
-    # passthrough upload that skipped conversion entirely).
-    glb_path = next(
-        (p for p in glb_candidates if "gltf" in p.relative_to(job_root).parts),
-        glb_candidates[0],
-    )
+    if glb_candidates:
+        # A file under a "gltf" folder is convert.sh's own output and is
+        # preferred; otherwise fall back to whatever .glb is there (e.g. a
+        # passthrough upload that skipped conversion entirely).
+        glb_path = next(
+            (p for p in glb_candidates if "gltf" in p.relative_to(job_root).parts),
+            glb_candidates[0],
+        )
+    else:
+        # Viewer-native formats are served as uploaded (no GLB exists).
+        native = [
+            p for p in sorted(job_root.rglob("*"))
+            if p.is_file() and p.suffix.lower().lstrip(".") in VIEWER_NATIVE_FORMATS
+        ]
+        if not native:
+            return None
+        glb_path = native[0]
 
     image_urls = []
     views_dirs = sorted(job_root.rglob("views"))
@@ -183,7 +225,36 @@ def scan_job(job_id: str, job_dir: Path):
     }
 
 
-def list_jobs():
+def read_owner(job_id: str):
+    try:
+        return json.loads((JOBS_DIR / job_id / "owner.json").read_text("utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def write_owner(job_id: str, username, filename: str, size: int) -> None:
+    (JOBS_DIR / job_id / "owner.json").write_text(json.dumps({
+        "user": username,
+        "filename": filename,
+        "size": size,
+        "createdAt": int(time.time()),
+    }), "utf-8")
+
+
+def can_delete_job(job_id: str, user) -> bool:
+    """Open worker: anyone. With accounts: admins, or the account that
+    uploaded it (jobs from before accounts were enabled: admins only)."""
+    if not AUTH.enabled:
+        return True
+    if not user:
+        return False
+    if user["role"] == "admin":
+        return True
+    owner = read_owner(job_id)
+    return bool(owner and owner.get("user") == user["username"])
+
+
+def list_jobs(user=None):
     jobs = []
     if not JOBS_DIR.is_dir():
         return jobs
@@ -195,6 +266,10 @@ def list_jobs():
         except OSError:
             continue
         if job is not None:
+            job["canDelete"] = can_delete_job(job["id"], user)
+            if AUTH.enabled and user and user["role"] == "admin":
+                owner = read_owner(job["id"])
+                job["owner"] = owner.get("user") if owner else None
             jobs.append(job)
     jobs.sort(key=lambda job: job["createdAt"], reverse=True)
     return jobs
@@ -221,8 +296,30 @@ def run_pipeline(job_id: str, input_path: Path, original_ext: str) -> None:
         if ext not in SUPPORTED_FORMATS:
             raise RuntimeError(f"Unsupported source format: .{ext}")
 
+        if ext in VIEWER_NATIVE_FORMATS:
+            # Nothing to convert or render: the viewer reads this format itself.
+            set_job(
+                job_id,
+                status="ready",
+                progress=100,
+                message="Uploaded (viewer-native format, no conversion or thumbnails)",
+                model_url=f"/files/{job_id}/{work_path.relative_to(job_root)}",
+                image_urls=[],
+            )
+            return
+
         if ext in PASSTHROUGH_FORMATS:
             glb_path = work_path
+        elif ext in MESH_CONVERT_FORMATS:
+            set_job(job_id, status="processing", progress=25, message="Converting model...")
+            glb_path = work_path.parent / "gltf" / (work_path.stem + ".glb")
+            result = subprocess.run(
+                [sys.executable, str(CONVERT_MESH_SCRIPT), "-i", str(work_path), "-o", str(glb_path)],
+                capture_output=True, text=True, timeout=CONVERT_TIMEOUT,
+            )
+            if result.returncode != 0:
+                detail = result.stderr.strip() or result.stdout.strip()
+                raise RuntimeError(f"convert_mesh.py failed (exit={result.returncode}): {detail}")
         else:
             set_job(job_id, status="processing", progress=25, message="Converting model...")
             result = subprocess.run(
@@ -277,6 +374,10 @@ def run_pipeline(job_id: str, input_path: Path, original_ext: str) -> None:
         set_job(job_id, status="failed", progress=100, message=str(exc))
 
 
+class UploadTooLarge(ValueError):
+    pass
+
+
 def parse_multipart_file(handler: "Handler"):
     content_type = handler.headers.get("Content-Type", "")
     if "multipart/form-data" not in content_type:
@@ -291,8 +392,10 @@ def parse_multipart_file(handler: "Handler"):
         raise ValueError("Missing multipart boundary")
 
     length = int(handler.headers.get("Content-Length", "0"))
-    if length <= 0 or length > MAX_UPLOAD_BYTES:
-        raise ValueError("Invalid or too large upload")
+    if length > MAX_UPLOAD_BYTES:
+        raise UploadTooLarge(f"Upload exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB limit")
+    if length <= 0:
+        raise ValueError("Empty upload")
     body = handler.rfile.read(length)
 
     boundary_bytes = ("--" + boundary).encode()
@@ -325,15 +428,63 @@ def parse_multipart_file(handler: "Handler"):
 class Handler(BaseHTTPRequestHandler):
     server_version = "DFG3DWorker/0.1"
 
-    def _send_json(self, status: int, payload: dict) -> None:
+    def _send_json(self, status: int, payload: dict, cookie: str = None) -> None:
         body = json.dumps(payload).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("Access-Control-Allow-Origin", "*")
+        if cookie:
+            self.send_header("Set-Cookie", cookie)
         self.end_headers()
         self.wfile.write(body)
+
+    def _current_user(self):
+        return AUTH.user_from_cookie_header(self.headers.get("Cookie", ""))
+
+    def _require_user(self):
+        """Returns the account allowed to change things, or None after
+        sending a 401. With accounts off, everyone is allowed (returns {})."""
+        if not AUTH.enabled:
+            return {}
+        user = self._current_user()
+        if user is None:
+            self._send_json(401, {"error": "Login required"})
+        return user
+
+    def _read_json_body(self) -> dict:
+        length = int(self.headers.get("Content-Length", "0") or 0)
+        if length <= 0 or length > 4096:
+            raise AuthError(400, "Invalid request body")
+        try:
+            data = json.loads(self.rfile.read(length))
+        except ValueError:
+            raise AuthError(400, "Body must be JSON")
+        if not isinstance(data, dict):
+            raise AuthError(400, "Body must be a JSON object")
+        return data
+
+    def _cookie_is_secure(self) -> bool:
+        return self.headers.get("X-Forwarded-Proto", "").lower() == "https"
+
+    def _handle_auth(self, action: str) -> None:
+        try:
+            if action == "logout":
+                self._send_json(200, {"status": "ok"}, cookie=AUTH.cookie_header("", self._cookie_is_secure(), clear=True))
+                return
+            data = self._read_json_body()
+            if action == "register":
+                result = AUTH.register(data.get("username", ""), data.get("password", ""))
+                self._send_json(201, result)
+            elif action == "login":
+                user = AUTH.login(data.get("username", ""), data.get("password", ""))
+                self._send_json(
+                    200, user,
+                    cookie=AUTH.cookie_header(AUTH.issue_token(user["username"]), self._cookie_is_secure()),
+                )
+        except AuthError as exc:
+            self._send_json(exc.status, {"error": exc.message})
 
     def log_message(self, fmt, *args) -> None:
         sys.stderr.write("%s - %s\n" % (self.address_string(), fmt % args))
@@ -367,8 +518,21 @@ class Handler(BaseHTTPRequestHandler):
             })
             return
 
+        if path == "/api/auth/config":
+            self._send_json(200, {
+                "mode": AUTH.mode,
+                "registration": AUTH.registration,
+                "maxUploadBytes": MAX_UPLOAD_BYTES,
+            })
+            return
+
+        if path == "/api/auth/me":
+            user = self._current_user()
+            self._send_json(200, {"user": user["username"] if user else None, "role": user["role"] if user else None})
+            return
+
         if path == "/api/jobs":
-            self._send_json(200, {"jobs": list_jobs()})
+            self._send_json(200, {"jobs": list_jobs(self._current_user())})
             return
 
         match = re.match(r"/files/([A-Za-z0-9_-]+)/(.+)", path)
@@ -383,6 +547,10 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/model/create":
             self._handle_create()
             return
+        match = re.fullmatch(r"/api/auth/(register|login|logout)", path)
+        if match:
+            self._handle_auth(match.group(1))
+            return
         self._send_json(404, {"error": "not found"})
 
     def do_DELETE(self) -> None:
@@ -394,9 +562,15 @@ class Handler(BaseHTTPRequestHandler):
         self._send_json(404, {"error": "not found"})
 
     def _handle_delete(self, job_id: str) -> None:
+        user = self._require_user()
+        if user is None:
+            return
         job_dir = JOBS_DIR / job_id
         if not job_dir.is_dir():
             self._send_json(404, {"error": "not found"})
+            return
+        if not can_delete_job(job_id, user or None):
+            self._send_json(403, {"error": "You can only delete your own uploads"})
             return
         shutil.rmtree(job_dir)
         with JOBS_LOCK:
@@ -404,8 +578,16 @@ class Handler(BaseHTTPRequestHandler):
         self._send_json(200, {"status": "deleted"})
 
     def _handle_create(self) -> None:
+        # Authenticate before reading the (up to MAX_UPLOAD_BYTES) body, so
+        # anonymous clients can't make the worker buffer uploads.
+        user = self._require_user()
+        if user is None:
+            return
         try:
             filename, content = parse_multipart_file(self)
+        except UploadTooLarge as exc:
+            self._send_json(413, {"error": str(exc)})
+            return
         except ValueError as exc:
             self._send_json(400, {"error": str(exc)})
             return
@@ -420,6 +602,7 @@ class Handler(BaseHTTPRequestHandler):
         input_dir.mkdir(parents=True, exist_ok=True)
         input_path = input_dir / Path(filename).name
         input_path.write_bytes(content)
+        write_owner(job_id, user.get("username") if user else None, input_path.name, len(content))
 
         thread = threading.Thread(target=run_pipeline, args=(job_id, input_path, ext), daemon=True)
         thread.start()
@@ -443,10 +626,63 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
 
+def admin_cli(args) -> None:
+    """docker compose exec worker python3 /app/worker/server.py admin <command>"""
+    commands = "users | uploads | approve <user> | disable <user> | promote <user> | demote <user> | delete-user <user>"
+    if not args:
+        sys.exit(f"usage: server.py admin {commands}")
+    command, rest = args[0], args[1:]
+    try:
+        if command == "users":
+            for u in AUTH.list_users():
+                created = time.strftime("%Y-%m-%d", time.localtime(u["createdAt"]))
+                print(f"{u['username']:<32} {u['role']:<6} {u['status']:<9} created {created}")
+        elif command == "uploads":
+            rows = []
+            for job_dir in JOBS_DIR.iterdir():
+                if job_dir.is_dir() and JOB_ID_RE.fullmatch(job_dir.name):
+                    owner = read_owner(job_dir.name) or {}
+                    rows.append((owner.get("createdAt", 0), job_dir.name, owner.get("user") or "(none)",
+                                 owner.get("filename", "?"), owner.get("size", 0)))
+            for created, job_id, user, filename, size in sorted(rows):
+                when = time.strftime("%Y-%m-%d %H:%M", time.localtime(created)) if created else "unknown"
+                print(f"{when}  {job_id}  {user:<20} {size / 1048576:8.1f} MB  {filename}")
+        elif command in ("approve", "disable", "promote", "demote", "delete-user") and len(rest) == 1:
+            user = rest[0]
+            if command == "approve":
+                AUTH.update_user(user, status="active")
+            elif command == "disable":
+                AUTH.update_user(user, status="disabled")
+            elif command == "promote":
+                AUTH.update_user(user, role="admin")
+            elif command == "demote":
+                AUTH.update_user(user, role="user")
+            else:
+                AUTH.delete_user(user)
+            print(f"ok: {command} {user}")
+        else:
+            sys.exit(f"usage: server.py admin {commands}")
+    except AuthError as exc:
+        sys.exit(exc.message)
+
+
 def main() -> None:
+    if len(sys.argv) > 1 and sys.argv[1] == "admin":
+        admin_cli(sys.argv[2:])
+        return
+
     JOBS_DIR.mkdir(parents=True, exist_ok=True)
+    admin_user = os.environ.get("WORKER_ADMIN_USER", "")
+    admin_password = os.environ.get("WORKER_ADMIN_PASSWORD", "")
+    if AUTH.enabled and admin_user and admin_password:
+        AUTH.ensure_admin(admin_user, admin_password)
+        print(f"Accounts enabled (registration: {AUTH.registration}); admin '{admin_user}' ensured.")
+    elif AUTH.enabled:
+        print(f"Accounts enabled (registration: {AUTH.registration}); no WORKER_ADMIN_USER/PASSWORD set.")
     if not CONVERT_SCRIPT.is_file():
         sys.exit(f"convert.sh not found at {CONVERT_SCRIPT} - set WORKER_SCRIPTS_DIR")
+    if not CONVERT_MESH_SCRIPT.is_file():
+        sys.exit(f"convert_mesh.py not found at {CONVERT_MESH_SCRIPT} - set WORKER_SCRIPTS_DIR")
 
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     print(f"DFG 3D Viewer worker listening on :{PORT} (jobs dir: {JOBS_DIR})")

@@ -38,3 +38,5 @@ viewer-settings.json
 .codex
 
 /viewer/admin/admin.sqlite
+# Docker Compose variables (worker accounts: admin password etc.) - never commit
+/.env

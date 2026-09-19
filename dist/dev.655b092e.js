@@ -728,7 +728,7 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details at 
 https://www.gnu.org/licenses/.
-*/ //Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF
+*/ //Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF, USD/USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "Viewer", ()=>Viewer);
@@ -742,6 +742,7 @@ var _thumbnailGalleryJs = require("./ui/thumbnail-gallery.js");
 var _localizationThemeJs = require("./ui/localization-theme.js");
 var _loadingStatusJs = require("./ui/loading-status.js");
 var _materialsEditorJs = require("./editor/materials-editor.js");
+var _shadingJs = require("./editor/shading.js");
 var _metadataPersistenceJs = require("./editor/metadata-persistence.js");
 var _annotationsJs = require("./editor/annotations.js");
 var _measurementJs = require("./editor/measurement.js");
@@ -790,6 +791,16 @@ window.viewer = {
     scene: null,
     renderer: null,
     controls: null
+};
+// Small inline icons for the keyboard-shortcuts hint (see
+// getKeyboardShortcutsDetailHtml() below) - inline SVG rather than image
+// assets so they pick up the notice's `currentColor` in both themes without
+// separate light/dark files.
+const SHORTCUT_ICONS = {
+    mouse: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="19" rx="6"/><line x1="12" y1="2" x2="12" y2="10"/><circle cx="12" cy="6" r="1" fill="currentColor" stroke="none"/></svg>',
+    keyboard: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><rect x="5" y="9.5" width="1.6" height="1.6" fill="currentColor" stroke="none"/><rect x="9.2" y="9.5" width="1.6" height="1.6" fill="currentColor" stroke="none"/><rect x="13.4" y="9.5" width="1.6" height="1.6" fill="currentColor" stroke="none"/><rect x="17.4" y="9.5" width="1.6" height="1.6" fill="currentColor" stroke="none"/><rect x="6" y="13.2" width="12" height="1.6" fill="currentColor" stroke="none"/></svg>',
+    touch: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="7" stroke-dasharray="1.5 3"/></svg>',
+    dragAndDrop: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="3" x2="12" y2="13"/><polyline points="8 9 12 13 16 9"/><line x1="4" y1="19" x2="20" y2="19"/></svg>'
 };
 const Viewer = {
     ...(0, _viewerDefaultsJs.VIEWER_DEFAULTS),
@@ -1217,6 +1228,9 @@ const Viewer = {
     updateLightsSubmenuState () {
         return (0, _editorToolbarJs.updateLightsSubmenuState)(this);
     },
+    updateShadingSubmenuState () {
+        return (0, _editorToolbarJs.updateShadingSubmenuState)(this);
+    },
     async saveEditorMetadata () {
         return (0, _metadataPersistenceJs.saveEditorMetadata)(this);
     },
@@ -1288,8 +1302,13 @@ const Viewer = {
             clippingMode: this.parseClippingModeParam(params.get("clip") || params.get("clippingMode")),
             clippingConstants: this.parseVector3Param(params.get("clipConst") || params.get("clipConstants")),
             clippingOutline: this.parseBooleanParam(params.get("clipOutline")),
-            presentationMode: (0, _coreJs.core).PRESENTATION_MODE === true,
-            sandboxMode: (0, _coreJs.core).SANDBOX_MODE === true,
+            // Keep these null when the query param is absent (parseBooleanParam's
+            // own "not specified" value) rather than coercing to a hard boolean -
+            // the config-driven fallback below (`sandboxModeFromConfig ?? ...`)
+            // only runs when this is not itself a boolean, so a coerced `false`
+            // here would permanently shadow viewer-settings.json's own value.
+            presentationMode: presentationModeFromQuery,
+            sandboxMode: sandboxModeFromQuery,
             scale: this.parseVector2Param(params.get("scale")) ?? null,
             showNotifications: this.parseBooleanParam(params.get("showNotifications"))
         };
@@ -1436,13 +1455,49 @@ const Viewer = {
         if (!this.addAnnotationController) return;
         this.addAnnotationController.enable?.();
     },
-    getKeyboardShortcutsText () {
-        return [
-            (0, _i18NUtilsJs.t)("shortcuts.mouse"),
-            (0, _i18NUtilsJs.t)("shortcuts.keyboard"),
-            (0, _i18NUtilsJs.t)("shortcuts.touch"),
-            (0, _coreJs.core).CONFIG?.viewer?.enableDragAndDrop === true ? (0, _i18NUtilsJs.t)("shortcuts.dragAndDrop") : null
-        ].join("\n");
+    getKeyboardShortcutsRows () {
+        const rows = [
+            {
+                icon: "mouse",
+                text: (0, _i18NUtilsJs.t)("shortcuts.mouse")
+            },
+            {
+                icon: "keyboard",
+                text: (0, _i18NUtilsJs.t)("shortcuts.keyboard")
+            },
+            {
+                icon: "touch",
+                text: (0, _i18NUtilsJs.t)("shortcuts.touch")
+            }
+        ];
+        if ((0, _coreJs.core).CONFIG?.viewer?.enableDragAndDrop === true) rows.push({
+            icon: "dragAndDrop",
+            text: (0, _i18NUtilsJs.t)("shortcuts.dragAndDrop")
+        });
+        return rows;
+    },
+    // One <span class="viewer-notice-detail"> per row (see
+    // renderStatusNoticeContent() in ui/loading-status.js, which splits the
+    // `detail` option on newlines and inserts each line via innerHTML) - lets
+    // every shortcut line carry its own icon instead of one dense text block.
+    getKeyboardShortcutsDetailHtml () {
+        return this.getKeyboardShortcutsRows().map(({ icon, text })=>`<span class="viewer-shortcut-row">${SHORTCUT_ICONS[icon]}<span>${text}</span></span>`).join("\n");
+    },
+    showKeyboardShortcutsHint ({ manual = false } = {}) {
+        const isHintCurrentlyShown = this.statusNoticeActive === true && this.statusNoticeCurrent?.key === "keyboard-shortcuts-hint";
+        if (manual && isHintCurrentlyShown) {
+            this.dismissStatusNotice("keyboard-shortcuts-hint");
+            return;
+        }
+        const duration = manual || !this.keyboardHintShownOnce ? this.keyboardHintFirstDurationMs : this.keyboardHintDurationMs;
+        this.keyboardHintShownOnce = true;
+        this.lastKeyboardHintAt = Date.now();
+        this.showStatusNotice((0, _i18NUtilsJs.t)("shortcuts.title", "Controls"), duration, {
+            detail: this.getKeyboardShortcutsDetailHtml(),
+            variant: "shortcuts",
+            key: "keyboard-shortcuts-hint",
+            dismissible: true
+        });
     },
     getSupportedFormatsText () {
         return (0, _coreJs.core).SUPPORTED_EXTENSIONS.map((extension)=>extension.toUpperCase()).join(", ");
@@ -1471,8 +1526,7 @@ const Viewer = {
         if (clippingMode.x || clippingMode.y || clippingMode.z) return;
         if (!(0, _coreJs.core).handHint?.hidden || (0, _coreJs.core).GESTURE?.active) return;
         if (now - this.lastKeyboardHintAt < this.keyboardHintCooldownMs) return;
-        this.lastKeyboardHintAt = now;
-        this.showStatusNotice(this.getKeyboardShortcutsText(), 7400);
+        this.showKeyboardShortcutsHint();
     },
     isInteractiveTextInput (element) {
         if (!element || typeof element.closest !== "function") return false;
@@ -1816,6 +1870,27 @@ const Viewer = {
             throw new Error(`File "${url.href}" contains invalid JSON. ${err.message}`);
         }
     },
+    // viewer.lightweight / editor / sandbox / presentationMode decide how the UI
+    // is built, so the AIM3D manifest configured in viewer-settings.json is
+    // peeked at before that happens. This deliberately uses the *configured*
+    // source type, not the build's forced one (the dev build always loads IIIF
+    // models) - the manifest is the settings carrier, e.g. for the Docker
+    // profiles. Any failure (no manifest, network error, invalid JSON) silently
+    // keeps the viewer-settings.json values.
+    async applyBootstrapSettingsFromManifest () {
+        const metadata = (0, _coreJs.core).CONFIG?.entity?.metadata;
+        const sourceType = String(metadata?.sourceType || SOURCE).toLowerCase();
+        if (sourceType !== "aim3if" || !metadata?.url) return;
+        try {
+            const manifest = await this.getManifestJson(metadata.url, "url");
+            if ((0, _aim3DviewerValidationJs.isAIM3DManifest)(manifest)) {
+                (0, _manifestoApiJs.applyManifestBootstrapSettings)(manifest, (0, _coreJs.core).CONFIG);
+                (0, _manifestoApiJs.applyManifestSettings)(manifest, (0, _coreJs.core).CONFIG);
+            }
+        } catch (err) {
+            console.warn("Could not read settings from AIM3D manifest; using viewer-settings.json.", err);
+        }
+    },
     async MainInit () {
         if (window.__E2E__) this.ensureE2EState();
         this.cleanupRuntimeBindings();
@@ -1931,6 +2006,7 @@ const Viewer = {
                 }
             }
         };
+        await this.applyBootstrapSettingsFromManifest();
         this.isLightweight = Boolean((0, _coreJs.core).CONFIG.viewer.lightweight);
         (0, _coreJs.setCore)('isLightweight', this.isLightweight);
         this.EDITOR = Boolean((0, _coreJs.core).CONFIG.viewer.editor);
@@ -2184,6 +2260,34 @@ const Viewer = {
                 "GLB"
             ],
             [
+                "./examples/box.usdz",
+                "USDZ"
+            ],
+            [
+                "./examples/box.usda",
+                "USDA"
+            ],
+            [
+                "./examples/box.3mf",
+                "3MF"
+            ],
+            [
+                "./examples/box.amf",
+                "AMF"
+            ],
+            [
+                "./examples/box.wrl",
+                "WRL (VRML)"
+            ],
+            [
+                "./examples/box.kmz",
+                "KMZ"
+            ],
+            [
+                "./examples/box.vox",
+                "VOX"
+            ],
+            [
                 "./examples/box-missing-mtl.obj",
                 "OBJ (missing MTL)"
             ],
@@ -2262,15 +2366,13 @@ const Viewer = {
             (0, _coreJs.core).editorToolbar.style.bottom = `${bottom}px`;
         } else {
             if ((0, _coreJs.core).editorToolbar) (0, _coreJs.core).editorToolbar.style.bottom = `${bottom}px`;
-            if (Viewer.creditsWrapper) {
-                Viewer.creditsWrapper.style.width = `${effectiveWidth - 64}px`;
-                Viewer.creditsWrapper.style.left = `${canvasRect.left + 8}px`;
-                Viewer.creditsWrapper.style.bottom = `${bottom - Viewer.creditsWrapper.getBoundingClientRect().height - 24}px`;
-                // Created hidden (see createCreditsElement in sandbox.js) so it
-                // doesn't flash at its unstyled position before this runs; reveal
-                // it now that real coordinates are applied.
-                Viewer.creditsWrapper.style.visibility = "visible";
-            }
+            if (Viewer.creditsWrapper) // #credits is a normal-flow block below core.container (see
+            // viewer/css/credits.css and the appendChild call in this file) -
+            // no position/left/right/bottom math needed, it's simply the next
+            // thing in the document after the viewer. Just reveal it - it was
+            // created hidden (see createCreditsElement in sandbox.js) only to
+            // avoid a flash of unstyled content while its own fonts/logo load.
+            Viewer.creditsWrapper.style.visibility = "visible";
         }
         (0, _coreJs.core).guiContainer.style.right = -(0, _coreJs.core).guiContainer.getBoundingClientRect().width + 10 + 'px !important';
         // metadata overlay
@@ -2966,7 +3068,12 @@ const Viewer = {
         } else if (type === "text") Viewer.iiifConfigURL.url = "";
         else Viewer.iiifConfigURL.url = newUrlOrJson;
         const loadedManifest = isAim3ifManifest ? await (0, _manifestoApiJs.loadAIM3IFManifest)(manifestJson) : await (0, _iiifApiJs.loadIIIFManifest)(manifestJson);
-        if (isAim3ifManifest) Viewer.applyWindowState?.((0, _manifestoApiJs.getManifestWindowState)(loadedManifest.manifest));
+        if (isAim3ifManifest) {
+            // Manifest settings take precedence over viewer-settings.json, which
+            // remains the fallback for anything the manifest doesn't define.
+            (0, _manifestoApiJs.applyManifestSettings)(loadedManifest.manifest, (0, _coreJs.core).CONFIG);
+            Viewer.applyWindowState?.((0, _manifestoApiJs.getManifestWindowState)(loadedManifest.manifest));
+        }
         if (loadedManifest.modelUrls.length === 0) {
             loadedManifest.modelUrls.push('https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb');
             (0, _viewerUtilsJs.showToast)((0, _i18NUtilsJs.t)("toasts.noIiiifModelFallback", "No 3D model found in IIIF manifest, loading example model."));
@@ -3399,6 +3506,12 @@ const Viewer = {
                 Viewer.bindEventListener(document, "click", (event)=>{
                     if (!Viewer.actionMenu?.contains(event.target) && !Viewer.embedConfiguratorPanel?.contains(event.target)) Viewer.closeActionMenu();
                 });
+                Viewer.bindEventListener(document, "click", (event)=>{
+                    if (Viewer.statusNoticeCurrent?.key !== "keyboard-shortcuts-hint") return;
+                    if (Viewer.statusNotice?.contains(event.target)) return;
+                    if (Viewer.editorToolbarButtons?.help?.contains(event.target)) return;
+                    Viewer.dismissStatusNotice("keyboard-shortcuts-hint");
+                });
                 Viewer.handHint.innerHTML = `<img src="${(0, _coreJs.core).DFG_ASSETS}/img/hand-hint.png" alt="Hand hint" width=48 height=48 title="Hand hint animation"/>`;
                 Viewer.rect = (0, _coreJs.core).container.getBoundingClientRect();
                 if ((0, _coreJs.core).viewerWrapper === (0, _coreJs.core).container && (0, _coreJs.core).CONFIG.viewer?.scaleContainer) {
@@ -3565,7 +3678,15 @@ const Viewer = {
             }
             if (((0, _coreJs.core).isLocalPreview || (0, _coreJs.core).SANDBOX_MODE) && !(0, _coreJs.core).PRESENTATION_MODE) {
                 Viewer.creditsWrapper = await (0, _sandboxJs.createCreditsElement)();
-                if (Viewer.creditsWrapper) (0, _coreJs.core).container.appendChild(Viewer.creditsWrapper);
+                if (Viewer.creditsWrapper) // Appended as the last child of the wrapper, after core.container
+                // - #credits is normal-flow (see viewer/css/credits.css), so this
+                // renders it as its own block directly below the viewer rather
+                // than overlapping it. core.container is also the fullscreen
+                // target (.mainContainer.fullscreen gets z-index: 9999 - see
+                // viewer/css/main.css); living outside it here means credits
+                // (like core.editorToolbar - see getEditorToolbarHost() in
+                // editor-toolbar.js) isn't part of that fullscreen overlay.
+                ((0, _coreJs.core).viewerWrapper || (0, _coreJs.core).container).appendChild(Viewer.creditsWrapper);
             }
             if ((0, _coreJs.core).SANDBOX_MODE) Viewer.prepareSandboxScene();
             else if (!(0, _coreJs.core).PRESENTATION_MODE) {
@@ -3663,6 +3784,7 @@ const Viewer = {
 (0, _localizationThemeJs.attachLocalizationTheme)(Viewer);
 (0, _loadingStatusJs.attachLoadingStatus)(Viewer);
 (0, _materialsEditorJs.attachMaterialsEditor)(Viewer);
+(0, _shadingJs.attachShadingEditor)(Viewer);
 (0, _annotationsJs.attachAnnotations)(Viewer);
 (0, _pickingJs.attachPicking)(Viewer);
 (0, _measurementJs.attachMeasurement)(Viewer);
@@ -3690,7 +3812,7 @@ window.Viewer = Viewer;
     }
 })();
 
-},{"./core.js":"1fEas","./utils.js":"jZczM","./viewer-utils.js":"aZ3yt","./ui/embed-configurator.js":"fJ19m","./ui/thumbnail-gallery.js":"h3GZU","./ui/localization-theme.js":"hYeap","./ui/loading-status.js":"goszS","./editor/materials-editor.js":"2uy9u","./editor/metadata-persistence.js":"2dYIx","./editor/annotations.js":"bQ8dL","./editor/measurement.js":"acqYI","./editor/picking.js":"i7NbK","./editor/thumbnail-capture.js":"kOVNa","./ui/window-controls.js":"b0Jl8","./loaders.js":"5MUYx","./metadata.js":"4eKqp","./ultra-loader.js":"8P3cZ","./status-poller.js":"bJJok","./init.js":"hyhZi","three/examples/jsm/libs/tween.module.js":"aaX6l","three/examples/jsm/controls/OrbitControls.js":"cCMIh","three/examples/jsm/controls/TransformControls.js":"hqQXh","three/examples/jsm/loaders/FontLoader.js":"b2nAY","stats.js":"3mrZ8","./js/external_libs/lil-gui.esm.min.js":"cWEJz","./object-settings.js":"kB65H","./IIIF/iiif-api.js":"yjLHd","./manifesto/manifesto-api.js":"9F01h","./manifesto/aim3dviewer-validation.js":"43JSH","./editor-toolbar.js":"9V4Zy","./viewer-defaults.js":"banH3","./viewer-param-utils.js":"dFW5L","./viewer-helpers.js":"k6V94","./i18n-utils.js":"1QHhT","./extract-helper.js":"jZRTQ","./sandbox.js":"91Ipp","three/examples/jsm/geometries/TextGeometry.js":"jB3t9","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT","./ui/upload-panel.js":"8YjjB"}],"1fEas":[function(require,module,exports,__globalThis) {
+},{"./core.js":"1fEas","./utils.js":"jZczM","./viewer-utils.js":"aZ3yt","./ui/embed-configurator.js":"fJ19m","./ui/upload-panel.js":"8YjjB","./ui/thumbnail-gallery.js":"h3GZU","./ui/localization-theme.js":"hYeap","./ui/loading-status.js":"goszS","./editor/materials-editor.js":"2uy9u","./editor/shading.js":"4cddJ","./editor/metadata-persistence.js":"2dYIx","./editor/annotations.js":"bQ8dL","./editor/measurement.js":"acqYI","./editor/picking.js":"i7NbK","./editor/thumbnail-capture.js":"kOVNa","./ui/window-controls.js":"b0Jl8","./loaders.js":"5MUYx","./metadata.js":"4eKqp","./ultra-loader.js":"8P3cZ","./status-poller.js":"bJJok","./init.js":"hyhZi","three/examples/jsm/libs/tween.module.js":"aaX6l","three/examples/jsm/controls/OrbitControls.js":"cCMIh","three/examples/jsm/controls/TransformControls.js":"hqQXh","three/examples/jsm/loaders/FontLoader.js":"b2nAY","stats.js":"3mrZ8","./js/external_libs/lil-gui.esm.min.js":"cWEJz","./object-settings.js":"kB65H","./IIIF/iiif-api.js":"yjLHd","./manifesto/manifesto-api.js":"9F01h","./manifesto/aim3dviewer-validation.js":"43JSH","./editor-toolbar.js":"9V4Zy","./viewer-defaults.js":"banH3","./viewer-param-utils.js":"dFW5L","./viewer-helpers.js":"k6V94","./i18n-utils.js":"1QHhT","./extract-helper.js":"jZRTQ","./sandbox.js":"91Ipp","three/examples/jsm/geometries/TextGeometry.js":"jB3t9","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"1fEas":[function(require,module,exports,__globalThis) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "core", ()=>core);
@@ -58554,7 +58676,17 @@ const VIEWER_I18N = {
             environmentMapStyleGoldenHour: "Golden Hour",
             enableWireframeMode: "Enable wireframe mode",
             disableWireframeMode: "Disable wireframe mode",
-            download: "Download model"
+            download: "Download model",
+            shading: "Shading",
+            shadingStandard: "Standard (PBR)",
+            shadingPhong: "Phong",
+            shadingLambert: "Lambert",
+            shadingToon: "Toon / Flat",
+            shadingCustom: "Custom shader",
+            shadingCustomVertex: "Vertex shader",
+            shadingCustomFragment: "Fragment shader",
+            shadingCustomApply: "Apply",
+            shadingCustomReset: "Reset to default"
         },
         metadata: {
             modelDetails: "Model details",
@@ -58569,7 +58701,8 @@ const VIEWER_I18N = {
             description: "Description",
             objectType: "Object type",
             reconstructionAuthors: "Reconstruction authors",
-            reconstructionPeriod: "Reconstruction period"
+            reconstructionPeriod: "Reconstruction period",
+            move: "Move"
         },
         manifesto: {
             source: "Manifest type",
@@ -58627,11 +58760,16 @@ const VIEWER_I18N = {
             title: "Upload & convert model",
             closeAria: "Close upload panel",
             fileLabel: "3D model file",
-            formatsHint: "Supported: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, or a .zip archive containing one of these.",
+            formatsHint: "Supported: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, usd/usda/usdc/usdz, step/stp, iges/igs, 3mf, gltf, 3ds, pcd, xyz, amf, kmz, vox, lwo, or a .zip archive containing one of these. STEP/IGES, 3MF and USD are converted to GLB; the last group (gltf \u2026 lwo) is uploaded as-is, without thumbnails.",
             submit: "Upload & convert",
             uploading: "Uploading...",
             unsupportedFormat: "Unsupported file format: .{ext}",
-            uploadError: "Upload failed. Please try again."
+            uploadError: "Upload failed. Please try again.",
+            previousTitle: "Previously generated models",
+            previousEmpty: "No previously generated models yet.",
+            previousLoadError: "Could not load previous models.",
+            previousDeleteAria: "Delete {name}",
+            previousDeleteConfirm: 'Delete "{name}"? This permanently removes the converted model and its renders.'
         },
         loadingLog: {
             title: "Loading process log",
@@ -58706,6 +58844,8 @@ const VIEWER_I18N = {
             uploadStarted: "Upload received - converting model...",
             uploadReady: "Converted model is ready.",
             uploadError: "Model upload or conversion failed.",
+            modelDeleted: "Model deleted.",
+            modelDeleteError: "Failed to delete the model.",
             annotationDataMissing: "Annotation data not found for this POI.",
             selectFaceRequired: "Select at least one face to add annotation.",
             selectFaceRequiredAgain: "Select at least one face, then run Add annotations again.",
@@ -58732,13 +58872,17 @@ const VIEWER_I18N = {
             containerNotFound: "Container element not found. Please check the Viewer configuration.",
             missingFiles: "Missing required files for the Viewer. Please check the Viewer configuration.",
             unsupportedFileFormat: "Unsupported file format.",
-            performanceModeSet: "Performance mode set to {mode}."
+            performanceModeSet: "Performance mode set to {mode}.",
+            shadingModeApplied: "Shading mode set to {mode}."
         },
         shortcuts: {
+            title: "Controls",
             mouse: "Mouse: drag orbit, wheel zoom, right-drag pan",
             keyboard: "Keyboard: Arrows orbit, Shift+Arrows faster, Ctrl/Cmd+Arrows pan, +/- zoom, Space toggle auto-rotate",
             touch: "Touch: pinch-to-zoom, drag to orbit, double-tap-and-hold pan",
-            dragAndDrop: "Or drag and drop a 3D model into the viewer"
+            dragAndDrop: "Or drag and drop a 3D model into the viewer",
+            helpButtonAria: "Show usage hints",
+            closeAria: "Close"
         }
     },
     pl: {
@@ -58867,7 +59011,17 @@ const VIEWER_I18N = {
             environmentMapStyleGoldenHour: "Z\u0142ota godzina",
             enableWireframeMode: "W\u0142\u0105cz tryb siatki",
             disableWireframeMode: "Wy\u0142\u0105cz tryb siatki",
-            download: "Pobierz model"
+            download: "Pobierz model",
+            shading: "Cieniowanie",
+            shadingStandard: "Standardowy (PBR)",
+            shadingPhong: "Phong",
+            shadingLambert: "Lambert",
+            shadingToon: "Toon / P\u0142aski",
+            shadingCustom: "W\u0142asny shader",
+            shadingCustomVertex: "Vertex shader",
+            shadingCustomFragment: "Fragment shader",
+            shadingCustomApply: "Zastosuj",
+            shadingCustomReset: "Przywr\xf3\u0107 domy\u015Blny"
         },
         metadata: {
             modelDetails: "Szczeg\xf3\u0142y modelu",
@@ -58882,7 +59036,8 @@ const VIEWER_I18N = {
             description: "Opis",
             objectType: "Typ obiektu",
             reconstructionAuthors: "Autorzy rekonstrukcji",
-            reconstructionPeriod: "Okres rekonstrukcji"
+            reconstructionPeriod: "Okres rekonstrukcji",
+            move: "Przesu\u0144"
         },
         manifesto: {
             source: "Typ manifestu",
@@ -58940,11 +59095,16 @@ const VIEWER_I18N = {
             title: "Prze\u015Blij i skonwertuj model",
             closeAria: "Zamknij panel przesy\u0142ania",
             fileLabel: "Plik modelu 3D",
-            formatsHint: "Obs\u0142ugiwane formaty: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, lub archiwum .zip zawieraj\u0105ce jeden z nich.",
+            formatsHint: "Obs\u0142ugiwane formaty: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, usd/usda/usdc/usdz, step/stp, iges/igs, 3mf, gltf, 3ds, pcd, xyz, amf, kmz, vox, lwo, lub archiwum .zip zawieraj\u0105ce jeden z nich. STEP/IGES, 3MF i USD s\u0105 konwertowane do GLB; ostatnia grupa (gltf \u2026 lwo) jest wgrywana bez zmian i bez miniatur.",
             submit: "Prze\u015Blij i skonwertuj",
             uploading: "Przesy\u0142anie...",
             unsupportedFormat: "Nieobs\u0142ugiwany format pliku: .{ext}",
-            uploadError: "Przesy\u0142anie lub konwersja nie powiod\u0142a si\u0119. Spr\xf3buj ponownie."
+            uploadError: "Przesy\u0142anie lub konwersja nie powiod\u0142a si\u0119. Spr\xf3buj ponownie.",
+            previousTitle: "Wcze\u015Bniej wygenerowane modele",
+            previousEmpty: "Brak wcze\u015Bniej wygenerowanych modeli.",
+            previousLoadError: "Nie uda\u0142o si\u0119 wczyta\u0107 listy poprzednich modeli.",
+            previousDeleteAria: "Usu\u0144 {name}",
+            previousDeleteConfirm: 'Usun\u0105\u0107 "{name}"? Spowoduje to trwa\u0142e usuni\u0119cie przekonwertowanego modelu i jego render\xf3w.'
         },
         loadingLog: {
             title: "Log procesu \u0142adowania",
@@ -59019,6 +59179,8 @@ const VIEWER_I18N = {
             uploadStarted: "Przes\u0142ano plik - konwertowanie modelu...",
             uploadReady: "Skonwertowany model jest gotowy.",
             uploadError: "Przesy\u0142anie lub konwersja modelu nie powiod\u0142a si\u0119.",
+            modelDeleted: "Model zosta\u0142 usuni\u0119ty.",
+            modelDeleteError: "Nie uda\u0142o si\u0119 usun\u0105\u0107 modelu.",
             annotationDataMissing: "Nie znaleziono danych adnotacji dla tego punktu.",
             selectFaceRequired: "Wybierz co najmniej jedn\u0105 \u015Bcian\u0119, aby doda\u0107 adnotacj\u0119.",
             selectFaceRequiredAgain: "Wybierz co najmniej jedn\u0105 \u015Bcian\u0119, a nast\u0119pnie ponownie dodaj adnotacje.",
@@ -59045,13 +59207,17 @@ const VIEWER_I18N = {
             containerNotFound: "Element kontenera nie zosta\u0142 znaleziony. Prosz\u0119 sprawdzi\u0107 konfiguracj\u0119 Viewera.",
             missingFiles: "Brak wymaganych plik\xf3w dla Viewera. Prosz\u0119 sprawdzi\u0107 konfiguracj\u0119 Viewera.",
             unsupportedFileFormat: "Nieobs\u0142ugiwany format pliku.",
-            performanceModeSet: "Tryb wydajno\u015Bci ustawiony na {mode}."
+            performanceModeSet: "Tryb wydajno\u015Bci ustawiony na {mode}.",
+            shadingModeApplied: "Ustawiono tryb cieniowania: {mode}."
         },
         shortcuts: {
+            title: "Sterowanie",
             mouse: "Mysz: przeci\u0105gnij, aby obraca\u0107, rolka - zoom, prawy przycisk - przesuwanie",
             keyboard: "Klawiatura: strza\u0142ki - obr\xf3t, Shift+strza\u0142ki - szybciej, Ctrl/Cmd+strza\u0142ki - przesuwanie, +/- \u2014 zoom, Spacja - auto-obr\xf3t",
             touch: "Dotyk: szczypanie, aby przybli\u017Cy\u0107, przeci\u0105gnij, aby obraca\u0107, dotknij i przytrzymaj, aby przesun\u0105\u0107",
-            dragAndDrop: "Lub przeci\u0105gnij i upu\u015B\u0107 model 3D w oknie viewer'a"
+            dragAndDrop: "Lub przeci\u0105gnij i upu\u015B\u0107 model 3D w oknie viewer'a",
+            helpButtonAria: "Poka\u017C podpowiedzi dotycz\u0105ce obs\u0142ugi",
+            closeAria: "Zamknij"
         }
     },
     de: {
@@ -59179,7 +59345,17 @@ const VIEWER_I18N = {
             environmentMapStyleGoldenHour: "Goldene Stunde",
             enableWireframeMode: "Drahtgittermodus aktivieren",
             disableWireframeMode: "Drahtgittermodus deaktivieren",
-            download: "Modell herunterladen"
+            download: "Modell herunterladen",
+            shading: "Schattierung",
+            shadingStandard: "Standard (PBR)",
+            shadingPhong: "Phong",
+            shadingLambert: "Lambert",
+            shadingToon: "Toon / Flach",
+            shadingCustom: "Eigener Shader",
+            shadingCustomVertex: "Vertex-Shader",
+            shadingCustomFragment: "Fragment-Shader",
+            shadingCustomApply: "Anwenden",
+            shadingCustomReset: "Auf Standard zur\xfccksetzen"
         },
         metadata: {
             modelDetails: "Modelldetails",
@@ -59194,7 +59370,8 @@ const VIEWER_I18N = {
             description: "Beschreibung",
             objectType: "Objekttyp",
             reconstructionAuthors: "Rekonstruktionsautoren",
-            reconstructionPeriod: "Rekonstruktionsperiode"
+            reconstructionPeriod: "Rekonstruktionsperiode",
+            move: "Verschieben"
         },
         manifesto: {
             source: "Manifesttyp",
@@ -59252,11 +59429,16 @@ const VIEWER_I18N = {
             title: "Modell hochladen & konvertieren",
             closeAria: "Upload-Panel schlie\xdfen",
             fileLabel: "3D-Modelldatei",
-            formatsHint: "Unterst\xfctzt: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, oder ein .zip-Archiv mit einer dieser Dateien.",
+            formatsHint: "Unterst\xfctzt: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, usd/usda/usdc/usdz, step/stp, iges/igs, 3mf, gltf, 3ds, pcd, xyz, amf, kmz, vox, lwo, oder ein .zip-Archiv mit einer dieser Dateien. STEP/IGES, 3MF und USD werden zu GLB konvertiert; die letzte Gruppe (gltf \u2026 lwo) wird unver\xe4ndert und ohne Vorschaubilder hochgeladen.",
             submit: "Hochladen & konvertieren",
             uploading: "Wird hochgeladen...",
             unsupportedFormat: "Nicht unterst\xfctztes Dateiformat: .{ext}",
-            uploadError: "Upload oder Konvertierung fehlgeschlagen. Bitte erneut versuchen."
+            uploadError: "Upload oder Konvertierung fehlgeschlagen. Bitte erneut versuchen.",
+            previousTitle: "Zuvor generierte Modelle",
+            previousEmpty: "Noch keine zuvor generierten Modelle.",
+            previousLoadError: "Vorherige Modelle konnten nicht geladen werden.",
+            previousDeleteAria: "{name} l\xf6schen",
+            previousDeleteConfirm: '"{name}" l\xf6schen? Dadurch werden das konvertierte Modell und seine Renderings dauerhaft entfernt.'
         },
         loadingLog: {
             title: "Protokoll des Ladeprozesses",
@@ -59331,6 +59513,8 @@ const VIEWER_I18N = {
             uploadStarted: "Datei empfangen - Modell wird konvertiert...",
             uploadReady: "Konvertiertes Modell ist bereit.",
             uploadError: "Upload oder Konvertierung des Modells fehlgeschlagen.",
+            modelDeleted: "Modell wurde gel\xf6scht.",
+            modelDeleteError: "Modell konnte nicht gel\xf6scht werden.",
             annotationDataMissing: "Keine Annotationsdaten f\xfcr diesen Punkt gefunden.",
             selectFaceRequired: "W\xe4hlen Sie mindestens eine Fl\xe4che aus, um eine Annotation hinzuzuf\xfcgen.",
             selectFaceRequiredAgain: "W\xe4hlen Sie mindestens eine Fl\xe4che und f\xfchren Sie dann \u201EAnnotationen hinzuf\xfcgen\u201C erneut aus.",
@@ -59357,13 +59541,17 @@ const VIEWER_I18N = {
             containerNotFound: "Container-Element nicht gefunden. Bitte \xfcberpr\xfcfen Sie die Viewer-Konfiguration.",
             missingFiles: "Fehlende erforderliche Dateien f\xfcr den Viewer. Bitte \xfcberpr\xfcfen Sie die Viewer-Konfiguration.",
             unsupportedFileFormat: "Nicht unterst\xfctztes Dateiformat.",
-            performanceModeSet: "Leistungsmodus auf {mode} gesetzt."
+            performanceModeSet: "Leistungsmodus auf {mode} gesetzt.",
+            shadingModeApplied: "Schattierungsmodus auf {mode} gesetzt."
         },
         shortcuts: {
+            title: "Steuerung",
             mouse: "Maus: ziehen zum Drehen, Mausrad - Zoom, Rechtsklick - Verschieben",
             keyboard: "Tastatur: Pfeile - Drehen, Shift+Pfeile - schneller, Ctrl/Cmd+Pfeile - Verschieben, +/- - Zoom, Leertaste - Auto-Rotation",
             touch: "Touch: Pinch-to-Zoom, ziehen zum Drehen, Doppeltippen und halten zum Verschieben",
-            dragAndDrop: "Oder ziehen Sie ein 3D-Modell per Drag-and-drop in den Viewer"
+            dragAndDrop: "Oder ziehen Sie ein 3D-Modell per Drag-and-drop in den Viewer",
+            helpButtonAria: "Bedienungshinweise anzeigen",
+            closeAria: "Schlie\xdfen"
         }
     }
 };
@@ -59870,7 +60058,682 @@ function attachEmbedConfigurator(Viewer) {
     });
 }
 
-},{"../core.js":"1fEas","../viewer-utils.js":"aZ3yt","../i18n-utils.js":"1QHhT","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"h3GZU":[function(require,module,exports,__globalThis) {
+},{"../core.js":"1fEas","../viewer-utils.js":"aZ3yt","../i18n-utils.js":"1QHhT","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"8YjjB":[function(require,module,exports,__globalThis) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "attachUploadPanel", ()=>attachUploadPanel);
+var _coreJs = require("../core.js");
+var _viewerUtilsJs = require("../viewer-utils.js");
+var _i18NUtilsJs = require("../i18n-utils.js");
+var _statusPollerJs = require("../status-poller.js");
+var _ultraLoaderJs = require("../ultra-loader.js");
+// Mirrors worker/server.py's SUPPORTED_FORMATS: Blender importers, STEP/IGES/3MF
+// converted without Blender, and formats the viewer reads directly (kept as
+// uploaded, no thumbnails), plus the .zip archive support the standalone
+// worker adds on top - see worker/README.md.
+const SUPPORTED_EXTENSIONS = [
+    "abc",
+    "dae",
+    "fbx",
+    "obj",
+    "ply",
+    "stl",
+    "wrl",
+    "x3d",
+    "ifc",
+    "blend",
+    "gml",
+    "glb",
+    "usd",
+    "usda",
+    "usdc",
+    "usdz",
+    "step",
+    "stp",
+    "iges",
+    "igs",
+    "3mf",
+    "gltf",
+    "3ds",
+    "pcd",
+    "xyz",
+    "amf",
+    "kmz",
+    "vox",
+    "lwo",
+    "zip"
+];
+// Same-origin worker endpoints (see worker/auth.py). Cookies travel by default
+// for same-origin requests, so no credentials option is needed.
+async function authRequest(path, body) {
+    const response = await fetch(`/api/auth/${path}`, {
+        method: body ? "POST" : "GET",
+        headers: body ? {
+            "Content-Type": "application/json"
+        } : undefined,
+        body: body ? JSON.stringify(body) : undefined
+    });
+    let data = {};
+    try {
+        data = await response.json();
+    } catch (_error) {
+    // Non-JSON error page (e.g. from a proxy) - fall through with the status.
+    }
+    if (!response.ok) {
+        const error = new Error(data.error || `HTTP ${response.status}`);
+        error.status = response.status;
+        throw error;
+    }
+    return data;
+}
+function attachUploadPanel(Viewer) {
+    Object.assign(Viewer, {
+        // Accounts are enforced by the worker (WORKER_AUTH_MODE); the manifest's
+        // AIM3DViewer.viewer.auth only tunes the UI: enabled:false hides it,
+        // allowRegistration:false hides the register button.
+        async refreshAuthState () {
+            const uiConfig = (0, _coreJs.core).CONFIG?.viewer?.auth || {};
+            const state = {
+                required: false,
+                registration: false,
+                user: null,
+                maxUploadBytes: 0
+            };
+            // The upload limit is reported by the same endpoint, so query it even
+            // when the manifest hides the login UI.
+            try {
+                const serverConfig = await authRequest("config");
+                state.maxUploadBytes = Number(serverConfig.maxUploadBytes) || 0;
+                if (uiConfig.enabled !== false) {
+                    state.required = serverConfig.mode === "required";
+                    state.registration = serverConfig.registration !== "closed" && uiConfig.allowRegistration !== false;
+                    if (state.required) state.user = (await authRequest("me")).user || null;
+                }
+            } catch (_error) {
+            // Older worker without /api/auth/*: behaves as accounts off.
+            }
+            this.authState = state;
+            this.renderUploadHint();
+            this.renderAuthSection();
+            return state;
+        },
+        renderUploadHint () {
+            const hint = this.uploadInputs?.hint;
+            if (!hint) return;
+            const maxBytes = this.authState?.maxUploadBytes;
+            const limit = maxBytes ? " " + (0, _i18NUtilsJs.t)("uploadPanel.maxSize", {
+                size: Math.round(maxBytes / 1048576)
+            }, "Maximum upload size: {size} MB.") : "";
+            hint.textContent = this.uploadInputs.hintBase + limit;
+        },
+        renderAuthSection () {
+            const section = this.uploadInputs?.auth;
+            if (!section) return;
+            const state = this.authState || {
+                required: false
+            };
+            section.hidden = !state.required;
+            section.textContent = "";
+            const canUpload = !state.required || Boolean(state.user);
+            if (this.uploadInputs.submit) this.uploadInputs.submit.disabled = !canUpload;
+            if (!state.required) return;
+            if (state.user) {
+                const label = document.createElement("span");
+                label.textContent = (0, _i18NUtilsJs.t)("uploadPanel.signedInAs", {
+                    user: state.user
+                }, "Signed in as {user}");
+                const logout = document.createElement("button");
+                logout.type = "button";
+                logout.textContent = (0, _i18NUtilsJs.t)("uploadPanel.logout", "Log out");
+                this.bindEventListener(logout, "click", ()=>this.handleAuthAction("logout"));
+                section.append(label, logout);
+                return;
+            }
+            const hint = document.createElement("p");
+            hint.className = "upload-panel-hint";
+            hint.textContent = (0, _i18NUtilsJs.t)("uploadPanel.loginRequired", "Log in to upload models.");
+            const username = document.createElement("input");
+            username.type = "text";
+            username.autocomplete = "username";
+            username.placeholder = (0, _i18NUtilsJs.t)("uploadPanel.username", "Username");
+            username.setAttribute("aria-label", username.placeholder);
+            const password = document.createElement("input");
+            password.type = "password";
+            password.autocomplete = "current-password";
+            password.placeholder = (0, _i18NUtilsJs.t)("uploadPanel.password", "Password");
+            password.setAttribute("aria-label", password.placeholder);
+            const login = document.createElement("button");
+            login.type = "button";
+            login.textContent = (0, _i18NUtilsJs.t)("uploadPanel.login", "Log in");
+            this.bindEventListener(login, "click", ()=>this.handleAuthAction("login", {
+                    username: username.value.trim(),
+                    password: password.value
+                }));
+            section.append(hint, username, password, login);
+            if (state.registration) {
+                const register = document.createElement("button");
+                register.type = "button";
+                register.textContent = (0, _i18NUtilsJs.t)("uploadPanel.register", "Register");
+                this.bindEventListener(register, "click", ()=>this.handleAuthAction("register", {
+                        username: username.value.trim(),
+                        password: password.value
+                    }));
+                section.appendChild(register);
+            }
+        },
+        async handleAuthAction (action, credentials) {
+            try {
+                if (action === "register") {
+                    const result = await authRequest("register", credentials);
+                    this.setUploadStatusText(result.status === "pending" ? (0, _i18NUtilsJs.t)("uploadPanel.registeredPending", "Account created. It must be approved before you can upload.") : (0, _i18NUtilsJs.t)("uploadPanel.registeredActive", "Account created. You can log in now."), "success");
+                    return;
+                }
+                await authRequest(action, credentials || {});
+                this.setUploadStatusText("");
+                await this.refreshAuthState();
+                this.loadPreviousModelsList();
+            } catch (error) {
+                this.setUploadStatusText(error.message, "error");
+            }
+        },
+        isUploadPanelOpen () {
+            return this.uploadPanel?.hidden === false;
+        },
+        updateUploadMenuEntryState () {
+            if (!this.uploadModel) return;
+            // Icon-only, matching #example-theme-toggle's compact footprint next
+            // to the model picker - the full label lives in aria-label/title
+            // instead of visible text.
+            this.uploadModel.innerHTML = `<span class="upload-model-icon" aria-hidden="true"></span>`;
+            const a11yLabel = (0, _i18NUtilsJs.t)("menu.openUploadPanel", "Upload a 3D model for conversion");
+            this.uploadModel.setAttribute("aria-label", a11yLabel);
+            this.uploadModel.setAttribute("title", a11yLabel);
+        },
+        openUploadPanel (event) {
+            this.createUploadPanel();
+            this.toggleUploadPanel(event);
+        },
+        toggleUploadPanel (event) {
+            event?.preventDefault?.();
+            this.closeActionMenu();
+            if (!this.uploadPanel) return;
+            const willShow = this.uploadPanel.hidden === true;
+            this.uploadPanel.hidden = !willShow;
+            if (willShow) {
+                this.resetUploadPanelState();
+                this.refreshAuthState().then(()=>this.loadPreviousModelsList());
+            }
+        },
+        closeUploadPanel () {
+            if (this.uploadPanel) this.uploadPanel.hidden = true;
+        },
+        resetUploadPanelState () {
+            if (!this.uploadInputs) return;
+            this.uploadInputs.file.value = "";
+            const state = this.authState;
+            this.uploadInputs.submit.disabled = Boolean(state?.required && !state.user);
+            this.setUploadStatusText("");
+        },
+        setUploadStatusText (message, tone = "info") {
+            if (!this.uploadInputs?.status) return;
+            this.uploadInputs.status.textContent = message;
+            this.uploadInputs.status.dataset.tone = tone;
+        },
+        createUploadPanel () {
+            if (!(0, _coreJs.core).container || this.uploadPanel) return;
+            const panelText = {
+                title: (0, _i18NUtilsJs.t)("uploadPanel.title", "Upload & convert model"),
+                closeAria: (0, _i18NUtilsJs.t)("uploadPanel.closeAria", "Close upload panel"),
+                fileLabel: (0, _i18NUtilsJs.t)("uploadPanel.fileLabel", "3D model file"),
+                formatsHint: (0, _i18NUtilsJs.t)("uploadPanel.formatsHint", "Supported: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, or a .zip archive containing one of these."),
+                submit: (0, _i18NUtilsJs.t)("uploadPanel.submit", "Upload & convert"),
+                previousTitle: (0, _i18NUtilsJs.t)("uploadPanel.previousTitle", "Previously generated models")
+            };
+            const panel = document.createElement("div");
+            panel.id = "uploadModelPanel";
+            panel.hidden = true;
+            panel.innerHTML = `
+        <div class="upload-panel-header">
+          <span>${panelText.title}</span>
+          <button id="uploadPanelClose" type="button" aria-label="${panelText.closeAria}">X</button>
+        </div>
+        <form id="uploadPanelForm" class="upload-panel-body">
+          <div id="uploadPanelAuth" class="upload-panel-auth" hidden></div>
+          <label class="upload-panel-field">${panelText.fileLabel}
+            <input id="uploadPanelFileInput" type="file" accept="${SUPPORTED_EXTENSIONS.map((ext)=>`.${ext}`).join(",")}" required />
+          </label>
+          <p id="uploadPanelHint" class="upload-panel-hint">${panelText.formatsHint}</p>
+          <div class="upload-panel-actions">
+            <button id="uploadPanelSubmit" type="submit">${panelText.submit}</button>
+          </div>
+          <p id="uploadPanelStatus" class="upload-panel-status" role="status" aria-live="polite"></p>
+        </form>
+        <div class="upload-panel-previous">
+          <div class="upload-panel-previous-title">${panelText.previousTitle}</div>
+          <ul id="uploadPanelPreviousList" class="upload-panel-previous-list"></ul>
+        </div>
+      `;
+            (0, _coreJs.core).container.appendChild(panel);
+            this.uploadPanel = panel;
+            this.uploadInputs = {
+                file: panel.querySelector("#uploadPanelFileInput"),
+                submit: panel.querySelector("#uploadPanelSubmit"),
+                status: panel.querySelector("#uploadPanelStatus"),
+                auth: panel.querySelector("#uploadPanelAuth"),
+                hint: panel.querySelector("#uploadPanelHint"),
+                hintBase: panelText.formatsHint
+            };
+            this.uploadPreviousList = panel.querySelector("#uploadPanelPreviousList");
+            const form = panel.querySelector("#uploadPanelForm");
+            const closeButton = panel.querySelector("#uploadPanelClose");
+            this.bindEventListener(form, "submit", (event)=>this.handleUploadSubmit(event));
+            this.bindEventListener(closeButton, "click", ()=>this.closeUploadPanel());
+        },
+        async loadPreviousModelsList () {
+            if (!this.uploadPreviousList) return;
+            const list = this.uploadPreviousList;
+            list.textContent = "";
+            let jobs = [];
+            try {
+                const response = await fetch("/api/jobs");
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                jobs = Array.isArray(data.jobs) ? data.jobs : [];
+            } catch (error) {
+                this.reportError(error, {
+                    context: "Failed to load previous models list"
+                });
+                const errorItem = document.createElement("li");
+                errorItem.className = "upload-panel-previous-empty";
+                errorItem.textContent = (0, _i18NUtilsJs.t)("uploadPanel.previousLoadError", "Could not load previous models.");
+                list.appendChild(errorItem);
+                return;
+            }
+            if (jobs.length === 0) {
+                const emptyItem = document.createElement("li");
+                emptyItem.className = "upload-panel-previous-empty";
+                emptyItem.textContent = (0, _i18NUtilsJs.t)("uploadPanel.previousEmpty", "No previously generated models yet.");
+                list.appendChild(emptyItem);
+                return;
+            }
+            jobs.forEach((job)=>{
+                const name = job.name || job.id;
+                const item = document.createElement("li");
+                item.className = "upload-panel-previous-row";
+                const button = document.createElement("button");
+                button.type = "button";
+                button.className = "upload-panel-previous-item";
+                button.title = name;
+                if (job.imageUrls?.[0]) {
+                    const thumb = document.createElement("img");
+                    thumb.src = job.imageUrls[0];
+                    thumb.alt = "";
+                    thumb.loading = "lazy";
+                    button.appendChild(thumb);
+                }
+                const label = document.createElement("span");
+                label.textContent = name;
+                button.appendChild(label);
+                this.bindEventListener(button, "click", ()=>this.loadPreviousModel(job));
+                item.appendChild(button);
+                // canDelete is computed by the worker (own uploads, or admin, or
+                // accounts off); older workers omit it and allow deleting as before.
+                if (job.canDelete === false) {
+                    list.appendChild(item);
+                    return;
+                }
+                const deleteButton = document.createElement("button");
+                deleteButton.type = "button";
+                deleteButton.className = "upload-panel-previous-delete";
+                deleteButton.textContent = "\u2715";
+                const deleteAria = (0, _i18NUtilsJs.t)("uploadPanel.previousDeleteAria", {
+                    name
+                }, "Delete {name}");
+                deleteButton.setAttribute("aria-label", deleteAria);
+                deleteButton.title = deleteAria;
+                this.bindEventListener(deleteButton, "click", (event)=>{
+                    event.stopPropagation();
+                    this.deletePreviousModel(job, item);
+                });
+                item.appendChild(deleteButton);
+                list.appendChild(item);
+            });
+        },
+        async deletePreviousModel (job, item) {
+            if (!job?.id) return;
+            const name = job.name || job.id;
+            const confirmed = window.confirm((0, _i18NUtilsJs.t)("uploadPanel.previousDeleteConfirm", {
+                name
+            }, 'Delete "{name}"? This permanently removes the converted model and its renders.'));
+            if (!confirmed) return;
+            try {
+                const response = await fetch(`/api/jobs/${encodeURIComponent(job.id)}`, {
+                    method: "DELETE"
+                });
+                if (!response.ok && response.status !== 404) throw new Error(`Delete failed (HTTP ${response.status})`);
+                item.remove();
+                if (this.uploadPreviousList && this.uploadPreviousList.children.length === 0) {
+                    const emptyItem = document.createElement("li");
+                    emptyItem.className = "upload-panel-previous-empty";
+                    emptyItem.textContent = (0, _i18NUtilsJs.t)("uploadPanel.previousEmpty", "No previously generated models yet.");
+                    this.uploadPreviousList.appendChild(emptyItem);
+                }
+                (0, _viewerUtilsJs.toastHelper)("modelDeleted", "info");
+            } catch (error) {
+                this.reportError(error, {
+                    context: "Failed to delete previous model"
+                });
+                (0, _viewerUtilsJs.toastHelper)("modelDeleteError", "error");
+            }
+        },
+        async loadPreviousModel (job) {
+            if (!job?.modelUrl) return;
+            this.closeUploadPanel();
+            (0, _coreJs.core).autoPath = job.modelUrl;
+            this.resetLoadedModelState();
+            await this.mainLoadModelWrapper();
+            const galleryCfg = (0, _coreJs.core).CONFIG.viewer?.gallery;
+            if (Array.isArray(job.imageUrls) && job.imageUrls.length > 0 && (galleryCfg?.build === true || galleryCfg?.buildFake === true) && !(0, _coreJs.core).SANDBOX_MODE && !this.isEmbedMode()) this.renderModelGalleryImages(job.imageUrls);
+        },
+        async handleUploadSubmit (event) {
+            event.preventDefault();
+            const file = this.uploadInputs?.file?.files?.[0];
+            if (!file) return;
+            const extension = (file.name.split(".").pop() || "").toLowerCase();
+            if (!SUPPORTED_EXTENSIONS.includes(extension)) {
+                this.setUploadStatusText((0, _i18NUtilsJs.t)("uploadPanel.unsupportedFormat", {
+                    ext: extension
+                }, "Unsupported file format: .{ext}"), "error");
+                return;
+            }
+            const maxBytes = this.authState?.maxUploadBytes;
+            if (maxBytes && file.size > maxBytes) {
+                this.setUploadStatusText((0, _i18NUtilsJs.t)("uploadPanel.tooLargeLimit", {
+                    size: Math.round(maxBytes / 1048576)
+                }, "That file is larger than the {size} MB upload limit."), "error");
+                return;
+            }
+            const formData = new FormData();
+            formData.append("file", file);
+            this.uploadInputs.submit.disabled = true;
+            this.setUploadStatusText((0, _i18NUtilsJs.t)("uploadPanel.uploading", "Uploading..."), "info");
+            try {
+                const response = await fetch("/api/model/create", {
+                    method: "POST",
+                    body: formData
+                });
+                if (response.status === 401) {
+                    await this.refreshAuthState();
+                    this.setUploadStatusText((0, _i18NUtilsJs.t)("uploadPanel.loginRequired", "Log in to upload models."), "error");
+                    return;
+                }
+                if (response.status === 413) {
+                    this.setUploadStatusText((0, _i18NUtilsJs.t)("uploadPanel.tooLarge", "That file is too large to upload."), "error");
+                    return;
+                }
+                if (!response.ok) throw new Error(`Upload failed (HTTP ${response.status})`);
+                const data = await response.json();
+                const jobId = data.entity_id;
+                if (!jobId) throw new Error("No job id returned by the conversion service.");
+                this.closeUploadPanel();
+                (0, _viewerUtilsJs.toastHelper)("uploadStarted", "info");
+                (0, _ultraLoaderJs.UltraLoader).start(this.getProcessingLoadingSteps());
+                const poller = new (0, _statusPollerJs.StatusPoller)(jobId, {
+                    forcePoll: true,
+                    onUpdate: (statusData)=>this.handleUploadStatusUpdate(statusData)
+                });
+                poller.start();
+            } catch (error) {
+                this.reportError(error, {
+                    context: "Model upload failed"
+                });
+                this.setUploadStatusText((0, _i18NUtilsJs.t)("uploadPanel.uploadError", "Upload failed. Please try again."), "error");
+                (0, _viewerUtilsJs.toastHelper)("uploadError", "error");
+            } finally{
+                if (this.uploadInputs?.submit) {
+                    const state = this.authState;
+                    this.uploadInputs.submit.disabled = Boolean(state?.required && !state.user);
+                }
+            }
+        },
+        async handleUploadStatusUpdate (data) {
+            if (!data) return;
+            if (data.status === "ready" && data.modelUrl) {
+                (0, _viewerUtilsJs.toastHelper)("uploadReady", "success");
+                (0, _coreJs.core).autoPath = data.modelUrl;
+                this.resetLoadedModelState();
+                await this.mainLoadModelWrapper();
+                // Mirrors the same gate the example-model switch uses before
+                // rebuilding the gallery (see main.js) - the worker's own thumbnails
+                // (imageUrls) are the correct source here regardless of build vs
+                // buildFake, since there is no Drupal field markup to read in a
+                // standalone deployment.
+                const galleryCfg = (0, _coreJs.core).CONFIG.viewer?.gallery;
+                if (Array.isArray(data.imageUrls) && data.imageUrls.length > 0 && (galleryCfg?.build === true || galleryCfg?.buildFake === true) && !(0, _coreJs.core).SANDBOX_MODE && !this.isEmbedMode()) this.renderModelGalleryImages(data.imageUrls);
+            } else if (data.status === "failed" || data.status === "error") (0, _viewerUtilsJs.toastHelper)("uploadError", "error");
+        }
+    });
+}
+
+},{"../core.js":"1fEas","../viewer-utils.js":"aZ3yt","../i18n-utils.js":"1QHhT","../status-poller.js":"bJJok","../ultra-loader.js":"8P3cZ","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"bJJok":[function(require,module,exports,__globalThis) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "StatusPoller", ()=>StatusPoller);
+var _coreJs = require("./core.js");
+class StatusPoller {
+    constructor(id, { forcePoll = false, onUpdate = null } = {}){
+        this.id = id;
+        this.interval = 2000;
+        this.timer = null;
+        this.running = false;
+        // core.isLocalPreview auto-detects true on localhost/LAN hostnames
+        // (see main.js), which is exactly where a standalone worker
+        // deployment is reached - forcePoll lets a caller with a real
+        // backend (no Drupal entity involved) opt out of the "no real API
+        // to poll" assumption baked into isLocalPreview elsewhere below.
+        this.forcePoll = forcePoll === true;
+        this.onUpdate = typeof onUpdate === "function" ? onUpdate : null;
+    }
+    async start() {
+        if (this.running) return;
+        this.running = true;
+        if (!(0, _coreJs.core).isLocalPreview || this.forcePoll) await this.tick();
+        else this.map = (0, _coreJs.core).isLocalPreview ? Object.fromEntries(Object.entries(this.fullMap).slice(-3) // Only keep the last 2 steps for local preview
+        .map(([k], i)=>[
+                k,
+                i
+            ])) : this.fullMap;
+    }
+    stop() {
+        this.running = false;
+        if (this.timer) clearTimeout(this.timer);
+    }
+    fullMap = {
+        init: 0,
+        preparing: 1,
+        processing: 2,
+        converted: 3,
+        updating: 4,
+        rendering: 4,
+        model_ready: 5,
+        viewer_ready: 6,
+        ready: 6,
+        failed: 7,
+        error: 7
+    };
+    terminalStatuses = new Set([
+        "ready",
+        "viewer_ready",
+        "failed",
+        "error"
+    ]);
+    map = this.fullMap;
+    updateSteps(status) {
+        if (this.map[status] !== undefined) UltraLoader.step(this.map[status]);
+    }
+    async tick() {
+        if (!this.running || (0, _coreJs.core).isLocalPreview && !this.forcePoll) return;
+        try {
+            const r = await fetch(`/api/model/status/${this.id}`, {
+                cache: "no-store"
+            });
+            if (!r.ok) throw new Error("API error");
+            const data = await r.json();
+            this.onUpdate?.(data);
+            if (data.status === "error") {
+                UltraLoader.error(data.message || "Processing failed");
+                this.stop();
+                localStorage.removeItem("processing_model_id");
+                return;
+            }
+            UltraLoader.set(data.progress);
+            this.updateSteps(data.status);
+            if (this.terminalStatuses.has(data.status)) {
+                if (data.status === "ready" || data.status === "viewer_ready") UltraLoader.finish("3D Viewer is ready");
+                else UltraLoader.finish("Failed processing the model");
+                this.stop();
+                localStorage.removeItem("processing_model_id");
+                return;
+            }
+        } catch (e) {
+            if (!(0, _coreJs.core).isLocalPreview || this.forcePoll) {
+                UltraLoader.error("Connection error");
+                this.stop();
+            }
+        }
+        this.timer = setTimeout(()=>this.tick(), this.interval);
+    }
+}
+
+},{"./core.js":"1fEas","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"8P3cZ":[function(require,module,exports,__globalThis) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "UltraLoader", ()=>UltraLoader);
+var _i18NUtilsJs = require("./i18n-utils.js");
+const UltraLoader = {
+    progress: 0,
+    bar: null,
+    panel: null,
+    header: null,
+    stepsContainer: null,
+    steps: [],
+    isFinished: false,
+    hideTimer: null,
+    resetTimer: null,
+    init () {
+        if (this.bar) return;
+        const loader = document.createElement("div");
+        loader.id = "ultra-loader";
+        loader.innerHTML = '<div id="ultra-loader-bar"></div>';
+        const panel = document.createElement("div");
+        panel.id = "ultra-loader-panel";
+        const header = document.createElement("div");
+        header.id = "ultra-loader-header";
+        header.textContent = (0, _i18NUtilsJs.t)("processingHeader");
+        panel.appendChild(header);
+        const stepsContainer = document.createElement("div");
+        stepsContainer.id = "ultra-loader-steps";
+        panel.appendChild(stepsContainer);
+        document.body.appendChild(loader);
+        document.body.appendChild(panel);
+        this.bar = document.getElementById("ultra-loader-bar");
+        this.panel = panel;
+        this.header = header;
+        this.stepsContainer = stepsContainer;
+    },
+    start (steps) {
+        this.init();
+        if (this.hideTimer) {
+            window.clearTimeout(this.hideTimer);
+            this.hideTimer = null;
+        }
+        if (this.resetTimer) {
+            window.clearTimeout(this.resetTimer);
+            this.resetTimer = null;
+        }
+        this.steps = steps;
+        this.updateHeader();
+        this.progress = 5;
+        this.isFinished = false;
+        this.bar.style.width = "5%";
+        this.bar.style.background = "";
+        this.renderSteps(0);
+        this.panel.classList.add("show");
+        this.render();
+    },
+    set (progress, message) {
+        this.progress = Math.max(this.progress, progress);
+        this.render();
+    },
+    step (index) {
+        this.renderSteps(index);
+    },
+    finish () {
+        this.progress = 100;
+        this.isFinished = true;
+        this.render();
+        this.renderSteps(this.steps.length);
+        this.hideTimer = window.setTimeout(()=>{
+            if (!this.isFinished) return;
+            this.panel.classList.remove("show");
+            this.hideTimer = null;
+            this.resetTimer = window.setTimeout(()=>{
+                this.bar.style.width = "0%";
+                this.progress = 0;
+                this.resetTimer = null;
+            }, 1500);
+        }, 2500);
+    },
+    render () {
+        this.bar.style.width = this.progress + "%";
+    },
+    updateHeader () {
+        if (this.header) this.header.textContent = (0, _i18NUtilsJs.t)("processingHeader");
+    },
+    renderSteps (active) {
+        this.updateHeader();
+        if (!this.stepsContainer) return;
+        this.stepsContainer.replaceChildren();
+        this.steps.forEach((s, i)=>{
+            const row = document.createElement("div");
+            row.className = "ultra-step";
+            if (i < active) {
+                row.classList.add("done");
+                row.textContent = "\u2713 " + s;
+            } else if (i === active) {
+                row.classList.add("active");
+                row.textContent = "\u23F3 " + s;
+            } else {
+                row.classList.add("pending");
+                row.textContent = "\u25A1 " + s;
+            }
+            this.stepsContainer.appendChild(row);
+        });
+    },
+    error (message = "Processing error") {
+        this.isFinished = true;
+        this.renderErrorSteps();
+        const error = document.createElement("div");
+        error.id = "ultra-loader-error";
+        error.textContent = `ERROR: ${message}`;
+        this.panel.appendChild(error);
+        this.bar.style.background = "#d93025";
+    },
+    renderErrorSteps () {
+        this.updateHeader();
+        if (!this.stepsContainer) return;
+        this.stepsContainer.replaceChildren();
+        this.steps.forEach((s)=>{
+            const row = document.createElement("div");
+            row.className = "ultra-step error";
+            row.textContent = "\u2716 " + s;
+            this.stepsContainer.appendChild(row);
+        });
+    }
+};
+window.UltraLoader = UltraLoader;
+
+},{"./i18n-utils.js":"1QHhT","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"h3GZU":[function(require,module,exports,__globalThis) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 // getPerModelGalleryImages() only knows how to guess paths for the built-in
@@ -60500,135 +61363,7 @@ function attachLocalizationTheme(viewer) {
     });
 }
 
-},{"../core.js":"1fEas","../i18n-utils.js":"1QHhT","../ultra-loader.js":"8P3cZ","../viewer-param-utils.js":"dFW5L","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"8P3cZ":[function(require,module,exports,__globalThis) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "UltraLoader", ()=>UltraLoader);
-var _i18NUtilsJs = require("./i18n-utils.js");
-const UltraLoader = {
-    progress: 0,
-    bar: null,
-    panel: null,
-    header: null,
-    stepsContainer: null,
-    steps: [],
-    isFinished: false,
-    hideTimer: null,
-    resetTimer: null,
-    init () {
-        if (this.bar) return;
-        const loader = document.createElement("div");
-        loader.id = "ultra-loader";
-        loader.innerHTML = '<div id="ultra-loader-bar"></div>';
-        const panel = document.createElement("div");
-        panel.id = "ultra-loader-panel";
-        const header = document.createElement("div");
-        header.id = "ultra-loader-header";
-        header.textContent = (0, _i18NUtilsJs.t)("processingHeader");
-        panel.appendChild(header);
-        const stepsContainer = document.createElement("div");
-        stepsContainer.id = "ultra-loader-steps";
-        panel.appendChild(stepsContainer);
-        document.body.appendChild(loader);
-        document.body.appendChild(panel);
-        this.bar = document.getElementById("ultra-loader-bar");
-        this.panel = panel;
-        this.header = header;
-        this.stepsContainer = stepsContainer;
-    },
-    start (steps) {
-        this.init();
-        if (this.hideTimer) {
-            window.clearTimeout(this.hideTimer);
-            this.hideTimer = null;
-        }
-        if (this.resetTimer) {
-            window.clearTimeout(this.resetTimer);
-            this.resetTimer = null;
-        }
-        this.steps = steps;
-        this.updateHeader();
-        this.progress = 5;
-        this.isFinished = false;
-        this.bar.style.width = "5%";
-        this.bar.style.background = "";
-        this.renderSteps(0);
-        this.panel.classList.add("show");
-        this.render();
-    },
-    set (progress, message) {
-        this.progress = Math.max(this.progress, progress);
-        this.render();
-    },
-    step (index) {
-        this.renderSteps(index);
-    },
-    finish () {
-        this.progress = 100;
-        this.isFinished = true;
-        this.render();
-        this.renderSteps(this.steps.length);
-        this.hideTimer = window.setTimeout(()=>{
-            if (!this.isFinished) return;
-            this.panel.classList.remove("show");
-            this.hideTimer = null;
-            this.resetTimer = window.setTimeout(()=>{
-                this.bar.style.width = "0%";
-                this.progress = 0;
-                this.resetTimer = null;
-            }, 1500);
-        }, 2500);
-    },
-    render () {
-        this.bar.style.width = this.progress + "%";
-    },
-    updateHeader () {
-        if (this.header) this.header.textContent = (0, _i18NUtilsJs.t)("processingHeader");
-    },
-    renderSteps (active) {
-        this.updateHeader();
-        if (!this.stepsContainer) return;
-        this.stepsContainer.replaceChildren();
-        this.steps.forEach((s, i)=>{
-            const row = document.createElement("div");
-            row.className = "ultra-step";
-            if (i < active) {
-                row.classList.add("done");
-                row.textContent = "\u2713 " + s;
-            } else if (i === active) {
-                row.classList.add("active");
-                row.textContent = "\u23F3 " + s;
-            } else {
-                row.classList.add("pending");
-                row.textContent = "\u25A1 " + s;
-            }
-            this.stepsContainer.appendChild(row);
-        });
-    },
-    error (message = "Processing error") {
-        this.isFinished = true;
-        this.renderErrorSteps();
-        const error = document.createElement("div");
-        error.id = "ultra-loader-error";
-        error.textContent = `ERROR: ${message}`;
-        this.panel.appendChild(error);
-        this.bar.style.background = "#d93025";
-    },
-    renderErrorSteps () {
-        this.updateHeader();
-        if (!this.stepsContainer) return;
-        this.stepsContainer.replaceChildren();
-        this.steps.forEach((s)=>{
-            const row = document.createElement("div");
-            row.className = "ultra-step error";
-            row.textContent = "\u2716 " + s;
-            this.stepsContainer.appendChild(row);
-        });
-    }
-};
-window.UltraLoader = UltraLoader;
-
-},{"./i18n-utils.js":"1QHhT","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"dFW5L":[function(require,module,exports,__globalThis) {
+},{"../core.js":"1fEas","../i18n-utils.js":"1QHhT","../ultra-loader.js":"8P3cZ","../viewer-param-utils.js":"dFW5L","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"dFW5L":[function(require,module,exports,__globalThis) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "normalizeLanguage", ()=>normalizeLanguage);
@@ -61108,6 +61843,20 @@ function attachLoadingStatus(viewer) {
                     this.statusNotice.appendChild(detailNode);
                 }
             }
+            if (notice.dismissible) {
+                const closeButton = document.createElement("button");
+                closeButton.type = "button";
+                closeButton.className = "viewer-notice-close";
+                closeButton.textContent = "\xd7";
+                const closeLabel = (0, _i18NUtilsJs.t)("shortcuts.closeAria", "Close");
+                closeButton.setAttribute("aria-label", closeLabel);
+                closeButton.title = closeLabel;
+                this.bindEventListener(closeButton, "click", (event)=>{
+                    event.stopPropagation();
+                    this.dismissStatusNotice(notice.key);
+                });
+                this.statusNotice.appendChild(closeButton);
+            }
         },
         getStatusNoticeText (notice) {
             return [
@@ -61130,12 +61879,14 @@ function attachLoadingStatus(viewer) {
             }
             this.statusNoticeActive = true;
             this.statusNoticeCurrent = notice;
+            this.updateEditorToolbarState?.();
             this.statusNotice.hidden = false;
             this.renderStatusNoticeContent(notice);
             this.statusNotice.dataset.tone = notice.tone || "info";
             if (notice.variant) this.statusNotice.dataset.variant = notice.variant;
             else delete this.statusNotice.dataset.variant;
             this.noticeContainer?.classList.toggle("viewer-notice-container--sandbox", notice.variant === "sandbox");
+            this.noticeContainer?.classList.toggle("viewer-notice-container--shortcuts", notice.variant === "shortcuts");
             this.statusNotice.classList.remove("is-hiding");
             this.statusNotice.classList.add("is-visible");
             if (this.statusNoticeTimer) {
@@ -61154,9 +61905,10 @@ function attachLoadingStatus(viewer) {
                         this.statusNotice.classList.remove("is-hiding");
                         delete this.statusNotice.dataset.variant;
                     }
-                    this.noticeContainer?.classList.remove("viewer-notice-container--sandbox");
+                    this.noticeContainer?.classList.remove("viewer-notice-container--sandbox", "viewer-notice-container--shortcuts");
                     this.statusNoticeActive = false;
                     this.statusNoticeCurrent = null;
+                    this.updateEditorToolbarState?.();
                     this.statusNoticeTimer = null;
                     this.statusNoticeHideTimer = null;
                     this.processStatusNoticeQueue();
@@ -61180,12 +61932,13 @@ function attachLoadingStatus(viewer) {
                 this.statusNotice.classList.remove("is-visible", "is-hiding");
                 delete this.statusNotice.dataset.variant;
             }
-            this.noticeContainer?.classList.remove("viewer-notice-container--sandbox");
+            this.noticeContainer?.classList.remove("viewer-notice-container--sandbox", "viewer-notice-container--shortcuts");
             this.statusNoticeActive = false;
             this.statusNoticeCurrent = null;
+            this.updateEditorToolbarState?.();
             this.processStatusNoticeQueue();
         },
-        enqueueStatusNotice ({ message, duration = 2600, tone = "info", key = "", replace = false, persistent = false, variant = "", i18nKey = "", i18nVars = {}, detail = "", detailI18nKey = "", detailI18nVars = {} } = {}) {
+        enqueueStatusNotice ({ message, duration = 2600, tone = "info", key = "", replace = false, persistent = false, dismissible = false, variant = "", i18nKey = "", i18nVars = {}, detail = "", detailI18nKey = "", detailI18nVars = {} } = {}) {
             const text = String(message ?? "");
             if (!text) return;
             const nextNotice = {
@@ -61194,6 +61947,7 @@ function attachLoadingStatus(viewer) {
                 duration: Number.isFinite(duration) ? duration : 2600,
                 key: String(key || ""),
                 persistent,
+                dismissible,
                 variant: String(variant || ""),
                 i18nKey: String(i18nKey || ""),
                 i18nVars: i18nVars && typeof i18nVars === "object" ? {
@@ -61657,6 +62411,343 @@ function attachMaterialsEditor(Viewer) {
         closeMaterialsDialog () {
             if (!this.materialsDialog) return;
             this.materialsDialog.hidden = true;
+        }
+    });
+}
+
+},{"../core.js":"1fEas","../viewer-utils.js":"aZ3yt","../i18n-utils.js":"1QHhT","../init.js":"hyhZi","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"4cddJ":[function(require,module,exports,__globalThis) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "SHADING_MODES", ()=>SHADING_MODES);
+parcelHelpers.export(exports, "DEFAULT_CUSTOM_VERTEX_SHADER", ()=>DEFAULT_CUSTOM_VERTEX_SHADER);
+parcelHelpers.export(exports, "DEFAULT_CUSTOM_FRAGMENT_SHADER", ()=>DEFAULT_CUSTOM_FRAGMENT_SHADER);
+parcelHelpers.export(exports, "attachShadingEditor", ()=>attachShadingEditor);
+var _coreJs = require("../core.js");
+var _viewerUtilsJs = require("../viewer-utils.js");
+var _i18NUtilsJs = require("../i18n-utils.js");
+var _initJs = require("../init.js");
+var _initJsDefault = parcelHelpers.interopDefault(_initJs);
+const SHADING_MODES = [
+    "standard",
+    "phong",
+    "lambert",
+    "toon",
+    "custom"
+];
+const DEFAULT_CUSTOM_VERTEX_SHADER = `varying vec3 vNormal;
+varying vec2 vUv;
+
+void main() {
+  vNormal = normalize(normalMatrix * normal);
+  vUv = uv;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
+`;
+const DEFAULT_CUSTOM_FRAGMENT_SHADER = `uniform vec3 uColor;
+uniform sampler2D uMap;
+uniform bool uHasMap;
+varying vec3 vNormal;
+varying vec2 vUv;
+
+void main() {
+  vec3 base = uHasMap ? texture2D(uMap, vUv).rgb * uColor : uColor;
+  // Simple rim-light effect: brighten edges facing away from the camera.
+  float rim = 1.0 - max(dot(normalize(vNormal), vec3(0.0, 0.0, 1.0)), 0.0);
+  vec3 color = base + rim * rim * 0.6;
+  gl_FragColor = vec4(color, 1.0);
+}
+`;
+function copyCommonMaterialProperties(target, base) {
+    target.name = base.name;
+    target.side = base.side;
+    target.transparent = base.transparent;
+    target.opacity = base.opacity;
+    target.alphaTest = base.alphaTest;
+    target.wireframe = (0, _coreJs.core).wireframeMode || false;
+    target.clippingPlanes = base.clippingPlanes || null;
+    target.clipShadows = base.clipShadows || false;
+    target.vertexColors = base.vertexColors;
+    if (base.map) target.map = base.map;
+    if (base.alphaMap) target.alphaMap = base.alphaMap;
+    if ("normalMap" in target && base.normalMap) {
+        target.normalMap = base.normalMap;
+        if (base.normalScale) target.normalScale = base.normalScale.clone();
+    }
+    if ("aoMap" in target && base.aoMap) {
+        target.aoMap = base.aoMap;
+        target.aoMapIntensity = base.aoMapIntensity ?? 1;
+    }
+    if ("emissive" in target) {
+        target.emissive = base.emissive ? base.emissive.clone() : new (0, _initJsDefault.default).Color(0x000000);
+        if (base.emissiveMap) target.emissiveMap = base.emissiveMap;
+        target.emissiveIntensity = base.emissiveIntensity ?? 1;
+    }
+}
+function buildMaterialForMode(baseMaterial, mode, customShader) {
+    const color = baseMaterial.color ? baseMaterial.color.clone() : new (0, _initJsDefault.default).Color(0xffffff);
+    switch(mode){
+        case "phong":
+            {
+                const material = new (0, _initJsDefault.default).MeshPhongMaterial({
+                    color,
+                    shininess: 30,
+                    specular: 0x111111
+                });
+                copyCommonMaterialProperties(material, baseMaterial);
+                return material;
+            }
+        case "lambert":
+            {
+                const material = new (0, _initJsDefault.default).MeshLambertMaterial({
+                    color
+                });
+                copyCommonMaterialProperties(material, baseMaterial);
+                return material;
+            }
+        case "toon":
+            {
+                const material = new (0, _initJsDefault.default).MeshToonMaterial({
+                    color
+                });
+                copyCommonMaterialProperties(material, baseMaterial);
+                return material;
+            }
+        case "custom":
+            {
+                const hasMap = Boolean(baseMaterial.map);
+                const material = new (0, _initJsDefault.default).ShaderMaterial({
+                    uniforms: {
+                        uColor: {
+                            value: color
+                        },
+                        uMap: {
+                            value: baseMaterial.map || null
+                        },
+                        uHasMap: {
+                            value: hasMap
+                        }
+                    },
+                    vertexShader: customShader?.vertexShader || DEFAULT_CUSTOM_VERTEX_SHADER,
+                    fragmentShader: customShader?.fragmentShader || DEFAULT_CUSTOM_FRAGMENT_SHADER,
+                    side: baseMaterial.side,
+                    transparent: baseMaterial.transparent,
+                    wireframe: (0, _coreJs.core).wireframeMode || false,
+                    clipping: true
+                });
+                material.clippingPlanes = baseMaterial.clippingPlanes || null;
+                material.name = baseMaterial.name;
+                return material;
+            }
+        case "standard":
+        default:
+            {
+                const material = new (0, _initJsDefault.default).MeshStandardMaterial({
+                    color,
+                    metalness: baseMaterial.metalness ?? 0,
+                    roughness: baseMaterial.roughness ?? 1
+                });
+                material.envMapIntensity = baseMaterial.envMapIntensity ?? 1;
+                copyCommonMaterialProperties(material, baseMaterial);
+                return material;
+            }
+    }
+}
+function attachShadingEditor(Viewer) {
+    Object.assign(Viewer, {
+        getShadingRootObjects () {
+            return Array.isArray((0, _coreJs.core).mainObject) ? (0, _coreJs.core).mainObject.filter((item)=>item?.isObject3D) : [];
+        },
+        applyShadingMode () {
+            const roots = this.getShadingRootObjects();
+            if (!roots.length) return;
+            const mode = SHADING_MODES.includes(this.shadingMode) ? this.shadingMode : "standard";
+            const customShader = mode === "custom" ? {
+                vertexShader: this.customVertexShader,
+                fragmentShader: this.customFragmentShader
+            } : null;
+            roots.forEach((root)=>{
+                root.traverse((child)=>{
+                    if (!child.isMesh || !child.material) return;
+                    // Snapshot the mesh's original (loader-provided) materials once, on the
+                    // first shading-mode switch, so every later switch derives from the same
+                    // source instead of compounding lossy conversions between material types.
+                    if (!child.userData.__shadingBaseMaterials) child.userData.__shadingBaseMaterials = Array.isArray(child.material) ? child.material.slice() : [
+                        child.material
+                    ];
+                    const nextMaterials = child.userData.__shadingBaseMaterials.map((baseMaterial)=>{
+                        const newMaterial = buildMaterialForMode(baseMaterial, mode, customShader);
+                        newMaterial.needsUpdate = true;
+                        return newMaterial;
+                    });
+                    child.material = Array.isArray(child.material) ? nextMaterials : nextMaterials[0];
+                });
+            });
+        },
+        setShadingMode (mode, options = {}) {
+            if (!SHADING_MODES.includes(mode)) return;
+            this.shadingMode = mode;
+            if (mode === "custom") {
+                this.customVertexShader = options.vertexShader || this.customVertexShader || DEFAULT_CUSTOM_VERTEX_SHADER;
+                this.customFragmentShader = options.fragmentShader || this.customFragmentShader || DEFAULT_CUSTOM_FRAGMENT_SHADER;
+            }
+            this.applyShadingMode();
+            this.updateEditorToolbarState?.();
+            this.updateShadingSubmenuState?.();
+            if (options.silent !== true) (0, _viewerUtilsJs.toastHelper)("shadingModeApplied", "success", {
+                mode: (0, _i18NUtilsJs.t)(`gui.shading${mode.charAt(0).toUpperCase()}${mode.slice(1)}`, mode)
+            });
+        },
+        openCustomShaderDialog () {
+            this.buildShadingDialog();
+            if (!this.shadingDialog) return;
+            if (this.shadingDialogInputs) {
+                this.shadingDialogInputs.vertex.value = this.customVertexShader || DEFAULT_CUSTOM_VERTEX_SHADER;
+                this.shadingDialogInputs.fragment.value = this.customFragmentShader || DEFAULT_CUSTOM_FRAGMENT_SHADER;
+            }
+            this.updateShadingDialogBounds();
+            this.shadingDialog.hidden = false;
+            this.closeActionMenu?.();
+        },
+        closeShadingDialog () {
+            if (!this.shadingDialog) return;
+            this.shadingDialog.hidden = true;
+        },
+        buildShadingDialog () {
+            if (!(0, _coreJs.core).container || this.shadingDialog) return;
+            const dialog = document.createElement("div");
+            dialog.id = "shadingDialog";
+            dialog.className = "materials-dialog";
+            dialog.hidden = true;
+            dialog.innerHTML = `
+        <div class="materials-dialog__backdrop" data-shading-dismiss="true"></div>
+        <div class="materials-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="shadingDialogTitle">
+          <div class="materials-dialog__header">
+            <h3 id="shadingDialogTitle">${(0, _i18NUtilsJs.t)("gui.shadingCustom", "Custom shader")}</h3>
+            <button type="button" class="materials-dialog__close" data-shading-dismiss="true" aria-label="${(0, _i18NUtilsJs.t)("gui.shadingCustom", "Custom shader")}">&times;</button>
+          </div>
+          <div class="materials-dialog__body">
+            <label class="materials-dialog__field">
+              <span>${(0, _i18NUtilsJs.t)("gui.shadingCustomVertex", "Vertex shader")}</span>
+              <textarea id="shadingDialogVertex" class="shading-dialog__textarea" spellcheck="false"></textarea>
+            </label>
+            <label class="materials-dialog__field">
+              <span>${(0, _i18NUtilsJs.t)("gui.shadingCustomFragment", "Fragment shader")}</span>
+              <textarea id="shadingDialogFragment" class="shading-dialog__textarea" spellcheck="false"></textarea>
+            </label>
+            <div class="shading-dialog__actions">
+              <button type="button" id="shadingDialogReset" class="shading-dialog__button">${(0, _i18NUtilsJs.t)("gui.shadingCustomReset", "Reset to default")}</button>
+              <button type="button" id="shadingDialogApply" class="shading-dialog__button shading-dialog__button-primary">${(0, _i18NUtilsJs.t)("gui.shadingCustomApply", "Apply")}</button>
+            </div>
+          </div>
+        </div>
+      `;
+            document.body.appendChild(dialog);
+            this.shadingDialog = dialog;
+            this.shadingDialogPosition = null;
+            const panel = dialog.querySelector(".materials-dialog__panel");
+            const header = dialog.querySelector(".materials-dialog__header");
+            this.shadingDialogInputs = {
+                vertex: dialog.querySelector("#shadingDialogVertex"),
+                fragment: dialog.querySelector("#shadingDialogFragment")
+            };
+            this.bindEventListener(dialog, "click", (event)=>{
+                const dismissTrigger = event.target?.closest?.("[data-shading-dismiss='true']");
+                if (dismissTrigger) this.closeShadingDialog();
+            });
+            this.bindEventListener(document, "keydown", (event)=>{
+                if (event.key !== "Escape") return;
+                if (!this.shadingDialog || this.shadingDialog.hidden) return;
+                event.preventDefault();
+                this.closeShadingDialog();
+            });
+            this.bindEventListener(dialog.querySelector("#shadingDialogReset"), "click", ()=>{
+                this.shadingDialogInputs.vertex.value = DEFAULT_CUSTOM_VERTEX_SHADER;
+                this.shadingDialogInputs.fragment.value = DEFAULT_CUSTOM_FRAGMENT_SHADER;
+            });
+            this.bindEventListener(dialog.querySelector("#shadingDialogApply"), "click", ()=>{
+                const vertexShader = this.shadingDialogInputs.vertex.value;
+                const fragmentShader = this.shadingDialogInputs.fragment.value;
+                this.setShadingMode("custom", {
+                    vertexShader,
+                    fragmentShader
+                });
+            });
+            this.bindEventListener(header, "pointerdown", (event)=>{
+                if (event.button !== 0) return;
+                if (event.target?.closest?.(".materials-dialog__close")) return;
+                const targetRect = Viewer.mainCanvas?.getBoundingClientRect?.() || (0, _coreJs.core).container?.getBoundingClientRect?.();
+                const panelRect = panel?.getBoundingClientRect?.();
+                if (!targetRect || !panelRect) return;
+                this.shadingDialogDragging = {
+                    offsetX: event.clientX - panelRect.left,
+                    offsetY: event.clientY - panelRect.top
+                };
+                panel.setPointerCapture?.(event.pointerId);
+                panel.classList.add("is-dragging");
+                event.preventDefault();
+            });
+            this.bindEventListener(document, "pointermove", (event)=>{
+                if (!this.shadingDialogDragging || !this.shadingDialog || this.shadingDialog.hidden) return;
+                const targetRect = Viewer.mainCanvas?.getBoundingClientRect?.() || (0, _coreJs.core).container?.getBoundingClientRect?.();
+                const panelRect = panel?.getBoundingClientRect?.();
+                if (!targetRect || !panelRect) return;
+                const nextLeft = event.clientX - this.shadingDialogDragging.offsetX;
+                const nextTop = event.clientY - this.shadingDialogDragging.offsetY;
+                const minLeft = targetRect.left + 12;
+                const maxLeft = targetRect.right - panelRect.width - 12;
+                const minTop = targetRect.top + 12;
+                const maxTop = targetRect.bottom - panelRect.height - 12;
+                this.shadingDialogPosition = {
+                    left: Math.min(Math.max(nextLeft, minLeft), Math.max(minLeft, maxLeft)),
+                    top: Math.min(Math.max(nextTop, minTop), Math.max(minTop, maxTop))
+                };
+                this.updateShadingDialogBounds();
+            });
+            const stopShadingDialogDrag = ()=>{
+                this.shadingDialogDragging = false;
+                panel?.classList.remove("is-dragging");
+            };
+            this.bindEventListener(document, "pointerup", stopShadingDialogDrag);
+            this.bindEventListener(document, "pointercancel", stopShadingDialogDrag);
+            this.bindEventListener(window, "resize", ()=>this.updateShadingDialogBounds());
+            this.bindEventListener(window, "scroll", ()=>this.updateShadingDialogBounds(), true);
+            this.bindEventListener(document, "fullscreenchange", ()=>this.updateShadingDialogBounds());
+        },
+        updateShadingDialogBounds () {
+            if (!this.shadingDialog) return;
+            const targetRect = Viewer.mainCanvas?.getBoundingClientRect?.() || (0, _coreJs.core).container?.getBoundingClientRect?.();
+            if (!targetRect) return;
+            const left = Math.max(0, Math.round(targetRect.left));
+            const top = Math.max(0, Math.round(targetRect.top));
+            const width = Math.max(0, Math.round(targetRect.width));
+            const height = Math.max(0, Math.round(targetRect.height));
+            const panel = this.shadingDialog.querySelector(".materials-dialog__panel");
+            const panelWidth = panel?.offsetWidth || Math.min(640, width - 24);
+            const panelHeight = panel?.offsetHeight || Math.min(700, height * 0.88);
+            if (!this.shadingDialogPosition) this.shadingDialogPosition = {
+                left: Math.max(left + 12, left + width - panelWidth - 16),
+                top: Math.max(top + 16, top + Math.min(40, Math.max(16, height * 0.08)))
+            };
+            else {
+                const minLeft = left + 12;
+                const maxLeft = left + width - panelWidth - 12;
+                const minTop = top + 12;
+                const maxTop = top + height - panelHeight - 12;
+                this.shadingDialogPosition = {
+                    left: Math.min(Math.max(this.shadingDialogPosition.left, minLeft), Math.max(minLeft, maxLeft)),
+                    top: Math.min(Math.max(this.shadingDialogPosition.top, minTop), Math.max(minTop, maxTop))
+                };
+            }
+            this.shadingDialog.style.left = `${left}px`;
+            this.shadingDialog.style.top = `${top}px`;
+            this.shadingDialog.style.width = `${width}px`;
+            this.shadingDialog.style.height = `${height}px`;
+            if (panel) {
+                panel.style.left = `${this.shadingDialogPosition.left - left}px`;
+                panel.style.top = `${this.shadingDialogPosition.top - top}px`;
+                panel.style.right = "auto";
+                panel.style.transform = "none";
+            }
         }
     });
 }
@@ -62427,6 +63518,12 @@ function attachAnnotations(Viewer) {
                     viewer: {
                         container: (0, _coreJs.core).CONFIG?.viewer?.container || "DFG_3DViewer",
                         mailUrl: (0, _coreJs.core).CONFIG.mainUrl || "https://localhost",
+                        mainUrl: (0, _coreJs.core).CONFIG.mainUrl || undefined,
+                        baseModulePath: (0, _coreJs.core).CONFIG.baseModulePath || undefined,
+                        background: (0, _coreJs.core).CONFIG.viewer?.background || undefined,
+                        credits: (0, _coreJs.core).CONFIG.viewer?.credits || undefined,
+                        manifestoForm: (0, _coreJs.core).CONFIG.viewer?.manifestoForm || undefined,
+                        metadataContainer: (0, _coreJs.core).CONFIG.viewer?.metadataContainer || undefined,
                         baseNamespace: "https://localhost",
                         metadataUrl: "https://localhost",
                         theme: this.currentTheme === "light" ? "light" : "dark",
@@ -62495,6 +63592,10 @@ function attachAnnotations(Viewer) {
                         metadata: {
                             source: (0, _coreJs.core).CONFIG.entity?.metadata?.source || ""
                         },
+                        exportViewerUrl: (0, _coreJs.core).CONFIG.entity?.exportViewerUrl || undefined,
+                        api: (0, _coreJs.core).CONFIG.api?.thumbnailUploadEndpoint ? {
+                            thumbnailUploadEndpoint: (0, _coreJs.core).CONFIG.api.thumbnailUploadEndpoint
+                        } : undefined,
                         fileUpload: (0, _coreJs.core).CONFIG.viewer.fileUpload || "fbf95bddee5160d515b982b3fd2e05f7",
                         fileName: (0, _coreJs.core).CONFIG.viewer.fileName || "faa602a0be629324806aef22892cdbe5",
                         imageGeneration: (0, _coreJs.core).CONFIG.viewer.imageGeneration || "f605dc6b727a1099b9e52b3ccbdf5673"
@@ -62537,7 +63638,14 @@ function attachAnnotations(Viewer) {
                             1,
                             1
                         ],
-                        wireframe: (0, _coreJs.core).wireframeMode || false
+                        wireframe: (0, _coreJs.core).wireframeMode || false,
+                        shadingMode: this.shadingMode || "standard",
+                        ...this.shadingMode === "custom" ? {
+                            customShader: {
+                                vertexShader: this.customVertexShader || "",
+                                fragmentShader: this.customFragmentShader || ""
+                            }
+                        } : {}
                     }
                 },
                 modified: new Date().toISOString()
@@ -62885,6 +63993,11 @@ function attachAnnotations(Viewer) {
                     child.material.needsUpdate = true;
                 });
             }
+            if (typeof modelTransform.shadingMode === "string") this.setShadingMode?.(modelTransform.shadingMode, {
+                vertexShader: modelTransform.customShader?.vertexShader,
+                fragmentShader: modelTransform.customShader?.fragmentShader,
+                silent: true
+            });
             this.updateEditorToolbarState?.();
             this.updateEditorToolbarLabels?.();
             return true;
@@ -107073,6 +108186,34 @@ function validateCamera(camera, path, errors) {
         "orthographic"
     ], `${path}.perspectiveMode`, errors);
 }
+function validatePanelState(panel, path, errors) {
+    if (!isPlainObject(panel)) {
+        pushError(errors, path, "must be an object");
+        return;
+    }
+    if (panel.position !== undefined) validateVector(panel.position, `${path}.position`, errors, 2);
+    if (panel.size !== undefined) {
+        if (!isPlainObject(panel.size)) pushError(errors, `${path}.size`, "must be an object");
+        else // viewer-settings.json uses null for "not sized yet".
+        [
+            "width",
+            "height"
+        ].forEach((key)=>{
+            if (panel.size[key] != null) validateNumber(panel.size[key], `${path}.size.${key}`, errors);
+        });
+    }
+}
+function validateIntegration(integration, path, errors) {
+    if (!isPlainObject(integration)) {
+        pushError(errors, path, "must be an object");
+        return;
+    }
+    if (integration.exportViewerUrl !== undefined) validateString(integration.exportViewerUrl, `${path}.exportViewerUrl`, errors);
+    if (integration.api !== undefined) {
+        if (!isPlainObject(integration.api)) pushError(errors, `${path}.api`, "must be an object");
+        else if (integration.api.thumbnailUploadEndpoint !== undefined) validateString(integration.api.thumbnailUploadEndpoint, `${path}.api.thumbnailUploadEndpoint`, errors);
+    }
+}
 function validateViewer(viewer, path, errors) {
     if (!isPlainObject(viewer)) {
         pushError(errors, path, "must be an object");
@@ -107080,6 +108221,25 @@ function validateViewer(viewer, path, errors) {
     }
     if (viewer.container !== undefined) validateString(viewer.container, `${path}.container`, errors);
     if (viewer.mailUrl !== undefined) validateString(viewer.mailUrl, `${path}.mailUrl`, errors);
+    if (viewer.mainUrl !== undefined) validateString(viewer.mainUrl, `${path}.mainUrl`, errors);
+    if (viewer.baseModulePath !== undefined) validateString(viewer.baseModulePath, `${path}.baseModulePath`, errors);
+    if (viewer.background !== undefined) validateString(viewer.background, `${path}.background`, errors);
+    if (viewer.credits !== undefined && !isPlainObject(viewer.credits)) pushError(errors, `${path}.credits`, "must be an object");
+    if (viewer.auth !== undefined) {
+        if (!isPlainObject(viewer.auth)) pushError(errors, `${path}.auth`, "must be an object");
+        else [
+            "enabled",
+            "allowRegistration"
+        ].forEach((key)=>{
+            if (viewer.auth[key] !== undefined) validateBoolean(viewer.auth[key], `${path}.auth.${key}`, errors);
+        });
+    }
+    [
+        "manifestoForm",
+        "metadataContainer"
+    ].forEach((key)=>{
+        if (viewer[key] !== undefined) validatePanelState(viewer[key], `${path}.${key}`, errors);
+    });
     if (viewer.baseNamespace !== undefined) validateString(viewer.baseNamespace, `${path}.baseNamespace`, errors);
     if (viewer.metadataUrl !== undefined) validateString(viewer.metadataUrl, `${path}.metadataUrl`, errors);
     if (viewer.theme !== undefined) validateEnum(viewer.theme, [
@@ -107103,6 +108263,8 @@ function validateViewer(viewer, path, errors) {
     [
         "presentationMode",
         "sandbox",
+        "lightweight",
+        "editor",
         "autorotate",
         "disableInteraction",
         "hideUi",
@@ -107168,6 +108330,20 @@ function validateModelTransform(modelTransform, path, errors) {
         }
     }
     if (modelTransform.wireframe !== undefined) validateBoolean(modelTransform.wireframe, `${path}.wireframe`, errors);
+    if (modelTransform.shadingMode !== undefined) validateEnum(modelTransform.shadingMode, [
+        "standard",
+        "phong",
+        "lambert",
+        "toon",
+        "custom"
+    ], `${path}.shadingMode`, errors);
+    if (modelTransform.customShader !== undefined) {
+        if (!isPlainObject(modelTransform.customShader)) pushError(errors, `${path}.customShader`, "must be an object");
+        else {
+            if (modelTransform.customShader.vertexShader !== undefined) validateString(modelTransform.customShader.vertexShader, `${path}.customShader.vertexShader`, errors);
+            if (modelTransform.customShader.fragmentShader !== undefined) validateString(modelTransform.customShader.fragmentShader, `${path}.customShader.fragmentShader`, errors);
+        }
+    }
 }
 function validateAIM3DViewerBlock(block, path, errors) {
     if (!isPlainObject(block)) {
@@ -107178,7 +108354,7 @@ function validateAIM3DViewerBlock(block, path, errors) {
     if (block.generatedAt !== undefined) validateString(block.generatedAt, `${path}.generatedAt`, errors);
     if (block.camera !== undefined) validateCamera(block.camera, `${path}.camera`, errors);
     if (block.viewer !== undefined) validateViewer(block.viewer, `${path}.viewer`, errors);
-    if (block.integration !== undefined && !isPlainObject(block.integration)) pushError(errors, `${path}.integration`, "must be an object");
+    if (block.integration !== undefined) validateIntegration(block.integration, `${path}.integration`, errors);
     if (block.lights !== undefined) {
         if (!Array.isArray(block.lights)) pushError(errors, `${path}.lights`, "must be an array");
         else block.lights.forEach((light, index)=>validateLight(light, `${path}.lights[${index}]`, errors));
@@ -107885,6 +109061,14 @@ parcelHelpers.export(exports, "loadTDSLoader", ()=>loadTDSLoader);
 parcelHelpers.export(exports, "loadPCDLoader", ()=>loadPCDLoader);
 parcelHelpers.export(exports, "loadGLTFLoader", ()=>loadGLTFLoader);
 parcelHelpers.export(exports, "loadDRACOLoader", ()=>loadDRACOLoader);
+parcelHelpers.export(exports, "loadUSDLoader", ()=>loadUSDLoader);
+parcelHelpers.export(exports, "loadThreeMFLoader", ()=>loadThreeMFLoader);
+parcelHelpers.export(exports, "loadAMFLoader", ()=>loadAMFLoader);
+parcelHelpers.export(exports, "loadVRMLLoader", ()=>loadVRMLLoader);
+parcelHelpers.export(exports, "loadKMZLoader", ()=>loadKMZLoader);
+parcelHelpers.export(exports, "loadVOXLoader", ()=>loadVOXLoader);
+parcelHelpers.export(exports, "loadVOXBuildMesh", ()=>loadVOXBuildMesh);
+parcelHelpers.export(exports, "loadLWOLoader", ()=>loadLWOLoader);
 parcelHelpers.export(exports, "loadIFCLoader", ()=>loadIFCLoader);
 parcelHelpers.export(exports, "loadRoomEnvironment", ()=>loadRoomEnvironment);
 parcelHelpers.export(exports, "loadHDRLoader", ()=>loadHDRLoader);
@@ -107913,6 +109097,14 @@ const loadTDSLoader = async ()=>(await require("db5905c9c51b234a")).TDSLoader;
 const loadPCDLoader = async ()=>(await require("918ca3d8da8f4dcc")).PCDLoader;
 const loadGLTFLoader = async ()=>(await require("88dd21fa50de6367")).GLTFLoader;
 const loadDRACOLoader = async ()=>(await require("3fe5170a04fdb6df")).DRACOLoader;
+const loadUSDLoader = async ()=>(await require("99a060c21b5bbff5")).USDLoader;
+const loadThreeMFLoader = async ()=>(await require("c2b3386ee6f46b26")).ThreeMFLoader;
+const loadAMFLoader = async ()=>(await require("9b0e19a46da7334b")).AMFLoader;
+const loadVRMLLoader = async ()=>(await require("3cab7433c937b5b6")).VRMLLoader;
+const loadKMZLoader = async ()=>(await require("c551698ee7c6361d")).KMZLoader;
+const loadVOXLoader = async ()=>(await require("b0df9638e76d406a")).VOXLoader;
+const loadVOXBuildMesh = async ()=>(await require("b0df9638e76d406a")).buildMesh;
+const loadLWOLoader = async ()=>(await require("7ed7faa54bc33f5b")).LWOLoader;
 const loadIFCLoader = async ()=>(await require("aa72c8e5698f824d")).IFCLoader;
 const loadRoomEnvironment = async ()=>(await require("58b2fff6cda12a47")).RoomEnvironment;
 const loadHDRLoader = async ()=>(await require("ffcfdbe4d8ed1a2f")).HDRLoader;
@@ -107929,6 +109121,16 @@ const loaderMap = {
     xyz: loadXYZLoader,
     '3ds': loadTDSLoader,
     pcd: loadPCDLoader,
+    usd: loadUSDLoader,
+    usda: loadUSDLoader,
+    usdc: loadUSDLoader,
+    usdz: loadUSDLoader,
+    '3mf': loadThreeMFLoader,
+    amf: loadAMFLoader,
+    wrl: loadVRMLLoader,
+    kmz: loadKMZLoader,
+    vox: loadVOXLoader,
+    lwo: loadLWOLoader,
     ifc: loadIFCLoader
 };
 async function createLoader(ext) {
@@ -108410,6 +109612,57 @@ async function loadModel() {
                     });
                     break;
                 }
+            // Formats whose three.js loader returns a ready-to-add object/group.
+            case "usd":
+            case "usda":
+            case "usdc":
+            case "usdz":
+            case "3mf":
+            case "amf":
+            case "wrl":
+                {
+                    const loader = await createLoader((0, _coreJs.core).fileObject.extension.toLowerCase());
+                    const object = await loadAsync(loader, modelPath, onProgress);
+                    object.position.set(0, 0, 0);
+                    await afterLoad({
+                        object
+                    });
+                    break;
+                }
+            case "kmz":
+                {
+                    const loader = await createLoader("kmz");
+                    const kmz = await loadAsync(loader, modelPath, onProgress);
+                    await afterLoad({
+                        object: kmz.scene
+                    });
+                    break;
+                }
+            case "vox":
+                {
+                    const loader = await createLoader("vox");
+                    const buildMesh = await loadVOXBuildMesh();
+                    const vox = await loadAsync(loader, modelPath, onProgress);
+                    // Files with a scene graph come back assembled in vox.scene; plain
+                    // ones only carry their chunks.
+                    const object = vox.scene ?? new (0, _initJsDefault.default).Group();
+                    if (!vox.scene) vox.chunks.forEach((chunk)=>object.add(buildMesh(chunk)));
+                    await afterLoad({
+                        object
+                    });
+                    break;
+                }
+            case "lwo":
+                {
+                    const loader = await createLoader("lwo");
+                    const lwo = await loadAsync(loader, modelPath, onProgress);
+                    const object = new (0, _initJsDefault.default).Group();
+                    (lwo.meshes || []).forEach((mesh)=>object.add(mesh));
+                    await afterLoad({
+                        object
+                    });
+                    break;
+                }
             case "glb":
             case "gltf":
                 {
@@ -108514,7 +109767,7 @@ const progressLoaderHandler = function(xhr) {
     (0, _coreJs.core).UltraLoader?.set(percentComplete);
 };
 
-},{"./init.js":"hyhZi","8fb032364b7a561d":"9Pp4J","e2efb9567d9ec379":"9sFqT","a0bc7e286403b899":"fpZF8","15a2ef9a3cccf2a1":"6JtYf","e9b6ecfc591a16cf":"17x8p","c764bb9fe3e4adb2":"aX3tt","bd02efd6283dfa7d":"2LzuS","c8e94698c27e98c0":"iaQB8","db5905c9c51b234a":"9xDdv","918ca3d8da8f4dcc":"jkPm6","88dd21fa50de6367":"9j2GE","3fe5170a04fdb6df":"lbmG8","aa72c8e5698f824d":"34AyY","58b2fff6cda12a47":"47qqh","ffcfdbe4d8ed1a2f":"cziDF","./core.js":"1fEas","./metadata.js":"4eKqp","./viewer-utils.js":"aZ3yt","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"9Pp4J":[function(require,module,exports,__globalThis) {
+},{"./init.js":"hyhZi","8fb032364b7a561d":"9Pp4J","e2efb9567d9ec379":"9sFqT","a0bc7e286403b899":"fpZF8","15a2ef9a3cccf2a1":"9baw5","e9b6ecfc591a16cf":"17x8p","c764bb9fe3e4adb2":"aX3tt","bd02efd6283dfa7d":"2LzuS","c8e94698c27e98c0":"iaQB8","db5905c9c51b234a":"9xDdv","918ca3d8da8f4dcc":"jkPm6","88dd21fa50de6367":"9j2GE","3fe5170a04fdb6df":"lbmG8","99a060c21b5bbff5":"1mhQD","c2b3386ee6f46b26":"cKHPj","9b0e19a46da7334b":"8oCj0","3cab7433c937b5b6":"aZYJG","c551698ee7c6361d":"9kgB8","b0df9638e76d406a":"kWSvY","7ed7faa54bc33f5b":"bcyYD","aa72c8e5698f824d":"34AyY","58b2fff6cda12a47":"47qqh","ffcfdbe4d8ed1a2f":"cziDF","./core.js":"1fEas","./metadata.js":"4eKqp","./viewer-utils.js":"aZ3yt","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"9Pp4J":[function(require,module,exports,__globalThis) {
 module.exports = import("./DDSLoader.b437caf4.js").then(()=>module.bundle.root('8zRzV'));
 
 },{"8zRzV":"8zRzV"}],"9sFqT":[function(require,module,exports,__globalThis) {
@@ -108523,8 +109776,11 @@ module.exports = import("./MTLLoader.e65223ac.js").then(()=>module.bundle.root('
 },{"evW6u":"evW6u"}],"fpZF8":[function(require,module,exports,__globalThis) {
 module.exports = import("./OBJLoader.c4f1899b.js").then(()=>module.bundle.root('kxycE'));
 
-},{"kxycE":"kxycE"}],"6JtYf":[function(require,module,exports,__globalThis) {
-module.exports = import("./FBXLoader.da86d394.js").then(()=>module.bundle.root('dDIX9'));
+},{"kxycE":"kxycE"}],"9baw5":[function(require,module,exports,__globalThis) {
+module.exports = Promise.all([
+    import("./FBXLoader.cd77d59b.js"),
+    import("./FBXLoader.da86d394.js")
+]).then(()=>module.bundle.root('dDIX9'));
 
 },{"dDIX9":"dDIX9"}],"17x8p":[function(require,module,exports,__globalThis) {
 module.exports = import("./PLYLoader.8478ed7b.js").then(()=>module.bundle.root('b9a6A'));
@@ -108553,7 +109809,41 @@ module.exports = Promise.all([
 },{"Hqqq3":"Hqqq3"}],"lbmG8":[function(require,module,exports,__globalThis) {
 module.exports = import("./DRACOLoader.43bc6d52.js").then(()=>module.bundle.root('7duZu'));
 
-},{"7duZu":"7duZu"}],"34AyY":[function(require,module,exports,__globalThis) {
+},{"7duZu":"7duZu"}],"1mhQD":[function(require,module,exports,__globalThis) {
+module.exports = Promise.all([
+    import("./FBXLoader.cd77d59b.js"),
+    import("./USDLoader.8f94ad47.js")
+]).then(()=>module.bundle.root('ineoH'));
+
+},{"ineoH":"ineoH"}],"cKHPj":[function(require,module,exports,__globalThis) {
+module.exports = Promise.all([
+    import("./FBXLoader.cd77d59b.js"),
+    import("./3MFLoader.8c584f39.js")
+]).then(()=>module.bundle.root('ecgek'));
+
+},{"ecgek":"ecgek"}],"8oCj0":[function(require,module,exports,__globalThis) {
+module.exports = Promise.all([
+    import("./FBXLoader.cd77d59b.js"),
+    import("./AMFLoader.de35db22.js")
+]).then(()=>module.bundle.root('2MOgV'));
+
+},{"2MOgV":"2MOgV"}],"aZYJG":[function(require,module,exports,__globalThis) {
+module.exports = import("./VRMLLoader.76eebbad.js").then(()=>module.bundle.root('amL9e'));
+
+},{"amL9e":"amL9e"}],"9kgB8":[function(require,module,exports,__globalThis) {
+module.exports = Promise.all([
+    import("./ColladaLoader.3e9cfb6f.js"),
+    import("./FBXLoader.cd77d59b.js"),
+    import("./KMZLoader.7f5a29bc.js")
+]).then(()=>module.bundle.root('bAj54'));
+
+},{"bAj54":"bAj54"}],"kWSvY":[function(require,module,exports,__globalThis) {
+module.exports = import("./VOXLoader.9d32232b.js").then(()=>module.bundle.root('g9HJ8'));
+
+},{"g9HJ8":"g9HJ8"}],"bcyYD":[function(require,module,exports,__globalThis) {
+module.exports = import("./LWOLoader.acbdc3c1.js").then(()=>module.bundle.root('2Mn2K'));
+
+},{"2Mn2K":"2Mn2K"}],"34AyY":[function(require,module,exports,__globalThis) {
 module.exports = Promise.all([
     import("./GLTFLoader.de062239.js"),
     import("./IFCLoader.d991e942.js")
@@ -108598,6 +109888,18 @@ var _utilsJs = require("./utils.js");
 var _viewerUtilsJs = require("./viewer-utils.js");
 var _coreJs = require("./core.js");
 var _i18NUtilsJs = require("./i18n-utils.js");
+var _viewerParamUtilsJs = require("./viewer-param-utils.js");
+// Below this distance (px) from its default glued corner, drag movement is
+// absorbed rather than moved - the panel only actually detaches from the
+// viewer frame's edge past a deliberate drag, instead of on the first pixel.
+const METADATA_GLUE_THRESHOLD = 28;
+// How close to the card's bottom-right corner a pointerdown has to land to
+// count as grabbing the native resize grip (see isPointerInResizeCorner()).
+const METADATA_RESIZE_HOTSPOT = 18;
+let metadataResizeObserver = null;
+let metadataHostResizeObserver = null;
+let metadataNativeResizeActive = false;
+let metadataNativeResizeReleaseTimer = null;
 let modelSettingsResetState = null;
 function captureModelSettingsResetState(object) {
     const objects = Array.isArray(object) ? object : [
@@ -108682,6 +109984,22 @@ function expandMetadata() {
     card?.classList.toggle("metadata-open", expanded);
     // accessibility
     toggle.setAttribute("aria-expanded", expanded);
+    // A manual resize (see observeMetadataResize()) sets an explicit inline
+    // width/height on the card. Left alone, that inline size would keep the
+    // collapsed card just as big as when it was expanded, with the content
+    // hidden inside empty space instead of the card actually shrinking back
+    // to the compact pill - so swap it out for the collapsed default here,
+    // and restore the stored manual size when expanding again.
+    if (card?.classList.contains("metadata-card-resized")) {
+        if (expanded) {
+            const { width, height } = getInitialMetadataSize();
+            if (width != null) card.style.width = `${width}px`;
+            if (height != null) card.style.height = `${height}px`;
+        } else {
+            card.style.width = "";
+            card.style.height = "";
+        }
+    }
     if (!expanded) {
         card?.classList.remove("metadata-card-overflowing");
         content.querySelectorAll(".metadata-row-pinned").forEach((row)=>{
@@ -108726,8 +110044,210 @@ function bindMetadataInteractions() {
         });
         if (willPin) row.classList.add("metadata-row-pinned");
     });
+    // The card is rebuilt (innerHTML) on every handleMetadataResponse() call,
+    // so its own drag handle is a fresh element each time - delegate from the
+    // container (which persists) instead of binding it directly.
+    (0, _coreJs.core).metadataContainer.addEventListener("pointerdown", (e)=>{
+        if (e.target.closest(".metadata-drag-handle")) {
+            startMetadataDrag(e);
+            return;
+        }
+        const card = e.target.closest("#metadata-card");
+        if (card && isPointerInResizeCorner(card, e.clientX, e.clientY)) beginNativeResizeTracking();
+    });
     window.addEventListener("resize", updateMetadataOverflow);
     (0, _coreJs.core).metadataContainer.dataset.boundCollapse = "true";
+}
+function getMetadataContainerConfig() {
+    return (0, _coreJs.core).CONFIG?.viewer?.metadataContainer || {};
+}
+function getInitialMetadataPosition() {
+    const position = getMetadataContainerConfig().position || {};
+    return {
+        x: (0, _viewerParamUtilsJs.parseFloatParam)(position.x) ?? 0,
+        y: (0, _viewerParamUtilsJs.parseFloatParam)(position.y) ?? 0
+    };
+}
+function setStoredMetadataPosition(x, y) {
+    (0, _coreJs.core).CONFIG ??= {};
+    (0, _coreJs.core).CONFIG.viewer ??= {};
+    (0, _coreJs.core).CONFIG.viewer.metadataContainer ??= {};
+    (0, _coreJs.core).CONFIG.viewer.metadataContainer.position = {
+        x: Number.isFinite(x) ? x : 0,
+        y: Number.isFinite(y) ? y : 0
+    };
+}
+function getInitialMetadataSize() {
+    const size = getMetadataContainerConfig().size || {};
+    return {
+        width: (0, _viewerParamUtilsJs.parseFloatParam)(size.width),
+        height: (0, _viewerParamUtilsJs.parseFloatParam)(size.height)
+    };
+}
+function setStoredMetadataSize(width, height) {
+    (0, _coreJs.core).CONFIG ??= {};
+    (0, _coreJs.core).CONFIG.viewer ??= {};
+    (0, _coreJs.core).CONFIG.viewer.metadataContainer ??= {};
+    (0, _coreJs.core).CONFIG.viewer.metadataContainer.size = {
+        width: Number.isFinite(width) ? width : null,
+        height: Number.isFinite(height) ? height : null
+    };
+}
+function getMetadataDragHost() {
+    // Unlike editorToolbar/manifestoForm (which prefer the wrapper, since one
+    // can render outside the 3D canvas), the metadata panel is an overlay ON
+    // the model - it should stay confined to the actual viewer viewport, not
+    // the taller wrapper that can also contain e.g. the manifesto form below it.
+    return (0, _coreJs.core).container || (0, _coreJs.core).viewerWrapper || null;
+}
+function clampMetadataPosition(card, x, y) {
+    const host = getMetadataDragHost();
+    const hostRect = host?.getBoundingClientRect();
+    if (!hostRect) return {
+        x,
+        y
+    };
+    // The card's untransformed rest position is the host's top-left corner
+    // (see #metadata-container { left: 0 } in main.css), so a translate of 0
+    // to (hostWidth - cardWidth)/(hostHeight - cardHeight) keeps it fully
+    // inside the viewer, unlike editorToolbar's looser +-hostSize clamp.
+    const maxX = Math.max(hostRect.width - card.offsetWidth, 0);
+    const maxY = Math.max(hostRect.height - card.offsetHeight, 0);
+    return {
+        x: Math.min(Math.max(x, 0), maxX),
+        y: Math.min(Math.max(y, 0), maxY)
+    };
+}
+function applyMetadataPosition(card, x, y) {
+    card.style.setProperty("--drag-x", `${x}px`);
+    card.style.setProperty("--drag-y", `${y}px`);
+    setStoredMetadataPosition(x, y);
+}
+function startMetadataDrag(event) {
+    if (event.button !== 0) return;
+    const card = document.getElementById("metadata-card");
+    if (!card) return;
+    event.preventDefault();
+    const origin = getInitialMetadataPosition();
+    // Only glued (resisting small drags) when still sitting exactly at the
+    // default corner position - once the user has deliberately moved it away,
+    // further drags follow the pointer 1:1 like editorToolbar's.
+    const glued = origin.x === 0 && origin.y === 0;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    card.classList.add("metadata-dragging");
+    const onPointerMove = (moveEvent)=>{
+        const rawDx = moveEvent.clientX - startX;
+        const rawDy = moveEvent.clientY - startY;
+        const dx = glued ? Math.sign(rawDx) * Math.max(Math.abs(rawDx) - METADATA_GLUE_THRESHOLD, 0) : rawDx;
+        const dy = glued ? Math.sign(rawDy) * Math.max(Math.abs(rawDy) - METADATA_GLUE_THRESHOLD, 0) : rawDy;
+        const next = clampMetadataPosition(card, origin.x + dx, origin.y + dy);
+        applyMetadataPosition(card, next.x, next.y);
+    };
+    const stopDrag = ()=>{
+        card.classList.remove("metadata-dragging");
+        document.removeEventListener("pointermove", onPointerMove);
+        document.removeEventListener("pointerup", stopDrag);
+        document.removeEventListener("pointercancel", stopDrag);
+    };
+    document.addEventListener("pointermove", onPointerMove);
+    document.addEventListener("pointerup", stopDrag);
+    document.addEventListener("pointercancel", stopDrag);
+}
+// The card's own width/height also change from expanding/collapsing (an
+// animated CSS transition, not a resize) and from the host ResizeObserver
+// re-clamping it - neither is a user resize. Only trust a ResizeObserver
+// firing as one while the user is actually holding the native grip down.
+function isPointerInResizeCorner(card, clientX, clientY) {
+    const rect = card.getBoundingClientRect();
+    return clientX >= rect.right - METADATA_RESIZE_HOTSPOT && clientX <= rect.right + 4 && clientY >= rect.bottom - METADATA_RESIZE_HOTSPOT && clientY <= rect.bottom + 4;
+}
+function beginNativeResizeTracking() {
+    metadataNativeResizeActive = true;
+    clearTimeout(metadataNativeResizeReleaseTimer);
+    const release = ()=>{
+        // A short grace period so the ResizeObserver entry for the drag's final
+        // frame (delivered asynchronously after pointerup) still lands while
+        // tracking is considered active.
+        metadataNativeResizeReleaseTimer = setTimeout(()=>{
+            metadataNativeResizeActive = false;
+        }, 100);
+        document.removeEventListener("pointerup", release);
+        document.removeEventListener("pointercancel", release);
+    };
+    document.addEventListener("pointerup", release);
+    document.addEventListener("pointercancel", release);
+}
+// Resize itself is native CSS (see "#metadata-card.metadata-open { resize:
+// both }" in main.css, enabled only while expanded) - a ResizeObserver just
+// persists the result and keeps it from growing past the viewer's edge,
+// mirroring initializeManifestoFormDrag()'s resize handling below.
+function observeMetadataResize(card) {
+    metadataResizeObserver?.disconnect();
+    let isFirstObservation = true;
+    metadataResizeObserver = new ResizeObserver((entries)=>{
+        if (isFirstObservation) {
+            isFirstObservation = false;
+            return;
+        }
+        if (!metadataNativeResizeActive) return;
+        const entry = entries[0];
+        if (!entry) return;
+        const host = getMetadataDragHost();
+        const hostRect = host?.getBoundingClientRect();
+        const { x, y } = getInitialMetadataPosition();
+        let width = entry.contentRect.width;
+        let height = entry.contentRect.height;
+        if (hostRect) {
+            const maxWidth = Math.max(hostRect.width - x, 160);
+            const maxHeight = Math.max(hostRect.height - y, 60);
+            if (width > maxWidth) {
+                width = maxWidth;
+                card.style.width = `${width}px`;
+            }
+            if (height > maxHeight) {
+                height = maxHeight;
+                card.style.height = `${height}px`;
+            }
+        }
+        card.classList.add("metadata-card-resized");
+        setStoredMetadataSize(Math.round(width), Math.round(height));
+    });
+    metadataResizeObserver.observe(card);
+}
+// Keep the stored position valid if the viewer itself is resized, mirroring
+// initializeEditorToolbarDrag()'s own host ResizeObserver in editor-toolbar.js.
+function observeMetadataHost(card) {
+    const host = getMetadataDragHost();
+    metadataHostResizeObserver?.disconnect();
+    if (!host) return;
+    metadataHostResizeObserver = new ResizeObserver(()=>{
+        const { x, y } = getInitialMetadataPosition();
+        const next = clampMetadataPosition(card, x, y);
+        applyMetadataPosition(card, next.x, next.y);
+    });
+    metadataHostResizeObserver.observe(host);
+}
+function initializeMetadataDragAndResize() {
+    const card = document.getElementById("metadata-card");
+    if (!card) return;
+    if ((0, _coreJs.core).container && getComputedStyle((0, _coreJs.core).container).position === "static") (0, _coreJs.core).container.style.position = "relative";
+    const { x, y } = getInitialMetadataPosition();
+    applyMetadataPosition(card, x, y);
+    const { width, height } = getInitialMetadataSize();
+    const hasStoredSize = width != null || height != null;
+    card.classList.toggle("metadata-card-resized", hasStoredSize);
+    // The card is always (re)built collapsed (see the HTML template in
+    // handleMetadataResponse()) - only apply a previously stored manual size
+    // once it's actually expanded again (see expandMetadata()), or a freshly
+    // rebuilt card would immediately show a large collapsed box with its
+    // content hidden inside empty space.
+    if (hasStoredSize && card.classList.contains("metadata-open")) {
+        if (width != null) card.style.width = `${width}px`;
+        if (height != null) card.style.height = `${height}px`;
+    }
+    observeMetadataResize(card);
+    observeMetadataHost(card);
 }
 function appendMetadata(metadataContent) {
     (0, _coreJs.core).metadataContainer.innerHTML = metadataContent;
@@ -108846,7 +110366,7 @@ async function handleMetadataResponse(data, metadata, object) {
         (0, _coreJs.core).metadataContainer.id = "metadata-container";
     }
     (0, _coreJs.core).metadataContainer.setAttribute("data-viewer-theme", (0, _coreJs.core).container?.closest(".viewer-wrapper")?.getAttribute("data-viewer-theme") || "dark");
-    var metadataContent = '<div id="metadata-card"><button id="metadata-collapse" class="metadata-collapse metadata-collapsed" type="button" aria-expanded="false" aria-controls="metadata-content"><span class="metadata-toggle-icon" aria-hidden="true"></span><span class="metadata-toggle-copy"><span class="metadata-toggle-eyebrow" data-i18n-key="metadata.modelDetails">' + escapeHtml((0, _i18NUtilsJs.t)("metadata.modelDetails", "Model details")) + '</span>' + '<span class="metadata-toggle-title" data-i18n-key="metadata.metadata">' + escapeHtml((0, _i18NUtilsJs.t)("metadata.metadata", "Metadata")) + '</span>' + '</span>' + '<span class="metadata-toggle-chevron" aria-hidden="true"></span>' + '</button>' + '<div id="metadata-content" class="metadata-content">';
+    var metadataContent = '<div id="metadata-card"><div class="metadata-drag-handle" title="' + escapeHtml((0, _i18NUtilsJs.t)("metadata.move", "Move")) + '"></div>' + '<button id="metadata-collapse" class="metadata-collapse metadata-collapsed" type="button" aria-expanded="false" aria-controls="metadata-content">' + '<span class="metadata-toggle-icon" aria-hidden="true"></span>' + '<span class="metadata-toggle-copy">' + '<span class="metadata-toggle-eyebrow" data-i18n-key="metadata.modelDetails">' + escapeHtml((0, _i18NUtilsJs.t)("metadata.modelDetails", "Model details")) + '</span>' + '<span class="metadata-toggle-title" data-i18n-key="metadata.metadata">' + escapeHtml((0, _i18NUtilsJs.t)("metadata.metadata", "Metadata")) + '</span>' + '</span>' + '<span class="metadata-toggle-chevron" aria-hidden="true"></span>' + '</button>' + '<div id="metadata-content" class="metadata-content">';
     metadataContent += '<div class="metadata-row"><span class="metadata-label" data-i18n-key="metadata.visualizedFile">' + escapeHtml((0, _i18NUtilsJs.t)("metadata.visualizedFile", "Visualized file")) + ':</span>' + '<span class="metadata-value">' + escapeHtml((0, _coreJs.core).fileObject.basename) + '.' + escapeHtml((0, _coreJs.core).fileObject.extension) + '</span>' + '</div>';
     metadataContent += '<div class="metadataSeparator"></div>';
     metadataContent += '<div class="metadata-row"><span class="metadata-label" data-i18n-key="metadata.vertices">' + escapeHtml((0, _i18NUtilsJs.t)("metadata.vertices", "Vertices")) + ':</span>' + '<span class="metadata-value">' + metadata["vertices"] + '</span>' + '</div>';
@@ -108889,6 +110409,7 @@ async function handleMetadataResponse(data, metadata, object) {
     metadataContent += "</div></div>";
     appendMetadata(metadataContent);
     bindMetadataInteractions();
+    initializeMetadataDragAndResize();
     requestAnimationFrame(updateMetadataOverflow);
 }
 async function settingsHandler(object, data) {
@@ -108969,7 +110490,7 @@ async function fetchSettings(object) {
         if (normalizedUri.startsWith(metadataPrefix)) normalizedUri = normalizedUri.slice(metadataPrefix.length);
         normalizedUri = normalizedUri.replace(/^\/+/, '');
         const metadataBase = new URL((0, _coreJs.core).CONFIG.metadataUrl);
-        const fileUri = new URL((0, _coreJs.core).fileObject.uri);
+        const fileUri = new URL((0, _coreJs.core).fileObject.uri, document.baseURI);
         const filePath = fileUri.pathname.replace(/^\/+|\/+$/g, '');
         metadataUrl = new URL(`/${filePath}/metadata/${(0, _coreJs.core).fileObject.filename}_viewer.json`, metadataBase).href;
         console.log("Fetched metadata from:", metadataUrl);
@@ -109080,6 +110601,10 @@ function createAIM3IFDropdown(url) {
         {
             url: "./manifests/wolpa-synagogue-aim3d-local.json",
             name: (0, _i18NUtilsJs.t)("aim3if.optionWolpaLocal", "Wolpa Synagogue (localhost)")
+        },
+        {
+            url: "./manifests/wolpa-synagogue-aim3d-local-ceiling.json",
+            name: (0, _i18NUtilsJs.t)("aim3if.optionWolpaLocalCeiling", "Wolpa Synagogue - ceiling view (localhost)")
         }
     ].filter((item)=>item?.url);
     const label = document.createElement("label");
@@ -109099,14 +110624,142 @@ function createAIM3IFDropdown(url) {
     // add on the top
     document.querySelector("#form-manifesto-content").prepend(group);
 }
+function getManifestoFormConfig() {
+    return (0, _coreJs.core).CONFIG?.viewer?.manifestoForm || {};
+}
+function getInitialManifestoPosition() {
+    const position = getManifestoFormConfig().position || {};
+    return {
+        x: (0, _viewerParamUtilsJs.parseFloatParam)(position.x) ?? 0,
+        y: (0, _viewerParamUtilsJs.parseFloatParam)(position.y) ?? 0
+    };
+}
+function setStoredManifestoPosition(x, y) {
+    (0, _coreJs.core).CONFIG ??= {};
+    (0, _coreJs.core).CONFIG.viewer ??= {};
+    (0, _coreJs.core).CONFIG.viewer.manifestoForm ??= {};
+    (0, _coreJs.core).CONFIG.viewer.manifestoForm.position = {
+        x: Number.isFinite(x) ? x : 0,
+        y: Number.isFinite(y) ? y : 0
+    };
+}
+function setStoredManifestoSize(width, height) {
+    (0, _coreJs.core).CONFIG ??= {};
+    (0, _coreJs.core).CONFIG.viewer ??= {};
+    (0, _coreJs.core).CONFIG.viewer.manifestoForm ??= {};
+    (0, _coreJs.core).CONFIG.viewer.manifestoForm.size = {
+        width: Number.isFinite(width) ? width : null,
+        height: Number.isFinite(height) ? height : null
+    };
+}
+// Makes #form-manifesto draggable (via its header) and resizable, and keeps
+// both in sync with core.CONFIG.viewer.manifestoForm - mirrors the pattern
+// core.editorToolbar already uses for its own position (see
+// initializeEditorToolbarDrag() in editor-toolbar.js), adapted for a
+// normal-flow panel instead of an absolutely-positioned one.
+function initializeManifestoFormDrag(formContainer, handle) {
+    const host = (0, _coreJs.core).viewerWrapper || (0, _coreJs.core).container || formContainer.parentElement;
+    const initialPosition = getInitialManifestoPosition();
+    let currentX = initialPosition.x;
+    let currentY = initialPosition.y;
+    const applyPosition = ()=>{
+        formContainer.style.transform = currentX || currentY ? `translate3d(${currentX}px, ${currentY}px, 0)` : "";
+        setStoredManifestoPosition(currentX, currentY);
+    };
+    applyPosition();
+    const clampPosition = (x, y)=>{
+        const hostRect = host?.getBoundingClientRect();
+        // The panel starts horizontally centered (CSS "margin: auto"), so x=0
+        // is that centered rest position - moving left needs a *negative* x,
+        // not just a small positive one. maxX is the slack on either side
+        // (half of the leftover host width) before an edge of the panel would
+        // reach the corresponding edge of the host.
+        const maxX = hostRect ? Math.max((hostRect.width - formContainer.offsetWidth) / 2, 0) : Infinity;
+        return {
+            x: Math.min(Math.max(x, -maxX), maxX),
+            // Never move above its natural in-flow position (y < 0) - it already
+            // sits directly below the viewer (see the appendChild call below),
+            // so this alone guarantees dragging can never put it back over the
+            // model, regardless of how the panel is later resized.
+            y: Math.max(y, 0)
+        };
+    };
+    let dragState = null;
+    const onPointerMove = (event)=>{
+        if (!dragState) return;
+        const dx = event.clientX - dragState.startX;
+        const dy = event.clientY - dragState.startY;
+        const next = clampPosition(dragState.originX + dx, dragState.originY + dy);
+        currentX = next.x;
+        currentY = next.y;
+        applyPosition();
+    };
+    const stopDrag = ()=>{
+        if (!dragState) return;
+        dragState = null;
+        formContainer.classList.remove("form-manifesto-dragging");
+        document.removeEventListener("pointermove", onPointerMove);
+        document.removeEventListener("pointerup", stopDrag);
+    };
+    handle.addEventListener("pointerdown", (event)=>{
+        if (event.target.closest("button")) return; // don't hijack the collapse button
+        dragState = {
+            startX: event.clientX,
+            startY: event.clientY,
+            originX: currentX,
+            originY: currentY
+        };
+        formContainer.classList.add("form-manifesto-dragging");
+        document.addEventListener("pointermove", onPointerMove);
+        document.addEventListener("pointerup", stopDrag);
+    });
+    // Resizing itself is native CSS (see "#form-manifesto { resize: both }"
+    // in viewer/css/external-sources.css) - no custom handle needed. A
+    // ResizeObserver still fires for a user dragging that native handle, so
+    // it's enough to persist the result into config.
+    const initialSize = getManifestoFormConfig().size || {};
+    const initialWidth = (0, _viewerParamUtilsJs.parseFloatParam)(initialSize.width);
+    const initialHeight = (0, _viewerParamUtilsJs.parseFloatParam)(initialSize.height);
+    if (initialWidth != null) formContainer.style.width = `${initialWidth}px`;
+    if (initialHeight != null) formContainer.style.height = `${initialHeight}px`;
+    let isFirstResizeObservation = true;
+    const resizeObserver = new ResizeObserver((entries)=>{
+        // Skip the observer's own initial firing (on observe()) so it doesn't
+        // immediately overwrite a configured size with the pre-resize default.
+        if (isFirstResizeObservation) {
+            isFirstResizeObservation = false;
+            return;
+        }
+        const entry = entries[0];
+        if (!entry) return;
+        setStoredManifestoSize(Math.round(entry.contentRect.width), Math.round(entry.contentRect.height));
+    });
+    resizeObserver.observe(formContainer);
+}
 function createManifestUI(type = "iiif") {
     const formContainer = document.createElement("div");
     const className = type === "iiif" ? "IIIF" : "AIM3IF";
     const titleKey = type === "iiif" ? "iiif" : "aim3if";
     formContainer.id = `form-manifesto`;
+    // Expanded by default - collapsing is still available via the toggle
+    // button below (a user choice to save is worth keeping), but it no longer
+    // needs to default to collapsed just to stay out of the model's way: see
+    // the appendChild call at the bottom of this function, which now places
+    // this in normal document flow below the viewer instead of as a
+    // position: fixed overlay on top of it.
     /* header */ const header = document.createElement("div");
     header.className = `form-manifesto-header`;
     header.innerHTML = `
+    <span class="form-manifesto-drag-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="14" height="14" focusable="false">
+        <circle cx="9" cy="6" r="1.6" fill="currentColor"/>
+        <circle cx="15" cy="6" r="1.6" fill="currentColor"/>
+        <circle cx="9" cy="12" r="1.6" fill="currentColor"/>
+        <circle cx="15" cy="12" r="1.6" fill="currentColor"/>
+        <circle cx="9" cy="18" r="1.6" fill="currentColor"/>
+        <circle cx="15" cy="18" r="1.6" fill="currentColor"/>
+      </svg>
+    </span>
     <span class="title">${escapeHtml((0, _i18NUtilsJs.t)(`${titleKey}.loader`, `${className} Loader`))}</span>
     <div class="tools">
       <button type="button" id="manifesto-toggle-collapse" title="${escapeHtml((0, _i18NUtilsJs.t)(`${titleKey}.collapse`, `Collapse`))}">\u{25BE}</button>
@@ -109130,100 +110783,17 @@ function createManifestUI(type = "iiif") {
     </div>
   `;
     formContainer.appendChild(content);
-    document.body.appendChild(formContainer);
+    // Appended into the viewer's own wrapper (same host core.editorToolbar
+    // and #credits already use - see getEditorToolbarHost() in
+    // editor-toolbar.js and the appendChild call in main.js), not
+    // document.body: #form-manifesto is normal-flow now (see
+    // viewer/css/external-sources.css), so this renders it as a block below
+    // the viewer instead of a position: fixed overlay on top of it.
+    ((0, _coreJs.core).viewerWrapper || (0, _coreJs.core).container || document.body).appendChild(formContainer);
+    initializeManifestoFormDrag(formContainer, header);
 }
 
-},{"./utils.js":"jZczM","./viewer-utils.js":"aZ3yt","./core.js":"1fEas","./i18n-utils.js":"1QHhT","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"bJJok":[function(require,module,exports,__globalThis) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "StatusPoller", ()=>StatusPoller);
-var _coreJs = require("./core.js");
-class StatusPoller {
-    constructor(id, { forcePoll = false, onUpdate = null } = {}){
-        this.id = id;
-        this.interval = 2000;
-        this.timer = null;
-        this.running = false;
-        // core.isLocalPreview auto-detects true on localhost/LAN hostnames
-        // (see main.js), which is exactly where a standalone worker
-        // deployment is reached - forcePoll lets a caller with a real
-        // backend (no Drupal entity involved) opt out of the "no real API
-        // to poll" assumption baked into isLocalPreview elsewhere below.
-        this.forcePoll = forcePoll === true;
-        this.onUpdate = typeof onUpdate === "function" ? onUpdate : null;
-    }
-    async start() {
-        if (this.running) return;
-        this.running = true;
-        if (!(0, _coreJs.core).isLocalPreview || this.forcePoll) await this.tick();
-        else this.map = (0, _coreJs.core).isLocalPreview ? Object.fromEntries(Object.entries(this.fullMap).slice(-3) // Only keep the last 2 steps for local preview
-        .map(([k], i)=>[
-                k,
-                i
-            ])) : this.fullMap;
-    }
-    stop() {
-        this.running = false;
-        if (this.timer) clearTimeout(this.timer);
-    }
-    fullMap = {
-        init: 0,
-        preparing: 1,
-        processing: 2,
-        converted: 3,
-        updating: 4,
-        rendering: 4,
-        model_ready: 5,
-        viewer_ready: 6,
-        ready: 6,
-        failed: 7,
-        error: 7
-    };
-    terminalStatuses = new Set([
-        "ready",
-        "viewer_ready",
-        "failed",
-        "error"
-    ]);
-    map = this.fullMap;
-    updateSteps(status) {
-        if (this.map[status] !== undefined) UltraLoader.step(this.map[status]);
-    }
-    async tick() {
-        if (!this.running || (0, _coreJs.core).isLocalPreview && !this.forcePoll) return;
-        try {
-            const r = await fetch(`/api/model/status/${this.id}`, {
-                cache: "no-store"
-            });
-            if (!r.ok) throw new Error("API error");
-            const data = await r.json();
-            this.onUpdate?.(data);
-            if (data.status === "error") {
-                UltraLoader.error(data.message || "Processing failed");
-                this.stop();
-                localStorage.removeItem("processing_model_id");
-                return;
-            }
-            UltraLoader.set(data.progress);
-            this.updateSteps(data.status);
-            if (this.terminalStatuses.has(data.status)) {
-                if (data.status === "ready" || data.status === "viewer_ready") UltraLoader.finish("3D Viewer is ready");
-                else UltraLoader.finish("Failed processing the model");
-                this.stop();
-                localStorage.removeItem("processing_model_id");
-                return;
-            }
-        } catch (e) {
-            if (!(0, _coreJs.core).isLocalPreview || this.forcePoll) {
-                UltraLoader.error("Connection error");
-                this.stop();
-            }
-        }
-        this.timer = setTimeout(()=>this.tick(), this.interval);
-    }
-}
-
-},{"./core.js":"1fEas","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"cCMIh":[function(require,module,exports,__globalThis) {
+},{"./utils.js":"jZczM","./viewer-utils.js":"aZ3yt","./core.js":"1fEas","./i18n-utils.js":"1QHhT","./viewer-param-utils.js":"dFW5L","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"cCMIh":[function(require,module,exports,__globalThis) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "OrbitControls", ()=>OrbitControls);
@@ -124666,6 +126236,24 @@ parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "loadAIM3IFManifest", ()=>loadAIM3IFManifest);
 parcelHelpers.export(exports, "applyManifestConfig", ()=>applyManifestConfig);
 parcelHelpers.export(exports, "getManifestWindowState", ()=>getManifestWindowState);
+// Merges the deployment settings carried by an AIM3D manifest into `config`
+// (the object loaded from viewer-settings.json). viewer-settings.json stays the
+// fallback: only values the manifest actually defines are overwritten, so
+// manifests written before these fields existed leave the config untouched.
+//
+// Bootstrap keys that are needed *before* a manifest can be fetched (the
+// manifest URL/source in entity.metadata, viewer.lightweight, viewer.editor)
+// intentionally remain viewer-settings.json only.
+//
+// Settings with runtime side effects (theme, toolbars, performance mode, ...)
+// are applied separately by Viewer.import3IFManifest().
+parcelHelpers.export(exports, "applyManifestSettings", ()=>applyManifestSettings);
+// Settings that decide how the UI is *built* (viewer.lightweight, viewer.editor,
+// viewer.sandbox, viewer.presentationMode) must be known before any UI exists,
+// i.e. before the regular manifest load. Viewer.MainInit() therefore peeks at
+// the configured AIM3D manifest and calls this. Only strict booleans are
+// accepted; anything else leaves the viewer-settings.json value in place.
+parcelHelpers.export(exports, "applyManifestBootstrapSettings", ()=>applyManifestBootstrapSettings);
 var _manifesto = require("./manifesto");
 var _aim3DviewerValidationJs = require("./aim3dviewer-validation.js");
 async function loadAIM3IFManifest(manifestUrlOrJson) {
@@ -124723,6 +126311,8 @@ function applyManifestConfig(manifest, objectsConfig) {
         z: transform.scale?.[2] ?? 1
     };
     model.wireframe = transform.wireframe ?? false;
+    model.shadingMode = transform.shadingMode ?? "standard";
+    model.customShader = transform.customShader ?? null;
 }
 function getManifestWindowState(manifest) {
     const windowState = manifest?.AIM3DViewer?.viewer?.window;
@@ -124735,6 +126325,80 @@ function getManifestWindowState(manifest) {
         position,
         size: windowState.size
     };
+}
+function isPlainObject(value) {
+    return value != null && typeof value === "object" && !Array.isArray(value);
+}
+function nonEmptyString(value) {
+    return typeof value === "string" && value.trim() !== "" ? value : undefined;
+}
+// Position/size are stored as {x, y} / {width, height} in viewer-settings.json.
+function toXY(value) {
+    if (Array.isArray(value)) return {
+        x: value[0],
+        y: value[1]
+    };
+    return isPlainObject(value) ? {
+        x: value.x,
+        y: value.y
+    } : undefined;
+}
+function toPanelState(panel) {
+    if (!isPlainObject(panel)) return undefined;
+    const state = {};
+    const position = toXY(panel.position);
+    if (position) state.position = position;
+    if (isPlainObject(panel.size)) state.size = {
+        ...panel.size
+    };
+    return state;
+}
+function applyManifestSettings(manifest, config) {
+    const block = manifest?.AIM3DViewer;
+    if (!isPlainObject(block) || !isPlainObject(config)) return false;
+    const viewer = isPlainObject(block.viewer) ? block.viewer : {};
+    const integration = isPlainObject(block.integration) ? block.integration : {};
+    let applied = false;
+    const set = (target, key, value)=>{
+        if (value === undefined) return;
+        target[key] = value;
+        applied = true;
+    };
+    config.viewer ??= {};
+    config.entity ??= {};
+    set(config, "mainUrl", nonEmptyString(viewer.mainUrl));
+    set(config, "baseModulePath", nonEmptyString(viewer.baseModulePath));
+    set(config.viewer, "background", nonEmptyString(viewer.background));
+    if (isPlainObject(viewer.credits)) set(config.viewer, "credits", structuredClone(viewer.credits));
+    if (isPlainObject(viewer.auth)) set(config.viewer, "auth", {
+        ...viewer.auth
+    });
+    set(config.viewer, "manifestoForm", toPanelState(viewer.manifestoForm));
+    set(config.viewer, "metadataContainer", toPanelState(viewer.metadataContainer));
+    set(config.entity, "exportViewerUrl", nonEmptyString(integration.exportViewerUrl));
+    if (isPlainObject(integration.api)) {
+        config.api ??= {};
+        set(config.api, "thumbnailUploadEndpoint", nonEmptyString(integration.api.thumbnailUploadEndpoint));
+    }
+    return applied;
+}
+function applyManifestBootstrapSettings(manifest, config) {
+    const viewer = manifest?.AIM3DViewer?.viewer;
+    if (!isPlainObject(viewer) || !isPlainObject(config)) return false;
+    let applied = false;
+    config.viewer ??= {};
+    // manifest key -> viewer-settings.json key
+    const keys = {
+        lightweight: "lightweight",
+        editor: "editor",
+        sandbox: "sandboxMode",
+        presentationMode: "presentationMode"
+    };
+    for (const [manifestKey, configKey] of Object.entries(keys))if (typeof viewer[manifestKey] === "boolean") {
+        config.viewer[configKey] = viewer[manifestKey];
+        applied = true;
+    }
+    return applied;
 }
 
 },{"./manifesto":"fAy7z","./aim3dviewer-validation.js":"43JSH","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"fAy7z":[function(require,module,exports,__globalThis) {
@@ -124786,6 +126450,7 @@ parcelHelpers.export(exports, "createEditorToolbar", ()=>createEditorToolbar);
 parcelHelpers.export(exports, "updateHierarchySubmenuState", ()=>updateHierarchySubmenuState);
 parcelHelpers.export(exports, "updateStatisticsSubmenuState", ()=>updateStatisticsSubmenuState);
 parcelHelpers.export(exports, "updateClippingPlanesSubmenuState", ()=>updateClippingPlanesSubmenuState);
+parcelHelpers.export(exports, "updateShadingSubmenuState", ()=>updateShadingSubmenuState);
 parcelHelpers.export(exports, "updateLightsSubmenuState", ()=>updateLightsSubmenuState);
 parcelHelpers.export(exports, "updateBackgroundSubmenuState", ()=>updateBackgroundSubmenuState);
 parcelHelpers.export(exports, "updateEditorToolbarLabels", ()=>updateEditorToolbarLabels);
@@ -124806,6 +126471,12 @@ function getEditorToolbarIcon(icon) {
         lightTarget: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
         lights: '<svg viewBox="0 0 24 24" aria-hidden="true"> <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/> <path d="M12 4V7M12 17v3M4 12h3M17 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/> <path d="M6.5 6.5l2 2M15.5 15.5l2 2M17.5 6.5l-2 2M8.5 15.5l-2 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/> </svg>',
         materials: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 4v8l-8 4-8-4V6l8-4z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 6l8 4M12 6v8M12 14l-8-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+        shading: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+        shadingStandard: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.15"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="9" r="2" fill="currentColor" opacity="0.6"/></svg>',
+        shadingPhong: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="9" r="2.2" fill="currentColor"/></svg>',
+        shadingLambert: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.25"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+        shadingToon: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6 9a6.5 6.5 0 0 1 9-3M6.5 15a6.5 6.5 0 0 0 8 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+        shadingCustom: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 8-5 4 5 4M15 8l5 4-5 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
         ambientLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
         //cameraLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h3l2-2h4l2 2h3v10H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
         environmentMap: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 7v10l-7 4-7-4V7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 3v18M5 7l7 4 7-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="18.25" cy="5.75" r="1.25" fill="currentColor"/></svg>',
@@ -124848,7 +126519,8 @@ function getEditorToolbarIcon(icon) {
         backgroundLinear: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/></svg>',
         backgroundGradient: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="5.7" fill="currentColor" fill-opacity="0.18"/><circle cx="12" cy="12" r="3.1" fill="currentColor" fill-opacity="0.56"/><circle cx="12" cy="12" r="1.1" fill="currentColor"/></svg>',
         backgroundInner: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="5" fill="currentColor"/></svg>',
-        backgroundOuter: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h18v18H3zM12 7.5a4.5 4.5 0 1 0 0 9a4.5 4.5 0 0 0 0-9z"/><circle cx="12" cy="12" r="5.25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.2 1.6"/></svg>'
+        backgroundOuter: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h18v18H3zM12 7.5a4.5 4.5 0 1 0 0 9a4.5 4.5 0 0 0 0-9z"/><circle cx="12" cy="12" r="5.25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.2 1.6"/></svg>',
+        help: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.9.4-1.5 1-1.5 2.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>'
     };
     return icons[icon] || icons.advancedEditor;
 }
@@ -125213,6 +126885,13 @@ function createEditorToolbar(viewer) {
             primary: false
         },
         {
+            key: "shading",
+            icon: "shading",
+            onClick: ()=>{},
+            pressed: false,
+            primary: false
+        },
+        {
             key: "picking",
             icon: "picking",
             onClick: ()=>viewer.togglePickingMode(),
@@ -125292,6 +126971,15 @@ function createEditorToolbar(viewer) {
             onClick: ()=>{},
             pressed: false,
             primary: false
+        },
+        {
+            key: "help",
+            icon: "help",
+            onClick: ()=>viewer.showKeyboardShortcutsHint({
+                    manual: true
+                }),
+            pressed: true,
+            primary: false
         }
     ];
     if (!(0, _coreJs.core).isLightweight || (0, _coreJs.core).isLocalPreview) tools.splice(tools.length - 1, 0, {
@@ -125319,6 +127007,7 @@ function createEditorToolbar(viewer) {
     });
     viewer.editorToolbarButtons = {};
     viewer.environmentMapPreset = viewer.environmentMapPreset || "neutral";
+    viewer.shadingMode = viewer.shadingMode || "standard";
     const secondaryTray = document.createElement("div");
     secondaryTray.className = "viewer-editor-toolbar_secondary-tray";
     viewer.editorToolbarSecondaryTray = secondaryTray;
@@ -125332,6 +127021,11 @@ function createEditorToolbar(viewer) {
         button.dataset.primary = tool.primary ? "true" : "false";
         if (tool.key === "materials") {
             const label = (0, _i18NUtilsJs.t)("gui.materials", "Materials");
+            button.setAttribute("title", label);
+            button.setAttribute("aria-label", label);
+        }
+        if (tool.key === "shading") {
+            const label = (0, _i18NUtilsJs.t)("gui.shading", "Shading");
             button.setAttribute("title", label);
             button.setAttribute("aria-label", label);
         }
@@ -126014,6 +127708,67 @@ function createEditorToolbar(viewer) {
                 submenu.appendChild(subButton);
             });
             button.appendChild(submenu);
+        } else if (tool.key === "shading") {
+            button.classList.add("has-submenu");
+            const submenu = document.createElement("div");
+            submenu.className = "viewer-editor-tool_submenu";
+            viewer.shadingSubmenuButtons = {};
+            const shadingModes = [
+                {
+                    key: "standard",
+                    icon: "shadingStandard",
+                    label: (0, _i18NUtilsJs.t)("gui.shadingStandard", "Standard (PBR)")
+                },
+                {
+                    key: "phong",
+                    icon: "shadingPhong",
+                    label: (0, _i18NUtilsJs.t)("gui.shadingPhong", "Phong")
+                },
+                {
+                    key: "lambert",
+                    icon: "shadingLambert",
+                    label: (0, _i18NUtilsJs.t)("gui.shadingLambert", "Lambert")
+                },
+                {
+                    key: "toon",
+                    icon: "shadingToon",
+                    label: (0, _i18NUtilsJs.t)("gui.shadingToon", "Toon / Flat")
+                }
+            ];
+            shadingModes.forEach((item)=>{
+                const subButton = document.createElement("button");
+                subButton.type = "button";
+                subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+                subButton.dataset.tool = `shading-${item.key}`;
+                subButton.setAttribute("title", item.label);
+                subButton.setAttribute("aria-label", item.label);
+                subButton.innerHTML = `
+          <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon(item.icon)}</span>
+        `;
+                viewer.bindEventListener(subButton, "click", (event)=>{
+                    event.stopPropagation();
+                    viewer.setShadingMode(item.key);
+                });
+                viewer.shadingSubmenuButtons[item.key] = subButton;
+                submenu.appendChild(subButton);
+            });
+            const customButton = document.createElement("button");
+            customButton.type = "button";
+            customButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+            customButton.dataset.tool = "shading-custom";
+            const customLabel = (0, _i18NUtilsJs.t)("gui.shadingCustom", "Custom shader");
+            customButton.setAttribute("title", customLabel);
+            customButton.setAttribute("aria-label", customLabel);
+            customButton.innerHTML = `
+        <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon("shadingCustom")}</span>
+      `;
+            viewer.bindEventListener(customButton, "click", (event)=>{
+                event.stopPropagation();
+                viewer.openCustomShaderDialog();
+            });
+            viewer.shadingSubmenuButtons.custom = customButton;
+            submenu.appendChild(customButton);
+            button.appendChild(submenu);
         } else if (tool.key === "download") {
             if (!(0, _coreJs.core).isLightweight || (0, _coreJs.core).isLocalPreview) {
                 button.href = (0, _coreJs.core).downloadModelElement;
@@ -126122,6 +127877,13 @@ function updateClippingPlanesSubmenuState(viewer) {
     viewer.clippingPlaneSubmenuButtons.displayHelperZ?.classList.toggle("is-active", Boolean(clippingMode.z));
     viewer.clippingPlaneSubmenuButtons.visible?.classList.toggle("is-active", Boolean((0, _coreJs.core).planeParams?.outline?.visible));
 }
+function updateShadingSubmenuState(viewer) {
+    if (!viewer.shadingSubmenuButtons) return;
+    const activeMode = viewer.shadingMode || "standard";
+    Object.entries(viewer.shadingSubmenuButtons).forEach(([key, button])=>{
+        button?.classList.toggle("is-active", key === activeMode);
+    });
+}
 function updateLightsSubmenuState(viewer) {
     if (!viewer.lightsSubmenuButtons) return;
     const activeMode = viewer.transformText["Transform Light"];
@@ -126191,10 +127953,12 @@ function updateEditorToolbarLabels(viewer) {
         loadingLogs: viewer.showLoadingLogs ? (0, _i18NUtilsJs.t)("gui.hideLoadingLogs", "Hide loading logs") : (0, _i18NUtilsJs.t)("gui.showLoadingLogs", "Show loading logs"),
         hierarchy: (0, _i18NUtilsJs.t)("gui.hierarchy", "Hierarchy"),
         materials: (0, _i18NUtilsJs.t)("gui.materials", "Materials"),
+        shading: (0, _i18NUtilsJs.t)("gui.shading", "Shading"),
         background: (0, _i18NUtilsJs.t)("gui.backgroundColor", "Background Color"),
         statistics: (0, _i18NUtilsJs.t)("gui.statistics", "Statistics"),
         expand: viewer.isToolbarExpanded ? (0, _i18NUtilsJs.t)("gui.collapse", "Collapse toolbar") : (0, _i18NUtilsJs.t)("gui.expand", "Expand toolbar"),
-        download: (0, _i18NUtilsJs.t)("gui.download", "Download model")
+        download: (0, _i18NUtilsJs.t)("gui.download", "Download model"),
+        help: (0, _i18NUtilsJs.t)("shortcuts.helpButtonAria", "Show usage hints")
     };
     Object.entries(viewer.editorToolbarButtons).forEach(([key, button])=>{
         const label = labels[key] || key;
@@ -126320,7 +128084,8 @@ function updateEditorToolbarState(viewer) {
         fullScreen: viewer.FULLSCREEN === true,
         loadingLogs: viewer.showLoadingLogs === true,
         wireframe: viewer.wireframeMode === true,
-        download: false
+        download: false,
+        help: viewer.statusNoticeActive === true && viewer.statusNoticeCurrent?.key === "keyboard-shortcuts-hint"
     };
     Object.entries(viewer.editorToolbarButtons).forEach(([key, button])=>{
         const isActive = activeMap[key] === true;
@@ -126333,6 +128098,7 @@ function updateEditorToolbarState(viewer) {
     updateLightsSubmenuState(viewer);
     updateBackgroundSubmenuState(viewer);
     updateStatisticsSubmenuState(viewer);
+    updateShadingSubmenuState(viewer);
 }
 
 },{"./init.js":"hyhZi","./core.js":"1fEas","./i18n-utils.js":"1QHhT","./viewer-utils.js":"aZ3yt","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"banH3":[function(require,module,exports,__globalThis) {
@@ -126358,7 +128124,17 @@ const VIEWER_DEFAULTS = {
         'xyz',
         'json',
         '3ds',
-        'pcd'
+        'pcd',
+        'usd',
+        'usda',
+        'usdc',
+        'usdz',
+        '3mf',
+        'amf',
+        'wrl',
+        'kmz',
+        'vox',
+        'lwo'
     ],
     SUPPORTED_ARCHIVES: [
         'zip',
@@ -126690,6 +128466,9 @@ const VIEWER_DEFAULTS = {
     lastKeyboardHintAt: 0,
     keyboardHintCooldownMs: 45000,
     keyboardHintAfterFocusDelayMs: 1800,
+    keyboardHintShownOnce: false,
+    keyboardHintFirstDurationMs: 14000,
+    keyboardHintDurationMs: 7400,
     lastWindowFocusAt: 0,
     cleanupCallbacks: [],
     resizeObserver: null,
@@ -129925,35 +131704,25 @@ async function createCreditsElement() {
     // until then avoids a visible flash at the wrong spot followed by a jump
     // to the right one; updateSize() reveals it once it applies real coords.
     creditsDiv.style.visibility = "hidden";
+    // Single line, spanning the full viewer width (see viewer/css/credits.css)
+    // now that this renders below the viewer instead of overlaying it: logo +
+    // item values separated by a middot, rather than stacked labeled
+    // sections. Item labels (e.g. "CREATED BY") are dropped on purpose -
+    // there's no room for them next to the separators on one line.
     let html = "";
-    if (credits.logo?.src) html += `
-      <div class="credits-header">
-        ${credits.logo.url ? `<a href="${credits.logo.url}" target="_blank" rel="noopener noreferrer">` : ""}
-          <img src="${credits.logo.src}" class="credits-main-logo" alt="Logo">
-        ${credits.logo.url ? "</a>" : ""}
-      </div>
-    `;
-    html += `<div class="credits-items">`;
-    for (const item of credits.items ?? [])html += `
-      <div class="credits-item">
-
-        <div class="credits-label">
-          ${item.label}
-        </div>
-
-        ${item.logo?.src ? `
-              <div class="credits-logo-wrapper">
-                ${item.logo.url ? `<a href="${item.logo.url}" target="_blank" rel="noopener noreferrer">` : ""}
-                  <img class="credits-logo" src="${item.logo.src}" alt="">
-                ${item.logo.url ? "</a>" : ""}
-              </div>
-            ` : ""}
-
-        ${item.url ? `<a href="${item.url}" target="_blank" rel="noopener noreferrer" class="credits-link">${item.text}</a>` : `<div class="credits-text">${item.text}</div>`}
-
-      </div>
-    `;
-    html += `</div>`;
+    if (credits.logo?.src) {
+        const logoImg = `<img src="${credits.logo.src}" class="credits-main-logo" alt="Logo">`;
+        html += credits.logo.url ? `<a href="${credits.logo.url}" target="_blank" rel="noopener noreferrer" class="credits-main-logo-link">${logoImg}</a>` : logoImg;
+    }
+    const itemsHtml = (credits.items ?? []).map((item)=>{
+        const logoHtml = item.logo?.src ? (()=>{
+            const itemLogoImg = `<img class="credits-logo" src="${item.logo.src}" alt="">`;
+            return item.logo.url ? `<a href="${item.logo.url}" target="_blank" rel="noopener noreferrer">${itemLogoImg}</a>` : itemLogoImg;
+        })() : "";
+        const textHtml = item.url ? `<a href="${item.url}" target="_blank" rel="noopener noreferrer" class="credits-link">${item.text}</a>` : `<span class="credits-text">${item.text}</span>`;
+        return `<span class="credits-item">${logoHtml}${textHtml}</span>`;
+    }).join(`<span class="credits-sep" aria-hidden="true">&middot;</span>`);
+    html += `<span class="credits-items">${itemsHtml}</span>`;
     creditsDiv.innerHTML = html;
     return creditsDiv;
 }
@@ -129986,175 +131755,6 @@ function clearCurrentModel() {
     (0, _coreJs.core).mainObject = [];
 }
 
-},{"./core.js":"1fEas","./viewer-utils.js":"aZ3yt","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"8YjjB":[function(require,module,exports,__globalThis) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "attachUploadPanel", ()=>attachUploadPanel);
-var _coreJs = require("../core.js");
-var _viewerUtilsJs = require("../viewer-utils.js");
-var _i18NUtilsJs = require("../i18n-utils.js");
-var _statusPollerJs = require("../status-poller.js");
-var _ultraLoaderJs = require("../ultra-loader.js");
-// Mirrors the case-branches scripts/convert.sh actually handles, plus the
-// .zip archive support the standalone worker (worker/server.py) adds on top
-// of it - see worker/README.md.
-const SUPPORTED_EXTENSIONS = [
-    "abc",
-    "dae",
-    "fbx",
-    "obj",
-    "ply",
-    "stl",
-    "wrl",
-    "x3d",
-    "ifc",
-    "blend",
-    "gml",
-    "glb",
-    "zip"
-];
-function attachUploadPanel(Viewer) {
-    Object.assign(Viewer, {
-        isUploadPanelOpen () {
-            return this.uploadPanel?.hidden === false;
-        },
-        updateUploadMenuEntryState () {
-            if (!this.uploadModel) return;
-            // Icon-only, matching #example-theme-toggle's compact footprint next
-            // to the model picker - the full label lives in aria-label/title
-            // instead of visible text.
-            this.uploadModel.innerHTML = `<span class="upload-model-icon" aria-hidden="true"></span>`;
-            const a11yLabel = (0, _i18NUtilsJs.t)("menu.openUploadPanel", "Upload a 3D model for conversion");
-            this.uploadModel.setAttribute("aria-label", a11yLabel);
-            this.uploadModel.setAttribute("title", a11yLabel);
-        },
-        openUploadPanel (event) {
-            this.createUploadPanel();
-            this.toggleUploadPanel(event);
-        },
-        toggleUploadPanel (event) {
-            event?.preventDefault?.();
-            this.closeActionMenu();
-            if (!this.uploadPanel) return;
-            const willShow = this.uploadPanel.hidden === true;
-            this.uploadPanel.hidden = !willShow;
-            if (willShow) this.resetUploadPanelState();
-        },
-        closeUploadPanel () {
-            if (this.uploadPanel) this.uploadPanel.hidden = true;
-        },
-        resetUploadPanelState () {
-            if (!this.uploadInputs) return;
-            this.uploadInputs.file.value = "";
-            this.uploadInputs.submit.disabled = false;
-            this.setUploadStatusText("");
-        },
-        setUploadStatusText (message, tone = "info") {
-            if (!this.uploadInputs?.status) return;
-            this.uploadInputs.status.textContent = message;
-            this.uploadInputs.status.dataset.tone = tone;
-        },
-        createUploadPanel () {
-            if (!(0, _coreJs.core).container || this.uploadPanel) return;
-            const panelText = {
-                title: (0, _i18NUtilsJs.t)("uploadPanel.title", "Upload & convert model"),
-                closeAria: (0, _i18NUtilsJs.t)("uploadPanel.closeAria", "Close upload panel"),
-                fileLabel: (0, _i18NUtilsJs.t)("uploadPanel.fileLabel", "3D model file"),
-                formatsHint: (0, _i18NUtilsJs.t)("uploadPanel.formatsHint", "Supported: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, or a .zip archive containing one of these."),
-                submit: (0, _i18NUtilsJs.t)("uploadPanel.submit", "Upload & convert")
-            };
-            const panel = document.createElement("div");
-            panel.id = "uploadModelPanel";
-            panel.hidden = true;
-            panel.innerHTML = `
-        <div class="upload-panel-header">
-          <span>${panelText.title}</span>
-          <button id="uploadPanelClose" type="button" aria-label="${panelText.closeAria}">X</button>
-        </div>
-        <form id="uploadPanelForm" class="upload-panel-body">
-          <label class="upload-panel-field">${panelText.fileLabel}
-            <input id="uploadPanelFileInput" type="file" accept=".abc,.dae,.fbx,.obj,.ply,.stl,.wrl,.x3d,.ifc,.blend,.gml,.glb,.zip" required />
-          </label>
-          <p class="upload-panel-hint">${panelText.formatsHint}</p>
-          <div class="upload-panel-actions">
-            <button id="uploadPanelSubmit" type="submit">${panelText.submit}</button>
-          </div>
-          <p id="uploadPanelStatus" class="upload-panel-status" role="status" aria-live="polite"></p>
-        </form>
-      `;
-            (0, _coreJs.core).container.appendChild(panel);
-            this.uploadPanel = panel;
-            this.uploadInputs = {
-                file: panel.querySelector("#uploadPanelFileInput"),
-                submit: panel.querySelector("#uploadPanelSubmit"),
-                status: panel.querySelector("#uploadPanelStatus")
-            };
-            const form = panel.querySelector("#uploadPanelForm");
-            const closeButton = panel.querySelector("#uploadPanelClose");
-            this.bindEventListener(form, "submit", (event)=>this.handleUploadSubmit(event));
-            this.bindEventListener(closeButton, "click", ()=>this.closeUploadPanel());
-        },
-        async handleUploadSubmit (event) {
-            event.preventDefault();
-            const file = this.uploadInputs?.file?.files?.[0];
-            if (!file) return;
-            const extension = (file.name.split(".").pop() || "").toLowerCase();
-            if (!SUPPORTED_EXTENSIONS.includes(extension)) {
-                this.setUploadStatusText((0, _i18NUtilsJs.t)("uploadPanel.unsupportedFormat", {
-                    ext: extension
-                }, "Unsupported file format: .{ext}"), "error");
-                return;
-            }
-            const formData = new FormData();
-            formData.append("file", file);
-            this.uploadInputs.submit.disabled = true;
-            this.setUploadStatusText((0, _i18NUtilsJs.t)("uploadPanel.uploading", "Uploading..."), "info");
-            try {
-                const response = await fetch("/api/model/create", {
-                    method: "POST",
-                    body: formData
-                });
-                if (!response.ok) throw new Error(`Upload failed (HTTP ${response.status})`);
-                const data = await response.json();
-                const jobId = data.entity_id;
-                if (!jobId) throw new Error("No job id returned by the conversion service.");
-                this.closeUploadPanel();
-                (0, _viewerUtilsJs.toastHelper)("uploadStarted", "info");
-                (0, _ultraLoaderJs.UltraLoader).start(this.getProcessingLoadingSteps());
-                const poller = new (0, _statusPollerJs.StatusPoller)(jobId, {
-                    forcePoll: true,
-                    onUpdate: (statusData)=>this.handleUploadStatusUpdate(statusData)
-                });
-                poller.start();
-            } catch (error) {
-                this.reportError(error, {
-                    context: "Model upload failed"
-                });
-                this.setUploadStatusText((0, _i18NUtilsJs.t)("uploadPanel.uploadError", "Upload failed. Please try again."), "error");
-                (0, _viewerUtilsJs.toastHelper)("uploadError", "error");
-            } finally{
-                if (this.uploadInputs?.submit) this.uploadInputs.submit.disabled = false;
-            }
-        },
-        async handleUploadStatusUpdate (data) {
-            if (!data) return;
-            if (data.status === "ready" && data.modelUrl) {
-                (0, _viewerUtilsJs.toastHelper)("uploadReady", "success");
-                (0, _coreJs.core).autoPath = data.modelUrl;
-                this.resetLoadedModelState();
-                await this.mainLoadModelWrapper();
-                // Mirrors the same gate the example-model switch uses before
-                // rebuilding the gallery (see main.js) - the worker's own thumbnails
-                // (imageUrls) are the correct source here regardless of build vs
-                // buildFake, since there is no Drupal field markup to read in a
-                // standalone deployment.
-                const galleryCfg = (0, _coreJs.core).CONFIG.viewer?.gallery;
-                if (Array.isArray(data.imageUrls) && data.imageUrls.length > 0 && (galleryCfg?.build === true || galleryCfg?.buildFake === true) && !(0, _coreJs.core).SANDBOX_MODE && !this.isEmbedMode()) this.renderModelGalleryImages(data.imageUrls);
-            } else if (data.status === "failed" || data.status === "error") (0, _viewerUtilsJs.toastHelper)("uploadError", "error");
-        }
-    });
-}
-
-},{"../core.js":"1fEas","../viewer-utils.js":"aZ3yt","../i18n-utils.js":"1QHhT","../status-poller.js":"bJJok","../ultra-loader.js":"8P3cZ","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}]},["2CsLN","7qSnJ"], "7qSnJ", "parcelRequire6840", {})
+},{"./core.js":"1fEas","./viewer-utils.js":"aZ3yt","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}]},["2CsLN","7qSnJ"], "7qSnJ", "parcelRequire6840", {})
 
 //# sourceMappingURL=dev.655b092e.js.map

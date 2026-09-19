@@ -12,6 +12,17 @@ services:
       # need the reservation block below uncommented, plus
       # nvidia-container-toolkit installed on the host.
       - WORKER_RENDER_DEVICE=AUTO
+      # Upload cap in bytes (100 MB). Keep in sync with client_max_body_size
+      # in docker/nginx.conf.
+      - WORKER_MAX_UPLOAD_BYTES=104857600
+      # Optional accounts - off by default. Set these in a .env file next to
+      # this compose file (or the shell), not here; see "Accounts" in
+      # worker/README.md. WORKER_AUTH_MODE=required makes uploading/deleting
+      # need a login; registration is open | approval | closed.
+      - WORKER_AUTH_MODE=${WORKER_AUTH_MODE:-off}
+      - WORKER_AUTH_REGISTRATION=${WORKER_AUTH_REGISTRATION:-approval}
+      - WORKER_ADMIN_USER=${WORKER_ADMIN_USER:-}
+      - WORKER_ADMIN_PASSWORD=${WORKER_ADMIN_PASSWORD:-}
     # Requesting this reservation without nvidia-container-toolkit on the
     # host makes `docker compose up` fail outright ("could not select
     # device driver \"nvidia\"") before the container ever starts, so it
@@ -27,6 +38,10 @@ services:
     #           capabilities: [gpu]
     restart: unless-stopped
 
+  # Each viewer service takes its settings from an AIM3D manifest profile
+  # (VIEWER_PROFILE -> docker/profiles/<profile>.manifest.json), edited in the
+  # settings volume after first start.
+  #
   # Three viewer services, one per npm build target you'd otherwise run
   # locally via `npm run dev:test` / `dev:dev` / `dev:prod` - see "Standalone
   # Docker setup" in README.md. All three reverse-proxy /api/ and /files/ to
@@ -38,6 +53,7 @@ services:
       dockerfile: Dockerfile.viewer
       args:
         BUILD_TARGET: test
+        VIEWER_PROFILE: ${VIEWER_PROFILE:-test}
     ports:
       - "3000:3000"
     volumes:
@@ -57,6 +73,7 @@ services:
       dockerfile: Dockerfile.viewer
       args:
         BUILD_TARGET: dev
+        VIEWER_PROFILE: ${VIEWER_PROFILE:-dev}
     ports:
       - "3001:3000"
     volumes:
@@ -65,17 +82,17 @@ services:
       - worker
     restart: unless-stopped
 
-  # Same "test" build as viewer-test, but with viewer.sandboxMode baked into
-  # its default viewer-settings.json (drag-and-drop model upload, see
-  # viewer/sandbox.js) so opening this one's root URL lands in sandbox mode
-  # without needing to append ?sandbox=1 by hand.
+  # Same "test" build as viewer-test, but its profile manifest
+  # (docker/profiles/sandbox.manifest.json) sets viewer.sandbox=true
+  # (drag-and-drop model upload, see viewer/sandbox.js) so opening this one's
+  # root URL lands in sandbox mode without needing to append ?sandbox=1.
   viewer-sandbox:
     build:
       context: .
       dockerfile: Dockerfile.viewer
       args:
         BUILD_TARGET: test
-        SANDBOX_MODE: "true"
+        VIEWER_PROFILE: ${VIEWER_PROFILE:-sandbox}
     ports:
       - "3002:3000"
     volumes:

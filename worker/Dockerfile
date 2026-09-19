@@ -49,7 +49,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install --no-cache-dir --break-system-packages triangle
+# cascadio (OpenCASCADE) reads STEP/IGES and trimesh reads 3MF for
+# scripts/convert_mesh.py - neither goes through Blender. networkx is needed
+# by trimesh's 3MF loader; numpy and lxml come from the apt packages above.
+RUN pip3 install --no-cache-dir --break-system-packages triangle cascadio trimesh networkx
 
 ARG BLENDER_SERIES=4.4
 ARG BLENDER_VERSION=4.4.3
@@ -72,9 +75,9 @@ COPY scripts/ /app/scripts/
 # edited it - the worker configures SPATH/BLENDER_BIN via container ENV
 # instead, so drop it to avoid shadowing that with stale local paths.
 RUN rm -f /app/scripts/.env \
-    && chmod +x /app/scripts/*.sh /app/scripts/IfcConvert
+    && chmod +x /app/scripts/*.sh /app/scripts/*.py /app/scripts/IfcConvert
 
-COPY worker/server.py /app/worker/server.py
+COPY worker/server.py worker/auth.py /app/worker/
 
 ENV SPATH=/app
 ENV BLENDER_BIN=blender

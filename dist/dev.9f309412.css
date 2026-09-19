@@ -1,17 +1,26 @@
 #form-manifesto {
+  box-sizing: border-box;
   backdrop-filter: blur(8px);
-  z-index: 11;
+  resize: both;
   background: #faf7f2f0;
   border: 1px solid #a4978438;
   border-radius: 10px;
-  width: min(640px, 95vw);
+  width: min(640px, 100%);
+  min-width: 280px;
+  min-height: 120px;
+  margin: 10px auto 0;
   padding: 14px;
   font-family: system-ui, -apple-system, Segoe UI, sans-serif;
-  position: fixed;
-  bottom: 12px;
-  left: 50%;
-  transform: translateX(-50%);
+  transition: none;
+  display: block;
+  overflow: auto;
   box-shadow: 0 14px 30px #81746024;
+}
+
+#form-manifesto.form-manifesto-dragging {
+  cursor: grabbing;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 #form-manifesto * {
@@ -178,20 +187,30 @@
 }
 
 .form-manifesto-header {
-  justify-content: space-between;
+  cursor: grab;
+  touch-action: none;
   align-items: center;
+  gap: 8px;
   margin-bottom: 10px;
   display: flex;
 }
 
+.form-manifesto-drag-icon {
+  color: #25211c73;
+  flex: none;
+  display: inline-flex;
+}
+
 .form-manifesto-header .title {
   color: #25211c;
+  flex: auto;
   font-size: 13px;
   font-weight: 600;
 }
 
 .form-manifesto-header .tools {
   gap: 6px;
+  margin-left: auto;
   display: flex;
 }
 
@@ -223,6 +242,10 @@
 
 #form-manifesto[data-viewer-theme="dark"] .form-manifesto-header .title {
   color: #eee;
+}
+
+#form-manifesto[data-viewer-theme="dark"] .form-manifesto-drag-icon {
+  color: #eeeeee73;
 }
 
 #form-manifesto[data-viewer-theme="dark"] .form-manifesto-label, #form-manifesto[data-viewer-theme="dark"] .manifesto-source-switch {

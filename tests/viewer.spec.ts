@@ -2,7 +2,7 @@
 import { test, expect } from '@playwright/test';
 
 const defaultModel = '/examples/box.stl';
-const supportedFormatsText = 'GLB, GLTF, OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD';
+const supportedFormatsText = 'GLB, GLTF, OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, USD, USDA, USDC, USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO';
 const sandboxDropMessage = 'Drag and drop a 3D model into the viewer.';
 const sandboxSupportedFormatsNotice = `<strong>Supported formats</strong>: ${supportedFormatsText}\n`;
 const sandboxSupportedArchiveFormatsNotice = 'and <strong>archive formats</strong>: ZIP, RAR, TAR, XZ, GZ.';
@@ -18,6 +18,13 @@ const supportedExamples = [
   { format: 'ifc', path: '/examples/box.ifc' },
   { format: 'fbx', path: '/examples/box.fbx' },
   { format: 'glb', path: '/examples/box.glb' },
+  { format: 'usdz', path: '/examples/box.usdz' },
+  { format: 'usda', path: '/examples/box.usda' },
+  { format: '3mf', path: '/examples/box.3mf' },
+  { format: 'amf', path: '/examples/box.amf' },
+  { format: 'wrl', path: '/examples/box.wrl' },
+  { format: 'kmz', path: '/examples/box.kmz' },
+  { format: 'vox', path: '/examples/box.vox' },
 ];
 
 async function openViewer(page, modelPath = defaultModel) {

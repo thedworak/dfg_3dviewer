@@ -5,7 +5,7 @@ export const VIEWER_DEFAULTS = {
   CONFIG: null,
   PRESENTATION_MODE: false,
   SANDBOX_MODE: false,
-  SUPPORTED_EXTENSIONS: ['glb', 'gltf', 'obj', 'dae', 'fbx', 'ply', 'ifc', 'stl', 'xyz', 'json', '3ds', 'pcd'],
+  SUPPORTED_EXTENSIONS: ['glb', 'gltf', 'obj', 'dae', 'fbx', 'ply', 'ifc', 'stl', 'xyz', 'json', '3ds', 'pcd', 'usd', 'usda', 'usdc', 'usdz', '3mf', 'amf', 'wrl', 'kmz', 'vox', 'lwo'],
   SUPPORTED_ARCHIVES: ['zip', 'rar', 'tar', 'xz', 'gz'],
   camera: null,
   embedCamera: null,

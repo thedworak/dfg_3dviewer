@@ -419,7 +419,7 @@ const VIEWER_I18N = {
       title: "Upload & convert model",
       closeAria: "Close upload panel",
       fileLabel: "3D model file",
-      formatsHint: "Supported: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, or a .zip archive containing one of these.",
+      formatsHint: "Supported: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, usd/usda/usdc/usdz, step/stp, iges/igs, 3mf, gltf, 3ds, pcd, xyz, amf, kmz, vox, lwo, or a .zip archive containing one of these. STEP/IGES, 3MF and USD are converted to GLB; the last group (gltf … lwo) is uploaded as-is, without thumbnails.",
       submit: "Upload & convert",
       uploading: "Uploading...",
       unsupportedFormat: "Unsupported file format: .{ext}",
@@ -766,7 +766,7 @@ const VIEWER_I18N = {
       title: "Prześlij i skonwertuj model",
       closeAria: "Zamknij panel przesyłania",
       fileLabel: "Plik modelu 3D",
-      formatsHint: "Obsługiwane formaty: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, lub archiwum .zip zawierające jeden z nich.",
+      formatsHint: "Obsługiwane formaty: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, usd/usda/usdc/usdz, step/stp, iges/igs, 3mf, gltf, 3ds, pcd, xyz, amf, kmz, vox, lwo, lub archiwum .zip zawierające jeden z nich. STEP/IGES, 3MF i USD są konwertowane do GLB; ostatnia grupa (gltf … lwo) jest wgrywana bez zmian i bez miniatur.",
       submit: "Prześlij i skonwertuj",
       uploading: "Przesyłanie...",
       unsupportedFormat: "Nieobsługiwany format pliku: .{ext}",
@@ -1112,7 +1112,7 @@ const VIEWER_I18N = {
       title: "Modell hochladen & konvertieren",
       closeAria: "Upload-Panel schließen",
       fileLabel: "3D-Modelldatei",
-      formatsHint: "Unterstützt: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, oder ein .zip-Archiv mit einer dieser Dateien.",
+      formatsHint: "Unterstützt: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, usd/usda/usdc/usdz, step/stp, iges/igs, 3mf, gltf, 3ds, pcd, xyz, amf, kmz, vox, lwo, oder ein .zip-Archiv mit einer dieser Dateien. STEP/IGES, 3MF und USD werden zu GLB konvertiert; die letzte Gruppe (gltf … lwo) wird unverändert und ohne Vorschaubilder hochgeladen.",
       submit: "Hochladen & konvertieren",
       uploading: "Wird hochgeladen...",
       unsupportedFormat: "Nicht unterstütztes Dateiformat: .{ext}",
@@ -3355,13 +3355,153 @@ const UltraLoader$1 = {
 
 window.UltraLoader=UltraLoader$1;
 
-// Mirrors the case-branches scripts/convert.sh actually handles, plus the
-// .zip archive support the standalone worker (worker/server.py) adds on top
-// of it - see worker/README.md.
-const SUPPORTED_EXTENSIONS = ["abc", "dae", "fbx", "obj", "ply", "stl", "wrl", "x3d", "ifc", "blend", "gml", "glb", "zip"];
+// Mirrors worker/server.py's SUPPORTED_FORMATS: Blender importers, STEP/IGES/3MF
+// converted without Blender, and formats the viewer reads directly (kept as
+// uploaded, no thumbnails), plus the .zip archive support the standalone
+// worker adds on top - see worker/README.md.
+const SUPPORTED_EXTENSIONS = [
+  "abc", "dae", "fbx", "obj", "ply", "stl", "wrl", "x3d", "ifc", "blend", "gml", "glb",
+  "usd", "usda", "usdc", "usdz",
+  "step", "stp", "iges", "igs", "3mf",
+  "gltf", "3ds", "pcd", "xyz", "amf", "kmz", "vox", "lwo",
+  "zip",
+];
+
+// Same-origin worker endpoints (see worker/auth.py). Cookies travel by default
+// for same-origin requests, so no credentials option is needed.
+async function authRequest(path, body) {
+  const response = await fetch(`/api/auth/${path}`, {
+    method: body ? "POST" : "GET",
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let data = {};
+  try {
+    data = await response.json();
+  } catch (_error) {
+    // Non-JSON error page (e.g. from a proxy) - fall through with the status.
+  }
+  if (!response.ok) {
+    const error = new Error(data.error || `HTTP ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  return data;
+}
 
 function attachUploadPanel(Viewer) {
   Object.assign(Viewer, {
+    // Accounts are enforced by the worker (WORKER_AUTH_MODE); the manifest's
+    // AIM3DViewer.viewer.auth only tunes the UI: enabled:false hides it,
+    // allowRegistration:false hides the register button.
+    async refreshAuthState() {
+      const uiConfig = core.CONFIG?.viewer?.auth || {};
+      const state = { required: false, registration: false, user: null, maxUploadBytes: 0 };
+      // The upload limit is reported by the same endpoint, so query it even
+      // when the manifest hides the login UI.
+      try {
+        const serverConfig = await authRequest("config");
+        state.maxUploadBytes = Number(serverConfig.maxUploadBytes) || 0;
+        if (uiConfig.enabled !== false) {
+          state.required = serverConfig.mode === "required";
+          state.registration =
+            serverConfig.registration !== "closed" && uiConfig.allowRegistration !== false;
+          if (state.required) {
+            state.user = (await authRequest("me")).user || null;
+          }
+        }
+      } catch (_error) {
+        // Older worker without /api/auth/*: behaves as accounts off.
+      }
+      this.authState = state;
+      this.renderUploadHint();
+      this.renderAuthSection();
+      return state;
+    },
+
+    renderUploadHint() {
+      const hint = this.uploadInputs?.hint;
+      if (!hint) return;
+      const maxBytes = this.authState?.maxUploadBytes;
+      const limit = maxBytes
+        ? " " + t$1("uploadPanel.maxSize", { size: Math.round(maxBytes / 1048576) }, "Maximum upload size: {size} MB.")
+        : "";
+      hint.textContent = this.uploadInputs.hintBase + limit;
+    },
+
+    renderAuthSection() {
+      const section = this.uploadInputs?.auth;
+      if (!section) return;
+      const state = this.authState || { required: false };
+      section.hidden = !state.required;
+      section.textContent = "";
+      const canUpload = !state.required || Boolean(state.user);
+      if (this.uploadInputs.submit) this.uploadInputs.submit.disabled = !canUpload;
+      if (!state.required) return;
+
+      if (state.user) {
+        const label = document.createElement("span");
+        label.textContent = t$1("uploadPanel.signedInAs", { user: state.user }, "Signed in as {user}");
+        const logout = document.createElement("button");
+        logout.type = "button";
+        logout.textContent = t$1("uploadPanel.logout", "Log out");
+        this.bindEventListener(logout, "click", () => this.handleAuthAction("logout"));
+        section.append(label, logout);
+        return;
+      }
+
+      const hint = document.createElement("p");
+      hint.className = "upload-panel-hint";
+      hint.textContent = t$1("uploadPanel.loginRequired", "Log in to upload models.");
+      const username = document.createElement("input");
+      username.type = "text";
+      username.autocomplete = "username";
+      username.placeholder = t$1("uploadPanel.username", "Username");
+      username.setAttribute("aria-label", username.placeholder);
+      const password = document.createElement("input");
+      password.type = "password";
+      password.autocomplete = "current-password";
+      password.placeholder = t$1("uploadPanel.password", "Password");
+      password.setAttribute("aria-label", password.placeholder);
+      const login = document.createElement("button");
+      login.type = "button";
+      login.textContent = t$1("uploadPanel.login", "Log in");
+      this.bindEventListener(login, "click", () =>
+        this.handleAuthAction("login", { username: username.value.trim(), password: password.value })
+      );
+      section.append(hint, username, password, login);
+      if (state.registration) {
+        const register = document.createElement("button");
+        register.type = "button";
+        register.textContent = t$1("uploadPanel.register", "Register");
+        this.bindEventListener(register, "click", () =>
+          this.handleAuthAction("register", { username: username.value.trim(), password: password.value })
+        );
+        section.appendChild(register);
+      }
+    },
+
+    async handleAuthAction(action, credentials) {
+      try {
+        if (action === "register") {
+          const result = await authRequest("register", credentials);
+          this.setUploadStatusText(
+            result.status === "pending"
+              ? t$1("uploadPanel.registeredPending", "Account created. It must be approved before you can upload.")
+              : t$1("uploadPanel.registeredActive", "Account created. You can log in now."),
+            "success"
+          );
+          return;
+        }
+        await authRequest(action, credentials || {});
+        this.setUploadStatusText("");
+        await this.refreshAuthState();
+        this.loadPreviousModelsList();
+      } catch (error) {
+        this.setUploadStatusText(error.message, "error");
+      }
+    },
+
     isUploadPanelOpen() {
       return this.uploadPanel?.hidden === false;
     },
@@ -3390,7 +3530,7 @@ function attachUploadPanel(Viewer) {
       this.uploadPanel.hidden = !willShow;
       if (willShow) {
         this.resetUploadPanelState();
-        this.loadPreviousModelsList();
+        this.refreshAuthState().then(() => this.loadPreviousModelsList());
       }
     },
 
@@ -3403,7 +3543,8 @@ function attachUploadPanel(Viewer) {
     resetUploadPanelState() {
       if (!this.uploadInputs) return;
       this.uploadInputs.file.value = "";
-      this.uploadInputs.submit.disabled = false;
+      const state = this.authState;
+      this.uploadInputs.submit.disabled = Boolean(state?.required && !state.user);
       this.setUploadStatusText("");
     },
 
@@ -3437,10 +3578,11 @@ function attachUploadPanel(Viewer) {
           <button id="uploadPanelClose" type="button" aria-label="${panelText.closeAria}">X</button>
         </div>
         <form id="uploadPanelForm" class="upload-panel-body">
+          <div id="uploadPanelAuth" class="upload-panel-auth" hidden></div>
           <label class="upload-panel-field">${panelText.fileLabel}
-            <input id="uploadPanelFileInput" type="file" accept=".abc,.dae,.fbx,.obj,.ply,.stl,.wrl,.x3d,.ifc,.blend,.gml,.glb,.zip" required />
+            <input id="uploadPanelFileInput" type="file" accept="${SUPPORTED_EXTENSIONS.map((ext) => `.${ext}`).join(",")}" required />
           </label>
-          <p class="upload-panel-hint">${panelText.formatsHint}</p>
+          <p id="uploadPanelHint" class="upload-panel-hint">${panelText.formatsHint}</p>
           <div class="upload-panel-actions">
             <button id="uploadPanelSubmit" type="submit">${panelText.submit}</button>
           </div>
@@ -3458,6 +3600,9 @@ function attachUploadPanel(Viewer) {
         file: panel.querySelector("#uploadPanelFileInput"),
         submit: panel.querySelector("#uploadPanelSubmit"),
         status: panel.querySelector("#uploadPanelStatus"),
+        auth: panel.querySelector("#uploadPanelAuth"),
+        hint: panel.querySelector("#uploadPanelHint"),
+        hintBase: panelText.formatsHint,
       };
       this.uploadPreviousList = panel.querySelector("#uploadPanelPreviousList");
 
@@ -3520,6 +3665,13 @@ function attachUploadPanel(Viewer) {
 
         this.bindEventListener(button, "click", () => this.loadPreviousModel(job));
         item.appendChild(button);
+
+        // canDelete is computed by the worker (own uploads, or admin, or
+        // accounts off); older workers omit it and allow deleting as before.
+        if (job.canDelete === false) {
+          list.appendChild(item);
+          return;
+        }
 
         const deleteButton = document.createElement("button");
         deleteButton.type = "button";
@@ -3602,6 +3754,15 @@ function attachUploadPanel(Viewer) {
         return;
       }
 
+      const maxBytes = this.authState?.maxUploadBytes;
+      if (maxBytes && file.size > maxBytes) {
+        this.setUploadStatusText(
+          t$1("uploadPanel.tooLargeLimit", { size: Math.round(maxBytes / 1048576) }, "That file is larger than the {size} MB upload limit."),
+          "error"
+        );
+        return;
+      }
+
       const formData = new FormData();
       formData.append("file", file);
 
@@ -3610,6 +3771,15 @@ function attachUploadPanel(Viewer) {
 
       try {
         const response = await fetch("/api/model/create", { method: "POST", body: formData });
+        if (response.status === 401) {
+          await this.refreshAuthState();
+          this.setUploadStatusText(t$1("uploadPanel.loginRequired", "Log in to upload models."), "error");
+          return;
+        }
+        if (response.status === 413) {
+          this.setUploadStatusText(t$1("uploadPanel.tooLarge", "That file is too large to upload."), "error");
+          return;
+        }
         if (!response.ok) {
           throw new Error(`Upload failed (HTTP ${response.status})`);
         }
@@ -3634,7 +3804,8 @@ function attachUploadPanel(Viewer) {
         toastHelper("uploadError", "error");
       } finally {
         if (this.uploadInputs?.submit) {
-          this.uploadInputs.submit.disabled = false;
+          const state = this.authState;
+          this.uploadInputs.submit.disabled = Boolean(state?.required && !state.user);
         }
       }
     },
@@ -6207,12 +6378,12 @@ async function saveEditorMetadata(viewer) {
   }
 }
 
-function isPlainObject$1(value) {
+function isPlainObject$2(value) {
   return value != null && typeof value === "object" && Array.isArray(value) === false;
 }
 
 function isAIM3DManifest(manifest) {
-  return isPlainObject$1(manifest) && Object.hasOwn(manifest, "AIM3DViewer");
+  return isPlainObject$2(manifest) && Object.hasOwn(manifest, "AIM3DViewer");
 }
 
 function parseFiniteNumber(value) {
@@ -6227,17 +6398,17 @@ function parseFiniteNumber(value) {
 // those compatible values before validating the canonical AIM3D representation.
 function normalizeAIM3DManifest(manifest) {
   const viewer = manifest?.AIM3DViewer?.viewer;
-  if (!isPlainObject$1(viewer)) return manifest;
+  if (!isPlainObject$2(viewer)) return manifest;
 
   if (Array.isArray(viewer.scale)) {
     viewer.scale = viewer.scale.map((value) => parseFiniteNumber(value) ?? value);
-  } else if (isPlainObject$1(viewer.scale)) {
+  } else if (isPlainObject$2(viewer.scale)) {
     ["x", "y"].forEach((axis) => {
       viewer.scale[axis] = parseFiniteNumber(viewer.scale[axis]) ?? viewer.scale[axis];
     });
   }
 
-  if (isPlainObject$1(viewer.performance)) {
+  if (isPlainObject$2(viewer.performance)) {
     const mode = viewer.performance.Performance ?? viewer.performance.performance;
     if (typeof mode === "string" && mode.trim() !== "") {
       viewer.performance = mode;
@@ -6273,7 +6444,7 @@ function validateVector(value, path, errors, expectedLength = 3) {
     return;
   }
 
-  if (isPlainObject$1(value)) {
+  if (isPlainObject$2(value)) {
     const keys = expectedLength === 2 ? ["x", "y"] : ["x", "y", "z"];
     keys.forEach((key) => {
       if (!isFiniteNumber(value[key])) {
@@ -6311,7 +6482,7 @@ function validateEnum(value, allowedValues, path, errors) {
 }
 
 function validateLight(light, path, errors) {
-  if (!isPlainObject$1(light)) {
+  if (!isPlainObject$2(light)) {
     pushError(errors, path, "must be an object");
     return;
   }
@@ -6323,12 +6494,12 @@ function validateLight(light, path, errors) {
 }
 
 function validateClipping(clipping, path, errors) {
-  if (!isPlainObject$1(clipping)) {
+  if (!isPlainObject$2(clipping)) {
     pushError(errors, path, "must be an object");
     return;
   }
   if (clipping.mode !== undefined) {
-    if (!isPlainObject$1(clipping.mode)) {
+    if (!isPlainObject$2(clipping.mode)) {
       pushError(errors, `${path}.mode`, "must be an object");
     } else {
       ["x", "y", "z"].forEach((axis) => {
@@ -6342,7 +6513,7 @@ function validateClipping(clipping, path, errors) {
 }
 
 function validateCamera(camera, path, errors) {
-  if (!isPlainObject$1(camera)) {
+  if (!isPlainObject$2(camera)) {
     pushError(errors, path, "must be an object");
     return;
   }
@@ -6355,20 +6526,69 @@ function validateCamera(camera, path, errors) {
   if (camera.perspectiveMode !== undefined) validateEnum(camera.perspectiveMode, ["perspective", "orthographic"], `${path}.perspectiveMode`, errors);
 }
 
+function validatePanelState(panel, path, errors) {
+  if (!isPlainObject$2(panel)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  if (panel.position !== undefined) validateVector(panel.position, `${path}.position`, errors, 2);
+  if (panel.size !== undefined) {
+    if (!isPlainObject$2(panel.size)) {
+      pushError(errors, `${path}.size`, "must be an object");
+    } else {
+      // viewer-settings.json uses null for "not sized yet".
+      ["width", "height"].forEach((key) => {
+        if (panel.size[key] != null) validateNumber(panel.size[key], `${path}.size.${key}`, errors);
+      });
+    }
+  }
+}
+
+function validateIntegration(integration, path, errors) {
+  if (!isPlainObject$2(integration)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  if (integration.exportViewerUrl !== undefined) validateString(integration.exportViewerUrl, `${path}.exportViewerUrl`, errors);
+  if (integration.api !== undefined) {
+    if (!isPlainObject$2(integration.api)) {
+      pushError(errors, `${path}.api`, "must be an object");
+    } else if (integration.api.thumbnailUploadEndpoint !== undefined) {
+      validateString(integration.api.thumbnailUploadEndpoint, `${path}.api.thumbnailUploadEndpoint`, errors);
+    }
+  }
+}
+
 function validateViewer(viewer, path, errors) {
-  if (!isPlainObject$1(viewer)) {
+  if (!isPlainObject$2(viewer)) {
     pushError(errors, path, "must be an object");
     return;
   }
   if (viewer.container !== undefined) validateString(viewer.container, `${path}.container`, errors);
   if (viewer.mailUrl !== undefined) validateString(viewer.mailUrl, `${path}.mailUrl`, errors);
+  if (viewer.mainUrl !== undefined) validateString(viewer.mainUrl, `${path}.mainUrl`, errors);
+  if (viewer.baseModulePath !== undefined) validateString(viewer.baseModulePath, `${path}.baseModulePath`, errors);
+  if (viewer.background !== undefined) validateString(viewer.background, `${path}.background`, errors);
+  if (viewer.credits !== undefined && !isPlainObject$2(viewer.credits)) pushError(errors, `${path}.credits`, "must be an object");
+  if (viewer.auth !== undefined) {
+    if (!isPlainObject$2(viewer.auth)) {
+      pushError(errors, `${path}.auth`, "must be an object");
+    } else {
+      ["enabled", "allowRegistration"].forEach((key) => {
+        if (viewer.auth[key] !== undefined) validateBoolean(viewer.auth[key], `${path}.auth.${key}`, errors);
+      });
+    }
+  }
+  ["manifestoForm", "metadataContainer"].forEach((key) => {
+    if (viewer[key] !== undefined) validatePanelState(viewer[key], `${path}.${key}`, errors);
+  });
   if (viewer.baseNamespace !== undefined) validateString(viewer.baseNamespace, `${path}.baseNamespace`, errors);
   if (viewer.metadataUrl !== undefined) validateString(viewer.metadataUrl, `${path}.metadataUrl`, errors);
   if (viewer.theme !== undefined) validateEnum(viewer.theme, ["light", "dark"], `${path}.theme`, errors);
   if (viewer.language !== undefined) validateEnum(viewer.language, ["en", "pl", "de"], `${path}.language`, errors);
   if (viewer.backgroundColor !== undefined) validateString(viewer.backgroundColor, `${path}.backgroundColor`, errors);
   if (viewer.environmentMap !== undefined) {
-    if (!isPlainObject$1(viewer.environmentMap)) {
+    if (!isPlainObject$2(viewer.environmentMap)) {
       pushError(errors, `${path}.environmentMap`, "must be an object");
     } else {
       if (viewer.environmentMap.intensity !== undefined) validateNumber(viewer.environmentMap.intensity, `${path}.environmentMap.intensity`, errors);
@@ -6379,6 +6599,8 @@ function validateViewer(viewer, path, errors) {
   [
     "presentationMode",
     "sandbox",
+    "lightweight",
+    "editor",
     "autorotate",
     "disableInteraction",
     "hideUi",
@@ -6390,14 +6612,14 @@ function validateViewer(viewer, path, errors) {
   if (viewer.autorotateSpeed !== undefined) validateNumber(viewer.autorotateSpeed, `${path}.autorotateSpeed`, errors);
   if (viewer.scale !== undefined) validateVector(viewer.scale, `${path}.scale`, errors, 2);
   if (viewer.window !== undefined) {
-    if (!isPlainObject$1(viewer.window)) {
+    if (!isPlainObject$2(viewer.window)) {
       pushError(errors, `${path}.window`, "must be an object");
     } else {
       if (viewer.window.position !== undefined) {
         validateVector(viewer.window.position, `${path}.window.position`, errors, 2);
       }
       if (viewer.window.size !== undefined) {
-        if (!isPlainObject$1(viewer.window.size)) {
+        if (!isPlainObject$2(viewer.window.size)) {
           pushError(errors, `${path}.window.size`, "must be an object");
         } else {
           if (viewer.window.size.width !== undefined) validateNumber(viewer.window.size.width, `${path}.window.size.width`, errors);
@@ -6410,9 +6632,9 @@ function validateViewer(viewer, path, errors) {
   if (viewer.units !== undefined && !(isFiniteNumber(viewer.units) || isString(viewer.units))) {
     pushError(errors, `${path}.units`, "must be a finite number or string");
   }
-  if (viewer.gallery !== undefined && !isPlainObject$1(viewer.gallery)) pushError(errors, `${path}.gallery`, "must be an object");
+  if (viewer.gallery !== undefined && !isPlainObject$2(viewer.gallery)) pushError(errors, `${path}.gallery`, "must be an object");
   if (viewer.editorToolbar !== undefined) {
-    if (!isPlainObject$1(viewer.editorToolbar)) {
+    if (!isPlainObject$2(viewer.editorToolbar)) {
       pushError(errors, `${path}.editorToolbar`, "must be an object");
     } else {
       if (viewer.editorToolbar.enabled !== undefined) validateBoolean(viewer.editorToolbar.enabled, `${path}.editorToolbar.enabled`, errors);
@@ -6422,7 +6644,7 @@ function validateViewer(viewer, path, errors) {
     }
   }
   if (viewer.menuToolbar !== undefined) {
-    if (!isPlainObject$1(viewer.menuToolbar)) {
+    if (!isPlainObject$2(viewer.menuToolbar)) {
       pushError(errors, `${path}.menuToolbar`, "must be an object");
     } else {
       if (viewer.menuToolbar.enabled !== undefined) validateBoolean(viewer.menuToolbar.enabled, `${path}.menuToolbar.enabled`, errors);
@@ -6433,14 +6655,14 @@ function validateViewer(viewer, path, errors) {
 }
 
 function validateModelTransform(modelTransform, path, errors) {
-  if (!isPlainObject$1(modelTransform)) {
+  if (!isPlainObject$2(modelTransform)) {
     pushError(errors, path, "must be an object");
     return;
   }
   if (modelTransform.position !== undefined) validateVector(modelTransform.position, `${path}.position`, errors, 3);
   if (modelTransform.scale !== undefined) validateVector(modelTransform.scale, `${path}.scale`, errors, 3);
   if (modelTransform.rotation !== undefined) {
-    if (!isPlainObject$1(modelTransform.rotation)) {
+    if (!isPlainObject$2(modelTransform.rotation)) {
       pushError(errors, `${path}.rotation`, "must be an object");
     } else {
       ["x", "y", "z"].forEach((key) => {
@@ -6454,7 +6676,7 @@ function validateModelTransform(modelTransform, path, errors) {
     validateEnum(modelTransform.shadingMode, ["standard", "phong", "lambert", "toon", "custom"], `${path}.shadingMode`, errors);
   }
   if (modelTransform.customShader !== undefined) {
-    if (!isPlainObject$1(modelTransform.customShader)) {
+    if (!isPlainObject$2(modelTransform.customShader)) {
       pushError(errors, `${path}.customShader`, "must be an object");
     } else {
       if (modelTransform.customShader.vertexShader !== undefined) {
@@ -6468,7 +6690,7 @@ function validateModelTransform(modelTransform, path, errors) {
 }
 
 function validateAIM3DViewerBlock(block, path, errors) {
-  if (!isPlainObject$1(block)) {
+  if (!isPlainObject$2(block)) {
     pushError(errors, path, "must be an object");
     return;
   }
@@ -6476,7 +6698,7 @@ function validateAIM3DViewerBlock(block, path, errors) {
   if (block.generatedAt !== undefined) validateString(block.generatedAt, `${path}.generatedAt`, errors);
   if (block.camera !== undefined) validateCamera(block.camera, `${path}.camera`, errors);
   if (block.viewer !== undefined) validateViewer(block.viewer, `${path}.viewer`, errors);
-  if (block.integration !== undefined && !isPlainObject$1(block.integration)) pushError(errors, `${path}.integration`, "must be an object");
+  if (block.integration !== undefined) validateIntegration(block.integration, `${path}.integration`, errors);
   if (block.lights !== undefined) {
     if (!Array.isArray(block.lights)) {
       pushError(errors, `${path}.lights`, "must be an array");
@@ -6492,7 +6714,7 @@ function validateAIM3DManifest(manifest, options = {}) {
   const { requireCustomBlock = false } = options;
   const errors = [];
 
-  if (!isPlainObject$1(manifest)) {
+  if (!isPlainObject$2(manifest)) {
     pushError(errors, "$", "must be an object");
     return { valid: false, errors };
   }
@@ -6505,7 +6727,7 @@ function validateAIM3DManifest(manifest, options = {}) {
   if (manifest.items !== undefined && !Array.isArray(manifest.items)) {
     pushError(errors, "$.items", "must be an array");
   }
-  if (requireCustomBlock && !isPlainObject$1(manifest.AIM3DViewer)) {
+  if (requireCustomBlock && !isPlainObject$2(manifest.AIM3DViewer)) {
     pushError(errors, "$.AIM3DViewer", "is required and must be an object");
   }
   if (manifest.AIM3DViewer !== undefined) {
@@ -7356,6 +7578,12 @@ function attachAnnotations(Viewer) {
           viewer: {
             container: core.CONFIG?.viewer?.container || "DFG_3DViewer",
             mailUrl: core.CONFIG.mainUrl || "https://localhost",
+            mainUrl: core.CONFIG.mainUrl || undefined,
+            baseModulePath: core.CONFIG.baseModulePath || undefined,
+            background: core.CONFIG.viewer?.background || undefined,
+            credits: core.CONFIG.viewer?.credits || undefined,
+            manifestoForm: core.CONFIG.viewer?.manifestoForm || undefined,
+            metadataContainer: core.CONFIG.viewer?.metadataContainer || undefined,
             baseNamespace: "https://localhost",
             metadataUrl: "https://localhost",
             theme: this.currentTheme === "light" ? "light" : "dark",
@@ -7441,6 +7669,10 @@ function attachAnnotations(Viewer) {
             metadata: {
               source: core.CONFIG.entity?.metadata?.source || "",
             },
+            exportViewerUrl: core.CONFIG.entity?.exportViewerUrl || undefined,
+            api: core.CONFIG.api?.thumbnailUploadEndpoint
+              ? { thumbnailUploadEndpoint: core.CONFIG.api.thumbnailUploadEndpoint }
+              : undefined,
             fileUpload: core.CONFIG.viewer.fileUpload || "fbf95bddee5160d515b982b3fd2e05f7",
             fileName: core.CONFIG.viewer.fileName || "faa602a0be629324806aef22892cdbe5",
             imageGeneration: core.CONFIG.viewer.imageGeneration || "f605dc6b727a1099b9e52b3ccbdf5673",
@@ -10241,6 +10473,14 @@ const loadTDSLoader = async () => (await import('./assets/three.js').then(functi
 const loadPCDLoader = async () => (await import('./assets/three.js').then(function (n) { return n.q; })).PCDLoader;
 const loadGLTFLoader = async () => (await import('./assets/three.js').then(function (n) { return n.G; })).GLTFLoader;
 const loadDRACOLoader = async () => (await import('./assets/three.js').then(function (n) { return n.r; })).DRACOLoader;
+const loadUSDLoader = async () => (await import('./assets/three.js').then(function (n) { return n.U; })).USDLoader;
+const loadThreeMFLoader = async () => (await import('./assets/three.js').then(function (n) { return n._; })).ThreeMFLoader;
+const loadAMFLoader = async () => (await import('./assets/three.js').then(function (n) { return n.A; })).AMFLoader;
+const loadVRMLLoader = async () => (await import('./assets/three.js').then(function (n) { return n.s; })).VRMLLoader;
+const loadKMZLoader = async () => (await import('./assets/three.js').then(function (n) { return n.K; })).KMZLoader;
+const loadVOXLoader = async () => (await import('./assets/three.js').then(function (n) { return n.t; })).VOXLoader;
+const loadVOXBuildMesh = async () => (await import('./assets/three.js').then(function (n) { return n.t; })).buildMesh;
+const loadLWOLoader = async () => (await import('./assets/three.js').then(function (n) { return n.u; })).LWOLoader;
 const loadIFCLoader = async () => (await import('./assets/IFCLoader.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./assets/three.js').then(function (n) { return n.R; })).RoomEnvironment;
 const loadHDRLoader = async () => (await import('./assets/three.js').then(function (n) { return n.H; })).HDRLoader;
@@ -10259,6 +10499,16 @@ const loaderMap = {
   xyz: loadXYZLoader,
   '3ds': loadTDSLoader,
   pcd: loadPCDLoader,
+  usd: loadUSDLoader,
+  usda: loadUSDLoader,
+  usdc: loadUSDLoader,
+  usdz: loadUSDLoader,
+  '3mf': loadThreeMFLoader,
+  amf: loadAMFLoader,
+  wrl: loadVRMLLoader,
+  kmz: loadKMZLoader,
+  vox: loadVOXLoader,
+  lwo: loadLWOLoader,
   ifc: loadIFCLoader
 };
 
@@ -10841,6 +11091,51 @@ async function loadModel() {
         let mp = core.fileObject.path;
         if (core.CONFIG.entity.proxyPath !== undefined) mp = core.getProxyPath(mp);
         const object = await loadAsync(loader, mp + core.fileObject.basename + "." + core.fileObject.extension, onProgress);
+        await afterLoad({ object });
+        break;
+      }
+
+      // Formats whose three.js loader returns a ready-to-add object/group.
+      case "usd":
+      case "usda":
+      case "usdc":
+      case "usdz":
+      case "3mf":
+      case "amf":
+      case "wrl": {
+        const loader = await createLoader(core.fileObject.extension.toLowerCase());
+        const object = await loadAsync(loader, modelPath, onProgress);
+        object.position.set(0, 0, 0);
+        await afterLoad({ object });
+        break;
+      }
+
+      case "kmz": {
+        const loader = await createLoader("kmz");
+        const kmz = await loadAsync(loader, modelPath, onProgress);
+        await afterLoad({ object: kmz.scene });
+        break;
+      }
+
+      case "vox": {
+        const loader = await createLoader("vox");
+        const buildMesh = await loadVOXBuildMesh();
+        const vox = await loadAsync(loader, modelPath, onProgress);
+        // Files with a scene graph come back assembled in vox.scene; plain
+        // ones only carry their chunks.
+        const object = vox.scene ?? new THREE.Group();
+        if (!vox.scene) {
+          vox.chunks.forEach((chunk) => object.add(buildMesh(chunk)));
+        }
+        await afterLoad({ object });
+        break;
+      }
+
+      case "lwo": {
+        const loader = await createLoader("lwo");
+        const lwo = await loadAsync(loader, modelPath, onProgress);
+        const object = new THREE.Group();
+        (lwo.meshes || []).forEach((mesh) => object.add(mesh));
         await afterLoad({ object });
         break;
       }
@@ -16816,7 +17111,7 @@ var parseManifest = function (manifest, options) {
 class IIIFManifest {
   constructor(manifest) {
     // Is manifest JSON or URL?
-    if (isPlainObject(manifest)) {
+    if (isPlainObject$1(manifest)) {
       this.manifestJson = manifest;
       this.manifestUrl = null;
     } else if (isJsonString(manifest)) {
@@ -16855,7 +17150,7 @@ function isJsonString(str) {
   return true;
 }
 
-function isPlainObject(value) {
+function isPlainObject$1(value) {
   return value != null && typeof value === "object" && !Array.isArray(value);
 }
 
@@ -17177,6 +17472,100 @@ function getManifestWindowState(manifest) {
     position,
     size: windowState.size,
   };
+}
+
+function isPlainObject(value) {
+  return value != null && typeof value === "object" && !Array.isArray(value);
+}
+
+function nonEmptyString(value) {
+  return typeof value === "string" && value.trim() !== "" ? value : undefined;
+}
+
+// Position/size are stored as {x, y} / {width, height} in viewer-settings.json.
+function toXY(value) {
+  if (Array.isArray(value)) return { x: value[0], y: value[1] };
+  return isPlainObject(value) ? { x: value.x, y: value.y } : undefined;
+}
+
+function toPanelState(panel) {
+  if (!isPlainObject(panel)) return undefined;
+  const state = {};
+  const position = toXY(panel.position);
+  if (position) state.position = position;
+  if (isPlainObject(panel.size)) state.size = { ...panel.size };
+  return state;
+}
+
+// Merges the deployment settings carried by an AIM3D manifest into `config`
+// (the object loaded from viewer-settings.json). viewer-settings.json stays the
+// fallback: only values the manifest actually defines are overwritten, so
+// manifests written before these fields existed leave the config untouched.
+//
+// Bootstrap keys that are needed *before* a manifest can be fetched (the
+// manifest URL/source in entity.metadata, viewer.lightweight, viewer.editor)
+// intentionally remain viewer-settings.json only.
+//
+// Settings with runtime side effects (theme, toolbars, performance mode, ...)
+// are applied separately by Viewer.import3IFManifest().
+function applyManifestSettings(manifest, config) {
+  const block = manifest?.AIM3DViewer;
+  if (!isPlainObject(block) || !isPlainObject(config)) return false;
+
+  const viewer = isPlainObject(block.viewer) ? block.viewer : {};
+  const integration = isPlainObject(block.integration) ? block.integration : {};
+  let applied = false;
+  const set = (target, key, value) => {
+    if (value === undefined) return;
+    target[key] = value;
+    applied = true;
+  };
+
+  config.viewer ??= {};
+  config.entity ??= {};
+
+  set(config, "mainUrl", nonEmptyString(viewer.mainUrl));
+  set(config, "baseModulePath", nonEmptyString(viewer.baseModulePath));
+  set(config.viewer, "background", nonEmptyString(viewer.background));
+  if (isPlainObject(viewer.credits)) set(config.viewer, "credits", structuredClone(viewer.credits));
+  if (isPlainObject(viewer.auth)) set(config.viewer, "auth", { ...viewer.auth });
+  set(config.viewer, "manifestoForm", toPanelState(viewer.manifestoForm));
+  set(config.viewer, "metadataContainer", toPanelState(viewer.metadataContainer));
+
+  set(config.entity, "exportViewerUrl", nonEmptyString(integration.exportViewerUrl));
+  if (isPlainObject(integration.api)) {
+    config.api ??= {};
+    set(config.api, "thumbnailUploadEndpoint", nonEmptyString(integration.api.thumbnailUploadEndpoint));
+  }
+
+  return applied;
+}
+
+// Settings that decide how the UI is *built* (viewer.lightweight, viewer.editor,
+// viewer.sandbox, viewer.presentationMode) must be known before any UI exists,
+// i.e. before the regular manifest load. Viewer.MainInit() therefore peeks at
+// the configured AIM3D manifest and calls this. Only strict booleans are
+// accepted; anything else leaves the viewer-settings.json value in place.
+function applyManifestBootstrapSettings(manifest, config) {
+  const viewer = manifest?.AIM3DViewer?.viewer;
+  if (!isPlainObject(viewer) || !isPlainObject(config)) return false;
+
+  let applied = false;
+  config.viewer ??= {};
+  // manifest key -> viewer-settings.json key
+  const keys = {
+    lightweight: "lightweight",
+    editor: "editor",
+    sandbox: "sandboxMode",
+    presentationMode: "presentationMode",
+  };
+  for (const [manifestKey, configKey] of Object.entries(keys)) {
+    if (typeof viewer[manifestKey] === "boolean") {
+      config.viewer[configKey] = viewer[manifestKey];
+      applied = true;
+    }
+  }
+  return applied;
 }
 
 function getEditorToolbarIcon(icon) {
@@ -18914,7 +19303,7 @@ const VIEWER_DEFAULTS = {
   CONFIG: null,
   PRESENTATION_MODE: false,
   SANDBOX_MODE: false,
-  SUPPORTED_EXTENSIONS: ['glb', 'gltf', 'obj', 'dae', 'fbx', 'ply', 'ifc', 'stl', 'xyz', 'json', '3ds', 'pcd'],
+  SUPPORTED_EXTENSIONS: ['glb', 'gltf', 'obj', 'dae', 'fbx', 'ply', 'ifc', 'stl', 'xyz', 'json', '3ds', 'pcd', 'usd', 'usda', 'usdc', 'usdz', '3mf', 'amf', 'wrl', 'kmz', 'vox', 'lwo'],
   SUPPORTED_ARCHIVES: ['zip', 'rar', 'tar', 'xz', 'gz'],
   camera: null,
   embedCamera: null,
@@ -20277,7 +20666,7 @@ GNU General Public License for more details at
 https://www.gnu.org/licenses/.
 */
 
-//Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF
+//Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF, USD/USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO
 
 const SOURCE = "" ;
 const isE2E = window.__E2E__ === true ;
@@ -21668,6 +22057,29 @@ const Viewer$1 = {
     }
   },
 
+  // viewer.lightweight / editor / sandbox / presentationMode decide how the UI
+  // is built, so the AIM3D manifest configured in viewer-settings.json is
+  // peeked at before that happens. This deliberately uses the *configured*
+  // source type, not the build's forced one (the dev build always loads IIIF
+  // models) - the manifest is the settings carrier, e.g. for the Docker
+  // profiles. Any failure (no manifest, network error, invalid JSON) silently
+  // keeps the viewer-settings.json values.
+  async applyBootstrapSettingsFromManifest() {
+    const metadata = core.CONFIG?.entity?.metadata;
+    const sourceType = String(metadata?.sourceType || SOURCE).toLowerCase();
+    if (sourceType !== "aim3if" || !metadata?.url) return;
+
+    try {
+      const manifest = await this.getManifestJson(metadata.url, "url");
+      if (isAIM3DManifest(manifest)) {
+        applyManifestBootstrapSettings(manifest, core.CONFIG);
+        applyManifestSettings(manifest, core.CONFIG);
+      }
+    } catch (err) {
+      console.warn("Could not read settings from AIM3D manifest; using viewer-settings.json.", err);
+    }
+  },
+
   async MainInit() {
     if (window.__E2E__) {
       this.ensureE2EState();
@@ -21802,6 +22214,8 @@ const Viewer$1 = {
         },
       };
     }
+
+    await this.applyBootstrapSettingsFromManifest();
 
     this.isLightweight = Boolean(core.CONFIG.viewer.lightweight);
     setCore('isLightweight', this.isLightweight);
@@ -22082,6 +22496,13 @@ const Viewer$1 = {
       ["./examples/box.ifc", "IFC"],
       ["./examples/box.fbx", "FBX"],
       ["./examples/box.glb", "GLB"],
+      ["./examples/box.usdz", "USDZ"],
+      ["./examples/box.usda", "USDA"],
+      ["./examples/box.3mf", "3MF"],
+      ["./examples/box.amf", "AMF"],
+      ["./examples/box.wrl", "WRL (VRML)"],
+      ["./examples/box.kmz", "KMZ"],
+      ["./examples/box.vox", "VOX"],
       ["./examples/box-missing-mtl.obj", "OBJ (missing MTL)"],
       ["./examples/broken.glb", "Broken GLB"],
       ["./examples/WolpaSynagogue.glb", "Wolpa Synagogue"],
@@ -23243,6 +23664,9 @@ const Viewer$1 = {
       ? await loadAIM3IFManifest(manifestJson)
       : await loadIIIFManifest(manifestJson);
     if (isAim3ifManifest) {
+      // Manifest settings take precedence over viewer-settings.json, which
+      // remains the fallback for anything the manifest doesn't define.
+      applyManifestSettings(loadedManifest.manifest, core.CONFIG);
       Viewer$1.applyWindowState?.(getManifestWindowState(loadedManifest.manifest));
     }
     if (loadedManifest.modelUrls.length === 0) { // no 3D model found, use example model

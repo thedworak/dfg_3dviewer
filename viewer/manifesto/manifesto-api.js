@@ -109,3 +109,97 @@ export function getManifestWindowState(manifest) {
     size: windowState.size,
   };
 }
+
+function isPlainObject(value) {
+  return value != null && typeof value === "object" && !Array.isArray(value);
+}
+
+function nonEmptyString(value) {
+  return typeof value === "string" && value.trim() !== "" ? value : undefined;
+}
+
+// Position/size are stored as {x, y} / {width, height} in viewer-settings.json.
+function toXY(value) {
+  if (Array.isArray(value)) return { x: value[0], y: value[1] };
+  return isPlainObject(value) ? { x: value.x, y: value.y } : undefined;
+}
+
+function toPanelState(panel) {
+  if (!isPlainObject(panel)) return undefined;
+  const state = {};
+  const position = toXY(panel.position);
+  if (position) state.position = position;
+  if (isPlainObject(panel.size)) state.size = { ...panel.size };
+  return state;
+}
+
+// Merges the deployment settings carried by an AIM3D manifest into `config`
+// (the object loaded from viewer-settings.json). viewer-settings.json stays the
+// fallback: only values the manifest actually defines are overwritten, so
+// manifests written before these fields existed leave the config untouched.
+//
+// Bootstrap keys that are needed *before* a manifest can be fetched (the
+// manifest URL/source in entity.metadata, viewer.lightweight, viewer.editor)
+// intentionally remain viewer-settings.json only.
+//
+// Settings with runtime side effects (theme, toolbars, performance mode, ...)
+// are applied separately by Viewer.import3IFManifest().
+export function applyManifestSettings(manifest, config) {
+  const block = manifest?.AIM3DViewer;
+  if (!isPlainObject(block) || !isPlainObject(config)) return false;
+
+  const viewer = isPlainObject(block.viewer) ? block.viewer : {};
+  const integration = isPlainObject(block.integration) ? block.integration : {};
+  let applied = false;
+  const set = (target, key, value) => {
+    if (value === undefined) return;
+    target[key] = value;
+    applied = true;
+  };
+
+  config.viewer ??= {};
+  config.entity ??= {};
+
+  set(config, "mainUrl", nonEmptyString(viewer.mainUrl));
+  set(config, "baseModulePath", nonEmptyString(viewer.baseModulePath));
+  set(config.viewer, "background", nonEmptyString(viewer.background));
+  if (isPlainObject(viewer.credits)) set(config.viewer, "credits", structuredClone(viewer.credits));
+  if (isPlainObject(viewer.auth)) set(config.viewer, "auth", { ...viewer.auth });
+  set(config.viewer, "manifestoForm", toPanelState(viewer.manifestoForm));
+  set(config.viewer, "metadataContainer", toPanelState(viewer.metadataContainer));
+
+  set(config.entity, "exportViewerUrl", nonEmptyString(integration.exportViewerUrl));
+  if (isPlainObject(integration.api)) {
+    config.api ??= {};
+    set(config.api, "thumbnailUploadEndpoint", nonEmptyString(integration.api.thumbnailUploadEndpoint));
+  }
+
+  return applied;
+}
+
+// Settings that decide how the UI is *built* (viewer.lightweight, viewer.editor,
+// viewer.sandbox, viewer.presentationMode) must be known before any UI exists,
+// i.e. before the regular manifest load. Viewer.MainInit() therefore peeks at
+// the configured AIM3D manifest and calls this. Only strict booleans are
+// accepted; anything else leaves the viewer-settings.json value in place.
+export function applyManifestBootstrapSettings(manifest, config) {
+  const viewer = manifest?.AIM3DViewer?.viewer;
+  if (!isPlainObject(viewer) || !isPlainObject(config)) return false;
+
+  let applied = false;
+  config.viewer ??= {};
+  // manifest key -> viewer-settings.json key
+  const keys = {
+    lightweight: "lightweight",
+    editor: "editor",
+    sandbox: "sandboxMode",
+    presentationMode: "presentationMode",
+  };
+  for (const [manifestKey, configKey] of Object.entries(keys)) {
+    if (typeof viewer[manifestKey] === "boolean") {
+      config.viewer[configKey] = viewer[manifestKey];
+      applied = true;
+    }
+  }
+  return applied;
+}

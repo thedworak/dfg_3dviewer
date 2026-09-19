@@ -36,6 +36,16 @@ const MIME_TYPES = {
   ".xyz": "text/plain",
   ".3ds": "application/octet-stream",
   ".abc": "application/octet-stream",
+  ".usd": "application/octet-stream",
+  ".usda": "text/plain",
+  ".usdc": "application/octet-stream",
+  ".usdz": "model/vnd.usdz+zip",
+  ".3mf": "model/3mf",
+  ".amf": "application/xml",
+  ".wrl": "model/vrml",
+  ".kmz": "application/vnd.google-earth.kmz",
+  ".vox": "application/octet-stream",
+  ".lwo": "application/octet-stream",
   ".wasm": "application/wasm",
 };
 

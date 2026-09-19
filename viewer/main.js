@@ -14,7 +14,7 @@ GNU General Public License for more details at
 https://www.gnu.org/licenses/.
 */
 
-//Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF
+//Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF, USD/USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO
 
 const SOURCE = (typeof __BUILD_SOURCE__ !== 'undefined') ? __BUILD_SOURCE__ : "";
 const BUILD = (typeof __BUILD__ !== 'undefined') ? __BUILD__ : "";
@@ -73,7 +73,7 @@ import { GUI } from "./js/external_libs/lil-gui.esm.min.js";
 import { objectsConfig, setObjectsConfig } from "./object-settings.js";
 
 import { loadIIIFManifest, getAnnotations } from "./IIIF/iiif-api.js";
-import { loadAIM3IFManifest, applyManifestConfig, getManifestWindowState } from "./manifesto/manifesto-api.js";
+import { loadAIM3IFManifest, applyManifestConfig, applyManifestSettings, applyManifestBootstrapSettings, getManifestWindowState } from "./manifesto/manifesto-api.js";
 import { isAIM3DManifest } from "./manifesto/aim3dviewer-validation.js";
 import {
   attachEditorToolbar,
@@ -1507,6 +1507,29 @@ export const Viewer = {
     }
   },
 
+  // viewer.lightweight / editor / sandbox / presentationMode decide how the UI
+  // is built, so the AIM3D manifest configured in viewer-settings.json is
+  // peeked at before that happens. This deliberately uses the *configured*
+  // source type, not the build's forced one (the dev build always loads IIIF
+  // models) - the manifest is the settings carrier, e.g. for the Docker
+  // profiles. Any failure (no manifest, network error, invalid JSON) silently
+  // keeps the viewer-settings.json values.
+  async applyBootstrapSettingsFromManifest() {
+    const metadata = core.CONFIG?.entity?.metadata;
+    const sourceType = String(metadata?.sourceType || SOURCE).toLowerCase();
+    if (sourceType !== "aim3if" || !metadata?.url) return;
+
+    try {
+      const manifest = await this.getManifestJson(metadata.url, "url");
+      if (isAIM3DManifest(manifest)) {
+        applyManifestBootstrapSettings(manifest, core.CONFIG);
+        applyManifestSettings(manifest, core.CONFIG);
+      }
+    } catch (err) {
+      console.warn("Could not read settings from AIM3D manifest; using viewer-settings.json.", err);
+    }
+  },
+
   async MainInit() {
     if (window.__E2E__) {
       this.ensureE2EState();
@@ -1641,6 +1664,8 @@ export const Viewer = {
         },
       };
     }
+
+    await this.applyBootstrapSettingsFromManifest();
 
     this.isLightweight = Boolean(core.CONFIG.viewer.lightweight);
     setCore('isLightweight', this.isLightweight);
@@ -1924,6 +1949,13 @@ export const Viewer = {
       ["./examples/box.ifc", "IFC"],
       ["./examples/box.fbx", "FBX"],
       ["./examples/box.glb", "GLB"],
+      ["./examples/box.usdz", "USDZ"],
+      ["./examples/box.usda", "USDA"],
+      ["./examples/box.3mf", "3MF"],
+      ["./examples/box.amf", "AMF"],
+      ["./examples/box.wrl", "WRL (VRML)"],
+      ["./examples/box.kmz", "KMZ"],
+      ["./examples/box.vox", "VOX"],
       ["./examples/box-missing-mtl.obj", "OBJ (missing MTL)"],
       ["./examples/broken.glb", "Broken GLB"],
       ["./examples/WolpaSynagogue.glb", "Wolpa Synagogue"],
@@ -3085,6 +3117,9 @@ export const Viewer = {
       ? await loadAIM3IFManifest(manifestJson)
       : await loadIIIFManifest(manifestJson);
     if (isAim3ifManifest) {
+      // Manifest settings take precedence over viewer-settings.json, which
+      // remains the fallback for anything the manifest doesn't define.
+      applyManifestSettings(loadedManifest.manifest, core.CONFIG);
       Viewer.applyWindowState?.(getManifestWindowState(loadedManifest.manifest));
     }
     if (loadedManifest.modelUrls.length === 0) { // no 3D model found, use example model
