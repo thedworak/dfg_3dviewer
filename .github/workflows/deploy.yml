@@ -25,6 +25,14 @@ jobs:
       - name: Build
         run: npm run build:prod
 
+      # Build every image before touching the server, so a broken Dockerfile
+      # (or profile manifest) fails here instead of mid-deploy on the host.
+      - name: Validate compose file
+        run: docker compose config --quiet
+
+      - name: Build Docker images
+        run: docker compose build
+
   deploy:
     needs: build
     runs-on: ubuntu-latest
