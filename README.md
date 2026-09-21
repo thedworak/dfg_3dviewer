@@ -36,7 +36,7 @@ There is also a pre-configured complete workflow to handle more file formats and
 
 **Client:** JavaScript, three.js, CSS, HTML, PHP, Drupal
 
-**Server:** PHP, Drupal, bash, blender
+**Server:** PHP, Drupal, bash, blender, Python (`ifcopenshell` for IFC metadata export)
 
 ## Minimal local setup
 
@@ -456,6 +456,10 @@ Convert an IFC with IfcConvert:
 ./scripts/convert.sh -i '/path/to/building.ifc'
 ```
 
+IFC conversion produces two files: the GLB (IfcConvert with `--use-element-guids`, so node names are IFC GlobalIds) and `metadata/<name>_ifc.json` with the spatial tree and per-element type, name, material, property sets and quantities, keyed by GlobalId (`scripts/ifc_metadata.py`). glTF cannot hold IFC property sets, hence the separate file. When the viewer finds it next to the model, clicking an element opens a properties panel.
+
+The metadata export needs the `ifcopenshell` Python package on the conversion host (`pip3 install ifcopenshell`); it is already included in `worker/Dockerfile`. Without it the GLB is still produced, only `_ifc.json` is skipped.
+
 Run lightweight conversion without xvfb checks:
 
 ```bash
@@ -523,4 +527,5 @@ This repo also includes a Tauri desktop wrapper in `src-tauri/`.
 - `viewer/viewer-settings.js` — runtime settings loader used by built/source bundles
 - `rollup.config.js` — build output and asset copy configuration
 - `scripts/convert.sh` — conversion and Blender rendering helper
+- `scripts/ifc_metadata.py` — exports IFC property sets/spatial tree to `<name>_ifc.json` (needs `ifcopenshell`)
 - `dfg_3dviewer.libraries.tpl.yml` — Drupal libraries template used in Drupal build

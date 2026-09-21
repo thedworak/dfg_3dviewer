@@ -3,6 +3,7 @@ import { setupObject, setupCamera, toastHelper } from './viewer-utils.js';
 import { core } from './core.js';
 import { t } from "./i18n-utils.js";
 import { parseFloatParam } from "./viewer-param-utils.js";
+import { clearIfcProperties } from "./ifc-properties.js";
 
 // Below this distance (px) from its default glued corner, drag movement is
 // absorbed rather than moved - the panel only actually detaches from the
@@ -789,6 +790,7 @@ export async function fetchSettings(object) {
   let metadataUrl = '';
 
   captureModelSettingsResetState(object);
+  clearIfcProperties();
 
   // Skip metadata fetch for blob URLs (drag & drop files)
   if (core.fileObject.filename.startsWith('blob:')) {

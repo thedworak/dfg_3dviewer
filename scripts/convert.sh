@@ -280,7 +280,12 @@ handle_ifc_file () {
 
 	create_dirs
 
-	${SPATH}/scripts/IfcConvert "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
+	# Node names in the GLB = IFC GlobalIds, so they match the keys of the metadata JSON.
+	${SPATH}/scripts/IfcConvert --use-element-guids "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
+
+	# glTF cannot carry psets/quantities/relations: export them next to the GLB.
+	# Best effort - a missing ifcopenshell must not fail the geometry conversion.
+	python3 "${SPATH}/scripts/ifc_metadata.py" "$INPATH/$FILENAME" "$INPATH/metadata/${NAME}_ifc.json" > /dev/null 2>&1 || true
 }
 
 handle_blend_file () {

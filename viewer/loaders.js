@@ -25,6 +25,7 @@ export const loadHDRLoader = async () => (await import("three/examples/jsm/loade
 
 import { core } from './core.js';
 import { fetchSettings, presentationMode } from "./metadata.js";
+import { loadIfcProperties, ifcPropertiesUrlForModel } from "./ifc-properties.js";
 import { reportViewerError, showToast, toastHelper } from "./viewer-utils.js";
 
 export var outlineClipping;
@@ -397,6 +398,7 @@ export async function loadModel() {
       }
       updateLoadingStage("loadingLog.fetchingMetadata", 99);
       await fetchSettings(object);
+      loadIfcProperties(ifcPropertiesUrlForModel(modelPath));
 
       updateLoadingStage("loadingLog.settingUpMaterials", 99);
       core.outlineClipping = prepareOutlineClipping(object);

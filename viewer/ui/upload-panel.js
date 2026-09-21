@@ -339,16 +339,65 @@ export function attachUploadPanel(Viewer) {
       });
     },
 
+    /**
+     * In-viewer replacement for window.confirm(). Resolves true on confirm,
+     * false on cancel, Escape or backdrop click.
+     */
+    confirmDialog({ message, confirmLabel, cancelLabel, danger = false }) {
+      return new Promise((resolve) => {
+        const backdrop = document.createElement("div");
+        backdrop.className = "viewer-confirm-backdrop";
+        backdrop.innerHTML = `
+          <div class="viewer-confirm" role="alertdialog" aria-modal="true" aria-describedby="viewerConfirmMessage">
+            <p id="viewerConfirmMessage" class="viewer-confirm-message"></p>
+            <div class="viewer-confirm-actions">
+              <button type="button" class="viewer-confirm-cancel"></button>
+              <button type="button" class="viewer-confirm-ok${danger ? " viewer-confirm-ok--danger" : ""}"></button>
+            </div>
+          </div>`;
+        backdrop.querySelector(".viewer-confirm-message").textContent = message;
+        const cancel = backdrop.querySelector(".viewer-confirm-cancel");
+        const ok = backdrop.querySelector(".viewer-confirm-ok");
+        cancel.textContent = cancelLabel;
+        ok.textContent = confirmLabel;
+
+        const finish = (value) => {
+          document.removeEventListener("keydown", onKey, true);
+          backdrop.remove();
+          resolve(value);
+        };
+        const onKey = (event) => {
+          if (event.key === "Escape") {
+            event.stopPropagation();
+            finish(false);
+          }
+        };
+        document.addEventListener("keydown", onKey, true);
+        cancel.addEventListener("click", () => finish(false));
+        ok.addEventListener("click", () => finish(true));
+        backdrop.addEventListener("pointerdown", (event) => {
+          event.stopPropagation();
+          if (event.target === backdrop) finish(false);
+        });
+
+        core.container.appendChild(backdrop);
+        cancel.focus();
+      });
+    },
+
     async deletePreviousModel(job, item) {
       if (!job?.id) return;
       const name = job.name || job.id;
-      const confirmed = window.confirm(
-        t(
+      const confirmed = await this.confirmDialog({
+        message: t(
           "uploadPanel.previousDeleteConfirm",
           { name },
           'Delete "{name}"? This permanently removes the converted model and its renders.'
-        )
-      );
+        ),
+        confirmLabel: t("uploadPanel.previousDeleteAction", "Delete"),
+        cancelLabel: t("uploadPanel.previousDeleteCancel", "Cancel"),
+        danger: true,
+      });
       if (!confirmed) return;
 
       try {

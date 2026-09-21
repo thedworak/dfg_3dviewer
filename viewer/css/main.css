@@ -1,6 +1,7 @@
 @import "./editor-toolbar.css";
 @import "./embed-configurator.css";
 @import "./upload-panel.css";
+@import "./ifc-properties.css";
 
 #cboxLoadedContent.iipmooviewer {
   position: absolute;
@@ -183,6 +184,16 @@ canvas {
   top: 50%;
   max-width: min(380px, calc(100% - 32px));
   transform: translateY(-50%);
+}
+
+/* Keep the shortcuts notice off the IFC properties panel (see viewer/ifc-properties.js). */
+#viewerNoticeContainer.viewer-notice-container--shortcuts[data-ifc-panel="open"] {
+  right: auto;
+  left: 16px;
+}
+
+#viewerNoticeContainer.viewer-notice-container--shortcuts[data-ifc-panel="crowded"] {
+  display: none;
 }
 
 .viewer-notice {

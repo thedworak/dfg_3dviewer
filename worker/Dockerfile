@@ -52,7 +52,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # cascadio (OpenCASCADE) reads STEP/IGES and trimesh reads 3MF for
 # scripts/convert_mesh.py - neither goes through Blender. networkx is needed
 # by trimesh's 3MF loader; numpy and lxml come from the apt packages above.
-RUN pip3 install --no-cache-dir --break-system-packages triangle cascadio trimesh networkx
+# ifcopenshell is used by scripts/ifc_metadata.py to export IFC property sets
+# (psets, quantities, spatial tree) to <name>_ifc.json next to the GLB.
+RUN pip3 install --no-cache-dir --break-system-packages triangle cascadio trimesh networkx ifcopenshell
 
 ARG BLENDER_SERIES=4.4
 ARG BLENDER_VERSION=4.4.3

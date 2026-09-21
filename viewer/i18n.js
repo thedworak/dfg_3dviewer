@@ -219,6 +219,8 @@ export const VIEWER_I18N = {
       previousLoadError: "Could not load previous models.",
       previousDeleteAria: "Delete {name}",
       previousDeleteConfirm: 'Delete "{name}"? This permanently removes the converted model and its renders.',
+      previousDeleteAction: "Delete",
+      previousDeleteCancel: "Cancel",
     },
     loadingLog: {
       title: "Loading process log",
@@ -566,6 +568,8 @@ export const VIEWER_I18N = {
       previousLoadError: "Nie udało się wczytać listy poprzednich modeli.",
       previousDeleteAria: "Usuń {name}",
       previousDeleteConfirm: 'Usunąć "{name}"? Spowoduje to trwałe usunięcie przekonwertowanego modelu i jego renderów.',
+      previousDeleteAction: "Usuń",
+      previousDeleteCancel: "Anuluj",
     },
     loadingLog: {
       title: "Log procesu ładowania",
@@ -912,6 +916,8 @@ export const VIEWER_I18N = {
       previousLoadError: "Vorherige Modelle konnten nicht geladen werden.",
       previousDeleteAria: "{name} löschen",
       previousDeleteConfirm: '"{name}" löschen? Dadurch werden das konvertierte Modell und seine Renderings dauerhaft entfernt.',
+      previousDeleteAction: "Löschen",
+      previousDeleteCancel: "Abbrechen",
     },
     loadingLog: {
       title: "Protokoll des Ladeprozesses",

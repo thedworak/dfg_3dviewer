@@ -1,4 +1,5 @@
 import { core } from "../core.js";
+import { hasIfcProperties, showIfcProperties, closeIfcPanel } from "../ifc-properties.js";
 import THREE from "../init.js";
 
 function getNormalizedPointerPosition(Viewer, clientX, clientY, targetVector) {
@@ -134,7 +135,17 @@ export function attachPicking(Viewer) {
     getPrimaryIntersection(intersections) {
       if (!Array.isArray(intersections) || intersections.length === 0) return null;
 
-      return intersections.find((entry) => !Viewer.isPickingOverlayObject(entry?.object)) ?? null;
+      // Raycaster ignores Object3D.visible, so skip hits on hidden objects
+      // (e.g. IFC elements hidden from the properties panel) explicitly.
+      const isVisible = (object) => {
+        for (let node = object; node; node = node.parent) {
+          if (node.visible === false) return false;
+        }
+        return true;
+      };
+      return intersections.find(
+        (entry) => !Viewer.isPickingOverlayObject(entry?.object) && isVisible(entry?.object)
+      ) ?? null;
     },
 
     getFaceSelectionKey(targetId, faceIndex) {
@@ -409,6 +420,10 @@ export function attachPicking(Viewer) {
           return;
         }
         Viewer.closeAnnotationPOITooltip();
+        if (hasIfcProperties()) {
+          const hit = getPrimaryModelIntersection(Viewer, Viewer.onUpPosition);
+          if (!hit || !showIfcProperties(hit.object)) closeIfcPanel();
+        }
       }
 
       if (Viewer.pickingMode || Viewer.RULER_MODE) {
