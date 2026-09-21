@@ -422,7 +422,7 @@ export function attachPicking(Viewer) {
         Viewer.closeAnnotationPOITooltip();
         if (hasIfcProperties()) {
           const hit = getPrimaryModelIntersection(Viewer, Viewer.onUpPosition);
-          if (!hit || !showIfcProperties(hit.object)) closeIfcPanel();
+          if (!hit || !showIfcProperties(hit.object, hit)) closeIfcPanel();
         }
       }
 

@@ -153,18 +153,34 @@ test('viewer window can be resized and moved from its controls', async ({ page }
   expect(afterResize.width).toBeGreaterThan(before.width);
   expect(afterResize.height).toBeGreaterThan(before.height);
 
+  // The window is clamped to the viewport, so drag towards the side that has more room
+  // instead of assuming it can always move up/left.
+  const viewport = page.viewportSize();
+  if (!viewport) throw new Error('Viewport size is unavailable');
+  const roomLeft = afterResize.x;
+  const roomRight = viewport.width - (afterResize.x + afterResize.width);
+  const roomTop = afterResize.y;
+  const roomBottom = viewport.height - (afterResize.y + afterResize.height);
+  const dx = roomLeft >= roomRight ? -Math.min(30, roomLeft) : Math.min(30, roomRight);
+  const dy = roomTop >= roomBottom ? -Math.min(25, roomTop) : Math.min(25, roomBottom);
+  test.skip(Math.abs(dx) < 5 && Math.abs(dy) < 5, 'No room in the viewport to move the window');
+
   const dragHandle = container.locator('.viewer-window-drag-handle');
   const dragBox = await dragHandle.boundingBox();
   if (!dragBox) throw new Error('Viewer drag handle bounding box is unavailable');
-  await page.mouse.move(dragBox.x + dragBox.width / 2, dragBox.y + dragBox.height / 2);
+  const startX = dragBox.x + dragBox.width / 2;
+  const startY = dragBox.y + dragBox.height / 2;
+  await page.mouse.move(startX, startY);
   await page.mouse.down();
-  await page.mouse.move(dragBox.x - 30, dragBox.y - 25);
+  await page.mouse.move(startX + dx, startY + dy, { steps: 5 });
   await page.mouse.up();
 
-  const afterMove = await container.boundingBox();
-  if (!afterMove) throw new Error('Viewer container bounding box after move is unavailable');
-  expect(afterMove.x).toBeLessThan(afterResize.x);
-  expect(afterMove.y).toBeLessThan(afterResize.y);
+  await expect
+    .poll(async () => {
+      const box = await container.boundingBox();
+      return box ? Math.abs(box.x - afterResize.x) + Math.abs(box.y - afterResize.y) : 0;
+    })
+    .toBeGreaterThan(0);
 });
 
 test('sandbox mode starts without loading a model', async ({ page }) => {

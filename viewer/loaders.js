@@ -25,7 +25,7 @@ export const loadHDRLoader = async () => (await import("three/examples/jsm/loade
 
 import { core } from './core.js';
 import { fetchSettings, presentationMode } from "./metadata.js";
-import { loadIfcProperties, ifcPropertiesUrlForModel } from "./ifc-properties.js";
+import { loadIfcProperties, ifcPropertiesUrlForModel, setIfcModel } from "./ifc-properties.js";
 import { reportViewerError, showToast, toastHelper } from "./viewer-utils.js";
 
 export var outlineClipping;
@@ -610,6 +610,7 @@ export async function loadModel() {
         loader.ifcManager.setWasmPath(normalizedIfcWasmPath, true);
         const object = await loadAsync(loader, modelPath, onProgress);
         await afterLoad({ object });
+        setIfcModel(object);
         break;
       }
 

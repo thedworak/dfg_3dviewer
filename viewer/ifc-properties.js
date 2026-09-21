@@ -7,6 +7,9 @@ import THREE from "./init.js";
 // are the keys of `elements` in that JSON.
 
 let ifcData = null;
+// Directly loaded .ifc: properties are read on demand from the web-ifc model (IFCModel).
+let liveModel = null;
+let liveRequest = 0;
 let panel = null;
 let highlights = [];
 // Elements hidden through the panel's eye toggle; they stay hidden until toggled back / "Show all".
@@ -18,12 +21,14 @@ const esc = (v) =>
   String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 export function hasIfcProperties() {
-  return ifcData !== null;
+  return ifcData !== null || liveModel !== null;
 }
 
 export function clearIfcProperties() {
   showAllHidden();
   ifcData = null;
+  liveModel = null;
+  liveRequest++;
   closeIfcPanel();
 }
 
@@ -38,6 +43,79 @@ export async function loadIfcProperties(url) {
   } catch (error) {
     console.warn("[ifc-properties] could not load", url, error);
   }
+}
+
+/** Serves properties straight from a model loaded by IFCLoader (no converted GLB + JSON needed). */
+export function setIfcModel(model) {
+  clearIfcProperties();
+  if (model?.ifcManager && model.geometry?.attributes?.expressID) liveModel = model;
+}
+
+const unwrap = (v) => {
+  if (Array.isArray(v)) return v.map(unwrap);
+  if (v && typeof v === "object" && "value" in v) return unwrap(v.value);
+  if (v === ".T.") return true;
+  if (v === ".F.") return false;
+  return v ?? null;
+};
+
+const VALUE_KEYS = [
+  "NominalValue", "LengthValue", "AreaValue", "VolumeValue", "CountValue", "WeightValue", "TimeValue",
+  "EnumerationValues", "ListValues",
+];
+
+// IfcPropertySet / IfcElementQuantity (recursive web-ifc lines) -> { setName: { propName: value } }
+function convertPsets(lines) {
+  const psets = {};
+  for (const line of lines || []) {
+    const items = line.HasProperties || line.Quantities;
+    if (!items) continue;
+    const props = {};
+    for (const item of items) {
+      const name = unwrap(item.Name);
+      if (!name) continue;
+      const key = VALUE_KEYS.find((k) => item[k] != null);
+      props[name] = key ? unwrap(item[key]) : null;
+    }
+    psets[unwrap(line.Name) || "Pset"] = props;
+  }
+  return psets;
+}
+
+async function readLiveEntry(model, id) {
+  const [item, psets, types] = await Promise.all([
+    model.getItemProperties(id, false),
+    model.getPropertySets(id, true),
+    model.getTypeProperties(id, false),
+  ]);
+  return {
+    guid: unwrap(item?.GlobalId),
+    entry: {
+      type: model.getIfcType(id),
+      name: unwrap(item?.Name),
+      description: unwrap(item?.Description),
+      objectType: unwrap(item?.ObjectType),
+      predefinedType: unwrap(item?.PredefinedType),
+      tag: unwrap(item?.Tag),
+      typeRef: types?.[0] ? { name: unwrap(types[0].Name) } : null,
+      psets: convertPsets(psets),
+    },
+  };
+}
+
+// Sub-geometry with only the triangles of one element, sharing the model's vertex buffers.
+function elementGeometry(geometry, id) {
+  const index = geometry.index.array;
+  const ids = geometry.attributes.expressID;
+  const out = [];
+  for (let i = 0; i < index.length; i += 3) {
+    if (ids.getX(index[i]) === id) out.push(index[i], index[i + 1], index[i + 2]);
+  }
+  if (!out.length) return null;
+  const sub = new THREE.BufferGeometry();
+  sub.setAttribute("position", geometry.attributes.position);
+  sub.setIndex(out);
+  return sub;
 }
 
 function findElement(object) {
@@ -179,7 +257,10 @@ function ensurePanel() {
 
 /** Removes the overlay meshes added by highlightElement(). Geometry is shared, so only the material is kept/disposed. */
 export function clearIfcHighlight() {
-  highlights.forEach((overlay) => overlay.parent?.remove(overlay));
+  highlights.forEach((overlay) => {
+    overlay.parent?.remove(overlay);
+    if (overlay.userData.ownGeometry) overlay.geometry.dispose();
+  });
   highlights = [];
   highlightMaterial?.dispose();
   highlightMaterial = null;
@@ -190,7 +271,7 @@ export function clearIfcHighlight() {
  * original geometry and is a child of the mesh, so it follows its transform.
  * Overlays are excluded from raycasting so they never get picked themselves.
  */
-function highlightElement(node) {
+function createHighlightMaterial() {
   clearIfcHighlight();
   highlightMaterial = new THREE.MeshBasicMaterial({
     color: 0x00e5ff,
@@ -201,18 +282,25 @@ function highlightElement(node) {
     polygonOffsetFactor: -2,
     polygonOffsetUnits: -2,
   });
+}
+
+function addOverlay(mesh, geometry) {
+  const overlay = new THREE.Mesh(geometry, highlightMaterial);
+  overlay.raycast = () => {};
+  overlay.renderOrder = 999;
+  overlay.userData.ifcHighlight = true;
+  mesh.add(overlay);
+  highlights.push(overlay);
+  return overlay;
+}
+
+function highlightElement(node) {
+  createHighlightMaterial();
   const meshes = [];
   node.traverse((child) => {
     if (child.isMesh && !child.userData.ifcHighlight) meshes.push(child);
   });
-  meshes.forEach((mesh) => {
-    const overlay = new THREE.Mesh(mesh.geometry, highlightMaterial);
-    overlay.raycast = () => {};
-    overlay.renderOrder = 999;
-    overlay.userData.ifcHighlight = true;
-    mesh.add(overlay);
-    highlights.push(overlay);
-  });
+  meshes.forEach((mesh) => addOverlay(mesh, mesh.geometry));
 }
 
 const EYE_ICON =
@@ -238,6 +326,7 @@ function refreshVisibilityControls() {
   const visible = selectedNode ? selectedNode.visible !== false : true;
   const toggle = panel.querySelector(".ifc-props-visibility");
   if (toggle) {
+    toggle.style.display = selectedNode ? "" : "none"; // per-element hiding needs a node (not for merged IFC mesh)
     toggle.innerHTML = visible ? EYE_ICON : EYE_OFF_ICON;
     toggle.setAttribute("aria-pressed", String(!visible));
     const label = visible ? "Hide element" : "Show element";
@@ -252,6 +341,7 @@ function refreshVisibilityControls() {
 }
 
 export function closeIfcPanel() {
+  liveRequest++; // drop any in-flight property read
   selectedNode = null;
   clearIfcHighlight();
   panel?.remove();
@@ -260,13 +350,35 @@ export function closeIfcPanel() {
   updateNoticeAvoidance();
 }
 
-export function showIfcProperties(object) {
+export function showIfcProperties(object, hit = null) {
+  if (liveModel) return showLiveProperties(object, hit);
   if (!ifcData || !object) return false;
-  const hit = findElement(object);
-  if (!hit) return false;
-  const { node, guid, entry } = hit;
+  const found = findElement(object);
+  if (!found) return false;
+  const { node, guid, entry } = found;
   highlightElement(node);
   selectedNode = node;
+  renderPanel(entry, guid);
+  return true;
+}
+
+function showLiveProperties(object, hit) {
+  if (object !== liveModel || hit?.faceIndex == null) return false;
+  const id = liveModel.getExpressId(object.geometry, hit.faceIndex);
+  const request = ++liveRequest;
+  selectedNode = null;
+  const sub = elementGeometry(object.geometry, id);
+  createHighlightMaterial();
+  if (sub) addOverlay(object, sub).userData.ownGeometry = true;
+  readLiveEntry(liveModel, id)
+    .then(({ guid, entry }) => {
+      if (request === liveRequest) renderPanel(entry, guid);
+    })
+    .catch((error) => console.warn("[ifc-properties] could not read element", id, error));
+  return true;
+}
+
+function renderPanel(entry, guid) {
   const head = [
     ["Type", entry.type],
     ["Name", entry.name],
@@ -298,7 +410,6 @@ export function showIfcProperties(object) {
   });
   refreshVisibilityControls();
   updateNoticeAvoidance();
-  return true;
 }
 
 /**
