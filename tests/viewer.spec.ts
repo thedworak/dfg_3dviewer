@@ -133,6 +133,8 @@ test('fullscreen includes the editor toolbar', async ({ page }) => {
 
 test('viewer window can be resized and moved from its controls', async ({ page }) => {
   await openViewer(page);
+  // Software-rendered CI is slow; loading overlays must be gone before the handles are usable.
+  await waitForModel(page, 60_000);
   const container = page.locator('#DFG_3DViewer');
   await expect(container.locator('.viewer-window-drag-handle')).toBeAttached();
   await expect(container.locator('.viewer-window-resize-bottom-right')).toBeAttached();
@@ -166,6 +168,8 @@ test('viewer window can be resized and moved from its controls', async ({ page }
   test.skip(Math.abs(dx) < 5 && Math.abs(dy) < 5, 'No room in the viewport to move the window');
 
   const dragHandle = container.locator('.viewer-window-drag-handle');
+  // hover() fails with the name of the intercepting element if something covers the handle.
+  await dragHandle.hover();
   const dragBox = await dragHandle.boundingBox();
   if (!dragBox) throw new Error('Viewer drag handle bounding box is unavailable');
   const startX = dragBox.x + dragBox.width / 2;
