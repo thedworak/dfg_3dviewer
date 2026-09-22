@@ -5,6 +5,30 @@ The module was primarily created for viewing 3D data as a Drupal extension for a
 The Viewer is written in JavaScript, based on the three.js library for viewing 3D models and uses PHP/bash scripts for server-side operations.
 
 
+## Quickstart (TL;DR)
+
+### 🐳 Docker (recommended)
+
+```bash
+git clone <repo-url> && cd dfg_3dviewer
+docker compose up --build
+```
+
+Open `http://localhost:3000` (test build) — `:3001` for dev, `:3002` for sandbox/drag-and-drop upload mode.
+
+This is a fully working setup, including the full conversion pipeline (conversion to glTF/GLB, compression, and Blender-based thumbnail rendering) — no Drupal, Node, PHP or extra setup needed.
+
+### Or, without Docker
+
+```bash
+git clone <repo-url> && cd dfg_3dviewer
+npm install
+cp viewer/viewer-settings-example.json viewer/viewer-settings.json
+npm run dev:test
+```
+
+Open `http://localhost:1234` — viewer only, no conversion pipeline.
+
 ## What this repo contains
 
 - `viewer/` — viewer runtime source, loaders, utilities, metadata handling, and UI
@@ -15,11 +39,61 @@ The Viewer is written in JavaScript, based on the three.js library for viewing 3
 - `scripts/` and `php/` — helpers for model conversion, Blender rendering, and Drupal workflow
 - `dist/` — generated build output (not committed in source)
 
+## Documentation
+
+The topics below used to live in this file; they now have their own page in [`docs/`](docs/):
+
+- [Minimal local setup, npm scripts, build/packaging, Tauri app](docs/development.md)
+- [Standalone Docker setup](docs/docker.md) — profiles, `scripts/docker.sh`, static export, uploads/accounts
+- [Admin panel setup](docs/admin-panel.md)
+- [Server-side conversion and rendering](docs/conversion-pipeline.md) — pipeline, supported conversion inputs, script flags/env vars
+- [`viewer-settings.json` explained](docs/viewer-settings.md)
+- [Using/embedding the viewer](docs/embedding.md) — embed markup, `embed.html` parameters
+- [`viewer/FUNCTIONS.md`](viewer/FUNCTIONS.md) — runtime function reference
+- [`worker/README.md`](worker/README.md) — standalone conversion worker's API contract/configuration
+
 ## Supported 3D formats
 
-- OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, GLB, glTF
+| Format | Native | Converted to GLB |
+|---|---|---|
+| OBJ | ✅ | ✅ ¹ |
+| DAE (COLLADA) | ✅ | ✅ ¹ |
+| FBX | ✅ | ✅ ¹ |
+| PLY | ✅ | ✅ ¹ |
+| STL | ✅ | ✅ ¹ |
+| IFC | ✅ | ✅ ² |
+| WRL (VRML) | ✅ ³ | ✅ ¹ |
+| USD / USDA / USDC / USDZ | ✅ ³ | ✅ ¹ ⁴ |
+| 3MF | ✅ ³ | ✅ ⁵ |
+| XYZ | ✅ | – |
+| JSON | ✅ | – |
+| 3DS | ✅ | – |
+| PCD | ✅ | – |
+| GLB / glTF | ✅ ⁶ | – |
+| AMF | ✅ ³ | – |
+| KMZ | ✅ ³ | – |
+| VOX (MagicaVoxel) | ✅ ³ | – |
+| LWO (LightWave) | ✅ ³ ⁷ | – |
+| ABC (Alembic) | – | ✅ ¹ |
+| BLEND | – | ✅ ¹ ⁸ |
+| X3D | – | ✅ ¹ |
+| GML | – | ✅ ¹ |
+| STEP / STP | – | ✅ ⁹ |
+| IGES / IGS | – | ✅ ⁹ |
 
-There is also a pre-configured complete workflow to handle more file formats and allow to render thumbnails for entries. If an uploaded file is saved in one of the compression-supported formats, it is compressed on-the-fly and converted into GLB format and triggers automatic rendering (based on Blender utility).
+> - ¹ via Blender (`scripts/convert.sh`)
+> - ² via `IfcConvert` (+ metadata export, see below)
+> - ³ via a three.js loader
+> - ⁴ needs a USD-enabled Blender build
+> - ⁵ via `trimesh` (standalone worker)
+> - ⁶ native target format
+> - ⁷ untested, no sample file
+> - ⁸ in progress
+> - ⁹ via OpenCASCADE (`cascadio`, standalone worker)
+>
+> Not added on purpose: VTK (its three.js loader is deprecated and scheduled for removal), LDraw (needs a separate parts library), 3DM (needs the extra `rhino3dm` runtime) and PDB/MD2/NRRD/GCode/BVH (not general model formats).
+
+There is also a pre-configured complete workflow to handle more file formats and allow to render thumbnails for entries. If an uploaded file is saved in one of the compression-supported formats, it is compressed on-the-fly and converted into GLB format and triggers automatic rendering (based on Blender utility). See [Server-side conversion and rendering](docs/conversion-pipeline.md) for details.
 
 ## Minimal Requirements
 
@@ -33,248 +107,12 @@ There is also a pre-configured complete workflow to handle more file formats and
 
 **Client:** JavaScript, three.js, CSS, HTML, PHP, Drupal
 
-**Server:** PHP, Drupal, bash, blender
-
-## Minimal local setup
-
-1. Install Node dependencies:
-
-```bash
-npm install
-```
-
-2. Create the runtime settings file:
-
-```bash
-cp viewer/viewer-settings-example.json viewer/viewer-settings.json
-```
-
-3. Start the dev server:
-
-```bash
-npm run dev:test
-```
-
-or using serve:
-```bash
-npx serve -n
-```
-
-or using PHP:
-```bash
-php -S 127.0.0.1:8000 -t ../../viewer
-```
-
-4. Open the demo at:
-
-```text
-http://localhost:1234
-```
-
-> `viewer/viewer-settings.json` is required at runtime when running from source. Use the example file as the starting point.
-
-## Admin panel setup
-
-The repository includes a minimal admin panel at `viewer/admin/` for editing `viewer-settings.json`, `scripts/.env`, managing HDRI and running maintenance tasks.
-
-1. Ensure PHP CLI is installed and the webserver user can write into `viewer/admin/`.
-
-2. Install SQLite support (PHP extension and CLI)
-
-For Debian/Ubuntu:
-
-```bash
-sudo apt update
-sudo apt install php-sqlite3 sqlite3
-```
-
-For RHEL/CentOS/Fedora:
-
-```bash
-sudo dnf install php-sqlite3 sqlite
-```
-
-After installing the PHP extension, restart your webserver/PHP-FPM:
-
-```bash
-sudo systemctl restart apache2        # or nginx + php-fpm
-sudo systemctl restart php8.4-fpm     # adjust version as needed
-```
-
-Verify installation:
-
-```bash
-php -m | grep -i sqlite
-sqlite3 --version
-```
-
-3. Create the SQLite admin DB and the first admin user (CLI):
-
-2. Create the SQLite admin DB and the first admin user (CLI):
-
-```bash
-# from repository root
-php viewer/admin/create_admin.php <username> <password>
-
-# or from viewer/admin/
-php create_admin.php <username> <password>
-```
-
-The script will create `viewer/admin/admin.sqlite` automatically and insert the user (passwords are hashed).
-
-3. Open the admin UI in your browser and log in:
-
-```text
-http://<host>/viewer/admin/login.php
-```
-
-4. Notes & troubleshooting
-- The `create_admin.php` script must be run from a shell (CLI). If it fails, verify `php -v` and file permissions.
-- The web server (e.g. `www-data`) must have write access to `viewer/admin/admin.sqlite` and to the `viewer/` and `scripts/` paths for saving settings and backups. Example:
-
-```bash
-sudo chown -R www-data:www-data viewer/admin viewer scripts
-sudo chmod -R 750 viewer/admin viewer scripts
-```
-
-- If you need to reset or change the admin password you can either recreate the user with the CLI (delete the old row using `sqlite3`) or edit the DB manually. Example to open DB with sqlite3:
-
-```bash
-sqlite3 viewer/admin/admin.sqlite
--- then: SELECT * FROM admins;  DELETE FROM admins WHERE username='...';
-```
-
-Security: this admin panel is intentionally minimal. For production use enable HTTPS, restrict access by IP if possible, and consider adding CSRF protection and stronger session handling.
-
-## Build and serve locally
-
-To create a static dist bundle and preview it locally:
-
-```bash
-npm run build:test
-npm run serve:dist
-```
-
-This writes build output into `dist/test/` and serves it with a small HTTP server.
-
-## Main npm scripts
-
-- `npm run dev:test` — start Parcel dev server with `BUILD_SOURCE=IIIF`, `BUILD=test`
-- `npm run dev:dev` — start Parcel dev server with `BUILD_SOURCE=''`, `BUILD=test`
-- `npm run dev:prod` — start Parcel dev server with `BUILD=prod`
-- `npm run build:test` — Rollup build for `dist/test`
-- `npm run build:dev` — Rollup build for `dist/dev`
-- `npm run build:prod` — Rollup build for `dist/prod`
-- `npm run build:drupal` — Drupal-specific build using `scripts/build-drupal.js`
-- `npm run build:drupal:custom` — custom Drupal build with module prefix
-- `npm run watch` — Rollup watch mode for live rebuilds
-- `npm run serve:dist` — serve the current `dist` folder with `serve`
-- `npm run pack-dist` — package `dist/` into `dfg_3dviewer-dist.zip`
-- `npm run dev:tauri` — build dev bundle and serve for Tauri development
-- `npm run tauri:dev` — run Tauri in dev mode
-- `npm run tauri:build` — build the Tauri desktop app
-
-## Runtime entry points
-
-- `viewer/main.js` — current viewer runtime entry point in source mode
-- `index.html` — demo page used by local builds and `dist` preview
-- `embed.html` — viewer embed page with URL controls
-
-In built output, the generated bundle is exposed through the module entry `dfg_3dviewer-module.js`.
-
-## Viewer function reference
-
-A separate reference file documents the main exported runtime functions and helpers used by the viewer.
-- `viewer/FUNCTIONS.md` — function descriptions for `Viewer`, loader helpers, metadata handlers, utilities, and build/runtime helpers.
-
-## `viewer-settings.json` explained
-
-The viewer loads configuration from `viewer-settings.json` at runtime.
-
-The example template is located at `viewer/viewer-settings-example.json`.
-
-### Main settings
-
-- `mainUrl` — base backend URL used by viewer metadata and resource requests
-- `metadataUrl` — metadata service URL
-- `baseNamespace` — namespace used for entity routing and metadata
-- `baseModulePath` — path to viewer assets/module when deployed
-
-### Entity integration
-
-- `entity.bundle` — Drupal/WissKI entity bundle identifier
-- `entity.fieldDf` — field name used for 3D file references
-- `entity.exportViewer` — export field name for viewer settings
-- `entity.exportViewerUrl` — metadata URL used by export/viewer integration
-- `entity.idUri` — pattern to extract entity IDs from path
-- `entity.viewEntityPath` — base path for entity views
-- `entity.attributeId` — identifier used for viewer container attribute
-- `entity.metadata.source` — metadata source label, e.g. `Drupal` or `IIIF`
-
-### Viewer settings
-
-- `viewer.container` — target container ID for WebGL viewer
-- `viewer.fileUpload` — Drupal upload field ID
-- `viewer.fileName` — Drupal file name field ID
-- `viewer.imageGeneration` — Drupal field ID for image generation
-- `viewer.lightweight` — enable lightweight viewer mode when `true`
-- `viewer.editor` — show editor controls
-- `viewer.gallery.build` — enable gallery generation from metadata/gallery sources
-- `viewer.gallery.container` — DOM container for generated gallery thumbnails
-- `viewer.gallery.imageClass` — class used to locate gallery images
-- `viewer.gallery.imageId` — optional gallery image ID selector
-- `viewer.background` — CSS background string for viewer canvas
-- `viewer.performanceMode` — performance mode config object
-- `viewer.measurement.modelUnitInMeters` — conversion ratio from model units to meters
-- `viewer.scaleContainer` — scale adjustments for the viewer container
-
-### Built output behavior
-
-- `rollup.config.js` copies `viewer-settings.json` into `dist/<target>/`
-- For `test` and `dev` builds, the generated `viewer-settings.json` is modified to:
-  - set `mainUrl = 'localhost'`
-  - disable gallery build
-  - enable editor mode
-  - set `viewer.lightweight = true`
-- For `drupal` builds, `baseModulePath` is rewritten to the Drupal assets path and `entity.metadata.source` is set to `Drupal`
-
-## Using the viewer
-
-Example embed markup:
-
-```html
-<div id="DFG_3DViewer" 3d="./examples/box.stl" style="height: 50vh"></div>
-<script type="module" src="dfg_3dviewer-module.js"></script>
-```
-
-This is the current built runtime entry pattern. The viewer reads the `3d` attribute from the container and loads the model.
-
-## `embed.html` parameters
-
-`embed.html` supports these query parameters:
-
-- `model` / `src`
-- `id`
-- `theme`
-- `autorotate`
-- `autorotateSpeed`
-- `disableInteraction`
-- `hideUi`
-- `hideMetadata`
-- `camPos`
-- `camTarget`
-- `fov`
-
-Example:
-
-```text
-/embed.html?model=/examples/box.glb&theme=light&autorotate=1&autorotateSpeed=1.2&camPos=1.2,0.8,2.5&camTarget=0,0,0&fov=45
-```
+**Server:** PHP, Drupal, bash, blender, Python (`ifcopenshell` for IFC metadata export)
 
 ## Features
 
-- 3D file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, glTF;
-- compression and rendering on-the-fly: OBJ, FBX, STL, DAE, PLY, ABC, BLEND, STL, WRL, X3D, GLB, GLTF;
+- 3D file formats read directly: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, PCD, JSON, 3DS, glTF/GLB, USD/USDA/USDC/USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO;
+- compression and rendering on-the-fly: OBJ, FBX, STL, DAE, PLY, ABC, BLEND, WRL, X3D, USD/USDA/USDC/USDZ, GLB, GLTF; the standalone worker additionally converts STEP/STP, IGES/IGS and 3MF (see [Server-side conversion and rendering](docs/conversion-pipeline.md));
 - 3D viewer with orbit controls, zoom, and basic editor tools;
 - changing lights properties and environment maps;
 - standalone version | embeddable version | presentation mode | lightweight or full mode;
@@ -289,97 +127,6 @@ Example:
 - Drupal/WissKI integration hooks
 - adding watermark
 
-## Server-side conversion and rendering
-
-Main workflow is divided into two automatic parts:
-- pre-processing - uploaded model is uncompressed (if so) and converted into glTF (glb) format
-- automatic rendering - Blender side rendering of 3D model’s thumbnails
-
-The conversion pipeline lives in `scripts/` and `php/`.
-
-After uploading 3D model into repository there are triggered following steps:
-- uncompressing 3D models - it is done on Drupal side module script inside ```dfg_3dviewer_entity_presave``` and supports following archive formats: zip, rar, tar, xz, gz. According to the format, the bash script is triggered with following arguments: 
-```/scripts/uncompress.sh archiveType -i inputPath -o extractPath -n fileName```
-- automatic conversion into glTF (glb) format for the following supported formats:
-    - abc, dae, fbx, obj, ply, stl, wrl, x3d - function ```handle_file```
-    - ifc - function ```handle_ifc_file```
-    - blend (in progress) - function ```handle_blend_file```
-    - glb - triggers next step - function ```render_preview```
-
-This step is performed inside ```scripts/convert.sh``` bash script, which is the primary helper for converting files to glTF/GLB and rendering preview images with Blender.
-Defaults .env variables should be adjusted due to your needs:
-
-```
-BLENDER_BIN=''
-# Optional override. If empty, scripts auto-detect the module root from this file location.
-SPATH=
-BACKUP_SETTINGS_PATH=/var/www/data/project/web/sites/default/settings.php
-RENDER_RESOLUTION='1024x1024x16'
-RENDER_SAMPLES='20'
-```
-
-The script uses Blender to convert the file into glTF format and then renders a preview image with it using blender's built-in cycles engine. The result is saved in a set of pictures with different view angles. 
-This step needs some steps to be performed before rendering:
-- create scene containing loaded 3D model
-- calculate bounding box (for camera and lights settlement)
-- scale scene according to bounding box
-- setup basic properties for rendering engine, output quality, lights, camera
-- prepare rendering from camera placed in 9 different positions (left, left top, front, front top, right, right top, back, back top, top)
-- write rendering outputs into png files with consecutive naming
-
-
-![Backend overview|500](https://i.postimg.cc/7fw9zs6n/image3.png)
-
-### Supported conversion inputs
-
-- abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, xyz, pcd, json, 3ds, glb, gltf
-
-### Minimal conversion examples
-
-Convert an OBJ to GLB and render previews:
-
-```bash
-./scripts/convert.sh -c true -l 3 -i '/path/to/input.obj' -b true
-```
-
-Convert an IFC with IfcConvert:
-
-```bash
-./scripts/convert.sh -i '/path/to/building.ifc'
-```
-
-Run lightweight conversion without xvfb checks:
-
-```bash
-./scripts/convert.sh -t true -c false -i '/path/to/input.obj'
-```
-
-### Script flags
-
-- `-c` — compression true/false
-- `-l` — compression level 0-6
-- `-i` — input file path
-- `-o` — output folder (optional)
-- `-b` — binary output true/false (GLB vs glTF)
-- `-t` — lightweight true/false
-- `-f` — force overwrite
-
-### Environment variables in `scripts/.env`
-
-- `BLENDER_PATH` — path to the Blender binary
-- `SPATH` — repository or module base path used by scripts
-- `COMPRESSION` — whether glTF compression is enabled
-- `COMPRESSION_LEVEL` — compression level
-- `GLTF` — target `gltf` or `glb`
-- `FORCE` — overwrite existing outputs
-- `IS_ARCHIVE` — if input is an archive
-- `LIGHTWEIGHT` — skip heavyweight checks and rendering steps
-
-## Packaging and releases
-
-- `npm run pack-dist` packages the distribution into `dfg_3dviewer-dist.zip`
-- the repo also contains a GitHub Actions workflow for building release artifacts on tags
-
 ## Screenshots
 
 ![Functions and other features](https://i.postimg.cc/zHSkMWdh/image2.png)
@@ -393,26 +140,3 @@ Run lightweight conversion without xvfb checks:
 ![Gallery Preview Element 2](https://i.postimg.cc/TKPc7Kny/image6.png)
 
 ![IIIF-AIM3D Data Flow.png](https://i.postimg.cc/htwXZNCh/IIIF-AIM3D-flow.png)
-
-
-## Tauri standalone app (testing)
-
-This repo also includes a Tauri desktop wrapper in `src-tauri/`.
-
-- `npm run tauri:dev` — run the app in Tauri dev mode
-- `npm run tauri:build` — build the standalone desktop executable
-
-## Notes
-
-- Always serve the viewer over HTTP(S). `file://` mode usually fails because of module import and fetch restrictions.
-- For local preview use `npm run serve:dist` or `npm run dev:test`.
-- If you use `pack-dist`, make sure `zip` is installed on your system.
-- Drupal builds use `npm run build:drupal` or `npm run build:drupal:custom`.
-
-## More information
-
-- `viewer/viewer-settings-example.json` — runtime configuration template
-- `viewer/viewer-settings.js` — runtime settings loader used by built/source bundles
-- `rollup.config.js` — build output and asset copy configuration
-- `scripts/convert.sh` — conversion and Blender rendering helper
-- `dfg_3dviewer.libraries.tpl.yml` — Drupal libraries template used in Drupal build

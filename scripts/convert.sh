@@ -14,6 +14,9 @@
 #pip install numpy or apt install python3-numpy
 #pip install triangle
 #usage: ./convert.sh -c COMPRESS -cl COMPRESSION_LEVEL -i 'INPUT' -o 'OUTPUT' -b BINARY -f FORCE_OVERRIDE
+#handled extensions: abc dae fbx obj ply stl wrl x3d usd usda usdc usdz (Blender importers via 2gltf2.py; the usd* ones need a Blender
+#build with USD support, e.g. the official release), ifc, blend, gml, glb (already GLB).
+#step/stp/iges/igs/3mf are NOT handled here: the standalone worker converts them with scripts/convert_mesh.py (cascadio/trimesh).
 
 
 #apt install -y libxi6 libxrender1 libxrandr2 libxinerama1 libxcursor1 libxcomposite1 libxdamage1 libxtst6 libglib2.0-0 libsm6 libice6 libgl1 libxkbcommon0
@@ -277,7 +280,12 @@ handle_ifc_file () {
 
 	create_dirs
 
-	${SPATH}/scripts/IfcConvert "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
+	# Node names in the GLB = IFC GlobalIds, so they match the keys of the metadata JSON.
+	${SPATH}/scripts/IfcConvert --use-element-guids "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb" > /dev/null 2>&1
+
+	# glTF cannot carry psets/quantities/relations: export them next to the GLB.
+	# Best effort - a missing ifcopenshell must not fail the geometry conversion.
+	python3 "${SPATH}/scripts/ifc_metadata.py" "$INPATH/$FILENAME" "$INPATH/metadata/${NAME}_ifc.json" > /dev/null 2>&1 || true
 }
 
 handle_blend_file () {
@@ -356,7 +364,7 @@ if [[ ! -z "$INPUT" && -f $INPUT ]]; then
 		if [[ ! -f $OUTPUT/$NAME.$GLTF || $FORCE ]]; then
 			start=`date +%s`
 			case $EXT in
-				abc|dae|fbx|obj|ply|stl|wrl|x3d)
+				abc|dae|fbx|obj|ply|stl|wrl|x3d|usd|usda|usdc|usdz)
 					echo "Converting $EXT file..."
 					handle_file "$INPATH" "$FILENAME" "$NAME" $EXT "$OUTPUT" "$OUTPUTPATH"
 					end=`date +%s`

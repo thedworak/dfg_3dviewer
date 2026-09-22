@@ -1,5 +1,6 @@
 @import "./editor-toolbar.css";
 @import "./embed-configurator.css";
+@import "./upload-panel.css";
 
 #cboxLoadedContent.iipmooviewer {
   position: absolute;
@@ -175,6 +176,15 @@ canvas {
   transform: translate(-50%, -50%);
 }
 
+#viewerNoticeContainer.viewer-notice-container--shortcuts {
+  left: auto;
+  right: 16px;
+  bottom: auto;
+  top: 50%;
+  max-width: min(380px, calc(100% - 32px));
+  transform: translateY(-50%);
+}
+
 .viewer-notice {
   padding: 6px 10px;
   border-radius: 999px;
@@ -193,6 +203,7 @@ canvas {
 }
 
 .viewer-notice-status {
+  position: relative;
   opacity: 0;
   transform: translateY(8px) scale(0.98);
   transition: opacity 0.2s ease, transform 0.2s ease;
@@ -205,6 +216,32 @@ canvas {
   word-break: break-word;
   font-weight: 350;
   min-width: 20vh;
+}
+
+.viewer-notice-close {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  opacity: 0.6;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.viewer-notice-close:hover {
+  opacity: 1;
+  background: rgba(127, 127, 127, 0.24);
 }
 
 .viewer-notice-status.is-visible {
@@ -285,6 +322,42 @@ canvas {
     box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.0),
                 0 18px 56px rgba(15, 23, 42, 0.28);
   }
+}
+
+.viewer-notice-status[data-variant="shortcuts"] {
+  padding: 12px 16px;
+  width: min(380px, calc(100vw - 48px));
+  max-width: 100%;
+  text-align: left;
+  white-space: normal;
+}
+
+.viewer-notice-status[data-variant="shortcuts"] .viewer-notice-message {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.7;
+  padding-bottom: 8px;
+}
+
+.viewer-notice-status[data-variant="shortcuts"] .viewer-notice-detail {
+  display: block;
+  padding: 3px 0;
+}
+
+.viewer-shortcut-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.35;
+}
+
+.viewer-shortcut-row svg {
+  flex: none;
+  margin-top: 1px;
+  opacity: 0.85;
 }
 
 @keyframes fadeIn {
@@ -966,7 +1039,12 @@ canvas {
 #metadata-container {
   width: auto;
   min-width: 0;
-  max-width: 320px;
+  /* No max-width here: it's just a full-size, pointer-events:none
+     positioning shell for #metadata-card (see main.js's resize handler,
+     which keeps this at 100%x100% of the viewer) - #metadata-card's own
+     max-width) below) governs its default width. Capping this container
+     itself would put a hard ceiling under #metadata-card's own resize
+     handle, defeating manual resizing past the old 320px default. */
   position: absolute;
   left: 0px;
 
@@ -989,21 +1067,33 @@ canvas {
 #metadata-card {
   position: relative;
   padding: 6px 8px 8px;
+  padding-top: 16px;
   border-radius: 8px;
   width: min(192px, 18vw);
   max-width: 100%;
+  min-width: 160px;
+  min-height: 46px;
+  box-sizing: border-box;
   background: var(--metadata-card-bg);
   border: 1px solid var(--metadata-border);
   box-shadow: var(--metadata-shadow);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  transform: translateY(0);
+  /* Draggable via .metadata-drag-handle and resizable via the native
+     bottom-right handle below (see initializeMetadataDrag()/
+     observeMetadataResize() in metadata.js) - both mirror the mechanisms
+     already used for #viewerEditorToolbar and #form-manifesto. */
+  transform: translate3d(var(--drag-x, 0px), var(--drag-y, 0px), 0);
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+  resize: none;
+  overflow: hidden;
   transition:
     width 700ms cubic-bezier(0.23, 1, 0.32, 1),
     background 760ms ease,
     border-color 760ms ease,
-    box-shadow 760ms ease,
-    transform 700ms ease;
+    box-shadow 760ms ease;
 }
 
 #metadata-card:hover {
@@ -1017,6 +1107,51 @@ canvas {
   background: var(--metadata-card-bg-open);
   border-color: var(--metadata-row-border-strong);
   box-shadow: var(--metadata-shadow);
+  resize: both;
+  overflow: auto;
+}
+
+#metadata-card.metadata-card-resized #metadata-content.expanded {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+}
+
+.metadata-drag-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  pointer-events: auto;
+  touch-action: none;
+  border-radius: 8px 8px 0 0;
+  z-index: 1;
+}
+
+.metadata-drag-handle::before {
+  content: "";
+  width: 24px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--metadata-label-color);
+  opacity: 0.4;
+  box-shadow: 0 4px 0 var(--metadata-label-color);
+  transition: opacity 0.15s ease;
+}
+
+.metadata-drag-handle:hover::before {
+  opacity: 0.75;
+}
+
+#metadata-card.metadata-dragging,
+#metadata-card.metadata-dragging .metadata-drag-handle {
+  cursor: grabbing;
 }
 
 #metadata-content {
@@ -1332,12 +1467,29 @@ canvas {
   visibility: visible;
 }
 
-.modalImage {
-  max-width: min(92vw, 1600px);
-  max-height: 88vh;
+.modalImageWrap {
+  display: inline-flex;
 
-  width: auto;
-  height: auto;
+  transform: translateY(10px);
+  opacity: 0;
+
+  transition:
+    transform 420ms cubic-bezier(.22,1,.36,1),
+    opacity 320ms ease;
+}
+
+.modalGallery.is-open .modalImageWrap {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.modalImage {
+  /* Explicit width/height (rather than max-width/max-height + auto) so the
+     image is scaled UP to fill this box too, not just shrunk down when it's
+     already bigger - otherwise a source image smaller than the viewport
+     would render at its native size instead of "fit to window". */
+  width: min(92vw, 1600px);
+  height: 88vh;
 
   border-radius: 18px;
 
@@ -1347,17 +1499,35 @@ canvas {
     0 30px 80px rgba(0,0,0,.45),
     0 10px 30px rgba(0,0,0,.35);
 
-  transform: scale(.94) translateY(10px);
-  opacity: 0;
-
-  transition:
-    transform 420ms cubic-bezier(.22,1,.36,1),
-    opacity 320ms ease;
+  /* transform here is driven by JS (scroll-to-zoom); kept snappy so it
+     doesn't fight the wheel handler, but smoothed enough to not feel abrupt. */
+  transition: transform 120ms ease-out;
 }
 
-.modalGallery.is-open .modalImage {
-  transform: scale(1) translateY(0);
-  opacity: 1;
+.galleryCounter {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+
+  padding: 6px 16px;
+  border-radius: 999px;
+
+  background:
+    linear-gradient(145deg,
+      rgba(255,255,255,.18),
+      rgba(255,255,255,.05));
+  border: 1px solid rgba(255,255,255,.18);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+
+  color: rgba(255,255,255,.92);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .02em;
+
+  pointer-events: none;
 }
 
 .galleryNav {
@@ -1700,11 +1870,25 @@ canvas {
 }
 
 #image-list .field__item {
+  position: relative;
+
   flex: 1 1 0;
   min-width: 50px;
   aspect-ratio: 1 / 1;
   overflow: hidden;
   border-radius: 10%;
+
+  background: linear-gradient(100deg,
+    rgba(255,255,255,.05) 30%,
+    rgba(255,255,255,.11) 50%,
+    rgba(255,255,255,.05) 70%);
+  background-size: 200% 100%;
+  animation: thumbShimmer 1.4s ease-in-out infinite;
+}
+
+#image-list .field__item.is-loaded {
+  background: none;
+  animation: none;
 }
 
 #image-list .field__item img {
@@ -1713,6 +1897,23 @@ canvas {
   max-width: none !important;
   max-height: none !important;
   object-fit: contain;
+
+  opacity: 0;
+}
+
+#image-list .field__item img.is-loaded {
+  opacity: 1;
+}
+
+@keyframes thumbShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+#image-list .field__item.is-active-thumb {
+  outline: 2px solid rgba(125, 173, 255, .95);
+  outline-offset: 2px;
+  box-shadow: 0 0 16px 2px rgba(125, 173, 255, .35);
 }
 
 .image-style-wisski-preview {
@@ -1739,7 +1940,7 @@ canvas {
 
 #image-list .field__item .image-style-wisski-preview {
   display: block;
-  transition: transform .25s ease, box-shadow .25s ease;
+  transition: transform .25s ease, box-shadow .25s ease, opacity .35s ease;
 }
 
 #image-list .field__item:hover img.image-style-wisski-preview {

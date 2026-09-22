@@ -15,7 +15,13 @@ export function attachEmbedConfigurator(Viewer) {
     },
 
     getEmbedPageUrl() {
-      const embedUrl = new URL("embed.html", import.meta.url);
+      // "embed.html" is kept out of the literal `new URL(...)` call on purpose:
+      // bundlers (Parcel in particular) statically resolve a literal first
+      // argument as a build-time asset relative to this source file, but
+      // embed.html only ever lives next to the built module at runtime
+      // (dist/<target>/embed.html), not next to viewer/ui/ in source.
+      const embedFileName = "embed.html";
+      const embedUrl = new URL(embedFileName, import.meta.url);
       embedUrl.search = "";
       embedUrl.hash = "";
       return embedUrl;

@@ -35,6 +35,7 @@ export function attachWindowControls(Viewer) {
       const nextX = clampWindowValue(x, 0, Math.max(0, window.innerWidth - nextWidth));
       const nextY = clampWindowValue(y, 0, Math.max(0, window.innerHeight - nextHeight));
 
+      reserveFlowSpace(container);
       container.style.position = 'fixed';
       container.style.left = `${nextX}px`;
       container.style.top = `${nextY}px`;
@@ -43,6 +44,7 @@ export function attachWindowControls(Viewer) {
       container.style.right = 'auto';
       container.style.bottom = 'auto';
       container.classList.add('viewer-window-controls-enabled');
+      this.manuallyResized = true;
       this.updateSize?.();
       return true;
     },
@@ -75,6 +77,7 @@ export function attachWindowControls(Viewer) {
 
       const makeFixed = () => {
         const rect = container.getBoundingClientRect();
+        reserveFlowSpace(container);
         container.style.position = 'fixed';
         container.style.left = `${rect.left}px`;
         container.style.top = `${rect.top}px`;
@@ -123,6 +126,7 @@ export function attachWindowControls(Viewer) {
         if (document.fullscreenElement === container) return;
         event.preventDefault();
         event.stopPropagation();
+        Viewer.manuallyResized = true;
         makeFixed();
         const rect = container.getBoundingClientRect();
         const start = {
@@ -172,4 +176,16 @@ export function attachWindowControls(Viewer) {
 
 function clampWindowValue(value, min, max) {
   return Math.min(Math.max(value, min), max);
+}
+// A fixed window leaves the document flow, which would pull siblings that follow it
+// (e.g. the credits bar) up underneath the window, covering its controls. A placeholder
+// with the window's former height keeps them where they were.
+function reserveFlowSpace(container) {
+  if (container.style.position === 'fixed' || !container.parentElement) return;
+  if (container.previousElementSibling?.classList.contains('viewer-window-placeholder')) return;
+  const placeholder = document.createElement('div');
+  placeholder.className = 'viewer-window-placeholder';
+  placeholder.setAttribute('aria-hidden', 'true');
+  placeholder.style.height = `${container.getBoundingClientRect().height}px`;
+  container.before(placeholder);
 }

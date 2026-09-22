@@ -1,0 +1,62 @@
+name: Build and deploy to remote server
+
+on:
+  push:
+    branches:
+      - main
+      - stable-release
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build
+        run: npm run build:prod
+
+      # Build every image before touching the server, so a broken Dockerfile
+      # (or profile manifest) fails here instead of mid-deploy on the host.
+      - name: Validate compose file
+        run: docker compose config --quiet
+
+      - name: Build Docker images
+        run: docker compose build
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve deploy path for branch
+        id: path
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "path=${{ vars.DEPLOY_PATH_MAIN }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=${{ vars.DEPLOY_PATH_STABLE }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_SSH_HOST }}
+          username: ${{ secrets.DEPLOY_SSH_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_SSH_PORT || 22 }}
+          script: |
+            set -e
+            cd "${{ steps.path.outputs.path }}"
+            git fetch origin "${{ github.ref_name }}"
+            git reset --hard "origin/${{ github.ref_name }}"
+            docker compose up -d --build
+            docker image prune -f

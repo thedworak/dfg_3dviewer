@@ -120755,6 +120755,8 @@ var shft = function (p) { return ((p + 7) / 8) | 0; };
 // typed array slice - allows garbage collector to free original reference,
 // while being more compatible than .slice
 var slc = function (v, s, e) {
+    if (s == null || s < 0)
+        s = 0;
     if (e == null || e > v.length)
         e = v.length;
     // can't use .constructor in case user-supplied
@@ -120790,12 +120792,14 @@ var err = function (ind, msg, nt) {
 // expands raw DEFLATE data
 var inflt = function (dat, st, buf, dict) {
     // source length       dict length
-    var sl = dat.length, dl = 0;
+    var sl = dat.length, dl = dict ? dict.length : 0;
     if (!sl || st.f && !st.l)
         return buf || new u8(0);
     var noBuf = !buf;
     // have to estimate size
     var resize = noBuf || st.i != 2;
+    // no state
+    var noSt = st.i;
     // Assumes roughly 33% compression ratio average
     if (noBuf)
         buf = new u8(sl * 3);
@@ -120825,7 +120829,8 @@ var inflt = function (dat, st, buf, dict) {
                 // go to end of byte boundary
                 var s = shft(pos) + 4, l = dat[s - 4] | (dat[s - 3] << 8), t = s + l;
                 if (t > sl) {
-                    err(0);
+                    if (noSt)
+                        err(0);
                     break;
                 }
                 // ensure size
@@ -120892,7 +120897,8 @@ var inflt = function (dat, st, buf, dict) {
             else
                 err(1);
             if (pos > tbts) {
-                err(0);
+                if (noSt)
+                    err(0);
                 break;
             }
         }
@@ -120907,7 +120913,8 @@ var inflt = function (dat, st, buf, dict) {
             var c = lm[bits16(dat, pos) & lms], sym = c >> 4;
             pos += c & 15;
             if (pos > tbts) {
-                err(0);
+                if (noSt)
+                    err(0);
                 break;
             }
             if (!c)
@@ -120938,7 +120945,8 @@ var inflt = function (dat, st, buf, dict) {
                     dt += bits16(dat, pos) & (1 << b) - 1, pos += b;
                 }
                 if (pos > tbts) {
-                    err(0);
+                    if (noSt)
+                        err(0);
                     break;
                 }
                 if (resize)
@@ -120963,7 +120971,12 @@ var inflt = function (dat, st, buf, dict) {
     return bt != buf.length && noBuf ? slc(buf, 0, bt) : buf.subarray(0, bt);
 };
 // empty
-var et = /*#__PURE__*/ new u8(0);
+var et$1 = /*#__PURE__*/ new u8(0);
+// read 2 bytes
+var b2 = function (d, b) { return d[b] | (d[b + 1] << 8); };
+// read 4 bytes
+var b4 = function (d, b) { return (d[b] | (d[b + 1] << 8) | (d[b + 2] << 16) | (d[b + 3] << 24)) >>> 0; };
+var b8 = function (d, b) { return b4(d, b) + (b4(d, b + 4) * 4294967296); };
 // zlib start
 var zls = function (d, dict) {
     if ((d[0] & 15) != 8 || (d[0] >> 4) > 7 || ((d[0] << 8 | d[1]) % 31))
@@ -120972,6 +120985,15 @@ var zls = function (d, dict) {
         err(6, 'invalid zlib data: ' + (d[1] & 32 ? 'need' : 'unexpected') + ' dictionary');
     return (d[1] >> 3 & 4) + 2;
 };
+/**
+ * Expands DEFLATE data with no wrapper
+ * @param data The data to decompress
+ * @param opts The decompression options
+ * @returns The decompressed version of the data
+ */
+function inflateSync(data, opts) {
+    return inflt(data, { i: 2 }, opts && opts.out, opts && opts.dictionary);
+}
 /**
  * Expands Zlib data
  * @param data The data to decompress
@@ -120984,9 +121006,107 @@ function unzlibSync(data, opts) {
 // text decoder
 var td = typeof TextDecoder != 'undefined' && /*#__PURE__*/ new TextDecoder();
 try {
-    td.decode(et, { stream: true });
+    td.decode(et$1, { stream: true });
 }
 catch (e) { }
+// decode UTF8
+var dutf8 = function (d) {
+    for (var r = '', i = 0;;) {
+        var c = d[i++];
+        var eb = (c > 127) + (c > 223) + (c > 239);
+        if (i + eb > d.length)
+            return { s: r, r: slc(d, i - 1) };
+        if (!eb)
+            r += String.fromCharCode(c);
+        else if (eb == 3) {
+            c = ((c & 15) << 18 | (d[i++] & 63) << 12 | (d[i++] & 63) << 6 | (d[i++] & 63)) - 65536,
+                r += String.fromCharCode(55296 | (c >> 10), 56320 | (c & 1023));
+        }
+        else if (eb & 1)
+            r += String.fromCharCode((c & 31) << 6 | (d[i++] & 63));
+        else
+            r += String.fromCharCode((c & 15) << 12 | (d[i++] & 63) << 6 | (d[i++] & 63));
+    }
+};
+/**
+ * Converts a Uint8Array to a string
+ * @param dat The data to decode to string
+ * @param latin1 Whether or not to interpret the data as Latin-1. This should
+ *               not need to be true unless encoding to binary string.
+ * @returns The original UTF-8/Latin-1 string
+ */
+function strFromU8(dat, latin1) {
+    if (latin1) {
+        var r = '';
+        for (var i = 0; i < dat.length; i += 16384)
+            r += String.fromCharCode.apply(null, dat.subarray(i, i + 16384));
+        return r;
+    }
+    else if (td) {
+        return td.decode(dat);
+    }
+    else {
+        var _a = dutf8(dat), s = _a.s, r = _a.r;
+        if (r.length)
+            err(8);
+        return s;
+    }
+}
+// skip local zip header
+var slzh = function (d, b) { return b + 30 + b2(d, b + 26) + b2(d, b + 28); };
+// read zip header
+var zh = function (d, b, z) {
+    var fnl = b2(d, b + 28), fn = strFromU8(d.subarray(b + 46, b + 46 + fnl), !(b2(d, b + 8) & 2048)), es = b + 46 + fnl, bs = b4(d, b + 20);
+    var _a = z && bs == 4294967295 ? z64e(d, es) : [bs, b4(d, b + 24), b4(d, b + 42)], sc = _a[0], su = _a[1], off = _a[2];
+    return [b2(d, b + 10), sc, su, fn, es + b2(d, b + 30) + b2(d, b + 32), off];
+};
+// read zip64 extra field
+var z64e = function (d, b) {
+    for (; b2(d, b) != 1; b += 4 + b2(d, b + 2))
+        ;
+    return [b8(d, b + 12), b8(d, b + 4), b8(d, b + 20)];
+};
+/**
+ * Synchronously decompresses a ZIP archive. Prefer using `unzip` for better
+ * performance with more than one file.
+ * @param data The raw compressed ZIP file
+ * @param opts The ZIP extraction options
+ * @returns The decompressed files
+ */
+function unzipSync(data, opts) {
+    var files = {};
+    var e = data.length - 22;
+    for (; b4(data, e) != 0x6054B50; --e) {
+        if (!e || data.length - e > 65558)
+            err(13);
+    }
+    var c = b2(data, e + 8);
+    if (!c)
+        return {};
+    var o = b4(data, e + 16);
+    var z = o == 4294967295 || c == 65535;
+    if (z) {
+        var ze = b4(data, e - 12);
+        z = b4(data, ze) == 0x6064B50;
+        if (z) {
+            c = b4(data, ze + 32);
+            o = b4(data, ze + 48);
+        }
+    }
+    for (var i = 0; i < c; ++i) {
+        var _a = zh(data, o, z), c_2 = _a[0], sc = _a[1], su = _a[2], fn = _a[3], no = _a[4], off = _a[5], b = slzh(data, off);
+        o = no;
+        {
+            if (!c_2)
+                files[fn] = slc(data, b, b + sc);
+            else if (c_2 == 8)
+                files[fn] = inflateSync(data.subarray(b, b + sc), { out: new u8(su) });
+            else
+                err(14, 'unknown compression type ' + c_2);
+        }
+    }
+    return files;
+}
 
 /**
  * @module NURBSUtils
@@ -121688,7 +121808,7 @@ class FBXTreeParser {
 		const textures = this.parseTextures( images );
 		const materials = this.parseMaterials( textures );
 		const deformers = this.parseDeformers();
-		const geometryMap = new GeometryParser().parse( deformers );
+		const geometryMap = new GeometryParser$1().parse( deformers );
 
 		this.parseScene( deformers, geometryMap, materials );
 
@@ -123167,7 +123287,7 @@ class FBXTreeParser {
 }
 
 // parse Geometry data from FBXTree and return map of BufferGeometries
-class GeometryParser {
+let GeometryParser$1 = class GeometryParser {
 
 	constructor() {
 
@@ -124101,7 +124221,7 @@ class GeometryParser {
 
 	}
 
-}
+};
 
 // parse animation data from FBXTree
 class AnimationParser {
@@ -125203,7 +125323,7 @@ class BinaryParser {
 
 	parse( buffer ) {
 
-		const reader = new BinaryReader( buffer );
+		const reader = new BinaryReader$1( buffer );
 		reader.skip( 23 ); // skip magic 23 bytes
 
 		const version = reader.getUint32();
@@ -125490,7 +125610,7 @@ class BinaryParser {
 				}
 
 				const data = unzlibSync( new Uint8Array( reader.getArrayBuffer( compressedLength ) ) );
-				const reader2 = new BinaryReader( data.buffer );
+				const reader2 = new BinaryReader$1( data.buffer );
 
 				switch ( type ) {
 
@@ -125523,7 +125643,7 @@ class BinaryParser {
 
 }
 
-class BinaryReader {
+let BinaryReader$1 = class BinaryReader {
 
 	constructor( buffer, littleEndian ) {
 
@@ -125761,7 +125881,7 @@ class BinaryReader {
 
 	}
 
-}
+};
 
 // FBXTree holds a representation of the FBX data, returned by the TextParser ( FBX ASCII format)
 // and BinaryParser( FBX Binary format)
@@ -140692,6 +140812,17382 @@ var DRACOLoader$1 = /*#__PURE__*/Object.freeze({
 	DRACOLoader: DRACOLoader
 });
 
+// Pre-compiled regex patterns for performance
+const DEF_MATCH_REGEX = /^def\s+(?:(\w+)\s+)?"?([^"]+)"?$/;
+const VARIANT_STRING_REGEX = /^string\s+(\w+)$/;
+const ATTR_MATCH_REGEX = /^(?:uniform\s+)?(\w+(?:\[\])?)\s+(.+)$/;
+
+class USDAParser {
+
+	parseText( text ) {
+
+		// Preprocess: strip comments and normalize multiline values
+		text = this._preprocess( text );
+
+		const root = {};
+
+		const lines = text.split( '\n' );
+
+		let string = null;
+		let target = root;
+
+		const stack = [ root ];
+
+		for ( const line of lines ) {
+
+			if ( line.includes( '=' ) ) {
+
+				// Find the first '=' that's not inside quotes
+				const eqIdx = this._findAssignmentOperator( line );
+
+				if ( eqIdx === -1 ) {
+
+					string = line.trim();
+					continue;
+
+				}
+
+				const lhs = line.slice( 0, eqIdx ).trim();
+				const rhs = line.slice( eqIdx + 1 ).trim();
+
+				if ( rhs.endsWith( '{' ) ) {
+
+					const group = {};
+					stack.push( group );
+
+					target[ lhs ] = group;
+					target = group;
+
+				} else if ( rhs.endsWith( '(' ) ) {
+
+					// see #28631
+
+					const values = rhs.slice( 0, -1 );
+					target[ lhs ] = values;
+
+					const meta = {};
+					stack.push( meta );
+
+					target = meta;
+
+				} else {
+
+					target[ lhs ] = rhs;
+
+				}
+
+			} else if ( line.includes( ':' ) && ! line.includes( '=' ) ) {
+
+				// Handle dictionary entries like "0: [(...)...]" for timeSamples
+				const colonIdx = line.indexOf( ':' );
+				const key = line.slice( 0, colonIdx ).trim();
+				const value = line.slice( colonIdx + 1 ).trim();
+
+				// Only process if key looks like a number (timeSamples frame)
+				if ( /^[\d.]+$/.test( key ) ) {
+
+					target[ key ] = value;
+
+				}
+
+			} else if ( line.endsWith( '{' ) ) {
+
+				const group = target[ string ] || {};
+				stack.push( group );
+
+				target[ string ] = group;
+				target = group;
+
+			} else if ( line.endsWith( '}' ) ) {
+
+				stack.pop();
+
+				if ( stack.length === 0 ) continue;
+
+				target = stack[ stack.length - 1 ];
+
+			} else if ( line.endsWith( '(' ) ) {
+
+				const meta = {};
+				stack.push( meta );
+
+				string = line.split( '(' )[ 0 ].trim() || string;
+
+				target[ string ] = meta;
+				target = meta;
+
+			} else if ( line.endsWith( ')' ) ) {
+
+				stack.pop();
+
+				target = stack[ stack.length - 1 ];
+
+			} else if ( line.trim() ) {
+
+				string = line.trim();
+
+			}
+
+		}
+
+		return root;
+
+	}
+
+	_preprocess( text ) {
+
+		// Remove block comments /* ... */
+		text = this._stripBlockComments( text );
+
+		// Collapse triple-quoted strings into single lines
+		text = this._collapseTripleQuotedStrings( text );
+
+		// Remove line comments # ... (but preserve #usda header)
+		// Only remove # comments that aren't at the start of a line or after whitespace
+		const lines = text.split( '\n' );
+		const processed = [];
+
+		let inMultilineValue = false;
+		let bracketDepth = 0;
+		let parenDepth = 0;
+		let accumulated = '';
+
+		for ( let i = 0; i < lines.length; i ++ ) {
+
+			let line = lines[ i ];
+
+			// Strip inline comments (but not inside strings)
+			line = this._stripInlineComment( line );
+
+			// Track bracket/paren depth for multiline values
+			const trimmed = line.trim();
+
+			if ( inMultilineValue ) {
+
+				// Continue accumulating multiline value
+				accumulated += ' ' + trimmed;
+
+				// Update depths
+				for ( const ch of trimmed ) {
+
+					if ( ch === '[' ) bracketDepth ++;
+					else if ( ch === ']' ) bracketDepth --;
+					else if ( ch === '(' && bracketDepth > 0 ) parenDepth ++;
+					else if ( ch === ')' && bracketDepth > 0 ) parenDepth --;
+
+				}
+
+				// Check if multiline value is complete
+				if ( bracketDepth === 0 && parenDepth === 0 ) {
+
+					processed.push( accumulated );
+					accumulated = '';
+					inMultilineValue = false;
+
+				}
+
+			} else {
+
+				// Check if this line starts a multiline array value
+				// Look for patterns like "attr = [" or "attr = @path@[" without closing ]
+				if ( trimmed.includes( '=' ) ) {
+
+					const eqIdx = this._findAssignmentOperator( trimmed );
+
+					if ( eqIdx !== -1 ) {
+
+						const rhs = trimmed.slice( eqIdx + 1 ).trim();
+
+						// Count brackets in the value part
+						let openBrackets = 0;
+						let closeBrackets = 0;
+
+						for ( const ch of rhs ) {
+
+							if ( ch === '[' ) openBrackets ++;
+							else if ( ch === ']' ) closeBrackets ++;
+
+						}
+
+						if ( openBrackets > closeBrackets ) {
+
+							// Multiline array detected
+							inMultilineValue = true;
+							bracketDepth = openBrackets - closeBrackets;
+							parenDepth = 0;
+							accumulated = trimmed;
+							continue;
+
+						}
+
+					}
+
+				}
+
+				processed.push( trimmed );
+
+			}
+
+		}
+
+		return processed.join( '\n' );
+
+	}
+
+	_stripBlockComments( text ) {
+
+		// Iteratively remove /* ... */ comments without regex backtracking
+		let result = '';
+		let i = 0;
+
+		while ( i < text.length ) {
+
+			// Check for block comment start
+			if ( text[ i ] === '/' && i + 1 < text.length && text[ i + 1 ] === '*' ) {
+
+				// Find the closing */
+				let j = i + 2;
+
+				while ( j < text.length ) {
+
+					if ( text[ j ] === '*' && j + 1 < text.length && text[ j + 1 ] === '/' ) {
+
+						// Found closing, skip past it
+						j += 2;
+						break;
+
+					}
+
+					j ++;
+
+				}
+
+				// Move past the comment (or to end if unclosed)
+				i = j;
+
+			} else {
+
+				result += text[ i ];
+				i ++;
+
+			}
+
+		}
+
+		return result;
+
+	}
+
+	_collapseTripleQuotedStrings( text ) {
+
+		let result = '';
+		let i = 0;
+
+		while ( i < text.length ) {
+
+			if ( i + 2 < text.length ) {
+
+				const triple = text.slice( i, i + 3 );
+
+				if ( triple === '\'\'\'' || triple === '"""' ) {
+
+					const quoteChar = triple;
+					result += quoteChar;
+					i += 3;
+
+					while ( i < text.length ) {
+
+						if ( i + 2 < text.length && text.slice( i, i + 3 ) === quoteChar ) {
+
+							result += quoteChar;
+							i += 3;
+							break;
+
+						} else {
+
+							if ( text[ i ] === '\n' ) {
+
+								result += '\\n';
+
+							} else if ( text[ i ] !== '\r' ) {
+
+								result += text[ i ];
+
+							}
+
+							i ++;
+
+						}
+
+					}
+
+					continue;
+
+				}
+
+			}
+
+			result += text[ i ];
+			i ++;
+
+		}
+
+		return result;
+
+	}
+
+	_stripInlineComment( line ) {
+
+		// Don't strip if line starts with #usda
+		if ( line.trim().startsWith( '#usda' ) ) return line;
+
+		// Find # that's not inside a string
+		let inString = false;
+		let stringChar = null;
+		let escaped = false;
+
+		for ( let i = 0; i < line.length; i ++ ) {
+
+			const ch = line[ i ];
+
+			if ( escaped ) {
+
+				escaped = false;
+				continue;
+
+			}
+
+			if ( ch === '\\' ) {
+
+				escaped = true;
+				continue;
+
+			}
+
+			if ( ! inString && ( ch === '"' || ch === '\'' ) ) {
+
+				inString = true;
+				stringChar = ch;
+
+			} else if ( inString && ch === stringChar ) {
+
+				inString = false;
+				stringChar = null;
+
+			} else if ( ! inString && ch === '#' ) {
+
+				// Found comment start outside of string
+				return line.slice( 0, i ).trimEnd();
+
+			}
+
+		}
+
+		return line;
+
+	}
+
+	_findAssignmentOperator( line ) {
+
+		// Find the first '=' that's not inside quotes
+		let inString = false;
+		let stringChar = null;
+		let escaped = false;
+
+		for ( let i = 0; i < line.length; i ++ ) {
+
+			const ch = line[ i ];
+
+			if ( escaped ) {
+
+				escaped = false;
+				continue;
+
+			}
+
+			if ( ch === '\\' ) {
+
+				escaped = true;
+				continue;
+
+			}
+
+			if ( ! inString && ( ch === '"' || ch === '\'' ) ) {
+
+				inString = true;
+				stringChar = ch;
+
+			} else if ( inString && ch === stringChar ) {
+
+				inString = false;
+				stringChar = null;
+
+			} else if ( ! inString && ch === '=' ) {
+
+				return i;
+
+			}
+
+		}
+
+		return -1;
+
+	}
+
+	/**
+	 * Parse USDA text and return raw spec data in specsByPath format.
+	 * Used by USDComposer for unified scene composition.
+	 */
+	parseData( text ) {
+
+		const root = this.parseText( text );
+		const specsByPath = {};
+
+		// Spec types (must match USDCParser/USDComposer)
+		const SpecType = {
+			Attribute: 1,
+			Prim: 6,
+			Relationship: 8
+		};
+
+		// Parse root metadata
+		const rootFields = {};
+		if ( '#usda 1.0' in root ) {
+
+			const header = root[ '#usda 1.0' ];
+
+			if ( header.upAxis ) {
+
+				rootFields.upAxis = header.upAxis.replace( /"/g, '' );
+
+			}
+
+			if ( header.defaultPrim ) {
+
+				rootFields.defaultPrim = header.defaultPrim.replace( /"/g, '' );
+
+			}
+
+			if ( header.metersPerUnit !== undefined ) {
+
+				rootFields.metersPerUnit = parseFloat( header.metersPerUnit );
+
+			}
+
+		}
+
+		specsByPath[ '/' ] = { specType: SpecType.Prim, fields: rootFields };
+
+		// Walk the tree and build specsByPath
+		const walkTree = ( data, parentPath ) => {
+
+			const primChildren = [];
+
+			for ( const key in data ) {
+
+				// Skip metadata
+				if ( key === '#usda 1.0' ) continue;
+				if ( key === 'variants' ) continue;
+
+				// Check for primitive definitions
+				// Matches both 'def TypeName "name"' and 'def "name"' (no type)
+				const defMatch = key.match( DEF_MATCH_REGEX );
+				if ( defMatch ) {
+
+					const typeName = defMatch[ 1 ] || '';
+					const name = defMatch[ 2 ];
+					const path = parentPath === '/' ? '/' + name : parentPath + '/' + name;
+
+					primChildren.push( name );
+
+					const primFields = { typeName };
+					const primData = data[ key ];
+
+					// Extract attributes and relationships from this prim
+					this._extractPrimData( primData, path, primFields, specsByPath, SpecType );
+
+					specsByPath[ path ] = { specType: SpecType.Prim, fields: primFields };
+
+					// Recurse into children
+					walkTree( primData, path );
+
+				}
+
+			}
+
+			// Add primChildren to parent spec
+			if ( primChildren.length > 0 && specsByPath[ parentPath ] ) {
+
+				specsByPath[ parentPath ].fields.primChildren = primChildren;
+
+			}
+
+		};
+
+		walkTree( root, '/' );
+
+		return { specsByPath };
+
+	}
+
+	_extractPrimData( data, path, primFields, specsByPath, SpecType ) {
+
+		if ( ! data || typeof data !== 'object' ) return;
+
+		for ( const key in data ) {
+
+			// Skip nested defs (handled by walkTree)
+			if ( key.startsWith( 'def ' ) ) continue;
+
+			if ( key === 'prepend references' ) {
+
+				primFields.references = [ data[ key ] ];
+				continue;
+
+			}
+
+			if ( key === 'payload' ) {
+
+				primFields.payload = data[ key ];
+				continue;
+
+			}
+
+			if ( key === 'variants' ) {
+
+				const variantSelection = {};
+				const variants = data[ key ];
+
+				for ( const vKey in variants ) {
+
+					const match = vKey.match( VARIANT_STRING_REGEX );
+					if ( match ) {
+
+						const variantSetName = match[ 1 ];
+						const variantValue = variants[ vKey ].replace( /"/g, '' );
+						variantSelection[ variantSetName ] = variantValue;
+
+					}
+
+				}
+
+				if ( Object.keys( variantSelection ).length > 0 ) {
+
+					primFields.variantSelection = variantSelection;
+
+				}
+
+				continue;
+
+			}
+
+			if ( key.startsWith( 'rel ' ) ) {
+
+				const relName = key.slice( 4 );
+				const relPath = path + '.' + relName;
+				const target = data[ key ].replace( /[<>]/g, '' );
+				specsByPath[ relPath ] = {
+					specType: SpecType.Relationship,
+					fields: { targetPaths: [ target ] }
+				};
+				continue;
+
+			}
+
+			// Handle xformOpOrder
+			if ( key.includes( 'xformOpOrder' ) ) {
+
+				const ops = data[ key ]
+					.replace( /[\[\]]/g, '' )
+					.split( ',' )
+					.map( s => s.trim().replace( /"/g, '' ) );
+				primFields.xformOpOrder = ops;
+				continue;
+
+			}
+
+			// Handle typed attributes
+			// Format: [qualifier] type attrName (e.g., "uniform token[] joints", "float3 position")
+			const attrMatch = key.match( ATTR_MATCH_REGEX );
+			if ( attrMatch ) {
+
+				const valueType = attrMatch[ 1 ];
+				const attrName = attrMatch[ 2 ];
+				const rawValue = data[ key ];
+
+				// Handle connection attributes (e.g., "inputs:normal.connect = </path>")
+				if ( attrName.endsWith( '.connect' ) ) {
+
+					const baseAttrName = attrName.slice( 0, -8 ); // Remove '.connect'
+					const attrPath = path + '.' + baseAttrName;
+
+					// Parse connection path - extract from <path> format
+					let connPath = String( rawValue ).trim();
+					if ( connPath.startsWith( '<' ) ) connPath = connPath.slice( 1 );
+					if ( connPath.endsWith( '>' ) ) connPath = connPath.slice( 0, -1 );
+
+					// Get or create the attribute spec
+					if ( ! specsByPath[ attrPath ] ) {
+
+						specsByPath[ attrPath ] = {
+							specType: SpecType.Attribute,
+							fields: { typeName: valueType }
+						};
+
+					}
+
+					specsByPath[ attrPath ].fields.connectionPaths = [ connPath ];
+					continue;
+
+				}
+
+				// Handle timeSamples attributes specially
+				if ( attrName.endsWith( '.timeSamples' ) && typeof rawValue === 'object' ) {
+
+					const baseAttrName = attrName.slice( 0, -12 ); // Remove '.timeSamples'
+					const attrPath = path + '.' + baseAttrName;
+
+					// Parse timeSamples dictionary into times and values arrays
+					const times = [];
+					const values = [];
+
+					for ( const frameKey in rawValue ) {
+
+						const frame = parseFloat( frameKey );
+						if ( isNaN( frame ) ) continue;
+
+						times.push( frame );
+						values.push( this._parseAttributeValue( valueType, rawValue[ frameKey ] ) );
+
+					}
+
+					// Sort by time
+					const sorted = times.map( ( t, i ) => ( { t, v: values[ i ] } ) ).sort( ( a, b ) => a.t - b.t );
+
+					specsByPath[ attrPath ] = {
+						specType: SpecType.Attribute,
+						fields: {
+							timeSamples: { times: sorted.map( s => s.t ), values: sorted.map( s => s.v ) },
+							typeName: valueType
+						}
+					};
+
+				} else {
+
+					// Parse value based on type
+					const parsedValue = this._parseAttributeValue( valueType, rawValue );
+
+					// Store as attribute spec
+					const attrPath = path + '.' + attrName;
+					specsByPath[ attrPath ] = {
+						specType: SpecType.Attribute,
+						fields: { default: parsedValue, typeName: valueType }
+					};
+
+				}
+
+			}
+
+		}
+
+	}
+
+	_parseAttributeValue( valueType, rawValue ) {
+
+		if ( rawValue === undefined || rawValue === null ) return undefined;
+
+		const str = String( rawValue ).trim();
+
+		// Array types
+		if ( valueType.endsWith( '[]' ) ) {
+
+			// Parse JSON-like arrays
+			try {
+
+				// Handle arrays with parentheses like [(1,2,3), (4,5,6)]
+				// Remove trailing comma (valid in USDA but not JSON)
+				let cleaned = str.replace( /\(/g, '[' ).replace( /\)/g, ']' );
+				if ( cleaned.endsWith( ',' ) ) cleaned = cleaned.slice( 0, -1 );
+				const parsed = JSON.parse( cleaned );
+
+				// Flatten nested arrays for types like point3f[]
+				if ( Array.isArray( parsed ) && Array.isArray( parsed[ 0 ] ) ) {
+
+					return parsed.flat();
+
+				}
+
+				return parsed;
+
+			} catch ( e ) {
+
+				// Try simple array parsing
+				const cleaned = str.replace( /[\[\]]/g, '' );
+				return cleaned.split( ',' ).map( s => {
+
+					const trimmed = s.trim();
+					const num = parseFloat( trimmed );
+					return isNaN( num ) ? trimmed.replace( /"/g, '' ) : num;
+
+				} );
+
+			}
+
+		}
+
+		// Vector types (double3, float3, point3f, etc.)
+		if ( valueType.includes( '3' ) || valueType.includes( '2' ) || valueType.includes( '4' ) ) {
+
+			// Parse (x, y, z) format
+			const cleaned = str.replace( /[()]/g, '' );
+			const values = cleaned.split( ',' ).map( s => parseFloat( s.trim() ) );
+			return values;
+
+		}
+
+		// Quaternion types (quatf, quatd, quath)
+		// Text format is (w, x, y, z), convert to (x, y, z, w)
+		if ( valueType.startsWith( 'quat' ) ) {
+
+			const cleaned = str.replace( /[()]/g, '' );
+			const values = cleaned.split( ',' ).map( s => parseFloat( s.trim() ) );
+			return [ values[ 1 ], values[ 2 ], values[ 3 ], values[ 0 ] ];
+
+		}
+
+		// Matrix types
+		if ( valueType.includes( 'matrix' ) ) {
+
+			const cleaned = str.replace( /[()]/g, '' );
+			const values = cleaned.split( ',' ).map( s => parseFloat( s.trim() ) );
+			return values;
+
+		}
+
+		// Scalar numeric types
+		if ( valueType === 'float' || valueType === 'double' || valueType === 'int' ) {
+
+			return parseFloat( str );
+
+		}
+
+		// String/token types
+		if ( valueType === 'string' || valueType === 'token' ) {
+
+			return this._parseString( str );
+
+		}
+
+		// Asset path
+		if ( valueType === 'asset' ) {
+
+			return str.replace( /@/g, '' ).replace( /"/g, '' );
+
+		}
+
+		// Default: return as string with quotes removed
+		return this._parseString( str );
+
+	}
+
+	_parseString( str ) {
+
+		// Remove surrounding quotes
+		if ( ( str.startsWith( '"' ) && str.endsWith( '"' ) ) ||
+			( str.startsWith( '\'' ) && str.endsWith( '\'' ) ) ) {
+
+			str = str.slice( 1, -1 );
+
+		}
+
+		// Handle escape sequences
+		let result = '';
+		let i = 0;
+
+		while ( i < str.length ) {
+
+			if ( str[ i ] === '\\' && i + 1 < str.length ) {
+
+				const next = str[ i + 1 ];
+
+				switch ( next ) {
+
+					case 'n': result += '\n'; break;
+					case 't': result += '\t'; break;
+					case 'r': result += '\r'; break;
+					case '\\': result += '\\'; break;
+					case '"': result += '"'; break;
+					case '\'': result += '\''; break;
+					default: result += next; break;
+
+				}
+
+				i += 2;
+
+			} else {
+
+				result += str[ i ];
+				i ++;
+
+			}
+
+		}
+
+		return result;
+
+	}
+
+}
+
+const textDecoder = new TextDecoder();
+
+// Pre-computed half-float exponent lookup table for fast conversion
+// Math.pow(2, exp - 15) for exp = 0..31
+const HALF_EXPONENT_TABLE = new Float32Array( 32 );
+for ( let i = 0; i < 32; i ++ ) {
+
+	HALF_EXPONENT_TABLE[ i ] = Math.pow( 2, i - 15 );
+
+}
+
+// Pre-computed constant for denormalized half-floats: 2^-14
+const HALF_DENORM_SCALE = Math.pow( 2, -14 );
+
+// Type enum values from crateDataTypes.h
+const TypeEnum = {
+	Invalid: 0,
+	Bool: 1,
+	UChar: 2,
+	Int: 3,
+	UInt: 4,
+	Int64: 5,
+	UInt64: 6,
+	Half: 7,
+	Float: 8,
+	Double: 9,
+	String: 10,
+	Token: 11,
+	AssetPath: 12,
+	Matrix2d: 13,
+	Matrix3d: 14,
+	Matrix4d: 15,
+	Quatd: 16,
+	Quatf: 17,
+	Quath: 18,
+	Vec2d: 19,
+	Vec2f: 20,
+	Vec2h: 21,
+	Vec2i: 22,
+	Vec3d: 23,
+	Vec3f: 24,
+	Vec3h: 25,
+	Vec3i: 26,
+	Vec4d: 27,
+	Vec4f: 28,
+	Vec4i: 30,
+	Dictionary: 31,
+	TokenListOp: 32,
+	StringListOp: 33,
+	PathListOp: 34,
+	IntListOp: 36,
+	Int64ListOp: 37,
+	UIntListOp: 38,
+	UInt64ListOp: 39,
+	PathVector: 40,
+	TokenVector: 41,
+	Specifier: 42,
+	Permission: 43,
+	Variability: 44,
+	VariantSelectionMap: 45,
+	TimeSamples: 46,
+	DoubleVector: 48};
+
+// Field set terminator marker
+const FIELD_SET_TERMINATOR = 0xFFFFFFFF;
+
+// Float compression type codes
+const FLOAT_COMPRESSION_INT = 0x69; // 'i' - compressed as integers
+const FLOAT_COMPRESSION_LUT = 0x74; // 't' - lookup table
+
+// ============================================================================
+// LZ4 Decompression (minimal implementation for USD)
+// Based on LZ4 block format specification
+// ============================================================================
+
+function lz4DecompressBlock( input, inputOffset, inputEnd, output, outputOffset, outputEnd ) {
+
+	while ( inputOffset < inputEnd ) {
+
+		// Read token
+		const token = input[ inputOffset ++ ];
+		if ( inputOffset > inputEnd ) break;
+
+		// Literal length
+		let literalLength = token >> 4;
+		if ( literalLength === 15 ) {
+
+			let b;
+			do {
+
+				if ( inputOffset >= inputEnd ) break;
+				b = input[ inputOffset ++ ];
+				literalLength += b;
+
+			} while ( b === 255 && inputOffset < inputEnd );
+
+		}
+
+		// Copy literals
+		if ( literalLength > 0 ) {
+
+			if ( inputOffset + literalLength > inputEnd ) {
+
+				literalLength = inputEnd - inputOffset;
+
+			}
+
+			for ( let i = 0; i < literalLength; i ++ ) {
+
+				if ( outputOffset >= outputEnd ) break;
+				output[ outputOffset ++ ] = input[ inputOffset ++ ];
+
+			}
+
+		}
+
+		// Check if we're at the end (last sequence has no match)
+		if ( inputOffset >= inputEnd ) break;
+
+		// Read match offset (little-endian 16-bit)
+		if ( inputOffset + 2 > inputEnd ) break;
+		const matchOffset = input[ inputOffset ++ ] | ( input[ inputOffset ++ ] << 8 );
+
+		if ( matchOffset === 0 ) {
+
+			// Invalid offset
+			break;
+
+		}
+
+		// Match length
+		let matchLength = ( token & 0x0F ) + 4;
+		if ( matchLength === 19 ) {
+
+			let b;
+			do {
+
+				if ( inputOffset >= inputEnd ) break;
+				b = input[ inputOffset ++ ];
+				matchLength += b;
+
+			} while ( b === 255 && inputOffset < inputEnd );
+
+		}
+
+		// Copy match (byte-by-byte to handle overlapping)
+		const matchPos = outputOffset - matchOffset;
+		if ( matchPos < 0 ) {
+
+			// Invalid match position
+			break;
+
+		}
+
+		for ( let i = 0; i < matchLength; i ++ ) {
+
+			if ( outputOffset >= outputEnd ) break;
+			output[ outputOffset ++ ] = output[ matchPos + i ];
+
+		}
+
+	}
+
+	return outputOffset;
+
+}
+
+// USD uses TfFastCompression which wraps LZ4 with chunk headers
+function decompressLZ4( input, uncompressedSize ) {
+
+	// TfFastCompression format (used by OpenUSD):
+	// Single chunk (byte 0 == 0): [0] + LZ4 data
+	// Multi chunk (byte 0 > 0): [numChunks] + [compressedSizes...] + [chunkData...]
+
+	const output = new Uint8Array( uncompressedSize );
+	const numChunks = input[ 0 ];
+
+	if ( numChunks === 0 ) {
+
+		// Single chunk - all remaining bytes are LZ4 compressed
+		lz4DecompressBlock( input, 1, input.length, output, 0, uncompressedSize );
+		return output;
+
+	} else {
+
+		// Multiple chunks - each chunk decompresses to max 65536 bytes
+		const CHUNK_SIZE = 65536;
+
+		// First, read all chunk sizes
+		let headerOffset = 1;
+		const compressedSizes = [];
+
+		for ( let i = 0; i < numChunks; i ++ ) {
+
+			const size = ( input[ headerOffset ] |
+						( input[ headerOffset + 1 ] << 8 ) |
+						( input[ headerOffset + 2 ] << 16 ) |
+						( input[ headerOffset + 3 ] << 24 ) ) >>> 0;
+			compressedSizes.push( size );
+			headerOffset += 4;
+
+		}
+
+		// Decompress each chunk
+		let inputOffset = headerOffset;
+		let outputOffset = 0;
+
+		for ( let i = 0; i < numChunks; i ++ ) {
+
+			const chunkCompressedSize = compressedSizes[ i ];
+			const chunkOutputSize = Math.min( CHUNK_SIZE, uncompressedSize - outputOffset );
+
+			lz4DecompressBlock(
+				input, inputOffset, inputOffset + chunkCompressedSize,
+				output, outputOffset, outputOffset + chunkOutputSize
+			);
+
+			inputOffset += chunkCompressedSize;
+			outputOffset += chunkOutputSize;
+
+		}
+
+		return output;
+
+	}
+
+}
+
+// ============================================================================
+// Integer Decompression (USD-specific delta + variable-width encoding)
+// ============================================================================
+
+function decompressIntegers32( compressedData, numInts ) {
+
+	// First decompress with LZ4
+	const encodedSize = numInts * 4 + ( ( numInts * 2 + 7 ) >> 3 ) + 4;
+	const encoded = decompressLZ4( new Uint8Array( compressedData ), encodedSize );
+
+	// Then decode
+	return decodeIntegers32( encoded, numInts );
+
+}
+
+function decodeIntegers32( data, numInts ) {
+
+	const view = new DataView( data.buffer, data.byteOffset, data.byteLength );
+	let offset = 0;
+
+	// Read common value (signed 32-bit)
+	const commonValue = view.getInt32( offset, true );
+	offset += 4;
+
+	const numCodesBytes = ( numInts * 2 + 7 ) >> 3;
+	const codesStart = offset;
+	const vintsStart = offset + numCodesBytes;
+
+	const result = new Int32Array( numInts );
+	let prevVal = 0;
+	let codesOffset = codesStart;
+	let vintsOffset = vintsStart;
+
+	for ( let i = 0; i < numInts; ) {
+
+		const codeByte = data[ codesOffset ++ ];
+
+		for ( let j = 0; j < 4 && i < numInts; j ++, i ++ ) {
+
+			const code = ( codeByte >> ( j * 2 ) ) & 3;
+			let delta = 0;
+
+			switch ( code ) {
+
+				case 0: // Common value
+					delta = commonValue;
+					break;
+				case 1: // 8-bit signed
+					delta = view.getInt8( vintsOffset );
+					vintsOffset += 1;
+					break;
+				case 2: // 16-bit signed
+					delta = view.getInt16( vintsOffset, true );
+					vintsOffset += 2;
+					break;
+				case 3: // 32-bit signed
+					delta = view.getInt32( vintsOffset, true );
+					vintsOffset += 4;
+					break;
+
+			}
+
+			prevVal += delta;
+			result[ i ] = prevVal;
+
+		}
+
+	}
+
+	return result;
+
+}
+
+// ============================================================================
+// Binary Reader Helper
+// ============================================================================
+
+class BinaryReader {
+
+	constructor( buffer ) {
+
+		this.buffer = buffer;
+		this.view = new DataView( buffer );
+		this.offset = 0;
+
+	}
+
+	seek( offset ) {
+
+		this.offset = offset;
+
+	}
+
+	tell() {
+
+		return this.offset;
+
+	}
+
+	readUint8() {
+
+		const value = this.view.getUint8( this.offset );
+		this.offset += 1;
+		return value;
+
+	}
+
+	readInt8() {
+
+		const value = this.view.getInt8( this.offset );
+		this.offset += 1;
+		return value;
+
+	}
+
+	readUint16() {
+
+		const value = this.view.getUint16( this.offset, true );
+		this.offset += 2;
+		return value;
+
+	}
+
+	readInt16() {
+
+		const value = this.view.getInt16( this.offset, true );
+		this.offset += 2;
+		return value;
+
+	}
+
+	readUint32() {
+
+		const value = this.view.getUint32( this.offset, true );
+		this.offset += 4;
+		return value;
+
+	}
+
+	readInt32() {
+
+		const value = this.view.getInt32( this.offset, true );
+		this.offset += 4;
+		return value;
+
+	}
+
+	readUint64() {
+
+		const lo = this.view.getUint32( this.offset, true );
+		const hi = this.view.getUint32( this.offset + 4, true );
+		this.offset += 8;
+		// For values that fit in Number, this is safe
+		return hi * 0x100000000 + lo;
+
+	}
+
+	readInt64() {
+
+		const lo = this.view.getUint32( this.offset, true );
+		const hi = this.view.getInt32( this.offset + 4, true );
+		this.offset += 8;
+		return hi * 0x100000000 + lo;
+
+	}
+
+	readFloat32() {
+
+		const value = this.view.getFloat32( this.offset, true );
+		this.offset += 4;
+		return value;
+
+	}
+
+	readFloat64() {
+
+		const value = this.view.getFloat64( this.offset, true );
+		this.offset += 8;
+		return value;
+
+	}
+
+	readBytes( length ) {
+
+		const bytes = new Uint8Array( this.buffer, this.offset, length );
+		this.offset += length;
+		return bytes;
+
+	}
+
+	readString( length ) {
+
+		const bytes = this.readBytes( length );
+		let end = 0;
+		while ( end < length && bytes[ end ] !== 0 ) end ++;
+		return textDecoder.decode( bytes.subarray( 0, end ) );
+
+	}
+
+}
+
+// ============================================================================
+// ValueRep - 64-bit packed value representation
+// ============================================================================
+
+class ValueRep {
+
+	constructor( lo, hi ) {
+
+		this.lo = lo; // Lower 32 bits
+		this.hi = hi; // Upper 32 bits
+
+	}
+
+	get isArray() {
+
+		return ( this.hi & 0x80000000 ) !== 0;
+
+	}
+
+	get isInlined() {
+
+		return ( this.hi & 0x40000000 ) !== 0;
+
+	}
+
+	get isCompressed() {
+
+		return ( this.hi & 0x20000000 ) !== 0;
+
+	}
+
+	get typeEnum() {
+
+		return ( this.hi >> 16 ) & 0xFF;
+
+	}
+
+	get payload() {
+
+		// 48-bit payload: lo (32 bits) + hi lower 16 bits
+		// Note: JavaScript numbers are IEEE 754 doubles with 53 bits of integer precision,
+		// so 48-bit values are represented exactly without loss of precision.
+		return this.lo + ( ( this.hi & 0xFFFF ) * 0x100000000 );
+
+	}
+
+	getInlinedValue() {
+
+		// For inlined scalars, the value is in the lower 32 bits
+		return this.lo;
+
+	}
+
+}
+
+// ============================================================================
+// USDC Parser
+// ============================================================================
+
+class USDCParser {
+
+	/**
+	 * Parse USDC file and return raw spec data without building Three.js scene.
+	 * Used by USDComposer for unified scene composition.
+	 */
+	parseData( buffer ) {
+
+		this.buffer = buffer instanceof ArrayBuffer ? buffer : buffer.buffer;
+		this.reader = new BinaryReader( this.buffer );
+		this.version = { major: 0, minor: 0, patch: 0 };
+
+		this._conversionBuffer = new ArrayBuffer( 4 );
+		this._conversionView = new DataView( this._conversionBuffer );
+
+		this._readBootstrap();
+		this._readTOC();
+		this._readTokens();
+		this._readStrings();
+		this._readFields();
+		this._readFieldSets();
+		this._readPaths();
+		this._readSpecs();
+
+		// Build specsByPath without building scene
+		this.specsByPath = {};
+
+		for ( const spec of this.specs ) {
+
+			const path = this.paths[ spec.pathIndex ];
+			if ( ! path ) continue;
+
+			const fields = this._getFieldsForSpec( spec );
+			this.specsByPath[ path ] = { specType: spec.specType, fields };
+
+		}
+
+		return { specsByPath: this.specsByPath };
+
+	}
+
+	_readBootstrap() {
+
+		const reader = this.reader;
+		reader.seek( 0 );
+
+		// Read magic "PXR-USDC"
+		const magic = reader.readString( 8 );
+		if ( magic !== 'PXR-USDC' ) {
+
+			throw new Error( 'Not a valid USDC file' );
+
+		}
+
+		// Read version
+		this.version.major = reader.readUint8();
+		this.version.minor = reader.readUint8();
+		this.version.patch = reader.readUint8();
+		reader.readBytes( 5 ); // Skip remaining version bytes
+
+		// Read TOC offset
+		this.tocOffset = reader.readUint64();
+
+		// Skip reserved bytes (rest of 128-byte header)
+		// Already at offset 24, skip to end of bootstrap (88 bytes total for bootstrap struct)
+
+	}
+
+	_readTOC() {
+
+		const reader = this.reader;
+		reader.seek( this.tocOffset );
+
+		// Read number of sections
+		const numSections = reader.readUint64();
+		this.sections = {};
+
+		for ( let i = 0; i < numSections; i ++ ) {
+
+			const name = reader.readString( 16 );
+			const start = reader.readUint64();
+			const size = reader.readUint64();
+
+			this.sections[ name ] = { start, size };
+
+		}
+
+	}
+
+	_readTokens() {
+
+		const section = this.sections[ 'TOKENS' ];
+		if ( ! section ) return;
+
+		const reader = this.reader;
+		reader.seek( section.start );
+
+		const numTokens = reader.readUint64();
+		this.tokens = [];
+
+		if ( this.version.major === 0 && this.version.minor < 4 ) {
+
+			// Uncompressed tokens (version < 0.4.0)
+			const tokensNumBytes = reader.readUint64();
+			const tokensData = reader.readBytes( tokensNumBytes );
+
+			let strStart = 0;
+			for ( let i = 0; i < numTokens; i ++ ) {
+
+				let strEnd = strStart;
+				while ( strEnd < tokensData.length && tokensData[ strEnd ] !== 0 ) strEnd ++;
+
+				this.tokens.push( textDecoder.decode( tokensData.subarray( strStart, strEnd ) ) );
+				strStart = strEnd + 1;
+
+			}
+
+		} else {
+
+			// Compressed tokens (version >= 0.4.0)
+			const uncompressedSize = reader.readUint64();
+			const compressedSize = reader.readUint64();
+			const compressedData = reader.readBytes( compressedSize );
+
+			const tokensData = decompressLZ4( compressedData, uncompressedSize );
+
+			let strStart = 0;
+			for ( let i = 0; i < numTokens; i ++ ) {
+
+				let strEnd = strStart;
+				while ( strEnd < tokensData.length && tokensData[ strEnd ] !== 0 ) strEnd ++;
+
+				this.tokens.push( textDecoder.decode( tokensData.subarray( strStart, strEnd ) ) );
+				strStart = strEnd + 1;
+
+			}
+
+		}
+
+	}
+
+	_readStrings() {
+
+		const section = this.sections[ 'STRINGS' ];
+		if ( ! section ) {
+
+			this.strings = [];
+			return;
+
+		}
+
+		const reader = this.reader;
+		reader.seek( section.start );
+
+		// Strings section has an 8-byte count prefix, but string indices stored
+		// elsewhere in the file are relative to the section start (not the data).
+		// So we read the entire section as uint32 values to maintain correct indexing.
+		const numStrings = Math.floor( section.size / 4 );
+		this.strings = [];
+
+		for ( let i = 0; i < numStrings; i ++ ) {
+
+			this.strings.push( reader.readUint32() );
+
+		}
+
+	}
+
+	_readFields() {
+
+		const section = this.sections[ 'FIELDS' ];
+		if ( ! section ) return;
+
+		const reader = this.reader;
+		reader.seek( section.start );
+
+		this.fields = [];
+
+		if ( this.version.major === 0 && this.version.minor < 4 ) {
+
+			// Uncompressed fields
+			const numFields = Math.floor( section.size / 12 ); // 4 bytes token index + 8 bytes value rep
+
+			for ( let i = 0; i < numFields; i ++ ) {
+
+				const tokenIndex = reader.readUint32();
+				const repLo = reader.readUint32();
+				const repHi = reader.readUint32();
+
+				this.fields.push( {
+					tokenIndex,
+					valueRep: new ValueRep( repLo, repHi )
+				} );
+
+			}
+
+		} else {
+
+			// Compressed fields (version >= 0.4.0)
+			const numFields = reader.readUint64();
+
+			// Read compressed token indices
+			const tokenIndicesCompressedSize = reader.readUint64();
+			const tokenIndicesCompressed = reader.readBytes( tokenIndicesCompressedSize );
+			const tokenIndices = decompressIntegers32(
+				tokenIndicesCompressed.buffer.slice(
+					tokenIndicesCompressed.byteOffset,
+					tokenIndicesCompressed.byteOffset + tokenIndicesCompressedSize
+				),
+				numFields
+			);
+
+			// Read compressed value reps (LZ4 only, no integer encoding)
+			const repsCompressedSize = reader.readUint64();
+			const repsCompressed = reader.readBytes( repsCompressedSize );
+			const repsData = decompressLZ4( repsCompressed, numFields * 8 );
+			const repsView = new DataView( repsData.buffer, repsData.byteOffset, repsData.byteLength );
+
+			for ( let i = 0; i < numFields; i ++ ) {
+
+				const repLo = repsView.getUint32( i * 8, true );
+				const repHi = repsView.getUint32( i * 8 + 4, true );
+
+				this.fields.push( {
+					tokenIndex: tokenIndices[ i ],
+					valueRep: new ValueRep( repLo, repHi )
+				} );
+
+			}
+
+		}
+
+	}
+
+	_readFieldSets() {
+
+		const section = this.sections[ 'FIELDSETS' ];
+		if ( ! section ) return;
+
+		const reader = this.reader;
+		reader.seek( section.start );
+
+		this.fieldSets = [];
+
+		if ( this.version.major === 0 && this.version.minor < 4 ) {
+
+			// Uncompressed field sets
+			const numFieldSets = Math.floor( section.size / 4 );
+
+			for ( let i = 0; i < numFieldSets; i ++ ) {
+
+				this.fieldSets.push( reader.readUint32() );
+
+			}
+
+		} else {
+
+			// Compressed field sets
+			const numFieldSets = reader.readUint64();
+			const compressedSize = reader.readUint64();
+			const compressed = reader.readBytes( compressedSize );
+
+			const indices = decompressIntegers32(
+				compressed.buffer.slice(
+					compressed.byteOffset,
+					compressed.byteOffset + compressedSize
+				),
+				numFieldSets
+			);
+
+			for ( let i = 0; i < numFieldSets; i ++ ) {
+
+				this.fieldSets.push( indices[ i ] );
+
+			}
+
+		}
+
+	}
+
+	_readPaths() {
+
+		const section = this.sections[ 'PATHS' ];
+		if ( ! section ) return;
+
+		const reader = this.reader;
+		reader.seek( section.start );
+
+		const numPaths = reader.readUint64();
+		this.paths = new Array( numPaths ).fill( '' );
+
+		if ( this.version.major === 0 && this.version.minor < 4 ) {
+
+			// Uncompressed paths - recursive tree structure
+			this._readPathsRecursive( '' );
+
+		} else {
+
+			// Compressed paths (version >= 0.4.0)
+			// Note: numPaths is stored twice - once for array sizing, once in compressed paths section
+			reader.readUint64(); // Read duplicate numPaths value (matches numPaths above)
+
+			const compressedSize1 = reader.readUint64();
+			const pathIndicesCompressed = reader.readBytes( compressedSize1 );
+			const pathIndices = decompressIntegers32(
+				pathIndicesCompressed.buffer.slice(
+					pathIndicesCompressed.byteOffset,
+					pathIndicesCompressed.byteOffset + compressedSize1
+				),
+				numPaths
+			);
+
+			const compressedSize2 = reader.readUint64();
+			const elementTokenIndicesCompressed = reader.readBytes( compressedSize2 );
+			const elementTokenIndices = decompressIntegers32(
+				elementTokenIndicesCompressed.buffer.slice(
+					elementTokenIndicesCompressed.byteOffset,
+					elementTokenIndicesCompressed.byteOffset + compressedSize2
+				),
+				numPaths
+			);
+
+			const compressedSize3 = reader.readUint64();
+			const jumpsCompressed = reader.readBytes( compressedSize3 );
+			const jumps = decompressIntegers32(
+				jumpsCompressed.buffer.slice(
+					jumpsCompressed.byteOffset,
+					jumpsCompressed.byteOffset + compressedSize3
+				),
+				numPaths
+			);
+
+			// Build paths from compressed data
+			this._buildPathsFromCompressed( pathIndices, elementTokenIndices, jumps );
+
+		}
+
+	}
+
+	_readPathsRecursive( parentPath, depth = 0 ) {
+
+		const reader = this.reader;
+
+		// Prevent infinite recursion
+		if ( depth > 1000 ) return;
+
+		// Read path item header
+		const index = reader.readUint32();
+		const elementTokenIndex = reader.readUint32();
+		const bits = reader.readUint8();
+
+		const hasChild = ( bits & 1 ) !== 0;
+		const hasSibling = ( bits & 2 ) !== 0;
+		const isPrimProperty = ( bits & 4 ) !== 0;
+
+		// Build path
+		let path;
+		if ( parentPath === '' ) {
+
+			path = '/';
+
+		} else {
+
+			const elemToken = this.tokens[ elementTokenIndex ] || '';
+			if ( isPrimProperty ) {
+
+				path = parentPath + '.' + elemToken;
+
+			} else {
+
+				path = parentPath === '/' ? '/' + elemToken : parentPath + '/' + elemToken;
+
+			}
+
+		}
+
+		this.paths[ index ] = path;
+
+		// Process children and siblings
+		if ( hasChild && hasSibling ) {
+
+			// Read sibling offset
+			const siblingOffset = reader.readUint64();
+
+			// Read child
+			this._readPathsRecursive( path, depth + 1 );
+
+			// Read sibling
+			reader.seek( siblingOffset );
+			this._readPathsRecursive( parentPath, depth + 1 );
+
+		} else if ( hasChild ) {
+
+			this._readPathsRecursive( path, depth + 1 );
+
+		} else if ( hasSibling ) {
+
+			this._readPathsRecursive( parentPath, depth + 1 );
+
+		}
+
+	}
+
+	_buildPathsFromCompressed( pathIndices, elementTokenIndices, jumps ) {
+
+		// Jump encoding from USD:
+		// 0 = only sibling (no child), next entry is sibling
+		// -1 = only child (no sibling), next entry is child
+		// -2 = leaf (no child, no sibling)
+		// >0 = has both child and sibling, value is offset to sibling
+
+		const buildPaths = ( startIndex, parentPath ) => {
+
+			let curIndex = startIndex;
+
+			while ( curIndex < pathIndices.length ) {
+
+				const thisIndex = curIndex ++;
+				const pathIndex = pathIndices[ thisIndex ];
+				const elementTokenIndex = elementTokenIndices[ thisIndex ];
+				const jump = jumps[ thisIndex ];
+
+				// Build path
+				let path;
+				if ( parentPath === '' ) {
+
+					path = '/';
+					parentPath = path;
+
+				} else {
+
+					const elemToken = this.tokens[ Math.abs( elementTokenIndex ) ] || '';
+					const isPrimProperty = elementTokenIndex < 0;
+
+					if ( isPrimProperty ) {
+
+						path = parentPath + '.' + elemToken;
+
+					} else {
+
+						path = parentPath === '/' ? '/' + elemToken : parentPath + '/' + elemToken;
+
+					}
+
+				}
+
+				this.paths[ pathIndex ] = path;
+
+				// Determine children and siblings
+				const hasChild = jump > 0 || jump === -1;
+				const hasSibling = jump >= 0;
+
+				if ( hasChild ) {
+
+					if ( hasSibling ) {
+
+						// Has both child and sibling
+						// Recursively process sibling subtree
+						const siblingIndex = thisIndex + jump;
+						buildPaths( siblingIndex, parentPath );
+
+					}
+
+					// Child is next entry, continue with new parent path
+					parentPath = path;
+
+				} else if ( hasSibling ) ; else {
+
+					// Leaf node, exit loop
+					break;
+
+				}
+
+			}
+
+		};
+
+		buildPaths( 0, '' );
+
+	}
+
+	_readSpecs() {
+
+		const section = this.sections[ 'SPECS' ];
+		if ( ! section ) return;
+
+		const reader = this.reader;
+		reader.seek( section.start );
+
+		this.specs = [];
+
+		if ( this.version.major === 0 && this.version.minor < 4 ) {
+
+			// Uncompressed specs
+			// Each spec: pathIndex (4), fieldSetIndex (4), specType (4) = 12 bytes
+			// For version 0.0.1 there may be different padding
+			const specSize = ( this.version.minor === 0 && this.version.patch === 1 ) ? 16 : 12;
+			const numSpecs = Math.floor( section.size / specSize );
+
+			for ( let i = 0; i < numSpecs; i ++ ) {
+
+				const pathIndex = reader.readUint32();
+				const fieldSetIndex = reader.readUint32();
+				const specType = reader.readUint32();
+
+				if ( specSize === 16 ) reader.readUint32(); // padding
+
+				this.specs.push( { pathIndex, fieldSetIndex, specType } );
+
+			}
+
+		} else {
+
+			// Compressed specs
+			const numSpecs = reader.readUint64();
+
+			const compressedSize1 = reader.readUint64();
+			const pathIndicesCompressed = reader.readBytes( compressedSize1 );
+			const pathIndices = decompressIntegers32(
+				pathIndicesCompressed.buffer.slice(
+					pathIndicesCompressed.byteOffset,
+					pathIndicesCompressed.byteOffset + compressedSize1
+				),
+				numSpecs
+			);
+
+			const compressedSize2 = reader.readUint64();
+			const fieldSetIndicesCompressed = reader.readBytes( compressedSize2 );
+			const fieldSetIndices = decompressIntegers32(
+				fieldSetIndicesCompressed.buffer.slice(
+					fieldSetIndicesCompressed.byteOffset,
+					fieldSetIndicesCompressed.byteOffset + compressedSize2
+				),
+				numSpecs
+			);
+
+			const compressedSize3 = reader.readUint64();
+			const specTypesCompressed = reader.readBytes( compressedSize3 );
+			const specTypes = decompressIntegers32(
+				specTypesCompressed.buffer.slice(
+					specTypesCompressed.byteOffset,
+					specTypesCompressed.byteOffset + compressedSize3
+				),
+				numSpecs
+			);
+
+			for ( let i = 0; i < numSpecs; i ++ ) {
+
+				this.specs.push( {
+					pathIndex: pathIndices[ i ],
+					fieldSetIndex: fieldSetIndices[ i ],
+					specType: specTypes[ i ]
+				} );
+
+			}
+
+		}
+
+	}
+
+	// ========================================================================
+	// Value Reading
+	// ========================================================================
+
+	_readValue( valueRep ) {
+
+		const type = valueRep.typeEnum;
+		const isArray = valueRep.isArray;
+		const isInlined = valueRep.isInlined;
+
+		// Handle TimeSamples specially - they have their own format
+		if ( type === TypeEnum.TimeSamples ) {
+
+			return this._readTimeSamples( valueRep );
+
+		}
+
+		if ( isInlined ) {
+
+			return this._readInlinedValue( valueRep );
+
+		}
+
+		// Seek to payload offset and read value
+		const offset = valueRep.payload;
+		if ( offset === 0 && isArray ) {
+
+			// Spec 16.3.9.3: Array payload 0 is an explicit empty-array sentinel.
+			return [];
+
+		}
+
+		if ( offset < 0 || offset >= this.buffer.byteLength ) {
+
+			throw new RangeError( 'USDCParser: Invalid payload offset ' + offset + ' for type ' + type + '.' );
+
+		}
+
+		const savedOffset = this.reader.tell();
+		this.reader.seek( offset );
+
+		let value;
+
+		if ( isArray ) {
+
+			value = this._readArrayValue( valueRep );
+
+		} else {
+
+			value = this._readScalarValue( type );
+
+		}
+
+		this.reader.seek( savedOffset );
+		return value;
+
+	}
+
+	_readInlinedValue( valueRep ) {
+
+		const type = valueRep.typeEnum;
+		const payload = valueRep.getInlinedValue();
+		const view = this._conversionView;
+
+		switch ( type ) {
+
+			case TypeEnum.Bool:
+				return payload !== 0;
+			case TypeEnum.UChar:
+				return payload & 0xFF;
+			case TypeEnum.Int:
+			case TypeEnum.UInt:
+				return payload;
+			case TypeEnum.Float: {
+
+				view.setUint32( 0, payload, true );
+				return view.getFloat32( 0, true );
+
+			}
+
+			case TypeEnum.Double: {
+
+				// When a double is inlined, it's stored as float32 bits in the payload
+				view.setUint32( 0, payload, true );
+				return view.getFloat32( 0, true );
+
+			}
+
+			case TypeEnum.Token:
+				return this.tokens[ payload ] || '';
+			case TypeEnum.String:
+				return this.tokens[ this.strings[ payload ] ] || '';
+			case TypeEnum.AssetPath:
+				return this.tokens[ payload ] || '';
+			case TypeEnum.Specifier:
+				return payload; // 0=def, 1=over, 2=class
+			case TypeEnum.Permission:
+			case TypeEnum.Variability:
+				return payload;
+
+			// Vec2h: Two half-floats fit in 4 bytes, stored directly
+			case TypeEnum.Vec2h: {
+
+				view.setUint32( 0, payload, true );
+				return [ this._halfToFloat( view.getUint16( 0, true ) ), this._halfToFloat( view.getUint16( 2, true ) ) ];
+
+			}
+
+			// Inlined vectors that don't fit in 4 bytes are encoded as signed 8-bit integers
+			// Vec2f = 8 bytes (2x float32), Vec3f = 12 bytes, Vec4f = 16 bytes, etc.
+			case TypeEnum.Vec2f:
+			case TypeEnum.Vec2i: {
+
+				view.setUint32( 0, payload, true );
+				return [ view.getInt8( 0 ), view.getInt8( 1 ) ];
+
+			}
+
+			case TypeEnum.Vec3f:
+			case TypeEnum.Vec3i: {
+
+				view.setUint32( 0, payload, true );
+				return [ view.getInt8( 0 ), view.getInt8( 1 ), view.getInt8( 2 ) ];
+
+			}
+
+			case TypeEnum.Vec4f:
+			case TypeEnum.Vec4i: {
+
+				view.setUint32( 0, payload, true );
+				return [ view.getInt8( 0 ), view.getInt8( 1 ), view.getInt8( 2 ), view.getInt8( 3 ) ];
+
+			}
+
+			case TypeEnum.Matrix2d: {
+
+				// Inlined Matrix2d stores diagonal values as 2 signed int8 values
+				view.setUint32( 0, payload, true );
+				const d0 = view.getInt8( 0 ), d1 = view.getInt8( 1 );
+				return [ d0, 0, 0, d1 ];
+
+			}
+
+			case TypeEnum.Matrix3d: {
+
+				// Inlined Matrix3d stores diagonal values as 3 signed int8 values
+				view.setUint32( 0, payload, true );
+				const d0 = view.getInt8( 0 ), d1 = view.getInt8( 1 ), d2 = view.getInt8( 2 );
+				return [ d0, 0, 0, 0, d1, 0, 0, 0, d2 ];
+
+			}
+
+			case TypeEnum.Matrix4d: {
+
+				// Inlined Matrix4d stores diagonal values as 4 signed int8 values
+				view.setUint32( 0, payload, true );
+				const d0 = view.getInt8( 0 ), d1 = view.getInt8( 1 ), d2 = view.getInt8( 2 ), d3 = view.getInt8( 3 );
+				return [ d0, 0, 0, 0, 0, d1, 0, 0, 0, 0, d2, 0, 0, 0, 0, d3 ];
+
+			}
+
+			default:
+				return payload;
+
+		}
+
+	}
+
+	_readTimeSamples( valueRep ) {
+
+		const reader = this.reader;
+		const offset = valueRep.payload;
+		const savedOffset = reader.tell();
+		reader.seek( offset );
+
+		// TimeSamples format uses RELATIVE offsets (from OpenUSD _RecursiveRead):
+		// _RecursiveRead: read int64 relativeOffset at current position, then seek to start + relativeOffset
+		// After reading timesRep, continue reading from current position (after timesRep)
+		// Layout at TimeSamples location:
+		// - int64 timesOffset (relative from start of this int64)
+		// At (start + timesOffset): timesRep ValueRep, then int64 valuesOffset, then numValues + ValueReps
+
+		// Read times relative offset and resolve
+		const timesStart = reader.tell();
+		const timesRelOffset = reader.readInt64();
+		reader.seek( timesStart + timesRelOffset );
+
+		const timesRepLo = reader.readUint32();
+		const timesRepHi = reader.readUint32();
+		const timesRep = new ValueRep( timesRepLo, timesRepHi );
+
+		// Resolve times array
+		const times = this._readValue( timesRep );
+
+		// Continue reading from current position (after timesRep)
+		// The second _RecursiveRead reads from CURRENT position, not from the beginning
+		const afterTimesRep = timesStart + timesRelOffset + 8;
+		reader.seek( afterTimesRep );
+
+		// Read values relative offset
+		const valuesStart = reader.tell();
+		const valuesRelOffset = reader.readInt64();
+		reader.seek( valuesStart + valuesRelOffset );
+
+		// Read number of values
+		const numValues = reader.readUint64();
+
+		// Read all ValueReps
+		const valueReps = [];
+		for ( let i = 0; i < numValues; i ++ ) {
+
+			const repLo = reader.readUint32();
+			const repHi = reader.readUint32();
+			valueReps.push( new ValueRep( repLo, repHi ) );
+
+		}
+
+		// Resolve each value
+		const values = [];
+		for ( let i = 0; i < numValues; i ++ ) {
+
+			values.push( this._readValue( valueReps[ i ] ) );
+
+		}
+
+		reader.seek( savedOffset );
+
+		// Convert times to array if needed
+		const timesArray = times instanceof Float64Array ? Array.from( times ) : ( Array.isArray( times ) ? times : [ times ] );
+
+		return { times: timesArray, values };
+
+	}
+
+	_readScalarValue( type ) {
+
+		const reader = this.reader;
+
+		switch ( type ) {
+
+			case TypeEnum.Invalid:
+				return null;
+			case TypeEnum.Bool:
+				return reader.readUint8() !== 0;
+			case TypeEnum.UChar:
+				return reader.readUint8();
+			case TypeEnum.Int:
+				return reader.readInt32();
+			case TypeEnum.UInt:
+				return reader.readUint32();
+			case TypeEnum.Int64:
+				return reader.readInt64();
+			case TypeEnum.UInt64:
+				return reader.readUint64();
+			case TypeEnum.Half:
+				return this._readHalf();
+			case TypeEnum.Float:
+				return reader.readFloat32();
+			case TypeEnum.Double:
+				return reader.readFloat64();
+			case TypeEnum.String:
+			case TypeEnum.Token: {
+
+				const index = reader.readUint32();
+				return this.tokens[ index ] || '';
+
+			}
+
+			case TypeEnum.AssetPath: {
+
+				const index = reader.readUint32();
+				return this.tokens[ index ] || '';
+
+			}
+
+			case TypeEnum.Vec2f:
+				return [ reader.readFloat32(), reader.readFloat32() ];
+			case TypeEnum.Vec2d:
+				return [ reader.readFloat64(), reader.readFloat64() ];
+			case TypeEnum.Vec2i:
+				return [ reader.readInt32(), reader.readInt32() ];
+			case TypeEnum.Vec3f:
+				return [ reader.readFloat32(), reader.readFloat32(), reader.readFloat32() ];
+			case TypeEnum.Vec3d:
+				return [ reader.readFloat64(), reader.readFloat64(), reader.readFloat64() ];
+			case TypeEnum.Vec3i:
+				return [ reader.readInt32(), reader.readInt32(), reader.readInt32() ];
+			case TypeEnum.Vec4f:
+				return [ reader.readFloat32(), reader.readFloat32(), reader.readFloat32(), reader.readFloat32() ];
+			case TypeEnum.Vec4d:
+				return [ reader.readFloat64(), reader.readFloat64(), reader.readFloat64(), reader.readFloat64() ];
+			case TypeEnum.Quatf:
+				return [ reader.readFloat32(), reader.readFloat32(), reader.readFloat32(), reader.readFloat32() ];
+			case TypeEnum.Quatd:
+				return [ reader.readFloat64(), reader.readFloat64(), reader.readFloat64(), reader.readFloat64() ];
+			case TypeEnum.Matrix4d: {
+
+				const m = [];
+				for ( let i = 0; i < 16; i ++ ) m.push( reader.readFloat64() );
+				return m;
+
+			}
+
+			case TypeEnum.TokenVector: {
+
+				const count = reader.readUint64();
+				const tokens = [];
+				for ( let i = 0; i < count; i ++ ) {
+
+					const index = reader.readUint32();
+					tokens.push( this.tokens[ index ] || '' );
+
+				}
+
+				return tokens;
+
+			}
+
+			case TypeEnum.PathVector: {
+
+				const count = reader.readUint64();
+				const paths = [];
+				for ( let i = 0; i < count; i ++ ) {
+
+					const index = reader.readUint32();
+					paths.push( this.paths[ index ] || '' );
+
+				}
+
+				return paths;
+
+			}
+
+			case TypeEnum.DoubleVector: {
+
+				// DoubleVector is a count-prefixed array of doubles
+				const count = reader.readUint64();
+				const arr = new Float64Array( count );
+				for ( let i = 0; i < count; i ++ ) arr[ i ] = reader.readFloat64();
+				return arr;
+
+			}
+
+			case TypeEnum.Dictionary: {
+
+				// Dictionary format:
+				// u64 elementCount
+				// For each element: u32 keyIndex + i64 valueOffset (relative)
+				const elementCount = reader.readUint64();
+				const dict = {};
+
+				for ( let i = 0; i < elementCount; i ++ ) {
+
+					const keyIdx = reader.readUint32();
+					const key = this.tokens[ keyIdx ];
+
+					// Value offset is relative to current position
+					const currentPos = reader.position;
+					const valueOffset = reader.readInt64();
+					const valuePos = currentPos + valueOffset;
+
+					// Save position, read value, restore position
+					const savedPos = reader.position;
+					reader.position = valuePos;
+
+					// Read the value representation at the offset
+					const valueRepData = reader.readUint64();
+					const valueRep = new ValueRep( valueRepData );
+
+					// Read the value based on the representation
+					let value = null;
+					if ( valueRep.isInlined ) {
+
+						value = this._readInlinedValue( valueRep );
+
+					} else if ( valueRep.isArray ) {
+
+						reader.position = valueRep.payload;
+						value = this._readArrayValue( valueRep );
+
+					} else {
+
+						reader.position = valueRep.payload;
+						value = this._readScalarValue( valueRep.typeEnum );
+
+					}
+
+					reader.position = savedPos;
+
+					if ( key !== undefined && value !== null ) {
+
+						dict[ key ] = value;
+
+					}
+
+				}
+
+				return dict;
+
+			}
+
+			case TypeEnum.TokenListOp:
+			case TypeEnum.StringListOp:
+			case TypeEnum.IntListOp:
+			case TypeEnum.Int64ListOp:
+			case TypeEnum.UIntListOp:
+			case TypeEnum.UInt64ListOp:
+				// These complex types are not needed for geometry loading
+				// Skip them silently
+				return null;
+
+			case TypeEnum.PathListOp: {
+
+				// PathListOp format (from AOUSD Core Spec 16.3.10.25):
+				// Header byte bitmask:
+				// - bit 0 (0x01): Make Explicit (clears list)
+				// - bit 1 (0x02): Add Explicit Items
+				// - bit 2 (0x04): Add Items
+				// - bit 3 (0x08): Delete Items
+				// - bit 4 (0x10): Reorder Items
+				// - bit 5 (0x20): Prepend Items
+				// - bit 6 (0x40): Append Items
+				// Arrays follow in order: Explicit, Add, Prepend, Append, Delete, Reorder
+				// Each array: uint64 count + count * uint32 path indices
+				const flags = reader.readUint8();
+				const hasExplicitItems = ( flags & 0x02 ) !== 0;
+				const hasAddItems = ( flags & 0x04 ) !== 0;
+				const hasDeleteItems = ( flags & 0x08 ) !== 0;
+				const hasReorderItems = ( flags & 0x10 ) !== 0;
+				const hasPrependItems = ( flags & 0x20 ) !== 0;
+				const hasAppendItems = ( flags & 0x40 ) !== 0;
+
+				const readPathList = () => {
+
+					const itemCount = reader.readUint64();
+					const paths = [];
+					for ( let i = 0; i < itemCount; i ++ ) {
+
+						const pathIdx = reader.readUint32();
+						paths.push( this.paths[ pathIdx ] );
+
+					}
+
+					return paths;
+
+				};
+
+				// Read arrays in spec order: Explicit, Add, Prepend, Append, Delete, Reorder
+				let explicitPaths = null;
+				let addPaths = null;
+				let prependPaths = null;
+				let appendPaths = null;
+
+				if ( hasExplicitItems ) explicitPaths = readPathList();
+				if ( hasAddItems ) addPaths = readPathList();
+				if ( hasPrependItems ) prependPaths = readPathList();
+				if ( hasAppendItems ) appendPaths = readPathList();
+				if ( hasDeleteItems ) readPathList(); // Skip delete items
+				if ( hasReorderItems ) readPathList(); // Skip reorder items
+
+				// Return the first non-empty list (connections are typically prepended)
+				if ( prependPaths && prependPaths.length > 0 ) return prependPaths;
+				if ( explicitPaths && explicitPaths.length > 0 ) return explicitPaths;
+				if ( appendPaths && appendPaths.length > 0 ) return appendPaths;
+				if ( addPaths && addPaths.length > 0 ) return addPaths;
+
+				return null;
+
+			}
+
+			case TypeEnum.VariantSelectionMap: {
+
+				const elementCount = reader.readUint64();
+				const map = {};
+
+				for ( let i = 0; i < elementCount; i ++ ) {
+
+					const keyIdx = reader.readUint32();
+					const valueIdx = reader.readUint32();
+					const key = this.tokens[ this.strings[ keyIdx ] ];
+					const value = this.tokens[ this.strings[ valueIdx ] ];
+					if ( key && value ) map[ key ] = value;
+
+				}
+
+				return map;
+
+			}
+
+			default:
+				console.warn( 'USDCParser: Unsupported scalar type', type );
+				return null;
+
+		}
+
+	}
+
+	_readArrayValue( valueRep ) {
+
+		const reader = this.reader;
+		const type = valueRep.typeEnum;
+		const isCompressed = valueRep.isCompressed;
+
+		// Read array size
+		let size;
+		if ( this.version.major === 0 && this.version.minor < 7 ) {
+
+			size = reader.readUint32();
+
+		} else {
+
+			size = reader.readUint64();
+
+		}
+
+		if ( ! Number.isSafeInteger( size ) || size < 0 ) {
+
+			throw new RangeError( 'USDCParser: Invalid array size ' + size + ' for type ' + type + '.' );
+
+		}
+
+		if ( size > 0x7FFFFFFF ) {
+
+			// Crate stores counts as uint64, but JS typed arrays cannot represent all such sizes.
+			throw new RangeError( 'USDCParser: Array size ' + size + ' exceeds implementation limits.' );
+
+		}
+
+		if ( size === 0 ) return [];
+
+		// Handle compressed arrays
+		if ( isCompressed ) {
+
+			return this._readCompressedArray( type, size );
+
+		}
+
+		// Read uncompressed array
+		switch ( type ) {
+
+			case TypeEnum.Int: {
+
+				const arr = new Int32Array( size );
+				for ( let i = 0; i < size; i ++ ) arr[ i ] = reader.readInt32();
+				return arr;
+
+			}
+
+			case TypeEnum.UInt: {
+
+				const arr = new Uint32Array( size );
+				for ( let i = 0; i < size; i ++ ) arr[ i ] = reader.readUint32();
+				return arr;
+
+			}
+
+			case TypeEnum.Float: {
+
+				const arr = new Float32Array( size );
+				for ( let i = 0; i < size; i ++ ) arr[ i ] = reader.readFloat32();
+				return arr;
+
+			}
+
+			case TypeEnum.Double: {
+
+				const arr = new Float64Array( size );
+				for ( let i = 0; i < size; i ++ ) arr[ i ] = reader.readFloat64();
+				return arr;
+
+			}
+
+			case TypeEnum.Vec2f: {
+
+				const arr = new Float32Array( size * 2 );
+				for ( let i = 0; i < size * 2; i ++ ) arr[ i ] = reader.readFloat32();
+				return arr;
+
+			}
+
+			case TypeEnum.Vec3f: {
+
+				const arr = new Float32Array( size * 3 );
+				for ( let i = 0; i < size * 3; i ++ ) arr[ i ] = reader.readFloat32();
+				return arr;
+
+			}
+
+			case TypeEnum.Vec4f: {
+
+				const arr = new Float32Array( size * 4 );
+				for ( let i = 0; i < size * 4; i ++ ) arr[ i ] = reader.readFloat32();
+				return arr;
+
+			}
+
+			case TypeEnum.Vec3h: {
+
+				// Half-precision vec3 array (used for scales in skeletal animation)
+				const arr = new Float32Array( size * 3 );
+				for ( let i = 0; i < size * 3; i ++ ) arr[ i ] = this._readHalf();
+				return arr;
+
+			}
+
+			case TypeEnum.Quatf: {
+
+				const arr = new Float32Array( size * 4 );
+				for ( let i = 0; i < size * 4; i ++ ) arr[ i ] = reader.readFloat32();
+				return arr;
+
+			}
+
+			case TypeEnum.Quath: {
+
+				// Half-precision quaternion array
+				const arr = new Float32Array( size * 4 );
+				for ( let i = 0; i < size * 4; i ++ ) arr[ i ] = this._readHalf();
+				return arr;
+
+			}
+
+			case TypeEnum.Matrix4d: {
+
+				// 4x4 matrix array (16 doubles per matrix, row-major)
+				const arr = new Float64Array( size * 16 );
+				for ( let i = 0; i < size * 16; i ++ ) arr[ i ] = reader.readFloat64();
+				return arr;
+
+			}
+
+			case TypeEnum.Token: {
+
+				const arr = [];
+				for ( let i = 0; i < size; i ++ ) {
+
+					const index = reader.readUint32();
+					arr.push( this.tokens[ index ] || '' );
+
+				}
+
+				return arr;
+
+			}
+
+			case TypeEnum.Half: {
+
+				const arr = new Float32Array( size );
+				for ( let i = 0; i < size; i ++ ) arr[ i ] = this._readHalf();
+				return arr;
+
+			}
+
+			default:
+				console.warn( 'USDCParser: Unsupported array type', type );
+				return [];
+
+		}
+
+	}
+
+	_readCompressedArray( type, size ) {
+
+		const reader = this.reader;
+
+		switch ( type ) {
+
+			case TypeEnum.Int:
+			case TypeEnum.UInt: {
+
+				const compressedSize = reader.readUint64();
+				const compressed = reader.readBytes( compressedSize );
+				return decompressIntegers32(
+					compressed.buffer.slice(
+						compressed.byteOffset,
+						compressed.byteOffset + compressedSize
+					),
+					size
+				);
+
+			}
+
+			case TypeEnum.Float: {
+
+				// Float compression: 'i' = compressed as ints, 't' = lookup table
+				const code = reader.readInt8();
+
+				if ( code === FLOAT_COMPRESSION_INT ) {
+
+					const compressedSize = reader.readUint64();
+					const compressed = reader.readBytes( compressedSize );
+					const ints = decompressIntegers32(
+						compressed.buffer.slice(
+							compressed.byteOffset,
+							compressed.byteOffset + compressedSize
+						),
+						size
+					);
+					const floats = new Float32Array( size );
+					for ( let i = 0; i < size; i ++ ) floats[ i ] = ints[ i ];
+					return floats;
+
+				} else if ( code === FLOAT_COMPRESSION_LUT ) {
+
+					const lutSize = reader.readUint32();
+					const lut = new Float32Array( lutSize );
+					for ( let i = 0; i < lutSize; i ++ ) lut[ i ] = reader.readFloat32();
+
+					const compressedSize = reader.readUint64();
+					const compressed = reader.readBytes( compressedSize );
+					const indices = decompressIntegers32(
+						compressed.buffer.slice(
+							compressed.byteOffset,
+							compressed.byteOffset + compressedSize
+						),
+						size
+					);
+
+					const floats = new Float32Array( size );
+					for ( let i = 0; i < size; i ++ ) floats[ i ] = lut[ indices[ i ] ];
+					return floats;
+
+				}
+
+				console.warn( 'USDCParser: Unknown float compression code', code );
+				return new Float32Array( size );
+
+			}
+
+			default:
+				console.warn( 'USDCParser: Unsupported compressed array type', type );
+				return [];
+
+		}
+
+	}
+
+	_readHalf() {
+
+		return this._halfToFloat( this.reader.readUint16() );
+
+	}
+
+	_halfToFloat( h ) {
+
+		const sign = ( h & 0x8000 ) >> 15;
+		const exp = ( h & 0x7C00 ) >> 10;
+		const frac = h & 0x03FF;
+
+		if ( exp === 0 ) {
+
+			// Zero or denormalized number
+			if ( frac === 0 ) {
+
+				return sign ? -0 : 0;
+
+			}
+
+			// Denormalized: value = ±2^-14 × (frac/1024)
+			return ( sign ? -1 : 1 ) * HALF_DENORM_SCALE * ( frac / 1024 );
+
+		} else if ( exp === 31 ) {
+
+			return frac ? NaN : ( sign ? - Infinity : Infinity );
+
+		}
+
+		return ( sign ? -1 : 1 ) * HALF_EXPONENT_TABLE[ exp ] * ( 1 + frac / 1024 );
+
+	}
+
+	_getFieldsForSpec( spec ) {
+
+		const fields = {};
+		let fieldSetIndex = spec.fieldSetIndex;
+
+		// Field sets are terminated by FIELD_SET_TERMINATOR
+		// Limit iterations to prevent infinite loops from malformed data
+		const maxIterations = 10000;
+		let iterations = 0;
+
+		while ( fieldSetIndex < this.fieldSets.length && iterations < maxIterations ) {
+
+			const fieldIndex = this.fieldSets[ fieldSetIndex ];
+
+			// Terminator
+			if ( fieldIndex === FIELD_SET_TERMINATOR || fieldIndex === -1 ) break;
+
+			const field = this.fields[ fieldIndex ];
+			if ( field ) {
+
+				const name = this.tokens[ field.tokenIndex ];
+				const value = this._readValue( field.valueRep );
+				fields[ name ] = value;
+
+			}
+
+			fieldSetIndex ++;
+			iterations ++;
+
+		}
+
+		return fields;
+
+	}
+
+}
+
+// Pre-compiled regex patterns for performance
+const VARIANT_PATH_REGEX = /^(.+?)\/\{(\w+)=(\w+)\}\/(.+)$/;
+
+// Spec types (must match USDCParser)
+const SpecType = {
+	Attribute: 1,
+	Prim: 6,
+	Relationship: 8};
+
+// UsdGeomCamera fallback values (OpenUSD schema)
+const USD_CAMERA_DEFAULTS = {
+	projection: 'perspective',
+	clippingRange: [ 1, 1000000 ],
+	horizontalAperture: 20.955,
+	verticalAperture: 15.2908,
+	horizontalApertureOffset: 0,
+	verticalApertureOffset: 0,
+	focalLength: 50,
+	focusDistance: 0,
+	fStop: 0
+};
+
+/**
+ * USDComposer handles scene composition from parsed USD data.
+ * This includes reference resolution, variant selection, transform handling,
+ * and building the Three.js scene graph.
+ *
+ * Works with specsByPath format from USDCParser.
+ */
+class USDComposer {
+
+	constructor( manager = null ) {
+
+		this.textureCache = {};
+		this.skinnedMeshes = [];
+		this.manager = manager;
+
+	}
+
+	/**
+	 * Compose a Three.js scene from parsed USD data.
+	 * @param {Object} parsedData - Data from USDCParser or USDAParser
+	 * @param {Object} assets - Dictionary of referenced assets (specsByPath or blob URLs)
+	 * @param {Object} variantSelections - External variant selections
+	 * @param {string} basePath - Base path for resolving relative references
+	 * @returns {Group} Three.js scene graph
+	 */
+	compose( parsedData, assets = {}, variantSelections = {}, basePath = '' ) {
+
+		this.specsByPath = parsedData.specsByPath;
+		this.assets = assets;
+		this.externalVariantSelections = variantSelections;
+		this.basePath = basePath;
+		this.skinnedMeshes = [];
+		this.skeletons = {};
+
+		// Build indexes for O(1) lookups
+		this._buildIndexes();
+
+		// Get FPS from root spec
+		const rootSpec = this.specsByPath[ '/' ];
+		const rootFields = rootSpec ? rootSpec.fields : {};
+		this.fps = rootFields.framesPerSecond || rootFields.timeCodesPerSecond || 30;
+
+		const group = new Group$1();
+		this._buildHierarchy( group, '/' );
+
+		// Bind skeletons to skinned meshes
+		this._bindSkeletons();
+
+		// Expose skeleton on the root group so that AnimationMixer's
+		// PropertyBinding.findNode resolves bone names before scene objects.
+		// Without this, Xform prims that share a name with a skeleton joint
+		// would be animated instead of the bone.
+		const skeletonPaths = Object.keys( this.skeletons );
+		if ( skeletonPaths.length === 1 ) {
+
+			group.skeleton = this.skeletons[ skeletonPaths[ 0 ] ].skeleton;
+
+		}
+
+		// Build animations
+		group.animations = this._buildAnimations();
+
+		// Handle metersPerUnit scaling
+		const metersPerUnit = rootFields.metersPerUnit;
+
+		if ( metersPerUnit !== undefined && metersPerUnit !== 1 ) {
+
+			group.scale.setScalar( metersPerUnit );
+
+		}
+
+		// Handle Z-up to Y-up conversion
+		if ( rootSpec && rootSpec.fields && rootSpec.fields.upAxis === 'Z' ) {
+
+			group.rotation.x = - Math.PI / 2;
+
+		}
+
+		return group;
+
+	}
+
+	/**
+	 * Apply USD transforms to a Three.js object.
+	 * Handles xformOpOrder with proper matrix composition.
+	 * USD uses row-vector convention, Three.js uses column-vector.
+	 */
+	applyTransform( obj, fields, attrs = {} ) {
+
+		const data = { ...fields, ...attrs };
+		const xformOpOrder = data[ 'xformOpOrder' ];
+
+		// If we have xformOpOrder, apply transforms using matrices
+		if ( xformOpOrder && xformOpOrder.length > 0 ) {
+
+			const matrix = new Matrix4$2();
+			const tempMatrix = new Matrix4$2();
+
+			// Track scale for handling negative scale with rotation
+			let scaleValues = null;
+
+			// Iterate FORWARD for Three.js column-vector convention
+			for ( let i = 0; i < xformOpOrder.length; i ++ ) {
+
+				const op = xformOpOrder[ i ];
+				const isInverse = op.startsWith( '!invert!' );
+				const opName = isInverse ? op.slice( 8 ) : op;
+
+				if ( opName === 'xformOp:transform' ) {
+
+					const m = data[ 'xformOp:transform' ];
+					if ( m && m.length === 16 ) {
+
+						tempMatrix.set(
+							m[ 0 ], m[ 4 ], m[ 8 ], m[ 12 ],
+							m[ 1 ], m[ 5 ], m[ 9 ], m[ 13 ],
+							m[ 2 ], m[ 6 ], m[ 10 ], m[ 14 ],
+							m[ 3 ], m[ 7 ], m[ 11 ], m[ 15 ]
+						);
+						if ( isInverse ) tempMatrix.invert();
+						matrix.multiply( tempMatrix );
+
+					}
+
+				} else if ( opName === 'xformOp:translate' ) {
+
+					const t = data[ 'xformOp:translate' ];
+					if ( t ) {
+
+						tempMatrix.makeTranslation( t[ 0 ], t[ 1 ], t[ 2 ] );
+						if ( isInverse ) tempMatrix.invert();
+						matrix.multiply( tempMatrix );
+
+					}
+
+				} else if ( opName === 'xformOp:translate:pivot' ) {
+
+					const t = data[ 'xformOp:translate:pivot' ];
+					if ( t ) {
+
+						tempMatrix.makeTranslation( t[ 0 ], t[ 1 ], t[ 2 ] );
+						if ( isInverse ) tempMatrix.invert();
+						matrix.multiply( tempMatrix );
+
+					}
+
+				} else if ( opName === 'xformOp:scale' ) {
+
+					const s = data[ 'xformOp:scale' ];
+					if ( s ) {
+
+						if ( Array.isArray( s ) ) {
+
+							tempMatrix.makeScale( s[ 0 ], s[ 1 ], s[ 2 ] );
+							scaleValues = [ s[ 0 ], s[ 1 ], s[ 2 ] ];
+
+						} else {
+
+							tempMatrix.makeScale( s, s, s );
+							scaleValues = [ s, s, s ];
+
+						}
+
+						if ( isInverse ) tempMatrix.invert();
+						matrix.multiply( tempMatrix );
+
+					}
+
+				} else if ( opName === 'xformOp:rotateXYZ' ) {
+
+					const r = data[ 'xformOp:rotateXYZ' ];
+					if ( r ) {
+
+						// USD rotateXYZ: matrix = Rx * Ry * Rz
+						// Three.js Euler 'ZYX' order produces same result
+						const euler = new Euler$1(
+							r[ 0 ] * Math.PI / 180,
+							r[ 1 ] * Math.PI / 180,
+							r[ 2 ] * Math.PI / 180,
+							'ZYX'
+						);
+						tempMatrix.makeRotationFromEuler( euler );
+						if ( isInverse ) tempMatrix.invert();
+						matrix.multiply( tempMatrix );
+
+					}
+
+				} else if ( opName === 'xformOp:rotateX' ) {
+
+					const r = data[ 'xformOp:rotateX' ];
+					if ( r !== undefined ) {
+
+						tempMatrix.makeRotationX( r * Math.PI / 180 );
+						if ( isInverse ) tempMatrix.invert();
+						matrix.multiply( tempMatrix );
+
+					}
+
+				} else if ( opName === 'xformOp:rotateY' ) {
+
+					const r = data[ 'xformOp:rotateY' ];
+					if ( r !== undefined ) {
+
+						tempMatrix.makeRotationY( r * Math.PI / 180 );
+						if ( isInverse ) tempMatrix.invert();
+						matrix.multiply( tempMatrix );
+
+					}
+
+				} else if ( opName === 'xformOp:rotateZ' ) {
+
+					const r = data[ 'xformOp:rotateZ' ];
+					if ( r !== undefined ) {
+
+						tempMatrix.makeRotationZ( r * Math.PI / 180 );
+						if ( isInverse ) tempMatrix.invert();
+						matrix.multiply( tempMatrix );
+
+					}
+
+				} else if ( opName === 'xformOp:orient' ) {
+
+					const q = data[ 'xformOp:orient' ];
+					if ( q && q.length === 4 ) {
+
+						const quat = new Quaternion$2( q[ 0 ], q[ 1 ], q[ 2 ], q[ 3 ] );
+						tempMatrix.makeRotationFromQuaternion( quat );
+						if ( isInverse ) tempMatrix.invert();
+						matrix.multiply( tempMatrix );
+
+					}
+
+				}
+
+			}
+
+			obj.matrix.copy( matrix );
+			obj.matrix.decompose( obj.position, obj.quaternion, obj.scale );
+
+			// Fix for negative scale: decompose() may absorb negative scale into quaternion
+			// Restore original scale signs to keep animation consistent
+			if ( scaleValues ) {
+
+				const negX = scaleValues[ 0 ] < 0;
+				const negY = scaleValues[ 1 ] < 0;
+				const negZ = scaleValues[ 2 ] < 0;
+				const negCount = ( negX ? 1 : 0 ) + ( negY ? 1 : 0 ) + ( negZ ? 1 : 0 );
+
+				// decompose() absorbs pairs of negative scales into rotation
+				// For [-1,-1,-1] → [-1,1,1], Y and Z were absorbed, flip quat.y and quat.w
+				if ( negCount === 3 ) {
+
+					obj.scale.set( scaleValues[ 0 ], scaleValues[ 1 ], scaleValues[ 2 ] );
+					obj.quaternion.set(
+						obj.quaternion.x,
+						- obj.quaternion.y,
+						obj.quaternion.z,
+						- obj.quaternion.w
+					);
+
+				}
+
+			}
+
+			return;
+
+		}
+
+		// Fallback: handle individual transform ops without order
+		if ( data[ 'xformOp:translate' ] ) {
+
+			const t = data[ 'xformOp:translate' ];
+			obj.position.set( t[ 0 ], t[ 1 ], t[ 2 ] );
+
+		}
+
+		if ( data[ 'xformOp:translate:pivot' ] ) {
+
+			const p = data[ 'xformOp:translate:pivot' ];
+			obj.pivot = new Vector3$2( p[ 0 ], p[ 1 ], p[ 2 ] );
+
+		}
+
+		if ( data[ 'xformOp:scale' ] ) {
+
+			const s = data[ 'xformOp:scale' ];
+
+			if ( Array.isArray( s ) ) {
+
+				obj.scale.set( s[ 0 ], s[ 1 ], s[ 2 ] );
+
+			} else {
+
+				obj.scale.set( s, s, s );
+
+			}
+
+		}
+
+		if ( data[ 'xformOp:rotateXYZ' ] ) {
+
+			const r = data[ 'xformOp:rotateXYZ' ];
+			obj.rotation.set(
+				r[ 0 ] * Math.PI / 180,
+				r[ 1 ] * Math.PI / 180,
+				r[ 2 ] * Math.PI / 180
+			);
+
+		}
+
+		if ( data[ 'xformOp:orient' ] ) {
+
+			const q = data[ 'xformOp:orient' ];
+			if ( q.length === 4 ) {
+
+				obj.quaternion.set( q[ 0 ], q[ 1 ], q[ 2 ], q[ 3 ] );
+
+			}
+
+		}
+
+	}
+
+	/**
+	 * Build indexes for efficient lookups.
+	 * Called once during compose() to avoid O(n) scans per lookup.
+	 */
+	_buildIndexes() {
+
+		// childrenByPath: parentPath -> [childName1, childName2, ...]
+		this.childrenByPath = new Map();
+
+		// attributesByPrimPath: primPath -> Map(attrName -> attrSpec)
+		this.attributesByPrimPath = new Map();
+
+		// materialsByRoot: rootPath -> [materialPath1, materialPath2, ...]
+		this.materialsByRoot = new Map();
+
+		// shadersByMaterialPath: materialPath -> [shaderPath1, shaderPath2, ...]
+		this.shadersByMaterialPath = new Map();
+
+		// geomSubsetsByMeshPath: meshPath -> [subsetPath1, subsetPath2, ...]
+		this.geomSubsetsByMeshPath = new Map();
+
+		for ( const path in this.specsByPath ) {
+
+			const spec = this.specsByPath[ path ];
+
+			if ( spec.specType === SpecType.Prim ) {
+
+				// Build parent-child index
+				const lastSlash = path.lastIndexOf( '/' );
+
+				if ( lastSlash > 0 ) {
+
+					const parentPath = path.slice( 0, lastSlash );
+					const childName = path.slice( lastSlash + 1 );
+
+					if ( ! this.childrenByPath.has( parentPath ) ) {
+
+						this.childrenByPath.set( parentPath, [] );
+
+					}
+
+					this.childrenByPath.get( parentPath ).push( { name: childName, path: path } );
+
+				} else if ( lastSlash === 0 && path.length > 1 ) {
+
+					// Direct child of root
+					const childName = path.slice( 1 );
+
+					if ( ! this.childrenByPath.has( '/' ) ) {
+
+						this.childrenByPath.set( '/', [] );
+
+					}
+
+					this.childrenByPath.get( '/' ).push( { name: childName, path: path } );
+
+				}
+
+				const typeName = spec.fields.typeName;
+
+				// Build material index
+				if ( typeName === 'Material' ) {
+
+					const parts = path.split( '/' );
+					const rootPath = parts.length > 1 ? '/' + parts[ 1 ] : '/';
+
+					if ( ! this.materialsByRoot.has( rootPath ) ) {
+
+						this.materialsByRoot.set( rootPath, [] );
+
+					}
+
+					this.materialsByRoot.get( rootPath ).push( path );
+
+				}
+
+				// Build shader index (shaders are children or descendants of materials)
+				if ( typeName === 'Shader' && lastSlash > 0 ) {
+
+					// Walk up ancestors to find the nearest Material prim.
+					// Shaders may be direct children of a Material, or nested
+					// inside a NodeGraph (common with MaterialX materials).
+
+					let ancestorPath = path.slice( 0, lastSlash );
+
+					while ( ancestorPath.length > 0 ) {
+
+						const ancestorSpec = this.specsByPath[ ancestorPath ];
+
+						if ( ancestorSpec && ancestorSpec.specType === SpecType.Prim && ancestorSpec.fields.typeName === 'Material' ) {
+
+							if ( ! this.shadersByMaterialPath.has( ancestorPath ) ) {
+
+								this.shadersByMaterialPath.set( ancestorPath, [] );
+
+							}
+
+							this.shadersByMaterialPath.get( ancestorPath ).push( path );
+							break;
+
+						}
+
+						const slash = ancestorPath.lastIndexOf( '/' );
+						if ( slash <= 0 ) break;
+						ancestorPath = ancestorPath.slice( 0, slash );
+
+					}
+
+				}
+
+				// Build GeomSubset index (subsets are children of meshes)
+				if ( typeName === 'GeomSubset' && lastSlash > 0 ) {
+
+					const meshPath = path.slice( 0, lastSlash );
+
+					if ( ! this.geomSubsetsByMeshPath.has( meshPath ) ) {
+
+						this.geomSubsetsByMeshPath.set( meshPath, [] );
+
+					}
+
+					this.geomSubsetsByMeshPath.get( meshPath ).push( path );
+
+				}
+
+			} else if ( spec.specType === SpecType.Attribute || spec.specType === SpecType.Relationship ) {
+
+				// Build attribute index
+				const dotIndex = path.lastIndexOf( '.' );
+
+				if ( dotIndex > 0 ) {
+
+					const primPath = path.slice( 0, dotIndex );
+					const attrName = path.slice( dotIndex + 1 );
+
+					if ( ! this.attributesByPrimPath.has( primPath ) ) {
+
+						this.attributesByPrimPath.set( primPath, new Map() );
+
+					}
+
+					this.attributesByPrimPath.get( primPath ).set( attrName, spec );
+
+				}
+
+			}
+
+		}
+
+	}
+
+	/**
+	 * Check if a path is a direct child of parentPath.
+	 */
+	_isDirectChild( parentPath, path, prefix ) {
+
+		if ( ! path.startsWith( prefix ) ) return false;
+
+		const remainder = path.slice( prefix.length );
+		if ( remainder.length === 0 ) return false;
+
+		// Check for variant paths or simple names
+		if ( remainder.startsWith( '{' ) ) {
+
+			return false; // Variant paths are not direct children
+
+		}
+
+		return ! remainder.includes( '/' );
+
+	}
+
+	/**
+	 * Build the scene hierarchy recursively.
+	 * Uses childrenByPath index for O(1) child lookup instead of O(n) iteration.
+	 */
+	_buildHierarchy( parent, parentPath ) {
+
+		// Collect children from parentPath and any active variant paths
+		const childEntries = [];
+		const seenPaths = new Set();
+
+		// Get direct children using the index
+		const directChildren = this.childrenByPath.get( parentPath );
+
+		if ( directChildren ) {
+
+			for ( const child of directChildren ) {
+
+				if ( ! seenPaths.has( child.path ) ) {
+
+					seenPaths.add( child.path );
+					childEntries.push( child );
+
+				}
+
+			}
+
+		}
+
+		// Also get children from active variant paths
+		const variantPaths = this._getVariantPaths( parentPath );
+
+		for ( const vp of variantPaths ) {
+
+			const variantChildren = this.childrenByPath.get( vp );
+
+			if ( variantChildren ) {
+
+				for ( const child of variantChildren ) {
+
+					if ( ! seenPaths.has( child.path ) ) {
+
+						seenPaths.add( child.path );
+						childEntries.push( child );
+
+					}
+
+				}
+
+			}
+
+		}
+
+		// Process each child
+		for ( const { name, path } of childEntries ) {
+
+			const spec = this.specsByPath[ path ];
+			if ( ! spec || spec.specType !== SpecType.Prim ) continue;
+
+			const typeName = spec.fields.typeName;
+
+			// Check for references/payloads
+			const refValues = this._getReferences( spec );
+			if ( refValues.length > 0 ) {
+
+				// Get local variant selections from this prim
+				const localVariants = this._getLocalVariantSelections( spec.fields );
+
+				// Resolve all references
+				const resolvedGroups = [];
+				for ( const refValue of refValues ) {
+
+					const referencedGroup = this._resolveReference( refValue, localVariants );
+					if ( referencedGroup ) resolvedGroups.push( referencedGroup );
+
+				}
+
+				if ( resolvedGroups.length > 0 ) {
+
+					const attrs = this._getAttributes( path );
+
+					// Single reference with single mesh: use optimized path
+					// This handles the USDZExporter pattern: Xform references geometry file
+					if ( resolvedGroups.length === 1 ) {
+
+						const singleMesh = this._findSingleMesh( resolvedGroups[ 0 ] );
+
+						if ( singleMesh && ( typeName === 'Xform' || ! typeName ) ) {
+
+							// Merge the mesh into this prim
+							singleMesh.name = name;
+							this.applyTransform( singleMesh, spec.fields, attrs );
+
+							// Apply material binding from the referencing prim if present
+							this._applyMaterialBinding( singleMesh, path );
+
+							parent.add( singleMesh );
+
+							// Still build local children (overrides)
+							this._buildHierarchy( singleMesh, path );
+
+							continue;
+
+						}
+
+					}
+
+					// Create a container for the referenced content
+					const obj = new Object3D();
+					obj.name = name;
+					this.applyTransform( obj, spec.fields, attrs );
+
+					// Add all children from all resolved references
+					for ( const referencedGroup of resolvedGroups ) {
+
+						while ( referencedGroup.children.length > 0 ) {
+
+							obj.add( referencedGroup.children[ 0 ] );
+
+						}
+
+					}
+
+					parent.add( obj );
+
+					// Still build local children (overrides)
+					this._buildHierarchy( obj, path );
+
+					continue;
+
+				}
+
+			}
+
+			// Build appropriate object based on type
+			if ( typeName === 'SkelRoot' ) {
+
+				// Skeletal root - treat as transform but track for skeleton binding
+				const obj = new Object3D();
+				obj.name = name;
+				obj.userData.isSkelRoot = true;
+				const attrs = this._getAttributes( path );
+				this.applyTransform( obj, spec.fields, attrs );
+				parent.add( obj );
+				this._buildHierarchy( obj, path );
+
+			} else if ( typeName === 'Skeleton' ) {
+
+				// Build skeleton and store it
+				const skeleton = this._buildSkeleton( path );
+				if ( skeleton ) {
+
+					this.skeletons[ path ] = skeleton;
+
+				}
+
+				// Recursively build children (may contain SkelAnimation)
+				this._buildHierarchy( parent, path );
+
+			} else if ( typeName === 'SkelAnimation' ) ; else if ( typeName === 'Mesh' ) {
+
+				const obj = this._buildMesh( path, spec );
+				if ( obj ) {
+
+					parent.add( obj );
+					this._buildHierarchy( obj, path );
+
+				}
+
+			} else if ( typeName === 'Camera' ) {
+
+				const obj = this._buildCamera( path );
+				obj.name = name;
+				const attrs = this._getAttributes( path );
+				this.applyTransform( obj, spec.fields, attrs );
+				parent.add( obj );
+				this._buildHierarchy( obj, path );
+
+			} else if ( typeName === 'DistantLight' || typeName === 'SphereLight' || typeName === 'RectLight' || typeName === 'DiskLight' ) {
+
+				const obj = this._buildLight( path, typeName );
+				obj.name = name;
+				const attrs = this._getAttributes( path );
+				this.applyTransform( obj, spec.fields, attrs );
+				parent.add( obj );
+				this._buildHierarchy( obj, path );
+
+			} else if ( typeName === 'Cube' || typeName === 'Sphere' || typeName === 'Cylinder' || typeName === 'Cone' || typeName === 'Capsule' ) {
+
+				const obj = this._buildGeomPrimitive( path, spec, typeName );
+				if ( obj ) {
+
+					parent.add( obj );
+					this._buildHierarchy( obj, path );
+
+				}
+
+			} else if ( typeName === 'Material' || typeName === 'Shader' || typeName === 'GeomSubset' ) ; else {
+
+				// Transform node, group, or unknown type
+				const obj = new Object3D();
+				obj.name = name;
+				const attrs = this._getAttributes( path );
+				this.applyTransform( obj, spec.fields, attrs );
+				parent.add( obj );
+				this._buildHierarchy( obj, path );
+
+			}
+
+		}
+
+	}
+
+	/**
+	 * Get variant paths for a parent path based on variant selections.
+	 */
+	_getVariantPaths( parentPath ) {
+
+		const parentSpec = this.specsByPath[ parentPath ];
+		const variantSetChildren = parentSpec?.fields?.variantSetChildren;
+		const variantPaths = [];
+
+		if ( ! variantSetChildren || variantSetChildren.length === 0 ) {
+
+			return variantPaths;
+
+		}
+
+		for ( const variantSetName of variantSetChildren ) {
+
+			// External selections take priority
+			let selectedVariant = this.externalVariantSelections[ variantSetName ] || null;
+
+			// Fall back to file's internal selection
+			if ( ! selectedVariant ) {
+
+				const variantSelection = parentSpec.fields.variantSelection;
+				selectedVariant = variantSelection ? variantSelection[ variantSetName ] : null;
+
+			}
+
+			// Fall back to first variant child
+			if ( ! selectedVariant ) {
+
+				const variantSetPath = parentPath + '/{' + variantSetName + '=}';
+				const variantSetSpec = this.specsByPath[ variantSetPath ];
+				if ( variantSetSpec?.fields?.variantChildren ) {
+
+					selectedVariant = variantSetSpec.fields.variantChildren[ 0 ];
+
+				}
+
+			}
+
+			if ( selectedVariant ) {
+
+				const variantPath = parentPath + '/{' + variantSetName + '=' + selectedVariant + '}';
+				variantPaths.push( variantPath );
+
+			}
+
+		}
+
+		return variantPaths;
+
+	}
+
+	/**
+	 * Resolve a file path relative to basePath.
+	 */
+	_resolveFilePath( refPath ) {
+
+		let cleanPath = refPath;
+
+		// Remove ./ prefix
+		if ( cleanPath.startsWith( './' ) ) {
+
+			cleanPath = cleanPath.slice( 2 );
+
+		}
+
+		// Combine with base path
+		if ( this.basePath ) {
+
+			return this.basePath + '/' + cleanPath;
+
+		}
+
+		return cleanPath;
+
+	}
+
+	/**
+	 * Resolve a USD reference and return the composed content.
+	 * @param {string} refValue - Reference value like "@./path/to/file.usdc@"
+	 * @param {Object} localVariants - Variant selections to apply
+	 * @returns {Group|null} Composed content or null
+	 */
+	_resolveReference( refValue, localVariants = {} ) {
+
+		if ( ! refValue ) return null;
+
+		const match = refValue.match( /@([^@]+)@(?:<([^>]+)>)?/ );
+		if ( ! match ) return null;
+
+		const filePath = match[ 1 ];
+		const primPath = match[ 2 ]; // e.g., "/Geometry"
+
+		const resolvedPath = this._resolveFilePath( filePath );
+
+		// Merge variant selections - external takes priority, then local
+		const mergedVariants = { ...localVariants, ...this.externalVariantSelections };
+
+		// Look up pre-parsed data in assets
+		const referencedData = this.assets[ resolvedPath ];
+		if ( ! referencedData ) return null;
+
+		// If it's specsByPath data, compose it
+		if ( referencedData.specsByPath ) {
+
+			const composer = new USDComposer( this.manager );
+			const newBasePath = this._getBasePath( resolvedPath );
+			const composedGroup = composer.compose( referencedData, this.assets, mergedVariants, newBasePath );
+
+			// If a primPath is specified, find and return just that subtree
+			if ( primPath ) {
+
+				const primName = primPath.split( '/' ).pop();
+
+				// Find the direct child with this name (not a deep search)
+				// This is important because there may be multiple objects with the same name
+				let targetObject = null;
+				for ( const child of composedGroup.children ) {
+
+					if ( child.name === primName ) {
+
+						targetObject = child;
+						break;
+
+					}
+
+				}
+
+				if ( targetObject ) {
+
+					// Detach from parent for re-parenting
+					composedGroup.remove( targetObject );
+
+					// Wrap in a group to maintain consistent return type
+					const wrapper = new Group$1();
+					wrapper.add( targetObject );
+					return wrapper;
+
+				}
+
+			}
+
+			return composedGroup;
+
+		}
+
+		// If it's already a Three.js Group (legacy support), clone it
+		if ( referencedData.isGroup || referencedData.isObject3D ) {
+
+			return referencedData.clone();
+
+		}
+
+		return null;
+
+	}
+
+	/**
+	 * Find a single mesh in the group's shallow hierarchy.
+	 * Only returns a mesh if it's at depth 0 or 1, not deeply nested.
+	 * This preserves transforms in complex hierarchies like Kitchen Set
+	 * while supporting USDZExporter round-trip (Xform > Xform > Mesh pattern).
+	 */
+	_findSingleMesh( group ) {
+
+		// Check direct children first
+		for ( const child of group.children ) {
+
+			if ( child.isMesh ) {
+
+				group.remove( child );
+				return child;
+
+			}
+
+		}
+
+		// Check grandchildren (USDZExporter pattern: Xform > Geometry > Mesh)
+		// Only if there's exactly one child with exactly one grandchild
+		if ( group.children.length === 1 ) {
+
+			const child = group.children[ 0 ];
+
+			if ( child.children && child.children.length === 1 ) {
+
+				const grandchild = child.children[ 0 ];
+
+				if ( grandchild.isMesh && ! this._hasNonIdentityTransform( child ) ) {
+
+					// Safe to merge - intermediate has identity transform
+					child.remove( grandchild );
+					return grandchild;
+
+				}
+
+			}
+
+		}
+
+		return null;
+
+	}
+
+	/**
+	 * Check if an object has a non-identity local transform.
+	 */
+	_hasNonIdentityTransform( obj ) {
+
+		const pos = obj.position;
+		const rot = obj.rotation;
+		const scale = obj.scale;
+
+		const hasPosition = pos.x !== 0 || pos.y !== 0 || pos.z !== 0;
+		const hasRotation = rot.x !== 0 || rot.y !== 0 || rot.z !== 0;
+		const hasScale = scale.x !== 1 || scale.y !== 1 || scale.z !== 1;
+
+		return hasPosition || hasRotation || hasScale;
+
+	}
+
+	/**
+	 * Get the base path (directory) from a file path.
+	 */
+	_getBasePath( filePath ) {
+
+		const lastSlash = filePath.lastIndexOf( '/' );
+		return lastSlash >= 0 ? filePath.slice( 0, lastSlash ) : '';
+
+	}
+
+	/**
+	 * Extract variant selections from a spec's fields.
+	 */
+	_getLocalVariantSelections( fields ) {
+
+		const variants = {};
+
+		if ( fields.variantSelection ) {
+
+			for ( const key in fields.variantSelection ) {
+
+				variants[ key ] = fields.variantSelection[ key ];
+
+			}
+
+		}
+
+		return variants;
+
+	}
+
+	/**
+	 * Get all reference values from a prim spec.
+	 * @returns {string[]} Array of reference strings like "@path@" or "@path@<prim>"
+	 */
+	_getReferences( spec ) {
+
+		const results = [];
+
+		if ( spec.fields.references && spec.fields.references.length > 0 ) {
+
+			const ref = spec.fields.references[ 0 ];
+
+			if ( typeof ref === 'string' ) {
+
+				// Extract all @...@ references (handles both single and array values)
+				const matches = ref.matchAll( /@([^@]+)@(?:<([^>]+)>)?/g );
+				for ( const match of matches ) {
+
+					results.push( match[ 0 ] );
+
+				}
+
+			} else if ( ref.assetPath ) {
+
+				results.push( '@' + ref.assetPath + '@' );
+
+			}
+
+		}
+
+		if ( results.length === 0 && spec.fields.payload ) {
+
+			const payload = spec.fields.payload;
+			if ( typeof payload === 'string' ) results.push( payload );
+			else if ( payload.assetPath ) results.push( '@' + payload.assetPath + '@' );
+
+		}
+
+		return results;
+
+	}
+
+	/**
+	 * Get attributes for a path from attribute specs.
+	 */
+	_getAttributes( path ) {
+
+		const attrs = {};
+
+		this._collectAttributesFromPath( path, attrs );
+
+		// Collect overrides from sibling variants (when path is inside a variant)
+		const variantMatch = path.match( VARIANT_PATH_REGEX );
+		if ( variantMatch ) {
+
+			const basePath = variantMatch[ 1 ];
+			const relativePath = variantMatch[ 4 ];
+			const variantPaths = this._getVariantPaths( basePath );
+
+			for ( const vp of variantPaths ) {
+
+				if ( path.startsWith( vp ) ) continue;
+
+				const overridePath = vp + '/' + relativePath;
+				this._collectAttributesFromPath( overridePath, attrs );
+
+			}
+
+		} else {
+
+			// Check for variant overrides at ancestor levels
+			const parts = path.split( '/' );
+			for ( let i = 1; i < parts.length - 1; i ++ ) {
+
+				const ancestorPath = parts.slice( 0, i + 1 ).join( '/' );
+				const relativePath = parts.slice( i + 1 ).join( '/' );
+				const variantPaths = this._getVariantPaths( ancestorPath );
+
+				for ( const vp of variantPaths ) {
+
+					const overridePath = vp + '/' + relativePath;
+					this._collectAttributesFromPath( overridePath, attrs );
+
+				}
+
+			}
+
+		}
+
+		return attrs;
+
+	}
+
+	_collectAttributesFromPath( path, attrs ) {
+
+		// Use the attribute index for O(1) lookup instead of O(n) iteration
+		const attrMap = this.attributesByPrimPath.get( path );
+
+		if ( ! attrMap ) return;
+
+		for ( const [ attrName, attrSpec ] of attrMap ) {
+
+			if ( attrSpec.fields?.default !== undefined ) {
+
+				attrs[ attrName ] = attrSpec.fields.default;
+
+			} else if ( attrSpec.fields?.timeSamples ) {
+
+				// For animated attributes without default, use the first time sample (rest pose)
+				const { times, values } = attrSpec.fields.timeSamples;
+				if ( times && values && times.length > 0 ) {
+
+					// Find time 0, or use the first available time
+					const idx = times.indexOf( 0 );
+					attrs[ attrName ] = idx >= 0 ? values[ idx ] : values[ 0 ];
+
+				}
+
+			}
+
+			if ( attrSpec.fields?.elementSize !== undefined ) {
+
+				attrs[ attrName + ':elementSize' ] = attrSpec.fields.elementSize;
+
+			}
+
+			if ( attrName.startsWith( 'primvars:' ) && attrSpec.fields?.typeName !== undefined ) {
+
+				attrs[ attrName + ':typeName' ] = attrSpec.fields.typeName;
+
+			}
+
+		}
+
+	}
+
+	/**
+	 * Build a mesh from a USD geometric primitive (Cube, Sphere, Cylinder, Cone, Capsule).
+	 */
+	_buildGeomPrimitive( path, spec, typeName ) {
+
+		const attrs = this._getAttributes( path );
+		const name = path.split( '/' ).pop();
+
+		let geometry;
+
+		switch ( typeName ) {
+
+			case 'Cube': {
+
+				const size = attrs[ 'size' ] || 2;
+				geometry = new BoxGeometry( size, size, size );
+				break;
+
+			}
+
+			case 'Sphere': {
+
+				const radius = attrs[ 'radius' ] || 1;
+				geometry = new SphereGeometry( radius, 32, 16 );
+				break;
+
+			}
+
+			case 'Cylinder': {
+
+				const height = attrs[ 'height' ] || 2;
+				const radius = attrs[ 'radius' ] || 1;
+				geometry = new CylinderGeometry( radius, radius, height, 32 );
+				break;
+
+			}
+
+			case 'Cone': {
+
+				const height = attrs[ 'height' ] || 2;
+				const radius = attrs[ 'radius' ] || 1;
+				geometry = new ConeGeometry( radius, height, 32 );
+				break;
+
+			}
+
+			case 'Capsule': {
+
+				const height = attrs[ 'height' ] || 1;
+				const radius = attrs[ 'radius' ] || 0.5;
+				geometry = new CapsuleGeometry( radius, height, 16, 32 );
+				break;
+
+			}
+
+		}
+
+		// USD defaults axis to "Z", Three.js uses Y
+		const axis = attrs[ 'axis' ] || 'Z';
+
+		if ( axis === 'X' ) {
+
+			geometry.rotateZ( - Math.PI / 2 );
+
+		} else if ( axis === 'Z' ) {
+
+			geometry.rotateX( Math.PI / 2 );
+
+		}
+
+		const material = this._buildMaterial( path, spec.fields );
+		const mesh = new Mesh( geometry, material );
+		mesh.name = name;
+
+		this.applyTransform( mesh, spec.fields, attrs );
+
+		return mesh;
+
+	}
+
+	/**
+	 * Build a mesh from a Mesh spec.
+	 */
+	_buildMesh( path, spec ) {
+
+		const attrs = this._getAttributes( path );
+
+		// Check for skinning data
+		const jointIndices = attrs[ 'primvars:skel:jointIndices' ];
+		const jointWeights = attrs[ 'primvars:skel:jointWeights' ];
+		const hasSkinning = jointIndices && jointWeights &&
+			jointIndices.length > 0 && jointWeights.length > 0;
+
+		// Collect GeomSubsets for multi-material support
+		const geomSubsets = this._getGeomSubsets( path );
+
+		let geometry, material;
+
+		if ( geomSubsets.length > 0 ) {
+
+			geometry = this._buildGeometryWithSubsets( attrs, geomSubsets, hasSkinning );
+
+			const meshMaterialPath = this._getMaterialPath( path, spec.fields );
+
+			material = geomSubsets.map( subset => {
+
+				const matPath = subset.materialPath || meshMaterialPath;
+				return this._buildMaterialForPath( matPath );
+
+			} );
+
+		} else {
+
+			geometry = this._buildGeometry( path, attrs, hasSkinning );
+			material = this._buildMaterial( path, spec.fields );
+
+		}
+
+		const displayColor = attrs[ 'primvars:displayColor' ];
+		if ( displayColor && displayColor.length >= 3 ) {
+
+			const applyDisplayColor = ( mat ) => {
+
+				if ( mat.color && mat.color.r === 1 && mat.color.g === 1 && mat.color.b === 1 && ! mat.map ) {
+
+					mat.color.setRGB( displayColor[ 0 ], displayColor[ 1 ], displayColor[ 2 ], SRGBColorSpace$1 );
+
+				}
+
+			};
+
+			if ( Array.isArray( material ) ) {
+
+				material.forEach( applyDisplayColor );
+
+			} else {
+
+				applyDisplayColor( material );
+
+			}
+
+		}
+
+		const displayOpacity = attrs[ 'primvars:displayOpacity' ];
+		if ( displayOpacity && displayOpacity.length === 1 && geomSubsets.length === 0 ) {
+
+			const opacity = displayOpacity[ 0 ];
+
+			const applyDisplayOpacity = ( mat ) => {
+
+				if ( opacity < 1 && mat.opacity === 1 && mat.transparent === false ) {
+
+					mat.opacity = opacity;
+					mat.transparent = true;
+
+				}
+
+			};
+
+			if ( Array.isArray( material ) ) {
+
+				material.forEach( applyDisplayOpacity );
+
+			} else {
+
+				applyDisplayOpacity( material );
+
+			}
+
+		}
+
+		let mesh;
+
+		if ( hasSkinning ) {
+
+			mesh = new SkinnedMesh( geometry, material );
+
+			// Find skeleton path from skel:skeleton relationship
+			let skelBindingSpec = this.specsByPath[ path + '.skel:skeleton' ];
+			if ( ! skelBindingSpec ) {
+
+				skelBindingSpec = this.specsByPath[ path + '.rel skel:skeleton' ];
+
+			}
+
+			let skeletonPath = null;
+
+			if ( skelBindingSpec ) {
+
+				if ( skelBindingSpec.fields.targetPaths && skelBindingSpec.fields.targetPaths.length > 0 ) {
+
+					skeletonPath = skelBindingSpec.fields.targetPaths[ 0 ];
+
+				} else if ( skelBindingSpec.fields.default ) {
+
+					skeletonPath = skelBindingSpec.fields.default.replace( /<|>/g, '' );
+
+				}
+
+			}
+
+			// Get per-mesh joint mapping
+			const localJoints = attrs[ 'skel:joints' ];
+
+			// Get geomBindTransform if present
+			const geomBindTransform = attrs[ 'primvars:skel:geomBindTransform' ];
+
+			this.skinnedMeshes.push( { mesh, skeletonPath, path, localJoints, geomBindTransform } );
+
+		} else {
+
+			mesh = new Mesh( geometry, material );
+
+		}
+
+		mesh.name = path.split( '/' ).pop();
+		this.applyTransform( mesh, spec.fields, attrs );
+
+		return mesh;
+
+	}
+
+	/**
+	 * Build a camera from a Camera spec.
+	 */
+	_buildCamera( path ) {
+
+		const attrs = this._getAttributes( path );
+		const projectionToken = attrs[ 'projection' ];
+		const projection = typeof projectionToken === 'string'
+			? projectionToken.toLowerCase()
+			: USD_CAMERA_DEFAULTS.projection;
+		const clippingRange = attrs[ 'clippingRange' ] || USD_CAMERA_DEFAULTS.clippingRange;
+		const near = Math.max(
+			Number.EPSILON,
+			this._parseNumber( clippingRange[ 0 ], USD_CAMERA_DEFAULTS.clippingRange[ 0 ] )
+		);
+		const far = Math.max(
+			near + Number.EPSILON,
+			this._parseNumber( clippingRange[ 1 ], USD_CAMERA_DEFAULTS.clippingRange[ 1 ] )
+		);
+		const horizontalAperture = this._parseNumber(
+			attrs[ 'horizontalAperture' ],
+			USD_CAMERA_DEFAULTS.horizontalAperture
+		);
+		const verticalAperture = this._parseNumber(
+			attrs[ 'verticalAperture' ],
+			USD_CAMERA_DEFAULTS.verticalAperture
+		);
+		const horizontalApertureOffset = this._parseNumber(
+			attrs[ 'horizontalApertureOffset' ],
+			USD_CAMERA_DEFAULTS.horizontalApertureOffset
+		);
+		const verticalApertureOffset = this._parseNumber(
+			attrs[ 'verticalApertureOffset' ],
+			USD_CAMERA_DEFAULTS.verticalApertureOffset
+		);
+		const focalLength = this._parseNumber( attrs[ 'focalLength' ], USD_CAMERA_DEFAULTS.focalLength );
+		const focusDistance = this._parseNumber( attrs[ 'focusDistance' ], USD_CAMERA_DEFAULTS.focusDistance );
+		const fStop = this._parseNumber( attrs[ 'fStop' ], USD_CAMERA_DEFAULTS.fStop );
+
+		let camera;
+
+		if ( projection === 'orthographic' ) {
+
+			// USD orthographic apertures are in tenths of a world unit.
+			const width = horizontalAperture / 10;
+			const height = verticalAperture / 10;
+			const offsetX = horizontalApertureOffset / 10;
+			const offsetY = verticalApertureOffset / 10;
+
+			camera = new OrthographicCamera(
+				offsetX - width * 0.5,
+				offsetX + width * 0.5,
+				offsetY + height * 0.5,
+				offsetY - height * 0.5,
+				near,
+				far
+			);
+
+		} else {
+
+			const safeVerticalAperture = Math.max( Number.EPSILON, verticalAperture );
+			const safeFocalLength = Math.max( Number.EPSILON, focalLength );
+			const aspect = horizontalAperture / safeVerticalAperture;
+			const fov = 2 * Math.atan( safeVerticalAperture / ( 2 * safeFocalLength ) ) * 180 / Math.PI;
+
+			camera = new PerspectiveCamera( fov, aspect, near, far );
+			camera.filmGauge = Math.max( horizontalAperture, verticalAperture );
+			camera.filmOffset = horizontalApertureOffset;
+			camera.focus = focusDistance;
+			camera.setFocalLength( safeFocalLength );
+
+			if ( verticalApertureOffset !== 0 ) {
+
+				// Three.js supports only horizontal film offset directly.
+				camera.userData.verticalApertureOffset = verticalApertureOffset;
+
+			}
+
+		}
+
+		camera.userData.fStop = fStop;
+		camera.userData.usdProjection = projection;
+		return camera;
+
+	}
+
+	/**
+	 * Build a light from a UsdLux light spec.
+	 */
+	_buildLight( path, typeName ) {
+
+		const attrs = this._getAttributes( path );
+
+		const intensity = this._parseNumber( attrs[ 'inputs:intensity' ], 1 );
+		const baseColor = attrs[ 'inputs:color' ] || [ 1, 1, 1 ];
+		const enableColorTemperature = attrs[ 'inputs:enableColorTemperature' ] === true;
+		const colorTemperature = this._parseNumber( attrs[ 'inputs:colorTemperature' ], 6500 );
+
+		const color = new Color$1( baseColor[ 0 ], baseColor[ 1 ], baseColor[ 2 ] );
+
+		if ( enableColorTemperature ) {
+
+			const temp = this._colorTemperature( colorTemperature );
+			color.multiply( temp );
+
+		}
+
+		let light;
+
+		switch ( typeName ) {
+
+			case 'DistantLight':
+				light = new DirectionalLight( color, intensity );
+				break;
+
+			case 'SphereLight': {
+
+				const coneAngle = this._parseNumber( attrs[ 'shaping:cone:angle' ], 0 );
+
+				if ( coneAngle > 0 ) {
+
+					const angle = coneAngle * Math.PI / 180;
+					const softness = this._parseNumber( attrs[ 'shaping:cone:softness' ], 0 );
+					light = new SpotLight( color, intensity, 0, angle, softness );
+
+				} else {
+
+					light = new PointLight( color, intensity );
+
+				}
+
+				break;
+
+			}
+
+			case 'RectLight': {
+
+				const width = this._parseNumber( attrs[ 'inputs:width' ], 1 );
+				const height = this._parseNumber( attrs[ 'inputs:height' ], 1 );
+				light = new RectAreaLight( color, intensity, width, height );
+				break;
+
+			}
+
+			case 'DiskLight': {
+
+				const radius = this._parseNumber( attrs[ 'inputs:radius' ], 0.5 );
+				const side = radius * 2;
+				light = new RectAreaLight( color, intensity, side, side );
+				break;
+
+			}
+
+		}
+
+		return light;
+
+	}
+
+	/**
+	 * Convert a color temperature in Kelvin to an RGB Color.
+	 * Based on Tanner Helland's algorithm.
+	 */
+	_colorTemperature( kelvin ) {
+
+		const temp = kelvin / 100;
+		let r, g, b;
+
+		if ( temp <= 66 ) {
+
+			r = 1;
+			g = 0.39008157876901960784 * Math.log( temp ) - 0.63184144378862745098;
+
+		} else {
+
+			r = 1.29293618606274509804 * Math.pow( temp - 60, -0.1332047592 );
+			g = 1.12989086089529411765 * Math.pow( temp - 60, -0.0755148492 );
+
+		}
+
+		if ( temp >= 66 ) {
+
+			b = 1;
+
+		} else if ( temp <= 19 ) {
+
+			b = 0;
+
+		} else {
+
+			b = 0.54320678911019607843 * Math.log( temp - 10 ) - 1.19625408914;
+
+		}
+
+		return new Color$1(
+			Math.min( Math.max( r, 0 ), 1 ),
+			Math.min( Math.max( g, 0 ), 1 ),
+			Math.min( Math.max( b, 0 ), 1 )
+		);
+
+	}
+
+	_parseNumber( value, fallback ) {
+
+		const n = Number( value );
+		return Number.isFinite( n ) ? n : fallback;
+
+	}
+
+	_getGeomSubsets( meshPath ) {
+
+		const subsets = [];
+		const subsetPaths = this.geomSubsetsByMeshPath.get( meshPath );
+		if ( ! subsetPaths ) return subsets;
+
+		for ( const p of subsetPaths ) {
+
+			const attrs = this._getAttributes( p );
+			const indices = attrs[ 'indices' ];
+			if ( ! indices || indices.length === 0 ) continue;
+
+			// Get material binding - check direct path and variant paths
+			const materialPath = this._getMaterialBindingTarget( p );
+
+			subsets.push( {
+				name: p.split( '/' ).pop(),
+				indices: indices,
+				materialPath: materialPath
+			} );
+
+		}
+
+		return subsets;
+
+	}
+
+	/**
+	 * Get material binding target path, checking variant paths if needed.
+	 */
+	_getMaterialBindingTarget( primPath ) {
+
+		const attrName = 'material:binding';
+
+		// First check direct path
+		const directPath = primPath + '.' + attrName;
+		const directSpec = this.specsByPath[ directPath ];
+		if ( directSpec?.fields?.targetPaths?.length > 0 ) {
+
+			return directSpec.fields.targetPaths[ 0 ];
+
+		}
+
+		// Check variant paths at ancestor levels
+		const parts = primPath.split( '/' );
+		for ( let i = 1; i < parts.length; i ++ ) {
+
+			const ancestorPath = parts.slice( 0, i + 1 ).join( '/' );
+			const relativePath = parts.slice( i + 1 ).join( '/' );
+			const variantPaths = this._getVariantPaths( ancestorPath );
+
+			for ( const vp of variantPaths ) {
+
+				const overridePath = relativePath ? vp + '/' + relativePath + '.' + attrName : vp + '.' + attrName;
+				const overrideSpec = this.specsByPath[ overridePath ];
+
+				if ( overrideSpec?.fields?.targetPaths?.length > 0 ) {
+
+					return overrideSpec.fields.targetPaths[ 0 ];
+
+				}
+
+			}
+
+		}
+
+		return null;
+
+	}
+
+	_buildGeometry( path, fields, hasSkinning = false ) {
+
+		const geometry = new BufferGeometry();
+
+		const points = fields[ 'points' ];
+		if ( ! points || points.length === 0 ) return geometry;
+
+		const faceVertexIndices = fields[ 'faceVertexIndices' ];
+		const faceVertexCounts = fields[ 'faceVertexCounts' ];
+
+		// Parse polygon holes (Arnold format: [holeFaceIdx, parentFaceIdx, ...])
+		const polygonHoles = fields[ 'primvars:arnold:polygon_holes' ];
+		const holeMap = this._buildHoleMap( polygonHoles );
+
+		// Compute triangulation pattern once using actual vertex positions
+		// This pattern will be reused for normals, UVs, etc.
+		let indices = faceVertexIndices;
+		let triPattern = null;
+
+		if ( faceVertexCounts && faceVertexCounts.length > 0 ) {
+
+			const result = this._triangulateIndicesWithPattern( faceVertexIndices, faceVertexCounts, points, holeMap );
+			indices = result.indices;
+			triPattern = result.pattern;
+
+		}
+
+		let positions = points;
+		if ( indices && indices.length > 0 ) {
+
+			positions = this._expandAttribute( points, indices, 3 );
+
+		}
+
+		geometry.setAttribute( 'position', new BufferAttribute$1( new Float32Array( positions ), 3 ) );
+
+		const normals = fields[ 'normals' ] || fields[ 'primvars:normals' ];
+		const normalIndicesRaw = fields[ 'normals:indices' ] || fields[ 'primvars:normals:indices' ];
+
+		if ( normals && normals.length > 0 ) {
+
+			let normalData = normals;
+
+			if ( normalIndicesRaw && normalIndicesRaw.length > 0 && triPattern ) {
+
+				// Indexed normals - apply triangulation pattern to indices
+				const triangulatedNormalIndices = this._applyTriangulationPattern( normalIndicesRaw, triPattern );
+				normalData = this._expandAttribute( normals, triangulatedNormalIndices, 3 );
+
+			} else if ( normals.length === points.length ) {
+
+				// Per-vertex normals
+				if ( indices && indices.length > 0 ) {
+
+					normalData = this._expandAttribute( normals, indices, 3 );
+
+				}
+
+			} else if ( triPattern ) {
+
+				// Per-face-vertex normals (no separate indices) - use same triangulation pattern
+				const normalIndices = this._applyTriangulationPattern(
+					Array.from( { length: normals.length / 3 }, ( _, i ) => i ),
+					triPattern
+				);
+				normalData = this._expandAttribute( normals, normalIndices, 3 );
+
+			}
+
+			geometry.setAttribute( 'normal', new BufferAttribute$1( new Float32Array( normalData ), 3 ) );
+
+		} else {
+
+			// Compute vertex normals from the original indexed topology where
+			// vertices are shared, then expand them like positions.
+			const vertexNormals = this._computeVertexNormals( points, indices );
+			geometry.setAttribute( 'normal', new BufferAttribute$1( new Float32Array(
+				this._expandAttribute( vertexNormals, indices, 3 )
+			), 3 ) );
+
+		}
+
+		const { uvs, uvIndices } = this._findUVPrimvar( fields );
+		const numFaceVertices = faceVertexIndices ? faceVertexIndices.length : 0;
+
+		if ( uvs && uvs.length > 0 ) {
+
+			let uvData = uvs;
+
+			if ( uvIndices && uvIndices.length > 0 && triPattern ) {
+
+				const triangulatedUvIndices = this._applyTriangulationPattern( uvIndices, triPattern );
+				uvData = this._expandAttribute( uvs, triangulatedUvIndices, 2 );
+
+			} else if ( indices && uvs.length / 2 === points.length / 3 ) {
+
+				uvData = this._expandAttribute( uvs, indices, 2 );
+
+			} else if ( triPattern && uvs.length / 2 === numFaceVertices ) {
+
+				// Per-face-vertex UVs (faceVarying, no separate indices)
+				const uvIndicesFromPattern = this._applyTriangulationPattern(
+					Array.from( { length: numFaceVertices }, ( _, i ) => i ),
+					triPattern
+				);
+				uvData = this._expandAttribute( uvs, uvIndicesFromPattern, 2 );
+
+			}
+
+			geometry.setAttribute( 'uv', new BufferAttribute$1( new Float32Array( uvData ), 2 ) );
+
+		}
+
+		// Second UV set (st1) for lightmaps/AO
+		const { uvs2, uv2Indices } = this._findUV2Primvar( fields );
+
+		if ( uvs2 && uvs2.length > 0 ) {
+
+			let uv2Data = uvs2;
+
+			if ( uv2Indices && uv2Indices.length > 0 && triPattern ) {
+
+				const triangulatedUv2Indices = this._applyTriangulationPattern( uv2Indices, triPattern );
+				uv2Data = this._expandAttribute( uvs2, triangulatedUv2Indices, 2 );
+
+			} else if ( indices && uvs2.length / 2 === points.length / 3 ) {
+
+				uv2Data = this._expandAttribute( uvs2, indices, 2 );
+
+			} else if ( triPattern && uvs2.length / 2 === numFaceVertices ) {
+
+				// Per-face-vertex UV2 (faceVarying, no separate indices)
+				const uv2IndicesFromPattern = this._applyTriangulationPattern(
+					Array.from( { length: numFaceVertices }, ( _, i ) => i ),
+					triPattern
+				);
+				uv2Data = this._expandAttribute( uvs2, uv2IndicesFromPattern, 2 );
+
+			}
+
+			geometry.setAttribute( 'uv1', new BufferAttribute$1( new Float32Array( uv2Data ), 2 ) );
+
+		}
+
+		// Add skinning attributes
+		if ( hasSkinning ) {
+
+			const jointIndices = fields[ 'primvars:skel:jointIndices' ];
+			const jointWeights = fields[ 'primvars:skel:jointWeights' ];
+			const elementSize = fields[ 'primvars:skel:jointIndices:elementSize' ] || 4;
+
+			if ( jointIndices && jointWeights ) {
+
+				const numVertices = positions.length / 3;
+
+				let skinIndexData, skinWeightData;
+
+				if ( indices && indices.length > 0 ) {
+
+					skinIndexData = this._expandAttribute( jointIndices, indices, elementSize );
+					skinWeightData = this._expandAttribute( jointWeights, indices, elementSize );
+
+				} else {
+
+					skinIndexData = jointIndices;
+					skinWeightData = jointWeights;
+
+				}
+
+				const skinIndices = new Uint16Array( numVertices * 4 );
+				const skinWeights = new Float32Array( numVertices * 4 );
+
+				this._selectTopWeights( skinIndexData, skinWeightData, elementSize, numVertices, skinIndices, skinWeights );
+
+				geometry.setAttribute( 'skinIndex', new BufferAttribute$1( skinIndices, 4 ) );
+				geometry.setAttribute( 'skinWeight', new BufferAttribute$1( skinWeights, 4 ) );
+
+			}
+
+		}
+
+		return geometry;
+
+	}
+
+	_buildGeometryWithSubsets( fields, geomSubsets, hasSkinning = false ) {
+
+		const geometry = new BufferGeometry();
+
+		const points = fields[ 'points' ];
+		if ( ! points || points.length === 0 ) return geometry;
+
+		const faceVertexIndices = fields[ 'faceVertexIndices' ];
+		const faceVertexCounts = fields[ 'faceVertexCounts' ];
+
+		if ( ! faceVertexCounts || faceVertexCounts.length === 0 ) return geometry;
+
+		const polygonHoles = fields[ 'primvars:arnold:polygon_holes' ];
+		const holeMap = this._buildHoleMap( polygonHoles );
+		const holeFaces = holeMap.holeFaces;
+		const parentToHoles = holeMap.parentToHoles;
+
+		const { uvs, uvIndices } = this._findUVPrimvar( fields );
+		const { uvs2, uv2Indices } = this._findUV2Primvar( fields );
+		const normals = fields[ 'normals' ] || fields[ 'primvars:normals' ];
+		const normalIndicesRaw = fields[ 'normals:indices' ] || fields[ 'primvars:normals:indices' ];
+
+		const jointIndices = hasSkinning ? fields[ 'primvars:skel:jointIndices' ] : null;
+		const jointWeights = hasSkinning ? fields[ 'primvars:skel:jointWeights' ] : null;
+		const elementSize = fields[ 'primvars:skel:jointIndices:elementSize' ] || 4;
+
+		// Build face-to-triangle mapping (accounting for holes)
+		const faceTriangleOffset = [];
+		let triangleCount = 0;
+
+		for ( let i = 0; i < faceVertexCounts.length; i ++ ) {
+
+			faceTriangleOffset.push( triangleCount );
+
+			// Skip hole faces - they're triangulated with their parent
+			if ( holeFaces.has( i ) ) continue;
+
+			const count = faceVertexCounts[ i ];
+			const holes = parentToHoles.get( i );
+
+			if ( holes && holes.length > 0 ) {
+
+				// For faces with holes, count triangles based on total vertices
+				// Earcut produces (total_vertices - 2) triangles for any polygon including holes
+				let totalVerts = count;
+				for ( const holeIdx of holes ) {
+
+					totalVerts += faceVertexCounts[ holeIdx ];
+
+				}
+
+				triangleCount += totalVerts - 2;
+
+			} else if ( count >= 3 ) {
+
+				triangleCount += count - 2;
+
+			}
+
+		}
+
+		const triangleToSubset = new Int32Array( triangleCount ).fill( -1 );
+
+		for ( let si = 0; si < geomSubsets.length; si ++ ) {
+
+			const subset = geomSubsets[ si ];
+
+			for ( let i = 0; i < subset.indices.length; i ++ ) {
+
+				const faceIdx = subset.indices[ i ];
+				if ( faceIdx >= faceVertexCounts.length ) continue;
+
+				const triStart = faceTriangleOffset[ faceIdx ];
+				const triCount = faceVertexCounts[ faceIdx ] - 2;
+
+				for ( let t = 0; t < triCount; t ++ ) {
+
+					triangleToSubset[ triStart + t ] = si;
+
+				}
+
+			}
+
+		}
+
+		// Sort triangles by subset
+		const sortedTriangles = [];
+
+		for ( let tri = 0; tri < triangleCount; tri ++ ) {
+
+			sortedTriangles.push( { original: tri, subset: triangleToSubset[ tri ] } );
+
+		}
+
+		sortedTriangles.sort( ( a, b ) => a.subset - b.subset );
+
+		const groups = [];
+		let currentSubset = sortedTriangles.length > 0 ? sortedTriangles[ 0 ].subset : -1;
+		let groupStart = 0;
+
+		for ( let i = 0; i < sortedTriangles.length; i ++ ) {
+
+			if ( sortedTriangles[ i ].subset !== currentSubset ) {
+
+				if ( currentSubset >= 0 ) {
+
+					groups.push( {
+						start: groupStart * 3,
+						count: ( i - groupStart ) * 3,
+						materialIndex: currentSubset
+					} );
+
+				}
+
+				currentSubset = sortedTriangles[ i ].subset;
+				groupStart = i;
+
+			}
+
+		}
+
+		if ( currentSubset >= 0 && sortedTriangles.length > groupStart ) {
+
+			groups.push( {
+				start: groupStart * 3,
+				count: ( sortedTriangles.length - groupStart ) * 3,
+				materialIndex: currentSubset
+			} );
+
+		}
+
+		for ( const group of groups ) {
+
+			geometry.addGroup( group.start, group.count, group.materialIndex );
+
+		}
+
+		// Triangulate original data using consistent pattern
+		const { indices: origIndices, pattern: triPattern } = this._triangulateIndicesWithPattern( faceVertexIndices, faceVertexCounts, points, holeMap );
+		const numFaceVertices = faceVertexCounts.reduce( ( a, b ) => a + b, 0 );
+		const faceVaryingIdentity = ( uvs && ! uvIndices && uvs.length / 2 === numFaceVertices ) ||
+			( uvs2 && ! uv2Indices && uvs2.length / 2 === numFaceVertices )
+			? this._applyTriangulationPattern( Array.from( { length: numFaceVertices }, ( _, i ) => i ), triPattern )
+			: null;
+		const origUvIndices = uvIndices
+			? this._applyTriangulationPattern( uvIndices, triPattern )
+			: ( uvs && uvs.length / 2 === numFaceVertices ? faceVaryingIdentity : null );
+		const origUv2Indices = uv2Indices
+			? this._applyTriangulationPattern( uv2Indices, triPattern )
+			: ( uvs2 && uvs2.length / 2 === numFaceVertices ? faceVaryingIdentity : null );
+		const hasIndexedNormals = normals && normalIndicesRaw && normalIndicesRaw.length > 0;
+		const hasFaceVaryingNormals = normals && normals.length / 3 === numFaceVertices;
+		const origNormalIndices = hasIndexedNormals
+			? this._applyTriangulationPattern( normalIndicesRaw, triPattern )
+			: ( hasFaceVaryingNormals
+				? this._applyTriangulationPattern( Array.from( { length: numFaceVertices }, ( _, i ) => i ), triPattern )
+				: null );
+
+		// When no normals are provided, compute vertex normals from
+		// the indexed topology so that shared vertices produce averaged normals.
+		const vertexNormals = ( ! normals && origIndices.length > 0 )
+			? this._computeVertexNormals( points, origIndices )
+			: null;
+
+		// Build reordered vertex data
+		const vertexCount = triangleCount * 3;
+		const positions = new Float32Array( vertexCount * 3 );
+		const uvData = uvs ? new Float32Array( vertexCount * 2 ) : null;
+		const uv1Data = uvs2 ? new Float32Array( vertexCount * 2 ) : null;
+		const normalData = ( normals || vertexNormals ) ? new Float32Array( vertexCount * 3 ) : null;
+		const skinSrcIndices = jointIndices ? new Uint16Array( vertexCount * elementSize ) : null;
+		const skinSrcWeights = jointWeights ? new Float32Array( vertexCount * elementSize ) : null;
+
+		for ( let i = 0; i < sortedTriangles.length; i ++ ) {
+
+			const origTri = sortedTriangles[ i ].original;
+
+			for ( let v = 0; v < 3; v ++ ) {
+
+				const origIdx = origTri * 3 + v;
+				const newIdx = i * 3 + v;
+
+				const pointIdx = origIndices[ origIdx ];
+				positions[ newIdx * 3 ] = points[ pointIdx * 3 ];
+				positions[ newIdx * 3 + 1 ] = points[ pointIdx * 3 + 1 ];
+				positions[ newIdx * 3 + 2 ] = points[ pointIdx * 3 + 2 ];
+
+				if ( uvData && uvs ) {
+
+					if ( origUvIndices ) {
+
+						const uvIdx = origUvIndices[ origIdx ];
+						uvData[ newIdx * 2 ] = uvs[ uvIdx * 2 ];
+						uvData[ newIdx * 2 + 1 ] = uvs[ uvIdx * 2 + 1 ];
+
+					} else if ( uvs.length / 2 === points.length / 3 ) {
+
+						uvData[ newIdx * 2 ] = uvs[ pointIdx * 2 ];
+						uvData[ newIdx * 2 + 1 ] = uvs[ pointIdx * 2 + 1 ];
+
+					}
+
+				}
+
+				if ( uv1Data && uvs2 ) {
+
+					if ( origUv2Indices ) {
+
+						const uv2Idx = origUv2Indices[ origIdx ];
+						uv1Data[ newIdx * 2 ] = uvs2[ uv2Idx * 2 ];
+						uv1Data[ newIdx * 2 + 1 ] = uvs2[ uv2Idx * 2 + 1 ];
+
+					} else if ( uvs2.length / 2 === points.length / 3 ) {
+
+						uv1Data[ newIdx * 2 ] = uvs2[ pointIdx * 2 ];
+						uv1Data[ newIdx * 2 + 1 ] = uvs2[ pointIdx * 2 + 1 ];
+
+					}
+
+				}
+
+				if ( normalData ) {
+
+					if ( normals && origNormalIndices ) {
+
+						const normalIdx = origNormalIndices[ origIdx ];
+						normalData[ newIdx * 3 ] = normals[ normalIdx * 3 ];
+						normalData[ newIdx * 3 + 1 ] = normals[ normalIdx * 3 + 1 ];
+						normalData[ newIdx * 3 + 2 ] = normals[ normalIdx * 3 + 2 ];
+
+					} else if ( normals && normals.length === points.length ) {
+
+						normalData[ newIdx * 3 ] = normals[ pointIdx * 3 ];
+						normalData[ newIdx * 3 + 1 ] = normals[ pointIdx * 3 + 1 ];
+						normalData[ newIdx * 3 + 2 ] = normals[ pointIdx * 3 + 2 ];
+
+					} else if ( vertexNormals ) {
+
+						normalData[ newIdx * 3 ] = vertexNormals[ pointIdx * 3 ];
+						normalData[ newIdx * 3 + 1 ] = vertexNormals[ pointIdx * 3 + 1 ];
+						normalData[ newIdx * 3 + 2 ] = vertexNormals[ pointIdx * 3 + 2 ];
+
+					}
+
+				}
+
+				if ( skinSrcIndices && skinSrcWeights && jointIndices && jointWeights ) {
+
+					for ( let j = 0; j < elementSize; j ++ ) {
+
+						skinSrcIndices[ newIdx * elementSize + j ] = jointIndices[ pointIdx * elementSize + j ] || 0;
+						skinSrcWeights[ newIdx * elementSize + j ] = jointWeights[ pointIdx * elementSize + j ] || 0;
+
+					}
+
+				}
+
+			}
+
+		}
+
+		geometry.setAttribute( 'position', new BufferAttribute$1( positions, 3 ) );
+
+		if ( uvData ) {
+
+			geometry.setAttribute( 'uv', new BufferAttribute$1( uvData, 2 ) );
+
+		}
+
+		if ( uv1Data ) {
+
+			geometry.setAttribute( 'uv1', new BufferAttribute$1( uv1Data, 2 ) );
+
+		}
+
+		geometry.setAttribute( 'normal', new BufferAttribute$1( normalData, 3 ) );
+
+		if ( skinSrcIndices && skinSrcWeights ) {
+
+			const skinIndexData = new Uint16Array( vertexCount * 4 );
+			const skinWeightData = new Float32Array( vertexCount * 4 );
+
+			this._selectTopWeights( skinSrcIndices, skinSrcWeights, elementSize, vertexCount, skinIndexData, skinWeightData );
+
+			geometry.setAttribute( 'skinIndex', new BufferAttribute$1( skinIndexData, 4 ) );
+			geometry.setAttribute( 'skinWeight', new BufferAttribute$1( skinWeightData, 4 ) );
+
+		}
+
+		return geometry;
+
+	}
+
+	_selectTopWeights( srcIndices, srcWeights, elementSize, numVertices, dstIndices, dstWeights ) {
+
+		if ( elementSize <= 4 ) {
+
+			for ( let i = 0; i < numVertices; i ++ ) {
+
+				for ( let j = 0; j < 4; j ++ ) {
+
+					if ( j < elementSize ) {
+
+						dstIndices[ i * 4 + j ] = srcIndices[ i * elementSize + j ] || 0;
+						dstWeights[ i * 4 + j ] = srcWeights[ i * elementSize + j ] || 0;
+
+					} else {
+
+						dstIndices[ i * 4 + j ] = 0;
+						dstWeights[ i * 4 + j ] = 0;
+
+					}
+
+				}
+
+			}
+
+			return;
+
+		}
+
+		// When elementSize > 4, find the 4 largest weights per vertex
+		// using a partial selection sort (4 iterations of O(elementSize)).
+		const order = new Uint32Array( elementSize );
+
+		for ( let i = 0; i < numVertices; i ++ ) {
+
+			const base = i * elementSize;
+
+			for ( let j = 0; j < elementSize; j ++ ) order[ j ] = j;
+
+			for ( let k = 0; k < 4; k ++ ) {
+
+				let maxIdx = k;
+				let maxW = srcWeights[ base + order[ k ] ] || 0;
+
+				for ( let j = k + 1; j < elementSize; j ++ ) {
+
+					const w = srcWeights[ base + order[ j ] ] || 0;
+
+					if ( w > maxW ) {
+
+						maxW = w;
+						maxIdx = j;
+
+					}
+
+				}
+
+				if ( maxIdx !== k ) {
+
+					const tmp = order[ k ];
+					order[ k ] = order[ maxIdx ];
+					order[ maxIdx ] = tmp;
+
+				}
+
+			}
+
+			let total = 0;
+
+			for ( let j = 0; j < 4; j ++ ) {
+
+				total += srcWeights[ base + order[ j ] ] || 0;
+
+			}
+
+			for ( let j = 0; j < 4; j ++ ) {
+
+				const s = order[ j ];
+
+				if ( total > 0 ) {
+
+					dstIndices[ i * 4 + j ] = srcIndices[ base + s ] || 0;
+					dstWeights[ i * 4 + j ] = ( srcWeights[ base + s ] || 0 ) / total;
+
+				} else {
+
+					dstIndices[ i * 4 + j ] = 0;
+					dstWeights[ i * 4 + j ] = 0;
+
+				}
+
+			}
+
+		}
+
+	}
+
+	_findUVPrimvar( fields ) {
+
+		for ( const key in fields ) {
+
+			if ( ! key.startsWith( 'primvars:' ) ) continue;
+			if ( key.endsWith( ':typeName' ) || key.endsWith( ':elementSize' ) || key.endsWith( ':indices' ) ) continue;
+			if ( key.includes( 'skel:' ) ) continue;
+
+			const typeName = fields[ key + ':typeName' ];
+			if ( typeName && typeName.includes( 'texCoord' ) ) {
+
+				return {
+					uvs: fields[ key ],
+					uvIndices: fields[ key + ':indices' ]
+				};
+
+			}
+
+		}
+
+		const uvs = fields[ 'primvars:st' ] || fields[ 'primvars:UVMap' ];
+		const uvIndices = fields[ 'primvars:st:indices' ];
+		return { uvs, uvIndices };
+
+	}
+
+	_findUV2Primvar( fields ) {
+
+		const uvs2 = fields[ 'primvars:st1' ];
+		const uv2Indices = fields[ 'primvars:st1:indices' ];
+		return { uvs2, uv2Indices };
+
+	}
+
+	_buildHoleMap( polygonHoles ) {
+
+		// polygonHoles is in Arnold format: [holeFaceIdx, parentFaceIdx, holeFaceIdx, parentFaceIdx, ...]
+		// Returns a map: parentFaceIdx -> [holeFaceIdx1, holeFaceIdx2, ...]
+		// Also returns a set of hole face indices to skip during triangulation
+		if ( ! polygonHoles || polygonHoles.length === 0 ) {
+
+			return { parentToHoles: new Map(), holeFaces: new Set() };
+
+		}
+
+		const parentToHoles = new Map();
+		const holeFaces = new Set();
+
+		for ( let i = 0; i < polygonHoles.length; i += 2 ) {
+
+			const holeFaceIdx = polygonHoles[ i ];
+			const parentFaceIdx = polygonHoles[ i + 1 ];
+
+			holeFaces.add( holeFaceIdx );
+
+			if ( ! parentToHoles.has( parentFaceIdx ) ) {
+
+				parentToHoles.set( parentFaceIdx, [] );
+
+			}
+
+			parentToHoles.get( parentFaceIdx ).push( holeFaceIdx );
+
+		}
+
+		return { parentToHoles, holeFaces };
+
+	}
+
+	_triangulateIndicesWithPattern( indices, counts, points = null, holeMap = null ) {
+
+		const triangulated = [];
+		const pattern = []; // Stores face-local indices for each triangle vertex
+
+		// Build face offset lookup for accessing hole face data
+		const faceOffsets = [];
+		let offsetAccum = 0;
+		for ( let i = 0; i < counts.length; i ++ ) {
+
+			faceOffsets.push( offsetAccum );
+			offsetAccum += counts[ i ];
+
+		}
+
+		const parentToHoles = holeMap?.parentToHoles || new Map();
+		const holeFaces = holeMap?.holeFaces || new Set();
+
+		let offset = 0;
+
+		for ( let i = 0; i < counts.length; i ++ ) {
+
+			const count = counts[ i ];
+
+			// Skip faces that are holes - they will be triangulated with their parent
+			if ( holeFaces.has( i ) ) {
+
+				offset += count;
+				continue;
+
+			}
+
+			// Check if this face has holes
+			const holes = parentToHoles.get( i );
+
+			if ( holes && holes.length > 0 && points && points.length > 0 ) {
+
+				// Triangulate face with holes using vertex -> face-vertex mapping
+				const vertexToFaceVertex = new Map();
+
+				const faceIndices = [];
+				for ( let j = 0; j < count; j ++ ) {
+
+					const vertIdx = indices[ offset + j ];
+					faceIndices.push( vertIdx );
+					vertexToFaceVertex.set( vertIdx, offset + j );
+
+				}
+
+				const holeContours = [];
+				for ( const holeFaceIdx of holes ) {
+
+					const holeOffset = faceOffsets[ holeFaceIdx ];
+					const holeCount = counts[ holeFaceIdx ];
+					const holeIndices = [];
+					for ( let j = 0; j < holeCount; j ++ ) {
+
+						const vertIdx = indices[ holeOffset + j ];
+						holeIndices.push( vertIdx );
+						vertexToFaceVertex.set( vertIdx, holeOffset + j );
+
+					}
+
+					holeContours.push( holeIndices );
+
+				}
+
+				const triangles = this._triangulateNGonWithHoles( faceIndices, holeContours, points );
+
+				for ( const tri of triangles ) {
+
+					triangulated.push( tri[ 0 ], tri[ 1 ], tri[ 2 ] );
+					pattern.push(
+						vertexToFaceVertex.get( tri[ 0 ] ),
+						vertexToFaceVertex.get( tri[ 1 ] ),
+						vertexToFaceVertex.get( tri[ 2 ] )
+					);
+
+				}
+
+			} else if ( count === 3 ) {
+
+				triangulated.push(
+					indices[ offset ],
+					indices[ offset + 1 ],
+					indices[ offset + 2 ]
+				);
+				pattern.push( offset, offset + 1, offset + 2 );
+
+			} else if ( count === 4 ) {
+
+				triangulated.push(
+					indices[ offset ],
+					indices[ offset + 1 ],
+					indices[ offset + 2 ],
+					indices[ offset ],
+					indices[ offset + 2 ],
+					indices[ offset + 3 ]
+				);
+				pattern.push(
+					offset, offset + 1, offset + 2,
+					offset, offset + 2, offset + 3
+				);
+
+			} else if ( count > 4 ) {
+
+				// Use ear-clipping for complex n-gons if we have vertex positions
+				if ( points && points.length > 0 ) {
+
+					const faceIndices = [];
+					for ( let j = 0; j < count; j ++ ) {
+
+						faceIndices.push( indices[ offset + j ] );
+
+					}
+
+					const triangles = this._triangulateNGon( faceIndices, points );
+
+					for ( const tri of triangles ) {
+
+						triangulated.push( tri[ 0 ], tri[ 1 ], tri[ 2 ] );
+						// Find local indices within the face
+						pattern.push(
+							offset + faceIndices.indexOf( tri[ 0 ] ),
+							offset + faceIndices.indexOf( tri[ 1 ] ),
+							offset + faceIndices.indexOf( tri[ 2 ] )
+						);
+
+					}
+
+				} else {
+
+					// Fallback to fan triangulation
+					for ( let j = 1; j < count - 1; j ++ ) {
+
+						triangulated.push(
+							indices[ offset ],
+							indices[ offset + j ],
+							indices[ offset + j + 1 ]
+						);
+						pattern.push( offset, offset + j, offset + j + 1 );
+
+					}
+
+				}
+
+			}
+
+			offset += count;
+
+		}
+
+		return { indices: triangulated, pattern };
+
+	}
+
+	_applyTriangulationPattern( indices, pattern ) {
+
+		const result = [];
+		for ( let i = 0; i < pattern.length; i ++ ) {
+
+			result.push( indices[ pattern[ i ] ] );
+
+		}
+
+		return result;
+
+	}
+
+	_triangulateNGon( faceIndices, points ) {
+
+		// Project 3D polygon to 2D for triangulation using Newell's method for normal
+		const contour2D = [];
+		const contour3D = [];
+
+		for ( const idx of faceIndices ) {
+
+			contour3D.push( new Vector3$2(
+				points[ idx * 3 ],
+				points[ idx * 3 + 1 ],
+				points[ idx * 3 + 2 ]
+			) );
+
+		}
+
+		// Calculate polygon normal using Newell's method
+		const normal = new Vector3$2();
+		for ( let i = 0; i < contour3D.length; i ++ ) {
+
+			const curr = contour3D[ i ];
+			const next = contour3D[ ( i + 1 ) % contour3D.length ];
+			normal.x += ( curr.y - next.y ) * ( curr.z + next.z );
+			normal.y += ( curr.z - next.z ) * ( curr.x + next.x );
+			normal.z += ( curr.x - next.x ) * ( curr.y + next.y );
+
+		}
+
+		normal.normalize();
+
+		// Create tangent basis for projection
+		const tangent = new Vector3$2();
+		const bitangent = new Vector3$2();
+
+		if ( Math.abs( normal.y ) > 0.9 ) {
+
+			tangent.set( 1, 0, 0 );
+
+		} else {
+
+			tangent.set( 0, 1, 0 );
+
+		}
+
+		bitangent.crossVectors( normal, tangent ).normalize();
+		tangent.crossVectors( bitangent, normal ).normalize();
+
+		// Project to 2D
+		for ( const p of contour3D ) {
+
+			contour2D.push( new Vector2$1( p.dot( tangent ), p.dot( bitangent ) ) );
+
+		}
+
+		// Triangulate using ShapeUtils
+		const triangles = ShapeUtils.triangulateShape( contour2D, [] );
+
+		// Map back to original indices
+		const result = [];
+		for ( const tri of triangles ) {
+
+			result.push( [
+				faceIndices[ tri[ 0 ] ],
+				faceIndices[ tri[ 1 ] ],
+				faceIndices[ tri[ 2 ] ]
+			] );
+
+		}
+
+		return result;
+
+	}
+
+	_triangulateNGonWithHoles( outerIndices, holeContours, points ) {
+
+		// Project 3D polygon with holes to 2D for triangulation
+		const outer3D = [];
+
+		for ( const idx of outerIndices ) {
+
+			outer3D.push( new Vector3$2(
+				points[ idx * 3 ],
+				points[ idx * 3 + 1 ],
+				points[ idx * 3 + 2 ]
+			) );
+
+		}
+
+		// Calculate polygon normal using Newell's method
+		const normal = new Vector3$2();
+		for ( let i = 0; i < outer3D.length; i ++ ) {
+
+			const curr = outer3D[ i ];
+			const next = outer3D[ ( i + 1 ) % outer3D.length ];
+			normal.x += ( curr.y - next.y ) * ( curr.z + next.z );
+			normal.y += ( curr.z - next.z ) * ( curr.x + next.x );
+			normal.z += ( curr.x - next.x ) * ( curr.y + next.y );
+
+		}
+
+		normal.normalize();
+
+		// Create tangent basis for projection
+		const tangent = new Vector3$2();
+		const bitangent = new Vector3$2();
+
+		if ( Math.abs( normal.y ) > 0.9 ) {
+
+			tangent.set( 1, 0, 0 );
+
+		} else {
+
+			tangent.set( 0, 1, 0 );
+
+		}
+
+		bitangent.crossVectors( normal, tangent ).normalize();
+		tangent.crossVectors( bitangent, normal ).normalize();
+
+		// Project outer contour to 2D
+		const outer2D = [];
+		for ( const p of outer3D ) {
+
+			outer2D.push( new Vector2$1( p.dot( tangent ), p.dot( bitangent ) ) );
+
+		}
+
+		// Project hole contours to 2D
+		const holes2D = [];
+
+		for ( const holeIndices of holeContours ) {
+
+			const hole2D = [];
+
+			for ( const idx of holeIndices ) {
+
+				const p = new Vector3$2(
+					points[ idx * 3 ],
+					points[ idx * 3 + 1 ],
+					points[ idx * 3 + 2 ]
+				);
+				hole2D.push( new Vector2$1( p.dot( tangent ), p.dot( bitangent ) ) );
+
+			}
+
+			holes2D.push( hole2D );
+
+		}
+
+		// Build combined index array: outer contour followed by all holes
+		const allIndices = [ ...outerIndices ];
+		for ( const holeIndices of holeContours ) {
+
+			allIndices.push( ...holeIndices );
+
+		}
+
+		// Triangulate using ShapeUtils with holes
+		const triangles = ShapeUtils.triangulateShape( outer2D, holes2D );
+
+		// Map back to original vertex indices
+		const result = [];
+		for ( const tri of triangles ) {
+
+			result.push( [
+				allIndices[ tri[ 0 ] ],
+				allIndices[ tri[ 1 ] ],
+				allIndices[ tri[ 2 ] ]
+			] );
+
+		}
+
+		return result;
+
+	}
+
+	_triangulateIndices( indices, counts ) {
+
+		const triangulated = [];
+		let offset = 0;
+
+		for ( let i = 0; i < counts.length; i ++ ) {
+
+			const count = counts[ i ];
+
+			if ( count === 3 ) {
+
+				triangulated.push(
+					indices[ offset ],
+					indices[ offset + 1 ],
+					indices[ offset + 2 ]
+				);
+
+			} else if ( count === 4 ) {
+
+				triangulated.push(
+					indices[ offset ],
+					indices[ offset + 1 ],
+					indices[ offset + 2 ],
+					indices[ offset ],
+					indices[ offset + 2 ],
+					indices[ offset + 3 ]
+				);
+
+			} else if ( count > 4 ) {
+
+				// Fan triangulation for n-gons
+				for ( let j = 1; j < count - 1; j ++ ) {
+
+					triangulated.push(
+						indices[ offset ],
+						indices[ offset + j ],
+						indices[ offset + j + 1 ]
+					);
+
+				}
+
+			}
+
+			offset += count;
+
+		}
+
+		return triangulated;
+
+	}
+
+	_expandAttribute( data, indices, itemSize ) {
+
+		const expanded = new Array( indices.length * itemSize );
+
+		for ( let i = 0; i < indices.length; i ++ ) {
+
+			const srcIdx = indices[ i ];
+
+			for ( let j = 0; j < itemSize; j ++ ) {
+
+				expanded[ i * itemSize + j ] = data[ srcIdx * itemSize + j ];
+
+			}
+
+		}
+
+		return expanded;
+
+	}
+
+	/**
+	 * Compute per-vertex normals from indexed triangle data.
+	 * Accumulates area-weighted face normals at each shared vertex and normalizes.
+	 */
+	_computeVertexNormals( points, indices ) {
+
+		const numVertices = points.length / 3;
+		const normals = new Float32Array( numVertices * 3 );
+
+		for ( let i = 0; i < indices.length; i += 3 ) {
+
+			const a = indices[ i ];
+			const b = indices[ i + 1 ];
+			const c = indices[ i + 2 ];
+
+			const ax = points[ a * 3 ], ay = points[ a * 3 + 1 ], az = points[ a * 3 + 2 ];
+			const bx = points[ b * 3 ], by = points[ b * 3 + 1 ], bz = points[ b * 3 + 2 ];
+			const cx = points[ c * 3 ], cy = points[ c * 3 + 1 ], cz = points[ c * 3 + 2 ];
+
+			const e1x = bx - ax, e1y = by - ay, e1z = bz - az;
+			const e2x = cx - ax, e2y = cy - ay, e2z = cz - az;
+
+			const nx = e1y * e2z - e1z * e2y;
+			const ny = e1z * e2x - e1x * e2z;
+			const nz = e1x * e2y - e1y * e2x;
+
+			normals[ a * 3 ] += nx; normals[ a * 3 + 1 ] += ny; normals[ a * 3 + 2 ] += nz;
+			normals[ b * 3 ] += nx; normals[ b * 3 + 1 ] += ny; normals[ b * 3 + 2 ] += nz;
+			normals[ c * 3 ] += nx; normals[ c * 3 + 1 ] += ny; normals[ c * 3 + 2 ] += nz;
+
+		}
+
+		for ( let i = 0; i < numVertices; i ++ ) {
+
+			const x = normals[ i * 3 ], y = normals[ i * 3 + 1 ], z = normals[ i * 3 + 2 ];
+			const len = Math.sqrt( x * x + y * y + z * z );
+
+			if ( len > 0 ) {
+
+				normals[ i * 3 ] /= len;
+				normals[ i * 3 + 1 ] /= len;
+				normals[ i * 3 + 2 ] /= len;
+
+			}
+
+		}
+
+		return normals;
+
+	}
+
+	/**
+	 * Get the material path for a mesh, checking various binding sources.
+	 */
+	_getMaterialPath( meshPath, fields ) {
+
+		let materialPath = null;
+		const materialBinding = fields[ 'material:binding' ];
+
+		if ( materialBinding ) {
+
+			materialPath = Array.isArray( materialBinding ) ? materialBinding[ 0 ] : materialBinding;
+
+		}
+
+		// Use variant-aware lookup if no direct binding in fields
+		if ( ! materialPath ) {
+
+			materialPath = this._getMaterialBindingTarget( meshPath );
+
+		}
+
+		return materialPath;
+
+	}
+
+	_buildMaterial( meshPath, fields ) {
+
+		const material = new MeshPhysicalMaterial();
+
+		let materialPath = null;
+		const materialBinding = fields[ 'material:binding' ];
+
+		if ( materialBinding ) {
+
+			materialPath = Array.isArray( materialBinding ) ? materialBinding[ 0 ] : materialBinding;
+
+		}
+
+		// Use variant-aware lookup if no direct binding in fields
+		if ( ! materialPath ) {
+
+			materialPath = this._getMaterialBindingTarget( meshPath );
+
+		}
+
+		if ( ! materialPath ) {
+
+			const materialPaths = [];
+			const prefix = meshPath + '/';
+
+			for ( const path in this.specsByPath ) {
+
+				if ( ! path.startsWith( prefix ) ) continue;
+				if ( ! path.endsWith( '.material:binding' ) ) continue;
+
+				const bindingSpec = this.specsByPath[ path ];
+				if ( ! bindingSpec ) continue;
+
+				const targetPaths = bindingSpec.fields.targetPaths;
+				if ( targetPaths && targetPaths.length > 0 ) {
+
+					materialPaths.push( targetPaths[ 0 ] );
+
+				}
+
+			}
+
+			if ( materialPaths.length > 0 ) {
+
+				materialPath = this._pickBestMaterial( materialPaths );
+
+			}
+
+		}
+
+		if ( ! materialPath ) {
+
+			// Use material index for O(1) lookup instead of O(n) iteration
+			const meshParts = meshPath.split( '/' );
+			const rootPath = '/' + meshParts[ 1 ];
+
+			const materialsInRoot = this.materialsByRoot.get( rootPath );
+
+			if ( materialsInRoot ) {
+
+				for ( const path of materialsInRoot ) {
+
+					if ( path.startsWith( rootPath + '/Looks/' ) ||
+						path.startsWith( rootPath + '/Materials/' ) ) {
+
+						materialPath = path;
+						break;
+
+					}
+
+				}
+
+			}
+
+		}
+
+		if ( materialPath ) {
+
+			this._applyMaterial( material, materialPath );
+
+		}
+
+		return material;
+
+	}
+
+	_buildMaterialForPath( materialPath ) {
+
+		const material = new MeshPhysicalMaterial();
+
+		if ( materialPath ) {
+
+			this._applyMaterial( material, materialPath );
+
+		}
+
+		return material;
+
+	}
+
+	/**
+	 * Apply material binding from a prim path to a mesh.
+	 * Used when merging referenced geometry into a prim that has material binding.
+	 */
+	_applyMaterialBinding( mesh, primPath ) {
+
+		// Look for material:binding on this prim
+		const bindingPath = primPath + '.material:binding';
+		const bindingSpec = this.specsByPath[ bindingPath ];
+
+		if ( ! bindingSpec ) return;
+
+		let materialPath = null;
+		const targetPaths = bindingSpec.fields?.targetPaths || bindingSpec.fields?.default;
+
+		if ( targetPaths ) {
+
+			materialPath = Array.isArray( targetPaths ) ? targetPaths[ 0 ] : targetPaths;
+
+		}
+
+		if ( ! materialPath ) return;
+
+		// Clean the material path
+		materialPath = String( materialPath ).replace( /^<|>$/g, '' );
+
+		// Build and apply the material
+		const material = new MeshPhysicalMaterial();
+		this._applyMaterial( material, materialPath );
+		mesh.material = material;
+
+	}
+
+	_pickBestMaterial( materialPaths ) {
+
+		for ( const materialPath of materialPaths ) {
+
+			const shaderPaths = this.shadersByMaterialPath.get( materialPath );
+			if ( ! shaderPaths ) continue;
+
+			for ( const path of shaderPaths ) {
+
+				const attrs = this._getAttributes( path );
+				if ( attrs[ 'info:id' ] === 'UsdUVTexture' && attrs[ 'inputs:file' ] ) {
+
+					return materialPath;
+
+				}
+
+			}
+
+		}
+
+		return materialPaths[ 0 ];
+
+	}
+
+	_applyMaterial( material, materialPath ) {
+
+		const materialSpec = this.specsByPath[ materialPath ];
+		if ( ! materialSpec ) return;
+
+		const shaderPaths = this.shadersByMaterialPath.get( materialPath );
+		if ( ! shaderPaths ) return;
+
+		for ( const path of shaderPaths ) {
+
+			const spec = this.specsByPath[ path ];
+			if ( ! spec ) continue;
+
+			const shaderAttrs = this._getAttributes( path );
+			const infoId = shaderAttrs[ 'info:id' ] || spec.fields[ 'info:id' ];
+
+			if ( infoId === 'UsdPreviewSurface' || infoId === 'ND_UsdPreviewSurface_surfaceshader' ) {
+
+				this._applyPreviewSurface( material, path );
+
+			} else if ( infoId === 'arnold:openpbr_surface' ) {
+
+				this._applyOpenPBRSurface( material, path );
+
+			}
+
+		}
+
+	}
+
+	/**
+	 * Shared helper for applying texture or value from shader attribute.
+	 * Reduces duplication between _applyPreviewSurface and _applyOpenPBRSurface.
+	 */
+	_applyTextureOrValue( material, shaderPath, fields, attrName, textureProperty, colorSpace, valueCallback, textureGetter ) {
+
+		const attrPath = shaderPath + '.' + attrName;
+		const spec = this.specsByPath[ attrPath ];
+
+		if ( spec && spec.fields.connectionPaths && spec.fields.connectionPaths.length > 0 ) {
+
+			// For OpenPBR, try all connection paths; for PreviewSurface, just the first
+			const paths = textureGetter === this._getTextureFromOpenPBRConnection
+				? spec.fields.connectionPaths
+				: [ spec.fields.connectionPaths[ 0 ] ];
+
+			for ( const connPath of paths ) {
+
+				const texture = textureGetter.call( this, connPath );
+
+				if ( texture ) {
+
+					texture.colorSpace = colorSpace;
+					material[ textureProperty ] = texture;
+					return true;
+
+				}
+
+			}
+
+		}
+
+		if ( fields[ attrName ] !== undefined && valueCallback ) {
+
+			valueCallback( fields[ attrName ] );
+
+		}
+
+		return false;
+
+	}
+
+	_applyPreviewSurface( material, shaderPath ) {
+
+		const fields = this._getAttributes( shaderPath );
+
+		const applyTexture = ( attrName, textureProperty, colorSpace, valueCallback ) => {
+
+			return this._applyTextureOrValue(
+				material, shaderPath, fields, attrName, textureProperty, colorSpace, valueCallback,
+				this._getTextureFromConnection
+			);
+
+		};
+
+		const getAttrSpec = ( attrName ) => {
+
+			const attrPath = shaderPath + '.' + attrName;
+			return this.specsByPath[ attrPath ];
+
+		};
+
+		// Diffuse color / base color map
+		applyTexture(
+			'inputs:diffuseColor',
+			'map',
+			SRGBColorSpace$1,
+			( color ) => {
+
+				if ( Array.isArray( color ) && color.length >= 3 ) {
+
+					material.color.setRGB( color[ 0 ], color[ 1 ], color[ 2 ], SRGBColorSpace$1 );
+
+				}
+
+			}
+		);
+
+		// Apply UsdUVTexture scale to diffuse color (output = texture * scale + bias)
+		if ( material.map && material.map.userData.scale ) {
+
+			const scale = material.map.userData.scale;
+			if ( Array.isArray( scale ) && scale.length >= 3 ) {
+
+				material.color.setRGB( scale[ 0 ], scale[ 1 ], scale[ 2 ], SRGBColorSpace$1 );
+
+			}
+
+		}
+
+		// Emissive
+		applyTexture(
+			'inputs:emissiveColor',
+			'emissiveMap',
+			SRGBColorSpace$1,
+			( color ) => {
+
+				if ( Array.isArray( color ) && color.length >= 3 ) {
+
+					material.emissive.setRGB( color[ 0 ], color[ 1 ], color[ 2 ], SRGBColorSpace$1 );
+
+				}
+
+			}
+		);
+
+		if ( material.emissiveMap ) {
+
+			if ( material.emissiveMap.userData.scale ) {
+
+				const scale = material.emissiveMap.userData.scale;
+				if ( Array.isArray( scale ) && scale.length >= 3 ) {
+
+					material.emissive.setRGB( scale[ 0 ], scale[ 1 ], scale[ 2 ], SRGBColorSpace$1 );
+
+				}
+
+			} else {
+
+				material.emissive.set( 0xffffff );
+
+			}
+
+		}
+
+		// Normal map
+		applyTexture( 'inputs:normal', 'normalMap', NoColorSpace$1, null );
+
+		// Apply normal map scale from UsdUVTexture scale input
+		if ( material.normalMap && material.normalMap.userData.scale ) {
+
+			const scale = material.normalMap.userData.scale;
+			// UsdUVTexture scale is float4 (r,g,b,a), use first two components for normalScale
+			material.normalScale = new Vector2$1( scale[ 0 ], scale[ 1 ] );
+
+		}
+
+		// Roughness
+		const hasRoughnessMap = applyTexture(
+			'inputs:roughness',
+			'roughnessMap',
+			NoColorSpace$1,
+			( value ) => {
+
+				material.roughness = value;
+
+			}
+		);
+
+		if ( hasRoughnessMap ) {
+
+			material.roughness = 1.0;
+
+		}
+
+		// Metallic
+		const hasMetalnessMap = applyTexture(
+			'inputs:metallic',
+			'metalnessMap',
+			NoColorSpace$1,
+			( value ) => {
+
+				material.metalness = value;
+
+			}
+		);
+
+		if ( hasMetalnessMap ) {
+
+			material.metalness = 1.0;
+
+		}
+
+		// Occlusion
+		applyTexture( 'inputs:occlusion', 'aoMap', NoColorSpace$1, null );
+
+		// IOR
+		if ( fields[ 'inputs:ior' ] !== undefined ) {
+
+			material.ior = fields[ 'inputs:ior' ];
+
+		}
+
+		// Specular color
+		applyTexture(
+			'inputs:specularColor',
+			'specularColorMap',
+			SRGBColorSpace$1,
+			( color ) => {
+
+				if ( Array.isArray( color ) && color.length >= 3 ) {
+
+					material.specularColor.setRGB( color[ 0 ], color[ 1 ], color[ 2 ], SRGBColorSpace$1 );
+
+				}
+
+			}
+		);
+
+		// Apply UsdUVTexture scale to specular color
+		if ( material.specularColorMap && material.specularColorMap.userData.scale ) {
+
+			const scale = material.specularColorMap.userData.scale;
+			if ( Array.isArray( scale ) && scale.length >= 3 ) {
+
+				material.specularColor.setRGB( scale[ 0 ], scale[ 1 ], scale[ 2 ], SRGBColorSpace$1 );
+
+			}
+
+		}
+
+		// Clearcoat
+		if ( fields[ 'inputs:clearcoat' ] !== undefined ) {
+
+			material.clearcoat = fields[ 'inputs:clearcoat' ];
+
+		}
+
+		// Clearcoat roughness
+		if ( fields[ 'inputs:clearcoatRoughness' ] !== undefined ) {
+
+			material.clearcoatRoughness = fields[ 'inputs:clearcoatRoughness' ];
+
+		}
+
+		// Opacity and opacity modes
+		const opacityThreshold = fields[ 'inputs:opacityThreshold' ] !== undefined ? fields[ 'inputs:opacityThreshold' ] : 0.0;
+
+		// Check if opacity is connected to a texture (e.g., diffuse texture's alpha)
+		const opacitySpec = getAttrSpec( 'inputs:opacity' );
+		const hasOpacityConnection = opacitySpec?.fields?.connectionPaths?.length > 0;
+
+		if ( hasOpacityConnection ) {
+
+			// Opacity from texture alpha - use the diffuse map's alpha channel
+			if ( opacityThreshold > 0 ) {
+
+				// Alpha cutoff mode
+				material.alphaTest = opacityThreshold;
+				material.transparent = false;
+
+			} else {
+
+				// Alpha blend mode
+				material.transparent = true;
+
+			}
+
+		} else {
+
+			// Direct opacity value
+			const opacity = fields[ 'inputs:opacity' ] !== undefined ? fields[ 'inputs:opacity' ] : 1.0;
+
+			if ( opacity < 1.0 ) {
+
+				material.transparent = true;
+				material.opacity = opacity;
+
+			}
+
+		}
+
+	}
+
+	_applyOpenPBRSurface( material, shaderPath ) {
+
+		const fields = this._getAttributes( shaderPath );
+
+		const applyTexture = ( attrName, textureProperty, colorSpace, valueCallback ) => {
+
+			return this._applyTextureOrValue(
+				material, shaderPath, fields, attrName, textureProperty, colorSpace, valueCallback,
+				this._getTextureFromOpenPBRConnection
+			);
+
+		};
+
+		// Base color (diffuse)
+		applyTexture(
+			'inputs:base_color',
+			'map',
+			SRGBColorSpace$1,
+			( color ) => {
+
+				if ( Array.isArray( color ) && color.length >= 3 ) {
+
+					material.color.setRGB( color[ 0 ], color[ 1 ], color[ 2 ], SRGBColorSpace$1 );
+
+				}
+
+			}
+		);
+
+		// Apply UsdUVTexture scale to base color
+		if ( material.map && material.map.userData.scale ) {
+
+			const scale = material.map.userData.scale;
+			if ( Array.isArray( scale ) && scale.length >= 3 ) {
+
+				material.color.setRGB( scale[ 0 ], scale[ 1 ], scale[ 2 ], SRGBColorSpace$1 );
+
+			}
+
+		}
+
+		// Base metalness
+		applyTexture(
+			'inputs:base_metalness',
+			'metalnessMap',
+			NoColorSpace$1,
+			( value ) => {
+
+				if ( typeof value === 'number' ) {
+
+					material.metalness = value;
+
+				}
+
+			}
+		);
+
+		// Specular roughness
+		applyTexture(
+			'inputs:specular_roughness',
+			'roughnessMap',
+			NoColorSpace$1,
+			( value ) => {
+
+				if ( typeof value === 'number' ) {
+
+					material.roughness = value;
+
+				}
+
+			}
+		);
+
+		// Emission color
+		const hasEmissionMap = applyTexture(
+			'inputs:emission_color',
+			'emissiveMap',
+			SRGBColorSpace$1,
+			( color ) => {
+
+				if ( Array.isArray( color ) && color.length >= 3 ) {
+
+					material.emissive.setRGB( color[ 0 ], color[ 1 ], color[ 2 ], SRGBColorSpace$1 );
+
+				}
+
+			}
+		);
+
+		// Emission luminance/weight - multiply emissive by this factor
+		const emissionLuminance = fields[ 'inputs:emission_luminance' ];
+
+		if ( emissionLuminance !== undefined && emissionLuminance > 0 ) {
+
+			if ( hasEmissionMap ) {
+
+				material.emissiveIntensity = emissionLuminance;
+
+			} else {
+
+				// Scale the emissive color by luminance
+				material.emissive.multiplyScalar( emissionLuminance );
+
+			}
+
+		}
+
+		// Transmission (transparency)
+		const transmissionWeight = fields[ 'inputs:transmission_weight' ];
+
+		if ( transmissionWeight !== undefined && transmissionWeight > 0 ) {
+
+			material.transmission = transmissionWeight;
+
+			const transmissionDepth = fields[ 'inputs:transmission_depth' ];
+
+			if ( transmissionDepth !== undefined ) {
+
+				material.thickness = transmissionDepth;
+
+			}
+
+			const transmissionColor = fields[ 'inputs:transmission_color' ];
+
+			if ( transmissionColor !== undefined && Array.isArray( transmissionColor ) ) {
+
+				material.attenuationColor.setRGB( transmissionColor[ 0 ], transmissionColor[ 1 ], transmissionColor[ 2 ] );
+				material.attenuationDistance = transmissionDepth || 1.0;
+
+			}
+
+		}
+
+		// Geometry opacity (overall surface opacity)
+		const geometryOpacity = fields[ 'inputs:geometry_opacity' ];
+
+		if ( geometryOpacity !== undefined && geometryOpacity < 1.0 ) {
+
+			material.opacity = geometryOpacity;
+			material.transparent = true;
+
+		}
+
+		// Specular IOR
+		const specularIOR = fields[ 'inputs:specular_ior' ];
+
+		if ( specularIOR !== undefined ) {
+
+			material.ior = specularIOR;
+
+		}
+
+		// Coat (clearcoat)
+		const coatWeight = fields[ 'inputs:coat_weight' ];
+
+		if ( coatWeight !== undefined && coatWeight > 0 ) {
+
+			material.clearcoat = coatWeight;
+
+			const coatRoughness = fields[ 'inputs:coat_roughness' ];
+
+			if ( coatRoughness !== undefined ) {
+
+				material.clearcoatRoughness = coatRoughness;
+
+			}
+
+		}
+
+		// Thin film (iridescence)
+		const thinFilmWeight = fields[ 'inputs:thin_film_weight' ];
+
+		if ( thinFilmWeight !== undefined && thinFilmWeight > 0 ) {
+
+			material.iridescence = thinFilmWeight;
+
+			const thinFilmIOR = fields[ 'inputs:thin_film_ior' ];
+
+			if ( thinFilmIOR !== undefined ) {
+
+				material.iridescenceIOR = thinFilmIOR;
+
+			}
+
+			const thinFilmThickness = fields[ 'inputs:thin_film_thickness' ];
+
+			if ( thinFilmThickness !== undefined ) {
+
+				// OpenPBR uses micrometers, Three.js uses nanometers
+				const thicknessNm = thinFilmThickness * 1000;
+				material.iridescenceThicknessRange = [ thicknessNm, thicknessNm ];
+
+			}
+
+		}
+
+		// Specular
+		const specularWeight = fields[ 'inputs:specular_weight' ];
+
+		if ( specularWeight !== undefined ) {
+
+			material.specularIntensity = specularWeight;
+
+		}
+
+		const specularColor = fields[ 'inputs:specular_color' ];
+
+		if ( specularColor !== undefined && Array.isArray( specularColor ) ) {
+
+			material.specularColor.setRGB( specularColor[ 0 ], specularColor[ 1 ], specularColor[ 2 ] );
+
+		}
+
+		// Anisotropy
+		const anisotropy = fields[ 'inputs:specular_roughness_anisotropy' ];
+
+		if ( anisotropy !== undefined && anisotropy > 0 ) {
+
+			material.anisotropy = anisotropy;
+
+		}
+
+		// Geometry normal (normal map)
+		applyTexture(
+			'inputs:geometry_normal',
+			'normalMap',
+			NoColorSpace$1,
+			null
+		);
+
+	}
+
+	_getTextureFromOpenPBRConnection( connPath ) {
+
+		// connPath is like /Material/NodeGraph.outputs:baseColor or /Material/Shader.outputs:out
+		const cleanPath = connPath.replace( /<|>/g, '' );
+		const shaderPath = cleanPath.split( '.' )[ 0 ];
+		const shaderSpec = this.specsByPath[ shaderPath ];
+
+		if ( ! shaderSpec ) return null;
+
+		const attrs = this._getAttributes( shaderPath );
+		const infoId = attrs[ 'info:id' ] || shaderSpec.fields[ 'info:id' ];
+		const typeName = shaderSpec.fields.typeName;
+
+		// Handle NodeGraph - follow output connection to internal shader
+		if ( typeName === 'NodeGraph' ) {
+
+			// Get the output attribute that's connected
+			const outputName = cleanPath.split( '.' )[ 1 ]; // e.g., "outputs:baseColor"
+			const outputAttrPath = shaderPath + '.' + outputName;
+			const outputSpec = this.specsByPath[ outputAttrPath ];
+
+			if ( outputSpec?.fields?.connectionPaths?.length > 0 ) {
+
+				// Follow the internal connection
+				return this._getTextureFromOpenPBRConnection( outputSpec.fields.connectionPaths[ 0 ] );
+
+			}
+
+			return null;
+
+		}
+
+		// Handle arnold:image - Arnold's texture node
+		if ( infoId === 'arnold:image' ) {
+
+			const filePath = attrs[ 'inputs:filename' ];
+			if ( ! filePath ) return null;
+
+			return this._loadTextureFromPath( filePath );
+
+		}
+
+		// Handle MaterialX image nodes (ND_image_color4, ND_image_color3, etc.)
+		if ( infoId && infoId.startsWith( 'ND_image_' ) ) {
+
+			const filePath = attrs[ 'inputs:file' ];
+			if ( ! filePath ) return null;
+
+			return this._loadTextureFromPath( filePath );
+
+		}
+
+		// Handle Maya file texture - follow the inColor connection to the actual image
+		if ( infoId === 'MayaND_fileTexture_color4' ) {
+
+			const inColorPath = shaderPath + '.inputs:inColor';
+			const inColorSpec = this.specsByPath[ inColorPath ];
+
+			if ( inColorSpec?.fields?.connectionPaths?.length > 0 ) {
+
+				return this._getTextureFromOpenPBRConnection( inColorSpec.fields.connectionPaths[ 0 ] );
+
+			}
+
+			return null;
+
+		}
+
+		// Handle color conversion nodes - follow the input connection
+		if ( infoId && infoId.startsWith( 'ND_convert_' ) ) {
+
+			const inPath = shaderPath + '.inputs:in';
+			const inSpec = this.specsByPath[ inPath ];
+
+			if ( inSpec?.fields?.connectionPaths?.length > 0 ) {
+
+				return this._getTextureFromOpenPBRConnection( inSpec.fields.connectionPaths[ 0 ] );
+
+			}
+
+			return null;
+
+		}
+
+		// Handle Arnold bump2d - follow the bump_map input
+		if ( infoId === 'arnold:bump2d' ) {
+
+			const bumpMapPath = shaderPath + '.inputs:bump_map';
+			const bumpMapSpec = this.specsByPath[ bumpMapPath ];
+
+			if ( bumpMapSpec?.fields?.connectionPaths?.length > 0 ) {
+
+				return this._getTextureFromOpenPBRConnection( bumpMapSpec.fields.connectionPaths[ 0 ] );
+
+			}
+
+			return null;
+
+		}
+
+		// Handle Arnold color_correct - follow the input connection
+		if ( infoId === 'arnold:color_correct' ) {
+
+			const inputPath = shaderPath + '.inputs:input';
+			const inputSpec = this.specsByPath[ inputPath ];
+
+			if ( inputSpec?.fields?.connectionPaths?.length > 0 ) {
+
+				return this._getTextureFromOpenPBRConnection( inputSpec.fields.connectionPaths[ 0 ] );
+
+			}
+
+			return null;
+
+		}
+
+		// Handle nested shader paths (e.g., /Material/file2/cc.outputs:a)
+		// Check if parent path is an image node
+		const parentPath = shaderPath.substring( 0, shaderPath.lastIndexOf( '/' ) );
+
+		if ( parentPath ) {
+
+			const parentSpec = this.specsByPath[ parentPath ];
+
+			if ( parentSpec ) {
+
+				const parentAttrs = this._getAttributes( parentPath );
+				const parentInfoId = parentAttrs[ 'info:id' ] || parentSpec.fields[ 'info:id' ];
+
+				if ( parentInfoId === 'arnold:image' ) {
+
+					const filePath = parentAttrs[ 'inputs:filename' ];
+					if ( filePath ) return this._loadTextureFromPath( filePath );
+
+				}
+
+			}
+
+		}
+
+		return null;
+
+	}
+
+	_loadTextureFromPath( filePath ) {
+
+		if ( ! filePath ) return null;
+
+		// Check cache first
+		if ( this.textureCache[ filePath ] ) {
+
+			return this.textureCache[ filePath ];
+
+		}
+
+		const texture = this._loadTexture( filePath, null, null );
+
+		if ( texture ) {
+
+			this.textureCache[ filePath ] = texture;
+
+		}
+
+		return texture;
+
+	}
+
+	_getTextureFromConnection( connPath ) {
+
+		// connPath is like /Material/Shader.outputs:rgb
+		const shaderPath = connPath.split( '.' )[ 0 ];
+		const shaderSpec = this.specsByPath[ shaderPath ];
+
+		if ( ! shaderSpec ) return null;
+
+		const attrs = this._getAttributes( shaderPath );
+		const infoId = attrs[ 'info:id' ] || shaderSpec.fields[ 'info:id' ];
+
+		if ( infoId !== 'UsdUVTexture' ) return null;
+
+		const filePath = attrs[ 'inputs:file' ];
+		if ( ! filePath ) return null;
+
+		// Check for UsdTransform2d connection via inputs:st and trace to PrimvarReader
+		let transformAttrs = null;
+		let uvChannel = 0; // Default to first UV set
+		const stAttrPath = shaderPath + '.inputs:st';
+		const stAttrSpec = this.specsByPath[ stAttrPath ];
+
+		if ( stAttrSpec?.fields?.connectionPaths?.length > 0 ) {
+
+			const stConnPath = stAttrSpec.fields.connectionPaths[ 0 ];
+			const stPath = stConnPath.replace( /<|>/g, '' ).split( '.' )[ 0 ];
+			const stSpec = this.specsByPath[ stPath ];
+
+			if ( stSpec ) {
+
+				const stAttrs = this._getAttributes( stPath );
+				const stInfoId = stAttrs[ 'info:id' ] || stSpec.fields[ 'info:id' ];
+
+				if ( stInfoId === 'UsdTransform2d' ) {
+
+					transformAttrs = stAttrs;
+
+					// Trace to PrimvarReader to find UV set
+					const inAttrPath = stPath + '.inputs:in';
+					const inAttrSpec = this.specsByPath[ inAttrPath ];
+
+					if ( inAttrSpec?.fields?.connectionPaths?.length > 0 ) {
+
+						const inConnPath = inAttrSpec.fields.connectionPaths[ 0 ];
+						const primvarPath = inConnPath.replace( /<|>/g, '' ).split( '.' )[ 0 ];
+						const primvarAttrs = this._getAttributes( primvarPath );
+
+						// Check varname to determine UV channel
+						const varname = primvarAttrs[ 'inputs:varname' ];
+						if ( varname === 'st1' ) uvChannel = 1;
+						else if ( varname === 'st2' ) uvChannel = 2;
+
+					}
+
+				} else if ( stInfoId === 'UsdPrimvarReader_float2' ) {
+
+					// Direct connection to PrimvarReader
+					const varname = stAttrs[ 'inputs:varname' ];
+					if ( varname === 'st1' ) uvChannel = 1;
+					else if ( varname === 'st2' ) uvChannel = 2;
+
+				}
+
+			}
+
+		}
+
+		// Extract scale and bias for texture value modification
+		const scale = attrs[ 'inputs:scale' ];
+		const bias = attrs[ 'inputs:bias' ];
+
+		// Create cache key that includes scale/bias if present
+		let cacheKey = filePath;
+		if ( scale ) cacheKey += ':s' + scale.join( ',' );
+		if ( bias ) cacheKey += ':b' + bias.join( ',' );
+
+		if ( this.textureCache[ cacheKey ] ) {
+
+			return this.textureCache[ cacheKey ];
+
+		}
+
+		const texture = this._loadTexture( filePath, attrs, transformAttrs );
+
+		if ( texture ) {
+
+			// Store scale/bias and UV channel in userData
+			if ( scale ) texture.userData.scale = scale;
+			if ( bias ) texture.userData.bias = bias;
+			if ( uvChannel !== 0 ) texture.channel = uvChannel;
+
+			this.textureCache[ cacheKey ] = texture;
+
+		}
+
+		return texture;
+
+	}
+
+	_applyTextureTransforms( texture, attrs ) {
+
+		if ( ! attrs ) return;
+
+		const scale = attrs[ 'inputs:scale' ];
+		if ( scale && Array.isArray( scale ) && scale.length >= 2 ) {
+
+			texture.repeat.set( scale[ 0 ], scale[ 1 ] );
+
+		}
+
+		const translation = attrs[ 'inputs:translation' ];
+		if ( translation && Array.isArray( translation ) && translation.length >= 2 ) {
+
+			texture.offset.set( translation[ 0 ], translation[ 1 ] );
+
+		}
+
+		const rotation = attrs[ 'inputs:rotation' ];
+		if ( typeof rotation === 'number' ) {
+
+			texture.rotation = rotation * Math.PI / 180;
+
+		}
+
+	}
+
+	_loadTexture( filePath, textureAttrs, transformAttrs ) {
+
+		let cleanPath = filePath;
+		if ( cleanPath.startsWith( '@' ) ) cleanPath = cleanPath.slice( 1 );
+		if ( cleanPath.endsWith( '@' ) ) cleanPath = cleanPath.slice( 0, -1 );
+
+		// Resolve relative to basePath first
+		const resolvedPath = this._resolveFilePath( cleanPath );
+		let assetData = this.assets[ resolvedPath ];
+
+		// Fallback to unresolved path
+		if ( ! assetData ) {
+
+			assetData = this.assets[ cleanPath ];
+
+		}
+
+		// Last resort: search by basename
+		if ( ! assetData ) {
+
+			const baseName = cleanPath.split( '/' ).pop();
+
+			for ( const key in this.assets ) {
+
+				if ( key.endsWith( baseName ) || key.endsWith( '/' + baseName ) ) {
+
+					return this._createTextureFromData( this.assets[ key ], textureAttrs, transformAttrs );
+
+				}
+
+			}
+
+			// Try loading via LoadingManager if available
+			if ( this.manager ) {
+
+				const url = this.manager.resolveURL( baseName );
+				if ( url !== baseName ) {
+
+					// URL modifier found a match - load it
+					return this._createTextureFromData( url, textureAttrs, transformAttrs );
+
+				}
+
+			}
+
+			console.warn( 'USDLoader: Texture not found:', cleanPath );
+			return null;
+
+		}
+
+		return this._createTextureFromData( assetData, textureAttrs, transformAttrs );
+
+	}
+
+	_createTextureFromData( data, textureAttrs, transformAttrs ) {
+
+		if ( ! data ) return null;
+
+		const scope = this;
+		const texture = new Texture$1();
+
+		let url;
+
+		if ( typeof data === 'string' ) {
+
+			url = data;
+
+		} else if ( data instanceof Uint8Array || data instanceof ArrayBuffer ) {
+
+			const blob = new Blob( [ data ] );
+			url = URL.createObjectURL( blob );
+
+		} else {
+
+			return null;
+
+		}
+
+		const image = new Image();
+		image.onload = function () {
+
+			texture.image = image;
+
+			if ( textureAttrs ) {
+
+				texture.wrapS = scope._getWrapMode( textureAttrs[ 'inputs:wrapS' ] );
+				texture.wrapT = scope._getWrapMode( textureAttrs[ 'inputs:wrapT' ] );
+
+			}
+
+			scope._applyTextureTransforms( texture, transformAttrs );
+			texture.needsUpdate = true;
+
+			if ( typeof data !== 'string' ) {
+
+				URL.revokeObjectURL( url );
+
+			}
+
+		};
+
+		image.src = url;
+
+		return texture;
+
+	}
+
+	_getWrapMode( wrapValue ) {
+
+		if ( wrapValue === 'repeat' ) return RepeatWrapping$1;
+		if ( wrapValue === 'mirror' ) return MirroredRepeatWrapping$1;
+		if ( wrapValue === 'clamp' ) return ClampToEdgeWrapping$1;
+		return RepeatWrapping$1;
+
+	}
+
+	// ========================================================================
+	// Skeletal Animation
+	// ========================================================================
+
+	_buildSkeleton( path ) {
+
+		const attrs = this._getAttributes( path );
+
+		// Get joint names (paths like "root", "root/body_joint", etc.)
+		const joints = attrs[ 'joints' ];
+		if ( ! joints || joints.length === 0 ) return null;
+
+		// Get bind transforms (world-space bind pose matrices)
+		// These can be nested arrays (USDA) or flat arrays (USDC)
+		const rawBindTransforms = attrs[ 'bindTransforms' ];
+		const rawRestTransforms = attrs[ 'restTransforms' ];
+
+		const bindTransforms = this._flattenMatrixArray( rawBindTransforms, joints.length );
+		const restTransforms = this._flattenMatrixArray( rawRestTransforms, joints.length );
+
+		// Build bones
+		const bones = [];
+		const bonesByPath = {};
+		const boneInverses = [];
+
+		for ( let i = 0; i < joints.length; i ++ ) {
+
+			const jointPath = joints[ i ];
+			const jointName = jointPath.split( '/' ).pop();
+
+			const bone = new Bone();
+			bone.name = jointName;
+			bones.push( bone );
+			bonesByPath[ jointPath ] = { bone, index: i };
+
+			// Compute inverse bind matrix
+			if ( bindTransforms && bindTransforms.length >= ( i + 1 ) * 16 ) {
+
+				const bindMatrix = new Matrix4$2();
+				// USD matrices are row-major, Three.js is column-major - need to transpose
+				const m = bindTransforms.slice( i * 16, ( i + 1 ) * 16 );
+				bindMatrix.set(
+					m[ 0 ], m[ 4 ], m[ 8 ], m[ 12 ],
+					m[ 1 ], m[ 5 ], m[ 9 ], m[ 13 ],
+					m[ 2 ], m[ 6 ], m[ 10 ], m[ 14 ],
+					m[ 3 ], m[ 7 ], m[ 11 ], m[ 15 ]
+				);
+				const inverseBindMatrix = bindMatrix.clone().invert();
+				boneInverses.push( inverseBindMatrix );
+
+			} else {
+
+				boneInverses.push( new Matrix4$2() );
+
+			}
+
+		}
+
+		// Build parent-child relationships based on joint paths
+		for ( let i = 0; i < joints.length; i ++ ) {
+
+			const jointPath = joints[ i ];
+			const parts = jointPath.split( '/' );
+
+			if ( parts.length > 1 ) {
+
+				const parentPath = parts.slice( 0, -1 ).join( '/' );
+				const parentData = bonesByPath[ parentPath ];
+
+				if ( parentData ) {
+
+					parentData.bone.add( bones[ i ] );
+
+				}
+
+			}
+
+		}
+
+		// Apply rest transforms as bone local transforms.
+		// Rest transforms are the skeleton's default local-space pose and match
+		// the reference frame used by SkelAnimation data. Bind transforms are
+		// world-space matrices used only for computing inverse bind matrices.
+		if ( restTransforms && restTransforms.length >= joints.length * 16 ) {
+
+			for ( let i = 0; i < joints.length; i ++ ) {
+
+				const matrix = new Matrix4$2();
+				const m = restTransforms.slice( i * 16, ( i + 1 ) * 16 );
+				matrix.set(
+					m[ 0 ], m[ 4 ], m[ 8 ], m[ 12 ],
+					m[ 1 ], m[ 5 ], m[ 9 ], m[ 13 ],
+					m[ 2 ], m[ 6 ], m[ 10 ], m[ 14 ],
+					m[ 3 ], m[ 7 ], m[ 11 ], m[ 15 ]
+				);
+				matrix.decompose( bones[ i ].position, bones[ i ].quaternion, bones[ i ].scale );
+
+			}
+
+		}
+
+		// Find root bone(s) - bones without a parent bone
+		const rootBones = bones.filter( bone => ! bone.parent || ! bone.parent.isBone );
+
+		// Get animation source path
+		const animSourceSpec = this.specsByPath[ path + '.skel:animationSource' ];
+		let animationPath = null;
+		if ( animSourceSpec && animSourceSpec.fields.targetPaths && animSourceSpec.fields.targetPaths.length > 0 ) {
+
+			animationPath = animSourceSpec.fields.targetPaths[ 0 ];
+
+		}
+
+		return {
+			skeleton: new Skeleton( bones, boneInverses ),
+			joints: joints,
+			rootBones: rootBones,
+			animationPath: animationPath,
+			path: path
+		};
+
+	}
+
+	_bindSkeletons() {
+
+		for ( const meshData of this.skinnedMeshes ) {
+
+			const { mesh, skeletonPath, localJoints, geomBindTransform } = meshData;
+
+			let skeletonData = null;
+
+			// Try exact match first
+			if ( skeletonPath && this.skeletons[ skeletonPath ] ) {
+
+				skeletonData = this.skeletons[ skeletonPath ];
+
+			}
+
+			// Try includes match as fallback
+			if ( ! skeletonData ) {
+
+				for ( const skelPath in this.skeletons ) {
+
+					if ( skeletonPath && ( skeletonPath.includes( skelPath ) || skelPath.includes( skeletonPath ) ) ) {
+
+						skeletonData = this.skeletons[ skelPath ];
+						break;
+
+					}
+
+				}
+
+			}
+
+			// Fallback to first skeleton for single-skeleton files
+			if ( ! skeletonData ) {
+
+				const skeletonPaths = Object.keys( this.skeletons );
+				if ( skeletonPaths.length > 0 ) {
+
+					skeletonData = this.skeletons[ skeletonPaths[ 0 ] ];
+
+				}
+
+			}
+
+			if ( ! skeletonData ) {
+
+				console.warn( 'USDComposer: No skeleton found for skinned mesh', mesh.name );
+				continue;
+
+			}
+
+			const { skeleton, rootBones, joints } = skeletonData;
+
+			if ( localJoints && localJoints.length > 0 ) {
+
+				const skinIndex = mesh.geometry.attributes.skinIndex;
+				if ( skinIndex ) {
+
+					const localToGlobal = [];
+					for ( let i = 0; i < localJoints.length; i ++ ) {
+
+						const jointName = localJoints[ i ];
+						const globalIdx = joints.indexOf( jointName );
+						localToGlobal[ i ] = globalIdx >= 0 ? globalIdx : 0;
+
+					}
+
+					const arr = skinIndex.array;
+					for ( let i = 0; i < arr.length; i ++ ) {
+
+						const localIdx = arr[ i ];
+						if ( localIdx < localToGlobal.length ) {
+
+							arr[ i ] = localToGlobal[ localIdx ];
+
+						}
+
+					}
+
+				}
+
+			}
+
+			for ( const rootBone of rootBones ) {
+
+				mesh.add( rootBone );
+
+			}
+
+			// Use geomBindTransform if available, otherwise fall back to identity.
+			// Estimating bind transforms from vertex/joint samples is not robust and can
+			// produce severe skinning distortion for valid assets.
+			const bindMatrix = new Matrix4$2();
+
+			if ( geomBindTransform && geomBindTransform.length === 16 ) {
+
+				// USD matrices are row-major, Three.js is column-major - need to transpose
+				const m = geomBindTransform;
+				bindMatrix.set(
+					m[ 0 ], m[ 4 ], m[ 8 ], m[ 12 ],
+					m[ 1 ], m[ 5 ], m[ 9 ], m[ 13 ],
+					m[ 2 ], m[ 6 ], m[ 10 ], m[ 14 ],
+					m[ 3 ], m[ 7 ], m[ 11 ], m[ 15 ]
+				);
+
+			}
+
+			mesh.bind( skeleton, bindMatrix );
+
+		}
+
+	}
+
+	_buildAnimations() {
+
+		const animations = [];
+
+		// Find all SkelAnimation prims
+		for ( const path in this.specsByPath ) {
+
+			const spec = this.specsByPath[ path ];
+			if ( spec.specType !== SpecType.Prim ) continue;
+			if ( spec.fields.typeName !== 'SkelAnimation' ) continue;
+
+			const clip = this._buildAnimationClip( path );
+			if ( clip ) {
+
+				animations.push( clip );
+
+			}
+
+		}
+
+		// Build transform animations from time-sampled xformOps
+		const transformTracks = this._buildTransformAnimations();
+		if ( transformTracks.length > 0 ) {
+
+			animations.push( new AnimationClip( 'TransformAnimation', -1, transformTracks ) );
+
+		}
+
+		return animations;
+
+	}
+
+	_buildTransformAnimations() {
+
+		const tracks = [];
+
+		for ( const path in this.specsByPath ) {
+
+			const spec = this.specsByPath[ path ];
+			if ( spec.specType !== SpecType.Prim ) continue;
+
+			const typeName = spec.fields?.typeName;
+			if ( typeName !== 'Xform' && typeName !== 'Scope' && typeName !== 'Mesh' ) continue;
+
+			const objectName = path.split( '/' ).pop();
+
+			// Check for animated xformOp:orient
+			const orientPath = path + '.xformOp:orient';
+			const orientSpec = this.specsByPath[ orientPath ];
+			if ( orientSpec?.fields?.timeSamples ) {
+
+				const { times, values } = orientSpec.fields.timeSamples;
+				const keyframeTimes = [];
+				const keyframeValues = [];
+
+				for ( let i = 0; i < times.length; i ++ ) {
+
+					keyframeTimes.push( times[ i ] / this.fps );
+
+					const q = values[ i ];
+					keyframeValues.push( q[ 0 ], q[ 1 ], q[ 2 ], q[ 3 ] );
+
+				}
+
+				if ( keyframeTimes.length > 0 ) {
+
+					tracks.push( new QuaternionKeyframeTrack(
+						objectName + '.quaternion',
+						new Float32Array( keyframeTimes ),
+						new Float32Array( keyframeValues )
+					) );
+
+				}
+
+			}
+
+			// Check for animated xformOp:rotateXYZ
+			const rotateXYZPath = path + '.xformOp:rotateXYZ';
+			const rotateXYZSpec = this.specsByPath[ rotateXYZPath ];
+			if ( rotateXYZSpec?.fields?.timeSamples ) {
+
+				const { times, values } = rotateXYZSpec.fields.timeSamples;
+				const keyframeTimes = [];
+				const keyframeValues = [];
+				const tempEuler = new Euler$1();
+				const tempQuat = new Quaternion$2();
+
+				for ( let i = 0; i < times.length; i ++ ) {
+
+					keyframeTimes.push( times[ i ] / this.fps );
+
+					const r = values[ i ];
+					// USD rotateXYZ: matrix = Rx * Ry * Rz, use 'ZYX' order in Three.js
+					tempEuler.set(
+						r[ 0 ] * Math.PI / 180,
+						r[ 1 ] * Math.PI / 180,
+						r[ 2 ] * Math.PI / 180,
+						'ZYX'
+					);
+					tempQuat.setFromEuler( tempEuler );
+					keyframeValues.push( tempQuat.x, tempQuat.y, tempQuat.z, tempQuat.w );
+
+				}
+
+				if ( keyframeTimes.length > 0 ) {
+
+					tracks.push( new QuaternionKeyframeTrack(
+						objectName + '.quaternion',
+						new Float32Array( keyframeTimes ),
+						new Float32Array( keyframeValues )
+					) );
+
+				}
+
+			}
+
+			// Check for animated xformOp:translate
+			const translatePath = path + '.xformOp:translate';
+			const translateSpec = this.specsByPath[ translatePath ];
+			if ( translateSpec?.fields?.timeSamples ) {
+
+				const { times, values } = translateSpec.fields.timeSamples;
+				const keyframeTimes = [];
+				const keyframeValues = [];
+
+				for ( let i = 0; i < times.length; i ++ ) {
+
+					keyframeTimes.push( times[ i ] / this.fps );
+
+					const t = values[ i ];
+					keyframeValues.push( t[ 0 ], t[ 1 ], t[ 2 ] );
+
+				}
+
+				if ( keyframeTimes.length > 0 ) {
+
+					tracks.push( new VectorKeyframeTrack(
+						objectName + '.position',
+						new Float32Array( keyframeTimes ),
+						new Float32Array( keyframeValues )
+					) );
+
+				}
+
+			}
+
+			// Check for animated xformOp:scale
+			const scalePath = path + '.xformOp:scale';
+			const scaleSpec = this.specsByPath[ scalePath ];
+			if ( scaleSpec?.fields?.timeSamples ) {
+
+				const { times, values } = scaleSpec.fields.timeSamples;
+				const keyframeTimes = [];
+				const keyframeValues = [];
+
+				for ( let i = 0; i < times.length; i ++ ) {
+
+					keyframeTimes.push( times[ i ] / this.fps );
+
+					const s = values[ i ];
+					keyframeValues.push( s[ 0 ], s[ 1 ], s[ 2 ] );
+
+				}
+
+				if ( keyframeTimes.length > 0 ) {
+
+					tracks.push( new VectorKeyframeTrack(
+						objectName + '.scale',
+						new Float32Array( keyframeTimes ),
+						new Float32Array( keyframeValues )
+					) );
+
+				}
+
+			}
+
+			// Check for animated xformOp:transform (matrix animations)
+			// These can have suffixes like xformOp:transform:transform
+			const properties = spec.fields?.properties || [];
+			for ( const prop of properties ) {
+
+				if ( ! prop.startsWith( 'xformOp:transform' ) ) continue;
+
+				const transformPath = path + '.' + prop;
+				const transformSpec = this.specsByPath[ transformPath ];
+
+				if ( ! transformSpec?.fields?.timeSamples ) continue;
+
+				const { times, values } = transformSpec.fields.timeSamples;
+				const positionTimes = [];
+				const positionValues = [];
+				const quaternionTimes = [];
+				const quaternionValues = [];
+				const scaleTimes = [];
+				const scaleValues = [];
+
+				const matrix = new Matrix4$2();
+				const position = new Vector3$2();
+				const quaternion = new Quaternion$2();
+				const scale = new Vector3$2();
+
+				for ( let i = 0; i < times.length; i ++ ) {
+
+					const m = values[ i ];
+					if ( ! m || m.length < 16 ) continue;
+
+					const t = times[ i ] / this.fps;
+
+					// USD matrices are row-major, Three.js is column-major
+					matrix.set(
+						m[ 0 ], m[ 4 ], m[ 8 ], m[ 12 ],
+						m[ 1 ], m[ 5 ], m[ 9 ], m[ 13 ],
+						m[ 2 ], m[ 6 ], m[ 10 ], m[ 14 ],
+						m[ 3 ], m[ 7 ], m[ 11 ], m[ 15 ]
+					);
+
+					matrix.decompose( position, quaternion, scale );
+
+					positionTimes.push( t );
+					positionValues.push( position.x, position.y, position.z );
+
+					quaternionTimes.push( t );
+					quaternionValues.push( quaternion.x, quaternion.y, quaternion.z, quaternion.w );
+
+					scaleTimes.push( t );
+					scaleValues.push( scale.x, scale.y, scale.z );
+
+				}
+
+				if ( positionTimes.length > 0 ) {
+
+					tracks.push( new VectorKeyframeTrack(
+						objectName + '.position',
+						new Float32Array( positionTimes ),
+						new Float32Array( positionValues )
+					) );
+
+					tracks.push( new QuaternionKeyframeTrack(
+						objectName + '.quaternion',
+						new Float32Array( quaternionTimes ),
+						new Float32Array( quaternionValues )
+					) );
+
+					tracks.push( new VectorKeyframeTrack(
+						objectName + '.scale',
+						new Float32Array( scaleTimes ),
+						new Float32Array( scaleValues )
+					) );
+
+				}
+
+				break; // Only process first transform op
+
+			}
+
+		}
+
+		return tracks;
+
+	}
+
+	_buildAnimationClip( path ) {
+
+		const attrs = this._getAttributes( path );
+		const joints = attrs[ 'joints' ];
+
+		if ( ! joints || joints.length === 0 ) return null;
+
+		const tracks = [];
+
+		// Get rotation time samples
+		const rotationsAttr = this._getTimeSampledAttribute( path, 'rotations' );
+		if ( rotationsAttr && rotationsAttr.times && rotationsAttr.values ) {
+
+			const { times, values } = rotationsAttr;
+
+			for ( let jointIdx = 0; jointIdx < joints.length; jointIdx ++ ) {
+
+				const jointName = joints[ jointIdx ].split( '/' ).pop();
+				const keyframeTimes = [];
+				const keyframeValues = [];
+
+				for ( let t = 0; t < times.length; t ++ ) {
+
+					const quatData = values[ t ];
+					if ( ! quatData || quatData.length < ( jointIdx + 1 ) * 4 ) continue;
+
+					keyframeTimes.push( times[ t ] / this.fps );
+
+					// USD GfQuatf stores imaginary (x,y,z) first, then real (w)
+					// This matches Three.js quaternion order (x,y,z,w)
+					const x = quatData[ jointIdx * 4 + 0 ];
+					const y = quatData[ jointIdx * 4 + 1 ];
+					const z = quatData[ jointIdx * 4 + 2 ];
+					const w = quatData[ jointIdx * 4 + 3 ];
+					keyframeValues.push( x, y, z, w );
+
+				}
+
+				if ( keyframeTimes.length > 0 ) {
+
+					tracks.push( new QuaternionKeyframeTrack(
+						jointName + '.quaternion',
+						new Float32Array( keyframeTimes ),
+						new Float32Array( keyframeValues )
+					) );
+
+				}
+
+			}
+
+		}
+
+		// Get translation time samples
+		const translationsAttr = this._getTimeSampledAttribute( path, 'translations' );
+		if ( translationsAttr && translationsAttr.times && translationsAttr.values ) {
+
+			const { times, values } = translationsAttr;
+
+			for ( let jointIdx = 0; jointIdx < joints.length; jointIdx ++ ) {
+
+				const jointName = joints[ jointIdx ].split( '/' ).pop();
+				const keyframeTimes = [];
+				const keyframeValues = [];
+
+				for ( let t = 0; t < times.length; t ++ ) {
+
+					const transData = values[ t ];
+					if ( ! transData || transData.length < ( jointIdx + 1 ) * 3 ) continue;
+
+					keyframeTimes.push( times[ t ] / this.fps );
+					keyframeValues.push(
+						transData[ jointIdx * 3 + 0 ],
+						transData[ jointIdx * 3 + 1 ],
+						transData[ jointIdx * 3 + 2 ]
+					);
+
+				}
+
+				if ( keyframeTimes.length > 0 ) {
+
+					tracks.push( new VectorKeyframeTrack(
+						jointName + '.position',
+						new Float32Array( keyframeTimes ),
+						new Float32Array( keyframeValues )
+					) );
+
+				}
+
+			}
+
+		}
+
+		// Get scale time samples
+		const scalesAttr = this._getTimeSampledAttribute( path, 'scales' );
+		if ( scalesAttr && scalesAttr.times && scalesAttr.values ) {
+
+			const { times, values } = scalesAttr;
+
+			for ( let jointIdx = 0; jointIdx < joints.length; jointIdx ++ ) {
+
+				const jointName = joints[ jointIdx ].split( '/' ).pop();
+				const keyframeTimes = [];
+				const keyframeValues = [];
+
+				for ( let t = 0; t < times.length; t ++ ) {
+
+					const scaleData = values[ t ];
+					if ( ! scaleData || scaleData.length < ( jointIdx + 1 ) * 3 ) continue;
+
+					keyframeTimes.push( times[ t ] / this.fps );
+					keyframeValues.push(
+						scaleData[ jointIdx * 3 + 0 ],
+						scaleData[ jointIdx * 3 + 1 ],
+						scaleData[ jointIdx * 3 + 2 ]
+					);
+
+				}
+
+				if ( keyframeTimes.length > 0 ) {
+
+					tracks.push( new VectorKeyframeTrack(
+						jointName + '.scale',
+						new Float32Array( keyframeTimes ),
+						new Float32Array( keyframeValues )
+					) );
+
+				}
+
+			}
+
+		}
+
+		if ( tracks.length === 0 ) return null;
+
+		const clipName = path.split( '/' ).pop();
+		return new AnimationClip( clipName, -1, tracks );
+
+	}
+
+	_getTimeSampledAttribute( primPath, attrName ) {
+
+		// Look for the attribute spec with time samples
+		const attrPath = primPath + '.' + attrName;
+		const attrSpec = this.specsByPath[ attrPath ];
+
+		if ( attrSpec && attrSpec.fields.timeSamples ) {
+
+			const timeSamples = attrSpec.fields.timeSamples;
+			if ( timeSamples.times && timeSamples.values ) {
+
+				return timeSamples;
+
+			}
+
+		}
+
+		return null;
+
+	}
+
+	_flattenMatrixArray( matrices, numMatrices ) {
+
+		if ( ! matrices || matrices.length === 0 ) return null;
+
+		if ( typeof matrices[ 0 ] === 'number' ) return matrices;
+
+		const flatArray = [];
+
+		for ( let m = 0; m < numMatrices; m ++ ) {
+
+			for ( let row = 0; row < 4; row ++ ) {
+
+				const rowData = matrices[ m * 4 + row ];
+
+				if ( rowData && rowData.length === 4 ) {
+
+					flatArray.push( rowData[ 0 ], rowData[ 1 ], rowData[ 2 ], rowData[ 3 ] );
+
+				} else {
+
+					flatArray.push( row === 0 ? 1 : 0, row === 1 ? 1 : 0, row === 2 ? 1 : 0, row === 3 ? 1 : 0 );
+
+				}
+
+			}
+
+		}
+
+		return flatArray;
+
+	}
+
+}
+
+/**
+ * A loader for the USD format (USD, USDA, USDC, USDZ).
+ *
+ * Supports both ASCII (USDA) and binary (USDC) USD files, as well as
+ * USDZ archives containing either format.
+ *
+ * ```js
+ * const loader = new USDLoader();
+ * const model = await loader.loadAsync( 'model.usdz' );
+ * scene.add( model );
+ * ```
+ *
+ * @augments Loader
+ * @three_import import { USDLoader } from 'three/addons/loaders/USDLoader.js';
+ */
+class USDLoader extends Loader {
+
+	/**
+	 * Constructs a new USDZ loader.
+	 *
+	 * @param {LoadingManager} [manager] - The loading manager.
+	 */
+	constructor( manager ) {
+
+		super( manager );
+
+	}
+
+	/**
+	 * Starts loading from the given URL and passes the loaded USDZ asset
+	 * to the `onLoad()` callback.
+	 *
+	 * @param {string} url - The path/URL of the file to be loaded. This can also be a data URI.
+	 * @param {function(Group)} onLoad - Executed when the loading process has been finished.
+	 * @param {onProgressCallback} onProgress - Executed while the loading is in progress.
+	 * @param {onErrorCallback} onError - Executed when errors occur.
+	 */
+	load( url, onLoad, onProgress, onError ) {
+
+		const scope = this;
+
+		const loader = new FileLoader( scope.manager );
+		loader.setPath( scope.path );
+		loader.setResponseType( 'arraybuffer' );
+		loader.setRequestHeader( scope.requestHeader );
+		loader.setWithCredentials( scope.withCredentials );
+		loader.load( url, function ( text ) {
+
+			try {
+
+				onLoad( scope.parse( text ) );
+
+			} catch ( e ) {
+
+				if ( onError ) {
+
+					onError( e );
+
+				} else {
+
+					console.error( e );
+
+				}
+
+				scope.manager.itemError( url );
+
+			}
+
+		}, onProgress, onError );
+
+	}
+
+	/**
+	 * Parses the given USDZ data and returns the resulting group.
+	 *
+	 * @param {ArrayBuffer|string} buffer - The raw USDZ data as an array buffer.
+	 * @return {Group} The parsed asset as a group.
+	 */
+	parse( buffer ) {
+
+		const usda = new USDAParser();
+		const usdc = new USDCParser();
+		const textDecoder = new TextDecoder();
+
+		function toArrayBuffer( data ) {
+
+			if ( data instanceof ArrayBuffer ) return data;
+
+			if ( data.byteOffset === 0 && data.byteLength === data.buffer.byteLength ) {
+
+				return data.buffer;
+
+			}
+
+			return data.buffer.slice( data.byteOffset, data.byteOffset + data.byteLength );
+
+		}
+
+		function getLowercaseExtension( filename ) {
+
+			const lastDot = filename.lastIndexOf( '.' );
+			if ( lastDot < 0 ) return '';
+
+			const lastSlash = filename.lastIndexOf( '/' );
+			if ( lastSlash > lastDot ) return '';
+
+			return filename.slice( lastDot + 1 ).toLowerCase();
+
+		}
+
+		function parseAssets( zip ) {
+
+			const data = {};
+
+			for ( const filename in zip ) {
+
+				const fileBytes = zip[ filename ];
+				const ext = getLowercaseExtension( filename );
+
+				if ( ext === 'png' || ext === 'jpg' || ext === 'jpeg' || ext === 'avif' ) {
+
+					// Keep raw image bytes and create object URLs lazily in USDComposer.
+					data[ filename ] = fileBytes;
+					continue;
+
+				}
+
+				if ( ext !== 'usd' && ext !== 'usda' && ext !== 'usdc' ) continue;
+
+				if ( isCrateFile( fileBytes ) ) {
+
+					data[ filename ] = usdc.parseData( toArrayBuffer( fileBytes ) );
+
+				} else {
+
+					data[ filename ] = usda.parseData( textDecoder.decode( fileBytes ) );
+
+				}
+
+			}
+
+			return data;
+
+		}
+
+		function isCrateFile( buffer ) {
+
+			const crateHeader = new Uint8Array( [ 0x50, 0x58, 0x52, 0x2D, 0x55, 0x53, 0x44, 0x43 ] ); // PXR-USDC
+			const view = buffer instanceof Uint8Array ? buffer : new Uint8Array( buffer );
+
+			if ( view.byteLength < crateHeader.length ) return false;
+
+			for ( let i = 0; i < crateHeader.length; i ++ ) {
+
+				if ( view[ i ] !== crateHeader[ i ] ) return false;
+
+			}
+
+			return true;
+
+		}
+
+		function findUSD( zip ) {
+
+			const fileNames = Object.keys( zip );
+			if ( fileNames.length < 1 ) return { file: undefined, filename: '', basePath: '' };
+
+			const firstFileName = fileNames[ 0 ];
+			const ext = getLowercaseExtension( firstFileName );
+			let isCrate = false;
+
+			const lastSlash = firstFileName.lastIndexOf( '/' );
+			const basePath = lastSlash >= 0 ? firstFileName.slice( 0, lastSlash ) : '';
+
+			// Per AOUSD core spec v1.0.1 section 16.4.1.2, the first ZIP entry is the root layer.
+			// ASCII files can end in either .usda or .usd.
+			if ( ext === 'usda' ) return { file: zip[ firstFileName ], filename: firstFileName, basePath };
+
+			if ( ext === 'usdc' ) {
+
+				isCrate = true;
+
+			} else if ( ext === 'usd' ) {
+
+				// If this is not a crate file, we assume it is a plain USDA file.
+				if ( ! isCrateFile( zip[ firstFileName ] ) ) {
+
+					return { file: zip[ firstFileName ], filename: firstFileName, basePath };
+
+				} else {
+
+					isCrate = true;
+
+				}
+
+			}
+
+			if ( isCrate ) {
+
+				return { file: zip[ firstFileName ], filename: firstFileName, basePath };
+
+			}
+
+			return { file: undefined, filename: '', basePath: '' };
+
+		}
+
+		const scope = this;
+
+		// USDA (standalone)
+
+		if ( typeof buffer === 'string' ) {
+
+			const composer = new USDComposer( scope.manager );
+			const data = usda.parseData( buffer );
+			return composer.compose( data, {} );
+
+		}
+
+		// USDC (standalone)
+
+		if ( isCrateFile( buffer ) ) {
+
+			const composer = new USDComposer( scope.manager );
+			const data = usdc.parseData( toArrayBuffer( buffer ) );
+			return composer.compose( data, {} );
+
+		}
+
+		const bytes = new Uint8Array( buffer );
+
+		// USDZ
+
+		if ( bytes[ 0 ] === 0x50 && bytes[ 1 ] === 0x4B ) {
+
+			const zip = unzipSync( bytes );
+			const assets = parseAssets( zip );
+			const { file, filename, basePath } = findUSD( zip );
+
+			if ( ! file ) {
+
+				throw new Error( 'USDLoader: Invalid USDZ package. The first ZIP entry must be a USD layer (.usd/.usda/.usdc).' );
+
+			}
+
+			const composer = new USDComposer( scope.manager );
+			const data = assets[ filename ];
+			if ( ! data ) {
+
+				throw new Error( 'USDLoader: Failed to parse root layer "' + filename + '".' );
+
+			}
+
+			return composer.compose( data, assets, {}, basePath );
+
+		}
+
+		// USDA (standalone, as ArrayBuffer)
+
+		const composer = new USDComposer( scope.manager );
+		const text = textDecoder.decode( bytes );
+		const data = usda.parseData( text );
+		return composer.compose( data, {} );
+
+	}
+
+}
+
+var USDLoader$1 = /*#__PURE__*/Object.freeze({
+	__proto__: null,
+	USDLoader: USDLoader
+});
+
+const COLOR_SPACE_3MF = SRGBColorSpace$1;
+
+/**
+ * A loader for the [3D Manufacturing Format (3MF)](https://3mf.io/specification/) format.
+ *
+ * The following features from the core specification are supported:
+ *
+ * - 3D Models
+ * - Object Resources (Meshes and Components)
+ * - Material Resources (Base Materials)
+ *
+ * 3MF Materials and Properties Extension are only partially supported.
+ *
+ * - Texture 2D
+ * - Texture 2D Groups
+ * - Color Groups (Vertex Colors)
+ * - Metallic Display Properties (PBR)
+ *
+ * ```js
+ * const loader = new ThreeMFLoader();
+ *
+ * const object = await loader.loadAsync( './models/3mf/truck.3mf' );
+ * object.rotation.set( - Math.PI / 2, 0, 0 ); // z-up conversion
+ * scene.add( object );
+ * ```
+ *
+ * @augments Loader
+ * @three_import import { ThreeMFLoader } from 'three/addons/loaders/3MFLoader.js';
+ */
+class ThreeMFLoader extends Loader {
+
+	/**
+	 * Constructs a new 3MF loader.
+	 *
+	 * @param {LoadingManager} [manager] - The loading manager.
+	 */
+	constructor( manager ) {
+
+		super( manager );
+
+		/**
+		 * An array of available extensions.
+		 *
+		 * @type {Array<Object>}
+		 */
+		this.availableExtensions = [];
+
+	}
+
+	/**
+	 * Starts loading from the given URL and passes the loaded 3MF asset
+	 * to the `onLoad()` callback.
+	 *
+	 * @param {string} url - The path/URL of the file to be loaded. This can also be a data URI.
+	 * @param {function(Group)} onLoad - Executed when the loading process has been finished.
+	 * @param {onProgressCallback} onProgress - Executed while the loading is in progress.
+	 * @param {onErrorCallback} onError - Executed when errors occur.
+	 */
+	load( url, onLoad, onProgress, onError ) {
+
+		const scope = this;
+		const loader = new FileLoader( scope.manager );
+		loader.setPath( scope.path );
+		loader.setResponseType( 'arraybuffer' );
+		loader.setRequestHeader( scope.requestHeader );
+		loader.setWithCredentials( scope.withCredentials );
+		loader.load( url, function ( buffer ) {
+
+			try {
+
+				onLoad( scope.parse( buffer ) );
+
+			} catch ( e ) {
+
+				if ( onError ) {
+
+					onError( e );
+
+				} else {
+
+					console.error( e );
+
+				}
+
+				scope.manager.itemError( url );
+
+			}
+
+		}, onProgress, onError );
+
+	}
+
+	/**
+	 * Parses the given 3MF data and returns the resulting group.
+	 *
+	 * @param {ArrayBuffer} data - The raw 3MF asset data as an array buffer.
+	 * @return {Group} A group representing the parsed asset.
+	 */
+	parse( data ) {
+
+		const scope = this;
+		const textureLoader = new TextureLoader( this.manager );
+
+		function loadDocument( data ) {
+
+			let zip = null;
+			let file = null;
+
+			let relsName;
+			let modelRelsName;
+			const modelPartNames = [];
+			const texturesPartNames = [];
+
+			let modelRels;
+			const modelParts = {};
+			const printTicketParts = {};
+			const texturesParts = {};
+
+			const textDecoder = new TextDecoder();
+
+			try {
+
+				zip = unzipSync( new Uint8Array( data ) );
+
+			} catch ( e ) {
+
+				if ( e instanceof ReferenceError ) {
+
+					console.error( 'THREE.3MFLoader: fflate missing and file is compressed.' );
+					return null;
+
+				}
+
+			}
+
+			let rootModelFile = null;
+
+			for ( file in zip ) {
+
+				if ( file.match( /\_rels\/.rels$/ ) ) {
+
+					relsName = file;
+
+				} else if ( file.match( /3D\/_rels\/.*\.model\.rels$/ ) ) {
+
+					modelRelsName = file;
+
+				} else if ( file.match( /^3D\/[^\/]*\.model$/ ) ) {
+
+					rootModelFile = file;
+
+				} else if ( file.match( /^3D\/.*\/.*\.model$/ ) ) {
+
+					modelPartNames.push( file ); // sub models
+
+				} else if ( file.match( /^3D\/Textures?\/.*/ ) ) {
+
+					texturesPartNames.push( file );
+
+				}
+
+			}
+
+			modelPartNames.push( rootModelFile ); // push root model at the end so it is processed after the sub models
+
+			if ( relsName === undefined ) throw new Error( 'THREE.ThreeMFLoader: Cannot find relationship file `rels` in 3MF archive.' );
+
+			//
+
+			const relsView = zip[ relsName ];
+			const relsFileText = textDecoder.decode( relsView );
+			const rels = parseRelsXml( relsFileText );
+
+			//
+
+			if ( modelRelsName ) {
+
+				const relsView = zip[ modelRelsName ];
+				const relsFileText = textDecoder.decode( relsView );
+				modelRels = parseRelsXml( relsFileText );
+
+			}
+
+			//
+
+			for ( let i = 0; i < modelPartNames.length; i ++ ) {
+
+				const modelPart = modelPartNames[ i ];
+				const view = zip[ modelPart ];
+
+				const fileText = textDecoder.decode( view );
+				const xmlData = new DOMParser().parseFromString( fileText, 'application/xml' );
+
+				if ( xmlData.documentElement.nodeName.toLowerCase() !== 'model' ) {
+
+					console.error( 'THREE.3MFLoader: Error loading 3MF - no 3MF document found: ', modelPart );
+
+				}
+
+				const modelNode = xmlData.querySelector( 'model' );
+				const extensions = {};
+
+				for ( let i = 0; i < modelNode.attributes.length; i ++ ) {
+
+					const attr = modelNode.attributes[ i ];
+					if ( attr.name.match( /^xmlns:(.+)$/ ) ) {
+
+						extensions[ attr.value ] = RegExp.$1;
+
+					}
+
+				}
+
+				const modelData = parseModelNode( modelNode );
+				modelData[ 'xml' ] = modelNode;
+
+				if ( 0 < Object.keys( extensions ).length ) {
+
+					modelData[ 'extensions' ] = extensions;
+
+				}
+
+				modelParts[ modelPart ] = modelData;
+
+			}
+
+			//
+
+			for ( let i = 0; i < texturesPartNames.length; i ++ ) {
+
+				const texturesPartName = texturesPartNames[ i ];
+				texturesParts[ texturesPartName ] = zip[ texturesPartName ].buffer;
+
+			}
+
+			return {
+				rels: rels,
+				modelRels: modelRels,
+				model: modelParts,
+				printTicket: printTicketParts,
+				texture: texturesParts
+			};
+
+		}
+
+		function parseRelsXml( relsFileText ) {
+
+			const relationships = [];
+
+			const relsXmlData = new DOMParser().parseFromString( relsFileText, 'application/xml' );
+
+			const relsNodes = relsXmlData.querySelectorAll( 'Relationship' );
+
+			for ( let i = 0; i < relsNodes.length; i ++ ) {
+
+				const relsNode = relsNodes[ i ];
+
+				const relationship = {
+					target: relsNode.getAttribute( 'Target' ), //required
+					id: relsNode.getAttribute( 'Id' ), //required
+					type: relsNode.getAttribute( 'Type' ) //required
+				};
+
+				relationships.push( relationship );
+
+			}
+
+			return relationships;
+
+		}
+
+		function parseMetadataNodes( metadataNodes ) {
+
+			const metadataData = {};
+
+			for ( let i = 0; i < metadataNodes.length; i ++ ) {
+
+				const metadataNode = metadataNodes[ i ];
+				const name = metadataNode.getAttribute( 'name' );
+				const validNames = [
+					'Title',
+					'Designer',
+					'Description',
+					'Copyright',
+					'LicenseTerms',
+					'Rating',
+					'CreationDate',
+					'ModificationDate'
+				];
+
+				if ( 0 <= validNames.indexOf( name ) ) {
+
+					metadataData[ name ] = metadataNode.textContent;
+
+				}
+
+			}
+
+			return metadataData;
+
+		}
+
+		function parseBasematerialsNode( basematerialsNode ) {
+
+			const basematerialsData = {
+				id: basematerialsNode.getAttribute( 'id' ), // required
+				basematerials: []
+			};
+
+			const basematerialNodes = basematerialsNode.querySelectorAll( 'base' );
+
+			for ( let i = 0; i < basematerialNodes.length; i ++ ) {
+
+				const basematerialNode = basematerialNodes[ i ];
+				const basematerialData = parseBasematerialNode( basematerialNode );
+				basematerialData.index = i; // the order and count of the material nodes form an implicit 0-based index
+				basematerialsData.basematerials.push( basematerialData );
+
+			}
+
+			return basematerialsData;
+
+		}
+
+		function parseTexture2DNode( texture2DNode ) {
+
+			const texture2dData = {
+				id: texture2DNode.getAttribute( 'id' ), // required
+				path: texture2DNode.getAttribute( 'path' ), // required
+				contenttype: texture2DNode.getAttribute( 'contenttype' ), // required
+				tilestyleu: texture2DNode.getAttribute( 'tilestyleu' ),
+				tilestylev: texture2DNode.getAttribute( 'tilestylev' ),
+				filter: texture2DNode.getAttribute( 'filter' ),
+			};
+
+			return texture2dData;
+
+		}
+
+		function parseTextures2DGroupNode( texture2DGroupNode ) {
+
+			const texture2DGroupData = {
+				id: texture2DGroupNode.getAttribute( 'id' ), // required
+				texid: texture2DGroupNode.getAttribute( 'texid' ), // required
+				displaypropertiesid: texture2DGroupNode.getAttribute( 'displaypropertiesid' )
+			};
+
+			const tex2coordNodes = texture2DGroupNode.querySelectorAll( 'tex2coord' );
+
+			const uvs = [];
+
+			for ( let i = 0; i < tex2coordNodes.length; i ++ ) {
+
+				const tex2coordNode = tex2coordNodes[ i ];
+				const u = tex2coordNode.getAttribute( 'u' );
+				const v = tex2coordNode.getAttribute( 'v' );
+
+				uvs.push( parseFloat( u ), parseFloat( v ) );
+
+			}
+
+			texture2DGroupData[ 'uvs' ] = new Float32Array( uvs );
+
+			return texture2DGroupData;
+
+		}
+
+		function parseColorGroupNode( colorGroupNode ) {
+
+			const colorGroupData = {
+				id: colorGroupNode.getAttribute( 'id' ), // required
+				displaypropertiesid: colorGroupNode.getAttribute( 'displaypropertiesid' )
+			};
+
+			const colorNodes = colorGroupNode.querySelectorAll( 'color' );
+
+			const colors = [];
+			const colorObject = new Color$1();
+
+			for ( let i = 0; i < colorNodes.length; i ++ ) {
+
+				const colorNode = colorNodes[ i ];
+				const color = colorNode.getAttribute( 'color' );
+
+				colorObject.setStyle( color.substring( 0, 7 ), COLOR_SPACE_3MF );
+
+				colors.push( colorObject.r, colorObject.g, colorObject.b );
+
+			}
+
+			colorGroupData[ 'colors' ] = new Float32Array( colors );
+
+			return colorGroupData;
+
+		}
+
+		function parseImplicitIONode( implicitIONode ) {
+
+			const portNodes = implicitIONode.children;
+			const portArguments = {};
+			for ( let i = 0; i < portNodes.length; i ++ ) {
+
+				const args = { type: portNodes[ i ].nodeName.substring( 2 ) };
+				for ( let j = 0; j < portNodes[ i ].attributes.length; j ++ ) {
+
+					const attrib = portNodes[ i ].attributes[ j ];
+					if ( attrib.specified ) {
+
+		 				args[ attrib.name ] = attrib.value;
+
+					}
+
+				}
+
+				portArguments[ portNodes[ i ].getAttribute( 'identifier' ) ] = args;
+
+			}
+
+			return portArguments;
+
+		}
+
+		function parseImplicitFunctionNode( implicitFunctionNode ) {
+
+			const implicitFunctionData = {
+				id: implicitFunctionNode.getAttribute( 'id' ),
+				displayname: implicitFunctionNode.getAttribute( 'displayname' )
+			};
+
+			const functionNodes = implicitFunctionNode.children;
+
+			const operations = {};
+
+			for ( let i = 0; i < functionNodes.length; i ++ ) {
+
+				const operatorNode = functionNodes[ i ];
+
+				if ( operatorNode.nodeName === 'i:in' || operatorNode.nodeName === 'i:out' ) {
+
+					operations[ operatorNode.nodeName === 'i:in' ? 'inputs' : 'outputs' ] = parseImplicitIONode( operatorNode );
+
+				} else {
+
+					const inputNodes = operatorNode.children;
+					const portArguments = { 'op': operatorNode.nodeName.substring( 2 ), 'identifier': operatorNode.getAttribute( 'identifier' ) };
+					for ( let i = 0; i < inputNodes.length; i ++ ) {
+
+						portArguments[ inputNodes[ i ].nodeName.substring( 2 ) ] = parseImplicitIONode( inputNodes[ i ] );
+
+					}
+
+					operations[ portArguments[ 'identifier' ] ] = portArguments;
+
+				}
+
+			}
+
+			implicitFunctionData[ 'operations' ] = operations;
+
+			return implicitFunctionData;
+
+		}
+
+		function parseMetallicDisplaypropertiesNode( metallicDisplaypropetiesNode ) {
+
+			const metallicDisplaypropertiesData = {
+				id: metallicDisplaypropetiesNode.getAttribute( 'id' ) // required
+			};
+
+			const metallicNodes = metallicDisplaypropetiesNode.querySelectorAll( 'pbmetallic' );
+
+			const metallicData = [];
+
+			for ( let i = 0; i < metallicNodes.length; i ++ ) {
+
+				const metallicNode = metallicNodes[ i ];
+
+				metallicData.push( {
+					name: metallicNode.getAttribute( 'name' ), // required
+					metallicness: parseFloat( metallicNode.getAttribute( 'metallicness' ) ), // required
+					roughness: parseFloat( metallicNode.getAttribute( 'roughness' ) ) // required
+				} );
+
+			}
+
+			metallicDisplaypropertiesData.data = metallicData;
+
+			return metallicDisplaypropertiesData;
+
+		}
+
+		function parseBasematerialNode( basematerialNode ) {
+
+			const basematerialData = {};
+
+			basematerialData[ 'name' ] = basematerialNode.getAttribute( 'name' ); // required
+			basematerialData[ 'displaycolor' ] = basematerialNode.getAttribute( 'displaycolor' ); // required
+			basematerialData[ 'displaypropertiesid' ] = basematerialNode.getAttribute( 'displaypropertiesid' );
+
+			return basematerialData;
+
+		}
+
+		function parseMeshNode( meshNode ) {
+
+			const meshData = {};
+
+			const vertices = [];
+			const vertexNodes = meshNode.querySelectorAll( 'vertices vertex' );
+
+			for ( let i = 0; i < vertexNodes.length; i ++ ) {
+
+				const vertexNode = vertexNodes[ i ];
+				const x = vertexNode.getAttribute( 'x' );
+				const y = vertexNode.getAttribute( 'y' );
+				const z = vertexNode.getAttribute( 'z' );
+
+				vertices.push( parseFloat( x ), parseFloat( y ), parseFloat( z ) );
+
+			}
+
+			meshData[ 'vertices' ] = new Float32Array( vertices );
+
+			const triangleProperties = [];
+			const triangles = [];
+			const triangleNodes = meshNode.querySelectorAll( 'triangles triangle' );
+
+			for ( let i = 0; i < triangleNodes.length; i ++ ) {
+
+				const triangleNode = triangleNodes[ i ];
+				const v1 = triangleNode.getAttribute( 'v1' );
+				const v2 = triangleNode.getAttribute( 'v2' );
+				const v3 = triangleNode.getAttribute( 'v3' );
+				const p1 = triangleNode.getAttribute( 'p1' );
+				const p2 = triangleNode.getAttribute( 'p2' );
+				const p3 = triangleNode.getAttribute( 'p3' );
+				const pid = triangleNode.getAttribute( 'pid' );
+
+				const triangleProperty = {};
+
+				triangleProperty[ 'v1' ] = parseInt( v1, 10 );
+				triangleProperty[ 'v2' ] = parseInt( v2, 10 );
+				triangleProperty[ 'v3' ] = parseInt( v3, 10 );
+
+				triangles.push( triangleProperty[ 'v1' ], triangleProperty[ 'v2' ], triangleProperty[ 'v3' ] );
+
+				// optional
+
+				if ( p1 ) {
+
+					triangleProperty[ 'p1' ] = parseInt( p1, 10 );
+
+				}
+
+				if ( p2 ) {
+
+					triangleProperty[ 'p2' ] = parseInt( p2, 10 );
+
+				}
+
+				if ( p3 ) {
+
+					triangleProperty[ 'p3' ] = parseInt( p3, 10 );
+
+				}
+
+				if ( pid ) {
+
+					triangleProperty[ 'pid' ] = pid;
+
+				}
+
+				if ( 0 < Object.keys( triangleProperty ).length ) {
+
+					triangleProperties.push( triangleProperty );
+
+				}
+
+			}
+
+			meshData[ 'triangleProperties' ] = triangleProperties;
+			meshData[ 'triangles' ] = new Uint32Array( triangles );
+
+			return meshData;
+
+		}
+
+		function parseComponentsNode( componentsNode ) {
+
+			const components = [];
+
+			const componentNodes = componentsNode.querySelectorAll( 'component' );
+
+			for ( let i = 0; i < componentNodes.length; i ++ ) {
+
+				const componentNode = componentNodes[ i ];
+				const componentData = parseComponentNode( componentNode );
+				components.push( componentData );
+
+			}
+
+			return components;
+
+		}
+
+		function parseComponentNode( componentNode ) {
+
+			const componentData = {};
+
+			componentData[ 'objectId' ] = componentNode.getAttribute( 'objectid' ); // required
+
+			const transform = componentNode.getAttribute( 'transform' );
+
+			if ( transform ) {
+
+				componentData[ 'transform' ] = parseTransform( transform );
+
+			}
+
+			return componentData;
+
+		}
+
+		function parseTransform( transform ) {
+
+			const t = [];
+			transform.split( ' ' ).forEach( function ( s ) {
+
+				t.push( parseFloat( s ) );
+
+			} );
+
+			const matrix = new Matrix4$2();
+			matrix.set(
+				t[ 0 ], t[ 3 ], t[ 6 ], t[ 9 ],
+				t[ 1 ], t[ 4 ], t[ 7 ], t[ 10 ],
+				t[ 2 ], t[ 5 ], t[ 8 ], t[ 11 ],
+				 0.0, 0.0, 0.0, 1.0
+			);
+
+			return matrix;
+
+		}
+
+		function parseObjectNode( objectNode ) {
+
+			const objectData = {
+				type: objectNode.getAttribute( 'type' )
+			};
+
+			const id = objectNode.getAttribute( 'id' );
+
+			if ( id ) {
+
+				objectData[ 'id' ] = id;
+
+			}
+
+			const pid = objectNode.getAttribute( 'pid' );
+
+			if ( pid ) {
+
+				objectData[ 'pid' ] = pid;
+
+			}
+
+			const pindex = objectNode.getAttribute( 'pindex' );
+
+			if ( pindex ) {
+
+				objectData[ 'pindex' ] = pindex;
+
+			}
+
+			const thumbnail = objectNode.getAttribute( 'thumbnail' );
+
+			if ( thumbnail ) {
+
+				objectData[ 'thumbnail' ] = thumbnail;
+
+			}
+
+			const partnumber = objectNode.getAttribute( 'partnumber' );
+
+			if ( partnumber ) {
+
+				objectData[ 'partnumber' ] = partnumber;
+
+			}
+
+			const name = objectNode.getAttribute( 'name' );
+
+			if ( name ) {
+
+				objectData[ 'name' ] = name;
+
+			}
+
+			const meshNode = objectNode.querySelector( 'mesh' );
+
+			if ( meshNode ) {
+
+				objectData[ 'mesh' ] = parseMeshNode( meshNode );
+
+			}
+
+			const componentsNode = objectNode.querySelector( 'components' );
+
+			if ( componentsNode ) {
+
+				objectData[ 'components' ] = parseComponentsNode( componentsNode );
+
+			}
+
+			return objectData;
+
+		}
+
+		function parseResourcesNode( resourcesNode ) {
+
+			const resourcesData = {};
+
+			resourcesData[ 'basematerials' ] = {};
+			const basematerialsNodes = resourcesNode.querySelectorAll( 'basematerials' );
+
+			for ( let i = 0; i < basematerialsNodes.length; i ++ ) {
+
+				const basematerialsNode = basematerialsNodes[ i ];
+				const basematerialsData = parseBasematerialsNode( basematerialsNode );
+				resourcesData[ 'basematerials' ][ basematerialsData[ 'id' ] ] = basematerialsData;
+
+			}
+
+			//
+
+			resourcesData[ 'texture2d' ] = {};
+			const textures2DNodes = resourcesNode.querySelectorAll( 'texture2d' );
+
+			for ( let i = 0; i < textures2DNodes.length; i ++ ) {
+
+				const textures2DNode = textures2DNodes[ i ];
+				const texture2DData = parseTexture2DNode( textures2DNode );
+				resourcesData[ 'texture2d' ][ texture2DData[ 'id' ] ] = texture2DData;
+
+			}
+
+			//
+
+			resourcesData[ 'colorgroup' ] = {};
+			const colorGroupNodes = resourcesNode.querySelectorAll( 'colorgroup' );
+
+			for ( let i = 0; i < colorGroupNodes.length; i ++ ) {
+
+				const colorGroupNode = colorGroupNodes[ i ];
+				const colorGroupData = parseColorGroupNode( colorGroupNode );
+				resourcesData[ 'colorgroup' ][ colorGroupData[ 'id' ] ] = colorGroupData;
+
+			}
+
+			//
+
+			const implicitFunctionNodes = resourcesNode.querySelectorAll( 'implicitfunction' );
+
+			if ( implicitFunctionNodes.length > 0 ) {
+
+				resourcesData[ 'implicitfunction' ] = {};
+
+			}
+
+
+			for ( let i = 0; i < implicitFunctionNodes.length; i ++ ) {
+
+				const implicitFunctionNode = implicitFunctionNodes[ i ];
+				const implicitFunctionData = parseImplicitFunctionNode( implicitFunctionNode );
+				resourcesData[ 'implicitfunction' ][ implicitFunctionData[ 'id' ] ] = implicitFunctionData;
+
+			}
+
+			//
+
+			resourcesData[ 'pbmetallicdisplayproperties' ] = {};
+			const pbmetallicdisplaypropertiesNodes = resourcesNode.querySelectorAll( 'pbmetallicdisplayproperties' );
+
+			for ( let i = 0; i < pbmetallicdisplaypropertiesNodes.length; i ++ ) {
+
+				const pbmetallicdisplaypropertiesNode = pbmetallicdisplaypropertiesNodes[ i ];
+				const pbmetallicdisplaypropertiesData = parseMetallicDisplaypropertiesNode( pbmetallicdisplaypropertiesNode );
+				resourcesData[ 'pbmetallicdisplayproperties' ][ pbmetallicdisplaypropertiesData[ 'id' ] ] = pbmetallicdisplaypropertiesData;
+
+			}
+
+			//
+
+			resourcesData[ 'texture2dgroup' ] = {};
+			const textures2DGroupNodes = resourcesNode.querySelectorAll( 'texture2dgroup' );
+
+			for ( let i = 0; i < textures2DGroupNodes.length; i ++ ) {
+
+				const textures2DGroupNode = textures2DGroupNodes[ i ];
+				const textures2DGroupData = parseTextures2DGroupNode( textures2DGroupNode );
+				resourcesData[ 'texture2dgroup' ][ textures2DGroupData[ 'id' ] ] = textures2DGroupData;
+
+			}
+
+			//
+
+			resourcesData[ 'object' ] = {};
+			const objectNodes = resourcesNode.querySelectorAll( 'object' );
+
+			for ( let i = 0; i < objectNodes.length; i ++ ) {
+
+				const objectNode = objectNodes[ i ];
+				const objectData = parseObjectNode( objectNode );
+				resourcesData[ 'object' ][ objectData[ 'id' ] ] = objectData;
+
+			}
+
+			return resourcesData;
+
+		}
+
+		function parseBuildNode( buildNode ) {
+
+			const buildData = [];
+			const itemNodes = buildNode.querySelectorAll( 'item' );
+
+			for ( let i = 0; i < itemNodes.length; i ++ ) {
+
+				const itemNode = itemNodes[ i ];
+				const buildItem = {
+					objectId: itemNode.getAttribute( 'objectid' )
+				};
+				const transform = itemNode.getAttribute( 'transform' );
+
+				if ( transform ) {
+
+					buildItem[ 'transform' ] = parseTransform( transform );
+
+				}
+
+				buildData.push( buildItem );
+
+			}
+
+			return buildData;
+
+		}
+
+		function parseModelNode( modelNode ) {
+
+			const modelData = { unit: modelNode.getAttribute( 'unit' ) || 'millimeter' };
+			const metadataNodes = modelNode.querySelectorAll( 'metadata' );
+
+			if ( metadataNodes ) {
+
+				modelData[ 'metadata' ] = parseMetadataNodes( metadataNodes );
+
+			}
+
+			const resourcesNode = modelNode.querySelector( 'resources' );
+
+			if ( resourcesNode ) {
+
+				modelData[ 'resources' ] = parseResourcesNode( resourcesNode );
+
+			}
+
+			const buildNode = modelNode.querySelector( 'build' );
+
+			if ( buildNode ) {
+
+				modelData[ 'build' ] = parseBuildNode( buildNode );
+
+			}
+
+			return modelData;
+
+		}
+
+		function buildTexture( texture2dgroup, objects, modelData, textureData ) {
+
+			const texid = texture2dgroup.texid;
+			const texture2ds = modelData.resources.texture2d;
+			const texture2d = texture2ds[ texid ];
+
+			if ( texture2d ) {
+
+				const data = textureData[ texture2d.path ];
+				const type = texture2d.contenttype;
+
+				const blob = new Blob( [ data ], { type: type } );
+				const sourceURI = URL.createObjectURL( blob );
+
+				const texture = textureLoader.load( sourceURI, function () {
+
+					URL.revokeObjectURL( sourceURI );
+
+				} );
+
+				texture.colorSpace = COLOR_SPACE_3MF;
+
+				// texture parameters
+
+				switch ( texture2d.tilestyleu ) {
+
+					case 'wrap':
+						texture.wrapS = RepeatWrapping$1;
+						break;
+
+					case 'mirror':
+						texture.wrapS = MirroredRepeatWrapping$1;
+						break;
+
+					case 'none':
+					case 'clamp':
+						texture.wrapS = ClampToEdgeWrapping$1;
+						break;
+
+					default:
+						texture.wrapS = RepeatWrapping$1;
+
+				}
+
+				switch ( texture2d.tilestylev ) {
+
+					case 'wrap':
+						texture.wrapT = RepeatWrapping$1;
+						break;
+
+					case 'mirror':
+						texture.wrapT = MirroredRepeatWrapping$1;
+						break;
+
+					case 'none':
+					case 'clamp':
+						texture.wrapT = ClampToEdgeWrapping$1;
+						break;
+
+					default:
+						texture.wrapT = RepeatWrapping$1;
+
+				}
+
+				switch ( texture2d.filter ) {
+
+					case 'auto':
+						texture.magFilter = LinearFilter$1;
+						texture.minFilter = LinearMipmapLinearFilter$1;
+						break;
+
+					case 'linear':
+						texture.magFilter = LinearFilter$1;
+						texture.minFilter = LinearFilter$1;
+						texture.generateMipmaps = false;
+						break;
+
+					case 'nearest':
+						texture.magFilter = NearestFilter$1;
+						texture.minFilter = NearestFilter$1;
+						texture.generateMipmaps = false;
+						break;
+
+					default:
+						texture.magFilter = LinearFilter$1;
+						texture.minFilter = LinearMipmapLinearFilter$1;
+
+				}
+
+				return texture;
+
+			} else {
+
+				return null;
+
+			}
+
+		}
+
+		function buildBasematerialsMeshes( basematerials, triangleProperties, meshData, objects, modelData, textureData, objectData ) {
+
+			const objectPindex = objectData.pindex;
+
+			const materialMap = {};
+
+			for ( let i = 0, l = triangleProperties.length; i < l; i ++ ) {
+
+				const triangleProperty = triangleProperties[ i ];
+				const pindex = ( triangleProperty.p1 !== undefined ) ? triangleProperty.p1 : objectPindex;
+
+				if ( materialMap[ pindex ] === undefined ) materialMap[ pindex ] = [];
+
+				materialMap[ pindex ].push( triangleProperty );
+
+			}
+
+			//
+
+			const keys = Object.keys( materialMap );
+			const meshes = [];
+
+			for ( let i = 0, l = keys.length; i < l; i ++ ) {
+
+				const materialIndex = keys[ i ];
+				const trianglePropertiesProps = materialMap[ materialIndex ];
+				const basematerialData = basematerials.basematerials[ materialIndex ];
+				const material = getBuild( basematerialData, objects, modelData, textureData, objectData, buildBasematerial );
+
+				//
+
+				const geometry = new BufferGeometry();
+
+				const positionData = [];
+
+				const vertices = meshData.vertices;
+
+				for ( let j = 0, jl = trianglePropertiesProps.length; j < jl; j ++ ) {
+
+					const triangleProperty = trianglePropertiesProps[ j ];
+
+					positionData.push( vertices[ ( triangleProperty.v1 * 3 ) + 0 ] );
+					positionData.push( vertices[ ( triangleProperty.v1 * 3 ) + 1 ] );
+					positionData.push( vertices[ ( triangleProperty.v1 * 3 ) + 2 ] );
+
+					positionData.push( vertices[ ( triangleProperty.v2 * 3 ) + 0 ] );
+					positionData.push( vertices[ ( triangleProperty.v2 * 3 ) + 1 ] );
+					positionData.push( vertices[ ( triangleProperty.v2 * 3 ) + 2 ] );
+
+					positionData.push( vertices[ ( triangleProperty.v3 * 3 ) + 0 ] );
+					positionData.push( vertices[ ( triangleProperty.v3 * 3 ) + 1 ] );
+					positionData.push( vertices[ ( triangleProperty.v3 * 3 ) + 2 ] );
+
+
+				}
+
+				geometry.setAttribute( 'position', new Float32BufferAttribute( positionData, 3 ) );
+
+				//
+
+				const mesh = new Mesh( geometry, material );
+				meshes.push( mesh );
+
+			}
+
+			return meshes;
+
+		}
+
+		function buildTexturedMesh( texture2dgroup, triangleProperties, meshData, objects, modelData, textureData, objectData ) {
+
+			// geometry
+
+			const geometry = new BufferGeometry();
+
+			const positionData = [];
+			const uvData = [];
+
+			const vertices = meshData.vertices;
+			const uvs = texture2dgroup.uvs;
+
+			for ( let i = 0, l = triangleProperties.length; i < l; i ++ ) {
+
+				const triangleProperty = triangleProperties[ i ];
+
+				positionData.push( vertices[ ( triangleProperty.v1 * 3 ) + 0 ] );
+				positionData.push( vertices[ ( triangleProperty.v1 * 3 ) + 1 ] );
+				positionData.push( vertices[ ( triangleProperty.v1 * 3 ) + 2 ] );
+
+				positionData.push( vertices[ ( triangleProperty.v2 * 3 ) + 0 ] );
+				positionData.push( vertices[ ( triangleProperty.v2 * 3 ) + 1 ] );
+				positionData.push( vertices[ ( triangleProperty.v2 * 3 ) + 2 ] );
+
+				positionData.push( vertices[ ( triangleProperty.v3 * 3 ) + 0 ] );
+				positionData.push( vertices[ ( triangleProperty.v3 * 3 ) + 1 ] );
+				positionData.push( vertices[ ( triangleProperty.v3 * 3 ) + 2 ] );
+
+				//
+
+				uvData.push( uvs[ ( triangleProperty.p1 * 2 ) + 0 ] );
+				uvData.push( uvs[ ( triangleProperty.p1 * 2 ) + 1 ] );
+
+				uvData.push( uvs[ ( triangleProperty.p2 * 2 ) + 0 ] );
+				uvData.push( uvs[ ( triangleProperty.p2 * 2 ) + 1 ] );
+
+				uvData.push( uvs[ ( triangleProperty.p3 * 2 ) + 0 ] );
+				uvData.push( uvs[ ( triangleProperty.p3 * 2 ) + 1 ] );
+
+			}
+
+			geometry.setAttribute( 'position', new Float32BufferAttribute( positionData, 3 ) );
+			geometry.setAttribute( 'uv', new Float32BufferAttribute( uvData, 2 ) );
+
+			// material
+
+			const texture = getBuild( texture2dgroup, objects, modelData, textureData, objectData, buildTexture );
+
+			const material = new MeshPhongMaterial( { map: texture, flatShading: true } );
+
+			// mesh
+
+			const mesh = new Mesh( geometry, material );
+
+			return mesh;
+
+		}
+
+		function buildVertexColorMesh( colorgroup, triangleProperties, meshData, objectData ) {
+
+			// geometry
+
+			const geometry = new BufferGeometry();
+
+			const positionData = [];
+			const colorData = [];
+
+			const vertices = meshData.vertices;
+			const colors = colorgroup.colors;
+
+			for ( let i = 0, l = triangleProperties.length; i < l; i ++ ) {
+
+				const triangleProperty = triangleProperties[ i ];
+
+				const v1 = triangleProperty.v1;
+				const v2 = triangleProperty.v2;
+				const v3 = triangleProperty.v3;
+
+				positionData.push( vertices[ ( v1 * 3 ) + 0 ] );
+				positionData.push( vertices[ ( v1 * 3 ) + 1 ] );
+				positionData.push( vertices[ ( v1 * 3 ) + 2 ] );
+
+				positionData.push( vertices[ ( v2 * 3 ) + 0 ] );
+				positionData.push( vertices[ ( v2 * 3 ) + 1 ] );
+				positionData.push( vertices[ ( v2 * 3 ) + 2 ] );
+
+				positionData.push( vertices[ ( v3 * 3 ) + 0 ] );
+				positionData.push( vertices[ ( v3 * 3 ) + 1 ] );
+				positionData.push( vertices[ ( v3 * 3 ) + 2 ] );
+
+				//
+
+				const p1 = ( triangleProperty.p1 !== undefined ) ? triangleProperty.p1 : objectData.pindex;
+				const p2 = ( triangleProperty.p2 !== undefined ) ? triangleProperty.p2 : p1;
+				const p3 = ( triangleProperty.p3 !== undefined ) ? triangleProperty.p3 : p1;
+
+				colorData.push( colors[ ( p1 * 3 ) + 0 ] );
+				colorData.push( colors[ ( p1 * 3 ) + 1 ] );
+				colorData.push( colors[ ( p1 * 3 ) + 2 ] );
+
+				colorData.push( colors[ ( p2 * 3 ) + 0 ] );
+				colorData.push( colors[ ( p2 * 3 ) + 1 ] );
+				colorData.push( colors[ ( p2 * 3 ) + 2 ] );
+
+				colorData.push( colors[ ( p3 * 3 ) + 0 ] );
+				colorData.push( colors[ ( p3 * 3 ) + 1 ] );
+				colorData.push( colors[ ( p3 * 3 ) + 2 ] );
+
+			}
+
+			geometry.setAttribute( 'position', new Float32BufferAttribute( positionData, 3 ) );
+			geometry.setAttribute( 'color', new Float32BufferAttribute( colorData, 3 ) );
+
+			// material
+
+			const material = new MeshPhongMaterial( { vertexColors: true, flatShading: true } );
+
+			// mesh
+
+			const mesh = new Mesh( geometry, material );
+
+			return mesh;
+
+		}
+
+		function buildDefaultMesh( meshData ) {
+
+			const geometry = new BufferGeometry();
+			geometry.setIndex( new BufferAttribute$1( meshData[ 'triangles' ], 1 ) );
+			geometry.setAttribute( 'position', new BufferAttribute$1( meshData[ 'vertices' ], 3 ) );
+
+			const material = new MeshPhongMaterial( {
+				name: Loader.DEFAULT_MATERIAL_NAME,
+				color: 0xffffff,
+				flatShading: true
+			} );
+
+			const mesh = new Mesh( geometry, material );
+
+			return mesh;
+
+		}
+
+		function buildMeshes( resourceMap, meshData, objects, modelData, textureData, objectData ) {
+
+			const keys = Object.keys( resourceMap );
+			const meshes = [];
+
+			for ( let i = 0, il = keys.length; i < il; i ++ ) {
+
+				const resourceId = keys[ i ];
+				const triangleProperties = resourceMap[ resourceId ];
+				const resourceType = getResourceType( resourceId, modelData );
+
+				switch ( resourceType ) {
+
+					case 'material':
+						const basematerials = modelData.resources.basematerials[ resourceId ];
+						const newMeshes = buildBasematerialsMeshes( basematerials, triangleProperties, meshData, objects, modelData, textureData, objectData );
+
+						for ( let j = 0, jl = newMeshes.length; j < jl; j ++ ) {
+
+							meshes.push( newMeshes[ j ] );
+
+						}
+
+						break;
+
+					case 'texture':
+						const texture2dgroup = modelData.resources.texture2dgroup[ resourceId ];
+						meshes.push( buildTexturedMesh( texture2dgroup, triangleProperties, meshData, objects, modelData, textureData, objectData ) );
+						break;
+
+					case 'vertexColors':
+						const colorgroup = modelData.resources.colorgroup[ resourceId ];
+						meshes.push( buildVertexColorMesh( colorgroup, triangleProperties, meshData, objectData ) );
+						break;
+
+					case 'default':
+						meshes.push( buildDefaultMesh( meshData ) );
+						break;
+
+					default:
+						console.error( 'THREE.3MFLoader: Unsupported resource type.' );
+
+				}
+
+			}
+
+			if ( objectData.name ) {
+
+				for ( let i = 0; i < meshes.length; i ++ ) {
+
+					meshes[ i ].name = objectData.name;
+
+				}
+
+			}
+
+			return meshes;
+
+		}
+
+		function getResourceType( pid, modelData ) {
+
+			if ( modelData.resources.texture2dgroup[ pid ] !== undefined ) {
+
+				return 'texture';
+
+			} else if ( modelData.resources.basematerials[ pid ] !== undefined ) {
+
+				return 'material';
+
+			} else if ( modelData.resources.colorgroup[ pid ] !== undefined ) {
+
+				return 'vertexColors';
+
+			} else if ( pid === 'default' ) {
+
+				return 'default';
+
+			} else {
+
+				return undefined;
+
+			}
+
+		}
+
+		function analyzeObject( meshData, objectData ) {
+
+			const resourceMap = {};
+
+			const triangleProperties = meshData[ 'triangleProperties' ];
+
+			const objectPid = objectData.pid;
+
+			for ( let i = 0, l = triangleProperties.length; i < l; i ++ ) {
+
+				const triangleProperty = triangleProperties[ i ];
+				let pid = ( triangleProperty.pid !== undefined ) ? triangleProperty.pid : objectPid;
+
+				if ( pid === undefined ) pid = 'default';
+
+				if ( resourceMap[ pid ] === undefined ) resourceMap[ pid ] = [];
+
+				resourceMap[ pid ].push( triangleProperty );
+
+			}
+
+			return resourceMap;
+
+		}
+
+		function buildGroup( meshData, objects, modelData, textureData, objectData ) {
+
+			const group = new Group$1();
+
+			const resourceMap = analyzeObject( meshData, objectData );
+			const meshes = buildMeshes( resourceMap, meshData, objects, modelData, textureData, objectData );
+
+			for ( let i = 0, l = meshes.length; i < l; i ++ ) {
+
+				group.add( meshes[ i ] );
+
+			}
+
+			return group;
+
+		}
+
+		function applyExtensions( extensions, meshData, modelXml ) {
+
+			if ( ! extensions ) {
+
+				return;
+
+			}
+
+			const availableExtensions = [];
+			const keys = Object.keys( extensions );
+
+			for ( let i = 0; i < keys.length; i ++ ) {
+
+				const ns = keys[ i ];
+
+				for ( let j = 0; j < scope.availableExtensions.length; j ++ ) {
+
+					const extension = scope.availableExtensions[ j ];
+
+					if ( extension.ns === ns ) {
+
+						availableExtensions.push( extension );
+
+					}
+
+				}
+
+			}
+
+			for ( let i = 0; i < availableExtensions.length; i ++ ) {
+
+				const extension = availableExtensions[ i ];
+				extension.apply( modelXml, extensions[ extension[ 'ns' ] ], meshData );
+
+			}
+
+		}
+
+		function getBuild( data, objects, modelData, textureData, objectData, builder ) {
+
+			if ( data.build !== undefined ) return data.build;
+
+			data.build = builder( data, objects, modelData, textureData, objectData );
+
+			return data.build;
+
+		}
+
+		function buildBasematerial( materialData, objects, modelData ) {
+
+			let material;
+
+			const displaypropertiesid = materialData.displaypropertiesid;
+			const pbmetallicdisplayproperties = modelData.resources.pbmetallicdisplayproperties;
+
+			if ( displaypropertiesid !== null && pbmetallicdisplayproperties[ displaypropertiesid ] !== undefined ) {
+
+				// metallic display property, use StandardMaterial
+
+				const pbmetallicdisplayproperty = pbmetallicdisplayproperties[ displaypropertiesid ];
+				const metallicData = pbmetallicdisplayproperty.data[ materialData.index ];
+
+				material = new MeshStandardMaterial( { flatShading: true, roughness: metallicData.roughness, metalness: metallicData.metallicness } );
+
+			} else {
+
+				// otherwise use PhongMaterial
+
+				material = new MeshPhongMaterial( { flatShading: true } );
+
+			}
+
+			material.name = materialData.name;
+
+			// displaycolor MUST be specified with a value of a 6 or 8 digit hexadecimal number, e.g. "#RRGGBB" or "#RRGGBBAA"
+
+			const displaycolor = materialData.displaycolor;
+
+			const color = displaycolor.substring( 0, 7 );
+			material.color.setStyle( color, COLOR_SPACE_3MF );
+
+			// process alpha if set
+
+			if ( displaycolor.length === 9 ) {
+
+				material.opacity = parseInt( displaycolor.charAt( 7 ) + displaycolor.charAt( 8 ), 16 ) / 255;
+
+			}
+
+			return material;
+
+		}
+
+		function buildComposite( compositeData, objects, modelData, textureData ) {
+
+			const composite = new Group$1();
+
+			for ( let j = 0; j < compositeData.length; j ++ ) {
+
+				const component = compositeData[ j ];
+				let build = objects[ component.objectId ];
+
+				if ( build === undefined ) {
+
+					buildObject( component.objectId, objects, modelData, textureData );
+					build = objects[ component.objectId ];
+
+				}
+
+				const object3D = build.clone();
+
+				// apply component transform
+
+				const transform = component.transform;
+
+				if ( transform ) {
+
+					object3D.applyMatrix4( transform );
+
+				}
+
+				composite.add( object3D );
+
+			}
+
+			return composite;
+
+		}
+
+		function buildObject( objectId, objects, modelData, textureData ) {
+
+			const objectData = modelData[ 'resources' ][ 'object' ][ objectId ];
+
+			if ( objectData[ 'mesh' ] ) {
+
+				const meshData = objectData[ 'mesh' ];
+
+				const extensions = modelData[ 'extensions' ];
+				const modelXml = modelData[ 'xml' ];
+
+				applyExtensions( extensions, meshData, modelXml );
+
+				objects[ objectData.id ] = getBuild( meshData, objects, modelData, textureData, objectData, buildGroup );
+
+			} else {
+
+				const compositeData = objectData[ 'components' ];
+
+				objects[ objectData.id ] = getBuild( compositeData, objects, modelData, textureData, objectData, buildComposite );
+
+			}
+
+			if ( objectData.name ) {
+
+				objects[ objectData.id ].name = objectData.name;
+
+			}
+
+			if ( modelData.resources.implicitfunction ) {
+
+				console.warn( 'THREE.ThreeMFLoader: Implicit Functions are implemented in data-only.', modelData.resources.implicitfunction );
+
+			}
+
+		}
+
+		function buildObjects( data3mf ) {
+
+			const modelsData = data3mf.model;
+			const modelRels = data3mf.modelRels;
+			const objects = {};
+			const modelsKeys = Object.keys( modelsData );
+			const textureData = {};
+
+			// evaluate model relationships to textures
+
+			if ( modelRels ) {
+
+				for ( let i = 0, l = modelRels.length; i < l; i ++ ) {
+
+					const modelRel = modelRels[ i ];
+					const textureKey = modelRel.target.substring( 1 );
+
+					if ( data3mf.texture[ textureKey ] ) {
+
+						textureData[ modelRel.target ] = data3mf.texture[ textureKey ];
+
+					}
+
+				}
+
+			}
+
+			// start build
+
+			for ( let i = 0; i < modelsKeys.length; i ++ ) {
+
+				const modelsKey = modelsKeys[ i ];
+				const modelData = modelsData[ modelsKey ];
+
+				const objectIds = Object.keys( modelData[ 'resources' ][ 'object' ] );
+
+				for ( let j = 0; j < objectIds.length; j ++ ) {
+
+					const objectId = objectIds[ j ];
+
+					buildObject( objectId, objects, modelData, textureData );
+
+				}
+
+			}
+
+			return objects;
+
+		}
+
+		function fetch3DModelPart( rels ) {
+
+			for ( let i = 0; i < rels.length; i ++ ) {
+
+				const rel = rels[ i ];
+				const extension = rel.target.split( '.' ).pop();
+
+				if ( extension.toLowerCase() === 'model' ) return rel;
+
+			}
+
+		}
+
+		function build( objects, data3mf ) {
+
+			const group = new Group$1();
+
+			const relationship = fetch3DModelPart( data3mf[ 'rels' ] );
+			const buildData = data3mf.model[ relationship[ 'target' ].substring( 1 ) ][ 'build' ];
+
+			for ( let i = 0; i < buildData.length; i ++ ) {
+
+				const buildItem = buildData[ i ];
+				const object3D = objects[ buildItem[ 'objectId' ] ].clone();
+
+				// apply transform
+
+				const transform = buildItem[ 'transform' ];
+
+				if ( transform ) {
+
+					object3D.applyMatrix4( transform );
+
+				}
+
+				group.add( object3D );
+
+			}
+
+			return group;
+
+		}
+
+		const data3mf = loadDocument( data );
+		const objects = buildObjects( data3mf );
+
+		return build( objects, data3mf );
+
+	}
+
+	/**
+	 * Adds a 3MF extension.
+	 *
+	 * @param {Object} extension - The extension to add.
+	 */
+	addExtension( extension ) {
+
+		this.availableExtensions.push( extension );
+
+	}
+
+}
+
+var _3MFLoader = /*#__PURE__*/Object.freeze({
+	__proto__: null,
+	ThreeMFLoader: ThreeMFLoader
+});
+
+/**
+ * A loader for the AMF format.
+ *
+ * The loader supports materials, color and ZIP compressed files.
+ * No constellation support (yet).
+ *
+ * ```js
+ * const loader = new AMFLoader();
+ *
+ * const object = await loader.loadAsync( './models/amf/rook.amf' );
+ * scene.add( object );
+ * ```
+ *
+ * @augments Loader
+ * @three_import import { AMFLoader } from 'three/addons/loaders/AMFLoader.js';
+ */
+class AMFLoader extends Loader {
+
+	/**
+	 * Constructs a new AMF loader.
+	 *
+	 * @param {LoadingManager} [manager] - The loading manager.
+	 */
+	constructor( manager ) {
+
+		super( manager );
+
+	}
+
+	/**
+	 * Starts loading from the given URL and passes the loaded AMF asset
+	 * to the `onLoad()` callback.
+	 *
+	 * @param {string} url - The path/URL of the file to be loaded. This can also be a data URI.
+	 * @param {function(Group)} onLoad - Executed when the loading process has been finished.
+	 * @param {onProgressCallback} onProgress - Executed while the loading is in progress.
+	 * @param {onErrorCallback} onError - Executed when errors occur.
+	 */
+	load( url, onLoad, onProgress, onError ) {
+
+		const scope = this;
+
+		const loader = new FileLoader( scope.manager );
+		loader.setPath( scope.path );
+		loader.setResponseType( 'arraybuffer' );
+		loader.setRequestHeader( scope.requestHeader );
+		loader.setWithCredentials( scope.withCredentials );
+		loader.load( url, function ( text ) {
+
+			try {
+
+				onLoad( scope.parse( text ) );
+
+			} catch ( e ) {
+
+				if ( onError ) {
+
+					onError( e );
+
+				} else {
+
+					console.error( e );
+
+				}
+
+				scope.manager.itemError( url );
+
+			}
+
+		}, onProgress, onError );
+
+	}
+
+	/**
+	 * Parses the given AMF data and returns the resulting group.
+	 *
+	 * @param {ArrayBuffer} data - The raw AMF asset data as an array buffer.
+	 * @return {Group} A group representing the parsed asset.
+	 */
+	parse( data ) {
+
+		function loadDocument( data ) {
+
+			let view = new DataView( data );
+			const magic = String.fromCharCode( view.getUint8( 0 ), view.getUint8( 1 ) );
+
+			if ( magic === 'PK' ) {
+
+				let zip = null;
+				let file = null;
+
+				console.log( 'THREE.AMFLoader: Loading Zip' );
+
+				try {
+
+					zip = unzipSync( new Uint8Array( data ) );
+
+				} catch ( e ) {
+
+					if ( e instanceof ReferenceError ) {
+
+						console.log( 'THREE.AMFLoader: fflate missing and file is compressed.' );
+						return null;
+
+					}
+
+				}
+
+				for ( file in zip ) {
+
+					if ( file.toLowerCase().slice( -4 ) === '.amf' ) {
+
+						break;
+
+					}
+
+				}
+
+				console.log( 'THREE.AMFLoader: Trying to load file asset: ' + file );
+				view = new DataView( zip[ file ].buffer );
+
+			}
+
+			const fileText = new TextDecoder().decode( view );
+			const xmlData = new DOMParser().parseFromString( fileText, 'application/xml' );
+
+			if ( xmlData.documentElement.nodeName.toLowerCase() !== 'amf' ) {
+
+				console.log( 'THREE.AMFLoader: Error loading AMF - no AMF document found.' );
+				return null;
+
+			}
+
+			return xmlData;
+
+		}
+
+		function loadDocumentScale( node ) {
+
+			let scale = 1.0;
+			let unit = 'millimeter';
+
+			if ( node.documentElement.attributes.unit !== undefined ) {
+
+				unit = node.documentElement.attributes.unit.value.toLowerCase();
+
+			}
+
+			const scaleUnits = {
+				millimeter: 1.0,
+				inch: 25.4,
+				feet: 304.8,
+				meter: 1000.0,
+				micron: 0.001
+			};
+
+			if ( scaleUnits[ unit ] !== undefined ) {
+
+				scale = scaleUnits[ unit ];
+
+			}
+
+			console.log( 'THREE.AMFLoader: Unit scale: ' + scale );
+			return scale;
+
+		}
+
+		function loadMaterials( node ) {
+
+			let matName = 'AMF Material';
+			const matId = node.attributes.id.textContent;
+			let color = { r: 1.0, g: 1.0, b: 1.0, a: 1.0 };
+
+			let loadedMaterial = null;
+
+			for ( let i = 0; i < node.childNodes.length; i ++ ) {
+
+				const matChildEl = node.childNodes[ i ];
+
+				if ( matChildEl.nodeName === 'metadata' && matChildEl.attributes.type !== undefined ) {
+
+					if ( matChildEl.attributes.type.value === 'name' ) {
+
+						matName = matChildEl.textContent;
+
+					}
+
+				} else if ( matChildEl.nodeName === 'color' ) {
+
+					color = loadColor( matChildEl );
+
+				}
+
+			}
+
+			loadedMaterial = new MeshPhongMaterial( {
+				flatShading: true,
+				color: new Color$1( color.r, color.g, color.b ),
+				name: matName
+			} );
+
+			if ( color.a !== 1.0 ) {
+
+				loadedMaterial.transparent = true;
+				loadedMaterial.opacity = color.a;
+
+			}
+
+			return { id: matId, material: loadedMaterial };
+
+		}
+
+		function loadColor( node ) {
+
+			const color = { r: 1.0, g: 1.0, b: 1.0, a: 1.0 };
+
+			for ( let i = 0; i < node.childNodes.length; i ++ ) {
+
+				const matColor = node.childNodes[ i ];
+
+				if ( matColor.nodeName === 'r' ) {
+
+					color.r = matColor.textContent;
+
+				} else if ( matColor.nodeName === 'g' ) {
+
+					color.g = matColor.textContent;
+
+				} else if ( matColor.nodeName === 'b' ) {
+
+					color.b = matColor.textContent;
+
+				} else if ( matColor.nodeName === 'a' ) {
+
+					color.a = matColor.textContent;
+
+				}
+
+			}
+
+			return color;
+
+		}
+
+		function loadMeshVolume( node ) {
+
+			const volume = { name: '', triangles: [], materialId: null };
+
+			let currVolumeNode = node.firstElementChild;
+
+			if ( node.attributes.materialid !== undefined ) {
+
+				volume.materialId = node.attributes.materialid.nodeValue;
+
+			}
+
+			while ( currVolumeNode ) {
+
+				if ( currVolumeNode.nodeName === 'metadata' ) {
+
+					if ( currVolumeNode.attributes.type !== undefined ) {
+
+						if ( currVolumeNode.attributes.type.value === 'name' ) {
+
+							volume.name = currVolumeNode.textContent;
+
+						}
+
+					}
+
+				} else if ( currVolumeNode.nodeName === 'triangle' ) {
+
+					const v1 = currVolumeNode.getElementsByTagName( 'v1' )[ 0 ].textContent;
+					const v2 = currVolumeNode.getElementsByTagName( 'v2' )[ 0 ].textContent;
+					const v3 = currVolumeNode.getElementsByTagName( 'v3' )[ 0 ].textContent;
+
+					volume.triangles.push( v1, v2, v3 );
+
+				}
+
+				currVolumeNode = currVolumeNode.nextElementSibling;
+
+			}
+
+			return volume;
+
+		}
+
+		function loadMeshVertices( node ) {
+
+			const vertArray = [];
+			const normalArray = [];
+			let currVerticesNode = node.firstElementChild;
+
+			while ( currVerticesNode ) {
+
+				if ( currVerticesNode.nodeName === 'vertex' ) {
+
+					let vNode = currVerticesNode.firstElementChild;
+
+					while ( vNode ) {
+
+						if ( vNode.nodeName === 'coordinates' ) {
+
+							const x = vNode.getElementsByTagName( 'x' )[ 0 ].textContent;
+							const y = vNode.getElementsByTagName( 'y' )[ 0 ].textContent;
+							const z = vNode.getElementsByTagName( 'z' )[ 0 ].textContent;
+
+							vertArray.push( x, y, z );
+
+						} else if ( vNode.nodeName === 'normal' ) {
+
+							const nx = vNode.getElementsByTagName( 'nx' )[ 0 ].textContent;
+							const ny = vNode.getElementsByTagName( 'ny' )[ 0 ].textContent;
+							const nz = vNode.getElementsByTagName( 'nz' )[ 0 ].textContent;
+
+							normalArray.push( nx, ny, nz );
+
+						}
+
+						vNode = vNode.nextElementSibling;
+
+					}
+
+				}
+
+				currVerticesNode = currVerticesNode.nextElementSibling;
+
+			}
+
+			return { 'vertices': vertArray, 'normals': normalArray };
+
+		}
+
+		function loadObject( node ) {
+
+			const objId = node.attributes.id.textContent;
+			const loadedObject = { name: 'amfobject', meshes: [] };
+			let currColor = null;
+			let currObjNode = node.firstElementChild;
+
+			while ( currObjNode ) {
+
+				if ( currObjNode.nodeName === 'metadata' ) {
+
+					if ( currObjNode.attributes.type !== undefined ) {
+
+						if ( currObjNode.attributes.type.value === 'name' ) {
+
+							loadedObject.name = currObjNode.textContent;
+
+						}
+
+					}
+
+				} else if ( currObjNode.nodeName === 'color' ) {
+
+					currColor = loadColor( currObjNode );
+
+				} else if ( currObjNode.nodeName === 'mesh' ) {
+
+					let currMeshNode = currObjNode.firstElementChild;
+					const mesh = { vertices: [], normals: [], volumes: [], color: currColor };
+
+					while ( currMeshNode ) {
+
+						if ( currMeshNode.nodeName === 'vertices' ) {
+
+							const loadedVertices = loadMeshVertices( currMeshNode );
+
+							mesh.normals = mesh.normals.concat( loadedVertices.normals );
+							mesh.vertices = mesh.vertices.concat( loadedVertices.vertices );
+
+						} else if ( currMeshNode.nodeName === 'volume' ) {
+
+							mesh.volumes.push( loadMeshVolume( currMeshNode ) );
+
+						}
+
+						currMeshNode = currMeshNode.nextElementSibling;
+
+					}
+
+					loadedObject.meshes.push( mesh );
+
+				}
+
+				currObjNode = currObjNode.nextElementSibling;
+
+			}
+
+			return { 'id': objId, 'obj': loadedObject };
+
+		}
+
+		const xmlData = loadDocument( data );
+		let amfName = '';
+		let amfAuthor = '';
+		const amfScale = loadDocumentScale( xmlData );
+		const amfMaterials = {};
+		const amfObjects = {};
+		const childNodes = xmlData.documentElement.childNodes;
+
+		let i, j;
+
+		for ( i = 0; i < childNodes.length; i ++ ) {
+
+			const child = childNodes[ i ];
+
+			if ( child.nodeName === 'metadata' ) {
+
+				if ( child.attributes.type !== undefined ) {
+
+					if ( child.attributes.type.value === 'name' ) {
+
+						amfName = child.textContent;
+
+					} else if ( child.attributes.type.value === 'author' ) {
+
+						amfAuthor = child.textContent;
+
+					}
+
+				}
+
+			} else if ( child.nodeName === 'material' ) {
+
+				const loadedMaterial = loadMaterials( child );
+
+				amfMaterials[ loadedMaterial.id ] = loadedMaterial.material;
+
+			} else if ( child.nodeName === 'object' ) {
+
+				const loadedObject = loadObject( child );
+
+				amfObjects[ loadedObject.id ] = loadedObject.obj;
+
+			}
+
+		}
+
+		const sceneObject = new Group$1();
+		const defaultMaterial = new MeshPhongMaterial( {
+			name: Loader.DEFAULT_MATERIAL_NAME,
+			color: 0xaaaaff,
+			flatShading: true
+		} );
+
+		sceneObject.name = amfName;
+		sceneObject.userData.author = amfAuthor;
+		sceneObject.userData.loader = 'AMF';
+
+		for ( const id in amfObjects ) {
+
+			const part = amfObjects[ id ];
+			const meshes = part.meshes;
+			const newObject = new Group$1();
+			newObject.name = part.name || '';
+
+			for ( i = 0; i < meshes.length; i ++ ) {
+
+				let objDefaultMaterial = defaultMaterial;
+				const mesh = meshes[ i ];
+				const vertices = new Float32BufferAttribute( mesh.vertices, 3 );
+				let normals = null;
+
+				if ( mesh.normals.length ) {
+
+					normals = new Float32BufferAttribute( mesh.normals, 3 );
+
+				}
+
+				if ( mesh.color ) {
+
+					const color = mesh.color;
+
+					objDefaultMaterial = defaultMaterial.clone();
+					objDefaultMaterial.color = new Color$1( color.r, color.g, color.b );
+
+					if ( color.a !== 1.0 ) {
+
+						objDefaultMaterial.transparent = true;
+						objDefaultMaterial.opacity = color.a;
+
+					}
+
+				}
+
+				const volumes = mesh.volumes;
+
+				for ( j = 0; j < volumes.length; j ++ ) {
+
+					const volume = volumes[ j ];
+					const newGeometry = new BufferGeometry();
+					let material = objDefaultMaterial;
+
+					newGeometry.setIndex( volume.triangles );
+					newGeometry.setAttribute( 'position', vertices.clone() );
+
+					if ( normals ) {
+
+						newGeometry.setAttribute( 'normal', normals.clone() );
+
+					}
+
+					if ( amfMaterials[ volume.materialId ] !== undefined ) {
+
+						material = amfMaterials[ volume.materialId ];
+
+					}
+
+					newGeometry.scale( amfScale, amfScale, amfScale );
+					newObject.add( new Mesh( newGeometry, material.clone() ) );
+
+				}
+
+			}
+
+			sceneObject.add( newObject );
+
+		}
+
+		return sceneObject;
+
+	}
+
+}
+
+var AMFLoader$1 = /*#__PURE__*/Object.freeze({
+	__proto__: null,
+	AMFLoader: AMFLoader
+});
+
+/*! chevrotain - v9.0.1 */
+var R=(t,e)=>()=>(e||(e={exports:{}},t(e.exports,e)),e.exports);var Er=R(Pt=>{Object.defineProperty(Pt,"__esModule",{value:true});Pt.VERSION=void 0;Pt.VERSION="9.0.1";});var k=R((exports,module)=>{var __spreadArray=exports&&exports.__spreadArray||function(t,e){for(var r=0,n=e.length,i=t.length;r<n;r++,i++)t[i]=e[r];return t};Object.defineProperty(exports,"__esModule",{value:true});exports.toFastProperties=exports.timer=exports.peek=exports.isES2015MapSupported=exports.PRINT_WARNING=exports.PRINT_ERROR=exports.packArray=exports.IDENTITY=exports.NOOP=exports.merge=exports.groupBy=exports.defaults=exports.assignNoOverwrite=exports.assign=exports.zipObject=exports.sortBy=exports.indexOf=exports.some=exports.difference=exports.every=exports.isObject=exports.isRegExp=exports.isArray=exports.partial=exports.uniq=exports.compact=exports.reduce=exports.findAll=exports.find=exports.cloneObj=exports.cloneArr=exports.contains=exports.has=exports.pick=exports.reject=exports.filter=exports.dropRight=exports.drop=exports.isFunction=exports.isUndefined=exports.isString=exports.forEach=exports.last=exports.first=exports.flatten=exports.map=exports.mapValues=exports.values=exports.keys=exports.isEmpty=void 0;function isEmpty(t){return t&&t.length===0}exports.isEmpty=isEmpty;function keys(t){return t==null?[]:Object.keys(t)}exports.keys=keys;function values(t){for(var e=[],r=Object.keys(t),n=0;n<r.length;n++)e.push(t[r[n]]);return e}exports.values=values;function mapValues(t,e){for(var r=[],n=keys(t),i=0;i<n.length;i++){var a=n[i];r.push(e.call(null,t[a],a));}return r}exports.mapValues=mapValues;function map(t,e){for(var r=[],n=0;n<t.length;n++)r.push(e.call(null,t[n],n));return r}exports.map=map;function flatten(t){for(var e=[],r=0;r<t.length;r++){var n=t[r];Array.isArray(n)?e=e.concat(flatten(n)):e.push(n);}return e}exports.flatten=flatten;function first(t){return isEmpty(t)?void 0:t[0]}exports.first=first;function last(t){var e=t&&t.length;return e?t[e-1]:void 0}exports.last=last;function forEach(t,e){if(Array.isArray(t))for(var r=0;r<t.length;r++)e.call(null,t[r],r);else if(isObject(t))for(var n=keys(t),r=0;r<n.length;r++){var i=n[r],a=t[i];e.call(null,a,i);}else throw Error("non exhaustive match")}exports.forEach=forEach;function isString(t){return typeof t=="string"}exports.isString=isString;function isUndefined(t){return t===void 0}exports.isUndefined=isUndefined;function isFunction(t){return t instanceof Function}exports.isFunction=isFunction;function drop(t,e){return e===void 0&&(e=1),t.slice(e,t.length)}exports.drop=drop;function dropRight(t,e){return e===void 0&&(e=1),t.slice(0,t.length-e)}exports.dropRight=dropRight;function filter(t,e){var r=[];if(Array.isArray(t))for(var n=0;n<t.length;n++){var i=t[n];e.call(null,i)&&r.push(i);}return r}exports.filter=filter;function reject(t,e){return filter(t,function(r){return !e(r)})}exports.reject=reject;function pick(t,e){for(var r=Object.keys(t),n={},i=0;i<r.length;i++){var a=r[i],o=t[a];e(o)&&(n[a]=o);}return n}exports.pick=pick;function has(t,e){return isObject(t)?t.hasOwnProperty(e):false}exports.has=has;function contains(t,e){return find(t,function(r){return r===e})!==void 0}exports.contains=contains;function cloneArr(t){for(var e=[],r=0;r<t.length;r++)e.push(t[r]);return e}exports.cloneArr=cloneArr;function cloneObj(t){var e={};for(var r in t)Object.prototype.hasOwnProperty.call(t,r)&&(e[r]=t[r]);return e}exports.cloneObj=cloneObj;function find(t,e){for(var r=0;r<t.length;r++){var n=t[r];if(e.call(null,n))return n}}exports.find=find;function findAll(t,e){for(var r=[],n=0;n<t.length;n++){var i=t[n];e.call(null,i)&&r.push(i);}return r}exports.findAll=findAll;function reduce(t,e,r){for(var n=Array.isArray(t),i=n?t:values(t),a=n?[]:keys(t),o=r,s=0;s<i.length;s++)o=e.call(null,o,i[s],n?s:a[s]);return o}exports.reduce=reduce;function compact(t){return reject(t,function(e){return e==null})}exports.compact=compact;function uniq(t,e){e===void 0&&(e=function(n){return n});var r=[];return reduce(t,function(n,i){var a=e(i);return contains(r,a)?n:(r.push(a),n.concat(i))},[])}exports.uniq=uniq;function partial(t){for(var e=[],r=1;r<arguments.length;r++)e[r-1]=arguments[r];var n=[null],i=n.concat(e);return Function.bind.apply(t,i)}exports.partial=partial;function isArray(t){return Array.isArray(t)}exports.isArray=isArray;function isRegExp(t){return t instanceof RegExp}exports.isRegExp=isRegExp;function isObject(t){return t instanceof Object}exports.isObject=isObject;function every(t,e){for(var r=0;r<t.length;r++)if(!e(t[r],r))return  false;return  true}exports.every=every;function difference(t,e){return reject(t,function(r){return contains(e,r)})}exports.difference=difference;function some(t,e){for(var r=0;r<t.length;r++)if(e(t[r]))return  true;return  false}exports.some=some;function indexOf(t,e){for(var r=0;r<t.length;r++)if(t[r]===e)return r;return  -1}exports.indexOf=indexOf;function sortBy(t,e){var r=cloneArr(t);return r.sort(function(n,i){return e(n)-e(i)}),r}exports.sortBy=sortBy;function zipObject(t,e){if(t.length!==e.length)throw Error("can't zipObject with different number of keys and values!");for(var r={},n=0;n<t.length;n++)r[t[n]]=e[n];return r}exports.zipObject=zipObject;function assign(t){for(var e=[],r=1;r<arguments.length;r++)e[r-1]=arguments[r];for(var n=0;n<e.length;n++)for(var i=e[n],a=keys(i),o=0;o<a.length;o++){var s=a[o];t[s]=i[s];}return t}exports.assign=assign;function assignNoOverwrite(t){for(var e=[],r=1;r<arguments.length;r++)e[r-1]=arguments[r];for(var n=0;n<e.length;n++)for(var i=e[n],a=keys(i),o=0;o<a.length;o++){var s=a[o];has(t,s)||(t[s]=i[s]);}return t}exports.assignNoOverwrite=assignNoOverwrite;function defaults(){for(var t=[],e=0;e<arguments.length;e++)t[e]=arguments[e];return assignNoOverwrite.apply(void 0,__spreadArray([{}],t))}exports.defaults=defaults;function groupBy(t,e){var r={};return forEach(t,function(n){var i=e(n),a=r[i];a?a.push(n):r[i]=[n];}),r}exports.groupBy=groupBy;function merge(t,e){for(var r=cloneObj(t),n=keys(e),i=0;i<n.length;i++){var a=n[i],o=e[a];r[a]=o;}return r}exports.merge=merge;function NOOP(){}exports.NOOP=NOOP;function IDENTITY(t){return t}exports.IDENTITY=IDENTITY;function packArray(t){for(var e=[],r=0;r<t.length;r++){var n=t[r];e.push(n!==void 0?n:void 0);}return e}exports.packArray=packArray;function PRINT_ERROR(t){console&&console.error&&console.error("Error: "+t);}exports.PRINT_ERROR=PRINT_ERROR;function PRINT_WARNING(t){console&&console.warn&&console.warn("Warning: "+t);}exports.PRINT_WARNING=PRINT_WARNING;function isES2015MapSupported(){return typeof Map=="function"}exports.isES2015MapSupported=isES2015MapSupported;function peek(t){return t[t.length-1]}exports.peek=peek;function timer(t){var e=new Date().getTime(),r=t(),n=new Date().getTime(),i=n-e;return {time:i,value:r}}exports.timer=timer;function toFastProperties(toBecomeFast){return toBecomeFast;}exports.toFastProperties=toFastProperties;});var xt=R((sn,St)=>{(function(t,e){typeof define=="function"&&define.amd?define([],e):typeof St=="object"&&St.exports?St.exports=e():t.regexpToAst=e();})(typeof self!="undefined"?self:sn,function(){function t(){}t.prototype.saveState=function(){return {idx:this.idx,input:this.input,groupIdx:this.groupIdx}},t.prototype.restoreState=function(u){this.idx=u.idx,this.input=u.input,this.groupIdx=u.groupIdx;},t.prototype.pattern=function(u){this.idx=0,this.input=u,this.groupIdx=0,this.consumeChar("/");var d=this.disjunction();this.consumeChar("/");for(var A={type:"Flags",loc:{begin:this.idx,end:u.length},global:false,ignoreCase:false,multiLine:false,unicode:false,sticky:false};this.isRegExpFlag();)switch(this.popChar()){case "g":o(A,"global");break;case "i":o(A,"ignoreCase");break;case "m":o(A,"multiLine");break;case "u":o(A,"unicode");break;case "y":o(A,"sticky");break}if(this.idx!==this.input.length)throw Error("Redundant input: "+this.input.substring(this.idx));return {type:"Pattern",flags:A,value:d,loc:this.loc(0)}},t.prototype.disjunction=function(){var u=[],d=this.idx;for(u.push(this.alternative());this.peekChar()==="|";)this.consumeChar("|"),u.push(this.alternative());return {type:"Disjunction",value:u,loc:this.loc(d)}},t.prototype.alternative=function(){for(var u=[],d=this.idx;this.isTerm();)u.push(this.term());return {type:"Alternative",value:u,loc:this.loc(d)}},t.prototype.term=function(){return this.isAssertion()?this.assertion():this.atom()},t.prototype.assertion=function(){var u=this.idx;switch(this.popChar()){case "^":return {type:"StartAnchor",loc:this.loc(u)};case "$":return {type:"EndAnchor",loc:this.loc(u)};case "\\":switch(this.popChar()){case "b":return {type:"WordBoundary",loc:this.loc(u)};case "B":return {type:"NonWordBoundary",loc:this.loc(u)}}throw Error("Invalid Assertion Escape");case "(":this.consumeChar("?");var d;switch(this.popChar()){case "=":d="Lookahead";break;case "!":d="NegativeLookahead";break}s(d);var A=this.disjunction();return this.consumeChar(")"),{type:d,value:A,loc:this.loc(u)}}c();},t.prototype.quantifier=function(u){var d,A=this.idx;switch(this.popChar()){case "*":d={atLeast:0,atMost:Infinity};break;case "+":d={atLeast:1,atMost:Infinity};break;case "?":d={atLeast:0,atMost:1};break;case "{":var _=this.integerIncludingZero();switch(this.popChar()){case "}":d={atLeast:_,atMost:_};break;case ",":var g;this.isDigit()?(g=this.integerIncludingZero(),d={atLeast:_,atMost:g}):d={atLeast:_,atMost:Infinity},this.consumeChar("}");break}if(u===true&&d===void 0)return;s(d);break}if(!(u===true&&d===void 0))return s(d),this.peekChar(0)==="?"?(this.consumeChar("?"),d.greedy=false):d.greedy=true,d.type="Quantifier",d.loc=this.loc(A),d},t.prototype.atom=function(){var u,d=this.idx;switch(this.peekChar()){case ".":u=this.dotAll();break;case "\\":u=this.atomEscape();break;case "[":u=this.characterClass();break;case "(":u=this.group();break}return u===void 0&&this.isPatternCharacter()&&(u=this.patternCharacter()),s(u),u.loc=this.loc(d),this.isQuantifier()&&(u.quantifier=this.quantifier()),u},t.prototype.dotAll=function(){return this.consumeChar("."),{type:"Set",complement:true,value:[i(`
+`),i("\r"),i("\u2028"),i("\u2029")]}},t.prototype.atomEscape=function(){switch(this.consumeChar("\\"),this.peekChar()){case "1":case "2":case "3":case "4":case "5":case "6":case "7":case "8":case "9":return this.decimalEscapeAtom();case "d":case "D":case "s":case "S":case "w":case "W":return this.characterClassEscape();case "f":case "n":case "r":case "t":case "v":return this.controlEscapeAtom();case "c":return this.controlLetterEscapeAtom();case "0":return this.nulCharacterAtom();case "x":return this.hexEscapeSequenceAtom();case "u":return this.regExpUnicodeEscapeSequenceAtom();default:return this.identityEscapeAtom()}},t.prototype.decimalEscapeAtom=function(){var u=this.positiveInteger();return {type:"GroupBackReference",value:u}},t.prototype.characterClassEscape=function(){var u,d=false;switch(this.popChar()){case "d":u=p;break;case "D":u=p,d=true;break;case "s":u=m;break;case "S":u=m,d=true;break;case "w":u=l;break;case "W":u=l,d=true;break}return s(u),{type:"Set",value:u,complement:d}},t.prototype.controlEscapeAtom=function(){var u;switch(this.popChar()){case "f":u=i("\f");break;case "n":u=i(`
+`);break;case "r":u=i("\r");break;case "t":u=i("	");break;case "v":u=i("\v");break}return s(u),{type:"Character",value:u}},t.prototype.controlLetterEscapeAtom=function(){this.consumeChar("c");var u=this.popChar();if(/[a-zA-Z]/.test(u)===false)throw Error("Invalid ");var d=u.toUpperCase().charCodeAt(0)-64;return {type:"Character",value:d}},t.prototype.nulCharacterAtom=function(){return this.consumeChar("0"),{type:"Character",value:i("\0")}},t.prototype.hexEscapeSequenceAtom=function(){return this.consumeChar("x"),this.parseHexDigits(2)},t.prototype.regExpUnicodeEscapeSequenceAtom=function(){return this.consumeChar("u"),this.parseHexDigits(4)},t.prototype.identityEscapeAtom=function(){var u=this.popChar();return {type:"Character",value:i(u)}},t.prototype.classPatternCharacterAtom=function(){switch(this.peekChar()){case `
+`:case "\r":case "\u2028":case "\u2029":case "\\":case "]":throw Error("TBD");default:var u=this.popChar();return {type:"Character",value:i(u)}}},t.prototype.characterClass=function(){var u=[],d=false;for(this.consumeChar("["),this.peekChar(0)==="^"&&(this.consumeChar("^"),d=true);this.isClassAtom();){var A=this.classAtom(),_=A.type==="Character";if(_&&this.isRangeDash()){this.consumeChar("-");var g=this.classAtom(),y=g.type==="Character";if(y){if(g.value<A.value)throw Error("Range out of order in character class");u.push({from:A.value,to:g.value});}else a(A.value,u),u.push(i("-")),a(g.value,u);}else a(A.value,u);}return this.consumeChar("]"),{type:"Set",complement:d,value:u}},t.prototype.classAtom=function(){switch(this.peekChar()){case "]":case `
+`:case "\r":case "\u2028":case "\u2029":throw Error("TBD");case "\\":return this.classEscape();default:return this.classPatternCharacterAtom()}},t.prototype.classEscape=function(){switch(this.consumeChar("\\"),this.peekChar()){case "b":return this.consumeChar("b"),{type:"Character",value:i("\b")};case "d":case "D":case "s":case "S":case "w":case "W":return this.characterClassEscape();case "f":case "n":case "r":case "t":case "v":return this.controlEscapeAtom();case "c":return this.controlLetterEscapeAtom();case "0":return this.nulCharacterAtom();case "x":return this.hexEscapeSequenceAtom();case "u":return this.regExpUnicodeEscapeSequenceAtom();default:return this.identityEscapeAtom()}},t.prototype.group=function(){var u=true;switch(this.consumeChar("("),this.peekChar(0)){case "?":this.consumeChar("?"),this.consumeChar(":"),u=false;break;default:this.groupIdx++;break}var d=this.disjunction();this.consumeChar(")");var A={type:"Group",capturing:u,value:d};return u&&(A.idx=this.groupIdx),A},t.prototype.positiveInteger=function(){var u=this.popChar();if(n.test(u)===false)throw Error("Expecting a positive integer");for(;r.test(this.peekChar(0));)u+=this.popChar();return parseInt(u,10)},t.prototype.integerIncludingZero=function(){var u=this.popChar();if(r.test(u)===false)throw Error("Expecting an integer");for(;r.test(this.peekChar(0));)u+=this.popChar();return parseInt(u,10)},t.prototype.patternCharacter=function(){var u=this.popChar();switch(u){case `
+`:case "\r":case "\u2028":case "\u2029":case "^":case "$":case "\\":case ".":case "*":case "+":case "?":case "(":case ")":case "[":case "|":throw Error("TBD");default:return {type:"Character",value:i(u)}}},t.prototype.isRegExpFlag=function(){switch(this.peekChar(0)){case "g":case "i":case "m":case "u":case "y":return  true;default:return  false}},t.prototype.isRangeDash=function(){return this.peekChar()==="-"&&this.isClassAtom(1)},t.prototype.isDigit=function(){return r.test(this.peekChar(0))},t.prototype.isClassAtom=function(u){switch(u===void 0&&(u=0),this.peekChar(u)){case "]":case `
+`:case "\r":case "\u2028":case "\u2029":return  false;default:return  true}},t.prototype.isTerm=function(){return this.isAtom()||this.isAssertion()},t.prototype.isAtom=function(){if(this.isPatternCharacter())return  true;switch(this.peekChar(0)){case ".":case "\\":case "[":case "(":return  true;default:return  false}},t.prototype.isAssertion=function(){switch(this.peekChar(0)){case "^":case "$":return  true;case "\\":switch(this.peekChar(1)){case "b":case "B":return  true;default:return  false}case "(":return this.peekChar(1)==="?"&&(this.peekChar(2)==="="||this.peekChar(2)==="!");default:return  false}},t.prototype.isQuantifier=function(){var u=this.saveState();try{return this.quantifier(true)!==void 0}catch(d){return  false}finally{this.restoreState(u);}},t.prototype.isPatternCharacter=function(){switch(this.peekChar()){case "^":case "$":case "\\":case ".":case "*":case "+":case "?":case "(":case ")":case "[":case "|":case "/":case `
+`:case "\r":case "\u2028":case "\u2029":return  false;default:return  true}},t.prototype.parseHexDigits=function(u){for(var d="",A=0;A<u;A++){var _=this.popChar();if(e.test(_)===false)throw Error("Expecting a HexDecimal digits");d+=_;}var g=parseInt(d,16);return {type:"Character",value:g}},t.prototype.peekChar=function(u){return u===void 0&&(u=0),this.input[this.idx+u]},t.prototype.popChar=function(){var u=this.peekChar(0);return this.consumeChar(),u},t.prototype.consumeChar=function(u){if(u!==void 0&&this.input[this.idx]!==u)throw Error("Expected: '"+u+"' but found: '"+this.input[this.idx]+"' at offset: "+this.idx);if(this.idx>=this.input.length)throw Error("Unexpected end of input");this.idx++;},t.prototype.loc=function(u){return {begin:u,end:this.idx}};var e=/[0-9a-fA-F]/,r=/[0-9]/,n=/[1-9]/;function i(u){return u.charCodeAt(0)}function a(u,d){u.length!==void 0?u.forEach(function(A){d.push(A);}):d.push(u);}function o(u,d){if(u[d]===true)throw "duplicate flag "+d;u[d]=true;}function s(u){if(u===void 0)throw Error("Internal Error - Should never get here!")}function c(){throw Error("Internal Error - Should never get here!")}var f,p=[];for(f=i("0");f<=i("9");f++)p.push(f);var l=[i("_")].concat(p);for(f=i("a");f<=i("z");f++)l.push(f);for(f=i("A");f<=i("Z");f++)l.push(f);var m=[i(" "),i("\f"),i(`
+`),i("\r"),i("	"),i("\v"),i("	"),i("\xA0"),i("\u1680"),i("\u2000"),i("\u2001"),i("\u2002"),i("\u2003"),i("\u2004"),i("\u2005"),i("\u2006"),i("\u2007"),i("\u2008"),i("\u2009"),i("\u200A"),i("\u2028"),i("\u2029"),i("\u202F"),i("\u205F"),i("\u3000"),i("\uFEFF")];function v(){}return v.prototype.visitChildren=function(u){for(var d in u){var A=u[d];u.hasOwnProperty(d)&&(A.type!==void 0?this.visit(A):Array.isArray(A)&&A.forEach(function(_){this.visit(_);},this));}},v.prototype.visit=function(u){switch(u.type){case "Pattern":this.visitPattern(u);break;case "Flags":this.visitFlags(u);break;case "Disjunction":this.visitDisjunction(u);break;case "Alternative":this.visitAlternative(u);break;case "StartAnchor":this.visitStartAnchor(u);break;case "EndAnchor":this.visitEndAnchor(u);break;case "WordBoundary":this.visitWordBoundary(u);break;case "NonWordBoundary":this.visitNonWordBoundary(u);break;case "Lookahead":this.visitLookahead(u);break;case "NegativeLookahead":this.visitNegativeLookahead(u);break;case "Character":this.visitCharacter(u);break;case "Set":this.visitSet(u);break;case "Group":this.visitGroup(u);break;case "GroupBackReference":this.visitGroupBackReference(u);break;case "Quantifier":this.visitQuantifier(u);break}this.visitChildren(u);},v.prototype.visitPattern=function(u){},v.prototype.visitFlags=function(u){},v.prototype.visitDisjunction=function(u){},v.prototype.visitAlternative=function(u){},v.prototype.visitStartAnchor=function(u){},v.prototype.visitEndAnchor=function(u){},v.prototype.visitWordBoundary=function(u){},v.prototype.visitNonWordBoundary=function(u){},v.prototype.visitLookahead=function(u){},v.prototype.visitNegativeLookahead=function(u){},v.prototype.visitCharacter=function(u){},v.prototype.visitSet=function(u){},v.prototype.visitGroup=function(u){},v.prototype.visitGroupBackReference=function(u){},v.prototype.visitQuantifier=function(u){},{RegExpParser:t,BaseRegExpVisitor:v,VERSION:"0.5.0"}});});var Lt=R(He=>{Object.defineProperty(He,"__esModule",{value:true});He.clearRegExpParserCache=He.getRegExpAst=void 0;var Ga=xt(),Ct={},Wa=new Ga.RegExpParser;function Ba(t){var e=t.toString();if(Ct.hasOwnProperty(e))return Ct[e];var r=Wa.pattern(e);return Ct[e]=r,r}He.getRegExpAst=Ba;function qa(){Ct={};}He.clearRegExpParserCache=qa;});var pn=R(re=>{var ja=re&&re.__extends||function(){var t=function(e,r){return t=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,i){n.__proto__=i;}||function(n,i){for(var a in i)Object.prototype.hasOwnProperty.call(i,a)&&(n[a]=i[a]);},t(e,r)};return function(e,r){if(typeof r!="function"&&r!==null)throw new TypeError("Class extends value "+String(r)+" is not a constructor or null");t(e,r);function n(){this.constructor=e;}e.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n);}}();Object.defineProperty(re,"__esModule",{value:true});re.canMatchCharCode=re.firstCharOptimizedIndices=re.getOptimizedStartCodesIndices=re.failedOptimizationPrefixMsg=void 0;var un=xt(),pe=k(),cn=Lt(),Ce=Tr(),ln="Complement Sets are not supported for first char optimization";re.failedOptimizationPrefixMsg=`Unable to use "first char" lexer optimizations:
+`;function Va(t,e){e===void 0&&(e=false);try{var r=cn.getRegExpAst(t),n=Mt(r.value,{},r.flags.ignoreCase);return n}catch(a){if(a.message===ln)e&&pe.PRINT_WARNING(""+re.failedOptimizationPrefixMsg+("	Unable to optimize: < "+t.toString()+` >
+`)+`	Complement Sets cannot be automatically optimized.
+	This will disable the lexer's first char optimizations.
+	See: https://chevrotain.io/docs/guide/resolving_lexer_errors.html#COMPLEMENT for details.`);else {var i="";e&&(i=`
+	This will disable the lexer's first char optimizations.
+	See: https://chevrotain.io/docs/guide/resolving_lexer_errors.html#REGEXP_PARSING for details.`),pe.PRINT_ERROR(re.failedOptimizationPrefixMsg+`
+`+("	Failed parsing: < "+t.toString()+` >
+`)+("	Using the regexp-to-ast library version: "+un.VERSION+`
+`)+"	Please open an issue at: https://github.com/bd82/regexp-to-ast/issues"+i);}}return []}re.getOptimizedStartCodesIndices=Va;function Mt(t,e,r){switch(t.type){case "Disjunction":for(var n=0;n<t.value.length;n++)Mt(t.value[n],e,r);break;case "Alternative":for(var i=t.value,n=0;n<i.length;n++){var a=i[n];switch(a.type){case "EndAnchor":case "GroupBackReference":case "Lookahead":case "NegativeLookahead":case "StartAnchor":case "WordBoundary":case "NonWordBoundary":continue}var o=a;switch(o.type){case "Character":bt(o.value,e,r);break;case "Set":if(o.complement===true)throw Error(ln);pe.forEach(o.value,function(f){if(typeof f=="number")bt(f,e,r);else {var p=f;if(r===true)for(var l=p.from;l<=p.to;l++)bt(l,e,r);else {for(var l=p.from;l<=p.to&&l<Ce.minOptimizationVal;l++)bt(l,e,r);if(p.to>=Ce.minOptimizationVal)for(var m=p.from>=Ce.minOptimizationVal?p.from:Ce.minOptimizationVal,v=p.to,u=Ce.charCodeToOptimizedIndex(m),d=Ce.charCodeToOptimizedIndex(v),A=u;A<=d;A++)e[A]=A;}}});break;case "Group":Mt(o.value,e,r);break;default:throw Error("Non Exhaustive Match")}var s=o.quantifier!==void 0&&o.quantifier.atLeast===0;if(o.type==="Group"&&yr(o)===false||o.type!=="Group"&&s===false)break}break;default:throw Error("non exhaustive match!")}return pe.values(e)}re.firstCharOptimizedIndices=Mt;function bt(t,e,r){var n=Ce.charCodeToOptimizedIndex(t);e[n]=n,r===true&&Ka(t,e);}function Ka(t,e){var r=String.fromCharCode(t),n=r.toUpperCase();if(n!==r){var i=Ce.charCodeToOptimizedIndex(n.charCodeAt(0));e[i]=i;}else {var a=r.toLowerCase();if(a!==r){var i=Ce.charCodeToOptimizedIndex(a.charCodeAt(0));e[i]=i;}}}function fn(t,e){return pe.find(t.value,function(r){if(typeof r=="number")return pe.contains(e,r);var n=r;return pe.find(e,function(i){return n.from<=i&&i<=n.to})!==void 0})}function yr(t){return t.quantifier&&t.quantifier.atLeast===0?true:t.value?pe.isArray(t.value)?pe.every(t.value,yr):yr(t.value):false}var za=function(t){ja(e,t);function e(r){var n=t.call(this)||this;return n.targetCharCodes=r,n.found=false,n}return e.prototype.visitChildren=function(r){if(this.found!==true){switch(r.type){case "Lookahead":this.visitLookahead(r);return;case "NegativeLookahead":this.visitNegativeLookahead(r);return}t.prototype.visitChildren.call(this,r);}},e.prototype.visitCharacter=function(r){pe.contains(this.targetCharCodes,r.value)&&(this.found=true);},e.prototype.visitSet=function(r){r.complement?fn(r,this.targetCharCodes)===void 0&&(this.found=true):fn(r,this.targetCharCodes)!==void 0&&(this.found=true);},e}(un.BaseRegExpVisitor);function Ha(t,e){if(e instanceof RegExp){var r=cn.getRegExpAst(e),n=new za(t);return n.visit(r),n.found}else return pe.find(e,function(i){return pe.contains(t,i.charCodeAt(0))})!==void 0}re.canMatchCharCode=Ha;});var Tr=R(T=>{var hn=T&&T.__extends||function(){var t=function(e,r){return t=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,i){n.__proto__=i;}||function(n,i){for(var a in i)Object.prototype.hasOwnProperty.call(i,a)&&(n[a]=i[a]);},t(e,r)};return function(e,r){if(typeof r!="function"&&r!==null)throw new TypeError("Class extends value "+String(r)+" is not a constructor or null");t(e,r);function n(){this.constructor=e;}e.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n);}}();Object.defineProperty(T,"__esModule",{value:true});T.charCodeToOptimizedIndex=T.minOptimizationVal=T.buildLineBreakIssueMessage=T.LineTerminatorOptimizedTester=T.isShortPattern=T.isCustomPattern=T.cloneEmptyGroups=T.performWarningRuntimeChecks=T.performRuntimeChecks=T.addStickyFlag=T.addStartOfInput=T.findUnreachablePatterns=T.findModesThatDoNotExist=T.findInvalidGroupType=T.findDuplicatePatterns=T.findUnsupportedFlags=T.findStartOfInputAnchor=T.findEmptyMatchRegExps=T.findEndOfInputAnchor=T.findInvalidPatterns=T.findMissingPatterns=T.validatePatterns=T.analyzeTokenTypes=T.enableSticky=T.disableSticky=T.SUPPORT_STICKY=T.MODES=T.DEFAULT_MODE=void 0;var dn=xt(),F=ft(),h=k(),Ye=pn(),vn=Lt(),Ae="PATTERN";T.DEFAULT_MODE="defaultMode";T.MODES="modes";T.SUPPORT_STICKY=typeof new RegExp("(?:)").sticky=="boolean";function Ya(){T.SUPPORT_STICKY=false;}T.disableSticky=Ya;function Xa(){T.SUPPORT_STICKY=true;}T.enableSticky=Xa;function Za(t,e){e=h.defaults(e,{useSticky:T.SUPPORT_STICKY,debug:false,safeMode:false,positionTracking:"full",lineTerminatorCharacters:["\r",`
+`],tracer:function(g,y){return y()}});var r=e.tracer;r("initCharCodeToOptimizedIndexMap",function(){$a();});var n;r("Reject Lexer.NA",function(){n=h.reject(t,function(g){return g[Ae]===F.Lexer.NA});});var i=false,a;r("Transform Patterns",function(){i=false,a=h.map(n,function(g){var y=g[Ae];if(h.isRegExp(y)){var b=y.source;return b.length===1&&b!=="^"&&b!=="$"&&b!=="."&&!y.ignoreCase?b:b.length===2&&b[0]==="\\"&&!h.contains(["d","D","s","S","t","r","n","t","0","c","b","B","f","v","w","W"],b[1])?b[1]:e.useSticky?gr(y):_r(y)}else {if(h.isFunction(y))return i=true,{exec:y};if(h.has(y,"exec"))return i=true,y;if(typeof y=="string"){if(y.length===1)return y;var L=y.replace(/[\\^$.*+?()[\]{}|]/g,"\\$&"),se=new RegExp(L);return e.useSticky?gr(se):_r(se)}else throw Error("non exhaustive match")}});});var o,s,c,f,p;r("misc mapping",function(){o=h.map(n,function(g){return g.tokenTypeIdx}),s=h.map(n,function(g){var y=g.GROUP;if(y!==F.Lexer.SKIPPED){if(h.isString(y))return y;if(h.isUndefined(y))return  false;throw Error("non exhaustive match")}}),c=h.map(n,function(g){var y=g.LONGER_ALT;if(y){var b=h.indexOf(n,y);return b}}),f=h.map(n,function(g){return g.PUSH_MODE}),p=h.map(n,function(g){return h.has(g,"POP_MODE")});});var l;r("Line Terminator Handling",function(){var g=Tn(e.lineTerminatorCharacters);l=h.map(n,function(y){return  false}),e.positionTracking!=="onlyOffset"&&(l=h.map(n,function(y){if(h.has(y,"LINE_BREAKS"))return y.LINE_BREAKS;if(En(y,g)===false)return Ye.canMatchCharCode(g,y.PATTERN)}));});var m,v,u,d;r("Misc Mapping #2",function(){m=h.map(n,Ar),v=h.map(a,mn),u=h.reduce(n,function(g,y){var b=y.GROUP;return h.isString(b)&&b!==F.Lexer.SKIPPED&&(g[b]=[]),g},{}),d=h.map(a,function(g,y){return {pattern:a[y],longerAlt:c[y],canLineTerminator:l[y],isCustom:m[y],short:v[y],group:s[y],push:f[y],pop:p[y],tokenTypeIdx:o[y],tokenType:n[y]}});});var A=true,_=[];return e.safeMode||r("First Char Optimization",function(){_=h.reduce(n,function(g,y,b){if(typeof y.PATTERN=="string"){var L=y.PATTERN.charCodeAt(0),se=Or(L);Rr(g,se,d[b]);}else if(h.isArray(y.START_CHARS_HINT)){var fe;h.forEach(y.START_CHARS_HINT,function(ue){var Q=typeof ue=="string"?ue.charCodeAt(0):ue,te=Or(Q);fe!==te&&(fe=te,Rr(g,te,d[b]));});}else if(h.isRegExp(y.PATTERN))if(y.PATTERN.unicode)A=false,e.ensureOptimizations&&h.PRINT_ERROR(""+Ye.failedOptimizationPrefixMsg+("	Unable to analyze < "+y.PATTERN.toString()+` > pattern.
+`)+`	The regexp unicode flag is not currently supported by the regexp-to-ast library.
+	This will disable the lexer's first char optimizations.
+	For details See: https://chevrotain.io/docs/guide/resolving_lexer_errors.html#UNICODE_OPTIMIZE`);else {var Z=Ye.getOptimizedStartCodesIndices(y.PATTERN,e.ensureOptimizations);h.isEmpty(Z)&&(A=false),h.forEach(Z,function(ue){Rr(g,ue,d[b]);});}else e.ensureOptimizations&&h.PRINT_ERROR(""+Ye.failedOptimizationPrefixMsg+("	TokenType: <"+y.name+`> is using a custom token pattern without providing <start_chars_hint> parameter.
+`)+`	This will disable the lexer's first char optimizations.
+	For details See: https://chevrotain.io/docs/guide/resolving_lexer_errors.html#CUSTOM_OPTIMIZE`),A=false;return g},[]);}),r("ArrayPacking",function(){_=h.packArray(_);}),{emptyGroups:u,patternIdxToConfig:d,charCodeToPatternIdxToConfig:_,hasCustom:i,canBeOptimized:A}}T.analyzeTokenTypes=Za;function Ja(t,e){var r=[],n=yn(t);r=r.concat(n.errors);var i=_n(n.valid),a=i.valid;return r=r.concat(i.errors),r=r.concat(Qa(a)),r=r.concat(gn(a)),r=r.concat(An(a,e)),r=r.concat(Rn(a)),r}T.validatePatterns=Ja;function Qa(t){var e=[],r=h.filter(t,function(n){return h.isRegExp(n[Ae])});return e=e.concat(On(r)),e=e.concat(In(r)),e=e.concat(kn(r)),e=e.concat(Pn(r)),e=e.concat(Nn(r)),e}function yn(t){var e=h.filter(t,function(i){return !h.has(i,Ae)}),r=h.map(e,function(i){return {message:"Token Type: ->"+i.name+"<- missing static 'PATTERN' property",type:F.LexerDefinitionErrorType.MISSING_PATTERN,tokenTypes:[i]}}),n=h.difference(t,e);return {errors:r,valid:n}}T.findMissingPatterns=yn;function _n(t){var e=h.filter(t,function(i){var a=i[Ae];return !h.isRegExp(a)&&!h.isFunction(a)&&!h.has(a,"exec")&&!h.isString(a)}),r=h.map(e,function(i){return {message:"Token Type: ->"+i.name+"<- static 'PATTERN' can only be a RegExp, a Function matching the {CustomPatternMatcherFunc} type or an Object matching the {ICustomPattern} interface.",type:F.LexerDefinitionErrorType.INVALID_PATTERN,tokenTypes:[i]}}),n=h.difference(t,e);return {errors:r,valid:n}}T.findInvalidPatterns=_n;var eo=/[^\\][\$]/;function On(t){var e=function(i){hn(a,i);function a(){var o=i!==null&&i.apply(this,arguments)||this;return o.found=false,o}return a.prototype.visitEndAnchor=function(o){this.found=true;},a}(dn.BaseRegExpVisitor),r=h.filter(t,function(i){var a=i[Ae];try{var o=vn.getRegExpAst(a),s=new e;return s.visit(o),s.found}catch(c){return eo.test(a.source)}}),n=h.map(r,function(i){return {message:`Unexpected RegExp Anchor Error:
+	Token Type: ->`+i.name+`<- static 'PATTERN' cannot contain end of input anchor '$'
+	See chevrotain.io/docs/guide/resolving_lexer_errors.html#ANCHORS	for details.`,type:F.LexerDefinitionErrorType.EOI_ANCHOR_FOUND,tokenTypes:[i]}});return n}T.findEndOfInputAnchor=On;function Nn(t){var e=h.filter(t,function(n){var i=n[Ae];return i.test("")}),r=h.map(e,function(n){return {message:"Token Type: ->"+n.name+"<- static 'PATTERN' must not match an empty string",type:F.LexerDefinitionErrorType.EMPTY_MATCH_PATTERN,tokenTypes:[n]}});return r}T.findEmptyMatchRegExps=Nn;var to=/[^\\[][\^]|^\^/;function In(t){var e=function(i){hn(a,i);function a(){var o=i!==null&&i.apply(this,arguments)||this;return o.found=false,o}return a.prototype.visitStartAnchor=function(o){this.found=true;},a}(dn.BaseRegExpVisitor),r=h.filter(t,function(i){var a=i[Ae];try{var o=vn.getRegExpAst(a),s=new e;return s.visit(o),s.found}catch(c){return to.test(a.source)}}),n=h.map(r,function(i){return {message:`Unexpected RegExp Anchor Error:
+	Token Type: ->`+i.name+`<- static 'PATTERN' cannot contain start of input anchor '^'
+	See https://chevrotain.io/docs/guide/resolving_lexer_errors.html#ANCHORS	for details.`,type:F.LexerDefinitionErrorType.SOI_ANCHOR_FOUND,tokenTypes:[i]}});return n}T.findStartOfInputAnchor=In;function kn(t){var e=h.filter(t,function(n){var i=n[Ae];return i instanceof RegExp&&(i.multiline||i.global)}),r=h.map(e,function(n){return {message:"Token Type: ->"+n.name+"<- static 'PATTERN' may NOT contain global('g') or multiline('m')",type:F.LexerDefinitionErrorType.UNSUPPORTED_FLAGS_FOUND,tokenTypes:[n]}});return r}T.findUnsupportedFlags=kn;function Pn(t){var e=[],r=h.map(t,function(a){return h.reduce(t,function(o,s){return a.PATTERN.source===s.PATTERN.source&&!h.contains(e,s)&&s.PATTERN!==F.Lexer.NA&&(e.push(s),o.push(s)),o},[])});r=h.compact(r);var n=h.filter(r,function(a){return a.length>1}),i=h.map(n,function(a){var o=h.map(a,function(c){return c.name}),s=h.first(a).PATTERN;return {message:"The same RegExp pattern ->"+s+"<-"+("has been used in all of the following Token Types: "+o.join(", ")+" <-"),type:F.LexerDefinitionErrorType.DUPLICATE_PATTERNS_FOUND,tokenTypes:a}});return i}T.findDuplicatePatterns=Pn;function gn(t){var e=h.filter(t,function(n){if(!h.has(n,"GROUP"))return  false;var i=n.GROUP;return i!==F.Lexer.SKIPPED&&i!==F.Lexer.NA&&!h.isString(i)}),r=h.map(e,function(n){return {message:"Token Type: ->"+n.name+"<- static 'GROUP' can only be Lexer.SKIPPED/Lexer.NA/A String",type:F.LexerDefinitionErrorType.INVALID_GROUP_TYPE_FOUND,tokenTypes:[n]}});return r}T.findInvalidGroupType=gn;function An(t,e){var r=h.filter(t,function(i){return i.PUSH_MODE!==void 0&&!h.contains(e,i.PUSH_MODE)}),n=h.map(r,function(i){var a="Token Type: ->"+i.name+"<- static 'PUSH_MODE' value cannot refer to a Lexer Mode ->"+i.PUSH_MODE+"<-which does not exist";return {message:a,type:F.LexerDefinitionErrorType.PUSH_MODE_DOES_NOT_EXIST,tokenTypes:[i]}});return n}T.findModesThatDoNotExist=An;function Rn(t){var e=[],r=h.reduce(t,function(n,i,a){var o=i.PATTERN;return o===F.Lexer.NA||(h.isString(o)?n.push({str:o,idx:a,tokenType:i}):h.isRegExp(o)&&no(o)&&n.push({str:o.source,idx:a,tokenType:i})),n},[]);return h.forEach(t,function(n,i){h.forEach(r,function(a){var o=a.str,s=a.idx,c=a.tokenType;if(i<s&&ro(o,n.PATTERN)){var f="Token: ->"+c.name+`<- can never be matched.
+`+("Because it appears AFTER the Token Type ->"+n.name+"<-")+`in the lexer's definition.
+See https://chevrotain.io/docs/guide/resolving_lexer_errors.html#UNREACHABLE`;e.push({message:f,type:F.LexerDefinitionErrorType.UNREACHABLE_PATTERN,tokenTypes:[n,c]});}});}),e}T.findUnreachablePatterns=Rn;function ro(t,e){if(h.isRegExp(e)){var r=e.exec(t);return r!==null&&r.index===0}else {if(h.isFunction(e))return e(t,0,[],{});if(h.has(e,"exec"))return e.exec(t,0,[],{});if(typeof e=="string")return e===t;throw Error("non exhaustive match")}}function no(t){var e=[".","\\","[","]","|","^","$","(",")","?","*","+","{"];return h.find(e,function(r){return t.source.indexOf(r)!==-1})===void 0}function _r(t){var e=t.ignoreCase?"i":"";return new RegExp("^(?:"+t.source+")",e)}T.addStartOfInput=_r;function gr(t){var e=t.ignoreCase?"iy":"y";return new RegExp(""+t.source,e)}T.addStickyFlag=gr;function io(t,e,r){var n=[];return h.has(t,T.DEFAULT_MODE)||n.push({message:"A MultiMode Lexer cannot be initialized without a <"+T.DEFAULT_MODE+`> property in its definition
+`,type:F.LexerDefinitionErrorType.MULTI_MODE_LEXER_WITHOUT_DEFAULT_MODE}),h.has(t,T.MODES)||n.push({message:"A MultiMode Lexer cannot be initialized without a <"+T.MODES+`> property in its definition
+`,type:F.LexerDefinitionErrorType.MULTI_MODE_LEXER_WITHOUT_MODES_PROPERTY}),h.has(t,T.MODES)&&h.has(t,T.DEFAULT_MODE)&&!h.has(t.modes,t.defaultMode)&&n.push({message:"A MultiMode Lexer cannot be initialized with a "+T.DEFAULT_MODE+": <"+t.defaultMode+`>which does not exist
+`,type:F.LexerDefinitionErrorType.MULTI_MODE_LEXER_DEFAULT_MODE_VALUE_DOES_NOT_EXIST}),h.has(t,T.MODES)&&h.forEach(t.modes,function(i,a){h.forEach(i,function(o,s){h.isUndefined(o)&&n.push({message:"A Lexer cannot be initialized using an undefined Token Type. Mode:"+("<"+a+"> at index: <"+s+`>
+`),type:F.LexerDefinitionErrorType.LEXER_DEFINITION_CANNOT_CONTAIN_UNDEFINED});});}),n}T.performRuntimeChecks=io;function ao(t,e,r){var n=[],i=false,a=h.compact(h.flatten(h.mapValues(t.modes,function(c){return c}))),o=h.reject(a,function(c){return c[Ae]===F.Lexer.NA}),s=Tn(r);return e&&h.forEach(o,function(c){var f=En(c,s);if(f!==false){var p=Sn(c,f),l={message:p,type:f.issue,tokenType:c};n.push(l);}else h.has(c,"LINE_BREAKS")?c.LINE_BREAKS===true&&(i=true):Ye.canMatchCharCode(s,c.PATTERN)&&(i=true);}),e&&!i&&n.push({message:`Warning: No LINE_BREAKS Found.
+	This Lexer has been defined to track line and column information,
+	But none of the Token Types can be identified as matching a line terminator.
+	See https://chevrotain.io/docs/guide/resolving_lexer_errors.html#LINE_BREAKS
+	for details.`,type:F.LexerDefinitionErrorType.NO_LINE_BREAKS_FLAGS}),n}T.performWarningRuntimeChecks=ao;function oo(t){var e={},r=h.keys(t);return h.forEach(r,function(n){var i=t[n];if(h.isArray(i))e[n]=[];else throw Error("non exhaustive match")}),e}T.cloneEmptyGroups=oo;function Ar(t){var e=t.PATTERN;if(h.isRegExp(e))return  false;if(h.isFunction(e))return  true;if(h.has(e,"exec"))return  true;if(h.isString(e))return  false;throw Error("non exhaustive match")}T.isCustomPattern=Ar;function mn(t){return h.isString(t)&&t.length===1?t.charCodeAt(0):false}T.isShortPattern=mn;T.LineTerminatorOptimizedTester={test:function(t){for(var e=t.length,r=this.lastIndex;r<e;r++){var n=t.charCodeAt(r);if(n===10)return this.lastIndex=r+1,true;if(n===13)return t.charCodeAt(r+1)===10?this.lastIndex=r+2:this.lastIndex=r+1,true}return  false},lastIndex:0};function En(t,e){if(h.has(t,"LINE_BREAKS"))return  false;if(h.isRegExp(t.PATTERN)){try{Ye.canMatchCharCode(e,t.PATTERN);}catch(r){return {issue:F.LexerDefinitionErrorType.IDENTIFY_TERMINATOR,errMsg:r.message}}return  false}else {if(h.isString(t.PATTERN))return  false;if(Ar(t))return {issue:F.LexerDefinitionErrorType.CUSTOM_LINE_BREAK};throw Error("non exhaustive match")}}function Sn(t,e){if(e.issue===F.LexerDefinitionErrorType.IDENTIFY_TERMINATOR)return `Warning: unable to identify line terminator usage in pattern.
+`+("	The problem is in the <"+t.name+`> Token Type
+`)+("	 Root cause: "+e.errMsg+`.
+`)+"	For details See: https://chevrotain.io/docs/guide/resolving_lexer_errors.html#IDENTIFY_TERMINATOR";if(e.issue===F.LexerDefinitionErrorType.CUSTOM_LINE_BREAK)return `Warning: A Custom Token Pattern should specify the <line_breaks> option.
+`+("	The problem is in the <"+t.name+`> Token Type
+`)+"	For details See: https://chevrotain.io/docs/guide/resolving_lexer_errors.html#CUSTOM_LINE_BREAK";throw Error("non exhaustive match")}T.buildLineBreakIssueMessage=Sn;function Tn(t){var e=h.map(t,function(r){return h.isString(r)&&r.length>0?r.charCodeAt(0):r});return e}function Rr(t,e,r){t[e]===void 0?t[e]=[r]:t[e].push(r);}T.minOptimizationVal=256;var Ft=[];function Or(t){return t<T.minOptimizationVal?t:Ft[t]}T.charCodeToOptimizedIndex=Or;function $a(){if(h.isEmpty(Ft)){Ft=new Array(65536);for(var t=0;t<65536;t++)Ft[t]=t>255?255+~~(t/255):t;}}});var Xe=R(N=>{Object.defineProperty(N,"__esModule",{value:true});N.isTokenType=N.hasExtendingTokensTypesMapProperty=N.hasExtendingTokensTypesProperty=N.hasCategoriesProperty=N.hasShortKeyProperty=N.singleAssignCategoriesToksMap=N.assignCategoriesMapProp=N.assignCategoriesTokensProp=N.assignTokenDefaultProps=N.expandCategories=N.augmentTokenTypes=N.tokenIdxToClass=N.tokenShortNameIdx=N.tokenStructuredMatcherNoCategories=N.tokenStructuredMatcher=void 0;var V=k();function so(t,e){var r=t.tokenTypeIdx;return r===e.tokenTypeIdx?true:e.isParent===true&&e.categoryMatchesMap[r]===true}N.tokenStructuredMatcher=so;function uo(t,e){return t.tokenTypeIdx===e.tokenTypeIdx}N.tokenStructuredMatcherNoCategories=uo;N.tokenShortNameIdx=1;N.tokenIdxToClass={};function co(t){var e=xn(t);Cn(e),Mn(e),Ln(e),V.forEach(e,function(r){r.isParent=r.categoryMatches.length>0;});}N.augmentTokenTypes=co;function xn(t){for(var e=V.cloneArr(t),r=t,n=true;n;){r=V.compact(V.flatten(V.map(r,function(a){return a.CATEGORIES})));var i=V.difference(r,e);e=e.concat(i),V.isEmpty(i)?n=false:r=i;}return e}N.expandCategories=xn;function Cn(t){V.forEach(t,function(e){bn(e)||(N.tokenIdxToClass[N.tokenShortNameIdx]=e,e.tokenTypeIdx=N.tokenShortNameIdx++),Nr(e)&&!V.isArray(e.CATEGORIES)&&(e.CATEGORIES=[e.CATEGORIES]),Nr(e)||(e.CATEGORIES=[]),Fn(e)||(e.categoryMatches=[]),wn(e)||(e.categoryMatchesMap={});});}N.assignTokenDefaultProps=Cn;function Ln(t){V.forEach(t,function(e){e.categoryMatches=[],V.forEach(e.categoryMatchesMap,function(r,n){e.categoryMatches.push(N.tokenIdxToClass[n].tokenTypeIdx);});});}N.assignCategoriesTokensProp=Ln;function Mn(t){V.forEach(t,function(e){Ir([],e);});}N.assignCategoriesMapProp=Mn;function Ir(t,e){V.forEach(t,function(r){e.categoryMatchesMap[r.tokenTypeIdx]=true;}),V.forEach(e.CATEGORIES,function(r){var n=t.concat(e);V.contains(n,r)||Ir(n,r);});}N.singleAssignCategoriesToksMap=Ir;function bn(t){return V.has(t,"tokenTypeIdx")}N.hasShortKeyProperty=bn;function Nr(t){return V.has(t,"CATEGORIES")}N.hasCategoriesProperty=Nr;function Fn(t){return V.has(t,"categoryMatches")}N.hasExtendingTokensTypesProperty=Fn;function wn(t){return V.has(t,"categoryMatchesMap")}N.hasExtendingTokensTypesMapProperty=wn;function lo(t){return V.has(t,"tokenTypeIdx")}N.isTokenType=lo;});var kr=R(wt=>{Object.defineProperty(wt,"__esModule",{value:true});wt.defaultLexerErrorProvider=void 0;wt.defaultLexerErrorProvider={buildUnableToPopLexerModeMessage:function(t){return "Unable to pop Lexer Mode after encountering Token ->"+t.image+"<- The Mode Stack is empty"},buildUnexpectedCharactersMessage:function(t,e,r,n,i){return "unexpected character: ->"+t.charAt(e)+"<- at offset: "+e+","+(" skipped "+r+" characters.")}};});var ft=R(qe=>{Object.defineProperty(qe,"__esModule",{value:true});qe.Lexer=qe.LexerDefinitionErrorType=void 0;var Ee=Tr(),w=k(),fo=Xe(),po=kr(),ho=Lt();(function(t){t[t.MISSING_PATTERN=0]="MISSING_PATTERN",t[t.INVALID_PATTERN=1]="INVALID_PATTERN",t[t.EOI_ANCHOR_FOUND=2]="EOI_ANCHOR_FOUND",t[t.UNSUPPORTED_FLAGS_FOUND=3]="UNSUPPORTED_FLAGS_FOUND",t[t.DUPLICATE_PATTERNS_FOUND=4]="DUPLICATE_PATTERNS_FOUND",t[t.INVALID_GROUP_TYPE_FOUND=5]="INVALID_GROUP_TYPE_FOUND",t[t.PUSH_MODE_DOES_NOT_EXIST=6]="PUSH_MODE_DOES_NOT_EXIST",t[t.MULTI_MODE_LEXER_WITHOUT_DEFAULT_MODE=7]="MULTI_MODE_LEXER_WITHOUT_DEFAULT_MODE",t[t.MULTI_MODE_LEXER_WITHOUT_MODES_PROPERTY=8]="MULTI_MODE_LEXER_WITHOUT_MODES_PROPERTY",t[t.MULTI_MODE_LEXER_DEFAULT_MODE_VALUE_DOES_NOT_EXIST=9]="MULTI_MODE_LEXER_DEFAULT_MODE_VALUE_DOES_NOT_EXIST",t[t.LEXER_DEFINITION_CANNOT_CONTAIN_UNDEFINED=10]="LEXER_DEFINITION_CANNOT_CONTAIN_UNDEFINED",t[t.SOI_ANCHOR_FOUND=11]="SOI_ANCHOR_FOUND",t[t.EMPTY_MATCH_PATTERN=12]="EMPTY_MATCH_PATTERN",t[t.NO_LINE_BREAKS_FLAGS=13]="NO_LINE_BREAKS_FLAGS",t[t.UNREACHABLE_PATTERN=14]="UNREACHABLE_PATTERN",t[t.IDENTIFY_TERMINATOR=15]="IDENTIFY_TERMINATOR",t[t.CUSTOM_LINE_BREAK=16]="CUSTOM_LINE_BREAK";})(qe.LexerDefinitionErrorType||(qe.LexerDefinitionErrorType={}));var pt={deferDefinitionErrorsHandling:false,positionTracking:"full",lineTerminatorsPattern:/\n|\r\n?/g,lineTerminatorCharacters:[`
+`,"\r"],ensureOptimizations:false,safeMode:false,errorMessageProvider:po.defaultLexerErrorProvider,traceInitPerf:false,skipValidations:false};Object.freeze(pt);var mo=function(){function t(e,r){var n=this;if(r===void 0&&(r=pt),this.lexerDefinition=e,this.lexerDefinitionErrors=[],this.lexerDefinitionWarning=[],this.patternIdxToConfig={},this.charCodeToPatternIdxToConfig={},this.modes=[],this.emptyGroups={},this.config=void 0,this.trackStartLines=true,this.trackEndLines=true,this.hasCustom=false,this.canModeBeOptimized={},typeof r=="boolean")throw Error(`The second argument to the Lexer constructor is now an ILexerConfig Object.
+a boolean 2nd argument is no longer supported`);this.config=w.merge(pt,r);var i=this.config.traceInitPerf;i===true?(this.traceInitMaxIdent=Infinity,this.traceInitPerf=true):typeof i=="number"&&(this.traceInitMaxIdent=i,this.traceInitPerf=true),this.traceInitIndent=-1,this.TRACE_INIT("Lexer Constructor",function(){var a,o=true;n.TRACE_INIT("Lexer Config handling",function(){if(n.config.lineTerminatorsPattern===pt.lineTerminatorsPattern)n.config.lineTerminatorsPattern=Ee.LineTerminatorOptimizedTester;else if(n.config.lineTerminatorCharacters===pt.lineTerminatorCharacters)throw Error(`Error: Missing <lineTerminatorCharacters> property on the Lexer config.
+	For details See: https://chevrotain.io/docs/guide/resolving_lexer_errors.html#MISSING_LINE_TERM_CHARS`);if(r.safeMode&&r.ensureOptimizations)throw Error('"safeMode" and "ensureOptimizations" flags are mutually exclusive.');n.trackStartLines=/full|onlyStart/i.test(n.config.positionTracking),n.trackEndLines=/full/i.test(n.config.positionTracking),w.isArray(e)?(a={modes:{}},a.modes[Ee.DEFAULT_MODE]=w.cloneArr(e),a[Ee.DEFAULT_MODE]=Ee.DEFAULT_MODE):(o=false,a=w.cloneObj(e));}),n.config.skipValidations===false&&(n.TRACE_INIT("performRuntimeChecks",function(){n.lexerDefinitionErrors=n.lexerDefinitionErrors.concat(Ee.performRuntimeChecks(a,n.trackStartLines,n.config.lineTerminatorCharacters));}),n.TRACE_INIT("performWarningRuntimeChecks",function(){n.lexerDefinitionWarning=n.lexerDefinitionWarning.concat(Ee.performWarningRuntimeChecks(a,n.trackStartLines,n.config.lineTerminatorCharacters));})),a.modes=a.modes?a.modes:{},w.forEach(a.modes,function(p,l){a.modes[l]=w.reject(p,function(m){return w.isUndefined(m)});});var s=w.keys(a.modes);if(w.forEach(a.modes,function(p,l){n.TRACE_INIT("Mode: <"+l+"> processing",function(){if(n.modes.push(l),n.config.skipValidations===false&&n.TRACE_INIT("validatePatterns",function(){n.lexerDefinitionErrors=n.lexerDefinitionErrors.concat(Ee.validatePatterns(p,s));}),w.isEmpty(n.lexerDefinitionErrors)){fo.augmentTokenTypes(p);var m;n.TRACE_INIT("analyzeTokenTypes",function(){m=Ee.analyzeTokenTypes(p,{lineTerminatorCharacters:n.config.lineTerminatorCharacters,positionTracking:r.positionTracking,ensureOptimizations:r.ensureOptimizations,safeMode:r.safeMode,tracer:n.TRACE_INIT.bind(n)});}),n.patternIdxToConfig[l]=m.patternIdxToConfig,n.charCodeToPatternIdxToConfig[l]=m.charCodeToPatternIdxToConfig,n.emptyGroups=w.merge(n.emptyGroups,m.emptyGroups),n.hasCustom=m.hasCustom||n.hasCustom,n.canModeBeOptimized[l]=m.canBeOptimized;}});}),n.defaultMode=a.defaultMode,!w.isEmpty(n.lexerDefinitionErrors)&&!n.config.deferDefinitionErrorsHandling){var c=w.map(n.lexerDefinitionErrors,function(p){return p.message}),f=c.join(`-----------------------
+`);throw new Error(`Errors detected in definition of Lexer:
+`+f)}w.forEach(n.lexerDefinitionWarning,function(p){w.PRINT_WARNING(p.message);}),n.TRACE_INIT("Choosing sub-methods implementations",function(){if(Ee.SUPPORT_STICKY?(n.chopInput=w.IDENTITY,n.match=n.matchWithTest):(n.updateLastIndex=w.NOOP,n.match=n.matchWithExec),o&&(n.handleModes=w.NOOP),n.trackStartLines===false&&(n.computeNewColumn=w.IDENTITY),n.trackEndLines===false&&(n.updateTokenEndLineColumnLocation=w.NOOP),/full/i.test(n.config.positionTracking))n.createTokenInstance=n.createFullToken;else if(/onlyStart/i.test(n.config.positionTracking))n.createTokenInstance=n.createStartOnlyToken;else if(/onlyOffset/i.test(n.config.positionTracking))n.createTokenInstance=n.createOffsetOnlyToken;else throw Error('Invalid <positionTracking> config option: "'+n.config.positionTracking+'"');n.hasCustom?(n.addToken=n.addTokenUsingPush,n.handlePayload=n.handlePayloadWithCustom):(n.addToken=n.addTokenUsingMemberAccess,n.handlePayload=n.handlePayloadNoCustom);}),n.TRACE_INIT("Failed Optimization Warnings",function(){var p=w.reduce(n.canModeBeOptimized,function(l,m,v){return m===false&&l.push(v),l},[]);if(r.ensureOptimizations&&!w.isEmpty(p))throw Error("Lexer Modes: < "+p.join(", ")+` > cannot be optimized.
+	 Disable the "ensureOptimizations" lexer config flag to silently ignore this and run the lexer in an un-optimized mode.
+	 Or inspect the console log for details on how to resolve these issues.`)}),n.TRACE_INIT("clearRegExpParserCache",function(){ho.clearRegExpParserCache();}),n.TRACE_INIT("toFastProperties",function(){w.toFastProperties(n);});});}return t.prototype.tokenize=function(e,r){if(r===void 0&&(r=this.defaultMode),!w.isEmpty(this.lexerDefinitionErrors)){var n=w.map(this.lexerDefinitionErrors,function(o){return o.message}),i=n.join(`-----------------------
+`);throw new Error(`Unable to Tokenize because Errors detected in definition of Lexer:
+`+i)}var a=this.tokenizeInternal(e,r);return a},t.prototype.tokenizeInternal=function(e,r){var n=this,i,a,o,s,c,f,p,l,m,v,u,d,_,g,y=e,b=y.length,L=0,se=0,fe=this.hasCustom?0:Math.floor(e.length/10),Z=new Array(fe),ue=[],Q=this.trackStartLines?1:void 0,te=this.trackStartLines?1:void 0,xe=Ee.cloneEmptyGroups(this.emptyGroups),it=this.trackStartLines,at=this.config.lineTerminatorsPattern,Ke=0,we=[],ot=[],It=[],Qr=[];Object.freeze(Qr);var st=void 0;function Jr(){return we}function en(J){var lt=Ee.charCodeToOptimizedIndex(J),ze=ot[lt];return ze===void 0?Qr:ze}var wa=function(J){if(It.length===1&&J.tokenType.PUSH_MODE===void 0){var lt=n.config.errorMessageProvider.buildUnableToPopLexerModeMessage(J);ue.push({offset:J.startOffset,line:J.startLine!==void 0?J.startLine:void 0,column:J.startColumn!==void 0?J.startColumn:void 0,length:J.image.length,message:lt});}else {It.pop();var ze=w.last(It);we=n.patternIdxToConfig[ze],ot=n.charCodeToPatternIdxToConfig[ze],Ke=we.length;var Ua=n.canModeBeOptimized[ze]&&n.config.safeMode===false;ot&&Ua?st=en:st=Jr;}};function tn(J){It.push(J),ot=this.charCodeToPatternIdxToConfig[J],we=this.patternIdxToConfig[J],Ke=we.length,Ke=we.length;var lt=this.canModeBeOptimized[J]&&this.config.safeMode===false;ot&&lt?st=en:st=Jr;}tn.call(this,r);for(var me;L<b;){c=null;var rn=y.charCodeAt(L),nn=st(rn),Da=nn.length;for(i=0;i<Da;i++){me=nn[i];var De=me.pattern;f=null;var ut=me.short;if(ut!==false?rn===ut&&(c=De):me.isCustom===true?(g=De.exec(y,L,Z,xe),g!==null?(c=g[0],g.payload!==void 0&&(f=g.payload)):c=null):(this.updateLastIndex(De,L),c=this.match(De,e,L)),c!==null){if(s=me.longerAlt,s!==void 0){var fr=we[s],pr=fr.pattern;p=null,fr.isCustom===true?(g=pr.exec(y,L,Z,xe),g!==null?(o=g[0],g.payload!==void 0&&(p=g.payload)):o=null):(this.updateLastIndex(pr,L),o=this.match(pr,e,L)),o&&o.length>c.length&&(c=o,f=p,me=fr);}break}}if(c!==null){if(l=c.length,m=me.group,m!==void 0&&(v=me.tokenTypeIdx,u=this.createTokenInstance(c,L,v,me.tokenType,Q,te,l),this.handlePayload(u,f),m===false?se=this.addToken(Z,se,u):xe[m].push(u)),e=this.chopInput(e,l),L=L+l,te=this.computeNewColumn(te,l),it===true&&me.canLineTerminator===true){var kt=0,hr=void 0,dr=void 0;at.lastIndex=0;do hr=at.test(c),hr===true&&(dr=at.lastIndex-1,kt++);while(hr===true);kt!==0&&(Q=Q+kt,te=l-dr,this.updateTokenEndLineColumnLocation(u,m,dr,kt,Q,te,l));}this.handleModes(me,wa,tn,u);}else {for(var vr=L,an=Q,on=te,ct=false;!ct&&L<b;)for(y.charCodeAt(L),e=this.chopInput(e,1),L++,a=0;a<Ke;a++){var mr=we[a],De=mr.pattern,ut=mr.short;if(ut!==false?y.charCodeAt(L)===ut&&(ct=true):mr.isCustom===true?ct=De.exec(y,L,Z,xe)!==null:(this.updateLastIndex(De,L),ct=De.exec(e)!==null),ct===true)break}d=L-vr,_=this.config.errorMessageProvider.buildUnexpectedCharactersMessage(y,vr,d,an,on),ue.push({offset:vr,line:an,column:on,length:d,message:_});}}return this.hasCustom||(Z.length=se),{tokens:Z,groups:xe,errors:ue}},t.prototype.handleModes=function(e,r,n,i){if(e.pop===true){var a=e.push;r(i),a!==void 0&&n.call(this,a);}else e.push!==void 0&&n.call(this,e.push);},t.prototype.chopInput=function(e,r){return e.substring(r)},t.prototype.updateLastIndex=function(e,r){e.lastIndex=r;},t.prototype.updateTokenEndLineColumnLocation=function(e,r,n,i,a,o,s){var c,f;r!==void 0&&(c=n===s-1,f=c?-1:0,i===1&&c===true||(e.endLine=a+f,e.endColumn=o-1+-f));},t.prototype.computeNewColumn=function(e,r){return e+r},t.prototype.createTokenInstance=function(){for(var e=[],r=0;r<arguments.length;r++)e[r]=arguments[r];return null},t.prototype.createOffsetOnlyToken=function(e,r,n,i){return {image:e,startOffset:r,tokenTypeIdx:n,tokenType:i}},t.prototype.createStartOnlyToken=function(e,r,n,i,a,o){return {image:e,startOffset:r,startLine:a,startColumn:o,tokenTypeIdx:n,tokenType:i}},t.prototype.createFullToken=function(e,r,n,i,a,o,s){return {image:e,startOffset:r,endOffset:r+s-1,startLine:a,endLine:a,startColumn:o,endColumn:o+s-1,tokenTypeIdx:n,tokenType:i}},t.prototype.addToken=function(e,r,n){return 666},t.prototype.addTokenUsingPush=function(e,r,n){return e.push(n),r},t.prototype.addTokenUsingMemberAccess=function(e,r,n){return e[r]=n,r++,r},t.prototype.handlePayload=function(e,r){},t.prototype.handlePayloadNoCustom=function(e,r){},t.prototype.handlePayloadWithCustom=function(e,r){r!==null&&(e.payload=r);},t.prototype.match=function(e,r,n){return null},t.prototype.matchWithTest=function(e,r,n){var i=e.test(r);return i===true?r.substring(n,e.lastIndex):null},t.prototype.matchWithExec=function(e,r){var n=e.exec(r);return n!==null?n[0]:n},t.prototype.TRACE_INIT=function(e,r){if(this.traceInitPerf===true){this.traceInitIndent++;var n=new Array(this.traceInitIndent+1).join("	");this.traceInitIndent<this.traceInitMaxIdent&&console.log(n+"--> <"+e+">");var i=w.timer(r),a=i.time,o=i.value,s=a>10?console.warn:console.log;return this.traceInitIndent<this.traceInitMaxIdent&&s(n+"<-- <"+e+"> time: "+a+"ms"),this.traceInitIndent--,o}else return r()},t.SKIPPED="This marks a skipped Token pattern, this means each token identified by it willbe consumed and then thrown into oblivion, this can be used to for example to completely ignore whitespace.",t.NA=/NOT_APPLICABLE/,t}();qe.Lexer=mo;});var Ue=R(H=>{Object.defineProperty(H,"__esModule",{value:true});H.tokenMatcher=H.createTokenInstance=H.EOF=H.createToken=H.hasTokenLabel=H.tokenName=H.tokenLabel=void 0;var Te=k(),Eo=ft(),Pr=Xe();function To(t){return Dn(t)?t.LABEL:t.name}H.tokenLabel=To;function yo(t){return t.name}H.tokenName=yo;function Dn(t){return Te.isString(t.LABEL)&&t.LABEL!==""}H.hasTokenLabel=Dn;var _o="parent",Un="categories",Gn="label",Wn="group",Bn="push_mode",qn="pop_mode",jn="longer_alt",Vn="line_breaks",Kn="start_chars_hint";function zn(t){return go(t)}H.createToken=zn;function go(t){var e=t.pattern,r={};if(r.name=t.name,Te.isUndefined(e)||(r.PATTERN=e),Te.has(t,_o))throw `The parent property is no longer supported.
+See: https://github.com/chevrotain/chevrotain/issues/564#issuecomment-349062346 for details.`;return Te.has(t,Un)&&(r.CATEGORIES=t[Un]),Pr.augmentTokenTypes([r]),Te.has(t,Gn)&&(r.LABEL=t[Gn]),Te.has(t,Wn)&&(r.GROUP=t[Wn]),Te.has(t,qn)&&(r.POP_MODE=t[qn]),Te.has(t,Bn)&&(r.PUSH_MODE=t[Bn]),Te.has(t,jn)&&(r.LONGER_ALT=t[jn]),Te.has(t,Vn)&&(r.LINE_BREAKS=t[Vn]),Te.has(t,Kn)&&(r.START_CHARS_HINT=t[Kn]),r}H.EOF=zn({name:"EOF",pattern:Eo.Lexer.NA});Pr.augmentTokenTypes([H.EOF]);function Ao(t,e,r,n,i,a,o,s){return {image:e,startOffset:r,endOffset:n,startLine:i,endLine:a,startColumn:o,endColumn:s,tokenTypeIdx:t.tokenTypeIdx,tokenType:t}}H.createTokenInstance=Ao;function Ro(t,e){return Pr.tokenStructuredMatcher(t,e)}H.tokenMatcher=Ro;});var ne=R(S=>{var Le=S&&S.__extends||function(){var t=function(e,r){return t=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,i){n.__proto__=i;}||function(n,i){for(var a in i)Object.prototype.hasOwnProperty.call(i,a)&&(n[a]=i[a]);},t(e,r)};return function(e,r){if(typeof r!="function"&&r!==null)throw new TypeError("Class extends value "+String(r)+" is not a constructor or null");t(e,r);function n(){this.constructor=e;}e.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n);}}();Object.defineProperty(S,"__esModule",{value:true});S.serializeProduction=S.serializeGrammar=S.Terminal=S.Alternation=S.RepetitionWithSeparator=S.Repetition=S.RepetitionMandatoryWithSeparator=S.RepetitionMandatory=S.Option=S.Alternative=S.Rule=S.NonTerminal=S.AbstractProduction=void 0;var G=k(),Oo=Ue(),Re=function(){function t(e){this._definition=e;}return Object.defineProperty(t.prototype,"definition",{get:function(){return this._definition},set:function(e){this._definition=e;},enumerable:false,configurable:true}),t.prototype.accept=function(e){e.visit(this),G.forEach(this.definition,function(r){r.accept(e);});},t}();S.AbstractProduction=Re;var Hn=function(t){Le(e,t);function e(r){var n=t.call(this,[])||this;return n.idx=1,G.assign(n,G.pick(r,function(i){return i!==void 0})),n}return Object.defineProperty(e.prototype,"definition",{get:function(){return this.referencedRule!==void 0?this.referencedRule.definition:[]},set:function(r){},enumerable:false,configurable:true}),e.prototype.accept=function(r){r.visit(this);},e}(Re);S.NonTerminal=Hn;var Yn=function(t){Le(e,t);function e(r){var n=t.call(this,r.definition)||this;return n.orgText="",G.assign(n,G.pick(r,function(i){return i!==void 0})),n}return e}(Re);S.Rule=Yn;var Xn=function(t){Le(e,t);function e(r){var n=t.call(this,r.definition)||this;return n.ignoreAmbiguities=false,G.assign(n,G.pick(r,function(i){return i!==void 0})),n}return e}(Re);S.Alternative=Xn;var $n=function(t){Le(e,t);function e(r){var n=t.call(this,r.definition)||this;return n.idx=1,G.assign(n,G.pick(r,function(i){return i!==void 0})),n}return e}(Re);S.Option=$n;var Zn=function(t){Le(e,t);function e(r){var n=t.call(this,r.definition)||this;return n.idx=1,G.assign(n,G.pick(r,function(i){return i!==void 0})),n}return e}(Re);S.RepetitionMandatory=Zn;var Qn=function(t){Le(e,t);function e(r){var n=t.call(this,r.definition)||this;return n.idx=1,G.assign(n,G.pick(r,function(i){return i!==void 0})),n}return e}(Re);S.RepetitionMandatoryWithSeparator=Qn;var Jn=function(t){Le(e,t);function e(r){var n=t.call(this,r.definition)||this;return n.idx=1,G.assign(n,G.pick(r,function(i){return i!==void 0})),n}return e}(Re);S.Repetition=Jn;var ei=function(t){Le(e,t);function e(r){var n=t.call(this,r.definition)||this;return n.idx=1,G.assign(n,G.pick(r,function(i){return i!==void 0})),n}return e}(Re);S.RepetitionWithSeparator=ei;var ti=function(t){Le(e,t);function e(r){var n=t.call(this,r.definition)||this;return n.idx=1,n.ignoreAmbiguities=false,n.hasPredicates=false,G.assign(n,G.pick(r,function(i){return i!==void 0})),n}return Object.defineProperty(e.prototype,"definition",{get:function(){return this._definition},set:function(r){this._definition=r;},enumerable:false,configurable:true}),e}(Re);S.Alternation=ti;var Dt=function(){function t(e){this.idx=1,G.assign(this,G.pick(e,function(r){return r!==void 0}));}return t.prototype.accept=function(e){e.visit(this);},t}();S.Terminal=Dt;function No(t){return G.map(t,ht)}S.serializeGrammar=No;function ht(t){function e(i){return G.map(i,ht)}if(t instanceof Hn)return {type:"NonTerminal",name:t.nonTerminalName,idx:t.idx};if(t instanceof Xn)return {type:"Alternative",definition:e(t.definition)};if(t instanceof $n)return {type:"Option",idx:t.idx,definition:e(t.definition)};if(t instanceof Zn)return {type:"RepetitionMandatory",idx:t.idx,definition:e(t.definition)};if(t instanceof Qn)return {type:"RepetitionMandatoryWithSeparator",idx:t.idx,separator:ht(new Dt({terminalType:t.separator})),definition:e(t.definition)};if(t instanceof ei)return {type:"RepetitionWithSeparator",idx:t.idx,separator:ht(new Dt({terminalType:t.separator})),definition:e(t.definition)};if(t instanceof Jn)return {type:"Repetition",idx:t.idx,definition:e(t.definition)};if(t instanceof ti)return {type:"Alternation",idx:t.idx,definition:e(t.definition)};if(t instanceof Dt){var r={type:"Terminal",name:t.terminalType.name,label:Oo.tokenLabel(t.terminalType),idx:t.idx},n=t.terminalType.PATTERN;return t.terminalType.PATTERN&&(r.pattern=G.isRegExp(n)?n.source:n),r}else {if(t instanceof Yn)return {type:"Rule",name:t.name,orgText:t.orgText,definition:e(t.definition)};throw Error("non exhaustive match")}}S.serializeProduction=ht;});var Gt=R(Ut=>{Object.defineProperty(Ut,"__esModule",{value:true});Ut.RestWalker=void 0;var Sr=k(),ie=ne(),Io=function(){function t(){}return t.prototype.walk=function(e,r){var n=this;r===void 0&&(r=[]),Sr.forEach(e.definition,function(i,a){var o=Sr.drop(e.definition,a+1);if(i instanceof ie.NonTerminal)n.walkProdRef(i,o,r);else if(i instanceof ie.Terminal)n.walkTerminal(i,o,r);else if(i instanceof ie.Alternative)n.walkFlat(i,o,r);else if(i instanceof ie.Option)n.walkOption(i,o,r);else if(i instanceof ie.RepetitionMandatory)n.walkAtLeastOne(i,o,r);else if(i instanceof ie.RepetitionMandatoryWithSeparator)n.walkAtLeastOneSep(i,o,r);else if(i instanceof ie.RepetitionWithSeparator)n.walkManySep(i,o,r);else if(i instanceof ie.Repetition)n.walkMany(i,o,r);else if(i instanceof ie.Alternation)n.walkOr(i,o,r);else throw Error("non exhaustive match")});},t.prototype.walkTerminal=function(e,r,n){},t.prototype.walkProdRef=function(e,r,n){},t.prototype.walkFlat=function(e,r,n){var i=r.concat(n);this.walk(e,i);},t.prototype.walkOption=function(e,r,n){var i=r.concat(n);this.walk(e,i);},t.prototype.walkAtLeastOne=function(e,r,n){var i=[new ie.Option({definition:e.definition})].concat(r,n);this.walk(e,i);},t.prototype.walkAtLeastOneSep=function(e,r,n){var i=ri(e,r,n);this.walk(e,i);},t.prototype.walkMany=function(e,r,n){var i=[new ie.Option({definition:e.definition})].concat(r,n);this.walk(e,i);},t.prototype.walkManySep=function(e,r,n){var i=ri(e,r,n);this.walk(e,i);},t.prototype.walkOr=function(e,r,n){var i=this,a=r.concat(n);Sr.forEach(e.definition,function(o){var s=new ie.Alternative({definition:[o]});i.walk(s,a);});},t}();Ut.RestWalker=Io;function ri(t,e,r){var n=[new ie.Option({definition:[new ie.Terminal({terminalType:t.separator})].concat(t.definition)})],i=n.concat(e,r);return i}});var $e=R(Wt=>{Object.defineProperty(Wt,"__esModule",{value:true});Wt.GAstVisitor=void 0;var Oe=ne(),ko=function(){function t(){}return t.prototype.visit=function(e){var r=e;switch(r.constructor){case Oe.NonTerminal:return this.visitNonTerminal(r);case Oe.Alternative:return this.visitAlternative(r);case Oe.Option:return this.visitOption(r);case Oe.RepetitionMandatory:return this.visitRepetitionMandatory(r);case Oe.RepetitionMandatoryWithSeparator:return this.visitRepetitionMandatoryWithSeparator(r);case Oe.RepetitionWithSeparator:return this.visitRepetitionWithSeparator(r);case Oe.Repetition:return this.visitRepetition(r);case Oe.Alternation:return this.visitAlternation(r);case Oe.Terminal:return this.visitTerminal(r);case Oe.Rule:return this.visitRule(r);default:throw Error("non exhaustive match")}},t.prototype.visitNonTerminal=function(e){},t.prototype.visitAlternative=function(e){},t.prototype.visitOption=function(e){},t.prototype.visitRepetition=function(e){},t.prototype.visitRepetitionMandatory=function(e){},t.prototype.visitRepetitionMandatoryWithSeparator=function(e){},t.prototype.visitRepetitionWithSeparator=function(e){},t.prototype.visitAlternation=function(e){},t.prototype.visitTerminal=function(e){},t.prototype.visitRule=function(e){},t}();Wt.GAstVisitor=ko;});var vt=R(X=>{var Po=X&&X.__extends||function(){var t=function(e,r){return t=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,i){n.__proto__=i;}||function(n,i){for(var a in i)Object.prototype.hasOwnProperty.call(i,a)&&(n[a]=i[a]);},t(e,r)};return function(e,r){if(typeof r!="function"&&r!==null)throw new TypeError("Class extends value "+String(r)+" is not a constructor or null");t(e,r);function n(){this.constructor=e;}e.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n);}}();Object.defineProperty(X,"__esModule",{value:true});X.collectMethods=X.DslMethodsCollectorVisitor=X.getProductionDslName=X.isBranchingProd=X.isOptionalProd=X.isSequenceProd=void 0;var dt=k(),W=ne(),So=$e();function xo(t){return t instanceof W.Alternative||t instanceof W.Option||t instanceof W.Repetition||t instanceof W.RepetitionMandatory||t instanceof W.RepetitionMandatoryWithSeparator||t instanceof W.RepetitionWithSeparator||t instanceof W.Terminal||t instanceof W.Rule}X.isSequenceProd=xo;function xr(t,e){e===void 0&&(e=[]);var r=t instanceof W.Option||t instanceof W.Repetition||t instanceof W.RepetitionWithSeparator;return r?true:t instanceof W.Alternation?dt.some(t.definition,function(n){return xr(n,e)}):t instanceof W.NonTerminal&&dt.contains(e,t)?false:t instanceof W.AbstractProduction?(t instanceof W.NonTerminal&&e.push(t),dt.every(t.definition,function(n){return xr(n,e)})):false}X.isOptionalProd=xr;function Co(t){return t instanceof W.Alternation}X.isBranchingProd=Co;function Lo(t){if(t instanceof W.NonTerminal)return "SUBRULE";if(t instanceof W.Option)return "OPTION";if(t instanceof W.Alternation)return "OR";if(t instanceof W.RepetitionMandatory)return "AT_LEAST_ONE";if(t instanceof W.RepetitionMandatoryWithSeparator)return "AT_LEAST_ONE_SEP";if(t instanceof W.RepetitionWithSeparator)return "MANY_SEP";if(t instanceof W.Repetition)return "MANY";if(t instanceof W.Terminal)return "CONSUME";throw Error("non exhaustive match")}X.getProductionDslName=Lo;var ni=function(t){Po(e,t);function e(){var r=t!==null&&t.apply(this,arguments)||this;return r.separator="-",r.dslMethods={option:[],alternation:[],repetition:[],repetitionWithSeparator:[],repetitionMandatory:[],repetitionMandatoryWithSeparator:[]},r}return e.prototype.reset=function(){this.dslMethods={option:[],alternation:[],repetition:[],repetitionWithSeparator:[],repetitionMandatory:[],repetitionMandatoryWithSeparator:[]};},e.prototype.visitTerminal=function(r){var n=r.terminalType.name+this.separator+"Terminal";dt.has(this.dslMethods,n)||(this.dslMethods[n]=[]),this.dslMethods[n].push(r);},e.prototype.visitNonTerminal=function(r){var n=r.nonTerminalName+this.separator+"Terminal";dt.has(this.dslMethods,n)||(this.dslMethods[n]=[]),this.dslMethods[n].push(r);},e.prototype.visitOption=function(r){this.dslMethods.option.push(r);},e.prototype.visitRepetitionWithSeparator=function(r){this.dslMethods.repetitionWithSeparator.push(r);},e.prototype.visitRepetitionMandatory=function(r){this.dslMethods.repetitionMandatory.push(r);},e.prototype.visitRepetitionMandatoryWithSeparator=function(r){this.dslMethods.repetitionMandatoryWithSeparator.push(r);},e.prototype.visitRepetition=function(r){this.dslMethods.repetition.push(r);},e.prototype.visitAlternation=function(r){this.dslMethods.alternation.push(r);},e}(So.GAstVisitor);X.DslMethodsCollectorVisitor=ni;var Bt=new ni;function Mo(t){Bt.reset(),t.accept(Bt);var e=Bt.dslMethods;return Bt.reset(),e}X.collectMethods=Mo;});var Lr=R(Ne=>{Object.defineProperty(Ne,"__esModule",{value:true});Ne.firstForTerminal=Ne.firstForBranching=Ne.firstForSequence=Ne.first=void 0;var qt=k(),ii=ne(),Cr=vt();function jt(t){if(t instanceof ii.NonTerminal)return jt(t.referencedRule);if(t instanceof ii.Terminal)return si(t);if(Cr.isSequenceProd(t))return ai(t);if(Cr.isBranchingProd(t))return oi(t);throw Error("non exhaustive match")}Ne.first=jt;function ai(t){for(var e=[],r=t.definition,n=0,i=r.length>n,a,o=true;i&&o;)a=r[n],o=Cr.isOptionalProd(a),e=e.concat(jt(a)),n=n+1,i=r.length>n;return qt.uniq(e)}Ne.firstForSequence=ai;function oi(t){var e=qt.map(t.definition,function(r){return jt(r)});return qt.uniq(qt.flatten(e))}Ne.firstForBranching=oi;function si(t){return [t.terminalType]}Ne.firstForTerminal=si;});var Mr=R(Vt=>{Object.defineProperty(Vt,"__esModule",{value:true});Vt.IN=void 0;Vt.IN="_~IN~_";});var pi=R(he=>{var bo=he&&he.__extends||function(){var t=function(e,r){return t=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,i){n.__proto__=i;}||function(n,i){for(var a in i)Object.prototype.hasOwnProperty.call(i,a)&&(n[a]=i[a]);},t(e,r)};return function(e,r){if(typeof r!="function"&&r!==null)throw new TypeError("Class extends value "+String(r)+" is not a constructor or null");t(e,r);function n(){this.constructor=e;}e.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n);}}();Object.defineProperty(he,"__esModule",{value:true});he.buildInProdFollowPrefix=he.buildBetweenProdsFollowPrefix=he.computeAllProdsFollows=he.ResyncFollowsWalker=void 0;var Fo=Gt(),wo=Lr(),ui=k(),ci=Mr(),Do=ne(),fi=function(t){bo(e,t);function e(r){var n=t.call(this)||this;return n.topProd=r,n.follows={},n}return e.prototype.startWalking=function(){return this.walk(this.topProd),this.follows},e.prototype.walkTerminal=function(r,n,i){},e.prototype.walkProdRef=function(r,n,i){var a=li(r.referencedRule,r.idx)+this.topProd.name,o=n.concat(i),s=new Do.Alternative({definition:o}),c=wo.first(s);this.follows[a]=c;},e}(Fo.RestWalker);he.ResyncFollowsWalker=fi;function Uo(t){var e={};return ui.forEach(t,function(r){var n=new fi(r).startWalking();ui.assign(e,n);}),e}he.computeAllProdsFollows=Uo;function li(t,e){return t.name+e+ci.IN}he.buildBetweenProdsFollowPrefix=li;function Go(t){var e=t.terminalType.name;return e+t.idx+ci.IN}he.buildInProdFollowPrefix=Go;});var mt=R(Me=>{Object.defineProperty(Me,"__esModule",{value:true});Me.defaultGrammarValidatorErrorProvider=Me.defaultGrammarResolverErrorProvider=Me.defaultParserErrorProvider=void 0;var Ze=Ue(),Wo=k(),ye=k(),br=ne(),hi=vt();Me.defaultParserErrorProvider={buildMismatchTokenMessage:function(t){var e=t.expected,r=t.actual,a=Ze.hasTokenLabel(e),o=a?"--> "+Ze.tokenLabel(e)+" <--":"token of type --> "+e.name+" <--",s="Expecting "+o+" but found --> '"+r.image+"' <--";return s},buildNotAllInputParsedMessage:function(t){var e=t.firstRedundant;return "Redundant input, expecting EOF but found: "+e.image},buildNoViableAltMessage:function(t){var e=t.expectedPathsPerAlt,r=t.actual,i=t.customUserDescription,o="Expecting: ",s=ye.first(r).image,c=`
+but found: '`+s+"'";if(i)return o+i+c;var f=ye.reduce(e,function(v,u){return v.concat(u)},[]),p=ye.map(f,function(v){return "["+ye.map(v,function(u){return Ze.tokenLabel(u)}).join(", ")+"]"}),l=ye.map(p,function(v,u){return "  "+(u+1)+". "+v}),m=`one of these possible Token sequences:
+`+l.join(`
+`);return o+m+c},buildEarlyExitMessage:function(t){var e=t.expectedIterationPaths,r=t.actual,n=t.customUserDescription,a="Expecting: ",o=ye.first(r).image,s=`
+but found: '`+o+"'";if(n)return a+n+s;var c=ye.map(e,function(p){return "["+ye.map(p,function(l){return Ze.tokenLabel(l)}).join(",")+"]"}),f=`expecting at least one iteration which starts with one of these possible Token sequences::
+  `+("<"+c.join(" ,")+">");return a+f+s}};Object.freeze(Me.defaultParserErrorProvider);Me.defaultGrammarResolverErrorProvider={buildRuleNotFoundError:function(t,e){var r="Invalid grammar, reference to a rule which is not defined: ->"+e.nonTerminalName+`<-
+inside top level rule: ->`+t.name+"<-";return r}};Me.defaultGrammarValidatorErrorProvider={buildDuplicateFoundError:function(t,e){function r(p){return p instanceof br.Terminal?p.terminalType.name:p instanceof br.NonTerminal?p.nonTerminalName:""}var n=t.name,i=ye.first(e),a=i.idx,o=hi.getProductionDslName(i),s=r(i),c=a>0,f="->"+o+(c?a:"")+"<- "+(s?"with argument: ->"+s+"<-":"")+`
+                  appears more than once (`+e.length+" times) in the top level rule: ->"+n+`<-.
+                  For further details see: https://chevrotain.io/docs/FAQ.html#NUMERICAL_SUFFIXES
+                  `;return f=f.replace(/[ \t]+/g," "),f=f.replace(/\s\s+/g,`
+`),f},buildNamespaceConflictError:function(t){var e=`Namespace conflict found in grammar.
+`+("The grammar has both a Terminal(Token) and a Non-Terminal(Rule) named: <"+t.name+`>.
+`)+`To resolve this make sure each Terminal and Non-Terminal names are unique
+This is easy to accomplish by using the convention that Terminal names start with an uppercase letter
+and Non-Terminal names start with a lower case letter.`;return e},buildAlternationPrefixAmbiguityError:function(t){var e=ye.map(t.prefixPath,function(i){return Ze.tokenLabel(i)}).join(", "),r=t.alternation.idx===0?"":t.alternation.idx,n="Ambiguous alternatives: <"+t.ambiguityIndices.join(" ,")+`> due to common lookahead prefix
+`+("in <OR"+r+"> inside <"+t.topLevelRule.name+`> Rule,
+`)+("<"+e+`> may appears as a prefix path in all these alternatives.
+`)+`See: https://chevrotain.io/docs/guide/resolving_grammar_errors.html#COMMON_PREFIX
+For Further details.`;return n},buildAlternationAmbiguityError:function(t){var e=ye.map(t.prefixPath,function(i){return Ze.tokenLabel(i)}).join(", "),r=t.alternation.idx===0?"":t.alternation.idx,n="Ambiguous Alternatives Detected: <"+t.ambiguityIndices.join(" ,")+"> in <OR"+r+">"+(" inside <"+t.topLevelRule.name+`> Rule,
+`)+("<"+e+`> may appears as a prefix path in all these alternatives.
+`);return n=n+`See: https://chevrotain.io/docs/guide/resolving_grammar_errors.html#AMBIGUOUS_ALTERNATIVES
+For Further details.`,n},buildEmptyRepetitionError:function(t){var e=hi.getProductionDslName(t.repetition);t.repetition.idx!==0&&(e+=t.repetition.idx);var r="The repetition <"+e+"> within Rule <"+t.topLevelRule.name+`> can never consume any tokens.
+This could lead to an infinite loop.`;return r},buildTokenNameError:function(t){return "deprecated"},buildEmptyAlternationError:function(t){var e="Ambiguous empty alternative: <"+(t.emptyChoiceIdx+1)+">"+(" in <OR"+t.alternation.idx+"> inside <"+t.topLevelRule.name+`> Rule.
+`)+"Only the last alternative may be an empty alternative.";return e},buildTooManyAlternativesError:function(t){var e=`An Alternation cannot have more than 256 alternatives:
+`+("<OR"+t.alternation.idx+"> inside <"+t.topLevelRule.name+`> Rule.
+ has `+(t.alternation.definition.length+1)+" alternatives.");return e},buildLeftRecursionError:function(t){var e=t.topLevelRule.name,r=Wo.map(t.leftRecursionPath,function(a){return a.name}),n=e+" --> "+r.concat([e]).join(" --> "),i=`Left Recursion found in grammar.
+`+("rule: <"+e+`> can be invoked from itself (directly or indirectly)
+`)+(`without consuming any Tokens. The grammar path that causes this is:
+ `+n+`
+`)+` To fix this refactor your grammar to remove the left recursion.
+see: https://en.wikipedia.org/wiki/LL_parser#Left_Factoring.`;return i},buildInvalidRuleNameError:function(t){return "deprecated"},buildDuplicateRuleNameError:function(t){var e;t.topLevelRule instanceof br.Rule?e=t.topLevelRule.name:e=t.topLevelRule;var r="Duplicate definition, rule: ->"+e+"<- is already defined in the grammar: ->"+t.grammarName+"<-";return r}};});var mi=R(Ge=>{var Bo=Ge&&Ge.__extends||function(){var t=function(e,r){return t=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,i){n.__proto__=i;}||function(n,i){for(var a in i)Object.prototype.hasOwnProperty.call(i,a)&&(n[a]=i[a]);},t(e,r)};return function(e,r){if(typeof r!="function"&&r!==null)throw new TypeError("Class extends value "+String(r)+" is not a constructor or null");t(e,r);function n(){this.constructor=e;}e.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n);}}();Object.defineProperty(Ge,"__esModule",{value:true});Ge.GastRefResolverVisitor=Ge.resolveGrammar=void 0;var qo=ce(),di=k(),jo=$e();function Vo(t,e){var r=new vi(t,e);return r.resolveRefs(),r.errors}Ge.resolveGrammar=Vo;var vi=function(t){Bo(e,t);function e(r,n){var i=t.call(this)||this;return i.nameToTopRule=r,i.errMsgProvider=n,i.errors=[],i}return e.prototype.resolveRefs=function(){var r=this;di.forEach(di.values(this.nameToTopRule),function(n){r.currTopLevel=n,n.accept(r);});},e.prototype.visitNonTerminal=function(r){var n=this.nameToTopRule[r.nonTerminalName];if(n)r.referencedRule=n;else {var i=this.errMsgProvider.buildRuleNotFoundError(this.currTopLevel,r);this.errors.push({message:i,type:qo.ParserDefinitionErrorType.UNRESOLVED_SUBRULE_REF,ruleName:this.currTopLevel.name,unresolvedRefName:r.nonTerminalName});}},e}(jo.GAstVisitor);Ge.GastRefResolverVisitor=vi;});var Tt=R(j=>{var je=j&&j.__extends||function(){var t=function(e,r){return t=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,i){n.__proto__=i;}||function(n,i){for(var a in i)Object.prototype.hasOwnProperty.call(i,a)&&(n[a]=i[a]);},t(e,r)};return function(e,r){if(typeof r!="function"&&r!==null)throw new TypeError("Class extends value "+String(r)+" is not a constructor or null");t(e,r);function n(){this.constructor=e;}e.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n);}}();Object.defineProperty(j,"__esModule",{value:true});j.nextPossibleTokensAfter=j.possiblePathsFrom=j.NextTerminalAfterAtLeastOneSepWalker=j.NextTerminalAfterAtLeastOneWalker=j.NextTerminalAfterManySepWalker=j.NextTerminalAfterManyWalker=j.AbstractNextTerminalAfterProductionWalker=j.NextAfterTokenWalker=j.AbstractNextPossibleTokensWalker=void 0;var Ei=Gt(),I=k(),Ko=Lr(),O=ne(),Ti=function(t){je(e,t);function e(r,n){var i=t.call(this)||this;return i.topProd=r,i.path=n,i.possibleTokTypes=[],i.nextProductionName="",i.nextProductionOccurrence=0,i.found=false,i.isAtEndOfPath=false,i}return e.prototype.startWalking=function(){if(this.found=false,this.path.ruleStack[0]!==this.topProd.name)throw Error("The path does not start with the walker's top Rule!");return this.ruleStack=I.cloneArr(this.path.ruleStack).reverse(),this.occurrenceStack=I.cloneArr(this.path.occurrenceStack).reverse(),this.ruleStack.pop(),this.occurrenceStack.pop(),this.updateExpectedNext(),this.walk(this.topProd),this.possibleTokTypes},e.prototype.walk=function(r,n){n===void 0&&(n=[]),this.found||t.prototype.walk.call(this,r,n);},e.prototype.walkProdRef=function(r,n,i){if(r.referencedRule.name===this.nextProductionName&&r.idx===this.nextProductionOccurrence){var a=n.concat(i);this.updateExpectedNext(),this.walk(r.referencedRule,a);}},e.prototype.updateExpectedNext=function(){I.isEmpty(this.ruleStack)?(this.nextProductionName="",this.nextProductionOccurrence=0,this.isAtEndOfPath=true):(this.nextProductionName=this.ruleStack.pop(),this.nextProductionOccurrence=this.occurrenceStack.pop());},e}(Ei.RestWalker);j.AbstractNextPossibleTokensWalker=Ti;var zo=function(t){je(e,t);function e(r,n){var i=t.call(this,r,n)||this;return i.path=n,i.nextTerminalName="",i.nextTerminalOccurrence=0,i.nextTerminalName=i.path.lastTok.name,i.nextTerminalOccurrence=i.path.lastTokOccurrence,i}return e.prototype.walkTerminal=function(r,n,i){if(this.isAtEndOfPath&&r.terminalType.name===this.nextTerminalName&&r.idx===this.nextTerminalOccurrence&&!this.found){var a=n.concat(i),o=new O.Alternative({definition:a});this.possibleTokTypes=Ko.first(o),this.found=true;}},e}(Ti);j.NextAfterTokenWalker=zo;var Et=function(t){je(e,t);function e(r,n){var i=t.call(this)||this;return i.topRule=r,i.occurrence=n,i.result={token:void 0,occurrence:void 0,isEndOfRule:void 0},i}return e.prototype.startWalking=function(){return this.walk(this.topRule),this.result},e}(Ei.RestWalker);j.AbstractNextTerminalAfterProductionWalker=Et;var Ho=function(t){je(e,t);function e(){return t!==null&&t.apply(this,arguments)||this}return e.prototype.walkMany=function(r,n,i){if(r.idx===this.occurrence){var a=I.first(n.concat(i));this.result.isEndOfRule=a===void 0,a instanceof O.Terminal&&(this.result.token=a.terminalType,this.result.occurrence=a.idx);}else t.prototype.walkMany.call(this,r,n,i);},e}(Et);j.NextTerminalAfterManyWalker=Ho;var Yo=function(t){je(e,t);function e(){return t!==null&&t.apply(this,arguments)||this}return e.prototype.walkManySep=function(r,n,i){if(r.idx===this.occurrence){var a=I.first(n.concat(i));this.result.isEndOfRule=a===void 0,a instanceof O.Terminal&&(this.result.token=a.terminalType,this.result.occurrence=a.idx);}else t.prototype.walkManySep.call(this,r,n,i);},e}(Et);j.NextTerminalAfterManySepWalker=Yo;var Xo=function(t){je(e,t);function e(){return t!==null&&t.apply(this,arguments)||this}return e.prototype.walkAtLeastOne=function(r,n,i){if(r.idx===this.occurrence){var a=I.first(n.concat(i));this.result.isEndOfRule=a===void 0,a instanceof O.Terminal&&(this.result.token=a.terminalType,this.result.occurrence=a.idx);}else t.prototype.walkAtLeastOne.call(this,r,n,i);},e}(Et);j.NextTerminalAfterAtLeastOneWalker=Xo;var $o=function(t){je(e,t);function e(){return t!==null&&t.apply(this,arguments)||this}return e.prototype.walkAtLeastOneSep=function(r,n,i){if(r.idx===this.occurrence){var a=I.first(n.concat(i));this.result.isEndOfRule=a===void 0,a instanceof O.Terminal&&(this.result.token=a.terminalType,this.result.occurrence=a.idx);}else t.prototype.walkAtLeastOneSep.call(this,r,n,i);},e}(Et);j.NextTerminalAfterAtLeastOneSepWalker=$o;function yi(t,e,r){r===void 0&&(r=[]),r=I.cloneArr(r);var n=[],i=0;function a(f){return f.concat(I.drop(t,i+1))}function o(f){var p=yi(a(f),e,r);return n.concat(p)}for(;r.length<e&&i<t.length;){var s=t[i];if(s instanceof O.Alternative)return o(s.definition);if(s instanceof O.NonTerminal)return o(s.definition);if(s instanceof O.Option)n=o(s.definition);else if(s instanceof O.RepetitionMandatory){var c=s.definition.concat([new O.Repetition({definition:s.definition})]);return o(c)}else if(s instanceof O.RepetitionMandatoryWithSeparator){var c=[new O.Alternative({definition:s.definition}),new O.Repetition({definition:[new O.Terminal({terminalType:s.separator})].concat(s.definition)})];return o(c)}else if(s instanceof O.RepetitionWithSeparator){var c=s.definition.concat([new O.Repetition({definition:[new O.Terminal({terminalType:s.separator})].concat(s.definition)})]);n=o(c);}else if(s instanceof O.Repetition){var c=s.definition.concat([new O.Repetition({definition:s.definition})]);n=o(c);}else {if(s instanceof O.Alternation)return I.forEach(s.definition,function(f){I.isEmpty(f.definition)===false&&(n=o(f.definition));}),n;if(s instanceof O.Terminal)r.push(s.terminalType);else throw Error("non exhaustive match")}i++;}return n.push({partialPath:r,suffixDef:I.drop(t,i)}),n}j.possiblePathsFrom=yi;function Qo(t,e,r,n){var i="EXIT_NONE_TERMINAL",a=[i],o="EXIT_ALTERNATIVE",s=false,c=e.length,f=c-n-1,p=[],l=[];for(l.push({idx:-1,def:t,ruleStack:[],occurrenceStack:[]});!I.isEmpty(l);){var m=l.pop();if(m===o){s&&I.last(l).idx<=f&&l.pop();continue}var v=m.def,u=m.idx,d=m.ruleStack,A=m.occurrenceStack;if(!I.isEmpty(v)){var _=v[0];if(_===i){var g={idx:u,def:I.drop(v),ruleStack:I.dropRight(d),occurrenceStack:I.dropRight(A)};l.push(g);}else if(_ instanceof O.Terminal)if(u<c-1){var y=u+1,b=e[y];if(r(b,_.terminalType)){var g={idx:y,def:I.drop(v),ruleStack:d,occurrenceStack:A};l.push(g);}}else if(u===c-1)p.push({nextTokenType:_.terminalType,nextTokenOccurrence:_.idx,ruleStack:d,occurrenceStack:A}),s=true;else throw Error("non exhaustive match");else if(_ instanceof O.NonTerminal){var L=I.cloneArr(d);L.push(_.nonTerminalName);var se=I.cloneArr(A);se.push(_.idx);var g={idx:u,def:_.definition.concat(a,I.drop(v)),ruleStack:L,occurrenceStack:se};l.push(g);}else if(_ instanceof O.Option){var fe={idx:u,def:I.drop(v),ruleStack:d,occurrenceStack:A};l.push(fe),l.push(o);var Z={idx:u,def:_.definition.concat(I.drop(v)),ruleStack:d,occurrenceStack:A};l.push(Z);}else if(_ instanceof O.RepetitionMandatory){var ue=new O.Repetition({definition:_.definition,idx:_.idx}),Q=_.definition.concat([ue],I.drop(v)),g={idx:u,def:Q,ruleStack:d,occurrenceStack:A};l.push(g);}else if(_ instanceof O.RepetitionMandatoryWithSeparator){var te=new O.Terminal({terminalType:_.separator}),ue=new O.Repetition({definition:[te].concat(_.definition),idx:_.idx}),Q=_.definition.concat([ue],I.drop(v)),g={idx:u,def:Q,ruleStack:d,occurrenceStack:A};l.push(g);}else if(_ instanceof O.RepetitionWithSeparator){var fe={idx:u,def:I.drop(v),ruleStack:d,occurrenceStack:A};l.push(fe),l.push(o);var te=new O.Terminal({terminalType:_.separator}),xe=new O.Repetition({definition:[te].concat(_.definition),idx:_.idx}),Q=_.definition.concat([xe],I.drop(v)),Z={idx:u,def:Q,ruleStack:d,occurrenceStack:A};l.push(Z);}else if(_ instanceof O.Repetition){var fe={idx:u,def:I.drop(v),ruleStack:d,occurrenceStack:A};l.push(fe),l.push(o);var xe=new O.Repetition({definition:_.definition,idx:_.idx}),Q=_.definition.concat([xe],I.drop(v)),Z={idx:u,def:Q,ruleStack:d,occurrenceStack:A};l.push(Z);}else if(_ instanceof O.Alternation)for(var it=_.definition.length-1;it>=0;it--){var at=_.definition[it],Ke={idx:u,def:at.definition.concat(I.drop(v)),ruleStack:d,occurrenceStack:A};l.push(Ke),l.push(o);}else if(_ instanceof O.Alternative)l.push({idx:u,def:_.definition.concat(I.drop(v)),ruleStack:d,occurrenceStack:A});else if(_ instanceof O.Rule)l.push(Zo(_,u,d,A));else throw Error("non exhaustive match")}}return p}j.nextPossibleTokensAfter=Qo;function Zo(t,e,r,n){var i=I.cloneArr(r);i.push(t.name);var a=I.cloneArr(n);return a.push(1),{idx:e,def:t.definition,ruleStack:i,occurrenceStack:a}}});var yt=R(C=>{var _i=C&&C.__extends||function(){var t=function(e,r){return t=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,i){n.__proto__=i;}||function(n,i){for(var a in i)Object.prototype.hasOwnProperty.call(i,a)&&(n[a]=i[a]);},t(e,r)};return function(e,r){if(typeof r!="function"&&r!==null)throw new TypeError("Class extends value "+String(r)+" is not a constructor or null");t(e,r);function n(){this.constructor=e;}e.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n);}}();Object.defineProperty(C,"__esModule",{value:true});C.areTokenCategoriesNotUsed=C.isStrictPrefixOfPath=C.containsPath=C.getLookaheadPathsForOptionalProd=C.getLookaheadPathsForOr=C.lookAheadSequenceFromAlternatives=C.buildSingleAlternativeLookaheadFunction=C.buildAlternativesLookAheadFunc=C.buildLookaheadFuncForOptionalProd=C.buildLookaheadFuncForOr=C.getProdType=C.PROD_TYPE=void 0;var D=k(),gi=Tt(),Jo=Gt(),Kt=Xe(),We=ne(),es=$e(),z;(function(t){t[t.OPTION=0]="OPTION",t[t.REPETITION=1]="REPETITION",t[t.REPETITION_MANDATORY=2]="REPETITION_MANDATORY",t[t.REPETITION_MANDATORY_WITH_SEPARATOR=3]="REPETITION_MANDATORY_WITH_SEPARATOR",t[t.REPETITION_WITH_SEPARATOR=4]="REPETITION_WITH_SEPARATOR",t[t.ALTERNATION=5]="ALTERNATION";})(z=C.PROD_TYPE||(C.PROD_TYPE={}));function ts(t){if(t instanceof We.Option)return z.OPTION;if(t instanceof We.Repetition)return z.REPETITION;if(t instanceof We.RepetitionMandatory)return z.REPETITION_MANDATORY;if(t instanceof We.RepetitionMandatoryWithSeparator)return z.REPETITION_MANDATORY_WITH_SEPARATOR;if(t instanceof We.RepetitionWithSeparator)return z.REPETITION_WITH_SEPARATOR;if(t instanceof We.Alternation)return z.ALTERNATION;throw Error("non exhaustive match")}C.getProdType=ts;function rs(t,e,r,n,i,a){var o=Ai(t,e,r),s=Fr(o)?Kt.tokenStructuredMatcherNoCategories:Kt.tokenStructuredMatcher;return a(o,n,s,i)}C.buildLookaheadFuncForOr=rs;function ns(t,e,r,n,i,a){var o=Ri(t,e,i,r),s=Fr(o)?Kt.tokenStructuredMatcherNoCategories:Kt.tokenStructuredMatcher;return a(o[0],s,n)}C.buildLookaheadFuncForOptionalProd=ns;function is(t,e,r,n){var i=t.length,a=D.every(t,function(c){return D.every(c,function(f){return f.length===1})});if(e)return function(c){for(var f=D.map(c,function(y){return y.GATE}),p=0;p<i;p++){var l=t[p],m=l.length,v=f[p];if(v!==void 0&&v.call(this)===false)continue;e:for(var u=0;u<m;u++){for(var d=l[u],A=d.length,_=0;_<A;_++){var g=this.LA(_+1);if(r(g,d[_])===false)continue e}return p}}};if(a&&!n){var o=D.map(t,function(c){return D.flatten(c)}),s=D.reduce(o,function(c,f,p){return D.forEach(f,function(l){D.has(c,l.tokenTypeIdx)||(c[l.tokenTypeIdx]=p),D.forEach(l.categoryMatches,function(m){D.has(c,m)||(c[m]=p);});}),c},[]);return function(){var c=this.LA(1);return s[c.tokenTypeIdx]}}else return function(){for(var c=0;c<i;c++){var f=t[c],p=f.length;e:for(var l=0;l<p;l++){for(var m=f[l],v=m.length,u=0;u<v;u++){var d=this.LA(u+1);if(r(d,m[u])===false)continue e}return c}}}}C.buildAlternativesLookAheadFunc=is;function as(t,e,r){var n=D.every(t,function(f){return f.length===1}),i=t.length;if(n&&!r){var a=D.flatten(t);if(a.length===1&&D.isEmpty(a[0].categoryMatches)){var o=a[0],s=o.tokenTypeIdx;return function(){return this.LA(1).tokenTypeIdx===s}}else {var c=D.reduce(a,function(f,p,l){return f[p.tokenTypeIdx]=true,D.forEach(p.categoryMatches,function(m){f[m]=true;}),f},[]);return function(){var f=this.LA(1);return c[f.tokenTypeIdx]===true}}}else return function(){e:for(var f=0;f<i;f++){for(var p=t[f],l=p.length,m=0;m<l;m++){var v=this.LA(m+1);if(e(v,p[m])===false)continue e}return  true}return  false}}C.buildSingleAlternativeLookaheadFunction=as;var os=function(t){_i(e,t);function e(r,n,i){var a=t.call(this)||this;return a.topProd=r,a.targetOccurrence=n,a.targetProdType=i,a}return e.prototype.startWalking=function(){return this.walk(this.topProd),this.restDef},e.prototype.checkIsTarget=function(r,n,i,a){return r.idx===this.targetOccurrence&&this.targetProdType===n?(this.restDef=i.concat(a),true):false},e.prototype.walkOption=function(r,n,i){this.checkIsTarget(r,z.OPTION,n,i)||t.prototype.walkOption.call(this,r,n,i);},e.prototype.walkAtLeastOne=function(r,n,i){this.checkIsTarget(r,z.REPETITION_MANDATORY,n,i)||t.prototype.walkOption.call(this,r,n,i);},e.prototype.walkAtLeastOneSep=function(r,n,i){this.checkIsTarget(r,z.REPETITION_MANDATORY_WITH_SEPARATOR,n,i)||t.prototype.walkOption.call(this,r,n,i);},e.prototype.walkMany=function(r,n,i){this.checkIsTarget(r,z.REPETITION,n,i)||t.prototype.walkOption.call(this,r,n,i);},e.prototype.walkManySep=function(r,n,i){this.checkIsTarget(r,z.REPETITION_WITH_SEPARATOR,n,i)||t.prototype.walkOption.call(this,r,n,i);},e}(Jo.RestWalker),Oi=function(t){_i(e,t);function e(r,n,i){var a=t.call(this)||this;return a.targetOccurrence=r,a.targetProdType=n,a.targetRef=i,a.result=[],a}return e.prototype.checkIsTarget=function(r,n){r.idx===this.targetOccurrence&&this.targetProdType===n&&(this.targetRef===void 0||r===this.targetRef)&&(this.result=r.definition);},e.prototype.visitOption=function(r){this.checkIsTarget(r,z.OPTION);},e.prototype.visitRepetition=function(r){this.checkIsTarget(r,z.REPETITION);},e.prototype.visitRepetitionMandatory=function(r){this.checkIsTarget(r,z.REPETITION_MANDATORY);},e.prototype.visitRepetitionMandatoryWithSeparator=function(r){this.checkIsTarget(r,z.REPETITION_MANDATORY_WITH_SEPARATOR);},e.prototype.visitRepetitionWithSeparator=function(r){this.checkIsTarget(r,z.REPETITION_WITH_SEPARATOR);},e.prototype.visitAlternation=function(r){this.checkIsTarget(r,z.ALTERNATION);},e}(es.GAstVisitor);function Ni(t){for(var e=new Array(t),r=0;r<t;r++)e[r]=[];return e}function wr(t){for(var e=[""],r=0;r<t.length;r++){for(var n=t[r],i=[],a=0;a<e.length;a++){var o=e[a];i.push(o+"_"+n.tokenTypeIdx);for(var s=0;s<n.categoryMatches.length;s++){var c="_"+n.categoryMatches[s];i.push(o+c);}}e=i;}return e}function ss(t,e,r){for(var n=0;n<t.length;n++)if(n!==r)for(var i=t[n],a=0;a<e.length;a++){var o=e[a];if(i[o]===true)return  false}return  true}function Dr(t,e){for(var r=D.map(t,function(p){return gi.possiblePathsFrom([p],1)}),n=Ni(r.length),i=D.map(r,function(p){var l={};return D.forEach(p,function(m){var v=wr(m.partialPath);D.forEach(v,function(u){l[u]=true;});}),l}),a=r,o=1;o<=e;o++){var s=a;a=Ni(s.length);for(var c=function(p){for(var l=s[p],m=0;m<l.length;m++){var v=l[m].partialPath,u=l[m].suffixDef,d=wr(v),A=ss(i,d,p);if(A||D.isEmpty(u)||v.length===e){var _=n[p];if(Ii(_,v)===false){_.push(v);for(var g=0;g<d.length;g++){var y=d[g];i[p][y]=true;}}}else {var b=gi.possiblePathsFrom(u,o+1,v);a[p]=a[p].concat(b),D.forEach(b,function(L){var se=wr(L.partialPath);D.forEach(se,function(fe){i[p][fe]=true;});});}}},f=0;f<s.length;f++)c(f);}return n}C.lookAheadSequenceFromAlternatives=Dr;function Ai(t,e,r,n){var i=new Oi(t,z.ALTERNATION,n);return e.accept(i),Dr(i.result,r)}C.getLookaheadPathsForOr=Ai;function Ri(t,e,r,n){var i=new Oi(t,r);e.accept(i);var a=i.result,o=new os(e,t,r),s=o.startWalking(),c=new We.Alternative({definition:a}),f=new We.Alternative({definition:s});return Dr([c,f],n)}C.getLookaheadPathsForOptionalProd=Ri;function Ii(t,e){e:for(var r=0;r<t.length;r++){var n=t[r];if(n.length===e.length){for(var i=0;i<n.length;i++){var a=e[i],o=n[i],s=a===o||o.categoryMatchesMap[a.tokenTypeIdx]!==void 0;if(s===false)continue e}return  true}}return  false}C.containsPath=Ii;function us(t,e){return t.length<e.length&&D.every(t,function(r,n){var i=e[n];return r===i||i.categoryMatchesMap[r.tokenTypeIdx]})}C.isStrictPrefixOfPath=us;function Fr(t){return D.every(t,function(e){return D.every(e,function(r){return D.every(r,function(n){return D.isEmpty(n.categoryMatches)})})})}C.areTokenCategoriesNotUsed=Fr;});var jr=R(x=>{var Ur=x&&x.__extends||function(){var t=function(e,r){return t=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,i){n.__proto__=i;}||function(n,i){for(var a in i)Object.prototype.hasOwnProperty.call(i,a)&&(n[a]=i[a]);},t(e,r)};return function(e,r){if(typeof r!="function"&&r!==null)throw new TypeError("Class extends value "+String(r)+" is not a constructor or null");t(e,r);function n(){this.constructor=e;}e.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n);}}();Object.defineProperty(x,"__esModule",{value:true});x.checkPrefixAlternativesAmbiguities=x.validateSomeNonEmptyLookaheadPath=x.validateTooManyAlts=x.RepetionCollector=x.validateAmbiguousAlternationAlternatives=x.validateEmptyOrAlternative=x.getFirstNoneTerminal=x.validateNoLeftRecursion=x.validateRuleIsOverridden=x.validateRuleDoesNotAlreadyExist=x.OccurrenceValidationCollector=x.identifyProductionForDuplicates=x.validateGrammar=void 0;var M=k(),B=k(),Ie=ce(),Gr=vt(),Qe=yt(),cs=Tt(),_e=ne(),Wr=$e();function ps(t,e,r,n,i){var a=M.map(t,function(v){return ls(v,n)}),o=M.map(t,function(v){return Br(v,v,n)}),s=[],c=[],f=[];B.every(o,B.isEmpty)&&(s=B.map(t,function(v){return Pi(v,n)}),c=B.map(t,function(v){return Si(v,e,n)}),f=Ci(t,e,n));var p=fs(t,r,n),l=B.map(t,function(v){return xi(v,n)}),m=B.map(t,function(v){return ki(v,t,i,n)});return M.flatten(a.concat(f,o,s,c,p,l,m))}x.validateGrammar=ps;function ls(t,e){var r=new bi;t.accept(r);var n=r.allProductions,i=M.groupBy(n,Li),a=M.pick(i,function(s){return s.length>1}),o=M.map(M.values(a),function(s){var c=M.first(s),f=e.buildDuplicateFoundError(t,s),p=Gr.getProductionDslName(c),l={message:f,type:Ie.ParserDefinitionErrorType.DUPLICATE_PRODUCTIONS,ruleName:t.name,dslName:p,occurrence:c.idx},m=Mi(c);return m&&(l.parameter=m),l});return o}function Li(t){return Gr.getProductionDslName(t)+"_#_"+t.idx+"_#_"+Mi(t)}x.identifyProductionForDuplicates=Li;function Mi(t){return t instanceof _e.Terminal?t.terminalType.name:t instanceof _e.NonTerminal?t.nonTerminalName:""}var bi=function(t){Ur(e,t);function e(){var r=t!==null&&t.apply(this,arguments)||this;return r.allProductions=[],r}return e.prototype.visitNonTerminal=function(r){this.allProductions.push(r);},e.prototype.visitOption=function(r){this.allProductions.push(r);},e.prototype.visitRepetitionWithSeparator=function(r){this.allProductions.push(r);},e.prototype.visitRepetitionMandatory=function(r){this.allProductions.push(r);},e.prototype.visitRepetitionMandatoryWithSeparator=function(r){this.allProductions.push(r);},e.prototype.visitRepetition=function(r){this.allProductions.push(r);},e.prototype.visitAlternation=function(r){this.allProductions.push(r);},e.prototype.visitTerminal=function(r){this.allProductions.push(r);},e}(Wr.GAstVisitor);x.OccurrenceValidationCollector=bi;function ki(t,e,r,n){var i=[],a=B.reduce(e,function(s,c){return c.name===t.name?s+1:s},0);if(a>1){var o=n.buildDuplicateRuleNameError({topLevelRule:t,grammarName:r});i.push({message:o,type:Ie.ParserDefinitionErrorType.DUPLICATE_RULE_NAME,ruleName:t.name});}return i}x.validateRuleDoesNotAlreadyExist=ki;function hs(t,e,r){var n=[],i;return M.contains(e,t)||(i="Invalid rule override, rule: ->"+t+"<- cannot be overridden in the grammar: ->"+r+"<-as it is not defined in any of the super grammars ",n.push({message:i,type:Ie.ParserDefinitionErrorType.INVALID_RULE_OVERRIDE,ruleName:t})),n}x.validateRuleIsOverridden=hs;function Br(t,e,r,n){n===void 0&&(n=[]);var i=[],a=_t(e.definition);if(M.isEmpty(a))return [];var o=t.name,s=M.contains(a,t);s&&i.push({message:r.buildLeftRecursionError({topLevelRule:t,leftRecursionPath:n}),type:Ie.ParserDefinitionErrorType.LEFT_RECURSION,ruleName:o});var c=M.difference(a,n.concat([t])),f=M.map(c,function(p){var l=M.cloneArr(n);return l.push(p),Br(t,p,r,l)});return i.concat(M.flatten(f))}x.validateNoLeftRecursion=Br;function _t(t){var e=[];if(M.isEmpty(t))return e;var r=M.first(t);if(r instanceof _e.NonTerminal)e.push(r.referencedRule);else if(r instanceof _e.Alternative||r instanceof _e.Option||r instanceof _e.RepetitionMandatory||r instanceof _e.RepetitionMandatoryWithSeparator||r instanceof _e.RepetitionWithSeparator||r instanceof _e.Repetition)e=e.concat(_t(r.definition));else if(r instanceof _e.Alternation)e=M.flatten(M.map(r.definition,function(o){return _t(o.definition)}));else if(!(r instanceof _e.Terminal))throw Error("non exhaustive match");var n=Gr.isOptionalProd(r),i=t.length>1;if(n&&i){var a=M.drop(t);return e.concat(_t(a))}else return e}x.getFirstNoneTerminal=_t;var qr=function(t){Ur(e,t);function e(){var r=t!==null&&t.apply(this,arguments)||this;return r.alternations=[],r}return e.prototype.visitAlternation=function(r){this.alternations.push(r);},e}(Wr.GAstVisitor);function Pi(t,e){var r=new qr;t.accept(r);var n=r.alternations,i=M.reduce(n,function(a,o){var s=M.dropRight(o.definition),c=M.map(s,function(f,p){var l=cs.nextPossibleTokensAfter([f],[],null,1);return M.isEmpty(l)?{message:e.buildEmptyAlternationError({topLevelRule:t,alternation:o,emptyChoiceIdx:p}),type:Ie.ParserDefinitionErrorType.NONE_LAST_EMPTY_ALT,ruleName:t.name,occurrence:o.idx,alternative:p+1}:null});return a.concat(M.compact(c))},[]);return i}x.validateEmptyOrAlternative=Pi;function Si(t,e,r){var n=new qr;t.accept(n);var i=n.alternations;i=B.reject(i,function(o){return o.ignoreAmbiguities===true});var a=M.reduce(i,function(o,s){var c=s.idx,f=s.maxLookahead||e,p=Qe.getLookaheadPathsForOr(c,t,f,s),l=ds(p,s,t,r),m=Fi(p,s,t,r);return o.concat(l,m)},[]);return a}x.validateAmbiguousAlternationAlternatives=Si;var wi=function(t){Ur(e,t);function e(){var r=t!==null&&t.apply(this,arguments)||this;return r.allProductions=[],r}return e.prototype.visitRepetitionWithSeparator=function(r){this.allProductions.push(r);},e.prototype.visitRepetitionMandatory=function(r){this.allProductions.push(r);},e.prototype.visitRepetitionMandatoryWithSeparator=function(r){this.allProductions.push(r);},e.prototype.visitRepetition=function(r){this.allProductions.push(r);},e}(Wr.GAstVisitor);x.RepetionCollector=wi;function xi(t,e){var r=new qr;t.accept(r);var n=r.alternations,i=M.reduce(n,function(a,o){return o.definition.length>255&&a.push({message:e.buildTooManyAlternativesError({topLevelRule:t,alternation:o}),type:Ie.ParserDefinitionErrorType.TOO_MANY_ALTS,ruleName:t.name,occurrence:o.idx}),a},[]);return i}x.validateTooManyAlts=xi;function Ci(t,e,r){var n=[];return B.forEach(t,function(i){var a=new wi;i.accept(a);var o=a.allProductions;B.forEach(o,function(s){var c=Qe.getProdType(s),f=s.maxLookahead||e,p=s.idx,l=Qe.getLookaheadPathsForOptionalProd(p,i,c,f),m=l[0];if(B.isEmpty(B.flatten(m))){var v=r.buildEmptyRepetitionError({topLevelRule:i,repetition:s});n.push({message:v,type:Ie.ParserDefinitionErrorType.NO_NON_EMPTY_LOOKAHEAD,ruleName:i.name});}});}),n}x.validateSomeNonEmptyLookaheadPath=Ci;function ds(t,e,r,n){var i=[],a=B.reduce(t,function(s,c,f){return e.definition[f].ignoreAmbiguities===true||B.forEach(c,function(p){var l=[f];B.forEach(t,function(m,v){f!==v&&Qe.containsPath(m,p)&&e.definition[v].ignoreAmbiguities!==true&&l.push(v);}),l.length>1&&!Qe.containsPath(i,p)&&(i.push(p),s.push({alts:l,path:p}));}),s},[]),o=M.map(a,function(s){var c=B.map(s.alts,function(p){return p+1}),f=n.buildAlternationAmbiguityError({topLevelRule:r,alternation:e,ambiguityIndices:c,prefixPath:s.path});return {message:f,type:Ie.ParserDefinitionErrorType.AMBIGUOUS_ALTS,ruleName:r.name,occurrence:e.idx,alternatives:[s.alts]}});return o}function Fi(t,e,r,n){var i=[],a=B.reduce(t,function(o,s,c){var f=B.map(s,function(p){return {idx:c,path:p}});return o.concat(f)},[]);return B.forEach(a,function(o){var s=e.definition[o.idx];if(s.ignoreAmbiguities!==true){var c=o.idx,f=o.path,p=B.findAll(a,function(m){return e.definition[m.idx].ignoreAmbiguities!==true&&m.idx<c&&Qe.isStrictPrefixOfPath(m.path,f)}),l=B.map(p,function(m){var v=[m.idx+1,c+1],u=e.idx===0?"":e.idx,d=n.buildAlternationPrefixAmbiguityError({topLevelRule:r,alternation:e,ambiguityIndices:v,prefixPath:m.path});return {message:d,type:Ie.ParserDefinitionErrorType.AMBIGUOUS_PREFIX_ALTS,ruleName:r.name,occurrence:u,alternatives:v}});i=i.concat(l);}}),i}x.checkPrefixAlternativesAmbiguities=Fi;function fs(t,e,r){var n=[],i=B.map(e,function(a){return a.name});return B.forEach(t,function(a){var o=a.name;if(B.contains(i,o)){var s=r.buildNamespaceConflictError(a);n.push({message:s,type:Ie.ParserDefinitionErrorType.CONFLICT_TOKENS_RULES_NAMESPACE,ruleName:o});}}),n}});var Ui=R(Je=>{Object.defineProperty(Je,"__esModule",{value:true});Je.validateGrammar=Je.resolveGrammar=void 0;var Vr=k(),vs=mi(),ms=jr(),Di=mt();function Es(t){t=Vr.defaults(t,{errMsgProvider:Di.defaultGrammarResolverErrorProvider});var e={};return Vr.forEach(t.rules,function(r){e[r.name]=r;}),vs.resolveGrammar(e,t.errMsgProvider)}Je.resolveGrammar=Es;function Ts(t){return t=Vr.defaults(t,{errMsgProvider:Di.defaultGrammarValidatorErrorProvider}),ms.validateGrammar(t.rules,t.maxLookahead,t.tokenTypes,t.errMsgProvider,t.grammarName)}Je.validateGrammar=Ts;});var et=R(ae=>{var gt=ae&&ae.__extends||function(){var t=function(e,r){return t=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,i){n.__proto__=i;}||function(n,i){for(var a in i)Object.prototype.hasOwnProperty.call(i,a)&&(n[a]=i[a]);},t(e,r)};return function(e,r){if(typeof r!="function"&&r!==null)throw new TypeError("Class extends value "+String(r)+" is not a constructor or null");t(e,r);function n(){this.constructor=e;}e.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n);}}();Object.defineProperty(ae,"__esModule",{value:true});ae.EarlyExitException=ae.NotAllInputParsedException=ae.NoViableAltException=ae.MismatchedTokenException=ae.isRecognitionException=void 0;var ys=k(),Gi="MismatchedTokenException",Wi="NoViableAltException",Bi="EarlyExitException",qi="NotAllInputParsedException",ji=[Gi,Wi,Bi,qi];Object.freeze(ji);function _s(t){return ys.contains(ji,t.name)}ae.isRecognitionException=_s;var zt=function(t){gt(e,t);function e(r,n){var i=this.constructor,a=t.call(this,r)||this;return a.token=n,a.resyncedTokens=[],Object.setPrototypeOf(a,i.prototype),Error.captureStackTrace&&Error.captureStackTrace(a,a.constructor),a}return e}(Error),gs=function(t){gt(e,t);function e(r,n,i){var a=t.call(this,r,n)||this;return a.previousToken=i,a.name=Gi,a}return e}(zt);ae.MismatchedTokenException=gs;var As=function(t){gt(e,t);function e(r,n,i){var a=t.call(this,r,n)||this;return a.previousToken=i,a.name=Wi,a}return e}(zt);ae.NoViableAltException=As;var Rs=function(t){gt(e,t);function e(r,n){var i=t.call(this,r,n)||this;return i.name=qi,i}return e}(zt);ae.NotAllInputParsedException=Rs;var Os=function(t){gt(e,t);function e(r,n,i){var a=t.call(this,r,n)||this;return a.previousToken=i,a.name=Bi,a}return e}(zt);ae.EarlyExitException=Os;});var zr=R($=>{Object.defineProperty($,"__esModule",{value:true});$.attemptInRepetitionRecovery=$.Recoverable=$.InRuleRecoveryException=$.IN_RULE_RECOVERY_EXCEPTION=$.EOF_FOLLOW_KEY=void 0;var Ht=Ue(),de=k(),Ns=et(),Is=Mr(),ks=ce();$.EOF_FOLLOW_KEY={};$.IN_RULE_RECOVERY_EXCEPTION="InRuleRecoveryException";function Kr(t){this.name=$.IN_RULE_RECOVERY_EXCEPTION,this.message=t;}$.InRuleRecoveryException=Kr;Kr.prototype=Error.prototype;var Ps=function(){function t(){}return t.prototype.initRecoverable=function(e){this.firstAfterRepMap={},this.resyncFollows={},this.recoveryEnabled=de.has(e,"recoveryEnabled")?e.recoveryEnabled:ks.DEFAULT_PARSER_CONFIG.recoveryEnabled,this.recoveryEnabled&&(this.attemptInRepetitionRecovery=Vi);},t.prototype.getTokenToInsert=function(e){var r=Ht.createTokenInstance(e,"",NaN,NaN,NaN,NaN,NaN,NaN);return r.isInsertedInRecovery=true,r},t.prototype.canTokenTypeBeInsertedInRecovery=function(e){return  true},t.prototype.tryInRepetitionRecovery=function(e,r,n,i){for(var a=this,o=this.findReSyncTokenType(),s=this.exportLexerState(),c=[],f=false,p=this.LA(1),l=this.LA(1),m=function(){var v=a.LA(0),u=a.errorMessageProvider.buildMismatchTokenMessage({expected:i,actual:p,previous:v,ruleName:a.getCurrRuleFullName()}),d=new Ns.MismatchedTokenException(u,p,a.LA(0));d.resyncedTokens=de.dropRight(c),a.SAVE_ERROR(d);};!f;)if(this.tokenMatcher(l,i)){m();return}else if(n.call(this)){m(),e.apply(this,r);return}else this.tokenMatcher(l,o)?f=true:(l=this.SKIP_TOKEN(),this.addToResyncTokens(l,c));this.importLexerState(s);},t.prototype.shouldInRepetitionRecoveryBeTried=function(e,r,n){return !(n===false||e===void 0||r===void 0||this.tokenMatcher(this.LA(1),e)||this.isBackTracking()||this.canPerformInRuleRecovery(e,this.getFollowsForInRuleRecovery(e,r)))},t.prototype.getFollowsForInRuleRecovery=function(e,r){var n=this.getCurrentGrammarPath(e,r),i=this.getNextPossibleTokenTypes(n);return i},t.prototype.tryInRuleRecovery=function(e,r){if(this.canRecoverWithSingleTokenInsertion(e,r)){var n=this.getTokenToInsert(e);return n}if(this.canRecoverWithSingleTokenDeletion(e)){var i=this.SKIP_TOKEN();return this.consumeToken(),i}throw new Kr("sad sad panda")},t.prototype.canPerformInRuleRecovery=function(e,r){return this.canRecoverWithSingleTokenInsertion(e,r)||this.canRecoverWithSingleTokenDeletion(e)},t.prototype.canRecoverWithSingleTokenInsertion=function(e,r){var n=this;if(!this.canTokenTypeBeInsertedInRecovery(e)||de.isEmpty(r))return  false;var i=this.LA(1),a=de.find(r,function(o){return n.tokenMatcher(i,o)})!==void 0;return a},t.prototype.canRecoverWithSingleTokenDeletion=function(e){var r=this.tokenMatcher(this.LA(2),e);return r},t.prototype.isInCurrentRuleReSyncSet=function(e){var r=this.getCurrFollowKey(),n=this.getFollowSetFromFollowKey(r);return de.contains(n,e)},t.prototype.findReSyncTokenType=function(){for(var e=this.flattenFollowSet(),r=this.LA(1),n=2;;){var i=r.tokenType;if(de.contains(e,i))return i;r=this.LA(n),n++;}},t.prototype.getCurrFollowKey=function(){if(this.RULE_STACK.length===1)return $.EOF_FOLLOW_KEY;var e=this.getLastExplicitRuleShortName(),r=this.getLastExplicitRuleOccurrenceIndex(),n=this.getPreviousExplicitRuleShortName();return {ruleName:this.shortRuleNameToFullName(e),idxInCallingRule:r,inRule:this.shortRuleNameToFullName(n)}},t.prototype.buildFullFollowKeyStack=function(){var e=this,r=this.RULE_STACK,n=this.RULE_OCCURRENCE_STACK;return de.map(r,function(i,a){return a===0?$.EOF_FOLLOW_KEY:{ruleName:e.shortRuleNameToFullName(i),idxInCallingRule:n[a],inRule:e.shortRuleNameToFullName(r[a-1])}})},t.prototype.flattenFollowSet=function(){var e=this,r=de.map(this.buildFullFollowKeyStack(),function(n){return e.getFollowSetFromFollowKey(n)});return de.flatten(r)},t.prototype.getFollowSetFromFollowKey=function(e){if(e===$.EOF_FOLLOW_KEY)return [Ht.EOF];var r=e.ruleName+e.idxInCallingRule+Is.IN+e.inRule;return this.resyncFollows[r]},t.prototype.addToResyncTokens=function(e,r){return this.tokenMatcher(e,Ht.EOF)||r.push(e),r},t.prototype.reSyncTo=function(e){for(var r=[],n=this.LA(1);this.tokenMatcher(n,e)===false;)n=this.SKIP_TOKEN(),this.addToResyncTokens(n,r);return de.dropRight(r)},t.prototype.attemptInRepetitionRecovery=function(e,r,n,i,a,o,s){},t.prototype.getCurrentGrammarPath=function(e,r){var n=this.getHumanReadableRuleStack(),i=de.cloneArr(this.RULE_OCCURRENCE_STACK),a={ruleStack:n,occurrenceStack:i,lastTok:e,lastTokOccurrence:r};return a},t.prototype.getHumanReadableRuleStack=function(){var e=this;return de.map(this.RULE_STACK,function(r){return e.shortRuleNameToFullName(r)})},t}();$.Recoverable=Ps;function Vi(t,e,r,n,i,a,o){var s=this.getKeyForAutomaticLookahead(n,i),c=this.firstAfterRepMap[s];if(c===void 0){var f=this.getCurrRuleFullName(),p=this.getGAstProductions()[f],l=new a(p,i);c=l.startWalking(),this.firstAfterRepMap[s]=c;}var m=c.token,v=c.occurrence,u=c.isEndOfRule;this.RULE_STACK.length===1&&u&&m===void 0&&(m=Ht.EOF,v=1),this.shouldInRepetitionRecoveryBeTried(m,v,o)&&this.tryInRepetitionRecovery(t,e,r,m);}$.attemptInRepetitionRecovery=Vi;});var Yt=R(P=>{Object.defineProperty(P,"__esModule",{value:true});P.getKeyForAutomaticLookahead=P.AT_LEAST_ONE_SEP_IDX=P.MANY_SEP_IDX=P.AT_LEAST_ONE_IDX=P.MANY_IDX=P.OPTION_IDX=P.OR_IDX=P.BITS_FOR_ALT_IDX=P.BITS_FOR_RULE_IDX=P.BITS_FOR_OCCURRENCE_IDX=P.BITS_FOR_METHOD_TYPE=void 0;P.BITS_FOR_METHOD_TYPE=4;P.BITS_FOR_OCCURRENCE_IDX=8;P.BITS_FOR_RULE_IDX=12;P.BITS_FOR_ALT_IDX=8;P.OR_IDX=1<<P.BITS_FOR_OCCURRENCE_IDX;P.OPTION_IDX=2<<P.BITS_FOR_OCCURRENCE_IDX;P.MANY_IDX=3<<P.BITS_FOR_OCCURRENCE_IDX;P.AT_LEAST_ONE_IDX=4<<P.BITS_FOR_OCCURRENCE_IDX;P.MANY_SEP_IDX=5<<P.BITS_FOR_OCCURRENCE_IDX;P.AT_LEAST_ONE_SEP_IDX=6<<P.BITS_FOR_OCCURRENCE_IDX;function Ss(t,e,r){return r|e|t}P.getKeyForAutomaticLookahead=Ss;});var zi=R(Xt=>{Object.defineProperty(Xt,"__esModule",{value:true});Xt.LooksAhead=void 0;var be=yt(),ge=k(),Ki=ce(),Fe=Yt(),Ve=vt(),xs=function(){function t(){}return t.prototype.initLooksAhead=function(e){this.dynamicTokensEnabled=ge.has(e,"dynamicTokensEnabled")?e.dynamicTokensEnabled:Ki.DEFAULT_PARSER_CONFIG.dynamicTokensEnabled,this.maxLookahead=ge.has(e,"maxLookahead")?e.maxLookahead:Ki.DEFAULT_PARSER_CONFIG.maxLookahead,this.lookAheadFuncsCache=ge.isES2015MapSupported()?new Map:[],ge.isES2015MapSupported()?(this.getLaFuncFromCache=this.getLaFuncFromMap,this.setLaFuncCache=this.setLaFuncCacheUsingMap):(this.getLaFuncFromCache=this.getLaFuncFromObj,this.setLaFuncCache=this.setLaFuncUsingObj);},t.prototype.preComputeLookaheadFunctions=function(e){var r=this;ge.forEach(e,function(n){r.TRACE_INIT(n.name+" Rule Lookahead",function(){var i=Ve.collectMethods(n),a=i.alternation,o=i.repetition,s=i.option,c=i.repetitionMandatory,f=i.repetitionMandatoryWithSeparator,p=i.repetitionWithSeparator;ge.forEach(a,function(l){var m=l.idx===0?"":l.idx;r.TRACE_INIT(""+Ve.getProductionDslName(l)+m,function(){var v=be.buildLookaheadFuncForOr(l.idx,n,l.maxLookahead||r.maxLookahead,l.hasPredicates,r.dynamicTokensEnabled,r.lookAheadBuilderForAlternatives),u=Fe.getKeyForAutomaticLookahead(r.fullRuleNameToShort[n.name],Fe.OR_IDX,l.idx);r.setLaFuncCache(u,v);});}),ge.forEach(o,function(l){r.computeLookaheadFunc(n,l.idx,Fe.MANY_IDX,be.PROD_TYPE.REPETITION,l.maxLookahead,Ve.getProductionDslName(l));}),ge.forEach(s,function(l){r.computeLookaheadFunc(n,l.idx,Fe.OPTION_IDX,be.PROD_TYPE.OPTION,l.maxLookahead,Ve.getProductionDslName(l));}),ge.forEach(c,function(l){r.computeLookaheadFunc(n,l.idx,Fe.AT_LEAST_ONE_IDX,be.PROD_TYPE.REPETITION_MANDATORY,l.maxLookahead,Ve.getProductionDslName(l));}),ge.forEach(f,function(l){r.computeLookaheadFunc(n,l.idx,Fe.AT_LEAST_ONE_SEP_IDX,be.PROD_TYPE.REPETITION_MANDATORY_WITH_SEPARATOR,l.maxLookahead,Ve.getProductionDslName(l));}),ge.forEach(p,function(l){r.computeLookaheadFunc(n,l.idx,Fe.MANY_SEP_IDX,be.PROD_TYPE.REPETITION_WITH_SEPARATOR,l.maxLookahead,Ve.getProductionDslName(l));});});});},t.prototype.computeLookaheadFunc=function(e,r,n,i,a,o){var s=this;this.TRACE_INIT(""+o+(r===0?"":r),function(){var c=be.buildLookaheadFuncForOptionalProd(r,e,a||s.maxLookahead,s.dynamicTokensEnabled,i,s.lookAheadBuilderForOptional),f=Fe.getKeyForAutomaticLookahead(s.fullRuleNameToShort[e.name],n,r);s.setLaFuncCache(f,c);});},t.prototype.lookAheadBuilderForOptional=function(e,r,n){return be.buildSingleAlternativeLookaheadFunction(e,r,n)},t.prototype.lookAheadBuilderForAlternatives=function(e,r,n,i){return be.buildAlternativesLookAheadFunc(e,r,n,i)},t.prototype.getKeyForAutomaticLookahead=function(e,r){var n=this.getLastExplicitRuleShortName();return Fe.getKeyForAutomaticLookahead(n,e,r)},t.prototype.getLaFuncFromCache=function(e){},t.prototype.getLaFuncFromMap=function(e){return this.lookAheadFuncsCache.get(e)},t.prototype.getLaFuncFromObj=function(e){return this.lookAheadFuncsCache[e]},t.prototype.setLaFuncCache=function(e,r){},t.prototype.setLaFuncCacheUsingMap=function(e,r){this.lookAheadFuncsCache.set(e,r);},t.prototype.setLaFuncUsingObj=function(e,r){this.lookAheadFuncsCache[e]=r;},t}();Xt.LooksAhead=xs;});var Hi=R(ke=>{Object.defineProperty(ke,"__esModule",{value:true});ke.addNoneTerminalToCst=ke.addTerminalToCst=ke.setNodeLocationFull=ke.setNodeLocationOnlyOffset=void 0;function Cs(t,e){isNaN(t.startOffset)===true?(t.startOffset=e.startOffset,t.endOffset=e.endOffset):t.endOffset<e.endOffset&&(t.endOffset=e.endOffset);}ke.setNodeLocationOnlyOffset=Cs;function Ls(t,e){isNaN(t.startOffset)===true?(t.startOffset=e.startOffset,t.startColumn=e.startColumn,t.startLine=e.startLine,t.endOffset=e.endOffset,t.endColumn=e.endColumn,t.endLine=e.endLine):t.endOffset<e.endOffset&&(t.endOffset=e.endOffset,t.endColumn=e.endColumn,t.endLine=e.endLine);}ke.setNodeLocationFull=Ls;function Ms(t,e,r){t.children[r]===void 0?t.children[r]=[e]:t.children[r].push(e);}ke.addTerminalToCst=Ms;function bs(t,e,r){t.children[e]===void 0?t.children[e]=[r]:t.children[e].push(r);}ke.addNoneTerminalToCst=bs;});var Hr=R(Be=>{Object.defineProperty(Be,"__esModule",{value:true});Be.defineNameProp=Be.functionName=Be.classNameFromInstance=void 0;var Fs=k();function ws(t){return Yi(t.constructor)}Be.classNameFromInstance=ws;var Xi="name";function Yi(t){var e=t.name;return e||"anonymous"}Be.functionName=Yi;function Ds(t,e){var r=Object.getOwnPropertyDescriptor(t,Xi);return Fs.isUndefined(r)||r.configurable?(Object.defineProperty(t,Xi,{enumerable:false,configurable:true,writable:false,value:e}),true):false}Be.defineNameProp=Ds;});var ea=R(Y=>{Object.defineProperty(Y,"__esModule",{value:true});Y.validateRedundantMethods=Y.validateMissingCstMethods=Y.validateVisitor=Y.CstVisitorDefinitionError=Y.createBaseVisitorConstructorWithDefaults=Y.createBaseSemanticVisitorConstructor=Y.defaultVisit=void 0;var ve=k(),At=Hr();function $i(t,e){for(var r=ve.keys(t),n=r.length,i=0;i<n;i++)for(var a=r[i],o=t[a],s=o.length,c=0;c<s;c++){var f=o[c];f.tokenTypeIdx===void 0&&this[f.name](f.children,e);}}Y.defaultVisit=$i;function Us(t,e){var r=function(){};At.defineNameProp(r,t+"BaseSemantics");var n={visit:function(i,a){if(ve.isArray(i)&&(i=i[0]),!ve.isUndefined(i))return this[i.name](i.children,a)},validateVisitor:function(){var i=Zi(this,e);if(!ve.isEmpty(i)){var a=ve.map(i,function(o){return o.msg});throw Error("Errors Detected in CST Visitor <"+At.functionName(this.constructor)+`>:
+	`+(""+a.join(`
+
+`).replace(/\n/g,`
+	`)))}}};return r.prototype=n,r.prototype.constructor=r,r._RULE_NAMES=e,r}Y.createBaseSemanticVisitorConstructor=Us;function Gs(t,e,r){var n=function(){};At.defineNameProp(n,t+"BaseSemanticsWithDefaults");var i=Object.create(r.prototype);return ve.forEach(e,function(a){i[a]=$i;}),n.prototype=i,n.prototype.constructor=n,n}Y.createBaseVisitorConstructorWithDefaults=Gs;var Yr;(function(t){t[t.REDUNDANT_METHOD=0]="REDUNDANT_METHOD",t[t.MISSING_METHOD=1]="MISSING_METHOD";})(Yr=Y.CstVisitorDefinitionError||(Y.CstVisitorDefinitionError={}));function Zi(t,e){var r=Qi(t,e),n=Ji(t,e);return r.concat(n)}Y.validateVisitor=Zi;function Qi(t,e){var r=ve.map(e,function(n){if(!ve.isFunction(t[n]))return {msg:"Missing visitor method: <"+n+"> on "+At.functionName(t.constructor)+" CST Visitor.",type:Yr.MISSING_METHOD,methodName:n}});return ve.compact(r)}Y.validateMissingCstMethods=Qi;var Ws=["constructor","visit","validateVisitor"];function Ji(t,e){var r=[];for(var n in t)ve.isFunction(t[n])&&!ve.contains(Ws,n)&&!ve.contains(e,n)&&r.push({msg:"Redundant visitor method: <"+n+"> on "+At.functionName(t.constructor)+` CST Visitor
+There is no Grammar Rule corresponding to this method's name.
+`,type:Yr.REDUNDANT_METHOD,methodName:n});return r}Y.validateRedundantMethods=Ji;});var ra=R($t=>{Object.defineProperty($t,"__esModule",{value:true});$t.TreeBuilder=void 0;var tt=Hi(),K=k(),ta=ea(),Bs=ce(),qs=function(){function t(){}return t.prototype.initTreeBuilder=function(e){if(this.CST_STACK=[],this.outputCst=e.outputCst,this.nodeLocationTracking=K.has(e,"nodeLocationTracking")?e.nodeLocationTracking:Bs.DEFAULT_PARSER_CONFIG.nodeLocationTracking,!this.outputCst)this.cstInvocationStateUpdate=K.NOOP,this.cstFinallyStateUpdate=K.NOOP,this.cstPostTerminal=K.NOOP,this.cstPostNonTerminal=K.NOOP,this.cstPostRule=K.NOOP;else if(/full/i.test(this.nodeLocationTracking))this.recoveryEnabled?(this.setNodeLocationFromToken=tt.setNodeLocationFull,this.setNodeLocationFromNode=tt.setNodeLocationFull,this.cstPostRule=K.NOOP,this.setInitialNodeLocation=this.setInitialNodeLocationFullRecovery):(this.setNodeLocationFromToken=K.NOOP,this.setNodeLocationFromNode=K.NOOP,this.cstPostRule=this.cstPostRuleFull,this.setInitialNodeLocation=this.setInitialNodeLocationFullRegular);else if(/onlyOffset/i.test(this.nodeLocationTracking))this.recoveryEnabled?(this.setNodeLocationFromToken=tt.setNodeLocationOnlyOffset,this.setNodeLocationFromNode=tt.setNodeLocationOnlyOffset,this.cstPostRule=K.NOOP,this.setInitialNodeLocation=this.setInitialNodeLocationOnlyOffsetRecovery):(this.setNodeLocationFromToken=K.NOOP,this.setNodeLocationFromNode=K.NOOP,this.cstPostRule=this.cstPostRuleOnlyOffset,this.setInitialNodeLocation=this.setInitialNodeLocationOnlyOffsetRegular);else if(/none/i.test(this.nodeLocationTracking))this.setNodeLocationFromToken=K.NOOP,this.setNodeLocationFromNode=K.NOOP,this.cstPostRule=K.NOOP,this.setInitialNodeLocation=K.NOOP;else throw Error('Invalid <nodeLocationTracking> config option: "'+e.nodeLocationTracking+'"')},t.prototype.setInitialNodeLocationOnlyOffsetRecovery=function(e){e.location={startOffset:NaN,endOffset:NaN};},t.prototype.setInitialNodeLocationOnlyOffsetRegular=function(e){e.location={startOffset:this.LA(1).startOffset,endOffset:NaN};},t.prototype.setInitialNodeLocationFullRecovery=function(e){e.location={startOffset:NaN,startLine:NaN,startColumn:NaN,endOffset:NaN,endLine:NaN,endColumn:NaN};},t.prototype.setInitialNodeLocationFullRegular=function(e){var r=this.LA(1);e.location={startOffset:r.startOffset,startLine:r.startLine,startColumn:r.startColumn,endOffset:NaN,endLine:NaN,endColumn:NaN};},t.prototype.cstInvocationStateUpdate=function(e,r){var n={name:e,children:{}};this.setInitialNodeLocation(n),this.CST_STACK.push(n);},t.prototype.cstFinallyStateUpdate=function(){this.CST_STACK.pop();},t.prototype.cstPostRuleFull=function(e){var r=this.LA(0),n=e.location;n.startOffset<=r.startOffset?(n.endOffset=r.endOffset,n.endLine=r.endLine,n.endColumn=r.endColumn):(n.startOffset=NaN,n.startLine=NaN,n.startColumn=NaN);},t.prototype.cstPostRuleOnlyOffset=function(e){var r=this.LA(0),n=e.location;n.startOffset<=r.startOffset?n.endOffset=r.endOffset:n.startOffset=NaN;},t.prototype.cstPostTerminal=function(e,r){var n=this.CST_STACK[this.CST_STACK.length-1];tt.addTerminalToCst(n,r,e),this.setNodeLocationFromToken(n.location,r);},t.prototype.cstPostNonTerminal=function(e,r){var n=this.CST_STACK[this.CST_STACK.length-1];tt.addNoneTerminalToCst(n,r,e),this.setNodeLocationFromNode(n.location,e.location);},t.prototype.getBaseCstVisitorConstructor=function(){if(K.isUndefined(this.baseCstVisitorConstructor)){var e=ta.createBaseSemanticVisitorConstructor(this.className,K.keys(this.gastProductionsCache));return this.baseCstVisitorConstructor=e,e}return this.baseCstVisitorConstructor},t.prototype.getBaseCstVisitorConstructorWithDefaults=function(){if(K.isUndefined(this.baseCstVisitorWithDefaultsConstructor)){var e=ta.createBaseVisitorConstructorWithDefaults(this.className,K.keys(this.gastProductionsCache),this.getBaseCstVisitorConstructor());return this.baseCstVisitorWithDefaultsConstructor=e,e}return this.baseCstVisitorWithDefaultsConstructor},t.prototype.getLastExplicitRuleShortName=function(){var e=this.RULE_STACK;return e[e.length-1]},t.prototype.getPreviousExplicitRuleShortName=function(){var e=this.RULE_STACK;return e[e.length-2]},t.prototype.getLastExplicitRuleOccurrenceIndex=function(){var e=this.RULE_OCCURRENCE_STACK;return e[e.length-1]},t}();$t.TreeBuilder=qs;});var ia=R(Zt=>{Object.defineProperty(Zt,"__esModule",{value:true});Zt.LexerAdapter=void 0;var na=ce(),js=function(){function t(){}return t.prototype.initLexerAdapter=function(){this.tokVector=[],this.tokVectorLength=0,this.currIdx=-1;},Object.defineProperty(t.prototype,"input",{get:function(){return this.tokVector},set:function(e){if(this.selfAnalysisDone!==true)throw Error("Missing <performSelfAnalysis> invocation at the end of the Parser's constructor.");this.reset(),this.tokVector=e,this.tokVectorLength=e.length;},enumerable:false,configurable:true}),t.prototype.SKIP_TOKEN=function(){return this.currIdx<=this.tokVector.length-2?(this.consumeToken(),this.LA(1)):na.END_OF_FILE},t.prototype.LA=function(e){var r=this.currIdx+e;return r<0||this.tokVectorLength<=r?na.END_OF_FILE:this.tokVector[r]},t.prototype.consumeToken=function(){this.currIdx++;},t.prototype.exportLexerState=function(){return this.currIdx},t.prototype.importLexerState=function(e){this.currIdx=e;},t.prototype.resetLexerState=function(){this.currIdx=-1;},t.prototype.moveToTerminatedState=function(){this.currIdx=this.tokVector.length-1;},t.prototype.getLexerPosition=function(){return this.exportLexerState()},t}();Zt.LexerAdapter=js;});var oa=R(Qt=>{Object.defineProperty(Qt,"__esModule",{value:true});Qt.RecognizerApi=void 0;var aa=k(),Vs=et(),Xr=ce(),Ks=mt(),zs=jr(),Hs=ne(),Ys=function(){function t(){}return t.prototype.ACTION=function(e){return e.call(this)},t.prototype.consume=function(e,r,n){return this.consumeInternal(r,e,n)},t.prototype.subrule=function(e,r,n){return this.subruleInternal(r,e,n)},t.prototype.option=function(e,r){return this.optionInternal(r,e)},t.prototype.or=function(e,r){return this.orInternal(r,e)},t.prototype.many=function(e,r){return this.manyInternal(e,r)},t.prototype.atLeastOne=function(e,r){return this.atLeastOneInternal(e,r)},t.prototype.CONSUME=function(e,r){return this.consumeInternal(e,0,r)},t.prototype.CONSUME1=function(e,r){return this.consumeInternal(e,1,r)},t.prototype.CONSUME2=function(e,r){return this.consumeInternal(e,2,r)},t.prototype.CONSUME3=function(e,r){return this.consumeInternal(e,3,r)},t.prototype.CONSUME4=function(e,r){return this.consumeInternal(e,4,r)},t.prototype.CONSUME5=function(e,r){return this.consumeInternal(e,5,r)},t.prototype.CONSUME6=function(e,r){return this.consumeInternal(e,6,r)},t.prototype.CONSUME7=function(e,r){return this.consumeInternal(e,7,r)},t.prototype.CONSUME8=function(e,r){return this.consumeInternal(e,8,r)},t.prototype.CONSUME9=function(e,r){return this.consumeInternal(e,9,r)},t.prototype.SUBRULE=function(e,r){return this.subruleInternal(e,0,r)},t.prototype.SUBRULE1=function(e,r){return this.subruleInternal(e,1,r)},t.prototype.SUBRULE2=function(e,r){return this.subruleInternal(e,2,r)},t.prototype.SUBRULE3=function(e,r){return this.subruleInternal(e,3,r)},t.prototype.SUBRULE4=function(e,r){return this.subruleInternal(e,4,r)},t.prototype.SUBRULE5=function(e,r){return this.subruleInternal(e,5,r)},t.prototype.SUBRULE6=function(e,r){return this.subruleInternal(e,6,r)},t.prototype.SUBRULE7=function(e,r){return this.subruleInternal(e,7,r)},t.prototype.SUBRULE8=function(e,r){return this.subruleInternal(e,8,r)},t.prototype.SUBRULE9=function(e,r){return this.subruleInternal(e,9,r)},t.prototype.OPTION=function(e){return this.optionInternal(e,0)},t.prototype.OPTION1=function(e){return this.optionInternal(e,1)},t.prototype.OPTION2=function(e){return this.optionInternal(e,2)},t.prototype.OPTION3=function(e){return this.optionInternal(e,3)},t.prototype.OPTION4=function(e){return this.optionInternal(e,4)},t.prototype.OPTION5=function(e){return this.optionInternal(e,5)},t.prototype.OPTION6=function(e){return this.optionInternal(e,6)},t.prototype.OPTION7=function(e){return this.optionInternal(e,7)},t.prototype.OPTION8=function(e){return this.optionInternal(e,8)},t.prototype.OPTION9=function(e){return this.optionInternal(e,9)},t.prototype.OR=function(e){return this.orInternal(e,0)},t.prototype.OR1=function(e){return this.orInternal(e,1)},t.prototype.OR2=function(e){return this.orInternal(e,2)},t.prototype.OR3=function(e){return this.orInternal(e,3)},t.prototype.OR4=function(e){return this.orInternal(e,4)},t.prototype.OR5=function(e){return this.orInternal(e,5)},t.prototype.OR6=function(e){return this.orInternal(e,6)},t.prototype.OR7=function(e){return this.orInternal(e,7)},t.prototype.OR8=function(e){return this.orInternal(e,8)},t.prototype.OR9=function(e){return this.orInternal(e,9)},t.prototype.MANY=function(e){this.manyInternal(0,e);},t.prototype.MANY1=function(e){this.manyInternal(1,e);},t.prototype.MANY2=function(e){this.manyInternal(2,e);},t.prototype.MANY3=function(e){this.manyInternal(3,e);},t.prototype.MANY4=function(e){this.manyInternal(4,e);},t.prototype.MANY5=function(e){this.manyInternal(5,e);},t.prototype.MANY6=function(e){this.manyInternal(6,e);},t.prototype.MANY7=function(e){this.manyInternal(7,e);},t.prototype.MANY8=function(e){this.manyInternal(8,e);},t.prototype.MANY9=function(e){this.manyInternal(9,e);},t.prototype.MANY_SEP=function(e){this.manySepFirstInternal(0,e);},t.prototype.MANY_SEP1=function(e){this.manySepFirstInternal(1,e);},t.prototype.MANY_SEP2=function(e){this.manySepFirstInternal(2,e);},t.prototype.MANY_SEP3=function(e){this.manySepFirstInternal(3,e);},t.prototype.MANY_SEP4=function(e){this.manySepFirstInternal(4,e);},t.prototype.MANY_SEP5=function(e){this.manySepFirstInternal(5,e);},t.prototype.MANY_SEP6=function(e){this.manySepFirstInternal(6,e);},t.prototype.MANY_SEP7=function(e){this.manySepFirstInternal(7,e);},t.prototype.MANY_SEP8=function(e){this.manySepFirstInternal(8,e);},t.prototype.MANY_SEP9=function(e){this.manySepFirstInternal(9,e);},t.prototype.AT_LEAST_ONE=function(e){this.atLeastOneInternal(0,e);},t.prototype.AT_LEAST_ONE1=function(e){return this.atLeastOneInternal(1,e)},t.prototype.AT_LEAST_ONE2=function(e){this.atLeastOneInternal(2,e);},t.prototype.AT_LEAST_ONE3=function(e){this.atLeastOneInternal(3,e);},t.prototype.AT_LEAST_ONE4=function(e){this.atLeastOneInternal(4,e);},t.prototype.AT_LEAST_ONE5=function(e){this.atLeastOneInternal(5,e);},t.prototype.AT_LEAST_ONE6=function(e){this.atLeastOneInternal(6,e);},t.prototype.AT_LEAST_ONE7=function(e){this.atLeastOneInternal(7,e);},t.prototype.AT_LEAST_ONE8=function(e){this.atLeastOneInternal(8,e);},t.prototype.AT_LEAST_ONE9=function(e){this.atLeastOneInternal(9,e);},t.prototype.AT_LEAST_ONE_SEP=function(e){this.atLeastOneSepFirstInternal(0,e);},t.prototype.AT_LEAST_ONE_SEP1=function(e){this.atLeastOneSepFirstInternal(1,e);},t.prototype.AT_LEAST_ONE_SEP2=function(e){this.atLeastOneSepFirstInternal(2,e);},t.prototype.AT_LEAST_ONE_SEP3=function(e){this.atLeastOneSepFirstInternal(3,e);},t.prototype.AT_LEAST_ONE_SEP4=function(e){this.atLeastOneSepFirstInternal(4,e);},t.prototype.AT_LEAST_ONE_SEP5=function(e){this.atLeastOneSepFirstInternal(5,e);},t.prototype.AT_LEAST_ONE_SEP6=function(e){this.atLeastOneSepFirstInternal(6,e);},t.prototype.AT_LEAST_ONE_SEP7=function(e){this.atLeastOneSepFirstInternal(7,e);},t.prototype.AT_LEAST_ONE_SEP8=function(e){this.atLeastOneSepFirstInternal(8,e);},t.prototype.AT_LEAST_ONE_SEP9=function(e){this.atLeastOneSepFirstInternal(9,e);},t.prototype.RULE=function(e,r,n){if(n===void 0&&(n=Xr.DEFAULT_RULE_CONFIG),aa.contains(this.definedRulesNames,e)){var i=Ks.defaultGrammarValidatorErrorProvider.buildDuplicateRuleNameError({topLevelRule:e,grammarName:this.className}),a={message:i,type:Xr.ParserDefinitionErrorType.DUPLICATE_RULE_NAME,ruleName:e};this.definitionErrors.push(a);}this.definedRulesNames.push(e);var o=this.defineRule(e,r,n);return this[e]=o,o},t.prototype.OVERRIDE_RULE=function(e,r,n){n===void 0&&(n=Xr.DEFAULT_RULE_CONFIG);var i=[];i=i.concat(zs.validateRuleIsOverridden(e,this.definedRulesNames,this.className)),this.definitionErrors=this.definitionErrors.concat(i);var a=this.defineRule(e,r,n);return this[e]=a,a},t.prototype.BACKTRACK=function(e,r){return function(){this.isBackTrackingStack.push(1);var n=this.saveRecogState();try{return e.apply(this,r),true}catch(i){if(Vs.isRecognitionException(i))return  false;throw i}finally{this.reloadRecogState(n),this.isBackTrackingStack.pop();}}},t.prototype.getGAstProductions=function(){return this.gastProductionsCache},t.prototype.getSerializedGastProductions=function(){return Hs.serializeGrammar(aa.values(this.gastProductionsCache))},t}();Qt.RecognizerApi=Ys;});var la=R(Jt=>{Object.defineProperty(Jt,"__esModule",{value:true});Jt.RecognizerEngine=void 0;var q=k(),le=Yt(),er=et(),sa=yt(),rt=Tt(),ua=ce(),Xs=zr(),ca=Ue(),Rt=Xe(),$s=Hr(),Zs=function(){function t(){}return t.prototype.initRecognizerEngine=function(e,r){if(this.className=$s.classNameFromInstance(this),this.shortRuleNameToFull={},this.fullRuleNameToShort={},this.ruleShortNameIdx=256,this.tokenMatcher=Rt.tokenStructuredMatcherNoCategories,this.definedRulesNames=[],this.tokensMap={},this.isBackTrackingStack=[],this.RULE_STACK=[],this.RULE_OCCURRENCE_STACK=[],this.gastProductionsCache={},q.has(r,"serializedGrammar"))throw Error(`The Parser's configuration can no longer contain a <serializedGrammar> property.
+	See: https://chevrotain.io/docs/changes/BREAKING_CHANGES.html#_6-0-0
+	For Further details.`);if(q.isArray(e)){if(q.isEmpty(e))throw Error(`A Token Vocabulary cannot be empty.
+	Note that the first argument for the parser constructor
+	is no longer a Token vector (since v4.0).`);if(typeof e[0].startOffset=="number")throw Error(`The Parser constructor no longer accepts a token vector as the first argument.
+	See: https://chevrotain.io/docs/changes/BREAKING_CHANGES.html#_4-0-0
+	For Further details.`)}if(q.isArray(e))this.tokensMap=q.reduce(e,function(o,s){return o[s.name]=s,o},{});else if(q.has(e,"modes")&&q.every(q.flatten(q.values(e.modes)),Rt.isTokenType)){var n=q.flatten(q.values(e.modes)),i=q.uniq(n);this.tokensMap=q.reduce(i,function(o,s){return o[s.name]=s,o},{});}else if(q.isObject(e))this.tokensMap=q.cloneObj(e);else throw new Error("<tokensDictionary> argument must be An Array of Token constructors, A dictionary of Token constructors or an IMultiModeLexerDefinition");this.tokensMap.EOF=ca.EOF;var a=q.every(q.values(e),function(o){return q.isEmpty(o.categoryMatches)});this.tokenMatcher=a?Rt.tokenStructuredMatcherNoCategories:Rt.tokenStructuredMatcher,Rt.augmentTokenTypes(q.values(this.tokensMap));},t.prototype.defineRule=function(e,r,n){if(this.selfAnalysisDone)throw Error("Grammar rule <"+e+`> may not be defined after the 'performSelfAnalysis' method has been called'
+Make sure that all grammar rule definitions are done before 'performSelfAnalysis' is called.`);var i=q.has(n,"resyncEnabled")?n.resyncEnabled:ua.DEFAULT_RULE_CONFIG.resyncEnabled,a=q.has(n,"recoveryValueFunc")?n.recoveryValueFunc:ua.DEFAULT_RULE_CONFIG.recoveryValueFunc,o=this.ruleShortNameIdx<<le.BITS_FOR_METHOD_TYPE+le.BITS_FOR_OCCURRENCE_IDX;this.ruleShortNameIdx++,this.shortRuleNameToFull[o]=e,this.fullRuleNameToShort[e]=o;function s(p){try{if(this.outputCst===true){r.apply(this,p);var l=this.CST_STACK[this.CST_STACK.length-1];return this.cstPostRule(l),l}else return r.apply(this,p)}catch(m){return this.invokeRuleCatch(m,i,a)}finally{this.ruleFinallyStateUpdate();}}var c=function(p,l){return p===void 0&&(p=0),this.ruleInvocationStateUpdate(o,e,p),s.call(this,l)},f="ruleName";return c[f]=e,c.originalGrammarAction=r,c},t.prototype.invokeRuleCatch=function(e,r,n){var i=this.RULE_STACK.length===1,a=r&&!this.isBackTracking()&&this.recoveryEnabled;if(er.isRecognitionException(e)){var o=e;if(a){var s=this.findReSyncTokenType();if(this.isInCurrentRuleReSyncSet(s))if(o.resyncedTokens=this.reSyncTo(s),this.outputCst){var c=this.CST_STACK[this.CST_STACK.length-1];return c.recoveredNode=true,c}else return n();else {if(this.outputCst){var c=this.CST_STACK[this.CST_STACK.length-1];c.recoveredNode=true,o.partialCstResult=c;}throw o}}else {if(i)return this.moveToTerminatedState(),n();throw o}}else throw e},t.prototype.optionInternal=function(e,r){var n=this.getKeyForAutomaticLookahead(le.OPTION_IDX,r);return this.optionInternalLogic(e,r,n)},t.prototype.optionInternalLogic=function(e,r,n){var i=this,a=this.getLaFuncFromCache(n),o,s;if(e.DEF!==void 0){if(o=e.DEF,s=e.GATE,s!==void 0){var c=a;a=function(){return s.call(i)&&c.call(i)};}}else o=e;if(a.call(this)===true)return o.call(this)},t.prototype.atLeastOneInternal=function(e,r){var n=this.getKeyForAutomaticLookahead(le.AT_LEAST_ONE_IDX,e);return this.atLeastOneInternalLogic(e,r,n)},t.prototype.atLeastOneInternalLogic=function(e,r,n){var i=this,a=this.getLaFuncFromCache(n),o,s;if(r.DEF!==void 0){if(o=r.DEF,s=r.GATE,s!==void 0){var c=a;a=function(){return s.call(i)&&c.call(i)};}}else o=r;if(a.call(this)===true)for(var f=this.doSingleRepetition(o);a.call(this)===true&&f===true;)f=this.doSingleRepetition(o);else throw this.raiseEarlyExitException(e,sa.PROD_TYPE.REPETITION_MANDATORY,r.ERR_MSG);this.attemptInRepetitionRecovery(this.atLeastOneInternal,[e,r],a,le.AT_LEAST_ONE_IDX,e,rt.NextTerminalAfterAtLeastOneWalker);},t.prototype.atLeastOneSepFirstInternal=function(e,r){var n=this.getKeyForAutomaticLookahead(le.AT_LEAST_ONE_SEP_IDX,e);this.atLeastOneSepFirstInternalLogic(e,r,n);},t.prototype.atLeastOneSepFirstInternalLogic=function(e,r,n){var i=this,a=r.DEF,o=r.SEP,s=this.getLaFuncFromCache(n);if(s.call(this)===true){a.call(this);for(var c=function(){return i.tokenMatcher(i.LA(1),o)};this.tokenMatcher(this.LA(1),o)===true;)this.CONSUME(o),a.call(this);this.attemptInRepetitionRecovery(this.repetitionSepSecondInternal,[e,o,c,a,rt.NextTerminalAfterAtLeastOneSepWalker],c,le.AT_LEAST_ONE_SEP_IDX,e,rt.NextTerminalAfterAtLeastOneSepWalker);}else throw this.raiseEarlyExitException(e,sa.PROD_TYPE.REPETITION_MANDATORY_WITH_SEPARATOR,r.ERR_MSG)},t.prototype.manyInternal=function(e,r){var n=this.getKeyForAutomaticLookahead(le.MANY_IDX,e);return this.manyInternalLogic(e,r,n)},t.prototype.manyInternalLogic=function(e,r,n){var i=this,a=this.getLaFuncFromCache(n),o,s;if(r.DEF!==void 0){if(o=r.DEF,s=r.GATE,s!==void 0){var c=a;a=function(){return s.call(i)&&c.call(i)};}}else o=r;for(var f=true;a.call(this)===true&&f===true;)f=this.doSingleRepetition(o);this.attemptInRepetitionRecovery(this.manyInternal,[e,r],a,le.MANY_IDX,e,rt.NextTerminalAfterManyWalker,f);},t.prototype.manySepFirstInternal=function(e,r){var n=this.getKeyForAutomaticLookahead(le.MANY_SEP_IDX,e);this.manySepFirstInternalLogic(e,r,n);},t.prototype.manySepFirstInternalLogic=function(e,r,n){var i=this,a=r.DEF,o=r.SEP,s=this.getLaFuncFromCache(n);if(s.call(this)===true){a.call(this);for(var c=function(){return i.tokenMatcher(i.LA(1),o)};this.tokenMatcher(this.LA(1),o)===true;)this.CONSUME(o),a.call(this);this.attemptInRepetitionRecovery(this.repetitionSepSecondInternal,[e,o,c,a,rt.NextTerminalAfterManySepWalker],c,le.MANY_SEP_IDX,e,rt.NextTerminalAfterManySepWalker);}},t.prototype.repetitionSepSecondInternal=function(e,r,n,i,a){for(;n();)this.CONSUME(r),i.call(this);this.attemptInRepetitionRecovery(this.repetitionSepSecondInternal,[e,r,n,i,a],n,le.AT_LEAST_ONE_SEP_IDX,e,a);},t.prototype.doSingleRepetition=function(e){var r=this.getLexerPosition();e.call(this);var n=this.getLexerPosition();return n>r},t.prototype.orInternal=function(e,r){var n=this.getKeyForAutomaticLookahead(le.OR_IDX,r),i=q.isArray(e)?e:e.DEF,a=this.getLaFuncFromCache(n),o=a.call(this,i);if(o!==void 0){var s=i[o];return s.ALT.call(this)}this.raiseNoAltException(r,e.ERR_MSG);},t.prototype.ruleFinallyStateUpdate=function(){if(this.RULE_STACK.pop(),this.RULE_OCCURRENCE_STACK.pop(),this.cstFinallyStateUpdate(),this.RULE_STACK.length===0&&this.isAtEndOfInput()===false){var e=this.LA(1),r=this.errorMessageProvider.buildNotAllInputParsedMessage({firstRedundant:e,ruleName:this.getCurrRuleFullName()});this.SAVE_ERROR(new er.NotAllInputParsedException(r,e));}},t.prototype.subruleInternal=function(e,r,n){var i;try{var a=n!==void 0?n.ARGS:void 0;return i=e.call(this,r,a),this.cstPostNonTerminal(i,n!==void 0&&n.LABEL!==void 0?n.LABEL:e.ruleName),i}catch(o){this.subruleInternalError(o,n,e.ruleName);}},t.prototype.subruleInternalError=function(e,r,n){throw er.isRecognitionException(e)&&e.partialCstResult!==void 0&&(this.cstPostNonTerminal(e.partialCstResult,r!==void 0&&r.LABEL!==void 0?r.LABEL:n),delete e.partialCstResult),e},t.prototype.consumeInternal=function(e,r,n){var i;try{var a=this.LA(1);this.tokenMatcher(a,e)===true?(this.consumeToken(),i=a):this.consumeInternalError(e,a,n);}catch(o){i=this.consumeInternalRecovery(e,r,o);}return this.cstPostTerminal(n!==void 0&&n.LABEL!==void 0?n.LABEL:e.name,i),i},t.prototype.consumeInternalError=function(e,r,n){var i,a=this.LA(0);throw n!==void 0&&n.ERR_MSG?i=n.ERR_MSG:i=this.errorMessageProvider.buildMismatchTokenMessage({expected:e,actual:r,previous:a,ruleName:this.getCurrRuleFullName()}),this.SAVE_ERROR(new er.MismatchedTokenException(i,r,a))},t.prototype.consumeInternalRecovery=function(e,r,n){if(this.recoveryEnabled&&n.name==="MismatchedTokenException"&&!this.isBackTracking()){var i=this.getFollowsForInRuleRecovery(e,r);try{return this.tryInRuleRecovery(e,i)}catch(a){throw a.name===Xs.IN_RULE_RECOVERY_EXCEPTION?n:a}}else throw n},t.prototype.saveRecogState=function(){var e=this.errors,r=q.cloneArr(this.RULE_STACK);return {errors:e,lexerState:this.exportLexerState(),RULE_STACK:r,CST_STACK:this.CST_STACK}},t.prototype.reloadRecogState=function(e){this.errors=e.errors,this.importLexerState(e.lexerState),this.RULE_STACK=e.RULE_STACK;},t.prototype.ruleInvocationStateUpdate=function(e,r,n){this.RULE_OCCURRENCE_STACK.push(n),this.RULE_STACK.push(e),this.cstInvocationStateUpdate(r,e);},t.prototype.isBackTracking=function(){return this.isBackTrackingStack.length!==0},t.prototype.getCurrRuleFullName=function(){var e=this.getLastExplicitRuleShortName();return this.shortRuleNameToFull[e]},t.prototype.shortRuleNameToFullName=function(e){return this.shortRuleNameToFull[e]},t.prototype.isAtEndOfInput=function(){return this.tokenMatcher(this.LA(1),ca.EOF)},t.prototype.reset=function(){this.resetLexerState(),this.isBackTrackingStack=[],this.errors=[],this.RULE_STACK=[],this.CST_STACK=[],this.RULE_OCCURRENCE_STACK=[];},t}();Jt.RecognizerEngine=Zs;});var pa=R(tr=>{Object.defineProperty(tr,"__esModule",{value:true});tr.ErrorHandler=void 0;var $r=et(),Zr=k(),fa=yt(),Qs=ce(),Js=function(){function t(){}return t.prototype.initErrorHandler=function(e){this._errors=[],this.errorMessageProvider=Zr.has(e,"errorMessageProvider")?e.errorMessageProvider:Qs.DEFAULT_PARSER_CONFIG.errorMessageProvider;},t.prototype.SAVE_ERROR=function(e){if($r.isRecognitionException(e))return e.context={ruleStack:this.getHumanReadableRuleStack(),ruleOccurrenceStack:Zr.cloneArr(this.RULE_OCCURRENCE_STACK)},this._errors.push(e),e;throw Error("Trying to save an Error which is not a RecognitionException")},Object.defineProperty(t.prototype,"errors",{get:function(){return Zr.cloneArr(this._errors)},set:function(e){this._errors=e;},enumerable:false,configurable:true}),t.prototype.raiseEarlyExitException=function(e,r,n){for(var i=this.getCurrRuleFullName(),a=this.getGAstProductions()[i],o=fa.getLookaheadPathsForOptionalProd(e,a,r,this.maxLookahead),s=o[0],c=[],f=1;f<=this.maxLookahead;f++)c.push(this.LA(f));var p=this.errorMessageProvider.buildEarlyExitMessage({expectedIterationPaths:s,actual:c,previous:this.LA(0),customUserDescription:n,ruleName:i});throw this.SAVE_ERROR(new $r.EarlyExitException(p,this.LA(1),this.LA(0)))},t.prototype.raiseNoAltException=function(e,r){for(var n=this.getCurrRuleFullName(),i=this.getGAstProductions()[n],a=fa.getLookaheadPathsForOr(e,i,this.maxLookahead),o=[],s=1;s<=this.maxLookahead;s++)o.push(this.LA(s));var c=this.LA(0),f=this.errorMessageProvider.buildNoViableAltMessage({expectedPathsPerAlt:a,actual:o,previous:c,customUserDescription:r,ruleName:this.getCurrRuleFullName()});throw this.SAVE_ERROR(new $r.NoViableAltException(f,this.LA(1),c))},t}();tr.ErrorHandler=Js;});var va=R(rr=>{Object.defineProperty(rr,"__esModule",{value:true});rr.ContentAssist=void 0;var ha=Tt(),da=k(),eu=function(){function t(){}return t.prototype.initContentAssist=function(){},t.prototype.computeContentAssist=function(e,r){var n=this.gastProductionsCache[e];if(da.isUndefined(n))throw Error("Rule ->"+e+"<- does not exist in this grammar.");return ha.nextPossibleTokensAfter([n],r,this.tokenMatcher,this.maxLookahead)},t.prototype.getNextPossibleTokenTypes=function(e){var r=da.first(e.ruleStack),n=this.getGAstProductions(),i=n[r],a=new ha.NextAfterTokenWalker(i,e).startWalking();return a},t}();rr.ContentAssist=eu;});var Ra=R(nr=>{Object.defineProperty(nr,"__esModule",{value:true});nr.GastRecorder=void 0;var oe=k(),Pe=ne(),tu=ft(),ma=Xe(),Ea=Ue(),ru=ce(),nu=Yt(),ir={description:"This Object indicates the Parser is during Recording Phase"};Object.freeze(ir);var Ta=true,ya=Math.pow(2,nu.BITS_FOR_OCCURRENCE_IDX)-1,_a=Ea.createToken({name:"RECORDING_PHASE_TOKEN",pattern:tu.Lexer.NA});ma.augmentTokenTypes([_a]);var ga=Ea.createTokenInstance(_a,`This IToken indicates the Parser is in Recording Phase
+	See: https://chevrotain.io/docs/guide/internals.html#grammar-recording for details`,-1,-1,-1,-1,-1,-1);Object.freeze(ga);var iu={name:`This CSTNode indicates the Parser is in Recording Phase
+	See: https://chevrotain.io/docs/guide/internals.html#grammar-recording for details`,children:{}},ou=function(){function t(){}return t.prototype.initGastRecorder=function(e){this.recordingProdStack=[],this.RECORDING_PHASE=false;},t.prototype.enableRecording=function(){var e=this;this.RECORDING_PHASE=true,this.TRACE_INIT("Enable Recording",function(){for(var r=function(i){var a=i>0?i:"";e["CONSUME"+a]=function(o,s){return this.consumeInternalRecord(o,i,s)},e["SUBRULE"+a]=function(o,s){return this.subruleInternalRecord(o,i,s)},e["OPTION"+a]=function(o){return this.optionInternalRecord(o,i)},e["OR"+a]=function(o){return this.orInternalRecord(o,i)},e["MANY"+a]=function(o){this.manyInternalRecord(i,o);},e["MANY_SEP"+a]=function(o){this.manySepFirstInternalRecord(i,o);},e["AT_LEAST_ONE"+a]=function(o){this.atLeastOneInternalRecord(i,o);},e["AT_LEAST_ONE_SEP"+a]=function(o){this.atLeastOneSepFirstInternalRecord(i,o);};},n=0;n<10;n++)r(n);e.consume=function(i,a,o){return this.consumeInternalRecord(a,i,o)},e.subrule=function(i,a,o){return this.subruleInternalRecord(a,i,o)},e.option=function(i,a){return this.optionInternalRecord(a,i)},e.or=function(i,a){return this.orInternalRecord(a,i)},e.many=function(i,a){this.manyInternalRecord(i,a);},e.atLeastOne=function(i,a){this.atLeastOneInternalRecord(i,a);},e.ACTION=e.ACTION_RECORD,e.BACKTRACK=e.BACKTRACK_RECORD,e.LA=e.LA_RECORD;});},t.prototype.disableRecording=function(){var e=this;this.RECORDING_PHASE=false,this.TRACE_INIT("Deleting Recording methods",function(){for(var r=0;r<10;r++){var n=r>0?r:"";delete e["CONSUME"+n],delete e["SUBRULE"+n],delete e["OPTION"+n],delete e["OR"+n],delete e["MANY"+n],delete e["MANY_SEP"+n],delete e["AT_LEAST_ONE"+n],delete e["AT_LEAST_ONE_SEP"+n];}delete e.consume,delete e.subrule,delete e.option,delete e.or,delete e.many,delete e.atLeastOne,delete e.ACTION,delete e.BACKTRACK,delete e.LA;});},t.prototype.ACTION_RECORD=function(e){},t.prototype.BACKTRACK_RECORD=function(e,r){return function(){return  true}},t.prototype.LA_RECORD=function(e){return ru.END_OF_FILE},t.prototype.topLevelRuleRecord=function(e,r){try{var n=new Pe.Rule({definition:[],name:e});return n.name=e,this.recordingProdStack.push(n),r.call(this),this.recordingProdStack.pop(),n}catch(i){if(i.KNOWN_RECORDER_ERROR!==true)try{i.message=i.message+`
+	 This error was thrown during the "grammar recording phase" For more info see:
+	https://chevrotain.io/docs/guide/internals.html#grammar-recording`;}catch(a){throw i}throw i}},t.prototype.optionInternalRecord=function(e,r){return Ot.call(this,Pe.Option,e,r)},t.prototype.atLeastOneInternalRecord=function(e,r){Ot.call(this,Pe.RepetitionMandatory,r,e);},t.prototype.atLeastOneSepFirstInternalRecord=function(e,r){Ot.call(this,Pe.RepetitionMandatoryWithSeparator,r,e,Ta);},t.prototype.manyInternalRecord=function(e,r){Ot.call(this,Pe.Repetition,r,e);},t.prototype.manySepFirstInternalRecord=function(e,r){Ot.call(this,Pe.RepetitionWithSeparator,r,e,Ta);},t.prototype.orInternalRecord=function(e,r){return au.call(this,e,r)},t.prototype.subruleInternalRecord=function(e,r,n){if(ar(r),!e||oe.has(e,"ruleName")===false){var i=new Error("<SUBRULE"+Aa(r)+"> argument is invalid"+(" expecting a Parser method reference but got: <"+JSON.stringify(e)+">")+(`
+ inside top level rule: <`+this.recordingProdStack[0].name+">"));throw i.KNOWN_RECORDER_ERROR=true,i}var a=oe.peek(this.recordingProdStack),o=e.ruleName,s=new Pe.NonTerminal({idx:r,nonTerminalName:o,referencedRule:void 0});return a.definition.push(s),this.outputCst?iu:ir},t.prototype.consumeInternalRecord=function(e,r,n){if(ar(r),!ma.hasShortKeyProperty(e)){var i=new Error("<CONSUME"+Aa(r)+"> argument is invalid"+(" expecting a TokenType reference but got: <"+JSON.stringify(e)+">")+(`
+ inside top level rule: <`+this.recordingProdStack[0].name+">"));throw i.KNOWN_RECORDER_ERROR=true,i}var a=oe.peek(this.recordingProdStack),o=new Pe.Terminal({idx:r,terminalType:e});return a.definition.push(o),ga},t}();nr.GastRecorder=ou;function Ot(t,e,r,n){n===void 0&&(n=false),ar(r);var i=oe.peek(this.recordingProdStack),a=oe.isFunction(e)?e:e.DEF,o=new t({definition:[],idx:r});return n&&(o.separator=e.SEP),oe.has(e,"MAX_LOOKAHEAD")&&(o.maxLookahead=e.MAX_LOOKAHEAD),this.recordingProdStack.push(o),a.call(this),i.definition.push(o),this.recordingProdStack.pop(),ir}function au(t,e){var r=this;ar(e);var n=oe.peek(this.recordingProdStack),i=oe.isArray(t)===false,a=i===false?t:t.DEF,o=new Pe.Alternation({definition:[],idx:e,ignoreAmbiguities:i&&t.IGNORE_AMBIGUITIES===true});oe.has(t,"MAX_LOOKAHEAD")&&(o.maxLookahead=t.MAX_LOOKAHEAD);var s=oe.some(a,function(c){return oe.isFunction(c.GATE)});return o.hasPredicates=s,n.definition.push(o),oe.forEach(a,function(c){var f=new Pe.Alternative({definition:[]});o.definition.push(f),oe.has(c,"IGNORE_AMBIGUITIES")?f.ignoreAmbiguities=c.IGNORE_AMBIGUITIES:oe.has(c,"GATE")&&(f.ignoreAmbiguities=true),r.recordingProdStack.push(f),c.ALT.call(r),r.recordingProdStack.pop();}),ir}function Aa(t){return t===0?"":""+t}function ar(t){if(t<0||t>ya){var e=new Error("Invalid DSL Method idx value: <"+t+`>
+	`+("Idx value must be a none negative value smaller than "+(ya+1)));throw e.KNOWN_RECORDER_ERROR=true,e}}});var Na=R(or=>{Object.defineProperty(or,"__esModule",{value:true});or.PerformanceTracer=void 0;var Oa=k(),su=ce(),uu=function(){function t(){}return t.prototype.initPerformanceTracer=function(e){if(Oa.has(e,"traceInitPerf")){var r=e.traceInitPerf,n=typeof r=="number";this.traceInitMaxIdent=n?r:Infinity,this.traceInitPerf=n?r>0:r;}else this.traceInitMaxIdent=0,this.traceInitPerf=su.DEFAULT_PARSER_CONFIG.traceInitPerf;this.traceInitIndent=-1;},t.prototype.TRACE_INIT=function(e,r){if(this.traceInitPerf===true){this.traceInitIndent++;var n=new Array(this.traceInitIndent+1).join("	");this.traceInitIndent<this.traceInitMaxIdent&&console.log(n+"--> <"+e+">");var i=Oa.timer(r),a=i.time,o=i.value,s=a>10?console.warn:console.log;return this.traceInitIndent<this.traceInitMaxIdent&&s(n+"<-- <"+e+"> time: "+a+"ms"),this.traceInitIndent--,o}else return r()},t}();or.PerformanceTracer=uu;});var Ia=R(sr=>{Object.defineProperty(sr,"__esModule",{value:true});sr.applyMixins=void 0;function cu(t,e){e.forEach(function(r){var n=r.prototype;Object.getOwnPropertyNames(n).forEach(function(i){if(i!=="constructor"){var a=Object.getOwnPropertyDescriptor(n,i);a&&(a.get||a.set)?Object.defineProperty(t.prototype,i,a):t.prototype[i]=r.prototype[i];}});});}sr.applyMixins=cu;});var ce=R(U=>{var ka=U&&U.__extends||function(){var t=function(e,r){return t=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,i){n.__proto__=i;}||function(n,i){for(var a in i)Object.prototype.hasOwnProperty.call(i,a)&&(n[a]=i[a]);},t(e,r)};return function(e,r){if(typeof r!="function"&&r!==null)throw new TypeError("Class extends value "+String(r)+" is not a constructor or null");t(e,r);function n(){this.constructor=e;}e.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n);}}();Object.defineProperty(U,"__esModule",{value:true});U.EmbeddedActionsParser=U.CstParser=U.Parser=U.EMPTY_ALT=U.ParserDefinitionErrorType=U.DEFAULT_RULE_CONFIG=U.DEFAULT_PARSER_CONFIG=U.END_OF_FILE=void 0;var ee=k(),lu=pi(),Pa=Ue(),Sa=mt(),xa=Ui(),fu=zr(),pu=zi(),hu=ra(),du=ia(),vu=oa(),mu=la(),Eu=pa(),Tu=va(),yu=Ra(),_u=Na(),gu=Ia();U.END_OF_FILE=Pa.createTokenInstance(Pa.EOF,"",NaN,NaN,NaN,NaN,NaN,NaN);Object.freeze(U.END_OF_FILE);U.DEFAULT_PARSER_CONFIG=Object.freeze({recoveryEnabled:false,maxLookahead:3,dynamicTokensEnabled:false,outputCst:true,errorMessageProvider:Sa.defaultParserErrorProvider,nodeLocationTracking:"none",traceInitPerf:false,skipValidations:false});U.DEFAULT_RULE_CONFIG=Object.freeze({recoveryValueFunc:function(){},resyncEnabled:true});(function(t){t[t.INVALID_RULE_NAME=0]="INVALID_RULE_NAME",t[t.DUPLICATE_RULE_NAME=1]="DUPLICATE_RULE_NAME",t[t.INVALID_RULE_OVERRIDE=2]="INVALID_RULE_OVERRIDE",t[t.DUPLICATE_PRODUCTIONS=3]="DUPLICATE_PRODUCTIONS",t[t.UNRESOLVED_SUBRULE_REF=4]="UNRESOLVED_SUBRULE_REF",t[t.LEFT_RECURSION=5]="LEFT_RECURSION",t[t.NONE_LAST_EMPTY_ALT=6]="NONE_LAST_EMPTY_ALT",t[t.AMBIGUOUS_ALTS=7]="AMBIGUOUS_ALTS",t[t.CONFLICT_TOKENS_RULES_NAMESPACE=8]="CONFLICT_TOKENS_RULES_NAMESPACE",t[t.INVALID_TOKEN_NAME=9]="INVALID_TOKEN_NAME",t[t.NO_NON_EMPTY_LOOKAHEAD=10]="NO_NON_EMPTY_LOOKAHEAD",t[t.AMBIGUOUS_PREFIX_ALTS=11]="AMBIGUOUS_PREFIX_ALTS",t[t.TOO_MANY_ALTS=12]="TOO_MANY_ALTS";})(U.ParserDefinitionErrorType||(U.ParserDefinitionErrorType={}));function Ru(t){return t===void 0&&(t=void 0),function(){return t}}U.EMPTY_ALT=Ru;var ur=function(){function t(e,r){this.definitionErrors=[],this.selfAnalysisDone=false;var n=this;if(n.initErrorHandler(r),n.initLexerAdapter(),n.initLooksAhead(r),n.initRecognizerEngine(e,r),n.initRecoverable(r),n.initTreeBuilder(r),n.initContentAssist(),n.initGastRecorder(r),n.initPerformanceTracer(r),ee.has(r,"ignoredIssues"))throw new Error(`The <ignoredIssues> IParserConfig property has been deprecated.
+	Please use the <IGNORE_AMBIGUITIES> flag on the relevant DSL method instead.
+	See: https://chevrotain.io/docs/guide/resolving_grammar_errors.html#IGNORING_AMBIGUITIES
+	For further details.`);this.skipValidations=ee.has(r,"skipValidations")?r.skipValidations:U.DEFAULT_PARSER_CONFIG.skipValidations;}return t.performSelfAnalysis=function(e){throw Error("The **static** `performSelfAnalysis` method has been deprecated.	\nUse the **instance** method with the same name instead.")},t.prototype.performSelfAnalysis=function(){var e=this;this.TRACE_INIT("performSelfAnalysis",function(){var r;e.selfAnalysisDone=true;var n=e.className;e.TRACE_INIT("toFastProps",function(){ee.toFastProperties(e);}),e.TRACE_INIT("Grammar Recording",function(){try{e.enableRecording(),ee.forEach(e.definedRulesNames,function(a){var o=e[a],s=o.originalGrammarAction,c=void 0;e.TRACE_INIT(a+" Rule",function(){c=e.topLevelRuleRecord(a,s);}),e.gastProductionsCache[a]=c;});}finally{e.disableRecording();}});var i=[];if(e.TRACE_INIT("Grammar Resolving",function(){i=xa.resolveGrammar({rules:ee.values(e.gastProductionsCache)}),e.definitionErrors=e.definitionErrors.concat(i);}),e.TRACE_INIT("Grammar Validations",function(){if(ee.isEmpty(i)&&e.skipValidations===false){var a=xa.validateGrammar({rules:ee.values(e.gastProductionsCache),maxLookahead:e.maxLookahead,tokenTypes:ee.values(e.tokensMap),errMsgProvider:Sa.defaultGrammarValidatorErrorProvider,grammarName:n});e.definitionErrors=e.definitionErrors.concat(a);}}),ee.isEmpty(e.definitionErrors)&&(e.recoveryEnabled&&e.TRACE_INIT("computeAllProdsFollows",function(){var a=lu.computeAllProdsFollows(ee.values(e.gastProductionsCache));e.resyncFollows=a;}),e.TRACE_INIT("ComputeLookaheadFunctions",function(){e.preComputeLookaheadFunctions(ee.values(e.gastProductionsCache));})),!t.DEFER_DEFINITION_ERRORS_HANDLING&&!ee.isEmpty(e.definitionErrors))throw r=ee.map(e.definitionErrors,function(a){return a.message}),new Error(`Parser Definition Errors detected:
+ `+r.join(`
+-------------------------------
+`))});},t.DEFER_DEFINITION_ERRORS_HANDLING=false,t}();U.Parser=ur;gu.applyMixins(ur,[fu.Recoverable,pu.LooksAhead,hu.TreeBuilder,du.LexerAdapter,mu.RecognizerEngine,vu.RecognizerApi,Eu.ErrorHandler,Tu.ContentAssist,yu.GastRecorder,_u.PerformanceTracer]);var Ou=function(t){ka(e,t);function e(r,n){n===void 0&&(n=U.DEFAULT_PARSER_CONFIG);var i=this,a=ee.cloneObj(n);return a.outputCst=true,i=t.call(this,r,a)||this,i}return e}(ur);U.CstParser=Ou;var Nu=function(t){ka(e,t);function e(r,n){n===void 0&&(n=U.DEFAULT_PARSER_CONFIG);var i=this,a=ee.cloneObj(n);return a.outputCst=false,i=t.call(this,r,a)||this,i}return e}(ur);U.EmbeddedActionsParser=Nu;});var La=R(cr=>{Object.defineProperty(cr,"__esModule",{value:true});cr.createSyntaxDiagramsCode=void 0;var Ca=Er();function Iu(t,e){var r=e===void 0?{}:e,n=r.resourceBase,i=n===void 0?"https://unpkg.com/chevrotain@"+Ca.VERSION+"/diagrams/":n,a=r.css,o=a===void 0?"https://unpkg.com/chevrotain@"+Ca.VERSION+"/diagrams/diagrams.css":a,s=`
+<!-- This is a generated file -->
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+  body {
+    background-color: hsl(30, 20%, 95%)
+  }
+</style>
+
+`,c=`
+<link rel='stylesheet' href='`+o+`'>
+`,f=`
+<script src='`+i+`vendor/railroad-diagrams.js'></script>
+<script src='`+i+`src/diagrams_builder.js'></script>
+<script src='`+i+`src/diagrams_behavior.js'></script>
+<script src='`+i+`src/main.js'></script>
+`,p=`
+<div id="diagrams" align="center"></div>
+`,l=`
+<script>
+    window.serializedGrammar = `+JSON.stringify(t,null,"  ")+`;
+</script>
+`,m=`
+<script>
+    var diagramsDiv = document.getElementById("diagrams");
+    main.drawDiagramsFromSerializedGrammar(serializedGrammar, diagramsDiv);
+</script>
+`;return s+c+f+p+l+m}cr.createSyntaxDiagramsCode=Iu;});var Fa=R(E=>{Object.defineProperty(E,"__esModule",{value:true});E.Parser=E.createSyntaxDiagramsCode=E.clearCache=E.GAstVisitor=E.serializeProduction=E.serializeGrammar=E.Terminal=E.Rule=E.RepetitionWithSeparator=E.RepetitionMandatoryWithSeparator=E.RepetitionMandatory=E.Repetition=E.Option=E.NonTerminal=E.Alternative=E.Alternation=E.defaultLexerErrorProvider=E.NoViableAltException=E.NotAllInputParsedException=E.MismatchedTokenException=E.isRecognitionException=E.EarlyExitException=E.defaultParserErrorProvider=E.tokenName=E.tokenMatcher=E.tokenLabel=E.EOF=E.createTokenInstance=E.createToken=E.LexerDefinitionErrorType=E.Lexer=E.EMPTY_ALT=E.ParserDefinitionErrorType=E.EmbeddedActionsParser=E.CstParser=E.VERSION=void 0;var ku=Er();Object.defineProperty(E,"VERSION",{enumerable:true,get:function(){return ku.VERSION}});var lr=ce();Object.defineProperty(E,"CstParser",{enumerable:true,get:function(){return lr.CstParser}});Object.defineProperty(E,"EmbeddedActionsParser",{enumerable:true,get:function(){return lr.EmbeddedActionsParser}});Object.defineProperty(E,"ParserDefinitionErrorType",{enumerable:true,get:function(){return lr.ParserDefinitionErrorType}});Object.defineProperty(E,"EMPTY_ALT",{enumerable:true,get:function(){return lr.EMPTY_ALT}});var Ma=ft();Object.defineProperty(E,"Lexer",{enumerable:true,get:function(){return Ma.Lexer}});Object.defineProperty(E,"LexerDefinitionErrorType",{enumerable:true,get:function(){return Ma.LexerDefinitionErrorType}});var nt=Ue();Object.defineProperty(E,"createToken",{enumerable:true,get:function(){return nt.createToken}});Object.defineProperty(E,"createTokenInstance",{enumerable:true,get:function(){return nt.createTokenInstance}});Object.defineProperty(E,"EOF",{enumerable:true,get:function(){return nt.EOF}});Object.defineProperty(E,"tokenLabel",{enumerable:true,get:function(){return nt.tokenLabel}});Object.defineProperty(E,"tokenMatcher",{enumerable:true,get:function(){return nt.tokenMatcher}});Object.defineProperty(E,"tokenName",{enumerable:true,get:function(){return nt.tokenName}});var Pu=mt();Object.defineProperty(E,"defaultParserErrorProvider",{enumerable:true,get:function(){return Pu.defaultParserErrorProvider}});var Nt=et();Object.defineProperty(E,"EarlyExitException",{enumerable:true,get:function(){return Nt.EarlyExitException}});Object.defineProperty(E,"isRecognitionException",{enumerable:true,get:function(){return Nt.isRecognitionException}});Object.defineProperty(E,"MismatchedTokenException",{enumerable:true,get:function(){return Nt.MismatchedTokenException}});Object.defineProperty(E,"NotAllInputParsedException",{enumerable:true,get:function(){return Nt.NotAllInputParsedException}});Object.defineProperty(E,"NoViableAltException",{enumerable:true,get:function(){return Nt.NoViableAltException}});var Su=kr();Object.defineProperty(E,"defaultLexerErrorProvider",{enumerable:true,get:function(){return Su.defaultLexerErrorProvider}});var Se=ne();Object.defineProperty(E,"Alternation",{enumerable:true,get:function(){return Se.Alternation}});Object.defineProperty(E,"Alternative",{enumerable:true,get:function(){return Se.Alternative}});Object.defineProperty(E,"NonTerminal",{enumerable:true,get:function(){return Se.NonTerminal}});Object.defineProperty(E,"Option",{enumerable:true,get:function(){return Se.Option}});Object.defineProperty(E,"Repetition",{enumerable:true,get:function(){return Se.Repetition}});Object.defineProperty(E,"RepetitionMandatory",{enumerable:true,get:function(){return Se.RepetitionMandatory}});Object.defineProperty(E,"RepetitionMandatoryWithSeparator",{enumerable:true,get:function(){return Se.RepetitionMandatoryWithSeparator}});Object.defineProperty(E,"RepetitionWithSeparator",{enumerable:true,get:function(){return Se.RepetitionWithSeparator}});Object.defineProperty(E,"Rule",{enumerable:true,get:function(){return Se.Rule}});Object.defineProperty(E,"Terminal",{enumerable:true,get:function(){return Se.Terminal}});var ba=ne();Object.defineProperty(E,"serializeGrammar",{enumerable:true,get:function(){return ba.serializeGrammar}});Object.defineProperty(E,"serializeProduction",{enumerable:true,get:function(){return ba.serializeProduction}});var xu=$e();Object.defineProperty(E,"GAstVisitor",{enumerable:true,get:function(){return xu.GAstVisitor}});function Cu(){console.warn(`The clearCache function was 'soft' removed from the Chevrotain API.
+	 It performs no action other than printing this message.
+	 Please avoid using it as it will be completely removed in the future`);}E.clearCache=Cu;var Lu=La();Object.defineProperty(E,"createSyntaxDiagramsCode",{enumerable:true,get:function(){return Lu.createSyntaxDiagramsCode}});var Mu=function(){function t(){throw new Error(`The Parser class has been deprecated, use CstParser or EmbeddedActionsParser instead.
+See: https://chevrotain.io/docs/changes/BREAKING_CHANGES.html#_7-0-0`)}return t}();E.Parser=Mu;});var chevrotain = Fa();
+
+/**
+ * A loader for the VRML format.
+ *
+ * ```js
+ * const loader = new VRMLLoader();
+ * const object = await loader.loadAsync( 'models/vrml/house.wrl' );
+ * scene.add( object );
+ * ```
+ *
+ * @augments Loader
+ * @three_import import { VRMLLoader } from 'three/addons/loaders/VRMLLoader.js';
+ */
+class VRMLLoader extends Loader {
+
+	/**
+	 * Constructs a new VRML loader.
+	 *
+	 * @param {LoadingManager} [manager] - The loading manager.
+	 */
+	constructor( manager ) {
+
+		super( manager );
+
+	}
+
+	/**
+	 * Starts loading from the given URL and passes the loaded VRML asset
+	 * to the `onLoad()` callback.
+	 *
+	 * @param {string} url - The path/URL of the file to be loaded. This can also be a data URI.
+	 * @param {function(Scene)} onLoad - Executed when the loading process has been finished.
+	 * @param {onProgressCallback} onProgress - Executed while the loading is in progress.
+	 * @param {onErrorCallback} onError - Executed when errors occur.
+	 */
+	load( url, onLoad, onProgress, onError ) {
+
+		const scope = this;
+
+		const path = ( scope.path === '' ) ? LoaderUtils.extractUrlBase( url ) : scope.path;
+
+		const loader = new FileLoader( scope.manager );
+		loader.setPath( scope.path );
+		loader.setRequestHeader( scope.requestHeader );
+		loader.setWithCredentials( scope.withCredentials );
+		loader.load( url, function ( text ) {
+
+			try {
+
+				onLoad( scope.parse( text, path ) );
+
+			} catch ( e ) {
+
+				if ( onError ) {
+
+					onError( e );
+
+				} else {
+
+					console.error( e );
+
+				}
+
+				scope.manager.itemError( url );
+
+			}
+
+		}, onProgress, onError );
+
+	}
+
+	/**
+	 * Parses the given VRML data and returns the resulting scene.
+	 *
+	 * @param {string} data - The raw VRML data as a string.
+	 * @param {string} path - The URL base path.
+	 * @return {Scene} The parsed scene.
+	 */
+	parse( data, path ) {
+
+		const nodeMap = {};
+
+		function generateVRMLTree( data ) {
+
+			// create lexer, parser and visitor
+
+			const tokenData = createTokens();
+
+			const lexer = new VRMLLexer( tokenData.tokens );
+			const parser = new VRMLParser( tokenData.tokenVocabulary );
+			const visitor = createVisitor( parser.getBaseCstVisitorConstructor() );
+
+			// lexing
+
+			const lexingResult = lexer.lex( data );
+			parser.input = lexingResult.tokens;
+
+			// parsing
+
+			const cstOutput = parser.vrml();
+
+			if ( parser.errors.length > 0 ) {
+
+				console.error( parser.errors );
+
+				throw Error( 'THREE.VRMLLoader: Parsing errors detected.' );
+
+			}
+
+			// actions
+
+			const ast = visitor.visit( cstOutput );
+
+			return ast;
+
+		}
+
+		function createTokens() {
+
+			const createToken = chevrotain.createToken;
+
+			// from http://gun.teipir.gr/VRML-amgem/spec/part1/concepts.html#SyntaxBasics
+
+			const RouteIdentifier = createToken( { name: 'RouteIdentifier', pattern: /[^\x30-\x39\0-\x20\x22\x27\x23\x2b\x2c\x2d\x2e\x5b\x5d\x5c\x7b\x7d][^\0-\x20\x22\x27\x23\x2b\x2c\x2d\x2e\x5b\x5d\x5c\x7b\x7d]*[\.][^\x30-\x39\0-\x20\x22\x27\x23\x2b\x2c\x2d\x2e\x5b\x5d\x5c\x7b\x7d][^\0-\x20\x22\x27\x23\x2b\x2c\x2d\x2e\x5b\x5d\x5c\x7b\x7d]*/ } );
+			const Identifier = createToken( { name: 'Identifier', pattern: /[^\x30-\x39\0-\x20\x22\x27\x23\x2b\x2c\x2d\x2e\x5b\x5d\x5c\x7b\x7d]([^\0-\x20\x22\x27\x23\x2b\x2c\x2e\x5b\x5d\x5c\x7b\x7d])*/, longer_alt: RouteIdentifier } );
+
+			// from http://gun.teipir.gr/VRML-amgem/spec/part1/nodesRef.html
+
+			const nodeTypes = [
+				'Anchor', 'Billboard', 'Collision', 'Group', 'Transform', // grouping nodes
+				'Inline', 'LOD', 'Switch', // special groups
+				'PerspectiveCamera', 'OrthographicCamera',
+				'AudioClip', 'DirectionalLight', 'PointLight', 'Script', 'Shape', 'Sound', 'SpotLight', 'WorldInfo', // common nodes
+				'CylinderSensor', 'PlaneSensor', 'ProximitySensor', 'SphereSensor', 'TimeSensor', 'TouchSensor', 'VisibilitySensor', // sensors
+				'Box', 'Cone', 'Cylinder', 'ElevationGrid', 'Extrusion', 'IndexedFaceSet', 'IndexedLineSet', 'PointSet', 'Sphere', // geometries
+				'Color', 'Coordinate', 'Normal', 'TextureCoordinate', // geometric properties
+				'Appearance', 'FontStyle', 'ImageTexture', 'Material', 'MovieTexture', 'PixelTexture', 'TextureTransform', // appearance
+				'ColorInterpolator', 'CoordinateInterpolator', 'NormalInterpolator', 'OrientationInterpolator', 'PositionInterpolator', 'ScalarInterpolator', // interpolators
+				'Background', 'Fog', 'NavigationInfo', 'Viewpoint', // bindable nodes
+				'Text' // Text must be placed at the end of the regex so there are no matches for TextureTransform and TextureCoordinate
+			];
+
+			//
+
+			const Version = createToken( {
+				name: 'Version',
+				pattern: /#VRML.*/,
+				longer_alt: Identifier
+			} );
+
+			const NodeName = createToken( {
+				name: 'NodeName',
+				pattern: new RegExp( nodeTypes.join( '|' ) ),
+				longer_alt: Identifier
+			} );
+
+			const DEF = createToken( {
+				name: 'DEF',
+				pattern: /DEF/,
+				longer_alt: Identifier
+			} );
+
+			const USE = createToken( {
+				name: 'USE',
+				pattern: /USE/,
+				longer_alt: Identifier
+			} );
+
+			const ROUTE = createToken( {
+				name: 'ROUTE',
+				pattern: /ROUTE/,
+				longer_alt: Identifier
+			} );
+
+			const TO = createToken( {
+				name: 'TO',
+				pattern: /TO/,
+				longer_alt: Identifier
+			} );
+
+			//
+
+			const StringLiteral = createToken( { name: 'StringLiteral', pattern: /"(?:[^\\"\n\r]|\\[bfnrtv"\\/]|\\u[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])*"/ } );
+			const HexLiteral = createToken( { name: 'HexLiteral', pattern: /0[xX][0-9a-fA-F]+/ } );
+			const NumberLiteral = createToken( { name: 'NumberLiteral', pattern: /[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?/ } );
+			const TrueLiteral = createToken( { name: 'TrueLiteral', pattern: /TRUE/ } );
+			const FalseLiteral = createToken( { name: 'FalseLiteral', pattern: /FALSE/ } );
+			const NullLiteral = createToken( { name: 'NullLiteral', pattern: /NULL/ } );
+			const LSquare = createToken( { name: 'LSquare', pattern: /\[/ } );
+			const RSquare = createToken( { name: 'RSquare', pattern: /]/ } );
+			const LCurly = createToken( { name: 'LCurly', pattern: /{/ } );
+			const RCurly = createToken( { name: 'RCurly', pattern: /}/ } );
+			const Comment = createToken( {
+				name: 'Comment',
+				pattern: /#.*/,
+				group: chevrotain.Lexer.SKIPPED
+			} );
+
+			// commas, blanks, tabs, newlines and carriage returns are whitespace characters wherever they appear outside of string fields
+
+			const WhiteSpace = createToken( {
+				name: 'WhiteSpace',
+				pattern: /[ ,\s]/,
+				group: chevrotain.Lexer.SKIPPED
+			} );
+
+			const tokens = [
+				WhiteSpace,
+				// keywords appear before the Identifier
+				NodeName,
+				DEF,
+				USE,
+				ROUTE,
+				TO,
+				TrueLiteral,
+				FalseLiteral,
+				NullLiteral,
+				// the Identifier must appear after the keywords because all keywords are valid identifiers
+				Version,
+				Identifier,
+				RouteIdentifier,
+				StringLiteral,
+				HexLiteral,
+				NumberLiteral,
+				LSquare,
+				RSquare,
+				LCurly,
+				RCurly,
+				Comment
+			];
+
+			const tokenVocabulary = {};
+
+			for ( let i = 0, l = tokens.length; i < l; i ++ ) {
+
+				const token = tokens[ i ];
+
+				tokenVocabulary[ token.name ] = token;
+
+			}
+
+			return { tokens: tokens, tokenVocabulary: tokenVocabulary };
+
+		}
+
+
+		function createVisitor( BaseVRMLVisitor ) {
+
+			// the visitor is created dynamically based on the given base class
+
+			class VRMLToASTVisitor extends BaseVRMLVisitor {
+
+				constructor() {
+
+					super();
+
+					this.validateVisitor();
+
+				}
+
+				vrml( ctx ) {
+
+					const data = {
+						version: this.visit( ctx.version ),
+						nodes: [],
+						routes: []
+					};
+
+					for ( let i = 0, l = ctx.node.length; i < l; i ++ ) {
+
+						const node = ctx.node[ i ];
+
+						data.nodes.push( this.visit( node ) );
+
+					}
+
+					if ( ctx.route ) {
+
+						for ( let i = 0, l = ctx.route.length; i < l; i ++ ) {
+
+							const route = ctx.route[ i ];
+
+							data.routes.push( this.visit( route ) );
+
+						}
+
+					}
+
+					return data;
+
+				}
+
+				version( ctx ) {
+
+					return ctx.Version[ 0 ].image;
+
+				}
+
+				node( ctx ) {
+
+					const data = {
+						name: ctx.NodeName[ 0 ].image,
+						fields: []
+					};
+
+					if ( ctx.field ) {
+
+						for ( let i = 0, l = ctx.field.length; i < l; i ++ ) {
+
+							const field = ctx.field[ i ];
+
+							data.fields.push( this.visit( field ) );
+
+						}
+
+					}
+
+					// DEF
+
+					if ( ctx.def ) {
+
+						data.DEF = this.visit( ctx.def[ 0 ] );
+
+					}
+
+					return data;
+
+				}
+
+				field( ctx ) {
+
+					const data = {
+						name: ctx.Identifier[ 0 ].image,
+						type: null,
+						values: null
+					};
+
+					let result;
+
+					// SFValue
+
+					if ( ctx.singleFieldValue ) {
+
+						result = this.visit( ctx.singleFieldValue[ 0 ] );
+
+					}
+
+					// MFValue
+
+					if ( ctx.multiFieldValue ) {
+
+						result = this.visit( ctx.multiFieldValue[ 0 ] );
+
+					}
+
+					data.type = result.type;
+					data.values = result.values;
+
+					return data;
+
+				}
+
+				def( ctx ) {
+
+					return ( ctx.Identifier || ctx.NodeName )[ 0 ].image;
+
+				}
+
+				use( ctx ) {
+
+					return { USE: ( ctx.Identifier || ctx.NodeName )[ 0 ].image };
+
+				}
+
+				singleFieldValue( ctx ) {
+
+					return processField( this, ctx );
+
+				}
+
+				multiFieldValue( ctx ) {
+
+					return processField( this, ctx );
+
+				}
+
+				route( ctx ) {
+
+					const data = {
+						FROM: ctx.RouteIdentifier[ 0 ].image,
+						TO: ctx.RouteIdentifier[ 1 ].image
+					};
+
+					return data;
+
+				}
+
+			}
+
+			function processField( scope, ctx ) {
+
+				const field = {
+					type: null,
+					values: []
+				};
+
+				if ( ctx.node ) {
+
+					field.type = 'node';
+
+					for ( let i = 0, l = ctx.node.length; i < l; i ++ ) {
+
+						const node = ctx.node[ i ];
+
+						field.values.push( scope.visit( node ) );
+
+					}
+
+				}
+
+				if ( ctx.use ) {
+
+					field.type = 'use';
+
+					for ( let i = 0, l = ctx.use.length; i < l; i ++ ) {
+
+						const use = ctx.use[ i ];
+
+						field.values.push( scope.visit( use ) );
+
+					}
+
+				}
+
+				if ( ctx.StringLiteral ) {
+
+					field.type = 'string';
+
+					for ( let i = 0, l = ctx.StringLiteral.length; i < l; i ++ ) {
+
+						const stringLiteral = ctx.StringLiteral[ i ];
+
+						field.values.push( stringLiteral.image.replace( /'|"/g, '' ) );
+
+					}
+
+				}
+
+				if ( ctx.NumberLiteral ) {
+
+					field.type = 'number';
+
+					for ( let i = 0, l = ctx.NumberLiteral.length; i < l; i ++ ) {
+
+						const numberLiteral = ctx.NumberLiteral[ i ];
+
+						field.values.push( parseFloat( numberLiteral.image ) );
+
+					}
+
+				}
+
+				if ( ctx.HexLiteral ) {
+
+					field.type = 'hex';
+
+					for ( let i = 0, l = ctx.HexLiteral.length; i < l; i ++ ) {
+
+						const hexLiteral = ctx.HexLiteral[ i ];
+
+						field.values.push( hexLiteral.image );
+
+					}
+
+				}
+
+				if ( ctx.TrueLiteral ) {
+
+					field.type = 'boolean';
+
+					for ( let i = 0, l = ctx.TrueLiteral.length; i < l; i ++ ) {
+
+						const trueLiteral = ctx.TrueLiteral[ i ];
+
+						if ( trueLiteral.image === 'TRUE' ) field.values.push( true );
+
+					}
+
+				}
+
+				if ( ctx.FalseLiteral ) {
+
+					field.type = 'boolean';
+
+					for ( let i = 0, l = ctx.FalseLiteral.length; i < l; i ++ ) {
+
+						const falseLiteral = ctx.FalseLiteral[ i ];
+
+						if ( falseLiteral.image === 'FALSE' ) field.values.push( false );
+
+					}
+
+				}
+
+				if ( ctx.NullLiteral ) {
+
+					field.type = 'null';
+
+					ctx.NullLiteral.forEach( function () {
+
+						field.values.push( null );
+
+					} );
+
+				}
+
+				return field;
+
+			}
+
+			return new VRMLToASTVisitor();
+
+		}
+
+		function parseTree( tree ) {
+
+			// console.log( JSON.stringify( tree, null, 2 ) );
+
+			const nodes = tree.nodes;
+			const scene = new Scene();
+
+			// first iteration: build nodemap based on DEF statements
+
+			for ( let i = 0, l = nodes.length; i < l; i ++ ) {
+
+				const node = nodes[ i ];
+
+				buildNodeMap( node );
+
+			}
+
+			// second iteration: build nodes
+
+			for ( let i = 0, l = nodes.length; i < l; i ++ ) {
+
+				const node = nodes[ i ];
+				const object = getNode( node );
+
+				if ( object instanceof Object3D ) scene.add( object );
+
+				if ( node.name === 'WorldInfo' ) scene.userData.worldInfo = object;
+
+			}
+
+			return scene;
+
+		}
+
+		function buildNodeMap( node ) {
+
+			if ( node.DEF ) {
+
+				nodeMap[ node.DEF ] = node;
+
+			}
+
+			const fields = node.fields;
+
+			for ( let i = 0, l = fields.length; i < l; i ++ ) {
+
+				const field = fields[ i ];
+
+				if ( field.type === 'node' ) {
+
+					const fieldValues = field.values;
+
+					for ( let j = 0, jl = fieldValues.length; j < jl; j ++ ) {
+
+						buildNodeMap( fieldValues[ j ] );
+
+					}
+
+				}
+
+
+			}
+
+		}
+
+
+		function getNode( node ) {
+
+			// handle case where a node refers to a different one
+
+			if ( node.USE ) {
+
+				return resolveUSE( node.USE );
+
+			}
+
+			if ( node.build !== undefined ) return node.build;
+
+			node.build = buildNode( node );
+
+			return node.build;
+
+		}
+
+		// node builder
+
+		function buildNode( node ) {
+
+			const nodeName = node.name;
+			let build;
+
+			switch ( nodeName ) {
+
+				case 'Anchor':
+				case 'Group':
+				case 'Transform':
+				case 'Collision':
+					build = buildGroupingNode( node );
+					break;
+
+				case 'Background':
+					build = buildBackgroundNode( node );
+					break;
+
+				case 'Shape':
+					build = buildShapeNode( node );
+					break;
+
+				case 'Appearance':
+					build = buildAppearanceNode( node );
+					break;
+
+				case 'Material':
+					build = buildMaterialNode( node );
+					break;
+
+				case 'ImageTexture':
+					build = buildImageTextureNode( node );
+					break;
+
+				case 'PixelTexture':
+					build = buildPixelTextureNode( node );
+					break;
+
+				case 'TextureTransform':
+					build = buildTextureTransformNode( node );
+					break;
+
+				case 'IndexedFaceSet':
+					build = buildIndexedFaceSetNode( node );
+					break;
+
+				case 'IndexedLineSet':
+					build = buildIndexedLineSetNode( node );
+					break;
+
+				case 'PointSet':
+					build = buildPointSetNode( node );
+					break;
+
+				case 'Box':
+					build = buildBoxNode( node );
+					break;
+
+				case 'Cone':
+					build = buildConeNode( node );
+					break;
+
+				case 'Cylinder':
+					build = buildCylinderNode( node );
+					break;
+
+				case 'Sphere':
+					build = buildSphereNode( node );
+					break;
+
+				case 'ElevationGrid':
+					build = buildElevationGridNode( node );
+					break;
+
+				case 'Extrusion':
+					build = buildExtrusionNode( node );
+					break;
+
+				case 'Color':
+				case 'Coordinate':
+				case 'Normal':
+				case 'TextureCoordinate':
+					build = buildGeometricNode( node );
+					break;
+
+				case 'WorldInfo':
+					build = buildWorldInfoNode( node );
+					break;
+
+				case 'OrthographicCamera':
+				case 'PerspectiveCamera':
+					build = buildCamera( node, nodeName );
+					break;
+
+				case 'Billboard':
+
+				case 'Inline':
+				case 'LOD':
+				case 'Switch':
+
+				case 'AudioClip':
+				case 'DirectionalLight':
+				case 'PointLight':
+				case 'Script':
+				case 'Sound':
+				case 'SpotLight':
+
+				case 'CylinderSensor':
+				case 'PlaneSensor':
+				case 'ProximitySensor':
+				case 'SphereSensor':
+				case 'TimeSensor':
+				case 'TouchSensor':
+				case 'VisibilitySensor':
+
+				case 'Text':
+
+				case 'FontStyle':
+				case 'MovieTexture':
+
+				case 'ColorInterpolator':
+				case 'CoordinateInterpolator':
+				case 'NormalInterpolator':
+				case 'OrientationInterpolator':
+				case 'PositionInterpolator':
+				case 'ScalarInterpolator':
+
+				case 'Fog':
+				case 'NavigationInfo':
+				case 'Viewpoint':
+					// node not supported yet
+					break;
+
+				default:
+					console.warn( 'THREE.VRMLLoader: Unknown node:', nodeName );
+					break;
+
+			}
+
+			if ( build !== undefined && node.DEF !== undefined && build.hasOwnProperty( 'name' ) === true ) {
+
+				build.name = node.DEF;
+
+			}
+
+			return build;
+
+		}
+
+		function buildGroupingNode( node ) {
+
+			const object = new Group$1();
+
+			//
+
+			const fields = node.fields;
+
+			for ( let i = 0, l = fields.length; i < l; i ++ ) {
+
+				const field = fields[ i ];
+				const fieldName = field.name;
+				const fieldValues = field.values;
+
+				switch ( fieldName ) {
+
+					case 'bboxCenter':
+						// field not supported
+						break;
+
+					case 'bboxSize':
+						// field not supported
+						break;
+
+					case 'center':
+						// field not supported
+						break;
+
+					case 'children':
+						parseFieldChildren( fieldValues, object );
+						break;
+
+					case 'description':
+						// field not supported
+						break;
+
+					case 'collide':
+						// field not supported
+						break;
+
+					case 'parameter':
+						// field not supported
+						break;
+
+					case 'rotation':
+						const axis = new Vector3$2( fieldValues[ 0 ], fieldValues[ 1 ], fieldValues[ 2 ] ).normalize();
+						const angle = fieldValues[ 3 ];
+						object.quaternion.setFromAxisAngle( axis, angle );
+						break;
+
+					case 'scale':
+						object.scale.set( fieldValues[ 0 ], fieldValues[ 1 ], fieldValues[ 2 ] );
+						break;
+
+					case 'scaleOrientation':
+						// field not supported
+						break;
+
+					case 'translation':
+						object.position.set( fieldValues[ 0 ], fieldValues[ 1 ], fieldValues[ 2 ] );
+						break;
+
+					case 'proxy':
+						// field not supported
+						break;
+
+					case 'url':
+						// field not supported
+						break;
+
+					default:
+						console.warn( 'THREE.VRMLLoader: Unknown field:', fieldName );
+						break;
+
+				}
+
+			}
+
+			return object;
+
+		}
+
+		function buildBackgroundNode( node ) {
+
+			const group = new Group$1();
+
+			let groundAngle, groundColor;
+			let skyAngle, skyColor;
+
+			const fields = node.fields;
+
+			for ( let i = 0, l = fields.length; i < l; i ++ ) {
+
+				const field = fields[ i ];
+				const fieldName = field.name;
+				const fieldValues = field.values;
+
+				switch ( fieldName ) {
+
+					case 'groundAngle':
+						groundAngle = fieldValues;
+						break;
+
+					case 'groundColor':
+						groundColor = fieldValues;
+						break;
+
+					case 'backUrl':
+						// field not supported
+						break;
+
+					case 'bottomUrl':
+						// field not supported
+						break;
+
+					case 'frontUrl':
+						// field not supported
+						break;
+
+					case 'leftUrl':
+						// field not supported
+						break;
+
+					case 'rightUrl':
+						// field not supported
+						break;
+
+					case 'topUrl':
+						// field not supported
+						break;
+
+					case 'skyAngle':
+						skyAngle = fieldValues;
+						break;
+
+					case 'skyColor':
+						skyColor = fieldValues;
+						break;
+
+					default:
+						console.warn( 'THREE.VRMLLoader: Unknown field:', fieldName );
+						break;
+
+				}
+
+			}
+
+			const radius = 10000;
+
+			// sky
+
+			if ( skyColor ) {
+
+				const skyGeometry = new SphereGeometry( radius, 32, 16 );
+				const skyMaterial = new MeshBasicMaterial( { fog: false, side: BackSide$1, depthWrite: false, depthTest: false } );
+
+				if ( skyColor.length > 3 ) {
+
+					paintFaces( skyGeometry, radius, skyAngle, toColorArray( skyColor ), true );
+					skyMaterial.vertexColors = true;
+
+				} else {
+
+					skyMaterial.color.setRGB( skyColor[ 0 ], skyColor[ 1 ], skyColor[ 2 ], SRGBColorSpace$1 );
+
+				}
+
+				const sky = new Mesh( skyGeometry, skyMaterial );
+				group.add( sky );
+
+			}
+
+			// ground
+
+			if ( groundColor ) {
+
+				if ( groundColor.length > 0 ) {
+
+					const groundGeometry = new SphereGeometry( radius, 32, 16, 0, 2 * Math.PI, 0.5 * Math.PI, 1.5 * Math.PI );
+					const groundMaterial = new MeshBasicMaterial( { fog: false, side: BackSide$1, vertexColors: true, depthWrite: false, depthTest: false } );
+
+					paintFaces( groundGeometry, radius, groundAngle, toColorArray( groundColor ), false );
+
+					const ground = new Mesh( groundGeometry, groundMaterial );
+					group.add( ground );
+
+				}
+
+			}
+
+			// render background group first
+
+			group.renderOrder = - Infinity;
+
+			return group;
+
+		}
+
+		function buildShapeNode( node ) {
+
+			const fields = node.fields;
+
+			// if the appearance field is NULL or unspecified, lighting is off and the unlit object color is (0, 0, 0)
+
+			let material = new MeshBasicMaterial( {
+				name: Loader.DEFAULT_MATERIAL_NAME,
+				color: 0x000000
+			} );
+			let geometry;
+
+			for ( let i = 0, l = fields.length; i < l; i ++ ) {
+
+				const field = fields[ i ];
+				const fieldName = field.name;
+				const fieldValues = field.values;
+
+				switch ( fieldName ) {
+
+					case 'appearance':
+						if ( fieldValues[ 0 ] !== null ) {
+
+							material = getNode( fieldValues[ 0 ] );
+
+						}
+
+						break;
+
+					case 'geometry':
+						if ( fieldValues[ 0 ] !== null ) {
+
+							geometry = getNode( fieldValues[ 0 ] );
+
+						}
+
+						break;
+
+					default:
+						console.warn( 'THREE.VRMLLoader: Unknown field:', fieldName );
+						break;
+
+				}
+
+			}
+
+			// build 3D object
+
+			let object;
+
+			if ( geometry && geometry.attributes.position ) {
+
+				const type = geometry._type;
+
+				if ( type === 'points' ) { // points
+
+					const pointsMaterial = new PointsMaterial( {
+						name: Loader.DEFAULT_MATERIAL_NAME,
+						color: 0xffffff,
+						opacity: material.opacity,
+						transparent: material.transparent
+					} );
+
+					if ( geometry.attributes.color !== undefined ) {
+
+						pointsMaterial.vertexColors = true;
+
+					} else {
+
+						// if the color field is NULL and there is a material defined for the appearance affecting this PointSet, then use the emissiveColor of the material to draw the points
+
+						if ( material.isMeshPhongMaterial ) {
+
+							pointsMaterial.color.copy( material.emissive );
+
+						}
+
+					}
+
+					object = new Points( geometry, pointsMaterial );
+
+				} else if ( type === 'line' ) { // lines
+
+					const lineMaterial = new LineBasicMaterial( {
+						name: Loader.DEFAULT_MATERIAL_NAME,
+						color: 0xffffff,
+						opacity: material.opacity,
+						transparent: material.transparent
+					} );
+
+					if ( geometry.attributes.color !== undefined ) {
+
+						lineMaterial.vertexColors = true;
+
+					} else {
+
+						// if the color field is NULL and there is a material defined for the appearance affecting this IndexedLineSet, then use the emissiveColor of the material to draw the lines
+
+						if ( material.isMeshPhongMaterial ) {
+
+							lineMaterial.color.copy( material.emissive );
+
+						}
+
+					}
+
+					object = new LineSegments( geometry, lineMaterial );
+
+				} else { // consider meshes
+
+					// check "solid" hint (it's placed in the geometry but affects the material)
+
+					if ( geometry._solid !== undefined ) {
+
+						material.side = ( geometry._solid ) ? FrontSide : DoubleSide$1;
+
+					}
+
+					// check for vertex colors
+
+					if ( geometry.attributes.color !== undefined ) {
+
+						material.vertexColors = true;
+
+					}
+
+					object = new Mesh( geometry, material );
+
+				}
+
+			} else {
+
+				object = new Object3D();
+
+				// if the geometry field is NULL or no vertices are defined the object is not drawn
+
+				object.visible = false;
+
+			}
+
+			return object;
+
+		}
+
+		function buildAppearanceNode( node ) {
+
+			let material = new MeshPhongMaterial();
+			let transformData;
+
+			const fields = node.fields;
+
+			for ( let i = 0, l = fields.length; i < l; i ++ ) {
+
+				const field = fields[ i ];
+				const fieldName = field.name;
+				const fieldValues = field.values;
+
+				switch ( fieldName ) {
+
+					case 'material':
+						if ( fieldValues[ 0 ] !== null ) {
+
+							const materialData = getNode( fieldValues[ 0 ] );
+
+							if ( materialData.diffuseColor ) material.color.copy( materialData.diffuseColor );
+							if ( materialData.emissiveColor ) material.emissive.copy( materialData.emissiveColor );
+							if ( materialData.shininess ) material.shininess = materialData.shininess;
+							if ( materialData.specularColor ) material.specular.copy( materialData.specularColor );
+							if ( materialData.transparency ) material.opacity = 1 - materialData.transparency;
+							if ( materialData.transparency > 0 ) material.transparent = true;
+
+						} else {
+
+							// if the material field is NULL or unspecified, lighting is off and the unlit object color is (0, 0, 0)
+
+							material = new MeshBasicMaterial( {
+								name: Loader.DEFAULT_MATERIAL_NAME,
+								color: 0x000000
+							} );
+
+						}
+
+						break;
+
+					case 'texture':
+						const textureNode = fieldValues[ 0 ];
+						if ( textureNode !== null ) {
+
+							if ( textureNode.name === 'ImageTexture' || textureNode.name === 'PixelTexture' ) {
+
+								material.map = getNode( textureNode );
+
+							}
+
+						}
+
+						break;
+
+					case 'textureTransform':
+						if ( fieldValues[ 0 ] !== null ) {
+
+							transformData = getNode( fieldValues[ 0 ] );
+
+						}
+
+						break;
+
+					default:
+						console.warn( 'THREE.VRMLLoader: Unknown field:', fieldName );
+						break;
+
+				}
+
+			}
+
+			// only apply texture transform data if a texture was defined
+
+			if ( material.map ) {
+
+				// respect VRML lighting model
+
+				if ( material.map.__type ) {
+
+					switch ( material.map.__type ) {
+
+						case TEXTURE_TYPE.INTENSITY_ALPHA:
+							material.opacity = 1; // ignore transparency
+							break;
+
+						case TEXTURE_TYPE.RGB:
+							material.color.set( 0xffffff ); // ignore material color
+							break;
+
+						case TEXTURE_TYPE.RGBA:
+							material.color.set( 0xffffff ); // ignore material color
+							material.opacity = 1; // ignore transparency
+							break;
+
+					}
+
+					delete material.map.__type;
+
+				}
+
+				// apply texture transform
+
+				if ( transformData ) {
+
+					material.map.center.copy( transformData.center );
+					material.map.rotation = transformData.rotation;
+					material.map.repeat.copy( transformData.scale );
+					material.map.offset.copy( transformData.translation );
+
+				}
+
+			}
+
+			return material;
+
+		}
+
+		function buildMaterialNode( node ) {
+
+			const materialData = {};
+
+			const fields = node.fields;
+
+			for ( let i = 0, l = fields.length; i < l; i ++ ) {
+
+				const field = fields[ i ];
+				const fieldName = field.name;
+				const fieldValues = field.values;
+
+				switch ( fieldName ) {
+
+					case 'ambientIntensity':
+						// field not supported
+						break;
+
+					case 'diffuseColor':
+						materialData.diffuseColor = new Color$1().setRGB( fieldValues[ 0 ], fieldValues[ 1 ], fieldValues[ 2 ], SRGBColorSpace$1 );
+						break;
+
+					case 'emissiveColor':
+						materialData.emissiveColor = new Color$1().setRGB( fieldValues[ 0 ], fieldValues[ 1 ], fieldValues[ 2 ], SRGBColorSpace$1 );
+						break;
+
+					case 'shininess':
+						materialData.shininess = fieldValues[ 0 ];
+						break;
+
+					case 'specularColor':
+						materialData.specularColor = new Color$1().setRGB( fieldValues[ 0 ], fieldValues[ 1 ], fieldValues[ 2 ], SRGBColorSpace$1 );
+						break;
+
+					case 'transparency':
+						materialData.transparency = fieldValues[ 0 ];
+						break;
+
+					default:
+						console.warn( 'THREE.VRMLLoader: Unknown field:', fieldName );
+						break;
+
+				}
+
+			}
+
+			return materialData;
+
+		}
+
+		function parseHexColor( hex, textureType, color ) {
+
+			let value;
+
+			switch ( textureType ) {
+
+				case TEXTURE_TYPE.INTENSITY:
+					// Intensity texture: A one-component image specifies one-byte hexadecimal or integer values representing the intensity of the image
+					value = parseInt( hex );
+					color.r = value;
+					color.g = value;
+					color.b = value;
+					color.a = 1;
+					break;
+
+				case TEXTURE_TYPE.INTENSITY_ALPHA:
+					// Intensity+Alpha texture: A two-component image specifies the intensity in the first (high) byte and the alpha opacity in the second (low) byte.
+					value = parseInt( '0x' + hex.substring( 2, 4 ) );
+					color.r = value;
+					color.g = value;
+					color.b = value;
+					color.a = parseInt( '0x' + hex.substring( 4, 6 ) );
+					break;
+
+				case TEXTURE_TYPE.RGB:
+					// RGB texture: Pixels in a three-component image specify the red component in the first (high) byte, followed by the green and blue components
+					color.r = parseInt( '0x' + hex.substring( 2, 4 ) );
+					color.g = parseInt( '0x' + hex.substring( 4, 6 ) );
+					color.b = parseInt( '0x' + hex.substring( 6, 8 ) );
+					color.a = 1;
+					break;
+
+				case TEXTURE_TYPE.RGBA:
+					// RGBA texture: Four-component images specify the alpha opacity byte after red/green/blue
+					color.r = parseInt( '0x' + hex.substring( 2, 4 ) );
+					color.g = parseInt( '0x' + hex.substring( 4, 6 ) );
+					color.b = parseInt( '0x' + hex.substring( 6, 8 ) );
+					color.a = parseInt( '0x' + hex.substring( 8, 10 ) );
+					break;
+
+			}
+
+		}
+
+		function getTextureType( num_components ) {
+
+			let type;
+
+			switch ( num_components ) {
+
+				case 1:
+					type = TEXTURE_TYPE.INTENSITY;
+					break;
+
+				case 2:
+					type = TEXTURE_TYPE.INTENSITY_ALPHA;
+					break;
+
+				case 3:
+					type = TEXTURE_TYPE.RGB;
+					break;
+
+				case 4:
+					type = TEXTURE_TYPE.RGBA;
+					break;
+
+			}
+
+			return type;
+
+		}
+
+		function buildPixelTextureNode( node ) {
+
+			let texture;
+			let wrapS = RepeatWrapping$1;
+			let wrapT = RepeatWrapping$1;
+
+			const fields = node.fields;
+
+			for ( let i = 0, l = fields.length; i < l; i ++ ) {
+
+				const field = fields[ i ];
+				const fieldName = field.name;
+				const fieldValues = field.values;
+
+				switch ( fieldName ) {
+
+					case 'image':
+						const width = fieldValues[ 0 ];
+						const height = fieldValues[ 1 ];
+						const num_components = fieldValues[ 2 ];
+
+						const textureType = getTextureType( num_components );
+
+						const data = new Uint8Array( 4 * width * height );
+
+						const color = { r: 0, g: 0, b: 0, a: 0 };
+
+						for ( let j = 3, k = 0, jl = fieldValues.length; j < jl; j ++, k ++ ) {
+
+							parseHexColor( fieldValues[ j ], textureType, color );
+
+							const stride = k * 4;
+
+							data[ stride + 0 ] = color.r;
+							data[ stride + 1 ] = color.g;
+							data[ stride + 2 ] = color.b;
+							data[ stride + 3 ] = color.a;
+
+						}
+
+						texture = new DataTexture( data, width, height );
+						texture.colorSpace = SRGBColorSpace$1;
+						texture.needsUpdate = true;
+						texture.__type = textureType; // needed for material modifications
+						break;
+
+					case 'repeatS':
+						if ( fieldValues[ 0 ] === false ) wrapS = ClampToEdgeWrapping$1;
+						break;
+
+					case 'repeatT':
+						if ( fieldValues[ 0 ] === false ) wrapT = ClampToEdgeWrapping$1;
+						break;
+
+					default:
+						console.warn( 'THREE.VRMLLoader: Unknown field:', fieldName );
+						break;
+
+				}
+
+			}
+
+			if ( texture ) {
+
+				texture.wrapS = wrapS;
+				texture.wrapT = wrapT;
+
+			}
+
+			return texture;
+
+		}
+
+		function buildImageTextureNode( node ) {
+
+			let texture;
+			let wrapS = RepeatWrapping$1;
+			let wrapT = RepeatWrapping$1;
+
+			const fields = node.fields;
+
+			for ( let i = 0, l = fields.length; i < l; i ++ ) {
+
+				const field = fields[ i ];
+				const fieldName = field.name;
+				const fieldValues = field.values;
+
+				switch ( fieldName ) {
+
+					case 'url':
+						const url = fieldValues[ 0 ];
+						if ( url ) texture = textureLoader.load( url );
+						break;
+
+					case 'repeatS':
+						if ( fieldValues[ 0 ] === false ) wrapS = ClampToEdgeWrapping$1;
+						break;
+
+					case 'repeatT':
+						if ( fieldValues[ 0 ] === false ) wrapT = ClampToEdgeWrapping$1;
+						break;
+
+					default:
+						console.warn( 'THREE.VRMLLoader: Unknown field:', fieldName );
+						break;
+
+				}
+
+			}
+
+			if ( texture ) {
+
+				texture.wrapS = wrapS;
+				texture.wrapT = wrapT;
+				texture.colorSpace = SRGBColorSpace$1;
+
+			}
+
+			return texture;
+
+		}
+
+		function buildTextureTransformNode( node ) {
+
+			const transformData = {
+				center: new Vector2$1(),
+				rotation: new Vector2$1(),
+				scale: new Vector2$1(),
+				translation: new Vector2$1()
+			};
+
+			const fields = node.fields;
+
+			for ( let i = 0, l = fields.length; i < l; i ++ ) {
+
+				const field = fields[ i ];
+				const fieldName = field.name;
+				const fieldValues = field.values;
+
+				switch ( fieldName ) {
+
+					case 'center':
+						transformData.center.set( fieldValues[ 0 ], fieldValues[ 1 ] );
+						break;
+
+					case 'rotation':
+						transformData.rotation = fieldValues[ 0 ];
+						break;
+
+					case 'scale':
+						transformData.scale.set( fieldValues[ 0 ], fieldValues[ 1 ] );
+						break;
+
+					case 'translation':
+						transformData.translation.set( fieldValues[ 0 ], fieldValues[ 1 ] );
+						break;
+
+					default:
+						console.warn( 'THREE.VRMLLoader: Unknown field:', fieldName );
+						break;
+
+				}
+
+			}
+
+			return transformData;
+
+		}
+
+		function buildGeometricNode( node ) {
+
+			return node.fields[ 0 ].values;
+
+		}
+
+		function buildWorldInfoNode( node ) {
+
+			const worldInfo = {};
+
+			const fields = node.fields;
+
+			for ( let i = 0, l = fields.length; i < l; i ++ ) {
+
+				const field = fields[ i ];
+				const fieldName = field.name;
+				const fieldValues = field.values;
+
+				switch ( fieldName ) {
+
+					case 'title':
+						worldInfo.title = fieldValues[ 0 ];
+						break;
+
+					case 'info':
+						worldInfo.info = fieldValues;
+						break;
+
+					default:
+						console.warn( 'THREE.VRMLLoader: Unknown field:', fieldName );
+						break;
+
+				}
+
+			}
+
+			return worldInfo;
+
+		}
+
+		function buildCamera( node, type ) {
+
+			const camera = ( type === 'PerspectiveCamera' ) ? new PerspectiveCamera() : new OrthographicCamera();
+
+			const width = ( typeof window !== 'undefined' ) ? window.innerWidth : 1;
+			const height = ( typeof window !== 'undefined' ) ? window.innerHeight : 1;
+			const aspect = width / height;
+
+			const fields = node.fields;
+
+			for ( let i = 0, l = fields.length; i < l; i ++ ) {
+
+				const field = fields[ i ];
+				const fieldName = field.name;
+				const fieldValues = field.values;
+
+				switch ( fieldName ) {
+
+					case 'position':
+						camera.position.set( fieldValues[ 0 ], fieldValues[ 1 ], fieldValues[ 0 ] );
+						break;
+
+					case 'orientation':
+						const axis = new Vector3$2( fieldValues[ 0 ], fieldValues[ 1 ], fieldValues[ 2 ] ).normalize();
+						const angle = fieldValues[ 3 ];
+						camera.quaternion.setFromAxisAngle( axis, angle );
+						break;
+
+					case 'focalDistance':
+						camera.userData.focalDistance = fieldValues[ 0 ]; // might be useful for DoF
+						break;
+
+					case 'heightAngle':
+
+						// for perspective cams only
+
+						camera.fov = MathUtils$2.radToDeg( fieldValues[ 0 ] );
+						camera.aspect = aspect;
+						camera.updateProjectionMatrix();
+
+						break;
+
+					case 'height':
+
+						// for ortho cams only
+
+						const halfHeight = fieldValues[ 0 ] / 2;
+						const halfWidth = halfHeight * aspect;
+
+						camera.left = - halfWidth;
+						camera.right = halfWidth;
+						camera.top = halfHeight;
+						camera.bottom = - halfHeight;
+						camera.updateProjectionMatrix();
+						break;
+
+					default:
+						console.warn( 'THREE.VRMLLoader: Unknown field:', fieldName );
+						break;
+
+				}
+
+			}
+
+			return camera;
+
+		}
+
+		function buildIndexedFaceSetNode( node ) {
+
+			let color, coord, normal, texCoord;
+			let ccw = true, solid = true, creaseAngle = 0;
+			let colorIndex, coordIndex, normalIndex, texCoordIndex;
+			let colorPerVertex = true, normalPerVertex = true;
+
+			const fields = node.fields;
+
+			for ( let i = 0, l = fields.length; i < l; i ++ ) {
+
+				const field = fields[ i ];
+				const fieldName = field.name;
+				const fieldValues = field.values;
+
+				switch ( fieldName ) {
+
+					case 'color':
+						const colorNode = fieldValues[ 0 ];
+
+						if ( colorNode !== null ) {
+
+							color = getNode( colorNode );
+
+						}
+
+						break;
+
+					case 'coord':
+						const coordNode = fieldValues[ 0 ];
+
+						if ( coordNode !== null ) {
+
+							coord = getNode( coordNode );
+
+						}
+
+						break;
+
+					case 'normal':
+						const normalNode = fieldValues[ 0 ];
+
+						if ( normalNode !== null ) {
+
+							normal = getNode( normalNode );
+
+						}
+
+						break;
+
+					case 'texCoord':
+						const texCoordNode = fieldValues[ 0 ];
+
+						if ( texCoordNode !== null ) {
+
+							texCoord = getNode( texCoordNode );
+
+						}
+
+						break;
+
+					case 'ccw':
+						ccw = fieldValues[ 0 ];
+						break;
+
+					case 'colorIndex':
+						colorIndex = fieldValues;
+						break;
+
+					case 'colorPerVertex':
+						colorPerVertex = fieldValues[ 0 ];
+						break;
+
+					case 'convex':
+						// field not supported
+						break;
+
+					case 'coordIndex':
+						coordIndex = fieldValues;
+						break;
+
+					case 'creaseAngle':
+						creaseAngle = fieldValues[ 0 ];
+						break;
+
+					case 'normalIndex':
+						normalIndex = fieldValues;
+						break;
+
+					case 'normalPerVertex':
+						normalPerVertex = fieldValues[ 0 ];
+						break;
+
+					case 'solid':
+						solid = fieldValues[ 0 ];
+						break;
+
+					case 'texCoordIndex':
+						texCoordIndex = fieldValues;
+						break;
+
+					default:
+						console.warn( 'THREE.VRMLLoader: Unknown field:', fieldName );
+						break;
+
+				}
+
+			}
+
+			if ( coordIndex === undefined ) {
+
+				console.warn( 'THREE.VRMLLoader: Missing coordIndex.' );
+
+				return new BufferGeometry(); // handle VRML files with incomplete geometry definition
+
+			}
+
+			const triangulatedCoordIndex = triangulateFaceIndex( coordIndex, ccw );
+
+			let colorAttribute;
+			let normalAttribute;
+			let uvAttribute;
+
+			if ( color ) {
+
+				if ( colorPerVertex === true ) {
+
+					if ( colorIndex && colorIndex.length > 0 ) {
+
+						// if the colorIndex field is not empty, then it is used to choose colors for each vertex of the IndexedFaceSet.
+
+						const triangulatedColorIndex = triangulateFaceIndex( colorIndex, ccw );
+						colorAttribute = computeAttributeFromIndexedData( triangulatedCoordIndex, triangulatedColorIndex, color, 3 );
+
+					} else {
+
+						// if the colorIndex field is empty, then the coordIndex field is used to choose colors from the Color node
+
+						colorAttribute = toNonIndexedAttribute( triangulatedCoordIndex, new Float32BufferAttribute( color, 3 ) );
+
+					}
+
+				} else {
+
+					if ( colorIndex && colorIndex.length > 0 ) {
+
+						// if the colorIndex field is not empty, then they are used to choose one color for each face of the IndexedFaceSet
+
+						const flattenFaceColors = flattenData( color, colorIndex );
+						const triangulatedFaceColors = triangulateFaceData( flattenFaceColors, coordIndex );
+						colorAttribute = computeAttributeFromFaceData( triangulatedCoordIndex, triangulatedFaceColors );
+
+					} else {
+
+						// if the colorIndex field is empty, then the color are applied to each face of the IndexedFaceSet in order
+
+						const triangulatedFaceColors = triangulateFaceData( color, coordIndex );
+						colorAttribute = computeAttributeFromFaceData( triangulatedCoordIndex, triangulatedFaceColors );
+
+
+					}
+
+				}
+
+				convertColorsToLinearSRGB( colorAttribute );
+
+			}
+
+			if ( normal ) {
+
+				if ( normalPerVertex === true ) {
+
+					// consider vertex normals
+
+					if ( normalIndex && normalIndex.length > 0 ) {
+
+						// if the normalIndex field is not empty, then it is used to choose normals for each vertex of the IndexedFaceSet.
+
+						const triangulatedNormalIndex = triangulateFaceIndex( normalIndex, ccw );
+						normalAttribute = computeAttributeFromIndexedData( triangulatedCoordIndex, triangulatedNormalIndex, normal, 3 );
+
+					} else {
+
+						// if the normalIndex field is empty, then the coordIndex field is used to choose normals from the Normal node
+
+						normalAttribute = toNonIndexedAttribute( triangulatedCoordIndex, new Float32BufferAttribute( normal, 3 ) );
+
+					}
+
+				} else {
+
+					// consider face normals
+
+					if ( normalIndex && normalIndex.length > 0 ) {
+
+						// if the normalIndex field is not empty, then they are used to choose one normal for each face of the IndexedFaceSet
+
+						const flattenFaceNormals = flattenData( normal, normalIndex );
+						const triangulatedFaceNormals = triangulateFaceData( flattenFaceNormals, coordIndex );
+						normalAttribute = computeAttributeFromFaceData( triangulatedCoordIndex, triangulatedFaceNormals );
+
+					} else {
+
+						// if the normalIndex field is empty, then the normals are applied to each face of the IndexedFaceSet in order
+
+						const triangulatedFaceNormals = triangulateFaceData( normal, coordIndex );
+						normalAttribute = computeAttributeFromFaceData( triangulatedCoordIndex, triangulatedFaceNormals );
+
+					}
+
+				}
+
+			} else {
+
+				// if the normal field is NULL, then the loader should automatically generate normals, using creaseAngle to determine if and how normals are smoothed across shared vertices
+
+				normalAttribute = computeNormalAttribute( triangulatedCoordIndex, coord, creaseAngle );
+
+			}
+
+			if ( texCoord ) {
+
+				// texture coordinates are always defined on vertex level
+
+				if ( texCoordIndex && texCoordIndex.length > 0 ) {
+
+					// if the texCoordIndex field is not empty, then it is used to choose texture coordinates for each vertex of the IndexedFaceSet.
+
+					const triangulatedTexCoordIndex = triangulateFaceIndex( texCoordIndex, ccw );
+					uvAttribute = computeAttributeFromIndexedData( triangulatedCoordIndex, triangulatedTexCoordIndex, texCoord, 2 );
+
+
+				} else {
+
+					// if the texCoordIndex field is empty, then the coordIndex array is used to choose texture coordinates from the TextureCoordinate node
+
+					uvAttribute = toNonIndexedAttribute( triangulatedCoordIndex, new Float32BufferAttribute( texCoord, 2 ) );
+
+				}
+
+			}
+
+			const geometry = new BufferGeometry();
+			const positionAttribute = toNonIndexedAttribute( triangulatedCoordIndex, new Float32BufferAttribute( coord, 3 ) );
+
+			geometry.setAttribute( 'position', positionAttribute );
+			geometry.setAttribute( 'normal', normalAttribute );
+
+			// optional attributes
+
+			if ( colorAttribute ) geometry.setAttribute( 'color', colorAttribute );
+			if ( uvAttribute ) geometry.setAttribute( 'uv', uvAttribute );
+
+			// "solid" influences the material so let's store it for later use
+
+			geometry._solid = solid;
+			geometry._type = 'mesh';
+
+			return geometry;
+
+		}
+
+		function buildIndexedLineSetNode( node ) {
+
+			let color, coord;
+			let colorIndex, coordIndex;
+			let colorPerVertex = true;
+
+			const fields = node.fields;
+
+			for ( let i = 0, l = fields.length; i < l; i ++ ) {
+
+				const field = fields[ i ];
+				const fieldName = field.name;
+				const fieldValues = field.values;
+
+				switch ( fieldName ) {
+
+					case 'color':
+						const colorNode = fieldValues[ 0 ];
+
+						if ( colorNode !== null ) {
+
+							color = getNode( colorNode );
+
+						}
+
+						break;
+
+					case 'coord':
+						const coordNode = fieldValues[ 0 ];
+
+						if ( coordNode !== null ) {
+
+							coord = getNode( coordNode );
+
+						}
+
+						break;
+
+					case 'colorIndex':
+						colorIndex = fieldValues;
+						break;
+
+					case 'colorPerVertex':
+						colorPerVertex = fieldValues[ 0 ];
+						break;
+
+					case 'coordIndex':
+						coordIndex = fieldValues;
+						break;
+
+					default:
+						console.warn( 'THREE.VRMLLoader: Unknown field:', fieldName );
+						break;
+
+				}
+
+			}
+
+			// build lines
+
+			let colorAttribute;
+
+			const expandedLineIndex = expandLineIndex( coordIndex ); // create an index for three.js's linesegment primitive
+
+			if ( color ) {
+
+				if ( colorPerVertex === true ) {
+
+					if ( colorIndex.length > 0 ) {
+
+						// if the colorIndex field is not empty, then one color is used for each polyline of the IndexedLineSet.
+
+						const expandedColorIndex = expandLineIndex( colorIndex ); // compute colors for each line segment (rendering primitive)
+						colorAttribute = computeAttributeFromIndexedData( expandedLineIndex, expandedColorIndex, color, 3 ); // compute data on vertex level
+
+					} else {
+
+						// if the colorIndex field is empty, then the colors are applied to each polyline of the IndexedLineSet in order.
+
+						colorAttribute = toNonIndexedAttribute( expandedLineIndex, new Float32BufferAttribute( color, 3 ) );
+
+					}
+
+				} else {
+
+					if ( colorIndex.length > 0 ) {
+
+						// if the colorIndex field is not empty, then colors are applied to each vertex of the IndexedLineSet
+
+						const flattenLineColors = flattenData( color, colorIndex ); // compute colors for each VRML primitive
+						const expandedLineColors = expandLineData( flattenLineColors, coordIndex ); // compute colors for each line segment (rendering primitive)
+						colorAttribute = computeAttributeFromLineData( expandedLineIndex, expandedLineColors ); // compute data on vertex level
+
+
+					} else {
+
+						// if the colorIndex field is empty, then the coordIndex field is used to choose colors from the Color node
+
+						const expandedLineColors = expandLineData( color, coordIndex ); // compute colors for each line segment (rendering primitive)
+						colorAttribute = computeAttributeFromLineData( expandedLineIndex, expandedLineColors ); // compute data on vertex level
+
+					}
+
+				}
+
+				convertColorsToLinearSRGB( colorAttribute );
+
+			}
+
+			//
+
+			const geometry = new BufferGeometry();
+
+			const positionAttribute = toNonIndexedAttribute( expandedLineIndex, new Float32BufferAttribute( coord, 3 ) );
+			geometry.setAttribute( 'position', positionAttribute );
+
+			if ( colorAttribute ) geometry.setAttribute( 'color', colorAttribute );
+
+			geometry._type = 'line';
+
+			return geometry;
+
+		}
+
+		function buildPointSetNode( node ) {
+
+			let color, coord;
+
+			const fields = node.fields;
+
+			for ( let i = 0, l = fields.length; i < l; i ++ ) {
+
+				const field = fields[ i ];
+				const fieldName = field.name;
+				const fieldValues = field.values;
+
+				switch ( fieldName ) {
+
+					case 'color':
+						const colorNode = fieldValues[ 0 ];
+
+						if ( colorNode !== null ) {
+
+							color = getNode( colorNode );
+
+						}
+
+						break;
+
+					case 'coord':
+						const coordNode = fieldValues[ 0 ];
+
+						if ( coordNode !== null ) {
+
+							coord = getNode( coordNode );
+
+						}
+
+						break;
+
+
+					default:
+						console.warn( 'THREE.VRMLLoader: Unknown field:', fieldName );
+						break;
+
+				}
+
+			}
+
+			const geometry = new BufferGeometry();
+
+			geometry.setAttribute( 'position', new Float32BufferAttribute( coord, 3 ) );
+
+			if ( color ) {
+
+				const colorAttribute = new Float32BufferAttribute( color, 3 );
+				convertColorsToLinearSRGB( colorAttribute );
+
+				geometry.setAttribute( 'color', colorAttribute );
+
+			}
+
+			geometry._type = 'points';
+
+			return geometry;
+
+		}
+
+		function buildBoxNode( node ) {
+
+			const size = new Vector3$2( 2, 2, 2 );
+
+			const fields = node.fields;
+
+			for ( let i = 0, l = fields.length; i < l; i ++ ) {
+
+				const field = fields[ i ];
+				const fieldName = field.name;
+				const fieldValues = field.values;
+
+				switch ( fieldName ) {
+
+					case 'size':
+						size.x = fieldValues[ 0 ];
+						size.y = fieldValues[ 1 ];
+						size.z = fieldValues[ 2 ];
+						break;
+
+					default:
+						console.warn( 'THREE.VRMLLoader: Unknown field:', fieldName );
+						break;
+
+				}
+
+			}
+
+			const geometry = new BoxGeometry( size.x, size.y, size.z );
+
+			return geometry;
+
+		}
+
+		function buildConeNode( node ) {
+
+			let radius = 1, height = 2, openEnded = false;
+
+			const fields = node.fields;
+
+			for ( let i = 0, l = fields.length; i < l; i ++ ) {
+
+				const field = fields[ i ];
+				const fieldName = field.name;
+				const fieldValues = field.values;
+
+				switch ( fieldName ) {
+
+					case 'bottom':
+						openEnded = ! fieldValues[ 0 ];
+						break;
+
+					case 'bottomRadius':
+						radius = fieldValues[ 0 ];
+						break;
+
+					case 'height':
+						height = fieldValues[ 0 ];
+						break;
+
+					case 'side':
+						// field not supported
+						break;
+
+					default:
+						console.warn( 'THREE.VRMLLoader: Unknown field:', fieldName );
+						break;
+
+				}
+
+			}
+
+			const geometry = new ConeGeometry( radius, height, 16, 1, openEnded );
+
+			return geometry;
+
+		}
+
+		function buildCylinderNode( node ) {
+
+			let radius = 1, height = 2;
+
+			const fields = node.fields;
+
+			for ( let i = 0, l = fields.length; i < l; i ++ ) {
+
+				const field = fields[ i ];
+				const fieldName = field.name;
+				const fieldValues = field.values;
+
+				switch ( fieldName ) {
+
+					case 'bottom':
+						// field not supported
+						break;
+
+					case 'radius':
+						radius = fieldValues[ 0 ];
+						break;
+
+					case 'height':
+						height = fieldValues[ 0 ];
+						break;
+
+					case 'side':
+						// field not supported
+						break;
+
+					case 'top':
+						// field not supported
+						break;
+
+					default:
+						console.warn( 'THREE.VRMLLoader: Unknown field:', fieldName );
+						break;
+
+				}
+
+			}
+
+			const geometry = new CylinderGeometry( radius, radius, height, 16, 1 );
+
+			return geometry;
+
+		}
+
+		function buildSphereNode( node ) {
+
+			let radius = 1;
+
+			const fields = node.fields;
+
+			for ( let i = 0, l = fields.length; i < l; i ++ ) {
+
+				const field = fields[ i ];
+				const fieldName = field.name;
+				const fieldValues = field.values;
+
+				switch ( fieldName ) {
+
+					case 'radius':
+						radius = fieldValues[ 0 ];
+						break;
+
+					default:
+						console.warn( 'THREE.VRMLLoader: Unknown field:', fieldName );
+						break;
+
+				}
+
+			}
+
+			const geometry = new SphereGeometry( radius, 16, 16 );
+
+			return geometry;
+
+		}
+
+		function buildElevationGridNode( node ) {
+
+			let color;
+			let normal;
+			let texCoord;
+			let height;
+
+			let colorPerVertex = true;
+			let normalPerVertex = true;
+			let solid = true;
+			let ccw = true;
+			let creaseAngle = 0;
+			let xDimension = 2;
+			let zDimension = 2;
+			let xSpacing = 1;
+			let zSpacing = 1;
+
+			const fields = node.fields;
+
+			for ( let i = 0, l = fields.length; i < l; i ++ ) {
+
+				const field = fields[ i ];
+				const fieldName = field.name;
+				const fieldValues = field.values;
+
+				switch ( fieldName ) {
+
+					case 'color':
+						const colorNode = fieldValues[ 0 ];
+
+						if ( colorNode !== null ) {
+
+							color = getNode( colorNode );
+
+						}
+
+						break;
+
+					case 'normal':
+						const normalNode = fieldValues[ 0 ];
+
+						if ( normalNode !== null ) {
+
+							normal = getNode( normalNode );
+
+						}
+
+						break;
+
+					case 'texCoord':
+						const texCoordNode = fieldValues[ 0 ];
+
+						if ( texCoordNode !== null ) {
+
+							texCoord = getNode( texCoordNode );
+
+						}
+
+						break;
+
+					case 'height':
+						height = fieldValues;
+						break;
+
+					case 'ccw':
+						ccw = fieldValues[ 0 ];
+						break;
+
+					case 'colorPerVertex':
+						colorPerVertex = fieldValues[ 0 ];
+						break;
+
+					case 'creaseAngle':
+						creaseAngle = fieldValues[ 0 ];
+						break;
+
+					case 'normalPerVertex':
+						normalPerVertex = fieldValues[ 0 ];
+						break;
+
+					case 'solid':
+						solid = fieldValues[ 0 ];
+						break;
+
+					case 'xDimension':
+						xDimension = fieldValues[ 0 ];
+						break;
+
+					case 'xSpacing':
+						xSpacing = fieldValues[ 0 ];
+						break;
+
+					case 'zDimension':
+						zDimension = fieldValues[ 0 ];
+						break;
+
+					case 'zSpacing':
+						zSpacing = fieldValues[ 0 ];
+						break;
+
+					default:
+						console.warn( 'THREE.VRMLLoader: Unknown field:', fieldName );
+						break;
+
+				}
+
+			}
+
+			// vertex data
+
+			const vertices = [];
+			const normals = [];
+			const colors = [];
+			const uvs = [];
+
+			for ( let i = 0; i < zDimension; i ++ ) {
+
+				for ( let j = 0; j < xDimension; j ++ ) {
+
+					// compute a row major index
+
+					const index = ( i * xDimension ) + j;
+
+					// vertices
+
+					const x = xSpacing * i;
+					const y = height[ index ];
+					const z = zSpacing * j;
+
+					vertices.push( x, y, z );
+
+					// colors
+
+					if ( color && colorPerVertex === true ) {
+
+						const r = color[ index * 3 + 0 ];
+						const g = color[ index * 3 + 1 ];
+						const b = color[ index * 3 + 2 ];
+
+						colors.push( r, g, b );
+
+					}
+
+					// normals
+
+					if ( normal && normalPerVertex === true ) {
+
+						const xn = normal[ index * 3 + 0 ];
+						const yn = normal[ index * 3 + 1 ];
+						const zn = normal[ index * 3 + 2 ];
+
+						normals.push( xn, yn, zn );
+
+					}
+
+					// uvs
+
+					if ( texCoord ) {
+
+						const s = texCoord[ index * 2 + 0 ];
+						const t = texCoord[ index * 2 + 1 ];
+
+						uvs.push( s, t );
+
+
+					} else {
+
+						uvs.push( i / ( xDimension - 1 ), j / ( zDimension - 1 ) );
+
+					}
+
+				}
+
+			}
+
+			// indices
+
+			const indices = [];
+
+			for ( let i = 0; i < xDimension - 1; i ++ ) {
+
+				for ( let j = 0; j < zDimension - 1; j ++ ) {
+
+					// from https://tecfa.unige.ch/guides/vrml/vrml97/spec/part1/nodesRef.html#ElevationGrid
+
+					const a = i + j * xDimension;
+					const b = i + ( j + 1 ) * xDimension;
+					const c = ( i + 1 ) + ( j + 1 ) * xDimension;
+					const d = ( i + 1 ) + j * xDimension;
+
+					// faces
+
+					if ( ccw === true ) {
+
+						indices.push( a, c, b );
+						indices.push( c, a, d );
+
+					} else {
+
+						indices.push( a, b, c );
+						indices.push( c, d, a );
+
+					}
+
+				}
+
+			}
+
+			//
+
+			const positionAttribute = toNonIndexedAttribute( indices, new Float32BufferAttribute( vertices, 3 ) );
+			const uvAttribute = toNonIndexedAttribute( indices, new Float32BufferAttribute( uvs, 2 ) );
+			let colorAttribute;
+			let normalAttribute;
+
+			// color attribute
+
+			if ( color ) {
+
+				if ( colorPerVertex === false ) {
+
+					for ( let i = 0; i < xDimension - 1; i ++ ) {
+
+						for ( let j = 0; j < zDimension - 1; j ++ ) {
+
+							const index = i + j * ( xDimension - 1 );
+
+							const r = color[ index * 3 + 0 ];
+							const g = color[ index * 3 + 1 ];
+							const b = color[ index * 3 + 2 ];
+
+							// one color per quad
+
+							colors.push( r, g, b ); colors.push( r, g, b ); colors.push( r, g, b );
+							colors.push( r, g, b ); colors.push( r, g, b ); colors.push( r, g, b );
+
+						}
+
+					}
+
+					colorAttribute = new Float32BufferAttribute( colors, 3 );
+
+				} else {
+
+					colorAttribute = toNonIndexedAttribute( indices, new Float32BufferAttribute( colors, 3 ) );
+
+				}
+
+				convertColorsToLinearSRGB( colorAttribute );
+
+			}
+
+			// normal attribute
+
+			if ( normal ) {
+
+				if ( normalPerVertex === false ) {
+
+					for ( let i = 0; i < xDimension - 1; i ++ ) {
+
+						for ( let j = 0; j < zDimension - 1; j ++ ) {
+
+							const index = i + j * ( xDimension - 1 );
+
+							const xn = normal[ index * 3 + 0 ];
+							const yn = normal[ index * 3 + 1 ];
+							const zn = normal[ index * 3 + 2 ];
+
+							// one normal per quad
+
+							normals.push( xn, yn, zn ); normals.push( xn, yn, zn ); normals.push( xn, yn, zn );
+							normals.push( xn, yn, zn ); normals.push( xn, yn, zn ); normals.push( xn, yn, zn );
+
+						}
+
+					}
+
+					normalAttribute = new Float32BufferAttribute( normals, 3 );
+
+				} else {
+
+					normalAttribute = toNonIndexedAttribute( indices, new Float32BufferAttribute( normals, 3 ) );
+
+				}
+
+			} else {
+
+				normalAttribute = computeNormalAttribute( indices, vertices, creaseAngle );
+
+			}
+
+			// build geometry
+
+			const geometry = new BufferGeometry();
+			geometry.setAttribute( 'position', positionAttribute );
+			geometry.setAttribute( 'normal', normalAttribute );
+			geometry.setAttribute( 'uv', uvAttribute );
+
+			if ( colorAttribute ) geometry.setAttribute( 'color', colorAttribute );
+
+			// "solid" influences the material so let's store it for later use
+
+			geometry._solid = solid;
+			geometry._type = 'mesh';
+
+			return geometry;
+
+		}
+
+		function buildExtrusionNode( node ) {
+
+			let crossSection = [ 1, 1, 1, -1, -1, -1, -1, 1, 1, 1 ];
+			let spine = [ 0, 0, 0, 0, 1, 0 ];
+			let scale;
+			let orientation;
+
+			let beginCap = true;
+			let ccw = true;
+			let creaseAngle = 0;
+			let endCap = true;
+			let solid = true;
+
+			const fields = node.fields;
+
+			for ( let i = 0, l = fields.length; i < l; i ++ ) {
+
+				const field = fields[ i ];
+				const fieldName = field.name;
+				const fieldValues = field.values;
+
+				switch ( fieldName ) {
+
+					case 'beginCap':
+						beginCap = fieldValues[ 0 ];
+						break;
+
+					case 'ccw':
+						ccw = fieldValues[ 0 ];
+						break;
+
+					case 'convex':
+						// field not supported
+						break;
+
+					case 'creaseAngle':
+						creaseAngle = fieldValues[ 0 ];
+						break;
+
+					case 'crossSection':
+						crossSection = fieldValues;
+						break;
+
+					case 'endCap':
+						endCap = fieldValues[ 0 ];
+						break;
+
+					case 'orientation':
+						orientation = fieldValues;
+						break;
+
+					case 'scale':
+						scale = fieldValues;
+						break;
+
+					case 'solid':
+						solid = fieldValues[ 0 ];
+						break;
+
+					case 'spine':
+						spine = fieldValues; // only extrusion along the Y-axis are supported so far
+						break;
+
+					default:
+						console.warn( 'THREE.VRMLLoader: Unknown field:', fieldName );
+						break;
+
+				}
+
+			}
+
+			const crossSectionClosed = ( crossSection[ 0 ] === crossSection[ crossSection.length - 2 ] && crossSection[ 1 ] === crossSection[ crossSection.length - 1 ] );
+
+			// vertices
+
+			const vertices = [];
+			const spineVector = new Vector3$2();
+			const scaling = new Vector3$2();
+
+			const axis = new Vector3$2();
+			const vertex = new Vector3$2();
+			const quaternion = new Quaternion$2();
+
+			for ( let i = 0, j = 0, o = 0, il = spine.length; i < il; i += 3, j += 2, o += 4 ) {
+
+				spineVector.fromArray( spine, i );
+
+				scaling.x = scale ? scale[ j + 0 ] : 1;
+				scaling.y = 1;
+				scaling.z = scale ? scale[ j + 1 ] : 1;
+
+				axis.x = orientation ? orientation[ o + 0 ] : 0;
+				axis.y = orientation ? orientation[ o + 1 ] : 0;
+				axis.z = orientation ? orientation[ o + 2 ] : 1;
+				const angle = orientation ? orientation[ o + 3 ] : 0;
+
+				for ( let k = 0, kl = crossSection.length; k < kl; k += 2 ) {
+
+					vertex.x = crossSection[ k + 0 ];
+					vertex.y = 0;
+					vertex.z = crossSection[ k + 1 ];
+
+					// scale
+
+					vertex.multiply( scaling );
+
+					// rotate
+
+					quaternion.setFromAxisAngle( axis, angle );
+					vertex.applyQuaternion( quaternion );
+
+					// translate
+
+					vertex.add( spineVector );
+
+					vertices.push( vertex.x, vertex.y, vertex.z );
+
+				}
+
+			}
+
+			// indices
+
+			const indices = [];
+
+			const spineCount = spine.length / 3;
+			const crossSectionCount = crossSection.length / 2;
+
+			for ( let i = 0; i < spineCount - 1; i ++ ) {
+
+				for ( let j = 0; j < crossSectionCount - 1; j ++ ) {
+
+					const a = j + i * crossSectionCount;
+					let b = ( j + 1 ) + i * crossSectionCount;
+					const c = j + ( i + 1 ) * crossSectionCount;
+					let d = ( j + 1 ) + ( i + 1 ) * crossSectionCount;
+
+					if ( ( j === crossSectionCount - 2 ) && ( crossSectionClosed === true ) ) {
+
+						b = i * crossSectionCount;
+						d = ( i + 1 ) * crossSectionCount;
+
+					}
+
+					if ( ccw === true ) {
+
+						indices.push( a, b, c );
+						indices.push( c, b, d );
+
+					} else {
+
+						indices.push( a, c, b );
+						indices.push( c, d, b );
+
+					}
+
+				}
+
+			}
+
+			// triangulate cap
+
+			if ( beginCap === true || endCap === true ) {
+
+				const contour = [];
+
+				for ( let i = 0, l = crossSection.length; i < l; i += 2 ) {
+
+					contour.push( new Vector2$1( crossSection[ i ], crossSection[ i + 1 ] ) );
+
+				}
+
+				const faces = ShapeUtils.triangulateShape( contour, [] );
+				const capIndices = [];
+
+				for ( let i = 0, l = faces.length; i < l; i ++ ) {
+
+					const face = faces[ i ];
+
+					capIndices.push( face[ 0 ], face[ 1 ], face[ 2 ] );
+
+				}
+
+				// begin cap
+
+				if ( beginCap === true ) {
+
+					for ( let i = 0, l = capIndices.length; i < l; i += 3 ) {
+
+						if ( ccw === true ) {
+
+							indices.push( capIndices[ i + 0 ], capIndices[ i + 1 ], capIndices[ i + 2 ] );
+
+						} else {
+
+							indices.push( capIndices[ i + 0 ], capIndices[ i + 2 ], capIndices[ i + 1 ] );
+
+						}
+
+					}
+
+				}
+
+				// end cap
+
+				if ( endCap === true ) {
+
+					const indexOffset = crossSectionCount * ( spineCount - 1 ); // references to the first vertex of the last cross section
+
+					for ( let i = 0, l = capIndices.length; i < l; i += 3 ) {
+
+						if ( ccw === true ) {
+
+							indices.push( indexOffset + capIndices[ i + 0 ], indexOffset + capIndices[ i + 2 ], indexOffset + capIndices[ i + 1 ] );
+
+						} else {
+
+							indices.push( indexOffset + capIndices[ i + 0 ], indexOffset + capIndices[ i + 1 ], indexOffset + capIndices[ i + 2 ] );
+
+						}
+
+					}
+
+				}
+
+			}
+
+			const positionAttribute = toNonIndexedAttribute( indices, new Float32BufferAttribute( vertices, 3 ) );
+			const normalAttribute = computeNormalAttribute( indices, vertices, creaseAngle );
+
+			const geometry = new BufferGeometry();
+			geometry.setAttribute( 'position', positionAttribute );
+			geometry.setAttribute( 'normal', normalAttribute );
+			// no uvs yet
+
+			// "solid" influences the material so let's store it for later use
+
+			geometry._solid = solid;
+			geometry._type = 'mesh';
+
+			return geometry;
+
+		}
+
+		// helper functions
+
+		function resolveUSE( identifier ) {
+
+			const node = nodeMap[ identifier ];
+			const build = getNode( node );
+
+			// because the same 3D objects can have different transformations, it's necessary to clone them.
+			// materials can be influenced by the geometry (e.g. vertex normals). cloning is necessary to avoid
+			// any side effects
+
+			return ( build.isObject3D || build.isMaterial ) ? build.clone() : build;
+
+		}
+
+		function parseFieldChildren( children, owner ) {
+
+			for ( let i = 0, l = children.length; i < l; i ++ ) {
+
+				const object = getNode( children[ i ] );
+
+				if ( object instanceof Object3D ) owner.add( object );
+
+			}
+
+		}
+
+		function triangulateFaceIndex( index, ccw ) {
+
+			const indices = [];
+
+			// since face definitions can have more than three vertices, it's necessary to
+			// perform a simple triangulation
+
+			let start = 0;
+
+			for ( let i = 0, l = index.length; i < l; i ++ ) {
+
+				const i1 = index[ start ];
+				const i2 = index[ i + ( ccw ? 1 : 2 ) ];
+				const i3 = index[ i + ( ccw ? 2 : 1 ) ];
+
+				indices.push( i1, i2, i3 );
+
+				// an index of -1 indicates that the current face has ended and the next one begins
+
+				if ( index[ i + 3 ] === -1 || i + 3 >= l ) {
+
+					i += 3;
+					start = i + 1;
+
+				}
+
+			}
+
+			return indices;
+
+		}
+
+		function triangulateFaceData( data, index ) {
+
+			const triangulatedData = [];
+
+			let start = 0;
+
+			for ( let i = 0, l = index.length; i < l; i ++ ) {
+
+				const stride = start * 3;
+
+				const x = data[ stride ];
+				const y = data[ stride + 1 ];
+				const z = data[ stride + 2 ];
+
+				triangulatedData.push( x, y, z );
+
+				// an index of -1 indicates that the current face has ended and the next one begins
+
+				if ( index[ i + 3 ] === -1 || i + 3 >= l ) {
+
+					i += 3;
+					start ++;
+
+				}
+
+			}
+
+			return triangulatedData;
+
+		}
+
+		function flattenData( data, index ) {
+
+			const flattenData = [];
+
+			for ( let i = 0, l = index.length; i < l; i ++ ) {
+
+				const i1 = index[ i ];
+
+				const stride = i1 * 3;
+
+				const x = data[ stride ];
+				const y = data[ stride + 1 ];
+				const z = data[ stride + 2 ];
+
+				flattenData.push( x, y, z );
+
+			}
+
+			return flattenData;
+
+		}
+
+		function expandLineIndex( index ) {
+
+			const indices = [];
+
+			for ( let i = 0, l = index.length; i < l; i ++ ) {
+
+				const i1 = index[ i ];
+				const i2 = index[ i + 1 ];
+
+				indices.push( i1, i2 );
+
+				// an index of -1 indicates that the current line has ended and the next one begins
+
+				if ( index[ i + 2 ] === -1 || i + 2 >= l ) {
+
+					i += 2;
+
+				}
+
+			}
+
+			return indices;
+
+		}
+
+		function expandLineData( data, index ) {
+
+			const triangulatedData = [];
+
+			let start = 0;
+
+			for ( let i = 0, l = index.length; i < l; i ++ ) {
+
+				const stride = start * 3;
+
+				const x = data[ stride ];
+				const y = data[ stride + 1 ];
+				const z = data[ stride + 2 ];
+
+				triangulatedData.push( x, y, z );
+
+				// an index of -1 indicates that the current line has ended and the next one begins
+
+				if ( index[ i + 2 ] === -1 || i + 2 >= l ) {
+
+					i += 2;
+					start ++;
+
+				}
+
+			}
+
+			return triangulatedData;
+
+		}
+
+		const vA = new Vector3$2();
+		const vB = new Vector3$2();
+		const vC = new Vector3$2();
+
+		const uvA = new Vector2$1();
+		const uvB = new Vector2$1();
+		const uvC = new Vector2$1();
+
+		function computeAttributeFromIndexedData( coordIndex, index, data, itemSize ) {
+
+			const array = [];
+
+			// we use the coordIndex.length as delimiter since normalIndex must contain at least as many indices
+
+			for ( let i = 0, l = coordIndex.length; i < l; i += 3 ) {
+
+				const a = index[ i ];
+				const b = index[ i + 1 ];
+				const c = index[ i + 2 ];
+
+				if ( itemSize === 2 ) {
+
+					uvA.fromArray( data, a * itemSize );
+					uvB.fromArray( data, b * itemSize );
+					uvC.fromArray( data, c * itemSize );
+
+					array.push( uvA.x, uvA.y );
+					array.push( uvB.x, uvB.y );
+					array.push( uvC.x, uvC.y );
+
+				} else {
+
+					vA.fromArray( data, a * itemSize );
+					vB.fromArray( data, b * itemSize );
+					vC.fromArray( data, c * itemSize );
+
+					array.push( vA.x, vA.y, vA.z );
+					array.push( vB.x, vB.y, vB.z );
+					array.push( vC.x, vC.y, vC.z );
+
+				}
+
+			}
+
+			return new Float32BufferAttribute( array, itemSize );
+
+		}
+
+		function computeAttributeFromFaceData( index, faceData ) {
+
+			const array = [];
+
+			for ( let i = 0, j = 0, l = index.length; i < l; i += 3, j ++ ) {
+
+				vA.fromArray( faceData, j * 3 );
+
+				array.push( vA.x, vA.y, vA.z );
+				array.push( vA.x, vA.y, vA.z );
+				array.push( vA.x, vA.y, vA.z );
+
+			}
+
+			return new Float32BufferAttribute( array, 3 );
+
+		}
+
+		function computeAttributeFromLineData( index, lineData ) {
+
+			const array = [];
+
+			for ( let i = 0, j = 0, l = index.length; i < l; i += 2, j ++ ) {
+
+				vA.fromArray( lineData, j * 3 );
+
+				array.push( vA.x, vA.y, vA.z );
+				array.push( vA.x, vA.y, vA.z );
+
+			}
+
+			return new Float32BufferAttribute( array, 3 );
+
+		}
+
+		function toNonIndexedAttribute( indices, attribute ) {
+
+			const array = attribute.array;
+			const itemSize = attribute.itemSize;
+
+			const array2 = new array.constructor( indices.length * itemSize );
+
+			let index = 0, index2 = 0;
+
+			for ( let i = 0, l = indices.length; i < l; i ++ ) {
+
+				index = indices[ i ] * itemSize;
+
+				for ( let j = 0; j < itemSize; j ++ ) {
+
+					array2[ index2 ++ ] = array[ index ++ ];
+
+				}
+
+			}
+
+			return new Float32BufferAttribute( array2, itemSize );
+
+		}
+
+		const ab = new Vector3$2();
+		const cb = new Vector3$2();
+
+		function computeNormalAttribute( index, coord, creaseAngle ) {
+
+			const faces = [];
+			const vertexNormals = {};
+
+			// prepare face and raw vertex normals
+
+			for ( let i = 0, l = index.length; i < l; i += 3 ) {
+
+				const a = index[ i ];
+				const b = index[ i + 1 ];
+				const c = index[ i + 2 ];
+
+				const face = new Face( a, b, c );
+
+				vA.fromArray( coord, a * 3 );
+				vB.fromArray( coord, b * 3 );
+				vC.fromArray( coord, c * 3 );
+
+				cb.subVectors( vC, vB );
+				ab.subVectors( vA, vB );
+				cb.cross( ab );
+
+				cb.normalize();
+
+				face.normal.copy( cb );
+
+				if ( vertexNormals[ a ] === undefined ) vertexNormals[ a ] = [];
+				if ( vertexNormals[ b ] === undefined ) vertexNormals[ b ] = [];
+				if ( vertexNormals[ c ] === undefined ) vertexNormals[ c ] = [];
+
+				vertexNormals[ a ].push( face.normal );
+				vertexNormals[ b ].push( face.normal );
+				vertexNormals[ c ].push( face.normal );
+
+				faces.push( face );
+
+			}
+
+			// compute vertex normals and build final geometry
+
+			const normals = [];
+
+			for ( let i = 0, l = faces.length; i < l; i ++ ) {
+
+				const face = faces[ i ];
+
+				const nA = weightedNormal( vertexNormals[ face.a ], face.normal, creaseAngle );
+				const nB = weightedNormal( vertexNormals[ face.b ], face.normal, creaseAngle );
+				const nC = weightedNormal( vertexNormals[ face.c ], face.normal, creaseAngle );
+
+				vA.fromArray( coord, face.a * 3 );
+				vB.fromArray( coord, face.b * 3 );
+				vC.fromArray( coord, face.c * 3 );
+
+				normals.push( nA.x, nA.y, nA.z );
+				normals.push( nB.x, nB.y, nB.z );
+				normals.push( nC.x, nC.y, nC.z );
+
+			}
+
+			return new Float32BufferAttribute( normals, 3 );
+
+		}
+
+		function weightedNormal( normals, vector, creaseAngle ) {
+
+			const normal = new Vector3$2();
+
+			if ( creaseAngle === 0 ) {
+
+				normal.copy( vector );
+
+			} else {
+
+				for ( let i = 0, l = normals.length; i < l; i ++ ) {
+
+					if ( normals[ i ].angleTo( vector ) < creaseAngle ) {
+
+						normal.add( normals[ i ] );
+
+					}
+
+				}
+
+			}
+
+			return normal.normalize();
+
+		}
+
+		function toColorArray( colors ) {
+
+			const array = [];
+
+			for ( let i = 0, l = colors.length; i < l; i += 3 ) {
+
+				array.push( new Color$1( colors[ i ], colors[ i + 1 ], colors[ i + 2 ] ) );
+
+			}
+
+			return array;
+
+		}
+
+		function convertColorsToLinearSRGB( attribute ) {
+
+			const color = new Color$1();
+
+			for ( let i = 0; i < attribute.count; i ++ ) {
+
+				color.fromBufferAttribute( attribute, i );
+
+				ColorManagement$1.colorSpaceToWorking( color, SRGBColorSpace$1 );
+
+				attribute.setXYZ( i, color.r, color.g, color.b );
+
+			}
+
+		}
+
+		/**
+		 * Vertically paints the faces interpolating between the
+		 * specified colors at the specified angels. This is used for the Background
+		 * node, but could be applied to other nodes with multiple faces as well.
+		 *
+		 * When used with the Background node, default is directionIsDown is true if
+		 * interpolating the skyColor down from the Zenith. When interpolating up from
+		 * the Nadir i.e. interpolating the groundColor, the directionIsDown is false.
+		 *
+		 * The first angle is never specified, it is the Zenith (0 rad). Angles are specified
+		 * in radians. The geometry is thought a sphere, but could be anything. The color interpolation
+		 * is linear along the Y axis in any case.
+		 *
+		 * You must specify one more color than you have angles at the beginning of the colors array.
+		 * This is the color of the Zenith (the top of the shape).
+		 *
+		 * @param {BufferGeometry} geometry
+		 * @param {number} radius
+		 * @param {Array} angles
+		 * @param {Array} colors
+		 * @param {boolean} topDown - Whether to work top down or bottom up.
+		 */
+		function paintFaces( geometry, radius, angles, colors, topDown ) {
+
+			// compute threshold values
+
+			const thresholds = [];
+			const startAngle = ( topDown === true ) ? 0 : Math.PI;
+
+			for ( let i = 0, l = colors.length; i < l; i ++ ) {
+
+				let angle = ( i === 0 ) ? 0 : angles[ i - 1 ];
+				angle = ( topDown === true ) ? angle : ( startAngle - angle );
+
+				const point = new Vector3$2();
+				point.setFromSphericalCoords( radius, angle, 0 );
+
+				thresholds.push( point );
+
+			}
+
+			// generate vertex colors
+
+			const indices = geometry.index;
+			const positionAttribute = geometry.attributes.position;
+			const colorAttribute = new BufferAttribute$1( new Float32Array( geometry.attributes.position.count * 3 ), 3 );
+
+			const position = new Vector3$2();
+			const color = new Color$1();
+
+			for ( let i = 0; i < indices.count; i ++ ) {
+
+				const index = indices.getX( i );
+				position.fromBufferAttribute( positionAttribute, index );
+
+				let thresholdIndexA, thresholdIndexB;
+				let t = 1;
+
+				for ( let j = 1; j < thresholds.length; j ++ ) {
+
+					thresholdIndexA = j - 1;
+					thresholdIndexB = j;
+
+					const thresholdA = thresholds[ thresholdIndexA ];
+					const thresholdB = thresholds[ thresholdIndexB ];
+
+					if ( topDown === true ) {
+
+						// interpolation for sky color
+
+						if ( position.y <= thresholdA.y && position.y > thresholdB.y ) {
+
+							t = Math.abs( thresholdA.y - position.y ) / Math.abs( thresholdA.y - thresholdB.y );
+
+							break;
+
+						}
+
+					} else {
+
+						// interpolation for ground color
+
+						if ( position.y >= thresholdA.y && position.y < thresholdB.y ) {
+
+							t = Math.abs( thresholdA.y - position.y ) / Math.abs( thresholdA.y - thresholdB.y );
+
+							break;
+
+						}
+
+					}
+
+				}
+
+				const colorA = colors[ thresholdIndexA ];
+				const colorB = colors[ thresholdIndexB ];
+
+				color.copy( colorA ).lerp( colorB, t );
+
+				ColorManagement$1.colorSpaceToWorking( color, SRGBColorSpace$1 );
+
+				colorAttribute.setXYZ( index, color.r, color.g, color.b );
+
+			}
+
+			geometry.setAttribute( 'color', colorAttribute );
+
+		}
+
+		//
+
+		const textureLoader = new TextureLoader( this.manager );
+		textureLoader.setPath( this.resourcePath || path ).setCrossOrigin( this.crossOrigin );
+
+		// check version (only 2.0 is supported)
+
+		if ( data.indexOf( '#VRML V2.0' ) === -1 ) {
+
+			throw Error( 'THREE.VRMLLexer: Version of VRML asset not supported.' );
+
+		}
+
+		// create JSON representing the tree structure of the VRML asset
+
+		const tree = generateVRMLTree( data );
+
+		// parse the tree structure to a three.js scene
+
+		const scene = parseTree( tree );
+
+		return scene;
+
+	}
+
+}
+
+class VRMLLexer {
+
+	constructor( tokens ) {
+
+		this.lexer = new chevrotain.Lexer( tokens );
+
+	}
+
+	lex( inputText ) {
+
+		const lexingResult = this.lexer.tokenize( inputText );
+
+		if ( lexingResult.errors.length > 0 ) {
+
+			console.error( lexingResult.errors );
+
+			throw Error( 'THREE.VRMLLexer: Lexing errors detected.' );
+
+		}
+
+		return lexingResult;
+
+	}
+
+}
+
+const CstParser = chevrotain.CstParser;
+
+class VRMLParser extends CstParser {
+
+	constructor( tokenVocabulary ) {
+
+		super( tokenVocabulary );
+
+		const $ = this;
+
+		const Version = tokenVocabulary[ 'Version' ];
+		const LCurly = tokenVocabulary[ 'LCurly' ];
+		const RCurly = tokenVocabulary[ 'RCurly' ];
+		const LSquare = tokenVocabulary[ 'LSquare' ];
+		const RSquare = tokenVocabulary[ 'RSquare' ];
+		const Identifier = tokenVocabulary[ 'Identifier' ];
+		const RouteIdentifier = tokenVocabulary[ 'RouteIdentifier' ];
+		const StringLiteral = tokenVocabulary[ 'StringLiteral' ];
+		const HexLiteral = tokenVocabulary[ 'HexLiteral' ];
+		const NumberLiteral = tokenVocabulary[ 'NumberLiteral' ];
+		const TrueLiteral = tokenVocabulary[ 'TrueLiteral' ];
+		const FalseLiteral = tokenVocabulary[ 'FalseLiteral' ];
+		const NullLiteral = tokenVocabulary[ 'NullLiteral' ];
+		const DEF = tokenVocabulary[ 'DEF' ];
+		const USE = tokenVocabulary[ 'USE' ];
+		const ROUTE = tokenVocabulary[ 'ROUTE' ];
+		const TO = tokenVocabulary[ 'TO' ];
+		const NodeName = tokenVocabulary[ 'NodeName' ];
+
+		$.RULE( 'vrml', function () {
+
+			$.SUBRULE( $.version );
+			$.AT_LEAST_ONE( function () {
+
+				$.SUBRULE( $.node );
+
+			} );
+			$.MANY( function () {
+
+				$.SUBRULE( $.route );
+
+			} );
+
+		} );
+
+		$.RULE( 'version', function () {
+
+			$.CONSUME( Version );
+
+		} );
+
+		$.RULE( 'node', function () {
+
+			$.OPTION( function () {
+
+				$.SUBRULE( $.def );
+
+			} );
+
+			$.CONSUME( NodeName );
+			$.CONSUME( LCurly );
+			$.MANY( function () {
+
+				$.SUBRULE( $.field );
+
+			} );
+			$.CONSUME( RCurly );
+
+		} );
+
+		$.RULE( 'field', function () {
+
+			$.CONSUME( Identifier );
+
+			$.OR2( [
+				{ ALT: function () {
+
+					$.SUBRULE( $.singleFieldValue );
+
+				} },
+				{ ALT: function () {
+
+					$.SUBRULE( $.multiFieldValue );
+
+				} }
+			] );
+
+		} );
+
+		$.RULE( 'def', function () {
+
+			$.CONSUME( DEF );
+			$.OR( [
+				{ ALT: function () {
+
+					$.CONSUME( Identifier );
+
+				} },
+				{ ALT: function () {
+
+					$.CONSUME( NodeName );
+
+				} }
+			] );
+
+		} );
+
+		$.RULE( 'use', function () {
+
+			$.CONSUME( USE );
+			$.OR( [
+				{ ALT: function () {
+
+					$.CONSUME( Identifier );
+
+				} },
+				{ ALT: function () {
+
+					$.CONSUME( NodeName );
+
+				} }
+			] );
+
+		} );
+
+		$.RULE( 'singleFieldValue', function () {
+
+			$.AT_LEAST_ONE( function () {
+
+				$.OR( [
+					{ ALT: function () {
+
+						$.SUBRULE( $.node );
+
+					} },
+					{ ALT: function () {
+
+						$.SUBRULE( $.use );
+
+					} },
+					{ ALT: function () {
+
+						$.CONSUME( StringLiteral );
+
+					} },
+					{ ALT: function () {
+
+						$.CONSUME( HexLiteral );
+
+					} },
+					{ ALT: function () {
+
+						$.CONSUME( NumberLiteral );
+
+					} },
+					{ ALT: function () {
+
+						$.CONSUME( TrueLiteral );
+
+					} },
+					{ ALT: function () {
+
+						$.CONSUME( FalseLiteral );
+
+					} },
+					{ ALT: function () {
+
+						$.CONSUME( NullLiteral );
+
+					} }
+				] );
+
+
+			} );
+
+		} );
+
+		$.RULE( 'multiFieldValue', function () {
+
+			$.CONSUME( LSquare );
+			$.MANY( function () {
+
+				$.OR( [
+					{ ALT: function () {
+
+						$.SUBRULE( $.node );
+
+					} },
+					{ ALT: function () {
+
+						$.SUBRULE( $.use );
+
+					} },
+					{ ALT: function () {
+
+						$.CONSUME( StringLiteral );
+
+					} },
+					{ ALT: function () {
+
+						$.CONSUME( HexLiteral );
+
+					} },
+					{ ALT: function () {
+
+						$.CONSUME( NumberLiteral );
+
+					} },
+					{ ALT: function () {
+
+						$.CONSUME( NullLiteral );
+
+					} }
+				] );
+
+			} );
+			$.CONSUME( RSquare );
+
+		} );
+
+		$.RULE( 'route', function () {
+
+			$.CONSUME( ROUTE );
+			$.CONSUME( RouteIdentifier );
+			$.CONSUME( TO );
+			$.CONSUME2( RouteIdentifier );
+
+		} );
+
+		this.performSelfAnalysis();
+
+	}
+
+}
+
+class Face {
+
+	constructor( a, b, c ) {
+
+		this.a = a;
+		this.b = b;
+		this.c = c;
+		this.normal = new Vector3$2();
+
+	}
+
+}
+
+const TEXTURE_TYPE = {
+	INTENSITY: 1,
+	INTENSITY_ALPHA: 2,
+	RGB: 3,
+	RGBA: 4
+};
+
+var VRMLLoader$1 = /*#__PURE__*/Object.freeze({
+	__proto__: null,
+	VRMLLoader: VRMLLoader
+});
+
+/**
+ * A loader for the KMZ format.
+ *
+ * ```js
+ * const loader = new KMZLoader();
+ * const kmz = await loader.loadAsync( './models/kmz/Box.kmz' );
+ *
+ * scene.add( kmz.scene );
+ * ```
+ *
+ * @augments Loader
+ * @three_import import { KMZLoader } from 'three/addons/loaders/KMZLoader.js';
+ */
+class KMZLoader extends Loader {
+
+	/**
+	 * Constructs a new KMZ loader.
+	 *
+	 * @param {LoadingManager} [manager] - The loading manager.
+	 */
+	constructor( manager ) {
+
+		super( manager );
+
+	}
+
+	/**
+	 * Starts loading from the given URL and passes the loaded KMZ asset
+	 * to the `onLoad()` callback.
+	 *
+	 * @param {string} url - The path/URL of the file to be loaded. This can also be a data URI.
+	 * @param {function({scene:Group})} onLoad - Executed when the loading process has been finished.
+	 * @param {onProgressCallback} onProgress - Executed while the loading is in progress.
+	 * @param {onErrorCallback} onError - Executed when errors occur.
+	 */
+	load( url, onLoad, onProgress, onError ) {
+
+		const scope = this;
+
+		const loader = new FileLoader( scope.manager );
+		loader.setPath( scope.path );
+		loader.setResponseType( 'arraybuffer' );
+		loader.setRequestHeader( scope.requestHeader );
+		loader.setWithCredentials( scope.withCredentials );
+		loader.load( url, function ( text ) {
+
+			try {
+
+				onLoad( scope.parse( text ) );
+
+			} catch ( e ) {
+
+				if ( onError ) {
+
+					onError( e );
+
+				} else {
+
+					console.error( e );
+
+				}
+
+				scope.manager.itemError( url );
+
+			}
+
+		}, onProgress, onError );
+
+	}
+
+	/**
+	 * Parses the given KMZ data and returns an object holding the scene.
+	 *
+	 * @param {ArrayBuffer} data - The raw KMZ data as an array buffer.
+	 * @return {{scene:Group}} The parsed KMZ asset.
+	 */
+	parse( data ) {
+
+		function findFile( url ) {
+
+			for ( const path in zip ) {
+
+				if ( path.slice( - url.length ) === url ) {
+
+					return zip[ path ];
+
+				}
+
+			}
+
+		}
+
+		const manager = new LoadingManager();
+		manager.setURLModifier( function ( url ) {
+
+			const image = findFile( url );
+
+			if ( image ) {
+
+				console.log( 'Loading', url );
+
+				const blob = new Blob( [ image.buffer ], { type: 'application/octet-stream' } );
+				return URL.createObjectURL( blob );
+
+			}
+
+			return url;
+
+		} );
+
+		//
+
+		const zip = unzipSync( new Uint8Array( data ) );
+
+		if ( zip[ 'doc.kml' ] ) {
+
+			const xml = new DOMParser().parseFromString( new TextDecoder().decode( zip[ 'doc.kml' ] ), 'application/xml' );
+
+			const model = xml.querySelector( 'Placemark Model Link href' );
+
+			if ( model ) {
+
+				const loader = new ColladaLoader( manager );
+				return loader.parse( new TextDecoder().decode( zip[ model.textContent ] ) );
+
+			}
+
+		} else {
+
+			console.warn( 'KMZLoader: Missing doc.kml file.' );
+
+			for ( const path in zip ) {
+
+				const extension = path.split( '.' ).pop().toLowerCase();
+
+				if ( extension === 'dae' ) {
+
+					const loader = new ColladaLoader( manager );
+					return loader.parse( new TextDecoder().decode( zip[ path ] ) );
+
+				}
+
+			}
+
+		}
+
+		console.error( 'KMZLoader: Couldn\'t find .dae file.' );
+		return { scene: new Group$1() };
+
+	}
+
+}
+
+var KMZLoader$1 = /*#__PURE__*/Object.freeze({
+	__proto__: null,
+	KMZLoader: KMZLoader
+});
+
+// Helper function to read a STRING from the data view
+function readString( data, offset ) {
+
+	const size = data.getUint32( offset, true );
+	offset += 4;
+
+	let str = '';
+	for ( let i = 0; i < size; i ++ ) {
+
+		str += String.fromCharCode( data.getUint8( offset ++ ) );
+
+	}
+
+	return { value: str, size: 4 + size };
+
+}
+
+// Helper function to read a DICT from the data view
+function readDict( data, offset ) {
+
+	const dict = {};
+	const count = data.getUint32( offset, true );
+	offset += 4;
+
+	let totalSize = 4;
+
+	for ( let i = 0; i < count; i ++ ) {
+
+		const key = readString( data, offset );
+		offset += key.size;
+		totalSize += key.size;
+
+		const value = readString( data, offset );
+		offset += value.size;
+		totalSize += value.size;
+
+		dict[ key.value ] = value.value;
+
+	}
+
+	return { value: dict, size: totalSize };
+
+}
+
+// Helper function to decode ROTATION byte into a rotation matrix
+function decodeRotation( byte ) {
+
+	// The rotation is stored as a row-major 3x3 matrix encoded in a single byte
+	// Bits 0-1: index of the non-zero entry in the first row
+	// Bits 2-3: index of the non-zero entry in the second row
+	// Bit 4: sign of the first row entry (0 = positive, 1 = negative)
+	// Bit 5: sign of the second row entry
+	// Bit 6: sign of the third row entry
+	// The third row index is determined by the remaining column
+
+	const index1 = byte & 0x3;
+	const index2 = ( byte >> 2 ) & 0x3;
+	const sign1 = ( byte >> 4 ) & 0x1 ? -1 : 1;
+	const sign2 = ( byte >> 5 ) & 0x1 ? -1 : 1;
+	const sign3 = ( byte >> 6 ) & 0x1 ? -1 : 1;
+
+	// Find the third row index (the one not used by row 0 or row 1)
+	const index3 = 3 - index1 - index2;
+
+	// Build the VOX rotation matrix (row-major 3x3)
+	// r[row][col] - each row has one non-zero entry
+	const r = [
+		[ 0, 0, 0 ],
+		[ 0, 0, 0 ],
+		[ 0, 0, 0 ]
+	];
+
+	r[ 0 ][ index1 ] = sign1;
+	r[ 1 ][ index2 ] = sign2;
+	r[ 2 ][ index3 ] = sign3;
+
+	// Convert from VOX coordinate system (Z-up) to Three.js (Y-up)
+	// VOX: X-right, Y-forward, Z-up
+	// Three.js: X-right, Y-up, Z-backward
+	// Transformation: x' = x, y' = z, z' = -y
+	//
+	// To convert rotation matrix R_vox to R_three:
+	// R_three = C * R_vox * C^-1
+	// where C converts VOX coords to Three.js coords
+
+	// Apply coordinate change: swap Y and Z, negate new Z
+	// This is equivalent to: C * R * C^-1
+	const m = new Matrix4$2();
+	m.set(
+		r[ 0 ][ 0 ], r[ 0 ][ 2 ], - r[ 0 ][ 1 ], 0,
+		r[ 2 ][ 0 ], r[ 2 ][ 2 ], - r[ 2 ][ 1 ], 0,
+		- r[ 1 ][ 0 ], - r[ 1 ][ 2 ], r[ 1 ][ 1 ], 0,
+		0, 0, 0, 1
+	);
+
+	return m;
+
+}
+
+// Apply VOX transform to a Three.js object
+function applyTransform( object, node ) {
+
+	if ( node.attributes._name ) {
+
+		object.name = node.attributes._name;
+
+	}
+
+	if ( node.frames.length > 0 ) {
+
+		const frame = node.frames[ 0 ];
+
+		if ( frame.rotation ) {
+
+			object.applyMatrix4( frame.rotation );
+
+		}
+
+		if ( frame.translation ) {
+
+			// VOX uses Z-up, Three.js uses Y-up
+			object.position.set(
+				frame.translation.x,
+				frame.translation.z,
+				- frame.translation.y
+			);
+
+		}
+
+	}
+
+}
+
+// Recursively build Three.js object graph from VOX nodes
+function buildObject( nodeId, nodes, chunks ) {
+
+	const node = nodes[ nodeId ];
+
+	if ( node.type === 'transform' ) {
+
+		const childNode = nodes[ node.childNodeId ];
+
+		// Check if this transform has actual transformation data
+		const frame = node.frames[ 0 ];
+		const hasTransform = frame && ( frame.rotation || frame.translation );
+
+		// Flatten: if child is a single-model shape, apply transform directly to mesh
+		if ( childNode.type === 'shape' && childNode.models.length === 1 ) {
+
+			const chunk = chunks[ childNode.models[ 0 ].modelId ];
+			const mesh = buildMesh( chunk );
+			applyTransform( mesh, node );
+			return mesh;
+
+		}
+
+		// If no transform, just return the child directly (avoid unnecessary group)
+		if ( ! hasTransform ) {
+
+			const child = buildObject( node.childNodeId, nodes, chunks );
+			if ( child && node.attributes._name ) child.name = node.attributes._name;
+			return child;
+
+		}
+
+		// Otherwise create a group
+		const group = new Group$1();
+		applyTransform( group, node );
+
+		const child = buildObject( node.childNodeId, nodes, chunks );
+		if ( child ) group.add( child );
+
+		return group;
+
+	} else if ( node.type === 'group' ) {
+
+		const group = new Group$1();
+
+		for ( const childId of node.childIds ) {
+
+			const child = buildObject( childId, nodes, chunks );
+			if ( child ) group.add( child );
+
+		}
+
+		return group;
+
+	} else if ( node.type === 'shape' ) {
+
+		// Shape reached directly (shouldn't happen in well-formed files, but handle it)
+		if ( node.models.length === 1 ) {
+
+			const chunk = chunks[ node.models[ 0 ].modelId ];
+			return buildMesh( chunk );
+
+		}
+
+		const group = new Group$1();
+
+		for ( const model of node.models ) {
+
+			const chunk = chunks[ model.modelId ];
+			group.add( buildMesh( chunk ) );
+
+		}
+
+		return group;
+
+	}
+
+	return null;
+
+}
+
+/**
+ * A loader for the VOX format.
+ *
+ * ```js
+ * const loader = new VOXLoader();
+ * const result = await loader.loadAsync( 'models/vox/monu10.vox' );
+ *
+ * scene.add( result.scene.children[ 0 ] );
+ * ```
+ * @augments Loader
+ * @three_import import { VOXLoader } from 'three/addons/loaders/VOXLoader.js';
+ */
+class VOXLoader extends Loader {
+
+	/**
+	 * Starts loading from the given URL and passes the loaded VOX asset
+	 * to the `onLoad()` callback.
+	 *
+	 * @param {string} url - The path/URL of the file to be loaded. This can also be a data URI.
+	 * @param {function(Object)} onLoad - Executed when the loading process has been finished.
+	 * @param {onProgressCallback} onProgress - Executed while the loading is in progress.
+	 * @param {onErrorCallback} onError - Executed when errors occur.
+	 */
+	load( url, onLoad, onProgress, onError ) {
+
+		const scope = this;
+
+		const loader = new FileLoader( scope.manager );
+		loader.setPath( scope.path );
+		loader.setResponseType( 'arraybuffer' );
+		loader.setRequestHeader( scope.requestHeader );
+		loader.load( url, function ( buffer ) {
+
+			try {
+
+				onLoad( scope.parse( buffer ) );
+
+			} catch ( e ) {
+
+				if ( onError ) {
+
+					onError( e );
+
+				} else {
+
+					console.error( e );
+
+				}
+
+				scope.manager.itemError( url );
+
+			}
+
+		}, onProgress, onError );
+
+	}
+
+	/**
+	 * Parses the given VOX data and returns the result object.
+	 *
+	 * @param {ArrayBuffer} buffer - The raw VOX data as an array buffer.
+	 * @return {Object} The parsed VOX data with properties: chunks, scene.
+	 */
+	parse( buffer ) {
+
+		const data = new DataView( buffer );
+
+		const id = data.getUint32( 0, true );
+		const version = data.getUint32( 4, true );
+
+		if ( id !== 542658390 ) {
+
+			console.error( 'THREE.VOXLoader: Invalid VOX file.' );
+			return;
+
+		}
+
+		if ( version !== 150 && version !== 200 ) {
+
+			console.error( 'THREE.VOXLoader: Invalid VOX file. Unsupported version:', version );
+			return;
+
+		}
+
+		const DEFAULT_PALETTE = [
+			0x00000000, 0xffffffff, 0xffccffff, 0xff99ffff, 0xff66ffff, 0xff33ffff, 0xff00ffff, 0xffffccff,
+			0xffccccff, 0xff99ccff, 0xff66ccff, 0xff33ccff, 0xff00ccff, 0xffff99ff, 0xffcc99ff, 0xff9999ff,
+			0xff6699ff, 0xff3399ff, 0xff0099ff, 0xffff66ff, 0xffcc66ff, 0xff9966ff, 0xff6666ff, 0xff3366ff,
+			0xff0066ff, 0xffff33ff, 0xffcc33ff, 0xff9933ff, 0xff6633ff, 0xff3333ff, 0xff0033ff, 0xffff00ff,
+			0xffcc00ff, 0xff9900ff, 0xff6600ff, 0xff3300ff, 0xff0000ff, 0xffffffcc, 0xffccffcc, 0xff99ffcc,
+			0xff66ffcc, 0xff33ffcc, 0xff00ffcc, 0xffffcccc, 0xffcccccc, 0xff99cccc, 0xff66cccc, 0xff33cccc,
+			0xff00cccc, 0xffff99cc, 0xffcc99cc, 0xff9999cc, 0xff6699cc, 0xff3399cc, 0xff0099cc, 0xffff66cc,
+			0xffcc66cc, 0xff9966cc, 0xff6666cc, 0xff3366cc, 0xff0066cc, 0xffff33cc, 0xffcc33cc, 0xff9933cc,
+			0xff6633cc, 0xff3333cc, 0xff0033cc, 0xffff00cc, 0xffcc00cc, 0xff9900cc, 0xff6600cc, 0xff3300cc,
+			0xff0000cc, 0xffffff99, 0xffccff99, 0xff99ff99, 0xff66ff99, 0xff33ff99, 0xff00ff99, 0xffffcc99,
+			0xffcccc99, 0xff99cc99, 0xff66cc99, 0xff33cc99, 0xff00cc99, 0xffff9999, 0xffcc9999, 0xff999999,
+			0xff669999, 0xff339999, 0xff009999, 0xffff6699, 0xffcc6699, 0xff996699, 0xff666699, 0xff336699,
+			0xff006699, 0xffff3399, 0xffcc3399, 0xff993399, 0xff663399, 0xff333399, 0xff003399, 0xffff0099,
+			0xffcc0099, 0xff990099, 0xff660099, 0xff330099, 0xff000099, 0xffffff66, 0xffccff66, 0xff99ff66,
+			0xff66ff66, 0xff33ff66, 0xff00ff66, 0xffffcc66, 0xffcccc66, 0xff99cc66, 0xff66cc66, 0xff33cc66,
+			0xff00cc66, 0xffff9966, 0xffcc9966, 0xff999966, 0xff669966, 0xff339966, 0xff009966, 0xffff6666,
+			0xffcc6666, 0xff996666, 0xff666666, 0xff336666, 0xff006666, 0xffff3366, 0xffcc3366, 0xff993366,
+			0xff663366, 0xff333366, 0xff003366, 0xffff0066, 0xffcc0066, 0xff990066, 0xff660066, 0xff330066,
+			0xff000066, 0xffffff33, 0xffccff33, 0xff99ff33, 0xff66ff33, 0xff33ff33, 0xff00ff33, 0xffffcc33,
+			0xffcccc33, 0xff99cc33, 0xff66cc33, 0xff33cc33, 0xff00cc33, 0xffff9933, 0xffcc9933, 0xff999933,
+			0xff669933, 0xff339933, 0xff009933, 0xffff6633, 0xffcc6633, 0xff996633, 0xff666633, 0xff336633,
+			0xff006633, 0xffff3333, 0xffcc3333, 0xff993333, 0xff663333, 0xff333333, 0xff003333, 0xffff0033,
+			0xffcc0033, 0xff990033, 0xff660033, 0xff330033, 0xff000033, 0xffffff00, 0xffccff00, 0xff99ff00,
+			0xff66ff00, 0xff33ff00, 0xff00ff00, 0xffffcc00, 0xffcccc00, 0xff99cc00, 0xff66cc00, 0xff33cc00,
+			0xff00cc00, 0xffff9900, 0xffcc9900, 0xff999900, 0xff669900, 0xff339900, 0xff009900, 0xffff6600,
+			0xffcc6600, 0xff996600, 0xff666600, 0xff336600, 0xff006600, 0xffff3300, 0xffcc3300, 0xff993300,
+			0xff663300, 0xff333300, 0xff003300, 0xffff0000, 0xffcc0000, 0xff990000, 0xff660000, 0xff330000,
+			0xff0000ee, 0xff0000dd, 0xff0000bb, 0xff0000aa, 0xff000088, 0xff000077, 0xff000055, 0xff000044,
+			0xff000022, 0xff000011, 0xff00ee00, 0xff00dd00, 0xff00bb00, 0xff00aa00, 0xff008800, 0xff007700,
+			0xff005500, 0xff004400, 0xff002200, 0xff001100, 0xffee0000, 0xffdd0000, 0xffbb0000, 0xffaa0000,
+			0xff880000, 0xff770000, 0xff550000, 0xff440000, 0xff220000, 0xff110000, 0xffeeeeee, 0xffdddddd,
+			0xffbbbbbb, 0xffaaaaaa, 0xff888888, 0xff777777, 0xff555555, 0xff444444, 0xff222222, 0xff111111
+		];
+
+		let i = 8;
+
+		let chunk;
+		const chunks = [];
+
+		// Extension data
+		const nodes = {};
+		let palette = DEFAULT_PALETTE;
+
+		while ( i < data.byteLength ) {
+
+			let id = '';
+
+			for ( let j = 0; j < 4; j ++ ) {
+
+				id += String.fromCharCode( data.getUint8( i ++ ) );
+
+			}
+
+			const chunkSize = data.getUint32( i, true ); i += 4;
+			i += 4; // childChunks
+
+			if ( id === 'SIZE' ) {
+
+				const x = data.getUint32( i, true ); i += 4;
+				const y = data.getUint32( i, true ); i += 4;
+				const z = data.getUint32( i, true ); i += 4;
+
+				chunk = {
+					palette: DEFAULT_PALETTE,
+					size: { x: x, y: y, z: z },
+				};
+
+				chunks.push( chunk );
+
+				i += chunkSize - ( 3 * 4 );
+
+			} else if ( id === 'XYZI' ) {
+
+				const numVoxels = data.getUint32( i, true ); i += 4;
+				chunk.data = new Uint8Array( buffer, i, numVoxels * 4 );
+
+				i += numVoxels * 4;
+
+			} else if ( id === 'RGBA' ) {
+
+				palette = [ 0 ];
+
+				for ( let j = 0; j < 256; j ++ ) {
+
+					palette[ j + 1 ] = data.getUint32( i, true ); i += 4;
+
+				}
+
+				chunk.palette = palette;
+
+			} else if ( id === 'nTRN' ) {
+
+				// Transform Node
+				const nodeId = data.getUint32( i, true ); i += 4;
+				const attributes = readDict( data, i );
+				i += attributes.size;
+
+				const childNodeId = data.getUint32( i, true ); i += 4;
+				i += 4; // reserved (-1)
+				const layerId = data.getInt32( i, true ); i += 4;
+				const numFrames = data.getUint32( i, true ); i += 4;
+
+				const frames = [];
+
+				for ( let f = 0; f < numFrames; f ++ ) {
+
+					const frameDict = readDict( data, i );
+					i += frameDict.size;
+
+					const frame = { rotation: null, translation: null };
+
+					if ( frameDict.value._r !== undefined ) {
+
+						frame.rotation = decodeRotation( parseInt( frameDict.value._r ) );
+
+					}
+
+					if ( frameDict.value._t !== undefined ) {
+
+						const parts = frameDict.value._t.split( ' ' ).map( Number );
+						frame.translation = { x: parts[ 0 ], y: parts[ 1 ], z: parts[ 2 ] };
+
+					}
+
+					frames.push( frame );
+
+				}
+
+				nodes[ nodeId ] = {
+					type: 'transform',
+					id: nodeId,
+					attributes: attributes.value,
+					childNodeId: childNodeId,
+					layerId: layerId,
+					frames: frames
+				};
+
+			} else if ( id === 'nGRP' ) {
+
+				// Group Node
+				const nodeId = data.getUint32( i, true ); i += 4;
+				const attributes = readDict( data, i );
+				i += attributes.size;
+
+				const numChildren = data.getUint32( i, true ); i += 4;
+				const childIds = [];
+
+				for ( let c = 0; c < numChildren; c ++ ) {
+
+					childIds.push( data.getUint32( i, true ) ); i += 4;
+
+				}
+
+				nodes[ nodeId ] = {
+					type: 'group',
+					id: nodeId,
+					attributes: attributes.value,
+					childIds: childIds
+				};
+
+			} else if ( id === 'nSHP' ) {
+
+				// Shape Node
+				const nodeId = data.getUint32( i, true ); i += 4;
+				const attributes = readDict( data, i );
+				i += attributes.size;
+
+				const numModels = data.getUint32( i, true ); i += 4;
+				const models = [];
+
+				for ( let m = 0; m < numModels; m ++ ) {
+
+					const modelId = data.getUint32( i, true ); i += 4;
+					const modelAttributes = readDict( data, i );
+					i += modelAttributes.size;
+
+					models.push( {
+						modelId: modelId,
+						attributes: modelAttributes.value
+					} );
+
+				}
+
+				nodes[ nodeId ] = {
+					type: 'shape',
+					id: nodeId,
+					attributes: attributes.value,
+					models: models
+				};
+
+			} else {
+
+				// Skip unknown chunks
+				i += chunkSize;
+
+			}
+
+		}
+
+		// Apply palette to all chunks
+		for ( let c = 0; c < chunks.length; c ++ ) {
+
+			chunks[ c ].palette = palette;
+
+		}
+
+		// Build Three.js scene graph from nodes
+		let scene = null;
+
+		if ( Object.keys( nodes ).length > 0 ) {
+
+			scene = buildObject( 0, nodes, chunks );
+
+		}
+
+		// Build result object
+		const result = {
+			chunks: chunks,
+			scene: scene
+		};
+
+		// @deprecated, r182
+		// Proxy for backwards compatibility with array-like access
+		let warned = false;
+
+		return new Proxy( result, {
+
+			get( target, prop ) {
+
+				// Handle numeric indices
+				if ( typeof prop === 'string' && /^\d+$/.test( prop ) ) {
+
+					if ( ! warned ) {
+
+						console.warn( 'THREE.VOXLoader: Accessing result as an array is deprecated. Use result.chunks[] instead.' );
+						warned = true;
+
+					}
+
+					return target.chunks[ parseInt( prop ) ];
+
+				}
+
+				// Handle array properties/methods
+				if ( prop === 'length' ) {
+
+					if ( ! warned ) {
+
+						console.warn( 'THREE.VOXLoader: Accessing result as an array is deprecated. Use result.chunks instead.' );
+						warned = true;
+
+					}
+
+					return target.chunks.length;
+
+				}
+
+				// Handle iteration
+				if ( prop === Symbol.iterator ) {
+
+					if ( ! warned ) {
+
+						console.warn( 'THREE.VOXLoader: Iterating result as an array is deprecated. Use result.chunks instead.' );
+						warned = true;
+
+					}
+
+					return target.chunks[ Symbol.iterator ].bind( target.chunks );
+
+				}
+
+				return target[ prop ];
+
+			}
+
+		} );
+
+	}
+
+}
+
+/**
+ * Builds a mesh from a VOX chunk.
+ *
+ * @param {Object} chunk - A VOX chunk loaded via {@link VOXLoader}.
+ * @return {Mesh} The generated mesh.
+ */
+function buildMesh( chunk ) {
+
+	const data = chunk.data;
+	const size = chunk.size;
+	const palette = chunk.palette;
+
+	const sx = size.x;
+	const sy = size.y;
+	const sz = size.z;
+
+	// Build volume with color indices
+
+	const volume = new Uint8Array( sx * sy * sz );
+
+	for ( let j = 0; j < data.length; j += 4 ) {
+
+		const x = data[ j + 0 ];
+		const y = data[ j + 1 ];
+		const z = data[ j + 2 ];
+		const c = data[ j + 3 ];
+
+		volume[ x + y * sx + z * sx * sy ] = c;
+
+	}
+
+	// Greedy meshing
+
+	const vertices = [];
+	const indices = [];
+	const colors = [];
+
+	const _color = new Color$1();
+	let hasColors = false;
+
+	// Process each of the 6 face directions
+	// dims: the 3 axis sizes, d: which axis is normal to the face
+	const dims = [ sx, sy, sz ];
+
+	for ( let d = 0; d < 3; d ++ ) {
+
+		const u = ( d + 1 ) % 3;
+		const v = ( d + 2 ) % 3;
+
+		const dimsD = dims[ d ];
+		const dimsU = dims[ u ];
+		const dimsV = dims[ v ];
+
+		const q = [ 0, 0, 0 ];
+		const mask = new Int16Array( dimsU * dimsV );
+
+		q[ d ] = 1;
+
+		// Sweep through slices
+		for ( let slice = 0; slice <= dimsD; slice ++ ) {
+
+			// Build mask for this slice
+			let n = 0;
+
+			for ( let vv = 0; vv < dimsV; vv ++ ) {
+
+				for ( let uu = 0; uu < dimsU; uu ++ ) {
+
+					const pos = [ 0, 0, 0 ];
+					pos[ d ] = slice;
+					pos[ u ] = uu;
+					pos[ v ] = vv;
+
+					const x0 = pos[ 0 ], y0 = pos[ 1 ], z0 = pos[ 2 ];
+
+					// Get voxel behind and in front of this face
+					const behind = ( slice > 0 ) ? volume[ ( x0 - q[ 0 ] ) + ( y0 - q[ 1 ] ) * sx + ( z0 - q[ 2 ] ) * sx * sy ] : 0;
+					const infront = ( slice < dimsD ) ? volume[ x0 + y0 * sx + z0 * sx * sy ] : 0;
+
+					// Face exists if exactly one side is solid
+					if ( behind > 0 && infront === 0 ) {
+
+						mask[ n ] = behind; // positive face
+
+					} else if ( infront > 0 && behind === 0 ) {
+
+						mask[ n ] = - infront; // negative face
+
+					} else {
+
+						mask[ n ] = 0;
+
+					}
+
+					n ++;
+
+				}
+
+			}
+
+			// Greedy merge mask into quads
+			n = 0;
+
+			for ( let vv = 0; vv < dimsV; vv ++ ) {
+
+				for ( let uu = 0; uu < dimsU; ) {
+
+					const c = mask[ n ];
+
+					if ( c !== 0 ) {
+
+						// Find width
+						let w = 1;
+
+						while ( uu + w < dimsU && mask[ n + w ] === c ) {
+
+							w ++;
+
+						}
+
+						// Find height
+						let h = 1;
+						let done = false;
+
+						while ( vv + h < dimsV && ! done ) {
+
+							for ( let k = 0; k < w; k ++ ) {
+
+								if ( mask[ n + k + h * dimsU ] !== c ) {
+
+									done = true;
+									break;
+
+								}
+
+							}
+
+							if ( ! done ) h ++;
+
+						}
+
+						// Add quad
+						const pos = [ 0, 0, 0 ];
+						pos[ d ] = slice;
+						pos[ u ] = uu;
+						pos[ v ] = vv;
+
+						const du = [ 0, 0, 0 ];
+						const dv = [ 0, 0, 0 ];
+						du[ u ] = w;
+						dv[ v ] = h;
+
+						// Get color
+						const colorIndex = Math.abs( c );
+						const hex = palette[ colorIndex ];
+						const r = ( hex >> 0 & 0xff ) / 0xff;
+						const g = ( hex >> 8 & 0xff ) / 0xff;
+						const b = ( hex >> 16 & 0xff ) / 0xff;
+
+						if ( r > 0 || g > 0 || b > 0 ) hasColors = true;
+
+						_color.setRGB( r, g, b, SRGBColorSpace$1 );
+
+						// Convert VOX coords to Three.js coords (Y-up)
+						// VOX: X right, Y forward, Z up -> Three.js: X right, Y up, Z back
+						const toThree = ( p ) => [
+							p[ 0 ] - sx / 2,
+							p[ 2 ] - sz / 2,
+							- p[ 1 ] + sy / 2
+						];
+
+						const v0 = toThree( pos );
+						const v1 = toThree( [ pos[ 0 ] + du[ 0 ], pos[ 1 ] + du[ 1 ], pos[ 2 ] + du[ 2 ] ] );
+						const v2 = toThree( [ pos[ 0 ] + du[ 0 ] + dv[ 0 ], pos[ 1 ] + du[ 1 ] + dv[ 1 ], pos[ 2 ] + du[ 2 ] + dv[ 2 ] ] );
+						const v3 = toThree( [ pos[ 0 ] + dv[ 0 ], pos[ 1 ] + dv[ 1 ], pos[ 2 ] + dv[ 2 ] ] );
+
+						const idx = vertices.length / 3;
+
+						// Winding order depends on face direction
+						if ( c > 0 ) {
+
+							vertices.push( ...v0, ...v1, ...v2, ...v3 );
+							indices.push( idx, idx + 1, idx + 2, idx, idx + 2, idx + 3 );
+
+						} else {
+
+							vertices.push( ...v0, ...v3, ...v2, ...v1 );
+							indices.push( idx, idx + 1, idx + 2, idx, idx + 2, idx + 3 );
+
+						}
+
+						colors.push(
+							_color.r, _color.g, _color.b,
+							_color.r, _color.g, _color.b,
+							_color.r, _color.g, _color.b,
+							_color.r, _color.g, _color.b
+						);
+
+						// Clear mask
+						for ( let hh = 0; hh < h; hh ++ ) {
+
+							for ( let ww = 0; ww < w; ww ++ ) {
+
+								mask[ n + ww + hh * dimsU ] = 0;
+
+							}
+
+						}
+
+						uu += w;
+						n += w;
+
+					} else {
+
+						uu ++;
+						n ++;
+
+					}
+
+				}
+
+			}
+
+		}
+
+	}
+
+	const geometry = new BufferGeometry();
+	geometry.setAttribute( 'position', new Float32BufferAttribute( vertices, 3 ) );
+	geometry.setIndex( indices );
+	geometry.computeVertexNormals();
+
+	const material = new MeshStandardMaterial();
+
+	if ( hasColors ) {
+
+		geometry.setAttribute( 'color', new Float32BufferAttribute( colors, 3 ) );
+		material.vertexColors = true;
+
+	}
+
+	return new Mesh( geometry, material );
+
+}
+
+var VOXLoader$1 = /*#__PURE__*/Object.freeze({
+	__proto__: null,
+	VOXLoader: VOXLoader,
+	buildMesh: buildMesh
+});
+
+class LWO2Parser {
+
+	constructor( IFFParser ) {
+
+		this.IFF = IFFParser;
+
+	}
+
+	parseBlock() {
+
+		this.IFF.debugger.offset = this.IFF.reader.offset;
+		this.IFF.debugger.closeForms();
+
+		const blockID = this.IFF.reader.getIDTag();
+		let length = this.IFF.reader.getUint32(); // size of data in bytes
+		if ( length > this.IFF.reader.dv.byteLength - this.IFF.reader.offset ) {
+
+			this.IFF.reader.offset -= 4;
+			length = this.IFF.reader.getUint16();
+
+		}
+
+		this.IFF.debugger.dataOffset = this.IFF.reader.offset;
+		this.IFF.debugger.length = length;
+
+		// Data types may be found in either LWO2 OR LWO3 spec
+		switch ( blockID ) {
+
+			case 'FORM': // form blocks may consist of sub -chunks or sub-forms
+				this.IFF.parseForm( length );
+				break;
+
+			// SKIPPED CHUNKS
+			// if break; is called directly, the position in the lwoTree is not created
+			// any sub chunks and forms are added to the parent form instead
+			// MISC skipped
+			case 'ICON': // Thumbnail Icon Image
+			case 'VMPA': // Vertex Map Parameter
+			case 'BBOX': // bounding box
+			// case 'VMMD':
+			// case 'VTYP':
+
+			// normal maps can be specified, normally on models imported from other applications. Currently ignored
+			case 'NORM':
+
+			// ENVL FORM skipped
+			case 'PRE ':
+			case 'POST':
+			case 'KEY ':
+			case 'SPAN':
+
+			// CLIP FORM skipped
+			case 'TIME':
+			case 'CLRS':
+			case 'CLRA':
+			case 'FILT':
+			case 'DITH':
+			case 'CONT':
+			case 'BRIT':
+			case 'SATR':
+			case 'HUE ':
+			case 'GAMM':
+			case 'NEGA':
+			case 'IFLT':
+			case 'PFLT':
+
+			// Image Map Layer skipped
+			case 'PROJ':
+			case 'AXIS':
+			case 'AAST':
+			case 'PIXB':
+			case 'AUVO':
+			case 'STCK':
+
+			// Procedural Textures skipped
+			case 'PROC':
+			case 'VALU':
+			case 'FUNC':
+
+			// Gradient Textures skipped
+			case 'PNAM':
+			case 'INAM':
+			case 'GRST':
+			case 'GREN':
+			case 'GRPT':
+			case 'FKEY':
+			case 'IKEY':
+
+			// Texture Mapping Form skipped
+			case 'CSYS':
+
+			// Surface CHUNKs skipped
+			case 'OPAQ': // top level 'opacity' checkbox
+			case 'CMAP': // clip map
+
+			// Surface node CHUNKS skipped
+			// These mainly specify the node editor setup in LW
+			case 'NLOC':
+			case 'NZOM':
+			case 'NVER':
+			case 'NSRV':
+			case 'NVSK': // unknown
+			case 'NCRD':
+			case 'WRPW': // image wrap w ( for cylindrical and spherical projections)
+			case 'WRPH': // image wrap h
+			case 'NMOD':
+			case 'NSEL':
+			case 'NPRW':
+			case 'NPLA':
+			case 'NODS':
+			case 'VERS':
+			case 'ENUM':
+			case 'TAG ':
+			case 'OPAC':
+
+			// Car Material CHUNKS
+			case 'CGMD':
+			case 'CGTY':
+			case 'CGST':
+			case 'CGEN':
+			case 'CGTS':
+			case 'CGTE':
+			case 'OSMP':
+			case 'OMDE':
+			case 'OUTR':
+			case 'FLAG':
+
+			case 'TRNL':
+			case 'GLOW':
+			case 'GVAL': // glow intensity
+			case 'SHRP':
+			case 'RFOP':
+			case 'RSAN':
+			case 'TROP':
+			case 'RBLR':
+			case 'TBLR':
+			case 'CLRH':
+			case 'CLRF':
+			case 'ADTR':
+			case 'LINE':
+			case 'ALPH':
+			case 'VCOL':
+			case 'ENAB':
+				this.IFF.debugger.skipped = true;
+				this.IFF.reader.skip( length );
+				break;
+
+			case 'SURF':
+				this.IFF.parseSurfaceLwo2( length );
+				break;
+
+			case 'CLIP':
+				this.IFF.parseClipLwo2( length );
+				break;
+
+			// Texture node chunks (not in spec)
+			case 'IPIX': // usePixelBlending
+			case 'IMIP': // useMipMaps
+			case 'IMOD': // imageBlendingMode
+			case 'AMOD': // unknown
+			case 'IINV': // imageInvertAlpha
+			case 'INCR': // imageInvertColor
+			case 'IAXS': // imageAxis ( for non-UV maps)
+			case 'IFOT': // imageFallofType
+			case 'ITIM': // timing for animated textures
+			case 'IWRL':
+			case 'IUTI':
+			case 'IINX':
+			case 'IINY':
+			case 'IINZ':
+			case 'IREF': // possibly a VX for reused texture nodes
+				if ( length === 4 ) this.IFF.currentNode[ blockID ] = this.IFF.reader.getInt32();
+				else this.IFF.reader.skip( length );
+				break;
+
+			case 'OTAG':
+				this.IFF.parseObjectTag();
+				break;
+
+			case 'LAYR':
+				this.IFF.parseLayer( length );
+				break;
+
+			case 'PNTS':
+				this.IFF.parsePoints( length );
+				break;
+
+			case 'VMAP':
+				this.IFF.parseVertexMapping( length );
+				break;
+
+			case 'AUVU':
+			case 'AUVN':
+				this.IFF.reader.skip( length - 1 );
+				this.IFF.reader.getVariableLengthIndex(); // VX
+				break;
+
+			case 'POLS':
+				this.IFF.parsePolygonList( length );
+				break;
+
+			case 'TAGS':
+				this.IFF.parseTagStrings( length );
+				break;
+
+			case 'PTAG':
+				this.IFF.parsePolygonTagMapping( length );
+				break;
+
+			case 'VMAD':
+				this.IFF.parseVertexMapping( length, true );
+				break;
+
+			// Misc CHUNKS
+			case 'DESC': // Description Line
+				this.IFF.currentForm.description = this.IFF.reader.getString();
+				break;
+
+			case 'TEXT':
+			case 'CMNT':
+			case 'NCOM':
+				this.IFF.currentForm.comment = this.IFF.reader.getString();
+				break;
+
+			// Envelope Form
+			case 'NAME':
+				this.IFF.currentForm.channelName = this.IFF.reader.getString();
+				break;
+
+			// Image Map Layer
+			case 'WRAP':
+				this.IFF.currentForm.wrap = { w: this.IFF.reader.getUint16(), h: this.IFF.reader.getUint16() };
+				break;
+
+			case 'IMAG':
+				const index = this.IFF.reader.getVariableLengthIndex();
+				this.IFF.currentForm.imageIndex = index;
+				break;
+
+			// Texture Mapping Form
+			case 'OREF':
+				this.IFF.currentForm.referenceObject = this.IFF.reader.getString();
+				break;
+
+			case 'ROID':
+				this.IFF.currentForm.referenceObjectID = this.IFF.reader.getUint32();
+				break;
+
+			// Surface Blocks
+			case 'SSHN':
+				this.IFF.currentSurface.surfaceShaderName = this.IFF.reader.getString();
+				break;
+
+			case 'AOVN':
+				this.IFF.currentSurface.surfaceCustomAOVName = this.IFF.reader.getString();
+				break;
+
+			// Nodal Blocks
+			case 'NSTA':
+				this.IFF.currentForm.disabled = this.IFF.reader.getUint16();
+				break;
+
+			case 'NRNM':
+				this.IFF.currentForm.realName = this.IFF.reader.getString();
+				break;
+
+			case 'NNME':
+				this.IFF.currentForm.refName = this.IFF.reader.getString();
+				this.IFF.currentSurface.nodes[ this.IFF.currentForm.refName ] = this.IFF.currentForm;
+				break;
+
+			// Nodal Blocks : connections
+			case 'INME':
+				if ( ! this.IFF.currentForm.nodeName ) this.IFF.currentForm.nodeName = [];
+				this.IFF.currentForm.nodeName.push( this.IFF.reader.getString() );
+				break;
+
+			case 'IINN':
+				if ( ! this.IFF.currentForm.inputNodeName ) this.IFF.currentForm.inputNodeName = [];
+				this.IFF.currentForm.inputNodeName.push( this.IFF.reader.getString() );
+				break;
+
+			case 'IINM':
+				if ( ! this.IFF.currentForm.inputName ) this.IFF.currentForm.inputName = [];
+				this.IFF.currentForm.inputName.push( this.IFF.reader.getString() );
+				break;
+
+			case 'IONM':
+				if ( ! this.IFF.currentForm.inputOutputName ) this.IFF.currentForm.inputOutputName = [];
+				this.IFF.currentForm.inputOutputName.push( this.IFF.reader.getString() );
+				break;
+
+			case 'FNAM':
+				this.IFF.currentForm.fileName = this.IFF.reader.getString();
+				break;
+
+			case 'CHAN': // NOTE: ENVL Forms may also have CHAN chunk, however ENVL is currently ignored
+				if ( length === 4 ) this.IFF.currentForm.textureChannel = this.IFF.reader.getIDTag();
+				else this.IFF.reader.skip( length );
+				break;
+
+			// LWO2 Spec chunks: these are needed since the SURF FORMs are often in LWO2 format
+			case 'SMAN':
+				const maxSmoothingAngle = this.IFF.reader.getFloat32();
+				this.IFF.currentSurface.attributes.smooth = ( maxSmoothingAngle < 0 ) ? false : true;
+				break;
+
+			// LWO2: Basic Surface Parameters
+			case 'COLR':
+				this.IFF.currentSurface.attributes.Color = { value: this.IFF.reader.getFloat32Array( 3 ) };
+				this.IFF.reader.skip( 2 ); // VX: envelope
+				break;
+
+			case 'LUMI':
+				this.IFF.currentSurface.attributes.Luminosity = { value: this.IFF.reader.getFloat32() };
+				this.IFF.reader.skip( 2 );
+				break;
+
+			case 'SPEC':
+				this.IFF.currentSurface.attributes.Specular = { value: this.IFF.reader.getFloat32() };
+				this.IFF.reader.skip( 2 );
+				break;
+
+			case 'DIFF':
+				this.IFF.currentSurface.attributes.Diffuse = { value: this.IFF.reader.getFloat32() };
+				this.IFF.reader.skip( 2 );
+				break;
+
+			case 'REFL':
+				this.IFF.currentSurface.attributes.Reflection = { value: this.IFF.reader.getFloat32() };
+				this.IFF.reader.skip( 2 );
+				break;
+
+			case 'GLOS':
+				this.IFF.currentSurface.attributes.Glossiness = { value: this.IFF.reader.getFloat32() };
+				this.IFF.reader.skip( 2 );
+				break;
+
+			case 'TRAN':
+				this.IFF.currentSurface.attributes.opacity = this.IFF.reader.getFloat32();
+				this.IFF.reader.skip( 2 );
+				break;
+
+			case 'BUMP':
+				this.IFF.currentSurface.attributes.bumpStrength = this.IFF.reader.getFloat32();
+				this.IFF.reader.skip( 2 );
+				break;
+
+			case 'SIDE':
+				this.IFF.currentSurface.attributes.side = this.IFF.reader.getUint16();
+				break;
+
+			case 'RIMG':
+				this.IFF.currentSurface.attributes.reflectionMap = this.IFF.reader.getVariableLengthIndex();
+				break;
+
+			case 'RIND':
+				this.IFF.currentSurface.attributes.refractiveIndex = this.IFF.reader.getFloat32();
+				this.IFF.reader.skip( 2 );
+				break;
+
+			case 'TIMG':
+				this.IFF.currentSurface.attributes.refractionMap = this.IFF.reader.getVariableLengthIndex();
+				break;
+
+			case 'IMAP':
+				this.IFF.reader.skip( 2 );
+				break;
+
+			case 'TMAP':
+				this.IFF.debugger.skipped = true;
+				this.IFF.reader.skip( length ); // needs implementing
+				break;
+
+			case 'IUVI': // uv channel name
+				this.IFF.currentNode.UVChannel = this.IFF.reader.getString( length );
+				break;
+
+			case 'IUTL': // widthWrappingMode: 0 = Reset, 1 = Repeat, 2 = Mirror, 3 = Edge
+				this.IFF.currentNode.widthWrappingMode = this.IFF.reader.getUint32();
+				break;
+			case 'IVTL': // heightWrappingMode
+				this.IFF.currentNode.heightWrappingMode = this.IFF.reader.getUint32();
+				break;
+
+			// LWO2 USE
+			case 'BLOK':
+				// skip
+				break;
+
+			default:
+				this.IFF.parseUnknownCHUNK( blockID, length );
+
+		}
+
+		if ( blockID != 'FORM' ) {
+
+			this.IFF.debugger.node = 1;
+			this.IFF.debugger.nodeID = blockID;
+			this.IFF.debugger.log();
+
+		}
+
+		if ( this.IFF.reader.offset >= this.IFF.currentFormEnd ) {
+
+			this.IFF.currentForm = this.IFF.parentForm;
+
+		}
+
+	}
+
+}
+
+class LWO3Parser {
+
+	constructor( IFFParser ) {
+
+		this.IFF = IFFParser;
+
+	}
+
+	parseBlock() {
+
+		this.IFF.debugger.offset = this.IFF.reader.offset;
+		this.IFF.debugger.closeForms();
+
+		const blockID = this.IFF.reader.getIDTag();
+		const length = this.IFF.reader.getUint32(); // size of data in bytes
+
+		this.IFF.debugger.dataOffset = this.IFF.reader.offset;
+		this.IFF.debugger.length = length;
+
+		// Data types may be found in either LWO2 OR LWO3 spec
+		switch ( blockID ) {
+
+			case 'FORM': // form blocks may consist of sub -chunks or sub-forms
+				this.IFF.parseForm( length );
+				break;
+
+			// SKIPPED CHUNKS
+			// MISC skipped
+			case 'ICON': // Thumbnail Icon Image
+			case 'VMPA': // Vertex Map Parameter
+			case 'BBOX': // bounding box
+			// case 'VMMD':
+			// case 'VTYP':
+
+			// normal maps can be specified, normally on models imported from other applications. Currently ignored
+			case 'NORM':
+
+			// ENVL FORM skipped
+			case 'PRE ': // Pre-loop behavior for the keyframe
+			case 'POST': // Post-loop behavior for the keyframe
+			case 'KEY ':
+			case 'SPAN':
+
+			// CLIP FORM skipped
+			case 'TIME':
+			case 'CLRS':
+			case 'CLRA':
+			case 'FILT':
+			case 'DITH':
+			case 'CONT':
+			case 'BRIT':
+			case 'SATR':
+			case 'HUE ':
+			case 'GAMM':
+			case 'NEGA':
+			case 'IFLT':
+			case 'PFLT':
+
+			// Image Map Layer skipped
+			case 'PROJ':
+			case 'AXIS':
+			case 'AAST':
+			case 'PIXB':
+			case 'STCK':
+
+			// Procedural Textures skipped
+			case 'VALU':
+
+			// Gradient Textures skipped
+			case 'PNAM':
+			case 'INAM':
+			case 'GRST':
+			case 'GREN':
+			case 'GRPT':
+			case 'FKEY':
+			case 'IKEY':
+
+			// Texture Mapping Form skipped
+			case 'CSYS':
+
+				// Surface CHUNKs skipped
+			case 'OPAQ': // top level 'opacity' checkbox
+			case 'CMAP': // clip map
+
+			// Surface node CHUNKS skipped
+			// These mainly specify the node editor setup in LW
+			case 'NLOC':
+			case 'NZOM':
+			case 'NVER':
+			case 'NSRV':
+			case 'NCRD':
+			case 'NMOD':
+			case 'NSEL':
+			case 'NPRW':
+			case 'NPLA':
+			case 'VERS':
+			case 'ENUM':
+			case 'TAG ':
+
+			// Car Material CHUNKS
+			case 'CGMD':
+			case 'CGTY':
+			case 'CGST':
+			case 'CGEN':
+			case 'CGTS':
+			case 'CGTE':
+			case 'OSMP':
+			case 'OMDE':
+			case 'OUTR':
+			case 'FLAG':
+
+			case 'TRNL':
+			case 'SHRP':
+			case 'RFOP':
+			case 'RSAN':
+			case 'TROP':
+			case 'RBLR':
+			case 'TBLR':
+			case 'CLRH':
+			case 'CLRF':
+			case 'ADTR':
+			case 'GLOW':
+			case 'LINE':
+			case 'ALPH':
+			case 'VCOL':
+			case 'ENAB':
+				this.IFF.debugger.skipped = true;
+				this.IFF.reader.skip( length );
+				break;
+
+			// Texture node chunks (not in spec)
+			case 'IPIX': // usePixelBlending
+			case 'IMIP': // useMipMaps
+			case 'IMOD': // imageBlendingMode
+			case 'AMOD': // unknown
+			case 'IINV': // imageInvertAlpha
+			case 'INCR': // imageInvertColor
+			case 'IAXS': // imageAxis ( for non-UV maps)
+			case 'IFOT': // imageFallofType
+			case 'ITIM': // timing for animated textures
+			case 'IWRL':
+			case 'IUTI':
+			case 'IINX':
+			case 'IINY':
+			case 'IINZ':
+			case 'IREF': // possibly a VX for reused texture nodes
+				if ( length === 4 ) this.IFF.currentNode[ blockID ] = this.IFF.reader.getInt32();
+				else this.IFF.reader.skip( length );
+				break;
+
+			case 'OTAG':
+				this.IFF.parseObjectTag();
+				break;
+
+			case 'LAYR':
+				this.IFF.parseLayer( length );
+				break;
+
+			case 'PNTS':
+				this.IFF.parsePoints( length );
+				break;
+
+			case 'VMAP':
+				this.IFF.parseVertexMapping( length );
+				break;
+
+			case 'POLS':
+				this.IFF.parsePolygonList( length );
+				break;
+
+			case 'TAGS':
+				this.IFF.parseTagStrings( length );
+				break;
+
+			case 'PTAG':
+				this.IFF.parsePolygonTagMapping( length );
+				break;
+
+			case 'VMAD':
+				this.IFF.parseVertexMapping( length, true );
+				break;
+
+			// Misc CHUNKS
+			case 'DESC': // Description Line
+				this.IFF.currentForm.description = this.IFF.reader.getString();
+				break;
+
+			case 'TEXT':
+			case 'CMNT':
+			case 'NCOM':
+				this.IFF.currentForm.comment = this.IFF.reader.getString();
+				break;
+
+			// Envelope Form
+			case 'NAME':
+				this.IFF.currentForm.channelName = this.IFF.reader.getString();
+				break;
+
+			// Image Map Layer
+			case 'WRAP':
+				this.IFF.currentForm.wrap = { w: this.IFF.reader.getUint16(), h: this.IFF.reader.getUint16() };
+				break;
+
+			case 'IMAG':
+				const index = this.IFF.reader.getVariableLengthIndex();
+				this.IFF.currentForm.imageIndex = index;
+				break;
+
+			// Texture Mapping Form
+			case 'OREF':
+				this.IFF.currentForm.referenceObject = this.IFF.reader.getString();
+				break;
+
+			case 'ROID':
+				this.IFF.currentForm.referenceObjectID = this.IFF.reader.getUint32();
+				break;
+
+			// Surface Blocks
+			case 'SSHN':
+				this.IFF.currentSurface.surfaceShaderName = this.IFF.reader.getString();
+				break;
+
+			case 'AOVN':
+				this.IFF.currentSurface.surfaceCustomAOVName = this.IFF.reader.getString();
+				break;
+
+			// Nodal Blocks
+			case 'NSTA':
+				this.IFF.currentForm.disabled = this.IFF.reader.getUint16();
+				break;
+
+			case 'NRNM':
+				this.IFF.currentForm.realName = this.IFF.reader.getString();
+				break;
+
+			case 'NNME':
+				this.IFF.currentForm.refName = this.IFF.reader.getString();
+				this.IFF.currentSurface.nodes[ this.IFF.currentForm.refName ] = this.IFF.currentForm;
+				break;
+
+			// Nodal Blocks : connections
+			case 'INME':
+				if ( ! this.IFF.currentForm.nodeName ) this.IFF.currentForm.nodeName = [];
+				this.IFF.currentForm.nodeName.push( this.IFF.reader.getString() );
+				break;
+
+			case 'IINN':
+				if ( ! this.IFF.currentForm.inputNodeName ) this.IFF.currentForm.inputNodeName = [];
+				this.IFF.currentForm.inputNodeName.push( this.IFF.reader.getString() );
+				break;
+
+			case 'IINM':
+				if ( ! this.IFF.currentForm.inputName ) this.IFF.currentForm.inputName = [];
+				this.IFF.currentForm.inputName.push( this.IFF.reader.getString() );
+				break;
+
+			case 'IONM':
+				if ( ! this.IFF.currentForm.inputOutputName ) this.IFF.currentForm.inputOutputName = [];
+				this.IFF.currentForm.inputOutputName.push( this.IFF.reader.getString() );
+				break;
+
+			case 'FNAM':
+				this.IFF.currentForm.fileName = this.IFF.reader.getString();
+				break;
+
+			case 'CHAN': // NOTE: ENVL Forms may also have CHAN chunk, however ENVL is currently ignored
+				if ( length === 4 ) this.IFF.currentForm.textureChannel = this.IFF.reader.getIDTag();
+				else this.IFF.reader.skip( length );
+				break;
+
+			// LWO2 Spec chunks: these are needed since the SURF FORMs are often in LWO2 format
+			case 'SMAN':
+				const maxSmoothingAngle = this.IFF.reader.getFloat32();
+				this.IFF.currentSurface.attributes.smooth = ( maxSmoothingAngle < 0 ) ? false : true;
+				break;
+
+			// LWO2: Basic Surface Parameters
+			case 'COLR':
+				this.IFF.currentSurface.attributes.Color = { value: this.IFF.reader.getFloat32Array( 3 ) };
+				this.IFF.reader.skip( 2 ); // VX: envelope
+				break;
+
+			case 'LUMI':
+				this.IFF.currentSurface.attributes.Luminosity = { value: this.IFF.reader.getFloat32() };
+				this.IFF.reader.skip( 2 );
+				break;
+
+			case 'SPEC':
+				this.IFF.currentSurface.attributes.Specular = { value: this.IFF.reader.getFloat32() };
+				this.IFF.reader.skip( 2 );
+				break;
+
+			case 'DIFF':
+				this.IFF.currentSurface.attributes.Diffuse = { value: this.IFF.reader.getFloat32() };
+				this.IFF.reader.skip( 2 );
+				break;
+
+			case 'REFL':
+				this.IFF.currentSurface.attributes.Reflection = { value: this.IFF.reader.getFloat32() };
+				this.IFF.reader.skip( 2 );
+				break;
+
+			case 'GLOS':
+				this.IFF.currentSurface.attributes.Glossiness = { value: this.IFF.reader.getFloat32() };
+				this.IFF.reader.skip( 2 );
+				break;
+
+			case 'TRAN':
+				this.IFF.currentSurface.attributes.opacity = this.IFF.reader.getFloat32();
+				this.IFF.reader.skip( 2 );
+				break;
+
+			case 'BUMP':
+				this.IFF.currentSurface.attributes.bumpStrength = this.IFF.reader.getFloat32();
+				this.IFF.reader.skip( 2 );
+				break;
+
+			case 'SIDE':
+				this.IFF.currentSurface.attributes.side = this.IFF.reader.getUint16();
+				break;
+
+			case 'RIMG':
+				this.IFF.currentSurface.attributes.reflectionMap = this.IFF.reader.getVariableLengthIndex();
+				break;
+
+			case 'RIND':
+				this.IFF.currentSurface.attributes.refractiveIndex = this.IFF.reader.getFloat32();
+				this.IFF.reader.skip( 2 );
+				break;
+
+			case 'TIMG':
+				this.IFF.currentSurface.attributes.refractionMap = this.IFF.reader.getVariableLengthIndex();
+				break;
+
+			case 'IMAP':
+				this.IFF.currentSurface.attributes.imageMapIndex = this.IFF.reader.getUint32();
+				break;
+
+			case 'IUVI': // uv channel name
+				this.IFF.currentNode.UVChannel = this.IFF.reader.getString( length );
+				break;
+
+			case 'IUTL': // widthWrappingMode: 0 = Reset, 1 = Repeat, 2 = Mirror, 3 = Edge
+				this.IFF.currentNode.widthWrappingMode = this.IFF.reader.getUint32();
+				break;
+			case 'IVTL': // heightWrappingMode
+				this.IFF.currentNode.heightWrappingMode = this.IFF.reader.getUint32();
+				break;
+
+			default:
+				this.IFF.parseUnknownCHUNK( blockID, length );
+
+		}
+
+		if ( blockID != 'FORM' ) {
+
+			this.IFF.debugger.node = 1;
+			this.IFF.debugger.nodeID = blockID;
+			this.IFF.debugger.log();
+
+		}
+
+		if ( this.IFF.reader.offset >= this.IFF.currentFormEnd ) {
+
+			this.IFF.currentForm = this.IFF.parentForm;
+
+		}
+
+	}
+
+}
+
+/**
+ * === IFFParser ===
+ * - Parses data from the IFF buffer.
+ * - LWO3 files are in IFF format and can contain the following data types, referred to by shorthand codes
+ *
+ * ATOMIC DATA TYPES
+ *  ID Tag - 4x 7 bit uppercase ASCII chars: ID4
+ *  signed integer, 1, 2, or 4 byte length: I1, I2, I4
+ *  unsigned integer, 1, 2, or 4 byte length: U1, U2, U4
+ *  float, 4 byte length: F4
+ *  string, series of ASCII chars followed by null byte (If the length of the string including the null terminating byte is odd, an extra null is added so that the data that follows will begin on an even byte boundary): S0
+ *
+ * COMPOUND DATA TYPES
+ *  Variable-length Index (index into an array or collection): U2 or U4 : VX
+ *  Color (RGB): F4 + F4 + F4: COL12
+ *  Coordinate (x, y, z): F4 + F4 + F4: VEC12
+ *  Percentage F4 data type from 0->1 with 1 = 100%: FP4
+ *  Angle in radian F4: ANG4
+ *  Filename (string) S0: FNAM0
+ *  XValue F4 + index (VX) + optional envelope( ENVL ): XVAL
+ *  XValue vector VEC12 + index (VX) + optional envelope( ENVL ): XVAL3
+ *
+ *  The IFF file is arranged in chunks:
+ *  CHUNK = ID4 + length (U4) + length X bytes of data + optional 0 pad byte
+ *  optional 0 pad byte is there to ensure chunk ends on even boundary, not counted in size
+ *
+ * COMPOUND DATA TYPES
+ * - Chunks are combined in Forms (collections of chunks)
+ * - FORM = string 'FORM' (ID4) + length (U4) + type (ID4) + optional ( CHUNK | FORM )
+ * - CHUNKS and FORMS are collectively referred to as blocks
+ * - The entire file is contained in one top level FORM
+ *
+ **/
+
+
+class IFFParser {
+
+	constructor() {
+
+		this.debugger = new Debugger();
+		// this.debugger.enable(); // un-comment to log IFF hierarchy.
+
+	}
+
+	parse( buffer ) {
+
+		this.reader = new DataViewReader( buffer );
+
+		this.tree = {
+			materials: {},
+			layers: [],
+			tags: [],
+			textures: [],
+		};
+
+		// start out at the top level to add any data before first layer is encountered
+		this.currentLayer = this.tree;
+		this.currentForm = this.tree;
+
+		this.parseTopForm();
+
+		if ( this.tree.format === undefined ) return;
+
+		if ( this.tree.format === 'LWO2' ) {
+
+			this.parser = new LWO2Parser( this );
+			while ( ! this.reader.endOfFile() ) this.parser.parseBlock();
+
+		} else if ( this.tree.format === 'LWO3' ) {
+
+			this.parser = new LWO3Parser( this );
+			while ( ! this.reader.endOfFile() ) this.parser.parseBlock();
+
+		}
+
+		this.debugger.offset = this.reader.offset;
+		this.debugger.closeForms();
+
+		return this.tree;
+
+	}
+
+	parseTopForm() {
+
+		this.debugger.offset = this.reader.offset;
+
+		const topForm = this.reader.getIDTag();
+
+		if ( topForm !== 'FORM' ) {
+
+			console.warn( 'LWOLoader: Top-level FORM missing.' );
+			return;
+
+		}
+
+		const length = this.reader.getUint32();
+
+		this.debugger.dataOffset = this.reader.offset;
+		this.debugger.length = length;
+
+		const type = this.reader.getIDTag();
+
+		if ( type === 'LWO2' ) {
+
+			this.tree.format = type;
+
+		} else if ( type === 'LWO3' ) {
+
+			this.tree.format = type;
+
+		}
+
+		this.debugger.node = 0;
+		this.debugger.nodeID = type;
+		this.debugger.log();
+
+		return;
+
+	}
+
+
+	///
+	// FORM PARSING METHODS
+	///
+
+	// Forms are organisational and can contain any number of sub chunks and sub forms
+	// FORM ::= 'FORM'[ID4], length[U4], type[ID4], ( chunk[CHUNK] | form[FORM] ) * }
+	parseForm( length ) {
+
+		const type = this.reader.getIDTag();
+
+		switch ( type ) {
+
+			// SKIPPED FORMS
+			// if skipForm( length ) is called, the entire form and any sub forms and chunks are skipped
+
+			case 'ISEQ': // Image sequence
+			case 'ANIM': // plug in animation
+			case 'STCC': // Color-cycling Still
+			case 'VPVL':
+			case 'VPRM':
+			case 'NROT':
+			case 'WRPW': // image wrap w ( for cylindrical and spherical projections)
+			case 'WRPH': // image wrap h
+			case 'FUNC':
+			case 'FALL':
+			case 'OPAC':
+			case 'GRAD': // gradient texture
+			case 'ENVS':
+			case 'VMOP':
+			case 'VMBG':
+
+			// Car Material FORMS
+			case 'OMAX':
+			case 'STEX':
+			case 'CKBG':
+			case 'CKEY':
+			case 'VMLA':
+			case 'VMLB':
+				this.debugger.skipped = true;
+				this.skipForm( length ); // not currently supported
+				break;
+
+			// if break; is called directly, the position in the lwoTree is not created
+			// any sub chunks and forms are added to the parent form instead
+			case 'META':
+			case 'NNDS':
+			case 'NODS':
+			case 'NDTA':
+			case 'ADAT':
+			case 'AOVS':
+			case 'BLOK':
+
+			// used by texture nodes
+			case 'IBGC': // imageBackgroundColor
+			case 'IOPC': // imageOpacity
+			case 'IIMG': // hold reference to image path
+			case 'TXTR':
+				// this.setupForm( type, length );
+				this.debugger.length = 4;
+				this.debugger.skipped = true;
+				break;
+
+			case 'IFAL': // imageFallof
+			case 'ISCL': // imageScale
+			case 'IPOS': // imagePosition
+			case 'IROT': // imageRotation
+			case 'IBMP':
+			case 'IUTD':
+			case 'IVTD':
+				this.parseTextureNodeAttribute( type );
+				break;
+
+			case 'ENVL':
+				this.parseEnvelope( length );
+				break;
+
+				// CLIP FORM AND SUB FORMS
+
+			case 'CLIP':
+				if ( this.tree.format === 'LWO2' ) {
+
+					this.parseForm( length );
+
+				} else {
+
+					this.parseClip( length );
+
+				}
+
+				break;
+
+			case 'STIL':
+				this.parseImage();
+				break;
+
+			case 'XREF': // clone of another STIL
+				this.reader.skip( 8 ); // unknown
+				this.currentForm.referenceTexture = {
+					index: this.reader.getUint32(),
+					refName: this.reader.getString() // internal unique ref
+				};
+				break;
+
+				// Not in spec, used by texture nodes
+
+			case 'IMST':
+				this.parseImageStateForm( length );
+				break;
+
+				// SURF FORM AND SUB FORMS
+
+			case 'SURF':
+				this.parseSurfaceForm( length );
+				break;
+
+			case 'VALU': // Not in spec
+				this.parseValueForm( length );
+				break;
+
+			case 'NTAG':
+				this.parseSubNode( length );
+				break;
+
+			case 'ATTR': // BSDF Node Attributes
+			case 'SATR': // Standard Node Attributes
+				this.setupForm( 'attributes', length );
+				break;
+
+			case 'NCON':
+				this.parseConnections( length );
+				break;
+
+			case 'SSHA':
+				this.parentForm = this.currentForm;
+				this.currentForm = this.currentSurface;
+				this.setupForm( 'surfaceShader', length );
+				break;
+
+			case 'SSHD':
+				this.setupForm( 'surfaceShaderData', length );
+				break;
+
+			case 'ENTR': // Not in spec
+				this.parseEntryForm( length );
+				break;
+
+				// Image Map Layer
+
+			case 'IMAP':
+				this.parseImageMap( length );
+				break;
+
+			case 'TAMP':
+				this.parseXVAL( 'amplitude', length );
+				break;
+
+				//Texture Mapping Form
+
+			case 'TMAP':
+				this.setupForm( 'textureMap', length );
+				break;
+
+			case 'CNTR':
+				this.parseXVAL3( 'center', length );
+				break;
+
+			case 'SIZE':
+				this.parseXVAL3( 'scale', length );
+				break;
+
+			case 'ROTA':
+				this.parseXVAL3( 'rotation', length );
+				break;
+
+			default:
+				this.parseUnknownForm( type, length );
+
+		}
+
+		this.debugger.node = 0;
+		this.debugger.nodeID = type;
+		this.debugger.log();
+
+	}
+
+	setupForm( type, length ) {
+
+		if ( ! this.currentForm ) this.currentForm = this.currentNode;
+
+		this.currentFormEnd = this.reader.offset + length;
+		this.parentForm = this.currentForm;
+
+		if ( ! this.currentForm[ type ] ) {
+
+			this.currentForm[ type ] = {};
+			this.currentForm = this.currentForm[ type ];
+
+
+		} else {
+
+			// should never see this unless there's a bug in the reader
+			console.warn( 'LWOLoader: form already exists on parent: ', type, this.currentForm );
+
+			this.currentForm = this.currentForm[ type ];
+
+		}
+
+
+	}
+
+	skipForm( length ) {
+
+		this.reader.skip( length - 4 );
+
+	}
+
+	parseUnknownForm( type, length ) {
+
+		console.warn( 'LWOLoader: unknown FORM encountered: ' + type, length );
+
+		printBuffer( this.reader.dv.buffer, this.reader.offset, length - 4 );
+		this.reader.skip( length - 4 );
+
+	}
+
+	parseSurfaceForm( length ) {
+
+		this.reader.skip( 8 ); // unknown Uint32 x2
+
+		const name = this.reader.getString();
+
+		const surface = {
+			attributes: {}, // LWO2 style non-node attributes will go here
+			connections: {},
+			name: name,
+			inputName: name,
+			nodes: {},
+			source: this.reader.getString(),
+		};
+
+		this.tree.materials[ name ] = surface;
+		this.currentSurface = surface;
+
+		this.parentForm = this.tree.materials;
+		this.currentForm = surface;
+		this.currentFormEnd = this.reader.offset + length;
+
+	}
+
+	parseSurfaceLwo2( length ) {
+
+		const name = this.reader.getString();
+
+		const surface = {
+			attributes: {}, // LWO2 style non-node attributes will go here
+			connections: {},
+			name: name,
+			nodes: {},
+			source: this.reader.getString(),
+		};
+
+		this.tree.materials[ name ] = surface;
+		this.currentSurface = surface;
+
+		this.parentForm = this.tree.materials;
+		this.currentForm = surface;
+		this.currentFormEnd = this.reader.offset + length;
+
+	}
+
+	parseSubNode( length ) {
+
+		// parse the NRNM CHUNK of the subnode FORM to get
+		// a meaningful name for the subNode
+		// some subnodes can be renamed, but Input and Surface cannot
+
+		this.reader.skip( 8 ); // NRNM + length
+		const name = this.reader.getString();
+
+		const node = {
+			name: name
+		};
+		this.currentForm = node;
+		this.currentNode = node;
+
+		this.currentFormEnd = this.reader.offset + length;
+
+
+	}
+
+	// collect attributes from all nodes at the top level of a surface
+	parseConnections( length ) {
+
+		this.currentFormEnd = this.reader.offset + length;
+		this.parentForm = this.currentForm;
+
+		this.currentForm = this.currentSurface.connections;
+
+	}
+
+	// surface node attribute data, e.g. specular, roughness etc
+	parseEntryForm( length ) {
+
+		this.reader.skip( 8 ); // NAME + length
+		const name = this.reader.getString();
+		this.currentForm = this.currentNode.attributes;
+
+		this.setupForm( name, length );
+
+	}
+
+	// parse values from material - doesn't match up to other LWO3 data types
+	// sub form of entry form
+	parseValueForm() {
+
+		this.reader.skip( 8 ); // unknown + length
+
+		const valueType = this.reader.getString();
+
+		if ( valueType === 'double' ) {
+
+			this.currentForm.value = this.reader.getUint64();
+
+		} else if ( valueType === 'int' ) {
+
+			this.currentForm.value = this.reader.getUint32();
+
+		} else if ( valueType === 'vparam' ) {
+
+			this.reader.skip( 24 );
+			this.currentForm.value = this.reader.getFloat64();
+
+		} else if ( valueType === 'vparam3' ) {
+
+			this.reader.skip( 24 );
+			this.currentForm.value = this.reader.getFloat64Array( 3 );
+
+		}
+
+	}
+
+	// holds various data about texture node image state
+	// Data other than mipMapLevel unknown
+	parseImageStateForm() {
+
+		this.reader.skip( 8 ); // unknown
+
+		this.currentForm.mipMapLevel = this.reader.getFloat32();
+
+	}
+
+	// LWO2 style image data node OR LWO3 textures defined at top level in editor (not as SURF node)
+	parseImageMap( length ) {
+
+		this.currentFormEnd = this.reader.offset + length;
+		this.parentForm = this.currentForm;
+
+		if ( ! this.currentForm.maps ) this.currentForm.maps = [];
+
+		const map = {};
+		this.currentForm.maps.push( map );
+		this.currentForm = map;
+
+		this.reader.skip( 10 ); // unknown, could be an issue if it contains a VX
+
+	}
+
+	parseTextureNodeAttribute( type ) {
+
+		this.reader.skip( 28 ); // FORM + length + VPRM + unknown + Uint32 x2 + float32
+
+		this.reader.skip( 20 ); // FORM + length + VPVL + float32 + Uint32
+
+		switch ( type ) {
+
+			case 'ISCL':
+				this.currentNode.scale = this.reader.getFloat32Array( 3 );
+				break;
+			case 'IPOS':
+				this.currentNode.position = this.reader.getFloat32Array( 3 );
+				break;
+			case 'IROT':
+				this.currentNode.rotation = this.reader.getFloat32Array( 3 );
+				break;
+			case 'IFAL':
+				this.currentNode.falloff = this.reader.getFloat32Array( 3 );
+				break;
+
+			case 'IBMP':
+				this.currentNode.amplitude = this.reader.getFloat32();
+				break;
+			case 'IUTD':
+				this.currentNode.uTiles = this.reader.getFloat32();
+				break;
+			case 'IVTD':
+				this.currentNode.vTiles = this.reader.getFloat32();
+				break;
+
+		}
+
+		this.reader.skip( 2 ); // unknown
+
+
+	}
+
+	// ENVL forms are currently ignored
+	parseEnvelope( length ) {
+
+		this.reader.skip( length - 4 ); // skipping  entirely for now
+
+	}
+
+	///
+	// CHUNK PARSING METHODS
+	///
+
+	// clips can either be defined inside a surface node, or at the top
+	// level and they have a different format in each case
+	parseClip( length ) {
+
+		const tag = this.reader.getIDTag();
+
+		// inside surface node
+		if ( tag === 'FORM' ) {
+
+			this.reader.skip( 16 );
+
+			this.currentNode.fileName = this.reader.getString();
+
+			return;
+
+		}
+
+		// otherwise top level
+		this.reader.setOffset( this.reader.offset - 4 );
+
+		this.currentFormEnd = this.reader.offset + length;
+		this.parentForm = this.currentForm;
+
+		this.reader.skip( 8 ); // unknown
+
+		const texture = {
+			index: this.reader.getUint32()
+		};
+		this.tree.textures.push( texture );
+		this.currentForm = texture;
+
+	}
+
+	parseClipLwo2( length ) {
+
+		const texture = {
+			index: this.reader.getUint32(),
+			fileName: ''
+		};
+
+		// search STIL block
+		while ( true ) {
+
+			const tag = this.reader.getIDTag();
+			const n_length = this.reader.getUint16();
+			if ( tag === 'STIL' ) {
+
+				texture.fileName = this.reader.getString();
+				break;
+
+			}
+
+			if ( n_length >= length ) {
+
+				break;
+
+			}
+
+		}
+
+		this.tree.textures.push( texture );
+		this.currentForm = texture;
+
+	}
+
+	parseImage() {
+
+		this.reader.skip( 8 ); // unknown
+		this.currentForm.fileName = this.reader.getString();
+
+	}
+
+	parseXVAL( type, length ) {
+
+		const endOffset = this.reader.offset + length - 4;
+		this.reader.skip( 8 );
+
+		this.currentForm[ type ] = this.reader.getFloat32();
+
+		this.reader.setOffset( endOffset ); // set end offset directly to skip optional envelope
+
+	}
+
+	parseXVAL3( type, length ) {
+
+		const endOffset = this.reader.offset + length - 4;
+		this.reader.skip( 8 );
+
+		this.currentForm[ type ] = {
+			x: this.reader.getFloat32(),
+			y: this.reader.getFloat32(),
+			z: this.reader.getFloat32(),
+		};
+
+		this.reader.setOffset( endOffset );
+
+	}
+
+	// Tags associated with an object
+	// OTAG { type[ID4], tag-string[S0] }
+	parseObjectTag() {
+
+		if ( ! this.tree.objectTags ) this.tree.objectTags = {};
+
+		this.tree.objectTags[ this.reader.getIDTag() ] = {
+			tagString: this.reader.getString()
+		};
+
+	}
+
+	// Signals the start of a new layer. All the data chunks which follow will be included in this layer until another layer chunk is encountered.
+	// LAYR: number[U2], flags[U2], pivot[VEC12], name[S0], parent[U2]
+	parseLayer( length ) {
+
+		const number = this.reader.getUint16();
+		const flags = this.reader.getUint16(); // If the least significant bit of flags is set, the layer is hidden.
+		const pivot = this.reader.getFloat32Array( 3 ); // Note: this seems to be superfluous, as the geometry is translated when pivot is present
+		const layer = {
+			number: number,
+			flags: flags, // If the least significant bit of flags is set, the layer is hidden.
+			pivot: [ - pivot[ 0 ], pivot[ 1 ], pivot[ 2 ] ], // Note: this seems to be superfluous, as the geometry is translated when pivot is present
+			name: this.reader.getString(),
+		};
+
+		this.tree.layers.push( layer );
+		this.currentLayer = layer;
+
+		const parsedLength = 16 + stringOffset( this.currentLayer.name ); // index ( 2 ) + flags( 2 ) + pivot( 12 ) + stringlength
+
+		// if we have not reached then end of the layer block, there must be a parent defined
+		this.currentLayer.parent = ( parsedLength < length ) ? this.reader.getUint16() : -1; // omitted or -1 for no parent
+
+	}
+
+	// VEC12 * ( F4 + F4 + F4 ) array of x,y,z vectors
+	// Converting from left to right handed coordinate system:
+	// x -> -x and switch material FrontSide -> BackSide
+	parsePoints( length ) {
+
+		this.currentPoints = [];
+		for ( let i = 0; i < length / 4; i += 3 ) {
+
+			// x -> -x to match three.js right handed coords
+			this.currentPoints.push( - this.reader.getFloat32(), this.reader.getFloat32(), this.reader.getFloat32() );
+
+		}
+
+	}
+
+	// parse VMAP or VMAD
+	// Associates a set of floating-point vectors with a set of points.
+	// VMAP: { type[ID4], dimension[U2], name[S0], ( vert[VX], value[F4] # dimension ) * }
+
+	// VMAD Associates a set of floating-point vectors with the vertices of specific polygons.
+	// Similar to VMAP UVs, but associates with polygon vertices rather than points
+	// to solve to problem of UV seams:  VMAD chunks are paired with VMAPs of the same name,
+	// if they exist. The vector values in the VMAD will then replace those in the
+	// corresponding VMAP, but only for calculations involving the specified polygons.
+	// VMAD { type[ID4], dimension[U2], name[S0], ( vert[VX], poly[VX], value[F4] # dimension ) * }
+	parseVertexMapping( length, discontinuous ) {
+
+		const finalOffset = this.reader.offset + length;
+
+		const channelName = this.reader.getString();
+
+		if ( this.reader.offset === finalOffset ) {
+
+			// then we are in a texture node and the VMAP chunk is just a reference to a UV channel name
+			this.currentForm.UVChannel = channelName;
+			return;
+
+		}
+
+		// otherwise reset to initial length and parse normal VMAP CHUNK
+		this.reader.setOffset( this.reader.offset - stringOffset( channelName ) );
+
+		const type = this.reader.getIDTag();
+
+		this.reader.getUint16(); // dimension
+		const name = this.reader.getString();
+
+		const remainingLength = length - 6 - stringOffset( name );
+
+		switch ( type ) {
+
+			case 'TXUV':
+				this.parseUVMapping( name, finalOffset, discontinuous );
+				break;
+			case 'MORF':
+			case 'SPOT':
+				this.parseMorphTargets( name, finalOffset, type ); // can't be discontinuous
+				break;
+			// unsupported VMAPs
+			case 'APSL':
+			case 'NORM':
+			case 'WGHT':
+			case 'MNVW':
+			case 'PICK':
+			case 'RGB ':
+			case 'RGBA':
+				this.reader.skip( remainingLength );
+				break;
+			default:
+				console.warn( 'LWOLoader: unknown vertex map type: ' + type );
+				this.reader.skip( remainingLength );
+
+		}
+
+	}
+
+	parseUVMapping( name, finalOffset, discontinuous ) {
+
+		const uvIndices = [];
+		const polyIndices = [];
+		const uvs = [];
+
+		while ( this.reader.offset < finalOffset ) {
+
+			uvIndices.push( this.reader.getVariableLengthIndex() );
+
+			if ( discontinuous ) polyIndices.push( this.reader.getVariableLengthIndex() );
+
+			uvs.push( this.reader.getFloat32(), this.reader.getFloat32() );
+
+		}
+
+		if ( discontinuous ) {
+
+			if ( ! this.currentLayer.discontinuousUVs ) this.currentLayer.discontinuousUVs = {};
+
+			this.currentLayer.discontinuousUVs[ name ] = {
+				uvIndices: uvIndices,
+				polyIndices: polyIndices,
+				uvs: uvs,
+			};
+
+		} else {
+
+			if ( ! this.currentLayer.uvs ) this.currentLayer.uvs = {};
+
+			this.currentLayer.uvs[ name ] = {
+				uvIndices: uvIndices,
+				uvs: uvs,
+			};
+
+		}
+
+	}
+
+	parseMorphTargets( name, finalOffset, type ) {
+
+		const indices = [];
+		const points = [];
+
+		type = ( type === 'MORF' ) ? 'relative' : 'absolute';
+
+		while ( this.reader.offset < finalOffset ) {
+
+			indices.push( this.reader.getVariableLengthIndex() );
+			// z -> -z to match three.js right handed coords
+			points.push( this.reader.getFloat32(), this.reader.getFloat32(), - this.reader.getFloat32() );
+
+		}
+
+		if ( ! this.currentLayer.morphTargets ) this.currentLayer.morphTargets = {};
+
+		this.currentLayer.morphTargets[ name ] = {
+			indices: indices,
+			points: points,
+			type: type,
+		};
+
+	}
+
+	// A list of polygons for the current layer.
+	// POLS { type[ID4], ( numvert+flags[U2], vert[VX] # numvert ) * }
+	parsePolygonList( length ) {
+
+		const finalOffset = this.reader.offset + length;
+		const type = this.reader.getIDTag();
+
+		const indices = [];
+
+		// hold a list of polygon sizes, to be split up later
+		const polygonDimensions = [];
+
+		while ( this.reader.offset < finalOffset ) {
+
+			let numverts = this.reader.getUint16();
+
+			//const flags = numverts & 64512; // 6 high order bits are flags - ignoring for now
+			numverts = numverts & 1023; // remaining ten low order bits are vertex num
+			polygonDimensions.push( numverts );
+
+			for ( let j = 0; j < numverts; j ++ ) indices.push( this.reader.getVariableLengthIndex() );
+
+		}
+
+		const geometryData = {
+			type: type,
+			vertexIndices: indices,
+			polygonDimensions: polygonDimensions,
+			points: this.currentPoints
+		};
+
+		// Note: assuming that all polys will be lines or points if the first is
+		if ( polygonDimensions[ 0 ] === 1 ) geometryData.type = 'points';
+		else if ( polygonDimensions[ 0 ] === 2 ) geometryData.type = 'lines';
+
+		this.currentLayer.geometry = geometryData;
+
+	}
+
+	// Lists the tag strings that can be associated with polygons by the PTAG chunk.
+	// TAGS { tag-string[S0] * }
+	parseTagStrings( length ) {
+
+		this.tree.tags = this.reader.getStringArray( length );
+
+	}
+
+	// Associates tags of a given type with polygons in the most recent POLS chunk.
+	// PTAG { type[ID4], ( poly[VX], tag[U2] ) * }
+	parsePolygonTagMapping( length ) {
+
+		const finalOffset = this.reader.offset + length;
+		const type = this.reader.getIDTag();
+		if ( type === 'SURF' ) this.parseMaterialIndices( finalOffset );
+		else { //PART, SMGP, COLR not supported
+
+			this.reader.skip( length - 4 );
+
+		}
+
+	}
+
+	parseMaterialIndices( finalOffset ) {
+
+		// array holds polygon index followed by material index
+		this.currentLayer.geometry.materialIndices = [];
+
+		while ( this.reader.offset < finalOffset ) {
+
+			const polygonIndex = this.reader.getVariableLengthIndex();
+			const materialIndex = this.reader.getUint16();
+
+			this.currentLayer.geometry.materialIndices.push( polygonIndex, materialIndex );
+
+		}
+
+	}
+
+	parseUnknownCHUNK( blockID, length ) {
+
+		console.warn( 'LWOLoader: unknown chunk type: ' + blockID + ' length: ' + length );
+
+		// print the chunk plus some bytes padding either side
+		// printBuffer( this.reader.dv.buffer, this.reader.offset - 20, length + 40 );
+
+		const data = this.reader.getString( length );
+
+		this.currentForm[ blockID ] = data;
+
+	}
+
+}
+
+
+class DataViewReader {
+
+	constructor( buffer ) {
+
+		this.dv = new DataView( buffer );
+		this.offset = 0;
+		this._textDecoder = new TextDecoder();
+		this._bytes = new Uint8Array( buffer );
+
+	}
+
+	size() {
+
+		return this.dv.buffer.byteLength;
+
+	}
+
+	setOffset( offset ) {
+
+		if ( offset > 0 && offset < this.dv.buffer.byteLength ) {
+
+			this.offset = offset;
+
+		} else {
+
+			console.error( 'LWOLoader: invalid buffer offset' );
+
+		}
+
+	}
+
+	endOfFile() {
+
+		if ( this.offset >= this.size() ) return true;
+		return false;
+
+	}
+
+	skip( length ) {
+
+		this.offset += length;
+
+	}
+
+	getUint8() {
+
+		const value = this.dv.getUint8( this.offset );
+		this.offset += 1;
+		return value;
+
+	}
+
+	getUint16() {
+
+		const value = this.dv.getUint16( this.offset );
+		this.offset += 2;
+		return value;
+
+	}
+
+	getInt32() {
+
+		const value = this.dv.getInt32( this.offset, false );
+		this.offset += 4;
+		return value;
+
+	}
+
+	getUint32() {
+
+		const value = this.dv.getUint32( this.offset, false );
+		this.offset += 4;
+		return value;
+
+	}
+
+	getUint64() {
+
+		const low = this.getUint32();
+		const high = this.getUint32();
+		return high * 0x100000000 + low;
+
+	}
+
+	getFloat32() {
+
+		const value = this.dv.getFloat32( this.offset, false );
+		this.offset += 4;
+		return value;
+
+	}
+
+	getFloat32Array( size ) {
+
+		const a = [];
+
+		for ( let i = 0; i < size; i ++ ) {
+
+			a.push( this.getFloat32() );
+
+		}
+
+		return a;
+
+	}
+
+	getFloat64() {
+
+		const value = this.dv.getFloat64( this.offset );
+		this.offset += 8;
+		return value;
+
+	}
+
+	getFloat64Array( size ) {
+
+		const a = [];
+
+		for ( let i = 0; i < size; i ++ ) {
+
+			a.push( this.getFloat64() );
+
+		}
+
+		return a;
+
+	}
+
+	// get variable-length index data type
+	// VX ::= index[U2] | (index + 0xFF000000)[U4]
+	// If the index value is less than 65,280 (0xFF00),then VX === U2
+	// otherwise VX === U4 with bits 24-31 set
+	// When reading an index, if the first byte encountered is 255 (0xFF), then
+	// the four-byte form is being used and the first byte should be discarded or masked out.
+	getVariableLengthIndex() {
+
+		const firstByte = this.getUint8();
+
+		if ( firstByte === 255 ) {
+
+			return this.getUint8() * 65536 + this.getUint8() * 256 + this.getUint8();
+
+		}
+
+		return firstByte * 256 + this.getUint8();
+
+	}
+
+	// An ID tag is a sequence of 4 bytes containing 7-bit ASCII values
+	getIDTag() {
+
+		return this.getString( 4 );
+
+	}
+
+	getString( size ) {
+
+		if ( size === 0 ) return;
+
+		const start = this.offset;
+
+		let result;
+		let length;
+
+		if ( size ) {
+
+			length = size;
+			result = this._textDecoder.decode( new Uint8Array( this.dv.buffer, start, size ) );
+
+		} else {
+
+			// use 1:1 mapping of buffer to avoid redundant new array creation.
+			length = this._bytes.indexOf( 0, start ) - start;
+
+			result = this._textDecoder.decode( new Uint8Array( this.dv.buffer, start, length ) );
+
+			// account for null byte in length
+			length ++;
+
+			// if string with terminating nullbyte is uneven, extra nullbyte is added, skip that too
+			length += length % 2;
+
+		}
+
+		this.skip( length );
+
+		return result;
+
+	}
+
+	getStringArray( size ) {
+
+		let a = this.getString( size );
+		a = a.split( '\0' );
+
+		return a.filter( Boolean ); // return array with any empty strings removed
+
+	}
+
+}
+
+
+// ************** DEBUGGER  **************
+
+class Debugger {
+
+	constructor() {
+
+		this.active = false;
+		this.depth = 0;
+		this.formList = [];
+		this.offset = 0;
+
+		this.node = 0; // 0 = FORM, 1 = CHUNK, 2 = SUBNODE
+		this.nodeID = 'FORM';
+
+		this.dataOffset = 0;
+		this.length = 0;
+		this.skipped = false;
+
+	}
+
+	enable() {
+
+		this.active = true;
+
+	}
+
+	log() {
+
+		if ( ! this.active ) return;
+
+		let nodeType;
+
+		switch ( this.node ) {
+
+			case 0:
+				nodeType = 'FORM';
+				break;
+
+			case 1:
+				nodeType = 'CHK';
+				break;
+
+			case 2:
+				nodeType = 'S-CHK';
+				break;
+
+		}
+
+		console.log(
+			'| '.repeat( this.depth ) +
+			nodeType,
+			this.nodeID,
+			`( ${this.offset} ) -> ( ${this.dataOffset + this.length} )`,
+			( ( this.node == 0 ) ? ' {' : '' ),
+			( ( this.skipped ) ? 'SKIPPED' : '' ),
+			( ( this.node == 0 && this.skipped ) ? '}' : '' )
+		);
+
+		if ( this.node == 0 && ! this.skipped ) {
+
+			this.depth += 1;
+			this.formList.push( this.dataOffset + this.length );
+
+		}
+
+		this.skipped = false;
+
+	}
+
+	closeForms() {
+
+		if ( ! this.active ) return;
+
+		for ( let i = this.formList.length - 1; i >= 0; i -- ) {
+
+			if ( this.offset >= this.formList[ i ] ) {
+
+				this.depth -= 1;
+				console.log( '| '.repeat( this.depth ) + '}' );
+				this.formList.splice( -1, 1 );
+
+			}
+
+		}
+
+	}
+
+}
+
+// ************** UTILITY FUNCTIONS **************
+
+// calculate the length of the string in the buffer
+// this will be string.length + nullbyte + optional padbyte to make the length even
+function stringOffset( string ) {
+
+	return string.length + 1 + ( ( string.length + 1 ) % 2 );
+
+}
+
+// for testing purposes, dump buffer to console
+// printBuffer( this.reader.dv.buffer, this.reader.offset, length );
+function printBuffer( buffer, from, to ) {
+
+	console.log( new TextDecoder().decode( new Uint8Array( buffer, from, to ) ) );
+
+}
+
+let _lwoTree;
+
+/**
+ * A loader for the LWO format.
+ *
+ * LWO3 and LWO2 formats are supported.
+ *
+ * References:
+ * - [LWO3 format specification](https://static.lightwave3d.com/sdk/2019/html/filefmts/lwo3.html)
+ * - [LWO2 format specification](https://static.lightwave3d.com/sdk/2019/html/filefmts/lwo2.html)
+ *
+ * ```js
+ * const loader = new LWOLoader();
+ * const lwoData = await loader.loadAsync( 'models/lwo/Objects/LWO3/Demo.lwo' );
+ *
+ * const mesh = object.meshes[ 0 ];
+ * scene.add( mesh );
+ * ```
+ *
+ * @augments Loader
+ * @three_import import { LWOLoader } from 'three/addons/loaders/LWOLoader.js';
+ */
+class LWOLoader extends Loader {
+
+	/**
+	 * Constructs a new LWO loader.
+	 *
+	 * @param {LoadingManager} [manager] - The loading manager.
+	 */
+	constructor( manager ) {
+
+		super( manager );
+
+	}
+
+	/**
+	 * Starts loading from the given URL and passes the loaded LWO asset
+	 * to the `onLoad()` callback.
+	 *
+	 * @param {string} url - The path/URL of the file to be loaded. This can also be a data URI.
+	 * @param {function({meshes:Array<Mesh>,materials:Array<Material>})} onLoad - Executed when the loading process has been finished.
+	 * @param {onProgressCallback} onProgress - Executed while the loading is in progress.
+	 * @param {onErrorCallback} onError - Executed when errors occur.
+	 */
+	load( url, onLoad, onProgress, onError ) {
+
+		const scope = this;
+
+		const path = ( scope.path === '' ) ? extractParentUrl( url, 'Objects' ) : scope.path;
+
+		// give the mesh a default name based on the filename
+		const modelName = url.split( path ).pop().split( '.' )[ 0 ];
+
+		const loader = new FileLoader( this.manager );
+		loader.setPath( scope.path );
+		loader.setResponseType( 'arraybuffer' );
+
+		loader.load( url, function ( buffer ) {
+
+			// console.time( 'Total parsing: ' );
+
+			try {
+
+				onLoad( scope.parse( buffer, path, modelName ) );
+
+			} catch ( e ) {
+
+				if ( onError ) {
+
+					onError( e );
+
+				} else {
+
+					console.error( e );
+
+				}
+
+				scope.manager.itemError( url );
+
+			}
+
+			// console.timeEnd( 'Total parsing: ' );
+
+		}, onProgress, onError );
+
+	}
+
+	/**
+	 * Parses the given LWO data and returns the resulting meshes and materials.
+	 *
+	 * @param {ArrayBuffer} iffBuffer - The raw LWO data as an array buffer.
+	 * @param {string} path - The URL base path.
+	 * @param {string} modelName - The model name.
+	 * @return {{meshes:Array<Mesh>,materials:Array<Material>}} An object holding the parse meshes and materials.
+	 */
+	parse( iffBuffer, path, modelName ) {
+
+		_lwoTree = new IFFParser().parse( iffBuffer );
+
+		// console.log( 'lwoTree', lwoTree );
+
+		const textureLoader = new TextureLoader( this.manager ).setPath( this.resourcePath || path ).setCrossOrigin( this.crossOrigin );
+
+		return new LWOTreeParser( textureLoader ).parse( modelName );
+
+	}
+
+}
+
+// Parse the lwoTree object
+class LWOTreeParser {
+
+	constructor( textureLoader ) {
+
+		this.textureLoader = textureLoader;
+
+	}
+
+	parse( modelName ) {
+
+		this.materials = new MaterialParser( this.textureLoader ).parse();
+		this.defaultLayerName = modelName;
+
+		this.meshes = this.parseLayers();
+
+		return {
+			materials: this.materials,
+			meshes: this.meshes,
+		};
+
+	}
+
+	parseLayers() {
+
+		// array of all meshes for building hierarchy
+		const meshes = [];
+
+		// final array containing meshes with scene graph hierarchy set up
+		const finalMeshes = [];
+
+		const geometryParser = new GeometryParser();
+
+		const scope = this;
+		_lwoTree.layers.forEach( function ( layer ) {
+
+			const geometry = geometryParser.parse( layer.geometry, layer );
+
+			const mesh = scope.parseMesh( geometry, layer );
+
+			meshes[ layer.number ] = mesh;
+
+			if ( layer.parent === -1 ) finalMeshes.push( mesh );
+			else meshes[ layer.parent ].add( mesh );
+
+
+		} );
+
+		return finalMeshes;
+
+	}
+
+	parseMesh( geometry, layer ) {
+
+		let mesh;
+
+		const materials = this.getMaterials( geometry.userData.matNames, layer.geometry.type );
+
+		if ( layer.geometry.type === 'points' ) mesh = new Points( geometry, materials );
+		else if ( layer.geometry.type === 'lines' ) mesh = new LineSegments( geometry, materials );
+		else mesh = new Mesh( geometry, materials );
+
+		if ( layer.name ) mesh.name = layer.name;
+		else mesh.name = this.defaultLayerName + '_layer_' + layer.number;
+
+		const pivot = layer.pivot;
+		if ( pivot[ 0 ] !== 0 || pivot[ 1 ] !== 0 || pivot[ 2 ] !== 0 ) {
+
+			mesh.pivot = new Vector3$2( pivot[ 0 ], pivot[ 1 ], pivot[ 2 ] );
+
+		}
+
+		return mesh;
+
+	}
+
+	getMaterials( namesArray, type ) {
+
+		const materials = [];
+
+		const scope = this;
+
+		namesArray.forEach( function ( name, i ) {
+
+			materials[ i ] = scope.getMaterialByName( name );
+
+		} );
+
+		// convert materials to line or point mats if required
+		if ( type === 'points' || type === 'lines' ) {
+
+			materials.forEach( function ( mat, i ) {
+
+				const spec = {
+					color: mat.color,
+				};
+
+				if ( type === 'points' ) {
+
+					spec.size = 0.1;
+					spec.map = mat.map;
+					materials[ i ] = new PointsMaterial( spec );
+
+				} else if ( type === 'lines' ) {
+
+					materials[ i ] = new LineBasicMaterial( spec );
+
+				}
+
+			} );
+
+		}
+
+		// if there is only one material, return that directly instead of array
+		const filtered = materials.filter( Boolean );
+		if ( filtered.length === 1 ) return filtered[ 0 ];
+
+		return materials;
+
+	}
+
+	getMaterialByName( name ) {
+
+		return this.materials.filter( function ( m ) {
+
+			return m.name === name;
+
+		} )[ 0 ];
+
+	}
+
+}
+
+class MaterialParser {
+
+	constructor( textureLoader ) {
+
+		this.textureLoader = textureLoader;
+
+	}
+
+	parse() {
+
+		const materials = [];
+		this.textures = {};
+
+		for ( const name in _lwoTree.materials ) {
+
+			if ( _lwoTree.format === 'LWO3' ) {
+
+				materials.push( this.parseMaterial( _lwoTree.materials[ name ], name, _lwoTree.textures ) );
+
+			} else if ( _lwoTree.format === 'LWO2' ) {
+
+				materials.push( this.parseMaterialLwo2( _lwoTree.materials[ name ], name, _lwoTree.textures ) );
+
+			}
+
+		}
+
+		return materials;
+
+	}
+
+	parseMaterial( materialData, name, textures ) {
+
+		let params = {
+			name: name,
+			side: this.getSide( materialData.attributes ),
+			flatShading: this.getSmooth( materialData.attributes ),
+		};
+
+		const connections = this.parseConnections( materialData.connections, materialData.nodes );
+
+		const maps = this.parseTextureNodes( connections.maps );
+
+		this.parseAttributeImageMaps( connections.attributes, textures, maps );
+
+		const attributes = this.parseAttributes( connections.attributes, maps );
+
+		this.parseEnvMap( connections, maps, attributes );
+
+		params = Object.assign( maps, params );
+		params = Object.assign( params, attributes );
+
+		const materialType = this.getMaterialType( connections.attributes );
+
+		if ( materialType !== MeshPhongMaterial ) delete params.refractionRatio; // PBR materials do not support "refractionRatio"
+
+		return new materialType( params );
+
+	}
+
+	parseMaterialLwo2( materialData, name/*, textures*/ ) {
+
+		let params = {
+			name: name,
+			side: this.getSide( materialData.attributes ),
+			flatShading: this.getSmooth( materialData.attributes ),
+		};
+
+		const attributes = this.parseAttributes( materialData.attributes, {} );
+		params = Object.assign( params, attributes );
+		return new MeshPhongMaterial( params );
+
+	}
+
+	// Note: converting from left to right handed coords by switching x -> -x in vertices, and
+	// then switching mat FrontSide -> BackSide
+	// NB: this means that FrontSide and BackSide have been switched!
+	getSide( attributes ) {
+
+		if ( ! attributes.side ) return BackSide$1;
+
+		switch ( attributes.side ) {
+
+			case 0:
+			case 1:
+				return BackSide$1;
+			case 2: return FrontSide;
+			case 3: return DoubleSide$1;
+
+		}
+
+	}
+
+	getSmooth( attributes ) {
+
+		if ( ! attributes.smooth ) return true;
+		return ! attributes.smooth;
+
+	}
+
+	parseConnections( connections, nodes ) {
+
+		const materialConnections = {
+			maps: {}
+		};
+
+		const inputName = connections.inputName;
+		const inputNodeName = connections.inputNodeName;
+		const nodeName = connections.nodeName;
+
+		const scope = this;
+		inputName.forEach( function ( name, index ) {
+
+			if ( name === 'Material' ) {
+
+				const matNode = scope.getNodeByRefName( inputNodeName[ index ], nodes );
+				materialConnections.attributes = matNode.attributes;
+				materialConnections.envMap = matNode.fileName;
+				materialConnections.name = inputNodeName[ index ];
+
+			}
+
+		} );
+
+		nodeName.forEach( function ( name, index ) {
+
+			if ( name === materialConnections.name ) {
+
+				materialConnections.maps[ inputName[ index ] ] = scope.getNodeByRefName( inputNodeName[ index ], nodes );
+
+			}
+
+		} );
+
+		return materialConnections;
+
+	}
+
+	getNodeByRefName( refName, nodes ) {
+
+		for ( const name in nodes ) {
+
+			if ( nodes[ name ].refName === refName ) return nodes[ name ];
+
+		}
+
+	}
+
+	parseTextureNodes( textureNodes ) {
+
+		const maps = {};
+
+		for ( const name in textureNodes ) {
+
+			const node = textureNodes[ name ];
+			const path = node.fileName;
+
+			if ( ! path ) return;
+
+			const texture = this.loadTexture( path );
+
+			if ( node.widthWrappingMode !== undefined ) texture.wrapS = this.getWrappingType( node.widthWrappingMode );
+			if ( node.heightWrappingMode !== undefined ) texture.wrapT = this.getWrappingType( node.heightWrappingMode );
+
+			switch ( name ) {
+
+				case 'Color':
+					maps.map = texture;
+					maps.map.colorSpace = SRGBColorSpace$1;
+					break;
+				case 'Roughness':
+					maps.roughnessMap = texture;
+					maps.roughness = 1;
+					break;
+				case 'Specular':
+					maps.specularMap = texture;
+					maps.specularMap.colorSpace = SRGBColorSpace$1;
+					maps.specular = 0xffffff;
+					break;
+				case 'Luminous':
+					maps.emissiveMap = texture;
+					maps.emissiveMap.colorSpace = SRGBColorSpace$1;
+					maps.emissive = 0x808080;
+					break;
+				case 'Luminous Color':
+					maps.emissive = 0x808080;
+					break;
+				case 'Metallic':
+					maps.metalnessMap = texture;
+					maps.metalness = 1;
+					break;
+				case 'Transparency':
+				case 'Alpha':
+					maps.alphaMap = texture;
+					maps.transparent = true;
+					break;
+				case 'Normal':
+					maps.normalMap = texture;
+					if ( node.amplitude !== undefined ) maps.normalScale = new Vector2$1( node.amplitude, node.amplitude );
+					break;
+				case 'Bump':
+					maps.bumpMap = texture;
+					break;
+
+			}
+
+		}
+
+		// LWO BSDF materials can have both spec and rough, but this is not valid in three
+		if ( maps.roughnessMap && maps.specularMap ) delete maps.specularMap;
+
+		return maps;
+
+	}
+
+	// maps can also be defined on individual material attributes, parse those here
+	// This occurs on Standard (Phong) surfaces
+	parseAttributeImageMaps( attributes, textures, maps ) {
+
+		for ( const name in attributes ) {
+
+			const attribute = attributes[ name ];
+
+			if ( attribute.maps ) {
+
+				const mapData = attribute.maps[ 0 ];
+
+				const path = this.getTexturePathByIndex( mapData.imageIndex );
+				if ( ! path ) return;
+
+				const texture = this.loadTexture( path );
+
+				if ( mapData.wrap !== undefined ) texture.wrapS = this.getWrappingType( mapData.wrap.w );
+				if ( mapData.wrap !== undefined ) texture.wrapT = this.getWrappingType( mapData.wrap.h );
+
+				switch ( name ) {
+
+					case 'Color':
+						maps.map = texture;
+						maps.map.colorSpace = SRGBColorSpace$1;
+						break;
+					case 'Diffuse':
+						maps.aoMap = texture;
+						break;
+					case 'Roughness':
+						maps.roughnessMap = texture;
+						maps.roughness = 1;
+						break;
+					case 'Specular':
+						maps.specularMap = texture;
+						maps.specularMap.colorSpace = SRGBColorSpace$1;
+						maps.specular = 0xffffff;
+						break;
+					case 'Luminosity':
+						maps.emissiveMap = texture;
+						maps.emissiveMap.colorSpace = SRGBColorSpace$1;
+						maps.emissive = 0x808080;
+						break;
+					case 'Metallic':
+						maps.metalnessMap = texture;
+						maps.metalness = 1;
+						break;
+					case 'Transparency':
+					case 'Alpha':
+						maps.alphaMap = texture;
+						maps.transparent = true;
+						break;
+					case 'Normal':
+						maps.normalMap = texture;
+						break;
+					case 'Bump':
+						maps.bumpMap = texture;
+						break;
+
+				}
+
+			}
+
+		}
+
+	}
+
+	parseAttributes( attributes, maps ) {
+
+		const params = {};
+
+		// don't use color data if color map is present
+		if ( attributes.Color && ! maps.map ) {
+
+			params.color = new Color$1().fromArray( attributes.Color.value );
+
+		} else {
+
+			params.color = new Color$1();
+
+		}
+
+
+		if ( attributes.Transparency && attributes.Transparency.value !== 0 ) {
+
+			params.opacity = 1 - attributes.Transparency.value;
+			params.transparent = true;
+
+		}
+
+		if ( attributes[ 'Bump Height' ] ) params.bumpScale = attributes[ 'Bump Height' ].value * 0.1;
+
+		this.parsePhysicalAttributes( params, attributes, maps );
+		this.parseStandardAttributes( params, attributes, maps );
+		this.parsePhongAttributes( params, attributes, maps );
+
+		return params;
+
+	}
+
+	parsePhysicalAttributes( params, attributes/*, maps*/ ) {
+
+		if ( attributes.Clearcoat && attributes.Clearcoat.value > 0 ) {
+
+			params.clearcoat = attributes.Clearcoat.value;
+
+			if ( attributes[ 'Clearcoat Gloss' ] ) {
+
+				params.clearcoatRoughness = 0.5 * ( 1 - attributes[ 'Clearcoat Gloss' ].value );
+
+			}
+
+		}
+
+	}
+
+	parseStandardAttributes( params, attributes, maps ) {
+
+
+		if ( attributes.Luminous ) {
+
+			params.emissiveIntensity = attributes.Luminous.value;
+
+			if ( attributes[ 'Luminous Color' ] && ! maps.emissive ) {
+
+				params.emissive = new Color$1().fromArray( attributes[ 'Luminous Color' ].value );
+
+			} else {
+
+				params.emissive = new Color$1( 0x808080 );
+
+			}
+
+		}
+
+		if ( attributes.Roughness && ! maps.roughnessMap ) params.roughness = attributes.Roughness.value;
+		if ( attributes.Metallic && ! maps.metalnessMap ) params.metalness = attributes.Metallic.value;
+
+	}
+
+	parsePhongAttributes( params, attributes, maps ) {
+
+		if ( attributes[ 'Refraction Index' ] ) params.refractionRatio = 0.98 / attributes[ 'Refraction Index' ].value;
+
+		if ( attributes.Diffuse ) params.color.multiplyScalar( attributes.Diffuse.value );
+
+		if ( attributes.Reflection ) {
+
+			params.reflectivity = attributes.Reflection.value;
+			params.combine = AddOperation;
+
+		}
+
+		if ( attributes.Luminosity ) {
+
+			params.emissiveIntensity = attributes.Luminosity.value;
+
+			if ( ! maps.emissiveMap && ! maps.map ) {
+
+				params.emissive = params.color;
+
+			} else {
+
+				params.emissive = new Color$1( 0x808080 );
+
+			}
+
+		}
+
+		// parse specular if there is no roughness - we will interpret the material as 'Phong' in this case
+		if ( ! attributes.Roughness && attributes.Specular && ! maps.specularMap ) {
+
+			if ( attributes[ 'Color Highlight' ] ) {
+
+				params.specular = new Color$1().setScalar( attributes.Specular.value ).lerp( params.color.clone().multiplyScalar( attributes.Specular.value ), attributes[ 'Color Highlight' ].value );
+
+			} else {
+
+				params.specular = new Color$1().setScalar( attributes.Specular.value );
+
+			}
+
+		}
+
+		if ( params.specular && attributes.Glossiness ) params.shininess = 7 + Math.pow( 2, attributes.Glossiness.value * 12 + 2 );
+
+	}
+
+	parseEnvMap( connections, maps, attributes ) {
+
+		if ( connections.envMap ) {
+
+			const envMap = this.loadTexture( connections.envMap );
+
+			if ( attributes.transparent && attributes.opacity < 0.999 ) {
+
+				envMap.mapping = EquirectangularRefractionMapping;
+
+				// Reflectivity and refraction mapping don't work well together in Phong materials
+				if ( attributes.reflectivity !== undefined ) {
+
+					delete attributes.reflectivity;
+					delete attributes.combine;
+
+				}
+
+				if ( attributes.metalness !== undefined ) {
+
+					attributes.metalness = 1; // For most transparent materials metalness should be set to 1 if not otherwise defined. If set to 0 no refraction will be visible
+
+				}
+
+				attributes.opacity = 1; // transparency fades out refraction, forcing opacity to 1 ensures a closer visual match to the material in Lightwave.
+
+			} else envMap.mapping = EquirectangularReflectionMapping;
+
+			maps.envMap = envMap;
+
+		}
+
+	}
+
+	// get texture defined at top level by its index
+	getTexturePathByIndex( index ) {
+
+		let fileName = '';
+
+		if ( ! _lwoTree.textures ) return fileName;
+
+		_lwoTree.textures.forEach( function ( texture ) {
+
+			if ( texture.index === index ) fileName = texture.fileName;
+
+		} );
+
+		return fileName;
+
+	}
+
+	loadTexture( path ) {
+
+		if ( ! path ) return null;
+
+		const texture = this.textureLoader.load(
+			path,
+			undefined,
+			undefined,
+			function () {
+
+				console.warn( 'LWOLoader: non-standard resource hierarchy. Use \`resourcePath\` parameter to specify root content directory.' );
+
+			}
+		);
+
+		return texture;
+
+	}
+
+	// 0 = Reset, 1 = Repeat, 2 = Mirror, 3 = Edge
+	getWrappingType( num ) {
+
+		switch ( num ) {
+
+			case 0:
+				console.warn( 'LWOLoader: "Reset" texture wrapping type is not supported in three.js' );
+				return ClampToEdgeWrapping$1;
+			case 1: return RepeatWrapping$1;
+			case 2: return MirroredRepeatWrapping$1;
+			case 3: return ClampToEdgeWrapping$1;
+
+		}
+
+	}
+
+	getMaterialType( nodeData ) {
+
+		if ( nodeData.Clearcoat && nodeData.Clearcoat.value > 0 ) return MeshPhysicalMaterial;
+		if ( nodeData.Roughness ) return MeshStandardMaterial;
+		return MeshPhongMaterial;
+
+	}
+
+}
+
+class GeometryParser {
+
+	parse( geoData, layer ) {
+
+		const geometry = new BufferGeometry();
+
+		geometry.setAttribute( 'position', new Float32BufferAttribute( geoData.points, 3 ) );
+
+		const indices = this.splitIndices( geoData.vertexIndices, geoData.polygonDimensions );
+		geometry.setIndex( indices );
+
+		this.parseGroups( geometry, geoData );
+
+		geometry.computeVertexNormals();
+
+		this.parseUVs( geometry, layer );
+		this.parseMorphTargets( geometry, layer );
+
+		return geometry;
+
+	}
+
+	// split quads into tris
+	splitIndices( indices, polygonDimensions ) {
+
+		const remappedIndices = [];
+
+		let i = 0;
+		polygonDimensions.forEach( function ( dim ) {
+
+			if ( dim < 4 ) {
+
+				for ( let k = 0; k < dim; k ++ ) remappedIndices.push( indices[ i + k ] );
+
+			} else if ( dim === 4 ) {
+
+				remappedIndices.push(
+					indices[ i ],
+					indices[ i + 1 ],
+					indices[ i + 2 ],
+
+					indices[ i ],
+					indices[ i + 2 ],
+					indices[ i + 3 ]
+
+				);
+
+			} else if ( dim > 4 ) {
+
+				for ( let k = 1; k < dim - 1; k ++ ) {
+
+					remappedIndices.push( indices[ i ], indices[ i + k ], indices[ i + k + 1 ] );
+
+				}
+
+				console.warn( 'LWOLoader: polygons with greater than 4 sides are not supported' );
+
+			}
+
+			i += dim;
+
+		} );
+
+		return remappedIndices;
+
+	}
+
+	// NOTE: currently ignoring poly indices and assuming that they are intelligently ordered
+	parseGroups( geometry, geoData ) {
+
+		const tags = _lwoTree.tags;
+		const matNames = [];
+
+		let elemSize = 3;
+		if ( geoData.type === 'lines' ) elemSize = 2;
+		if ( geoData.type === 'points' ) elemSize = 1;
+
+		const remappedIndices = this.splitMaterialIndices( geoData.polygonDimensions, geoData.materialIndices );
+
+		let indexNum = 0; // create new indices in numerical order
+		const indexPairs = {}; // original indices mapped to numerical indices
+
+		let prevMaterialIndex;
+		let materialIndex;
+
+		let prevStart = 0;
+		let currentCount = 0;
+
+		for ( let i = 0; i < remappedIndices.length; i += 2 ) {
+
+			materialIndex = remappedIndices[ i + 1 ];
+
+			if ( i === 0 ) matNames[ indexNum ] = tags[ materialIndex ];
+
+			if ( prevMaterialIndex === undefined ) prevMaterialIndex = materialIndex;
+
+			if ( materialIndex !== prevMaterialIndex ) {
+
+				let currentIndex;
+				if ( indexPairs[ tags[ prevMaterialIndex ] ] ) {
+
+					currentIndex = indexPairs[ tags[ prevMaterialIndex ] ];
+
+				} else {
+
+					currentIndex = indexNum;
+					indexPairs[ tags[ prevMaterialIndex ] ] = indexNum;
+					matNames[ indexNum ] = tags[ prevMaterialIndex ];
+					indexNum ++;
+
+				}
+
+				geometry.addGroup( prevStart, currentCount, currentIndex );
+
+				prevStart += currentCount;
+
+				prevMaterialIndex = materialIndex;
+				currentCount = 0;
+
+			}
+
+			currentCount += elemSize;
+
+		}
+
+		// the loop above doesn't add the last group, do that here.
+		if ( geometry.groups.length > 0 ) {
+
+			let currentIndex;
+			if ( indexPairs[ tags[ materialIndex ] ] ) {
+
+				currentIndex = indexPairs[ tags[ materialIndex ] ];
+
+			} else {
+
+				currentIndex = indexNum;
+				indexPairs[ tags[ materialIndex ] ] = indexNum;
+				matNames[ indexNum ] = tags[ materialIndex ];
+
+			}
+
+			geometry.addGroup( prevStart, currentCount, currentIndex );
+
+		}
+
+		// Mat names from TAGS chunk, used to build up an array of materials for this geometry
+		geometry.userData.matNames = matNames;
+
+	}
+
+	splitMaterialIndices( polygonDimensions, indices ) {
+
+		const remappedIndices = [];
+
+		polygonDimensions.forEach( function ( dim, i ) {
+
+			if ( dim <= 3 ) {
+
+				remappedIndices.push( indices[ i * 2 ], indices[ i * 2 + 1 ] );
+
+			} else if ( dim === 4 ) {
+
+				remappedIndices.push( indices[ i * 2 ], indices[ i * 2 + 1 ], indices[ i * 2 ], indices[ i * 2 + 1 ] );
+
+			} else {
+
+				 // ignore > 4 for now
+				for ( let k = 0; k < dim - 2; k ++ ) {
+
+					remappedIndices.push( indices[ i * 2 ], indices[ i * 2 + 1 ] );
+
+				}
+
+			}
+
+		} );
+
+		return remappedIndices;
+
+	}
+
+	// UV maps:
+	// 1: are defined via index into an array of points, not into a geometry
+	// - the geometry is also defined by an index into this array, but the indexes may not match
+	// 2: there can be any number of UV maps for a single geometry. Here these are combined,
+	// 	with preference given to the first map encountered
+	// 3: UV maps can be partial - that is, defined for only a part of the geometry
+	// 4: UV maps can be VMAP or VMAD (discontinuous, to allow for seams). In practice, most
+	// UV maps are defined as partially VMAP and partially VMAD
+	// VMADs are currently not supported
+	parseUVs( geometry, layer ) {
+
+		// start by creating a UV map set to zero for the whole geometry
+		const remappedUVs = Array.from( Array( geometry.attributes.position.count * 2 ), function () {
+
+			return 0;
+
+		} );
+
+		for ( const name in layer.uvs ) {
+
+			const uvs = layer.uvs[ name ].uvs;
+			const uvIndices = layer.uvs[ name ].uvIndices;
+
+			uvIndices.forEach( function ( i, j ) {
+
+				remappedUVs[ i * 2 ] = uvs[ j * 2 ];
+				remappedUVs[ i * 2 + 1 ] = uvs[ j * 2 + 1 ];
+
+			} );
+
+		}
+
+		geometry.setAttribute( 'uv', new Float32BufferAttribute( remappedUVs, 2 ) );
+
+	}
+
+	parseMorphTargets( geometry, layer ) {
+
+		let num = 0;
+		for ( const name in layer.morphTargets ) {
+
+			const remappedPoints = geometry.attributes.position.array.slice();
+
+			if ( ! geometry.morphAttributes.position ) geometry.morphAttributes.position = [];
+
+			const morphPoints = layer.morphTargets[ name ].points;
+			const morphIndices = layer.morphTargets[ name ].indices;
+			const type = layer.morphTargets[ name ].type;
+
+			morphIndices.forEach( function ( i, j ) {
+
+				if ( type === 'relative' ) {
+
+					remappedPoints[ i * 3 ] += morphPoints[ j * 3 ];
+					remappedPoints[ i * 3 + 1 ] += morphPoints[ j * 3 + 1 ];
+					remappedPoints[ i * 3 + 2 ] += morphPoints[ j * 3 + 2 ];
+
+				} else {
+
+					remappedPoints[ i * 3 ] = morphPoints[ j * 3 ];
+					remappedPoints[ i * 3 + 1 ] = morphPoints[ j * 3 + 1 ];
+					remappedPoints[ i * 3 + 2 ] = morphPoints[ j * 3 + 2 ];
+
+				}
+
+			} );
+
+			geometry.morphAttributes.position[ num ] = new Float32BufferAttribute( remappedPoints, 3 );
+			geometry.morphAttributes.position[ num ].name = name;
+
+			num ++;
+
+		}
+
+		geometry.morphTargetsRelative = false;
+
+	}
+
+}
+
+
+// ************** UTILITY FUNCTIONS **************
+
+function extractParentUrl( url, dir ) {
+
+	const index = url.indexOf( dir );
+
+	if ( index === -1 ) return './';
+
+	return url.slice( 0, index );
+
+}
+
+var LWOLoader$1 = /*#__PURE__*/Object.freeze({
+	__proto__: null,
+	LWOLoader: LWOLoader
+});
+
 /**
  * This class represents a scene with a basic room setup that can be used as
  * input for {@link PMREMGenerator#fromScene}. The resulting PMREM represents the room's
@@ -141347,5 +158843,5 @@ var HDRLoader$1 = /*#__PURE__*/Object.freeze({
 	HDRLoader: HDRLoader
 });
 
-export { BufferGeometry as B, Color$1 as C, DoubleSide$1 as D, Euler as E, FontLoader as F, GLTFLoader$1 as G, HDRLoader$1 as H, Loader as L, Matrix4 as M, OrbitControls as O, PLYLoader$1 as P, Quaternion as Q, RoomEnvironment$1 as R, STLLoader$1 as S, THREE as T, Vector3 as V, XYZLoader$1 as X, MathUtils$1 as a, TextGeometry as b, TransformControls as c, FileLoader as d, exports$1 as e, Mesh as f, MeshLambertMaterial as g, Matrix4$2 as h, BufferAttribute$1 as i, DDSLoader$1 as j, MTLLoader$1 as k, OBJLoader$1 as l, mergeGeometries as m, FBXLoader$1 as n, ColladaLoader$1 as o, TDSLoader$1 as p, PCDLoader$1 as q, DRACOLoader$1 as r };
+export { AMFLoader$1 as A, BufferGeometry as B, Color$1 as C, DoubleSide$1 as D, Euler as E, FontLoader as F, GLTFLoader$1 as G, HDRLoader$1 as H, KMZLoader$1 as K, Loader as L, Matrix4 as M, OrbitControls as O, PLYLoader$1 as P, Quaternion as Q, RoomEnvironment$1 as R, STLLoader$1 as S, THREE as T, USDLoader$1 as U, Vector3 as V, XYZLoader$1 as X, _3MFLoader as _, MathUtils$1 as a, TextGeometry as b, TransformControls as c, FileLoader as d, exports$1 as e, Mesh as f, MeshLambertMaterial as g, Matrix4$2 as h, BufferAttribute$1 as i, DDSLoader$1 as j, MTLLoader$1 as k, OBJLoader$1 as l, mergeGeometries as m, FBXLoader$1 as n, ColladaLoader$1 as o, TDSLoader$1 as p, PCDLoader$1 as q, DRACOLoader$1 as r, VRMLLoader$1 as s, VOXLoader$1 as t, LWOLoader$1 as u };
 //# sourceMappingURL=three.js.map

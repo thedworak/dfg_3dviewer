@@ -1,0 +1,132 @@
+.flex-container {
+  gap: .5rem;
+  display: flex;
+}
+
+.half-width {
+  flex: none;
+  width: 200px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.scale-fields-wrapper {
+  background-color: #f9f9f9;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  width: 500px;
+  max-width: 100%;
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.gallery-container {
+  gap: .5rem;
+  display: block;
+}
+
+.gallery-fields-wrapper {
+  background-color: #f9f9f9;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  width: 500px;
+  max-width: 100%;
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+#ultra-loader {
+  z-index: 99999;
+  width: 100%;
+  height: 3px;
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+#ultra-loader-bar {
+  background: linear-gradient(90deg, #4facfe, #00f2fe);
+  width: 0%;
+  height: 100%;
+  transition: width .35s;
+  box-shadow: 0 0 8px #0096ff99;
+}
+
+#ultra-loader-panel {
+  color: #fffffff0;
+  opacity: 0;
+  z-index: 99999;
+  pointer-events: none;
+  background: #111827eb;
+  border: 1px solid #ffffff1f;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 14px;
+  transition: opacity 2.8s cubic-bezier(.4, 0, .2, 1);
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  box-shadow: 0 12px 30px #0f172a47;
+}
+
+body[data-viewer-theme="light"] #ultra-loader-panel {
+  color: #25211ceb;
+  background: #faf7f2f7;
+  border-color: #a497843d;
+  box-shadow: 0 14px 28px #81746024;
+}
+
+#ultra-loader-panel.show {
+  opacity: 1;
+  z-index: 99999;
+}
+
+#ultra-loader-header {
+  color: #fffffff5;
+  text-align: center;
+  border-bottom: 1px solid #ffffff24;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+body[data-viewer-theme="light"] #ultra-loader-header {
+  color: #25211cf0;
+  border-bottom-color: #a497843d;
+}
+
+.ultra-step {
+  margin: 4px 0;
+}
+
+.ultra-step.done {
+  color: #3ba55d;
+}
+
+.ultra-step.active {
+  color: #007bff;
+}
+
+.ultra-step.pending {
+  color: #999;
+}
+
+.ultra-step.error {
+  color: #d93025;
+}
+
+#ultra-loader-error {
+  color: #d93025;
+  border-top: 1px solid #ffffff1f;
+  margin-top: 10px;
+  padding-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+body[data-viewer-theme="light"] #ultra-loader-error {
+  border-top-color: #a497843d;
+}
+/*# sourceMappingURL=dev.c108b3a3.css.map */

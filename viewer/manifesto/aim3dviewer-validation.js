@@ -146,6 +146,39 @@ function validateCamera(camera, path, errors) {
   if (camera.perspectiveMode !== undefined) validateEnum(camera.perspectiveMode, ["perspective", "orthographic"], `${path}.perspectiveMode`, errors);
 }
 
+function validatePanelState(panel, path, errors) {
+  if (!isPlainObject(panel)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  if (panel.position !== undefined) validateVector(panel.position, `${path}.position`, errors, 2);
+  if (panel.size !== undefined) {
+    if (!isPlainObject(panel.size)) {
+      pushError(errors, `${path}.size`, "must be an object");
+    } else {
+      // viewer-settings.json uses null for "not sized yet".
+      ["width", "height"].forEach((key) => {
+        if (panel.size[key] != null) validateNumber(panel.size[key], `${path}.size.${key}`, errors);
+      });
+    }
+  }
+}
+
+function validateIntegration(integration, path, errors) {
+  if (!isPlainObject(integration)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  if (integration.exportViewerUrl !== undefined) validateString(integration.exportViewerUrl, `${path}.exportViewerUrl`, errors);
+  if (integration.api !== undefined) {
+    if (!isPlainObject(integration.api)) {
+      pushError(errors, `${path}.api`, "must be an object");
+    } else if (integration.api.thumbnailUploadEndpoint !== undefined) {
+      validateString(integration.api.thumbnailUploadEndpoint, `${path}.api.thumbnailUploadEndpoint`, errors);
+    }
+  }
+}
+
 function validateViewer(viewer, path, errors) {
   if (!isPlainObject(viewer)) {
     pushError(errors, path, "must be an object");
@@ -153,6 +186,22 @@ function validateViewer(viewer, path, errors) {
   }
   if (viewer.container !== undefined) validateString(viewer.container, `${path}.container`, errors);
   if (viewer.mailUrl !== undefined) validateString(viewer.mailUrl, `${path}.mailUrl`, errors);
+  if (viewer.mainUrl !== undefined) validateString(viewer.mainUrl, `${path}.mainUrl`, errors);
+  if (viewer.baseModulePath !== undefined) validateString(viewer.baseModulePath, `${path}.baseModulePath`, errors);
+  if (viewer.background !== undefined) validateString(viewer.background, `${path}.background`, errors);
+  if (viewer.credits !== undefined && !isPlainObject(viewer.credits)) pushError(errors, `${path}.credits`, "must be an object");
+  if (viewer.auth !== undefined) {
+    if (!isPlainObject(viewer.auth)) {
+      pushError(errors, `${path}.auth`, "must be an object");
+    } else {
+      ["enabled", "allowRegistration"].forEach((key) => {
+        if (viewer.auth[key] !== undefined) validateBoolean(viewer.auth[key], `${path}.auth.${key}`, errors);
+      });
+    }
+  }
+  ["manifestoForm", "metadataContainer"].forEach((key) => {
+    if (viewer[key] !== undefined) validatePanelState(viewer[key], `${path}.${key}`, errors);
+  });
   if (viewer.baseNamespace !== undefined) validateString(viewer.baseNamespace, `${path}.baseNamespace`, errors);
   if (viewer.metadataUrl !== undefined) validateString(viewer.metadataUrl, `${path}.metadataUrl`, errors);
   if (viewer.theme !== undefined) validateEnum(viewer.theme, ["light", "dark"], `${path}.theme`, errors);
@@ -170,6 +219,8 @@ function validateViewer(viewer, path, errors) {
   [
     "presentationMode",
     "sandbox",
+    "lightweight",
+    "editor",
     "autorotate",
     "disableInteraction",
     "hideUi",
@@ -241,6 +292,21 @@ function validateModelTransform(modelTransform, path, errors) {
     }
   }
   if (modelTransform.wireframe !== undefined) validateBoolean(modelTransform.wireframe, `${path}.wireframe`, errors);
+  if (modelTransform.shadingMode !== undefined) {
+    validateEnum(modelTransform.shadingMode, ["standard", "phong", "lambert", "toon", "custom"], `${path}.shadingMode`, errors);
+  }
+  if (modelTransform.customShader !== undefined) {
+    if (!isPlainObject(modelTransform.customShader)) {
+      pushError(errors, `${path}.customShader`, "must be an object");
+    } else {
+      if (modelTransform.customShader.vertexShader !== undefined) {
+        validateString(modelTransform.customShader.vertexShader, `${path}.customShader.vertexShader`, errors);
+      }
+      if (modelTransform.customShader.fragmentShader !== undefined) {
+        validateString(modelTransform.customShader.fragmentShader, `${path}.customShader.fragmentShader`, errors);
+      }
+    }
+  }
 }
 
 function validateAIM3DViewerBlock(block, path, errors) {
@@ -252,7 +318,7 @@ function validateAIM3DViewerBlock(block, path, errors) {
   if (block.generatedAt !== undefined) validateString(block.generatedAt, `${path}.generatedAt`, errors);
   if (block.camera !== undefined) validateCamera(block.camera, `${path}.camera`, errors);
   if (block.viewer !== undefined) validateViewer(block.viewer, `${path}.viewer`, errors);
-  if (block.integration !== undefined && !isPlainObject(block.integration)) pushError(errors, `${path}.integration`, "must be an object");
+  if (block.integration !== undefined) validateIntegration(block.integration, `${path}.integration`, errors);
   if (block.lights !== undefined) {
     if (!Array.isArray(block.lights)) {
       pushError(errors, `${path}.lights`, "must be an array");

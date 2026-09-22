@@ -1,0 +1,68 @@
+{
+  "@context": "http://iiif.io/api/presentation/4/context.json",
+  "id": "./manifests/docker-profile.json",
+  "type": "Manifest",
+  "label": {
+    "en": [
+      "Docker profile: sandbox"
+    ]
+  },
+  "items": [
+    {
+      "id": "./examples/box.glb/scene",
+      "type": "Scene",
+      "label": {
+        "en": [
+          "box"
+        ]
+      },
+      "items": [
+        {
+          "id": "./examples/box.glb/scene/page/model",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "./examples/box.glb/scene/annotation/model",
+              "type": "Annotation",
+              "motivation": [
+                "painting"
+              ],
+              "body": {
+                "id": "./examples/box.glb",
+                "type": "Model"
+              },
+              "target": {
+                "id": "./examples/box.glb/scene",
+                "type": "Scene"
+              }
+            }
+          ]
+        }
+      ],
+      "annotations": [
+        {
+          "id": "./examples/box.glb/scene/page/annotations",
+          "type": "AnnotationPage",
+          "items": []
+        }
+      ]
+    }
+  ],
+  "AIM3DViewer": {
+    "version": "1.0",
+    "viewer": {
+      "container": "DFG_3DViewer",
+      "lightweight": false,
+      "editor": true,
+      "presentationMode": false,
+      "sandbox": true,
+      "performance": "high-performance",
+      "showNotifications": true
+    },
+    "integration": {
+      "api": {
+        "thumbnailUploadEndpoint": "/api/editor/upload-thumbnail"
+      }
+    }
+  }
+}

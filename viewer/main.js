@@ -14,7 +14,7 @@ GNU General Public License for more details at
 https://www.gnu.org/licenses/.
 */
 
-//Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF
+//Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF, USD/USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO
 
 const SOURCE = (typeof __BUILD_SOURCE__ !== 'undefined') ? __BUILD_SOURCE__ : "";
 const BUILD = (typeof __BUILD__ !== 'undefined') ? __BUILD__ : "";
@@ -40,10 +40,12 @@ import {
 
 import { initClippingPlanes, updateActiveClippingPlanes, reportViewerError, showToast, toastHelper, changeBackground } from './viewer-utils.js';
 import { attachEmbedConfigurator } from "./ui/embed-configurator.js";
+import { attachUploadPanel } from "./ui/upload-panel.js";
 import { buildThumbnailGallery } from "./ui/thumbnail-gallery.js";
 import { attachLocalizationTheme } from "./ui/localization-theme.js";
 import { attachLoadingStatus } from "./ui/loading-status.js";
 import { attachMaterialsEditor } from "./editor/materials-editor.js";
+import { attachShadingEditor } from "./editor/shading.js";
 import { buildEditorMetadata, saveEditorMetadata as persistEditorMetadata } from "./editor/metadata-persistence.js";
 import { attachAnnotations } from "./editor/annotations.js";
 import { attachMeasurement } from "./editor/measurement.js";
@@ -71,7 +73,7 @@ import { GUI } from "./js/external_libs/lil-gui.esm.min.js";
 import { objectsConfig, setObjectsConfig } from "./object-settings.js";
 
 import { loadIIIFManifest, getAnnotations } from "./IIIF/iiif-api.js";
-import { loadAIM3IFManifest, applyManifestConfig, getManifestWindowState } from "./manifesto/manifesto-api.js";
+import { loadAIM3IFManifest, applyManifestConfig, applyManifestSettings, applyManifestBootstrapSettings, getManifestWindowState } from "./manifesto/manifesto-api.js";
 import { isAIM3DManifest } from "./manifesto/aim3dviewer-validation.js";
 import {
   attachEditorToolbar,
@@ -85,6 +87,7 @@ import {
   updateEditorToolbarState as syncEditorToolbarState,
   updateHierarchySubmenuState,
   updateLightsSubmenuState,
+  updateShadingSubmenuState,
   updateStatisticsSubmenuState,
 } from "./editor-toolbar.js";
 import { VIEWER_DEFAULTS } from "./viewer-defaults.js";
@@ -111,6 +114,7 @@ import {
   normalizeFileUrl,
   shouldIgnoreLegacyEmbedDefaultModel,
   buildGallery,
+  renderModelGalleryImages,
   toHexColor,
   toThreeColor,
   getWrapperSize,
@@ -119,6 +123,17 @@ import { t } from "./i18n-utils.js";
 import { loadDroppedArchive } from "./extract-helper.js";
 import { loadDroppedModel, createCreditsElement } from "./sandbox.js";
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
+
+// Small inline icons for the keyboard-shortcuts hint (see
+// getKeyboardShortcutsDetailHtml() below) - inline SVG rather than image
+// assets so they pick up the notice's `currentColor` in both themes without
+// separate light/dark files.
+const SHORTCUT_ICONS = {
+  mouse: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="19" rx="6"/><line x1="12" y1="2" x2="12" y2="10"/><circle cx="12" cy="6" r="1" fill="currentColor" stroke="none"/></svg>',
+  keyboard: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><rect x="5" y="9.5" width="1.6" height="1.6" fill="currentColor" stroke="none"/><rect x="9.2" y="9.5" width="1.6" height="1.6" fill="currentColor" stroke="none"/><rect x="13.4" y="9.5" width="1.6" height="1.6" fill="currentColor" stroke="none"/><rect x="17.4" y="9.5" width="1.6" height="1.6" fill="currentColor" stroke="none"/><rect x="6" y="13.2" width="12" height="1.6" fill="currentColor" stroke="none"/></svg>',
+  touch: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="7" stroke-dasharray="1.5 3"/></svg>',
+  dragAndDrop: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="3" x2="12" y2="13"/><polyline points="8 9 12 13 16 9"/><line x1="4" y1="19" x2="20" y2="19"/></svg>',
+};
 
 export const Viewer = {
   ...VIEWER_DEFAULTS,
@@ -704,6 +719,10 @@ export const Viewer = {
     return updateLightsSubmenuState(this);
   },
 
+  updateShadingSubmenuState() {
+    return updateShadingSubmenuState(this);
+  },
+
   async saveEditorMetadata() {
     return persistEditorMetadata(this);
   },
@@ -792,8 +811,13 @@ export const Viewer = {
       clippingMode: this.parseClippingModeParam(params.get("clip") || params.get("clippingMode")),
       clippingConstants: this.parseVector3Param(params.get("clipConst") || params.get("clipConstants")),
       clippingOutline: this.parseBooleanParam(params.get("clipOutline")),
-      presentationMode: core.PRESENTATION_MODE === true,
-      sandboxMode: core.SANDBOX_MODE === true,
+      // Keep these null when the query param is absent (parseBooleanParam's
+      // own "not specified" value) rather than coercing to a hard boolean -
+      // the config-driven fallback below (`sandboxModeFromConfig ?? ...`)
+      // only runs when this is not itself a boolean, so a coerced `false`
+      // here would permanently shadow viewer-settings.json's own value.
+      presentationMode: presentationModeFromQuery,
+      sandboxMode: sandboxModeFromQuery,
       scale: this.parseVector2Param(params.get("scale")) ?? null,
       showNotifications: this.parseBooleanParam(params.get("showNotifications")),
     };
@@ -984,13 +1008,47 @@ export const Viewer = {
     this.addAnnotationController.enable?.();
   },
 
-  getKeyboardShortcutsText() {
-    return [
-      t("shortcuts.mouse"),
-      t("shortcuts.keyboard"),
-      t("shortcuts.touch"),
-      core.CONFIG?.viewer?.enableDragAndDrop === true ? t("shortcuts.dragAndDrop") : null
-    ].join("\n");
+  getKeyboardShortcutsRows() {
+    const rows = [
+      { icon: "mouse", text: t("shortcuts.mouse") },
+      { icon: "keyboard", text: t("shortcuts.keyboard") },
+      { icon: "touch", text: t("shortcuts.touch") },
+    ];
+    if (core.CONFIG?.viewer?.enableDragAndDrop === true) {
+      rows.push({ icon: "dragAndDrop", text: t("shortcuts.dragAndDrop") });
+    }
+    return rows;
+  },
+
+  // One <span class="viewer-notice-detail"> per row (see
+  // renderStatusNoticeContent() in ui/loading-status.js, which splits the
+  // `detail` option on newlines and inserts each line via innerHTML) - lets
+  // every shortcut line carry its own icon instead of one dense text block.
+  getKeyboardShortcutsDetailHtml() {
+    return this.getKeyboardShortcutsRows()
+      .map(({ icon, text }) => `<span class="viewer-shortcut-row">${SHORTCUT_ICONS[icon]}<span>${text}</span></span>`)
+      .join("\n");
+  },
+
+  showKeyboardShortcutsHint({ manual = false } = {}) {
+    const isHintCurrentlyShown =
+      this.statusNoticeActive === true && this.statusNoticeCurrent?.key === "keyboard-shortcuts-hint";
+    if (manual && isHintCurrentlyShown) {
+      this.dismissStatusNotice("keyboard-shortcuts-hint");
+      return;
+    }
+
+    const duration = manual || !this.keyboardHintShownOnce
+      ? this.keyboardHintFirstDurationMs
+      : this.keyboardHintDurationMs;
+    this.keyboardHintShownOnce = true;
+    this.lastKeyboardHintAt = Date.now();
+    this.showStatusNotice(t("shortcuts.title", "Controls"), duration, {
+      detail: this.getKeyboardShortcutsDetailHtml(),
+      variant: "shortcuts",
+      key: "keyboard-shortcuts-hint",
+      dismissible: true,
+    });
   },
 
   getSupportedFormatsText() {
@@ -1026,8 +1084,7 @@ export const Viewer = {
     if (clippingMode.x || clippingMode.y || clippingMode.z) return;
     if (!core.handHint?.hidden || core.GESTURE?.active) return;
     if (now - this.lastKeyboardHintAt < this.keyboardHintCooldownMs) return;
-    this.lastKeyboardHintAt = now;
-    this.showStatusNotice(this.getKeyboardShortcutsText(), 7400);
+    this.showKeyboardShortcutsHint();
   },
 
   isInteractiveTextInput(element) {
@@ -1450,6 +1507,29 @@ export const Viewer = {
     }
   },
 
+  // viewer.lightweight / editor / sandbox / presentationMode decide how the UI
+  // is built, so the AIM3D manifest configured in viewer-settings.json is
+  // peeked at before that happens. This deliberately uses the *configured*
+  // source type, not the build's forced one (the dev build always loads IIIF
+  // models) - the manifest is the settings carrier, e.g. for the Docker
+  // profiles. Any failure (no manifest, network error, invalid JSON) silently
+  // keeps the viewer-settings.json values.
+  async applyBootstrapSettingsFromManifest() {
+    const metadata = core.CONFIG?.entity?.metadata;
+    const sourceType = String(metadata?.sourceType || SOURCE).toLowerCase();
+    if (sourceType !== "aim3if" || !metadata?.url) return;
+
+    try {
+      const manifest = await this.getManifestJson(metadata.url, "url");
+      if (isAIM3DManifest(manifest)) {
+        applyManifestBootstrapSettings(manifest, core.CONFIG);
+        applyManifestSettings(manifest, core.CONFIG);
+      }
+    } catch (err) {
+      console.warn("Could not read settings from AIM3D manifest; using viewer-settings.json.", err);
+    }
+  },
+
   async MainInit() {
     if (window.__E2E__) {
       this.ensureE2EState();
@@ -1463,7 +1543,18 @@ export const Viewer = {
       if (document.readyState !== 'loading') r();
       else document.addEventListener('DOMContentLoaded', r);
     });
-    const moduleUrl = new URL(import.meta.url);
+    let moduleUrl = new URL(import.meta.url);
+    if (moduleUrl.protocol !== 'http:' && moduleUrl.protocol !== 'https:') {
+      // Some dev bundlers (Parcel's dev server, at least as of 2.16) don't
+      // resolve import.meta.url to the module's real served URL when it's
+      // used for a dynamically-constructed path like this one - they hand
+      // back a non-fetchable placeholder (e.g. a "file:" URL) instead. Fall
+      // back to the page's own URL so viewer-settings.json still resolves
+      // relative to the site root, matching where every built target
+      // (dist/test, dist/dev, dist/prod, dist/drupal) co-locates it with the
+      // bundled module.
+      moduleUrl = new URL(window.location.href);
+    }
     const settingsPath = moduleUrl.pathname.includes('/assets/')
       ? '../viewer-settings.json'
       : './viewer-settings.json';
@@ -1573,6 +1664,8 @@ export const Viewer = {
         },
       };
     }
+
+    await this.applyBootstrapSettingsFromManifest();
 
     this.isLightweight = Boolean(core.CONFIG.viewer.lightweight);
     setCore('isLightweight', this.isLightweight);
@@ -1827,6 +1920,68 @@ export const Viewer = {
     return buildGallery(this);
   },
 
+  renderModelGalleryImages(imageUrls) {
+    return renderModelGalleryImages(this, imageUrls);
+  },
+
+  // Mirrors the static #example-model-picker markup in this repo's own
+  // index.html, for pages (Drupal/WissKI, etc.) that embed the viewer
+  // without that markup - see the forceLocalPreview handling above.
+  createExampleModelPicker() {
+    const picker = document.createElement("div");
+    picker.id = "example-model-picker";
+
+    const label = document.createElement("label");
+    label.setAttribute("for", "example-model-select");
+    label.textContent = "Load example model";
+    picker.appendChild(label);
+
+    const select = document.createElement("select");
+    select.id = "example-model-select";
+    [
+      ["./examples/box.dae", "DAE"],
+      ["./examples/box.stl", "STL"],
+      ["./examples/box.ply", "PLY"],
+      ["./examples/box.obj", "OBJ"],
+      ["./examples/box.xyz", "XYZ"],
+      ["./examples/box.pcd", "PCD"],
+      ["./examples/box.3ds", "3DS"],
+      ["./examples/box.ifc", "IFC"],
+      ["./examples/box.fbx", "FBX"],
+      ["./examples/box.glb", "GLB"],
+      ["./examples/box.usdz", "USDZ"],
+      ["./examples/box.usda", "USDA"],
+      ["./examples/box.3mf", "3MF"],
+      ["./examples/box.amf", "AMF"],
+      ["./examples/box.wrl", "WRL (VRML)"],
+      ["./examples/box.kmz", "KMZ"],
+      ["./examples/box.vox", "VOX"],
+      ["./examples/box-missing-mtl.obj", "OBJ (missing MTL)"],
+      ["./examples/broken.glb", "Broken GLB"],
+      ["./examples/WolpaSynagogue.glb", "Wolpa Synagogue"],
+    ].forEach(([value, text]) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = text;
+      select.appendChild(option);
+    });
+    picker.appendChild(select);
+
+    const themeToggle = document.createElement("button");
+    themeToggle.type = "button";
+    themeToggle.id = "example-theme-toggle";
+    themeToggle.title = "Toggle dark mode";
+    themeToggle.textContent = "🌙";
+    picker.appendChild(themeToggle);
+
+    const uploadModel = document.createElement("button");
+    uploadModel.type = "button";
+    uploadModel.id = "uploadModel";
+    picker.appendChild(uploadModel);
+
+    return picker;
+  },
+
   toHexColor(input) {
     return toHexColor(input);
   },
@@ -1856,6 +2011,7 @@ export const Viewer = {
     let heightCSS;
 
     const hasWindowControls = core.container.classList.contains("viewer-window-controls-enabled");
+    const isManuallyResized = !!Viewer.manuallyResized;
     let scale = { x: 1, y: 1 };
 
     const rect = hasWindowControls
@@ -1866,7 +2022,7 @@ export const Viewer = {
       widthCSS = window.innerWidth;
       heightCSS = window.innerHeight;
     } else {
-      if (!hasWindowControls) {
+      if (!isManuallyResized) {
         scale = {
           x: Number(
             core.CONFIG.viewer.scaleContainer?.x || 1
@@ -1903,9 +2059,13 @@ export const Viewer = {
         core.editorToolbar.style.bottom = `${bottom}px`;
       }
       if (Viewer.creditsWrapper) {
-        Viewer.creditsWrapper.style.width = `${effectiveWidth - 64}px`;
-        Viewer.creditsWrapper.style.left = `${canvasRect.left + 8}px`;
-        Viewer.creditsWrapper.style.bottom = `${bottom - Viewer.creditsWrapper.getBoundingClientRect().height - 24}px`;
+        // #credits is a normal-flow block below core.container (see
+        // viewer/css/credits.css and the appendChild call in this file) -
+        // no position/left/right/bottom math needed, it's simply the next
+        // thing in the document after the viewer. Just reveal it - it was
+        // created hidden (see createCreditsElement in sandbox.js) only to
+        // avoid a flash of unstyled content while its own fonts/logo load.
+        Viewer.creditsWrapper.style.visibility = "visible";
       }
     }
 
@@ -1975,8 +2135,44 @@ export const Viewer = {
 
     // hand hint
     if (core.handHint) {
+      // handHint is appended to core.container and positioned relative to it,
+      // so its offset must be measured against core.container's own rect
+      // (parentRect) - NOT effectiveHeight, which is the canvas's logical
+      // render size and can differ from the container's actual box (e.g. via
+      // scaleContainer or letterboxing), leading to a wrongly placed hint.
+      const containerHeight = parentRect.height || effectiveHeight;
+
+      // Default vertical offset from the container bottom, but pushed further
+      // up when the editor toolbar is visible and would otherwise sit under
+      // it - the toolbar's height/position vary (drag position, embed scale),
+      // so this is measured live rather than assumed.
+      let handHintOffset = 150;
+      if (
+        core.editorToolbar &&
+        !core.editorToolbar.classList.contains("editorToolbar-hidden")
+      ) {
+        const toolbarRect = core.editorToolbar.getBoundingClientRect();
+        const toolbarTopFromContainerTop = toolbarRect.top - parentRect.top;
+        const handHintHeight =
+          core.handHint.getBoundingClientRect().height || 48;
+        const clearanceMargin = 16;
+        const requiredOffset =
+          containerHeight -
+          toolbarTopFromContainerTop +
+          handHintHeight +
+          clearanceMargin;
+        handHintOffset = Math.max(handHintOffset, requiredOffset);
+      }
+      // #handHint's base CSS is `inset: 0; margin: auto;` (for default
+      // centering). Setting only `top` here leaves `bottom: 0` from that
+      // `inset` in place too, over-constraining the vertical position: with
+      // top/height/bottom all non-auto and auto margins, the spec splits the
+      // leftover space evenly between the margins instead of honoring `top`
+      // as-is, so the element renders noticeably off from the intended spot.
+      // Clearing `bottom` removes that over-constraint.
+      core.handHint.style.bottom = "auto";
       core.handHint.style.top =
-        `${effectiveHeight - 150}px`;
+        `${containerHeight - handHintOffset}px`;
     }
 
     core.controls?.update();
@@ -2921,6 +3117,9 @@ export const Viewer = {
       ? await loadAIM3IFManifest(manifestJson)
       : await loadIIIFManifest(manifestJson);
     if (isAim3ifManifest) {
+      // Manifest settings take precedence over viewer-settings.json, which
+      // remains the fallback for anything the manifest doesn't define.
+      applyManifestSettings(loadedManifest.manifest, core.CONFIG);
       Viewer.applyWindowState?.(getManifestWindowState(loadedManifest.manifest));
     }
     if (loadedManifest.modelUrls.length === 0) { // no 3D model found, use example model
@@ -3148,7 +3347,17 @@ export const Viewer = {
       const isLocal = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
       const isLocalNetwork = hostname.startsWith('192.168.') || hostname.startsWith('10.') || hostname.endsWith('.local');
       const isCodeSandbox = hostname.includes('codesandbox.io') || hostname.includes('csb.app');
-      this.isLocalPreview = isLocal || isLocalNetwork || isCodeSandbox;
+      const autoDetectedLocalPreview = isLocal || isLocalNetwork || isCodeSandbox;
+      // viewer.forceLocalPreview lets a real deployment opt into the local-
+      // preview UI (example-model picker, credits placement, etc.) even
+      // though its hostname is never localhost/LAN/CodeSandbox - or opt out
+      // of it on a machine that would otherwise auto-detect as local. Only
+      // an explicit boolean overrides the hostname check; anything else
+      // (unset, non-boolean) keeps the previous auto-detection behavior.
+      const localPreviewOverride = core.CONFIG?.viewer?.forceLocalPreview;
+      this.isLocalPreview = typeof localPreviewOverride === 'boolean'
+        ? localPreviewOverride
+        : autoDetectedLocalPreview;
       setCore('isLocalPreview', this.isLocalPreview);
       console.info('Running on', window.location.hostname, '- Local preview mode:', core.isLocalPreview);
 
@@ -3424,6 +3633,12 @@ export const Viewer = {
             Viewer.closeActionMenu();
           }
         });
+        Viewer.bindEventListener(document, "click", (event) => {
+          if (Viewer.statusNoticeCurrent?.key !== "keyboard-shortcuts-hint") return;
+          if (Viewer.statusNotice?.contains(event.target)) return;
+          if (Viewer.editorToolbarButtons?.help?.contains(event.target)) return;
+          Viewer.dismissStatusNotice("keyboard-shortcuts-hint");
+        });
 
         Viewer.handHint.innerHTML = `<img src="${core.DFG_ASSETS}/img/hand-hint.png" alt="Hand hint" width=48 height=48 title="Hand hint animation"/>`;
         
@@ -3445,9 +3660,15 @@ export const Viewer = {
           Viewer.fileElement[0].style.height = core.CONFIG.viewer.canvasDimensions.y * 1.1 + "px";
         }
 
-        if (core.CONFIG.viewer.gallery?.build === true && !core.SANDBOX_MODE && !this.isEmbedMode()) {
-          Viewer.buildGallery();
-        }
+        // Gallery is (re)built once the initial model load below has
+        // actually finished - see the buildGallery() call after that
+        // if/else chain. Building it here instead would run before
+        // core.fileObject holds anything (it's still the empty default
+        // from viewer-defaults.js at this point), so the per-model
+        // thumbnails in thumbnail-gallery.js would resolve against the
+        // wrong - empty - model and show mismatched/dummy content on the
+        // very first page load, never getting corrected afterwards since
+        // nothing else called buildGallery() again.
       }
 
       Viewer.controls = new OrbitControls(core.camera, core.renderer.domElement);
@@ -3557,10 +3778,30 @@ export const Viewer = {
       core.autoPath = "";
 
       if (core.isLocalPreview && !core.PRESENTATION_MODE && !core.SANDBOX_MODE) {
-        const picker = document.getElementById('example-model-picker');
-        const selectModel = document.getElementById('example-model-select');
-        const themeToggle = document.getElementById('example-theme-toggle');
         const viewerElement = document.getElementById('DFG_3DViewer');
+        // #example-model-picker/#example-model-select only exist as static
+        // markup in this repo's own index.html. A real deployment (Drupal/
+        // WissKI) renders its own page template, which never includes them -
+        // so on forceLocalPreview:true there, document.getElementById found
+        // nothing and this whole block silently no-opped. Build the same
+        // markup on the fly when it's missing, so local-preview mode works
+        // regardless of which page embeds the viewer.
+        let picker = document.getElementById('example-model-picker');
+        let selectModel = document.getElementById('example-model-select');
+        let themeToggle = document.getElementById('example-theme-toggle');
+        let uploadModelButton = document.getElementById('uploadModel');
+        if (!picker && !selectModel && viewerElement) {
+          picker = Viewer.createExampleModelPicker();
+          selectModel = picker.querySelector('#example-model-select');
+          themeToggle = picker.querySelector('#example-theme-toggle');
+          uploadModelButton = picker.querySelector('#uploadModel');
+          viewerElement.parentNode.insertBefore(picker, viewerElement);
+        }
+        if (uploadModelButton) {
+          Viewer.uploadModel = uploadModelButton;
+          Viewer.updateUploadMenuEntryState();
+          Viewer.bindEventListener(uploadModelButton, "click", Viewer.openUploadPanel.bind(Viewer));
+        }
         if (picker && selectModel && viewerElement) {
           Viewer.updateLocalPreviewLabels();
           const localurl = new URL(window.location.href);
@@ -3582,18 +3823,45 @@ export const Viewer = {
             themeToggle.hidden = true;
           }
 
-          selectModel.addEventListener('change', () => {
+          selectModel.addEventListener('change', async () => {
+            // core.fileObject is a single shared, mutable object: a second
+            // switch mutates it synchronously (at the top of
+            // mainLoadModelWrapper) before this first switch's own load
+            // finishes awaiting. Without this token, the first switch's
+            // slower-to-resolve buildGallery() call could run after the
+            // second switch's, reading fileObject values that no longer
+            // match the model actually on screen - stamp+check a generation
+            // number so a superseded switch skips rebuilding the gallery.
+            const switchGeneration = (this.exampleModelSwitchGeneration ?? 0) + 1;
+            this.exampleModelSwitchGeneration = switchGeneration;
             core.autoPath = selectModel.value;
             window.localStorage.setItem('dfg3dviewer-example-model', selectModel.value);
             this.resetLoadedModelState();
-            this.mainLoadModelWrapper();
+            await this.mainLoadModelWrapper();
+            if (switchGeneration !== this.exampleModelSwitchGeneration) return;
+            // Rebuild the gallery after the switch so it picks up the newly
+            // loaded model's own thumbnails (see thumbnail-gallery.js) -
+            // otherwise it keeps showing whatever was built for the example
+            // loaded at page startup until a manual refresh.
+            const galleryCfg = core.CONFIG.viewer?.gallery;
+            if ((galleryCfg?.build === true || galleryCfg?.buildFake === true) && !core.SANDBOX_MODE && !this.isEmbedMode()) {
+              this.buildGallery();
+            }
           });
         }
       }
       if ((core.isLocalPreview || core.SANDBOX_MODE) && !core.PRESENTATION_MODE) {
         Viewer.creditsWrapper = await createCreditsElement();
         if (Viewer.creditsWrapper) {
-          core.container.appendChild(Viewer.creditsWrapper);
+          // Appended as the last child of the wrapper, after core.container
+          // - #credits is normal-flow (see viewer/css/credits.css), so this
+          // renders it as its own block directly below the viewer rather
+          // than overlapping it. core.container is also the fullscreen
+          // target (.mainContainer.fullscreen gets z-index: 9999 - see
+          // viewer/css/main.css); living outside it here means credits
+          // (like core.editorToolbar - see getEditorToolbarHost() in
+          // editor-toolbar.js) isn't part of that fullscreen overlay.
+          (core.viewerWrapper || core.container).appendChild(Viewer.creditsWrapper);
         }
       }
       if (core.SANDBOX_MODE) {
@@ -3684,6 +3952,20 @@ export const Viewer = {
         await Viewer.mainLoadModelWrapper();
       }
 
+      // gallery.build gates the real Drupal-field-based gallery; it's
+      // forced false for the test/dev rollup targets since there's no
+      // Drupal DOM to scrape there (see rollup.config.js). buildFake is
+      // the separate, dedicated opt-in for the local-testing fallback
+      // (see thumbnail-gallery.js), so it must still reach buildGallery()
+      // even when the real gallery is switched off. This runs here, after
+      // the initial load above has settled core.fileObject, so the very
+      // first page load shows thumbnails matching whatever actually ended
+      // up on screen instead of momentarily-correct-then-stale content.
+      const initialGalleryCfg = core.CONFIG.viewer.gallery;
+      if ((initialGalleryCfg?.build === true || initialGalleryCfg?.buildFake === true) && !core.SANDBOX_MODE && !this.isEmbedMode()) {
+        Viewer.buildGallery();
+      }
+
       core.renderer.setPixelRatio(devicePixelRatio);
       const update = () => Viewer.updateSize();
 
@@ -3708,10 +3990,12 @@ export const Viewer = {
 attachLocalizationTheme(Viewer);
 attachLoadingStatus(Viewer);
 attachMaterialsEditor(Viewer);
+attachShadingEditor(Viewer);
 attachAnnotations(Viewer);
 attachPicking(Viewer);
 attachMeasurement(Viewer);
 attachEmbedConfigurator(Viewer);
+attachUploadPanel(Viewer);
 attachWindowControls(Viewer);
 
 

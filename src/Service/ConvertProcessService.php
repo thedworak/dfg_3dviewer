@@ -4,13 +4,49 @@ namespace Drupal\dfg_3dviewer\Service;
 
 use Symfony\Component\Process\Process;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
+use Drupal\Core\Config\ConfigFactoryInterface;
+use GuzzleHttp\ClientInterface;
+use GuzzleHttp\Exception\GuzzleException;
 
 class ConvertProcessService {
 
     protected $logger;
+    protected $configFactory;
+    protected $httpClient;
 
-    public function __construct(LoggerChannelFactoryInterface $logger_factory) {
+    public function __construct(
+        LoggerChannelFactoryInterface $logger_factory,
+        ConfigFactoryInterface $config_factory,
+        ClientInterface $http_client
+    ) {
         $this->logger = $logger_factory->get('dfg_3dviewer');
+        $this->configFactory = $config_factory;
+        $this->httpClient = $http_client;
+    }
+
+    /**
+     * Reads the conversion backend ("local" or "docker") and, for "docker",
+     * the base URL of the standalone worker container (see worker/README.md).
+     * Defaults to "local" so existing installs that never set these config
+     * keys keep running scripts/convert.sh & render.sh directly, exactly as
+     * before this option was introduced.
+     */
+    public function getBackendConfig(): array {
+        $config = $this->configFactory->get('dfg_3dviewer.settings');
+
+        $backend = strtolower(trim((string) (
+            $config->get('dfg_3dviewer_conversion_backend')
+            ?? $config->get('conversion_backend')
+            ?? 'local'
+        )));
+
+        $worker_url = rtrim(trim((string) (
+            $config->get('dfg_3dviewer_worker_url')
+            ?? $config->get('worker_url')
+            ?? ''
+        )), '/');
+
+        return ['backend' => $backend, 'worker_url' => $worker_url];
     }
 
     private function boolToString($value): string {
@@ -113,6 +149,16 @@ class ConvertProcessService {
         ?callable $onProgress = NULL
         ) : array {
 
+        $backend_config = $this->getBackendConfig();
+        if ($backend_config['backend'] === 'docker') {
+            if ($backend_config['worker_url'] === '') {
+                $this->logger->error('Conversion backend is set to "docker" but no worker URL is configured; falling back to local scripts.');
+            }
+            else {
+                return $this->runViaWorker($backend_config['worker_url'], $inputPath, $lightweight, $options, $onProgress);
+            }
+        }
+
         $script = $spath . '/scripts/convert.sh';
 
         if (!file_exists($script)) {
@@ -201,6 +247,164 @@ class ConvertProcessService {
             'command' => $process->getCommandLine(),
             'render' => $renderResult,
         ];
+    }
+
+    /**
+     * Runs the conversion + thumbnail rendering pipeline through the
+     * standalone worker container's HTTP API (see worker/README.md) instead
+     * of local Symfony Process calls. Uploads $inputPath, polls job status
+     * until it reaches "ready"/"failed", then downloads the resulting model
+     * and thumbnails to the exact paths the local (non-docker) path would
+     * have produced, so the rest of the Drupal pipeline (ConvertWorker.php)
+     * finds them without any changes.
+     */
+    private function runViaWorker(
+        string $workerUrl,
+        string $inputPath,
+        int $lightweight,
+        array $options,
+        ?callable $onProgress
+    ): array {
+        $isLightweight = filter_var($lightweight, FILTER_VALIDATE_BOOLEAN);
+        $timeoutBudget = (int) ($options['timeout'] ?? 600) + (int) ($options['render_timeout'] ?? $options['timeout'] ?? 600);
+
+        try {
+            $this->emitProgress($onProgress, 10, 'preparing', 'Uploading to conversion worker...');
+
+            $create_response = $this->httpClient->request('POST', $workerUrl . '/api/model/create', [
+                'multipart' => [
+                    [
+                        'name' => 'file',
+                        'contents' => fopen($inputPath, 'r'),
+                        'filename' => pathinfo($inputPath, PATHINFO_BASENAME),
+                    ],
+                ],
+                'timeout' => $options['upload_timeout'] ?? 120,
+            ]);
+
+            $create_body = json_decode((string) $create_response->getBody(), TRUE);
+            $job_id = trim((string) ($create_body['entity_id'] ?? ''));
+
+            if ($job_id === '') {
+                return [
+                    'success' => FALSE,
+                    'exit_code' => 1,
+                    'output' => '',
+                    'error' => 'Worker did not return a job id.',
+                    'command' => 'worker:' . $workerUrl . '/api/model/create',
+                    'render' => NULL,
+                ];
+            }
+
+            $status_url = $workerUrl . '/api/model/status/' . rawurlencode($job_id);
+            $deadline = microtime(TRUE) + max($timeoutBudget, 60);
+            $last_status = [];
+
+            while (TRUE) {
+                $status_response = $this->httpClient->request('GET', $status_url, [
+                    'timeout' => 30,
+                ]);
+                $last_status = json_decode((string) $status_response->getBody(), TRUE) ?: [];
+
+                $percent = (int) ($last_status['progress'] ?? 0);
+                $state = (string) ($last_status['status'] ?? 'processing');
+                $message = (string) ($last_status['message'] ?? '');
+                $this->emitProgress($onProgress, $percent, $state, $message !== '' ? $message : 'Converting via worker...');
+
+                if ($state === 'ready' || $state === 'failed') {
+                    break;
+                }
+
+                if (microtime(TRUE) >= $deadline) {
+                    return [
+                        'success' => FALSE,
+                        'exit_code' => 1,
+                        'output' => '',
+                        'error' => 'Worker job timed out after ' . $timeoutBudget . ' seconds.',
+                        'command' => 'worker:' . $status_url,
+                        'render' => NULL,
+                    ];
+                }
+
+                usleep(1500000);
+            }
+
+            if ((string) ($last_status['status'] ?? '') !== 'ready') {
+                return [
+                    'success' => FALSE,
+                    'exit_code' => 1,
+                    'output' => '',
+                    'error' => (string) ($last_status['message'] ?? 'Worker reported failure.'),
+                    'command' => 'worker:' . $status_url,
+                    'render' => NULL,
+                ];
+            }
+
+            $model_url = (string) ($last_status['modelUrl'] ?? '');
+            if ($model_url === '') {
+                return [
+                    'success' => FALSE,
+                    'exit_code' => 1,
+                    'output' => '',
+                    'error' => 'Worker reported success but returned no model URL.',
+                    'command' => 'worker:' . $status_url,
+                    'render' => NULL,
+                ];
+            }
+
+            $output_path = $this->resolveConvertedOutputPath($inputPath, $options);
+            $this->downloadWorkerFile($workerUrl . $model_url, $output_path);
+
+            if (!$isLightweight) {
+                // When $options['o'] is set (the archive-passthrough case -
+                // see ConvertWorker.php), $inputPath is the raw archive file
+                // itself, not the model inside it, so its own dirname isn't
+                // where render.sh would have written thumbnails; use the
+                // caller-provided output base instead, mirroring
+                // resolveConvertedOutputPath()'s handling of the same option.
+                $thumbnails_dir = !empty($options['o'])
+                    ? $this->normalizePath((string) $options['o']) . '/views'
+                    : dirname($this->resolveThumbnailBasePath($inputPath));
+                foreach ((array) ($last_status['imageUrls'] ?? []) as $image_url) {
+                    $image_url = (string) $image_url;
+                    if ($image_url === '') {
+                        continue;
+                    }
+                    $target = rtrim($thumbnails_dir, '/\\') . '/' . basename($image_url);
+                    $this->downloadWorkerFile($workerUrl . $image_url, $target);
+                }
+            }
+
+            return [
+                'success' => TRUE,
+                'exit_code' => 0,
+                'output' => 'Converted via worker job ' . $job_id . '.',
+                'error' => '',
+                'command' => 'worker:' . $workerUrl,
+                'render' => NULL,
+            ];
+        }
+        catch (GuzzleException $e) {
+            $this->logger->error('Worker conversion request failed: @msg', ['@msg' => $e->getMessage()]);
+            return [
+                'success' => FALSE,
+                'exit_code' => 1,
+                'output' => '',
+                'error' => 'Worker request failed: ' . $e->getMessage(),
+                'command' => 'worker:' . $workerUrl,
+                'render' => NULL,
+            ];
+        }
+    }
+
+    private function downloadWorkerFile(string $url, string $destination): void {
+        $dir = dirname($destination);
+        if (!is_dir($dir) && !mkdir($dir, 0775, TRUE) && !is_dir($dir)) {
+            throw new \RuntimeException('Cannot create directory for downloaded worker file: ' . $dir);
+        }
+
+        $response = $this->httpClient->request('GET', $url, ['timeout' => 120]);
+        file_put_contents($destination, (string) $response->getBody());
     }
 
     /**

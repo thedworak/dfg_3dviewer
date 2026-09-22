@@ -113,6 +113,27 @@ Notes:
 - `editorToolbar` is the canonical editor toolbar runtime state used by the current viewer
 - `viewer.clipping` is the canonical location for clipping state
 
+### Deployment settings (formerly only in `viewer-settings.json`)
+
+These optional `viewer` fields carry values that used to live only in `viewer-settings.json`:
+
+- `mainUrl`: site base URL (`mailUrl` is the older name and is still written for compatibility)
+- `baseModulePath`: base path of the viewer module assets
+- `background`: CSS `background` value for the canvas (e.g. a `radial-gradient(...)`); `backgroundColor` remains the scene colour
+- `credits`: credits footer definition (`visible`, `logo`, `items`), same shape as in `viewer-settings.json`
+- `auth`: `{ "enabled": boolean, "allowRegistration": boolean }` - login UI in the upload panel. **This only controls the UI**: whether accounts are required is enforced by the conversion worker (`WORKER_AUTH_MODE`, see `worker/README.md`), because a manifest is client-side data. Unset = follow the worker's `/api/auth/config`; `enabled: false` never shows the login UI; `allowRegistration: false` hides the Register button
+- `manifestoForm` / `metadataContainer`: panel geometry as `{ "position": { x, y }, "size": { width, height } }` (`size` values may be `null`)
+
+`scale`, `performance`, `units`, `gallery`, `editorToolbar` and `menuToolbar` were already part of this block and map to the matching `viewer-settings.json` entries.
+
+### Precedence
+
+`viewer-settings.json` is still loaded first and acts as the fallback. When an AIM3D manifest is loaded, every value it defines overrides the loaded configuration; anything it omits keeps the `viewer-settings.json` value. Manifests written before these fields existed therefore keep working unchanged.
+
+`entity.metadata.*` (manifest source and URL) is needed to find the manifest, so it always stays in `viewer-settings.json`.
+
+`viewer.lightweight`, `viewer.editor`, `viewer.sandbox` and `viewer.presentationMode` (booleans) decide how the UI is built, so at startup the viewer peeks at the AIM3D manifest configured in `entity.metadata.url` (whenever `entity.metadata.sourceType` is `AIM3IF`, even in builds that force another model source) and applies them, together with the deployment settings above, before building the UI. If the manifest cannot be fetched or parsed, or omits them, the `viewer-settings.json` values are used. They only apply to the manifest configured as the metadata source, not to manifests loaded later from the manifest form. The viewer never writes `lightweight` or `editor` on export, so a shared manifest cannot enable the editor elsewhere by accident; add them by hand where needed.
+
 `window` fields:
 
 - `position`: top-left viewer offset as `{ x, y }` pixels
@@ -129,6 +150,11 @@ Notes:
 ## `AIM3DViewer.integration`
 
 Stores CMS and runtime integration details such as Drupal field names and metadata source settings.
+
+Besides the Drupal field names (`bundle`, `fieldDf`, `exportViewer`, `idUri`, `viewEntityPath`, `attributeId`, `fileUpload`, `fileName`, `imageGeneration`, `metadata`), it may contain:
+
+- `exportViewerUrl`: maps to `entity.exportViewerUrl`
+- `api.thumbnailUploadEndpoint`: maps to `api.thumbnailUploadEndpoint`
 
 ## `AIM3DViewer.lights`
 

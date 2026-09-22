@@ -890,12 +890,22 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  /* Fixed instead of the previous min-width-per-child approach: every row's
+     label is a different length per button and per language, so without an
+     explicit width the panel (and each row's own min-width floor) only
+     matched by coincidence - now every row genuinely lines up. */
+  width: 190px;
   gap: 3px;
   opacity: 0;
   transform: translateY(10px) scale(0.96);
   transform-origin: bottom right;
   pointer-events: none;
   transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.viewer-action-menu_panel > * {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .viewer-action-menu_panel > [hidden] {
@@ -1286,6 +1296,100 @@
   display: none !important;
 }
 
+#shadingDialog[hidden] {
+  display: none !important;
+}
+
+#shadingDialog {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  z-index: 999999;
+  overflow: hidden;
+}
+
+#shadingDialog .materials-dialog__panel {
+  width: min(640px, calc(100% - 24px));
+  max-height: min(88%, 760px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#shadingDialog .materials-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#shadingDialog .materials-dialog__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.shading-dialog__textarea {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 140px;
+  box-sizing: border-box;
+  resize: none;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: var(--viewer-panel-bg);
+  color: var(--viewer-panel-text);
+  padding: 8px;
+}
+
+.shading-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.shading-dialog__button {
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: var(--viewer-panel-bg);
+  color: var(--viewer-panel-text);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.2;
+  width: auto;
+  height: auto;
+  white-space: nowrap;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.shading-dialog__button:hover {
+  background: var(--viewer-panel-bg-hover);
+}
+
+.shading-dialog__button-primary {
+  background: var(--viewer-gui-widget-focus-bg);
+  border-color: var(--viewer-gui-widget-focus-bg);
+  color: #fff;
+}
+
+.shading-dialog__button-primary:hover {
+  filter: brightness(1.08);
+  background: var(--viewer-gui-widget-focus-bg);
+}
+
 .embed-icon {
   width: 28px;
   height: 28px;
@@ -1318,6 +1422,18 @@
   -webkit-mask-size: contain;
   -webkit-mask-repeat: no-repeat;
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8'%3E%3Ccircle cx='18' cy='5' r='2.5'/%3E%3Ccircle cx='6' cy='12' r='2.5'/%3E%3Ccircle cx='18' cy='19' r='2.5'/%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M8.1 10.9l7.8-4.6M8.1 13.1l7.8 4.6'/%3E%3C/svg%3E");
+  mask-size: contain;
+  mask-repeat: no-repeat;
+}
+
+.upload-model-icon {
+  width: 28px;
+  height: 28px;
+  background-color: currentColor;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M12 15V4m0 0-4 4m4-4 4 4M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3'/%3E%3C/svg%3E");
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M12 15V4m0 0-4 4m4-4 4 4M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3'/%3E%3C/svg%3E");
   mask-size: contain;
   mask-repeat: no-repeat;
 }
@@ -1371,7 +1487,7 @@
   #viewerLanguageMode,
   #shareView,
   #viewEntity,
-  #downloadModel,
+    #downloadModel,
   #fullscreenMode {
     min-width: 136px;
     padding: 9px 12px;

@@ -2,17 +2,24 @@ import { core } from './core.js';
 
 export class StatusPoller {
 
-    constructor(id) {
+    constructor(id, { forcePoll = false, onUpdate = null } = {}) {
         this.id=id;
         this.interval=2000;
         this.timer=null;
         this.running=false;
+        // core.isLocalPreview auto-detects true on localhost/LAN hostnames
+        // (see main.js), which is exactly where a standalone worker
+        // deployment is reached - forcePoll lets a caller with a real
+        // backend (no Drupal entity involved) opt out of the "no real API
+        // to poll" assumption baked into isLocalPreview elsewhere below.
+        this.forcePoll = forcePoll === true;
+        this.onUpdate = typeof onUpdate === "function" ? onUpdate : null;
     }
 
     async start() {
         if(this.running) return;
         this.running=true;
-        if (!core.isLocalPreview)
+        if (!core.isLocalPreview || this.forcePoll)
             await this.tick();
         else {
             this.map = core.isLocalPreview
@@ -55,7 +62,7 @@ export class StatusPoller {
     }
 
     async tick() {
-        if(!this.running || core.isLocalPreview) return;
+        if(!this.running || (core.isLocalPreview && !this.forcePoll)) return;
 
         try {
             const r=await fetch(`/api/model/status/${this.id}`, {
@@ -67,6 +74,7 @@ export class StatusPoller {
             }
 
             const data=await r.json();
+            this.onUpdate?.(data);
 
             if(data.status==="error") {
                 UltraLoader.error(data.message || "Processing failed");
@@ -92,7 +100,7 @@ export class StatusPoller {
             }
         }
         catch(e){
-            if (!core.isLocalPreview) {
+            if (!core.isLocalPreview || this.forcePoll) {
                 UltraLoader.error("Connection error");
                 this.stop();
             }

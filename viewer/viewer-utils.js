@@ -716,7 +716,6 @@ async function animateCameraToPose ({
     if (core.cameraTweenToken !== tweenToken) return;
     core.camera.position.copy(endCamPos);
     core.controls?.target.copy(endTarget);
-    core.controls?.update();
     const boxCenter = boundingBox ? boundingBox.getCenter(new THREE.Vector3()) : new THREE.Vector3();
     if (boundingBox) {
       const boxSize = boundingBox.getSize(new THREE.Vector3()).length();
@@ -728,10 +727,19 @@ async function animateCameraToPose ({
       core.camera.far  = maxDistance * 10;
       core.camera.updateProjectionMatrix();
 
+      // OrbitControls.update() (below) clamps the camera's distance from
+      // the target to [minDistance, maxDistance] on every call - it has to
+      // run after maxDistance is widened for this model, not before. Doing
+      // it in the other order (as this used to) meant switching from a
+      // small model to a much bigger one called update() while maxDistance
+      // still held the small model's limit, yanking the freshly-fitted,
+      // correctly-distant camera back in until it landed inside the new
+      // (much larger) geometry.
       if (core.controls) {
         core.controls.maxDistance = maxDistance * 2;
       }
     }
+    core.controls?.update();
 
     if (window.Viewer?.urlOptions?.cameraPosition || window.Viewer?.urlOptions?.cameraTarget || Number.isFinite(window.Viewer?.urlOptions?.cameraFov)) {
       // Only reassert position/target/fov here - projection was already resolved

@@ -50,7 +50,38 @@ if '--' in sys.argv:
     parser.add_argument("--hdri", help="Path to HDRI (.exr/.hdr) environment file")
     parser.add_argument("--no-hdri-lights", dest="no_hdri_lights", action="store_true",
                          help="Skip the 3-point light rig and rely on HDRI only")
+    parser.add_argument("--device", default="CPU",
+                         help="Render device: CPU (default), GPU, or AUTO (try GPU, fall back to CPU silently)")
     args = parser.parse_known_args(argv)[0]
+
+def try_enable_gpu(preferred_backend=None):
+    """
+    Tries each Cycles GPU backend in turn (OptiX/CUDA first, since they're
+    NVIDIA-only and fastest, then HIP/oneAPI/Metal for AMD/Intel/Apple) and
+    enables every device found for the first one that has any. Returns the
+    backend name on success, or None if no GPU device was found - the caller
+    is expected to fall back to CPU rendering in that case rather than treat
+    this as an error, since "no GPU in this environment" is an expected,
+    common outcome (e.g. scripts/render.sh's default CPU-only behavior).
+    """
+    cycles_prefs = bpy.context.preferences.addons['cycles'].preferences
+    backends = ['OPTIX', 'CUDA', 'HIP', 'ONEAPI', 'METAL']
+    if preferred_backend in backends:
+        backends = [preferred_backend] + [b for b in backends if b != preferred_backend]
+
+    for backend in backends:
+        try:
+            cycles_prefs.compute_device_type = backend
+        except TypeError:
+            continue
+        gpu_devices = [d for d in cycles_prefs.get_devices_for_type(backend) if d.type == backend]
+        if not gpu_devices:
+            continue
+        for device in cycles_prefs.devices:
+            device.use = device.type == backend
+        return backend
+
+    return None
 
 def rotation_matrix(axis, theta):
     """
@@ -318,7 +349,6 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	# rebuilding it for every angle
 	scene.render.use_persistent_data = True
 
-	scene.cycles.device = 'CPU'
 	# respect --samples when the caller passed one; otherwise fall back to
 	# the higher-quality default (previously this was always hard-reset to
 	# 256, silently ignoring --samples/render.sh's RENDER_SAMPLES)
@@ -345,9 +375,21 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	scene.cycles.sample_clamp_indirect = 4.0
 	scene.cycles.light_sampling_threshold = 0.03
 
-	# CUDA OFF (no warnings)
-	prefs = bpy.context.preferences
-	prefs.addons['cycles'].preferences.compute_device_type = 'NONE'
+	# --device CPU (default) preserves the exact previous behavior; GPU/AUTO
+	# opt in to trying a GPU backend, falling back to CPU silently if none is
+	# found (e.g. AUTO on a host with no GPU, or GPU requested but none
+	# passed through to the container).
+	device_request = (args.device or 'CPU').upper()
+	gpu_backend = try_enable_gpu() if device_request in ('GPU', 'AUTO') else None
+	if gpu_backend:
+		scene.cycles.device = 'GPU'
+		print(f"Rendering with GPU backend: {gpu_backend}")
+	else:
+		scene.cycles.device = 'CPU'
+		prefs = bpy.context.preferences
+		prefs.addons['cycles'].preferences.compute_device_type = 'NONE'
+		if device_request == 'GPU':
+			print("Requested GPU rendering but no GPU device was found - falling back to CPU.")
 
 	# --------------------------------------------------
 	# VIEW LAYER PASSES (CLI SAFE)
@@ -395,12 +437,46 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	# MATERIAL FIXUP
 	# --------------------------------------------------
 
+	# Formats without material data (plain STL/PLY, OBJ without an MTL) import
+	# with no material slots at all, which Cycles then renders blown-out white
+	# instead of falling back to a neutral shaded look. Give those a default
+	# material matching the same per-extension fallback color the live viewer
+	# itself uses when a model has no material (see viewer/loaders.js's "stl"
+	# and "ply" cases, and THREE's bare `new MeshPhongMaterial()` for OBJ
+	# without an MTL, which defaults to white) - otherwise the gallery
+	# thumbnail shows a different color than what actually loads on screen.
+	# FIX 5 below still tones down whichever of these is too bright to avoid
+	# blowing out under this scene's lighting.
+	DEFAULT_MATERIAL_COLOR_BY_EXT = {
+		"stl": (1.0, 0.333, 0.2, 1.0),  # viewer/loaders.js STL fallback: 0xff5533
+		"ply": (0.0, 0.333, 1.0, 1.0),  # viewer/loaders.js PLY fallback: 0x0055ff
+		"obj": (1.0, 1.0, 1.0, 1.0),    # THREE MeshPhongMaterial() default: white
+	}
+	default_mat = None
+	for obj in scene.objects:
+		if obj.type != 'MESH':
+			continue
+		if len(obj.data.materials) == 0:
+			if default_mat is None:
+				default_mat = bpy.data.materials.new("DefaultPreviewMaterial")
+				default_mat.use_nodes = True
+				bsdf = default_mat.node_tree.nodes.get("Principled BSDF")
+				if bsdf:
+					color = DEFAULT_MATERIAL_COLOR_BY_EXT.get(
+						original_extension.lower(), (0.22, 0.22, 0.25, 1.0)
+					)
+					bsdf.inputs["Base Color"].default_value = color
+					bsdf.inputs["Roughness"].default_value = 0.5
+			obj.data.materials.append(default_mat)
+
 	# FIX 4: brightness boost for very dark, unlinked Base Color materials
 	# (roughness/specular tweaks are kept as before; on top of that we lift
 	# base colors that are close to black so they don't stay near-invisible
 	# even under a well-lit scene)
 	DARK_THRESHOLD = 0.15
 	BRIGHTEN_FACTOR = 1.6
+	BRIGHT_LUMINANCE_THRESHOLD = 0.4
+	TARGET_BRIGHT_LUMINANCE = 0.35
 
 	for mat in bpy.data.materials:
 		if not mat.use_nodes:
@@ -434,6 +510,25 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 							min(col[2] * BRIGHTEN_FACTOR, 1.0),
 							col[3],
 						)
+					else:
+						# FIX 5: przyciemnienie zbyt jasnych, niepodłączonych
+						# Base Color. Ta scena (HDRI + fill, Standard view
+						# transform, exposure 0.0) nie ma highlight rolloff,
+						# więc materiały o wysokiej luminancji (np. jednolity
+						# szary 0.6-0.7) prześwietlają się na biało - w
+						# odróżnieniu od nasyconych kolorów o podobnej
+						# wartości pojedynczego kanału (np. niebieski (0,0,0.8),
+						# którego luminancja jest niska), dlatego skalujemy po
+						# luminancji, a nie po pojedynczym kanale.
+						luminance = 0.2126 * col[0] + 0.7152 * col[1] + 0.0722 * col[2]
+						if luminance > BRIGHT_LUMINANCE_THRESHOLD:
+							scale = TARGET_BRIGHT_LUMINANCE / luminance
+							base_color_input.default_value = (
+								col[0] * scale,
+								col[1] * scale,
+								col[2] * scale,
+								col[3],
+							)
 
 	# --------------------------------------------------
 	# WORLD (HDRI environment)

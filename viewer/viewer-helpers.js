@@ -1,7 +1,7 @@
 import THREE from "./init.js";
 import { core } from "./core.js";
 import { normalizeColor } from "./utils.js";
-import { buildThumbnailGallery } from "./ui/thumbnail-gallery.js";
+import { buildThumbnailGallery, renderModelGalleryImages as renderModelGalleryImagesFromUrls } from "./ui/thumbnail-gallery.js";
 import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
 import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
 
@@ -313,6 +313,10 @@ export function shouldIgnoreLegacyEmbedDefaultModel(viewer) {
 
 export function buildGallery(viewer) {
   return buildThumbnailGallery(viewer);
+}
+
+export function renderModelGalleryImages(viewer, imageUrls) {
+  return renderModelGalleryImagesFromUrls(viewer, imageUrls);
 }
 
 export function toHexColor(input) {

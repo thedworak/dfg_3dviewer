@@ -837,6 +837,12 @@ export function attachAnnotations(Viewer) {
           viewer: {
             container: core.CONFIG?.viewer?.container || "DFG_3DViewer",
             mailUrl: core.CONFIG.mainUrl || "https://localhost",
+            mainUrl: core.CONFIG.mainUrl || undefined,
+            baseModulePath: core.CONFIG.baseModulePath || undefined,
+            background: core.CONFIG.viewer?.background || undefined,
+            credits: core.CONFIG.viewer?.credits || undefined,
+            manifestoForm: core.CONFIG.viewer?.manifestoForm || undefined,
+            metadataContainer: core.CONFIG.viewer?.metadataContainer || undefined,
             baseNamespace: "https://localhost",
             metadataUrl: "https://localhost",
             theme: this.currentTheme === "light" ? "light" : "dark",
@@ -922,6 +928,10 @@ export function attachAnnotations(Viewer) {
             metadata: {
               source: core.CONFIG.entity?.metadata?.source || "",
             },
+            exportViewerUrl: core.CONFIG.entity?.exportViewerUrl || undefined,
+            api: core.CONFIG.api?.thumbnailUploadEndpoint
+              ? { thumbnailUploadEndpoint: core.CONFIG.api.thumbnailUploadEndpoint }
+              : undefined,
             fileUpload: core.CONFIG.viewer.fileUpload || "fbf95bddee5160d515b982b3fd2e05f7",
             fileName: core.CONFIG.viewer.fileName || "faa602a0be629324806aef22892cdbe5",
             imageGeneration: core.CONFIG.viewer.imageGeneration || "f605dc6b727a1099b9e52b3ccbdf5673",
@@ -971,8 +981,19 @@ export function attachAnnotations(Viewer) {
             scale:
               primaryModelObject?.scale?.toArray?.() ||
               [1, 1, 1],
-            
+
             wireframe: core.wireframeMode || false,
+
+            shadingMode: this.shadingMode || "standard",
+
+            ...(this.shadingMode === "custom"
+              ? {
+                  customShader: {
+                    vertexShader: this.customVertexShader || "",
+                    fragmentShader: this.customFragmentShader || "",
+                  },
+                }
+              : {}),
           }
         },
         modified: new Date().toISOString(),
@@ -1415,6 +1436,14 @@ export function attachAnnotations(Viewer) {
           if (!child?.material) return;
           child.material.wireframe = core.wireframeMode;
           child.material.needsUpdate = true;
+        });
+      }
+
+      if (typeof modelTransform.shadingMode === "string") {
+        this.setShadingMode?.(modelTransform.shadingMode, {
+          vertexShader: modelTransform.customShader?.vertexShader,
+          fragmentShader: modelTransform.customShader?.fragmentShader,
+          silent: true,
         });
       }
 

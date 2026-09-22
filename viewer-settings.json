@@ -52,6 +52,26 @@
         "y": 10
       }
     },
+    "manifestoForm": {
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "size": {
+        "width": null,
+        "height": null
+      }
+    },
+    "metadataContainer": {
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "size": {
+        "width": null,
+        "height": null
+      }
+    },
     "measurement": {
       "modelUnitInMeters": 1
     },

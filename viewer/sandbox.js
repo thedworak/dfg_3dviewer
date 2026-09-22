@@ -10,52 +10,45 @@ export async function createCreditsElement() {
 
   const creditsDiv = document.createElement("div");
   creditsDiv.id = "credits";
+  // #credits has no default left/bottom in CSS (only position: absolute) -
+  // updateSize() is what sets those, and it doesn't run correctly until
+  // layout is settled (typically once a model has loaded). Staying hidden
+  // until then avoids a visible flash at the wrong spot followed by a jump
+  // to the right one; updateSize() reveals it once it applies real coords.
+  creditsDiv.style.visibility = "hidden";
 
+  // Single line, spanning the full viewer width (see viewer/css/credits.css)
+  // now that this renders below the viewer instead of overlaying it: logo +
+  // item values separated by a middot, rather than stacked labeled
+  // sections. Item labels (e.g. "CREATED BY") are dropped on purpose -
+  // there's no room for them next to the separators on one line.
   let html = "";
 
   if (credits.logo?.src) {
-    html += `
-      <div class="credits-header">
-        ${credits.logo.url ? `<a href="${credits.logo.url}" target="_blank" rel="noopener noreferrer">` : ""}
-          <img src="${credits.logo.src}" class="credits-main-logo" alt="Logo">
-        ${credits.logo.url ? "</a>" : ""}
-      </div>
-    `;
+    const logoImg = `<img src="${credits.logo.src}" class="credits-main-logo" alt="Logo">`;
+    html += credits.logo.url
+      ? `<a href="${credits.logo.url}" target="_blank" rel="noopener noreferrer" class="credits-main-logo-link">${logoImg}</a>`
+      : logoImg;
   }
 
-  html += `<div class="credits-items">`;
+  const itemsHtml = (credits.items ?? [])
+    .map((item) => {
+      const logoHtml = item.logo?.src
+        ? (() => {
+            const itemLogoImg = `<img class="credits-logo" src="${item.logo.src}" alt="">`;
+            return item.logo.url
+              ? `<a href="${item.logo.url}" target="_blank" rel="noopener noreferrer">${itemLogoImg}</a>`
+              : itemLogoImg;
+          })()
+        : "";
+      const textHtml = item.url
+        ? `<a href="${item.url}" target="_blank" rel="noopener noreferrer" class="credits-link">${item.text}</a>`
+        : `<span class="credits-text">${item.text}</span>`;
+      return `<span class="credits-item">${logoHtml}${textHtml}</span>`;
+    })
+    .join(`<span class="credits-sep" aria-hidden="true">&middot;</span>`);
 
-  for (const item of credits.items ?? []) {
-    html += `
-      <div class="credits-item">
-
-        <div class="credits-label">
-          ${item.label}
-        </div>
-
-        ${
-          item.logo?.src
-            ? `
-              <div class="credits-logo-wrapper">
-                ${item.logo.url ? `<a href="${item.logo.url}" target="_blank" rel="noopener noreferrer">` : ""}
-                  <img class="credits-logo" src="${item.logo.src}" alt="">
-                ${item.logo.url ? "</a>" : ""}
-              </div>
-            `
-            : ""
-        }
-
-        ${
-          item.url
-            ? `<a href="${item.url}" target="_blank" rel="noopener noreferrer" class="credits-link">${item.text}</a>`
-            : `<div class="credits-text">${item.text}</div>`
-        }
-
-      </div>
-    `;
-  }
-
-  html += `</div>`;
+  html += `<span class="credits-items">${itemsHtml}</span>`;
 
   creditsDiv.innerHTML = html;
 

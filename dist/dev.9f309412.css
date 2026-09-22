@@ -1,0 +1,389 @@
+#form-manifesto {
+  box-sizing: border-box;
+  backdrop-filter: blur(8px);
+  resize: both;
+  background: #faf7f2f0;
+  border: 1px solid #a4978438;
+  border-radius: 10px;
+  width: min(640px, 100%);
+  min-width: 280px;
+  min-height: 120px;
+  margin: 10px auto 0;
+  padding: 14px;
+  font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+  transition: none;
+  display: block;
+  overflow: auto;
+  box-shadow: 0 14px 30px #81746024;
+}
+
+#form-manifesto.form-manifesto-dragging {
+  cursor: grabbing;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#form-manifesto * {
+  box-sizing: border-box;
+}
+
+.form-manifesto-group {
+  gap: 10px;
+  min-width: 0;
+  margin-bottom: 12px;
+  display: flex;
+}
+
+.form-manifesto-group.column {
+  flex-direction: column;
+}
+
+.manifesto-source-group {
+  align-items: center;
+}
+
+.manifesto-source-switch {
+  color: #605242;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  font-size: 13px;
+  display: inline-flex;
+}
+
+.manifesto-source-switch input {
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  position: absolute;
+}
+
+.manifesto-source-track {
+  background: #9ca3af;
+  border-radius: 999px;
+  width: 38px;
+  height: 20px;
+  transition: background-color .15s;
+  display: inline-block;
+  position: relative;
+}
+
+.manifesto-source-track:after {
+  content: "";
+  background: #fff;
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  transition: transform .15s;
+  position: absolute;
+  top: 3px;
+  left: 3px;
+}
+
+.manifesto-source-switch input:checked + .manifesto-source-track {
+  background: #4c6ef5;
+}
+
+.manifesto-source-switch input:checked + .manifesto-source-track:after {
+  transform: translateX(18px);
+}
+
+.manifesto-source-switch input:focus-visible + .manifesto-source-track {
+  outline-offset: 2px;
+  outline: 2px solid #4c6ef5;
+}
+
+#form-manifesto textarea {
+  min-width: 0;
+}
+
+#form-manifesto input, #form-manifesto textarea {
+  background: #fffcf7f5;
+  border: 1px solid #a4978438;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 14px;
+  transition: border-color .15s, box-shadow .15s;
+}
+
+#form-manifesto textarea {
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+#form-manifesto input:focus, #form-manifesto textarea:focus {
+  border-color: #4c6ef5;
+  outline: none;
+  box-shadow: 0 0 0 2px #4c6ef533;
+}
+
+#form-manifesto button {
+  white-space: nowrap;
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  transition: background .15s, transform 50ms;
+}
+
+#form-manifesto button:active {
+  transform: translateY(1px);
+}
+
+#form-manifesto button.primary {
+  color: #fff;
+  background: #4c6ef5;
+}
+
+#form-manifesto button.primary:hover {
+  background: #3b5bdb;
+}
+
+#form-manifesto button.secondary {
+  color: #333;
+  background: #e9ecef;
+}
+
+#form-manifesto button.secondary:hover {
+  background: #dee2e6;
+}
+
+#form-manifesto .actions {
+  justify-content: flex-end;
+  display: flex;
+}
+
+.form-manifesto-label {
+  color: #605242;
+  white-space: nowrap;
+  align-self: center;
+  font-size: 13px;
+}
+
+#form-manifesto select {
+  appearance: none;
+  background-color: #fffcf7f5;
+  background-image: linear-gradient(45deg, #0000 50%, #666 50%), linear-gradient(135deg, #666 50%, #0000 50%);
+  background-position: calc(100% - 16px), calc(100% - 11px);
+  background-repeat: no-repeat;
+  background-size: 5px 5px;
+  border: 1px solid #a4978438;
+  border-radius: 6px;
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  font-size: 13px;
+  transition: border-color .15s, box-shadow .15s;
+}
+
+#form-manifesto select:focus {
+  border-color: #4c6ef5;
+  outline: none;
+  box-shadow: 0 0 0 2px #4c6ef533;
+}
+
+.form-manifesto-header {
+  cursor: grab;
+  touch-action: none;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  display: flex;
+}
+
+.form-manifesto-drag-icon {
+  color: #25211c73;
+  flex: none;
+  display: inline-flex;
+}
+
+.form-manifesto-header .title {
+  color: #25211c;
+  flex: auto;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.form-manifesto-header .tools {
+  gap: 6px;
+  margin-left: auto;
+  display: flex;
+}
+
+.form-manifesto-header button {
+  cursor: pointer;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 14px;
+}
+
+.form-manifesto-header button:hover {
+  background: #60524214;
+}
+
+#form-manifesto.collapsed .form-manifesto-group {
+  display: none;
+}
+
+#form-manifesto.collapsed {
+  padding-bottom: 8px;
+}
+
+#form-manifesto[data-viewer-theme="dark"] {
+  color: #eee;
+  background: #1e2024f2;
+}
+
+#form-manifesto[data-viewer-theme="dark"] .form-manifesto-header .title {
+  color: #eee;
+}
+
+#form-manifesto[data-viewer-theme="dark"] .form-manifesto-drag-icon {
+  color: #eeeeee73;
+}
+
+#form-manifesto[data-viewer-theme="dark"] .form-manifesto-label, #form-manifesto[data-viewer-theme="dark"] .manifesto-source-switch {
+  color: #cfd3d9;
+}
+
+#form-manifesto[data-viewer-theme="dark"] input, #form-manifesto[data-viewer-theme="dark"] textarea, #form-manifesto[data-viewer-theme="dark"] select {
+  color: #eee;
+  background: #1e2024;
+  border-color: #444;
+}
+
+#form-manifesto select {
+  appearance: none;
+  background-color: #fff;
+  background-image: linear-gradient(45deg, #0000 50%, #666 50%), linear-gradient(135deg, #666 50%, #0000 50%);
+  background-position: calc(100% - 20px), calc(100% - 14px);
+  background-repeat: no-repeat;
+  background-size: 7px 7px;
+  border: 1px solid #cfd3d9;
+  border-radius: 6px;
+  flex: 1;
+  min-width: 0;
+  padding: 8px 36px 8px 10px;
+  font-size: 13px;
+}
+
+#form-manifesto[data-viewer-theme="dark"] select {
+  appearance: auto;
+  background-image: none;
+}
+
+#form-manifesto[data-viewer-theme="dark"] input::placeholder, #form-manifesto[data-viewer-theme="dark"] textarea::placeholder {
+  color: #888;
+}
+
+#form-manifesto[data-viewer-theme="dark"] button.primary {
+  background: #5c7cfa;
+}
+
+#form-manifesto[data-viewer-theme="dark"] button.secondary {
+  color: #eee;
+  background: #343a40;
+}
+
+#form-manifesto[data-viewer-theme="dark"] .form-manifesto-header button:hover {
+  background: #ffffff1f;
+}
+
+#example-model-picker {
+  color: #111827;
+  background: #faf7f2f0;
+  border: 1px solid #a497843d;
+  border-radius: 10px;
+  align-items: center;
+  gap: 12px;
+  margin: 5px 0;
+  padding: 4px 10px;
+  font: 12px / 1.2 Segoe UI, Helvetica Neue, Arial, sans-serif;
+  transition: background-color .2s, border-color .2s, box-shadow .2s, color .2s;
+  display: none;
+  box-shadow: 0 12px 24px #8174601f;
+}
+
+#example-model-picker label {
+  color: #42382d;
+  font-weight: 600;
+}
+
+#example-model-picker .example-model-picker-spacer {
+  flex: auto;
+}
+
+#example-model-picker select {
+  color: #25211c;
+  background: #fffcf7f5;
+  border: 1px solid #a497843d;
+  border-radius: 8px;
+  min-width: 220px;
+  padding: 8px 10px;
+  transition: background-color .2s, border-color .2s, color .2s;
+}
+
+#example-theme-toggle {
+  color: #25211c;
+  cursor: pointer;
+  background: #fffcf7f5;
+  border: 1px solid #a497843d;
+  border-radius: 999px;
+  width: 30px;
+  height: 30px;
+  font-size: 16px;
+  line-height: 1;
+  transition: background-color .2s, border-color .2s, color .2s, transform .2s;
+  display: none;
+}
+
+#example-theme-toggle:hover {
+  transform: translateY(-1px);
+}
+
+#uploadModel {
+  color: #25211c;
+  cursor: pointer;
+  background: #fffcf7f5;
+  border: 1px solid #a497843d;
+  border-radius: 999px;
+  justify-content: center;
+  align-items: center;
+  width: 30px;
+  height: 30px;
+  transition: background-color .2s, border-color .2s, color .2s, transform .2s;
+  display: flex;
+}
+
+#uploadModel:hover {
+  transform: translateY(-1px);
+}
+
+#uploadModel .upload-model-icon {
+  width: 18px;
+  height: 18px;
+}
+
+body[data-viewer-theme="dark"] #example-model-picker {
+  color: #eee;
+  background: #1e2024f2;
+  border-color: #444;
+  box-shadow: 0 8px 24px #00000047;
+}
+
+body[data-viewer-theme="dark"] #example-model-picker label {
+  color: #eee;
+}
+
+body[data-viewer-theme="dark"] #example-model-picker select, body[data-viewer-theme="dark"] #example-theme-toggle, body[data-viewer-theme="dark"] #uploadModel {
+  color: #eee;
+  background: #1e2024;
+  border-color: #444;
+}
+/*# sourceMappingURL=dev.9f309412.css.map */

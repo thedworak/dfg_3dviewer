@@ -9,6 +9,11 @@
 scripts/.env
 settings.local.php
 
+# local Docker Compose overrides (ports, GPU, env vars) - see
+# docker-compose.override.example.yml; docker-compose.yml itself stays
+# tracked so repo changes (new services, etc.) always apply.
+docker-compose.override.yml
+
 # node
 node_modules/
 
@@ -33,3 +38,5 @@ viewer-settings.json
 .codex
 
 /viewer/admin/admin.sqlite
+# Docker Compose variables (worker accounts: admin password etc.) - never commit
+/.env

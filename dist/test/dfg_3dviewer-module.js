@@ -220,6 +220,8 @@ const VIEWER_I18N = {
       shareView: "Share view",
       copyShareView: "Copy share view link",
       download: "Download",
+      uploadModel: "Upload & convert",
+      openUploadPanel: "Upload a 3D model for conversion",
     },
     theme: {
       lightMode: "Light mode",
@@ -334,6 +336,16 @@ const VIEWER_I18N = {
       enableWireframeMode: "Enable wireframe mode",
       disableWireframeMode: "Disable wireframe mode",
       download: "Download model",
+      shading: "Shading",
+      shadingStandard: "Standard (PBR)",
+      shadingPhong: "Phong",
+      shadingLambert: "Lambert",
+      shadingToon: "Toon / Flat",
+      shadingCustom: "Custom shader",
+      shadingCustomVertex: "Vertex shader",
+      shadingCustomFragment: "Fragment shader",
+      shadingCustomApply: "Apply",
+      shadingCustomReset: "Reset to default",
     },
     metadata: {
       modelDetails: "Model details",
@@ -349,6 +361,7 @@ const VIEWER_I18N = {
       objectType: "Object type",
       reconstructionAuthors: "Reconstruction authors",
       reconstructionPeriod: "Reconstruction period",
+      move: "Move",
     },
     manifesto: {
       source: "Manifest type",
@@ -401,6 +414,21 @@ const VIEWER_I18N = {
       iframeCode: "Iframe code",
       preview: "Preview",
       previewTitle: "Embed preview",
+    },
+    uploadPanel: {
+      title: "Upload & convert model",
+      closeAria: "Close upload panel",
+      fileLabel: "3D model file",
+      formatsHint: "Supported: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, usd/usda/usdc/usdz, step/stp, iges/igs, 3mf, gltf, 3ds, pcd, xyz, amf, kmz, vox, lwo, or a .zip archive containing one of these. STEP/IGES, 3MF and USD are converted to GLB; the last group (gltf … lwo) is uploaded as-is, without thumbnails.",
+      submit: "Upload & convert",
+      uploading: "Uploading...",
+      unsupportedFormat: "Unsupported file format: .{ext}",
+      uploadError: "Upload failed. Please try again.",
+      previousTitle: "Previously generated models",
+      previousEmpty: "No previously generated models yet.",
+      previousLoadError: "Could not load previous models.",
+      previousDeleteAria: "Delete {name}",
+      previousDeleteConfirm: 'Delete "{name}"? This permanently removes the converted model and its renders.',
     },
     loadingLog: {
       title: "Loading process log",
@@ -475,6 +503,12 @@ const VIEWER_I18N = {
       invalidManifest: "Invalid AIM3D manifest.",
       manifestValidationFailed: "AIM3D manifest validation failed.",
 
+      uploadStarted: "Upload received - converting model...",
+      uploadReady: "Converted model is ready.",
+      uploadError: "Model upload or conversion failed.",
+      modelDeleted: "Model deleted.",
+      modelDeleteError: "Failed to delete the model.",
+
       annotationDataMissing: "Annotation data not found for this POI.",
       selectFaceRequired: "Select at least one face to add annotation.",
       selectFaceRequiredAgain: "Select at least one face, then run Add annotations again.",
@@ -510,12 +544,16 @@ const VIEWER_I18N = {
       unsupportedFileFormat: "Unsupported file format.",
 
       performanceModeSet: "Performance mode set to {mode}.",
+      shadingModeApplied: "Shading mode set to {mode}.",
     },
     shortcuts: {
+      title: "Controls",
       mouse: "Mouse: drag orbit, wheel zoom, right-drag pan",
       keyboard: "Keyboard: Arrows orbit, Shift+Arrows faster, Ctrl/Cmd+Arrows pan, +/- zoom, Space toggle auto-rotate",
       touch: "Touch: pinch-to-zoom, drag to orbit, double-tap-and-hold pan",
       dragAndDrop: "Or drag and drop a 3D model into the viewer",
+      helpButtonAria: "Show usage hints",
+      closeAria: "Close",
     },
   },
   pl: {
@@ -529,6 +567,8 @@ const VIEWER_I18N = {
       shareView: "Udostępnij widok",
       copyShareView: "Skopiuj link udostępniania widoku",
       download: "Pobierz",
+      uploadModel: "Prześlij i skonwertuj",
+      openUploadPanel: "Prześlij model 3D do konwersji",
     },
     theme: {
       lightMode: "Tryb jasny",
@@ -643,6 +683,16 @@ const VIEWER_I18N = {
       enableWireframeMode: "Włącz tryb siatki",
       disableWireframeMode: "Wyłącz tryb siatki",
       download: "Pobierz model",
+      shading: "Cieniowanie",
+      shadingStandard: "Standardowy (PBR)",
+      shadingPhong: "Phong",
+      shadingLambert: "Lambert",
+      shadingToon: "Toon / Płaski",
+      shadingCustom: "Własny shader",
+      shadingCustomVertex: "Vertex shader",
+      shadingCustomFragment: "Fragment shader",
+      shadingCustomApply: "Zastosuj",
+      shadingCustomReset: "Przywróć domyślny",
     },
     metadata: {
       modelDetails: "Szczegóły modelu",
@@ -658,6 +708,7 @@ const VIEWER_I18N = {
       objectType: "Typ obiektu",
       reconstructionAuthors: "Autorzy rekonstrukcji",
       reconstructionPeriod: "Okres rekonstrukcji",
+      move: "Przesuń",
     },
     manifesto: {
       source: "Typ manifestu",
@@ -710,6 +761,21 @@ const VIEWER_I18N = {
       iframeCode: "Kod iframe",
       preview: "Podgląd",
       previewTitle: "Podgląd osadzenia",
+    },
+    uploadPanel: {
+      title: "Prześlij i skonwertuj model",
+      closeAria: "Zamknij panel przesyłania",
+      fileLabel: "Plik modelu 3D",
+      formatsHint: "Obsługiwane formaty: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, usd/usda/usdc/usdz, step/stp, iges/igs, 3mf, gltf, 3ds, pcd, xyz, amf, kmz, vox, lwo, lub archiwum .zip zawierające jeden z nich. STEP/IGES, 3MF i USD są konwertowane do GLB; ostatnia grupa (gltf … lwo) jest wgrywana bez zmian i bez miniatur.",
+      submit: "Prześlij i skonwertuj",
+      uploading: "Przesyłanie...",
+      unsupportedFormat: "Nieobsługiwany format pliku: .{ext}",
+      uploadError: "Przesyłanie lub konwersja nie powiodła się. Spróbuj ponownie.",
+      previousTitle: "Wcześniej wygenerowane modele",
+      previousEmpty: "Brak wcześniej wygenerowanych modeli.",
+      previousLoadError: "Nie udało się wczytać listy poprzednich modeli.",
+      previousDeleteAria: "Usuń {name}",
+      previousDeleteConfirm: 'Usunąć "{name}"? Spowoduje to trwałe usunięcie przekonwertowanego modelu i jego renderów.',
     },
     loadingLog: {
       title: "Log procesu ładowania",
@@ -784,6 +850,12 @@ const VIEWER_I18N = {
       invalidManifest: "Nieprawidłowy manifest AIM3D.",
       manifestValidationFailed: "Walidacja manifestu AIM3D nie powiodła się.",
 
+      uploadStarted: "Przesłano plik - konwertowanie modelu...",
+      uploadReady: "Skonwertowany model jest gotowy.",
+      uploadError: "Przesyłanie lub konwersja modelu nie powiodła się.",
+      modelDeleted: "Model został usunięty.",
+      modelDeleteError: "Nie udało się usunąć modelu.",
+
       annotationDataMissing: "Nie znaleziono danych adnotacji dla tego punktu.",
       selectFaceRequired: "Wybierz co najmniej jedną ścianę, aby dodać adnotację.",
       selectFaceRequiredAgain: "Wybierz co najmniej jedną ścianę, a następnie ponownie dodaj adnotacje.",
@@ -819,12 +891,16 @@ const VIEWER_I18N = {
       unsupportedFileFormat: "Nieobsługiwany format pliku.",
 
       performanceModeSet: "Tryb wydajności ustawiony na {mode}.",
+      shadingModeApplied: "Ustawiono tryb cieniowania: {mode}.",
     },
     shortcuts: {
+      title: "Sterowanie",
       mouse: "Mysz: przeciągnij, aby obracać, rolka - zoom, prawy przycisk - przesuwanie",
       keyboard: "Klawiatura: strzałki - obrót, Shift+strzałki - szybciej, Ctrl/Cmd+strzałki - przesuwanie, +/- — zoom, Spacja - auto-obrót",
       touch: "Dotyk: szczypanie, aby przybliżyć, przeciągnij, aby obracać, dotknij i przytrzymaj, aby przesunąć",
       dragAndDrop: "Lub przeciągnij i upuść model 3D w oknie viewer'a",
+      helpButtonAria: "Pokaż podpowiedzi dotyczące obsługi",
+      closeAria: "Zamknij",
     },
   },
   de: {
@@ -838,6 +914,8 @@ const VIEWER_I18N = {
       shareView: "Ansicht teilen",
       copyShareView: "Link zur geteilten Ansicht kopieren",
       download: "Herunterladen",
+      uploadModel: "Hochladen & konvertieren",
+      openUploadPanel: "3D-Modell zur Konvertierung hochladen",
     },
     theme: {
       lightMode: "Hellmodus",
@@ -951,6 +1029,16 @@ const VIEWER_I18N = {
       enableWireframeMode: "Drahtgittermodus aktivieren",
       disableWireframeMode: "Drahtgittermodus deaktivieren",
       download: "Modell herunterladen",
+      shading: "Schattierung",
+      shadingStandard: "Standard (PBR)",
+      shadingPhong: "Phong",
+      shadingLambert: "Lambert",
+      shadingToon: "Toon / Flach",
+      shadingCustom: "Eigener Shader",
+      shadingCustomVertex: "Vertex-Shader",
+      shadingCustomFragment: "Fragment-Shader",
+      shadingCustomApply: "Anwenden",
+      shadingCustomReset: "Auf Standard zurücksetzen",
     },
     metadata: {
       modelDetails: "Modelldetails",
@@ -966,6 +1054,7 @@ const VIEWER_I18N = {
       objectType: "Objekttyp",
       reconstructionAuthors: "Rekonstruktionsautoren",
       reconstructionPeriod: "Rekonstruktionsperiode",
+      move: "Verschieben",
     },
     manifesto: {
       source: "Manifesttyp",
@@ -1018,6 +1107,21 @@ const VIEWER_I18N = {
       iframeCode: "Iframe-Code",
       preview: "Vorschau",
       previewTitle: "Einbettungsvorschau",
+    },
+    uploadPanel: {
+      title: "Modell hochladen & konvertieren",
+      closeAria: "Upload-Panel schließen",
+      fileLabel: "3D-Modelldatei",
+      formatsHint: "Unterstützt: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, usd/usda/usdc/usdz, step/stp, iges/igs, 3mf, gltf, 3ds, pcd, xyz, amf, kmz, vox, lwo, oder ein .zip-Archiv mit einer dieser Dateien. STEP/IGES, 3MF und USD werden zu GLB konvertiert; die letzte Gruppe (gltf … lwo) wird unverändert und ohne Vorschaubilder hochgeladen.",
+      submit: "Hochladen & konvertieren",
+      uploading: "Wird hochgeladen...",
+      unsupportedFormat: "Nicht unterstütztes Dateiformat: .{ext}",
+      uploadError: "Upload oder Konvertierung fehlgeschlagen. Bitte erneut versuchen.",
+      previousTitle: "Zuvor generierte Modelle",
+      previousEmpty: "Noch keine zuvor generierten Modelle.",
+      previousLoadError: "Vorherige Modelle konnten nicht geladen werden.",
+      previousDeleteAria: "{name} löschen",
+      previousDeleteConfirm: '"{name}" löschen? Dadurch werden das konvertierte Modell und seine Renderings dauerhaft entfernt.',
     },
     loadingLog: {
       title: "Protokoll des Ladeprozesses",
@@ -1092,6 +1196,12 @@ const VIEWER_I18N = {
       invalidManifest: "Ungültiges AIM3D-Manifest.",
       manifestValidationFailed: "AIM3D-Manifestvalidierung fehlgeschlagen.",
 
+      uploadStarted: "Datei empfangen - Modell wird konvertiert...",
+      uploadReady: "Konvertiertes Modell ist bereit.",
+      uploadError: "Upload oder Konvertierung des Modells fehlgeschlagen.",
+      modelDeleted: "Modell wurde gelöscht.",
+      modelDeleteError: "Modell konnte nicht gelöscht werden.",
+
       annotationDataMissing: "Keine Annotationsdaten für diesen Punkt gefunden.",
       selectFaceRequired: "Wählen Sie mindestens eine Fläche aus, um eine Annotation hinzuzufügen.",
       selectFaceRequiredAgain: "Wählen Sie mindestens eine Fläche und führen Sie dann „Annotationen hinzufügen“ erneut aus.",
@@ -1127,12 +1237,16 @@ const VIEWER_I18N = {
       unsupportedFileFormat: "Nicht unterstütztes Dateiformat.",
 
       performanceModeSet: "Leistungsmodus auf {mode} gesetzt.",
+      shadingModeApplied: "Schattierungsmodus auf {mode} gesetzt.",
     },
     shortcuts: {
+      title: "Steuerung",
       mouse: "Maus: ziehen zum Drehen, Mausrad - Zoom, Rechtsklick - Verschieben",
       keyboard: "Tastatur: Pfeile - Drehen, Shift+Pfeile - schneller, Ctrl/Cmd+Pfeile - Verschieben, +/- - Zoom, Leertaste - Auto-Rotation",
       touch: "Touch: Pinch-to-Zoom, ziehen zum Drehen, Doppeltippen und halten zum Verschieben",
       dragAndDrop: "Oder ziehen Sie ein 3D-Modell per Drag-and-drop in den Viewer",
+      helpButtonAria: "Bedienungshinweise anzeigen",
+      closeAria: "Schließen",
     }
   },
 };
@@ -1892,7 +2006,6 @@ async function animateCameraToPose ({
     if (core.cameraTweenToken !== tweenToken) return;
     core.camera.position.copy(endCamPos);
     core.controls?.target.copy(endTarget);
-    core.controls?.update();
     const boxCenter = boundingBox ? boundingBox.getCenter(new THREE.Vector3()) : new THREE.Vector3();
     if (boundingBox) {
       const boxSize = boundingBox.getSize(new THREE.Vector3()).length();
@@ -1904,10 +2017,19 @@ async function animateCameraToPose ({
       core.camera.far  = maxDistance * 10;
       core.camera.updateProjectionMatrix();
 
+      // OrbitControls.update() (below) clamps the camera's distance from
+      // the target to [minDistance, maxDistance] on every call - it has to
+      // run after maxDistance is widened for this model, not before. Doing
+      // it in the other order (as this used to) meant switching from a
+      // small model to a much bigger one called update() while maxDistance
+      // still held the small model's limit, yanking the freshly-fitted,
+      // correctly-distant camera back in until it landed inside the new
+      // (much larger) geometry.
       if (core.controls) {
         core.controls.maxDistance = maxDistance * 2;
       }
     }
+    core.controls?.update();
 
     if (window.Viewer?.urlOptions?.cameraPosition || window.Viewer?.urlOptions?.cameraTarget || Number.isFinite(window.Viewer?.urlOptions?.cameraFov)) {
       // Only reassert position/target/fov here - projection was already resolved
@@ -2412,7 +2534,13 @@ function attachEmbedConfigurator(Viewer) {
     },
 
     getEmbedPageUrl() {
-      const embedUrl = new URL("embed.html", import.meta.url);
+      // "embed.html" is kept out of the literal `new URL(...)` call on purpose:
+      // bundlers (Parcel in particular) statically resolve a literal first
+      // argument as a build-time asset relative to this source file, but
+      // embed.html only ever lives next to the built module at runtime
+      // (dist/<target>/embed.html), not next to viewer/ui/ in source.
+      const embedFileName = "embed.html";
+      const embedUrl = new URL(embedFileName, import.meta.url);
       embedUrl.search = "";
       embedUrl.hash = "";
       return embedUrl;
@@ -2959,405 +3087,114 @@ function attachEmbedConfigurator(Viewer) {
   });
 }
 
-function getGalleryConfig() {
-  return core.CONFIG?.viewer?.gallery || {};
-}
+class StatusPoller {
 
-function getGalleryHost(Viewer, mainElement) {
-  return (
-    Viewer.fileElement?.[0] ||
-    mainElement ||
-    Viewer.container ||
-    core.container ||
-    null
-  );
-}
-
-function removeExistingGalleryDom() {
-  document.getElementById("image-list")?.remove();
-  document.getElementById("modalGallery")?.remove();
-}
-
-function createPlaceholderSvgDataUrl(index, label = "") {
-  const palette = [
-    ["#1f3c88", "#6da3ff"],
-    ["#0f766e", "#6ee7b7"],
-    ["#9a3412", "#fdba74"],
-    ["#5b21b6", "#c4b5fd"],
-  ];
-  const [start, end] = palette[index % palette.length];
-  const title = label || `Preview ${index + 1}`;
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 320">
-      <defs>
-        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="${start}"/>
-          <stop offset="100%" stop-color="${end}"/>
-        </linearGradient>
-      </defs>
-      <rect width="480" height="320" fill="url(#g)"/>
-      <circle cx="92" cy="86" r="34" fill="rgba(255,255,255,0.25)"/>
-      <path d="M48 248l94-98 72 66 66-86 152 118H48z" fill="rgba(255,255,255,0.22)"/>
-      <text x="240" y="164" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#ffffff">${title}</text>
-    </svg>
-  `.trim();
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
-}
-
-function getConfiguredTestImages() {
-  const gallery = getGalleryConfig();
-  const configuredImages = Array.isArray(gallery.testImages) ? gallery.testImages : [];
-  const normalizedImages = configuredImages.map((entry, index) => {
-    if (typeof entry === "string") {
-      const src = normalizeGalleryUrl(entry);
-      return src ? { src, alt: `Preview ${index + 1}` } : null;
-    }
-    if (entry && typeof entry === "object") {
-      const src = normalizeGalleryUrl(entry.src || entry.url || "");
-      if (!src) return null;
-      return {
-        src,
-        alt: String(entry.alt || entry.label || `Preview ${index + 1}`),
-      };
-    }
-    return null;
-  }).filter(Boolean);
-
-  if (normalizedImages.length > 0) {
-    return normalizedImages;
-  }
-
-  return [];
-}
-
-function createDefaultTestImages() {
-  return Array.from({ length: 9 }, (_unused, index) => ({
-    src: createPlaceholderSvgDataUrl(index, `Preview ${index + 1}`),
-    alt: `Preview ${index + 1}`,
-  }));
-}
-
-function createFakeGalleryElements(testImages) {
-  return testImages.map((entry) => {
-    const wrapper = document.createElement("div");
-    wrapper.className = "field__item";
-    wrapper.innerHTML =
-      `<img loading="lazy" src="${entry.src}" width="200px" height="200px" alt="${entry.alt}" class="img-fluid image-style-wisski-preview">`;
-    return wrapper;
-  });
-}
-
-function prepareGalleryImages(Viewer, imageElementsChildren) {
-  imageElementsChildren = imageElementsChildren.filter(function (_image) {
-    if (!(_image instanceof Element)) return false;
-    let rawUrl = "";
-    const img = _image.querySelector("img");
-    const link = _image.querySelector("a");
-    if (img && img.getAttribute("src")) {
-      rawUrl = img.getAttribute("src");
-    } else if (link && link.getAttribute("href")) {
-      rawUrl = link.getAttribute("href");
-    } else {
-      rawUrl = (_image.textContent || _image.innerHTML || "").trim();
+    constructor(id, { forcePoll = false, onUpdate = null } = {}) {
+        this.id=id;
+        this.interval=2000;
+        this.timer=null;
+        this.running=false;
+        // core.isLocalPreview auto-detects true on localhost/LAN hostnames
+        // (see main.js), which is exactly where a standalone worker
+        // deployment is reached - forcePoll lets a caller with a real
+        // backend (no Drupal entity involved) opt out of the "no real API
+        // to poll" assumption baked into isLocalPreview elsewhere below.
+        this.forcePoll = forcePoll === true;
+        this.onUpdate = typeof onUpdate === "function" ? onUpdate : null;
     }
 
-    const normalized = normalizeGalleryUrl(rawUrl);
-    if (!isValidUrl(normalized)) {
-      return false;
+    async start() {
+        if(this.running) return;
+        this.running=true;
+        if (!core.isLocalPreview || this.forcePoll)
+            await this.tick();
+        else {
+            this.map = core.isLocalPreview
+                ? Object.fromEntries(
+                    Object.entries(this.fullMap)
+                        .slice(-3)      // Only keep the last 2 steps for local preview
+                        .map(([k], i) => [k, i])
+                    )
+                : this.fullMap;
+        }
     }
-    _image.innerHTML = normalized;
-    return !!img;
-  });
-  imageElementsChildren.forEach(function (imgLink) {
-    imgLink.innerHTML =
-      '<img loading="lazy" src="' +
-      imgLink.innerHTML +
-      '" width="200px" height="200px" alt="" class="img-fluid image-style-wisski-preview">';
-  });
-  return imageElementsChildren;
-}
 
-function normalizeGalleryUrl(rawUrl) {
-  if (!rawUrl || typeof rawUrl !== "string") {
-    return "";
-  }
-
-  let url = rawUrl.trim();
-  if (url === "") {
-    return "";
-  }
-
-  if (url.startsWith("public://")) {
-    url = "/sites/default/files/" + url.substring("public://".length);
-  } else if (url.startsWith("sites/default/files/")) {
-    url = "/" + url;
-  }
-
-  const base = (core.CONFIG?.mainUrl || window.location.origin || "").replace(/\/+$/, "");
-
-  try {
-    const parsed = new URL(url, window.location.origin);
-    const host = parsed.host || "";
-    const path = parsed.pathname || "";
-    const normalizedHost = host.toLowerCase();
-    const hasBadHost = host.includes("_") || normalizedHost === "default" || normalizedHost === "dfg_3dviewer";
-
-    if (path.startsWith("/sites/default/files/")) {
-      if (hasBadHost) {
-        return `${base}${path}`;
-      }
-      if (parsed.protocol === "http:" || parsed.protocol === "https:") {
-        return parsed.href;
-      }
-      return `${base}${path}`;
+    stop() {
+        this.running=false;
+        if(this.timer) clearTimeout(this.timer);
     }
-    return parsed.href;
-  } catch (_error) {
-    if (url.startsWith("/sites/default/files/")) {
-      return `${base}${url}`;
+    fullMap = {
+        init: 0,
+        preparing: 1,
+        processing: 2,
+        converted: 3,
+        updating: 4,
+        rendering: 4,
+        model_ready: 5,
+        viewer_ready: 6,
+        ready: 6,
+        failed: 7,
+        error: 7,
+    };
+
+    terminalStatuses = new Set(["ready", "viewer_ready", "failed", "error"]);
+
+    map = this.fullMap;
+
+    updateSteps(status) {
+        if(this.map[status]!==undefined) {
+            UltraLoader.step(this.map[status]);
+        }
+
     }
-    return url;
-  }
-}
 
-function handleImages(Viewer, mainElement, imageElements, imageElementsChildren) {
-  if (imageElementsChildren === undefined) {
-    imageElementsChildren = imageElements;
-  }
-  removeExistingGalleryDom();
-  var imageList = document.createElement("div");
-  imageList.setAttribute("id", "image-list");
-  imageList.style.display = "flex";
-  imageList.style.flexWrap = "wrap";
-  imageList.style.gap = "16px";
-  imageList.style.alignItems = "center";
-  var modalGallery = document.createElement("div");
-  var modalImage = document.createElement("img");
-  var modalPrev = document.createElement("button");
-  var modalNext = document.createElement("button");
-  const galleryImageSources = [];
-  let currentGalleryIndex = -1;
-  modalImage.setAttribute("class", "modalImage");
-  modalImage.style.transform = "scale(0.95)";
-  Viewer.bindEventListener(modalGallery, "wheel", function (e) {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.deltaY > 0 && Viewer.zoomImage > 0.15) {
-      modalImage.style.transform = `scale(${(Viewer.zoomImage -= Viewer.ZOOM_SPEED_IMAGE)})`;
-    } else if (e.deltaY < 0 && Viewer.zoomImage < 5) {
-      modalImage.style.transform = `scale(${(Viewer.zoomImage += Viewer.ZOOM_SPEED_IMAGE)})`;
+    async tick() {
+        if(!this.running || (core.isLocalPreview && !this.forcePoll)) return;
+
+        try {
+            const r=await fetch(`/api/model/status/${this.id}`, {
+                cache:"no-store"
+            });
+
+            if(!r.ok){
+                throw new Error("API error");
+            }
+
+            const data=await r.json();
+            this.onUpdate?.(data);
+
+            if(data.status==="error") {
+                UltraLoader.error(data.message || "Processing failed");
+                this.stop();
+                localStorage.removeItem("processing_model_id");
+                return;
+            }
+
+            UltraLoader.set(data.progress);
+
+            this.updateSteps(data.status);
+
+            if(this.terminalStatuses.has(data.status)) {
+                if (data.status==="ready" || data.status==="viewer_ready") {
+                    UltraLoader.finish("3D Viewer is ready");
+                }
+                else {
+                    UltraLoader.finish("Failed processing the model");
+                }
+                this.stop();
+                localStorage.removeItem("processing_model_id");
+                return;
+            }
+        }
+        catch(e){
+            if (!core.isLocalPreview || this.forcePoll) {
+                UltraLoader.error("Connection error");
+                this.stop();
+            }
+        }
+        this.timer=setTimeout(()=>this.tick(),this.interval);
     }
-    return false;
-  });
-  var modalClose = document.createElement("span");
-  modalGallery.setAttribute("id", "modalGallery");
-  modalGallery.setAttribute("class", "modalGallery");
-  modalClose.setAttribute("class", "closeGallery");
-  modalClose.setAttribute("title", "Close");
-  modalClose.innerHTML = "&times";
-  modalPrev.setAttribute("type", "button");
-  modalPrev.setAttribute("class", "galleryNav galleryNavPrev");
-  modalPrev.setAttribute("title", "Previous image");
-  modalPrev.setAttribute("aria-label", "Previous image");
-  modalPrev.innerHTML =
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 5.3a1 1 0 0 1 0 1.4L9.41 12l5.3 5.3a1 1 0 1 1-1.42 1.4l-6-6a1 1 0 0 1 0-1.4l6-6a1 1 0 0 1 1.41 0Z"/></svg>';
-  modalNext.setAttribute("type", "button");
-  modalNext.setAttribute("class", "galleryNav galleryNavNext");
-  modalNext.setAttribute("title", "Next image");
-  modalNext.setAttribute("aria-label", "Next image");
-  modalNext.innerHTML =
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.3 18.7a1 1 0 0 1 0-1.4l5.29-5.3-5.3-5.3a1 1 0 1 1 1.42-1.4l6 6a1 1 0 0 1 0 1.4l-6 6a1 1 0 0 1-1.41 0Z"/></svg>';
 
-  const showGalleryImageAtIndex = function (index) {
-    if (galleryImageSources.length === 0) {
-      return;
-    }
-    const normalizedIndex =
-      (index + galleryImageSources.length) % galleryImageSources.length;
-    currentGalleryIndex = normalizedIndex;
-    modalImage.src = galleryImageSources[normalizedIndex];
-  };
-
-  const openModalGalleryAtIndex = function (index) {
-    showGalleryImageAtIndex(index);
-    modalGallery.classList.add("is-open");
-    imageList.style.zIndex = 0;
-    imageList.style.display = "hidden";
-  };
-
-  const closeModalGallery = function () {
-    modalGallery.classList.remove("is-open");
-    Viewer.zoomImage = 1.5;
-    modalImage.style.transform = "scale(1.5)";
-  };
-
-  modalClose.onclick = function () {
-    closeModalGallery();
-  };
-
-  modalPrev.onclick = function (event) {
-    event.preventDefault();
-    event.stopPropagation();
-    showGalleryImageAtIndex(currentGalleryIndex - 1);
-  };
-
-  modalNext.onclick = function (event) {
-    event.preventDefault();
-    event.stopPropagation();
-    showGalleryImageAtIndex(currentGalleryIndex + 1);
-  };
-
-  Viewer.bindEventListener(modalGallery, "click", function (event) {
-    if (event.target === modalGallery) {
-      closeModalGallery();
-    }
-  });
-
-  Viewer.bindEventListener(document, "click", function (event) {
-    if (
-      !modalGallery.contains(event.target) &&
-      !imageList.contains(event.target)
-    ) {
-      closeModalGallery();
-    }
-  });
-
-  Viewer.bindEventListener(document, "keydown", function (event) {
-    if (!modalGallery.classList.contains("is-open")) {
-      return;
-    }
-    if (event.key === "ArrowLeft") {
-      event.preventDefault();
-      showGalleryImageAtIndex(currentGalleryIndex - 1);
-    } else if (event.key === "ArrowRight") {
-      event.preventDefault();
-      showGalleryImageAtIndex(currentGalleryIndex + 1);
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-      closeModalGallery();
-    }
-  });
-
-  modalGallery.appendChild(modalPrev);
-  modalGallery.appendChild(modalImage);
-  modalGallery.appendChild(modalNext);
-  modalGallery.appendChild(modalClose);
-  for (let i = 0; imageElementsChildren.length - i >= 0; i++) {
-    if (
-      imageElementsChildren[i] !== undefined &&
-      imageElementsChildren[i].innerHTML !== undefined
-    ) {
-      var imgList = imageElementsChildren[i].getElementsByTagName("a");
-      for (let j = 0; j < imgList.length; j++) {
-        imgList[j].setAttribute("href", "#");
-        imgList[j].setAttribute("src", imgList[j].firstChild.src);
-        imgList[j].setAttribute("class", "image-list-item");
-      }
-      imgList = imageElementsChildren[i].getElementsByTagName("img");
-      if (imgList.length == 1) {
-        imgList[0].style.maxWidth = "fit-content";
-        imgList[0].style.maxHeight = "180px";
-      }
-      for (let j = 0; j < imgList.length; j++) {
-        const nextIndex = galleryImageSources.push(imgList[j].src) - 1;
-        imgList[j].onclick = function () {
-          openModalGalleryAtIndex(nextIndex);
-        };
-      }
-      if (imageElementsChildren[i] instanceof HTMLElement) {
-        imageElementsChildren[i].style.display = "block";
-      }
-      imageList.appendChild(imageElementsChildren[i]);
-    }
-  }
-  if (
-    imageList &&
-    imageList.childNodes.length > 0 &&
-    getGalleryHost(Viewer, mainElement)
-  ) {
-    const galleryHost = getGalleryHost(Viewer, mainElement);
-    galleryHost.insertAdjacentElement("beforebegin", modalGallery);
-    galleryHost.insertAdjacentElement("beforebegin", imageList);
-  }
-}
-
-function buildThumbnailGallery(Viewer) {
-  const gallery = getGalleryConfig();
-  var mainElement = gallery.container
-    ? document.getElementById(gallery.container)
-    : null;
-  var imageElements;
-  if (gallery.imageClass !== "") {
-    imageElements = document.getElementsByClassName(
-      gallery.imageClass
-    );
-    if (imageElements.length === 0) {
-      const fallbackFields = document.querySelectorAll(
-        ".field--type-image"
-      );
-      if (fallbackFields.length > 0) {
-        imageElements = fallbackFields;
-        console.warn(
-          "Gallery imageClass not found, falling back to .field--type-image."
-        );
-      }
-    }
-    if (imageElements.length > 0) {
-      var galleryLabel = document.getElementsByClassName("field__label");
-      if (galleryLabel !== undefined && galleryLabel.length > 0) {
-        galleryLabel[0].innerText = "";
-      }
-    }
-  } else if (gallery.imageId !== "") {
-    imageElements = document.getElementById(gallery.imageId);
-  }
-
-  if (imageElements != null) {
-    if (imageElements.length > 0) {
-      if (imageElements[0].innerHTML !== undefined) {
-        let imagesList = Array.from(
-          imageElements[0].getElementsByClassName("field__items")[0]
-            .childNodes
-        );
-        imagesList = prepareGalleryImages(Viewer, imagesList);
-        imageElements[0].classList.add("field--label-hidden");
-        //imageElements[0].classList.add("field__items");
-        handleImages(Viewer, mainElement, imagesList, imagesList);
-      } else {
-        handleImages(Viewer, mainElement, imageElements);
-      }
-    } else if (
-      imageElements.childNodes !== undefined &&
-      imageElements.childNodes.length > 0
-    ) {
-      if (
-        typeof imageElements.childNodes[0].innerHTML == "string" ||
-        typeof imageElements.childNodes[1].innerHTML == "string"
-      ) {
-        let imagesList = Array.from(imageElements.childNodes);
-        imagesList = prepareGalleryImages(Viewer, imagesList);
-        imageElements.classList.add("field--type-image");
-        imageElements.classList.add("field--label-hidden");
-        //imageElements.classList.add("field__items");
-        handleImages(Viewer, mainElement, imagesList, imageElements);
-      } else {
-        handleImages(Viewer, mainElement, imageElements);
-      }
-    }
-  }
-
-  if (core.CONFIG?.viewer?.gallery?.buildFake === true) {
-    const testImages = getConfiguredTestImages();
-    const fallbackImages = testImages.length > 0 ? testImages : createDefaultTestImages();
-    if (gallery.build === true) {
-      const fakeImages = createFakeGalleryElements(fallbackImages);
-      handleImages(Viewer, mainElement, fakeImages, fakeImages);
-      console.log("Built fallback thumbnail gallery for local testing");
-      return;
-    }
-  }
-
-  console.log("No gallery source found");
 }
 
 const UltraLoader$1 = {
@@ -3517,6 +3354,1019 @@ const UltraLoader$1 = {
 };
 
 window.UltraLoader=UltraLoader$1;
+
+// Mirrors worker/server.py's SUPPORTED_FORMATS: Blender importers, STEP/IGES/3MF
+// converted without Blender, and formats the viewer reads directly (kept as
+// uploaded, no thumbnails), plus the .zip archive support the standalone
+// worker adds on top - see worker/README.md.
+const SUPPORTED_EXTENSIONS = [
+  "abc", "dae", "fbx", "obj", "ply", "stl", "wrl", "x3d", "ifc", "blend", "gml", "glb",
+  "usd", "usda", "usdc", "usdz",
+  "step", "stp", "iges", "igs", "3mf",
+  "gltf", "3ds", "pcd", "xyz", "amf", "kmz", "vox", "lwo",
+  "zip",
+];
+
+// Same-origin worker endpoints (see worker/auth.py). Cookies travel by default
+// for same-origin requests, so no credentials option is needed.
+async function authRequest(path, body) {
+  const response = await fetch(`/api/auth/${path}`, {
+    method: body ? "POST" : "GET",
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let data = {};
+  try {
+    data = await response.json();
+  } catch (_error) {
+    // Non-JSON error page (e.g. from a proxy) - fall through with the status.
+  }
+  if (!response.ok) {
+    const error = new Error(data.error || `HTTP ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  return data;
+}
+
+function attachUploadPanel(Viewer) {
+  Object.assign(Viewer, {
+    // Accounts are enforced by the worker (WORKER_AUTH_MODE); the manifest's
+    // AIM3DViewer.viewer.auth only tunes the UI: enabled:false hides it,
+    // allowRegistration:false hides the register button.
+    async refreshAuthState() {
+      const uiConfig = core.CONFIG?.viewer?.auth || {};
+      const state = { required: false, registration: false, user: null, maxUploadBytes: 0 };
+      // The upload limit is reported by the same endpoint, so query it even
+      // when the manifest hides the login UI.
+      try {
+        const serverConfig = await authRequest("config");
+        state.maxUploadBytes = Number(serverConfig.maxUploadBytes) || 0;
+        if (uiConfig.enabled !== false) {
+          state.required = serverConfig.mode === "required";
+          state.registration =
+            serverConfig.registration !== "closed" && uiConfig.allowRegistration !== false;
+          if (state.required) {
+            state.user = (await authRequest("me")).user || null;
+          }
+        }
+      } catch (_error) {
+        // Older worker without /api/auth/*: behaves as accounts off.
+      }
+      this.authState = state;
+      this.renderUploadHint();
+      this.renderAuthSection();
+      return state;
+    },
+
+    renderUploadHint() {
+      const hint = this.uploadInputs?.hint;
+      if (!hint) return;
+      const maxBytes = this.authState?.maxUploadBytes;
+      const limit = maxBytes
+        ? " " + t$1("uploadPanel.maxSize", { size: Math.round(maxBytes / 1048576) }, "Maximum upload size: {size} MB.")
+        : "";
+      hint.textContent = this.uploadInputs.hintBase + limit;
+    },
+
+    renderAuthSection() {
+      const section = this.uploadInputs?.auth;
+      if (!section) return;
+      const state = this.authState || { required: false };
+      section.hidden = !state.required;
+      section.textContent = "";
+      const canUpload = !state.required || Boolean(state.user);
+      if (this.uploadInputs.submit) this.uploadInputs.submit.disabled = !canUpload;
+      if (!state.required) return;
+
+      if (state.user) {
+        const label = document.createElement("span");
+        label.textContent = t$1("uploadPanel.signedInAs", { user: state.user }, "Signed in as {user}");
+        const logout = document.createElement("button");
+        logout.type = "button";
+        logout.textContent = t$1("uploadPanel.logout", "Log out");
+        this.bindEventListener(logout, "click", () => this.handleAuthAction("logout"));
+        section.append(label, logout);
+        return;
+      }
+
+      const hint = document.createElement("p");
+      hint.className = "upload-panel-hint";
+      hint.textContent = t$1("uploadPanel.loginRequired", "Log in to upload models.");
+      const username = document.createElement("input");
+      username.type = "text";
+      username.autocomplete = "username";
+      username.placeholder = t$1("uploadPanel.username", "Username");
+      username.setAttribute("aria-label", username.placeholder);
+      const password = document.createElement("input");
+      password.type = "password";
+      password.autocomplete = "current-password";
+      password.placeholder = t$1("uploadPanel.password", "Password");
+      password.setAttribute("aria-label", password.placeholder);
+      const login = document.createElement("button");
+      login.type = "button";
+      login.textContent = t$1("uploadPanel.login", "Log in");
+      this.bindEventListener(login, "click", () =>
+        this.handleAuthAction("login", { username: username.value.trim(), password: password.value })
+      );
+      section.append(hint, username, password, login);
+      if (state.registration) {
+        const register = document.createElement("button");
+        register.type = "button";
+        register.textContent = t$1("uploadPanel.register", "Register");
+        this.bindEventListener(register, "click", () =>
+          this.handleAuthAction("register", { username: username.value.trim(), password: password.value })
+        );
+        section.appendChild(register);
+      }
+    },
+
+    async handleAuthAction(action, credentials) {
+      try {
+        if (action === "register") {
+          const result = await authRequest("register", credentials);
+          this.setUploadStatusText(
+            result.status === "pending"
+              ? t$1("uploadPanel.registeredPending", "Account created. It must be approved before you can upload.")
+              : t$1("uploadPanel.registeredActive", "Account created. You can log in now."),
+            "success"
+          );
+          return;
+        }
+        await authRequest(action, credentials || {});
+        this.setUploadStatusText("");
+        await this.refreshAuthState();
+        this.loadPreviousModelsList();
+      } catch (error) {
+        this.setUploadStatusText(error.message, "error");
+      }
+    },
+
+    isUploadPanelOpen() {
+      return this.uploadPanel?.hidden === false;
+    },
+
+    updateUploadMenuEntryState() {
+      if (!this.uploadModel) return;
+      // Icon-only, matching #example-theme-toggle's compact footprint next
+      // to the model picker - the full label lives in aria-label/title
+      // instead of visible text.
+      this.uploadModel.innerHTML = `<span class="upload-model-icon" aria-hidden="true"></span>`;
+      const a11yLabel = t$1("menu.openUploadPanel", "Upload a 3D model for conversion");
+      this.uploadModel.setAttribute("aria-label", a11yLabel);
+      this.uploadModel.setAttribute("title", a11yLabel);
+    },
+
+    openUploadPanel(event) {
+      this.createUploadPanel();
+      this.toggleUploadPanel(event);
+    },
+
+    toggleUploadPanel(event) {
+      event?.preventDefault?.();
+      this.closeActionMenu();
+      if (!this.uploadPanel) return;
+      const willShow = this.uploadPanel.hidden === true;
+      this.uploadPanel.hidden = !willShow;
+      if (willShow) {
+        this.resetUploadPanelState();
+        this.refreshAuthState().then(() => this.loadPreviousModelsList());
+      }
+    },
+
+    closeUploadPanel() {
+      if (this.uploadPanel) {
+        this.uploadPanel.hidden = true;
+      }
+    },
+
+    resetUploadPanelState() {
+      if (!this.uploadInputs) return;
+      this.uploadInputs.file.value = "";
+      const state = this.authState;
+      this.uploadInputs.submit.disabled = Boolean(state?.required && !state.user);
+      this.setUploadStatusText("");
+    },
+
+    setUploadStatusText(message, tone = "info") {
+      if (!this.uploadInputs?.status) return;
+      this.uploadInputs.status.textContent = message;
+      this.uploadInputs.status.dataset.tone = tone;
+    },
+
+    createUploadPanel() {
+      if (!core.container || this.uploadPanel) return;
+
+      const panelText = {
+        title: t$1("uploadPanel.title", "Upload & convert model"),
+        closeAria: t$1("uploadPanel.closeAria", "Close upload panel"),
+        fileLabel: t$1("uploadPanel.fileLabel", "3D model file"),
+        formatsHint: t$1(
+          "uploadPanel.formatsHint",
+          "Supported: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, or a .zip archive containing one of these."
+        ),
+        submit: t$1("uploadPanel.submit", "Upload & convert"),
+        previousTitle: t$1("uploadPanel.previousTitle", "Previously generated models"),
+      };
+
+      const panel = document.createElement("div");
+      panel.id = "uploadModelPanel";
+      panel.hidden = true;
+      panel.innerHTML = `
+        <div class="upload-panel-header">
+          <span>${panelText.title}</span>
+          <button id="uploadPanelClose" type="button" aria-label="${panelText.closeAria}">X</button>
+        </div>
+        <form id="uploadPanelForm" class="upload-panel-body">
+          <div id="uploadPanelAuth" class="upload-panel-auth" hidden></div>
+          <label class="upload-panel-field">${panelText.fileLabel}
+            <input id="uploadPanelFileInput" type="file" accept="${SUPPORTED_EXTENSIONS.map((ext) => `.${ext}`).join(",")}" required />
+          </label>
+          <p id="uploadPanelHint" class="upload-panel-hint">${panelText.formatsHint}</p>
+          <div class="upload-panel-actions">
+            <button id="uploadPanelSubmit" type="submit">${panelText.submit}</button>
+          </div>
+          <p id="uploadPanelStatus" class="upload-panel-status" role="status" aria-live="polite"></p>
+        </form>
+        <div class="upload-panel-previous">
+          <div class="upload-panel-previous-title">${panelText.previousTitle}</div>
+          <ul id="uploadPanelPreviousList" class="upload-panel-previous-list"></ul>
+        </div>
+      `;
+
+      core.container.appendChild(panel);
+      this.uploadPanel = panel;
+      this.uploadInputs = {
+        file: panel.querySelector("#uploadPanelFileInput"),
+        submit: panel.querySelector("#uploadPanelSubmit"),
+        status: panel.querySelector("#uploadPanelStatus"),
+        auth: panel.querySelector("#uploadPanelAuth"),
+        hint: panel.querySelector("#uploadPanelHint"),
+        hintBase: panelText.formatsHint,
+      };
+      this.uploadPreviousList = panel.querySelector("#uploadPanelPreviousList");
+
+      const form = panel.querySelector("#uploadPanelForm");
+      const closeButton = panel.querySelector("#uploadPanelClose");
+
+      this.bindEventListener(form, "submit", (event) => this.handleUploadSubmit(event));
+      this.bindEventListener(closeButton, "click", () => this.closeUploadPanel());
+    },
+
+    async loadPreviousModelsList() {
+      if (!this.uploadPreviousList) return;
+      const list = this.uploadPreviousList;
+      list.textContent = "";
+
+      let jobs = [];
+      try {
+        const response = await fetch("/api/jobs");
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        jobs = Array.isArray(data.jobs) ? data.jobs : [];
+      } catch (error) {
+        this.reportError(error, { context: "Failed to load previous models list" });
+        const errorItem = document.createElement("li");
+        errorItem.className = "upload-panel-previous-empty";
+        errorItem.textContent = t$1("uploadPanel.previousLoadError", "Could not load previous models.");
+        list.appendChild(errorItem);
+        return;
+      }
+
+      if (jobs.length === 0) {
+        const emptyItem = document.createElement("li");
+        emptyItem.className = "upload-panel-previous-empty";
+        emptyItem.textContent = t$1("uploadPanel.previousEmpty", "No previously generated models yet.");
+        list.appendChild(emptyItem);
+        return;
+      }
+
+      jobs.forEach((job) => {
+        const name = job.name || job.id;
+        const item = document.createElement("li");
+        item.className = "upload-panel-previous-row";
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "upload-panel-previous-item";
+        button.title = name;
+
+        if (job.imageUrls?.[0]) {
+          const thumb = document.createElement("img");
+          thumb.src = job.imageUrls[0];
+          thumb.alt = "";
+          thumb.loading = "lazy";
+          button.appendChild(thumb);
+        }
+
+        const label = document.createElement("span");
+        label.textContent = name;
+        button.appendChild(label);
+
+        this.bindEventListener(button, "click", () => this.loadPreviousModel(job));
+        item.appendChild(button);
+
+        // canDelete is computed by the worker (own uploads, or admin, or
+        // accounts off); older workers omit it and allow deleting as before.
+        if (job.canDelete === false) {
+          list.appendChild(item);
+          return;
+        }
+
+        const deleteButton = document.createElement("button");
+        deleteButton.type = "button";
+        deleteButton.className = "upload-panel-previous-delete";
+        deleteButton.textContent = "✕";
+        const deleteAria = t$1("uploadPanel.previousDeleteAria", { name }, "Delete {name}");
+        deleteButton.setAttribute("aria-label", deleteAria);
+        deleteButton.title = deleteAria;
+        this.bindEventListener(deleteButton, "click", (event) => {
+          event.stopPropagation();
+          this.deletePreviousModel(job, item);
+        });
+        item.appendChild(deleteButton);
+
+        list.appendChild(item);
+      });
+    },
+
+    async deletePreviousModel(job, item) {
+      if (!job?.id) return;
+      const name = job.name || job.id;
+      const confirmed = window.confirm(
+        t$1(
+          "uploadPanel.previousDeleteConfirm",
+          { name },
+          'Delete "{name}"? This permanently removes the converted model and its renders.'
+        )
+      );
+      if (!confirmed) return;
+
+      try {
+        const response = await fetch(`/api/jobs/${encodeURIComponent(job.id)}`, { method: "DELETE" });
+        if (!response.ok && response.status !== 404) {
+          throw new Error(`Delete failed (HTTP ${response.status})`);
+        }
+        item.remove();
+        if (this.uploadPreviousList && this.uploadPreviousList.children.length === 0) {
+          const emptyItem = document.createElement("li");
+          emptyItem.className = "upload-panel-previous-empty";
+          emptyItem.textContent = t$1("uploadPanel.previousEmpty", "No previously generated models yet.");
+          this.uploadPreviousList.appendChild(emptyItem);
+        }
+        toastHelper("modelDeleted", "info");
+      } catch (error) {
+        this.reportError(error, { context: "Failed to delete previous model" });
+        toastHelper("modelDeleteError", "error");
+      }
+    },
+
+    async loadPreviousModel(job) {
+      if (!job?.modelUrl) return;
+      this.closeUploadPanel();
+      core.autoPath = job.modelUrl;
+      this.resetLoadedModelState();
+      await this.mainLoadModelWrapper();
+
+      const galleryCfg = core.CONFIG.viewer?.gallery;
+      if (
+        Array.isArray(job.imageUrls) &&
+        job.imageUrls.length > 0 &&
+        (galleryCfg?.build === true || galleryCfg?.buildFake === true) &&
+        !core.SANDBOX_MODE &&
+        !this.isEmbedMode()
+      ) {
+        this.renderModelGalleryImages(job.imageUrls);
+      }
+    },
+
+    async handleUploadSubmit(event) {
+      event.preventDefault();
+      const file = this.uploadInputs?.file?.files?.[0];
+      if (!file) return;
+
+      const extension = (file.name.split(".").pop() || "").toLowerCase();
+      if (!SUPPORTED_EXTENSIONS.includes(extension)) {
+        this.setUploadStatusText(
+          t$1("uploadPanel.unsupportedFormat", { ext: extension }, "Unsupported file format: .{ext}"),
+          "error"
+        );
+        return;
+      }
+
+      const maxBytes = this.authState?.maxUploadBytes;
+      if (maxBytes && file.size > maxBytes) {
+        this.setUploadStatusText(
+          t$1("uploadPanel.tooLargeLimit", { size: Math.round(maxBytes / 1048576) }, "That file is larger than the {size} MB upload limit."),
+          "error"
+        );
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      this.uploadInputs.submit.disabled = true;
+      this.setUploadStatusText(t$1("uploadPanel.uploading", "Uploading..."), "info");
+
+      try {
+        const response = await fetch("/api/model/create", { method: "POST", body: formData });
+        if (response.status === 401) {
+          await this.refreshAuthState();
+          this.setUploadStatusText(t$1("uploadPanel.loginRequired", "Log in to upload models."), "error");
+          return;
+        }
+        if (response.status === 413) {
+          this.setUploadStatusText(t$1("uploadPanel.tooLarge", "That file is too large to upload."), "error");
+          return;
+        }
+        if (!response.ok) {
+          throw new Error(`Upload failed (HTTP ${response.status})`);
+        }
+        const data = await response.json();
+        const jobId = data.entity_id;
+        if (!jobId) {
+          throw new Error("No job id returned by the conversion service.");
+        }
+
+        this.closeUploadPanel();
+        toastHelper("uploadStarted", "info");
+
+        UltraLoader$1.start(this.getProcessingLoadingSteps());
+        const poller = new StatusPoller(jobId, {
+          forcePoll: true,
+          onUpdate: (statusData) => this.handleUploadStatusUpdate(statusData),
+        });
+        poller.start();
+      } catch (error) {
+        this.reportError(error, { context: "Model upload failed" });
+        this.setUploadStatusText(t$1("uploadPanel.uploadError", "Upload failed. Please try again."), "error");
+        toastHelper("uploadError", "error");
+      } finally {
+        if (this.uploadInputs?.submit) {
+          const state = this.authState;
+          this.uploadInputs.submit.disabled = Boolean(state?.required && !state.user);
+        }
+      }
+    },
+
+    async handleUploadStatusUpdate(data) {
+      if (!data) return;
+      if (data.status === "ready" && data.modelUrl) {
+        toastHelper("uploadReady", "success");
+        core.autoPath = data.modelUrl;
+        this.resetLoadedModelState();
+        await this.mainLoadModelWrapper();
+
+        // Mirrors the same gate the example-model switch uses before
+        // rebuilding the gallery (see main.js) - the worker's own thumbnails
+        // (imageUrls) are the correct source here regardless of build vs
+        // buildFake, since there is no Drupal field markup to read in a
+        // standalone deployment.
+        const galleryCfg = core.CONFIG.viewer?.gallery;
+        if (
+          Array.isArray(data.imageUrls) &&
+          data.imageUrls.length > 0 &&
+          (galleryCfg?.build === true || galleryCfg?.buildFake === true) &&
+          !core.SANDBOX_MODE &&
+          !this.isEmbedMode()
+        ) {
+          this.renderModelGalleryImages(data.imageUrls);
+        }
+      } else if (data.status === "failed" || data.status === "error") {
+        toastHelper("uploadError", "error");
+      }
+    },
+  });
+}
+
+function getGalleryConfig() {
+  return core.CONFIG?.viewer?.gallery || {};
+}
+
+function getGalleryHost(Viewer, mainElement) {
+  return (
+    Viewer.fileElement?.[0] ||
+    mainElement ||
+    Viewer.container ||
+    core.container ||
+    null
+  );
+}
+
+function removeExistingGalleryDom() {
+  document.getElementById("image-list")?.remove();
+  document.getElementById("modalGallery")?.remove();
+}
+
+function createPlaceholderSvgDataUrl(index, label = "") {
+  const palette = [
+    ["#1f3c88", "#6da3ff"],
+    ["#0f766e", "#6ee7b7"],
+    ["#9a3412", "#fdba74"],
+    ["#5b21b6", "#c4b5fd"],
+  ];
+  const [start, end] = palette[index % palette.length];
+  const title = label || `Preview ${index + 1}`;
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 320">
+      <defs>
+        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="${start}"/>
+          <stop offset="100%" stop-color="${end}"/>
+        </linearGradient>
+      </defs>
+      <rect width="480" height="320" fill="url(#g)"/>
+      <circle cx="92" cy="86" r="34" fill="rgba(255,255,255,0.25)"/>
+      <path d="M48 248l94-98 72 66 66-86 152 118H48z" fill="rgba(255,255,255,0.22)"/>
+      <text x="240" y="164" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#ffffff">${title}</text>
+    </svg>
+  `.trim();
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function getConfiguredTestImages() {
+  const gallery = getGalleryConfig();
+  const configuredImages = Array.isArray(gallery.testImages) ? gallery.testImages : [];
+  const normalizedImages = configuredImages.map((entry, index) => {
+    if (typeof entry === "string") {
+      const src = normalizeGalleryUrl(entry);
+      return src ? { src, alt: `Preview ${index + 1}` } : null;
+    }
+    if (entry && typeof entry === "object") {
+      const src = normalizeGalleryUrl(entry.src || entry.url || "");
+      if (!src) return null;
+      return {
+        src,
+        alt: String(entry.alt || entry.label || `Preview ${index + 1}`),
+      };
+    }
+    return null;
+  }).filter(Boolean);
+
+  if (normalizedImages.length > 0) {
+    return normalizedImages;
+  }
+
+  return [];
+}
+
+function createDefaultTestImages() {
+  return Array.from({ length: 9 }, (_unused, index) => ({
+    src: createPlaceholderSvgDataUrl(index, `Preview ${index + 1}`),
+    alt: `Preview ${index + 1}`,
+  }));
+}
+
+const GALLERY_RENDER_ANGLES = ["0", "45", "90", "135", "180", "225", "270", "315"];
+
+// scripts/render.py writes a 9-shot turntable per source file into
+// viewer/examples/gallery/<filename>/<basename>_side<angle>.png (+ _top.png),
+// named after that same file's own filename/basename - see core.fileObject,
+// set from the currently loaded model's path in main.js. Deriving the path
+// this way means a freshly rendered example picks up its own thumbnails
+// automatically, with no config file to keep in sync per model.
+function getPerModelGalleryImages() {
+  const filename = core.fileObject?.filename;
+  const basename = core.fileObject?.basename;
+  if (!filename || !basename) return [];
+
+  const images = GALLERY_RENDER_ANGLES.map((angle) => ({
+    src: normalizeGalleryUrl(`examples/gallery/${filename}/${basename}_side${angle}.png`),
+    alt: `${basename} - ${angle}°`,
+  }));
+  images.push({
+    src: normalizeGalleryUrl(`examples/gallery/${filename}/${basename}_top.png`),
+    alt: `${basename} - top`,
+  });
+  return images.filter((img) => img.src);
+}
+
+function probeImageExists(src) {
+  return new Promise((resolve) => {
+    if (!src) {
+      resolve(false);
+      return;
+    }
+    const probe = new Image();
+    probe.onload = () => resolve(true);
+    probe.onerror = () => resolve(false);
+    probe.src = src;
+  });
+}
+
+function createFakeGalleryElements(testImages) {
+  return testImages.map((entry) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "field__item";
+    wrapper.innerHTML =
+      `<img loading="lazy" src="${entry.src}" width="200px" height="200px" alt="${entry.alt}" class="img-fluid image-style-wisski-preview">`;
+    return wrapper;
+  });
+}
+
+function prepareGalleryImages(Viewer, imageElementsChildren) {
+  imageElementsChildren = imageElementsChildren.filter(function (_image) {
+    if (!(_image instanceof Element)) return false;
+    let rawUrl = "";
+    const img = _image.querySelector("img");
+    const link = _image.querySelector("a");
+    if (img && img.getAttribute("src")) {
+      rawUrl = img.getAttribute("src");
+    } else if (link && link.getAttribute("href")) {
+      rawUrl = link.getAttribute("href");
+    } else {
+      rawUrl = (_image.textContent || _image.innerHTML || "").trim();
+    }
+
+    const normalized = normalizeGalleryUrl(rawUrl);
+    if (!isValidUrl(normalized)) {
+      return false;
+    }
+    _image.innerHTML = normalized;
+    return !!img;
+  });
+  imageElementsChildren.forEach(function (imgLink) {
+    imgLink.innerHTML =
+      '<img loading="lazy" src="' +
+      imgLink.innerHTML +
+      '" width="200px" height="200px" alt="" class="img-fluid image-style-wisski-preview">';
+  });
+  return imageElementsChildren;
+}
+
+function normalizeGalleryUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== "string") {
+    return "";
+  }
+
+  let url = rawUrl.trim();
+  if (url === "") {
+    return "";
+  }
+
+  if (url.startsWith("public://")) {
+    url = "/sites/default/files/" + url.substring("public://".length);
+  } else if (url.startsWith("sites/default/files/")) {
+    url = "/" + url;
+  }
+
+  const base = (core.CONFIG?.mainUrl || window.location.origin || "").replace(/\/+$/, "");
+
+  try {
+    const parsed = new URL(url, window.location.origin);
+    const host = parsed.host || "";
+    const path = parsed.pathname || "";
+    const normalizedHost = host.toLowerCase();
+    const hasBadHost = host.includes("_") || normalizedHost === "default" || normalizedHost === "dfg_3dviewer";
+
+    if (path.startsWith("/sites/default/files/")) {
+      if (hasBadHost) {
+        return `${base}${path}`;
+      }
+      if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+        return parsed.href;
+      }
+      return `${base}${path}`;
+    }
+    return parsed.href;
+  } catch (_error) {
+    if (url.startsWith("/sites/default/files/")) {
+      return `${base}${url}`;
+    }
+    return url;
+  }
+}
+
+// Swaps the thumbnail shimmer placeholder for the real image once it has
+// finished loading (or failed), covering both the still-loading case and
+// images that are already cached and complete by the time this runs.
+function markThumbnailLoaded(img, container) {
+  const markLoaded = () => {
+    img.classList.add("is-loaded");
+    if (container instanceof HTMLElement) {
+      container.classList.add("is-loaded");
+    }
+  };
+  if (img.complete && img.naturalWidth > 0) {
+    markLoaded();
+  } else {
+    img.addEventListener("load", markLoaded, { once: true });
+    img.addEventListener("error", markLoaded, { once: true });
+  }
+}
+
+function handleImages(Viewer, mainElement, imageElements, imageElementsChildren) {
+  if (imageElementsChildren === undefined) {
+    imageElementsChildren = imageElements;
+  }
+  removeExistingGalleryDom();
+  var imageList = document.createElement("div");
+  imageList.setAttribute("id", "image-list");
+  imageList.style.display = "flex";
+  imageList.style.flexWrap = "wrap";
+  imageList.style.gap = "16px";
+  imageList.style.alignItems = "center";
+  var modalGallery = document.createElement("div");
+  var modalImageWrap = document.createElement("div");
+  var modalImage = document.createElement("img");
+  var modalPrev = document.createElement("button");
+  var modalNext = document.createElement("button");
+  var modalCounter = document.createElement("span");
+  const galleryImageSources = [];
+  const galleryThumbEls = [];
+  let currentGalleryIndex = -1;
+  modalImageWrap.setAttribute("class", "modalImageWrap");
+  modalCounter.setAttribute("class", "galleryCounter");
+  modalImage.setAttribute("class", "modalImage");
+  // Start from whatever zoom the user last left the gallery at (Viewer.zoomImage
+  // persists on the Viewer instance across images and across open/close), so a
+  // fresh build still reflects the remembered zoom instead of always resetting.
+  modalImage.style.transform = `scale(${Viewer.zoomImage})`;
+  Viewer.bindEventListener(modalGallery, "wheel", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.deltaY > 0 && Viewer.zoomImage > 0.15) {
+      modalImage.style.transform = `scale(${(Viewer.zoomImage -= Viewer.ZOOM_SPEED_IMAGE)})`;
+    } else if (e.deltaY < 0 && Viewer.zoomImage < 5) {
+      modalImage.style.transform = `scale(${(Viewer.zoomImage += Viewer.ZOOM_SPEED_IMAGE)})`;
+    }
+    return false;
+  });
+  var modalClose = document.createElement("span");
+  modalGallery.setAttribute("id", "modalGallery");
+  modalGallery.setAttribute("class", "modalGallery");
+  modalClose.setAttribute("class", "closeGallery");
+  modalClose.setAttribute("title", "Close");
+  modalClose.innerHTML = "&times";
+  modalPrev.setAttribute("type", "button");
+  modalPrev.setAttribute("class", "galleryNav galleryNavPrev");
+  modalPrev.setAttribute("title", "Previous image");
+  modalPrev.setAttribute("aria-label", "Previous image");
+  modalPrev.innerHTML =
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 5.3a1 1 0 0 1 0 1.4L9.41 12l5.3 5.3a1 1 0 1 1-1.42 1.4l-6-6a1 1 0 0 1 0-1.4l6-6a1 1 0 0 1 1.41 0Z"/></svg>';
+  modalNext.setAttribute("type", "button");
+  modalNext.setAttribute("class", "galleryNav galleryNavNext");
+  modalNext.setAttribute("title", "Next image");
+  modalNext.setAttribute("aria-label", "Next image");
+  modalNext.innerHTML =
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.3 18.7a1 1 0 0 1 0-1.4l5.29-5.3-5.3-5.3a1 1 0 1 1 1.42-1.4l6 6a1 1 0 0 1 0 1.4l-6 6a1 1 0 0 1-1.41 0Z"/></svg>';
+
+  const showGalleryImageAtIndex = function (index) {
+    if (galleryImageSources.length === 0) {
+      return;
+    }
+    const normalizedIndex =
+      (index + galleryImageSources.length) % galleryImageSources.length;
+    if (galleryThumbEls[currentGalleryIndex]) {
+      galleryThumbEls[currentGalleryIndex].classList.remove("is-active-thumb");
+    }
+    currentGalleryIndex = normalizedIndex;
+    modalImage.src = galleryImageSources[normalizedIndex];
+    modalCounter.textContent = `${normalizedIndex + 1} / ${galleryImageSources.length}`;
+    if (galleryThumbEls[normalizedIndex]) {
+      galleryThumbEls[normalizedIndex].classList.add("is-active-thumb");
+    }
+  };
+
+  const openModalGalleryAtIndex = function (index) {
+    showGalleryImageAtIndex(index);
+    modalGallery.classList.add("is-open");
+    imageList.style.zIndex = 0;
+    imageList.style.display = "hidden";
+  };
+
+  const closeModalGallery = function () {
+    modalGallery.classList.remove("is-open");
+    if (galleryThumbEls[currentGalleryIndex]) {
+      galleryThumbEls[currentGalleryIndex].classList.remove("is-active-thumb");
+    }
+    // Intentionally leave Viewer.zoomImage / modalImage's transform as-is so the
+    // zoom level the user scrolled to carries over to the next image and the
+    // next time the gallery is opened, instead of snapping back to a default.
+  };
+
+  modalClose.onclick = function () {
+    closeModalGallery();
+  };
+
+  modalPrev.onclick = function (event) {
+    event.preventDefault();
+    event.stopPropagation();
+    showGalleryImageAtIndex(currentGalleryIndex - 1);
+  };
+
+  modalNext.onclick = function (event) {
+    event.preventDefault();
+    event.stopPropagation();
+    showGalleryImageAtIndex(currentGalleryIndex + 1);
+  };
+
+  Viewer.bindEventListener(modalGallery, "click", function (event) {
+    if (event.target === modalGallery) {
+      closeModalGallery();
+    }
+  });
+
+  Viewer.bindEventListener(document, "click", function (event) {
+    if (
+      !modalGallery.contains(event.target) &&
+      !imageList.contains(event.target)
+    ) {
+      closeModalGallery();
+    }
+  });
+
+  Viewer.bindEventListener(document, "keydown", function (event) {
+    if (!modalGallery.classList.contains("is-open")) {
+      return;
+    }
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      showGalleryImageAtIndex(currentGalleryIndex - 1);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      showGalleryImageAtIndex(currentGalleryIndex + 1);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      closeModalGallery();
+    }
+  });
+
+  modalImageWrap.appendChild(modalImage);
+  modalGallery.appendChild(modalPrev);
+  modalGallery.appendChild(modalImageWrap);
+  modalGallery.appendChild(modalNext);
+  modalGallery.appendChild(modalCounter);
+  modalGallery.appendChild(modalClose);
+  for (let i = 0; imageElementsChildren.length - i >= 0; i++) {
+    if (
+      imageElementsChildren[i] !== undefined &&
+      imageElementsChildren[i].innerHTML !== undefined
+    ) {
+      var imgList = imageElementsChildren[i].getElementsByTagName("a");
+      for (let j = 0; j < imgList.length; j++) {
+        imgList[j].setAttribute("href", "#");
+        imgList[j].setAttribute("src", imgList[j].firstChild.src);
+        imgList[j].setAttribute("class", "image-list-item");
+      }
+      imgList = imageElementsChildren[i].getElementsByTagName("img");
+      if (imgList.length == 1) {
+        imgList[0].style.maxWidth = "fit-content";
+        imgList[0].style.maxHeight = "180px";
+      }
+      for (let j = 0; j < imgList.length; j++) {
+        const nextIndex = galleryImageSources.push(imgList[j].src) - 1;
+        const thumbContainer =
+          imgList[j].closest(".field__item") || imageElementsChildren[i];
+        galleryThumbEls[nextIndex] = thumbContainer;
+        imgList[j].onclick = function () {
+          openModalGalleryAtIndex(nextIndex);
+        };
+        markThumbnailLoaded(imgList[j], thumbContainer);
+      }
+      if (imageElementsChildren[i] instanceof HTMLElement) {
+        imageElementsChildren[i].style.display = "block";
+      }
+      imageList.appendChild(imageElementsChildren[i]);
+    }
+  }
+  if (
+    imageList &&
+    imageList.childNodes.length > 0 &&
+    getGalleryHost(Viewer, mainElement)
+  ) {
+    const galleryHost = getGalleryHost(Viewer, mainElement);
+    galleryHost.insertAdjacentElement("beforebegin", modalGallery);
+    galleryHost.insertAdjacentElement("beforebegin", imageList);
+  }
+}
+
+// getPerModelGalleryImages() only knows how to guess paths for the built-in
+// viewer/examples/gallery/<filename>/... fixtures - a model just converted by
+// the standalone worker (worker/server.py) lives at whatever /files/<job id>/
+// views/... URLs its status response actually returned, so that convention
+// can't find it. This renders a gallery directly from an explicit URL list
+// instead of guessing one, reusing the same thumbnail/lightbox DOM as the
+// buildFake fallback below.
+function renderModelGalleryImages$1(Viewer, imageUrls = []) {
+  const gallery = getGalleryConfig();
+  const mainElement = gallery.container ? document.getElementById(gallery.container) : null;
+  const images = imageUrls
+    .map((src, index) => ({ src: normalizeGalleryUrl(src), alt: `Preview ${index + 1}` }))
+    .filter((img) => img.src);
+  if (images.length === 0) return;
+  const elements = createFakeGalleryElements(images);
+  handleImages(Viewer, mainElement, elements, elements);
+}
+
+// Bumped on every buildThumbnailGallery() call so a stale probeImageExists()
+// resolution from an earlier, since-superseded model switch can't overwrite
+// the gallery for whichever model is actually selected now (a fast switch
+// could otherwise let an older, slower-to-resolve probe win the race and
+// leave mismatched thumbnails on screen).
+let galleryBuildGeneration = 0;
+
+function buildThumbnailGallery(Viewer) {
+  const buildGeneration = ++galleryBuildGeneration;
+  const gallery = getGalleryConfig();
+  var mainElement = gallery.container
+    ? document.getElementById(gallery.container)
+    : null;
+  var imageElements;
+  if (gallery.imageClass !== "") {
+    imageElements = document.getElementsByClassName(
+      gallery.imageClass
+    );
+    if (imageElements.length === 0) {
+      const fallbackFields = document.querySelectorAll(
+        ".field--type-image"
+      );
+      if (fallbackFields.length > 0) {
+        imageElements = fallbackFields;
+        console.warn(
+          "Gallery imageClass not found, falling back to .field--type-image."
+        );
+      }
+    }
+    if (imageElements.length > 0) {
+      var galleryLabel = document.getElementsByClassName("field__label");
+      if (galleryLabel !== undefined && galleryLabel.length > 0) {
+        galleryLabel[0].innerText = "";
+      }
+    }
+  } else if (gallery.imageId !== "") {
+    imageElements = document.getElementById(gallery.imageId);
+  }
+
+  if (imageElements != null) {
+    if (imageElements.length > 0) {
+      if (imageElements[0].innerHTML !== undefined) {
+        let imagesList = Array.from(
+          imageElements[0].getElementsByClassName("field__items")[0]
+            .childNodes
+        );
+        imagesList = prepareGalleryImages(Viewer, imagesList);
+        imageElements[0].classList.add("field--label-hidden");
+        //imageElements[0].classList.add("field__items");
+        handleImages(Viewer, mainElement, imagesList, imagesList);
+      } else {
+        handleImages(Viewer, mainElement, imageElements);
+      }
+    } else if (
+      imageElements.childNodes !== undefined &&
+      imageElements.childNodes.length > 0
+    ) {
+      if (
+        typeof imageElements.childNodes[0].innerHTML == "string" ||
+        typeof imageElements.childNodes[1].innerHTML == "string"
+      ) {
+        let imagesList = Array.from(imageElements.childNodes);
+        imagesList = prepareGalleryImages(Viewer, imagesList);
+        imageElements.classList.add("field--type-image");
+        imageElements.classList.add("field--label-hidden");
+        //imageElements.classList.add("field__items");
+        handleImages(Viewer, mainElement, imagesList, imageElements);
+      } else {
+        handleImages(Viewer, mainElement, imageElements);
+      }
+    }
+  }
+
+  if (core.CONFIG?.viewer?.gallery?.buildFake === true) {
+    // buildFake is the dedicated opt-in for this fallback, so it doesn't
+    // also gate on gallery.build: that flag is forced to false for the
+    // test/dev rollup targets (see rollup.config.js) to disable the real
+    // Drupal-field-based gallery there, which would otherwise silently
+    // disable this fallback too even though it's the one thing meant to
+    // work in those environments.
+    const renderFake = (images) => {
+      const fakeImages = createFakeGalleryElements(images);
+      handleImages(Viewer, mainElement, fakeImages, fakeImages);
+      console.log("Built fallback thumbnail gallery for local testing");
+    };
+
+    const testImages = getConfiguredTestImages();
+    const staticFallback = testImages.length > 0 ? testImages : createDefaultTestImages();
+
+    // Prefer thumbnails rendered for the currently loaded example (see
+    // core.fileObject, refreshed on every model switch) over the static
+    // testImages config, so picking a different example model actually
+    // swaps the gallery instead of always showing the same fixed set.
+    const perModelImages = getPerModelGalleryImages();
+    if (perModelImages.length > 0) {
+      probeImageExists(perModelImages[0].src).then((exists) => {
+        if (buildGeneration !== galleryBuildGeneration) return;
+        renderFake(exists ? perModelImages : staticFallback);
+      });
+    } else {
+      renderFake(staticFallback);
+    }
+    return;
+  }
+
+  console.log("No gallery source found");
+}
 
 function normalizeLanguage(value) {
   if (value == null) return null;
@@ -3722,6 +4572,7 @@ function attachLocalizationTheme(viewer) {
       this.updateThemeControlLabels();
       this.updateShareMenuEntryState?.();
       this.updateEmbedMenuEntryState();
+      this.updateUploadMenuEntryState?.();
       this.updateFullscreenButtonIcon();
       this.updateDownloadMenuEntryLabel();
       this.updateEditorToolbarLabels();
@@ -4229,6 +5080,21 @@ function attachLoadingStatus(viewer) {
           this.statusNotice.appendChild(detailNode);
         }
       }
+
+      if (notice.dismissible) {
+        const closeButton = document.createElement("button");
+        closeButton.type = "button";
+        closeButton.className = "viewer-notice-close";
+        closeButton.textContent = "×";
+        const closeLabel = t$1("shortcuts.closeAria", "Close");
+        closeButton.setAttribute("aria-label", closeLabel);
+        closeButton.title = closeLabel;
+        this.bindEventListener(closeButton, "click", (event) => {
+          event.stopPropagation();
+          this.dismissStatusNotice(notice.key);
+        });
+        this.statusNotice.appendChild(closeButton);
+      }
     },
 
     getStatusNoticeText(notice) {
@@ -4256,6 +5122,7 @@ function attachLoadingStatus(viewer) {
 
       this.statusNoticeActive = true;
       this.statusNoticeCurrent = notice;
+      this.updateEditorToolbarState?.();
       this.statusNotice.hidden = false;
       this.renderStatusNoticeContent(notice);
       this.statusNotice.dataset.tone = notice.tone || "info";
@@ -4265,6 +5132,7 @@ function attachLoadingStatus(viewer) {
         delete this.statusNotice.dataset.variant;
       }
       this.noticeContainer?.classList.toggle("viewer-notice-container--sandbox", notice.variant === "sandbox");
+      this.noticeContainer?.classList.toggle("viewer-notice-container--shortcuts", notice.variant === "shortcuts");
       this.statusNotice.classList.remove("is-hiding");
       this.statusNotice.classList.add("is-visible");
 
@@ -4289,9 +5157,10 @@ function attachLoadingStatus(viewer) {
             this.statusNotice.classList.remove("is-hiding");
             delete this.statusNotice.dataset.variant;
           }
-          this.noticeContainer?.classList.remove("viewer-notice-container--sandbox");
+          this.noticeContainer?.classList.remove("viewer-notice-container--sandbox", "viewer-notice-container--shortcuts");
           this.statusNoticeActive = false;
           this.statusNoticeCurrent = null;
+          this.updateEditorToolbarState?.();
           this.statusNoticeTimer = null;
           this.statusNoticeHideTimer = null;
           this.processStatusNoticeQueue();
@@ -4326,10 +5195,11 @@ function attachLoadingStatus(viewer) {
         this.statusNotice.classList.remove("is-visible", "is-hiding");
         delete this.statusNotice.dataset.variant;
       }
-      this.noticeContainer?.classList.remove("viewer-notice-container--sandbox");
+      this.noticeContainer?.classList.remove("viewer-notice-container--sandbox", "viewer-notice-container--shortcuts");
 
       this.statusNoticeActive = false;
       this.statusNoticeCurrent = null;
+      this.updateEditorToolbarState?.();
       this.processStatusNoticeQueue();
     },
 
@@ -4340,6 +5210,7 @@ function attachLoadingStatus(viewer) {
       key = "",
       replace = false,
       persistent = false,
+      dismissible = false,
       variant = "",
       i18nKey = "",
       i18nVars = {},
@@ -4356,6 +5227,7 @@ function attachLoadingStatus(viewer) {
         duration: Number.isFinite(duration) ? duration : 2600,
         key: String(key || ""),
         persistent,
+        dismissible,
         variant: String(variant || ""),
         i18nKey: String(i18nKey || ""),
         i18nVars: i18nVars && typeof i18nVars === "object" ? { ...i18nVars } : {},
@@ -4970,6 +5842,353 @@ function attachMaterialsEditor(Viewer) {
   });
 }
 
+const SHADING_MODES = ["standard", "phong", "lambert", "toon", "custom"];
+
+const DEFAULT_CUSTOM_VERTEX_SHADER = `varying vec3 vNormal;
+varying vec2 vUv;
+
+void main() {
+  vNormal = normalize(normalMatrix * normal);
+  vUv = uv;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
+`;
+
+const DEFAULT_CUSTOM_FRAGMENT_SHADER = `uniform vec3 uColor;
+uniform sampler2D uMap;
+uniform bool uHasMap;
+varying vec3 vNormal;
+varying vec2 vUv;
+
+void main() {
+  vec3 base = uHasMap ? texture2D(uMap, vUv).rgb * uColor : uColor;
+  // Simple rim-light effect: brighten edges facing away from the camera.
+  float rim = 1.0 - max(dot(normalize(vNormal), vec3(0.0, 0.0, 1.0)), 0.0);
+  vec3 color = base + rim * rim * 0.6;
+  gl_FragColor = vec4(color, 1.0);
+}
+`;
+
+function copyCommonMaterialProperties(target, base) {
+  target.name = base.name;
+  target.side = base.side;
+  target.transparent = base.transparent;
+  target.opacity = base.opacity;
+  target.alphaTest = base.alphaTest;
+  target.wireframe = core.wireframeMode || false;
+  target.clippingPlanes = base.clippingPlanes || null;
+  target.clipShadows = base.clipShadows || false;
+  target.vertexColors = base.vertexColors;
+  if (base.map) target.map = base.map;
+  if (base.alphaMap) target.alphaMap = base.alphaMap;
+  if ("normalMap" in target && base.normalMap) {
+    target.normalMap = base.normalMap;
+    if (base.normalScale) target.normalScale = base.normalScale.clone();
+  }
+  if ("aoMap" in target && base.aoMap) {
+    target.aoMap = base.aoMap;
+    target.aoMapIntensity = base.aoMapIntensity ?? 1;
+  }
+  if ("emissive" in target) {
+    target.emissive = base.emissive ? base.emissive.clone() : new THREE.Color(0x000000);
+    if (base.emissiveMap) target.emissiveMap = base.emissiveMap;
+    target.emissiveIntensity = base.emissiveIntensity ?? 1;
+  }
+}
+
+function buildMaterialForMode(baseMaterial, mode, customShader) {
+  const color = baseMaterial.color ? baseMaterial.color.clone() : new THREE.Color(0xffffff);
+
+  switch (mode) {
+    case "phong": {
+      const material = new THREE.MeshPhongMaterial({ color, shininess: 30, specular: 0x111111 });
+      copyCommonMaterialProperties(material, baseMaterial);
+      return material;
+    }
+    case "lambert": {
+      const material = new THREE.MeshLambertMaterial({ color });
+      copyCommonMaterialProperties(material, baseMaterial);
+      return material;
+    }
+    case "toon": {
+      const material = new THREE.MeshToonMaterial({ color });
+      copyCommonMaterialProperties(material, baseMaterial);
+      return material;
+    }
+    case "custom": {
+      const hasMap = Boolean(baseMaterial.map);
+      const material = new THREE.ShaderMaterial({
+        uniforms: {
+          uColor: { value: color },
+          uMap: { value: baseMaterial.map || null },
+          uHasMap: { value: hasMap },
+        },
+        vertexShader: customShader?.vertexShader || DEFAULT_CUSTOM_VERTEX_SHADER,
+        fragmentShader: customShader?.fragmentShader || DEFAULT_CUSTOM_FRAGMENT_SHADER,
+        side: baseMaterial.side,
+        transparent: baseMaterial.transparent,
+        wireframe: core.wireframeMode || false,
+        clipping: true,
+      });
+      material.clippingPlanes = baseMaterial.clippingPlanes || null;
+      material.name = baseMaterial.name;
+      return material;
+    }
+    case "standard":
+    default: {
+      const material = new THREE.MeshStandardMaterial({
+        color,
+        metalness: baseMaterial.metalness ?? 0,
+        roughness: baseMaterial.roughness ?? 1,
+      });
+      material.envMapIntensity = baseMaterial.envMapIntensity ?? 1;
+      copyCommonMaterialProperties(material, baseMaterial);
+      return material;
+    }
+  }
+}
+
+function attachShadingEditor(Viewer) {
+  Object.assign(Viewer, {
+    getShadingRootObjects() {
+      return Array.isArray(core.mainObject) ? core.mainObject.filter((item) => item?.isObject3D) : [];
+    },
+
+    applyShadingMode() {
+      const roots = this.getShadingRootObjects();
+      if (!roots.length) return;
+
+      const mode = SHADING_MODES.includes(this.shadingMode) ? this.shadingMode : "standard";
+      const customShader = mode === "custom"
+        ? { vertexShader: this.customVertexShader, fragmentShader: this.customFragmentShader }
+        : null;
+
+      roots.forEach((root) => {
+        root.traverse((child) => {
+          if (!child.isMesh || !child.material) return;
+
+          // Snapshot the mesh's original (loader-provided) materials once, on the
+          // first shading-mode switch, so every later switch derives from the same
+          // source instead of compounding lossy conversions between material types.
+          if (!child.userData.__shadingBaseMaterials) {
+            child.userData.__shadingBaseMaterials = Array.isArray(child.material)
+              ? child.material.slice()
+              : [child.material];
+          }
+
+          const nextMaterials = child.userData.__shadingBaseMaterials.map((baseMaterial) => {
+            const newMaterial = buildMaterialForMode(baseMaterial, mode, customShader);
+            newMaterial.needsUpdate = true;
+            return newMaterial;
+          });
+
+          child.material = Array.isArray(child.material) ? nextMaterials : nextMaterials[0];
+        });
+      });
+    },
+
+    setShadingMode(mode, options = {}) {
+      if (!SHADING_MODES.includes(mode)) return;
+
+      this.shadingMode = mode;
+      if (mode === "custom") {
+        this.customVertexShader = options.vertexShader || this.customVertexShader || DEFAULT_CUSTOM_VERTEX_SHADER;
+        this.customFragmentShader = options.fragmentShader || this.customFragmentShader || DEFAULT_CUSTOM_FRAGMENT_SHADER;
+      }
+
+      this.applyShadingMode();
+      this.updateEditorToolbarState?.();
+      this.updateShadingSubmenuState?.();
+
+      if (options.silent !== true) {
+        toastHelper("shadingModeApplied", "success", { mode: t$1(`gui.shading${mode.charAt(0).toUpperCase()}${mode.slice(1)}`, mode) });
+      }
+    },
+
+    openCustomShaderDialog() {
+      this.buildShadingDialog();
+      if (!this.shadingDialog) return;
+
+      if (this.shadingDialogInputs) {
+        this.shadingDialogInputs.vertex.value = this.customVertexShader || DEFAULT_CUSTOM_VERTEX_SHADER;
+        this.shadingDialogInputs.fragment.value = this.customFragmentShader || DEFAULT_CUSTOM_FRAGMENT_SHADER;
+      }
+
+      this.updateShadingDialogBounds();
+      this.shadingDialog.hidden = false;
+      this.closeActionMenu?.();
+    },
+
+    closeShadingDialog() {
+      if (!this.shadingDialog) return;
+      this.shadingDialog.hidden = true;
+    },
+
+    buildShadingDialog() {
+      if (!core.container || this.shadingDialog) return;
+
+      const dialog = document.createElement("div");
+      dialog.id = "shadingDialog";
+      dialog.className = "materials-dialog";
+      dialog.hidden = true;
+      dialog.innerHTML = `
+        <div class="materials-dialog__backdrop" data-shading-dismiss="true"></div>
+        <div class="materials-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="shadingDialogTitle">
+          <div class="materials-dialog__header">
+            <h3 id="shadingDialogTitle">${t$1("gui.shadingCustom", "Custom shader")}</h3>
+            <button type="button" class="materials-dialog__close" data-shading-dismiss="true" aria-label="${t$1("gui.shadingCustom", "Custom shader")}">&times;</button>
+          </div>
+          <div class="materials-dialog__body">
+            <label class="materials-dialog__field">
+              <span>${t$1("gui.shadingCustomVertex", "Vertex shader")}</span>
+              <textarea id="shadingDialogVertex" class="shading-dialog__textarea" spellcheck="false"></textarea>
+            </label>
+            <label class="materials-dialog__field">
+              <span>${t$1("gui.shadingCustomFragment", "Fragment shader")}</span>
+              <textarea id="shadingDialogFragment" class="shading-dialog__textarea" spellcheck="false"></textarea>
+            </label>
+            <div class="shading-dialog__actions">
+              <button type="button" id="shadingDialogReset" class="shading-dialog__button">${t$1("gui.shadingCustomReset", "Reset to default")}</button>
+              <button type="button" id="shadingDialogApply" class="shading-dialog__button shading-dialog__button-primary">${t$1("gui.shadingCustomApply", "Apply")}</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(dialog);
+      this.shadingDialog = dialog;
+      this.shadingDialogPosition = null;
+      const panel = dialog.querySelector(".materials-dialog__panel");
+      const header = dialog.querySelector(".materials-dialog__header");
+      this.shadingDialogInputs = {
+        vertex: dialog.querySelector("#shadingDialogVertex"),
+        fragment: dialog.querySelector("#shadingDialogFragment"),
+      };
+
+      this.bindEventListener(dialog, "click", (event) => {
+        const dismissTrigger = event.target?.closest?.("[data-shading-dismiss='true']");
+        if (dismissTrigger) {
+          this.closeShadingDialog();
+        }
+      });
+
+      this.bindEventListener(document, "keydown", (event) => {
+        if (event.key !== "Escape") return;
+        if (!this.shadingDialog || this.shadingDialog.hidden) return;
+        event.preventDefault();
+        this.closeShadingDialog();
+      });
+
+      this.bindEventListener(dialog.querySelector("#shadingDialogReset"), "click", () => {
+        this.shadingDialogInputs.vertex.value = DEFAULT_CUSTOM_VERTEX_SHADER;
+        this.shadingDialogInputs.fragment.value = DEFAULT_CUSTOM_FRAGMENT_SHADER;
+      });
+
+      this.bindEventListener(dialog.querySelector("#shadingDialogApply"), "click", () => {
+        const vertexShader = this.shadingDialogInputs.vertex.value;
+        const fragmentShader = this.shadingDialogInputs.fragment.value;
+        this.setShadingMode("custom", { vertexShader, fragmentShader });
+      });
+
+      this.bindEventListener(header, "pointerdown", (event) => {
+        if (event.button !== 0) return;
+        if (event.target?.closest?.(".materials-dialog__close")) return;
+        const targetRect =
+          Viewer.mainCanvas?.getBoundingClientRect?.() ||
+          core.container?.getBoundingClientRect?.();
+        const panelRect = panel?.getBoundingClientRect?.();
+        if (!targetRect || !panelRect) return;
+
+        this.shadingDialogDragging = {
+          offsetX: event.clientX - panelRect.left,
+          offsetY: event.clientY - panelRect.top,
+        };
+        panel.setPointerCapture?.(event.pointerId);
+        panel.classList.add("is-dragging");
+        event.preventDefault();
+      });
+
+      this.bindEventListener(document, "pointermove", (event) => {
+        if (!this.shadingDialogDragging || !this.shadingDialog || this.shadingDialog.hidden) return;
+        const targetRect =
+          Viewer.mainCanvas?.getBoundingClientRect?.() ||
+          core.container?.getBoundingClientRect?.();
+        const panelRect = panel?.getBoundingClientRect?.();
+        if (!targetRect || !panelRect) return;
+
+        const nextLeft = event.clientX - this.shadingDialogDragging.offsetX;
+        const nextTop = event.clientY - this.shadingDialogDragging.offsetY;
+        const minLeft = targetRect.left + 12;
+        const maxLeft = targetRect.right - panelRect.width - 12;
+        const minTop = targetRect.top + 12;
+        const maxTop = targetRect.bottom - panelRect.height - 12;
+
+        this.shadingDialogPosition = {
+          left: Math.min(Math.max(nextLeft, minLeft), Math.max(minLeft, maxLeft)),
+          top: Math.min(Math.max(nextTop, minTop), Math.max(minTop, maxTop)),
+        };
+
+        this.updateShadingDialogBounds();
+      });
+
+      const stopShadingDialogDrag = () => {
+        this.shadingDialogDragging = false;
+        panel?.classList.remove("is-dragging");
+      };
+
+      this.bindEventListener(document, "pointerup", stopShadingDialogDrag);
+      this.bindEventListener(document, "pointercancel", stopShadingDialogDrag);
+
+      this.bindEventListener(window, "resize", () => this.updateShadingDialogBounds());
+      this.bindEventListener(window, "scroll", () => this.updateShadingDialogBounds(), true);
+      this.bindEventListener(document, "fullscreenchange", () => this.updateShadingDialogBounds());
+    },
+
+    updateShadingDialogBounds() {
+      if (!this.shadingDialog) return;
+      const targetRect =
+        Viewer.mainCanvas?.getBoundingClientRect?.() ||
+        core.container?.getBoundingClientRect?.();
+      if (!targetRect) return;
+
+      const left = Math.max(0, Math.round(targetRect.left));
+      const top = Math.max(0, Math.round(targetRect.top));
+      const width = Math.max(0, Math.round(targetRect.width));
+      const height = Math.max(0, Math.round(targetRect.height));
+      const panel = this.shadingDialog.querySelector(".materials-dialog__panel");
+      const panelWidth = panel?.offsetWidth || Math.min(640, width - 24);
+      const panelHeight = panel?.offsetHeight || Math.min(700, height * 0.88);
+
+      if (!this.shadingDialogPosition) {
+        this.shadingDialogPosition = {
+          left: Math.max(left + 12, left + width - panelWidth - 16),
+          top: Math.max(top + 16, top + Math.min(40, Math.max(16, height * 0.08))),
+        };
+      } else {
+        const minLeft = left + 12;
+        const maxLeft = left + width - panelWidth - 12;
+        const minTop = top + 12;
+        const maxTop = top + height - panelHeight - 12;
+        this.shadingDialogPosition = {
+          left: Math.min(Math.max(this.shadingDialogPosition.left, minLeft), Math.max(minLeft, maxLeft)),
+          top: Math.min(Math.max(this.shadingDialogPosition.top, minTop), Math.max(minTop, maxTop)),
+        };
+      }
+
+      this.shadingDialog.style.left = `${left}px`;
+      this.shadingDialog.style.top = `${top}px`;
+      this.shadingDialog.style.width = `${width}px`;
+      this.shadingDialog.style.height = `${height}px`;
+      if (panel) {
+        panel.style.left = `${this.shadingDialogPosition.left - left}px`;
+        panel.style.top = `${this.shadingDialogPosition.top - top}px`;
+        panel.style.right = "auto";
+        panel.style.transform = "none";
+      }
+    },
+  });
+}
+
 function pickMetadataValue(save, current, original) {
   return save ? current : original;
 }
@@ -5159,12 +6378,12 @@ async function saveEditorMetadata(viewer) {
   }
 }
 
-function isPlainObject$1(value) {
+function isPlainObject$2(value) {
   return value != null && typeof value === "object" && Array.isArray(value) === false;
 }
 
 function isAIM3DManifest(manifest) {
-  return isPlainObject$1(manifest) && Object.hasOwn(manifest, "AIM3DViewer");
+  return isPlainObject$2(manifest) && Object.hasOwn(manifest, "AIM3DViewer");
 }
 
 function parseFiniteNumber(value) {
@@ -5179,17 +6398,17 @@ function parseFiniteNumber(value) {
 // those compatible values before validating the canonical AIM3D representation.
 function normalizeAIM3DManifest(manifest) {
   const viewer = manifest?.AIM3DViewer?.viewer;
-  if (!isPlainObject$1(viewer)) return manifest;
+  if (!isPlainObject$2(viewer)) return manifest;
 
   if (Array.isArray(viewer.scale)) {
     viewer.scale = viewer.scale.map((value) => parseFiniteNumber(value) ?? value);
-  } else if (isPlainObject$1(viewer.scale)) {
+  } else if (isPlainObject$2(viewer.scale)) {
     ["x", "y"].forEach((axis) => {
       viewer.scale[axis] = parseFiniteNumber(viewer.scale[axis]) ?? viewer.scale[axis];
     });
   }
 
-  if (isPlainObject$1(viewer.performance)) {
+  if (isPlainObject$2(viewer.performance)) {
     const mode = viewer.performance.Performance ?? viewer.performance.performance;
     if (typeof mode === "string" && mode.trim() !== "") {
       viewer.performance = mode;
@@ -5225,7 +6444,7 @@ function validateVector(value, path, errors, expectedLength = 3) {
     return;
   }
 
-  if (isPlainObject$1(value)) {
+  if (isPlainObject$2(value)) {
     const keys = expectedLength === 2 ? ["x", "y"] : ["x", "y", "z"];
     keys.forEach((key) => {
       if (!isFiniteNumber(value[key])) {
@@ -5263,7 +6482,7 @@ function validateEnum(value, allowedValues, path, errors) {
 }
 
 function validateLight(light, path, errors) {
-  if (!isPlainObject$1(light)) {
+  if (!isPlainObject$2(light)) {
     pushError(errors, path, "must be an object");
     return;
   }
@@ -5275,12 +6494,12 @@ function validateLight(light, path, errors) {
 }
 
 function validateClipping(clipping, path, errors) {
-  if (!isPlainObject$1(clipping)) {
+  if (!isPlainObject$2(clipping)) {
     pushError(errors, path, "must be an object");
     return;
   }
   if (clipping.mode !== undefined) {
-    if (!isPlainObject$1(clipping.mode)) {
+    if (!isPlainObject$2(clipping.mode)) {
       pushError(errors, `${path}.mode`, "must be an object");
     } else {
       ["x", "y", "z"].forEach((axis) => {
@@ -5294,7 +6513,7 @@ function validateClipping(clipping, path, errors) {
 }
 
 function validateCamera(camera, path, errors) {
-  if (!isPlainObject$1(camera)) {
+  if (!isPlainObject$2(camera)) {
     pushError(errors, path, "must be an object");
     return;
   }
@@ -5307,20 +6526,69 @@ function validateCamera(camera, path, errors) {
   if (camera.perspectiveMode !== undefined) validateEnum(camera.perspectiveMode, ["perspective", "orthographic"], `${path}.perspectiveMode`, errors);
 }
 
+function validatePanelState(panel, path, errors) {
+  if (!isPlainObject$2(panel)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  if (panel.position !== undefined) validateVector(panel.position, `${path}.position`, errors, 2);
+  if (panel.size !== undefined) {
+    if (!isPlainObject$2(panel.size)) {
+      pushError(errors, `${path}.size`, "must be an object");
+    } else {
+      // viewer-settings.json uses null for "not sized yet".
+      ["width", "height"].forEach((key) => {
+        if (panel.size[key] != null) validateNumber(panel.size[key], `${path}.size.${key}`, errors);
+      });
+    }
+  }
+}
+
+function validateIntegration(integration, path, errors) {
+  if (!isPlainObject$2(integration)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  if (integration.exportViewerUrl !== undefined) validateString(integration.exportViewerUrl, `${path}.exportViewerUrl`, errors);
+  if (integration.api !== undefined) {
+    if (!isPlainObject$2(integration.api)) {
+      pushError(errors, `${path}.api`, "must be an object");
+    } else if (integration.api.thumbnailUploadEndpoint !== undefined) {
+      validateString(integration.api.thumbnailUploadEndpoint, `${path}.api.thumbnailUploadEndpoint`, errors);
+    }
+  }
+}
+
 function validateViewer(viewer, path, errors) {
-  if (!isPlainObject$1(viewer)) {
+  if (!isPlainObject$2(viewer)) {
     pushError(errors, path, "must be an object");
     return;
   }
   if (viewer.container !== undefined) validateString(viewer.container, `${path}.container`, errors);
   if (viewer.mailUrl !== undefined) validateString(viewer.mailUrl, `${path}.mailUrl`, errors);
+  if (viewer.mainUrl !== undefined) validateString(viewer.mainUrl, `${path}.mainUrl`, errors);
+  if (viewer.baseModulePath !== undefined) validateString(viewer.baseModulePath, `${path}.baseModulePath`, errors);
+  if (viewer.background !== undefined) validateString(viewer.background, `${path}.background`, errors);
+  if (viewer.credits !== undefined && !isPlainObject$2(viewer.credits)) pushError(errors, `${path}.credits`, "must be an object");
+  if (viewer.auth !== undefined) {
+    if (!isPlainObject$2(viewer.auth)) {
+      pushError(errors, `${path}.auth`, "must be an object");
+    } else {
+      ["enabled", "allowRegistration"].forEach((key) => {
+        if (viewer.auth[key] !== undefined) validateBoolean(viewer.auth[key], `${path}.auth.${key}`, errors);
+      });
+    }
+  }
+  ["manifestoForm", "metadataContainer"].forEach((key) => {
+    if (viewer[key] !== undefined) validatePanelState(viewer[key], `${path}.${key}`, errors);
+  });
   if (viewer.baseNamespace !== undefined) validateString(viewer.baseNamespace, `${path}.baseNamespace`, errors);
   if (viewer.metadataUrl !== undefined) validateString(viewer.metadataUrl, `${path}.metadataUrl`, errors);
   if (viewer.theme !== undefined) validateEnum(viewer.theme, ["light", "dark"], `${path}.theme`, errors);
   if (viewer.language !== undefined) validateEnum(viewer.language, ["en", "pl", "de"], `${path}.language`, errors);
   if (viewer.backgroundColor !== undefined) validateString(viewer.backgroundColor, `${path}.backgroundColor`, errors);
   if (viewer.environmentMap !== undefined) {
-    if (!isPlainObject$1(viewer.environmentMap)) {
+    if (!isPlainObject$2(viewer.environmentMap)) {
       pushError(errors, `${path}.environmentMap`, "must be an object");
     } else {
       if (viewer.environmentMap.intensity !== undefined) validateNumber(viewer.environmentMap.intensity, `${path}.environmentMap.intensity`, errors);
@@ -5331,6 +6599,8 @@ function validateViewer(viewer, path, errors) {
   [
     "presentationMode",
     "sandbox",
+    "lightweight",
+    "editor",
     "autorotate",
     "disableInteraction",
     "hideUi",
@@ -5342,14 +6612,14 @@ function validateViewer(viewer, path, errors) {
   if (viewer.autorotateSpeed !== undefined) validateNumber(viewer.autorotateSpeed, `${path}.autorotateSpeed`, errors);
   if (viewer.scale !== undefined) validateVector(viewer.scale, `${path}.scale`, errors, 2);
   if (viewer.window !== undefined) {
-    if (!isPlainObject$1(viewer.window)) {
+    if (!isPlainObject$2(viewer.window)) {
       pushError(errors, `${path}.window`, "must be an object");
     } else {
       if (viewer.window.position !== undefined) {
         validateVector(viewer.window.position, `${path}.window.position`, errors, 2);
       }
       if (viewer.window.size !== undefined) {
-        if (!isPlainObject$1(viewer.window.size)) {
+        if (!isPlainObject$2(viewer.window.size)) {
           pushError(errors, `${path}.window.size`, "must be an object");
         } else {
           if (viewer.window.size.width !== undefined) validateNumber(viewer.window.size.width, `${path}.window.size.width`, errors);
@@ -5362,9 +6632,9 @@ function validateViewer(viewer, path, errors) {
   if (viewer.units !== undefined && !(isFiniteNumber(viewer.units) || isString(viewer.units))) {
     pushError(errors, `${path}.units`, "must be a finite number or string");
   }
-  if (viewer.gallery !== undefined && !isPlainObject$1(viewer.gallery)) pushError(errors, `${path}.gallery`, "must be an object");
+  if (viewer.gallery !== undefined && !isPlainObject$2(viewer.gallery)) pushError(errors, `${path}.gallery`, "must be an object");
   if (viewer.editorToolbar !== undefined) {
-    if (!isPlainObject$1(viewer.editorToolbar)) {
+    if (!isPlainObject$2(viewer.editorToolbar)) {
       pushError(errors, `${path}.editorToolbar`, "must be an object");
     } else {
       if (viewer.editorToolbar.enabled !== undefined) validateBoolean(viewer.editorToolbar.enabled, `${path}.editorToolbar.enabled`, errors);
@@ -5374,7 +6644,7 @@ function validateViewer(viewer, path, errors) {
     }
   }
   if (viewer.menuToolbar !== undefined) {
-    if (!isPlainObject$1(viewer.menuToolbar)) {
+    if (!isPlainObject$2(viewer.menuToolbar)) {
       pushError(errors, `${path}.menuToolbar`, "must be an object");
     } else {
       if (viewer.menuToolbar.enabled !== undefined) validateBoolean(viewer.menuToolbar.enabled, `${path}.menuToolbar.enabled`, errors);
@@ -5385,14 +6655,14 @@ function validateViewer(viewer, path, errors) {
 }
 
 function validateModelTransform(modelTransform, path, errors) {
-  if (!isPlainObject$1(modelTransform)) {
+  if (!isPlainObject$2(modelTransform)) {
     pushError(errors, path, "must be an object");
     return;
   }
   if (modelTransform.position !== undefined) validateVector(modelTransform.position, `${path}.position`, errors, 3);
   if (modelTransform.scale !== undefined) validateVector(modelTransform.scale, `${path}.scale`, errors, 3);
   if (modelTransform.rotation !== undefined) {
-    if (!isPlainObject$1(modelTransform.rotation)) {
+    if (!isPlainObject$2(modelTransform.rotation)) {
       pushError(errors, `${path}.rotation`, "must be an object");
     } else {
       ["x", "y", "z"].forEach((key) => {
@@ -5402,10 +6672,25 @@ function validateModelTransform(modelTransform, path, errors) {
     }
   }
   if (modelTransform.wireframe !== undefined) validateBoolean(modelTransform.wireframe, `${path}.wireframe`, errors);
+  if (modelTransform.shadingMode !== undefined) {
+    validateEnum(modelTransform.shadingMode, ["standard", "phong", "lambert", "toon", "custom"], `${path}.shadingMode`, errors);
+  }
+  if (modelTransform.customShader !== undefined) {
+    if (!isPlainObject$2(modelTransform.customShader)) {
+      pushError(errors, `${path}.customShader`, "must be an object");
+    } else {
+      if (modelTransform.customShader.vertexShader !== undefined) {
+        validateString(modelTransform.customShader.vertexShader, `${path}.customShader.vertexShader`, errors);
+      }
+      if (modelTransform.customShader.fragmentShader !== undefined) {
+        validateString(modelTransform.customShader.fragmentShader, `${path}.customShader.fragmentShader`, errors);
+      }
+    }
+  }
 }
 
 function validateAIM3DViewerBlock(block, path, errors) {
-  if (!isPlainObject$1(block)) {
+  if (!isPlainObject$2(block)) {
     pushError(errors, path, "must be an object");
     return;
   }
@@ -5413,7 +6698,7 @@ function validateAIM3DViewerBlock(block, path, errors) {
   if (block.generatedAt !== undefined) validateString(block.generatedAt, `${path}.generatedAt`, errors);
   if (block.camera !== undefined) validateCamera(block.camera, `${path}.camera`, errors);
   if (block.viewer !== undefined) validateViewer(block.viewer, `${path}.viewer`, errors);
-  if (block.integration !== undefined && !isPlainObject$1(block.integration)) pushError(errors, `${path}.integration`, "must be an object");
+  if (block.integration !== undefined) validateIntegration(block.integration, `${path}.integration`, errors);
   if (block.lights !== undefined) {
     if (!Array.isArray(block.lights)) {
       pushError(errors, `${path}.lights`, "must be an array");
@@ -5429,7 +6714,7 @@ function validateAIM3DManifest(manifest, options = {}) {
   const { requireCustomBlock = false } = options;
   const errors = [];
 
-  if (!isPlainObject$1(manifest)) {
+  if (!isPlainObject$2(manifest)) {
     pushError(errors, "$", "must be an object");
     return { valid: false, errors };
   }
@@ -5442,7 +6727,7 @@ function validateAIM3DManifest(manifest, options = {}) {
   if (manifest.items !== undefined && !Array.isArray(manifest.items)) {
     pushError(errors, "$.items", "must be an array");
   }
-  if (requireCustomBlock && !isPlainObject$1(manifest.AIM3DViewer)) {
+  if (requireCustomBlock && !isPlainObject$2(manifest.AIM3DViewer)) {
     pushError(errors, "$.AIM3DViewer", "is required and must be an object");
   }
   if (manifest.AIM3DViewer !== undefined) {
@@ -6293,6 +7578,12 @@ function attachAnnotations(Viewer) {
           viewer: {
             container: core.CONFIG?.viewer?.container || "DFG_3DViewer",
             mailUrl: core.CONFIG.mainUrl || "https://localhost",
+            mainUrl: core.CONFIG.mainUrl || undefined,
+            baseModulePath: core.CONFIG.baseModulePath || undefined,
+            background: core.CONFIG.viewer?.background || undefined,
+            credits: core.CONFIG.viewer?.credits || undefined,
+            manifestoForm: core.CONFIG.viewer?.manifestoForm || undefined,
+            metadataContainer: core.CONFIG.viewer?.metadataContainer || undefined,
             baseNamespace: "https://localhost",
             metadataUrl: "https://localhost",
             theme: this.currentTheme === "light" ? "light" : "dark",
@@ -6378,6 +7669,10 @@ function attachAnnotations(Viewer) {
             metadata: {
               source: core.CONFIG.entity?.metadata?.source || "",
             },
+            exportViewerUrl: core.CONFIG.entity?.exportViewerUrl || undefined,
+            api: core.CONFIG.api?.thumbnailUploadEndpoint
+              ? { thumbnailUploadEndpoint: core.CONFIG.api.thumbnailUploadEndpoint }
+              : undefined,
             fileUpload: core.CONFIG.viewer.fileUpload || "fbf95bddee5160d515b982b3fd2e05f7",
             fileName: core.CONFIG.viewer.fileName || "faa602a0be629324806aef22892cdbe5",
             imageGeneration: core.CONFIG.viewer.imageGeneration || "f605dc6b727a1099b9e52b3ccbdf5673",
@@ -6427,8 +7722,19 @@ function attachAnnotations(Viewer) {
             scale:
               primaryModelObject?.scale?.toArray?.() ||
               [1, 1, 1],
-            
+
             wireframe: core.wireframeMode || false,
+
+            shadingMode: this.shadingMode || "standard",
+
+            ...(this.shadingMode === "custom"
+              ? {
+                  customShader: {
+                    vertexShader: this.customVertexShader || "",
+                    fragmentShader: this.customFragmentShader || "",
+                  },
+                }
+              : {}),
           }
         },
         modified: new Date().toISOString(),
@@ -6871,6 +8177,14 @@ function attachAnnotations(Viewer) {
           if (!child?.material) return;
           child.material.wireframe = core.wireframeMode;
           child.material.needsUpdate = true;
+        });
+      }
+
+      if (typeof modelTransform.shadingMode === "string") {
+        this.setShadingMode?.(modelTransform.shadingMode, {
+          vertexShader: modelTransform.customShader?.vertexShader,
+          fragmentShader: modelTransform.customShader?.fragmentShader,
+          silent: true,
         });
       }
 
@@ -7898,6 +9212,7 @@ function attachWindowControls(Viewer) {
       container.style.right = 'auto';
       container.style.bottom = 'auto';
       container.classList.add('viewer-window-controls-enabled');
+      this.manuallyResized = true;
       this.updateSize?.();
       return true;
     },
@@ -7978,6 +9293,7 @@ function attachWindowControls(Viewer) {
         if (document.fullscreenElement === container) return;
         event.preventDefault();
         event.stopPropagation();
+        Viewer.manuallyResized = true;
         makeFixed();
         const rect = container.getBoundingClientRect();
         const start = {
@@ -8028,6 +9344,20 @@ function attachWindowControls(Viewer) {
 function clampWindowValue(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
+
+// Below this distance (px) from its default glued corner, drag movement is
+// absorbed rather than moved - the panel only actually detaches from the
+// viewer frame's edge past a deliberate drag, instead of on the first pixel.
+const METADATA_GLUE_THRESHOLD = 28;
+
+// How close to the card's bottom-right corner a pointerdown has to land to
+// count as grabbing the native resize grip (see isPointerInResizeCorner()).
+const METADATA_RESIZE_HOTSPOT = 18;
+
+let metadataResizeObserver = null;
+let metadataHostResizeObserver = null;
+let metadataNativeResizeActive = false;
+let metadataNativeResizeReleaseTimer = null;
 
 let modelSettingsResetState = null;
 
@@ -8146,6 +9476,23 @@ function expandMetadata() {
   // accessibility
   toggle.setAttribute("aria-expanded", expanded);
 
+  // A manual resize (see observeMetadataResize()) sets an explicit inline
+  // width/height on the card. Left alone, that inline size would keep the
+  // collapsed card just as big as when it was expanded, with the content
+  // hidden inside empty space instead of the card actually shrinking back
+  // to the compact pill - so swap it out for the collapsed default here,
+  // and restore the stored manual size when expanding again.
+  if (card?.classList.contains("metadata-card-resized")) {
+    if (expanded) {
+      const { width, height } = getInitialMetadataSize();
+      if (width != null) card.style.width = `${width}px`;
+      if (height != null) card.style.height = `${height}px`;
+    } else {
+      card.style.width = "";
+      card.style.height = "";
+    }
+  }
+
   if (!expanded) {
     card?.classList.remove("metadata-card-overflowing");
     content.querySelectorAll(".metadata-row-pinned").forEach((row) => {
@@ -8206,8 +9553,252 @@ function bindMetadataInteractions() {
     if (willPin) row.classList.add("metadata-row-pinned");
   });
 
+  // The card is rebuilt (innerHTML) on every handleMetadataResponse() call,
+  // so its own drag handle is a fresh element each time - delegate from the
+  // container (which persists) instead of binding it directly.
+  core.metadataContainer.addEventListener("pointerdown", (e) => {
+    if (e.target.closest(".metadata-drag-handle")) {
+      startMetadataDrag(e);
+      return;
+    }
+
+    const card = e.target.closest("#metadata-card");
+    if (card && isPointerInResizeCorner(card, e.clientX, e.clientY)) {
+      beginNativeResizeTracking();
+    }
+  });
+
   window.addEventListener("resize", updateMetadataOverflow);
   core.metadataContainer.dataset.boundCollapse = "true";
+}
+
+function getMetadataContainerConfig() {
+  return core.CONFIG?.viewer?.metadataContainer || {};
+}
+
+function getInitialMetadataPosition() {
+  const position = getMetadataContainerConfig().position || {};
+  return {
+    x: parseFloatParam(position.x) ?? 0,
+    y: parseFloatParam(position.y) ?? 0,
+  };
+}
+
+function setStoredMetadataPosition(x, y) {
+  core.CONFIG ??= {};
+  core.CONFIG.viewer ??= {};
+  core.CONFIG.viewer.metadataContainer ??= {};
+  core.CONFIG.viewer.metadataContainer.position = {
+    x: Number.isFinite(x) ? x : 0,
+    y: Number.isFinite(y) ? y : 0,
+  };
+}
+
+function getInitialMetadataSize() {
+  const size = getMetadataContainerConfig().size || {};
+  return {
+    width: parseFloatParam(size.width),
+    height: parseFloatParam(size.height),
+  };
+}
+
+function setStoredMetadataSize(width, height) {
+  core.CONFIG ??= {};
+  core.CONFIG.viewer ??= {};
+  core.CONFIG.viewer.metadataContainer ??= {};
+  core.CONFIG.viewer.metadataContainer.size = {
+    width: Number.isFinite(width) ? width : null,
+    height: Number.isFinite(height) ? height : null,
+  };
+}
+
+function getMetadataDragHost() {
+  // Unlike editorToolbar/manifestoForm (which prefer the wrapper, since one
+  // can render outside the 3D canvas), the metadata panel is an overlay ON
+  // the model - it should stay confined to the actual viewer viewport, not
+  // the taller wrapper that can also contain e.g. the manifesto form below it.
+  return core.container || core.viewerWrapper || null;
+}
+
+function clampMetadataPosition(card, x, y) {
+  const host = getMetadataDragHost();
+  const hostRect = host?.getBoundingClientRect();
+  if (!hostRect) return { x, y };
+
+  // The card's untransformed rest position is the host's top-left corner
+  // (see #metadata-container { left: 0 } in main.css), so a translate of 0
+  // to (hostWidth - cardWidth)/(hostHeight - cardHeight) keeps it fully
+  // inside the viewer, unlike editorToolbar's looser +-hostSize clamp.
+  const maxX = Math.max(hostRect.width - card.offsetWidth, 0);
+  const maxY = Math.max(hostRect.height - card.offsetHeight, 0);
+
+  return {
+    x: Math.min(Math.max(x, 0), maxX),
+    y: Math.min(Math.max(y, 0), maxY),
+  };
+}
+
+function applyMetadataPosition(card, x, y) {
+  card.style.setProperty("--drag-x", `${x}px`);
+  card.style.setProperty("--drag-y", `${y}px`);
+  setStoredMetadataPosition(x, y);
+}
+
+function startMetadataDrag(event) {
+  if (event.button !== 0) return;
+  const card = document.getElementById("metadata-card");
+  if (!card) return;
+
+  event.preventDefault();
+
+  const origin = getInitialMetadataPosition();
+  // Only glued (resisting small drags) when still sitting exactly at the
+  // default corner position - once the user has deliberately moved it away,
+  // further drags follow the pointer 1:1 like editorToolbar's.
+  const glued = origin.x === 0 && origin.y === 0;
+  const startX = event.clientX;
+  const startY = event.clientY;
+
+  card.classList.add("metadata-dragging");
+
+  const onPointerMove = (moveEvent) => {
+    const rawDx = moveEvent.clientX - startX;
+    const rawDy = moveEvent.clientY - startY;
+
+    const dx = glued ? Math.sign(rawDx) * Math.max(Math.abs(rawDx) - METADATA_GLUE_THRESHOLD, 0) : rawDx;
+    const dy = glued ? Math.sign(rawDy) * Math.max(Math.abs(rawDy) - METADATA_GLUE_THRESHOLD, 0) : rawDy;
+
+    const next = clampMetadataPosition(card, origin.x + dx, origin.y + dy);
+    applyMetadataPosition(card, next.x, next.y);
+  };
+
+  const stopDrag = () => {
+    card.classList.remove("metadata-dragging");
+    document.removeEventListener("pointermove", onPointerMove);
+    document.removeEventListener("pointerup", stopDrag);
+    document.removeEventListener("pointercancel", stopDrag);
+  };
+
+  document.addEventListener("pointermove", onPointerMove);
+  document.addEventListener("pointerup", stopDrag);
+  document.addEventListener("pointercancel", stopDrag);
+}
+
+// The card's own width/height also change from expanding/collapsing (an
+// animated CSS transition, not a resize) and from the host ResizeObserver
+// re-clamping it - neither is a user resize. Only trust a ResizeObserver
+// firing as one while the user is actually holding the native grip down.
+function isPointerInResizeCorner(card, clientX, clientY) {
+  const rect = card.getBoundingClientRect();
+  return (
+    clientX >= rect.right - METADATA_RESIZE_HOTSPOT && clientX <= rect.right + 4 &&
+    clientY >= rect.bottom - METADATA_RESIZE_HOTSPOT && clientY <= rect.bottom + 4
+  );
+}
+
+function beginNativeResizeTracking() {
+  metadataNativeResizeActive = true;
+  clearTimeout(metadataNativeResizeReleaseTimer);
+
+  const release = () => {
+    // A short grace period so the ResizeObserver entry for the drag's final
+    // frame (delivered asynchronously after pointerup) still lands while
+    // tracking is considered active.
+    metadataNativeResizeReleaseTimer = setTimeout(() => {
+      metadataNativeResizeActive = false;
+    }, 100);
+    document.removeEventListener("pointerup", release);
+    document.removeEventListener("pointercancel", release);
+  };
+  document.addEventListener("pointerup", release);
+  document.addEventListener("pointercancel", release);
+}
+
+// Resize itself is native CSS (see "#metadata-card.metadata-open { resize:
+// both }" in main.css, enabled only while expanded) - a ResizeObserver just
+// persists the result and keeps it from growing past the viewer's edge,
+// mirroring initializeManifestoFormDrag()'s resize handling below.
+function observeMetadataResize(card) {
+  metadataResizeObserver?.disconnect();
+
+  let isFirstObservation = true;
+  metadataResizeObserver = new ResizeObserver((entries) => {
+    if (isFirstObservation) {
+      isFirstObservation = false;
+      return;
+    }
+    if (!metadataNativeResizeActive) return;
+
+    const entry = entries[0];
+    if (!entry) return;
+
+    const host = getMetadataDragHost();
+    const hostRect = host?.getBoundingClientRect();
+    const { x, y } = getInitialMetadataPosition();
+
+    let width = entry.contentRect.width;
+    let height = entry.contentRect.height;
+
+    if (hostRect) {
+      const maxWidth = Math.max(hostRect.width - x, 160);
+      const maxHeight = Math.max(hostRect.height - y, 60);
+      if (width > maxWidth) {
+        width = maxWidth;
+        card.style.width = `${width}px`;
+      }
+      if (height > maxHeight) {
+        height = maxHeight;
+        card.style.height = `${height}px`;
+      }
+    }
+
+    card.classList.add("metadata-card-resized");
+    setStoredMetadataSize(Math.round(width), Math.round(height));
+  });
+  metadataResizeObserver.observe(card);
+}
+
+// Keep the stored position valid if the viewer itself is resized, mirroring
+// initializeEditorToolbarDrag()'s own host ResizeObserver in editor-toolbar.js.
+function observeMetadataHost(card) {
+  const host = getMetadataDragHost();
+  metadataHostResizeObserver?.disconnect();
+  if (!host) return;
+
+  metadataHostResizeObserver = new ResizeObserver(() => {
+    const { x, y } = getInitialMetadataPosition();
+    const next = clampMetadataPosition(card, x, y);
+    applyMetadataPosition(card, next.x, next.y);
+  });
+  metadataHostResizeObserver.observe(host);
+}
+
+function initializeMetadataDragAndResize() {
+  const card = document.getElementById("metadata-card");
+  if (!card) return;
+
+  if (core.container && getComputedStyle(core.container).position === "static") {
+    core.container.style.position = "relative";
+  }
+
+  const { x, y } = getInitialMetadataPosition();
+  applyMetadataPosition(card, x, y);
+
+  const { width, height } = getInitialMetadataSize();
+  const hasStoredSize = width != null || height != null;
+  card.classList.toggle("metadata-card-resized", hasStoredSize);
+  // The card is always (re)built collapsed (see the HTML template in
+  // handleMetadataResponse()) - only apply a previously stored manual size
+  // once it's actually expanded again (see expandMetadata()), or a freshly
+  // rebuilt card would immediately show a large collapsed box with its
+  // content hidden inside empty space.
+  if (hasStoredSize && card.classList.contains("metadata-open")) {
+    if (width != null) card.style.width = `${width}px`;
+    if (height != null) card.style.height = `${height}px`;
+  }
+
+  observeMetadataResize(card);
+  observeMetadataHost(card);
 }
 
 /**
@@ -8376,6 +9967,7 @@ async function handleMetadataResponse(
 
   var metadataContent =
     '<div id="metadata-card">' +
+      '<div class="metadata-drag-handle" title="' + escapeHtml(t$1("metadata.move", "Move")) + '"></div>' +
       '<button id="metadata-collapse" class="metadata-collapse metadata-collapsed" type="button" aria-expanded="false" aria-controls="metadata-content">' +
         '<span class="metadata-toggle-icon" aria-hidden="true"></span>' +
         '<span class="metadata-toggle-copy">' +
@@ -8454,6 +10046,7 @@ async function handleMetadataResponse(
     '</div>';  
   appendMetadata(metadataContent);
   bindMetadataInteractions();
+  initializeMetadataDragAndResize();
   requestAnimationFrame(updateMetadataOverflow);
 }
 
@@ -8536,7 +10129,7 @@ async function fetchSettings(object) {
 
     normalizedUri = normalizedUri.replace(/^\/+/, '');
     const metadataBase = new URL(core.CONFIG.metadataUrl);
-    const fileUri = new URL(core.fileObject.uri);
+    const fileUri = new URL(core.fileObject.uri, document.baseURI);
 
     const filePath = fileUri.pathname.replace(/^\/+|\/+$/g, '');
 
@@ -8644,6 +10237,7 @@ function createAIM3IFDropdown(url) {
     { url: "https://viewer.thedworak.com/manifests/box.json", name: t$1("aim3if.optionBox", "Box configuration") },
     { url: "./manifests/box-aim3d-local.json", name: t$1("aim3if.optionBoxLocal", "Box (localhost)") },
     { url: "./manifests/wolpa-synagogue-aim3d-local.json", name: t$1("aim3if.optionWolpaLocal", "Wolpa Synagogue (localhost)") },
+    { url: "./manifests/wolpa-synagogue-aim3d-local-ceiling.json", name: t$1("aim3if.optionWolpaLocalCeiling", "Wolpa Synagogue - ceiling view (localhost)") },
     // Add more AIM3IF configurations here as needed
   ].filter(item => item?.url);
 
@@ -8668,16 +10262,166 @@ function createAIM3IFDropdown(url) {
   document.querySelector("#form-manifesto-content").prepend(group);
 }
 
+function getManifestoFormConfig() {
+  return core.CONFIG?.viewer?.manifestoForm || {};
+}
+
+function getInitialManifestoPosition() {
+  const position = getManifestoFormConfig().position || {};
+  return {
+    x: parseFloatParam(position.x) ?? 0,
+    y: parseFloatParam(position.y) ?? 0,
+  };
+}
+
+function setStoredManifestoPosition(x, y) {
+  core.CONFIG ??= {};
+  core.CONFIG.viewer ??= {};
+  core.CONFIG.viewer.manifestoForm ??= {};
+  core.CONFIG.viewer.manifestoForm.position = {
+    x: Number.isFinite(x) ? x : 0,
+    y: Number.isFinite(y) ? y : 0,
+  };
+}
+
+function setStoredManifestoSize(width, height) {
+  core.CONFIG ??= {};
+  core.CONFIG.viewer ??= {};
+  core.CONFIG.viewer.manifestoForm ??= {};
+  core.CONFIG.viewer.manifestoForm.size = {
+    width: Number.isFinite(width) ? width : null,
+    height: Number.isFinite(height) ? height : null,
+  };
+}
+
+// Makes #form-manifesto draggable (via its header) and resizable, and keeps
+// both in sync with core.CONFIG.viewer.manifestoForm - mirrors the pattern
+// core.editorToolbar already uses for its own position (see
+// initializeEditorToolbarDrag() in editor-toolbar.js), adapted for a
+// normal-flow panel instead of an absolutely-positioned one.
+function initializeManifestoFormDrag(formContainer, handle) {
+  const host = core.viewerWrapper || core.container || formContainer.parentElement;
+
+  const initialPosition = getInitialManifestoPosition();
+  let currentX = initialPosition.x;
+  let currentY = initialPosition.y;
+
+  const applyPosition = () => {
+    formContainer.style.transform = (currentX || currentY)
+      ? `translate3d(${currentX}px, ${currentY}px, 0)`
+      : "";
+    setStoredManifestoPosition(currentX, currentY);
+  };
+  applyPosition();
+
+  const clampPosition = (x, y) => {
+    const hostRect = host?.getBoundingClientRect();
+    // The panel starts horizontally centered (CSS "margin: auto"), so x=0
+    // is that centered rest position - moving left needs a *negative* x,
+    // not just a small positive one. maxX is the slack on either side
+    // (half of the leftover host width) before an edge of the panel would
+    // reach the corresponding edge of the host.
+    const maxX = hostRect
+      ? Math.max((hostRect.width - formContainer.offsetWidth) / 2, 0)
+      : Infinity;
+
+    return {
+      x: Math.min(Math.max(x, -maxX), maxX),
+      // Never move above its natural in-flow position (y < 0) - it already
+      // sits directly below the viewer (see the appendChild call below),
+      // so this alone guarantees dragging can never put it back over the
+      // model, regardless of how the panel is later resized.
+      y: Math.max(y, 0),
+    };
+  };
+
+  let dragState = null;
+
+  const onPointerMove = (event) => {
+    if (!dragState) return;
+    const dx = event.clientX - dragState.startX;
+    const dy = event.clientY - dragState.startY;
+    const next = clampPosition(dragState.originX + dx, dragState.originY + dy);
+    currentX = next.x;
+    currentY = next.y;
+    applyPosition();
+  };
+
+  const stopDrag = () => {
+    if (!dragState) return;
+    dragState = null;
+    formContainer.classList.remove("form-manifesto-dragging");
+    document.removeEventListener("pointermove", onPointerMove);
+    document.removeEventListener("pointerup", stopDrag);
+  };
+
+  handle.addEventListener("pointerdown", (event) => {
+    if (event.target.closest("button")) return; // don't hijack the collapse button
+    dragState = {
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: currentX,
+      originY: currentY,
+    };
+    formContainer.classList.add("form-manifesto-dragging");
+    document.addEventListener("pointermove", onPointerMove);
+    document.addEventListener("pointerup", stopDrag);
+  });
+
+  // Resizing itself is native CSS (see "#form-manifesto { resize: both }"
+  // in viewer/css/external-sources.css) - no custom handle needed. A
+  // ResizeObserver still fires for a user dragging that native handle, so
+  // it's enough to persist the result into config.
+  const initialSize = getManifestoFormConfig().size || {};
+  const initialWidth = parseFloatParam(initialSize.width);
+  const initialHeight = parseFloatParam(initialSize.height);
+  if (initialWidth != null) formContainer.style.width = `${initialWidth}px`;
+  if (initialHeight != null) formContainer.style.height = `${initialHeight}px`;
+
+  let isFirstResizeObservation = true;
+  const resizeObserver = new ResizeObserver((entries) => {
+    // Skip the observer's own initial firing (on observe()) so it doesn't
+    // immediately overwrite a configured size with the pre-resize default.
+    if (isFirstResizeObservation) {
+      isFirstResizeObservation = false;
+      return;
+    }
+    const entry = entries[0];
+    if (!entry) return;
+    setStoredManifestoSize(
+      Math.round(entry.contentRect.width),
+      Math.round(entry.contentRect.height)
+    );
+  });
+  resizeObserver.observe(formContainer);
+}
+
 function createManifestUI(type = "iiif") {
   const formContainer = document.createElement("div");
   const className = type === "iiif" ? "IIIF" : "AIM3IF";
   const titleKey = type === "iiif" ? "iiif" : "aim3if";
   formContainer.id = `form-manifesto`;
+  // Expanded by default - collapsing is still available via the toggle
+  // button below (a user choice to save is worth keeping), but it no longer
+  // needs to default to collapsed just to stay out of the model's way: see
+  // the appendChild call at the bottom of this function, which now places
+  // this in normal document flow below the viewer instead of as a
+  // position: fixed overlay on top of it.
 
   /* header */
   const header = document.createElement("div");
   header.className = `form-manifesto-header`;
   header.innerHTML = `
+    <span class="form-manifesto-drag-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="14" height="14" focusable="false">
+        <circle cx="9" cy="6" r="1.6" fill="currentColor"/>
+        <circle cx="15" cy="6" r="1.6" fill="currentColor"/>
+        <circle cx="9" cy="12" r="1.6" fill="currentColor"/>
+        <circle cx="15" cy="12" r="1.6" fill="currentColor"/>
+        <circle cx="9" cy="18" r="1.6" fill="currentColor"/>
+        <circle cx="15" cy="18" r="1.6" fill="currentColor"/>
+      </svg>
+    </span>
     <span class="title">${escapeHtml(t$1(`${titleKey}.loader`, `${className} Loader`))}</span>
     <div class="tools">
       <button type="button" id="manifesto-toggle-collapse" title="${escapeHtml(t$1(`${titleKey}.collapse`, `Collapse`))}">▾</button>
@@ -8706,7 +10450,15 @@ function createManifestUI(type = "iiif") {
 
   formContainer.appendChild(content);
 
-  document.body.appendChild(formContainer);
+  // Appended into the viewer's own wrapper (same host core.editorToolbar
+  // and #credits already use - see getEditorToolbarHost() in
+  // editor-toolbar.js and the appendChild call in main.js), not
+  // document.body: #form-manifesto is normal-flow now (see
+  // viewer/css/external-sources.css), so this renders it as a block below
+  // the viewer instead of a position: fixed overlay on top of it.
+  (core.viewerWrapper || core.container || document.body).appendChild(formContainer);
+
+  initializeManifestoFormDrag(formContainer, header);
 }
 
 const loadDDSLoader = async () => (await import('./assets/three.js').then(function (n) { return n.j; })).DDSLoader;
@@ -8721,6 +10473,14 @@ const loadTDSLoader = async () => (await import('./assets/three.js').then(functi
 const loadPCDLoader = async () => (await import('./assets/three.js').then(function (n) { return n.q; })).PCDLoader;
 const loadGLTFLoader = async () => (await import('./assets/three.js').then(function (n) { return n.G; })).GLTFLoader;
 const loadDRACOLoader = async () => (await import('./assets/three.js').then(function (n) { return n.r; })).DRACOLoader;
+const loadUSDLoader = async () => (await import('./assets/three.js').then(function (n) { return n.U; })).USDLoader;
+const loadThreeMFLoader = async () => (await import('./assets/three.js').then(function (n) { return n._; })).ThreeMFLoader;
+const loadAMFLoader = async () => (await import('./assets/three.js').then(function (n) { return n.A; })).AMFLoader;
+const loadVRMLLoader = async () => (await import('./assets/three.js').then(function (n) { return n.s; })).VRMLLoader;
+const loadKMZLoader = async () => (await import('./assets/three.js').then(function (n) { return n.K; })).KMZLoader;
+const loadVOXLoader = async () => (await import('./assets/three.js').then(function (n) { return n.t; })).VOXLoader;
+const loadVOXBuildMesh = async () => (await import('./assets/three.js').then(function (n) { return n.t; })).buildMesh;
+const loadLWOLoader = async () => (await import('./assets/three.js').then(function (n) { return n.u; })).LWOLoader;
 const loadIFCLoader = async () => (await import('./assets/IFCLoader.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./assets/three.js').then(function (n) { return n.R; })).RoomEnvironment;
 const loadHDRLoader = async () => (await import('./assets/three.js').then(function (n) { return n.H; })).HDRLoader;
@@ -8739,6 +10499,16 @@ const loaderMap = {
   xyz: loadXYZLoader,
   '3ds': loadTDSLoader,
   pcd: loadPCDLoader,
+  usd: loadUSDLoader,
+  usda: loadUSDLoader,
+  usdc: loadUSDLoader,
+  usdz: loadUSDLoader,
+  '3mf': loadThreeMFLoader,
+  amf: loadAMFLoader,
+  wrl: loadVRMLLoader,
+  kmz: loadKMZLoader,
+  vox: loadVOXLoader,
+  lwo: loadLWOLoader,
   ifc: loadIFCLoader
 };
 
@@ -9325,6 +11095,51 @@ async function loadModel() {
         break;
       }
 
+      // Formats whose three.js loader returns a ready-to-add object/group.
+      case "usd":
+      case "usda":
+      case "usdc":
+      case "usdz":
+      case "3mf":
+      case "amf":
+      case "wrl": {
+        const loader = await createLoader(core.fileObject.extension.toLowerCase());
+        const object = await loadAsync(loader, modelPath, onProgress);
+        object.position.set(0, 0, 0);
+        await afterLoad({ object });
+        break;
+      }
+
+      case "kmz": {
+        const loader = await createLoader("kmz");
+        const kmz = await loadAsync(loader, modelPath, onProgress);
+        await afterLoad({ object: kmz.scene });
+        break;
+      }
+
+      case "vox": {
+        const loader = await createLoader("vox");
+        const buildMesh = await loadVOXBuildMesh();
+        const vox = await loadAsync(loader, modelPath, onProgress);
+        // Files with a scene graph come back assembled in vox.scene; plain
+        // ones only carry their chunks.
+        const object = vox.scene ?? new THREE.Group();
+        if (!vox.scene) {
+          vox.chunks.forEach((chunk) => object.add(buildMesh(chunk)));
+        }
+        await afterLoad({ object });
+        break;
+      }
+
+      case "lwo": {
+        const loader = await createLoader("lwo");
+        const lwo = await loadAsync(loader, modelPath, onProgress);
+        const object = new THREE.Group();
+        (lwo.meshes || []).forEach((mesh) => object.add(mesh));
+        await afterLoad({ object });
+        break;
+      }
+
       case "glb":
       case "gltf": {
         const object = await loadGLTFModel();
@@ -9412,108 +11227,6 @@ const progressLoaderHandler = function (xhr) {
   core.loadingLog?.update?.(percentComplete);
   core.UltraLoader?.set(percentComplete);
 };
-
-class StatusPoller {
-
-    constructor(id) {
-        this.id=id;
-        this.interval=2000;
-        this.timer=null;
-        this.running=false;
-    }
-
-    async start() {
-        if(this.running) return;
-        this.running=true;
-        if (!core.isLocalPreview)
-            await this.tick();
-        else {
-            this.map = core.isLocalPreview
-                ? Object.fromEntries(
-                    Object.entries(this.fullMap)
-                        .slice(-3)      // Only keep the last 2 steps for local preview
-                        .map(([k], i) => [k, i])
-                    )
-                : this.fullMap;
-        }
-    }
-
-    stop() {
-        this.running=false;
-        if(this.timer) clearTimeout(this.timer);
-    }
-    fullMap = {
-        init: 0,
-        preparing: 1,
-        processing: 2,
-        converted: 3,
-        updating: 4,
-        rendering: 4,
-        model_ready: 5,
-        viewer_ready: 6,
-        ready: 6,
-        failed: 7,
-        error: 7,
-    };
-
-    terminalStatuses = new Set(["ready", "viewer_ready", "failed", "error"]);
-
-    map = this.fullMap;
-
-    updateSteps(status) {
-        if(this.map[status]!==undefined) {
-            UltraLoader.step(this.map[status]);
-        }
-
-    }
-
-    async tick() {
-        if(!this.running || core.isLocalPreview) return;
-
-        try {
-            const r=await fetch(`/api/model/status/${this.id}`, {
-                cache:"no-store"
-            });
-
-            if(!r.ok){
-                throw new Error("API error");
-            }
-
-            const data=await r.json();
-
-            if(data.status==="error") {
-                UltraLoader.error(data.message || "Processing failed");
-                this.stop();
-                localStorage.removeItem("processing_model_id");
-                return;
-            }
-
-            UltraLoader.set(data.progress);
-
-            this.updateSteps(data.status);
-
-            if(this.terminalStatuses.has(data.status)) {
-                if (data.status==="ready" || data.status==="viewer_ready") {
-                    UltraLoader.finish("3D Viewer is ready");
-                }
-                else {
-                    UltraLoader.finish("Failed processing the model");
-                }
-                this.stop();
-                localStorage.removeItem("processing_model_id");
-                return;
-            }
-        }
-        catch(e){
-            if (!core.isLocalPreview) {
-                UltraLoader.error("Connection error");
-                this.stop();
-            }
-        }
-        this.timer=setTimeout(()=>this.tick(),this.interval);
-    }
-
-}
 
 var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
@@ -11213,6 +12926,36 @@ var AnnotationPage = /** @class */ (function (_super) {
     return AnnotationPage;
 }(ManifestResource));
 
+/**
+ * Appends the elements of `values` to `array`.
+ *
+ * @private
+ * @param {Array} array The array to modify.
+ * @param {Array} values The values to append.
+ * @returns {Array} Returns `array`.
+ */
+
+var _arrayPush;
+var hasRequired_arrayPush;
+
+function require_arrayPush () {
+	if (hasRequired_arrayPush) return _arrayPush;
+	hasRequired_arrayPush = 1;
+	function arrayPush(array, values) {
+	  var index = -1,
+	      length = values.length,
+	      offset = array.length;
+
+	  while (++index < length) {
+	    array[offset + index] = values[index];
+	  }
+	  return array;
+	}
+
+	_arrayPush = arrayPush;
+	return _arrayPush;
+}
+
 /** Detect free variable `global` from Node.js. */
 
 var _freeGlobal;
@@ -11566,7 +13309,8 @@ var hasRequired_baseFlatten;
 function require_baseFlatten () {
 	if (hasRequired_baseFlatten) return _baseFlatten;
 	hasRequired_baseFlatten = 1;
-	var isFlattenable = /*@__PURE__*/ require_isFlattenable();
+	var arrayPush = /*@__PURE__*/ require_arrayPush(),
+	    isFlattenable = /*@__PURE__*/ require_isFlattenable();
 
 	/**
 	 * The base implementation of `_.flatten` with support for restricting flattening.
@@ -11592,6 +13336,8 @@ function require_baseFlatten () {
 	      if (depth > 1) {
 	        // Recursively flatten arrays (susceptible to call stack limits).
 	        baseFlatten(value, depth - 1, predicate, isStrict, result);
+	      } else {
+	        arrayPush(result, value);
 	      }
 	    } else if (!isStrict) {
 	      result[result.length] = value;
@@ -15365,7 +17111,7 @@ var parseManifest = function (manifest, options) {
 class IIIFManifest {
   constructor(manifest) {
     // Is manifest JSON or URL?
-    if (isPlainObject(manifest)) {
+    if (isPlainObject$1(manifest)) {
       this.manifestJson = manifest;
       this.manifestUrl = null;
     } else if (isJsonString(manifest)) {
@@ -15404,7 +17150,7 @@ function isJsonString(str) {
   return true;
 }
 
-function isPlainObject(value) {
+function isPlainObject$1(value) {
   return value != null && typeof value === "object" && !Array.isArray(value);
 }
 
@@ -15706,6 +17452,12 @@ function applyManifestConfig(manifest, objectsConfig) {
 
   model.wireframe =
     transform.wireframe ?? false;
+
+  model.shadingMode =
+    transform.shadingMode ?? "standard";
+
+  model.customShader =
+    transform.customShader ?? null;
 }
 
 function getManifestWindowState(manifest) {
@@ -15722,6 +17474,100 @@ function getManifestWindowState(manifest) {
   };
 }
 
+function isPlainObject(value) {
+  return value != null && typeof value === "object" && !Array.isArray(value);
+}
+
+function nonEmptyString(value) {
+  return typeof value === "string" && value.trim() !== "" ? value : undefined;
+}
+
+// Position/size are stored as {x, y} / {width, height} in viewer-settings.json.
+function toXY(value) {
+  if (Array.isArray(value)) return { x: value[0], y: value[1] };
+  return isPlainObject(value) ? { x: value.x, y: value.y } : undefined;
+}
+
+function toPanelState(panel) {
+  if (!isPlainObject(panel)) return undefined;
+  const state = {};
+  const position = toXY(panel.position);
+  if (position) state.position = position;
+  if (isPlainObject(panel.size)) state.size = { ...panel.size };
+  return state;
+}
+
+// Merges the deployment settings carried by an AIM3D manifest into `config`
+// (the object loaded from viewer-settings.json). viewer-settings.json stays the
+// fallback: only values the manifest actually defines are overwritten, so
+// manifests written before these fields existed leave the config untouched.
+//
+// Bootstrap keys that are needed *before* a manifest can be fetched (the
+// manifest URL/source in entity.metadata, viewer.lightweight, viewer.editor)
+// intentionally remain viewer-settings.json only.
+//
+// Settings with runtime side effects (theme, toolbars, performance mode, ...)
+// are applied separately by Viewer.import3IFManifest().
+function applyManifestSettings(manifest, config) {
+  const block = manifest?.AIM3DViewer;
+  if (!isPlainObject(block) || !isPlainObject(config)) return false;
+
+  const viewer = isPlainObject(block.viewer) ? block.viewer : {};
+  const integration = isPlainObject(block.integration) ? block.integration : {};
+  let applied = false;
+  const set = (target, key, value) => {
+    if (value === undefined) return;
+    target[key] = value;
+    applied = true;
+  };
+
+  config.viewer ??= {};
+  config.entity ??= {};
+
+  set(config, "mainUrl", nonEmptyString(viewer.mainUrl));
+  set(config, "baseModulePath", nonEmptyString(viewer.baseModulePath));
+  set(config.viewer, "background", nonEmptyString(viewer.background));
+  if (isPlainObject(viewer.credits)) set(config.viewer, "credits", structuredClone(viewer.credits));
+  if (isPlainObject(viewer.auth)) set(config.viewer, "auth", { ...viewer.auth });
+  set(config.viewer, "manifestoForm", toPanelState(viewer.manifestoForm));
+  set(config.viewer, "metadataContainer", toPanelState(viewer.metadataContainer));
+
+  set(config.entity, "exportViewerUrl", nonEmptyString(integration.exportViewerUrl));
+  if (isPlainObject(integration.api)) {
+    config.api ??= {};
+    set(config.api, "thumbnailUploadEndpoint", nonEmptyString(integration.api.thumbnailUploadEndpoint));
+  }
+
+  return applied;
+}
+
+// Settings that decide how the UI is *built* (viewer.lightweight, viewer.editor,
+// viewer.sandbox, viewer.presentationMode) must be known before any UI exists,
+// i.e. before the regular manifest load. Viewer.MainInit() therefore peeks at
+// the configured AIM3D manifest and calls this. Only strict booleans are
+// accepted; anything else leaves the viewer-settings.json value in place.
+function applyManifestBootstrapSettings(manifest, config) {
+  const viewer = manifest?.AIM3DViewer?.viewer;
+  if (!isPlainObject(viewer) || !isPlainObject(config)) return false;
+
+  let applied = false;
+  config.viewer ??= {};
+  // manifest key -> viewer-settings.json key
+  const keys = {
+    lightweight: "lightweight",
+    editor: "editor",
+    sandbox: "sandboxMode",
+    presentationMode: "presentationMode",
+  };
+  for (const [manifestKey, configKey] of Object.entries(keys)) {
+    if (typeof viewer[manifestKey] === "boolean") {
+      config.viewer[configKey] = viewer[manifestKey];
+      applied = true;
+    }
+  }
+  return applied;
+}
+
 function getEditorToolbarIcon(icon) {
   const icons = {
     moveToolbar: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="7" r="1.4" fill="currentColor"/><circle cx="16" cy="7" r="1.4" fill="currentColor"/><circle cx="8" cy="12" r="1.4" fill="currentColor"/><circle cx="16" cy="12" r="1.4" fill="currentColor"/><circle cx="8" cy="17" r="1.4" fill="currentColor"/><circle cx="16" cy="17" r="1.4" fill="currentColor"/></svg>',
@@ -15733,6 +17579,12 @@ function getEditorToolbarIcon(icon) {
     lightTarget: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     lights: '<svg viewBox="0 0 24 24" aria-hidden="true"> <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/> <path d="M12 4V7M12 17v3M4 12h3M17 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/> <path d="M6.5 6.5l2 2M15.5 15.5l2 2M17.5 6.5l-2 2M8.5 15.5l-2 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/> </svg>',
     materials: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 4v8l-8 4-8-4V6l8-4z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 6l8 4M12 6v8M12 14l-8-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+    shading: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+    shadingStandard: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.15"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="9" r="2" fill="currentColor" opacity="0.6"/></svg>',
+    shadingPhong: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="9" r="2.2" fill="currentColor"/></svg>',
+    shadingLambert: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.25"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+    shadingToon: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6 9a6.5 6.5 0 0 1 9-3M6.5 15a6.5 6.5 0 0 0 8 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+    shadingCustom: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 8-5 4 5 4M15 8l5 4-5 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     ambientLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     //cameraLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h3l2-2h4l2 2h3v10H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
     environmentMap: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 7v10l-7 4-7-4V7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 3v18M5 7l7 4 7-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="18.25" cy="5.75" r="1.25" fill="currentColor"/></svg>',
@@ -15776,6 +17628,7 @@ function getEditorToolbarIcon(icon) {
     backgroundGradient: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="5.7" fill="currentColor" fill-opacity="0.18"/><circle cx="12" cy="12" r="3.1" fill="currentColor" fill-opacity="0.56"/><circle cx="12" cy="12" r="1.1" fill="currentColor"/></svg>',
     backgroundInner: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="5" fill="currentColor"/></svg>',
     backgroundOuter: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h18v18H3zM12 7.5a4.5 4.5 0 1 0 0 9a4.5 4.5 0 0 0 0-9z"/><circle cx="12" cy="12" r="5.25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.2 1.6"/></svg>',
+    help: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.9.4-1.5 1-1.5 2.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>',
   };
 
   return icons[icon] || icons.advancedEditor;
@@ -16188,6 +18041,7 @@ function createEditorToolbar(viewer) {
     { key: "scale", icon: "scale", onClick: () => viewer.toggleObjectTransformMode("scale"), pressed: true, primary: true },
     { key: "lights", icon: "lights", onClick: () => {}, pressed: false, primary: false },    
     { key: "materials", icon: "materials", onClick: () => viewer.openMaterialsFolder(), pressed: false, primary: false },
+    { key: "shading", icon: "shading", onClick: () => {}, pressed: false, primary: false },
     { key: "picking", icon: "picking", onClick: () => viewer.togglePickingMode(), pressed: true, primary: false },
     { key: "hierarchy", icon: "hierarchy", onClick: () => {}, pressed: true, primary: false },
     { key: "annotate", icon: "annotate", onClick: () => viewer.openAnnotationDialogWithAutoPicking(), primary: false },
@@ -16200,7 +18054,8 @@ function createEditorToolbar(viewer) {
     { key: "wireframe", icon: "wireframe", onClick: () => viewer.toggleWireframeMode(), pressed: true, primary: false },    
     { key: "statistics", icon: "statistics", onClick: () => {}, pressed: false, primary: false },
     { key: "background", icon: "background", onClick: () => {}, pressed: false, primary: false },
-    
+    { key: "help", icon: "help", onClick: () => viewer.showKeyboardShortcutsHint({ manual: true }), pressed: true, primary: false },
+
   ];
 
   if (!core.isLightweight || core.isLocalPreview) {
@@ -16214,6 +18069,7 @@ function createEditorToolbar(viewer) {
 
   viewer.editorToolbarButtons = {};
   viewer.environmentMapPreset = viewer.environmentMapPreset || "neutral";
+  viewer.shadingMode = viewer.shadingMode || "standard";
 
   const secondaryTray = document.createElement("div");
   secondaryTray.className = "viewer-editor-toolbar_secondary-tray";
@@ -16231,6 +18087,11 @@ function createEditorToolbar(viewer) {
     button.dataset.primary = tool.primary ? "true" : "false";
     if (tool.key === "materials") {
       const label = t$1("gui.materials", "Materials");
+      button.setAttribute("title", label);
+      button.setAttribute("aria-label", label);
+    }
+    if (tool.key === "shading") {
+      const label = t$1("gui.shading", "Shading");
       button.setAttribute("title", label);
       button.setAttribute("aria-label", label);
     }
@@ -16938,6 +18799,55 @@ function createEditorToolbar(viewer) {
         submenu.appendChild(subButton);
       });
       button.appendChild(submenu);
+    } else if (tool.key === "shading") {
+      button.classList.add("has-submenu");
+      const submenu = document.createElement("div");
+      submenu.className = "viewer-editor-tool_submenu";
+      viewer.shadingSubmenuButtons = {};
+
+      const shadingModes = [
+        { key: "standard", icon: "shadingStandard", label: t$1("gui.shadingStandard", "Standard (PBR)") },
+        { key: "phong", icon: "shadingPhong", label: t$1("gui.shadingPhong", "Phong") },
+        { key: "lambert", icon: "shadingLambert", label: t$1("gui.shadingLambert", "Lambert") },
+        { key: "toon", icon: "shadingToon", label: t$1("gui.shadingToon", "Toon / Flat") },
+      ];
+
+      shadingModes.forEach((item) => {
+        const subButton = document.createElement("button");
+        subButton.type = "button";
+        subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+        subButton.dataset.tool = `shading-${item.key}`;
+        subButton.setAttribute("title", item.label);
+        subButton.setAttribute("aria-label", item.label);
+        subButton.innerHTML = `
+          <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon(item.icon)}</span>
+        `;
+        viewer.bindEventListener(subButton, "click", (event) => {
+          event.stopPropagation();
+          viewer.setShadingMode(item.key);
+        });
+        viewer.shadingSubmenuButtons[item.key] = subButton;
+        submenu.appendChild(subButton);
+      });
+
+      const customButton = document.createElement("button");
+      customButton.type = "button";
+      customButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+      customButton.dataset.tool = "shading-custom";
+      const customLabel = t$1("gui.shadingCustom", "Custom shader");
+      customButton.setAttribute("title", customLabel);
+      customButton.setAttribute("aria-label", customLabel);
+      customButton.innerHTML = `
+        <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon("shadingCustom")}</span>
+      `;
+      viewer.bindEventListener(customButton, "click", (event) => {
+        event.stopPropagation();
+        viewer.openCustomShaderDialog();
+      });
+      viewer.shadingSubmenuButtons.custom = customButton;
+      submenu.appendChild(customButton);
+
+      button.appendChild(submenu);
     } else if (tool.key === "download") {
       if (!core.isLightweight || core.isLocalPreview) {
         button.href = core.downloadModelElement;
@@ -17082,6 +18992,14 @@ function updateClippingPlanesSubmenuState(viewer) {
   );
 }
 
+function updateShadingSubmenuState(viewer) {
+  if (!viewer.shadingSubmenuButtons) return;
+  const activeMode = viewer.shadingMode || "standard";
+  Object.entries(viewer.shadingSubmenuButtons).forEach(([key, button]) => {
+    button?.classList.toggle("is-active", key === activeMode);
+  });
+}
+
 function updateLightsSubmenuState(viewer) {
   if (!viewer.lightsSubmenuButtons) return;
   const activeMode = viewer.transformText["Transform Light"];
@@ -17211,12 +19129,14 @@ function updateEditorToolbarLabels(viewer) {
       : t$1("gui.showLoadingLogs", "Show loading logs"),
     hierarchy: t$1("gui.hierarchy", "Hierarchy"),
     materials: t$1("gui.materials", "Materials"),
+    shading: t$1("gui.shading", "Shading"),
     background: t$1("gui.backgroundColor", "Background Color"),
     statistics: t$1("gui.statistics", "Statistics"),
     expand: viewer.isToolbarExpanded
       ? t$1("gui.collapse", "Collapse toolbar")
       : t$1("gui.expand", "Expand toolbar"),
     download: t$1("gui.download", "Download model"),
+    help: t$1("shortcuts.helpButtonAria", "Show usage hints"),
   };
 
   Object.entries(viewer.editorToolbarButtons).forEach(([key, button]) => {
@@ -17358,6 +19278,7 @@ function updateEditorToolbarState(viewer) {
     loadingLogs: viewer.showLoadingLogs === true,
     wireframe: viewer.wireframeMode === true,
     download: false,
+    help: viewer.statusNoticeActive === true && viewer.statusNoticeCurrent?.key === "keyboard-shortcuts-hint",
   };
 
   Object.entries(viewer.editorToolbarButtons).forEach(([key, button]) => {
@@ -17375,13 +19296,14 @@ function updateEditorToolbarState(viewer) {
   updateLightsSubmenuState(viewer);
   updateBackgroundSubmenuState(viewer);
   updateStatisticsSubmenuState(viewer);
+  updateShadingSubmenuState(viewer);
 }
 
 const VIEWER_DEFAULTS = {
   CONFIG: null,
   PRESENTATION_MODE: false,
   SANDBOX_MODE: false,
-  SUPPORTED_EXTENSIONS: ['glb', 'gltf', 'obj', 'dae', 'fbx', 'ply', 'ifc', 'stl', 'xyz', 'json', '3ds', 'pcd'],
+  SUPPORTED_EXTENSIONS: ['glb', 'gltf', 'obj', 'dae', 'fbx', 'ply', 'ifc', 'stl', 'xyz', 'json', '3ds', 'pcd', 'usd', 'usda', 'usdc', 'usdz', '3mf', 'amf', 'wrl', 'kmz', 'vox', 'lwo'],
   SUPPORTED_ARCHIVES: ['zip', 'rar', 'tar', 'xz', 'gz'],
   camera: null,
   embedCamera: null,
@@ -17676,6 +19598,9 @@ const VIEWER_DEFAULTS = {
   lastKeyboardHintAt: 0,
   keyboardHintCooldownMs: 45000,
   keyboardHintAfterFocusDelayMs: 1800,
+  keyboardHintShownOnce: false,
+  keyboardHintFirstDurationMs: 14000,
+  keyboardHintDurationMs: 7400,
   lastWindowFocusAt: 0,
   cleanupCallbacks: [],
   resizeObserver: null,
@@ -17991,6 +19916,10 @@ function shouldIgnoreLegacyEmbedDefaultModel(viewer) {
 
 function buildGallery(viewer) {
   return buildThumbnailGallery(viewer);
+}
+
+function renderModelGalleryImages(viewer, imageUrls) {
+  return renderModelGalleryImages$1(viewer, imageUrls);
 }
 
 function toHexColor(input) {
@@ -18537,52 +20466,45 @@ async function createCreditsElement() {
 
   const creditsDiv = document.createElement("div");
   creditsDiv.id = "credits";
+  // #credits has no default left/bottom in CSS (only position: absolute) -
+  // updateSize() is what sets those, and it doesn't run correctly until
+  // layout is settled (typically once a model has loaded). Staying hidden
+  // until then avoids a visible flash at the wrong spot followed by a jump
+  // to the right one; updateSize() reveals it once it applies real coords.
+  creditsDiv.style.visibility = "hidden";
 
+  // Single line, spanning the full viewer width (see viewer/css/credits.css)
+  // now that this renders below the viewer instead of overlaying it: logo +
+  // item values separated by a middot, rather than stacked labeled
+  // sections. Item labels (e.g. "CREATED BY") are dropped on purpose -
+  // there's no room for them next to the separators on one line.
   let html = "";
 
   if (credits.logo?.src) {
-    html += `
-      <div class="credits-header">
-        ${credits.logo.url ? `<a href="${credits.logo.url}" target="_blank" rel="noopener noreferrer">` : ""}
-          <img src="${credits.logo.src}" class="credits-main-logo" alt="Logo">
-        ${credits.logo.url ? "</a>" : ""}
-      </div>
-    `;
+    const logoImg = `<img src="${credits.logo.src}" class="credits-main-logo" alt="Logo">`;
+    html += credits.logo.url
+      ? `<a href="${credits.logo.url}" target="_blank" rel="noopener noreferrer" class="credits-main-logo-link">${logoImg}</a>`
+      : logoImg;
   }
 
-  html += `<div class="credits-items">`;
+  const itemsHtml = (credits.items ?? [])
+    .map((item) => {
+      const logoHtml = item.logo?.src
+        ? (() => {
+            const itemLogoImg = `<img class="credits-logo" src="${item.logo.src}" alt="">`;
+            return item.logo.url
+              ? `<a href="${item.logo.url}" target="_blank" rel="noopener noreferrer">${itemLogoImg}</a>`
+              : itemLogoImg;
+          })()
+        : "";
+      const textHtml = item.url
+        ? `<a href="${item.url}" target="_blank" rel="noopener noreferrer" class="credits-link">${item.text}</a>`
+        : `<span class="credits-text">${item.text}</span>`;
+      return `<span class="credits-item">${logoHtml}${textHtml}</span>`;
+    })
+    .join(`<span class="credits-sep" aria-hidden="true">&middot;</span>`);
 
-  for (const item of credits.items ?? []) {
-    html += `
-      <div class="credits-item">
-
-        <div class="credits-label">
-          ${item.label}
-        </div>
-
-        ${
-          item.logo?.src
-            ? `
-              <div class="credits-logo-wrapper">
-                ${item.logo.url ? `<a href="${item.logo.url}" target="_blank" rel="noopener noreferrer">` : ""}
-                  <img class="credits-logo" src="${item.logo.src}" alt="">
-                ${item.logo.url ? "</a>" : ""}
-              </div>
-            `
-            : ""
-        }
-
-        ${
-          item.url
-            ? `<a href="${item.url}" target="_blank" rel="noopener noreferrer" class="credits-link">${item.text}</a>`
-            : `<div class="credits-text">${item.text}</div>`
-        }
-
-      </div>
-    `;
-  }
-
-  html += `</div>`;
+  html += `<span class="credits-items">${itemsHtml}</span>`;
 
   creditsDiv.innerHTML = html;
 
@@ -18744,7 +20666,7 @@ GNU General Public License for more details at
 https://www.gnu.org/licenses/.
 */
 
-//Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF
+//Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF, USD/USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO
 
 const SOURCE = "" ;
 const isE2E = window.__E2E__ === true ;
@@ -18757,6 +20679,17 @@ window.viewer = {
   scene: null,
   renderer: null,
   controls: null
+};
+
+// Small inline icons for the keyboard-shortcuts hint (see
+// getKeyboardShortcutsDetailHtml() below) - inline SVG rather than image
+// assets so they pick up the notice's `currentColor` in both themes without
+// separate light/dark files.
+const SHORTCUT_ICONS = {
+  mouse: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="19" rx="6"/><line x1="12" y1="2" x2="12" y2="10"/><circle cx="12" cy="6" r="1" fill="currentColor" stroke="none"/></svg>',
+  keyboard: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><rect x="5" y="9.5" width="1.6" height="1.6" fill="currentColor" stroke="none"/><rect x="9.2" y="9.5" width="1.6" height="1.6" fill="currentColor" stroke="none"/><rect x="13.4" y="9.5" width="1.6" height="1.6" fill="currentColor" stroke="none"/><rect x="17.4" y="9.5" width="1.6" height="1.6" fill="currentColor" stroke="none"/><rect x="6" y="13.2" width="12" height="1.6" fill="currentColor" stroke="none"/></svg>',
+  touch: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="7" stroke-dasharray="1.5 3"/></svg>',
+  dragAndDrop: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="3" x2="12" y2="13"/><polyline points="8 9 12 13 16 9"/><line x1="4" y1="19" x2="20" y2="19"/></svg>',
 };
 
 const Viewer$1 = {
@@ -19343,6 +21276,10 @@ const Viewer$1 = {
     return updateLightsSubmenuState(this);
   },
 
+  updateShadingSubmenuState() {
+    return updateShadingSubmenuState(this);
+  },
+
   async saveEditorMetadata() {
     return saveEditorMetadata(this);
   },
@@ -19431,8 +21368,13 @@ const Viewer$1 = {
       clippingMode: this.parseClippingModeParam(params.get("clip") || params.get("clippingMode")),
       clippingConstants: this.parseVector3Param(params.get("clipConst") || params.get("clipConstants")),
       clippingOutline: this.parseBooleanParam(params.get("clipOutline")),
-      presentationMode: core.PRESENTATION_MODE === true,
-      sandboxMode: core.SANDBOX_MODE === true,
+      // Keep these null when the query param is absent (parseBooleanParam's
+      // own "not specified" value) rather than coercing to a hard boolean -
+      // the config-driven fallback below (`sandboxModeFromConfig ?? ...`)
+      // only runs when this is not itself a boolean, so a coerced `false`
+      // here would permanently shadow viewer-settings.json's own value.
+      presentationMode: presentationModeFromQuery,
+      sandboxMode: sandboxModeFromQuery,
       scale: this.parseVector2Param(params.get("scale")) ?? null,
       showNotifications: this.parseBooleanParam(params.get("showNotifications")),
     };
@@ -19623,13 +21565,47 @@ const Viewer$1 = {
     this.addAnnotationController.enable?.();
   },
 
-  getKeyboardShortcutsText() {
-    return [
-      t$1("shortcuts.mouse"),
-      t$1("shortcuts.keyboard"),
-      t$1("shortcuts.touch"),
-      core.CONFIG?.viewer?.enableDragAndDrop === true ? t$1("shortcuts.dragAndDrop") : null
-    ].join("\n");
+  getKeyboardShortcutsRows() {
+    const rows = [
+      { icon: "mouse", text: t$1("shortcuts.mouse") },
+      { icon: "keyboard", text: t$1("shortcuts.keyboard") },
+      { icon: "touch", text: t$1("shortcuts.touch") },
+    ];
+    if (core.CONFIG?.viewer?.enableDragAndDrop === true) {
+      rows.push({ icon: "dragAndDrop", text: t$1("shortcuts.dragAndDrop") });
+    }
+    return rows;
+  },
+
+  // One <span class="viewer-notice-detail"> per row (see
+  // renderStatusNoticeContent() in ui/loading-status.js, which splits the
+  // `detail` option on newlines and inserts each line via innerHTML) - lets
+  // every shortcut line carry its own icon instead of one dense text block.
+  getKeyboardShortcutsDetailHtml() {
+    return this.getKeyboardShortcutsRows()
+      .map(({ icon, text }) => `<span class="viewer-shortcut-row">${SHORTCUT_ICONS[icon]}<span>${text}</span></span>`)
+      .join("\n");
+  },
+
+  showKeyboardShortcutsHint({ manual = false } = {}) {
+    const isHintCurrentlyShown =
+      this.statusNoticeActive === true && this.statusNoticeCurrent?.key === "keyboard-shortcuts-hint";
+    if (manual && isHintCurrentlyShown) {
+      this.dismissStatusNotice("keyboard-shortcuts-hint");
+      return;
+    }
+
+    const duration = manual || !this.keyboardHintShownOnce
+      ? this.keyboardHintFirstDurationMs
+      : this.keyboardHintDurationMs;
+    this.keyboardHintShownOnce = true;
+    this.lastKeyboardHintAt = Date.now();
+    this.showStatusNotice(t$1("shortcuts.title", "Controls"), duration, {
+      detail: this.getKeyboardShortcutsDetailHtml(),
+      variant: "shortcuts",
+      key: "keyboard-shortcuts-hint",
+      dismissible: true,
+    });
   },
 
   getSupportedFormatsText() {
@@ -19665,8 +21641,7 @@ const Viewer$1 = {
     if (clippingMode.x || clippingMode.y || clippingMode.z) return;
     if (!core.handHint?.hidden || core.GESTURE?.active) return;
     if (now - this.lastKeyboardHintAt < this.keyboardHintCooldownMs) return;
-    this.lastKeyboardHintAt = now;
-    this.showStatusNotice(this.getKeyboardShortcutsText(), 7400);
+    this.showKeyboardShortcutsHint();
   },
 
   isInteractiveTextInput(element) {
@@ -20082,6 +22057,29 @@ const Viewer$1 = {
     }
   },
 
+  // viewer.lightweight / editor / sandbox / presentationMode decide how the UI
+  // is built, so the AIM3D manifest configured in viewer-settings.json is
+  // peeked at before that happens. This deliberately uses the *configured*
+  // source type, not the build's forced one (the dev build always loads IIIF
+  // models) - the manifest is the settings carrier, e.g. for the Docker
+  // profiles. Any failure (no manifest, network error, invalid JSON) silently
+  // keeps the viewer-settings.json values.
+  async applyBootstrapSettingsFromManifest() {
+    const metadata = core.CONFIG?.entity?.metadata;
+    const sourceType = String(metadata?.sourceType || SOURCE).toLowerCase();
+    if (sourceType !== "aim3if" || !metadata?.url) return;
+
+    try {
+      const manifest = await this.getManifestJson(metadata.url, "url");
+      if (isAIM3DManifest(manifest)) {
+        applyManifestBootstrapSettings(manifest, core.CONFIG);
+        applyManifestSettings(manifest, core.CONFIG);
+      }
+    } catch (err) {
+      console.warn("Could not read settings from AIM3D manifest; using viewer-settings.json.", err);
+    }
+  },
+
   async MainInit() {
     if (window.__E2E__) {
       this.ensureE2EState();
@@ -20095,7 +22093,18 @@ const Viewer$1 = {
       if (document.readyState !== 'loading') r();
       else document.addEventListener('DOMContentLoaded', r);
     });
-    const moduleUrl = new URL(import.meta.url);
+    let moduleUrl = new URL(import.meta.url);
+    if (moduleUrl.protocol !== 'http:' && moduleUrl.protocol !== 'https:') {
+      // Some dev bundlers (Parcel's dev server, at least as of 2.16) don't
+      // resolve import.meta.url to the module's real served URL when it's
+      // used for a dynamically-constructed path like this one - they hand
+      // back a non-fetchable placeholder (e.g. a "file:" URL) instead. Fall
+      // back to the page's own URL so viewer-settings.json still resolves
+      // relative to the site root, matching where every built target
+      // (dist/test, dist/dev, dist/prod, dist/drupal) co-locates it with the
+      // bundled module.
+      moduleUrl = new URL(window.location.href);
+    }
     const settingsPath = moduleUrl.pathname.includes('/assets/')
       ? '../viewer-settings.json'
       : './viewer-settings.json';
@@ -20205,6 +22214,8 @@ const Viewer$1 = {
         },
       };
     }
+
+    await this.applyBootstrapSettingsFromManifest();
 
     this.isLightweight = Boolean(core.CONFIG.viewer.lightweight);
     setCore('isLightweight', this.isLightweight);
@@ -20456,6 +22467,68 @@ const Viewer$1 = {
     return buildGallery(this);
   },
 
+  renderModelGalleryImages(imageUrls) {
+    return renderModelGalleryImages(this, imageUrls);
+  },
+
+  // Mirrors the static #example-model-picker markup in this repo's own
+  // index.html, for pages (Drupal/WissKI, etc.) that embed the viewer
+  // without that markup - see the forceLocalPreview handling above.
+  createExampleModelPicker() {
+    const picker = document.createElement("div");
+    picker.id = "example-model-picker";
+
+    const label = document.createElement("label");
+    label.setAttribute("for", "example-model-select");
+    label.textContent = "Load example model";
+    picker.appendChild(label);
+
+    const select = document.createElement("select");
+    select.id = "example-model-select";
+    [
+      ["./examples/box.dae", "DAE"],
+      ["./examples/box.stl", "STL"],
+      ["./examples/box.ply", "PLY"],
+      ["./examples/box.obj", "OBJ"],
+      ["./examples/box.xyz", "XYZ"],
+      ["./examples/box.pcd", "PCD"],
+      ["./examples/box.3ds", "3DS"],
+      ["./examples/box.ifc", "IFC"],
+      ["./examples/box.fbx", "FBX"],
+      ["./examples/box.glb", "GLB"],
+      ["./examples/box.usdz", "USDZ"],
+      ["./examples/box.usda", "USDA"],
+      ["./examples/box.3mf", "3MF"],
+      ["./examples/box.amf", "AMF"],
+      ["./examples/box.wrl", "WRL (VRML)"],
+      ["./examples/box.kmz", "KMZ"],
+      ["./examples/box.vox", "VOX"],
+      ["./examples/box-missing-mtl.obj", "OBJ (missing MTL)"],
+      ["./examples/broken.glb", "Broken GLB"],
+      ["./examples/WolpaSynagogue.glb", "Wolpa Synagogue"],
+    ].forEach(([value, text]) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = text;
+      select.appendChild(option);
+    });
+    picker.appendChild(select);
+
+    const themeToggle = document.createElement("button");
+    themeToggle.type = "button";
+    themeToggle.id = "example-theme-toggle";
+    themeToggle.title = "Toggle dark mode";
+    themeToggle.textContent = "🌙";
+    picker.appendChild(themeToggle);
+
+    const uploadModel = document.createElement("button");
+    uploadModel.type = "button";
+    uploadModel.id = "uploadModel";
+    picker.appendChild(uploadModel);
+
+    return picker;
+  },
+
   toHexColor(input) {
     return toHexColor(input);
   },
@@ -20485,6 +22558,7 @@ const Viewer$1 = {
     let heightCSS;
 
     const hasWindowControls = core.container.classList.contains("viewer-window-controls-enabled");
+    const isManuallyResized = !!Viewer$1.manuallyResized;
     let scale = { x: 1, y: 1 };
 
     const rect = hasWindowControls
@@ -20495,7 +22569,7 @@ const Viewer$1 = {
       widthCSS = window.innerWidth;
       heightCSS = window.innerHeight;
     } else {
-      if (!hasWindowControls) {
+      if (!isManuallyResized) {
         scale = {
           x: Number(
             core.CONFIG.viewer.scaleContainer?.x || 1
@@ -20532,9 +22606,13 @@ const Viewer$1 = {
         core.editorToolbar.style.bottom = `${bottom}px`;
       }
       if (Viewer$1.creditsWrapper) {
-        Viewer$1.creditsWrapper.style.width = `${effectiveWidth - 64}px`;
-        Viewer$1.creditsWrapper.style.left = `${canvasRect.left + 8}px`;
-        Viewer$1.creditsWrapper.style.bottom = `${bottom - Viewer$1.creditsWrapper.getBoundingClientRect().height - 24}px`;
+        // #credits is a normal-flow block below core.container (see
+        // viewer/css/credits.css and the appendChild call in this file) -
+        // no position/left/right/bottom math needed, it's simply the next
+        // thing in the document after the viewer. Just reveal it - it was
+        // created hidden (see createCreditsElement in sandbox.js) only to
+        // avoid a flash of unstyled content while its own fonts/logo load.
+        Viewer$1.creditsWrapper.style.visibility = "visible";
       }
     }
 
@@ -20604,8 +22682,44 @@ const Viewer$1 = {
 
     // hand hint
     if (core.handHint) {
+      // handHint is appended to core.container and positioned relative to it,
+      // so its offset must be measured against core.container's own rect
+      // (parentRect) - NOT effectiveHeight, which is the canvas's logical
+      // render size and can differ from the container's actual box (e.g. via
+      // scaleContainer or letterboxing), leading to a wrongly placed hint.
+      const containerHeight = parentRect.height || effectiveHeight;
+
+      // Default vertical offset from the container bottom, but pushed further
+      // up when the editor toolbar is visible and would otherwise sit under
+      // it - the toolbar's height/position vary (drag position, embed scale),
+      // so this is measured live rather than assumed.
+      let handHintOffset = 150;
+      if (
+        core.editorToolbar &&
+        !core.editorToolbar.classList.contains("editorToolbar-hidden")
+      ) {
+        const toolbarRect = core.editorToolbar.getBoundingClientRect();
+        const toolbarTopFromContainerTop = toolbarRect.top - parentRect.top;
+        const handHintHeight =
+          core.handHint.getBoundingClientRect().height || 48;
+        const clearanceMargin = 16;
+        const requiredOffset =
+          containerHeight -
+          toolbarTopFromContainerTop +
+          handHintHeight +
+          clearanceMargin;
+        handHintOffset = Math.max(handHintOffset, requiredOffset);
+      }
+      // #handHint's base CSS is `inset: 0; margin: auto;` (for default
+      // centering). Setting only `top` here leaves `bottom: 0` from that
+      // `inset` in place too, over-constraining the vertical position: with
+      // top/height/bottom all non-auto and auto margins, the spec splits the
+      // leftover space evenly between the margins instead of honoring `top`
+      // as-is, so the element renders noticeably off from the intended spot.
+      // Clearing `bottom` removes that over-constraint.
+      core.handHint.style.bottom = "auto";
       core.handHint.style.top =
-        `${effectiveHeight - 150}px`;
+        `${containerHeight - handHintOffset}px`;
     }
 
     core.controls?.update();
@@ -21550,6 +23664,9 @@ const Viewer$1 = {
       ? await loadAIM3IFManifest(manifestJson)
       : await loadIIIFManifest(manifestJson);
     if (isAim3ifManifest) {
+      // Manifest settings take precedence over viewer-settings.json, which
+      // remains the fallback for anything the manifest doesn't define.
+      applyManifestSettings(loadedManifest.manifest, core.CONFIG);
       Viewer$1.applyWindowState?.(getManifestWindowState(loadedManifest.manifest));
     }
     if (loadedManifest.modelUrls.length === 0) { // no 3D model found, use example model
@@ -21774,7 +23891,17 @@ const Viewer$1 = {
       const isLocal = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
       const isLocalNetwork = hostname.startsWith('192.168.') || hostname.startsWith('10.') || hostname.endsWith('.local');
       const isCodeSandbox = hostname.includes('codesandbox.io') || hostname.includes('csb.app');
-      this.isLocalPreview = isLocal || isLocalNetwork || isCodeSandbox;
+      const autoDetectedLocalPreview = isLocal || isLocalNetwork || isCodeSandbox;
+      // viewer.forceLocalPreview lets a real deployment opt into the local-
+      // preview UI (example-model picker, credits placement, etc.) even
+      // though its hostname is never localhost/LAN/CodeSandbox - or opt out
+      // of it on a machine that would otherwise auto-detect as local. Only
+      // an explicit boolean overrides the hostname check; anything else
+      // (unset, non-boolean) keeps the previous auto-detection behavior.
+      const localPreviewOverride = core.CONFIG?.viewer?.forceLocalPreview;
+      this.isLocalPreview = typeof localPreviewOverride === 'boolean'
+        ? localPreviewOverride
+        : autoDetectedLocalPreview;
       setCore('isLocalPreview', this.isLocalPreview);
       console.info('Running on', window.location.hostname, '- Local preview mode:', core.isLocalPreview);
 
@@ -22050,6 +24177,12 @@ const Viewer$1 = {
             Viewer$1.closeActionMenu();
           }
         });
+        Viewer$1.bindEventListener(document, "click", (event) => {
+          if (Viewer$1.statusNoticeCurrent?.key !== "keyboard-shortcuts-hint") return;
+          if (Viewer$1.statusNotice?.contains(event.target)) return;
+          if (Viewer$1.editorToolbarButtons?.help?.contains(event.target)) return;
+          Viewer$1.dismissStatusNotice("keyboard-shortcuts-hint");
+        });
 
         Viewer$1.handHint.innerHTML = `<img src="${core.DFG_ASSETS}/img/hand-hint.png" alt="Hand hint" width=48 height=48 title="Hand hint animation"/>`;
         
@@ -22071,9 +24204,15 @@ const Viewer$1 = {
           Viewer$1.fileElement[0].style.height = core.CONFIG.viewer.canvasDimensions.y * 1.1 + "px";
         }
 
-        if (core.CONFIG.viewer.gallery?.build === true && !core.SANDBOX_MODE && !this.isEmbedMode()) {
-          Viewer$1.buildGallery();
-        }
+        // Gallery is (re)built once the initial model load below has
+        // actually finished - see the buildGallery() call after that
+        // if/else chain. Building it here instead would run before
+        // core.fileObject holds anything (it's still the empty default
+        // from viewer-defaults.js at this point), so the per-model
+        // thumbnails in thumbnail-gallery.js would resolve against the
+        // wrong - empty - model and show mismatched/dummy content on the
+        // very first page load, never getting corrected afterwards since
+        // nothing else called buildGallery() again.
       }
 
       Viewer$1.controls = new OrbitControls(core.camera, core.renderer.domElement);
@@ -22183,10 +24322,30 @@ const Viewer$1 = {
       core.autoPath = "";
 
       if (core.isLocalPreview && !core.PRESENTATION_MODE && !core.SANDBOX_MODE) {
-        const picker = document.getElementById('example-model-picker');
-        const selectModel = document.getElementById('example-model-select');
-        const themeToggle = document.getElementById('example-theme-toggle');
         const viewerElement = document.getElementById('DFG_3DViewer');
+        // #example-model-picker/#example-model-select only exist as static
+        // markup in this repo's own index.html. A real deployment (Drupal/
+        // WissKI) renders its own page template, which never includes them -
+        // so on forceLocalPreview:true there, document.getElementById found
+        // nothing and this whole block silently no-opped. Build the same
+        // markup on the fly when it's missing, so local-preview mode works
+        // regardless of which page embeds the viewer.
+        let picker = document.getElementById('example-model-picker');
+        let selectModel = document.getElementById('example-model-select');
+        let themeToggle = document.getElementById('example-theme-toggle');
+        let uploadModelButton = document.getElementById('uploadModel');
+        if (!picker && !selectModel && viewerElement) {
+          picker = Viewer$1.createExampleModelPicker();
+          selectModel = picker.querySelector('#example-model-select');
+          themeToggle = picker.querySelector('#example-theme-toggle');
+          uploadModelButton = picker.querySelector('#uploadModel');
+          viewerElement.parentNode.insertBefore(picker, viewerElement);
+        }
+        if (uploadModelButton) {
+          Viewer$1.uploadModel = uploadModelButton;
+          Viewer$1.updateUploadMenuEntryState();
+          Viewer$1.bindEventListener(uploadModelButton, "click", Viewer$1.openUploadPanel.bind(Viewer$1));
+        }
         if (picker && selectModel && viewerElement) {
           Viewer$1.updateLocalPreviewLabels();
           const localurl = new URL(window.location.href);
@@ -22208,18 +24367,45 @@ const Viewer$1 = {
             themeToggle.hidden = true;
           }
 
-          selectModel.addEventListener('change', () => {
+          selectModel.addEventListener('change', async () => {
+            // core.fileObject is a single shared, mutable object: a second
+            // switch mutates it synchronously (at the top of
+            // mainLoadModelWrapper) before this first switch's own load
+            // finishes awaiting. Without this token, the first switch's
+            // slower-to-resolve buildGallery() call could run after the
+            // second switch's, reading fileObject values that no longer
+            // match the model actually on screen - stamp+check a generation
+            // number so a superseded switch skips rebuilding the gallery.
+            const switchGeneration = (this.exampleModelSwitchGeneration ?? 0) + 1;
+            this.exampleModelSwitchGeneration = switchGeneration;
             core.autoPath = selectModel.value;
             window.localStorage.setItem('dfg3dviewer-example-model', selectModel.value);
             this.resetLoadedModelState();
-            this.mainLoadModelWrapper();
+            await this.mainLoadModelWrapper();
+            if (switchGeneration !== this.exampleModelSwitchGeneration) return;
+            // Rebuild the gallery after the switch so it picks up the newly
+            // loaded model's own thumbnails (see thumbnail-gallery.js) -
+            // otherwise it keeps showing whatever was built for the example
+            // loaded at page startup until a manual refresh.
+            const galleryCfg = core.CONFIG.viewer?.gallery;
+            if ((galleryCfg?.build === true || galleryCfg?.buildFake === true) && !core.SANDBOX_MODE && !this.isEmbedMode()) {
+              this.buildGallery();
+            }
           });
         }
       }
       if ((core.isLocalPreview || core.SANDBOX_MODE) && !core.PRESENTATION_MODE) {
         Viewer$1.creditsWrapper = await createCreditsElement();
         if (Viewer$1.creditsWrapper) {
-          core.container.appendChild(Viewer$1.creditsWrapper);
+          // Appended as the last child of the wrapper, after core.container
+          // - #credits is normal-flow (see viewer/css/credits.css), so this
+          // renders it as its own block directly below the viewer rather
+          // than overlapping it. core.container is also the fullscreen
+          // target (.mainContainer.fullscreen gets z-index: 9999 - see
+          // viewer/css/main.css); living outside it here means credits
+          // (like core.editorToolbar - see getEditorToolbarHost() in
+          // editor-toolbar.js) isn't part of that fullscreen overlay.
+          (core.viewerWrapper || core.container).appendChild(Viewer$1.creditsWrapper);
         }
       }
       if (core.SANDBOX_MODE) {
@@ -22308,6 +24494,20 @@ const Viewer$1 = {
         await Viewer$1.mainLoadModelWrapper();
       }
 
+      // gallery.build gates the real Drupal-field-based gallery; it's
+      // forced false for the test/dev rollup targets since there's no
+      // Drupal DOM to scrape there (see rollup.config.js). buildFake is
+      // the separate, dedicated opt-in for the local-testing fallback
+      // (see thumbnail-gallery.js), so it must still reach buildGallery()
+      // even when the real gallery is switched off. This runs here, after
+      // the initial load above has settled core.fileObject, so the very
+      // first page load shows thumbnails matching whatever actually ended
+      // up on screen instead of momentarily-correct-then-stale content.
+      const initialGalleryCfg = core.CONFIG.viewer.gallery;
+      if ((initialGalleryCfg?.build === true || initialGalleryCfg?.buildFake === true) && !core.SANDBOX_MODE && !this.isEmbedMode()) {
+        Viewer$1.buildGallery();
+      }
+
       core.renderer.setPixelRatio(devicePixelRatio);
       const update = () => Viewer$1.updateSize();
 
@@ -22332,10 +24532,12 @@ const Viewer$1 = {
 attachLocalizationTheme(Viewer$1);
 attachLoadingStatus(Viewer$1);
 attachMaterialsEditor(Viewer$1);
+attachShadingEditor(Viewer$1);
 attachAnnotations(Viewer$1);
 attachPicking(Viewer$1);
 attachMeasurement(Viewer$1);
 attachEmbedConfigurator(Viewer$1);
+attachUploadPanel(Viewer$1);
 attachWindowControls(Viewer$1);
 
 

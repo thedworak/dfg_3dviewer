@@ -101,6 +101,9 @@ Options:
   -i, --input FILE         Original input model path.
   -g, --glb-input FILE     Optional explicit GLB path.
   -a, --archive true|false
+  -d, --device CPU|GPU|AUTO  Render device (default: CPU, or \$RENDER_DEVICE).
+                             GPU/AUTO fall back to CPU silently if no GPU is
+                             found - see scripts/render.py's try_enable_gpu().
   -h, --help
 EOF
   exit 0
@@ -119,6 +122,10 @@ while [[ $# -gt 0 ]]; do
     -a|--archive)
       bool "$2"
       IS_ARCHIVE="$2"
+      shift 2
+      ;;
+    -d|--device)
+      RENDER_DEVICE="$2"
       shift 2
       ;;
     -h|--help)
@@ -172,14 +179,17 @@ check_blender || die "Blender validation failed"
 check_xvfb_run || die "xvfb-run validation failed"
 check_scripts || die "Dependency scripts directory not found"
 
-if [[ -z "$RENDER_RESOLUTION" ]]; then
+if [[ -z "${RENDER_RESOLUTION:-}" ]]; then
   RENDER_RESOLUTION='1024x1024x16'
 fi
-if [[ -z "$RENDER_SAMPLES" ]]; then
+if [[ -z "${RENDER_SAMPLES:-}" ]]; then
   RENDER_SAMPLES='20'
 fi
+if [[ -z "${RENDER_DEVICE:-}" ]]; then
+  RENDER_DEVICE='CPU'
+fi
 
-echo "Rendering thumbnails..."
+echo "Rendering thumbnails... (device: ${RENDER_DEVICE})"
 xvfb-run --auto-servernum \
   --server-args="-screen 0 ${RENDER_RESOLUTION}" \
   "$BLENDER_BIN" -b -P "$SPATH/scripts/render.py" -- \
@@ -191,5 +201,6 @@ xvfb-run --auto-servernum \
   --resolution "$RENDER_RESOLUTION" \
   --samples "$RENDER_SAMPLES" \
   --hdri "$SPATH/scripts/maps/default.exr" \
+  --device "$RENDER_DEVICE" \
   -E BLENDER_EEVEE -f 1
 echo "Blender exit code: $?"

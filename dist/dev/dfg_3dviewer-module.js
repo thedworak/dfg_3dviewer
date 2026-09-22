@@ -220,6 +220,8 @@ const VIEWER_I18N = {
       shareView: "Share view",
       copyShareView: "Copy share view link",
       download: "Download",
+      uploadModel: "Upload & convert",
+      openUploadPanel: "Upload a 3D model for conversion",
     },
     theme: {
       lightMode: "Light mode",
@@ -402,6 +404,21 @@ const VIEWER_I18N = {
       preview: "Preview",
       previewTitle: "Embed preview",
     },
+    uploadPanel: {
+      title: "Upload & convert model",
+      closeAria: "Close upload panel",
+      fileLabel: "3D model file",
+      formatsHint: "Supported: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, or a .zip archive containing one of these.",
+      submit: "Upload & convert",
+      uploading: "Uploading...",
+      unsupportedFormat: "Unsupported file format: .{ext}",
+      uploadError: "Upload failed. Please try again.",
+      previousTitle: "Previously generated models",
+      previousEmpty: "No previously generated models yet.",
+      previousLoadError: "Could not load previous models.",
+      previousDeleteAria: "Delete {name}",
+      previousDeleteConfirm: 'Delete "{name}"? This permanently removes the converted model and its renders.',
+    },
     loadingLog: {
       title: "Loading process log",
       loadingModel: "Loading 3D model...",
@@ -475,6 +492,12 @@ const VIEWER_I18N = {
       invalidManifest: "Invalid AIM3D manifest.",
       manifestValidationFailed: "AIM3D manifest validation failed.",
 
+      uploadStarted: "Upload received - converting model...",
+      uploadReady: "Converted model is ready.",
+      uploadError: "Model upload or conversion failed.",
+      modelDeleted: "Model deleted.",
+      modelDeleteError: "Failed to delete the model.",
+
       annotationDataMissing: "Annotation data not found for this POI.",
       selectFaceRequired: "Select at least one face to add annotation.",
       selectFaceRequiredAgain: "Select at least one face, then run Add annotations again.",
@@ -512,10 +535,13 @@ const VIEWER_I18N = {
       performanceModeSet: "Performance mode set to {mode}.",
     },
     shortcuts: {
+      title: "Controls",
       mouse: "Mouse: drag orbit, wheel zoom, right-drag pan",
       keyboard: "Keyboard: Arrows orbit, Shift+Arrows faster, Ctrl/Cmd+Arrows pan, +/- zoom, Space toggle auto-rotate",
       touch: "Touch: pinch-to-zoom, drag to orbit, double-tap-and-hold pan",
       dragAndDrop: "Or drag and drop a 3D model into the viewer",
+      helpButtonAria: "Show usage hints",
+      closeAria: "Close",
     },
   },
   pl: {
@@ -529,6 +555,8 @@ const VIEWER_I18N = {
       shareView: "Udostępnij widok",
       copyShareView: "Skopiuj link udostępniania widoku",
       download: "Pobierz",
+      uploadModel: "Prześlij i skonwertuj",
+      openUploadPanel: "Prześlij model 3D do konwersji",
     },
     theme: {
       lightMode: "Tryb jasny",
@@ -711,6 +739,21 @@ const VIEWER_I18N = {
       preview: "Podgląd",
       previewTitle: "Podgląd osadzenia",
     },
+    uploadPanel: {
+      title: "Prześlij i skonwertuj model",
+      closeAria: "Zamknij panel przesyłania",
+      fileLabel: "Plik modelu 3D",
+      formatsHint: "Obsługiwane formaty: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, lub archiwum .zip zawierające jeden z nich.",
+      submit: "Prześlij i skonwertuj",
+      uploading: "Przesyłanie...",
+      unsupportedFormat: "Nieobsługiwany format pliku: .{ext}",
+      uploadError: "Przesyłanie lub konwersja nie powiodła się. Spróbuj ponownie.",
+      previousTitle: "Wcześniej wygenerowane modele",
+      previousEmpty: "Brak wcześniej wygenerowanych modeli.",
+      previousLoadError: "Nie udało się wczytać listy poprzednich modeli.",
+      previousDeleteAria: "Usuń {name}",
+      previousDeleteConfirm: 'Usunąć "{name}"? Spowoduje to trwałe usunięcie przekonwertowanego modelu i jego renderów.',
+    },
     loadingLog: {
       title: "Log procesu ładowania",
       loadingModel: "Ładowanie modelu 3D...",
@@ -784,6 +827,12 @@ const VIEWER_I18N = {
       invalidManifest: "Nieprawidłowy manifest AIM3D.",
       manifestValidationFailed: "Walidacja manifestu AIM3D nie powiodła się.",
 
+      uploadStarted: "Przesłano plik - konwertowanie modelu...",
+      uploadReady: "Skonwertowany model jest gotowy.",
+      uploadError: "Przesyłanie lub konwersja modelu nie powiodła się.",
+      modelDeleted: "Model został usunięty.",
+      modelDeleteError: "Nie udało się usunąć modelu.",
+
       annotationDataMissing: "Nie znaleziono danych adnotacji dla tego punktu.",
       selectFaceRequired: "Wybierz co najmniej jedną ścianę, aby dodać adnotację.",
       selectFaceRequiredAgain: "Wybierz co najmniej jedną ścianę, a następnie ponownie dodaj adnotacje.",
@@ -821,10 +870,13 @@ const VIEWER_I18N = {
       performanceModeSet: "Tryb wydajności ustawiony na {mode}.",
     },
     shortcuts: {
+      title: "Sterowanie",
       mouse: "Mysz: przeciągnij, aby obracać, rolka - zoom, prawy przycisk - przesuwanie",
       keyboard: "Klawiatura: strzałki - obrót, Shift+strzałki - szybciej, Ctrl/Cmd+strzałki - przesuwanie, +/- — zoom, Spacja - auto-obrót",
       touch: "Dotyk: szczypanie, aby przybliżyć, przeciągnij, aby obracać, dotknij i przytrzymaj, aby przesunąć",
       dragAndDrop: "Lub przeciągnij i upuść model 3D w oknie viewer'a",
+      helpButtonAria: "Pokaż podpowiedzi dotyczące obsługi",
+      closeAria: "Zamknij",
     },
   },
   de: {
@@ -838,6 +890,8 @@ const VIEWER_I18N = {
       shareView: "Ansicht teilen",
       copyShareView: "Link zur geteilten Ansicht kopieren",
       download: "Herunterladen",
+      uploadModel: "Hochladen & konvertieren",
+      openUploadPanel: "3D-Modell zur Konvertierung hochladen",
     },
     theme: {
       lightMode: "Hellmodus",
@@ -1019,6 +1073,21 @@ const VIEWER_I18N = {
       preview: "Vorschau",
       previewTitle: "Einbettungsvorschau",
     },
+    uploadPanel: {
+      title: "Modell hochladen & konvertieren",
+      closeAria: "Upload-Panel schließen",
+      fileLabel: "3D-Modelldatei",
+      formatsHint: "Unterstützt: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, oder ein .zip-Archiv mit einer dieser Dateien.",
+      submit: "Hochladen & konvertieren",
+      uploading: "Wird hochgeladen...",
+      unsupportedFormat: "Nicht unterstütztes Dateiformat: .{ext}",
+      uploadError: "Upload oder Konvertierung fehlgeschlagen. Bitte erneut versuchen.",
+      previousTitle: "Zuvor generierte Modelle",
+      previousEmpty: "Noch keine zuvor generierten Modelle.",
+      previousLoadError: "Vorherige Modelle konnten nicht geladen werden.",
+      previousDeleteAria: "{name} löschen",
+      previousDeleteConfirm: '"{name}" löschen? Dadurch werden das konvertierte Modell und seine Renderings dauerhaft entfernt.',
+    },
     loadingLog: {
       title: "Protokoll des Ladeprozesses",
       loadingModel: "3D-Modell wird geladen...",
@@ -1092,6 +1161,12 @@ const VIEWER_I18N = {
       invalidManifest: "Ungültiges AIM3D-Manifest.",
       manifestValidationFailed: "AIM3D-Manifestvalidierung fehlgeschlagen.",
 
+      uploadStarted: "Datei empfangen - Modell wird konvertiert...",
+      uploadReady: "Konvertiertes Modell ist bereit.",
+      uploadError: "Upload oder Konvertierung des Modells fehlgeschlagen.",
+      modelDeleted: "Modell wurde gelöscht.",
+      modelDeleteError: "Modell konnte nicht gelöscht werden.",
+
       annotationDataMissing: "Keine Annotationsdaten für diesen Punkt gefunden.",
       selectFaceRequired: "Wählen Sie mindestens eine Fläche aus, um eine Annotation hinzuzufügen.",
       selectFaceRequiredAgain: "Wählen Sie mindestens eine Fläche und führen Sie dann „Annotationen hinzufügen“ erneut aus.",
@@ -1129,10 +1204,13 @@ const VIEWER_I18N = {
       performanceModeSet: "Leistungsmodus auf {mode} gesetzt.",
     },
     shortcuts: {
+      title: "Steuerung",
       mouse: "Maus: ziehen zum Drehen, Mausrad - Zoom, Rechtsklick - Verschieben",
       keyboard: "Tastatur: Pfeile - Drehen, Shift+Pfeile - schneller, Ctrl/Cmd+Pfeile - Verschieben, +/- - Zoom, Leertaste - Auto-Rotation",
       touch: "Touch: Pinch-to-Zoom, ziehen zum Drehen, Doppeltippen und halten zum Verschieben",
       dragAndDrop: "Oder ziehen Sie ein 3D-Modell per Drag-and-drop in den Viewer",
+      helpButtonAria: "Bedienungshinweise anzeigen",
+      closeAria: "Schließen",
     }
   },
 };
@@ -1892,7 +1970,6 @@ async function animateCameraToPose ({
     if (core.cameraTweenToken !== tweenToken) return;
     core.camera.position.copy(endCamPos);
     core.controls?.target.copy(endTarget);
-    core.controls?.update();
     const boxCenter = boundingBox ? boundingBox.getCenter(new THREE.Vector3()) : new THREE.Vector3();
     if (boundingBox) {
       const boxSize = boundingBox.getSize(new THREE.Vector3()).length();
@@ -1904,10 +1981,19 @@ async function animateCameraToPose ({
       core.camera.far  = maxDistance * 10;
       core.camera.updateProjectionMatrix();
 
+      // OrbitControls.update() (below) clamps the camera's distance from
+      // the target to [minDistance, maxDistance] on every call - it has to
+      // run after maxDistance is widened for this model, not before. Doing
+      // it in the other order (as this used to) meant switching from a
+      // small model to a much bigger one called update() while maxDistance
+      // still held the small model's limit, yanking the freshly-fitted,
+      // correctly-distant camera back in until it landed inside the new
+      // (much larger) geometry.
       if (core.controls) {
         core.controls.maxDistance = maxDistance * 2;
       }
     }
+    core.controls?.update();
 
     if (window.Viewer?.urlOptions?.cameraPosition || window.Viewer?.urlOptions?.cameraTarget || Number.isFinite(window.Viewer?.urlOptions?.cameraFov)) {
       // Only reassert position/target/fov here - projection was already resolved
@@ -2412,7 +2498,13 @@ function attachEmbedConfigurator(Viewer) {
     },
 
     getEmbedPageUrl() {
-      const embedUrl = new URL("embed.html", import.meta.url);
+      // "embed.html" is kept out of the literal `new URL(...)` call on purpose:
+      // bundlers (Parcel in particular) statically resolve a literal first
+      // argument as a build-time asset relative to this source file, but
+      // embed.html only ever lives next to the built module at runtime
+      // (dist/<target>/embed.html), not next to viewer/ui/ in source.
+      const embedFileName = "embed.html";
+      const embedUrl = new URL(embedFileName, import.meta.url);
       embedUrl.search = "";
       embedUrl.hash = "";
       return embedUrl;
@@ -2959,405 +3051,114 @@ function attachEmbedConfigurator(Viewer) {
   });
 }
 
-function getGalleryConfig() {
-  return core.CONFIG?.viewer?.gallery || {};
-}
+class StatusPoller {
 
-function getGalleryHost(Viewer, mainElement) {
-  return (
-    Viewer.fileElement?.[0] ||
-    mainElement ||
-    Viewer.container ||
-    core.container ||
-    null
-  );
-}
-
-function removeExistingGalleryDom() {
-  document.getElementById("image-list")?.remove();
-  document.getElementById("modalGallery")?.remove();
-}
-
-function createPlaceholderSvgDataUrl(index, label = "") {
-  const palette = [
-    ["#1f3c88", "#6da3ff"],
-    ["#0f766e", "#6ee7b7"],
-    ["#9a3412", "#fdba74"],
-    ["#5b21b6", "#c4b5fd"],
-  ];
-  const [start, end] = palette[index % palette.length];
-  const title = label || `Preview ${index + 1}`;
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 320">
-      <defs>
-        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="${start}"/>
-          <stop offset="100%" stop-color="${end}"/>
-        </linearGradient>
-      </defs>
-      <rect width="480" height="320" fill="url(#g)"/>
-      <circle cx="92" cy="86" r="34" fill="rgba(255,255,255,0.25)"/>
-      <path d="M48 248l94-98 72 66 66-86 152 118H48z" fill="rgba(255,255,255,0.22)"/>
-      <text x="240" y="164" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#ffffff">${title}</text>
-    </svg>
-  `.trim();
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
-}
-
-function getConfiguredTestImages() {
-  const gallery = getGalleryConfig();
-  const configuredImages = Array.isArray(gallery.testImages) ? gallery.testImages : [];
-  const normalizedImages = configuredImages.map((entry, index) => {
-    if (typeof entry === "string") {
-      const src = normalizeGalleryUrl(entry);
-      return src ? { src, alt: `Preview ${index + 1}` } : null;
-    }
-    if (entry && typeof entry === "object") {
-      const src = normalizeGalleryUrl(entry.src || entry.url || "");
-      if (!src) return null;
-      return {
-        src,
-        alt: String(entry.alt || entry.label || `Preview ${index + 1}`),
-      };
-    }
-    return null;
-  }).filter(Boolean);
-
-  if (normalizedImages.length > 0) {
-    return normalizedImages;
-  }
-
-  return [];
-}
-
-function createDefaultTestImages() {
-  return Array.from({ length: 9 }, (_unused, index) => ({
-    src: createPlaceholderSvgDataUrl(index, `Preview ${index + 1}`),
-    alt: `Preview ${index + 1}`,
-  }));
-}
-
-function createFakeGalleryElements(testImages) {
-  return testImages.map((entry) => {
-    const wrapper = document.createElement("div");
-    wrapper.className = "field__item";
-    wrapper.innerHTML =
-      `<img loading="lazy" src="${entry.src}" width="200px" height="200px" alt="${entry.alt}" class="img-fluid image-style-wisski-preview">`;
-    return wrapper;
-  });
-}
-
-function prepareGalleryImages(Viewer, imageElementsChildren) {
-  imageElementsChildren = imageElementsChildren.filter(function (_image) {
-    if (!(_image instanceof Element)) return false;
-    let rawUrl = "";
-    const img = _image.querySelector("img");
-    const link = _image.querySelector("a");
-    if (img && img.getAttribute("src")) {
-      rawUrl = img.getAttribute("src");
-    } else if (link && link.getAttribute("href")) {
-      rawUrl = link.getAttribute("href");
-    } else {
-      rawUrl = (_image.textContent || _image.innerHTML || "").trim();
+    constructor(id, { forcePoll = false, onUpdate = null } = {}) {
+        this.id=id;
+        this.interval=2000;
+        this.timer=null;
+        this.running=false;
+        // core.isLocalPreview auto-detects true on localhost/LAN hostnames
+        // (see main.js), which is exactly where a standalone worker
+        // deployment is reached - forcePoll lets a caller with a real
+        // backend (no Drupal entity involved) opt out of the "no real API
+        // to poll" assumption baked into isLocalPreview elsewhere below.
+        this.forcePoll = forcePoll === true;
+        this.onUpdate = typeof onUpdate === "function" ? onUpdate : null;
     }
 
-    const normalized = normalizeGalleryUrl(rawUrl);
-    if (!isValidUrl(normalized)) {
-      return false;
+    async start() {
+        if(this.running) return;
+        this.running=true;
+        if (!core.isLocalPreview || this.forcePoll)
+            await this.tick();
+        else {
+            this.map = core.isLocalPreview
+                ? Object.fromEntries(
+                    Object.entries(this.fullMap)
+                        .slice(-3)      // Only keep the last 2 steps for local preview
+                        .map(([k], i) => [k, i])
+                    )
+                : this.fullMap;
+        }
     }
-    _image.innerHTML = normalized;
-    return !!img;
-  });
-  imageElementsChildren.forEach(function (imgLink) {
-    imgLink.innerHTML =
-      '<img loading="lazy" src="' +
-      imgLink.innerHTML +
-      '" width="200px" height="200px" alt="" class="img-fluid image-style-wisski-preview">';
-  });
-  return imageElementsChildren;
-}
 
-function normalizeGalleryUrl(rawUrl) {
-  if (!rawUrl || typeof rawUrl !== "string") {
-    return "";
-  }
-
-  let url = rawUrl.trim();
-  if (url === "") {
-    return "";
-  }
-
-  if (url.startsWith("public://")) {
-    url = "/sites/default/files/" + url.substring("public://".length);
-  } else if (url.startsWith("sites/default/files/")) {
-    url = "/" + url;
-  }
-
-  const base = (core.CONFIG?.mainUrl || window.location.origin || "").replace(/\/+$/, "");
-
-  try {
-    const parsed = new URL(url, window.location.origin);
-    const host = parsed.host || "";
-    const path = parsed.pathname || "";
-    const normalizedHost = host.toLowerCase();
-    const hasBadHost = host.includes("_") || normalizedHost === "default" || normalizedHost === "dfg_3dviewer";
-
-    if (path.startsWith("/sites/default/files/")) {
-      if (hasBadHost) {
-        return `${base}${path}`;
-      }
-      if (parsed.protocol === "http:" || parsed.protocol === "https:") {
-        return parsed.href;
-      }
-      return `${base}${path}`;
+    stop() {
+        this.running=false;
+        if(this.timer) clearTimeout(this.timer);
     }
-    return parsed.href;
-  } catch (_error) {
-    if (url.startsWith("/sites/default/files/")) {
-      return `${base}${url}`;
+    fullMap = {
+        init: 0,
+        preparing: 1,
+        processing: 2,
+        converted: 3,
+        updating: 4,
+        rendering: 4,
+        model_ready: 5,
+        viewer_ready: 6,
+        ready: 6,
+        failed: 7,
+        error: 7,
+    };
+
+    terminalStatuses = new Set(["ready", "viewer_ready", "failed", "error"]);
+
+    map = this.fullMap;
+
+    updateSteps(status) {
+        if(this.map[status]!==undefined) {
+            UltraLoader.step(this.map[status]);
+        }
+
     }
-    return url;
-  }
-}
 
-function handleImages(Viewer, mainElement, imageElements, imageElementsChildren) {
-  if (imageElementsChildren === undefined) {
-    imageElementsChildren = imageElements;
-  }
-  removeExistingGalleryDom();
-  var imageList = document.createElement("div");
-  imageList.setAttribute("id", "image-list");
-  imageList.style.display = "flex";
-  imageList.style.flexWrap = "wrap";
-  imageList.style.gap = "16px";
-  imageList.style.alignItems = "center";
-  var modalGallery = document.createElement("div");
-  var modalImage = document.createElement("img");
-  var modalPrev = document.createElement("button");
-  var modalNext = document.createElement("button");
-  const galleryImageSources = [];
-  let currentGalleryIndex = -1;
-  modalImage.setAttribute("class", "modalImage");
-  modalImage.style.transform = "scale(0.95)";
-  Viewer.bindEventListener(modalGallery, "wheel", function (e) {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.deltaY > 0 && Viewer.zoomImage > 0.15) {
-      modalImage.style.transform = `scale(${(Viewer.zoomImage -= Viewer.ZOOM_SPEED_IMAGE)})`;
-    } else if (e.deltaY < 0 && Viewer.zoomImage < 5) {
-      modalImage.style.transform = `scale(${(Viewer.zoomImage += Viewer.ZOOM_SPEED_IMAGE)})`;
+    async tick() {
+        if(!this.running || (core.isLocalPreview && !this.forcePoll)) return;
+
+        try {
+            const r=await fetch(`/api/model/status/${this.id}`, {
+                cache:"no-store"
+            });
+
+            if(!r.ok){
+                throw new Error("API error");
+            }
+
+            const data=await r.json();
+            this.onUpdate?.(data);
+
+            if(data.status==="error") {
+                UltraLoader.error(data.message || "Processing failed");
+                this.stop();
+                localStorage.removeItem("processing_model_id");
+                return;
+            }
+
+            UltraLoader.set(data.progress);
+
+            this.updateSteps(data.status);
+
+            if(this.terminalStatuses.has(data.status)) {
+                if (data.status==="ready" || data.status==="viewer_ready") {
+                    UltraLoader.finish("3D Viewer is ready");
+                }
+                else {
+                    UltraLoader.finish("Failed processing the model");
+                }
+                this.stop();
+                localStorage.removeItem("processing_model_id");
+                return;
+            }
+        }
+        catch(e){
+            if (!core.isLocalPreview || this.forcePoll) {
+                UltraLoader.error("Connection error");
+                this.stop();
+            }
+        }
+        this.timer=setTimeout(()=>this.tick(),this.interval);
     }
-    return false;
-  });
-  var modalClose = document.createElement("span");
-  modalGallery.setAttribute("id", "modalGallery");
-  modalGallery.setAttribute("class", "modalGallery");
-  modalClose.setAttribute("class", "closeGallery");
-  modalClose.setAttribute("title", "Close");
-  modalClose.innerHTML = "&times";
-  modalPrev.setAttribute("type", "button");
-  modalPrev.setAttribute("class", "galleryNav galleryNavPrev");
-  modalPrev.setAttribute("title", "Previous image");
-  modalPrev.setAttribute("aria-label", "Previous image");
-  modalPrev.innerHTML =
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 5.3a1 1 0 0 1 0 1.4L9.41 12l5.3 5.3a1 1 0 1 1-1.42 1.4l-6-6a1 1 0 0 1 0-1.4l6-6a1 1 0 0 1 1.41 0Z"/></svg>';
-  modalNext.setAttribute("type", "button");
-  modalNext.setAttribute("class", "galleryNav galleryNavNext");
-  modalNext.setAttribute("title", "Next image");
-  modalNext.setAttribute("aria-label", "Next image");
-  modalNext.innerHTML =
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.3 18.7a1 1 0 0 1 0-1.4l5.29-5.3-5.3-5.3a1 1 0 1 1 1.42-1.4l6 6a1 1 0 0 1 0 1.4l-6 6a1 1 0 0 1-1.41 0Z"/></svg>';
 
-  const showGalleryImageAtIndex = function (index) {
-    if (galleryImageSources.length === 0) {
-      return;
-    }
-    const normalizedIndex =
-      (index + galleryImageSources.length) % galleryImageSources.length;
-    currentGalleryIndex = normalizedIndex;
-    modalImage.src = galleryImageSources[normalizedIndex];
-  };
-
-  const openModalGalleryAtIndex = function (index) {
-    showGalleryImageAtIndex(index);
-    modalGallery.classList.add("is-open");
-    imageList.style.zIndex = 0;
-    imageList.style.display = "hidden";
-  };
-
-  const closeModalGallery = function () {
-    modalGallery.classList.remove("is-open");
-    Viewer.zoomImage = 1.5;
-    modalImage.style.transform = "scale(1.5)";
-  };
-
-  modalClose.onclick = function () {
-    closeModalGallery();
-  };
-
-  modalPrev.onclick = function (event) {
-    event.preventDefault();
-    event.stopPropagation();
-    showGalleryImageAtIndex(currentGalleryIndex - 1);
-  };
-
-  modalNext.onclick = function (event) {
-    event.preventDefault();
-    event.stopPropagation();
-    showGalleryImageAtIndex(currentGalleryIndex + 1);
-  };
-
-  Viewer.bindEventListener(modalGallery, "click", function (event) {
-    if (event.target === modalGallery) {
-      closeModalGallery();
-    }
-  });
-
-  Viewer.bindEventListener(document, "click", function (event) {
-    if (
-      !modalGallery.contains(event.target) &&
-      !imageList.contains(event.target)
-    ) {
-      closeModalGallery();
-    }
-  });
-
-  Viewer.bindEventListener(document, "keydown", function (event) {
-    if (!modalGallery.classList.contains("is-open")) {
-      return;
-    }
-    if (event.key === "ArrowLeft") {
-      event.preventDefault();
-      showGalleryImageAtIndex(currentGalleryIndex - 1);
-    } else if (event.key === "ArrowRight") {
-      event.preventDefault();
-      showGalleryImageAtIndex(currentGalleryIndex + 1);
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-      closeModalGallery();
-    }
-  });
-
-  modalGallery.appendChild(modalPrev);
-  modalGallery.appendChild(modalImage);
-  modalGallery.appendChild(modalNext);
-  modalGallery.appendChild(modalClose);
-  for (let i = 0; imageElementsChildren.length - i >= 0; i++) {
-    if (
-      imageElementsChildren[i] !== undefined &&
-      imageElementsChildren[i].innerHTML !== undefined
-    ) {
-      var imgList = imageElementsChildren[i].getElementsByTagName("a");
-      for (let j = 0; j < imgList.length; j++) {
-        imgList[j].setAttribute("href", "#");
-        imgList[j].setAttribute("src", imgList[j].firstChild.src);
-        imgList[j].setAttribute("class", "image-list-item");
-      }
-      imgList = imageElementsChildren[i].getElementsByTagName("img");
-      if (imgList.length == 1) {
-        imgList[0].style.maxWidth = "fit-content";
-        imgList[0].style.maxHeight = "180px";
-      }
-      for (let j = 0; j < imgList.length; j++) {
-        const nextIndex = galleryImageSources.push(imgList[j].src) - 1;
-        imgList[j].onclick = function () {
-          openModalGalleryAtIndex(nextIndex);
-        };
-      }
-      if (imageElementsChildren[i] instanceof HTMLElement) {
-        imageElementsChildren[i].style.display = "block";
-      }
-      imageList.appendChild(imageElementsChildren[i]);
-    }
-  }
-  if (
-    imageList &&
-    imageList.childNodes.length > 0 &&
-    getGalleryHost(Viewer, mainElement)
-  ) {
-    const galleryHost = getGalleryHost(Viewer, mainElement);
-    galleryHost.insertAdjacentElement("beforebegin", modalGallery);
-    galleryHost.insertAdjacentElement("beforebegin", imageList);
-  }
-}
-
-function buildThumbnailGallery(Viewer) {
-  const gallery = getGalleryConfig();
-  var mainElement = gallery.container
-    ? document.getElementById(gallery.container)
-    : null;
-  var imageElements;
-  if (gallery.imageClass !== "") {
-    imageElements = document.getElementsByClassName(
-      gallery.imageClass
-    );
-    if (imageElements.length === 0) {
-      const fallbackFields = document.querySelectorAll(
-        ".field--type-image"
-      );
-      if (fallbackFields.length > 0) {
-        imageElements = fallbackFields;
-        console.warn(
-          "Gallery imageClass not found, falling back to .field--type-image."
-        );
-      }
-    }
-    if (imageElements.length > 0) {
-      var galleryLabel = document.getElementsByClassName("field__label");
-      if (galleryLabel !== undefined && galleryLabel.length > 0) {
-        galleryLabel[0].innerText = "";
-      }
-    }
-  } else if (gallery.imageId !== "") {
-    imageElements = document.getElementById(gallery.imageId);
-  }
-
-  if (imageElements != null) {
-    if (imageElements.length > 0) {
-      if (imageElements[0].innerHTML !== undefined) {
-        let imagesList = Array.from(
-          imageElements[0].getElementsByClassName("field__items")[0]
-            .childNodes
-        );
-        imagesList = prepareGalleryImages(Viewer, imagesList);
-        imageElements[0].classList.add("field--label-hidden");
-        //imageElements[0].classList.add("field__items");
-        handleImages(Viewer, mainElement, imagesList, imagesList);
-      } else {
-        handleImages(Viewer, mainElement, imageElements);
-      }
-    } else if (
-      imageElements.childNodes !== undefined &&
-      imageElements.childNodes.length > 0
-    ) {
-      if (
-        typeof imageElements.childNodes[0].innerHTML == "string" ||
-        typeof imageElements.childNodes[1].innerHTML == "string"
-      ) {
-        let imagesList = Array.from(imageElements.childNodes);
-        imagesList = prepareGalleryImages(Viewer, imagesList);
-        imageElements.classList.add("field--type-image");
-        imageElements.classList.add("field--label-hidden");
-        //imageElements.classList.add("field__items");
-        handleImages(Viewer, mainElement, imagesList, imageElements);
-      } else {
-        handleImages(Viewer, mainElement, imageElements);
-      }
-    }
-  }
-
-  if (core.CONFIG?.viewer?.gallery?.buildFake === true) {
-    const testImages = getConfiguredTestImages();
-    const fallbackImages = testImages.length > 0 ? testImages : createDefaultTestImages();
-    if (gallery.build === true) {
-      const fakeImages = createFakeGalleryElements(fallbackImages);
-      handleImages(Viewer, mainElement, fakeImages, fakeImages);
-      console.log("Built fallback thumbnail gallery for local testing");
-      return;
-    }
-  }
-
-  console.log("No gallery source found");
 }
 
 const UltraLoader$1 = {
@@ -3517,6 +3318,848 @@ const UltraLoader$1 = {
 };
 
 window.UltraLoader=UltraLoader$1;
+
+// Mirrors the case-branches scripts/convert.sh actually handles, plus the
+// .zip archive support the standalone worker (worker/server.py) adds on top
+// of it - see worker/README.md.
+const SUPPORTED_EXTENSIONS = ["abc", "dae", "fbx", "obj", "ply", "stl", "wrl", "x3d", "ifc", "blend", "gml", "glb", "zip"];
+
+function attachUploadPanel(Viewer) {
+  Object.assign(Viewer, {
+    isUploadPanelOpen() {
+      return this.uploadPanel?.hidden === false;
+    },
+
+    updateUploadMenuEntryState() {
+      if (!this.uploadModel) return;
+      // Icon-only, matching #example-theme-toggle's compact footprint next
+      // to the model picker - the full label lives in aria-label/title
+      // instead of visible text.
+      this.uploadModel.innerHTML = `<span class="upload-model-icon" aria-hidden="true"></span>`;
+      const a11yLabel = t$1("menu.openUploadPanel", "Upload a 3D model for conversion");
+      this.uploadModel.setAttribute("aria-label", a11yLabel);
+      this.uploadModel.setAttribute("title", a11yLabel);
+    },
+
+    openUploadPanel(event) {
+      this.createUploadPanel();
+      this.toggleUploadPanel(event);
+    },
+
+    toggleUploadPanel(event) {
+      event?.preventDefault?.();
+      this.closeActionMenu();
+      if (!this.uploadPanel) return;
+      const willShow = this.uploadPanel.hidden === true;
+      this.uploadPanel.hidden = !willShow;
+      if (willShow) {
+        this.resetUploadPanelState();
+        this.loadPreviousModelsList();
+      }
+    },
+
+    closeUploadPanel() {
+      if (this.uploadPanel) {
+        this.uploadPanel.hidden = true;
+      }
+    },
+
+    resetUploadPanelState() {
+      if (!this.uploadInputs) return;
+      this.uploadInputs.file.value = "";
+      this.uploadInputs.submit.disabled = false;
+      this.setUploadStatusText("");
+    },
+
+    setUploadStatusText(message, tone = "info") {
+      if (!this.uploadInputs?.status) return;
+      this.uploadInputs.status.textContent = message;
+      this.uploadInputs.status.dataset.tone = tone;
+    },
+
+    createUploadPanel() {
+      if (!core.container || this.uploadPanel) return;
+
+      const panelText = {
+        title: t$1("uploadPanel.title", "Upload & convert model"),
+        closeAria: t$1("uploadPanel.closeAria", "Close upload panel"),
+        fileLabel: t$1("uploadPanel.fileLabel", "3D model file"),
+        formatsHint: t$1(
+          "uploadPanel.formatsHint",
+          "Supported: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, or a .zip archive containing one of these."
+        ),
+        submit: t$1("uploadPanel.submit", "Upload & convert"),
+        previousTitle: t$1("uploadPanel.previousTitle", "Previously generated models"),
+      };
+
+      const panel = document.createElement("div");
+      panel.id = "uploadModelPanel";
+      panel.hidden = true;
+      panel.innerHTML = `
+        <div class="upload-panel-header">
+          <span>${panelText.title}</span>
+          <button id="uploadPanelClose" type="button" aria-label="${panelText.closeAria}">X</button>
+        </div>
+        <form id="uploadPanelForm" class="upload-panel-body">
+          <label class="upload-panel-field">${panelText.fileLabel}
+            <input id="uploadPanelFileInput" type="file" accept=".abc,.dae,.fbx,.obj,.ply,.stl,.wrl,.x3d,.ifc,.blend,.gml,.glb,.zip" required />
+          </label>
+          <p class="upload-panel-hint">${panelText.formatsHint}</p>
+          <div class="upload-panel-actions">
+            <button id="uploadPanelSubmit" type="submit">${panelText.submit}</button>
+          </div>
+          <p id="uploadPanelStatus" class="upload-panel-status" role="status" aria-live="polite"></p>
+        </form>
+        <div class="upload-panel-previous">
+          <div class="upload-panel-previous-title">${panelText.previousTitle}</div>
+          <ul id="uploadPanelPreviousList" class="upload-panel-previous-list"></ul>
+        </div>
+      `;
+
+      core.container.appendChild(panel);
+      this.uploadPanel = panel;
+      this.uploadInputs = {
+        file: panel.querySelector("#uploadPanelFileInput"),
+        submit: panel.querySelector("#uploadPanelSubmit"),
+        status: panel.querySelector("#uploadPanelStatus"),
+      };
+      this.uploadPreviousList = panel.querySelector("#uploadPanelPreviousList");
+
+      const form = panel.querySelector("#uploadPanelForm");
+      const closeButton = panel.querySelector("#uploadPanelClose");
+
+      this.bindEventListener(form, "submit", (event) => this.handleUploadSubmit(event));
+      this.bindEventListener(closeButton, "click", () => this.closeUploadPanel());
+    },
+
+    async loadPreviousModelsList() {
+      if (!this.uploadPreviousList) return;
+      const list = this.uploadPreviousList;
+      list.textContent = "";
+
+      let jobs = [];
+      try {
+        const response = await fetch("/api/jobs");
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        jobs = Array.isArray(data.jobs) ? data.jobs : [];
+      } catch (error) {
+        this.reportError(error, { context: "Failed to load previous models list" });
+        const errorItem = document.createElement("li");
+        errorItem.className = "upload-panel-previous-empty";
+        errorItem.textContent = t$1("uploadPanel.previousLoadError", "Could not load previous models.");
+        list.appendChild(errorItem);
+        return;
+      }
+
+      if (jobs.length === 0) {
+        const emptyItem = document.createElement("li");
+        emptyItem.className = "upload-panel-previous-empty";
+        emptyItem.textContent = t$1("uploadPanel.previousEmpty", "No previously generated models yet.");
+        list.appendChild(emptyItem);
+        return;
+      }
+
+      jobs.forEach((job) => {
+        const name = job.name || job.id;
+        const item = document.createElement("li");
+        item.className = "upload-panel-previous-row";
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "upload-panel-previous-item";
+        button.title = name;
+
+        if (job.imageUrls?.[0]) {
+          const thumb = document.createElement("img");
+          thumb.src = job.imageUrls[0];
+          thumb.alt = "";
+          thumb.loading = "lazy";
+          button.appendChild(thumb);
+        }
+
+        const label = document.createElement("span");
+        label.textContent = name;
+        button.appendChild(label);
+
+        this.bindEventListener(button, "click", () => this.loadPreviousModel(job));
+        item.appendChild(button);
+
+        const deleteButton = document.createElement("button");
+        deleteButton.type = "button";
+        deleteButton.className = "upload-panel-previous-delete";
+        deleteButton.textContent = "✕";
+        const deleteAria = t$1("uploadPanel.previousDeleteAria", { name }, "Delete {name}");
+        deleteButton.setAttribute("aria-label", deleteAria);
+        deleteButton.title = deleteAria;
+        this.bindEventListener(deleteButton, "click", (event) => {
+          event.stopPropagation();
+          this.deletePreviousModel(job, item);
+        });
+        item.appendChild(deleteButton);
+
+        list.appendChild(item);
+      });
+    },
+
+    async deletePreviousModel(job, item) {
+      if (!job?.id) return;
+      const name = job.name || job.id;
+      const confirmed = window.confirm(
+        t$1(
+          "uploadPanel.previousDeleteConfirm",
+          { name },
+          'Delete "{name}"? This permanently removes the converted model and its renders.'
+        )
+      );
+      if (!confirmed) return;
+
+      try {
+        const response = await fetch(`/api/jobs/${encodeURIComponent(job.id)}`, { method: "DELETE" });
+        if (!response.ok && response.status !== 404) {
+          throw new Error(`Delete failed (HTTP ${response.status})`);
+        }
+        item.remove();
+        if (this.uploadPreviousList && this.uploadPreviousList.children.length === 0) {
+          const emptyItem = document.createElement("li");
+          emptyItem.className = "upload-panel-previous-empty";
+          emptyItem.textContent = t$1("uploadPanel.previousEmpty", "No previously generated models yet.");
+          this.uploadPreviousList.appendChild(emptyItem);
+        }
+        toastHelper("modelDeleted", "info");
+      } catch (error) {
+        this.reportError(error, { context: "Failed to delete previous model" });
+        toastHelper("modelDeleteError", "error");
+      }
+    },
+
+    async loadPreviousModel(job) {
+      if (!job?.modelUrl) return;
+      this.closeUploadPanel();
+      core.autoPath = job.modelUrl;
+      this.resetLoadedModelState();
+      await this.mainLoadModelWrapper();
+
+      const galleryCfg = core.CONFIG.viewer?.gallery;
+      if (
+        Array.isArray(job.imageUrls) &&
+        job.imageUrls.length > 0 &&
+        (galleryCfg?.build === true || galleryCfg?.buildFake === true) &&
+        !core.SANDBOX_MODE &&
+        !this.isEmbedMode()
+      ) {
+        this.renderModelGalleryImages(job.imageUrls);
+      }
+    },
+
+    async handleUploadSubmit(event) {
+      event.preventDefault();
+      const file = this.uploadInputs?.file?.files?.[0];
+      if (!file) return;
+
+      const extension = (file.name.split(".").pop() || "").toLowerCase();
+      if (!SUPPORTED_EXTENSIONS.includes(extension)) {
+        this.setUploadStatusText(
+          t$1("uploadPanel.unsupportedFormat", { ext: extension }, "Unsupported file format: .{ext}"),
+          "error"
+        );
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      this.uploadInputs.submit.disabled = true;
+      this.setUploadStatusText(t$1("uploadPanel.uploading", "Uploading..."), "info");
+
+      try {
+        const response = await fetch("/api/model/create", { method: "POST", body: formData });
+        if (!response.ok) {
+          throw new Error(`Upload failed (HTTP ${response.status})`);
+        }
+        const data = await response.json();
+        const jobId = data.entity_id;
+        if (!jobId) {
+          throw new Error("No job id returned by the conversion service.");
+        }
+
+        this.closeUploadPanel();
+        toastHelper("uploadStarted", "info");
+
+        UltraLoader$1.start(this.getProcessingLoadingSteps());
+        const poller = new StatusPoller(jobId, {
+          forcePoll: true,
+          onUpdate: (statusData) => this.handleUploadStatusUpdate(statusData),
+        });
+        poller.start();
+      } catch (error) {
+        this.reportError(error, { context: "Model upload failed" });
+        this.setUploadStatusText(t$1("uploadPanel.uploadError", "Upload failed. Please try again."), "error");
+        toastHelper("uploadError", "error");
+      } finally {
+        if (this.uploadInputs?.submit) {
+          this.uploadInputs.submit.disabled = false;
+        }
+      }
+    },
+
+    async handleUploadStatusUpdate(data) {
+      if (!data) return;
+      if (data.status === "ready" && data.modelUrl) {
+        toastHelper("uploadReady", "success");
+        core.autoPath = data.modelUrl;
+        this.resetLoadedModelState();
+        await this.mainLoadModelWrapper();
+
+        // Mirrors the same gate the example-model switch uses before
+        // rebuilding the gallery (see main.js) - the worker's own thumbnails
+        // (imageUrls) are the correct source here regardless of build vs
+        // buildFake, since there is no Drupal field markup to read in a
+        // standalone deployment.
+        const galleryCfg = core.CONFIG.viewer?.gallery;
+        if (
+          Array.isArray(data.imageUrls) &&
+          data.imageUrls.length > 0 &&
+          (galleryCfg?.build === true || galleryCfg?.buildFake === true) &&
+          !core.SANDBOX_MODE &&
+          !this.isEmbedMode()
+        ) {
+          this.renderModelGalleryImages(data.imageUrls);
+        }
+      } else if (data.status === "failed" || data.status === "error") {
+        toastHelper("uploadError", "error");
+      }
+    },
+  });
+}
+
+function getGalleryConfig() {
+  return core.CONFIG?.viewer?.gallery || {};
+}
+
+function getGalleryHost(Viewer, mainElement) {
+  return (
+    Viewer.fileElement?.[0] ||
+    mainElement ||
+    Viewer.container ||
+    core.container ||
+    null
+  );
+}
+
+function removeExistingGalleryDom() {
+  document.getElementById("image-list")?.remove();
+  document.getElementById("modalGallery")?.remove();
+}
+
+function createPlaceholderSvgDataUrl(index, label = "") {
+  const palette = [
+    ["#1f3c88", "#6da3ff"],
+    ["#0f766e", "#6ee7b7"],
+    ["#9a3412", "#fdba74"],
+    ["#5b21b6", "#c4b5fd"],
+  ];
+  const [start, end] = palette[index % palette.length];
+  const title = label || `Preview ${index + 1}`;
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 320">
+      <defs>
+        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="${start}"/>
+          <stop offset="100%" stop-color="${end}"/>
+        </linearGradient>
+      </defs>
+      <rect width="480" height="320" fill="url(#g)"/>
+      <circle cx="92" cy="86" r="34" fill="rgba(255,255,255,0.25)"/>
+      <path d="M48 248l94-98 72 66 66-86 152 118H48z" fill="rgba(255,255,255,0.22)"/>
+      <text x="240" y="164" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#ffffff">${title}</text>
+    </svg>
+  `.trim();
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function getConfiguredTestImages() {
+  const gallery = getGalleryConfig();
+  const configuredImages = Array.isArray(gallery.testImages) ? gallery.testImages : [];
+  const normalizedImages = configuredImages.map((entry, index) => {
+    if (typeof entry === "string") {
+      const src = normalizeGalleryUrl(entry);
+      return src ? { src, alt: `Preview ${index + 1}` } : null;
+    }
+    if (entry && typeof entry === "object") {
+      const src = normalizeGalleryUrl(entry.src || entry.url || "");
+      if (!src) return null;
+      return {
+        src,
+        alt: String(entry.alt || entry.label || `Preview ${index + 1}`),
+      };
+    }
+    return null;
+  }).filter(Boolean);
+
+  if (normalizedImages.length > 0) {
+    return normalizedImages;
+  }
+
+  return [];
+}
+
+function createDefaultTestImages() {
+  return Array.from({ length: 9 }, (_unused, index) => ({
+    src: createPlaceholderSvgDataUrl(index, `Preview ${index + 1}`),
+    alt: `Preview ${index + 1}`,
+  }));
+}
+
+const GALLERY_RENDER_ANGLES = ["0", "45", "90", "135", "180", "225", "270", "315"];
+
+// scripts/render.py writes a 9-shot turntable per source file into
+// viewer/examples/gallery/<filename>/<basename>_side<angle>.png (+ _top.png),
+// named after that same file's own filename/basename - see core.fileObject,
+// set from the currently loaded model's path in main.js. Deriving the path
+// this way means a freshly rendered example picks up its own thumbnails
+// automatically, with no config file to keep in sync per model.
+function getPerModelGalleryImages() {
+  const filename = core.fileObject?.filename;
+  const basename = core.fileObject?.basename;
+  if (!filename || !basename) return [];
+
+  const images = GALLERY_RENDER_ANGLES.map((angle) => ({
+    src: normalizeGalleryUrl(`examples/gallery/${filename}/${basename}_side${angle}.png`),
+    alt: `${basename} - ${angle}°`,
+  }));
+  images.push({
+    src: normalizeGalleryUrl(`examples/gallery/${filename}/${basename}_top.png`),
+    alt: `${basename} - top`,
+  });
+  return images.filter((img) => img.src);
+}
+
+function probeImageExists(src) {
+  return new Promise((resolve) => {
+    if (!src) {
+      resolve(false);
+      return;
+    }
+    const probe = new Image();
+    probe.onload = () => resolve(true);
+    probe.onerror = () => resolve(false);
+    probe.src = src;
+  });
+}
+
+function createFakeGalleryElements(testImages) {
+  return testImages.map((entry) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "field__item";
+    wrapper.innerHTML =
+      `<img loading="lazy" src="${entry.src}" width="200px" height="200px" alt="${entry.alt}" class="img-fluid image-style-wisski-preview">`;
+    return wrapper;
+  });
+}
+
+function prepareGalleryImages(Viewer, imageElementsChildren) {
+  imageElementsChildren = imageElementsChildren.filter(function (_image) {
+    if (!(_image instanceof Element)) return false;
+    let rawUrl = "";
+    const img = _image.querySelector("img");
+    const link = _image.querySelector("a");
+    if (img && img.getAttribute("src")) {
+      rawUrl = img.getAttribute("src");
+    } else if (link && link.getAttribute("href")) {
+      rawUrl = link.getAttribute("href");
+    } else {
+      rawUrl = (_image.textContent || _image.innerHTML || "").trim();
+    }
+
+    const normalized = normalizeGalleryUrl(rawUrl);
+    if (!isValidUrl(normalized)) {
+      return false;
+    }
+    _image.innerHTML = normalized;
+    return !!img;
+  });
+  imageElementsChildren.forEach(function (imgLink) {
+    imgLink.innerHTML =
+      '<img loading="lazy" src="' +
+      imgLink.innerHTML +
+      '" width="200px" height="200px" alt="" class="img-fluid image-style-wisski-preview">';
+  });
+  return imageElementsChildren;
+}
+
+function normalizeGalleryUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== "string") {
+    return "";
+  }
+
+  let url = rawUrl.trim();
+  if (url === "") {
+    return "";
+  }
+
+  if (url.startsWith("public://")) {
+    url = "/sites/default/files/" + url.substring("public://".length);
+  } else if (url.startsWith("sites/default/files/")) {
+    url = "/" + url;
+  }
+
+  const base = (core.CONFIG?.mainUrl || window.location.origin || "").replace(/\/+$/, "");
+
+  try {
+    const parsed = new URL(url, window.location.origin);
+    const host = parsed.host || "";
+    const path = parsed.pathname || "";
+    const normalizedHost = host.toLowerCase();
+    const hasBadHost = host.includes("_") || normalizedHost === "default" || normalizedHost === "dfg_3dviewer";
+
+    if (path.startsWith("/sites/default/files/")) {
+      if (hasBadHost) {
+        return `${base}${path}`;
+      }
+      if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+        return parsed.href;
+      }
+      return `${base}${path}`;
+    }
+    return parsed.href;
+  } catch (_error) {
+    if (url.startsWith("/sites/default/files/")) {
+      return `${base}${url}`;
+    }
+    return url;
+  }
+}
+
+// Swaps the thumbnail shimmer placeholder for the real image once it has
+// finished loading (or failed), covering both the still-loading case and
+// images that are already cached and complete by the time this runs.
+function markThumbnailLoaded(img, container) {
+  const markLoaded = () => {
+    img.classList.add("is-loaded");
+    if (container instanceof HTMLElement) {
+      container.classList.add("is-loaded");
+    }
+  };
+  if (img.complete && img.naturalWidth > 0) {
+    markLoaded();
+  } else {
+    img.addEventListener("load", markLoaded, { once: true });
+    img.addEventListener("error", markLoaded, { once: true });
+  }
+}
+
+function handleImages(Viewer, mainElement, imageElements, imageElementsChildren) {
+  if (imageElementsChildren === undefined) {
+    imageElementsChildren = imageElements;
+  }
+  removeExistingGalleryDom();
+  var imageList = document.createElement("div");
+  imageList.setAttribute("id", "image-list");
+  imageList.style.display = "flex";
+  imageList.style.flexWrap = "wrap";
+  imageList.style.gap = "16px";
+  imageList.style.alignItems = "center";
+  var modalGallery = document.createElement("div");
+  var modalImageWrap = document.createElement("div");
+  var modalImage = document.createElement("img");
+  var modalPrev = document.createElement("button");
+  var modalNext = document.createElement("button");
+  var modalCounter = document.createElement("span");
+  const galleryImageSources = [];
+  const galleryThumbEls = [];
+  let currentGalleryIndex = -1;
+  modalImageWrap.setAttribute("class", "modalImageWrap");
+  modalCounter.setAttribute("class", "galleryCounter");
+  modalImage.setAttribute("class", "modalImage");
+  // Start from whatever zoom the user last left the gallery at (Viewer.zoomImage
+  // persists on the Viewer instance across images and across open/close), so a
+  // fresh build still reflects the remembered zoom instead of always resetting.
+  modalImage.style.transform = `scale(${Viewer.zoomImage})`;
+  Viewer.bindEventListener(modalGallery, "wheel", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.deltaY > 0 && Viewer.zoomImage > 0.15) {
+      modalImage.style.transform = `scale(${(Viewer.zoomImage -= Viewer.ZOOM_SPEED_IMAGE)})`;
+    } else if (e.deltaY < 0 && Viewer.zoomImage < 5) {
+      modalImage.style.transform = `scale(${(Viewer.zoomImage += Viewer.ZOOM_SPEED_IMAGE)})`;
+    }
+    return false;
+  });
+  var modalClose = document.createElement("span");
+  modalGallery.setAttribute("id", "modalGallery");
+  modalGallery.setAttribute("class", "modalGallery");
+  modalClose.setAttribute("class", "closeGallery");
+  modalClose.setAttribute("title", "Close");
+  modalClose.innerHTML = "&times";
+  modalPrev.setAttribute("type", "button");
+  modalPrev.setAttribute("class", "galleryNav galleryNavPrev");
+  modalPrev.setAttribute("title", "Previous image");
+  modalPrev.setAttribute("aria-label", "Previous image");
+  modalPrev.innerHTML =
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 5.3a1 1 0 0 1 0 1.4L9.41 12l5.3 5.3a1 1 0 1 1-1.42 1.4l-6-6a1 1 0 0 1 0-1.4l6-6a1 1 0 0 1 1.41 0Z"/></svg>';
+  modalNext.setAttribute("type", "button");
+  modalNext.setAttribute("class", "galleryNav galleryNavNext");
+  modalNext.setAttribute("title", "Next image");
+  modalNext.setAttribute("aria-label", "Next image");
+  modalNext.innerHTML =
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.3 18.7a1 1 0 0 1 0-1.4l5.29-5.3-5.3-5.3a1 1 0 1 1 1.42-1.4l6 6a1 1 0 0 1 0 1.4l-6 6a1 1 0 0 1-1.41 0Z"/></svg>';
+
+  const showGalleryImageAtIndex = function (index) {
+    if (galleryImageSources.length === 0) {
+      return;
+    }
+    const normalizedIndex =
+      (index + galleryImageSources.length) % galleryImageSources.length;
+    if (galleryThumbEls[currentGalleryIndex]) {
+      galleryThumbEls[currentGalleryIndex].classList.remove("is-active-thumb");
+    }
+    currentGalleryIndex = normalizedIndex;
+    modalImage.src = galleryImageSources[normalizedIndex];
+    modalCounter.textContent = `${normalizedIndex + 1} / ${galleryImageSources.length}`;
+    if (galleryThumbEls[normalizedIndex]) {
+      galleryThumbEls[normalizedIndex].classList.add("is-active-thumb");
+    }
+  };
+
+  const openModalGalleryAtIndex = function (index) {
+    showGalleryImageAtIndex(index);
+    modalGallery.classList.add("is-open");
+    imageList.style.zIndex = 0;
+    imageList.style.display = "hidden";
+  };
+
+  const closeModalGallery = function () {
+    modalGallery.classList.remove("is-open");
+    if (galleryThumbEls[currentGalleryIndex]) {
+      galleryThumbEls[currentGalleryIndex].classList.remove("is-active-thumb");
+    }
+    // Intentionally leave Viewer.zoomImage / modalImage's transform as-is so the
+    // zoom level the user scrolled to carries over to the next image and the
+    // next time the gallery is opened, instead of snapping back to a default.
+  };
+
+  modalClose.onclick = function () {
+    closeModalGallery();
+  };
+
+  modalPrev.onclick = function (event) {
+    event.preventDefault();
+    event.stopPropagation();
+    showGalleryImageAtIndex(currentGalleryIndex - 1);
+  };
+
+  modalNext.onclick = function (event) {
+    event.preventDefault();
+    event.stopPropagation();
+    showGalleryImageAtIndex(currentGalleryIndex + 1);
+  };
+
+  Viewer.bindEventListener(modalGallery, "click", function (event) {
+    if (event.target === modalGallery) {
+      closeModalGallery();
+    }
+  });
+
+  Viewer.bindEventListener(document, "click", function (event) {
+    if (
+      !modalGallery.contains(event.target) &&
+      !imageList.contains(event.target)
+    ) {
+      closeModalGallery();
+    }
+  });
+
+  Viewer.bindEventListener(document, "keydown", function (event) {
+    if (!modalGallery.classList.contains("is-open")) {
+      return;
+    }
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      showGalleryImageAtIndex(currentGalleryIndex - 1);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      showGalleryImageAtIndex(currentGalleryIndex + 1);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      closeModalGallery();
+    }
+  });
+
+  modalImageWrap.appendChild(modalImage);
+  modalGallery.appendChild(modalPrev);
+  modalGallery.appendChild(modalImageWrap);
+  modalGallery.appendChild(modalNext);
+  modalGallery.appendChild(modalCounter);
+  modalGallery.appendChild(modalClose);
+  for (let i = 0; imageElementsChildren.length - i >= 0; i++) {
+    if (
+      imageElementsChildren[i] !== undefined &&
+      imageElementsChildren[i].innerHTML !== undefined
+    ) {
+      var imgList = imageElementsChildren[i].getElementsByTagName("a");
+      for (let j = 0; j < imgList.length; j++) {
+        imgList[j].setAttribute("href", "#");
+        imgList[j].setAttribute("src", imgList[j].firstChild.src);
+        imgList[j].setAttribute("class", "image-list-item");
+      }
+      imgList = imageElementsChildren[i].getElementsByTagName("img");
+      if (imgList.length == 1) {
+        imgList[0].style.maxWidth = "fit-content";
+        imgList[0].style.maxHeight = "180px";
+      }
+      for (let j = 0; j < imgList.length; j++) {
+        const nextIndex = galleryImageSources.push(imgList[j].src) - 1;
+        const thumbContainer =
+          imgList[j].closest(".field__item") || imageElementsChildren[i];
+        galleryThumbEls[nextIndex] = thumbContainer;
+        imgList[j].onclick = function () {
+          openModalGalleryAtIndex(nextIndex);
+        };
+        markThumbnailLoaded(imgList[j], thumbContainer);
+      }
+      if (imageElementsChildren[i] instanceof HTMLElement) {
+        imageElementsChildren[i].style.display = "block";
+      }
+      imageList.appendChild(imageElementsChildren[i]);
+    }
+  }
+  if (
+    imageList &&
+    imageList.childNodes.length > 0 &&
+    getGalleryHost(Viewer, mainElement)
+  ) {
+    const galleryHost = getGalleryHost(Viewer, mainElement);
+    galleryHost.insertAdjacentElement("beforebegin", modalGallery);
+    galleryHost.insertAdjacentElement("beforebegin", imageList);
+  }
+}
+
+// getPerModelGalleryImages() only knows how to guess paths for the built-in
+// viewer/examples/gallery/<filename>/... fixtures - a model just converted by
+// the standalone worker (worker/server.py) lives at whatever /files/<job id>/
+// views/... URLs its status response actually returned, so that convention
+// can't find it. This renders a gallery directly from an explicit URL list
+// instead of guessing one, reusing the same thumbnail/lightbox DOM as the
+// buildFake fallback below.
+function renderModelGalleryImages$1(Viewer, imageUrls = []) {
+  const gallery = getGalleryConfig();
+  const mainElement = gallery.container ? document.getElementById(gallery.container) : null;
+  const images = imageUrls
+    .map((src, index) => ({ src: normalizeGalleryUrl(src), alt: `Preview ${index + 1}` }))
+    .filter((img) => img.src);
+  if (images.length === 0) return;
+  const elements = createFakeGalleryElements(images);
+  handleImages(Viewer, mainElement, elements, elements);
+}
+
+// Bumped on every buildThumbnailGallery() call so a stale probeImageExists()
+// resolution from an earlier, since-superseded model switch can't overwrite
+// the gallery for whichever model is actually selected now (a fast switch
+// could otherwise let an older, slower-to-resolve probe win the race and
+// leave mismatched thumbnails on screen).
+let galleryBuildGeneration = 0;
+
+function buildThumbnailGallery(Viewer) {
+  const buildGeneration = ++galleryBuildGeneration;
+  const gallery = getGalleryConfig();
+  var mainElement = gallery.container
+    ? document.getElementById(gallery.container)
+    : null;
+  var imageElements;
+  if (gallery.imageClass !== "") {
+    imageElements = document.getElementsByClassName(
+      gallery.imageClass
+    );
+    if (imageElements.length === 0) {
+      const fallbackFields = document.querySelectorAll(
+        ".field--type-image"
+      );
+      if (fallbackFields.length > 0) {
+        imageElements = fallbackFields;
+        console.warn(
+          "Gallery imageClass not found, falling back to .field--type-image."
+        );
+      }
+    }
+    if (imageElements.length > 0) {
+      var galleryLabel = document.getElementsByClassName("field__label");
+      if (galleryLabel !== undefined && galleryLabel.length > 0) {
+        galleryLabel[0].innerText = "";
+      }
+    }
+  } else if (gallery.imageId !== "") {
+    imageElements = document.getElementById(gallery.imageId);
+  }
+
+  if (imageElements != null) {
+    if (imageElements.length > 0) {
+      if (imageElements[0].innerHTML !== undefined) {
+        let imagesList = Array.from(
+          imageElements[0].getElementsByClassName("field__items")[0]
+            .childNodes
+        );
+        imagesList = prepareGalleryImages(Viewer, imagesList);
+        imageElements[0].classList.add("field--label-hidden");
+        //imageElements[0].classList.add("field__items");
+        handleImages(Viewer, mainElement, imagesList, imagesList);
+      } else {
+        handleImages(Viewer, mainElement, imageElements);
+      }
+    } else if (
+      imageElements.childNodes !== undefined &&
+      imageElements.childNodes.length > 0
+    ) {
+      if (
+        typeof imageElements.childNodes[0].innerHTML == "string" ||
+        typeof imageElements.childNodes[1].innerHTML == "string"
+      ) {
+        let imagesList = Array.from(imageElements.childNodes);
+        imagesList = prepareGalleryImages(Viewer, imagesList);
+        imageElements.classList.add("field--type-image");
+        imageElements.classList.add("field--label-hidden");
+        //imageElements.classList.add("field__items");
+        handleImages(Viewer, mainElement, imagesList, imageElements);
+      } else {
+        handleImages(Viewer, mainElement, imageElements);
+      }
+    }
+  }
+
+  if (core.CONFIG?.viewer?.gallery?.buildFake === true) {
+    // buildFake is the dedicated opt-in for this fallback, so it doesn't
+    // also gate on gallery.build: that flag is forced to false for the
+    // test/dev rollup targets (see rollup.config.js) to disable the real
+    // Drupal-field-based gallery there, which would otherwise silently
+    // disable this fallback too even though it's the one thing meant to
+    // work in those environments.
+    const renderFake = (images) => {
+      const fakeImages = createFakeGalleryElements(images);
+      handleImages(Viewer, mainElement, fakeImages, fakeImages);
+      console.log("Built fallback thumbnail gallery for local testing");
+    };
+
+    const testImages = getConfiguredTestImages();
+    const staticFallback = testImages.length > 0 ? testImages : createDefaultTestImages();
+
+    // Prefer thumbnails rendered for the currently loaded example (see
+    // core.fileObject, refreshed on every model switch) over the static
+    // testImages config, so picking a different example model actually
+    // swaps the gallery instead of always showing the same fixed set.
+    const perModelImages = getPerModelGalleryImages();
+    if (perModelImages.length > 0) {
+      probeImageExists(perModelImages[0].src).then((exists) => {
+        if (buildGeneration !== galleryBuildGeneration) return;
+        renderFake(exists ? perModelImages : staticFallback);
+      });
+    } else {
+      renderFake(staticFallback);
+    }
+    return;
+  }
+
+  console.log("No gallery source found");
+}
 
 function normalizeLanguage(value) {
   if (value == null) return null;
@@ -3722,6 +4365,7 @@ function attachLocalizationTheme(viewer) {
       this.updateThemeControlLabels();
       this.updateShareMenuEntryState?.();
       this.updateEmbedMenuEntryState();
+      this.updateUploadMenuEntryState?.();
       this.updateFullscreenButtonIcon();
       this.updateDownloadMenuEntryLabel();
       this.updateEditorToolbarLabels();
@@ -4229,6 +4873,21 @@ function attachLoadingStatus(viewer) {
           this.statusNotice.appendChild(detailNode);
         }
       }
+
+      if (notice.dismissible) {
+        const closeButton = document.createElement("button");
+        closeButton.type = "button";
+        closeButton.className = "viewer-notice-close";
+        closeButton.textContent = "×";
+        const closeLabel = t$1("shortcuts.closeAria", "Close");
+        closeButton.setAttribute("aria-label", closeLabel);
+        closeButton.title = closeLabel;
+        this.bindEventListener(closeButton, "click", (event) => {
+          event.stopPropagation();
+          this.dismissStatusNotice(notice.key);
+        });
+        this.statusNotice.appendChild(closeButton);
+      }
     },
 
     getStatusNoticeText(notice) {
@@ -4340,6 +4999,7 @@ function attachLoadingStatus(viewer) {
       key = "",
       replace = false,
       persistent = false,
+      dismissible = false,
       variant = "",
       i18nKey = "",
       i18nVars = {},
@@ -4356,6 +5016,7 @@ function attachLoadingStatus(viewer) {
         duration: Number.isFinite(duration) ? duration : 2600,
         key: String(key || ""),
         persistent,
+        dismissible,
         variant: String(variant || ""),
         i18nKey: String(i18nKey || ""),
         i18nVars: i18nVars && typeof i18nVars === "object" ? { ...i18nVars } : {},
@@ -7898,6 +8559,7 @@ function attachWindowControls(Viewer) {
       container.style.right = 'auto';
       container.style.bottom = 'auto';
       container.classList.add('viewer-window-controls-enabled');
+      this.manuallyResized = true;
       this.updateSize?.();
       return true;
     },
@@ -7978,6 +8640,7 @@ function attachWindowControls(Viewer) {
         if (document.fullscreenElement === container) return;
         event.preventDefault();
         event.stopPropagation();
+        Viewer.manuallyResized = true;
         makeFixed();
         const rect = container.getBoundingClientRect();
         const start = {
@@ -8536,7 +9199,7 @@ async function fetchSettings(object) {
 
     normalizedUri = normalizedUri.replace(/^\/+/, '');
     const metadataBase = new URL(core.CONFIG.metadataUrl);
-    const fileUri = new URL(core.fileObject.uri);
+    const fileUri = new URL(core.fileObject.uri, document.baseURI);
 
     const filePath = fileUri.pathname.replace(/^\/+|\/+$/g, '');
 
@@ -8644,6 +9307,7 @@ function createAIM3IFDropdown(url) {
     { url: "https://viewer.thedworak.com/manifests/box.json", name: t$1("aim3if.optionBox", "Box configuration") },
     { url: "./manifests/box-aim3d-local.json", name: t$1("aim3if.optionBoxLocal", "Box (localhost)") },
     { url: "./manifests/wolpa-synagogue-aim3d-local.json", name: t$1("aim3if.optionWolpaLocal", "Wolpa Synagogue (localhost)") },
+    { url: "./manifests/wolpa-synagogue-aim3d-local-ceiling.json", name: t$1("aim3if.optionWolpaLocalCeiling", "Wolpa Synagogue - ceiling view (localhost)") },
     // Add more AIM3IF configurations here as needed
   ].filter(item => item?.url);
 
@@ -9412,108 +10076,6 @@ const progressLoaderHandler = function (xhr) {
   core.loadingLog?.update?.(percentComplete);
   core.UltraLoader?.set(percentComplete);
 };
-
-class StatusPoller {
-
-    constructor(id) {
-        this.id=id;
-        this.interval=2000;
-        this.timer=null;
-        this.running=false;
-    }
-
-    async start() {
-        if(this.running) return;
-        this.running=true;
-        if (!core.isLocalPreview)
-            await this.tick();
-        else {
-            this.map = core.isLocalPreview
-                ? Object.fromEntries(
-                    Object.entries(this.fullMap)
-                        .slice(-3)      // Only keep the last 2 steps for local preview
-                        .map(([k], i) => [k, i])
-                    )
-                : this.fullMap;
-        }
-    }
-
-    stop() {
-        this.running=false;
-        if(this.timer) clearTimeout(this.timer);
-    }
-    fullMap = {
-        init: 0,
-        preparing: 1,
-        processing: 2,
-        converted: 3,
-        updating: 4,
-        rendering: 4,
-        model_ready: 5,
-        viewer_ready: 6,
-        ready: 6,
-        failed: 7,
-        error: 7,
-    };
-
-    terminalStatuses = new Set(["ready", "viewer_ready", "failed", "error"]);
-
-    map = this.fullMap;
-
-    updateSteps(status) {
-        if(this.map[status]!==undefined) {
-            UltraLoader.step(this.map[status]);
-        }
-
-    }
-
-    async tick() {
-        if(!this.running || core.isLocalPreview) return;
-
-        try {
-            const r=await fetch(`/api/model/status/${this.id}`, {
-                cache:"no-store"
-            });
-
-            if(!r.ok){
-                throw new Error("API error");
-            }
-
-            const data=await r.json();
-
-            if(data.status==="error") {
-                UltraLoader.error(data.message || "Processing failed");
-                this.stop();
-                localStorage.removeItem("processing_model_id");
-                return;
-            }
-
-            UltraLoader.set(data.progress);
-
-            this.updateSteps(data.status);
-
-            if(this.terminalStatuses.has(data.status)) {
-                if (data.status==="ready" || data.status==="viewer_ready") {
-                    UltraLoader.finish("3D Viewer is ready");
-                }
-                else {
-                    UltraLoader.finish("Failed processing the model");
-                }
-                this.stop();
-                localStorage.removeItem("processing_model_id");
-                return;
-            }
-        }
-        catch(e){
-            if (!core.isLocalPreview) {
-                UltraLoader.error("Connection error");
-                this.stop();
-            }
-        }
-        this.timer=setTimeout(()=>this.tick(),this.interval);
-    }
-
-}
 
 var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
@@ -11213,6 +11775,36 @@ var AnnotationPage = /** @class */ (function (_super) {
     return AnnotationPage;
 }(ManifestResource));
 
+/**
+ * Appends the elements of `values` to `array`.
+ *
+ * @private
+ * @param {Array} array The array to modify.
+ * @param {Array} values The values to append.
+ * @returns {Array} Returns `array`.
+ */
+
+var _arrayPush;
+var hasRequired_arrayPush;
+
+function require_arrayPush () {
+	if (hasRequired_arrayPush) return _arrayPush;
+	hasRequired_arrayPush = 1;
+	function arrayPush(array, values) {
+	  var index = -1,
+	      length = values.length,
+	      offset = array.length;
+
+	  while (++index < length) {
+	    array[offset + index] = values[index];
+	  }
+	  return array;
+	}
+
+	_arrayPush = arrayPush;
+	return _arrayPush;
+}
+
 /** Detect free variable `global` from Node.js. */
 
 var _freeGlobal;
@@ -11566,7 +12158,8 @@ var hasRequired_baseFlatten;
 function require_baseFlatten () {
 	if (hasRequired_baseFlatten) return _baseFlatten;
 	hasRequired_baseFlatten = 1;
-	var isFlattenable = /*@__PURE__*/ require_isFlattenable();
+	var arrayPush = /*@__PURE__*/ require_arrayPush(),
+	    isFlattenable = /*@__PURE__*/ require_isFlattenable();
 
 	/**
 	 * The base implementation of `_.flatten` with support for restricting flattening.
@@ -11592,6 +12185,8 @@ function require_baseFlatten () {
 	      if (depth > 1) {
 	        // Recursively flatten arrays (susceptible to call stack limits).
 	        baseFlatten(value, depth - 1, predicate, isStrict, result);
+	      } else {
+	        arrayPush(result, value);
 	      }
 	    } else if (!isStrict) {
 	      result[result.length] = value;
@@ -15776,6 +16371,7 @@ function getEditorToolbarIcon(icon) {
     backgroundGradient: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="5.7" fill="currentColor" fill-opacity="0.18"/><circle cx="12" cy="12" r="3.1" fill="currentColor" fill-opacity="0.56"/><circle cx="12" cy="12" r="1.1" fill="currentColor"/></svg>',
     backgroundInner: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="5" fill="currentColor"/></svg>',
     backgroundOuter: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h18v18H3zM12 7.5a4.5 4.5 0 1 0 0 9a4.5 4.5 0 0 0 0-9z"/><circle cx="12" cy="12" r="5.25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.2 1.6"/></svg>',
+    help: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.9.4-1.5 1-1.5 2.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>',
   };
 
   return icons[icon] || icons.advancedEditor;
@@ -16200,7 +16796,8 @@ function createEditorToolbar(viewer) {
     { key: "wireframe", icon: "wireframe", onClick: () => viewer.toggleWireframeMode(), pressed: true, primary: false },    
     { key: "statistics", icon: "statistics", onClick: () => {}, pressed: false, primary: false },
     { key: "background", icon: "background", onClick: () => {}, pressed: false, primary: false },
-    
+    { key: "help", icon: "help", onClick: () => viewer.showKeyboardShortcutsHint({ manual: true }), primary: false },
+
   ];
 
   if (!core.isLightweight || core.isLocalPreview) {
@@ -17217,6 +17814,7 @@ function updateEditorToolbarLabels(viewer) {
       ? t$1("gui.collapse", "Collapse toolbar")
       : t$1("gui.expand", "Expand toolbar"),
     download: t$1("gui.download", "Download model"),
+    help: t$1("shortcuts.helpButtonAria", "Show usage hints"),
   };
 
   Object.entries(viewer.editorToolbarButtons).forEach(([key, button]) => {
@@ -17676,6 +18274,9 @@ const VIEWER_DEFAULTS = {
   lastKeyboardHintAt: 0,
   keyboardHintCooldownMs: 45000,
   keyboardHintAfterFocusDelayMs: 1800,
+  keyboardHintShownOnce: false,
+  keyboardHintFirstDurationMs: 14000,
+  keyboardHintDurationMs: 7400,
   lastWindowFocusAt: 0,
   cleanupCallbacks: [],
   resizeObserver: null,
@@ -17991,6 +18592,10 @@ function shouldIgnoreLegacyEmbedDefaultModel(viewer) {
 
 function buildGallery(viewer) {
   return buildThumbnailGallery(viewer);
+}
+
+function renderModelGalleryImages(viewer, imageUrls) {
+  return renderModelGalleryImages$1(viewer, imageUrls);
 }
 
 function toHexColor(input) {
@@ -18537,6 +19142,12 @@ async function createCreditsElement() {
 
   const creditsDiv = document.createElement("div");
   creditsDiv.id = "credits";
+  // #credits has no default left/bottom in CSS (only position: absolute) -
+  // updateSize() is what sets those, and it doesn't run correctly until
+  // layout is settled (typically once a model has loaded). Staying hidden
+  // until then avoids a visible flash at the wrong spot followed by a jump
+  // to the right one; updateSize() reveals it once it applies real coords.
+  creditsDiv.style.visibility = "hidden";
 
   let html = "";
 
@@ -18757,6 +19368,17 @@ window.viewer = {
   scene: null,
   renderer: null,
   controls: null
+};
+
+// Small inline icons for the keyboard-shortcuts hint (see
+// getKeyboardShortcutsDetailHtml() below) - inline SVG rather than image
+// assets so they pick up the notice's `currentColor` in both themes without
+// separate light/dark files.
+const SHORTCUT_ICONS = {
+  mouse: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="19" rx="6"/><line x1="12" y1="2" x2="12" y2="10"/><circle cx="12" cy="6" r="1" fill="currentColor" stroke="none"/></svg>',
+  keyboard: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><rect x="5" y="9.5" width="1.6" height="1.6" fill="currentColor" stroke="none"/><rect x="9.2" y="9.5" width="1.6" height="1.6" fill="currentColor" stroke="none"/><rect x="13.4" y="9.5" width="1.6" height="1.6" fill="currentColor" stroke="none"/><rect x="17.4" y="9.5" width="1.6" height="1.6" fill="currentColor" stroke="none"/><rect x="6" y="13.2" width="12" height="1.6" fill="currentColor" stroke="none"/></svg>',
+  touch: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="7" stroke-dasharray="1.5 3"/></svg>',
+  dragAndDrop: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="3" x2="12" y2="13"/><polyline points="8 9 12 13 16 9"/><line x1="4" y1="19" x2="20" y2="19"/></svg>',
 };
 
 const Viewer$1 = {
@@ -19623,13 +20245,40 @@ const Viewer$1 = {
     this.addAnnotationController.enable?.();
   },
 
-  getKeyboardShortcutsText() {
-    return [
-      t$1("shortcuts.mouse"),
-      t$1("shortcuts.keyboard"),
-      t$1("shortcuts.touch"),
-      core.CONFIG?.viewer?.enableDragAndDrop === true ? t$1("shortcuts.dragAndDrop") : null
-    ].join("\n");
+  getKeyboardShortcutsRows() {
+    const rows = [
+      { icon: "mouse", text: t$1("shortcuts.mouse") },
+      { icon: "keyboard", text: t$1("shortcuts.keyboard") },
+      { icon: "touch", text: t$1("shortcuts.touch") },
+    ];
+    if (core.CONFIG?.viewer?.enableDragAndDrop === true) {
+      rows.push({ icon: "dragAndDrop", text: t$1("shortcuts.dragAndDrop") });
+    }
+    return rows;
+  },
+
+  // One <span class="viewer-notice-detail"> per row (see
+  // renderStatusNoticeContent() in ui/loading-status.js, which splits the
+  // `detail` option on newlines and inserts each line via innerHTML) - lets
+  // every shortcut line carry its own icon instead of one dense text block.
+  getKeyboardShortcutsDetailHtml() {
+    return this.getKeyboardShortcutsRows()
+      .map(({ icon, text }) => `<span class="viewer-shortcut-row">${SHORTCUT_ICONS[icon]}<span>${text}</span></span>`)
+      .join("\n");
+  },
+
+  showKeyboardShortcutsHint({ manual = false } = {}) {
+    const duration = manual || !this.keyboardHintShownOnce
+      ? this.keyboardHintFirstDurationMs
+      : this.keyboardHintDurationMs;
+    this.keyboardHintShownOnce = true;
+    this.lastKeyboardHintAt = Date.now();
+    this.showStatusNotice(t$1("shortcuts.title", "Controls"), duration, {
+      detail: this.getKeyboardShortcutsDetailHtml(),
+      variant: "shortcuts",
+      key: "keyboard-shortcuts-hint",
+      dismissible: true,
+    });
   },
 
   getSupportedFormatsText() {
@@ -19665,8 +20314,7 @@ const Viewer$1 = {
     if (clippingMode.x || clippingMode.y || clippingMode.z) return;
     if (!core.handHint?.hidden || core.GESTURE?.active) return;
     if (now - this.lastKeyboardHintAt < this.keyboardHintCooldownMs) return;
-    this.lastKeyboardHintAt = now;
-    this.showStatusNotice(this.getKeyboardShortcutsText(), 7400);
+    this.showKeyboardShortcutsHint();
   },
 
   isInteractiveTextInput(element) {
@@ -20095,7 +20743,18 @@ const Viewer$1 = {
       if (document.readyState !== 'loading') r();
       else document.addEventListener('DOMContentLoaded', r);
     });
-    const moduleUrl = new URL(import.meta.url);
+    let moduleUrl = new URL(import.meta.url);
+    if (moduleUrl.protocol !== 'http:' && moduleUrl.protocol !== 'https:') {
+      // Some dev bundlers (Parcel's dev server, at least as of 2.16) don't
+      // resolve import.meta.url to the module's real served URL when it's
+      // used for a dynamically-constructed path like this one - they hand
+      // back a non-fetchable placeholder (e.g. a "file:" URL) instead. Fall
+      // back to the page's own URL so viewer-settings.json still resolves
+      // relative to the site root, matching where every built target
+      // (dist/test, dist/dev, dist/prod, dist/drupal) co-locates it with the
+      // bundled module.
+      moduleUrl = new URL(window.location.href);
+    }
     const settingsPath = moduleUrl.pathname.includes('/assets/')
       ? '../viewer-settings.json'
       : './viewer-settings.json';
@@ -20456,6 +21115,61 @@ const Viewer$1 = {
     return buildGallery(this);
   },
 
+  renderModelGalleryImages(imageUrls) {
+    return renderModelGalleryImages(this, imageUrls);
+  },
+
+  // Mirrors the static #example-model-picker markup in this repo's own
+  // index.html, for pages (Drupal/WissKI, etc.) that embed the viewer
+  // without that markup - see the forceLocalPreview handling above.
+  createExampleModelPicker() {
+    const picker = document.createElement("div");
+    picker.id = "example-model-picker";
+
+    const label = document.createElement("label");
+    label.setAttribute("for", "example-model-select");
+    label.textContent = "Load example model";
+    picker.appendChild(label);
+
+    const select = document.createElement("select");
+    select.id = "example-model-select";
+    [
+      ["./examples/box.dae", "DAE"],
+      ["./examples/box.stl", "STL"],
+      ["./examples/box.ply", "PLY"],
+      ["./examples/box.obj", "OBJ"],
+      ["./examples/box.xyz", "XYZ"],
+      ["./examples/box.pcd", "PCD"],
+      ["./examples/box.3ds", "3DS"],
+      ["./examples/box.ifc", "IFC"],
+      ["./examples/box.fbx", "FBX"],
+      ["./examples/box.glb", "GLB"],
+      ["./examples/box-missing-mtl.obj", "OBJ (missing MTL)"],
+      ["./examples/broken.glb", "Broken GLB"],
+      ["./examples/WolpaSynagogue.glb", "Wolpa Synagogue"],
+    ].forEach(([value, text]) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = text;
+      select.appendChild(option);
+    });
+    picker.appendChild(select);
+
+    const themeToggle = document.createElement("button");
+    themeToggle.type = "button";
+    themeToggle.id = "example-theme-toggle";
+    themeToggle.title = "Toggle dark mode";
+    themeToggle.textContent = "🌙";
+    picker.appendChild(themeToggle);
+
+    const uploadModel = document.createElement("button");
+    uploadModel.type = "button";
+    uploadModel.id = "uploadModel";
+    picker.appendChild(uploadModel);
+
+    return picker;
+  },
+
   toHexColor(input) {
     return toHexColor(input);
   },
@@ -20485,6 +21199,7 @@ const Viewer$1 = {
     let heightCSS;
 
     const hasWindowControls = core.container.classList.contains("viewer-window-controls-enabled");
+    const isManuallyResized = !!Viewer$1.manuallyResized;
     let scale = { x: 1, y: 1 };
 
     const rect = hasWindowControls
@@ -20495,7 +21210,7 @@ const Viewer$1 = {
       widthCSS = window.innerWidth;
       heightCSS = window.innerHeight;
     } else {
-      if (!hasWindowControls) {
+      if (!isManuallyResized) {
         scale = {
           x: Number(
             core.CONFIG.viewer.scaleContainer?.x || 1
@@ -20535,6 +21250,10 @@ const Viewer$1 = {
         Viewer$1.creditsWrapper.style.width = `${effectiveWidth - 64}px`;
         Viewer$1.creditsWrapper.style.left = `${canvasRect.left + 8}px`;
         Viewer$1.creditsWrapper.style.bottom = `${bottom - Viewer$1.creditsWrapper.getBoundingClientRect().height - 24}px`;
+        // Created hidden (see createCreditsElement in sandbox.js) so it
+        // doesn't flash at its unstyled position before this runs; reveal
+        // it now that real coordinates are applied.
+        Viewer$1.creditsWrapper.style.visibility = "visible";
       }
     }
 
@@ -20604,8 +21323,44 @@ const Viewer$1 = {
 
     // hand hint
     if (core.handHint) {
+      // handHint is appended to core.container and positioned relative to it,
+      // so its offset must be measured against core.container's own rect
+      // (parentRect) - NOT effectiveHeight, which is the canvas's logical
+      // render size and can differ from the container's actual box (e.g. via
+      // scaleContainer or letterboxing), leading to a wrongly placed hint.
+      const containerHeight = parentRect.height || effectiveHeight;
+
+      // Default vertical offset from the container bottom, but pushed further
+      // up when the editor toolbar is visible and would otherwise sit under
+      // it - the toolbar's height/position vary (drag position, embed scale),
+      // so this is measured live rather than assumed.
+      let handHintOffset = 150;
+      if (
+        core.editorToolbar &&
+        !core.editorToolbar.classList.contains("editorToolbar-hidden")
+      ) {
+        const toolbarRect = core.editorToolbar.getBoundingClientRect();
+        const toolbarTopFromContainerTop = toolbarRect.top - parentRect.top;
+        const handHintHeight =
+          core.handHint.getBoundingClientRect().height || 48;
+        const clearanceMargin = 16;
+        const requiredOffset =
+          containerHeight -
+          toolbarTopFromContainerTop +
+          handHintHeight +
+          clearanceMargin;
+        handHintOffset = Math.max(handHintOffset, requiredOffset);
+      }
+      // #handHint's base CSS is `inset: 0; margin: auto;` (for default
+      // centering). Setting only `top` here leaves `bottom: 0` from that
+      // `inset` in place too, over-constraining the vertical position: with
+      // top/height/bottom all non-auto and auto margins, the spec splits the
+      // leftover space evenly between the margins instead of honoring `top`
+      // as-is, so the element renders noticeably off from the intended spot.
+      // Clearing `bottom` removes that over-constraint.
+      core.handHint.style.bottom = "auto";
       core.handHint.style.top =
-        `${effectiveHeight - 150}px`;
+        `${containerHeight - handHintOffset}px`;
     }
 
     core.controls?.update();
@@ -21774,7 +22529,17 @@ const Viewer$1 = {
       const isLocal = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
       const isLocalNetwork = hostname.startsWith('192.168.') || hostname.startsWith('10.') || hostname.endsWith('.local');
       const isCodeSandbox = hostname.includes('codesandbox.io') || hostname.includes('csb.app');
-      this.isLocalPreview = isLocal || isLocalNetwork || isCodeSandbox;
+      const autoDetectedLocalPreview = isLocal || isLocalNetwork || isCodeSandbox;
+      // viewer.forceLocalPreview lets a real deployment opt into the local-
+      // preview UI (example-model picker, credits placement, etc.) even
+      // though its hostname is never localhost/LAN/CodeSandbox - or opt out
+      // of it on a machine that would otherwise auto-detect as local. Only
+      // an explicit boolean overrides the hostname check; anything else
+      // (unset, non-boolean) keeps the previous auto-detection behavior.
+      const localPreviewOverride = core.CONFIG?.viewer?.forceLocalPreview;
+      this.isLocalPreview = typeof localPreviewOverride === 'boolean'
+        ? localPreviewOverride
+        : autoDetectedLocalPreview;
       setCore('isLocalPreview', this.isLocalPreview);
       console.info('Running on', window.location.hostname, '- Local preview mode:', core.isLocalPreview);
 
@@ -22071,9 +22836,15 @@ const Viewer$1 = {
           Viewer$1.fileElement[0].style.height = core.CONFIG.viewer.canvasDimensions.y * 1.1 + "px";
         }
 
-        if (core.CONFIG.viewer.gallery?.build === true && !core.SANDBOX_MODE && !this.isEmbedMode()) {
-          Viewer$1.buildGallery();
-        }
+        // Gallery is (re)built once the initial model load below has
+        // actually finished - see the buildGallery() call after that
+        // if/else chain. Building it here instead would run before
+        // core.fileObject holds anything (it's still the empty default
+        // from viewer-defaults.js at this point), so the per-model
+        // thumbnails in thumbnail-gallery.js would resolve against the
+        // wrong - empty - model and show mismatched/dummy content on the
+        // very first page load, never getting corrected afterwards since
+        // nothing else called buildGallery() again.
       }
 
       Viewer$1.controls = new OrbitControls(core.camera, core.renderer.domElement);
@@ -22183,10 +22954,30 @@ const Viewer$1 = {
       core.autoPath = "";
 
       if (core.isLocalPreview && !core.PRESENTATION_MODE && !core.SANDBOX_MODE) {
-        const picker = document.getElementById('example-model-picker');
-        const selectModel = document.getElementById('example-model-select');
-        const themeToggle = document.getElementById('example-theme-toggle');
         const viewerElement = document.getElementById('DFG_3DViewer');
+        // #example-model-picker/#example-model-select only exist as static
+        // markup in this repo's own index.html. A real deployment (Drupal/
+        // WissKI) renders its own page template, which never includes them -
+        // so on forceLocalPreview:true there, document.getElementById found
+        // nothing and this whole block silently no-opped. Build the same
+        // markup on the fly when it's missing, so local-preview mode works
+        // regardless of which page embeds the viewer.
+        let picker = document.getElementById('example-model-picker');
+        let selectModel = document.getElementById('example-model-select');
+        let themeToggle = document.getElementById('example-theme-toggle');
+        let uploadModelButton = document.getElementById('uploadModel');
+        if (!picker && !selectModel && viewerElement) {
+          picker = Viewer$1.createExampleModelPicker();
+          selectModel = picker.querySelector('#example-model-select');
+          themeToggle = picker.querySelector('#example-theme-toggle');
+          uploadModelButton = picker.querySelector('#uploadModel');
+          viewerElement.parentNode.insertBefore(picker, viewerElement);
+        }
+        if (uploadModelButton) {
+          Viewer$1.uploadModel = uploadModelButton;
+          Viewer$1.updateUploadMenuEntryState();
+          Viewer$1.bindEventListener(uploadModelButton, "click", Viewer$1.openUploadPanel.bind(Viewer$1));
+        }
         if (picker && selectModel && viewerElement) {
           Viewer$1.updateLocalPreviewLabels();
           const localurl = new URL(window.location.href);
@@ -22208,11 +22999,30 @@ const Viewer$1 = {
             themeToggle.hidden = true;
           }
 
-          selectModel.addEventListener('change', () => {
+          selectModel.addEventListener('change', async () => {
+            // core.fileObject is a single shared, mutable object: a second
+            // switch mutates it synchronously (at the top of
+            // mainLoadModelWrapper) before this first switch's own load
+            // finishes awaiting. Without this token, the first switch's
+            // slower-to-resolve buildGallery() call could run after the
+            // second switch's, reading fileObject values that no longer
+            // match the model actually on screen - stamp+check a generation
+            // number so a superseded switch skips rebuilding the gallery.
+            const switchGeneration = (this.exampleModelSwitchGeneration ?? 0) + 1;
+            this.exampleModelSwitchGeneration = switchGeneration;
             core.autoPath = selectModel.value;
             window.localStorage.setItem('dfg3dviewer-example-model', selectModel.value);
             this.resetLoadedModelState();
-            this.mainLoadModelWrapper();
+            await this.mainLoadModelWrapper();
+            if (switchGeneration !== this.exampleModelSwitchGeneration) return;
+            // Rebuild the gallery after the switch so it picks up the newly
+            // loaded model's own thumbnails (see thumbnail-gallery.js) -
+            // otherwise it keeps showing whatever was built for the example
+            // loaded at page startup until a manual refresh.
+            const galleryCfg = core.CONFIG.viewer?.gallery;
+            if ((galleryCfg?.build === true || galleryCfg?.buildFake === true) && !core.SANDBOX_MODE && !this.isEmbedMode()) {
+              this.buildGallery();
+            }
           });
         }
       }
@@ -22308,6 +23118,20 @@ const Viewer$1 = {
         await Viewer$1.mainLoadModelWrapper();
       }
 
+      // gallery.build gates the real Drupal-field-based gallery; it's
+      // forced false for the test/dev rollup targets since there's no
+      // Drupal DOM to scrape there (see rollup.config.js). buildFake is
+      // the separate, dedicated opt-in for the local-testing fallback
+      // (see thumbnail-gallery.js), so it must still reach buildGallery()
+      // even when the real gallery is switched off. This runs here, after
+      // the initial load above has settled core.fileObject, so the very
+      // first page load shows thumbnails matching whatever actually ended
+      // up on screen instead of momentarily-correct-then-stale content.
+      const initialGalleryCfg = core.CONFIG.viewer.gallery;
+      if ((initialGalleryCfg?.build === true || initialGalleryCfg?.buildFake === true) && !core.SANDBOX_MODE && !this.isEmbedMode()) {
+        Viewer$1.buildGallery();
+      }
+
       core.renderer.setPixelRatio(devicePixelRatio);
       const update = () => Viewer$1.updateSize();
 
@@ -22336,6 +23160,7 @@ attachAnnotations(Viewer$1);
 attachPicking(Viewer$1);
 attachMeasurement(Viewer$1);
 attachEmbedConfigurator(Viewer$1);
+attachUploadPanel(Viewer$1);
 attachWindowControls(Viewer$1);
 
 

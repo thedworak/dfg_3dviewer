@@ -85,7 +85,7 @@ if args.compression_level:
 root, current_extension = os.path.splitext(args.input)
 current_basename = os.path.basename(root)
 
-if current_extension == ".abc" or current_extension == ".blend" or current_extension == ".dae" or current_extension == ".fbx" or current_extension == ".obj" or current_extension == ".ply" or current_extension == ".stl" or current_extension == ".wrl" or current_extension == ".x3d":
+if current_extension == ".abc" or current_extension == ".blend" or current_extension == ".dae" or current_extension == ".fbx" or current_extension == ".obj" or current_extension == ".ply" or current_extension == ".stl" or current_extension == ".wrl" or current_extension == ".x3d" or current_extension in (".usd", ".usda", ".usdc", ".usdz"):
 
 	bpy.ops.wm.read_factory_settings(use_empty=True)
 
@@ -112,6 +112,9 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 
 	if current_extension == ".wrl" or current_extension == ".x3d":
 		bpy.ops.import_scene.x3d(filepath=args.input)
+
+	if current_extension in (".usd", ".usda", ".usdc", ".usdz"):
+		bpy.ops.wm.usd_import(filepath=args.input)
 
 	#
 	if args.output:

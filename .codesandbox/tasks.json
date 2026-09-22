@@ -9,7 +9,7 @@
   "tasks": {
     "start:test": {
       "name": "Start (TEST mode – dist viewer)",
-      "command": "cd dist/test && npx http-server -p 1234",
+      "command": "cd dist/test && npx serve -l 1234",
       "runAtStart": true,
       "preview": {
         "port": 1234
@@ -18,12 +18,12 @@
 
     "start:dev": {
       "name": "Start (DEV mode – dist viewer)",
-      "command": "cd dist/dev && npx http-server -p 1234"
+      "command": "cd dist/dev && npx serve -l 1234"
     },
 
     "start:prod": {
       "name": "Start (PROD mode – dist viewer)",
-      "command": "cd dist/drupal && npx http-server -p 1234"
+      "command": "cd dist/drupal && npx serve -l 1234"
     },
 
     "build:test": {
