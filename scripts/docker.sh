@@ -140,23 +140,25 @@ run() {
 
 menu() {
     echo "1) build"
-    echo "2) down"
-    echo "3) down + build"
-    echo "4) system prune"
-    read -rp "Choice [1-4]: " choice
-    local action
+    echo "2) build + up"
+    echo "3) down"
+    echo "4) down + build"
+    echo "5) system prune"
+    read -rp "Choice [1-5]: " choice
+    local action up=""
     case "$choice" in
         1) action=build ;;
-        2) action=down ;;
-        3) action=rebuild ;;
-        4) do_prune; exit $? ;;
+        2) action=build; up=up ;;
+        3) action=down ;;
+        4) action=rebuild ;;
+        5) do_prune; exit $? ;;
         *) echo "Invalid choice" >&2; exit 1 ;;
     esac
     read -rp "Profile (${PROFILES[*]}, empty = all): " profile
     if [ -n "$profile" ] && ! is_profile "$profile"; then
         echo "Unknown profile: $profile" >&2; exit 1
     fi
-    run "$action" "$profile"
+    run "$action" "$profile" "$up"
 }
 
 if [ $# -eq 0 ]; then menu; exit 0; fi
