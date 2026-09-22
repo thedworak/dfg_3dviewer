@@ -41,6 +41,7 @@ import {
 import { initClippingPlanes, updateActiveClippingPlanes, reportViewerError, showToast, toastHelper, changeBackground } from './viewer-utils.js';
 import { attachEmbedConfigurator } from "./ui/embed-configurator.js";
 import { attachUploadPanel } from "./ui/upload-panel.js";
+import { attachModelsPanel } from "./ui/models-panel.js";
 import { attachAdminPanel } from "./ui/admin-panel.js";
 import { buildThumbnailGallery } from "./ui/thumbnail-gallery.js";
 import { attachLocalizationTheme } from "./ui/localization-theme.js";
@@ -1980,6 +1981,11 @@ export const Viewer = {
     uploadModel.id = "uploadModel";
     picker.appendChild(uploadModel);
 
+    const browseModels = document.createElement("button");
+    browseModels.type = "button";
+    browseModels.id = "browseModelsButton";
+    picker.appendChild(browseModels);
+
     const manageUsers = document.createElement("button");
     manageUsers.type = "button";
     manageUsers.id = "manageUsersButton";
@@ -3797,12 +3803,14 @@ export const Viewer = {
         let selectModel = document.getElementById('example-model-select');
         let themeToggle = document.getElementById('example-theme-toggle');
         let uploadModelButton = document.getElementById('uploadModel');
+        let browseModelsButton = document.getElementById('browseModelsButton');
         let manageUsersButton = document.getElementById('manageUsersButton');
         if (!picker && !selectModel && viewerElement) {
           picker = Viewer.createExampleModelPicker();
           selectModel = picker.querySelector('#example-model-select');
           themeToggle = picker.querySelector('#example-theme-toggle');
           uploadModelButton = picker.querySelector('#uploadModel');
+          browseModelsButton = picker.querySelector('#browseModelsButton');
           manageUsersButton = picker.querySelector('#manageUsersButton');
           viewerElement.parentNode.insertBefore(picker, viewerElement);
         }
@@ -3815,6 +3823,13 @@ export const Viewer = {
           Viewer.uploadModel = uploadModelButton;
           Viewer.updateUploadMenuEntryState();
           Viewer.bindEventListener(uploadModelButton, "click", Viewer.openUploadPanel.bind(Viewer));
+        }
+        if (browseModelsButton) {
+          browseModelsButton.innerHTML = '<span class="browse-models-icon" aria-hidden="true"></span>';
+          const browseModelsLabel = t("menu.openModelsPanel", "Browse previously generated models");
+          browseModelsButton.setAttribute("aria-label", browseModelsLabel);
+          browseModelsButton.setAttribute("title", browseModelsLabel);
+          Viewer.bindEventListener(browseModelsButton, "click", Viewer.openModelsPanel.bind(Viewer));
         }
         if (picker && selectModel && viewerElement) {
           Viewer.updateLocalPreviewLabels();
@@ -4010,6 +4025,7 @@ attachPicking(Viewer);
 attachMeasurement(Viewer);
 attachEmbedConfigurator(Viewer);
 attachUploadPanel(Viewer);
+attachModelsPanel(Viewer);
 attachAdminPanel(Viewer);
 attachWindowControls(Viewer);
 
