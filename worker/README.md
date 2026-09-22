@@ -85,6 +85,16 @@ PHP-FPM socket) that need filling in for your actual server, and hasn't
 been syntax-checked against a real nginx install (`nginx -t` before
 reloading).
 
+The template's `server` blocks each set `client_max_body_size 100M;` to
+match `WORKER_MAX_UPLOAD_BYTES`'s default - but that's only in the example
+file. If you copied an older version of it, or wrote your own host-level
+config from scratch, check that directive is actually present: nginx's own
+built-in default is just **1 MB**, so without it every upload above 1 MB is
+rejected by your host nginx before the request ever reaches the containers
+(`docker/nginx.conf`'s own `100m` and the worker's own limit never come into
+play). Raise it in every `server` block that proxies to a viewer subdomain,
+then `sudo nginx -t && sudo systemctl reload nginx`.
+
 That template deliberately leaves the worker's `:8080` API off the public
 domains - each viewer's own `docker/nginx.conf` already reverse-proxies
 `/api/` and `/files/` to it, which is all a browser needs. Docker still
