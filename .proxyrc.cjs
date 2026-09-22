@@ -7,9 +7,46 @@
 // this proxy those requests would just get index/dev.html's markup back
 // instead of the real file. See https://parceljs.org/features/plugins/#.proxyrc
 const fs = require("fs");
+const http = require("http");
 const path = require("path");
 
 const PROJECT_ROOT = __dirname;
+
+// viewer/ui/upload-panel.js and viewer/status-poller.js call /api/... and
+// /files/... as plain same-origin fetch()es, same as the Drupal integration
+// and the docker/nginx.conf reverse proxy used by `docker compose up`. This
+// dev server has no such proxy by default, so those requests would silently
+// fall through to Parcel's SPA fallback (dev.html) instead of 404ing or
+// erroring - which authRequest() in upload-panel.js then swallows as "older
+// worker without /api/auth/*", making the whole login-required flow behave
+// as if accounts were off. Forward them to a worker started separately, e.g.
+// `cd worker && WORKER_AUTH_MODE=required python3 server.py` (see
+// worker/README.md), or `docker compose up worker`, both of which default to
+// :8080.
+const WORKER_PROXY_TARGET = new URL(
+  process.env.WORKER_DEV_PROXY_URL || `http://127.0.0.1:${process.env.WORKER_PORT || 8080}`
+);
+
+function proxyToWorker(req, res) {
+  const upstream = http.request(
+    {
+      hostname: WORKER_PROXY_TARGET.hostname,
+      port: WORKER_PROXY_TARGET.port,
+      method: req.method,
+      path: req.url,
+      headers: { ...req.headers, host: WORKER_PROXY_TARGET.host },
+    },
+    (upstreamRes) => {
+      res.writeHead(upstreamRes.statusCode, upstreamRes.headers);
+      upstreamRes.pipe(res);
+    }
+  );
+  upstream.on("error", (err) => {
+    res.writeHead(502, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: `Worker unreachable at ${WORKER_PROXY_TARGET}: ${err.message}` }));
+  });
+  req.pipe(upstream);
+}
 
 const MIME_TYPES = {
   ".json": "application/json",
@@ -79,6 +116,14 @@ function resolveFilePath(urlPath) {
 }
 
 module.exports = function (app) {
+  app.use((req, res, next) => {
+    const urlPath = (req.url || "").split("?")[0];
+    if (urlPath.startsWith("/api/") || urlPath.startsWith("/files/")) {
+      return proxyToWorker(req, res);
+    }
+    next();
+  });
+
   app.use((req, res, next) => {
     const urlPath = decodeURIComponent((req.url || "").split("?")[0]);
     const filePath = resolveFilePath(urlPath);

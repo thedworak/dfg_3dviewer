@@ -297,6 +297,7 @@ export const VIEWER_I18N = {
 
       uploadStarted: "Upload received - converting model...",
       uploadReady: "Converted model is ready.",
+      uploadLoginRequired: "You must log in to upload files. Don't have an account? Register above.",
       uploadError: "Model upload or conversion failed.",
       modelDeleted: "Model deleted.",
       modelDeleteError: "Failed to delete the model.",
@@ -647,6 +648,7 @@ export const VIEWER_I18N = {
       uploadStarted: "Przesłano plik - konwertowanie modelu...",
       uploadReady: "Skonwertowany model jest gotowy.",
       uploadError: "Przesyłanie lub konwersja modelu nie powiodła się.",
+      uploadLoginRequired: "Aby przesłać plik, musisz się zalogować. Nie masz konta? Zarejestruj się powyżej.",
       modelDeleted: "Model został usunięty.",
       modelDeleteError: "Nie udało się usunąć modelu.",
 
@@ -995,6 +997,7 @@ export const VIEWER_I18N = {
       uploadStarted: "Datei empfangen - Modell wird konvertiert...",
       uploadReady: "Konvertiertes Modell ist bereit.",
       uploadError: "Upload oder Konvertierung des Modells fehlgeschlagen.",
+      uploadLoginRequired: "Zum Hochladen von Dateien müssen Sie sich anmelden. Noch kein Konto? Registrieren Sie sich oben.",
       modelDeleted: "Modell wurde gelöscht.",
       modelDeleteError: "Modell konnte nicht gelöscht werden.",
 

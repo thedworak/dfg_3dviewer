@@ -443,6 +443,12 @@ export function attachUploadPanel(Viewer) {
       const file = this.uploadInputs?.file?.files?.[0];
       if (!file) return;
 
+      if (this.authState?.required && !this.authState?.user) {
+        this.setUploadStatusText(t("uploadPanel.loginRequired", "Log in to upload models."), "error");
+        toastHelper("uploadLoginRequired", "warning");
+        return;
+      }
+
       const extension = (file.name.split(".").pop() || "").toLowerCase();
       if (!SUPPORTED_EXTENSIONS.includes(extension)) {
         this.setUploadStatusText(
