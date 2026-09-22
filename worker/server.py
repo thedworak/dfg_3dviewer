@@ -313,18 +313,36 @@ def run_pipeline(job_id: str, input_path: Path, original_ext: str) -> None:
         elif ext in MESH_CONVERT_FORMATS:
             set_job(job_id, status="processing", progress=25, message="Converting model...")
             glb_path = work_path.parent / "gltf" / (work_path.stem + ".glb")
+            # Print before running, not just after: some formats (notably .ifc,
+            # handled below) can sit inside this call for a long time with no
+            # other output, so without this line a slow-but-healthy conversion
+            # looks identical to a hung one in `docker logs`.
+            print(f"[job {job_id}] running convert_mesh.py on {work_path}...", file=sys.stderr)
             result = subprocess.run(
                 [sys.executable, str(CONVERT_MESH_SCRIPT), "-i", str(work_path), "-o", str(glb_path)],
                 capture_output=True, text=True, timeout=CONVERT_TIMEOUT,
+            )
+            # Always print, not just on a non-zero exit - see the render.sh
+            # logging below for why a 0 exit code alone isn't enough signal.
+            print(
+                f"[job {job_id}] convert_mesh.py exit={result.returncode}:\n"
+                f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}",
+                file=sys.stderr,
             )
             if result.returncode != 0:
                 detail = result.stderr.strip() or result.stdout.strip()
                 raise RuntimeError(f"convert_mesh.py failed (exit={result.returncode}): {detail}")
         else:
             set_job(job_id, status="processing", progress=25, message="Converting model...")
+            print(f"[job {job_id}] running convert.sh on {work_path}...", file=sys.stderr)
             result = subprocess.run(
                 [str(CONVERT_SCRIPT), "-i", str(work_path), "-c", "true", "-l", "3", "-b", "true", "-f", "true"],
                 capture_output=True, text=True, timeout=CONVERT_TIMEOUT,
+            )
+            print(
+                f"[job {job_id}] convert.sh exit={result.returncode}:\n"
+                f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}",
+                file=sys.stderr,
             )
             if result.returncode != 0:
                 detail = result.stderr.strip() or result.stdout.strip()
