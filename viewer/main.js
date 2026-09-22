@@ -41,6 +41,7 @@ import {
 import { initClippingPlanes, updateActiveClippingPlanes, reportViewerError, showToast, toastHelper, changeBackground } from './viewer-utils.js';
 import { attachEmbedConfigurator } from "./ui/embed-configurator.js";
 import { attachUploadPanel } from "./ui/upload-panel.js";
+import { attachAdminPanel } from "./ui/admin-panel.js";
 import { buildThumbnailGallery } from "./ui/thumbnail-gallery.js";
 import { attachLocalizationTheme } from "./ui/localization-theme.js";
 import { attachLoadingStatus } from "./ui/loading-status.js";
@@ -1979,6 +1980,12 @@ export const Viewer = {
     uploadModel.id = "uploadModel";
     picker.appendChild(uploadModel);
 
+    const manageUsers = document.createElement("button");
+    manageUsers.type = "button";
+    manageUsers.id = "manageUsersButton";
+    manageUsers.hidden = true;
+    picker.appendChild(manageUsers);
+
     return picker;
   },
 
@@ -3790,12 +3797,19 @@ export const Viewer = {
         let selectModel = document.getElementById('example-model-select');
         let themeToggle = document.getElementById('example-theme-toggle');
         let uploadModelButton = document.getElementById('uploadModel');
+        let manageUsersButton = document.getElementById('manageUsersButton');
         if (!picker && !selectModel && viewerElement) {
           picker = Viewer.createExampleModelPicker();
           selectModel = picker.querySelector('#example-model-select');
           themeToggle = picker.querySelector('#example-theme-toggle');
           uploadModelButton = picker.querySelector('#uploadModel');
+          manageUsersButton = picker.querySelector('#manageUsersButton');
           viewerElement.parentNode.insertBefore(picker, viewerElement);
+        }
+        if (manageUsersButton) {
+          Viewer.manageUsersButton = manageUsersButton;
+          Viewer.updateAdminMenuEntryState();
+          Viewer.bindEventListener(manageUsersButton, "click", Viewer.openAdminPanel.bind(Viewer));
         }
         if (uploadModelButton) {
           Viewer.uploadModel = uploadModelButton;
@@ -3996,6 +4010,7 @@ attachPicking(Viewer);
 attachMeasurement(Viewer);
 attachEmbedConfigurator(Viewer);
 attachUploadPanel(Viewer);
+attachAdminPanel(Viewer);
 attachWindowControls(Viewer);
 
 

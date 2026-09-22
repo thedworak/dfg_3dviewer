@@ -453,6 +453,22 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(401, {"error": "Login required"})
         return user
 
+    def _require_admin(self):
+        """Returns the admin account calling this endpoint, or None after
+        sending 404 (accounts off - nothing to administer), 401 (not logged
+        in) or 403 (logged in but not an admin)."""
+        if not AUTH.enabled:
+            self._send_json(404, {"error": "Accounts are not enabled."})
+            return None
+        user = self._current_user()
+        if user is None:
+            self._send_json(401, {"error": "Login required"})
+            return None
+        if user["role"] != "admin":
+            self._send_json(403, {"error": "Admin role required"})
+            return None
+        return user
+
     def _read_json_body(self) -> dict:
         length = int(self.headers.get("Content-Length", "0") or 0)
         if length <= 0 or length > 4096:
@@ -475,7 +491,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             data = self._read_json_body()
             if action == "register":
-                result = AUTH.register(data.get("username", ""), data.get("password", ""))
+                result = AUTH.register(data.get("username", ""), data.get("password", ""), data.get("email", ""))
                 self._send_json(201, result)
             elif action == "login":
                 user = AUTH.login(data.get("username", ""), data.get("password", ""))
@@ -483,6 +499,39 @@ class Handler(BaseHTTPRequestHandler):
                     200, user,
                     cookie=AUTH.cookie_header(AUTH.issue_token(user["username"]), self._cookie_is_secure()),
                 )
+        except AuthError as exc:
+            self._send_json(exc.status, {"error": exc.message})
+
+    def _handle_admin_user_action(self, username: str, action: str) -> None:
+        admin = self._require_admin()
+        if admin is None:
+            return
+        if username == admin["username"] and action in ("disable", "demote"):
+            self._send_json(400, {"error": "You cannot demote or disable your own account."})
+            return
+        try:
+            if action == "approve":
+                AUTH.update_user(username, status="active")
+            elif action == "disable":
+                AUTH.update_user(username, status="disabled")
+            elif action == "promote":
+                AUTH.update_user(username, role="admin")
+            elif action == "demote":
+                AUTH.update_user(username, role="user")
+            self._send_json(200, {"status": "ok"})
+        except AuthError as exc:
+            self._send_json(exc.status, {"error": exc.message})
+
+    def _handle_admin_delete_user(self, username: str) -> None:
+        admin = self._require_admin()
+        if admin is None:
+            return
+        if username == admin["username"]:
+            self._send_json(400, {"error": "You cannot delete your own account."})
+            return
+        try:
+            AUTH.delete_user(username)
+            self._send_json(200, {"status": "deleted"})
         except AuthError as exc:
             self._send_json(exc.status, {"error": exc.message})
 
@@ -535,6 +584,13 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, {"jobs": list_jobs(self._current_user())})
             return
 
+        if path == "/api/admin/users":
+            admin = self._require_admin()
+            if admin is None:
+                return
+            self._send_json(200, {"users": AUTH.list_users()})
+            return
+
         match = re.match(r"/files/([A-Za-z0-9_-]+)/(.+)", path)
         if match:
             self._serve_file(match.group(1), match.group(2))
@@ -551,10 +607,18 @@ class Handler(BaseHTTPRequestHandler):
         if match:
             self._handle_auth(match.group(1))
             return
+        match = re.fullmatch(r"/api/admin/users/([A-Za-z0-9_.-]+)/(approve|disable|promote|demote)", path)
+        if match:
+            self._handle_admin_user_action(match.group(1), match.group(2))
+            return
         self._send_json(404, {"error": "not found"})
 
     def do_DELETE(self) -> None:
         path = unquote(urlparse(self.path).path)
+        match = re.fullmatch(r"/api/admin/users/([A-Za-z0-9_.-]+)", path)
+        if match:
+            self._handle_admin_delete_user(match.group(1))
+            return
         match = re.fullmatch(r"/api/jobs/([A-Za-z0-9_-]+)", path)
         if match:
             self._handle_delete(match.group(1))
@@ -636,7 +700,7 @@ def admin_cli(args) -> None:
         if command == "users":
             for u in AUTH.list_users():
                 created = time.strftime("%Y-%m-%d", time.localtime(u["createdAt"]))
-                print(f"{u['username']:<32} {u['role']:<6} {u['status']:<9} created {created}")
+                print(f"{u['username']:<32} {u['email']:<32} {u['role']:<6} {u['status']:<9} created {created}")
         elif command == "uploads":
             rows = []
             for job_dir in JOBS_DIR.iterdir():

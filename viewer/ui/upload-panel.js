@@ -45,7 +45,7 @@ export function attachUploadPanel(Viewer) {
     // allowRegistration:false hides the register button.
     async refreshAuthState() {
       const uiConfig = core.CONFIG?.viewer?.auth || {};
-      const state = { required: false, registration: false, user: null, maxUploadBytes: 0 };
+      const state = { required: false, registration: false, user: null, role: null, maxUploadBytes: 0 };
       // The upload limit is reported by the same endpoint, so query it even
       // when the manifest hides the login UI.
       try {
@@ -56,7 +56,9 @@ export function attachUploadPanel(Viewer) {
           state.registration =
             serverConfig.registration !== "closed" && uiConfig.allowRegistration !== false;
           if (state.required) {
-            state.user = (await authRequest("me")).user || null;
+            const me = await authRequest("me");
+            state.user = me.user || null;
+            state.role = me.role || null;
           }
         }
       } catch (_error) {
@@ -65,6 +67,7 @@ export function attachUploadPanel(Viewer) {
       this.authState = state;
       this.renderUploadHint();
       this.renderAuthSection();
+      this.updateAdminMenuEntryState?.();
       return state;
     },
 
@@ -120,13 +123,25 @@ export function attachUploadPanel(Viewer) {
       );
       section.append(hint, username, password, login);
       if (state.registration) {
+        // Only needed to register (AUTH.register() rejects a missing/invalid
+        // address server-side); login doesn't use it, so it stays out of the
+        // shared username/password row above.
+        const email = document.createElement("input");
+        email.type = "email";
+        email.autocomplete = "email";
+        email.placeholder = t("uploadPanel.email", "Email");
+        email.setAttribute("aria-label", email.placeholder);
         const register = document.createElement("button");
         register.type = "button";
         register.textContent = t("uploadPanel.register", "Register");
         this.bindEventListener(register, "click", () =>
-          this.handleAuthAction("register", { username: username.value.trim(), password: password.value })
+          this.handleAuthAction("register", {
+            username: username.value.trim(),
+            password: password.value,
+            email: email.value.trim(),
+          })
         );
-        section.appendChild(register);
+        section.append(email, register);
       }
     },
 

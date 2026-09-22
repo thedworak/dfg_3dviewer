@@ -1,6 +1,7 @@
 @import "./editor-toolbar.css";
 @import "./embed-configurator.css";
 @import "./upload-panel.css";
+@import "./admin-panel.css";
 @import "./ifc-properties.css";
 
 #cboxLoadedContent.iipmooviewer {
