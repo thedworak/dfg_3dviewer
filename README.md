@@ -5,6 +5,30 @@ The module was primarily created for viewing 3D data as a Drupal extension for a
 The Viewer is written in JavaScript, based on the three.js library for viewing 3D models and uses PHP/bash scripts for server-side operations.
 
 
+## Quickstart (TL;DR)
+
+### 🐳 Docker (recommended)
+
+```bash
+git clone <repo-url> && cd dfg_3dviewer
+docker compose up --build
+```
+
+Open `http://localhost:3000` (test build) — `:3001` for dev, `:3002` for sandbox/drag-and-drop upload mode.
+
+This is a fully working setup, including the full conversion pipeline (conversion to glTF/GLB, compression, and Blender-based thumbnail rendering) — no Drupal, Node, PHP or extra setup needed.
+
+### Or, without Docker
+
+```bash
+git clone <repo-url> && cd dfg_3dviewer
+npm install
+cp viewer/viewer-settings-example.json viewer/viewer-settings.json
+npm run dev:test
+```
+
+Open `http://localhost:1234` — viewer only, no conversion pipeline.
+
 ## What this repo contains
 
 - `viewer/` — viewer runtime source, loaders, utilities, metadata handling, and UI
@@ -17,10 +41,44 @@ The Viewer is written in JavaScript, based on the three.js library for viewing 3
 
 ## Supported 3D formats
 
-- Read directly by the viewer: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, GLB, glTF, plus (via three.js loaders) USD/USDA/USDC/USDZ, 3MF, AMF, WRL (VRML), KMZ, VOX (MagicaVoxel) and LWO (LightWave)
-- Converted to GLB by the standalone worker: STEP/STP and IGES/IGS (CAD, OpenCASCADE via `cascadio`), 3MF (`trimesh`) and USD/USDZ (Blender), in addition to the Blender formats listed below
+| Format | Native | Converted to GLB |
+|---|---|---|
+| OBJ | ✅ | ✅ ¹ |
+| DAE (COLLADA) | ✅ | ✅ ¹ |
+| FBX | ✅ | ✅ ¹ |
+| PLY | ✅ | ✅ ¹ |
+| STL | ✅ | ✅ ¹ |
+| IFC | ✅ | ✅ ² |
+| WRL (VRML) | ✅ ³ | ✅ ¹ |
+| USD / USDA / USDC / USDZ | ✅ ³ | ✅ ¹ ⁴ |
+| 3MF | ✅ ³ | ✅ ⁵ |
+| XYZ | ✅ | – |
+| JSON | ✅ | – |
+| 3DS | ✅ | – |
+| PCD | ✅ | – |
+| GLB / glTF | ✅ ⁶ | – |
+| AMF | ✅ ³ | – |
+| KMZ | ✅ ³ | – |
+| VOX (MagicaVoxel) | ✅ ³ | – |
+| LWO (LightWave) | ✅ ³ ⁷ | – |
+| ABC (Alembic) | – | ✅ ¹ |
+| BLEND | – | ✅ ¹ ⁸ |
+| X3D | – | ✅ ¹ |
+| GML | – | ✅ ¹ |
+| STEP / STP | – | ✅ ⁹ |
+| IGES / IGS | – | ✅ ⁹ |
 
-Not added on purpose: VTK (its three.js loader is deprecated and scheduled for removal), LDraw (needs a separate parts library), 3DM (needs the extra `rhino3dm` runtime) and PDB/MD2/NRRD/GCode/BVH (not general model formats). LWO has a loader but no sample file, so it is untested.
+> - ¹ via Blender (`scripts/convert.sh`)
+> - ² via `IfcConvert` (+ metadata export, see below)
+> - ³ via a three.js loader
+> - ⁴ needs a USD-enabled Blender build
+> - ⁵ via `trimesh` (standalone worker)
+> - ⁶ native target format
+> - ⁷ untested, no sample file
+> - ⁸ in progress
+> - ⁹ via OpenCASCADE (`cascadio`, standalone worker)
+>
+> Not added on purpose: VTK (its three.js loader is deprecated and scheduled for removal), LDraw (needs a separate parts library), 3DM (needs the extra `rhino3dm` runtime) and PDB/MD2/NRRD/GCode/BVH (not general model formats).
 
 There is also a pre-configured complete workflow to handle more file formats and allow to render thumbnails for entries. If an uploaded file is saved in one of the compression-supported formats, it is compressed on-the-fly and converted into GLB format and triggers automatic rendering (based on Blender utility).
 
