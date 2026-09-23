@@ -69,7 +69,7 @@
     "credits": {
       "visible": true,
       "logo": {
-        "src": "assets/logo.svg",
+        "src": "assets/img/logo/TheDworak.png",
         "url": "https://your-domain.com"
       },
       "items": [
