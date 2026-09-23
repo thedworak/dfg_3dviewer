@@ -267,9 +267,13 @@ def list_jobs(user=None):
             continue
         if job is not None:
             job["canDelete"] = can_delete_job(job["id"], user)
-            if AUTH.enabled and user and user["role"] == "admin":
-                owner = read_owner(job["id"])
-                job["owner"] = owner.get("user") if owner else None
+            # Shown as "Uploaded by {owner}" in the browse-models panel, to
+            # anyone - including anonymous visitors, same as the rest of
+            # GET /api/jobs. Jobs uploaded anonymously (accounts off, or
+            # from before accounts were enabled) have no owner and the
+            # field comes back null.
+            owner = read_owner(job["id"])
+            job["owner"] = owner.get("user") if owner else None
             jobs.append(job)
     jobs.sort(key=lambda job: job["createdAt"], reverse=True)
     return jobs

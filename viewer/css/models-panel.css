@@ -121,7 +121,22 @@ body[data-viewer-theme="dark"] #browseModelsButton {
   flex: none;
 }
 
-.models-panel-item span {
+.models-panel-item-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.models-panel-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.models-panel-item-meta {
+  font-size: 10px;
+  opacity: 0.65;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

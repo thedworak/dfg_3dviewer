@@ -108,9 +108,28 @@ export function attachModelsPanel(Viewer) {
         button.appendChild(thumb);
       }
 
+      const text = document.createElement("div");
+      text.className = "models-panel-item-text";
+
       const label = document.createElement("span");
+      label.className = "models-panel-item-name";
       label.textContent = name;
-      button.appendChild(label);
+      text.appendChild(label);
+
+      // job.owner is null for anonymous uploads (accounts off, or jobs from
+      // before accounts were enabled) - the caption then just falls back to
+      // the date.
+      const uploadedBy = job.owner ? t("modelsPanel.uploadedBy", { user: job.owner }, "Uploaded by {user}") : "";
+      const uploadedAt = job.createdAt ? new Date(job.createdAt * 1000).toLocaleDateString() : "";
+      const captionText = [uploadedBy, uploadedAt].filter(Boolean).join(" · ");
+      if (captionText) {
+        const caption = document.createElement("span");
+        caption.className = "models-panel-item-meta";
+        caption.textContent = captionText;
+        text.appendChild(caption);
+      }
+
+      button.appendChild(text);
 
       this.bindEventListener(button, "click", () => this.loadModelFromList(job));
       item.appendChild(button);

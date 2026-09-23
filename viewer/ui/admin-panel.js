@@ -22,9 +22,9 @@ async function adminRequest(path, method = "GET") {
   return data;
 }
 
-// GET /api/jobs includes each job's `owner` username when the caller is an
-// admin (see worker/server.py's list_jobs) - reused here to compute each
-// user's upload count/listing without a dedicated endpoint.
+// GET /api/jobs includes each job's `owner` username (see worker/server.py's
+// list_jobs) - reused here to compute each user's upload count/listing
+// without a dedicated endpoint.
 async function fetchJobsByOwner() {
   const response = await fetch("/api/jobs");
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
