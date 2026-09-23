@@ -3831,6 +3831,13 @@ export const Viewer = {
           browseModelsButton.setAttribute("title", browseModelsLabel);
           Viewer.bindEventListener(browseModelsButton, "click", Viewer.openModelsPanel.bind(Viewer));
         }
+        // updateAdminMenuEntryState() above only ran against Viewer.authState
+        // as it stood before any auth check - undefined on a fresh load - so
+        // "Manage users" stayed hidden even for an already-logged-in admin
+        // until something else (opening the upload panel, logging in)
+        // happened to call refreshAuthState() first. Do that once up front so
+        // an admin's session is recognized, and the button shown, right away.
+        Viewer.refreshAuthState?.();
         if (picker && selectModel && viewerElement) {
           Viewer.updateLocalPreviewLabels();
           const localurl = new URL(window.location.href);
