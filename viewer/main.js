@@ -3790,6 +3790,11 @@ export const Viewer = {
       
       core.autoPath = "";
 
+      console.info('[DFG3D debug] local-preview block check', {
+        isLocalPreview: core.isLocalPreview,
+        PRESENTATION_MODE: core.PRESENTATION_MODE,
+        SANDBOX_MODE: core.SANDBOX_MODE,
+      });
       if (core.isLocalPreview && !core.PRESENTATION_MODE && !core.SANDBOX_MODE) {
         const viewerElement = document.getElementById('DFG_3DViewer');
         // #example-model-picker/#example-model-select only exist as static
@@ -3831,13 +3836,16 @@ export const Viewer = {
           browseModelsButton.setAttribute("title", browseModelsLabel);
           Viewer.bindEventListener(browseModelsButton, "click", Viewer.openModelsPanel.bind(Viewer));
         }
+        console.info('[DFG3D debug] about to call refreshAuthState', typeof Viewer.refreshAuthState);
         // updateAdminMenuEntryState() above only ran against Viewer.authState
         // as it stood before any auth check - undefined on a fresh load - so
         // "Manage users" stayed hidden even for an already-logged-in admin
         // until something else (opening the upload panel, logging in)
         // happened to call refreshAuthState() first. Do that once up front so
         // an admin's session is recognized, and the button shown, right away.
-        Viewer.refreshAuthState?.();
+        Viewer.refreshAuthState?.()
+          ?.then((s) => console.info('[DFG3D debug] refreshAuthState resolved', s))
+          ?.catch((e) => console.error('[DFG3D debug] refreshAuthState rejected', e));
         if (picker && selectModel && viewerElement) {
           Viewer.updateLocalPreviewLabels();
           const localurl = new URL(window.location.href);
