@@ -22,6 +22,23 @@ async function adminRequest(path, method = "GET") {
   return data;
 }
 
+// GET /api/jobs includes each job's `owner` username when the caller is an
+// admin (see worker/server.py's list_jobs) - reused here to compute each
+// user's upload count/listing without a dedicated endpoint.
+async function fetchJobsByOwner() {
+  const response = await fetch("/api/jobs");
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const data = await response.json();
+  const jobs = Array.isArray(data.jobs) ? data.jobs : [];
+  const byOwner = new Map();
+  for (const job of jobs) {
+    if (!job.owner) continue;
+    if (!byOwner.has(job.owner)) byOwner.set(job.owner, []);
+    byOwner.get(job.owner).push(job);
+  }
+  return byOwner;
+}
+
 export function attachAdminPanel(Viewer) {
   Object.assign(Viewer, {
     isAdminUser() {
@@ -122,12 +139,26 @@ export function attachAdminPanel(Viewer) {
         return;
       }
 
-      users.forEach((user) => list.appendChild(this.renderUserRow(user)));
+      // Upload stats/listing are best-effort - a failure here shouldn't
+      // block the user list itself, just leave counts at 0/empty.
+      let jobsByOwner = new Map();
+      try {
+        jobsByOwner = await fetchJobsByOwner();
+      } catch (error) {
+        this.reportError(error, { context: "Failed to load user upload stats" });
+      }
+
+      users.forEach((user) =>
+        list.appendChild(this.renderUserRow(user, jobsByOwner.get(user.username) || []))
+      );
     },
 
-    renderUserRow(user) {
+    renderUserRow(user, models = []) {
       const item = document.createElement("li");
       item.className = "admin-users-row";
+
+      const top = document.createElement("div");
+      top.className = "admin-users-row-top";
 
       const info = document.createElement("div");
       info.className = "admin-users-info";
@@ -137,7 +168,10 @@ export function attachAdminPanel(Viewer) {
       const meta = document.createElement("span");
       meta.className = "admin-users-meta";
       const created = user.createdAt ? new Date(user.createdAt * 1000).toLocaleDateString() : "";
-      meta.textContent = [user.email, `${user.role} · ${user.status}`, created].filter(Boolean).join(" · ");
+      const modelsCount = t("adminPanel.modelsCount", { count: models.length }, "{count} models");
+      meta.textContent = [user.email, `${user.role} · ${user.status}`, modelsCount, created]
+        .filter(Boolean)
+        .join(" · ");
       info.append(name, meta);
 
       const actions = document.createElement("div");
@@ -175,8 +209,118 @@ export function attachAdminPanel(Viewer) {
       this.bindEventListener(deleteButton, "click", () => this.deleteUserWithConfirm(user.username));
       actions.appendChild(deleteButton);
 
-      item.append(info, actions);
+      top.append(info, actions);
+      item.append(top, this.renderUserModelsTab(user.username, models));
       return item;
+    },
+
+    // A per-user "tab": a toggle that reveals that user's own uploaded
+    // models, each deletable from here. Since it only ever lists jobs whose
+    // owner is this username, deleting from it can only ever remove that
+    // user's own uploads - never another user's.
+    renderUserModelsTab(username, models) {
+      const section = document.createElement("div");
+      section.className = "admin-users-models";
+
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "admin-users-models-toggle";
+      toggle.textContent = t("adminPanel.modelsShow", "Show models");
+      toggle.disabled = models.length === 0;
+
+      const modelsList = document.createElement("ul");
+      modelsList.className = "admin-users-models-list";
+      modelsList.hidden = true;
+      this.renderUserModelsList(modelsList, username, models);
+
+      this.bindEventListener(toggle, "click", () => {
+        const willShow = modelsList.hidden;
+        modelsList.hidden = !willShow;
+        toggle.textContent = willShow
+          ? t("adminPanel.modelsHide", "Hide models")
+          : t("adminPanel.modelsShow", "Show models");
+      });
+
+      section.append(toggle, modelsList);
+      return section;
+    },
+
+    renderUserModelsList(modelsList, username, models) {
+      modelsList.textContent = "";
+      if (models.length === 0) {
+        const empty = document.createElement("li");
+        empty.className = "models-panel-empty";
+        empty.textContent = t("adminPanel.modelsEmpty", "No models uploaded yet.");
+        modelsList.appendChild(empty);
+        return;
+      }
+      models.forEach((job) => modelsList.appendChild(this.renderUserModelRow(username, job, modelsList)));
+    },
+
+    renderUserModelRow(username, job, modelsList) {
+      const name = job.name || job.id;
+      const item = document.createElement("li");
+      item.className = "models-panel-row";
+
+      const entry = document.createElement("span");
+      entry.className = "models-panel-item";
+      entry.title = name;
+      if (job.imageUrls?.[0]) {
+        const thumb = document.createElement("img");
+        thumb.src = job.imageUrls[0];
+        thumb.alt = "";
+        thumb.loading = "lazy";
+        entry.appendChild(thumb);
+      }
+      const label = document.createElement("span");
+      label.textContent = name;
+      entry.appendChild(label);
+      item.appendChild(entry);
+
+      const deleteButton = document.createElement("button");
+      deleteButton.type = "button";
+      deleteButton.className = "models-panel-delete";
+      deleteButton.textContent = "✕";
+      const deleteAria = t("adminPanel.modelDeleteAria", { name }, "Delete {name}");
+      deleteButton.setAttribute("aria-label", deleteAria);
+      deleteButton.title = deleteAria;
+      this.bindEventListener(deleteButton, "click", () =>
+        this.deleteUserModelWithConfirm(username, job, item, modelsList)
+      );
+      item.appendChild(deleteButton);
+
+      return item;
+    },
+
+    async deleteUserModelWithConfirm(username, job, item, modelsList) {
+      const name = job.name || job.id;
+      const confirmed = await this.confirmDialog({
+        message: t(
+          "adminPanel.modelDeleteConfirm",
+          { name },
+          'Delete "{name}"? This permanently removes the converted model and its renders.'
+        ),
+        confirmLabel: t("modelsPanel.deleteAction", "Delete"),
+        cancelLabel: t("modelsPanel.deleteCancel", "Cancel"),
+        danger: true,
+      });
+      if (!confirmed) return;
+
+      try {
+        const response = await fetch(`/api/jobs/${encodeURIComponent(job.id)}`, { method: "DELETE" });
+        if (!response.ok && response.status !== 404) {
+          throw new Error(`Delete failed (HTTP ${response.status})`);
+        }
+        item.remove();
+        if (modelsList.children.length === 0) {
+          this.renderUserModelsList(modelsList, username, []);
+        }
+        toastHelper("modelDeleted", "info");
+        this.loadModelsList?.();
+      } catch (error) {
+        this.reportError(error, { context: "Failed to delete user's model" });
+        toastHelper("modelDeleteError", "error");
+      }
     },
 
     createUserActionButton(username, action, label) {

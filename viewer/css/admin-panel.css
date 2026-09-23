@@ -91,13 +91,19 @@ body[data-viewer-theme="dark"] #manageUsersButton {
 
 .admin-users-row {
   display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.admin-users-row-top {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   flex-wrap: wrap;
-  border: 1px solid var(--viewer-panel-border);
-  border-radius: 6px;
-  padding: 8px 10px;
 }
 
 .admin-users-info {
@@ -158,4 +164,49 @@ body[data-viewer-theme="dark"] #manageUsersButton {
 .admin-users-actions .admin-users-delete:hover:not(:disabled) {
   background: #d54646;
   color: #fff;
+}
+
+.admin-users-models-toggle {
+  align-self: flex-start;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: none;
+  color: var(--viewer-panel-text);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 9px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.admin-users-models-toggle:hover:not(:disabled) {
+  opacity: 0.8;
+}
+
+.admin-users-models-toggle:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.admin-users-models-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 0 0;
+  list-style: none;
+  border-top: 1px solid var(--viewer-panel-border);
+}
+
+.admin-users-models-list[hidden] {
+  display: none !important;
+}
+
+.admin-users-models-list .models-panel-item {
+  cursor: default;
+}
+
+.admin-users-models-list .models-panel-item:hover {
+  opacity: 1;
 }
