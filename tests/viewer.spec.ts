@@ -53,6 +53,27 @@ async function waitForModel(page, timeout = 15_000) {
   });
 }
 
+// The camera's intro flight starts at the end of loading (after
+// modelLoaded); wait for loading to finish and the camera to stand still, so
+// a test's own camera changes are not overwritten by it.
+async function waitForCameraIdle(page) {
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true);
+  const pose = () => page.evaluate(() => {
+    const camera = window.Viewer?.camera;
+    const target = window.Viewer?.controls?.target;
+    return camera && target ? [...camera.position.toArray(), ...target.toArray()] : null;
+  });
+  let previous = await pose();
+  let stillSamples = 0;
+  await expect.poll(async () => {
+    await page.waitForTimeout(250);
+    const current = await pose();
+    stillSamples = current && JSON.stringify(current) === JSON.stringify(previous) ? stillSamples + 1 : 0;
+    previous = current;
+    return stillSamples >= 3;
+  }, { timeout: 15_000 }).toBe(true);
+}
+
 async function waitForViewerIssue(page) {
   await page.waitForFunction(
     () =>
@@ -259,6 +280,24 @@ for (const example of supportedExamples) {
   });
 }
 
+test('models are centred on the grid whether or not metadata is configured', async ({ page }) => {
+  // box.stl loads as a single mesh, the synagogue GLB as a group.
+  for (const model of ['/examples/box.stl', '/examples/WolpaSynagogue.glb']) {
+    await openViewer(page, model);
+    await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+    const box = await page.evaluate(() => {
+      const root = window.Viewer.resolveObjectByTargetId('m0:root');
+      const bounds = new THREE.Box3().setFromObject(root, true);
+      return {
+        minY: +bounds.min.y.toFixed(3),
+        centerX: +((bounds.min.x + bounds.max.x) / 2).toFixed(3),
+        centerZ: +((bounds.min.z + bounds.max.z) / 2).toFixed(3),
+      };
+    });
+    expect(box, model).toEqual({ minY: 0, centerX: 0, centerZ: 0 });
+  }
+});
+
 test('camera rotates on mouse drag', async ({ page }) => {
   await openViewer(page);
   await waitForModel(page);
@@ -415,6 +454,7 @@ test('embed configurator uses the current camera for preview url', async ({ page
   await openViewer(page);
   await waitForModel(page);
   await page.waitForFunction(() => window.Viewer?.camera && window.Viewer?.controls);
+  await waitForCameraIdle(page);
 
   await page.evaluate(() => {
     const viewer = window.Viewer;
@@ -517,19 +557,9 @@ test('faces are selected by Shift + drag, Ctrl + click and accepted with Enter',
     for (const key of [...modifiers].reverse()) await page.keyboard.up(key);
   };
 
-  // Let the camera finish its intro flight before comparing poses: it starts
-  // at the end of loading, so wait for that, then for a few still samples.
-  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true);
+  await waitForCameraIdle(page);
   const cameraPose = () => page.evaluate(() => window.Viewer.captureCurrentAnnotationView());
-  let cameraBefore = await cameraPose();
-  let stillSamples = 0;
-  await expect.poll(async () => {
-    const previous = cameraBefore;
-    await page.waitForTimeout(250);
-    cameraBefore = await cameraPose();
-    stillSamples = JSON.stringify(cameraBefore) === JSON.stringify(previous) ? stillSamples + 1 : 0;
-    return stillSamples >= 3;
-  }, { timeout: 15_000 }).toBe(true);
+  const cameraBefore = await cameraPose();
   await dragArea(['Shift']);
   const visibleCount = await selectedCount();
   // The cube has 12 triangles; only the faces turned to the camera count.
@@ -637,6 +667,7 @@ test('streams a 3D Tiles point cloud and keeps annotations off it', async ({ pag
       tiled: root.userData?.isTiledModel === true,
       points,
       size: box.getSize(new THREE.Vector3()).toArray().map(Math.round),
+      minY: Math.round(box.min.y),
       centerX: Math.round((box.min.x + box.max.x) / 2),
       centerZ: Math.round((box.min.z + box.max.z) / 2),
       errors: window.viewer?.errors?.length ?? 0,
@@ -648,10 +679,11 @@ test('streams a 3D Tiles point cloud and keeps annotations off it', async ({ pag
   expect(scene.size[1]).toBeGreaterThan(1700);
   expect(scene.size[1]).toBeLessThan(2000);
   expect(scene.size[0]).toBeGreaterThan(2500);
-  // Centred on the origin (ECEF-far or not) - whether it is also grounded on
-  // the grid depends on the viewer configuration, as for any model.
-  expect(Math.abs(scene.centerX)).toBeLessThan(100);
-  expect(Math.abs(scene.centerZ)).toBeLessThan(150);
+  // Centred and on the grid like any other model - by the whole tileset's
+  // bounds, not just the coarse root tiles.
+  expect(scene.minY).toBe(0);
+  expect(scene.centerX).toBe(0);
+  expect(scene.centerZ).toBe(0);
   expect(scene.errors).toBe(0);
 
   await page.evaluate(() => window.Viewer.openAnnotationDialogWithAutoPicking());
@@ -676,6 +708,7 @@ test('LAZ point clouds load directly, re-centred in double precision', async ({ 
       // float32 rounding of the ~5.5 million m UTM coordinates.
       size: box.getSize(new THREE.Vector3()).toArray().map(Math.round),
       centerX: Math.round((box.min.x + box.max.x) / 2),
+      minY: Math.round(box.min.y),
     };
   });
   expect(cloud.count).toBe(100000);
@@ -688,7 +721,8 @@ test('LAZ point clouds load directly, re-centred in double precision', async ({ 
   expect(cloud.size[1]).toBeLessThan(22);
   expect(cloud.size[0]).toBeGreaterThan(25);
   expect(cloud.size[0]).toBeLessThan(32);
-  expect(Math.abs(cloud.centerX)).toBeLessThan(1);
+  expect(cloud.centerX).toBe(0);
+  expect(cloud.minY).toBe(0);
 });
 
 test('upload panel shows limit usage and limit errors from the worker', async ({ page }) => {

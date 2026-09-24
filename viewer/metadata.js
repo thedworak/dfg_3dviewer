@@ -872,7 +872,7 @@ export async function fetchSettings(object) {
     }
   } else {
     window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(null);
-    await handleMetadataResponse("", metadata, object);
+    await handleMetadataResponse(null, metadata, object);
   }
 }
 

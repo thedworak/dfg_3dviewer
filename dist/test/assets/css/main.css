@@ -1,6 +1,11 @@
 @import "./editor-toolbar.css";
 @import "./embed-configurator.css";
 @import "./upload-panel.css";
+@import "./models-panel.css";
+@import "./admin-panel.css";
+@import "./login-panel.css";
+@import "./ifc-properties.css";
+@import "./viewer-tools.css";
 
 #cboxLoadedContent.iipmooviewer {
   position: absolute;
@@ -183,6 +188,16 @@ canvas {
   top: 50%;
   max-width: min(380px, calc(100% - 32px));
   transform: translateY(-50%);
+}
+
+/* Keep the shortcuts notice off the IFC properties panel (see viewer/ifc-properties.js). */
+#viewerNoticeContainer.viewer-notice-container--shortcuts[data-ifc-panel="open"] {
+  right: auto;
+  left: 16px;
+}
+
+#viewerNoticeContainer.viewer-notice-container--shortcuts[data-ifc-panel="crowded"] {
+  display: none;
 }
 
 .viewer-notice {
@@ -1778,6 +1793,18 @@ canvas {
 .annotation-dialog__form textarea {
   resize: vertical;
   min-height: 120px;
+}
+
+.annotation-dialog__form .annotation-dialog__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+}
+
+.annotation-dialog__form .annotation-dialog__checkbox input {
+  width: auto;
+  margin: 0;
 }
 
 .annotation-dialog__actions {

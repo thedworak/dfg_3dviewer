@@ -143,94 +143,6 @@
   color: #3caa5b;
 }
 
-.upload-panel-previous {
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--viewer-panel-border);
-}
-
-.upload-panel-previous-title {
-  margin-bottom: 8px;
-  font-size: 12px;
-  font-weight: 700;
-  opacity: 0.85;
-}
-
-.upload-panel-previous-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.upload-panel-previous-empty {
-  font-size: 12px;
-  opacity: 0.6;
-}
-
-.upload-panel-previous-row {
-  display: flex;
-  align-items: stretch;
-  gap: 6px;
-}
-
-.upload-panel-previous-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
-  border: 1px solid var(--viewer-panel-border);
-  border-radius: 6px;
-  background: var(--viewer-panel-bg);
-  color: var(--viewer-panel-text);
-  font: inherit;
-  font-size: 12px;
-  text-align: left;
-  padding: 5px 8px;
-  cursor: pointer;
-  transition: opacity 0.15s ease;
-}
-
-.upload-panel-previous-item:hover {
-  opacity: 0.8;
-}
-
-.upload-panel-previous-item img {
-  width: 28px;
-  height: 28px;
-  object-fit: cover;
-  border-radius: 4px;
-  flex: none;
-}
-
-.upload-panel-previous-delete {
-  flex: none;
-  width: 28px;
-  border: 1px solid var(--viewer-panel-border);
-  border-radius: 6px;
-  background: var(--viewer-panel-bg);
-  color: #d54646;
-  font: inherit;
-  font-weight: 700;
-  line-height: 1;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.upload-panel-previous-delete:hover {
-  background: #d54646;
-  color: #fff;
-}
-
-.upload-panel-previous-item span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 @media (max-width: 640px) {
   #uploadModelPanel {
     width: calc(100vw - 36px);
@@ -274,4 +186,100 @@
 
 .upload-panel-auth button:hover {
   opacity: 0.8;
+}
+
+/* In-viewer confirmation dialog (replaces window.confirm) */
+.viewer-confirm-backdrop {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 100000;
+}
+
+.viewer-confirm {
+  width: min(340px, 100%);
+  padding: 16px 18px;
+  border-radius: 10px;
+  border: 1px solid var(--viewer-panel-border);
+  background: var(--viewer-panel-embed-bg);
+  color: var(--viewer-panel-text);
+  box-shadow: var(--viewer-panel-shadow);
+  font-size: 13px;
+  line-height: 1.45;
+  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
+            "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+.viewer-confirm-message {
+  margin: 0 0 14px;
+  overflow-wrap: anywhere;
+}
+
+.viewer-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.viewer-confirm-actions button {
+  border-radius: 6px;
+  border: 1px solid var(--viewer-panel-border);
+  background: transparent;
+  color: var(--viewer-panel-text);
+  font: inherit;
+  font-weight: 600;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.viewer-confirm-actions button:hover {
+  background: color-mix(in srgb, var(--viewer-panel-text) 12%, transparent);
+}
+
+.viewer-confirm-actions .viewer-confirm-ok {
+  border-color: transparent;
+  background: var(--viewer-panel-text);
+  color: var(--viewer-panel-embed-bg);
+}
+
+.viewer-confirm-actions .viewer-confirm-ok:hover {
+  background: var(--viewer-panel-text);
+  opacity: 0.85;
+}
+
+.viewer-confirm-actions .viewer-confirm-ok--danger {
+  background: #d54646;
+  color: #fff;
+}
+
+.viewer-confirm-actions .viewer-confirm-ok--danger:hover {
+  background: #d54646;
+}
+
+.viewer-confirm-actions button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--viewer-panel-text) 60%, transparent);
+  outline-offset: 2px;
+}
+
+/* Draggable (by header) + resizable (native corner grip) panels - see ui/panel-window.js */
+.panel-window {
+  resize: both;
+  min-width: 240px;
+  min-height: 120px;
+  max-width: calc(100vw - 36px);
+}
+
+.panel-window-handle {
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+}
+
+.panel-window-handle button {
+  cursor: pointer;
 }

@@ -279,6 +279,19 @@ function centerObjectAtOrigin(_object) {
   _object.updateMatrixWorld(true);
 }
 
+// Centres a model on the grid: middle of its bounding box over the origin,
+// bottom at y = 0. The shift is relative to the current position because the
+// box is in world space - a streamed (tiled) model's group already carries
+// the transform that centres/orients it (tiles.js).
+function placeOnGrid(_object) {
+  const boundingBox = new THREE.Box3().setFromObject(_object);
+  if (boundingBox.isEmpty()) return;
+  _object.position.x -= (boundingBox.min.x + boundingBox.max.x) / 2;
+  _object.position.y -= boundingBox.min.y;
+  _object.position.z -= (boundingBox.min.z + boundingBox.max.z) / 2;
+  _object.updateMatrixWorld();
+}
+
 function setupCameraHandler(_object, meta) {
   if (!meta) return;
 
@@ -305,6 +318,11 @@ function setupCameraHandler(_object, meta) {
 }
 
 export const setupObject = (_object, _metadata) => {
+  // Only a settings object counts as metadata. Anything else (e.g. the "" a
+  // viewer without metadataUrl used to pass) would take the metadata branch
+  // below, which leaves the model where it was loaded - neither centred nor
+  // on the grid.
+  if (_metadata === null || typeof _metadata !== "object") _metadata = null;
   let model;
   if (typeof _object.children === "undefined" || _object.children.length == 0) {
     model = fetchObjectFromConfig(_object.name);
@@ -358,20 +376,11 @@ export const setupObject = (_object, _metadata) => {
       if (core.PRESENTATION_MODE) {
         centerObjectAtOrigin(_object);
       } else {
-        //workaround for specific Group case
-        // Shift relative to the current position: the box is in world space,
-        // and a streamed (tiled) model's group already carries the transform
-        // that centres/orients it (tiles.js). Same result as before for
-        // models starting at the origin.
-        boundingBox.setFromObject(_object);
-        _object.position.x -= (boundingBox.min.x + boundingBox.max.x) / 2;
-        _object.position.y -= boundingBox.min.y;
-        _object.position.z -= (boundingBox.min.z + boundingBox.max.z) / 2;
-        _object.updateMatrixWorld();
+        placeOnGrid(_object);
       }
     } else if (!core.PRESENTATION_MODE) {
-      boundingBox.setFromObject(_object);
-      _object.position.set((boundingBox.max.x - boundingBox.min.x ) / 2, (boundingBox.max.y - boundingBox.min.y) / 2, (boundingBox.max.z - boundingBox.min.z ) / 2);
+      // A single mesh (STL, PLY, IFC, ...): same placement as a group.
+      placeOnGrid(_object);
       setupGeometryHandler(_object);
     } else {
       // In presentation mode keep local hierarchy transforms and center only the whole object.
