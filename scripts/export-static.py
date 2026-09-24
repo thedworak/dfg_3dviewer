@@ -6,7 +6,8 @@ conversion worker publicly.
 For every finished job it copies the GLB and the rendered thumbnails and writes
 an AIM3D manifest pointing at the public URL of the copy:
 
-  <out>/models/<slug>/model.glb        (or model.<ext> for viewer-native uploads)
+  <out>/models/<slug>/model.glb        (or model.<ext> for viewer-native uploads,
+                                        tiles/tileset.json for point clouds)
   <out>/models/<slug>/views/*.png
   <out>/manifests/<slug>.json
   <out>/index.json                     list of everything exported
@@ -130,8 +131,16 @@ def main() -> int:
 
         model_dir = args.out / "models" / slug
         (model_dir / "views").mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(glb, model_dir / f"model{model_ext}")
-        total_bytes += glb.stat().st_size
+        if glb.name == "tileset.json":
+            # A point cloud streamed as 3D Tiles (worker/pointcloud.py): the
+            # whole tile folder; the viewer recognises "tileset.json" by name.
+            shutil.copytree(glb.parent, model_dir / "tiles", dirs_exist_ok=True)
+            total_bytes += sum(p.stat().st_size for p in (model_dir / "tiles").rglob("*") if p.is_file())
+            model_file = "tiles/tileset.json"
+        else:
+            shutil.copyfile(glb, model_dir / f"model{model_ext}")
+            total_bytes += glb.stat().st_size
+            model_file = f"model{model_ext}"
         # The viewer finds "<model>.preview.glb" next to the model by itself
         # and shows it first (progressive loading, worker/optimize.py).
         preview = glb.with_name(glb.stem + ".preview.glb")
@@ -145,7 +154,7 @@ def main() -> int:
             total_bytes += src.stat().st_size
             images.append(f"{base}/models/{slug}/views/{src.name}")
 
-        model_url = f"{base}/models/{slug}/model{model_ext}"
+        model_url = f"{base}/models/{slug}/{model_file}"
         manifest = build_manifest(job["name"], model_url, template, args.keep_editor,
                                   "model/gltf-binary" if model_ext == ".glb" else None)
         manifest_path = args.out / "manifests" / f"{slug}.json"

@@ -93,6 +93,12 @@ RUN curl -fsSL "https://github.com/zeux/meshoptimizer/releases/download/v${GLTFP
 ENV LIBGL_ALWAYS_SOFTWARE=1
 ENV GALLIUM_DRIVER=llvmpipe
 
+# Point clouds -> streamed 3D Tiles (worker/pointcloud.py): py3dtiles builds
+# the tileset, laspy+lazrs reads LAZ without LAStools, pye57 reads E57. Kept
+# after Blender so adding it did not invalidate the cached Blender layers.
+RUN pip3 install --no-cache-dir --break-system-packages "py3dtiles[las]" "laspy[lazrs]" pye57 \
+    && py3dtiles --help > /dev/null
+
 # Runtime defaults that do not depend on the code.
 ENV SPATH=/app
 ENV BLENDER_BIN=blender

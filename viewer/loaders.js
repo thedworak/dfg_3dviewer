@@ -931,6 +931,9 @@ export async function loadModel() {
     }
 
     updateLoadingStage("loadingLog.modelLoaded", 100);
+    // afterLoad (settings, camera intro) is done. A progressive preview
+    // keeps this false until the full model is swapped in.
+    if (!core.progressiveLoad) window.viewer.fullModelLoaded = true;
     core.circle?.complete?.(2600);
     core.editorToolbar?.classList.remove('editorToolbar-hidden');
     core.editorToolbar?.classList.add('editorToolbar-visible');

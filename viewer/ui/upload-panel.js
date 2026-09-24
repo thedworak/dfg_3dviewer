@@ -7,13 +7,15 @@ import { makePanelWindow } from "./panel-window.js";
 
 // Mirrors worker/server.py's SUPPORTED_FORMATS: Blender importers, STEP/IGES/3MF
 // converted without Blender, and formats the viewer reads directly (kept as
-// uploaded, no thumbnails), plus the .zip archive support the standalone
+// uploaded, no thumbnails), point clouds turned into 3D Tiles
+// (worker/pointcloud.py), plus the .zip archive support the standalone
 // worker adds on top - see worker/README.md.
 const SUPPORTED_EXTENSIONS = [
   "abc", "dae", "fbx", "obj", "ply", "stl", "wrl", "x3d", "ifc", "blend", "gml", "glb",
   "usd", "usda", "usdc", "usdz",
   "step", "stp", "iges", "igs", "3mf",
   "gltf", "3ds", "pcd", "xyz", "amf", "kmz", "vox", "lwo",
+  "las", "laz", "e57",
   "zip",
 ];
 

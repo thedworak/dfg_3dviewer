@@ -171,6 +171,7 @@ needing the tag.
   - Blender importers via `scripts/convert.sh`: `abc dae fbx obj ply stl wrl x3d usd usda usdc usdz ifc blend gml glb`
   - converted without Blender by `scripts/convert_mesh.py` (needs `cascadio`, `trimesh`, `networkx`, installed in the image): `step stp iges igs 3mf`
   - kept as uploaded and served as-is, no GLB and no thumbnails (the viewer loads them itself): `gltf 3ds pcd xyz amf kmz vox lwo`
+  - point clouds converted to a streamed 3D Tiles tileset (`modelUrl` ends in `tiles/<name>/tileset.json`), no thumbnails: `las laz e57`, and a `ply` without faces - see "Point clouds" below
 
   Returns:
   ```json
@@ -220,6 +221,8 @@ Set via environment variables on the `worker` container (see
 | `WORKER_CONVERT_TIMEOUT`   | `1800`         | Seconds before a convert.sh call is killed|
 | `WORKER_RENDER_TIMEOUT`    | `900`          | Seconds before a render.sh call is killed |
 | `WORKER_RENDER_DEVICE`     | `CPU`          | `CPU`, `GPU`, or `AUTO` - see below       |
+| `WORKER_POINTCLOUD_JOBS`   | CPUs (max 8)   | Parallel py3dtiles workers for point clouds |
+| `WORKER_POINTCLOUD_TIMEOUT` | `3600`        | Seconds before a point cloud conversion is killed |
 | `WORKER_OPTIMIZE`          | `auto`         | gltfpack step (see "GLB optimization"): `auto` = on when `gltfpack` is installed (it is in the image), `true`, `false` |
 | `WORKER_TEXTURE_FORMAT`    | `ktx2`         | `ktx2` (Basis Universal), `webp` or `keep` |
 | `WORKER_PREVIEW_RATIO`     | `0.1`          | Triangle ratio of the progressive-loading preview; `0` disables previews |
@@ -256,6 +259,16 @@ After conversion, `worker/optimize.py` runs [gltfpack](https://github.com/zeux/m
 - Only new conversions are optimized. Annotations store face indices, which gltfpack reorders, so do not re-run it on models that already have annotations.
 - Standalone use, e.g. from the Drupal pipeline: `python3 worker/optimize.py model.glb --preview` (needs `gltfpack` on `PATH` or `WORKER_GLTFPACK_BIN`).
 - Example: a 40.6 MB photogrammetry GLB became 6.7 MB, with a 1.4 MB preview, in about 6 s.
+
+### Point clouds
+
+`worker/pointcloud.py` turns LAS, LAZ, E57 and face-less PLY uploads into a 3D Tiles tileset (pnts octree) with [py3dtiles](https://py3dtiles.org), which the viewer streams level by level (`viewer/tiles.js`) - only the points the current view needs are downloaded.
+
+- LAZ is decompressed with `laspy` + `lazrs` first (py3dtiles would need the external LAStools `laszip`); E57 scans are merged with their poses applied (`pye57`), keeping colour and intensity; PLY point clouds are read with `trimesh`.
+- Coordinates are kept as they are (no reprojection); the viewer centres the cloud and turns Z-up to Y-up.
+- py3dtiles runs with `--disable-processpool`, since Docker's default 64 MB `/dev/shm` is too small for its shared-memory pool.
+- Standalone: `python3 worker/pointcloud.py scan.e57 out_dir` (needs `py3dtiles`, `laspy[lazrs]`, `pye57`, `trimesh`).
+- Example: 600,000 coloured points (LAS, LAZ or E57) convert in about 2 s.
 
 ### Upload limits
 

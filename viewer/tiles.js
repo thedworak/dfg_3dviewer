@@ -49,6 +49,16 @@ export function detectTiledFormat(fileName) {
   return null;
 }
 
+function hasTileContent(group) {
+  let found = false;
+  group.traverse((child) => {
+    if (!found && (child.isPoints || child.isMesh) && child.geometry?.getAttribute?.("position")?.count) {
+      found = true;
+    }
+  });
+  return found;
+}
+
 export function getActiveTiles() {
   return activeTiles;
 }
@@ -110,11 +120,6 @@ export async function loadTiledModel({ url, format, configureGLTFLoader, onModel
     meshoptDecoder: gltfDecoders.meshoptDecoder,
     autoDispose: false,
   }));
-  // Georeferenced tilesets sit thousands of km from the origin (ECEF): move
-  // them to the origin, local "up" along +Y. Local ones are just centred and
-  // turned from the Z-up convention of 3D Tiles and Potree to three.js' Y-up.
-  // This sets the group's transform, which afterLoad keeps for tiled models.
-  tiles.registerPlugin(new plugins.ReorientationPlugin({ up: "+z", recenter: true }));
   if (format === "potree") {
     tiles.registerPlugin(new plugins.PotreePlugin({
       url,
@@ -135,8 +140,19 @@ export async function loadTiledModel({ url, format, configureGLTFLoader, onModel
   core.tiledModel = { format, tiles };
   core.scene.add(tiles.group);
 
+  // Wait - checking state every frame rather than relying on the order of
+  // the renderer's events, which varies with machine speed - until the root
+  // tileset (with its bounding volume) and a first batch of content are in.
   await new Promise((resolve, reject) => {
     let settled = false;
+    let firstBatchDone = false;
+    const onLoadEnd = () => {
+      if (tiles.root) firstBatchDone = true;
+    };
+    const onError = ({ error, url: failedUrl }) => {
+      // A missing root is fatal; a single broken tile is not.
+      if (!tiles.root) finish(error || new Error(`Failed to load ${failedUrl || url}`));
+    };
     const finish = (error) => {
       if (settled) return;
       settled = true;
@@ -145,26 +161,29 @@ export async function loadTiledModel({ url, format, configureGLTFLoader, onModel
       if (error) reject(error);
       else resolve();
     };
-    // The first "tiles-load-end" after the root tileset means the coarse
-    // level is on screen - enough to frame the camera.
-    const onLoadEnd = () => {
-      if (tiles.root) finish();
-    };
-    const onError = ({ error, url: failedUrl }) => {
-      // A missing root is fatal; a single broken tile is not.
-      if (!tiles.root) finish(error || new Error(`Failed to load ${failedUrl || url}`));
-    };
     tiles.addEventListener("tiles-load-end", onLoadEnd);
     tiles.addEventListener("load-error", onError);
-    tiles.addEventListener("load-root-tileset", () => onProgress?.(50));
     // Nothing loads until the renderer is updated with a camera.
     const pump = () => {
       if (settled || activeTiles !== tiles) return;
       updateTiles();
-      requestAnimationFrame(pump);
+      if (tiles.root?.engineData?.boundingVolume) onProgress?.(50);
+      const ready = tiles.root?.engineData?.boundingVolume
+        && (firstBatchDone || tiles.loadProgress === 1)
+        && hasTileContent(tiles.group);
+      if (ready) finish();
+      else requestAnimationFrame(pump);
     };
     pump();
   });
+
+  // Registered only now so that it orients the group right away (its init
+  // runs immediately once the root is loaded) and never later, after
+  // afterLoad has centred the model: georeferenced tilesets (ECEF, thousands
+  // of km from the origin) are moved to the origin with local "up" along +Y;
+  // local ones are turned from the Z-up convention of 3D Tiles and Potree to
+  // three.js' Y-up. afterLoad keeps this transform for tiled models.
+  tiles.registerPlugin(new plugins.ReorientationPlugin({ up: "+z", recenter: true }));
 
   addTilesetBounds(tiles);
   tiles.group.updateMatrixWorld(true);

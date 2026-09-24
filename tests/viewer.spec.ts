@@ -515,15 +515,19 @@ test('faces are selected by Shift + drag, Ctrl + click and accepted with Enter',
     for (const key of [...modifiers].reverse()) await page.keyboard.up(key);
   };
 
-  // Let the camera finish its intro flight before comparing poses.
+  // Let the camera finish its intro flight before comparing poses: it starts
+  // at the end of loading, so wait for that, then for a few still samples.
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true);
   const cameraPose = () => page.evaluate(() => window.Viewer.captureCurrentAnnotationView());
   let cameraBefore = await cameraPose();
+  let stillSamples = 0;
   await expect.poll(async () => {
     const previous = cameraBefore;
-    await page.waitForTimeout(200);
+    await page.waitForTimeout(250);
     cameraBefore = await cameraPose();
-    return JSON.stringify(cameraBefore) === JSON.stringify(previous);
-  }).toBe(true);
+    stillSamples = JSON.stringify(cameraBefore) === JSON.stringify(previous) ? stillSamples + 1 : 0;
+    return stillSamples >= 3;
+  }, { timeout: 15_000 }).toBe(true);
   await dragArea(['Shift']);
   const visibleCount = await selectedCount();
   // The cube has 12 triangles; only the faces turned to the camera count.

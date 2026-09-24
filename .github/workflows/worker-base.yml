@@ -1,0 +1,40 @@
+name: Publish worker base image
+
+# Builds worker/Dockerfile.base (Ubuntu, Blender, gltfpack, Python libraries)
+# and pushes it to GHCR with inline cache metadata. docker-compose.yml lists
+# it as cache_from for the worker-base service, so machines without a local
+# build cache (GitHub runners, new servers) reuse its layers instead of
+# downloading and unpacking Blender again.
+
+on:
+  push:
+    branches:
+      - main
+      - stable-release
+    paths:
+      - worker/Dockerfile.base
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/thedworak/dfg-3dviewer-worker-base
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Build and push
+        run: |
+          docker build -f worker/Dockerfile.base \
+            --build-arg BUILDKIT_INLINE_CACHE=1 \
+            -t "$IMAGE:latest" -t "$IMAGE:${GITHUB_SHA::7}" worker
+          docker push --all-tags "$IMAGE"

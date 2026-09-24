@@ -48,6 +48,7 @@ from urllib.parse import unquote, urlparse
 
 import mailer
 import optimize
+import pointcloud
 from auth import AuthError, AuthStore
 from limits import LIMIT_KEYS, LimitError, Limits, default_limits, normalize_overrides
 
@@ -99,8 +100,12 @@ MESH_CONVERT_FORMATS = {"step", "stp", "iges", "igs", "3mf"}
 # GLB by Blender, no thumbnails either. ("gltf" is only useful inside a .zip
 # together with its .bin/textures, which stay next to it in the job folder.)
 VIEWER_NATIVE_FORMATS = {"gltf", "3ds", "pcd", "xyz", "amf", "kmz", "vox", "lwo"}
+# Point clouds become a streamed 3D Tiles tileset (worker/pointcloud.py);
+# a .ply without faces joins them at run time (is_point_cloud()).
+POINTCLOUD_FORMATS = pointcloud.POINTCLOUD_FORMATS
 SUPPORTED_FORMATS = (
     DIRECT_FORMATS | SPECIAL_FORMATS | PASSTHROUGH_FORMATS | MESH_CONVERT_FORMATS | VIEWER_NATIVE_FORMATS
+    | POINTCLOUD_FORMATS
 )
 # Mirrors ModelFormatManager::getZipFormats() on the Drupal side. "zip" is
 # extracted in-process (safe_extract_zip); the rest shell out to the same
@@ -219,6 +224,9 @@ def scan_job(job_id: str, job_dir: Path):
             (p for p in glb_candidates if "gltf" in p.relative_to(job_root).parts),
             glb_candidates[0],
         )
+    elif (tilesets := sorted(job_root.glob("tiles/*/tileset.json"))):
+        # A point cloud converted to 3D Tiles (worker/pointcloud.py).
+        glb_path = tilesets[0]
     else:
         # Viewer-native formats are served as uploaded (no GLB exists).
         native = [
@@ -426,6 +434,26 @@ def run_pipeline(job_id: str, input_path: Path, original_ext: str) -> None:
         ext = work_path.suffix.lower().lstrip(".")
         if ext not in SUPPORTED_FORMATS:
             raise RuntimeError(f"Unsupported source format: .{ext}")
+
+        if pointcloud.is_point_cloud(work_path):
+            tiles_dir = job_root / "tiles" / work_path.stem
+            with LIMITS.conversion_slot(
+                on_wait=lambda: set_job(job_id, status="queued", message="Waiting for a free conversion slot..."),
+            ):
+                set_job(job_id, status="processing", progress=25, message="Building streamed point cloud tiles...")
+                tileset = pointcloud.convert_to_tiles(
+                    work_path, tiles_dir, job_root / "tiles" / (work_path.stem + ".work"),
+                    log_prefix=f"[job {job_id}]",
+                )
+            set_job(
+                job_id,
+                status="ready",
+                progress=100,
+                message="Point cloud converted to 3D Tiles (no thumbnails)",
+                model_url=f"/files/{job_id}/{tileset.relative_to(job_root)}",
+                image_urls=[],
+            )
+            return
 
         if ext in VIEWER_NATIVE_FORMATS:
             # Nothing to convert or render: the viewer reads this format itself.
