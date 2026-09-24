@@ -215,6 +215,7 @@ export const VIEWER_I18N = {
       submit: "Upload & convert",
       uploading: "Uploading...",
       unsupportedFormat: "Unsupported file format: .{ext}",
+      webglUnavailable: "WebGL is unavailable in your browser. Enable hardware acceleration or update your graphics drivers.",
       uploadError: "Upload failed. Please try again.",
     },
     modelsPanel: {
@@ -595,6 +596,7 @@ export const VIEWER_I18N = {
       submit: "Prześlij i skonwertuj",
       uploading: "Przesyłanie...",
       unsupportedFormat: "Nieobsługiwany format pliku: .{ext}",
+      webglUnavailable: "WebGL jest niedostępny w Twojej przeglądarce. Włącz akcelerację sprzętową lub zaktualizuj sterowniki karty graficznej.",
       uploadError: "Przesyłanie lub konwersja nie powiodła się. Spróbuj ponownie.",
     },
     modelsPanel: {
@@ -974,6 +976,7 @@ export const VIEWER_I18N = {
       submit: "Hochladen & konvertieren",
       uploading: "Wird hochgeladen...",
       unsupportedFormat: "Nicht unterstütztes Dateiformat: .{ext}",
+      webglUnavailable: "WebGL ist in Ihrem Browser nicht verfügbar. Aktivieren Sie die Hardwarebeschleunigung oder aktualisieren Sie Ihre Grafiktreiber.",
       uploadError: "Upload oder Konvertierung fehlgeschlagen. Bitte erneut versuchen.",
     },
     modelsPanel: {

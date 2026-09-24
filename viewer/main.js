@@ -3422,26 +3422,32 @@ export const Viewer = {
       // Store in core
       setCore('cameraLight', Viewer.cameraLight);      
 
-      core.renderer = new THREE.WebGLRenderer({
-        antialias: true,
-        logarithmicDepthBuffer: true,
-        colorManagement: true,
-        sortObjects: true,
-        preserveDrawingBuffer: true,
-        powerPreference: "high-performance",
-        alpha: true,
-        shadowMap: {
-          enabled: true,
-          type: THREE.PCFSoftShadowMap
-        },
-        localClippingEnabled: true,
-        physicallyCorrectLights: true,
-        autoClear: false,
-        setClearColor: (0x000000, 0.0),
-        outputColorSpace: THREE.SRGBColorSpace,
-        toneMapping: THREE.ACESFilmicToneMapping,
-        toneMappingExposure: 0.65
-      });
+      try {
+        core.renderer = new THREE.WebGLRenderer({
+          antialias: true,
+          logarithmicDepthBuffer: true,
+          colorManagement: true,
+          sortObjects: true,
+          preserveDrawingBuffer: true,
+          powerPreference: "high-performance",
+          alpha: true,
+          shadowMap: {
+            enabled: true,
+            type: THREE.PCFSoftShadowMap
+          },
+          localClippingEnabled: true,
+          physicallyCorrectLights: true,
+          autoClear: false,
+          setClearColor: (0x000000, 0.0),
+          outputColorSpace: THREE.SRGBColorSpace,
+          toneMapping: THREE.ACESFilmicToneMapping,
+          toneMappingExposure: 0.65
+        });
+      } catch (err) {
+        console.warn("WebGL context could not be created:", err);
+        showToast("toasts.webglUnavailable", "error", { duration: 10000 });
+        return;
+      }
       
       core.renderer.localClippingEnabled = true;
 
