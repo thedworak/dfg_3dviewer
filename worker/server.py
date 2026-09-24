@@ -46,6 +46,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
+import mailer
 from auth import AuthError, AuthStore
 
 APP_DIR = Path(__file__).resolve().parent.parent
@@ -533,7 +534,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             if action == "approve":
-                AUTH.update_user(username, status="active")
+                approved = AUTH.approve_user(username)
+                if approved:
+                    mailer.send_account_approved(approved["username"], approved["email"])
             elif action == "disable":
                 AUTH.update_user(username, status="disabled")
             elif action == "promote":
@@ -736,7 +739,10 @@ def admin_cli(args) -> None:
         elif command in ("approve", "disable", "promote", "demote", "delete-user") and len(rest) == 1:
             user = rest[0]
             if command == "approve":
-                AUTH.update_user(user, status="active")
+                approved = AUTH.approve_user(user)
+                if approved:
+                    # The CLI process exits right after, so send inline.
+                    mailer.send_account_approved(approved["username"], approved["email"], background=False)
             elif command == "disable":
                 AUTH.update_user(user, status="disabled")
             elif command == "promote":

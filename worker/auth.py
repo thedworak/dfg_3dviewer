@@ -282,6 +282,22 @@ class AuthStore:
             users[username].update(changes)
             self._save(users)
 
+    def approve_user(self, username: str):
+        """Sets the account active. Returns {"username", "email"} when this
+        moved it out of *pending* (i.e. a first-time approval worth telling
+        the user about), else None - re-enabling a disabled account is silent."""
+        with self._lock:
+            users = self._load()
+            record = users.get(username)
+            if record is None:
+                raise AuthError(404, f"No such user: {username}")
+            was_pending = record.get("status") == "pending"
+            record["status"] = "active"
+            self._save(users)
+        if was_pending and record.get("email"):
+            return {"username": username, "email": record["email"]}
+        return None
+
     def delete_user(self, username: str) -> None:
         with self._lock:
             users = self._load()

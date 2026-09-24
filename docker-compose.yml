@@ -23,6 +23,15 @@ services:
       - WORKER_AUTH_REGISTRATION=${WORKER_AUTH_REGISTRATION:-approval}
       - WORKER_ADMIN_USER=${WORKER_ADMIN_USER:-}
       - WORKER_ADMIN_PASSWORD=${WORKER_ADMIN_PASSWORD:-}
+      # Optional: mail users when an admin approves their account (see
+      # "Accounts" in worker/README.md). Mail stays off without SMTP_HOST.
+      - WORKER_SMTP_HOST=${WORKER_SMTP_HOST:-}
+      - WORKER_SMTP_PORT=${WORKER_SMTP_PORT:-}
+      - WORKER_SMTP_SECURITY=${WORKER_SMTP_SECURITY:-starttls}
+      - WORKER_SMTP_USER=${WORKER_SMTP_USER:-}
+      - WORKER_SMTP_PASSWORD=${WORKER_SMTP_PASSWORD:-}
+      - WORKER_SMTP_FROM=${WORKER_SMTP_FROM:-}
+      - WORKER_PUBLIC_URL=${WORKER_PUBLIC_URL:-}
     # Requesting this reservation without nvidia-container-toolkit on the
     # host makes `docker compose up` fail outright ("could not select
     # device driver \"nvidia\"") before the container ever starts, so it

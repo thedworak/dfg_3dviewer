@@ -194,6 +194,8 @@ Set via environment variables on the `worker` container (see
 | `WORKER_AUTH_MODE`         | `off`          | `off` (open, as before) or `required` (upload/delete need a login) |
 | `WORKER_AUTH_REGISTRATION` | `approval`     | `open` (instantly active), `approval` (admin must approve), `closed` |
 | `WORKER_ADMIN_USER` / `WORKER_ADMIN_PASSWORD` | unset | Creates/resets an admin account on start (password >= 8 chars) |
+| `WORKER_SMTP_HOST` (+ `_PORT`, `_SECURITY` = `starttls`\|`ssl`\|`none`, `_USER`, `_PASSWORD`, `_FROM`) | unset | Sends an email to a user when an admin approves their pending account; mail is off without the host |
+| `WORKER_PUBLIC_URL`        | unset          | Viewer address included in that email     |
 | `WORKER_AUTH_SECRET`       | generated      | Session-signing key; otherwise generated once into the volume |
 | `WORKER_AUTH_SESSION_TTL`  | `604800`       | Login lifetime in seconds (7 days)        |
 | `WORKER_CONVERT_TIMEOUT`   | `1800`         | Seconds before a convert.sh call is killed|
