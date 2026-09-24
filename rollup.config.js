@@ -6,6 +6,19 @@ import terser from '@rollup/plugin-terser';
 import replace from '@rollup/plugin-replace';
 import path from 'path';
 import fs from 'fs/promises';
+import { execSync } from 'child_process';
+
+// Shown in the credits footer. Docker builds have no .git (see .dockerignore),
+// so deploy passes BUILD_ID (the commit's short hash) in explicitly.
+function resolveBuildId() {
+  if (process.env.BUILD_ID) return process.env.BUILD_ID.trim();
+  try {
+    return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch {
+    return 'dev';
+  }
+}
+const buildId = resolveBuildId();
 
 const source = process.env.BUILD_SOURCE ?? "IIIF";
 const envBuild = process.env.BUILD ?? "test";
@@ -217,6 +230,7 @@ export default {
       values: {
         __BUILD_SOURCE__: JSON.stringify(source),
         __BUILD__: JSON.stringify(envBuild),
+        __BUILD_ID__: JSON.stringify(buildId),
         __IS_PROD__: JSON.stringify(production),
         __MODULES_PATH__: JSON.stringify(modulesPath),
         __ENV_SUBDIR__: JSON.stringify(envSubdir),

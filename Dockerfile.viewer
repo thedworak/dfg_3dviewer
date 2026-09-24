@@ -22,6 +22,10 @@ ARG VIEWER_PROFILE=test
 FROM node:alpine AS build
 ARG BUILD_TARGET
 ARG VIEWER_PROFILE
+# Commit short hash shown in the credits footer (.git is not in the build
+# context) - set by deploy.yml / `BUILD_ID=$(git rev-parse --short HEAD)`.
+ARG BUILD_ID=
+ENV BUILD_ID=${BUILD_ID}
 WORKDIR /app
 # package.json has no "packageManager" field, so Corepack has nothing to pin
 # and errors out in a non-interactive build instead of guessing a version -
