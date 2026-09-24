@@ -4,3 +4,5 @@ dist
 viewer/node_modules
 worker/data
 *.log
+__pycache__
+*.py[cod]

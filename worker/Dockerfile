@@ -79,7 +79,9 @@ COPY scripts/ /app/scripts/
 RUN rm -f /app/scripts/.env \
     && chmod +x /app/scripts/*.sh /app/scripts/*.py /app/scripts/IfcConvert
 
-COPY worker/server.py worker/auth.py /app/worker/
+# All worker modules (server.py imports auth and mailer); listing files one
+# by one broke the image when mailer.py was added.
+COPY worker/*.py /app/worker/
 
 ENV SPATH=/app
 ENV BLENDER_BIN=blender
