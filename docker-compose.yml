@@ -1,13 +1,26 @@
 services:
+  # Build-only: Ubuntu, Blender, gltfpack and the Python libraries
+  # (worker/Dockerfile.base). Built once and then served from the build cache,
+  # so code changes only rebuild the thin worker image below. Never started.
+  worker-base:
+    build:
+      context: worker
+      dockerfile: Dockerfile.base
+      # Published by .github/workflows/worker-base.yml; speeds up the first
+      # build on a fresh machine. A missing or private image only means a
+      # full local build (BuildKit logs a warning and carries on).
+      cache_from:
+        - ghcr.io/thedworak/dfg-3dviewer-worker-base:latest
+    image: dfg-3dviewer-worker-base
+    scale: 0
+
   worker:
     build:
       context: .
       dockerfile: worker/Dockerfile
-      # Code only - Blender & co. come from the base image
-      # (worker/Dockerfile.base, scripts/worker-base.sh). Set
-      # WORKER_BASE_IMAGE to use another base; unset keeps the Dockerfile's.
-      args:
-        - WORKER_BASE_IMAGE
+      # Code only - "FROM worker-base" resolves to the service above.
+      additional_contexts:
+        worker-base: service:worker-base
     ports:
       - "8080:8080"
     volumes:

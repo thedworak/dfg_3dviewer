@@ -5,8 +5,8 @@
 #   scripts/docker.sh build   [dev|test|sandbox]   build image(s)
 #   scripts/docker.sh down    [dev|test|sandbox]   stop + remove container(s)
 #   scripts/docker.sh rebuild [dev|test|sandbox]   down, then build
-#   scripts/docker.sh base                         rebuild the worker base image
-#                                                  (Blender etc., worker/Dockerfile.base)
+#   scripts/docker.sh base                         rebuild the worker base image from
+#                                                  scratch (Blender etc., worker/Dockerfile.base)
 #   scripts/docker.sh prune                        docker system prune (asks first)
 #   scripts/docker.sh                              interactive menu
 #
@@ -81,10 +81,6 @@ do_build() {
         VIEWER_PROFILE="$profile" compose build "viewer-$profile"
         ok "Image for viewer-$profile built (profile: $profile)"
     else
-        # The worker image builds FROM the base image with Blender & co.;
-        # pull it (or build it once) first - see scripts/worker-base.sh.
-        info "preparing the worker base image"
-        scripts/worker-base.sh ensure
         info "building all services"
         compose build
         ok "All images built"
@@ -133,7 +129,7 @@ run() {
         down)    do_down "$profile" ;;
         rebuild) do_down "$profile"; do_build "$profile" ;;
         prune)   do_prune; return ;;
-        base)    scripts/worker-base.sh build; ok "Worker base image built"; return ;;
+        base)    compose build --no-cache --pull worker-base; ok "Worker base image rebuilt"; return ;;
         *)       usage; exit 1 ;;
     esac
     if [ "$action" = down ]; then return; fi

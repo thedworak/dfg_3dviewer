@@ -1,15 +1,16 @@
 # Standalone conversion worker: the repository's scripts/convert.sh &
-# scripts/render.sh pipeline, wrapped by worker/server.py, on top of the
-# prebuilt base image with Blender, gltfpack and the system/Python
-# dependencies (worker/Dockerfile.base). Only this layer is rebuilt when the
-# code changes. Build context must be the repo root, e.g.:
-#   docker build -f worker/Dockerfile -t dfg-3dviewer-worker .
+# scripts/render.sh pipeline, wrapped by worker/server.py, on top of the base
+# image with Blender, gltfpack and the system/Python dependencies
+# (worker/Dockerfile.base). Only this layer is rebuilt when the code changes.
 #
-# The base image is pulled from GHCR, or built locally when it cannot be -
-# scripts/worker-base.sh ensure (run by scripts/docker.sh and the deploy
-# workflow) takes care of that. Bump this tag whenever Dockerfile.base changes.
-ARG WORKER_BASE_IMAGE=ghcr.io/thedworak/dfg-3dviewer-worker-base:1
-FROM ${WORKER_BASE_IMAGE}
+# "worker-base" is a named build context: docker-compose.yml builds the
+# worker-base service first and passes its image in (additional_contexts).
+# Building by hand, from the repo root:
+#   docker build -f worker/Dockerfile.base -t dfg-3dviewer-worker-base worker
+#   docker build -f worker/Dockerfile \
+#     --build-context worker-base=docker-image://dfg-3dviewer-worker-base \
+#     -t dfg-3dviewer-worker .
+FROM worker-base
 
 WORKDIR /app
 

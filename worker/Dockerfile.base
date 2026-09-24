@@ -4,16 +4,15 @@
 # the repository code (scripts/, worker/*.py), so code changes rebuild in
 # seconds instead of re-downloading Blender.
 #
-# Published as ghcr.io/thedworak/dfg-3dviewer-worker-base (see
-# .github/workflows/worker-base.yml); build it locally with
-#   scripts/worker-base.sh build
-# After changing this file, bump the tag in worker/Dockerfile's
-# WORKER_BASE_IMAGE default. scripts/worker-base.sh also stamps every build
-# with a hash of this file and rebuilds when a local/pulled image does not
-# match it, so a forgotten bump cannot silently run old dependencies.
+# docker-compose.yml builds it as the worker-base service (never started,
+# scale: 0) before the worker; after the first build every layer comes from
+# the local build cache, and editing this file rebuilds only the changed
+# layers. .github/workflows/worker-base.yml publishes it to GHCR with inline
+# cache metadata, which compose uses as cache_from so that fresh machines
+# (e.g. CI runners) do not have to download and unpack Blender either.
 #
 # The build needs no files from the repository (everything is downloaded):
-#   docker build -f worker/Dockerfile.base worker
+#   docker build -f worker/Dockerfile.base -t dfg-3dviewer-worker-base worker
 
 FROM ubuntu:24.04
 

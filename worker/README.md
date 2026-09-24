@@ -73,14 +73,14 @@ API from outside the viewer (curl, scripts, etc).
 
 The worker image is split in two so that code changes do not reinstall Blender:
 
-- `worker/Dockerfile.base` - Ubuntu, system packages, Python libraries (trimesh, cascadio, ifcopenshell, ...), Blender and gltfpack. Published as `ghcr.io/thedworak/dfg-3dviewer-worker-base:<tag>` by `.github/workflows/worker-base.yml` whenever the file changes.
-- `worker/Dockerfile` - `FROM` that base, adds only `scripts/` and `worker/*.py`; rebuilds in seconds.
+- `worker/Dockerfile.base` - Ubuntu, system packages, Python libraries (trimesh, cascadio, ifcopenshell, ...), Blender and gltfpack. Built by the `worker-base` service in `docker-compose.yml`, which is never started (`scale: 0`).
+- `worker/Dockerfile` - `FROM worker-base` (the service's image, passed in through `additional_contexts`), adds only `scripts/` and `worker/*.py`.
 
-`scripts/worker-base.sh ensure` (run by `scripts/docker.sh build` and the deploy workflow) keeps a matching local base image, otherwise pulls it, otherwise builds it locally. Every base build carries a hash of `Dockerfile.base` in a label, so an image that does not match the current file is rebuilt rather than used. A plain `docker compose up --build` pulls the base automatically when it is missing.
+`docker compose build` / `up --build` builds the base first. The first time that downloads Blender; afterwards every base layer comes from the local build cache, so a code change only rebuilds the thin worker layer. Editing `Dockerfile.base` invalidates just the layers from the edit onwards - no tags to bump.
 
-- Changing dependencies: edit `worker/Dockerfile.base` and bump the tag in `worker/Dockerfile` (`ARG WORKER_BASE_IMAGE=...:1` → `:2`) in the same commit. The workflow publishes the new tag; until it has, CI and deploys build it locally.
-- Building it yourself: `scripts/worker-base.sh build` or `scripts/docker.sh base`; another registry or tag: `WORKER_BASE_IMAGE=registry/image:tag` for both the script and `docker compose build`.
-- The GHCR package must be public, or the deploy host logged in to `ghcr.io`; otherwise `ensure` falls back to a local build.
+- `.github/workflows/worker-base.yml` publishes the base to `ghcr.io/thedworak/dfg-3dviewer-worker-base:latest` with inline cache metadata whenever `Dockerfile.base` changes; compose uses it as `cache_from`, so machines without a local cache (GitHub runners, a new server) skip the Blender download too. Make the GHCR package public after its first publish (or log the machine in to `ghcr.io`); until then the base is simply built locally - a missing cache image is only a warning.
+- `scripts/docker.sh base` rebuilds the base from scratch (`--no-cache --pull`), e.g. to pick up Ubuntu security updates.
+- By hand: `docker build -f worker/Dockerfile.base -t dfg-3dviewer-worker-base worker`, then `docker build -f worker/Dockerfile --build-context worker-base=docker-image://dfg-3dviewer-worker-base -t dfg-3dviewer-worker .`
 
 ### Exposing this on a real domain
 
