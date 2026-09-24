@@ -1,0 +1,182 @@
+/* Animation player, measurement labels and measurement readout. */
+
+.viewer-animation-player {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 115;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 200px);
+  padding: 6px 10px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 12px;
+  background: var(--viewer-panel-bg, rgba(17, 24, 39, 0.82));
+  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(15, 23, 42, 0.28));
+  color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
+  font: 13px/1.2 system-ui, sans-serif;
+  backdrop-filter: blur(6px);
+}
+
+.viewer-animation-player button,
+.viewer-animation-player select {
+  height: 28px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.viewer-animation-player select option {
+  color: #111827;
+}
+
+.viewer-animation-player button {
+  min-width: 32px;
+  padding: 0 8px;
+}
+
+.viewer-animation-player button:hover,
+.viewer-animation-player select:hover {
+  background: var(--viewer-gui-widget-hover-bg, rgba(255, 255, 255, 0.2));
+}
+
+.viewer-animation-player_loop[aria-pressed="true"] {
+  background: var(--viewer-gui-widget-focus-bg, rgba(76, 110, 245, 0.85));
+  color: #fff;
+}
+
+.viewer-animation-player_clip {
+  max-width: 160px;
+}
+
+.viewer-animation-player_timeline {
+  width: 180px;
+  min-width: 60px;
+  flex: 1 1 180px;
+  accent-color: var(--viewer-gui-slider-fill, rgba(96, 165, 250, 0.9));
+}
+
+.viewer-animation-player_time {
+  min-width: 88px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .viewer-animation-player_time,
+  .viewer-animation-player_speed {
+    display: none;
+  }
+}
+
+.viewer-measure-label-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 105;
+}
+
+.viewer-measure-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(17, 24, 39, 0.85);
+  color: #fff;
+  font: 600 12px/1.3 system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  will-change: transform;
+}
+
+.viewer-measure-label--accent {
+  background: #e65100;
+}
+
+.viewer-measure-readout {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 115;
+  width: min(280px, calc(100% - 24px));
+  max-height: calc(100% - 140px);
+  overflow: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 12px;
+  background: var(--viewer-panel-bg, rgba(17, 24, 39, 0.82));
+  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(15, 23, 42, 0.28));
+  color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
+  font: 13px/1.35 system-ui, sans-serif;
+  backdrop-filter: blur(6px);
+}
+
+/* Keep clear of the animation player bar at the top. */
+:has(> .viewer-animation-player) > .viewer-measure-readout {
+  top: 60px;
+}
+
+.viewer-measure-readout[hidden] {
+  display: none;
+}
+
+.viewer-measure-readout_list {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.viewer-measure-readout_list li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 8px;
+  padding: 4px 0;
+  border-top: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+}
+
+.viewer-measure-readout_list li.is-draft {
+  opacity: 0.75;
+  font-style: italic;
+}
+
+.viewer-measure-readout_list small {
+  flex-basis: 100%;
+  opacity: 0.7;
+}
+
+.viewer-measure-readout_value {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.viewer-measure-readout_empty {
+  opacity: 0.75;
+}
+
+.viewer-measure-readout_actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.viewer-measure-readout_actions button {
+  padding: 4px 10px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.viewer-measure-readout_actions button:hover {
+  background: var(--viewer-gui-widget-hover-bg, rgba(255, 255, 255, 0.2));
+}

@@ -24,6 +24,10 @@ This is the current built runtime entry pattern. The viewer reads the `3d` attri
 - `camPos`
 - `camTarget`
 - `fov`
+- `animation` — animation clip to select (name, index or `all`)
+- `animationAutoplay` — `0` loads the animation paused on its first frame
+- `animationSpeed` — playback speed, e.g. `0.5`
+- `viewHelper` — `0` hides the axes gizmo
 
 Example:
 

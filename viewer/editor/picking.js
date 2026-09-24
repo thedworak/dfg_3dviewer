@@ -413,6 +413,8 @@ export function attachPicking(Viewer) {
         return;
       }
 
+      if (Viewer.handleViewHelperClick(e)) return;
+
       if (!Viewer.pickingMode && !Viewer.RULER_MODE) {
         const poiHit = getPoiHit(Viewer, Viewer.onUpPosition);
         if (poiHit?.object) {

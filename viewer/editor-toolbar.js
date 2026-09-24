@@ -40,6 +40,11 @@ export function getEditorToolbarIcon(icon) {
     visible: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
     clippingPlanes: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 6h10v12H7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 5v14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M7 6h5v12H7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.5 2.5" stroke-linejoin="round"/></svg>',
     ruler: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="9" width="16" height="6" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.8"/> <path d="M7 9v2.5 M9.5 9v1.6 M12 9v2.5 M14.5 9v1.6 M17 9v2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+    measureDistance: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 17 12 9l7 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="5" cy="17" r="2" fill="currentColor"/><circle cx="12" cy="9" r="2" fill="currentColor"/><circle cx="19" cy="14" r="2" fill="currentColor"/></svg>',
+    measureAngle: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 19H5L15 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M10.5 19a5.5 5.5 0 0 0-2.4-4.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+    measureArea: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7 14 4l6 9-8 7-7-5z" fill="currentColor" fill-opacity="0.25" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
+    measureDimensions: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M4 7.5 12 12l8-4.5M12 12v9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
+    measureClear: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     annotate: '<svg viewBox="0 0 24 24" aria-hidden="true"> <path d="M5 5h14v10H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/> <path d="M9 9h6M9 12h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/> </svg>',
     annotateAdd: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 8v5M9.5 10.5h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
     annotateImport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 6.8v7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.8 12 14l3.2-3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -638,6 +643,35 @@ export function createEditorToolbar(viewer) {
         });
         submenu.appendChild(subButton);
         viewer.clippingPlaneSubmenuButtons[item.key] = subButton;
+      });
+      button.appendChild(submenu);
+    } else if (tool.key === "ruler") {
+      button.classList.add("has-submenu");
+      const submenu = document.createElement("div");
+      submenu.className = "viewer-editor-tool_submenu";
+      const submenuItems = [
+        { key: "distance", icon: "measureDistance", onClick: () => viewer.setMeasurementMode("distance") },
+        { key: "angle", icon: "measureAngle", onClick: () => viewer.setMeasurementMode("angle") },
+        { key: "area", icon: "measureArea", onClick: () => viewer.setMeasurementMode("area") },
+        { key: "dimensions", icon: "measureDimensions", onClick: () => viewer.toggleModelDimensions() },
+        { key: "clear", icon: "measureClear", onClick: () => { viewer.clearMeasurements(); viewer.updateEditorToolbarState(); } },
+      ];
+      viewer.measurementSubmenuButtons = {};
+      submenuItems.forEach((item) => {
+        const subButton = document.createElement("button");
+        subButton.type = "button";
+        subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+        subButton.dataset.tool = `measure-${item.key}`;
+        subButton.innerHTML = `
+          <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon(item.icon)}</span>
+        `;
+        viewer.bindEventListener(subButton, "click", (event) => {
+          event.stopPropagation();
+          viewer.stopHandMode();
+          item.onClick();
+        });
+        submenu.appendChild(subButton);
+        viewer.measurementSubmenuButtons[item.key] = subButton;
       });
       button.appendChild(submenu);
     } else if (tool.key === "annotate") {
@@ -1501,6 +1535,18 @@ export function updateClippingPlanesSubmenuState(viewer) {
   );
 }
 
+export function updateMeasurementSubmenuState(viewer) {
+  if (!viewer.measurementSubmenuButtons) return;
+  ["distance", "angle", "area"].forEach((mode) => {
+    const active = viewer.RULER_MODE === true && viewer.measurementMode === mode;
+    viewer.measurementSubmenuButtons[mode]?.classList.toggle("is-active", active);
+    viewer.measurementSubmenuButtons[mode]?.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+  const dimensionsShown = Boolean(viewer.measurementDimensions);
+  viewer.measurementSubmenuButtons.dimensions?.classList.toggle("is-active", dimensionsShown);
+  viewer.measurementSubmenuButtons.dimensions?.setAttribute("aria-pressed", dimensionsShown ? "true" : "false");
+}
+
 export function updateShadingSubmenuState(viewer) {
   if (!viewer.shadingSubmenuButtons) return;
   const activeMode = viewer.shadingMode || "standard";
@@ -1672,6 +1718,21 @@ export function updateEditorToolbarLabels(viewer) {
     });
   }
 
+  if (viewer.measurementSubmenuButtons) {
+    const measurementSubmenuLabels = {
+      distance: t("measurement.distance", "Distance"),
+      angle: t("measurement.angle", "Angle"),
+      area: t("measurement.area", "Area"),
+      dimensions: t("measurement.dimensions", "Model dimensions"),
+      clear: t("measurement.clearAll", "Clear measurements"),
+    };
+    Object.entries(viewer.measurementSubmenuButtons).forEach(([key, button]) => {
+      const label = measurementSubmenuLabels[key] || key;
+      button.setAttribute("title", label);
+      button.setAttribute("aria-label", label);
+    });
+  }
+
   if (viewer.annotateSubmenuButtons) {
     const annotateSubmenuLabels = {
       annotateAdd: t("gui.addAnnotations", "Add Annotation"),
@@ -1802,6 +1863,7 @@ export function updateEditorToolbarState(viewer) {
 
   updateHierarchySubmenuState(viewer);
   updateClippingPlanesSubmenuState(viewer);
+  updateMeasurementSubmenuState(viewer);
   updateLightsSubmenuState(viewer);
   updateBackgroundSubmenuState(viewer);
   updateStatisticsSubmenuState(viewer);

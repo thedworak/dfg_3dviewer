@@ -52,6 +52,8 @@ import { attachShadingEditor } from "./editor/shading.js";
 import { buildEditorMetadata, saveEditorMetadata as persistEditorMetadata } from "./editor/metadata-persistence.js";
 import { attachAnnotations } from "./editor/annotations.js";
 import { attachMeasurement } from "./editor/measurement.js";
+import { attachAnimations } from "./animations.js";
+import { attachViewHelper } from "./ui/view-helper.js";
 import { attachPicking } from "./editor/picking.js";
 import { captureAndUploadThumbnail } from "./editor/thumbnail-capture.js";
 import { attachWindowControls } from "./ui/window-controls.js";
@@ -575,22 +577,17 @@ export const Viewer = {
   toggleDistanceMeasurement() {
     this.RULER_MODE = !this.RULER_MODE;
     if (this.RULER_MODE) {
-      toastHelper("distanceEnabled", {
-        duration: 2600
-      });
-      toastHelper("distanceHint", {
-        duration: 5200
-      });
+      if (this.measurementMode === "distance") {
+        toastHelper("distanceEnabled", {
+          duration: 2600
+        });
+      }
+      this.showMeasurementHint();
     } else {
       toastHelper(this.RULER_MODE ? "distanceModeEnabled" : "distanceModeDisabled");
     }
     if (!this.RULER_MODE) {
-      this.ruler.forEach((r) => {
-        core.scene.remove(r);
-      });
-      this.rulerObject = new THREE.Object3D();
-      this.ruler = [];
-      this.linePoints = [];
+      this.clearMeasurements();
     } else {
       this.pickingMode = false;
       this.restoreLastPickedFace();
@@ -599,6 +596,7 @@ export const Viewer = {
       this.updatePickingControlsVisibility();
     }
     this.updateDistanceMeasurementControllerLabel();
+    this.updateMeasurementReadout();
     this.updateEditorToolbarLabels();
     this.updateEditorToolbarState();
   },
@@ -1294,6 +1292,19 @@ export const Viewer = {
         Viewer.toggleAutoRotateByKeyboard();
         handled = true;
         break;
+      case "Enter":
+        if (Viewer.RULER_MODE && Viewer.measurementDraft) {
+          Viewer.finishMeasurementDraft();
+          handled = true;
+        }
+        break;
+      case "Escape":
+        if (Viewer.RULER_MODE) handled = Viewer.cancelMeasurementDraft();
+        break;
+      case "k":
+      case "K":
+        handled = Viewer.toggleAnimationPlayback();
+        break;
       default:
         break;
     }
@@ -1404,6 +1415,7 @@ export const Viewer = {
   },
 
   resetLoadedModelState() {
+    Viewer.disposeAnimations();
     Viewer.restoreLastPickedFace();
     Viewer.clearSelectedFaces();
     Viewer.closeAnnotationDialog();
@@ -1438,6 +1450,7 @@ export const Viewer = {
       Viewer.textMesh = null;
     }
 
+    Viewer.clearMeasurements();
     if (Viewer.ruler?.length) {
       Viewer.ruler.forEach((item) => Viewer.removeAndDisposeFromScene(item));
     }
@@ -1865,6 +1878,8 @@ export const Viewer = {
     this.rect = core.container.getBoundingClientRect();
 
     this.clock = new THREE.Timer();
+    // Ignore the time spent in a hidden tab instead of jumping animations forward.
+    this.clock.connect?.(document);
 
     Viewer.init();
     if (!core.PRESENTATION_MODE) {
@@ -2331,6 +2346,8 @@ export const Viewer = {
 
   animate: (time) => {
     requestAnimationFrame(Viewer.animate);
+    // THREE.Timer only advances on update(); without it getDelta() stays 0.
+    Viewer.clock.update(time);
     const delta = Viewer.clock.getDelta();
 
     if (!core.PRESENTATION_MODE) {
@@ -2371,6 +2388,7 @@ export const Viewer = {
         });
       }
       Viewer.updateAnnotationPOITooltipPosition();
+      Viewer.updateMeasurementLabels();
     }
     if (!core.GESTURE?.active || core.PRESENTATION_MODE) {
       core.controls?.update();
@@ -2387,10 +2405,12 @@ export const Viewer = {
     
     if (Viewer.mixer) {
       Viewer.mixer.update(delta);
+      Viewer.updateAnimationTimeline();
     }
 
     core.renderer?.clear();
     core.renderer?.render(core.scene, core.camera);
+    Viewer.renderViewHelper(delta);
     core.stats?.update();
   },
 
@@ -3725,6 +3745,7 @@ export const Viewer = {
       }
       Viewer.controls.update();
       setCore('controls', Viewer.controls);
+      Viewer.initViewHelper();
       setCore('GESTURE', Viewer.GESTURE);
       setCore('lastTime', Viewer.lastTime);
       setCore('helperObjects', Viewer.helperObjects);
@@ -4050,6 +4071,8 @@ attachShadingEditor(Viewer);
 attachAnnotations(Viewer);
 attachPicking(Viewer);
 attachMeasurement(Viewer);
+attachAnimations(Viewer);
+attachViewHelper(Viewer);
 attachEmbedConfigurator(Viewer);
 attachLoginPanel(Viewer);
 attachUploadPanel(Viewer);

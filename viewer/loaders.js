@@ -423,6 +423,7 @@ export async function loadModel() {
       core.scene.add(object);
     }
     core.mainObject.push(object);
+    window.Viewer?.setupModelAnimations?.(object);
 
     updateLoadingStage("loadingLog.compilingShaders", 99);
     await syncSceneEnvironment(core.environmentMapEnabled !== false);
@@ -540,6 +541,8 @@ export async function loadModel() {
           reject
         );
       });
+      // Loaders for other formats already keep clips on the returned root.
+      gltf.scene.animations = gltf.animations || [];
       return gltf.scene;
     } finally {
       draco.dispose();

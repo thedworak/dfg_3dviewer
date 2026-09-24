@@ -39,6 +39,12 @@ The example template is located at `viewer/viewer-settings-example.json`.
 - `viewer.background` — CSS background string for viewer canvas
 - `viewer.performanceMode` — performance mode config object
 - `viewer.measurement.modelUnitInMeters` — conversion ratio from model units to meters
+- `viewer.animation.autoplay` — start the model's first animation clip after loading (default `true`)
+- `viewer.animation.clip` — clip to select at start, by name or index; `"all"` plays every clip together
+- `viewer.animation.speed` — initial playback speed (default `1`)
+- `viewer.animation.loop` — repeat clips (default `true`); when `false` a clip stops on its last frame
+- `viewer.animation.showPlayer` — show the animation player bar for animated models (default `true`)
+- `viewer.viewHelper` — axes gizmo in a corner of the canvas; `false` or `{ "enabled": false }` hides it, `{ "position": "top-left" }` moves it (`bottom-right` by default)
 - `viewer.scaleContainer` — scale adjustments for the viewer container
 
 ## Built output behavior
