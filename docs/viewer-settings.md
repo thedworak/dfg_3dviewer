@@ -44,6 +44,11 @@ The example template is located at `viewer/viewer-settings-example.json`.
 - `viewer.animation.speed` — initial playback speed (default `1`)
 - `viewer.animation.loop` — repeat clips (default `true`); when `false` a clip stops on its last frame
 - `viewer.animation.showPlayer` — show the animation player bar for animated models (default `true`)
+- `viewer.tour.autostart` — start the guided tour through the model's annotations once they are loaded (default `false`)
+- `viewer.tour.autoplay` — advance tour steps automatically (default `false`)
+- `viewer.tour.stepDuration` — seconds spent on each step while autoplaying (default `6`)
+- `viewer.tour.transitionDuration` — seconds of the camera flight between steps (default `1.5`; `0` when the user prefers reduced motion)
+- `viewer.tour.loop` — go back to the first step after the last one while autoplaying (default `true`)
 - `viewer.viewHelper` — axes gizmo in a corner of the canvas; `false` or `{ "enabled": false }` hides it, `{ "position": "top-left" }` moves it (`bottom-right` by default)
 - `viewer.scaleContainer` — scale adjustments for the viewer container
 

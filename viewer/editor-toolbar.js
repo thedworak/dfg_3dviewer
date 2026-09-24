@@ -48,6 +48,7 @@ export function getEditorToolbarIcon(icon) {
     annotate: '<svg viewBox="0 0 24 24" aria-hidden="true"> <path d="M5 5h14v10H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/> <path d="M9 9h6M9 12h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/> </svg>',
     annotateAdd: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 8v5M9.5 10.5h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
     annotateImport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 6.8v7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.8 12 14l3.2-3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    annotateTour: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 7.2v5.6l4.6-2.8z" fill="currentColor"/></svg>',
     annotateExport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 14.2V7.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.2 12 7l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     IIIFexport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v12H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 3v3h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 18V9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 12.2L12 9l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
     IIIFimport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v12H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 3v3h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 9v9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 14.8 12 18l3.2-3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
@@ -680,6 +681,7 @@ export function createEditorToolbar(viewer) {
       submenu.className = "viewer-editor-tool_submenu";
       const submenuItems = [
         { key: "annotateAdd", icon: "annotateAdd", label: t("gui.annotateAdd", "Add Annotation"), onClick: () => viewer.openAnnotationDialogWithAutoPicking() },
+        { key: "annotateTour", icon: "annotateTour", label: t("tour.start", "Start guided tour"), onClick: () => viewer.toggleTour() },
         { key: "annotateImport", icon: "annotateImport", label: t("gui.annotateImport", "Import Annotations"), onClick: () => viewer.triggerAnnotationsXmlImport() },
         { key: "annotateExport", icon: "annotateExport", label: t("gui.annotateExport", "Export Annotations"), onClick: () => viewer.downloadAnnotationsXmlFile() },
         { key: "IIIFimport", icon: "IIIFimport", label: t("gui.IIIFimport", "Import 3IF"), onClick: () => viewer.trigger3IFManifestImport() },
@@ -1736,6 +1738,9 @@ export function updateEditorToolbarLabels(viewer) {
   if (viewer.annotateSubmenuButtons) {
     const annotateSubmenuLabels = {
       annotateAdd: t("gui.addAnnotations", "Add Annotation"),
+      annotateTour: viewer.isTourActive?.()
+        ? t("tour.stop", "Stop guided tour")
+        : t("tour.start", "Start guided tour"),
       annotateImport: t("gui.importAnnotationsXml", "Import Annotations"),
       annotateExport: t("gui.exportAnnotationsXml", "Export Annotations"),
       IIIFimport: t("gui.IIIFimport", "Import 3IF"),
@@ -1831,6 +1836,17 @@ export function updateEditorToolbarLabels(viewer) {
   viewer.editorToolbarButtons.expand?.setAttribute("aria-expanded", viewer.isToolbarExpanded ? "true" : "false");
 }
 
+function updateTourSubmenuState(viewer) {
+  const button = viewer.annotateSubmenuButtons?.annotateTour;
+  if (!button) return;
+  const active = viewer.isTourActive?.() === true;
+  const label = active ? t("tour.stop", "Stop guided tour") : t("tour.start", "Start guided tour");
+  button.classList.toggle("is-active", active);
+  button.setAttribute("aria-pressed", active ? "true" : "false");
+  button.setAttribute("title", label);
+  button.setAttribute("aria-label", label);
+}
+
 export function updateEditorToolbarState(viewer) {
   if (!viewer.editorToolbarButtons) return;
 
@@ -1864,6 +1880,7 @@ export function updateEditorToolbarState(viewer) {
   updateHierarchySubmenuState(viewer);
   updateClippingPlanesSubmenuState(viewer);
   updateMeasurementSubmenuState(viewer);
+  updateTourSubmenuState(viewer);
   updateLightsSubmenuState(viewer);
   updateBackgroundSubmenuState(viewer);
   updateStatisticsSubmenuState(viewer);

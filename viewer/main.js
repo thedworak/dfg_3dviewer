@@ -53,6 +53,7 @@ import { buildEditorMetadata, saveEditorMetadata as persistEditorMetadata } from
 import { attachAnnotations } from "./editor/annotations.js";
 import { attachMeasurement } from "./editor/measurement.js";
 import { attachAnimations } from "./animations.js";
+import { attachTour } from "./editor/tour.js";
 import { attachViewHelper } from "./ui/view-helper.js";
 import { attachClipping } from "./editor/clipping.js";
 import { attachPicking } from "./editor/picking.js";
@@ -1092,6 +1093,13 @@ export const Viewer = {
   onViewerKeyDown(event) {
     if (!Viewer.isViewerKeyboardActive(event)) return;
 
+    // Arrows keep orbiting during a tour; the tour has its own keys.
+    if (!event.key.startsWith("Arrow") && Viewer.handleTourKey(event.key)) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
     const isFast = event.shiftKey;
     const rotateStep = isFast ? Viewer.keyboardStep.rotateFast : Viewer.keyboardStep.rotate;
     const isPanMode = event.ctrlKey || event.metaKey;
@@ -1257,6 +1265,7 @@ export const Viewer = {
 
   resetLoadedModelState() {
     Viewer.disposeAnimations();
+    Viewer.stopTour();
     Viewer.restoreLastPickedFace();
     Viewer.clearSelectedFaces();
     Viewer.closeAnnotationDialog();
@@ -2240,6 +2249,8 @@ export const Viewer = {
     // LOOP UPDATE
     // =========================
     
+    Viewer.updateTour(time);
+
     if (Viewer.mixer) {
       Viewer.mixer.update(delta);
       Viewer.updateAnimationTimeline();
@@ -2404,6 +2415,7 @@ export const Viewer = {
 
     await Viewer.mainLoadModel();
     Viewer.applyPendingAnnotationsIfAny();
+    Viewer.maybeAutostartTour();
   },
 
   async mainLoadModel() {
@@ -3809,6 +3821,7 @@ attachAnnotations(Viewer);
 attachPicking(Viewer);
 attachMeasurement(Viewer);
 attachAnimations(Viewer);
+attachTour(Viewer);
 attachViewHelper(Viewer);
 attachClipping(Viewer);
 attachEmbedConfigurator(Viewer);

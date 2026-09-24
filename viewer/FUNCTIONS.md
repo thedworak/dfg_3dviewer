@@ -100,6 +100,26 @@ Playback of animation clips shipped with the model (glTF/GLB, FBX, DAE, KMZ, thr
   - Stop playback and remove the player. Called when a model is unloaded.
 
 
+## `viewer/editor/tour.js`
+
+Guided tour through the model's annotations, in marker order. Each step flies the camera to the annotation's saved view (`view: { position, target, fov }`, captured with the "Save current camera view" box in the annotation dialog and kept in the XML/3IF exports) or, without one, to a view along the annotated faces' normal. Settings: `viewer.tour` in `viewer-settings.json`; URL overrides `tour`, `tourAutoplay`, `tourStep`, `tourInterval`.
+
+- `Viewer.startTour(options)` / `Viewer.stopTour()` / `Viewer.toggleTour()`
+  - Open or close the tour panel. Also available as "Start guided tour" in the annotations toolbar menu.
+
+- `Viewer.goToTourStep(index)` / `Viewer.nextTourStep()` / `Viewer.previousTourStep()`
+  - Move between steps; indices wrap around. `N`/`P` (or PageDown/PageUp) on the canvas, arrows inside the panel, `Esc` closes. Clicking a marker jumps to its step.
+
+- `Viewer.playTour()` / `Viewer.pauseTour()` / `Viewer.toggleTourPlayback()`
+  - Autoplay. Dragging or zooming the model pauses it.
+
+- `Viewer.resolveTourStepView(entry)`
+  - Camera position/target/FOV used for an annotation.
+
+- `Viewer.updateTour(time)`
+  - Advances the camera flight; called from the render loop.
+
+
 ## `viewer/ui/view-helper.js`
 
 - `Viewer.initViewHelper()` / `Viewer.renderViewHelper(delta)` / `Viewer.handleViewHelperClick(event)`

@@ -260,6 +260,24 @@ export function attachPicking(Viewer) {
     },
 
     getFaceCentroidWorld(object, faceIndex) {
+      const vertices = Viewer.getFaceVerticesWorld(object, faceIndex);
+      if (!vertices) return null;
+      const [va, vb, vc] = vertices;
+      return va.add(vb).add(vc).multiplyScalar(1 / 3);
+    },
+
+    // Unit normal of a triangle in world space (winding order), or null for
+    // a missing or degenerate face.
+    getFaceNormalWorld(object, faceIndex) {
+      const vertices = Viewer.getFaceVerticesWorld(object, faceIndex);
+      if (!vertices) return null;
+      const [va, vb, vc] = vertices;
+      const normal = new THREE.Vector3().subVectors(vc, vb).cross(new THREE.Vector3().subVectors(va, vb));
+      if (normal.lengthSq() === 0) return null;
+      return normal.normalize();
+    },
+
+    getFaceVerticesWorld(object, faceIndex) {
       const geometry = object?.geometry;
       if (!geometry || !geometry.getAttribute) return null;
       const position = geometry.getAttribute("position");
@@ -284,10 +302,8 @@ export function attachPicking(Viewer) {
       const va = new THREE.Vector3().fromBufferAttribute(position, ia);
       const vb = new THREE.Vector3().fromBufferAttribute(position, ib);
       const vc = new THREE.Vector3().fromBufferAttribute(position, ic);
-      const center = va.add(vb).add(vc).multiplyScalar(1 / 3);
       object.updateMatrixWorld?.(true);
-      center.applyMatrix4(object.matrixWorld);
-      return center;
+      return [va, vb, vc].map((vertex) => vertex.applyMatrix4(object.matrixWorld));
     },
 
     clearSelectedFaces() {
@@ -418,7 +434,9 @@ export function attachPicking(Viewer) {
       if (!Viewer.pickingMode && !Viewer.RULER_MODE) {
         const poiHit = getPoiHit(Viewer, Viewer.onUpPosition);
         if (poiHit?.object) {
-          Viewer.openAnnotationDialogFromPOIMarker(poiHit.object);
+          if (!Viewer.goToTourStepForMarker(poiHit.object)) {
+            Viewer.openAnnotationDialogFromPOIMarker(poiHit.object);
+          }
           return;
         }
         Viewer.closeAnnotationPOITooltip();

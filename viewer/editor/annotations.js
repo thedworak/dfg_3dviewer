@@ -227,6 +227,7 @@ export function attachAnnotations(Viewer) {
       this.annotationDialogTitleInput.value = uniqueTitles.length === 1 ? uniqueTitles[0] : "";
       this.annotationDialogDescriptionInput.value =
         uniqueDescriptions.length === 1 ? uniqueDescriptions[0] : "";
+      this.syncAnnotationDialogSaveView(entries);
 
       this.updateAnnotationDialogBounds();
       this.annotationDialog.hidden = false;
@@ -275,27 +276,86 @@ export function attachAnnotations(Viewer) {
     refreshAnnotationPOIs() {
       this.clearAnnotationPOIs();
       const entries = this.getAnnotationEntriesForPersistence();
-      if (!entries.length) return 0;
+      if (!entries.length) {
+        this.onAnnotationsChangedForTour?.();
+        return 0;
+      }
 
       const group = this.ensureAnnotationPOIGroup();
       let added = 0;
-      entries.forEach((entry) => {
-        const object = this.resolveObjectByTargetId(entry.targetId);
-        if (!object) return;
-        const center = new THREE.Vector3();
-        entry.faceNumbers.forEach(faceIndex => {
-          const point = this.getFaceCentroidWorld(object, faceIndex);
-          if (point) center.add(point);
-        });
-        center.divideScalar(entry.faceNumbers.length);
-        const marker = this.createAnnotationPOIMarker(entry, center, entries.indexOf(entry) + 1);
+      entries.forEach((entry, index) => {
+        const center = this.getAnnotationEntryCenter(entry);
+        if (!center) return;
+        const marker = this.createAnnotationPOIMarker(entry, center, index + 1);
         group.add(marker);
         this.annotationPOIMarkers.push(marker);
         added += 1;
       });
 
       group.visible = added > 0;
+      this.onAnnotationsChangedForTour?.();
       return added;
+    },
+
+    // World-space centre of an annotation's faces, or null when its target
+    // object is not in the scene.
+    getAnnotationEntryCenter(entry) {
+      const object = this.resolveObjectByTargetId(entry?.targetId);
+      if (!object) return null;
+      const faces = Array.isArray(entry.faceNumbers) ? entry.faceNumbers : [entry.faceIndex];
+      const center = new THREE.Vector3();
+      let count = 0;
+      faces.forEach((faceIndex) => {
+        const point = this.getFaceCentroidWorld(object, faceIndex);
+        if (!point) return;
+        center.add(point);
+        count += 1;
+      });
+      return count > 0 ? center.divideScalar(count) : null;
+    },
+
+    // Averaged world-space normal of an annotation's faces, or null.
+    getAnnotationEntryNormal(entry) {
+      const object = this.resolveObjectByTargetId(entry?.targetId);
+      if (!object) return null;
+      const faces = Array.isArray(entry.faceNumbers) ? entry.faceNumbers : [entry.faceIndex];
+      const normal = new THREE.Vector3();
+      faces.forEach((faceIndex) => {
+        const faceNormal = this.getFaceNormalWorld(object, faceIndex);
+        if (faceNormal) normal.add(faceNormal);
+      });
+      return normal.lengthSq() > 0 ? normal.normalize() : null;
+    },
+
+    // Camera pose stored with an annotation (used by the guided tour).
+    // Accepts { position, target, fov } with arrays or "x,y,z" strings and
+    // returns the canonical form, or null when position/target are missing.
+    normalizeAnnotationView(rawView) {
+      if (!rawView || typeof rawView !== "object") return null;
+      const toVector = (value) => this.parse3IFManifestVector(
+        typeof value === "string" ? value.split(/[,\s;]+/).filter(Boolean) : value,
+        null,
+        3
+      );
+      const position = toVector(rawView.position);
+      const target = toVector(rawView.target);
+      if (!position || !target) return null;
+      const view = { position, target };
+      const fov = Number(rawView.fov);
+      if (rawView.fov != null && rawView.fov !== "" && Number.isFinite(fov) && fov > 0 && fov < 180) {
+        view.fov = fov;
+      }
+      return view;
+    },
+
+    captureCurrentAnnotationView() {
+      if (!core.camera || !core.controls?.target) return null;
+      const view = {
+        position: core.camera.position.toArray(),
+        target: core.controls.target.toArray(),
+      };
+      if (core.camera.isPerspectiveCamera) view.fov = core.camera.fov;
+      return view;
     },
 
     findAnnotationByFaceKey(key) {
@@ -349,6 +409,10 @@ export function attachAnnotations(Viewer) {
               <span>Description</span>
               <textarea id="annotationDescriptionInput" name="description" rows="5" maxlength="4000"></textarea>
             </label>
+            <label class="annotation-dialog__checkbox">
+              <input id="annotationSaveViewInput" name="saveView" type="checkbox" />
+              <span id="annotationSaveViewLabel">Save current camera view for the tour</span>
+            </label>
             <div class="annotation-dialog__actions">
               <button type="submit">Save annotation</button>
               <button type="button" data-annotation-dismiss="true">Cancel</button>
@@ -362,6 +426,8 @@ export function attachAnnotations(Viewer) {
       this.annotationDialogHost = document.body;
       this.annotationDialogTitleInput = dialog.querySelector("#annotationTitleInput");
       this.annotationDialogDescriptionInput = dialog.querySelector("#annotationDescriptionInput");
+      this.annotationDialogSaveViewInput = dialog.querySelector("#annotationSaveViewInput");
+      this.annotationDialogSaveViewLabel = dialog.querySelector("#annotationSaveViewLabel");
       const form = dialog.querySelector("#annotationDialogForm");
 
       this.bindEventListener(dialog, "click", (event) => {
@@ -443,12 +509,26 @@ export function attachAnnotations(Viewer) {
       this.annotationDialogTitleInput.value = uniqueTitles.length === 1 ? uniqueTitles[0] : "";
       this.annotationDialogDescriptionInput.value =
         uniqueDescriptions.length === 1 ? uniqueDescriptions[0] : "";
+      this.syncAnnotationDialogSaveView(existingEntries);
       this.updateAnnotationDialogBounds();
       this.annotationDialog.hidden = false;
       this.closeAnnotationPOITooltip();
       this.closeActionMenu();
       this.annotationDialogTitleInput?.focus();
       this.annotationDialogTitleInput?.select();
+    },
+
+    // New annotations capture the current view by default; editing one that
+    // already has a view keeps it unless the box is ticked again.
+    syncAnnotationDialogSaveView(entries) {
+      if (!this.annotationDialogSaveViewInput) return;
+      const hasView = (entries || []).some((entry) => this.normalizeAnnotationView(entry?.view));
+      this.annotationDialogSaveViewInput.checked = !hasView;
+      if (this.annotationDialogSaveViewLabel) {
+        this.annotationDialogSaveViewLabel.textContent = hasView
+          ? t("tour.replaceView", "Replace the saved tour view with the current camera view")
+          : t("tour.saveView", "Save current camera view for the tour");
+      }
     },
 
     openAnnotationDialogWithAutoPicking() {
@@ -526,8 +606,14 @@ export function attachAnnotations(Viewer) {
         .map(f => Number(f.faceIndex))
         .filter(Number.isInteger);
 
+      const annotationId = this.annotationBatchGroupId || `anno-${Date.now()}`;
+      const previousEntry = this.annotationEntries.find((entry) => entry.id === annotationId);
+      const view = this.annotationDialogSaveViewInput?.checked
+        ? this.captureCurrentAnnotationView()
+        : this.normalizeAnnotationView(previousEntry?.view);
+
       const annotationPayload = {
-        id: this.annotationBatchGroupId || `anno-${Date.now()}`,
+        id: annotationId,
         targetId,
         object: targetId,
 
@@ -541,8 +627,9 @@ export function attachAnnotations(Viewer) {
 
         title,
         description,
+        ...(view ? { view } : {}),
         updatedAt: nowIso,
-        createdAt: nowIso
+        createdAt: previousEntry?.createdAt || nowIso
       };
 
       const existingIndex = this.annotationEntries.findIndex(
@@ -592,6 +679,7 @@ export function attachAnnotations(Viewer) {
 
           const key = this.getFaceSelectionKey(targetId, normalizedFaceIndex);
           const fallbackId = `anno-${this.toStableIdToken(targetId)}-f${normalizedFaceIndex}`;
+          const view = this.normalizeAnnotationView(entry.view);
 
           return {
             id: String(entry.id || fallbackId),
@@ -607,6 +695,7 @@ export function attachAnnotations(Viewer) {
             },
             title: String(entry.title || "").trim(),
             description: String(entry.description || "").trim(),
+            ...(view ? { view } : {}),
             createdAt: entry.createdAt ? String(entry.createdAt) : "",
             updatedAt: entry.updatedAt ? String(entry.updatedAt) : "",
           };
@@ -664,6 +753,14 @@ export function attachAnnotations(Viewer) {
         targetNode.setAttribute("id", entry.targetId);
         targetNode.setAttribute("faces", entry.faceNumbers.join(","));
         annotation.appendChild(targetNode);
+
+        if (entry.view) {
+          const viewNode = doc.createElement("iiif:view");
+          viewNode.setAttribute("position", entry.view.position.join(","));
+          viewNode.setAttribute("target", entry.view.target.join(","));
+          if (Number.isFinite(entry.view.fov)) viewNode.setAttribute("fov", String(entry.view.fov));
+          annotation.appendChild(viewNode);
+        }
 
         root.appendChild(annotation);
       });
@@ -799,7 +896,8 @@ export function attachAnnotations(Viewer) {
                   AIM3DViewer: {
                     groupId: entry.groupId || "",
                     key: entry.key || "",
-                    object: entry.object || ""
+                    object: entry.object || "",
+                    view: entry.view || undefined
                   }
                 }))
               }
@@ -1545,6 +1643,7 @@ export function attachAnnotations(Viewer) {
         ).trim();
 
         const key = String(annotation?.AIM3DViewer?.key || "").trim() || this.getFaceSelectionKey(targetId, faceIndex);
+        const view = this.normalizeAnnotationView(annotation?.AIM3DViewer?.view);
 
         return {
           id: String(annotation.id || `anno-${this.toStableIdToken(targetId)}-f${faceIndex}-${index}`),
@@ -1560,6 +1659,7 @@ export function attachAnnotations(Viewer) {
           },
           title,
           description,
+          ...(view ? { view } : {}),
           createdAt: annotation?.created ? String(annotation.created) : "",
           updatedAt: annotation?.modified ? String(annotation.modified) : "",
         };
@@ -1708,6 +1808,18 @@ export function attachAnnotations(Viewer) {
           node.getElementsByTagName("description")[0] ||
           node.getElementsByTagName("iiif:description")[0];
 
+        const viewNode =
+          node.querySelector("view, iiif\\:view") ||
+          node.getElementsByTagName("view")[0] ||
+          node.getElementsByTagName("iiif:view")[0];
+        const view = viewNode
+          ? this.normalizeAnnotationView({
+              position: viewNode.getAttribute("position"),
+              target: viewNode.getAttribute("target"),
+              fov: viewNode.getAttribute("fov"),
+            })
+          : null;
+
         const key = this.getFaceSelectionKey(targetId, faceIndex);
         importedEntries.push({
           id: rawId || `anno-${this.toStableIdToken(targetId)}-f${faceIndex}-${index}`,
@@ -1723,6 +1835,7 @@ export function attachAnnotations(Viewer) {
           },
           title: String(titleNode?.textContent || "").trim(),
           description: String(descriptionNode?.textContent || "").trim(),
+          ...(view ? { view } : {}),
         });
       });
 
@@ -1761,6 +1874,7 @@ export function attachAnnotations(Viewer) {
               .filter((value) => Number.isInteger(value) && value >= 0);
             const faceIndex = normalizedFaces[0];
             if (!targetId || !Number.isInteger(faceIndex)) return null;
+            const view = this.normalizeAnnotationView(entry?.view);
             return {
               id: String(entry?.id || `anno-${this.toStableIdToken(targetId)}-f${faceIndex}-${index}`),
               groupId: entry?.groupId ? String(entry.groupId) : "",
@@ -1775,6 +1889,7 @@ export function attachAnnotations(Viewer) {
               },
               title: String(entry?.title || "").trim(),
               description: String(entry?.description || "").trim(),
+              ...(view ? { view } : {}),
               createdAt: entry?.createdAt ? String(entry.createdAt) : "",
               updatedAt: entry?.updatedAt ? String(entry.updatedAt) : "",
             };

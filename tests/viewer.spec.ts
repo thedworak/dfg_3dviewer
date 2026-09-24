@@ -348,6 +348,67 @@ test('camera rotates on mouse drag', async ({ page }) => {
   }).toEqual(initialState);
 });*/
 
+test('guided tour steps through annotations and keeps saved views', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+
+  const savedView = { position: [3, 2, 4], target: [0.1, 0.2, 0.3], fov: 40 };
+  const annotationCount = await page.evaluate((view) => {
+    const viewer = window.Viewer;
+    const root = viewer.resolveObjectByTargetId('m0:root');
+    let mesh = null;
+    root?.traverse?.((child) => {
+      if (!mesh && child.isMesh) mesh = child;
+    });
+    const targetId = viewer.resolveFaceTargetId(mesh);
+    return viewer.hydrateAnnotationsFromMetadataPayload({
+      annotationEntries: [
+        { id: 'a1', targetId, faceNumbers: [0], title: 'First', description: 'Saved view', view },
+        { id: 'a2', targetId, faceNumbers: [4], title: 'Second', description: 'Computed view' },
+      ],
+    });
+  }, savedView);
+  expect(annotationCount).toBe(2);
+
+  await page.evaluate(() => window.Viewer.startTour());
+  const panel = page.locator('#viewerTourPanel');
+  await expect(panel).toBeVisible();
+  await expect(panel.locator('.viewer-tour-panel_counter')).toHaveText('Step 1 / 2');
+  await expect(panel.locator('.viewer-tour-panel_title')).toHaveText('1. First');
+
+  // Reduced motion (playwright.config.js) makes the flight instant.
+  await expect.poll(() => page.evaluate(() => {
+    const state = window.Viewer.tourState;
+    return state?.flight === null && state?.index === 0;
+  })).toBe(true);
+  const firstPose = await page.evaluate(() => window.Viewer.captureCurrentAnnotationView());
+  firstPose.position.forEach((value, index) => expect(value).toBeCloseTo(savedView.position[index], 4));
+  firstPose.target.forEach((value, index) => expect(value).toBeCloseTo(savedView.target[index], 4));
+  expect(firstPose.fov).toBeCloseTo(savedView.fov, 4);
+
+  await panel.locator('.viewer-tour-panel_next').click();
+  await expect(panel.locator('.viewer-tour-panel_counter')).toHaveText('Step 2 / 2');
+  await expect(panel.locator('.viewer-tour-panel_title')).toHaveText('2. Second');
+  const secondPose = await page.evaluate(() => window.Viewer.captureCurrentAnnotationView());
+  const secondCenter = await page.evaluate(() => {
+    const viewer = window.Viewer;
+    return viewer.getAnnotationEntryCenter(viewer.getAnnotationEntriesForPersistence()[1]).toArray();
+  });
+  secondPose.target.forEach((value, index) => expect(value).toBeCloseTo(secondCenter[index], 4));
+
+  // The saved view survives an XML export/import round trip.
+  const reimportedView = await page.evaluate(() => {
+    const viewer = window.Viewer;
+    const xml = viewer.exportAnnotationsToIIIFXml();
+    viewer.importAnnotationsFromIIIFXml(xml);
+    return viewer.getAnnotationEntriesForPersistence().map((entry) => entry.view || null);
+  });
+  expect(reimportedView).toEqual([savedView, null]);
+
+  await panel.locator('.viewer-tour-panel_close').click();
+  await expect(panel).toHaveCount(0);
+});
+
 test('embed configurator uses the current camera for preview url', async ({ page }) => {
   await openViewer(page);
   await waitForModel(page);
