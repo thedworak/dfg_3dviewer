@@ -220,6 +220,17 @@ GLB/glTF models are decoded with Draco (`assets/draco/`), Meshopt and KTX2/Basis
 When `<model>.preview.glb` exists next to the model (HEAD probe; `viewer.progressive.enabled`, URL `preview=0|<url>`), the preview goes through the normal load (`afterLoad`: settings, camera, metadata), then the full model is fetched in the background and `swapInFullModel()` replaces the preview root in place: same root transform, materials setup, section outline, animations, hierarchy and statistics (`refreshModelHierarchyAndStats()` in `metadata.js`), annotation markers. The camera does not move. Annotations cannot be created while the preview is on screen (`Viewer.isPreviewModelActive()`), because they store face indices of the full model. `window.viewer.fullModelLoaded` turns true once the full model is in place.
 
 
+## `viewer/tiles.js`
+
+Streamed level-of-detail models through [3d-tiles-renderer](https://github.com/NASA-AMMOS/3DTilesRendererJS): 3D Tiles (`tileset.json`) and Potree 2 (`metadata.json`), detected by file name or `?format=3dtiles|potree`.
+
+- `loadTiledModel({ url, format, configureGLTFLoader, onModel })`
+  - Creates the `TilesRenderer` with the viewer's glTF decoders (Draco, Meshopt, KTX2), `ReorientationPlugin` (georeferenced tilesets moved to the origin; local ones turned from Z-up to Y-up), `PotreePlugin` or `PointCloudEffectsPlugin` (Eye-Dome Lighting, point shape). Resolves with the tiles group once the first tiles are in; `loaders.js` then runs the normal `afterLoad` on it.
+  - Adds an invisible `Object3D` carrying a box geometry of the whole tileset, so centring, camera framing and dimensions use the full extent rather than the coarse root tiles.
+- `updateTiles()` — called from the render loop; `disposeTiles()` — on model reset.
+- Annotations are not offered for tiled models (their meshes change with the level of detail); measurements work on the tiles currently loaded.
+
+
 ## `viewer/metadata.js`
 
 `viewer/metadata.js` handles metadata fetching, metadata panel rendering, and IIIF support.

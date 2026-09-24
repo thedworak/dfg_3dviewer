@@ -62,6 +62,7 @@
   "dependencies": {
     "@iiif/3d-manifesto-dev": "^0.7.0",
     "@rollup/plugin-alias": "^6.0.0",
+    "3d-tiles-renderer": "^0.5.3",
     "fflate": "^0.8.3",
     "jquery": "^4.0.0",
     "lru-cache": "^11.5.3",

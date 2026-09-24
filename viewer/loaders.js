@@ -35,6 +35,7 @@ import {
 import { loadIfcProperties, ifcPropertiesUrlForModel, setIfcModel } from "./ifc-properties.js";
 import { reportViewerError, showToast, toastHelper } from "./viewer-utils.js";
 import { t } from "./i18n-utils.js";
+import { detectTiledFormat, loadTiledModel } from "./tiles.js";
 
 export var outlineClipping;
 let environmentTextureCache = {};
@@ -44,17 +45,16 @@ let ktx2LoaderPromise = null;
 // Decoders for compressed glTF: Draco (KHR_draco_mesh_compression, what
 // Blender exports), Meshopt (EXT_meshopt_compression) and KTX2/Basis
 // textures (KHR_texture_basisu) - the latter two are what the worker's
-// gltfpack step produces (see worker/optimize.py). Returns a dispose
-// callback for the per-load parts.
-async function configureGLTFDecoders(loader) {
+// gltfpack step produces (see worker/optimize.py). The KTX2 loader is shared;
+// dispose() releases the Draco decoder made for this caller.
+async function createGLTFDecoders() {
   const dracoBase = normalizeWasmPath(`${getModuleAssetBasePath()}/draco/gltf/`);
   const DRACOLoader = await loadDRACOLoader();
-  const draco = new DRACOLoader();
+  const dracoLoader = new DRACOLoader();
   if (ENV_BUILD === 'drupal') {
-    draco.setDecoderConfig({ type: 'js' });
+    dracoLoader.setDecoderConfig({ type: 'js' });
   }
-  draco.setDecoderPath(dracoBase);
-  loader.setDRACOLoader(draco);
+  dracoLoader.setDecoderPath(dracoBase);
 
   if (!ktx2LoaderPromise) {
     ktx2LoaderPromise = (async () => {
@@ -64,10 +64,20 @@ async function configureGLTFDecoders(loader) {
         .detectSupport(core.renderer);
     })();
   }
-  loader.setKTX2Loader(await ktx2LoaderPromise);
-  loader.setMeshoptDecoder(await loadMeshoptDecoder());
+  return {
+    dracoLoader,
+    ktx2Loader: await ktx2LoaderPromise,
+    meshoptDecoder: await loadMeshoptDecoder(),
+    dispose: () => dracoLoader.dispose(),
+  };
+}
 
-  return () => draco.dispose();
+async function configureGLTFDecoders(loader) {
+  const decoders = await createGLTFDecoders();
+  loader.setDRACOLoader(decoders.dracoLoader);
+  loader.setKTX2Loader(decoders.ktx2Loader);
+  loader.setMeshoptDecoder(decoders.meshoptDecoder);
+  return decoders.dispose;
 }
 
 // Progressive loading: a lightweight "<name>.preview.glb" next to the model
@@ -503,7 +513,8 @@ export async function loadModel() {
     updateLoadingStage("loadingLog.loadingTextures", 99);
 
     // Keep authoring transforms in presentation mode to avoid collapsing model parts.
-    if (!core.PRESENTATION_MODE) {
+    // Tiled models keep the transform that centres/orients them (tiles.js).
+    if (!core.PRESENTATION_MODE && !object.userData?.isTiledModel) {
       // Reset transform to ensure consistent positioning
       if (Array.isArray(object)) {
         object.forEach(obj => {
@@ -539,7 +550,11 @@ export async function loadModel() {
       loadIfcProperties(ifcPropertiesUrlForModel(modelPath));
 
       updateLoadingStage("loadingLog.settingUpMaterials", 99);
-      core.outlineClipping = prepareOutlineClipping(object);
+      // A streamed (tiled) model's meshes change with the level of detail;
+      // a cloned section outline would only show the tiles loaded now.
+      core.outlineClipping = object.userData?.isTiledModel
+        ? new THREE.Group()
+        : prepareOutlineClipping(object);
       if (Array.isArray(object)) {
         core.helperObjects.push(object[0]);
       } else {
@@ -811,6 +826,23 @@ export async function loadModel() {
       }
 
       case "json": {
+        const tiledFormat = detectTiledFormat(core.fileObject.filename);
+        if (tiledFormat) {
+          updateLoadingStage("loadingLog.loadingModel", 10);
+          const object = await loadTiledModel({
+            url: modelPath,
+            format: tiledFormat,
+            configureGLTFLoader: createGLTFDecoders,
+            // Tiles loaded later get the same material setup (clipping planes, shadows).
+            onModel: (scene) => scene.traverse((child) => {
+              if (child.isMesh) setupMaterials(child);
+            }),
+            onProgress: (value) => updateLoadingStage("loadingLog.loadingModel", value),
+          });
+          await afterLoad({ object });
+          window.viewer.fullModelLoaded = true;
+          break;
+        }
         const loader = new THREE.ObjectLoader();
         const object = await loadAsync(loader, modelPath, onProgress);
         object.position.set(0, 0, 0);

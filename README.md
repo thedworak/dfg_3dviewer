@@ -112,6 +112,7 @@ There is also a pre-configured complete workflow to handle more file formats and
 ## Features
 
 - 3D file formats read directly: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, PCD, JSON, 3DS, glTF/GLB, USD/USDA/USDC/USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO;
+- streamed level-of-detail models: 3D Tiles (`tileset.json` - b3dm, i3dm, pnts, glb; meshes and point clouds) and Potree 2 point clouds (`metadata.json`), with adaptive point size and Eye-Dome Lighting;
 - compressed glTF (Draco, Meshopt, KTX2/Basis textures) and progressive loading: a lightweight preview is shown first, then swapped for the full model (the Docker worker optimizes converted models with gltfpack);
 - compression and rendering on-the-fly: OBJ, FBX, STL, DAE, PLY, ABC, BLEND, WRL, X3D, USD/USDA/USDC/USDZ, GLB, GLTF; the standalone worker additionally converts STEP/STP, IGES/IGS and 3MF (see [Server-side conversion and rendering](docs/conversion-pipeline.md));
 - 3D viewer with orbit controls, zoom, and basic editor tools;

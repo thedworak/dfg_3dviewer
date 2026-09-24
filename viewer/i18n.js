@@ -314,6 +314,7 @@ export const VIEWER_I18N = {
       disabled: "disabled"
     },
     toasts: {
+      tiledAnnotationBlocked: "Annotations are not available for streamed (3D Tiles / Potree) models.",
       fullModelLoaded: "Full-quality model loaded.",
       fullModelLoadError: "Could not load the full-quality model; showing the preview.",
       previewAnnotationBlocked: "Annotations can be added once the full-quality model has loaded.",
@@ -790,6 +791,7 @@ export const VIEWER_I18N = {
       disabled: "wyłączony"
     },
     toasts: {
+      tiledAnnotationBlocked: "Adnotacje nie są dostępne dla modeli strumieniowanych (3D Tiles / Potree).",
       fullModelLoaded: "Załadowano model w pełnej jakości.",
       fullModelLoadError: "Nie udało się załadować modelu w pełnej jakości; wyświetlany jest podgląd.",
       previewAnnotationBlocked: "Adnotacje można dodać po załadowaniu modelu w pełnej jakości.",
@@ -1265,6 +1267,7 @@ export const VIEWER_I18N = {
       disabled: "deaktiviert"
     },
     toasts: {
+      tiledAnnotationBlocked: "Anmerkungen sind für gestreamte Modelle (3D Tiles / Potree) nicht verfügbar.",
       fullModelLoaded: "Modell in voller Qualität geladen.",
       fullModelLoadError: "Das Modell in voller Qualität konnte nicht geladen werden; die Vorschau wird angezeigt.",
       previewAnnotationBlocked: "Anmerkungen können hinzugefügt werden, sobald das Modell in voller Qualität geladen ist.",

@@ -475,6 +475,12 @@ export function attachAnnotations(Viewer) {
     // Annotations store face indices of the full model; the progressive
     // preview (loaders.js) has different triangles.
     isPreviewModelActive() {
+      if (core.tiledModel) {
+        // Streamed tiles swap their meshes with the level of detail, so
+        // face indices would not stay valid.
+        toastHelper("tiledAnnotationBlocked", "info");
+        return true;
+      }
       if (!core.progressiveLoad) return false;
       toastHelper("previewAnnotationBlocked", "info");
       return true;

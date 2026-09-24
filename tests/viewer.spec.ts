@@ -606,6 +606,46 @@ test('preview=0 skips the progressive preview', async ({ page }) => {
   expect(requests).toEqual([]);
 });
 
+test('streams a 3D Tiles point cloud and keeps annotations off it', async ({ page }) => {
+  const tileRequests = new Set();
+  page.on('request', (request) => {
+    const path = new URL(request.url()).pathname;
+    if (path.startsWith('/examples/tiles/wolpa-points/')) tileRequests.add(path);
+  });
+
+  await openViewer(page, '/examples/tiles/wolpa-points/tileset.json');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+
+  // The coarse root level first, then refined tiles as the view needs them.
+  await expect.poll(() => tileRequests.size, { timeout: 10_000 }).toBeGreaterThan(2);
+  expect(tileRequests).toContain('/examples/tiles/wolpa-points/tileset.json');
+
+  const scene = await page.evaluate(() => {
+    const root = window.Viewer.resolveObjectByTargetId('m0:root');
+    let points = 0;
+    root.traverse((child) => {
+      if (child.isPoints) points += child.geometry.getAttribute('position').count;
+    });
+    const box = new THREE.Box3().setFromObject(root, true);
+    return {
+      tiled: root.userData?.isTiledModel === true,
+      points,
+      // Grounded and centred like any other model (tileset bounds, not just the root tile).
+      minY: Math.round(box.min.y),
+      centerX: Math.round((box.min.x + box.max.x) / 2),
+      errors: window.viewer?.errors?.length ?? 0,
+    };
+  });
+  expect(scene.tiled).toBe(true);
+  expect(scene.points).toBeGreaterThan(1000);
+  expect(scene.minY).toBe(0);
+  expect(scene.centerX).toBe(0);
+  expect(scene.errors).toBe(0);
+
+  await page.evaluate(() => window.Viewer.openAnnotationDialogWithAutoPicking());
+  await expect(page.locator('#annotationDialog')).toHaveCount(0);
+});
+
 test('upload panel shows limit usage and limit errors from the worker', async ({ page }) => {
   await page.route('**/api/auth/config', (route) =>
     route.fulfill({ json: { mode: 'off', registration: 'closed', maxUploadBytes: 104857600 } })

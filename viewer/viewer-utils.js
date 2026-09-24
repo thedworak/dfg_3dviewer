@@ -359,8 +359,14 @@ export const setupObject = (_object, _metadata) => {
         centerObjectAtOrigin(_object);
       } else {
         //workaround for specific Group case
+        // Shift relative to the current position: the box is in world space,
+        // and a streamed (tiled) model's group already carries the transform
+        // that centres/orients it (tiles.js). Same result as before for
+        // models starting at the origin.
         boundingBox.setFromObject(_object);
-        _object.position.set(-(boundingBox.min.x+boundingBox.max.x)/2, -boundingBox.min.y, -(boundingBox.min.z+boundingBox.max.z)/2);
+        _object.position.x -= (boundingBox.min.x + boundingBox.max.x) / 2;
+        _object.position.y -= boundingBox.min.y;
+        _object.position.z -= (boundingBox.min.z + boundingBox.max.z) / 2;
         _object.updateMatrixWorld();
       }
     } else if (!core.PRESENTATION_MODE) {
