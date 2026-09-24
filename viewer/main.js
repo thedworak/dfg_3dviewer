@@ -57,6 +57,7 @@ import { attachTour } from "./editor/tour.js";
 import { attachViewHelper } from "./ui/view-helper.js";
 import { attachClipping } from "./editor/clipping.js";
 import { attachPicking } from "./editor/picking.js";
+import { attachFaceAreaSelection } from "./editor/face-area-selection.js";
 import { captureAndUploadThumbnail } from "./editor/thumbnail-capture.js";
 import { attachWindowControls } from "./ui/window-controls.js";
 
@@ -823,8 +824,11 @@ export const Viewer = {
 
   updatePickingHintVisibility() {
     if (!this.pickingHint) return;
-    const hasSelectedFaces = Array.isArray(this.selectedFaces) && this.selectedFaces.length > 0;
-    this.pickingHint.hidden = !this.pickingMode || hasSelectedFaces;
+    const count = Array.isArray(this.selectedFaces) ? this.selectedFaces.length : 0;
+    this.pickingHint.textContent = count > 0
+      ? t("hints.pickingSelected", { count }, "{count} faces selected · Enter: add annotation · Esc: clear")
+      : t("hints.picking", "Click a face, Ctrl + click to add more, Shift + drag to select an area");
+    this.pickingHint.hidden = !this.pickingMode;
     this.updateClippingHintVisibility();
   },
 
@@ -1145,10 +1149,22 @@ export const Viewer = {
         if (Viewer.RULER_MODE && Viewer.measurementDraft) {
           Viewer.finishMeasurementDraft();
           handled = true;
+        } else if (
+          Viewer.pickingMode
+          && Viewer.selectedFaces?.length
+          && (!Viewer.annotationDialog || Viewer.annotationDialog.hidden)
+        ) {
+          // Accept the selected area: same as clicking the annotate icon again.
+          Viewer.openAnnotationDialog();
+          handled = true;
         }
         break;
       case "Escape":
         if (Viewer.RULER_MODE) handled = Viewer.cancelMeasurementDraft();
+        else if (Viewer.pickingMode && Viewer.selectedFaces?.length) {
+          Viewer.clearSelectedFaces();
+          handled = true;
+        }
         break;
       case "k":
       case "K":
@@ -1314,6 +1330,9 @@ export const Viewer = {
     if (Array.isArray(Viewer.helperObjects)) Viewer.helperObjects.length = 0;
     if (Array.isArray(Viewer.selectedObjects)) Viewer.selectedObjects.length = 0;
     if (Array.isArray(Viewer.selectedFaces)) Viewer.selectedFaces.length = 0;
+    Viewer.selectionOverlays = [];
+    Viewer.endFaceAreaSelection();
+    Viewer.disposeFacePickCache();
     Viewer.updateSelectedFacesCount();
     Viewer.lastPickedFace = { id: "", object: "", faceIndex: null, overlay: null };
   },
@@ -1662,7 +1681,7 @@ export const Viewer = {
       this.pickingHint = document.createElement("div");
       this.pickingHint.id = "pickingHint";
       this.pickingHint.className = "viewer-notice viewer-notice-hint";
-      this.pickingHint.textContent = "Shift + click to select multiple faces";
+      this.pickingHint.textContent = t("hints.picking", "Click a face, Ctrl + click to add more, Shift + drag to select an area");
       this.pickingHint.hidden = true;
       this.noticeContainer.appendChild(this.pickingHint);
       setCore("pickingHint", this.pickingHint);
@@ -3252,6 +3271,7 @@ export const Viewer = {
         Viewer.bindEventListener(core.renderer.domElement, "pointerdown", Viewer.onPointerDown);
         Viewer.bindEventListener(core.renderer.domElement, "pointerup", Viewer.onPointerUp);
         Viewer.bindEventListener(core.renderer.domElement, "pointermove", Viewer.onPointerMove);
+        Viewer.bindFaceAreaSelection();
         Viewer.bindEventListener(core.renderer.domElement, "mouseenter", (event) => {
           if (!Viewer.isPointerDirectlyOverCanvas(event)) return;
           Viewer.maybeShowKeyboardHint();
@@ -3819,6 +3839,7 @@ attachMaterialsEditor(Viewer);
 attachShadingEditor(Viewer);
 attachAnnotations(Viewer);
 attachPicking(Viewer);
+attachFaceAreaSelection(Viewer);
 attachMeasurement(Viewer);
 attachAnimations(Viewer);
 attachTour(Viewer);

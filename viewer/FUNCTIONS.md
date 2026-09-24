@@ -120,6 +120,20 @@ Guided tour through the model's annotations, in marker order. Each step flies th
   - Advances the camera flight; called from the render loop.
 
 
+## `viewer/editor/face-area-selection.js`
+
+Face selection in picking mode (used to create annotations): click selects one face, Ctrl/Cmd + click adds or removes a face (Shift + click still works), Shift + drag selects every face visible inside the rectangle, Ctrl/Cmd + Shift + drag removes them. Enter opens the annotation dialog for the selection, Esc clears it.
+
+- `Viewer.pickVisibleFacesInRect(left, top, right, bottom)`
+  - Faces (`{ object, faceIndex }`) visible inside a rectangle in client pixels. Renders the rectangle into an off-screen ID buffer (mesh index, then triangle index), so occluded and back faces are skipped and section planes are respected.
+
+- `Viewer.applyFaceSelection(hits, { subtract })` (`editor/picking.js`)
+  - Adds faces to the selection, or removes them with `subtract`.
+
+- `Viewer.refreshSelectionOverlays()` (`editor/picking.js`)
+  - Draws the selection as one merged overlay per mesh; changes are batched through `scheduleSelectionOverlayRefresh()`.
+
+
 ## `viewer/ui/view-helper.js`
 
 - `Viewer.initViewHelper()` / `Viewer.renderViewHelper(delta)` / `Viewer.handleViewHelperClick(event)`

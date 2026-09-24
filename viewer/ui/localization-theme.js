@@ -146,7 +146,7 @@ export function attachLocalizationTheme(viewer) {
       this.updateMaterialsDialogLabels();
       this.refreshStatusNoticeLanguage();
       UltraLoader.updateHeader?.();
-      if (this.pickingHint) this.pickingHint.textContent = t("hints.picking", "Shift + click to select multiple faces");
+      this.updatePickingHintVisibility?.();
       if (this.clippingHint) this.clippingHint.textContent = t("hints.clipping", "Drag active clipping plane helper to adjust cut");
     },
 

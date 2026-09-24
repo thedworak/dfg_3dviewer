@@ -384,3 +384,17 @@
   gap: 6px;
   cursor: pointer;
 }
+
+/* Shift + drag face area selection (editor/face-area-selection.js). */
+.viewer-face-area-box {
+  position: fixed;
+  z-index: 1000;
+  border: 1px dashed #00c853;
+  background: rgba(0, 200, 83, 0.12);
+  pointer-events: none;
+}
+
+.viewer-face-area-box.is-subtract {
+  border-color: #ff3b30;
+  background: rgba(255, 59, 48, 0.12);
+}

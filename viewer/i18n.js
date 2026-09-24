@@ -36,7 +36,8 @@ export const VIEWER_I18N = {
     },
     hints: {
       pickingSelect: "Select at least one face to add annotation.",
-      picking: "Shift + click to select multiple faces",
+      picking: "Click a face, Ctrl + click to add more, Shift + drag to select an area",
+      pickingSelected: "{count} faces selected · Enter: add annotation · Esc: clear",
       clipping: "Drag active clipping plane helper to adjust cut",
     },
     controls: {
@@ -505,7 +506,8 @@ export const VIEWER_I18N = {
       switchToGerman: "Przelącz na język niemiecki",
     },
     hints: {
-      picking: "Shift + klik, aby wybrać wiele scian",
+      picking: "Kliknij ścianę, Ctrl + klik dodaje kolejne, Shift + przeciągnięcie zaznacza obszar",
+      pickingSelected: "Zaznaczone ściany: {count} · Enter: dodaj adnotację · Esc: wyczyść",
       pickingSelect: "Wybierz co najmniej jedną ścianę, aby dodać adnotację.",
       clipping: "Przeciągnij aktywną plaszczyznę przycinania, aby dostosować cięcie",
     },
@@ -974,7 +976,8 @@ export const VIEWER_I18N = {
       switchToEnglish: "Zu Englisch wechseln",
     },
     hints: {
-      picking: "Umschalt + Klick, um mehrere Flächen auszuwählen",
+      picking: "Fläche anklicken, Strg + Klick fügt weitere hinzu, Umschalt + Ziehen wählt einen Bereich",
+      pickingSelected: "{count} Flächen ausgewählt · Enter: Anmerkung hinzufügen · Esc: leeren",
       pickingSelect: "Wählen Sie mindestens eine Fläche aus, um eine Anmerkung hinzuzufügen.",
       clipping: "Ziehen Sie die aktive Schnittebene-Hilfe, um den Schnitt anzupassen",
     },

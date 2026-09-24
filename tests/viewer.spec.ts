@@ -491,6 +491,64 @@ test('embed configurator uses the current camera for preview url', async ({ page
   expect(embedUrl).toContain(`camTarget=${encodeURIComponent(camTargetValue)}`);
 });
 
+test('faces are selected by Shift + drag, Ctrl + click and accepted with Enter', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+  await page.evaluate(() => {
+    const viewer = window.Viewer;
+    viewer.pickingMode = true;
+    viewer.updatePickingControlsVisibility();
+  });
+
+  const canvas = page.locator('#MainCanvas');
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('canvas has no bounding box');
+  const selectedCount = () => page.evaluate(() => window.Viewer.selectedFaces.length);
+  const dragArea = async (modifiers) => {
+    for (const key of modifiers) await page.keyboard.down(key);
+    // Stay clear of the panels floating over the canvas edges.
+    await page.mouse.move(box.x + box.width * 0.25, box.y + box.height * 0.2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 4 });
+    await page.mouse.move(box.x + box.width * 0.75, box.y + box.height * 0.8, { steps: 4 });
+    await page.mouse.up();
+    for (const key of [...modifiers].reverse()) await page.keyboard.up(key);
+  };
+
+  // Let the camera finish its intro flight before comparing poses.
+  const cameraPose = () => page.evaluate(() => window.Viewer.captureCurrentAnnotationView());
+  let cameraBefore = await cameraPose();
+  await expect.poll(async () => {
+    const previous = cameraBefore;
+    await page.waitForTimeout(200);
+    cameraBefore = await cameraPose();
+    return JSON.stringify(cameraBefore) === JSON.stringify(previous);
+  }).toBe(true);
+  await dragArea(['Shift']);
+  const visibleCount = await selectedCount();
+  // The cube has 12 triangles; only the faces turned to the camera count.
+  expect(visibleCount).toBeGreaterThan(0);
+  expect(visibleCount).toBeLessThanOrEqual(6);
+  // The drag selected faces instead of panning the camera.
+  expect(await cameraPose()).toEqual(cameraBefore);
+  await expect(page.locator('#pickingHint')).toContainText(`${visibleCount} faces selected`);
+
+  // Ctrl + click on a selected face removes it again.
+  await page.keyboard.down('Control');
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await page.keyboard.up('Control');
+  expect(await selectedCount()).toBe(visibleCount - 1);
+
+  await canvas.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#annotationDialog')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#annotationDialog')).toBeHidden();
+
+  await dragArea(['Control', 'Shift']);
+  expect(await selectedCount()).toBe(0);
+});
+
 test('upload panel shows limit usage and limit errors from the worker', async ({ page }) => {
   await page.route('**/api/auth/config', (route) =>
     route.fulfill({ json: { mode: 'off', registration: 'closed', maxUploadBytes: 104857600 } })
