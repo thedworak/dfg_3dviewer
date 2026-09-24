@@ -283,6 +283,8 @@ export const VIEWER_I18N = {
       modelDeleteConfirm: 'Delete "{name}"? This permanently removes the converted model and its renders.',
     },
     loadingLog: {
+      fullQuality: "Preview · loading full quality...",
+      fullQualityProgress: "Preview · loading full quality {percent}%",
       title: "Loading process log",
       loadingModel: "Loading 3D model...",
       modelLoaded: "Model has been loaded.",
@@ -312,6 +314,9 @@ export const VIEWER_I18N = {
       disabled: "disabled"
     },
     toasts: {
+      fullModelLoaded: "Full-quality model loaded.",
+      fullModelLoadError: "Could not load the full-quality model; showing the preview.",
+      previewAnnotationBlocked: "Annotations can be added once the full-quality model has loaded.",
       transformMove: "Move: drag axis arrows to reposition the object.",
       transformRotate: "Rotate: drag rotation rings to rotate the object. Hold Shift for snapping.",
       transformScale: "Scale: drag axis handles to resize the object. Hold Shift for snapping.",
@@ -754,6 +759,8 @@ export const VIEWER_I18N = {
       modelDeleteConfirm: 'Usunąć "{name}"? Spowoduje to trwałe usunięcie przekonwertowanego modelu i jego renderów.',
     },
     loadingLog: {
+      fullQuality: "Podgląd · ładowanie pełnej jakości...",
+      fullQualityProgress: "Podgląd · ładowanie pełnej jakości {percent}%",
       title: "Log procesu ładowania",
       loadingModel: "Ładowanie modelu 3D...",
       modelLoaded: "Model został załadowany.",
@@ -783,6 +790,9 @@ export const VIEWER_I18N = {
       disabled: "wyłączony"
     },
     toasts: {
+      fullModelLoaded: "Załadowano model w pełnej jakości.",
+      fullModelLoadError: "Nie udało się załadować modelu w pełnej jakości; wyświetlany jest podgląd.",
+      previewAnnotationBlocked: "Adnotacje można dodać po załadowaniu modelu w pełnej jakości.",
       transformMove: "Przesuwanie: przeciągnij strzalki osi, aby przesunąć obiekt.",
       transformRotate: "Obracanie: przeciągnij pierscienie obrotu, aby obrócić obiekt. Przytrzymaj Shift, aby włączyć przyciąganie.",
       transformScale: "Skalowanie: przeciągnij uchwyty osi, aby zmienić rozmiar obiektu. Przytrzymaj Shift, aby włączyć przyciąganie.",
@@ -1224,6 +1234,8 @@ export const VIEWER_I18N = {
       modelDeleteConfirm: '"{name}" löschen? Dadurch werden das konvertierte Modell und seine Renderings dauerhaft entfernt.',
     },
     loadingLog: {
+      fullQuality: "Vorschau · volle Qualität wird geladen...",
+      fullQualityProgress: "Vorschau · volle Qualität wird geladen {percent}%",
       title: "Protokoll des Ladeprozesses",
       loadingModel: "3D-Modell wird geladen...",
       modelLoaded: "Modell wurde geladen.",
@@ -1253,6 +1265,9 @@ export const VIEWER_I18N = {
       disabled: "deaktiviert"
     },
     toasts: {
+      fullModelLoaded: "Modell in voller Qualität geladen.",
+      fullModelLoadError: "Das Modell in voller Qualität konnte nicht geladen werden; die Vorschau wird angezeigt.",
+      previewAnnotationBlocked: "Anmerkungen können hinzugefügt werden, sobald das Modell in voller Qualität geladen ist.",
       transformMove: "Bewegen: Ziehen Sie die Achsenpfeile, um das Objekt zu repositionieren.",
       transformRotate: "Drehen: Ziehen Sie die Rotationsringe, um das Objekt zu drehen. Halten Sie die Umschalttaste gedrückt, um das Einrasten zu aktivieren.",
       transformScale: "Skalieren: Ziehen Sie die Achsengriffe, um die Größe des Objekts zu ändern. Halten Sie die Umschalttaste gedrückt, um das Einrasten zu aktivieren.",

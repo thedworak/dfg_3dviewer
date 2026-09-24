@@ -69,6 +69,19 @@ a `dist/prod` variant the same way, add a fourth service in
 The worker's `:8080` port is still published directly too, for calling the
 API from outside the viewer (curl, scripts, etc).
 
+### Base image
+
+The worker image is split in two so that code changes do not reinstall Blender:
+
+- `worker/Dockerfile.base` - Ubuntu, system packages, Python libraries (trimesh, cascadio, ifcopenshell, ...), Blender and gltfpack. Published as `ghcr.io/thedworak/dfg-3dviewer-worker-base:<tag>` by `.github/workflows/worker-base.yml` whenever the file changes.
+- `worker/Dockerfile` - `FROM` that base, adds only `scripts/` and `worker/*.py`; rebuilds in seconds.
+
+`scripts/worker-base.sh ensure` (run by `scripts/docker.sh build` and the deploy workflow) keeps a matching local base image, otherwise pulls it, otherwise builds it locally. Every base build carries a hash of `Dockerfile.base` in a label, so an image that does not match the current file is rebuilt rather than used. A plain `docker compose up --build` pulls the base automatically when it is missing.
+
+- Changing dependencies: edit `worker/Dockerfile.base` and bump the tag in `worker/Dockerfile` (`ARG WORKER_BASE_IMAGE=...:1` → `:2`) in the same commit. The workflow publishes the new tag; until it has, CI and deploys build it locally.
+- Building it yourself: `scripts/worker-base.sh build` or `scripts/docker.sh base`; another registry or tag: `WORKER_BASE_IMAGE=registry/image:tag` for both the script and `docker compose build`.
+- The GHCR package must be public, or the deploy host logged in to `ghcr.io`; otherwise `ensure` falls back to a local build.
+
 ### Exposing this on a real domain
 
 `docker-compose.yml` only publishes plain host ports (`:3000`/`:3001`/`:3002`/`:8080`).
@@ -183,7 +196,7 @@ needing the tag.
 ## Configuration
 
 Set via environment variables on the `worker` container (see
-`worker/Dockerfile` for defaults):
+`worker/Dockerfile.base` for defaults):
 
 | Variable                  | Default        | Meaning                                   |
 |----------------------------|----------------|--------------------------------------------|
@@ -207,6 +220,10 @@ Set via environment variables on the `worker` container (see
 | `WORKER_CONVERT_TIMEOUT`   | `1800`         | Seconds before a convert.sh call is killed|
 | `WORKER_RENDER_TIMEOUT`    | `900`          | Seconds before a render.sh call is killed |
 | `WORKER_RENDER_DEVICE`     | `CPU`          | `CPU`, `GPU`, or `AUTO` - see below       |
+| `WORKER_OPTIMIZE`          | `auto`         | gltfpack step (see "GLB optimization"): `auto` = on when `gltfpack` is installed (it is in the image), `true`, `false` |
+| `WORKER_TEXTURE_FORMAT`    | `ktx2`         | `ktx2` (Basis Universal), `webp` or `keep` |
+| `WORKER_PREVIEW_RATIO`     | `0.1`          | Triangle ratio of the progressive-loading preview; `0` disables previews |
+| `WORKER_PREVIEW_TEXTURE_SIZE` / `_MAX_ERROR` / `_MIN_BYTES` | `512` / `0.05` / `2097152` | Preview texture limit (px), allowed simplification error, and the optimized model size below which no preview is made |
 
 `SPATH` and `BLENDER_BIN` are set in the image itself (`/app`, `blender`) -
 you don't need `scripts/.env` inside the container.
@@ -229,6 +246,16 @@ docker compose exec worker python3 /app/worker/server.py admin approve alice
 ```
 
 The viewer-side switch lives in the AIM3D manifest (`AIM3DViewer.viewer.auth`, see `viewer/manifesto/AIM3DViewer-schema.md`), but that only controls whether the login UI is shown - **the worker setting is what actually enforces access**, because a manifest is client-side data.
+
+### GLB optimization and progressive loading
+
+After conversion, `worker/optimize.py` runs [gltfpack](https://github.com/zeux/meshoptimizer) on the GLB: Meshopt-compressed geometry (`EXT_meshopt_compression`) and KTX2/Basis textures (`KHR_texture_basisu`), which the viewer decodes. For models of at least 2 MB it also writes `<name>.preview.glb` next to the model (about 10% of the triangles, textures of at most 512 px). The viewer shows that preview first and swaps in the full model once it has downloaded.
+
+- Named nodes, materials and extras are kept (`-kn -km -ke`) so IFC element nodes and the scene hierarchy survive; positions and UVs stay floating point (`-vpf -vtf`).
+- gltfpack cannot read Draco, so with optimization on, Blender exports without Draco. A Draco GLB uploaded as-is is served unchanged. On any gltfpack failure the unoptimized GLB is served as before.
+- Only new conversions are optimized. Annotations store face indices, which gltfpack reorders, so do not re-run it on models that already have annotations.
+- Standalone use, e.g. from the Drupal pipeline: `python3 worker/optimize.py model.glb --preview` (needs `gltfpack` on `PATH` or `WORKER_GLTFPACK_BIN`).
+- Example: a 40.6 MB photogrammetry GLB became 6.7 MB, with a 1.4 MB preview, in about 6 s.
 
 ### Upload limits
 
@@ -281,7 +308,7 @@ To use a GPU instead:
    oneAPI backends if present, but those are untested here.
 
 The worker image itself needs no CUDA toolkit - the official Blender
-tarball it installs (see `worker/Dockerfile`) bundles its own Cycles GPU
+tarball it installs (see `worker/Dockerfile.base`) bundles its own Cycles GPU
 kernels; only the NVIDIA driver's userspace libraries need to reach the
 container, which is what the toolkit above provides.
 
@@ -293,7 +320,7 @@ container, which is what the toolkit above provides.
 - Archive support covers `zip`, `rar`, `tar`, `gz`, `xz` (`zip` via an
   in-process, path-traversal-checked extractor; the rest by shelling out to
   `scripts/uncompress.sh`, already baked into this image - `unrar-free` and
-  `tar` are installed in `worker/Dockerfile` for this). `scripts/convert.sh`
+  `tar` are installed in `worker/Dockerfile.base` for this). `scripts/convert.sh`
   itself has no built-in archive handling; that logic normally lives in
   `ConvertWorker.php` on the Drupal side, so this worker reimplements
   first-supported-file detection after extraction to be useful standalone.

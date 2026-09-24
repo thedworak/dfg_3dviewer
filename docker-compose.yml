@@ -3,6 +3,11 @@ services:
     build:
       context: .
       dockerfile: worker/Dockerfile
+      # Code only - Blender & co. come from the base image
+      # (worker/Dockerfile.base, scripts/worker-base.sh). Set
+      # WORKER_BASE_IMAGE to use another base; unset keeps the Dockerfile's.
+      args:
+        - WORKER_BASE_IMAGE
     ports:
       - "8080:8080"
     volumes:

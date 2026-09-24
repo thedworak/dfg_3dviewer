@@ -48,6 +48,7 @@ scripts/docker.sh --help
 | `down`    | Stops and removes the container(s); volumes (settings, converted models) are kept. |
 | `rebuild` | `down`, then `build`. Use this after changing code, a profile manifest or `.env`. |
 | `prune`   | `docker system prune` (unused containers, networks, dangling images). Docker asks for confirmation first; the script does not force it. |
+| `base`    | Rebuilds the worker base image (Blender, gltfpack, Python libraries - `worker/Dockerfile.base`). `build` without a profile pulls or builds it only when needed; see "Base image" in [`worker/README.md`](../worker/README.md). |
 
 **Profile** (optional): `dev`, `test` or `sandbox` - acts only on that service (`viewer-dev`, `viewer-test`, `viewer-sandbox`) and builds it with the matching manifest from `docker/profiles/`. Without a profile, `build` and `down` act on everything, including the shared `worker`. `prune` ignores the profile.
 

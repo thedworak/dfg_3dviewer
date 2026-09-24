@@ -472,7 +472,16 @@ export function attachAnnotations(Viewer) {
       this.annotationDialog.style.height = `${height}px`;
     },
 
+    // Annotations store face indices of the full model; the progressive
+    // preview (loaders.js) has different triangles.
+    isPreviewModelActive() {
+      if (!core.progressiveLoad) return false;
+      toastHelper("previewAnnotationBlocked", "info");
+      return true;
+    },
+
     openAnnotationDialog() {
+      if (this.isPreviewModelActive()) return;
       if (!Array.isArray(this.selectedFaces) || this.selectedFaces.length === 0) {
         toastHelper("selectFaceRequired", "warning");
         return;
@@ -532,6 +541,7 @@ export function attachAnnotations(Viewer) {
     },
 
     openAnnotationDialogWithAutoPicking() {
+      if (this.isPreviewModelActive()) return;
       if (!this.pickingMode) {
         this.pickingMode = true;
         this.RULER_MODE = false;

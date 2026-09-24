@@ -132,6 +132,12 @@ def main() -> int:
         (model_dir / "views").mkdir(parents=True, exist_ok=True)
         shutil.copyfile(glb, model_dir / f"model{model_ext}")
         total_bytes += glb.stat().st_size
+        # The viewer finds "<model>.preview.glb" next to the model by itself
+        # and shows it first (progressive loading, worker/optimize.py).
+        preview = glb.with_name(glb.stem + ".preview.glb")
+        if model_ext == ".glb" and preview.is_file():
+            shutil.copyfile(preview, model_dir / "model.preview.glb")
+            total_bytes += preview.stat().st_size
         images = []
         for url in job["imageUrls"]:
             src = job_root / url.split(f"/files/{job['id']}/", 1)[1]

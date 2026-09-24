@@ -11,6 +11,8 @@ export const loadTDSLoader = async () => (await import("three/examples/jsm/loade
 export const loadPCDLoader = async () => (await import("three/examples/jsm/loaders/PCDLoader.js")).PCDLoader;
 export const loadGLTFLoader = async () => (await import("three/examples/jsm/loaders/GLTFLoader.js")).GLTFLoader;
 export const loadDRACOLoader = async () => (await import("three/examples/jsm/loaders/DRACOLoader.js")).DRACOLoader;
+export const loadKTX2Loader = async () => (await import("three/examples/jsm/loaders/KTX2Loader.js")).KTX2Loader;
+export const loadMeshoptDecoder = async () => (await import("three/examples/jsm/libs/meshopt_decoder.module.js")).MeshoptDecoder;
 export const loadUSDLoader = async () => (await import("three/examples/jsm/loaders/USDLoader.js")).USDLoader;
 export const loadThreeMFLoader = async () => (await import("three/examples/jsm/loaders/3MFLoader.js")).ThreeMFLoader;
 export const loadAMFLoader = async () => (await import("three/examples/jsm/loaders/AMFLoader.js")).AMFLoader;
@@ -24,12 +26,148 @@ export const loadRoomEnvironment = async () => (await import("three/examples/jsm
 export const loadHDRLoader = async () => (await import("three/examples/jsm/loaders/HDRLoader.js")).HDRLoader;
 
 import { core } from './core.js';
-import { fetchSettings, presentationMode } from "./metadata.js";
+import {
+  fetchSettings,
+  presentationMode,
+  refreshModelHierarchyAndStats,
+  replaceModelSettingsResetObject,
+} from "./metadata.js";
 import { loadIfcProperties, ifcPropertiesUrlForModel, setIfcModel } from "./ifc-properties.js";
 import { reportViewerError, showToast, toastHelper } from "./viewer-utils.js";
+import { t } from "./i18n-utils.js";
 
 export var outlineClipping;
 let environmentTextureCache = {};
+// One KTX2 (Basis Universal) transcoder for the page - it owns a worker pool.
+let ktx2LoaderPromise = null;
+
+// Decoders for compressed glTF: Draco (KHR_draco_mesh_compression, what
+// Blender exports), Meshopt (EXT_meshopt_compression) and KTX2/Basis
+// textures (KHR_texture_basisu) - the latter two are what the worker's
+// gltfpack step produces (see worker/optimize.py). Returns a dispose
+// callback for the per-load parts.
+async function configureGLTFDecoders(loader) {
+  const dracoBase = normalizeWasmPath(`${getModuleAssetBasePath()}/draco/gltf/`);
+  const DRACOLoader = await loadDRACOLoader();
+  const draco = new DRACOLoader();
+  if (ENV_BUILD === 'drupal') {
+    draco.setDecoderConfig({ type: 'js' });
+  }
+  draco.setDecoderPath(dracoBase);
+  loader.setDRACOLoader(draco);
+
+  if (!ktx2LoaderPromise) {
+    ktx2LoaderPromise = (async () => {
+      const KTX2Loader = await loadKTX2Loader();
+      return new KTX2Loader()
+        .setTranscoderPath(normalizeWasmPath(`${getModuleAssetBasePath()}/basis/`))
+        .detectSupport(core.renderer);
+    })();
+  }
+  loader.setKTX2Loader(await ktx2LoaderPromise);
+  loader.setMeshoptDecoder(await loadMeshoptDecoder());
+
+  return () => draco.dispose();
+}
+
+// Progressive loading: a lightweight "<name>.preview.glb" next to the model
+// (simplified geometry, small textures - written by the worker, see
+// worker/optimize.py) is shown first and swapped for the full model once
+// that has downloaded. Settings: viewer.progressive.enabled (default true,
+// except in the Drupal build, whose pipeline writes no previews - there the
+// probe would only add a 404 per model); URL: ?preview=<url> to name the
+// preview, ?preview=0 to skip it.
+async function resolvePreviewModelUrl(rawModelPath) {
+  if (core.PRESENTATION_MODE || core.fileObject.filename.startsWith('blob:')) return null;
+  const params = new URLSearchParams(window.location.search);
+  const explicit = params.get('preview');
+  if (explicit === '0' || explicit === 'false') return null;
+  const configured = core.CONFIG?.viewer?.progressive?.enabled;
+  const probeByDefault = ENV_BUILD !== 'drupal';
+  if (!explicit && (configured === false || (configured !== true && !probeByDefault))) return null;
+
+  let candidate = explicit && explicit !== '1' && explicit !== 'true'
+    ? explicit
+    : rawModelPath.replace(/\.(glb|gltf)(?=($|[?#]))/i, '.preview.glb');
+  if (!candidate || candidate === rawModelPath || /\.preview\.glb/i.test(rawModelPath)) return null;
+  if (core.CONFIG.entity?.proxyPath !== undefined) candidate = core.getProxyPath(candidate);
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3000);
+  try {
+    const response = await fetch(candidate, { method: 'HEAD', cache: 'no-cache', signal: controller.signal });
+    const type = response.headers.get('content-type') || '';
+    // Single-page hosts answer unknown paths with index.html.
+    return response.ok && !type.includes('text/html') ? candidate : null;
+  } catch (_error) {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function showProgressiveBadge(percent) {
+  if (!core.container) return;
+  let badge = core.container.querySelector(':scope > .viewer-progressive-badge');
+  if (!badge) {
+    badge = document.createElement('div');
+    badge.className = 'viewer-progressive-badge';
+    badge.setAttribute('role', 'status');
+    core.container.appendChild(badge);
+  }
+  badge.textContent = Number.isFinite(percent)
+    ? t('loadingLog.fullQualityProgress', { percent }, 'Preview · loading full quality {percent}%')
+    : t('loadingLog.fullQuality', 'Preview · loading full quality...');
+}
+
+function hideProgressiveBadge() {
+  core.container?.querySelector(':scope > .viewer-progressive-badge')?.remove();
+}
+
+// Replaces the preview root with the full model: same root transform (which
+// fetchSettings/metadata applied to the preview), fresh materials setup,
+// clipping, animations, hierarchy and annotation markers. The camera is left
+// where it is.
+async function swapInFullModel(previewRoot, fullRoot) {
+  const slot = core.mainObject.indexOf(previewRoot);
+  if (slot < 0) return false; // another model was loaded meanwhile
+
+  window.Viewer?.clearSelectedFaces?.();
+  window.Viewer?.clearHierarchySelection?.();
+  window.Viewer?.endFaceAreaSelection?.();
+
+  fullRoot.position.copy(previewRoot.position);
+  fullRoot.quaternion.copy(previewRoot.quaternion);
+  fullRoot.scale.copy(previewRoot.scale);
+  fullRoot.updateMatrixWorld(true);
+  traverseMesh(fullRoot);
+
+  core.scene.remove(previewRoot);
+  core.scene.add(fullRoot);
+  core.mainObject[slot] = fullRoot;
+  const helperIndex = core.helperObjects.indexOf(previewRoot);
+  if (helperIndex >= 0) core.helperObjects[helperIndex] = fullRoot;
+  if (core.transformControl?.object === previewRoot) core.transformControl.attach(fullRoot);
+  replaceModelSettingsResetObject(previewRoot, fullRoot);
+
+  if (core.outlineClipping) {
+    const wasVisible = core.outlineClipping.visible;
+    core.scene.remove(core.outlineClipping);
+    core.outlineClipping = prepareOutlineClipping(fullRoot);
+    core.outlineClipping.visible = wasVisible;
+    core.scene.add(core.outlineClipping);
+  }
+
+  window.Viewer?.setupModelAnimations?.(fullRoot);
+  window.Viewer?.refreshClippingForModel?.(fullRoot);
+  refreshModelHierarchyAndStats(fullRoot);
+  window.Viewer?.disposeFacePickCache?.();
+  window.Viewer?.disposeObjectResources?.(previewRoot);
+  // Face indices of annotations refer to the full model's triangles.
+  window.Viewer?.refreshAnnotationPOIs?.();
+  markEnvironmentMaterialsDirty(fullRoot);
+  return true;
+}
 
 const loaderMap = {
   gltf: loadGLTFLoader,
@@ -514,39 +652,56 @@ export async function loadModel() {
     return null;
   }
 
-  async function loadGLTFModel() {
-    let gltfModelPath = core.fileObject.filename.startsWith('blob:') ? core.fileObject.filename : core.fileObject.path + core.fileObject.basename + "." + core.fileObject.extension;
-    if (core.CONFIG.entity.proxyPath !== undefined && !core.fileObject.filename.startsWith('blob:')) {
-      gltfModelPath = core.getProxyPath(gltfModelPath);
-    }
+  function getGLTFModelPath() {
+    const rawPath = core.fileObject.filename.startsWith('blob:')
+      ? core.fileObject.filename
+      : core.fileObject.path + core.fileObject.basename + "." + core.fileObject.extension;
+    const proxied = core.CONFIG.entity.proxyPath !== undefined && !core.fileObject.filename.startsWith('blob:')
+      ? core.getProxyPath(rawPath)
+      : rawPath;
+    return { rawPath, url: proxied };
+  }
 
-    const dracoBase = normalizePath(normalizeWasmPath(`${getModuleAssetBasePath()}/draco/gltf/`));
-
-    const loader = await createLoader(core.fileObject.extension.toLowerCase());
-    const DRACOLoader = await loadDRACOLoader();
-    const draco = new DRACOLoader();
-    if (ENV_BUILD === 'drupal') {
-      draco.setDecoderConfig({ type: 'js' });
-    }
-    draco.setDecoderPath(dracoBase);
-    loader.setDRACOLoader(draco);
-
+  async function loadGLTFModel(url, progressHandler = progressLoaderHandler) {
+    const loader = await createLoader("glb");
+    const disposeDecoders = await configureGLTFDecoders(loader);
     try {
       const gltf = await new Promise((resolve, reject) => {
-        loader.load(
-          gltfModelPath,
-          resolve,
-          (xhr) => {
-            progressLoaderHandler(xhr);
-          },
-          reject
-        );
+        loader.load(url, resolve, progressHandler, reject);
       });
       // Loaders for other formats already keep clips on the returned root.
       gltf.scene.animations = gltf.animations || [];
       return gltf.scene;
     } finally {
-      draco.dispose();
+      disposeDecoders();
+    }
+  }
+
+  // Background half of progressive loading: fetch the full model while the
+  // preview is on screen, then swap it in.
+  async function loadFullModelBehindPreview(previewRoot, url) {
+    showProgressiveBadge(0);
+    try {
+      const fullRoot = await loadGLTFModel(url, (xhr) => {
+        if (xhr?.lengthComputable && xhr.total > 0) {
+          showProgressiveBadge(Math.round((xhr.loaded / xhr.total) * 100));
+        }
+      });
+      const swapped = await swapInFullModel(previewRoot, fullRoot);
+      if (!swapped) {
+        window.Viewer?.disposeObjectResources?.(fullRoot);
+        return;
+      }
+      toastHelper("fullModelLoaded", "success");
+    } catch (error) {
+      reportLoadError(error, `Failed to load the full model ${core.fileObject.filename}; keeping the preview`);
+      toastHelper("fullModelLoadError", "warning");
+    } finally {
+      if (core.progressiveLoad?.preview === previewRoot) {
+        core.progressiveLoad = null;
+        hideProgressiveBadge();
+        window.viewer.fullModelLoaded = true;
+      }
     }
   }
 
@@ -720,8 +875,21 @@ export async function loadModel() {
 
       case "glb":
       case "gltf": {
-        const object = await loadGLTFModel();
-        await afterLoad({ object });
+        const { rawPath, url } = getGLTFModelPath();
+        const previewUrl = await resolvePreviewModelUrl(rawPath);
+        if (previewUrl) {
+          const preview = await loadGLTFModel(previewUrl);
+          preview.userData.isPreviewModel = true;
+          window.viewer.fullModelLoaded = false;
+          core.progressiveLoad = { preview };
+          await afterLoad({ object: preview });
+          // Not awaited: the viewer is usable on the preview meanwhile.
+          loadFullModelBehindPreview(preview, url);
+        } else {
+          const object = await loadGLTFModel(url);
+          await afterLoad({ object });
+          window.viewer.fullModelLoaded = true;
+        }
         break;
       }
       default:

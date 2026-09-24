@@ -36,6 +36,39 @@ function captureModelSettingsResetState(object) {
   };
 }
 
+// Progressive loading swaps the preview model for the full one in place
+// (see loaders.js): point the reset state at the new object, keeping the
+// transform captured for the preview.
+export function replaceModelSettingsResetObject(previousObject, nextObject) {
+  if (!modelSettingsResetState || modelSettingsResetState.object !== previousObject) return;
+  modelSettingsResetState.object = nextObject;
+  modelSettingsResetState.transforms.forEach((entry) => {
+    if (entry.model === previousObject) entry.model = nextObject;
+  });
+}
+
+// Rebuilds the hierarchy submenu and the vertex/face counts shown in the
+// metadata panel for a swapped-in model, without re-running the camera and
+// metadata setup of handleMetadataResponse().
+export function refreshModelHierarchyAndStats(object) {
+  const stats = { vertices: 0, faces: 0 };
+  Viewer.clearHierarchySubmenu();
+  const root = Array.isArray(object) ? object[0] : object;
+  root?.traverse?.((child) => {
+    if (!child.isMesh) return;
+    stats.vertices += fetchMetadata(child, "vertices");
+    stats.faces += fetchMetadata(child, "faces");
+    if (child.name === "") child.name = "Mesh";
+    Viewer.addHierarchySubmenuItem(truncateString(child.name, 35), child.id);
+  });
+  ["vertices", "faces"].forEach((key) => {
+    const label = core.metadataContainer?.querySelector?.(`[data-i18n-key="metadata.${key}"]`);
+    const value = label?.parentElement?.querySelector(".metadata-value");
+    if (value) value.textContent = String(stats[key]);
+  });
+  return stats;
+}
+
 export async function resetModelSettings() {
   if (!modelSettingsResetState?.object) return;
 

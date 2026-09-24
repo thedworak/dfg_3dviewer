@@ -549,6 +549,63 @@ test('faces are selected by Shift + drag, Ctrl + click and accepted with Enter',
   expect(await selectedCount()).toBe(0);
 });
 
+test('progressive loading shows the preview first and swaps in the full compressed model', async ({ page }) => {
+  const requests = [];
+  page.on('request', (request) => {
+    if (request.url().includes('/examples/compressed')) {
+      requests.push(`${request.method()} ${new URL(request.url()).pathname}`);
+    }
+  });
+
+  await openViewer(page, '/examples/compressed.glb');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+
+  expect(requests).toContain('HEAD /examples/compressed.preview.glb');
+  expect(requests).toContain('GET /examples/compressed.preview.glb');
+  expect(requests).toContain('GET /examples/compressed.glb');
+  // Preview first, then the full model.
+  expect(requests.indexOf('GET /examples/compressed.preview.glb'))
+    .toBeLessThan(requests.indexOf('GET /examples/compressed.glb'));
+
+  const scene = await page.evaluate(() => {
+    const root = window.Viewer.resolveObjectByTargetId('m0:root');
+    let meshes = 0;
+    let compressedTextures = 0;
+    root.traverse((child) => {
+      if (!child.isMesh) return;
+      meshes += 1;
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      if (materials.some((material) => material?.map?.isCompressedTexture)) compressedTextures += 1;
+    });
+    return {
+      isPreview: root.userData?.isPreviewModel === true,
+      meshes,
+      compressedTextures,
+      badge: document.querySelectorAll('.viewer-progressive-badge').length,
+      errors: window.viewer?.errors?.length ?? 0,
+    };
+  });
+  expect(scene.isPreview).toBe(false);
+  expect(scene.meshes).toBeGreaterThan(0);
+  // KHR_texture_basisu textures were transcoded by the KTX2 loader.
+  expect(scene.compressedTextures).toBeGreaterThan(0);
+  expect(scene.badge).toBe(0);
+  expect(scene.errors).toBe(0);
+});
+
+test('preview=0 skips the progressive preview', async ({ page }) => {
+  const requests = [];
+  page.on('request', (request) => {
+    if (request.url().includes('.preview.glb')) requests.push(request.method());
+  });
+  await page.addInitScript(() => {
+    window.__E2E__ = true;
+  });
+  await page.goto('/?e2eModel=%2Fexamples%2Fcompressed.glb&preview=0');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+  expect(requests).toEqual([]);
+});
+
 test('upload panel shows limit usage and limit errors from the worker', async ({ page }) => {
   await page.route('**/api/auth/config', (route) =>
     route.fulfill({ json: { mode: 'off', registration: 'closed', maxUploadBytes: 104857600 } })

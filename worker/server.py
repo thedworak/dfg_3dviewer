@@ -47,6 +47,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 import mailer
+import optimize
 from auth import AuthError, AuthStore
 from limits import LIMIT_KEYS, LimitError, Limits, default_limits, normalize_overrides
 
@@ -205,7 +206,11 @@ def scan_job(job_id: str, job_dir: Path):
     if not job_root.is_dir():
         return None
 
-    glb_candidates = sorted(job_root.rglob("*.glb"))
+    # Previews (optimize.py) and gltfpack's temporary output are never the model.
+    glb_candidates = sorted(
+        p for p in job_root.rglob("*.glb")
+        if not p.name.endswith((".preview.glb", ".tmp.glb"))
+    )
     if glb_candidates:
         # A file under a "gltf" folder is convert.sh's own output and is
         # preferred; otherwise fall back to whatever .glb is there (e.g. a
@@ -300,10 +305,31 @@ def list_jobs(user=None):
     return jobs
 
 
+def optimize_converted_glb(job_id: str, glb_path: Path, work_path: Path) -> Path:
+    """Runs optimize.py on the converted GLB; returns the path to serve.
+    Best effort: on failure the unoptimized GLB is served as before."""
+    set_job(job_id, status="processing", progress=60, message="Optimizing model...")
+    target = work_path.parent / "gltf" / (work_path.stem + ".glb")
+    try:
+        result = optimize.optimize_glb(glb_path, target, log_prefix=f"[job {job_id}]")
+    except (RuntimeError, subprocess.TimeoutExpired, OSError) as exc:
+        print(f"[job {job_id}] optimization skipped: {exc}", file=sys.stderr)
+        return glb_path
+    print(
+        f"[job {job_id}] optimized {glb_path.stat().st_size if glb_path.is_file() else '?'} -> "
+        f"{result['model'].stat().st_size} bytes, preview={result['preview']}",
+        file=sys.stderr,
+    )
+    return result["model"]
+
+
 def convert_and_render(job_id: str, work_path: Path, ext: str, is_archive: bool, job_root: Path):
     """Converts work_path to GLB (unless it already is one) and renders its
     thumbnails. Returns (glb_path, image_urls). Runs inside a conversion
     slot - see limits.Limits.conversion_slot()."""
+    # gltfpack (optimize.py) re-compresses the GLB with Meshopt and cannot
+    # read Draco, so Blender skips its own Draco step when it will run.
+    optimizing = optimize.enabled()
     if ext in PASSTHROUGH_FORMATS:
         glb_path = work_path
     elif ext in MESH_CONVERT_FORMATS:
@@ -332,7 +358,7 @@ def convert_and_render(job_id: str, work_path: Path, ext: str, is_archive: bool,
         set_job(job_id, status="processing", progress=25, message="Converting model...")
         print(f"[job {job_id}] running convert.sh on {work_path}...", file=sys.stderr)
         result = subprocess.run(
-            [str(CONVERT_SCRIPT), "-i", str(work_path), "-c", "true", "-l", "3", "-b", "true", "-f", "true"],
+            [str(CONVERT_SCRIPT), "-i", str(work_path), "-c", "false" if optimizing else "true", "-l", "3", "-b", "true", "-f", "true"],
             capture_output=True, text=True, timeout=CONVERT_TIMEOUT,
         )
         print(
@@ -347,6 +373,9 @@ def convert_and_render(job_id: str, work_path: Path, ext: str, is_archive: bool,
 
     if not glb_path.is_file():
         raise RuntimeError(f"Expected converted output missing: {glb_path}")
+
+    if optimizing:
+        glb_path = optimize_converted_glb(job_id, glb_path, work_path)
 
     if not SKIP_RENDER:
         set_job(job_id, status="rendering", progress=70, message="Rendering thumbnails...")

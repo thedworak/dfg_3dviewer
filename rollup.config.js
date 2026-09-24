@@ -102,6 +102,11 @@ function copyBuildAssets() {
           'node_modules/three/examples/jsm/libs/draco',
           path.join(outDistDir, 'assets/draco')
         ),
+        // KTX2/Basis Universal transcoder for KHR_texture_basisu textures.
+        copyDirectory(
+          'node_modules/three/examples/jsm/libs/basis',
+          path.join(outDistDir, 'assets/basis')
+        ),
         copyDirectory(
           'node_modules/web-ifc',
           path.join(outDistDir, 'assets/ifc')

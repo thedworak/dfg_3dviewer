@@ -213,6 +213,13 @@ Planes are dragged directly in the scene (the coloured quads) or with the slider
   - Update progress UI while a model is downloading.
 
 
+## Compressed glTF and progressive loading (`viewer/loaders.js`)
+
+GLB/glTF models are decoded with Draco (`assets/draco/`), Meshopt and KTX2/Basis (`assets/basis/`, one shared transcoder).
+
+When `<model>.preview.glb` exists next to the model (HEAD probe; `viewer.progressive.enabled`, URL `preview=0|<url>`), the preview goes through the normal load (`afterLoad`: settings, camera, metadata), then the full model is fetched in the background and `swapInFullModel()` replaces the preview root in place: same root transform, materials setup, section outline, animations, hierarchy and statistics (`refreshModelHierarchyAndStats()` in `metadata.js`), annotation markers. The camera does not move. Annotations cannot be created while the preview is on screen (`Viewer.isPreviewModelActive()`), because they store face indices of the full model. `window.viewer.fullModelLoaded` turns true once the full model is in place.
+
+
 ## `viewer/metadata.js`
 
 `viewer/metadata.js` handles metadata fetching, metadata panel rendering, and IIIF support.

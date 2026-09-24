@@ -5,6 +5,8 @@
 #   scripts/docker.sh build   [dev|test|sandbox]   build image(s)
 #   scripts/docker.sh down    [dev|test|sandbox]   stop + remove container(s)
 #   scripts/docker.sh rebuild [dev|test|sandbox]   down, then build
+#   scripts/docker.sh base                         rebuild the worker base image
+#                                                  (Blender etc., worker/Dockerfile.base)
 #   scripts/docker.sh prune                        docker system prune (asks first)
 #   scripts/docker.sh                              interactive menu
 #
@@ -79,6 +81,10 @@ do_build() {
         VIEWER_PROFILE="$profile" compose build "viewer-$profile"
         ok "Image for viewer-$profile built (profile: $profile)"
     else
+        # The worker image builds FROM the base image with Blender & co.;
+        # pull it (or build it once) first - see scripts/worker-base.sh.
+        info "preparing the worker base image"
+        scripts/worker-base.sh ensure
         info "building all services"
         compose build
         ok "All images built"
@@ -127,6 +133,7 @@ run() {
         down)    do_down "$profile" ;;
         rebuild) do_down "$profile"; do_build "$profile" ;;
         prune)   do_prune; return ;;
+        base)    scripts/worker-base.sh build; ok "Worker base image built"; return ;;
         *)       usage; exit 1 ;;
     esac
     if [ "$action" = down ]; then return; fi
@@ -168,7 +175,7 @@ for arg in "$@"; do
     case "$arg" in
         -h|--help|help) usage; exit 0 ;;
         --up)           up=up ;;
-        build|down|rebuild|prune) action="$arg" ;;
+        build|down|rebuild|prune|base) action="$arg" ;;
         *)
             if is_profile "$arg"; then profile="$arg"
             else echo "Unknown argument: $arg" >&2; usage; exit 1; fi ;;
