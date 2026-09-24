@@ -20,6 +20,7 @@ const loadTilesPlugins = () => import("3d-tiles-renderer/three/plugins");
 let activeTiles = null;
 let disposeDecoders = null;
 let boundsProxy = null;
+let pointCloudPlugin = null;
 
 // The first tiles (the root level) often cover less than the whole tileset,
 // so centring and camera framing would be off. This stands in for the full
@@ -59,6 +60,11 @@ function hasTileContent(group) {
   return found;
 }
 
+// Point shape / EDL / debug colours of the streamed cloud (point cloud panel).
+export function getPointCloudPlugin() {
+  return pointCloudPlugin;
+}
+
 export function getActiveTiles() {
   return activeTiles;
 }
@@ -74,6 +80,7 @@ export function disposeTiles() {
   if (!activeTiles) return;
   boundsProxy?.geometry.dispose();
   boundsProxy = null;
+  pointCloudPlugin = null;
   activeTiles.group.removeFromParent();
   activeTiles.dispose();
   activeTiles = null;
@@ -120,21 +127,25 @@ export async function loadTiledModel({ url, format, configureGLTFLoader, onModel
     meshoptDecoder: gltfDecoders.meshoptDecoder,
     autoDispose: false,
   }));
-  if (format === "potree") {
-    tiles.registerPlugin(new plugins.PotreePlugin({
+  pointCloudPlugin = format === "potree"
+    ? new plugins.PotreePlugin({
       url,
       pointScale: options.pointScale,
       pointShape: options.pointShape,
       edlStrength: options.edlStrength,
-    }));
-  } else {
-    tiles.registerPlugin(new plugins.PointCloudEffectsPlugin({
+    })
+    : new plugins.PointCloudEffectsPlugin({
       pointShape: options.pointShape,
       edlStrength: options.edlStrength,
-    }));
-  }
+    });
+  tiles.registerPlugin(pointCloudPlugin);
 
-  tiles.addEventListener("load-model", ({ scene }) => onModel?.(scene));
+  tiles.addEventListener("load-model", ({ scene, tile }) => {
+    // Level in the tile tree, for the point cloud panel's "detail levels" colours.
+    const depth = tile?.internal?.depth;
+    if (Number.isFinite(depth)) scene.traverse((child) => { child.userData.tileDepth = depth; });
+    onModel?.(scene);
+  });
 
   activeTiles = tiles;
   core.tiledModel = { format, tiles };

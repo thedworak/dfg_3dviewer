@@ -59,6 +59,7 @@ import { attachViewHelper } from "./ui/view-helper.js";
 import { attachClipping } from "./editor/clipping.js";
 import { attachPicking } from "./editor/picking.js";
 import { attachFaceAreaSelection } from "./editor/face-area-selection.js";
+import { attachPointCloudPanel } from "./editor/point-cloud-panel.js";
 import { captureAndUploadThumbnail } from "./editor/thumbnail-capture.js";
 import { attachWindowControls } from "./ui/window-controls.js";
 
@@ -82,6 +83,13 @@ import { GUI } from "./js/external_libs/lil-gui.esm.min.js";
 import { objectsConfig, setObjectsConfig } from "./object-settings.js";
 
 import { loadIIIFManifest, getAnnotations } from "./IIIF/iiif-api.js";
+import {
+  applyCamera as applyIIIFCamera,
+  applyLights as applyIIIFLights,
+  commentsToAnnotationEntries,
+  readSceneContent,
+  removeImportedLights,
+} from "./IIIF/presentation4.js";
 import { loadAIM3IFManifest, applyManifestConfig, applyManifestSettings, applyManifestBootstrapSettings, getManifestWindowState } from "./manifesto/manifesto-api.js";
 import { isAIM3DManifest } from "./manifesto/aim3dviewer-validation.js";
 import {
@@ -1283,7 +1291,9 @@ export const Viewer = {
   resetLoadedModelState() {
     Viewer.disposeAnimations();
     Viewer.stopTour();
+    Viewer.disposePointCloudControls();
     disposeTiles();
+    removeImportedLights();
     Viewer.restoreLastPickedFace();
     Viewer.clearSelectedFaces();
     Viewer.closeAnnotationDialog();
@@ -2996,6 +3006,27 @@ export const Viewer = {
         Viewer.import3IFManifest?.(loadedManifest.manifest);
       }
     }
+    if (!isAim3ifManifest) Viewer.applyIIIFSceneContent(manifestJson);
+  },
+
+  // IIIF Presentation 4 cameras, lights and point comments of a plain IIIF
+  // manifest (AIM3D manifests carry their own camera/lights/annotations,
+  // applied by import3IFManifest).
+  applyIIIFSceneContent(manifestJson) {
+    let content;
+    try {
+      content = readSceneContent(manifestJson);
+    } catch (error) {
+      console.warn("Could not read IIIF scene content", error);
+      return;
+    }
+    if (content.cameras.length) applyIIIFCamera(content.cameras[0], Viewer);
+    if (content.lights.length) applyIIIFLights(content.lights);
+    if (content.comments.length) {
+      const root = Viewer.resolveObjectByTargetId("m0:root");
+      Viewer.annotationEntries = commentsToAnnotationEntries(content.comments, root);
+      Viewer.refreshAnnotationPOIs();
+    }
   },
 
   async getManifestJson(manifestUrlOrJson, type) {
@@ -3843,6 +3874,7 @@ attachShadingEditor(Viewer);
 attachAnnotations(Viewer);
 attachPicking(Viewer);
 attachFaceAreaSelection(Viewer);
+attachPointCloudPanel(Viewer);
 attachMeasurement(Viewer);
 attachAnimations(Viewer);
 attachTour(Viewer);

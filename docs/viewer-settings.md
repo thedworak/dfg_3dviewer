@@ -46,6 +46,7 @@ The example template is located at `viewer/viewer-settings-example.json`.
 - `viewer.animation.showPlayer` — show the animation player bar for animated models (default `true`)
 - `viewer.progressive.enabled` — show `<model>.preview.glb` (written by the worker's optimization step) first when it exists next to a GLB/glTF model, then swap in the full model; default `true`, except in the Drupal build (its pipeline writes no previews, so probing would only add a 404 per model)
 - `viewer.pointCloud.maxPoints` — LAS/LAZ files opened directly are thinned to about this many points (default `5000000`); convert larger scans with the worker for full-resolution streaming
+- `viewer.pointCloud.colorMode` — initial colouring of directly opened point clouds: `rgb`, `intensity`, `height` or `classification` (when the file carries it); changeable in the point cloud panel
 - `viewer.pointCloud.pointSize` — point size in screen pixels for directly opened LAS/LAZ files (default `2`)
 - `viewer.tiles.errorTarget` — screen-space error in pixels for 3D Tiles / Potree models (default `6`; lower loads more detail)
 - `viewer.tiles.pointShape` — `square`, `round` (default) or `sphere` for point clouds

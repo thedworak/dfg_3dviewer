@@ -356,6 +356,10 @@ const VIEWER_I18N = {
       optionModelOrigin: "Model Origin",
       optionModelOriginBg: "Model Origin with background color",
       optionModelPosition: "Model Position",
+      optionP4Local: "Camera, lights and comments (localhost)",
+      optionCamera: "Positioned camera",
+      optionLights: "Lights with colours and intensities",
+      optionComments: "Comments with their own views",
     },
     localPreview: {
       loadExampleModel: "Load example model",
@@ -591,6 +595,30 @@ const VIEWER_I18N = {
       areaHint: "Click the corners of an area. Click the first point again or press Enter to close it.",
       clippingEnabled: "Section planes are on. Drag a coloured plane or use the sliders.",
       clippingDisabled: "Section planes are off.",
+    },
+    pointCloud: {
+      title: "Point cloud",
+      collapse: "Hide settings",
+      expand: "Show settings",
+      size: "Point size ×{value}",
+      shape: "Shape",
+      color: "Colour",
+      edl: "Eye-Dome Lighting {value}%",
+      streamed: "Streamed: detail loads as you zoom in.",
+      points: "{total} points",
+      thinned: "{loaded} of {total} points",
+      shapes: {
+        square: "Square",
+        round: "Round",
+        sphere: "Sphere",
+      },
+      colorModes: {
+        rgb: "RGB",
+        intensity: "Intensity",
+        height: "Height",
+        classification: "Classification",
+        tile: "Detail levels",
+      },
     },
     tour: {
       panel: "Guided tour",
@@ -834,6 +862,10 @@ const VIEWER_I18N = {
       optionModelOrigin: "Punkt początkowy modelu",
       optionModelOriginBg: "Punkt początkowy modelu z kolorem tła",
       optionModelPosition: "Pozycja modelu",
+      optionP4Local: "Kamera, światła i komentarze (localhost)",
+      optionCamera: "Ustawiona kamera",
+      optionLights: "Światła z kolorami i natężeniem",
+      optionComments: "Komentarze z własnymi widokami",
     },
     localPreview: {
       loadExampleModel: "Wczytaj model przykładowy",
@@ -1069,6 +1101,30 @@ const VIEWER_I18N = {
       areaHint: "Klikaj narożniki obszaru. Kliknij ponownie pierwszy punkt lub naciśnij Enter, aby go zamknąć.",
       clippingEnabled: "Przekroje są włączone. Przeciągnij kolorową płaszczyznę lub użyj suwaków.",
       clippingDisabled: "Przekroje są wyłączone.",
+    },
+    pointCloud: {
+      title: "Chmura punktów",
+      collapse: "Ukryj ustawienia",
+      expand: "Pokaż ustawienia",
+      size: "Rozmiar punktów ×{value}",
+      shape: "Kształt",
+      color: "Kolor",
+      edl: "Eye-Dome Lighting {value}%",
+      streamed: "Strumieniowana: szczegóły doładowują się przy przybliżaniu.",
+      points: "Punktów: {total}",
+      thinned: "{loaded} z {total} punktów",
+      shapes: {
+        square: "Kwadrat",
+        round: "Koło",
+        sphere: "Kula",
+      },
+      colorModes: {
+        rgb: "RGB",
+        intensity: "Intensywność",
+        height: "Wysokość",
+        classification: "Klasyfikacja",
+        tile: "Poziomy szczegółowości",
+      },
     },
     tour: {
       panel: "Wycieczka z przewodnikiem",
@@ -1311,6 +1367,10 @@ const VIEWER_I18N = {
       optionModelOrigin: "Modellursprung",
       optionModelOriginBg: "Modellursprung mit Hintergrundfarbe",
       optionModelPosition: "Modellposition",
+      optionP4Local: "Kamera, Lichter und Kommentare (localhost)",
+      optionCamera: "Positionierte Kamera",
+      optionLights: "Lichter mit Farben und Intensitäten",
+      optionComments: "Kommentare mit eigenen Ansichten",
     },
     localPreview: {
       loadExampleModel: "Beispielmodell laden",
@@ -1546,6 +1606,30 @@ const VIEWER_I18N = {
       areaHint: "Klicken Sie die Ecken einer Fläche an. Klicken Sie erneut auf den ersten Punkt oder drücken Sie Enter, um sie zu schließen.",
       clippingEnabled: "Schnittebenen sind aktiv. Ziehen Sie eine farbige Ebene oder nutzen Sie die Schieberegler.",
       clippingDisabled: "Schnittebenen sind deaktiviert.",
+    },
+    pointCloud: {
+      title: "Punktwolke",
+      collapse: "Einstellungen ausblenden",
+      expand: "Einstellungen anzeigen",
+      size: "Punktgröße ×{value}",
+      shape: "Form",
+      color: "Farbe",
+      edl: "Eye-Dome Lighting {value}%",
+      streamed: "Gestreamt: Details laden beim Heranzoomen.",
+      points: "{total} Punkte",
+      thinned: "{loaded} von {total} Punkten",
+      shapes: {
+        square: "Quadrat",
+        round: "Rund",
+        sphere: "Kugel",
+      },
+      colorModes: {
+        rgb: "RGB",
+        intensity: "Intensität",
+        height: "Höhe",
+        classification: "Klassifikation",
+        tile: "Detailstufen",
+      },
     },
     tour: {
       panel: "Geführte Tour",
@@ -1980,6 +2064,12 @@ const setupObject = (_object, _metadata) => {
     model = fetchObjectFromConfig(_object.name);
   } else if (_object.children.length > 0) {
     model = fetchObjectFromConfig(_object.children[0].name); //TODO: check for multiple objects
+  }
+  // Models from a IIIF manifest carry their transform (Scale/Rotate/
+  // TranslateTransform, PointSelector position) in the config entry of the
+  // model being loaded, whatever the model's own node names are.
+  if (!model && core.CONFIG?.entity?.metadata?.sourceType === "IIIF") {
+    model = core.objectsConfig?.models?.[core.objectsConfig.setupIndex];
   }
 
   if (_metadata != null) {
@@ -5649,6 +5739,7 @@ function attachLocalizationTheme(viewer) {
       this.updateEditorToolbarLabels();
       this.updateAnimationPlayerLabels?.();
       this.updateTourLabels?.();
+      this.syncPointCloudPanel?.();
       this.renderUploadLimits?.();
       this.updateClippingGuiLabels?.();
       this.updateClippingPanel?.();
@@ -7826,6 +7917,528 @@ function formatAIM3DManifestValidationErrors(errors, maxErrors = 8) {
   return visibleErrors.join("\n");
 }
 
+// IIIF Presentation 4 (3D) scene content beyond the models themselves, read
+// from and written to plain manifest JSON (draft spec, IIIF 3D TSG; the
+// vocabulary @iiif/3d-manifesto-dev implements):
+//
+//   cameras   painting annotations with a PerspectiveCamera (fieldOfView,
+//             near, far, lookAt) or OrthographicCamera (viewHeight) body,
+//             positioned by the target's PointSelector
+//   lights    painting annotations with AmbientLight / DirectionalLight /
+//             PointLight / SpotLight bodies: color, intensity {type: "Value",
+//             unit: "relative"}, lookAt, angle (spot half-angle, degrees)
+//   comments  commenting annotations (on the Scene or the Manifest) targeting
+//             a point in the scene (SpecificResource + PointSelector); the
+//             camera annotation referenced by its `scope` is the view to show
+//             it from (as in the IIIF 3D "activating annotations" examples)
+//
+// Scene coordinates are the viewer's world coordinates; point annotations are
+// stored relative to the model root so they follow it when it is moved.
+
+const CAMERA_TYPES = new Set(["PerspectiveCamera", "OrthographicCamera"]);
+const LIGHT_TYPES = new Set(["AmbientLight", "DirectionalLight", "PointLight", "SpotLight"]);
+const COMMENT_MOTIVATIONS = new Set(["commenting", "describing", "tagging", "identifying", "linking"]);
+// three.js intensity for a relative intensity of 1.
+const LIGHT_INTENSITY_SCALE = { AmbientLight: 1, DirectionalLight: 3, PointLight: 3, SpotLight: 3 };
+
+let importedLights = null;
+
+const asArray = (value) => (Array.isArray(value) ? value : value == null ? [] : [value]);
+const typeOf = (value) => value?.type || value?.["@type"] || null;
+
+function firstLanguageValue(value) {
+  if (typeof value === "string") return value;
+  if (!value || typeof value !== "object") return "";
+  const values = value.en || value.none || Object.values(value)[0];
+  return asArray(values)[0] || "";
+}
+
+function pointFromSelector(selector) {
+  const point = asArray(selector).find((item) => typeOf(item) === "PointSelector");
+  if (!point) return null;
+  const values = [point.x, point.y, point.z].map(Number);
+  return values.every(Number.isFinite) ? new THREE.Vector3(...values) : null;
+}
+
+// The body itself, or the source of a SpecificResource wrapping it.
+function resolveBody(body) {
+  const first = asArray(body)[0];
+  if (typeOf(first) === "SpecificResource" && first.source && typeof first.source === "object") {
+    return { resource: first.source, wrapper: first };
+  }
+  return { resource: first, wrapper: null };
+}
+
+// Position a painting/commenting annotation places its body at.
+function targetPoint(annotation) {
+  const target = asArray(annotation?.target)[0];
+  if (!target || typeof target !== "object") return null;
+  return pointFromSelector(target.selector);
+}
+
+function scenesOf(manifest) {
+  return asArray(manifest?.items).filter((item) => typeOf(item) === "Scene");
+}
+
+function annotationsOfPages(pages) {
+  return asArray(pages)
+    .filter((page) => typeOf(page) === "AnnotationPage")
+    .flatMap((page) => asArray(page.items))
+    .filter((annotation) => typeOf(annotation) === "Annotation");
+}
+
+function motivationsOf(annotation) {
+  return asArray(annotation?.motivation).map((value) => String(value).toLowerCase());
+}
+
+// lookAt: a PointSelector, a SpecificResource with one, or the id of another
+// annotation in the scene (its target point). Missing: the scene origin.
+function resolveLookAt(lookAt, sceneAnnotations) {
+  if (!lookAt) return new THREE.Vector3();
+  if (typeOf(lookAt) === "PointSelector") return pointFromSelector(lookAt) || new THREE.Vector3();
+  if (typeOf(lookAt) === "SpecificResource") return pointFromSelector(lookAt.selector) || new THREE.Vector3();
+  const id = typeof lookAt === "string" ? lookAt : lookAt.id;
+  const referenced = sceneAnnotations.find((annotation) => annotation.id === id);
+  return (referenced && targetPoint(referenced)) || new THREE.Vector3();
+}
+
+// Orientation from the body's transforms (a SpecificResource around a camera
+// or light): RotateTransforms turn the default direction - cameras face -Z,
+// lights shine along -Y - and TranslateTransforms move the position.
+// Rotations are in degrees about the scene's x, then y, then z axis.
+function applyBodyTransforms(wrapper, defaultDirection, position) {
+  const direction = defaultDirection.clone();
+  const moved = position.clone();
+  asArray(wrapper?.transform).forEach((transform) => {
+    const x = Number(transform.x) || 0;
+    const y = Number(transform.y) || 0;
+    const z = Number(transform.z) || 0;
+    if (typeOf(transform) === "RotateTransform") {
+      const euler = new THREE.Euler(
+        THREE.MathUtils.degToRad(x), THREE.MathUtils.degToRad(y), THREE.MathUtils.degToRad(z), "ZYX"
+      );
+      direction.applyEuler(euler);
+    } else if (typeOf(transform) === "TranslateTransform") {
+      moved.add(new THREE.Vector3(x, y, z));
+    }
+  });
+  return { direction: direction.normalize(), position: moved };
+}
+
+function colorFrom(value, fallback = "#ffffff") {
+  try {
+    return new THREE.Color(typeof value === "string" ? value : fallback);
+  } catch (_error) {
+    return new THREE.Color(fallback);
+  }
+}
+
+function relativeIntensity(value) {
+  if (Number.isFinite(Number(value))) return Number(value);
+  if (value && typeof value === "object" && Number.isFinite(Number(value.value))) return Number(value.value);
+  return 1;
+}
+
+// ---- reading ---------------------------------------------------------------
+
+// Cameras, lights and point comments of the manifest's first Scene.
+function readSceneContent(manifest) {
+  const scene = scenesOf(manifest)[0];
+  if (!scene) return { cameras: [], lights: [], comments: [] };
+  const painting = annotationsOfPages(scene.items);
+  const all = painting.concat(annotationsOfPages(scene.annotations));
+
+  const cameras = [];
+  const lights = [];
+  const camerasById = new Map();
+  painting.forEach((annotation) => {
+    if (!motivationsOf(annotation).includes("painting")) return;
+    const { resource, wrapper } = resolveBody(annotation.body);
+    const type = typeOf(resource);
+    const isCamera = CAMERA_TYPES.has(type);
+    if (!isCamera && !LIGHT_TYPES.has(type)) return;
+    const oriented = applyBodyTransforms(
+      wrapper,
+      isCamera ? new THREE.Vector3(0, 0, -1) : new THREE.Vector3(0, -1, 0),
+      targetPoint(annotation) || new THREE.Vector3()
+    );
+    const position = oriented.position;
+    // Either an explicit lookAt point, or a direction (lookAt: null).
+    const lookAt = resource.lookAt ? resolveLookAt(resource.lookAt, all) : null;
+    if (isCamera) {
+      const camera = {
+        id: annotation.id || null,
+        type,
+        position,
+        lookAt,
+        direction: oriented.direction,
+        fieldOfView: Number(resource.fieldOfView),
+        viewHeight: Number(resource.viewHeight),
+        near: Number(resource.near),
+        far: Number(resource.far),
+      };
+      cameras.push(camera);
+      if (camera.id) camerasById.set(camera.id, camera);
+    } else {
+      lights.push({
+        type,
+        position,
+        lookAt,
+        direction: oriented.direction,
+        color: colorFrom(resource.color),
+        intensity: relativeIntensity(resource.intensity),
+        angle: Number(resource.angle),
+      });
+    }
+  });
+
+  const comments = annotationsOfPages(scene.annotations)
+    .concat(annotationsOfPages(manifest.annotations))
+    .filter((annotation) => motivationsOf(annotation).some((motivation) => COMMENT_MOTIVATIONS.has(motivation)))
+    .map((annotation) => {
+      const point = targetPoint(annotation);
+      if (!point) return null;
+      const bodies = asArray(annotation.body);
+      const textual = bodies.find((body) => typeOf(body) === "TextualBody") || bodies[0];
+      const description = typeof textual === "string"
+        ? textual
+        : textual?.value || firstLanguageValue(textual?.label) || "";
+      const target = asArray(annotation.target)[0];
+      const scopeCamera = cameraView(asArray(annotation.scope).map((ref) => camerasById.get(ref?.id || ref)).find(Boolean))
+        || readScopeCamera(target?.scope, all);
+      return {
+        id: String(annotation.id || ""),
+        title: firstLanguageValue(annotation.label) || firstLanguageValue(textual?.label) || "",
+        description: String(description).trim(),
+        point,
+        view: scopeCamera,
+        created: annotation.created || "",
+        modified: annotation.modified || "",
+        custom: annotation.AIM3DViewer || null,
+      };
+    })
+    .filter(Boolean);
+
+  return { cameras, lights, comments };
+}
+
+// A scene camera as a stored annotation view.
+function cameraView(camera) {
+  if (!camera) return null;
+  const target = camera.lookAt
+    || camera.position.clone().addScaledVector(camera.direction, Math.max(camera.position.length(), 1));
+  const view = { position: camera.position.toArray(), target: target.toArray() };
+  if (Number.isFinite(camera.fieldOfView) && camera.fieldOfView > 0) view.fov = camera.fieldOfView;
+  return view;
+}
+
+// Older form: a camera painted inside a content-state `scope` on the target.
+function readScopeCamera(scope, sceneAnnotations) {
+  const scopeTarget = asArray(scope?.target)[0];
+  const annotations = annotationsOfPages(scopeTarget?.items);
+  for (const annotation of annotations) {
+    const { resource, wrapper } = resolveBody(annotation.body);
+    if (!CAMERA_TYPES.has(typeOf(resource))) continue;
+    const point = targetPoint(annotation);
+    if (!point) continue;
+    const { position, direction } = applyBodyTransforms(wrapper, new THREE.Vector3(0, 0, -1), point);
+    const target = resource.lookAt
+      ? resolveLookAt(resource.lookAt, sceneAnnotations)
+      : position.clone().addScaledVector(direction, Math.max(position.length(), 1));
+    const view = { position: position.toArray(), target: target.toArray() };
+    const fov = Number(resource.fieldOfView);
+    if (Number.isFinite(fov) && fov > 0) view.fov = fov;
+    return view;
+  }
+  return null;
+}
+
+// ---- applying --------------------------------------------------------------
+
+function removeImportedLights() {
+  if (!importedLights) return;
+  importedLights.traverse((child) => child.dispose?.());
+  importedLights.removeFromParent();
+  importedLights = null;
+}
+
+// Centre and radius of the loaded models (targets for direction-only lights).
+function sceneBounds() {
+  const box = new THREE.Box3();
+  (core.mainObject || []).flat().forEach((object) => {
+    if (object?.isObject3D) box.expandByObject(object);
+  });
+  if (box.isEmpty()) return { center: new THREE.Vector3(), radius: 1 };
+  const sphere = box.getBoundingSphere(new THREE.Sphere());
+  return { center: sphere.center, radius: sphere.radius || 1 };
+}
+
+// Where a light points, and where a directional light sits: an explicit
+// lookAt, or the light's direction through the middle of the scene.
+function lightAim(light) {
+  const bounds = sceneBounds();
+  if (light.lookAt) return { position: light.position, target: light.lookAt };
+  if (light.type === "DirectionalLight") {
+    return {
+      position: bounds.center.clone().addScaledVector(light.direction, -2 * bounds.radius),
+      target: bounds.center.clone(),
+    };
+  }
+  return { position: light.position, target: light.position.clone().addScaledVector(light.direction, bounds.radius) };
+}
+
+function stopCameraIntro() {
+  core.cameraTweenToken = (core.cameraTweenToken ?? 0) + 1;
+  core.cameraTween?.stop?.();
+  core.targetTween?.stop?.();
+  if (core.GESTURE?.active) window.Viewer?.stopGesture?.();
+  if (core.GESTURE) core.GESTURE.rotate = false;
+  if (core.handHint) core.handHint.hidden = true;
+}
+
+function applyCamera(camera, viewer) {
+  if (!camera || !core.camera || !core.controls) return false;
+  stopCameraIntro();
+  viewer?.setCameraProjection?.(camera.type === "OrthographicCamera" ? "orthographic" : "perspective");
+  core.camera.position.copy(camera.position);
+  // Without lookAt: along the camera's direction, as far as the model is.
+  const target = camera.lookAt || camera.position.clone().addScaledVector(
+    camera.direction,
+    Math.max(camera.position.distanceTo(sceneBounds().center), 1e-3)
+  );
+  core.controls.target.copy(target);
+  if (core.camera.isPerspectiveCamera && Number.isFinite(camera.fieldOfView) && camera.fieldOfView > 0) {
+    core.camera.fov = THREE.MathUtils.clamp(camera.fieldOfView, 1, 179);
+  }
+  if (Number.isFinite(camera.near) && camera.near > 0) core.camera.near = camera.near;
+  if (Number.isFinite(camera.far) && camera.far > core.camera.near) core.camera.far = camera.far;
+  if (core.camera.isOrthographicCamera && Number.isFinite(camera.viewHeight) && camera.viewHeight > 0) {
+    const frustumHeight = core.camera.top - core.camera.bottom;
+    if (frustumHeight > 0) core.camera.zoom = frustumHeight / camera.viewHeight;
+  }
+  core.camera.updateProjectionMatrix();
+  core.cameraLight?.position?.copy?.(core.camera.position);
+  core.controls.update();
+  // "Reset camera" returns to the manifest's camera.
+  core.cameraCoords = core.camera.position.clone();
+  core.controlsTarget = core.controls.target.clone();
+  return true;
+}
+
+function applyLights(lights) {
+  removeImportedLights();
+  if (!lights.length || !core.scene) return 0;
+  importedLights = new THREE.Group();
+  importedLights.name = "iiif-lights";
+  let usedDirectional = false;
+  lights.forEach((light) => {
+    const intensity = light.intensity * (LIGHT_INTENSITY_SCALE[light.type] || 1);
+    if (light.type === "AmbientLight") {
+      if (core.ambientLight) {
+        core.ambientLight.color.copy(light.color);
+        core.ambientLight.intensity = intensity;
+      } else {
+        importedLights.add(new THREE.AmbientLight(light.color, intensity));
+      }
+      return;
+    }
+    if (light.type === "DirectionalLight" && !usedDirectional && core.dirLight) {
+      // The first directional light drives the viewer's own, which the light
+      // controls in the editor act on.
+      usedDirectional = true;
+      const aim = lightAim(light);
+      core.dirLight.color.copy(light.color);
+      core.dirLight.intensity = intensity;
+      core.dirLight.position.copy(aim.position);
+      core.dirLight.target?.position?.copy?.(aim.target);
+      core.dirLight.target?.updateMatrixWorld?.();
+      return;
+    }
+    let object;
+    if (light.type === "DirectionalLight") {
+      object = new THREE.DirectionalLight(light.color, intensity);
+    } else if (light.type === "PointLight") {
+      object = new THREE.PointLight(light.color, intensity, 0, 0);
+    } else {
+      const angle = Number.isFinite(light.angle) && light.angle > 0 ? light.angle : 30;
+      object = new THREE.SpotLight(light.color, intensity, 0, THREE.MathUtils.degToRad(angle), 0.2, 0);
+    }
+    const aim = lightAim(light);
+    object.position.copy(aim.position);
+    if (object.target) {
+      object.target.position.copy(aim.target);
+      importedLights.add(object.target);
+    }
+    object.name = `iiif-${light.type}`;
+    importedLights.add(object);
+  });
+  core.scene.add(importedLights);
+  return lights.length;
+}
+
+// Comments -> viewer annotation entries anchored to a point of the model root.
+function commentsToAnnotationEntries(comments, root) {
+  if (!root) return [];
+  root.updateMatrixWorld(true);
+  const inverse = new THREE.Matrix4().copy(root.matrixWorld).invert();
+  return comments.map((comment, index) => ({
+    id: comment.id || `anno-point-${index + 1}`,
+    point: comment.point.clone().applyMatrix4(inverse).toArray(),
+    title: comment.title,
+    description: comment.description,
+    ...(comment.view ? { view: comment.view } : {}),
+    createdAt: comment.created ? String(comment.created) : "",
+    updatedAt: comment.modified ? String(comment.modified) : "",
+  }));
+}
+
+// ---- writing ---------------------------------------------------------------
+
+const round = (value) => Math.round(value * 1e6) / 1e6;
+const pointSelector = (vector) => ({
+  type: "PointSelector",
+  x: round(vector.x),
+  y: round(vector.y),
+  z: round(vector.z),
+});
+
+function scenePointTarget(sceneId, vector) {
+  return {
+    type: "SpecificResource",
+    source: { id: sceneId, type: "Scene" },
+    selector: [pointSelector(vector)],
+  };
+}
+
+function buildCameraAnnotation(sceneId, id) {
+  const camera = core.camera;
+  const target = core.controls?.target || new THREE.Vector3();
+  const body = camera.isOrthographicCamera
+    ? {
+      type: "OrthographicCamera",
+      viewHeight: round((camera.top - camera.bottom) / (camera.zoom || 1)),
+      near: round(camera.near),
+      far: round(camera.far),
+      lookAt: pointSelector(target),
+    }
+    : {
+      type: "PerspectiveCamera",
+      fieldOfView: round(camera.fov),
+      near: round(camera.near),
+      far: round(camera.far),
+      lookAt: pointSelector(target),
+    };
+  return {
+    id,
+    type: "Annotation",
+    motivation: ["painting"],
+    body,
+    target: scenePointTarget(sceneId, camera.position),
+  };
+}
+
+function buildLightAnnotations(sceneId, baseId) {
+  const annotations = [];
+  const toHex = (color) => `#${color.getHexString()}`;
+  const intensityValue = (light, type) => ({
+    type: "Value",
+    value: round(light.intensity / (LIGHT_INTENSITY_SCALE[type] || 1)),
+    unit: "relative",
+  });
+  const lights = [];
+  core.scene?.traverse((object) => {
+    if (object.isLight && object.visible !== false) lights.push(object);
+  });
+  lights.forEach((light, index) => {
+    const type = light.isAmbientLight ? "AmbientLight"
+      : light.isDirectionalLight ? "DirectionalLight"
+        : light.isSpotLight ? "SpotLight"
+          : light.isPointLight ? "PointLight" : null;
+    if (!type) return;
+    const body = { type, color: toHex(light.color), intensity: intensityValue(light, type) };
+    if (light.target) body.lookAt = pointSelector(light.target.getWorldPosition(new THREE.Vector3()));
+    if (type === "SpotLight") body.angle = round(THREE.MathUtils.radToDeg(light.angle));
+    const position = light.getWorldPosition(new THREE.Vector3());
+    annotations.push({
+      id: `${baseId}/${index + 1}`,
+      type: "Annotation",
+      motivation: ["painting"],
+      body,
+      target: type === "AmbientLight" ? { id: sceneId, type: "Scene" } : scenePointTarget(sceneId, position),
+    });
+  });
+  return annotations;
+}
+
+// A model painted into the scene: SpecificResource with the root transform
+// (scale, then rotation in degrees, then translation).
+function buildModelAnnotation(sceneId, id, modelBody, root) {
+  const transform = [];
+  if (root) {
+    const { scale, rotation, position } = root;
+    if (scale.x !== 1 || scale.y !== 1 || scale.z !== 1) {
+      transform.push({ type: "ScaleTransform", x: round(scale.x), y: round(scale.y), z: round(scale.z) });
+    }
+    if (rotation.x || rotation.y || rotation.z) {
+      transform.push({
+        type: "RotateTransform",
+        x: round(THREE.MathUtils.radToDeg(rotation.x)),
+        y: round(THREE.MathUtils.radToDeg(rotation.y)),
+        z: round(THREE.MathUtils.radToDeg(rotation.z)),
+      });
+    }
+    if (position.x || position.y || position.z) {
+      transform.push({ type: "TranslateTransform", x: round(position.x), y: round(position.y), z: round(position.z) });
+    }
+  }
+  return {
+    id,
+    type: "Annotation",
+    motivation: ["painting"],
+    body: transform.length
+      ? { type: "SpecificResource", source: modelBody, transform }
+      : modelBody,
+    target: { id: sceneId, type: "Scene" },
+  };
+}
+
+// A comment's target: a point of the scene.
+function buildCommentTarget(sceneId, worldPoint) {
+  return scenePointTarget(sceneId, worldPoint);
+}
+
+// A comment's saved view as a camera painted into the scene; the comment
+// refers to it from `scope: [{ id, type: "Annotation" }]`.
+function buildViewCameraAnnotation(sceneId, id, view) {
+  if (!view?.position || !view?.target) return null;
+  return {
+    id,
+    type: "Annotation",
+    motivation: ["painting"],
+    body: {
+      type: "PerspectiveCamera",
+      ...(Number.isFinite(view.fov) ? { fieldOfView: round(view.fov) } : {}),
+      lookAt: pointSelector(new THREE.Vector3().fromArray(view.target)),
+    },
+    target: scenePointTarget(sceneId, new THREE.Vector3().fromArray(view.position)),
+  };
+}
+
+// Model painting annotation? (Model body, or a SpecificResource around one.)
+function isModelBody(body) {
+  const { resource } = resolveBody(body);
+  const type = String(typeOf(resource) || "").toLowerCase();
+  return type === "model" || (!CAMERA_TYPES.has(typeOf(resource)) && !LIGHT_TYPES.has(typeOf(resource))
+    && typeOf(asArray(body)[0]) === "SpecificResource" && Boolean(resource?.id));
+}
+
+function modelUrlOf(body) {
+  return resolveBody(body).resource?.id || null;
+}
+
+// Point annotations are anchored to the first model root.
+const POINT_ANNOTATION_ROOT = "m0:root";
+
 function attachAnnotations(Viewer) {
   Object.assign(Viewer, {
     clearAnnotationPOIs() {
@@ -7989,6 +8602,7 @@ function attachAnnotations(Viewer) {
       }
       this.clearSelectedFaces();
       entries.forEach((entry) => {
+        if (entry.point) return;
         const object = this.resolveObjectByTargetId(entry.targetId);
         if (!object) return;
 
@@ -8018,6 +8632,9 @@ function attachAnnotations(Viewer) {
         toastHelper("annotationDataMissing", "warning");
         return false;
       }
+      // Point annotations (from IIIF manifests) have no faces: edit their
+      // text and view in place.
+      this.annotationEditingPointId = entries.every((entry) => entry.point) ? String(entries[0].id) : "";
 
       this.selectAnnotationEntriesFaces(entries);
       this.buildAnnotationDialog();
@@ -8119,6 +8736,11 @@ function attachAnnotations(Viewer) {
     getAnnotationEntryCenter(entry) {
       const object = this.resolveObjectByTargetId(entry?.targetId);
       if (!object) return null;
+      const point = this.normalizeAnnotationPoint(entry.point);
+      if (point) {
+        object.updateMatrixWorld(true);
+        return new THREE.Vector3().fromArray(point).applyMatrix4(object.matrixWorld);
+      }
       const faces = Array.isArray(entry.faceNumbers) ? entry.faceNumbers : [entry.faceIndex];
       const center = new THREE.Vector3();
       let count = 0;
@@ -8134,7 +8756,7 @@ function attachAnnotations(Viewer) {
     // Averaged world-space normal of an annotation's faces, or null.
     getAnnotationEntryNormal(entry) {
       const object = this.resolveObjectByTargetId(entry?.targetId);
-      if (!object) return null;
+      if (!object || entry.point) return null;
       const faces = Array.isArray(entry.faceNumbers) ? entry.faceNumbers : [entry.faceIndex];
       const normal = new THREE.Vector3();
       faces.forEach((faceIndex) => {
@@ -8142,6 +8764,13 @@ function attachAnnotations(Viewer) {
         if (faceNormal) normal.add(faceNormal);
       });
       return normal.lengthSq() > 0 ? normal.normalize() : null;
+    },
+
+    normalizeAnnotationPoint(rawPoint) {
+      if (!rawPoint) return null;
+      const values = (typeof rawPoint === "string" ? rawPoint.split(/[,\s;]+/).filter(Boolean) : rawPoint);
+      const point = this.parse3IFManifestVector(values, null, 3);
+      return point || null;
     },
 
     // Camera pose stored with an annotation (used by the guided tour).
@@ -8305,6 +8934,7 @@ function attachAnnotations(Viewer) {
 
     openAnnotationDialog() {
       if (this.isPreviewModelActive()) return;
+      this.annotationEditingPointId = "";
       if (!Array.isArray(this.selectedFaces) || this.selectedFaces.length === 0) {
         toastHelper("selectFaceRequired", "warning");
         return;
@@ -8388,11 +9018,16 @@ function attachAnnotations(Viewer) {
     closeAnnotationDialog() {
       if (!this.annotationDialog) return;
       this.annotationDialog.hidden = true;
+      this.annotationEditingPointId = "";
       this.annotationTargetFaceKeys = [];
       this.annotationBatchGroupId = "";
     },
 
     saveAnnotationFromDialog() {
+      if (this.annotationEditingPointId) {
+        this.savePointAnnotationFromDialog(this.annotationEditingPointId);
+        return;
+      }
       if (!Array.isArray(this.annotationTargetFaceKeys) || this.annotationTargetFaceKeys.length === 0) {
         toastHelper("noFacesSelected", "warning");
         this.closeAnnotationDialog();
@@ -8493,12 +9128,51 @@ function attachAnnotations(Viewer) {
       this.closeAnnotationDialog();
     },
 
+    savePointAnnotationFromDialog(id) {
+      const entry = this.annotationEntries.find((item) => String(item.id) === id);
+      const title = String(this.annotationDialogTitleInput?.value || "").trim();
+      if (!title) {
+        toastHelper("titleRequired", "warning");
+        this.annotationDialogTitleInput?.focus();
+        return;
+      }
+      if (entry) {
+        entry.title = title;
+        entry.description = String(this.annotationDialogDescriptionInput?.value || "").trim();
+        if (this.annotationDialogSaveViewInput?.checked) entry.view = this.captureCurrentAnnotationView();
+        entry.updatedAt = new Date().toISOString();
+        toastHelper("annotationsSaved", "success", { count: 1, plural: "" });
+      }
+      this.refreshAnnotationPOIs();
+      this.closeAnnotationDialog();
+    },
+
     getAnnotationEntriesForPersistence() {
       if (!Array.isArray(this.annotationEntries)) return [];
 
       return this.annotationEntries
         .map((entry, index) => {
           if (!entry || typeof entry !== "object") return null;
+          const point = this.normalizeAnnotationPoint(entry.point);
+          if (point) {
+            // A point in the model root's space (IIIF PointSelector comments).
+            const view = this.normalizeAnnotationView(entry.view);
+            const pointTargetId = String(entry.targetId || POINT_ANNOTATION_ROOT).trim();
+            return {
+              id: String(entry.id || `anno-point-${index + 1}`),
+              groupId: "",
+              key: "",
+              object: pointTargetId,
+              targetId: pointTargetId,
+              point,
+              faceNumbers: [],
+              title: String(entry.title || "").trim(),
+              description: String(entry.description || "").trim(),
+              ...(view ? { view } : {}),
+              createdAt: entry.createdAt ? String(entry.createdAt) : "",
+              updatedAt: entry.updatedAt ? String(entry.updatedAt) : "",
+            };
+          }
           const targetId = String(entry.targetId || entry.object || "").trim();
           const faceNumbersRaw = Array.isArray(entry.faceNumbers)
             ? entry.faceNumbers
@@ -8584,7 +9258,11 @@ function attachAnnotations(Viewer) {
 
         const targetNode = doc.createElement("iiif:target");
         targetNode.setAttribute("id", entry.targetId);
-        targetNode.setAttribute("faces", entry.faceNumbers.join(","));
+        if (entry.point) {
+          targetNode.setAttribute("point", entry.point.join(","));
+        } else {
+          targetNode.setAttribute("faces", entry.faceNumbers.join(","));
+        }
         annotation.appendChild(targetNode);
 
         if (entry.view) {
@@ -8625,11 +9303,36 @@ function attachAnnotations(Viewer) {
       return true;
     },
 
-    export3IFManifest() { // Added a new method to export the 3IF Manifest - combination of IIIF manifest and AIM3DViewer metadata
+    // Downloads the 3IF manifest (IIIF Presentation 4 + AIM3DViewer block).
+    export3IFManifest() {
+      const manifest = this.build3IFManifest();
+      if (!manifest) return false;
+      const defaultBaseName = core.fileObject?.basename || "manifest";
+      const safeBaseName = String(defaultBaseName).replace(/[^a-zA-Z0-9._-]+/g, "_");
+      const fileName = `${safeBaseName || "manifest"}-iiif-manifest.json`;
+      const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: "application/json;charset=utf-8" });
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = fileName;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+
+      toastHelper("iiifManifestGenerated", "success");
+      return true;
+    },
+
+    // The current scene as a 3IF manifest: IIIF Presentation 4 (model with
+    // its transform, default camera, lights, comments with views) plus the
+    // AIM3DViewer block with this viewer's own settings. null when invalid.
+    build3IFManifest() {
       const iiifUrl = core.fileObject?.originalPath || ""; 
       if (!iiifUrl) {
         toastHelper("iiifUrlMissing", "warning");
-        return false;
+        return null;
       }
       const primaryModelObject =
         (Array.isArray(core.mainObject) ? core.mainObject.find((item) => item?.isObject3D) : null)
@@ -8637,6 +9340,52 @@ function attachAnnotations(Viewer) {
         || (Array.isArray(core.helperObjects) ? core.helperObjects.find((item) => item?.isObject3D) : null);
       // Generate the IIIF manifest and log it to the console 
       const sceneId = `${iiifUrl}/scene`;
+
+      // Comments on scene points; a saved view becomes a camera painted into
+      // the scene, referenced from the comment's `scope`.
+      const viewCameras = [];
+      const commentAnnotations = this.getAnnotationEntriesForPersistence().map((entry) => {
+        const center = this.getAnnotationEntryCenter(entry);
+        const annotationId = String(entry.id);
+        const viewCamera = buildViewCameraAnnotation(sceneId, `${annotationId}/view`, entry.view);
+        if (viewCamera) viewCameras.push(viewCamera);
+        return {
+          id: annotationId,
+          type: "Annotation",
+
+          motivation: ["commenting"],
+
+          label: {
+            en: [String(entry.title || "").trim()]
+          },
+
+          created: entry.createdAt || undefined,
+          modified: entry.updatedAt || undefined,
+
+          body: {
+            type: "TextualBody",
+            value: String(entry.description || "").trim(),
+            format: "text/plain"
+          },
+
+          ...(viewCamera ? { scope: [{ id: viewCamera.id, type: "Annotation" }] } : {}),
+
+          target: center ? buildCommentTarget(sceneId, center) : { id: sceneId, type: "Scene" },
+
+          // Exact anchoring for this viewer: the annotated faces, or the
+          // point in the model root's space.
+          AIM3DViewer: {
+            groupId: entry.groupId || "",
+            key: entry.key || "",
+            object: entry.object || "",
+            targetId: entry.targetId,
+            ...(entry.point
+              ? { point: entry.point }
+              : { faceIndex: entry.faceIndex, faceNumbers: entry.faceNumbers || [] }),
+            view: entry.view || undefined
+          }
+        };
+      });
 
       const manifest = {
         "@context": "http://iiif.io/api/presentation/4/context.json",
@@ -8665,25 +9414,23 @@ function attachAnnotations(Viewer) {
               {
                 id: `${sceneId}/page/model`,
                 type: "AnnotationPage",
-
+                // IIIF Presentation 4 (3D): the model with its transform, the
+                // current camera and the scene lights (IIIF/presentation4.js).
                 items: [
-                  {
-                    id: `${sceneId}/annotation/model`,
-                    type: "Annotation",
-
-                    motivation: ["painting"],
-
-                    body: {
+                  buildModelAnnotation(
+                    sceneId,
+                    `${sceneId}/annotation/model`,
+                    {
                       id: core.fileObject.originalPath,
                       type: "Model",
-                      format: core.fileObject.mimeType || undefined
+                      format: core.fileObject.mimeType || undefined,
                     },
-
-                    target: {
-                      id: sceneId,
-                      type: "Scene"
-                    }
-                  }
+                    primaryModelObject
+                  ),
+                  // The first camera is the scene's default view.
+                  buildCameraAnnotation(sceneId, `${sceneId}/annotation/camera`),
+                  ...buildLightAnnotations(sceneId, `${sceneId}/annotation/light`),
+                  ...viewCameras,
                 ]
               }
             ],
@@ -8693,46 +9440,7 @@ function attachAnnotations(Viewer) {
                 id: `${sceneId}/page/annotations`,
                 type: "AnnotationPage",
 
-                items: this.getAnnotationEntriesForPersistence().map((entry) => ({
-                  id: String(entry.id),
-                  type: "Annotation",
-
-                  motivation: ["commenting"],
-
-                  label: {
-                    en: [String(entry.title || "").trim()]
-                  },
-
-                  created: entry.createdAt || undefined,
-                  modified: entry.updatedAt || undefined,
-
-                  target: {
-                    source: core.fileObject.originalPath,
-
-                    selector: {
-                      type: "JsonSelector",
-
-                      value: {
-                        targetId: entry.targetId,
-                        faceIndex: entry.faceIndex,
-                        faceNumbers: entry.faceNumbers || [],
-                        selectorId: entry.selectorId
-                      }
-                    }
-                  },
-
-                  body: {
-                    type: "TextualBody",
-                    value: String(entry.description || "").trim()
-                  },
-
-                  AIM3DViewer: {
-                    groupId: entry.groupId || "",
-                    key: entry.key || "",
-                    object: entry.object || "",
-                    view: entry.view || undefined
-                  }
-                }))
+                items: commentAnnotations
               }
             ]
           }
@@ -8936,27 +9644,13 @@ function attachAnnotations(Viewer) {
         const detail = formatAIM3DManifestValidationErrors(exportValidation.errors);
         console.error("AIM3D manifest export validation failed", exportValidation.errors);
         toastHelper("manifestValidationFailed", "error", { detail, duration: 9000 });
-        return false;
+        return null;
       }
 
       manifest.AIM3DViewer.generatedAt = new Date().toISOString();
       core.fileObject?.iiifUrl && (manifest.id = `${core.fileObject?.basename}_manifest.json`);
-      const defaultBaseName = core.fileObject?.basename || "manifest";
-      const safeBaseName = String(defaultBaseName).replace(/[^a-zA-Z0-9._-]+/g, "_");
-      const fileName = `${safeBaseName || "manifest"}-iiif-manifest.json`;
-      const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: "application/json;charset=utf-8" });
-      const objectUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = objectUrl;
-      link.download = fileName;
-      link.style.display = "none";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
-      
-      toastHelper("iiifManifestGenerated", "success");
-      return true;
+      // JSON only: drops undefined fields.
+      return JSON.parse(JSON.stringify(manifest));
     },
 
     parse3IFManifestVector(value, fallback = null, expectedLength = 3) {
@@ -9443,19 +10137,51 @@ function attachAnnotations(Viewer) {
       }
 
       const allAnnotations = annotationPages.flatMap((page) => page.items || []);
+      // Scene points (PointSelector) and scope cameras, per annotation id.
+      const pointComments = new Map(readSceneContent(manifestJson).comments.map((comment) => [comment.id, comment]));
+      const pointRoot = this.resolveObjectByTargetId(POINT_ANNOTATION_ROOT);
 
       const importedEntries = allAnnotations.map((annotation, index) => {
-        const selectorValue = annotation?.target?.selector?.value || {};
+        const custom = annotation?.AIM3DViewer || {};
+        // Older exports kept the faces in a JsonSelector on the target.
+        const legacySelector = annotation?.target?.selector;
+        const selectorValue = (!Array.isArray(legacySelector) && legacySelector?.value) || {};
         const targetId = String(
-          selectorValue?.targetId
-          || annotation?.AIM3DViewer?.object
-          || annotation?.target?.source
+          custom.targetId
+          || selectorValue?.targetId
+          || custom.object
+          || (typeof annotation?.target?.source === "string" ? annotation.target.source : "")
           || ""
         ).trim();
 
-        const faceNumbers = Array.isArray(selectorValue?.faceNumbers)
-          ? selectorValue.faceNumbers
-          : [selectorValue?.faceIndex];
+        const comment = pointComments.get(String(annotation?.id || ""));
+        const customPoint = this.normalizeAnnotationPoint(custom.point);
+        const hasFaces = Array.isArray(custom.faceNumbers) || Array.isArray(selectorValue?.faceNumbers)
+          || Number.isInteger(Number(custom.faceIndex ?? selectorValue?.faceIndex));
+        if (customPoint || (!hasFaces && comment)) {
+          // A point annotation: ours (model-root space) or any IIIF comment
+          // on a scene point (world space, converted).
+          const [fromComment] = !customPoint && comment ? commentsToAnnotationEntries([comment], pointRoot) : [];
+          const point = customPoint || fromComment?.point;
+          if (!point) return null;
+          const pointView = this.normalizeAnnotationView(custom.view) || this.normalizeAnnotationView(comment?.view);
+          return {
+            id: String(annotation.id || `anno-point-${index + 1}`),
+            targetId: custom.targetId || POINT_ANNOTATION_ROOT,
+            point,
+            title: String(annotation?.label?.en?.[0] || comment?.title || "").trim(),
+            description: String(annotation?.body?.value || comment?.description || "").trim(),
+            ...(pointView ? { view: pointView } : {}),
+            createdAt: annotation?.created ? String(annotation.created) : "",
+            updatedAt: annotation?.modified ? String(annotation.modified) : "",
+          };
+        }
+
+        const faceNumbers = Array.isArray(custom.faceNumbers)
+          ? custom.faceNumbers
+          : Array.isArray(selectorValue?.faceNumbers)
+            ? selectorValue.faceNumbers
+            : [custom.faceIndex ?? selectorValue?.faceIndex];
         const normalizedFaceNumbers = faceNumbers
           .map((value) => Number(value))
           .filter((value) => Number.isInteger(value) && value >= 0);
@@ -9476,7 +10202,8 @@ function attachAnnotations(Viewer) {
         ).trim();
 
         const key = String(annotation?.AIM3DViewer?.key || "").trim() || this.getFaceSelectionKey(targetId, faceIndex);
-        const view = this.normalizeAnnotationView(annotation?.AIM3DViewer?.view);
+        const view = this.normalizeAnnotationView(annotation?.AIM3DViewer?.view)
+          || this.normalizeAnnotationView(comment?.view);
 
         return {
           id: String(annotation.id || `anno-${this.toStableIdToken(targetId)}-f${faceIndex}-${index}`),
@@ -9630,7 +10357,8 @@ function attachAnnotations(Viewer) {
           .map((value) => Number(value))
           .filter((value) => Number.isInteger(value) && value >= 0);
         const faceIndex = faceNumbers[0];
-        if (!targetId || !Number.isInteger(faceIndex)) return;
+        const point = this.normalizeAnnotationPoint(targetNode?.getAttribute?.("point"));
+        if (!point && (!targetId || !Number.isInteger(faceIndex))) return;
 
         const titleNode =
           node.querySelector("title, iiif\\:title, label, iiif\\:label") ||
@@ -9652,6 +10380,18 @@ function attachAnnotations(Viewer) {
               fov: viewNode.getAttribute("fov"),
             })
           : null;
+
+        if (point) {
+          importedEntries.push({
+            id: rawId || `anno-point-${index + 1}`,
+            targetId: targetId || POINT_ANNOTATION_ROOT,
+            point,
+            title: String(titleNode?.textContent || "").trim(),
+            description: String(descriptionNode?.textContent || "").trim(),
+            ...(view ? { view } : {}),
+          });
+          return;
+        }
 
         const key = this.getFaceSelectionKey(targetId, faceIndex);
         importedEntries.push({
@@ -9696,6 +10436,20 @@ function attachAnnotations(Viewer) {
       if (Array.isArray(payload.annotationEntries)) {
         this.annotationEntries = payload.annotationEntries
           .map((entry, index) => {
+            const point = this.normalizeAnnotationPoint(entry?.point);
+            if (point) {
+              const pointView = this.normalizeAnnotationView(entry?.view);
+              return {
+                id: String(entry?.id || `anno-point-${index + 1}`),
+                targetId: String(entry?.targetId || POINT_ANNOTATION_ROOT),
+                point,
+                title: String(entry?.title || "").trim(),
+                description: String(entry?.description || "").trim(),
+                ...(pointView ? { view: pointView } : {}),
+                createdAt: entry?.createdAt ? String(entry.createdAt) : "",
+                updatedAt: entry?.updatedAt ? String(entry.updatedAt) : "",
+              };
+            }
             const targetId = String(entry?.targetId || entry?.object || entry?.target?.id || "").trim();
             const faceNumbers = Array.isArray(entry?.faceNumbers)
               ? entry.faceNumbers
@@ -11277,6 +12031,7 @@ const loadTilesPlugins = () => import('./index.three-plugins.js');
 let activeTiles = null;
 let disposeDecoders = null;
 let boundsProxy = null;
+let pointCloudPlugin = null;
 
 // The first tiles (the root level) often cover less than the whole tileset,
 // so centring and camera framing would be off. This stands in for the full
@@ -11316,6 +12071,15 @@ function hasTileContent(group) {
   return found;
 }
 
+// Point shape / EDL / debug colours of the streamed cloud (point cloud panel).
+function getPointCloudPlugin() {
+  return pointCloudPlugin;
+}
+
+function getActiveTiles() {
+  return activeTiles;
+}
+
 // Called from the render loop.
 function updateTiles() {
   if (!activeTiles || !core.camera || !core.renderer) return;
@@ -11327,6 +12091,7 @@ function disposeTiles() {
   if (!activeTiles) return;
   boundsProxy?.geometry.dispose();
   boundsProxy = null;
+  pointCloudPlugin = null;
   activeTiles.group.removeFromParent();
   activeTiles.dispose();
   activeTiles = null;
@@ -11373,21 +12138,25 @@ async function loadTiledModel({ url, format, configureGLTFLoader, onModel, onPro
     meshoptDecoder: gltfDecoders.meshoptDecoder,
     autoDispose: false,
   }));
-  if (format === "potree") {
-    tiles.registerPlugin(new plugins.PotreePlugin({
+  pointCloudPlugin = format === "potree"
+    ? new plugins.PotreePlugin({
       url,
       pointScale: options.pointScale,
       pointShape: options.pointShape,
       edlStrength: options.edlStrength,
-    }));
-  } else {
-    tiles.registerPlugin(new plugins.PointCloudEffectsPlugin({
+    })
+    : new plugins.PointCloudEffectsPlugin({
       pointShape: options.pointShape,
       edlStrength: options.edlStrength,
-    }));
-  }
+    });
+  tiles.registerPlugin(pointCloudPlugin);
 
-  tiles.addEventListener("load-model", ({ scene }) => onModel?.(scene));
+  tiles.addEventListener("load-model", ({ scene, tile }) => {
+    // Level in the tile tree, for the point cloud panel's "detail levels" colours.
+    const depth = tile?.internal?.depth;
+    if (Number.isFinite(depth)) scene.traverse((child) => { child.userData.tileDepth = depth; });
+    onModel?.(scene);
+  });
 
   activeTiles = tiles;
   core.tiledModel = { format, tiles };
@@ -13495,6 +14264,394 @@ function attachFaceAreaSelection(Viewer) {
   });
 }
 
+// Point cloud display controls, shown when the loaded model is a point cloud:
+//
+//   direct clouds (LAS, LAZ, XYZ, PCD - THREE.Points in the scene):
+//     size, square/round points, colour by RGB / intensity / height /
+//     classification (whatever the file carries), recoloured on the CPU
+//   streamed clouds (3D Tiles pnts, Potree - tiles.js):
+//     size, square/round/sphere points, Eye-Dome Lighting strength, colour by
+//     RGB or by level of detail (to see how the octree refines)
+//
+// Defaults: viewer-settings.json -> viewer.pointCloud (colorMode, pointShape)
+// and viewer.tiles (edlStrength, pointShape).
+
+const SIZE_MIN = 0.25;
+const SIZE_MAX = 4;
+
+// ASPRS LAS standard classes (LAS 1.4, table 17).
+const CLASSIFICATION_COLORS = {
+  0: 0x9e9e9e, 1: 0xbdbdbd, 2: 0xa1784f, 3: 0xb5e28c, 4: 0x6fbf4a, 5: 0x2e7d32,
+  6: 0xe8743b, 7: 0xd500f9, 8: 0x7e57c2, 9: 0x2f80ed, 10: 0x795548, 11: 0x616161,
+  12: 0xfdd835, 13: 0xffb300, 14: 0xffca28, 15: 0x8d6e63, 16: 0x90a4ae, 17: 0x5c6bc0,
+  18: 0xff1744,
+};
+
+function sliderToSize(value) {
+  // 0..100 -> 0.25..4 on a log scale, 50 = 1.
+  return SIZE_MIN * Math.pow(SIZE_MAX / SIZE_MIN, Number(value) / 100);
+}
+
+function sizeToSlider(size) {
+  return Math.round((Math.log(size / SIZE_MIN) / Math.log(SIZE_MAX / SIZE_MIN)) * 100);
+}
+
+// Round sprites for plain PointsMaterial: drop the corners of the square.
+// The define is part of the program cache key, so both variants coexist.
+function applyRoundShape(material, round) {
+  if (!material.userData.roundPatched) {
+    material.userData.roundPatched = true;
+    material.onBeforeCompile = (shader) => {
+      shader.fragmentShader = shader.fragmentShader.replace(
+        "void main() {",
+        "void main() {\n#ifdef ROUND_POINTS\n  vec2 roundCoord = gl_PointCoord - 0.5;\n  if (dot(roundCoord, roundCoord) > 0.25) discard;\n#endif"
+      );
+    };
+  }
+  material.defines = round ? { ROUND_POINTS: "" } : {};
+  material.needsUpdate = true;
+}
+
+function attachPointCloudPanel(Viewer) {
+  Object.assign(Viewer, {
+    pointCloudState: null,
+
+    // Called after a model is added to the scene (loaders.js).
+    setupPointCloudControls(root) {
+      Viewer.disposePointCloudControls();
+      const tiles = getActiveTiles();
+      const isTiled = Boolean(root?.userData?.isTiledModel && tiles);
+      const points = [];
+      root?.traverse?.((child) => {
+        if (child.isPoints) points.push(child);
+      });
+      const plugin = isTiled ? getPointCloudPlugin() : null;
+      const potree = core.tiledModel?.format === "potree";
+      if (!points.length && !potree) return false;
+
+      const config = core.CONFIG?.viewer?.pointCloud || {};
+      const tilesConfig = core.CONFIG?.viewer?.tiles || {};
+      const modes = isTiled ? ["rgb", "tile"] : Viewer.getDirectColorModes(points);
+      const preferred = config.colorMode;
+      const state = {
+        kind: isTiled ? "tiles" : "direct",
+        root,
+        points,
+        plugin,
+        potree,
+        modes,
+        size: 1,
+        shape: plugin?.pointShape || (config.pointShape === "round" ? "round" : tilesConfig.pointShape || "square"),
+        colorMode: modes.includes(preferred) ? preferred : modes[0],
+        edl: plugin ? plugin.edlStrength : 0,
+        collapsed: false,
+        ui: null,
+      };
+      if (!isTiled && !["square", "round"].includes(state.shape)) state.shape = "square";
+      Viewer.pointCloudState = state;
+
+      points.forEach((object) => {
+        object.userData.baseMaterialSize ??= object.material.size;
+      });
+      if (!isTiled) {
+        Viewer.setPointCloudShape(state.shape);
+        Viewer.setPointCloudColorMode(state.colorMode);
+      }
+      Viewer.createPointCloudPanel();
+      return true;
+    },
+
+    disposePointCloudControls() {
+      Viewer.pointCloudState?.ui?.root.remove();
+      Viewer.pointCloudState = null;
+    },
+
+    isPointCloudActive() {
+      return Boolean(Viewer.pointCloudState);
+    },
+
+    // Colour modes a direct cloud can offer, from the attributes it carries.
+    getDirectColorModes(points) {
+      const modes = [];
+      const has = (name) => points.some((object) => object.geometry.getAttribute(name));
+      const info = points[0]?.userData?.pointCloud;
+      if (has("color") && info?.colorMode !== "intensity" && info?.colorMode !== "height") modes.push("rgb");
+      if (has("intensity")) modes.push("intensity");
+      modes.push("height");
+      const classification = points[0]?.geometry.getAttribute("classification");
+      if (classification) {
+        const values = new Set();
+        for (let i = 0; i < classification.count && values.size < 2; i += 97) values.add(classification.getX(i));
+        if (values.size > 1) modes.push("classification");
+      }
+      return modes;
+    },
+
+    // Tiles loaded after the panel was set up get the current size. 3D Tiles
+    // point clouds also get their level in the tile tree as the "tile" id the
+    // plugin's debug colours use (the Potree plugin sets its own).
+    applyPointCloudSettingsToTile(scene) {
+      const state = Viewer.pointCloudState;
+      if (!state || state.kind !== "tiles") return;
+      scene.traverse((child) => {
+        if (!child.isPoints) return;
+        child.userData.baseMaterialSize ??= child.material.size;
+        child.material.size = child.userData.baseMaterialSize * state.size;
+        const tileId = child.material.uniforms?.uTileId;
+        if (!state.potree && tileId && Number.isFinite(child.userData.tileDepth)) {
+          tileId.value = child.userData.tileDepth;
+        }
+      });
+    },
+
+    setPointCloudSize(size) {
+      const state = Viewer.pointCloudState;
+      if (!state) return;
+      state.size = THREE.MathUtils.clamp(size, SIZE_MIN, SIZE_MAX);
+      if (state.kind === "tiles") {
+        if (state.potree && state.plugin && "pointScale" in state.plugin) {
+          state.plugin.pointScale = state.size;
+        }
+        if (state.plugin) state.plugin.minPointSize = Math.max(1, 2 * state.size);
+        const group = getActiveTiles()?.group;
+        if (group) Viewer.applyPointCloudSettingsToTile(group);
+      } else {
+        state.points.forEach((object) => {
+          object.material.size = object.userData.baseMaterialSize * state.size;
+        });
+      }
+      Viewer.syncPointCloudPanel();
+    },
+
+    setPointCloudShape(shape) {
+      const state = Viewer.pointCloudState;
+      if (!state) return;
+      state.shape = shape;
+      if (state.kind === "tiles") {
+        if (state.plugin) state.plugin.pointShape = shape;
+      } else {
+        state.points.forEach((object) => applyRoundShape(object.material, shape === "round"));
+      }
+      Viewer.syncPointCloudPanel();
+    },
+
+    setPointCloudEdl(strength) {
+      const state = Viewer.pointCloudState;
+      if (!state?.plugin) return;
+      state.edl = THREE.MathUtils.clamp(strength, 0, 1);
+      state.plugin.edlStrength = state.edl;
+      Viewer.syncPointCloudPanel();
+    },
+
+    setPointCloudColorMode(mode) {
+      const state = Viewer.pointCloudState;
+      if (!state || !state.modes.includes(mode)) return;
+      state.colorMode = mode;
+      if (state.kind === "tiles") {
+        if (state.plugin) state.plugin.debugColorMode = mode === "tile" ? "tile" : "none";
+        const group = getActiveTiles()?.group;
+        if (group) Viewer.applyPointCloudSettingsToTile(group);
+      } else {
+        state.points.forEach((object) => Viewer.recolorPoints(object, mode));
+      }
+      Viewer.syncPointCloudPanel();
+    },
+
+    // Rewrites the colour attribute of a direct cloud; the file's own RGB
+    // is kept aside on first use so it can be restored.
+    recolorPoints(object, mode) {
+      const geometry = object.geometry;
+      const position = geometry.getAttribute("position");
+      const count = position.count;
+      let color = geometry.getAttribute("color");
+      if (!color) {
+        color = new THREE.BufferAttribute(new Uint8Array(count * 3), 3, true);
+        geometry.setAttribute("color", color);
+        object.material.vertexColors = true;
+        object.material.needsUpdate = true;
+      }
+      if (!object.userData.originalColors && color.array) {
+        object.userData.originalColors = color.array.slice();
+      }
+      const target = color.array;
+      const isNormalizedBytes = target instanceof Uint8Array;
+      const write = (index, r, g, b) => {
+        if (isNormalizedBytes) {
+          target[index * 3] = r;
+          target[index * 3 + 1] = g;
+          target[index * 3 + 2] = b;
+        } else {
+          target[index * 3] = r / 255;
+          target[index * 3 + 1] = g / 255;
+          target[index * 3 + 2] = b / 255;
+        }
+      };
+
+      if (mode === "rgb" && object.userData.originalColors) {
+        target.set(object.userData.originalColors);
+      } else if (mode === "intensity") {
+        const intensity = geometry.getAttribute("intensity");
+        let max = 0;
+        for (let i = 0; i < count; i += 1) max = Math.max(max, intensity.getX(i));
+        for (let i = 0; i < count; i += 1) {
+          const value = Math.round(40 + (max > 0 ? intensity.getX(i) / max : 0) * 215);
+          write(i, value, value, value);
+        }
+      } else if (mode === "classification") {
+        const classification = geometry.getAttribute("classification");
+        const swatch = new THREE.Color();
+        for (let i = 0; i < count; i += 1) {
+          swatch.setHex(CLASSIFICATION_COLORS[classification.getX(i)] ?? 0xeeeeee);
+          write(i, swatch.r * 255, swatch.g * 255, swatch.b * 255);
+        }
+      } else {
+        // Height: world Y, whatever the file's own up axis was.
+        object.updateMatrixWorld(true);
+        const elements = object.matrixWorld.elements;
+        const heights = new Float32Array(count);
+        let minY = Infinity;
+        let maxY = -Infinity;
+        for (let i = 0; i < count; i += 1) {
+          const y = elements[1] * position.getX(i) + elements[5] * position.getY(i)
+            + elements[9] * position.getZ(i) + elements[13];
+          heights[i] = y;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+        const range = maxY - minY || 1;
+        const swatch = new THREE.Color();
+        for (let i = 0; i < count; i += 1) {
+          // Blue (low) through green to red (high).
+          swatch.setHSL((1 - (heights[i] - minY) / range) * 0.66, 0.85, 0.5);
+          write(i, swatch.r * 255, swatch.g * 255, swatch.b * 255);
+        }
+      }
+      color.needsUpdate = true;
+    },
+
+    createPointCloudPanel() {
+      const state = Viewer.pointCloudState;
+      const stack = getViewerSideStack();
+      if (!state || !stack || core.PRESENTATION_MODE || Viewer.urlOptions?.hideUi === true) return;
+
+      const root = document.createElement("section");
+      root.id = "viewerPointCloudPanel";
+      root.className = "viewer-pointcloud-panel";
+      ["pointerdown", "pointerup", "wheel", "keydown"].forEach((type) => {
+        root.addEventListener(type, (event) => event.stopPropagation());
+      });
+
+      const header = document.createElement("div");
+      header.className = "viewer-pointcloud-panel_header";
+      const title = document.createElement("strong");
+      const collapse = document.createElement("button");
+      collapse.type = "button";
+      collapse.className = "viewer-pointcloud-panel_collapse";
+      collapse.addEventListener("click", () => {
+        state.collapsed = !state.collapsed;
+        Viewer.syncPointCloudPanel();
+      });
+      header.append(title, collapse);
+
+      const body = document.createElement("div");
+      body.className = "viewer-pointcloud-panel_body";
+
+      const makeRow = (labelText, control) => {
+        const row = document.createElement("label");
+        row.className = "viewer-pointcloud-panel_row";
+        const label = document.createElement("span");
+        row.append(label, control);
+        body.appendChild(row);
+        return label;
+      };
+
+      const size = document.createElement("input");
+      size.type = "range";
+      size.min = "0";
+      size.max = "100";
+      size.addEventListener("input", () => Viewer.setPointCloudSize(sliderToSize(size.value)));
+      const sizeLabel = makeRow("size", size);
+
+      const shape = document.createElement("select");
+      const shapes = state.kind === "tiles" ? ["square", "round", "sphere"] : ["square", "round"];
+      shapes.forEach((value) => shape.appendChild(new Option(value, value)));
+      shape.addEventListener("change", () => Viewer.setPointCloudShape(shape.value));
+      const shapeLabel = makeRow("shape", shape);
+
+      const color = document.createElement("select");
+      state.modes.forEach((value) => color.appendChild(new Option(value, value)));
+      color.addEventListener("change", () => Viewer.setPointCloudColorMode(color.value));
+      const colorLabel = makeRow("color", color);
+      color.disabled = state.modes.length < 2;
+
+      let edl = null;
+      let edlLabel = null;
+      if (state.plugin) {
+        edl = document.createElement("input");
+        edl.type = "range";
+        edl.min = "0";
+        edl.max = "100";
+        edl.addEventListener("input", () => Viewer.setPointCloudEdl(Number(edl.value) / 100));
+        edlLabel = makeRow("edl", edl);
+      }
+
+      const summary = document.createElement("p");
+      summary.className = "viewer-pointcloud-panel_summary";
+      body.appendChild(summary);
+
+      root.append(header, body);
+      stack.appendChild(root);
+      state.ui = {
+        root, title, collapse, body, size, sizeLabel, shape, shapeLabel, color, colorLabel, edl, edlLabel, summary,
+      };
+      Viewer.syncPointCloudPanel();
+    },
+
+    syncPointCloudPanel() {
+      const state = Viewer.pointCloudState;
+      const ui = state?.ui;
+      if (!ui) return;
+      ui.root.setAttribute("aria-label", t$1("pointCloud.title", "Point cloud"));
+      ui.title.textContent = t$1("pointCloud.title", "Point cloud");
+      ui.body.hidden = state.collapsed;
+      ui.collapse.textContent = state.collapsed ? "+" : "–";
+      const collapseLabel = state.collapsed ? t$1("pointCloud.expand", "Show settings") : t$1("pointCloud.collapse", "Hide settings");
+      ui.collapse.title = collapseLabel;
+      ui.collapse.setAttribute("aria-label", collapseLabel);
+      ui.collapse.setAttribute("aria-expanded", state.collapsed ? "false" : "true");
+
+      ui.sizeLabel.textContent = t$1("pointCloud.size", { value: state.size.toFixed(2).replace(/\.?0+$/, "") }, "Point size ×{value}");
+      if (document.activeElement !== ui.size) ui.size.value = String(sizeToSlider(state.size));
+      ui.shapeLabel.textContent = t$1("pointCloud.shape", "Shape");
+      Array.from(ui.shape.options).forEach((option) => {
+        option.textContent = t$1(`pointCloud.shapes.${option.value}`, option.value);
+      });
+      ui.shape.value = state.shape;
+      ui.colorLabel.textContent = t$1("pointCloud.color", "Colour");
+      Array.from(ui.color.options).forEach((option) => {
+        option.textContent = t$1(`pointCloud.colorModes.${option.value}`, option.value);
+      });
+      ui.color.value = state.colorMode;
+      if (ui.edl) {
+        ui.edlLabel.textContent = t$1("pointCloud.edl", { value: Math.round(state.edl * 100) }, "Eye-Dome Lighting {value}%");
+        if (document.activeElement !== ui.edl) ui.edl.value = String(Math.round(state.edl * 100));
+      }
+
+      const info = state.points[0]?.userData?.pointCloud;
+      if (state.kind === "tiles") {
+        ui.summary.textContent = t$1("pointCloud.streamed", "Streamed: detail loads as you zoom in.");
+      } else if (info) {
+        ui.summary.textContent = info.skip > 1
+          ? t$1("pointCloud.thinned", { loaded: info.loadedPoints.toLocaleString(), total: info.totalPoints.toLocaleString() }, "{loaded} of {total} points")
+          : t$1("pointCloud.points", { total: info.totalPoints.toLocaleString() }, "{total} points");
+      } else {
+        const total = state.points.reduce((sum, object) => sum + object.geometry.getAttribute("position").count, 0);
+        ui.summary.textContent = t$1("pointCloud.points", { total: total.toLocaleString() }, "{total} points");
+      }
+    },
+  });
+}
+
 function captureAndUploadThumbnail(viewer) {
   core.camera.aspect = 1;
   core.camera.updateProjectionMatrix();
@@ -14611,6 +15768,10 @@ function createIIIFDropdown(iiifConfigURL) {
     { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin.json", name: t$1("iiif.optionModelOrigin", "Model Origin") },
     { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin_bgcolor.json", name: t$1("iiif.optionModelOriginBg", "Model Origin with background color") },
     { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_position.json", name: t$1("iiif.optionModelPosition", "Model Position") },
+    { url: "./manifests/box-iiif-p4.json", name: t$1("iiif.optionP4Local", "Camera, lights and comments (localhost)") },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/2_cameras/positioned_camera_lookat_point.json", name: t$1("iiif.optionCamera", "Positioned camera") },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/3_lights/multiple_lights_with_intensities_and_colors.json", name: t$1("iiif.optionLights", "Lights with colours and intensities") },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/10_activating_annotations/astronaut_comment_activating_scope.json", name: t$1("iiif.optionComments", "Comments with their own views") },
   ].filter(Boolean);
 
   const group = document.createElement("div");
@@ -15056,6 +16217,7 @@ async function swapInFullModel(previewRoot, fullRoot) {
   }
 
   window.Viewer?.setupModelAnimations?.(fullRoot);
+  window.Viewer?.setupPointCloudControls?.(fullRoot);
   window.Viewer?.refreshClippingForModel?.(fullRoot);
   refreshModelHierarchyAndStats(fullRoot);
   window.Viewer?.disposeFacePickCache?.();
@@ -15445,6 +16607,7 @@ async function loadModel() {
     }
     core.mainObject.push(object);
     window.Viewer?.setupModelAnimations?.(object);
+    window.Viewer?.setupPointCloudControls?.(object);
     window.Viewer?.refreshClippingForModel?.(object);
 
     updateLoadingStage("loadingLog.compilingShaders", 99);
@@ -15713,9 +16876,12 @@ async function loadModel() {
             format: tiledFormat,
             configureGLTFLoader: createGLTFDecoders,
             // Tiles loaded later get the same material setup (clipping planes, shadows).
-            onModel: (scene) => scene.traverse((child) => {
-              if (child.isMesh) setupMaterials(child);
-            }),
+            onModel: (scene) => {
+              scene.traverse((child) => {
+                if (child.isMesh) setupMaterials(child);
+              });
+              window.Viewer?.applyPointCloudSettingsToTile?.(scene);
+            },
             onProgress: (value) => updateLoadingStage("loadingLog.loadingModel", value),
           });
           await afterLoad({ object });
@@ -21852,11 +23018,15 @@ async function loadIIIFManifest(manifestUrlOrJson) {
       // Load individual model annotations
       const annos = iiifManifest.annotationsFromScene(manifestScene);
 
+      // Models only: cameras and lights are painted into the scene too
+      // (applied separately, IIIF/presentation4.js), possibly wrapped in a
+      // SpecificResource as well.
       filteredAnnos = annos.filter((anno) => {
         const body = anno.getBody()[0];
+        const rawBody = anno.__jsonld?.body;
         return (
           anno.getMotivation()?.[0] === "painting" &&
-          (resolvesToSpecificResource(body) || body?.getType() === "model")
+          (rawBody ? isModelBody(rawBody) : (resolvesToSpecificResource(body) || body?.getType() === "model"))
         );
       });
 
@@ -22058,14 +23228,16 @@ async function loadAIM3IFManifest(manifestUrlOrJson) {
 
     const annos = aim3dManifest.annotationsFromScene(scene);
 
+    // A Model body, or (Presentation 4 export with transforms) a
+    // SpecificResource around one - never the scene's cameras or lights.
     filteredAnnos = annos.filter(
       anno =>
         anno.motivation?.includes("painting") &&
-        anno.body?.type === "Model"
+        isModelBody(anno.body)
     );
 
     for (const anno of filteredAnnos) {
-      const modelUrl = anno.body?.id;
+      const modelUrl = modelUrlOf(anno.body);
 
       if (modelUrl) {
         modelUrls.push(modelUrl);
@@ -25254,7 +26426,7 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "aa8dd70" ;
+const BUILD_ID = "0d270e4" ;
 
 function poweredByHtml() {
   const build = ` (${BUILD_ID})` ;
@@ -26635,7 +27807,9 @@ const Viewer$1 = {
   resetLoadedModelState() {
     Viewer$1.disposeAnimations();
     Viewer$1.stopTour();
+    Viewer$1.disposePointCloudControls();
     disposeTiles();
+    removeImportedLights();
     Viewer$1.restoreLastPickedFace();
     Viewer$1.clearSelectedFaces();
     Viewer$1.closeAnnotationDialog();
@@ -28340,6 +29514,27 @@ const Viewer$1 = {
         Viewer$1.import3IFManifest?.(loadedManifest.manifest);
       }
     }
+    if (!isAim3ifManifest) Viewer$1.applyIIIFSceneContent(manifestJson);
+  },
+
+  // IIIF Presentation 4 cameras, lights and point comments of a plain IIIF
+  // manifest (AIM3D manifests carry their own camera/lights/annotations,
+  // applied by import3IFManifest).
+  applyIIIFSceneContent(manifestJson) {
+    let content;
+    try {
+      content = readSceneContent(manifestJson);
+    } catch (error) {
+      console.warn("Could not read IIIF scene content", error);
+      return;
+    }
+    if (content.cameras.length) applyCamera(content.cameras[0], Viewer$1);
+    if (content.lights.length) applyLights(content.lights);
+    if (content.comments.length) {
+      const root = Viewer$1.resolveObjectByTargetId("m0:root");
+      Viewer$1.annotationEntries = commentsToAnnotationEntries(content.comments, root);
+      Viewer$1.refreshAnnotationPOIs();
+    }
   },
 
   async getManifestJson(manifestUrlOrJson, type) {
@@ -29182,6 +30377,7 @@ attachShadingEditor(Viewer$1);
 attachAnnotations(Viewer$1);
 attachPicking(Viewer$1);
 attachFaceAreaSelection(Viewer$1);
+attachPointCloudPanel(Viewer$1);
 attachMeasurement(Viewer$1);
 attachAnimations(Viewer$1);
 attachTour(Viewer$1);

@@ -171,6 +171,7 @@ async function swapInFullModel(previewRoot, fullRoot) {
   }
 
   window.Viewer?.setupModelAnimations?.(fullRoot);
+  window.Viewer?.setupPointCloudControls?.(fullRoot);
   window.Viewer?.refreshClippingForModel?.(fullRoot);
   refreshModelHierarchyAndStats(fullRoot);
   window.Viewer?.disposeFacePickCache?.();
@@ -579,6 +580,7 @@ export async function loadModel() {
     }
     core.mainObject.push(object);
     window.Viewer?.setupModelAnimations?.(object);
+    window.Viewer?.setupPointCloudControls?.(object);
     window.Viewer?.refreshClippingForModel?.(object);
 
     updateLoadingStage("loadingLog.compilingShaders", 99);
@@ -854,9 +856,12 @@ export async function loadModel() {
             format: tiledFormat,
             configureGLTFLoader: createGLTFDecoders,
             // Tiles loaded later get the same material setup (clipping planes, shadows).
-            onModel: (scene) => scene.traverse((child) => {
-              if (child.isMesh) setupMaterials(child);
-            }),
+            onModel: (scene) => {
+              scene.traverse((child) => {
+                if (child.isMesh) setupMaterials(child);
+              });
+              window.Viewer?.applyPointCloudSettingsToTile?.(scene);
+            },
             onProgress: (value) => updateLoadingStage("loadingLog.loadingModel", value),
           });
           await afterLoad({ object });

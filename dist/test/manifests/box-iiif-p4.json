@@ -1,0 +1,141 @@
+{
+  "@context": "http://iiif.io/api/presentation/4/context.json",
+  "id": "./manifests/box-iiif-p4.json",
+  "type": "Manifest",
+  "label": { "en": ["Box with a camera, lights and comments (IIIF Presentation 4)"] },
+  "summary": { "en": ["Local example of the IIIF 3D scene features the viewer reads and writes: a positioned camera, three kinds of lights, and comments on points of the scene - one with its own view (scope)."] },
+  "items": [
+    {
+      "id": "./manifests/box-iiif-p4.json/scene",
+      "type": "Scene",
+      "label": { "en": ["Box"] },
+      "backgroundColor": "#20242c",
+      "items": [
+        {
+          "id": "./manifests/box-iiif-p4.json/scene/page/1",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "./manifests/box-iiif-p4.json/anno/model",
+              "type": "Annotation",
+              "motivation": ["painting"],
+              "body": {
+                "id": "./manifests/box-iiif-p4.json/anno/model/body",
+                "type": "SpecificResource",
+                "source": { "id": "./examples/box.glb", "type": "Model", "format": "model/gltf-binary" },
+                "transform": [
+                  { "type": "ScaleTransform", "x": 1.5, "y": 1.5, "z": 1.5 }
+                ]
+              },
+              "target": { "id": "./manifests/box-iiif-p4.json/scene", "type": "Scene" }
+            },
+            {
+              "id": "./manifests/box-iiif-p4.json/anno/camera",
+              "type": "Annotation",
+              "motivation": ["painting"],
+              "body": {
+                "id": "./manifests/box-iiif-p4.json/cameras/1",
+                "type": "PerspectiveCamera",
+                "label": { "en": ["Front, slightly above"] },
+                "fieldOfView": 40,
+                "lookAt": { "type": "PointSelector", "x": 0, "y": 0.5, "z": 0 }
+              },
+              "target": {
+                "type": "SpecificResource",
+                "source": { "id": "./manifests/box-iiif-p4.json/scene", "type": "Scene" },
+                "selector": [{ "type": "PointSelector", "x": 2, "y": 3, "z": 6 }]
+              }
+            },
+            {
+              "id": "./manifests/box-iiif-p4.json/anno/ambient",
+              "type": "Annotation",
+              "motivation": ["painting"],
+              "body": {
+                "type": "AmbientLight",
+                "color": "#ffe8d0",
+                "intensity": { "type": "Value", "value": 0.4, "unit": "relative" }
+              },
+              "target": { "id": "./manifests/box-iiif-p4.json/scene", "type": "Scene" }
+            },
+            {
+              "id": "./manifests/box-iiif-p4.json/anno/sun",
+              "type": "Annotation",
+              "motivation": ["painting"],
+              "body": {
+                "type": "SpecificResource",
+                "source": { "type": "DirectionalLight", "color": "#ffffff", "intensity": { "type": "Value", "value": 0.8, "unit": "relative" } },
+                "transform": [{ "type": "RotateTransform", "x": -30, "y": 0, "z": 20 }]
+              },
+              "target": { "id": "./manifests/box-iiif-p4.json/scene", "type": "Scene" }
+            },
+            {
+              "id": "./manifests/box-iiif-p4.json/anno/spot",
+              "type": "Annotation",
+              "motivation": ["painting"],
+              "body": {
+                "type": "SpotLight",
+                "color": "#6ea8ff",
+                "intensity": { "type": "Value", "value": 0.6, "unit": "relative" },
+                "angle": 25,
+                "lookAt": { "type": "PointSelector", "x": 0, "y": 0, "z": 0 }
+              },
+              "target": {
+                "type": "SpecificResource",
+                "source": { "id": "./manifests/box-iiif-p4.json/scene", "type": "Scene" },
+                "selector": [{ "type": "PointSelector", "x": -3, "y": 4, "z": 2 }]
+              }
+            },
+            {
+              "id": "./manifests/box-iiif-p4.json/cameras/top",
+              "type": "Annotation",
+              "motivation": ["painting"],
+              "body": {
+                "type": "PerspectiveCamera",
+                "fieldOfView": 35,
+                "lookAt": { "type": "PointSelector", "x": 0, "y": 1, "z": 0 }
+              },
+              "target": {
+                "type": "SpecificResource",
+                "source": { "id": "./manifests/box-iiif-p4.json/scene", "type": "Scene" },
+                "selector": [{ "type": "PointSelector", "x": 0.5, "y": 6, "z": 1 }]
+              }
+            }
+          ]
+        }
+      ],
+      "annotations": [
+        {
+          "id": "./manifests/box-iiif-p4.json/scene/page/comments",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "./manifests/box-iiif-p4.json/comments/top",
+              "type": "Annotation",
+              "motivation": ["commenting"],
+              "label": { "en": ["Top face"] },
+              "body": { "type": "TextualBody", "value": "Seen from above through its own camera (scope).", "format": "text/plain" },
+              "scope": [{ "id": "./manifests/box-iiif-p4.json/cameras/top", "type": "Annotation" }],
+              "target": {
+                "type": "SpecificResource",
+                "source": { "id": "./manifests/box-iiif-p4.json/scene", "type": "Scene" },
+                "selector": [{ "type": "PointSelector", "x": 0, "y": 1.5, "z": 0 }]
+              }
+            },
+            {
+              "id": "./manifests/box-iiif-p4.json/comments/corner",
+              "type": "Annotation",
+              "motivation": ["commenting"],
+              "label": { "en": ["Corner"] },
+              "body": { "type": "TextualBody", "value": "A comment on a point, without a view of its own.", "format": "text/plain" },
+              "target": {
+                "type": "SpecificResource",
+                "source": { "id": "./manifests/box-iiif-p4.json/scene", "type": "Scene" },
+                "selector": [{ "type": "PointSelector", "x": 0.75, "y": 0.75, "z": 0.75 }]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

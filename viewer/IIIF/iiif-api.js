@@ -1,5 +1,6 @@
 import {} from "@iiif/3d-manifesto-dev";
 import { IIIFManifest } from "./iiif";
+import { isModelBody } from "./presentation4.js";
 
 // Annotation bodies are always parsed as plain AnnotationBody instances, where
 // isSpecificResource is an inherited METHOD (checking the JSON "type"), even when
@@ -36,11 +37,15 @@ export async function loadIIIFManifest(manifestUrlOrJson) {
       // Load individual model annotations
       const annos = iiifManifest.annotationsFromScene(manifestScene);
 
+      // Models only: cameras and lights are painted into the scene too
+      // (applied separately, IIIF/presentation4.js), possibly wrapped in a
+      // SpecificResource as well.
       filteredAnnos = annos.filter((anno) => {
         const body = anno.getBody()[0];
+        const rawBody = anno.__jsonld?.body;
         return (
           anno.getMotivation()?.[0] === "painting" &&
-          (resolvesToSpecificResource(body) || body?.getType() === "model")
+          (rawBody ? isModelBody(rawBody) : (resolvesToSpecificResource(body) || body?.getType() === "model"))
         );
       });
 

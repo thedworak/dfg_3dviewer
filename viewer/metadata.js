@@ -884,6 +884,10 @@ export function createIIIFDropdown(iiifConfigURL) {
     { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin.json", name: t("iiif.optionModelOrigin", "Model Origin") },
     { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin_bgcolor.json", name: t("iiif.optionModelOriginBg", "Model Origin with background color") },
     { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_position.json", name: t("iiif.optionModelPosition", "Model Position") },
+    { url: "./manifests/box-iiif-p4.json", name: t("iiif.optionP4Local", "Camera, lights and comments (localhost)") },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/2_cameras/positioned_camera_lookat_point.json", name: t("iiif.optionCamera", "Positioned camera") },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/3_lights/multiple_lights_with_intensities_and_colors.json", name: t("iiif.optionLights", "Lights with colours and intensities") },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/10_activating_annotations/astronaut_comment_activating_scope.json", name: t("iiif.optionComments", "Comments with their own views") },
   ].filter(Boolean);
 
   const group = document.createElement("div");

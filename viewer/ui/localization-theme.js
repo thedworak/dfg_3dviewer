@@ -133,6 +133,7 @@ export function attachLocalizationTheme(viewer) {
       this.updateEditorToolbarLabels();
       this.updateAnimationPlayerLabels?.();
       this.updateTourLabels?.();
+      this.syncPointCloudPanel?.();
       this.renderUploadLimits?.();
       this.updateClippingGuiLabels?.();
       this.updateClippingPanel?.();

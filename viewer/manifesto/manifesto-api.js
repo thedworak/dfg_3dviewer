@@ -1,4 +1,5 @@
 import { AIM3DManifest } from "./manifesto";
+import { isModelBody, modelUrlOf } from "../IIIF/presentation4.js";
 import {
   formatAIM3DManifestValidationErrors,
   normalizeAIM3DManifest,
@@ -30,14 +31,16 @@ export async function loadAIM3IFManifest(manifestUrlOrJson) {
 
     const annos = aim3dManifest.annotationsFromScene(scene);
 
+    // A Model body, or (Presentation 4 export with transforms) a
+    // SpecificResource around one - never the scene's cameras or lights.
     filteredAnnos = annos.filter(
       anno =>
         anno.motivation?.includes("painting") &&
-        anno.body?.type === "Model"
+        isModelBody(anno.body)
     );
 
     for (const anno of filteredAnnos) {
-      const modelUrl = anno.body?.id;
+      const modelUrl = modelUrlOf(anno.body);
 
       if (modelUrl) {
         modelUrls.push(modelUrl);

@@ -725,6 +725,125 @@ test('LAZ point clouds load directly, re-centred in double precision', async ({ 
   expect(cloud.minY).toBe(0);
 });
 
+test('point cloud panel changes colours, shape and size, and only appears for point clouds', async ({ page }) => {
+  await openViewer(page, '/examples/points.laz');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+  const panel = page.locator('#viewerPointCloudPanel');
+  await expect(panel).toBeVisible();
+  const colorSelect = panel.locator('select').nth(1);
+  await expect(colorSelect.locator('option')).toHaveText(['RGB', 'Intensity', 'Height']);
+
+  const pointsState = () => page.evaluate(() => {
+    const points = window.Viewer.resolveObjectByTargetId('m0:root').children.find((child) => child.isPoints);
+    const color = points.geometry.getAttribute('color').array;
+    return {
+      firstColors: Array.from(color.slice(0, 6)),
+      round: Boolean(points.material.defines?.ROUND_POINTS !== undefined),
+      size: points.material.size,
+    };
+  });
+  const before = await pointsState();
+
+  await colorSelect.selectOption('height');
+  await panel.locator('select').nth(0).selectOption('round');
+  await panel.locator('input[type=range]').first().fill('75');
+  const after = await pointsState();
+  expect(after.firstColors).not.toEqual(before.firstColors);
+  expect(after.round).toBe(true);
+  expect(after.size).toBeGreaterThan(before.size * 1.5);
+
+  // Back to the file's own colours.
+  await colorSelect.selectOption('rgb');
+  expect((await pointsState()).firstColors).toEqual(before.firstColors);
+
+  // Streamed clouds: Eye-Dome Lighting and level-of-detail colours through the plugin.
+  await openViewer(page, '/examples/tiles/wolpa-points/tileset.json');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+  await expect(panel).toBeVisible();
+  await expect(panel.locator('input[type=range]')).toHaveCount(2);
+  await panel.locator('select').nth(1).selectOption('tile');
+  await panel.locator('input[type=range]').nth(1).fill('0');
+  const pluginState = await page.evaluate(() => {
+    const state = window.Viewer.pointCloudState;
+    return { debug: state.plugin.debugColorMode, edl: state.plugin.edlStrength };
+  });
+  expect(pluginState).toEqual({ debug: 'tile', edl: 0 });
+
+  await openViewer(page, '/examples/box.glb');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+  await expect(panel).toHaveCount(0);
+});
+
+test('IIIF Presentation 4 scenes: camera, lights, transforms and point comments round-trip', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+  await page.evaluate(() => window.Viewer.setupManifesto('./manifests/box-iiif-p4.json', 'url', 'iiif'));
+
+  const sceneState = () => page.evaluate(() => {
+    const viewer = window.Viewer;
+    const round = (values) => values.map((value) => Math.round(value * 1000) / 1000);
+    const root = viewer.resolveObjectByTargetId('m0:root');
+    const lights = [];
+    viewer.scene.traverse((object) => {
+      if (object.isAmbientLight || object.isSpotLight || object.isDirectionalLight) {
+        lights.push(`${object.type}:#${object.color.getHexString()}`);
+      }
+    });
+    return {
+      camera: round(viewer.camera.position.toArray()),
+      target: round(viewer.controls.target.toArray()),
+      fov: Math.round(viewer.camera.fov),
+      scale: round(root.scale.toArray()),
+      lights,
+      comments: viewer.getAnnotationEntriesForPersistence().map((entry) => ({
+        title: entry.title,
+        center: round(viewer.getAnnotationEntryCenter(entry).toArray()),
+        view: entry.view ? round(entry.view.position) : null,
+      })),
+      markers: viewer.annotationPOIMarkers.length,
+    };
+  });
+
+  const imported = await sceneState();
+  // The manifest's own camera, not the viewer's intro flight.
+  expect(imported.camera).toEqual([2, 3, 6]);
+  expect(imported.target).toEqual([0, 0.5, 0]);
+  expect(imported.fov).toBe(40);
+  // ScaleTransform on the model's SpecificResource.
+  expect(imported.scale).toEqual([1.5, 1.5, 1.5]);
+  expect(imported.lights).toEqual(expect.arrayContaining(['AmbientLight:#ffe8d0', 'SpotLight:#6ea8ff']));
+  // Comments on scene points; the first one has its view from `scope`.
+  expect(imported.comments).toEqual([
+    { title: 'Top face', center: [0, 1.5, 0], view: [0.5, 6, 1] },
+    { title: 'Corner', center: [0.75, 0.75, 0.75], view: null },
+  ]);
+  expect(imported.markers).toBe(2);
+
+  // Export: Presentation 4 structure.
+  const manifest = await page.evaluate(() => window.Viewer.build3IFManifest());
+  const scene = manifest.items[0];
+  const painted = scene.items[0].items.map((annotation) => (
+    annotation.body.type === 'SpecificResource' ? `SpecificResource(${annotation.body.source.type})` : annotation.body.type
+  ));
+  expect(painted[0]).toBe('SpecificResource(Model)');
+  expect(scene.items[0].items[0].body.transform).toEqual([{ type: 'ScaleTransform', x: 1.5, y: 1.5, z: 1.5 }]);
+  expect(painted[1]).toBe('PerspectiveCamera');
+  expect(painted).toEqual(expect.arrayContaining(['AmbientLight', 'SpotLight']));
+  const [topComment, cornerComment] = scene.annotations[0].items;
+  expect(topComment.target.selector[0]).toEqual({ type: 'PointSelector', x: 0, y: 1.5, z: 0 });
+  expect(topComment.scope).toHaveLength(1);
+  const scopeCamera = scene.items[0].items.find((annotation) => annotation.id === topComment.scope[0].id);
+  expect(scopeCamera.body.type).toBe('PerspectiveCamera');
+  expect(cornerComment.scope).toBeUndefined();
+
+  // Round trip through our own export.
+  await page.evaluate((json) => window.Viewer.setupManifesto(JSON.stringify(json), 'text'), manifest);
+  const reimported = await sceneState();
+  expect(reimported.scale).toEqual(imported.scale);
+  expect(reimported.camera).toEqual(imported.camera);
+  expect(reimported.comments).toEqual(imported.comments);
+});
+
 test('upload panel shows limit usage and limit errors from the worker', async ({ page }) => {
   await page.route('**/api/auth/config', (route) =>
     route.fulfill({ json: { mode: 'off', registration: 'closed', maxUploadBytes: 104857600 } })

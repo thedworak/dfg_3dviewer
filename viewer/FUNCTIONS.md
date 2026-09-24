@@ -242,6 +242,15 @@ Direct LAS/LAZ loading (drag and drop, `?model=scan.laz`), without server conver
 - `readLasPointCount(buffer)` — point count from a LAS 1.0-1.4 header.
 
 
+## `viewer/editor/point-cloud-panel.js`
+
+Point cloud panel, shown in the side stack when the model is a point cloud (hidden in presentation mode and with `hideUi`).
+
+- `Viewer.setupPointCloudControls(root)` — called after a model is added (and after a progressive swap); builds the panel when `root` contains `THREE.Points` or is a streamed cloud.
+- Direct clouds (LAS/LAZ/XYZ/PCD): `setPointCloudSize(factor)` (×0.25-×4 of the loaded size), `setPointCloudShape('square'|'round')` (round via a `ROUND_POINTS` define), `setPointCloudColorMode('rgb'|'intensity'|'height'|'classification')` — recoloured on the CPU from the geometry's attributes; the file's RGB is kept to restore it. Classification uses the ASPRS LAS palette.
+- Streamed clouds (3D Tiles, Potree): size (material size, Potree `pointScale`, minimum pixel size), shape incl. `sphere`, `setPointCloudEdl(0..1)` and colour `rgb` or `tile` (level-of-detail colours; 3D Tiles tiles get their tree depth as the id). `applyPointCloudSettingsToTile(scene)` applies the settings to tiles loaded later.
+
+
 ## `viewer/metadata.js`
 
 `viewer/metadata.js` handles metadata fetching, metadata panel rendering, and IIIF support.

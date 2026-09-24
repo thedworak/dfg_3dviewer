@@ -8,6 +8,18 @@ import {
   normalizeAIM3DManifest,
   validateAIM3DManifest,
 } from "../manifesto/aim3dviewer-validation.js";
+import {
+  buildCameraAnnotation,
+  buildCommentTarget,
+  buildLightAnnotations,
+  buildModelAnnotation,
+  buildViewCameraAnnotation,
+  commentsToAnnotationEntries,
+  readSceneContent,
+} from "../IIIF/presentation4.js";
+
+// Point annotations are anchored to the first model root.
+const POINT_ANNOTATION_ROOT = "m0:root";
 
 export function attachAnnotations(Viewer) {
   Object.assign(Viewer, {
@@ -172,6 +184,7 @@ export function attachAnnotations(Viewer) {
       }
       this.clearSelectedFaces();
       entries.forEach((entry) => {
+        if (entry.point) return;
         const object = this.resolveObjectByTargetId(entry.targetId);
         if (!object) return;
 
@@ -201,6 +214,9 @@ export function attachAnnotations(Viewer) {
         toastHelper("annotationDataMissing", "warning");
         return false;
       }
+      // Point annotations (from IIIF manifests) have no faces: edit their
+      // text and view in place.
+      this.annotationEditingPointId = entries.every((entry) => entry.point) ? String(entries[0].id) : "";
 
       this.selectAnnotationEntriesFaces(entries);
       this.buildAnnotationDialog();
@@ -302,6 +318,11 @@ export function attachAnnotations(Viewer) {
     getAnnotationEntryCenter(entry) {
       const object = this.resolveObjectByTargetId(entry?.targetId);
       if (!object) return null;
+      const point = this.normalizeAnnotationPoint(entry.point);
+      if (point) {
+        object.updateMatrixWorld(true);
+        return new THREE.Vector3().fromArray(point).applyMatrix4(object.matrixWorld);
+      }
       const faces = Array.isArray(entry.faceNumbers) ? entry.faceNumbers : [entry.faceIndex];
       const center = new THREE.Vector3();
       let count = 0;
@@ -317,7 +338,7 @@ export function attachAnnotations(Viewer) {
     // Averaged world-space normal of an annotation's faces, or null.
     getAnnotationEntryNormal(entry) {
       const object = this.resolveObjectByTargetId(entry?.targetId);
-      if (!object) return null;
+      if (!object || entry.point) return null;
       const faces = Array.isArray(entry.faceNumbers) ? entry.faceNumbers : [entry.faceIndex];
       const normal = new THREE.Vector3();
       faces.forEach((faceIndex) => {
@@ -325,6 +346,13 @@ export function attachAnnotations(Viewer) {
         if (faceNormal) normal.add(faceNormal);
       });
       return normal.lengthSq() > 0 ? normal.normalize() : null;
+    },
+
+    normalizeAnnotationPoint(rawPoint) {
+      if (!rawPoint) return null;
+      const values = (typeof rawPoint === "string" ? rawPoint.split(/[,\s;]+/).filter(Boolean) : rawPoint);
+      const point = this.parse3IFManifestVector(values, null, 3);
+      return point || null;
     },
 
     // Camera pose stored with an annotation (used by the guided tour).
@@ -488,6 +516,7 @@ export function attachAnnotations(Viewer) {
 
     openAnnotationDialog() {
       if (this.isPreviewModelActive()) return;
+      this.annotationEditingPointId = "";
       if (!Array.isArray(this.selectedFaces) || this.selectedFaces.length === 0) {
         toastHelper("selectFaceRequired", "warning");
         return;
@@ -571,11 +600,16 @@ export function attachAnnotations(Viewer) {
     closeAnnotationDialog() {
       if (!this.annotationDialog) return;
       this.annotationDialog.hidden = true;
+      this.annotationEditingPointId = "";
       this.annotationTargetFaceKeys = [];
       this.annotationBatchGroupId = "";
     },
 
     saveAnnotationFromDialog() {
+      if (this.annotationEditingPointId) {
+        this.savePointAnnotationFromDialog(this.annotationEditingPointId);
+        return;
+      }
       if (!Array.isArray(this.annotationTargetFaceKeys) || this.annotationTargetFaceKeys.length === 0) {
         toastHelper("noFacesSelected", "warning");
         this.closeAnnotationDialog();
@@ -676,12 +710,51 @@ export function attachAnnotations(Viewer) {
       this.closeAnnotationDialog();
     },
 
+    savePointAnnotationFromDialog(id) {
+      const entry = this.annotationEntries.find((item) => String(item.id) === id);
+      const title = String(this.annotationDialogTitleInput?.value || "").trim();
+      if (!title) {
+        toastHelper("titleRequired", "warning");
+        this.annotationDialogTitleInput?.focus();
+        return;
+      }
+      if (entry) {
+        entry.title = title;
+        entry.description = String(this.annotationDialogDescriptionInput?.value || "").trim();
+        if (this.annotationDialogSaveViewInput?.checked) entry.view = this.captureCurrentAnnotationView();
+        entry.updatedAt = new Date().toISOString();
+        toastHelper("annotationsSaved", "success", { count: 1, plural: "" });
+      }
+      this.refreshAnnotationPOIs();
+      this.closeAnnotationDialog();
+    },
+
     getAnnotationEntriesForPersistence() {
       if (!Array.isArray(this.annotationEntries)) return [];
 
       return this.annotationEntries
         .map((entry, index) => {
           if (!entry || typeof entry !== "object") return null;
+          const point = this.normalizeAnnotationPoint(entry.point);
+          if (point) {
+            // A point in the model root's space (IIIF PointSelector comments).
+            const view = this.normalizeAnnotationView(entry.view);
+            const pointTargetId = String(entry.targetId || POINT_ANNOTATION_ROOT).trim();
+            return {
+              id: String(entry.id || `anno-point-${index + 1}`),
+              groupId: "",
+              key: "",
+              object: pointTargetId,
+              targetId: pointTargetId,
+              point,
+              faceNumbers: [],
+              title: String(entry.title || "").trim(),
+              description: String(entry.description || "").trim(),
+              ...(view ? { view } : {}),
+              createdAt: entry.createdAt ? String(entry.createdAt) : "",
+              updatedAt: entry.updatedAt ? String(entry.updatedAt) : "",
+            };
+          }
           const targetId = String(entry.targetId || entry.object || "").trim();
           const faceNumbersRaw = Array.isArray(entry.faceNumbers)
             ? entry.faceNumbers
@@ -767,7 +840,11 @@ export function attachAnnotations(Viewer) {
 
         const targetNode = doc.createElement("iiif:target");
         targetNode.setAttribute("id", entry.targetId);
-        targetNode.setAttribute("faces", entry.faceNumbers.join(","));
+        if (entry.point) {
+          targetNode.setAttribute("point", entry.point.join(","));
+        } else {
+          targetNode.setAttribute("faces", entry.faceNumbers.join(","));
+        }
         annotation.appendChild(targetNode);
 
         if (entry.view) {
@@ -808,11 +885,36 @@ export function attachAnnotations(Viewer) {
       return true;
     },
 
-    export3IFManifest() { // Added a new method to export the 3IF Manifest - combination of IIIF manifest and AIM3DViewer metadata
+    // Downloads the 3IF manifest (IIIF Presentation 4 + AIM3DViewer block).
+    export3IFManifest() {
+      const manifest = this.build3IFManifest();
+      if (!manifest) return false;
+      const defaultBaseName = core.fileObject?.basename || "manifest";
+      const safeBaseName = String(defaultBaseName).replace(/[^a-zA-Z0-9._-]+/g, "_");
+      const fileName = `${safeBaseName || "manifest"}-iiif-manifest.json`;
+      const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: "application/json;charset=utf-8" });
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = fileName;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+
+      toastHelper("iiifManifestGenerated", "success");
+      return true;
+    },
+
+    // The current scene as a 3IF manifest: IIIF Presentation 4 (model with
+    // its transform, default camera, lights, comments with views) plus the
+    // AIM3DViewer block with this viewer's own settings. null when invalid.
+    build3IFManifest() {
       const iiifUrl = core.fileObject?.originalPath || ""; 
       if (!iiifUrl) {
         toastHelper("iiifUrlMissing", "warning");
-        return false;
+        return null;
       }
       const primaryModelObject =
         (Array.isArray(core.mainObject) ? core.mainObject.find((item) => item?.isObject3D) : null)
@@ -820,6 +922,52 @@ export function attachAnnotations(Viewer) {
         || (Array.isArray(core.helperObjects) ? core.helperObjects.find((item) => item?.isObject3D) : null);
       // Generate the IIIF manifest and log it to the console 
       const sceneId = `${iiifUrl}/scene`;
+
+      // Comments on scene points; a saved view becomes a camera painted into
+      // the scene, referenced from the comment's `scope`.
+      const viewCameras = [];
+      const commentAnnotations = this.getAnnotationEntriesForPersistence().map((entry) => {
+        const center = this.getAnnotationEntryCenter(entry);
+        const annotationId = String(entry.id);
+        const viewCamera = buildViewCameraAnnotation(sceneId, `${annotationId}/view`, entry.view);
+        if (viewCamera) viewCameras.push(viewCamera);
+        return {
+          id: annotationId,
+          type: "Annotation",
+
+          motivation: ["commenting"],
+
+          label: {
+            en: [String(entry.title || "").trim()]
+          },
+
+          created: entry.createdAt || undefined,
+          modified: entry.updatedAt || undefined,
+
+          body: {
+            type: "TextualBody",
+            value: String(entry.description || "").trim(),
+            format: "text/plain"
+          },
+
+          ...(viewCamera ? { scope: [{ id: viewCamera.id, type: "Annotation" }] } : {}),
+
+          target: center ? buildCommentTarget(sceneId, center) : { id: sceneId, type: "Scene" },
+
+          // Exact anchoring for this viewer: the annotated faces, or the
+          // point in the model root's space.
+          AIM3DViewer: {
+            groupId: entry.groupId || "",
+            key: entry.key || "",
+            object: entry.object || "",
+            targetId: entry.targetId,
+            ...(entry.point
+              ? { point: entry.point }
+              : { faceIndex: entry.faceIndex, faceNumbers: entry.faceNumbers || [] }),
+            view: entry.view || undefined
+          }
+        };
+      });
 
       const manifest = {
         "@context": "http://iiif.io/api/presentation/4/context.json",
@@ -848,25 +996,23 @@ export function attachAnnotations(Viewer) {
               {
                 id: `${sceneId}/page/model`,
                 type: "AnnotationPage",
-
+                // IIIF Presentation 4 (3D): the model with its transform, the
+                // current camera and the scene lights (IIIF/presentation4.js).
                 items: [
-                  {
-                    id: `${sceneId}/annotation/model`,
-                    type: "Annotation",
-
-                    motivation: ["painting"],
-
-                    body: {
+                  buildModelAnnotation(
+                    sceneId,
+                    `${sceneId}/annotation/model`,
+                    {
                       id: core.fileObject.originalPath,
                       type: "Model",
-                      format: core.fileObject.mimeType || undefined
+                      format: core.fileObject.mimeType || undefined,
                     },
-
-                    target: {
-                      id: sceneId,
-                      type: "Scene"
-                    }
-                  }
+                    primaryModelObject
+                  ),
+                  // The first camera is the scene's default view.
+                  buildCameraAnnotation(sceneId, `${sceneId}/annotation/camera`),
+                  ...buildLightAnnotations(sceneId, `${sceneId}/annotation/light`),
+                  ...viewCameras,
                 ]
               }
             ],
@@ -876,46 +1022,7 @@ export function attachAnnotations(Viewer) {
                 id: `${sceneId}/page/annotations`,
                 type: "AnnotationPage",
 
-                items: this.getAnnotationEntriesForPersistence().map((entry) => ({
-                  id: String(entry.id),
-                  type: "Annotation",
-
-                  motivation: ["commenting"],
-
-                  label: {
-                    en: [String(entry.title || "").trim()]
-                  },
-
-                  created: entry.createdAt || undefined,
-                  modified: entry.updatedAt || undefined,
-
-                  target: {
-                    source: core.fileObject.originalPath,
-
-                    selector: {
-                      type: "JsonSelector",
-
-                      value: {
-                        targetId: entry.targetId,
-                        faceIndex: entry.faceIndex,
-                        faceNumbers: entry.faceNumbers || [],
-                        selectorId: entry.selectorId
-                      }
-                    }
-                  },
-
-                  body: {
-                    type: "TextualBody",
-                    value: String(entry.description || "").trim()
-                  },
-
-                  AIM3DViewer: {
-                    groupId: entry.groupId || "",
-                    key: entry.key || "",
-                    object: entry.object || "",
-                    view: entry.view || undefined
-                  }
-                }))
+                items: commentAnnotations
               }
             ]
           }
@@ -1119,27 +1226,13 @@ export function attachAnnotations(Viewer) {
         const detail = formatAIM3DManifestValidationErrors(exportValidation.errors);
         console.error("AIM3D manifest export validation failed", exportValidation.errors);
         toastHelper("manifestValidationFailed", "error", { detail, duration: 9000 });
-        return false;
+        return null;
       }
 
       manifest.AIM3DViewer.generatedAt = new Date().toISOString();
       core.fileObject?.iiifUrl && (manifest.id = `${core.fileObject?.basename}_manifest.json`);
-      const defaultBaseName = core.fileObject?.basename || "manifest";
-      const safeBaseName = String(defaultBaseName).replace(/[^a-zA-Z0-9._-]+/g, "_");
-      const fileName = `${safeBaseName || "manifest"}-iiif-manifest.json`;
-      const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: "application/json;charset=utf-8" });
-      const objectUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = objectUrl;
-      link.download = fileName;
-      link.style.display = "none";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
-      
-      toastHelper("iiifManifestGenerated", "success");
-      return true;
+      // JSON only: drops undefined fields.
+      return JSON.parse(JSON.stringify(manifest));
     },
 
     parse3IFManifestVector(value, fallback = null, expectedLength = 3) {
@@ -1626,19 +1719,51 @@ export function attachAnnotations(Viewer) {
       }
 
       const allAnnotations = annotationPages.flatMap((page) => page.items || []);
+      // Scene points (PointSelector) and scope cameras, per annotation id.
+      const pointComments = new Map(readSceneContent(manifestJson).comments.map((comment) => [comment.id, comment]));
+      const pointRoot = this.resolveObjectByTargetId(POINT_ANNOTATION_ROOT);
 
       const importedEntries = allAnnotations.map((annotation, index) => {
-        const selectorValue = annotation?.target?.selector?.value || {};
+        const custom = annotation?.AIM3DViewer || {};
+        // Older exports kept the faces in a JsonSelector on the target.
+        const legacySelector = annotation?.target?.selector;
+        const selectorValue = (!Array.isArray(legacySelector) && legacySelector?.value) || {};
         const targetId = String(
-          selectorValue?.targetId
-          || annotation?.AIM3DViewer?.object
-          || annotation?.target?.source
+          custom.targetId
+          || selectorValue?.targetId
+          || custom.object
+          || (typeof annotation?.target?.source === "string" ? annotation.target.source : "")
           || ""
         ).trim();
 
-        const faceNumbers = Array.isArray(selectorValue?.faceNumbers)
-          ? selectorValue.faceNumbers
-          : [selectorValue?.faceIndex];
+        const comment = pointComments.get(String(annotation?.id || ""));
+        const customPoint = this.normalizeAnnotationPoint(custom.point);
+        const hasFaces = Array.isArray(custom.faceNumbers) || Array.isArray(selectorValue?.faceNumbers)
+          || Number.isInteger(Number(custom.faceIndex ?? selectorValue?.faceIndex));
+        if (customPoint || (!hasFaces && comment)) {
+          // A point annotation: ours (model-root space) or any IIIF comment
+          // on a scene point (world space, converted).
+          const [fromComment] = !customPoint && comment ? commentsToAnnotationEntries([comment], pointRoot) : [];
+          const point = customPoint || fromComment?.point;
+          if (!point) return null;
+          const pointView = this.normalizeAnnotationView(custom.view) || this.normalizeAnnotationView(comment?.view);
+          return {
+            id: String(annotation.id || `anno-point-${index + 1}`),
+            targetId: custom.targetId || POINT_ANNOTATION_ROOT,
+            point,
+            title: String(annotation?.label?.en?.[0] || comment?.title || "").trim(),
+            description: String(annotation?.body?.value || comment?.description || "").trim(),
+            ...(pointView ? { view: pointView } : {}),
+            createdAt: annotation?.created ? String(annotation.created) : "",
+            updatedAt: annotation?.modified ? String(annotation.modified) : "",
+          };
+        }
+
+        const faceNumbers = Array.isArray(custom.faceNumbers)
+          ? custom.faceNumbers
+          : Array.isArray(selectorValue?.faceNumbers)
+            ? selectorValue.faceNumbers
+            : [custom.faceIndex ?? selectorValue?.faceIndex];
         const normalizedFaceNumbers = faceNumbers
           .map((value) => Number(value))
           .filter((value) => Number.isInteger(value) && value >= 0);
@@ -1659,7 +1784,8 @@ export function attachAnnotations(Viewer) {
         ).trim();
 
         const key = String(annotation?.AIM3DViewer?.key || "").trim() || this.getFaceSelectionKey(targetId, faceIndex);
-        const view = this.normalizeAnnotationView(annotation?.AIM3DViewer?.view);
+        const view = this.normalizeAnnotationView(annotation?.AIM3DViewer?.view)
+          || this.normalizeAnnotationView(comment?.view);
 
         return {
           id: String(annotation.id || `anno-${this.toStableIdToken(targetId)}-f${faceIndex}-${index}`),
@@ -1813,7 +1939,8 @@ export function attachAnnotations(Viewer) {
           .map((value) => Number(value))
           .filter((value) => Number.isInteger(value) && value >= 0);
         const faceIndex = faceNumbers[0];
-        if (!targetId || !Number.isInteger(faceIndex)) return;
+        const point = this.normalizeAnnotationPoint(targetNode?.getAttribute?.("point"));
+        if (!point && (!targetId || !Number.isInteger(faceIndex))) return;
 
         const titleNode =
           node.querySelector("title, iiif\\:title, label, iiif\\:label") ||
@@ -1835,6 +1962,18 @@ export function attachAnnotations(Viewer) {
               fov: viewNode.getAttribute("fov"),
             })
           : null;
+
+        if (point) {
+          importedEntries.push({
+            id: rawId || `anno-point-${index + 1}`,
+            targetId: targetId || POINT_ANNOTATION_ROOT,
+            point,
+            title: String(titleNode?.textContent || "").trim(),
+            description: String(descriptionNode?.textContent || "").trim(),
+            ...(view ? { view } : {}),
+          });
+          return;
+        }
 
         const key = this.getFaceSelectionKey(targetId, faceIndex);
         importedEntries.push({
@@ -1879,6 +2018,20 @@ export function attachAnnotations(Viewer) {
       if (Array.isArray(payload.annotationEntries)) {
         this.annotationEntries = payload.annotationEntries
           .map((entry, index) => {
+            const point = this.normalizeAnnotationPoint(entry?.point);
+            if (point) {
+              const pointView = this.normalizeAnnotationView(entry?.view);
+              return {
+                id: String(entry?.id || `anno-point-${index + 1}`),
+                targetId: String(entry?.targetId || POINT_ANNOTATION_ROOT),
+                point,
+                title: String(entry?.title || "").trim(),
+                description: String(entry?.description || "").trim(),
+                ...(pointView ? { view: pointView } : {}),
+                createdAt: entry?.createdAt ? String(entry.createdAt) : "",
+                updatedAt: entry?.updatedAt ? String(entry.updatedAt) : "",
+              };
+            }
             const targetId = String(entry?.targetId || entry?.object || entry?.target?.id || "").trim();
             const faceNumbers = Array.isArray(entry?.faceNumbers)
               ? entry.faceNumbers

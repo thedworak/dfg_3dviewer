@@ -329,6 +329,12 @@ export const setupObject = (_object, _metadata) => {
   } else if (_object.children.length > 0) {
     model = fetchObjectFromConfig(_object.children[0].name); //TODO: check for multiple objects
   }
+  // Models from a IIIF manifest carry their transform (Scale/Rotate/
+  // TranslateTransform, PointSelector position) in the config entry of the
+  // model being loaded, whatever the model's own node names are.
+  if (!model && core.CONFIG?.entity?.metadata?.sourceType === "IIIF") {
+    model = core.objectsConfig?.models?.[core.objectsConfig.setupIndex];
+  }
 
   if (_metadata != null) {
     setupObjectHandler(_object, _metadata);
