@@ -54,6 +54,7 @@ import { attachAnnotations } from "./editor/annotations.js";
 import { attachMeasurement } from "./editor/measurement.js";
 import { attachAnimations } from "./animations.js";
 import { attachViewHelper } from "./ui/view-helper.js";
+import { attachClipping } from "./editor/clipping.js";
 import { attachPicking } from "./editor/picking.js";
 import { captureAndUploadThumbnail } from "./editor/thumbnail-capture.js";
 import { attachWindowControls } from "./ui/window-controls.js";
@@ -601,103 +602,12 @@ export const Viewer = {
     this.updateEditorToolbarState();
   },
 
-  toggleClippingPlanesPanel() {
-    this.clippingMode = !this.clippingMode;
-    if (this.clippingMode) {
-      toastHelper("facePickingEnabled", {
-        duration: 2600
-      });
-      toastHelper("clippingPlanes", {
-        duration: 5200
-      });
-    } else {
-      toastHelper("facePickingDisabled");
-      if (core.planeHelpers?.length >= 3) {
-        core.planeHelpers.forEach((helper) => {
-          if (helper) helper.visible = false;
-        });
-      }
-      core.planeParams.clippingMode.x = false;
-      core.planeParams.clippingMode.y = false;
-      core.planeParams.clippingMode.z = false;
-      if (core.outlineClipping) {
-        core.outlineClipping.visible = false;
-      }
-      if (this.transformControlClippingPlaneX) {
-        this.transformControlClippingPlaneX.detach();
-      }
-      if (this.transformControlClippingPlaneY) {
-        this.transformControlClippingPlaneY.detach();
-      }
-      if (this.transformControlClippingPlaneZ) {
-        this.transformControlClippingPlaneZ.detach();
-      }
-    }
-    this.updateClippingPlanesControllerLabel();
-    this.updateClippingPlanesControlsVisibility();
-    this.updateEditorToolbarLabels();
-    this.updateEditorToolbarState();
-    updateActiveClippingPlanes();
-  },
-
   updateClippingPlanesControllerLabel() {
     if (core.i18nGui.clippingPlanesController?.name) {
       core.i18nGui.clippingPlanesController.name(this.clippingMode
         ? t("controls.disableClippingPlanesMode", "Disable clipping planes mode")
         : t("controls.enableClippingPlanesMode", "Enable clipping planes mode"));
     }
-  },
-
-  updateClippingPlanesControlsVisibility() {
-    if (this.transformControlClippingPlaneX) {
-      this.transformControlClippingPlaneX.visible = this.clippingMode;
-    }
-    if (this.transformControlClippingPlaneY) {
-      this.transformControlClippingPlaneY.visible = this.clippingMode;
-    }
-    if (this.transformControlClippingPlaneZ) {
-      this.transformControlClippingPlaneZ.visible = this.clippingMode;
-    }
-  },
-
-  toggleClippingPlaneHelper(axis) {
-    const axisIndex = { x: 0, y: 1, z: 2 }[axis];
-    const planeHelper = core.planeHelpers?.[axisIndex];
-    const control = this[`transformControlClippingPlane${axis.toUpperCase()}`];
-    if (!planeHelper) return;
-
-    const active = !Boolean(core.planeParams.clippingMode?.[axis]);
-    core.planeParams.clippingMode[axis] = planeHelper.visible = active;
-
-    if (active) {
-      control?.attach?.(planeHelper);
-      if (core.planeParams.outline.visible) core.outlineClipping.visible = true;
-    } else {
-      control?.detach?.();
-      if (
-        !core.planeParams.clippingMode.x &&
-        !core.planeParams.clippingMode.y &&
-        !core.planeParams.clippingMode.z &&
-        !core.planeParams.outline.visible
-      ) {
-        core.outlineClipping.visible = false;
-      }
-    }
-
-    toastHelper("clippingHelperToggle", "info", {
-      axis: axis.toUpperCase(),
-      state: active,
-    });
-    this.refreshClippingHintVisibility();
-    this.updateClippingPlanesSubmenuState();
-    updateActiveClippingPlanes();
-  },
-
-  toggleClippingPlaneVisible() {
-    const visible = !Boolean(core.planeParams.outline.visible);
-    core.planeParams.outline.visible = visible;
-    if (core.outlineClipping) core.outlineClipping.visible = visible;
-    this.updateClippingPlanesSubmenuState();
   },
 
   refreshClippingHintVisibility() {
@@ -812,6 +722,11 @@ export const Viewer = {
       clippingMode: this.parseClippingModeParam(params.get("clip") || params.get("clippingMode")),
       clippingConstants: this.parseVector3Param(params.get("clipConst") || params.get("clipConstants")),
       clippingOutline: this.parseBooleanParam(params.get("clipOutline")),
+      clippingNegated: (() => {
+        const flipped = params.get("clipFlip");
+        if (flipped == null) return null;
+        return this.parseClippingModeParam(flipped) || { x: false, y: false, z: false };
+      })(),
       // Keep these null when the query param is absent (parseBooleanParam's
       // own "not specified" value) rather than coercing to a hard boolean -
       // the config-driven fallback below (`sandboxModeFromConfig ?? ...`)
@@ -822,80 +737,6 @@ export const Viewer = {
       scale: this.parseVector2Param(params.get("scale")) ?? null,
       showNotifications: this.parseBooleanParam(params.get("showNotifications")),
     };
-  },
-
-  applyClippingOverridesFromUrl() {
-    const clippingMode = this.urlOptions?.clippingMode;
-    const clippingConstants = this.urlOptions?.clippingConstants;
-    const clippingOutline = this.urlOptions?.clippingOutline;
-
-    const hasMode = clippingMode && ["x", "y", "z"].every((axis) => typeof clippingMode[axis] === "boolean");
-    const hasConstants = clippingConstants && Number.isFinite(clippingConstants.x) && Number.isFinite(clippingConstants.y) && Number.isFinite(clippingConstants.z);
-    const hasOutline = typeof clippingOutline === "boolean";
-
-    if (!hasMode && !hasConstants && !hasOutline) return;
-
-    if (hasConstants && core.clippingPlanes?.length >= 3) {
-      const constants = [clippingConstants.x, clippingConstants.y, clippingConstants.z];
-      core.clippingPlanes[0].constant = constants[0];
-      core.clippingPlanes[1].constant = constants[1];
-      core.clippingPlanes[2].constant = constants[2];
-
-      core.planeParams.planeX.constantX = constants[0];
-      core.planeParams.planeY.constantY = constants[1];
-      core.planeParams.planeZ.constantZ = constants[2];
-
-      if (core.clippingFolder?.controllers?.[1]) {
-        core.clippingFolder.controllers[1].setValue(constants[0]);
-      }
-      if (core.clippingFolder?.controllers?.[3]) {
-        core.clippingFolder.controllers[3].setValue(constants[1]);
-      }
-      if (core.clippingFolder?.controllers?.[5]) {
-        core.clippingFolder.controllers[5].setValue(constants[2]);
-      }
-
-      if (core.planeHelpers?.length >= 3) {
-        for (let i = 0; i < 3; i += 1) {
-          const helper = core.planeHelpers[i];
-          const plane = core.clippingPlanes[i];
-          if (!helper || !plane) continue;
-          helper.position.copy(plane.normal).multiplyScalar(-plane.constant);
-          helper.updateMatrixWorld?.(true);
-        }
-      }
-    }
-
-    if (hasMode) {
-      core.planeParams.clippingMode.x = clippingMode.x;
-      core.planeParams.clippingMode.y = clippingMode.y;
-      core.planeParams.clippingMode.z = clippingMode.z;
-
-      if (core.planeHelpers?.[0]) core.planeHelpers[0].visible = clippingMode.x;
-      if (core.planeHelpers?.[1]) core.planeHelpers[1].visible = clippingMode.y;
-      if (core.planeHelpers?.[2]) core.planeHelpers[2].visible = clippingMode.z;
-
-      this.clippingMode = clippingMode.x || clippingMode.y || clippingMode.z;
-    }
-
-    if (hasOutline) {
-      core.planeParams.outline.visible = clippingOutline;
-    }
-
-    if (core.outlineClipping) {
-      const hasActiveClipping = Boolean(
-        core.planeParams?.clippingMode?.x ||
-        core.planeParams?.clippingMode?.y ||
-        core.planeParams?.clippingMode?.z
-      );
-      core.outlineClipping.visible = hasOutline ? clippingOutline : hasActiveClipping;
-    }
-
-    this.updateClippingPlanesControllerLabel();
-    this.updateClippingPlanesControlsVisibility();
-    this.updateClippingPlanesSubmenuState();
-    this.refreshClippingHintVisibility();
-    updateActiveClippingPlanes();
   },
 
   setGuiFolderTitle(folder, title) {
@@ -1429,13 +1270,9 @@ export const Viewer = {
     Viewer.transformText["Transform Light"] = "";
     Viewer.pickingMode = false;
     Viewer.RULER_MODE = false;
-    this.clippingMode = false;
-    if (core.planeParams?.clippingMode) {
-      core.planeParams.clippingMode.x = false;
-      core.planeParams.clippingMode.y = false;
-      core.planeParams.clippingMode.z = false;
-    }
-    updateActiveClippingPlanes();
+    // Section planes stay as they are; refreshClippingForModel() fits them
+    // to the next model.
+    Viewer.cancelClippingDrag();
     Viewer.updateEditorToolbarLabels();
     Viewer.updateEditorToolbarState();
 
@@ -2530,56 +2367,12 @@ export const Viewer = {
     Viewer.distanceGeometry = _distance;
     setCore("distanceGeometry", Viewer.distanceGeometry);
 
-    if (core.clippingPlanes?.length >= 3) {
-      core.clippingPlanes[0].constant = _distance.x;
-      core.clippingPlanes[1].constant = _distance.y;
-      core.clippingPlanes[2].constant = _distance.z;
-    }
-
-    Viewer.planeParams.planeX.constantX = _distance.x;
-    Viewer.planeParams.planeY.constantY = _distance.y;
-    Viewer.planeParams.planeZ.constantZ = _distance.z;
-
-    if (core.clippingFolder?.controllers?.[1]) {
-      core.clippingFolder.controllers[1]._max = _distance.x;
-      core.clippingFolder.controllers[1]._min = -_distance.x;
-      core.clippingFolder.controllers[1].setValue(_distance.x);
-      core.clippingFolder.controllers[1].updateDisplay();
-    }
-    if (core.clippingFolder?.controllers?.[3]) {
-      core.clippingFolder.controllers[3]._max = _distance.y;
-      core.clippingFolder.controllers[3]._min = -_distance.y;
-      core.clippingFolder.controllers[3].setValue(_distance.y);
-      core.clippingFolder.controllers[3].updateDisplay();
-    }
-    if (core.clippingFolder?.controllers?.[5]) {
-      core.clippingFolder.controllers[5]._max = _distance.z;
-      core.clippingFolder.controllers[5]._min = -_distance.z;
-      core.clippingFolder.controllers[5].setValue(_distance.z);
-      core.clippingFolder.controllers[5].updateDisplay();
-    }
-
-    if (Viewer.planeHelpers?.length >= 3 && core.clippingPlanes?.length >= 3) {
-      for (let i = 0; i < 3; i++) {
-        const helper = Viewer.planeHelpers[i];
-        const plane = core.clippingPlanes[i];
-        if (!helper || !plane) continue;
-        helper.position.copy(plane.normal).multiplyScalar(-plane.constant);
-        if (i === 0 || i === 2) {
-          helper.userData.clippingCenterY = center.y;
-          helper.updateMatrixWorld(true);
-        }
-      }
-    }
-
     var _maxDistance = Math.max(_distance.x, _distance.y, _distance.z);
-    Viewer.planeHelpers?.forEach(h => h && (h.size = _maxDistance));
 
     core.boundingSphere = new THREE.Sphere(center, _maxDistance);
     core.boundingSphere.center.copy(center);
-    if (typeof core.updateActiveClippingPlanes === "function") {
-      core.updateActiveClippingPlanes();
-    }
+    // Keep the section planes at the same relative place on the moved model.
+    Viewer.refreshClippingForModel();
   },
 
   changeLightRotation() {
@@ -2716,55 +2509,6 @@ export const Viewer = {
 
     this.applyClippingOverridesFromUrl();
 
-  },
-
-  createClippingPlaneAxis(_number, axis = "z") {
-    var tempClippingControl = new TransformControls(core.camera, core.renderer.domElement);
-    tempClippingControl.space = "world";
-    tempClippingControl.setMode("translate");
-    tempClippingControl.showX = axis === "x";
-    tempClippingControl.showY = axis === "y";
-    tempClippingControl.showZ = axis === "z";
-    tempClippingControl.addEventListener("change", Viewer.render);
-    tempClippingControl.addEventListener("objectChange", function (event) {
-      if (event.target === undefined || event.target.object === undefined) {
-        return;
-      }
-      let newConstant;
-      switch (_number) {
-        case 0:
-          newConstant = event.target.worldPositionStart.x + event.target.pointEnd.x;
-          core.clippingPlanes[_number].constant = newConstant;
-          core.planeParams.planeX.constantX = newConstant;
-          if (core.clippingFolder.controllers[1]) {
-            core.clippingFolder.controllers[1].setValue(newConstant);
-          }
-          core.planeHelpers[0].position.copy(core.clippingPlanes[0].normal).multiplyScalar(-newConstant);
-          break;
-        case 1:
-          newConstant = event.target.worldPositionStart.y + event.target.pointEnd.y;
-          core.clippingPlanes[_number].constant = newConstant;
-          core.planeParams.planeY.constantY = newConstant;
-          if (core.clippingFolder.controllers[3]) {
-            core.clippingFolder.controllers[3].setValue(newConstant);
-          }
-          core.planeHelpers[1].position.copy(core.clippingPlanes[1].normal).multiplyScalar(-newConstant);
-          break;
-        case 2:
-          newConstant = event.target.worldPositionStart.z + event.target.pointEnd.z;
-          core.clippingPlanes[_number].constant = newConstant;
-          core.planeParams.planeZ.constantZ = newConstant;
-          if (core.clippingFolder.controllers[5]) {
-            core.clippingFolder.controllers[5].setValue(newConstant);
-          }
-          core.planeHelpers[2].position.copy(core.clippingPlanes[2].normal).multiplyScalar(-newConstant);
-          break;
-      }
-    });
-    tempClippingControl.addEventListener("dragging-changed", function (event) {
-      core.controls.enabled = !event.value;
-    });
-    return tempClippingControl;
   },
 
   resetCamera() {
@@ -3803,13 +3547,6 @@ export const Viewer = {
         core.scene.add(Viewer.transformControlLightTarget.getHelper());
         setCore('transformControlLightTarget', Viewer.transformControlLightTarget);
 
-        Viewer.transformControlClippingPlaneX = Viewer.createClippingPlaneAxis(0, "x");
-        Viewer.transformControlClippingPlaneY = Viewer.createClippingPlaneAxis(1, "y");
-        Viewer.transformControlClippingPlaneZ = Viewer.createClippingPlaneAxis(2, "z");
-        setCore('transformControlClippingPlaneX', Viewer.transformControlClippingPlaneX);
-        setCore('transformControlClippingPlaneY', Viewer.transformControlClippingPlaneY);
-        setCore('transformControlClippingPlaneZ', Viewer.transformControlClippingPlaneZ);
-
         setCore('clippingPlanes', Viewer.clippingPlanes);
         setCore('selectObjectHierarchy', Viewer.selectObjectHierarchy);
 
@@ -4073,6 +3810,7 @@ attachPicking(Viewer);
 attachMeasurement(Viewer);
 attachAnimations(Viewer);
 attachViewHelper(Viewer);
+attachClipping(Viewer);
 attachEmbedConfigurator(Viewer);
 attachLoginPanel(Viewer);
 attachUploadPanel(Viewer);

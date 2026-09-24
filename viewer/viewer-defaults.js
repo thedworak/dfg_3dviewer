@@ -234,7 +234,7 @@ export const VIEWER_DEFAULTS = {
       displayHelperZ: false,
     },
     outline: {
-      visible: false,
+      visible: true,
     },
     clippingMode: {
       x: false,

@@ -378,6 +378,8 @@ export const VIEWER_I18N = {
       shadingModeApplied: "Shading mode set to {mode}.",
       angleHint: "Click a start point, the vertex and an end point to measure an angle.",
       areaHint: "Click the corners of an area. Click the first point again or press Enter to close it.",
+      clippingEnabled: "Section planes are on. Drag a coloured plane or use the sliders.",
+      clippingDisabled: "Section planes are off.",
     },
     animation: {
       player: "Animation player",
@@ -410,6 +412,14 @@ export const VIEWER_I18N = {
         angle: "Click a start point, the vertex and an end point.",
         area: "Click the corners of an area; click the first point again or press Enter to close it.",
       },
+    },
+    clipping: {
+      title: "Section planes",
+      toggleAxis: "Cut along {axis}",
+      position: "{axis} position",
+      flip: "Flip the kept side",
+      fill: "Section fill",
+      reset: "Reset",
     },
     shortcuts: {
       title: "Controls",
@@ -800,6 +810,8 @@ export const VIEWER_I18N = {
       shadingModeApplied: "Ustawiono tryb cieniowania: {mode}.",
       angleHint: "Kliknij punkt początkowy, wierzchołek i punkt końcowy, aby zmierzyć kąt.",
       areaHint: "Klikaj narożniki obszaru. Kliknij ponownie pierwszy punkt lub naciśnij Enter, aby go zamknąć.",
+      clippingEnabled: "Przekroje są włączone. Przeciągnij kolorową płaszczyznę lub użyj suwaków.",
+      clippingDisabled: "Przekroje są wyłączone.",
     },
     animation: {
       player: "Odtwarzacz animacji",
@@ -832,6 +844,14 @@ export const VIEWER_I18N = {
         angle: "Kliknij punkt początkowy, wierzchołek i punkt końcowy.",
         area: "Klikaj narożniki obszaru; kliknij ponownie pierwszy punkt lub naciśnij Enter, aby go zamknąć.",
       },
+    },
+    clipping: {
+      title: "Przekroje",
+      toggleAxis: "Przekrój wzdłuż {axis}",
+      position: "Położenie {axis}",
+      flip: "Odwróć zachowaną stronę",
+      fill: "Wypełnienie przekroju",
+      reset: "Resetuj",
     },
     shortcuts: {
       title: "Sterowanie",
@@ -1221,6 +1241,8 @@ export const VIEWER_I18N = {
       shadingModeApplied: "Schattierungsmodus auf {mode} gesetzt.",
       angleHint: "Klicken Sie einen Startpunkt, den Scheitelpunkt und einen Endpunkt an, um einen Winkel zu messen.",
       areaHint: "Klicken Sie die Ecken einer Fläche an. Klicken Sie erneut auf den ersten Punkt oder drücken Sie Enter, um sie zu schließen.",
+      clippingEnabled: "Schnittebenen sind aktiv. Ziehen Sie eine farbige Ebene oder nutzen Sie die Schieberegler.",
+      clippingDisabled: "Schnittebenen sind deaktiviert.",
     },
     animation: {
       player: "Animationsplayer",
@@ -1253,6 +1275,14 @@ export const VIEWER_I18N = {
         angle: "Klicken Sie einen Startpunkt, den Scheitelpunkt und einen Endpunkt an.",
         area: "Klicken Sie die Ecken einer Fläche an; klicken Sie erneut auf den ersten Punkt oder drücken Sie Enter, um sie zu schließen.",
       },
+    },
+    clipping: {
+      title: "Schnittebenen",
+      toggleAxis: "Schnitt entlang {axis}",
+      position: "Position {axis}",
+      flip: "Behaltene Seite umkehren",
+      fill: "Schnittfüllung",
+      reset: "Zurücksetzen",
     },
     shortcuts: {
       title: "Steuerung",

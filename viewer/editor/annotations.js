@@ -914,6 +914,7 @@ export function attachAnnotations(Viewer) {
                 Number(core.clippingPlanes?.[2]?.constant ?? core.planeParams?.planeZ?.constantZ ?? 0),
               ],
               outlineVisible: core.planeParams?.outline?.visible === true,
+              negated: this.getClippingNegatedState?.(),
             }
           },
 
@@ -1057,7 +1058,15 @@ export function attachAnnotations(Viewer) {
         ? clippingConfig.outlineVisible
         : (typeof clippingConfig.outline === "boolean" ? clippingConfig.outline : null);
 
-      if (!constants && !mode && typeof outlineVisible !== "boolean") return false;
+      const negated = clippingConfig.negated && typeof clippingConfig.negated === "object"
+        ? {
+            x: clippingConfig.negated.x === true,
+            y: clippingConfig.negated.y === true,
+            z: clippingConfig.negated.z === true,
+          }
+        : null;
+
+      if (!constants && !mode && !negated && typeof outlineVisible !== "boolean") return false;
 
       const previousUrlOptions = this.urlOptions;
       this.urlOptions = {
@@ -1067,6 +1076,7 @@ export function attachAnnotations(Viewer) {
           ? new THREE.Vector3(constants[0], constants[1], constants[2])
           : null,
         clippingOutline: outlineVisible,
+        clippingNegated: negated,
       };
 
       try {

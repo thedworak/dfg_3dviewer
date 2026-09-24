@@ -1,14 +1,29 @@
 /* Animation player, measurement labels and measurement readout. */
 
-.viewer-animation-player {
+/* Top-right column holding the floating tool panels (ui/side-stack.js). */
+.viewer-side-stack {
   position: absolute;
   top: 12px;
   right: 12px;
   z-index: 115;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-end;
   gap: 8px;
   max-width: calc(100% - 200px);
+  pointer-events: none;
+}
+
+.viewer-side-stack > * {
+  pointer-events: auto;
+  flex-shrink: 0;
+}
+
+.viewer-animation-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
   padding: 6px 10px;
   border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
   border-radius: 12px;
@@ -100,13 +115,8 @@
 }
 
 .viewer-measure-readout {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 115;
-  width: min(280px, calc(100% - 24px));
-  max-height: calc(100% - 140px);
-  overflow: auto;
+  width: 280px;
+  max-width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
   border-radius: 12px;
@@ -115,11 +125,6 @@
   color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
   font: 13px/1.35 system-ui, sans-serif;
   backdrop-filter: blur(6px);
-}
-
-/* Keep clear of the animation player bar at the top. */
-:has(> .viewer-animation-player) > .viewer-measure-readout {
-  top: 60px;
 }
 
 .viewer-measure-readout[hidden] {
@@ -179,4 +184,106 @@
 
 .viewer-measure-readout_actions button:hover {
   background: var(--viewer-gui-widget-hover-bg, rgba(255, 255, 255, 0.2));
+}
+
+.viewer-clipping-panel {
+  width: 280px;
+  max-width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 12px;
+  background: var(--viewer-panel-bg, rgba(17, 24, 39, 0.82));
+  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(15, 23, 42, 0.28));
+  color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
+  font: 13px/1.35 system-ui, sans-serif;
+  backdrop-filter: blur(6px);
+}
+
+.viewer-clipping-panel[hidden] {
+  display: none;
+}
+
+.viewer-clipping-panel_title {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.viewer-clipping-panel_row {
+  --axis-color: #e53935;
+  display: grid;
+  grid-template-columns: 30px 1fr 40px 30px;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.viewer-clipping-panel_row[data-axis="y"] { --axis-color: #43a047; }
+.viewer-clipping-panel_row[data-axis="z"] { --axis-color: #1e88e5; }
+
+.viewer-clipping-panel button {
+  height: 26px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.viewer-clipping-panel button:hover {
+  background: var(--viewer-gui-widget-hover-bg, rgba(255, 255, 255, 0.2));
+}
+
+.viewer-clipping-panel_axis {
+  font-weight: 700;
+  color: var(--axis-color) !important;
+}
+
+.viewer-clipping-panel_axis[aria-pressed="true"] {
+  background: var(--axis-color) !important;
+  border-color: var(--axis-color) !important;
+  color: #fff !important;
+}
+
+.viewer-clipping-panel_slider {
+  width: 100%;
+  min-width: 0;
+  accent-color: var(--axis-color);
+}
+
+.viewer-clipping-panel_row:not(.is-enabled) .viewer-clipping-panel_slider,
+.viewer-clipping-panel_row:not(.is-enabled) .viewer-clipping-panel_value,
+.viewer-clipping-panel_row:not(.is-enabled) .viewer-clipping-panel_flip {
+  opacity: 0.45;
+}
+
+.viewer-clipping-panel_value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.viewer-clipping-panel_flip[aria-pressed="true"] {
+  background: var(--viewer-gui-widget-focus-bg, rgba(76, 110, 245, 0.85)) !important;
+  color: #fff;
+}
+
+.viewer-clipping-panel_actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+}
+
+.viewer-clipping-panel_actions button {
+  padding: 0 10px;
+}
+
+.viewer-clipping-panel_fill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
 }

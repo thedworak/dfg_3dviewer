@@ -51,13 +51,14 @@ export const updateActiveClippingPlanes = () => {
     });
   };
 
-  if (core.scene) {
-    core.scene.traverse((child) => {
-      if (child.material) {
-        updateMat(child.material);
-      }
-    });
-  }
+  // Tool overlays (section plane quads, measurements) flag themselves with
+  // userData.noClipping so the cut never hides them.
+  const visit = (node) => {
+    if (!node || node.userData?.noClipping) return;
+    if (node.material) updateMat(node.material);
+    node.children?.forEach(visit);
+  };
+  visit(core.scene);
   if (core.outlineClipping) {
     core.outlineClipping.traverse?.((child) => {
       if (child.material) {
@@ -66,9 +67,6 @@ export const updateActiveClippingPlanes = () => {
     });
   }
 };
-
-const scaleXYZ = (v, s) =>
-  ['x', 'y', 'z'].forEach(k => v[k] *= s);
 
 const DEFAULT_NOTICE_DURATION = 4200;
 
@@ -894,7 +892,7 @@ async function fitCameraToCenteredObject(object, _fit, cfg) {
     };
   }
   if (!core.PRESENTATION_MODE) {
-    setupClippingPlanes(object, {x: boundingBox.max.x*1.1, y: boundingBox.max.y*1.1, z: boundingBox.max.z*1.1});
+    setupClippingPlanes(object);
   }
 
 }
@@ -1010,195 +1008,9 @@ export function changeBackground(_type, _color1, _color2 = _color1, _alpha = 100
   }
 }
 
-function setupClippingPlanes(_geom, _distance) {
-  /*var _geometry;
-  if (_geom.isGroup)
-    _geometry = _geom.children;
-  else
-    _geometry = _geom.geometry.clone();*/
-  core.clippingPlanes[0].constant = _distance.x;
-  core.clippingPlanes[1].constant = _distance.y;
-  core.clippingPlanes[2].constant = _distance.z;
-  let clippingCenterY = 0;
-  if (_geom) {
-    const bounds = new THREE.Box3();
-    if (Array.isArray(_geom)) {
-      for (let i = 0; i < _geom.length; i++) {
-        bounds.union(new THREE.Box3().setFromObject(_geom[i], true));
-      }
-    } else {
-      bounds.setFromObject(_geom, true);
-    }
-    if (!bounds.isEmpty()) {
-      clippingCenterY = bounds.getCenter(new THREE.Vector3()).y;
-    }
-  }
-  const updatePlaneHelperPosition = (index, constantValue) => {
-    const helper = core.planeHelpers?.[index];
-    const plane = core.clippingPlanes?.[index];
-    if (!helper || !plane) return;
-    helper.position.copy(plane.normal).multiplyScalar(-constantValue);
-  };
-  if (core.EDITOR) {
-
-  if (core.transformControlClippingPlaneX && core.transformControlClippingPlaneY && core.transformControlClippingPlaneZ) {
-    core.scene.add(core.transformControlClippingPlaneX?.getHelper());
-    core.scene.add(core.transformControlClippingPlaneY?.getHelper());
-    core.scene.add(core.transformControlClippingPlaneZ?.getHelper());
-  }
-
-  let planeColor = new THREE.Color(0xffffff).getHexString();
-  if (core.scene.background != null) planeColor = core.scene.background.getHexString();
-
-  core.planeHelpers = core.clippingPlanes.map(
-    (p) => new THREE.PlaneHelper(p, core.gridSize * 2, invertHexColor(planeColor))
-  );
-  core.planeHelpers.forEach((ph, index) => {
-    ph.visible = false;
-    ph.name = "PlaneHelper";
-    updatePlaneHelperPosition(index, core.clippingPlanes[index].constant);
-    if (index === 0 || index === 2) {
-      ph.userData.clippingCenterY = clippingCenterY;
-      const baseUpdateMatrixWorld = ph.updateMatrixWorld.bind(ph);
-      ph.updateMatrixWorld = function updatePlaneHelperMatrix(force) {
-        baseUpdateMatrixWorld(force);
-        this.position.y = this.userData.clippingCenterY || 0;
-        this.updateMatrix();
-        if (this.parent) {
-          this.matrixWorld.multiplyMatrices(this.parent.matrixWorld, this.matrix);
-        } else {
-          this.matrixWorld.copy(this.matrix);
-        }
-        for (let i = 0; i < this.children.length; i++) {
-          this.children[i].updateMatrixWorld(true);
-        }
-      };
-      core.scene.add(ph);
-    } else {
-      core.scene.add(ph);
-    }
-  });
-
-  core.distanceGeometry = _distance;
-  scaleXYZ(core.distanceGeometry, 2);
-  const showClippingPlaneToast = (axisLabel, enabled) => {
-    toastHelper("clippingHelperToggle", "info", {
-      axis: axisLabel,
-      state: enabled
-    });
-  };
-  const refreshClippingHint = () => {
-    const update = core.updateClippingHintVisibility;
-    if (typeof update === "function") {
-      update();
-      return;
-    }
-    if (!core.clippingHint || !core.planeParams?.clippingMode) return;
-    const mode = core.planeParams.clippingMode;
-    core.clippingHint.hidden = !(mode.x || mode.y || mode.z);
-  };
-  const tr = (key, fallback) => window?.Viewer?.t?.(key, fallback) ?? fallback;
-  let displayHelper = {x: getOrAddGuiController(core.planeParams.planeX, "displayHelperX"), constantX: getOrAddGuiController(core.planeParams.planeX, "constantX"), y: getOrAddGuiController(core.planeParams.planeY, "displayHelperY"), constantY: getOrAddGuiController(core.planeParams.planeY, "constantY"), z: getOrAddGuiController(core.planeParams.planeZ, "displayHelperZ"), constantZ: getOrAddGuiController(core.planeParams.planeZ, "constantZ"), outline: getOrAddGuiController(core.planeParams.outline, "visible")};
-  displayHelper.x?.name?.(tr("gui.displayHelperX", "Show X helper"));
-  displayHelper.constantX?.name?.(tr("gui.constantX", "Constant X"));
-  displayHelper.y?.name?.(tr("gui.displayHelperY", "Show Y helper"));
-  displayHelper.constantY?.name?.(tr("gui.constantY", "Constant Y"));
-  displayHelper.z?.name?.(tr("gui.displayHelperZ", "Show Z helper"));
-  displayHelper.constantZ?.name?.(tr("gui.constantZ", "Constant Z"));
-  displayHelper.outline?.name?.(tr("gui.visible", "Visible"));
-  displayHelper.x?.onChange((v) => {
-      core.planeParams.clippingMode.x = core.planeHelpers[0].visible = v;
-      if (v) {
-        core.transformControlClippingPlaneX.attach(core.planeHelpers[0]);
-        if (core.planeParams.outline.visible) core.outlineClipping.visible = true;
-      } else {
-        core.transformControlClippingPlaneX.detach();
-        if (
-          !core.planeParams.clippingMode.y &&
-          !core.planeParams.clippingMode.z &&
-          !core.planeParams.outline.visible
-        )
-          core.outlineClipping.visible = false;
-      }
-      showClippingPlaneToast("X", v);
-      refreshClippingHint();
-      updateActiveClippingPlanes();
-    });
-
-    displayHelper?.constantX.min(-core.distanceGeometry.x)
-      .max(core.distanceGeometry.x)
-      .setValue(core.distanceGeometry.x)
-      .step(core.gridSize / 100)
-      .listen()
-      .onChange((d) => {
-        core.clippingPlanes[0].constant = d;
-        updatePlaneHelperPosition(0, d);
-      });
-
-    displayHelper.y?.onChange((v) => {
-      core.planeParams.clippingMode.y = core.planeHelpers[1].visible = v;
-      if (v) {
-        core.transformControlClippingPlaneY.attach(core.planeHelpers[1]);
-        if (core.planeParams.outline.visible) core.outlineClipping.visible = true;
-      } else {
-        core.transformControlClippingPlaneY.detach();
-        if (
-          !core.planeParams.clippingMode.x &&
-          !core.planeParams.clippingMode.z &&
-          !core.planeParams.outline.visible
-        )
-          core.outlineClipping.visible = false;
-      }
-      showClippingPlaneToast("Y", v);
-      refreshClippingHint();
-      updateActiveClippingPlanes();
-    });
-    displayHelper?.constantY
-      .min(-core.distanceGeometry.y)
-      .max(core.distanceGeometry.y)
-      .setValue(core.distanceGeometry.y)
-      .step(core.gridSize / 100)
-      .listen()
-      .onChange((d) => {
-        core.clippingPlanes[1].constant = d;
-        updatePlaneHelperPosition(1, d);
-      });
-  
-    displayHelper.z?.onChange((v) => {
-      core.planeParams.clippingMode.z = core.planeHelpers[2].visible = v;
-      if (v) {
-        core.transformControlClippingPlaneZ.attach(core.planeHelpers[2]);
-        if (core.planeParams.outline.visible) core.outlineClipping.visible = true;
-      } else {
-        core.transformControlClippingPlaneZ.detach();
-        if (
-          !core.planeParams.clippingMode.x &&
-          !core.planeParams.clippingMode.y &&
-          !core.planeParams.outline.visible
-        )
-          core.outlineClipping.visible = false;
-      }
-      showClippingPlaneToast("Z", v);
-      refreshClippingHint();
-      updateActiveClippingPlanes();
-    });
-    displayHelper?.constantZ
-      .min(-core.distanceGeometry.z)
-      .max(core.distanceGeometry.z)
-      .setValue(core.distanceGeometry.z)
-      .step(core.gridSize / 100)
-      .listen()
-      .onChange((d) => {
-        core.clippingPlanes[2].constant = d;
-        updatePlaneHelperPosition(2, d);
-      });
-
-    displayHelper.outline.onChange((v) => {
-      core.outlineClipping.visible = v;
-    });
-    refreshClippingHint();
-    updateActiveClippingPlanes();
-  }
+// Fits the section planes to the freshly positioned model; see editor/clipping.js.
+function setupClippingPlanes(_geom) {
+  window.Viewer?.refreshClippingForModel?.(_geom);
 }
 
 

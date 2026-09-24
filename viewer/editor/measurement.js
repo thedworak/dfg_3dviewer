@@ -1,6 +1,7 @@
 import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { toastHelper } from "../viewer-utils.js";
+import { getViewerSideStack } from "../ui/side-stack.js";
 import THREE from "../init.js";
 
 // Measurement tools behind the ruler button:
@@ -254,6 +255,7 @@ export function attachMeasurement(Viewer) {
     startMeasurementDraft(mode) {
       const group = new THREE.Group();
       group.userData.isMeasurement = true;
+      group.userData.noClipping = true;
       core.scene.add(group);
       Viewer.ruler.push(group);
       const draft = { mode, points: [], group, labels: [] };
@@ -409,6 +411,7 @@ export function attachMeasurement(Viewer) {
       helper.material.transparent = true;
       helper.renderOrder = 998;
       helper.userData.isMeasurement = true;
+      helper.userData.noClipping = true;
       core.scene.add(helper);
 
       const size = box.getSize(new THREE.Vector3());
@@ -496,7 +499,8 @@ export function attachMeasurement(Viewer) {
 
     ensureMeasurementReadout() {
       if (Viewer.measurementReadout?.isConnected) return Viewer.measurementReadout;
-      if (!core.container) return null;
+      const stack = getViewerSideStack();
+      if (!stack) return null;
       const panel = document.createElement("div");
       panel.id = "viewerMeasurementReadout";
       panel.className = "viewer-measure-readout";
@@ -504,7 +508,7 @@ export function attachMeasurement(Viewer) {
       ["pointerdown", "pointerup", "wheel", "keydown"].forEach((type) => {
         panel.addEventListener(type, (event) => event.stopPropagation());
       });
-      core.container.appendChild(panel);
+      stack.appendChild(panel);
       Viewer.measurementReadout = panel;
       return panel;
     },

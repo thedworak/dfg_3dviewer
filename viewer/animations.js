@@ -1,6 +1,7 @@
 import THREE from "./init.js";
 import { core } from "./core.js";
 import { t } from "./i18n-utils.js";
+import { getViewerSideStack } from "./ui/side-stack.js";
 
 // Playback of animation clips shipped with the loaded model (glTF/GLB, FBX,
 // DAE, KMZ, three.js JSON). Loaders leave the clips on `object.animations`;
@@ -302,7 +303,8 @@ export function attachAnimations(Viewer) {
       });
       loopButton.addEventListener("click", () => Viewer.setAnimationLoop(!state.loop));
 
-      core.container.appendChild(bar);
+      const stack = getViewerSideStack();
+      stack.prepend(bar);
       state.ui = { bar, playButton, clipSelect, timeline, timeLabel, speedSelect, loopButton };
       Viewer.updateAnimationPlayerLabels();
     },

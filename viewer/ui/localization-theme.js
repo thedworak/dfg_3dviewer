@@ -132,6 +132,8 @@ export function attachLocalizationTheme(viewer) {
       this.updateDownloadMenuEntryLabel();
       this.updateEditorToolbarLabels();
       this.updateAnimationPlayerLabels?.();
+      this.updateClippingGuiLabels?.();
+      this.updateClippingPanel?.();
       this.updateEditorToolbarState();
       this.updatePickingModeControllerLabel();
       this.updateDistanceMeasurementControllerLabel();

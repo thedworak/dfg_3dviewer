@@ -424,6 +424,7 @@ export async function loadModel() {
     }
     core.mainObject.push(object);
     window.Viewer?.setupModelAnimations?.(object);
+    window.Viewer?.refreshClippingForModel?.(object);
 
     updateLoadingStage("loadingLog.compilingShaders", 99);
     await syncSceneEnvironment(core.environmentMapEnabled !== false);

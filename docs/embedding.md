@@ -28,6 +28,7 @@ This is the current built runtime entry pattern. The viewer reads the `3d` attri
 - `animationAutoplay` — `0` loads the animation paused on its first frame
 - `animationSpeed` — playback speed, e.g. `0.5`
 - `viewHelper` — `0` hides the axes gizmo
+- `clip` — active section planes, e.g. `xy`; `clipConst` — their plane constants `x,y,z`; `clipFlip` — axes whose kept side is flipped, e.g. `y`; `clipOutline` — `0` hides the section fill
 
 Example:
 

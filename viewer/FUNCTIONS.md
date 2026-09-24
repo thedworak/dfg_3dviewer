@@ -123,6 +123,28 @@ Measurement tools in the ruler button's submenu. Lengths use `viewer.measurement
   - Remove all measurements, their labels and the dimensions box.
 
 
+## `viewer/editor/clipping.js`
+
+Section planes, one per world axis. State stays in `core.clippingPlanes` and `core.planeParams` (read by manifests, share links and the embed configurator); each cut is also kept as a fraction of the model's bounding box, so it stays in the same relative place when the model is moved or replaced.
+
+- `Viewer.toggleClippingPlanesPanel()`
+  - Turn the tool on (restores the previously active axes, X on first use, cut at the model's centre) or off.
+
+- `Viewer.setClippingAxisEnabled(axis, enabled)` / `Viewer.setClippingAxisPosition(axis, worldPosition)` / `Viewer.setClippingAxisNegated(axis, negated)`
+  - Control one plane. A plane keeps the part of the model below its position; negated keeps the part above.
+
+- `Viewer.setClippingFillVisible(visible)` / `Viewer.resetClippingPlanes()`
+  - Section fill (red interior) on/off; move all planes back to the centre.
+
+- `Viewer.refreshClippingForModel(object)`
+  - Fit the planes to the model's bounds. Called after loading and after the model is transformed.
+
+- `Viewer.applyClippingOverridesFromUrl()`
+  - Apply `clip`, `clipConst`, `clipFlip` and `clipOutline` (also used for manifest `clipping` settings).
+
+Planes are dragged directly in the scene (the coloured quads) or with the sliders in the section-planes panel.
+
+
 ## `viewer/loaders.js`
 
 `viewer/loaders.js` contains model loaders, environment sync logic, and loading progress/error handlers.
