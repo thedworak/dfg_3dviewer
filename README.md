@@ -82,7 +82,8 @@ The topics below used to live in this file; they now have their own page in [`do
 | IGES / IGS | – | ✅ ⁹ |
 | 3D Tiles (`tileset.json`) | ✅ ¹⁰ | – |
 | Potree 2 (`metadata.json`) | ✅ ¹⁰ | – |
-| LAS / LAZ / E57 (point clouds) | – | 3D Tiles ¹¹ |
+| LAS / LAZ (point clouds) | ✅ ¹² | 3D Tiles ¹¹ |
+| E57 (point clouds) | – | 3D Tiles ¹¹ |
 
 > - ¹ via Blender (`scripts/convert.sh`)
 > - ² via `IfcConvert` (+ metadata export, see below)
@@ -95,6 +96,7 @@ The topics below used to live in this file; they now have their own page in [`do
 > - ⁹ via OpenCASCADE (`cascadio`, standalone worker)
 > - ¹⁰ streamed level of detail via `3d-tiles-renderer`
 > - ¹¹ converted to a streamed 3D Tiles tileset via `py3dtiles` (standalone worker); a PLY without faces is treated the same way
+> - ¹² loaded directly (loaders.gl + laz-perf), thinned above `viewer.pointCloud.maxPoints`; convert large scans to 3D Tiles for full-resolution streaming
 >
 > Not added on purpose: VTK (its three.js loader is deprecated and scheduled for removal), LDraw (needs a separate parts library), 3DM (needs the extra `rhino3dm` runtime) and PDB/MD2/NRRD/GCode/BVH (not general model formats).
 

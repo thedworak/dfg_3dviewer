@@ -2,7 +2,7 @@
 import { test, expect } from '@playwright/test';
 
 const defaultModel = '/examples/box.stl';
-const supportedFormatsText = 'GLB, GLTF, OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, USD, USDA, USDC, USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO';
+const supportedFormatsText = 'GLB, GLTF, OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, USD, USDA, USDC, USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO, LAS, LAZ';
 const sandboxDropMessage = 'Drag and drop a 3D model into the viewer.';
 const sandboxSupportedFormatsNotice = `<strong>Supported formats</strong>: ${supportedFormatsText}\n`;
 const sandboxSupportedArchiveFormatsNotice = 'and <strong>archive formats</strong>: ZIP, RAR, TAR, XZ, GZ.';
@@ -25,6 +25,8 @@ const supportedExamples = [
   { format: 'wrl', path: '/examples/box.wrl' },
   { format: 'kmz', path: '/examples/box.kmz' },
   { format: 'vox', path: '/examples/box.vox' },
+  { format: 'las', path: '/examples/points.las' },
+  { format: 'laz', path: '/examples/points.laz' },
 ];
 
 async function openViewer(page, modelPath = defaultModel) {
@@ -634,20 +636,59 @@ test('streams a 3D Tiles point cloud and keeps annotations off it', async ({ pag
     return {
       tiled: root.userData?.isTiledModel === true,
       points,
-      // Grounded and centred like any other model (tileset bounds, not just the root tile).
-      minY: Math.round(box.min.y),
+      size: box.getSize(new THREE.Vector3()).toArray().map(Math.round),
       centerX: Math.round((box.min.x + box.max.x) / 2),
+      centerZ: Math.round((box.min.z + box.max.z) / 2),
       errors: window.viewer?.errors?.length ?? 0,
     };
   });
   expect(scene.tiled).toBe(true);
   expect(scene.points).toBeGreaterThan(1000);
-  expect(scene.minY).toBe(0);
-  expect(scene.centerX).toBe(0);
+  // Turned from Z-up to Y-up: the synagogue is about 1875 units tall, 2780 wide.
+  expect(scene.size[1]).toBeGreaterThan(1700);
+  expect(scene.size[1]).toBeLessThan(2000);
+  expect(scene.size[0]).toBeGreaterThan(2500);
+  // Centred on the origin (ECEF-far or not) - whether it is also grounded on
+  // the grid depends on the viewer configuration, as for any model.
+  expect(Math.abs(scene.centerX)).toBeLessThan(100);
+  expect(Math.abs(scene.centerZ)).toBeLessThan(150);
   expect(scene.errors).toBe(0);
 
   await page.evaluate(() => window.Viewer.openAnnotationDialogWithAutoPicking());
   await expect(page.locator('#annotationDialog')).toHaveCount(0);
+});
+
+test('LAZ point clouds load directly, re-centred in double precision', async ({ page }) => {
+  await openViewer(page, '/examples/points.laz');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+  const cloud = await page.evaluate(() => {
+    const root = window.Viewer.resolveObjectByTargetId('m0:root');
+    const points = root.children.find((child) => child.isPoints);
+    const info = points.userData.pointCloud;
+    const box = new THREE.Box3().setFromObject(root, true);
+    const color = points.geometry.getAttribute('color');
+    return {
+      count: points.geometry.getAttribute('position').count,
+      info,
+      // Sampled across the cloud (the first points are the black plinth).
+      colorVaries: new Set(Array.from({ length: 200 }, (_, i) => color.array[i * 1500])).size > 10,
+      // Metres: about 28 x 19 x 24 m; must not collapse or explode from
+      // float32 rounding of the ~5.5 million m UTM coordinates.
+      size: box.getSize(new THREE.Vector3()).toArray().map(Math.round),
+      centerX: Math.round((box.min.x + box.max.x) / 2),
+    };
+  });
+  expect(cloud.count).toBe(100000);
+  expect(cloud.info.colorMode).toBe('rgb');
+  expect(cloud.info.skip).toBe(1);
+  expect(cloud.info.originOffset[1]).toBeGreaterThan(5_000_000);
+  expect(cloud.colorVaries).toBe(true);
+  // Height along Y (turned from Z-up).
+  expect(cloud.size[1]).toBeGreaterThan(15);
+  expect(cloud.size[1]).toBeLessThan(22);
+  expect(cloud.size[0]).toBeGreaterThan(25);
+  expect(cloud.size[0]).toBeLessThan(32);
+  expect(Math.abs(cloud.centerX)).toBeLessThan(1);
 });
 
 test('upload panel shows limit usage and limit errors from the worker', async ({ page }) => {

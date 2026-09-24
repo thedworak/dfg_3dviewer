@@ -314,6 +314,7 @@ export const VIEWER_I18N = {
       disabled: "disabled"
     },
     toasts: {
+      pointCloudThinned: "Large point cloud: showing {loaded} of {total} points. Convert it with the worker for full-resolution streaming.",
       tiledAnnotationBlocked: "Annotations are not available for streamed (3D Tiles / Potree) models.",
       fullModelLoaded: "Full-quality model loaded.",
       fullModelLoadError: "Could not load the full-quality model; showing the preview.",
@@ -791,6 +792,7 @@ export const VIEWER_I18N = {
       disabled: "wyłączony"
     },
     toasts: {
+      pointCloudThinned: "Duża chmura punktów: wyświetlono {loaded} z {total} punktów. Przekonwertuj ją przez workera, aby strumieniować pełną rozdzielczość.",
       tiledAnnotationBlocked: "Adnotacje nie są dostępne dla modeli strumieniowanych (3D Tiles / Potree).",
       fullModelLoaded: "Załadowano model w pełnej jakości.",
       fullModelLoadError: "Nie udało się załadować modelu w pełnej jakości; wyświetlany jest podgląd.",
@@ -1267,6 +1269,7 @@ export const VIEWER_I18N = {
       disabled: "deaktiviert"
     },
     toasts: {
+      pointCloudThinned: "Große Punktwolke: {loaded} von {total} Punkten angezeigt. Für Streaming in voller Auflösung mit dem Worker konvertieren.",
       tiledAnnotationBlocked: "Anmerkungen sind für gestreamte Modelle (3D Tiles / Potree) nicht verfügbar.",
       fullModelLoaded: "Modell in voller Qualität geladen.",
       fullModelLoadError: "Das Modell in voller Qualität konnte nicht geladen werden; die Vorschau wird angezeigt.",

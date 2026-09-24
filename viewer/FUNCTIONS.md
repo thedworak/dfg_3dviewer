@@ -231,6 +231,17 @@ Streamed level-of-detail models through [3d-tiles-renderer](https://github.com/N
 - Annotations are not offered for tiled models (their meshes change with the level of detail); measurements work on the tiles currently loaded.
 
 
+## `viewer/pointcloud-las.js`
+
+Direct LAS/LAZ loading (drag and drop, `?model=scan.laz`), without server conversion. Loaded on demand by `loaders.js`, so loaders.gl and laz-perf (WebAssembly embedded, nothing fetched from a CDN) only download with the first such file.
+
+- `buildLasPointCloud(buffer, name)`
+  - Parses on the main thread with `fp64` positions and re-centres them in double precision before converting to Float32, so UTM / national-grid coordinates keep millimetre precision. The original centre is kept in `points.userData.pointCloud.originOffset`.
+  - Thins to `viewer.pointCloud.maxPoints` using the point count from the LAS header (toast `pointCloudThinned`).
+  - Colours: RGB when present, else intensity, else a height ramp. Z-up is turned to Y-up; points are drawn at a fixed screen size.
+- `readLasPointCount(buffer)` — point count from a LAS 1.0-1.4 header.
+
+
 ## `viewer/metadata.js`
 
 `viewer/metadata.js` handles metadata fetching, metadata panel rendering, and IIIF support.

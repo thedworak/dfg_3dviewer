@@ -23,6 +23,8 @@ export const loadVOXBuildMesh = async () => (await import("three/examples/jsm/lo
 export const loadLWOLoader = async () => (await import("three/examples/jsm/loaders/LWOLoader.js")).LWOLoader;
 export const loadIFCLoader = async () => (await import("./js/loaders/IFCLoader.js")).IFCLoader;
 export const loadRoomEnvironment = async () => (await import("three/examples/jsm/environments/RoomEnvironment.js")).RoomEnvironment;
+// LAS/LAZ parsing (loaders.gl + laz-perf) only downloads with the first such file.
+export const loadLasPointCloud = async () => (await import("./pointcloud-las.js")).buildLasPointCloud;
 export const loadHDRLoader = async () => (await import("three/examples/jsm/loaders/HDRLoader.js")).HDRLoader;
 
 import { core } from './core.js';
@@ -799,6 +801,24 @@ export async function loadModel() {
         object.position.set(0, 0, 0);
         object.castShadow = true;
         object.receiveShadow = true;
+        await afterLoad({ object });
+        break;
+      }
+
+      case "las":
+      case "laz": {
+        const loader = new THREE.FileLoader().setResponseType("arraybuffer");
+        const buffer = await loadAsync(loader, modelPath, onProgress);
+        updateLoadingStage("loadingLog.preparingGeometry", 99);
+        const buildLasPointCloud = await loadLasPointCloud();
+        const object = buildLasPointCloud(buffer, core.fileObject.basename || "Point cloud");
+        const info = object.children[0]?.userData?.pointCloud;
+        if (info && info.skip > 1) {
+          toastHelper("pointCloudThinned", "info", {
+            loaded: info.loadedPoints.toLocaleString(),
+            total: info.totalPoints.toLocaleString(),
+          });
+        }
         await afterLoad({ object });
         break;
       }
