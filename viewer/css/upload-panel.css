@@ -265,3 +265,21 @@
   outline: 2px solid color-mix(in srgb, var(--viewer-panel-text) 60%, transparent);
   outline-offset: 2px;
 }
+
+/* Draggable (by header) + resizable (native corner grip) panels - see ui/panel-window.js */
+.panel-window {
+  resize: both;
+  min-width: 240px;
+  min-height: 120px;
+  max-width: calc(100vw - 36px);
+}
+
+.panel-window-handle {
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+}
+
+.panel-window-handle button {
+  cursor: pointer;
+}

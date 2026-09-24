@@ -1,6 +1,7 @@
 import { core } from "../core.js";
 import { toastHelper } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
+import { makePanelWindow } from "./panel-window.js";
 
 // GET /api/jobs is public (see worker/server.py's list_jobs) - browsing
 // finished models doesn't require an account, only deleting one does (gated
@@ -55,6 +56,7 @@ export function attachModelsPanel(Viewer) {
 
       const closeButton = panel.querySelector("#modelsPanelClose");
       this.bindEventListener(closeButton, "click", () => this.closeModelsPanel());
+      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"));
     },
 
     async loadModelsList() {

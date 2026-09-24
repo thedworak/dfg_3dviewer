@@ -43,6 +43,7 @@ import { attachEmbedConfigurator } from "./ui/embed-configurator.js";
 import { attachUploadPanel } from "./ui/upload-panel.js";
 import { attachModelsPanel } from "./ui/models-panel.js";
 import { attachAdminPanel } from "./ui/admin-panel.js";
+import { attachLoginPanel } from "./ui/login-panel.js";
 import { buildThumbnailGallery } from "./ui/thumbnail-gallery.js";
 import { attachLocalizationTheme } from "./ui/localization-theme.js";
 import { attachLoadingStatus } from "./ui/loading-status.js";
@@ -1976,6 +1977,12 @@ export const Viewer = {
     themeToggle.textContent = "🌙";
     picker.appendChild(themeToggle);
 
+    const loginButton = document.createElement("button");
+    loginButton.type = "button";
+    loginButton.id = "loginButton";
+    loginButton.hidden = true;
+    picker.appendChild(loginButton);
+
     const uploadModel = document.createElement("button");
     uploadModel.type = "button";
     uploadModel.id = "uploadModel";
@@ -3809,6 +3816,7 @@ export const Viewer = {
         let selectModel = document.getElementById('example-model-select');
         let themeToggle = document.getElementById('example-theme-toggle');
         let uploadModelButton = document.getElementById('uploadModel');
+        let loginButton = document.getElementById('loginButton');
         let browseModelsButton = document.getElementById('browseModelsButton');
         let manageUsersButton = document.getElementById('manageUsersButton');
         if (!picker && !selectModel && viewerElement) {
@@ -3816,9 +3824,15 @@ export const Viewer = {
           selectModel = picker.querySelector('#example-model-select');
           themeToggle = picker.querySelector('#example-theme-toggle');
           uploadModelButton = picker.querySelector('#uploadModel');
+          loginButton = picker.querySelector('#loginButton');
           browseModelsButton = picker.querySelector('#browseModelsButton');
           manageUsersButton = picker.querySelector('#manageUsersButton');
           viewerElement.parentNode.insertBefore(picker, viewerElement);
+        }
+        if (loginButton) {
+          Viewer.loginButton = loginButton;
+          Viewer.updateLoginMenuEntryState();
+          Viewer.bindEventListener(loginButton, "click", Viewer.openLoginPanel.bind(Viewer));
         }
         if (manageUsersButton) {
           Viewer.manageUsersButton = manageUsersButton;
@@ -4037,6 +4051,7 @@ attachAnnotations(Viewer);
 attachPicking(Viewer);
 attachMeasurement(Viewer);
 attachEmbedConfigurator(Viewer);
+attachLoginPanel(Viewer);
 attachUploadPanel(Viewer);
 attachModelsPanel(Viewer);
 attachAdminPanel(Viewer);

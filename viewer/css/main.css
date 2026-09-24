@@ -3,6 +3,7 @@
 @import "./upload-panel.css";
 @import "./models-panel.css";
 @import "./admin-panel.css";
+@import "./login-panel.css";
 @import "./ifc-properties.css";
 
 #cboxLoadedContent.iipmooviewer {

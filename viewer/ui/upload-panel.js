@@ -3,6 +3,7 @@ import { toastHelper } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import { StatusPoller } from "../status-poller.js";
 import { UltraLoader } from "../ultra-loader.js";
+import { makePanelWindow } from "./panel-window.js";
 
 // Mirrors worker/server.py's SUPPORTED_FORMATS: Blender importers, STEP/IGES/3MF
 // converted without Blender, and formats the viewer reads directly (kept as
@@ -16,61 +17,8 @@ const SUPPORTED_EXTENSIONS = [
   "zip",
 ];
 
-// Same-origin worker endpoints (see worker/auth.py). Cookies travel by default
-// for same-origin requests, so no credentials option is needed.
-async function authRequest(path, body) {
-  const response = await fetch(`/api/auth/${path}`, {
-    method: body ? "POST" : "GET",
-    headers: body ? { "Content-Type": "application/json" } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  let data = {};
-  try {
-    data = await response.json();
-  } catch (_error) {
-    // Non-JSON error page (e.g. from a proxy) - fall through with the status.
-  }
-  if (!response.ok) {
-    const error = new Error(data.error || `HTTP ${response.status}`);
-    error.status = response.status;
-    throw error;
-  }
-  return data;
-}
-
 export function attachUploadPanel(Viewer) {
   Object.assign(Viewer, {
-    // Accounts are enforced by the worker (WORKER_AUTH_MODE); the manifest's
-    // AIM3DViewer.viewer.auth only tunes the UI: enabled:false hides it,
-    // allowRegistration:false hides the register button.
-    async refreshAuthState() {
-      const uiConfig = core.CONFIG?.viewer?.auth || {};
-      const state = { required: false, registration: false, user: null, role: null, maxUploadBytes: 0 };
-      // The upload limit is reported by the same endpoint, so query it even
-      // when the manifest hides the login UI.
-      try {
-        const serverConfig = await authRequest("config");
-        state.maxUploadBytes = Number(serverConfig.maxUploadBytes) || 0;
-        if (uiConfig.enabled !== false) {
-          state.required = serverConfig.mode === "required";
-          state.registration =
-            serverConfig.registration !== "closed" && uiConfig.allowRegistration !== false;
-          if (state.required) {
-            const me = await authRequest("me");
-            state.user = me.user || null;
-            state.role = me.role || null;
-          }
-        }
-      } catch (_error) {
-        // Older worker without /api/auth/*: behaves as accounts off.
-      }
-      this.authState = state;
-      this.renderUploadHint();
-      this.renderAuthSection();
-      this.updateAdminMenuEntryState?.();
-      return state;
-    },
-
     renderUploadHint() {
       const hint = this.uploadInputs?.hint;
       if (!hint) return;
@@ -81,91 +29,26 @@ export function attachUploadPanel(Viewer) {
       hint.textContent = this.uploadInputs.hintBase + limit;
     },
 
-    renderAuthSection() {
+    // Login itself lives in its own panel (ui/login-panel.js); the upload
+    // panel only says when a login is needed and points there.
+    renderUploadAuthNotice() {
       const section = this.uploadInputs?.auth;
       if (!section) return;
       const state = this.authState || { required: false };
-      section.hidden = !state.required;
-      section.textContent = "";
       const canUpload = !state.required || Boolean(state.user);
+      section.hidden = canUpload;
+      section.textContent = "";
       if (this.uploadInputs.submit) this.uploadInputs.submit.disabled = !canUpload;
-      if (!state.required) return;
-
-      if (state.user) {
-        const label = document.createElement("span");
-        label.textContent = t("uploadPanel.signedInAs", { user: state.user }, "Signed in as {user}");
-        const logout = document.createElement("button");
-        logout.type = "button";
-        logout.textContent = t("uploadPanel.logout", "Log out");
-        this.bindEventListener(logout, "click", () => this.handleAuthAction("logout"));
-        section.append(label, logout);
-        return;
-      }
+      if (canUpload) return;
 
       const hint = document.createElement("p");
       hint.className = "upload-panel-hint";
       hint.textContent = t("uploadPanel.loginRequired", "Log in to upload models.");
-      const username = document.createElement("input");
-      username.type = "text";
-      username.autocomplete = "username";
-      username.placeholder = t("uploadPanel.username", "Username");
-      username.setAttribute("aria-label", username.placeholder);
-      const password = document.createElement("input");
-      password.type = "password";
-      password.autocomplete = "current-password";
-      password.placeholder = t("uploadPanel.password", "Password");
-      password.setAttribute("aria-label", password.placeholder);
       const login = document.createElement("button");
       login.type = "button";
       login.textContent = t("uploadPanel.login", "Log in");
-      this.bindEventListener(login, "click", () =>
-        this.handleAuthAction("login", { username: username.value.trim(), password: password.value })
-      );
-      section.append(hint, username, password, login);
-      if (state.registration) {
-        // Only needed to register (AUTH.register() rejects a missing/invalid
-        // address server-side); login doesn't use it, so it stays out of the
-        // shared username/password row above.
-        const email = document.createElement("input");
-        email.type = "email";
-        email.autocomplete = "email";
-        email.placeholder = t("uploadPanel.email", "Email");
-        email.setAttribute("aria-label", email.placeholder);
-        const register = document.createElement("button");
-        register.type = "button";
-        register.textContent = t("uploadPanel.register", "Register");
-        this.bindEventListener(register, "click", () =>
-          this.handleAuthAction("register", {
-            username: username.value.trim(),
-            password: password.value,
-            email: email.value.trim(),
-          })
-        );
-        section.append(email, register);
-      }
-    },
-
-    async handleAuthAction(action, credentials) {
-      try {
-        if (action === "register") {
-          const result = await authRequest("register", credentials);
-          this.setUploadStatusText(
-            result.status === "pending"
-              ? t("uploadPanel.registeredPending", "Account created. It must be approved before you can upload.")
-              : t("uploadPanel.registeredActive", "Account created. You can log in now."),
-            "success"
-          );
-          return;
-        }
-        await authRequest(action, credentials || {});
-        this.setUploadStatusText("");
-        await this.refreshAuthState();
-        // Delete permissions in the models panel depend on who's logged in;
-        // refresh it too if it's already open, same as the upload panel.
-        this.loadModelsList?.();
-      } catch (error) {
-        this.setUploadStatusText(error.message, "error");
-      }
+      this.bindEventListener(login, "click", () => this.openLoginPanel());
+      section.append(hint, login);
     },
 
     isUploadPanelOpen() {
@@ -270,6 +153,7 @@ export function attachUploadPanel(Viewer) {
 
       this.bindEventListener(form, "submit", (event) => this.handleUploadSubmit(event));
       this.bindEventListener(closeButton, "click", () => this.closeUploadPanel());
+      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"));
     },
 
     /**

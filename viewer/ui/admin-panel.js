@@ -1,6 +1,7 @@
 import { core } from "../core.js";
 import { toastHelper } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
+import { makePanelWindow } from "./panel-window.js";
 
 // Same-origin worker endpoints (see worker/auth.py's "administration" methods
 // and server.py's _require_admin/_handle_admin_*). Deliberately separate from
@@ -114,6 +115,7 @@ export function attachAdminPanel(Viewer) {
 
       const closeButton = panel.querySelector("#adminPanelClose");
       this.bindEventListener(closeButton, "click", () => this.closeAdminPanel());
+      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"));
     },
 
     async loadUsersList() {

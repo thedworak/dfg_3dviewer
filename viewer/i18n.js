@@ -14,6 +14,7 @@ export const VIEWER_I18N = {
       openUploadPanel: "Upload a 3D model for conversion",
       openModelsPanel: "Browse previously generated models",
       openAdminPanel: "Manage registered users",
+      openLoginPanel: "Log in or register",
     },
     theme: {
       lightMode: "Light mode",
@@ -218,6 +219,12 @@ export const VIEWER_I18N = {
       webglUnavailable: "WebGL is unavailable in your browser. Enable hardware acceleration or update your graphics drivers.",
       uploadError: "Upload failed. Please try again.",
     },
+    loginPanel: {
+      title: "Account",
+      closeAria: "Close account panel",
+      notRequired: "Accounts are not enabled on this server.",
+      openSignedIn: "Signed in as {user}",
+    },
     modelsPanel: {
       title: "Previously generated models",
       closeAria: "Close models panel",
@@ -326,7 +333,7 @@ export const VIEWER_I18N = {
 
       uploadStarted: "Upload received - converting model...",
       uploadReady: "Converted model is ready.",
-      uploadLoginRequired: "You must log in to upload files. Don't have an account? Register above.",
+      uploadLoginRequired: "You must log in to upload files. Don't have an account? Use the account icon to register.",
       uploadError: "Model upload or conversion failed.",
       userUpdated: "User updated.",
       userDeleted: "User deleted.",
@@ -395,6 +402,7 @@ export const VIEWER_I18N = {
       openUploadPanel: "Prześlij model 3D do konwersji",
       openModelsPanel: "Przeglądaj wcześniej wygenerowane modele",
       openAdminPanel: "Zarządzaj zarejestrowanymi użytkownikami",
+      openLoginPanel: "Zaloguj się lub zarejestruj",
     },
     theme: {
       lightMode: "Tryb jasny",
@@ -599,6 +607,12 @@ export const VIEWER_I18N = {
       webglUnavailable: "WebGL jest niedostępny w Twojej przeglądarce. Włącz akcelerację sprzętową lub zaktualizuj sterowniki karty graficznej.",
       uploadError: "Przesyłanie lub konwersja nie powiodła się. Spróbuj ponownie.",
     },
+    loginPanel: {
+      title: "Konto",
+      closeAria: "Zamknij panel konta",
+      notRequired: "Konta nie są włączone na tym serwerze.",
+      openSignedIn: "Zalogowano jako {user}",
+    },
     modelsPanel: {
       title: "Wcześniej wygenerowane modele",
       closeAria: "Zamknij panel modeli",
@@ -708,7 +722,7 @@ export const VIEWER_I18N = {
       uploadStarted: "Przesłano plik - konwertowanie modelu...",
       uploadReady: "Skonwertowany model jest gotowy.",
       uploadError: "Przesyłanie lub konwersja modelu nie powiodła się.",
-      uploadLoginRequired: "Aby przesłać plik, musisz się zalogować. Nie masz konta? Zarejestruj się powyżej.",
+      uploadLoginRequired: "Aby przesłać plik, musisz się zalogować. Nie masz konta? Zarejestruj się przez ikonę konta.",
       userUpdated: "Użytkownik zaktualizowany.",
       userDeleted: "Użytkownik usunięty.",
       modelDeleted: "Model został usunięty.",
@@ -776,6 +790,7 @@ export const VIEWER_I18N = {
       openUploadPanel: "3D-Modell zur Konvertierung hochladen",
       openModelsPanel: "Zuvor generierte Modelle durchsuchen",
       openAdminPanel: "Registrierte Benutzer verwalten",
+      openLoginPanel: "Anmelden oder registrieren",
     },
     theme: {
       lightMode: "Hellmodus",
@@ -979,6 +994,12 @@ export const VIEWER_I18N = {
       webglUnavailable: "WebGL ist in Ihrem Browser nicht verfügbar. Aktivieren Sie die Hardwarebeschleunigung oder aktualisieren Sie Ihre Grafiktreiber.",
       uploadError: "Upload oder Konvertierung fehlgeschlagen. Bitte erneut versuchen.",
     },
+    loginPanel: {
+      title: "Konto",
+      closeAria: "Kontobereich schließen",
+      notRequired: "Konten sind auf diesem Server nicht aktiviert.",
+      openSignedIn: "Angemeldet als {user}",
+    },
     modelsPanel: {
       title: "Zuvor generierte Modelle",
       closeAria: "Modell-Panel schließen",
@@ -1088,7 +1109,7 @@ export const VIEWER_I18N = {
       uploadStarted: "Datei empfangen - Modell wird konvertiert...",
       uploadReady: "Konvertiertes Modell ist bereit.",
       uploadError: "Upload oder Konvertierung des Modells fehlgeschlagen.",
-      uploadLoginRequired: "Zum Hochladen von Dateien müssen Sie sich anmelden. Noch kein Konto? Registrieren Sie sich oben.",
+      uploadLoginRequired: "Zum Hochladen von Dateien müssen Sie sich anmelden. Noch kein Konto? Registrieren Sie sich über das Konto-Symbol.",
       userUpdated: "Benutzer aktualisiert.",
       userDeleted: "Benutzer gelöscht.",
       modelDeleted: "Modell wurde gelöscht.",
