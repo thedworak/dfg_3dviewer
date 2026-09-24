@@ -15,6 +15,18 @@ services:
       # Upload cap in bytes (100 MB). Keep in sync with client_max_body_size
       # in docker/nginx.conf.
       - WORKER_MAX_UPLOAD_BYTES=104857600
+      # Upload limits - see "Upload limits" in worker/README.md. 0 means
+      # unlimited; admins are never limited and can override these per
+      # account in the viewer's user panel. Set them in .env to change.
+      - WORKER_LIMIT_UPLOADS_PER_HOUR=${WORKER_LIMIT_UPLOADS_PER_HOUR:-20}
+      - WORKER_LIMIT_UPLOADS_PER_DAY=${WORKER_LIMIT_UPLOADS_PER_DAY:-100}
+      - WORKER_LIMIT_STORAGE_MB=${WORKER_LIMIT_STORAGE_MB:-0}
+      - WORKER_LIMIT_MAX_MODELS=${WORKER_LIMIT_MAX_MODELS:-0}
+      - WORKER_LIMIT_CONCURRENT_JOBS=${WORKER_LIMIT_CONCURRENT_JOBS:-1}
+      - WORKER_MAX_CONCURRENT_CONVERSIONS=${WORKER_MAX_CONCURRENT_CONVERSIONS:-2}
+      # Reverse proxies in front of the worker: 1 = the viewer's nginx
+      # (docker/nginx.conf); 2 with docker/host-nginx.example.conf in front.
+      - WORKER_TRUSTED_PROXIES=${WORKER_TRUSTED_PROXIES:-1}
       # Optional accounts - off by default. Set these in a .env file next to
       # this compose file (or the shell), not here; see "Accounts" in
       # worker/README.md. WORKER_AUTH_MODE=required makes uploading/deleting

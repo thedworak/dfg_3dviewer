@@ -17,6 +17,20 @@ const SUPPORTED_EXTENSIONS = [
   "zip",
 ];
 
+// GET /api/limits and the `code` of a limit error (see worker/limits.py).
+// Worker-less builds (Drupal, static hosting) have no such endpoint - the
+// usage line then just stays hidden.
+async function fetchUploadLimits() {
+  const response = await fetch("/api/limits", { cache: "no-store" });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return response.json();
+}
+
+function formatMegabytes(bytes) {
+  const value = bytes / 1048576;
+  return value >= 10 ? String(Math.round(value)) : value.toFixed(1);
+}
+
 export function attachUploadPanel(Viewer) {
   Object.assign(Viewer, {
     renderUploadHint() {
@@ -27,6 +41,68 @@ export function attachUploadPanel(Viewer) {
         ? " " + t("uploadPanel.maxSize", { size: Math.round(maxBytes / 1048576) }, "Maximum upload size: {size} MB.")
         : "";
       hint.textContent = this.uploadInputs.hintBase + limit;
+    },
+
+    async refreshUploadLimits() {
+      try {
+        this.uploadLimits = await fetchUploadLimits();
+      } catch (_error) {
+        this.uploadLimits = null;
+      }
+      this.renderUploadLimits();
+    },
+
+    // One line such as "Uploads: 3/20 this hour · 5/100 today · Storage:
+    // 120/2048 MB"; limits set to 0 (unlimited) are left out.
+    renderUploadLimits() {
+      const line = this.uploadInputs?.limits;
+      if (!line) return;
+      const data = this.uploadLimits;
+      const limits = data?.limits;
+      const usage = data?.usage;
+      const parts = [];
+      if (limits && usage) {
+        const uploads = [];
+        if (limits.uploadsPerHour) {
+          uploads.push(t("uploadPanel.limitsHour", { used: usage.uploadsLastHour, limit: limits.uploadsPerHour }, "{used}/{limit} this hour"));
+        }
+        if (limits.uploadsPerDay) {
+          uploads.push(t("uploadPanel.limitsDay", { used: usage.uploadsLastDay, limit: limits.uploadsPerDay }, "{used}/{limit} today"));
+        }
+        if (uploads.length) parts.push(`${t("uploadPanel.limitsUploads", "Uploads")}: ${uploads.join(", ")}`);
+        if (limits.storageMb) {
+          parts.push(t(
+            "uploadPanel.limitsStorage",
+            { used: formatMegabytes(usage.storageBytes), limit: limits.storageMb },
+            "Storage: {used}/{limit} MB"
+          ));
+        }
+        if (limits.maxModels) {
+          parts.push(t("uploadPanel.limitsModels", { used: usage.models, limit: limits.maxModels }, "Models: {used}/{limit}"));
+        }
+      }
+      line.textContent = parts.join(" · ");
+      line.hidden = parts.length === 0;
+    },
+
+    // Localized message for a worker limit error ({ code, limit, retryAfter }).
+    describeUploadLimitError(data) {
+      const limit = data?.limit ?? "";
+      const minutes = Math.max(1, Math.ceil(Number(data?.retryAfter || 60) / 60));
+      switch (data?.code) {
+        case "rate_hour":
+          return t("uploadPanel.limitRateHour", { limit, minutes }, "Upload limit reached ({limit} per hour). Try again in {minutes} min.");
+        case "rate_day":
+          return t("uploadPanel.limitRateDay", { limit, minutes }, "Daily upload limit reached ({limit} per day). Try again in {minutes} min.");
+        case "concurrent":
+          return t("uploadPanel.limitConcurrent", { limit }, "You already have {limit} model(s) being converted. Wait until they finish.");
+        case "storage":
+          return t("uploadPanel.limitStorage", { limit }, "Storage limit reached ({limit} MB). Delete a model to free space.");
+        case "models":
+          return t("uploadPanel.limitModels", { limit }, "Model limit reached ({limit}). Delete a model to upload a new one.");
+        default:
+          return data?.error || t("uploadPanel.uploadError", "Upload failed. Please try again.");
+      }
     },
 
     // Login itself lives in its own panel (ui/login-panel.js); the upload
@@ -79,6 +155,7 @@ export function attachUploadPanel(Viewer) {
       this.uploadPanel.hidden = !willShow;
       if (willShow) {
         this.resetUploadPanelState();
+        // Also reloads the limits line (see refreshAuthState).
         this.refreshAuthState();
       }
     },
@@ -131,6 +208,7 @@ export function attachUploadPanel(Viewer) {
             <input id="uploadPanelFileInput" type="file" accept="${SUPPORTED_EXTENSIONS.map((ext) => `.${ext}`).join(",")}" required />
           </label>
           <p id="uploadPanelHint" class="upload-panel-hint">${panelText.formatsHint}</p>
+          <p id="uploadPanelLimits" class="upload-panel-hint upload-panel-limits" hidden></p>
           <div class="upload-panel-actions">
             <button id="uploadPanelSubmit" type="submit">${panelText.submit}</button>
           </div>
@@ -146,6 +224,7 @@ export function attachUploadPanel(Viewer) {
         status: panel.querySelector("#uploadPanelStatus"),
         auth: panel.querySelector("#uploadPanelAuth"),
         hint: panel.querySelector("#uploadPanelHint"),
+        limits: panel.querySelector("#uploadPanelLimits"),
         hintBase: panelText.formatsHint,
       };
       const form = panel.querySelector("#uploadPanelForm");
@@ -244,6 +323,17 @@ export function attachUploadPanel(Viewer) {
           this.setUploadStatusText(t("uploadPanel.loginRequired", "Log in to upload models."), "error");
           return;
         }
+        if (response.status === 429 || response.status === 507) {
+          let data = {};
+          try {
+            data = await response.json();
+          } catch (_error) {
+            // Proxy error page - fall back to the generic message.
+          }
+          this.setUploadStatusText(this.describeUploadLimitError(data), "error");
+          this.refreshUploadLimits();
+          return;
+        }
         if (response.status === 413) {
           this.setUploadStatusText(t("uploadPanel.tooLarge", "That file is too large to upload."), "error");
           return;
@@ -258,6 +348,7 @@ export function attachUploadPanel(Viewer) {
         }
 
         this.closeUploadPanel();
+        this.refreshUploadLimits();
         toastHelper("uploadStarted", "info");
 
         UltraLoader.start(this.getProcessingLoadingSteps());

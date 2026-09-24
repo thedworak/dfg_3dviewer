@@ -53,6 +53,8 @@ export function attachLoginPanel(Viewer) {
       this.authState = state;
       this.renderUploadHint?.();
       this.renderUploadAuthNotice?.();
+      // Limits and usage depend on who is logged in.
+      if (this.isUploadPanelOpen?.()) this.refreshUploadLimits?.();
       this.renderLoginPanel();
       this.updateLoginMenuEntryState();
       this.updateAdminMenuEntryState?.();

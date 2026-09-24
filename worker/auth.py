@@ -266,9 +266,35 @@ class AuthStore:
                 "role": rec["role"],
                 "status": rec["status"],
                 "createdAt": rec.get("createdAt", 0),
+                "limits": rec.get("limits", {}),
             }
             for name, rec in sorted(self._load().items())
         ]
+
+    def get_limits(self, username: str) -> dict:
+        """Per-account limit overrides (see limits.py); {} = defaults."""
+        record = self._load().get(username) or {}
+        return dict(record.get("limits") or {})
+
+    def set_limits(self, username: str, overrides: dict) -> dict:
+        """Merges validated overrides (limits.normalize_overrides) into the
+        account; a None value removes that override. Returns the result."""
+        with self._lock:
+            users = self._load()
+            if username not in users:
+                raise AuthError(404, f"No such user: {username}")
+            limits = dict(users[username].get("limits") or {})
+            for key, value in overrides.items():
+                if value is None:
+                    limits.pop(key, None)
+                else:
+                    limits[key] = value
+            if limits:
+                users[username]["limits"] = limits
+            else:
+                users[username].pop("limits", None)
+            self._save(users)
+            return limits
 
     def update_user(self, username: str, **changes) -> None:
         with self._lock:

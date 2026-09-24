@@ -38,6 +38,7 @@ export class StatusPoller {
     }
     fullMap = {
         init: 0,
+        queued: 0,
         preparing: 1,
         processing: 2,
         converted: 3,

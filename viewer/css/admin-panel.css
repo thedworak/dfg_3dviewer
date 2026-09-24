@@ -210,3 +210,53 @@ body[data-viewer-theme="dark"] #manageUsersButton {
 .admin-users-models-list .models-panel-item:hover {
   opacity: 1;
 }
+
+/* Per-account upload limits (renderUserLimitsTab). */
+.admin-users-limits {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-users-limits-summary,
+.admin-users-limits-note {
+  margin: 0;
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.admin-users-limits-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--viewer-panel-border);
+}
+
+.admin-users-limits-form[hidden] {
+  display: none;
+}
+
+.admin-users-limits-form > .admin-users-limits-note,
+.admin-users-limits-form > .admin-users-actions {
+  grid-column: 1 / -1;
+}
+
+.admin-users-limits-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.admin-users-limits-field input {
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--viewer-panel-text);
+  font: inherit;
+  font-weight: 400;
+}

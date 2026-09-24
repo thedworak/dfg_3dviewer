@@ -7,8 +7,13 @@ import { makePanelWindow } from "./panel-window.js";
 // and server.py's _require_admin/_handle_admin_*). Deliberately separate from
 // authRequest() in upload-panel.js: every call here needs an admin session,
 // while /api/auth/* is reachable by anyone.
-async function adminRequest(path, method = "GET") {
-  const response = await fetch(`/api/admin/users${path}`, { method });
+async function adminRequest(path, method = "GET", body = undefined) {
+  const options = { method };
+  if (body !== undefined) {
+    options.headers = { "Content-Type": "application/json" };
+    options.body = JSON.stringify(body);
+  }
+  const response = await fetch(`/api/admin/users${path}`, options);
   let data = {};
   try {
     data = await response.json();
@@ -38,6 +43,20 @@ async function fetchJobsByOwner() {
     byOwner.get(job.owner).push(job);
   }
   return byOwner;
+}
+
+// Per-account upload limits (worker/limits.py). 0 means unlimited; an empty
+// field falls back to the worker's WORKER_LIMIT_* default.
+const LIMIT_FIELDS = [
+  { key: "uploadsPerHour", label: ["adminPanel.limitUploadsPerHour", "Uploads per hour"] },
+  { key: "uploadsPerDay", label: ["adminPanel.limitUploadsPerDay", "Uploads per day"] },
+  { key: "storageMb", label: ["adminPanel.limitStorageMb", "Storage (MB)"] },
+  { key: "maxModels", label: ["adminPanel.limitMaxModels", "Max models"] },
+  { key: "concurrentJobs", label: ["adminPanel.limitConcurrentJobs", "Concurrent conversions"] },
+];
+
+function formatLimit(value) {
+  return value ? String(value) : "∞";
 }
 
 export function attachAdminPanel(Viewer) {
@@ -126,7 +145,9 @@ export function attachAdminPanel(Viewer) {
 
       let users = [];
       try {
-        users = (await adminRequest("")).users || [];
+        const data = await adminRequest("");
+        users = data.users || [];
+        this.adminDefaultLimits = data.defaultLimits || null;
       } catch (error) {
         this.reportError(error, { context: "Failed to load users list" });
         this.setAdminStatusText(t("adminPanel.loadError", "Could not load the user list."), "error");
@@ -213,7 +234,115 @@ export function attachAdminPanel(Viewer) {
 
       top.append(info, actions);
       item.append(top, this.renderUserModelsTab(user.username, models));
+      // Older workers do not report limits - leave the section out.
+      if (user.effectiveLimits) item.appendChild(this.renderUserLimitsTab(user));
       return item;
+    },
+
+    renderUserLimitsTab(user) {
+      const section = document.createElement("div");
+      section.className = "admin-users-limits";
+
+      const usage = user.usage || {};
+      const limits = user.effectiveLimits || {};
+      const summary = document.createElement("p");
+      summary.className = "admin-users-limits-summary";
+      summary.textContent = t(
+        "adminPanel.limitsUsage",
+        {
+          hour: `${usage.uploadsLastHour ?? 0}/${formatLimit(limits.uploadsPerHour)}`,
+          day: `${usage.uploadsLastDay ?? 0}/${formatLimit(limits.uploadsPerDay)}`,
+          storage: `${((usage.storageBytes || 0) / 1048576).toFixed(1)}/${formatLimit(limits.storageMb)}`,
+          models: `${usage.models ?? 0}/${formatLimit(limits.maxModels)}`,
+        },
+        "Uploads {hour} this hour, {day} today · Storage {storage} MB · Models {models}"
+      );
+
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "admin-users-models-toggle";
+      toggle.textContent = t("adminPanel.limitsShow", "Edit limits");
+
+      const form = document.createElement("form");
+      form.className = "admin-users-limits-form";
+      form.hidden = true;
+
+      if (user.role === "admin") {
+        const note = document.createElement("p");
+        note.className = "admin-users-limits-note";
+        note.textContent = t("adminPanel.limitsAdmin", "Admins are not limited.");
+        form.appendChild(note);
+      }
+
+      const overrides = user.limits || {};
+      const defaults = this.adminDefaultLimits || {};
+      const inputs = {};
+      LIMIT_FIELDS.forEach(({ key, label }) => {
+        const field = document.createElement("label");
+        field.className = "admin-users-limits-field";
+        const text = document.createElement("span");
+        text.textContent = t(label[0], label[1]);
+        const input = document.createElement("input");
+        input.type = "number";
+        input.min = "0";
+        input.step = "1";
+        input.inputMode = "numeric";
+        input.value = overrides[key] ?? "";
+        input.placeholder = t("adminPanel.limitsDefault", { value: formatLimit(defaults[key]) }, "default: {value}");
+        field.append(text, input);
+        form.appendChild(field);
+        inputs[key] = input;
+      });
+
+      const hint = document.createElement("p");
+      hint.className = "admin-users-limits-note";
+      hint.textContent = t("adminPanel.limitsHint", "Empty = default, 0 = unlimited.");
+
+      const buttons = document.createElement("div");
+      buttons.className = "admin-users-actions";
+      const save = document.createElement("button");
+      save.type = "submit";
+      save.textContent = t("adminPanel.limitsSave", "Save limits");
+      const reset = document.createElement("button");
+      reset.type = "button";
+      reset.textContent = t("adminPanel.limitsReset", "Use defaults");
+      buttons.append(save, reset);
+      form.append(hint, buttons);
+
+      this.bindEventListener(toggle, "click", () => {
+        form.hidden = !form.hidden;
+        toggle.textContent = form.hidden
+          ? t("adminPanel.limitsShow", "Edit limits")
+          : t("adminPanel.limitsHide", "Hide limits");
+      });
+      this.bindEventListener(form, "submit", (event) => {
+        event.preventDefault();
+        const payload = {};
+        LIMIT_FIELDS.forEach(({ key }) => {
+          const raw = inputs[key].value.trim();
+          payload[key] = raw === "" ? null : Number(raw);
+        });
+        this.saveUserLimits(user.username, payload);
+      });
+      this.bindEventListener(reset, "click", () => {
+        const payload = {};
+        LIMIT_FIELDS.forEach(({ key }) => { payload[key] = null; });
+        this.saveUserLimits(user.username, payload);
+      });
+
+      section.append(summary, toggle, form);
+      return section;
+    },
+
+    async saveUserLimits(username, payload) {
+      try {
+        await adminRequest(`/${encodeURIComponent(username)}/limits`, "POST", payload);
+        toastHelper("userUpdated", "success");
+        await this.loadUsersList();
+      } catch (error) {
+        this.reportError(error, { context: "Failed to save user limits" });
+        this.setAdminStatusText(error.message, "error");
+      }
     },
 
     // A per-user "tab": a toggle that reveals that user's own uploaded

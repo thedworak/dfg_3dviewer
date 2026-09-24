@@ -491,6 +491,45 @@ test('embed configurator uses the current camera for preview url', async ({ page
   expect(embedUrl).toContain(`camTarget=${encodeURIComponent(camTargetValue)}`);
 });
 
+test('upload panel shows limit usage and limit errors from the worker', async ({ page }) => {
+  await page.route('**/api/auth/config', (route) =>
+    route.fulfill({ json: { mode: 'off', registration: 'closed', maxUploadBytes: 104857600 } })
+  );
+  await page.route('**/api/limits', (route) =>
+    route.fulfill({
+      json: {
+        limits: { uploadsPerHour: 20, uploadsPerDay: 100, storageMb: 0, maxModels: 5, concurrentJobs: 1 },
+        usage: { uploadsLastHour: 20, uploadsLastDay: 31, storageBytes: 0, models: 2, activeJobs: 0 },
+        maxConcurrentConversions: 2,
+      },
+    })
+  );
+  await page.route('**/api/model/create', (route) =>
+    route.fulfill({
+      status: 429,
+      headers: { 'Retry-After': '1500' },
+      json: { error: 'Upload limit reached', code: 'rate_hour', limit: 20, retryAfter: 1500 },
+    })
+  );
+
+  await openViewer(page);
+  await waitForModel(page);
+  await page.evaluate(() => window.Viewer.openUploadPanel());
+
+  const limits = page.locator('#uploadPanelLimits');
+  await expect(limits).toHaveText('Uploads: 20/20 this hour, 31/100 today · Models: 2/5');
+
+  await page.setInputFiles('#uploadPanelFileInput', {
+    name: 'box.stl',
+    mimeType: 'model/stl',
+    buffer: Buffer.from('solid box\nendsolid box\n'),
+  });
+  await page.click('#uploadPanelSubmit');
+  await expect(page.locator('#uploadPanelStatus')).toHaveText(
+    'Upload limit reached (20 per hour). Try again in 25 min.'
+  );
+});
+
 test('reports unsupported format without loading a model', async ({ page }) => {
   await openViewer(page, '/examples/box.txt');
   await waitForViewerIssue(page);

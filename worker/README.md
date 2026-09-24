@@ -176,8 +176,8 @@ needing the tag.
   }
   ```
   `status` values follow the same vocabulary `viewer/status-poller.js`
-  already knows how to render: `preparing`, `processing`, `rendering`,
-  `ready`, `failed`.
+  already knows how to render: `queued` (waiting for a free conversion
+  slot), `preparing`, `processing`, `rendering`, `ready`, `failed`.
 - `GET /files/<id>/...` - serves the converted model and rendered thumbnails.
 
 ## Configuration
@@ -191,6 +191,12 @@ Set via environment variables on the `worker` container (see
 | `WORKER_JOBS_DIR`          | `/data/jobs`   | Where uploads/outputs are stored          |
 | `WORKER_SKIP_RENDER`       | `false`        | Skip Blender thumbnail rendering          |
 | `WORKER_MAX_UPLOAD_BYTES`  | `104857600`    | Upload size cap (100 MB); larger uploads get HTTP 413 |
+| `WORKER_LIMIT_UPLOADS_PER_HOUR` / `_PER_DAY` | `20` / `100` | Uploads per account (per client IP with accounts off) in a rolling hour/day; HTTP 429 |
+| `WORKER_LIMIT_STORAGE_MB`  | `0`            | Disk space an account's models may use (0 = unlimited); HTTP 507 |
+| `WORKER_LIMIT_MAX_MODELS`  | `0`            | Models an account may own (0 = unlimited); HTTP 507 |
+| `WORKER_LIMIT_CONCURRENT_JOBS` | `1`        | Uploads of one account/IP queued or converting at once; HTTP 429 |
+| `WORKER_MAX_CONCURRENT_CONVERSIONS` | `2`   | Conversions running at once for everyone; further jobs wait as `queued` (0 = unlimited) |
+| `WORKER_TRUSTED_PROXIES`   | `1`            | Reverse proxies appending to `X-Forwarded-For` (used for the client IP); `0` ignores the header |
 | `WORKER_AUTH_MODE`         | `off`          | `off` (open, as before) or `required` (upload/delete need a login) |
 | `WORKER_AUTH_REGISTRATION` | `approval`     | `open` (instantly active), `approval` (admin must approve), `closed` |
 | `WORKER_ADMIN_USER` / `WORKER_ADMIN_PASSWORD` | unset | Creates/resets an admin account on start (password >= 8 chars) |
@@ -223,6 +229,22 @@ docker compose exec worker python3 /app/worker/server.py admin approve alice
 ```
 
 The viewer-side switch lives in the AIM3D manifest (`AIM3DViewer.viewer.auth`, see `viewer/manifesto/AIM3DViewer-schema.md`), but that only controls whether the login UI is shown - **the worker setting is what actually enforces access**, because a manifest is client-side data.
+
+### Upload limits
+
+`POST /api/model/create` checks the limits above before reading the upload and again, atomically, before the job is created. A rejected upload gets a JSON body `{"error", "code", "limit", "retryAfter"}` (`code`: `rate_hour`, `rate_day`, `concurrent`, `storage`, `models`) and, for 429s, a `Retry-After` header; the upload panel shows it translated, together with the caller's current usage.
+
+- `0` disables a limit. Admin accounts are never limited.
+- With accounts on, limits are per account and admins can override any of them per account: in the viewer's user panel ("Edit limits"), `POST /api/admin/users/<user>/limits` with e.g. `{"maxModels": 10, "storageMb": null}` (`null` = back to the default), or the CLI below.
+- With accounts off, the rate and concurrency limits apply per client IP; storage and model quotas need accounts (anonymous uploads have no owner). The client IP is taken from `X-Forwarded-For`, `WORKER_TRUSTED_PROXIES` entries from the right: `1` behind the viewer's own nginx, `2` with `docker/host-nginx.example.conf` in front. Anyone who can reach the worker's port directly can forge that header, so do not publish port 8080 when you rely on per-IP limits.
+- The upload log (`JOBS_DIR/.limits/uploads.json`) survives restarts, and deleting a model does not give an upload back. Storage counts everything in the account's job folders (upload, conversion output, thumbnails).
+- `GET /api/limits` returns the caller's effective limits and usage; `GET /api/admin/users` includes both for every account.
+
+```bash
+docker compose exec worker python3 /app/worker/server.py admin usage
+docker compose exec worker python3 /app/worker/server.py admin limits alice
+docker compose exec worker python3 /app/worker/server.py admin limits alice storageMb=2048 maxModels=default
+```
 
 ### GPU rendering
 
