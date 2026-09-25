@@ -34,6 +34,7 @@ window.viewer = {
 
 import { core, setCore } from './core.js';
 import { initConnectivity } from './connectivity.js';
+import { initRemote } from './remote.js';
 
 import {
   normalizeColor,
@@ -1559,6 +1560,7 @@ export const Viewer = {
     }
 
     await this.applyBootstrapSettingsFromManifest();
+    initRemote();
 
     this.isLightweight = Boolean(core.CONFIG.viewer.lightweight);
     setCore('isLightweight', this.isLightweight);
@@ -1878,6 +1880,11 @@ export const Viewer = {
     browseModels.type = "button";
     browseModels.id = "browseModelsButton";
     picker.appendChild(browseModels);
+
+    const openLocalFile = document.createElement("button");
+    openLocalFile.type = "button";
+    openLocalFile.id = "openLocalFileButton";
+    picker.appendChild(openLocalFile);
 
     return picker;
   },
@@ -2331,8 +2338,12 @@ export const Viewer = {
       return;
     }
 
-    const file = files[0];
+    await Viewer.openLocalFile(files[0]);
+  },
 
+  // A model (or .zip with a model and its textures) from the user's device -
+  // dropped on the viewer, or picked with #openLocalFileButton.
+  async openLocalFile(file) {
     const extension = file.name
       .split('.')
       .pop()
@@ -2349,6 +2360,19 @@ export const Viewer = {
     }
 
     toastHelper("unsupportedFormat", "error");
+  },
+
+  // No accept filter: Android has no MIME types for most 3D formats (.glb,
+  // .ifc, ...) and would grey those files out; openLocalFile() checks the
+  // extension instead.
+  pickLocalFile() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.addEventListener("change", () => {
+      const file = input.files?.[0];
+      if (file) Viewer.openLocalFile(file);
+    }, { once: true });
+    input.click();
   },
 
   async changeScale() {
@@ -3760,6 +3784,7 @@ export const Viewer = {
         let uploadModelButton = document.getElementById('uploadModel');
         let loginButton = document.getElementById('loginButton');
         let browseModelsButton = document.getElementById('browseModelsButton');
+        let openLocalFileButton = document.getElementById('openLocalFileButton');
         let manageUsersButton = document.getElementById('manageUsersButton');
         if (!picker && !selectModel && viewerElement) {
           const header = Viewer.createViewerPageHeader();
@@ -3769,6 +3794,7 @@ export const Viewer = {
           uploadModelButton = header.querySelector('#uploadModel');
           loginButton = header.querySelector('#loginButton');
           browseModelsButton = header.querySelector('#browseModelsButton');
+          openLocalFileButton = header.querySelector('#openLocalFileButton');
           manageUsersButton = header.querySelector('#manageUsersButton');
           viewerElement.parentNode.insertBefore(header, viewerElement);
         }
@@ -3793,6 +3819,13 @@ export const Viewer = {
           browseModelsButton.setAttribute("aria-label", browseModelsLabel);
           browseModelsButton.setAttribute("title", browseModelsLabel);
           Viewer.bindEventListener(browseModelsButton, "click", Viewer.openModelsPanel.bind(Viewer));
+        }
+        if (openLocalFileButton) {
+          openLocalFileButton.innerHTML = '<span class="open-local-file-icon" aria-hidden="true"></span>';
+          const openLocalFileLabel = t("menu.openLocalFile", "Open a model from this device");
+          openLocalFileButton.setAttribute("aria-label", openLocalFileLabel);
+          openLocalFileButton.setAttribute("title", openLocalFileLabel);
+          Viewer.bindEventListener(openLocalFileButton, "click", Viewer.pickLocalFile.bind(Viewer));
         }
         // updateAdminMenuEntryState() above only ran against Viewer.authState
         // as it stood before any auth check - undefined on a fresh load - so

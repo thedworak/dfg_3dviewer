@@ -1,4 +1,5 @@
 import { core } from "../core.js";
+import { apiUrl, remoteAssetUrl } from "../remote.js";
 import { toastHelper } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import { makePanelWindow } from "./panel-window.js";
@@ -68,7 +69,7 @@ export function attachModelsPanel(Viewer) {
 
       let jobs = [];
       try {
-        const response = await fetch("/api/jobs");
+        const response = await fetch(apiUrl("/api/jobs"));
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         jobs = Array.isArray(data.jobs) ? data.jobs : [];
@@ -104,7 +105,7 @@ export function attachModelsPanel(Viewer) {
 
       if (job.imageUrls?.[0]) {
         const thumb = document.createElement("img");
-        thumb.src = job.imageUrls[0];
+        thumb.src = remoteAssetUrl(job.imageUrls[0]);
         thumb.alt = "";
         thumb.loading = "lazy";
         button.appendChild(thumb);
@@ -174,7 +175,7 @@ export function attachModelsPanel(Viewer) {
       if (!confirmed) return;
 
       try {
-        const response = await fetch(`/api/jobs/${encodeURIComponent(job.id)}`, { method: "DELETE" });
+        const response = await fetch(apiUrl(`/api/jobs/${encodeURIComponent(job.id)}`), { method: "DELETE" });
         if (!response.ok && response.status !== 404) {
           throw new Error(`Delete failed (HTTP ${response.status})`);
         }
@@ -195,7 +196,7 @@ export function attachModelsPanel(Viewer) {
     async loadModelFromList(job) {
       if (!job?.modelUrl) return;
       this.closeModelsPanel();
-      core.autoPath = job.modelUrl;
+      core.autoPath = remoteAssetUrl(job.modelUrl);
       this.resetLoadedModelState();
       await this.mainLoadModelWrapper();
 
@@ -207,7 +208,7 @@ export function attachModelsPanel(Viewer) {
         !core.SANDBOX_MODE &&
         !this.isEmbedMode()
       ) {
-        this.renderModelGalleryImages(job.imageUrls);
+        this.renderModelGalleryImages(job.imageUrls.map(remoteAssetUrl));
       }
     },
   });

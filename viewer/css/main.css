@@ -2178,6 +2178,7 @@ body.presentation-mode {
 
   #example-model-picker #uploadModel,
   #example-model-picker #browseModelsButton,
+  #example-model-picker #openLocalFileButton,
   #example-model-picker #example-theme-toggle,
   #viewer-account-bar #loginButton,
   #viewer-account-bar #manageUsersButton {
@@ -2203,10 +2204,16 @@ body.presentation-mode {
   }
 }
 
-/* No network (see viewer/connectivity.js): hide controls that need the server. */
+/* No network (viewer/connectivity.js) or no repository configured in the app
+   (viewer/remote.js): hide controls that need the server. Sign-in needs a
+   same-site session cookie, which the app (another origin) never gets. */
 body.viewer-offline #uploadModel,
 body.viewer-offline #browseModelsButton,
 body.viewer-offline #loginButton,
-body.viewer-offline #manageUsersButton {
+body.viewer-offline #manageUsersButton,
+body.viewer-no-remote #uploadModel,
+body.viewer-no-remote #browseModelsButton,
+body.viewer-app #loginButton,
+body.viewer-app #manageUsersButton {
   display: none !important;
 }

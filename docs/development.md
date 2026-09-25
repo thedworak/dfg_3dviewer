@@ -99,7 +99,14 @@ The viewer is packaged as a mobile app with [Capacitor](https://capacitorjs.com)
 
 Building the APK needs Android Studio (or the Android SDK plus JDK 21). iOS needs macOS with Xcode (`npx cap add ios`).
 
-The app runs online and offline. `viewer/connectivity.js` keeps `core.isOnline` current and sets `body.viewer-offline`, which hides the controls that need a server. `mobile.remoteUrl` in `dist/mobile/viewer-settings.json` is reserved for the repository the app talks to when it is online (empty = offline only).
+The app runs online and offline:
+
+- **Offline** — bundled examples, and any model or `.zip` (model plus textures) opened from the device with the file button in the header (the same path as drag-and-drop in the browser).
+- **Online** — `mobile.remoteUrl` in `dist/mobile/viewer-settings.json` names the repository (a standalone worker deployment, see [docker.md](docker.md)). The worker API calls go there (`viewer/remote.js`, `apiUrl()`), and the model browser loads converted models from it. The worker already answers with `Access-Control-Allow-Origin: *`, so nothing changes on the server. Empty `remoteUrl` = offline only: upload and the model browser are hidden.
+
+`viewer/connectivity.js` keeps `core.isOnline` current and sets `body.viewer-offline`, which hides the controls that need a server while there is no network.
+
+Sign-in and user management are hidden in the app: the worker's session cookie is `SameSite=Lax` and never reaches the app, which runs on another origin. Uploads therefore only work against a worker with accounts off.
 
 ## Notes
 

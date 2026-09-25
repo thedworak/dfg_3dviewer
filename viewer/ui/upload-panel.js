@@ -1,4 +1,5 @@
 import { core } from "../core.js";
+import { apiUrl, remoteAssetUrl } from "../remote.js";
 import { toastHelper } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import { StatusPoller } from "../status-poller.js";
@@ -23,7 +24,7 @@ const SUPPORTED_EXTENSIONS = [
 // Worker-less builds (Drupal, static hosting) have no such endpoint - the
 // usage line then just stays hidden.
 async function fetchUploadLimits() {
-  const response = await fetch("/api/limits", { cache: "no-store" });
+  const response = await fetch(apiUrl("/api/limits"), { cache: "no-store" });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.json();
 }
@@ -319,7 +320,7 @@ export function attachUploadPanel(Viewer) {
       this.setUploadStatusText(t("uploadPanel.uploading", "Uploading..."), "info");
 
       try {
-        const response = await fetch("/api/model/create", { method: "POST", body: formData });
+        const response = await fetch(apiUrl("/api/model/create"), { method: "POST", body: formData });
         if (response.status === 401) {
           await this.refreshAuthState();
           this.setUploadStatusText(t("uploadPanel.loginRequired", "Log in to upload models."), "error");
@@ -375,7 +376,7 @@ export function attachUploadPanel(Viewer) {
       if (!data) return;
       if (data.status === "ready" && data.modelUrl) {
         toastHelper("uploadReady", "success");
-        core.autoPath = data.modelUrl;
+        core.autoPath = remoteAssetUrl(data.modelUrl);
         this.resetLoadedModelState();
         await this.mainLoadModelWrapper();
 
@@ -392,7 +393,7 @@ export function attachUploadPanel(Viewer) {
           !core.SANDBOX_MODE &&
           !this.isEmbedMode()
         ) {
-          this.renderModelGalleryImages(data.imageUrls);
+          this.renderModelGalleryImages(data.imageUrls.map(remoteAssetUrl));
         }
       } else if (data.status === "failed" || data.status === "error") {
         toastHelper("uploadError", "error");
