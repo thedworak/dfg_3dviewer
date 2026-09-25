@@ -15,7 +15,11 @@ import {
   buildModelAnnotation,
   buildViewCameraAnnotation,
   commentsToAnnotationEntries,
+  addImportedLight,
+  importedLightObjects,
   readSceneContent,
+  removeImportedLights,
+  stopCameraIntro,
 } from "../IIIF/presentation4.js";
 
 // Point annotations are anchored to the first model root.
@@ -1159,7 +1163,8 @@ export function attachAnnotations(Viewer) {
             imageGeneration: core.CONFIG.viewer.imageGeneration || "f605dc6b727a1099b9e52b3ccbdf5673",
           },
 
-          lights: (core.scene?.children || [])
+          // The viewer's own lights plus the ones imported from a manifest.
+          lights: [...(core.scene?.children || []), ...importedLightObjects()]
             .filter((child) =>
               [
                 "DirectionalLight",
@@ -1178,7 +1183,15 @@ export function attachAnnotations(Viewer) {
 
               color: `#${light.color.getHexString()}`,
 
-              intensity: light.intensity
+              intensity: light.intensity,
+
+              ...(light.isPointLight || light.isSpotLight
+                ? { distance: light.distance, decay: light.decay }
+                : {}),
+
+              ...(light.isSpotLight
+                ? { angle: light.angle, penumbra: light.penumbra }
+                : {}),
             })),
 
           modelTransform: {
@@ -1298,6 +1311,7 @@ export function attachAnnotations(Viewer) {
     apply3IFManifestCamera(cameraConfig) {
       if (!cameraConfig || typeof cameraConfig !== "object") return false;
       if (!core.camera) return false;
+      stopCameraIntro();
 
       const position = this.parse3IFManifestVector(cameraConfig.position, null, 3);
       const target = this.parse3IFManifestVector(cameraConfig.target, null, 3);
@@ -1338,6 +1352,9 @@ export function attachAnnotations(Viewer) {
       core.camera.updateProjectionMatrix();
       core.controls?.update?.();
       this.updateCamera?.();
+      // "Reset camera" returns to the manifest's camera.
+      core.cameraCoords = core.camera.position.clone();
+      if (core.controls) core.controlsTarget = core.controls.target.clone();
       return true;
     },
 
@@ -1597,23 +1614,32 @@ export function attachAnnotations(Viewer) {
         applyLight(core.ambientLight, ambientLights[0]);
       }
 
-      const ensureExtraLight = (lightData) => {
+      // Lights beyond the viewer's own go into the imported-lights group, so
+      // they are replaced, not piled up, on the next import.
+      removeImportedLights();
+      const addExtraLight = (lightData) => {
         const type = String(lightData?.type || "");
-        if (type !== "PointLight" && type !== "SpotLight") return null;
-        const Constructor = type === "PointLight" ? THREE.PointLight : THREE.SpotLight;
-        const light = new Constructor(0xffffff, 1);
-        core.scene?.add?.(light);
-        return light;
+        const light = type === "PointLight" ? new THREE.PointLight(0xffffff, 1)
+          : type === "SpotLight" ? new THREE.SpotLight(0xffffff, 1)
+            : type === "DirectionalLight" ? new THREE.DirectionalLight(0xffffff, 1)
+              : new THREE.AmbientLight(0xffffff, 1);
+        const distance = Number(lightData.distance);
+        const decay = Number(lightData.decay);
+        const angle = Number(lightData.angle);
+        const penumbra = Number(lightData.penumbra);
+        if (Number.isFinite(distance) && distance >= 0 && "distance" in light) light.distance = distance;
+        if (Number.isFinite(decay) && decay >= 0 && "decay" in light) light.decay = decay;
+        if (light.isSpotLight && Number.isFinite(angle) && angle > 0) light.angle = Math.min(angle, Math.PI / 2);
+        if (light.isSpotLight && Number.isFinite(penumbra)) light.penumbra = THREE.MathUtils.clamp(penumbra, 0, 1);
+        light.name = `iiif-${type}`;
+        addImportedLight(light);
+        applyLight(light, lightData);
       };
 
-      pointLights.forEach((lightData) => {
-        const light = ensureExtraLight(lightData);
-        applyLight(light, lightData);
-      });
-      spotLights.forEach((lightData) => {
-        const light = ensureExtraLight(lightData);
-        applyLight(light, lightData);
-      });
+      directionalLights.slice(2).forEach(addExtraLight);
+      ambientLights.slice(1).forEach(addExtraLight);
+      pointLights.forEach(addExtraLight);
+      spotLights.forEach(addExtraLight);
 
       this.updateLightsSubmenuState?.();
       return true;

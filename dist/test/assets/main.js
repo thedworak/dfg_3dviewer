@@ -1,4 +1,4 @@
-import { a9 as THREE, aa as exports$1, ab as ViewHelper, ac as Vector3, ad as Matrix4, ae as Quaternion, af as Euler, ag as MathUtils$1, ah as FontLoader, ai as TextGeometry, aj as OrbitControls, ak as TransformControls } from './three.js';
+import { T as THREE, e as exports$1, V as ViewHelper, a as Vector3, M as Matrix4, Q as Quaternion, E as Euler, b as MathUtils$1, F as FontLoader, c as TextGeometry, O as OrbitControls, d as TransformControls } from './three.js';
 
 window.THREE = THREE;
 
@@ -8162,6 +8162,25 @@ function removeImportedLights() {
   importedLights = null;
 }
 
+// Imported lights the viewer has no own light for live in one group, removed
+// again with the model (removeImportedLights).
+function addImportedLight(light) {
+  if (!core.scene) return light;
+  if (!importedLights) {
+    importedLights = new THREE.Group();
+    importedLights.name = "iiif-lights";
+    core.scene.add(importedLights);
+  }
+  if (light.target) importedLights.add(light.target);
+  importedLights.add(light);
+  return light;
+}
+
+// The imported lights, for exporting them again.
+function importedLightObjects() {
+  return importedLights ? importedLights.children.filter((child) => child.isLight) : [];
+}
+
 // Centre and radius of the loaded models (targets for direction-only lights).
 function sceneBounds() {
   const box = new THREE.Box3();
@@ -8187,6 +8206,8 @@ function lightAim(light) {
   return { position: light.position, target: light.position.clone().addScaledVector(light.direction, bounds.radius) };
 }
 
+// Cancels the intro fly-in a model load starts, so it doesn't overwrite a
+// camera applied from a manifest.
 function stopCameraIntro() {
   core.cameraTweenToken = (core.cameraTweenToken ?? 0) + 1;
   core.cameraTween?.stop?.();
@@ -8228,8 +8249,6 @@ function applyCamera(camera, viewer) {
 function applyLights(lights) {
   removeImportedLights();
   if (!lights.length || !core.scene) return 0;
-  importedLights = new THREE.Group();
-  importedLights.name = "iiif-lights";
   let usedDirectional = false;
   lights.forEach((light) => {
     const intensity = light.intensity * (LIGHT_INTENSITY_SCALE[light.type] || 1);
@@ -8238,7 +8257,7 @@ function applyLights(lights) {
         core.ambientLight.color.copy(light.color);
         core.ambientLight.intensity = intensity;
       } else {
-        importedLights.add(new THREE.AmbientLight(light.color, intensity));
+        addImportedLight(new THREE.AmbientLight(light.color, intensity));
       }
       return;
     }
@@ -8265,14 +8284,10 @@ function applyLights(lights) {
     }
     const aim = lightAim(light);
     object.position.copy(aim.position);
-    if (object.target) {
-      object.target.position.copy(aim.target);
-      importedLights.add(object.target);
-    }
+    object.target?.position.copy(aim.target);
     object.name = `iiif-${light.type}`;
-    importedLights.add(object);
+    addImportedLight(object);
   });
-  core.scene.add(importedLights);
   return lights.length;
 }
 
@@ -9577,7 +9592,8 @@ function attachAnnotations(Viewer) {
             imageGeneration: core.CONFIG.viewer.imageGeneration || "f605dc6b727a1099b9e52b3ccbdf5673",
           },
 
-          lights: (core.scene?.children || [])
+          // The viewer's own lights plus the ones imported from a manifest.
+          lights: [...(core.scene?.children || []), ...importedLightObjects()]
             .filter((child) =>
               [
                 "DirectionalLight",
@@ -9596,7 +9612,15 @@ function attachAnnotations(Viewer) {
 
               color: `#${light.color.getHexString()}`,
 
-              intensity: light.intensity
+              intensity: light.intensity,
+
+              ...(light.isPointLight || light.isSpotLight
+                ? { distance: light.distance, decay: light.decay }
+                : {}),
+
+              ...(light.isSpotLight
+                ? { angle: light.angle, penumbra: light.penumbra }
+                : {}),
             })),
 
           modelTransform: {
@@ -9716,6 +9740,7 @@ function attachAnnotations(Viewer) {
     apply3IFManifestCamera(cameraConfig) {
       if (!cameraConfig || typeof cameraConfig !== "object") return false;
       if (!core.camera) return false;
+      stopCameraIntro();
 
       const position = this.parse3IFManifestVector(cameraConfig.position, null, 3);
       const target = this.parse3IFManifestVector(cameraConfig.target, null, 3);
@@ -9756,6 +9781,9 @@ function attachAnnotations(Viewer) {
       core.camera.updateProjectionMatrix();
       core.controls?.update?.();
       this.updateCamera?.();
+      // "Reset camera" returns to the manifest's camera.
+      core.cameraCoords = core.camera.position.clone();
+      if (core.controls) core.controlsTarget = core.controls.target.clone();
       return true;
     },
 
@@ -10015,23 +10043,32 @@ function attachAnnotations(Viewer) {
         applyLight(core.ambientLight, ambientLights[0]);
       }
 
-      const ensureExtraLight = (lightData) => {
+      // Lights beyond the viewer's own go into the imported-lights group, so
+      // they are replaced, not piled up, on the next import.
+      removeImportedLights();
+      const addExtraLight = (lightData) => {
         const type = String(lightData?.type || "");
-        if (type !== "PointLight" && type !== "SpotLight") return null;
-        const Constructor = type === "PointLight" ? THREE.PointLight : THREE.SpotLight;
-        const light = new Constructor(0xffffff, 1);
-        core.scene?.add?.(light);
-        return light;
+        const light = type === "PointLight" ? new THREE.PointLight(0xffffff, 1)
+          : type === "SpotLight" ? new THREE.SpotLight(0xffffff, 1)
+            : type === "DirectionalLight" ? new THREE.DirectionalLight(0xffffff, 1)
+              : new THREE.AmbientLight(0xffffff, 1);
+        const distance = Number(lightData.distance);
+        const decay = Number(lightData.decay);
+        const angle = Number(lightData.angle);
+        const penumbra = Number(lightData.penumbra);
+        if (Number.isFinite(distance) && distance >= 0 && "distance" in light) light.distance = distance;
+        if (Number.isFinite(decay) && decay >= 0 && "decay" in light) light.decay = decay;
+        if (light.isSpotLight && Number.isFinite(angle) && angle > 0) light.angle = Math.min(angle, Math.PI / 2);
+        if (light.isSpotLight && Number.isFinite(penumbra)) light.penumbra = THREE.MathUtils.clamp(penumbra, 0, 1);
+        light.name = `iiif-${type}`;
+        addImportedLight(light);
+        applyLight(light, lightData);
       };
 
-      pointLights.forEach((lightData) => {
-        const light = ensureExtraLight(lightData);
-        applyLight(light, lightData);
-      });
-      spotLights.forEach((lightData) => {
-        const light = ensureExtraLight(lightData);
-        applyLight(light, lightData);
-      });
+      directionalLights.slice(2).forEach(addExtraLight);
+      ambientLights.slice(1).forEach(addExtraLight);
+      pointLights.forEach(addExtraLight);
+      spotLights.forEach(addExtraLight);
 
       this.updateLightsSubmenuState?.();
       return true;
@@ -12025,8 +12062,8 @@ function attachTour(Viewer) {
 // but its meshes come and go with the level of detail, so face-based
 // features (annotations, area selection) are not available for it.
 
-const loadTilesModule = () => import('./index.three.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins.js');
+const loadTilesModule = () => import('3d-tiles-renderer/three');
+const loadTilesPlugins = () => import('3d-tiles-renderer/three/plugins');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -16061,33 +16098,33 @@ function createManifestUI(type = "iiif") {
   initializeManifestoFormDrag(formContainer, header);
 }
 
-const loadDDSLoader = async () => (await import('./three.js').then(function (n) { return n.av; })).DDSLoader;
-const loadMTLLoader = async () => (await import('./three.js').then(function (n) { return n.aw; })).MTLLoader;
-const loadOBJLoader = async () => (await import('./three.js').then(function (n) { return n.ax; })).OBJLoader;
-const loadFBXLoader = async () => (await import('./three.js').then(function (n) { return n.ay; })).FBXLoader;
-const loadPLYLoader = async () => (await import('./three.js').then(function (n) { return n.az; })).PLYLoader;
-const loadColladaLoader = async () => (await import('./three.js').then(function (n) { return n.aA; })).ColladaLoader;
-const loadSTLLoader = async () => (await import('./three.js').then(function (n) { return n.aB; })).STLLoader;
-const loadXYZLoader = async () => (await import('./three.js').then(function (n) { return n.aC; })).XYZLoader;
-const loadTDSLoader = async () => (await import('./three.js').then(function (n) { return n.aD; })).TDSLoader;
-const loadPCDLoader = async () => (await import('./three.js').then(function (n) { return n.aE; })).PCDLoader;
-const loadGLTFLoader = async () => (await import('./three.js').then(function (n) { return n.au; })).GLTFLoader;
-const loadDRACOLoader = async () => (await import('./three.js').then(function (n) { return n.aF; })).DRACOLoader;
-const loadKTX2Loader = async () => (await import('./three.js').then(function (n) { return n.aG; })).KTX2Loader;
-const loadMeshoptDecoder = async () => (await import('./three.js').then(function (n) { return n.aH; })).MeshoptDecoder;
-const loadUSDLoader = async () => (await import('./three.js').then(function (n) { return n.aI; })).USDLoader;
-const loadThreeMFLoader = async () => (await import('./three.js').then(function (n) { return n.aJ; })).ThreeMFLoader;
-const loadAMFLoader = async () => (await import('./three.js').then(function (n) { return n.aK; })).AMFLoader;
-const loadVRMLLoader = async () => (await import('./three.js').then(function (n) { return n.aL; })).VRMLLoader;
-const loadKMZLoader = async () => (await import('./three.js').then(function (n) { return n.aM; })).KMZLoader;
-const loadVOXLoader = async () => (await import('./three.js').then(function (n) { return n.aN; })).VOXLoader;
-const loadVOXBuildMesh = async () => (await import('./three.js').then(function (n) { return n.aN; })).buildMesh;
-const loadLWOLoader = async () => (await import('./three.js').then(function (n) { return n.aO; })).LWOLoader;
+const loadDDSLoader = async () => (await import('./three.js').then(function (n) { return n.k; })).DDSLoader;
+const loadMTLLoader = async () => (await import('./three.js').then(function (n) { return n.l; })).MTLLoader;
+const loadOBJLoader = async () => (await import('./three.js').then(function (n) { return n.n; })).OBJLoader;
+const loadFBXLoader = async () => (await import('./three.js').then(function (n) { return n.o; })).FBXLoader;
+const loadPLYLoader = async () => (await import('./three.js').then(function (n) { return n.P; })).PLYLoader;
+const loadColladaLoader = async () => (await import('./three.js').then(function (n) { return n.p; })).ColladaLoader;
+const loadSTLLoader = async () => (await import('./three.js').then(function (n) { return n.S; })).STLLoader;
+const loadXYZLoader = async () => (await import('./three.js').then(function (n) { return n.X; })).XYZLoader;
+const loadTDSLoader = async () => (await import('./three.js').then(function (n) { return n.q; })).TDSLoader;
+const loadPCDLoader = async () => (await import('./three.js').then(function (n) { return n.r; })).PCDLoader;
+const loadGLTFLoader = async () => (await import('./three.js').then(function (n) { return n.G; })).GLTFLoader;
+const loadDRACOLoader = async () => (await import('./three.js').then(function (n) { return n.s; })).DRACOLoader;
+const loadKTX2Loader = async () => (await import('./three.js').then(function (n) { return n.K; })).KTX2Loader;
+const loadMeshoptDecoder = async () => (await import('./three.js').then(function (n) { return n.t; })).MeshoptDecoder;
+const loadUSDLoader = async () => (await import('./three.js').then(function (n) { return n.U; })).USDLoader;
+const loadThreeMFLoader = async () => (await import('./three.js').then(function (n) { return n._; })).ThreeMFLoader;
+const loadAMFLoader = async () => (await import('./three.js').then(function (n) { return n.A; })).AMFLoader;
+const loadVRMLLoader = async () => (await import('./three.js').then(function (n) { return n.u; })).VRMLLoader;
+const loadKMZLoader = async () => (await import('./three.js').then(function (n) { return n.v; })).KMZLoader;
+const loadVOXLoader = async () => (await import('./three.js').then(function (n) { return n.w; })).VOXLoader;
+const loadVOXBuildMesh = async () => (await import('./three.js').then(function (n) { return n.w; })).buildMesh;
+const loadLWOLoader = async () => (await import('./three.js').then(function (n) { return n.x; })).LWOLoader;
 const loadIFCLoader = async () => (await import('./IFCLoader.js')).IFCLoader;
-const loadRoomEnvironment = async () => (await import('./three.js').then(function (n) { return n.aP; })).RoomEnvironment;
+const loadRoomEnvironment = async () => (await import('./three.js').then(function (n) { return n.R; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf) only downloads with the first such file.
 const loadLasPointCloud = async () => (await import('./pointcloud-las.js')).buildLasPointCloud;
-const loadHDRLoader = async () => (await import('./three.js').then(function (n) { return n.aQ; })).HDRLoader;
+const loadHDRLoader = async () => (await import('./three.js').then(function (n) { return n.H; })).HDRLoader;
 
 var outlineClipping;
 let environmentTextureCache = {};
@@ -17058,10 +17095,6 @@ var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof win
 
 function getDefaultExportFromCjs (x) {
 	return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
-}
-
-function getDefaultExportFromNamespaceIfNotNamed (n) {
-	return n && Object.prototype.hasOwnProperty.call(n, 'default') && Object.keys(n).length === 1 ? n['default'] : n;
 }
 
 var stats_min$1 = {exports: {}};
@@ -26075,8 +26108,6 @@ var inflt = function (dat, st, buf, dict) {
     var noBuf = !buf;
     // have to estimate size
     var resize = noBuf || st.i != 2;
-    // no state
-    var noSt = st.i;
     // Assumes roughly 33% compression ratio average
     if (noBuf)
         buf = new u8(sl * 3);
@@ -26106,8 +26137,7 @@ var inflt = function (dat, st, buf, dict) {
                 // go to end of byte boundary
                 var s = shft(pos) + 4, l = dat[s - 4] | (dat[s - 3] << 8), t = s + l;
                 if (t > sl) {
-                    if (noSt)
-                        err(0);
+                    err(0);
                     break;
                 }
                 // ensure size
@@ -26174,8 +26204,7 @@ var inflt = function (dat, st, buf, dict) {
             else
                 err(1);
             if (pos > tbts) {
-                if (noSt)
-                    err(0);
+                err(0);
                 break;
             }
         }
@@ -26190,8 +26219,7 @@ var inflt = function (dat, st, buf, dict) {
             var c = lm[bits16(dat, pos) & lms], sym = c >> 4;
             pos += c & 15;
             if (pos > tbts) {
-                if (noSt)
-                    err(0);
+                err(0);
                 break;
             }
             if (!c)
@@ -26222,8 +26250,7 @@ var inflt = function (dat, st, buf, dict) {
                     dt += bits16(dat, pos) & (1 << b) - 1, pos += b;
                 }
                 if (pos > tbts) {
-                    if (noSt)
-                        err(0);
+                    err(0);
                     break;
                 }
                 if (resize)
@@ -26255,56 +26282,8 @@ var b2 = function (d, b) { return d[b] | (d[b + 1] << 8); };
 var b4 = function (d, b) { return (d[b] | (d[b + 1] << 8) | (d[b + 2] << 16) | (d[b + 3] << 24)) >>> 0; };
 // read 8 bytes
 var b8 = function (d, b) { return b4(d, b) + (b4(d, b + 4) * 4294967296); };
-// gzip footer: -8 to -4 = CRC, -4 to -0 is length
-// gzip start
-var gzs = function (d) {
-    if (d[0] != 31 || d[1] != 139 || d[2] != 8)
-        err(6, 'invalid gzip data');
-    var flg = d[3];
-    var st = 10;
-    if (flg & 4)
-        st += (d[10] | d[11] << 8) + 2;
-    for (var zs = (flg >> 3 & 1) + (flg >> 4 & 1); zs > 0; zs -= !d[st++])
-        ;
-    return st + (flg & 2);
-};
-// gzip length
-var gzl = function (d) {
-    var l = d.length;
-    return (d[l - 4] | d[l - 3] << 8 | d[l - 2] << 16 | d[l - 1] << 24) >>> 0;
-};
-// zlib start
-var zls = function (d, dict) {
-    if ((d[0] & 15) != 8 || (d[0] >> 4) > 7 || ((d[0] << 8 | d[1]) % 31))
-        err(6, 'invalid zlib data');
-    if ((d[1] >> 5 & 1) == 1)
-        err(6, 'invalid zlib data: ' + (d[1] & 32 ? 'need' : 'unexpected') + ' dictionary');
-    return (d[1] >> 3 & 4) + 2;
-};
 function inflateSync(data, opts) {
     return inflt(data, { i: 2 }, opts && opts.out, opts && opts.dictionary);
-}
-function gunzipSync(data, opts) {
-    var st = gzs(data);
-    if (st + 8 > data.length)
-        err(6, 'invalid gzip data');
-    return inflt(data.subarray(st, -8), { i: 2 }, new u8(gzl(data)), opts);
-}
-function unzlibSync(data, opts) {
-    return inflt(data.subarray(zls(data), -4), { i: 2 }, opts, opts);
-}
-/**
- * Expands compressed GZIP, Zlib, or raw DEFLATE data, automatically detecting the format
- * @param data The data to decompress
- * @param opts The decompression options
- * @returns The decompressed version of the data
- */
-function decompressSync(data, opts) {
-    return (data[0] == 31 && data[1] == 139 && data[2] == 8)
-        ? gunzipSync(data, opts)
-        : ((data[0] & 15) != 8 || (data[0] >> 4) > 7 || ((data[0] << 8 | data[1]) % 31))
-            ? inflateSync(data, opts)
-            : unzlibSync(data, opts);
 }
 // text decoder
 var td = typeof TextDecoder != 'undefined' && /*#__PURE__*/ new TextDecoder();
@@ -26426,7 +26405,7 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "0d270e4" ;
+const BUILD_ID = "8644e00" ;
 
 function poweredByHtml() {
   const build = ` (${BUILD_ID})` ;
@@ -30421,5 +30400,5 @@ window.Viewer = Viewer$1;
   }
 })();
 
-export { Viewer$1 as V, core as c, decompressSync as d, expectWebGL as e, getDefaultExportFromNamespaceIfNotNamed as g };
+export { Viewer$1 as V, core as c, expectWebGL as e };
 //# sourceMappingURL=main.js.map

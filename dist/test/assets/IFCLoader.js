@@ -1,4 +1,4 @@
-import { a7 as Loader, h as FileLoader, q as BufferGeometry, a as Mesh, a8 as mergeGeometries, C as Color, Q as MeshLambertMaterial, d as DoubleSide, M as Matrix4, m as BufferAttribute } from './three.js';
+import { L as Loader, f as FileLoader, B as BufferGeometry, g as Mesh, m as mergeGeometries, C as Color, h as MeshLambertMaterial, D as DoubleSide, i as Matrix4, j as BufferAttribute } from './three.js';
 
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __commonJS = (cb, mod) => function __require() {

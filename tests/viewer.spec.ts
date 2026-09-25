@@ -842,6 +842,21 @@ test('IIIF Presentation 4 scenes: camera, lights, transforms and point comments 
   expect(reimported.scale).toEqual(imported.scale);
   expect(reimported.camera).toEqual(imported.camera);
   expect(reimported.comments).toEqual(imported.comments);
+  expect(reimported.lights).toEqual(imported.lights);
+  const spotLight = () => page.evaluate(() => {
+    let spot = null;
+    window.Viewer.scene.traverse((object) => { if (object.isSpotLight) spot = object; });
+    return spot && {
+      angle: Math.round(spot.angle * 1000) / 1000,
+      decay: spot.decay,
+      target: spot.target.position.toArray().map((value) => Math.round(value * 1000) / 1000),
+    };
+  });
+  expect(await spotLight()).toEqual({ angle: Math.round((25 * Math.PI / 180) * 1000) / 1000, decay: 0, target: expect.any(Array) });
+
+  // Importing again replaces the imported lights instead of adding more.
+  await page.evaluate((json) => window.Viewer.setupManifesto(JSON.stringify(json), 'text'), manifest);
+  expect((await sceneState()).lights).toEqual(imported.lights);
 });
 
 test('upload panel shows limit usage and limit errors from the worker', async ({ page }) => {

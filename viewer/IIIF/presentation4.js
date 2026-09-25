@@ -246,6 +246,25 @@ export function removeImportedLights() {
   importedLights = null;
 }
 
+// Imported lights the viewer has no own light for live in one group, removed
+// again with the model (removeImportedLights).
+export function addImportedLight(light) {
+  if (!core.scene) return light;
+  if (!importedLights) {
+    importedLights = new THREE.Group();
+    importedLights.name = "iiif-lights";
+    core.scene.add(importedLights);
+  }
+  if (light.target) importedLights.add(light.target);
+  importedLights.add(light);
+  return light;
+}
+
+// The imported lights, for exporting them again.
+export function importedLightObjects() {
+  return importedLights ? importedLights.children.filter((child) => child.isLight) : [];
+}
+
 // Centre and radius of the loaded models (targets for direction-only lights).
 function sceneBounds() {
   const box = new THREE.Box3();
@@ -271,7 +290,9 @@ function lightAim(light) {
   return { position: light.position, target: light.position.clone().addScaledVector(light.direction, bounds.radius) };
 }
 
-function stopCameraIntro() {
+// Cancels the intro fly-in a model load starts, so it doesn't overwrite a
+// camera applied from a manifest.
+export function stopCameraIntro() {
   core.cameraTweenToken = (core.cameraTweenToken ?? 0) + 1;
   core.cameraTween?.stop?.();
   core.targetTween?.stop?.();
@@ -312,8 +333,6 @@ export function applyCamera(camera, viewer) {
 export function applyLights(lights) {
   removeImportedLights();
   if (!lights.length || !core.scene) return 0;
-  importedLights = new THREE.Group();
-  importedLights.name = "iiif-lights";
   let usedDirectional = false;
   lights.forEach((light) => {
     const intensity = light.intensity * (LIGHT_INTENSITY_SCALE[light.type] || 1);
@@ -322,7 +341,7 @@ export function applyLights(lights) {
         core.ambientLight.color.copy(light.color);
         core.ambientLight.intensity = intensity;
       } else {
-        importedLights.add(new THREE.AmbientLight(light.color, intensity));
+        addImportedLight(new THREE.AmbientLight(light.color, intensity));
       }
       return;
     }
@@ -349,14 +368,10 @@ export function applyLights(lights) {
     }
     const aim = lightAim(light);
     object.position.copy(aim.position);
-    if (object.target) {
-      object.target.position.copy(aim.target);
-      importedLights.add(object.target);
-    }
+    object.target?.position.copy(aim.target);
     object.name = `iiif-${light.type}`;
-    importedLights.add(object);
+    addImportedLight(object);
   });
-  core.scene.add(importedLights);
   return lights.length;
 }
 
