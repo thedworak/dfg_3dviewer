@@ -493,6 +493,7 @@ export const VIEWER_I18N = {
     },
     measurement: {
       title: "Measurements",
+      close: "Close measurements (ends measuring and clears them)",
       distance: "Distance",
       angle: "Angle",
       area: "Area",
@@ -1047,6 +1048,7 @@ export const VIEWER_I18N = {
     },
     measurement: {
       title: "Pomiary",
+      close: "Zamknij pomiary (kończy mierzenie i je czyści)",
       distance: "Odległość",
       angle: "Kąt",
       area: "Pole",
@@ -1600,6 +1602,7 @@ export const VIEWER_I18N = {
     },
     measurement: {
       title: "Messungen",
+      close: "Messungen schließen (beendet das Messen und löscht sie)",
       distance: "Entfernung",
       angle: "Winkel",
       area: "Fläche",
