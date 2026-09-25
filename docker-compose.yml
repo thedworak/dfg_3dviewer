@@ -1,8 +1,26 @@
 services:
+  # Build-only: Ubuntu, Blender, gltfpack and the Python libraries
+  # (worker/Dockerfile.base). Built once and then served from the build cache,
+  # so code changes only rebuild the thin worker image below. Never started.
+  worker-base:
+    build:
+      context: worker
+      dockerfile: Dockerfile.base
+      # Published by .github/workflows/worker-base.yml; speeds up the first
+      # build on a fresh machine. A missing or private image only means a
+      # full local build (BuildKit logs a warning and carries on).
+      cache_from:
+        - ghcr.io/thedworak/dfg-3dviewer-worker-base:latest
+    image: dfg-3dviewer-worker-base
+    scale: 0
+
   worker:
     build:
       context: .
       dockerfile: worker/Dockerfile
+      # Code only - "FROM worker-base" resolves to the service above.
+      additional_contexts:
+        worker-base: service:worker-base
     ports:
       - "8080:8080"
     volumes:
@@ -15,6 +33,18 @@ services:
       # Upload cap in bytes (100 MB). Keep in sync with client_max_body_size
       # in docker/nginx.conf.
       - WORKER_MAX_UPLOAD_BYTES=104857600
+      # Upload limits - see "Upload limits" in worker/README.md. 0 means
+      # unlimited; admins are never limited and can override these per
+      # account in the viewer's user panel. Set them in .env to change.
+      - WORKER_LIMIT_UPLOADS_PER_HOUR=${WORKER_LIMIT_UPLOADS_PER_HOUR:-20}
+      - WORKER_LIMIT_UPLOADS_PER_DAY=${WORKER_LIMIT_UPLOADS_PER_DAY:-100}
+      - WORKER_LIMIT_STORAGE_MB=${WORKER_LIMIT_STORAGE_MB:-0}
+      - WORKER_LIMIT_MAX_MODELS=${WORKER_LIMIT_MAX_MODELS:-0}
+      - WORKER_LIMIT_CONCURRENT_JOBS=${WORKER_LIMIT_CONCURRENT_JOBS:-1}
+      - WORKER_MAX_CONCURRENT_CONVERSIONS=${WORKER_MAX_CONCURRENT_CONVERSIONS:-2}
+      # Reverse proxies in front of the worker: 1 = the viewer's nginx
+      # (docker/nginx.conf); 2 with docker/host-nginx.example.conf in front.
+      - WORKER_TRUSTED_PROXIES=${WORKER_TRUSTED_PROXIES:-1}
       # Optional accounts - off by default. Set these in a .env file next to
       # this compose file (or the shell), not here; see "Accounts" in
       # worker/README.md. WORKER_AUTH_MODE=required makes uploading/deleting
@@ -23,6 +53,15 @@ services:
       - WORKER_AUTH_REGISTRATION=${WORKER_AUTH_REGISTRATION:-approval}
       - WORKER_ADMIN_USER=${WORKER_ADMIN_USER:-}
       - WORKER_ADMIN_PASSWORD=${WORKER_ADMIN_PASSWORD:-}
+      # Optional: mail users when an admin approves their account (see
+      # "Accounts" in worker/README.md). Mail stays off without SMTP_HOST.
+      - WORKER_SMTP_HOST=${WORKER_SMTP_HOST:-}
+      - WORKER_SMTP_PORT=${WORKER_SMTP_PORT:-}
+      - WORKER_SMTP_SECURITY=${WORKER_SMTP_SECURITY:-starttls}
+      - WORKER_SMTP_USER=${WORKER_SMTP_USER:-}
+      - WORKER_SMTP_PASSWORD=${WORKER_SMTP_PASSWORD:-}
+      - WORKER_SMTP_FROM=${WORKER_SMTP_FROM:-}
+      - WORKER_PUBLIC_URL=${WORKER_PUBLIC_URL:-}
     # Requesting this reservation without nvidia-container-toolkit on the
     # host makes `docker compose up` fail outright ("could not select
     # device driver \"nvidia\"") before the container ever starts, so it
@@ -54,6 +93,7 @@ services:
       args:
         BUILD_TARGET: test
         VIEWER_PROFILE: ${VIEWER_PROFILE:-test}
+        BUILD_ID: ${BUILD_ID:-}
     ports:
       - "3000:3000"
     volumes:
@@ -74,6 +114,7 @@ services:
       args:
         BUILD_TARGET: dev
         VIEWER_PROFILE: ${VIEWER_PROFILE:-dev}
+        BUILD_ID: ${BUILD_ID:-}
     ports:
       - "3001:3000"
     volumes:
@@ -93,6 +134,7 @@ services:
       args:
         BUILD_TARGET: test
         VIEWER_PROFILE: ${VIEWER_PROFILE:-sandbox}
+        BUILD_ID: ${BUILD_ID:-}
     ports:
       - "3002:3000"
     volumes:

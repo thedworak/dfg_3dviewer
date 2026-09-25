@@ -2,7 +2,7 @@
 import { test, expect } from '@playwright/test';
 
 const defaultModel = '/examples/box.stl';
-const supportedFormatsText = 'GLB, GLTF, OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, USD, USDA, USDC, USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO';
+const supportedFormatsText = 'GLB, GLTF, OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, USD, USDA, USDC, USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO, LAS, LAZ';
 const sandboxDropMessage = 'Drag and drop a 3D model into the viewer.';
 const sandboxSupportedFormatsNotice = `<strong>Supported formats</strong>: ${supportedFormatsText}\n`;
 const sandboxSupportedArchiveFormatsNotice = 'and <strong>archive formats</strong>: ZIP, RAR, TAR, XZ, GZ.';
@@ -25,6 +25,8 @@ const supportedExamples = [
   { format: 'wrl', path: '/examples/box.wrl' },
   { format: 'kmz', path: '/examples/box.kmz' },
   { format: 'vox', path: '/examples/box.vox' },
+  { format: 'las', path: '/examples/points.las' },
+  { format: 'laz', path: '/examples/points.laz' },
 ];
 
 async function openViewer(page, modelPath = defaultModel) {
@@ -49,6 +51,27 @@ async function waitForModel(page, timeout = 15_000) {
   await page.waitForFunction(() => window.viewer?.modelLoaded === true, {
     timeout,
   });
+}
+
+// The camera's intro flight starts at the end of loading (after
+// modelLoaded); wait for loading to finish and the camera to stand still, so
+// a test's own camera changes are not overwritten by it.
+async function waitForCameraIdle(page) {
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true);
+  const pose = () => page.evaluate(() => {
+    const camera = window.Viewer?.camera;
+    const target = window.Viewer?.controls?.target;
+    return camera && target ? [...camera.position.toArray(), ...target.toArray()] : null;
+  });
+  let previous = await pose();
+  let stillSamples = 0;
+  await expect.poll(async () => {
+    await page.waitForTimeout(250);
+    const current = await pose();
+    stillSamples = current && JSON.stringify(current) === JSON.stringify(previous) ? stillSamples + 1 : 0;
+    previous = current;
+    return stillSamples >= 3;
+  }, { timeout: 15_000 }).toBe(true);
 }
 
 async function waitForViewerIssue(page) {
@@ -257,6 +280,24 @@ for (const example of supportedExamples) {
   });
 }
 
+test('models are centred on the grid whether or not metadata is configured', async ({ page }) => {
+  // box.stl loads as a single mesh, the synagogue GLB as a group.
+  for (const model of ['/examples/box.stl', '/examples/WolpaSynagogue.glb']) {
+    await openViewer(page, model);
+    await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+    const box = await page.evaluate(() => {
+      const root = window.Viewer.resolveObjectByTargetId('m0:root');
+      const bounds = new THREE.Box3().setFromObject(root, true);
+      return {
+        minY: +bounds.min.y.toFixed(3),
+        centerX: +((bounds.min.x + bounds.max.x) / 2).toFixed(3),
+        centerZ: +((bounds.min.z + bounds.max.z) / 2).toFixed(3),
+      };
+    });
+    expect(box, model).toEqual({ minY: 0, centerX: 0, centerZ: 0 });
+  }
+});
+
 test('camera rotates on mouse drag', async ({ page }) => {
   await openViewer(page);
   await waitForModel(page);
@@ -348,10 +389,72 @@ test('camera rotates on mouse drag', async ({ page }) => {
   }).toEqual(initialState);
 });*/
 
+test('guided tour steps through annotations and keeps saved views', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+
+  const savedView = { position: [3, 2, 4], target: [0.1, 0.2, 0.3], fov: 40 };
+  const annotationCount = await page.evaluate((view) => {
+    const viewer = window.Viewer;
+    const root = viewer.resolveObjectByTargetId('m0:root');
+    let mesh = null;
+    root?.traverse?.((child) => {
+      if (!mesh && child.isMesh) mesh = child;
+    });
+    const targetId = viewer.resolveFaceTargetId(mesh);
+    return viewer.hydrateAnnotationsFromMetadataPayload({
+      annotationEntries: [
+        { id: 'a1', targetId, faceNumbers: [0], title: 'First', description: 'Saved view', view },
+        { id: 'a2', targetId, faceNumbers: [4], title: 'Second', description: 'Computed view' },
+      ],
+    });
+  }, savedView);
+  expect(annotationCount).toBe(2);
+
+  await page.evaluate(() => window.Viewer.startTour());
+  const panel = page.locator('#viewerTourPanel');
+  await expect(panel).toBeVisible();
+  await expect(panel.locator('.viewer-tour-panel_counter')).toHaveText('Step 1 / 2');
+  await expect(panel.locator('.viewer-tour-panel_title')).toHaveText('1. First');
+
+  // Reduced motion (playwright.config.js) makes the flight instant.
+  await expect.poll(() => page.evaluate(() => {
+    const state = window.Viewer.tourState;
+    return state?.flight === null && state?.index === 0;
+  })).toBe(true);
+  const firstPose = await page.evaluate(() => window.Viewer.captureCurrentAnnotationView());
+  firstPose.position.forEach((value, index) => expect(value).toBeCloseTo(savedView.position[index], 4));
+  firstPose.target.forEach((value, index) => expect(value).toBeCloseTo(savedView.target[index], 4));
+  expect(firstPose.fov).toBeCloseTo(savedView.fov, 4);
+
+  await panel.locator('.viewer-tour-panel_next').click();
+  await expect(panel.locator('.viewer-tour-panel_counter')).toHaveText('Step 2 / 2');
+  await expect(panel.locator('.viewer-tour-panel_title')).toHaveText('2. Second');
+  const secondPose = await page.evaluate(() => window.Viewer.captureCurrentAnnotationView());
+  const secondCenter = await page.evaluate(() => {
+    const viewer = window.Viewer;
+    return viewer.getAnnotationEntryCenter(viewer.getAnnotationEntriesForPersistence()[1]).toArray();
+  });
+  secondPose.target.forEach((value, index) => expect(value).toBeCloseTo(secondCenter[index], 4));
+
+  // The saved view survives an XML export/import round trip.
+  const reimportedView = await page.evaluate(() => {
+    const viewer = window.Viewer;
+    const xml = viewer.exportAnnotationsToIIIFXml();
+    viewer.importAnnotationsFromIIIFXml(xml);
+    return viewer.getAnnotationEntriesForPersistence().map((entry) => entry.view || null);
+  });
+  expect(reimportedView).toEqual([savedView, null]);
+
+  await panel.locator('.viewer-tour-panel_close').click();
+  await expect(panel).toHaveCount(0);
+});
+
 test('embed configurator uses the current camera for preview url', async ({ page }) => {
   await openViewer(page);
   await waitForModel(page);
   await page.waitForFunction(() => window.Viewer?.camera && window.Viewer?.controls);
+  await waitForCameraIdle(page);
 
   await page.evaluate(() => {
     const viewer = window.Viewer;
@@ -428,6 +531,1032 @@ test('embed configurator uses the current camera for preview url', async ({ page
 
   expect(embedUrl).toContain(`camPos=${encodeURIComponent(camPosValue)}`);
   expect(embedUrl).toContain(`camTarget=${encodeURIComponent(camTargetValue)}`);
+});
+
+test('faces are selected by Shift + drag, Ctrl + click and accepted with Enter', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+  await page.evaluate(() => {
+    const viewer = window.Viewer;
+    viewer.pickingMode = true;
+    viewer.updatePickingControlsVisibility();
+  });
+
+  const canvas = page.locator('#MainCanvas');
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('canvas has no bounding box');
+  const selectedCount = () => page.evaluate(() => window.Viewer.selectedFaces.length);
+  const dragArea = async (modifiers) => {
+    for (const key of modifiers) await page.keyboard.down(key);
+    // Stay clear of the panels floating over the canvas edges.
+    await page.mouse.move(box.x + box.width * 0.25, box.y + box.height * 0.2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 4 });
+    await page.mouse.move(box.x + box.width * 0.75, box.y + box.height * 0.8, { steps: 4 });
+    await page.mouse.up();
+    for (const key of [...modifiers].reverse()) await page.keyboard.up(key);
+  };
+
+  await waitForCameraIdle(page);
+  const cameraPose = () => page.evaluate(() => window.Viewer.captureCurrentAnnotationView());
+  const cameraBefore = await cameraPose();
+  await dragArea(['Shift']);
+  const visibleCount = await selectedCount();
+  // The cube has 12 triangles; only the faces turned to the camera count.
+  expect(visibleCount).toBeGreaterThan(0);
+  expect(visibleCount).toBeLessThanOrEqual(6);
+  // The drag selected faces instead of panning the camera.
+  expect(await cameraPose()).toEqual(cameraBefore);
+  await expect(page.locator('#pickingHint')).toContainText(`${visibleCount} faces selected`);
+
+  // Ctrl + click on a selected face removes it again.
+  await page.keyboard.down('Control');
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await page.keyboard.up('Control');
+  expect(await selectedCount()).toBe(visibleCount - 1);
+
+  await canvas.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#annotationDialog')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#annotationDialog')).toBeHidden();
+
+  await dragArea(['Control', 'Shift']);
+  expect(await selectedCount()).toBe(0);
+});
+
+test('progressive loading shows the preview first and swaps in the full compressed model', async ({ page }) => {
+  const requests = [];
+  page.on('request', (request) => {
+    if (request.url().includes('/examples/compressed')) {
+      requests.push(`${request.method()} ${new URL(request.url()).pathname}`);
+    }
+  });
+
+  await openViewer(page, '/examples/compressed.glb');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+
+  expect(requests).toContain('HEAD /examples/compressed.preview.glb');
+  expect(requests).toContain('GET /examples/compressed.preview.glb');
+  expect(requests).toContain('GET /examples/compressed.glb');
+  // Preview first, then the full model.
+  expect(requests.indexOf('GET /examples/compressed.preview.glb'))
+    .toBeLessThan(requests.indexOf('GET /examples/compressed.glb'));
+
+  const scene = await page.evaluate(() => {
+    const root = window.Viewer.resolveObjectByTargetId('m0:root');
+    let meshes = 0;
+    let compressedTextures = 0;
+    root.traverse((child) => {
+      if (!child.isMesh) return;
+      meshes += 1;
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      if (materials.some((material) => material?.map?.isCompressedTexture)) compressedTextures += 1;
+    });
+    return {
+      isPreview: root.userData?.isPreviewModel === true,
+      meshes,
+      compressedTextures,
+      badge: document.querySelectorAll('.viewer-progressive-badge').length,
+      errors: window.viewer?.errors?.length ?? 0,
+    };
+  });
+  expect(scene.isPreview).toBe(false);
+  expect(scene.meshes).toBeGreaterThan(0);
+  // KHR_texture_basisu textures were transcoded by the KTX2 loader.
+  expect(scene.compressedTextures).toBeGreaterThan(0);
+  expect(scene.badge).toBe(0);
+  expect(scene.errors).toBe(0);
+});
+
+test('preview=0 skips the progressive preview', async ({ page }) => {
+  const requests = [];
+  page.on('request', (request) => {
+    if (request.url().includes('.preview.glb')) requests.push(request.method());
+  });
+  await page.addInitScript(() => {
+    window.__E2E__ = true;
+  });
+  await page.goto('/?e2eModel=%2Fexamples%2Fcompressed.glb&preview=0');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+  expect(requests).toEqual([]);
+});
+
+test('streams a 3D Tiles point cloud and keeps annotations off it', async ({ page }) => {
+  const tileRequests = new Set();
+  page.on('request', (request) => {
+    const path = new URL(request.url()).pathname;
+    if (path.startsWith('/examples/tiles/wolpa-points/')) tileRequests.add(path);
+  });
+
+  await openViewer(page, '/examples/tiles/wolpa-points/tileset.json');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+
+  // The coarse root level first, then refined tiles as the view needs them.
+  await expect.poll(() => tileRequests.size, { timeout: 10_000 }).toBeGreaterThan(2);
+  expect(tileRequests).toContain('/examples/tiles/wolpa-points/tileset.json');
+
+  const scene = await page.evaluate(() => {
+    const root = window.Viewer.resolveObjectByTargetId('m0:root');
+    let points = 0;
+    root.traverse((child) => {
+      if (child.isPoints) points += child.geometry.getAttribute('position').count;
+    });
+    const box = new THREE.Box3().setFromObject(root, true);
+    return {
+      tiled: root.userData?.isTiledModel === true,
+      points,
+      size: box.getSize(new THREE.Vector3()).toArray().map(Math.round),
+      minY: Math.round(box.min.y),
+      centerX: Math.round((box.min.x + box.max.x) / 2),
+      centerZ: Math.round((box.min.z + box.max.z) / 2),
+      errors: window.viewer?.errors?.length ?? 0,
+    };
+  });
+  expect(scene.tiled).toBe(true);
+  expect(scene.points).toBeGreaterThan(1000);
+  // Turned from Z-up to Y-up: the synagogue is about 1875 units tall, 2780 wide.
+  expect(scene.size[1]).toBeGreaterThan(1700);
+  expect(scene.size[1]).toBeLessThan(2000);
+  expect(scene.size[0]).toBeGreaterThan(2500);
+  // Centred and on the grid like any other model - by the whole tileset's
+  // bounds, not just the coarse root tiles.
+  expect(scene.minY).toBe(0);
+  expect(scene.centerX).toBe(0);
+  expect(scene.centerZ).toBe(0);
+  expect(scene.errors).toBe(0);
+
+  await page.evaluate(() => window.Viewer.openAnnotationDialogWithAutoPicking());
+  await expect(page.locator('#annotationDialog')).toHaveCount(0);
+});
+
+test('LAZ point clouds load directly, re-centred in double precision', async ({ page }) => {
+  await openViewer(page, '/examples/points.laz');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+  const cloud = await page.evaluate(() => {
+    const root = window.Viewer.resolveObjectByTargetId('m0:root');
+    const points = root.children.find((child) => child.isPoints);
+    const info = points.userData.pointCloud;
+    const box = new THREE.Box3().setFromObject(root, true);
+    const color = points.geometry.getAttribute('color');
+    return {
+      count: points.geometry.getAttribute('position').count,
+      info,
+      // Sampled across the cloud (the first points are the black plinth).
+      colorVaries: new Set(Array.from({ length: 200 }, (_, i) => color.array[i * 1500])).size > 10,
+      // Metres: about 28 x 19 x 24 m; must not collapse or explode from
+      // float32 rounding of the ~5.5 million m UTM coordinates.
+      size: box.getSize(new THREE.Vector3()).toArray().map(Math.round),
+      centerX: Math.round((box.min.x + box.max.x) / 2),
+      minY: Math.round(box.min.y),
+    };
+  });
+  expect(cloud.count).toBe(100000);
+  expect(cloud.info.colorMode).toBe('rgb');
+  expect(cloud.info.skip).toBe(1);
+  expect(cloud.info.originOffset[1]).toBeGreaterThan(5_000_000);
+  expect(cloud.colorVaries).toBe(true);
+  // Height along Y (turned from Z-up).
+  expect(cloud.size[1]).toBeGreaterThan(15);
+  expect(cloud.size[1]).toBeLessThan(22);
+  expect(cloud.size[0]).toBeGreaterThan(25);
+  expect(cloud.size[0]).toBeLessThan(32);
+  expect(cloud.centerX).toBe(0);
+  expect(cloud.minY).toBe(0);
+});
+
+test('point cloud panel changes colours, shape and size, and only appears for point clouds', async ({ page }) => {
+  await openViewer(page, '/examples/points.laz');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+  const panel = page.locator('#viewerPointCloudPanel');
+  await expect(panel).toBeVisible();
+  const colorSelect = panel.locator('select').nth(1);
+  await expect(colorSelect.locator('option')).toHaveText(['RGB', 'Intensity', 'Height']);
+
+  const pointsState = () => page.evaluate(() => {
+    const points = window.Viewer.resolveObjectByTargetId('m0:root').children.find((child) => child.isPoints);
+    const color = points.geometry.getAttribute('color').array;
+    return {
+      firstColors: Array.from(color.slice(0, 6)),
+      round: Boolean(points.material.defines?.ROUND_POINTS !== undefined),
+      size: points.material.size,
+    };
+  });
+  const before = await pointsState();
+
+  await colorSelect.selectOption('height');
+  await panel.locator('select').nth(0).selectOption('round');
+  await panel.locator('input[type=range]').first().fill('75');
+  const after = await pointsState();
+  expect(after.firstColors).not.toEqual(before.firstColors);
+  expect(after.round).toBe(true);
+  expect(after.size).toBeGreaterThan(before.size * 1.5);
+
+  // Back to the file's own colours.
+  await colorSelect.selectOption('rgb');
+  expect((await pointsState()).firstColors).toEqual(before.firstColors);
+
+  // Streamed clouds: Eye-Dome Lighting and level-of-detail colours through the plugin.
+  await openViewer(page, '/examples/tiles/wolpa-points/tileset.json');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+  await expect(panel).toBeVisible();
+  await expect(panel.locator('input[type=range]')).toHaveCount(2);
+  await panel.locator('select').nth(1).selectOption('tile');
+  await panel.locator('input[type=range]').nth(1).fill('0');
+  const pluginState = await page.evaluate(() => {
+    const state = window.Viewer.pointCloudState;
+    return { debug: state.plugin.debugColorMode, edl: state.plugin.edlStrength };
+  });
+  expect(pluginState).toEqual({ debug: 'tile', edl: 0 });
+
+  await openViewer(page, '/examples/box.glb');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+  await expect(panel).toHaveCount(0);
+});
+
+test('IIIF Presentation 4 scenes: camera, lights, transforms and point comments round-trip', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+  await page.evaluate(() => window.Viewer.setupManifesto('./manifests/box-iiif-p4.json', 'url', 'iiif'));
+
+  const sceneState = () => page.evaluate(() => {
+    const viewer = window.Viewer;
+    const round = (values) => values.map((value) => Math.round(value * 1000) / 1000);
+    const root = viewer.resolveObjectByTargetId('m0:root');
+    const lights = [];
+    viewer.scene.traverse((object) => {
+      if (object.isAmbientLight || object.isSpotLight || object.isDirectionalLight) {
+        lights.push(`${object.type}:#${object.color.getHexString()}`);
+      }
+    });
+    return {
+      camera: round(viewer.camera.position.toArray()),
+      target: round(viewer.controls.target.toArray()),
+      fov: Math.round(viewer.camera.fov),
+      scale: round(root.scale.toArray()),
+      lights,
+      comments: viewer.getAnnotationEntriesForPersistence().map((entry) => ({
+        title: entry.title,
+        center: round(viewer.getAnnotationEntryCenter(entry).toArray()),
+        view: entry.view ? round(entry.view.position) : null,
+      })),
+      markers: viewer.annotationPOIMarkers.length,
+    };
+  });
+
+  const imported = await sceneState();
+  // The manifest's own camera, not the viewer's intro flight.
+  expect(imported.camera).toEqual([2, 3, 6]);
+  expect(imported.target).toEqual([0, 0.5, 0]);
+  expect(imported.fov).toBe(40);
+  // ScaleTransform on the model's SpecificResource.
+  expect(imported.scale).toEqual([1.5, 1.5, 1.5]);
+  expect(imported.lights).toEqual(expect.arrayContaining(['AmbientLight:#ffe8d0', 'SpotLight:#6ea8ff']));
+  // Comments on scene points; the first one has its view from `scope`.
+  expect(imported.comments).toEqual([
+    { title: 'Top face', center: [0, 1.5, 0], view: [0.5, 6, 1] },
+    { title: 'Corner', center: [0.75, 0.75, 0.75], view: null },
+  ]);
+  expect(imported.markers).toBe(2);
+
+  // Export: Presentation 4 structure.
+  const manifest = await page.evaluate(() => window.Viewer.build3IFManifest());
+  const scene = manifest.items[0];
+  const painted = scene.items[0].items.map((annotation) => (
+    annotation.body.type === 'SpecificResource' ? `SpecificResource(${annotation.body.source.type})` : annotation.body.type
+  ));
+  expect(painted[0]).toBe('SpecificResource(Model)');
+  expect(scene.items[0].items[0].body.transform).toEqual([{ type: 'ScaleTransform', x: 1.5, y: 1.5, z: 1.5 }]);
+  expect(painted[1]).toBe('PerspectiveCamera');
+  expect(painted).toEqual(expect.arrayContaining(['AmbientLight', 'SpotLight']));
+  const [topComment, cornerComment] = scene.annotations[0].items;
+  expect(topComment.target.selector[0]).toEqual({ type: 'PointSelector', x: 0, y: 1.5, z: 0 });
+  expect(topComment.scope).toHaveLength(1);
+  const scopeCamera = scene.items[0].items.find((annotation) => annotation.id === topComment.scope[0].id);
+  expect(scopeCamera.body.type).toBe('PerspectiveCamera');
+  expect(cornerComment.scope).toBeUndefined();
+
+  // Round trip through our own export.
+  await page.evaluate((json) => window.Viewer.setupManifesto(JSON.stringify(json), 'text'), manifest);
+  const reimported = await sceneState();
+  expect(reimported.scale).toEqual(imported.scale);
+  expect(reimported.camera).toEqual(imported.camera);
+  expect(reimported.comments).toEqual(imported.comments);
+  expect(reimported.lights).toEqual(imported.lights);
+  const spotLight = () => page.evaluate(() => {
+    let spot = null;
+    window.Viewer.scene.traverse((object) => { if (object.isSpotLight) spot = object; });
+    return spot && {
+      angle: Math.round(spot.angle * 1000) / 1000,
+      decay: spot.decay,
+      target: spot.target.position.toArray().map((value) => Math.round(value * 1000) / 1000),
+    };
+  });
+  expect(await spotLight()).toEqual({ angle: Math.round((25 * Math.PI / 180) * 1000) / 1000, decay: 0, target: expect.any(Array) });
+
+  // Importing again replaces the imported lights instead of adding more.
+  await page.evaluate((json) => window.Viewer.setupManifesto(JSON.stringify(json), 'text'), manifest);
+  expect((await sceneState()).lights).toEqual(imported.lights);
+});
+
+test('IIIF Presentation 4 transforms apply in order, and manifest lights replace the default ones', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+
+  const scene = { id: './examples/box.glb/scene', type: 'Scene' };
+  const manifestWith = (transform, lights = []) => JSON.stringify({
+    '@context': 'http://iiif.io/api/presentation/4/context.json',
+    id: './examples/box.glb/manifest.json',
+    type: 'Manifest',
+    items: [{
+      ...scene,
+      items: [{
+        id: './examples/box.glb/scene/page',
+        type: 'AnnotationPage',
+        items: [
+          {
+            id: './examples/box.glb/anno/model',
+            type: 'Annotation',
+            motivation: ['painting'],
+            body: { type: 'SpecificResource', source: { id: './examples/box.glb', type: 'Model' }, transform },
+            target: scene,
+          },
+          ...lights.map((body, index) => ({
+            id: `./examples/box.glb/anno/light/${index}`,
+            type: 'Annotation',
+            motivation: ['painting'],
+            body,
+            target: scene,
+          })),
+        ],
+      }],
+    }],
+  });
+  const load = (json) => page.evaluate((text) => window.Viewer.setupManifesto(text, 'text'), json);
+  const root = () => page.evaluate(() => {
+    const object = window.Viewer.resolveObjectByTargetId('m0:root');
+    const round = (values) => values.map((value) => Math.round(value * 1000) / 1000 + 0);
+    return { position: round(object.position.toArray()), scale: round(object.scale.toArray()) };
+  });
+  const translate = { type: 'TranslateTransform', x: 1, y: 0, z: 0 };
+  const turn = { type: 'RotateTransform', x: 0, y: 180, z: 0 };
+
+  // Moved 1 in x, then turned about the scene's y axis: ends up at -1.
+  await load(manifestWith([translate, turn]));
+  expect((await root()).position).toEqual([-1, 0, 0]);
+  // Turned in place, then moved: stays at +1.
+  await load(manifestWith([turn, translate]));
+  expect((await root()).position).toEqual([1, 0, 0]);
+  // Scaling after a translation scales the translation too.
+  await load(manifestWith([translate, { type: 'ScaleTransform', x: 2, y: 2, z: 2 }]));
+  expect(await root()).toEqual({ position: [2, 0, 0], scale: [2, 2, 2] });
+
+  // A rotation about several axes (x, then y, then z) survives the export.
+  const tilt = { type: 'RotateTransform', x: 15, y: 20, z: 35 };
+  await load(manifestWith([tilt]));
+  // As a three.js "XYZ" Euler rotation, like the IIIF 3D examples use.
+  const rootRotation = await page.evaluate(() => {
+    const { rotation } = window.Viewer.resolveObjectByTargetId('m0:root');
+    return { order: rotation.order, degrees: [rotation.x, rotation.y, rotation.z].map((value) => value * 180 / Math.PI) };
+  });
+  expect(rootRotation.order).toBe('XYZ');
+  rootRotation.degrees.forEach((value, index) => expect(value).toBeCloseTo([15, 20, 35][index], 3));
+  const exported = await page.evaluate(() => window.Viewer.build3IFManifest().items[0].items[0].items[0].body.transform);
+  expect(exported).toHaveLength(1);
+  expect(exported[0]).toMatchObject({ type: 'RotateTransform' });
+  ['x', 'y', 'z'].forEach((axis) => expect(exported[0][axis]).toBeCloseTo(tilt[axis], 3));
+
+  // Manifest lights (intensity as a relative Quantity) switch the viewer's
+  // own lights off; loading a manifest without lights brings them back.
+  const lightState = () => page.evaluate(() => {
+    const lights = [];
+    window.Viewer.scene.traverse((object) => {
+      if (object.isLight && object.visible) lights.push(`${object.type}:#${object.color.getHexString()}:${Math.round(object.intensity * 100) / 100}`);
+    });
+    return lights.sort();
+  });
+  const defaults = await lightState();
+  expect(defaults).toEqual(expect.arrayContaining([expect.stringMatching(/^HemisphereLight:/)]));
+  await load(manifestWith([], [
+    { type: 'AmbientLight', color: '#00ff00', intensity: { type: 'Quantity', quantityValue: 0.5, unit: 'relative' } },
+  ]));
+  expect(await lightState()).toEqual(['AmbientLight:#00ff00:0.5']);
+  const exportedLight = await page.evaluate(() => window.Viewer.build3IFManifest().items[0].items[0].items
+    .filter((annotation) => /Light$/.test(annotation.body.type)).map((annotation) => annotation.body));
+  expect(exportedLight).toEqual([
+    { type: 'AmbientLight', color: '#00ff00', intensity: { type: 'Quantity', quantityValue: 0.5, unit: 'relative' } },
+  ]);
+  await load(manifestWith([]));
+  expect(await lightState()).toEqual(defaults);
+});
+
+test('IIIF Presentation 4 export keeps every model of the scene and its background colour', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+
+  const scene = { id: './examples/pair/scene', type: 'Scene' };
+  const manifest = {
+    '@context': 'http://iiif.io/api/presentation/4/context.json',
+    id: './examples/pair/manifest.json',
+    type: 'Manifest',
+    items: [{
+      ...scene,
+      backgroundColor: '#336699',
+      items: [{
+        id: './examples/pair/scene/page',
+        type: 'AnnotationPage',
+        items: [
+          {
+            id: './examples/pair/anno/glb',
+            type: 'Annotation',
+            motivation: ['painting'],
+            body: { id: './examples/box.glb', type: 'Model', format: 'model/gltf-binary' },
+            target: scene,
+          },
+          {
+            id: './examples/pair/anno/stl',
+            type: 'Annotation',
+            motivation: ['painting'],
+            body: {
+              type: 'SpecificResource',
+              source: { id: './examples/box.stl', type: 'Model' },
+              transform: [{ type: 'ScaleTransform', x: 0.5, y: 0.5, z: 0.5 }, { type: 'TranslateTransform', x: 3, y: 0, z: 0 }],
+            },
+            target: { type: 'SpecificResource', source: scene, selector: [{ type: 'PointSelector', x: 0, y: 1, z: 0 }] },
+          },
+        ],
+      }],
+    }],
+  };
+  const roots = () => page.evaluate(() => [0, 1].map((slot) => {
+    const root = window.Viewer.resolveObjectByTargetId(`m${slot}:root`);
+    const round = (values) => values.map((value) => Math.round(value * 1000) / 1000 + 0);
+    return root && { position: round(root.position.toArray()), scale: round(root.scale.toArray()) };
+  }));
+
+  await page.evaluate((json) => window.Viewer.setupManifesto(JSON.stringify(json), 'text'), manifest);
+  const imported = await roots();
+  expect(imported).toEqual([
+    { position: [0, 0, 0], scale: [1, 1, 1] },
+    { position: [3, 1, 0], scale: [0.5, 0.5, 0.5] },
+  ]);
+
+  const exported = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(exported.items[0].backgroundColor).toBe('#336699');
+  const models = exported.items[0].items[0].items.filter((annotation) => (annotation.body.source?.type || annotation.body.type) === 'Model');
+  expect(models.map((annotation) => annotation.body.source?.id || annotation.body.id)).toEqual(['./examples/box.glb', './examples/box.stl']);
+  expect(models.map((annotation) => annotation.id)).toEqual([
+    expect.stringMatching(/\/annotation\/model$/),
+    expect.stringMatching(/\/annotation\/model\/2$/),
+  ]);
+  expect(models[0].body.format).toBe('model/gltf-binary');
+  expect(models[1].body.transform).toEqual([
+    { type: 'ScaleTransform', x: 0.5, y: 0.5, z: 0.5 },
+    { type: 'TranslateTransform', x: 3, y: 1, z: 0 },
+  ]);
+
+  // Round trip through our own export (the AIM3D path): both models are
+  // placed again, and the background comes back.
+  await page.evaluate((json) => window.Viewer.setupManifesto(JSON.stringify(json), 'text'), exported);
+  expect(await roots()).toEqual(imported);
+  const reexported = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(reexported.items[0].backgroundColor).toBe('#336699');
+
+  // A model's default gradient background is not a IIIF background colour.
+  await openViewer(page, '/examples/box.glb');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+  const plain = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(plain.items[0]).not.toHaveProperty('backgroundColor');
+  expect(plain.items[0].items[0].items.filter((annotation) => (annotation.body.source?.type || annotation.body.type) === 'Model')).toHaveLength(1);
+});
+
+test('IIIF comments: languages, HTML bodies, and one scene of a manifest at a time', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+
+  const scenePoint = (sceneId, x, y, z) => ({
+    type: 'SpecificResource',
+    source: { id: sceneId, type: 'Scene' },
+    selector: [{ type: 'PointSelector', x, y, z }],
+  });
+  const modelPage = (sceneId, model) => [{
+    id: `${sceneId}/page`,
+    type: 'AnnotationPage',
+    items: [{
+      id: `${sceneId}/anno/model`,
+      type: 'Annotation',
+      motivation: ['painting'],
+      body: { id: model, type: 'Model' },
+      target: { id: sceneId, type: 'Scene' },
+    }],
+  }];
+  const first = './examples/scenes/1';
+  const second = './examples/scenes/2';
+  const manifest = {
+    '@context': 'http://iiif.io/api/presentation/4/context.json',
+    id: './examples/scenes/manifest.json',
+    type: 'Manifest',
+    items: [
+      {
+        id: first,
+        type: 'Scene',
+        label: { en: ['Box'], pl: ['Pudełko'] },
+        items: modelPage(first, './examples/box.glb'),
+        annotations: [{
+          id: `${first}/comments`,
+          type: 'AnnotationPage',
+          items: [
+            {
+              id: `${first}/comments/glove`,
+              type: 'Annotation',
+              motivation: ['commenting'],
+              label: { en: ['Glove'], pl: ['Rękawica'] },
+              body: {
+                type: 'Choice',
+                items: [
+                  { type: 'TextualBody', value: 'A glove', language: ['en'], format: 'text/plain' },
+                  { type: 'TextualBody', value: 'Rękawica astronauty', language: ['pl'], format: 'text/plain' },
+                ],
+              },
+              target: scenePoint(first, 0, 1, 0),
+            },
+            {
+              id: `${first}/comments/html`,
+              type: 'Annotation',
+              motivation: ['commenting'],
+              body: {
+                type: 'TextualBody',
+                format: 'text/html',
+                value: '<p>Right <b>pterygoid</b></p><p>hamulus<script>window.__injected = true</script></p>',
+              },
+              target: scenePoint(first, 0, 0.5, 0),
+            },
+          ],
+        }],
+      },
+      {
+        id: second,
+        type: 'Scene',
+        label: { en: ['Tetrahedron'] },
+        backgroundColor: '#112233',
+        items: modelPage(second, './examples/box.stl'),
+      },
+    ],
+    // Manifest-level comments belong to the scene their target names.
+    annotations: [{
+      id: './examples/scenes/comments',
+      type: 'AnnotationPage',
+      items: [{
+        id: './examples/scenes/comments/second',
+        type: 'Annotation',
+        motivation: ['commenting'],
+        body: { type: 'TextualBody', value: 'On the second scene' },
+        target: scenePoint(second, 0, 0, 0),
+      }],
+    }],
+  };
+  // The IIIF source, whose manifest form holds the scene selector.
+  await page.evaluate(() => window.Viewer.setupManifestSource('iiif', { loadInitialManifest: false }));
+  const comments = () => page.evaluate(() => window.Viewer.annotationEntries.map((entry) => [entry.title, entry.description]));
+  const modelUrls = () => page.evaluate(() => window.Viewer.build3IFManifest().items[0].items[0].items
+    .filter((annotation) => (annotation.body.source?.type || annotation.body.type) === 'Model')
+    .map((annotation) => annotation.body.source?.id || annotation.body.id));
+
+  await page.evaluate((json) => window.Viewer.setupManifesto(JSON.stringify(json), 'text'), manifest);
+  // The first scene only; the comment in the viewer's language, the HTML
+  // body as plain text (its script never ran).
+  expect(await modelUrls()).toEqual(['./examples/box.glb']);
+  expect(await comments()).toEqual([
+    ['Glove', 'A glove'],
+    ['', 'Right pterygoid\nhamulus'],
+  ]);
+  expect(await page.evaluate(() => window.__injected)).toBeUndefined();
+
+  // Another language shows the other text; an edit changes that language's.
+  await page.evaluate(() => window.Viewer.selectLanguage('pl'));
+  expect((await comments())[0]).toEqual(['Rękawica', 'Rękawica astronauty']);
+  await page.evaluate(() => {
+    const entry = window.Viewer.annotationEntries[0];
+    window.Viewer.setAnnotationEntryText(entry, 'Rękawica', 'Lewa rękawica');
+  });
+  const exported = await page.evaluate(() => window.Viewer.build3IFManifest().items[0].annotations[0].items[0]);
+  expect(exported.label).toEqual({ en: ['Glove'], pl: ['Rękawica'] });
+  expect(exported.body).toEqual({
+    type: 'Choice',
+    items: [
+      { type: 'TextualBody', value: 'A glove', format: 'text/plain', language: ['en'] },
+      { type: 'TextualBody', value: 'Lewa rękawica', format: 'text/plain', language: ['pl'] },
+    ],
+  });
+  await page.evaluate(() => window.Viewer.selectLanguage('en'));
+  expect((await comments())[0]).toEqual(['Glove', 'A glove']);
+
+  // The scene selector switches to the second scene: its model, its
+  // background and the manifest-level comment on it.
+  const options = page.locator('#manifesto-scene-select option');
+  await expect(options).toHaveText(['Box', 'Tetrahedron']);
+  await page.locator('#manifesto-scene-select').selectOption('1');
+  await expect.poll(modelUrls).toEqual(['./examples/box.stl']);
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true);
+  expect(await comments()).toEqual([['', 'On the second scene']]);
+  expect(await page.evaluate(() => window.Viewer.build3IFManifest().items[0].backgroundColor)).toBe('#112233');
+  await expect(page.locator('#manifesto-scene-select')).toHaveValue('1');
+});
+
+test('IIIF scenes: activating, camera choices, canvases, regions, nesting and descriptive properties', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+  await page.evaluate(() => window.Viewer.setupManifestSource('iiif', { loadInitialManifest: false }));
+
+  const base = './examples/features';
+  const main = `${base}/scene`;
+  const nested = `${base}/nested`;
+  const canvasId = `${base}/canvas`;
+  const at = (x, y, z) => ({ type: 'SpecificResource', source: { id: main, type: 'Scene' }, selector: [{ type: 'PointSelector', x, y, z }] });
+  const painting = (id, body, target, extra = {}) => ({ id: `${base}/${id}`, type: 'Annotation', motivation: ['painting'], body, target, ...extra });
+  const origin = { type: 'PointSelector', x: 0, y: 0, z: 0 };
+  const region = [[-0.5, 1, -0.5], [0.5, 1, -0.5], [0.5, 1, 0.5], [-0.5, 1, 0.5]];
+  const manifest = {
+    '@context': 'http://iiif.io/api/presentation/4/context.json',
+    id: `${base}/manifest.json`,
+    type: 'Manifest',
+    label: { en: ['Features'] },
+    summary: { en: ['A scene with everything'] },
+    metadata: [{ label: { en: ['Creator'] }, value: { none: ['Test'] } }],
+    rights: 'http://creativecommons.org/licenses/by/4.0/',
+    requiredStatement: { label: { en: ['Attribution'] }, value: { en: ['Test suite'] } },
+    items: [
+      {
+        id: main,
+        type: 'Scene',
+        label: { en: ['Main'] },
+        items: [{
+          id: `${main}/page`,
+          type: 'AnnotationPage',
+          items: [
+            painting('model', { id: './examples/box.glb', type: 'Model' }, { id: main, type: 'Scene' }),
+            // Hidden: only the comment's view, through an activating annotation.
+            painting('cameras/hidden', { type: 'PerspectiveCamera', lookAt: origin }, at(0, 0, 9), { behavior: ['hidden'] }),
+            painting('cameras/choice', {
+              type: 'Choice',
+              items: [
+                { id: `${base}/cameras/wide`, type: 'PerspectiveCamera', label: { en: ['Wide'] }, fieldOfView: 30, lookAt: origin },
+                { id: `${base}/cameras/plan`, type: 'OrthographicCamera', label: { en: ['Plan'] }, lookAt: origin },
+              ],
+            }, at(4, 3, 6)),
+            painting('canvas', {
+              type: 'SpecificResource',
+              source: { id: canvasId, type: 'Canvas' },
+              transform: [{ type: 'ScaleTransform', x: 2, y: 1, z: 1 }],
+            }, at(-1, 2, -1)),
+            painting('nested', {
+              type: 'SpecificResource',
+              source: { id: nested, type: 'Scene' },
+              transform: [{ type: 'TranslateTransform', x: 3, y: 0, z: 0 }],
+            }, { id: main, type: 'Scene' }),
+          ],
+        }],
+        annotations: [{
+          id: `${main}/comments`,
+          type: 'AnnotationPage',
+          items: [
+            { id: `${base}/comments/top`, type: 'Annotation', motivation: ['commenting'], body: { type: 'TextualBody', value: 'Top' }, target: at(0, 1, 0) },
+            {
+              id: `${base}/comments/region`,
+              type: 'Annotation',
+              motivation: ['commenting'],
+              body: { type: 'TextualBody', value: 'Region' },
+              target: {
+                type: 'SpecificResource',
+                source: { id: main, type: 'Scene' },
+                selector: [{ type: 'WktSelector', value: `POLYGON Z ((${region.concat([region[0]]).map((point) => point.join(' ')).join(', ')}))` }],
+              },
+            },
+            {
+              id: `${base}/activating/top`,
+              type: 'Annotation',
+              motivation: ['activating'],
+              target: { id: `${base}/comments/top`, type: 'Annotation' },
+              body: { type: 'SpecificResource', source: { id: `${base}/cameras/hidden`, type: 'Annotation' }, action: ['show', 'enable', 'select'] },
+            },
+          ],
+        }],
+      },
+      {
+        id: nested,
+        type: 'Scene',
+        label: { en: ['Nested'] },
+        items: [{
+          id: `${nested}/page`,
+          type: 'AnnotationPage',
+          items: [{ id: `${nested}/model`, type: 'Annotation', motivation: ['painting'], body: { id: './examples/box.stl', type: 'Model' }, target: { id: nested, type: 'Scene' } }],
+        }],
+      },
+      {
+        id: canvasId,
+        type: 'Canvas',
+        width: 4,
+        height: 2,
+        backgroundColor: '#ff0000',
+        items: [{
+          id: `${canvasId}/page`,
+          type: 'AnnotationPage',
+          items: [{
+            id: `${canvasId}/image`,
+            type: 'Annotation',
+            motivation: ['painting'],
+            body: { id: '/assets/img/icon.png', type: 'Image', format: 'image/png' },
+            target: `${canvasId}#xywh=0,0,2,2`,
+          }],
+        }],
+      },
+    ],
+  };
+
+  const state = () => page.evaluate(() => {
+    const r3 = (values) => values.map((value) => Math.round(value * 1000) / 1000 + 0);
+    const viewer = window.Viewer;
+    const roots = [0, 1, 2].map((slot) => viewer.resolveObjectByTargetId(`m${slot}:root`)).filter(Boolean);
+    const panels = [];
+    viewer.scene.traverse((object) => {
+      if (object.parent?.name?.startsWith('iiif-canvas:')) {
+        object.updateWorldMatrix(true, false);
+        panels.push({ center: r3(object.getWorldPosition(object.position.clone()).toArray()), color: object.material.map ? 'image' : `#${object.material.color.getHexString()}` });
+      }
+    });
+    return {
+      roots: roots.map((root) => r3(root.position.toArray())),
+      camera: { position: r3(window.viewer.camera.position.toArray()), type: window.viewer.camera.type, fov: window.viewer.camera.fov },
+      comments: viewer.annotationEntries.map((entry) => ({ text: entry.description, view: entry.view ? r3(entry.view.position) : null, point: r3(entry.point), polygon: entry.polygon?.length || 0 })),
+      panels,
+      regions: viewer.annotationPOIGroup?.children.filter((child) => child.name === 'annotation-region').length || 0,
+    };
+  });
+
+  await page.evaluate((json) => window.Viewer.setupManifesto(JSON.stringify(json), 'text'), manifest);
+  // The nested scene is part of the main one, not a scene of its own.
+  await expect(page.locator('#manifesto-scene-select')).toHaveCount(0);
+  await expect(page.locator('#manifesto-camera-select option')).toHaveText(['Wide', 'Plan']);
+  await expect.poll(async () => (await state()).panels.map((panel) => panel.color).sort()).toEqual(['#ff0000', 'image']);
+  const shown = await state();
+  expect(shown.roots).toEqual([[0, 0, 0], [3, 0, 0]]);
+  // The Choice's first camera, not the hidden one.
+  expect(shown.camera).toEqual({ position: [4, 3, 6], type: 'PerspectiveCamera', fov: 30 });
+  expect(shown.comments).toEqual([
+    { text: 'Top', view: [0, 0, 9], point: [0, 1, 0], polygon: 0 },
+    { text: 'Region', view: null, point: [0, 1, 0], polygon: 4 },
+  ]);
+  expect(shown.regions).toBe(1);
+  // Top-left corner at the target point, 4 x 2 Canvas units scaled by 2 in x;
+  // the image on the left half, just in front of the background.
+  expect(shown.panels).toEqual(expect.arrayContaining([
+    { center: [3, 1, -1], color: '#ff0000' },
+    { center: [1, 1, -0.999], color: 'image' },
+  ]));
+
+  await page.locator('#manifesto-camera-select').selectOption('1');
+  expect((await state()).camera.type).toBe('OrthographicCamera');
+
+  const exported = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(exported).toMatchObject({
+    label: manifest.label,
+    summary: manifest.summary,
+    metadata: manifest.metadata,
+    rights: manifest.rights,
+    requiredStatement: manifest.requiredStatement,
+  });
+  expect(exported.items[0].label).toEqual({ en: ['Main'] });
+  expect(exported.items.map((item) => item.type)).toEqual(['Scene', 'Canvas']);
+  const canvasAnnotation = exported.items[0].items[0].items.find((annotation) => annotation.body.source?.type === 'Canvas');
+  expect(canvasAnnotation.body.transform).toEqual([{ type: 'ScaleTransform', x: 2, y: 1, z: 1 }]);
+  expect(canvasAnnotation.target.selector).toEqual([{ type: 'PointSelector', x: -1, y: 2, z: -1 }]);
+  const regionComment = exported.items[0].annotations[0].items.find((annotation) => annotation.body.value === 'Region');
+  expect(regionComment.target.selector[0].type).toBe('WktSelector');
+  expect(regionComment.target.selector[0].value).toMatch(/^POLYGON Z \(\(-0\.5 1 -0\.5, 0\.5 1 -0\.5, 0\.5 1 0\.5, -0\.5 1 0\.5, -0\.5 1 -0\.5\)\)$/);
+
+  // Our own export shows the same again.
+  await page.evaluate((json) => window.Viewer.setupManifesto(JSON.stringify(json), 'text'), exported);
+  await expect.poll(async () => (await state()).panels.length).toBe(2);
+  const again = await state();
+  expect(again.roots).toEqual(shown.roots);
+  expect(again.comments.map((comment) => comment.polygon)).toEqual([0, 4]);
+
+  // A model on its own keeps none of the manifest's descriptive properties.
+  await openViewer(page, '/examples/box.glb');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+  const plain = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(plain).not.toHaveProperty('summary');
+  expect(plain.items).toHaveLength(1);
+});
+
+test('IIIF models bring their own camera and lights unless the annotation excludes them', async ({ page }) => {
+  // A glTF with a triangle, a camera at (0, 1, 7) and a red point light.
+  const positions = Buffer.from(new Float32Array([-1, 0, 0, 1, 0, 0, 0, 2, 0]).buffer);
+  const gltf = {
+    asset: { version: '2.0' },
+    extensionsUsed: ['KHR_lights_punctual'],
+    extensions: { KHR_lights_punctual: { lights: [{ type: 'point', color: [1, 0, 0], intensity: 5 }] } },
+    scene: 0,
+    scenes: [{ nodes: [0, 1, 2] }],
+    nodes: [
+      { mesh: 0 },
+      { camera: 0, translation: [0, 1, 7] },
+      { translation: [0, 3, 0], extensions: { KHR_lights_punctual: { light: 0 } } },
+    ],
+    cameras: [{ type: 'perspective', perspective: { yfov: 0.6, znear: 0.1, zfar: 100 } }],
+    meshes: [{ primitives: [{ attributes: { POSITION: 0 } }] }],
+    accessors: [{ bufferView: 0, componentType: 5126, count: 3, type: 'VEC3', min: [-1, 0, 0], max: [1, 2, 0] }],
+    bufferViews: [{ buffer: 0, byteLength: positions.length }],
+    buffers: [{ byteLength: positions.length, uri: `data:application/octet-stream;base64,${positions.toString('base64')}` }],
+  };
+  await page.route('**/examples/virtual/lit.gltf', (route) => route.fulfill({ contentType: 'model/gltf+json', body: JSON.stringify(gltf) }));
+  await openViewer(page);
+  await waitForModel(page);
+
+  const manifestWith = (extra) => JSON.stringify({
+    '@context': 'http://iiif.io/api/presentation/4/context.json',
+    id: './examples/virtual/manifest.json',
+    type: 'Manifest',
+    items: [{
+      id: './examples/virtual/scene',
+      type: 'Scene',
+      items: [{
+        id: './examples/virtual/page',
+        type: 'AnnotationPage',
+        items: [{
+          id: './examples/virtual/model',
+          type: 'Annotation',
+          motivation: ['painting'],
+          body: { id: '/examples/virtual/lit.gltf', type: 'Model', format: 'model/gltf+json' },
+          target: { id: './examples/virtual/scene', type: 'Scene' },
+          ...extra,
+        }],
+      }],
+    }],
+  });
+  const state = () => page.evaluate(() => {
+    const lights = [];
+    window.Viewer.scene.traverse((object) => {
+      if (object.isLight && object.visible) lights.push(object.isPointLight ? `PointLight:#${object.color.getHexString()}` : object.type);
+    });
+    return {
+      camera: window.viewer.camera.position.toArray().map((value) => Math.round(value * 1000) / 1000 + 0),
+      lights: lights.sort(),
+    };
+  });
+
+  // Used: the model's camera is the view; its light replaces the viewer's.
+  await page.evaluate((json) => window.Viewer.setupManifesto(json, 'text'), manifestWith({}));
+  expect(await state()).toEqual({ camera: [0, 1, 7], lights: ['PointLight:#ff0000'] });
+
+  // Excluded: the viewer's own camera and lights.
+  await page.evaluate((json) => window.Viewer.setupManifesto(json, 'text'), manifestWith({ exclude: ['Cameras', 'Lights'] }));
+  const excluded = await state();
+  expect(excluded.camera).not.toEqual([0, 1, 7]);
+  expect(excluded.lights).not.toContain('PointLight:#ff0000');
+  expect(excluded.lights).toEqual(expect.arrayContaining(['HemisphereLight', 'AmbientLight', 'DirectionalLight']));
+});
+
+test('sign-in and user management sit in their own account area, outside the example picker', async ({ page }) => {
+  await page.route('**/api/auth/config', (route) =>
+    route.fulfill({ json: { mode: 'required', registration: 'open', maxUploadBytes: 104857600 } })
+  );
+  await page.route('**/api/auth/me', (route) =>
+    route.fulfill({ json: { user: { id: 1, username: 'admin' }, role: 'admin' } })
+  );
+  await openViewer(page);
+  await waitForModel(page);
+
+  const accountBar = page.locator('#viewer-page-header > #viewer-account-bar');
+  await expect(accountBar.locator('#loginButton')).toBeVisible();
+  await expect(accountBar.locator('#manageUsersButton')).toBeVisible();
+  await expect(page.locator('#example-model-picker #loginButton, #example-model-picker #manageUsersButton')).toHaveCount(0);
+  await expect(page.locator('#viewer-page-header > #example-model-picker #uploadModel')).toBeVisible();
+
+  // Accounts off: no empty account area.
+  await page.unroute('**/api/auth/config');
+  await page.route('**/api/auth/config', (route) =>
+    route.fulfill({ json: { mode: 'off', registration: 'closed', maxUploadBytes: 104857600 } })
+  );
+  await page.evaluate(() => window.Viewer.refreshAuthState());
+  await expect(accountBar).toBeHidden();
+});
+
+test('model units: from the file, a remembered choice for implausible sizes, and imperial display', async ({ page }) => {
+  const readout = page.locator('#viewerMeasurementReadout');
+  const showDimensions = () => page.evaluate(() => {
+    if (!window.Viewer.measurementDimensions) window.Viewer.toggleModelDimensions();
+    window.Viewer.updateMeasurementReadout();
+  });
+
+  // FBX: UnitScaleFactor says centimeters - a 200-unit box is 2 m.
+  await openViewer(page, '/examples/box.fbx');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+  expect(await page.evaluate(() => window.Viewer.resolveModelUnit())).toEqual({ meters: 0.01, source: 'file', key: 'cm' });
+  await showDimensions();
+  await expect(readout).toContainText('2.00 m × 2.00 m × 2.00 m');
+  await expect(readout.locator('.viewer-measure-units_line')).toContainText('cm');
+
+  // A glTF drawn in centimeters: 2.78 km wide as glTF's meters - a hint,
+  // with the units that make it plausible.
+  await openViewer(page, '/examples/WolpaSynagogue.glb');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 30_000 });
+  await showDimensions();
+  const warning = readout.locator('.viewer-measure-units_warning');
+  await expect(warning).toContainText('2.78 km');
+  await expect(warning.locator('button[data-unit]')).toHaveCount(4);
+  await warning.locator('button[data-unit="cm"]').click();
+  await expect(warning).toHaveCount(0);
+  await expect(readout).toContainText('27.76 m');
+  await expect(page.locator('[data-tool="measure-units"] > .viewer-editor-tool_unit-label')).toHaveText('cm');
+
+  // Remembered for this model...
+  await openViewer(page, '/examples/WolpaSynagogue.glb');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 30_000 });
+  expect(await page.evaluate(() => window.Viewer.resolveModelUnit())).toEqual({ meters: 0.01, source: 'user', key: 'cm' });
+  // ...and shown in feet on request.
+  await showDimensions();
+  await readout.locator('.viewer-measure-units_display button[data-system="imperial"]').click();
+  await expect(readout).toContainText('91.08 ft');
+  await readout.locator('.viewer-measure-units_display button[data-system="metric"]').click();
+
+  // Automatic again: meters, and the hint is back.
+  await page.evaluate(() => window.Viewer.setModelUnit('auto'));
+  expect(await page.evaluate(() => window.Viewer.resolveModelUnit().source)).toBe('default');
+  await expect(warning).toContainText('2.78 km');
+});
+
+test('IIIF Scene.spatialScale sets the model unit and is exported again', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+  const scene = { id: './examples/scaled/scene', type: 'Scene' };
+  const manifest = {
+    '@context': 'http://iiif.io/api/presentation/4/context.json',
+    id: './examples/scaled/manifest.json',
+    type: 'Manifest',
+    items: [{
+      ...scene,
+      spatialScale: { type: 'Quantity', quantityValue: 1, unit: 'cm' },
+      items: [{
+        id: './examples/scaled/page',
+        type: 'AnnotationPage',
+        items: [{ id: './examples/scaled/model', type: 'Annotation', motivation: ['painting'], body: { id: './examples/box.glb', type: 'Model' }, target: scene }],
+      }],
+    }],
+  };
+  await page.evaluate((json) => window.Viewer.setupManifesto(JSON.stringify(json), 'text'), manifest);
+  expect(await page.evaluate(() => window.Viewer.resolveModelUnit())).toEqual({ meters: 0.01, source: 'manifest', key: 'cm' });
+  expect(await page.evaluate(() => window.Viewer.formatLength(2).text)).toBe('2.0 cm');
+
+  const exported = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(exported.items[0].spatialScale).toEqual({ type: 'Quantity', quantityValue: 0.01, unit: 'm' });
+  expect(exported.AIM3DViewer.viewer.units).toBe(0.01);
+
+  // Our own export (the AIM3D path) keeps it; a model on its own does not.
+  await page.evaluate((json) => window.Viewer.setupManifesto(JSON.stringify(json), 'text'), exported);
+  expect(await page.evaluate(() => window.Viewer.resolveModelUnit())).toEqual({ meters: 0.01, source: 'manifest', key: 'cm' });
+  await openViewer(page, '/examples/box.glb');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+  expect(await page.evaluate(() => window.Viewer.resolveModelUnit().source)).toBe('default');
+});
+
+test('upload panel shows limit usage and limit errors from the worker', async ({ page }) => {
+  await page.route('**/api/auth/config', (route) =>
+    route.fulfill({ json: { mode: 'off', registration: 'closed', maxUploadBytes: 104857600 } })
+  );
+  await page.route('**/api/limits', (route) =>
+    route.fulfill({
+      json: {
+        limits: { uploadsPerHour: 20, uploadsPerDay: 100, storageMb: 0, maxModels: 5, concurrentJobs: 1 },
+        usage: { uploadsLastHour: 20, uploadsLastDay: 31, storageBytes: 0, models: 2, activeJobs: 0 },
+        maxConcurrentConversions: 2,
+      },
+    })
+  );
+  await page.route('**/api/model/create', (route) =>
+    route.fulfill({
+      status: 429,
+      headers: { 'Retry-After': '1500' },
+      json: { error: 'Upload limit reached', code: 'rate_hour', limit: 20, retryAfter: 1500 },
+    })
+  );
+
+  await openViewer(page);
+  await waitForModel(page);
+  await page.evaluate(() => window.Viewer.openUploadPanel());
+
+  const limits = page.locator('#uploadPanelLimits');
+  await expect(limits).toHaveText('Uploads: 20/20 this hour, 31/100 today · Models: 2/5');
+
+  await page.setInputFiles('#uploadPanelFileInput', {
+    name: 'box.stl',
+    mimeType: 'model/stl',
+    buffer: Buffer.from('solid box\nendsolid box\n'),
+  });
+  await page.click('#uploadPanelSubmit');
+  await expect(page.locator('#uploadPanelStatus')).toHaveText(
+    'Upload limit reached (20 per hour). Try again in 25 min.'
+  );
 });
 
 test('reports unsupported format without loading a model', async ({ page }) => {

@@ -69,6 +69,19 @@ a `dist/prod` variant the same way, add a fourth service in
 The worker's `:8080` port is still published directly too, for calling the
 API from outside the viewer (curl, scripts, etc).
 
+### Base image
+
+The worker image is split in two so that code changes do not reinstall Blender:
+
+- `worker/Dockerfile.base` - Ubuntu, system packages, Python libraries (trimesh, cascadio, ifcopenshell, ...), Blender and gltfpack. Built by the `worker-base` service in `docker-compose.yml`, which is never started (`scale: 0`).
+- `worker/Dockerfile` - `FROM worker-base` (the service's image, passed in through `additional_contexts`), adds only `scripts/` and `worker/*.py`.
+
+`docker compose build` / `up --build` builds the base first. The first time that downloads Blender; afterwards every base layer comes from the local build cache, so a code change only rebuilds the thin worker layer. Editing `Dockerfile.base` invalidates just the layers from the edit onwards - no tags to bump.
+
+- `.github/workflows/worker-base.yml` publishes the base to `ghcr.io/thedworak/dfg-3dviewer-worker-base:latest` with inline cache metadata whenever `Dockerfile.base` changes; compose uses it as `cache_from`, so machines without a local cache (GitHub runners, a new server) skip the Blender download too. Make the GHCR package public after its first publish (or log the machine in to `ghcr.io`); until then the base is simply built locally - a missing cache image is only a warning.
+- `scripts/docker.sh base` rebuilds the base from scratch (`--no-cache --pull`), e.g. to pick up Ubuntu security updates.
+- By hand: `docker build -f worker/Dockerfile.base -t dfg-3dviewer-worker-base worker`, then `docker build -f worker/Dockerfile --build-context worker-base=docker-image://dfg-3dviewer-worker-base -t dfg-3dviewer-worker .`
+
 ### Exposing this on a real domain
 
 `docker-compose.yml` only publishes plain host ports (`:3000`/`:3001`/`:3002`/`:8080`).
@@ -84,6 +97,16 @@ block) - it has placeholders (`<MAIN_DOMAIN>`, the Drupal docroot, the
 PHP-FPM socket) that need filling in for your actual server, and hasn't
 been syntax-checked against a real nginx install (`nginx -t` before
 reloading).
+
+The template's `server` blocks each set `client_max_body_size 100M;` to
+match `WORKER_MAX_UPLOAD_BYTES`'s default - but that's only in the example
+file. If you copied an older version of it, or wrote your own host-level
+config from scratch, check that directive is actually present: nginx's own
+built-in default is just **1 MB**, so without it every upload above 1 MB is
+rejected by your host nginx before the request ever reaches the containers
+(`docker/nginx.conf`'s own `100m` and the worker's own limit never come into
+play). Raise it in every `server` block that proxies to a viewer subdomain,
+then `sudo nginx -t && sudo systemctl reload nginx`.
 
 That template deliberately leaves the worker's `:8080` API off the public
 domains - each viewer's own `docker/nginx.conf` already reverse-proxies
@@ -148,6 +171,7 @@ needing the tag.
   - Blender importers via `scripts/convert.sh`: `abc dae fbx obj ply stl wrl x3d usd usda usdc usdz ifc blend gml glb`
   - converted without Blender by `scripts/convert_mesh.py` (needs `cascadio`, `trimesh`, `networkx`, installed in the image): `step stp iges igs 3mf`
   - kept as uploaded and served as-is, no GLB and no thumbnails (the viewer loads them itself): `gltf 3ds pcd xyz amf kmz vox lwo`
+  - point clouds converted to a streamed 3D Tiles tileset (`modelUrl` ends in `tiles/<name>/tileset.json`), no thumbnails: `las laz e57`, and a `ply` without faces - see "Point clouds" below
 
   Returns:
   ```json
@@ -166,14 +190,14 @@ needing the tag.
   }
   ```
   `status` values follow the same vocabulary `viewer/status-poller.js`
-  already knows how to render: `preparing`, `processing`, `rendering`,
-  `ready`, `failed`.
+  already knows how to render: `queued` (waiting for a free conversion
+  slot), `preparing`, `processing`, `rendering`, `ready`, `failed`.
 - `GET /files/<id>/...` - serves the converted model and rendered thumbnails.
 
 ## Configuration
 
 Set via environment variables on the `worker` container (see
-`worker/Dockerfile` for defaults):
+`worker/Dockerfile.base` for defaults):
 
 | Variable                  | Default        | Meaning                                   |
 |----------------------------|----------------|--------------------------------------------|
@@ -181,14 +205,28 @@ Set via environment variables on the `worker` container (see
 | `WORKER_JOBS_DIR`          | `/data/jobs`   | Where uploads/outputs are stored          |
 | `WORKER_SKIP_RENDER`       | `false`        | Skip Blender thumbnail rendering          |
 | `WORKER_MAX_UPLOAD_BYTES`  | `104857600`    | Upload size cap (100 MB); larger uploads get HTTP 413 |
+| `WORKER_LIMIT_UPLOADS_PER_HOUR` / `_PER_DAY` | `20` / `100` | Uploads per account (per client IP with accounts off) in a rolling hour/day; HTTP 429 |
+| `WORKER_LIMIT_STORAGE_MB`  | `0`            | Disk space an account's models may use (0 = unlimited); HTTP 507 |
+| `WORKER_LIMIT_MAX_MODELS`  | `0`            | Models an account may own (0 = unlimited); HTTP 507 |
+| `WORKER_LIMIT_CONCURRENT_JOBS` | `1`        | Uploads of one account/IP queued or converting at once; HTTP 429 |
+| `WORKER_MAX_CONCURRENT_CONVERSIONS` | `2`   | Conversions running at once for everyone; further jobs wait as `queued` (0 = unlimited) |
+| `WORKER_TRUSTED_PROXIES`   | `1`            | Reverse proxies appending to `X-Forwarded-For` (used for the client IP); `0` ignores the header |
 | `WORKER_AUTH_MODE`         | `off`          | `off` (open, as before) or `required` (upload/delete need a login) |
 | `WORKER_AUTH_REGISTRATION` | `approval`     | `open` (instantly active), `approval` (admin must approve), `closed` |
 | `WORKER_ADMIN_USER` / `WORKER_ADMIN_PASSWORD` | unset | Creates/resets an admin account on start (password >= 8 chars) |
+| `WORKER_SMTP_HOST` (+ `_PORT`, `_SECURITY` = `starttls`\|`ssl`\|`none`, `_USER`, `_PASSWORD`, `_FROM`) | unset | Sends an email to a user when an admin approves their pending account; mail is off without the host |
+| `WORKER_PUBLIC_URL`        | unset          | Viewer address included in that email     |
 | `WORKER_AUTH_SECRET`       | generated      | Session-signing key; otherwise generated once into the volume |
 | `WORKER_AUTH_SESSION_TTL`  | `604800`       | Login lifetime in seconds (7 days)        |
 | `WORKER_CONVERT_TIMEOUT`   | `1800`         | Seconds before a convert.sh call is killed|
 | `WORKER_RENDER_TIMEOUT`    | `900`          | Seconds before a render.sh call is killed |
 | `WORKER_RENDER_DEVICE`     | `CPU`          | `CPU`, `GPU`, or `AUTO` - see below       |
+| `WORKER_POINTCLOUD_JOBS`   | CPUs (max 8)   | Parallel py3dtiles workers for point clouds |
+| `WORKER_POINTCLOUD_TIMEOUT` | `3600`        | Seconds before a point cloud conversion is killed |
+| `WORKER_OPTIMIZE`          | `auto`         | gltfpack step (see "GLB optimization"): `auto` = on when `gltfpack` is installed (it is in the image), `true`, `false` |
+| `WORKER_TEXTURE_FORMAT`    | `ktx2`         | `ktx2` (Basis Universal), `webp` or `keep` |
+| `WORKER_PREVIEW_RATIO`     | `0.1`          | Triangle ratio of the progressive-loading preview; `0` disables previews |
+| `WORKER_PREVIEW_TEXTURE_SIZE` / `_MAX_ERROR` / `_MIN_BYTES` | `512` / `0.05` / `2097152` | Preview texture limit (px), allowed simplification error, and the optimized model size below which no preview is made |
 
 `SPATH` and `BLENDER_BIN` are set in the image itself (`/app`, `blender`) -
 you don't need `scripts/.env` inside the container.
@@ -211,6 +249,42 @@ docker compose exec worker python3 /app/worker/server.py admin approve alice
 ```
 
 The viewer-side switch lives in the AIM3D manifest (`AIM3DViewer.viewer.auth`, see `viewer/manifesto/AIM3DViewer-schema.md`), but that only controls whether the login UI is shown - **the worker setting is what actually enforces access**, because a manifest is client-side data.
+
+### GLB optimization and progressive loading
+
+After conversion, `worker/optimize.py` runs [gltfpack](https://github.com/zeux/meshoptimizer) on the GLB: Meshopt-compressed geometry (`EXT_meshopt_compression`) and KTX2/Basis textures (`KHR_texture_basisu`), which the viewer decodes. For models of at least 2 MB it also writes `<name>.preview.glb` next to the model (about 10% of the triangles, textures of at most 512 px). The viewer shows that preview first and swaps in the full model once it has downloaded.
+
+- Named nodes, materials and extras are kept (`-kn -km -ke`) so IFC element nodes and the scene hierarchy survive; positions and UVs stay floating point (`-vpf -vtf`).
+- gltfpack cannot read Draco, so with optimization on, Blender exports without Draco. A Draco GLB uploaded as-is is served unchanged. On any gltfpack failure the unoptimized GLB is served as before.
+- Only new conversions are optimized. Annotations store face indices, which gltfpack reorders, so do not re-run it on models that already have annotations.
+- Standalone use, e.g. from the Drupal pipeline: `python3 worker/optimize.py model.glb --preview` (needs `gltfpack` on `PATH` or `WORKER_GLTFPACK_BIN`).
+- Example: a 40.6 MB photogrammetry GLB became 6.7 MB, with a 1.4 MB preview, in about 6 s.
+
+### Point clouds
+
+`worker/pointcloud.py` turns LAS, LAZ, E57 and face-less PLY uploads into a 3D Tiles tileset (pnts octree) with [py3dtiles](https://py3dtiles.org), which the viewer streams level by level (`viewer/tiles.js`) - only the points the current view needs are downloaded.
+
+- LAZ is decompressed with `laspy` + `lazrs` first (py3dtiles would need the external LAStools `laszip`); E57 scans are merged with their poses applied (`pye57`), keeping colour and intensity; PLY point clouds are read with `trimesh`.
+- Coordinates are kept as they are (no reprojection); the viewer centres the cloud and turns Z-up to Y-up.
+- py3dtiles runs with `--disable-processpool`, since Docker's default 64 MB `/dev/shm` is too small for its shared-memory pool.
+- Standalone: `python3 worker/pointcloud.py scan.e57 out_dir` (needs `py3dtiles`, `laspy[lazrs]`, `pye57`, `trimesh`).
+- Example: 600,000 coloured points (LAS, LAZ or E57) convert in about 2 s.
+
+### Upload limits
+
+`POST /api/model/create` checks the limits above before reading the upload and again, atomically, before the job is created. A rejected upload gets a JSON body `{"error", "code", "limit", "retryAfter"}` (`code`: `rate_hour`, `rate_day`, `concurrent`, `storage`, `models`) and, for 429s, a `Retry-After` header; the upload panel shows it translated, together with the caller's current usage.
+
+- `0` disables a limit. Admin accounts are never limited.
+- With accounts on, limits are per account and admins can override any of them per account: in the viewer's user panel ("Edit limits"), `POST /api/admin/users/<user>/limits` with e.g. `{"maxModels": 10, "storageMb": null}` (`null` = back to the default), or the CLI below.
+- With accounts off, the rate and concurrency limits apply per client IP; storage and model quotas need accounts (anonymous uploads have no owner). The client IP is taken from `X-Forwarded-For`, `WORKER_TRUSTED_PROXIES` entries from the right: `1` behind the viewer's own nginx, `2` with `docker/host-nginx.example.conf` in front. Anyone who can reach the worker's port directly can forge that header, so do not publish port 8080 when you rely on per-IP limits.
+- The upload log (`JOBS_DIR/.limits/uploads.json`) survives restarts, and deleting a model does not give an upload back. Storage counts everything in the account's job folders (upload, conversion output, thumbnails).
+- `GET /api/limits` returns the caller's effective limits and usage; `GET /api/admin/users` includes both for every account.
+
+```bash
+docker compose exec worker python3 /app/worker/server.py admin usage
+docker compose exec worker python3 /app/worker/server.py admin limits alice
+docker compose exec worker python3 /app/worker/server.py admin limits alice storageMb=2048 maxModels=default
+```
 
 ### GPU rendering
 
@@ -247,7 +321,7 @@ To use a GPU instead:
    oneAPI backends if present, but those are untested here.
 
 The worker image itself needs no CUDA toolkit - the official Blender
-tarball it installs (see `worker/Dockerfile`) bundles its own Cycles GPU
+tarball it installs (see `worker/Dockerfile.base`) bundles its own Cycles GPU
 kernels; only the NVIDIA driver's userspace libraries need to reach the
 container, which is what the toolkit above provides.
 
@@ -259,7 +333,7 @@ container, which is what the toolkit above provides.
 - Archive support covers `zip`, `rar`, `tar`, `gz`, `xz` (`zip` via an
   in-process, path-traversal-checked extractor; the rest by shelling out to
   `scripts/uncompress.sh`, already baked into this image - `unrar-free` and
-  `tar` are installed in `worker/Dockerfile` for this). `scripts/convert.sh`
+  `tar` are installed in `worker/Dockerfile.base` for this). `scripts/convert.sh`
   itself has no built-in archive handling; that logic normally lives in
   `ConvertWorker.php` on the Drupal side, so this worker reimplements
   first-supported-file detection after extraction to be useful standalone.

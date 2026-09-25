@@ -1,5 +1,14 @@
+import THREE from "./init.js";
 import { core, setCore } from "./core.js";
 import { toastHelper } from './viewer-utils.js';
+
+const BUILD_ID = (typeof __BUILD_ID__ !== "undefined") ? __BUILD_ID__ : "";
+
+function poweredByHtml() {
+  const build = BUILD_ID ? ` (${BUILD_ID})` : "";
+  const text = `Powered by three.js r${THREE.REVISION}${build}`;
+  return `<span class="credits-item"><a href="https://threejs.org" target="_blank" rel="noopener noreferrer" class="credits-link">${text}</a></span>`;
+}
 
 export async function createCreditsElement() {
   const credits = core.CONFIG?.viewer?.credits;
@@ -46,6 +55,7 @@ export async function createCreditsElement() {
         : `<span class="credits-text">${item.text}</span>`;
       return `<span class="credits-item">${logoHtml}${textHtml}</span>`;
     })
+    .concat(poweredByHtml())
     .join(`<span class="credits-sep" aria-hidden="true">&middot;</span>`);
 
   html += `<span class="credits-items">${itemsHtml}</span>`;

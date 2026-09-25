@@ -78,6 +78,7 @@ export function attachEmbedConfigurator(Viewer) {
         clippingMode: null,
         clippingConstants: null,
         clippingOutline: null,
+        clippingNegated: null,
       };
 
       if (includeCamera) {
@@ -96,6 +97,7 @@ export function attachEmbedConfigurator(Viewer) {
           options.clippingConstants = this.formatVector3Param({ x: clipX, y: clipY, z: clipZ });
         }
         options.clippingOutline = core.planeParams?.outline?.visible === true;
+        options.clippingNegated = this.formatClippingModeParam(this.getClippingNegatedState?.());
       }
 
       return options;
@@ -204,6 +206,9 @@ export function attachEmbedConfigurator(Viewer) {
       if (options.clippingConstants) {
         params.set("clipConst", options.clippingConstants);
       }
+      if (options.clippingNegated) {
+        params.set("clipFlip", options.clippingNegated);
+      }
       if (typeof options.clippingOutline === "boolean") {
         params.set("clipOutline", options.clippingOutline ? "1" : "0");
       }
@@ -263,6 +268,7 @@ export function attachEmbedConfigurator(Viewer) {
         clippingMode: currentViewState.clippingMode,
         clippingConstants: currentViewState.clippingConstants,
         clippingOutline: currentViewState.clippingOutline,
+        clippingNegated: currentViewState.clippingNegated,
       };
     },
 

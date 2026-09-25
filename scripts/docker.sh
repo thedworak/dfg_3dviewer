@@ -5,6 +5,8 @@
 #   scripts/docker.sh build   [dev|test|sandbox]   build image(s)
 #   scripts/docker.sh down    [dev|test|sandbox]   stop + remove container(s)
 #   scripts/docker.sh rebuild [dev|test|sandbox]   down, then build
+#   scripts/docker.sh base                         rebuild the worker base image from
+#                                                  scratch (Blender etc., worker/Dockerfile.base)
 #   scripts/docker.sh prune                        docker system prune (asks first)
 #   scripts/docker.sh                              interactive menu
 #
@@ -127,6 +129,7 @@ run() {
         down)    do_down "$profile" ;;
         rebuild) do_down "$profile"; do_build "$profile" ;;
         prune)   do_prune; return ;;
+        base)    compose build --no-cache --pull worker-base; ok "Worker base image rebuilt"; return ;;
         *)       usage; exit 1 ;;
     esac
     if [ "$action" = down ]; then return; fi
@@ -140,23 +143,25 @@ run() {
 
 menu() {
     echo "1) build"
-    echo "2) down"
-    echo "3) down + build"
-    echo "4) system prune"
-    read -rp "Choice [1-4]: " choice
-    local action
+    echo "2) build + up"
+    echo "3) down"
+    echo "4) down + build"
+    echo "5) system prune"
+    read -rp "Choice [1-5]: " choice
+    local action up=""
     case "$choice" in
         1) action=build ;;
-        2) action=down ;;
-        3) action=rebuild ;;
-        4) do_prune; exit $? ;;
+        2) action=build; up=up ;;
+        3) action=down ;;
+        4) action=rebuild ;;
+        5) do_prune; exit $? ;;
         *) echo "Invalid choice" >&2; exit 1 ;;
     esac
     read -rp "Profile (${PROFILES[*]}, empty = all): " profile
     if [ -n "$profile" ] && ! is_profile "$profile"; then
         echo "Unknown profile: $profile" >&2; exit 1
     fi
-    run "$action" "$profile"
+    run "$action" "$profile" "$up"
 }
 
 if [ $# -eq 0 ]; then menu; exit 0; fi
@@ -166,7 +171,7 @@ for arg in "$@"; do
     case "$arg" in
         -h|--help|help) usage; exit 0 ;;
         --up)           up=up ;;
-        build|down|rebuild|prune) action="$arg" ;;
+        build|down|rebuild|prune|base) action="$arg" ;;
         *)
             if is_profile "$arg"; then profile="$arg"
             else echo "Unknown argument: $arg" >&2; usage; exit 1; fi ;;

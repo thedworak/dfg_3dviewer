@@ -75,7 +75,10 @@ export function attachPicking(Viewer) {
     createPickingFaceOverlay(intersection, options = {}) {
       const triangleGeometry = Viewer.createTriangleGeometry(intersection);
       if (!triangleGeometry) return null;
+      return Viewer.createPickingOverlayFromGeometry(triangleGeometry, options);
+    },
 
+    createPickingOverlayFromGeometry(triangleGeometry, options = {}) {
       const fillColor = options.fillColor ?? 0xff0000;
       const lineColor = options.lineColor ?? 0xffffff;
       const opacity = options.opacity ?? 0.65;
@@ -260,6 +263,31 @@ export function attachPicking(Viewer) {
     },
 
     getFaceCentroidWorld(object, faceIndex) {
+      const vertices = Viewer.getFaceVerticesWorld(object, faceIndex);
+      if (!vertices) return null;
+      const [va, vb, vc] = vertices;
+      return va.add(vb).add(vc).multiplyScalar(1 / 3);
+    },
+
+    // Unit normal of a triangle in world space (winding order), or null for
+    // a missing or degenerate face.
+    getFaceNormalWorld(object, faceIndex) {
+      const vertices = Viewer.getFaceVerticesWorld(object, faceIndex);
+      if (!vertices) return null;
+      const [va, vb, vc] = vertices;
+      const normal = new THREE.Vector3().subVectors(vc, vb).cross(new THREE.Vector3().subVectors(va, vb));
+      if (normal.lengthSq() === 0) return null;
+      return normal.normalize();
+    },
+
+    getFaceVerticesWorld(object, faceIndex) {
+      const vertices = Viewer.getFaceVerticesLocal(object, faceIndex);
+      if (!vertices) return null;
+      object.updateMatrixWorld?.(true);
+      return vertices.map((vertex) => vertex.applyMatrix4(object.matrixWorld));
+    },
+
+    getFaceVerticesLocal(object, faceIndex) {
       const geometry = object?.geometry;
       if (!geometry || !geometry.getAttribute) return null;
       const position = geometry.getAttribute("position");
@@ -284,10 +312,7 @@ export function attachPicking(Viewer) {
       const va = new THREE.Vector3().fromBufferAttribute(position, ia);
       const vb = new THREE.Vector3().fromBufferAttribute(position, ib);
       const vc = new THREE.Vector3().fromBufferAttribute(position, ic);
-      const center = va.add(vb).add(vc).multiplyScalar(1 / 3);
-      object.updateMatrixWorld?.(true);
-      center.applyMatrix4(object.matrixWorld);
-      return center;
+      return [va, vb, vc];
     },
 
     clearSelectedFaces() {
@@ -296,11 +321,107 @@ export function attachPicking(Viewer) {
         return;
       }
 
-      Viewer.selectedFaces.forEach((entry) => {
-        Viewer.disposeFaceOverlay(entry);
-      });
       Viewer.selectedFaces.length = 0;
+      Viewer.scheduleSelectionOverlayRefresh();
       Viewer.updateSelectedFacesCount();
+    },
+
+    // Selected faces are drawn as one merged overlay per mesh (fill plus the
+    // outline of the selected region) instead of one mesh per face, so that
+    // area selections of thousands of faces stay cheap. Changes made in the
+    // same task are coalesced into a single rebuild.
+    scheduleSelectionOverlayRefresh() {
+      if (Viewer.selectionOverlayRefreshPending) return;
+      Viewer.selectionOverlayRefreshPending = true;
+      queueMicrotask(() => {
+        Viewer.selectionOverlayRefreshPending = false;
+        Viewer.refreshSelectionOverlays();
+      });
+    },
+
+    disposeSelectionOverlays() {
+      (Viewer.selectionOverlays || []).forEach((overlay) => {
+        overlay.removeFromParent();
+        Viewer.disposeObjectResources(overlay);
+      });
+      Viewer.selectionOverlays = [];
+    },
+
+    refreshSelectionOverlays() {
+      Viewer.disposeSelectionOverlays();
+      const facesByObject = new Map();
+      (Viewer.selectedFaces || []).forEach((entry) => {
+        const object = Viewer.resolveObjectByTargetId(entry.targetId);
+        if (!object?.geometry) return;
+        if (!facesByObject.has(object)) facesByObject.set(object, []);
+        facesByObject.get(object).push(entry.faceIndex);
+      });
+
+      facesByObject.forEach((faces, object) => {
+        const positions = new Float32Array(faces.length * 9);
+        let offset = 0;
+        faces.forEach((faceIndex) => {
+          const vertices = Viewer.getFaceVerticesLocal(object, faceIndex);
+          if (!vertices) return;
+          vertices.forEach((vertex) => {
+            positions[offset++] = vertex.x;
+            positions[offset++] = vertex.y;
+            positions[offset++] = vertex.z;
+          });
+        });
+        if (offset === 0) return;
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute("position", new THREE.BufferAttribute(positions.subarray(0, offset), 3));
+        const overlay = Viewer.createPickingOverlayFromGeometry(geometry, {
+          fillColor: 0x00c853,
+          lineColor: 0xe8ffe8,
+          opacity: 0.5,
+        });
+        object.add(overlay);
+        Viewer.selectionOverlays.push(overlay);
+      });
+    },
+
+    // Adds (or with subtract removes) faces without toggling. Used by area
+    // selection; hits are { object, faceIndex }.
+    applyFaceSelection(hits, { subtract = false } = {}) {
+      let changed = 0;
+      const indexByKey = new Map(Viewer.selectedFaces.map((entry, index) => [entry.key, index]));
+      const removeKeys = new Set();
+      hits.forEach(({ object, faceIndex }) => {
+        const targetId = Viewer.resolveFaceTargetId(object);
+        if (!targetId || !Number.isInteger(faceIndex)) return;
+        const key = Viewer.getFaceSelectionKey(targetId, faceIndex);
+        if (subtract) {
+          if (indexByKey.has(key)) removeKeys.add(key);
+          return;
+        }
+        if (indexByKey.has(key)) return;
+        indexByKey.set(key, Viewer.selectedFaces.length);
+        Viewer.selectedFaces.push({
+          key,
+          targetId,
+          object: targetId,
+          runtimeObjectId: object.id,
+          faceIndex,
+          overlay: null,
+        });
+        changed += 1;
+      });
+      if (removeKeys.size) {
+        // In place: other modules keep a reference to this array.
+        let kept = 0;
+        Viewer.selectedFaces.forEach((entry) => {
+          if (!removeKeys.has(entry.key)) Viewer.selectedFaces[kept++] = entry;
+        });
+        Viewer.selectedFaces.length = kept;
+        changed += removeKeys.size;
+      }
+      if (changed) {
+        Viewer.scheduleSelectionOverlayRefresh();
+        Viewer.updateSelectedFacesCount();
+      }
+      return changed;
     },
 
     restoreLastPickedFace() {
@@ -369,28 +490,21 @@ export function attachPicking(Viewer) {
       }
 
       if (selectedFaceIndex >= 0) {
-        const [selectedFace] = Viewer.selectedFaces.splice(selectedFaceIndex, 1);
-        Viewer.disposeFaceOverlay(selectedFace);
+        Viewer.selectedFaces.splice(selectedFaceIndex, 1);
+        Viewer.scheduleSelectionOverlayRefresh();
         Viewer.updateSelectedFacesCount();
         return;
       }
 
-      const overlay = Viewer.createPickingFaceOverlay(intersection, {
-        fillColor: 0x00c853,
-        lineColor: 0xe8ffe8,
-        opacity: 0.5,
-      });
-      if (!overlay) return;
-
-      intersection.object.add(overlay);
       Viewer.selectedFaces.push({
         key: Viewer.getFaceSelectionKey(targetId, faceIndex),
         targetId,
         object: targetId,
         runtimeObjectId,
         faceIndex,
-        overlay,
+        overlay: null,
       });
+      Viewer.scheduleSelectionOverlayRefresh();
       Viewer.updateSelectedFacesCount();
     },
 
@@ -413,10 +527,14 @@ export function attachPicking(Viewer) {
         return;
       }
 
+      if (Viewer.handleViewHelperClick(e)) return;
+
       if (!Viewer.pickingMode && !Viewer.RULER_MODE) {
         const poiHit = getPoiHit(Viewer, Viewer.onUpPosition);
         if (poiHit?.object) {
-          Viewer.openAnnotationDialogFromPOIMarker(poiHit.object);
+          if (!Viewer.goToTourStepForMarker(poiHit.object)) {
+            Viewer.openAnnotationDialogFromPOIMarker(poiHit.object);
+          }
           return;
         }
         Viewer.closeAnnotationPOITooltip();
@@ -433,8 +551,11 @@ export function attachPicking(Viewer) {
         if (Viewer.RULER_MODE) {
           Viewer.buildRuler(primaryIntersection);
         } else if (Viewer.pickingMode) {
+          // Ctrl/Cmd + click adds or removes a face; Shift + click is kept
+          // for compatibility (Shift + drag selects an area, see
+          // face-area-selection.js).
           Viewer.toggleSelectedFace(primaryIntersection, {
-            multiSelect: e.shiftKey,
+            multiSelect: e.ctrlKey || e.metaKey || e.shiftKey,
           });
         }
       }

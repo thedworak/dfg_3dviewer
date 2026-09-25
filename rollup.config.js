@@ -6,6 +6,19 @@ import terser from '@rollup/plugin-terser';
 import replace from '@rollup/plugin-replace';
 import path from 'path';
 import fs from 'fs/promises';
+import { execSync } from 'child_process';
+
+// Shown in the credits footer. Docker builds have no .git (see .dockerignore),
+// so deploy passes BUILD_ID (the commit's short hash) in explicitly.
+function resolveBuildId() {
+  if (process.env.BUILD_ID) return process.env.BUILD_ID.trim();
+  try {
+    return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch {
+    return 'dev';
+  }
+}
+const buildId = resolveBuildId();
 
 const source = process.env.BUILD_SOURCE ?? "IIIF";
 const envBuild = process.env.BUILD ?? "test";
@@ -79,6 +92,44 @@ async function writeIfNotExists(filePath, content) {
   }
 }
 
+// The entry keeps its name (Drupal's library file points at it), so pages
+// load it with the build id, and a cached copy of an older build never meets
+// this build's chunks.
+function stampEntryVersion(html) {
+  return html.replace(
+    /(src=["'])(dfg_3dviewer-module\.js)(["'])/g,
+    `$1$2?v=${encodeURIComponent(buildId)}$3`
+  );
+}
+
+async function copyHtmlWithEntryVersion(source, target) {
+  await fs.writeFile(target, stampEntryVersion(await fs.readFile(source, 'utf8')));
+}
+
+// Chunks are named by their content hash (see output.chunkFileNames): files
+// of one build always fit together. Only chunks sit at the top of assets/
+// (libraries, CSS, images and fonts are copied into its folders), so any
+// .js / .js.map file there that this build did not write is left over from
+// an earlier one - removed, so that no stale chunk can be served.
+function removeStaleChunks() {
+  return {
+    name: 'remove-stale-chunks',
+    async writeBundle(_options, bundle) {
+      const assetsDir = path.join(outDistDir, 'assets');
+      const written = new Set(Object.keys(bundle).map((fileName) => path.basename(fileName)));
+      let entries = [];
+      try {
+        entries = await fs.readdir(assetsDir, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      await Promise.all(entries
+        .filter((entry) => entry.isFile() && /\.js(\.map)?$/.test(entry.name) && !written.has(entry.name))
+        .map((entry) => fs.rm(path.join(assetsDir, entry.name), { force: true })));
+    },
+  };
+}
+
 function copyBuildAssets() {
   return {
     name: 'copy-build-assets',
@@ -88,6 +139,11 @@ function copyBuildAssets() {
         copyDirectory(
           'node_modules/three/examples/jsm/libs/draco',
           path.join(outDistDir, 'assets/draco')
+        ),
+        // KTX2/Basis Universal transcoder for KHR_texture_basisu textures.
+        copyDirectory(
+          'node_modules/three/examples/jsm/libs/basis',
+          path.join(outDistDir, 'assets/basis')
         ),
         copyDirectory(
           'node_modules/web-ifc',
@@ -110,8 +166,8 @@ function copyBuildAssets() {
 
       const copyPromises = [
         writeDrupalLibrariesFile(),
-        fs.copyFile('index.html', indexTarget),
-        fs.copyFile('embed.html', embedTarget),
+        copyHtmlWithEntryVersion('index.html', indexTarget),
+        copyHtmlWithEntryVersion('embed.html', embedTarget),
       ];
 
       copyPromises.push(
@@ -217,6 +273,7 @@ export default {
       values: {
         __BUILD_SOURCE__: JSON.stringify(source),
         __BUILD__: JSON.stringify(envBuild),
+        __BUILD_ID__: JSON.stringify(buildId),
         __IS_PROD__: JSON.stringify(production),
         __MODULES_PATH__: JSON.stringify(modulesPath),
         __ENV_SUBDIR__: JSON.stringify(envSubdir),
@@ -249,6 +306,7 @@ export default {
     }),
 
     copyBuildAssets(),
+    removeStaleChunks(),
 
     production && terser(),
 
@@ -257,9 +315,15 @@ export default {
   output: {
     dir: outDistDir,
     entryFileNames: 'dfg_3dviewer-module.js',
-    chunkFileNames: 'assets/[name].js',
+    // Content-hashed: a cache (browser, CDN, the 30-day expiry for module
+    // JS in docker/host-nginx.example.conf) can never hand out one build's
+    // chunk next to another build's - their minified export names differ,
+    // and a mix breaks at run time (e.g. "e.manager.addHandler is not a
+    // function" from 3d-tiles-renderer getting another class for
+    // LoadingManager).
+    chunkFileNames: 'assets/[name]-[hash].js',
     assetFileNames: 'assets/[name][extname]',
-    sourcemapFileNames: 'assets/[name].js.map',
+    sourcemapFileNames: 'assets/[name]-[hash].js.map',
     format: 'es',
     manualChunks(id) {
       if (id.includes("node_modules/three")) {

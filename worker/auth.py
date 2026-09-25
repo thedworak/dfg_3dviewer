@@ -34,6 +34,9 @@ import time
 from pathlib import Path
 
 USERNAME_RE = re.compile(r"[A-Za-z0-9_.-]{3,32}")
+# Sanity check, not full RFC 5322 validation - just enough to catch typos and
+# empty submissions before the address is stored.
+EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 MIN_PASSWORD_LENGTH = 8
 MAX_PASSWORD_LENGTH = 256
 COOKIE_NAME = "dfg3d_session"
@@ -141,14 +144,20 @@ class AuthStore:
         if not isinstance(password, str) or not (MIN_PASSWORD_LENGTH <= len(password) <= MAX_PASSWORD_LENGTH):
             raise AuthError(400, f"Password must be {MIN_PASSWORD_LENGTH}-{MAX_PASSWORD_LENGTH} characters.")
 
+    @staticmethod
+    def _validate_email(email: str) -> None:
+        if not isinstance(email, str) or not EMAIL_RE.fullmatch(email.strip()):
+            raise AuthError(400, "A valid email address is required.")
+
     # ---- accounts ------------------------------------------------------
 
-    def register(self, username: str, password: str) -> dict:
+    def register(self, username: str, password: str, email: str) -> dict:
         if not self.enabled:
             raise AuthError(404, "Accounts are not enabled.")
         if self.registration == "closed":
             raise AuthError(403, "Registration is closed.")
         self._validate_credentials(username, password)
+        self._validate_email(email)
         password_hash = _hash_password(password)
         with self._lock:
             users = self._load()
@@ -157,6 +166,7 @@ class AuthStore:
             status = "active" if self.registration == "open" else "pending"
             users[username] = {
                 "passwordHash": password_hash,
+                "email": email.strip(),
                 "role": "user",
                 "status": status,
                 "createdAt": int(time.time()),
@@ -250,9 +260,41 @@ class AuthStore:
 
     def list_users(self) -> list:
         return [
-            {"username": name, "role": rec["role"], "status": rec["status"], "createdAt": rec.get("createdAt", 0)}
+            {
+                "username": name,
+                "email": rec.get("email", ""),
+                "role": rec["role"],
+                "status": rec["status"],
+                "createdAt": rec.get("createdAt", 0),
+                "limits": rec.get("limits", {}),
+            }
             for name, rec in sorted(self._load().items())
         ]
+
+    def get_limits(self, username: str) -> dict:
+        """Per-account limit overrides (see limits.py); {} = defaults."""
+        record = self._load().get(username) or {}
+        return dict(record.get("limits") or {})
+
+    def set_limits(self, username: str, overrides: dict) -> dict:
+        """Merges validated overrides (limits.normalize_overrides) into the
+        account; a None value removes that override. Returns the result."""
+        with self._lock:
+            users = self._load()
+            if username not in users:
+                raise AuthError(404, f"No such user: {username}")
+            limits = dict(users[username].get("limits") or {})
+            for key, value in overrides.items():
+                if value is None:
+                    limits.pop(key, None)
+                else:
+                    limits[key] = value
+            if limits:
+                users[username]["limits"] = limits
+            else:
+                users[username].pop("limits", None)
+            self._save(users)
+            return limits
 
     def update_user(self, username: str, **changes) -> None:
         with self._lock:
@@ -265,6 +307,22 @@ class AuthStore:
                 raise AuthError(400, f"role must be one of {ROLES}")
             users[username].update(changes)
             self._save(users)
+
+    def approve_user(self, username: str):
+        """Sets the account active. Returns {"username", "email"} when this
+        moved it out of *pending* (i.e. a first-time approval worth telling
+        the user about), else None - re-enabling a disabled account is silent."""
+        with self._lock:
+            users = self._load()
+            record = users.get(username)
+            if record is None:
+                raise AuthError(404, f"No such user: {username}")
+            was_pending = record.get("status") == "pending"
+            record["status"] = "active"
+            self._save(users)
+        if was_pending and record.get("email"):
+            return {"username": username, "email": record["email"]}
+        return None
 
     def delete_user(self, username: str) -> None:
         with self._lock:

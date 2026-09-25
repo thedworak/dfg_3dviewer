@@ -38,7 +38,26 @@ The example template is located at `viewer/viewer-settings-example.json`.
 - `viewer.gallery.imageId` — optional gallery image ID selector
 - `viewer.background` — CSS background string for viewer canvas
 - `viewer.performanceMode` — performance mode config object
-- `viewer.measurement.modelUnitInMeters` — conversion ratio from model units to meters
+- `viewer.measurement.modelUnitInMeters` — conversion ratio from model units to meters - the fallback only: a unit chosen in the measurement menu (remembered per model), a IIIF Scene `spatialScale` / AIM3DViewer `units`, and the file's own unit (FBX, 3MF, AMF, USD, COLLADA) come first; see `viewer/editor/model-units.js`
+- `viewer.animation.autoplay` — start the model's first animation clip after loading (default `true`)
+- `viewer.animation.clip` — clip to select at start, by name or index; `"all"` plays every clip together
+- `viewer.animation.speed` — initial playback speed (default `1`)
+- `viewer.animation.loop` — repeat clips (default `true`); when `false` a clip stops on its last frame
+- `viewer.animation.showPlayer` — show the animation player bar for animated models (default `true`)
+- `viewer.progressive.enabled` — show `<model>.preview.glb` (written by the worker's optimization step) first when it exists next to a GLB/glTF model, then swap in the full model; default `true`, except in the Drupal build (its pipeline writes no previews, so probing would only add a 404 per model)
+- `viewer.pointCloud.maxPoints` — LAS/LAZ files opened directly are thinned to about this many points (default `5000000`); convert larger scans with the worker for full-resolution streaming
+- `viewer.pointCloud.colorMode` — initial colouring of directly opened point clouds: `rgb`, `intensity`, `height` or `classification` (when the file carries it); changeable in the point cloud panel
+- `viewer.pointCloud.pointSize` — point size in screen pixels for directly opened LAS/LAZ files (default `2`)
+- `viewer.tiles.errorTarget` — screen-space error in pixels for 3D Tiles / Potree models (default `6`; lower loads more detail)
+- `viewer.tiles.pointShape` — `square`, `round` (default) or `sphere` for point clouds
+- `viewer.tiles.edlStrength` — Eye-Dome Lighting strength for point clouds (default `0.4`; `0` turns it off)
+- `viewer.tiles.pointScale` — point size factor for Potree clouds (default `1`)
+- `viewer.tour.autostart` — start the guided tour through the model's annotations once they are loaded (default `false`)
+- `viewer.tour.autoplay` — advance tour steps automatically (default `false`)
+- `viewer.tour.stepDuration` — seconds spent on each step while autoplaying (default `6`)
+- `viewer.tour.transitionDuration` — seconds of the camera flight between steps (default `1.5`; `0` when the user prefers reduced motion)
+- `viewer.tour.loop` — go back to the first step after the last one while autoplaying (default `true`)
+- `viewer.viewHelper` — axes gizmo in a corner of the canvas; `false` or `{ "enabled": false }` hides it, `{ "position": "top-left" }` moves it (`bottom-right` by default)
 - `viewer.scaleContainer` — scale adjustments for the viewer container
 
 ## Built output behavior

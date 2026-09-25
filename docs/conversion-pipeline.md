@@ -40,6 +40,10 @@ This step needs some steps to be performed before rendering:
 
 ![Backend overview|500](https://i.postimg.cc/7fw9zs6n/image3.png)
 
+## Optimization in the standalone worker
+
+The Docker worker additionally compresses every converted GLB with gltfpack (Meshopt geometry, KTX2 textures) and writes a lightweight `<name>.preview.glb` that the viewer shows first - see "GLB optimization and progressive loading" in [`worker/README.md`](../worker/README.md). `worker/optimize.py model.glb --preview` does the same for files produced by this pipeline. Point clouds (LAS, LAZ, E57, face-less PLY) are turned into streamed 3D Tiles by `worker/pointcloud.py` - see "Point clouds" in the worker README.
+
 ## Supported conversion inputs
 
 - Blender importers (`scripts/convert.sh`): abc, dae, fbx, obj, ply, stl, wrl, x3d, usd, usda, usdc, usdz, ifc, blend, gml, glb
@@ -62,7 +66,7 @@ Convert an IFC with IfcConvert:
 
 IFC conversion produces two files: the GLB (IfcConvert with `--use-element-guids`, so node names are IFC GlobalIds) and `metadata/<name>_ifc.json` with the spatial tree and per-element type, name, material, property sets and quantities, keyed by GlobalId (`scripts/ifc_metadata.py`). glTF cannot hold IFC property sets, hence the separate file. When the viewer finds it next to the model, clicking an element opens a properties panel.
 
-The metadata export needs the `ifcopenshell` Python package on the conversion host (`pip3 install ifcopenshell`); it is already included in `worker/Dockerfile`. Without it the GLB is still produced, only `_ifc.json` is skipped.
+The metadata export needs the `ifcopenshell` Python package on the conversion host (`pip3 install ifcopenshell`); it is already included in `worker/Dockerfile.base`. Without it the GLB is still produced, only `_ifc.json` is skipped.
 
 Run lightweight conversion without xvfb checks:
 

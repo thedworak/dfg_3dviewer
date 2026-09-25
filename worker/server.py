@@ -46,7 +46,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
+import mailer
+import optimize
+import pointcloud
 from auth import AuthError, AuthStore
+from limits import LIMIT_KEYS, LimitError, Limits, default_limits, normalize_overrides
 
 APP_DIR = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = Path(os.environ.get("WORKER_SCRIPTS_DIR", str(APP_DIR / "scripts")))
@@ -70,6 +74,13 @@ AUTH = AuthStore(
     registration=os.environ.get("WORKER_AUTH_REGISTRATION", "approval").lower(),
     secret=os.environ.get("WORKER_AUTH_SECRET", ""),
 )
+# Upload limits (see worker/limits.py for the per-account WORKER_LIMIT_*
+# defaults). Conversions beyond this many at once wait in the "queued" status.
+MAX_CONCURRENT_CONVERSIONS = int(os.environ.get("WORKER_MAX_CONCURRENT_CONVERSIONS", "2"))
+# How many reverse proxies in front of the worker append to X-Forwarded-For;
+# the client IP used for per-IP limits (accounts off) is the entry that many
+# places from the right. 0 ignores the header (worker reached directly).
+TRUSTED_PROXIES = int(os.environ.get("WORKER_TRUSTED_PROXIES", "1"))
 CONVERT_TIMEOUT = int(os.environ.get("WORKER_CONVERT_TIMEOUT", "1800"))
 RENDER_TIMEOUT = int(os.environ.get("WORKER_RENDER_TIMEOUT", "900"))
 
@@ -89,8 +100,12 @@ MESH_CONVERT_FORMATS = {"step", "stp", "iges", "igs", "3mf"}
 # GLB by Blender, no thumbnails either. ("gltf" is only useful inside a .zip
 # together with its .bin/textures, which stay next to it in the job folder.)
 VIEWER_NATIVE_FORMATS = {"gltf", "3ds", "pcd", "xyz", "amf", "kmz", "vox", "lwo"}
+# Point clouds become a streamed 3D Tiles tileset (worker/pointcloud.py);
+# a .ply without faces joins them at run time (is_point_cloud()).
+POINTCLOUD_FORMATS = pointcloud.POINTCLOUD_FORMATS
 SUPPORTED_FORMATS = (
     DIRECT_FORMATS | SPECIAL_FORMATS | PASSTHROUGH_FORMATS | MESH_CONVERT_FORMATS | VIEWER_NATIVE_FORMATS
+    | POINTCLOUD_FORMATS
 )
 # Mirrors ModelFormatManager::getZipFormats() on the Drupal side. "zip" is
 # extracted in-process (safe_extract_zip); the rest shell out to the same
@@ -103,10 +118,11 @@ JOBS = {}
 JOBS_LOCK = threading.Lock()
 
 
-def new_job() -> str:
+def new_job(owner_key: str = "") -> str:
     job_id = uuid.uuid4().hex
     with JOBS_LOCK:
         JOBS[job_id] = {
+            "owner_key": owner_key,
             "status": "init",
             "progress": 0,
             "message": "",
@@ -120,6 +136,15 @@ def set_job(job_id: str, **fields) -> None:
     with JOBS_LOCK:
         if job_id in JOBS:
             JOBS[job_id].update(fields)
+
+
+def active_jobs_for(owner_key: str) -> int:
+    """Jobs of this uploader (limits.Limits.key_for) still queued or running."""
+    with JOBS_LOCK:
+        return sum(
+            1 for job in JOBS.values()
+            if job.get("owner_key") == owner_key and job.get("status") in ACTIVE_STATUSES
+        )
 
 
 def get_job(job_id: str):
@@ -172,6 +197,8 @@ def find_model_file(root: Path):
 
 
 JOB_ID_RE = re.compile(r"[A-Za-z0-9_-]+")
+LIMITS = Limits(JOBS_DIR, JOB_ID_RE, MAX_CONCURRENT_CONVERSIONS)
+ACTIVE_STATUSES = {"init", "queued", "preparing", "processing", "rendering"}
 
 
 def scan_job(job_id: str, job_dir: Path):
@@ -184,7 +211,11 @@ def scan_job(job_id: str, job_dir: Path):
     if not job_root.is_dir():
         return None
 
-    glb_candidates = sorted(job_root.rglob("*.glb"))
+    # Previews (optimize.py) and gltfpack's temporary output are never the model.
+    glb_candidates = sorted(
+        p for p in job_root.rglob("*.glb")
+        if not p.name.endswith((".preview.glb", ".tmp.glb"))
+    )
     if glb_candidates:
         # A file under a "gltf" folder is convert.sh's own output and is
         # preferred; otherwise fall back to whatever .glb is there (e.g. a
@@ -193,6 +224,9 @@ def scan_job(job_id: str, job_dir: Path):
             (p for p in glb_candidates if "gltf" in p.relative_to(job_root).parts),
             glb_candidates[0],
         )
+    elif (tilesets := sorted(job_root.glob("tiles/*/tileset.json"))):
+        # A point cloud converted to 3D Tiles (worker/pointcloud.py).
+        glb_path = tilesets[0]
     else:
         # Viewer-native formats are served as uploaded (no GLB exists).
         native = [
@@ -267,12 +301,117 @@ def list_jobs(user=None):
             continue
         if job is not None:
             job["canDelete"] = can_delete_job(job["id"], user)
-            if AUTH.enabled and user and user["role"] == "admin":
-                owner = read_owner(job["id"])
-                job["owner"] = owner.get("user") if owner else None
+            # Shown as "Uploaded by {owner}" in the browse-models panel, to
+            # anyone - including anonymous visitors, same as the rest of
+            # GET /api/jobs. Jobs uploaded anonymously (accounts off, or
+            # from before accounts were enabled) have no owner and the
+            # field comes back null.
+            owner = read_owner(job["id"])
+            job["owner"] = owner.get("user") if owner else None
             jobs.append(job)
     jobs.sort(key=lambda job: job["createdAt"], reverse=True)
     return jobs
+
+
+def optimize_converted_glb(job_id: str, glb_path: Path, work_path: Path) -> Path:
+    """Runs optimize.py on the converted GLB; returns the path to serve.
+    Best effort: on failure the unoptimized GLB is served as before."""
+    set_job(job_id, status="processing", progress=60, message="Optimizing model...")
+    target = work_path.parent / "gltf" / (work_path.stem + ".glb")
+    try:
+        result = optimize.optimize_glb(glb_path, target, log_prefix=f"[job {job_id}]")
+    except (RuntimeError, subprocess.TimeoutExpired, OSError) as exc:
+        print(f"[job {job_id}] optimization skipped: {exc}", file=sys.stderr)
+        return glb_path
+    print(
+        f"[job {job_id}] optimized {glb_path.stat().st_size if glb_path.is_file() else '?'} -> "
+        f"{result['model'].stat().st_size} bytes, preview={result['preview']}",
+        file=sys.stderr,
+    )
+    return result["model"]
+
+
+def convert_and_render(job_id: str, work_path: Path, ext: str, is_archive: bool, job_root: Path):
+    """Converts work_path to GLB (unless it already is one) and renders its
+    thumbnails. Returns (glb_path, image_urls). Runs inside a conversion
+    slot - see limits.Limits.conversion_slot()."""
+    # gltfpack (optimize.py) re-compresses the GLB with Meshopt and cannot
+    # read Draco, so Blender skips its own Draco step when it will run.
+    optimizing = optimize.enabled()
+    if ext in PASSTHROUGH_FORMATS:
+        glb_path = work_path
+    elif ext in MESH_CONVERT_FORMATS:
+        set_job(job_id, status="processing", progress=25, message="Converting model...")
+        glb_path = work_path.parent / "gltf" / (work_path.stem + ".glb")
+        # Print before running, not just after: some formats (notably .ifc,
+        # handled below) can sit inside this call for a long time with no
+        # other output, so without this line a slow-but-healthy conversion
+        # looks identical to a hung one in `docker logs`.
+        print(f"[job {job_id}] running convert_mesh.py on {work_path}...", file=sys.stderr)
+        result = subprocess.run(
+            [sys.executable, str(CONVERT_MESH_SCRIPT), "-i", str(work_path), "-o", str(glb_path)],
+            capture_output=True, text=True, timeout=CONVERT_TIMEOUT,
+        )
+        # Always print, not just on a non-zero exit - see the render.sh
+        # logging below for why a 0 exit code alone isn't enough signal.
+        print(
+            f"[job {job_id}] convert_mesh.py exit={result.returncode}:\n"
+            f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}",
+            file=sys.stderr,
+        )
+        if result.returncode != 0:
+            detail = result.stderr.strip() or result.stdout.strip()
+            raise RuntimeError(f"convert_mesh.py failed (exit={result.returncode}): {detail}")
+    else:
+        set_job(job_id, status="processing", progress=25, message="Converting model...")
+        print(f"[job {job_id}] running convert.sh on {work_path}...", file=sys.stderr)
+        result = subprocess.run(
+            [str(CONVERT_SCRIPT), "-i", str(work_path), "-c", "false" if optimizing else "true", "-l", "3", "-b", "true", "-f", "true"],
+            capture_output=True, text=True, timeout=CONVERT_TIMEOUT,
+        )
+        print(
+            f"[job {job_id}] convert.sh exit={result.returncode}:\n"
+            f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}",
+            file=sys.stderr,
+        )
+        if result.returncode != 0:
+            detail = result.stderr.strip() or result.stdout.strip()
+            raise RuntimeError(f"convert.sh failed (exit={result.returncode}): {detail}")
+        glb_path = work_path.parent / "gltf" / (work_path.stem + ".glb")
+
+    if not glb_path.is_file():
+        raise RuntimeError(f"Expected converted output missing: {glb_path}")
+
+    if optimizing:
+        glb_path = optimize_converted_glb(job_id, glb_path, work_path)
+
+    if not SKIP_RENDER:
+        set_job(job_id, status="rendering", progress=70, message="Rendering thumbnails...")
+        render_result = subprocess.run(
+            [str(RENDER_SCRIPT), "-i", str(work_path), "-a", "true" if is_archive else "false", "-d", RENDER_DEVICE],
+            capture_output=True, text=True, timeout=RENDER_TIMEOUT,
+        )
+        # Always print render.sh's output (not just on a non-zero exit) -
+        # a Python exception inside render.py can leave Blender's own
+        # process exiting 0 while writing no output files, which a
+        # returncode-only check would miss entirely.
+        print(
+            f"[job {job_id}] render.sh exit={render_result.returncode}:\n"
+            f"--- stdout ---\n{render_result.stdout}\n--- stderr ---\n{render_result.stderr}",
+            file=sys.stderr,
+        )
+        if render_result.returncode != 0:
+            # Thumbnails are best-effort - a converted model without
+            # preview images is still a usable result.
+            set_job(job_id, message=f"Model converted; thumbnail rendering failed: {render_result.stderr.strip()[:300]}")
+
+    views_dir = work_path.parent / "views"
+    image_urls = []
+    if views_dir.is_dir():
+        for img in sorted(views_dir.glob(f"{work_path.stem}_*.png")):
+            image_urls.append(f"/files/{job_id}/{img.relative_to(job_root)}")
+    print(f"[job {job_id}] views_dir={views_dir} exists={views_dir.is_dir()} found={len(image_urls)} thumbnail(s)", file=sys.stderr)
+    return glb_path, image_urls
 
 
 def run_pipeline(job_id: str, input_path: Path, original_ext: str) -> None:
@@ -296,6 +435,26 @@ def run_pipeline(job_id: str, input_path: Path, original_ext: str) -> None:
         if ext not in SUPPORTED_FORMATS:
             raise RuntimeError(f"Unsupported source format: .{ext}")
 
+        if pointcloud.is_point_cloud(work_path):
+            tiles_dir = job_root / "tiles" / work_path.stem
+            with LIMITS.conversion_slot(
+                on_wait=lambda: set_job(job_id, status="queued", message="Waiting for a free conversion slot..."),
+            ):
+                set_job(job_id, status="processing", progress=25, message="Building streamed point cloud tiles...")
+                tileset = pointcloud.convert_to_tiles(
+                    work_path, tiles_dir, job_root / "tiles" / (work_path.stem + ".work"),
+                    log_prefix=f"[job {job_id}]",
+                )
+            set_job(
+                job_id,
+                status="ready",
+                progress=100,
+                message="Point cloud converted to 3D Tiles (no thumbnails)",
+                model_url=f"/files/{job_id}/{tileset.relative_to(job_root)}",
+                image_urls=[],
+            )
+            return
+
         if ext in VIEWER_NATIVE_FORMATS:
             # Nothing to convert or render: the viewer reads this format itself.
             set_job(
@@ -308,58 +467,12 @@ def run_pipeline(job_id: str, input_path: Path, original_ext: str) -> None:
             )
             return
 
-        if ext in PASSTHROUGH_FORMATS:
-            glb_path = work_path
-        elif ext in MESH_CONVERT_FORMATS:
-            set_job(job_id, status="processing", progress=25, message="Converting model...")
-            glb_path = work_path.parent / "gltf" / (work_path.stem + ".glb")
-            result = subprocess.run(
-                [sys.executable, str(CONVERT_MESH_SCRIPT), "-i", str(work_path), "-o", str(glb_path)],
-                capture_output=True, text=True, timeout=CONVERT_TIMEOUT,
-            )
-            if result.returncode != 0:
-                detail = result.stderr.strip() or result.stdout.strip()
-                raise RuntimeError(f"convert_mesh.py failed (exit={result.returncode}): {detail}")
-        else:
-            set_job(job_id, status="processing", progress=25, message="Converting model...")
-            result = subprocess.run(
-                [str(CONVERT_SCRIPT), "-i", str(work_path), "-c", "true", "-l", "3", "-b", "true", "-f", "true"],
-                capture_output=True, text=True, timeout=CONVERT_TIMEOUT,
-            )
-            if result.returncode != 0:
-                detail = result.stderr.strip() or result.stdout.strip()
-                raise RuntimeError(f"convert.sh failed (exit={result.returncode}): {detail}")
-            glb_path = work_path.parent / "gltf" / (work_path.stem + ".glb")
-
-        if not glb_path.is_file():
-            raise RuntimeError(f"Expected converted output missing: {glb_path}")
-
-        if not SKIP_RENDER:
-            set_job(job_id, status="rendering", progress=70, message="Rendering thumbnails...")
-            render_result = subprocess.run(
-                [str(RENDER_SCRIPT), "-i", str(work_path), "-a", "true" if is_archive else "false", "-d", RENDER_DEVICE],
-                capture_output=True, text=True, timeout=RENDER_TIMEOUT,
-            )
-            # Always print render.sh's output (not just on a non-zero exit) -
-            # a Python exception inside render.py can leave Blender's own
-            # process exiting 0 while writing no output files, which a
-            # returncode-only check would miss entirely.
-            print(
-                f"[job {job_id}] render.sh exit={render_result.returncode}:\n"
-                f"--- stdout ---\n{render_result.stdout}\n--- stderr ---\n{render_result.stderr}",
-                file=sys.stderr,
-            )
-            if render_result.returncode != 0:
-                # Thumbnails are best-effort - a converted model without
-                # preview images is still a usable result.
-                set_job(job_id, message=f"Model converted; thumbnail rendering failed: {render_result.stderr.strip()[:300]}")
-
-        views_dir = work_path.parent / "views"
-        image_urls = []
-        if views_dir.is_dir():
-            for img in sorted(views_dir.glob(f"{work_path.stem}_*.png")):
-                image_urls.append(f"/files/{job_id}/{img.relative_to(job_root)}")
-        print(f"[job {job_id}] views_dir={views_dir} exists={views_dir.is_dir()} found={len(image_urls)} thumbnail(s)", file=sys.stderr)
+        # Blender/OpenCASCADE are the expensive part: only
+        # WORKER_MAX_CONCURRENT_CONVERSIONS of them run at once, the rest wait.
+        with LIMITS.conversion_slot(
+            on_wait=lambda: set_job(job_id, status="queued", message="Waiting for a free conversion slot..."),
+        ):
+            glb_path, image_urls = convert_and_render(job_id, work_path, ext, is_archive, job_root)
 
         set_job(
             job_id,
@@ -428,9 +541,11 @@ def parse_multipart_file(handler: "Handler"):
 class Handler(BaseHTTPRequestHandler):
     server_version = "DFG3DWorker/0.1"
 
-    def _send_json(self, status: int, payload: dict, cookie: str = None) -> None:
+    def _send_json(self, status: int, payload: dict, cookie: str = None, headers: dict = None) -> None:
         body = json.dumps(payload).encode("utf-8")
         self.send_response(status)
+        for name, value in (headers or {}).items():
+            self.send_header(name, value)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
@@ -443,6 +558,22 @@ class Handler(BaseHTTPRequestHandler):
     def _current_user(self):
         return AUTH.user_from_cookie_header(self.headers.get("Cookie", ""))
 
+    def _client_ip(self) -> str:
+        forwarded = [part.strip() for part in self.headers.get("X-Forwarded-For", "").split(",") if part.strip()]
+        if TRUSTED_PROXIES > 0 and len(forwarded) >= TRUSTED_PROXIES:
+            return forwarded[-TRUSTED_PROXIES]
+        return self.client_address[0]
+
+    def _limit_context(self, user):
+        """(key, username, effective limits) of the caller."""
+        username = (user or {}).get("username")
+        overrides = AUTH.get_limits(username) if username else {}
+        return Limits.key_for(user, self._client_ip()), username, Limits.effective_limits(user, overrides)
+
+    def _send_limit_error(self, exc: LimitError) -> None:
+        headers = {"Retry-After": str(exc.retry_after)} if exc.retry_after else None
+        self._send_json(exc.status, exc.payload(), headers=headers)
+
     def _require_user(self):
         """Returns the account allowed to change things, or None after
         sending a 401. With accounts off, everyone is allowed (returns {})."""
@@ -451,6 +582,22 @@ class Handler(BaseHTTPRequestHandler):
         user = self._current_user()
         if user is None:
             self._send_json(401, {"error": "Login required"})
+        return user
+
+    def _require_admin(self):
+        """Returns the admin account calling this endpoint, or None after
+        sending 404 (accounts off - nothing to administer), 401 (not logged
+        in) or 403 (logged in but not an admin)."""
+        if not AUTH.enabled:
+            self._send_json(404, {"error": "Accounts are not enabled."})
+            return None
+        user = self._current_user()
+        if user is None:
+            self._send_json(401, {"error": "Login required"})
+            return None
+        if user["role"] != "admin":
+            self._send_json(403, {"error": "Admin role required"})
+            return None
         return user
 
     def _read_json_body(self) -> dict:
@@ -475,7 +622,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             data = self._read_json_body()
             if action == "register":
-                result = AUTH.register(data.get("username", ""), data.get("password", ""))
+                result = AUTH.register(data.get("username", ""), data.get("password", ""), data.get("email", ""))
                 self._send_json(201, result)
             elif action == "login":
                 user = AUTH.login(data.get("username", ""), data.get("password", ""))
@@ -483,6 +630,54 @@ class Handler(BaseHTTPRequestHandler):
                     200, user,
                     cookie=AUTH.cookie_header(AUTH.issue_token(user["username"]), self._cookie_is_secure()),
                 )
+        except AuthError as exc:
+            self._send_json(exc.status, {"error": exc.message})
+
+    def _handle_admin_user_action(self, username: str, action: str) -> None:
+        admin = self._require_admin()
+        if admin is None:
+            return
+        if username == admin["username"] and action in ("disable", "demote"):
+            self._send_json(400, {"error": "You cannot demote or disable your own account."})
+            return
+        try:
+            if action == "approve":
+                approved = AUTH.approve_user(username)
+                if approved:
+                    mailer.send_account_approved(approved["username"], approved["email"])
+            elif action == "disable":
+                AUTH.update_user(username, status="disabled")
+            elif action == "promote":
+                AUTH.update_user(username, role="admin")
+            elif action == "demote":
+                AUTH.update_user(username, role="user")
+            self._send_json(200, {"status": "ok"})
+        except AuthError as exc:
+            self._send_json(exc.status, {"error": exc.message})
+
+    def _handle_admin_set_limits(self, username: str) -> None:
+        admin = self._require_admin()
+        if admin is None:
+            return
+        try:
+            overrides = normalize_overrides(self._read_json_body())
+            limits = AUTH.set_limits(username, overrides)
+            self._send_json(200, {"status": "ok", "limits": limits})
+        except ValueError as exc:
+            self._send_json(400, {"error": str(exc)})
+        except AuthError as exc:
+            self._send_json(exc.status, {"error": exc.message})
+
+    def _handle_admin_delete_user(self, username: str) -> None:
+        admin = self._require_admin()
+        if admin is None:
+            return
+        if username == admin["username"]:
+            self._send_json(400, {"error": "You cannot delete your own account."})
+            return
+        try:
+            AUTH.delete_user(username)
+            self._send_json(200, {"status": "deleted"})
         except AuthError as exc:
             self._send_json(exc.status, {"error": exc.message})
 
@@ -535,6 +730,28 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, {"jobs": list_jobs(self._current_user())})
             return
 
+        if path == "/api/limits":
+            user = self._current_user()
+            key, username, limits = self._limit_context(user)
+            self._send_json(200, {
+                "limits": limits,
+                "usage": LIMITS.usage(key, username, active_jobs_for(key)),
+                "maxConcurrentConversions": MAX_CONCURRENT_CONVERSIONS,
+            })
+            return
+
+        if path == "/api/admin/users":
+            admin = self._require_admin()
+            if admin is None:
+                return
+            users = AUTH.list_users()
+            for user in users:
+                key = Limits.key_for(user, "")
+                user["effectiveLimits"] = Limits.effective_limits(user, user.get("limits"))
+                user["usage"] = LIMITS.usage(key, user["username"], active_jobs_for(key))
+            self._send_json(200, {"users": users, "defaultLimits": default_limits()})
+            return
+
         match = re.match(r"/files/([A-Za-z0-9_-]+)/(.+)", path)
         if match:
             self._serve_file(match.group(1), match.group(2))
@@ -551,10 +768,22 @@ class Handler(BaseHTTPRequestHandler):
         if match:
             self._handle_auth(match.group(1))
             return
+        match = re.fullmatch(r"/api/admin/users/([A-Za-z0-9_.-]+)/limits", path)
+        if match:
+            self._handle_admin_set_limits(match.group(1))
+            return
+        match = re.fullmatch(r"/api/admin/users/([A-Za-z0-9_.-]+)/(approve|disable|promote|demote)", path)
+        if match:
+            self._handle_admin_user_action(match.group(1), match.group(2))
+            return
         self._send_json(404, {"error": "not found"})
 
     def do_DELETE(self) -> None:
         path = unquote(urlparse(self.path).path)
+        match = re.fullmatch(r"/api/admin/users/([A-Za-z0-9_.-]+)", path)
+        if match:
+            self._handle_admin_delete_user(match.group(1))
+            return
         match = re.fullmatch(r"/api/jobs/([A-Za-z0-9_-]+)", path)
         if match:
             self._handle_delete(match.group(1))
@@ -583,6 +812,15 @@ class Handler(BaseHTTPRequestHandler):
         user = self._require_user()
         if user is None:
             return
+        # Likewise check the limits (using the declared size) before reading
+        # the body; reserve() below re-checks them atomically.
+        key, username, limits = self._limit_context(user)
+        declared_size = int(self.headers.get("Content-Length", "0") or 0)
+        try:
+            LIMITS.check(key, username, limits, declared_size, active_jobs_for(key))
+        except LimitError as exc:
+            self._send_limit_error(exc)
+            return
         try:
             filename, content = parse_multipart_file(self)
         except UploadTooLarge as exc:
@@ -597,7 +835,15 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(400, {"error": f"Unsupported file type: .{ext}"})
             return
 
-        job_id = new_job()
+        try:
+            job_id = LIMITS.reserve(
+                key, username, limits, len(content),
+                active_jobs_fn=lambda: active_jobs_for(key),
+                create_job=lambda: new_job(key),
+            )
+        except LimitError as exc:
+            self._send_limit_error(exc)
+            return
         input_dir = JOBS_DIR / job_id / "input"
         input_dir.mkdir(parents=True, exist_ok=True)
         input_path = input_dir / Path(filename).name
@@ -628,7 +874,10 @@ class Handler(BaseHTTPRequestHandler):
 
 def admin_cli(args) -> None:
     """docker compose exec worker python3 /app/worker/server.py admin <command>"""
-    commands = "users | uploads | approve <user> | disable <user> | promote <user> | demote <user> | delete-user <user>"
+    commands = (
+        "users | uploads | usage | limits <user> [key=value|key=default ...] | "
+        "approve <user> | disable <user> | promote <user> | demote <user> | delete-user <user>"
+    )
     if not args:
         sys.exit(f"usage: server.py admin {commands}")
     command, rest = args[0], args[1:]
@@ -636,7 +885,7 @@ def admin_cli(args) -> None:
         if command == "users":
             for u in AUTH.list_users():
                 created = time.strftime("%Y-%m-%d", time.localtime(u["createdAt"]))
-                print(f"{u['username']:<32} {u['role']:<6} {u['status']:<9} created {created}")
+                print(f"{u['username']:<32} {u['email']:<32} {u['role']:<6} {u['status']:<9} created {created}")
         elif command == "uploads":
             rows = []
             for job_dir in JOBS_DIR.iterdir():
@@ -647,10 +896,47 @@ def admin_cli(args) -> None:
             for created, job_id, user, filename, size in sorted(rows):
                 when = time.strftime("%Y-%m-%d %H:%M", time.localtime(created)) if created else "unknown"
                 print(f"{when}  {job_id}  {user:<20} {size / 1048576:8.1f} MB  {filename}")
+        elif command == "usage":
+            print(f"defaults: {default_limits()}  (0 = unlimited)")
+            for u in AUTH.list_users():
+                key = Limits.key_for(u, "")
+                usage = LIMITS.usage(key, u["username"], 0)
+                limits = Limits.effective_limits(u, u.get("limits"))
+                print(
+                    f"{u['username']:<32} uploads {usage['uploadsLastHour']}/{limits['uploadsPerHour'] or '-'} h, "
+                    f"{usage['uploadsLastDay']}/{limits['uploadsPerDay'] or '-'} day  "
+                    f"storage {usage['storageBytes'] / 1048576:.1f}/{limits['storageMb'] or '-'} MB  "
+                    f"models {usage['models']}/{limits['maxModels'] or '-'}"
+                )
+        elif command == "limits" and rest:
+            user, assignments = rest[0], rest[1:]
+            if assignments:
+                overrides = {}
+                for assignment in assignments:
+                    name, sep, value = assignment.partition("=")
+                    if not sep:
+                        sys.exit(f"expected key=value, got {assignment!r} (keys: {', '.join(LIMIT_KEYS)})")
+                    overrides[name] = None if value == "default" else value
+                try:
+                    AUTH.set_limits(user, normalize_overrides(overrides))
+                except ValueError as exc:
+                    sys.exit(str(exc))
+            record = next((u for u in AUTH.list_users() if u["username"] == user), None)
+            if record is None:
+                sys.exit(f"No such user: {user}")
+            effective = Limits.effective_limits(record, record.get("limits"))
+            for name in LIMIT_KEYS:
+                source = "override" if name in record.get("limits", {}) else "default"
+                if record["role"] == "admin":
+                    source = "admin"
+                print(f"{name:<16} {effective[name] or 'unlimited':<10} ({source})")
         elif command in ("approve", "disable", "promote", "demote", "delete-user") and len(rest) == 1:
             user = rest[0]
             if command == "approve":
-                AUTH.update_user(user, status="active")
+                approved = AUTH.approve_user(user)
+                if approved:
+                    # The CLI process exits right after, so send inline.
+                    mailer.send_account_approved(approved["username"], approved["email"], background=False)
             elif command == "disable":
                 AUTH.update_user(user, status="disabled")
             elif command == "promote":
@@ -679,6 +965,8 @@ def main() -> None:
         print(f"Accounts enabled (registration: {AUTH.registration}); admin '{admin_user}' ensured.")
     elif AUTH.enabled:
         print(f"Accounts enabled (registration: {AUTH.registration}); no WORKER_ADMIN_USER/PASSWORD set.")
+    print(f"Upload limits: {default_limits()} per account (0 = unlimited), "
+          f"{MAX_CONCURRENT_CONVERSIONS or 'unlimited'} concurrent conversion(s).")
     if not CONVERT_SCRIPT.is_file():
         sys.exit(f"convert.sh not found at {CONVERT_SCRIPT} - set WORKER_SCRIPTS_DIR")
     if not CONVERT_MESH_SCRIPT.is_file():

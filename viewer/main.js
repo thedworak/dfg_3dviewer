@@ -41,6 +41,9 @@ import {
 import { initClippingPlanes, updateActiveClippingPlanes, reportViewerError, showToast, toastHelper, changeBackground } from './viewer-utils.js';
 import { attachEmbedConfigurator } from "./ui/embed-configurator.js";
 import { attachUploadPanel } from "./ui/upload-panel.js";
+import { attachModelsPanel } from "./ui/models-panel.js";
+import { attachAdminPanel } from "./ui/admin-panel.js";
+import { attachLoginPanel } from "./ui/login-panel.js";
 import { buildThumbnailGallery } from "./ui/thumbnail-gallery.js";
 import { attachLocalizationTheme } from "./ui/localization-theme.js";
 import { attachLoadingStatus } from "./ui/loading-status.js";
@@ -49,12 +52,20 @@ import { attachShadingEditor } from "./editor/shading.js";
 import { buildEditorMetadata, saveEditorMetadata as persistEditorMetadata } from "./editor/metadata-persistence.js";
 import { attachAnnotations } from "./editor/annotations.js";
 import { attachMeasurement } from "./editor/measurement.js";
+import { attachAnimations } from "./animations.js";
+import { attachTour } from "./editor/tour.js";
+import { updateTiles, disposeTiles } from "./tiles.js";
+import { attachViewHelper } from "./ui/view-helper.js";
+import { attachClipping } from "./editor/clipping.js";
 import { attachPicking } from "./editor/picking.js";
+import { attachFaceAreaSelection } from "./editor/face-area-selection.js";
+import { attachPointCloudPanel } from "./editor/point-cloud-panel.js";
+import { attachModelUnits } from "./editor/model-units.js";
 import { captureAndUploadThumbnail } from "./editor/thumbnail-capture.js";
 import { attachWindowControls } from "./ui/window-controls.js";
 
 import { loadModel, outlineClipping, getModuleAssetBasePath, syncSceneEnvironment } from "./loaders.js";
-import { createIIIFDropdown, createManifestUI, createManifestSourceSwitch, createAIM3IFDropdown, resetModelSettings } from "./metadata.js";
+import { createIIIFDropdown, createManifestUI, createManifestSourceSwitch, createAIM3IFDropdown, resetModelSettings, updateMetadataCounts as updateMetadataCardCounts } from "./metadata.js";
 import { UltraLoader } from "./ultra-loader.js";
 import { StatusPoller } from "./status-poller.js";
 
@@ -73,6 +84,19 @@ import { GUI } from "./js/external_libs/lil-gui.esm.min.js";
 import { objectsConfig, setObjectsConfig } from "./object-settings.js";
 
 import { loadIIIFManifest, getAnnotations } from "./IIIF/iiif-api.js";
+import {
+  applyCamera as applyIIIFCamera,
+  applyLights as applyIIIFLights,
+  applyCanvases as applyIIIFCanvases,
+  applyModelFeatures,
+  commentsToAnnotationEntries,
+  manifestScenes,
+  removeImportedCanvases,
+  readSceneContent,
+  readSpatialScale,
+  removeImportedLights,
+  sceneIndexOf,
+} from "./IIIF/presentation4.js";
 import { loadAIM3IFManifest, applyManifestConfig, applyManifestSettings, applyManifestBootstrapSettings, getManifestWindowState } from "./manifesto/manifesto-api.js";
 import { isAIM3DManifest } from "./manifesto/aim3dviewer-validation.js";
 import {
@@ -572,22 +596,17 @@ export const Viewer = {
   toggleDistanceMeasurement() {
     this.RULER_MODE = !this.RULER_MODE;
     if (this.RULER_MODE) {
-      toastHelper("distanceEnabled", {
-        duration: 2600
-      });
-      toastHelper("distanceHint", {
-        duration: 5200
-      });
+      if (this.measurementMode === "distance") {
+        toastHelper("distanceEnabled", {
+          duration: 2600
+        });
+      }
+      this.showMeasurementHint();
     } else {
       toastHelper(this.RULER_MODE ? "distanceModeEnabled" : "distanceModeDisabled");
     }
     if (!this.RULER_MODE) {
-      this.ruler.forEach((r) => {
-        core.scene.remove(r);
-      });
-      this.rulerObject = new THREE.Object3D();
-      this.ruler = [];
-      this.linePoints = [];
+      this.clearMeasurements();
     } else {
       this.pickingMode = false;
       this.restoreLastPickedFace();
@@ -596,47 +615,9 @@ export const Viewer = {
       this.updatePickingControlsVisibility();
     }
     this.updateDistanceMeasurementControllerLabel();
+    this.updateMeasurementReadout();
     this.updateEditorToolbarLabels();
     this.updateEditorToolbarState();
-  },
-
-  toggleClippingPlanesPanel() {
-    this.clippingMode = !this.clippingMode;
-    if (this.clippingMode) {
-      toastHelper("facePickingEnabled", {
-        duration: 2600
-      });
-      toastHelper("clippingPlanes", {
-        duration: 5200
-      });
-    } else {
-      toastHelper("facePickingDisabled");
-      if (core.planeHelpers?.length >= 3) {
-        core.planeHelpers.forEach((helper) => {
-          if (helper) helper.visible = false;
-        });
-      }
-      core.planeParams.clippingMode.x = false;
-      core.planeParams.clippingMode.y = false;
-      core.planeParams.clippingMode.z = false;
-      if (core.outlineClipping) {
-        core.outlineClipping.visible = false;
-      }
-      if (this.transformControlClippingPlaneX) {
-        this.transformControlClippingPlaneX.detach();
-      }
-      if (this.transformControlClippingPlaneY) {
-        this.transformControlClippingPlaneY.detach();
-      }
-      if (this.transformControlClippingPlaneZ) {
-        this.transformControlClippingPlaneZ.detach();
-      }
-    }
-    this.updateClippingPlanesControllerLabel();
-    this.updateClippingPlanesControlsVisibility();
-    this.updateEditorToolbarLabels();
-    this.updateEditorToolbarState();
-    updateActiveClippingPlanes();
   },
 
   updateClippingPlanesControllerLabel() {
@@ -645,58 +626,6 @@ export const Viewer = {
         ? t("controls.disableClippingPlanesMode", "Disable clipping planes mode")
         : t("controls.enableClippingPlanesMode", "Enable clipping planes mode"));
     }
-  },
-
-  updateClippingPlanesControlsVisibility() {
-    if (this.transformControlClippingPlaneX) {
-      this.transformControlClippingPlaneX.visible = this.clippingMode;
-    }
-    if (this.transformControlClippingPlaneY) {
-      this.transformControlClippingPlaneY.visible = this.clippingMode;
-    }
-    if (this.transformControlClippingPlaneZ) {
-      this.transformControlClippingPlaneZ.visible = this.clippingMode;
-    }
-  },
-
-  toggleClippingPlaneHelper(axis) {
-    const axisIndex = { x: 0, y: 1, z: 2 }[axis];
-    const planeHelper = core.planeHelpers?.[axisIndex];
-    const control = this[`transformControlClippingPlane${axis.toUpperCase()}`];
-    if (!planeHelper) return;
-
-    const active = !Boolean(core.planeParams.clippingMode?.[axis]);
-    core.planeParams.clippingMode[axis] = planeHelper.visible = active;
-
-    if (active) {
-      control?.attach?.(planeHelper);
-      if (core.planeParams.outline.visible) core.outlineClipping.visible = true;
-    } else {
-      control?.detach?.();
-      if (
-        !core.planeParams.clippingMode.x &&
-        !core.planeParams.clippingMode.y &&
-        !core.planeParams.clippingMode.z &&
-        !core.planeParams.outline.visible
-      ) {
-        core.outlineClipping.visible = false;
-      }
-    }
-
-    toastHelper("clippingHelperToggle", "info", {
-      axis: axis.toUpperCase(),
-      state: active,
-    });
-    this.refreshClippingHintVisibility();
-    this.updateClippingPlanesSubmenuState();
-    updateActiveClippingPlanes();
-  },
-
-  toggleClippingPlaneVisible() {
-    const visible = !Boolean(core.planeParams.outline.visible);
-    core.planeParams.outline.visible = visible;
-    if (core.outlineClipping) core.outlineClipping.visible = visible;
-    this.updateClippingPlanesSubmenuState();
   },
 
   refreshClippingHintVisibility() {
@@ -811,6 +740,11 @@ export const Viewer = {
       clippingMode: this.parseClippingModeParam(params.get("clip") || params.get("clippingMode")),
       clippingConstants: this.parseVector3Param(params.get("clipConst") || params.get("clipConstants")),
       clippingOutline: this.parseBooleanParam(params.get("clipOutline")),
+      clippingNegated: (() => {
+        const flipped = params.get("clipFlip");
+        if (flipped == null) return null;
+        return this.parseClippingModeParam(flipped) || { x: false, y: false, z: false };
+      })(),
       // Keep these null when the query param is absent (parseBooleanParam's
       // own "not specified" value) rather than coercing to a hard boolean -
       // the config-driven fallback below (`sandboxModeFromConfig ?? ...`)
@@ -821,80 +755,6 @@ export const Viewer = {
       scale: this.parseVector2Param(params.get("scale")) ?? null,
       showNotifications: this.parseBooleanParam(params.get("showNotifications")),
     };
-  },
-
-  applyClippingOverridesFromUrl() {
-    const clippingMode = this.urlOptions?.clippingMode;
-    const clippingConstants = this.urlOptions?.clippingConstants;
-    const clippingOutline = this.urlOptions?.clippingOutline;
-
-    const hasMode = clippingMode && ["x", "y", "z"].every((axis) => typeof clippingMode[axis] === "boolean");
-    const hasConstants = clippingConstants && Number.isFinite(clippingConstants.x) && Number.isFinite(clippingConstants.y) && Number.isFinite(clippingConstants.z);
-    const hasOutline = typeof clippingOutline === "boolean";
-
-    if (!hasMode && !hasConstants && !hasOutline) return;
-
-    if (hasConstants && core.clippingPlanes?.length >= 3) {
-      const constants = [clippingConstants.x, clippingConstants.y, clippingConstants.z];
-      core.clippingPlanes[0].constant = constants[0];
-      core.clippingPlanes[1].constant = constants[1];
-      core.clippingPlanes[2].constant = constants[2];
-
-      core.planeParams.planeX.constantX = constants[0];
-      core.planeParams.planeY.constantY = constants[1];
-      core.planeParams.planeZ.constantZ = constants[2];
-
-      if (core.clippingFolder?.controllers?.[1]) {
-        core.clippingFolder.controllers[1].setValue(constants[0]);
-      }
-      if (core.clippingFolder?.controllers?.[3]) {
-        core.clippingFolder.controllers[3].setValue(constants[1]);
-      }
-      if (core.clippingFolder?.controllers?.[5]) {
-        core.clippingFolder.controllers[5].setValue(constants[2]);
-      }
-
-      if (core.planeHelpers?.length >= 3) {
-        for (let i = 0; i < 3; i += 1) {
-          const helper = core.planeHelpers[i];
-          const plane = core.clippingPlanes[i];
-          if (!helper || !plane) continue;
-          helper.position.copy(plane.normal).multiplyScalar(-plane.constant);
-          helper.updateMatrixWorld?.(true);
-        }
-      }
-    }
-
-    if (hasMode) {
-      core.planeParams.clippingMode.x = clippingMode.x;
-      core.planeParams.clippingMode.y = clippingMode.y;
-      core.planeParams.clippingMode.z = clippingMode.z;
-
-      if (core.planeHelpers?.[0]) core.planeHelpers[0].visible = clippingMode.x;
-      if (core.planeHelpers?.[1]) core.planeHelpers[1].visible = clippingMode.y;
-      if (core.planeHelpers?.[2]) core.planeHelpers[2].visible = clippingMode.z;
-
-      this.clippingMode = clippingMode.x || clippingMode.y || clippingMode.z;
-    }
-
-    if (hasOutline) {
-      core.planeParams.outline.visible = clippingOutline;
-    }
-
-    if (core.outlineClipping) {
-      const hasActiveClipping = Boolean(
-        core.planeParams?.clippingMode?.x ||
-        core.planeParams?.clippingMode?.y ||
-        core.planeParams?.clippingMode?.z
-      );
-      core.outlineClipping.visible = hasOutline ? clippingOutline : hasActiveClipping;
-    }
-
-    this.updateClippingPlanesControllerLabel();
-    this.updateClippingPlanesControlsVisibility();
-    this.updateClippingPlanesSubmenuState();
-    this.refreshClippingHintVisibility();
-    updateActiveClippingPlanes();
   },
 
   setGuiFolderTitle(folder, title) {
@@ -948,29 +808,14 @@ export const Viewer = {
     );
   },
 
+  // Meters per scene unit (see editor/model-units.js for where it comes from).
   getDistanceMeasurementScaleMeters() {
-    const configuredScale = Number(core.CONFIG?.viewer?.measurement?.modelUnitInMeters);
-    if (Number.isFinite(configuredScale) && configuredScale > 0) return configuredScale;
-    return 1;
+    return this.resolveModelUnit().meters;
   },
 
   formatMeasuredDistance(rawDistanceInModelUnits) {
-    const scaleMeters = this.getDistanceMeasurementScaleMeters();
-    const meters = rawDistanceInModelUnits * scaleMeters;
-
-    if (!Number.isFinite(meters)) {
-      return { text: "0 mm", meters: 0, scaleMeters };
-    }
-
-    if (meters >= 1) {
-      return { text: `${meters.toFixed(2)} m`, meters, scaleMeters };
-    }
-
-    if (meters >= 0.01) {
-      return { text: `${(meters * 100).toFixed(1)} cm`, meters, scaleMeters };
-    }
-
-    return { text: `${(meters * 1000).toFixed(0)} mm`, meters, scaleMeters };
+    const { text, meters } = this.formatLength(rawDistanceInModelUnits);
+    return { text, meters, scaleMeters: this.getDistanceMeasurementScaleMeters() };
   },
 
   updateSelectedFacesControllerLabel() {
@@ -980,8 +825,11 @@ export const Viewer = {
 
   updatePickingHintVisibility() {
     if (!this.pickingHint) return;
-    const hasSelectedFaces = Array.isArray(this.selectedFaces) && this.selectedFaces.length > 0;
-    this.pickingHint.hidden = !this.pickingMode || hasSelectedFaces;
+    const count = Array.isArray(this.selectedFaces) ? this.selectedFaces.length : 0;
+    this.pickingHint.textContent = count > 0
+      ? t("hints.pickingSelected", { count }, "{count} faces selected · Enter: add annotation · Esc: clear")
+      : t("hints.picking", "Click a face, Ctrl + click to add more, Shift + drag to select an area");
+    this.pickingHint.hidden = !this.pickingMode;
     this.updateClippingHintVisibility();
   },
 
@@ -1250,6 +1098,13 @@ export const Viewer = {
   onViewerKeyDown(event) {
     if (!Viewer.isViewerKeyboardActive(event)) return;
 
+    // Arrows keep orbiting during a tour; the tour has its own keys.
+    if (!event.key.startsWith("Arrow") && Viewer.handleTourKey(event.key)) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
     const isFast = event.shiftKey;
     const rotateStep = isFast ? Viewer.keyboardStep.rotateFast : Viewer.keyboardStep.rotate;
     const isPanMode = event.ctrlKey || event.metaKey;
@@ -1290,6 +1145,31 @@ export const Viewer = {
       case "Spacebar":
         Viewer.toggleAutoRotateByKeyboard();
         handled = true;
+        break;
+      case "Enter":
+        if (Viewer.RULER_MODE && Viewer.measurementDraft) {
+          Viewer.finishMeasurementDraft();
+          handled = true;
+        } else if (
+          Viewer.pickingMode
+          && Viewer.selectedFaces?.length
+          && (!Viewer.annotationDialog || Viewer.annotationDialog.hidden)
+        ) {
+          // Accept the selected area: same as clicking the annotate icon again.
+          Viewer.openAnnotationDialog();
+          handled = true;
+        }
+        break;
+      case "Escape":
+        if (Viewer.RULER_MODE) handled = Viewer.cancelMeasurementDraft();
+        else if (Viewer.pickingMode && Viewer.selectedFaces?.length) {
+          Viewer.clearSelectedFaces();
+          handled = true;
+        }
+        break;
+      case "k":
+      case "K":
+        handled = Viewer.toggleAnimationPlayback();
         break;
       default:
         break;
@@ -1401,6 +1281,17 @@ export const Viewer = {
   },
 
   resetLoadedModelState() {
+    Viewer.disposeAnimations();
+    Viewer.stopTour();
+    Viewer.disposePointCloudControls();
+    disposeTiles();
+    removeImportedLights();
+    removeImportedCanvases();
+    Viewer.resetModelUnits();
+    Viewer.currentManifest = null;
+    Viewer.manifestCameras = [];
+    document.getElementById("manifesto-camera-switch")?.remove();
+    document.getElementById("manifesto-scene-switch")?.remove();
     Viewer.restoreLastPickedFace();
     Viewer.clearSelectedFaces();
     Viewer.closeAnnotationDialog();
@@ -1414,13 +1305,9 @@ export const Viewer = {
     Viewer.transformText["Transform Light"] = "";
     Viewer.pickingMode = false;
     Viewer.RULER_MODE = false;
-    this.clippingMode = false;
-    if (core.planeParams?.clippingMode) {
-      core.planeParams.clippingMode.x = false;
-      core.planeParams.clippingMode.y = false;
-      core.planeParams.clippingMode.z = false;
-    }
-    updateActiveClippingPlanes();
+    // Section planes stay as they are; refreshClippingForModel() fits them
+    // to the next model.
+    Viewer.cancelClippingDrag();
     Viewer.updateEditorToolbarLabels();
     Viewer.updateEditorToolbarState();
 
@@ -1435,6 +1322,7 @@ export const Viewer = {
       Viewer.textMesh = null;
     }
 
+    Viewer.clearMeasurements();
     if (Viewer.ruler?.length) {
       Viewer.ruler.forEach((item) => Viewer.removeAndDisposeFromScene(item));
     }
@@ -1452,6 +1340,9 @@ export const Viewer = {
     if (Array.isArray(Viewer.helperObjects)) Viewer.helperObjects.length = 0;
     if (Array.isArray(Viewer.selectedObjects)) Viewer.selectedObjects.length = 0;
     if (Array.isArray(Viewer.selectedFaces)) Viewer.selectedFaces.length = 0;
+    Viewer.selectionOverlays = [];
+    Viewer.endFaceAreaSelection();
+    Viewer.disposeFacePickCache();
     Viewer.updateSelectedFacesCount();
     Viewer.lastPickedFace = { id: "", object: "", faceIndex: null, overlay: null };
   },
@@ -1800,7 +1691,7 @@ export const Viewer = {
       this.pickingHint = document.createElement("div");
       this.pickingHint.id = "pickingHint";
       this.pickingHint.className = "viewer-notice viewer-notice-hint";
-      this.pickingHint.textContent = "Shift + click to select multiple faces";
+      this.pickingHint.textContent = t("hints.picking", "Click a face, Ctrl + click to add more, Shift + drag to select an area");
       this.pickingHint.hidden = true;
       this.noticeContainer.appendChild(this.pickingHint);
       setCore("pickingHint", this.pickingHint);
@@ -1862,6 +1753,8 @@ export const Viewer = {
     this.rect = core.container.getBoundingClientRect();
 
     this.clock = new THREE.Timer();
+    // Ignore the time spent in a hidden tab instead of jumping animations forward.
+    this.clock.connect?.(document);
 
     Viewer.init();
     if (!core.PRESENTATION_MODE) {
@@ -1979,7 +1872,33 @@ export const Viewer = {
     uploadModel.id = "uploadModel";
     picker.appendChild(uploadModel);
 
+    const browseModels = document.createElement("button");
+    browseModels.type = "button";
+    browseModels.id = "browseModelsButton";
+    picker.appendChild(browseModels);
+
     return picker;
+  },
+
+  // The row above the viewer (#viewer-page-header): the example picker on
+  // the left, the account area (sign-in, user management) on the right.
+  // Mirrors the static markup of index.html, like createExampleModelPicker().
+  createViewerPageHeader() {
+    const header = document.createElement("div");
+    header.id = "viewer-page-header";
+    header.appendChild(Viewer.createExampleModelPicker());
+
+    const accountBar = document.createElement("div");
+    accountBar.id = "viewer-account-bar";
+    ["loginButton", "manageUsersButton"].forEach((id) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.id = id;
+      button.hidden = true;
+      accountBar.appendChild(button);
+    });
+    header.appendChild(accountBar);
+    return header;
   },
 
   toHexColor(input) {
@@ -2052,7 +1971,8 @@ export const Viewer = {
 
     if (isFullscreen) {
       core.mainCanvas.style.width = "100vw";
-      core.mainCanvas.style.height = "100vh";
+      // dvh: the visible height, below a mobile browser's address bar.
+      core.mainCanvas.style.height = "100dvh";
       core.editorToolbar.style.bottom = `${bottom}px`;
     } else {
       if (core.editorToolbar) {
@@ -2311,6 +2231,8 @@ export const Viewer = {
 
   animate: (time) => {
     requestAnimationFrame(Viewer.animate);
+    // THREE.Timer only advances on update(); without it getDelta() stays 0.
+    Viewer.clock.update(time);
     const delta = Viewer.clock.getDelta();
 
     if (!core.PRESENTATION_MODE) {
@@ -2351,6 +2273,7 @@ export const Viewer = {
         });
       }
       Viewer.updateAnnotationPOITooltipPosition();
+      Viewer.updateMeasurementLabels();
     }
     if (!core.GESTURE?.active || core.PRESENTATION_MODE) {
       core.controls?.update();
@@ -2365,12 +2288,17 @@ export const Viewer = {
     // LOOP UPDATE
     // =========================
     
+    Viewer.updateTour(time);
+    updateTiles();
+
     if (Viewer.mixer) {
       Viewer.mixer.update(delta);
+      Viewer.updateAnimationTimeline();
     }
 
     core.renderer?.clear();
     core.renderer?.render(core.scene, core.camera);
+    Viewer.renderViewHelper(delta);
     core.stats?.update();
   },
 
@@ -2490,56 +2418,12 @@ export const Viewer = {
     Viewer.distanceGeometry = _distance;
     setCore("distanceGeometry", Viewer.distanceGeometry);
 
-    if (core.clippingPlanes?.length >= 3) {
-      core.clippingPlanes[0].constant = _distance.x;
-      core.clippingPlanes[1].constant = _distance.y;
-      core.clippingPlanes[2].constant = _distance.z;
-    }
-
-    Viewer.planeParams.planeX.constantX = _distance.x;
-    Viewer.planeParams.planeY.constantY = _distance.y;
-    Viewer.planeParams.planeZ.constantZ = _distance.z;
-
-    if (core.clippingFolder?.controllers?.[1]) {
-      core.clippingFolder.controllers[1]._max = _distance.x;
-      core.clippingFolder.controllers[1]._min = -_distance.x;
-      core.clippingFolder.controllers[1].setValue(_distance.x);
-      core.clippingFolder.controllers[1].updateDisplay();
-    }
-    if (core.clippingFolder?.controllers?.[3]) {
-      core.clippingFolder.controllers[3]._max = _distance.y;
-      core.clippingFolder.controllers[3]._min = -_distance.y;
-      core.clippingFolder.controllers[3].setValue(_distance.y);
-      core.clippingFolder.controllers[3].updateDisplay();
-    }
-    if (core.clippingFolder?.controllers?.[5]) {
-      core.clippingFolder.controllers[5]._max = _distance.z;
-      core.clippingFolder.controllers[5]._min = -_distance.z;
-      core.clippingFolder.controllers[5].setValue(_distance.z);
-      core.clippingFolder.controllers[5].updateDisplay();
-    }
-
-    if (Viewer.planeHelpers?.length >= 3 && core.clippingPlanes?.length >= 3) {
-      for (let i = 0; i < 3; i++) {
-        const helper = Viewer.planeHelpers[i];
-        const plane = core.clippingPlanes[i];
-        if (!helper || !plane) continue;
-        helper.position.copy(plane.normal).multiplyScalar(-plane.constant);
-        if (i === 0 || i === 2) {
-          helper.userData.clippingCenterY = center.y;
-          helper.updateMatrixWorld(true);
-        }
-      }
-    }
-
     var _maxDistance = Math.max(_distance.x, _distance.y, _distance.z);
-    Viewer.planeHelpers?.forEach(h => h && (h.size = _maxDistance));
 
     core.boundingSphere = new THREE.Sphere(center, _maxDistance);
     core.boundingSphere.center.copy(center);
-    if (typeof core.updateActiveClippingPlanes === "function") {
-      core.updateActiveClippingPlanes();
-    }
+    // Keep the section planes at the same relative place on the moved model.
+    Viewer.refreshClippingForModel();
   },
 
   changeLightRotation() {
@@ -2571,6 +2455,7 @@ export const Viewer = {
 
     await Viewer.mainLoadModel();
     Viewer.applyPendingAnnotationsIfAny();
+    Viewer.maybeAutostartTour();
   },
 
   async mainLoadModel() {
@@ -2676,55 +2561,6 @@ export const Viewer = {
 
     this.applyClippingOverridesFromUrl();
 
-  },
-
-  createClippingPlaneAxis(_number, axis = "z") {
-    var tempClippingControl = new TransformControls(core.camera, core.renderer.domElement);
-    tempClippingControl.space = "world";
-    tempClippingControl.setMode("translate");
-    tempClippingControl.showX = axis === "x";
-    tempClippingControl.showY = axis === "y";
-    tempClippingControl.showZ = axis === "z";
-    tempClippingControl.addEventListener("change", Viewer.render);
-    tempClippingControl.addEventListener("objectChange", function (event) {
-      if (event.target === undefined || event.target.object === undefined) {
-        return;
-      }
-      let newConstant;
-      switch (_number) {
-        case 0:
-          newConstant = event.target.worldPositionStart.x + event.target.pointEnd.x;
-          core.clippingPlanes[_number].constant = newConstant;
-          core.planeParams.planeX.constantX = newConstant;
-          if (core.clippingFolder.controllers[1]) {
-            core.clippingFolder.controllers[1].setValue(newConstant);
-          }
-          core.planeHelpers[0].position.copy(core.clippingPlanes[0].normal).multiplyScalar(-newConstant);
-          break;
-        case 1:
-          newConstant = event.target.worldPositionStart.y + event.target.pointEnd.y;
-          core.clippingPlanes[_number].constant = newConstant;
-          core.planeParams.planeY.constantY = newConstant;
-          if (core.clippingFolder.controllers[3]) {
-            core.clippingFolder.controllers[3].setValue(newConstant);
-          }
-          core.planeHelpers[1].position.copy(core.clippingPlanes[1].normal).multiplyScalar(-newConstant);
-          break;
-        case 2:
-          newConstant = event.target.worldPositionStart.z + event.target.pointEnd.z;
-          core.clippingPlanes[_number].constant = newConstant;
-          core.planeParams.planeZ.constantZ = newConstant;
-          if (core.clippingFolder.controllers[5]) {
-            core.clippingFolder.controllers[5].setValue(newConstant);
-          }
-          core.planeHelpers[2].position.copy(core.clippingPlanes[2].normal).multiplyScalar(-newConstant);
-          break;
-      }
-    });
-    tempClippingControl.addEventListener("dragging-changed", function (event) {
-      core.controls.enabled = !event.value;
-    });
-    return tempClippingControl;
   },
 
   resetCamera() {
@@ -3088,11 +2924,15 @@ export const Viewer = {
     poller.start();
   },
 
-  // IIIF setup and loading
-  async setupManifesto(newUrlOrJson, type="url", manifestType = "iiif") {
+  // IIIF setup and loading. A manifest's Scenes are shown one at a time:
+  // `sceneIndex` picks one (the first by default; showManifestScene switches).
+  async setupManifesto(newUrlOrJson, type="url", manifestType = "iiif", { sceneIndex } = {}) {
     const manifestJson = await Viewer.getManifestJson(newUrlOrJson, type);
     const resolvedManifestType = isAIM3DManifest(manifestJson) ? "aim3if" : "iiif";
     const isAim3ifManifest = resolvedManifestType === "aim3if";
+    const shownScene = sceneIndexOf(manifestJson, sceneIndex);
+    Viewer.activeScene = shownScene;
+    setCore("activeScene", shownScene);
 
     if (resolvedManifestType !== manifestType) {
       console.info(`Detected ${isAim3ifManifest ? "AIM3D" : "IIIF"} manifest; using its matching loader.`);
@@ -3114,20 +2954,26 @@ export const Viewer = {
       Viewer.iiifConfigURL.url = newUrlOrJson;
     }
     const loadedManifest = isAim3ifManifest
-      ? await loadAIM3IFManifest(manifestJson)
-      : await loadIIIFManifest(manifestJson);
+      ? await loadAIM3IFManifest(manifestJson, { sceneIndex: shownScene })
+      : await loadIIIFManifest(manifestJson, { sceneIndex: shownScene });
     if (isAim3ifManifest) {
       // Manifest settings take precedence over viewer-settings.json, which
       // remains the fallback for anything the manifest doesn't define.
       applyManifestSettings(loadedManifest.manifest, core.CONFIG);
       Viewer.applyWindowState?.(getManifestWindowState(loadedManifest.manifest));
     }
-    if (loadedManifest.modelUrls.length === 0) { // no 3D model found, use example model
+    // A scene of Canvases only has no model to fall back on.
+    if (loadedManifest.modelUrls.length === 0 && !loadedManifest.placements?.canvases?.length) { // no 3D model found, use example model
       loadedManifest.modelUrls.push('https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb');
       showToast(t("toasts.noIiiifModelFallback", "No 3D model found in IIIF manifest, loading example model."));
     }
     // reset scene and release GPU resources from the previous model batch
     Viewer.resetLoadedModelState();
+    // The manifest shown (after the reset, which forgets it): its scenes,
+    // cameras and descriptive properties, for switching and exporting.
+    Viewer.currentManifest = { source: newUrlOrJson, type, manifestType, json: manifestJson };
+    // The size of a scene unit (Scene.spatialScale), for measurements.
+    Viewer.manifestUnitMeters = readSpatialScale(manifestJson, shownScene);
     // A previous AIM3D manifest may have left the camera in orthographic mode.
     // Always start from perspective; AIM3D's own camera config (applied below)
     // switches back to orthographic only if it explicitly asks for it.
@@ -3178,6 +3024,125 @@ export const Viewer = {
         Viewer.import3IFManifest?.(loadedManifest.manifest);
       }
     }
+    applyIIIFCanvases(loadedManifest.placements?.canvases || []);
+    const content = isAim3ifManifest ? Viewer.readManifestSceneContent(manifestJson) : Viewer.applyIIIFSceneContent(manifestJson);
+    // The models' own cameras and lights, unless their annotations exclude
+    // them - where the manifest has none of its own (an AIM3D manifest's
+    // camera counts as its own).
+    const roots = (loadedManifest.placements?.models || []).map((_, slot) => Viewer.resolveObjectByTargetId(`m${slot}:root`));
+    applyModelFeatures(loadedManifest.placements?.models, roots, {
+      lights: content?.lights || [],
+      defaultCamera: content?.defaultCamera || (isAim3ifManifest && manifestJson?.AIM3DViewer?.camera) || null,
+    }, Viewer);
+    Viewer.manifestCameras = content?.cameraChoices || [];
+    Viewer.updateManifestSceneSwitch(manifestJson);
+    Viewer.updateManifestCameraSwitch();
+  },
+
+  readManifestSceneContent(manifestJson) {
+    try {
+      return readSceneContent(manifestJson, core.activeScene);
+    } catch (error) {
+      console.warn("Could not read IIIF scene content", error);
+      return null;
+    }
+  },
+
+  // Shows one of the scene's cameras (Viewer.manifestCameras).
+  showManifestCamera(index) {
+    const camera = Viewer.manifestCameras?.[Number(index)];
+    if (!camera) return false;
+    return applyIIIFCamera(camera, Viewer);
+  },
+
+  // A camera selector in the manifest form, for a scene that offers several
+  // (several cameras, or a Choice of them).
+  updateManifestCameraSwitch() {
+    document.getElementById("manifesto-camera-switch")?.remove();
+    const cameras = Viewer.manifestCameras || [];
+    const content = document.getElementById("form-manifesto-content");
+    if (cameras.length < 2 || !content) return;
+
+    const group = document.createElement("div");
+    group.className = "form-manifesto-group";
+    group.id = "manifesto-camera-switch";
+    const label = document.createElement("label");
+    label.className = "form-manifesto-label";
+    label.htmlFor = "manifesto-camera-select";
+    label.textContent = t("manifesto.camera", "Camera");
+    const select = document.createElement("select");
+    select.id = "manifesto-camera-select";
+    const shown = cameras.findIndex((camera) => !camera.alternative);
+    cameras.forEach((camera, index) => {
+      const option = document.createElement("option");
+      option.value = String(index);
+      option.textContent = camera.label || t("manifesto.cameraNumber", { number: index + 1 }, "Camera {number}");
+      option.selected = index === Math.max(shown, 0);
+      select.appendChild(option);
+    });
+    select.addEventListener("change", () => Viewer.showManifestCamera(select.value));
+    group.append(label, select);
+    const sceneSwitch = document.getElementById("manifesto-scene-switch");
+    if (sceneSwitch) sceneSwitch.after(group);
+    else content.prepend(group);
+  },
+
+  // The metadata card's counts in the viewer's language.
+  updateMetadataCounts(root) {
+    updateMetadataCardCounts(root);
+  },
+
+  // Shows another Scene of the manifest loaded last.
+  async showManifestScene(index) {
+    const current = Viewer.currentManifest;
+    if (!current) return;
+    await Viewer.setupManifesto(current.source, current.type, current.manifestType, { sceneIndex: Number(index) });
+  },
+
+  // A Scene selector in the manifest form, for a manifest with several.
+  updateManifestSceneSwitch(manifestJson) {
+    document.getElementById("manifesto-scene-switch")?.remove();
+    const scenes = manifestScenes(manifestJson);
+    const content = document.getElementById("form-manifesto-content");
+    if (scenes.length < 2 || !content) return;
+
+    const group = document.createElement("div");
+    group.className = "form-manifesto-group";
+    group.id = "manifesto-scene-switch";
+    const label = document.createElement("label");
+    label.className = "form-manifesto-label";
+    label.htmlFor = "manifesto-scene-select";
+    label.textContent = t("manifesto.scene", "Scene");
+    const select = document.createElement("select");
+    select.id = "manifesto-scene-select";
+    scenes.forEach((scene) => {
+      const option = document.createElement("option");
+      option.value = String(scene.index);
+      option.textContent = scene.label || t("manifesto.sceneNumber", { number: scene.index + 1 }, "Scene {number}");
+      option.selected = scene.index === core.activeScene;
+      select.appendChild(option);
+    });
+    select.addEventListener("change", () => {
+      Viewer.showManifestScene(select.value).catch((error) => console.error("Could not show the scene", error));
+    });
+    group.append(label, select);
+    content.prepend(group);
+  },
+
+  // IIIF Presentation 4 cameras, lights and point comments of a plain IIIF
+  // manifest (AIM3D manifests carry their own camera/lights/annotations,
+  // applied by import3IFManifest).
+  applyIIIFSceneContent(manifestJson) {
+    const content = Viewer.readManifestSceneContent(manifestJson);
+    if (!content) return null;
+    if (content.defaultCamera) applyIIIFCamera(content.defaultCamera, Viewer);
+    if (content.lights.length) applyIIIFLights(content.lights);
+    if (content.comments.length) {
+      const root = Viewer.resolveObjectByTargetId("m0:root");
+      Viewer.annotationEntries = commentsToAnnotationEntries(content.comments, root);
+      Viewer.refreshAnnotationPOIs();
+    }
+    return content;
   },
 
   async getManifestJson(manifestUrlOrJson, type) {
@@ -3409,26 +3374,32 @@ export const Viewer = {
       // Store in core
       setCore('cameraLight', Viewer.cameraLight);      
 
-      core.renderer = new THREE.WebGLRenderer({
-        antialias: true,
-        logarithmicDepthBuffer: true,
-        colorManagement: true,
-        sortObjects: true,
-        preserveDrawingBuffer: true,
-        powerPreference: "high-performance",
-        alpha: true,
-        shadowMap: {
-          enabled: true,
-          type: THREE.PCFSoftShadowMap
-        },
-        localClippingEnabled: true,
-        physicallyCorrectLights: true,
-        autoClear: false,
-        setClearColor: (0x000000, 0.0),
-        outputColorSpace: THREE.SRGBColorSpace,
-        toneMapping: THREE.ACESFilmicToneMapping,
-        toneMappingExposure: 0.65
-      });
+      try {
+        core.renderer = new THREE.WebGLRenderer({
+          antialias: true,
+          logarithmicDepthBuffer: true,
+          colorManagement: true,
+          sortObjects: true,
+          preserveDrawingBuffer: true,
+          powerPreference: "high-performance",
+          alpha: true,
+          shadowMap: {
+            enabled: true,
+            type: THREE.PCFSoftShadowMap
+          },
+          localClippingEnabled: true,
+          physicallyCorrectLights: true,
+          autoClear: false,
+          setClearColor: (0x000000, 0.0),
+          outputColorSpace: THREE.SRGBColorSpace,
+          toneMapping: THREE.ACESFilmicToneMapping,
+          toneMappingExposure: 0.65
+        });
+      } catch (err) {
+        console.warn("WebGL context could not be created:", err);
+        showToast("toasts.webglUnavailable", "error", { duration: 10000 });
+        return;
+      }
       
       core.renderer.localClippingEnabled = true;
 
@@ -3450,6 +3421,7 @@ export const Viewer = {
         Viewer.bindEventListener(core.renderer.domElement, "pointerdown", Viewer.onPointerDown);
         Viewer.bindEventListener(core.renderer.domElement, "pointerup", Viewer.onPointerUp);
         Viewer.bindEventListener(core.renderer.domElement, "pointermove", Viewer.onPointerMove);
+        Viewer.bindFaceAreaSelection();
         Viewer.bindEventListener(core.renderer.domElement, "mouseenter", (event) => {
           if (!Viewer.isPointerDirectlyOverCanvas(event)) return;
           Viewer.maybeShowKeyboardHint();
@@ -3699,6 +3671,7 @@ export const Viewer = {
       }
       Viewer.controls.update();
       setCore('controls', Viewer.controls);
+      Viewer.initViewHelper();
       setCore('GESTURE', Viewer.GESTURE);
       setCore('lastTime', Viewer.lastTime);
       setCore('helperObjects', Viewer.helperObjects);
@@ -3756,13 +3729,6 @@ export const Viewer = {
         core.scene.add(Viewer.transformControlLightTarget.getHelper());
         setCore('transformControlLightTarget', Viewer.transformControlLightTarget);
 
-        Viewer.transformControlClippingPlaneX = Viewer.createClippingPlaneAxis(0, "x");
-        Viewer.transformControlClippingPlaneY = Viewer.createClippingPlaneAxis(1, "y");
-        Viewer.transformControlClippingPlaneZ = Viewer.createClippingPlaneAxis(2, "z");
-        setCore('transformControlClippingPlaneX', Viewer.transformControlClippingPlaneX);
-        setCore('transformControlClippingPlaneY', Viewer.transformControlClippingPlaneY);
-        setCore('transformControlClippingPlaneZ', Viewer.transformControlClippingPlaneZ);
-
         setCore('clippingPlanes', Viewer.clippingPlanes);
         setCore('selectObjectHierarchy', Viewer.selectObjectHierarchy);
 
@@ -3790,18 +3756,49 @@ export const Viewer = {
         let selectModel = document.getElementById('example-model-select');
         let themeToggle = document.getElementById('example-theme-toggle');
         let uploadModelButton = document.getElementById('uploadModel');
+        let loginButton = document.getElementById('loginButton');
+        let browseModelsButton = document.getElementById('browseModelsButton');
+        let manageUsersButton = document.getElementById('manageUsersButton');
         if (!picker && !selectModel && viewerElement) {
-          picker = Viewer.createExampleModelPicker();
-          selectModel = picker.querySelector('#example-model-select');
-          themeToggle = picker.querySelector('#example-theme-toggle');
-          uploadModelButton = picker.querySelector('#uploadModel');
-          viewerElement.parentNode.insertBefore(picker, viewerElement);
+          const header = Viewer.createViewerPageHeader();
+          picker = header.querySelector('#example-model-picker');
+          selectModel = header.querySelector('#example-model-select');
+          themeToggle = header.querySelector('#example-theme-toggle');
+          uploadModelButton = header.querySelector('#uploadModel');
+          loginButton = header.querySelector('#loginButton');
+          browseModelsButton = header.querySelector('#browseModelsButton');
+          manageUsersButton = header.querySelector('#manageUsersButton');
+          viewerElement.parentNode.insertBefore(header, viewerElement);
+        }
+        if (loginButton) {
+          Viewer.loginButton = loginButton;
+          Viewer.updateLoginMenuEntryState();
+          Viewer.bindEventListener(loginButton, "click", Viewer.openLoginPanel.bind(Viewer));
+        }
+        if (manageUsersButton) {
+          Viewer.manageUsersButton = manageUsersButton;
+          Viewer.updateAdminMenuEntryState();
+          Viewer.bindEventListener(manageUsersButton, "click", Viewer.openAdminPanel.bind(Viewer));
         }
         if (uploadModelButton) {
           Viewer.uploadModel = uploadModelButton;
           Viewer.updateUploadMenuEntryState();
           Viewer.bindEventListener(uploadModelButton, "click", Viewer.openUploadPanel.bind(Viewer));
         }
+        if (browseModelsButton) {
+          browseModelsButton.innerHTML = '<span class="browse-models-icon" aria-hidden="true"></span>';
+          const browseModelsLabel = t("menu.openModelsPanel", "Browse previously generated models");
+          browseModelsButton.setAttribute("aria-label", browseModelsLabel);
+          browseModelsButton.setAttribute("title", browseModelsLabel);
+          Viewer.bindEventListener(browseModelsButton, "click", Viewer.openModelsPanel.bind(Viewer));
+        }
+        // updateAdminMenuEntryState() above only ran against Viewer.authState
+        // as it stood before any auth check - undefined on a fresh load - so
+        // "Manage users" stayed hidden even for an already-logged-in admin
+        // until something else (opening the upload panel, logging in)
+        // happened to call refreshAuthState() first. Do that once up front so
+        // an admin's session is recognized, and the button shown, right away.
+        Viewer.refreshAuthState?.();
         if (picker && selectModel && viewerElement) {
           Viewer.updateLocalPreviewLabels();
           const localurl = new URL(window.location.href);
@@ -3973,6 +3970,13 @@ export const Viewer = {
 
       Viewer.resizeObserver = new ResizeObserver(update);
       Viewer.resizeObserver.observe(core.viewerWrapper);
+      // On the standalone and embed pages the viewer is a flex item sized by
+      // the page (flex-basis 0, see main.css / embed.html), not by its
+      // canvas, so it is safe to follow its own size too - e.g. when the
+      // gallery above it appears and takes some of the height.
+      if (core.container !== core.viewerWrapper && core.container.closest(".viewer-standalone-page, .viewer-embed-page")) {
+        Viewer.resizeObserver.observe(core.container);
+      }
 
 
       Viewer.bindEventListener(document, 'fullscreenchange', Viewer.onFullscreenChange);
@@ -3993,9 +3997,19 @@ attachMaterialsEditor(Viewer);
 attachShadingEditor(Viewer);
 attachAnnotations(Viewer);
 attachPicking(Viewer);
+attachFaceAreaSelection(Viewer);
+attachPointCloudPanel(Viewer);
+attachModelUnits(Viewer);
 attachMeasurement(Viewer);
+attachAnimations(Viewer);
+attachTour(Viewer);
+attachViewHelper(Viewer);
+attachClipping(Viewer);
 attachEmbedConfigurator(Viewer);
+attachLoginPanel(Viewer);
 attachUploadPanel(Viewer);
+attachModelsPanel(Viewer);
+attachAdminPanel(Viewer);
 attachWindowControls(Viewer);
 
 

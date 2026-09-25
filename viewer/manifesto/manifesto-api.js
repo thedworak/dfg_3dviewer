@@ -1,11 +1,13 @@
 import { AIM3DManifest } from "./manifesto";
+import { matrixTransformConfig, scenePlacements } from "../IIIF/presentation4.js";
 import {
   formatAIM3DManifestValidationErrors,
   normalizeAIM3DManifest,
   validateAIM3DManifest,
 } from "./aim3dviewer-validation.js";
 
-export async function loadAIM3IFManifest(manifestUrlOrJson) {
+// The models of one Scene of the manifest (`sceneIndex`, else the first).
+export async function loadAIM3IFManifest(manifestUrlOrJson, { sceneIndex } = {}) {
   const aim3dManifest = new AIM3DManifest(manifestUrlOrJson);
 
   await aim3dManifest.loadManifest();
@@ -18,82 +20,41 @@ export async function loadAIM3IFManifest(manifestUrlOrJson) {
     throw new Error(`Invalid AIM3D manifest.\n${detail}`);
   }
 
-  const modelUrls = [];
-  let modelTarget = null;
-  let filteredAnnos = [];
-
   for (const scene of aim3dManifest.scenes) {
     // Leave background unset (rather than defaulting to black) when the
     // manifest doesn't specify one, so the viewer's own default background
     // applies - matching how the IIIF loader handles a missing color.
     scene.background = scene.backgroundColor || null;
-
-    const annos = aim3dManifest.annotationsFromScene(scene);
-
-    filteredAnnos = annos.filter(
-      anno =>
-        anno.motivation?.includes("painting") &&
-        anno.body?.type === "Model"
-    );
-
-    for (const anno of filteredAnnos) {
-      const modelUrl = anno.body?.id;
-
-      if (modelUrl) {
-        modelUrls.push(modelUrl);
-      }
-
-      modelTarget = anno.target;
-    }
   }
 
+  // A Model body, or (Presentation 4 export with transforms) a
+  // SpecificResource around one - never the scene's cameras, lights or
+  // Canvases - with its whole transform (IIIF/presentation4.js).
+  const placements = scenePlacements(aim3dManifest.manifest, sceneIndex);
+  const modelUrls = placements.models.map((placement) => placement.url);
   aim3dManifest.modelUrls = modelUrls;
-  aim3dManifest.modelTarget = modelTarget;
 
   return {
     manifest: aim3dManifest.manifest,
     scenes: aim3dManifest.scenes,
-    annotations: filteredAnnos,
+    // annotations, modelUrls and placements.models are index-aligned.
+    annotations: placements.models.map((placement) => placement.annotation),
     modelUrls,
-    modelTarget
+    placements,
   };
 }
 
 
-export function applyManifestConfig(manifest, objectsConfig) {
-  const transform =
-    manifest.AIM3DViewer?.modelTransform;
-
-  if (!transform) return;
-
-  const model = objectsConfig.models[0];
-
-  model.position = {
-    x: transform.position?.[0] ?? 0,
-    y: transform.position?.[1] ?? 0,
-    z: transform.position?.[2] ?? 0
-  };
-
-  model.rotation = {
-    x: transform.rotation?.x ?? 0,
-    y: transform.rotation?.y ?? 0,
-    z: transform.rotation?.z ?? 0
-  };
-
-  model.scale = {
-    x: transform.scale?.[0] ?? 1,
-    y: transform.scale?.[1] ?? 1,
-    z: transform.scale?.[2] ?? 1
-  };
-
-  model.wireframe =
-    transform.wireframe ?? false;
-
-  model.shadingMode =
-    transform.shadingMode ?? "standard";
-
-  model.customShader =
-    transform.customShader ?? null;
+// Position, rotation and scale of the model being loaded (objectsConfig.index)
+// from its placement in the scene. AIM3DViewer.modelTransform, the first
+// model's exact viewer transform and rendering flags, is applied after
+// loading (Viewer.apply3IFManifestModelTransform).
+export function applyManifestConfig(loadedManifest, objectsConfig) {
+  const index = objectsConfig.index || 0;
+  const model = objectsConfig.models?.[index];
+  const placement = loadedManifest?.placements?.models?.[index];
+  if (!model || !placement) return;
+  Object.assign(model, matrixTransformConfig(placement.matrix));
 }
 
 export function getManifestWindowState(manifest) {

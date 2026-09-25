@@ -36,6 +36,67 @@ function captureModelSettingsResetState(object) {
   };
 }
 
+// Progressive loading swaps the preview model for the full one in place
+// (see loaders.js): point the reset state at the new object, keeping the
+// transform captured for the preview.
+export function replaceModelSettingsResetObject(previousObject, nextObject) {
+  if (!modelSettingsResetState || modelSettingsResetState.object !== previousObject) return;
+  modelSettingsResetState.object = nextObject;
+  modelSettingsResetState.transforms.forEach((entry) => {
+    if (entry.model === previousObject) entry.model = nextObject;
+  });
+}
+
+// Rebuilds the hierarchy submenu and the vertex/face counts shown in the
+// metadata panel for a swapped-in model, without re-running the camera and
+// metadata setup of handleMetadataResponse().
+export function refreshModelHierarchyAndStats(object) {
+  const stats = { vertices: 0, faces: 0 };
+  Viewer.clearHierarchySubmenu();
+  const root = Array.isArray(object) ? object[0] : object;
+  root?.traverse?.((child) => {
+    if (!child.isMesh) return;
+    stats.vertices += fetchMetadata(child, "vertices");
+    stats.faces += fetchMetadata(child, "faces");
+    if (child.name === "") child.name = "Mesh";
+    Viewer.addHierarchySubmenuItem(truncateString(child.name, 35), child.id);
+  });
+  ["vertices", "faces"].forEach((key) => {
+    core.metadataContainer?.querySelectorAll?.(`[data-metadata-count="${key}"]`).forEach((node) => {
+      node.dataset.count = String(stats[key]);
+    });
+  });
+  updateMetadataCounts(core.metadataContainer);
+  return stats;
+}
+
+// A count in the viewer's language (108 315, 108,315, 108.315).
+export function formatMetadataCount(value) {
+  const count = Number(value);
+  if (!Number.isFinite(count)) return String(value ?? "");
+  try {
+    return new Intl.NumberFormat(core.currentLanguage || "en", { maximumFractionDigits: 0 }).format(count);
+  } catch (_error) {
+    return String(Math.round(count));
+  }
+}
+
+// Writes the counts ([data-metadata-count] with data-count) of the metadata
+// card in the viewer's language: the stat tiles and the header's summary.
+export function updateMetadataCounts(root = core.metadataContainer) {
+  if (!root) return;
+  root.querySelectorAll("[data-metadata-count]").forEach((node) => {
+    node.textContent = formatMetadataCount(node.dataset.count);
+  });
+  const summary = root.querySelector(".metadata-toggle-summary");
+  if (summary) {
+    summary.textContent = t("metadata.summary", {
+      format: summary.dataset.format || "",
+      vertices: formatMetadataCount(summary.dataset.vertices),
+    }, "{format} · {vertices} vertices");
+  }
+}
+
 export async function resetModelSettings() {
   if (!modelSettingsResetState?.object) return;
 
@@ -70,7 +131,7 @@ function buildMetadataRow(label, value) {
 
   return (
     '<div class="metadata-row">' +
-      '<span class="metadata-label">' + escapeHtml(label) + ':</span>' +
+      '<span class="metadata-label">' + escapeHtml(label) + '</span>' +
       '<span class="metadata-value">' + escapeHtml(value) + '</span>' +
     '</div>'
   );
@@ -626,39 +687,36 @@ export async function handleMetadataResponse(
   }
   core.metadataContainer.setAttribute("data-viewer-theme", core.container?.closest(".viewer-wrapper")?.getAttribute("data-viewer-theme") || "dark");
 
+  // Header: the file and a one-line summary; open, the counts as tiles, then
+  // the entity's own metadata as a list.
+  const fileName = `${core.fileObject.basename}.${core.fileObject.extension}`;
+  const fileFormat = String(core.fileObject.extension || "").toUpperCase();
+  const statTile = (key, fallback) =>
+    '<div class="metadata-stat">' +
+      '<span class="metadata-stat-value" data-metadata-count="' + key + '" data-count="' + escapeHtml(metadata[key]) + '">' +
+        escapeHtml(formatMetadataCount(metadata[key])) +
+      '</span>' +
+      '<span class="metadata-stat-label" data-i18n-key="metadata.' + key + '">' + escapeHtml(t(`metadata.${key}`, fallback)) + '</span>' +
+    '</div>';
+
   var metadataContent =
     '<div id="metadata-card">' +
       '<div class="metadata-drag-handle" title="' + escapeHtml(t("metadata.move", "Move")) + '"></div>' +
-      '<button id="metadata-collapse" class="metadata-collapse metadata-collapsed" type="button" aria-expanded="false" aria-controls="metadata-content">' +
-        '<span class="metadata-toggle-icon" aria-hidden="true"></span>' +
+      '<button id="metadata-collapse" class="metadata-collapse metadata-collapsed" type="button" aria-expanded="false" aria-controls="metadata-content"' +
+        ' aria-label="' + escapeHtml(t("metadata.modelDetails", "Model details")) + ': ' + escapeHtml(fileName) + '">' +
         '<span class="metadata-toggle-copy">' +
-          '<span class="metadata-toggle-eyebrow" data-i18n-key="metadata.modelDetails">' + escapeHtml(t("metadata.modelDetails", "Model details")) + '</span>' +
-          '<span class="metadata-toggle-title" data-i18n-key="metadata.metadata">' + escapeHtml(t("metadata.metadata", "Metadata")) + '</span>' +
+          '<span class="metadata-toggle-title" title="' + escapeHtml(fileName) + '">' + escapeHtml(fileName) + '</span>' +
+          '<span class="metadata-toggle-summary" data-format="' + escapeHtml(fileFormat) + '" data-vertices="' + escapeHtml(metadata["vertices"]) + '">' +
+            escapeHtml(t("metadata.summary", { format: fileFormat, vertices: formatMetadataCount(metadata["vertices"]) }, "{format} · {vertices} vertices")) +
+          '</span>' +
         '</span>' +
         '<span class="metadata-toggle-chevron" aria-hidden="true"></span>' +
       '</button>' +
-      '<div id="metadata-content" class="metadata-content">';
-  metadataContent +=
-    '<div class="metadata-row">' +
-      '<span class="metadata-label" data-i18n-key="metadata.visualizedFile">' + escapeHtml(t("metadata.visualizedFile", "Visualized file")) + ':</span>' +
-      '<span class="metadata-value">' +
-        escapeHtml(core.fileObject.basename) + '.' + escapeHtml(core.fileObject.extension) +
-      '</span>' +
-    '</div>';
-
-  metadataContent += '<div class="metadataSeparator"></div>';
-
-  metadataContent +=
-    '<div class="metadata-row">' +
-      '<span class="metadata-label" data-i18n-key="metadata.vertices">' + escapeHtml(t("metadata.vertices", "Vertices")) + ':</span>' +
-      '<span class="metadata-value">' + metadata["vertices"] + '</span>' +
-    '</div>';
-
-  metadataContent +=
-    '<div class="metadata-row">' +
-      '<span class="metadata-label" data-i18n-key="metadata.faces">' + escapeHtml(t("metadata.faces", "Faces")) + ':</span>' +
-      '<span class="metadata-value">' + metadata["faces"] + '</span>' +
-    '</div>';
+      '<div id="metadata-content" class="metadata-content">' +
+        '<div class="metadata-stats">' +
+          statTile("vertices", "Vertices") +
+          statTile("faces", "Faces") +
+        '</div>';
   metadataContent += await fetchEntityMetadata();
 
   if (!core.downloadModel) {
@@ -839,7 +897,7 @@ export async function fetchSettings(object) {
     }
   } else {
     window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(null);
-    await handleMetadataResponse("", metadata, object);
+    await handleMetadataResponse(null, metadata, object);
   }
 }
 
@@ -851,6 +909,10 @@ export function createIIIFDropdown(iiifConfigURL) {
     { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin.json", name: t("iiif.optionModelOrigin", "Model Origin") },
     { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin_bgcolor.json", name: t("iiif.optionModelOriginBg", "Model Origin with background color") },
     { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_position.json", name: t("iiif.optionModelPosition", "Model Position") },
+    { url: "./manifests/box-iiif-p4.json", name: t("iiif.optionP4Local", "Camera, lights and comments (localhost)") },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/2_cameras/positioned_camera_lookat_point.json", name: t("iiif.optionCamera", "Positioned camera") },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/3_lights/multiple_lights_with_intensities_and_colors.json", name: t("iiif.optionLights", "Lights with colours and intensities") },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/10_activating_annotations/astronaut_comment_activating_scope.json", name: t("iiif.optionComments", "Comments with their own views") },
   ].filter(Boolean);
 
   const group = document.createElement("div");

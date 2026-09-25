@@ -40,3 +40,7 @@ viewer-settings.json
 /viewer/admin/admin.sqlite
 # Docker Compose variables (worker accounts: admin password etc.) - never commit
 /.env
+
+# Python bytecode
+__pycache__/
+*.py[cod]

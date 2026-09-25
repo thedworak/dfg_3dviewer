@@ -48,6 +48,7 @@ scripts/docker.sh --help
 | `down`    | Stops and removes the container(s); volumes (settings, converted models) are kept. |
 | `rebuild` | `down`, then `build`. Use this after changing code, a profile manifest or `.env`. |
 | `prune`   | `docker system prune` (unused containers, networks, dangling images). Docker asks for confirmation first; the script does not force it. |
+| `base`    | Rebuilds the worker base image (Blender, gltfpack, Python libraries - `worker/Dockerfile.base`) from scratch, e.g. for OS updates. `build` reuses it from the build cache; see "Base image" in [`worker/README.md`](../worker/README.md). |
 
 **Profile** (optional): `dev`, `test` or `sandbox` - acts only on that service (`viewer-dev`, `viewer-test`, `viewer-sandbox`) and builds it with the matching manifest from `docker/profiles/`. Without a profile, `build` and `down` act on everything, including the shared `worker`. `prune` ignores the profile.
 
@@ -90,7 +91,7 @@ This copies each GLB and its renders and writes an AIM3D manifest per model (vie
 
 ## Upload limit and accounts
 
-Uploads are capped at 100 MB by default (`WORKER_MAX_UPLOAD_BYTES` in `docker-compose.yml`, mirrored by `client_max_body_size` in `docker/nginx.conf`); larger files get HTTP 413 and the upload panel shows the worker's limit. To see and control who uploads, enable optional accounts (`WORKER_AUTH_MODE=required` in a `.env` file: registration with admin approval, per-upload ownership, admin CLI) - see "Accounts" in [`worker/README.md`](../worker/README.md). The manifest option `AIM3DViewer.viewer.auth` only shows/hides the login UI; the worker enforces access.
+Uploads are capped at 100 MB by default (`WORKER_MAX_UPLOAD_BYTES` in `docker-compose.yml`, mirrored by `client_max_body_size` in `docker/nginx.conf`); larger files get HTTP 413 and the upload panel shows the worker's limit. Upload counts, per-account storage/model quotas and concurrent conversions are limited too (`WORKER_LIMIT_*`, `WORKER_MAX_CONCURRENT_CONVERSIONS`; admins can override them per account in the user panel) - see "Upload limits" in [`worker/README.md`](../worker/README.md). To see and control who uploads, enable optional accounts (`WORKER_AUTH_MODE=required` in a `.env` file: registration with admin approval, per-upload ownership, admin CLI) - see "Accounts" in [`worker/README.md`](../worker/README.md). The manifest option `AIM3DViewer.viewer.auth` only shows/hides the login UI; the worker enforces access.
 
 Both `viewer-settings.json` and the profile manifest are persisted in the service's settings volume and seeded only on first start, so edits survive rebuilds. **Existing volumes** keep their old `viewer-settings.json` (without the manifest pointer) and will not pick up the profile until you delete the volume (`docker compose down -v` for that service) or add the two `entity.metadata` values yourself. The `dev` build still loads IIIF models (that build forces the IIIF source); it only takes its settings from the profile.
 

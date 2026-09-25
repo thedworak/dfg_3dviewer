@@ -131,6 +131,12 @@ export function attachLocalizationTheme(viewer) {
       this.updateFullscreenButtonIcon();
       this.updateDownloadMenuEntryLabel();
       this.updateEditorToolbarLabels();
+      this.updateAnimationPlayerLabels?.();
+      this.updateTourLabels?.();
+      this.syncPointCloudPanel?.();
+      this.renderUploadLimits?.();
+      this.updateClippingGuiLabels?.();
+      this.updateClippingPanel?.();
       this.updateEditorToolbarState();
       this.updatePickingModeControllerLabel();
       this.updateDistanceMeasurementControllerLabel();
@@ -141,7 +147,7 @@ export function attachLocalizationTheme(viewer) {
       this.updateMaterialsDialogLabels();
       this.refreshStatusNoticeLanguage();
       UltraLoader.updateHeader?.();
-      if (this.pickingHint) this.pickingHint.textContent = t("hints.picking", "Shift + click to select multiple faces");
+      this.updatePickingHintVisibility?.();
       if (this.clippingHint) this.clippingHint.textContent = t("hints.clipping", "Drag active clipping plane helper to adjust cut");
     },
 
@@ -195,10 +201,10 @@ export function attachLocalizationTheme(viewer) {
       metadataContainer.querySelectorAll("[data-i18n-key]").forEach((node) => {
         const key = node.getAttribute("data-i18n-key");
         if (!key) return;
-        const needsColon = node.classList.contains("metadata-label");
-        const text = t(key, node.textContent?.replace(/:\s*$/, "") || "");
-        node.textContent = needsColon ? `${text}:` : text;
+        node.textContent = t(key, node.textContent?.replace(/:\s*$/, "") || "");
       });
+      // Counts and the header's summary in the new language's number format.
+      this.updateMetadataCounts?.(metadataContainer);
     },
 
     applyLanguage({ persist = true } = {}) {
@@ -206,6 +212,8 @@ export function attachLocalizationTheme(viewer) {
         window.localStorage.setItem(this.LANGUAGE_STORAGE_KEY, core.currentLanguage);
       }
       this.updateLocalizedUI();
+      // Annotations written in several languages follow the viewer's.
+      this.applyAnnotationLanguage?.();
     },
 
     toggleLanguage() {
