@@ -2197,10 +2197,22 @@ body.presentation-mode {
     --viewer-notice-safe-bottom: calc(14px + var(--viewer-toolbar-height) + 10px + env(safe-area-inset-bottom));
   }
 
-  #metadata-container {
+  /* Only a fullscreen viewer reaches the notch/status bar; elsewhere the page
+     keeps clear of it (body.viewer-standalone-page padding), and the inset
+     would push the card down from the canvas corner. */
+  .mainContainer:fullscreen #metadata-container,
+  .mainContainer.fullscreen #metadata-container {
     padding-top: env(safe-area-inset-top);
     padding-left: env(safe-area-inset-left);
     box-sizing: border-box;
+  }
+
+  /* Same for the toolbar on the standalone page: the page padding already
+     keeps it off the home bar. */
+  body.viewer-standalone-page .mainContainer:not(:fullscreen):not(.fullscreen) #viewerEditorToolbar,
+  body.viewer-standalone-page > #viewerEditorToolbar {
+    margin-left: 0;
+    margin-bottom: 0;
   }
 }
 

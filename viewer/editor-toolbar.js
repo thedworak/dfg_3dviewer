@@ -1,6 +1,7 @@
 import THREE from "./init.js";
 
 import { core } from "./core.js";
+import { isAppBuild } from "./remote.js";
 import { t } from "./i18n-utils.js";
 import { changeBackground, toastHelper } from './viewer-utils.js';
 import { MODEL_UNITS } from "./editor/model-units.js";
@@ -574,7 +575,9 @@ export function createEditorToolbar(viewer) {
 
   ];
 
-  if (!core.isLightweight || core.isLocalPreview) {
+  // Not in the app (remote.js): the WebView ignores download links, and the
+  // preview and save buttons send to the server.
+  if ((!core.isLightweight || core.isLocalPreview) && !isAppBuild()) {
     tools.splice(tools.length - 1, 0,
       { key: "loadingLogs", icon: "loadingLogs", onClick: () => viewer.toggleLoadingLogs(), pressed: true, primary: false },
       { key: "download", icon: "download", onClick: () => downloadFile(core.fileObject.filename), pressed: true, primary: false },

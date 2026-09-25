@@ -206,22 +206,21 @@ function copyBuildAssets() {
         // so the app bundle is the same on every machine and in CI.
         // The app is served from https://localhost (Capacitor's default), so
         // assets resolve against the bundle itself. mobile.remoteUrl is the
-        // repository used when the device is online; empty = offline only.
+        // default repository (MOBILE_REMOTE_URL); the app can change it, and
+        // keeps that on the device. Empty = offline only.
         viewerSettings.mainUrl = '';
         viewerSettings.baseModulePath = '/assets';
         viewerSettings.viewer.forceLocalPreview = true;
-        viewerSettings.viewer.editor = false;
+        // editor + lightweight = the viewing tools (toolbar: measuring,
+        // clipping, ...) without the ones that save to a server.
+        viewerSettings.viewer.editor = true;
+        viewerSettings.viewer.lightweight = true;
         viewerSettings.viewer.gallery = { ...viewerSettings.viewer.gallery, build: false };
-        viewerSettings.mobile = { remoteUrl: '' };
+        viewerSettings.mobile = { remoteUrl: process.env.MOBILE_REMOTE_URL ?? '' };
+        // Always rewritten: nothing here is meant to be edited by hand, and a
+        // stale copy would otherwise be synced into the app.
         copyPromises.push(
-          fs.writeFile(
-            viewerSettingsTarget,
-            JSON.stringify(viewerSettings, null, 2), { flag: 'wx' }
-          ).catch(err => {
-          if (err.code !== 'EEXIST') {
-            throw err;
-          }
-          })
+          fs.writeFile(viewerSettingsTarget, JSON.stringify(viewerSettings, null, 2))
         );
       } else if (envBuild === 'test' || envBuild === 'dev') {
         const viewerSettingsMain = JSON.parse(
