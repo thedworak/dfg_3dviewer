@@ -32,11 +32,93 @@ let defaultLightState = null;
 const asArray = (value) => (Array.isArray(value) ? value : value == null ? [] : [value]);
 const typeOf = (value) => value?.type || value?.["@type"] || null;
 
-function firstLanguageValue(value) {
-  if (typeof value === "string") return value;
-  if (!value || typeof value !== "object") return "";
-  const values = value.en || value.none || Object.values(value)[0];
-  return asArray(values)[0] || "";
+// ---- comment text -----------------------------------------------------------
+
+// A IIIF language map ({ en: ["Glove"], es: ["Guante"] }) or a plain string as
+// { language: text }; "none" for text without a language.
+function languageMap(value) {
+  if (typeof value === "string") return value.trim() ? { none: value.trim() } : {};
+  if (!value || typeof value !== "object") return {};
+  const map = {};
+  Object.entries(value).forEach(([language, texts]) => {
+    const text = String(asArray(texts)[0] ?? "").trim();
+    if (text) map[language] = text;
+  });
+  return map;
+}
+
+// Plain text of an HTML fragment: the markup is parsed, never rendered or run.
+export function htmlToText(html) {
+  const source = String(html ?? "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li|h[1-6]|blockquote|tr)>/gi, "$&\n");
+  if (typeof DOMParser === "undefined") return source.replace(/<[^>]*>/g, "").trim();
+  const doc = new DOMParser().parseFromString(source, "text/html");
+  doc.querySelectorAll("script, style, template").forEach((node) => node.remove());
+  return String(doc.body?.textContent || "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+// Text of a TextualBody (HTML turned into plain text).
+function bodyText(body) {
+  if (typeof body === "string") return body.trim();
+  const value = String(body?.value ?? "");
+  return /html/i.test(String(body?.format || "")) ? htmlToText(value) : value.trim();
+}
+
+// Title and description of a comment annotation, per language: the label's
+// language map, and the TextualBody - or a Choice of them, one per language.
+export function readCommentText(annotation) {
+  const bodies = asArray(annotation?.body)
+    .flatMap((body) => (typeOf(body) === "Choice" ? asArray(body.items) : [body]))
+    .filter((body) => typeof body === "string" || typeOf(body) === "TextualBody" || typeof body?.value === "string");
+  const descriptions = {};
+  bodies.forEach((body) => {
+    const text = bodyText(body);
+    const language = String(asArray(body?.language)[0] || "none");
+    if (text && !(language in descriptions)) descriptions[language] = text;
+  });
+  let titles = languageMap(annotation?.label);
+  if (!Object.keys(titles).length) titles = languageMap(bodies.find((body) => body?.label)?.label);
+  return { titles, descriptions };
+}
+
+// The language of a text map to show: the viewer's, then English, then text
+// without a language, then any.
+export function pickLanguageKey(map, language = core.currentLanguage) {
+  const keys = Object.keys(map || {});
+  if (!keys.length) return null;
+  const wanted = String(language || "en").toLowerCase();
+  return keys.find((key) => key.toLowerCase() === wanted)
+    || keys.find((key) => key.toLowerCase().split("-")[0] === wanted.split("-")[0])
+    || (keys.includes("en") ? "en" : null)
+    || (keys.includes("none") ? "none" : null)
+    || keys[0];
+}
+
+export function pickLanguage(map, language) {
+  const key = pickLanguageKey(map, language);
+  return key ? map[key] : "";
+}
+
+// A label (IIIF language map or string) in the viewer's language.
+export function labelText(value) {
+  return pickLanguage(languageMap(value));
+}
+
+// The Scenes of a manifest, with their labels.
+export function manifestScenes(manifest) {
+  return scenesOf(manifest).map((scene, index) => ({ index, id: scene.id || "", label: labelText(scene.label) }));
+}
+
+// Title and description texts of an annotation entry in several languages;
+// null when there is only one.
+export function localizedTexts(titles, descriptions) {
+  const several = (map) => Object.keys(map || {}).length > 1;
+  if (!several(titles) && !several(descriptions)) return null;
+  return {
+    ...(several(titles) ? { title: { ...titles } } : {}),
+    ...(several(descriptions) ? { description: { ...descriptions } } : {}),
+  };
 }
 
 function pointFromSelector(selector) {
@@ -174,9 +256,28 @@ function relativeIntensity(value) {
 
 // ---- reading ---------------------------------------------------------------
 
-// Cameras, lights and point comments of the manifest's first Scene.
-export function readSceneContent(manifest) {
-  const scene = scenesOf(manifest)[0];
+// The index of the Scene to show: `index` when the manifest has it, else 0.
+export function sceneIndexOf(manifest, index = 0) {
+  const count = scenesOf(manifest).length;
+  return Number.isInteger(index) && index >= 0 && index < count ? index : 0;
+}
+
+// A manifest-level annotation belongs to the scene its target names; one
+// that names no scene belongs to the first.
+function targetsScene(annotation, scene, scenes) {
+  const target = asArray(annotation?.target)[0];
+  const sourceId = typeof target === "string"
+    ? target.split("#")[0]
+    : target?.source?.id || (typeof target?.source === "string" ? target.source : null) || target?.id || null;
+  const sceneIds = scenes.map((item) => item.id).filter(Boolean);
+  if (!sourceId || !sceneIds.includes(sourceId)) return scene === scenes[0];
+  return sourceId === scene.id;
+}
+
+// Cameras, lights and point comments of one Scene of the manifest.
+export function readSceneContent(manifest, sceneIndex = 0) {
+  const scenes = scenesOf(manifest);
+  const scene = scenes[sceneIndexOf(manifest, sceneIndex)];
   if (!scene) return { cameras: [], lights: [], comments: [] };
   const painting = annotationsOfPages(scene.items);
   const all = painting.concat(annotationsOfPages(scene.annotations));
@@ -226,23 +327,20 @@ export function readSceneContent(manifest) {
   });
 
   const comments = annotationsOfPages(scene.annotations)
-    .concat(annotationsOfPages(manifest.annotations))
+    .concat(annotationsOfPages(manifest.annotations).filter((annotation) => targetsScene(annotation, scene, scenes)))
     .filter((annotation) => motivationsOf(annotation).some((motivation) => COMMENT_MOTIVATIONS.has(motivation)))
     .map((annotation) => {
       const point = targetPoint(annotation);
       if (!point) return null;
-      const bodies = asArray(annotation.body);
-      const textual = bodies.find((body) => typeOf(body) === "TextualBody") || bodies[0];
-      const description = typeof textual === "string"
-        ? textual
-        : textual?.value || firstLanguageValue(textual?.label) || "";
+      const { titles, descriptions } = readCommentText(annotation);
       const target = asArray(annotation.target)[0];
       const scopeCamera = cameraView(asArray(annotation.scope).map((ref) => camerasById.get(ref?.id || ref)).find(Boolean))
         || readScopeCamera(target?.scope, all);
       return {
         id: String(annotation.id || ""),
-        title: firstLanguageValue(annotation.label) || firstLanguageValue(textual?.label) || "",
-        description: String(description).trim(),
+        title: pickLanguage(titles),
+        description: pickLanguage(descriptions),
+        localized: localizedTexts(titles, descriptions),
         point,
         view: scopeCamera,
         created: annotation.created || "",
@@ -477,6 +575,7 @@ export function commentsToAnnotationEntries(comments, root) {
     point: comment.point.clone().applyMatrix4(inverse).toArray(),
     title: comment.title,
     description: comment.description,
+    ...(comment.localized ? { localized: comment.localized } : {}),
     ...(comment.view ? { view: comment.view } : {}),
     createdAt: comment.created ? String(comment.created) : "",
     updatedAt: comment.modified ? String(comment.modified) : "",

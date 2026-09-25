@@ -18,7 +18,12 @@ import {
   commentsToAnnotationEntries,
   addImportedLight,
   importedLightObjects,
+  localizedTexts,
+  pickLanguage,
+  pickLanguageKey,
+  readCommentText,
   readSceneContent,
+  sceneIndexOf,
   removeImportedLights,
   stopCameraIntro,
   suspendDefaultLights,
@@ -681,8 +686,7 @@ export function attachAnnotations(Viewer) {
           faces: faceNumbers
         },
 
-        title,
-        description,
+        ...this.setAnnotationEntryText({ localized: previousEntry?.localized }, title, description),
         ...(view ? { view } : {}),
         updatedAt: nowIso,
         createdAt: previousEntry?.createdAt || nowIso
@@ -725,14 +729,52 @@ export function attachAnnotations(Viewer) {
         return;
       }
       if (entry) {
-        entry.title = title;
-        entry.description = String(this.annotationDialogDescriptionInput?.value || "").trim();
+        this.setAnnotationEntryText(entry, title, String(this.annotationDialogDescriptionInput?.value || "").trim());
         if (this.annotationDialogSaveViewInput?.checked) entry.view = this.captureCurrentAnnotationView();
         entry.updatedAt = new Date().toISOString();
         toastHelper("annotationsSaved", "success", { count: 1, plural: "" });
       }
       this.refreshAnnotationPOIs();
       this.closeAnnotationDialog();
+    },
+
+    // Sets an entry's title and description; an entry with several languages
+    // gets them as the text of the language shown.
+    setAnnotationEntryText(entry, title, description) {
+      entry.title = title;
+      entry.description = description;
+      const localized = entry.localized;
+      if (localized) {
+        ["title", "description"].forEach((field) => {
+          const texts = localized[field];
+          const key = texts && pickLanguageKey(texts);
+          if (!key) return;
+          if (entry[field]) texts[key] = entry[field];
+          else delete texts[key];
+        });
+        if (!localizedTexts(localized.title, localized.description)) delete entry.localized;
+      }
+      if (!entry.localized) delete entry.localized;
+      return entry;
+    },
+
+    // Shows each annotation in the viewer's language, when it has several.
+    applyAnnotationLanguage() {
+      if (!Array.isArray(this.annotationEntries)) return;
+      let changed = false;
+      this.annotationEntries.forEach((entry) => {
+        if (!entry?.localized) return;
+        ["title", "description"].forEach((field) => {
+          const texts = entry.localized[field];
+          if (!texts) return;
+          const text = pickLanguage(texts);
+          if (text !== entry[field]) {
+            entry[field] = text;
+            changed = true;
+          }
+        });
+      });
+      if (changed) this.refreshAnnotationPOIs?.();
     },
 
     getAnnotationEntriesForPersistence() {
@@ -756,6 +798,7 @@ export function attachAnnotations(Viewer) {
               faceNumbers: [],
               title: String(entry.title || "").trim(),
               description: String(entry.description || "").trim(),
+              ...(entry.localized ? { localized: structuredClone(entry.localized) } : {}),
               ...(view ? { view } : {}),
               createdAt: entry.createdAt ? String(entry.createdAt) : "",
               updatedAt: entry.updatedAt ? String(entry.updatedAt) : "",
@@ -790,6 +833,7 @@ export function attachAnnotations(Viewer) {
             },
             title: String(entry.title || "").trim(),
             description: String(entry.description || "").trim(),
+            ...(entry.localized ? { localized: structuredClone(entry.localized) } : {}),
             ...(view ? { view } : {}),
             createdAt: entry.createdAt ? String(entry.createdAt) : "",
             updatedAt: entry.updatedAt ? String(entry.updatedAt) : "",
@@ -969,18 +1013,30 @@ export function attachAnnotations(Viewer) {
 
           motivation: ["commenting"],
 
-          label: {
-            en: [String(entry.title || "").trim()]
-          },
+          // Every language of the title; the body a Choice of one
+          // TextualBody per language when the description has several.
+          label: entry.localized?.title
+            ? Object.fromEntries(Object.entries(entry.localized.title).map(([language, text]) => [language, [text]]))
+            : { en: [String(entry.title || "").trim()] },
 
           created: entry.createdAt || undefined,
           modified: entry.updatedAt || undefined,
 
-          body: {
-            type: "TextualBody",
-            value: String(entry.description || "").trim(),
-            format: "text/plain"
-          },
+          body: entry.localized?.description
+            ? {
+              type: "Choice",
+              items: Object.entries(entry.localized.description).map(([language, text]) => ({
+                type: "TextualBody",
+                value: text,
+                format: "text/plain",
+                ...(language !== "none" ? { language: [language] } : {}),
+              })),
+            }
+            : {
+              type: "TextualBody",
+              value: String(entry.description || "").trim(),
+              format: "text/plain"
+            },
 
           ...(viewCamera ? { scope: [{ id: viewCamera.id, type: "Annotation" }] } : {}),
 
@@ -1769,9 +1825,14 @@ export function attachAnnotations(Viewer) {
         ].some(Boolean);
       }
 
-      const annotationPages = (manifestJson?.items || [])
-        .flatMap((scene) => Array.isArray(scene?.annotations) ? scene.annotations : [])
-        .filter((page) => Array.isArray(page?.items));
+      // The comments of the scene shown (core.activeScene), and the
+      // manifest's own ones.
+      const sceneIndex = sceneIndexOf(manifestJson, core.activeScene);
+      const shownScene = (manifestJson?.items || []).filter((item) => item?.type === "Scene")[sceneIndex];
+      const annotationPages = [
+        ...(Array.isArray(shownScene?.annotations) ? shownScene.annotations : []),
+        ...(Array.isArray(manifestJson?.annotations) ? manifestJson.annotations : []),
+      ].filter((page) => Array.isArray(page?.items));
 
       if (annotationPages.length === 0) {
         toastHelper(
@@ -1785,7 +1846,7 @@ export function attachAnnotations(Viewer) {
 
       const allAnnotations = annotationPages.flatMap((page) => page.items || []);
       // Scene points (PointSelector) and scope cameras, per annotation id.
-      const pointComments = new Map(readSceneContent(manifestJson).comments.map((comment) => [comment.id, comment]));
+      const pointComments = new Map(readSceneContent(manifestJson, sceneIndex).comments.map((comment) => [comment.id, comment]));
       const pointRoot = this.resolveObjectByTargetId(POINT_ANNOTATION_ROOT);
 
       const importedEntries = allAnnotations.map((annotation, index) => {
@@ -1802,6 +1863,17 @@ export function attachAnnotations(Viewer) {
         ).trim();
 
         const comment = pointComments.get(String(annotation?.id || ""));
+        // Title and description, in every language the annotation has.
+        const { titles, descriptions } = readCommentText(annotation);
+        if (!Object.keys(descriptions).length && annotation?.body?.en?.[0]) {
+          descriptions.en = String(annotation.body.en[0]).trim();
+        }
+        const localized = localizedTexts(titles, descriptions);
+        const commentText = {
+          title: pickLanguage(titles),
+          description: pickLanguage(descriptions),
+          ...(localized ? { localized } : {}),
+        };
         const customPoint = this.normalizeAnnotationPoint(custom.point);
         const hasFaces = Array.isArray(custom.faceNumbers) || Array.isArray(selectorValue?.faceNumbers)
           || Number.isInteger(Number(custom.faceIndex ?? selectorValue?.faceIndex));
@@ -1816,8 +1888,7 @@ export function attachAnnotations(Viewer) {
             id: String(annotation.id || `anno-point-${index + 1}`),
             targetId: custom.targetId || POINT_ANNOTATION_ROOT,
             point,
-            title: String(annotation?.label?.en?.[0] || comment?.title || "").trim(),
-            description: String(annotation?.body?.value || comment?.description || "").trim(),
+            ...commentText,
             ...(pointView ? { view: pointView } : {}),
             createdAt: annotation?.created ? String(annotation.created) : "",
             updatedAt: annotation?.modified ? String(annotation.modified) : "",
@@ -1836,18 +1907,6 @@ export function attachAnnotations(Viewer) {
 
         if (!targetId || !Number.isInteger(faceIndex)) return null;
 
-        const title = String(
-          annotation?.label?.en?.[0]
-          || annotation?.body?.label?.en?.[0]
-          || ""
-        ).trim();
-
-        const description = String(
-          annotation?.body?.value
-          || annotation?.body?.en?.[0]
-          || ""
-        ).trim();
-
         const key = String(annotation?.AIM3DViewer?.key || "").trim() || this.getFaceSelectionKey(targetId, faceIndex);
         const view = this.normalizeAnnotationView(annotation?.AIM3DViewer?.view)
           || this.normalizeAnnotationView(comment?.view);
@@ -1864,8 +1923,7 @@ export function attachAnnotations(Viewer) {
             id: targetId,
             faces: normalizedFaceNumbers.length > 0 ? normalizedFaceNumbers : [faceIndex],
           },
-          title,
-          description,
+          ...commentText,
           ...(view ? { view } : {}),
           createdAt: annotation?.created ? String(annotation.created) : "",
           updatedAt: annotation?.modified ? String(annotation.modified) : "",

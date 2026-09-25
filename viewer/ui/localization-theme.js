@@ -212,6 +212,8 @@ export function attachLocalizationTheme(viewer) {
         window.localStorage.setItem(this.LANGUAGE_STORAGE_KEY, core.currentLanguage);
       }
       this.updateLocalizedUI();
+      // Annotations written in several languages follow the viewer's.
+      this.applyAnnotationLanguage?.();
     },
 
     toggleLanguage() {

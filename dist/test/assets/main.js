@@ -340,6 +340,8 @@ const VIEWER_I18N = {
       source: "Manifest type",
       invalidUrl: "Please enter a valid manifesto URL.",
       invalidJson: "Please enter a valid manifesto JSON text.",
+      scene: "Scene",
+      sceneNumber: "Scene {number}",
     },
     iiif: {
       loader: "IIIF Loader",
@@ -846,6 +848,8 @@ const VIEWER_I18N = {
       source: "Typ manifestu",
       invalidUrl: "Podaj poprawny URL manifestu.",
       invalidJson: "Podaj poprawny tekst JSON.",
+      scene: "Scena",
+      sceneNumber: "Scena {number}",
     },
     iiif: {
       loader: "Ładowanie IIIF",
@@ -1351,6 +1355,8 @@ const VIEWER_I18N = {
       source: "Manifesttyp",
       invalidUrl: "Bitte geben Sie eine gültige Manifest-URL ein.",
       invalidJson: "Bitte geben Sie einen gültigen Manifest-JSON-Text ein.",
+      scene: "Szene",
+      sceneNumber: "Szene {number}",
     },
     iiif: {
       loader: "IIIF-Loader",
@@ -5831,6 +5837,8 @@ function attachLocalizationTheme(viewer) {
         window.localStorage.setItem(this.LANGUAGE_STORAGE_KEY, core.currentLanguage);
       }
       this.updateLocalizedUI();
+      // Annotations written in several languages follow the viewer's.
+      this.applyAnnotationLanguage?.();
     },
 
     toggleLanguage() {
@@ -7961,11 +7969,93 @@ let defaultLightState = null;
 const asArray = (value) => (Array.isArray(value) ? value : value == null ? [] : [value]);
 const typeOf = (value) => value?.type || value?.["@type"] || null;
 
-function firstLanguageValue(value) {
-  if (typeof value === "string") return value;
-  if (!value || typeof value !== "object") return "";
-  const values = value.en || value.none || Object.values(value)[0];
-  return asArray(values)[0] || "";
+// ---- comment text -----------------------------------------------------------
+
+// A IIIF language map ({ en: ["Glove"], es: ["Guante"] }) or a plain string as
+// { language: text }; "none" for text without a language.
+function languageMap(value) {
+  if (typeof value === "string") return value.trim() ? { none: value.trim() } : {};
+  if (!value || typeof value !== "object") return {};
+  const map = {};
+  Object.entries(value).forEach(([language, texts]) => {
+    const text = String(asArray(texts)[0] ?? "").trim();
+    if (text) map[language] = text;
+  });
+  return map;
+}
+
+// Plain text of an HTML fragment: the markup is parsed, never rendered or run.
+function htmlToText(html) {
+  const source = String(html ?? "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li|h[1-6]|blockquote|tr)>/gi, "$&\n");
+  if (typeof DOMParser === "undefined") return source.replace(/<[^>]*>/g, "").trim();
+  const doc = new DOMParser().parseFromString(source, "text/html");
+  doc.querySelectorAll("script, style, template").forEach((node) => node.remove());
+  return String(doc.body?.textContent || "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+// Text of a TextualBody (HTML turned into plain text).
+function bodyText(body) {
+  if (typeof body === "string") return body.trim();
+  const value = String(body?.value ?? "");
+  return /html/i.test(String(body?.format || "")) ? htmlToText(value) : value.trim();
+}
+
+// Title and description of a comment annotation, per language: the label's
+// language map, and the TextualBody - or a Choice of them, one per language.
+function readCommentText(annotation) {
+  const bodies = asArray(annotation?.body)
+    .flatMap((body) => (typeOf(body) === "Choice" ? asArray(body.items) : [body]))
+    .filter((body) => typeof body === "string" || typeOf(body) === "TextualBody" || typeof body?.value === "string");
+  const descriptions = {};
+  bodies.forEach((body) => {
+    const text = bodyText(body);
+    const language = String(asArray(body?.language)[0] || "none");
+    if (text && !(language in descriptions)) descriptions[language] = text;
+  });
+  let titles = languageMap(annotation?.label);
+  if (!Object.keys(titles).length) titles = languageMap(bodies.find((body) => body?.label)?.label);
+  return { titles, descriptions };
+}
+
+// The language of a text map to show: the viewer's, then English, then text
+// without a language, then any.
+function pickLanguageKey(map, language = core.currentLanguage) {
+  const keys = Object.keys(map || {});
+  if (!keys.length) return null;
+  const wanted = String(language || "en").toLowerCase();
+  return keys.find((key) => key.toLowerCase() === wanted)
+    || keys.find((key) => key.toLowerCase().split("-")[0] === wanted.split("-")[0])
+    || (keys.includes("en") ? "en" : null)
+    || (keys.includes("none") ? "none" : null)
+    || keys[0];
+}
+
+function pickLanguage(map, language) {
+  const key = pickLanguageKey(map, language);
+  return key ? map[key] : "";
+}
+
+// A label (IIIF language map or string) in the viewer's language.
+function labelText(value) {
+  return pickLanguage(languageMap(value));
+}
+
+// The Scenes of a manifest, with their labels.
+function manifestScenes(manifest) {
+  return scenesOf(manifest).map((scene, index) => ({ index, id: scene.id || "", label: labelText(scene.label) }));
+}
+
+// Title and description texts of an annotation entry in several languages;
+// null when there is only one.
+function localizedTexts(titles, descriptions) {
+  const several = (map) => Object.keys(map || {}).length > 1;
+  if (!several(titles) && !several(descriptions)) return null;
+  return {
+    ...(several(titles) ? { title: { ...titles } } : {}),
+    ...(several(descriptions) ? { description: { ...descriptions } } : {}),
+  };
 }
 
 function pointFromSelector(selector) {
@@ -8103,9 +8193,28 @@ function relativeIntensity(value) {
 
 // ---- reading ---------------------------------------------------------------
 
-// Cameras, lights and point comments of the manifest's first Scene.
-function readSceneContent(manifest) {
-  const scene = scenesOf(manifest)[0];
+// The index of the Scene to show: `index` when the manifest has it, else 0.
+function sceneIndexOf(manifest, index = 0) {
+  const count = scenesOf(manifest).length;
+  return Number.isInteger(index) && index >= 0 && index < count ? index : 0;
+}
+
+// A manifest-level annotation belongs to the scene its target names; one
+// that names no scene belongs to the first.
+function targetsScene(annotation, scene, scenes) {
+  const target = asArray(annotation?.target)[0];
+  const sourceId = typeof target === "string"
+    ? target.split("#")[0]
+    : target?.source?.id || (typeof target?.source === "string" ? target.source : null) || target?.id || null;
+  const sceneIds = scenes.map((item) => item.id).filter(Boolean);
+  if (!sourceId || !sceneIds.includes(sourceId)) return scene === scenes[0];
+  return sourceId === scene.id;
+}
+
+// Cameras, lights and point comments of one Scene of the manifest.
+function readSceneContent(manifest, sceneIndex = 0) {
+  const scenes = scenesOf(manifest);
+  const scene = scenes[sceneIndexOf(manifest, sceneIndex)];
   if (!scene) return { cameras: [], lights: [], comments: [] };
   const painting = annotationsOfPages(scene.items);
   const all = painting.concat(annotationsOfPages(scene.annotations));
@@ -8155,23 +8264,20 @@ function readSceneContent(manifest) {
   });
 
   const comments = annotationsOfPages(scene.annotations)
-    .concat(annotationsOfPages(manifest.annotations))
+    .concat(annotationsOfPages(manifest.annotations).filter((annotation) => targetsScene(annotation, scene, scenes)))
     .filter((annotation) => motivationsOf(annotation).some((motivation) => COMMENT_MOTIVATIONS.has(motivation)))
     .map((annotation) => {
       const point = targetPoint(annotation);
       if (!point) return null;
-      const bodies = asArray(annotation.body);
-      const textual = bodies.find((body) => typeOf(body) === "TextualBody") || bodies[0];
-      const description = typeof textual === "string"
-        ? textual
-        : textual?.value || firstLanguageValue(textual?.label) || "";
+      const { titles, descriptions } = readCommentText(annotation);
       const target = asArray(annotation.target)[0];
       const scopeCamera = cameraView(asArray(annotation.scope).map((ref) => camerasById.get(ref?.id || ref)).find(Boolean))
         || readScopeCamera(target?.scope, all);
       return {
         id: String(annotation.id || ""),
-        title: firstLanguageValue(annotation.label) || firstLanguageValue(textual?.label) || "",
-        description: String(description).trim(),
+        title: pickLanguage(titles),
+        description: pickLanguage(descriptions),
+        localized: localizedTexts(titles, descriptions),
         point,
         view: scopeCamera,
         created: annotation.created || "",
@@ -8406,6 +8512,7 @@ function commentsToAnnotationEntries(comments, root) {
     point: comment.point.clone().applyMatrix4(inverse).toArray(),
     title: comment.title,
     description: comment.description,
+    ...(comment.localized ? { localized: comment.localized } : {}),
     ...(comment.view ? { view: comment.view } : {}),
     createdAt: comment.created ? String(comment.created) : "",
     updatedAt: comment.modified ? String(comment.modified) : "",
@@ -9228,8 +9335,7 @@ function attachAnnotations(Viewer) {
           faces: faceNumbers
         },
 
-        title,
-        description,
+        ...this.setAnnotationEntryText({ localized: previousEntry?.localized }, title, description),
         ...(view ? { view } : {}),
         updatedAt: nowIso,
         createdAt: previousEntry?.createdAt || nowIso
@@ -9272,14 +9378,52 @@ function attachAnnotations(Viewer) {
         return;
       }
       if (entry) {
-        entry.title = title;
-        entry.description = String(this.annotationDialogDescriptionInput?.value || "").trim();
+        this.setAnnotationEntryText(entry, title, String(this.annotationDialogDescriptionInput?.value || "").trim());
         if (this.annotationDialogSaveViewInput?.checked) entry.view = this.captureCurrentAnnotationView();
         entry.updatedAt = new Date().toISOString();
         toastHelper("annotationsSaved", "success", { count: 1, plural: "" });
       }
       this.refreshAnnotationPOIs();
       this.closeAnnotationDialog();
+    },
+
+    // Sets an entry's title and description; an entry with several languages
+    // gets them as the text of the language shown.
+    setAnnotationEntryText(entry, title, description) {
+      entry.title = title;
+      entry.description = description;
+      const localized = entry.localized;
+      if (localized) {
+        ["title", "description"].forEach((field) => {
+          const texts = localized[field];
+          const key = texts && pickLanguageKey(texts);
+          if (!key) return;
+          if (entry[field]) texts[key] = entry[field];
+          else delete texts[key];
+        });
+        if (!localizedTexts(localized.title, localized.description)) delete entry.localized;
+      }
+      if (!entry.localized) delete entry.localized;
+      return entry;
+    },
+
+    // Shows each annotation in the viewer's language, when it has several.
+    applyAnnotationLanguage() {
+      if (!Array.isArray(this.annotationEntries)) return;
+      let changed = false;
+      this.annotationEntries.forEach((entry) => {
+        if (!entry?.localized) return;
+        ["title", "description"].forEach((field) => {
+          const texts = entry.localized[field];
+          if (!texts) return;
+          const text = pickLanguage(texts);
+          if (text !== entry[field]) {
+            entry[field] = text;
+            changed = true;
+          }
+        });
+      });
+      if (changed) this.refreshAnnotationPOIs?.();
     },
 
     getAnnotationEntriesForPersistence() {
@@ -9303,6 +9447,7 @@ function attachAnnotations(Viewer) {
               faceNumbers: [],
               title: String(entry.title || "").trim(),
               description: String(entry.description || "").trim(),
+              ...(entry.localized ? { localized: structuredClone(entry.localized) } : {}),
               ...(view ? { view } : {}),
               createdAt: entry.createdAt ? String(entry.createdAt) : "",
               updatedAt: entry.updatedAt ? String(entry.updatedAt) : "",
@@ -9337,6 +9482,7 @@ function attachAnnotations(Viewer) {
             },
             title: String(entry.title || "").trim(),
             description: String(entry.description || "").trim(),
+            ...(entry.localized ? { localized: structuredClone(entry.localized) } : {}),
             ...(view ? { view } : {}),
             createdAt: entry.createdAt ? String(entry.createdAt) : "",
             updatedAt: entry.updatedAt ? String(entry.updatedAt) : "",
@@ -9516,18 +9662,30 @@ function attachAnnotations(Viewer) {
 
           motivation: ["commenting"],
 
-          label: {
-            en: [String(entry.title || "").trim()]
-          },
+          // Every language of the title; the body a Choice of one
+          // TextualBody per language when the description has several.
+          label: entry.localized?.title
+            ? Object.fromEntries(Object.entries(entry.localized.title).map(([language, text]) => [language, [text]]))
+            : { en: [String(entry.title || "").trim()] },
 
           created: entry.createdAt || undefined,
           modified: entry.updatedAt || undefined,
 
-          body: {
-            type: "TextualBody",
-            value: String(entry.description || "").trim(),
-            format: "text/plain"
-          },
+          body: entry.localized?.description
+            ? {
+              type: "Choice",
+              items: Object.entries(entry.localized.description).map(([language, text]) => ({
+                type: "TextualBody",
+                value: text,
+                format: "text/plain",
+                ...(language !== "none" ? { language: [language] } : {}),
+              })),
+            }
+            : {
+              type: "TextualBody",
+              value: String(entry.description || "").trim(),
+              format: "text/plain"
+            },
 
           ...(viewCamera ? { scope: [{ id: viewCamera.id, type: "Annotation" }] } : {}),
 
@@ -10316,9 +10474,14 @@ function attachAnnotations(Viewer) {
         ].some(Boolean);
       }
 
-      const annotationPages = (manifestJson?.items || [])
-        .flatMap((scene) => Array.isArray(scene?.annotations) ? scene.annotations : [])
-        .filter((page) => Array.isArray(page?.items));
+      // The comments of the scene shown (core.activeScene), and the
+      // manifest's own ones.
+      const sceneIndex = sceneIndexOf(manifestJson, core.activeScene);
+      const shownScene = (manifestJson?.items || []).filter((item) => item?.type === "Scene")[sceneIndex];
+      const annotationPages = [
+        ...(Array.isArray(shownScene?.annotations) ? shownScene.annotations : []),
+        ...(Array.isArray(manifestJson?.annotations) ? manifestJson.annotations : []),
+      ].filter((page) => Array.isArray(page?.items));
 
       if (annotationPages.length === 0) {
         toastHelper(
@@ -10332,7 +10495,7 @@ function attachAnnotations(Viewer) {
 
       const allAnnotations = annotationPages.flatMap((page) => page.items || []);
       // Scene points (PointSelector) and scope cameras, per annotation id.
-      const pointComments = new Map(readSceneContent(manifestJson).comments.map((comment) => [comment.id, comment]));
+      const pointComments = new Map(readSceneContent(manifestJson, sceneIndex).comments.map((comment) => [comment.id, comment]));
       const pointRoot = this.resolveObjectByTargetId(POINT_ANNOTATION_ROOT);
 
       const importedEntries = allAnnotations.map((annotation, index) => {
@@ -10349,6 +10512,17 @@ function attachAnnotations(Viewer) {
         ).trim();
 
         const comment = pointComments.get(String(annotation?.id || ""));
+        // Title and description, in every language the annotation has.
+        const { titles, descriptions } = readCommentText(annotation);
+        if (!Object.keys(descriptions).length && annotation?.body?.en?.[0]) {
+          descriptions.en = String(annotation.body.en[0]).trim();
+        }
+        const localized = localizedTexts(titles, descriptions);
+        const commentText = {
+          title: pickLanguage(titles),
+          description: pickLanguage(descriptions),
+          ...(localized ? { localized } : {}),
+        };
         const customPoint = this.normalizeAnnotationPoint(custom.point);
         const hasFaces = Array.isArray(custom.faceNumbers) || Array.isArray(selectorValue?.faceNumbers)
           || Number.isInteger(Number(custom.faceIndex ?? selectorValue?.faceIndex));
@@ -10363,8 +10537,7 @@ function attachAnnotations(Viewer) {
             id: String(annotation.id || `anno-point-${index + 1}`),
             targetId: custom.targetId || POINT_ANNOTATION_ROOT,
             point,
-            title: String(annotation?.label?.en?.[0] || comment?.title || "").trim(),
-            description: String(annotation?.body?.value || comment?.description || "").trim(),
+            ...commentText,
             ...(pointView ? { view: pointView } : {}),
             createdAt: annotation?.created ? String(annotation.created) : "",
             updatedAt: annotation?.modified ? String(annotation.modified) : "",
@@ -10383,18 +10556,6 @@ function attachAnnotations(Viewer) {
 
         if (!targetId || !Number.isInteger(faceIndex)) return null;
 
-        const title = String(
-          annotation?.label?.en?.[0]
-          || annotation?.body?.label?.en?.[0]
-          || ""
-        ).trim();
-
-        const description = String(
-          annotation?.body?.value
-          || annotation?.body?.en?.[0]
-          || ""
-        ).trim();
-
         const key = String(annotation?.AIM3DViewer?.key || "").trim() || this.getFaceSelectionKey(targetId, faceIndex);
         const view = this.normalizeAnnotationView(annotation?.AIM3DViewer?.view)
           || this.normalizeAnnotationView(comment?.view);
@@ -10411,8 +10572,7 @@ function attachAnnotations(Viewer) {
             id: targetId,
             faces: normalizedFaceNumbers.length > 0 ? normalizedFaceNumbers : [faceIndex],
           },
-          title,
-          description,
+          ...commentText,
           ...(view ? { view } : {}),
           createdAt: annotation?.created ? String(annotation.created) : "",
           updatedAt: annotation?.modified ? String(annotation.modified) : "",
@@ -23186,54 +23346,56 @@ function resolvesToSpecificResource(value) {
   return value?.isSpecificResource === true;
 }
 
-async function loadIIIFManifest(manifestUrlOrJson) {
+// The models of one Scene of the manifest (`sceneIndex`, else the first); a
+// manifest's Scenes are shown one at a time.
+async function loadIIIFManifest(manifestUrlOrJson, { sceneIndex = 0 } = {}) {
   let iiifManifest = new IIIFManifest(manifestUrlOrJson);
   await iiifManifest.loadManifest();
   let modelTarget;
   const modelTargets = [];
-  let filteredAnnos;
+  const filteredAnnos = [];
   iiifManifest.modelUrls = new Array();
 
-  if (iiifManifest.scenes.length > 0) {
-    for (const [i, scene] of iiifManifest.scenes.entries()) { //TODO: support multiple scenes const manifestScene = scene;
-    //if (!scene) return;
-      // Root scene
-      const manifestScene = iiifManifest.scenes[i];
+  // Every scene's background colour, so that it can be looked up by index
+  // (getBackgroundColor() returns a Color instance; downstream code expects a
+  // plain CSS hex string, same as the AIM3D loader).
+  for (const scene of iiifManifest.scenes) {
+    const backgroundColor = await scene.getBackgroundColor();
+    scene.background = backgroundColor?.CSS ?? null;
+  }
 
-      // Add scene BG color (getBackgroundColor() returns a Color instance;
-      // downstream code expects a plain CSS hex string, same as the AIM3D loader)
-      const backgroundColor = await manifestScene.getBackgroundColor();
-      iiifManifest.scenes[i].background = backgroundColor?.CSS ?? null;
+  const manifestScene = iiifManifest.scenes[sceneIndex] || iiifManifest.scenes[0];
+  if (manifestScene) {
+    const annos = iiifManifest.annotationsFromScene(manifestScene);
 
-      // Load individual model annotations
-      const annos = iiifManifest.annotationsFromScene(manifestScene);
-
-      // Models only: cameras and lights are painted into the scene too
-      // (applied separately, IIIF/presentation4.js), possibly wrapped in a
-      // SpecificResource as well.
-      filteredAnnos = annos.filter((anno) => {
+    // Models only: cameras and lights are painted into the scene too
+    // (applied separately, IIIF/presentation4.js), possibly wrapped in a
+    // SpecificResource as well.
+    annos
+      .filter((anno) => {
         const body = anno.getBody()[0];
         const rawBody = anno.__jsonld?.body;
         return (
           anno.getMotivation()?.[0] === "painting" &&
           (rawBody ? isModelBody(rawBody) : (resolvesToSpecificResource(body) || body?.getType() === "model"))
         );
-      });
-
-      filteredAnnos.forEach((modelAnnotation) => {
+      })
+      .forEach((modelAnnotation) => {
         let modelUrl;
         if (resolvesToSpecificResource(modelAnnotation.getBody()[0])) {
           modelUrl = modelAnnotation.getBody()[0].getSource()?.id;
         } else {
           modelUrl = modelAnnotation.getBody()[0].id;
         }
-        modelTarget = modelAnnotation.getTarget();
-        if (modelUrl && modelTarget) {
+        const target = modelAnnotation.getTarget();
+        // annotations, modelUrls and modelTargets stay index-aligned.
+        if (modelUrl && target) {
+          modelTarget = target;
+          filteredAnnos.push(modelAnnotation);
           iiifManifest.modelUrls.push(modelUrl);
-          modelTargets.push(modelTarget);
+          modelTargets.push(target);
         }
       });
-    }
   }
   return {
     manifest: iiifManifest.manifest,
@@ -23336,7 +23498,8 @@ class AIM3DManifest {
   }
 }
 
-async function loadAIM3IFManifest(manifestUrlOrJson) {
+// The models of one Scene of the manifest (`sceneIndex`, else the first).
+async function loadAIM3IFManifest(manifestUrlOrJson, { sceneIndex = 0 } = {}) {
   const aim3dManifest = new AIM3DManifest(manifestUrlOrJson);
 
   await aim3dManifest.loadManifest();
@@ -23351,31 +23514,27 @@ async function loadAIM3IFManifest(manifestUrlOrJson) {
 
   const modelUrls = [];
   let modelTarget = null;
-  let filteredAnnos = [];
+  const filteredAnnos = [];
 
   for (const scene of aim3dManifest.scenes) {
     // Leave background unset (rather than defaulting to black) when the
     // manifest doesn't specify one, so the viewer's own default background
     // applies - matching how the IIIF loader handles a missing color.
     scene.background = scene.backgroundColor || null;
+  }
 
-    const annos = aim3dManifest.annotationsFromScene(scene);
-
+  const shownScene = aim3dManifest.scenes[sceneIndex] || aim3dManifest.scenes[0];
+  if (shownScene) {
+    const annos = aim3dManifest.annotationsFromScene(shownScene);
     // A Model body, or (Presentation 4 export with transforms) a
     // SpecificResource around one - never the scene's cameras or lights.
-    filteredAnnos = annos.filter(
-      anno =>
-        anno.motivation?.includes("painting") &&
-        isModelBody(anno.body)
-    );
-
-    for (const anno of filteredAnnos) {
+    for (const anno of annos) {
+      if (!anno.motivation?.includes("painting") || !isModelBody(anno.body)) continue;
       const modelUrl = modelUrlOf(anno.body);
-
-      if (modelUrl) {
-        modelUrls.push(modelUrl);
-      }
-
+      // annotations and modelUrls stay index-aligned.
+      if (!modelUrl) continue;
+      filteredAnnos.push(anno);
+      modelUrls.push(modelUrl);
       modelTarget = anno.target;
     }
   }
@@ -26497,7 +26656,7 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "268d576" ;
+const BUILD_ID = "c6a9e1e" ;
 
 function poweredByHtml() {
   const build = ` (${BUILD_ID})` ;
@@ -29495,11 +29654,16 @@ const Viewer$1 = {
     poller.start();
   },
 
-  // IIIF setup and loading
-  async setupManifesto(newUrlOrJson, type="url", manifestType = "iiif") {
+  // IIIF setup and loading. A manifest's Scenes are shown one at a time:
+  // `sceneIndex` picks one (the first by default; showManifestScene switches).
+  async setupManifesto(newUrlOrJson, type="url", manifestType = "iiif", { sceneIndex = 0 } = {}) {
     const manifestJson = await Viewer$1.getManifestJson(newUrlOrJson, type);
     const resolvedManifestType = isAIM3DManifest(manifestJson) ? "aim3if" : "iiif";
     const isAim3ifManifest = resolvedManifestType === "aim3if";
+    const shownScene = sceneIndexOf(manifestJson, sceneIndex);
+    Viewer$1.activeScene = shownScene;
+    setCore("activeScene", shownScene);
+    Viewer$1.currentManifest = { source: newUrlOrJson, type, manifestType, json: manifestJson };
 
     if (resolvedManifestType !== manifestType) {
       console.info(`Detected ${isAim3ifManifest ? "AIM3D" : "IIIF"} manifest; using its matching loader.`);
@@ -29521,8 +29685,8 @@ const Viewer$1 = {
       Viewer$1.iiifConfigURL.url = newUrlOrJson;
     }
     const loadedManifest = isAim3ifManifest
-      ? await loadAIM3IFManifest(manifestJson)
-      : await loadIIIFManifest(manifestJson);
+      ? await loadAIM3IFManifest(manifestJson, { sceneIndex: shownScene })
+      : await loadIIIFManifest(manifestJson, { sceneIndex: shownScene });
     if (isAim3ifManifest) {
       // Manifest settings take precedence over viewer-settings.json, which
       // remains the fallback for anything the manifest doesn't define.
@@ -29586,6 +29750,44 @@ const Viewer$1 = {
       }
     }
     if (!isAim3ifManifest) Viewer$1.applyIIIFSceneContent(manifestJson);
+    Viewer$1.updateManifestSceneSwitch(manifestJson);
+  },
+
+  // Shows another Scene of the manifest loaded last.
+  async showManifestScene(index) {
+    const current = Viewer$1.currentManifest;
+    if (!current) return;
+    await Viewer$1.setupManifesto(current.source, current.type, current.manifestType, { sceneIndex: Number(index) });
+  },
+
+  // A Scene selector in the manifest form, for a manifest with several.
+  updateManifestSceneSwitch(manifestJson) {
+    document.getElementById("manifesto-scene-switch")?.remove();
+    const scenes = manifestScenes(manifestJson);
+    const content = document.getElementById("form-manifesto-content");
+    if (scenes.length < 2 || !content) return;
+
+    const group = document.createElement("div");
+    group.className = "form-manifesto-group";
+    group.id = "manifesto-scene-switch";
+    const label = document.createElement("label");
+    label.className = "form-manifesto-label";
+    label.htmlFor = "manifesto-scene-select";
+    label.textContent = t$1("manifesto.scene", "Scene");
+    const select = document.createElement("select");
+    select.id = "manifesto-scene-select";
+    scenes.forEach((scene) => {
+      const option = document.createElement("option");
+      option.value = String(scene.index);
+      option.textContent = scene.label || t$1("manifesto.sceneNumber", { number: scene.index + 1 }, "Scene {number}");
+      option.selected = scene.index === core.activeScene;
+      select.appendChild(option);
+    });
+    select.addEventListener("change", () => {
+      Viewer$1.showManifestScene(select.value).catch((error) => console.error("Could not show the scene", error));
+    });
+    group.append(label, select);
+    content.prepend(group);
   },
 
   // IIIF Presentation 4 cameras, lights and point comments of a plain IIIF
@@ -29594,7 +29796,7 @@ const Viewer$1 = {
   applyIIIFSceneContent(manifestJson) {
     let content;
     try {
-      content = readSceneContent(manifestJson);
+      content = readSceneContent(manifestJson, core.activeScene);
     } catch (error) {
       console.warn("Could not read IIIF scene content", error);
       return;

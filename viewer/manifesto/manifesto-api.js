@@ -6,7 +6,8 @@ import {
   validateAIM3DManifest,
 } from "./aim3dviewer-validation.js";
 
-export async function loadAIM3IFManifest(manifestUrlOrJson) {
+// The models of one Scene of the manifest (`sceneIndex`, else the first).
+export async function loadAIM3IFManifest(manifestUrlOrJson, { sceneIndex = 0 } = {}) {
   const aim3dManifest = new AIM3DManifest(manifestUrlOrJson);
 
   await aim3dManifest.loadManifest();
@@ -21,31 +22,27 @@ export async function loadAIM3IFManifest(manifestUrlOrJson) {
 
   const modelUrls = [];
   let modelTarget = null;
-  let filteredAnnos = [];
+  const filteredAnnos = [];
 
   for (const scene of aim3dManifest.scenes) {
     // Leave background unset (rather than defaulting to black) when the
     // manifest doesn't specify one, so the viewer's own default background
     // applies - matching how the IIIF loader handles a missing color.
     scene.background = scene.backgroundColor || null;
+  }
 
-    const annos = aim3dManifest.annotationsFromScene(scene);
-
+  const shownScene = aim3dManifest.scenes[sceneIndex] || aim3dManifest.scenes[0];
+  if (shownScene) {
+    const annos = aim3dManifest.annotationsFromScene(shownScene);
     // A Model body, or (Presentation 4 export with transforms) a
     // SpecificResource around one - never the scene's cameras or lights.
-    filteredAnnos = annos.filter(
-      anno =>
-        anno.motivation?.includes("painting") &&
-        isModelBody(anno.body)
-    );
-
-    for (const anno of filteredAnnos) {
+    for (const anno of annos) {
+      if (!anno.motivation?.includes("painting") || !isModelBody(anno.body)) continue;
       const modelUrl = modelUrlOf(anno.body);
-
-      if (modelUrl) {
-        modelUrls.push(modelUrl);
-      }
-
+      // annotations and modelUrls stay index-aligned.
+      if (!modelUrl) continue;
+      filteredAnnos.push(anno);
+      modelUrls.push(modelUrl);
       modelTarget = anno.target;
     }
   }

@@ -161,6 +161,8 @@ export const VIEWER_I18N = {
       source: "Manifest type",
       invalidUrl: "Please enter a valid manifesto URL.",
       invalidJson: "Please enter a valid manifesto JSON text.",
+      scene: "Scene",
+      sceneNumber: "Scene {number}",
     },
     iiif: {
       loader: "IIIF Loader",
@@ -667,6 +669,8 @@ export const VIEWER_I18N = {
       source: "Typ manifestu",
       invalidUrl: "Podaj poprawny URL manifestu.",
       invalidJson: "Podaj poprawny tekst JSON.",
+      scene: "Scena",
+      sceneNumber: "Scena {number}",
     },
     iiif: {
       loader: "Ładowanie IIIF",
@@ -1172,6 +1176,8 @@ export const VIEWER_I18N = {
       source: "Manifesttyp",
       invalidUrl: "Bitte geben Sie eine gültige Manifest-URL ein.",
       invalidJson: "Bitte geben Sie einen gültigen Manifest-JSON-Text ein.",
+      scene: "Szene",
+      sceneNumber: "Szene {number}",
     },
     iiif: {
       loader: "IIIF-Loader",

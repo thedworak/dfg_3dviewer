@@ -1030,6 +1030,139 @@ test('IIIF Presentation 4 export keeps every model of the scene and its backgrou
   expect(plain.items[0].items[0].items.filter((annotation) => (annotation.body.source?.type || annotation.body.type) === 'Model')).toHaveLength(1);
 });
 
+test('IIIF comments: languages, HTML bodies, and one scene of a manifest at a time', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+
+  const scenePoint = (sceneId, x, y, z) => ({
+    type: 'SpecificResource',
+    source: { id: sceneId, type: 'Scene' },
+    selector: [{ type: 'PointSelector', x, y, z }],
+  });
+  const modelPage = (sceneId, model) => [{
+    id: `${sceneId}/page`,
+    type: 'AnnotationPage',
+    items: [{
+      id: `${sceneId}/anno/model`,
+      type: 'Annotation',
+      motivation: ['painting'],
+      body: { id: model, type: 'Model' },
+      target: { id: sceneId, type: 'Scene' },
+    }],
+  }];
+  const first = './examples/scenes/1';
+  const second = './examples/scenes/2';
+  const manifest = {
+    '@context': 'http://iiif.io/api/presentation/4/context.json',
+    id: './examples/scenes/manifest.json',
+    type: 'Manifest',
+    items: [
+      {
+        id: first,
+        type: 'Scene',
+        label: { en: ['Box'], pl: ['Pudełko'] },
+        items: modelPage(first, './examples/box.glb'),
+        annotations: [{
+          id: `${first}/comments`,
+          type: 'AnnotationPage',
+          items: [
+            {
+              id: `${first}/comments/glove`,
+              type: 'Annotation',
+              motivation: ['commenting'],
+              label: { en: ['Glove'], pl: ['Rękawica'] },
+              body: {
+                type: 'Choice',
+                items: [
+                  { type: 'TextualBody', value: 'A glove', language: ['en'], format: 'text/plain' },
+                  { type: 'TextualBody', value: 'Rękawica astronauty', language: ['pl'], format: 'text/plain' },
+                ],
+              },
+              target: scenePoint(first, 0, 1, 0),
+            },
+            {
+              id: `${first}/comments/html`,
+              type: 'Annotation',
+              motivation: ['commenting'],
+              body: {
+                type: 'TextualBody',
+                format: 'text/html',
+                value: '<p>Right <b>pterygoid</b></p><p>hamulus<script>window.__injected = true</script></p>',
+              },
+              target: scenePoint(first, 0, 0.5, 0),
+            },
+          ],
+        }],
+      },
+      {
+        id: second,
+        type: 'Scene',
+        label: { en: ['Tetrahedron'] },
+        backgroundColor: '#112233',
+        items: modelPage(second, './examples/box.stl'),
+      },
+    ],
+    // Manifest-level comments belong to the scene their target names.
+    annotations: [{
+      id: './examples/scenes/comments',
+      type: 'AnnotationPage',
+      items: [{
+        id: './examples/scenes/comments/second',
+        type: 'Annotation',
+        motivation: ['commenting'],
+        body: { type: 'TextualBody', value: 'On the second scene' },
+        target: scenePoint(second, 0, 0, 0),
+      }],
+    }],
+  };
+  // The IIIF source, whose manifest form holds the scene selector.
+  await page.evaluate(() => window.Viewer.setupManifestSource('iiif', { loadInitialManifest: false }));
+  const comments = () => page.evaluate(() => window.Viewer.annotationEntries.map((entry) => [entry.title, entry.description]));
+  const modelUrls = () => page.evaluate(() => window.Viewer.build3IFManifest().items[0].items[0].items
+    .filter((annotation) => (annotation.body.source?.type || annotation.body.type) === 'Model')
+    .map((annotation) => annotation.body.source?.id || annotation.body.id));
+
+  await page.evaluate((json) => window.Viewer.setupManifesto(JSON.stringify(json), 'text'), manifest);
+  // The first scene only; the comment in the viewer's language, the HTML
+  // body as plain text (its script never ran).
+  expect(await modelUrls()).toEqual(['./examples/box.glb']);
+  expect(await comments()).toEqual([
+    ['Glove', 'A glove'],
+    ['', 'Right pterygoid\nhamulus'],
+  ]);
+  expect(await page.evaluate(() => window.__injected)).toBeUndefined();
+
+  // Another language shows the other text; an edit changes that language's.
+  await page.evaluate(() => window.Viewer.selectLanguage('pl'));
+  expect((await comments())[0]).toEqual(['Rękawica', 'Rękawica astronauty']);
+  await page.evaluate(() => {
+    const entry = window.Viewer.annotationEntries[0];
+    window.Viewer.setAnnotationEntryText(entry, 'Rękawica', 'Lewa rękawica');
+  });
+  const exported = await page.evaluate(() => window.Viewer.build3IFManifest().items[0].annotations[0].items[0]);
+  expect(exported.label).toEqual({ en: ['Glove'], pl: ['Rękawica'] });
+  expect(exported.body).toEqual({
+    type: 'Choice',
+    items: [
+      { type: 'TextualBody', value: 'A glove', format: 'text/plain', language: ['en'] },
+      { type: 'TextualBody', value: 'Lewa rękawica', format: 'text/plain', language: ['pl'] },
+    ],
+  });
+  await page.evaluate(() => window.Viewer.selectLanguage('en'));
+  expect((await comments())[0]).toEqual(['Glove', 'A glove']);
+
+  // The scene selector switches to the second scene: its model, its
+  // background and the manifest-level comment on it.
+  const options = page.locator('#manifesto-scene-select option');
+  await expect(options).toHaveText(['Box', 'Tetrahedron']);
+  await page.locator('#manifesto-scene-select').selectOption('1');
+  await expect.poll(modelUrls).toEqual(['./examples/box.stl']);
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true);
+  expect(await comments()).toEqual([['', 'On the second scene']]);
+  expect(await page.evaluate(() => window.Viewer.build3IFManifest().items[0].backgroundColor)).toBe('#112233');
+  await expect(page.locator('#manifesto-scene-select')).toHaveValue('1');
+});
+
 test('upload panel shows limit usage and limit errors from the worker', async ({ page }) => {
   await page.route('**/api/auth/config', (route) =>
     route.fulfill({ json: { mode: 'off', registration: 'closed', maxUploadBytes: 104857600 } })

@@ -14,55 +14,56 @@ function resolvesToSpecificResource(value) {
   return value?.isSpecificResource === true;
 }
 
-export async function loadIIIFManifest(manifestUrlOrJson) {
+// The models of one Scene of the manifest (`sceneIndex`, else the first); a
+// manifest's Scenes are shown one at a time.
+export async function loadIIIFManifest(manifestUrlOrJson, { sceneIndex = 0 } = {}) {
   let iiifManifest = new IIIFManifest(manifestUrlOrJson);
   await iiifManifest.loadManifest();
   let modelTarget;
   const modelTargets = [];
-  let filteredAnnos;
-  let i = 0;
+  const filteredAnnos = [];
   iiifManifest.modelUrls = new Array();
 
-  if (iiifManifest.scenes.length > 0) {
-    for (const [i, scene] of iiifManifest.scenes.entries()) { //TODO: support multiple scenes const manifestScene = scene;
-    //if (!scene) return;
-      // Root scene
-      const manifestScene = iiifManifest.scenes[i];
+  // Every scene's background colour, so that it can be looked up by index
+  // (getBackgroundColor() returns a Color instance; downstream code expects a
+  // plain CSS hex string, same as the AIM3D loader).
+  for (const scene of iiifManifest.scenes) {
+    const backgroundColor = await scene.getBackgroundColor();
+    scene.background = backgroundColor?.CSS ?? null;
+  }
 
-      // Add scene BG color (getBackgroundColor() returns a Color instance;
-      // downstream code expects a plain CSS hex string, same as the AIM3D loader)
-      const backgroundColor = await manifestScene.getBackgroundColor();
-      iiifManifest.scenes[i].background = backgroundColor?.CSS ?? null;
+  const manifestScene = iiifManifest.scenes[sceneIndex] || iiifManifest.scenes[0];
+  if (manifestScene) {
+    const annos = iiifManifest.annotationsFromScene(manifestScene);
 
-      // Load individual model annotations
-      const annos = iiifManifest.annotationsFromScene(manifestScene);
-
-      // Models only: cameras and lights are painted into the scene too
-      // (applied separately, IIIF/presentation4.js), possibly wrapped in a
-      // SpecificResource as well.
-      filteredAnnos = annos.filter((anno) => {
+    // Models only: cameras and lights are painted into the scene too
+    // (applied separately, IIIF/presentation4.js), possibly wrapped in a
+    // SpecificResource as well.
+    annos
+      .filter((anno) => {
         const body = anno.getBody()[0];
         const rawBody = anno.__jsonld?.body;
         return (
           anno.getMotivation()?.[0] === "painting" &&
           (rawBody ? isModelBody(rawBody) : (resolvesToSpecificResource(body) || body?.getType() === "model"))
         );
-      });
-
-      filteredAnnos.forEach((modelAnnotation) => {
+      })
+      .forEach((modelAnnotation) => {
         let modelUrl;
         if (resolvesToSpecificResource(modelAnnotation.getBody()[0])) {
           modelUrl = modelAnnotation.getBody()[0].getSource()?.id;
         } else {
           modelUrl = modelAnnotation.getBody()[0].id;
         }
-        modelTarget = modelAnnotation.getTarget();
-        if (modelUrl && modelTarget) {
+        const target = modelAnnotation.getTarget();
+        // annotations, modelUrls and modelTargets stay index-aligned.
+        if (modelUrl && target) {
+          modelTarget = target;
+          filteredAnnos.push(modelAnnotation);
           iiifManifest.modelUrls.push(modelUrl);
-          modelTargets.push(modelTarget);
+          modelTargets.push(target);
         }
       });
-    }
   }
   return {
     manifest: iiifManifest.manifest,

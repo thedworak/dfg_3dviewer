@@ -87,8 +87,10 @@ import {
   applyCamera as applyIIIFCamera,
   applyLights as applyIIIFLights,
   commentsToAnnotationEntries,
+  manifestScenes,
   readSceneContent,
   removeImportedLights,
+  sceneIndexOf,
 } from "./IIIF/presentation4.js";
 import { loadAIM3IFManifest, applyManifestConfig, applyManifestSettings, applyManifestBootstrapSettings, getManifestWindowState } from "./manifesto/manifesto-api.js";
 import { isAIM3DManifest } from "./manifesto/aim3dviewer-validation.js";
@@ -2916,11 +2918,16 @@ export const Viewer = {
     poller.start();
   },
 
-  // IIIF setup and loading
-  async setupManifesto(newUrlOrJson, type="url", manifestType = "iiif") {
+  // IIIF setup and loading. A manifest's Scenes are shown one at a time:
+  // `sceneIndex` picks one (the first by default; showManifestScene switches).
+  async setupManifesto(newUrlOrJson, type="url", manifestType = "iiif", { sceneIndex = 0 } = {}) {
     const manifestJson = await Viewer.getManifestJson(newUrlOrJson, type);
     const resolvedManifestType = isAIM3DManifest(manifestJson) ? "aim3if" : "iiif";
     const isAim3ifManifest = resolvedManifestType === "aim3if";
+    const shownScene = sceneIndexOf(manifestJson, sceneIndex);
+    Viewer.activeScene = shownScene;
+    setCore("activeScene", shownScene);
+    Viewer.currentManifest = { source: newUrlOrJson, type, manifestType, json: manifestJson };
 
     if (resolvedManifestType !== manifestType) {
       console.info(`Detected ${isAim3ifManifest ? "AIM3D" : "IIIF"} manifest; using its matching loader.`);
@@ -2942,8 +2949,8 @@ export const Viewer = {
       Viewer.iiifConfigURL.url = newUrlOrJson;
     }
     const loadedManifest = isAim3ifManifest
-      ? await loadAIM3IFManifest(manifestJson)
-      : await loadIIIFManifest(manifestJson);
+      ? await loadAIM3IFManifest(manifestJson, { sceneIndex: shownScene })
+      : await loadIIIFManifest(manifestJson, { sceneIndex: shownScene });
     if (isAim3ifManifest) {
       // Manifest settings take precedence over viewer-settings.json, which
       // remains the fallback for anything the manifest doesn't define.
@@ -3007,6 +3014,44 @@ export const Viewer = {
       }
     }
     if (!isAim3ifManifest) Viewer.applyIIIFSceneContent(manifestJson);
+    Viewer.updateManifestSceneSwitch(manifestJson);
+  },
+
+  // Shows another Scene of the manifest loaded last.
+  async showManifestScene(index) {
+    const current = Viewer.currentManifest;
+    if (!current) return;
+    await Viewer.setupManifesto(current.source, current.type, current.manifestType, { sceneIndex: Number(index) });
+  },
+
+  // A Scene selector in the manifest form, for a manifest with several.
+  updateManifestSceneSwitch(manifestJson) {
+    document.getElementById("manifesto-scene-switch")?.remove();
+    const scenes = manifestScenes(manifestJson);
+    const content = document.getElementById("form-manifesto-content");
+    if (scenes.length < 2 || !content) return;
+
+    const group = document.createElement("div");
+    group.className = "form-manifesto-group";
+    group.id = "manifesto-scene-switch";
+    const label = document.createElement("label");
+    label.className = "form-manifesto-label";
+    label.htmlFor = "manifesto-scene-select";
+    label.textContent = t("manifesto.scene", "Scene");
+    const select = document.createElement("select");
+    select.id = "manifesto-scene-select";
+    scenes.forEach((scene) => {
+      const option = document.createElement("option");
+      option.value = String(scene.index);
+      option.textContent = scene.label || t("manifesto.sceneNumber", { number: scene.index + 1 }, "Scene {number}");
+      option.selected = scene.index === core.activeScene;
+      select.appendChild(option);
+    });
+    select.addEventListener("change", () => {
+      Viewer.showManifestScene(select.value).catch((error) => console.error("Could not show the scene", error));
+    });
+    group.append(label, select);
+    content.prepend(group);
   },
 
   // IIIF Presentation 4 cameras, lights and point comments of a plain IIIF
@@ -3015,7 +3060,7 @@ export const Viewer = {
   applyIIIFSceneContent(manifestJson) {
     let content;
     try {
-      content = readSceneContent(manifestJson);
+      content = readSceneContent(manifestJson, core.activeScene);
     } catch (error) {
       console.warn("Could not read IIIF scene content", error);
       return;
