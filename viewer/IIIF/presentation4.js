@@ -26,6 +26,8 @@ const COMMENT_MOTIVATIONS = new Set(["commenting", "describing", "tagging", "ide
 const LIGHT_INTENSITY_SCALE = { AmbientLight: 1, DirectionalLight: 3, PointLight: 3, SpotLight: 3 };
 
 let importedLights = null;
+// The viewer's own lights while a manifest's lights replace them.
+let defaultLightState = null;
 
 const asArray = (value) => (Array.isArray(value) ? value : value == null ? [] : [value]);
 const typeOf = (value) => value?.type || value?.["@type"] || null;
@@ -86,27 +88,69 @@ function resolveLookAt(lookAt, sceneAnnotations) {
   return (referenced && targetPoint(referenced)) || new THREE.Vector3();
 }
 
-// Orientation from the body's transforms (a SpecificResource around a camera
-// or light): RotateTransforms turn the default direction - cameras face -Z,
-// lights shine along -Y - and TranslateTransforms move the position.
-// Rotations are in degrees about the scene's x, then y, then z axis.
-function applyBodyTransforms(wrapper, defaultDirection, position) {
-  const direction = defaultDirection.clone();
-  const moved = position.clone();
-  asArray(wrapper?.transform).forEach((transform) => {
-    const x = Number(transform.x) || 0;
-    const y = Number(transform.y) || 0;
-    const z = Number(transform.z) || 0;
-    if (typeOf(transform) === "RotateTransform") {
-      const euler = new THREE.Euler(
-        THREE.MathUtils.degToRad(x), THREE.MathUtils.degToRad(y), THREE.MathUtils.degToRad(z), "ZYX"
-      );
-      direction.applyEuler(euler);
-    } else if (typeOf(transform) === "TranslateTransform") {
-      moved.add(new THREE.Vector3(x, y, z));
+// A transform list (ScaleTransform / RotateTransform / TranslateTransform) as
+// one matrix, applied in the order listed: [translate, rotate] moves the
+// resource, then rotates it about the scene origin. RotateTransform angles are
+// degrees, as a three.js "XYZ" Euler rotation - the order the IIIF 3D
+// examples use (tipped_and_rotated_astronaut undoes its model's own rotation
+// exactly with it).
+export function transformMatrix(transforms) {
+  const matrix = new THREE.Matrix4();
+  const step = new THREE.Matrix4();
+  asArray(transforms).forEach((transform) => {
+    const x = Number(transform?.x);
+    const y = Number(transform?.y);
+    const z = Number(transform?.z);
+    const type = typeOf(transform);
+    if (type === "ScaleTransform") {
+      step.makeScale(Number.isFinite(x) ? x : 1, Number.isFinite(y) ? y : 1, Number.isFinite(z) ? z : 1);
+    } else if (type === "RotateTransform") {
+      step.makeRotationFromEuler(new THREE.Euler(
+        THREE.MathUtils.degToRad(x || 0), THREE.MathUtils.degToRad(y || 0), THREE.MathUtils.degToRad(z || 0), "XYZ"
+      ));
+    } else if (type === "TranslateTransform") {
+      step.makeTranslation(x || 0, y || 0, z || 0);
+    } else {
+      return;
     }
+    matrix.premultiply(step);
   });
-  return { direction: direction.normalize(), position: moved };
+  return matrix;
+}
+
+// A model's transform list as the position / rotation (degrees, three.js's
+// default "XYZ" order) / scale of its root, as the model config stores them.
+export function modelTransformConfig(transforms) {
+  const position = new THREE.Vector3();
+  const quaternion = new THREE.Quaternion();
+  const scale = new THREE.Vector3();
+  transformMatrix(transforms).decompose(position, quaternion, scale);
+  const rotation = new THREE.Euler().setFromQuaternion(quaternion, "XYZ");
+  // Floating-point noise from composing and decomposing (0.9999999 for 1).
+  const clean = (value) => {
+    const nearest = Math.round(value);
+    return Math.abs(value - nearest) < 1e-9 ? nearest + 0 : value;
+  };
+  return {
+    position: { x: clean(position.x), y: clean(position.y), z: clean(position.z) },
+    rotation: {
+      x: clean(THREE.MathUtils.radToDeg(rotation.x)),
+      y: clean(THREE.MathUtils.radToDeg(rotation.y)),
+      z: clean(THREE.MathUtils.radToDeg(rotation.z)),
+    },
+    scale: { x: clean(scale.x), y: clean(scale.y), z: clean(scale.z) },
+  };
+}
+
+// Orientation from the body's transforms (a SpecificResource around a camera
+// or light): the resource starts at the origin facing its default direction -
+// cameras face -Z, lights shine along -Y - is transformed in order, and is
+// then placed at the target's point.
+function applyBodyTransforms(wrapper, defaultDirection, position) {
+  const matrix = transformMatrix(wrapper?.transform);
+  const direction = defaultDirection.clone().transformDirection(matrix);
+  const moved = position.clone().add(new THREE.Vector3().applyMatrix4(matrix));
+  return { direction, position: moved };
 }
 
 function colorFrom(value, fallback = "#ffffff") {
@@ -117,9 +161,14 @@ function colorFrom(value, fallback = "#ffffff") {
   }
 }
 
+// intensity: a number, or a Quantity {quantityValue, unit: "relative"} (older
+// drafts: a Value with `value`).
 function relativeIntensity(value) {
   if (Number.isFinite(Number(value))) return Number(value);
-  if (value && typeof value === "object" && Number.isFinite(Number(value.value))) return Number(value.value);
+  if (value && typeof value === "object") {
+    const amount = Number(value.quantityValue ?? value.value);
+    if (Number.isFinite(amount)) return amount;
+  }
   return 1;
 }
 
@@ -240,10 +289,48 @@ function readScopeCamera(scope, sceneAnnotations) {
 // ---- applying --------------------------------------------------------------
 
 export function removeImportedLights() {
+  restoreDefaultLights();
   if (!importedLights) return;
   importedLights.traverse((child) => child.dispose?.());
   importedLights.removeFromParent();
   importedLights = null;
+}
+
+// The viewer's own lights (hemisphere, ambient, key and camera light) light a
+// scene only when its manifest brings no lights. A manifest that does switches
+// them off - reusing the ambient and key light for its first ambient and
+// directional light - until the next model is loaded. With `hide` false they
+// are only remembered, for a manifest that sets them itself.
+export function suspendDefaultLights({ hide = true } = {}) {
+  if (defaultLightState || !core.scene) return;
+  defaultLightState = [];
+  core.scene.children.forEach((light) => {
+    if (!light.isLight) return;
+    defaultLightState.push({
+      light,
+      visible: light.visible,
+      intensity: light.intensity,
+      color: light.color.clone(),
+      position: light.position.clone(),
+      target: light.target?.position?.clone?.() || null,
+    });
+    if (hide) light.visible = false;
+  });
+}
+
+function restoreDefaultLights() {
+  if (!defaultLightState) return;
+  defaultLightState.forEach(({ light, visible, intensity, color, position, target }) => {
+    light.visible = visible;
+    light.intensity = intensity;
+    light.color.copy(color);
+    light.position.copy(position);
+    if (target && light.target) {
+      light.target.position.copy(target);
+      light.target.updateMatrixWorld?.();
+    }
+  });
+  defaultLightState = null;
 }
 
 // Imported lights the viewer has no own light for live in one group, removed
@@ -333,11 +420,15 @@ export function applyCamera(camera, viewer) {
 export function applyLights(lights) {
   removeImportedLights();
   if (!lights.length || !core.scene) return 0;
+  suspendDefaultLights();
+  let usedAmbient = false;
   let usedDirectional = false;
   lights.forEach((light) => {
     const intensity = light.intensity * (LIGHT_INTENSITY_SCALE[light.type] || 1);
     if (light.type === "AmbientLight") {
-      if (core.ambientLight) {
+      if (core.ambientLight && !usedAmbient) {
+        usedAmbient = true;
+        core.ambientLight.visible = true;
         core.ambientLight.color.copy(light.color);
         core.ambientLight.intensity = intensity;
       } else {
@@ -350,6 +441,7 @@ export function applyLights(lights) {
       // controls in the editor act on.
       usedDirectional = true;
       const aim = lightAim(light);
+      core.dirLight.visible = true;
       core.dirLight.color.copy(light.color);
       core.dirLight.intensity = intensity;
       core.dirLight.position.copy(aim.position);
@@ -440,8 +532,8 @@ export function buildLightAnnotations(sceneId, baseId) {
   const annotations = [];
   const toHex = (color) => `#${color.getHexString()}`;
   const intensityValue = (light, type) => ({
-    type: "Value",
-    value: round(light.intensity / (LIGHT_INTENSITY_SCALE[type] || 1)),
+    type: "Quantity",
+    quantityValue: round(light.intensity / (LIGHT_INTENSITY_SCALE[type] || 1)),
     unit: "relative",
   });
   const lights = [];
@@ -474,11 +566,13 @@ export function buildLightAnnotations(sceneId, baseId) {
 export function buildModelAnnotation(sceneId, id, modelBody, root) {
   const transform = [];
   if (root) {
-    const { scale, rotation, position } = root;
-    if (scale.x !== 1 || scale.y !== 1 || scale.z !== 1) {
+    const { scale, position } = root;
+    // RotateTransform angles are a three.js "XYZ" Euler rotation.
+    const rotation = new THREE.Euler().setFromQuaternion(root.quaternion, "XYZ");
+    if (round(scale.x) !== 1 || round(scale.y) !== 1 || round(scale.z) !== 1) {
       transform.push({ type: "ScaleTransform", x: round(scale.x), y: round(scale.y), z: round(scale.z) });
     }
-    if (rotation.x || rotation.y || rotation.z) {
+    if (round(rotation.x) || round(rotation.y) || round(rotation.z)) {
       transform.push({
         type: "RotateTransform",
         x: round(THREE.MathUtils.radToDeg(rotation.x)),
@@ -529,6 +623,19 @@ export function isModelBody(body) {
   const type = String(typeOf(resource) || "").toLowerCase();
   return type === "model" || (!CAMERA_TYPES.has(typeOf(resource)) && !LIGHT_TYPES.has(typeOf(resource))
     && typeOf(asArray(body)[0]) === "SpecificResource" && Boolean(resource?.id));
+}
+
+// Media type of a model file, from its extension (null when unknown).
+const MODEL_FORMATS = {
+  glb: "model/gltf-binary",
+  gltf: "model/gltf+json",
+  obj: "model/obj",
+  stl: "model/stl",
+  usdz: "model/vnd.usdz+zip",
+};
+export function modelFormatOf(url) {
+  const extension = String(url || "").split(/[?#]/)[0].split(".").pop().toLowerCase();
+  return MODEL_FORMATS[extension] || null;
 }
 
 export function modelUrlOf(body) {

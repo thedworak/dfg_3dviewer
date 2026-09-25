@@ -1,6 +1,6 @@
 import {} from "@iiif/3d-manifesto-dev";
 import { IIIFManifest } from "./iiif";
-import { isModelBody } from "./presentation4.js";
+import { isModelBody, modelTransformConfig } from "./presentation4.js";
 
 // Annotation bodies are always parsed as plain AnnotationBody instances, where
 // isSpecificResource is an inherited METHOD (checking the JSON "type"), even when
@@ -93,71 +93,14 @@ export async function getAnnotations(iiifManifest, objectsConfig) {
 
   await Promise.all(
     items.map(async (modelAnnotation) => {       
-        if (resolvesToSpecificResource(modelAnnotation.getBody()[0])) {
-          let transforms = new Array();
-
-          try {
-            const body = modelAnnotation.getBody?.();
-            const first = Array.isArray(body) ? body[0] : null;
-            transforms = first?.getTransform?.() || [];
-          } catch (e) {
-            // No transforms present so keep defaults
-            //objectsConfig.models[ind].scale = {x: 1, y: 1, z: 1};
-            //objectsConfig.models[ind].rotation = {x: 0, y: 0, z: 0};
-            //objectsConfig.models[ind].position = {x: 0, y: 0, z: 0};
-            //console.log("No transform present in specific resource body");
-          }
-          // Correct use of async-safe loop
-          for (const transform of transforms) {
-            if (!transform.isTransform) continue;
-
-            const transformHandlers = [
-              {
-                key: "isScaleTransform",
-                action: () => {
-                  const scale = transform.getScale();
-                  if (scale) {
-                    objectsConfig.models[ind].scale = scale;
-                  }
-                  else {
-                    objectsConfig.models[ind].scale = {x: 1, y: 1, z: 1};
-                    console.log("No scale defined in scale transform");
-                  }
-                },
-              },
-              {
-                key: "isRotateTransform",
-                action: () => {
-                  const rotation = transform.getRotation();
-                  if (rotation) {
-                    objectsConfig.models[ind].rotation = rotation;
-                  }
-                  else { 
-                    objectsConfig.models[ind].rotation = {x: 0, y: 0, z: 0};
-                    console.log("No rotation defined in rotate transform");
-                  }
-                },
-              },
-              {
-                key: "isTranslateTransform",
-                action: () => {
-                  const translation = transform.getTranslation();
-                  if (translation) {
-                    objectsConfig.models[ind].position = translation;
-                  }
-                  else { 
-                    objectsConfig.models[ind].position = {x: 0, y: 0, z: 0};
-                  }
-                },
-              },
-            ];
-
-            for (const { key, action } of transformHandlers) {
-              if (transform[key]) {
-                action();
-              }
-            }
-          }
+        // The body's transform list, composed in the order listed (a
+        // SpecificResource around the model); read from the JSON, since the
+        // parsed transforms lose their order and repeats.
+        const rawBody = Array.isArray(modelAnnotation.__jsonld?.body)
+          ? modelAnnotation.__jsonld.body[0]
+          : modelAnnotation.__jsonld?.body;
+        if (rawBody?.type === "SpecificResource" && Array.isArray(rawBody.transform)) {
+          Object.assign(objectsConfig.models[ind], modelTransformConfig(rawBody.transform));
         }
 
         // Position model within target scene if position selector present.

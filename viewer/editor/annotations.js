@@ -13,6 +13,7 @@ import {
   buildCommentTarget,
   buildLightAnnotations,
   buildModelAnnotation,
+  modelFormatOf,
   buildViewCameraAnnotation,
   commentsToAnnotationEntries,
   addImportedLight,
@@ -20,6 +21,7 @@ import {
   readSceneContent,
   removeImportedLights,
   stopCameraIntro,
+  suspendDefaultLights,
 } from "../IIIF/presentation4.js";
 
 // Point annotations are anchored to the first model root.
@@ -927,6 +929,32 @@ export function attachAnnotations(Viewer) {
       // Generate the IIIF manifest and log it to the console 
       const sceneId = `${iiifUrl}/scene`;
 
+      // Every model of the scene, each with its root's transform. A scene of
+      // several models comes from a manifest: its model config has the URLs.
+      const modelSlots = Array.isArray(core.mainObject) ? core.mainObject : [core.mainObject];
+      const modelAnnotations = modelSlots
+        .map((entry, slot) => {
+          const root = Array.isArray(entry) ? entry.find((item) => item?.isObject3D) : entry;
+          if (!root?.isObject3D) return null;
+          const url = (modelSlots.length > 1 && core.objectsConfig?.models?.[slot]?.url)
+            || (slot === 0 ? core.fileObject.originalPath : "");
+          if (!url) return null;
+          return buildModelAnnotation(
+            sceneId,
+            slot === 0 ? `${sceneId}/annotation/model` : `${sceneId}/annotation/model/${slot + 1}`,
+            {
+              id: url,
+              type: "Model",
+              format: modelFormatOf(url) || (slot === 0 ? core.fileObject.mimeType : undefined) || undefined,
+            },
+            root
+          );
+        })
+        .filter(Boolean);
+      const sceneBackgroundColor = core.scene?.background?.isColor
+        ? `#${core.scene.background.getHexString()}`
+        : core.sceneBackgroundColor;
+
       // Comments on scene points; a saved view becomes a camera painted into
       // the scene, referenced from the comment's `scope`.
       const viewCameras = [];
@@ -992,9 +1020,8 @@ export function attachAnnotations(Viewer) {
               en: [core.fileObject?.basename || "Model"]
             },
 
-            backgroundColor: core.scene?.background
-              ? `#${core.scene.background.getHexString()}`
-              : "#000000",
+            // A solid background only (a gradient has no IIIF equivalent).
+            ...(sceneBackgroundColor ? { backgroundColor: sceneBackgroundColor } : {}),
 
             items: [
               {
@@ -1003,16 +1030,7 @@ export function attachAnnotations(Viewer) {
                 // IIIF Presentation 4 (3D): the model with its transform, the
                 // current camera and the scene lights (IIIF/presentation4.js).
                 items: [
-                  buildModelAnnotation(
-                    sceneId,
-                    `${sceneId}/annotation/model`,
-                    {
-                      id: core.fileObject.originalPath,
-                      type: "Model",
-                      format: core.fileObject.mimeType || undefined,
-                    },
-                    primaryModelObject
-                  ),
+                  ...modelAnnotations,
                   // The first camera is the scene's default view.
                   buildCameraAnnotation(sceneId, `${sceneId}/annotation/camera`),
                   ...buildLightAnnotations(sceneId, `${sceneId}/annotation/light`),
@@ -1170,7 +1188,8 @@ export function attachAnnotations(Viewer) {
                 "DirectionalLight",
                 "SpotLight",
                 "PointLight",
-                "AmbientLight"
+                "AmbientLight",
+                "HemisphereLight"
               ].includes(child.type)
             )
             .map((light) => ({
@@ -1184,6 +1203,12 @@ export function attachAnnotations(Viewer) {
               color: `#${light.color.getHexString()}`,
 
               intensity: light.intensity,
+
+              ...(light.visible === false ? { visible: false } : {}),
+
+              ...(light.isHemisphereLight
+                ? { groundColor: `#${light.groundColor.getHexString()}` }
+                : {}),
 
               ...(light.isPointLight || light.isSpotLight
                 ? { distance: light.distance, decay: light.decay }
@@ -1581,6 +1606,7 @@ export function attachAnnotations(Viewer) {
       const ambientLights = lightsConfig.filter((light) => String(light?.type || "") === "AmbientLight");
       const pointLights = lightsConfig.filter((light) => String(light?.type || "") === "PointLight");
       const spotLights = lightsConfig.filter((light) => String(light?.type || "") === "SpotLight");
+      const hemisphereLight = lightsConfig.find((light) => String(light?.type || "") === "HemisphereLight");
 
       const applyLight = (target, data) => {
         if (!target || !data) return;
@@ -1595,6 +1621,7 @@ export function attachAnnotations(Viewer) {
           target.target.updateMatrixWorld?.();
         }
         if (Number.isFinite(intensity)) target.intensity = intensity;
+        target.visible = data.visible !== false;
         if (color) {
           try {
             target.color?.set?.(color);
@@ -1603,6 +1630,12 @@ export function attachAnnotations(Viewer) {
           }
         }
       };
+
+      // Lights beyond the viewer's own go into the imported-lights group, so
+      // they are replaced, not piled up, on the next import; the viewer's own
+      // get their settings back on the next load, too.
+      removeImportedLights();
+      suspendDefaultLights({ hide: false });
 
       if (core.dirLight && directionalLights.length > 0) {
         applyLight(core.dirLight, directionalLights[0]);
@@ -1613,10 +1646,16 @@ export function attachAnnotations(Viewer) {
       if (core.ambientLight && ambientLights.length > 0) {
         applyLight(core.ambientLight, ambientLights[0]);
       }
+      const viewerHemisphereLight = core.scene?.children?.find((child) => child.isHemisphereLight);
+      if (viewerHemisphereLight && hemisphereLight) {
+        applyLight(viewerHemisphereLight, hemisphereLight);
+        try {
+          if (hemisphereLight.groundColor) viewerHemisphereLight.groundColor.set(String(hemisphereLight.groundColor));
+        } catch (_error) {
+          // Ignore malformed color in imported manifest.
+        }
+      }
 
-      // Lights beyond the viewer's own go into the imported-lights group, so
-      // they are replaced, not piled up, on the next import.
-      removeImportedLights();
       const addExtraLight = (lightData) => {
         const type = String(lightData?.type || "");
         const light = type === "PointLight" ? new THREE.PointLight(0xffffff, 1)

@@ -329,10 +329,11 @@ export const setupObject = (_object, _metadata) => {
   } else if (_object.children.length > 0) {
     model = fetchObjectFromConfig(_object.children[0].name); //TODO: check for multiple objects
   }
-  // Models from a IIIF manifest carry their transform (Scale/Rotate/
-  // TranslateTransform, PointSelector position) in the config entry of the
-  // model being loaded, whatever the model's own node names are.
-  if (!model && core.CONFIG?.entity?.metadata?.sourceType === "IIIF") {
+  // Models from a IIIF (or AIM3D) manifest carry their transform (Scale/
+  // Rotate/TranslateTransform, PointSelector position) in the config entry of
+  // the model being loaded, whatever the model's own node names are.
+  const manifestSource = core.CONFIG?.entity?.metadata?.sourceType;
+  if (!model && (manifestSource === "IIIF" || manifestSource === "AIM3IF")) {
     model = core.objectsConfig?.models?.[core.objectsConfig.setupIndex];
   }
 
@@ -947,7 +948,8 @@ function parseGradient(str) {
   /* ==========================
      HEX (#RGB / #RRGGBB)
   ========================== */
-  const hexMatches = str.matchAll(/#([0-9a-f]{3}|[0-9a-f]{6})/gi);
+  // Six digits first: "#336699" is not "#336" followed by "699".
+  const hexMatches = str.matchAll(/#([0-9a-f]{6}|[0-9a-f]{3})(?![0-9a-f])/gi);
 
   for (const [, hex] of hexMatches) {
     const fullHex =
@@ -1017,7 +1019,18 @@ export function applyGradientCss(gradient) {
   core.mainCanvas.style.setProperty("background", css);
 }
 
+// The background as one CSS colour ("#rrggbb"), or null for a gradient.
+function solidBackgroundHex(_type, _color1, _color2) {
+  const solid = _type === "linear" || String(_color1).trim() === String(_color2).trim();
+  if (!solid || typeof _color1 !== "string") return null;
+  const parsed = parseCssColor(_color1);
+  if (!parsed) return null;
+  return `#${[parsed.r, parsed.g, parsed.b].map((value) => Math.round(value).toString(16).padStart(2, "0")).join("")}`;
+}
+
 export function changeBackground(_type, _color1, _color2 = _color1, _alpha = 100) {
+  // Exports write it as the IIIF scene's backgroundColor.
+  core.sceneBackgroundColor = solidBackgroundHex(_type, _color1, _color2);
   switch (_type) {
     case "linear":
       changeBackgroundHelper(_color1, _color1, _alpha);

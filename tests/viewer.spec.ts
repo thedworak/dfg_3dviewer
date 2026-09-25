@@ -859,6 +859,177 @@ test('IIIF Presentation 4 scenes: camera, lights, transforms and point comments 
   expect((await sceneState()).lights).toEqual(imported.lights);
 });
 
+test('IIIF Presentation 4 transforms apply in order, and manifest lights replace the default ones', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+
+  const scene = { id: './examples/box.glb/scene', type: 'Scene' };
+  const manifestWith = (transform, lights = []) => JSON.stringify({
+    '@context': 'http://iiif.io/api/presentation/4/context.json',
+    id: './examples/box.glb/manifest.json',
+    type: 'Manifest',
+    items: [{
+      ...scene,
+      items: [{
+        id: './examples/box.glb/scene/page',
+        type: 'AnnotationPage',
+        items: [
+          {
+            id: './examples/box.glb/anno/model',
+            type: 'Annotation',
+            motivation: ['painting'],
+            body: { type: 'SpecificResource', source: { id: './examples/box.glb', type: 'Model' }, transform },
+            target: scene,
+          },
+          ...lights.map((body, index) => ({
+            id: `./examples/box.glb/anno/light/${index}`,
+            type: 'Annotation',
+            motivation: ['painting'],
+            body,
+            target: scene,
+          })),
+        ],
+      }],
+    }],
+  });
+  const load = (json) => page.evaluate((text) => window.Viewer.setupManifesto(text, 'text'), json);
+  const root = () => page.evaluate(() => {
+    const object = window.Viewer.resolveObjectByTargetId('m0:root');
+    const round = (values) => values.map((value) => Math.round(value * 1000) / 1000 + 0);
+    return { position: round(object.position.toArray()), scale: round(object.scale.toArray()) };
+  });
+  const translate = { type: 'TranslateTransform', x: 1, y: 0, z: 0 };
+  const turn = { type: 'RotateTransform', x: 0, y: 180, z: 0 };
+
+  // Moved 1 in x, then turned about the scene's y axis: ends up at -1.
+  await load(manifestWith([translate, turn]));
+  expect((await root()).position).toEqual([-1, 0, 0]);
+  // Turned in place, then moved: stays at +1.
+  await load(manifestWith([turn, translate]));
+  expect((await root()).position).toEqual([1, 0, 0]);
+  // Scaling after a translation scales the translation too.
+  await load(manifestWith([translate, { type: 'ScaleTransform', x: 2, y: 2, z: 2 }]));
+  expect(await root()).toEqual({ position: [2, 0, 0], scale: [2, 2, 2] });
+
+  // A rotation about several axes (x, then y, then z) survives the export.
+  const tilt = { type: 'RotateTransform', x: 15, y: 20, z: 35 };
+  await load(manifestWith([tilt]));
+  // As a three.js "XYZ" Euler rotation, like the IIIF 3D examples use.
+  const rootRotation = await page.evaluate(() => {
+    const { rotation } = window.Viewer.resolveObjectByTargetId('m0:root');
+    return { order: rotation.order, degrees: [rotation.x, rotation.y, rotation.z].map((value) => value * 180 / Math.PI) };
+  });
+  expect(rootRotation.order).toBe('XYZ');
+  rootRotation.degrees.forEach((value, index) => expect(value).toBeCloseTo([15, 20, 35][index], 3));
+  const exported = await page.evaluate(() => window.Viewer.build3IFManifest().items[0].items[0].items[0].body.transform);
+  expect(exported).toHaveLength(1);
+  expect(exported[0]).toMatchObject({ type: 'RotateTransform' });
+  ['x', 'y', 'z'].forEach((axis) => expect(exported[0][axis]).toBeCloseTo(tilt[axis], 3));
+
+  // Manifest lights (intensity as a relative Quantity) switch the viewer's
+  // own lights off; loading a manifest without lights brings them back.
+  const lightState = () => page.evaluate(() => {
+    const lights = [];
+    window.Viewer.scene.traverse((object) => {
+      if (object.isLight && object.visible) lights.push(`${object.type}:#${object.color.getHexString()}:${Math.round(object.intensity * 100) / 100}`);
+    });
+    return lights.sort();
+  });
+  const defaults = await lightState();
+  expect(defaults).toEqual(expect.arrayContaining([expect.stringMatching(/^HemisphereLight:/)]));
+  await load(manifestWith([], [
+    { type: 'AmbientLight', color: '#00ff00', intensity: { type: 'Quantity', quantityValue: 0.5, unit: 'relative' } },
+  ]));
+  expect(await lightState()).toEqual(['AmbientLight:#00ff00:0.5']);
+  const exportedLight = await page.evaluate(() => window.Viewer.build3IFManifest().items[0].items[0].items
+    .filter((annotation) => /Light$/.test(annotation.body.type)).map((annotation) => annotation.body));
+  expect(exportedLight).toEqual([
+    { type: 'AmbientLight', color: '#00ff00', intensity: { type: 'Quantity', quantityValue: 0.5, unit: 'relative' } },
+  ]);
+  await load(manifestWith([]));
+  expect(await lightState()).toEqual(defaults);
+});
+
+test('IIIF Presentation 4 export keeps every model of the scene and its background colour', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+
+  const scene = { id: './examples/pair/scene', type: 'Scene' };
+  const manifest = {
+    '@context': 'http://iiif.io/api/presentation/4/context.json',
+    id: './examples/pair/manifest.json',
+    type: 'Manifest',
+    items: [{
+      ...scene,
+      backgroundColor: '#336699',
+      items: [{
+        id: './examples/pair/scene/page',
+        type: 'AnnotationPage',
+        items: [
+          {
+            id: './examples/pair/anno/glb',
+            type: 'Annotation',
+            motivation: ['painting'],
+            body: { id: './examples/box.glb', type: 'Model', format: 'model/gltf-binary' },
+            target: scene,
+          },
+          {
+            id: './examples/pair/anno/stl',
+            type: 'Annotation',
+            motivation: ['painting'],
+            body: {
+              type: 'SpecificResource',
+              source: { id: './examples/box.stl', type: 'Model' },
+              transform: [{ type: 'ScaleTransform', x: 0.5, y: 0.5, z: 0.5 }, { type: 'TranslateTransform', x: 3, y: 0, z: 0 }],
+            },
+            target: { type: 'SpecificResource', source: scene, selector: [{ type: 'PointSelector', x: 0, y: 1, z: 0 }] },
+          },
+        ],
+      }],
+    }],
+  };
+  const roots = () => page.evaluate(() => [0, 1].map((slot) => {
+    const root = window.Viewer.resolveObjectByTargetId(`m${slot}:root`);
+    const round = (values) => values.map((value) => Math.round(value * 1000) / 1000 + 0);
+    return root && { position: round(root.position.toArray()), scale: round(root.scale.toArray()) };
+  }));
+
+  await page.evaluate((json) => window.Viewer.setupManifesto(JSON.stringify(json), 'text'), manifest);
+  const imported = await roots();
+  expect(imported).toEqual([
+    { position: [0, 0, 0], scale: [1, 1, 1] },
+    { position: [3, 1, 0], scale: [0.5, 0.5, 0.5] },
+  ]);
+
+  const exported = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(exported.items[0].backgroundColor).toBe('#336699');
+  const models = exported.items[0].items[0].items.filter((annotation) => (annotation.body.source?.type || annotation.body.type) === 'Model');
+  expect(models.map((annotation) => annotation.body.source?.id || annotation.body.id)).toEqual(['./examples/box.glb', './examples/box.stl']);
+  expect(models.map((annotation) => annotation.id)).toEqual([
+    expect.stringMatching(/\/annotation\/model$/),
+    expect.stringMatching(/\/annotation\/model\/2$/),
+  ]);
+  expect(models[0].body.format).toBe('model/gltf-binary');
+  expect(models[1].body.transform).toEqual([
+    { type: 'ScaleTransform', x: 0.5, y: 0.5, z: 0.5 },
+    { type: 'TranslateTransform', x: 3, y: 1, z: 0 },
+  ]);
+
+  // Round trip through our own export (the AIM3D path): both models are
+  // placed again, and the background comes back.
+  await page.evaluate((json) => window.Viewer.setupManifesto(JSON.stringify(json), 'text'), exported);
+  expect(await roots()).toEqual(imported);
+  const reexported = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(reexported.items[0].backgroundColor).toBe('#336699');
+
+  // A model's default gradient background is not a IIIF background colour.
+  await openViewer(page, '/examples/box.glb');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+  const plain = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(plain.items[0]).not.toHaveProperty('backgroundColor');
+  expect(plain.items[0].items[0].items.filter((annotation) => (annotation.body.source?.type || annotation.body.type) === 'Model')).toHaveLength(1);
+});
+
 test('upload panel shows limit usage and limit errors from the worker', async ({ page }) => {
   await page.route('**/api/auth/config', (route) =>
     route.fulfill({ json: { mode: 'off', registration: 'closed', maxUploadBytes: 104857600 } })

@@ -2065,10 +2065,11 @@ const setupObject = (_object, _metadata) => {
   } else if (_object.children.length > 0) {
     model = fetchObjectFromConfig(_object.children[0].name); //TODO: check for multiple objects
   }
-  // Models from a IIIF manifest carry their transform (Scale/Rotate/
-  // TranslateTransform, PointSelector position) in the config entry of the
-  // model being loaded, whatever the model's own node names are.
-  if (!model && core.CONFIG?.entity?.metadata?.sourceType === "IIIF") {
+  // Models from a IIIF (or AIM3D) manifest carry their transform (Scale/
+  // Rotate/TranslateTransform, PointSelector position) in the config entry of
+  // the model being loaded, whatever the model's own node names are.
+  const manifestSource = core.CONFIG?.entity?.metadata?.sourceType;
+  if (!model && (manifestSource === "IIIF" || manifestSource === "AIM3IF")) {
     model = core.objectsConfig?.models?.[core.objectsConfig.setupIndex];
   }
 
@@ -2683,7 +2684,8 @@ function parseGradient(str) {
   /* ==========================
      HEX (#RGB / #RRGGBB)
   ========================== */
-  const hexMatches = str.matchAll(/#([0-9a-f]{3}|[0-9a-f]{6})/gi);
+  // Six digits first: "#336699" is not "#336" followed by "699".
+  const hexMatches = str.matchAll(/#([0-9a-f]{6}|[0-9a-f]{3})(?![0-9a-f])/gi);
 
   for (const [, hex] of hexMatches) {
     const fullHex =
@@ -2753,7 +2755,18 @@ function applyGradientCss(gradient) {
   core.mainCanvas.style.setProperty("background", css);
 }
 
+// The background as one CSS colour ("#rrggbb"), or null for a gradient.
+function solidBackgroundHex(_type, _color1, _color2) {
+  const solid = _type === "linear" || String(_color1).trim() === String(_color2).trim();
+  if (!solid || typeof _color1 !== "string") return null;
+  const parsed = parseCssColor(_color1);
+  if (!parsed) return null;
+  return `#${[parsed.r, parsed.g, parsed.b].map((value) => Math.round(value).toString(16).padStart(2, "0")).join("")}`;
+}
+
 function changeBackground(_type, _color1, _color2 = _color1, _alpha = 100) {
+  // Exports write it as the IIIF scene's backgroundColor.
+  core.sceneBackgroundColor = solidBackgroundHex(_type, _color1, _color2);
   switch (_type) {
     case "linear":
       changeBackgroundHelper(_color1, _color1, _alpha);
@@ -7942,6 +7955,8 @@ const COMMENT_MOTIVATIONS = new Set(["commenting", "describing", "tagging", "ide
 const LIGHT_INTENSITY_SCALE = { AmbientLight: 1, DirectionalLight: 3, PointLight: 3, SpotLight: 3 };
 
 let importedLights = null;
+// The viewer's own lights while a manifest's lights replace them.
+let defaultLightState = null;
 
 const asArray = (value) => (Array.isArray(value) ? value : value == null ? [] : [value]);
 const typeOf = (value) => value?.type || value?.["@type"] || null;
@@ -8002,27 +8017,69 @@ function resolveLookAt(lookAt, sceneAnnotations) {
   return (referenced && targetPoint(referenced)) || new THREE.Vector3();
 }
 
-// Orientation from the body's transforms (a SpecificResource around a camera
-// or light): RotateTransforms turn the default direction - cameras face -Z,
-// lights shine along -Y - and TranslateTransforms move the position.
-// Rotations are in degrees about the scene's x, then y, then z axis.
-function applyBodyTransforms(wrapper, defaultDirection, position) {
-  const direction = defaultDirection.clone();
-  const moved = position.clone();
-  asArray(wrapper?.transform).forEach((transform) => {
-    const x = Number(transform.x) || 0;
-    const y = Number(transform.y) || 0;
-    const z = Number(transform.z) || 0;
-    if (typeOf(transform) === "RotateTransform") {
-      const euler = new THREE.Euler(
-        THREE.MathUtils.degToRad(x), THREE.MathUtils.degToRad(y), THREE.MathUtils.degToRad(z), "ZYX"
-      );
-      direction.applyEuler(euler);
-    } else if (typeOf(transform) === "TranslateTransform") {
-      moved.add(new THREE.Vector3(x, y, z));
+// A transform list (ScaleTransform / RotateTransform / TranslateTransform) as
+// one matrix, applied in the order listed: [translate, rotate] moves the
+// resource, then rotates it about the scene origin. RotateTransform angles are
+// degrees, as a three.js "XYZ" Euler rotation - the order the IIIF 3D
+// examples use (tipped_and_rotated_astronaut undoes its model's own rotation
+// exactly with it).
+function transformMatrix(transforms) {
+  const matrix = new THREE.Matrix4();
+  const step = new THREE.Matrix4();
+  asArray(transforms).forEach((transform) => {
+    const x = Number(transform?.x);
+    const y = Number(transform?.y);
+    const z = Number(transform?.z);
+    const type = typeOf(transform);
+    if (type === "ScaleTransform") {
+      step.makeScale(Number.isFinite(x) ? x : 1, Number.isFinite(y) ? y : 1, Number.isFinite(z) ? z : 1);
+    } else if (type === "RotateTransform") {
+      step.makeRotationFromEuler(new THREE.Euler(
+        THREE.MathUtils.degToRad(x || 0), THREE.MathUtils.degToRad(y || 0), THREE.MathUtils.degToRad(z || 0), "XYZ"
+      ));
+    } else if (type === "TranslateTransform") {
+      step.makeTranslation(x || 0, y || 0, z || 0);
+    } else {
+      return;
     }
+    matrix.premultiply(step);
   });
-  return { direction: direction.normalize(), position: moved };
+  return matrix;
+}
+
+// A model's transform list as the position / rotation (degrees, three.js's
+// default "XYZ" order) / scale of its root, as the model config stores them.
+function modelTransformConfig(transforms) {
+  const position = new THREE.Vector3();
+  const quaternion = new THREE.Quaternion();
+  const scale = new THREE.Vector3();
+  transformMatrix(transforms).decompose(position, quaternion, scale);
+  const rotation = new THREE.Euler().setFromQuaternion(quaternion, "XYZ");
+  // Floating-point noise from composing and decomposing (0.9999999 for 1).
+  const clean = (value) => {
+    const nearest = Math.round(value);
+    return Math.abs(value - nearest) < 1e-9 ? nearest + 0 : value;
+  };
+  return {
+    position: { x: clean(position.x), y: clean(position.y), z: clean(position.z) },
+    rotation: {
+      x: clean(THREE.MathUtils.radToDeg(rotation.x)),
+      y: clean(THREE.MathUtils.radToDeg(rotation.y)),
+      z: clean(THREE.MathUtils.radToDeg(rotation.z)),
+    },
+    scale: { x: clean(scale.x), y: clean(scale.y), z: clean(scale.z) },
+  };
+}
+
+// Orientation from the body's transforms (a SpecificResource around a camera
+// or light): the resource starts at the origin facing its default direction -
+// cameras face -Z, lights shine along -Y - is transformed in order, and is
+// then placed at the target's point.
+function applyBodyTransforms(wrapper, defaultDirection, position) {
+  const matrix = transformMatrix(wrapper?.transform);
+  const direction = defaultDirection.clone().transformDirection(matrix);
+  const moved = position.clone().add(new THREE.Vector3().applyMatrix4(matrix));
+  return { direction, position: moved };
 }
 
 function colorFrom(value, fallback = "#ffffff") {
@@ -8033,9 +8090,14 @@ function colorFrom(value, fallback = "#ffffff") {
   }
 }
 
+// intensity: a number, or a Quantity {quantityValue, unit: "relative"} (older
+// drafts: a Value with `value`).
 function relativeIntensity(value) {
   if (Number.isFinite(Number(value))) return Number(value);
-  if (value && typeof value === "object" && Number.isFinite(Number(value.value))) return Number(value.value);
+  if (value && typeof value === "object") {
+    const amount = Number(value.quantityValue ?? value.value);
+    if (Number.isFinite(amount)) return amount;
+  }
   return 1;
 }
 
@@ -8156,10 +8218,48 @@ function readScopeCamera(scope, sceneAnnotations) {
 // ---- applying --------------------------------------------------------------
 
 function removeImportedLights() {
+  restoreDefaultLights();
   if (!importedLights) return;
   importedLights.traverse((child) => child.dispose?.());
   importedLights.removeFromParent();
   importedLights = null;
+}
+
+// The viewer's own lights (hemisphere, ambient, key and camera light) light a
+// scene only when its manifest brings no lights. A manifest that does switches
+// them off - reusing the ambient and key light for its first ambient and
+// directional light - until the next model is loaded. With `hide` false they
+// are only remembered, for a manifest that sets them itself.
+function suspendDefaultLights({ hide = true } = {}) {
+  if (defaultLightState || !core.scene) return;
+  defaultLightState = [];
+  core.scene.children.forEach((light) => {
+    if (!light.isLight) return;
+    defaultLightState.push({
+      light,
+      visible: light.visible,
+      intensity: light.intensity,
+      color: light.color.clone(),
+      position: light.position.clone(),
+      target: light.target?.position?.clone?.() || null,
+    });
+    if (hide) light.visible = false;
+  });
+}
+
+function restoreDefaultLights() {
+  if (!defaultLightState) return;
+  defaultLightState.forEach(({ light, visible, intensity, color, position, target }) => {
+    light.visible = visible;
+    light.intensity = intensity;
+    light.color.copy(color);
+    light.position.copy(position);
+    if (target && light.target) {
+      light.target.position.copy(target);
+      light.target.updateMatrixWorld?.();
+    }
+  });
+  defaultLightState = null;
 }
 
 // Imported lights the viewer has no own light for live in one group, removed
@@ -8249,11 +8349,15 @@ function applyCamera(camera, viewer) {
 function applyLights(lights) {
   removeImportedLights();
   if (!lights.length || !core.scene) return 0;
+  suspendDefaultLights();
+  let usedAmbient = false;
   let usedDirectional = false;
   lights.forEach((light) => {
     const intensity = light.intensity * (LIGHT_INTENSITY_SCALE[light.type] || 1);
     if (light.type === "AmbientLight") {
-      if (core.ambientLight) {
+      if (core.ambientLight && !usedAmbient) {
+        usedAmbient = true;
+        core.ambientLight.visible = true;
         core.ambientLight.color.copy(light.color);
         core.ambientLight.intensity = intensity;
       } else {
@@ -8266,6 +8370,7 @@ function applyLights(lights) {
       // controls in the editor act on.
       usedDirectional = true;
       const aim = lightAim(light);
+      core.dirLight.visible = true;
       core.dirLight.color.copy(light.color);
       core.dirLight.intensity = intensity;
       core.dirLight.position.copy(aim.position);
@@ -8356,8 +8461,8 @@ function buildLightAnnotations(sceneId, baseId) {
   const annotations = [];
   const toHex = (color) => `#${color.getHexString()}`;
   const intensityValue = (light, type) => ({
-    type: "Value",
-    value: round(light.intensity / (LIGHT_INTENSITY_SCALE[type] || 1)),
+    type: "Quantity",
+    quantityValue: round(light.intensity / (LIGHT_INTENSITY_SCALE[type] || 1)),
     unit: "relative",
   });
   const lights = [];
@@ -8390,11 +8495,13 @@ function buildLightAnnotations(sceneId, baseId) {
 function buildModelAnnotation(sceneId, id, modelBody, root) {
   const transform = [];
   if (root) {
-    const { scale, rotation, position } = root;
-    if (scale.x !== 1 || scale.y !== 1 || scale.z !== 1) {
+    const { scale, position } = root;
+    // RotateTransform angles are a three.js "XYZ" Euler rotation.
+    const rotation = new THREE.Euler().setFromQuaternion(root.quaternion, "XYZ");
+    if (round(scale.x) !== 1 || round(scale.y) !== 1 || round(scale.z) !== 1) {
       transform.push({ type: "ScaleTransform", x: round(scale.x), y: round(scale.y), z: round(scale.z) });
     }
-    if (rotation.x || rotation.y || rotation.z) {
+    if (round(rotation.x) || round(rotation.y) || round(rotation.z)) {
       transform.push({
         type: "RotateTransform",
         x: round(THREE.MathUtils.radToDeg(rotation.x)),
@@ -8445,6 +8552,19 @@ function isModelBody(body) {
   const type = String(typeOf(resource) || "").toLowerCase();
   return type === "model" || (!CAMERA_TYPES.has(typeOf(resource)) && !LIGHT_TYPES.has(typeOf(resource))
     && typeOf(asArray(body)[0]) === "SpecificResource" && Boolean(resource?.id));
+}
+
+// Media type of a model file, from its extension (null when unknown).
+const MODEL_FORMATS = {
+  glb: "model/gltf-binary",
+  gltf: "model/gltf+json",
+  obj: "model/obj",
+  stl: "model/stl",
+  usdz: "model/vnd.usdz+zip",
+};
+function modelFormatOf(url) {
+  const extension = String(url || "").split(/[?#]/)[0].split(".").pop().toLowerCase();
+  return MODEL_FORMATS[extension] || null;
 }
 
 function modelUrlOf(body) {
@@ -9356,6 +9476,32 @@ function attachAnnotations(Viewer) {
       // Generate the IIIF manifest and log it to the console 
       const sceneId = `${iiifUrl}/scene`;
 
+      // Every model of the scene, each with its root's transform. A scene of
+      // several models comes from a manifest: its model config has the URLs.
+      const modelSlots = Array.isArray(core.mainObject) ? core.mainObject : [core.mainObject];
+      const modelAnnotations = modelSlots
+        .map((entry, slot) => {
+          const root = Array.isArray(entry) ? entry.find((item) => item?.isObject3D) : entry;
+          if (!root?.isObject3D) return null;
+          const url = (modelSlots.length > 1 && core.objectsConfig?.models?.[slot]?.url)
+            || (slot === 0 ? core.fileObject.originalPath : "");
+          if (!url) return null;
+          return buildModelAnnotation(
+            sceneId,
+            slot === 0 ? `${sceneId}/annotation/model` : `${sceneId}/annotation/model/${slot + 1}`,
+            {
+              id: url,
+              type: "Model",
+              format: modelFormatOf(url) || (slot === 0 ? core.fileObject.mimeType : undefined) || undefined,
+            },
+            root
+          );
+        })
+        .filter(Boolean);
+      const sceneBackgroundColor = core.scene?.background?.isColor
+        ? `#${core.scene.background.getHexString()}`
+        : core.sceneBackgroundColor;
+
       // Comments on scene points; a saved view becomes a camera painted into
       // the scene, referenced from the comment's `scope`.
       const viewCameras = [];
@@ -9421,9 +9567,8 @@ function attachAnnotations(Viewer) {
               en: [core.fileObject?.basename || "Model"]
             },
 
-            backgroundColor: core.scene?.background
-              ? `#${core.scene.background.getHexString()}`
-              : "#000000",
+            // A solid background only (a gradient has no IIIF equivalent).
+            ...(sceneBackgroundColor ? { backgroundColor: sceneBackgroundColor } : {}),
 
             items: [
               {
@@ -9432,16 +9577,7 @@ function attachAnnotations(Viewer) {
                 // IIIF Presentation 4 (3D): the model with its transform, the
                 // current camera and the scene lights (IIIF/presentation4.js).
                 items: [
-                  buildModelAnnotation(
-                    sceneId,
-                    `${sceneId}/annotation/model`,
-                    {
-                      id: core.fileObject.originalPath,
-                      type: "Model",
-                      format: core.fileObject.mimeType || undefined,
-                    },
-                    primaryModelObject
-                  ),
+                  ...modelAnnotations,
                   // The first camera is the scene's default view.
                   buildCameraAnnotation(sceneId, `${sceneId}/annotation/camera`),
                   ...buildLightAnnotations(sceneId, `${sceneId}/annotation/light`),
@@ -9599,7 +9735,8 @@ function attachAnnotations(Viewer) {
                 "DirectionalLight",
                 "SpotLight",
                 "PointLight",
-                "AmbientLight"
+                "AmbientLight",
+                "HemisphereLight"
               ].includes(child.type)
             )
             .map((light) => ({
@@ -9613,6 +9750,12 @@ function attachAnnotations(Viewer) {
               color: `#${light.color.getHexString()}`,
 
               intensity: light.intensity,
+
+              ...(light.visible === false ? { visible: false } : {}),
+
+              ...(light.isHemisphereLight
+                ? { groundColor: `#${light.groundColor.getHexString()}` }
+                : {}),
 
               ...(light.isPointLight || light.isSpotLight
                 ? { distance: light.distance, decay: light.decay }
@@ -10010,6 +10153,7 @@ function attachAnnotations(Viewer) {
       const ambientLights = lightsConfig.filter((light) => String(light?.type || "") === "AmbientLight");
       const pointLights = lightsConfig.filter((light) => String(light?.type || "") === "PointLight");
       const spotLights = lightsConfig.filter((light) => String(light?.type || "") === "SpotLight");
+      const hemisphereLight = lightsConfig.find((light) => String(light?.type || "") === "HemisphereLight");
 
       const applyLight = (target, data) => {
         if (!target || !data) return;
@@ -10024,6 +10168,7 @@ function attachAnnotations(Viewer) {
           target.target.updateMatrixWorld?.();
         }
         if (Number.isFinite(intensity)) target.intensity = intensity;
+        target.visible = data.visible !== false;
         if (color) {
           try {
             target.color?.set?.(color);
@@ -10032,6 +10177,12 @@ function attachAnnotations(Viewer) {
           }
         }
       };
+
+      // Lights beyond the viewer's own go into the imported-lights group, so
+      // they are replaced, not piled up, on the next import; the viewer's own
+      // get their settings back on the next load, too.
+      removeImportedLights();
+      suspendDefaultLights({ hide: false });
 
       if (core.dirLight && directionalLights.length > 0) {
         applyLight(core.dirLight, directionalLights[0]);
@@ -10042,10 +10193,16 @@ function attachAnnotations(Viewer) {
       if (core.ambientLight && ambientLights.length > 0) {
         applyLight(core.ambientLight, ambientLights[0]);
       }
+      const viewerHemisphereLight = core.scene?.children?.find((child) => child.isHemisphereLight);
+      if (viewerHemisphereLight && hemisphereLight) {
+        applyLight(viewerHemisphereLight, hemisphereLight);
+        try {
+          if (hemisphereLight.groundColor) viewerHemisphereLight.groundColor.set(String(hemisphereLight.groundColor));
+        } catch (_error) {
+          // Ignore malformed color in imported manifest.
+        }
+      }
 
-      // Lights beyond the viewer's own go into the imported-lights group, so
-      // they are replaced, not piled up, on the next import.
-      removeImportedLights();
       const addExtraLight = (lightData) => {
         const type = String(lightData?.type || "");
         const light = type === "PointLight" ? new THREE.PointLight(0xffffff, 1)
@@ -23107,71 +23264,14 @@ async function getAnnotations(iiifManifest, objectsConfig) {
 
   await Promise.all(
     items.map(async (modelAnnotation) => {       
-        if (resolvesToSpecificResource(modelAnnotation.getBody()[0])) {
-          let transforms = new Array();
-
-          try {
-            const body = modelAnnotation.getBody?.();
-            const first = Array.isArray(body) ? body[0] : null;
-            transforms = first?.getTransform?.() || [];
-          } catch (e) {
-            // No transforms present so keep defaults
-            //objectsConfig.models[ind].scale = {x: 1, y: 1, z: 1};
-            //objectsConfig.models[ind].rotation = {x: 0, y: 0, z: 0};
-            //objectsConfig.models[ind].position = {x: 0, y: 0, z: 0};
-            //console.log("No transform present in specific resource body");
-          }
-          // Correct use of async-safe loop
-          for (const transform of transforms) {
-            if (!transform.isTransform) continue;
-
-            const transformHandlers = [
-              {
-                key: "isScaleTransform",
-                action: () => {
-                  const scale = transform.getScale();
-                  if (scale) {
-                    objectsConfig.models[ind].scale = scale;
-                  }
-                  else {
-                    objectsConfig.models[ind].scale = {x: 1, y: 1, z: 1};
-                    console.log("No scale defined in scale transform");
-                  }
-                },
-              },
-              {
-                key: "isRotateTransform",
-                action: () => {
-                  const rotation = transform.getRotation();
-                  if (rotation) {
-                    objectsConfig.models[ind].rotation = rotation;
-                  }
-                  else { 
-                    objectsConfig.models[ind].rotation = {x: 0, y: 0, z: 0};
-                    console.log("No rotation defined in rotate transform");
-                  }
-                },
-              },
-              {
-                key: "isTranslateTransform",
-                action: () => {
-                  const translation = transform.getTranslation();
-                  if (translation) {
-                    objectsConfig.models[ind].position = translation;
-                  }
-                  else { 
-                    objectsConfig.models[ind].position = {x: 0, y: 0, z: 0};
-                  }
-                },
-              },
-            ];
-
-            for (const { key, action } of transformHandlers) {
-              if (transform[key]) {
-                action();
-              }
-            }
-          }
+        // The body's transform list, composed in the order listed (a
+        // SpecificResource around the model); read from the JSON, since the
+        // parsed transforms lose their order and repeats.
+        const rawBody = Array.isArray(modelAnnotation.__jsonld?.body)
+          ? modelAnnotation.__jsonld.body[0]
+          : modelAnnotation.__jsonld?.body;
+        if (rawBody?.type === "SpecificResource" && Array.isArray(rawBody.transform)) {
+          Object.assign(objectsConfig.models[ind], modelTransformConfig(rawBody.transform));
         }
 
         // Position model within target scene if position selector present.
@@ -23293,40 +23393,32 @@ async function loadAIM3IFManifest(manifestUrlOrJson) {
 }
 
 
-function applyManifestConfig(manifest, objectsConfig) {
-  const transform =
-    manifest.AIM3DViewer?.modelTransform;
+// Position, rotation and scale of the model being loaded (objectsConfig.index)
+// from its painting annotation: the body's transform list, then the target's
+// PointSelector. AIM3DViewer.modelTransform, the first model's exact viewer
+// transform and rendering flags, is applied after loading
+// (Viewer.apply3IFManifestModelTransform).
+function applyManifestConfig(loadedManifest, objectsConfig) {
+  const index = objectsConfig.index || 0;
+  const model = objectsConfig.models?.[index];
+  const annotation = loadedManifest?.annotations?.[index];
+  if (!model || !annotation) return;
 
-  if (!transform) return;
+  const body = Array.isArray(annotation.body) ? annotation.body[0] : annotation.body;
+  if (body?.type === "SpecificResource" && Array.isArray(body.transform)) {
+    Object.assign(model, modelTransformConfig(body.transform));
+  }
 
-  const model = objectsConfig.models[0];
-
-  model.position = {
-    x: transform.position?.[0] ?? 0,
-    y: transform.position?.[1] ?? 0,
-    z: transform.position?.[2] ?? 0
-  };
-
-  model.rotation = {
-    x: transform.rotation?.x ?? 0,
-    y: transform.rotation?.y ?? 0,
-    z: transform.rotation?.z ?? 0
-  };
-
-  model.scale = {
-    x: transform.scale?.[0] ?? 1,
-    y: transform.scale?.[1] ?? 1,
-    z: transform.scale?.[2] ?? 1
-  };
-
-  model.wireframe =
-    transform.wireframe ?? false;
-
-  model.shadingMode =
-    transform.shadingMode ?? "standard";
-
-  model.customShader =
-    transform.customShader ?? null;
+  const target = Array.isArray(annotation.target) ? annotation.target[0] : annotation.target;
+  const point = (Array.isArray(target?.selector) ? target.selector : [target?.selector])
+    .find((selector) => selector?.type === "PointSelector");
+  if (point) {
+    model.position = {
+      x: (model.position?.x || 0) + (Number(point.x) || 0),
+      y: (model.position?.y || 0) + (Number(point.y) || 0),
+      z: (model.position?.z || 0) + (Number(point.z) || 0),
+    };
+  }
 }
 
 function getManifestWindowState(manifest) {
@@ -26405,7 +26497,7 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "8644e00" ;
+const BUILD_ID = "268d576" ;
 
 function poweredByHtml() {
   const build = ` (${BUILD_ID})` ;

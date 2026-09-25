@@ -1,5 +1,5 @@
 import { AIM3DManifest } from "./manifesto";
-import { isModelBody, modelUrlOf } from "../IIIF/presentation4.js";
+import { isModelBody, modelTransformConfig, modelUrlOf } from "../IIIF/presentation4.js";
 import {
   formatAIM3DManifestValidationErrors,
   normalizeAIM3DManifest,
@@ -63,40 +63,32 @@ export async function loadAIM3IFManifest(manifestUrlOrJson) {
 }
 
 
-export function applyManifestConfig(manifest, objectsConfig) {
-  const transform =
-    manifest.AIM3DViewer?.modelTransform;
+// Position, rotation and scale of the model being loaded (objectsConfig.index)
+// from its painting annotation: the body's transform list, then the target's
+// PointSelector. AIM3DViewer.modelTransform, the first model's exact viewer
+// transform and rendering flags, is applied after loading
+// (Viewer.apply3IFManifestModelTransform).
+export function applyManifestConfig(loadedManifest, objectsConfig) {
+  const index = objectsConfig.index || 0;
+  const model = objectsConfig.models?.[index];
+  const annotation = loadedManifest?.annotations?.[index];
+  if (!model || !annotation) return;
 
-  if (!transform) return;
+  const body = Array.isArray(annotation.body) ? annotation.body[0] : annotation.body;
+  if (body?.type === "SpecificResource" && Array.isArray(body.transform)) {
+    Object.assign(model, modelTransformConfig(body.transform));
+  }
 
-  const model = objectsConfig.models[0];
-
-  model.position = {
-    x: transform.position?.[0] ?? 0,
-    y: transform.position?.[1] ?? 0,
-    z: transform.position?.[2] ?? 0
-  };
-
-  model.rotation = {
-    x: transform.rotation?.x ?? 0,
-    y: transform.rotation?.y ?? 0,
-    z: transform.rotation?.z ?? 0
-  };
-
-  model.scale = {
-    x: transform.scale?.[0] ?? 1,
-    y: transform.scale?.[1] ?? 1,
-    z: transform.scale?.[2] ?? 1
-  };
-
-  model.wireframe =
-    transform.wireframe ?? false;
-
-  model.shadingMode =
-    transform.shadingMode ?? "standard";
-
-  model.customShader =
-    transform.customShader ?? null;
+  const target = Array.isArray(annotation.target) ? annotation.target[0] : annotation.target;
+  const point = (Array.isArray(target?.selector) ? target.selector : [target?.selector])
+    .find((selector) => selector?.type === "PointSelector");
+  if (point) {
+    model.position = {
+      x: (model.position?.x || 0) + (Number(point.x) || 0),
+      y: (model.position?.y || 0) + (Number(point.y) || 0),
+      z: (model.position?.z || 0) + (Number(point.z) || 0),
+    };
+  }
 }
 
 export function getManifestWindowState(manifest) {

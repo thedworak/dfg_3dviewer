@@ -53,7 +53,7 @@
               "body": {
                 "type": "AmbientLight",
                 "color": "#ffe8d0",
-                "intensity": { "type": "Value", "value": 0.4, "unit": "relative" }
+                "intensity": { "type": "Quantity", "quantityValue": 0.4, "unit": "relative" }
               },
               "target": { "id": "./manifests/box-iiif-p4.json/scene", "type": "Scene" }
             },
@@ -63,7 +63,7 @@
               "motivation": ["painting"],
               "body": {
                 "type": "SpecificResource",
-                "source": { "type": "DirectionalLight", "color": "#ffffff", "intensity": { "type": "Value", "value": 0.8, "unit": "relative" } },
+                "source": { "type": "DirectionalLight", "color": "#ffffff", "intensity": { "type": "Quantity", "quantityValue": 0.8, "unit": "relative" } },
                 "transform": [{ "type": "RotateTransform", "x": -30, "y": 0, "z": 20 }]
               },
               "target": { "id": "./manifests/box-iiif-p4.json/scene", "type": "Scene" }
@@ -75,7 +75,7 @@
               "body": {
                 "type": "SpotLight",
                 "color": "#6ea8ff",
-                "intensity": { "type": "Value", "value": 0.6, "unit": "relative" },
+                "intensity": { "type": "Quantity", "quantityValue": 0.6, "unit": "relative" },
                 "angle": 25,
                 "lookAt": { "type": "PointSelector", "x": 0, "y": 0, "z": 0 }
               },

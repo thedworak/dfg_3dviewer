@@ -172,6 +172,13 @@ Each light may contain:
 }
 ```
 
+`type` is `AmbientLight`, `DirectionalLight`, `HemisphereLight`, `PointLight` or `SpotLight`. The first directional light is the viewer's key light, the second its camera light, the first ambient and hemisphere lights the viewer's own; further lights are added to the scene. Optional fields:
+
+- `visible`: `false` for a light that is switched off (default `true`)
+- `groundColor`: ground colour of a `HemisphereLight`
+- `distance`, `decay`: range and falloff of a `PointLight` or `SpotLight`
+- `angle`, `penumbra`: cone half-angle (radians) and edge softness (0-1) of a `SpotLight`
+
 ## `AIM3DViewer.modelTransform`
 
 Stores model transform and rendering flags.
