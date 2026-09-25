@@ -1,4 +1,5 @@
 import { core } from "../core.js";
+import { syncNoticeAboveToolbar } from "../editor-toolbar.js";
 import { t } from "../i18n-utils.js";
 
 export function attachLoadingStatus(viewer) {
@@ -456,6 +457,7 @@ export function attachLoadingStatus(viewer) {
       this.statusNoticeActive = true;
       this.statusNoticeCurrent = notice;
       this.updateEditorToolbarState?.();
+      syncNoticeAboveToolbar();
       this.statusNotice.hidden = false;
       this.renderStatusNoticeContent(notice);
       this.statusNotice.dataset.tone = notice.tone || "info";

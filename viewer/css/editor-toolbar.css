@@ -1548,4 +1548,43 @@
       transform 0.2s ease,
       visibility 0s linear 0s;
   }
+
+  /* A tool's submenu opens above the whole card, centred on it - above its
+     own button it would cover the row above. The tool is static (and never
+     transformed, which would make it the anchor again) so the card is the
+     submenu's containing block. */
+  #viewerEditorToolbar .viewer-editor-toolbar_secondary-tray > .viewer-editor-tool.has-submenu,
+  #viewerEditorToolbar .viewer-editor-toolbar_secondary-tray > .viewer-editor-tool.has-submenu:hover {
+    position: static;
+    transform: none;
+  }
+
+  #viewerEditorToolbar .viewer-editor-toolbar_secondary-tray > .has-submenu > .viewer-editor-tool_submenu {
+    left: 50%;
+    bottom: calc(100% + 8px);
+    max-width: calc(100vw - 24px);
+    flex-wrap: wrap;
+    justify-content: center;
+    box-sizing: border-box;
+    border: 1px solid var(--viewer-panel-border);
+    backdrop-filter: blur(14px);
+  }
+}
+
+/* Touch: submenus in the secondary tray open on tap (.submenu-open, toggled
+   in editor-toolbar.js), not on the hover/focus a tap leaves behind. */
+@media (hover: none) {
+  #viewerEditorToolbar .viewer-editor-toolbar_secondary-tray .has-submenu:hover > .viewer-editor-tool_submenu,
+  #viewerEditorToolbar .viewer-editor-toolbar_secondary-tray .has-submenu:focus-within > .viewer-editor-tool_submenu,
+  #viewerEditorToolbar .viewer-editor-toolbar_secondary-tray .has-submenu > .viewer-editor-tool_submenu:hover {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  #viewerEditorToolbar .viewer-editor-toolbar_secondary-tray .has-submenu.submenu-open > .viewer-editor-tool_submenu {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
 }
