@@ -1483,13 +1483,6 @@
     font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande", "Segoe UI", Roboto, Arial, sans-serif;
   }
 
-  #viewerEditorToolbar {
-    overflow-x: auto;
-  }
-
-  #viewerEditorToolbar.expanded {
-    overflow-x: auto;
-  }
 
   .viewer-action-menu_toggle {
     width: 52px;
@@ -1509,4 +1502,50 @@
 .download-icon {
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.75'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M12 3v10m0 0 4-4m-4 4-4-4M5 17v1a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.75'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M12 3v10m0 0 4-4m-4 4-4-4M5 17v1a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1'/%3E%3C/svg%3E");
+}
+
+/* Phones: expanding must not widen the toolbar - there is no room beside it,
+   and the centring shift (--viewer-toolbar-expand-shift, set by
+   editor-toolbar.js) pushed it off the left edge. The toolbar keeps its size
+   and place; the secondary tools open as a card above it, wrapped in rows. */
+@media (max-width: 640px), (max-height: 520px) and (pointer: coarse) {
+  #viewerEditorToolbar,
+  .viewer-embed-page #viewerEditorToolbar {
+    --viewer-toolbar-expand-shift: 0px !important;
+    overflow: visible;
+  }
+
+  #viewerEditorToolbar .viewer-editor-toolbar_secondary-tray {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: calc(100% + 8px);
+    max-width: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+    margin: 0;
+    padding: 8px;
+    border-radius: 18px;
+    border: 1px solid var(--viewer-panel-border);
+    background: color-mix(in srgb, var(--viewer-panel-bg) 92%, transparent);
+    box-shadow: var(--viewer-panel-shadow);
+    backdrop-filter: blur(14px);
+    box-sizing: border-box;
+    transform: translateY(8px);
+    transition:
+      opacity 0.2s ease,
+      transform 0.2s ease,
+      visibility 0s linear 0.2s;
+  }
+
+  #viewerEditorToolbar.expanded .viewer-editor-toolbar_secondary-tray {
+    max-width: none;
+    margin: 0;
+    transform: none;
+    transition:
+      opacity 0.2s ease,
+      transform 0.2s ease,
+      visibility 0s linear 0s;
+  }
 }
