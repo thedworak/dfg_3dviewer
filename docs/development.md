@@ -101,10 +101,12 @@ Building the APK needs Android Studio (or the Android SDK plus JDK 21). iOS need
 
 The app runs online and offline:
 
-- **Offline** — bundled examples, and any model or `.zip` (model plus textures) opened from the device with the file button in the header (the same path as drag-and-drop in the browser).
-- **Online** — `mobile.remoteUrl` in `dist/mobile/viewer-settings.json` names the repository (a standalone worker deployment, see [docker.md](docker.md)). The worker API calls go there (`viewer/remote.js`, `apiUrl()`), and the model browser loads converted models from it. The worker already answers with `Access-Control-Allow-Origin: *`, so nothing changes on the server. Empty `remoteUrl` = offline only: upload and the model browser are hidden.
+- **Offline** — the header's device button opens *Models on this device*: models kept on the device, and *Browse files…*, which opens a model or `.zip` (model plus textures) from the device and keeps a copy there. Drag-and-drop in the browser takes the same path.
+- **Online** — the model browser connects to a repository (a standalone worker deployment, see [docker.md](docker.md)): its address is entered at the top of the panel and kept on the device; `mobile.remoteUrl` in `dist/mobile/viewer-settings.json` is only the default. The worker API calls go there (`viewer/remote.js`, `apiUrl()`), and the worker already answers with `Access-Control-Allow-Origin: *`, so nothing changes on the server. Each single-file model there can be kept on the device (the download button next to it), with its thumbnail; 3D Tiles tilesets cannot. Without a repository, upload is hidden.
 
-`viewer/connectivity.js` keeps `core.isOnline` current and sets `body.viewer-offline`, which hides the controls that need a server while there is no network.
+The kept models live in IndexedDB (`viewer/offline-library.js`), as files, so the same library works in the browser too. `viewer/connectivity.js` keeps `core.isOnline` current and sets `body.viewer-offline`, which hides the controls that need a server while there is no network.
+
+The repository must be reachable over `https://`: the app itself runs on `https://localhost`, and Android blocks plain `http://` requests from it.
 
 Sign-in and user management are hidden in the app: the worker's session cookie is `SameSite=Lax` and never reaches the app, which runs on another origin. Uploads therefore only work against a worker with accounts off.
 

@@ -2205,14 +2205,15 @@ body.presentation-mode {
 }
 
 /* No network (viewer/connectivity.js) or no repository configured in the app
-   (viewer/remote.js): hide controls that need the server. Sign-in needs a
-   same-site session cookie, which the app (another origin) never gets. */
+   (viewer/remote.js): hide controls that need the server. The model browser
+   stays in the app without a repository - its address is entered there.
+   Sign-in needs a same-site session cookie, which the app (another origin)
+   never gets. */
 body.viewer-offline #uploadModel,
 body.viewer-offline #browseModelsButton,
 body.viewer-offline #loginButton,
 body.viewer-offline #manageUsersButton,
 body.viewer-no-remote #uploadModel,
-body.viewer-no-remote #browseModelsButton,
 body.viewer-app #loginButton,
 body.viewer-app #manageUsersButton {
   display: none !important;

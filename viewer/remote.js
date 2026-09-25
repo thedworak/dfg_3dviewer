@@ -9,8 +9,47 @@ export function isAppBuild() {
   return Boolean(core.CONFIG?.mobile);
 }
 
+const REMOTE_URL_KEY = 'dfg3dviewer-remote-url';
+
+// Set in the app (models panel); wins over mobile.remoteUrl from the build.
+function storedRemoteUrl() {
+  try {
+    return localStorage.getItem(REMOTE_URL_KEY);
+  } catch {
+    return null;
+  }
+}
+
 export function remoteBase() {
-  return String(core.CONFIG?.mobile?.remoteUrl || '').trim().replace(/\/+$/, '');
+  if (!isAppBuild()) return '';
+  const stored = storedRemoteUrl();
+  const url = stored !== null ? stored : core.CONFIG.mobile.remoteUrl;
+  return String(url || '').trim().replace(/\/+$/, '');
+}
+
+// "repo.example.org" -> "https://repo.example.org"; "" clears it (offline
+// only). Returns the normalized value, or null when it is not a usable URL.
+export function setRemoteUrl(input) {
+  let value = String(input || '').trim();
+  if (/\s/.test(value)) return null;
+  if (value && !/^[a-z][\w+.-]*:\/\//i.test(value)) value = `https://${value}`;
+  if (value) {
+    try {
+      const url = new URL(value);
+      if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
+      value = url.origin + url.pathname.replace(/\/+$/, '');
+    } catch {
+      return null;
+    }
+  }
+  try {
+    localStorage.setItem(REMOTE_URL_KEY, value);
+  } catch {
+    // Storage blocked: the setting lasts for this session only.
+    core.CONFIG.mobile.remoteUrl = value;
+  }
+  initRemote();
+  return value;
 }
 
 export function hasRemote() {

@@ -1,5 +1,6 @@
 import { core } from "../core.js";
-import { apiUrl, remoteAssetUrl } from "../remote.js";
+import { apiUrl, remoteAssetUrl, isAppBuild, hasRemote, remoteBase, setRemoteUrl } from "../remote.js";
+import { listLibrary, saveToLibrary, repositoryEntryId } from "../offline-library.js";
 import { toastHelper } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import { makePanelWindow } from "./panel-window.js";
@@ -48,12 +49,39 @@ export function attachModelsPanel(Viewer) {
           <span>${panelText.title}</span>
           <button id="modelsPanelClose" type="button" aria-label="${panelText.closeAria}">X</button>
         </div>
+        ${isAppBuild() ? `
+        <form id="modelsPanelRepository" class="models-panel-repository">
+          <label for="modelsPanelRepositoryUrl">${t("modelsPanel.repositoryLabel", "Repository address")}</label>
+          <div class="models-panel-repository-row">
+            <input id="modelsPanelRepositoryUrl" type="text" inputmode="url" autocapitalize="off" spellcheck="false" autocomplete="url" placeholder="https://repository.example.org" />
+            <button type="submit">${t("modelsPanel.repositorySave", "Connect")}</button>
+          </div>
+        </form>` : ""}
         <ul id="modelsPanelList" class="models-panel-list"></ul>
       `;
 
       core.container.appendChild(panel);
       this.modelsPanel = panel;
       this.modelsList = panel.querySelector("#modelsPanelList");
+
+      // The app build reaches the repository over the network (remote.js):
+      // its address is set here and kept on the device. Empty = offline only.
+      const repositoryForm = panel.querySelector("#modelsPanelRepository");
+      if (repositoryForm) {
+        const urlInput = repositoryForm.querySelector("input");
+        urlInput.value = remoteBase();
+        this.bindEventListener(repositoryForm, "submit", (event) => {
+          event.preventDefault();
+          const value = setRemoteUrl(urlInput.value);
+          if (value === null) {
+            toastHelper("repositoryUrlInvalid", "error");
+            return;
+          }
+          urlInput.value = value;
+          this.refreshAuthState?.();
+          this.loadModelsList();
+        });
+      }
 
       const closeButton = panel.querySelector("#modelsPanelClose");
       this.bindEventListener(closeButton, "click", () => this.closeModelsPanel());
@@ -66,6 +94,14 @@ export function attachModelsPanel(Viewer) {
       if (!this.modelsList || this.modelsPanel?.hidden) return;
       const list = this.modelsList;
       list.textContent = "";
+
+      if (!hasRemote()) {
+        const emptyItem = document.createElement("li");
+        emptyItem.className = "models-panel-empty";
+        emptyItem.textContent = t("modelsPanel.noRepository", "Enter the repository address to browse its models.");
+        list.appendChild(emptyItem);
+        return;
+      }
 
       let jobs = [];
       try {
@@ -90,10 +126,63 @@ export function attachModelsPanel(Viewer) {
         return;
       }
 
-      jobs.forEach((job) => list.appendChild(this.renderModelRow(job)));
+      let savedIds = new Set();
+      try {
+        savedIds = new Set((await listLibrary()).map((entry) => entry.id));
+      } catch (_error) {
+        // No IndexedDB (e.g. blocked storage): rows just offer saving.
+      }
+      jobs.forEach((job) => list.appendChild(this.renderModelRow(job, savedIds.has(repositoryEntryId(job.id)))));
     },
 
-    renderModelRow(job) {
+    // App build only (the browser has the repository at hand). Single-file
+    // models only: a 3D Tiles tileset is many files fetched as the camera
+    // moves, so it cannot be kept as one entry.
+    canSaveOffline(job) {
+      if (!isAppBuild()) return false;
+      const path = String(job?.modelUrl || "").split(/[?#]/)[0];
+      const extension = path.split(".").pop().toLowerCase();
+      return path !== "" && extension !== "json" && extension !== "gltf" &&
+        (core.SUPPORTED_EXTENSIONS.includes(extension) || this.SUPPORTED_ARCHIVES?.includes(extension));
+    },
+
+    async saveModelOffline(job, button) {
+      button.disabled = true;
+      button.dataset.state = "saving";
+      try {
+        const response = await fetch(remoteAssetUrl(job.modelUrl));
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const file = await response.blob();
+        let thumbnail = null;
+        if (job.imageUrls?.[0]) {
+          thumbnail = await fetch(remoteAssetUrl(job.imageUrls[0]))
+            .then((r) => (r.ok ? r.blob() : null))
+            .catch(() => null);
+        }
+        const fileName = decodeURIComponent(String(job.modelUrl).split(/[?#]/)[0].split("/").pop());
+        await saveToLibrary({
+          id: repositoryEntryId(job.id),
+          name: job.name || fileName,
+          fileName,
+          source: "repository",
+          remoteId: job.id,
+          file,
+          thumbnail,
+        });
+        button.dataset.state = "saved";
+        const savedAria = t("modelsPanel.savedOffline", { name: job.name || fileName }, "{name} is on this device");
+        button.setAttribute("aria-label", savedAria);
+        button.title = savedAria;
+        toastHelper("librarySaved", "success");
+      } catch (error) {
+        button.disabled = false;
+        button.dataset.state = "";
+        this.reportError(error, { context: "Failed to save the model on this device" });
+        toastHelper("librarySaveError", "error");
+      }
+    },
+
+    renderModelRow(job, savedOffline = false) {
       const name = job.name || job.id;
       const item = document.createElement("li");
       item.className = "models-panel-row";
@@ -136,6 +225,24 @@ export function attachModelsPanel(Viewer) {
 
       this.bindEventListener(button, "click", () => this.loadModelFromList(job));
       item.appendChild(button);
+
+      if (this.canSaveOffline(job)) {
+        const saveButton = document.createElement("button");
+        saveButton.type = "button";
+        saveButton.className = "models-panel-save";
+        const saveAria = savedOffline
+          ? t("modelsPanel.savedOffline", { name }, "{name} is on this device")
+          : t("modelsPanel.saveOffline", { name }, "Keep {name} on this device");
+        saveButton.setAttribute("aria-label", saveAria);
+        saveButton.title = saveAria;
+        saveButton.dataset.state = savedOffline ? "saved" : "";
+        saveButton.disabled = savedOffline;
+        this.bindEventListener(saveButton, "click", (event) => {
+          event.stopPropagation();
+          this.saveModelOffline(job, saveButton);
+        });
+        item.appendChild(saveButton);
+      }
 
       // canDelete is computed by the worker (own uploads, or admin, or
       // accounts off); older workers omit it and allow deleting as before.

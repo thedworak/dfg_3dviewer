@@ -44,6 +44,7 @@ import { initClippingPlanes, updateActiveClippingPlanes, reportViewerError, show
 import { attachEmbedConfigurator } from "./ui/embed-configurator.js";
 import { attachUploadPanel } from "./ui/upload-panel.js";
 import { attachModelsPanel } from "./ui/models-panel.js";
+import { attachLibraryPanel } from "./ui/library-panel.js";
 import { attachAdminPanel } from "./ui/admin-panel.js";
 import { attachLoginPanel } from "./ui/login-panel.js";
 import { buildThumbnailGallery } from "./ui/thumbnail-gallery.js";
@@ -2342,7 +2343,8 @@ export const Viewer = {
   },
 
   // A model (or .zip with a model and its textures) from the user's device -
-  // dropped on the viewer, or picked with #openLocalFileButton.
+  // dropped on the viewer, or picked in the library panel. Resolves to
+  // whether it loaded.
   async openLocalFile(file) {
     const extension = file.name
       .split('.')
@@ -2350,29 +2352,21 @@ export const Viewer = {
       .toLowerCase();
 
     if (core.SUPPORTED_EXTENSIONS.includes(extension)) {
-      await loadDroppedModel(file);
-      return;
+      try {
+        await loadDroppedModel(file);
+        return true;
+      } catch (_error) {
+        // Already reported to the user by the loader.
+        return false;
+      }
     }
 
     if (Viewer.SUPPORTED_ARCHIVES.includes(extension)) {
-      await loadDroppedArchive(file);
-      return;
+      return loadDroppedArchive(file);
     }
 
     toastHelper("unsupportedFormat", "error");
-  },
-
-  // No accept filter: Android has no MIME types for most 3D formats (.glb,
-  // .ifc, ...) and would grey those files out; openLocalFile() checks the
-  // extension instead.
-  pickLocalFile() {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.addEventListener("change", () => {
-      const file = input.files?.[0];
-      if (file) Viewer.openLocalFile(file);
-    }, { once: true });
-    input.click();
+    return false;
   },
 
   async changeScale() {
@@ -3822,10 +3816,10 @@ export const Viewer = {
         }
         if (openLocalFileButton) {
           openLocalFileButton.innerHTML = '<span class="open-local-file-icon" aria-hidden="true"></span>';
-          const openLocalFileLabel = t("menu.openLocalFile", "Open a model from this device");
+          const openLocalFileLabel = t("menu.openLocalFile", "Models on this device");
           openLocalFileButton.setAttribute("aria-label", openLocalFileLabel);
           openLocalFileButton.setAttribute("title", openLocalFileLabel);
-          Viewer.bindEventListener(openLocalFileButton, "click", Viewer.pickLocalFile.bind(Viewer));
+          Viewer.bindEventListener(openLocalFileButton, "click", Viewer.openLibraryPanel.bind(Viewer));
         }
         // updateAdminMenuEntryState() above only ran against Viewer.authState
         // as it stood before any auth check - undefined on a fresh load - so
@@ -4044,6 +4038,7 @@ attachEmbedConfigurator(Viewer);
 attachLoginPanel(Viewer);
 attachUploadPanel(Viewer);
 attachModelsPanel(Viewer);
+attachLibraryPanel(Viewer);
 attachAdminPanel(Viewer);
 attachWindowControls(Viewer);
 
