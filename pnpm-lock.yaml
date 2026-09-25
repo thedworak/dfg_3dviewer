@@ -99,6 +99,9 @@ importers:
       parcel:
         specifier: ^2.16.4
         version: 2.16.4(@swc/helpers@0.5.23)
+      path-browserify:
+        specifier: ^1.0.1
+        version: 1.0.1
       postcss:
         specifier: ^8.5.28
         version: 8.5.28
@@ -1895,6 +1898,9 @@ packages:
     resolution: {integrity: sha512-RQlrqs4ujYNJpTQi+dITqPKNhRWEqpjPd1YBcGp50Wy3FcJHpwu0/iRm7XWz2dKU/Bwp2qCcVYPIeEDYi2uOUw==}
     engines: {node: '>= 16.0.0'}
     hasBin: true
+
+  path-browserify@1.0.1:
+    resolution: {integrity: sha512-b7uo2UCUOYZcnF/3ID0lulOJi/bafxa1xPe7ZPsammBSpjSWQkjNxlt635YGS2MiR9GjvuXCtz2emr3jbsz98g==}
 
   path-is-inside@1.0.2:
     resolution: {integrity: sha512-DUWJr3+ULp4zXmol/SZkFf3JGsS9/SIv+Y3Rt93/UjPpDpklB5f1er4O3POIbUuUJ3FXgqte2Q7SrU6zAqwk8w==}
@@ -4151,6 +4157,8 @@ snapshots:
     transitivePeerDependencies:
       - '@swc/helpers'
       - napi-wasm
+
+  path-browserify@1.0.1: {}
 
   path-is-inside@1.0.2: {}
 
