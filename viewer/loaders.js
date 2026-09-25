@@ -312,6 +312,13 @@ function sanitizeModuleAssetBasePath(input) {
 
 function prepareOutlineClipping(_object) {
   core.outlineClipping = _object.clone(true);
+  // Only the geometry: a model's own lights and cameras (glTF) would light
+  // the scene twice once the section outline is shown.
+  const extras = [];
+  core.outlineClipping.traverse((child) => {
+    if (child.isLight || child.isCamera) extras.push(child);
+  });
+  extras.forEach((child) => child.removeFromParent());
   var gutsMaterial = new THREE.MeshBasicMaterial({
     color: "crimson",
     side: THREE.BackSide,

@@ -1163,6 +1163,260 @@ test('IIIF comments: languages, HTML bodies, and one scene of a manifest at a ti
   await expect(page.locator('#manifesto-scene-select')).toHaveValue('1');
 });
 
+test('IIIF scenes: activating, camera choices, canvases, regions, nesting and descriptive properties', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+  await page.evaluate(() => window.Viewer.setupManifestSource('iiif', { loadInitialManifest: false }));
+
+  const base = './examples/features';
+  const main = `${base}/scene`;
+  const nested = `${base}/nested`;
+  const canvasId = `${base}/canvas`;
+  const at = (x, y, z) => ({ type: 'SpecificResource', source: { id: main, type: 'Scene' }, selector: [{ type: 'PointSelector', x, y, z }] });
+  const painting = (id, body, target, extra = {}) => ({ id: `${base}/${id}`, type: 'Annotation', motivation: ['painting'], body, target, ...extra });
+  const origin = { type: 'PointSelector', x: 0, y: 0, z: 0 };
+  const region = [[-0.5, 1, -0.5], [0.5, 1, -0.5], [0.5, 1, 0.5], [-0.5, 1, 0.5]];
+  const manifest = {
+    '@context': 'http://iiif.io/api/presentation/4/context.json',
+    id: `${base}/manifest.json`,
+    type: 'Manifest',
+    label: { en: ['Features'] },
+    summary: { en: ['A scene with everything'] },
+    metadata: [{ label: { en: ['Creator'] }, value: { none: ['Test'] } }],
+    rights: 'http://creativecommons.org/licenses/by/4.0/',
+    requiredStatement: { label: { en: ['Attribution'] }, value: { en: ['Test suite'] } },
+    items: [
+      {
+        id: main,
+        type: 'Scene',
+        label: { en: ['Main'] },
+        items: [{
+          id: `${main}/page`,
+          type: 'AnnotationPage',
+          items: [
+            painting('model', { id: './examples/box.glb', type: 'Model' }, { id: main, type: 'Scene' }),
+            // Hidden: only the comment's view, through an activating annotation.
+            painting('cameras/hidden', { type: 'PerspectiveCamera', lookAt: origin }, at(0, 0, 9), { behavior: ['hidden'] }),
+            painting('cameras/choice', {
+              type: 'Choice',
+              items: [
+                { id: `${base}/cameras/wide`, type: 'PerspectiveCamera', label: { en: ['Wide'] }, fieldOfView: 30, lookAt: origin },
+                { id: `${base}/cameras/plan`, type: 'OrthographicCamera', label: { en: ['Plan'] }, lookAt: origin },
+              ],
+            }, at(4, 3, 6)),
+            painting('canvas', {
+              type: 'SpecificResource',
+              source: { id: canvasId, type: 'Canvas' },
+              transform: [{ type: 'ScaleTransform', x: 2, y: 1, z: 1 }],
+            }, at(-1, 2, -1)),
+            painting('nested', {
+              type: 'SpecificResource',
+              source: { id: nested, type: 'Scene' },
+              transform: [{ type: 'TranslateTransform', x: 3, y: 0, z: 0 }],
+            }, { id: main, type: 'Scene' }),
+          ],
+        }],
+        annotations: [{
+          id: `${main}/comments`,
+          type: 'AnnotationPage',
+          items: [
+            { id: `${base}/comments/top`, type: 'Annotation', motivation: ['commenting'], body: { type: 'TextualBody', value: 'Top' }, target: at(0, 1, 0) },
+            {
+              id: `${base}/comments/region`,
+              type: 'Annotation',
+              motivation: ['commenting'],
+              body: { type: 'TextualBody', value: 'Region' },
+              target: {
+                type: 'SpecificResource',
+                source: { id: main, type: 'Scene' },
+                selector: [{ type: 'WktSelector', value: `POLYGON Z ((${region.concat([region[0]]).map((point) => point.join(' ')).join(', ')}))` }],
+              },
+            },
+            {
+              id: `${base}/activating/top`,
+              type: 'Annotation',
+              motivation: ['activating'],
+              target: { id: `${base}/comments/top`, type: 'Annotation' },
+              body: { type: 'SpecificResource', source: { id: `${base}/cameras/hidden`, type: 'Annotation' }, action: ['show', 'enable', 'select'] },
+            },
+          ],
+        }],
+      },
+      {
+        id: nested,
+        type: 'Scene',
+        label: { en: ['Nested'] },
+        items: [{
+          id: `${nested}/page`,
+          type: 'AnnotationPage',
+          items: [{ id: `${nested}/model`, type: 'Annotation', motivation: ['painting'], body: { id: './examples/box.stl', type: 'Model' }, target: { id: nested, type: 'Scene' } }],
+        }],
+      },
+      {
+        id: canvasId,
+        type: 'Canvas',
+        width: 4,
+        height: 2,
+        backgroundColor: '#ff0000',
+        items: [{
+          id: `${canvasId}/page`,
+          type: 'AnnotationPage',
+          items: [{
+            id: `${canvasId}/image`,
+            type: 'Annotation',
+            motivation: ['painting'],
+            body: { id: '/assets/img/icon.png', type: 'Image', format: 'image/png' },
+            target: `${canvasId}#xywh=0,0,2,2`,
+          }],
+        }],
+      },
+    ],
+  };
+
+  const state = () => page.evaluate(() => {
+    const r3 = (values) => values.map((value) => Math.round(value * 1000) / 1000 + 0);
+    const viewer = window.Viewer;
+    const roots = [0, 1, 2].map((slot) => viewer.resolveObjectByTargetId(`m${slot}:root`)).filter(Boolean);
+    const panels = [];
+    viewer.scene.traverse((object) => {
+      if (object.parent?.name?.startsWith('iiif-canvas:')) {
+        object.updateWorldMatrix(true, false);
+        panels.push({ center: r3(object.getWorldPosition(object.position.clone()).toArray()), color: object.material.map ? 'image' : `#${object.material.color.getHexString()}` });
+      }
+    });
+    return {
+      roots: roots.map((root) => r3(root.position.toArray())),
+      camera: { position: r3(window.viewer.camera.position.toArray()), type: window.viewer.camera.type, fov: window.viewer.camera.fov },
+      comments: viewer.annotationEntries.map((entry) => ({ text: entry.description, view: entry.view ? r3(entry.view.position) : null, point: r3(entry.point), polygon: entry.polygon?.length || 0 })),
+      panels,
+      regions: viewer.annotationPOIGroup?.children.filter((child) => child.name === 'annotation-region').length || 0,
+    };
+  });
+
+  await page.evaluate((json) => window.Viewer.setupManifesto(JSON.stringify(json), 'text'), manifest);
+  // The nested scene is part of the main one, not a scene of its own.
+  await expect(page.locator('#manifesto-scene-select')).toHaveCount(0);
+  await expect(page.locator('#manifesto-camera-select option')).toHaveText(['Wide', 'Plan']);
+  await expect.poll(async () => (await state()).panels.map((panel) => panel.color).sort()).toEqual(['#ff0000', 'image']);
+  const shown = await state();
+  expect(shown.roots).toEqual([[0, 0, 0], [3, 0, 0]]);
+  // The Choice's first camera, not the hidden one.
+  expect(shown.camera).toEqual({ position: [4, 3, 6], type: 'PerspectiveCamera', fov: 30 });
+  expect(shown.comments).toEqual([
+    { text: 'Top', view: [0, 0, 9], point: [0, 1, 0], polygon: 0 },
+    { text: 'Region', view: null, point: [0, 1, 0], polygon: 4 },
+  ]);
+  expect(shown.regions).toBe(1);
+  // Top-left corner at the target point, 4 x 2 Canvas units scaled by 2 in x;
+  // the image on the left half, just in front of the background.
+  expect(shown.panels).toEqual(expect.arrayContaining([
+    { center: [3, 1, -1], color: '#ff0000' },
+    { center: [1, 1, -0.999], color: 'image' },
+  ]));
+
+  await page.locator('#manifesto-camera-select').selectOption('1');
+  expect((await state()).camera.type).toBe('OrthographicCamera');
+
+  const exported = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(exported).toMatchObject({
+    label: manifest.label,
+    summary: manifest.summary,
+    metadata: manifest.metadata,
+    rights: manifest.rights,
+    requiredStatement: manifest.requiredStatement,
+  });
+  expect(exported.items[0].label).toEqual({ en: ['Main'] });
+  expect(exported.items.map((item) => item.type)).toEqual(['Scene', 'Canvas']);
+  const canvasAnnotation = exported.items[0].items[0].items.find((annotation) => annotation.body.source?.type === 'Canvas');
+  expect(canvasAnnotation.body.transform).toEqual([{ type: 'ScaleTransform', x: 2, y: 1, z: 1 }]);
+  expect(canvasAnnotation.target.selector).toEqual([{ type: 'PointSelector', x: -1, y: 2, z: -1 }]);
+  const regionComment = exported.items[0].annotations[0].items.find((annotation) => annotation.body.value === 'Region');
+  expect(regionComment.target.selector[0].type).toBe('WktSelector');
+  expect(regionComment.target.selector[0].value).toMatch(/^POLYGON Z \(\(-0\.5 1 -0\.5, 0\.5 1 -0\.5, 0\.5 1 0\.5, -0\.5 1 0\.5, -0\.5 1 -0\.5\)\)$/);
+
+  // Our own export shows the same again.
+  await page.evaluate((json) => window.Viewer.setupManifesto(JSON.stringify(json), 'text'), exported);
+  await expect.poll(async () => (await state()).panels.length).toBe(2);
+  const again = await state();
+  expect(again.roots).toEqual(shown.roots);
+  expect(again.comments.map((comment) => comment.polygon)).toEqual([0, 4]);
+
+  // A model on its own keeps none of the manifest's descriptive properties.
+  await openViewer(page, '/examples/box.glb');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+  const plain = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(plain).not.toHaveProperty('summary');
+  expect(plain.items).toHaveLength(1);
+});
+
+test('IIIF models bring their own camera and lights unless the annotation excludes them', async ({ page }) => {
+  // A glTF with a triangle, a camera at (0, 1, 7) and a red point light.
+  const positions = Buffer.from(new Float32Array([-1, 0, 0, 1, 0, 0, 0, 2, 0]).buffer);
+  const gltf = {
+    asset: { version: '2.0' },
+    extensionsUsed: ['KHR_lights_punctual'],
+    extensions: { KHR_lights_punctual: { lights: [{ type: 'point', color: [1, 0, 0], intensity: 5 }] } },
+    scene: 0,
+    scenes: [{ nodes: [0, 1, 2] }],
+    nodes: [
+      { mesh: 0 },
+      { camera: 0, translation: [0, 1, 7] },
+      { translation: [0, 3, 0], extensions: { KHR_lights_punctual: { light: 0 } } },
+    ],
+    cameras: [{ type: 'perspective', perspective: { yfov: 0.6, znear: 0.1, zfar: 100 } }],
+    meshes: [{ primitives: [{ attributes: { POSITION: 0 } }] }],
+    accessors: [{ bufferView: 0, componentType: 5126, count: 3, type: 'VEC3', min: [-1, 0, 0], max: [1, 2, 0] }],
+    bufferViews: [{ buffer: 0, byteLength: positions.length }],
+    buffers: [{ byteLength: positions.length, uri: `data:application/octet-stream;base64,${positions.toString('base64')}` }],
+  };
+  await page.route('**/examples/virtual/lit.gltf', (route) => route.fulfill({ contentType: 'model/gltf+json', body: JSON.stringify(gltf) }));
+  await openViewer(page);
+  await waitForModel(page);
+
+  const manifestWith = (extra) => JSON.stringify({
+    '@context': 'http://iiif.io/api/presentation/4/context.json',
+    id: './examples/virtual/manifest.json',
+    type: 'Manifest',
+    items: [{
+      id: './examples/virtual/scene',
+      type: 'Scene',
+      items: [{
+        id: './examples/virtual/page',
+        type: 'AnnotationPage',
+        items: [{
+          id: './examples/virtual/model',
+          type: 'Annotation',
+          motivation: ['painting'],
+          body: { id: '/examples/virtual/lit.gltf', type: 'Model', format: 'model/gltf+json' },
+          target: { id: './examples/virtual/scene', type: 'Scene' },
+          ...extra,
+        }],
+      }],
+    }],
+  });
+  const state = () => page.evaluate(() => {
+    const lights = [];
+    window.Viewer.scene.traverse((object) => {
+      if (object.isLight && object.visible) lights.push(object.isPointLight ? `PointLight:#${object.color.getHexString()}` : object.type);
+    });
+    return {
+      camera: window.viewer.camera.position.toArray().map((value) => Math.round(value * 1000) / 1000 + 0),
+      lights: lights.sort(),
+    };
+  });
+
+  // Used: the model's camera is the view; its light replaces the viewer's.
+  await page.evaluate((json) => window.Viewer.setupManifesto(json, 'text'), manifestWith({}));
+  expect(await state()).toEqual({ camera: [0, 1, 7], lights: ['PointLight:#ff0000'] });
+
+  // Excluded: the viewer's own camera and lights.
+  await page.evaluate((json) => window.Viewer.setupManifesto(json, 'text'), manifestWith({ exclude: ['Cameras', 'Lights'] }));
+  const excluded = await state();
+  expect(excluded.camera).not.toEqual([0, 1, 7]);
+  expect(excluded.lights).not.toContain('PointLight:#ff0000');
+  expect(excluded.lights).toEqual(expect.arrayContaining(['HemisphereLight', 'AmbientLight', 'DirectionalLight']));
+});
+
 test('upload panel shows limit usage and limit errors from the worker', async ({ page }) => {
   await page.route('**/api/auth/config', (route) =>
     route.fulfill({ json: { mode: 'off', registration: 'closed', maxUploadBytes: 104857600 } })

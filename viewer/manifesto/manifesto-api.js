@@ -1,5 +1,5 @@
 import { AIM3DManifest } from "./manifesto";
-import { isModelBody, modelTransformConfig, modelUrlOf } from "../IIIF/presentation4.js";
+import { matrixTransformConfig, scenePlacements } from "../IIIF/presentation4.js";
 import {
   formatAIM3DManifestValidationErrors,
   normalizeAIM3DManifest,
@@ -7,7 +7,7 @@ import {
 } from "./aim3dviewer-validation.js";
 
 // The models of one Scene of the manifest (`sceneIndex`, else the first).
-export async function loadAIM3IFManifest(manifestUrlOrJson, { sceneIndex = 0 } = {}) {
+export async function loadAIM3IFManifest(manifestUrlOrJson, { sceneIndex } = {}) {
   const aim3dManifest = new AIM3DManifest(manifestUrlOrJson);
 
   await aim3dManifest.loadManifest();
@@ -20,10 +20,6 @@ export async function loadAIM3IFManifest(manifestUrlOrJson, { sceneIndex = 0 } =
     throw new Error(`Invalid AIM3D manifest.\n${detail}`);
   }
 
-  const modelUrls = [];
-  let modelTarget = null;
-  const filteredAnnos = [];
-
   for (const scene of aim3dManifest.scenes) {
     // Leave background unset (rather than defaulting to black) when the
     // manifest doesn't specify one, so the viewer's own default background
@@ -31,61 +27,34 @@ export async function loadAIM3IFManifest(manifestUrlOrJson, { sceneIndex = 0 } =
     scene.background = scene.backgroundColor || null;
   }
 
-  const shownScene = aim3dManifest.scenes[sceneIndex] || aim3dManifest.scenes[0];
-  if (shownScene) {
-    const annos = aim3dManifest.annotationsFromScene(shownScene);
-    // A Model body, or (Presentation 4 export with transforms) a
-    // SpecificResource around one - never the scene's cameras or lights.
-    for (const anno of annos) {
-      if (!anno.motivation?.includes("painting") || !isModelBody(anno.body)) continue;
-      const modelUrl = modelUrlOf(anno.body);
-      // annotations and modelUrls stay index-aligned.
-      if (!modelUrl) continue;
-      filteredAnnos.push(anno);
-      modelUrls.push(modelUrl);
-      modelTarget = anno.target;
-    }
-  }
-
+  // A Model body, or (Presentation 4 export with transforms) a
+  // SpecificResource around one - never the scene's cameras, lights or
+  // Canvases - with its whole transform (IIIF/presentation4.js).
+  const placements = scenePlacements(aim3dManifest.manifest, sceneIndex);
+  const modelUrls = placements.models.map((placement) => placement.url);
   aim3dManifest.modelUrls = modelUrls;
-  aim3dManifest.modelTarget = modelTarget;
 
   return {
     manifest: aim3dManifest.manifest,
     scenes: aim3dManifest.scenes,
-    annotations: filteredAnnos,
+    // annotations, modelUrls and placements.models are index-aligned.
+    annotations: placements.models.map((placement) => placement.annotation),
     modelUrls,
-    modelTarget
+    placements,
   };
 }
 
 
 // Position, rotation and scale of the model being loaded (objectsConfig.index)
-// from its painting annotation: the body's transform list, then the target's
-// PointSelector. AIM3DViewer.modelTransform, the first model's exact viewer
-// transform and rendering flags, is applied after loading
-// (Viewer.apply3IFManifestModelTransform).
+// from its placement in the scene. AIM3DViewer.modelTransform, the first
+// model's exact viewer transform and rendering flags, is applied after
+// loading (Viewer.apply3IFManifestModelTransform).
 export function applyManifestConfig(loadedManifest, objectsConfig) {
   const index = objectsConfig.index || 0;
   const model = objectsConfig.models?.[index];
-  const annotation = loadedManifest?.annotations?.[index];
-  if (!model || !annotation) return;
-
-  const body = Array.isArray(annotation.body) ? annotation.body[0] : annotation.body;
-  if (body?.type === "SpecificResource" && Array.isArray(body.transform)) {
-    Object.assign(model, modelTransformConfig(body.transform));
-  }
-
-  const target = Array.isArray(annotation.target) ? annotation.target[0] : annotation.target;
-  const point = (Array.isArray(target?.selector) ? target.selector : [target?.selector])
-    .find((selector) => selector?.type === "PointSelector");
-  if (point) {
-    model.position = {
-      x: (model.position?.x || 0) + (Number(point.x) || 0),
-      y: (model.position?.y || 0) + (Number(point.y) || 0),
-      z: (model.position?.z || 0) + (Number(point.z) || 0),
-    };
-  }
+  const placement = loadedManifest?.placements?.models?.[index];
+  if (!model || !placement) return;
+  Object.assign(model, matrixTransformConfig(placement.matrix));
 }
 
 export function getManifestWindowState(manifest) {

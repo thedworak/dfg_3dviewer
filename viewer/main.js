@@ -86,8 +86,11 @@ import { loadIIIFManifest, getAnnotations } from "./IIIF/iiif-api.js";
 import {
   applyCamera as applyIIIFCamera,
   applyLights as applyIIIFLights,
+  applyCanvases as applyIIIFCanvases,
+  applyModelFeatures,
   commentsToAnnotationEntries,
   manifestScenes,
+  removeImportedCanvases,
   readSceneContent,
   removeImportedLights,
   sceneIndexOf,
@@ -1296,6 +1299,11 @@ export const Viewer = {
     Viewer.disposePointCloudControls();
     disposeTiles();
     removeImportedLights();
+    removeImportedCanvases();
+    Viewer.currentManifest = null;
+    Viewer.manifestCameras = [];
+    document.getElementById("manifesto-camera-switch")?.remove();
+    document.getElementById("manifesto-scene-switch")?.remove();
     Viewer.restoreLastPickedFace();
     Viewer.clearSelectedFaces();
     Viewer.closeAnnotationDialog();
@@ -2920,14 +2928,13 @@ export const Viewer = {
 
   // IIIF setup and loading. A manifest's Scenes are shown one at a time:
   // `sceneIndex` picks one (the first by default; showManifestScene switches).
-  async setupManifesto(newUrlOrJson, type="url", manifestType = "iiif", { sceneIndex = 0 } = {}) {
+  async setupManifesto(newUrlOrJson, type="url", manifestType = "iiif", { sceneIndex } = {}) {
     const manifestJson = await Viewer.getManifestJson(newUrlOrJson, type);
     const resolvedManifestType = isAIM3DManifest(manifestJson) ? "aim3if" : "iiif";
     const isAim3ifManifest = resolvedManifestType === "aim3if";
     const shownScene = sceneIndexOf(manifestJson, sceneIndex);
     Viewer.activeScene = shownScene;
     setCore("activeScene", shownScene);
-    Viewer.currentManifest = { source: newUrlOrJson, type, manifestType, json: manifestJson };
 
     if (resolvedManifestType !== manifestType) {
       console.info(`Detected ${isAim3ifManifest ? "AIM3D" : "IIIF"} manifest; using its matching loader.`);
@@ -2957,12 +2964,16 @@ export const Viewer = {
       applyManifestSettings(loadedManifest.manifest, core.CONFIG);
       Viewer.applyWindowState?.(getManifestWindowState(loadedManifest.manifest));
     }
-    if (loadedManifest.modelUrls.length === 0) { // no 3D model found, use example model
+    // A scene of Canvases only has no model to fall back on.
+    if (loadedManifest.modelUrls.length === 0 && !loadedManifest.placements?.canvases?.length) { // no 3D model found, use example model
       loadedManifest.modelUrls.push('https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb');
       showToast(t("toasts.noIiiifModelFallback", "No 3D model found in IIIF manifest, loading example model."));
     }
     // reset scene and release GPU resources from the previous model batch
     Viewer.resetLoadedModelState();
+    // The manifest shown (after the reset, which forgets it): its scenes,
+    // cameras and descriptive properties, for switching and exporting.
+    Viewer.currentManifest = { source: newUrlOrJson, type, manifestType, json: manifestJson };
     // A previous AIM3D manifest may have left the camera in orthographic mode.
     // Always start from perspective; AIM3D's own camera config (applied below)
     // switches back to orthographic only if it explicitly asks for it.
@@ -3013,8 +3024,67 @@ export const Viewer = {
         Viewer.import3IFManifest?.(loadedManifest.manifest);
       }
     }
-    if (!isAim3ifManifest) Viewer.applyIIIFSceneContent(manifestJson);
+    applyIIIFCanvases(loadedManifest.placements?.canvases || []);
+    const content = isAim3ifManifest ? Viewer.readManifestSceneContent(manifestJson) : Viewer.applyIIIFSceneContent(manifestJson);
+    // The models' own cameras and lights, unless their annotations exclude
+    // them - where the manifest has none of its own (an AIM3D manifest's
+    // camera counts as its own).
+    const roots = (loadedManifest.placements?.models || []).map((_, slot) => Viewer.resolveObjectByTargetId(`m${slot}:root`));
+    applyModelFeatures(loadedManifest.placements?.models, roots, {
+      lights: content?.lights || [],
+      defaultCamera: content?.defaultCamera || (isAim3ifManifest && manifestJson?.AIM3DViewer?.camera) || null,
+    }, Viewer);
+    Viewer.manifestCameras = content?.cameraChoices || [];
     Viewer.updateManifestSceneSwitch(manifestJson);
+    Viewer.updateManifestCameraSwitch();
+  },
+
+  readManifestSceneContent(manifestJson) {
+    try {
+      return readSceneContent(manifestJson, core.activeScene);
+    } catch (error) {
+      console.warn("Could not read IIIF scene content", error);
+      return null;
+    }
+  },
+
+  // Shows one of the scene's cameras (Viewer.manifestCameras).
+  showManifestCamera(index) {
+    const camera = Viewer.manifestCameras?.[Number(index)];
+    if (!camera) return false;
+    return applyIIIFCamera(camera, Viewer);
+  },
+
+  // A camera selector in the manifest form, for a scene that offers several
+  // (several cameras, or a Choice of them).
+  updateManifestCameraSwitch() {
+    document.getElementById("manifesto-camera-switch")?.remove();
+    const cameras = Viewer.manifestCameras || [];
+    const content = document.getElementById("form-manifesto-content");
+    if (cameras.length < 2 || !content) return;
+
+    const group = document.createElement("div");
+    group.className = "form-manifesto-group";
+    group.id = "manifesto-camera-switch";
+    const label = document.createElement("label");
+    label.className = "form-manifesto-label";
+    label.htmlFor = "manifesto-camera-select";
+    label.textContent = t("manifesto.camera", "Camera");
+    const select = document.createElement("select");
+    select.id = "manifesto-camera-select";
+    const shown = cameras.findIndex((camera) => !camera.alternative);
+    cameras.forEach((camera, index) => {
+      const option = document.createElement("option");
+      option.value = String(index);
+      option.textContent = camera.label || t("manifesto.cameraNumber", { number: index + 1 }, "Camera {number}");
+      option.selected = index === Math.max(shown, 0);
+      select.appendChild(option);
+    });
+    select.addEventListener("change", () => Viewer.showManifestCamera(select.value));
+    group.append(label, select);
+    const sceneSwitch = document.getElementById("manifesto-scene-switch");
+    if (sceneSwitch) sceneSwitch.after(group);
+    else content.prepend(group);
   },
 
   // Shows another Scene of the manifest loaded last.
@@ -3058,20 +3128,16 @@ export const Viewer = {
   // manifest (AIM3D manifests carry their own camera/lights/annotations,
   // applied by import3IFManifest).
   applyIIIFSceneContent(manifestJson) {
-    let content;
-    try {
-      content = readSceneContent(manifestJson, core.activeScene);
-    } catch (error) {
-      console.warn("Could not read IIIF scene content", error);
-      return;
-    }
-    if (content.cameras.length) applyIIIFCamera(content.cameras[0], Viewer);
+    const content = Viewer.readManifestSceneContent(manifestJson);
+    if (!content) return null;
+    if (content.defaultCamera) applyIIIFCamera(content.defaultCamera, Viewer);
     if (content.lights.length) applyIIIFLights(content.lights);
     if (content.comments.length) {
       const root = Viewer.resolveObjectByTargetId("m0:root");
       Viewer.annotationEntries = commentsToAnnotationEntries(content.comments, root);
       Viewer.refreshAnnotationPOIs();
     }
+    return content;
   },
 
   async getManifestJson(manifestUrlOrJson, type) {

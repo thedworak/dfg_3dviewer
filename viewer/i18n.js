@@ -163,6 +163,8 @@ export const VIEWER_I18N = {
       invalidJson: "Please enter a valid manifesto JSON text.",
       scene: "Scene",
       sceneNumber: "Scene {number}",
+      camera: "Camera",
+      cameraNumber: "Camera {number}",
     },
     iiif: {
       loader: "IIIF Loader",
@@ -671,6 +673,8 @@ export const VIEWER_I18N = {
       invalidJson: "Podaj poprawny tekst JSON.",
       scene: "Scena",
       sceneNumber: "Scena {number}",
+      camera: "Kamera",
+      cameraNumber: "Kamera {number}",
     },
     iiif: {
       loader: "Ładowanie IIIF",
@@ -1178,6 +1182,8 @@ export const VIEWER_I18N = {
       invalidJson: "Bitte geben Sie einen gültigen Manifest-JSON-Text ein.",
       scene: "Szene",
       sceneNumber: "Szene {number}",
+      camera: "Kamera",
+      cameraNumber: "Kamera {number}",
     },
     iiif: {
       loader: "IIIF-Loader",

@@ -342,6 +342,8 @@ const VIEWER_I18N = {
       invalidJson: "Please enter a valid manifesto JSON text.",
       scene: "Scene",
       sceneNumber: "Scene {number}",
+      camera: "Camera",
+      cameraNumber: "Camera {number}",
     },
     iiif: {
       loader: "IIIF Loader",
@@ -850,6 +852,8 @@ const VIEWER_I18N = {
       invalidJson: "Podaj poprawny tekst JSON.",
       scene: "Scena",
       sceneNumber: "Scena {number}",
+      camera: "Kamera",
+      cameraNumber: "Kamera {number}",
     },
     iiif: {
       loader: "Ładowanie IIIF",
@@ -1357,6 +1361,8 @@ const VIEWER_I18N = {
       invalidJson: "Bitte geben Sie einen gültigen Manifest-JSON-Text ein.",
       scene: "Szene",
       sceneNumber: "Szene {number}",
+      camera: "Kamera",
+      cameraNumber: "Kamera {number}",
     },
     iiif: {
       loader: "IIIF-Loader",
@@ -8042,9 +8048,13 @@ function labelText(value) {
   return pickLanguage(languageMap(value));
 }
 
-// The Scenes of a manifest, with their labels.
+// The Scenes of a manifest a viewer offers, with their labels (a Scene
+// nested in another is shown as part of it).
 function manifestScenes(manifest) {
-  return scenesOf(manifest).map((scene, index) => ({ index, id: scene.id || "", label: labelText(scene.label) }));
+  const nested = nestedSceneIds(manifest);
+  return scenesOf(manifest)
+    .map((scene, index) => ({ index, id: scene.id || "", label: labelText(scene.label) }))
+    .filter((scene) => !nested.has(scene.id));
 }
 
 // Title and description texts of an annotation entry in several languages;
@@ -8058,9 +8068,40 @@ function localizedTexts(titles, descriptions) {
   };
 }
 
+// Points of a WKT geometry with z ("POLYGON Z ((x y z, ...))", also POINT Z,
+// LINESTRING Z, MULTIPOINT Z); a polygon's closing point is dropped.
+function parseWkt(value) {
+  const match = String(value || "").match(/^\s*(POLYGON|LINESTRING|MULTIPOINT|POINT)\s*Z?\s*\(+([^)]*)\)/i);
+  if (!match) return null;
+  const points = match[2]
+    .split(",")
+    .map((pair) => pair.trim().replace(/^\(|\)$/g, "").split(/\s+/).map(Number))
+    .filter((values) => values.length >= 3 && values.slice(0, 3).every(Number.isFinite))
+    .map((values) => new THREE.Vector3(values[0], values[1], values[2]));
+  if (points.length > 2 && points[0].equals(points[points.length - 1])) points.pop();
+  return points.length ? { type: match[1].toUpperCase(), points } : null;
+}
+
+function wktPolygon(points) {
+  const ring = points.concat(points.slice(0, 1));
+  return `POLYGON Z ((${ring.map((point) => [point.x, point.y, point.z].map(round).join(" ")).join(", ")}))`;
+}
+
+function centroidOf(points) {
+  if (!points?.length) return null;
+  return points.reduce((sum, point) => sum.add(point), new THREE.Vector3()).multiplyScalar(1 / points.length);
+}
+
+// The points of a WktSelector among the selectors, if any.
+function polygonFromSelector(selector) {
+  const wkt = asArray(selector).find((item) => typeOf(item) === "WktSelector");
+  return wkt ? parseWkt(wkt.value)?.points || null : null;
+}
+
+// A PointSelector's point - or the centre of a WktSelector's geometry.
 function pointFromSelector(selector) {
   const point = asArray(selector).find((item) => typeOf(item) === "PointSelector");
-  if (!point) return null;
+  if (!point) return centroidOf(polygonFromSelector(selector));
   const values = [point.x, point.y, point.z].map(Number);
   return values.every(Number.isFinite) ? new THREE.Vector3(...values) : null;
 }
@@ -8073,6 +8114,21 @@ function resolveBody(body) {
   }
   return { resource: first, wrapper: null };
 }
+
+// Every resource of a body: a Choice gives one per item (the first is the
+// default), each possibly wrapped in a SpecificResource.
+function bodyResources(body) {
+  return asArray(body).flatMap((item) => (
+    typeOf(item) === "Choice"
+      ? asArray(item.items).map((choiceItem) => ({ ...resolveBody(choiceItem), choice: item.id || true }))
+      : [{ ...resolveBody(item), choice: null }]
+  ));
+}
+
+// behavior: ["hidden"] - not shown until an activating annotation shows it.
+const isHidden = (annotation) => asArray(annotation?.behavior).some((value) => String(value).toLowerCase() === "hidden");
+
+const idOf = (value) => (typeof value === "string" ? value : value?.id || null);
 
 // Position a painting/commenting annotation places its body at.
 function targetPoint(annotation) {
@@ -8100,7 +8156,9 @@ function motivationsOf(annotation) {
 // annotation in the scene (its target point). Missing: the scene origin.
 function resolveLookAt(lookAt, sceneAnnotations) {
   if (!lookAt) return new THREE.Vector3();
-  if (typeOf(lookAt) === "PointSelector") return pointFromSelector(lookAt) || new THREE.Vector3();
+  if (typeOf(lookAt) === "PointSelector" || typeOf(lookAt) === "WktSelector") {
+    return pointFromSelector(lookAt) || new THREE.Vector3();
+  }
   if (typeOf(lookAt) === "SpecificResource") return pointFromSelector(lookAt.selector) || new THREE.Vector3();
   const id = typeof lookAt === "string" ? lookAt : lookAt.id;
   const referenced = sceneAnnotations.find((annotation) => annotation.id === id);
@@ -8137,13 +8195,12 @@ function transformMatrix(transforms) {
   return matrix;
 }
 
-// A model's transform list as the position / rotation (degrees, three.js's
-// default "XYZ" order) / scale of its root, as the model config stores them.
-function modelTransformConfig(transforms) {
+// A model root's matrix as that position / rotation / scale.
+function matrixTransformConfig(matrix) {
   const position = new THREE.Vector3();
   const quaternion = new THREE.Quaternion();
   const scale = new THREE.Vector3();
-  transformMatrix(transforms).decompose(position, quaternion, scale);
+  matrix.decompose(position, quaternion, scale);
   const rotation = new THREE.Euler().setFromQuaternion(quaternion, "XYZ");
   // Floating-point noise from composing and decomposing (0.9999999 for 1).
   const clean = (value) => {
@@ -8193,10 +8250,76 @@ function relativeIntensity(value) {
 
 // ---- reading ---------------------------------------------------------------
 
-// The index of the Scene to show: `index` when the manifest has it, else 0.
-function sceneIndexOf(manifest, index = 0) {
-  const count = scenesOf(manifest).length;
-  return Number.isInteger(index) && index >= 0 && index < count ? index : 0;
+// Ids of the Scenes painted into another Scene (nesting): they are shown as
+// part of it, not on their own.
+function nestedSceneIds(manifest) {
+  const ids = new Set();
+  scenesOf(manifest).forEach((scene) => {
+    annotationsOfPages(scene.items).forEach((annotation) => {
+      const { resource } = resolveBody(annotation.body);
+      if (typeOf(resource) === "Scene" && idOf(resource) && idOf(resource) !== scene.id) ids.add(idOf(resource));
+    });
+  });
+  return ids;
+}
+
+// The index of the Scene to show: `index` when the manifest has it, else its
+// first Scene that is not nested in another.
+function sceneIndexOf(manifest, index) {
+  const scenes = scenesOf(manifest);
+  if (Number.isInteger(index) && index >= 0 && index < scenes.length) return index;
+  const nested = nestedSceneIds(manifest);
+  const first = scenes.findIndex((scene) => !nested.has(scene.id));
+  return first >= 0 ? first : 0;
+}
+
+// Everything painted into a Scene at its place: its models and Canvases, and
+// those of the Scenes painted into it, each with its whole transform - the
+// target's point, after the body's transform list, inside the transform of
+// the Scene it is nested in. Hidden ones (behavior: hidden) are left out.
+function scenePlacements(manifest, sceneIndex) {
+  const placements = { models: [], canvases: [] };
+  const scenes = scenesOf(manifest);
+  const scene = scenes[sceneIndexOf(manifest, sceneIndex)];
+  if (!scene) return placements;
+  const resources = new Map(asArray(manifest?.items).filter((item) => item?.id).map((item) => [item.id, item]));
+  const full = (resource) => (resource && (resource.items ? resource : resources.get(idOf(resource)))) || null;
+
+  const visit = (container, parentMatrix, seen) => {
+    annotationsOfPages(container.items).forEach((annotation) => {
+      if (!motivationsOf(annotation).includes("painting") || isHidden(annotation)) return;
+      const { resource, wrapper } = resolveBody(annotation.body);
+      const type = typeOf(resource);
+      if (CAMERA_TYPES.has(type) || LIGHT_TYPES.has(type)) return;
+      const point = targetPoint(annotation) || new THREE.Vector3();
+      const matrix = parentMatrix.clone()
+        .multiply(new THREE.Matrix4().makeTranslation(point.x, point.y, point.z))
+        .multiply(transformMatrix(wrapper?.transform));
+      if (type === "Scene") {
+        const nested = full(resource);
+        if (nested && !seen.has(nested.id) && seen.size < 16) visit(nested, matrix, new Set(seen).add(nested.id));
+        return;
+      }
+      if (type === "Canvas") {
+        const canvas = full(resource);
+        if (canvas) placements.canvases.push({ canvas, matrix, annotation });
+        return;
+      }
+      const url = isModelBody(annotation.body) ? modelUrlOf(annotation.body) : null;
+      if (!url) return;
+      placements.models.push({
+        url,
+        format: resource?.format || null,
+        matrix,
+        annotation,
+        // exclude: the model's own "Cameras" / "Lights" (/ "Audio",
+        // "Animations") are not used.
+        exclude: asArray(annotation.exclude).map((value) => String(value).toLowerCase()),
+      });
+    });
+  };
+  visit(scene, new THREE.Matrix4(), new Set([scene.id]));
+  return placements;
 }
 
 // A manifest-level annotation belongs to the scene its target names; one
@@ -8215,7 +8338,7 @@ function targetsScene(annotation, scene, scenes) {
 function readSceneContent(manifest, sceneIndex = 0) {
   const scenes = scenesOf(manifest);
   const scene = scenes[sceneIndexOf(manifest, sceneIndex)];
-  if (!scene) return { cameras: [], lights: [], comments: [] };
+  if (!scene) return { cameras: [], cameraChoices: [], defaultCamera: null, lights: [], comments: [] };
   const painting = annotationsOfPages(scene.items);
   const all = painting.concat(annotationsOfPages(scene.annotations));
 
@@ -8224,61 +8347,91 @@ function readSceneContent(manifest, sceneIndex = 0) {
   const camerasById = new Map();
   painting.forEach((annotation) => {
     if (!motivationsOf(annotation).includes("painting")) return;
-    const { resource, wrapper } = resolveBody(annotation.body);
-    const type = typeOf(resource);
-    const isCamera = CAMERA_TYPES.has(type);
-    if (!isCamera && !LIGHT_TYPES.has(type)) return;
-    const oriented = applyBodyTransforms(
-      wrapper,
-      isCamera ? new THREE.Vector3(0, 0, -1) : new THREE.Vector3(0, -1, 0),
-      targetPoint(annotation) || new THREE.Vector3()
-    );
-    const position = oriented.position;
-    // Either an explicit lookAt point, or a direction (lookAt: null).
-    const lookAt = resource.lookAt ? resolveLookAt(resource.lookAt, all) : null;
-    if (isCamera) {
-      const camera = {
-        id: annotation.id || null,
-        type,
-        position,
-        lookAt,
-        direction: oriented.direction,
-        fieldOfView: Number(resource.fieldOfView),
-        viewHeight: Number(resource.viewHeight),
-        near: Number(resource.near),
-        far: Number(resource.far),
-      };
-      cameras.push(camera);
-      if (camera.id) camerasById.set(camera.id, camera);
-    } else {
-      lights.push({
-        type,
-        position,
-        lookAt,
-        direction: oriented.direction,
-        color: colorFrom(resource.color),
-        intensity: relativeIntensity(resource.intensity),
-        angle: Number(resource.angle),
-      });
-    }
+    const hidden = isHidden(annotation);
+    bodyResources(annotation.body).forEach(({ resource, wrapper, choice }, choiceIndex) => {
+      const type = typeOf(resource);
+      const isCamera = CAMERA_TYPES.has(type);
+      if (!isCamera && !LIGHT_TYPES.has(type)) return;
+      const oriented = applyBodyTransforms(
+        wrapper,
+        isCamera ? new THREE.Vector3(0, 0, -1) : new THREE.Vector3(0, -1, 0),
+        targetPoint(annotation) || new THREE.Vector3()
+      );
+      const position = oriented.position;
+      // Either an explicit lookAt point, or a direction (lookAt: null).
+      const lookAt = resource.lookAt ? resolveLookAt(resource.lookAt, all) : null;
+      if (isCamera) {
+        const camera = {
+          id: (choice ? idOf(resource) : null) || annotation.id || null,
+          annotationId: annotation.id || null,
+          type,
+          label: labelText(resource.label) || labelText(annotation.label),
+          hidden,
+          // A Choice's items after the first are alternatives, not defaults.
+          alternative: Boolean(choice) && choiceIndex > 0,
+          position,
+          lookAt,
+          direction: oriented.direction,
+          fieldOfView: Number(resource.fieldOfView),
+          viewHeight: Number(resource.viewHeight),
+          near: Number(resource.near),
+          far: Number(resource.far),
+        };
+        cameras.push(camera);
+        [camera.id, camera.annotationId, idOf(resource)].filter(Boolean).forEach((id) => {
+          if (!camerasById.has(id)) camerasById.set(id, camera);
+        });
+      } else if (!hidden) {
+        lights.push({
+          type,
+          position,
+          lookAt,
+          direction: oriented.direction,
+          color: colorFrom(resource.color),
+          intensity: relativeIntensity(resource.intensity),
+          angle: Number(resource.angle),
+        });
+      }
+    });
   });
 
-  const comments = annotationsOfPages(scene.annotations)
-    .concat(annotationsOfPages(manifest.annotations).filter((annotation) => targetsScene(annotation, scene, scenes)))
+  const sceneComments = annotationsOfPages(scene.annotations)
+    .concat(annotationsOfPages(manifest.annotations).filter((annotation) => targetsScene(annotation, scene, scenes)));
+
+  // activating annotations: selecting their target (a comment) activates
+  // their body's source - here, a camera: the comment's view.
+  const activatedCameras = new Map();
+  sceneComments.concat(painting)
+    .filter((annotation) => motivationsOf(annotation).includes("activating"))
+    .forEach((annotation) => {
+      const camera = asArray(annotation.body)
+        .map((body) => idOf(typeOf(body) === "SpecificResource" ? body.source : body))
+        .map((id) => camerasById.get(id))
+        .find(Boolean);
+      if (!camera) return;
+      asArray(annotation.target).map(idOf).filter(Boolean).forEach((id) => {
+        if (!activatedCameras.has(id)) activatedCameras.set(id, camera);
+      });
+    });
+
+  const comments = sceneComments
     .filter((annotation) => motivationsOf(annotation).some((motivation) => COMMENT_MOTIVATIONS.has(motivation)))
     .map((annotation) => {
       const point = targetPoint(annotation);
       if (!point) return null;
       const { titles, descriptions } = readCommentText(annotation);
       const target = asArray(annotation.target)[0];
-      const scopeCamera = cameraView(asArray(annotation.scope).map((ref) => camerasById.get(ref?.id || ref)).find(Boolean))
+      const scopeCamera = cameraView(asArray(annotation.scope).map((ref) => camerasById.get(idOf(ref))).find(Boolean))
+        || cameraView(activatedCameras.get(annotation.id))
         || readScopeCamera(target?.scope, all);
+      const polygon = polygonFromSelector(target?.selector);
       return {
         id: String(annotation.id || ""),
         title: pickLanguage(titles),
         description: pickLanguage(descriptions),
         localized: localizedTexts(titles, descriptions),
         point,
+        ...(polygon && polygon.length > 1 ? { polygon } : {}),
         view: scopeCamera,
         created: annotation.created || "",
         modified: annotation.modified || "",
@@ -8287,7 +8440,11 @@ function readSceneContent(manifest, sceneIndex = 0) {
     })
     .filter(Boolean);
 
-  return { cameras, lights, comments };
+  // Cameras a viewer may offer: not hidden, not a Choice's alternative - the
+  // first is the scene's default view. `choices` are all the shown ones.
+  const choices = cameras.filter((camera) => !camera.hidden);
+  const defaultCamera = choices.find((camera) => !camera.alternative) || null;
+  return { cameras, cameraChoices: choices, defaultCamera, lights, comments };
 }
 
 // A scene camera as a stored annotation view.
@@ -8385,6 +8542,143 @@ function addImportedLight(light) {
 // The imported lights, for exporting them again.
 function importedLightObjects() {
   return importedLights ? importedLights.children.filter((child) => child.isLight) : [];
+}
+
+// ---- Canvases in a scene ----------------------------------------------------
+
+let importedCanvases = null;
+// Longest side, in pixels, of an image fetched from a IIIF Image service.
+const CANVAS_IMAGE_SIZE = 2048;
+
+function removeImportedCanvases() {
+  if (!importedCanvases) return;
+  importedCanvases.traverse((child) => {
+    child.geometry?.dispose?.();
+    child.material?.map?.dispose?.();
+    child.material?.dispose?.();
+  });
+  importedCanvases.removeFromParent();
+  importedCanvases = null;
+}
+
+// Where an image goes on its Canvas: the target's xywh fragment (in the URL
+// or a FragmentSelector), else the whole Canvas.
+function canvasRegion(target, width, height) {
+  const first = asArray(target)[0];
+  const fragment = typeof first === "string"
+    ? first.split("#")[1]
+    : asArray(first?.selector).find((selector) => typeOf(selector) === "FragmentSelector")?.value
+      || String(first?.id || "").split("#")[1];
+  const match = String(fragment || "").match(/xywh=(?:pixel:)?([\d.]+),([\d.]+),([\d.]+),([\d.]+)/);
+  if (!match) return { x: 0, y: 0, width, height };
+  const [x, y, w, h] = match.slice(1).map(Number);
+  return { x, y, width: w, height: h };
+}
+
+// The URL to fetch an Image body from: its IIIF Image service at a size a
+// texture can take, else the image itself.
+function canvasImageUrl(image) {
+  const service = asArray(image?.service)[0];
+  const base = String(service?.id || service?.["@id"] || "").replace(/\/$/, "");
+  if (base) {
+    const size = Math.min(CANVAS_IMAGE_SIZE, Number(image.width) || CANVAS_IMAGE_SIZE);
+    return `${base}/full/${Math.round(size)},/0/default.jpg`;
+  }
+  return idOf(image);
+}
+
+// Each Canvas painted into the scene as a flat panel: the target point is its
+// top-left corner, x to the right and y down the Canvas (scene -y), in Canvas
+// units (Scale/Rotate/TranslateTransform size and turn it). Its background
+// colour, then its images, each on its own region.
+function applyCanvases(canvasPlacements) {
+  removeImportedCanvases();
+  if (!canvasPlacements?.length || !core.scene) return 0;
+  importedCanvases = new THREE.Group();
+  importedCanvases.name = "iiif-canvases";
+  const loader = new THREE.TextureLoader();
+  loader.setCrossOrigin("anonymous");
+
+  const panel = (region, material, depth) => {
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(region.width, region.height), material);
+    mesh.position.set(region.x + region.width / 2, -(region.y + region.height / 2), depth);
+    return mesh;
+  };
+
+  canvasPlacements.forEach(({ canvas, matrix }) => {
+    const width = Number(canvas.width) || 1;
+    const height = Number(canvas.height) || 1;
+    const group = new THREE.Group();
+    group.name = `iiif-canvas:${canvas.id || ""}`;
+    group.matrixAutoUpdate = false;
+    group.matrix.copy(matrix);
+    if (canvas.backgroundColor) {
+      group.add(panel(
+        { x: 0, y: 0, width, height },
+        new THREE.MeshBasicMaterial({ color: colorFrom(canvas.backgroundColor), side: THREE.DoubleSide }),
+        0
+      ));
+    }
+    annotationsOfPages(canvas.items)
+      .filter((annotation) => motivationsOf(annotation).includes("painting"))
+      .forEach((annotation, index) => {
+        const { resource } = bodyResources(annotation.body)[0] || {};
+        if (typeOf(resource) !== "Image") return;
+        const url = canvasImageUrl(resource);
+        if (!url) return;
+        const material = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, transparent: true });
+        loader.load(url, (texture) => {
+          texture.colorSpace = THREE.SRGBColorSpace;
+          material.map = texture;
+          material.needsUpdate = true;
+        }, undefined, (error) => console.warn("Could not load a Canvas image", url, error));
+        // Slightly in front of the background, later images above earlier.
+        group.add(panel(canvasRegion(annotation.target, width, height), material, 0.001 * (index + 1)));
+      });
+    importedCanvases.add(group);
+  });
+  core.scene.add(importedCanvases);
+  return canvasPlacements.length;
+}
+
+// ---- the models' own cameras and lights -------------------------------------
+
+// A model may bring its own cameras and lights (glTF). Unless its painting
+// annotation excludes them, they are used where the manifest has none: its
+// camera is the view, its lights replace the viewer's. Excluded lights are
+// switched off. `roots` are the models' roots, in the placements' order.
+function applyModelFeatures(modelPlacements, roots, content, viewer) {
+  let modelCamera = null;
+  let modelLights = false;
+  roots.forEach((root, index) => {
+    if (!root) return;
+    const exclude = modelPlacements?.[index]?.exclude || [];
+    root.traverse((object) => {
+      if (object.isLight) {
+        if (exclude.includes("lights")) object.visible = false;
+        else if (object.visible) modelLights = true;
+      } else if (object.isCamera && !modelCamera && !exclude.includes("cameras")) {
+        modelCamera = object;
+      }
+    });
+  });
+  if (modelLights && !content?.lights?.length) suspendDefaultLights();
+  if (modelCamera && !content?.defaultCamera) {
+    modelCamera.updateWorldMatrix(true, false);
+    const position = modelCamera.getWorldPosition(new THREE.Vector3());
+    const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(modelCamera.getWorldQuaternion(new THREE.Quaternion()));
+    applyCamera({
+      type: modelCamera.isOrthographicCamera ? "OrthographicCamera" : "PerspectiveCamera",
+      position,
+      lookAt: null,
+      direction,
+      fieldOfView: modelCamera.fov,
+      near: modelCamera.near,
+      far: modelCamera.far,
+    }, viewer);
+    return true;
+  }
+  return false;
 }
 
 // Centre and radius of the loaded models (targets for direction-only lights).
@@ -8510,6 +8804,7 @@ function commentsToAnnotationEntries(comments, root) {
   return comments.map((comment, index) => ({
     id: comment.id || `anno-point-${index + 1}`,
     point: comment.point.clone().applyMatrix4(inverse).toArray(),
+    ...(comment.polygon ? { polygon: comment.polygon.map((point) => point.clone().applyMatrix4(inverse).toArray()) } : {}),
     title: comment.title,
     description: comment.description,
     ...(comment.localized ? { localized: comment.localized } : {}),
@@ -8631,9 +8926,43 @@ function buildModelAnnotation(sceneId, id, modelBody, root) {
   };
 }
 
-// A comment's target: a point of the scene.
-function buildCommentTarget(sceneId, worldPoint) {
-  return scenePointTarget(sceneId, worldPoint);
+// A Canvas painted into the scene, placed as `matrix` places it: its size and
+// turn as Scale / RotateTransform, its top-left corner as the target point.
+function buildCanvasAnnotation(sceneId, id, canvas, matrix) {
+  const position = new THREE.Vector3();
+  const quaternion = new THREE.Quaternion();
+  const scale = new THREE.Vector3();
+  matrix.decompose(position, quaternion, scale);
+  const rotation = new THREE.Euler().setFromQuaternion(quaternion, "XYZ");
+  const transform = [];
+  if (round(scale.x) !== 1 || round(scale.y) !== 1 || round(scale.z) !== 1) {
+    transform.push({ type: "ScaleTransform", x: round(scale.x), y: round(scale.y), z: round(scale.z) });
+  }
+  if (round(rotation.x) || round(rotation.y) || round(rotation.z)) {
+    transform.push({
+      type: "RotateTransform",
+      x: round(THREE.MathUtils.radToDeg(rotation.x)),
+      y: round(THREE.MathUtils.radToDeg(rotation.y)),
+      z: round(THREE.MathUtils.radToDeg(rotation.z)),
+    });
+  }
+  // By reference to a Canvas of the manifest; a Canvas without an id inline.
+  const source = canvas.id ? { id: canvas.id, type: "Canvas" } : structuredClone(canvas);
+  return {
+    id,
+    type: "Annotation",
+    motivation: ["painting"],
+    body: transform.length ? { type: "SpecificResource", source, transform } : source,
+    target: scenePointTarget(sceneId, position),
+  };
+}
+
+// A comment's target: a point of the scene - or, for a comment on a region,
+// the polygon (WktSelector), with its centre as the PointSelector.
+function buildCommentTarget(sceneId, worldPoint, worldPolygon = null) {
+  const target = scenePointTarget(sceneId, worldPoint);
+  if (worldPolygon?.length > 1) target.selector = [{ type: "WktSelector", value: wktPolygon(worldPolygon) }];
+  return target;
 }
 
 // A comment's saved view as a camera painted into the scene; the comment
@@ -8654,10 +8983,14 @@ function buildViewCameraAnnotation(sceneId, id, view) {
 }
 
 // Model painting annotation? (Model body, or a SpecificResource around one.)
+// Other kinds of resource a Scene may be painted with.
+const NON_MODEL_TYPES = new Set(["Scene", "Canvas", "Image", "Video", "Sound", "Audio", "Text", "TextualBody", "Choice"]);
+
 function isModelBody(body) {
   const { resource } = resolveBody(body);
   const type = String(typeOf(resource) || "").toLowerCase();
   return type === "model" || (!CAMERA_TYPES.has(typeOf(resource)) && !LIGHT_TYPES.has(typeOf(resource))
+    && !NON_MODEL_TYPES.has(typeOf(resource))
     && typeOf(asArray(body)[0]) === "SpecificResource" && Boolean(resource?.id));
 }
 
@@ -8677,6 +9010,14 @@ function modelFormatOf(url) {
 function modelUrlOf(body) {
   return resolveBody(body).resource?.id || null;
 }
+
+// What a manifest says about itself, and a Scene about itself - kept when a
+// scene loaded from a manifest is exported again.
+const MANIFEST_DESCRIPTIVE_PROPERTIES = [
+  "label", "summary", "metadata", "requiredStatement", "rights", "provider", "homepage",
+  "thumbnail", "logo", "seeAlso", "rendering", "partOf", "navDate", "navPlace", "language",
+];
+const SCENE_DESCRIPTIVE_PROPERTIES = ["label", "summary", "metadata", "requiredStatement", "rights", "thumbnail", "navDate"];
 
 // Point annotations are anchored to the first model root.
 const POINT_ANNOTATION_ROOT = "m0:root";
@@ -8966,6 +9307,18 @@ function attachAnnotations(Viewer) {
         group.add(marker);
         this.annotationPOIMarkers.push(marker);
         added += 1;
+        // A comment on a region (IIIF WktSelector): its outline too.
+        const polygon = this.getAnnotationEntryPolygonWorld(entry);
+        if (polygon) {
+          const outline = new THREE.LineLoop(
+            new THREE.BufferGeometry().setFromPoints(polygon),
+            new THREE.LineBasicMaterial({ color: 0xffb000, depthTest: false, transparent: true })
+          );
+          outline.name = "annotation-region";
+          outline.renderOrder = 999;
+          outline.userData.annotationId = entry.id;
+          group.add(outline);
+        }
       });
 
       group.visible = added > 0;
@@ -9387,6 +9740,23 @@ function attachAnnotations(Viewer) {
       this.closeAnnotationDialog();
     },
 
+    // A comment's polygon in world space (THREE.Vector3s), or null.
+    getAnnotationEntryPolygonWorld(entry) {
+      const polygon = this.normalizeAnnotationPolygon(entry?.polygon);
+      const root = polygon && this.resolveObjectByTargetId(entry.targetId || POINT_ANNOTATION_ROOT);
+      if (!root) return null;
+      root.updateMatrixWorld(true);
+      return polygon.map((point) => new THREE.Vector3().fromArray(point).applyMatrix4(root.matrixWorld));
+    },
+
+    // A comment's region: points ([x, y, z], model-root space) of the polygon
+    // a IIIF WktSelector gave it. null when not one.
+    normalizeAnnotationPolygon(polygon) {
+      if (!Array.isArray(polygon) || polygon.length < 2) return null;
+      const points = polygon.map((point) => this.normalizeAnnotationPoint(point));
+      return points.every(Boolean) ? points : null;
+    },
+
     // Sets an entry's title and description; an entry with several languages
     // gets them as the text of the language shown.
     setAnnotationEntryText(entry, title, description) {
@@ -9444,6 +9814,7 @@ function attachAnnotations(Viewer) {
               object: pointTargetId,
               targetId: pointTargetId,
               point,
+              ...(this.normalizeAnnotationPolygon(entry.polygon) ? { polygon: this.normalizeAnnotationPolygon(entry.polygon) } : {}),
               faceNumbers: [],
               title: String(entry.title || "").trim(),
               description: String(entry.description || "").trim(),
@@ -9689,11 +10060,14 @@ function attachAnnotations(Viewer) {
 
           ...(viewCamera ? { scope: [{ id: viewCamera.id, type: "Annotation" }] } : {}),
 
-          target: center ? buildCommentTarget(sceneId, center) : { id: sceneId, type: "Scene" },
+          target: center
+            ? buildCommentTarget(sceneId, center, this.getAnnotationEntryPolygonWorld(entry))
+            : { id: sceneId, type: "Scene" },
 
           // Exact anchoring for this viewer: the annotated faces, or the
           // point in the model root's space.
           AIM3DViewer: {
+            ...(entry.polygon ? { polygon: entry.polygon } : {}),
             groupId: entry.groupId || "",
             key: entry.key || "",
             object: entry.object || "",
@@ -9963,6 +10337,25 @@ function attachAnnotations(Viewer) {
         },
         modified: new Date().toISOString(),
       };
+
+      // A scene shown from a manifest keeps what that manifest says about
+      // itself and the scene, and the Canvases painted into the scene.
+      const source = this.currentManifest?.json;
+      if (source && typeof source === "object") {
+        MANIFEST_DESCRIPTIVE_PROPERTIES.forEach((key) => {
+          if (source[key] !== undefined) manifest[key] = structuredClone(source[key]);
+        });
+        const sourceScenes = (source.items || []).filter((item) => item?.type === "Scene");
+        const sourceScene = sourceScenes[sceneIndexOf(source, core.activeScene)];
+        const exportedScene = manifest.items[0];
+        SCENE_DESCRIPTIVE_PROPERTIES.forEach((key) => {
+          if (sourceScene?.[key] !== undefined) exportedScene[key] = structuredClone(sourceScene[key]);
+        });
+        scenePlacements(source, core.activeScene).canvases.forEach(({ canvas, matrix }, index) => {
+          exportedScene.items[0].items.push(buildCanvasAnnotation(sceneId, `${sceneId}/annotation/canvas/${index + 1}`, canvas, matrix));
+          if (canvas.id && !manifest.items.some((item) => item.id === canvas.id)) manifest.items.push(structuredClone(canvas));
+        });
+      }
 
       const exportValidation = validateAIM3DManifest(manifest, { requireCustomBlock: true });
       if (!exportValidation.valid) {
@@ -10529,14 +10922,16 @@ function attachAnnotations(Viewer) {
         if (customPoint || (!hasFaces && comment)) {
           // A point annotation: ours (model-root space) or any IIIF comment
           // on a scene point (world space, converted).
-          const [fromComment] = !customPoint && comment ? commentsToAnnotationEntries([comment], pointRoot) : [];
+          const [fromComment] = comment ? commentsToAnnotationEntries([comment], pointRoot) : [];
           const point = customPoint || fromComment?.point;
           if (!point) return null;
+          const polygon = this.normalizeAnnotationPolygon(custom.polygon) || fromComment?.polygon;
           const pointView = this.normalizeAnnotationView(custom.view) || this.normalizeAnnotationView(comment?.view);
           return {
             id: String(annotation.id || `anno-point-${index + 1}`),
             targetId: custom.targetId || POINT_ANNOTATION_ROOT,
             point,
+            ...(polygon ? { polygon } : {}),
             ...commentText,
             ...(pointView ? { view: pointView } : {}),
             createdAt: annotation?.created ? String(annotation.created) : "",
@@ -16712,6 +17107,13 @@ function sanitizeModuleAssetBasePath(input) {
 
 function prepareOutlineClipping(_object) {
   core.outlineClipping = _object.clone(true);
+  // Only the geometry: a model's own lights and cameras (glTF) would light
+  // the scene twice once the section outline is shown.
+  const extras = [];
+  core.outlineClipping.traverse((child) => {
+    if (child.isLight || child.isCamera) extras.push(child);
+  });
+  extras.forEach((child) => child.removeFromParent());
   var gutsMaterial = new THREE.MeshBasicMaterial({
     color: "crimson",
     side: THREE.BackSide,
@@ -23334,27 +23736,13 @@ function isPlainObject$1(value) {
   return value != null && typeof value === "object" && !Array.isArray(value);
 }
 
-// Annotation bodies are always parsed as plain AnnotationBody instances, where
-// isSpecificResource is an inherited METHOD (checking the JSON "type"), even when
-// the body's own JSON shape is "SpecificResource" wrapping a Model/Light/Camera.
-// Annotation TARGETS shaped as SpecificResource, on the other hand, are parsed as
-// actual SpecificResource instances, which shadow it with a boolean `true` OWN
-// property instead. Reading `.isSpecificResource` without calling it would  be
-// truthy in both cases regardless of the real answer, so this checks both shapes.
-function resolvesToSpecificResource(value) {
-  if (typeof value?.isSpecificResource === "function") return value.isSpecificResource();
-  return value?.isSpecificResource === true;
-}
-
-// The models of one Scene of the manifest (`sceneIndex`, else the first); a
-// manifest's Scenes are shown one at a time.
-async function loadIIIFManifest(manifestUrlOrJson, { sceneIndex = 0 } = {}) {
+// The models of one Scene of the manifest (`sceneIndex`, else its first); a
+// manifest's Scenes are shown one at a time. Models come from the manifest
+// JSON (scenePlacements): with their whole transform, including those of
+// Scenes nested in the one shown.
+async function loadIIIFManifest(manifestUrlOrJson, { sceneIndex } = {}) {
   let iiifManifest = new IIIFManifest(manifestUrlOrJson);
   await iiifManifest.loadManifest();
-  let modelTarget;
-  const modelTargets = [];
-  const filteredAnnos = [];
-  iiifManifest.modelUrls = new Array();
 
   // Every scene's background colour, so that it can be looked up by index
   // (getBackgroundColor() returns a Color instance; downstream code expects a
@@ -23364,95 +23752,29 @@ async function loadIIIFManifest(manifestUrlOrJson, { sceneIndex = 0 } = {}) {
     scene.background = backgroundColor?.CSS ?? null;
   }
 
-  const manifestScene = iiifManifest.scenes[sceneIndex] || iiifManifest.scenes[0];
-  if (manifestScene) {
-    const annos = iiifManifest.annotationsFromScene(manifestScene);
+  const manifestJson = manifestUrlOrJson && typeof manifestUrlOrJson === "object"
+    ? manifestUrlOrJson
+    : iiifManifest.manifest?.__jsonld;
+  const placements = scenePlacements(manifestJson, sceneIndex);
+  iiifManifest.modelUrls = placements.models.map((placement) => placement.url);
 
-    // Models only: cameras and lights are painted into the scene too
-    // (applied separately, IIIF/presentation4.js), possibly wrapped in a
-    // SpecificResource as well.
-    annos
-      .filter((anno) => {
-        const body = anno.getBody()[0];
-        const rawBody = anno.__jsonld?.body;
-        return (
-          anno.getMotivation()?.[0] === "painting" &&
-          (rawBody ? isModelBody(rawBody) : (resolvesToSpecificResource(body) || body?.getType() === "model"))
-        );
-      })
-      .forEach((modelAnnotation) => {
-        let modelUrl;
-        if (resolvesToSpecificResource(modelAnnotation.getBody()[0])) {
-          modelUrl = modelAnnotation.getBody()[0].getSource()?.id;
-        } else {
-          modelUrl = modelAnnotation.getBody()[0].id;
-        }
-        const target = modelAnnotation.getTarget();
-        // annotations, modelUrls and modelTargets stay index-aligned.
-        if (modelUrl && target) {
-          modelTarget = target;
-          filteredAnnos.push(modelAnnotation);
-          iiifManifest.modelUrls.push(modelUrl);
-          modelTargets.push(target);
-        }
-      });
-  }
   return {
     manifest: iiifManifest.manifest,
     scenes: iiifManifest.scenes,
-    annotations: filteredAnnos,
+    // annotations, modelUrls and placements.models are index-aligned.
+    annotations: placements.models.map((placement) => placement.annotation),
     modelUrls: iiifManifest.modelUrls,
-    modelTarget: modelTarget,
-    // One target per entry in modelUrls/annotations - a manifest can place
-    // several models in the same scene, each with its own position selector.
-    modelTargets,
+    placements,
   };
 }
 
+// Position, rotation and scale of the model being loaded (objectsConfig.index)
+// from its placement in the scene.
 async function getAnnotations(iiifManifest, objectsConfig) {
-  let ind = objectsConfig.index || 0;
-  const modelAnnotations = iiifManifest.annotations[ind];
-  if (!modelAnnotations) return;
-
-  const target = iiifManifest.annotations?.[ind];
-
-  if (target == null) {
-    // handle missing (out-of-range or undefined)
-    throw new Error(`No annotation at index ${ind}`);
-  }
-
-  // make sure we have an array to map over
-  const items = Array.isArray(target) ? target : [target];
-
-  await Promise.all(
-    items.map(async (modelAnnotation) => {       
-        // The body's transform list, composed in the order listed (a
-        // SpecificResource around the model); read from the JSON, since the
-        // parsed transforms lose their order and repeats.
-        const rawBody = Array.isArray(modelAnnotation.__jsonld?.body)
-          ? modelAnnotation.__jsonld.body[0]
-          : modelAnnotation.__jsonld?.body;
-        if (rawBody?.type === "SpecificResource" && Array.isArray(rawBody.transform)) {
-          Object.assign(objectsConfig.models[ind], modelTransformConfig(rawBody.transform));
-        }
-
-        // Position model within target scene if position selector present.
-        // Each model annotation carries its own target, so index into
-        // modelTargets rather than reusing whichever one loaded last.
-        const currentTarget = iiifManifest.modelTargets?.[ind] ?? iiifManifest.modelTarget;
-        if (resolvesToSpecificResource(currentTarget)) {
-          const selector = currentTarget.getSelector();
-          if (selector && selector.isPointSelector) {
-            const position = selector.getLocation();
-            if (position) {
-              objectsConfig.models[ind].position.x += position.x;
-              objectsConfig.models[ind].position.y += position.y;
-              objectsConfig.models[ind].position.z += position.z;
-            }
-          }
-        }
-        }));
-  
+  const ind = objectsConfig.index || 0;
+  const placement = iiifManifest.placements?.models?.[ind];
+  if (!placement) return;
+  Object.assign(objectsConfig.models[ind], matrixTransformConfig(placement.matrix));
   return iiifManifest.annotations;
 }
 
@@ -23499,7 +23821,7 @@ class AIM3DManifest {
 }
 
 // The models of one Scene of the manifest (`sceneIndex`, else the first).
-async function loadAIM3IFManifest(manifestUrlOrJson, { sceneIndex = 0 } = {}) {
+async function loadAIM3IFManifest(manifestUrlOrJson, { sceneIndex } = {}) {
   const aim3dManifest = new AIM3DManifest(manifestUrlOrJson);
 
   await aim3dManifest.loadManifest();
@@ -23512,10 +23834,6 @@ async function loadAIM3IFManifest(manifestUrlOrJson, { sceneIndex = 0 } = {}) {
     throw new Error(`Invalid AIM3D manifest.\n${detail}`);
   }
 
-  const modelUrls = [];
-  let modelTarget = null;
-  const filteredAnnos = [];
-
   for (const scene of aim3dManifest.scenes) {
     // Leave background unset (rather than defaulting to black) when the
     // manifest doesn't specify one, so the viewer's own default background
@@ -23523,61 +23841,34 @@ async function loadAIM3IFManifest(manifestUrlOrJson, { sceneIndex = 0 } = {}) {
     scene.background = scene.backgroundColor || null;
   }
 
-  const shownScene = aim3dManifest.scenes[sceneIndex] || aim3dManifest.scenes[0];
-  if (shownScene) {
-    const annos = aim3dManifest.annotationsFromScene(shownScene);
-    // A Model body, or (Presentation 4 export with transforms) a
-    // SpecificResource around one - never the scene's cameras or lights.
-    for (const anno of annos) {
-      if (!anno.motivation?.includes("painting") || !isModelBody(anno.body)) continue;
-      const modelUrl = modelUrlOf(anno.body);
-      // annotations and modelUrls stay index-aligned.
-      if (!modelUrl) continue;
-      filteredAnnos.push(anno);
-      modelUrls.push(modelUrl);
-      modelTarget = anno.target;
-    }
-  }
-
+  // A Model body, or (Presentation 4 export with transforms) a
+  // SpecificResource around one - never the scene's cameras, lights or
+  // Canvases - with its whole transform (IIIF/presentation4.js).
+  const placements = scenePlacements(aim3dManifest.manifest, sceneIndex);
+  const modelUrls = placements.models.map((placement) => placement.url);
   aim3dManifest.modelUrls = modelUrls;
-  aim3dManifest.modelTarget = modelTarget;
 
   return {
     manifest: aim3dManifest.manifest,
     scenes: aim3dManifest.scenes,
-    annotations: filteredAnnos,
+    // annotations, modelUrls and placements.models are index-aligned.
+    annotations: placements.models.map((placement) => placement.annotation),
     modelUrls,
-    modelTarget
+    placements,
   };
 }
 
 
 // Position, rotation and scale of the model being loaded (objectsConfig.index)
-// from its painting annotation: the body's transform list, then the target's
-// PointSelector. AIM3DViewer.modelTransform, the first model's exact viewer
-// transform and rendering flags, is applied after loading
-// (Viewer.apply3IFManifestModelTransform).
+// from its placement in the scene. AIM3DViewer.modelTransform, the first
+// model's exact viewer transform and rendering flags, is applied after
+// loading (Viewer.apply3IFManifestModelTransform).
 function applyManifestConfig(loadedManifest, objectsConfig) {
   const index = objectsConfig.index || 0;
   const model = objectsConfig.models?.[index];
-  const annotation = loadedManifest?.annotations?.[index];
-  if (!model || !annotation) return;
-
-  const body = Array.isArray(annotation.body) ? annotation.body[0] : annotation.body;
-  if (body?.type === "SpecificResource" && Array.isArray(body.transform)) {
-    Object.assign(model, modelTransformConfig(body.transform));
-  }
-
-  const target = Array.isArray(annotation.target) ? annotation.target[0] : annotation.target;
-  const point = (Array.isArray(target?.selector) ? target.selector : [target?.selector])
-    .find((selector) => selector?.type === "PointSelector");
-  if (point) {
-    model.position = {
-      x: (model.position?.x || 0) + (Number(point.x) || 0),
-      y: (model.position?.y || 0) + (Number(point.y) || 0),
-      z: (model.position?.z || 0) + (Number(point.z) || 0),
-    };
-  }
+  const placement = loadedManifest?.placements?.models?.[index];
+  if (!model || !placement) return;
+  Object.assign(model, matrixTransformConfig(placement.matrix));
 }
 
 function getManifestWindowState(manifest) {
@@ -26656,7 +26947,7 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "c6a9e1e" ;
+const BUILD_ID = "e376313" ;
 
 function poweredByHtml() {
   const build = ` (${BUILD_ID})` ;
@@ -28040,6 +28331,11 @@ const Viewer$1 = {
     Viewer$1.disposePointCloudControls();
     disposeTiles();
     removeImportedLights();
+    removeImportedCanvases();
+    Viewer$1.currentManifest = null;
+    Viewer$1.manifestCameras = [];
+    document.getElementById("manifesto-camera-switch")?.remove();
+    document.getElementById("manifesto-scene-switch")?.remove();
     Viewer$1.restoreLastPickedFace();
     Viewer$1.clearSelectedFaces();
     Viewer$1.closeAnnotationDialog();
@@ -29656,14 +29952,13 @@ const Viewer$1 = {
 
   // IIIF setup and loading. A manifest's Scenes are shown one at a time:
   // `sceneIndex` picks one (the first by default; showManifestScene switches).
-  async setupManifesto(newUrlOrJson, type="url", manifestType = "iiif", { sceneIndex = 0 } = {}) {
+  async setupManifesto(newUrlOrJson, type="url", manifestType = "iiif", { sceneIndex } = {}) {
     const manifestJson = await Viewer$1.getManifestJson(newUrlOrJson, type);
     const resolvedManifestType = isAIM3DManifest(manifestJson) ? "aim3if" : "iiif";
     const isAim3ifManifest = resolvedManifestType === "aim3if";
     const shownScene = sceneIndexOf(manifestJson, sceneIndex);
     Viewer$1.activeScene = shownScene;
     setCore("activeScene", shownScene);
-    Viewer$1.currentManifest = { source: newUrlOrJson, type, manifestType, json: manifestJson };
 
     if (resolvedManifestType !== manifestType) {
       console.info(`Detected ${isAim3ifManifest ? "AIM3D" : "IIIF"} manifest; using its matching loader.`);
@@ -29693,12 +29988,16 @@ const Viewer$1 = {
       applyManifestSettings(loadedManifest.manifest, core.CONFIG);
       Viewer$1.applyWindowState?.(getManifestWindowState(loadedManifest.manifest));
     }
-    if (loadedManifest.modelUrls.length === 0) { // no 3D model found, use example model
+    // A scene of Canvases only has no model to fall back on.
+    if (loadedManifest.modelUrls.length === 0 && !loadedManifest.placements?.canvases?.length) { // no 3D model found, use example model
       loadedManifest.modelUrls.push('https://raw.githubusercontent.com/IIIF/3d/main/assets/astronaut/astronaut.glb');
       showToast(t$1("toasts.noIiiifModelFallback", "No 3D model found in IIIF manifest, loading example model."));
     }
     // reset scene and release GPU resources from the previous model batch
     Viewer$1.resetLoadedModelState();
+    // The manifest shown (after the reset, which forgets it): its scenes,
+    // cameras and descriptive properties, for switching and exporting.
+    Viewer$1.currentManifest = { source: newUrlOrJson, type, manifestType, json: manifestJson };
     // A previous AIM3D manifest may have left the camera in orthographic mode.
     // Always start from perspective; AIM3D's own camera config (applied below)
     // switches back to orthographic only if it explicitly asks for it.
@@ -29749,8 +30048,67 @@ const Viewer$1 = {
         Viewer$1.import3IFManifest?.(loadedManifest.manifest);
       }
     }
-    if (!isAim3ifManifest) Viewer$1.applyIIIFSceneContent(manifestJson);
+    applyCanvases(loadedManifest.placements?.canvases || []);
+    const content = isAim3ifManifest ? Viewer$1.readManifestSceneContent(manifestJson) : Viewer$1.applyIIIFSceneContent(manifestJson);
+    // The models' own cameras and lights, unless their annotations exclude
+    // them - where the manifest has none of its own (an AIM3D manifest's
+    // camera counts as its own).
+    const roots = (loadedManifest.placements?.models || []).map((_, slot) => Viewer$1.resolveObjectByTargetId(`m${slot}:root`));
+    applyModelFeatures(loadedManifest.placements?.models, roots, {
+      lights: content?.lights || [],
+      defaultCamera: content?.defaultCamera || (isAim3ifManifest && manifestJson?.AIM3DViewer?.camera) || null,
+    }, Viewer$1);
+    Viewer$1.manifestCameras = content?.cameraChoices || [];
     Viewer$1.updateManifestSceneSwitch(manifestJson);
+    Viewer$1.updateManifestCameraSwitch();
+  },
+
+  readManifestSceneContent(manifestJson) {
+    try {
+      return readSceneContent(manifestJson, core.activeScene);
+    } catch (error) {
+      console.warn("Could not read IIIF scene content", error);
+      return null;
+    }
+  },
+
+  // Shows one of the scene's cameras (Viewer.manifestCameras).
+  showManifestCamera(index) {
+    const camera = Viewer$1.manifestCameras?.[Number(index)];
+    if (!camera) return false;
+    return applyCamera(camera, Viewer$1);
+  },
+
+  // A camera selector in the manifest form, for a scene that offers several
+  // (several cameras, or a Choice of them).
+  updateManifestCameraSwitch() {
+    document.getElementById("manifesto-camera-switch")?.remove();
+    const cameras = Viewer$1.manifestCameras || [];
+    const content = document.getElementById("form-manifesto-content");
+    if (cameras.length < 2 || !content) return;
+
+    const group = document.createElement("div");
+    group.className = "form-manifesto-group";
+    group.id = "manifesto-camera-switch";
+    const label = document.createElement("label");
+    label.className = "form-manifesto-label";
+    label.htmlFor = "manifesto-camera-select";
+    label.textContent = t$1("manifesto.camera", "Camera");
+    const select = document.createElement("select");
+    select.id = "manifesto-camera-select";
+    const shown = cameras.findIndex((camera) => !camera.alternative);
+    cameras.forEach((camera, index) => {
+      const option = document.createElement("option");
+      option.value = String(index);
+      option.textContent = camera.label || t$1("manifesto.cameraNumber", { number: index + 1 }, "Camera {number}");
+      option.selected = index === Math.max(shown, 0);
+      select.appendChild(option);
+    });
+    select.addEventListener("change", () => Viewer$1.showManifestCamera(select.value));
+    group.append(label, select);
+    const sceneSwitch = document.getElementById("manifesto-scene-switch");
+    if (sceneSwitch) sceneSwitch.after(group);
+    else content.prepend(group);
   },
 
   // Shows another Scene of the manifest loaded last.
@@ -29794,20 +30152,16 @@ const Viewer$1 = {
   // manifest (AIM3D manifests carry their own camera/lights/annotations,
   // applied by import3IFManifest).
   applyIIIFSceneContent(manifestJson) {
-    let content;
-    try {
-      content = readSceneContent(manifestJson, core.activeScene);
-    } catch (error) {
-      console.warn("Could not read IIIF scene content", error);
-      return;
-    }
-    if (content.cameras.length) applyCamera(content.cameras[0], Viewer$1);
+    const content = Viewer$1.readManifestSceneContent(manifestJson);
+    if (!content) return null;
+    if (content.defaultCamera) applyCamera(content.defaultCamera, Viewer$1);
     if (content.lights.length) applyLights(content.lights);
     if (content.comments.length) {
       const root = Viewer$1.resolveObjectByTargetId("m0:root");
       Viewer$1.annotationEntries = commentsToAnnotationEntries(content.comments, root);
       Viewer$1.refreshAnnotationPOIs();
     }
+    return content;
   },
 
   async getManifestJson(manifestUrlOrJson, type) {

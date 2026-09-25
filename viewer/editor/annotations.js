@@ -12,6 +12,7 @@ import {
   buildCameraAnnotation,
   buildCommentTarget,
   buildLightAnnotations,
+  buildCanvasAnnotation,
   buildModelAnnotation,
   modelFormatOf,
   buildViewCameraAnnotation,
@@ -24,10 +25,19 @@ import {
   readCommentText,
   readSceneContent,
   sceneIndexOf,
+  scenePlacements,
   removeImportedLights,
   stopCameraIntro,
   suspendDefaultLights,
 } from "../IIIF/presentation4.js";
+
+// What a manifest says about itself, and a Scene about itself - kept when a
+// scene loaded from a manifest is exported again.
+const MANIFEST_DESCRIPTIVE_PROPERTIES = [
+  "label", "summary", "metadata", "requiredStatement", "rights", "provider", "homepage",
+  "thumbnail", "logo", "seeAlso", "rendering", "partOf", "navDate", "navPlace", "language",
+];
+const SCENE_DESCRIPTIVE_PROPERTIES = ["label", "summary", "metadata", "requiredStatement", "rights", "thumbnail", "navDate"];
 
 // Point annotations are anchored to the first model root.
 const POINT_ANNOTATION_ROOT = "m0:root";
@@ -317,6 +327,18 @@ export function attachAnnotations(Viewer) {
         group.add(marker);
         this.annotationPOIMarkers.push(marker);
         added += 1;
+        // A comment on a region (IIIF WktSelector): its outline too.
+        const polygon = this.getAnnotationEntryPolygonWorld(entry);
+        if (polygon) {
+          const outline = new THREE.LineLoop(
+            new THREE.BufferGeometry().setFromPoints(polygon),
+            new THREE.LineBasicMaterial({ color: 0xffb000, depthTest: false, transparent: true })
+          );
+          outline.name = "annotation-region";
+          outline.renderOrder = 999;
+          outline.userData.annotationId = entry.id;
+          group.add(outline);
+        }
       });
 
       group.visible = added > 0;
@@ -738,6 +760,23 @@ export function attachAnnotations(Viewer) {
       this.closeAnnotationDialog();
     },
 
+    // A comment's polygon in world space (THREE.Vector3s), or null.
+    getAnnotationEntryPolygonWorld(entry) {
+      const polygon = this.normalizeAnnotationPolygon(entry?.polygon);
+      const root = polygon && this.resolveObjectByTargetId(entry.targetId || POINT_ANNOTATION_ROOT);
+      if (!root) return null;
+      root.updateMatrixWorld(true);
+      return polygon.map((point) => new THREE.Vector3().fromArray(point).applyMatrix4(root.matrixWorld));
+    },
+
+    // A comment's region: points ([x, y, z], model-root space) of the polygon
+    // a IIIF WktSelector gave it. null when not one.
+    normalizeAnnotationPolygon(polygon) {
+      if (!Array.isArray(polygon) || polygon.length < 2) return null;
+      const points = polygon.map((point) => this.normalizeAnnotationPoint(point));
+      return points.every(Boolean) ? points : null;
+    },
+
     // Sets an entry's title and description; an entry with several languages
     // gets them as the text of the language shown.
     setAnnotationEntryText(entry, title, description) {
@@ -795,6 +834,7 @@ export function attachAnnotations(Viewer) {
               object: pointTargetId,
               targetId: pointTargetId,
               point,
+              ...(this.normalizeAnnotationPolygon(entry.polygon) ? { polygon: this.normalizeAnnotationPolygon(entry.polygon) } : {}),
               faceNumbers: [],
               title: String(entry.title || "").trim(),
               description: String(entry.description || "").trim(),
@@ -1040,11 +1080,14 @@ export function attachAnnotations(Viewer) {
 
           ...(viewCamera ? { scope: [{ id: viewCamera.id, type: "Annotation" }] } : {}),
 
-          target: center ? buildCommentTarget(sceneId, center) : { id: sceneId, type: "Scene" },
+          target: center
+            ? buildCommentTarget(sceneId, center, this.getAnnotationEntryPolygonWorld(entry))
+            : { id: sceneId, type: "Scene" },
 
           // Exact anchoring for this viewer: the annotated faces, or the
           // point in the model root's space.
           AIM3DViewer: {
+            ...(entry.polygon ? { polygon: entry.polygon } : {}),
             groupId: entry.groupId || "",
             key: entry.key || "",
             object: entry.object || "",
@@ -1314,6 +1357,25 @@ export function attachAnnotations(Viewer) {
         },
         modified: new Date().toISOString(),
       };
+
+      // A scene shown from a manifest keeps what that manifest says about
+      // itself and the scene, and the Canvases painted into the scene.
+      const source = this.currentManifest?.json;
+      if (source && typeof source === "object") {
+        MANIFEST_DESCRIPTIVE_PROPERTIES.forEach((key) => {
+          if (source[key] !== undefined) manifest[key] = structuredClone(source[key]);
+        });
+        const sourceScenes = (source.items || []).filter((item) => item?.type === "Scene");
+        const sourceScene = sourceScenes[sceneIndexOf(source, core.activeScene)];
+        const exportedScene = manifest.items[0];
+        SCENE_DESCRIPTIVE_PROPERTIES.forEach((key) => {
+          if (sourceScene?.[key] !== undefined) exportedScene[key] = structuredClone(sourceScene[key]);
+        });
+        scenePlacements(source, core.activeScene).canvases.forEach(({ canvas, matrix }, index) => {
+          exportedScene.items[0].items.push(buildCanvasAnnotation(sceneId, `${sceneId}/annotation/canvas/${index + 1}`, canvas, matrix));
+          if (canvas.id && !manifest.items.some((item) => item.id === canvas.id)) manifest.items.push(structuredClone(canvas));
+        });
+      }
 
       const exportValidation = validateAIM3DManifest(manifest, { requireCustomBlock: true });
       if (!exportValidation.valid) {
@@ -1880,14 +1942,16 @@ export function attachAnnotations(Viewer) {
         if (customPoint || (!hasFaces && comment)) {
           // A point annotation: ours (model-root space) or any IIIF comment
           // on a scene point (world space, converted).
-          const [fromComment] = !customPoint && comment ? commentsToAnnotationEntries([comment], pointRoot) : [];
+          const [fromComment] = comment ? commentsToAnnotationEntries([comment], pointRoot) : [];
           const point = customPoint || fromComment?.point;
           if (!point) return null;
+          const polygon = this.normalizeAnnotationPolygon(custom.polygon) || fromComment?.polygon;
           const pointView = this.normalizeAnnotationView(custom.view) || this.normalizeAnnotationView(comment?.view);
           return {
             id: String(annotation.id || `anno-point-${index + 1}`),
             targetId: custom.targetId || POINT_ANNOTATION_ROOT,
             point,
+            ...(polygon ? { polygon } : {}),
             ...commentText,
             ...(pointView ? { view: pointView } : {}),
             createdAt: annotation?.created ? String(annotation.created) : "",
