@@ -64,7 +64,7 @@ import { captureAndUploadThumbnail } from "./editor/thumbnail-capture.js";
 import { attachWindowControls } from "./ui/window-controls.js";
 
 import { loadModel, outlineClipping, getModuleAssetBasePath, syncSceneEnvironment } from "./loaders.js";
-import { createIIIFDropdown, createManifestUI, createManifestSourceSwitch, createAIM3IFDropdown, resetModelSettings } from "./metadata.js";
+import { createIIIFDropdown, createManifestUI, createManifestSourceSwitch, createAIM3IFDropdown, resetModelSettings, updateMetadataCounts as updateMetadataCardCounts } from "./metadata.js";
 import { UltraLoader } from "./ultra-loader.js";
 import { StatusPoller } from "./status-poller.js";
 
@@ -3085,6 +3085,11 @@ export const Viewer = {
     const sceneSwitch = document.getElementById("manifesto-scene-switch");
     if (sceneSwitch) sceneSwitch.after(group);
     else content.prepend(group);
+  },
+
+  // The metadata card's counts in the viewer's language.
+  updateMetadataCounts(root) {
+    updateMetadataCardCounts(root);
   },
 
   // Shows another Scene of the manifest loaded last.

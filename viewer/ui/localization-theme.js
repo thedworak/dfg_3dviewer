@@ -201,10 +201,10 @@ export function attachLocalizationTheme(viewer) {
       metadataContainer.querySelectorAll("[data-i18n-key]").forEach((node) => {
         const key = node.getAttribute("data-i18n-key");
         if (!key) return;
-        const needsColon = node.classList.contains("metadata-label");
-        const text = t(key, node.textContent?.replace(/:\s*$/, "") || "");
-        node.textContent = needsColon ? `${text}:` : text;
+        node.textContent = t(key, node.textContent?.replace(/:\s*$/, "") || "");
       });
+      // Counts and the header's summary in the new language's number format.
+      this.updateMetadataCounts?.(metadataContainer);
     },
 
     applyLanguage({ persist = true } = {}) {

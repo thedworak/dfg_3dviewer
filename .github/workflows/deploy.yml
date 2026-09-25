@@ -59,3 +59,37 @@ jobs:
           export BUILD_ID="$(git rev-parse --short HEAD)"
           docker compose up -d --build
           docker image prune -f
+
+      # Last step: clear Cloudflare's cache, so visitors get the new build
+      # right away. The token is checked first (tokens/verify), so a revoked
+      # or mistyped one fails with a clear message rather than a failed purge.
+      # Secrets: CF_API_TOKEN (Zone > Cache Purge permission), CF_ACCOUNT_ID,
+      # CF_ZONE_ID.
+      - name: Purge Cloudflare cache
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+        run: |
+          set -e
+          if [ -z "$CF_API_TOKEN" ] || [ -z "$CF_ACCOUNT_ID" ] || [ -z "$CF_ZONE_ID" ]; then
+            echo "::error::CF_API_TOKEN, CF_ACCOUNT_ID and CF_ZONE_ID must be set as repository secrets."
+            exit 1
+          fi
+
+          verify="$(curl -sS -X GET "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/tokens/verify" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}")"
+          if ! printf '%s' "$verify" | grep -q '"success":[[:space:]]*true'; then
+            echo "::error::Cloudflare token verification failed: $verify"
+            exit 1
+          fi
+
+          purge="$(curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data '{"purge_everything":true}')"
+          if ! printf '%s' "$purge" | grep -q '"success":[[:space:]]*true'; then
+            echo "::error::Cloudflare cache purge failed: $purge"
+            exit 1
+          fi
+          echo "Cloudflare cache purged."
