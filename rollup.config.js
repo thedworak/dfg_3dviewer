@@ -25,6 +25,9 @@ const envBuild = process.env.BUILD ?? "test";
 const customModulesEnv = process.env.MODULE_CUSTOM ?? "";
 let customModules = customModulesEnv;
 const production = process.env.IS_PROD === 'true';
+// Capacitor app build (see capacitor.config.json): served from inside the
+// app package, so no PHP helpers, admin panel or source maps.
+const mobile = envBuild === 'mobile';
 
 if (customModules && !customModules.startsWith('/')) {
   customModules = `/${customModules}`;
@@ -156,7 +159,7 @@ function copyBuildAssets() {
         copyDirectory('viewer/examples', path.join(outDistDir, 'examples')),
         copyDirectory('viewer/manifesto/examples', path.join(outDistDir, 'manifests')),
         // copy admin panel (but we'll remove any local sqlite DB afterwards)
-        copyDirectory('viewer/admin', path.join(outDistDir, 'admin')),
+        !mobile && copyDirectory('viewer/admin', path.join(outDistDir, 'admin')),
       ]);
 
       const viewerSettingsTarget = path.join(outDistDir, 'viewer-settings.json');
@@ -170,9 +173,11 @@ function copyBuildAssets() {
         copyHtmlWithEntryVersion('embed.html', embedTarget),
       ];
 
-      copyPromises.push(
-        renderSettingsLocalPhp().then(content => fs.writeFile(settingsPhpTarget, content))
-      );
+      if (!mobile) {
+        copyPromises.push(
+          renderSettingsLocalPhp().then(content => fs.writeFile(settingsPhpTarget, content))
+        );
+      }
 
       let viewerSettingsSource = 'viewer/viewer-settings-example.json';
       const viewerSettings = JSON.parse(
@@ -190,6 +195,28 @@ function copyBuildAssets() {
           fs.writeFile(
             viewerSettingsTarget,
             JSON.stringify(viewerSettingsMain, null, 2), { flag: 'wx' }
+          ).catch(err => {
+          if (err.code !== 'EEXIST') {
+            throw err;
+          }
+          })
+        );
+      } else if (mobile) {
+        // Built from the tracked example (viewer-settings.json is local-only),
+        // so the app bundle is the same on every machine and in CI.
+        // The app is served from https://localhost (Capacitor's default), so
+        // assets resolve against the bundle itself. mobile.remoteUrl is the
+        // repository used when the device is online; empty = offline only.
+        viewerSettings.mainUrl = '';
+        viewerSettings.baseModulePath = '/assets';
+        viewerSettings.viewer.forceLocalPreview = true;
+        viewerSettings.viewer.editor = false;
+        viewerSettings.viewer.gallery = { ...viewerSettings.viewer.gallery, build: false };
+        viewerSettings.mobile = { remoteUrl: '' };
+        copyPromises.push(
+          fs.writeFile(
+            viewerSettingsTarget,
+            JSON.stringify(viewerSettings, null, 2), { flag: 'wx' }
           ).catch(err => {
           if (err.code !== 'EEXIST') {
             throw err;
@@ -330,6 +357,6 @@ export default {
         return "three";
       }
     },
-    sourcemap: true,
+    sourcemap: !mobile,
   },
 };

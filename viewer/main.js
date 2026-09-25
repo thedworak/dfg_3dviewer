@@ -33,6 +33,7 @@ window.viewer = {
 };
 
 import { core, setCore } from './core.js';
+import { initConnectivity } from './connectivity.js';
 
 import {
   normalizeColor,
@@ -1451,6 +1452,7 @@ export const Viewer = {
       : './viewer-settings.json';
 
     //Setup core variables first to make them available in the loaders and utils
+    initConnectivity();
     setCore('viewEntity', this.viewEntity);
     setCore('CONFIG', this.CONFIG);
     setCore('loadedFile', this.loadedFile);

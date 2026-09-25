@@ -2202,3 +2202,11 @@ body.presentation-mode {
     box-sizing: border-box;
   }
 }
+
+/* No network (see viewer/connectivity.js): hide controls that need the server. */
+body.viewer-offline #uploadModel,
+body.viewer-offline #browseModelsButton,
+body.viewer-offline #loginButton,
+body.viewer-offline #manageUsersButton {
+  display: none !important;
+}

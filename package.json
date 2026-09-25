@@ -18,6 +18,7 @@
   },
   "packages": {},
   "devDependencies": {
+    "@capacitor/cli": "^8.5.2",
     "@jsxtools/rollup-plugin-copy": "^0.3.2",
     "@playwright/test": "^1.63.0",
     "@rollup/plugin-commonjs": "^29.0.3",
@@ -50,6 +51,9 @@
     "build:prod": "cross-env BUILD_SOURCE='' BUILD=prod rollup -c",
     "build:drupal": "node ./scripts/build-drupal.js",
     "build:drupal:custom": "cross-env BUILD_SOURCE='' BUILD=drupal MODULE_CUSTOM=/custom rollup -c",
+    "build:mobile": "cross-env BUILD_SOURCE='' BUILD=mobile IS_PROD=true rollup -c",
+    "cap:sync": "pnpm run build:mobile && cap sync",
+    "cap:android": "pnpm run cap:sync && cap open android",
     "serve:dist": "cross-env BUILD=test serve dist",
     "serve:dist:test": "cross-env BUILD=test serve dist/test",
     "test:local": "sh ./scripts/run-local-tests.sh",
@@ -60,10 +64,12 @@
     "dist/**"
   ],
   "dependencies": {
+    "3d-tiles-renderer": "^0.5.3",
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
     "@iiif/3d-manifesto-dev": "^0.7.0",
     "@loaders.gl/las": "^4.5.2",
     "@rollup/plugin-alias": "^6.0.0",
-    "3d-tiles-renderer": "^0.5.3",
     "fflate": "^0.8.3",
     "jquery": "^4.0.0",
     "lru-cache": "^11.5.3",

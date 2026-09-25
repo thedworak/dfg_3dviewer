@@ -20,6 +20,8 @@ node_modules/
 # build
 /.parcel-cache
 !/dist/.gitkeep
+# Capacitor app bundle - rebuilt by `pnpm run cap:sync`
+/dist/mobile/
 
 # viewer config
 /viewer/viewer-settings.json

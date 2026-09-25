@@ -1,0 +1,8 @@
+{
+  "appId": "de.dlf.aim3dviewer",
+  "appName": "AIM 3D Viewer",
+  "webDir": "dist/mobile",
+  "android": {
+    "allowMixedContent": false
+  }
+}

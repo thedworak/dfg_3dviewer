@@ -89,6 +89,18 @@ This repo also includes a Tauri desktop wrapper in `src-tauri/`.
 - `npm run tauri:dev` — run the app in Tauri dev mode
 - `npm run tauri:build` — build the standalone desktop executable
 
+## Mobile app (Capacitor, Android)
+
+The viewer is packaged as a mobile app with [Capacitor](https://capacitorjs.com): the same bundle runs in the system WebView, served from `https://localhost` inside the app, so it works offline.
+
+- `npm run build:mobile` — build the app bundle into `dist/mobile` (no PHP helpers, admin panel or source maps)
+- `npm run cap:sync` — build and copy the bundle into the native project (`android/`)
+- `npm run cap:android` — sync and open the project in Android Studio
+
+Building the APK needs Android Studio (or the Android SDK plus JDK 21). iOS needs macOS with Xcode (`npx cap add ios`).
+
+The app runs online and offline. `viewer/connectivity.js` keeps `core.isOnline` current and sets `body.viewer-offline`, which hides the controls that need a server. `mobile.remoteUrl` in `dist/mobile/viewer-settings.json` is reserved for the repository the app talks to when it is online (empty = offline only).
+
 ## Notes
 
 - Always serve the viewer over HTTP(S). `file://` mode usually fails because of module import and fetch restrictions.
