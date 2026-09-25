@@ -962,14 +962,13 @@ export const Viewer = {
     return topElement === core.renderer.domElement;
   },
 
-  animateKeyboardCameraTo(nextCameraPosition, nextTarget) {
+  animateKeyboardCameraTo(nextCameraPosition, nextTarget, duration = this.keyboardTweenDurationMs) {
     if (!core.camera || !core.controls || !nextCameraPosition || !nextTarget) return;
 
     const startCamera = core.camera.position.clone();
     const startTarget = core.controls.target.clone();
     const targetCamera = nextCameraPosition.clone();
     const targetControls = nextTarget.clone();
-    const duration = this.keyboardTweenDurationMs;
 
     core.cameraTween?.stop?.();
     core.targetTween?.stop?.();
@@ -3441,6 +3440,7 @@ export const Viewer = {
         Viewer.bindEventListener(core.renderer.domElement, "pointerdown", Viewer.onPointerDown);
         Viewer.bindEventListener(core.renderer.domElement, "pointerup", Viewer.onPointerUp);
         Viewer.bindEventListener(core.renderer.domElement, "pointermove", Viewer.onPointerMove);
+        Viewer.bindDoubleTapFocus();
         Viewer.bindFaceAreaSelection();
         Viewer.bindEventListener(core.renderer.domElement, "mouseenter", (event) => {
           if (!Viewer.isPointerDirectlyOverCanvas(event)) return;
