@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>DFG 3D Viewer Embed</title>
+    <script>
+      (function () {
+        const value = new URLSearchParams(window.location.search).get("presentationMode");
+        const isPresentationMode = ["1", "true", "yes", "on"].includes(String(value).toLowerCase());
+        if (isPresentationMode) {
+          document.documentElement.classList.add("presentation-mode");
+        }
+      })();
+    </script>
+    <link rel="shortcut icon" href="assets/img/dfgviewerFavicon.png" type="image/png">
+    <link href="assets/css/main.css" rel="stylesheet" />
+    <link href="assets/css/spinner.css" rel="stylesheet" />
+    <link href="assets/css/theme.css" rel="stylesheet" />
+    <link href="assets/css/external-sources.css" rel="stylesheet"/>
+    <link href="assets/css/credits.css" rel="stylesheet"/>
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: transparent;
+      }
+
+      /* The viewer fills what is left of the screen below anything shown
+         above it (the local example picker), so its toolbar stays on screen;
+         dvh follows a mobile browser's address bar. */
+      body {
+        height: 100dvh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      #DFG_3DViewer {
+        width: 100%;
+        flex: 1 1 0;
+        min-height: 240px;
+      }
+    </style>
+  </head>
+  <body class="viewer-embed-page">
+    <div id="DFG_3DViewer"></div>
+    <script>
+      (function () {
+        const params = new URLSearchParams(window.location.search);
+        const hasExplicitSource = params.has("model") || params.has("src") || params.has("id");
+        if (hasExplicitSource) return;
+
+        const isLocalPreviewHost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+        if (!isLocalPreviewHost) return;
+
+        const container = document.getElementById("DFG_3DViewer");
+        if (!container || container.hasAttribute("3d")) return;
+        container.setAttribute("3d", "./examples/box.stl");
+      })();
+    </script>
+    <script type="module" src="dfg_3dviewer-module.js"></script>
+  </body>
+</html>

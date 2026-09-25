@@ -1,0 +1,131 @@
+.flex-container {
+	display: flex;
+	gap: 0.5rem;
+}
+
+.half-width {
+	min-width: 0;
+	flex: 0 0 auto;
+	max-width: 100%;
+	width: 200px;
+}
+
+.scale-fields-wrapper {
+	border: 1px solid #ccc;
+	padding: 1rem;
+	border-radius: 8px;
+	background-color: #f9f9f9;
+	margin-top: 1rem;
+	max-width: 100%;
+	width: 500px;
+}
+
+.gallery-container {
+	display: block;
+	gap: 0.5rem;
+}
+
+.gallery-fields-wrapper {
+	border: 1px solid #ccc;
+	padding: 1rem;
+	border-radius: 8px;
+	background-color: #f9f9f9;
+	margin-top: 1rem;
+	max-width: 100%;
+	width: 500px;
+}
+
+#ultra-loader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  z-index: 99999;
+}
+
+#ultra-loader-bar {
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(90deg,#4facfe,#00f2fe);
+  box-shadow: 0 0 8px rgba(0,150,255,0.6);
+  transition: width .35s ease;
+}
+
+#ultra-loader-panel {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(17, 24, 39, 0.92);
+  color: rgba(255, 255, 255, 0.94);
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.28);
+  font-size: 14px;
+  opacity: 0;
+  transition: opacity 2.8s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 99999;
+  pointer-events: none;
+}
+
+body[data-viewer-theme="light"] #ultra-loader-panel {
+  background: rgba(250, 247, 242, 0.97);
+  color: rgba(37, 33, 28, 0.92);
+  border-color: rgba(164, 151, 132, 0.24);
+  box-shadow: 0 14px 28px rgba(129, 116, 96, 0.14);
+}
+
+#ultra-loader-panel.show {
+  opacity: 1;
+  z-index: 99999;
+}
+
+#ultra-loader-header {
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.96);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+body[data-viewer-theme="light"] #ultra-loader-header {
+  border-bottom-color: rgba(164, 151, 132, 0.24);
+  color: rgba(37, 33, 28, 0.94);
+}
+
+.ultra-step {
+  margin: 4px 0;
+}
+
+.ultra-step.done {
+  color: #3ba55d;
+}
+
+.ultra-step.active {
+  color: #007bff;
+}
+
+.ultra-step.pending {
+  color: #999;
+}
+
+.ultra-step.error {
+  color: #d93025;
+}
+
+#ultra-loader-error {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 12px;
+  color: #d93025;
+  font-weight: 600;
+}
+
+body[data-viewer-theme="light"] #ultra-loader-error {
+  border-top-color: rgba(164, 151, 132, 0.24);
+}

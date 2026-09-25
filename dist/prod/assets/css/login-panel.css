@@ -1,0 +1,83 @@
+#loginButton[hidden] {
+  display: none !important;
+}
+
+#loginButton {
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(164, 151, 132, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 252, 247, 0.96);
+  color: #25211c;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+#loginButton:hover {
+  transform: translateY(-1px);
+}
+
+#loginButton[data-signed-in="true"] {
+  border-color: #3caa5b;
+}
+
+body[data-viewer-theme="dark"] #loginButton {
+  border-color: #444;
+  background: #1e2024;
+  color: #eee;
+}
+
+body[data-viewer-theme="dark"] #loginButton[data-signed-in="true"] {
+  border-color: #3caa5b;
+}
+
+.login-icon {
+  width: 18px;
+  height: 18px;
+  background-color: currentColor;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8'%3E%3Ccircle cx='12' cy='8' r='3.5'/%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M5 20c0-3.9 3.1-7 7-7s7 3.1 7 7'/%3E%3C/svg%3E");
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8'%3E%3Ccircle cx='12' cy='8' r='3.5'/%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M5 20c0-3.9 3.1-7 7-7s7 3.1 7 7'/%3E%3C/svg%3E");
+  mask-size: contain;
+  mask-repeat: no-repeat;
+}
+
+#loginPanel[hidden] {
+  display: none !important;
+}
+
+#loginPanel {
+  position: absolute;
+  left: 50%;
+  top: 18%;
+  transform: translateX(-50%);
+  width: min(300px, calc(100vw - 36px));
+  max-height: min(60vh, 480px);
+  overflow: auto;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--viewer-panel-border);
+  background: var(--viewer-panel-embed-bg);
+  color: var(--viewer-panel-text);
+  box-shadow: var(--viewer-panel-shadow);
+  font-size: 13px;
+  line-height: 1.4;
+  z-index: 99999;
+  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
+            "Segoe UI", Roboto, Arial, sans-serif;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--viewer-panel-text) 45%, transparent) transparent;
+}
+
+#loginPanel .upload-panel-auth {
+  padding-bottom: 0;
+  border-bottom: none;
+}

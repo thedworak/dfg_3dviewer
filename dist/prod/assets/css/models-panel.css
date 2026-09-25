@@ -1,0 +1,162 @@
+#browseModelsButton {
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(164, 151, 132, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 252, 247, 0.96);
+  color: #25211c;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+#browseModelsButton:hover {
+  transform: translateY(-1px);
+}
+
+body[data-viewer-theme="dark"] #browseModelsButton {
+  border-color: #444;
+  background: #1e2024;
+  color: #eee;
+}
+
+.browse-models-icon {
+  width: 18px;
+  height: 18px;
+  background-color: currentColor;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z'/%3E%3C/svg%3E");
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z'/%3E%3C/svg%3E");
+  mask-size: contain;
+  mask-repeat: no-repeat;
+}
+
+#modelsPanel[hidden] {
+  display: none !important;
+}
+
+#modelsPanel {
+  position: absolute;
+  left: 50%;
+  top: 18%;
+  transform: translateX(-50%);
+  width: min(320px, calc(100vw - 36px));
+  max-height: min(60vh, 480px);
+  overflow: auto;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--viewer-panel-border);
+  background: var(--viewer-panel-embed-bg);
+  color: var(--viewer-panel-text);
+  box-shadow: var(--viewer-panel-shadow);
+  font-size: 13px;
+  line-height: 1.4;
+  z-index: 99999;
+  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
+            "Segoe UI", Roboto, Arial, sans-serif;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--viewer-panel-text) 45%, transparent) transparent;
+}
+
+@media (max-width: 640px) {
+  #modelsPanel {
+    width: calc(100vw - 36px);
+  }
+}
+
+.models-panel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.models-panel-empty {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.models-panel-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.models-panel-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: var(--viewer-panel-bg);
+  color: var(--viewer-panel-text);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  padding: 5px 8px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.models-panel-item:hover {
+  opacity: 0.8;
+}
+
+.models-panel-item img {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex: none;
+}
+
+.models-panel-item-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.models-panel-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.models-panel-item-meta {
+  font-size: 10px;
+  opacity: 0.65;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.models-panel-delete {
+  flex: none;
+  width: 28px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: var(--viewer-panel-bg);
+  color: #d54646;
+  font: inherit;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.models-panel-delete:hover {
+  background: #d54646;
+  color: #fff;
+}

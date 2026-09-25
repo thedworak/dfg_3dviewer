@@ -1,0 +1,46 @@
+{
+  "@context": "http://iiif.io/api/presentation/4/context.json",
+  "id": "./examples/box.glb/manifest.json",
+  "type": "Manifest",
+  "label": {
+    "en": ["Box (IIIF, localhost)"]
+  },
+  "items": [
+    {
+      "id": "./examples/box.glb/scene",
+      "type": "Scene",
+      "label": {
+        "en": ["box"]
+      },
+      "items": [
+        {
+          "id": "./examples/box.glb/scene/page/model",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "./examples/box.glb/scene/annotation/model",
+              "type": "Annotation",
+              "motivation": ["painting"],
+              "body": {
+                "id": "./examples/box.glb",
+                "type": "Model",
+                "format": "model/gltf-binary"
+              },
+              "target": {
+                "id": "./examples/box.glb/scene",
+                "type": "Scene"
+              }
+            }
+          ]
+        }
+      ],
+      "annotations": [
+        {
+          "id": "./examples/box.glb/scene/page/annotations",
+          "type": "AnnotationPage",
+          "items": []
+        }
+      ]
+    }
+  ]
+}
