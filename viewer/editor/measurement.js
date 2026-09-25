@@ -3,6 +3,7 @@ import { t } from "../i18n-utils.js";
 import { toastHelper } from "../viewer-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
 import THREE from "../init.js";
+import { MODEL_UNITS } from "./model-units.js";
 
 // Measurement tools behind the ruler button:
 //   distance   - click points along a path; each segment and the total length
@@ -213,22 +214,31 @@ export function attachMeasurement(Viewer) {
       return Viewer.getDistanceMeasurementScaleMeters();
     },
 
+    // Areas and volumes in the model's unit and the chosen display system
+    // (editor/model-units.js).
     formatMeasuredArea(rawArea) {
-      const scale = Viewer.getMeasurementScale();
-      const m2 = rawArea * scale * scale;
-      if (!Number.isFinite(m2)) return "0 mm²";
-      if (m2 >= 0.01) return `${m2.toFixed(m2 >= 1 ? 2 : 3)} m²`;
-      if (m2 >= 1e-4) return `${(m2 * 1e4).toFixed(1)} cm²`;
-      return `${(m2 * 1e6).toFixed(0)} mm²`;
+      return Viewer.formatArea(rawArea);
     },
 
     formatMeasuredVolume(rawVolume) {
-      const scale = Viewer.getMeasurementScale();
-      const m3 = rawVolume * scale * scale * scale;
-      if (!Number.isFinite(m3)) return "0 mm³";
-      if (m3 >= 0.001) return `${m3.toFixed(3)} m³`;
-      if (m3 >= 1e-6) return `${(m3 * 1e6).toFixed(1)} cm³`;
-      return `${(m3 * 1e9).toFixed(0)} mm³`;
+      return Viewer.formatVolume(rawVolume);
+    },
+
+    // After the model unit or the display system changed: every label,
+    // the model dimensions and the readout in the new unit.
+    refreshMeasurementUnits() {
+      const draft = Viewer.measurementDraft;
+      Viewer.measurementResults.forEach((entry) => {
+        Viewer.measurementDraft = entry;
+        Viewer.redrawMeasurementDraft({ closed: true });
+      });
+      Viewer.measurementDraft = draft;
+      if (draft) Viewer.redrawMeasurementDraft();
+      if (Viewer.measurementDimensions) {
+        Viewer.hideModelDimensions();
+        Viewer.showModelDimensions();
+      }
+      Viewer.updateMeasurementReadout();
     },
 
     addMeasurementPoint(point) {
@@ -497,6 +507,77 @@ export function attachMeasurement(Viewer) {
 
     // ---- Readout panel ---------------------------------------------------
 
+    // The model unit and where it comes from, a hint when the model's size
+    // looks wrong for it, and metric / imperial display.
+    buildMeasurementUnitsBlock() {
+      const block = document.createElement("div");
+      block.className = "viewer-measure-units";
+      const unit = Viewer.resolveModelUnit();
+      const unitName = unit.key || `${Number(unit.meters.toPrecision(4))} m`;
+
+      const line = document.createElement("div");
+      line.className = "viewer-measure-units_line";
+      line.textContent = Viewer.tFormat(
+        "measurement.unitLine",
+        { unit: unitName, source: Viewer.describeModelUnitSource(unit.source) },
+        "Model unit: {unit} ({source})"
+      );
+      block.appendChild(line);
+
+      const warning = Viewer.getModelUnitWarning();
+      if (warning) {
+        const hint = document.createElement("div");
+        hint.className = "viewer-measure-units_warning";
+        hint.setAttribute("role", "status");
+        const text = document.createElement("span");
+        text.textContent = Viewer.tFormat(
+          "measurement.unitImplausible",
+          { size: Viewer.formatLength(Viewer.getModelLargestSide()).text },
+          "The model measures {size} across - is its unit right?"
+        );
+        hint.appendChild(text);
+        const choices = document.createElement("div");
+        choices.className = "viewer-measure-units_choices";
+        warning.suggestions.forEach((key) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.dataset.unit = key;
+          const size = Viewer.getModelLargestSide() * MODEL_UNITS[key];
+          button.textContent = `${key} → ${Number(size.toPrecision(3))} m`;
+          button.title = Viewer.tFormat("measurement.unitUse", { unit: key }, "Treat the model as drawn in {unit}");
+          button.addEventListener("click", () => Viewer.setModelUnit(key));
+          choices.appendChild(button);
+        });
+        const keep = document.createElement("button");
+        keep.type = "button";
+        keep.dataset.unit = unit.key || "m";
+        keep.className = "is-quiet";
+        keep.textContent = Viewer.tFormat("measurement.unitKeep", { unit: unitName }, "{unit} is right");
+        keep.addEventListener("click", () => Viewer.setModelUnit(unit.key || "m"));
+        choices.appendChild(keep);
+        hint.appendChild(choices);
+        block.appendChild(hint);
+      }
+
+      const display = document.createElement("div");
+      display.className = "viewer-measure-units_display";
+      display.setAttribute("role", "group");
+      display.setAttribute("aria-label", t("measurement.displaySystem", "Show in"));
+      const system = Viewer.getMeasureDisplaySystem();
+      [["metric", t("measurement.metric", "Metric")], ["imperial", t("measurement.imperial", "Imperial")]].forEach(([value, label]) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.dataset.system = value;
+        button.textContent = label;
+        button.setAttribute("aria-pressed", String(system === value));
+        button.classList.toggle("is-active", system === value);
+        button.addEventListener("click", () => Viewer.setMeasureDisplaySystem(value));
+        display.appendChild(button);
+      });
+      block.appendChild(display);
+      return block;
+    },
+
     ensureMeasurementReadout() {
       if (Viewer.measurementReadout?.isConnected) return Viewer.measurementReadout;
       const stack = getViewerSideStack();
@@ -573,6 +654,7 @@ export function attachMeasurement(Viewer) {
         list.appendChild(empty);
       }
       panel.appendChild(list);
+      panel.appendChild(Viewer.buildMeasurementUnitsBlock());
 
       const actions = document.createElement("div");
       actions.className = "viewer-measure-readout_actions";

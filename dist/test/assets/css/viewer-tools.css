@@ -283,6 +283,77 @@
   background: var(--viewer-gui-widget-hover-bg, rgba(255, 255, 255, 0.2));
 }
 
+/* Model unit: where it comes from, a hint when the size looks wrong, and
+   metric / imperial display (editor/model-units.js). */
+.viewer-measure-units {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  font-size: 12px;
+}
+
+.viewer-measure-units_line {
+  opacity: 0.75;
+}
+
+.viewer-measure-units_warning {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, #ffb300 16%, transparent);
+  border: 1px solid color-mix(in srgb, #ffb300 45%, transparent);
+}
+
+.viewer-measure-units_choices,
+.viewer-measure-units_display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.viewer-measure-units button {
+  padding: 3px 9px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.viewer-measure-units button:hover {
+  background: var(--viewer-gui-widget-hover-bg, rgba(255, 255, 255, 0.2));
+}
+
+.viewer-measure-units_warning button:not(.is-quiet) {
+  font-weight: 600;
+  border-color: color-mix(in srgb, #ffb300 60%, transparent);
+}
+
+.viewer-measure-units button.is-quiet {
+  opacity: 0.75;
+}
+
+.viewer-measure-units_display button.is-active {
+  background: color-mix(in srgb, currentColor 16%, transparent);
+  font-weight: 600;
+}
+
+/* The model-unit button in the ruler menu shows the unit as text. */
+.viewer-editor-tool_unit-label {
+  font: 600 12px/1 system-ui, sans-serif;
+  letter-spacing: -0.01em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .viewer-clipping-panel {
   width: 280px;
   max-width: 100%;

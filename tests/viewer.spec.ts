@@ -1417,6 +1417,109 @@ test('IIIF models bring their own camera and lights unless the annotation exclud
   expect(excluded.lights).toEqual(expect.arrayContaining(['HemisphereLight', 'AmbientLight', 'DirectionalLight']));
 });
 
+test('sign-in and user management sit in their own account area, outside the example picker', async ({ page }) => {
+  await page.route('**/api/auth/config', (route) =>
+    route.fulfill({ json: { mode: 'required', registration: 'open', maxUploadBytes: 104857600 } })
+  );
+  await page.route('**/api/auth/me', (route) =>
+    route.fulfill({ json: { user: { id: 1, username: 'admin' }, role: 'admin' } })
+  );
+  await openViewer(page);
+  await waitForModel(page);
+
+  const accountBar = page.locator('#viewer-page-header > #viewer-account-bar');
+  await expect(accountBar.locator('#loginButton')).toBeVisible();
+  await expect(accountBar.locator('#manageUsersButton')).toBeVisible();
+  await expect(page.locator('#example-model-picker #loginButton, #example-model-picker #manageUsersButton')).toHaveCount(0);
+  await expect(page.locator('#viewer-page-header > #example-model-picker #uploadModel')).toBeVisible();
+
+  // Accounts off: no empty account area.
+  await page.unroute('**/api/auth/config');
+  await page.route('**/api/auth/config', (route) =>
+    route.fulfill({ json: { mode: 'off', registration: 'closed', maxUploadBytes: 104857600 } })
+  );
+  await page.evaluate(() => window.Viewer.refreshAuthState());
+  await expect(accountBar).toBeHidden();
+});
+
+test('model units: from the file, a remembered choice for implausible sizes, and imperial display', async ({ page }) => {
+  const readout = page.locator('#viewerMeasurementReadout');
+  const showDimensions = () => page.evaluate(() => {
+    if (!window.Viewer.measurementDimensions) window.Viewer.toggleModelDimensions();
+    window.Viewer.updateMeasurementReadout();
+  });
+
+  // FBX: UnitScaleFactor says centimeters - a 200-unit box is 2 m.
+  await openViewer(page, '/examples/box.fbx');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+  expect(await page.evaluate(() => window.Viewer.resolveModelUnit())).toEqual({ meters: 0.01, source: 'file', key: 'cm' });
+  await showDimensions();
+  await expect(readout).toContainText('2.00 m × 2.00 m × 2.00 m');
+  await expect(readout.locator('.viewer-measure-units_line')).toContainText('cm');
+
+  // A glTF drawn in centimeters: 2.78 km wide as glTF's meters - a hint,
+  // with the units that make it plausible.
+  await openViewer(page, '/examples/WolpaSynagogue.glb');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 30_000 });
+  await showDimensions();
+  const warning = readout.locator('.viewer-measure-units_warning');
+  await expect(warning).toContainText('2.78 km');
+  await expect(warning.locator('button[data-unit]')).toHaveCount(4);
+  await warning.locator('button[data-unit="cm"]').click();
+  await expect(warning).toHaveCount(0);
+  await expect(readout).toContainText('27.76 m');
+  await expect(page.locator('[data-tool="measure-units"] > .viewer-editor-tool_unit-label')).toHaveText('cm');
+
+  // Remembered for this model...
+  await openViewer(page, '/examples/WolpaSynagogue.glb');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 30_000 });
+  expect(await page.evaluate(() => window.Viewer.resolveModelUnit())).toEqual({ meters: 0.01, source: 'user', key: 'cm' });
+  // ...and shown in feet on request.
+  await showDimensions();
+  await readout.locator('.viewer-measure-units_display button[data-system="imperial"]').click();
+  await expect(readout).toContainText('91.08 ft');
+  await readout.locator('.viewer-measure-units_display button[data-system="metric"]').click();
+
+  // Automatic again: meters, and the hint is back.
+  await page.evaluate(() => window.Viewer.setModelUnit('auto'));
+  expect(await page.evaluate(() => window.Viewer.resolveModelUnit().source)).toBe('default');
+  await expect(warning).toContainText('2.78 km');
+});
+
+test('IIIF Scene.spatialScale sets the model unit and is exported again', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+  const scene = { id: './examples/scaled/scene', type: 'Scene' };
+  const manifest = {
+    '@context': 'http://iiif.io/api/presentation/4/context.json',
+    id: './examples/scaled/manifest.json',
+    type: 'Manifest',
+    items: [{
+      ...scene,
+      spatialScale: { type: 'Quantity', quantityValue: 1, unit: 'cm' },
+      items: [{
+        id: './examples/scaled/page',
+        type: 'AnnotationPage',
+        items: [{ id: './examples/scaled/model', type: 'Annotation', motivation: ['painting'], body: { id: './examples/box.glb', type: 'Model' }, target: scene }],
+      }],
+    }],
+  };
+  await page.evaluate((json) => window.Viewer.setupManifesto(JSON.stringify(json), 'text'), manifest);
+  expect(await page.evaluate(() => window.Viewer.resolveModelUnit())).toEqual({ meters: 0.01, source: 'manifest', key: 'cm' });
+  expect(await page.evaluate(() => window.Viewer.formatLength(2).text)).toBe('2.0 cm');
+
+  const exported = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(exported.items[0].spatialScale).toEqual({ type: 'Quantity', quantityValue: 0.01, unit: 'm' });
+  expect(exported.AIM3DViewer.viewer.units).toBe(0.01);
+
+  // Our own export (the AIM3D path) keeps it; a model on its own does not.
+  await page.evaluate((json) => window.Viewer.setupManifesto(JSON.stringify(json), 'text'), exported);
+  expect(await page.evaluate(() => window.Viewer.resolveModelUnit())).toEqual({ meters: 0.01, source: 'manifest', key: 'cm' });
+  await openViewer(page, '/examples/box.glb');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+  expect(await page.evaluate(() => window.Viewer.resolveModelUnit().source)).toBe('default');
+});
+
 test('upload panel shows limit usage and limit errors from the worker', async ({ page }) => {
   await page.route('**/api/auth/config', (route) =>
     route.fulfill({ json: { mode: 'off', registration: 'closed', maxUploadBytes: 104857600 } })

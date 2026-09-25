@@ -38,6 +38,7 @@ import { loadIfcProperties, ifcPropertiesUrlForModel, setIfcModel } from "./ifc-
 import { reportViewerError, showToast, toastHelper } from "./viewer-utils.js";
 import { t } from "./i18n-utils.js";
 import { detectTiledFormat, loadTiledModel } from "./tiles.js";
+import { detectFileUnit } from "./editor/model-units.js";
 
 export var outlineClipping;
 let environmentTextureCache = {};
@@ -521,6 +522,17 @@ export async function loadModel() {
       throw new Error("Loaded object is null or undefined.");
     }
     updateLoadingStage("loadingLog.loadingTextures", 99);
+
+    // The file's own unit (for measurements) - read before the reset below,
+    // which drops the root scale COLLADA and USD keep their unit in. The
+    // first model of a scene decides.
+    if (!(core.objectsConfig?.index > 0)) {
+      window.Viewer.detectedModelUnitMeters = await detectFileUnit(
+        object,
+        core.fileObject.extension,
+        modelPath
+      );
+    }
 
     // Keep authoring transforms in presentation mode to avoid collapsing model parts.
     // Tiled models keep the transform that centres/orients them (tiles.js).

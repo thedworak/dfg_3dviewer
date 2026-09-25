@@ -364,6 +364,43 @@
     color 0.2s ease;
 }
 
+/* The row above the viewer: the example picker on the left, the account
+   area (sign-in, user management) on the right. */
+#viewer-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0 12px;
+}
+
+#viewer-account-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 5px 0 5px auto;
+  padding: 4px 10px;
+  border: 1px solid rgba(164, 151, 132, 0.24);
+  border-radius: 10px;
+  background: rgba(250, 247, 242, 0.94);
+  box-shadow: 0 12px 24px rgba(129, 116, 96, 0.12);
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+/* Nothing to show (no sign-in required): no empty box. */
+#viewer-account-bar:not(:has(> :not([hidden]))) {
+  display: none;
+}
+
+body[data-viewer-theme="dark"] #viewer-account-bar {
+  border-color: #444;
+  background: rgba(30, 32, 36, 0.95);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
 #example-model-picker label {
   font-weight: 600;
   color: #42382d;

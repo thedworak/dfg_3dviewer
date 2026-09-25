@@ -3,6 +3,7 @@ import THREE from "./init.js";
 import { core } from "./core.js";
 import { t } from "./i18n-utils.js";
 import { changeBackground, toastHelper } from './viewer-utils.js';
+import { MODEL_UNITS } from "./editor/model-units.js";
 
 export function getEditorToolbarIcon(icon) {
   const icons = {
@@ -674,6 +675,35 @@ export function createEditorToolbar(viewer) {
         submenu.appendChild(subButton);
         viewer.measurementSubmenuButtons[item.key] = subButton;
       });
+
+      // Model unit: the button shows the unit in use; its menu picks another
+      // (remembered for this model) or goes back to the automatic one.
+      const unitsButton = document.createElement("button");
+      unitsButton.type = "button";
+      unitsButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button has-submenu viewer-editor-tool_unit";
+      unitsButton.dataset.tool = "measure-units";
+      unitsButton.innerHTML = '<span class="viewer-editor-tool_icon viewer-editor-tool_unit-label" aria-hidden="true">m</span>';
+      const unitsMenu = document.createElement("div");
+      unitsMenu.className = "viewer-editor-tool_submenu viewer-editor-tool_submenu-units";
+      viewer.measurementUnitButtons = {};
+      ["auto", ...Object.keys(MODEL_UNITS)].forEach((unit) => {
+        const choice = document.createElement("button");
+        choice.type = "button";
+        choice.className = "viewer-editor-tool viewer-editor-tool_submenu-button viewer-editor-tool_unit-choice";
+        choice.dataset.unit = unit;
+        choice.innerHTML = `<span class="viewer-editor-tool_icon viewer-editor-tool_unit-label" aria-hidden="true">${unit === "auto" ? "A" : unit}</span>`;
+        viewer.bindEventListener(choice, "click", (event) => {
+          event.stopPropagation();
+          viewer.setModelUnit(unit);
+        });
+        unitsMenu.appendChild(choice);
+        viewer.measurementUnitButtons[unit] = choice;
+      });
+      unitsButton.appendChild(unitsMenu);
+      viewer.bindEventListener(unitsButton, "click", (event) => event.stopPropagation());
+      submenu.appendChild(unitsButton);
+      viewer.measurementSubmenuButtons.units = unitsButton;
+
       button.appendChild(submenu);
     } else if (tool.key === "annotate") {
       button.classList.add("has-submenu");
@@ -1539,6 +1569,16 @@ export function updateClippingPlanesSubmenuState(viewer) {
 
 export function updateMeasurementSubmenuState(viewer) {
   if (!viewer.measurementSubmenuButtons) return;
+  // The unit in use on the units button; the chosen one marked in its menu
+  // ("auto" unless the user picked one).
+  const unit = viewer.resolveModelUnit?.();
+  const unitsLabel = viewer.measurementSubmenuButtons.units?.querySelector(":scope > .viewer-editor-tool_unit-label");
+  if (unit && unitsLabel) unitsLabel.textContent = unit.key || "?";
+  const chosen = unit?.source === "user" ? unit.key : "auto";
+  Object.entries(viewer.measurementUnitButtons || {}).forEach(([key, choice]) => {
+    choice.classList.toggle("is-active", key === chosen);
+    choice.setAttribute("aria-pressed", key === chosen ? "true" : "false");
+  });
   ["distance", "angle", "area"].forEach((mode) => {
     const active = viewer.RULER_MODE === true && viewer.measurementMode === mode;
     viewer.measurementSubmenuButtons[mode]?.classList.toggle("is-active", active);
@@ -1727,9 +1767,15 @@ export function updateEditorToolbarLabels(viewer) {
       area: t("measurement.area", "Area"),
       dimensions: t("measurement.dimensions", "Model dimensions"),
       clear: t("measurement.clearAll", "Clear measurements"),
+      units: t("measurement.modelUnit", "Model unit"),
     };
     Object.entries(viewer.measurementSubmenuButtons).forEach(([key, button]) => {
       const label = measurementSubmenuLabels[key] || key;
+      button.setAttribute("title", label);
+      button.setAttribute("aria-label", label);
+    });
+    Object.entries(viewer.measurementUnitButtons || {}).forEach(([key, button]) => {
+      const label = t(`measurement.unitNames.${key}`, key);
       button.setAttribute("title", label);
       button.setAttribute("aria-label", label);
     });

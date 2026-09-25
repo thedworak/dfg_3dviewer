@@ -1,4 +1,4 @@
-import { T as THREE, e as exports$1, V as ViewHelper, a as Vector3, M as Matrix4, Q as Quaternion, E as Euler, b as MathUtils$1, F as FontLoader, c as TextGeometry, O as OrbitControls, d as TransformControls } from './three.js';
+import { T as THREE, e as exports$1, u as unzipSync$1, V as ViewHelper, a as Vector3, M as Matrix4, Q as Quaternion, E as Euler, b as MathUtils$1, F as FontLoader, c as TextGeometry, O as OrbitControls, d as TransformControls } from './three.js';
 
 window.THREE = THREE;
 
@@ -665,6 +665,29 @@ const VIEWER_I18N = {
       finishHint: "Finish the current measurement (Enter)",
       clear: "Clear",
       clearAll: "Clear measurements",
+      modelUnit: "Model unit",
+      unitLine: "Model unit: {unit} ({source})",
+      unitImplausible: "The model measures {size} across - is its unit right?",
+      unitUse: "Treat the model as drawn in {unit}",
+      unitKeep: "{unit} is right",
+      displaySystem: "Show in",
+      metric: "Metric",
+      imperial: "Imperial",
+      unitSource: {
+        user: "your choice",
+        manifest: "from the manifest",
+        file: "from the file",
+        config: "viewer settings",
+        default: "default",
+      },
+      unitNames: {
+        auto: "Automatic (manifest, file or meters)",
+        m: "Meters",
+        cm: "Centimeters",
+        mm: "Millimeters",
+        in: "Inches",
+        ft: "Feet",
+      },
       hint: {
         distance: "Click points on the model to measure a path.",
         angle: "Click a start point, the vertex and an end point.",
@@ -1176,6 +1199,29 @@ const VIEWER_I18N = {
       finishHint: "Zakończ bieżący pomiar (Enter)",
       clear: "Wyczyść",
       clearAll: "Wyczyść pomiary",
+      modelUnit: "Jednostka modelu",
+      unitLine: "Jednostka modelu: {unit} ({source})",
+      unitImplausible: "Model ma {size} szerokości - czy jednostka jest poprawna?",
+      unitUse: "Traktuj model jako narysowany w {unit}",
+      unitKeep: "{unit} jest poprawne",
+      displaySystem: "Pokazuj w",
+      metric: "Metryczne",
+      imperial: "Imperialne",
+      unitSource: {
+        user: "Twój wybór",
+        manifest: "z manifestu",
+        file: "z pliku",
+        config: "ustawienia viewera",
+        default: "domyślnie",
+      },
+      unitNames: {
+        auto: "Automatycznie (manifest, plik lub metry)",
+        m: "Metry",
+        cm: "Centymetry",
+        mm: "Milimetry",
+        in: "Cale",
+        ft: "Stopy",
+      },
       hint: {
         distance: "Klikaj punkty na modelu, aby zmierzyć ścieżkę.",
         angle: "Kliknij punkt początkowy, wierzchołek i punkt końcowy.",
@@ -1686,6 +1732,29 @@ const VIEWER_I18N = {
       finishHint: "Aktuelle Messung abschließen (Enter)",
       clear: "Leeren",
       clearAll: "Messungen löschen",
+      modelUnit: "Modelleinheit",
+      unitLine: "Modelleinheit: {unit} ({source})",
+      unitImplausible: "Das Modell ist {size} groß - stimmt die Einheit?",
+      unitUse: "Modell als in {unit} gezeichnet behandeln",
+      unitKeep: "{unit} ist richtig",
+      displaySystem: "Anzeigen in",
+      metric: "Metrisch",
+      imperial: "Imperial",
+      unitSource: {
+        user: "Ihre Wahl",
+        manifest: "aus dem Manifest",
+        file: "aus der Datei",
+        config: "Viewer-Einstellungen",
+        default: "Standard",
+      },
+      unitNames: {
+        auto: "Automatisch (Manifest, Datei oder Meter)",
+        m: "Meter",
+        cm: "Zentimeter",
+        mm: "Millimeter",
+        in: "Zoll",
+        ft: "Fuß",
+      },
       hint: {
         distance: "Klicken Sie Punkte auf dem Modell an, um einen Pfad zu messen.",
         angle: "Klicken Sie einen Startpunkt, den Scheitelpunkt und einen Endpunkt an.",
@@ -7575,6 +7644,271 @@ async function saveEditorMetadata(viewer) {
   }
 }
 
+// The size of one scene unit, in meters, for measurements. Taken from, in
+// this order:
+//   user      the unit picked in the measurement menu, remembered per model
+//   manifest  IIIF Presentation 4 Scene.spatialScale, or AIM3DViewer units
+//   file      the model file's own unit (FBX UnitScaleFactor, 3MF / AMF unit,
+//             USD metersPerUnit, COLLADA <unit>)
+//   config    viewer.measurement.modelUnitInMeters (viewer-settings.json)
+//   default   meters (glTF, IFC and point clouds are meters by definition;
+//             OBJ, STL, PLY have no unit)
+// Files are wrong sometimes (a model made in centimeters, exported to glTF
+// as if in meters): a model of implausible size gets a hint in the
+// measurement panel, with the units that would make it plausible.
+
+const MODEL_UNITS = {
+  m: 1,
+  cm: 0.01,
+  mm: 0.001,
+  in: 0.0254,
+  ft: 0.3048,
+};
+
+// Unit names as manifests and files write them.
+const UNIT_ALIASES = {
+  m: 1, meter: 1, meters: 1, metre: 1, metres: 1,
+  cm: 0.01, centimeter: 0.01, centimeters: 0.01, centimetre: 0.01, centimetres: 0.01,
+  mm: 0.001, millimeter: 0.001, millimeters: 0.001, millimetre: 0.001, millimetres: 0.001,
+  um: 1e-6, micron: 1e-6, micrometer: 1e-6, micrometre: 1e-6,
+  km: 1000, kilometer: 1000, kilometre: 1000,
+  in: 0.0254, inch: 0.0254, inches: 0.0254,
+  ft: 0.3048, foot: 0.3048, feet: 0.3048,
+  yd: 0.9144, yard: 0.9144,
+};
+
+// A model whose largest side lies outside this range (in meters) is
+// probably in another unit than the one assumed.
+const PLAUSIBLE_SIZE = { min: 0.005, max: 500 };
+// ...and the units suggested are those giving it a size in this range.
+const SUGGESTED_SIZE = { min: 0.05, max: 300 };
+
+const STORAGE_PREFIX = "dfg3dviewer-model-unit:";
+const DISPLAY_STORAGE_KEY = "dfg3dviewer-measure-display";
+
+function unitNameToMeters(name) {
+  const meters = UNIT_ALIASES[String(name || "").trim().toLowerCase()];
+  return Number.isFinite(meters) ? meters : null;
+}
+
+// The unit key of a size in meters (0.01 -> "cm"), or null for another one.
+function unitKeyOf(meters) {
+  return Object.keys(MODEL_UNITS).find((key) => Math.abs(MODEL_UNITS[key] - meters) <= MODEL_UNITS[key] * 1e-6) || null;
+}
+
+function readStorage(key) {
+  try {
+    return window.localStorage.getItem(key);
+  } catch (_error) {
+    return null;
+  }
+}
+
+function writeStorage(key, value) {
+  try {
+    if (value === null) window.localStorage.removeItem(key);
+    else window.localStorage.setItem(key, value);
+  } catch (_error) {
+    // Storage blocked: the choice lasts for this page only.
+  }
+}
+
+// The 3MF model part's unit attribute (default millimeter), read from the
+// archive without parsing its geometry again.
+async function read3MFUnit(url) {
+  const response = await fetch(url);
+  if (!response.ok) return null;
+  const files = unzipSync$1(new Uint8Array(await response.arrayBuffer()), {
+    filter: (file) => /\.model$/i.test(file.name),
+  });
+  const model = Object.values(files)[0];
+  if (!model) return null;
+  const head = new TextDecoder().decode(model.subarray(0, 4096));
+  const unit = head.match(/<model\b[^>]*\bunit\s*=\s*["']([^"']+)["']/i)?.[1] || "millimeter";
+  return unitNameToMeters(unit);
+}
+
+// The unit of a loaded model file, in meters per unit of its geometry - or
+// null when the file has none. Call before the loader's root transform is
+// reset (loaders.js): COLLADA and USD put their unit in the root's scale.
+async function detectFileUnit(object, extension, url) {
+  const ext = String(extension || "").toLowerCase();
+  const root = Array.isArray(object) ? object[0] : object;
+  if (!root) return null;
+  try {
+    if (ext === "fbx") {
+      // Centimeters per unit.
+      const factor = Number(root.userData?.unitScaleFactor);
+      return Number.isFinite(factor) && factor > 0 ? factor / 100 : null;
+    }
+    if (ext === "amf") {
+      // AMFLoader scales the geometry to millimeters.
+      return 0.001;
+    }
+    if (ext === "3mf") {
+      return url ? await read3MFUnit(url) : 0.001;
+    }
+    if (ext === "dae" || ext === "usd" || ext === "usda" || ext === "usdc" || ext === "usdz") {
+      // <unit meter="..."> / metersPerUnit, as the root's (uniform) scale.
+      const { x, y, z } = root.scale;
+      const uniform = Math.abs(x - y) < 1e-9 && Math.abs(x - z) < 1e-9;
+      return uniform && x > 0 && Math.abs(x - 1) > 1e-9 ? x : null;
+    }
+  } catch (error) {
+    console.warn("Could not read the model file's unit", error);
+  }
+  return null;
+}
+
+function trim(value, digits) {
+  return Number(value.toFixed(digits)).toString();
+}
+
+function attachModelUnits(Viewer) {
+  Object.assign(Viewer, {
+    // Set per load: the manifest's unit and the file's (meters per unit).
+    manifestUnitMeters: null,
+    detectedModelUnitMeters: null,
+
+    resetModelUnits() {
+      Viewer.manifestUnitMeters = null;
+      Viewer.detectedModelUnitMeters = null;
+    },
+
+    // The model the user's unit choice is remembered for.
+    getModelUnitStorageKey() {
+      const id = core.fileObject?.originalPath || "";
+      return id ? `${STORAGE_PREFIX}${id}` : null;
+    },
+
+    getModelUnitOverride() {
+      const key = Viewer.getModelUnitStorageKey();
+      const stored = key ? readStorage(key) : null;
+      return stored && MODEL_UNITS[stored] ? stored : null;
+    },
+
+    // { meters, source, key } for one scene unit.
+    resolveModelUnit() {
+      const pick = (meters, source) => ({ meters, source, key: unitKeyOf(meters) });
+      const override = Viewer.getModelUnitOverride();
+      if (override) return pick(MODEL_UNITS[override], "user");
+      if (Number(Viewer.manifestUnitMeters) > 0) return pick(Number(Viewer.manifestUnitMeters), "manifest");
+      if (Number(Viewer.detectedModelUnitMeters) > 0) return pick(Number(Viewer.detectedModelUnitMeters), "file");
+      const configured = Number(core.CONFIG?.viewer?.measurement?.modelUnitInMeters);
+      if (Number.isFinite(configured) && configured > 0 && configured !== 1) return pick(configured, "config");
+      return pick(1, "default");
+    },
+
+    // "auto" (or null) forgets the user's choice for this model.
+    setModelUnit(unit) {
+      const key = Viewer.getModelUnitStorageKey();
+      if (key) writeStorage(key, unit && unit !== "auto" && MODEL_UNITS[unit] ? unit : null);
+      Viewer.refreshMeasurementUnits?.();
+      Viewer.updateEditorToolbarState?.();
+    },
+
+    getMeasureDisplaySystem() {
+      return readStorage(DISPLAY_STORAGE_KEY) === "imperial" ? "imperial" : "metric";
+    },
+
+    setMeasureDisplaySystem(system) {
+      writeStorage(DISPLAY_STORAGE_KEY, system === "imperial" ? "imperial" : null);
+      Viewer.refreshMeasurementUnits?.();
+      Viewer.updateEditorToolbarState?.();
+    },
+
+    // ---- formatting, from scene units -------------------------------------
+
+    formatLength(sceneUnits) {
+      const meters = sceneUnits * Viewer.resolveModelUnit().meters;
+      if (!Number.isFinite(meters)) return { text: "0", meters: 0 };
+      if (Viewer.getMeasureDisplaySystem() === "imperial") {
+        const feet = meters / 0.3048;
+        if (feet >= 5280) return { text: `${trim(feet / 5280, 2)} mi`, meters };
+        if (feet >= 1) return { text: `${feet.toFixed(2)} ft`, meters };
+        return { text: `${(feet * 12).toFixed(feet * 12 >= 1 ? 1 : 2)} in`, meters };
+      }
+      if (meters >= 1000) return { text: `${trim(meters / 1000, 2)} km`, meters };
+      if (meters >= 1) return { text: `${meters.toFixed(2)} m`, meters };
+      if (meters >= 0.01) return { text: `${(meters * 100).toFixed(1)} cm`, meters };
+      return { text: `${(meters * 1000).toFixed(meters * 1000 >= 1 ? 0 : 2)} mm`, meters };
+    },
+
+    formatArea(sceneUnits2) {
+      const scale = Viewer.resolveModelUnit().meters;
+      const m2 = sceneUnits2 * scale * scale;
+      if (!Number.isFinite(m2)) return "0";
+      if (Viewer.getMeasureDisplaySystem() === "imperial") {
+        const ft2 = m2 / (0.3048 * 0.3048);
+        if (ft2 >= 1) return `${ft2.toFixed(2)} ft²`;
+        return `${(ft2 * 144).toFixed(1)} in²`;
+      }
+      if (m2 >= 1e6) return `${trim(m2 / 1e6, 3)} km²`;
+      if (m2 >= 0.01) return `${m2.toFixed(m2 >= 1 ? 2 : 3)} m²`;
+      if (m2 >= 1e-4) return `${(m2 * 1e4).toFixed(1)} cm²`;
+      return `${(m2 * 1e6).toFixed(0)} mm²`;
+    },
+
+    formatVolume(sceneUnits3) {
+      const scale = Viewer.resolveModelUnit().meters;
+      const m3 = sceneUnits3 * scale * scale * scale;
+      if (!Number.isFinite(m3)) return "0";
+      if (Viewer.getMeasureDisplaySystem() === "imperial") {
+        const ft3 = m3 / (0.3048 ** 3);
+        if (ft3 >= 1000) return `${Math.round(ft3).toLocaleString("en-US")} ft³`;
+        if (ft3 >= 1) return `${ft3.toFixed(2)} ft³`;
+        return `${(ft3 * 1728).toFixed(1)} in³`;
+      }
+      if (m3 >= 1e9) return `${trim(m3 / 1e9, 2)} km³`;
+      if (m3 >= 1000) return `${Math.round(m3).toLocaleString("en-US")} m³`;
+      if (m3 >= 0.001) return `${m3.toFixed(3)} m³`;
+      if (m3 >= 1e-6) return `${(m3 * 1e6).toFixed(1)} cm³`;
+      return `${(m3 * 1e9).toFixed(0)} mm³`;
+    },
+
+    // ---- plausibility -----------------------------------------------------
+
+    // The models' largest side, in scene units (0 when nothing is loaded).
+    getModelLargestSide() {
+      const box = new THREE.Box3();
+      (core.mainObject || []).flatMap((entry) => (Array.isArray(entry) ? entry : [entry]))
+        .filter((root) => root?.isObject3D)
+        .forEach((root) => box.expandByObject(root));
+      if (box.isEmpty()) return 0;
+      const size = box.getSize(new THREE.Vector3());
+      return Math.max(size.x, size.y, size.z);
+    },
+
+    // null, or { meters: the largest side as measured now, suggestions: unit
+    // keys that would make it plausible } - unless the user chose the unit.
+    getModelUnitWarning() {
+      const unit = Viewer.resolveModelUnit();
+      if (unit.source === "user") return null;
+      const side = Viewer.getModelLargestSide();
+      if (!(side > 0)) return null;
+      const meters = side * unit.meters;
+      if (meters >= PLAUSIBLE_SIZE.min && meters <= PLAUSIBLE_SIZE.max) return null;
+      const suggestions = Object.keys(MODEL_UNITS)
+        .filter((key) => key !== unit.key)
+        .filter((key) => {
+          const size = side * MODEL_UNITS[key];
+          return size >= SUGGESTED_SIZE.min && size <= SUGGESTED_SIZE.max;
+        })
+        // Metric first, then the closest to the unit assumed now.
+        .sort((a, b) => {
+          const imperial = (key) => (key === "in" || key === "ft" ? 1 : 0);
+          const distance = (key) => Math.abs(Math.log(MODEL_UNITS[key] / unit.meters));
+          return imperial(a) - imperial(b) || distance(a) - distance(b);
+        });
+      return { meters, suggestions: suggestions.slice(0, 3) };
+    },
+
+    describeModelUnitSource(source) {
+      return t$1(`measurement.unitSource.${source}`, source);
+    },
+  });
+}
+
 function isPlainObject$2(value) {
   return value != null && typeof value === "object" && Array.isArray(value) === false;
 }
@@ -8323,6 +8657,22 @@ function scenePlacements(manifest, sceneIndex) {
   };
   visit(scene, new THREE.Matrix4(), new Set([scene.id]));
   return placements;
+}
+
+// Scene.spatialScale: the size of one scene unit, a Quantity
+// ({ quantityValue: 0.01, unit: "m" } - one unit is a centimeter). In
+// meters, or null when the scene does not say.
+function readSpatialScale(manifest, sceneIndex) {
+  const scene = scenesOf(manifest)[sceneIndexOf(manifest, sceneIndex)];
+  const scale = scene?.spatialScale;
+  if (!scale || typeof scale !== "object") return null;
+  const value = Number(scale.quantityValue ?? scale.value);
+  const unitMeters = unitNameToMeters(scale.unit || "m");
+  return Number.isFinite(value) && value > 0 && unitMeters ? value * unitMeters : null;
+}
+
+function buildSpatialScale(meters) {
+  return { type: "Quantity", quantityValue: round(meters), unit: "m" };
 }
 
 // A manifest-level annotation belongs to the scene its target names; one
@@ -10105,6 +10455,9 @@ function attachAnnotations(Viewer) {
             // A solid background only (a gradient has no IIIF equivalent).
             ...(sceneBackgroundColor ? { backgroundColor: sceneBackgroundColor } : {}),
 
+            // The size of one scene unit, when it is not a meter.
+            ...(this.resolveModelUnit().meters !== 1 ? { spatialScale: buildSpatialScale(this.resolveModelUnit().meters) } : {}),
+
             items: [
               {
                 id: `${sceneId}/page/model`,
@@ -10213,7 +10566,7 @@ function attachAnnotations(Viewer) {
               typeof core.CONFIG?.viewer?.performanceMode === "string"
                 ? core.CONFIG.viewer.performanceMode
                 : core.CONFIG?.viewer?.performanceMode?.Performance || "high-performance",
-            units: core.CONFIG?.viewer?.measurement?.modelUnitInMeters,
+            units: this.resolveModelUnit().meters,
             gallery: {
               build: core.CONFIG.viewer.gallery?.build || false,
               container: core.CONFIG.viewer.gallery?.container || "AIM3DViewerContainer",
@@ -10632,9 +10985,13 @@ function attachAnnotations(Viewer) {
         this.setPerformanceMode?.(viewerConfig.performance);
       }
 
+      // Meters per scene unit (a number, or a unit name: "cm"), for this
+      // model only; the scene's spatialScale, when it has one, comes first.
       if (viewerConfig.units !== undefined) {
-        core.CONFIG.viewer.measurement ??= {};
-        core.CONFIG.viewer.measurement.modelUnitInMeters = viewerConfig.units;
+        const units = Number.isFinite(Number(viewerConfig.units))
+          ? Number(viewerConfig.units)
+          : unitNameToMeters(viewerConfig.units);
+        if (units > 0 && !(Number(this.manifestUnitMeters) > 0)) this.manifestUnitMeters = units;
       }
 
       if (viewerConfig.gallery && typeof viewerConfig.gallery === "object") {
@@ -11497,22 +11854,31 @@ function attachMeasurement(Viewer) {
       return Viewer.getDistanceMeasurementScaleMeters();
     },
 
+    // Areas and volumes in the model's unit and the chosen display system
+    // (editor/model-units.js).
     formatMeasuredArea(rawArea) {
-      const scale = Viewer.getMeasurementScale();
-      const m2 = rawArea * scale * scale;
-      if (!Number.isFinite(m2)) return "0 mm²";
-      if (m2 >= 0.01) return `${m2.toFixed(m2 >= 1 ? 2 : 3)} m²`;
-      if (m2 >= 1e-4) return `${(m2 * 1e4).toFixed(1)} cm²`;
-      return `${(m2 * 1e6).toFixed(0)} mm²`;
+      return Viewer.formatArea(rawArea);
     },
 
     formatMeasuredVolume(rawVolume) {
-      const scale = Viewer.getMeasurementScale();
-      const m3 = rawVolume * scale * scale * scale;
-      if (!Number.isFinite(m3)) return "0 mm³";
-      if (m3 >= 0.001) return `${m3.toFixed(3)} m³`;
-      if (m3 >= 1e-6) return `${(m3 * 1e6).toFixed(1)} cm³`;
-      return `${(m3 * 1e9).toFixed(0)} mm³`;
+      return Viewer.formatVolume(rawVolume);
+    },
+
+    // After the model unit or the display system changed: every label,
+    // the model dimensions and the readout in the new unit.
+    refreshMeasurementUnits() {
+      const draft = Viewer.measurementDraft;
+      Viewer.measurementResults.forEach((entry) => {
+        Viewer.measurementDraft = entry;
+        Viewer.redrawMeasurementDraft({ closed: true });
+      });
+      Viewer.measurementDraft = draft;
+      if (draft) Viewer.redrawMeasurementDraft();
+      if (Viewer.measurementDimensions) {
+        Viewer.hideModelDimensions();
+        Viewer.showModelDimensions();
+      }
+      Viewer.updateMeasurementReadout();
     },
 
     addMeasurementPoint(point) {
@@ -11781,6 +12147,77 @@ function attachMeasurement(Viewer) {
 
     // ---- Readout panel ---------------------------------------------------
 
+    // The model unit and where it comes from, a hint when the model's size
+    // looks wrong for it, and metric / imperial display.
+    buildMeasurementUnitsBlock() {
+      const block = document.createElement("div");
+      block.className = "viewer-measure-units";
+      const unit = Viewer.resolveModelUnit();
+      const unitName = unit.key || `${Number(unit.meters.toPrecision(4))} m`;
+
+      const line = document.createElement("div");
+      line.className = "viewer-measure-units_line";
+      line.textContent = Viewer.tFormat(
+        "measurement.unitLine",
+        { unit: unitName, source: Viewer.describeModelUnitSource(unit.source) },
+        "Model unit: {unit} ({source})"
+      );
+      block.appendChild(line);
+
+      const warning = Viewer.getModelUnitWarning();
+      if (warning) {
+        const hint = document.createElement("div");
+        hint.className = "viewer-measure-units_warning";
+        hint.setAttribute("role", "status");
+        const text = document.createElement("span");
+        text.textContent = Viewer.tFormat(
+          "measurement.unitImplausible",
+          { size: Viewer.formatLength(Viewer.getModelLargestSide()).text },
+          "The model measures {size} across - is its unit right?"
+        );
+        hint.appendChild(text);
+        const choices = document.createElement("div");
+        choices.className = "viewer-measure-units_choices";
+        warning.suggestions.forEach((key) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.dataset.unit = key;
+          const size = Viewer.getModelLargestSide() * MODEL_UNITS[key];
+          button.textContent = `${key} → ${Number(size.toPrecision(3))} m`;
+          button.title = Viewer.tFormat("measurement.unitUse", { unit: key }, "Treat the model as drawn in {unit}");
+          button.addEventListener("click", () => Viewer.setModelUnit(key));
+          choices.appendChild(button);
+        });
+        const keep = document.createElement("button");
+        keep.type = "button";
+        keep.dataset.unit = unit.key || "m";
+        keep.className = "is-quiet";
+        keep.textContent = Viewer.tFormat("measurement.unitKeep", { unit: unitName }, "{unit} is right");
+        keep.addEventListener("click", () => Viewer.setModelUnit(unit.key || "m"));
+        choices.appendChild(keep);
+        hint.appendChild(choices);
+        block.appendChild(hint);
+      }
+
+      const display = document.createElement("div");
+      display.className = "viewer-measure-units_display";
+      display.setAttribute("role", "group");
+      display.setAttribute("aria-label", t$1("measurement.displaySystem", "Show in"));
+      const system = Viewer.getMeasureDisplaySystem();
+      [["metric", t$1("measurement.metric", "Metric")], ["imperial", t$1("measurement.imperial", "Imperial")]].forEach(([value, label]) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.dataset.system = value;
+        button.textContent = label;
+        button.setAttribute("aria-pressed", String(system === value));
+        button.classList.toggle("is-active", system === value);
+        button.addEventListener("click", () => Viewer.setMeasureDisplaySystem(value));
+        display.appendChild(button);
+      });
+      block.appendChild(display);
+      return block;
+    },
+
     ensureMeasurementReadout() {
       if (Viewer.measurementReadout?.isConnected) return Viewer.measurementReadout;
       const stack = getViewerSideStack();
@@ -11857,6 +12294,7 @@ function attachMeasurement(Viewer) {
         list.appendChild(empty);
       }
       panel.appendChild(list);
+      panel.appendChild(Viewer.buildMeasurementUnitsBlock());
 
       const actions = document.createElement("div");
       actions.className = "viewer-measure-readout_actions";
@@ -16862,11 +17300,11 @@ const loadMeshoptDecoder = async () => (await import('./three.js').then(function
 const loadUSDLoader = async () => (await import('./three.js').then(function (n) { return n.U; })).USDLoader;
 const loadThreeMFLoader = async () => (await import('./three.js').then(function (n) { return n._; })).ThreeMFLoader;
 const loadAMFLoader = async () => (await import('./three.js').then(function (n) { return n.A; })).AMFLoader;
-const loadVRMLLoader = async () => (await import('./three.js').then(function (n) { return n.u; })).VRMLLoader;
-const loadKMZLoader = async () => (await import('./three.js').then(function (n) { return n.v; })).KMZLoader;
-const loadVOXLoader = async () => (await import('./three.js').then(function (n) { return n.w; })).VOXLoader;
-const loadVOXBuildMesh = async () => (await import('./three.js').then(function (n) { return n.w; })).buildMesh;
-const loadLWOLoader = async () => (await import('./three.js').then(function (n) { return n.x; })).LWOLoader;
+const loadVRMLLoader = async () => (await import('./three.js').then(function (n) { return n.v; })).VRMLLoader;
+const loadKMZLoader = async () => (await import('./three.js').then(function (n) { return n.w; })).KMZLoader;
+const loadVOXLoader = async () => (await import('./three.js').then(function (n) { return n.x; })).VOXLoader;
+const loadVOXBuildMesh = async () => (await import('./three.js').then(function (n) { return n.x; })).buildMesh;
+const loadLWOLoader = async () => (await import('./three.js').then(function (n) { return n.y; })).LWOLoader;
 const loadIFCLoader = async () => (await import('./IFCLoader.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three.js').then(function (n) { return n.R; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf) only downloads with the first such file.
@@ -17332,6 +17770,17 @@ async function loadModel() {
       throw new Error("Loaded object is null or undefined.");
     }
     updateLoadingStage("loadingLog.loadingTextures", 99);
+
+    // The file's own unit (for measurements) - read before the reset below,
+    // which drops the root scale COLLADA and USD keep their unit in. The
+    // first model of a scene decides.
+    if (!(core.objectsConfig?.index > 0)) {
+      window.Viewer.detectedModelUnitMeters = await detectFileUnit(
+        object,
+        core.fileObject.extension,
+        modelPath
+      );
+    }
 
     // Keep authoring transforms in presentation mode to avoid collapsing model parts.
     // Tiled models keep the transform that centres/orients them (tiles.js).
@@ -24611,6 +25060,35 @@ function createEditorToolbar(viewer) {
         submenu.appendChild(subButton);
         viewer.measurementSubmenuButtons[item.key] = subButton;
       });
+
+      // Model unit: the button shows the unit in use; its menu picks another
+      // (remembered for this model) or goes back to the automatic one.
+      const unitsButton = document.createElement("button");
+      unitsButton.type = "button";
+      unitsButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button has-submenu viewer-editor-tool_unit";
+      unitsButton.dataset.tool = "measure-units";
+      unitsButton.innerHTML = '<span class="viewer-editor-tool_icon viewer-editor-tool_unit-label" aria-hidden="true">m</span>';
+      const unitsMenu = document.createElement("div");
+      unitsMenu.className = "viewer-editor-tool_submenu viewer-editor-tool_submenu-units";
+      viewer.measurementUnitButtons = {};
+      ["auto", ...Object.keys(MODEL_UNITS)].forEach((unit) => {
+        const choice = document.createElement("button");
+        choice.type = "button";
+        choice.className = "viewer-editor-tool viewer-editor-tool_submenu-button viewer-editor-tool_unit-choice";
+        choice.dataset.unit = unit;
+        choice.innerHTML = `<span class="viewer-editor-tool_icon viewer-editor-tool_unit-label" aria-hidden="true">${unit === "auto" ? "A" : unit}</span>`;
+        viewer.bindEventListener(choice, "click", (event) => {
+          event.stopPropagation();
+          viewer.setModelUnit(unit);
+        });
+        unitsMenu.appendChild(choice);
+        viewer.measurementUnitButtons[unit] = choice;
+      });
+      unitsButton.appendChild(unitsMenu);
+      viewer.bindEventListener(unitsButton, "click", (event) => event.stopPropagation());
+      submenu.appendChild(unitsButton);
+      viewer.measurementSubmenuButtons.units = unitsButton;
+
       button.appendChild(submenu);
     } else if (tool.key === "annotate") {
       button.classList.add("has-submenu");
@@ -25476,6 +25954,16 @@ function updateClippingPlanesSubmenuState(viewer) {
 
 function updateMeasurementSubmenuState(viewer) {
   if (!viewer.measurementSubmenuButtons) return;
+  // The unit in use on the units button; the chosen one marked in its menu
+  // ("auto" unless the user picked one).
+  const unit = viewer.resolveModelUnit?.();
+  const unitsLabel = viewer.measurementSubmenuButtons.units?.querySelector(":scope > .viewer-editor-tool_unit-label");
+  if (unit && unitsLabel) unitsLabel.textContent = unit.key || "?";
+  const chosen = unit?.source === "user" ? unit.key : "auto";
+  Object.entries(viewer.measurementUnitButtons || {}).forEach(([key, choice]) => {
+    choice.classList.toggle("is-active", key === chosen);
+    choice.setAttribute("aria-pressed", key === chosen ? "true" : "false");
+  });
   ["distance", "angle", "area"].forEach((mode) => {
     const active = viewer.RULER_MODE === true && viewer.measurementMode === mode;
     viewer.measurementSubmenuButtons[mode]?.classList.toggle("is-active", active);
@@ -25664,9 +26152,15 @@ function updateEditorToolbarLabels(viewer) {
       area: t$1("measurement.area", "Area"),
       dimensions: t$1("measurement.dimensions", "Model dimensions"),
       clear: t$1("measurement.clearAll", "Clear measurements"),
+      units: t$1("measurement.modelUnit", "Model unit"),
     };
     Object.entries(viewer.measurementSubmenuButtons).forEach(([key, button]) => {
       const label = measurementSubmenuLabels[key] || key;
+      button.setAttribute("title", label);
+      button.setAttribute("aria-label", label);
+    });
+    Object.entries(viewer.measurementUnitButtons || {}).forEach(([key, button]) => {
+      const label = t$1(`measurement.unitNames.${key}`, key);
       button.setAttribute("title", label);
       button.setAttribute("aria-label", label);
     });
@@ -26982,7 +27476,7 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "10877f8" ;
+const BUILD_ID = "3e4fb63" ;
 
 function poweredByHtml() {
   const build = ` (${BUILD_ID})` ;
@@ -27875,29 +28369,14 @@ const Viewer$1 = {
     );
   },
 
+  // Meters per scene unit (see editor/model-units.js for where it comes from).
   getDistanceMeasurementScaleMeters() {
-    const configuredScale = Number(core.CONFIG?.viewer?.measurement?.modelUnitInMeters);
-    if (Number.isFinite(configuredScale) && configuredScale > 0) return configuredScale;
-    return 1;
+    return this.resolveModelUnit().meters;
   },
 
   formatMeasuredDistance(rawDistanceInModelUnits) {
-    const scaleMeters = this.getDistanceMeasurementScaleMeters();
-    const meters = rawDistanceInModelUnits * scaleMeters;
-
-    if (!Number.isFinite(meters)) {
-      return { text: "0 mm", meters: 0, scaleMeters };
-    }
-
-    if (meters >= 1) {
-      return { text: `${meters.toFixed(2)} m`, meters, scaleMeters };
-    }
-
-    if (meters >= 0.01) {
-      return { text: `${(meters * 100).toFixed(1)} cm`, meters, scaleMeters };
-    }
-
-    return { text: `${(meters * 1000).toFixed(0)} mm`, meters, scaleMeters };
+    const { text, meters } = this.formatLength(rawDistanceInModelUnits);
+    return { text, meters, scaleMeters: this.getDistanceMeasurementScaleMeters() };
   },
 
   updateSelectedFacesControllerLabel() {
@@ -28367,6 +28846,7 @@ const Viewer$1 = {
     disposeTiles();
     removeImportedLights();
     removeImportedCanvases();
+    Viewer$1.resetModelUnits();
     Viewer$1.currentManifest = null;
     Viewer$1.manifestCameras = [];
     document.getElementById("manifesto-camera-switch")?.remove();
@@ -28938,12 +29418,6 @@ const Viewer$1 = {
     themeToggle.textContent = "🌙";
     picker.appendChild(themeToggle);
 
-    const loginButton = document.createElement("button");
-    loginButton.type = "button";
-    loginButton.id = "loginButton";
-    loginButton.hidden = true;
-    picker.appendChild(loginButton);
-
     const uploadModel = document.createElement("button");
     uploadModel.type = "button";
     uploadModel.id = "uploadModel";
@@ -28954,13 +29428,28 @@ const Viewer$1 = {
     browseModels.id = "browseModelsButton";
     picker.appendChild(browseModels);
 
-    const manageUsers = document.createElement("button");
-    manageUsers.type = "button";
-    manageUsers.id = "manageUsersButton";
-    manageUsers.hidden = true;
-    picker.appendChild(manageUsers);
-
     return picker;
+  },
+
+  // The row above the viewer (#viewer-page-header): the example picker on
+  // the left, the account area (sign-in, user management) on the right.
+  // Mirrors the static markup of index.html, like createExampleModelPicker().
+  createViewerPageHeader() {
+    const header = document.createElement("div");
+    header.id = "viewer-page-header";
+    header.appendChild(Viewer$1.createExampleModelPicker());
+
+    const accountBar = document.createElement("div");
+    accountBar.id = "viewer-account-bar";
+    ["loginButton", "manageUsersButton"].forEach((id) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.id = id;
+      button.hidden = true;
+      accountBar.appendChild(button);
+    });
+    header.appendChild(accountBar);
+    return header;
   },
 
   toHexColor(input) {
@@ -30034,6 +30523,8 @@ const Viewer$1 = {
     // The manifest shown (after the reset, which forgets it): its scenes,
     // cameras and descriptive properties, for switching and exporting.
     Viewer$1.currentManifest = { source: newUrlOrJson, type, manifestType, json: manifestJson };
+    // The size of a scene unit (Scene.spatialScale), for measurements.
+    Viewer$1.manifestUnitMeters = readSpatialScale(manifestJson, shownScene);
     // A previous AIM3D manifest may have left the camera in orthographic mode.
     // Always start from perspective; AIM3D's own camera config (applied below)
     // switches back to orthographic only if it explicitly asks for it.
@@ -30817,14 +31308,15 @@ const Viewer$1 = {
         let browseModelsButton = document.getElementById('browseModelsButton');
         let manageUsersButton = document.getElementById('manageUsersButton');
         if (!picker && !selectModel && viewerElement) {
-          picker = Viewer$1.createExampleModelPicker();
-          selectModel = picker.querySelector('#example-model-select');
-          themeToggle = picker.querySelector('#example-theme-toggle');
-          uploadModelButton = picker.querySelector('#uploadModel');
-          loginButton = picker.querySelector('#loginButton');
-          browseModelsButton = picker.querySelector('#browseModelsButton');
-          manageUsersButton = picker.querySelector('#manageUsersButton');
-          viewerElement.parentNode.insertBefore(picker, viewerElement);
+          const header = Viewer$1.createViewerPageHeader();
+          picker = header.querySelector('#example-model-picker');
+          selectModel = header.querySelector('#example-model-select');
+          themeToggle = header.querySelector('#example-theme-toggle');
+          uploadModelButton = header.querySelector('#uploadModel');
+          loginButton = header.querySelector('#loginButton');
+          browseModelsButton = header.querySelector('#browseModelsButton');
+          manageUsersButton = header.querySelector('#manageUsersButton');
+          viewerElement.parentNode.insertBefore(header, viewerElement);
         }
         if (loginButton) {
           Viewer$1.loginButton = loginButton;
@@ -31053,6 +31545,7 @@ attachAnnotations(Viewer$1);
 attachPicking(Viewer$1);
 attachFaceAreaSelection(Viewer$1);
 attachPointCloudPanel(Viewer$1);
+attachModelUnits(Viewer$1);
 attachMeasurement(Viewer$1);
 attachAnimations(Viewer$1);
 attachTour(Viewer$1);

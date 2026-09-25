@@ -25,39 +25,45 @@
       globalThis.__MODULES_PATH__ = "";
       globalThis.__ENV_SUBDIR__ = "";
     </script>
-    <div id="example-model-picker">
-      <label for="example-model-select">Load example model</label>
-      <select id="example-model-select">
-        <option value="./viewer/examples/box.dae">DAE</option>
-        <option value="./viewer/examples/box.stl" selected>STL</option>
-        <option value="./viewer/examples/box.ply">PLY</option>
-        <option value="./viewer/examples/box.obj">OBJ</option>
-        <option value="./viewer/examples/box.xyz">XYZ</option>
-        <option value="./viewer/examples/box.pcd">PCD</option>
-        <option value="./viewer/examples/box.3ds">3DS</option>
-        <option value="./viewer/examples/box.ifc">IFC</option>
-        <option value="./viewer/examples/box.fbx">FBX</option>
-        <option value="./viewer/examples/box.glb">GLB</option>
-        <option value="./viewer/examples/box.usdz">USDZ</option>
-        <option value="./viewer/examples/box.usda">USDA</option>
-        <option value="./viewer/examples/box.3mf">3MF</option>
-        <option value="./viewer/examples/box.amf">AMF</option>
-        <option value="./viewer/examples/box.wrl">WRL (VRML)</option>
-        <option value="./viewer/examples/box.kmz">KMZ</option>
-        <option value="./viewer/examples/box.vox">VOX</option>
-        <option value="./viewer/examples/box-missing-mtl.obj">OBJ (missing MTL)</option>
-        <option value="./viewer/examples/broken.glb">Broken GLB</option>
-        <option value="./viewer/examples/WolpaSynagogue.glb">Wolpa Synagogue</option>
-        <option value="./viewer/examples/WolpaSynagogue-progressive.glb">Wolpa Synagogue (progressive, Meshopt + KTX2)</option>
-        <option value="./viewer/examples/tiles/wolpa-points/tileset.json">Wolpa Synagogue (point cloud, 3D Tiles)</option>
-        <option value="./viewer/examples/points.laz">Point cloud (LAZ, UTM coordinates)</option>
-        <option value="./viewer/examples/animated.glb">Animated GLB</option>
-      </select>
-      <button type="button" id="example-theme-toggle" title="Toggle dark mode">🌙</button>
-      <button type="button" id="loginButton" hidden></button>
-      <button type="button" id="uploadModel"></button>
-      <button type="button" id="browseModelsButton"></button>
-      <button type="button" id="manageUsersButton" hidden></button>
+    <!-- Local example picker (left) and the account area (right): sign-in
+         and user management are not part of choosing a model. -->
+    <div id="viewer-page-header">
+      <div id="example-model-picker">
+        <label for="example-model-select">Load example model</label>
+        <select id="example-model-select">
+          <option value="./viewer/examples/box.dae">DAE</option>
+          <option value="./viewer/examples/box.stl" selected>STL</option>
+          <option value="./viewer/examples/box.ply">PLY</option>
+          <option value="./viewer/examples/box.obj">OBJ</option>
+          <option value="./viewer/examples/box.xyz">XYZ</option>
+          <option value="./viewer/examples/box.pcd">PCD</option>
+          <option value="./viewer/examples/box.3ds">3DS</option>
+          <option value="./viewer/examples/box.ifc">IFC</option>
+          <option value="./viewer/examples/box.fbx">FBX</option>
+          <option value="./viewer/examples/box.glb">GLB</option>
+          <option value="./viewer/examples/box.usdz">USDZ</option>
+          <option value="./viewer/examples/box.usda">USDA</option>
+          <option value="./viewer/examples/box.3mf">3MF</option>
+          <option value="./viewer/examples/box.amf">AMF</option>
+          <option value="./viewer/examples/box.wrl">WRL (VRML)</option>
+          <option value="./viewer/examples/box.kmz">KMZ</option>
+          <option value="./viewer/examples/box.vox">VOX</option>
+          <option value="./viewer/examples/box-missing-mtl.obj">OBJ (missing MTL)</option>
+          <option value="./viewer/examples/broken.glb">Broken GLB</option>
+          <option value="./viewer/examples/WolpaSynagogue.glb">Wolpa Synagogue</option>
+          <option value="./viewer/examples/WolpaSynagogue-progressive.glb">Wolpa Synagogue (progressive, Meshopt + KTX2)</option>
+          <option value="./viewer/examples/tiles/wolpa-points/tileset.json">Wolpa Synagogue (point cloud, 3D Tiles)</option>
+          <option value="./viewer/examples/points.laz">Point cloud (LAZ, UTM coordinates)</option>
+          <option value="./viewer/examples/animated.glb">Animated GLB</option>
+        </select>
+        <button type="button" id="example-theme-toggle" title="Toggle dark mode">🌙</button>
+        <button type="button" id="uploadModel"></button>
+        <button type="button" id="browseModelsButton"></button>
+      </div>
+      <div id="viewer-account-bar">
+        <button type="button" id="loginButton" hidden></button>
+        <button type="button" id="manageUsersButton" hidden></button>
+      </div>
     </div>
     <!--This is the raw-source dev entry point (used by `pnpm run dev*`, served
         directly by Parcel so edits to viewer/*.js hot-reload). It mirrors

@@ -2040,9 +2040,24 @@ body.presentation-mode {
     overflow: hidden;
   }
 
-  body.viewer-standalone-page > #example-model-picker {
+  /* Picker and account area share one row. */
+  body.viewer-standalone-page > #viewer-page-header {
     margin: 8px;
+    flex-wrap: nowrap;
     gap: 8px;
+  }
+
+  #viewer-page-header > #example-model-picker {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    gap: 8px;
+    padding: 6px 8px;
+  }
+
+  #viewer-page-header > #viewer-account-bar {
+    flex: 0 0 auto;
+    margin: 0;
     padding: 6px 8px;
   }
 
@@ -2056,6 +2071,8 @@ body.presentation-mode {
     white-space: nowrap;
   }
 
+  /* (Beats external-sources.css's min-width: 220px, loaded after this.) */
+  #viewer-page-header #example-model-picker select,
   #example-model-picker select {
     flex: 1 1 auto;
     min-width: 0;
@@ -2108,8 +2125,12 @@ body.presentation-mode {
     display: none !important;
   }
 
-  body.viewer-standalone-page > #example-model-picker {
+  body.viewer-standalone-page > #viewer-page-header {
     margin: 4px 8px;
+  }
+
+  #viewer-page-header > #example-model-picker,
+  #viewer-page-header > #viewer-account-bar {
     padding: 4px 8px;
   }
 }
@@ -2157,7 +2178,9 @@ body.presentation-mode {
 
   #example-model-picker #uploadModel,
   #example-model-picker #browseModelsButton,
-  #example-model-picker #example-theme-toggle {
+  #example-model-picker #example-theme-toggle,
+  #viewer-account-bar #loginButton,
+  #viewer-account-bar #manageUsersButton {
     width: 40px;
     height: 40px;
     flex: 0 0 auto;

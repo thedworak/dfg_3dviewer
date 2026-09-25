@@ -60,6 +60,7 @@ import { attachClipping } from "./editor/clipping.js";
 import { attachPicking } from "./editor/picking.js";
 import { attachFaceAreaSelection } from "./editor/face-area-selection.js";
 import { attachPointCloudPanel } from "./editor/point-cloud-panel.js";
+import { attachModelUnits } from "./editor/model-units.js";
 import { captureAndUploadThumbnail } from "./editor/thumbnail-capture.js";
 import { attachWindowControls } from "./ui/window-controls.js";
 
@@ -92,6 +93,7 @@ import {
   manifestScenes,
   removeImportedCanvases,
   readSceneContent,
+  readSpatialScale,
   removeImportedLights,
   sceneIndexOf,
 } from "./IIIF/presentation4.js";
@@ -806,29 +808,14 @@ export const Viewer = {
     );
   },
 
+  // Meters per scene unit (see editor/model-units.js for where it comes from).
   getDistanceMeasurementScaleMeters() {
-    const configuredScale = Number(core.CONFIG?.viewer?.measurement?.modelUnitInMeters);
-    if (Number.isFinite(configuredScale) && configuredScale > 0) return configuredScale;
-    return 1;
+    return this.resolveModelUnit().meters;
   },
 
   formatMeasuredDistance(rawDistanceInModelUnits) {
-    const scaleMeters = this.getDistanceMeasurementScaleMeters();
-    const meters = rawDistanceInModelUnits * scaleMeters;
-
-    if (!Number.isFinite(meters)) {
-      return { text: "0 mm", meters: 0, scaleMeters };
-    }
-
-    if (meters >= 1) {
-      return { text: `${meters.toFixed(2)} m`, meters, scaleMeters };
-    }
-
-    if (meters >= 0.01) {
-      return { text: `${(meters * 100).toFixed(1)} cm`, meters, scaleMeters };
-    }
-
-    return { text: `${(meters * 1000).toFixed(0)} mm`, meters, scaleMeters };
+    const { text, meters } = this.formatLength(rawDistanceInModelUnits);
+    return { text, meters, scaleMeters: this.getDistanceMeasurementScaleMeters() };
   },
 
   updateSelectedFacesControllerLabel() {
@@ -1300,6 +1287,7 @@ export const Viewer = {
     disposeTiles();
     removeImportedLights();
     removeImportedCanvases();
+    Viewer.resetModelUnits();
     Viewer.currentManifest = null;
     Viewer.manifestCameras = [];
     document.getElementById("manifesto-camera-switch")?.remove();
@@ -1879,12 +1867,6 @@ export const Viewer = {
     themeToggle.textContent = "🌙";
     picker.appendChild(themeToggle);
 
-    const loginButton = document.createElement("button");
-    loginButton.type = "button";
-    loginButton.id = "loginButton";
-    loginButton.hidden = true;
-    picker.appendChild(loginButton);
-
     const uploadModel = document.createElement("button");
     uploadModel.type = "button";
     uploadModel.id = "uploadModel";
@@ -1895,13 +1877,28 @@ export const Viewer = {
     browseModels.id = "browseModelsButton";
     picker.appendChild(browseModels);
 
-    const manageUsers = document.createElement("button");
-    manageUsers.type = "button";
-    manageUsers.id = "manageUsersButton";
-    manageUsers.hidden = true;
-    picker.appendChild(manageUsers);
-
     return picker;
+  },
+
+  // The row above the viewer (#viewer-page-header): the example picker on
+  // the left, the account area (sign-in, user management) on the right.
+  // Mirrors the static markup of index.html, like createExampleModelPicker().
+  createViewerPageHeader() {
+    const header = document.createElement("div");
+    header.id = "viewer-page-header";
+    header.appendChild(Viewer.createExampleModelPicker());
+
+    const accountBar = document.createElement("div");
+    accountBar.id = "viewer-account-bar";
+    ["loginButton", "manageUsersButton"].forEach((id) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.id = id;
+      button.hidden = true;
+      accountBar.appendChild(button);
+    });
+    header.appendChild(accountBar);
+    return header;
   },
 
   toHexColor(input) {
@@ -2975,6 +2972,8 @@ export const Viewer = {
     // The manifest shown (after the reset, which forgets it): its scenes,
     // cameras and descriptive properties, for switching and exporting.
     Viewer.currentManifest = { source: newUrlOrJson, type, manifestType, json: manifestJson };
+    // The size of a scene unit (Scene.spatialScale), for measurements.
+    Viewer.manifestUnitMeters = readSpatialScale(manifestJson, shownScene);
     // A previous AIM3D manifest may have left the camera in orthographic mode.
     // Always start from perspective; AIM3D's own camera config (applied below)
     // switches back to orthographic only if it explicitly asks for it.
@@ -3761,14 +3760,15 @@ export const Viewer = {
         let browseModelsButton = document.getElementById('browseModelsButton');
         let manageUsersButton = document.getElementById('manageUsersButton');
         if (!picker && !selectModel && viewerElement) {
-          picker = Viewer.createExampleModelPicker();
-          selectModel = picker.querySelector('#example-model-select');
-          themeToggle = picker.querySelector('#example-theme-toggle');
-          uploadModelButton = picker.querySelector('#uploadModel');
-          loginButton = picker.querySelector('#loginButton');
-          browseModelsButton = picker.querySelector('#browseModelsButton');
-          manageUsersButton = picker.querySelector('#manageUsersButton');
-          viewerElement.parentNode.insertBefore(picker, viewerElement);
+          const header = Viewer.createViewerPageHeader();
+          picker = header.querySelector('#example-model-picker');
+          selectModel = header.querySelector('#example-model-select');
+          themeToggle = header.querySelector('#example-theme-toggle');
+          uploadModelButton = header.querySelector('#uploadModel');
+          loginButton = header.querySelector('#loginButton');
+          browseModelsButton = header.querySelector('#browseModelsButton');
+          manageUsersButton = header.querySelector('#manageUsersButton');
+          viewerElement.parentNode.insertBefore(header, viewerElement);
         }
         if (loginButton) {
           Viewer.loginButton = loginButton;
@@ -3999,6 +3999,7 @@ attachAnnotations(Viewer);
 attachPicking(Viewer);
 attachFaceAreaSelection(Viewer);
 attachPointCloudPanel(Viewer);
+attachModelUnits(Viewer);
 attachMeasurement(Viewer);
 attachAnimations(Viewer);
 attachTour(Viewer);

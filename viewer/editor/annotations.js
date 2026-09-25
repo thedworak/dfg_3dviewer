@@ -2,6 +2,7 @@ import { core } from "../core.js";
 import { toastHelper, showToast } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import THREE from "../init.js";
+import { unitNameToMeters } from "./model-units.js";
 import { EnvironmentNode } from "three/src/nodes/Nodes.js";
 import {
   formatAIM3DManifestValidationErrors,
@@ -14,6 +15,7 @@ import {
   buildLightAnnotations,
   buildCanvasAnnotation,
   buildModelAnnotation,
+  buildSpatialScale,
   modelFormatOf,
   buildViewCameraAnnotation,
   commentsToAnnotationEntries,
@@ -1122,6 +1124,9 @@ export function attachAnnotations(Viewer) {
             // A solid background only (a gradient has no IIIF equivalent).
             ...(sceneBackgroundColor ? { backgroundColor: sceneBackgroundColor } : {}),
 
+            // The size of one scene unit, when it is not a meter.
+            ...(this.resolveModelUnit().meters !== 1 ? { spatialScale: buildSpatialScale(this.resolveModelUnit().meters) } : {}),
+
             items: [
               {
                 id: `${sceneId}/page/model`,
@@ -1230,7 +1235,7 @@ export function attachAnnotations(Viewer) {
               typeof core.CONFIG?.viewer?.performanceMode === "string"
                 ? core.CONFIG.viewer.performanceMode
                 : core.CONFIG?.viewer?.performanceMode?.Performance || "high-performance",
-            units: core.CONFIG?.viewer?.measurement?.modelUnitInMeters,
+            units: this.resolveModelUnit().meters,
             gallery: {
               build: core.CONFIG.viewer.gallery?.build || false,
               container: core.CONFIG.viewer.gallery?.container || "AIM3DViewerContainer",
@@ -1649,9 +1654,13 @@ export function attachAnnotations(Viewer) {
         this.setPerformanceMode?.(viewerConfig.performance);
       }
 
+      // Meters per scene unit (a number, or a unit name: "cm"), for this
+      // model only; the scene's spatialScale, when it has one, comes first.
       if (viewerConfig.units !== undefined) {
-        core.CONFIG.viewer.measurement ??= {};
-        core.CONFIG.viewer.measurement.modelUnitInMeters = viewerConfig.units;
+        const units = Number.isFinite(Number(viewerConfig.units))
+          ? Number(viewerConfig.units)
+          : unitNameToMeters(viewerConfig.units);
+        if (units > 0 && !(Number(this.manifestUnitMeters) > 0)) this.manifestUnitMeters = units;
       }
 
       if (viewerConfig.gallery && typeof viewerConfig.gallery === "object") {

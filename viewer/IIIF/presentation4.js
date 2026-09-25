@@ -1,5 +1,6 @@
 import THREE from "../init.js";
 import { core } from "../core.js";
+import { unitNameToMeters } from "../editor/model-units.js";
 
 // IIIF Presentation 4 (3D) scene content beyond the models themselves, read
 // from and written to plain manifest JSON (draft spec, IIIF 3D TSG; the
@@ -383,6 +384,22 @@ export function scenePlacements(manifest, sceneIndex) {
   };
   visit(scene, new THREE.Matrix4(), new Set([scene.id]));
   return placements;
+}
+
+// Scene.spatialScale: the size of one scene unit, a Quantity
+// ({ quantityValue: 0.01, unit: "m" } - one unit is a centimeter). In
+// meters, or null when the scene does not say.
+export function readSpatialScale(manifest, sceneIndex) {
+  const scene = scenesOf(manifest)[sceneIndexOf(manifest, sceneIndex)];
+  const scale = scene?.spatialScale;
+  if (!scale || typeof scale !== "object") return null;
+  const value = Number(scale.quantityValue ?? scale.value);
+  const unitMeters = unitNameToMeters(scale.unit || "m");
+  return Number.isFinite(value) && value > 0 && unitMeters ? value * unitMeters : null;
+}
+
+export function buildSpatialScale(meters) {
+  return { type: "Quantity", quantityValue: round(meters), unit: "m" };
 }
 
 // A manifest-level annotation belongs to the scene its target names; one
