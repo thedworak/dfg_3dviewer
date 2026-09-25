@@ -192,6 +192,13 @@ needing the tag.
   `status` values follow the same vocabulary `viewer/status-poller.js`
   already knows how to render: `queued` (waiting for a free conversion
   slot), `preparing`, `processing`, `rendering`, `ready`, `failed`.
+- `POST /api/editor/upload-thumbnail` - the viewer's "Render preview": a
+  multipart form with `path` (the model's folder, `/files/<id>/...`),
+  `filename` (the model's name without extension) and a PNG in `data`, saved
+  as `views/<filename>_side45.png` next to the model - the same file the
+  Blender render and Drupal's `ThumbnailUploadController` write. Needs the
+  rights of `DELETE /api/jobs/<id>` (with accounts on: the uploader or an
+  admin).
 - `GET /files/<id>/...` - serves the converted model and rendered thumbnails.
 
 ## Configuration

@@ -1,5 +1,7 @@
 import { core } from "../core.js";
 
+const BUILD = (typeof __BUILD__ !== "undefined") ? __BUILD__ : "";
+
 export function captureAndUploadThumbnail(viewer) {
   core.camera.aspect = 1;
   core.camera.updateProjectionMatrix();
@@ -28,7 +30,10 @@ export function captureAndUploadThumbnail(viewer) {
     fileform.append("data", imgBlob, "thumbnail.png");
     console.log("Uploading thumbnail for entity ID:", core.CONFIG.entity.id);
     fileform.append("wisski_individual", core.CONFIG.entity.id);
-    const base = (core.CONFIG?.mainUrl || window.location.origin || "").replace(/\/+$/, "");
+    // Standalone (Docker, localhost): the page's own /api/, which nginx or
+    // the dev server passes to the worker - mainUrl there is the WissKI
+    // instance the metadata comes from, not this viewer's backend.
+    const base = ((BUILD === "drupal" && core.CONFIG?.mainUrl) || window.location.origin || "").replace(/\/+$/, "");
     const defaultEndpoint = "/api/editor/upload-thumbnail";
     const configuredEndpoint = String(core.CONFIG?.api?.thumbnailUploadEndpoint || defaultEndpoint).trim();
     let callUrl = `${base}${defaultEndpoint}`;
@@ -53,8 +58,10 @@ export function captureAndUploadThumbnail(viewer) {
       const text = await res.text();
       const data = text ? JSON.parse(text) : {};
       if (!res.ok) throw new Error(data.error || "Upload failed");
+      console.log("Thumbnail uploaded:", data.message || data);
       return data;
-    });
+    })
+    .catch((error) => console.error("Thumbnail upload failed:", error));
   }, "image/png");
 
   core.renderer.setPixelRatio(devicePixelRatio);

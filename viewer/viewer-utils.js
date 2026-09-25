@@ -697,6 +697,28 @@ async function animateCameraToPose ({
   );
   const startTarget = endTarget.clone(); // target
 
+  // === (near / far / limits) ===
+  // Set for the new model before anything moves the camera, not when the
+  // fly-in completes: a manifest camera applied meanwhile cancels the fly-in
+  // (stopCameraIntro), and OrbitControls.update() then clamped its distance
+  // to the previous model's maxDistance - leaving the camera inside a larger
+  // model, with no way to zoom out.
+  const boxCenter = boundingBox ? boundingBox.getCenter(new THREE.Vector3()) : new THREE.Vector3();
+  if (boundingBox) {
+    const boxSize = boundingBox.getSize(new THREE.Vector3()).length();
+
+    const maxDistance =
+      endCamPos.distanceTo(boxCenter) + boxSize;
+
+    core.camera.near = Math.max(maxDistance / 1000, 0.001);
+    core.camera.far  = maxDistance * 10;
+    core.camera.updateProjectionMatrix();
+
+    if (core.controls) {
+      core.controls.maxDistance = maxDistance * 2;
+    }
+  }
+
   if (!animate) {
     core.camera.position.copy(endCamPos);
     core.controls?.target.copy(endTarget);
@@ -736,29 +758,6 @@ async function animateCameraToPose ({
     if (core.cameraTweenToken !== tweenToken) return;
     core.camera.position.copy(endCamPos);
     core.controls?.target.copy(endTarget);
-    const boxCenter = boundingBox ? boundingBox.getCenter(new THREE.Vector3()) : new THREE.Vector3();
-    if (boundingBox) {
-      const boxSize = boundingBox.getSize(new THREE.Vector3()).length();
-
-      const maxDistance =
-        endCamPos.distanceTo(boxCenter) + boxSize;
-
-      core.camera.near = Math.max(maxDistance / 1000, 0.001);
-      core.camera.far  = maxDistance * 10;
-      core.camera.updateProjectionMatrix();
-
-      // OrbitControls.update() (below) clamps the camera's distance from
-      // the target to [minDistance, maxDistance] on every call - it has to
-      // run after maxDistance is widened for this model, not before. Doing
-      // it in the other order (as this used to) meant switching from a
-      // small model to a much bigger one called update() while maxDistance
-      // still held the small model's limit, yanking the freshly-fitted,
-      // correctly-distant camera back in until it landed inside the new
-      // (much larger) geometry.
-      if (core.controls) {
-        core.controls.maxDistance = maxDistance * 2;
-      }
-    }
     core.controls?.update();
 
     if (window.Viewer?.urlOptions?.cameraPosition || window.Viewer?.urlOptions?.cameraTarget || Number.isFinite(window.Viewer?.urlOptions?.cameraFov)) {

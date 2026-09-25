@@ -66,6 +66,8 @@ SKIP_RENDER = os.environ.get("WORKER_SKIP_RENDER", "false").lower() == "true"
 # the host) - see docker-compose.yml and worker/README.md.
 RENDER_DEVICE = os.environ.get("WORKER_RENDER_DEVICE", "CPU").upper()
 MAX_UPLOAD_BYTES = int(os.environ.get("WORKER_MAX_UPLOAD_BYTES", str(100 * 1024 * 1024)))
+# A "Render preview" PNG (1024x1024) - far below this.
+MAX_THUMBNAIL_BYTES = 20 * 1024 * 1024
 # Optional accounts (off by default) - see worker/auth.py. Stored on the same
 # persistent volume as the jobs, in a dot-directory the job listing skips.
 AUTH = AuthStore(
@@ -491,7 +493,8 @@ class UploadTooLarge(ValueError):
     pass
 
 
-def parse_multipart_file(handler: "Handler"):
+def _multipart_parts(handler: "Handler", max_bytes: int = MAX_UPLOAD_BYTES):
+    """Yields (headers_text, content) for each part of a multipart body."""
     content_type = handler.headers.get("Content-Type", "")
     if "multipart/form-data" not in content_type:
         raise ValueError("Expected multipart/form-data")
@@ -505,8 +508,8 @@ def parse_multipart_file(handler: "Handler"):
         raise ValueError("Missing multipart boundary")
 
     length = int(handler.headers.get("Content-Length", "0"))
-    if length > MAX_UPLOAD_BYTES:
-        raise UploadTooLarge(f"Upload exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB limit")
+    if length > max_bytes:
+        raise UploadTooLarge(f"Upload exceeds the {max_bytes // (1024 * 1024)} MB limit")
     if length <= 0:
         raise ValueError("Empty upload")
     body = handler.rfile.read(length)
@@ -527,15 +530,34 @@ def parse_multipart_file(handler: "Handler"):
         header_blob, sep, content = part.partition(b"\r\n\r\n")
         if not sep:
             continue
-        headers_text = header_blob.decode("latin-1")
+        if content.endswith(b"\r\n"):
+            content = content[:-2]
+        yield header_blob.decode("latin-1"), content
+
+
+def parse_multipart_file(handler: "Handler"):
+    for headers_text, content in _multipart_parts(handler):
         match = re.search(r'filename="([^"]*)"', headers_text)
         if not match or not match.group(1):
             continue
-        if content.endswith(b"\r\n"):
-            content = content[:-2]
         return match.group(1), content
 
     raise ValueError("No file part found in upload")
+
+
+def parse_multipart_form(handler: "Handler", max_bytes: int):
+    """(fields, files) of a multipart form: text fields by name, and the
+    file parts' content by name."""
+    fields, files = {}, {}
+    for headers_text, content in _multipart_parts(handler, max_bytes):
+        name = re.search(r'\bname="([^"]*)"', headers_text)
+        if not name:
+            continue
+        if re.search(r'filename="', headers_text):
+            files[name.group(1)] = content
+        else:
+            fields[name.group(1)] = content.decode("utf-8", "replace")
+    return fields, files
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -764,6 +786,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/model/create":
             self._handle_create()
             return
+        if path == "/api/editor/upload-thumbnail":
+            self._handle_thumbnail_upload()
+            return
         match = re.fullmatch(r"/api/auth/(register|login|logout)", path)
         if match:
             self._handle_auth(match.group(1))
@@ -854,6 +879,56 @@ class Handler(BaseHTTPRequestHandler):
         thread.start()
 
         self._send_json(200, {"entity_id": job_id, "status": "started"})
+
+    def _handle_thumbnail_upload(self) -> None:
+        """The viewer's "Render preview": a PNG of the current view, saved as
+        the model's <name>_side45.png in its views/ folder - the file the
+        Blender render (and Drupal's ThumbnailUploadController) writes too.
+        `path` is the model's folder URL (/files/<job>/...)."""
+        user = self._require_user()
+        if user is None:
+            return
+        try:
+            fields, files = parse_multipart_form(self, MAX_THUMBNAIL_BYTES)
+        except UploadTooLarge as exc:
+            self._send_json(413, {"error": str(exc)})
+            return
+        except ValueError as exc:
+            self._send_json(400, {"error": str(exc)})
+            return
+
+        image = files.get("data")
+        if not image or not image.startswith(b"\x89PNG\r\n\x1a\n"):
+            self._send_json(415, {"error": "Expected a PNG image"})
+            return
+        name = re.sub(r"[^A-Za-z0-9_.-]", "_", fields.get("filename", "")).strip(".")
+        if not name:
+            self._send_json(400, {"error": "Invalid filename"})
+            return
+        match = re.fullmatch(r"/files/([A-Za-z0-9_-]+)(?:/(.*))?", unquote(urlparse(fields.get("path", "")).path))
+        if not match or not JOB_ID_RE.fullmatch(match.group(1)):
+            self._send_json(400, {"error": "Not an uploaded model"})
+            return
+        job_id = match.group(1)
+        job_root = (JOBS_DIR / job_id / "input").resolve()
+        model_dir = (job_root / (match.group(2) or "")).resolve()
+        if not (model_dir == job_root or str(model_dir).startswith(str(job_root) + os.sep)) or not model_dir.is_dir():
+            self._send_json(404, {"error": "not found"})
+            return
+        if not can_delete_job(job_id, user or None):
+            self._send_json(403, {"error": "You can only change your own uploads"})
+            return
+
+        views_dir = model_dir / "views"
+        views_dir.mkdir(exist_ok=True)
+        target = views_dir / f"{name}_side45.png"
+        target.write_bytes(image)
+        image_url = f"/files/{job_id}/{target.relative_to(job_root)}"
+        with JOBS_LOCK:
+            job = JOBS.get(job_id)
+            if job is not None and image_url not in job.get("image_urls", []):
+                job["image_urls"] = [*job.get("image_urls", []), image_url]
+        self._send_json(200, {"message": f"Thumbnail saved ({len(image)} bytes)", "imageUrl": image_url})
 
     def _serve_file(self, job_id: str, rel_path: str) -> None:
         job_root = (JOBS_DIR / job_id / "input").resolve()

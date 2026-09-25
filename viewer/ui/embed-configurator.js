@@ -20,8 +20,16 @@ export function attachEmbedConfigurator(Viewer) {
       // argument as a build-time asset relative to this source file, but
       // embed.html only ever lives next to the built module at runtime
       // (dist/<target>/embed.html), not next to viewer/ui/ in source.
-      const embedFileName = "embed.html";
-      const embedUrl = new URL(embedFileName, import.meta.url);
+      // This module is bundled into a chunk under assets/, one level below
+      // the entry module and embed.html (the same case as viewer-settings.json
+      // in main.js).
+      let moduleUrl = new URL(import.meta.url);
+      if (moduleUrl.protocol !== "http:" && moduleUrl.protocol !== "https:") {
+        // Parcel's dev server hands back a non-fetchable placeholder here.
+        moduleUrl = new URL(window.location.href);
+      }
+      const embedFileName = moduleUrl.pathname.includes("/assets/") ? "../embed.html" : "embed.html";
+      const embedUrl = new URL(embedFileName, moduleUrl);
       embedUrl.search = "";
       embedUrl.hash = "";
       return embedUrl;

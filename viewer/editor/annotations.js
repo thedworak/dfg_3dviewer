@@ -1482,6 +1482,13 @@ export function attachAnnotations(Viewer) {
         core.camera.up.set(up[0], up[1], up[2]);
       }
 
+      // The camera may sit farther out than the model's fitted limit -
+      // OrbitControls.update() would pull it in.
+      if (core.controls) {
+        const distance = core.camera.position.distanceTo(core.controls.target);
+        if (core.controls.maxDistance < distance * 2) core.controls.maxDistance = distance * 2;
+      }
+
       const projectionMode = String(cameraConfig.perspectiveMode || "").toLowerCase();
       if (projectionMode === "perspective" || projectionMode === "orthographic") {
         this.setCameraProjection?.(projectionMode);

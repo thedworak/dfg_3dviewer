@@ -819,6 +819,10 @@ export function applyCamera(camera, viewer) {
   }
   core.camera.updateProjectionMatrix();
   core.cameraLight?.position?.copy?.(core.camera.position);
+  // The camera may sit farther out than the model's fitted limit - update()
+  // would pull it in.
+  const distance = core.camera.position.distanceTo(core.controls.target);
+  if (core.controls.maxDistance < distance * 2) core.controls.maxDistance = distance * 2;
   core.controls.update();
   // "Reset camera" returns to the manifest's camera.
   core.cameraCoords = core.camera.position.clone();

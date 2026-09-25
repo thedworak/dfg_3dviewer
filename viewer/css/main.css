@@ -1084,7 +1084,7 @@ canvas {
 #metadata-card {
   position: relative;
   padding: 12px 14px;
-  border-radius: 14px;
+  border-radius: 6px;
   width: min(260px, 26vw);
   max-width: 100%;
   min-width: 180px;
@@ -1146,7 +1146,7 @@ canvas {
   cursor: grab;
   pointer-events: auto;
   touch-action: none;
-  border-radius: 8px 8px 0 0;
+  border-radius: 6px 6px 0 0;
   z-index: 1;
 }
 
@@ -2152,7 +2152,7 @@ body.presentation-mode {
     resize: none;
     overflow-y: auto;
     overscroll-behavior: contain;
-    border-radius: 16px;
+    border-radius: 6px;
   }
 
   #metadata-card.metadata-open #metadata-content.expanded {
