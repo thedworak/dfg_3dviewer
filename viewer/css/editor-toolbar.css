@@ -210,6 +210,18 @@
   transform-origin: center bottom;
 }
 
+/* Touch: the toolbar is not scaled below ~90% (36px targets and more), and
+   keeps clear of the home bar and a landscape notch. */
+@media (pointer: coarse) {
+  #viewerEditorToolbar,
+  .viewer-embed-page #viewerEditorToolbar {
+    --viewer-toolbar-scale: clamp(0.9, calc((100vw - 32px) / 360px), 1);
+    max-width: calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right));
+    margin-left: env(safe-area-inset-left);
+    margin-bottom: env(safe-area-inset-bottom);
+  }
+}
+
 .viewer-embed-page #viewerEditorToolbar.viewer-editor-toolbar_anchor-left {
   transform-origin: left bottom;
 }

@@ -2,6 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>DLF DFG 3D Viewer testing environment</title>
     <link rel="shortcut icon" href="viewer/img/icon.png" type="image/png">
     <link href="viewer/css/main.css" rel="stylesheet" />
@@ -10,7 +11,7 @@
     <link href="viewer/css/external-sources.css" rel="stylesheet"/>
     <link href="viewer/css/credits.css" rel="stylesheet"/>
   </head>
-  <body>
+  <body class="viewer-standalone-page">
     <script type="module">
       // viewer/main.js and friends reference these as bare globals, normally
       // inlined at build time by rollup's replace() plugin (see

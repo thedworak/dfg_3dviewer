@@ -12975,6 +12975,9 @@ const HELPER_SIZE = 128;
 // Below this canvas size the gizmo would cover too much of the model.
 const MIN_CANVAS_SIZE = HELPER_SIZE * 2.5;
 const MARGIN = 8;
+// On a canvas narrower than this, the toolbar along the bottom takes almost
+// its whole width: a bottom gizmo moves to the top.
+const NARROW_CANVAS_WIDTH = 560;
 
 function attachViewHelper(Viewer) {
   Object.assign(Viewer, {
@@ -13002,6 +13005,7 @@ function attachViewHelper(Viewer) {
         left: horizontal === "left" ? MARGIN : null,
         right: horizontal === "left" ? null : MARGIN,
       };
+      Viewer.viewHelperAtTop = vertical === "top";
       Viewer.viewHelper = helper;
     },
 
@@ -13024,6 +13028,9 @@ function attachViewHelper(Viewer) {
       if (core.controls?.target) helper.center.copy(core.controls.target);
       if (helper.animating) helper.update(delta);
       if (!Viewer.isViewHelperVisible()) return;
+      const atTop = Viewer.viewHelperAtTop || core.renderer.domElement.offsetWidth < NARROW_CANVAS_WIDTH;
+      helper.location.top = atTop ? MARGIN : null;
+      helper.location.bottom = atTop ? null : MARGIN;
       // The renderer keeps autoClear on, which would wipe the scene drawn
       // just before; the helper only needs its own depth cleared.
       const autoClear = core.renderer.autoClear;
@@ -26975,7 +26982,7 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "c68aed5" ;
+const BUILD_ID = "10877f8" ;
 
 function poweredByHtml() {
   const build = ` (${BUILD_ID})` ;
@@ -29026,7 +29033,8 @@ const Viewer$1 = {
 
     if (isFullscreen) {
       core.mainCanvas.style.width = "100vw";
-      core.mainCanvas.style.height = "100vh";
+      // dvh: the visible height, below a mobile browser's address bar.
+      core.mainCanvas.style.height = "100dvh";
       core.editorToolbar.style.bottom = `${bottom}px`;
     } else {
       if (core.editorToolbar) {
@@ -31016,6 +31024,13 @@ const Viewer$1 = {
 
       Viewer$1.resizeObserver = new ResizeObserver(update);
       Viewer$1.resizeObserver.observe(core.viewerWrapper);
+      // On the standalone and embed pages the viewer is a flex item sized by
+      // the page (flex-basis 0, see main.css / embed.html), not by its
+      // canvas, so it is safe to follow its own size too - e.g. when the
+      // gallery above it appears and takes some of the height.
+      if (core.container !== core.viewerWrapper && core.container.closest(".viewer-standalone-page, .viewer-embed-page")) {
+        Viewer$1.resizeObserver.observe(core.container);
+      }
 
 
       Viewer$1.bindEventListener(document, 'fullscreenchange', Viewer$1.onFullscreenChange);

@@ -84,12 +84,12 @@ jobs:
             exit 1
           fi
 
-          purge="$(curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache" \
-            -H "Authorization: Bearer ${CF_API_TOKEN}" \
-            -H "Content-Type: application/json" \
-            --data '{"purge_everything":true}')"
-          if ! printf '%s' "$purge" | grep -q '"success":[[:space:]]*true'; then
-            echo "::error::Cloudflare cache purge failed: $purge"
-            exit 1
-          fi
-          echo "Cloudflare cache purged."
+          #purge="$(curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache" \
+          #  -H "Authorization: Bearer ${CF_API_TOKEN}" \
+          #  -H "Content-Type: application/json" \
+          #  --data '{"purge_everything":true}')"
+          #if ! printf '%s' "$purge" | grep -q '"success":[[:space:]]*true'; then
+          #  echo "::error::Cloudflare cache purge failed: $purge"
+          #  exit 1
+          #fi
+          #echo "Cloudflare cache purged."

@@ -1974,7 +1974,8 @@ export const Viewer = {
 
     if (isFullscreen) {
       core.mainCanvas.style.width = "100vw";
-      core.mainCanvas.style.height = "100vh";
+      // dvh: the visible height, below a mobile browser's address bar.
+      core.mainCanvas.style.height = "100dvh";
       core.editorToolbar.style.bottom = `${bottom}px`;
     } else {
       if (core.editorToolbar) {
@@ -3969,6 +3970,13 @@ export const Viewer = {
 
       Viewer.resizeObserver = new ResizeObserver(update);
       Viewer.resizeObserver.observe(core.viewerWrapper);
+      // On the standalone and embed pages the viewer is a flex item sized by
+      // the page (flex-basis 0, see main.css / embed.html), not by its
+      // canvas, so it is safe to follow its own size too - e.g. when the
+      // gallery above it appears and takes some of the height.
+      if (core.container !== core.viewerWrapper && core.container.closest(".viewer-standalone-page, .viewer-embed-page")) {
+        Viewer.resizeObserver.observe(core.container);
+      }
 
 
       Viewer.bindEventListener(document, 'fullscreenchange', Viewer.onFullscreenChange);

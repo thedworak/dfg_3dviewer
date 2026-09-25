@@ -10,6 +10,9 @@ const HELPER_SIZE = 128;
 // Below this canvas size the gizmo would cover too much of the model.
 const MIN_CANVAS_SIZE = HELPER_SIZE * 2.5;
 const MARGIN = 8;
+// On a canvas narrower than this, the toolbar along the bottom takes almost
+// its whole width: a bottom gizmo moves to the top.
+const NARROW_CANVAS_WIDTH = 560;
 
 export function attachViewHelper(Viewer) {
   Object.assign(Viewer, {
@@ -37,6 +40,7 @@ export function attachViewHelper(Viewer) {
         left: horizontal === "left" ? MARGIN : null,
         right: horizontal === "left" ? null : MARGIN,
       };
+      Viewer.viewHelperAtTop = vertical === "top";
       Viewer.viewHelper = helper;
     },
 
@@ -59,6 +63,9 @@ export function attachViewHelper(Viewer) {
       if (core.controls?.target) helper.center.copy(core.controls.target);
       if (helper.animating) helper.update(delta);
       if (!Viewer.isViewHelperVisible()) return;
+      const atTop = Viewer.viewHelperAtTop || core.renderer.domElement.offsetWidth < NARROW_CANVAS_WIDTH;
+      helper.location.top = atTop ? MARGIN : null;
+      helper.location.bottom = atTop ? null : MARGIN;
       // The renderer keeps autoClear on, which would wipe the scene drawn
       // just before; the helper only needs its own depth cleared.
       const autoClear = core.renderer.autoClear;
