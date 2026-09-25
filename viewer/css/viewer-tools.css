@@ -19,6 +19,20 @@
   flex-shrink: 0;
 }
 
+/* Phones: the corner beside the metadata card is too narrow for the panels
+   (the card, z-index 999, covered them). The column starts below the
+   collapsed card (62px tall there), spans the width, and sits above the card
+   so an expanded card does not hide an open panel. */
+@media (max-width: 640px) {
+  .viewer-side-stack {
+    top: 72px;
+    left: 12px;
+    right: 12px;
+    max-width: none;
+    z-index: 1000;
+  }
+}
+
 .viewer-animation-player {
   display: flex;
   align-items: center;

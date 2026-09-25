@@ -1861,6 +1861,15 @@ canvas {
     padding: 6px 9px;
     font-size: 11px;
   }
+
+  /* Hints (picking, clipping) are a sentence long: on one line they ran off
+     the screen. */
+  .viewer-notice-hint {
+    white-space: normal;
+    text-align: center;
+    text-wrap: balance;
+    border-radius: 14px;
+  }
 }
 
 #image-list {

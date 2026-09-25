@@ -574,8 +574,8 @@ export const VIEWER_I18N = {
     theme: {
       lightMode: "Tryb jasny",
       darkMode: "Tryb ciemny",
-      switchToLightMode: "Przelącz na tryb jasny",
-      switchToDarkMode: "Przelącz na tryb ciemny",
+      switchToLightMode: "Przełącz na tryb jasny",
+      switchToDarkMode: "Przełącz na tryb ciemny",
     },
     fullscreen: {
       mode: "Tryb pełnoekranowy",
@@ -585,15 +585,15 @@ export const VIEWER_I18N = {
     },
     language: {
       label: "Language: Polski",
-      switchToPolish: "Przelącz na język polski",
-      switchToEnglish: "Przelącz na język angielski",
-      switchToGerman: "Przelącz na język niemiecki",
+      switchToPolish: "Przełącz na język polski",
+      switchToEnglish: "Przełącz na język angielski",
+      switchToGerman: "Przełącz na język niemiecki",
     },
     hints: {
       picking: "Kliknij ścianę, Ctrl + klik dodaje kolejne, Shift + przeciągnięcie zaznacza obszar",
       pickingSelected: "Zaznaczone ściany: {count} · Enter: dodaj adnotację · Esc: wyczyść",
       pickingSelect: "Wybierz co najmniej jedną ścianę, aby dodać adnotację.",
-      clipping: "Przeciągnij aktywną plaszczyznę przycinania, aby dostosować cięcie",
+      clipping: "Przeciągnij aktywną płaszczyznę przycinania, aby dostosować cięcie",
     },
     controls: {
       enablePickingMode: "Włącz tryb wyboru",
