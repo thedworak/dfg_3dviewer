@@ -79,11 +79,13 @@ export async function loadDroppedArchive (archiveFile) {
     buildArchiveFileMap(extractedFiles);
 
     await loadDroppedModel(modelFile);
+    return true;
 
   } catch (err) {
     console.error(err);
 
     toastHelper("unsupportedFormat", "error");
+    return false;
   }
 };
 

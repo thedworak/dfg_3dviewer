@@ -33,6 +33,9 @@ window.viewer = {
 };
 
 import { core, setCore } from './core.js';
+import { initConnectivity } from './connectivity.js';
+import { initRemote, isAppBuild } from './remote.js';
+import { hideAppSplash } from './app-splash.js';
 
 import {
   normalizeColor,
@@ -42,6 +45,11 @@ import { initClippingPlanes, updateActiveClippingPlanes, reportViewerError, show
 import { attachEmbedConfigurator } from "./ui/embed-configurator.js";
 import { attachUploadPanel } from "./ui/upload-panel.js";
 import { attachModelsPanel } from "./ui/models-panel.js";
+import { attachLibraryPanel } from "./ui/library-panel.js";
+import { attachModelsSource } from "./ui/models-source.js";
+import { attachPlansPanel } from "./ui/plans-panel.js";
+import { initPlan } from "./monetization/plan.js";
+import { initAds } from "./monetization/ads.js";
 import { attachAdminPanel } from "./ui/admin-panel.js";
 import { attachLoginPanel } from "./ui/login-panel.js";
 import { buildThumbnailGallery } from "./ui/thumbnail-gallery.js";
@@ -919,6 +927,9 @@ export const Viewer = {
   },
 
   maybeShowKeyboardHint() {
+    // The app shows it from the help button only (first-run-hints.js
+    // points at the buttons instead).
+    if (isAppBuild()) return;
     try {
       if (window.localStorage.getItem("viewerHintSeen") !== "1") return;
     } catch (_err) {
@@ -959,14 +970,13 @@ export const Viewer = {
     return topElement === core.renderer.domElement;
   },
 
-  animateKeyboardCameraTo(nextCameraPosition, nextTarget) {
+  animateKeyboardCameraTo(nextCameraPosition, nextTarget, duration = this.keyboardTweenDurationMs) {
     if (!core.camera || !core.controls || !nextCameraPosition || !nextTarget) return;
 
     const startCamera = core.camera.position.clone();
     const startTarget = core.controls.target.clone();
     const targetCamera = nextCameraPosition.clone();
     const targetControls = nextTarget.clone();
-    const duration = this.keyboardTweenDurationMs;
 
     core.cameraTween?.stop?.();
     core.targetTween?.stop?.();
@@ -1348,6 +1358,7 @@ export const Viewer = {
   },
 
   renderFatalError(error) {
+    hideAppSplash();
     const message = this.reportError(error, {
       context: "Viewer initialization failed",
       toast: false,
@@ -1451,6 +1462,7 @@ export const Viewer = {
       : './viewer-settings.json';
 
     //Setup core variables first to make them available in the loaders and utils
+    initConnectivity();
     setCore('viewEntity', this.viewEntity);
     setCore('CONFIG', this.CONFIG);
     setCore('loadedFile', this.loadedFile);
@@ -1557,6 +1569,11 @@ export const Viewer = {
     }
 
     await this.applyBootstrapSettingsFromManifest();
+    // The app's plan first (from the device right away, the store later):
+    // remote.js reads it for the repository address.
+    initPlan();
+    initAds();
+    initRemote();
 
     this.isLightweight = Boolean(core.CONFIG.viewer.lightweight);
     setCore('isLightweight', this.isLightweight);
@@ -1876,6 +1893,11 @@ export const Viewer = {
     browseModels.type = "button";
     browseModels.id = "browseModelsButton";
     picker.appendChild(browseModels);
+
+    const openLocalFile = document.createElement("button");
+    openLocalFile.type = "button";
+    openLocalFile.id = "openLocalFileButton";
+    picker.appendChild(openLocalFile);
 
     return picker;
   },
@@ -2329,24 +2351,34 @@ export const Viewer = {
       return;
     }
 
-    const file = files[0];
+    await Viewer.openLocalFile(files[0]);
+  },
 
+  // A model (or .zip with a model and its textures) from the user's device -
+  // dropped on the viewer, or picked in the library panel. Resolves to
+  // whether it loaded.
+  async openLocalFile(file) {
     const extension = file.name
       .split('.')
       .pop()
       .toLowerCase();
 
     if (core.SUPPORTED_EXTENSIONS.includes(extension)) {
-      await loadDroppedModel(file);
-      return;
+      try {
+        await loadDroppedModel(file);
+        return true;
+      } catch (_error) {
+        // Already reported to the user by the loader.
+        return false;
+      }
     }
 
     if (Viewer.SUPPORTED_ARCHIVES.includes(extension)) {
-      await loadDroppedArchive(file);
-      return;
+      return loadDroppedArchive(file);
     }
 
     toastHelper("unsupportedFormat", "error");
+    return false;
   },
 
   async changeScale() {
@@ -3421,6 +3453,7 @@ export const Viewer = {
         Viewer.bindEventListener(core.renderer.domElement, "pointerdown", Viewer.onPointerDown);
         Viewer.bindEventListener(core.renderer.domElement, "pointerup", Viewer.onPointerUp);
         Viewer.bindEventListener(core.renderer.domElement, "pointermove", Viewer.onPointerMove);
+        Viewer.bindDoubleTapFocus();
         Viewer.bindFaceAreaSelection();
         Viewer.bindEventListener(core.renderer.domElement, "mouseenter", (event) => {
           if (!Viewer.isPointerDirectlyOverCanvas(event)) return;
@@ -3758,6 +3791,7 @@ export const Viewer = {
         let uploadModelButton = document.getElementById('uploadModel');
         let loginButton = document.getElementById('loginButton');
         let browseModelsButton = document.getElementById('browseModelsButton');
+        let openLocalFileButton = document.getElementById('openLocalFileButton');
         let manageUsersButton = document.getElementById('manageUsersButton');
         if (!picker && !selectModel && viewerElement) {
           const header = Viewer.createViewerPageHeader();
@@ -3767,6 +3801,7 @@ export const Viewer = {
           uploadModelButton = header.querySelector('#uploadModel');
           loginButton = header.querySelector('#loginButton');
           browseModelsButton = header.querySelector('#browseModelsButton');
+          openLocalFileButton = header.querySelector('#openLocalFileButton');
           manageUsersButton = header.querySelector('#manageUsersButton');
           viewerElement.parentNode.insertBefore(header, viewerElement);
         }
@@ -3792,6 +3827,23 @@ export const Viewer = {
           browseModelsButton.setAttribute("title", browseModelsLabel);
           Viewer.bindEventListener(browseModelsButton, "click", Viewer.openModelsPanel.bind(Viewer));
         }
+        if (openLocalFileButton) {
+          openLocalFileButton.innerHTML = '<span class="open-local-file-icon" aria-hidden="true"></span>';
+          // The app: one button for the device and the repository
+          // (ui/models-source.js); #browseModelsButton is hidden there.
+          const openLocalFileLabel = isAppBuild()
+            ? t("menu.openModels", "Models")
+            : t("menu.openLocalFile", "Models on this device");
+          openLocalFileButton.setAttribute("aria-label", openLocalFileLabel);
+          openLocalFileButton.setAttribute("title", openLocalFileLabel);
+          Viewer.bindEventListener(
+            openLocalFileButton,
+            "click",
+            (isAppBuild() ? Viewer.toggleModelsSource : Viewer.openLibraryPanel).bind(Viewer)
+          );
+        }
+        // The app: plan button next to it, plan-locked tools (plans-panel.js).
+        Viewer.initPlansUi();
         // updateAdminMenuEntryState() above only ran against Viewer.authState
         // as it stood before any auth check - undefined on a fresh load - so
         // "Manage users" stayed hidden even for an already-logged-in admin
@@ -4009,6 +4061,9 @@ attachEmbedConfigurator(Viewer);
 attachLoginPanel(Viewer);
 attachUploadPanel(Viewer);
 attachModelsPanel(Viewer);
+attachLibraryPanel(Viewer);
+attachModelsSource(Viewer);
+attachPlansPanel(Viewer);
 attachAdminPanel(Viewer);
 attachWindowControls(Viewer);
 

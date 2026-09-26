@@ -1,4 +1,5 @@
 import { core } from './core.js';
+import { apiUrl } from './remote.js';
 
 export class StatusPoller {
 
@@ -66,7 +67,7 @@ export class StatusPoller {
         if(!this.running || (core.isLocalPreview && !this.forcePoll)) return;
 
         try {
-            const r=await fetch(`/api/model/status/${this.id}`, {
+            const r=await fetch(apiUrl(`/api/model/status/${this.id}`), {
                 cache:"no-store"
             });
 

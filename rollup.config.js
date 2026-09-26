@@ -25,6 +25,9 @@ const envBuild = process.env.BUILD ?? "test";
 const customModulesEnv = process.env.MODULE_CUSTOM ?? "";
 let customModules = customModulesEnv;
 const production = process.env.IS_PROD === 'true';
+// Capacitor app build (see capacitor.config.json): served from inside the
+// app package, so no PHP helpers, admin panel or source maps.
+const mobile = envBuild === 'mobile';
 
 if (customModules && !customModules.startsWith('/')) {
   customModules = `/${customModules}`;
@@ -156,7 +159,7 @@ function copyBuildAssets() {
         copyDirectory('viewer/examples', path.join(outDistDir, 'examples')),
         copyDirectory('viewer/manifesto/examples', path.join(outDistDir, 'manifests')),
         // copy admin panel (but we'll remove any local sqlite DB afterwards)
-        copyDirectory('viewer/admin', path.join(outDistDir, 'admin')),
+        !mobile && copyDirectory('viewer/admin', path.join(outDistDir, 'admin')),
       ]);
 
       const viewerSettingsTarget = path.join(outDistDir, 'viewer-settings.json');
@@ -170,9 +173,11 @@ function copyBuildAssets() {
         copyHtmlWithEntryVersion('embed.html', embedTarget),
       ];
 
-      copyPromises.push(
-        renderSettingsLocalPhp().then(content => fs.writeFile(settingsPhpTarget, content))
-      );
+      if (!mobile) {
+        copyPromises.push(
+          renderSettingsLocalPhp().then(content => fs.writeFile(settingsPhpTarget, content))
+        );
+      }
 
       let viewerSettingsSource = 'viewer/viewer-settings-example.json';
       const viewerSettings = JSON.parse(
@@ -195,6 +200,49 @@ function copyBuildAssets() {
             throw err;
           }
           })
+        );
+      } else if (mobile) {
+        // Built from the tracked example (viewer-settings.json is local-only),
+        // so the app bundle is the same on every machine and in CI.
+        // The app is served from https://localhost (Capacitor's default), so
+        // assets resolve against the bundle itself. mobile.remoteUrl is the
+        // default repository (MOBILE_REMOTE_URL); the app can change it, and
+        // keeps that on the device. Empty = offline only.
+        viewerSettings.mainUrl = '';
+        viewerSettings.baseModulePath = '/assets';
+        viewerSettings.viewer.forceLocalPreview = true;
+        // editor + lightweight = the viewing tools (toolbar: measuring,
+        // clipping, ...) without the ones that save to a server.
+        viewerSettings.viewer.editor = true;
+        viewerSettings.viewer.lightweight = true;
+        viewerSettings.viewer.gallery = { ...viewerSettings.viewer.gallery, build: false };
+        viewerSettings.mobile = { remoteUrl: process.env.MOBILE_REMOTE_URL ?? '' };
+        // Plans and ads (viewer/monetization/, docs/mobile-monetization.md).
+        // Defaults are Google's AdMob test units and no RevenueCat key (the
+        // store stays off); release builds pass their own through the env.
+        // testing: test ads, and the plans panel can force a plan.
+        viewerSettings.mobile.monetization = {
+          testing: process.env.MOBILE_MONETIZATION_TESTING !== 'false',
+          admob: {
+            bannerId: process.env.MOBILE_ADMOB_BANNER_ID || 'ca-app-pub-3940256099942544/9214589741',
+            interstitialId: process.env.MOBILE_ADMOB_INTERSTITIAL_ID || 'ca-app-pub-3940256099942544/1033173712',
+            interstitialEvery: Number(process.env.MOBILE_ADMOB_INTERSTITIAL_EVERY || 3),
+            interstitialMinIntervalSec: Number(process.env.MOBILE_ADMOB_INTERSTITIAL_MIN_INTERVAL_SEC || 180),
+          },
+          revenuecat: {
+            apiKey: process.env.MOBILE_REVENUECAT_API_KEY || '',
+            offering: process.env.MOBILE_REVENUECAT_OFFERING || 'default',
+            entitlements: { pro: 'pro', business: 'business' },
+            products: {
+              pro: process.env.MOBILE_PRODUCT_PRO || 'explora_pro',
+              business: process.env.MOBILE_PRODUCT_BUSINESS || 'explora_business_monthly',
+            },
+          },
+        };
+        // Always rewritten: nothing here is meant to be edited by hand, and a
+        // stale copy would otherwise be synced into the app.
+        copyPromises.push(
+          fs.writeFile(viewerSettingsTarget, JSON.stringify(viewerSettings, null, 2))
         );
       } else if (envBuild === 'test' || envBuild === 'dev') {
         const viewerSettingsMain = JSON.parse(
@@ -330,6 +378,6 @@ export default {
         return "three";
       }
     },
-    sourcemap: true,
+    sourcemap: !mobile,
   },
 };

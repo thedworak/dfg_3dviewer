@@ -50,6 +50,7 @@ import mailer
 import optimize
 import pointcloud
 from auth import AuthError, AuthStore
+from entitlements import Entitlements, business_limits
 from limits import LIMIT_KEYS, LimitError, Limits, default_limits, normalize_overrides
 
 APP_DIR = Path(__file__).resolve().parent.parent
@@ -200,6 +201,8 @@ def find_model_file(root: Path):
 
 JOB_ID_RE = re.compile(r"[A-Za-z0-9_-]+")
 LIMITS = Limits(JOBS_DIR, JOB_ID_RE, MAX_CONCURRENT_CONVERSIONS)
+# Business plan of the mobile app (see entitlements.py); off without a key.
+ENTITLEMENTS = Entitlements()
 ACTIVE_STATUSES = {"init", "queued", "preparing", "processing", "rendering"}
 
 
@@ -588,6 +591,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def _limit_context(self, user):
         """(key, username, effective limits) of the caller."""
+        # The app's Business subscribers (no account; entitlements.py) get
+        # their own limits, counted per app user instead of per IP.
+        app_user_id = self.headers.get("X-App-User-Id", "").strip()
+        if not user and app_user_id and ENTITLEMENTS.is_business(app_user_id):
+            return f"app:{app_user_id}", None, business_limits()
         username = (user or {}).get("username")
         overrides = AUTH.get_limits(username) if username else {}
         return Limits.key_for(user, self._client_ip()), username, Limits.effective_limits(user, overrides)
@@ -710,7 +718,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-App-User-Id")
         self.end_headers()
 
     def do_GET(self) -> None:

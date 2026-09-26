@@ -612,6 +612,23 @@ export function attachMeasurement(Viewer) {
         ? `${t("measurement.title", "Measurements")} · ${modeLabel}`
         : t("measurement.title", "Measurements");
       header.appendChild(title);
+      // Same as switching the ruler tool off: measuring ends and the results
+      // go. With the ruler already off, the panel only shows model dimensions.
+      const close = document.createElement("button");
+      close.type = "button";
+      close.className = "viewer-measure-readout_close";
+      close.textContent = "✕";
+      close.title = t("measurement.close", "Close measurements (ends measuring and clears them)");
+      close.setAttribute("aria-label", close.title);
+      close.addEventListener("click", () => {
+        if (Viewer.RULER_MODE) {
+          Viewer.toggleDistanceMeasurement();
+        } else {
+          Viewer.clearMeasurements();
+          Viewer.updateEditorToolbarState();
+        }
+      });
+      header.appendChild(close);
       panel.appendChild(header);
 
       const list = document.createElement("ul");

@@ -1,6 +1,7 @@
 import { core } from "../core.js";
 import { hasIfcProperties, showIfcProperties, closeIfcPanel } from "../ifc-properties.js";
 import THREE from "../init.js";
+import TWEEN from "three/examples/jsm/libs/tween.module.js";
 
 function getNormalizedPointerPosition(Viewer, clientX, clientY, targetVector) {
   targetVector.x =
@@ -51,8 +52,113 @@ function getPoiHit(Viewer, pointerVector) {
   ) || null;
 }
 
+// Double tap (touch) / double click (mouse) on the canvas: fly towards the
+// point under it; on empty space, back to the whole model (resetCamera).
+const DOUBLE_TAP_MS = 350;       // between the two taps
+const TAP_MAX_MS = 300;          // a press longer than this is not a tap
+const TAP_MAX_MOVE_PX = 10;      // finger jitter allowed within one tap
+const DOUBLE_TAP_MAX_GAP_PX = 30; // between the two taps
+const FOCUS_ZOOM = 0.5;          // camera distance kept after a focus
+const FOCUS_DURATION_MS = 450;
+
 export function attachPicking(Viewer) {
   Object.assign(Viewer, {
+    // Not while taps place points (ruler, face picking), when interaction is
+    // off, or over an annotation marker (its own tap opens the annotation).
+    canFocusOnDoubleTap(clientX, clientY) {
+      if (Viewer.pickingMode || Viewer.RULER_MODE) return false;
+      if (!core.camera || !core.controls || core.controls.enabled === false) return false;
+      const pointer = new THREE.Vector2();
+      getNormalizedPointerPosition(Viewer, clientX, clientY, pointer);
+      return !getPoiHit(Viewer, pointer);
+    },
+
+    focusCameraAt(clientX, clientY) {
+      const pointer = new THREE.Vector2();
+      getNormalizedPointerPosition(Viewer, clientX, clientY, pointer);
+      const hit = getPrimaryModelIntersection(Viewer, pointer);
+      if (!hit?.point) {
+        Viewer.resetCamera();
+        return;
+      }
+
+      // Keep the viewing direction: the camera moves along with the point
+      // it now orbits around, and comes closer.
+      const target = hit.point.clone();
+      const offset = core.camera.position.clone().sub(core.controls.target);
+      if (core.camera.isPerspectiveCamera) {
+        const distance = Math.max(offset.length() * FOCUS_ZOOM, core.controls.minDistance || 0, 1e-3);
+        offset.setLength(distance);
+      } else {
+        const zoom = { value: core.camera.zoom };
+        new TWEEN.Tween(zoom)
+          .to({ value: Math.min(core.camera.zoom / FOCUS_ZOOM, core.controls.maxZoom ?? Infinity) }, FOCUS_DURATION_MS)
+          .easing(TWEEN.Easing.Quadratic.Out)
+          .onUpdate(() => {
+            core.camera.zoom = zoom.value;
+            core.camera.updateProjectionMatrix();
+          })
+          .start();
+      }
+      Viewer.animateKeyboardCameraTo(target.clone().add(offset), target, FOCUS_DURATION_MS);
+    },
+
+    // Mouse: the browser's dblclick. Touch and pen: two quick taps close
+    // together, detected here - the canvas has touch-action: none, so the
+    // browser does not report them as dblclick reliably. A second finger
+    // (pinch) cancels the tap.
+    bindDoubleTapFocus() {
+      const canvas = core.renderer.domElement;
+      const activeTouches = new Map();
+      let lastTap = null;
+
+      Viewer.bindEventListener(canvas, "dblclick", (event) => {
+        if (!Viewer.canFocusOnDoubleTap(event.clientX, event.clientY)) return;
+        Viewer.focusCameraAt(event.clientX, event.clientY);
+      });
+
+      Viewer.bindEventListener(canvas, "pointerdown", (event) => {
+        if (event.pointerType === "mouse") return;
+        activeTouches.set(event.pointerId, { x: event.clientX, y: event.clientY, time: event.timeStamp, multi: activeTouches.size > 0 });
+        if (activeTouches.size > 1) {
+          activeTouches.forEach((touch) => { touch.multi = true; });
+          lastTap = null;
+        }
+      });
+
+      const release = (event) => {
+        const touch = activeTouches.get(event.pointerId);
+        activeTouches.delete(event.pointerId);
+        return touch;
+      };
+      Viewer.bindEventListener(canvas, "pointercancel", release);
+
+      Viewer.bindEventListener(canvas, "pointerup", (event) => {
+        if (event.pointerType === "mouse") return;
+        const touch = release(event);
+        if (!touch || touch.multi) return;
+        const isTap =
+          event.timeStamp - touch.time <= TAP_MAX_MS &&
+          Math.hypot(event.clientX - touch.x, event.clientY - touch.y) <= TAP_MAX_MOVE_PX;
+        if (!isTap) {
+          lastTap = null;
+          return;
+        }
+        const isDouble =
+          lastTap &&
+          event.timeStamp - lastTap.time <= DOUBLE_TAP_MS &&
+          Math.hypot(event.clientX - lastTap.x, event.clientY - lastTap.y) <= DOUBLE_TAP_MAX_GAP_PX;
+        if (!isDouble) {
+          lastTap = { x: event.clientX, y: event.clientY, time: event.timeStamp };
+          return;
+        }
+        lastTap = null;
+        if (Viewer.canFocusOnDoubleTap(event.clientX, event.clientY)) {
+          Viewer.focusCameraAt(event.clientX, event.clientY);
+        }
+      });
+    },
+
     createTriangleGeometry(intersection) {
       const position = intersection?.object?.geometry?.attributes?.position;
       const face = intersection?.face;

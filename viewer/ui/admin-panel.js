@@ -1,4 +1,5 @@
 import { core } from "../core.js";
+import { apiUrl, remoteAssetUrl } from "../remote.js";
 import { toastHelper } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import { makePanelWindow } from "./panel-window.js";
@@ -13,7 +14,7 @@ async function adminRequest(path, method = "GET", body = undefined) {
     options.headers = { "Content-Type": "application/json" };
     options.body = JSON.stringify(body);
   }
-  const response = await fetch(`/api/admin/users${path}`, options);
+  const response = await fetch(apiUrl(`/api/admin/users${path}`), options);
   let data = {};
   try {
     data = await response.json();
@@ -32,7 +33,7 @@ async function adminRequest(path, method = "GET", body = undefined) {
 // list_jobs) - reused here to compute each user's upload count/listing
 // without a dedicated endpoint.
 async function fetchJobsByOwner() {
-  const response = await fetch("/api/jobs");
+  const response = await fetch(apiUrl("/api/jobs"));
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const data = await response.json();
   const jobs = Array.isArray(data.jobs) ? data.jobs : [];
@@ -398,7 +399,7 @@ export function attachAdminPanel(Viewer) {
       entry.title = name;
       if (job.imageUrls?.[0]) {
         const thumb = document.createElement("img");
-        thumb.src = job.imageUrls[0];
+        thumb.src = remoteAssetUrl(job.imageUrls[0]);
         thumb.alt = "";
         thumb.loading = "lazy";
         entry.appendChild(thumb);
@@ -438,7 +439,7 @@ export function attachAdminPanel(Viewer) {
       if (!confirmed) return;
 
       try {
-        const response = await fetch(`/api/jobs/${encodeURIComponent(job.id)}`, { method: "DELETE" });
+        const response = await fetch(apiUrl(`/api/jobs/${encodeURIComponent(job.id)}`), { method: "DELETE" });
         if (!response.ok && response.status !== 404) {
           throw new Error(`Delete failed (HTTP ${response.status})`);
         }

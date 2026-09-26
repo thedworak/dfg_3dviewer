@@ -1,6 +1,7 @@
 import THREE from "./init.js";
 
 import { core } from "./core.js";
+import { isAppBuild } from "./remote.js";
 import { t } from "./i18n-utils.js";
 import { changeBackground, toastHelper } from './viewer-utils.js';
 import { MODEL_UNITS } from "./editor/model-units.js";
@@ -101,6 +102,66 @@ export function syncEditorToolbarSecondaryTrayWidth(viewer) {
     "--viewer-toolbar-secondary-width",
     widthValue
   );
+}
+
+// Phones - the same media query as the phone toolbar rules in
+// editor-toolbar.css: the secondary tools open as a card above the toolbar.
+const PHONE_TOOLBAR_QUERY = "(max-width: 640px), (max-height: 520px) and (pointer: coarse)";
+
+// Toasts sit at the bottom of the viewer; on phones the toolbar (and its
+// expanded card, whose height depends on how many rows it wraps into, and an
+// open submenu above that) covers that spot, so lift them above whatever of
+// it is on screen.
+export function syncNoticeAboveToolbar() {
+  const notice = core.noticeContainer;
+  const toolbar = core.editorToolbar;
+  if (!notice) return;
+  const parent = notice.offsetParent;
+  if (!toolbar || !parent || !window.matchMedia(PHONE_TOOLBAR_QUERY).matches) {
+    notice.style.removeProperty("--viewer-notice-safe-bottom");
+    return;
+  }
+  let top = toolbar.getBoundingClientRect().top;
+  const tray = toolbar.querySelector(":scope > .viewer-editor-toolbar_secondary-tray");
+  if (tray && toolbar.classList.contains("expanded")) {
+    top = Math.min(top, tray.getBoundingClientRect().top);
+    // An open submenu (tapped on touch screens) sits above the card.
+    tray.querySelectorAll(":scope > .submenu-open > .viewer-editor-tool_submenu").forEach((submenu) => {
+      top = Math.min(top, submenu.getBoundingClientRect().top);
+    });
+  }
+  const offset = Math.max(8, Math.round(parent.getBoundingClientRect().bottom - top + 10));
+  notice.style.setProperty("--viewer-notice-safe-bottom", `${offset}px`);
+}
+
+// Touch screens have no hover: a tap leaves a tool "hovered" and focused, so
+// its CSS-opened submenu could not be closed by tapping the tool again. In the
+// secondary tray a tap toggles .submenu-open instead (see editor-toolbar.css);
+// opening one closes the others, and a tap outside the toolbar closes all.
+function bindTouchSubmenus(viewer, toolbar, tray) {
+  const closeOpenSubmenus = (keep = null) => {
+    tray.querySelectorAll(".has-submenu.submenu-open").forEach((item) => {
+      if (!keep || !item.contains(keep)) item.classList.remove("submenu-open");
+    });
+  };
+
+  viewer.bindEventListener(tray, "click", (event) => {
+    if (!window.matchMedia("(hover: none)").matches) return;
+    const item = event.target.closest(".has-submenu");
+    if (!item || !tray.contains(item)) return;
+    const submenu = item.querySelector(":scope > .viewer-editor-tool_submenu");
+    if (!submenu || submenu.contains(event.target)) return;
+    const open = !item.classList.contains("submenu-open");
+    closeOpenSubmenus(item);
+    item.classList.toggle("submenu-open", open);
+    syncNoticeAboveToolbar();
+  });
+
+  viewer.bindEventListener(document, "click", (event) => {
+    if (toolbar.contains(event.target) || !tray.querySelector(".submenu-open")) return;
+    closeOpenSubmenus();
+    syncNoticeAboveToolbar();
+  });
 }
 
 export function getEditorToolbarHost(viewer) {
@@ -479,6 +540,13 @@ export function toggleToolbarExpanded(viewer) {
 
   syncEditorToolbarSecondaryTrayWidth(viewer);
   viewer.isToolbarExpanded = !viewer.isToolbarExpanded;
+  if (!viewer.isToolbarExpanded) {
+    viewer.editorToolbarSecondaryTray
+      ?.querySelectorAll(".has-submenu.submenu-open")
+      .forEach((item) => item.classList.remove("submenu-open"));
+  }
+  // After the tray's open/close transition (0.2s on phones).
+  setTimeout(syncNoticeAboveToolbar, 250);
   core.editorToolbar.classList.toggle("expanded", viewer.isToolbarExpanded);
   core.editorToolbar.classList.toggle("collapsed", !viewer.isToolbarExpanded);
   syncToolbarExpandOffset(viewer, core.editorToolbar);
@@ -574,7 +642,9 @@ export function createEditorToolbar(viewer) {
 
   ];
 
-  if (!core.isLightweight || core.isLocalPreview) {
+  // Not in the app (remote.js): the WebView ignores download links, and the
+  // preview and save buttons send to the server.
+  if ((!core.isLightweight || core.isLocalPreview) && !isAppBuild()) {
     tools.splice(tools.length - 1, 0,
       { key: "loadingLogs", icon: "loadingLogs", onClick: () => viewer.toggleLoadingLogs(), pressed: true, primary: false },
       { key: "download", icon: "download", onClick: () => downloadFile(core.fileObject.filename), pressed: true, primary: false },
@@ -1459,6 +1529,7 @@ export function createEditorToolbar(viewer) {
   }
 
   toolbar.appendChild(secondaryTray);
+  bindTouchSubmenus(viewer, toolbar, secondaryTray);
 
   const expandButton = document.createElement("button");
   expandButton.type = "button";

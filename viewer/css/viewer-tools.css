@@ -19,6 +19,20 @@
   flex-shrink: 0;
 }
 
+/* Phones: the corner beside the metadata card is too narrow for the panels
+   (the card, z-index 999, covered them). The column starts below the
+   collapsed card (62px tall there), spans the width, and sits above the card
+   so an expanded card does not hide an open panel. */
+@media (max-width: 640px) {
+  .viewer-side-stack {
+    top: 72px;
+    left: 12px;
+    right: 12px;
+    max-width: none;
+    z-index: 1000;
+  }
+}
+
 .viewer-animation-player {
   display: flex;
   align-items: center;
@@ -226,6 +240,42 @@
 
 .viewer-measure-readout[hidden] {
   display: none;
+}
+
+.viewer-measure-readout_header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.viewer-measure-readout_close {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.viewer-measure-readout_close:hover,
+.viewer-measure-readout_close:focus-visible {
+  opacity: 1;
+  border-color: var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+}
+
+@media (pointer: coarse) {
+  .viewer-measure-readout_close {
+    width: 36px;
+    height: 36px;
+    margin: -6px -6px -6px 0;
+  }
 }
 
 .viewer-measure-readout_list {

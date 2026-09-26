@@ -33,7 +33,8 @@ export const core = {
     distanceGeometry: null,
     planeParams: null,
     clippingFolder: null,
-    helperObjects: []
+    helperObjects: [],
+    isOnline: true, // kept current by connectivity.js
     // Add other shared state here
 };
 

@@ -39,6 +39,9 @@ import { reportViewerError, showToast, toastHelper } from "./viewer-utils.js";
 import { t } from "./i18n-utils.js";
 import { detectTiledFormat, loadTiledModel } from "./tiles.js";
 import { detectFileUnit } from "./editor/model-units.js";
+import { maybeShowFirstRunHints } from "./ui/first-run-hints.js";
+import { hideAppSplash } from "./app-splash.js";
+import { onModelLoadedForAds } from "./monetization/ads.js";
 
 export var outlineClipping;
 let environmentTextureCache = {};
@@ -971,6 +974,7 @@ export async function loadModel() {
       default:
         toastHelper("unsupportedExtension", "warning");
         core.loadingLog?.fail?.();
+        hideAppSplash();
         return;
     }
 
@@ -982,7 +986,12 @@ export async function loadModel() {
     core.editorToolbar?.classList.remove('editorToolbar-hidden');
     core.editorToolbar?.classList.add('editorToolbar-visible');
     core.loadingLog?.finish?.();
+    hideAppSplash();
+    // The app: free-plan ads, and locks on the toolbar built for this model.
+    onModelLoadedForAds();
+    window.Viewer?.applyPlanLocks?.();
     if (!core.PRESENTATION_MODE) {
+      maybeShowFirstRunHints();
       toastHelper("modelLoaded", "success", {
         filename: core.fileObject.filename
       });
@@ -994,6 +1003,7 @@ export async function loadModel() {
     core.poller?.updateSteps(2);
   } catch (error) {
     core.loadingLog?.fail?.();
+    hideAppSplash();
     reportLoadError(error, `Failed to load ${core.fileObject.filename}`);
     throw error;
   }

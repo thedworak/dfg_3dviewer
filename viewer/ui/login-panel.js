@@ -1,11 +1,12 @@
 import { core } from "../core.js";
+import { apiUrl, hasRemote } from "../remote.js";
 import { t } from "../i18n-utils.js";
 import { makePanelWindow } from "./panel-window.js";
 
 // Same-origin worker endpoints (see worker/auth.py). Cookies travel by default
 // for same-origin requests, so no credentials option is needed.
 async function authRequest(path, body) {
-  const response = await fetch(`/api/auth/${path}`, {
+  const response = await fetch(apiUrl(`/api/auth/${path}`), {
     method: body ? "POST" : "GET",
     headers: body ? { "Content-Type": "application/json" } : undefined,
     body: body ? JSON.stringify(body) : undefined,
@@ -33,22 +34,25 @@ export function attachLoginPanel(Viewer) {
       const uiConfig = core.CONFIG?.viewer?.auth || {};
       const state = { required: false, registration: false, user: null, role: null, maxUploadBytes: 0 };
       // The upload limit is reported by the same endpoint, so query it even
-      // when the manifest hides the login UI.
-      try {
-        const serverConfig = await authRequest("config");
-        state.maxUploadBytes = Number(serverConfig.maxUploadBytes) || 0;
-        if (uiConfig.enabled !== false) {
-          state.required = serverConfig.mode === "required";
-          state.registration =
-            serverConfig.registration !== "closed" && uiConfig.allowRegistration !== false;
-          if (state.required) {
-            const me = await authRequest("me");
-            state.user = me.user || null;
-            state.role = me.role || null;
+      // when the manifest hides the login UI. The app build with no
+      // repository configured has no worker to ask: accounts off.
+      if (hasRemote()) {
+        try {
+          const serverConfig = await authRequest("config");
+          state.maxUploadBytes = Number(serverConfig.maxUploadBytes) || 0;
+          if (uiConfig.enabled !== false) {
+            state.required = serverConfig.mode === "required";
+            state.registration =
+              serverConfig.registration !== "closed" && uiConfig.allowRegistration !== false;
+            if (state.required) {
+              const me = await authRequest("me");
+              state.user = me.user || null;
+              state.role = me.role || null;
+            }
           }
+        } catch (_error) {
+          // Older worker without /api/auth/*: behaves as accounts off.
         }
-      } catch (_error) {
-        // Older worker without /api/auth/*: behaves as accounts off.
       }
       this.authState = state;
       this.renderUploadHint?.();
