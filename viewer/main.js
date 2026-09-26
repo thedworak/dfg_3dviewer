@@ -34,7 +34,8 @@ window.viewer = {
 
 import { core, setCore } from './core.js';
 import { initConnectivity } from './connectivity.js';
-import { initRemote } from './remote.js';
+import { initRemote, isAppBuild } from './remote.js';
+import { hideAppSplash } from './app-splash.js';
 
 import {
   normalizeColor,
@@ -45,6 +46,10 @@ import { attachEmbedConfigurator } from "./ui/embed-configurator.js";
 import { attachUploadPanel } from "./ui/upload-panel.js";
 import { attachModelsPanel } from "./ui/models-panel.js";
 import { attachLibraryPanel } from "./ui/library-panel.js";
+import { attachModelsSource } from "./ui/models-source.js";
+import { attachPlansPanel } from "./ui/plans-panel.js";
+import { initPlan } from "./monetization/plan.js";
+import { initAds } from "./monetization/ads.js";
 import { attachAdminPanel } from "./ui/admin-panel.js";
 import { attachLoginPanel } from "./ui/login-panel.js";
 import { buildThumbnailGallery } from "./ui/thumbnail-gallery.js";
@@ -922,6 +927,9 @@ export const Viewer = {
   },
 
   maybeShowKeyboardHint() {
+    // The app shows it from the help button only (first-run-hints.js
+    // points at the buttons instead).
+    if (isAppBuild()) return;
     try {
       if (window.localStorage.getItem("viewerHintSeen") !== "1") return;
     } catch (_err) {
@@ -1350,6 +1358,7 @@ export const Viewer = {
   },
 
   renderFatalError(error) {
+    hideAppSplash();
     const message = this.reportError(error, {
       context: "Viewer initialization failed",
       toast: false,
@@ -1560,6 +1569,10 @@ export const Viewer = {
     }
 
     await this.applyBootstrapSettingsFromManifest();
+    // The app's plan first (from the device right away, the store later):
+    // remote.js reads it for the repository address.
+    initPlan();
+    initAds();
     initRemote();
 
     this.isLightweight = Boolean(core.CONFIG.viewer.lightweight);
@@ -3816,11 +3829,21 @@ export const Viewer = {
         }
         if (openLocalFileButton) {
           openLocalFileButton.innerHTML = '<span class="open-local-file-icon" aria-hidden="true"></span>';
-          const openLocalFileLabel = t("menu.openLocalFile", "Models on this device");
+          // The app: one button for the device and the repository
+          // (ui/models-source.js); #browseModelsButton is hidden there.
+          const openLocalFileLabel = isAppBuild()
+            ? t("menu.openModels", "Models")
+            : t("menu.openLocalFile", "Models on this device");
           openLocalFileButton.setAttribute("aria-label", openLocalFileLabel);
           openLocalFileButton.setAttribute("title", openLocalFileLabel);
-          Viewer.bindEventListener(openLocalFileButton, "click", Viewer.openLibraryPanel.bind(Viewer));
+          Viewer.bindEventListener(
+            openLocalFileButton,
+            "click",
+            (isAppBuild() ? Viewer.toggleModelsSource : Viewer.openLibraryPanel).bind(Viewer)
+          );
         }
+        // The app: plan button next to it, plan-locked tools (plans-panel.js).
+        Viewer.initPlansUi();
         // updateAdminMenuEntryState() above only ran against Viewer.authState
         // as it stood before any auth check - undefined on a fresh load - so
         // "Manage users" stayed hidden even for an already-logged-in admin
@@ -4039,6 +4062,8 @@ attachLoginPanel(Viewer);
 attachUploadPanel(Viewer);
 attachModelsPanel(Viewer);
 attachLibraryPanel(Viewer);
+attachModelsSource(Viewer);
+attachPlansPanel(Viewer);
 attachAdminPanel(Viewer);
 attachWindowControls(Viewer);
 

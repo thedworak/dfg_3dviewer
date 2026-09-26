@@ -1,4 +1,5 @@
 import { core } from './core.js';
+import { getAppUserId, hasFeature } from './monetization/plan.js';
 
 // The repository the viewer talks to (worker API, converted models). A normal
 // page is served by that repository, so everything stays same-origin. The app
@@ -22,7 +23,9 @@ function storedRemoteUrl() {
 
 export function remoteBase() {
   if (!isAppBuild()) return '';
-  const stored = storedRemoteUrl();
+  // Another repository address is a Business feature; the other plans use
+  // the one the app was built with.
+  const stored = hasFeature('customRepository') ? storedRemoteUrl() : null;
   const url = stored !== null ? stored : core.CONFIG.mobile.remoteUrl;
   return String(url || '').trim().replace(/\/+$/, '');
 }
@@ -50,6 +53,13 @@ export function setRemoteUrl(input) {
   }
   initRemote();
   return value;
+}
+
+// Headers for requests to the repository. Business: the RevenueCat app user
+// id, from which the worker grants its business limits (worker/entitlements.py).
+export function appRequestHeaders() {
+  const id = isAppBuild() && hasFeature('serverBusinessLimits') ? getAppUserId() : '';
+  return id ? { 'X-App-User-Id': id } : {};
 }
 
 export function hasRemote() {

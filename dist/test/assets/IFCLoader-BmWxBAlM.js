@@ -74703,4 +74703,4 @@ class IFCLoader extends Loader {
 }
 
 export { IFCLoader };
-//# sourceMappingURL=IFCLoader-BKP2Fw84.js.map
+//# sourceMappingURL=IFCLoader-JHsolg9p.js.map

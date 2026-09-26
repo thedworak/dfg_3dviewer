@@ -293,6 +293,19 @@ docker compose exec worker python3 /app/worker/server.py admin limits alice
 docker compose exec worker python3 /app/worker/server.py admin limits alice storageMb=2048 maxModels=default
 ```
 
+#### Business plan of the mobile app
+
+The app's Business subscribers (see `docs/mobile-monetization.md`) have no account on the worker; their app sends its RevenueCat app user id in `X-App-User-Id`. With `WORKER_REVENUECAT_SECRET_KEY` set (a RevenueCat **secret** API key), the worker asks RevenueCat whether that id has the `business` entitlement and, if it does, applies these limits to it instead of the per-IP ones (answers cached for `WORKER_REVENUECAT_CACHE_SEC`, default 600 s):
+
+| Variable | Default | |
+|---|---|---|
+| `WORKER_REVENUECAT_SECRET_KEY` | empty (off) | RevenueCat secret API key |
+| `WORKER_REVENUECAT_BUSINESS_ENTITLEMENT` | `business` | Entitlement id to check |
+| `WORKER_LIMIT_BUSINESS_UPLOADS_PER_HOUR` / `_PER_DAY` | `100` / `500` | Per app user |
+| `WORKER_LIMIT_BUSINESS_CONCURRENT_JOBS` | `3` | Per app user |
+
+The id is not a secret: someone who learns a subscriber's id can use their limits (not their account - there is none). A RevenueCat outage only means the default limits.
+
 ### GPU rendering
 
 Thumbnail rendering (`scripts/render.py`, Cycles) runs on CPU by default.

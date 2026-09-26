@@ -217,6 +217,28 @@ function copyBuildAssets() {
         viewerSettings.viewer.lightweight = true;
         viewerSettings.viewer.gallery = { ...viewerSettings.viewer.gallery, build: false };
         viewerSettings.mobile = { remoteUrl: process.env.MOBILE_REMOTE_URL ?? '' };
+        // Plans and ads (viewer/monetization/, docs/mobile-monetization.md).
+        // Defaults are Google's AdMob test units and no RevenueCat key (the
+        // store stays off); release builds pass their own through the env.
+        // testing: test ads, and the plans panel can force a plan.
+        viewerSettings.mobile.monetization = {
+          testing: process.env.MOBILE_MONETIZATION_TESTING !== 'false',
+          admob: {
+            bannerId: process.env.MOBILE_ADMOB_BANNER_ID || 'ca-app-pub-3940256099942544/9214589741',
+            interstitialId: process.env.MOBILE_ADMOB_INTERSTITIAL_ID || 'ca-app-pub-3940256099942544/1033173712',
+            interstitialEvery: Number(process.env.MOBILE_ADMOB_INTERSTITIAL_EVERY || 3),
+            interstitialMinIntervalSec: Number(process.env.MOBILE_ADMOB_INTERSTITIAL_MIN_INTERVAL_SEC || 180),
+          },
+          revenuecat: {
+            apiKey: process.env.MOBILE_REVENUECAT_API_KEY || '',
+            offering: process.env.MOBILE_REVENUECAT_OFFERING || 'default',
+            entitlements: { pro: 'pro', business: 'business' },
+            products: {
+              pro: process.env.MOBILE_PRODUCT_PRO || 'explora_pro',
+              business: process.env.MOBILE_PRODUCT_BUSINESS || 'explora_business_monthly',
+            },
+          },
+        };
         // Always rewritten: nothing here is meant to be edited by hand, and a
         // stale copy would otherwise be synced into the app.
         copyPromises.push(

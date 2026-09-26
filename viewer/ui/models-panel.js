@@ -2,6 +2,8 @@ import { core } from "../core.js";
 import { apiUrl, remoteAssetUrl, isAppBuild, hasRemote, remoteBase, setRemoteUrl } from "../remote.js";
 import { listLibrary, saveToLibrary, repositoryEntryId } from "../offline-library.js";
 import { toastHelper } from "../viewer-utils.js";
+import { isOnline } from "../connectivity.js";
+import { hasFeature } from "../monetization/plan.js";
 import { t } from "../i18n-utils.js";
 import { makePanelWindow } from "./panel-window.js";
 
@@ -60,6 +62,9 @@ export function attachModelsPanel(Viewer) {
         <ul id="modelsPanelList" class="models-panel-list"></ul>
       `;
 
+      const sourceToggle = this.createModelsSourceToggle?.("remote");
+      if (sourceToggle) panel.querySelector(".upload-panel-header").after(sourceToggle);
+
       core.container.appendChild(panel);
       this.modelsPanel = panel;
       this.modelsList = panel.querySelector("#modelsPanelList");
@@ -83,9 +88,22 @@ export function attachModelsPanel(Viewer) {
         });
       }
 
+      this.updateRepositoryFormVisibility();
+
       const closeButton = panel.querySelector("#modelsPanelClose");
       this.bindEventListener(closeButton, "click", () => this.closeModelsPanel());
       makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"));
+    },
+
+    // The address field is a Business feature in the app (monetization/plan.js).
+    updateRepositoryFormVisibility() {
+      const form = this.modelsPanel?.querySelector("#modelsPanelRepository");
+      if (!form) return;
+      const allowed = hasFeature("customRepository");
+      const wasHidden = form.hidden;
+      form.hidden = !allowed;
+      form.querySelector("input").value = remoteBase();
+      if (wasHidden !== form.hidden && this.modelsPanel?.hidden === false) this.loadModelsList();
     },
 
     async loadModelsList() {
@@ -103,6 +121,16 @@ export function attachModelsPanel(Viewer) {
         return;
       }
 
+      // The app without network, or with the repository down: a line in the
+      // list and a quiet toast, not an error - the device models still work.
+      if (isAppBuild() && !isOnline()) {
+        const offlineItem = document.createElement("li");
+        offlineItem.className = "models-panel-empty";
+        offlineItem.textContent = t("modelsPanel.offline", "No internet connection. Models on this device still work.");
+        list.appendChild(offlineItem);
+        return;
+      }
+
       let jobs = [];
       try {
         const response = await fetch(apiUrl("/api/jobs"));
@@ -110,11 +138,14 @@ export function attachModelsPanel(Viewer) {
         const data = await response.json();
         jobs = Array.isArray(data.jobs) ? data.jobs : [];
       } catch (error) {
-        this.reportError(error, { context: "Failed to load models list" });
+        this.reportError(error, { context: "Failed to load models list", toast: !isAppBuild() });
         const errorItem = document.createElement("li");
         errorItem.className = "models-panel-empty";
-        errorItem.textContent = t("modelsPanel.loadError", "Could not load previous models.");
+        errorItem.textContent = isAppBuild()
+          ? t("modelsPanel.unreachable", "The repository is not responding. Models on this device still work.")
+          : t("modelsPanel.loadError", "Could not load previous models.");
         list.appendChild(errorItem);
+        if (isAppBuild()) toastHelper("repositoryUnreachable", "info", { key: "repository-unreachable", replace: true });
         return;
       }
 
@@ -177,7 +208,7 @@ export function attachModelsPanel(Viewer) {
       } catch (error) {
         button.disabled = false;
         button.dataset.state = "";
-        this.reportError(error, { context: "Failed to save the model on this device" });
+        this.reportError(error, { context: "Failed to save the model on this device", toast: false });
         toastHelper("librarySaveError", "error");
       }
     },
@@ -197,6 +228,8 @@ export function attachModelsPanel(Viewer) {
         thumb.src = remoteAssetUrl(job.imageUrls[0]);
         thumb.alt = "";
         thumb.loading = "lazy";
+        // App: no broken-image icon when /files/ does not answer.
+        if (isAppBuild()) thumb.addEventListener("error", () => thumb.remove(), { once: true });
         button.appendChild(thumb);
       }
 
@@ -300,12 +333,88 @@ export function attachModelsPanel(Viewer) {
       }
     },
 
+    // App: is the model file there? Only the response headers are awaited
+    // (the body is dropped), so a big model is not downloaded twice.
+    async isRemoteModelReachable(url) {
+      if (!isOnline()) return false;
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), 8000);
+      try {
+        const response = await fetch(url, { signal: controller.signal, cache: "no-store" });
+        return response.ok;
+      } catch {
+        return false;
+      } finally {
+        window.clearTimeout(timer);
+        controller.abort();
+      }
+    },
+
+    // App, single-file models: the whole file is downloaded (progress in
+    // the loader card) before the current model is cleared, so a connection
+    // lost half-way leaves the scene as it was. Returns a File, or null.
+    async downloadRemoteModel(job) {
+      if (!isOnline()) return null;
+      const fileName = decodeURIComponent(String(job.modelUrl).split(/[?#]/)[0].split("/").pop());
+      core.circle?.show?.();
+      core.circle?.set?.(0, 100);
+      try {
+        const response = await fetch(remoteAssetUrl(job.modelUrl), { cache: "no-store" });
+        if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
+        const total = Number(response.headers.get("content-length")) || 0;
+        const reader = response.body.getReader();
+        const chunks = [];
+        let received = 0;
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+          received += value.length;
+          if (total) core.circle?.set?.(received, total);
+        }
+        return new File(chunks, fileName);
+      } catch (error) {
+        this.reportError(error, { context: "Failed to download the model", toast: false });
+        core.circle?.hide?.();
+        return null;
+      }
+    },
+
     async loadModelFromList(job) {
       if (!job?.modelUrl) return;
-      this.closeModelsPanel();
-      core.autoPath = remoteAssetUrl(job.modelUrl);
-      this.resetLoadedModelState();
-      await this.mainLoadModelWrapper();
+      if (isAppBuild()) {
+        // One download at a time: a second tap while it runs is ignored.
+        if (this.remoteModelPending) return;
+        // Before the current model is cleared: with the repository
+        // unreachable the app keeps what is on screen, and says so quietly.
+        this.remoteModelPending = true;
+        let file = null;
+        let reachable = false;
+        try {
+          file = this.canSaveOffline(job) ? await this.downloadRemoteModel(job) : null;
+          reachable = file !== null || (!this.canSaveOffline(job) &&
+            await this.isRemoteModelReachable(remoteAssetUrl(job.modelUrl)));
+        } finally {
+          this.remoteModelPending = false;
+        }
+        if (!reachable) {
+          toastHelper("repositoryUnreachable", "info", { key: "repository-unreachable", replace: true });
+          return;
+        }
+        this.closeModelsPanel();
+        if (file) {
+          if (!(await this.openLocalFile(file))) return;
+        } else {
+          core.autoPath = remoteAssetUrl(job.modelUrl);
+          this.resetLoadedModelState();
+          await this.mainLoadModelWrapper();
+        }
+      } else {
+        this.closeModelsPanel();
+        core.autoPath = remoteAssetUrl(job.modelUrl);
+        this.resetLoadedModelState();
+        await this.mainLoadModelWrapper();
+      }
 
       const galleryCfg = core.CONFIG.viewer?.gallery;
       if (

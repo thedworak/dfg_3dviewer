@@ -48,6 +48,9 @@ export function attachLibraryPanel(Viewer) {
         <ul id="libraryPanelList" class="models-panel-list"></ul>
       `;
 
+      const sourceToggle = this.createModelsSourceToggle?.("local");
+      if (sourceToggle) panel.querySelector(".upload-panel-header").after(sourceToggle);
+
       core.container.appendChild(panel);
       this.libraryPanel = panel;
       this.libraryList = panel.querySelector("#libraryPanelList");
