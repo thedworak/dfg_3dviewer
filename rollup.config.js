@@ -217,6 +217,18 @@ function copyBuildAssets() {
         viewerSettings.viewer.lightweight = true;
         viewerSettings.viewer.gallery = { ...viewerSettings.viewer.gallery, build: false };
         viewerSettings.mobile = { remoteUrl: process.env.MOBILE_REMOTE_URL ?? '' };
+        // The launch splash artwork for the page (viewer/app-splash.js) -
+        // Android's own splash shows only the icon. WebP: the PNGs in
+        // resources/ are a few MB each.
+        copyPromises.push((async () => {
+          const { default: sharp } = await import('sharp');
+          await fs.mkdir(path.join(outDistDir, 'assets/img'), { recursive: true });
+          await Promise.all([['splash.png', 'app-splash.webp'], ['splash-dark.png', 'app-splash-dark.webp']]
+            .map(([source, target]) => sharp(path.join('resources', source))
+              .resize(1440, 1440, { fit: 'inside', withoutEnlargement: true })
+              .webp({ quality: 82 })
+              .toFile(path.join(outDistDir, 'assets/img', target))));
+        })());
         // Plans and ads (viewer/monetization/, docs/mobile-monetization.md).
         // Defaults are Google's AdMob test units and no RevenueCat key (the
         // store stays off); release builds pass their own through the env.
