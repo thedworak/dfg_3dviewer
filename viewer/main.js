@@ -3866,6 +3866,10 @@ export const Viewer = {
           if (!selectedModel) {
             selectedModel = localStorage.getItem('dfg3dviewer-example-model');
           }
+          // The app's first model (mobile.defaultModel, rollup.config.js).
+          if (!selectedModel) {
+            selectedModel = core.CONFIG?.mobile?.defaultModel || null;
+          }
           if (!selectedModel) {
             selectedModel = viewerElement.getAttribute('3d');
           }

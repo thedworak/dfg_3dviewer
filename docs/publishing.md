@@ -81,20 +81,52 @@ cd android && ./gradlew bundleRelease -PadmobAppId=ca-app-pub-xxx~nnn
 
 Check the result before uploading: `dist/mobile/viewer-settings.json` must have `"testing": false`, a non-empty `revenuecat.apiKey` and no `3940256099942544` (Google's test publisher id) in the AdMob ids.
 
-### Version and signing
+### Version
 
 - Raise `versionCode` (every upload) and `versionName` in `android/app/build.gradle`. Play rejects a `versionCode` it has seen.
-- Sign the bundle with the upload key. `android/app/build.gradle` has no `signingConfigs` yet, so either add one that reads the keystore from `~/.gradle/gradle.properties` (never commit the keystore or its passwords) or sign in Android Studio (Build > Generate Signed Bundle). Keep the upload key backed up: Play App Signing holds the app key, but a lost upload key has to be reset through Google support.
 - `appId` (`com.thedworak.explora4d`) must never change after the first upload.
+
+### Signing
+
+`android/app/build.gradle` signs release builds with the upload key when these properties are set in `~/.gradle/gradle.properties` - the file in your home directory, **not** `android/gradle.properties`, which is in git:
+
+```properties
+EXPLORA_UPLOAD_STORE_FILE=/home/you/keys/explora-upload.jks
+EXPLORA_UPLOAD_STORE_PASSWORD=...
+EXPLORA_UPLOAD_KEY_ALIAS=upload
+EXPLORA_UPLOAD_KEY_PASSWORD=...
+```
+
+Without them `bundleRelease` still builds, but unsigned, and Play rejects it. Create the key once (`keytool` comes with Android Studio, in `jbr/bin`):
+
+```bash
+keytool -genkeypair -keystore ~/keys/explora-upload.jks -alias upload \
+  -keyalg RSA -keysize 2048 -validity 10000
+```
+
+- Keep the keystore outside the repo (`*.jks` and `*.keystore` are git-ignored in `android/`) and back it and its passwords up.
+- On the first upload, let Play App Signing hold the app key; this file is then only the upload key. A lost upload key can be reset through Play Console support, a lost app key cannot.
+- Check which key a build uses: `cd android && ./gradlew :app:signingReport` (the `release` variant should show `Config: upload`).
 
 ### Play Console listing
 
 - Privacy policy URL (required: ads and purchases).
 - Data safety form: advertising ID, purchase history, and the account user name and password sent when linking a plan to an account.
 - Content rating questionnaire, target audience, and the "contains ads" declaration.
-- Test the release on an internal testing track with a licence tester account first: buy Pro, subscribe to Business, restore purchases, link to an account and check the plan in the admin panel.
+- What to test before production, and in which order: section 3.
 
-## 3. Web viewer settings
+## 3. Release order in Google Play
+
+In-app products and subscriptions can only be created after an app bundle with the billing permission has been uploaded to some track (the RevenueCat plugin adds the permission). So the first upload comes before the store setup:
+
+1. **Internal testing, test build.** Build a signed bundle with the default (test) settings and upload it to the internal testing track. This unlocks in-app products in Play Console.
+2. **Store setup.** Create `explora_pro` (20 €) and `explora_business_monthly` (20 € per month), then RevenueCat and AdMob (see "Store accounts" above). Add your own Google accounts under Settings > License testing: they buy without being charged, and monthly subscriptions renew every few minutes, so renewal and expiry of Business can be tested.
+3. **Server.** Deploy the worker with `WORKER_REVENUECAT_SECRET_KEY` (section 1).
+4. **Internal testing, release build.** Build with all the release variables (`MOBILE_MONETIZATION_TESTING=false`, RevenueCat key, real AdMob ids) and a higher `versionCode`, upload it to internal testing, and test: buy Pro, subscribe to Business, restore purchases, link to an account and see the plan in the admin panel. Register your phone as a test device in AdMob first - clicking your own real ads can get the AdMob account suspended.
+5. **Closed testing.** New personal developer accounts must run a closed test (at the time of writing: at least 12 testers for 14 days in a row) before they can apply for production; organization accounts can skip this. Use a release build here - a test build lets testers force any plan without paying.
+6. **Production.** Once the listing, declarations and (for personal accounts) the closed test are complete.
+
+## 4. Web viewer settings
 
 - `viewer-settings.json` / the Docker profile manifest (`docker/profiles/*.manifest.json`): production URLs, and `editor`/`sandbox` as intended for the public site. See [`viewer-settings.md`](viewer-settings.md) and [`docker.md`](docker.md).
 - Web builds have no plans, ads or locks. Nothing from the app's monetization needs setting there.

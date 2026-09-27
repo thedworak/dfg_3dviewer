@@ -216,7 +216,13 @@ function copyBuildAssets() {
         viewerSettings.viewer.editor = true;
         viewerSettings.viewer.lightweight = true;
         viewerSettings.viewer.gallery = { ...viewerSettings.viewer.gallery, build: false };
-        viewerSettings.mobile = { remoteUrl: process.env.MOBILE_REMOTE_URL ?? '' };
+        viewerSettings.mobile = {
+          remoteUrl: process.env.MOBILE_REMOTE_URL ?? '',
+          // First model the app opens, until the user picks another (main.js).
+          // The progressive Wolpa Synagogue: the same model as the full one,
+          // about a sixth of its size (Meshopt + KTX2).
+          defaultModel: process.env.MOBILE_DEFAULT_MODEL || './examples/WolpaSynagogue-progressive.glb',
+        };
         // The launch splash artwork for the page (viewer/app-splash.js) -
         // Android's own splash shows only the icon. WebP: the PNGs in
         // resources/ are a few MB each.
