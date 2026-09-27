@@ -1,6 +1,7 @@
 import THREE from "./init.js";
 import { core } from "./core.js";
 import { normalizeColor } from "./utils.js";
+import { markViewerUsed } from "./viewer-utils.js";
 import { buildThumbnailGallery, renderModelGalleryImages as renderModelGalleryImagesFromUrls } from "./ui/thumbnail-gallery.js";
 import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
 import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
@@ -68,6 +69,7 @@ export function setModelPaths(viewer) {
 
 export function disableInteractionHint(viewer) {
   if (core.PRESENTATION_MODE) return;
+  markViewerUsed();
   core.handHint.hidden = true;
   viewer.stopGesture();
 

@@ -21,6 +21,9 @@ const FEATURES = {
   // The repository address field in the models panel; free/pro use the
   // one the app was built with.
   customRepository: ["business"],
+  // Browsing the repository's models (models panel, "Remote"); the other
+  // plans keep the models on the device. Uploading is not affected.
+  remoteModels: ["business"],
   // Sends the RevenueCat app user id with uploads; the worker then applies
   // WORKER_LIMIT_BUSINESS_* (see worker/entitlements.py).
   serverBusinessLimits: ["business"],
@@ -36,6 +39,10 @@ export const LOCKED_TOOLS = {
   materials: "materialsEditor",
 };
 
+// Shown until the store answers with its own (localized) price, and in
+// builds without the store. Override: mobile.monetization.prices.
+const DEFAULT_PRICES = { pro: "20 €", business: "20 €" };
+
 const TIER_KEY = "dfg3dviewer-plan";
 // Testing builds only: forces a plan without buying it (plans panel).
 const OVERRIDE_KEY = "dfg3dviewer-plan-override";
@@ -44,6 +51,7 @@ const listeners = new Set();
 let tier = "free";
 let purchases = null; // the RevenueCat plugin once configured
 let appUserId = "";
+let ready = Promise.resolve();
 
 function readStorage(key) {
   try {
@@ -80,7 +88,16 @@ export function currentTier() {
 
 export function hasFeature(feature) {
   if (!isPlansEnabled()) return true;
-  return (FEATURES[feature] || []).includes(tier);
+  return tierHasFeature(tier, feature);
+}
+
+// Whether a plan (not necessarily the current one) includes a feature.
+export function tierHasFeature(planTier, feature) {
+  return (FEATURES[feature] || []).includes(planTier);
+}
+
+export function defaultPrice(planTier) {
+  return monetizationSettings()?.prices?.[planTier] || DEFAULT_PRICES[planTier] || "";
 }
 
 export function getAppUserId() {
@@ -117,7 +134,17 @@ function applyCustomerInfo(customerInfo) {
   setTier(tierFromCustomerInfo(customerInfo));
 }
 
-export async function initPlan() {
+// Resolves once initPlan() has the store's answer (or gave up on it).
+export function whenPlanReady() {
+  return ready;
+}
+
+export function initPlan() {
+  ready = loadPlan();
+  return ready;
+}
+
+async function loadPlan() {
   if (!isPlansEnabled()) return;
   tier = TIERS.includes(readStorage(TIER_KEY)) ? readStorage(TIER_KEY) : "free";
   const override = isTestingBuild() ? readStorage(OVERRIDE_KEY) : null;

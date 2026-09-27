@@ -41,7 +41,7 @@ import {
   normalizeColor,
 } from "./utils.js";
 
-import { initClippingPlanes, updateActiveClippingPlanes, reportViewerError, showToast, toastHelper, changeBackground } from './viewer-utils.js';
+import { initClippingPlanes, updateActiveClippingPlanes, reportViewerError, showToast, toastHelper, changeBackground, markViewerUsed } from './viewer-utils.js';
 import { attachEmbedConfigurator } from "./ui/embed-configurator.js";
 import { attachUploadPanel } from "./ui/upload-panel.js";
 import { attachModelsPanel } from "./ui/models-panel.js";
@@ -232,6 +232,7 @@ export const Viewer = {
   },
 
   stopHandMode() {
+    markViewerUsed();
     const g = core.GESTURE;
     if (g) {
       g.rotate = false;
@@ -2189,6 +2190,13 @@ export const Viewer = {
     if (!g.active || !g.baseAngle || !g.target) return;
 
     const t = (time - g.startTime) / 1000;
+    // Returning users (showInteractionHint): done after maxCycles sweeps,
+    // back where it started.
+    if (g.maxCycles && t >= g.maxCycles * g.period) {
+      Viewer.stopGesture();
+      core.handHint?.classList.remove("hand-drag-animate");
+      return;
+    }
     const s = Math.sin((t / core.GESTURE.period) * Math.PI * 2);
 
     // EASE-IN (smoothstep)

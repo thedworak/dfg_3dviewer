@@ -2206,6 +2206,50 @@ body.presentation-mode {
   }
 }
 
+/* Model details on a phone, closed: a small round "i" in the corner instead
+   of the file name card, so it keeps off the model. The name stays in the
+   button's aria-label; a tap opens the sheet above. */
+@media (max-width: 640px), (max-height: 520px) and (pointer: coarse) {
+  #metadata-card:not(.metadata-open) {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 0;
+    min-height: 0;
+    margin: 8px 0 0 max(8px, env(safe-area-inset-left));
+    padding: 0;
+    border-radius: 999px;
+    transform: none;
+    transition: none;
+  }
+
+  #metadata-card:not(.metadata-open) .metadata-drag-handle,
+  #metadata-card:not(.metadata-open) .metadata-toggle-copy {
+    display: none;
+  }
+
+  #metadata-card:not(.metadata-open) #metadata-collapse {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 0;
+    gap: 0;
+  }
+
+  #metadata-card:not(.metadata-open) .metadata-toggle-chevron {
+    width: 20px;
+    height: 20px;
+    border-radius: 0;
+    background-color: var(--metadata-value-color);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5.5'/%3E%3Ccircle cx='12' cy='7.75' r='.6' fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5.5'/%3E%3Ccircle cx='12' cy='7.75' r='.6' fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+
+  #metadata-card:not(.metadata-open) .metadata-toggle-chevron::before {
+    display: none;
+  }
+}
+
 /* Touch: targets of about 40px and more, no resize handles to hit by
    accident, and the viewer's overlays clear of notches and the home bar. */
 @media (pointer: coarse) {
@@ -2270,7 +2314,11 @@ body.viewer-offline #manageUsersButton,
 body.viewer-no-remote #uploadModel,
 body.viewer-app #loginButton,
 body.viewer-app #manageUsersButton,
-body.viewer-app #browseModelsButton {
+body.viewer-app #browseModelsButton,
+/* ...and the bar that holds only those two, or its empty frame stays in the
+   header's corner. */
+body.viewer-offline #viewer-account-bar,
+body.viewer-app #viewer-account-bar {
   display: none !important;
 }
 
@@ -2324,7 +2372,14 @@ body.viewer-app.viewer-standalone-page {
   box-sizing: border-box;
 }
 
-/* Tools the plan does not include (ui/plans-panel.js): a small lock. */
+/* Tools and features the plan does not include (ui/plans-panel.js): a small
+   lock - the same icon on the toolbar, in the plans panel and on the
+   repository address field. */
+:root {
+  --plan-lock-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V11a1 1 0 0 1 1-1h1Zm2 0h6V7a3 3 0 0 0-6 0v3Z'/%3E%3C/svg%3E");
+  --plan-lock-color: #fbbf24;
+}
+
 #viewerEditorToolbar .plan-locked {
   position: relative;
 }
@@ -2340,10 +2395,22 @@ body.viewer-app.viewer-standalone-page {
   bottom: 3px;
   width: 10px;
   height: 10px;
-  background-color: #fbbf24;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V11a1 1 0 0 1 1-1h1Zm2 0h6V7a3 3 0 0 0-6 0v3Z'/%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V11a1 1 0 0 1 1-1h1Zm2 0h6V7a3 3 0 0 0-6 0v3Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  background-color: var(--plan-lock-color);
+  -webkit-mask: var(--plan-lock-mask) center / contain no-repeat;
+  mask: var(--plan-lock-mask) center / contain no-repeat;
   pointer-events: none;
+}
+
+.plan-lock-icon {
+  display: inline-block;
+  flex: none;
+  width: 11px;
+  height: 11px;
+  margin: 0 4px;
+  vertical-align: -1px;
+  background-color: var(--plan-lock-color);
+  -webkit-mask: var(--plan-lock-mask) center / contain no-repeat;
+  mask: var(--plan-lock-mask) center / contain no-repeat;
 }
 
 /* App launch splash (viewer/app-splash.js): the artwork, full screen, over

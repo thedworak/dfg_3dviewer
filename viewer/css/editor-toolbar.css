@@ -1588,3 +1588,19 @@
     pointer-events: auto;
   }
 }
+
+/* Tools shown only when they apply (e.g. point cloud settings while a point
+   cloud is loaded, see updateEditorToolbarState()). */
+#viewerEditorToolbar .viewer-editor-tool[hidden] {
+  display: none !important;
+}
+
+/* Narrow phones: the point cloud button makes the row one tool longer than
+   fits, so the tools get a little narrower while it is there (still 40px
+   tall). */
+@media (max-width: 420px) {
+  #viewerEditorToolbar:has(> [data-tool="pointCloud"]:not([hidden])) > .viewer-editor-tool,
+  #viewerEditorToolbar:has(> [data-tool="pointCloud"]:not([hidden])) #viewerActionMenu.viewer-action-menu_in-toolbar .viewer-action-menu_toggle {
+    width: 34px;
+  }
+}

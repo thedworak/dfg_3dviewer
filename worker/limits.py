@@ -13,8 +13,10 @@ Blender/OpenCASCADE conversions running at once - further jobs wait in the
 
 A value of 0 means unlimited. Defaults come from WORKER_LIMIT_* environment
 variables; an admin can override any of them per account (stored as
-"limits" in the account's users.json record, see auth.py). Admin accounts
-are never limited.
+"limits" in the account's users.json record, see auth.py). Accounts with the
+mobile app's Business plan linked (auth.py set_app_plan) start from the
+WORKER_LIMIT_BUSINESS_* values instead; admin overrides still win. Admin
+accounts are never limited.
 
 With accounts off (WORKER_AUTH_MODE=off) uploads are keyed by client IP:
 rate and concurrency limits still apply, storage/model quotas do not (there
@@ -56,6 +58,26 @@ def default_limits() -> dict:
         "maxModels": _env_int("WORKER_LIMIT_MAX_MODELS", 0),
         "concurrentJobs": _env_int("WORKER_LIMIT_CONCURRENT_JOBS", 1),
     }
+
+
+def business_limits() -> dict:
+    """Limits of accounts with the mobile app's Business plan. Rates and
+    concurrency come from WORKER_LIMIT_BUSINESS_*; storage and model count
+    from WORKER_LIMIT_BUSINESS_STORAGE_MB / _MAX_MODELS, else the defaults."""
+    defaults = default_limits()
+    return {
+        "uploadsPerHour": _env_int("WORKER_LIMIT_BUSINESS_UPLOADS_PER_HOUR", 100),
+        "uploadsPerDay": _env_int("WORKER_LIMIT_BUSINESS_UPLOADS_PER_DAY", 500),
+        "storageMb": _env_int("WORKER_LIMIT_BUSINESS_STORAGE_MB", defaults["storageMb"]),
+        "maxModels": _env_int("WORKER_LIMIT_BUSINESS_MAX_MODELS", defaults["maxModels"]),
+        "concurrentJobs": _env_int("WORKER_LIMIT_BUSINESS_CONCURRENT_JOBS", 3),
+    }
+
+
+def is_business_account(user) -> bool:
+    """The account has the app's Business plan linked and not lapsed (the
+    "plan" that auth.py adds to its user dicts)."""
+    return bool(user) and (user.get("plan") or {}).get("tier") == "business"
 
 
 def normalize_overrides(raw) -> dict:
@@ -131,11 +153,11 @@ class Limits:
 
     @staticmethod
     def effective_limits(user, overrides=None) -> dict:
-        """Admins are unlimited; everyone else gets the defaults with the
-        account's own overrides applied."""
+        """Admins are unlimited; everyone else gets the defaults (Business
+        accounts: business_limits()) with the account's own overrides applied."""
         if user and user.get("role") == "admin":
             return {key: 0 for key in LIMIT_KEYS}
-        limits = default_limits()
+        limits = business_limits() if is_business_account(user) else default_limits()
         for key, value in (overrides or {}).items():
             if key in LIMIT_KEYS and value is not None:
                 limits[key] = int(value)

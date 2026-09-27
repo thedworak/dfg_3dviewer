@@ -648,6 +648,29 @@ export async function setupCamera(_object, _data) {
   await fitCameraToCenteredObject(_object, true, fitConfig);
 }
 
+// Whether this browser (a cookie) or device (app storage) has used the
+// viewer before: then the hand hint only sweeps twice instead of until the
+// first touch. Set on the first interaction with the model.
+const VIEWER_USED_KEY = "dfg3dviewer-used";
+
+export function hasUsedViewer() {
+  try {
+    if (window.localStorage.getItem(VIEWER_USED_KEY) === "1") return true;
+  } catch {
+    // Storage blocked - the cookie may still say.
+  }
+  return document.cookie.split(";").some((part) => part.trim().startsWith(`${VIEWER_USED_KEY}=1`));
+}
+
+export function markViewerUsed() {
+  try {
+    window.localStorage.setItem(VIEWER_USED_KEY, "1");
+  } catch {
+    // Storage blocked: the cookie alone.
+  }
+  document.cookie = `${VIEWER_USED_KEY}=1; max-age=${365 * 24 * 3600}; path=/; SameSite=Lax`;
+}
+
   // Show interaction hint on first load
   function showInteractionHint(boxCenter) {
   if (window.__E2E__) return;
@@ -657,6 +680,8 @@ export async function setupCamera(_object, _data) {
 
   if (core.GESTURE == null) return;
   core.GESTURE.rotate = true;
+  // Returning users: two sweeps, then it stops (0 = until the first touch).
+  core.GESTURE.maxCycles = hasUsedViewer() ? 2 : 0;
 
   core.GESTURE.target = boxCenter.clone();
   core.controls.target.copy(core.GESTURE.target);

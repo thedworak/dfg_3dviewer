@@ -539,6 +539,10 @@
 }
 
 /* Point cloud controls (editor/point-cloud-panel.js). */
+.viewer-pointcloud-panel[hidden] {
+  display: none;
+}
+
 .viewer-pointcloud-panel {
   width: 260px;
   max-width: 100%;

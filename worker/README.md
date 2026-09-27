@@ -301,10 +301,28 @@ The app's Business subscribers (see `docs/mobile-monetization.md`) have no accou
 |---|---|---|
 | `WORKER_REVENUECAT_SECRET_KEY` | empty (off) | RevenueCat secret API key |
 | `WORKER_REVENUECAT_BUSINESS_ENTITLEMENT` | `business` | Entitlement id to check |
+| `WORKER_REVENUECAT_PRO_ENTITLEMENT` | `pro` | Entitlement id of Pro (for plans linked to accounts) |
 | `WORKER_LIMIT_BUSINESS_UPLOADS_PER_HOUR` / `_PER_DAY` | `100` / `500` | Per app user |
 | `WORKER_LIMIT_BUSINESS_CONCURRENT_JOBS` | `3` | Per app user |
+| `WORKER_LIMIT_BUSINESS_STORAGE_MB` / `_MAX_MODELS` | the account defaults | Business accounts only (an app without an account has no storage/model quota) |
 
 The id is not a secret: someone who learns a subscriber's id can use their limits (not their account - there is none). A RevenueCat outage only means the default limits.
+
+#### App plans linked to accounts
+
+With accounts on (`WORKER_AUTH_MODE=required`), the app's plans panel can link a purchase to an account: the user logs in there once, and the app calls these endpoints with its RevenueCat id in `X-App-User-Id`:
+
+| Endpoint | Body | |
+|---|---|---|
+| `POST /api/app/link` | `{"username", "password"}` | Checks the credentials, asks RevenueCat for the plan and stores it on the account |
+| `POST /api/app/sync` | - | Asks RevenueCat again for the linked account (the app calls it on start and after every plan change) |
+| `POST /api/app/unlink` | - | Removes the link |
+
+An account with Business linked gets the `WORKER_LIMIT_BUSINESS_*` limits for everything it uploads, from the browser too; an admin's per-account overrides still win, and the admin panel shows the Business values as that account's defaults. Pro and Free accounts keep the normal defaults.
+
+The plan is stored in `users.json` as `appPlan` (`appUserId`, `tier`, `expiresAt`, `updatedAt`; one app id belongs to one account). A subscription whose `expiresAt` has passed shows as Free until the next sync. The admin panel shows it next to each user name, and `GET /api/auth/me` returns it (`plan`), so the account panel shows it next to the signed-in name.
+
+Linking needs `WORKER_REVENUECAT_SECRET_KEY`: the plan always comes from RevenueCat, never from the app. For testing without a key, `WORKER_APP_PLANS_UNVERIFIED=true` accepts the plan the app reports (the app's testing builds can force any plan) - never set it in production.
 
 ### GPU rendering
 

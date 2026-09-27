@@ -49,6 +49,7 @@ The topics below used to live in this file; they now have their own page in [`do
 - [Server-side conversion and rendering](docs/conversion-pipeline.md) — pipeline, supported conversion inputs, script flags/env vars
 - [`viewer-settings.json` explained](docs/viewer-settings.md)
 - [Using/embedding the viewer](docs/embedding.md) — embed markup, `embed.html` parameters
+- [Publishing to production](docs/publishing.md) — what must be set before a release (server, Android app, store accounts)
 - [`viewer/FUNCTIONS.md`](viewer/FUNCTIONS.md) — runtime function reference
 - [`worker/README.md`](worker/README.md) — standalone conversion worker's API contract/configuration
 

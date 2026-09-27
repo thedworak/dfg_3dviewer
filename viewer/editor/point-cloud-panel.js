@@ -3,6 +3,7 @@ import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
 import { getActiveTiles, getPointCloudPlugin } from "../tiles.js";
+import { PHONE_TOOLBAR_QUERY } from "../editor-toolbar.js";
 
 // Point cloud display controls, shown when the loaded model is a point cloud:
 //
@@ -15,6 +16,10 @@ import { getActiveTiles, getPointCloudPlugin } from "../tiles.js";
 //
 // Defaults: viewer-settings.json -> viewer.pointCloud (colorMode, pointShape)
 // and viewer.tiles (edlStrength, pointShape).
+//
+// The window opens by itself except on phones, where it would cover the
+// model; there (and everywhere) the toolbar's point cloud button, shown while
+// a point cloud is loaded, opens and closes it.
 
 const SIZE_MIN = 0.25;
 const SIZE_MAX = 4;
@@ -85,6 +90,7 @@ export function attachPointCloudPanel(Viewer) {
         colorMode: modes.includes(preferred) ? preferred : modes[0],
         edl: plugin ? plugin.edlStrength : 0,
         collapsed: false,
+        hidden: window.matchMedia(PHONE_TOOLBAR_QUERY).matches,
         ui: null,
       };
       if (!isTiled && !["square", "round"].includes(state.shape)) state.shape = "square";
@@ -98,16 +104,34 @@ export function attachPointCloudPanel(Viewer) {
         Viewer.setPointCloudColorMode(state.colorMode);
       }
       Viewer.createPointCloudPanel();
+      Viewer.updateEditorToolbarState?.();
       return true;
     },
 
     disposePointCloudControls() {
+      const hadState = Boolean(Viewer.pointCloudState);
       Viewer.pointCloudState?.ui?.root.remove();
       Viewer.pointCloudState = null;
+      if (hadState) Viewer.updateEditorToolbarState?.();
     },
 
     isPointCloudActive() {
-      return Boolean(Viewer.pointCloudState);
+      return Boolean(Viewer.pointCloudState?.ui);
+    },
+
+    isPointCloudPanelVisible() {
+      const state = Viewer.pointCloudState;
+      return Boolean(state?.ui && !state.hidden);
+    },
+
+    // The toolbar button: shows the window (with its settings open) or hides it.
+    togglePointCloudPanel() {
+      const state = Viewer.pointCloudState;
+      if (!state?.ui) return;
+      state.hidden = !state.hidden;
+      if (!state.hidden) state.collapsed = false;
+      Viewer.syncPointCloudPanel();
+      Viewer.updateEditorToolbarState?.();
     },
 
     // Colour modes a direct cloud can offer, from the attributes it carries.
@@ -353,6 +377,7 @@ export function attachPointCloudPanel(Viewer) {
       if (!ui) return;
       ui.root.setAttribute("aria-label", t("pointCloud.title", "Point cloud"));
       ui.title.textContent = t("pointCloud.title", "Point cloud");
+      ui.root.hidden = state.hidden;
       ui.body.hidden = state.collapsed;
       ui.collapse.textContent = state.collapsed ? "+" : "–";
       const collapseLabel = state.collapsed ? t("pointCloud.expand", "Show settings") : t("pointCloud.collapse", "Hide settings");

@@ -1,9 +1,14 @@
 import { isAppBuild } from "../remote.js";
 import { t } from "../i18n-utils.js";
+import { toastHelper } from "../viewer-utils.js";
+import { hasFeature } from "../monetization/plan.js";
+import { createPlanLockIcon } from "./plans-panel.js";
 
 // The app has one "Models" button instead of two: it opens the models on the
 // device (library-panel.js) or those in the repository (models-panel.js),
 // whichever was used last, and both panels carry a toggle between the two.
+// The repository's models are a Business feature (monetization/plan.js): on
+// the other plans "Remote" carries a lock and opens the plans panel.
 const SOURCE_KEY = "dfg3dviewer-models-source";
 
 function storedSource() {
@@ -26,10 +31,16 @@ export function attachModelsSource(Viewer) {
         this.closeModelsPanel?.();
         return;
       }
-      this.showModelsSource(storedSource());
+      const source = storedSource();
+      this.showModelsSource(source === "remote" && !hasFeature("remoteModels") ? "local" : source);
     },
 
     showModelsSource(source) {
+      if (source === "remote" && !hasFeature("remoteModels")) {
+        toastHelper("planLocked", "info", { key: "plan-locked", replace: true });
+        this.openPlansPanel?.("business");
+        return;
+      }
       try {
         window.localStorage.setItem(SOURCE_KEY, source);
       } catch {
@@ -65,13 +76,31 @@ export function attachModelsSource(Viewer) {
         const button = document.createElement("button");
         button.type = "button";
         button.textContent = label;
+        button.dataset.source = source;
         button.setAttribute("aria-pressed", source === active ? "true" : "false");
         if (source !== active) {
           this.bindEventListener(button, "click", () => this.showModelsSource(source));
         }
         toggle.appendChild(button);
       });
+      this.updateModelsSourceLock(toggle);
       return toggle;
+    },
+
+    // The lock on "Remote"; called for every toggle when the plan changes.
+    updateModelsSourceLock(toggle) {
+      const button = toggle.querySelector('[data-source="remote"]');
+      if (!button) return;
+      const locked = !hasFeature("remoteModels");
+      button.classList.toggle("plan-locked", locked);
+      button.querySelector(".plan-lock-icon")?.remove();
+      if (locked) button.appendChild(createPlanLockIcon());
+    },
+
+    applyModelsSourceLocks() {
+      document.querySelectorAll(".models-source-toggle").forEach((toggle) => this.updateModelsSourceLock(toggle));
+      // The plan no longer includes it: back to the models on the device.
+      if (!hasFeature("remoteModels") && this.modelsPanel?.hidden === false) this.showModelsSource("local");
     },
   });
 }
