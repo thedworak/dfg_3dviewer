@@ -1,0 +1,139 @@
+{
+ "model": "icon-4d-emblem",
+ "parts": [
+  {
+   "name": "panel-front",
+   "kind": "part",
+   "module": "panel-front",
+   "triangles": 108
+  },
+  {
+   "name": "panel-front-rim",
+   "kind": "part",
+   "module": "panel-front-rim",
+   "triangles": 224
+  },
+  {
+   "name": "panel-glass",
+   "kind": "part",
+   "module": "panel-glass",
+   "triangles": 108
+  },
+  {
+   "name": "panel-glass-rim",
+   "kind": "part",
+   "module": "panel-glass-rim",
+   "triangles": 224
+  },
+  {
+   "name": "panel-middle",
+   "kind": "part",
+   "module": "panel-middle",
+   "triangles": 108
+  },
+  {
+   "name": "panel-middle-rim",
+   "kind": "part",
+   "module": "panel-middle-rim",
+   "triangles": 224
+  },
+  {
+   "name": "panel-back",
+   "kind": "part",
+   "module": "panel-back",
+   "triangles": 108
+  },
+  {
+   "name": "panel-back-rim",
+   "kind": "part",
+   "module": "panel-back-rim",
+   "triangles": 224
+  },
+  {
+   "name": "glyph-4",
+   "kind": "part",
+   "module": "glyph-4",
+   "triangles": 720
+  },
+  {
+   "name": "glyph-d",
+   "kind": "part",
+   "module": "glyph-d",
+   "triangles": 3344
+  },
+  {
+   "name": "sphere-cluster",
+   "kind": "group",
+   "module": "sphere-cluster",
+   "triangles": 0
+  },
+  {
+   "name": "sphere-01",
+   "kind": "part",
+   "module": "sphere-01",
+   "triangles": 4992
+  },
+  {
+   "name": "sphere-02",
+   "kind": "part",
+   "module": "sphere-02",
+   "triangles": 4992
+  },
+  {
+   "name": "sphere-03",
+   "kind": "part",
+   "module": "sphere-03",
+   "triangles": 4992
+  },
+  {
+   "name": "sphere-04",
+   "kind": "part",
+   "module": "sphere-04",
+   "triangles": 4992
+  },
+  {
+   "name": "sphere-05",
+   "kind": "part",
+   "module": "sphere-05",
+   "triangles": 4992
+  },
+  {
+   "name": "sphere-06",
+   "kind": "part",
+   "module": "sphere-06",
+   "triangles": 4992
+  },
+  {
+   "name": "sphere-07",
+   "kind": "part",
+   "module": "sphere-07",
+   "triangles": 4992
+  },
+  {
+   "name": "sphere-08",
+   "kind": "part",
+   "module": "sphere-08",
+   "triangles": 4992
+  },
+  {
+   "name": "sphere-09",
+   "kind": "part",
+   "module": "sphere-09",
+   "triangles": 4992
+  },
+  {
+   "name": "sphere-10",
+   "kind": "part",
+   "module": "sphere-10",
+   "triangles": 4992
+  },
+  {
+   "name": "sphere-11",
+   "kind": "part",
+   "module": "sphere-11",
+   "triangles": 4992
+  }
+ ],
+ "unnamedMeshes": 0,
+ "integralMeshes": 22
+}
