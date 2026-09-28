@@ -216,6 +216,14 @@ function copyBuildAssets() {
         viewerSettings.viewer.editor = true;
         viewerSettings.viewer.lightweight = true;
         viewerSettings.viewer.gallery = { ...viewerSettings.viewer.gallery, build: false };
+        // Bug reports and crashes go to GlitchTip (docs/error-tracking.md);
+        // off without a DSN.
+        if (process.env.MOBILE_GLITCHTIP_DSN) {
+          viewerSettings.viewer.errorTracking = {
+            dsn: process.env.MOBILE_GLITCHTIP_DSN,
+            environment: process.env.MOBILE_GLITCHTIP_ENVIRONMENT || 'app',
+          };
+        }
         viewerSettings.mobile = {
           remoteUrl: process.env.MOBILE_REMOTE_URL ?? '',
           // First model the app opens, until the user picks another (main.js).

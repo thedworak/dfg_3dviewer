@@ -154,6 +154,7 @@ import {
 import { t } from "./i18n-utils.js";
 import { loadDroppedArchive } from "./extract-helper.js";
 import { loadDroppedModel, createCreditsElement } from "./sandbox.js";
+import { initErrorTracking } from "./error-tracking.js";
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 
 // Small inline icons for the keyboard-shortcuts hint (see
@@ -1508,6 +1509,7 @@ export const Viewer = {
 
     core.CONFIG = await this.loadRequiredJson(new URL(settingsPath, moduleUrl));
     console.log("Loaded viewer-settings.json", core.CONFIG.viewer);
+    initErrorTracking();
 
     if (Object.keys(core.CONFIG).length === 0) {
       core.CONFIG = {

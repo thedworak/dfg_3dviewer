@@ -1218,6 +1218,8 @@
   border-bottom: 1px solid color-mix(in srgb, var(--viewer-panel-border) 82%, transparent);
   cursor: grab;
   user-select: none;
+  /* Touch drags move the dialog instead of scrolling the page. */
+  touch-action: none;
 }
 
 .materials-dialog__header h3 {
@@ -1250,6 +1252,12 @@
 
 .materials-dialog__close:hover {
   background: var(--viewer-panel-bg-hover);
+}
+
+/* Minimized to its header (ui/tool-panel-chrome.js). */
+.materials-dialog__panel.is-minimized .materials-dialog__header {
+  padding-bottom: 4px;
+  border-bottom: none;
 }
 
 .materials-dialog__body {

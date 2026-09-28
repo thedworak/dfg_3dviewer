@@ -3,6 +3,7 @@ import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { toastHelper, updateActiveClippingPlanes } from "../viewer-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
+import { attachToolPanelChrome } from "../ui/tool-panel-chrome.js";
 
 // Section (clipping) planes, one per world axis.
 //
@@ -526,9 +527,12 @@ export function attachClipping(Viewer) {
         root.addEventListener(type, (event) => event.stopPropagation());
       });
 
+      const header = document.createElement("div");
+      header.className = "viewer-clipping-panel_header";
       const title = document.createElement("strong");
       title.className = "viewer-clipping-panel_title";
-      root.appendChild(title);
+      header.appendChild(title);
+      root.appendChild(header);
 
       const rows = {};
       CLIPPING_AXES.forEach((axis) => {
@@ -597,6 +601,7 @@ export function attachClipping(Viewer) {
       if (panel.root.hidden) return;
 
       panel.title.textContent = t("clipping.title", "Section planes");
+      attachToolPanelChrome(panel.root, panel.title.parentNode);
       CLIPPING_AXES.forEach((axis) => {
         const { row, toggle, slider, value, flip } = panel.rows[axis];
         const enabled = Viewer.isClippingAxisEnabled(axis);

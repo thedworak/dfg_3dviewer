@@ -1827,6 +1827,28 @@ canvas {
   justify-content: flex-end;
 }
 
+/* Bug report form (bug-report.js); the panel and form reuse the annotation
+   dialog's styles. */
+#bugReportDialog[hidden] {
+  display: none !important;
+}
+
+#bugReportDialog {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+}
+
+#bugReportDialog .annotation-dialog__panel {
+  width: min(480px, calc(100% - 28px));
+}
+
+.bug-report-dialog__privacy {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
 #annotationPOITooltip[hidden] {
   display: none !important;
 }

@@ -2,6 +2,7 @@ import { core } from "../core.js";
 import { showToast, toastHelper } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import THREE from "../init.js";
+import { attachToolPanelChrome } from "../ui/tool-panel-chrome.js";
 
 export function attachMaterialsEditor(Viewer) {
   Object.assign(Viewer, {
@@ -377,6 +378,7 @@ export function attachMaterialsEditor(Viewer) {
       this.materialsDialogSelect = dialog.querySelector("#materialsDialogSelect");
       const panel = dialog.querySelector(".materials-dialog__panel");
       const header = dialog.querySelector(".materials-dialog__header");
+      attachToolPanelChrome(panel, header, { before: header.querySelector(".materials-dialog__close"), movable: false });
       this.materialsDialogInputs = {
         color: dialog.querySelector("#materialsDialogColor"),
         emissiveColor: dialog.querySelector("#materialsDialogEmissiveColor"),

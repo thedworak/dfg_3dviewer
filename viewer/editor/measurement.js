@@ -2,6 +2,7 @@ import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { toastHelper } from "../viewer-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
+import { attachToolPanelChrome } from "../ui/tool-panel-chrome.js";
 import THREE from "../init.js";
 import { MODEL_UNITS } from "./model-units.js";
 
@@ -629,6 +630,7 @@ export function attachMeasurement(Viewer) {
         }
       });
       header.appendChild(close);
+      attachToolPanelChrome(panel, header, { before: close });
       panel.appendChild(header);
 
       const list = document.createElement("ul");

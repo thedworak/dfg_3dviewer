@@ -2,6 +2,7 @@ import THREE from "../init.js";
 import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
+import { attachToolPanelChrome } from "../ui/tool-panel-chrome.js";
 import { getActiveTiles, getPointCloudPlugin } from "../tiles.js";
 import { PHONE_TOOLBAR_QUERY } from "../editor-toolbar.js";
 
@@ -316,6 +317,8 @@ export function attachPointCloudPanel(Viewer) {
         Viewer.syncPointCloudPanel();
       });
       header.append(title, collapse);
+      // The panel's own collapse button already minimizes it: only the grip.
+      attachToolPanelChrome(root, header, { minimizable: false });
 
       const body = document.createElement("div");
       body.className = "viewer-pointcloud-panel_body";

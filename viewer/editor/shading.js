@@ -2,6 +2,7 @@ import { core } from "../core.js";
 import { showToast, toastHelper } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import THREE from "../init.js";
+import { attachToolPanelChrome } from "../ui/tool-panel-chrome.js";
 
 export const SHADING_MODES = ["standard", "phong", "lambert", "toon", "custom"];
 
@@ -221,6 +222,7 @@ export function attachShadingEditor(Viewer) {
       this.shadingDialogPosition = null;
       const panel = dialog.querySelector(".materials-dialog__panel");
       const header = dialog.querySelector(".materials-dialog__header");
+      attachToolPanelChrome(panel, header, { before: header.querySelector(".materials-dialog__close"), movable: false });
       this.shadingDialogInputs = {
         vertex: dialog.querySelector("#shadingDialogVertex"),
         fragment: dialog.querySelector("#shadingDialogFragment"),
