@@ -6,6 +6,7 @@ import { t } from "./i18n-utils.js";
 import { changeBackground, toastHelper } from './viewer-utils.js';
 import { MODEL_UNITS } from "./editor/model-units.js";
 import { isBugReportEnabled, reportBug } from "./bug-report.js";
+import { TOOL_PANEL_OPEN_EVENT } from "./ui/tool-panel-chrome.js";
 
 export function getEditorToolbarIcon(icon) {
   const icons = {
@@ -663,6 +664,16 @@ export function createEditorToolbar(viewer) {
   if (!isBugReportEnabled()) {
     tools.splice(tools.findIndex((tool) => tool.key === "reportBug"), 1);
   }
+
+  // A tool panel opening (touch devices, ui/tool-panel-chrome.js) folds the
+  // secondary tools away, so the expanded tray does not cover the model too.
+  // After the tap that opened it: bindTouchSubmenus would otherwise open the
+  // tool's submenu again on the folded tray; folding closes submenus.
+  viewer.bindEventListener(document, TOOL_PANEL_OPEN_EVENT, () => {
+    setTimeout(() => {
+      if (viewer.isToolbarExpanded) toggleToolbarExpanded(viewer);
+    }, 0);
+  });
 
   viewer.editorToolbarButtons = {};
   viewer.environmentMapPreset = viewer.environmentMapPreset || "neutral";

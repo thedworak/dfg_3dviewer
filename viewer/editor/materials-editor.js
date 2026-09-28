@@ -378,7 +378,11 @@ export function attachMaterialsEditor(Viewer) {
       this.materialsDialogSelect = dialog.querySelector("#materialsDialogSelect");
       const panel = dialog.querySelector(".materials-dialog__panel");
       const header = dialog.querySelector(".materials-dialog__header");
-      attachToolPanelChrome(panel, header, { before: header.querySelector(".materials-dialog__close"), movable: false });
+      attachToolPanelChrome(panel, header, {
+        before: header.querySelector(".materials-dialog__close"),
+        movable: false,
+        visibilityRoot: dialog,
+      });
       this.materialsDialogInputs = {
         color: dialog.querySelector("#materialsDialogColor"),
         emissiveColor: dialog.querySelector("#materialsDialogEmissiveColor"),
@@ -513,9 +517,10 @@ export function attachMaterialsEditor(Viewer) {
       const panelHeight = panel?.offsetHeight || Math.min(520, height - 24);
 
       if (!this.materialsDialogPosition) {
+        // The top right corner, like the other tool panels (side stack).
         this.materialsDialogPosition = {
-          left: Math.max(left + 12, left + width - panelWidth - 16),
-          top: Math.max(top + 16, top + Math.min(40, Math.max(16, height * 0.08))),
+          left: Math.max(left + 12, left + width - panelWidth - 12),
+          top: top + 12,
         };
       } else {
         const minLeft = left + 12;

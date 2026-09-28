@@ -11,6 +11,25 @@ const DOUBLE_TAP_MS = 320;
 const TAP_SLOP_PX = 6;
 const undockedPanels = new Set();
 
+// Sent on document whenever one of these panels appears, so the editor
+// toolbar can fold its secondary tools away (editor-toolbar.js).
+export const TOOL_PANEL_OPEN_EVENT = "viewer-tool-panel-open";
+
+function watchPanelVisibility(panel, root) {
+  const isShown = () => !panel.hidden && !root.hidden;
+  const announce = () => document.dispatchEvent(new CustomEvent(TOOL_PANEL_OPEN_EVENT, { detail: { panel } }));
+  let shown = isShown();
+  if (shown) announce();
+  const observer = new MutationObserver(() => {
+    const now = isShown();
+    if (now && !shown) announce();
+    shown = now;
+  });
+  [...new Set([panel, root])].forEach((element) => {
+    observer.observe(element, { attributes: true, attributeFilter: ["hidden"] });
+  });
+}
+
 export function isToolPanelChromeEnabled() {
   return isAppBuild() || window.matchMedia?.("(pointer: coarse)").matches === true;
 }
@@ -23,10 +42,14 @@ function clampPanel(panel) {
   if (!stack || !container) return;
   const stackRect = stack.getBoundingClientRect();
   const bounds = container.getBoundingClientRect();
+  // A fullscreen viewer runs on under the app's ad banner (main.css).
+  const bannerHeight = document.fullscreenElement
+    ? parseFloat(getComputedStyle(document.body).getPropertyValue("--app-ad-banner-height")) || 0
+    : 0;
   const minLeft = bounds.left - stackRect.left;
   const minTop = bounds.top - stackRect.top;
   const maxLeft = bounds.right - stackRect.left - panel.offsetWidth;
-  const maxTop = bounds.bottom - stackRect.top - panel.offsetHeight;
+  const maxTop = bounds.bottom - bannerHeight - stackRect.top - panel.offsetHeight;
   const left = Math.min(Math.max(parseFloat(panel.style.left) || 0, minLeft), Math.max(minLeft, maxLeft));
   const top = Math.min(Math.max(parseFloat(panel.style.top) || 0, minTop), Math.max(minTop, maxTop));
   panel.style.left = `${left}px`;
@@ -130,10 +153,17 @@ function syncMinimize(panel, button) {
 
 // Adds the grip (first in `header`) and the minimize button (before `before`,
 // or last) to a panel. `movable: false` for dialogs that already drag by
-// their header. Safe to call again on every render: panels that rebuild
-// their header get the same buttons put back. While minimized, only the
-// header stays visible (tool-panel-chrome in viewer-tools.css).
-export function attachToolPanelChrome(panel, header, { before = null, minimizable = true, movable = true } = {}) {
+// their header; `visibilityRoot`: the element whose `hidden` shows and hides
+// the panel, when that is not the panel itself. Safe to call again on every
+// render: panels that rebuild their header get the same buttons put back.
+// While minimized, only the header stays visible (tool-panel-chrome in
+// viewer-tools.css).
+export function attachToolPanelChrome(panel, header, {
+  before = null,
+  minimizable = true,
+  movable = true,
+  visibilityRoot = panel,
+} = {}) {
   if (!panel || !header || !isToolPanelChromeEnabled()) return;
   if (!panel.toolPanelChrome) {
     panel.toolPanelChrome = {
@@ -141,6 +171,7 @@ export function attachToolPanelChrome(panel, header, { before = null, minimizabl
       minimize: minimizable ? createMinimize(panel) : null,
     };
     panel.classList.add("has-tool-chrome");
+    watchPanelVisibility(panel, visibilityRoot);
   }
   const { grip, minimize } = panel.toolPanelChrome;
   header.classList.add("tool-panel-chrome");

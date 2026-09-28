@@ -2394,6 +2394,14 @@ body.viewer-app.viewer-standalone-page {
   box-sizing: border-box;
 }
 
+/* Fullscreen covers that page padding (and the fullscreen element cannot be
+   made shorter), so the toolbar keeps clear of the banner by itself. The
+   model may run on under the banner. */
+body.viewer-app .mainContainer:fullscreen #viewerEditorToolbar,
+body.viewer-app .mainContainer.fullscreen #viewerEditorToolbar {
+  margin-bottom: calc(env(safe-area-inset-bottom) + var(--app-ad-banner-height, 0px));
+}
+
 /* Tools and features the plan does not include (ui/plans-panel.js): a small
    lock - the same icon on the toolbar, in the plans panel and on the
    repository address field. */

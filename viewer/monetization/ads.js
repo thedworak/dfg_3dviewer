@@ -1,5 +1,6 @@
 import { currentTier, hasFeature, isPlansEnabled, monetizationSettings, onTierChange } from "./plan.js";
 import { appSplashDone } from "../app-splash.js";
+import { syncNoticeAboveToolbar } from "../editor-toolbar.js";
 
 // Free plan ads (AdMob, @capacitor-community/admob): a banner along the bottom
 // and a full-screen ad after every Nth model loaded, at most once per
@@ -29,6 +30,8 @@ function wantsAds() {
 
 function setBannerHeight(px) {
   document.body?.style.setProperty("--app-ad-banner-height", `${Math.max(0, Math.round(px || 0))}px`);
+  // The toolbar moves with it; toasts sit above the toolbar.
+  requestAnimationFrame(() => syncNoticeAboveToolbar());
 }
 
 async function loadPlugin() {

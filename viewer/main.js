@@ -113,6 +113,7 @@ import {
   getEditorToolbarIcon,
   getEditorToolbarHost,
   syncEditorToolbarSecondaryTrayWidth,
+  syncNoticeAboveToolbar,
   toggleToolbarExpanded as toggleEditorToolbarExpanded,
   updateClippingPlanesSubmenuState,
   updateEditorToolbarLabels as syncEditorToolbarLabels,
@@ -155,6 +156,7 @@ import { t } from "./i18n-utils.js";
 import { loadDroppedArchive } from "./extract-helper.js";
 import { loadDroppedModel, createCreditsElement } from "./sandbox.js";
 import { initErrorTracking } from "./error-tracking.js";
+import { isToolPanelChromeEnabled } from "./ui/tool-panel-chrome.js";
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 
 // Small inline icons for the keyboard-shortcuts hint (see
@@ -641,8 +643,14 @@ export const Viewer = {
   refreshClippingHintVisibility() {
     const clippingMode = core.planeParams?.clippingMode || {};
     if (this.clippingHint) {
-      this.clippingHint.hidden = !(clippingMode.x || clippingMode.y || clippingMode.z);
+      this.clippingHint.hidden = !(clippingMode.x || clippingMode.y || clippingMode.z) || this.isClippingPanelReplacingHint();
     }
+  },
+
+  // On touch devices the section planes panel (with its sliders) is shown
+  // with the planes, and the drag hint over the model only takes up room.
+  isClippingPanelReplacingHint() {
+    return this.clippingMode === true && isToolPanelChromeEnabled();
   },
 
   updateClippingPlanesSubmenuState() {
@@ -848,7 +856,7 @@ export const Viewer = {
     const clippingMode = this.planeParams?.clippingMode || {};
     const hasActiveClipping = Boolean(clippingMode.x || clippingMode.y || clippingMode.z);
     const pickingHintVisible = Boolean(this.pickingHint && this.pickingHint.hidden === false);
-    this.clippingHint.hidden = !hasActiveClipping || pickingHintVisible;
+    this.clippingHint.hidden = !hasActiveClipping || pickingHintVisible || this.isClippingPanelReplacingHint();
   },
 
   updatePickingControlsVisibility() {
@@ -2160,6 +2168,8 @@ export const Viewer = {
         Viewer.updateSize();
         Viewer.updateEditorToolbarLabels();
         Viewer.updateEditorToolbarState();
+        // The toolbar moves (in the app, above the ad banner): so do toasts.
+        syncNoticeAboveToolbar();
       });
     });
 
