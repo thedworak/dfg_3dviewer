@@ -1,4 +1,4 @@
-package de.dlf.aim3dviewer;
+package com.thedworak.explora4d;
 
 import com.getcapacitor.BridgeActivity;
 

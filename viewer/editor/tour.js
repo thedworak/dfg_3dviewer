@@ -3,6 +3,7 @@ import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { toastHelper } from "../viewer-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
+import { attachToolPanelChrome } from "../ui/tool-panel-chrome.js";
 
 // Guided tour: steps through the model's annotations in marker order, flying
 // the camera to each one and showing its title and description in a panel.
@@ -364,6 +365,7 @@ export function attachTour(Viewer) {
       closeButton.className = "viewer-tour-panel_close";
       closeButton.textContent = "×";
       header.append(counter, closeButton);
+      attachToolPanelChrome(panel, header, { before: closeButton });
 
       const body = document.createElement("div");
       body.className = "viewer-tour-panel_body";

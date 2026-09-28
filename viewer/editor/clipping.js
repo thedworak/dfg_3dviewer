@@ -3,6 +3,7 @@ import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { toastHelper, updateActiveClippingPlanes } from "../viewer-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
+import { attachToolPanelChrome } from "../ui/tool-panel-chrome.js";
 
 // Section (clipping) planes, one per world axis.
 //
@@ -34,6 +35,9 @@ const OVERSHOOT = 0.05;
 const QUAD_MARGIN = 1.15;
 const QUAD_OPACITY = { idle: 0.1, hover: 0.22, drag: 0.28 };
 const SLIDER_STEPS = 1000;
+// A new or reset cut stands just past the model's far end, which keeps the
+// whole model (planes keep the side below the cut, until flipped): 0% cut.
+const DEFAULT_FRACTION = 1 + OVERSHOOT;
 
 function createAxisVisual(axis) {
   const group = new THREE.Group();
@@ -79,7 +83,7 @@ export function attachClipping(Viewer) {
     clippingState: {
       bounds: null,
       root: null,
-      fraction: { x: 0.5, y: 0.5, z: 0.5 },
+      fraction: { x: DEFAULT_FRACTION, y: DEFAULT_FRACTION, z: DEFAULT_FRACTION },
       remembered: null,
       visuals: null,
       hoverAxis: null,
@@ -118,6 +122,22 @@ export function attachClipping(Viewer) {
       const max = bounds.max[axis];
       const pad = Math.max(max - min, 1e-6) * OVERSHOOT;
       return { min, max, low: min - pad, high: max + pad, size: Math.max(max - min, 1e-6) };
+    },
+
+    // The panel's sliders run from nothing cut (0, the plane just past the
+    // kept side's far end) to everything cut (1), whichever side is kept.
+    clippingCutToPosition(axis, cut) {
+      const range = Viewer.getClippingAxisRange(axis);
+      if (!range) return 0;
+      const span = range.high - range.low;
+      return Viewer.isClippingAxisNegated(axis) ? range.low + cut * span : range.high - cut * span;
+    },
+
+    clippingPositionToCut(axis, position) {
+      const range = Viewer.getClippingAxisRange(axis);
+      if (!range) return 0;
+      const span = range.high - range.low;
+      return Viewer.isClippingAxisNegated(axis) ? (position - range.low) / span : (range.high - position) / span;
     },
 
     setClippingAxisPosition(axis, position, { clamp = true } = {}) {
@@ -186,7 +206,9 @@ export function attachClipping(Viewer) {
         CLIPPING_AXES.forEach((axis) => {
           core.planeParams.clippingMode[axis] = restore[axis] === true;
         });
-        toastHelper("clippingEnabled", { duration: 2600 });
+        // Touch devices: only briefly - the panel that opens now stays and
+        // replaces the drag hint (main.js, isClippingPanelReplacingHint).
+        toastHelper("clippingEnabled", { duration: Viewer.isClippingPanelReplacingHint?.() ? 1500 : 2600 });
       } else {
         state.remembered = { ...core.planeParams.clippingMode };
         CLIPPING_AXES.forEach((axis) => {
@@ -200,7 +222,7 @@ export function attachClipping(Viewer) {
     resetClippingPlanes() {
       CLIPPING_AXES.forEach((axis) => {
         core.planeParams[PARAM_KEYS[axis].group].negated = false;
-        Viewer.clippingState.fraction[axis] = 0.5;
+        Viewer.clippingState.fraction[axis] = DEFAULT_FRACTION;
       });
       Viewer.positionClippingPlanesFromFractions();
     },
@@ -526,9 +548,12 @@ export function attachClipping(Viewer) {
         root.addEventListener(type, (event) => event.stopPropagation());
       });
 
+      const header = document.createElement("div");
+      header.className = "viewer-clipping-panel_header";
       const title = document.createElement("strong");
       title.className = "viewer-clipping-panel_title";
-      root.appendChild(title);
+      header.appendChild(title);
+      root.appendChild(header);
 
       const rows = {};
       CLIPPING_AXES.forEach((axis) => {
@@ -551,8 +576,7 @@ export function attachClipping(Viewer) {
           const range = Viewer.getClippingAxisRange(axis);
           if (!range) return;
           if (!Viewer.isClippingAxisEnabled(axis)) Viewer.setClippingAxisEnabled(axis, true, { silent: true });
-          const fraction = Number(slider.value) / SLIDER_STEPS;
-          Viewer.setClippingAxisPosition(axis, range.low + fraction * (range.high - range.low));
+          Viewer.setClippingAxisPosition(axis, Viewer.clippingCutToPosition(axis, Number(slider.value) / SLIDER_STEPS));
         });
 
         const value = document.createElement("span");
@@ -594,9 +618,12 @@ export function attachClipping(Viewer) {
       const panel = Viewer.ensureClippingPanel();
       if (!panel) return;
       panel.root.hidden = !Viewer.clippingMode || Viewer.urlOptions?.hideUi === true;
+      // The drag hint gives way to the panel on touch devices (main.js).
+      Viewer.updateClippingHintVisibility?.();
       if (panel.root.hidden) return;
 
       panel.title.textContent = t("clipping.title", "Section planes");
+      attachToolPanelChrome(panel.root, panel.title.parentNode);
       CLIPPING_AXES.forEach((axis) => {
         const { row, toggle, slider, value, flip } = panel.rows[axis];
         const enabled = Viewer.isClippingAxisEnabled(axis);
@@ -614,10 +641,12 @@ export function attachClipping(Viewer) {
         const range = Viewer.getClippingAxisRange(axis);
         if (!range) return;
         const position = Viewer.getClippingAxisPosition(axis);
-        const fraction = (position - range.low) / (range.high - range.low);
-        if (document.activeElement !== slider) slider.value = String(Math.round(fraction * SLIDER_STEPS));
-        const percent = Math.round(THREE.MathUtils.clamp((position - range.min) / range.size, 0, 1) * 100);
-        value.textContent = `${percent}%`;
+        if (document.activeElement !== slider) {
+          slider.value = String(Math.round(Viewer.clippingPositionToCut(axis, position) * SLIDER_STEPS));
+        }
+        // How much of the model the cut removes.
+        const cut = negated ? (position - range.min) / range.size : (range.max - position) / range.size;
+        value.textContent = `${Math.round(THREE.MathUtils.clamp(cut, 0, 1) * 100)}%`;
       });
       panel.fillInput.checked = core.planeParams?.outline?.visible === true;
       panel.fillInput.disabled = Boolean(Viewer.animationState);

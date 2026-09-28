@@ -3,6 +3,7 @@ import { apiUrl, remoteAssetUrl } from "../remote.js";
 import { toastHelper } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import { makePanelWindow } from "./panel-window.js";
+import { createPlanBadge } from "./login-panel.js";
 
 // Same-origin worker endpoints (see worker/auth.py's "administration" methods
 // and server.py's _require_admin/_handle_admin_*). Deliberately separate from
@@ -149,6 +150,7 @@ export function attachAdminPanel(Viewer) {
         const data = await adminRequest("");
         users = data.users || [];
         this.adminDefaultLimits = data.defaultLimits || null;
+        this.adminBusinessLimits = data.businessLimits || null;
       } catch (error) {
         this.reportError(error, { context: "Failed to load users list" });
         this.setAdminStatusText(t("adminPanel.loadError", "Could not load the user list."), "error");
@@ -189,6 +191,19 @@ export function attachAdminPanel(Viewer) {
       const name = document.createElement("span");
       name.className = "admin-users-name";
       name.textContent = user.username;
+      // The mobile app plan linked to the account (worker/entitlements.py).
+      if (user.plan) {
+        const badge = createPlanBadge(user.plan.tier);
+        const details = [t("loginPanel.planTitle", "Plan in the mobile app")];
+        if (user.plan.expiresAt) {
+          details.push(t("adminPanel.planRenews", { date: new Date(user.plan.expiresAt * 1000).toLocaleDateString() }, "renews/ends {date}"));
+        }
+        if (user.plan.updatedAt) {
+          details.push(t("adminPanel.planChecked", { date: new Date(user.plan.updatedAt * 1000).toLocaleString() }, "checked {date}"));
+        }
+        badge.title = details.join(" · ");
+        name.appendChild(badge);
+      }
       const meta = document.createElement("span");
       meta.className = "admin-users-meta";
       const created = user.createdAt ? new Date(user.createdAt * 1000).toLocaleDateString() : "";
@@ -276,7 +291,15 @@ export function attachAdminPanel(Viewer) {
       }
 
       const overrides = user.limits || {};
-      const defaults = this.adminDefaultLimits || {};
+      // Accounts with the app's Business plan start from its limits.
+      const isBusiness = user.plan?.tier === "business" && this.adminBusinessLimits;
+      const defaults = (isBusiness ? this.adminBusinessLimits : this.adminDefaultLimits) || {};
+      if (isBusiness && user.role !== "admin") {
+        const note = document.createElement("p");
+        note.className = "admin-users-limits-note";
+        note.textContent = t("adminPanel.limitsBusiness", "Business plan: its limits are the defaults here.");
+        form.appendChild(note);
+      }
       const inputs = {};
       LIMIT_FIELDS.forEach(({ key, label }) => {
         const field = document.createElement("label");

@@ -5,6 +5,8 @@ import { isAppBuild } from "./remote.js";
 import { t } from "./i18n-utils.js";
 import { changeBackground, toastHelper } from './viewer-utils.js';
 import { MODEL_UNITS } from "./editor/model-units.js";
+import { isBugReportEnabled, reportBug } from "./bug-report.js";
+import { TOOL_PANEL_OPEN_EVENT } from "./ui/tool-panel-chrome.js";
 
 export function getEditorToolbarIcon(icon) {
   const icons = {
@@ -72,6 +74,8 @@ export function getEditorToolbarIcon(icon) {
     backgroundGradient: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="5.7" fill="currentColor" fill-opacity="0.18"/><circle cx="12" cy="12" r="3.1" fill="currentColor" fill-opacity="0.56"/><circle cx="12" cy="12" r="1.1" fill="currentColor"/></svg>',
     backgroundInner: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="5" fill="currentColor"/></svg>',
     backgroundOuter: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h18v18H3zM12 7.5a4.5 4.5 0 1 0 0 9a4.5 4.5 0 0 0 0-9z"/><circle cx="12" cy="12" r="5.25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.2 1.6"/></svg>',
+    pointCloud: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="8" r="1.6" fill="currentColor"/><circle cx="11" cy="5.5" r="1.6" fill="currentColor"/><circle cx="17" cy="7" r="1.6" fill="currentColor"/><circle cx="8.5" cy="12.5" r="1.6" fill="currentColor"/><circle cx="14" cy="11" r="1.6" fill="currentColor"/><circle cx="19" cy="12.5" r="1.6" fill="currentColor"/><circle cx="5.5" cy="17" r="1.6" fill="currentColor"/><circle cx="11.5" cy="17.5" r="1.6" fill="currentColor"/><circle cx="17" cy="18" r="1.6" fill="currentColor"/></svg>',
+    reportBug: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8.5a4 4 0 0 1 8 0V14a4 4 0 0 1-8 0z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9.5 5.5 8 4M14.5 5.5 16 4M8 11H4M20 11h-4M8 15.5l-3 2M16 15.5l3 2M12 10v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     help: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.9.4-1.5 1-1.5 2.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>',
   };
 
@@ -106,7 +110,7 @@ export function syncEditorToolbarSecondaryTrayWidth(viewer) {
 
 // Phones - the same media query as the phone toolbar rules in
 // editor-toolbar.css: the secondary tools open as a card above the toolbar.
-const PHONE_TOOLBAR_QUERY = "(max-width: 640px), (max-height: 520px) and (pointer: coarse)";
+export const PHONE_TOOLBAR_QUERY = "(max-width: 640px), (max-height: 520px) and (pointer: coarse)";
 
 // Toasts sit at the bottom of the viewer; on phones the toolbar (and its
 // expanded card, whose height depends on how many rows it wraps into, and an
@@ -630,6 +634,9 @@ export function createEditorToolbar(viewer) {
     { key: "hierarchy", icon: "hierarchy", onClick: () => {}, pressed: true, primary: false },
     { key: "annotate", icon: "annotate", onClick: () => viewer.openAnnotationDialogWithAutoPicking(), primary: false },
     { key: "ruler", icon: "ruler", onClick: () => viewer.toggleDistanceMeasurement(), pressed: true, primary: false },
+    // Shown only while a point cloud is loaded (updateEditorToolbarState):
+    // opens its settings window (editor/point-cloud-panel.js).
+    { key: "pointCloud", icon: "pointCloud", onClick: () => viewer.togglePointCloudPanel?.(), pressed: true, primary: true },
     { key: "fullScreen", icon: "fullScreen", onClick: () => viewer.toggleFullscreen(), pressed: true, primary: true },
     { key: "clippingPlanes", icon: "clippingPlanes", onClick: () => viewer.toggleClippingPlanesPanel(), pressed: true, primary: false },
     { key: "resetCamera", icon: "resetCamera", onClick: () => viewer.resetCamera(), primary: false },
@@ -638,6 +645,7 @@ export function createEditorToolbar(viewer) {
     { key: "wireframe", icon: "wireframe", onClick: () => viewer.toggleWireframeMode(), pressed: true, primary: false },    
     { key: "statistics", icon: "statistics", onClick: () => {}, pressed: false, primary: false },
     { key: "background", icon: "background", onClick: () => {}, pressed: false, primary: false },
+    { key: "reportBug", icon: "reportBug", onClick: () => reportBug(), primary: false },
     { key: "help", icon: "help", onClick: () => viewer.showKeyboardShortcutsHint({ manual: true }), pressed: true, primary: false },
 
   ];
@@ -652,6 +660,20 @@ export function createEditorToolbar(viewer) {
       { key: "save", icon: "save", onClick: () => {}, primary: false }
     );
   }
+
+  if (!isBugReportEnabled()) {
+    tools.splice(tools.findIndex((tool) => tool.key === "reportBug"), 1);
+  }
+
+  // A tool panel opening (touch devices, ui/tool-panel-chrome.js) folds the
+  // secondary tools away, so the expanded tray does not cover the model too.
+  // After the tap that opened it: bindTouchSubmenus would otherwise open the
+  // tool's submenu again on the folded tray; folding closes submenus.
+  viewer.bindEventListener(document, TOOL_PANEL_OPEN_EVENT, () => {
+    setTimeout(() => {
+      if (viewer.isToolbarExpanded) toggleToolbarExpanded(viewer);
+    }, 0);
+  });
 
   viewer.editorToolbarButtons = {};
   viewer.environmentMapPreset = viewer.environmentMapPreset || "neutral";
@@ -1804,7 +1826,9 @@ export function updateEditorToolbarLabels(viewer) {
       ? t("gui.collapse", "Collapse toolbar")
       : t("gui.expand", "Expand toolbar"),
     download: t("gui.download", "Download model"),
+    pointCloud: t("pointCloud.toggle", "Point cloud settings"),
     help: t("shortcuts.helpButtonAria", "Show usage hints"),
+    reportBug: t("bugReport.button", "Report a bug"),
   };
 
   Object.entries(viewer.editorToolbarButtons).forEach(([key, button]) => {
@@ -1981,6 +2005,7 @@ export function updateEditorToolbarState(viewer) {
     loadingLogs: viewer.showLoadingLogs === true,
     wireframe: viewer.wireframeMode === true,
     download: false,
+    pointCloud: viewer.isPointCloudPanelVisible?.() === true,
     help: viewer.statusNoticeActive === true && viewer.statusNoticeCurrent?.key === "keyboard-shortcuts-hint",
   };
 
@@ -1993,6 +2018,9 @@ export function updateEditorToolbarState(viewer) {
       button.removeAttribute("aria-pressed");
     }
   });
+
+  const pointCloudButton = viewer.editorToolbarButtons.pointCloud;
+  if (pointCloudButton) pointCloudButton.hidden = !viewer.isPointCloudActive?.();
 
   updateHierarchySubmenuState(viewer);
   updateClippingPlanesSubmenuState(viewer);

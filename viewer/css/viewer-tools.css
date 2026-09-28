@@ -19,13 +19,13 @@
   flex-shrink: 0;
 }
 
-/* Phones: the corner beside the metadata card is too narrow for the panels
-   (the card, z-index 999, covered them). The column starts below the
-   collapsed card (62px tall there), spans the width, and sits above the card
-   so an expanded card does not hide an open panel. */
+/* Phones: the column spans the width (panels still keep to its right edge)
+   and sits above the metadata card (z-index 999), so an expanded card does
+   not hide an open panel. It starts in the corner like elsewhere; the
+   collapsed card is only a button on the left. */
 @media (max-width: 640px) {
   .viewer-side-stack {
-    top: 72px;
+    top: 12px;
     left: 12px;
     right: 12px;
     max-width: none;
@@ -421,9 +421,15 @@
   display: none;
 }
 
-.viewer-clipping-panel_title {
-  display: block;
+.viewer-clipping-panel_header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 6px;
+}
+
+.viewer-clipping-panel_title {
+  flex: 1;
 }
 
 .viewer-clipping-panel_row {
@@ -506,6 +512,81 @@
   cursor: pointer;
 }
 
+/* Grip and minimize button in floating tool panel headers, on touch devices
+   and in the app (ui/tool-panel-chrome.js). */
+.tool-panel-chrome {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tool-panel-chrome_grip + * {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* .has-tool-chrome: outweighs the panels' own `button` rules. */
+.has-tool-chrome .tool-panel-chrome_grip,
+.has-tool-chrome .tool-panel-chrome_minimize {
+  flex: none;
+  width: 32px;
+  min-width: 0;
+  height: 32px;
+  padding: 0;
+  border: 1px solid transparent !important;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: 16px/1 system-ui, sans-serif;
+  opacity: 0.75;
+  cursor: pointer;
+}
+
+.has-tool-chrome .tool-panel-chrome_minimize {
+  margin-left: auto;
+}
+
+.has-tool-chrome .tool-panel-chrome_grip {
+  margin-left: -6px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.tool-panel-chrome_grip:active {
+  cursor: grabbing;
+}
+
+.tool-panel-chrome_grip:focus-visible,
+.tool-panel-chrome_minimize:focus-visible {
+  opacity: 1;
+  border-color: var(--viewer-panel-border, rgba(255, 255, 255, 0.12)) !important;
+}
+
+/* Undocked: dragged out of the side stack, positioned inside it. */
+.has-tool-chrome.is-undocked {
+  position: absolute;
+  z-index: 1;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+/* Minimized: a flat bar with the header alone. */
+.has-tool-chrome.is-minimized {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.has-tool-chrome.is-minimized > :not(.tool-panel-chrome) {
+  display: none !important;
+}
+
+.has-tool-chrome.is-minimized > .tool-panel-chrome {
+  margin: 0;
+}
+
 /* Shift + drag face area selection (editor/face-area-selection.js). */
 .viewer-face-area-box {
   position: fixed;
@@ -539,6 +620,10 @@
 }
 
 /* Point cloud controls (editor/point-cloud-panel.js). */
+.viewer-pointcloud-panel[hidden] {
+  display: none;
+}
+
 .viewer-pointcloud-panel {
   width: 260px;
   max-width: 100%;

@@ -25,6 +25,16 @@ async function authRequest(path, body) {
   return data;
 }
 
+// The mobile app plan of an account (worker/entitlements.py), next to its name.
+export function createPlanBadge(tier) {
+  const badge = document.createElement("span");
+  badge.className = "plan-badge";
+  badge.dataset.tier = tier;
+  badge.textContent = t(`plans.${tier}`, tier);
+  badge.title = t("loginPanel.planTitle", "Plan in the mobile app");
+  return badge;
+}
+
 export function attachLoginPanel(Viewer) {
   Object.assign(Viewer, {
     // Accounts are enforced by the worker (WORKER_AUTH_MODE); the manifest's
@@ -32,7 +42,7 @@ export function attachLoginPanel(Viewer) {
     // allowRegistration:false hides the register button.
     async refreshAuthState() {
       const uiConfig = core.CONFIG?.viewer?.auth || {};
-      const state = { required: false, registration: false, user: null, role: null, maxUploadBytes: 0 };
+      const state = { required: false, registration: false, user: null, role: null, plan: null, maxUploadBytes: 0 };
       // The upload limit is reported by the same endpoint, so query it even
       // when the manifest hides the login UI. The app build with no
       // repository configured has no worker to ask: accounts off.
@@ -48,6 +58,8 @@ export function attachLoginPanel(Viewer) {
               const me = await authRequest("me");
               state.user = me.user || null;
               state.role = me.role || null;
+              // The mobile app plan linked to the account (worker POST /api/app/link).
+              state.plan = me.plan || null;
             }
           }
         } catch (_error) {
@@ -71,8 +83,10 @@ export function attachLoginPanel(Viewer) {
       const signedIn = Boolean(this.authState?.user);
       this.loginButton.dataset.signedIn = signedIn ? "true" : "false";
       this.loginButton.innerHTML = `<span class="login-icon" aria-hidden="true"></span>`;
+      const plan = this.authState?.plan?.tier;
+      const user = plan ? `${this.authState.user} (${t(`plans.${plan}`, plan)})` : this.authState?.user;
       const a11yLabel = signedIn
-        ? t("loginPanel.openSignedIn", { user: this.authState.user }, "Signed in as {user}")
+        ? t("loginPanel.openSignedIn", { user }, "Signed in as {user}")
         : t("menu.openLoginPanel", "Log in or register");
       this.loginButton.setAttribute("aria-label", a11yLabel);
       this.loginButton.setAttribute("title", a11yLabel);
@@ -152,6 +166,7 @@ export function attachLoginPanel(Viewer) {
       if (state.user) {
         const label = document.createElement("span");
         label.textContent = t("uploadPanel.signedInAs", { user: state.user }, "Signed in as {user}");
+        if (state.plan) label.appendChild(createPlanBadge(state.plan.tier));
         const logout = document.createElement("button");
         logout.type = "button";
         logout.textContent = t("uploadPanel.logout", "Log out");

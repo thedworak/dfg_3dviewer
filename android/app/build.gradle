@@ -19,8 +19,29 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Upload key for Google Play, from ~/.gradle/gradle.properties (outside
+    // the repo - never commit the keystore or its passwords):
+    //   EXPLORA_UPLOAD_STORE_FILE=/home/you/keys/explora-upload.jks
+    //   EXPLORA_UPLOAD_STORE_PASSWORD=...
+    //   EXPLORA_UPLOAD_KEY_ALIAS=upload
+    //   EXPLORA_UPLOAD_KEY_PASSWORD=...
+    // Without them release builds come out unsigned (see docs/publishing.md).
+    def uploadStoreFile = project.findProperty('EXPLORA_UPLOAD_STORE_FILE')
+    signingConfigs {
+        if (uploadStoreFile) {
+            upload {
+                storeFile file(uploadStoreFile)
+                storePassword project.findProperty('EXPLORA_UPLOAD_STORE_PASSWORD')
+                keyAlias project.findProperty('EXPLORA_UPLOAD_KEY_ALIAS')
+                keyPassword project.findProperty('EXPLORA_UPLOAD_KEY_PASSWORD')
+            }
+        }
+    }
     buildTypes {
         release {
+            if (uploadStoreFile) {
+                signingConfig signingConfigs.upload
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

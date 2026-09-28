@@ -41,7 +41,7 @@ import {
   normalizeColor,
 } from "./utils.js";
 
-import { initClippingPlanes, updateActiveClippingPlanes, reportViewerError, showToast, toastHelper, changeBackground } from './viewer-utils.js';
+import { initClippingPlanes, updateActiveClippingPlanes, reportViewerError, showToast, toastHelper, changeBackground, markViewerUsed } from './viewer-utils.js';
 import { attachEmbedConfigurator } from "./ui/embed-configurator.js";
 import { attachUploadPanel } from "./ui/upload-panel.js";
 import { attachModelsPanel } from "./ui/models-panel.js";
@@ -113,6 +113,7 @@ import {
   getEditorToolbarIcon,
   getEditorToolbarHost,
   syncEditorToolbarSecondaryTrayWidth,
+  syncNoticeAboveToolbar,
   toggleToolbarExpanded as toggleEditorToolbarExpanded,
   updateClippingPlanesSubmenuState,
   updateEditorToolbarLabels as syncEditorToolbarLabels,
@@ -154,6 +155,8 @@ import {
 import { t } from "./i18n-utils.js";
 import { loadDroppedArchive } from "./extract-helper.js";
 import { loadDroppedModel, createCreditsElement } from "./sandbox.js";
+import { initErrorTracking } from "./error-tracking.js";
+import { isToolPanelChromeEnabled } from "./ui/tool-panel-chrome.js";
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 
 // Small inline icons for the keyboard-shortcuts hint (see
@@ -232,6 +235,7 @@ export const Viewer = {
   },
 
   stopHandMode() {
+    markViewerUsed();
     const g = core.GESTURE;
     if (g) {
       g.rotate = false;
@@ -639,8 +643,14 @@ export const Viewer = {
   refreshClippingHintVisibility() {
     const clippingMode = core.planeParams?.clippingMode || {};
     if (this.clippingHint) {
-      this.clippingHint.hidden = !(clippingMode.x || clippingMode.y || clippingMode.z);
+      this.clippingHint.hidden = !(clippingMode.x || clippingMode.y || clippingMode.z) || this.isClippingPanelReplacingHint();
     }
+  },
+
+  // On touch devices the section planes panel (with its sliders) is shown
+  // with the planes, and the drag hint over the model only takes up room.
+  isClippingPanelReplacingHint() {
+    return this.clippingMode === true && isToolPanelChromeEnabled();
   },
 
   updateClippingPlanesSubmenuState() {
@@ -846,7 +856,7 @@ export const Viewer = {
     const clippingMode = this.planeParams?.clippingMode || {};
     const hasActiveClipping = Boolean(clippingMode.x || clippingMode.y || clippingMode.z);
     const pickingHintVisible = Boolean(this.pickingHint && this.pickingHint.hidden === false);
-    this.clippingHint.hidden = !hasActiveClipping || pickingHintVisible;
+    this.clippingHint.hidden = !hasActiveClipping || pickingHintVisible || this.isClippingPanelReplacingHint();
   },
 
   updatePickingControlsVisibility() {
@@ -1507,6 +1517,7 @@ export const Viewer = {
 
     core.CONFIG = await this.loadRequiredJson(new URL(settingsPath, moduleUrl));
     console.log("Loaded viewer-settings.json", core.CONFIG.viewer);
+    initErrorTracking();
 
     if (Object.keys(core.CONFIG).length === 0) {
       core.CONFIG = {
@@ -2157,6 +2168,8 @@ export const Viewer = {
         Viewer.updateSize();
         Viewer.updateEditorToolbarLabels();
         Viewer.updateEditorToolbarState();
+        // The toolbar moves (in the app, above the ad banner): so do toasts.
+        syncNoticeAboveToolbar();
       });
     });
 
@@ -2189,6 +2202,13 @@ export const Viewer = {
     if (!g.active || !g.baseAngle || !g.target) return;
 
     const t = (time - g.startTime) / 1000;
+    // Returning users (showInteractionHint): done after maxCycles sweeps,
+    // back where it started.
+    if (g.maxCycles && t >= g.maxCycles * g.period) {
+      Viewer.stopGesture();
+      core.handHint?.classList.remove("hand-drag-animate");
+      return;
+    }
     const s = Math.sin((t / core.GESTURE.period) * Math.PI * 2);
 
     // EASE-IN (smoothstep)
@@ -3857,6 +3877,10 @@ export const Viewer = {
           let selectedModel = localurl.searchParams.get('model');
           if (!selectedModel) {
             selectedModel = localStorage.getItem('dfg3dviewer-example-model');
+          }
+          // The app's first model (mobile.defaultModel, rollup.config.js).
+          if (!selectedModel) {
+            selectedModel = core.CONFIG?.mobile?.defaultModel || null;
           }
           if (!selectedModel) {
             selectedModel = viewerElement.getAttribute('3d');

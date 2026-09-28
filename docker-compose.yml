@@ -42,13 +42,20 @@ services:
       - WORKER_LIMIT_MAX_MODELS=${WORKER_LIMIT_MAX_MODELS:-0}
       - WORKER_LIMIT_CONCURRENT_JOBS=${WORKER_LIMIT_CONCURRENT_JOBS:-1}
       - WORKER_MAX_CONCURRENT_CONVERSIONS=${WORKER_MAX_CONCURRENT_CONVERSIONS:-2}
-      # Business plan of the mobile app (worker/entitlements.py): off
-      # without a RevenueCat secret key. Set these in .env.
+      # Plans of the mobile app (worker/entitlements.py): Business limits and
+      # plans linked to accounts. Off without a RevenueCat secret key. Set
+      # these in .env.
       - WORKER_REVENUECAT_SECRET_KEY=${WORKER_REVENUECAT_SECRET_KEY:-}
       - WORKER_REVENUECAT_BUSINESS_ENTITLEMENT=${WORKER_REVENUECAT_BUSINESS_ENTITLEMENT:-business}
+      - WORKER_REVENUECAT_PRO_ENTITLEMENT=${WORKER_REVENUECAT_PRO_ENTITLEMENT:-pro}
+      # Testing only: accept the plan the app reports when linking.
+      - WORKER_APP_PLANS_UNVERIFIED=${WORKER_APP_PLANS_UNVERIFIED:-false}
       - WORKER_LIMIT_BUSINESS_UPLOADS_PER_HOUR=${WORKER_LIMIT_BUSINESS_UPLOADS_PER_HOUR:-100}
       - WORKER_LIMIT_BUSINESS_UPLOADS_PER_DAY=${WORKER_LIMIT_BUSINESS_UPLOADS_PER_DAY:-500}
       - WORKER_LIMIT_BUSINESS_CONCURRENT_JOBS=${WORKER_LIMIT_BUSINESS_CONCURRENT_JOBS:-3}
+      # Business accounts only; empty = the account defaults above.
+      - WORKER_LIMIT_BUSINESS_STORAGE_MB=${WORKER_LIMIT_BUSINESS_STORAGE_MB:-}
+      - WORKER_LIMIT_BUSINESS_MAX_MODELS=${WORKER_LIMIT_BUSINESS_MAX_MODELS:-}
       # Reverse proxies in front of the worker: 1 = the viewer's nginx
       # (docker/nginx.conf); 2 with docker/host-nginx.example.conf in front.
       - WORKER_TRUSTED_PROXIES=${WORKER_TRUSTED_PROXIES:-1}

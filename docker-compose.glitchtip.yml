@@ -1,0 +1,67 @@
+# GlitchTip - self-hosted error tracking for the viewer's bug reports and
+# crashes (viewer/error-tracking.js, docs/error-tracking.md). Separate from
+# docker-compose.yml, as its own compose project:
+#
+#   docker compose -f docker-compose.glitchtip.yml up -d
+#
+# Based on https://glitchtip.com/assets/compose.sample.yml, trimmed for low
+# memory (~256-512 MB): no Valkey (Postgres holds the task queue and cache),
+# no uptime monitoring or log ingestion. Set the GLITCHTIP_* values in .env
+# next to this file.
+name: glitchtip
+
+x-environment: &glitchtip-environment
+  DATABASE_URL: postgres://glitchtip:${GLITCHTIP_DB_PASSWORD:?set GLITCHTIP_DB_PASSWORD in .env}@postgres:5432/glitchtip
+  VALKEY_URL: ""
+  # openssl rand -hex 32
+  SECRET_KEY: ${GLITCHTIP_SECRET_KEY:?set GLITCHTIP_SECRET_KEY in .env}
+  # The public HTTPS address (the app only reaches HTTPS), e.g.
+  # https://glitchtip.example.org - DSNs are built from it.
+  GLITCHTIP_DOMAIN: ${GLITCHTIP_DOMAIN:?set GLITCHTIP_DOMAIN in .env}
+  # smtp://user:password@host:587 for invitations and alerts; consolemail://
+  # only logs them.
+  EMAIL_URL: ${GLITCHTIP_EMAIL_URL:-consolemail://}
+  DEFAULT_FROM_EMAIL: ${GLITCHTIP_FROM_EMAIL:-glitchtip@localhost}
+  # False still lets the first (admin) account register; everyone else is
+  # invited from the organization settings.
+  ENABLE_USER_REGISTRATION: ${GLITCHTIP_ENABLE_REGISTRATION:-False}
+  ENABLE_ORGANIZATION_CREATION: "False"
+  ENABLE_ADMIN: "False"
+  ENABLE_OPENAPI: "False"
+  GLITCHTIP_ENABLE_MCP: "False"
+  GLITCHTIP_ENABLE_DUCKDB: "False"
+  GLITCHTIP_ENABLE_LOGS: "False"
+  GLITCHTIP_ENABLE_UPTIME: "False"
+  # Days to keep events.
+  GLITCHTIP_EVENT_RETENTION_DAYS: ${GLITCHTIP_EVENT_RETENTION_DAYS:-90}
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: glitchtip
+      POSTGRES_DB: glitchtip
+      POSTGRES_PASSWORD: ${GLITCHTIP_DB_PASSWORD:?set GLITCHTIP_DB_PASSWORD in .env}
+    volumes:
+      - pg-data:/var/lib/postgresql
+    restart: unless-stopped
+
+  web:
+    # Check https://glitchtip.com/blog/ before moving to a new major version.
+    image: glitchtip/glitchtip:6
+    depends_on:
+      - postgres
+    ports:
+      # Local only: put the host's HTTPS reverse proxy in front
+      # (docs/error-tracking.md).
+      - "127.0.0.1:${GLITCHTIP_PORT:-8000}:8000"
+    environment:
+      <<: *glitchtip-environment
+      SERVER_ROLE: all_in_one
+    volumes:
+      - uploads:/code/uploads
+    restart: unless-stopped
+
+volumes:
+  pg-data:
+  uploads:

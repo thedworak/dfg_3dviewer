@@ -1,0 +1,56 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Icon 4D Emblem</title>
+<style>html,body{margin:0;background:#1e1e22;overflow:hidden}canvas{display:block}
+#ui{position:fixed;left:8px;bottom:8px;font:12px system-ui;color:#fff;background:#0008;padding:6px 8px;border-radius:6px;display:none}</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/","three/examples/jsm/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
+</head><body>
+<div id="ui">explode <input id="ex" type="range" min="0" max="1" step="0.01" value="0"> <span id="picked"></span></div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import * as M from './createIcon4dEmblemModel.js';
+import * as L from './icon4dLookDev.js';
+const q = new URLSearchParams(location.search);
+const stage = q.get('stage') || 'optimization';
+const staged = (min) => ['none', 'form', 'material', 'lighting', 'interaction', 'optimization'].indexOf(stage) >= ['none', 'form', 'material', 'lighting', 'interaction', 'optimization'].indexOf(min);
+const size = +(q.get('size') || 1024);
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.setSize(size, size);
+renderer.setClearColor(0x000000, 0);
+(staged('lighting') ? L.configureIcon4dRenderer : M.configureIcon4DEmblemRenderer)(renderer);
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.environment = M.createIcon4DEmblemEnvironment(renderer);
+scene.add(staged('lighting') ? L.createIcon4dLights() : M.createIcon4DEmblemLookDevLights('neutral'));
+const model = M.createIcon4DEmblemModel();
+L.applyIcon4dLookDev(model, stage, './');
+scene.add(model);
+window.model = model;
+if (q.get('unlit')) model.traverse(o => { if (o.material) o.material = new THREE.MeshBasicMaterial({ color: o.material.color ? o.material.color.clone() : 0x888888, visible: o.visible }); });
+const orbit = q.has('az') || q.has('el');
+const camera = L.createReferenceCamera(1);
+const target = orbit ? new THREE.Box3().setFromObject(model).getCenter(new THREE.Vector3()) : new THREE.Vector3();
+if (orbit) {
+  const az = THREE.MathUtils.degToRad(+(q.get('az') || 0)), el = THREE.MathUtils.degToRad(+(q.get('el') || 0));
+  camera.position.set(target.x + 16 * Math.sin(az) * Math.cos(el), target.y + 16 * Math.sin(el), target.z + 16 * Math.cos(az) * Math.cos(el));
+  camera.lookAt(target);
+}
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.copy(target); controls.update();
+if (staged('interaction')) {
+  const explode = L.enableExplode(model);
+  const ui = document.getElementById('ui'); if (!navigator.webdriver) ui.style.display = 'block';
+  document.getElementById('ex').oninput = (e) => explode(+e.target.value);
+  if (q.get('explode')) { explode(+q.get('explode')); document.getElementById('ex').value = q.get('explode'); }
+  renderer.domElement.addEventListener('pointerdown', (e) => {
+    const r = renderer.domElement.getBoundingClientRect();
+    const part = L.pickPart(model, camera, new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1));
+    document.getElementById('picked').textContent = part ? part.userData.sculptComponent.name : '';
+  });
+}
+function loop() { controls.update(); renderer.render(scene, camera); requestAnimationFrame(loop); }
+THREE.DefaultLoadingManager.onLoad = () => { window.__texturesLoaded = true; };
+loop();
+setTimeout(() => { window.__ready = true; }, 1500);
+</script></body></html>

@@ -14,6 +14,8 @@ could talk to either backend interchangeably:
   GET  /api/auth/config         -> {mode, registration}   (optional accounts,
   GET  /api/auth/me                 POST /api/auth/register|login|logout -
   POST /api/auth/...                see worker/auth.py and worker/README.md)
+  POST /api/app/link|sync|unlink  the mobile app's plan on an account (see
+                                  entitlements.py and worker/README.md)
   GET  /files/<id>/<path>       static access to converted output
   GET  /healthz                 liveness check
 
@@ -49,9 +51,10 @@ from urllib.parse import unquote, urlparse
 import mailer
 import optimize
 import pointcloud
-from auth import AuthError, AuthStore
+from auth import APP_TIERS, AuthError, AuthStore
 from entitlements import Entitlements, business_limits
-from limits import LIMIT_KEYS, LimitError, Limits, default_limits, normalize_overrides
+from limits import LIMIT_KEYS, LimitError, Limits, default_limits, is_business_account, normalize_overrides
+from limits import business_limits as account_business_limits
 
 APP_DIR = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = Path(os.environ.get("WORKER_SCRIPTS_DIR", str(APP_DIR / "scripts")))
@@ -201,8 +204,11 @@ def find_model_file(root: Path):
 
 JOB_ID_RE = re.compile(r"[A-Za-z0-9_-]+")
 LIMITS = Limits(JOBS_DIR, JOB_ID_RE, MAX_CONCURRENT_CONVERSIONS)
-# Business plan of the mobile app (see entitlements.py); off without a key.
+# Plans of the mobile app (see entitlements.py); off without a key.
 ENTITLEMENTS = Entitlements()
+# Testing only: without a RevenueCat key, accept the plan the app reports
+# when it links to an account (the app's testing builds force a plan).
+APP_PLANS_UNVERIFIED = os.environ.get("WORKER_APP_PLANS_UNVERIFIED", "false").lower() == "true"
 ACTIVE_STATUSES = {"init", "queued", "preparing", "processing", "rendering"}
 
 
@@ -663,6 +669,49 @@ class Handler(BaseHTTPRequestHandler):
         except AuthError as exc:
             self._send_json(exc.status, {"error": exc.message})
 
+    def _verified_app_plan(self, app_user_id: str, claimed_tier: str = "") -> dict:
+        """The plan of the calling app, from RevenueCat (never from the app,
+        unless WORKER_APP_PLANS_UNVERIFIED is set for testing)."""
+        if ENTITLEMENTS.enabled:
+            try:
+                return ENTITLEMENTS.plan(app_user_id, fresh=True)
+            except (OSError, ValueError) as exc:
+                print(f"[entitlements] RevenueCat check failed: {exc}")
+                raise AuthError(502, "The purchase could not be verified right now. Try again later.")
+        if APP_PLANS_UNVERIFIED:
+            return {"tier": claimed_tier if claimed_tier in APP_TIERS else "free", "expiresAt": None}
+        raise AuthError(503, "Purchase verification is not configured on this server.")
+
+    def _handle_app_plan(self, action: str) -> None:
+        """The app's purchase on an account: link (with the account's
+        credentials), sync (re-verify the linked plan, e.g. after a
+        purchase) and unlink. The app is identified by X-App-User-Id."""
+        app_user_id = self.headers.get("X-App-User-Id", "").strip()
+        try:
+            if not AUTH.enabled:
+                raise AuthError(404, "Accounts are not enabled.")
+            if not Entitlements.valid_id(app_user_id):
+                raise AuthError(400, "Missing or invalid X-App-User-Id.")
+            if action == "unlink":
+                AUTH.unlink_app(app_user_id)
+                self._send_json(200, {"user": None, "plan": None})
+                return
+            data = self._read_json_body() if int(self.headers.get("Content-Length", "0") or 0) else {}
+            claimed = str(data.get("tier", ""))
+            if action == "link":
+                user = AUTH.login(data.get("username", ""), data.get("password", ""))
+                username = user["username"]
+            else:
+                username = AUTH.user_for_app_id(app_user_id)
+                if not username:
+                    self._send_json(200, {"user": None, "plan": None})
+                    return
+            plan = self._verified_app_plan(app_user_id, claimed)
+            AUTH.set_app_plan(username, app_user_id, plan)
+            self._send_json(200, {"user": username, "plan": plan})
+        except AuthError as exc:
+            self._send_json(exc.status, {"error": exc.message})
+
     def _handle_admin_user_action(self, username: str, action: str) -> None:
         admin = self._require_admin()
         if admin is None:
@@ -753,7 +802,11 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/api/auth/me":
             user = self._current_user()
-            self._send_json(200, {"user": user["username"] if user else None, "role": user["role"] if user else None})
+            self._send_json(200, {
+                "user": user["username"] if user else None,
+                "role": user["role"] if user else None,
+                "plan": user.get("plan") if user else None,
+            })
             return
 
         if path == "/api/jobs":
@@ -779,7 +832,12 @@ class Handler(BaseHTTPRequestHandler):
                 key = Limits.key_for(user, "")
                 user["effectiveLimits"] = Limits.effective_limits(user, user.get("limits"))
                 user["usage"] = LIMITS.usage(key, user["username"], active_jobs_for(key))
-            self._send_json(200, {"users": users, "defaultLimits": default_limits()})
+            self._send_json(200, {
+                "users": users,
+                "defaultLimits": default_limits(),
+                # What accounts with the app's Business plan start from.
+                "businessLimits": account_business_limits(),
+            })
             return
 
         match = re.match(r"/files/([A-Za-z0-9_-]+)/(.+)", path)
@@ -800,6 +858,10 @@ class Handler(BaseHTTPRequestHandler):
         match = re.fullmatch(r"/api/auth/(register|login|logout)", path)
         if match:
             self._handle_auth(match.group(1))
+            return
+        match = re.fullmatch(r"/api/app/(link|sync|unlink)", path)
+        if match:
+            self._handle_app_plan(match.group(1))
             return
         match = re.fullmatch(r"/api/admin/users/([A-Za-z0-9_.-]+)/limits", path)
         if match:
@@ -1009,7 +1071,8 @@ def admin_cli(args) -> None:
                 sys.exit(f"No such user: {user}")
             effective = Limits.effective_limits(record, record.get("limits"))
             for name in LIMIT_KEYS:
-                source = "override" if name in record.get("limits", {}) else "default"
+                source = "override" if name in record.get("limits", {}) else (
+                    "business plan" if is_business_account(record) else "default")
                 if record["role"] == "admin":
                     source = "admin"
                 print(f"{name:<16} {effective[name] or 'unlimited':<10} ({source})")

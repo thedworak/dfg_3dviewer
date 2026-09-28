@@ -5,8 +5,12 @@ The Android app (Capacitor, `pnpm run build:mobile`) has three plans:
 | Plan | Price | What it adds |
 |---|---|---|
 | Free | free | Everything for viewing, with ads: a banner along the bottom and a full-screen ad after every 3rd model (at most once per 3 minutes, never for the first model) |
-| Pro | one-time purchase | No ads |
-| Business | monthly subscription | No ads, higher upload/conversion limits on the repository, a custom repository address, annotations (including IIIF import/export) and the materials editor |
+| Pro | 20 €, one-time purchase | No ads |
+| Business | 20 € per month, subscription | No ads, browsing the models on the repository (viewer.thedworak.com; the other plans have the models on the device, uploading works on every plan), higher upload/conversion limits on the repository, a custom repository address, annotations (including IIIF import/export) and the materials editor |
+
+The prices in the plans panel are the store's (localized) once it answers; until then, and in builds without the store, it shows 20 € (`DEFAULT_PRICES` in `plan.js`, or `mobile.monetization.prices` in the settings). The price actually charged is the one set in Google Play Console.
+
+Whatever the current plan does not include carries the same lock as the locked toolbar tools: the features on the plan cards (on the Free card, what Free lacks), the toolbar tools, "Remote" in the models panel's device/remote switch and the repository address field. A tap on a locked tool, tab or field opens the plans panel. Browsing is locked in the app only: `GET /api/jobs` stays public, since the web viewer uses it.
 
 Web builds are not affected: they have no plans, no ads and nothing locked.
 
@@ -15,13 +19,16 @@ Web builds are not affected: they have no plans, no ads and nothing locked.
 - `viewer/monetization/plan.js`: the current plan and what each plan unlocks (`FEATURES`, `LOCKED_TOOLS`). Changing a plan's features is an edit there. The plan comes from RevenueCat entitlements (`pro`, `business`) and is remembered on the device, so the app starts offline with the last known plan.
 - `viewer/monetization/ads.js`: AdMob (`@capacitor-community/admob`), with Google's consent form (UMP) before any ad in the EEA/UK. The page leaves room for the banner, so the toolbar sits above it.
 - `viewer/ui/plans-panel.js`: the plans panel (crown button in the header): prices from the store, buy/subscribe, restore purchases, ad privacy options. Locked toolbar tools show a lock and open this panel.
-- `worker/entitlements.py`: Business limits on the repository. The app sends its RevenueCat app user id in `X-App-User-Id`, and the worker checks it with RevenueCat (see `worker/README.md`, "Business plan of the mobile app").
+- `viewer/monetization/account-link.js`: links the purchase to an account on the repository (plans panel, "Account"). The worker verifies the plan with RevenueCat and stores it on the account; the admin panel and the account panel show it next to the user name, and a Business account gets the Business limits for uploads from the browser too. See `worker/README.md`, "App plans linked to accounts".
+- `worker/entitlements.py`: Business limits on the repository and the plan of linked accounts. The app sends its RevenueCat app user id in `X-App-User-Id`, and the worker checks it with RevenueCat (see `worker/README.md`, "Business plan of the mobile app").
 
 ## Test build (default)
 
 Without any setup the build uses Google's AdMob test units (test ads are shown) and no RevenueCat key: the store is off and buying is disabled. The plans panel then has a "Test: force plan" selector to try each plan without buying it.
 
 ## Going live
+
+The full pre-release checklist (server settings, signing, Play Console listing) is in [`publishing.md`](publishing.md).
 
 1. **Google Play Console** - create the app, then:
    - in-app product (one-time) `explora_pro`,

@@ -2,6 +2,7 @@ import { core } from "../core.js";
 import { showToast, toastHelper } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import THREE from "../init.js";
+import { attachToolPanelChrome } from "../ui/tool-panel-chrome.js";
 
 export const SHADING_MODES = ["standard", "phong", "lambert", "toon", "custom"];
 
@@ -221,6 +222,11 @@ export function attachShadingEditor(Viewer) {
       this.shadingDialogPosition = null;
       const panel = dialog.querySelector(".materials-dialog__panel");
       const header = dialog.querySelector(".materials-dialog__header");
+      attachToolPanelChrome(panel, header, {
+        before: header.querySelector(".materials-dialog__close"),
+        movable: false,
+        visibilityRoot: dialog,
+      });
       this.shadingDialogInputs = {
         vertex: dialog.querySelector("#shadingDialogVertex"),
         fragment: dialog.querySelector("#shadingDialogFragment"),
@@ -321,9 +327,10 @@ export function attachShadingEditor(Viewer) {
       const panelHeight = panel?.offsetHeight || Math.min(700, height * 0.88);
 
       if (!this.shadingDialogPosition) {
+        // The top right corner, like the other tool panels (side stack).
         this.shadingDialogPosition = {
-          left: Math.max(left + 12, left + width - panelWidth - 16),
-          top: Math.max(top + 16, top + Math.min(40, Math.max(16, height * 0.08))),
+          left: Math.max(left + 12, left + width - panelWidth - 12),
+          top: top + 12,
         };
       } else {
         const minLeft = left + 12;

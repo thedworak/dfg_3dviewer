@@ -216,7 +216,33 @@ function copyBuildAssets() {
         viewerSettings.viewer.editor = true;
         viewerSettings.viewer.lightweight = true;
         viewerSettings.viewer.gallery = { ...viewerSettings.viewer.gallery, build: false };
-        viewerSettings.mobile = { remoteUrl: process.env.MOBILE_REMOTE_URL ?? '' };
+        // Bug reports and crashes go to GlitchTip (docs/error-tracking.md);
+        // off without a DSN.
+        if (process.env.MOBILE_GLITCHTIP_DSN) {
+          viewerSettings.viewer.errorTracking = {
+            dsn: process.env.MOBILE_GLITCHTIP_DSN,
+            environment: process.env.MOBILE_GLITCHTIP_ENVIRONMENT || 'app',
+          };
+        }
+        viewerSettings.mobile = {
+          remoteUrl: process.env.MOBILE_REMOTE_URL ?? '',
+          // First model the app opens, until the user picks another (main.js).
+          // The progressive Wolpa Synagogue: the same model as the full one,
+          // about a sixth of its size (Meshopt + KTX2).
+          defaultModel: process.env.MOBILE_DEFAULT_MODEL || './examples/WolpaSynagogue-progressive.glb',
+        };
+        // The launch splash artwork for the page (viewer/app-splash.js) -
+        // Android's own splash shows only the icon. WebP: the PNGs in
+        // resources/ are a few MB each.
+        copyPromises.push((async () => {
+          const { default: sharp } = await import('sharp');
+          await fs.mkdir(path.join(outDistDir, 'assets/img'), { recursive: true });
+          await Promise.all([['splash.png', 'app-splash.webp'], ['splash-dark.png', 'app-splash-dark.webp']]
+            .map(([source, target]) => sharp(path.join('resources', source))
+              .resize(1440, 1440, { fit: 'inside', withoutEnlargement: true })
+              .webp({ quality: 82 })
+              .toFile(path.join(outDistDir, 'assets/img', target))));
+        })());
         // Plans and ads (viewer/monetization/, docs/mobile-monetization.md).
         // Defaults are Google's AdMob test units and no RevenueCat key (the
         // store stays off); release builds pass their own through the env.

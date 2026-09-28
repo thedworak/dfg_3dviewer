@@ -8,7 +8,8 @@ portfolio links keep working.
 Storage lives next to the jobs (JOBS_DIR/.auth/, on the same persistent
 volume; the dot prefix keeps it out of the job listing):
 
-  users.json  accounts (scrypt password hashes, role, status)
+  users.json  accounts (scrypt password hashes, role, status, and the
+              mobile app plan linked to the account - see set_app_plan)
   secret      HMAC key for session tokens (or WORKER_AUTH_SECRET)
 
 Sessions are stateless signed tokens in an HttpOnly cookie, so they survive a
@@ -48,6 +49,21 @@ MODES = ("off", "required")
 REGISTRATION_MODES = ("open", "approval", "closed")
 STATUSES = ("active", "pending", "disabled")
 ROLES = ("user", "admin")
+APP_TIERS = ("free", "pro", "business")
+
+
+def effective_app_plan(record: dict):
+    """The account's mobile app plan ({"tier", "expiresAt", "updatedAt"}),
+    with a lapsed subscription reported as free; None when no app purchase
+    is linked."""
+    plan = record.get("appPlan")
+    if not plan:
+        return None
+    tier = plan.get("tier", "free")
+    expires = plan.get("expiresAt")
+    if expires and expires < time.time():
+        tier = "free"
+    return {"tier": tier, "expiresAt": expires, "updatedAt": plan.get("updatedAt", 0)}
 
 
 class AuthError(Exception):
@@ -247,7 +263,7 @@ class AuthStore:
         record = self._load().get(username)
         if not record or record["status"] != "active":
             return None
-        return {"username": username, "role": record["role"]}
+        return {"username": username, "role": record["role"], "plan": effective_app_plan(record)}
 
     def cookie_header(self, token: str, secure: bool, clear: bool = False) -> str:
         parts = [f"{COOKIE_NAME}={'' if clear else token}", "Path=/", "HttpOnly", "SameSite=Lax",
@@ -267,9 +283,52 @@ class AuthStore:
                 "status": rec["status"],
                 "createdAt": rec.get("createdAt", 0),
                 "limits": rec.get("limits", {}),
+                "plan": effective_app_plan(rec),
             }
             for name, rec in sorted(self._load().items())
         ]
+
+    # ---- mobile app plans (entitlements.py) ----------------------------
+
+    def set_app_plan(self, username: str, app_user_id: str, plan: dict) -> None:
+        """Links the app's purchase (RevenueCat app user id and its verified
+        plan) to the account. One app id belongs to one account: linking it
+        elsewhere moves it."""
+        if plan.get("tier") not in APP_TIERS:
+            raise AuthError(400, f"tier must be one of {APP_TIERS}")
+        with self._lock:
+            users = self._load()
+            if username not in users:
+                raise AuthError(404, f"No such user: {username}")
+            for record in users.values():
+                if (record.get("appPlan") or {}).get("appUserId") == app_user_id:
+                    record.pop("appPlan", None)
+            users[username]["appPlan"] = {
+                "appUserId": app_user_id,
+                "tier": plan["tier"],
+                "expiresAt": plan.get("expiresAt"),
+                "updatedAt": int(time.time()),
+            }
+            self._save(users)
+
+    def user_for_app_id(self, app_user_id: str):
+        """The account an app user id is linked to, or None."""
+        for name, record in self._load().items():
+            if (record.get("appPlan") or {}).get("appUserId") == app_user_id:
+                return name
+        return None
+
+    def unlink_app(self, app_user_id: str) -> bool:
+        with self._lock:
+            users = self._load()
+            found = False
+            for record in users.values():
+                if (record.get("appPlan") or {}).get("appUserId") == app_user_id:
+                    record.pop("appPlan", None)
+                    found = True
+            if found:
+                self._save(users)
+            return found
 
     def get_limits(self, username: str) -> dict:
         """Per-account limit overrides (see limits.py); {} = defaults."""

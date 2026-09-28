@@ -3,7 +3,8 @@ import { apiUrl, remoteAssetUrl, isAppBuild, hasRemote, remoteBase, setRemoteUrl
 import { listLibrary, saveToLibrary, repositoryEntryId } from "../offline-library.js";
 import { toastHelper } from "../viewer-utils.js";
 import { isOnline } from "../connectivity.js";
-import { hasFeature } from "../monetization/plan.js";
+import { hasFeature, isPlansEnabled } from "../monetization/plan.js";
+import { createPlanLockIcon } from "./plans-panel.js";
 import { t } from "../i18n-utils.js";
 import { makePanelWindow } from "./panel-window.js";
 
@@ -86,6 +87,12 @@ export function attachModelsPanel(Viewer) {
           this.refreshAuthState?.();
           this.loadModelsList();
         });
+        // Locked (no Business plan): a tap on the field opens the plans.
+        this.bindEventListener(repositoryForm.querySelector(".models-panel-repository-row"), "click", () => {
+          if (repositoryForm.dataset.locked !== "true") return;
+          toastHelper("planLocked", "info", { key: "plan-locked", replace: true });
+          this.openPlansPanel?.("business");
+        });
       }
 
       this.updateRepositoryFormVisibility();
@@ -95,15 +102,21 @@ export function attachModelsPanel(Viewer) {
       makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"));
     },
 
-    // The address field is a Business feature in the app (monetization/plan.js).
+    // The address field is a Business feature in the app (monetization/plan.js):
+    // the other plans see it locked, with the address the app was built with.
     updateRepositoryFormVisibility() {
       const form = this.modelsPanel?.querySelector("#modelsPanelRepository");
       if (!form) return;
       const allowed = hasFeature("customRepository");
-      const wasHidden = form.hidden;
-      form.hidden = !allowed;
+      const wasLocked = form.dataset.locked === "true";
+      const locked = isPlansEnabled() && !allowed;
+      form.dataset.locked = locked ? "true" : "false";
+      form.querySelectorAll("input, button").forEach((control) => { control.disabled = locked; });
+      const label = form.querySelector("label");
+      label.querySelector(".plan-lock-icon")?.remove();
+      if (locked) label.appendChild(createPlanLockIcon());
       form.querySelector("input").value = remoteBase();
-      if (wasHidden !== form.hidden && this.modelsPanel?.hidden === false) this.loadModelsList();
+      if (wasLocked !== locked && this.modelsPanel?.hidden === false) this.loadModelsList();
     },
 
     async loadModelsList() {
@@ -112,6 +125,16 @@ export function attachModelsPanel(Viewer) {
       if (!this.modelsList || this.modelsPanel?.hidden) return;
       const list = this.modelsList;
       list.textContent = "";
+
+      // Not in this plan (models-source.js keeps the panel closed; this is
+      // the fallback if it gets here anyway).
+      if (!hasFeature("remoteModels")) {
+        const lockedItem = document.createElement("li");
+        lockedItem.className = "models-panel-empty";
+        lockedItem.append(createPlanLockIcon(), t("toasts.planLocked", "Available in the Business plan."));
+        list.appendChild(lockedItem);
+        return;
+      }
 
       if (!hasRemote()) {
         const emptyItem = document.createElement("li");
