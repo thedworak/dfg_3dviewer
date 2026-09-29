@@ -178,6 +178,8 @@ function copyBuildAssets() {
         copyDirectory('viewer/manifesto/examples', path.join(outDistDir, 'manifests')),
         // copy admin panel (but we'll remove any local sqlite DB afterwards)
         !mobile && copyDirectory('viewer/admin', path.join(outDistDir, 'admin')),
+        // Privacy policy for the store listings: <site>/privacy.html
+        !mobile && fs.copyFile('viewer/legal/privacy.html', path.join(outDistDir, 'privacy.html')),
       ]);
       await stampCssImports(path.join(outDistDir, 'assets/css/viewer.css'));
 
