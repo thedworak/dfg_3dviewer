@@ -37,17 +37,12 @@ The full pre-release checklist (server settings, signing, Play Console listing) 
    - entitlements `pro` (product `explora_pro`) and `business` (product `explora_business_monthly`),
    - an offering `default` (current) with a Lifetime package (`explora_pro`) and a Monthly package (`explora_business_monthly`).
 3. **AdMob** - create the app and two ad units: an adaptive banner and an interstitial. Set up the GDPR message (Privacy & messaging) for the consent form.
-4. **Build the release:**
+4. **Build the release:** fill in the `MOBILE_*` part of `.env` (see `.env.example`: RevenueCat public key, AdMob app id and ad units, GlitchTip DSN), then
    ```bash
-   MOBILE_MONETIZATION_TESTING=false \
-   MOBILE_REVENUECAT_API_KEY=goog_xxx \
-   MOBILE_ADMOB_BANNER_ID=ca-app-pub-xxx/yyy \
-   MOBILE_ADMOB_INTERSTITIAL_ID=ca-app-pub-xxx/zzz \
-   pnpm run cap:sync
-   cd android && ./gradlew bundleRelease -PadmobAppId=ca-app-pub-xxx~nnn
+   scripts/build-android-release.sh
    ```
-   The AdMob *app* id (with `~`) goes to Gradle; without it the manifest keeps Google's test app id.
-5. **Worker** - set `WORKER_REVENUECAT_SECRET_KEY` (RevenueCat v2 secret key, read-only Customers + Entitlements) and `WORKER_REVENUECAT_PROJECT_ID` in `.env` next to `docker-compose.yml` and restart the worker.
+   It refuses test values, checks the synced settings and builds the signed bundle; the AdMob *app* id (with `~`) goes to Gradle, without it the manifest keeps Google's test app id. The manual commands are in `docs/publishing.md`, "Build variables".
+5. **Worker** - set `WORKER_REVENUECAT_SECRET_KEY` (RevenueCat v2 secret key, read-only Customers + Entitlements) and `WORKER_REVENUECAT_PROJECT_ID` in `.env` (see `.env.example`) next to `docker-compose.yml` and restart the worker.
 
 | Build variable | Default | |
 |---|---|---|

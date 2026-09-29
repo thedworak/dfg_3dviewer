@@ -82,6 +82,12 @@ export function remoteAssetUrl(url) {
   return base + url;
 }
 
+// The page to request deleting an account and its data (viewer/legal/),
+// served by the repository the account lives on.
+export function deleteAccountUrl() {
+  return remoteAssetUrl('/delete-account.html');
+}
+
 // body.viewer-app hides what cannot work from inside the app (sign-in and user
 // management rely on a same-site session cookie); body.viewer-no-remote hides
 // everything that needs a repository when none is configured.

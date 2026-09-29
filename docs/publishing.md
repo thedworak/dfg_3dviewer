@@ -6,7 +6,7 @@ Order matters when the app and the server change together: **deploy the server f
 
 ## 1. Server (worker and web viewer)
 
-Set these in `.env` next to `docker-compose.yml` on the server (never in `docker-compose.yml` itself, which is in git), then `docker compose up -d --build`.
+Set these in `.env` next to `docker-compose.yml` on the server (never in `docker-compose.yml` itself, which is in git), then `docker compose up -d --build`. [`.env.example`](../.env.example) lists every variable with its default: `cp .env.example .env` and fill it in. Only variables passed in `docker-compose.yml` reach the worker - anything else in `.env` is ignored.
 
 ### Must set
 
@@ -24,14 +24,28 @@ Set these in `.env` next to `docker-compose.yml` on the server (never in `docker
 | Variable | Default | Note |
 |---|---|---|
 | `WORKER_AUTH_REGISTRATION` | `approval` | `open` lets accounts upload right after registering |
-| `WORKER_AUTH_SECRET` | generated into the volume | Set it only if the volume can be lost or several workers share sessions |
+| `WORKER_AUTH_SECRET` | empty: generated into the `worker-jobs` volume | Set it only if the volume can be lost (everyone would be logged out) or several workers share sessions |
 | `WORKER_SMTP_*`, `WORKER_PUBLIC_URL` | unset (no mail) | Needed for the "account approved" email |
 | `WORKER_LIMIT_*` | 20/h, 100/day, 1 concurrent | Free/Pro accounts and anonymous (per IP) uploads |
 | `WORKER_LIMIT_BUSINESS_*` | 100/h, 500/day, 3 concurrent | Business: app users and accounts with Business linked |
 | `WORKER_REVENUECAT_BUSINESS_ENTITLEMENT` / `_PRO_ENTITLEMENT` | `business` / `pro` | Must match the entitlement identifiers in RevenueCat |
-| `WORKER_MAX_UPLOAD_BYTES` | 100 MB | Keep `client_max_body_size` in `docker/nginx.conf` in step |
+| `WORKER_MAX_UPLOAD_BYTES` | 100 MB | Keep `client_max_body_size` in `docker/nginx.conf` (and in a host nginx) in step |
+| `WORKER_REVENUECAT_CACHE_SEC` | `600` | How long a verified plan is cached |
 
 Everything the worker reads is described in [`worker/README.md`](../worker/README.md).
+
+### Viewer settings on the server
+
+Each viewer service copies its `viewer-settings.json` and profile manifest into its settings volume on the first start (`docker/viewer-entrypoint.d/10-persist-viewer-settings.sh`) and keeps using that copy, so a rebuild does not change them - edit them there, e.g. `docker compose exec viewer-test vi /data/viewer-config/viewer-settings.json`. The example settings they start from still have placeholders and test values:
+
+| Key | Example value | Production |
+|---|---|---|
+| `mainUrl`, `entity.exportViewerUrl` | `https://your.domain.com` | The public address of the site |
+| `viewer.credits.logo.url` | `https://your-domain.com` | Your site, or remove the link |
+| `viewer.gallery.buildFake` | `true`: placeholder "Preview 1-9" images for models without renders | `false`, with `viewer.gallery.build: true` - converted models keep their gallery (the worker's renders) |
+| `viewer.errorTracking.dsn` | not set: bug reports and crashes go nowhere | The GlitchTip project DSN ([`error-tracking.md`](error-tracking.md)) |
+
+Also check the profile manifest (`VIEWER_PROFILE`, `docker/profiles/*.manifest.json`): all three profiles have `editor: true`, and `sandbox` turns the site into drag-and-drop mode.
 
 ### Deploy pipeline
 
@@ -60,7 +74,7 @@ The prices charged are the ones set in Play Console. The app shows the store's p
 
 ### Build variables
 
-The defaults build a **test** app: Google's test ads, no store, and a "force plan" selector in the plans panel. A release build must set all of these:
+The defaults build a **test** app: Google's test ads, no store, and a "force plan" selector in the plans panel. A release build must set all of these - in the `MOBILE_*` part of `.env` (see [`.env.example`](../.env.example)), read by `scripts/build-android-release.sh`:
 
 | Variable | Release value | Default (test) |
 |---|---|---|
@@ -68,19 +82,30 @@ The defaults build a **test** app: Google's test ads, no store, and a "force pla
 | `MOBILE_REVENUECAT_API_KEY` | RevenueCat **public** Google key (`goog_...`) | empty: store off, buying disabled |
 | `MOBILE_ADMOB_BANNER_ID` | `ca-app-pub-xxx/yyy` | Google test unit |
 | `MOBILE_ADMOB_INTERSTITIAL_ID` | `ca-app-pub-xxx/zzz` | Google test unit |
-| `-PadmobAppId` (Gradle) | `ca-app-pub-xxx~nnn` (the app id, with `~`) | Google's test app id |
-| `MOBILE_REMOTE_URL` | the production repository | `https://viewer.thedworak.com` (set in `package.json` `build:mobile`) |
+| `MOBILE_ADMOB_APP_ID` (Gradle `-PadmobAppId`) | `ca-app-pub-xxx~nnn` (the app id, with `~`) | Google's test app id |
+| `MOBILE_GLITCHTIP_DSN` | the GlitchTip project DSN ([`error-tracking.md`](error-tracking.md)) | empty: bug reports and crashes from the app go nowhere |
+| `MOBILE_REMOTE_URL` | the production repository | `https://viewer.thedworak.com` (`rollup.config.js`); empty = offline only |
+
+```bash
+cp .env.example .env    # once; fill in the MOBILE_* part
+scripts/build-android-release.sh
+```
+
+The script reads only the `MOBILE_*` lines (so the same `.env` can hold the server's secrets; variables set in the shell win), always builds with `MOBILE_MONETIZATION_TESTING=false`, and stops before building when a value is missing or a test value: an `sk_` key instead of `goog_`, Google's test ad ids (`3940256099942544`), no signing properties. After `pnpm run cap:sync` it checks `dist/mobile/viewer-settings.json` (`"testing": false`, a RevenueCat key, no test ids), then runs `./gradlew bundleRelease -PadmobAppId=…` and prints the path of the `.aab`. `--env FILE` reads another file, `--sync-only` stops before the gradle build.
+
+Without the script, the same by hand:
 
 ```bash
 MOBILE_MONETIZATION_TESTING=false \
 MOBILE_REVENUECAT_API_KEY=goog_xxx \
 MOBILE_ADMOB_BANNER_ID=ca-app-pub-xxx/yyy \
 MOBILE_ADMOB_INTERSTITIAL_ID=ca-app-pub-xxx/zzz \
+MOBILE_GLITCHTIP_DSN=https://key@glitchtip.example.org/1 \
 pnpm run cap:sync
 cd android && ./gradlew bundleRelease -PadmobAppId=ca-app-pub-xxx~nnn
 ```
 
-Check the result before uploading: `dist/mobile/viewer-settings.json` must have `"testing": false`, a non-empty `revenuecat.apiKey` and no `3940256099942544` (Google's test publisher id) in the AdMob ids.
+and check `dist/mobile/viewer-settings.json` before uploading: `"testing": false`, a non-empty `revenuecat.apiKey` and no `3940256099942544` (Google's test publisher id) in the AdMob ids.
 
 ### Version
 
@@ -111,7 +136,8 @@ keytool -genkeypair -keystore ~/keys/explora-upload.jks -alias upload \
 
 ### Play Console listing
 
-- Privacy policy URL (required: ads and purchases).
+- Privacy policy URL (required: ads and purchases): `https://viewer.thedworak.com/privacy.html` (source: `viewer/legal/privacy.html`, copied into web builds). Update it when the collected data changes.
+- Delete account URL (required: the app lets users create accounts): `https://viewer.thedworak.com/delete-account.html` (source: `viewer/legal/delete-account.html`). The app links to it from the plans panel (Account) and the login panel.
 - Data safety form: advertising ID, purchase history, and the account user name and password sent when linking a plan to an account.
 - Content rating questionnaire, target audience, and the "contains ads" declaration.
 - What to test before production, and in which order: section 3.
@@ -122,12 +148,12 @@ In-app products and subscriptions can only be created after an app bundle with t
 
 1. **Internal testing, test build.** Build a signed bundle with the default (test) settings and upload it to the internal testing track. This unlocks in-app products in Play Console.
 2. **Store setup.** Create `explora_pro` (20 €) and `explora_business_monthly` (20 € per month), then RevenueCat and AdMob (see "Store accounts" above). Add your own Google accounts under Settings > License testing: they buy without being charged, and monthly subscriptions renew every few minutes, so renewal and expiry of Business can be tested.
-3. **Server.** Deploy the worker with `WORKER_REVENUECAT_SECRET_KEY` (section 1).
-4. **Internal testing, release build.** Build with all the release variables (`MOBILE_MONETIZATION_TESTING=false`, RevenueCat key, real AdMob ids) and a higher `versionCode`, upload it to internal testing, and test: buy Pro, subscribe to Business, restore purchases, link to an account and see the plan in the admin panel. Register your phone as a test device in AdMob first - clicking your own real ads can get the AdMob account suspended.
+3. **Server.** Deploy the worker with `WORKER_REVENUECAT_SECRET_KEY` and `WORKER_REVENUECAT_PROJECT_ID` (section 1).
+4. **Internal testing, release build.** Build with `scripts/build-android-release.sh` (all the release variables: RevenueCat key, real AdMob ids, GlitchTip DSN) and a higher `versionCode`, upload it to internal testing, and test: buy Pro, subscribe to Business, restore purchases, link to an account and see the plan in the admin panel. Register your phone as a test device in AdMob first - clicking your own real ads can get the AdMob account suspended.
 5. **Closed testing.** New personal developer accounts must run a closed test (at the time of writing: at least 12 testers for 14 days in a row) before they can apply for production; organization accounts can skip this. Use a release build here - a test build lets testers force any plan without paying.
 6. **Production.** Once the listing, declarations and (for personal accounts) the closed test are complete.
 
 ## 4. Web viewer settings
 
-- `viewer-settings.json` / the Docker profile manifest (`docker/profiles/*.manifest.json`): production URLs, and `editor`/`sandbox` as intended for the public site. See [`viewer-settings.md`](viewer-settings.md) and [`docker.md`](docker.md).
+- `viewer-settings.json` / the Docker profile manifest (`docker/profiles/*.manifest.json`): production URLs, no placeholder gallery, error tracking, and `editor`/`sandbox` as intended for the public site - see "Viewer settings on the server" in section 1, [`viewer-settings.md`](viewer-settings.md) and [`docker.md`](docker.md).
 - Web builds have no plans, ads or locks. Nothing from the app's monetization needs setting there.

@@ -31,8 +31,8 @@ services:
       # nvidia-container-toolkit installed on the host.
       - WORKER_RENDER_DEVICE=AUTO
       # Upload cap in bytes (100 MB). Keep in sync with client_max_body_size
-      # in docker/nginx.conf.
-      - WORKER_MAX_UPLOAD_BYTES=104857600
+      # in docker/nginx.conf; set it in .env to change.
+      - WORKER_MAX_UPLOAD_BYTES=${WORKER_MAX_UPLOAD_BYTES:-104857600}
       # Upload limits - see "Upload limits" in worker/README.md. 0 means
       # unlimited; admins are never limited and can override these per
       # account in the viewer's user panel. Set them in .env to change.
@@ -49,6 +49,7 @@ services:
       - WORKER_REVENUECAT_PROJECT_ID=${WORKER_REVENUECAT_PROJECT_ID:-}
       - WORKER_REVENUECAT_BUSINESS_ENTITLEMENT=${WORKER_REVENUECAT_BUSINESS_ENTITLEMENT:-business}
       - WORKER_REVENUECAT_PRO_ENTITLEMENT=${WORKER_REVENUECAT_PRO_ENTITLEMENT:-pro}
+      - WORKER_REVENUECAT_CACHE_SEC=${WORKER_REVENUECAT_CACHE_SEC:-600}
       # Testing only: accept the plan the app reports when linking.
       - WORKER_APP_PLANS_UNVERIFIED=${WORKER_APP_PLANS_UNVERIFIED:-false}
       - WORKER_LIMIT_BUSINESS_UPLOADS_PER_HOUR=${WORKER_LIMIT_BUSINESS_UPLOADS_PER_HOUR:-100}
@@ -68,6 +69,9 @@ services:
       - WORKER_AUTH_REGISTRATION=${WORKER_AUTH_REGISTRATION:-approval}
       - WORKER_ADMIN_USER=${WORKER_ADMIN_USER:-}
       - WORKER_ADMIN_PASSWORD=${WORKER_ADMIN_PASSWORD:-}
+      # Session-signing key; empty = generated once into the worker-jobs
+      # volume. Set it if that volume can be lost (logins would reset).
+      - WORKER_AUTH_SECRET=${WORKER_AUTH_SECRET:-}
       # Optional: mail users when an admin approves their account (see
       # "Accounts" in worker/README.md). Mail stays off without SMTP_HOST.
       - WORKER_SMTP_HOST=${WORKER_SMTP_HOST:-}

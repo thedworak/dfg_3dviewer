@@ -331,6 +331,7 @@ export const VIEWER_I18N = {
       accountLink: "Link",
       accountLinked: "Linked to {user}",
       accountUnlink: "Unlink",
+      accountDelete: "Delete account and data",
     },
     adminPanel: {
       lastUpload: "last upload {date}",
@@ -949,6 +950,7 @@ export const VIEWER_I18N = {
       accountLink: "Połącz",
       accountLinked: "Połączono z {user}",
       accountUnlink: "Odłącz",
+      accountDelete: "Usuń konto i dane",
     },
     toolPanel: {
       move: "Przesuń panel (podwójne dotknięcie: przypnij z powrotem)",
@@ -1600,6 +1602,7 @@ export const VIEWER_I18N = {
       accountLink: "Verknüpfen",
       accountLinked: "Verknüpft mit {user}",
       accountUnlink: "Trennen",
+      accountDelete: "Konto und Daten löschen",
     },
     adminPanel: {
       lastUpload: "letzter Upload {date}",

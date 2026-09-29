@@ -27,6 +27,7 @@ import {
   unlinkAccount,
 } from "../monetization/account-link.js";
 import { canShowAdPrivacyOptions, showAdPrivacyOptions } from "../monetization/ads.js";
+import { createDeleteAccountLink } from "./login-panel.js";
 
 // A lock like the one on toolbar tools the plan does not include (the same
 // icon, see .plan-lock-icon in main.css).
@@ -204,7 +205,7 @@ export function attachPlansPanel(Viewer) {
           }
         });
         row.append(label, unlink);
-        section.appendChild(row);
+        section.append(row, createDeleteAccountLink());
         return section;
       }
 
@@ -245,7 +246,7 @@ export function attachPlansPanel(Viewer) {
           submit.disabled = false;
         }
       });
-      section.append(hint, form);
+      section.append(hint, form, createDeleteAccountLink());
       return section;
     },
 

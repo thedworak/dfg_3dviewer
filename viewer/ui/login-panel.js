@@ -1,5 +1,5 @@
 import { core } from "../core.js";
-import { apiUrl, hasRemote } from "../remote.js";
+import { apiUrl, deleteAccountUrl, hasRemote } from "../remote.js";
 import { t } from "../i18n-utils.js";
 import { makePanelWindow } from "./panel-window.js";
 
@@ -23,6 +23,17 @@ async function authRequest(path, body) {
     throw error;
   }
   return data;
+}
+
+// Opens outside the viewer (in the app: the system browser).
+export function createDeleteAccountLink() {
+  const link = document.createElement("a");
+  link.className = "delete-account-link";
+  link.href = deleteAccountUrl();
+  link.target = "_blank";
+  link.rel = "noopener";
+  link.textContent = t("plans.accountDelete", "Delete account and data");
+  return link;
 }
 
 // The mobile app plan of an account (worker/entitlements.py), next to its name.
@@ -171,7 +182,7 @@ export function attachLoginPanel(Viewer) {
         logout.type = "button";
         logout.textContent = t("uploadPanel.logout", "Log out");
         this.bindEventListener(logout, "click", () => this.handleAuthAction("logout"));
-        section.append(label, logout);
+        section.append(label, logout, createDeleteAccountLink());
         return;
       }
 
