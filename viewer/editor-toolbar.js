@@ -377,7 +377,7 @@ export function applyEditorToolbarConfig(viewer, toolbarConfig = {}) {
   core.editorToolbar.classList.toggle("expanded", expanded);
   core.editorToolbar.classList.toggle("collapsed", !expanded);
   syncToolbarExpandOffset(viewer, core.editorToolbar);
-  requestAnimationFrame(updateToolbarGroupDividers);
+  requestAnimationFrame(updateToolbarGroups);
   viewer.editorToolbarButtons.expand?.classList.toggle("expanded-icon", expanded);
   viewer.editorToolbarButtons.expand?.setAttribute("aria-expanded", expanded ? "true" : "false");
   const icon = viewer.editorToolbarButtons.expand?.querySelector(".viewer-editor-tool_icon");
@@ -595,7 +595,7 @@ export function toggleToolbarExpanded(viewer) {
   }
   // After the tray's open/close transition (0.2s on phones).
   setTimeout(syncNoticeAboveToolbar, 250);
-  requestAnimationFrame(updateToolbarGroupDividers);
+  requestAnimationFrame(updateToolbarGroups);
   core.editorToolbar.classList.toggle("expanded", viewer.isToolbarExpanded);
   core.editorToolbar.classList.toggle("collapsed", !viewer.isToolbarExpanded);
   syncToolbarExpandOffset(viewer, core.editorToolbar);
@@ -666,10 +666,10 @@ export function createEditorToolbar(viewer) {
   toolbar.setAttribute("role", "toolbar");
   toolbar.setAttribute("aria-label", t("toolbar.editor", "Editor tools"));
 
-  // Ordered by theme; `group` draws a faint divider between neighbouring
-  // groups (updateToolbarGroupDividers), without extra spacing.
+  // Ordered by theme; each `group` sits on a faint shared background
+  // (updateToolbarGroups), without extra spacing.
   const tools = [
-    { key: "moveToolbar", group: "handle", icon: "moveToolbar", onClick: () => {}, pressed:true, primary: true },
+    { key: "moveToolbar", icon: "moveToolbar", onClick: () => {}, pressed:true, primary: true },
     // Transform the model.
     { key: "orbit", group: "transform", icon: "orbit", onClick: () => viewer.setObjectTransformMode(""), primary: true },
     { key: "move", group: "transform", icon: "move", onClick: () => viewer.toggleObjectTransformMode("translate"), pressed: true, primary: true },
@@ -1655,7 +1655,7 @@ export function createEditorToolbar(viewer) {
   viewer.bindEventListener(window, "resize", () => {
     syncEditorToolbarSecondaryTrayWidth(viewer);
     // The phone tray may wrap into different rows.
-    updateToolbarGroupDividers();
+    updateToolbarGroups();
   });
 }
 
@@ -2046,11 +2046,12 @@ function updateTourSubmenuState(viewer) {
   button.setAttribute("aria-label", label);
 }
 
-// Marks the first shown tool of each group (data-group) that follows another
-// group in the same row; CSS draws the divider in the gap before it. Tools
-// can be hidden (point cloud, app build, action menu), the tray folds away
+// Groups of tools (data-group) share a faint background: every shown tool
+// of a group draws its piece of it (.in-group), and the first and last one
+// in a row round it off (.group-first/.group-last). Tools can be hidden
+// (point cloud, app build, moved to the action menu), the tray folds away
 // and on phones wraps into rows - hence worked out from what is on screen.
-export function updateToolbarGroupDividers() {
+export function updateToolbarGroups() {
   const toolbar = core.editorToolbar;
   if (!toolbar) return;
   const expanded = toolbar.classList.contains("expanded");
@@ -2062,21 +2063,22 @@ export function updateToolbarGroupDividers() {
       tools.push(child);
     }
   }
-  toolbar.querySelectorAll(".viewer-editor-tool.group-start").forEach((tool) => tool.classList.remove("group-start"));
-  let previous = null;
-  for (const tool of tools) {
-    const rect = tool.getBoundingClientRect();
-    if (tool.hidden || rect.width === 0) continue;
-    if (
-      previous?.tool.dataset.group &&
-      tool.dataset.group &&
-      tool.dataset.group !== previous.tool.dataset.group &&
-      Math.abs(rect.top - previous.rect.top) < rect.height / 2
-    ) {
-      tool.classList.add("group-start");
-    }
-    previous = { tool, rect };
-  }
+  toolbar
+    .querySelectorAll(".in-group")
+    .forEach((tool) => tool.classList.remove("in-group", "group-first", "group-last"));
+
+  const shown = tools
+    .map((tool) => ({ tool, rect: tool.getBoundingClientRect() }))
+    .filter(({ tool, rect }) => !tool.hidden && rect.width > 0);
+  const sameRun = (a, b) =>
+    a && b && a.tool.dataset.group && a.tool.dataset.group === b.tool.dataset.group &&
+    Math.abs(a.rect.top - b.rect.top) < a.rect.height / 2;
+  shown.forEach((entry, index) => {
+    if (!entry.tool.dataset.group) return;
+    entry.tool.classList.add("in-group");
+    entry.tool.classList.toggle("group-first", !sameRun(shown[index - 1], entry));
+    entry.tool.classList.toggle("group-last", !sameRun(entry, shown[index + 1]));
+  });
 }
 
 export function updateEditorToolbarState(viewer) {
@@ -2121,5 +2123,5 @@ export function updateEditorToolbarState(viewer) {
   updateBackgroundSubmenuState(viewer);
   updateStatisticsSubmenuState(viewer);
   updateShadingSubmenuState(viewer);
-  updateToolbarGroupDividers();
+  updateToolbarGroups();
 }

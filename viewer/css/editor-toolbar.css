@@ -267,26 +267,50 @@
   transition: width 0.55s ease, height 0.55s ease, opacity 0.55s ease, transform 0.55s ease, background 0.5s ease, border-color 0.5s ease, color 0.5s ease;
 }
 
-/* A faint line between tool groups (updateToolbarGroupDividers), drawn in
-   the middle of the existing gap before the group's first tool - so the
-   spacing stays as it is. Hung on the icon, not the button: tools with a
-   submenu are position: static in the phone tray, so the card anchors it. */
-.viewer-editor-tool.group-start > .viewer-editor-tool_icon {
+/* Tool groups (updateToolbarGroups): a faint shared background. Each tool
+   draws its piece, reaching half the gap to each side so the pieces join,
+   and the ends of a run are rounded - the spacing stays as it is. Hung on
+   the icon, not the button: tools with a submenu are position: static in
+   the phone tray, so the card anchors their submenu. Painted below the
+   buttons (z-index -1 in the toolbar's stacking context). */
+#viewerEditorToolbar .viewer-editor-tool.in-group > .viewer-editor-tool_icon {
   position: relative;
 }
 
-.viewer-editor-tool.group-start > .viewer-editor-tool_icon::before {
+#viewerEditorToolbar .viewer-editor-tool.in-group > .viewer-editor-tool_icon::before {
+  --viewer-group-reach: calc(var(--viewer-toolbar-gap) / 2);
   content: "";
   position: absolute;
+  z-index: -1;
   top: 50%;
-  /* Button edge (icon centred in it), then half the gap. */
-  left: calc(50% - var(--viewer-tool-width, 40px) / 2 - var(--viewer-toolbar-gap) / 2 - 0.5px);
-  width: 1px;
-  height: 22px;
+  left: calc(50% - var(--viewer-tool-width, 40px) / 2 - var(--viewer-group-reach));
+  width: calc(var(--viewer-tool-width, 40px) + 2 * var(--viewer-group-reach));
+  height: 40px;
   transform: translateY(-50%);
-  background: var(--viewer-panel-text);
-  opacity: 0.16;
+  background: color-mix(in srgb, var(--viewer-panel-text) 6%, transparent);
   pointer-events: none;
+}
+
+#viewerEditorToolbar .viewer-editor-tool.group-first > .viewer-editor-tool_icon::before {
+  left: calc(50% - var(--viewer-tool-width, 40px) / 2);
+  width: calc(var(--viewer-tool-width, 40px) + var(--viewer-group-reach));
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
+}
+
+#viewerEditorToolbar .viewer-editor-tool.group-last > .viewer-editor-tool_icon::before {
+  width: calc(var(--viewer-tool-width, 40px) + var(--viewer-group-reach));
+  border-top-right-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+#viewerEditorToolbar .viewer-editor-tool.group-first.group-last > .viewer-editor-tool_icon::before {
+  width: var(--viewer-tool-width, 40px);
+}
+
+/* The hover lift (below) moves the button; its piece stays in line. */
+#viewerEditorToolbar .viewer-editor-tool.in-group:hover > .viewer-editor-tool_icon::before {
+  margin-top: 1px;
 }
 
 .viewer-editor-tool:hover {
@@ -469,6 +493,31 @@
 
 .viewer-editor-tool_submenu-button.viewer-editor-tool_submenu-control {
   align-items: center;
+}
+
+/* Lights: the colour and intensity controls sized to their content - the
+   general 160px minimum left a swatch alone in a wide box. */
+[data-tool="lights"] .viewer-editor-tool_submenu-button.viewer-editor-tool_submenu-control:not(.viewer-editor-tool_submenu-toggle) {
+  gap: 6px;
+  min-width: 0;
+  min-height: 34px;
+  padding: 3px 8px;
+  border-radius: 10px;
+}
+
+[data-tool="lights"] .viewer-editor-tool_submenu-button input[type="color"] {
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+}
+
+[data-tool="lights"] .viewer-editor-tool_submenu-button input[type="range"] {
+  margin-left: 0;
+}
+
+[data-tool="lights"] .viewer-editor-tool_submenu-button .viewer-editor-tool_submenu-value {
+  margin-left: 0;
+  min-width: 28px;
 }
 
 .viewer-editor-tool_submenu.viewer-editor-tool_submenu-materials {
@@ -1590,6 +1639,10 @@
     transform: none;
   }
 
+  #viewerEditorToolbar .viewer-editor-toolbar_secondary-tray > .viewer-editor-tool.in-group.has-submenu:hover > .viewer-editor-tool_icon::before {
+    margin-top: 0;
+  }
+
   #viewerEditorToolbar .viewer-editor-toolbar_secondary-tray > .has-submenu > .viewer-editor-tool_submenu {
     left: 50%;
     bottom: calc(100% + 8px);
@@ -1617,6 +1670,16 @@
     flex-wrap: wrap;
     justify-content: center;
     box-sizing: border-box;
+  }
+
+  /* So the environment map (toggle, intensity, four styles) fits one row
+     on a usual phone. */
+  #viewerEditorToolbar [data-tool="lights"] .viewer-editor-tool_submenu {
+    gap: 4px;
+  }
+
+  #viewerEditorToolbar [data-tool="lights"] .viewer-editor-tool_submenu-button input[type="range"] {
+    width: 64px;
   }
 }
 
