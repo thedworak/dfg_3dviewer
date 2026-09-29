@@ -75,6 +75,71 @@ body[data-viewer-theme="dark"] #manageUsersButton {
   }
 }
 
+/* Sort bar above the user list (renderAdminUsers). */
+.admin-users-sort {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 11px;
+}
+
+.admin-users-sort[hidden] {
+  display: none;
+}
+
+.admin-users-sort label {
+  opacity: 0.7;
+}
+
+.admin-users-sort select,
+.admin-users-sort button {
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--viewer-panel-text);
+  font: inherit;
+  padding: 3px 6px;
+}
+
+.admin-users-sort select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.admin-users-sort select option {
+  color: initial;
+}
+
+.admin-users-sort button {
+  flex: none;
+  width: 26px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-users-sort button:hover {
+  background: color-mix(in srgb, var(--viewer-panel-text) 12%, transparent);
+}
+
+/* App plan next to the user name: Free grey, Pro like the Pro badge,
+   Business with the badge's gradient (inside the SVG). */
+.admin-plan-icon {
+  display: inline-flex;
+  margin-left: 6px;
+  vertical-align: -2px;
+  line-height: 0;
+  cursor: help;
+}
+
+.admin-plan-icon[data-tier="free"] {
+  color: color-mix(in srgb, var(--viewer-panel-text) 45%, transparent);
+}
+
+.admin-plan-icon[data-tier="pro"] {
+  color: #0ea5e9;
+}
+
 .admin-users-list {
   display: flex;
   flex-direction: column;

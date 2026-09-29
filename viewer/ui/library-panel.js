@@ -3,6 +3,7 @@ import { toastHelper } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import { makePanelWindow } from "./panel-window.js";
 import { listLibrary, saveToLibrary, removeFromLibrary, libraryEntryFile } from "../offline-library.js";
+import { setPendingIfcProperties } from "../ifc-properties.js";
 
 function formatSize(bytes) {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -138,9 +139,12 @@ export function attachLibraryPanel(Viewer) {
       text.appendChild(caption);
       button.appendChild(text);
 
-      this.bindEventListener(button, "click", () => {
+      this.bindEventListener(button, "click", async () => {
         this.closeLibraryPanel();
-        this.openLocalFile(libraryEntryFile(entry));
+        // Saved from the repository with its IFC properties (models-panel.js).
+        setPendingIfcProperties(entry.ifcProperties);
+        await this.openLocalFile(libraryEntryFile(entry));
+        setPendingIfcProperties(null);
       });
       item.appendChild(button);
 

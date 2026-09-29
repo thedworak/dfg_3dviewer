@@ -142,6 +142,48 @@ export function syncNoticeAboveToolbar() {
 // its CSS-opened submenu could not be closed by tapping the tool again. In the
 // secondary tray a tap toggles .submenu-open instead (see editor-toolbar.css);
 // opening one closes the others, and a tap outside the toolbar closes all.
+// Submenus are centred on their tool, so near a screen edge - or a nested
+// one wider than a phone (the lights' environment map) - they ran off
+// screen. Shifts the submenu back inside with a margin (its transform is
+// left to the CSS); in the toolbar's own units, as the toolbar is scaled.
+const SUBMENU_EDGE = 8;
+
+function fitSubmenuToViewport(submenu) {
+  if (!submenu) return;
+  // Measured where it ends up open: the closed state has another transform,
+  // and the opening transition would report a place on the way.
+  const transition = submenu.style.transition;
+  submenu.style.transition = "none";
+  submenu.style.marginLeft = "";
+  const rect = submenu.getBoundingClientRect();
+  if (rect.width > 0) {
+    const right = document.documentElement.clientWidth - SUBMENU_EDGE;
+    let shift = 0;
+    if (rect.width > right - SUBMENU_EDGE || rect.left < SUBMENU_EDGE) shift = SUBMENU_EDGE - rect.left;
+    else if (rect.right > right) shift = right - rect.right;
+    if (Math.abs(shift) >= 1) {
+      const scale = rect.width / (submenu.offsetWidth || rect.width);
+      submenu.style.marginLeft = `${shift / scale}px`;
+    }
+  }
+  submenu.getBoundingClientRect();
+  submenu.style.transition = transition;
+}
+
+function bindSubmenuFitting(viewer, toolbar) {
+  const fit = (event) => {
+    // Touch opens submenus on the tap itself (bindTouchSubmenus fits them).
+    if (window.matchMedia("(hover: none)").matches) return;
+    const item = event.target.closest?.(".has-submenu");
+    if (item && toolbar.contains(item)) {
+      fitSubmenuToViewport(item.querySelector(":scope > .viewer-editor-tool_submenu"));
+    }
+  };
+  // Hover and keyboard open submenus in CSS.
+  viewer.bindEventListener(toolbar, "pointerover", fit);
+  viewer.bindEventListener(toolbar, "focusin", fit);
+}
+
 function bindTouchSubmenus(viewer, toolbar, tray) {
   const closeOpenSubmenus = (keep = null) => {
     tray.querySelectorAll(".has-submenu.submenu-open").forEach((item) => {
@@ -158,6 +200,7 @@ function bindTouchSubmenus(viewer, toolbar, tray) {
     const open = !item.classList.contains("submenu-open");
     closeOpenSubmenus(item);
     item.classList.toggle("submenu-open", open);
+    if (open) fitSubmenuToViewport(submenu);
     syncNoticeAboveToolbar();
   });
 
@@ -334,6 +377,7 @@ export function applyEditorToolbarConfig(viewer, toolbarConfig = {}) {
   core.editorToolbar.classList.toggle("expanded", expanded);
   core.editorToolbar.classList.toggle("collapsed", !expanded);
   syncToolbarExpandOffset(viewer, core.editorToolbar);
+  requestAnimationFrame(updateToolbarGroups);
   viewer.editorToolbarButtons.expand?.classList.toggle("expanded-icon", expanded);
   viewer.editorToolbarButtons.expand?.setAttribute("aria-expanded", expanded ? "true" : "false");
   const icon = viewer.editorToolbarButtons.expand?.querySelector(".viewer-editor-tool_icon");
@@ -551,6 +595,7 @@ export function toggleToolbarExpanded(viewer) {
   }
   // After the tray's open/close transition (0.2s on phones).
   setTimeout(syncNoticeAboveToolbar, 250);
+  requestAnimationFrame(updateToolbarGroups);
   core.editorToolbar.classList.toggle("expanded", viewer.isToolbarExpanded);
   core.editorToolbar.classList.toggle("collapsed", !viewer.isToolbarExpanded);
   syncToolbarExpandOffset(viewer, core.editorToolbar);
@@ -621,43 +666,50 @@ export function createEditorToolbar(viewer) {
   toolbar.setAttribute("role", "toolbar");
   toolbar.setAttribute("aria-label", t("toolbar.editor", "Editor tools"));
 
+  // Ordered by theme; each `group` sits on a faint shared background
+  // (updateToolbarGroups), without extra spacing.
   const tools = [
     { key: "moveToolbar", icon: "moveToolbar", onClick: () => {}, pressed:true, primary: true },
-    { key: "orbit", icon: "orbit", onClick: () => viewer.setObjectTransformMode(""), primary: true },
-    { key: "move", icon: "move", onClick: () => viewer.toggleObjectTransformMode("translate"), pressed: true, primary: true },
-    { key: "rotate", icon: "rotate", onClick: () => viewer.toggleObjectTransformMode("rotate"), pressed: true, primary: true },
-    { key: "scale", icon: "scale", onClick: () => viewer.toggleObjectTransformMode("scale"), pressed: true, primary: true },
-    { key: "lights", icon: "lights", onClick: () => {}, pressed: false, primary: false },    
-    { key: "materials", icon: "materials", onClick: () => viewer.openMaterialsFolder(), pressed: false, primary: false },
-    { key: "shading", icon: "shading", onClick: () => {}, pressed: false, primary: false },
-    { key: "picking", icon: "picking", onClick: () => viewer.togglePickingMode(), pressed: true, primary: false },
-    { key: "hierarchy", icon: "hierarchy", onClick: () => {}, pressed: true, primary: false },
-    { key: "annotate", icon: "annotate", onClick: () => viewer.openAnnotationDialogWithAutoPicking(), primary: false },
-    { key: "ruler", icon: "ruler", onClick: () => viewer.toggleDistanceMeasurement(), pressed: true, primary: false },
+    // Transform the model.
+    { key: "orbit", group: "transform", icon: "orbit", onClick: () => viewer.setObjectTransformMode(""), primary: true },
+    { key: "move", group: "transform", icon: "move", onClick: () => viewer.toggleObjectTransformMode("translate"), pressed: true, primary: true },
+    { key: "rotate", group: "transform", icon: "rotate", onClick: () => viewer.toggleObjectTransformMode("rotate"), pressed: true, primary: true },
+    { key: "scale", group: "transform", icon: "scale", onClick: () => viewer.toggleObjectTransformMode("scale"), pressed: true, primary: true },
     // Shown only while a point cloud is loaded (updateEditorToolbarState):
     // opens its settings window (editor/point-cloud-panel.js).
-    { key: "pointCloud", icon: "pointCloud", onClick: () => viewer.togglePointCloudPanel?.(), pressed: true, primary: true },
-    { key: "fullScreen", icon: "fullScreen", onClick: () => viewer.toggleFullscreen(), pressed: true, primary: true },
-    { key: "clippingPlanes", icon: "clippingPlanes", onClick: () => viewer.toggleClippingPlanesPanel(), pressed: true, primary: false },
-    { key: "resetCamera", icon: "resetCamera", onClick: () => viewer.resetCamera(), primary: false },
-    { key: "resetSettings", icon: "resetSettings", onClick: () => viewer.resetModelSettings(), primary: false },
-    { key: "projection", icon: "projection", onClick: () => viewer.toggleCameraProjection(), pressed: true, primary: false },
-    { key: "wireframe", icon: "wireframe", onClick: () => viewer.toggleWireframeMode(), pressed: true, primary: false },    
-    { key: "statistics", icon: "statistics", onClick: () => {}, pressed: false, primary: false },
-    { key: "background", icon: "background", onClick: () => {}, pressed: false, primary: false },
-    { key: "reportBug", icon: "reportBug", onClick: () => reportBug(), primary: false },
-    { key: "help", icon: "help", onClick: () => viewer.showKeyboardShortcutsHint({ manual: true }), pressed: true, primary: false },
-
+    { key: "pointCloud", group: "display", icon: "pointCloud", onClick: () => viewer.togglePointCloudPanel?.(), pressed: true, primary: true },
+    { key: "fullScreen", group: "display", icon: "fullScreen", onClick: () => viewer.toggleFullscreen(), pressed: true, primary: true },
+    // Camera and view.
+    { key: "resetCamera", group: "view", icon: "resetCamera", onClick: () => viewer.resetCamera(), primary: false },
+    { key: "projection", group: "view", icon: "projection", onClick: () => viewer.toggleCameraProjection(), pressed: true, primary: false },
+    { key: "clippingPlanes", group: "view", icon: "clippingPlanes", onClick: () => viewer.toggleClippingPlanesPanel(), pressed: true, primary: false },
+    // Appearance.
+    { key: "lights", group: "appearance", icon: "lights", onClick: () => {}, pressed: false, primary: false },
+    { key: "materials", group: "appearance", icon: "materials", onClick: () => viewer.openMaterialsFolder(), pressed: false, primary: false },
+    { key: "shading", group: "appearance", icon: "shading", onClick: () => {}, pressed: false, primary: false },
+    { key: "wireframe", group: "appearance", icon: "wireframe", onClick: () => viewer.toggleWireframeMode(), pressed: true, primary: false },
+    { key: "background", group: "appearance", icon: "background", onClick: () => {}, pressed: false, primary: false },
+    { key: "resetSettings", group: "appearance", icon: "resetSettings", onClick: () => viewer.resetModelSettings(), primary: false },
+    // Inspect, measure, annotate.
+    { key: "picking", group: "inspect", icon: "picking", onClick: () => viewer.togglePickingMode(), pressed: true, primary: false },
+    { key: "hierarchy", group: "inspect", icon: "hierarchy", onClick: () => {}, pressed: true, primary: false },
+    { key: "ruler", group: "inspect", icon: "ruler", onClick: () => viewer.toggleDistanceMeasurement(), pressed: true, primary: false },
+    { key: "annotate", group: "inspect", icon: "annotate", onClick: () => viewer.openAnnotationDialogWithAutoPicking(), primary: false },
+    { key: "statistics", group: "inspect", icon: "statistics", onClick: () => {}, pressed: false, primary: false },
+    // Help.
+    { key: "reportBug", group: "help", icon: "reportBug", onClick: () => reportBug(), primary: false },
+    { key: "help", group: "help", icon: "help", onClick: () => viewer.showKeyboardShortcutsHint({ manual: true }), pressed: true, primary: false },
   ];
 
   // Not in the app (remote.js): the WebView ignores download links, and the
   // preview and save buttons send to the server.
   if ((!core.isLightweight || core.isLocalPreview) && !isAppBuild()) {
-    tools.splice(tools.length - 1, 0,
-      { key: "loadingLogs", icon: "loadingLogs", onClick: () => viewer.toggleLoadingLogs(), pressed: true, primary: false },
-      { key: "download", icon: "download", onClick: () => downloadFile(core.fileObject.filename), pressed: true, primary: false },
-      { key: "preview", icon: "preview", onClick: () => viewer.takeScreenshot(), primary: false },
-      { key: "save", icon: "save", onClick: () => {}, primary: false }
+    // File: before the help group.
+    tools.splice(tools.findIndex((tool) => tool.group === "help"), 0,
+      { key: "loadingLogs", group: "file", icon: "loadingLogs", onClick: () => viewer.toggleLoadingLogs(), pressed: true, primary: false },
+      { key: "download", group: "file", icon: "download", onClick: () => downloadFile(core.fileObject.filename), pressed: true, primary: false },
+      { key: "preview", group: "file", icon: "preview", onClick: () => viewer.takeScreenshot(), primary: false },
+      { key: "save", group: "file", icon: "save", onClick: () => {}, primary: false }
     );
   }
 
@@ -691,6 +743,7 @@ export function createEditorToolbar(viewer) {
       button.classList.add("viewer-editor-tool-not-primary");
     }
     button.dataset.tool = tool.key;
+    if (tool.group) button.dataset.group = tool.group;
     button.dataset.pressed = tool.pressed ? "true" : "false";
     button.dataset.primary = tool.primary ? "true" : "false";
     if (tool.key === "materials") {
@@ -1552,6 +1605,7 @@ export function createEditorToolbar(viewer) {
 
   toolbar.appendChild(secondaryTray);
   bindTouchSubmenus(viewer, toolbar, secondaryTray);
+  bindSubmenuFitting(viewer, toolbar);
 
   const expandButton = document.createElement("button");
   expandButton.type = "button";
@@ -1598,7 +1652,11 @@ export function createEditorToolbar(viewer) {
   viewer.updateEditorToolbarLabels();
   viewer.updateEditorToolbarState();
   syncEditorToolbarSecondaryTrayWidth(viewer);
-  viewer.bindEventListener(window, "resize", () => syncEditorToolbarSecondaryTrayWidth(viewer));
+  viewer.bindEventListener(window, "resize", () => {
+    syncEditorToolbarSecondaryTrayWidth(viewer);
+    // The phone tray may wrap into different rows.
+    updateToolbarGroups();
+  });
 }
 
 export function updateHierarchySubmenuState(viewer) {
@@ -1988,6 +2046,41 @@ function updateTourSubmenuState(viewer) {
   button.setAttribute("aria-label", label);
 }
 
+// Groups of tools (data-group) share a faint background: every shown tool
+// of a group draws its piece of it (.in-group), and the first and last one
+// in a row round it off (.group-first/.group-last). Tools can be hidden
+// (point cloud, app build, moved to the action menu), the tray folds away
+// and on phones wraps into rows - hence worked out from what is on screen.
+export function updateToolbarGroups() {
+  const toolbar = core.editorToolbar;
+  if (!toolbar) return;
+  const expanded = toolbar.classList.contains("expanded");
+  const tools = [];
+  for (const child of toolbar.children) {
+    if (child.classList.contains("viewer-editor-toolbar_secondary-tray")) {
+      if (expanded) tools.push(...child.children);
+    } else {
+      tools.push(child);
+    }
+  }
+  toolbar
+    .querySelectorAll(".in-group")
+    .forEach((tool) => tool.classList.remove("in-group", "group-first", "group-last"));
+
+  const shown = tools
+    .map((tool) => ({ tool, rect: tool.getBoundingClientRect() }))
+    .filter(({ tool, rect }) => !tool.hidden && rect.width > 0);
+  const sameRun = (a, b) =>
+    a && b && a.tool.dataset.group && a.tool.dataset.group === b.tool.dataset.group &&
+    Math.abs(a.rect.top - b.rect.top) < a.rect.height / 2;
+  shown.forEach((entry, index) => {
+    if (!entry.tool.dataset.group) return;
+    entry.tool.classList.add("in-group");
+    entry.tool.classList.toggle("group-first", !sameRun(shown[index - 1], entry));
+    entry.tool.classList.toggle("group-last", !sameRun(entry, shown[index + 1]));
+  });
+}
+
 export function updateEditorToolbarState(viewer) {
   if (!viewer.editorToolbarButtons) return;
 
@@ -2030,4 +2123,5 @@ export function updateEditorToolbarState(viewer) {
   updateBackgroundSubmenuState(viewer);
   updateStatisticsSubmenuState(viewer);
   updateShadingSubmenuState(viewer);
+  updateToolbarGroups();
 }

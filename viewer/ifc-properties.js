@@ -16,6 +16,10 @@ let highlights = [];
 const hiddenNodes = new Set();
 let selectedNode = null;
 let highlightMaterial = null;
+// Properties handed over with a model opened from a File (blob: URL, which has no
+// metadata/ sibling to fetch) - the app downloads repository models before opening
+// them. Taken by the next loadIfcProperties().
+let pendingData = null;
 
 const esc = (v) =>
   String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -32,8 +36,18 @@ export function clearIfcProperties() {
   closeIfcPanel();
 }
 
+export function setPendingIfcProperties(data) {
+  pendingData = data?.elements ? data : null;
+}
+
 export async function loadIfcProperties(url) {
+  const pending = pendingData;
+  pendingData = null;
   clearIfcProperties();
+  if (pending) {
+    ifcData = pending;
+    return;
+  }
   if (!url) return;
   try {
     const response = await fetch(url, { cache: "no-cache" });

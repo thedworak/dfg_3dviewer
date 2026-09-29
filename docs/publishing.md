@@ -13,7 +13,8 @@ Set these in `.env` next to `docker-compose.yml` on the server (never in `docker
 | Variable | Production value | Why |
 |---|---|---|
 | `WORKER_APP_PLANS_UNVERIFIED` | `false` (the default) - **never `true`** | `true` makes the worker trust the plan the app reports, so anyone can claim Business |
-| `WORKER_REVENUECAT_SECRET_KEY` | RevenueCat **secret** API key (`sk_...`) | Without it: no Business limits for app users, and linking a purchase to an account answers 503 |
+| `WORKER_REVENUECAT_SECRET_KEY` | RevenueCat **v2 secret** API key (`sk_...`), read-only: Customers + Entitlements (see `worker/README.md`) | Without it: no Business limits for app users, and linking a purchase to an account answers 503 |
+| `WORKER_REVENUECAT_PROJECT_ID` | RevenueCat project id (`proj...`) | Needed with the key (API v2 is per project) |
 | `WORKER_ADMIN_PASSWORD` | a long, unique password | The bootstrap admin (`WORKER_ADMIN_USER`) is created or **reset to this password on every start** |
 | `WORKER_AUTH_MODE` | `required` | Accounts, upload limits per account and app plans on accounts need it; `off` leaves uploading open to anyone |
 | `WORKER_TRUSTED_PROXIES` | `1` behind the bundled nginx only; `2` with a host nginx / Cloudflare-terminating proxy in front (see `docker/host-nginx.example.conf`) | A wrong value makes per-IP limits count the proxy instead of the visitor (or lets visitors fake their IP) |
@@ -27,7 +28,7 @@ Set these in `.env` next to `docker-compose.yml` on the server (never in `docker
 | `WORKER_SMTP_*`, `WORKER_PUBLIC_URL` | unset (no mail) | Needed for the "account approved" email |
 | `WORKER_LIMIT_*` | 20/h, 100/day, 1 concurrent | Free/Pro accounts and anonymous (per IP) uploads |
 | `WORKER_LIMIT_BUSINESS_*` | 100/h, 500/day, 3 concurrent | Business: app users and accounts with Business linked |
-| `WORKER_REVENUECAT_BUSINESS_ENTITLEMENT` / `_PRO_ENTITLEMENT` | `business` / `pro` | Must match the entitlement ids in RevenueCat |
+| `WORKER_REVENUECAT_BUSINESS_ENTITLEMENT` / `_PRO_ENTITLEMENT` | `business` / `pro` | Must match the entitlement identifiers in RevenueCat |
 | `WORKER_MAX_UPLOAD_BYTES` | 100 MB | Keep `client_max_body_size` in `docker/nginx.conf` in step |
 
 Everything the worker reads is described in [`worker/README.md`](../worker/README.md).

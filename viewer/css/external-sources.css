@@ -597,3 +597,46 @@ body[data-viewer-theme="dark"] #example-model-picker {
     display: none;
   }
 }
+
+/* Touch screens (Android) draw an overlay scrollbar that only shows while
+   the list moves, and no CSS keeps it on screen - so nothing said the list
+   scrolls. The picker draws its own slim thumb instead: a background layer
+   the scroll position moves (scroll-driven animation). With nothing to
+   scroll the timeline is inactive and the thumb stays transparent. */
+@property --example-picker-scroll {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+
+@property --example-picker-scroll-thumb {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: transparent;
+}
+
+@keyframes example-picker-scroll {
+  from {
+    --example-picker-scroll: 0%;
+    --example-picker-scroll-thumb: var(--example-picker-thumb-hover);
+  }
+  to {
+    --example-picker-scroll: 100%;
+    --example-picker-scroll-thumb: var(--example-picker-thumb-hover);
+  }
+}
+
+@supports (appearance: base-select) and (animation-timeline: scroll()) {
+  @media (pointer: coarse) {
+    #example-model-picker select::picker(select) {
+      scrollbar-width: none;
+      background:
+        linear-gradient(var(--example-picker-scroll-thumb), var(--example-picker-scroll-thumb))
+          right 2px top var(--example-picker-scroll) / 4px 48px no-repeat
+          border-box,
+        var(--example-picker-bg);
+      animation: example-picker-scroll linear both;
+      animation-timeline: scroll(self);
+    }
+  }
+}

@@ -1535,7 +1535,7 @@ canvas {
 
 .galleryCounter {
   position: absolute;
-  bottom: 24px;
+  bottom: calc(24px + env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
   z-index: 2;
@@ -1623,10 +1623,12 @@ canvas {
   right: 28px;
 }
 
+/* The lightbox covers the whole screen, which in the app (edge to edge)
+   includes the status bar and the notch: its controls keep clear of them. */
 .closeGallery {
   position: absolute;
-  top: 24px;
-  right: 24px;
+  top: calc(24px + env(safe-area-inset-top));
+  right: calc(24px + env(safe-area-inset-right));
 
   width: 44px;
   height: 44px;
@@ -1672,11 +1674,11 @@ canvas {
   }
 
   .galleryNavPrev {
-    left: 12px;
+    left: calc(12px + env(safe-area-inset-left));
   }
 
   .galleryNavNext {
-    right: 12px;
+    right: calc(12px + env(safe-area-inset-right));
   }
 }
 
@@ -1933,6 +1935,17 @@ canvas {
   width: 100%;
 }
 
+/* Wraps #image-list for the scroll hints (thumbnail-gallery.js); they only
+   show in the phone layout below, where the row scrolls sideways. */
+.image-list-scroller {
+  position: relative;
+  width: 100%;
+}
+
+.image-list-hint {
+  display: none;
+}
+
 #image-list .field__item {
   position: relative;
 
@@ -2151,6 +2164,8 @@ body.presentation-mode {
     overflow-x: auto;
     overscroll-behavior-x: contain;
     scroll-snap-type: x proximity;
+    /* Snap to the padding, not the edge (the row started 8px scrolled). */
+    scroll-padding-inline: 8px;
     scrollbar-width: none;
   }
 
@@ -2162,6 +2177,70 @@ body.presentation-mode {
     flex: 0 0 64px;
     min-width: 64px;
     scroll-snap-align: start;
+  }
+
+  /* More thumbnails off screen: that edge fades out and a small chevron
+     sits on it (tapping it scrolls). */
+  .image-list-scroller.can-scroll-next #image-list {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent);
+  }
+
+  .image-list-scroller.can-scroll-prev #image-list {
+    -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 44px), transparent);
+    mask-image: linear-gradient(to left, #000 calc(100% - 44px), transparent);
+  }
+
+  .image-list-scroller.can-scroll-prev.can-scroll-next #image-list {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent);
+  }
+
+  .image-list-hint {
+    position: absolute;
+    top: 50%;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(17, 24, 39, 0.55);
+    color: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-50%);
+    transition: opacity 0.2s ease;
+  }
+
+  .image-list-hint svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+  }
+
+  .image-list-hint--prev {
+    left: 4px;
+  }
+
+  .image-list-hint--next {
+    right: 4px;
+  }
+
+  .image-list-scroller.can-scroll-prev .image-list-hint--prev,
+  .image-list-scroller.can-scroll-next .image-list-hint--next {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Until the row is first moved, the right chevron nudges once. */
+  .image-list-scroller.can-scroll-next:not(.can-scroll-prev) .image-list-hint--next {
+    animation: imageListHintNudge 1.2s ease-in-out 0.6s 2;
   }
 
   /* Notices: one short line above the toolbar, not a block over the model.
@@ -2182,9 +2261,21 @@ body.presentation-mode {
   }
 }
 
+@keyframes imageListHintNudge {
+  0%, 100% { transform: translate(0, -50%); }
+  50% { transform: translate(4px, -50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .image-list-hint {
+    animation: none !important;
+  }
+}
+
 /* A phone held sideways: the gallery gives its height to the viewer. */
 @media (max-height: 520px) and (pointer: coarse) {
-  #image-list {
+  #image-list,
+  .image-list-scroller {
     display: none !important;
   }
 

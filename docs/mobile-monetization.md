@@ -47,7 +47,7 @@ The full pre-release checklist (server settings, signing, Play Console listing) 
    cd android && ./gradlew bundleRelease -PadmobAppId=ca-app-pub-xxx~nnn
    ```
    The AdMob *app* id (with `~`) goes to Gradle; without it the manifest keeps Google's test app id.
-5. **Worker** - set `WORKER_REVENUECAT_SECRET_KEY` (RevenueCat secret key) in `.env` next to `docker-compose.yml` and restart the worker.
+5. **Worker** - set `WORKER_REVENUECAT_SECRET_KEY` (RevenueCat v2 secret key, read-only Customers + Entitlements) and `WORKER_REVENUECAT_PROJECT_ID` in `.env` next to `docker-compose.yml` and restart the worker.
 
 | Build variable | Default | |
 |---|---|---|
