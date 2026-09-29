@@ -137,6 +137,7 @@ keytool -genkeypair -keystore ~/keys/explora-upload.jks -alias upload \
 ### Play Console listing
 
 - Privacy policy URL (required: ads and purchases): `https://viewer.thedworak.com/privacy.html` (source: `viewer/legal/privacy.html`, copied into web builds). Update it when the collected data changes.
+- Delete account URL (required: the app lets users create accounts): `https://viewer.thedworak.com/delete-account.html` (source: `viewer/legal/delete-account.html`). The app links to it from the plans panel (Account) and the login panel.
 - Data safety form: advertising ID, purchase history, and the account user name and password sent when linking a plan to an account.
 - Content rating questionnaire, target audience, and the "contains ads" declaration.
 - What to test before production, and in which order: section 3.
