@@ -43,9 +43,10 @@ services:
       - WORKER_LIMIT_CONCURRENT_JOBS=${WORKER_LIMIT_CONCURRENT_JOBS:-1}
       - WORKER_MAX_CONCURRENT_CONVERSIONS=${WORKER_MAX_CONCURRENT_CONVERSIONS:-2}
       # Plans of the mobile app (worker/entitlements.py): Business limits and
-      # plans linked to accounts. Off without a RevenueCat secret key. Set
-      # these in .env.
+      # plans linked to accounts. Off without a RevenueCat v2 secret key and
+      # the project id. Set these in .env.
       - WORKER_REVENUECAT_SECRET_KEY=${WORKER_REVENUECAT_SECRET_KEY:-}
+      - WORKER_REVENUECAT_PROJECT_ID=${WORKER_REVENUECAT_PROJECT_ID:-}
       - WORKER_REVENUECAT_BUSINESS_ENTITLEMENT=${WORKER_REVENUECAT_BUSINESS_ENTITLEMENT:-business}
       - WORKER_REVENUECAT_PRO_ENTITLEMENT=${WORKER_REVENUECAT_PRO_ENTITLEMENT:-pro}
       # Testing only: accept the plan the app reports when linking.

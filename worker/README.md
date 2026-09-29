@@ -295,16 +295,26 @@ docker compose exec worker python3 /app/worker/server.py admin limits alice stor
 
 #### Business plan of the mobile app
 
-The app's Business subscribers (see `docs/mobile-monetization.md`) have no account on the worker; their app sends its RevenueCat app user id in `X-App-User-Id`. With `WORKER_REVENUECAT_SECRET_KEY` set (a RevenueCat **secret** API key), the worker asks RevenueCat whether that id has the `business` entitlement and, if it does, applies these limits to it instead of the per-IP ones (answers cached for `WORKER_REVENUECAT_CACHE_SEC`, default 600 s):
+The app's Business subscribers (see `docs/mobile-monetization.md`) have no account on the worker; their app sends its RevenueCat app user id in `X-App-User-Id`. With `WORKER_REVENUECAT_SECRET_KEY` and `WORKER_REVENUECAT_PROJECT_ID` set, the worker asks RevenueCat (REST API v2) whether that id has the `business` entitlement and, if it does, applies these limits to it instead of the per-IP ones (answers cached for `WORKER_REVENUECAT_CACHE_SEC`, default 600 s):
 
 | Variable | Default | |
 |---|---|---|
-| `WORKER_REVENUECAT_SECRET_KEY` | empty (off) | RevenueCat secret API key |
-| `WORKER_REVENUECAT_BUSINESS_ENTITLEMENT` | `business` | Entitlement id to check |
-| `WORKER_REVENUECAT_PRO_ENTITLEMENT` | `pro` | Entitlement id of Pro (for plans linked to accounts) |
+| `WORKER_REVENUECAT_SECRET_KEY` | empty (off) | RevenueCat **v2** secret API key (`sk_...`), see below |
+| `WORKER_REVENUECAT_PROJECT_ID` | empty (off) | RevenueCat project id (`proj...`, in the project settings / dashboard URL) |
+| `WORKER_REVENUECAT_BUSINESS_ENTITLEMENT` | `business` | Entitlement identifier to check |
+| `WORKER_REVENUECAT_PRO_ENTITLEMENT` | `pro` | Entitlement identifier of Pro (for plans linked to accounts) |
 | `WORKER_LIMIT_BUSINESS_UPLOADS_PER_HOUR` / `_PER_DAY` | `100` / `500` | Per app user |
 | `WORKER_LIMIT_BUSINESS_CONCURRENT_JOBS` | `3` | Per app user |
 | `WORKER_LIMIT_BUSINESS_STORAGE_MB` / `_MAX_MODELS` | the account defaults | Business accounts only (an app without an account has no storage/model quota) |
+
+The key: in RevenueCat, Project settings → API keys → new **secret** key, API version **v2**, with only these permissions (read only):
+
+| Permission | Used for |
+|---|---|
+| Customer information → Customers: **Read** (`customer_information:customers:read`) | `GET /v2/projects/{project}/customers/{id}` - the customer's active entitlements |
+| Project configuration → Entitlements: **Read** (`project_configuration:entitlements:read`) | `GET /v2/projects/{project}/entitlements` - maps the identifiers above to the ids v2 reports (cached for an hour) |
+
+Everything else can stay "No access". A v1 key does not work with API v2. A customer RevenueCat does not know (404) counts as Free.
 
 The id is not a secret: someone who learns a subscriber's id can use their limits (not their account - there is none). A RevenueCat outage only means the default limits.
 
@@ -322,7 +332,7 @@ An account with Business linked gets the `WORKER_LIMIT_BUSINESS_*` limits for ev
 
 The plan is stored in `users.json` as `appPlan` (`appUserId`, `tier`, `expiresAt`, `updatedAt`; one app id belongs to one account). A subscription whose `expiresAt` has passed shows as Free until the next sync. The admin panel shows it next to each user name, and `GET /api/auth/me` returns it (`plan`), so the account panel shows it next to the signed-in name.
 
-Linking needs `WORKER_REVENUECAT_SECRET_KEY`: the plan always comes from RevenueCat, never from the app. For testing without a key, `WORKER_APP_PLANS_UNVERIFIED=true` accepts the plan the app reports (the app's testing builds can force any plan) - never set it in production.
+Linking needs `WORKER_REVENUECAT_SECRET_KEY` and `WORKER_REVENUECAT_PROJECT_ID`: the plan always comes from RevenueCat, never from the app. For testing without a key, `WORKER_APP_PLANS_UNVERIFIED=true` accepts the plan the app reports (the app's testing builds can force any plan) - never set it in production.
 
 ### GPU rendering
 
