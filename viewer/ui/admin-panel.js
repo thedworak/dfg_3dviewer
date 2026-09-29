@@ -3,7 +3,6 @@ import { apiUrl, remoteAssetUrl } from "../remote.js";
 import { toastHelper } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import { makePanelWindow } from "./panel-window.js";
-import { createPlanBadge } from "./login-panel.js";
 
 // Same-origin worker endpoints (see worker/auth.py's "administration" methods
 // and server.py's _require_admin/_handle_admin_*). Deliberately separate from
@@ -56,6 +55,51 @@ const LIMIT_FIELDS = [
   { key: "maxModels", label: ["adminPanel.limitMaxModels", "Max models"] },
   { key: "concurrentJobs", label: ["adminPanel.limitConcurrentJobs", "Concurrent conversions"] },
 ];
+
+// The app plan (worker/entitlements.py) as a small icon, coloured like the
+// .plan-badge elsewhere: an outlined star (Free), a star (Pro), a gem
+// (Business). The name stays in its tooltip and accessible label.
+const PLAN_ICONS = {
+  free: '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
+  pro: '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" fill="currentColor"/>',
+  business:
+    '<defs><linearGradient id="adminPlanBusiness" x1="0" y1="0" x2="1" y2="1">' +
+    '<stop offset="0" stop-color="#2563eb"/><stop offset="1" stop-color="#db2777"/></linearGradient></defs>' +
+    '<path d="M7 4h10l4 5-9 11L3 9z" fill="url(#adminPlanBusiness)"/>' +
+    '<path d="M3 9h18M9.5 4 8 9l4 11 4-11-1.5-5" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1" stroke-linejoin="round"/>',
+};
+
+function createPlanIcon(tier) {
+  const icon = document.createElement("span");
+  icon.className = "admin-plan-icon";
+  icon.dataset.tier = tier;
+  icon.setAttribute("role", "img");
+  icon.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">${PLAN_ICONS[tier] || PLAN_ICONS.free}</svg>`;
+  return icon;
+}
+
+const PLAN_RANK = { business: 3, pro: 2, free: 1 };
+
+const lastUploadOf = (models) => models.reduce((latest, job) => Math.max(latest, job.createdAt || 0), 0);
+
+// Sort keys for the user list. `desc`: the first click sorts high to low
+// (biggest, newest, best plan first); names go A-Z.
+const USER_SORTS = {
+  plan: { label: ["adminPanel.sortPlan", "Plan"], desc: true, value: (u) => PLAN_RANK[u.user.plan?.tier] || 0 },
+  name: { label: ["adminPanel.sortName", "Name"], desc: false, value: (u) => u.user.username.toLocaleLowerCase() },
+  models: { label: ["adminPanel.sortModels", "Uploaded models"], desc: true, value: (u) => u.models.length },
+  storage: { label: ["adminPanel.sortStorage", "Storage used"], desc: true, value: (u) => u.user.usage?.storageBytes || 0 },
+  lastUpload: { label: ["adminPanel.sortLastUpload", "Last upload"], desc: true, value: (u) => lastUploadOf(u.models) },
+};
+
+function compareUsers(a, b, key, desc) {
+  const va = USER_SORTS[key].value(a);
+  const vb = USER_SORTS[key].value(b);
+  const order = typeof va === "string" ? va.localeCompare(vb) : va - vb;
+  // Ties (e.g. everyone on Free) fall back to the name, always A-Z.
+  if (order === 0) return a.user.username.localeCompare(b.user.username);
+  return desc ? -order : order;
+}
 
 function formatLimit(value) {
   return value ? String(value) : "∞";
@@ -124,6 +168,11 @@ export function attachAdminPanel(Viewer) {
           <button id="adminPanelClose" type="button" aria-label="${panelText.closeAria}">X</button>
         </div>
         <p id="adminPanelStatus" class="upload-panel-status" role="status" aria-live="polite"></p>
+        <div class="admin-users-sort" hidden>
+          <label for="adminUsersSort">${t("adminPanel.sortBy", "Sort by")}</label>
+          <select id="adminUsersSort"></select>
+          <button type="button" class="admin-users-sort-direction"></button>
+        </div>
         <ul id="adminUsersList" class="admin-users-list"></ul>
       `;
 
@@ -132,7 +181,25 @@ export function attachAdminPanel(Viewer) {
       this.adminInputs = {
         status: panel.querySelector("#adminPanelStatus"),
         list: panel.querySelector("#adminUsersList"),
+        sortBar: panel.querySelector(".admin-users-sort"),
+        sort: panel.querySelector("#adminUsersSort"),
+        sortDirection: panel.querySelector(".admin-users-sort-direction"),
       };
+
+      this.adminSort = { key: "plan", desc: USER_SORTS.plan.desc };
+      Object.entries(USER_SORTS).forEach(([key, sort]) => {
+        this.adminInputs.sort.appendChild(new Option(t(...sort.label), key));
+      });
+      this.adminInputs.sort.value = this.adminSort.key;
+      this.bindEventListener(this.adminInputs.sort, "change", () => {
+        const key = this.adminInputs.sort.value;
+        this.adminSort = { key, desc: USER_SORTS[key].desc };
+        this.renderAdminUsers();
+      });
+      this.bindEventListener(this.adminInputs.sortDirection, "click", () => {
+        this.adminSort.desc = !this.adminSort.desc;
+        this.renderAdminUsers();
+      });
 
       const closeButton = panel.querySelector("#adminPanelClose");
       this.bindEventListener(closeButton, "click", () => this.closeAdminPanel());
@@ -143,6 +210,7 @@ export function attachAdminPanel(Viewer) {
       if (!this.adminInputs?.list) return;
       const list = this.adminInputs.list;
       list.textContent = "";
+      this.adminInputs.sortBar.hidden = true;
       this.setAdminStatusText("");
 
       let users = [];
@@ -174,9 +242,24 @@ export function attachAdminPanel(Viewer) {
         this.reportError(error, { context: "Failed to load user upload stats" });
       }
 
-      users.forEach((user) =>
-        list.appendChild(this.renderUserRow(user, jobsByOwner.get(user.username) || []))
-      );
+      this.adminUsers = users.map((user) => ({ user, models: jobsByOwner.get(user.username) || [] }));
+      this.adminInputs.sortBar.hidden = false;
+      this.renderAdminUsers();
+    },
+
+    renderAdminUsers() {
+      const { list, sortDirection } = this.adminInputs;
+      const { key, desc } = this.adminSort;
+      const label = desc
+        ? t("adminPanel.sortDescending", "Descending")
+        : t("adminPanel.sortAscending", "Ascending");
+      sortDirection.textContent = desc ? "↓" : "↑";
+      sortDirection.title = label;
+      sortDirection.setAttribute("aria-label", label);
+      list.textContent = "";
+      [...(this.adminUsers || [])]
+        .sort((a, b) => compareUsers(a, b, key, desc))
+        .forEach(({ user, models }) => list.appendChild(this.renderUserRow(user, models)));
     },
 
     renderUserRow(user, models = []) {
@@ -193,8 +276,8 @@ export function attachAdminPanel(Viewer) {
       name.textContent = user.username;
       // The mobile app plan linked to the account (worker/entitlements.py).
       if (user.plan) {
-        const badge = createPlanBadge(user.plan.tier);
-        const details = [t("loginPanel.planTitle", "Plan in the mobile app")];
+        const badge = createPlanIcon(user.plan.tier);
+        const details = [t(`plans.${user.plan.tier}`, user.plan.tier), t("loginPanel.planTitle", "Plan in the mobile app")];
         if (user.plan.expiresAt) {
           details.push(t("adminPanel.planRenews", { date: new Date(user.plan.expiresAt * 1000).toLocaleDateString() }, "renews/ends {date}"));
         }
@@ -202,13 +285,18 @@ export function attachAdminPanel(Viewer) {
           details.push(t("adminPanel.planChecked", { date: new Date(user.plan.updatedAt * 1000).toLocaleString() }, "checked {date}"));
         }
         badge.title = details.join(" · ");
+        badge.setAttribute("aria-label", badge.title);
         name.appendChild(badge);
       }
       const meta = document.createElement("span");
       meta.className = "admin-users-meta";
       const created = user.createdAt ? new Date(user.createdAt * 1000).toLocaleDateString() : "";
       const modelsCount = t("adminPanel.modelsCount", { count: models.length }, "{count} models");
-      meta.textContent = [user.email, `${user.role} · ${user.status}`, modelsCount, created]
+      const lastUpload = lastUploadOf(models);
+      const lastUploadText = lastUpload
+        ? t("adminPanel.lastUpload", { date: new Date(lastUpload * 1000).toLocaleDateString() }, "last upload {date}")
+        : "";
+      meta.textContent = [user.email, `${user.role} · ${user.status}`, modelsCount, lastUploadText, created]
         .filter(Boolean)
         .join(" · ");
       info.append(name, meta);
@@ -467,6 +555,9 @@ export function attachAdminPanel(Viewer) {
           throw new Error(`Delete failed (HTTP ${response.status})`);
         }
         item.remove();
+        // Keep the sorted list's data in step (a re-sort re-renders from it).
+        const entry = this.adminUsers?.find((u) => u.user.username === username);
+        if (entry) entry.models = entry.models.filter((m) => m.id !== job.id);
         if (modelsList.children.length === 0) {
           this.renderUserModelsList(modelsList, username, []);
         }

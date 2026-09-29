@@ -16,7 +16,8 @@ function getGalleryHost(Viewer, mainElement) {
 }
 
 function removeExistingGalleryDom() {
-  document.getElementById("image-list")?.remove();
+  const imageList = document.getElementById("image-list");
+  (imageList?.closest(".image-list-scroller") || imageList)?.remove();
   document.getElementById("modalGallery")?.remove();
 }
 
@@ -197,6 +198,50 @@ function normalizeGalleryUrl(rawUrl) {
     }
     return url;
   }
+}
+
+const SCROLL_HINT_ICONS = {
+  prev: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 5.3a1 1 0 0 1 0 1.4L9.41 12l5.3 5.3a1 1 0 1 1-1.42 1.4l-6-6a1 1 0 0 1 0-1.4l6-6a1 1 0 0 1 1.41 0Z"/></svg>',
+  next: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.3 18.7a1 1 0 0 1 0-1.4l5.29-5.3-5.3-5.3a1 1 0 1 1 1.42-1.4l6 6a1 1 0 0 1 0 1.4l-6 6a1 1 0 0 1-1.41 0Z"/></svg>',
+};
+
+// On a phone the thumbnails are one row that scrolls sideways (main.css),
+// which nothing on screen gave away. The wrapper fades the edge that has
+// more thumbnails behind it and shows a small chevron there (tapping it
+// scrolls); both only when the row overflows that way, and CSS keeps them
+// to the phone layout.
+function wrapWithScrollHints(Viewer, imageList) {
+  const scroller = document.createElement("div");
+  scroller.className = "image-list-scroller";
+  scroller.appendChild(imageList);
+
+  ["prev", "next"].forEach((direction) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `image-list-hint image-list-hint--${direction}`;
+    button.tabIndex = -1; // the thumbnails themselves are reachable by keyboard
+    button.setAttribute("aria-hidden", "true");
+    button.innerHTML = SCROLL_HINT_ICONS[direction];
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const step = Math.max(64, imageList.clientWidth * 0.8);
+      imageList.scrollBy({ left: direction === "next" ? step : -step, behavior: "smooth" });
+    });
+    scroller.appendChild(button);
+  });
+
+  const update = () => {
+    const max = imageList.scrollWidth - imageList.clientWidth;
+    scroller.classList.toggle("can-scroll-prev", imageList.scrollLeft > 2);
+    scroller.classList.toggle("can-scroll-next", imageList.scrollLeft < max - 2);
+  };
+  imageList.addEventListener("scroll", update, { passive: true });
+  if (typeof ResizeObserver === "function") new ResizeObserver(update).observe(imageList);
+  Viewer.bindEventListener(window, "resize", update);
+  // Thumbnails can change the row's width as they load.
+  imageList.addEventListener("load", update, true);
+  requestAnimationFrame(update);
+  return scroller;
 }
 
 // Swaps the thumbnail shimmer placeholder for the real image once it has
@@ -399,7 +444,7 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
   ) {
     const galleryHost = getGalleryHost(Viewer, mainElement);
     galleryHost.insertAdjacentElement("beforebegin", modalGallery);
-    galleryHost.insertAdjacentElement("beforebegin", imageList);
+    galleryHost.insertAdjacentElement("beforebegin", wrapWithScrollHints(Viewer, imageList));
   }
 }
 

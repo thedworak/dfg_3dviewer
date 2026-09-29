@@ -7,6 +7,7 @@ import { hasFeature, isPlansEnabled } from "../monetization/plan.js";
 import { createPlanLockIcon } from "./plans-panel.js";
 import { t } from "../i18n-utils.js";
 import { makePanelWindow } from "./panel-window.js";
+import { ifcPropertiesUrlForModel, setPendingIfcProperties } from "../ifc-properties.js";
 
 // GET /api/jobs is public (see worker/server.py's list_jobs) - browsing
 // finished models doesn't require an account, only deleting one does (gated
@@ -200,6 +201,22 @@ export function attachModelsPanel(Viewer) {
         (core.SUPPORTED_EXTENSIONS.includes(extension) || this.SUPPORTED_ARCHIVES?.includes(extension));
     },
 
+    // A model converted from IFC has its properties in metadata/<name>_ifc.json.
+    // The app opens repository models from a downloaded File (blob: URL), so it
+    // fetches that file here instead of the loader. Null when there is none.
+    async fetchIfcProperties(job) {
+      const url = ifcPropertiesUrlForModel(remoteAssetUrl(job.modelUrl));
+      if (!url) return null;
+      try {
+        const response = await fetch(url, { cache: "no-store" });
+        if (!response.ok) return null;
+        const data = await response.json();
+        return data?.elements ? data : null;
+      } catch {
+        return null;
+      }
+    },
+
     async saveModelOffline(job, button) {
       button.disabled = true;
       button.dataset.state = "saving";
@@ -213,6 +230,7 @@ export function attachModelsPanel(Viewer) {
             .then((r) => (r.ok ? r.blob() : null))
             .catch(() => null);
         }
+        const ifcProperties = await this.fetchIfcProperties(job);
         const fileName = decodeURIComponent(String(job.modelUrl).split(/[?#]/)[0].split("/").pop());
         await saveToLibrary({
           id: repositoryEntryId(job.id),
@@ -222,6 +240,7 @@ export function attachModelsPanel(Viewer) {
           remoteId: job.id,
           file,
           thumbnail,
+          ifcProperties,
         });
         button.dataset.state = "saved";
         const savedAria = t("modelsPanel.savedOffline", { name: job.name || fileName }, "{name} is on this device");
@@ -412,9 +431,11 @@ export function attachModelsPanel(Viewer) {
         // unreachable the app keeps what is on screen, and says so quietly.
         this.remoteModelPending = true;
         let file = null;
+        let ifcProperties = null;
         let reachable = false;
         try {
           file = this.canSaveOffline(job) ? await this.downloadRemoteModel(job) : null;
+          if (file) ifcProperties = await this.fetchIfcProperties(job);
           reachable = file !== null || (!this.canSaveOffline(job) &&
             await this.isRemoteModelReachable(remoteAssetUrl(job.modelUrl)));
         } finally {
@@ -426,7 +447,10 @@ export function attachModelsPanel(Viewer) {
         }
         this.closeModelsPanel();
         if (file) {
-          if (!(await this.openLocalFile(file))) return;
+          setPendingIfcProperties(ifcProperties);
+          const opened = await this.openLocalFile(file);
+          setPendingIfcProperties(null);
+          if (!opened) return;
         } else {
           core.autoPath = remoteAssetUrl(job.modelUrl);
           this.resetLoadedModelState();
