@@ -215,11 +215,14 @@ function wrapWithScrollHints(Viewer, imageList) {
   scroller.className = "image-list-scroller";
   scroller.appendChild(imageList);
 
-  ["prev", "next"].forEach((direction) => {
+  const [prevButton, nextButton] = ["prev", "next"].map((direction) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = `image-list-hint image-list-hint--${direction}`;
     button.tabIndex = -1; // the thumbnails themselves are reachable by keyboard
+    // Shown by update() only when the row scrolls that way - not left to the
+    // stylesheet alone, so a missing or older one never shows empty buttons.
+    button.hidden = true;
     button.setAttribute("aria-hidden", "true");
     button.innerHTML = SCROLL_HINT_ICONS[direction];
     button.addEventListener("click", (event) => {
@@ -228,12 +231,17 @@ function wrapWithScrollHints(Viewer, imageList) {
       imageList.scrollBy({ left: direction === "next" ? step : -step, behavior: "smooth" });
     });
     scroller.appendChild(button);
+    return button;
   });
 
   const update = () => {
     const max = imageList.scrollWidth - imageList.clientWidth;
-    scroller.classList.toggle("can-scroll-prev", imageList.scrollLeft > 2);
-    scroller.classList.toggle("can-scroll-next", imageList.scrollLeft < max - 2);
+    const canPrev = imageList.scrollLeft > 2;
+    const canNext = imageList.scrollLeft < max - 2;
+    scroller.classList.toggle("can-scroll-prev", canPrev);
+    scroller.classList.toggle("can-scroll-next", canNext);
+    prevButton.hidden = !canPrev;
+    nextButton.hidden = !canNext;
   };
   imageList.addEventListener("scroll", update, { passive: true });
   if (typeof ResizeObserver === "function") new ResizeObserver(update).observe(imageList);

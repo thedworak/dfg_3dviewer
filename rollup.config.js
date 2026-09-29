@@ -97,11 +97,29 @@ async function writeIfNotExists(filePath, content) {
 
 // The entry keeps its name (Drupal's library file points at it), so pages
 // load it with the build id, and a cached copy of an older build never meets
-// this build's chunks.
+// this build's chunks. The same for the stylesheets (fixed names too): a
+// cached older main.css next to this build's scripts showed controls it had
+// no styles for.
+const versionQuery = `?v=${encodeURIComponent(buildId)}`;
+
 function stampEntryVersion(html) {
-  return html.replace(
-    /(src=["'])(dfg_3dviewer-module\.js)(["'])/g,
-    `$1$2?v=${encodeURIComponent(buildId)}$3`
+  return html
+    .replace(/(src=["'])(dfg_3dviewer-module\.js)(["'])/g, `$1$2${versionQuery}$3`)
+    .replace(/(href=["'])(assets\/css\/[^"'?]+\.css)(["'])/g, `$1$2${versionQuery}$3`);
+}
+
+// viewer.css (the stylesheet Drupal loads, with its own cache query) pulls
+// in the others with @import - those URLs get the build id as well.
+async function stampCssImports(file) {
+  let css;
+  try {
+    css = await fs.readFile(file, 'utf8');
+  } catch {
+    return;
+  }
+  await fs.writeFile(
+    file,
+    css.replace(/(@import\s+(?:url\()?["'])([^"'?]+\.css)(["'])/g, `$1$2${versionQuery}$3`)
   );
 }
 
@@ -161,6 +179,7 @@ function copyBuildAssets() {
         // copy admin panel (but we'll remove any local sqlite DB afterwards)
         !mobile && copyDirectory('viewer/admin', path.join(outDistDir, 'admin')),
       ]);
+      await stampCssImports(path.join(outDistDir, 'assets/css/viewer.css'));
 
       const viewerSettingsTarget = path.join(outDistDir, 'viewer-settings.json');
       const settingsPhpTarget = path.join(outDistDir, 'settings.local.php');
@@ -206,8 +225,9 @@ function copyBuildAssets() {
         // so the app bundle is the same on every machine and in CI.
         // The app is served from https://localhost (Capacitor's default), so
         // assets resolve against the bundle itself. mobile.remoteUrl is the
-        // default repository (MOBILE_REMOTE_URL); the app can change it, and
-        // keeps that on the device. Empty = offline only.
+        // default repository (MOBILE_REMOTE_URL, default below; set it empty
+        // for offline only); the app can change it, and keeps that on the
+        // device.
         viewerSettings.mainUrl = '';
         viewerSettings.baseModulePath = '/assets';
         viewerSettings.viewer.forceLocalPreview = true;
@@ -225,7 +245,7 @@ function copyBuildAssets() {
           };
         }
         viewerSettings.mobile = {
-          remoteUrl: process.env.MOBILE_REMOTE_URL ?? '',
+          remoteUrl: process.env.MOBILE_REMOTE_URL ?? 'https://viewer.thedworak.com',
           // First model the app opens, until the user picks another (main.js).
           // The progressive Wolpa Synagogue: the same model as the full one,
           // about a sixth of its size (Meshopt + KTX2).
