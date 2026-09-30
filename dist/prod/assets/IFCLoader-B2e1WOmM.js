@@ -1,4 +1,4 @@
-import { a7 as Loader, h as FileLoader, q as BufferGeometry, a as Mesh, a8 as mergeGeometries, C as Color, Q as MeshLambertMaterial, d as DoubleSide, M as Matrix4, m as BufferAttribute } from './three.js';
+import { a7 as Loader, h as FileLoader, q as BufferGeometry, a as Mesh, a8 as mergeGeometries, C as Color, Q as MeshLambertMaterial, d as DoubleSide, M as Matrix4, m as BufferAttribute } from './three-CtlVvEc8.js';
 
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __commonJS = (cb, mod) => function __require() {
@@ -74703,4 +74703,4 @@ class IFCLoader extends Loader {
 }
 
 export { IFCLoader };
-//# sourceMappingURL=IFCLoader.js.map
+//# sourceMappingURL=IFCLoader-JHsolg9p.js.map

@@ -176,6 +176,10 @@ function copyBuildAssets() {
         copyDirectory('viewer/js/maps', path.join(outDistDir, 'assets/maps')),
         copyDirectory('viewer/examples', path.join(outDistDir, 'examples')),
         copyDirectory('viewer/manifesto/examples', path.join(outDistDir, 'manifests')),
+        // Manifest schema, served at the URL in its $id: <site>/schema/AIM3DViewer-schema.json.
+        fs.mkdir(path.join(outDistDir, 'schema'), { recursive: true }).then(() => Promise.all(
+          ['AIM3DViewer-schema.json', 'AIM3DViewer-schema.md'].map((file) =>
+            fs.copyFile(path.join('viewer/manifesto', file), path.join(outDistDir, 'schema', file))))),
         // copy admin panel (but we'll remove any local sqlite DB afterwards)
         !mobile && copyDirectory('viewer/admin', path.join(outDistDir, 'admin')),
         // Legal pages for the store listings: <site>/privacy.html and
